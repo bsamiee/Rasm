@@ -57,9 +57,9 @@ const _meets = (installed: string, floor: string): boolean =>
 
 ## [3]-[PROBE_SERVICE]
 
-- Owner: the `Capability` service — one `Effect.Service` class whose parameterized `Default(rows, ensures)` Layer factory probes every extension row and every ensure relation during construction, publishing the granted set, the installed-version report, and the refused evidence.
+- Owner: the `Capability` service — one `Effect.Service` class whose parameterized `Default(rows, ensures, core)` Layer factory probes every extension row and every ensure relation during construction, seeds the granted set with the caller's dialect core grants, and publishes the granted set, the installed-version report, and the refused evidence.
 - Packages: `effect` (`Effect.Service`, `HashMap`, `HashSet`, `Option`); `@effect/sql` (`SqlClient`, `sql.unsafe`, `sql.onDialectOrElse`).
-- Entry: `Capability.Default(rows, ensures)` — the one construction; `scope/handle.md` composes it under every `StoreHandle`, so an unprovisioned scope fails at the Layer, never at first query.
+- Entry: `Capability.Default(rows, ensures, core)` — the one construction; `scope/handle.md` composes it under every `StoreHandle` passing `Matrix.core.pg`, the lane pages pass their dialect's core keys, so `require("channel")` reads one vocabulary and an unprovisioned scope fails at the Layer, never at first query.
 - Receipt: `Capability.Report` — `granted`, `versions`, `refused` — the typed probe evidence the startup log and `telemetry` consume; a tally kept beside it restates what the report carries.
 - Growth: a consumer needing a new gate composes `require`/`when`, never a second probe path; a new dialect's relation probe is one `onDialectOrElse` arm.
 - Law: probes are fail-closed — an absent row is refused, never assumed; a refused ensure relation fails Layer construction (the DDL split was violated), a refused extension row only shrinks the granted set (consumers degrade through `when`).
@@ -80,7 +80,7 @@ declare namespace Capability {
 }
 
 class Capability extends Effect.Service<Capability>()("store/Capability", {
-  effect: (rows: ReadonlyArray<Capability.Row>, ensures: ReadonlyArray<Capability.Ensure>) =>
+  effect: (rows: ReadonlyArray<Capability.Row>, ensures: ReadonlyArray<Capability.Ensure>, core: ReadonlyArray<string>) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const probed = yield* Effect.forEach(rows, (row) =>
@@ -116,7 +116,7 @@ class Capability extends Effect.Service<Capability>()("store/Capability", {
                     refused: [...acc.refused, new _Fault({ reason: "floor", subject: row.extension, detail: installed })],
                   },
           }),
-        { granted: HashSet.empty(), versions: HashMap.empty(), refused: [] },
+        { granted: HashSet.fromIterable(core), versions: HashMap.empty(), refused: [] },
       )
       return {
         report,

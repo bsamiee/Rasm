@@ -19,11 +19,15 @@ The outbox relay is one cluster singleton draining one claim loop: rows the stor
 - Boundary: writing outbox rows is the store's transactional-outbox law (atomic with the append); the channel implementations are `deliver/webhook.md`, `deliver/mail.md`, `deliver/report.md`; entity-message delay via `DeliverAt` (`toMillis` on the payload) is the engine's own scheduled-delivery contract, mirrored here by the `deliver_at` predicate.
 - Entry: `Relay.Channels` and `Relay.Wake` provided at the composition root beside the store driver.
 - Growth: a new egress channel is one literal on the vocabulary plus one handler row at the root; a new quota axis is one `_FLOW.quota` field.
-- Packages: `effect` (`Context`, `Effect`, `Layer`, `Schema`, `Stream`), `@rasm/ts/kernel` (`Budget`).
+- Packages: `effect` (`Context`, `Duration`, `Effect`, `Layer`, `Schema`, `Stream`, `Types`), `@rasm/ts/kernel` (`Budget`).
 
 ```typescript
+import { Singleton } from "@effect/cluster"
+import { RateLimiter } from "@effect/experimental"
+import { SqlClient, SqlSchema } from "@effect/sql"
 import { Budget } from "@rasm/ts/kernel"
-import { Context, Duration, Effect, Layer, Order, Schema, Stream, type Types } from "effect"
+import { Context, Duration, Effect, Layer, Metric, Schedule, Schema, Stream, type Types } from "effect"
+import { Storage } from "../engine/storage.ts"
 
 const _channels = ["webhook", "mail", "report"] as const
 
@@ -66,23 +70,17 @@ class _Wake extends Context.Tag("work/deliver/Wake")<_Wake, {
 - Law: dispatch is quota-gated per row — the experimental store-backed limiter consumes `{ key: row.scope, …quota }` before the channel handler runs, `"delay"` suspends the lane rather than failing, and the window spans every process sharing the limiter store, so tenant fairness holds even if a second relay ever ran.
 - Law: settlement is a classification fold — success deletes the row; a fault folds through `Storage.classify`: transient classes defer (attempts bump, `claimed_at` clears, `deliver_at` advances by the `bulk` budget's exponential backoff computed from the attempt ordinal), terminal classes and a spent park ceiling park the row (`parked_at = now()`) as reviewable evidence — a parked row is the relay's quarantine intake, replayed by clearing its mark, never deleted by the drain.
 - Law: the loop is deathless by construction — a pass's own fault (a torn claim, a settle refusal) logs with its cause and the pass ends; the next pulse re-drives, so the poll cadence is the loop's retry policy and no fault can kill the singleton; the parked counter is the one metric the drain emits.
-- Law: backoff is the kernel row applied at the store — the defer interval is `Budget.bulk.base` doubled per attempt and capped at the `bulk` window, so relay redelivery and step redelivery share one budget vocabulary.
+- Law: backoff is the kernel row applied at the store — the defer interval grows `Budget.bulk.base` by the row's factor per attempt, capped at the `bulk` window, so relay redelivery and step redelivery share one budget vocabulary.
 - Boundary: `Singleton` registration rides `engine/entity.md`'s assembly; the classification fold is `engine/storage.md`'s; the limiter store provisioning is a `boundaries`-tier row the root satisfies.
 - Entry: `Relay.run` merged at the composition root with `Relay.Channels`, `Relay.Wake` (or `Wake.silent`), the limiter store, and the store driver.
 - Growth: a new settlement verdict is one arm in the fold; a new drain signal is a member on the wake port.
-- Packages: `@effect/cluster` (`Singleton`), `@effect/experimental` (`RateLimiter`), `@effect/sql` (`SqlClient`, `SqlSchema`), `effect` (`Duration`, `Effect`, `Metric`, `Order`, `Schedule`, `Stream`), `@rasm/ts/kernel` (`Budget`), `../engine/storage.ts` (`Storage`).
+- Packages: `@effect/cluster` (`Singleton`), `@effect/experimental` (`RateLimiter`), `@effect/sql` (`SqlClient`, `SqlSchema`), `effect` (`Duration`, `Effect`, `Metric`, `Schedule`, `Stream`), `@rasm/ts/kernel` (`Budget`), `../engine/storage.ts` (`Storage`).
 
 ```typescript
-import { Singleton } from "@effect/cluster"
-import { RateLimiter } from "@effect/experimental"
-import { SqlClient, SqlSchema } from "@effect/sql"
-import { Metric, Schedule } from "effect"
-import { Storage } from "../engine/storage.ts"
-
 const _parked = Metric.counter("relay_parked_total", { incremental: true })
 
 const _backoff = (attempts: number): Duration.Duration =>
-  Order.min(Duration.Order)(Duration.times(Budget.bulk.base, 2 ** attempts), Budget.bulk.window)
+  Duration.min(Duration.times(Budget.bulk.base, Budget.bulk.factor ** attempts), Budget.bulk.window)
 
 const _drain = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
@@ -124,7 +122,7 @@ const _drain = Effect.gen(function* () {
         onSuccess: () => settle(row.id),
         onFailure: (fault) =>
           Storage.transient(fault) && row.attempts + 1 < _FLOW.park
-            ? defer({ id: row.id, seconds: Duration.toMillis(_backoff(row.attempts)) / 1000 })
+            ? defer({ id: row.id, seconds: Duration.toSeconds(_backoff(row.attempts)) })
             : Effect.zipRight(Metric.increment(_parked), park(row.id)),
       }),
       Effect.catchAllCause((cause) => Effect.logError("relay settle refused", cause)),

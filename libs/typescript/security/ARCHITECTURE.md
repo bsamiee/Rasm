@@ -1,6 +1,6 @@
 # [SECURITY_ARCHITECTURE]
 
-The domain map of `security` — the W1 runtime folder owning authn, authz, sessions, secrets, and signing as Effect-owned `Layer` families over stateless primitives. Four sub-domains — `authn`, `session`, `authz`, `secret`, `sign` — compose into one admission-gated identity plane: `authn` runs the credential ceremonies, `session` owns the token/cookie lifecycle and declares the identity ports, `authz` owns the entitlement and tenancy claims, and `secret`/`sign` own custody and crypto. The folder imports `kernel` and `host` only; it never imports `store`, composing port `Tag`s the app root satisfies instead. Dependency direction is fixed once in the branch `ARCHITECTURE.md`.
+The domain map of `security` — the W1 runtime folder owning authn, authz, sessions, secrets, and signing as Effect-owned `Layer` families over stateless primitives. Five sub-domains — `authn`, `session`, `authz`, `secret`, `sign` — compose into one admission-gated identity plane: `authn` runs the credential ceremonies, `session` owns the token/cookie lifecycle and declares the identity ports, `authz` owns the entitlement and tenancy claims, and `secret`/`sign` own custody and crypto. The folder imports `kernel` and `host` only; it never imports `store`, composing port `Tag`s the app root satisfies instead. Dependency direction is fixed once in the branch `ARCHITECTURE.md`.
 
 Each codemap node is the eventual `.ts` source file its `.planning/` design page becomes, in TypeScript lowercase casing. Treat every node as realized code; the `.planning/` scaffold is authoring substrate, never part of the map.
 
@@ -34,6 +34,7 @@ The three crypto sub-folders are the admission boundaries the `tests/typescript/
 ```text seams
 secret/material.ts ← csharp:Rasm.AppHost # [WIRE]: CredentialPemWire redacted carrier — decodes in wire, terminates here, never logged
 session/token.ts   ← store/journal       # [PORT]: SessionStore/IdentityJournal declared here, satisfied by store journal Layers at the app root
+authn/*.ts, authz/*.ts ← store/journal   # [PORT]: ApiKeyStore/WebAuthnStore/ChallengeStore/OAuthStateStore/ClaimStore/RelationStore declared at their owners under the same port law, satisfied by store Layers at the app root
 sign/crypto.ts     → store/journal       # [SHAPE]: the AES-GCM envelope Shredder primitive store/journal imports for per-subject crypto-shredding
 authz/claim.ts     → store/scope         # [SHAPE]: the app.current_tenant tenancy contract store enforces as RLS
 ```

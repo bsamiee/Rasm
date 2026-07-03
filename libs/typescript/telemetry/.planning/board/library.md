@@ -72,7 +72,7 @@ const _crashes = (): typeof DashboardModel.Panel.Type =>
 
 const _sliExpr = (sli: Sli, window: Duration.Duration): string =>
   Sli.$match(sli, {
-    Latency: ({ metric, q }) => Query.render(Query.Quantile({ labels: _tenant, metric, q, window })),
+    Latency: ({ metric, quantile }) => Query.render(Query.Quantile({ labels: _tenant, metric, q: quantile, window })),
     Ratio: ({ good, total }) =>
       Query.render(
         Query.Ratio({

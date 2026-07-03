@@ -22,7 +22,7 @@
 import { type PlatformError, Terminal } from "@effect/platform"
 import { Doc } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
-import { Array, Context, Effect } from "effect"
+import { Array, Context, Effect, Number } from "effect"
 
 const _roles = {
   fault: Ansi.combine(Ansi.bold, Ansi.red),
@@ -46,7 +46,7 @@ const _role = (kind: keyof typeof _roles, doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc
 - Packages: `@effect/printer` (`Doc`); `effect` (`Array`).
 
 ```typescript
-const _width = (labels: ReadonlyArray<string>): number => Array.reduce(labels, 0, (held, label) => Math.max(held, label.length))
+const _width = (labels: ReadonlyArray<string>): number => Array.reduce(labels, 0, (held, label) => Number.max(held, label.length))
 
 const _kv = (pairs: ReadonlyArray<readonly [string, string]>): AnsiDoc.AnsiDoc => {
   const span = _width(Array.map(pairs, ([label]) => label))

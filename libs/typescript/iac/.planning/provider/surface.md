@@ -12,9 +12,9 @@ The per-arm service surface: one vocabulary table maps every deployment capabili
 ## [2]-[EQUIVALENCE_MAP]
 
 [EQUIVALENCE_MAP]:
-- Owner: `Surface` — the interior `_capabilities` key tuple anchors the row order, the `_map` table carries per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the exported owner assembles rows, `capabilities`, and the two projections: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order.
+- Owner: `Surface` — the interior `_capabilities` key tuple anchors the row order, the `_map` table carries per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the exported owner assembles rows, `capabilities`, and the two projections: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order. The reads ride `_cells`, the table widened to `Partial<Record<Arm, string>>` rows — a declared-key access on the literal union would demand the key on every row, so the bracket read is index trust lifted at the seam while `_map` keeps its literals for the assembled owner.
 - Law: cells are family spellings, not mechanics — a cell names the resource classes (`container.Cluster + container.NodePool`) or the owning row (`helm minio | garage`), and the page that constructs them is the mechanics owner; the map is what dispatch arms, drift reports, and capability audits read.
-- Law: the canonical secret owner spans every column — the `secret` row is Doppler on all five arms, with the cloud secret managers reachable only as `secretssync.<Target>` mirror rows, so no arm ever grows a second secret source of truth.
+- Law: the canonical secret owner spans every column — the `secret` row is Doppler on all five arms, and a cloud secret manager is reachable only as a mirror: a `secretssync.<Target>` pair where the Doppler provider ships the destination (`AwsSecretsManager`), an in-graph provider write fed by the fan-in read where it does not (`gcp.secretmanager`), so no arm ever grows a second secret source of truth.
 - Law: a prepared column's filled cells are its finalization contract — the `gcp` column names GKE, Cloud SQL, GCS, Cloud DNS, and Secret Manager mirrors against the same capability rows the primary arm realizes, so finalizing means instantiating the named subset with the `StackSpec` value; the dormant remainder of a provider SDK is unreachable by construction.
 - Entry: `Surface.column(spec.target)` inside a dispatch arm; `Surface.cell("data", "aws")` for a point read.
 - Growth: a new capability is one `_capabilities` entry plus one `_map` row; a new arm is one cell per realized row under the new column key.
@@ -118,13 +118,15 @@ declare namespace Surface {
   type _Keys<K extends keyof typeof _map = Capability> = K
 }
 
+const _cells: Record<Surface.Capability, Partial<Record<StackSpec.Arm, string>>> = _map
+
 const Surface: Surface.Shape = {
   ..._map,
   capabilities: _capabilities,
-  cell: (capability, arm) => Option.fromNullable(_map[capability][arm]),
+  cell: (capability, arm) => Option.fromNullable(_cells[capability][arm]),
   column: (arm) =>
     Array.filterMap(_capabilities, (capability) =>
-      Option.map(Option.fromNullable(_map[capability][arm]), (family) => [capability, family] as const)),
+      Option.map(Option.fromNullable(_cells[capability][arm]), (family) => [capability, family] as const)),
 }
 ```
 

@@ -13,16 +13,17 @@
 ## [2]-[LIFECYCLE_OWNER]
 
 [LIFECYCLE_OWNER]:
-- Owner: `Sw`, one scoped `Effect.Service` built through `Sw.Default(script)` — the `Workbox` instance acquired once over the app's build-emitted worker script and released by a final update check; `phase`, the `SwLifecycle` cell (`Unregistered`/`Installing`/`Installed`/`Waiting`/`Active`/`Reloading`/`Redundant`) advanced only by the bridged event fold; `update`, the poll for a fresh worker; `apply`, the update handshake; `reports`, the decoded window-bound message feed; `signal`, the request/response channel into the live worker.
+- Owner: `Sw`, one scoped `Effect.Service` built through `Sw.Default(script)` — the `Workbox` instance acquired once over the app's build-emitted worker script and released by a final update check; `phase`, the `SwLifecycle` cell (`Unregistered`/`Installing`/`Installed`/`Waiting`/`Active`/`Reloading`/`Redundant`) advanced only by the bridged event fold and published `Subscribable`, so the fold stays the one writer structurally; `update`, the poll for a fresh worker; `apply`, the update handshake; `reports`, the decoded window-bound message feed; `signal`, the request/response channel into the live worker.
 - Law: the event bridge is the module's platform-forced statement seam — `Stream.asyncScoped` acquires one listener per lifecycle tag against the `Workbox` event target and releases every one on scope close; the implementer carries the `// BOUNDARY ADAPTER` mark on `_lifecycle`'s first line. Six tags advance the cell through the keyed `_PHASES` lookup — a `Match` ladder over a keyed correspondence is the rejected dispatch — and `controlling` alone carries logic: it reads the prior phase and reloads the document exactly once when that phase is `Reloading`.
 - Law: the apply order is load-bearing — `apply` sets `Reloading` and only then calls `messageSkipWaiting`, so the `controlling` arm observes the intent and a `controllerchange` arriving for any other reason never reloads; the `waiting` arm is what flips the update affordance `shell/install` surfaces.
 - Law: `unsupported` short-circuits at construction — a host without `navigator.serviceWorker` yields the service in its inert posture (`Unregistered` forever, `register` answering the typed fault) so every consumer folds capability absence as data.
 - Receipt: `register` yields `boolean` — controlled now or awaiting first load — and the phase cell carries everything else; no consumer touches the registration object.
 - Boundary: the refresh affordance is `shell/install`'s read; the worker asset, precache manifest, and `NavigationRoute` offline shell are the app build's, emitted through `workbox-build`'s `injectManifest` over the authored SW.
-- Packages: `workbox-window` (`Workbox`, lifecycle event map); `effect` (`Effect`, `Stream`, `SubscriptionRef`, `Data`, `Record`, `Option`, `Schema`, `Ref`, `DateTime`).
+- Packages: `workbox-window` (`Workbox`, lifecycle event map); `effect` (`Effect`, `Stream`, `SubscriptionRef`, `Subscribable`, `Data`, `Record`, `Option`, `Schema`, `Ref`, `DateTime`).
 
 ```typescript
-import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, SubscriptionRef } from "effect"
+import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
+import type { RuntimeCaching, StrategyName } from "workbox-build"
 import { Workbox } from "workbox-window"
 import { Connect } from "../boot/connect.ts"
 import { Kv, type KvFault } from "../persist/kv.ts"
@@ -104,8 +105,6 @@ const _lifecycle = (wb: Workbox): Stream.Stream<(typeof _TAGS)[number] | "contro
 - Packages: `workbox-build` (type-only `RuntimeCaching`, `StrategyName`); `effect` (`Record`, `Option`).
 
 ```typescript
-import type { RuntimeCaching, StrategyName } from "workbox-build"
-
 const _STRATEGIES = {
   bank: "CacheFirst",
   live: "NetworkFirst",
@@ -152,7 +151,7 @@ const _caching = (mark: string): ReadonlyArray<RuntimeCaching> =>
 - Owner: the outbox lane on the same service — `queue(band)` appends one durable entry (minted instant plus the caller's already-encoded payload band) into `persist/kv`'s `outbox` domain under a monotonic key; `relayed(relay)` is the single drain fold: every wake source — `Connect.redials`, the worker's `Replayed` reports, and the one-shot `Connect.wake` registration at construction — merges into one stream, each wake drains the outbox atomically and hands every entry to the app-supplied `relay` leg in minted order, and a refused entry re-enqueues under its original key so nothing drops silently.
 - Law: the element is opaque here — the outbox row is `Kv.Value<"outbox">` (minted, band); the producing rail encoded the band and the relay leg decodes it, so this fold never inspects payloads and the wire vocabulary stays with its owner.
 - Law: one queue, two altitudes — failed same-origin fetches replay inside the SW through the `workbox-background-sync` queue the cache rows configure; app-level intents replay here through the window drain; the `Replayed` report is the seam where the SW's drain completion wakes the window's, so the two altitudes converge without sharing storage.
-- Law: the drain is serial and self-quenching — `relay` runs per entry with the fold awaiting each, a mid-drain fault re-enqueues the remainder untouched (the drain already cleared the store, so the re-write is the compensation), and a wake arriving mid-drain queues behind the running fold rather than starting a second.
+- Law: the drain is serial and self-quenching — `relay` runs per entry with the fold awaiting each, a refused entry re-enqueues under its original key while its siblings continue (the atomic drain already cleared the store, so the re-write is the compensation), a storage fault folds the whole wake to a no-op the next wake redrives, and a wake arriving mid-drain queues behind the running fold rather than starting a second.
 - Boundary: what the band contains and where `relay` dials is the composing app's selection from `wire`'s gateway surface; this page owns durability, ordering, and wake fan-in only.
 - Packages: `effect` (`Stream`, `Effect`, `DateTime`, `Ref`); `../boot/connect.ts` (`Connect`); `../persist/kv.ts` (`Kv`).
 
@@ -162,11 +161,11 @@ class Sw extends Effect.Service<Sw>()("browser/shell/Sw", {
     Effect.gen(function* () {
       const connect = yield* Connect
       const kv = yield* Kv
-      const phase = yield* SubscriptionRef.make<SwLifecycle>(SwLifecycle.Unregistered())
+      const _phase = yield* SubscriptionRef.make<SwLifecycle>(SwLifecycle.Unregistered())
       const carried = "serviceWorker" in globalThis.navigator
       const wb = yield* Effect.acquireRelease(
         Effect.sync(() => new Workbox(script)),
-        (held) => (carried ? Effect.ignore(Effect.promise(() => held.update())) : Effect.void),
+        (held) => (carried ? Effect.ignore(Effect.tryPromise(() => held.update())) : Effect.void),
       )
       const reports = yield* Stream.asyncScoped<unknown>((emit) =>
         Effect.acquireRelease(
@@ -185,12 +184,12 @@ class Sw extends Effect.Service<Sw>()("browser/shell/Sw", {
       yield* _lifecycle(wb).pipe(
         Stream.runForEach((tag) =>
           tag === "controlling"
-            ? Effect.flatMap(SubscriptionRef.get(phase), (held) =>
+            ? Effect.flatMap(SubscriptionRef.get(_phase), (held) =>
                 SwLifecycle.$is("Reloading")(held)
                   ? Effect.sync(() => globalThis.location.reload())
-                  : SubscriptionRef.set(phase, SwLifecycle.Active()),
+                  : SubscriptionRef.set(_phase, SwLifecycle.Active()),
               )
-            : SubscriptionRef.set(phase, _PHASES[tag]),
+            : SubscriptionRef.set(_phase, _PHASES[tag]),
         ),
         Effect.forkScoped,
       )
@@ -199,24 +198,27 @@ class Sw extends Effect.Service<Sw>()("browser/shell/Sw", {
         Effect.gen(function* () {
           const minted = yield* DateTime.now
           const turn = yield* Ref.getAndUpdate(counter, (n) => n + 1)
-          yield* kv.write("outbox", `${DateTime.toEpochMillis(minted)}:${turn}`, { minted, band })
+          yield* kv.write("outbox", `${DateTime.toEpochMillis(minted)}:${String(turn).padStart(8, "0")}`, { minted, band })
         })
       const relayed = <E, R>(relay: (entry: Kv.Value<"outbox">) => Effect.Effect<void, E, R>) =>
         Stream.merge(connect.redials, Stream.as(Stream.filter(reports, (report) => report._tag === "Replayed"), undefined)).pipe(
           Stream.runForEach(() =>
-            Effect.gen(function* () {
-              const held = yield* kv.drain("outbox")
-              yield* Effect.forEach(
-                held,
-                ([key, entry]) =>
-                  relay(entry).pipe(Effect.catchAll(() => kv.write("outbox", key, entry))),
-                { discard: true },
-              )
-            }),
+            kv.drain("outbox").pipe(
+              Effect.flatMap((held) =>
+                Effect.forEach(
+                  held,
+                  ([key, entry]) =>
+                    relay(entry).pipe(Effect.catchAll(() => kv.write("outbox", key, entry))),
+                  { discard: true },
+                ),
+              ),
+              Effect.catchAll(() => Effect.void),
+            ),
           ),
           Effect.forkScoped,
         )
       yield* Effect.ignore(connect.wake("rasm-outbox"))
+      const phase: Subscribable.Subscribable<SwLifecycle> = _phase
       return {
         phase,
         reports,
@@ -230,7 +232,7 @@ class Sw extends Effect.Service<Sw>()("browser/shell/Sw", {
           try: () => wb.update(),
           catch: (cause) => new SwFault({ reason: "register", detail: String(cause) }),
         }),
-        apply: SubscriptionRef.set(phase, SwLifecycle.Reloading()).pipe(
+        apply: SubscriptionRef.set(_phase, SwLifecycle.Reloading()).pipe(
           Effect.zipRight(Effect.sync(() => wb.messageSkipWaiting())),
         ),
         signal: (data: object) =>

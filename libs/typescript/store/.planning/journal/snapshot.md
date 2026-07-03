@@ -12,7 +12,7 @@ The snapshot store is a read accelerator keyed `snapshot_schema_version`: one la
 ## [2]-[SNAPSHOT_ROW]
 
 - Owner: `Snapshot.of(spec)` — binds one state schema plus its `Upcast.Lift` and yields `{ save, load }` over the neutral `SqlClient`; the `journal_snapshot` ensure row with its latest-only primary key.
-- Packages: `effect` (`Effect`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `sql.onDialect` for the upsert pair).
+- Packages: `effect` (`Effect`, `Option`, `Schema`); `@effect/sql` (`SqlClient`); `journal/upcast.md` (`Upcast.body` — the one dialect-honest JSON-column read); the monotonic upsert is one dialect-shared statement, because pg and sqlite carry the same `ON CONFLICT … DO UPDATE … WHERE` form.
 - Entry: `bound.save(stream, state, version)` and `bound.load(stream)` — the only snapshot road; `project/*` lanes and rebuilds compose these, and nothing else touches the table.
 - Receipt: `load` yields `Option<{ state, version }>` — present means fold-from-`version + 1`, absent means replay from origin; the option IS the protocol.
 - Growth: a state reshape is one `Upcast.Chain` step plus a bumped `latest` stamped on subsequent saves; a second snapshotted shape for one stream family is a second `Snapshot.of` binding over its own spec, never a widened row.
@@ -26,7 +26,7 @@ import { Effect, Option, Schema, type ParseResult } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import type { Capability } from "../capability/row.ts"
 import { Journal, StreamKey } from "./append.ts"
-import type { Upcast } from "./upcast.ts"
+import { Upcast } from "./upcast.ts"
 
 declare namespace Snapshot {
   type Spec<S, I> = {
@@ -95,8 +95,8 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
         WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}`
       const row = rows[0]
       if (row === undefined) return Option.none<Snapshot.Held<S>>()
-      const state = yield* spec.lift.decode(Number(row.snapshot_schema_version), JSON.parse(String(row.body)))
-      return Option.some({ state, version: Number(row.version) })
+      const state = yield* spec.lift.decode(Number(row["snapshot_schema_version"]), Upcast.body(row["body"]))
+      return Option.some({ state, version: Number(row["version"]) })
     })
 ```
 
@@ -110,7 +110,6 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
 
 ```typescript
 import { Stream } from "effect"
-import type { Journal } from "./append.ts"
 
 declare namespace Snapshot {
   type Cadence = { readonly every: number }
@@ -119,7 +118,7 @@ declare namespace Snapshot {
 const _due = (version: number, cadence: Snapshot.Cadence): boolean =>
   version > 0 && version % cadence.every === 0
 
-const _hydrate = <S, A>(
+const _hydrate = <S, A extends Journal.Event>(
   bound: Snapshot.Bound<S>,
   journal: Journal.Bound<A>,
   stream: StreamKey,
@@ -143,7 +142,7 @@ const Snapshot = {
   due: _due,
   hydrate: _hydrate,
   ddl: [_ddl],
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

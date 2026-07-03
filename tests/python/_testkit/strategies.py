@@ -6,6 +6,7 @@ from collections.abc import Mapping
 import datetime as dt
 from decimal import Decimal
 import enum
+from fractions import Fraction
 from math import ceil, floor
 from typing import get_args, TYPE_CHECKING, TypeAliasType, TypedDict, TypeForm
 
@@ -74,17 +75,22 @@ def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # noqa: FB
     return st.none() if tz is False else st.timezones() if tz else st.none() | st.timezones()
 
 
-def _multiples_int(lo: int, hi: int, step: int) -> st.SearchStrategy[int]:
-    # Draw multiplier k directly so every value is a valid multiple with zero rejection.
-    klo, khi = ceil(lo / step), floor(hi / step)
-    return st.integers(min_value=klo, max_value=khi).map(lambda k: k * step) if klo <= khi else st.nothing()
+def _multiples[N](
+    lo: object, hi: object, step: object, project: Callable[[Decimal], N], *, excl_lo: bool = False, excl_hi: bool = False
+) -> st.SearchStrategy[N]:
+    """Draw multiplier k directly so every value is a valid in-range multiple with zero rejection.
 
+    Fraction bounds are exact for int, float, and Decimal inputs; an exclusive bound that lands
+    exactly on a multiple shrinks the k window by one, so the boundary itself is never drawn.
 
-def _multiples_float(lo: float | Decimal, hi: float | Decimal, step: float | Decimal) -> st.SearchStrategy[float]:
-    # Decimal arithmetic avoids binary drift before projecting constrained multiples back to float.
+    Returns:
+        Strategy over ``project(k * step)``; ``st.nothing()`` when the window is provably empty.
+    """
     s = Decimal(str(step))
-    klo, khi = ceil(Decimal(str(lo)) / s), floor(Decimal(str(hi)) / s)
-    return st.integers(min_value=klo, max_value=khi).map(lambda k: float(Decimal(k) * s)) if klo <= khi else st.nothing()
+    qlo, qhi = Fraction(str(lo)) / Fraction(s), Fraction(str(hi)) / Fraction(s)
+    klo = ceil(qlo) + (1 if excl_lo and qlo == ceil(qlo) else 0)
+    khi = floor(qhi) - (1 if excl_hi and qhi == floor(qhi) else 0)
+    return st.integers(min_value=klo, max_value=khi).map(lambda k: project(Decimal(k) * s)) if klo <= khi else st.nothing()
 
 
 def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
@@ -124,22 +130,16 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911
             lo = ge if ge is not None else (gt + 1 if gt is not None else -_NUM_CEILING)
             hi = le if le is not None else (lt - 1 if lt is not None else _NUM_CEILING)
             step = node.multiple_of
-            return _multiples_int(lo, hi, step) if isinstance(step, int) else st.integers(min_value=lo, max_value=hi)
+            return _multiples(lo, hi, step, int) if isinstance(step, int) else st.integers(min_value=lo, max_value=hi)
         case _mi.FloatType(ge=ge, gt=gt, le=le, lt=lt):
             lo_f = ge if ge is not None else (gt if gt is not None else -float(_NUM_CEILING))
             hi_f = le if le is not None else (lt if lt is not None else float(_NUM_CEILING))
+            open_lo, open_hi = ge is None and gt is not None, le is None and lt is not None
             step_f = node.multiple_of
             return (
-                _multiples_float(lo_f, hi_f, step_f)
+                _multiples(lo_f, hi_f, step_f, float, excl_lo=open_lo, excl_hi=open_hi)
                 if isinstance(step_f, int | float)
-                else st.floats(
-                    min_value=lo_f,
-                    max_value=hi_f,
-                    exclude_min=ge is None and gt is not None,
-                    exclude_max=le is None and lt is not None,
-                    allow_nan=False,
-                    allow_infinity=False,
-                )
+                else st.floats(min_value=lo_f, max_value=hi_f, exclude_min=open_lo, exclude_max=open_hi, allow_nan=False, allow_infinity=False)
             )
         case _mi.StrType(min_length=mn, max_length=mx, pattern=pat):
             return _text(mn, mx, pat)
@@ -257,7 +257,7 @@ def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[ob
             hi_i = _ibound(leaf, "le", "lt", -1)
             mo = leaf.get("multiple_of")
             return (
-                _multiples_int(lo_i if lo_i is not None else -_NUM_CEILING, hi_i if hi_i is not None else _NUM_CEILING, mo)
+                _multiples(lo_i if lo_i is not None else -_NUM_CEILING, hi_i if hi_i is not None else _NUM_CEILING, mo, int)
                 if isinstance(mo, int)
                 else st.integers(min_value=lo_i, max_value=hi_i)
             )
@@ -266,21 +266,42 @@ def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[ob
             hi, excl_hi = _fbound(leaf, "le", "lt")
             mo_f = leaf.get("multiple_of")
             return (
-                _multiples_float(lo if lo is not None else -float(_NUM_CEILING), hi if hi is not None else float(_NUM_CEILING), mo_f)
+                _multiples(
+                    lo if lo is not None else -float(_NUM_CEILING),
+                    hi if hi is not None else float(_NUM_CEILING),
+                    mo_f,
+                    float,
+                    excl_lo=excl_lo,
+                    excl_hi=excl_hi,
+                )
                 if isinstance(mo_f, int | float)
                 else st.floats(min_value=lo, max_value=hi, exclude_min=excl_lo, exclude_max=excl_hi, allow_nan=False, allow_infinity=False)
             )
         case "decimal":
-            lo_d, _ = _fbound(leaf, "ge", "gt")
-            hi_d, _ = _fbound(leaf, "le", "lt")
-            places = leaf.get("decimal_places")
-            digit_max = _decimal_max(leaf.get("max_digits"), places)
-            return st.decimals(
-                min_value=lo_d,
-                max_value=hi_d if hi_d is not None else digit_max,
-                places=places if isinstance(places, int) else None,
-                allow_nan=False,
-                allow_infinity=False,
+            lo_d, excl_lo = _fbound(leaf, "ge", "gt")
+            hi_d, excl_hi = _fbound(leaf, "le", "lt")
+            places, digits = leaf.get("decimal_places"), leaf.get("max_digits")
+            # A digit budget without declared places generates at places=0: every draw stays digit-bounded.
+            dp = places if isinstance(places, int) else (0 if isinstance(digits, int) else None)
+            digit_max = _decimal_max(digits, dp)
+            lo_eff = lo_d if lo_d is not None else (-digit_max if digit_max is not None else None)
+            hi_eff = hi_d if hi_d is not None else digit_max
+            mo_d = leaf.get("multiple_of")
+            if isinstance(mo_d, int | float | Decimal):
+                return _multiples(
+                    lo_eff if lo_eff is not None else -_NUM_CEILING,
+                    hi_eff if hi_eff is not None else _NUM_CEILING,
+                    mo_d,
+                    lambda value: value,
+                    excl_lo=excl_lo,
+                    excl_hi=excl_hi,
+                )
+            base = st.decimals(min_value=lo_eff, max_value=hi_eff, places=dp, allow_nan=False, allow_infinity=False)
+            # st.decimals has no exclusivity knobs; the filter rejects only exact-boundary draws.
+            return (
+                base.filter(lambda d: (not excl_lo or lo_eff is None or d > lo_eff) and (not excl_hi or hi_eff is None or d < hi_eff))
+                if (excl_lo or excl_hi)
+                else base
             )
         case "str":
             return _text(leaf.get("min_length"), leaf.get("max_length"), leaf.get("pattern"))

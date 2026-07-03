@@ -21,7 +21,7 @@ Causal identity crosses every ingress through one `Propagation` owner: the W3C `
 - Growth: a new wire dialect (`b3`, `xb3`) is one decode arm inside `_context` selecting on the carrier's present keys — never a second extraction owner.
 
 ```typescript
-import { Option, type Tracer } from "effect"
+import { Array, Option, Record, type Tracer } from "effect"
 import { Tracer as OtelBridge } from "@effect/opentelemetry"
 import {
   TRACE_PARENT_HEADER,
@@ -39,7 +39,11 @@ declare namespace Propagation {
 }
 
 const _read = (carrier: Propagation.Carrier, key: string): Option.Option<string> =>
-  Option.orElse(Option.fromNullable(carrier[key]), () => Option.fromNullable(carrier[key.toLowerCase()]))
+  Option.orElse(Option.fromNullable(carrier[key]), () =>
+    Option.flatMap(
+      Array.findFirst(Record.toEntries(carrier), ([held]) => held.toLowerCase() === key),
+      ([, value]) => Option.fromNullable(value),
+    ))
 
 const _context = (carrier: Propagation.Carrier): Option.Option<SpanContext> =>
   Option.map(
@@ -57,7 +61,7 @@ const _extract = (carrier: Propagation.Carrier): Option.Option<Tracer.ExternalSp
       spanId: context.spanId,
       traceFlags: context.traceFlags,
       traceId: context.traceId,
-      ...(context.traceState !== undefined && { traceState: context.traceState.serialize() }),
+      ...(context.traceState !== undefined && { traceState: context.traceState }),
     }))
 
 const _baggage = (carrier: Propagation.Carrier): Readonly<Record<string, string>> =>

@@ -88,9 +88,11 @@ const Scale: {
 - Growth: a new surface motion is one row composing existing setters; a new axis is upstream (`tw-animate-css`), never a local keyframe.
 
 ```typescript
+const _kinds = ["overlay", "sheet", "palette", "toast", "panel"] as const
+
 declare namespace Motion {
   type Row = { readonly enter: string; readonly exit: string }
-  type Kind = keyof typeof _rows
+  type Kind = (typeof _kinds)[number]
 }
 
 const _rows = {
@@ -114,11 +116,11 @@ const _rows = {
     enter: "motion-reduce:animate-none entering:animate-in entering:fade-in-0 entering:animation-duration-100",
     exit: "motion-reduce:animate-none exiting:animate-out exiting:fade-out-0 exiting:animation-duration-100",
   },
-} as const satisfies Record<string, Motion.Row>
+} as const satisfies Record<Motion.Kind, Motion.Row>
 
-const Motion: typeof _rows & { readonly kinds: ReadonlyArray<Motion.Kind> } = {
+const Motion: typeof _rows & { readonly kinds: typeof _kinds } = {
   ..._rows,
-  kinds: Object.keys(_rows) as ReadonlyArray<Motion.Kind>,
+  kinds: _kinds,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

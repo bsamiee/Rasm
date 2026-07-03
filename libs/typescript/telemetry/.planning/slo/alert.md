@@ -18,6 +18,7 @@ Alerting is a derived vocabulary, never authored rules: one `AlertSpec` family d
 
 ```typescript
 import type { Duration } from "effect"
+import type { Slo } from "./burnrate.ts"
 
 const _severity = {
   page: { hold: "0 seconds", tone: "critical", urgency: "interrupt" },
@@ -25,9 +26,10 @@ const _severity = {
 } as const
 
 declare namespace Alert {
-  type Severity = keyof typeof _severity
+  type Severity = Slo.BurnRow["severity"]
   type SeverityRow = { readonly hold: Duration.DurationInput; readonly tone: string; readonly urgency: "interrupt" | "queue" }
   type _Rows<T extends Record<Severity, SeverityRow> = typeof _severity> = T
+  type _Keys<K extends Severity = keyof typeof _severity> = K
 }
 ```
 

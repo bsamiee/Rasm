@@ -95,7 +95,7 @@ const _applied = (target: unknown, patch: JsonPatch.Document): Effect.Effect<unk
 ## [4]-[EGRESS]
 
 - Owner: `JsonPatch` — the assembled owner: decode surfaces, the apply rail, the engine's `isDestructive` bound directly, and the egress pair — `diff` under the one content-key reconciliation hook, `guarded` composing pre-image `test` ops ahead of the mutation ops.
-- Entry: `JsonPatch.diff(base, next)` — the minimal operation set; `JsonPatch.guarded(base, next)` — the OCC form: `createTests` captures the pre-image so the C# journal append verifies before applying; `JsonPatch.encode` re-serializes to the C# `JsonPatchDocument` array; `JsonPatch.key` mints the patch's content identity through the kernel delegate over the encoded bytes.
+- Entry: `JsonPatch.diff(base, next)` — the minimal operation set; `JsonPatch.guarded(base, next)` — the OCC form: `createTests` captures the pre-image so the C# journal append verifies before applying; `JsonPatch.encode` re-serializes to the C# `JsonPatchDocument` array through the one interior encode; `JsonPatch.key` mints the patch's content identity through the kernel `contentKey` delegate over the encoded UTF-8 bytes — the text-to-byte crossing is the module-scoped `TextEncoder`, the named platform seam.
 - Receipt: the encoded patch is content-addressable — its key is the `EntityEdit` coordinate the append receipt echoes back.
 - Growth: a new domain reconciliation (id-stable object families, ordinal-anchored sequences) is one arm inside `_reconciled`, returning ops or `undefined` to fall through to the engine's `diffAny` — never a per-shape differ roster, never post-processing of engine output.
 - Law: the hook is singular and its first arm is the content-address shortcut — two records carrying string `key` fields compare by key alone: equal keys emit zero ops because key equality IS content equality under the one mint, unequal keys emit one whole-row `replace`; deep-diffing content-addressed rows re-derives what the address already proves.
@@ -105,8 +105,10 @@ const _applied = (target: unknown, patch: JsonPatch.Document): Effect.Effect<unk
 
 ```typescript
 import { createPatch, createTests, isDestructive, type VoidableDiff } from "rfc6902"
-import { ContentKey } from "@rasm/ts/kernel"
+import { type ContentKey, contentKey } from "@rasm/ts/kernel"
 import { type ParseResult, Predicate } from "effect"
+
+const _utf8 = new TextEncoder()
 
 const _reconciled: VoidableDiff = (input, output, pointer) =>
   Predicate.hasProperty(input, "key") && Predicate.isString(input.key) &&
@@ -116,11 +118,14 @@ const _reconciled: VoidableDiff = (input, output, pointer) =>
       : [{ op: "replace", path: pointer.toString(), value: output }]
     : undefined
 
+const _FromJson: Schema.Schema<JsonPatch.Document, string> = Schema.parseJson(_document)
+const _encoded = Schema.encode(_FromJson)
+
 declare namespace JsonPatch {
   type Operation = Schema.Schema.Type<typeof _op>
   type Document = ReadonlyArray<Operation>
   type Shape = {
-    readonly FromJson: Schema.Schema<Document, string>
+    readonly FromJson: typeof _FromJson
     readonly FromValue: typeof _document
     readonly destructive: (operation: Operation) => boolean
     readonly apply: (target: unknown, patch: Document) => Effect.Effect<unknown, WireFault>
@@ -132,20 +137,15 @@ declare namespace JsonPatch {
 }
 
 const JsonPatch: JsonPatch.Shape = {
-  FromJson: Schema.parseJson(_document),
+  FromJson: _FromJson,
   FromValue: _document,
   destructive: isDestructive,
   apply: _applied,
   diff: (base, next) => createPatch(base, next, _reconciled),
-  guarded: (base, next) => {
-    const mutation = createPatch(base, next, _reconciled)
-    return [...createTests(base, mutation), ...mutation]
-  },
-  encode: (patch) => Schema.encode(JsonPatch.FromJson)(patch),
-  key: (patch) =>
-    Schema.encode(JsonPatch.FromJson)(patch).pipe(
-      Effect.flatMap((text) => ContentKey.mint(new TextEncoder().encode(text))),
-    ),
+  guarded: (base, next) =>
+    pipe(createPatch(base, next, _reconciled), (mutation) => [...createTests(base, mutation), ...mutation]),
+  encode: _encoded,
+  key: (patch) => _encoded(patch).pipe(Effect.flatMap((text) => contentKey(_utf8.encode(text)))),
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

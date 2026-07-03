@@ -95,8 +95,8 @@ const _immv = (views: ReadonlyArray<Rebuild.Immv>) =>
 - Entry: `Rebuild.replay(lane, table)` — operations invoke it after an upcast-chain fix, a fold change, or a quarantine drain; the read side stays serving the old table until the swap, so a rebuild is invisible to readers.
 - Receipt: the replay's span carries `store.rebuild` with lane, rows folded, and swap timestamp — the audit fact stream records the swap as an operator action.
 - Growth: a compaction variant (rebuild snapshot then drop frontier partitions) is the same fold with a `Retain` tail — one more step in the body, not a second machine.
-- Law: the session lock is the singleton guarantee — `pg_advisory_lock` on the lane's hash over a `sql.reserve`d connection held for the whole rebuild, released explicitly; a transaction lock cannot span the multi-transaction replay, which is exactly why the session form exists here and only here.
-- Law: the swap is one transaction — `ALTER TABLE x RENAME TO x_retired; ALTER TABLE x_shadow RENAME TO x; DROP TABLE x_retired` — readers see old rows or new rows, never a mix; the sqlite arm rides the same rename family on its single writer.
+- Law: the session lock is the singleton guarantee — `pg_advisory_lock` on the lane's hash over a `sql.reserve`d connection held for the whole rebuild, released explicitly; a transaction lock cannot span the multi-transaction replay, which is exactly why the session form exists here and only here — and the lock pair rides `sql.onDialectOrElse` because the sqlite single-writer file already serializes rebuilders (the `advisory → singleWriter` degradation row).
+- Law: the swap is one transaction — `ALTER TABLE x RENAME TO x_retired; ALTER TABLE x_shadow RENAME TO x; DROP TABLE x_retired` — readers see old rows or new rows, never a mix; the shadow mint is dialect-split (`CREATE TABLE … (LIKE … INCLUDING ALL)` on pg, `CREATE TABLE … AS SELECT … WHERE 0` on sqlite) while the rename family is shared.
 
 ```typescript
 const _replay = (lane: string, table: string, drain: (into: string) => Effect.Effect<number, SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>) =>
@@ -104,9 +104,15 @@ const _replay = (lane: string, table: string, drain: (into: string) => Effect.Ef
     Effect.scoped(
       Effect.gen(function* () {
         const _conn = yield* sql.reserve
-        yield* sql`SELECT pg_advisory_lock(hashtextextended(${lane}, 0))`
+        yield* sql.onDialectOrElse({
+          orElse: () => sql`SELECT 1`,
+          pg: () => sql`SELECT pg_advisory_lock(hashtextextended(${lane}, 0))`,
+        })
         const shadow = `${table}_shadow`
-        yield* sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} (LIKE ${sql(table)} INCLUDING ALL)`
+        yield* sql.onDialectOrElse({
+          orElse: () => sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} AS SELECT * FROM ${sql(table)} WHERE 0`,
+          pg: () => sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} (LIKE ${sql(table)} INCLUDING ALL)`,
+        })
         const folded = yield* drain(shadow)
         yield* sql.withTransaction(
           Effect.gen(function* () {
@@ -115,7 +121,10 @@ const _replay = (lane: string, table: string, drain: (into: string) => Effect.Ef
             yield* sql`DROP TABLE ${sql(`${table}_retired`)}`
           }),
         )
-        yield* sql`SELECT pg_advisory_unlock(hashtextextended(${lane}, 0))`
+        yield* sql.onDialectOrElse({
+          orElse: () => sql`SELECT 1`,
+          pg: () => sql`SELECT pg_advisory_unlock(hashtextextended(${lane}, 0))`,
+        })
         return folded
       }).pipe(Effect.withSpan("store.rebuild", { attributes: { lane } })),
     ))
@@ -125,7 +134,7 @@ const Rebuild = {
   schedule: _schedule,
   immv: _immv,
   replay: _replay,
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

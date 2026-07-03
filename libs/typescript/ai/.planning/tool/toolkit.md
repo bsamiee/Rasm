@@ -41,10 +41,10 @@ A tool is one `Schema`-typed declaration and a toolkit is data: `Tool.make` carr
 - Law: `executor: "app"` rows (`AnthropicBash`, `AnthropicComputerUse`, `AnthropicTextEditor`) are local-execution tools whose handlers bind through `toLayer` exactly like user tools; `executor: "provider"` rows run upstream and their results arrive as response parts — the column is what tells `agent/actor` which rows need a handler record entry before the toolkit compiles.
 - Law: grades are assigned from the catalogued semantics and fail conservative — shell and computer control are `destroy`, file editing and code execution are `write`, retrieval-only search families are `search`, vector-store file search is `read`; an app overrides a grade only through its own `[04]` table, never by editing the ledger reflexively.
 - Growth: a provider ships a new tool — one row; a sixth provider roster — its rows join the same table under the same three columns.
-- Packages: `@effect/ai-openai` (`OpenAiTool`), `@effect/ai-anthropic` (`AnthropicTool`), `@effect/ai-google` (`GoogleTool`), `@effect/ai-amazon-bedrock` (`AmazonBedrockTool`) — named here as roster sources; the table carries their tags as data and imports none of them.
+- Packages: `@effect/ai-openai` (`OpenAiTool`), `@effect/ai-anthropic` (`AnthropicTool`), `@effect/ai-google` (`GoogleTool`), `@effect/ai-amazon-bedrock` (`AmazonBedrockTool`) — named here as roster sources; the table carries their tags as data and imports none of them; `effect` (`Option`).
 
 ```typescript
-import { Option } from "effect"
+import { Array, Option } from "effect"
 
 const _arsenal = {
   AnthropicBash: { family: "anthropic", executor: "app", grade: "destroy" },
@@ -89,13 +89,10 @@ const Arsenal: Arsenal.Shape = {
 - Law: mode rows are total over classes — the `_Rows` guard proves every mode maps every class, so adding a class breaks every mode row loudly at the declaration.
 - Boundary: the posture fold's application site is `model/provider`'s gate; the supervised approval turn is `agent/actor`'s; this page owns the vocabulary and the partition.
 - Growth: a new operating mode is one `_modes` row; a new blast-radius class is one `_classes` entry plus the compile-forced column in every mode row.
-- Packages: `effect` (`Array`, `Option`, `Record`).
+- Packages: `effect` (`Array`, `Option`).
 
 ```typescript
-import { Array, Option } from "effect"
-
 const _classes = ["read", "search", "write", "destroy"] as const
-const _postures = ["auto", "confirm", "deny"] as const
 
 const _modes = {
   autonomous: { read: "auto", search: "auto", write: "confirm", destroy: "deny" },
@@ -105,7 +102,7 @@ const _modes = {
 
 declare namespace Safety {
   type Class = (typeof _classes)[number]
-  type Posture = (typeof _postures)[number]
+  type Posture = "auto" | "confirm" | "deny"
   type Mode = keyof typeof _modes
   type Table = Readonly<Record<string, Class>>
   type Split<N extends string = string> = { readonly allowed: ReadonlyArray<N>; readonly held: ReadonlyArray<N> }

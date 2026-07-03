@@ -13,7 +13,7 @@
 ## [2]-[HOOK_MODEL]
 
 [HOOK_MODEL]:
-- Owner: `Hook` — the admitted delivery as one `Schema.Class`: `source` (the intake's own name for the provider), `id` (the provider's delivery identity — the replay key), `at` (admission instant), `verified` (the `Verified` receipt from the signature fold, composed at full depth so freshness evidence travels), `held` (the verbatim octets as `Uint8ArrayFromSelf` — process-bound by construction; the enqueue Layer owns any wire encoding), and `tenant` as `Option` for multi-tenant intakes.
+- Owner: `Hook` — the admitted delivery as one `Schema.Class`: `source` (the intake's own name for the provider), `id` (the provider's delivery identity — the replay key), `at` (admission instant), `verified` (the `Verified` receipt from the signature fold, composed at full depth so freshness evidence travels), `held` (the verbatim octets, `Uint8ArrayFromBase64` on the encoded side so the interior stays byte-identical while the CLI capture file, the replay verb, and any enqueue Layer share the one derived wire twin), and `tenant` as `Option` for multi-tenant intakes.
 - Law: `HookReceipt` is the 202 body — `id`, `source`, `at`, and the `lane` the ingress Layer reports (which queue or journal band accepted it) — enough for the caller to correlate a later outcome, nothing about processing, because admission is not execution.
 - Law: no content key is minted here — content addressing has exactly one kernel mint and three delegating sites (invariant 2), and a webhook body is not one of them; the replay key is the PROVIDER's delivery identity, which is the deduplication contract providers themselves document.
 - Packages: `effect` (`Schema`, `Option`); `hook/verify` (`Verified`).
@@ -26,9 +26,9 @@ import { HookFault, Signature, Verified } from "./verify.ts"
 class Hook extends Schema.Class<Hook>("Hook")({
   source: Schema.NonEmptyString,
   id: Schema.NonEmptyString.pipe(Schema.maxLength(256)),
-  at: Schema.DateTimeUtcFromSelf,
+  at: Schema.DateTimeUtc,
   verified: Verified,
-  held: Schema.Uint8ArrayFromSelf,
+  held: Schema.Uint8ArrayFromBase64,
   tenant: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 }) {}
 

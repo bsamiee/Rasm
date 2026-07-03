@@ -52,7 +52,7 @@ const _proven = (spec: StackSpec, material: Dispatch.Material): Effect.Effect<{
 ## [3]-[ARM_PROGRAMS]
 
 [ARM_PROGRAMS]:
-- Law: the k8s arm composes in dependency order — `Bootstrap` (kubeconfig) → `k8s.Provider` + one `Namespace` → `Secrets` (generated entries: `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Postgres` → `Lgtm` → `Boards` → `Inject.token` → optional `Workload` with its live-`Output` env pairs (when `spec.image` is present) → `Traffic` over the workload service — and returns every realized `StackOutputs` plane.
+- Law: the k8s arm composes in dependency order — `Bootstrap` (kubeconfig) → `k8s.Provider` + one `Namespace` → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Inject.token` → optional `Workload` with its live-`Output` env pairs (when `spec.image` is present) → `Traffic` over the workload service — and returns every realized `StackOutputs` plane.
 - Law: the docker arm is build-plus-runtime — the canonical `docker-build.Image` builds the pins-supplied context and pushes to the spec's target ref (`push: true`; the immutable `ref` egress pins the runtime), the `ssh://` `docker.Provider` binds the proven connection, and the runtime trio is held at declared-signature depth until the nested arg shapes (`ContainerPort`, `envs`, `networksAdvanced`) are catalogued to operator depth.
 - Law: prepared arms are provider-seam-complete — `aws` builds its provider from the proven region with credentials ambient under `doppler run`; `gcp` binds `credentials` from the `GCP_CREDENTIALS` fan-in read; `cloudflare` binds `apiToken` from `CLOUDFLARE_API_TOKEN`; each returns its declared realizer's outputs, and the realizer signatures are the settled law the finalization fills.
 - Law: every arm funds the boards — the telemetry suite's encoded models and alert specs enter as arm arguments where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
@@ -113,6 +113,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
       const secrets = new Secrets("secrets", {
         spec,
         entries: {
+          DB_ADMIN_PASSWORD: { generate: {} },
           DB_PASSWORD: { generate: {} },
           OBJECT_USER: { generate: { special: false, length: 20 } },
           OBJECT_PASSWORD: { generate: {} },
@@ -131,7 +132,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         image: pins.pgImage,
         operatorVersion: pins.operator,
         objects,
-        password: secrets.read("DB_PASSWORD"),
+        auth: { admin: secrets.read("DB_ADMIN_PASSWORD"), app: secrets.read("DB_PASSWORD") },
       }, bound)
       const lgtm = new Lgtm("observe", {
         spec,

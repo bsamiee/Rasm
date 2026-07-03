@@ -20,16 +20,27 @@
 - Growth: a new lens modality is one overload line plus one projection arm.
 
 ```typescript
-import { Chunk, Duration, HashMap, Match, Option, Order, Predicate, Schema, Stream, Subscribable, pipe } from "effect"
+import { Chunk, type Duration, HashMap, Match, Option, Order, Predicate, Schema, Stream, Subscribable, pipe } from "effect"
 import { Hlc, TenantContext } from "@rasm/ts/kernel"
 import { Merge } from "../crdt/merge.ts"
 import { Fold } from "../fold/algebra.ts"
 import { Replay } from "../fold/replay.ts"
 
-function view<Op, K, S>(handle: Replay.Memory<Op, K, S>): Subscribable.Subscribable<Fold.Table<K, S>>
-function view<Op, K, S>(handle: Replay.Memory<Op, K, S>, key: K): Subscribable.Subscribable<Option.Option<S>>
-function view<Op, K, S>(handle: Replay.Ordered<Op, K, S>): Subscribable.Subscribable<Chunk.Chunk<readonly [K, S]>>
-function view<Op, K, S>(
+declare namespace Live {
+  type Shape = {
+    readonly view: {
+      <Op, K, S>(handle: Replay.Memory<Op, K, S>): Subscribable.Subscribable<Fold.Table<K, S>>
+      <Op, K, S>(handle: Replay.Memory<Op, K, S>, key: K): Subscribable.Subscribable<Option.Option<S>>
+      <Op, K, S>(handle: Replay.Ordered<Op, K, S>): Subscribable.Subscribable<Chunk.Chunk<readonly [K, S]>>
+    }
+    readonly feed: <Op, K, S>(handle: Replay.Memory<Op, K, S>) => Stream.Stream<Fold.Change<K, S>>
+  }
+}
+
+function _view<Op, K, S>(handle: Replay.Memory<Op, K, S>): Subscribable.Subscribable<Fold.Table<K, S>>
+function _view<Op, K, S>(handle: Replay.Memory<Op, K, S>, key: K): Subscribable.Subscribable<Option.Option<S>>
+function _view<Op, K, S>(handle: Replay.Ordered<Op, K, S>): Subscribable.Subscribable<Chunk.Chunk<readonly [K, S]>>
+function _view<Op, K, S>(
   handle: Replay.Memory<Op, K, S> | Replay.Ordered<Op, K, S>,
   key?: K,
 ): Subscribable.Subscribable<Fold.Table<K, S> | Option.Option<S> | Chunk.Chunk<readonly [K, S]>> {
@@ -43,16 +54,13 @@ function view<Op, K, S>(
 const _feed = <Op, K, S>(handle: Replay.Memory<Op, K, S>): Stream.Stream<Fold.Change<K, S>> =>
   Stream.flattenIterables(handle.wave.changes)
 
-const Live: {
-  readonly view: typeof view
-  readonly feed: <Op, K, S>(handle: Replay.Memory<Op, K, S>) => Stream.Stream<Fold.Change<K, S>>
-} = { view, feed: _feed }
+const Live: Live.Shape = { view: _view, feed: _feed }
 ```
 
 ## [3]-[PRESENCE_OPS]
 
 - Owner: `Presence.Op` — the wire-carried op family (`Join` with actor metadata, `Beat` heartbeats, `Leave` departures), each a tagged struct stamped with `Hlc` and tenant; `edge/live` decodes client frames INTO this family, and the fold below is the only presence authority.
-- Law: per-actor state is a `Merge.struct` product — `joined` min-stamp, `face` (metadata paired with its stamp, merged by stamped LWW), `last` max-stamp, `gone` optional max-stamp — every row a proven instance, so presence converges across feeds and replicas like any lattice.
+- Law: per-actor state is a `Merge.struct` product — `joined` min-stamp, `face` (`Option`-lifted metadata paired with its stamp, merged by stamped LWW under the optional lift), `last` max-stamp, `gone` optional max-stamp — every row a proven instance, so presence converges across feeds and replicas like any lattice.
 - Law: `Leave` is evidence, not deletion — the `gone` stamp coexists with later `Beat`s (a rejoin outruns a stale leave by stamp comparison at read time), so out-of-order delivery cannot resurrect or bury an actor incorrectly.
 - Growth: a new presence op is one tagged case plus one lift arm; a new state axis is one field plus one product row.
 
@@ -86,7 +94,7 @@ declare namespace Presence {
   type Face = { readonly meta: HashMap.HashMap<string, string>; readonly at: Hlc }
   type State = {
     readonly joined: Hlc
-    readonly face: Face
+    readonly face: Option.Option<Face>
     readonly last: Hlc
     readonly gone: Option.Option<Hlc>
   }
@@ -111,7 +119,7 @@ const _byFaceStamp: Order.Order<Presence.Face> = Order.mapInput(Hlc.Order, (face
 
 const _state: Merge.Instance<Presence.State> = Merge.struct({
   joined: Merge.min(Hlc.Order),
-  face: Merge.max(_byFaceStamp),
+  face: Merge.optional(Merge.max(_byFaceStamp)),
   last: Merge.max(Hlc.Order),
   gone: Merge.optional(Merge.max(Hlc.Order)),
 })
@@ -121,19 +129,19 @@ const _lifted: (op: Presence.Op) => Presence.State = pipe(
   Match.tagsExhaustive({
     Join: (op) => ({
       joined: op.at,
-      face: { meta: op.meta, at: op.at },
+      face: Option.some({ meta: op.meta, at: op.at }),
       last: op.at,
       gone: Option.none(),
     }),
     Beat: (op) => ({
       joined: op.at,
-      face: { meta: HashMap.empty<string, string>(), at: op.at },
+      face: Option.none(),
       last: op.at,
       gone: Option.none(),
     }),
     Leave: (op) => ({
       joined: op.at,
-      face: { meta: HashMap.empty<string, string>(), at: op.at },
+      face: Option.none(),
       last: op.at,
       gone: Option.some(op.at),
     }),
@@ -144,24 +152,23 @@ const _lifted: (op: Presence.Op) => Presence.State = pipe(
 ## [4]-[PRESENCE_READS]
 
 - Owner: the read family — `status` folds one actor's state against a horizon and a `Lease` policy row (`idle` and `gone` windows as `Duration` values); `roster` maps the verdict across the folded table; the plan keys by actor so the presence table is one more replay-maintained fold.
-- Law: status is three-valued and read-time — `gone` when a leave stamp is at or after the last activity, `idle` when the horizon outruns the last stamp by the idle window, `live` otherwise — and expiry never mutates state: a sweep is the consumer re-reading with a fresh horizon, so no timer fiber lives in this module.
-- Law: the `Beat` lift's empty face never overwrites richer metadata — `face` merges by stamped LWW and a beat carries its stamp with empty metadata only as the lift's neutral contribution; the stamped pair keeps the latest `Join` metadata until a newer `Join` replaces it.
+- Law: status is three-valued and read-time — `gone` when a leave stamp is at or after the last activity AND the horizon has outrun it by the lease's gone window (the departure grace that absorbs in-flight beats), `idle` when the horizon outruns the last stamp by the idle window, `live` otherwise — and expiry never mutates state: a sweep is the consumer re-reading with a fresh horizon, so no timer fiber lives in this module; distances measure through the kernel's `Hlc.delta` unit site, never a millisecond re-derivation.
+- Law: a `Beat` can never bury richer metadata — `face` is `Option`-lifted, only `Join` contributes `some` at its stamp while `Beat`/`Leave` contribute the lawful `none` identity, so the latest `Join` metadata survives every heartbeat until a newer `Join` replaces it.
 - Boundary: `edge/live/presence` serves rosters and forwards decoded ops; heartbeat cadence and socket lifecycle are edge policy — this module owns only the fold and its verdicts.
 
 ```typescript
+const _noEarlier = Order.greaterThanOrEqualTo(Hlc.Order)
+
+const _idled = (state: Presence.State, horizon: Hlc, lease: Presence.Lease): Presence.Status =>
+  horizon.physical - state.last.physical > Hlc.delta(lease.idle) ? "idle" : "live"
+
 const _status = (state: Presence.State, horizon: Hlc, lease: Presence.Lease): Presence.Status =>
   Option.match(state.gone, {
     onSome: (gone) =>
-      Hlc.physical(gone) >= Hlc.physical(state.last)
-        && Hlc.physical(horizon) - Hlc.physical(gone) > Duration.toMillis(lease.gone)
-        ? ("gone" as const)
-        : Hlc.physical(horizon) - Hlc.physical(state.last) > Duration.toMillis(lease.idle)
-          ? ("idle" as const)
-          : ("live" as const),
-    onNone: () =>
-      Hlc.physical(horizon) - Hlc.physical(state.last) > Duration.toMillis(lease.idle)
-        ? ("idle" as const)
-        : ("live" as const),
+      _noEarlier(gone, state.last) && horizon.physical - gone.physical > Hlc.delta(lease.gone)
+        ? "gone"
+        : _idled(state, horizon, lease),
+    onNone: () => _idled(state, horizon, lease),
   })
 
 const Presence: Presence.Shape = {

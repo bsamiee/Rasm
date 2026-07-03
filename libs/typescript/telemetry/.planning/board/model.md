@@ -14,7 +14,7 @@ Dashboards are data derived from identity: `DashboardModel` is one `Schema.Class
 
 [QUERY]:
 - Owner: the `Query` closed family — `Instant` (a labeled series selector), `Rate` (per-second rate over a window), `Sum` (aggregation with a group-by label set), `Ratio` (one expression over another), `Quantile` (histogram quantile over a windowed rate) — recursive where composition demands it (`Sum`/`Ratio` hold `Query` operands), with `Query.render` as the one total fold to the PromQL-dialect string.
-- Law: series names are `Convention.MetricName` rows and filter labels are `Convention` key rows — the algebra admits no free-string metric, so a dashboard query cannot reference a series the plane does not emit; the label-value pair set renders as the selector body, and the tenant template variable enters as an ordinary label value (`$tenant`).
+- Law: series names are `Convention.MetricName` rows and the group-by axis is `Convention.Key` rows — the algebra admits no free-string metric or grouping label, so a dashboard query cannot reference a series or axis the plane does not emit; filter label keys spell as `Convention` rows at every call site, the label-value pair set renders as the selector body, and the tenant template variable enters as an ordinary label value (`$tenant`).
 - Law: windows are `Duration` values rendered by the interior `_span` projection (`90 seconds` -> `90s`) — a dialect window string is never authored.
 - Law: one dialect fold — a second backend dialect is a second render fold over the SAME family, never a second family; the expression data is dialect-free by construction.
 - Entry: constructors ride the family (`Query.Rate({ metric, window, labels })`), `Query.render(query)` at pack-build time.
@@ -29,7 +29,7 @@ type Query = Data.TaggedEnum<{
   Quantile: { readonly labels: Convention.Attributes; readonly metric: Convention.MetricName; readonly q: number; readonly window: Duration.Duration }
   Rate: { readonly labels: Convention.Attributes; readonly metric: Convention.MetricName; readonly window: Duration.Duration }
   Ratio: { readonly good: Query; readonly total: Query }
-  Sum: { readonly by: ReadonlyArray<string>; readonly of: Query }
+  Sum: { readonly by: ReadonlyArray<Convention.Key>; readonly of: Query }
 }>
 const _Query = Data.taggedEnum<Query>()
 

@@ -106,10 +106,14 @@ public static class Gens {
                 return (p.A, p.B, p.C);
             });
     }
-    // Householder products: exactly orthogonal up to rounding, so OrthogonalityResidual gates them.
+    // Householder products are orthogonal up to rounding but n reflections pin det = (-1)^n; the
+    // Bool-driven row flip covers BOTH O(n) components, so rotations and reflections sample every run.
     public static Gen<double[][]> Orthogonal(int n) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 1);
-        return Direction(dim: n).Array[n].Select(selector: reflectors => reflectors.Aggregate(seed: IdentityMatrix(n: n), func: Reflect));
+        return Direction(dim: n).Array[n].Select(Gen.Bool, static (double[][] reflectors, bool flip) => {
+            double[][] q = reflectors.Aggregate(seed: IdentityMatrix(n: reflectors.Length), func: Reflect);
+            return flip ? [.. q.Select(static (row, i) => i == 0 ? [.. row.Select(static x => -x)] : row)] : q;
+        });
     }
     // Q D Qᵀ with a log-spaced spectrum 1 … 1/kappa: the condition number is known BY CONSTRUCTION,
     // so conditioning-aware tolerances (κ·base) come from the generator, never a guessed constant.
@@ -162,12 +166,13 @@ public static class Gens {
     public static readonly Gen<Guid> Id = Gen.Guid;
 
     // --- [ADMISSION]
-    // Filtering Option preserves shrinking; throwing in Select turns rejects into failures.
+    // Filtering Option preserves shrinking; Optional folds a null-yielding TryCreate into the
+    // filtered lane and the post-filter arm stays total — no throw ever enters a Select.
     public static Gen<TVo> Admitted<TIn, TVo>(Gen<TIn> source, TryCreate<TIn, TVo> tryCreate) {
         ArgumentNullException.ThrowIfNull(argument: source);
         ArgumentNullException.ThrowIfNull(argument: tryCreate);
-        return source.Select(v => tryCreate(v, out TVo owned) ? Some(value: owned) : Option<TVo>.None)
+        return source.Select(v => tryCreate(v, out TVo owned) ? Optional(value: owned) : Option<TVo>.None)
             .Where(predicate: static o => o.IsSome)
-            .Select(selector: static o => o.Case is TVo value ? value : throw new InvalidOperationException(message: "Filtered option generator produced None."));
+            .Select(selector: static o => o.Case is TVo value ? value : default!);
     }
 }

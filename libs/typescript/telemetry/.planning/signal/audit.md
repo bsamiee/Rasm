@@ -17,11 +17,13 @@ The audit stream is a durable fact family, not a log level: `AuditFact` is one `
 - Law: diff evidence is the closed `Change` family — `Assigned { path, next }`, `Shifted { path, prior, next }`, `Cleared { path, prior }` — with `path` a JSON-pointer-shaped brand and values carried as JSON-encodable strings at the evidence altitude; a free-form `details` bag is the rejected shape because policy cannot fold what it cannot type.
 - Law: retention is a policy table — `operational` (90 days), `compliance` (7 years), `forensic` (10 years) — whose row the fact references by key and projects through the `keep` getter; the store-side sweep enforces the window, this owner declares it, and a new class is one row every consumer inherits.
 - Law: the action brand is the dotted verb path (`entity.amend`, `session.revoke`) — pattern-refined at the field so the vocabulary stays greppable and dashboard-groupable without a central verb registry; the actor/action/target attribute NAMES live on `Convention.rasm`, the fact SHAPE lives here.
+- Law: identity fields ride the kernel brand anchors — `app` is `AppIdentity.fields.app`, `tenant` is `TenantContext.fields.tenant` admitted as `Option` — so tenancy never travels as a bare string and an unattributable fact records absence, never forged tenancy.
 - Receipt: the encoded twin derives (`typeof AuditFact.Encoded`) — the shape the store journal Layer persists and the C#-side auditor reads by name-level parity; no hand wire twin exists.
 - Growth: a new evidence kind is one `Change` case plus its arm in consumers' folds; a new retention class is one `_retention` row.
 
 ```typescript
 import { Duration, Schema } from "effect"
+import { AppIdentity, TenantContext } from "@rasm/ts/kernel"
 
 const _ACTORS = ["user", "service", "system"] as const
 const _CLASSES = ["compliance", "forensic", "operational"] as const
@@ -45,7 +47,7 @@ type Change = typeof Change.Type
 class AuditFact extends Schema.Class<AuditFact>("AuditFact")({
   action: _Action,
   actor: Schema.Struct({ key: Schema.NonEmptyString, kind: Schema.Literal(..._ACTORS) }),
-  app: Schema.NonEmptyString,
+  app: AppIdentity.fields.app,
   at: Schema.DateTimeUtc,
   change: Schema.Array(Change),
   retention: Schema.Literal(..._CLASSES),
@@ -54,7 +56,7 @@ class AuditFact extends Schema.Class<AuditFact>("AuditFact")({
     kind: Schema.NonEmptyString,
     parent: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   }),
-  tenant: Schema.NonEmptyString,
+  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
   trace: Schema.optionalWith(Schema.String, { as: "Option" }),
 }) {
   get keep(): Duration.Duration {
@@ -100,15 +102,15 @@ class _AuditJournal extends Context.Tag("telemetry/AuditJournal")<_AuditJournal,
 
 [RAIL]:
 - Owner: the `Audit` service — a Layer factory over the app's `AppIdentity` (`Audit.Default(identity)`), holding the bounded intake queue and the scoped drain fiber; `record` is the one accessor, the Tag and fault ride the class as `Audit.Journal`/`Audit.JournalFault` statics with their types on the merged namespace, so the whole audit surface travels one import.
-- Law: `record` takes a `Draft` — actor, action, target, change, retention, and the optional trace — and the service stamps what the caller must not control: `app`/`tenant` from the identity, `at` from the clock on the rail; construction runs the schema filters, so a malformed draft fails the writer, never the drain.
+- Law: `record` takes a `Draft` — actor, action, target, change, retention, the optional trace, and the tenancy key a multi-tenant surface supplies — and the service stamps what the caller must not control: `app` from the identity, `at` from the clock on the rail, tenancy resolved pinned-first (a pinned single-tenant process overrides the draft's key); construction runs the schema filters, so a malformed draft fails the writer, never the drain.
 - Law: the drain is one pipeline — `Stream.fromQueue` over the intake, `Stream.groupedWithin(width, patience)` so a quiet surface still flushes on latency, the batch appended through the port under a jittered bounded retry gated on `JournalFault.retryable`, the drained-batch count tracked by the `Convention.metric.auditDrained` counter — and backpressure is the queue's `bounded` contract: a saturated intake suspends writers rather than dropping evidence.
 - Law: every recorded fact also emits one structured log annotated with the `Convention.rasm` audit rows — observability beside durability; the journal append is the system of record, and a consumer wanting audit search reads the store projection, never the log stream.
 - Entry: `Audit.record(draft)`; wiring is `Audit.Default(identity)` provided the store-owned journal Layer at the root.
 - Growth: a new stamped dimension is one line in the stamp; a new drain policy axis is one `_FLOW` field.
 
 ```typescript
-import { Array, Chunk, DateTime, Effect, Metric, Queue, Schedule, Stream } from "effect"
-import type { AppIdentity } from "@rasm/ts/kernel"
+import { Array, Chunk, DateTime, Effect, Metric, Option, Queue, Schedule, Stream } from "effect"
+import type { AppIdentity, TenantContext } from "@rasm/ts/kernel"
 import { Convention } from "./convention.ts"
 
 const _FLOW = { intake: 256, patience: "2 seconds", width: 64 } as const
@@ -146,7 +148,12 @@ class Audit extends Effect.Service<Audit>()("telemetry/Audit", {
         record: (draft: Audit.Draft): Effect.Effect<void> =>
           Effect.gen(function* () {
             const at = yield* DateTime.now
-            const fact = new AuditFact({ ...draft, app: identity.app, at, tenant: identity.tenant })
+            const fact = new AuditFact({
+              ...draft,
+              app: identity.app,
+              at,
+              tenant: Option.orElse(identity.tenant, () => Option.fromNullable(draft.tenant)),
+            })
             yield* Queue.offer(intake, fact)
             yield* Effect.logInfo("audit").pipe(
               Effect.annotateLogs({
@@ -168,7 +175,7 @@ class Audit extends Effect.Service<Audit>()("telemetry/Audit", {
 }
 
 declare namespace Audit {
-  type Draft = Omit<typeof AuditFact.Type, "app" | "at" | "tenant">
+  type Draft = Omit<typeof AuditFact.Type, "app" | "at" | "tenant"> & { readonly tenant?: TenantContext.Key }
   type Journal<F> = _FactJournal<F>
   type JournalFault = InstanceType<typeof JournalFault>
 }

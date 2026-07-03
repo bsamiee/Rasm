@@ -17,17 +17,22 @@
 - Owner: `GlbViewport` — the runtime-capability port record this folder declares and NEVER implements: `manifest` (the current `Residency.Manifest` as an atom-bridgeable `Subscribable`), `deltas` (the `Residency.Delta` feed as a `Stream`), and `bytes(mesh)` (verified GLB octets per content key — the decode worker already reassembled frames and verified the `ContentKey` against the kernel mint, so bytes arriving here are proof-carrying). `browser/transport/pool` provides the Layer at app composition; `ui` and `browser` never import each other.
 - Packages: `effect` (`Context.Tag`, `Stream`, `Subscribable`), `@rasm/ts/kernel` (`ContentKey`), `@rasm/ts/wire/vocab` (`Residency` — the manifest/delta/state vocabulary decoded once at `wire`).
 - Law: the port is the ONLY byte ingress — a fetch, a worker message, or an `ArrayBuffer` reaching this module by any other path bypasses content-key verification and is the named defect.
+- Law: `bytes` yields whole-buffer octets — the worker reassembles into a fresh buffer with `byteOffset` zero, so `parseAsync(octets.buffer, "")` is exact by contract; a sliced view smuggling a neighbor's bytes is the port implementation's defect, never the graft's guard.
 - Law: port shape is sized for the family — prefetch hints, eviction acknowledgement, and priority lanes land as members HERE when earned; consumers already hold the Tag, so growth is a member row, never a second port.
+- Law: the wire classes reach this module as derived types — `Schema.Schema.Type<typeof Residency.Manifest>` computes the decoded instance type off the `#vocab` value, so no parallel manifest shape is ever declared here.
 - Boundary: worker mechanics, frame reassembly, and the content-key delegate are `browser`'s; the manifest wire decode is `wire/frame/residency`'s.
 
 ```typescript
-import { ContentKey } from "@rasm/ts/kernel"
-import { Residency } from "@rasm/ts/wire/vocab"
-import { Context, type Effect, type Stream, type Subscribable } from "effect"
+import type { ContentKey } from "@rasm/ts/kernel"
+import type { Residency } from "@rasm/ts/wire/vocab"
+import { Context, type Effect, type Schema, type Stream, type Subscribable } from "effect"
+
+type _Manifest = Schema.Schema.Type<typeof Residency.Manifest>
+type _Delta = Schema.Schema.Type<typeof Residency.Delta>
 
 class GlbViewport extends Context.Tag("ui/GlbViewport")<GlbViewport, {
-  readonly manifest: Subscribable.Subscribable<Residency.Manifest>
-  readonly deltas: Stream.Stream<Residency.Delta, GlbFault>
+  readonly manifest: Subscribable.Subscribable<_Manifest>
+  readonly deltas: Stream.Stream<_Delta, GlbFault>
   readonly bytes: (mesh: ContentKey) => Effect.Effect<Uint8Array, GlbFault>
 }>() {}
 ```
@@ -105,7 +110,7 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 
 ## [5]-[RESIDENCY_GRAFT]
 
-- Owner: `Glb.graft` — the residency fold: one `Scene` roots the graph, an interior ledger (`HashMap<ContentKey, Object3D>`) tracks grafted subtrees, and the `deltas` stream drives the fold — an arriving mesh pulls `bytes(mesh)` through the port, parses via the ONE codec-injected `GLTFLoader` (`parseAsync` over the verified buffer), grafts `gltf.scene` under the root keyed by content key; an evicting delta removes the subtree AND walks it disposing geometry/material/texture handles before the ledger drops the key.
+- Owner: `Glb.graft` — the residency fold: one `Scene` roots the graph, an interior ledger (`HashMap<ContentKey, Object3D>`) tracks grafted subtrees, and the `deltas` stream drives the fold — an arriving mesh pulls `bytes(mesh)` through the port, parses via the ONE codec-injected `GLTFLoader` (`parseAsync` over the verified buffer), grafts `gltf.scene` under the root keyed by content key; an evicting delta removes the subtree AND walks it through `_dispose` — the disposal kernel narrowing each visited node to `Mesh` and releasing geometry and material handles — before the ledger drops the key; three's `traverse` callback is the kernel's platform-forced statement seam and no reference escapes it.
 - Law: codec injection is capability wiring — `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (their wasm runs behind the `browser` worker, never the render thread); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
 - Law: environment is a prefilter fact — one `PMREMGenerator.fromScene(RoomEnvironment())` bake serves `scene.environment`; per-frame IBL work is the named defect.
 - Law: draw-call collapse is a graft-time fold — same-material submeshes merge through `BufferGeometryUtils.mergeGeometries`; repeated element geometry rides `InstancedMesh`/`BatchedMesh` rows when the manifest marks repetition.
@@ -113,10 +118,9 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 - Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new delta rows minted at `wire` — the graft signature never changes.
 
 ```typescript
-import { ContentKey } from "@rasm/ts/kernel"
-import { Residency } from "@rasm/ts/wire/vocab"
+import type { ContentKey } from "@rasm/ts/kernel"
 import { Effect, HashMap, Option, Ref, Stream } from "effect"
-import { Scene } from "three"
+import { Mesh, Scene } from "three"
 import type { Object3D } from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 
@@ -127,8 +131,11 @@ declare namespace Glb {
 
 const _dispose = (node: Object3D): void => {
   node.traverse((child) => {
-    child.geometry?.dispose?.()
-    child.material?.dispose?.()
+    if (child instanceof Mesh) {
+      child.geometry.dispose()
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      materials.forEach((material) => material.dispose())
+    }
   })
 }
 

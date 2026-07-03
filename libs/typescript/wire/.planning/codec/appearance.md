@@ -54,15 +54,21 @@ class Summary extends Schema.Class<Summary>("Summary")({
   groupKeys: Schema.Array(ContentKey.FromCell),
 }) {}
 
-const _rows = {
+type _Landing = {
+  readonly MaterialWire: Material
+  readonly OpenPbrGroupsWire: PbrGroups
+  readonly AppearanceSummaryWire: Summary
+}
+
+const _rows: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uint8Array> } = {
   MaterialWire: ProtoCodec.family(ProtoCodec.suite.MaterialWire, Material),
   OpenPbrGroupsWire: ProtoCodec.family(ProtoCodec.suite.OpenPbrGroupsWire, PbrGroups),
   AppearanceSummaryWire: ProtoCodec.family(ProtoCodec.suite.AppearanceSummaryWire, Summary),
-} as const
+}
 
 declare namespace Appearance {
-  type Family = keyof typeof _rows
-  type Decoded<K extends Family> = Schema.Schema.Type<(typeof _rows)[K]>
+  type Family = keyof _Landing
+  type Decoded<K extends Family> = _Landing[K]
 }
 
 const Appearance: {

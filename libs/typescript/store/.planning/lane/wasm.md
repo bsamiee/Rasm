@@ -20,21 +20,23 @@ The OPFS sqlite-wasm lane — the browser's durable SQL under the same journal a
 - Law: the degradation tier extends `lane/sqlite.md`'s table — everything the file lane refuses plus no server extensions (`vector → none`, semantic retrieval stays server-side) and single-writer OPFS; the rows are read through the same grant vocabulary, so a retrieval query on this lane composes only the lanes its grants admit.
 
 ```typescript
-import { Effect, Layer, type Scope } from "effect"
-import type { SqlClient } from "@effect/sql"
+import { type ConfigError, Effect, Layer, type Scope } from "effect"
+import type { SqlClient, SqlError } from "@effect/sql"
 import * as WasmSqlite from "@effect/sql-sqlite-wasm"
 
 declare namespace WasmLane {
   type Spawn = Effect.Effect<Worker | SharedWorker | MessagePort, never, Scope.Scope>
 }
 
-const _opfs = (worker: WasmLane.Spawn): Layer.Layer<WasmSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, unknown> =>
+const _opfs = (
+  worker: WasmLane.Spawn,
+): Layer.Layer<WasmSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =>
   WasmSqlite.SqliteClient.layer({
     worker,
     installReactivityHooks: true,
   })
 
-const _memory: Layer.Layer<WasmSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, unknown> =
+const _memory: Layer.Layer<WasmSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =
   WasmSqlite.SqliteClient.layerMemory({
     installReactivityHooks: true,
   })
@@ -67,7 +69,7 @@ const WasmLane = {
   worker: _worker,
   seed: _seed,
   dump: _dump,
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

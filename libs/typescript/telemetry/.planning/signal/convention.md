@@ -138,20 +138,23 @@ const _event = {
 
 [IDENTITY_PROJECTION]:
 - Owner: the assembled `Convention` export — row families as properties, the `identity` projection as the one operation, companion types on the merged namespace, contract guards riding the hub so a malformed row fails at this declaration with zero widening of the interior anchors.
-- Law: `Convention.identity` is the single `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build, `service.instance.id` the host fingerprint, `rasm.tenant` the tenancy dimension — and every identity-bearing surface (the OTLP `Resource` on `otlp/export`, the fact stamps on `signal/audit`/`signal/meter`, the dashboard identity on `board/model`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
+- Law: `Convention.identity` is the single `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build version, `service.instance.id` the host print, and `rasm.tenant` stamps only when the process tenancy is pinned: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the OTLP `Resource` on `otlp/export`, the fact stamps on `signal/audit`/`signal/meter`, the dashboard identity on `board/model`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
 - Boundary: `AppIdentity` is `kernel/identity/appidentity`'s value — this page projects it into attribute space and owns nothing about its construction; `deployment.environment.name` is a config fact stamped by `otlp/export`'s policy, deliberately absent from the identity projection.
 - Entry: `Convention.identity(identity)` — the one operation; row families read as properties (`Convention.attr.httpRoute`, `Convention.metric.meterUsage`, `Convention.event.exception`).
 - Growth: a new identity dimension is one projection line plus its `_rasm` row.
 
 ```typescript
-import type { Types } from "effect"
+import { Option, type Types } from "effect"
 import type { AppIdentity } from "@rasm/ts/kernel"
 
 const _identity = (identity: AppIdentity): Convention.Identity => ({
-  [_attr.serviceInstance]: identity.hostFingerprint,
+  [_attr.serviceInstance]: identity.host,
   [_attr.serviceName]: identity.app,
-  [_attr.serviceVersion]: identity.build,
-  [_rasm.tenant]: identity.tenant,
+  [_attr.serviceVersion]: identity.build.version,
+  ...Option.match(identity.tenant, {
+    onNone: () => ({}),
+    onSome: (tenant) => ({ [_rasm.tenant]: tenant }),
+  }),
 })
 
 declare namespace Convention {
@@ -164,11 +167,10 @@ declare namespace Convention {
   type EventName = (typeof _event)[keyof typeof _event]
   type Value = string | number | boolean
   type Attributes = { readonly [key: string]: Value }
-  type Identity = {
-    readonly [K in
-      | (typeof _attr)["serviceInstance" | "serviceName" | "serviceVersion"]
-      | (typeof _rasm)["tenant"]]: string
-  }
+  type Identity = Types.Simplify<
+    & { readonly [K in (typeof _attr)["serviceInstance" | "serviceName" | "serviceVersion"]]: string }
+    & { readonly [K in (typeof _rasm)["tenant"]]?: string }
+  >
   type Shape = Types.Simplify<{
     readonly attr: typeof _attr
     readonly event: typeof _event

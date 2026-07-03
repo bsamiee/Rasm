@@ -19,7 +19,7 @@
 - Growth: a new causality read (interval overlap census, k-way frontier compare) is a static on `Causal` composing the same two comparisons.
 
 ```typescript
-import { Array, Chunk, Equal, HashMap, Option, pipe } from "effect"
+import { Array, Chunk, Equal, HashMap, type Option, pipe } from "effect"
 import { Hlc, Uncertainty } from "@rasm/ts/kernel"
 import { Merge } from "../crdt/merge.ts"
 import { Vector } from "./vector.ts"

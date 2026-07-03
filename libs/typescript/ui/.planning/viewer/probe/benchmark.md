@@ -12,7 +12,7 @@
 
 ## [2]-[METRIC_PROBES]
 
-- Owner: `Benchmark.metrics` — the local capture: deck's `_onMetrics` callback is the GPU-side sink (`DeckMetrics` — `fps`, `gpuTime`, `cpuTime`, `pickTime`, `gpuMemory`), folded into a bounded rolling window (a `Chunk`-backed accumulator with mean/peak projections — `computation`'s seed-fold law applied verbatim); the three loop contributes a frame-time row measured inside its own `setAnimationLoop` tick (delta between ticks — the loop is already the timing source, no second RAF); each captured quantity lands as the SAME metric row shape the wire claim carries — `{ label, value, unit }` — so comparison is a keyed join, not a shape adaptation.
+- Owner: `Benchmark.metrics` — the local capture: deck's `_onMetrics` callback is the GPU-side sink (`DeckMetrics` — `fps`, `gpuTime`, `cpuTime`, `pickTime`, `gpuMemory`), folded into a bounded rolling window whose projections run as ONE seed fold — `computation`'s seed-fold law applied verbatim: raw sums accumulate in a single `Chunk.reduce` pass and means project at read, so a new statistic (a peak, a `p95` seed) is one seed field plus one row, never a second traversal; the three loop contributes a frame-time row measured inside its own `setAnimationLoop` tick (delta between ticks — the loop is already the timing source, no second RAF); each captured quantity lands as the SAME metric row shape the wire claim carries — `{ label, value, unit }` — so comparison is a keyed join, not a shape adaptation.
 - Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay), `effect` (`Chunk`, the fold), `@rasm/ts/wire/vocab` (`Claim` — the metric row shape is its vocabulary).
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: windows are policy rows — sample count and projection kind (`mean`, `p95`, `peak`) are one `as const` record; a per-metric bespoke window is the named defect.
@@ -21,7 +21,7 @@
 ```typescript
 import type { DeckMetrics } from "@deck.gl/core"
 import { Claim } from "@rasm/ts/wire/vocab"
-import { Array, Chunk } from "effect"
+import { Array, Chunk, Number, Option, pipe } from "effect"
 
 const _WINDOW = { samples: 120 } as const
 
@@ -30,36 +30,48 @@ declare namespace Benchmark {
   type Trace = Chunk.Chunk<DeckMetrics>
 }
 
+const _SEED = { count: 0, fps: 0, gpu: 0, cpu: 0, pick: 0 }
+
+const _stepped = (acc: typeof _SEED, sample: DeckMetrics): typeof _SEED => ({
+  count: acc.count + 1,
+  fps: acc.fps + sample.fps,
+  gpu: acc.gpu + sample.gpuTime,
+  cpu: acc.cpu + sample.cpuTime,
+  pick: acc.pick + sample.pickTime,
+})
+
 const _observe = (trace: Benchmark.Trace, sample: DeckMetrics): Benchmark.Trace =>
   Chunk.takeRight(Chunk.append(trace, sample), _WINDOW.samples)
 
-const _rows = (trace: Benchmark.Trace): ReadonlyArray<Benchmark.Metric> => {
-  const samples = Chunk.toReadonlyArray(trace)
-  const mean = (read: (m: DeckMetrics) => number): number =>
-    samples.length === 0 ? 0 : samples.reduce((total, m) => total + read(m), 0) / samples.length
-  return [
-    { label: "fps", value: mean((m) => m.fps), unit: "1/s" },
-    { label: "gpu-time", value: mean((m) => m.gpuTime), unit: "ms" },
-    { label: "cpu-time", value: mean((m) => m.cpuTime), unit: "ms" },
-    { label: "pick-time", value: mean((m) => m.pickTime), unit: "ms" },
-  ]
-}
+const _rows = (trace: Benchmark.Trace): ReadonlyArray<Benchmark.Metric> =>
+  pipe(Chunk.reduce(trace, _SEED, _stepped), (sums) =>
+    pipe(Number.max(sums.count, 1), (over) => [
+      { label: "fps", value: sums.fps / over, unit: "1/s" },
+      { label: "gpu-time", value: sums.gpu / over, unit: "ms" },
+      { label: "cpu-time", value: sums.cpu / over, unit: "ms" },
+      { label: "pick-time", value: sums.pick / over, unit: "ms" },
+    ]))
 ```
 
 ## [3]-[HOST_PROBE]
 
-- Owner: `Benchmark.host` — the local fingerprint mirroring the wire's `HostFingerprint` fields (`machine`, `arch`, `cores`, `runtime`): `cores` reads `navigator.hardwareConcurrency`; `runtime` reads the user-agent brand; `machine`/`arch` read the WebGPU `GPUAdapterInfo` (`vendor`/`architecture` — the adapter probe already ran at backend selection, so the info arrives as a parameter from the renderer row, never a second `requestAdapter`); absent WebGPU, the fields carry the declared `"<unavailable>"` literal rather than fabricated values.
+- Owner: `Benchmark.host` — the local fingerprint mirroring the wire's `HostFingerprint` fields (`print`, `machine`, `arch`, `cores`, `runtime`): `print` is the app's own `AppIdentity` host value handed in as a parameter — the probe never mints identity; `cores` reads `navigator.hardwareConcurrency`; `runtime` reads the user-agent brand; `machine`/`arch` read the WebGPU `GPUAdapterInfo` (`vendor`/`architecture` — the adapter probe already ran at backend selection, so the info arrives as an `Option` parameter from the renderer row, never a second `requestAdapter`); absent WebGPU, `Option.none` folds to the declared `"<unavailable>"` literal rather than fabricated values.
 - Law: the local fingerprint NEVER gates — the identity gate lives at `wire` (`Claim.admit` against `AppIdentity`); this probe exists to display divergence context (different GPU, fewer cores) beside metric deltas.
 - Law: fingerprint capture is once-per-session — the value is stable for the process lifetime and rides a `keepAlive` atom.
 
 ```typescript
-const _host = (adapter: { readonly vendor: string; readonly architecture: string } | null): Claim.Host =>
-  new Claim.Host({
-    machine: adapter?.vendor ?? "<unavailable>",
-    arch: adapter?.architecture ?? "<unavailable>",
-    cores: Math.max(1, globalThis.navigator.hardwareConcurrency),
-    runtime: globalThis.navigator.userAgent,
-  })
+const _host = (print: string, adapter: Option.Option<{ readonly vendor: string; readonly architecture: string }>): Claim.Host =>
+  pipe(
+    Option.getOrElse(adapter, () => ({ vendor: "<unavailable>", architecture: "<unavailable>" })),
+    (info) =>
+      new Claim.Host({
+        print,
+        machine: info.vendor,
+        arch: info.architecture,
+        cores: Math.max(1, globalThis.navigator.hardwareConcurrency),
+        runtime: globalThis.navigator.userAgent,
+      }),
+  )
 ```
 
 ## [4]-[CLAIM_BOARD]

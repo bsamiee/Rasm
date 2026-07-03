@@ -10,20 +10,22 @@ Framed stream transport is the second half of the branch net-policy plane: where
 ## [2]-[FRAME_ROWS]
 
 - Owner: `Duplex` — the framed-socket owner. `Duplex.framed(socket, frame, protocol)` lifts a `Socket.Socket` to a typed message channel: `Socket.toChannelWith<E>()` turns the socket into a byte `Channel`, and the frame row's fused combinator — `Ndjson.duplexSchema` (newline-delimited, `NdjsonError`) or `MsgPack.duplexSchema` (length-delimited binary, `MsgPackError`) — owns chunk reassembly and the schema seam in one step, so both directions are decoded values and backpressure is channel-native.
-- Law: the frame is a row swap under an unchanged schema seam — the fused combinators are `ChannelSchema.duplexUnknown({ inputSchema, outputSchema })` composed over the frame's own duplex, so moving a peer from ndjson to msgpack edits one argument and no consumer; a new frame dialect is one row plus one dispatch arm.
+- Law: the frame is a row swap under an unchanged schema seam — the `_frames` table keys each dialect to its fused combinator (`ChannelSchema.duplexUnknown({ inputSchema, outputSchema })` composed over the frame's own duplex), dispatch is one keyed lookup, and `Duplex.Kind` derives from the table; moving a peer from ndjson to msgpack edits one argument and no consumer, and a new frame dialect is one row, zero arms.
 - Law: the protocol pair is send/take symmetric evidence — `send` types the outbound seam, `take` the inbound seam, both usually one closed `Schema.Union` of tagged messages; an untyped frame crossing the channel is unspellable because the fused combinator is the only construction.
 - Law: fault families arrive typed and stay separate — the frame's own error, `Socket.SocketError`, and `ParseError` each route on their own tag; none is re-wrapped.
 - Boundary: socket construction is capability — `Socket.makeWebSocket(url)` demands the `WebSocketConstructor` Tag, satisfied by the runtime binding at the root (`BunSocket.layerWebSocketConstructor`, `BrowserSocket.layerWebSocketConstructor`; the node binding satisfies the same Tag); session lifetime, reconnect, and the pipeline geometry above the channel are the consumer's, composed from `Stream` law.
 - Entry: `Duplex.framed(socket, frame, { send, take })`.
-- Packages: `@effect/platform` (`Socket`, `Ndjson`, `MsgPack`, `ChannelSchema`), `effect` (`Channel`, `Chunk`, `Schema`).
+- Packages: `@effect/platform` (`Socket`, `Ndjson`, `MsgPack`), `effect` (`Channel`, `Chunk`, `Schema`).
 
 ```typescript
 import type { Sse } from "@effect/experimental"
 import { HttpClientRequest, MsgPack, Ndjson, Socket } from "@effect/platform"
-import { type Channel, type Chunk, Context, Data, Option, type ParseResult, type Schema, type Stream } from "effect"
+import { type Channel, type Chunk, Context, Data, Option, type ParseResult, type Schema, type Stream, pipe } from "effect"
+
+const _frames = { msgpack: MsgPack.duplexSchema, ndjson: Ndjson.duplexSchema } as const
 
 declare namespace Duplex {
-  type Kind = "msgpack" | "ndjson"
+  type Kind = keyof typeof _frames
   type Fault = MsgPack.MsgPackError | Ndjson.NdjsonError
   type Protocol<Send, SendI, Take, TakeI> = {
     readonly send: Schema.Schema<Send, SendI>
@@ -44,9 +46,7 @@ const _framed = <Send, SendI, Take, TakeI>(
   unknown
 > =>
   Socket.toChannelWith<Duplex.Fault | ParseResult.ParseError>()(socket).pipe(
-    frame === "ndjson"
-      ? Ndjson.duplexSchema({ inputSchema: protocol.send, outputSchema: protocol.take })
-      : MsgPack.duplexSchema({ inputSchema: protocol.send, outputSchema: protocol.take }),
+    _frames[frame]({ inputSchema: protocol.send, outputSchema: protocol.take }),
   )
 
 const Duplex = { framed: _framed } as const
@@ -77,14 +77,14 @@ declare namespace Feed {
 }
 
 const _reattached = (origin: URL, cursor: Feed.Cursor): HttpClientRequest.HttpClientRequest =>
-  Option.match(cursor, {
-    onNone: () => HttpClientRequest.get(origin.href).pipe(HttpClientRequest.setHeader("accept", "text/event-stream")),
-    onSome: (id) =>
-      HttpClientRequest.get(origin.href).pipe(
-        HttpClientRequest.setHeader("accept", "text/event-stream"),
-        HttpClientRequest.setHeader("last-event-id", id),
-      ),
-  })
+  pipe(
+    HttpClientRequest.get(origin.href).pipe(HttpClientRequest.setHeader("accept", "text/event-stream")),
+    (base) =>
+      Option.match(cursor, {
+        onNone: () => base,
+        onSome: (id) => base.pipe(HttpClientRequest.setHeader("last-event-id", id)),
+      }),
+  )
 
 const _advanced = (cursor: Feed.Cursor, event: Sse.Event): Feed.Cursor =>
   Option.orElse(Option.fromNullable(event.id), () => cursor)

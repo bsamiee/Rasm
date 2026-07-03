@@ -72,7 +72,7 @@ declare namespace Matrix {
 - Owner: the `_core` per-dialect grant table plus the assembled `Matrix` export — in-core families need no probe, they are engine facts granted by lane.
 - Growth: a new engine family is one `_core` key with its per-dialect verdict; the sqlite fallbacks for refused keys are `lane/sqlite.md`'s degradation table, keyed by the same grant vocabulary.
 - Law: `channel` (LISTEN/NOTIFY), `advisory` (advisory-lock claims), and `copy` (COPY bulk lanes) are pg engine grants — `project/async.md`, `journal/append.md`, and the bulk lanes gate on them exactly like extension grants, so a lane swap changes the granted set, never the consuming statement.
-- Law: the core grants merge into the probe report at `Capability.Default` composition — `scope/handle.md` appends the dialect's core keys to the granted set after the probes run, so `require("channel")` reads one vocabulary.
+- Law: the core grants merge into the probe report at `Capability.Default` composition — the composing scope passes its dialect's `Matrix.core` row as the factory's `core` argument and the service seeds the granted set with it, so `require("channel")` reads one vocabulary.
 
 ```typescript
 const _core = {

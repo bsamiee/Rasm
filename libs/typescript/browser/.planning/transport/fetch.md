@@ -29,12 +29,12 @@
 - Entry: `Fetch.pull` / `Fetch.send`; `R` carries `HttpClient` outward to the root through the host dial.
 - Receipt: the stated annotations are the seam contract — the streaming modality's error union names every family a consumer can meet, readable without the body.
 - Boundary: which requests exist is the consumer's vocabulary over `HttpClientRequest` at full depth; scheduling of artifact pulls is `transport/pool`'s; parked offline intents are `shell/worker`'s outbox.
-- Packages: `@rasm/ts/host` (`Client`, `Lapse`); `@effect/platform` (`HttpClientRequest`, `HttpClientResponse`, `HttpClientError`); `effect` (`Effect`, `Stream`, `Option`, `Duration`, `Data`, `Chunk`, `SubscriptionRef`); `../boot/connect.ts` (`Connect`); `../session/store.ts` (`Vault`).
+- Packages: `@rasm/ts/host` (`Client`, `Lapse`); `@effect/platform` (`HttpClientRequest`, `HttpClientResponse`, `HttpClientError`); `effect` (`Effect`, `Stream`, `Option`, `Duration`, `Data`, `Chunk`, `Array`); `../boot/connect.ts` (`Connect`); `../session/store.ts` (`Vault`).
 
 ```typescript
 import type { HttpClient, HttpClientError } from "@effect/platform"
 import { HttpClientRequest, type HttpClientResponse } from "@effect/platform"
-import { Chunk, Data, type Duration, Effect, Option, type ParseResult, type Schema, Stream, SubscriptionRef } from "effect"
+import { Array, Chunk, Data, type Duration, Effect, Option, type ParseResult, type Schema, Stream } from "effect"
 import { Client, type Lapse } from "@rasm/ts/host"
 import { Connect } from "../boot/connect.ts"
 import { Vault } from "../session/store.ts"
@@ -96,11 +96,11 @@ class Fetch extends Effect.Service<Fetch>()("browser/transport/Fetch", {
   effect: Effect.gen(function* () {
     const connect = yield* Connect
     const vault = yield* Vault
-    const _gated: Effect.Effect<void, FetchFault> = Effect.flatMap(SubscriptionRef.get(connect.online), (up) =>
+    const _gated: Effect.Effect<void, FetchFault> = Effect.flatMap(connect.online.get, (up) =>
       up ? Effect.void : Effect.fail(new FetchFault({ reason: "offline", detail: "<offline>" })),
     )
     const _decorated = (request: HttpClientRequest.HttpClientRequest): Effect.Effect<HttpClientRequest.HttpClientRequest> =>
-      _MUTATING.some((method) => method === request.method)
+      Array.some(_MUTATING, (method) => method === request.method)
         ? Effect.map(vault.csrf, (echo) =>
             Option.match(echo, {
               onNone: () => request,
@@ -128,7 +128,7 @@ class Fetch extends Effect.Service<Fetch>()("browser/transport/Fetch", {
       Stream.unwrapScoped(
         Effect.gen(function* () {
           yield* _gated
-          const profile = yield* SubscriptionRef.get(connect.profile)
+          const profile = yield* connect.profile.get
           const frugal = Option.match(profile, { onNone: () => false, onSome: (held) => held.frugal })
           const decorated = yield* _decorated(request)
           const response: HttpClientResponse.HttpClientResponse = yield* Client.dial(lane, decorated)

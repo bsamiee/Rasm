@@ -36,5 +36,6 @@ Every browser-domain library the folder uses. Versions are centralized in the `p
 The branch substrate the folder consumes; the registry is `../.planning/README.md` and the catalogues are `libs/typescript/.api/`.
 
 - `effect` — rails, `Schema`, `Layer`, `Match`, `Stream` vocabulary substrate.
+- `@effect/platform` — the abstract `Worker`, `Transferable`, and `HttpClient` contracts the transport pool and fetch rows compose; the browser binding satisfies them at composition.
 - `@effect/platform-browser` — the browser platform binding backing the runtime.
 - `@effect/experimental` — the `EventLog` local-first client, overlay lanes only.

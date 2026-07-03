@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { HttpApp } from '@effect/platform';
-import { HttpClient, HttpServer } from '@effect/platform';
+import { FileSystem, HttpClient, HttpServer } from '@effect/platform';
 import { NodeHttpServer } from '@effect/platform-node';
 import type { SqlError } from '@effect/sql/SqlError';
 import { PgClient } from '@effect/sql-pg';
@@ -16,9 +17,10 @@ import {
     Layer,
     Mailbox,
     Option,
-    Order,
+    type Order,
     type ParseResult,
     pipe,
+    Record,
     Redacted,
     Ref,
     Schema,
@@ -91,6 +93,11 @@ const _STORE = { port: 9000, health: '/minio/health/live', region: 'us-east-1', 
 // The prefix marks kit-internal control frames — every listener on a channel drops foreign arm traffic, never delivers it.
 const _ARM = { pauseMs: 25, turns: 120, prefix: '<rasm-testkit-armed:' } as const;
 
+// --- [MODELS] ----------------------------------------------------------------------------
+
+// The polyglot image manifest is an open name->image record: a new container lane is a key, never a schema change.
+const _Pins = Schema.Record({ key: Schema.String, value: Schema.NonEmptyString });
+
 // --- [ERRORS] ----------------------------------------------------------------------------
 
 class HarnessFault extends Data.TaggedError('HarnessFault')<{
@@ -125,12 +132,34 @@ class ObjectStore extends Context.Tag('rasm-testkit/ObjectStore')<ObjectStore, O
 
 class PgLane extends Context.Tag('rasm-testkit/PgLane')<PgLane, PgLane.Service>() {}
 
+// Pin manifest location: defaulted to the polyglot tests/containers.json owner, overridable for fixture-tree specs.
+class PinsPath extends Context.Reference<PinsPath>()('rasm-testkit/PinsPath', {
+    defaultValue: (): string => fileURLToPath(new URL('../../../containers.json', import.meta.url)),
+}) {}
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const _guarded = <A>(lane: HarnessFault['lane'], run: () => Promise<A>): Effect.Effect<A, HarnessFault> =>
     Effect.tryPromise({ try: run, catch: HarnessFault.engine(lane) });
 
 const _breath = Effect.promise<void>(() => new Promise((wake) => setTimeout(wake, _ARM.pauseMs)));
+
+const _decodePins = Schema.decodeUnknown(Schema.parseJson(_Pins), { errors: 'all' });
+
+// S3 lists keys in UTF-8 byte order; UTF-16 code-unit comparison diverges past the BMP, so the double compares encoded bytes.
+const _utf8 = new TextEncoder();
+const _byKeyBytes: Order.Order<string> = (self, that) => {
+    // BOUNDARY ADAPTER: byte-scan kernel — the tightest total spelling of the S3 ordering contract.
+    const left = _utf8.encode(self);
+    const right = _utf8.encode(that);
+    for (const [at, own] of left.subarray(0, Math.min(left.length, right.length)).entries()) {
+        const other = right[at];
+        if (other !== undefined && own !== other) {
+            return own < other ? -1 : 1;
+        }
+    }
+    return left.length === right.length ? 0 : left.length < right.length ? -1 : 1;
+};
 
 const _lane = (exec: PgLane.Service['exec'], rows: PgLane.Service['rows'], listen: PgLane.Service['listen']): PgLane.Service => ({
     exec,
@@ -174,6 +203,21 @@ const Containers = {
         _guarded('container', () => new Network().start()),
         (started) => Effect.ignore(Effect.promise(() => started.stop())),
     ),
+    // Typed pin resolution over the polyglot image manifest: an unpinned lane is honest typed absence,
+    // a malformed manifest a typed engine fault — never a module-load throw in a consumer spec.
+    pin: (name: string): Effect.Effect<string, HarnessFault, FileSystem.FileSystem> =>
+        Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const target = yield* PinsPath;
+            const pins = yield* pipe(
+                Effect.mapError(fs.readFileString(target), HarnessFault.engine('container')),
+                Effect.flatMap((raw) => Effect.mapError(_decodePins(raw), HarnessFault.engine('container'))),
+            );
+            return yield* Effect.mapError(
+                Record.get(pins, name),
+                () => new HarnessFault({ lane: 'container', reason: 'unsupported', code: Option.none(), detail: `no image pin named ${name}` }),
+            );
+        }),
     start: (row: Containers.Row): Effect.Effect<StartedTestContainer, HarnessFault, Scope.Scope> =>
         Effect.acquireRelease(
             _guarded('container', () =>
@@ -325,10 +369,10 @@ const ObjectStores = {
             get: (key) => Effect.map(Ref.get(cell), HashMap.get(key)),
             list: (prefix) =>
                 Effect.map(Ref.get(cell), (held) =>
-                    // Lexicographic order mirrors the real S3 listing contract, so the double and the live lane agree.
+                    // UTF-8 byte order mirrors the real S3 listing contract, so the double and the live lane agree on every key.
                     Array.sort(
                         Array.filter(Array.fromIterable(HashMap.keys(held)), (key) => key.startsWith(prefix)),
-                        Order.string,
+                        _byKeyBytes,
                     ),
                 ),
             remove: (key) => Ref.update(cell, HashMap.remove(key)),
@@ -436,4 +480,4 @@ const Loopbacks = {
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
 
-export { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes };
+export { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes, PinsPath };

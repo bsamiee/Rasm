@@ -253,6 +253,24 @@ public sealed class FactKeyGrammarLaws {
         Assert.Equal(expected: "ok", actual: log[1].Value);
     }
 
+    // Scratch and Stamp land their constant keys and return stem-derived deterministic values.
+    [Fact]
+    public void ScratchAndStampFactTheirConstantKeysAndDeriveFromTheStem() {
+        List<(string Key, object? Value)> log = [];
+        ScenarioContext ctx = EvidenceGens.Context(log: log);
+        string path = ctx.Scratch(stem: "probe.bin");
+        string stamp = ctx.Stamp(stem: "probe");
+        Assert.EndsWith(expectedEndString: "probe.bin", actualString: path, comparisonType: StringComparison.Ordinal);
+        Assert.StartsWith(expectedStartString: "probe-", actualString: stamp, comparisonType: StringComparison.Ordinal);
+        Assert.Equal(expected: ["scratch.path", "stamp"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: 2, actual: ctx.FactCount);
+        // A stem that escapes the scratch root is an input guard that facts nothing: upward
+        // traversal and rooted stems both refuse before any evidence lands.
+        _ = Assert.ThrowsAny<ArgumentException>(testCode: () => ctx.Scratch(stem: "../escape.bin"));
+        _ = Assert.ThrowsAny<ArgumentException>(testCode: () => ctx.Scratch(stem: "/rooted/escape.bin"));
+        Assert.Equal(expected: 2, actual: ctx.FactCount);
+    }
+
     // A throwing sub-case is a host boundary fact, not a lost status: the bracket converts it to a
     // typed failure, lands the status fact, and lets sibling cases keep running.
     [Fact]

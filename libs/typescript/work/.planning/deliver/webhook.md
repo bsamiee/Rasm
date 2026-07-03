@@ -89,8 +89,8 @@ declare namespace Hook {
     readonly Receipt: typeof _Receipt
     readonly deliver: typeof _deliver
   }>
-  type _Rows<T extends Record<Reason, Row> = typeof _policy> = T
-  type _Keys<K extends keyof typeof _policy = Reason> = K
+  type _Rows<T extends Record<(typeof _reasons)[number], Row> = typeof _policy> = T
+  type _Keys<K extends (typeof _reasons)[number] = Reason> = K
 }
 
 const _utf8 = new TextEncoder()

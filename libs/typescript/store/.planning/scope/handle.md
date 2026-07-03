@@ -40,9 +40,9 @@ class ScopeKey extends Data.Class<{
 - Boundary: which driver a runtime lane binds is the app root's Layer selection on the `./server` subpath; `security/session` and `telemetry` journal ports are satisfied by Layers built FROM these scopes at the app root — `store` never imports those folders.
 
 ```typescript
-import { Config, Duration, Effect, Layer, LayerMap, Redacted } from "effect"
+import { Config, type ConfigError, Duration, Effect, Layer, LayerMap } from "effect"
 import { PgClient } from "@effect/sql-pg"
-import type { SqlClient } from "@effect/sql"
+import type { SqlClient, SqlError } from "@effect/sql"
 import { Capability } from "../capability/row.ts"
 import { Matrix } from "../capability/matrix.ts"
 import { Journal } from "../journal/append.ts"
@@ -69,7 +69,7 @@ const _pool = Config.unwrap({
   connectionTTL: Config.duration("STORE_PG_CONN_TTL").pipe(Config.withDefault(Duration.minutes(15))),
 })
 
-const _client = (database: string): Layer.Layer<PgClient.PgClient | SqlClient.SqlClient, unknown> =>
+const _client = (database: string): Layer.Layer<PgClient.PgClient | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =>
   Layer.unwrapEffect(
     Effect.map(_pool, (pool) =>
       PgClient.layer({
@@ -83,10 +83,13 @@ const _client = (database: string): Layer.Layer<PgClient.PgClient | SqlClient.Sq
 
 const _shared = _client("shared")
 
-const _verified = (ensures: ReadonlyArray<Capability.Ensure>): Layer.Layer<Capability, unknown, SqlClient.SqlClient> =>
-  Capability.Default(Matrix.rows, ensures)
+const _verified = (ensures: ReadonlyArray<Capability.Ensure>): Layer.Layer<Capability, SqlError.SqlError | Capability.Fault, SqlClient.SqlClient> =>
+  Capability.Default(Matrix.rows, ensures, Matrix.core.pg)
 
-const _lookup = (scope: ScopeKey, ensures: ReadonlyArray<Capability.Ensure>): Layer.Layer<Stores.Provided, unknown> =>
+const _lookup = (
+  scope: ScopeKey,
+  ensures: ReadonlyArray<Capability.Ensure>,
+): Layer.Layer<Stores.Provided, ConfigError.ConfigError | SqlError.SqlError | Capability.Fault> =>
   Tenancy.$match(scope.tenancy, {
     Rls: () => _verified(ensures).pipe(Layer.provideMerge(_shared)),
     SchemaPerApp: () => _verified(ensures).pipe(Layer.provideMerge(_shared)),

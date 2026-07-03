@@ -58,10 +58,11 @@ const _embeddingDdl = (dims: number): Capability.Ensure => ({
 - Receipt: the ensure fold returns the registered row names — the corpus's index census, joined with the capability report in the startup evidence.
 - Growth: a new index posture (a second vector metric, a partial index) is one `_rows` entry; a new lane's support index is one row keyed by that lane — the fold and the vocabulary never widen.
 - Law: the vector row is ONE row with a grant-ordered method — `vchordrq` under `"vchord"`, else `hnsw` under `"vector"` — the stronger drop-in is data, and `[R11]` floors gate both spellings through the matrix probes.
+- Law: the embedding table rides the admitted vector row — `retrieve_embedding` materializes through the same fold only where a vector grant holds, dialect-split by `sql.onDialectOrElse`, so a scope without vectors carries no dead table and the index rows always find their relation.
 - Law: `ensure` text is closed-vocabulary literal parameterized only by identifier-safe corpus names — `sql.unsafe` under the same provable-literal license the probes carry; corpus names are brand-validated identifiers, never caller strings.
 
 ```typescript
-import { Effect, Option } from "effect"
+import { Array, Effect, Option } from "effect"
 import { SqlClient } from "@effect/sql"
 import { Capability } from "../capability/row.ts"
 
@@ -80,7 +81,7 @@ const _rows = {
     name: "vector_vchord",
     lane: "semantic",
     grant: "vchord",
-    ensure: (corpus, _dims) =>
+    ensure: (corpus: string, _dims: number) =>
       `CREATE INDEX IF NOT EXISTS ${corpus}_embedding_vchord ON retrieve_embedding
        USING vchordrq (embedding vector_cosine_ops) WHERE corpus = '${corpus}';`,
   },
@@ -88,7 +89,7 @@ const _rows = {
     name: "vector_hnsw",
     lane: "semantic",
     grant: "vector",
-    ensure: (corpus, _dims) =>
+    ensure: (corpus: string, _dims: number) =>
       `CREATE INDEX IF NOT EXISTS ${corpus}_embedding_hnsw ON retrieve_embedding
        USING hnsw (embedding vector_cosine_ops) WHERE corpus = '${corpus}';`,
   },
@@ -96,7 +97,7 @@ const _rows = {
     name: "search_bm25",
     lane: "fts",
     grant: "search",
-    ensure: (corpus, _dims) =>
+    ensure: (corpus: string, _dims: number) =>
       `CREATE INDEX IF NOT EXISTS ${corpus}_bm25 ON ${corpus}
        USING bm25 (cell, body) WITH (key_field = 'cell');`,
   },
@@ -104,14 +105,14 @@ const _rows = {
     name: "trigram_gin",
     lane: "trigram",
     grant: "trigram",
-    ensure: (corpus, _dims) =>
+    ensure: (corpus: string, _dims: number) =>
       `CREATE INDEX IF NOT EXISTS ${corpus}_trgm ON ${corpus} USING gin (body gin_trgm_ops);`,
   },
   keyset: {
     name: "keyset_cursor",
     lane: "keyset",
     grant: "core",
-    ensure: (corpus, _dims) =>
+    ensure: (corpus: string, _dims: number) =>
       `CREATE INDEX IF NOT EXISTS ${corpus}_keyset ON ${corpus} (score DESC, cell);`,
   },
 } as const
@@ -125,20 +126,26 @@ const _ensure = (corpus: string, dims: number) =>
   Effect.flatMap(Capability, (capability) =>
     Effect.flatMap(SqlClient.SqlClient, (sql) =>
       Effect.gen(function* () {
-        const vector = yield* capability.when("vchord", Effect.succeed(_rows.vectorChord)).pipe(
+        const vector = yield* capability.when("vchord", Effect.succeed<Index.Row>(_rows.vectorChord)).pipe(
           Effect.flatMap(Option.match({
-            onNone: () => capability.when("vector", Effect.succeed(_rows.vectorHnsw)),
+            onNone: () => capability.when("vector", Effect.succeed<Index.Row>(_rows.vectorHnsw)),
             onSome: (row) => Effect.succeed(Option.some(row)),
           })),
         )
+        yield* Effect.when(
+          sql.onDialectOrElse({
+            orElse: () => sql.unsafe(_embeddingDdl(dims).sqlite),
+            pg: () => sql.unsafe(_embeddingDdl(dims).pg),
+          }),
+          () => Option.isSome(vector),
+        )
+        const gated: ReadonlyArray<Index.Row> = [_rows.search, _rows.trigram, _rows.keyset]
         const admitted = [
           ...Option.toArray(vector),
-          ...(yield* Effect.forEach(
-            [_rows.search, _rows.trigram, _rows.keyset],
-            (row) => row.grant === "core"
+          ...Array.getSomes(yield* Effect.forEach(gated, (row) =>
+            row.grant === "core"
               ? Effect.succeed(Option.some(row))
-              : capability.when(row.grant, Effect.succeed(row)),
-          )).flatMap(Option.toArray),
+              : capability.when(row.grant, Effect.succeed(row)))),
         ]
         yield* Effect.forEach(admitted, (row) => sql.unsafe(row.ensure(corpus, dims)), { discard: true })
         return admitted.map((row) => row.name)
@@ -150,7 +157,7 @@ const Index = {
   fingerprint: _fingerprint,
   embedding: _embeddingDdl,
   ensure: _ensure,
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

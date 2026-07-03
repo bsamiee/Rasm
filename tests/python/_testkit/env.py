@@ -138,11 +138,12 @@ def _provision_fs(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
     return Provisioned(url=f"memory://{scoped}", client_factory=lambda: DirFileSystem(path=scoped, fs=MemoryFileSystem()), teardown=_teardown)
 
 
-def _provision_store(spec: ObjectStore) -> Provisioned[AbstractFileSystem]:
-    """Serve one threaded moto endpoint projected as an S3 filesystem view.
+def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
+    """Serve one threaded moto endpoint projected as an S3-native filesystem view.
 
     Returns:
-        Provisioned S3-compatible filesystem view rooted at ``spec.bucket``.
+        Provisioned ``s3fs`` view rooted at ``spec.bucket``; the concrete type carries the
+        s3-native capabilities (presigned ``url``, e-tags) beyond the fsspec algebra.
     """
     server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
     server.start()
@@ -150,7 +151,7 @@ def _provision_store(spec: ObjectStore) -> Provisioned[AbstractFileSystem]:
     endpoint = f"http://{host}:{port}"
     live: list[ThreadedMotoServer] = [server]
 
-    def _store() -> AbstractFileSystem:
+    def _store() -> s3fs.S3FileSystem:
         # skip_instance_cache: fsspec caches instances by args, and a stopped moto port can be reissued
         # to a later provision — a cached instance would then carry the dead server's dircache.
         fs = s3fs.S3FileSystem(
@@ -185,10 +186,10 @@ def provision(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientConnecti
 @overload
 def provision(spec: RemoteFS) -> Provisioned[AbstractFileSystem]: ...
 @overload
-def provision(spec: ObjectStore) -> Provisioned[AbstractFileSystem]: ...
+def provision(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]: ...
 def provision(  # one dispatch surface owns every provision arm; splitting fragments the closed union
     spec: EnvSpec,
-) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]] | Provisioned[AbstractFileSystem]:
+) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]] | Provisioned[AbstractFileSystem] | Provisioned[s3fs.S3FileSystem]:
     """Materialize the declared environment double.
 
     Returns:

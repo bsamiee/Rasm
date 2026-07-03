@@ -19,12 +19,12 @@ Embedding is one Tag and a policy value: every consumer reads `EmbeddingModel.Em
 - Boundary: dimension and encoding knobs ride the package's own per-request `Config` surface; vector persistence, index selection, and fingerprint keys are the store's vector-row law.
 - Entry: `Embedder.live(policy)`; `Embedder.custom(options)`.
 - Growth: a new provider embedding row is one policy arm plus its dispatch line; a new batching modality is one arm.
-- Packages: `@effect/ai` (`EmbeddingModel`), `@effect/ai-openai` (`OpenAiEmbeddingModel`), `effect` (`Data`, `Duration`, `Layer`).
+- Packages: `@effect/ai` (`EmbeddingModel`), `@effect/ai-openai` (`OpenAiEmbeddingModel`), `effect` (`Data`, `Duration`, `Effect`, `Layer`).
 
 ```typescript
 import { type AiError, EmbeddingModel } from "@effect/ai"
 import { type OpenAiClient, OpenAiEmbeddingModel } from "@effect/ai-openai"
-import { Data, type Duration, Effect, Layer } from "effect"
+import { Array, Data, type Duration, Effect, Layer, type Types } from "effect"
 
 type _Policy = Data.TaggedEnum<{
   Batched: {
@@ -102,7 +102,6 @@ const _custom = (options: Embedder.Custom): Embedder.Own =>
 - Packages: `@effect/ai` (`EmbeddingModel`), `effect` (`Array`, `Effect`, `Types`).
 
 ```typescript
-import { Array, type Types } from "effect"
 import { Piece } from "./chunk.ts"
 
 declare namespace Embedder {

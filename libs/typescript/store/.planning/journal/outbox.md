@@ -21,12 +21,22 @@ The exactly-once boundary of the write path: one `Outbox.publish` transaction co
 - Law: ledger rows age out by `touched_at` under a retention window (`journal/retain.md`'s policy rows) — a replay past the window is a fresh publish by declaration, and the window is a policy value, never a literal.
 
 ```typescript
-import { Effect, Option, Schema } from "effect"
-import { SqlClient } from "@effect/sql"
+import { Array, Effect, Option, Schema, type ParseResult } from "effect"
+import { Model, SqlClient, type SqlError } from "@effect/sql"
+import { AppKey, TenantId } from "@rasm/ts/kernel"
 import type { Capability } from "../capability/row.ts"
 import { Journal, StreamKey } from "./append.ts"
+import { Upcast } from "./upcast.ts"
 
 const _IdempotencyKey = Schema.NonEmptyString.pipe(Schema.maxLength(200), Schema.brand("IdempotencyKey"))
+
+const _Receipt = Schema.Struct({
+  stream: StreamKey,
+  version: Schema.Number,
+  count: Schema.Number,
+  first: Schema.Number,
+  rows: Schema.Array(Schema.Struct({ version: Schema.Number, tag: Schema.String, payload: Schema.String })),
+})
 
 declare namespace Outbox {
   type Key = typeof _IdempotencyKey.Type
@@ -38,7 +48,7 @@ declare namespace Outbox {
 }
 
 const _claim = (sql: SqlClient.SqlClient, stream: StreamKey, key: Outbox.Key) =>
-  Effect.map(
+  Effect.flatMap(
     sql.onDialectOrElse({
       orElse: () =>
         sql`INSERT INTO idempotency_ledger ${sql.insert([{ key, app: stream.app, tenant: stream.tenant }])}
@@ -49,18 +59,20 @@ const _claim = (sql: SqlClient.SqlClient, stream: StreamKey, key: Outbox.Key) =>
             ON CONFLICT (key) DO UPDATE SET touched_at = ${Journal.now(sql)}
             RETURNING (xmax = 0) AS inserted, receipt`,
     }),
-    (rows): Outbox.Claim => ({
-      key,
-      first: Boolean(rows[0]?.inserted),
-      held: Option.map(
-        Option.fromNullable(rows[0]?.receipt),
-        (held) => (typeof held === "string" ? JSON.parse(held) : held) as Journal.Receipt,
+    (rows) =>
+      Effect.map(
+        Effect.transposeOption(
+          Option.map(Option.fromNullable(rows[0]?.["receipt"]), (held) =>
+            Schema.decodeUnknown(_Receipt)(Upcast.body(held)))),
+        (held): Outbox.Claim => ({ key, first: Boolean(rows[0]?.["inserted"]), held }),
       ),
-    }),
   )
 
 const _settle = (sql: SqlClient.SqlClient, key: Outbox.Key, receipt: Journal.Receipt) =>
-  sql`UPDATE idempotency_ledger SET receipt = ${JSON.stringify(receipt)} WHERE key = ${key}`
+  Effect.flatMap(
+    Schema.encode(Schema.parseJson(_Receipt))(receipt),
+    (held) => sql`UPDATE idempotency_ledger SET receipt = ${held} WHERE key = ${key}`,
+  )
 
 const _ledgerDdl: Capability.Ensure = {
   relation: "idempotency_ledger",
@@ -112,8 +124,6 @@ sequenceDiagram
 ```
 
 ```typescript
-import { Effect, Option } from "effect"
-import { SqlClient } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"
 
 declare namespace Outbox {
@@ -128,7 +138,7 @@ declare namespace Outbox {
   type Intent<A> = {
     readonly stream: StreamKey
     readonly events: A | Array.NonEmptyReadonlyArray<A>
-    readonly occ: Occ
+    readonly occ: Journal.Occ
     readonly key: Option.Option<Key>
     readonly slots: ReadonlyArray<Slot<A>>
   }
@@ -151,19 +161,18 @@ const _rows = (stream: StreamKey, receipt: Journal.Receipt) =>
     payload: row.payload,
   }))
 
-const _publish = <A>(bound: Journal.Bound<A>, intent: Outbox.Intent<A>) =>
+const _publish = <A extends Journal.Event>(bound: Journal.Bound<A>, intent: Outbox.Intent<A>) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql.withTransaction(
       Effect.gen(function* () {
-        const claim = yield* Option.match(intent.key, {
-          onNone: () => Effect.succeed<Outbox.Claim>({ key: "" as Outbox.Key, first: true, held: Option.none() }),
-          onSome: (key) => _claim(sql, intent.stream, key),
-        })
-        if (!claim.first && Option.isSome(claim.held)) {
-          return { journal: claim.held.value, key: intent.key, replay: true } satisfies Outbox.Receipt
+        const claim = yield* Effect.transposeOption(
+          Option.map(intent.key, (key) => _claim(sql, intent.stream, key)))
+        const replay = Option.flatMap(claim, (held) => held.first ? Option.none() : held.held)
+        if (Option.isSome(replay)) {
+          return { journal: replay.value, key: intent.key, replay: true } satisfies Outbox.Receipt
         }
         const journal = yield* bound.append(intent.stream, intent.events, intent.occ)
-        const batch: ReadonlyArray<A> = globalThis.Array.isArray(intent.events) ? intent.events : [intent.events as A]
+        const batch = Array.ensure(intent.events)
         yield* sql`INSERT INTO outbox ${sql.insert(_rows(intent.stream, journal))}`
         yield* Effect.forEach(intent.slots, (slot) => slot.project(intent.stream, batch, journal), { discard: true })
         yield* Option.match(intent.key, {
@@ -190,8 +199,6 @@ const _publish = <A>(bound: Journal.Bound<A>, intent: Outbox.Intent<A>) =>
 - Law: `claimBatch` is the competing-consumer claim — `WHERE delivered_at IS NULL ORDER BY id LIMIT n FOR UPDATE SKIP LOCKED` on pg; the sqlite arm serializes on the single writer and drops the lock clause through `sql.onDialectOrElse`; a drained row is completed by id set, and attempts increment on every claim so poison rows surface as data.
 
 ```typescript
-import { Model } from "@effect/sql"
-
 class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   id: Model.Generated(Schema.Number),
   app: AppKey,
@@ -243,7 +250,7 @@ const Outbox = {
     }),
   complete: (sql: SqlClient.SqlClient, ids: ReadonlyArray<number>) =>
     sql`UPDATE outbox SET delivered_at = ${Journal.now(sql)} WHERE ${sql.in("id", ids)}`,
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

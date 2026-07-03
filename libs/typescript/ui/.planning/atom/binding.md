@@ -12,18 +12,18 @@
 
 ## [2]-[STORE_ROOT]
 
-- Owner: `Store` — one assembled owner: `make({ layer, memoMap? })` builds the `AtomRuntime` through `Atom.context({ memoMap })` so runtime atoms and the host `ManagedRuntime` share one construction of every Layer node; `policy` is the registry row (`defaultIdleTTL`, `timeoutResolution`) the app's `RegistryProvider` spreads; `kvs` and `linked` are the persisted rows — an atom backed by the platform `KeyValueStore` or a URL search param, each with a kernel `Schema` as the only codec.
-- Packages: `@effect-atom/atom-react` (the barrel — `Atom`, `Registry`, `Result`, `Hydration` and the hook surface all reach the folder through it), `effect` (`Layer`, `Schema`, `Duration`).
+- Owner: `Store` — one assembled owner: `make({ layer, memoMap? })` builds the `AtomRuntime` through `Atom.context({ memoMap })` so runtime atoms and the host `ManagedRuntime` share one construction of every Layer node; `policy` is the registry row (`defaultIdleTTL`, `timeoutResolution`) the app's `RegistryProvider` spreads.
+- Packages: `@effect-atom/atom-react` (the barrel — `Atom`, `Registry`, `Result`, `Hydration` and the hook surface all reach the folder through it), `effect` (`Layer`, `Duration`).
 - Entry: `Store.make` is the one runtime mint; a per-atom `Layer` provision, a second registry outside test isolation, or a module-level `Atom.runtime` call beside it is the named defect.
 - Law: one `RegistryProvider` at the app root supplies the store; `ScopedAtom` (at `view/compose`) covers per-instance state — a global atom keyed by component id never exists.
-- Law: persistence is Schema-coded — `Store.kvs` takes the owning field schema (a kernel brand, a `Schema.Literal` vocabulary) so `localStorage`/IndexedDB is never touched raw and a malformed stored value re-decodes to the default instead of poisoning the store; URL linking is `Atom.searchParam(name, { schema })` composed directly with the same owning schema — the package surface IS the row, no wrapper.
+- Law: persistence is Schema-coded and the package surface IS the row, no wrapper — `Atom.kvs({ runtime, key, schema, defaultValue })` backs an atom by the platform `KeyValueStore` and `Atom.searchParam(name, { schema })` links one to a URL search param, each with the owning kernel schema (a brand, a `Schema.Literal` vocabulary) as the only codec, so `localStorage`/IndexedDB is never touched raw and a malformed stored value re-decodes to the default instead of poisoning the store.
 - Law: SSR handoff rides `Hydration` — the server dehydrates the registry, `HydrationBoundary` rehydrates before children read, and a client refetch of server-computed data is the named defect; `Atom.serializable` marks the atoms that cross.
 - Boundary: the `ManagedRuntime` and boot seam are `browser`'s — this module never calls a `run*` method; the shared `memoMap` argument is how the app hands both runtimes one acquisition map at composition.
-- Growth: a new persistence backing is one row on `Store` (the `KeyValueStore` Layer swap is app composition); a new registry knob is one field on `policy`.
+- Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call with its owning schema — the `KeyValueStore` Layer swap is app composition.
 
 ```typescript
-import { Atom, type Registry } from "@effect-atom/atom-react"
-import { Duration, type Layer, Schema } from "effect"
+import { Atom } from "@effect-atom/atom-react"
+import { Duration, type Layer } from "effect"
 
 const _policy = {
   defaultIdleTTL: Duration.minutes(5),
@@ -35,28 +35,17 @@ declare namespace Store {
     readonly layer: Layer.Layer<R, E>
     readonly memoMap?: Layer.MemoMap
   }
-  type Persisted<A, I extends string> = {
-    readonly key: string
-    readonly schema: Schema.Schema<A, I>
-    readonly defaultValue: () => A
-  }
 }
 
 const Store: {
   readonly policy: typeof _policy
   readonly make: <R, E>(options: Store.Options<R, E>) => Atom.AtomRuntime<R, E>
-  readonly kvs: <R, E, A, I extends string>(
-    runtime: Atom.AtomRuntime<R, E>,
-    row: Store.Persisted<A, I>,
-  ) => Atom.Writable<A>
 } = {
   policy: _policy,
   make: (options) =>
     options.memoMap === undefined
       ? Atom.runtime(options.layer)
       : Atom.context({ memoMap: options.memoMap })(options.layer),
-  kvs: (runtime, row) =>
-    Atom.kvs({ runtime, key: row.key, schema: row.schema, defaultValue: row.defaultValue }),
 }
 ```
 

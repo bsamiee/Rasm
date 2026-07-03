@@ -50,18 +50,19 @@ const _surface = (options: MapOptions) =>
 
 - Owner: `GeoLayers.push` — the one imperative sink: the layer tree is an atom-derived `LayersList` (pure values — deck layer instances are declarative descriptors) and every change lands as `overlay.setProps({ layers })`; the overlay diffs and touches only changed GPU attributes — the overlay is never rebuilt. Two memoization planes stay orthogonal: react-compiler memoizes the tree, deck's `updateTriggers` memoizes GPU attributes — an accessor closing over an atom value names its `updateTriggers` key.
 - Law: decoded features render through `GeoJsonLayer` — the `wire` geo row delivers GeoJSON (`GeoFeature.geometry` resolved behind wire's `WkbParser` port), `pointType` and the fill/stroke/3D accessor sub-groups fan one Feature stream to the whole mark vocabulary; per-object styling is one function `Accessor` plus its trigger key, never a parallel prop.
-- Law: columnar geometry rides the GeoArrow fan — `data` per GeoArrow layer is ONE `arrow.RecordBatch` (v0.4 grain), so a chunked `Table` fans through `Table.batches` into a `LayersList` of per-batch layers; `initEarcutPool` hoists ONE `threads` pool shared by every polygon layer via `earcutWorkerPool`; picking returns the zero-copy `StructRowProxy` the selection page resolves to `GlobalId`.
+- Law: columnar geometry rides the GeoArrow fan — `data` per GeoArrow layer is ONE `arrow.RecordBatch` (v0.4 grain), so a chunked `Table` fans through `Table.batches` into a `LayersList` of per-batch layers; `initEarcutPool` hoists ONE pool shared by every polygon layer via `earcutWorkerPool`, and its type derives as `Awaited<ReturnType<typeof initEarcutPool>>` — the transitive `threads` package is never imported; picking returns the zero-copy `StructRowProxy` the selection page resolves to `GlobalId`.
 - Law: cross-layer capability is an extension row — `DataFilterExtension` (GPU time-window/range filtering driven by an atom clock through `filterRange`), `MaskExtension` (geofence keyed to a mask layer), `CollisionFilterExtension` (label declutter) join any layer's `extensions` array; constructor options bake the shader path once, runtime props ride `setProps`.
 - Boundary: tile/terrain/3D-tile streaming (`TileLayer`/`MVTLayer`/`Tile3DLayer`) joins as layer rows under the same sink when a consumer earns them; the deck base vocabulary is settled catalogue law.
 
 ```typescript
 import type { LayersList } from "@deck.gl/core"
 import { GeoJsonLayer } from "@deck.gl/layers"
-import { GeoArrowPolygonLayer } from "@geoarrow/deck.gl-geoarrow"
-import type { FunctionThread, Pool } from "threads"
+import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geoarrow"
 import { Array } from "effect"
 import type { RecordBatch, Table } from "apache-arrow"
-import type { FeatureCollection } from "geojson"
+import type { FeatureCollection } from "@turf/turf"
+
+type _EarcutPool = Awaited<ReturnType<typeof initEarcutPool>>
 
 const _features = (id: string, collection: FeatureCollection): GeoJsonLayer =>
   new GeoJsonLayer({
@@ -75,7 +76,7 @@ const _features = (id: string, collection: FeatureCollection): GeoJsonLayer =>
     pointRadiusUnits: "pixels",
   })
 
-const _arrowFan = (id: string, table: Table, pool: Pool<FunctionThread> | null): LayersList =>
+const _arrowFan = (id: string, table: Table, pool: _EarcutPool): LayersList =>
   Array.map(table.batches, (batch: RecordBatch, rank: number) =>
     new GeoArrowPolygonLayer({
       id: `${id}/${rank}`,

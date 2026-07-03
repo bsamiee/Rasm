@@ -16,6 +16,7 @@ The sqlite node/bun lane: the same journal, projection, scope, and retrieval con
 - Growth: a new pg capability lands here the day it lands in the matrix — a missing row is a red gap, because every grant must answer what the file lane does.
 - Law: the table is consumed, never consulted ad hoc — `project/async.md`'s wake reads `channel → poll` through the optional `PgClient` service, `journal/append.md`'s lock arm reads `advisory → singleWriter` through `onDialectOrElse`, `scope` reads `rls → filePerApp` by never constructing `Tenancy` scopes on this lane; the rows document the dispatch that already exists in the statements, so the lane and the spine cannot drift silently.
 - Law: `search` degrades to FTS5 and `vector` to a loaded extension — sqlite is not capability-poor, it is capability-different; the retrieval lanes select their sqlite arms through the same grant vocabulary, and FTS5/JSON1 ship compiled into both drivers.
+- Law: `none` is a lawful verdict — the analytics, geo, h3, timeseries, graphql, and audit grants have no file-lane substitute, so their rows record the refusal and every consumer gate simply never admits them on this lane; an absent row would be silence, a `none` row is a decision.
 
 ```typescript
 const _degrades = {
@@ -28,8 +29,19 @@ const _degrades = {
   partition: { fallback: "snapshotTruncate" },
   queue: { fallback: "outboxTable" },
   vector: { fallback: "loadExtension" },
+  vchord: { fallback: "loadExtension" },
   search: { fallback: "fts5" },
+  trigram: { fallback: "fts5" },
+  phonetic: { fallback: "loadExtension" },
+  fuzzy: { fallback: "loadExtension" },
+  jsonschema: { fallback: "schemaDecode" },
   uuidv7: { fallback: "appMint" },
+  timeseries: { fallback: "none" },
+  analytics: { fallback: "none" },
+  graphql: { fallback: "none" },
+  audit: { fallback: "none" },
+  geo: { fallback: "none" },
+  h3: { fallback: "none" },
 } as const
 
 declare namespace SqliteLane {
@@ -52,7 +64,7 @@ declare namespace SqliteLane {
 - Boundary: the wasm/OPFS lane is `lane/wasm.md`'s — browser-only, worker-split, and one degradation tier deeper; the `SqliteMigrator` re-export stays banned branch-wide with `PgMigrator`.
 
 ```typescript
-import { Config, Effect, Layer } from "effect"
+import { Config, type ConfigError, Effect, Layer } from "effect"
 import type { SqlClient } from "@effect/sql"
 import * as NodeSqlite from "@effect/sql-sqlite-node"
 import * as BunSqlite from "@effect/sql-sqlite-bun"
@@ -65,14 +77,14 @@ const _filename = (app: AppKey): Config.Config<string> =>
     Config.map((dir) => `${dir}/app_${app}.db`),
   )
 
-const _node = (app: AppKey): Layer.Layer<NodeSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, unknown> =>
+const _node = (app: AppKey): Layer.Layer<NodeSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError.ConfigError> =>
   NodeSqlite.SqliteClient.layerConfig({
     filename: _filename(app),
     prepareCacheSize: Config.integer("STORE_SQLITE_PREPARE_CACHE").pipe(Config.withDefault(200)),
     disableWAL: Config.boolean("STORE_SQLITE_DISABLE_WAL").pipe(Config.withDefault(false)),
   })
 
-const _bun = (app: AppKey): Layer.Layer<BunSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, unknown> =>
+const _bun = (app: AppKey): Layer.Layer<BunSqlite.SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError.ConfigError> =>
   Layer.unwrapEffect(
     Effect.map(_filename(app), (filename) =>
       BunSqlite.SqliteClient.layer({
@@ -100,7 +112,7 @@ const SqliteLane = {
   bun: _bun,
   snapshot: _snapshot,
   extend: _extend,
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

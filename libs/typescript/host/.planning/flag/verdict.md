@@ -124,7 +124,7 @@ class Flags extends Effect.Service<Flags>()("host/Flags", {
             return Option.match(HashMap.get(held.flags, probe.flag), {
               onNone: () =>
                 _minted(probe.flag, { on: probe.fallback, variant: Option.none(), reason: "ERROR" }, at, probe.fallback,
-                  Option.some<Verdict.Code>(held.epoch === 0 ? "PROVIDER_NOT_READY" : "FLAG_NOT_FOUND")),
+                  Option.some(held.epoch === 0 ? "PROVIDER_NOT_READY" : "FLAG_NOT_FOUND")),
               onSome: (rule) => _minted(probe.flag, Rollout.decide(rule, { subject, at, bucket }), at, probe.fallback, Option.none()),
             })
           }),

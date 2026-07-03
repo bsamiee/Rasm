@@ -12,13 +12,13 @@
 ## [2]-[MARK_SHAPE]
 
 - Owner: `ProgressMark` — operation coordinate (`ContentKey`), optional parent operation (the hierarchy axis), stage label, done/total units, `Hlc` stamp, tenant — one decoded shape for every emitting surface, with the stamp order riding the class.
-- Packages: `effect` (`Schema`, `Order`, `Option`, `Number`, `HashMap`, `Duration`); `@rasm/ts/kernel` (`ContentKey`, `Hlc`, `TenantContext`); `../crdt/merge.ts`; `../fold/algebra.ts`.
+- Packages: `effect` (`Schema`, `Order`, `Option`, `Number`, `HashMap`, `Equivalence`); `@rasm/ts/kernel` (`ContentKey`, `Hlc`, `TenantContext`); `../crdt/merge.ts`; `../fold/algebra.ts`.
 - Law: units are dimensionless counts — done and total are non-negative integers whose meaning the emitting operation declares; a `{value, unit}` shape never exists here (kernel `Quantity` owns dimensioned magnitudes, invariant 4).
 - Law: `total` is optional evidence — unbounded operations emit marks without totals, and every downstream read that divides is `Option`-shaped through `Number.divide`, so an unknown total folds to absent fraction, never `NaN`.
 - Boundary: the mark's wire twin is `wire/codec/progress`'s; the ProgressStore stream projection (seam `CO:76`) is `wire`'s concern — this owner receives decoded marks only.
 
 ```typescript
-import { Duration, HashMap, Number, Option, Order, Schema, pipe } from "effect"
+import { Array, type Duration, Equivalence, HashMap, Number, Option, Order, Schema, pipe } from "effect"
 import { ContentKey, Hlc, TenantContext } from "@rasm/ts/kernel"
 import { Merge } from "../crdt/merge.ts"
 import { Fold } from "../fold/algebra.ts"
@@ -43,8 +43,8 @@ class ProgressMark extends Schema.Class<ProgressMark>("ProgressMark")({
 
 - Owner: `Progress` — the fold family: `state` (the `Merge.struct` product instance), `plan` (the per-operation `Fold.Plan`), `fraction`/`stalled` (read-time verdicts), `rollup` (the parent-axis weighted aggregation).
 - Law: the state product composes proven rows — `head` (stage paired with its stamp, merged by stamped LWW so the field cannot drift from the clock that justified it), `done` monotone max (a regressing counter is late evidence, not regression), `total` optional max (totals grow as work is discovered), `parent` first-wins, `first`/`last` min/max stamps — and the product's posture derives as the conjunction, so the whole instance is convergence-legal by construction.
-- Law: verdicts are read-time and horizon-parameterized — `fraction` divides through the `Option` rail and clamps to the unit interval; `stalled` compares the last stamp's physical distance from a caller-supplied horizon against a `Duration` policy — an ambient `Date.now` read never appears in the fold (`Clock` is a service concern of consumers, not of state).
-- Law: `rollup` folds the parent axis — children index derives from the folded table in one pass, and the subtree aggregate sums done/total pairs recursively to data depth, answering `Option.none` where no total is known anywhere in the subtree.
+- Law: verdicts are read-time and horizon-parameterized — `fraction` divides through the `Option` rail and clamps to the unit interval; `stalled` measures the last stamp's physical distance from a caller-supplied horizon against a `Duration` policy converted once through the kernel's `Hlc.delta` unit site — an ambient `Date.now` read and a millisecond re-derivation never appear in the fold (`Clock` is a service concern of consumers, not of state).
+- Law: `rollup` folds the parent axis — the children index derives from the folded table in exactly one `_children` pass, the recursion walks that index to data depth, and the subtree aggregate sums done/total pairs, answering `Option.none` where no total is known anywhere in the subtree.
 - Growth: a new progress verdict is one read member; a new mark axis (weight, priority) is one field plus one product row.
 - Boundary: `evidence/timeline` wraps marks into feed entries; `query/live` serves the folded operation table; `ui` progress surfaces consume fractions, never raw marks.
 
@@ -74,7 +74,7 @@ const _state: Merge.Instance<Progress.State> = Merge.struct({
   head: Merge.max(_byHeadStamp),
   done: Merge.max(Order.number),
   total: Merge.optional(Merge.max(Order.number)),
-  parent: Merge.optional(Merge.first((self: ContentKey, that: ContentKey) => self === that)),
+  parent: Merge.optional(Merge.first<ContentKey>(Equivalence.string)),
   first: Merge.min(Hlc.Order),
   last: Merge.max(Hlc.Order),
 })
@@ -88,19 +88,33 @@ const _lifted = (mark: ProgressMark): Progress.State => ({
   last: mark.stamp,
 })
 
+const _children = (
+  table: Fold.Table<ContentKey, Progress.State>,
+): HashMap.HashMap<ContentKey, ReadonlyArray<ContentKey>> =>
+  HashMap.reduce(table, HashMap.empty<ContentKey, ReadonlyArray<ContentKey>>(), (acc, state, key) =>
+    Option.match(state.parent, {
+      onNone: () => acc,
+      onSome: (parent) =>
+        HashMap.modifyAt(acc, parent, (slot) =>
+          Option.some(Option.match(slot, {
+            onNone: (): ReadonlyArray<ContentKey> => [key],
+            onSome: (kids) => Array.append(kids, key),
+          }))),
+    }))
+
 const _weights = (
   table: Fold.Table<ContentKey, Progress.State>,
+  children: HashMap.HashMap<ContentKey, ReadonlyArray<ContentKey>>,
   root: ContentKey,
 ): readonly [done: number, total: Option.Option<number>] =>
-  HashMap.reduce(
-    HashMap.filterMap(table, (state, key) =>
-      Option.exists(state.parent, (parent) => parent === root) ? Option.some(key) : Option.none()),
+  Array.reduce(
+    Option.getOrElse(HashMap.get(children, root), (): ReadonlyArray<ContentKey> => []),
     [
       Option.match(HashMap.get(table, root), { onNone: () => 0, onSome: (state) => state.done }),
       Option.flatMap(HashMap.get(table, root), (state) => state.total),
     ] as readonly [number, Option.Option<number>],
     (acc, child) =>
-      pipe(_weights(table, child), ([done, total]) => [
+      pipe(_weights(table, children, child), ([done, total]) => [
         acc[0] + done,
         Option.match(acc[1], {
           onNone: () => total,
@@ -122,10 +136,9 @@ const Progress: Progress.Shape = {
       Option.flatMap(state.total, (total) => Number.divide(state.done, total)),
       Order.clamp(Order.number)({ minimum: 0, maximum: 1 }),
     ),
-  stalled: (state, horizon, patience) =>
-    Hlc.physical(horizon) - Hlc.physical(state.last) > Duration.toMillis(patience),
+  stalled: (state, horizon, patience) => horizon.physical - state.last.physical > Hlc.delta(patience),
   rollup: (table, root) =>
-    pipe(_weights(table, root), ([done, total]) => Option.flatMap(total, (units) => Number.divide(done, units))),
+    pipe(_weights(table, _children(table), root), ([done, total]) => Option.flatMap(total, (units) => Number.divide(done, units))),
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

@@ -12,10 +12,10 @@
 ## [2]-[MSGPACK_ENGINE]
 
 - Owner: `Pack` — the folder's one MessagePack seam: `_EXT` the C#-owned extension type-byte row, `_extensions` the `ExtensionCodec` whose `Hlc` row decodes the fixed 16-byte cell through the kernel interner carried on `context`, `_decoder`/`_encoder` the configured instances, and the generic byte schema plus stream lift sibling msgpack pages (`codec/oplog.ts`, `codec/version.ts`) compose.
-- Packages: `@msgpack/msgpack` 3.1.3 — the only importing module; the census fences msgpack to this page's dependents.
+- Packages: `@msgpack/msgpack` — the only importing module; the census fences msgpack to this page's dependents, and the version pin lives in the one workspace catalog.
 - Entry: `Pack.schema(owned)` the composed byte→owned schema; `Pack.stream(family)` the backpressured multi-frame walk; `Pack.encode`/`Pack.transfer` the canonical and zero-copy egress.
 - Growth: a new C#-minted extension type is one `_extensions.register` row decoding INTO owned vocabulary — the type-byte is C#-owned positive range and never re-numbered TS-side; a new ceiling axis is a `_CEILINGS` field.
-- Law: the ext row is the mint seam, decode-once — the 16-byte `Hlc` cell decodes through `context.intern` inside the extension decoder, so interning rides decode state, never a module singleton; a TS re-mint of the cell layout is the named cross-language drift defect.
+- Law: the ext row is the mint seam, decode-once and encode-true — the 16-byte `Hlc` cell decodes through `context.intern` inside the extension decoder (the kernel `Hlc.FromBytes` layout twin, run synchronously), so interning rides decode state, never a module singleton, and the encode arm re-emits the same sixteen bytes through the twin so a decoded op round-trips the worker transfer without flattening its stamps; a TS re-mint of the cell layout is the named cross-language drift defect.
 - Law: `useBigInt64: true` is non-negotiable — the HLC physical counter, ordinals, and version-vector entries are i64; a decoder without it truncates past 2^53 silently.
 - Law: the top-level `decode` is unreachable by construction — it cannot see the shared `ExtensionCodec`, so every decode rides the configured instance; ceilings (`maxStrLength`, `maxBinLength`, `maxArrayLength`, `maxMapLength`, `maxExtLength`) are instance options, armed before any untrusted byte.
 - Law: an unregistered extension surfaces as `ExtData` and dispatches through `Match.instanceOf` at the seam into a `ParseError` — never dropped, never a raw `ExtData` in domain flow.
@@ -42,12 +42,14 @@ declare namespace Pack {
   }>
 }
 
-const _context: Pack.Context = { intern: Hlc.fromCell }
+const _context: Pack.Context = { intern: Schema.decodeSync(Hlc.FromBytes) }
+
+const _cell = Schema.encodeSync(Hlc.FromBytes)
 
 const _extensions: ExtensionCodec<Pack.Context> = new ExtensionCodec<Pack.Context>()
 _extensions.register({
   type: _EXT.hlc,
-  encode: () => null,
+  encode: (value) => (value instanceof Hlc ? _cell(value) : null),
   decode: (data, _type, context) => context.intern(data),
 })
 
@@ -81,7 +83,7 @@ const Pack: Pack.Shape = {
 - Entry: `CrdtOp.FromBytes` for a single buffered op; `CrdtOp.decode(octets)` the one-shot rail; construction for interior fixtures rides each case's `.make`.
 - Receipt: the decoded op IS the evidence — `hlc` orders it, `actor` attributes it, and the case payload carries exactly the mutation; `state/crdt/merge` folds these values as its wire-minted instance through `#vocab`.
 - Growth: a new C# op kind is one tagged case plus the union row — every exhaustive consumer (`state` merge arms, `store` journal folds) breaks loudly until its arm exists; the case roster is pinned by the `tests/contracts` corpus fixtures, and roster drift fails there before it fails here.
-- Law: the union decodes as one tagged family — the C# writer mints `_tag`-discriminated maps, the `Hlc` fields arrive pre-interned by the extension row, and `bigint` counters flow through `Schema.BigIntFromSelf`; a positional-array op read or a `kind` field beside `_tag` is the rejected shape.
+- Law: the union decodes as one tagged family — the C# writer mints `_tag`-discriminated maps, the `Hlc` fields arrive pre-interned by the extension row and the kernel class re-proves them at the field, and `bigint` counters flow through `Schema.BigIntFromSelf`; a positional-array op read or a `kind` field beside `_tag` is the rejected shape.
 - Law: ops are immutable evidence — no op mutates after decode, and merge semantics live in `state`; this page lands values and owns zero fold arms.
 - Law: zero-copy egress is transfer-scoped — `Pack.transfer` returns a view over the encoder's internal buffer, legal only as a `Transferable` handed to the `browser/transport` worker in the same expression; a held reference to the shared view is the aliasing defect.
 - Boundary: the streaming journal walk is `codec/oplog.ts`; version shapes on the same engine are `codec/version.ts`; merge law, convergence fixtures, and causal order are `state`'s pages.
@@ -93,22 +95,22 @@ const _Assign = Schema.TaggedStruct("Assign", {
   key: Schema.NonEmptyString,
   path: Schema.NonEmptyString,
   value: Schema.Unknown,
-  hlc: Hlc.FromSelf,
+  hlc: Hlc,
   actor: Schema.NonEmptyString,
 })
 
 const _Adjoin = Schema.TaggedStruct("Adjoin", {
   key: Schema.NonEmptyString,
   member: Schema.NonEmptyString,
-  hlc: Hlc.FromSelf,
+  hlc: Hlc,
   actor: Schema.NonEmptyString,
 })
 
 const _Retire = Schema.TaggedStruct("Retire", {
   key: Schema.NonEmptyString,
   member: Schema.NonEmptyString,
-  observed: Schema.Array(Hlc.FromSelf),
-  hlc: Hlc.FromSelf,
+  observed: Schema.Array(Hlc),
+  hlc: Hlc,
   actor: Schema.NonEmptyString,
 })
 
@@ -116,14 +118,14 @@ const _Splice = Schema.TaggedStruct("Splice", {
   key: Schema.NonEmptyString,
   anchor: Schema.NonEmptyString,
   run: Schema.Array(Schema.Unknown),
-  hlc: Hlc.FromSelf,
+  hlc: Hlc,
   actor: Schema.NonEmptyString,
 })
 
 const _Tick = Schema.TaggedStruct("Tick", {
   key: Schema.NonEmptyString,
   delta: Schema.BigIntFromSelf,
-  hlc: Hlc.FromSelf,
+  hlc: Hlc,
   actor: Schema.NonEmptyString,
 })
 
@@ -135,12 +137,14 @@ declare namespace CrdtOp {
 }
 type CrdtOp = CrdtOp.Op
 
+const _FromBytes: Schema.Schema<CrdtOp, Uint8Array> = Pack.schema(_op)
+
 const CrdtOp: typeof _op & {
   readonly FromBytes: Schema.Schema<CrdtOp, Uint8Array>
   readonly decode: (octets: Uint8Array) => Effect.Effect<CrdtOp, ParseResult.ParseError>
 } = Object.assign(_op, {
-  FromBytes: Pack.schema(_op),
-  decode: Schema.decodeUnknown(Pack.schema(_op)),
+  FromBytes: _FromBytes,
+  decode: Schema.decodeUnknown(_FromBytes),
 })
 
 // --- [EXPORTS] --------------------------------------------------------------------------

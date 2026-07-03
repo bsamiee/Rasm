@@ -10,7 +10,7 @@ Outbound HTTP policy is one lane table, composed once, inherited everywhere: eve
 ## [2]-[LANE_ROWS]
 
 - Owner: the interior `_lanes` anchor — `live` (interactive calls: tight total budget, brisk jittered retry), `batch` (bulk and export egress: patient budget, bounded elapsed retry), `feed` (long-lived streaming responses: no total budget — the connection outlives any deadline — minimal pre-stream retry, zero redirects). Each row carries `budget` (`Option<Duration>` — absence is a stated decision, not an omission), `pulse` (one composed `Schedule`: exponential base, `jittered` to decorrelate the fleet, `intersect(recurs)` and `upTo` as the attempt and elapsed bounds), and `hops` (the redirect ceiling).
-- Law: the row set is closed by the guard pair and grows by evidence — a genuinely new egress contract (a webhook lane, a hedged lane) is one row plus zero new surface; tuning an existing consumer is editing its row, and every consumer of that lane inherits the edit at once.
+- Law: the row guard closes the member set and the table grows by evidence — `_Rows` proves every lane carries the full policy complement, the anchor itself is the lane set, and a genuinely new egress contract (a webhook lane, a hedged lane) is one row plus zero new surface; tuning an existing consumer is editing its row, and every consumer of that lane inherits the edit at once.
 - Law: budgets are the branch instantiation of the kernel degradation-budget vocabulary — the row values type against `kernel/fault` budget rows once that page realizes, so retry posture stays one cross-language ledger.
 - Boundary: proxy is transport residency, not per-call policy — the proxy posture pins beneath the node row's client through `NodeHttpClient.dispatcherLayer`/`makeDispatcher` at the root; the lane table carries no proxy knob, and the browser lane has none by construction.
 - Packages: `effect` (`Schedule`, `Duration`, `Option`).
@@ -28,7 +28,7 @@ Outbound HTTP policy is one lane table, composed once, inherited everywhere: eve
 
 ```typescript
 import { HttpClient, type HttpClientError, type HttpClientRequest, HttpClientResponse } from "@effect/platform"
-import { Data, Duration, Effect, Option, type ParseResult, Schedule, type Schema, type Scope } from "effect"
+import { Data, Duration, Effect, Option, type ParseResult, Schedule, type Schema, type Scope, pipe } from "effect"
 
 const _lanes = {
   live: {
@@ -65,7 +65,6 @@ declare namespace Client {
     readonly hops: number
   }
   type _Rows<T extends Record<Lane, Row> = typeof _lanes> = T
-  type _Keys<K extends Lane = keyof typeof _lanes> = K
 }
 
 const _tempered = (lane: Client.Lane) => (client: HttpClient.HttpClient): HttpClient.HttpClient =>
@@ -80,14 +79,14 @@ const _gated = (
   lane: Client.Lane,
   request: HttpClientRequest.HttpClientRequest,
 ): Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError | Lapse, HttpClient.HttpClient | Scope.Scope> =>
-  Option.match(_lanes[lane].budget, {
-    onNone: () => Effect.flatMap(HttpClient.HttpClient, (client) => _tempered(lane)(client).execute(request)),
-    onSome: (budget) =>
-      Effect.timeoutFail(
-        Effect.flatMap(HttpClient.HttpClient, (client) => _tempered(lane)(client).execute(request)),
-        { duration: budget, onTimeout: () => new Lapse({ lane, budget }) },
-      ),
-  })
+  pipe(
+    Effect.flatMap(HttpClient.HttpClient, (client) => _tempered(lane)(client).execute(request)),
+    (sent) =>
+      Option.match(_lanes[lane].budget, {
+        onNone: () => sent,
+        onSome: (budget) => Effect.timeoutFail(sent, { duration: budget, onTimeout: () => new Lapse({ lane, budget }) }),
+      }),
+  )
 
 function dial(
   lane: Client.Lane,

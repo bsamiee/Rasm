@@ -21,7 +21,7 @@
 ## [3]-[CEREMONY_OWNER]
 
 [CEREMONY_OWNER]:
-- Owner: `Ceremony`, one `Effect.Service` over `Vault` and `Kv` — `enroll(legs)` and `assert(legs)` run the passkey round-trips: `legs.start` fetches the ceremony options from the edge, the interior invokes `Passkeys.register`/`Passkeys.authenticate`, and `legs.finish` delivers the signed response back; the interior `_ceremony` fold is generic over the option and response shapes, so both entries inherit their exact types from `Passkeys`' own signatures and this module respells none of them. `depart(plan)` and `land(url, exchange)` run the OAuth continuity: depart persists the pending flow then commits the full-page navigation; land re-reads the flow single-use, guards replay and lapse, extracts the callback code, and hands `{ code, state }` to the exchange leg.
+- Owner: `Ceremony`, one `Effect.Service` over `Vault` and `Kv` — `enroll(legs)` and `assert(legs)` run the passkey round-trips: `legs.start` fetches the ceremony options from the edge, the interior invokes `Passkeys.register`/`Passkeys.authenticate`, and `legs.finish` delivers the signed response back; the interior `_ceremony` fold is generic over the option and response shapes, so both entries inherit their exact types from `Passkeys`' own signatures and this module respells none of them. `depart(plan)` and `land(url, exchange)` run the OAuth continuity: depart persists the pending flow — the return target and the `Option`-carried state echo the plan mirrors from its authorize URL — then commits the full-page navigation; land re-reads the flow single-use, guards replay, lapse, and the echo, extracts the callback code, and hands `{ code, state }` to the exchange leg.
 - Law: phase transitions are this owner's writes — every entry opens with `Vault.authenticating`; `assert` and `land` close by folding the exchange's `Vault.Fresh` into `Vault.established`; a failed leg leaves the cell for the caller's fold, never a half-authenticated phase.
 - Law: the pending flow is single-use and time-bounded — `land` drops the record before acting on it, so a replayed callback finds nothing and folds to `replay`; a record older than the `grace` window folds to `lapsed`; the state echo, when the record carries one, must equal the callback's — defense in depth beside the server-side single-use stash `security/authn/oauth` owns.
 - Law: the departure commit is the module's platform-forced statement seam — `location.assign` unloads the document, so nothing sequences after it; the implementer carries the `// BOUNDARY ADAPTER` mark on `_departed`'s first line.
@@ -78,7 +78,7 @@ declare namespace Ceremony {
   type EnrollResponse = Effect.Effect.Success<ReturnType<typeof Passkeys.register>>
   type AssertOptions = Parameters<typeof Passkeys.authenticate>[0]
   type AssertResponse = Effect.Effect.Success<ReturnType<typeof Passkeys.authenticate>>
-  type Plan = { readonly authorize: URL; readonly returnTo: string }
+  type Plan = { readonly authorize: URL; readonly returnTo: string; readonly state: Option.Option<string> }
   type Landing = { readonly returnTo: string }
   type Exchange<E> = (payload: {
     readonly code: string
@@ -106,7 +106,7 @@ class Ceremony extends Effect.Service<Ceremony>()("browser/session/Ceremony", {
         vault.authenticating.pipe(
           Effect.zipRight(
             Effect.flatMap(DateTime.now, (minted) =>
-              kv.write("flow", _FLOW_KEY, { state: Option.none(), returnTo: plan.returnTo, minted }),
+              kv.write("flow", _FLOW_KEY, { state: plan.state, returnTo: plan.returnTo, minted }),
             ),
           ),
           Effect.zipRight(_departed(plan.authorize)),

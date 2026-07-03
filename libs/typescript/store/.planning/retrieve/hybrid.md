@@ -20,9 +20,7 @@ Hybrid retrieval as one fused statement: five lanes — FTS, trigram, phonetic, 
 - Law: `EmbedFault` is the port's typed failure — reason-discriminated `budget | provider | shape` — and retrieval folds it into lane exclusion (a failed embed drops the semantic lane and reports it in the page's `lanes` census) rather than failing the whole search; text lanes still answer.
 
 ```typescript
-import { Context, Data, Effect } from "effect"
-import { Array } from "effect"
-import type { Index } from "./index.ts"
+import { Array, Context, Data, Effect } from "effect"
 
 class EmbedFault extends Data.TaggedError("EmbedFault")<{
   readonly reason: "budget" | "provider" | "shape"
@@ -103,18 +101,18 @@ declare namespace Search {
 ## [4]-[FUSION_QUERY]
 
 - Owner: `Search.of(corpus)` — the bound read family: `search` (the fused RRF statement plus optional rerank), `facets` (dimension counts), the snippet projection riding the hit rows, and the keyset cursor codec; one request shape carries every modality.
-- Packages: `effect` (`Effect`, `Option`, `Encoding`, `Schema`); `@effect/sql` (`SqlSchema.findAll` for the fused decode); `capability/row.md` (`Capability`).
+- Packages: `effect` (`Effect`, `Option`, `HashMap`, `Schema`); `@effect/sql` (the statement surface); `capability/row.md` (`Capability`).
 - Entry: `bound.search(request)` — text plus option-bag fields (`lanes`, `limit`, `k`, `cursor`, `facets`, `snippet`); the reply is one `Search.Page` carrying hits with scores and snippets, facet counts when asked, the next cursor when more remains, and the lane census that actually ran — evidence, not mystery.
 - Receipt: `Search.Page.lanes` names each lane's disposition (`ran | ungranted | unembedded | excluded`) — a degraded scope is visible in every reply, so relevance regressions trace to capability, not to guesswork.
 - Growth: rerank depth, fusion constant `k`, and snippet shape are request fields with policy defaults; a new reply projection (highlight offsets, per-lane scores) is a field on the page, never a second search.
 - Law: fusion is in-database — lanes materialize as CTEs, `Σ 1.0/(k + rank)` groups by cell, order-by-score-desc with the keyset predicate `(score, cell) < (cursor.score, cursor.cell)` pages stably, and the statement is ONE round trip; assembling lanes in process re-buys N queries and loses the shared plan.
-- Law: the cursor is opaque and typed — `{ score, cell }` encoded `Schema.parseJson` then `Encoding.encodeBase64Url`, decoded by the same codec; a raw offset is the rejected pagination.
+- Law: the cursor is opaque and typed — `{ score, cell }` under ONE composed schema, `Schema.StringFromBase64Url` composed over `Schema.parseJson`, so encode and decode share the codec and a malformed caller cursor is `ParseError` on the admission rail, never a defect; a raw offset is the rejected pagination.
 - Law: snippets ride the granted text lane — `paradedb.snippet` under `"search"`, `ts_headline` as the in-core fallback — selected by the same grant read as the lane itself `[R11]`.
 - Law: rerank is a window policy — when the `Reranker` is present and the request asks, the top `window` fused hits re-order by the port's verdict and the tail keeps fusion order; absence of the port makes rerank a no-op by `serviceOption`, never an error.
 
 ```typescript
-import { Array, Effect, Encoding, HashSet, Option, Schema, type ParseResult } from "effect"
-import { SqlClient, type SqlError, type Statement } from "@effect/sql"
+import { HashMap, HashSet, Option, Schema, type ParseResult } from "effect"
+import { SqlClient, type SqlError } from "@effect/sql"
 import { Capability } from "../capability/row.ts"
 import { Index } from "./index.ts"
 
@@ -134,11 +132,12 @@ declare namespace Search {
     readonly score: number
     readonly snippet: Option.Option<string>
   }
+  type Disposition = "ran" | "ungranted" | "unembedded" | "excluded"
   type Page = {
     readonly hits: ReadonlyArray<Hit>
     readonly facets: ReadonlyArray<{ readonly dim: string; readonly value: string; readonly count: number }>
     readonly cursor: Option.Option<string>
-    readonly lanes: Record<Lane, "ran" | "ungranted" | "unembedded" | "excluded">
+    readonly lanes: Record<Lane, Disposition>
   }
   type Bound = {
     readonly search: (request: Request) => Effect.Effect<
@@ -146,30 +145,39 @@ declare namespace Search {
       SqlError.SqlError | ParseResult.ParseError,
       SqlClient.SqlClient | Capability
     >
-    readonly ensure: Effect.Effect<ReadonlyArray<string>, SqlError.SqlError | Capability.Fault, SqlClient.SqlClient | Capability>
+    readonly ensure: Effect.Effect<ReadonlyArray<string>, SqlError.SqlError, SqlClient.SqlClient | Capability>
   }
 }
 
-const _Cursor = Schema.parseJson(Schema.Struct({ score: Schema.Number, cell: Schema.String }))
+const _Cursor = Schema.compose(
+  Schema.StringFromBase64Url,
+  Schema.parseJson(Schema.Struct({ score: Schema.Number, cell: Schema.String })),
+)
 
 const _cursor = {
-  encode: (score: number, cell: string) =>
-    Effect.map(Schema.encode(_Cursor)({ score, cell }), Encoding.encodeBase64Url),
-  decode: (raw: string) =>
-    Effect.flatMap(
-      Effect.orDie(Encoding.decodeBase64UrlString(raw)),
-      Schema.decodeUnknown(_Cursor),
-    ),
-}
+  encode: Schema.encode(_Cursor),
+  decode: Schema.decodeUnknown(_Cursor),
+} as const
 
-const _fused = (corpus: string, lanes: ReadonlyArray<Search.Lane>, k: number): string =>
-  [
+const _fused = (
+  corpus: string,
+  lanes: ReadonlyArray<Search.Lane>,
+  k: number,
+  cursored: boolean,
+  base: number,
+  limit: number,
+): string => {
+  const score = `sum(1.0 / (${k} + rank))`
+  return [
     "WITH",
-    lanes.map((lane) => `${lane} AS (${_lanes[lane].rank(corpus)})`).join(", "),
-    `SELECT cell, sum(1.0 / (${k} + rank)) AS score FROM (`,
-    lanes.map((lane) => `SELECT cell, rank FROM ${lane}`).join(" UNION ALL "),
-    ") pool GROUP BY cell ORDER BY score DESC",
+    Array.map(lanes, (lane) => `${lane} AS (${_lanes[lane].rank(corpus)})`).join(", "),
+    `SELECT cell, ${score} AS score FROM (`,
+    Array.map(lanes, (lane) => `SELECT cell, rank FROM ${lane}`).join(" UNION ALL "),
+    ") pool GROUP BY cell",
+    cursored ? `HAVING ${score} < $${base + 1} OR (${score} = $${base + 1} AND cell > $${base + 2})` : "",
+    `ORDER BY score DESC, cell LIMIT ${limit}`,
   ].join(" ")
+}
 
 const _reranked = (
   sql: SqlClient.SqlClient,
@@ -181,19 +189,22 @@ const _reranked = (
     const window = Math.min(request.rerank ?? 0, hits.length)
     if (Option.isNone(reranker) || window === 0) return Effect.succeed(hits)
     return Effect.gen(function* () {
-      const head = hits.slice(0, window)
+      const head = Array.take(hits, window)
       const rows = yield* sql`SELECT cell, body FROM ${sql(corpus)}
-        WHERE ${sql.in("cell", head.map((hit) => hit.cell))}`
-      const bodies = new Map(rows.map((row) => [String(row.cell), String(row.body)]))
-      const candidates = head.map((hit) => ({ cell: hit.cell, body: bodies.get(hit.cell) ?? "" }))
+        WHERE ${sql.in("cell", Array.map(head, (hit) => hit.cell))}`
+      const bodies = HashMap.fromIterable(rows.map((row) => [String(row["cell"]), String(row["body"])] as const))
+      const candidates = Array.map(head, (hit) => ({
+        cell: hit.cell,
+        body: Option.getOrElse(HashMap.get(bodies, hit.cell), () => ""),
+      }))
       if (!Array.isNonEmptyReadonlyArray(candidates)) return hits
       const verdict = yield* Effect.option(reranker.value.rerank(request.text, candidates))
       return Option.match(verdict, {
         onNone: () => hits,
         onSome: (order) => {
-          const byCell = new Map(head.map((hit) => [hit.cell, hit]))
-          const led = order.flatMap((cell) => (byCell.has(cell) ? [byCell.get(cell)!] : []))
-          return [...led, ...hits.slice(window)]
+          const byCell = HashMap.fromIterable(Array.map(head, (hit) => [hit.cell, hit] as const))
+          const led = Array.filterMap(order, (cell) => HashMap.get(byCell, cell))
+          return [...led, ...Array.drop(hits, window)]
         },
       })
     })
@@ -207,10 +218,10 @@ const _snippets = (
 ): Effect.Effect<ReadonlyArray<Search.Hit>, SqlError.SqlError> =>
   Effect.map(
     sql`SELECT cell, ts_headline('simple', body, websearch_to_tsquery('simple', ${text})) AS clip
-        FROM ${sql(corpus)} WHERE ${sql.in("cell", hits.map((hit) => hit.cell))}`,
+        FROM ${sql(corpus)} WHERE ${sql.in("cell", Array.map(hits, (hit) => hit.cell))}`,
     (rows) => {
-      const clips = new Map(rows.map((row) => [String(row.cell), String(row.clip)]))
-      return hits.map((hit) => ({ ...hit, snippet: Option.fromNullable(clips.get(hit.cell)) }))
+      const clips = HashMap.fromIterable(rows.map((row) => [String(row["cell"]), String(row["clip"])] as const))
+      return Array.map(hits, (hit) => ({ ...hit, snippet: HashMap.get(clips, hit.cell) }))
     },
   )
 
@@ -225,9 +236,9 @@ const _facets = (
       Effect.map(
         sql`SELECT ${sql(dim)} AS value, count(*) AS count FROM ${sql(corpus)}
             WHERE ${sql.in("cell", cells)} GROUP BY ${sql(dim)} ORDER BY count DESC`,
-        (rows) => rows.map((row) => ({ dim, value: String(row.value), count: Number(row.count) })),
+        (rows) => rows.map((row) => ({ dim, value: String(row["value"]), count: Number(row["count"]) })),
       )),
-    (groups) => groups.flat(),
+    Array.flatten,
   )
 
 const Search = {
@@ -244,63 +255,76 @@ const Search = {
           onNone: () => Effect.succeed(Option.none<ReadonlyArray<number>>()),
           onSome: (port) =>
             granted.includes("semantic")
-              ? Effect.option(Effect.map(port.embed([request.text]), (rows) => rows[0]))
+              ? Effect.option(Effect.map(port.embed([request.text]), Array.headNonEmpty))
               : Effect.succeed(Option.none<ReadonlyArray<number>>()),
         })
         const ran = Option.isSome(vector) ? granted : granted.filter((lane) => lane !== "semantic")
-        const held = request.cursor === undefined
-          ? Option.none<{ readonly score: number; readonly cell: string }>()
-          : Option.some(yield* _cursor.decode(request.cursor))
-        const limit = request.limit ?? 20
-        const params: ReadonlyArray<Statement.Primitive> = Option.match(vector, {
-          onNone: () => [request.text, limit * 3],
-          onSome: (embedding) => [
-            request.text,
-            limit * 3,
-            JSON.stringify(embedding),
-            Option.match(embedder, { onNone: () => "", onSome: (port) => port.fingerprint }),
-          ],
-        })
-        const pool = yield* sql.unsafe(_fused(corpus.table, ran, request.k ?? 60), params)
-        const paged = pool
-          .map((row) => ({ cell: String(row.cell), score: Number(row.score), snippet: Option.none<string>() }))
-          .filter((hit) =>
-            Option.match(held, {
-              onNone: () => true,
-              onSome: (cursor) => hit.score < cursor.score || (hit.score === cursor.score && hit.cell > cursor.cell),
-            }))
-          .slice(0, limit)
+        const held = yield* Effect.transposeOption(Option.map(Option.fromNullable(request.cursor), _cursor.decode))
+        const k = Math.max(1, Math.trunc(request.k ?? 60))
+        const limit = Math.max(1, Math.trunc(request.limit ?? 20))
+        const base = Option.isSome(vector) ? 4 : 2
+        const params: ReadonlyArray<string | number> = [
+          request.text,
+          limit * 3,
+          ...Option.match(vector, {
+            onNone: () => [],
+            onSome: (embedding) => [
+              JSON.stringify(embedding),
+              Option.match(embedder, { onNone: () => "", onSome: (port) => port.fingerprint }),
+            ],
+          }),
+          ...Option.match(held, {
+            onNone: () => [],
+            onSome: (cursor) => [cursor.score, cursor.cell],
+          }),
+        ]
+        const pool = yield* sql.unsafe<Record<string, unknown>>(
+          _fused(corpus.table, ran, k, Option.isSome(held), base, limit),
+          params,
+        )
+        const paged = Array.map(pool, (row) => ({
+          cell: String(row["cell"]),
+          score: Number(row["score"]),
+          snippet: Option.none<string>(),
+        }))
         const ordered = yield* _reranked(sql, corpus.table, request, paged)
         const clipped = request.snippet === true && ordered.length > 0
           ? yield* _snippets(sql, corpus.table, request.text, ordered)
           : ordered
         const facets = request.facets === undefined || clipped.length === 0
           ? []
-          : yield* _facets(sql, corpus.table, request.facets, clipped.map((hit) => hit.cell))
+          : yield* _facets(sql, corpus.table, request.facets, Array.map(clipped, (hit) => hit.cell))
+        const next = yield* Effect.transposeOption(
+          Option.map(
+            Option.filter(Array.last(clipped), () => clipped.length === limit),
+            (tail) => _cursor.encode({ score: tail.score, cell: tail.cell }),
+          ),
+        )
+        const disposition = (lane: Search.Lane): Search.Disposition =>
+          ran.includes(lane)
+            ? "ran"
+            : !asked.includes(lane)
+              ? "excluded"
+              : lane === "semantic" && granted.includes("semantic")
+                ? "unembedded"
+                : "ungranted"
         return {
           hits: clipped,
           facets,
-          cursor: clipped.length === limit
-            ? Option.some(yield* _cursor.encode(clipped.at(-1)!.score, clipped.at(-1)!.cell))
-            : Option.none(),
-          lanes: Object.fromEntries(
-            (["fts", "trigram", "phonetic", "fuzzy", "semantic"] as const).map((lane) => [
-              lane,
-              ran.includes(lane)
-                ? "ran"
-                : !asked.includes(lane)
-                  ? "excluded"
-                  : lane === "semantic" && granted.includes("semantic")
-                    ? "unembedded"
-                    : "ungranted",
-            ]),
-          ) as Search.Page["lanes"],
+          cursor: next,
+          lanes: {
+            fts: disposition("fts"),
+            trigram: disposition("trigram"),
+            phonetic: disposition("phonetic"),
+            fuzzy: disposition("fuzzy"),
+            semantic: disposition("semantic"),
+          },
         } satisfies Search.Page
       }),
   }),
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Embedder, Search }
+export { Embedder, Reranker, Search }
 ```

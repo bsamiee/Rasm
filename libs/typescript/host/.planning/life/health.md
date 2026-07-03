@@ -1,6 +1,6 @@
 # [HOST_HEALTH]
 
-Health is a probe vocabulary and a total report fold, never an endpoint. `Health` closes the kind rows — `started`, `ready`, `live`, each carrying its canonical route so `edge` serves and `iac` targets one anchor — and holds the probe registry: services register ranked probe rows at their own Layer construction, and one memoized fold sweeps a kind's probes concurrently under the per-probe budget, folding every outcome into a graded report. A probe never fails the fold: a crash, a lapse, and a refused dependency are grade evidence (`fail` with detail), so the report is total and the serving edge maps grades to status codes with zero recovery arms. Readiness composes the lifecycle: a process outside `running` is unready by fold — the drain flip stops traffic instantly — while liveness ignores the phase so an orderly drain is never mistaken for a hang.
+Health is a probe vocabulary and a total report fold, never an endpoint. `Health` closes the kind rows — `started`, `ready`, `live`, each carrying its canonical route so `edge` serves and `iac` targets one anchor — and holds the probe registry: services register ranked probe rows at their own Layer construction, and one memoized fold sweeps a kind's probes concurrently under the per-probe budget, folding every outcome into a graded report. A probe never fails the fold: a crash and a lapse are `fail` rows carrying their detail, a refused dependency is the probe's own `fail` fold, so the report is total and the serving edge maps grades to status codes with zero recovery arms. Readiness composes the lifecycle: a process outside `running` is unready by fold — the drain flip stops traffic instantly — while liveness ignores the phase so an orderly drain is never mistaken for a hang.
 
 ## [1]-[INDEX]
 
@@ -18,14 +18,14 @@ Health is a probe vocabulary and a total report fold, never an endpoint. `Health
 ## [3]-[REPORT_FOLD]
 
 - Owner: `Health.report(kind)` — the one read. The fold filters the registry to the kind, sweeps every probe with unbounded concurrency (probes are independent — accumulation, never abort), bounds each by `Setting.life.probe` (`Effect.timeoutOption` — a lapse grades `fail` with `"lapsed"` detail), converts a crash to a `fail` grade through `Effect.exit`, and merges grades worst-of through the rank `Order` — zero probes fold to `pass`, vacuously healthy. The `ready` fold gates on the `Cycle` phase first: outside `running` the report is `fail` with the phase as detail before any probe runs.
-- Law: the sweep is memoized per kind — `Effect.cachedWithTTL` under `Setting.life.report` collapses a probe storm into one execution per window, so an aggressive load balancer cannot amplify an expensive dependency check; the memo window is policy, not a cache surface.
+- Law: the sweep is memoized per kind and the memo record derives from the anchor — `Record.map` over `_kinds` under `Effect.all` mints one `Effect.cachedWithTTL(swept(kind), Setting.life.report)` per row, so a probe storm collapses into one execution per window, an aggressive load balancer cannot amplify an expensive dependency check, and a new kind is one anchor row with zero memo edits; the memo window is policy, not a cache surface.
 - Law: the report is a receipt — kind, overall grade, per-row grade with elapsed and detail, instant; the serving edge encodes it (`pass/warn → 200`, `fail → 503`) and telemetry consumes the same rows; no second health shape exists.
 - Boundary: serving is `edge`'s (the routes anchor here, the handler there); restart policy is the orchestrator's; this fold only answers.
 - Receipt: `Health.Report`.
-- Packages: `effect` (`Array`, `Chunk`, `Clock`, `DateTime`, `Duration`, `Effect`, `Exit`, `Option`, `Order`, `Ref`, `SubscriptionRef`), `../config/schema.ts` (`Setting`), `./cycle.ts` (`Cycle`).
+- Packages: `effect` (`Array`, `Chunk`, `Clock`, `DateTime`, `Duration`, `Effect`, `Exit`, `Option`, `Order`, `Record`, `Ref`), `../config/schema.ts` (`Setting`), `./cycle.ts` (`Cycle`).
 
 ```typescript
-import { Array, Chunk, Clock, DateTime, Duration, Effect, Exit, Option, Order, Ref, SubscriptionRef, pipe } from "effect"
+import { Array, Chunk, Clock, DateTime, Duration, Effect, Exit, Option, Order, Record, Ref, pipe } from "effect"
 import { Setting } from "../config/schema.ts"
 import { Cycle } from "./cycle.ts"
 
@@ -88,7 +88,7 @@ class Health extends Effect.Service<Health>()("host/Health", {
     const swept = (kind: Health.Kind): Effect.Effect<Health.Report> =>
       Effect.gen(function* () {
         const at = yield* DateTime.now
-        const phase = yield* SubscriptionRef.get(cycle.phase)
+        const phase = yield* cycle.phase.get
         const gated = kind === "ready" && phase !== "running"
         const registered = Array.filter(Chunk.toReadonlyArray(yield* Ref.get(probes)), (probe) => probe.kind === kind)
         const rows = gated
@@ -97,11 +97,7 @@ class Health extends Effect.Service<Health>()("host/Health", {
         return { kind, overall: _merged(rows), rows, at }
       })
 
-    const memo = {
-      started: yield* Effect.cachedWithTTL(swept("started"), setting.life.report),
-      ready: yield* Effect.cachedWithTTL(swept("ready"), setting.life.report),
-      live: yield* Effect.cachedWithTTL(swept("live"), setting.life.report),
-    }
+    const memo = yield* Effect.all(Record.map(_kinds, (_, kind) => Effect.cachedWithTTL(swept(kind), setting.life.report)))
 
     return {
       register: (probe: Health.Probe): Effect.Effect<void> => Ref.update(probes, Chunk.append(probe)),

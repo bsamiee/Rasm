@@ -12,7 +12,7 @@
 ## [2]-[CBOR_ENGINE]
 
 - Owner: the interior engine — one `Decoder` constructed at module scope under the `_WIRE` policy row, the `declare module "cbor-x"` augmentation reconciling the 1.6.4 type drift, the `_cbor` transform folding decode throws onto the one `ParseError` rail, and `_GateLive`, the `Layer<never>` registration node that arms the global size ceilings.
-- Packages: `cbor-x` 1.6.4 — the only module in the folder importing it; the census fences `cbor-x` to this page.
+- Packages: `cbor-x` — the only module in the folder importing it; the census fences `cbor-x` to this page, and the version pin lives in the one workspace catalog.
 - Entry: interior only — `SnapshotHeader` composes `_cbor`; no raw decoder value or undecoded CBOR object leaves this module.
 - Growth: a domain CBOR tag is one `addExtension` row registered inside `_GateLive` beside the ceilings — the tag decodes INTO owned vocabulary at registration, never surfaces as a raw `Tag` in domain flow.
 - Law: the configured instance is the only decode path — the top-level `decode` binds a shared default with `useRecords: true`, cbor-x's proprietary tag-105 record dialect no C# writer speaks; a top-level `decode` call on cross-language bytes is the named drift defect.
@@ -23,7 +23,7 @@
 
 ```typescript
 import { Decoder, setSizeLimits } from "cbor-x"
-import { Either, Layer, ParseResult, Schema, Effect } from "effect"
+import { Effect, Either, Layer, ParseResult, Schema } from "effect"
 
 declare module "cbor-x" {
   function setSizeLimits(limits: { readonly maxArraySize?: number; readonly maxMapSize?: number; readonly maxObjectSize?: number }): void
@@ -47,16 +47,16 @@ const _cbor: Schema.Schema<unknown, Uint8Array> = Schema.transformOrFail(Schema.
 ## [3]-[HEADER]
 
 - Owner: `SnapshotHeader` — one `Schema.Class`: the wire-owned decoded shape (no sibling folder owns snapshot headers), its decode statics, the parity re-verify, and the concatenated-frame walk all ride the class.
-- Entry: `SnapshotHeader.FromBytes` the composed byte schema; `SnapshotHeader.verified(octets)` the decode-and-verify rail — decode, re-mint the key over the held octets through the kernel delegate, refuse a mismatch as `WireFault` reason `parity`; `SnapshotHeader.frames(octets)` the `decodeMultiple` walk over concatenated segment frames as a `Stream`.
+- Entry: `SnapshotHeader.FromBytes` the composed byte schema; `SnapshotHeader.verified(octets)` the decode-and-verify rail — decode, re-mint the key over the held octets through the kernel `contentKey` delegate, refuse a mismatch as `WireFault` reason `parity`; `SnapshotHeader.frames(octets)` the `decodeMultiple` walk over concatenated segment frames as a `Stream`, its engine throw folded to a `malformed` `WireFault` before any frame flows.
 - Receipt: the header IS the receipt — content key, element census, journal frontier, ordered segment rows, mint instant; `store/journal` snapshot intake consumes it via `#vocab` wiring at the app root, never a `store -> wire` import.
 - Growth: a new header field is one field row here mirroring the C# mint; a new segment axis is a field on the segment block — the census row and the contracts-corpus fixture move in the same wave.
-- Law: decode-and-verify, never re-mint — the key re-verifies through `ContentKey.mint` over the exact held octets (LE→BE normalization lives inside the kernel delegate); re-canonicalizing the CBOR, hashing a re-encode, or a second content-address notion is the invariant-2 defect.
+- Law: decode-and-verify, never re-mint — the key re-verifies through the kernel `contentKey` mint over the exact held octets (LE→BE normalization lives inside the delegate), and the branded keys compare by bare `===`; re-canonicalizing the CBOR, hashing a re-encode, or a second content-address notion is the invariant-2 defect.
 - Law: the header's own segments are ordered facts — `ordinal` is dense from zero and `Schema.NonEmptyArray` proves at least one segment at the type; a gap is the C# writer's impossibility, so a decoded gap dies as defect rather than folding to a fault arm no consumer can act on.
-- Law: `frontier` is the journal watermark the snapshot folds up to — `store` resumes the op stream strictly after it; the field decodes through the kernel `Hlc` cell admission, never a hand-read byte pair.
+- Law: `frontier` is the journal watermark the snapshot folds up to — `store` resumes the op stream strictly after it; the sixteen-byte cell decodes through the kernel `Hlc.FromBytes` layout twin, never a hand-read byte pair.
 - Boundary: framed arrival over the artifact rail composes `frame/artifact.ts` reassembly first and hands assembled octets here; `[R10]` gates the load-bearing claim on the verified member surface of the canonical decode.
 
 ```typescript
-import { ContentKey, Hlc } from "@rasm/ts/kernel"
+import { ContentKey, contentKey, Hlc } from "@rasm/ts/kernel"
 import { Effect, Option, ParseResult, Schema, Stream } from "effect"
 import { WireFault } from "../fault/quarantine.ts"
 
@@ -69,7 +69,7 @@ const _Segment = Schema.Struct({
 class SnapshotHeader extends Schema.Class<SnapshotHeader>("SnapshotHeader")({
   key: ContentKey.FromCell,
   element: Schema.Int.pipe(Schema.nonNegative()),
-  frontier: Hlc.FromCell,
+  frontier: Hlc.FromBytes,
   segments: Schema.NonEmptyArray(_Segment),
   minted: Schema.DateTimeUtc,
 }) {
@@ -79,8 +79,8 @@ class SnapshotHeader extends Schema.Class<SnapshotHeader>("SnapshotHeader")({
   static readonly verified = (octets: Uint8Array): Effect.Effect<SnapshotHeader, ParseResult.ParseError | WireFault> =>
     Effect.gen(function* () {
       const header = yield* SnapshotHeader.decode(octets)
-      const minted = yield* ContentKey.mint(octets)
-      return ContentKey.same(minted, header.key)
+      const minted = yield* contentKey(octets)
+      return minted === header.key
         ? header
         : yield* new WireFault({
             family: "SnapshotHeader",
@@ -89,8 +89,14 @@ class SnapshotHeader extends Schema.Class<SnapshotHeader>("SnapshotHeader")({
             evidence: Option.some({ actual: minted, expected: header.key }),
           })
     })
-  static readonly frames = (octets: Uint8Array): Stream.Stream<SnapshotHeader, ParseResult.ParseError> =>
-    Stream.fromIterable(Option.getOrElse(Option.fromNullable(_decoder.decodeMultiple(octets)), () => [])).pipe(
+  static readonly frames = (octets: Uint8Array): Stream.Stream<SnapshotHeader, ParseResult.ParseError | WireFault> =>
+    Effect.try({
+      try: () => _decoder.decodeMultiple(octets) ?? [],
+      catch: (defect) =>
+        new WireFault({ family: "SnapshotHeader", reason: "malformed", detail: String(defect), evidence: Option.none() }),
+    }).pipe(
+      Effect.map(Stream.fromIterable),
+      Stream.unwrap,
       Stream.mapEffect(Schema.decodeUnknown(SnapshotHeader), { concurrency: 1 }),
     )
 }

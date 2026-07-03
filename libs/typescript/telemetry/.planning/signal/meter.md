@@ -17,12 +17,14 @@ Usage metering is the billing and cost-attribution source every multi-tenant arc
 - Law: quantities are integral by schema (`Schema.Int` + nonnegative) — a count of requests, milliseconds of compute, bytes of storage, tokens consumed — so the exact-arithmetic crossing in rating never meets a float; a fractional metering need is a smaller unit row, never a decimal quantity.
 - Law: the resource union derives from the table (`keyof typeof _rows`) and closes the family — admission at the schema literal, dispatch at the rating fold, and the board panels all read the same anchor; a new metered resource is one row plus a rating rate row.
 - Law: the meter journal Tag instantiates the audit-declared port law — `Audit.Journal<MeterFact>` under `"telemetry/MeterJournal"` with the shared `JournalFault` (`stream: "meter"`) — one port shape for the folder, two stream Tags, satisfied at the app root by `store` journal Layers.
+- Law: identity fields ride the kernel brand anchors — `app` is `AppIdentity.fields.app`, `tenant` is `TenantContext.fields.tenant` admitted as `Option` — so tenancy never travels as a bare string, and an unattributed charge rolls up as a visible absence row, never forged tenancy.
 - Receipt: the encoded twin derives (`typeof MeterFact.Encoded`) — the row shape the store journal Layer persists and the billing rollup reads.
 - Growth: a new resource is one `_rows` row; a new attribution axis is one fact field consumed by the rollup key.
 
 ```typescript
 import { Context, Schema } from "effect"
-import { Audit } from "./audit.ts"
+import { AppIdentity, TenantContext } from "@rasm/ts/kernel"
+import type { Audit } from "./audit.ts"
 
 const _KINDS = ["compute", "request", "storage", "token"] as const
 
@@ -42,12 +44,12 @@ declare namespace MeterFact {
 }
 
 class MeterFact extends Schema.Class<MeterFact>("MeterFact")({
-  app: Schema.NonEmptyString,
+  app: AppIdentity.fields.app,
   at: Schema.DateTimeUtc,
   quantity: Schema.Int.pipe(Schema.nonNegative()),
   resource: Schema.Literal(..._KINDS),
   surface: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-  tenant: Schema.NonEmptyString,
+  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
 }) {
   get unit(): string {
     return _rows[this.resource].unit
@@ -71,12 +73,12 @@ class _MeterJournal extends Context.Tag("telemetry/MeterJournal")<_MeterJournal,
 import { Array, BigDecimal, Data, HashMap, Option } from "effect"
 
 declare namespace Meter {
-  type Key = readonly [app: string, tenant: string, resource: MeterFact.Resource]
+  type Key = readonly [app: AppIdentity.Key, tenant: Option.Option<TenantContext.Key>, resource: MeterFact.Resource]
   type Aggregate = { readonly count: number; readonly total: number }
   type Rate = { readonly currency: string; readonly per: BigDecimal.BigDecimal }
   type Rating = { readonly [R in MeterFact.Resource]: Rate }
   type Cost = { readonly amount: BigDecimal.BigDecimal; readonly currency: string }
-  type Charge = Omit<typeof MeterFact.Type, "app" | "at" | "tenant">
+  type Charge = Omit<typeof MeterFact.Type, "app" | "at" | "tenant"> & { readonly tenant?: TenantContext.Key }
 }
 
 const _fused = (left: Meter.Aggregate, right: Meter.Aggregate): Meter.Aggregate => ({
@@ -113,8 +115,8 @@ const _rate = (
 ## [4]-[RAIL]
 
 [RAIL]:
-- Owner: the `Meter` service — the same Layer-factory-over-identity shape as `Audit` (`Meter.Default(identity)`), one bounded intake, one scoped drain; `charge` is the one entrypoint and its input is modal — a single `Charge` or a proven-non-empty batch — discriminated on the value, never a `chargeMany` sibling.
-- Law: the drain window batches through `Stream.groupedWithin`, appends the raw facts through the meter journal Tag under the shared retry gate, and emits the bounded OTLP aggregate in the same pass: the `Convention.metric.meterUsage` counter tagged by the resource row always, and by tenant only where the row's `tenantTag` posture admits it — the row-declared surface of the cardinality budget `otlp/export` enforces at the reader.
+- Owner: the `Meter` service — the same Layer-factory-over-identity shape as `Audit` (`Meter.Default(identity)`), one bounded intake, one scoped drain; `charge` is the one entrypoint and its input is modal — a single `Charge` or a proven-non-empty batch — discriminated on the value, never a `chargeMany` sibling; the stamp resolves tenancy pinned-first, a pinned single-tenant process overriding the charge's key.
+- Law: the drain window batches through `Stream.groupedWithin`, appends the raw facts through the meter journal Tag under the shared retry gate, and emits the bounded OTLP aggregate in the same pass: the `Convention.metric.meterUsage` counter tagged by the resource row always, and by tenant only where the row's `tenantTag` posture admits it and the fact carries tenancy — the row-declared surface of the cardinality budget `otlp/export` enforces at the reader.
 - Law: the journal is the billing truth and the metric is the observability rollup — a missing metric point is a dashboard gap, a missing journal row is a billing defect, and the retry/backpressure posture follows that asymmetry: journal appends retry and suspend, metric emission never blocks the drain.
 - Entry: `Meter.charge(charge)` / `Meter.charge(charges)`; wiring is `Meter.Default(identity)` provided the store-owned journal Layer at the root.
 - Growth: a new egress posture is one `tenantTag`-style row column; the rail is closed.
@@ -138,7 +140,12 @@ const _RETRY = Schedule.exponential("100 millis").pipe(
 const _emitted = (fact: MeterFact): Effect.Effect<void> => {
   const byResource = Metric.tagged(_usage, Convention.rasm.meterResource, fact.resource)
   return Metric.increment(
-    _rows[fact.resource].tenantTag ? Metric.tagged(byResource, Convention.rasm.tenant, fact.tenant) : byResource,
+    _rows[fact.resource].tenantTag
+      ? Option.match(fact.tenant, {
+          onNone: () => byResource,
+          onSome: (tenant) => Metric.tagged(byResource, Convention.rasm.tenant, tenant),
+        })
+      : byResource,
   )
 }
 
@@ -166,9 +173,15 @@ class Meter extends Effect.Service<Meter>()("telemetry/Meter", {
       )
       const stamped = (charge: Meter.Charge): Effect.Effect<void> =>
         Effect.flatMap(DateTime.now, (at) =>
-          Queue.offer(intake, new MeterFact({ ...charge, app: identity.app, at, tenant: identity.tenant })).pipe(
-            Effect.asVoid,
-          ))
+          Queue.offer(
+            intake,
+            new MeterFact({
+              ...charge,
+              app: identity.app,
+              at,
+              tenant: Option.orElse(identity.tenant, () => Option.fromNullable(charge.tenant)),
+            }),
+          ).pipe(Effect.asVoid))
       return {
         charge: (input: Meter.Charge | Array.NonEmptyReadonlyArray<Meter.Charge>): Effect.Effect<void> =>
           Predicate.hasProperty(input, "resource")

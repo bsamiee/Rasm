@@ -43,15 +43,14 @@ Frozen law; the `tests/contracts` corpus drivers (TS readers in `tests/typescrip
 
 ## [07]-[EXTENSION_RECIPES]
 
-| [INDEX] | [CHANGE] | [OWNER_SURFACE] | [SHAPE_OF_THE_EDIT] |
-| :-----: | :--- | :--- | :--- |
-| [01] | new app event type | the app's `Schema.TaggedClass` family | one tagged case + its upcast fold |
-| [02] | new event version | `store/journal` upcast folds | one version fold; the log is never rewritten |
-| [03] | new projection | `store/project` lane rows | one inline or async lane row |
-| [04] | new wire shape (C#-minted) | `wire/codec` | one codec row decoding INTO owned vocabulary |
-| [05] | new retrieval lane | `store/retrieve` roster | one lane row (FTS, trigram, phonetic, fuzzy, semantic) |
-| [06] | new pg capability | `store/capability` matrix + `iac/kube` image | one probe row + one image fact |
-| [07] | new retention class | `state` retention frontier + `store/journal` | one class row |
-| [08] | new fold consumer | `state` fold algebra instances | one op-vocabulary instance |
-| [09] | new tenancy shape | `store/scope` policy values | one scope value — isolation never forks |
-| [10] | new frozen corpus or parity claim | `tests/contracts/<seam>/` + the `tests/typescript/_testkit` readers | one corpus asset + one reader row + its driver |
+| [INDEX] | [NEW_CHANGE]    | [OWNER_SURFACE]                              | [SHAPE_OF_THE_EDIT]                                    |
+| :-----: | :-------------- | :------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | event type      | the app's `Schema.TaggedClass` family        | one tagged case + its upcast fold                      |
+|  [02]   | event version   | `store/journal` upcast folds                 | one version fold; the log is never rewritten           |
+|  [03]   | projection      | `store/project` lane rows                    | one inline or async lane row                           |
+|  [04]   | wire shape      | `wire/codec`                                 | one codec row decoding INTO owned vocabulary           |
+|  [05]   | retrieval lane  | `store/retrieve` roster                      | one lane row (FTS, trigram, phonetic, fuzzy, semantic) |
+|  [06]   | pg capability   | `store/capability` matrix + `iac/kube` image | one probe row + one image fact                         |
+|  [07]   | retention class | `state` retention frontier + `store/journal` | one class row                                          |
+|  [08]   | fold consumer   | `state` fold algebra instances               | one op-vocabulary instance                             |
+|  [09]   | tenancy shape   | `store/scope` policy values                  | one scope value — isolation never forks                |

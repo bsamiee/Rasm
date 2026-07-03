@@ -12,7 +12,7 @@
 ## [2]-[WIRE_INVENTORY]
 
 - Owner: `Inventory` — one exported assembled owner; the `_families` key tuple anchors wire order and the `Schema.Literal` spread, the `_rows` table anchors every census fact, and the merged-hub guard pair ties tuple and table closed in both directions.
-- Entry: `Inventory[family]` row lookup; `Inventory.wire` the family-name schema every sibling page types `family` fields with; `Inventory.of("<codec>")` the per-codec key projection the descriptor gate's coverage check reads.
+- Entry: `Inventory[family]` row lookup; `Inventory.wire` the family-name schema every sibling page types `family` fields with; `Inventory.of("<codec>")` the per-codec key projection, whose type-level twin `Inventory.Of` anchors `ProtoCodec.Suite` and through it the descriptor gate's coverage walk.
 - Growth: a new C# wire family is one tuple entry plus one row — the row names its codec, mint source, owning page, and consumer, and the guards break every stale projection at compile time. Never a new folder, never a parallel list.
 - Law: the census is the folder's single source of truth for which wire families exist; a codec page decoding a family absent from the census, or a census row with no owning page, is the defect the descriptor coverage check surfaces.
 - Law: `codec` is a closed four-value axis — `proto`, `cbor`, `msgpack`, `jsonpatch` — one codec per C# mint format; a family appearing under two codecs is a census error, never a dispatch case.

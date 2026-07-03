@@ -18,13 +18,13 @@ Calendar recurrence is a vocabulary, and every durable timer is named: `Cadence`
 - Law: execution is cluster-fenced — `ClusterCron` registers through `Sharding`, one occurrence fires across the whole fleet, and a tenant-partitioned schedule rides the mint's optional shard group through `Fence.group`; a per-process timer beside it would fire once per runner.
 - Law: the body is durable work — `execute` composes `Step.run` bodies and `Job.family` enqueues, because a cron body that does long work inline holds its occurrence open; the standing pattern is cron-enqueues, family-drains.
 - Boundary: the engine assembly the registration rides is `engine/entity.md`'s; the drain cadence of the outbox relay is `deliver/relay.md`'s own policy row, not a cadence row here.
-- Entry: `Cadence.job("nightly", "<name>", execute)` merged at the composition root.
+- Entry: `Cadence.job("nightly", "<name>", execute)` merged at the composition root; a tenant-partitioned row passes `Fence.group(context)` as the fourth argument.
 - Growth: a new recurrence is one row; a new policy axis (a jitter spread, a blackout calendar) is one `Row` field lowered inside `job`.
 - Packages: `@effect/cluster` (`ClusterCron`), `effect` (`Cron`, `Duration`, `Effect`, `Layer`, `Types`).
 
 ```typescript
-import { ClusterCron } from "@effect/cluster"
-import { Cron, Duration, Effect, Layer, type Types } from "effect"
+import { ClusterCron, type Sharding } from "@effect/cluster"
+import { Cron, Duration, Effect, Layer, type Scope, type Types } from "effect"
 
 const _kinds = ["hourly", "nightly", "weekly"] as const
 const _rows = {
@@ -47,7 +47,8 @@ const _job = <E, R>(
   kind: Cadence.Kind,
   name: string,
   execute: Effect.Effect<void, E, R>,
-): Layer.Layer<never, Cron.ParseError, R> =>
+  group?: string,
+): Layer.Layer<never, Cron.ParseError, Sharding.Sharding | Exclude<R, Scope.Scope>> =>
   Layer.unwrapEffect(
     Effect.map(Cron.parse(_rows[kind].expr), (cron) =>
       ClusterCron.make({
@@ -56,6 +57,7 @@ const _job = <E, R>(
         execute,
         calculateNextRunFromPrevious: _rows[kind].anchor === "previous",
         skipIfOlderThan: _rows[kind].window,
+        ...(group !== undefined && { shardGroup: group }),
       }),
     ),
   )
@@ -81,7 +83,7 @@ const _pause = (
   name: string,
   duration: Duration.DurationInput,
 ): Effect.Effect<void, never, WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance> =>
-  DurableClock.sleep({ name, duration, threshold: _PAUSE.threshold })
+  DurableClock.sleep({ name, duration, inMemoryThreshold: _PAUSE.threshold })
 
 declare namespace Cadence {
   type Shape = Types.Simplify<

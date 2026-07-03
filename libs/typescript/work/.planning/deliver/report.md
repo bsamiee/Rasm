@@ -17,20 +17,21 @@ A report is a spec folded over decoded rows, and the output format is one policy
 - Law: the pdf fold is measured, not guessed — the fold seeds the cursor under the title, `splitTextToSize` wraps each joined row against the content width, and the page breaks when the measured height would cross `internal.pageSize.getHeight()` minus the margin — an `Array.reduce` over rows whose accumulator is the cursor, with `addPage` as the overflow arm inside the marked engine kernel; hardcoded line counts are the deleted spelling.
 - Law: reproducibility is construction policy — `setCreationDate(spec.minted)` and `compress: true` pin the pdf bytes, the CSV and workbook folds are deterministic over their inputs, so one spec plus equal rows yields one content key and the artifact index dedupes re-renders; the key itself is minted by the kernel `ContentKey` owner at the store seam, never here.
 - Law: the fault family follows the folder convention — `render` (an engine refused the fold; `invalid`, terminal), `stream` (the streaming sink failed mid-flight; `unavailable`, re-drives), `bundle` (the archive fold failed; `defect`) — deterministic render work never re-drives, which the class column states once.
-- Exemption: the pdf and xlsx arms are marked engine kernels — the document builders are mutation-forced platform surfaces, statements live inside the `try` thunks, and only the detached `Uint8Array` leaves.
+- Exemption: the pdf and xlsx arms — and the streaming writer's acquire fold — are marked engine kernels: the document builders are mutation-forced platform surfaces, statements live inside the `try` thunks, and only the detached `Uint8Array` leaves.
 - Boundary: row decoding is the caller's Schema at its own seam; artifact transport is `deliver/mail.md`, `deliver/relay.md`, and the store object owner; XLSX re-projection of an existing worksheet is the only sanctioned `exceljs.csv` use, and standalone CSV is always this page's `papaparse` arm.
 - Entry: `Report.render(spec, rows, "xlsx")` inside a `Step.run` body — a report is one durable activity keyed by its request, replayed from the recorded artifact after a crash.
 - Growth: a new output format is one format row plus one handler arm; a new spec axis (a footer, a brand band) is one `Spec` field every arm reads.
-- Packages: `exceljs` (`Workbook`), `jspdf` (`jsPDF`), `papaparse` (`Papa.unparse`), `effect` (`Array`, `DateTime`, `Effect`, `Schema`, `Types`), `@rasm/ts/kernel` (`FaultClass`).
+- Packages: `exceljs` (`Workbook`), `jspdf` (`jsPDF`), `papaparse` (`Papa.unparse`), `effect` (`Array`, `DateTime`, `Effect`, `Option`, `Schema`, `Types`), `@rasm/ts/kernel` (`FaultClass`).
 
 ```typescript
 import ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
 import Papa from "papaparse"
 import { type FaultClass } from "@rasm/ts/kernel"
-import { Array, DateTime, Effect, Schema, type Types } from "effect"
+import { Array, DateTime, Effect, Option, Schema, Stream, type Types } from "effect"
 
 const _formats = ["csv", "xlsx", "pdf"] as const
+const _reasons = ["render", "stream", "bundle"] as const
 const _rows = {
   csv: { media: "text/csv", escape: true },
   xlsx: { media: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", shared: true },
@@ -44,7 +45,7 @@ const _policy = {
 } as const
 
 class _Fault extends Schema.TaggedError<_Fault>()("ReportFault", {
-  reason: Schema.Literal("render", "stream", "bundle"),
+  reason: Schema.Literal(..._reasons),
   title: Schema.String,
   detail: Schema.String,
 }) {
@@ -70,8 +71,10 @@ declare namespace Report {
   }
   type Fault = _Fault
   type Reason = keyof typeof _policy
-  type _Rows<T extends Record<Format, { readonly media: string }> = typeof _rows> = T
-  type _Faults<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _policy> = T
+  type _Rows<T extends Record<(typeof _formats)[number], { readonly media: string }> = typeof _rows> = T
+  type _Keys<K extends (typeof _formats)[number] = Format> = K
+  type _Faults<T extends Record<(typeof _reasons)[number], { readonly class: FaultClass.Kind }> = typeof _policy> = T
+  type _Causes<K extends (typeof _reasons)[number] = Reason> = K
 }
 
 const _utf8 = new TextEncoder()
@@ -80,7 +83,7 @@ const _faulted = (reason: Report.Reason, spec: Report.Spec) => (cause: unknown):
   new _Fault({ reason, title: spec.title, detail: String(cause) })
 
 const _cells = (spec: Report.Spec, row: Report.Row): ReadonlyArray<string> =>
-  Array.map(spec.columns, (column) => row[column.key] ?? "")
+  Array.map(spec.columns, (column) => Option.getOrElse(Option.fromNullable(row[column.key]), () => ""))
 
 const _csv = (spec: Report.Spec, rows: ReadonlyArray<Report.Row>): Effect.Effect<Uint8Array, _Fault> =>
   Effect.try({
@@ -113,7 +116,7 @@ const _pdf = (spec: Report.Spec, rows: ReadonlyArray<Report.Row>): Effect.Effect
   Effect.try({
     try: () => {
       const document = new jsPDF({ unit: _rows.pdf.unit, format: _rows.pdf.page, compress: true })
-      document.setCreationDate(new Date(DateTime.formatIso(spec.minted)))
+      document.setCreationDate(DateTime.toDate(spec.minted))
       document.setFontSize(10)
       document.text(spec.title, _rows.pdf.margin, _rows.pdf.margin)
       const width = document.internal.pageSize.getWidth() - _rows.pdf.margin * 2
@@ -157,7 +160,6 @@ const _render = (
 
 ```typescript
 import JSZip from "jszip"
-import { Stream } from "effect"
 
 const _stream = <E, R>(
   spec: Report.Spec,

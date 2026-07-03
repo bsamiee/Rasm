@@ -25,7 +25,7 @@ Token budgets bind at one Tag and context assembles from values: every budget re
 import { type AiError, Prompt, Tokenizer } from "@effect/ai"
 import { AnthropicTokenizer } from "@effect/ai-anthropic"
 import { OpenAiTokenizer } from "@effect/ai-openai"
-import { Data, Effect } from "effect"
+import { Array, Data, Effect, Order, Schema } from "effect"
 
 const _meters = {
   anthropic: AnthropicTokenizer.layer,
@@ -80,8 +80,6 @@ const Budget: Budget.Shape = {
 - Packages: `@effect/ai` (`Prompt`, `Tokenizer`), `effect` (`Array`, `Effect`, `Order`, `Schema`).
 
 ```typescript
-import { Array, Order, Schema } from "effect"
-
 class _Passage extends Schema.Class<_Passage>("Passage")({
   body: Schema.NonEmptyString,
   rank: Schema.NonNegative,

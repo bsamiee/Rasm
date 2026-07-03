@@ -70,14 +70,19 @@ class Viewpoint extends Schema.Class<Viewpoint>("Viewpoint")({
   clipping: Schema.Array(_Plane),
 }) {}
 
-const _rows = {
+type _Landing = {
+  readonly BcfTopicWire: Topic
+  readonly BcfViewpointWire: Viewpoint
+}
+
+const _rows: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uint8Array> } = {
   BcfTopicWire: ProtoCodec.family(ProtoCodec.suite.BcfTopicWire, Topic),
   BcfViewpointWire: ProtoCodec.family(ProtoCodec.suite.BcfViewpointWire, Viewpoint),
-} as const
+}
 
 declare namespace Bcf {
-  type Family = keyof typeof _rows
-  type Decoded<K extends Family> = Schema.Schema.Type<(typeof _rows)[K]>
+  type Family = keyof _Landing
+  type Decoded<K extends Family> = _Landing[K]
 }
 
 const Bcf: {

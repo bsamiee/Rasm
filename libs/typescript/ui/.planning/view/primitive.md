@@ -76,14 +76,16 @@ const _toasts = new UNSTABLE_ToastQueue<Note>({ maxVisibleToasts: 4 })
 - Owner: `Primitive.boundary` — the one error-boundary row: `ErrorBoundary` with the `fallbackRender` arm (the discriminated prop union's render-prop member), `resetKeys` bound to the failing atom's input so a new query clears a stale error, `onReset` re-running the failed atom through `useAtomRefresh`, and `onError` as the app-wired observation prop (telemetry is not a `ui` edge — the app composes the sink).
 - Law: the async-failure rail is Suspense plus this boundary — `useAtomSuspense` suspends `waiting` to the nearest `<Suspense>` and throws `Cause.squash(cause)` (the squashed tagged `E`) on `Failure`, so `FallbackProps.error` IS the tagged fault and the fallback folds it with `Match.tagsExhaustive` into localized problem rows; a carrier-less throw (event handler, raw promise) escalates through `useErrorBoundary().showBoundary(Cause.squash(cause))` so both paths land the same shape.
 - Law: every route/panel/atom-bound subtree wraps once — boundary granularity is the recovery granularity; a per-component `try`/`catch`, an `instanceof` ladder in a fallback, or a `componentDidCatch` class is the named defect.
+- Law: the fold's `error as E` is the platform's type-erasure seam — React strips the thrown type, `FallbackProps.error` arrives `unknown`, and the boundary re-asserts exactly the squashed tagged `E` the atom rail threw; this card carries the cast exemption, and the assertion is legal nowhere else in the module.
 - Law: the root callbacks frame the boundary — `onCaughtError`/`onUncaughtError` on `createRoot` are `browser`'s boot options observing what boundaries caught and what escaped; this row owns only the in-tree envelope.
 - Growth: a new fault presentation is one `Match` arm in the fallback fold keyed by the family tag; a new recovery affordance rides `resetErrorBoundary`.
 
 ```typescript
+import type { ReactNode } from "react"
 import type { ErrorBoundaryProps, FallbackProps } from "react-error-boundary"
 
 declare namespace Boundary {
-  type Fold<E> = (error: E, reset: FallbackProps["resetErrorBoundary"]) => import("react").ReactNode
+  type Fold<E> = (error: E, reset: FallbackProps["resetErrorBoundary"]) => ReactNode
   type Props<E> = {
     readonly fold: Fold<E>
     readonly resetKeys?: ReadonlyArray<unknown>
@@ -92,7 +94,7 @@ declare namespace Boundary {
   }
 }
 
-const _fallbackRender = <E,>(fold: Boundary.Fold<E>): ((props: FallbackProps) => import("react").ReactNode) =>
+const _fallbackRender = <E,>(fold: Boundary.Fold<E>): ((props: FallbackProps) => ReactNode) =>
   ({ error, resetErrorBoundary }) => fold(error as E, resetErrorBoundary)
 
 const Primitive: {

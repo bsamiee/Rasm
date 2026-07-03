@@ -22,8 +22,8 @@ Mail egress is one scoped transporter, one decoded message, and one policy spine
 - Packages: `effect` (`Context`, `Effect`, `Option`, `Schema`), `@rasm/ts/kernel` (`Refined`).
 
 ```typescript
-import { Refined } from "@rasm/ts/kernel"
-import { Context, type Effect, Option, Schema } from "effect"
+import { type FaultClass, Refined } from "@rasm/ts/kernel"
+import { Array, Config, Context, DateTime, Effect, Either, Option, Predicate, Redacted, Schema } from "effect"
 
 class _Message extends Schema.Class<_Message>("MailMessage")({
   to: Schema.NonEmptyArray(Schema.NonEmptyString),
@@ -76,11 +76,10 @@ const _render = (catalog: Mailer.Catalog, message: _Message): Option.Option<Mail
 - Packages: `nodemailer` (`createTransport`, `SendMailOptions`, `Transporter`), `effect` (`Array`, `Config`, `DateTime`, `Effect`, `Either`, `Option`, `Predicate`, `Redacted`, `Schema`), `@rasm/ts/kernel` (`FaultClass`).
 
 ```typescript
-import { type FaultClass } from "@rasm/ts/kernel"
-import { Array, Config, DateTime, Effect, Either, Option, Predicate, Redacted, Schema } from "effect"
 import { createTransport, type SendMailOptions, type Transporter } from "nodemailer"
 
 const _transports = ["smtp", "pool", "capture"] as const
+const _reasons = ["auth", "dial", "deferred", "bounced", "template", "refused"] as const
 const _policy = {
   auth: { class: "denied" },
   dial: { class: "unavailable" },
@@ -91,7 +90,7 @@ const _policy = {
 } as const
 
 class _Fault extends Schema.TaggedError<_Fault>()("MailFault", {
-  reason: Schema.Literal("auth", "dial", "deferred", "bounced", "template", "refused"),
+  reason: Schema.Literal(..._reasons),
   template: Schema.String,
   detail: Schema.String,
 }) {
@@ -126,7 +125,8 @@ declare namespace Mailer {
     readonly rejected?: ReadonlyArray<string | { readonly address: string }>
     readonly messageId: string
   }
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _policy> = T
+  type _Rows<T extends Record<(typeof _reasons)[number], { readonly class: FaultClass.Kind }> = typeof _policy> = T
+  type _Keys<K extends (typeof _reasons)[number] = Reason> = K
 }
 
 const _code = (cause: unknown): _Fault["reason"] =>
@@ -149,11 +149,11 @@ const _outbound = (message: _Message, rendered: Mailer.Rendered, live: ReadonlyA
 })
 
 const _dial = Effect.map(
-  Effect.all({
-    host: Config.string("MAIL_HOST"),
-    port: Config.port("MAIL_PORT"),
-    user: Config.string("MAIL_USER"),
-    pass: Config.redacted("MAIL_PASS"),
+  Config.unwrap({
+    host: Config.string("MAIL_HOST").pipe(Config.withDescription("<smtp-host>")),
+    port: Config.port("MAIL_PORT").pipe(Config.withDescription("<smtp-port>")),
+    user: Config.string("MAIL_USER").pipe(Config.withDescription("<smtp-user>")),
+    pass: Config.redacted("MAIL_PASS").pipe(Config.withDescription("<smtp-credential>")),
   }),
   ({ host, pass, port, user }) => ({ host, port, secure: true, auth: { user, pass: Redacted.value(pass) } }),
 )
@@ -184,8 +184,11 @@ class Mailer extends Effect.Service<Mailer>()("work/deliver/Mailer", {
       return {
         send: (message: _Message): Effect.Effect<_Receipt, _Fault> =>
           Effect.gen(function* () {
-            const verdicts = yield* Effect.forEach(message.to, (address) =>
-              Effect.map(suppress.suppressed(address), (hit) => [address, hit] as const))
+            const verdicts = yield* Effect.forEach(
+              message.to,
+              (address) => Effect.map(suppress.suppressed(address), (hit) => [address, hit] as const),
+              { concurrency: "inherit" },
+            )
             const [suppressed, live] = Array.partitionMap(verdicts, ([address, hit]) =>
               hit ? Either.left(address) : Either.right(address))
             const rendered = yield* Option.match(_render(options.catalog, message), {

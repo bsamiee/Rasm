@@ -13,18 +13,23 @@
 
 ## [2]-[BIND_FOLD]
 
-- Owner: `Pbr` — one fold: `Pbr.bind(material, bound)` where `bound` is the resolved pair (a `Material` row plus its `PbrGroups` reference resolved against the census); the wire's five blocks assign onto the physical lobes exactly as projected — base → `color`/`metalness`/`roughness`, specular → `specularIntensity`/`specularColor`, transmission → `transmission`/`thickness`/`attenuationColor`/`attenuationDistance`/`ior`, emission → `emissive`/`emissiveIntensity`, geometry → the opacity/side rows the block carries — and `needsUpdate` stamps once at the fold's tail.
-- Packages: `three` (`MeshPhysicalMaterial`, `Color`, `LinearSRGBColorSpace` — members verified against the shipped runtime exports; `@types/three` is not admitted), `@rasm/ts/wire/vocab` (`Appearance`).
+- Owner: `Pbr` — one fold: `Pbr.bind(material, bound)` where `bound` is the resolved pair (a `Material` row plus its `PbrGroups` reference resolved against the census); the wire's five blocks assign onto the physical lobes exactly as projected — base → `color`/`metalness`/`roughness`, specular → `specularColor`/`specularIntensity`/`ior`, transmission → `transmission`/`attenuationColor`/`attenuationDistance` (the wire's `depth` IS the attenuation depth), emission → `emissive`/`emissiveIntensity` (the wire's `luminance`), geometry → `opacity`/`transparent`/`side` — and `needsUpdate` stamps once at the fold's tail.
+- Packages: `three` (`MeshPhysicalMaterial` lobes, `Color`, `LinearSRGBColorSpace`, `FrontSide`/`DoubleSide` — members verified against the shipped runtime exports; `@types/three` is not admitted), `@rasm/ts/wire/vocab` (`Appearance` — the decoded types derive as `Schema.Schema.Type` off the `#vocab` class values, never a parallel shape).
 - Law: assignments mirror the projection's grouping — the fold's arm order IS the wire's block order (base, specular, transmission, emission, geometry), so a C# projection change lands here as the same-shaped field wave; a flattened group or a renamed field breaks the mirror and the golden fixtures upstream.
 - Law: unit semantics are C#-owned — weights arrive unit-interval, distances arrive in the projection's units; a clamp, remap, or "fix" in the fold is the drift defect, and an out-of-range value is upstream evidence.
+- Law: `transparent` and `side` are the two render-representation toggles, not derivations — three demands the booleans, so `opacity < 1` raises the blend flag and `thinWalled` selects `DoubleSide`; both are structural consequences of carriage, and no other computed value exists in the fold.
 - Growth: a new OpenPBR block (coat, sheen, iridescence, anisotropy — `MeshPhysicalMaterial` already carries the target lobes) is one wire mirror field wave plus one assignment arm here, landed in the same wave as the C# projection change — the fold signature never changes and TS never emits a block ahead of the wire.
 
 ```typescript
-import { Appearance } from "@rasm/ts/wire/vocab"
-import { Color, LinearSRGBColorSpace, type MeshPhysicalMaterial } from "three"
+import type { Appearance } from "@rasm/ts/wire/vocab"
+import { DoubleSide, FrontSide, LinearSRGBColorSpace, type Color, type MeshPhysicalMaterial } from "three"
+import type { Schema } from "effect"
+
+type _Material = Schema.Schema.Type<typeof Appearance.Material>
+type _Groups = Schema.Schema.Type<typeof Appearance.PbrGroups>
 
 declare namespace Pbr {
-  type Bound = { readonly material: Appearance.Material; readonly groups: Appearance.PbrGroups }
+  type Bound = { readonly material: _Material; readonly groups: _Groups }
 }
 
 const _tint = (target: Color, triple: readonly [number, number, number]): Color =>
@@ -35,15 +40,17 @@ const _bind = (material: MeshPhysicalMaterial, bound: Pbr.Bound): MeshPhysicalMa
   _tint(material.color, groups.base.color)
   material.metalness = groups.base.metalness
   material.roughness = groups.base.roughness
-  material.specularIntensity = groups.specular.weight
   _tint(material.specularColor, groups.specular.color)
+  material.specularIntensity = groups.specular.weight
+  material.ior = groups.specular.ior
   material.transmission = groups.transmission.weight
-  material.thickness = groups.transmission.thickness
-  _tint(material.attenuationColor, groups.transmission.attenuationColor)
-  material.attenuationDistance = groups.transmission.attenuationDistance
-  material.ior = groups.transmission.ior
+  _tint(material.attenuationColor, groups.transmission.color)
+  material.attenuationDistance = groups.transmission.depth
   _tint(material.emissive, groups.emission.color)
-  material.emissiveIntensity = groups.emission.weight
+  material.emissiveIntensity = groups.emission.luminance
+  material.opacity = groups.geometry.opacity
+  material.transparent = groups.geometry.opacity < 1
+  material.side = groups.geometry.thinWalled ? DoubleSide : FrontSide
   material.needsUpdate = true
   return material
 }
@@ -65,10 +72,10 @@ const _bind = (material: MeshPhysicalMaterial, bound: Pbr.Bound): MeshPhysicalMa
 import { HashMap, Option } from "effect"
 
 declare namespace Census {
-  type Index = HashMap.HashMap<string, Appearance.PbrGroups>
+  type Index = HashMap.HashMap<_Material["groups"], _Groups>
 }
 
-const _resolve = (index: Census.Index, material: Appearance.Material): Option.Option<Pbr.Bound> =>
+const _resolve = (index: Census.Index, material: _Material): Option.Option<Pbr.Bound> =>
   Option.map(HashMap.get(index, material.groups), (groups) => ({ material, groups }))
 ```
 

@@ -8,22 +8,25 @@ import enum
 import fnmatch
 import functools
 import os
-from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
+from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
+import shutil
 import sys
 import tomllib
 from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
+import uuid
 
 import anyio
-from hypothesis import is_hypothesis_test, settings as hyp_settings
+from hypothesis import is_hypothesis_test, Phase, settings as hyp_settings
 import msgspec
 import pytest
 
 from tests.python._testkit import laws as laws_mod
 from tests.python._testkit.bench import _series_from_storage, pytest_benchmark_update_json
 from tests.python._testkit.laws import assert_law_coverage, auto_exempt, consume_covers, LawRecord, MANIFEST, spec, Sut, uncollected_laws
-from tests.python._testkit.runtime import PROFILE_MUTATION, REPO_ROOT
+from tests.python._testkit.runtime import PROFILE_DEFAULT, PROFILE_MUTATION, PROFILE_STATEFUL, REPO_ROOT
+from tests.python._testkit.spec import support_matrix
 
 
 if TYPE_CHECKING:
@@ -218,6 +221,36 @@ def test_registered_suts_carry_their_suite_roots() -> None:
         assert sut.suite is not None and sut.suite.is_dir(), f"{package} registered without a live suite root: {sut.suite!r}"
 
 
+def test_law_module_naming_matches_live_session_imports(pytestconfig: pytest.Config) -> None:
+    """The census dotted-name derivation matches pytest's live import-mode module naming.
+
+    Collection imported every collected law module, so its derived name must be in ``sys.modules``;
+    a naming drift would make every census silently partial — a gate that could never gate — and
+    this law is the in-session witness against that.
+    """
+    law_files = {
+        path
+        for item in _collect_session_items(pytestconfig)
+        if (path := Path(item.path)).is_relative_to(REPO_ROOT) and any(fnmatch.fnmatch(path.name, pattern) for pattern in laws_mod._LAW_GLOBS)
+    }
+    assert law_files, "no law modules collected in this session"
+    drifted = sorted(str(path) for path in law_files if laws_mod._module_name(path) not in sys.modules)
+    assert not drifted, f"derived census names absent from sys.modules — the naming scheme drifted from pytest's import mode: {drifted}"
+
+
+def test_phantom_export_fails_the_census_not_silently_exempt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """An ``__all__`` name the module never defines is a census failure, never a value-only exemption."""
+    pkg = tmp_path / "lawpkg_phantom"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text('__all__ = ["ghost"]\n', encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    request.addfinalizer(lambda: sys.modules.pop("lawpkg_phantom", None))
+    monkeypatch.setattr(laws_mod, "MANIFEST", [])
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_phantom": Sut()})
+    with pytest.raises(AssertionError, match="ghost"):
+        assert_law_coverage()
+
+
 # --- [SPEC_SETTINGS_POLICY]
 
 
@@ -263,6 +296,34 @@ def test_spec_follows_active_profile_pins_named_and_scales_timeout(monkeypatch: 
     with pytest.raises(TypeError, match="double-decoration"):
         spec(int, law="probe-duplicate")(probe)
 
+    # The subject algebra matches the resolver's: a PEP 695 alias injects, a bare callable refuses.
+    type Pair = tuple[int, int]
+    alias_runs: list[tuple[int, int]] = []
+
+    @spec(Pair, profile="kit-probe", law="probe-alias")
+    def alias_law(pair: tuple[int, int]) -> None:
+        alias_runs.append(pair)
+
+    alias_law()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
+    assert len(alias_runs) == 3, f"PEP 695 alias subject did not inject through resolve: {len(alias_runs)} examples"
+    with pytest.raises(TypeError, match="resolvable type form"):
+        spec(consume_covers, law="probe-callable")(lambda: None)
+
+
+def test_hypothesis_profile_registry_carries_lane_invariants() -> None:
+    """Each registered lane profile carries the semantics its consumers budget against; a drifted row fails by name."""
+    lanes = (PROFILE_DEFAULT, "rasm-ci", "rasm-stress", "rasm-debug", PROFILE_MUTATION, PROFILE_STATEFUL, "rasm-parity", "rasm-adversarial")
+    profiles = {name: hyp_settings.get_profile(name) for name in lanes}
+    support_matrix(
+        ("mutation-derandomized-cache-free", lambda: profiles[PROFILE_MUTATION].derandomize and profiles[PROFILE_MUTATION].database is None, True),
+        ("mutation-short-traces", lambda: profiles[PROFILE_MUTATION].stateful_step_count < profiles[PROFILE_STATEFUL].stateful_step_count, True),
+        ("mutation-skips-shrink", lambda: Phase.shrink in profiles[PROFILE_MUTATION].phases, False),
+        ("parity-byte-stable", lambda: profiles["rasm-parity"].derandomize and profiles["rasm-parity"].database is None, True),
+        ("stress-hill-climbs", lambda: Phase.target in profiles["rasm-stress"].phases, True),
+        ("adversarial-outbudgets-ci", lambda: profiles["rasm-adversarial"].max_examples > profiles["rasm-ci"].max_examples, True),
+        ("default-replays-examples", lambda: profiles[PROFILE_DEFAULT].database is not None, True),
+    )
+
 
 # --- [COVERS_AND_AUTO_EXEMPTION]
 
@@ -280,6 +341,13 @@ class _FrozenOwner(msgspec.Struct, frozen=True):
 
     def doubled(self) -> int:
         return self.field * 2
+
+
+class _ValidatedRow(msgspec.Struct, frozen=True):
+    field: int = 0
+
+    def __post_init__(self) -> None:
+        """Admission behavior: presence alone demands a law."""
 
 
 class _MutableRow(msgspec.Struct):
@@ -307,6 +375,7 @@ def test_covers_tuple_consumed_at_collection() -> None:
         pytest.param(ContextVar("seam"), True, id="value-contextvar"),
         pytest.param(msgspec.json.Decoder(int), True, id="value-codec"),
         pytest.param(_FrozenOwner, False, id="frozen-struct-with-method"),
+        pytest.param(_ValidatedRow, False, id="frozen-struct-with-post-init"),
         pytest.param(_MutableRow, False, id="mutable-struct"),
         pytest.param(_Plain, False, id="plain-class"),
         pytest.param(consume_covers, False, id="function"),
@@ -467,6 +536,38 @@ def test_observability_gate_routes_hypothesis_observations_to_artifacts() -> Non
     assert child(observed=True) > initial, "gated child wrote no testcase observations"
     decoded: object = msgspec.json.decode(artifact.read_bytes().splitlines()[-1])
     assert isinstance(decoded, dict) and decoded, f"artifact row is not a JSON object: {decoded!r}"
+
+
+# --- [SNAPSHOT_RAIL_POLICY]
+
+
+@pytest.mark.subprocess
+def test_inline_snapshot_default_reports_without_mutating_and_fix_rewrites() -> None:
+    """Default flags fail a stale snapshot without touching source; ``--inline-snapshot=fix`` rewrites it to green.
+
+    The triple is the config's falsification: an auto-fixing default fails the report arm, a dead
+    plugin fails the fix arm, and a cosmetic rewrite fails the green rerun.
+    """
+    probe_dir = REPO_ROOT / ".cache" / "kit-snapshot-probe" / uuid.uuid4().hex
+    probe = probe_dir / "test_snapshot_probe.py"
+    probe.parent.mkdir(parents=True, exist_ok=True)
+    source = "from inline_snapshot import snapshot\n\n\ndef test_probe() -> None:\n    assert 1 + 1 == snapshot(3)\n"
+    probe.write_text(source, encoding="utf-8")
+
+    def child(*flags: str) -> int:
+        spawn = functools.partial(anyio.run_process, cwd=str(REPO_ROOT), check=False)
+        result = anyio.run(spawn, [sys.executable, "-m", "pytest", str(probe), "-q", *flags])
+        return result.returncode
+
+    try:
+        assert child() != 0, "a stale snapshot must fail under the default report-only flags"
+        assert probe.read_text(encoding="utf-8") == source, "report-only flags mutated the snapshot source"
+        fix_rc = child("--inline-snapshot=fix")
+        rewritten = probe.read_text(encoding="utf-8")
+        assert "snapshot(2)" in rewritten, f"fix run (rc={fix_rc}) did not rewrite the stale snapshot literal: {rewritten!r}"
+        assert child() == 0, "rewritten snapshot must pass under the default flags"
+    finally:
+        shutil.rmtree(probe_dir, ignore_errors=True)
 
 
 # --- [LITTER_CONTAINMENT_POLICY]

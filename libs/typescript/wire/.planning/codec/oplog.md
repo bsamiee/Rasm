@@ -35,14 +35,14 @@ const _diverted = (raw: unknown): Effect.Effect<Either.Either<Entry, WireFault>,
     Effect.mapError((issue: ParseResult.ParseError) =>
       new WireFault({ family: "OpLogWire", reason: "malformed", detail: issue.message, evidence: Option.none() }),
     ),
-    Quarantine.divert({ family: "OpLogWire", octets: Pack.encode(raw) }),
+    Quarantine.divert({ family: "OpLogWire", octets: () => Pack.encode(raw) }),
   )
 ```
 
 ## [3]-[WATERMARK]
 
 - Owner: `OpLog` — the assembled owner: the streaming entrypoint with the resume drop and the continuity Mealy step, plus the frontier fold a drained batch collapses to.
-- Entry: `OpLog.stream(frames, resume)` — one signature owns the feed: bytes walk `Pack.stream`, entries decode and divert per `[2]`, entries at or below `resume` drop before any downstream work, and the Mealy step threads the last-seen coordinate, replacing a discontinuous entry's lane with `sequence` gap evidence carrying both coordinates. `OpLog.frontier(entries)` folds a batch to its high-water `seq`.
+- Entry: `OpLog.stream(frames, resume)` — one signature owns the feed: bytes walk `Pack.stream`, entries decode and divert per `[2]`, entries at or below `resume` drop before any downstream work, and the Mealy step threads the last-seen coordinate seeded at `resume`, replacing every discontinuous entry's lane — the first survivor included, whose expected coordinate is `resume + 1n` — with `sequence` gap evidence carrying both coordinates. `OpLog.frontier(entries)` folds a batch to its high-water `seq`.
 - Growth: a second continuity policy (per-shard watermarks) generalizes the accumulator to a keyed `HashMap` seed — one fold edit, signature unchanged.
 - Law: continuity is evidence, not repair — a gap emits `WireFault` reason `sequence` on the left lane (never quarantined: there is no frame to hold) and the stream continues from the gap's far side; the consumer's re-pull decision reads the evidence, this rail never re-fetches.
 - Law: the resume coordinate lives in the source — the caller's `resume` watermark drives the drop; a downstream dedup set over entry identity is unbounded memory and the rejected form.
@@ -73,7 +73,7 @@ const OpLog: {
         Either.match(lane, {
           onLeft: (): readonly [bigint, Either.Either<Entry, WireFault>] => [last, lane],
           onRight: (entry) =>
-            last === resume || entry.seq === last + 1n
+            entry.seq === last + 1n
               ? ([entry.seq, lane] as const)
               : ([entry.seq, Either.left(_gap(entry.seq, last + 1n))] as const),
         }),

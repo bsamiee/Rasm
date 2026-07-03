@@ -16,6 +16,7 @@ Tenancy is one closed policy family and one transaction transformer: `Tenancy` d
 - Entry: policy values are constructed by the app root and carried inside `ScopeKey` — `scope/handle.md` dispatches Layer construction on them; no store code branches on tenancy outside `$match`.
 - Growth: a new isolation shape is one case plus its `locus` arm and one `scope/handle.md` lookup arm — every consumer of the family breaks loudly until its arm exists.
 - Law: `locus` derives the physical coordinate from the app key — `Rls` shares the default schema and isolates by row, `SchemaPerApp` derives `app_<key>` as the pinned schema, `DatabasePerApp` derives `app_<key>` as the database name a dedicated driver Layer opens; the derivation is one fold, so a naming change is one arm edit.
+- Law: the locus shape is the interior `_Locus` alias — the family's union is a type alias and a type alias admits no merged namespace, so the companion travels through the fold's signature and consumers read `Tenancy.locus(...)` fields, never a named locus type.
 - Law: policy is a value, never configuration prose — the app root selects a case per app; hundreds of apps under mixed policies are rows in the `Stores` LayerMap, not deployments of different code.
 - Boundary: the per-policy Layer construction (shared client versus dedicated database client) is `scope/handle.md`'s; the sqlite lanes replace this family wholesale with file-per-app (`lane/sqlite.md`'s degradation row) — no sqlite arm exists here by design.
 
@@ -29,17 +30,15 @@ type Tenancy = Data.TaggedEnum<{
   DatabasePerApp: {}
 }>
 
-declare namespace Tenancy {
-  type Locus = { readonly schema: "public" | `app_${string}`; readonly database: "shared" | `app_${string}` }
-}
+type _Locus = { readonly schema: "public" | `app_${string}`; readonly database: "shared" | `app_${string}` }
 
 const _Tenancy = Data.taggedEnum<Tenancy>()
 
-const _locus = (app: AppKey, tenancy: Tenancy): Tenancy.Locus =>
+const _locus = (app: AppKey, tenancy: Tenancy): _Locus =>
   _Tenancy.$match(tenancy, {
-    Rls: (): Tenancy.Locus => ({ schema: "public", database: "shared" }),
-    SchemaPerApp: (): Tenancy.Locus => ({ schema: `app_${app}`, database: "shared" }),
-    DatabasePerApp: (): Tenancy.Locus => ({ schema: "public", database: `app_${app}` }),
+    Rls: (): _Locus => ({ schema: "public", database: "shared" }),
+    SchemaPerApp: (): _Locus => ({ schema: `app_${app}`, database: "shared" }),
+    DatabasePerApp: (): _Locus => ({ schema: "public", database: `app_${app}` }),
   })
 ```
 
@@ -58,7 +57,7 @@ const _locus = (app: AppKey, tenancy: Tenancy): Tenancy.Locus =>
 import { Effect } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 
-const _within = (tenant: TenantId, locus: Tenancy.Locus) =>
+const _within = (tenant: TenantId, locus: _Locus) =>
   <A, E, R>(work: Effect.Effect<A, E, R>): Effect.Effect<A, E | SqlError.SqlError, R | SqlClient.SqlClient> =>
     Effect.flatMap(SqlClient.SqlClient, (sql) =>
       sql.withTransaction(

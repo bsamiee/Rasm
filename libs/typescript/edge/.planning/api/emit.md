@@ -17,20 +17,26 @@
 - Law: contract documentation is annotation material on the api value — titles, descriptions, and identifiers ride the owners and groups where they are declared (`HttpApi.make(id).annotate`, endpoint schemas' own annotations) and flow into the document through the derivation; a description authored in a docs file restates what the declaration already emits.
 - Law: the artifact is emission, not authority — the served contract IS the authority; the artifact exists for diffing and publication, is never committed as a second truth, and a consumer that wants the contract derives the client instead of parsing the artifact.
 - Growth: a new documentation surface (a second reference UI, a JSON-schema bundle per owner) is one derivation member over the same api parameter.
-- Packages: `@effect/platform` (`OpenApi`, `HttpApiBuilder`, `HttpApiScalar`); `effect` (`Layer`).
+- Packages: `@effect/platform` (`OpenApi`, `HttpApiBuilder`, `HttpApiScalar`); `effect` (`Layer`, `Array`, `Record`, `Order`, `Predicate`).
 
 ```typescript
-import { type HttpApi, HttpApiBuilder, HttpApiClient, HttpApiScalar, type HttpClient, OpenApi } from "@effect/platform"
-import { Layer } from "effect"
+import { type HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiScalar, type HttpClient, OpenApi } from "@effect/platform"
+import { Array, Layer, Order, Predicate, Record, pipe } from "effect"
+
+const _byKey: Order.Order<readonly [string, unknown]> = Order.mapInput(Order.string, (entry: readonly [string, unknown]) => entry[0])
 
 const _stable = (value: unknown): unknown =>
   Array.isArray(value)
-    ? value.map(_stable)
-    : value !== null && typeof value === "object"
-      ? Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([key, held]) => [key, _stable(held)]))
+    ? Array.map(value, _stable)
+    : Predicate.isRecord(value)
+      ? Record.fromEntries(pipe(
+          Record.toEntries(value),
+          Array.map(([key, held]) => [key, _stable(held)] as const),
+          Array.sortBy(_byKey),
+        ))
       : value
 
-const _artifact = <Api extends Parameters<typeof OpenApi.fromApi>[0]>(api: Api): string =>
+const _artifact = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.Any, E, R>(api: HttpApi.HttpApi<Id, Groups, E, R>): string =>
   JSON.stringify(_stable(OpenApi.fromApi(api)), null, 2)
 
 const _docs: Layer.Layer<never, never, HttpApi.Api> = Layer.mergeAll(HttpApiBuilder.middlewareOpenApi(), HttpApiScalar.layer())
@@ -46,8 +52,8 @@ const _docs: Layer.Layer<never, never, HttpApi.Api> = Layer.mergeAll(HttpApiBuil
 - Packages: `@effect/platform` (`HttpApiClient`, `HttpClient`).
 
 ```typescript
-const _client = <Api extends Parameters<typeof HttpApiClient.make>[0]>(
-  api: Api,
+const _client = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.Any, E, R>(
+  api: HttpApi.HttpApi<Id, Groups, E, R>,
   options: {
     readonly baseUrl: string
     readonly transform: (client: HttpClient.HttpClient) => HttpClient.HttpClient

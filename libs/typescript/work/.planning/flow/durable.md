@@ -34,24 +34,24 @@ A durable workflow is a Schema-typed, idempotency-keyed, suspend-and-replay comp
 ## [4]-[SIGNAL]
 
 [SIGNAL]:
-- Owner: `Flow` — the definition policy owner. `Flow.pulse` is the suspended-retry schedule every definition references (the kernel `lease` budget compiled once — jittered, bounded, class-gated). `Flow.gate(name, shapes)` mints the external-signal surface: a named `DurableDeferred` whose `success`/`error` schemas type the out-of-band verdict, `token` derives the durable correlation handle an out-of-band caller resolves against, and `sealed(duration)` is the awaited arm composed with a durable expiry — `DurableClock.sleep` racing the deferred so an unanswered gate lapses into the typed `GateLapse` instead of suspending forever.
-- Law: resolution is token-addressed, never polled — the workflow suspends on the deferred; the resolving side (`deliver/webhook.md`'s inbound callback ack, a human-approval verb on `edge`) derives the same token from the execution id and calls `DurableDeferred.succeed`/`fail`/`done` — the suspended run resumes where it stopped, across process restarts, with the verdict typed by the gate's own schemas.
+- Owner: `Flow` — the definition policy owner. `Flow.pulse` is the suspended-retry schedule every definition references (the kernel `lease` budget compiled once — jittered, bounded, class-gated). `Flow.gate(name, shapes)` mints the external-signal surface: a named `DurableDeferred` whose `success`/`error` schemas type the out-of-band verdict, `token` derives the durable correlation handle from the owning workflow value and execution id, and `sealed(duration)` is the awaited arm composed with a durable expiry — the first-completion race of the deferred against `DurableClock.sleep`, so an unanswered gate lapses into the typed `GateLapse` instead of suspending forever.
+- Law: resolution is token-addressed, never polled — the workflow suspends on the deferred; the resolving side (`deliver/webhook.md`'s inbound callback ack, a human-approval verb on `edge`) derives the same token from the workflow value and execution id and calls `DurableDeferred.succeed`/`fail`/`done` — the suspended run resumes where it stopped, across process restarts, with the verdict typed by the gate's own schemas.
 - Law: expiry is durable and classified — the race's clock arm is a named `DurableClock.sleep`, so the deadline survives restarts exactly like the wait; `GateLapse` carries the gate name and window and classifies `expired`, so an upstream budget gate treats a lapsed approval as the transient-or-terminal policy the caller's fault table declares.
 - Law: the loser is inert by construction — a verdict arriving after the lapse resolves a deferred no one awaits, and a resumed race re-reads the recorded clock exit; both primitives are replay-idempotent, which is what licenses the race spelling inside a durable body.
 - Boundary: the deferred, clock, and token primitives are the package's; HMAC verification of the inbound callback that resolves a token is `security`/`edge` material; this page owns the gate composition and its policy values.
-- Entry: `const gate = Flow.gate("<name>", { success, error })` at the definition; `yield* gate.sealed("3 days")` in the body; `DurableDeferred.succeed(gate.deferred, token, verdict)` from the resolving rail.
+- Entry: `const gate = Flow.gate("<name>", { success, error })` at the definition; `yield* gate.sealed("3 days")` in the body; `DurableDeferred.succeed(gate.deferred, { token, value: verdict })` from the resolving rail.
 - Growth: a new signal pattern (a quorum gate, a two-phase ack) is a member on `Flow` composing the same primitives.
-- Packages: `@effect/workflow` (`DurableClock`, `DurableDeferred`, `Workflow`, `WorkflowEngine`), `effect` (`Data`, `Duration`, `Effect`, `Schema`), `@rasm/ts/kernel` (`Budget`, `FaultClass`).
+- Packages: `@effect/workflow` (`DurableClock`, `DurableDeferred`, `Workflow`, `WorkflowEngine`), `effect` (`Duration`, `Effect`, `Schema`), `@rasm/ts/kernel` (`Budget`, `FaultClass`).
 
 ```typescript
-import { DurableClock, DurableDeferred, type WorkflowEngine } from "@effect/workflow"
+import { DurableClock, DurableDeferred, type Workflow, type WorkflowEngine } from "@effect/workflow"
 import { Budget, type FaultClass } from "@rasm/ts/kernel"
-import { Data, type Duration, Effect, type Schema } from "effect"
+import { Duration, Effect, Schema } from "effect"
 
-class GateLapse extends Data.TaggedError("GateLapse")<{
-  readonly gate: string
-  readonly window: Duration.DurationInput
-}> {
+class GateLapse extends Schema.TaggedError<GateLapse>()("GateLapse", {
+  gate: Schema.NonEmptyString,
+  window: Schema.Duration,
+}) {
   get class(): FaultClass.Kind {
     return "expired"
   }
@@ -62,9 +62,9 @@ declare namespace Flow {
     readonly success: Schema.Schema<A, AI>
     readonly error: Schema.Schema<E, EI>
   }
-  type Gate<A, E> = {
-    readonly deferred: DurableDeferred.DurableDeferred<A, E>
-    readonly token: (executionId: string) => DurableDeferred.Token
+  type Gate<A, AI, E, EI> = {
+    readonly deferred: DurableDeferred.DurableDeferred<Schema.Schema<A, AI>, Schema.Schema<E, EI>>
+    readonly token: (workflow: Workflow.Any, executionId: string) => DurableDeferred.Token
     readonly sealed: (
       window: Duration.DurationInput,
     ) => Effect.Effect<A, E | GateLapse, WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance>
@@ -72,17 +72,17 @@ declare namespace Flow {
   type Lapse = GateLapse
 }
 
-const _gate = <A, AI, E, EI>(name: string, shapes: Flow.Shapes<A, AI, E, EI>): Flow.Gate<A, E> => {
+const _gate = <A, AI, E, EI>(name: string, shapes: Flow.Shapes<A, AI, E, EI>): Flow.Gate<A, AI, E, EI> => {
   const deferred = DurableDeferred.make(`${name}/signal`, shapes)
   return {
     deferred,
-    token: (executionId) => DurableDeferred.tokenFromExecutionId(deferred, executionId),
+    token: (workflow, executionId) => DurableDeferred.tokenFromExecutionId(deferred, { workflow, executionId }),
     sealed: (window) =>
-      Effect.race(
+      Effect.raceFirst(
         DurableDeferred.await(deferred),
         Effect.zipRight(
           DurableClock.sleep({ name: `${name}/expiry`, duration: window }),
-          Effect.fail(new GateLapse({ gate: name, window })),
+          Effect.fail(new GateLapse({ gate: name, window: Duration.decode(window) })),
         ),
       ),
   }
@@ -90,7 +90,7 @@ const _gate = <A, AI, E, EI>(name: string, shapes: Flow.Shapes<A, AI, E, EI>): F
 
 const Flow: {
   readonly pulse: Budget.Gated
-  readonly gate: <A, AI, E, EI>(name: string, shapes: Flow.Shapes<A, AI, E, EI>) => Flow.Gate<A, E>
+  readonly gate: <A, AI, E, EI>(name: string, shapes: Flow.Shapes<A, AI, E, EI>) => Flow.Gate<A, AI, E, EI>
 } = {
   pulse: Budget.schedule("lease"),
   gate: _gate,

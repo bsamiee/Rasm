@@ -25,7 +25,7 @@ import { FaultClass, Refined } from "@rasm/ts/kernel"
 import { ApiKey, Jwt } from "@rasm/ts/security"
 import { Propagation } from "@rasm/ts/telemetry"
 import { HttpApiMiddleware, HttpServerRequest } from "@effect/platform"
-import { Array, Context, DateTime, Deferred, Duration, Effect, HashMap, Layer, Option, Order, RateLimiter, Redacted, Ref, Schema, type Scope, pipe } from "effect"
+import { Array, Context, DateTime, Deferred, Duration, Effect, HashMap, Layer, Number, Option, Order, RateLimiter, Redacted, Ref, Schema, type Scope, pipe } from "effect"
 
 const _reasons = ["unauthorized", "forbidden", "shed", "rate", "conflict"] as const
 
@@ -71,13 +71,6 @@ class GateFault extends Schema.TaggedError<GateFault>()("GateFault", {
 - Packages: `effect` (`Context`, `Option`, `Schema`, `Array`, `Order`); `kernel/schema/brand` (`Refined.Locale`); `telemetry/otlp/context` (`Propagation`).
 
 ```typescript
-const _Mark = Schema.Struct({
-  id: Schema.NonEmptyString,
-  at: Schema.DateTimeUtcFromSelf,
-  tenant: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-  locale: Schema.optionalWith(Refined.Locale, { as: "Option" }),
-})
-
 const _byWeight: Order.Order<readonly [string, number]> = Order.mapInput(Order.reverse(Order.number), (pair: readonly [string, number]) => pair[1])
 
 const _negotiate = (header: Option.Option<string>, fallback: Refined.Locale): Refined.Locale =>
@@ -87,7 +80,9 @@ const _negotiate = (header: Option.Option<string>, fallback: Refined.Locale): Re
     Array.filterMap((part) => {
       const [tag, weight] = part.split(";q=")
       const trimmed = (tag ?? "").trim()
-      return trimmed.length === 0 ? Option.none() : Option.some([trimmed, Number(weight ?? "1")] as const)
+      return trimmed.length === 0
+        ? Option.none()
+        : Option.some([trimmed, Option.getOrElse(Number.parse(weight ?? "1"), () => 0)] as const)
     }),
     Array.sort(_byWeight),
     Array.filterMap(([tag]) => Option.getRight(Schema.decodeUnknownEither(Refined.Locale)(tag))),
@@ -96,7 +91,7 @@ const _negotiate = (header: Option.Option<string>, fallback: Refined.Locale): Re
   )
 
 class _Stamp extends Context.Reference<_Stamp>()("edge/api/Current/Stamp", {
-  defaultValue: () => Option.none<typeof _Mark.Type>(),
+  defaultValue: () => Option.none<Current.Mark>(),
 }) {}
 
 class _Tenant extends Context.Reference<_Tenant>()("edge/api/Current/Tenant", {
@@ -107,7 +102,7 @@ class _Locale extends Context.Reference<_Locale>()("edge/api/Current/Locale", {
   defaultValue: () => Schema.decodeUnknownSync(Refined.Locale)("en"),
 }) {}
 
-const _provide = <A, E, R>(self: Effect.Effect<A, E, R>, mark: typeof _Mark.Type, fallback: Refined.Locale): Effect.Effect<A, E, R> =>
+const _provide = <A, E, R>(self: Effect.Effect<A, E, R>, mark: Current.Mark, fallback: Refined.Locale): Effect.Effect<A, E, R> =>
   self.pipe(
     Effect.provideService(_Stamp, Option.some(mark)),
     Effect.provideService(_Tenant, mark.tenant),
@@ -134,7 +129,12 @@ const Current: {
 }
 
 declare namespace Current {
-  type Mark = typeof _Mark.Type
+  type Mark = {
+    readonly id: string
+    readonly at: DateTime.Utc
+    readonly tenant: Option.Option<string>
+    readonly locale: Option.Option<Refined.Locale>
+  }
 }
 ```
 
@@ -259,7 +259,7 @@ declare namespace Idempotency {
 - Owner: `Gate` — the pressure transformer family assembled with the shield rows under one export: `Gate.shed` brackets a section under an in-flight cap whose refusal is immediate (`withPermitsIfAvailable` settling `Option.none` under saturation → `shed` with the declared grace), `Gate.window` prices calls against a scoped in-process `RateLimiter.make` row, and `Gate.fenced` consumes the store-backed experimental limiter Tag for a fleet-wide quota (`onExceeded: "fail"` surfacing the evidence this row re-spells as `rate` with the truthful `retryAfter`).
 - Law: permits bound concurrency and windows bound throughput — `shed` is the queue-depth 503 lever (a saturated cap answers now, never parks a caller into a timeout), `window`/`fenced` are the 429 levers — and conflating the two axes is the named selection error; both stamp `retryAfter` from their own measured window.
 - Law: policy is one value row — `Gate.Pressure` carries `inFlight`, `grace`, and the window fields; an app tunes pressure by constructing the row, never by threading knobs into transformers — and the scoped constructors mean one gate value serves every call site of a surface.
-- Law: the distributed row is port-shaped by Layer — `Gate.fenced` types against the experimental `RateLimiter.RateLimiter` Tag; the app root satisfies it with `layerStoreMemory` on one node or a store-backed Layer on a fleet, so the fleet-quota decision is a root selection, never an edge rewrite. Webhook intake quota is NOT this row — it types against `hook/admit.ts`'s `QuotaGate` port.
+- Law: the distributed row is port-shaped by Layer — `Gate.fenced` types against the experimental `RateLimiter.RateLimiter` Tag; the app root satisfies it with `layerStoreMemory` on one node or a store-backed Layer on a fleet, so the fleet-quota decision is a root selection, never an edge rewrite. Both limiter faults share the `RateLimiterError` tag, so the fold discriminates on the `reason` literal — `Exceeded` re-spells as `rate` carrying the limiter's own `retryAfter`, `StoreError` dies as a defect because a broken quota backend is never a caller 429. Webhook intake quota is NOT this row — it types against `hook/admit.ts`'s `QuotaGate` port.
 
 [SHIELD_ROWS]:
 - Law: CORS is delegated, never re-implemented — the app assembly composes `HttpApiBuilder.middlewareCors(options)` directly with the options row as its one policy value; no `Gate` member renames it, because a forwarding member would be the one-hop wrapper the platform surface already owns.
@@ -310,12 +310,10 @@ const Gate = {
   fenced: <A, E, R>(self: Effect.Effect<A, E, R>, key: string, pressure: Gate.Pressure): Effect.Effect<A, GateFault | E, R | FleetLimiter.RateLimiter> =>
     Effect.flatMap(FleetLimiter.RateLimiter, (limiter) =>
       limiter.consume({ key, window: pressure.window.interval, limit: pressure.window.limit, onExceeded: "fail" }).pipe(
-        Effect.mapError((fault) =>
-          new GateFault({
-            reason: "rate",
-            detail: key,
-            retryAfter: fault._tag === "RateLimitExceeded" ? Option.some(fault.retryAfter) : Option.none(),
-          })),
+        Effect.catchAll((fault) =>
+          fault.reason === "Exceeded"
+            ? Effect.fail(new GateFault({ reason: "rate", detail: key, retryAfter: Option.some(fault.retryAfter) }))
+            : Effect.die(fault)),
         Effect.zipRight(self),
       )),
 } as const

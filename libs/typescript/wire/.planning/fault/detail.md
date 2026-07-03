@@ -79,14 +79,15 @@ const Hops: Hops.Shape = {
 - Growth: a new evidence axis (span identity, quota coordinate) is one field on `FaultDetail` plus its wire twin field — the C# shape moves first, this reconstruction follows field-for-field.
 - Law: wire-only altitude (invariant 6) — `FaultDetail` is constructed at exactly two sites: the `FromWire` decode of a C#-minted payload and the `fromConnect` fold over a transport error. A third construction site anywhere in the branch is the defect the architecture suite audits.
 - Law: the fold is total — `ConnectError.from` normalizes any caught value (an `AbortError`/`TimeoutError` lands as `Canceled`), `Hops.fromCode` maps the closed enum with `unknown` as the residue row, and `findDetails` against the `FaultDetailWire` descriptor decodes a server-attached detail whose hop chain merges ahead of the local edge hop; no `if` ladder inspects codes.
-- Law: `EnricherLive` satisfies the kernel-declared `FaultEnricher` Tag with this module's reconstruction — telemetry consumes the contract, wire provides the Layer at the app root, and the `telemetry -> wire` import stays structurally impossible.
+- Law: `EnricherLive` satisfies the kernel `FaultEnricher` endo-arrow — capture in, enriched capture out, error channel `never` — telemetry consumes the contract, wire provides the Layer at the app root, and the `telemetry -> wire` import stays structurally impossible; a capture whose `tag` is not `FaultDetail` passes through untouched, so enrichment degrades to identity and can never break crash capture.
+- Law: the enrichment parses only this module's own derived message spelling — `<surface:reason>` is the format `message` mints, so `_reasonOf` recovers the hop reason from a wire-tagged capture's detail with one owner on both sides; the recovered reason lands the `wire.reason`/`wire.retryable`/`wire.terminal` attribute rows telemetry's bounded dimensions never read (identifier-grade band data by the kernel's own law).
 - Law: policy is a projection — `retryable` reads `Hops`; `message` derives from fields and is never stored.
 - Boundary: `ConnectError`/`Code`/`findDetails` spellings are the `@connectrpc/connect` surface; the invocation seam that catches them is `invoke/client.ts`; the `FaultDetailWire` generated schema and its descriptor-option vocabulary hook live at `codec/proto.ts`; the `FaultEnricher` Tag declaration is `kernel/fault/classify`.
 
 ```typescript
 import { Code, ConnectError } from "@connectrpc/connect"
 import { FaultEnricher } from "@rasm/ts/kernel"
-import { Array, Duration, Layer, Option, Schema } from "effect"
+import { Array, Duration, Effect, Layer, Option, Schema } from "effect"
 import { ProtoCodec } from "../codec/proto.ts"
 
 class Hop extends Schema.Class<Hop>("Hop")({
@@ -97,6 +98,14 @@ class Hop extends Schema.Class<Hop>("Hop")({
 
 const _edge = (error: ConnectError): Hop =>
   new Hop({ site: "<local-edge>", reason: Hops.fromCode(error.code), elapsed: Duration.zero })
+
+const _SPELLING = /^<[^:>]+:([a-z]+)>/
+
+const _reasonOf = (detail: string): Option.Option<Hops.Reason> =>
+  Option.filter(
+    Option.fromNullable(_SPELLING.exec(detail)?.[1]),
+    (token): token is Hops.Reason => token in _hops,
+  )
 
 class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
   reason: Hops.wire,
@@ -127,7 +136,22 @@ class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
   }
   static readonly EnricherLive: Layer.Layer<FaultEnricher> = Layer.succeed(
     FaultEnricher,
-    FaultEnricher.of({ enrich: (caught: unknown) => FaultDetail.fromConnect(caught) }),
+    FaultEnricher.of({
+      enrich: (capture) =>
+        Effect.succeed(
+          capture.tag === "FaultDetail"
+            ? Option.match(_reasonOf(capture.detail), {
+                onNone: () => capture,
+                onSome: (reason) =>
+                  capture.enriched({
+                    "wire.reason": reason,
+                    "wire.retryable": String(_hops[reason].retryable),
+                    "wire.terminal": String(_hops[reason].terminal),
+                  }),
+              })
+            : capture,
+        ),
+    }),
   )
   get retryable(): boolean {
     return Hops[this.reason].retryable

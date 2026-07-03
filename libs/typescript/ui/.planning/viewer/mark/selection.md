@@ -13,17 +13,20 @@
 ## [2]-[SELECTION_FOLD]
 
 - Owner: `Selection` — the op-driven fold: `Selection.Op` is a closed `Data.taggedEnum` and `Selection.step(set, op)` the total fold (`Match`-free — each arm is one `HashSet` combinator); the live atom is `History.make(HashSet.empty())` so undo/redo is construction, with writes minting `History.Op.Push` over the stepped set and the `present` projection feeding every consumer.
-- Packages: `effect` (`HashSet`, `Data`), `@rasm/ts/kernel` (`GlobalId` — the brand is `Equal`-stable so set membership is structural), `atom/derive` (`History`).
+- Packages: `effect` (`HashSet`, `Data`), `@rasm/ts/wire/vocab` (`Bcf` — the `GlobalId` brand is wire-interior, so the element type derives as `_Viewpoint["selection"][number]`; the brand string is `Equal`-stable so set membership is structural), `atom/derive` (`History`).
 - Law: ops are the only writes — a marquee, a click, a BCF viewpoint restore, and a table row toggle all mint `Selection.Op` values; no consumer holds a second set or mutates through any other path.
 - Law: modality lives in the op value — click maps to `Toggle` (with modifier policy deciding `Replace` vs `Toggle` at the interaction row), marquee maps to `Add` or `Replace`, viewpoint restore maps to `Replace` — never a boolean knob on the fold.
 - Growth: a new set behavior (invert, filter-to-visible) is one op case plus one fold arm.
 
 ```typescript
-import { GlobalId } from "@rasm/ts/kernel"
-import { Data, HashSet } from "effect"
+import type { Bcf } from "@rasm/ts/wire/vocab"
+import { Data, HashSet, type Schema } from "effect"
+
+type GlobalId = Schema.Schema.Type<typeof Bcf.Viewpoint>["selection"][number]
 
 declare namespace Selection {
   type Set = HashSet.HashSet<GlobalId>
+  type Decode = (raw: unknown) => Option.Option<GlobalId>
   type Op = Data.TaggedEnum<{
     Replace: { readonly ids: ReadonlyArray<GlobalId> }
     Add: { readonly ids: ReadonlyArray<GlobalId> }
@@ -47,31 +50,32 @@ const _step = (set: Selection.Set, op: Selection.Op): Selection.Set =>
 
 ## [3]-[PICK_PIPES]
 
-- Law: every pipe resolves to `GlobalId` at its own seam — deck: `pickObjectsAsync({ x, y, width, height })` (the WebGPU-safe async pair; the deprecated sync mirrors never appear) yields `PickingInfo` whose `object` is a GeoArrow `StructRowProxy` or a feature — the pipe reads the id column/property and decodes through the `GlobalId` schema; three: `Raycaster.setFromCamera` + `intersectObjects` over the residency graph, resolving hit `Object3D`s through the graft ledger's key mapping (mesh content key → element ids arrive with the manifest); maplibre: `queryRenderedFeatures(pointOrBox)` reading the feature's id property — one resolution law, three seams.
+- Law: every pipe resolves to `GlobalId` at its own seam through ONE app-wired `Selection.Decode` — the brand schema is `wire`-interior today, so the decoder value arrives as a parameter composed from `wire#vocab` and a locally-minted brand is the cross-language re-brand defect (RESEARCH: the decodable `GlobalId` export row on the `wire` vocab is the open cross-folder item); deck: `pickObjectsAsync({ x, y, width, height })` (the WebGPU-safe async pair; the deprecated sync mirrors never appear) yields `PickingInfo` whose `object` is a GeoArrow `StructRowProxy` or a feature — the pipe reads the id column/property and decodes; three: `Raycaster.setFromCamera` + `intersectObjects` over the residency graph, resolving hit `Object3D`s through the graft ledger's key mapping (mesh content key → element ids arrive with the manifest); maplibre: `queryRenderedFeatures(pointOrBox)` reading the feature's id property — one resolution law, three seams.
 - Law: an unresolvable hit is absence, not a fault — a pick over empty space or a feature without the id property folds to `Option.none` and the op simply carries fewer ids; picking never mints faults.
 - Law: lasso is planar compute — a freehand polygon hit-tests through `booleanPointInPolygon` against feature centroids with a `geojsonRbush` index making many-feature scenes sub-linear (`search(bbox)` prunes before the exact test); the index builds once per feature-set change, held in a derived atom.
 - Boundary: the gesture that draws the marquee/lasso is `act/gesture`'s; the pixel→world math is `viewer/geo/project`'s; which surfaces are pickable is the owning layer's `pickable` row.
 
 ```typescript
 import type { Deck, PickingInfo } from "@deck.gl/core"
-import { GlobalId } from "@rasm/ts/kernel"
-import { Array, Effect, Option, Predicate, Schema } from "effect"
+import { Array, Effect, Option, Predicate } from "effect"
 
-const _decodeId = Schema.decodeUnknownOption(GlobalId)
+const _MARQUEE = { cap: 4096 } as const
 
-const _fromInfo = (info: PickingInfo): Option.Option<GlobalId> =>
-  Option.fromNullable(info.object).pipe(
-    Option.filter(Predicate.hasProperty("globalId")),
-    Option.flatMap((row) => _decodeId(row.globalId)),
-  )
+const _fromInfo = (decode: Selection.Decode) =>
+  (info: PickingInfo): Option.Option<GlobalId> =>
+    Option.fromNullable(info.object).pipe(
+      Option.filter(Predicate.hasProperty("globalId")),
+      Option.flatMap((row) => decode(row.globalId)),
+    )
 
 const _marquee = (
   deck: Deck,
+  decode: Selection.Decode,
   box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number },
 ): Effect.Effect<ReadonlyArray<GlobalId>> =>
   Effect.map(
-    Effect.promise(() => deck.pickObjectsAsync({ ...box, maxObjects: 4096 })),
-    (hits) => Array.getSomes(Array.map(hits, _fromInfo)),
+    Effect.promise(() => deck.pickObjectsAsync({ ...box, maxObjects: _MARQUEE.cap })),
+    (hits) => Array.getSomes(Array.map(hits, _fromInfo(decode))),
   )
 ```
 

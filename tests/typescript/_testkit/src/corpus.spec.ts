@@ -30,6 +30,7 @@ const _scratchCorpus = Effect.gen(function* () {
     yield* fs.writeFile(path.join(scratch, 'alpha', 'echo.bin'), _ECHO_BYTES);
     yield* fs.writeFileString(path.join(scratch, 'alpha', 'echo.json'), _ECHO_JSON);
     yield* fs.writeFileString(path.join(scratch, 'beta', 'NOTES.md'), 'stray non-asset file');
+    yield* fs.writeFileString(path.join(scratch, 'beta', '.bin'), 'extension-only dotfile stray');
     yield* fs.writeFileString(path.join(scratch, 'gamma'), 'a seam path occupied by a file, not a directory');
     return scratch;
 });
@@ -88,6 +89,24 @@ layer(NodeContext.layer)('corpus', (it) => {
         ),
     );
 
+    it.effect('a duplicated fixture name refuses typed: a shadowed ledger row is never silently last-wins', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const scratch = yield* fs.makeTempDirectoryScoped();
+                const twice = [
+                    '| [01] | TWIN_ONE | `alpha` | `csharp:Owner/emit` | `wire-bytes` | REAL |',
+                    '| [02] | TWIN_ONE | `beta` | `csharp:Owner/emit` | `wire-bytes` | DESIGN-PIN |',
+                ].join('\n');
+                yield* fs.writeFileString(path.join(scratch, 'MANIFEST.md'), twice);
+                const fault = yield* Effect.flip(Effect.provideService(Corpus.manifest, CorpusRoot, scratch));
+                expect(fault.reason).toBe('malformed');
+                expect(fault.detail).toContain('duplicate');
+            }),
+        ),
+    );
+
     it.effect('an emitted pair loads its frozen bytes and canonical JSON through the reader', () =>
         Effect.scoped(
             Effect.gen(function* () {
@@ -103,7 +122,7 @@ layer(NodeContext.layer)('corpus', (it) => {
         ),
     );
 
-    it.effect('a stray non-asset file never mints a vacuous Emitted: the pin still decides', () =>
+    it.effect('a stray non-asset file or an extension-only dotfile never mints a vacuous Emitted: the pin still decides', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const scratch = yield* _scratchCorpus;

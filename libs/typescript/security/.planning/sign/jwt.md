@@ -80,10 +80,10 @@ class JwtFault extends Schema.TaggedError<JwtFault>()("JwtFault", {
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-const _reasonOf = (cause: unknown): JwtFault.Reason => {
-  const code = (cause as { readonly code?: string }).code
-  return code !== undefined && code in _codeReason ? _codeReason[code as keyof typeof _codeReason] : "malformed"
-}
+const _codes: Record<string, JwtFault.Reason | undefined> = _codeReason
+
+const _reasonOf = (cause: unknown): JwtFault.Reason =>
+  Predicate.hasProperty(cause, "code") && Predicate.isString(cause.code) ? (_codes[cause.code] ?? "malformed") : "malformed"
 ```
 
 ## [3]-[MINT_AND_VERIFY]
@@ -104,7 +104,7 @@ class Jwt extends Effect.Service<Jwt>()("security/sign/Jwt", {
     const audience = yield* Config.string("JWT_AUDIENCE")
     const tolerance = yield* Config.integer("JWT_CLOCK_TOLERANCE").pipe(Config.withDefault(5))
     const signingPem = yield* Config.redacted("JWT_SIGNING_KEY")
-    const signingAlg = yield* Config.literal("ES256", "ES384", "RS256", "EdDSA")("JWT_SIGNING_ALG").pipe(Config.withDefault<KeyAlg.Kind>("ES256"))
+    const signingAlg = yield* Config.literal(...Struct.keys(KeyAlg))("JWT_SIGNING_ALG").pipe(Config.withDefault("ES256" as const))
     const rawJwks = yield* Config.redacted("JWT_JWKS")
     const jwks = yield* Effect.try({ try: () => JSON.parse(Redacted.value(rawJwks)) as JSONWebKeySet, catch: (cause) => new JwtFault({ reason: "malformed", detail: String(cause) }) })
     const ring: Ring = yield* material.ring({ signingPem, signingAlg, jwks })
@@ -118,7 +118,7 @@ class Jwt extends Effect.Service<Jwt>()("security/sign/Jwt", {
         const exp = Math.floor(DateTime.toEpochMillis(now) / 1000) + Math.max(1, Math.round(Duration.toSeconds(Duration.decode(ttl))))
         const token = yield* Effect.tryPromise({
           try: () =>
-            new SignJWT({ sid: claims.sid, scope: claims.scope, tid: Option.getOrUndefined(claims.tid) })
+            new SignJWT({ sid: claims.sid, scope: claims.scope, ...(Option.isSome(claims.tid) && { tid: claims.tid.value }) })
               .setProtectedHeader({ alg: ring.active.alg, kid: ring.active.kid })
               .setIssuedAt().setIssuer(issuer).setAudience(audience).setSubject(claims.sub).setExpirationTime(exp)
               .sign(Redacted.value(ring.active.key)),

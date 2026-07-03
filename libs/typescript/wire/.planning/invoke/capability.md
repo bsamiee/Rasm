@@ -14,7 +14,7 @@
 - Owner: `CapabilityDescriptor` — the decoded capability identity: name, the emitted service's qualified name, the content key of the command shape, the mint instant; and the admission static that compares the runtime-shipped descriptor key against the build-pinned one.
 - Entry: `CapabilityDescriptor.admit(octets, pinned)` — decode plus key gate: a diverging key refuses with `parity` evidence carrying both keys, because a capability whose command shape moved is a different capability, not a version of the same one.
 - Growth: a new capability is a new emitted descriptor plus its generated service — this module's shapes are capability-agnostic and never enumerate capabilities.
-- Law: content-keyed admission (AH:52) — the key covers the command shape's canonical bytes; equality proves the TS SDK and the C# host hold one contract, and the check runs once at bind time, never per call.
+- Law: content-keyed admission (AH:52) — the key covers the command shape's canonical bytes; branded-key equality is bare `===` under the kernel's one mint, it proves the TS SDK and the C# host hold one contract, and the check runs once at bind time, never per call.
 - Boundary: the emitted `_pb.ts` service consts are build artifacts imported by the app's capability modules; the descriptor wire family is census row `CapabilityDescriptorWire`.
 
 ```typescript
@@ -33,7 +33,7 @@ class CapabilityDescriptor extends Schema.Class<CapabilityDescriptor>("Capabilit
   static readonly admit = (octets: Uint8Array, pinned: ContentKey): Effect.Effect<CapabilityDescriptor, ParseResult.ParseError | WireFault> =>
     Effect.gen(function* () {
       const descriptor = yield* Schema.decodeUnknown(CapabilityDescriptor.FromBytes)(octets)
-      return ContentKey.same(descriptor.key, pinned)
+      return descriptor.key === pinned
         ? descriptor
         : yield* new WireFault({
             family: "CapabilityDescriptorWire",
@@ -48,21 +48,22 @@ class CapabilityDescriptor extends Schema.Class<CapabilityDescriptor>("Capabilit
 ## [3]-[SDK_BIND]
 
 - Owner: `Capability` — the SDK derivation: the `Sdk<T>` mapped type computing every method's Effect signature from the promise `Client<T>`, and the bind fold that walks `service.methods` by `methodKind`, wrapping each through `Invoke`'s lifts; per-method budgets arrive as an optional row table keyed by the method's `localName`.
-- Entry: `Capability.bind(service, budgets?)` — `Effect<Sdk<T>, never, Invoke>`: one call derives the whole typed SDK; a method with a budget row composes `Invoke.retrying` around its lift, a method without one never retries (the safe default for non-idempotent verbs).
+- Entry: `Capability.bind(service, budgets?)` — `Effect<Sdk<T>, WireFault, Invoke>`: one call derives the whole typed SDK; a method with a budget row composes the client page's `retrying` transformer around its lift, a method without one never retries (the safe default for non-idempotent verbs).
 - Receipt: the SDK is the capability's whole callable surface — every method typed by the descriptor, every failure a `FaultDetail`; a hand-authored client method beside it is the drift defect the emit exists to kill.
 - Growth: a new method on the emitted service appears in the SDK at regeneration with zero edits here; a method gaining idempotency is one budget row at the caller.
 - Law: the derivation is kind-total over the shipped axis — `unary` and `server_streaming` bind; `client_streaming` and `bidi_streaming` refuse at bind time as drift evidence because the C# emitter does not mint them, and silence over an unbindable method would strand its caller at runtime.
 - Law: signatures are computed, never restated — `Sdk<T>` maps `Client<T>`'s own member types into Effect carriers, so the SDK's type surface derives from the same descriptor the runtime binds; a parallel interface for a capability is the second-truth defect.
 - Law: budgets attach at bind, visible in one table — retry policy per method is a value the binding call states; policy woven into call sites is unrecoverable and rejected.
-- Boundary: the lifts, the fault fold, and the schedule compiler are `invoke/client.ts`'s; the `Client<T>` member shapes are `@connectrpc/connect`'s derivation; budget rows are `kernel/fault/budget` vocabulary.
+- Law: the terminal `Object.fromEntries` assembly is the page's one sanctioned assertion site — the mapped `Sdk<T>` type computes from `Client<T>` while the runtime record builds from the descriptor's own `methods` walk; the two derive from one descriptor, the assertion states that correspondence where the checker cannot carry it, and the implementer confines it to this construction under the `// BOUNDARY ADAPTER` mark.
+- Boundary: the lifts, the fault fold, and the `retrying` transformer are `invoke/client.ts`'s; the `Client<T>` member shapes are `@connectrpc/connect`'s derivation; the `Budget` row is `kernel/fault` vocabulary.
 
 ```typescript
 import type { Client } from "@connectrpc/connect"
 import type { DescService } from "@bufbuild/protobuf"
-import { Budget } from "@rasm/ts/kernel"
+import type { Budget } from "@rasm/ts/kernel"
 import { Effect, Stream } from "effect"
 import type { FaultDetail } from "../fault/detail.ts"
-import { Invoke } from "./client.ts"
+import { Invoke, retrying } from "./client.ts"
 
 declare namespace Capability {
   type Sdk<T extends DescService> = {
@@ -91,7 +92,7 @@ const Capability: {
               (input: unknown) => {
                 const call = invoke.unary((signal, headers) => client[method.localName](input, { signal, headers }))
                 const budget = budgets?.[method.localName]
-                return budget === undefined ? call : Invoke.retrying(call, budget)
+                return budget === undefined ? call : retrying(call, budget)
               },
             ] as const)
           : method.methodKind === "server_streaming"
@@ -116,5 +117,3 @@ const Capability: {
 
 export { Capability }
 ```
-
-The terminal `Object.fromEntries` assembly is the page's one sanctioned assertion site: the mapped `Sdk<T>` type is computed from `Client<T>` while the runtime record is built from the descriptor's own `methods` walk — the two derive from one descriptor, and the assertion states that correspondence where the checker cannot carry it. The implementer confines it to this construction with the `// BOUNDARY ADAPTER` mark.

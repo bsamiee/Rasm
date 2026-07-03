@@ -14,8 +14,8 @@ The data plane of the `selfhosted-k8s` arm: the object-store row (`ObjectStore` 
 
 [OBJECT_STORE]:
 - Owner: `ObjectStore` — the interior `_engines` table keyed by the profile's `minio | garage` literal, each row carrying the chart coordinates and a `values` column that folds root credentials, persistence size, and the provisioned bucket into that chart's own value dialect; the tier realizes one `helm.v4.Chart` from the selected row and projects `endpoint` and `bucket`.
-- Law: the engine choice is data — one profile field selects the row, both engines expose one S3-compatible seam, and a third engine is one row whose `values` column speaks its dialect; engine-specific branches outside the row are the named defect.
-- Law: credentials are Doppler-first — the root user/password mint through `Secrets` entries and arrive here as in-graph reads; chart values receive them as `Output`s, and the endpoint published to `StackOutputs` carries no credential.
+- Law: the engine choice is data — one profile field selects the row, both engines expose one S3-compatible seam, and a third engine is one row whose `values` column speaks its dialect; the `_Rows` guard proves the table total over `StackSpec`'s engine union at the declaration, and engine-specific branches outside the row are the named defect.
+- Law: credentials are Doppler-first — the root user/password mint through `Secrets` entries and arrive here as in-graph reads; chart values receive them as `Output`s, the same pair lands in one namespace `Secret` (`ACCESS_KEY_ID`/`SECRET_ACCESS_KEY`) exposed as `credentials` — the sink the CNPG barman rows reference — and the endpoint published to `StackOutputs` carries no credential.
 - Law: the endpoint is a row-owned convention — the in-cluster service DNS derives from release name and namespace on the engine row, centralizing the pinned chart's naming so a chart bump edits one projection; `verify`/`version` pin chart provenance per run.
 - Entry: `new ObjectStore("objects", { spec, namespace, version, auth }, opts)`; `objects.endpoint`/`objects.bucket` feed the CNPG backup block and `StackOutputs.object`.
 - Growth: one `_engines` row per engine; one `values` key per new chart fact.
@@ -36,6 +36,12 @@ declare namespace ObjectStore {
     readonly version: pulumi.Input<string>
     readonly auth: Auth
   }
+  type _Rows<T extends Record<StackSpec.Profile["objectEngine"], {
+    readonly chart: string
+    readonly repo: string
+    readonly values: (auth: Auth, size: string, bucket: string) => Record<string, unknown>
+    readonly endpoint: (release: string, namespace: pulumi.Input<string>) => pulumi.Output<string>
+  }> = typeof _engines> = T
 }
 
 const _engines = {
@@ -65,6 +71,7 @@ const _engines = {
 class ObjectStore extends Tier {
   readonly endpoint: pulumi.Output<string>
   readonly bucket: string
+  readonly credentials: k8s.core.v1.Secret
   constructor(name: string, args: ObjectStore.Args, opts?: pulumi.ComponentResourceOptions) {
     super("ObjectStore", name, opts)
     const engine = _engines[args.spec.profile.objectEngine]
@@ -76,6 +83,10 @@ class ObjectStore extends Tier {
       namespace: args.namespace,
       values: engine.values(args.auth, args.spec.profile.data.storage, this.bucket),
     }, this.child())
+    this.credentials = new k8s.core.v1.Secret(`${name}-auth`, {
+      metadata: { namespace: args.namespace },
+      stringData: { ACCESS_KEY_ID: args.auth.user, SECRET_ACCESS_KEY: args.auth.password },
+    }, this.child())
     this.endpoint = engine.endpoint(name, args.namespace)
     this.seal({ endpoint: this.endpoint, bucket: this.bucket })
   }
@@ -85,10 +96,10 @@ class ObjectStore extends Tier {
 ## [3]-[CNPG_CLUSTER]
 
 [CNPG_CLUSTER]:
-- Owner: `Postgres` — the CNPG operator installs as one `helm.v4.Chart` (typed values, `skipCrds` false so the CRDs ride the chart), the cluster is one `apiextensions.CustomResource` (`apiVersion: "postgresql.cnpg.io/v1"`, `kind: "Cluster"`) whose spec carries `instances` and `storage` from the profile, `imageName` as the PG18.4-extension image ref, and `backup.barmanObjectStore` aimed at the `ObjectStore` endpoint with the profile's `retention`; a second `CustomResource` (`kind: "ScheduledBackup"`) drives the profile's `backupCron`, closing scheduled-backup plus PITR on one object-store destination.
+- Owner: `Postgres` — the CNPG operator installs as one `helm.v4.Chart` (typed values, `skipCrds` false so the CRDs ride the chart), the cluster is one `apiextensions.CustomResource` (`apiVersion: "postgresql.cnpg.io/v1"`, `kind: "Cluster"`) whose spec carries `instances` and `storage` from the profile, `imageName` as the PG18.4-extension image ref, and `backup.barmanObjectStore` aimed at the `ObjectStore` endpoint with the profile's `retention` and authenticated by the object tier's `credentials` secret rows; a second `CustomResource` (`kind: "ScheduledBackup"`) drives the profile's `backupCron` — CNPG's six-field seconds-first cron, the dialect the spec default already speaks — closing scheduled-backup plus PITR on one object-store destination.
 - Law: the image realizes the matrix — `imageName` must carry every `Matrix.image` row (`{ extension, floor }` from `@rasm/ts/store`); the image ref is an argument (built and published out-of-band), conformance is proven twice — the extension rows below pin floors at DDL time, `store`'s capability probe verifies at startup — and an image missing a row fails the probe, never silently degrades.
 - Law: operator vocabulary rides the CR catch-all — CNPG spec fields beyond the carrier's typed `apiVersion`/`kind`/`metadata` travel the `CustomResourceArgs` index signature; their contract is the operator's own, versioned by the operator chart pin, and `protect: true` marks the cluster irreplaceable.
-- Law: the admin credential is ours, not the operator's — a `kubernetes.io/basic-auth` secret carries the Doppler-generated password and the CR's `superuserSecret`/`enableSuperuserAccess` rows point at it, so the `postgresql.Provider` connects with material the secret owner already governs and no operator-minted credential exists outside the rotation epoch.
+- Law: the admin credential is ours, not the operator's — a `kubernetes.io/basic-auth` secret carries the Doppler-generated `admin` entry and the CR's `superuserSecret`/`enableSuperuserAccess` rows point at it, so the `postgresql.Provider` connects with material the secret owner already governs and no operator-minted credential exists outside the rotation epoch; the admin and app credentials are two distinct Doppler entries by construction — one leaked app role never opens the cluster.
 - Law: the `-rw` host is a derivation — `pulumi.all([cluster.metadata, namespace])` projects `${name}-rw.${namespace}.svc`, the write-service DNS the CNPG operator maintains; that one `Output` is the host every logical resource binds and the `StackOutputs.data.host` value.
 - Entry: interior to `Postgres`; consumers read `postgres.host`, `postgres.database`, `postgres.role`.
 - Growth: a new operator fact (a pooler, a replica cluster) is one CR row on this tier.
@@ -100,13 +111,14 @@ import { Matrix } from "@rasm/ts/store"
 import { Array, Option } from "effect"
 
 declare namespace Postgres {
+  type Auth = { readonly admin: pulumi.Input<string>; readonly app: pulumi.Input<string> }
   type Args = {
     readonly spec: StackSpec
     readonly namespace: pulumi.Input<string>
     readonly image: pulumi.Input<string>
     readonly operatorVersion: pulumi.Input<string>
     readonly objects: ObjectStore
-    readonly password: pulumi.Input<string>
+    readonly auth: Auth
   }
 }
 
@@ -126,7 +138,7 @@ class Postgres extends Tier {
     const admin = new k8s.core.v1.Secret(`${name}-admin`, {
       metadata: { namespace: args.namespace },
       type: "kubernetes.io/basic-auth",
-      stringData: { username: "postgres", password: args.password },
+      stringData: { username: "postgres", password: args.auth.admin },
     }, this.child())
     const cluster = new k8s.apiextensions.CustomResource(name, {
       apiVersion: "postgresql.cnpg.io/v1",
@@ -143,6 +155,10 @@ class Postgres extends Tier {
           barmanObjectStore: {
             destinationPath: pulumi.interpolate`s3://${args.objects.bucket}/postgres`,
             endpointURL: args.objects.endpoint,
+            s3Credentials: {
+              accessKeyId: { name: args.objects.credentials.metadata.name, key: "ACCESS_KEY_ID" },
+              secretAccessKey: { name: args.objects.credentials.metadata.name, key: "SECRET_ACCESS_KEY" },
+            },
           },
         },
       },
@@ -157,7 +173,7 @@ class Postgres extends Tier {
       },
     }, this.child({ dependsOn: [cluster] }))
     this.host = pulumi.all([cluster.metadata, args.namespace]).apply(([meta, namespace]) => `${meta.name}-rw.${namespace}.svc`)
-    this.database = `${args.spec.app}`
+    this.database = args.spec.app
     this.role = `${args.spec.app}_app`
     _finalized(this, args, this.child({ dependsOn: [cluster] }))
     this.seal({ host: this.host, database: this.database, role: this.role })
@@ -168,7 +184,7 @@ class Postgres extends Tier {
 ## [4]-[APP_FINALIZE]
 
 [APP_FINALIZE]:
-- Law: finalization is one provider plus row folds — `_finalized` binds one `postgresql.Provider` to the `-rw` host (password from the Doppler read, `superuser: false` posture, `sslmode` per cluster policy), then constructs `Database` (owner-bound, `template0` base for a clean extension surface), `Role` (login, connection-limited, Doppler-sourced password), `Grant` (database-level connect/create/temporary), and one `Extension` per granted matrix row with `version` pinned to the row's floor.
+- Law: finalization is one provider plus row folds — `_finalized` binds one `postgresql.Provider` to the `-rw` host as the CNPG superuser the admin secret governs (`username: "postgres"`, the `admin` credential, `sslmode: "require"`; the bridge's `superuser` flag stays at its true default because the connecting role is one), then constructs `Database` (owner-bound, `template0` base for a clean extension surface), `Role` (login, connection-limited, its own Doppler-sourced `app` credential — never the admin entry), `Grant` (database-level connect/create/temporary), and one `Extension` per granted matrix row with `version` pinned to the row's floor.
 - Law: the profile subset proves against the matrix — every `profile.extensions` name resolves through `Array.findFirst` over `Matrix.rows` on the `extension` column; a name the matrix does not carry throws `pulumi.RunError` naming it, because an unproven extension is a spec defect, not a provider surprise.
 - Law: replace-on-change fields are create-time constants — `template`, `encoding`, and locale fields on `Database` never appear as mutable knobs; changing them is a new database by construction, and the CR's `protect` guards the cluster above it.
 - Law: reads feed drift, not logic — `getSchemas`/`getTables` are `policy/drift`'s read-back material; the finalize path constructs and never probes.
@@ -191,15 +207,14 @@ const _finalized = (owner: Postgres, args: Postgres.Args, child: pulumi.CustomRe
     host: owner.host,
     port: 5432,
     username: "postgres",
-    password: args.password,
+    password: args.auth.admin,
     sslmode: "require",
-    superuser: false,
   }, child)
   const bound = { ...child, provider }
   const role = new postgresql.Role(owner.role, {
     name: owner.role,
     login: true,
-    password: args.password,
+    password: args.auth.app,
     connectionLimit: 64,
   }, bound)
   const database = new postgresql.Database(owner.database, {

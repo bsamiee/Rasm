@@ -22,7 +22,7 @@
 
 ```typescript
 import { createServer } from "node:http"
-import { Etag, FileSystem, HttpApi, HttpApiBuilder, HttpServerRequest, HttpServerResponse, Path } from "@effect/platform"
+import { FileSystem, HttpApi, HttpApiBuilder, type HttpServerError, HttpServerRequest, HttpServerResponse, Path } from "@effect/platform"
 import { BunHttpServer } from "@effect/platform-bun"
 import { NodeHttpServer } from "@effect/platform-node"
 import { Config, type ConfigError, DateTime, Effect, Layer, Option, Struct } from "effect"
@@ -37,9 +37,10 @@ const _seam = <E, R>(
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
     const now = yield* DateTime.now
+    const id = yield* Effect.sync(() => crypto.randomUUID())
     const fallback = yield* Current.Locale
     const mark: Current.Mark = {
-      id: crypto.randomUUID(),
+      id,
       at: now,
       tenant: Option.none(),
       locale: Option.some(Current.negotiate(Option.fromNullable(request.headers["accept-language"]), fallback)),
@@ -51,7 +52,7 @@ const _seam = <E, R>(
   })
 
 const _engines = {
-  node: HttpApiBuilder.serve(_seam).pipe(Layer.provide(NodeHttpServer.layerConfig(() => createServer(), { port: _PORT })), Layer.provide(Etag.layer)),
+  node: HttpApiBuilder.serve(_seam).pipe(Layer.provide(NodeHttpServer.layerConfig(() => createServer(), { port: _PORT }))),
   bun: HttpApiBuilder.serve(_seam).pipe(Layer.provide(BunHttpServer.layerConfig({ port: _PORT }))),
 } as const
 
@@ -64,11 +65,11 @@ declare namespace Serve {
 
 [ASSET_ROW]:
 - Owner: `Serve.assets` — the SPA/static row as one request fold: resolve the request path under the asset root through the `Path` capability, serve the file when it exists, fall back to the SPA entry for every path-shaped miss (client-rendered routes hydrate from one entry), and stamp the cache row the fingerprint predicate selects.
-- Law: `_CACHE` is the cache-header table and `_FINGERPRINT` the predicate — a content-hashed filename (`app-3f9c2a1b.js`) is immutable for a year because its identity IS its content, the entry document and every un-fingerprinted path are `no-cache` because they are the mutable pointers INTO immutable content — two rows, total over every asset, with `Etag.layer` composed on the stack so conditional requests revalidate the mutable row for free.
+- Law: `_CACHE` is the cache-header table and `_FINGERPRINT` the predicate — a content-hashed filename (`app-3f9c2a1b.js`) is immutable for a year because its identity IS its content, the entry document and every un-fingerprinted path are `no-cache` because they are the mutable pointers INTO immutable content — two rows, total over every asset, with the `Etag.Generator` every engine's server Layer already carries revalidating the mutable row for free.
 - Law: traversal is structurally refused — the resolved target must remain under the root (the fold rejects any `..` segment before resolution), and refusal serves the SPA entry, never a distinct error that maps the filesystem for a probe.
 - Law: the prerender posture is served, not rendered — build-time per-route static HTML lands in the asset root and this row serves it byte-identical; a streaming-SSR runtime is the named non-goal, structurally unreachable because `react*` cannot resolve inside `scope:edge`.
 - Boundary: mounting is the app's — the asset app mounts beside the api under the app's router (`HttpRouter.mountApp` or the layer router); `browser` owns what the assets ARE (PWA shell, prerender output); this row owns only serving them.
-- Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
+- Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpServerRequest`, `HttpServerResponse`).
 
 ```typescript
 const _CACHE = {
@@ -106,7 +107,7 @@ const Serve: {
   readonly engines: typeof _engines
   readonly assets: typeof _assets
   readonly seam: typeof _seam
-  readonly stack: Layer.Layer<never, ConfigError.ConfigError, HttpApi.Api>
+  readonly stack: Layer.Layer<never, ConfigError.ConfigError | HttpServerError.ServeError, HttpApi.Api>
 } = {
   engines: _engines,
   assets: _assets,

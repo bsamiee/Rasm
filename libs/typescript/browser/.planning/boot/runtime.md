@@ -19,7 +19,7 @@
 - Law: `telemetry`'s OTel `Resource` and this boot stamp derive from the SAME `AppIdentity` value — one identity spine, so hundreds of apps emit and boot through one vocabulary and a per-app identity fork is structurally impossible.
 - Growth: a new budget axis is one `ceilings` field; a new feed fact is one field on the feed row.
 - Boundary: what each feed DOES is the owning folder's law (`wire` gateways, `store` feeds); this owner counts and types them.
-- Packages: `@rasm/ts/kernel` (`AppIdentity`); `@rasm/ts/host` (type `Client`); `effect` (`Schema`, `Duration`).
+- Packages: `@rasm/ts/kernel` (`AppIdentity`); `@rasm/ts/host` (type `Client`); `effect` (`Schema`).
 
 ```typescript
 import { BrowserRuntime } from "@effect/platform-browser"
@@ -58,7 +58,7 @@ declare namespace AppSpec {
 ## [3]-[SINGLE_BOOT]
 
 [SINGLE_BOOT]:
-- Owner: `Boot` — `Boot.Spec`, the Tag under which the constructed `AppSpec` reaches every service that earns a budget read; `Boot.main(spec, root, app)`, the one `BrowserRuntime.runMain` seam: the app effect annotated with the identity stamp, the spec provided beneath the app-selected root, and the requirement channel pinned to `never` at this line — an unwired Tag fails here at compile time, the wiring proof; `Boot.hydrated`, the prerender handoff read.
+- Owner: `Boot`, one `Context.Tag` class — the Tag itself is the spec slot, so a service that earns a budget read writes `yield* Boot` with zero second hop; `Boot.main(spec, root, app)`, the one `BrowserRuntime.runMain` seam riding it as a static: the app effect annotated with the identity stamp, the spec provided beneath the app-selected root, and the requirement channel pinned to `never` at this line — an unwired Tag fails here at compile time, the wiring proof; `Boot.hydrated`, the prerender handoff read.
 - Law: `main` is called exactly once per document, from the app's `main.ts`, and that module exports nothing — the empty surface is the structural proof it is terminal; every other module in the branch is barred from any `run*` call, and the pool's worker entry is the one sibling boot, its own thread's.
 - Law: the boot line is the only imperative seam — `runMain` installs error reporting and teardown wiring; `disableErrorReporting`/`disablePrettyLogger` stay default because crash visibility is a telemetry concern composed as Layers, never a boot flag.
 - Law: hydration is boot's law — the build emits per-route static HTML stamped with the `data-rasm-prerender` marker; `Boot.hydrated` reads the marker (`Option`-carried) so the app's mount takes over a prerendered document instead of re-rendering it, and a document without the marker is a cold client render; the marker read is this module's one DOM touch.
@@ -67,24 +67,17 @@ declare namespace AppSpec {
 - Packages: `@effect/platform-browser` (`BrowserRuntime`); `effect` (`Layer`, `Effect`, `Context`, `Option`).
 
 ```typescript
-class _Spec extends Context.Tag("browser/boot/AppSpec")<_Spec, AppSpec>() {}
-
-const Boot: {
-  readonly Spec: typeof _Spec
-  readonly hydrated: Effect.Effect<Option.Option<string>>
-  readonly main: <A, E, R, E2>(spec: AppSpec, root: Layer.Layer<R, E2>, app: Effect.Effect<A, E, R | _Spec>) => void
-} = {
-  Spec: _Spec,
-  hydrated: Effect.sync(() =>
+class Boot extends Context.Tag("browser/boot/AppSpec")<Boot, AppSpec>() {
+  static readonly hydrated: Effect.Effect<Option.Option<string>> = Effect.sync(() =>
     Option.fromNullable(globalThis.document.documentElement.getAttribute("data-rasm-prerender")),
-  ),
-  main: (spec, root, app) =>
+  )
+  static readonly main = <A, E, R, E2>(spec: AppSpec, root: Layer.Layer<R, E2>, app: Effect.Effect<A, E, R | Boot>): void =>
     BrowserRuntime.runMain(
       app.pipe(
         Effect.annotateLogs({ app: spec.label }),
-        Effect.provide(Layer.mergeAll(root, Layer.succeed(_Spec, spec))),
+        Effect.provide(Layer.mergeAll(root, Layer.succeed(Boot, spec))),
       ),
-    ),
+    )
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

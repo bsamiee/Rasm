@@ -7,7 +7,7 @@
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                        |
 | :-----: | :------------- | :------------------------------------------------------------------------------ |
 |   [1]   | `GRAPH_DECODE` | the gated `ElementGraph` owner: node/relation shapes, keyed projection, decode   |
-|   [2]   | `PARITY_WALK`  | the reflect/path cell projection over key fields — parity evidence, no re-mint   |
+|   [2]   | `PARITY_WALK`  | the `Parity` reflect/path projection over key fields — parity evidence, no re-mint |
 
 ## [2]-[GRAPH_DECODE]
 
@@ -60,9 +60,9 @@ class ElementGraph extends Schema.Class<ElementGraph>("ElementGraph")({
 
 ## [3]-[PARITY_WALK]
 
-- Owner: the key-cell projection statics on the same class — `keyPaths`, the typed field-mask addresses of the key-bearing fields resolved by name from the descriptor, and `parity`, the reflection read that projects raw key cells without constructing the domain value.
-- Entry: `ElementGraph.parity(octets)` — the verbatim graph-key cell in wire form, byte-comparable against the `tests/contracts` fixture; the corpus driver asserts equality, this module only projects.
-- Growth: a new key-bearing field is one name in `_KEY_FIELDS` — the path resolution, the projection, and the corpus fixture move together; an unresolvable name dies at module load because a census-guarded descriptor missing its key field is a build defect, never a runtime state.
+- Owner: `Parity` — the key-cell projection surface: `paths`, the typed field-mask addresses of the key-bearing fields resolved by name from the descriptor at module evaluation, and `read`, the reflection projection of raw key cells without constructing the domain value.
+- Entry: `Parity.read(octets)` — the verbatim graph-key cells in wire form, byte-comparable against the `tests/contracts` fixture; the corpus driver asserts equality, this module only projects.
+- Growth: a new key-bearing field is one name in `_KEY_FIELDS` — the path resolution, the projection, and the corpus fixture move together; an unresolvable name dies at module load through the resolve's own throw, because a census-guarded descriptor missing its key field is a build defect, never a runtime state.
 - Law: parity is evidence, never repair — cells read verbatim through `reflect`; a production-flow mismatch is a `parity` `WireFault` minted by the verifying caller holding both cells as evidence.
 - Law: reflection here is parity-scoped — the generated schema exists, so ordinary decode never reflects; the walk exists solely because parity must read cells positionally without trusting the decode it checks.
 - Boundary: `buildPath(schema).field(desc).toPath()`, `reflect(desc, message).get(field)`, and `pathToString` are the `@bufbuild/protobuf` reflection surface; corpus fixtures and their TS reader live in `tests/contracts` and `tests/typescript/_testkit`.
@@ -73,29 +73,29 @@ import { Either, Option } from "effect"
 
 const _KEY_FIELDS = ["key"] as const
 
-const _resolved: ReadonlyArray<DescField> = Array.filterMap(_KEY_FIELDS, (name) =>
-  Array.findFirst(ProtoCodec.suite.ElementGraphWire.fields, (field) => field.name === name),
+const _resolved: ReadonlyArray<DescField> = Array.map(_KEY_FIELDS, (name) =>
+  Option.getOrThrow(Array.findFirst(ProtoCodec.suite.ElementGraphWire.fields, (field) => field.name === name)),
 )
 
-const _keyPaths: ReadonlyArray<Path> = Array.map(_resolved, (field) =>
-  buildPath(ProtoCodec.suite.ElementGraphWire).field(field).toPath(),
-)
-
-const _parity = (octets: Uint8Array): Either.Either<ReadonlyArray<Uint8Array>, ParseResult.ParseError> =>
-  Either.map(
-    Schema.decodeUnknownEither(ProtoCodec.frame(ProtoCodec.suite.ElementGraphWire))(octets),
-    (message) =>
-      Array.filterMap(_resolved, (field) =>
-        Option.filter(
-          Option.some(reflect(ProtoCodec.suite.ElementGraphWire, message).get(field)),
-          (cell): cell is Uint8Array => cell instanceof Uint8Array,
+const Parity: {
+  readonly paths: ReadonlyArray<Path>
+  readonly read: (octets: Uint8Array) => Either.Either<ReadonlyArray<Uint8Array>, ParseResult.ParseError>
+} = {
+  paths: Array.map(_resolved, (field) => buildPath(ProtoCodec.suite.ElementGraphWire).field(field).toPath()),
+  read: (octets) =>
+    Either.map(
+      Schema.decodeUnknownEither(ProtoCodec.frame(ProtoCodec.suite.ElementGraphWire))(octets),
+      (message) =>
+        Array.filterMap(_resolved, (field) =>
+          Option.filter(
+            Option.some(reflect(ProtoCodec.suite.ElementGraphWire, message).get(field)),
+            (cell): cell is Uint8Array => cell instanceof Uint8Array,
+          ),
         ),
-      ),
-  )
+    ),
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { ElementGraph }
+export { ElementGraph, Parity }
 ```
-
-`keyPaths` and `parity` are declared as `static readonly keyPaths: ReadonlyArray<Path> = _keyPaths` and `static readonly parity = _parity` inside the `ElementGraph` class body; the interior anchors above exist so the statics stay one-line and the resolution runs once at module evaluation.

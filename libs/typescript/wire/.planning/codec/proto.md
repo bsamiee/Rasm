@@ -1,6 +1,6 @@
 # [WIRE_PROTO]
 
-`codec/proto.ts` is the proto-suite owner: the one configured protobuf-es engine every proto-framed wire family decodes through, the generated-schema suite table that binds each census family to its `GenMessage`, the shared type `Registry` that resolves `Any` payloads and descriptor options, and the two suite-level decodes that land in sibling vocabularies — the `QuantityFamily` SI-scalar decode into the kernel `Quantity` (invariant 4) and the `FaultDetailWire` row that is `fault/detail.ts`'s vocabulary hook. Sibling proto pages compose `ProtoCodec.family` and `ProtoCodec.stream`; none re-configures read options, re-wraps `fromBinary`, or mints a second registry. The generated `proto_pb.ts` is `@bufbuild/protoc-gen-es` output pinned lockstep with the runtime at 2.12.1 — build artifact, imported, never hand-edited.
+`codec/proto.ts` is the proto-suite owner: the one configured protobuf-es engine every proto-framed wire family decodes through, the generated-schema suite table that binds each census family to its `GenMessage`, the shared type `Registry` that resolves `Any` payloads and descriptor options, and the two suite-level decodes that land in sibling vocabularies — the `QuantityFamily` SI-scalar decode into the kernel `Quantity` (invariant 4) and the `FaultDetailWire` row that is `fault/detail.ts`'s vocabulary hook. Sibling proto pages compose `ProtoCodec.family` and `ProtoCodec.stream`; none re-configures read options, re-wraps `fromBinary`, or mints a second registry. The generated `proto_pb.ts` is `@bufbuild/protoc-gen-es` output pinned lockstep with the runtime by the one workspace catalog — build artifact, imported, never hand-edited.
 
 ## [1]-[CLUSTERS]
 
@@ -61,8 +61,8 @@ const _stream = (gen: DescMessage, family: Inventory.Family) => (frames: AsyncIt
 
 ## [3]-[SUITE]
 
-- Owner: `_suite` — the interior `GenMessage` table keyed by the census's proto families (`FileDescriptorSetWire` alone rides the shipped `./wkt` schema at `contract/descriptor.ts`); the merged-hub guard demands one generated schema per census row, so a census family with no emit — or an emit the census never named — fails at this declaration. `ProtoCodec` assembles engine, suite, and registry under one export.
-- Entry: `ProtoCodec.suite[family]` — the `GenMessage` a sibling page hands back to `family`/`frame`/`stream`; `ProtoCodec.registry` — the one type registry `anyUnpack`, extension reads, and `findDetails` resolve against.
+- Owner: `_suite` — the interior `GenMessage` table keyed by the census's proto families (`FileDescriptorSetWire` alone rides the shipped `./wkt` schema at `contract/descriptor.ts`) — and `_names`, the ordered key tuple whose iteration IS the descriptor gate's coverage walk; the merged-hub guard quartet ties table and tuple to the census in both directions, so a census family with no emit, an emit the census never named, or a stale tuple entry fails at this declaration. `ProtoCodec` assembles engine, suite, registry, and tuple under one export.
+- Entry: `ProtoCodec.suite[family]` — the `GenMessage` a sibling page hands back to `family`/`frame`/`stream`; `ProtoCodec.registry` — the one type registry `anyUnpack`, extension reads, and `findDetails` resolve against; `ProtoCodec.names` — the coverage tuple `contract/descriptor.ts` folds verdicts over.
 - Receipt: `ProtoCodec.suite.FaultDetailWire` is the vocabulary hook — `fault/detail.ts` composes it for `FromWire` and `findDetails`; descriptor-option vocabulary annotations on the emitted descriptors read through `getOption` against this registry.
 - Growth: a new proto wire family is one census row, one regenerated `proto_pb.ts`, and one `_suite` row — the guard breaks until all three agree; the registry and every engine surface pick it up with zero further edits.
 - Law: the suite is the only site that touches the generated module — sibling pages import `ProtoCodec`, never `proto_pb.ts`; the generated emit is one file whose regeneration is atomic with the census edit.
@@ -135,6 +135,8 @@ declare namespace ProtoCodec {
   }>
   type _Rows<T extends Record<Suite, DescMessage> = typeof _suite> = T
   type _Keys<K extends Suite = keyof typeof _suite> = K
+  type _Names<T extends Readonly<Record<number, Suite>> = typeof _names> = T
+  type _Cover<K extends (typeof _names)[number] = Suite> = K
 }
 ```
 

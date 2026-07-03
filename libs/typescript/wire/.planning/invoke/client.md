@@ -105,11 +105,11 @@ const _stream = <O>(open: (headers: Headers.Headers) => AsyncIterable<O>): Strea
 
 ## [4]-[RETRY_SCHEDULES]
 
-- Owner: the retryable-wire schedule compiler — one fold from a `kernel/fault` budget row to a composed `Schedule`, gated on the `FaultDetail.retryable` projection so the policy cannot re-drive a terminal reason; and `retrying`, the dual transformer call sites compose.
-- Entry: `retrying(effect, budget)` or the pipe posture `effect.pipe(Invoke.retrying(budget))` — the budget row arrives from the caller's own policy (the capability page names per-method budgets); the schedule compiles once per row identity at the module through the memoized compiler.
+- Owner: the retryable-wire schedule compiler — one fold from a `kernel/fault` budget row to a composed `Schedule`, gated on the `FaultDetail.retryable` projection so the policy cannot re-drive a terminal reason; and `retrying`, the dual transformer exported beside the service as the module's one operation family.
+- Entry: `retrying(effect, budget)` or the pipe posture `effect.pipe(retrying(budget))` — the budget row arrives from the caller's own policy (the capability page names per-method budgets); the schedule compiles per composition from the row, a cheap value the transformer builds where it attaches.
 - Law: the gate rides the policy value — `Schedule.whileInput` over `FaultDetail.retryable` travels WITH the schedule, so a misapplied policy cannot re-drive `denied` or `dataloss`; a call-site predicate re-deriving retryability is policy leakage.
 - Law: the budget names both bounds — attempts intersect elapsed (`Schedule.intersect(Schedule.recurs(n))` under `Schedule.upTo(window)`), jitter decorrelates the fleet, and the per-attempt deadline is the transport's `timeoutMs` BELOW the retry while the budget's window bounds the whole call ABOVE it — the two-budget layering stated once here and inherited by every capability method.
-- Boundary: budget row fields are `kernel/fault/budget`'s vocabulary; which methods retry (idempotency knowledge) is `invoke/capability.ts`'s per-method declaration.
+- Boundary: the `Budget` row (`base`, `growth`, `attempts`, `window`) is `kernel/fault` vocabulary this module consumes as a value; which methods retry (idempotency knowledge) is `invoke/capability.ts`'s per-method declaration.
 
 ```typescript
 import { Budget } from "@rasm/ts/kernel"
@@ -134,7 +134,5 @@ const retrying: {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Invoke }
+export { Invoke, retrying }
 ```
-
-`retrying` rides the service class as `static readonly retrying = retrying` in the single `Invoke` declaration; the module's one export carries the axis, the lifts, and the retry transformer.

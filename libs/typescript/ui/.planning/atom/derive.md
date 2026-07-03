@@ -20,15 +20,15 @@
 
 ```typescript
 import { Atom } from "@effect-atom/atom-react"
-import { Duration, Option } from "effect"
+import { Array, Duration, Number } from "effect"
 import type { ContentKey } from "@rasm/ts/kernel"
 
 declare const _rows: Atom.Atom<ReadonlyArray<{ readonly key: ContentKey; readonly rank: number }>>
 
 const _byKey = Atom.family((key: ContentKey) =>
-  Atom.map(_rows, (rows) => Option.fromNullable(rows.find((row) => row.key === key))))
+  Atom.map(_rows, (rows) => Array.findFirst(rows, (row) => row.key === key)))
 
-const _crest = Atom.map(_rows, (rows) => rows.reduce((peak, row) => Math.max(peak, row.rank), 0))
+const _crest = Atom.map(_rows, (rows) => Array.reduce(rows, 0, (peak, row) => Number.max(peak, row.rank)))
 
 const _query = Atom.make("").pipe(Atom.debounce(Duration.millis(150)))
 ```
@@ -118,8 +118,8 @@ const History: {
   readonly Op: typeof _Op
   readonly make: <A>(seed: A, options?: History.Options) => Atom.Writable<History.State<A>, History.Op<A>>
   readonly present: <A>(self: Atom.Atom<History.State<A>>) => Atom.Atom<A>
-  readonly undoable: (self: Atom.Atom<History.State<unknown>>) => Atom.Atom<boolean>
-  readonly redoable: (self: Atom.Atom<History.State<unknown>>) => Atom.Atom<boolean>
+  readonly undoable: <A>(self: Atom.Atom<History.State<A>>) => Atom.Atom<boolean>
+  readonly redoable: <A>(self: Atom.Atom<History.State<A>>) => Atom.Atom<boolean>
 } = {
   Op: _Op,
   make: <A>(seed: A, options?: History.Options) => {

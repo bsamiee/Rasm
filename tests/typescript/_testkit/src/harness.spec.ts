@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { HttpRouter, HttpServerResponse } from '@effect/platform';
+import { FileSystem, HttpRouter, HttpServerResponse, Path } from '@effect/platform';
+import { NodeContext } from '@effect/platform-node';
 import { describe, expect, layer } from '@effect/vitest';
 import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { Context, Effect, Layer, Option, Schema } from 'effect';
 import type { StartedTestContainer } from 'testcontainers';
-import { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes } from './harness.ts';
+import { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes, PinsPath } from './harness.ts';
 
 // --- [SERVICES] --------------------------------------------------------------------------
 
@@ -15,10 +15,8 @@ class Held extends Context.Tag('rasm-testkit-spec/Held')<Held, StartedTestContai
 const _DDL = 'CREATE TABLE marks (key TEXT PRIMARY KEY, rank INTEGER NOT NULL);';
 const _BYTES = Uint8Array.from([1, 2, 3, 4]);
 
-// Images pin in tests/containers.json — the polyglot owner every language's container row resolves; RASM_TESTKIT_CONTAINERS activates the live lanes.
-const _PINS = Schema.decodeUnknownSync(Schema.Struct({ pg: Schema.String, store: Schema.String }))(
-    JSON.parse(readFileSync(new URL('../../../containers.json', import.meta.url), 'utf8')),
-);
+// Images pin in tests/containers.json — the polyglot owner every language's container row resolves through Containers.pin;
+// RASM_TESTKIT_CONTAINERS activates the live lanes.
 const _LIVE = process.env['RASM_TESTKIT_CONTAINERS'] !== undefined;
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -126,12 +124,53 @@ layer(ObjectStores.memory)('object store double', (it) => {
         }),
     );
 
+    it.effect('listing orders by UTF-8 bytes past the BMP, where UTF-16 code units would swap the pair', () =>
+        Effect.gen(function* () {
+            const store = yield* ObjectStore;
+            // U+FF01 encodes EF BC 81, U+10000 encodes F0 90 80 80: UTF-8 puts U+FF01 first, JS string order puts it last.
+            yield* store.put('astral/\u{10000}', _BYTES);
+            yield* store.put('astral/！', _BYTES);
+            expect(yield* store.list('astral/')).toEqual(['astral/！', 'astral/\u{10000}']);
+        }),
+    );
+
     it.effect('presign on the double refuses typed: the capability belongs to the real lane', () =>
         Effect.gen(function* () {
             const store = yield* ObjectStore;
             const fault = yield* Effect.flip(store.url('band/one', 60));
             expect(fault.reason).toBe('unsupported');
         }),
+    );
+});
+
+layer(NodeContext.layer)('image pins', (it) => {
+    it.effect('the polyglot manifest resolves a pinned image reference', () =>
+        Effect.gen(function* () {
+            const image = yield* Containers.pin('pg');
+            expect(image).toMatch(/^\S+:\S+$/);
+        }),
+    );
+
+    it.effect('an unpinned lane name is honest typed absence, never a vacuous default', () =>
+        Effect.gen(function* () {
+            const fault = yield* Effect.flip(Containers.pin('never-pinned'));
+            expect(fault).toBeInstanceOf(HarnessFault);
+            expect(fault.reason).toBe('unsupported');
+        }),
+    );
+
+    it.effect('a malformed pin manifest is a typed engine fault, never a module-load throw', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const scratch = yield* fs.makeTempDirectoryScoped();
+                const target = path.join(scratch, 'containers.json');
+                yield* fs.writeFileString(target, '{"pg": 7}');
+                const fault = yield* Effect.flip(Effect.provideService(Containers.pin('pg'), PinsPath, target));
+                expect(fault.reason).toBe('engine');
+            }),
+        ),
     );
 });
 
@@ -156,7 +195,11 @@ layer(Loopbacks.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpServerRe
 });
 
 describe.skipIf(!_LIVE)('pg container lane [RASM_TESTKIT_CONTAINERS]', () => {
-    layer(PgLanes.container({ image: _PINS.pg, seed: _DDL }), { timeout: '150 seconds' })('real server', (it) => {
+    const _pgLive = Layer.provide(
+        Layer.unwrapEffect(Effect.map(Containers.pin('pg'), (image) => PgLanes.container({ image, seed: _DDL }))),
+        NodeContext.layer,
+    );
+    layer(_pgLive, { timeout: '150 seconds' })('real server', (it) => {
         it.effect('the mapped-port driver serves the same lane algebra over the container-seeded schema', () =>
             Effect.gen(function* () {
                 const lane = yield* PgLane;
@@ -192,13 +235,19 @@ describe.skipIf(!_LIVE)('pg container lane [RASM_TESTKIT_CONTAINERS]', () => {
 });
 
 describe.skipIf(!_LIVE)('container substrate [RASM_TESTKIT_CONTAINERS]', () => {
-    const _seeded = Layer.scoped(
-        Held,
-        Containers.start({
-            ...Containers.pg({ image: _PINS.pg }),
-            copy: [{ content: 'SELECT 1;', target: '/probe.sql' }],
-            labels: { 'rasm.testkit': 'substrate' },
-        }),
+    const _seeded = Layer.provide(
+        Layer.scoped(
+            Held,
+            Effect.gen(function* () {
+                const image = yield* Containers.pin('pg');
+                return yield* Containers.start({
+                    ...Containers.pg({ image }),
+                    copy: [{ content: 'SELECT 1;', target: '/probe.sql' }],
+                    labels: { 'rasm.testkit': 'substrate' },
+                });
+            }),
+        ),
+        NodeContext.layer,
     );
     layer(_seeded, { timeout: '150 seconds' })('copy and exec rows', (it) => {
         it.effect('a copy row lands its content in the image and exec reads it back', () =>
@@ -219,16 +268,20 @@ describe.skipIf(!_LIVE)('container substrate [RASM_TESTKIT_CONTAINERS]', () => {
         );
     });
 
-    const _networked = Layer.scoped(
-        Held,
-        Effect.gen(function* () {
-            const net = yield* Containers.network;
-            return yield* Containers.start({
-                ...Containers.pg({ image: _PINS.pg }),
-                net: { network: net, aliases: ['kit-pg'] },
-                resources: { cpu: 1, memory: 0.5 },
-            });
-        }),
+    const _networked = Layer.provide(
+        Layer.scoped(
+            Held,
+            Effect.gen(function* () {
+                const image = yield* Containers.pin('pg');
+                const net = yield* Containers.network;
+                return yield* Containers.start({
+                    ...Containers.pg({ image }),
+                    net: { network: net, aliases: ['kit-pg'] },
+                    resources: { cpu: 1, memory: 0.5 },
+                });
+            }),
+        ),
+        NodeContext.layer,
     );
     layer(_networked, { timeout: '150 seconds' })('network and quota rows', (it) => {
         it.effect('the net row registers its alias on the network-embedded DNS', () =>
@@ -257,15 +310,20 @@ describe.skipIf(!_LIVE)('container substrate [RASM_TESTKIT_CONTAINERS]', () => {
 });
 
 describe.skipIf(!_LIVE)('object store container lane [RASM_TESTKIT_CONTAINERS]', () => {
-    const _live = Layer.unwrapScoped(
-        Effect.map(Containers.start(Containers.objectStore({ image: _PINS.store, rootUser: 'testing', rootPassword: 'testing-secret' })), (started) =>
-            ObjectStores.s3({
-                endpoint: `http://${started.getHost()}:${started.getMappedPort(9000)}`,
-                bucket: 'kit',
-                accessKeyId: 'testing',
-                secretAccessKey: 'testing-secret',
+    const _live = Layer.provide(
+        Layer.unwrapScoped(
+            Effect.gen(function* () {
+                const image = yield* Containers.pin('store');
+                const started = yield* Containers.start(Containers.objectStore({ image, rootUser: 'testing', rootPassword: 'testing-secret' }));
+                return ObjectStores.s3({
+                    endpoint: `http://${started.getHost()}:${started.getMappedPort(9000)}`,
+                    bucket: 'kit',
+                    accessKeyId: 'testing',
+                    secretAccessKey: 'testing-secret',
+                });
             }),
         ),
+        NodeContext.layer,
     );
     layer(_live, { timeout: '150 seconds' })('real store', (it) => {
         it.effect('bytes round-trip and the presigned URL serves them', () =>

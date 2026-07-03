@@ -24,7 +24,7 @@ The terminal applier of the telemetry board plane: `telemetry/board` emits dashb
 [BOARD_APPLY]:
 - Owner: the apply fold — one `oss.Folder` roots the app's boards (uid slugged from the spec's app key), `_SOURCES` maps backend rows (`prometheus`, `loki`, `tempo`) onto `oss.DataSource` constructions from the `Lgtm` URLs, each encoded `DashboardModel` becomes one `oss.Dashboard` under the folder, and each `Alert.Spec` row realizes through the alerting arm — rule group, contact point, notification policy — with `slo.Slo` rows when the spec carries an objective.
 - Law: models arrive encoded — the tier consumes `typeof DashboardModel.Encoded` values and `pulumi.jsonStringify` is the only serialization; the model's uid is the resource name, so the board's identity derivation survives into the Grafana state and the drift receipt.
-- Law: sources bind outputs — every `DataSource` url is an `Lgtm` projection `Output`, so re-plumbing a backend re-points every board with zero board edits; a literal URL in a source row is the named defect.
+- Law: sources bind outputs — every `DataSource` url is an `Lgtm` `query`-plane projection `Output` (the read API, never an ingest path), so re-plumbing a backend re-points every board with zero board edits; a literal URL in a source row is the named defect.
 - Law: the unverified argument surfaces are held at signature depth — `_boardArgs`, `_alertRows`, and `_sloRows` are declared signatures over the catalogued class names (`oss.Dashboard`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `slo.Slo`) whose exact field spellings settle when the grafana catalogue reaches operator depth on those argument records; the tier's shape, ordering, and identity law are settled now.
 - Entry: `new Boards("boards", { spec, lgtm, auth, boards, alerts }, opts)` inside the k8s arm, `boards`/`alerts` produced by the app's `telemetry/board` suite call.
 - Growth: a new panel family or board is upstream data — this tier changes only when Grafana grows a resource kind worth a row.
@@ -63,9 +63,9 @@ declare const _sloRows: (
 ) => ReadonlyArray<grafana.slo.Slo>
 
 const _SOURCES = {
-  prometheus: { type: "prometheus", url: (urls: Lgtm.Urls) => urls.prometheus },
-  loki: { type: "loki", url: (urls: Lgtm.Urls) => urls.loki },
-  tempo: { type: "tempo", url: (urls: Lgtm.Urls) => urls.tempo },
+  prometheus: { type: "prometheus", url: (urls: Lgtm.Urls) => urls.query.prometheus },
+  loki: { type: "loki", url: (urls: Lgtm.Urls) => urls.query.loki },
+  tempo: { type: "tempo", url: (urls: Lgtm.Urls) => urls.query.tempo },
 } as const
 
 class Boards extends Tier {
@@ -78,7 +78,7 @@ class Boards extends Tier {
       storeDashboardSha256: true,
     }, { parent: this })
     const child = this.child({ provider })
-    const folder = new grafana.oss.Folder(name, { title: `${args.spec.app}`, uid: `${args.spec.app}` }, child)
+    const folder = new grafana.oss.Folder(name, { title: args.spec.app, uid: args.spec.app }, child)
     Array.map(Record.toEntries(_SOURCES), ([key, row]) =>
       new grafana.oss.DataSource(key, { type: row.type, url: row.url(args.lgtm.urls) }, child))
     Array.map(args.boards, (model) => new grafana.oss.Dashboard(model.uid, _boardArgs(model, folder.uid), child))

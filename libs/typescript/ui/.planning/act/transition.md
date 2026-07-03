@@ -43,6 +43,10 @@ const Transition: {
         }).pipe(Effect.ignore)
       : Effect.sync(() => flushSync(commit)),
 }
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Transition }
 ```
 
 ## [3]-[ACTIVITY_ROW]
@@ -56,17 +60,4 @@ const Transition: {
 
 - Law: `<ViewTransition>` and `addTransitionType` are `[R16]` — typed in `@types/react` `./canary`, absent from the stable 19.2 runtime, so no shipping row imports them; the gate closing rewrites `Transition.run`'s interior to the component form and deletes zero call sites because the entrypoint signature already owns the modality.
 - Law: canary imports are fenced — a `./canary` import on the stable path is the named defect; the upgrade row lives behind a capability flag until the runtime carries the exports.
-- Law: the degrade chain is total — `<ViewTransition>` (gated) → native `startViewTransition` (current) → bare `flushSync` commit (floor); every tier preserves the commit semantics, so callers are transition-agnostic by construction.
-
-```typescript
-declare namespace Upgrade {
-  type Tier = "view-transition-component" | "native-api" | "flush-commit"
-}
-
-const _tier = (): Upgrade.Tier =>
-  typeof globalThis.document.startViewTransition === "function" ? "native-api" : "flush-commit"
-
-// --- [EXPORTS] --------------------------------------------------------------------------
-
-export { Transition }
-```
+- Law: the degrade chain is total — `<ViewTransition>` (gated) → native `startViewTransition` (current) → bare `flushSync` commit (floor); every tier preserves the commit semantics, so callers are transition-agnostic by construction and no public tier probe exists — a caller branching on the tier would re-open the modality `Transition.run` already owns.

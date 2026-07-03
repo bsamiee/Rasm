@@ -15,14 +15,15 @@
 - Owner: `PanelLayout.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression` (`Σ coeff·var + constant`), map the closed `relation` vocabulary (`le`/`ge`/`eq`) onto `Operator` and the closed `strength` vocabulary (`required`/`strong`/`medium`/`weak`) onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.
 - Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver` — zero-dependency Cassowary, CPU-only), `@rasm/ts/wire/vocab` (`LayoutProgram` — `surface`, `edits`, ordered `constraints`), `effect` (`Effect.try`, `HashMap`).
 - Fault: `PanelLayout.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint's rank — a program-construction defect surfaced to the operator as evidence, never retried.
+- Law: the solver is the imperative foreign resource — the fold's statements (the name ledger, the ordered walk) live inside its `Effect.try` seam, the interior `Map` is the kernel's draft holding kiwi cells only, and the sole escape is the immutable `HashMap` positions read; this card carries the statement-seam exemption.
 - Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the `CROSS_LANGUAGE_WIRE` drift defect this page's whole existence guards against.
 - Law: `maxIterations` stays at kiwi's default — a pathological program fails loud through the iteration cap; tuning it to make a bad program pass hides the upstream defect.
 - Growth: a new constraint kind, variable class, or strength tier is a C# solver change mirrored at `wire` — this fold's vocabulary maps grow a row each, nothing else moves.
 
 ```typescript
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
-import { LayoutProgram } from "@rasm/ts/wire/vocab"
-import { Data, Effect } from "effect"
+import type { LayoutProgram } from "@rasm/ts/wire/vocab"
+import { Data, Effect, HashMap, Iterable } from "effect"
 
 const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const
 
@@ -40,7 +41,7 @@ class SolveFault extends Data.TaggedError("SolveFault")<{
 }> {}
 
 declare namespace PanelLayout {
-  type Positions = ReadonlyMap<string, number>
+  type Positions = HashMap.HashMap<string, number>
   type Solved = {
     readonly positions: Positions
     readonly suggest: (edit: string, value: number) => Effect.Effect<Positions, SolveFault>
@@ -59,7 +60,7 @@ const _solve = (program: LayoutProgram): Effect.Effect<PanelLayout.Solved, Solve
     yield* Effect.try({
       try: () => {
         program.constraints.forEach((row) => {
-          const terms = row.terms.map((term) => [term.coefficient, named(term.variable)] as const)
+          const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
           const lhs = new Expression(...terms, row.constant)
           solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
         })
@@ -68,7 +69,8 @@ const _solve = (program: LayoutProgram): Effect.Effect<PanelLayout.Solved, Solve
       },
       catch: (defect) => new SolveFault({ surface: program.surface, rank: solver.getConstraints().length, detail: String(defect) }),
     })
-    const read = (): PanelLayout.Positions => new Map([...cells].map(([name, cell]) => [name, cell.value()] as const))
+    const read = (): PanelLayout.Positions =>
+      HashMap.fromIterable(Iterable.map(cells, ([name, cell]) => [name, cell.value()] as const))
     return {
       positions: read(),
       suggest: (edit, value) =>

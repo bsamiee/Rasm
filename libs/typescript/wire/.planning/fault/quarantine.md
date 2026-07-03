@@ -63,20 +63,21 @@ declare namespace WireFault {
 
 ## [3]-[POISON_INTAKE]
 
-- Owner: `Quarantine` — one `Effect.Service` whose scoped construction owns the bounded intake `Mailbox`, the held-frame census `Ref`, and the drain fiber; `PoisonFrame` rides the class as the `Quarantine.Frame` static so one import carries the service and its row shape.
-- Entry: `Quarantine.divert` — the one dual transformer every decode surface composes: a `WireFault` whose policy row says `quarantine: true` is delivered to the intake with its frame bytes and the rail continues as `Either.left`; a non-quarantining fault propagates typed. `ParseError` diverts through the same transformer with the classifying fold applied at the seam.
+- Owner: `Quarantine` — one `Effect.Service` whose scoped construction owns the bounded intake `Mailbox`, the held-frame census `Ref`, and the replay drain as a member closing over both; `PoisonFrame` rides the class as the `Quarantine.Frame` static so one import carries the service and its row shape.
+- Entry: `Quarantine.divert` — the one dual transformer every decode surface composes: a `WireFault` whose policy row says `quarantine: true` is delivered to the intake with its frame bytes — the `octets` context is a lazy thunk, so the re-encode runs only on the failure path — and the rail continues as `Either.left`; a non-quarantining fault propagates typed. `ParseError` diverts through the same transformer with the classifying fold applied at the seam.
 - Receipt: `intake` answers with the stored `PoisonFrame` — coordinate, held octets, fault, attempt count, mint instant — the evidence a drain, a dashboard, or a replay reads.
 - Growth: a new intake policy axis — retention ceiling, per-family cap — is one `_INTAKE` field consumed inside the constructor; consumers never re-tune the channel.
 - Law: quarantine is a typed divert, never a dropped element — the faulted frame's octets are held verbatim (`Uint8ArrayFromSelf`), the rail proceeds, and the evidence survives to the drain; a recovery substituting a default value where the fault feeds a report is rejected.
 - Law: the intake is bounded with `strategy: "suspend"` — a poison storm backpressures its producer instead of exhausting memory; the ceiling is an `_INTAKE` policy value.
-- Law: `attempts` lives on the frame, not in a side table — replay increments it through the census `Ref`, and retirement is a policy read (`replayable` false, or attempts spent).
+- Law: `attempts` lives on the frame, not in a side table — replay re-enters a successor frame carrying `attempts + 1`, and retirement is a policy read (`replayable` false, or attempts spent).
 - Boundary: which stream composes `divert` is each codec page's decision; the availability degradation a poison storm should trigger is `state`'s vocabulary, wired at the app root.
 
 ```typescript
-import { DateTime, Effect, Either, Function, HashMap, Mailbox, Option, Ref, Schema } from "effect"
+import { DateTime, Effect, Either, Function, HashMap, Mailbox, Option, Ref, Schedule, Schema } from "effect"
 import { Inventory } from "../contract/drift.ts"
 
 const _INTAKE = { capacity: 256, attempts: 3 } as const
+const _REPLAY: Schedule.Schedule<number> = Schedule.spaced("30 seconds").pipe(Schedule.intersect(Schedule.recurs(8)), Schedule.map(([, count]) => count))
 
 class PoisonFrame extends Schema.Class<PoisonFrame>("PoisonFrame")({
   family: Inventory.wire,
@@ -94,95 +95,78 @@ class Quarantine extends Effect.Service<Quarantine>()("wire/Quarantine", {
   scoped: Effect.gen(function* () {
     const box = yield* Mailbox.make<PoisonFrame>({ capacity: _INTAKE.capacity, strategy: "suspend" })
     const held = yield* Ref.make(HashMap.empty<string, PoisonFrame>())
+    const admit = (frame: PoisonFrame): Effect.Effect<PoisonFrame> =>
+      box.offer(frame).pipe(
+        Effect.andThen(Ref.update(held, HashMap.set(`${frame.family}:${DateTime.formatIso(frame.at)}#${frame.attempts}`, frame))),
+        Effect.as(frame),
+      )
     const intake = (family: Inventory.Family, octets: Uint8Array, fault: WireFault): Effect.Effect<PoisonFrame> =>
-      Effect.gen(function* () {
-        const now = yield* DateTime.now
-        const frame = new PoisonFrame({ family, octets, fault, at: now, attempts: 0 })
-        yield* box.offer(frame)
-        yield* Ref.update(held, HashMap.set(`${family}:${DateTime.formatIso(now)}`, frame))
-        return frame
-      })
+      Effect.flatMap(DateTime.now, (now) => admit(new PoisonFrame({ family, octets, fault, at: now, attempts: 0 })))
     return {
       intake,
       census: Ref.get(held).pipe(Effect.map(HashMap.size)),
       taken: box.takeAll,
       release: (key: string) => Ref.update(held, HashMap.remove(key)),
+      replayed: <A, R>(
+        decode: (family: Inventory.Family, octets: Uint8Array) => Effect.Effect<A, WireFault, R>,
+        delivered: (value: A) => Effect.Effect<void, never, R>,
+        retired: (frame: PoisonFrame) => Effect.Effect<void, never, R>,
+      ): Effect.Effect<void, never, R> =>
+        Effect.flatMap(box.takeAll, ([frames]) =>
+          Effect.forEach(
+            frames,
+            (frame) =>
+              frame.replayable
+                ? decode(frame.family, frame.octets).pipe(
+                    Effect.matchEffect({
+                      onFailure: () => Effect.asVoid(admit(new PoisonFrame({ ...frame, attempts: frame.attempts + 1 }))),
+                      onSuccess: delivered,
+                    }),
+                  )
+                : retired(frame),
+            { concurrency: 1, discard: true },
+          ),
+        ).pipe(Effect.repeat(_REPLAY), Effect.asVoid),
     }
   }),
   accessors: true,
 }) {
   static readonly Frame: typeof PoisonFrame = PoisonFrame
   static readonly divert: {
-    (context: { readonly family: Inventory.Family; readonly octets: Uint8Array }): <A, R>(
+    (context: { readonly family: Inventory.Family; readonly octets: () => Uint8Array }): <A, R>(
       self: Effect.Effect<A, WireFault, R>,
     ) => Effect.Effect<Either.Either<A, WireFault>, WireFault, R | Quarantine>
     <A, R>(
       self: Effect.Effect<A, WireFault, R>,
-      context: { readonly family: Inventory.Family; readonly octets: Uint8Array },
+      context: { readonly family: Inventory.Family; readonly octets: () => Uint8Array },
     ): Effect.Effect<Either.Either<A, WireFault>, WireFault, R | Quarantine>
   } = Function.dual(
     2,
     <A, R>(
       self: Effect.Effect<A, WireFault, R>,
-      context: { readonly family: Inventory.Family; readonly octets: Uint8Array },
+      context: { readonly family: Inventory.Family; readonly octets: () => Uint8Array },
     ): Effect.Effect<Either.Either<A, WireFault>, WireFault, R | Quarantine> =>
       self.pipe(
         Effect.map(Either.right),
         Effect.catchIf(
           (fault) => fault.policy.quarantine,
-          (fault) => Effect.as(Quarantine.intake(context.family, context.octets, fault), Either.left(fault)),
+          (fault) => Effect.as(Quarantine.intake(context.family, context.octets(), fault), Either.left(fault)),
         ),
       ),
   )
   static readonly classified = (family: Inventory.Family, detail: string): WireFault =>
     new WireFault({ family, reason: "malformed", detail, evidence: Option.none() })
 }
-```
-
-## [4]-[REPLAY]
-
-- Owner: the replay fold on the same module — quarantined frames re-offer to their family decode under a budget `Schedule`, success releases the frame, exhaustion retires it terminally.
-- Entry: `Quarantine.replayed(decode, delivered, retired)` — the decode arrives as a parameter keyed by family, so replay stays generic over every codec page and imports none of them; the app root supplies the family-indexed decode record it composed from the codec pages' `#vocab` surfaces.
-- Growth: replay pacing is the `_REPLAY` schedule value; a per-family pacing override is a future policy column on `_policy`, never a second replay path.
-- Law: replay consumes the intake as a drain — each taken frame either decodes (released, decoded value delivered to the supplied sink) or re-enters with `attempts + 1`; a frame whose policy is non-replayable or whose attempts are spent is retired to the terminal sink with its fault intact.
-- Law: replay never re-classifies — the original fault travels with the frame through every attempt, so the terminal report shows the first cause, not the last symptom.
-
-```typescript
-import { Array, Effect, Match, Schedule } from "effect"
-import type { Inventory } from "../contract/drift.ts"
-
-const _REPLAY: Schedule.Schedule<number> = Schedule.spaced("30 seconds").pipe(Schedule.intersect(Schedule.recurs(8)), Schedule.map(([, count]) => count))
-
-const _replayed = <A, R>(
-  decode: (family: Inventory.Family, octets: Uint8Array) => Effect.Effect<A, WireFault, R>,
-  delivered: (value: A) => Effect.Effect<void, never, R>,
-  retired: (frame: PoisonFrame) => Effect.Effect<void, never, R>,
-): Effect.Effect<void, never, R | Quarantine> =>
-  Effect.gen(function* () {
-    const quarantine = yield* Quarantine
-    const [frames] = yield* quarantine.taken
-    yield* Effect.forEach(
-      frames,
-      (frame) =>
-        Match.value(frame.replayable).pipe(
-          Match.when(false, () => retired(frame)),
-          Match.when(true, () =>
-            decode(frame.family, frame.octets).pipe(
-              Effect.matchEffect({
-                onFailure: () => quarantine.intake(frame.family, frame.octets, frame.fault).pipe(Effect.asVoid),
-                onSuccess: delivered,
-              }),
-            ),
-          ),
-          Match.exhaustive,
-        ),
-      { concurrency: 1, discard: true },
-    )
-  }).pipe(Effect.repeat(_REPLAY), Effect.asVoid)
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Quarantine, WireFault }
 ```
 
-`_replayed` rides the service class as `static readonly replayed = _replayed` in the single `Quarantine` declaration — one import carries the fault family's sibling, the intake, the divert, and the replay drain.
+## [4]-[REPLAY]
+
+- Owner: the `replayed` member on the service — quarantined frames re-offer to their family decode under the `_REPLAY` budget `Schedule`, success delivers, exhaustion retires terminally; the member closes over the intake channel and census, so the drain, the interior re-entry, and the box are one construction with zero self-require.
+- Entry: `Quarantine.replayed(decode, delivered, retired)` — the decode arrives as a parameter keyed by family, so replay stays generic over every codec page and imports none of them; the app root supplies the family-indexed decode record it composed from the codec pages' `#vocab` surfaces and forks the drain on the graph scope.
+- Growth: replay pacing is the `_REPLAY` schedule value; a per-family pacing override is a future policy column on `_policy`, never a second replay path.
+- Law: replay consumes the intake as a drain — each taken frame either decodes (delivered to the supplied sink) or re-enters as a successor frame with `attempts + 1`, its original coordinates intact; a frame whose policy is non-replayable or whose attempts are spent is retired to the terminal sink with its fault intact, and `replayable` reads both facts from the frame itself.
+- Law: replay never re-classifies — the original fault travels with the frame through every attempt, so the terminal report shows the first cause, not the last symptom.

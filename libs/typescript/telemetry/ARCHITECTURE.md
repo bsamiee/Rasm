@@ -14,7 +14,7 @@ telemetry/src/
 ├── signal/              # The signal families: convention vocabulary and the vital/crash/audit/meter fact streams
 │   ├── convention.ts    # semantic-convention vocabulary rows — names as data, never string literals
 │   ├── vital.ts         # browser RUM via native PerformanceObserver budgets
-│   ├── crash.ts         # crash capture reconstructing FaultDetail through the kernel enricher contract; replay redaction-at-capture
+│   ├── crash.ts         # crash capture enriched through the kernel enricher contract (FaultCapture round-trip); replay redaction-at-capture
 │   ├── audit.ts         # audit fact stream: actor/action/target vocabulary + typed diff evidence + retention classes; durable via a journal port Tag
 │   └── meter.ts         # usage/cost metering fact stream: (app, tenant)-keyed request/compute/storage/token counters + rating policy rows; same journal port law
 ├── slo/                 # SLO as algebra
@@ -31,9 +31,9 @@ The `signal/convention` vocabulary rows are the spine every other node composes:
 
 ```text seams
 otlp/export   ←  csharp:Rasm.AppHost/Observability/Telemetry  # [TRANSPORT]: OtelExport OTLP egress
-signal/crash  ←  typescript:wire/gateway                      # [WIRE]: support-capture verb — the crash consumer through the kernel-declared fault-enricher contract, never a wire import
+signal/crash  ←  typescript:wire/gateway                      # [WIRE]: support-capture verb — app-root composition hands the verb's payload to Crash.capture; no wire → telemetry edge exists
 signal/audit  →  typescript:store/journal                     # [PORT]: audit fact stream durable through the audit journal port Tag the app root satisfies with store journal Layers
 signal/meter  →  typescript:store/journal                     # [PORT]: meter fact stream durable through the meter journal port Tag the app root satisfies with store journal Layers
 ```
 
-The crash seam rides the port registry: `kernel/fault` declares the fault-enricher contract, `wire` implements it, `telemetry` consumes it — the app root provides the `wire` Layer, so `signal/crash` reconstructs `FaultDetail` with no `telemetry → wire` edge. The audit and meter streams follow the same law against `store`: `telemetry` declares both journal port Tags against its own fact models, the app root satisfies them with `store` journal Layers, and the edge ledger keeps `telemetry → store` absent. The OTel Resource on `otlp/export` derives from the same kernel `AppIdentity` value `browser` boot and the `store` `StoreHandle` scope use — one identity spine from signal to dashboard.
+The crash seam rides the port registry: `kernel/fault` declares the fault-enricher contract, `wire` implements it, `telemetry` consumes it — the app root provides the `wire` Layer (or the kernel's `FaultEnricher.identity` pass-through), so `signal/crash` captures carry wire-grade forensics with no `telemetry → wire` edge. The audit and meter streams follow the same law against `store`: `telemetry` declares both journal port Tags against its own fact models, the app root satisfies them with `store` journal Layers, and the edge ledger keeps `telemetry → store` absent. The OTel Resource on `otlp/export` derives from the same kernel `AppIdentity` value `browser` boot and the `store` `StoreHandle` scope use — one identity spine from signal to dashboard.

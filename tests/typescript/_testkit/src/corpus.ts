@@ -103,7 +103,8 @@ const _decoded = Schema.decodeUnknown(Schema.NonEmptyArray(Fixture), { errors: '
 
 const _pairs = (names: ReadonlyArray<string>): ReadonlyArray<Corpus.Pair> =>
     pipe(
-        Array.filter(names, (name) => name.endsWith(_EXTENSIONS.bin) || name.endsWith(_EXTENSIONS.json)),
+        // A message name must precede the extension: an extension-only dotfile stray can never mint an empty-message pair.
+        Array.filter(names, (name) => /.\.(bin|json)$/.test(name)),
         Array.groupBy((name) => name.replace(/\.(bin|json)$/, '')),
         (grouped) =>
             Array.map(Object.entries(grouped), ([message, files]) => ({
@@ -167,7 +168,11 @@ const Corpus = {
             (fault) => new CorpusFault({ reason: 'unreadable', detail: fault.message }),
         );
         const entries = yield* Effect.mapError(_decoded(_rows(raw)), (fault) => new CorpusFault({ reason: 'malformed', detail: fault.message }));
-        return HashMap.fromIterable(Array.map(entries, (entry) => [entry.fixture, entry] as const));
+        const registry = HashMap.fromIterable(Array.map(entries, (entry) => [entry.fixture, entry] as const));
+        // A duplicated fixture name would shadow its earlier row silently; the registry refuses typed instead.
+        return yield* HashMap.size(registry) === entries.length
+            ? Effect.succeed(registry)
+            : Effect.fail(new CorpusFault({ reason: 'malformed', detail: 'duplicate fixture names in the manifest ledger' }));
     }),
     resolve,
     // The reader owns asset content: an Emitted pair loads its frozen bytes and canonical JSON without any consumer-side path assembly.

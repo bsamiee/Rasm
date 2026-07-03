@@ -56,7 +56,7 @@ const _verdict = (usage: number, quota: number): Opfs.Verdict =>
         : "critical"
 
 class Opfs extends Effect.Service<Opfs>()("browser/persist/Opfs", {
-  succeed: {
+  sync: () => ({
     retained: Option.match(_storage(), {
       onNone: () => Effect.succeed(false),
       onSome: (storage) => Effect.orElseSucceed(Effect.tryPromise(() => storage.persisted()), () => false),
@@ -96,7 +96,7 @@ class Opfs extends Effect.Service<Opfs>()("browser/persist/Opfs", {
           }),
         ),
     }),
-  },
+  }),
   accessors: true,
 }) {}
 ```

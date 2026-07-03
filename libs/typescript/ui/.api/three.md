@@ -90,7 +90,7 @@
 |  [01]   | `material.clearcoat` / `.clearcoatRoughness` / `.clearcoatMap` / `.clearcoatNormalMap`          | coat lobe      | `viewer/scene/appearance` — the OpenPBR coat weight/roughness/maps decoded from `wire#vocab` appearance |
 |  [02]   | `.sheen` / `.sheenColor` / `.sheenRoughness` — `.transmission` / `.thickness` / `.attenuationColor` / `.attenuationDistance` / `.ior` | sheen / transmission | `viewer/scene/appearance` — fuzz and volumetric/refraction lobes; `ior`+`dispersion` the glass rows |
 |  [03]   | `.iridescence` / `.iridescenceIOR` / `.iridescenceThicknessRange` — `.anisotropy` / `.anisotropyRotation` | thin-film / aniso | `viewer/scene/appearance` — thin-film interference and anisotropic-highlight lobes with their maps |
-|  [04]   | `.specularIntensity` / `.specularColor` / `.metalness` / `.roughness` / `.envMapIntensity`      | base + IBL      | `viewer/scene/appearance` — the metallic-roughness base plus the IBL contribution scale |
+|  [04]   | `.specularIntensity` / `.specularColor` / `.metalness` / `.roughness` / `.envMapIntensity` — `.emissive` / `.emissiveIntensity` / `.opacity` / `.transparent` / `.side` (`FrontSide`/`DoubleSide`) | base + emission + geometry + IBL | `viewer/scene/appearance` — the metallic-roughness base, the emission pair, the opacity/side geometry rows, and the IBL contribution scale |
 |  [05]   | `pmrem.fromScene(RoomEnvironment(), 0.04)` / `pmrem.fromEquirectangular(hdr)` → `scene.environment` | IBL bind    | `viewer/scene/glb` — the prefiltered environment map every `MeshPhysicalMaterial` samples; `RoomEnvironment` is the neutral studio default |
 
 [ENTRYPOINT_SCOPE]: interaction, node-shader authoring, and evidence

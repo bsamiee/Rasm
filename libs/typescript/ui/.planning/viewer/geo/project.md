@@ -19,7 +19,7 @@
 - Growth: a new motion kind (an orbit-around, a look-at) is one intent case plus one dispatch arm — consumers break loudly at the missing arm.
 
 ```typescript
-import { Data } from "effect"
+import { Data, pipe } from "effect"
 import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl"
 
 declare namespace Camera {
@@ -54,15 +54,13 @@ const _drive = (map: MapLibreMap, intent: Camera.Intent): void =>
     FitBounds: ({ bounds, padding }) => void map.fitBounds(bounds, { padding }),
   })
 
-const _settled = (map: MapLibreMap): Camera.State => {
-  const center = map.getCenter()
-  return {
+const _settled = (map: MapLibreMap): Camera.State =>
+  pipe(map.getCenter(), (center) => ({
     center: [center.lng, center.lat] as const,
     zoom: map.getZoom(),
     bearing: map.getBearing(),
     pitch: map.getPitch(),
-  }
-}
+  }))
 ```
 
 ## [3]-[PROJECT_SEAM]
@@ -78,19 +76,19 @@ declare namespace Anchor {
   type Extent = { readonly width: number; readonly height: number }
 }
 
-const _anchor = (state: Camera.State, extent: Anchor.Extent, lnglat: readonly [number, number]): readonly [number, number] => {
-  const viewport = new WebMercatorViewport({
-    longitude: state.center[0],
-    latitude: state.center[1],
-    zoom: state.zoom,
-    bearing: state.bearing,
-    pitch: state.pitch,
-    width: extent.width,
-    height: extent.height,
-  })
-  const projected = viewport.project([lnglat[0], lnglat[1]])
-  return [projected[0] ?? 0, projected[1] ?? 0] as const
-}
+const _anchor = (state: Camera.State, extent: Anchor.Extent, lnglat: readonly [number, number]): readonly [number, number] =>
+  pipe(
+    new WebMercatorViewport({
+      longitude: state.center[0],
+      latitude: state.center[1],
+      zoom: state.zoom,
+      bearing: state.bearing,
+      pitch: state.pitch,
+      width: extent.width,
+      height: extent.height,
+    }).project([lnglat[0], lnglat[1]]),
+    (projected) => [projected[0] ?? 0, projected[1] ?? 0] as const,
+  )
 ```
 
 ## [4]-[BACKEND_ROWS]

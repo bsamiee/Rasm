@@ -21,7 +21,7 @@ An agent is a policy value driven by one loop and hosted as a durable entity: `A
 - Entry: `Agent.run(policy)(call)`.
 - Receipt: `Turn` — reply, steps, finish, usage triple, held names.
 - Growth: a new loop concern (spend ceilings, reflection steps) is one policy field read inside the loop; a new fault route is one `_stages` row.
-- Packages: `@effect/ai` (`LanguageModel`, `Prompt`, `Tokenizer`, `Tool`, `Toolkit`), `effect` (`Effect`, `Option`, `Schema`, `Struct`).
+- Packages: `@effect/ai` (`LanguageModel`, `Prompt`, `Response`, `Tokenizer`, `Tool`, `Toolkit`), `effect` (`Effect`, `Option`, `Predicate`, `Schema`, `Struct`).
 
 ```mermaid
 flowchart LR
@@ -44,7 +44,7 @@ import { Assembly } from "../model/token.ts"
 import { Safety } from "../tool/toolkit.ts"
 import { Memory } from "./memory.ts"
 
-const _FINISH = ["stop", "length", "content-filter", "tool-calls", "error", "pause", "other", "unknown"] as const
+const _FINISH = ["stop", "length", "content-filter", "tool-calls", "error", "pause", "other", "unknown"] as const satisfies ReadonlyArray<Response.FinishReason>
 
 class _AgentFault extends Schema.TaggedError<_AgentFault>()("AgentFault", {
   stage: Schema.Literal("budget", "gate", "memory", "model"),
@@ -115,6 +115,7 @@ declare namespace Agent {
       policy: Policy<Tools>,
     ) => (call: Call) => Effect.Effect<Turn, Fault, Context<Tools>>
   }
+  type _Finish<K extends (typeof _FINISH)[number] = Response.FinishReason> = K
 }
 
 type _State = {

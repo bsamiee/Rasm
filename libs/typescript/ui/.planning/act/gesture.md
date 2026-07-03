@@ -1,6 +1,6 @@
 # [UI_GESTURE]
 
-`act/gesture.ts` owns the interaction-class division and the continuous-gesture owner: `react-aria` owns every DISCRETE accessible interaction — press, hover-intent, focus, keyboard, cross-input-normalized events, focus scoping — and `@use-gesture/react` owns every CONTINUOUS analog gesture — drag deltas, pinch scale/rotate, wheel zoom, swipe momentum. The two compose on one element with each owning its class; a discrete press routed through a pointer handler, a raw DOM listener where a hook exists, or a second gesture hook stacked on one element is the named defect. The module's owner, `Gesture`, is the parameterized recognizer factory the `viewer` camera rows drive: tree-shaken engines, atom-bound offset origin, world-space transform, and the non-passive binding law built in.
+`act/gesture.ts` owns the interaction-class division and the continuous-gesture owner: `react-aria` owns every DISCRETE accessible interaction — press, hover-intent, focus, keyboard, cross-input-normalized events, focus scoping — and `@use-gesture/react` owns every CONTINUOUS analog gesture — drag deltas, pinch scale/rotate, wheel zoom, swipe momentum. The two compose on one element with each owning its class; a discrete press routed through a pointer handler, a raw DOM listener where a hook exists, or a second gesture hook stacked on one element is the named defect. The module's one owner, `Gesture`, carries both classes — `useDiscrete` composing the react-aria bundle every `view` row binds through, and `useCanvas`, the parameterized continuous recognizer the `viewer` camera rows drive: tree-shaken engines, atom-bound offset origin, world-space transform, and the non-passive binding law built in.
 
 ## [1]-[CLUSTERS]
 
@@ -20,6 +20,7 @@
 
 ## [3]-[DISCRETE_ROWS]
 
+- Owner: `Gesture.useDiscrete(options)` — the composed discrete bundle: `usePress` + `useHover` + `useKeyboard` + `useFocusRing` merged through one `mergeProps` fold into a single spreadable prop record plus the state flags a recipe styles; the `use` prefix is load-bearing — the member composes hooks, so rules-of-hooks and the compiler's inference both key on it.
 - Law: focus is scoped, never managed by hand — `FocusScope` traps/restores for overlays, `useFocusRing` styles keyboard-only focus (its `isFocusVisible` reaches CSS as the `focus-visible:` variant), `useFocusWithin` tracks containment, and `useFocusManager` walks programmatically; a `tabindex` ladder or a `document.activeElement` read in a row marks a missing hook.
 - Law: hover carries intent — `useHover` suppresses touch-emulated hover and pairs with `@floating-ui`'s `safePolygon` only at the overlay seam (`view/compose`); `useInteractOutside` owns outside-press dismissal where a full overlay stack is not mounted.
 - Law: every bundle spreads through `mergeProps`, refs reconcile through `useObjectRef`/`mergeRefs`, and `useId` supplies SSR-stable identity — three mechanisms, no local variants.
@@ -28,17 +29,7 @@
 import { mergeProps, useFocusRing, useHover, useKeyboard, usePress } from "react-aria"
 import type { DOMAttributes } from "@react-types/shared"
 
-declare namespace Discrete {
-  type Options = {
-    readonly onPress?: (kind: "keyboard" | "mouse" | "pen" | "touch" | "virtual") => void
-    readonly onHoverChange?: (hovering: boolean) => void
-    readonly onKey?: (key: string) => void
-    readonly disabled?: boolean
-  }
-  type Bundle = { readonly props: DOMAttributes; readonly focusVisible: boolean; readonly pressed: boolean; readonly hovered: boolean }
-}
-
-const _discrete = (options: Discrete.Options): Discrete.Bundle => {
+const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle => {
   const press = usePress({ isDisabled: options.disabled, onPress: (event) => options.onPress?.(event.pointerType) })
   const hover = useHover({ isDisabled: options.disabled, onHoverChange: options.onHoverChange })
   const keyboard = useKeyboard({ onKeyDown: (event) => options.onKey?.(event.key) })
@@ -72,6 +63,13 @@ import type { RefObject } from "react"
 const _useCanvasGesture = createUseGesture([dragAction, pinchAction, wheelAction])
 
 declare namespace Gesture {
+  type DiscreteOptions = {
+    readonly onPress?: (kind: "keyboard" | "mouse" | "pen" | "touch" | "virtual") => void
+    readonly onHoverChange?: (hovering: boolean) => void
+    readonly onKey?: (key: string) => void
+    readonly disabled?: boolean
+  }
+  type DiscreteBundle = { readonly props: DOMAttributes; readonly focusVisible: boolean; readonly pressed: boolean; readonly hovered: boolean }
   type Camera = { readonly center: Vector2; readonly zoom: number; readonly bearing: number }
   type CanvasOptions = {
     readonly target: RefObject<HTMLElement | null>
@@ -83,8 +81,10 @@ declare namespace Gesture {
 }
 
 const Gesture: {
+  readonly useDiscrete: typeof _useDiscrete
   readonly useCanvas: (options: Gesture.CanvasOptions) => void
 } = {
+  useDiscrete: _useDiscrete,
   useCanvas: (options) => {
     _useCanvasGesture(
       {

@@ -59,7 +59,7 @@ const _Doppler = Schema.Struct({
 const _Data = Schema.Struct({
   instances: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 9)), { default: () => 2 }),
   storage: Schema.optionalWith(Schema.NonEmptyString, { default: () => "20Gi" }),
-  backupCron: Schema.optionalWith(Schema.NonEmptyString, { default: () => "0 3 * * *" }),
+  backupCron: Schema.optionalWith(Schema.NonEmptyString, { default: () => "0 0 3 * * *" }),
   retention: Schema.optionalWith(Schema.NonEmptyString, { default: () => "30d" }),
 })
 
@@ -84,19 +84,22 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
   epoch: Schema.optionalWith(Schema.NonEmptyString, { default: () => "0" }),
   profile: Schema.optionalWith(_Profile, { default: () => _Profile.make({}) }),
 }) {
-  static readonly arms = _arms
-  static readonly tiers = _tiers
+  static readonly arms: StackSpec.Arms = _arms
+  static readonly tiers: StackSpec.Tiers = _tiers
   get primary(): boolean {
     return _tiers[this.target] === "primary"
   }
 }
 
 declare namespace StackSpec {
+  type Arms = typeof _arms
+  type Tiers = typeof _tiers
   type Arm = (typeof _arms)[number]
   type Tier = (typeof _tiers)[Arm]
   type Connection = typeof _Connection.Type
   type Profile = typeof _Profile.Type
   type _Tiers<T extends Record<Arm, "primary" | "realized" | "prepared"> = typeof _tiers> = T
+  type _Keys<K extends Arm = keyof typeof _tiers> = K
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

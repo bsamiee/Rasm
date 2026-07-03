@@ -8,6 +8,7 @@ import { Law, LawTautology } from './laws.ts';
 type Combine = (left: number, right: number) => number;
 type Tally = { readonly count: number };
 type Bumper = { readonly bump: () => number };
+type AsyncBumper = { readonly bump: () => Promise<number> };
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
@@ -49,6 +50,22 @@ class Bump implements FastCheck.Command<Tally, Bumper> {
     }
 }
 
+// The async twin: the correspondence must survive a real await boundary between prediction and observation.
+class BumpAsync implements FastCheck.AsyncCommand<Tally, AsyncBumper> {
+    check(): boolean {
+        return true;
+    }
+    async run(model: { count: number }, real: AsyncBumper): Promise<void> {
+        model.count += 1;
+        if ((await real.bump()) !== model.count) {
+            throw new Error(`drifted from ${model.count}`);
+        }
+    }
+    toString(): string {
+        return 'bump';
+    }
+}
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const _counter = (step: number) => (): { model: Tally; real: Bumper } => {
@@ -59,6 +76,19 @@ const _counter = (step: number) => (): { model: Tally; real: Bumper } => {
             bump: () => {
                 held += step;
                 return held;
+            },
+        },
+    };
+};
+
+const _asyncCounter = (step: number) => (): { model: Tally; real: AsyncBumper } => {
+    let held = 0;
+    return {
+        model: { count: 0 },
+        real: {
+            bump: () => {
+                held += step;
+                return Promise.resolve(held);
             },
         },
     };
@@ -119,6 +149,15 @@ describe('machine law', () => {
         Law.machine({
             commands: [FastCheck.constant(new Bump())],
             witness: { label: 'double-stepping counter', foil: _counter(2), args: { run: [new Bump()] } },
+        }),
+    ]);
+});
+
+describe('async machine law', () => {
+    Law.register(it, _asyncCounter(1), [
+        Law.machineAsync({
+            commands: [FastCheck.constant(new BumpAsync())],
+            witness: { label: 'double-stepping async counter', foil: _asyncCounter(2), args: { run: [new BumpAsync()] } },
         }),
     ]);
 });

@@ -21,7 +21,7 @@
 
 ```typescript
 import { ContentKey } from "@rasm/ts/kernel"
-import { type ParseResult, Schema, Stream } from "effect"
+import { Array, type ParseResult, Schema, Stream } from "effect"
 import type { WireFault } from "../fault/quarantine.ts"
 import { ProtoCodec } from "../codec/proto.ts"
 
@@ -49,6 +49,13 @@ class GeometryFrame extends Schema.Class<GeometryFrame>("GeometryFrame")({
     ProtoCodec.stream(ProtoCodec.suite.GeometryPayloadWire, "GeometryPayloadWire")(frames).pipe(
       Stream.mapEffect(Schema.decodeUnknown(GeometryFrame), { concurrency: 1 }),
     )
+  static view(octets: Uint8Array, tensor: GeometryFrame.Tensor): Float32Array | Uint32Array | Uint16Array | Uint8Array {
+    return new _views[tensor.dtype].of(
+      octets.buffer,
+      octets.byteOffset + tensor.byteOffset,
+      Array.reduce(tensor.shape, 1, (total, dim) => total * dim),
+    )
+  }
 }
 
 declare namespace GeometryFrame {
@@ -60,7 +67,7 @@ declare namespace GeometryFrame {
 
 ## [3]-[MESH_TENSOR]
 
-- Owner: the tensor view construction — the dtype-to-constructor vocabulary row and `view`, the zero-copy window over verified artifact octets a tensor row addresses.
+- Owner: `_views`, the dtype-to-constructor vocabulary the `GeometryFrame.view` static reads — the zero-copy window over verified artifact octets a tensor row addresses; the static's call-time read is what lets the anchor live beside its cards while the class stays the one owner.
 - Entry: `GeometryFrame.view(octets, tensor)` — one typed-array window per tensor row: constructor selected by the dtype vocabulary, positioned by `byteOffset`, sized by the shape product; the returned view aliases the verified buffer deliberately, and the caller transfers the underlying buffer to the worker in the same expression chain.
 - Growth: a new dtype is one `_views` vocabulary row — constructor and byte width land as data; consumers never switch on dtype.
 - Law: views alias, transfers detach — the view is a window, not a copy; the moment the buffer transfers to the decode worker the view is dead on this side, so views are constructed where they are consumed, never stored in cells; the aliasing discipline is the card's law and the transfer list is the marshal declaration's (`browser`'s worker protocol).
@@ -68,8 +75,6 @@ declare namespace GeometryFrame {
 - Boundary: worker marshal and `Transferable` collection are `browser/transport`'s protocol declarations; GPU buffer upload is the viewer's.
 
 ```typescript
-import { Array } from "effect"
-
 const _views = {
   f32: { of: Float32Array, width: 4 },
   u32: { of: Uint32Array, width: 4 },
@@ -77,15 +82,7 @@ const _views = {
   u8: { of: Uint8Array, width: 1 },
 } as const
 
-const _extent = (tensor: GeometryFrame.Tensor): number =>
-  Array.reduce(tensor.shape, 1, (total, dim) => total * dim)
-
-const _view = (octets: Uint8Array, tensor: GeometryFrame.Tensor): Float32Array | Uint32Array | Uint16Array | Uint8Array =>
-  new _views[tensor.dtype].of(octets.buffer, octets.byteOffset + tensor.byteOffset, _extent(tensor))
-
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { GeometryFrame }
 ```
-
-`view` and `extent` ride the class as `static readonly view = _view` and `static readonly extent = _extent` in the single `GeometryFrame` declaration; the module's one export carries envelope, feed, and window construction together.

@@ -22,11 +22,12 @@ The inline lane binds the `state` fold algebra to durability inside the write tr
 - Boundary: the fold value's algebra (keyed folds, CRDT merge) is `state/fold/algebra.md`'s; the slot's execution site and ordering are `journal/outbox.md`'s.
 
 ```typescript
-import { Effect, Schema } from "effect"
-import { SqlClient } from "@effect/sql"
+import { Array, Effect, Schema, type ParseResult } from "effect"
+import { SqlClient, type SqlError } from "@effect/sql"
 import type { Capability } from "../capability/row.ts"
 import { Journal, type StreamKey } from "../journal/append.ts"
 import type { Outbox } from "../journal/outbox.ts"
+import { Upcast } from "../journal/upcast.ts"
 
 declare namespace InlineLane {
   type Fold<S, A> = {
@@ -69,8 +70,8 @@ const _of = <S, A, I>(spec: InlineLane.Spec<S, A, I>): Outbox.Slot<A> & { readon
       })
       const seed = held[0] === undefined
         ? spec.fold.seed
-        : yield* Schema.decodeUnknown(Schema.parseJson(spec.state))(String(held[0].state))
-      const folded = events.reduce(spec.fold.step, seed)
+        : yield* Schema.decodeUnknown(spec.state)(Upcast.body(held[0]["state"]))
+      const folded = Array.reduce(events, seed, spec.fold.step)
       const state = yield* Schema.encode(Schema.parseJson(spec.state))(folded)
       yield* sql`INSERT INTO ${sql(spec.table)} ${sql.insert([{ cell, state, version: receipt.version }])}
         ON CONFLICT (cell) DO UPDATE
@@ -105,7 +106,7 @@ const _read = <S, A, I>(spec: InlineLane.Spec<S, A, I>) =>
       Effect.gen(function* () {
         const rows = yield* sql`SELECT state FROM ${sql(spec.table)} WHERE cell = ${cell}`
         if (rows[0] === undefined) return Option.none<S>()
-        return Option.some(yield* Schema.decodeUnknown(Schema.parseJson(spec.state))(String(rows[0].state)))
+        return Option.some(yield* Schema.decodeUnknown(spec.state)(Upcast.body(rows[0]["state"])))
       }))
 
 const _changes = <S, A, I>(spec: InlineLane.Spec<S, A, I>) =>
@@ -121,7 +122,7 @@ const InlineLane = {
     read: _read(spec),
     changes: _changes(spec),
   }),
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

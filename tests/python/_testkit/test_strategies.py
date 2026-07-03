@@ -2,8 +2,10 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+from decimal import Decimal
 from typing import Annotated, Literal
 
+import annotated_types
 from hypothesis import given, settings as hyp_settings
 import msgspec
 import pydantic
@@ -22,6 +24,7 @@ class Bounded(msgspec.Struct, frozen=True):
     count: Annotated[int, msgspec.Meta(ge=10, le=40, multiple_of=5)]
     label: Annotated[str, msgspec.Meta(min_length=2, max_length=4)]
     ratio: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
+    gain: Annotated[float, msgspec.Meta(gt=0.0, le=2.0, multiple_of=0.25)]
 
 
 class Unbounded(msgspec.Struct, frozen=True):
@@ -55,6 +58,13 @@ class Model(pydantic.BaseModel):
     anything: object
 
 
+class Priced(pydantic.BaseModel):
+    # annotated-types spellings keep the Decimal multiple exact; Field's multiple_of stub admits only int | float.
+    cost: Annotated[Decimal, annotated_types.Gt(Decimal(0)), annotated_types.Le(Decimal(1)), annotated_types.MultipleOf(Decimal("0.05"))]
+    scale: Decimal = pydantic.Field(ge=Decimal("-2.5"), lt=Decimal("2.5"), decimal_places=2)
+    budget: Decimal = pydantic.Field(max_digits=3)
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [MSGSPEC_ALGEBRA]
@@ -63,10 +73,12 @@ class Model(pydantic.BaseModel):
 @_BUDGET
 @given(resolve(Bounded))
 def test_msgspec_constraints_hold_and_encode_clean(value: Bounded) -> None:
-    """Every draw honors Meta bounds, multiples, and lengths, and encodes without repair."""
+    """Every draw honors Meta bounds, multiples, exclusive edges, and lengths, and decodes through the C validator without repair."""
     assert 10 <= value.count <= 40 and value.count % 5 == 0, f"count constraint broke: {value.count}"
     assert 2 <= len(value.label) <= 4, f"label length broke: {value.label!r}"
     assert 0.0 <= value.ratio <= 1.0, f"ratio bound broke: {value.ratio}"
+    # gt + multiple_of: the exclusive boundary is itself a multiple, so a naive k-window draws it.
+    assert 0.0 < value.gain <= 2.0 and (value.gain / 0.25).is_integer(), f"gain exclusive-multiple broke: {value.gain}"
     assert msgspec.json.decode(msgspec.json.encode(value), type=Bounded) == value
 
 
@@ -153,3 +165,12 @@ def test_pydantic_constraints_hold_on_every_draw(model: Model) -> None:
 def test_pydantic_any_lane_reaches_beyond_none(model: Model) -> None:
     """The ``any`` schema lane generates real JSON values, never a None-only slice."""
     assert model.anything is not None
+
+
+@_BUDGET
+@given(resolve(Priced))
+def test_pydantic_decimal_lane_honors_exclusivity_multiples_and_digit_budgets(model: Priced) -> None:
+    """Every decimal draw constructs through live pydantic validation: exclusive edges never land, multiples and digit budgets hold."""
+    assert Decimal(0) < model.cost <= Decimal(1) and model.cost % Decimal("0.05") == 0, f"cost exclusive-multiple broke: {model.cost}"
+    assert Decimal("-2.5") <= model.scale < Decimal("2.5"), f"scale exclusive edge broke: {model.scale}"
+    assert abs(model.budget) <= Decimal(999), f"budget digit ceiling broke: {model.budget}"

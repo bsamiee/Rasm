@@ -20,11 +20,12 @@ Message persistence is a port, never an import: `work` composes the `@effect/clu
 - Boundary: which entity applies `Persisted` and how quotas fence a tenant are `engine/entity.md`'s; the driver Layer, tenancy scopes, and the outbox relation are `store`'s; this page owns only the composition rows and the port law.
 - Entry: `Storage.durable` / `Storage.memory` / `Storage.noop`, read by the composition root only.
 - Growth: a new persistence tier is one row; a new storage axis (a lease table, a poll cadence) is a field on the owning row.
-- Packages: `@effect/cluster` (`MessageStorage`, `RunnerStorage`, `SqlMessageStorage`, `SqlRunnerStorage`), `effect` (`Types`).
+- Packages: `@effect/cluster` (`MessageStorage`, `RunnerStorage`, `SqlMessageStorage`, `SqlRunnerStorage`), `effect` (`Layer`, `Types`).
 
 ```typescript
 import { MessageStorage, RunnerStorage, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
-import type { Types } from "effect"
+import { FaultClass } from "@rasm/ts/kernel"
+import { type Layer, Option, Predicate, Record, type Types } from "effect"
 
 const _kinds = ["durable", "memory", "noop"] as const
 const _rows = {
@@ -36,7 +37,7 @@ const _rows = {
 declare namespace Storage {
   type Kinds = typeof _kinds
   type Kind = keyof typeof _rows
-  type Row = { readonly messages: unknown; readonly runners: unknown }
+  type Row = { readonly messages: Layer.Layer.Any; readonly runners: Layer.Layer.Any }
   type Contract = { readonly [K in Kinds[number]]: Row }
   type _Rows<T extends Contract = typeof _rows> = T
   type _Keys<K extends keyof Contract = Kind> = K
@@ -46,8 +47,8 @@ declare namespace Storage {
 ## [3]-[CLASS_FOLD]
 
 [CLASS_FOLD]:
-- Owner: the classification table — one interior `as const` row set mapping every closed `ClusterError` tag to its kernel `FaultClass` kind: `MailboxFull` and `AlreadyProcessingMessage` are backpressure facts (`exhausted`, `conflicted`), `PersistenceError`, `EntityNotAssignedToRunner`, `RunnerNotRegistered`, and `RunnerUnavailable` are routing/storage transients (`unavailable`), and `MalformedMessage` is a decode terminal (`malformed`). `Storage.classify` folds any fault through the table — a tagged cluster fault reads its row, everything else falls to the kernel's own structural probe — and `Storage.transient` is the one gate predicate `Effect.retry`'s `while` consumes.
-- Law: cluster faults carry no `class` field, so the kernel budget gate alone would fold them to `defect` and never re-drive; this table is the bridge that makes `Budget`-grade retry semantics total over the engine's own fault family, and a call-site predicate re-deriving retryability beside it is policy leakage.
+- Owner: the classification table — one interior `as const` row set mapping every closed `ClusterError` tag to its kernel `FaultClass` kind: `MailboxFull` and `AlreadyProcessingMessage` are backpressure facts (`exhausted`, `conflicted`), `PersistenceError`, `EntityNotAssignedToRunner`, `RunnerNotRegistered`, and `RunnerUnavailable` are routing/storage transients (`unavailable`), and `MalformedMessage` is a decode terminal (`malformed`). `Storage.classify` folds any fault through the table — a tagged cluster fault reads its row, everything else falls to the kernel's own structural probe — and `Storage.transient` is the one re-drive predicate every cluster-facing verdict consumes: the relay settlement fold, admission backoff at the refusal port, a `while` gate on a cluster-call retry.
+- Law: cluster faults carry no `class` field, so the kernel's structural probe alone folds them to `defect` and every kernel-compiled schedule gate refuses them; this table is the bridge that reads engine faults at `Budget`-grade severity, and a call-site predicate re-deriving retryability beside it is policy leakage — a gate that must re-drive cluster transients composes `Storage.transient`, never the bare class probe.
 - Law: the fold is total over `unknown` — a foreign throw, a defect, and a work-folder fault (which carries `class` by the folder convention `flow/activity.md` seals) all land at their correct severity through one expression; no arm of the folder switches on a cluster tag the table already maps.
 - Law: routing faults drive re-route, never crash — `EntityNotAssignedToRunner` during shard movement is `unavailable` and retryable, so a client call under any kernel-budget gate rides out a rebalance; `MalformedMessage` is terminal because replaying an undecodable payload cannot succeed.
 - Boundary: the ten-class vocabulary, its rank lattice, and `retryable` semantics are `kernel`'s; which budget row a surface selects is that surface's policy; this page owns only the tag-to-class correspondence.
@@ -56,9 +57,6 @@ declare namespace Storage {
 - Packages: `effect` (`Option`, `Predicate`, `Record`), `@rasm/ts/kernel` (`FaultClass`).
 
 ```typescript
-import { FaultClass } from "@rasm/ts/kernel"
-import { Option, Predicate, Record } from "effect"
-
 const _classes = {
   AlreadyProcessingMessage: "conflicted",
   EntityNotAssignedToRunner: "unavailable",

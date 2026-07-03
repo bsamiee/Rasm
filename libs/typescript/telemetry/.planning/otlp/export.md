@@ -123,8 +123,9 @@ const Redaction: {
 
 [LANES]:
 - Owner: the interior `_lanes` roster — `as const satisfies Record<string, (policy) => Layer>` — with `Export.live(policy)` as the one entrypoint dispatching `_lanes[policy.lane](policy)`; the lane union derives as `keyof typeof _lanes`, so config admission (`Config.literal` at the app root), the policy type, and the dispatch read one anchor, and a new lane is one row.
-- Packages: `@effect/opentelemetry` (`Otlp`, `NodeSdk`, `WebSdk` — the facade both lanes ride), the `[OTLP_SDK]` pin block (`@opentelemetry/sdk-trace-base`, `sdk-trace-node`, `sdk-trace-web`, `sdk-metrics`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http`, `resources` — SDK lanes only, `[R3]`-collapse members).
-- Law: the native `otlp` row is the default — Effect's own `Tracer`/`Metric`/`Logger` serialize straight to the collector over the `HttpClient.HttpClient` requirement the root satisfies with `host/net`'s policy client (node/bun) or the XHR client (browser), so OTLP egress inherits the branch timeout/retry/proxy posture; serialization selects `Otlp.layerJson` versus `Otlp.layerProtobuf`, and the resource option carries the `Convention.identity` attributes.
+- Packages: `@effect/opentelemetry` (`Otlp`, `NodeSdk`, `WebSdk` — the facade both lanes ride), the `[OTLP_SDK]` pin block composed here (`@opentelemetry/sdk-trace-base`, `sdk-metrics`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http`; `sdk-trace-node`/`sdk-trace-web` ride as the facade's lane peers — SDK lanes only, `[R3]`-collapse members).
+- Law: the native `otlp` row is the default — Effect's own `Tracer`/`Metric`/`Logger` serialize straight to the collector over the `HttpClient.HttpClient` requirement the root satisfies with `host/net`'s policy client (node/bun) or the XHR client (browser), so OTLP egress inherits the branch timeout/retry/proxy posture; serialization selects `Otlp.layerJson` versus `Otlp.layerProtobuf`.
+- Law: identity crosses as one interior `_resource` projection — the facade's `{ serviceName, serviceVersion, attributes }` resource options carrying `Convention.identity` — consumed identically by the native row and the SDK `Configuration`, so the facade owns `Resource` construction on every lane and a raw `@opentelemetry/resources` value never appears.
 - Law: the SDK rows exist for SDK-only capability — processor semantics, the boundary span scrub, an explicit metric temporality preference — and each is one facade `Configuration`: the `node` row wires `Redaction.processor` before a `BatchSpanProcessor(new OTLPTraceExporter(...))`, a `PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ temporalityPreference }) })`, and a `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` tracer config; the `web` row is the same shape over `WebSdk` with the browser batch config keeping pagehide auto-flush ON so RUM spans drain before navigation. Neither row calls `register()` — the facade owns context wiring through the fiber-backed tracer.
 - Law: SDK-lane log egress does not exist — no OTLP log exporter is admitted, so the log signal is native-lane-only (`Otlp` carries it; the SDK rows export traces and metrics), and a parallel log sink beside the replaced process logger is the named defect.
 - Law: metric temporality is the policy row mapped to `AggregationTemporalityPreference` — `delta` is the meter-stream default (cheap billing rollups), `cumulative` the monotonic-totals alternative — and the tenant-cardinality budget rides the reader's `cardinalityLimits`, the governed ceiling `signal/meter`'s tenant tag operates under.
@@ -152,12 +153,21 @@ import type { HttpClient } from "@effect/platform"
 import { NodeSdk, Otlp, WebSdk } from "@effect/opentelemetry"
 import { AggregationTemporalityPreference, OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
-import { resourceFromAttributes } from "@opentelemetry/resources"
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
 import { BatchSpanProcessor, ParentBasedSampler, TraceIdRatioBasedSampler } from "@opentelemetry/sdk-trace-base"
 
 const _headers = (policy: Export.Policy): Record<string, string> =>
   Record.map(policy.collector.headers, Redacted.value)
+
+const _resource = (policy: Export.Policy): {
+  readonly attributes: Convention.Attributes
+  readonly serviceName: string
+  readonly serviceVersion: string
+} => ({
+  attributes: _attributes(policy),
+  serviceName: policy.identity.app,
+  serviceVersion: policy.identity.build.version,
+})
 
 const _temporality = {
   cumulative: AggregationTemporalityPreference.CUMULATIVE,
@@ -174,7 +184,7 @@ const _sdk = (policy: Export.Policy) => ({
     }),
     cardinalityLimits: { default: policy.cardinality.tenant },
   }),
-  resource: resourceFromAttributes(_attributes(policy)),
+  resource: _resource(policy),
   spanProcessor: [
     Redaction.processor(policy.redaction),
     new BatchSpanProcessor(
@@ -194,11 +204,7 @@ const _lanes = {
       loggerExportInterval: policy.cadence.logs,
       maxBatchSize: policy.batch.maxExportBatchSize,
       metricsExportInterval: policy.cadence.metrics,
-      resource: {
-        attributes: _attributes(policy),
-        serviceName: policy.identity.app,
-        serviceVersion: policy.identity.build,
-      },
+      resource: _resource(policy),
       tracerExportInterval: policy.cadence.traces,
     }),
   web: (policy: Export.Policy): Export.Live => WebSdk.layer(() => _sdk(policy)),
@@ -227,7 +233,7 @@ export { Export, Redaction }
 import { DevTools } from "@effect/experimental"
 import type { Layer } from "effect"
 
-const dev: Layer.Layer<never> = DevTools.layerWebSocket()
+const dev: Layer.Layer<never> = DevTools.layer()
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

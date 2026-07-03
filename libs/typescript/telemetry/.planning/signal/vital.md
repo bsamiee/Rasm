@@ -100,6 +100,8 @@ const _accounted = (
   return [HashMap.set(ledger, fact.kind, next), { kind: fact.kind, value: next }]
 }
 
+const _FLOW = { buffer: 32, pulse: 8 } as const
+
 const _observed: Stream.Stream<Vital.Fact> = Stream.asyncScoped<Vital.Fact>(
   (emit) =>
     Effect.acquireRelease(
@@ -119,7 +121,7 @@ const _observed: Stream.Stream<Vital.Fact> = Stream.asyncScoped<Vital.Fact>(
       }),
       (observer) => Effect.sync(() => observer.disconnect()),
     ),
-  { bufferSize: 32, strategy: "sliding" },
+  { bufferSize: _FLOW.buffer, strategy: "sliding" },
 ).pipe(Stream.mapAccum(HashMap.empty<Vital.Kind, number>(), _accounted))
 ```
 
@@ -134,27 +136,29 @@ const _observed: Stream.Stream<Vital.Fact> = Stream.asyncScoped<Vital.Fact>(
 - Growth: an instrument axis is closed — new analysis lands as board queries over the same two instruments.
 
 ```typescript
-import { Effect, Layer, Metric, Stream } from "effect"
+import { Effect, Layer, Metric, Stream, pipe } from "effect"
 import { Convention } from "./convention.ts"
 
 const _level = Metric.gauge(Convention.metric.vitalLevel)
 const _observedCount = Metric.counter(Convention.metric.vitalObserved, { incremental: true })
 
 const _drained = (fact: Vital.Fact): Effect.Effect<void> =>
-  Effect.all(
-    [
-      Metric.set(Metric.tagged(_level, Convention.rasm.vitalKind, fact.kind), fact.value),
-      Metric.increment(
-        Metric.tagged(
-          Metric.tagged(_observedCount, Convention.rasm.vitalKind, fact.kind),
-          Convention.rasm.vitalGrade,
-          _grade(fact.kind, fact.value),
+  pipe(_grade(fact.kind, fact.value), (grade) =>
+    Effect.all(
+      [
+        Metric.set(Metric.tagged(_level, Convention.rasm.vitalKind, fact.kind), fact.value),
+        Metric.increment(
+          Metric.tagged(
+            Metric.tagged(_observedCount, Convention.rasm.vitalKind, fact.kind),
+            Convention.rasm.vitalGrade,
+            grade,
+          ),
         ),
-      ),
-      Effect.annotateCurrentSpan(Convention.rasm.vitalKind, fact.kind),
-    ],
-    { discard: true },
-  )
+        Effect.annotateCurrentSpan(Convention.rasm.vitalKind, fact.kind),
+        Effect.annotateCurrentSpan(Convention.rasm.vitalGrade, grade),
+      ],
+      { discard: true },
+    ))
 
 const Vital: {
   readonly grade: (kind: Vital.Kind, value: number) => Vital.Grade
@@ -169,7 +173,7 @@ const Vital: {
         Stream.runForEach(
           _observed.pipe(
             Stream.changesWith((prior, next) => prior.kind === next.kind && prior.value === next.value),
-            Stream.throttle({ cost: () => 1, duration: tempo.settle, strategy: "shape", units: 8 }),
+            Stream.throttle({ cost: () => 1, duration: tempo.settle, strategy: "shape", units: _FLOW.pulse }),
           ),
           _drained,
         ),

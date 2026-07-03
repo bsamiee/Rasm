@@ -47,6 +47,7 @@ const _sized = (tag: string, chain: Upcast.Chain): Upcast.Chain => {
 - Owner: `Upcast` — `plan(family, roster)` binds a tagged event family to its chains; `chain(shape, spec)` is the single-shape twin the snapshot store keys by `snapshot_schema_version`; both return decode folds that lift then prove.
 - Packages: `effect` (`Effect`, `Array`, `Option`, `Record`, `Schema`, `ParseResult`).
 - Entry: `plan(...).decode(raw)` is the ONLY road from a persisted payload to a live event value — `journal/append.md`'s read stream, `project/*` lanes, and `journal/retain.md`'s DSAR fold all compose it; `plan(...).latest(tag)` is what the append surface stamps on writes, so write-version and read-lift share one anchor and cannot drift.
+- Law: `Upcast.body` is the one JSON-column projection — pg returns jsonb columns as live objects while the sqlite lanes return TEXT, so the string-parse ternary exists in exactly one spelling and every payload, snapshot-body, and state-cell read composes it; a malformed stored text is a defect at the projection, because the column was written by `Schema.encode` and cannot lawfully hold non-JSON.
 - Receipt: the decode lands in the family type or fails as `ParseError` on the one admission rail — a lifted payload that fails the current schema is exactly a malformed-history finding, routed to quarantine by the consuming lane, never swallowed.
 - Growth: a new tag is one roster entry (`latest: 1`, empty steps); a new version is one step; a family-wide reshape is still per-tag steps — the fold never widens.
 - Law: an unknown tag in the log is a defect at read (`Option.none` from `latest`) only when the family truly dropped a tag — the sanctioned path for tag retirement is keeping a tombstone member in the union, so the plan stays total over everything ever written.
@@ -71,7 +72,11 @@ declare namespace Upcast {
 const _lift = (chain: Upcast.Chain, version: number, payload: unknown): unknown =>
   Array.reduce(chain.steps.slice(version - 1), payload, (held, step) => step(held))
 
+const _body = (column: unknown): unknown =>
+  typeof column === "string" ? JSON.parse(column) : column
+
 const Upcast = {
+  body: _body,
   plan: <A, I>(family: Schema.Schema<A, I>, roster: Upcast.Roster): Upcast.Plan<A> => {
     const chains = Record.map(roster, (chain, tag) => _sized(tag, chain))
     const admit = Schema.decodeUnknown(family)
@@ -92,7 +97,7 @@ const Upcast = {
       decode: (version, payload) => admit(_lift(chain, version, payload)),
     }
   },
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -22,20 +22,20 @@
 ## [3]-[ADMISSION_FOLD]
 
 [ADMISSION_FOLD]:
-- Owner: `Guard`, one scoped `Effect.Service` built through `Guard.Default(spec)` — `spec` carries the flag-targeting `subject` read, the app-composed `availability` snapshot read (`Option`-carried: no evidence feed composed means no command gating), and the `settle` budget an in-flight authentication may spend before the fold treats it as expired. Members: `resolve(departing, arriving)` — the one admission fold; `hold(token)` — the scoped dirty marker; `dirty` — the registry read. `Confirm` is the port Tag `ui` satisfies at composition: one prompt-to-boolean ceremony.
-- Law: the chain is ordered and first-refusal-wins — departure confirm (only when the departing row carries `leave` AND dirty work is held), then session, then flag, then command; each arm yields `Proceed` to fall through, and the fold is total — every path lands an `Admission`, no throw, no absent arm.
+- Owner: `Guard`, one scoped `Effect.Service` built through `Guard.Default(spec)` — `spec` carries the flag-targeting `subject` read, the app-composed `availability` snapshot read (`Option`-carried: no evidence feed composed means no command gating), and the `settle` budget an in-flight authentication may spend before the fold treats it as expired. Members: `resolve(departing, arriving)` — the one admission fold; `hold(token)` — the scoped dirty marker; `dirty` — the registry read, published `Subscribable` so only `hold`'s bracket writes it. `Confirm` is the port Tag `ui` satisfies at composition: one prompt-to-boolean ceremony.
+- Law: the chain is ordered and first-refusal-wins — departure confirm (only when the departing row carries `leave` AND dirty work is held), then session, then flag, then command; the chain is one `Effect.reduce` over the four arm effects — an arm runs only while the held verdict is `Proceed`, so the first refusal short-circuits, the fold is total, and a new gate is one arm value in the list, never a branch.
 - Law: `Authenticating` is waited out, never guessed — the session arm suspends on the status cell's change feed until a settled phase arrives or the `settle` budget lapses, and a lapse folds as `Expired` (divert), so a slow ceremony renders the router's pending affordance instead of a wrong verdict.
 - Law: absence admits — a missing `Confirm` port proceeds (the native `beforeunload` arm still covers tab close), absent availability evidence admits, and only a `Withheld` verdict refuses (`Gated` proceeds — page-level affordances own gated rendering); the guard degrades open on missing evidence and shut on explicit refusal.
-- Law: the `beforeunload` arm and its synchronous registry read are the module's platform-forced statement seam — the native handler must decide within its dispatch, so it reads the dirty cell through the captured runtime's sync run (the sanctioned callback-seam spelling) and prevents default only while work is held; the implementer carries the `// BOUNDARY ADAPTER` mark on `_departures`' first line.
+- Law: the `beforeunload` arm and its synchronous registry read are the module's platform-forced statement seam — the native handler must decide within its dispatch, so it reads the dirty cell through the captured runtime's sync run (the sanctioned callback-seam spelling) and prevents default only while work is held; the implementer carries the `// BOUNDARY ADAPTER` mark on the `beforeunload` bracket's first line.
 - Receipt: `resolve`'s annotation states the whole read surface — `Router.Admission` out, no fault channel, requirement-free by construction.
 - Entry: the app's composition maps the router's endpoint pair onto its rows — `(from, to) => guard.resolve(Option.some(rows[from.key].policy), rows[to.key].policy)` — one line in `main.ts`, zero lib coupling between the two pages.
 - Boundary: the router consumes the fold through its admission slot; `ui` renders the confirm ceremony behind the `Confirm` Tag; the dirty affordance (disabled save, exit warning) reads `dirty` through the app-composed atom bridge.
-- Packages: `effect` (`Effect`, `Option`, `HashSet`, `SubscriptionRef`, `Stream`, `Duration`, `Context`, `Runtime`); `@rasm/ts/host` (`Flags`, type `Rollout`); `@rasm/ts/state` (`Availability`); `../session/store.ts` (`Vault`, `SessionStatus`); `./navigate.ts` (`Router`).
+- Packages: `effect` (`Effect`, `Option`, `HashSet`, `SubscriptionRef`, `Subscribable`, `Stream`, `Duration`, `Context`, `Runtime`); `@rasm/ts/host` (`Flags`, type `Rollout`); `@rasm/ts/state` (`Availability`); `../session/store.ts` (`Vault`, `SessionStatus`); `./navigate.ts` (`Router`).
 
 ```typescript
 import { Flags, type Rollout } from "@rasm/ts/host"
 import { Availability } from "@rasm/ts/state"
-import { Context, type Duration, Effect, HashSet, Option, Runtime, type Scope, Stream, SubscriptionRef } from "effect"
+import { Context, type Duration, Effect, HashSet, Option, Runtime, type Scope, Stream, Subscribable, SubscriptionRef } from "effect"
 import { SessionStatus, Vault } from "../session/store.ts"
 import { Router } from "./navigate.ts"
 
@@ -54,6 +54,8 @@ declare namespace Guard {
   }
 }
 
+const _PROCEED: Router.Admission = Router.Admission.Proceed()
+
 const _OPEN: Guard.Policy = {
   session: Option.none(),
   flag: Option.none(),
@@ -70,11 +72,11 @@ class Guard extends Effect.Service<Guard>()("browser/route/Guard", {
       const flags = yield* Flags
       const confirm = yield* Effect.serviceOption(Confirm)
       const runtime = yield* Effect.runtime<never>()
-      const dirty = yield* SubscriptionRef.make(HashSet.empty<string>())
+      const _dirty = yield* SubscriptionRef.make(HashSet.empty<string>())
       yield* Effect.acquireRelease(
         Effect.sync(() => {
           const handler = (event: BeforeUnloadEvent) => {
-            const held = Runtime.runSync(runtime)(SubscriptionRef.get(dirty))
+            const held = Runtime.runSync(runtime)(SubscriptionRef.get(_dirty))
             if (HashSet.size(held) > 0) event.preventDefault()
           }
           globalThis.addEventListener("beforeunload", handler)
@@ -82,7 +84,7 @@ class Guard extends Effect.Service<Guard>()("browser/route/Guard", {
         }),
         (handler) => Effect.sync(() => globalThis.removeEventListener("beforeunload", handler)),
       )
-      const _settled: Effect.Effect<SessionStatus> = Effect.flatMap(SubscriptionRef.get(vault.status), (held) =>
+      const _settled: Effect.Effect<SessionStatus> = Effect.flatMap(vault.status.get, (held) =>
         SessionStatus.$is("Authenticating")(held)
           ? vault.status.changes.pipe(
               Stream.filter((status) => !SessionStatus.$is("Authenticating")(status)),
@@ -95,7 +97,7 @@ class Guard extends Effect.Service<Guard>()("browser/route/Guard", {
       const _asked = (prompt: Guard.Prompt): Effect.Effect<boolean> =>
         Option.match(confirm, { onNone: () => Effect.succeed(true), onSome: (ask) => ask(prompt) })
       const _leaveArm = (departing: Option.Option<Guard.Policy>): Effect.Effect<Router.Admission> =>
-        Effect.flatMap(SubscriptionRef.get(dirty), (held) =>
+        Effect.flatMap(SubscriptionRef.get(_dirty), (held) =>
           Option.match(Option.flatMap(departing, (policy) => policy.leave), {
             onNone: () => Effect.succeed(Router.Admission.Proceed()),
             onSome: (prompt) =>
@@ -137,20 +139,17 @@ class Guard extends Effect.Service<Guard>()("browser/route/Guard", {
             ),
         })
       const resolve = (departing: Option.Option<Guard.Policy>, arriving: Guard.Policy): Effect.Effect<Router.Admission> =>
-        Effect.gen(function* () {
-          const left = yield* _leaveArm(departing)
-          if (left._tag !== "Proceed") return left
-          const session = yield* _sessionArm(arriving)
-          if (session._tag !== "Proceed") return session
-          const flagged = yield* _flagArm(arriving)
-          if (flagged._tag !== "Proceed") return flagged
-          return yield* _commandArm(arriving)
-        })
+        Effect.reduce(
+          [_leaveArm(departing), _sessionArm(arriving), _flagArm(arriving), _commandArm(arriving)],
+          _PROCEED,
+          (held, arm) => (Router.Admission.$is("Proceed")(held) ? arm : Effect.succeed(held)),
+        )
       const hold = (token: string): Effect.Effect<void, never, Scope.Scope> =>
         Effect.acquireRelease(
-          SubscriptionRef.update(dirty, HashSet.add(token)),
-          () => SubscriptionRef.update(dirty, HashSet.remove(token)),
+          SubscriptionRef.update(_dirty, HashSet.add(token)),
+          () => SubscriptionRef.update(_dirty, HashSet.remove(token)),
         )
+      const dirty: Subscribable.Subscribable<HashSet.HashSet<string>> = _dirty
       return { resolve, hold, dirty }
     }),
   accessors: true,

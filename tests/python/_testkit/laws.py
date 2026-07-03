@@ -10,7 +10,7 @@ import importlib
 import inspect
 from pathlib import Path
 import sys
-from typing import TypeAliasType
+from typing import get_args, TypeAliasType, TypeForm, TypeIs
 import weakref
 
 from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
@@ -24,6 +24,9 @@ from tests.python._testkit.runtime import REPO_ROOT
 
 # bench_*.py are measurement sessions, never census members; laws live only in these module shapes.
 _LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
+
+# Distinguishes a genuinely-None public value (value-only exempt) from an attribute __all__ promises but the module never defines.
+_ABSENT: object = object()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -58,6 +61,15 @@ def _qualname(subject: object) -> str:
     return getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
 
 
+def _resolvable(subject: object) -> TypeIs[TypeForm[object]]:
+    """Decide whether ``resolve`` can own the subject: classes, PEP 695 aliases, and parameterized forms.
+
+    Returns:
+        True when the subject is a strategy-resolvable type form; bare callables and values refuse.
+    """
+    return isinstance(subject, type | TypeAliasType) or bool(get_args(subject))
+
+
 def auto_exempt(subject: object) -> bool:
     """Decide whether a public symbol needs no law: StrEnum, method-free frozen struct, or value-only object.
 
@@ -68,12 +80,13 @@ def auto_exempt(subject: object) -> bool:
         case type() if issubclass(subject, enum.StrEnum):
             return True
         case type() if issubclass(subject, msgspec.Struct):
+            # __post_init__ is admission behavior: a frozen struct validating itself still needs a law.
             declared = any(
                 callable(member) or isinstance(member, (property, classmethod, staticmethod, functools.cached_property))
                 for klass in subject.__mro__
                 if klass not in {msgspec.Struct, object}
                 for name, member in vars(klass).items()
-                if not name.startswith("__")
+                if name == "__post_init__" or not name.startswith("__")
             )
             return bool(subject.__struct_config__.frozen) and not declared
         case type():
@@ -115,8 +128,12 @@ def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[s
             [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
         )
         for name in names:
-            member = getattr(mod, name, None)
-            surface.setdefault(name, member) if not inspect.ismodule(member) else None
+            member = getattr(mod, name, _ABSENT)
+            if member is _ABSENT:
+                # A phantom export is a broken public surface, never a silent value-only exemption.
+                failures.append((getattr(mod, "__name__", "<module>"), f"__all__ names {name!r} but the module never defines it"))
+            elif not inspect.ismodule(member):
+                surface.setdefault(name, member)
 
     return surface, tuple(failures)
 
@@ -158,15 +175,20 @@ def spec[**P](
             case True:
                 from tests.python._testkit.strategies import resolve  # noqa: PLC0415  # deferred to break import cycle
 
-                if not isinstance(subject, type):
-                    msg = f"@spec given=True requires a type, got {subject!r}"
+                # The registration algebra matches the resolver's: classes, PEP 695 aliases, and
+                # parameterized forms (unions, Literal, Annotated) all inject; bare callables refuse.
+                if not _resolvable(subject):
+                    msg = f"@spec given=True requires a resolvable type form, got {subject!r}"
                     raise TypeError(msg)
                 # Hypothesis maps the positional strategy to fn's rightmost parameter and injects it as
                 # a KEYWORD argument, so event taggers read that name; wraps preserves the collected signature.
                 drawn = next(reversed(inspect.signature(fn).parameters), "")
                 target = (
                     functools.wraps(fn)(
-                        lambda *args, **kwargs: ([hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events], fn(*args, **kwargs))[-1]
+                        lambda *args, **kwargs: (
+                            [hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events],
+                            fn(*args, **kwargs),
+                        )[-1]
                     )
                     if events
                     else fn
@@ -253,14 +275,22 @@ def register_sut(package: str, *, exempt: frozenset[str] = frozenset(), suite: P
     )
 
 
+def _module_name(py: Path) -> str:
+    """Dotted name pytest's importlib mode assigns a repo law module.
+
+    Returns:
+        Repo-relative dotted module name (absolute parts when the file lives outside the repo).
+    """
+    return ".".join((py.relative_to(REPO_ROOT) if py.is_relative_to(REPO_ROOT) else py).with_suffix("").parts)
+
+
 def _law_modules(suite: Path) -> frozenset[str]:
     """Dotted names of every on-disk law module under ``suite``.
 
     Returns:
-        Frozen set of dotted module names (repo-relative where possible, absolute parts otherwise).
+        Frozen set of dotted module names.
     """
-    files = (py for pattern in _LAW_GLOBS for py in suite.rglob(pattern))
-    return frozenset(".".join((py.relative_to(REPO_ROOT) if py.is_relative_to(REPO_ROOT) else py).with_suffix("").parts) for py in files)
+    return frozenset(_module_name(py) for pattern in _LAW_GLOBS for py in suite.rglob(pattern))
 
 
 def uncollected_laws() -> dict[str, tuple[str, ...]]:

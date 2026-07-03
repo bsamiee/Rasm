@@ -37,10 +37,11 @@ internal sealed partial class FactKey {
 // ScenarioContext is the SDK boundary: assert+fact calls write runner-owned facts while the SDK
 // stays wire-blind, and scope registration lets the runner drain leaks before unload.
 public sealed class ScenarioContext {
-    // The manifest admission table: the one modality gate for the role-dispatched Manifest verb.
-    private static readonly FrozenSet<EvidenceRole> ManifestLanes = new[] {
-        EvidenceRole.ObjectManifest, EvidenceRole.GeometryManifest, EvidenceRole.ViewportManifest, EvidenceRole.Gh2CanvasManifest,
-    }.ToFrozenSet();
+    // The manifest admission table derives from the Contract: every role whose FactPrefix sits in
+    // the manifest fact-key family is a lane, so a new Contract manifest lane needs no SDK edit.
+    private static readonly FrozenSet<EvidenceRole> ManifestLanes = EvidenceRole.Items
+        .Where(predicate: static role => role.FactPrefix.StartsWith(value: "manifest.", comparisonType: StringComparison.Ordinal))
+        .ToFrozenSet();
 
     private readonly List<DocumentScope> scopes = [];
     private readonly Action<string, object?> sink;
@@ -105,9 +106,13 @@ public sealed class ScenarioContext {
         Fact(key: EvidenceRole.Artifact.FactPrefix + role.Key, value: path);
     }
 
+    // A rooted or upward-traversing stem would silently escape the scratch root; normalization gates it.
     public string Scratch(string stem) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: stem);
-        string path = Path.Combine(path1: Path.GetTempPath(), path2: stem);
+        string root = Path.GetTempPath();
+        string path = Path.GetFullPath(path: Path.Combine(path1: root, path2: stem));
+        _ = path.StartsWith(value: root, comparisonType: StringComparison.Ordinal)
+            ? path : throw new ArgumentOutOfRangeException(paramName: nameof(stem), actualValue: stem, message: "stem escapes the scratch root");
         Fact(key: FactKey.ScratchPath.Render(argument: stem), value: path);
         return path;
     }

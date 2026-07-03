@@ -15,7 +15,7 @@ MCP is two lanes with one owner each and no overlap: hosting is native — `McpS
 - Owner: `Host.serve(spec)` — one assembly: the server identity (`name`, `version`), the transport lane, and the mount list merged into one `Layer` the root provides. Mounts are the package's own registration values — `McpServer.toolkit(kit)` projects a `Toolkit` as MCP tools (annotations become tool hints one-to-one), `McpServer.resource` registers a resource or a typed-parameter template (`McpSchema.param(id, schema)` spells the parameter), `McpServer.prompt({ name, parameters?, completion?, content })` registers a `Schema`-typed prompt — and `Host.serve` owns merge order and transport provision so no consumer composes `McpServer` internals twice.
 - Law: the transport is a lane arm, never a fork — `Stdio` carries the byte stream pair, `Http` carries the router path, and both knob types derive from the package's own constructor parameters (`Parameters<typeof McpServer.layerStdio>[0]`), so a package option change lands here as compile pressure, not drift; `layerHttpRouter` is the variant row for mounting into an app-owned router, named here and selected the same way.
 - Law: the stdio byte streams are boot-edge values — the app root passes its runtime's stdin `Stream` and stdout `Sink` rows into the lane; this page names no runtime binding, which is what keeps a hosted MCP server runtime-portable.
-- Law: handler requirements survive assembly — a mounted toolkit's `Tool.HandlersFor` rides `R` through `Host.serve` to the root, where the app's `kit.toLayer(handlers)` Layer satisfies it; an unbound handler is a compile error at the composition root, never a runtime method-not-found.
+- Law: handler requirements survive assembly — a mounted toolkit's `Tool.HandlersFor` rides `R` through `Host.serve` to the root, where the app's `kit.toLayer(handlers)` Layer satisfies it; the serve signature subtracts exactly the served pair (`McpServer | McpServerClient`), so an unbound handler is a compile error at the composition root, never a runtime method-not-found.
 - Law: `McpServer.elicit({ message, schema })` is the in-handler capability for server-requested structured input — its `ElicitationDeclined` outcome is a typed fault the handler folds, and it rides the same `McpServerClient` context the transport provides.
 - Boundary: hosting selection (which apps expose MCP, on which transport) is the app root's, mirroring the `edge` assembly law; the toolkits themselves and their safety classes are `tool/toolkit`'s.
 - Entry: `Host.serve(spec)`.
@@ -36,10 +36,11 @@ flowchart LR
 
 ```typescript
 import { McpServer } from "@effect/ai"
-import { Array, Data, Layer } from "effect"
+import { Array, Data, Effect, Layer, Option, type ParseResult, Schema, type Scope } from "effect"
 
 type _StdioLane = Parameters<typeof McpServer.layerStdio>[0]
 type _HttpLane = Parameters<typeof McpServer.layerHttp>[0]
+type _Served = McpServer.McpServer | McpServer.McpServerClient
 
 type _Lane = Data.TaggedEnum<{
   Http: { readonly path: _HttpLane["path"] }
@@ -57,7 +58,7 @@ declare namespace Host {
   }
   type Shape = {
     readonly Lane: typeof _Lane
-    readonly serve: <R>(spec: Spec<R>) => Layer.Layer<never, never, R>
+    readonly serve: <R>(spec: Spec<R>) => Layer.Layer<never, never, Exclude<R, _Served>>
   }
 }
 
@@ -65,7 +66,7 @@ const Host: Host.Shape = {
   Lane: _Lane,
   serve: <R>(spec: Host.Spec<R>) => {
     const seed: Layer.Layer<never, never, R> = Layer.empty
-    const transport = _Lane.$match(spec.lane, {
+    const transport: Layer.Layer<_Served> = _Lane.$match(spec.lane, {
       Http: ({ path }) => McpServer.layerHttp({ name: spec.name, version: spec.version, path }),
       Stdio: ({ stdin, stdout }) => McpServer.layerStdio({ name: spec.name, version: spec.version, stdin, stdout }),
     })
@@ -92,7 +93,6 @@ import { Client } from "@modelcontextprotocol/sdk/client"
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp"
-import { Data, Effect, Option, type ParseResult, Schema, type Scope } from "effect"
 import type { Safety } from "./toolkit.ts"
 
 class McpFault extends Data.TaggedError("McpFault")<{

@@ -13,7 +13,7 @@
 
 - Owner: `Receipt` — one `Schema.Union` over four tagged case owners: `Accepted` (admitted, awaiting application), `Applied` (carries the resulting causal `Vector` basis and the touched `ContentKey` set), `Refused` (carries the kernel fault classification and retryability as data), `Superseded` (carries the superseding command's key) — the `_tag` is simultaneously the wire discriminant and the dispatch key.
 - Packages: `effect` (`Schema`, `Order`, `Option`); `@rasm/ts/kernel` (`ContentKey`, `FaultClass`, `Hlc`, `TenantContext`); `../causal/vector.ts`; `../crdt/merge.ts`; `../fold/algebra.ts`.
-- Law: evidence is fields, never message strings — `Refused` carries `fault: FaultClass` and `retryable` so gateway retry policy reads data; a receipt kind whose evidence lives in prose is the erased-family defect invariant 5 bans.
+- Law: evidence is fields, never message strings — `Refused` carries `fault: FaultClass.Kind` admitted through `FaultClass.schema` plus `retryable` so gateway retry policy reads data; a receipt kind whose evidence lives in prose is the erased-family defect invariant 5 bans.
 - Law: `_RANKS` is the lifecycle lattice — `Accepted` below the three terminal kinds — anchored as an interior vocabulary row table with the guard pair, so lifecycle comparison derives from one anchor and a new kind is one union member plus one rank row, with every exhaustive dispatch breaking loudly until its arm exists.
 - Boundary: the member roster mirrors the C# `Rasm.AppHost/Runtime/Ports.cs` family one-to-one at the vocabulary level; roster parity is pinned at the `wire/codec/envelope` decode seam, and a C#-side kind lands here as a union member the same release.
 - Growth: a new receipt kind is one tagged case, one `_RANKS` row, and zero envelope edits.
@@ -37,7 +37,7 @@ const _Applied = Schema.TaggedStruct("Applied", {
 
 const _Refused = Schema.TaggedStruct("Refused", {
   at: Hlc,
-  fault: FaultClass,
+  fault: FaultClass.schema,
   retryable: Schema.Boolean,
   detail: Schema.NonEmptyString,
 })
@@ -73,7 +73,7 @@ declare namespace Receipt {
 ## [3]-[ENVELOPE_OWNER]
 
 - Owner: `ReceiptEnvelope` — the one decoded evidence owner: `command` (the content-keyed command coordinate — commands are content-addressed, seam `AH:52`), `subject` (the optional target entity key), `stamp`/`tenant` (kernel vocabulary, composed), `basis` (the optional `Vector` the receipt observed), `receipt` (the family) — with orders, the merge instance, and the fold plan riding it as statics so one import carries shape, policy, and fold.
-- Law: `ReceiptEnvelope.latest` is `Merge.max` over the lifecycle-then-stamp order — the LWW demonstration at its correct altitude: rank decides (a terminal receipt outranks `Accepted` regardless of clock skew), stamp tie-breaks within a rank, and the composed `Order` is the single policy edit-site.
+- Law: `ReceiptEnvelope.latest` is `Merge.max` over the lifecycle-then-stamp-then-tag order — the LWW demonstration at its correct altitude: rank decides (a terminal receipt outranks `Accepted` regardless of clock skew), stamp tie-breaks within a rank, the receipt tag closes the order over distinct kinds at one stamp, and the composed `Order` is the single policy edit-site; a residual tie is a structural duplicate idempotence absorbs, because the AppHost mint is HLC-monotone per authority.
 - Law: `ReceiptEnvelope.plan` keys by `command` — the per-command receipt table is a `fold` algebra instance, so it runs identically as a pure snapshot, a stream trace, a memory handle, or a durable projection; `settled` reads terminality from the `_RANKS` row, never a `_tag` ladder.
 - Law: dedup is structural — two decodes of one wire receipt compare equal under the derived equivalence, so idempotent delivery through `Replay.memory`'s `consolidate` costs nothing here.
 - Boundary: decode placement and the wire twin are `wire/codec/envelope`'s; `evidence/timeline` wraps envelopes into feed entries; `ui` consumes the folded table through `query/live` views.
@@ -91,10 +91,11 @@ class ReceiptEnvelope extends Schema.Class<ReceiptEnvelope>("ReceiptEnvelope")({
     Hlc.Order,
     (envelope: ReceiptEnvelope) => envelope.stamp,
   )
-  static readonly byLifecycle: Order.Order<ReceiptEnvelope> = Order.combine(
+  static readonly byLifecycle: Order.Order<ReceiptEnvelope> = Order.combineAll([
     Order.mapInput(Order.number, (envelope: ReceiptEnvelope) => _RANKS[envelope.receipt._tag].rank),
     ReceiptEnvelope.byStamp,
-  )
+    Order.mapInput(Order.string, (envelope: ReceiptEnvelope) => envelope.receipt._tag),
+  ])
   static readonly latest: Merge.Instance<ReceiptEnvelope> = Merge.max(ReceiptEnvelope.byLifecycle)
   static readonly plan: Fold.Plan<ReceiptEnvelope, ContentKey, ReceiptEnvelope> = Fold.plan({
     name: "evidence/receipt",

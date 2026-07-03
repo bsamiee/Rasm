@@ -78,19 +78,22 @@ const _folded = (key: string) => (caught: unknown): _Fault | _Replay =>
 - Receipt: `ObjectStore.Receipt` — `{ key, bytes, written }` — `written: false` is the 412 idempotent noop, a success by law.
 - Growth: a new write posture (storage class, SSE) is a field on `put`'s options row flowing into the command value; a new read shape is a command field, never a sibling get.
 - Law: the 412 fold is status-read on the caught base exception — `$metadata.httpStatusCode === 412` folds to `{ written: false }` before the fault family engages; treating 412 as a fault is the named defect.
-- Law: multipart is composed, not managed — `Effect.acquireRelease(CreateMultipartUpload, abort-on-failure)` with an `UploadPart` fold over `Chunk.chunksOf` windows and a terminal `CompleteMultipartUpload`; `@aws-sdk/lib-storage` stays unadmitted, and part size is a `Config` fact.
+- Law: multipart is composed, not managed — `Effect.acquireRelease(CreateMultipartUpload, abort-on-failure)` with an `UploadPart` fold over `Chunk.chunksOf` windows and a terminal `CompleteMultipartUpload` carrying `IfNoneMatch: "*"` — the conditional rides the COMPLETE, because `CreateMultipartUploadRequest` has no conditional member and the object materializes only at completion; `@aws-sdk/lib-storage` stays unadmitted, and part size is a `Config` fact.
 - Law: `get` verifies identity — bytes re-mint through the kernel and disagree only as `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too.
 - Boundary: the kernel mint is the ONE hash — invariant 2's third delegating site; the presign page consumes `conditional` for browser-direct upload grants so the idempotency headers exist exactly once.
 
 ```typescript
-import { Chunk, Effect, Exit, Option, Stream } from "effect"
+import { Chunk, DateTime, Exit, Option, Schema, Stream, type ParseResult } from "effect"
 import {
   AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CreateMultipartUploadCommand,
   DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command,
   PutObjectCommand, UploadPartCommand, paginateListObjectsV2,
 } from "@aws-sdk/client-s3"
+import { SqlClient, type SqlError } from "@effect/sql"
 import { ContentKey } from "@rasm/ts/kernel"
-import type { Retain } from "../journal/retain.ts"
+import type { Capability } from "../capability/row.ts"
+import { Journal } from "../journal/append.ts"
+import { Retain } from "../journal/retain.ts"
 
 const _multipart = (
   client: S3Client,
@@ -104,7 +107,7 @@ const _multipart = (
       const opened = yield* Effect.acquireRelease(
         Effect.tryPromise({
           try: (signal) =>
-            client.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, IfNoneMatch: "*" }), {
+            client.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: key }), {
               abortSignal: signal,
             }),
           catch: _folded(key),
@@ -141,6 +144,7 @@ const _multipart = (
             Key: key,
             UploadId: opened.UploadId,
             MultipartUpload: { Parts: parts },
+            IfNoneMatch: "*",
           }), { abortSignal: signal }),
         catch: _folded(key),
       })
@@ -148,6 +152,8 @@ const _multipart = (
   )
 
 declare namespace ObjectStore {
+  type Fault = _Fault
+  type Replay = _Replay
   type PutOptions = {
     readonly contentType?: string
     readonly retention?: Retain.Class
@@ -193,7 +199,7 @@ class ObjectStore extends Effect.Service<ObjectStore>()("store/ObjectStore", {
         ChecksumAlgorithm: "SHA256",
         ContentType: options?.contentType,
         Tagging: options?.retention === undefined ? undefined : `retention=${options.retention}`,
-        Body: body,
+        ...(body !== undefined && { Body: body }),
       })
     const put = (bytes: Uint8Array, options?: ObjectStore.PutOptions) =>
       Effect.gen(function* () {
@@ -213,9 +219,9 @@ class ObjectStore extends Effect.Service<ObjectStore>()("store/ObjectStore", {
           client.send(new GetObjectCommand({ Bucket: setting.bucket, Key: key, ChecksumMode: "ENABLED" }), {
             abortSignal: signal,
           }))
-        const bytes = yield* Effect.tryPromise({
-          try: () => reply.Body!.transformToByteArray(),
-          catch: _folded(key),
+        const bytes = yield* Option.match(Option.fromNullable(reply.Body), {
+          onNone: () => Effect.fail(new _Fault({ reason: "io", key, detail: "<empty-body>" })),
+          onSome: (body) => Effect.tryPromise({ try: () => body.transformToByteArray(), catch: _folded(key) }),
         })
         const minted = yield* ContentKey.mint(bytes)
         return yield* minted === key
@@ -235,7 +241,10 @@ class ObjectStore extends Effect.Service<ObjectStore>()("store/ObjectStore", {
         ).pipe(
           Effect.map((reply) =>
             Option.some({ key, bytes: Number(reply.ContentLength ?? 0), etag: String(reply.ETag ?? "") })),
-          Effect.catchIf((fault): fault is _Fault => fault.reason === "missing", () => Effect.succeed(Option.none())),
+          Effect.catchIf(
+            (fault): fault is _Fault => fault._tag === "ObjectFault" && fault.reason === "missing",
+            () => Effect.succeed(Option.none()),
+          ),
         ),
       remove: (keys: ReadonlyArray<ContentKey>) =>
         Effect.forEach(Chunk.chunksOf(Chunk.fromIterable(keys), 1000), (window) =>
@@ -251,21 +260,66 @@ class ObjectStore extends Effect.Service<ObjectStore>()("store/ObjectStore", {
         ),
     }
   }),
-}) {}
+}) {
+  static get ddl(): ReadonlyArray<Capability.Ensure> {
+    return [_refDdl]
+  }
+  static get lifecycle(): typeof _lifecycleRules {
+    return _lifecycleRules
+  }
+  static readonly retain = (
+    key: ContentKey,
+    owner: string,
+    retention: Retain.Class,
+  ): Effect.Effect<void, SqlError.SqlError, SqlClient.SqlClient> =>
+    Effect.flatMap(SqlClient.SqlClient, (sql) =>
+      Effect.asVoid(
+        sql`INSERT INTO object_ref ${sql.insert([{ key, owner, retention }])}
+            ON CONFLICT (key, owner) DO UPDATE SET released_at = NULL, retention = excluded.retention`,
+      ))
+  static readonly release = (key: ContentKey, owner: string): Effect.Effect<void, SqlError.SqlError, SqlClient.SqlClient> =>
+    Effect.flatMap(SqlClient.SqlClient, (sql) =>
+      Effect.asVoid(
+        sql`UPDATE object_ref SET released_at = ${Journal.now(sql)}
+            WHERE key = ${key} AND owner = ${owner} AND released_at IS NULL`,
+      ))
+  static readonly sweep = (
+    clazz: Retain.Class,
+  ): Effect.Effect<
+    ReadonlyArray<ContentKey>,
+    ObjectStore.Fault | ObjectStore.Replay | SqlError.SqlError | ParseResult.ParseError,
+    ObjectStore | SqlClient.SqlClient
+  > =>
+    Effect.gen(function* () {
+      const window = Retain.Policy[clazz].window
+      if (!Duration.lessThan(window, Duration.infinity)) return []
+      const store = yield* ObjectStore
+      const sql = yield* SqlClient.SqlClient
+      const now = yield* DateTime.now
+      const cutoff = DateTime.formatIso(DateTime.subtractDuration(now, window))
+      const rows = yield* sql`SELECT key FROM object_ref WHERE retention = ${clazz}
+          GROUP BY key
+          HAVING sum(CASE WHEN released_at IS NULL THEN 1 ELSE 0 END) = 0 AND max(released_at) < ${cutoff}`
+      const keys = yield* Effect.forEach(rows, (row) => Schema.decodeUnknown(ContentKey)(row["key"]))
+      if (keys.length === 0) return keys
+      yield* store.remove(keys)
+      yield* sql`DELETE FROM object_ref WHERE ${sql.in("key", keys)}`
+      return keys
+    })
+}
 ```
 
 ## [4]-[LIFECYCLE]
 
-- Owner: the `object_ref` ensure row and the lifecycle operations riding the service — `retain`/`release` reference edges in SQL, `sweep` folding zero-reference keys past their retention window into batch deletes, and the bucket lifecycle rules as data.
-- Packages: `@effect/sql` (`SqlClient`); `@aws-sdk/client-s3` (`PutBucketLifecycleConfigurationCommand`).
-- Entry: every durable owner of an object records `retain(key, owner, class)` in the same transaction that stores the reference and `release(key, owner)` when it lets go — GC is then pure data: `sweep(clazz)` deletes what nothing references and the window has aged out.
+- Owner: the `object_ref` ensure row and the lifecycle statics riding the `ObjectStore` class — `ObjectStore.retain`/`release` reference edges in SQL, `ObjectStore.sweep` folding zero-reference keys past their retention window into batch deletes, `ObjectStore.ddl` and `ObjectStore.lifecycle` publishing the ensure row and the bucket rules as data.
+- Packages: `@effect/sql` (`SqlClient`); `@aws-sdk/client-s3` (`PutBucketLifecycleConfigurationCommand`); `journal/retain.md` (`Retain.Policy` windows); `journal/append.md` (`Journal.now`).
+- Entry: every durable owner of an object records `ObjectStore.retain(key, owner, class)` in the same transaction that stores the reference and `ObjectStore.release(key, owner)` when it lets go — GC is then pure data: `ObjectStore.sweep(clazz)` deletes what nothing references and the window has aged out.
+- Law: `retain`/`release` read the ambient `SqlClient` so they compose inside the caller's transaction — the reference edge commits or rolls back with the row that holds it; `sweep` composes the service instance beside the ambient client, and the `permanent` class never sweeps because its window is infinite by declaration.
 - Growth: a new retention class is a `journal/retain.md` policy row — the sweep reads the window from there; a new GC posture (orphan audit against `list`) is one fold over existing reads.
 - Law: the sweep is reference-counted truth, never a guess — candidates are `GROUP BY key HAVING count(active) = 0` with the newest `released_at` older than the class window; the delete batches ≤1000 and the ledger rows drop only after the provider confirms.
 - Law: `lifecycleRules` is the provider-side mirror — abort-incomplete-multipart and class-expiry rules applied once by `iac`'s object row from this data, so the bucket agrees with the ledger about aging.
 
 ```typescript
-import { SqlClient } from "@effect/sql"
-
 const _refDdl: Capability.Ensure = {
   relation: "object_ref",
   pg: `CREATE TABLE IF NOT EXISTS object_ref (

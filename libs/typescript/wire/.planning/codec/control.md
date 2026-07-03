@@ -50,12 +50,14 @@ declare namespace ControlIntent {
   type Tag = Intent["_tag"]
 }
 
+const _FromBytes: Schema.Schema<ControlIntent.Intent, Uint8Array> = ProtoCodec.family(ProtoCodec.suite.ControlIntentWire, _intent)
+
 const ControlIntent: typeof _intent & {
   readonly FromBytes: Schema.Schema<ControlIntent.Intent, Uint8Array>
   readonly decode: (octets: Uint8Array) => Effect.Effect<ControlIntent.Intent, ParseResult.ParseError>
 } = Object.assign(_intent, {
-  FromBytes: ProtoCodec.family(ProtoCodec.suite.ControlIntentWire, _intent),
-  decode: Schema.decodeUnknown(ProtoCodec.family(ProtoCodec.suite.ControlIntentWire, _intent)),
+  FromBytes: _FromBytes,
+  decode: Schema.decodeUnknown(_FromBytes),
 })
 
 // --- [EXPORTS] --------------------------------------------------------------------------

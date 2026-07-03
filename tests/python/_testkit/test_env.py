@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 lazy import asyncssh
 lazy import grpc
+lazy import httpx
 
 from tests.python._testkit.env import ObjectStore, provision, RemoteFS, SshHost
 from tests.python._testkit.seams import grpc_loopback
@@ -150,11 +151,20 @@ def test_remote_fs_isolates_per_test_roots() -> None:
     second.teardown()
 
 
-def test_remote_fs_obeys_filesystem_algebra() -> None:
-    """RemoteFS satisfies the shared filesystem algebra over its scoped memory root."""
+def test_remote_fs_obeys_filesystem_algebra_and_refuses_presign() -> None:
+    """RemoteFS satisfies the shared filesystem algebra; presign is a real-store capability the in-process double refuses."""
     provisioned = provision(RemoteFS())
     try:
-        _fs_algebra(provisioned.client_factory(), "")
+        fs = provisioned.client_factory()
+        _fs_algebra(fs, "")
+        fs.pipe_file("blob.bin", b"payload")
+        # Total over both honest refusal shapes: no presign surface at all, or a typed refusal.
+        match getattr(fs, "url", None):
+            case None:
+                pass
+            case presign:
+                with pytest.raises(NotImplementedError):
+                    presign("blob.bin", expires=60)
     finally:
         provisioned.teardown()
 
@@ -185,8 +195,8 @@ def test_object_store_teardown_resets_process_global_state(socket_enabled: None)
         second.teardown()
 
 
-def test_object_store_round_trips_and_isolates_endpoints(socket_enabled: None) -> None:
-    """Two ObjectStore provisions serve disjoint endpoints; put/cat/info round-trips with an e-tag."""
+def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled: None) -> None:
+    """Disjoint moto endpoints; put/cat/info round-trips with an e-tag; presigned GET serves the exact payload over HTTP."""
     _ = socket_enabled
     first, second = provision(ObjectStore()), provision(ObjectStore(bucket="peer-bucket"))
     try:
@@ -197,6 +207,10 @@ def test_object_store_round_trips_and_isolates_endpoints(socket_enabled: None) -
         info = fs.info("kit-bucket/nest/blob.bin")
         assert info["size"] == len(b"alpha"), "info size drifted from the payload"
         assert info.get("ETag"), "object store lost the e-tag the egress content-key contract reads"
+        signed = fs.url("kit-bucket/nest/blob.bin", expires=60)
+        assert signed.startswith(first.url), f"presigned URL escaped the provisioned endpoint: {signed!r}"
+        fetched = httpx.get(signed, timeout=5.0)
+        assert (fetched.status_code, fetched.content) == (200, b"alpha"), "presigned GET did not serve the object"
         peer = second.client_factory()
         peer.pipe_file("peer-bucket/nest/blob.bin", b"beta")
         assert (fs.cat_file("kit-bucket/nest/blob.bin"), peer.cat_file("peer-bucket/nest/blob.bin")) == (b"alpha", b"beta"), "cross-endpoint bleed"

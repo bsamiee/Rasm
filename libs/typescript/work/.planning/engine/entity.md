@@ -15,7 +15,7 @@ A durable actor is an `@effect/rpc` protocol given sharded, persistent, singleto
 - Owner: `Fence` — the registration policy vocabulary. Rows are keyed by service class — `interactive` (small mailbox, wide concurrency, short residency), `steady` (the workhorse defaults), `bulk` (deep mailbox, narrow concurrency, long residency) — and each row carries exactly the bounds `entity.toLayer` accepts: `mailboxCapacity`, `concurrency`, `maxIdleTime`. `Fence.options(kind)` projects a row as the registration options record, and `Fence.group(context)` derives the shard-group name from the kernel `TenantContext` scope so one tenant's shards partition away from another's.
 - Law: every registration is fenced — the entry spelling composes annotation and bounds in one chain, `entity.annotateRpcs(ClusterSchema.Persisted, durable).toLayer(handlers, Fence.options(kind))` — so a tenant saturating its mailbox surfaces `MailboxFull` without starving a sibling, and an unfenced `.toLayer({})` is the review-visible defect; the package registration surface is used directly, because a wrapper renaming `toLayer` would forward without adding law.
 - Law: tenant partition is the `ClusterSchema.ShardGroup` annotation fed `Fence.group` — the group derives from `TenantContext.scope`, the same branded partition key `store` scopes and `security` claims align on, so shard placement, storage tenancy, and entitlement speak one spelling.
-- Law: the refusal surface is a type this folder exports — `Fence.Refusal` is the `MailboxFull | AlreadyProcessingMessage` union, so `edge/hook` types its fenced-quota admission against the work-owned port on the type plane and never imports `@effect/cluster`; `Storage.classify` already folds both tags (`exhausted`, `conflicted`), so admission backpressure inherits kernel-budget retry semantics for free.
+- Law: the refusal surface is a type this folder exports — `Fence.Refusal` is the `MailboxFull | AlreadyProcessingMessage` union, so `edge/hook` types its fenced-quota admission against the work-owned port on the type plane and never imports `@effect/cluster`; `Storage.classify` folds both tags (`exhausted`, `conflicted`), so an admission consumer prices its re-admission policy from the kernel class row instead of probing cluster tags.
 - Law: message contracts are closed Schema families — an entity's Rpc payload, success, and error schemas are the wire contract, `Entity.HandlersFrom` makes the handler record exhaustive at compile time, and a new message is one Rpc row plus one handler row; out-of-band replies ride `Entity.Replier` (`succeed`/`fail`/`complete`) from the `toLayerMailbox` form when a streaming entity drains its own mailbox.
 - Law: an entity-held resource that must survive shard-move restarts rides `EntityResource.make({ acquire, idleTimeToLive })` — released on idle or explicit close, never a module-level handle; per-key ordered processing is this mailbox's law, which is why `queue/job.md` families stay unordered.
 - Boundary: `Entity.make`/`Entity.fromRpcGroup` consume `@effect/rpc` protocol values — the admission of that package inside `scope:work` is a ledger row the platform decision must carry; durability annotation semantics are `engine/storage.md`'s; the quota-port consumer is `edge/hook`.
@@ -24,7 +24,7 @@ A durable actor is an `@effect/rpc` protocol given sharded, persistent, singleto
 - Packages: `@effect/cluster` (`ClusterError`, `ClusterSchema`, `Entity`, `EntityResource`), `effect` (`Duration`, `Types`), `@rasm/ts/kernel` (`TenantContext`).
 
 ```typescript
-import type { ClusterError } from "@effect/cluster"
+import { type ClusterError, ClusterWorkflowEngine, RunnerHealth, Sharding, ShardingConfig } from "@effect/cluster"
 import type { TenantContext } from "@rasm/ts/kernel"
 import { Duration, type Types } from "effect"
 
@@ -78,8 +78,6 @@ const Fence: Fence.Shape = {
 - Packages: `@effect/cluster` (`ClusterWorkflowEngine`, `RunnerHealth`, `Sharding`, `ShardingConfig`), `effect` (`Types`).
 
 ```typescript
-import { ClusterWorkflowEngine, RunnerHealth, Sharding, ShardingConfig } from "@effect/cluster"
-
 const _health = {
   k8s: RunnerHealth.layerK8s(),
   ping: RunnerHealth.layerPing,

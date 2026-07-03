@@ -59,8 +59,8 @@ const _Resume = Schema.NonEmptyString.pipe(Schema.maxLength(256), Schema.pattern
 [SSE_ROW]:
 - Owner: `Realtime.sse` — one endpoint fold: decode `Last-Event-ID` through the `Resume` brand (absence is a fresh attach, never a fault), open `source.from(resume)`, encode each item through its schema into an SSE event whose `id` is the item's own token, and merge the heartbeat cadence so proxies never reap an idle feed — one declaration, every SSE feed in the branch; the client reconnect backoff is server policy carried by the codec's `Sse.Retry` directive at the head of the encode seam.
 - Law: `_SSE` is the policy row — `retry` (client reconnect hint), `beat` (heartbeat cadence), `lag` (the buffer bound between the fold and a slow consumer, `"sliding"` so a stalled client sheds oldest frames instead of backpressuring the fold) — one value tuned per app, threaded nowhere.
-- Law: the encode seam is the experimental `Sse` codec — events flow as `Sse.Event` values with the token as `id`, the heartbeat as comment traffic, and the retry directive as `Sse.Retry`; the channel lowers to response bytes through the codec's own encoder, and a hand-assembled `data:` string is the named defect.
-- Law: change feeds arrive as `state` values — a table view serves `Live.feed(handle)` (the per-row change wave), a scalar view serves `subscribable.changes` — and this row encodes them; it never re-runs a fold, caches a copy, or subscribes twice (the state lens law, inherited).
+- Law: the encode seam is the experimental `Sse` codec — events flow as `Sse.Event` values with the token as `id`, the retry directive as `Sse.Retry`, and the heartbeat as a named `ping` event, because the codec's closed `Event | Retry` vocabulary carries no comment form and clients ignore the beat by name; the channel lowers to response bytes through the codec's own encoder, and a hand-assembled `data:` string is the named defect.
+- Law: change feeds arrive as `state` values — a table view serves `Live.feed(handle)` (the per-row change wave), a scalar view serves `subscribable.changes` — and this row encodes them; it never re-runs a fold, caches a copy, or subscribes twice (the state lens law, inherited). A source's own `LiveFault` passes the seam intact; any foreign source fault normalizes to `closed`, the same one-seam fold the socket row runs.
 - Boundary: which feeds exist and who may attach is `live/presence.ts`'s admission; the SSE parser (inbound) belongs to `host/net` client rows — this endpoint only emits.
 - Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Schedule`, `Duration`).
 
@@ -109,7 +109,7 @@ const _sse = <A, I, E, R, R2>(
           Effect.map((body): Sse.AnyEvent => ({ _tag: "Event", event: name, id: source.token(held), data: JSON.stringify(body) })),
           Effect.orDie,
         )),
-      Stream.mapError((cause) => new LiveFault({ reason: "lost", detail: String(cause) })),
+      Stream.mapError((cause) => cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) })),
       Stream.buffer({ capacity: _SSE.lag, strategy: "sliding" }),
     )
     const framed = Stream.concat(

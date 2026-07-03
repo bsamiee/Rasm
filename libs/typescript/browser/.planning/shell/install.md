@@ -20,7 +20,7 @@
 - Packages: `effect` (`Schema`, `Option`).
 
 ```typescript
-import { Data, Effect, Option, Schema, Stream, SubscriptionRef } from "effect"
+import { Data, Effect, Option, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import { Sw, SwLifecycle } from "./worker.ts"
 
 const _Icon = Schema.Struct({
@@ -48,14 +48,14 @@ class Manifest extends Schema.Class<Manifest>("Manifest")({
 ## [3]-[INSTALL_OWNER]
 
 [INSTALL_OWNER]:
-- Owner: `Install`, one scoped `Effect.Service` over `Sw` — `stance`, the `InstallStance` cell (`Browser`/`Ready`/`Installed`/`Standalone`); `ask`, the install affordance firing the captured prompt and folding the user's choice; `fresh`, the update-available feed derived from the worker's `Waiting` phase; `refresh`, the one update verb delegating to `Sw.apply`.
+- Owner: `Install`, one scoped `Effect.Service` over `Sw` — `stance`, the `InstallStance` cell (`Browser`/`Ready`/`Installed`/`Standalone`) published `Subscribable` with its writers interior; `ask`, the install affordance firing the captured prompt and folding the user's choice; `fresh`, the update-available feed derived from the worker's `Waiting` phase; `refresh`, the one update verb delegating to `Sw.apply`.
 - Law: the prompt capture is the module's platform-forced statement seam — `beforeinstallprompt` is nonstandard (absent from `WindowEventMap`, spelled here once as the `_PromptEvent` boundary refinement) and its `preventDefault` must run synchronously inside the native handler or the browser consumes the prompt; the capture bridge therefore attaches its own listener under `Stream.asyncScoped`, deferring and emitting in the same synchronous frame, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_prompts`' first line.
-- Law: the prompt is single-use — `ask` consumes the held prompt, folds `accepted` to `Installed` and `dismissed` back to `Browser`, and clears the slot either way; a second `ask` with no captured prompt is the typed `unavailable` fault, never a silent no-op.
+- Law: the prompt is single-use and the take is atomic — `ask` swaps the slot to `none` in one `modify`, so two racing asks cannot double-fire, then folds `accepted` to `Installed` and `dismissed` back to `Browser`; an `ask` with no captured prompt is the typed `unavailable` fault, never a silent no-op.
 - Law: stance is evidence-ordered — the standalone display-mode probe (seeded from `matchMedia`, advanced by its `change` events) and the `appinstalled` event both fold to their stance directly; running standalone is terminal for the session, so no later fold demotes it.
 - Law: the update affordance is a derivation, not a state — `fresh` maps the worker phase feed through the `Waiting` refinement, so install and update read one truth and `ui` binds both through its atom bridge at app composition; this module exposes no second phase cell.
 - Receipt: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
 - Boundary: the worker phase and the apply handshake are `shell/worker`'s; the affordance rendering is `ui`'s through the app-composed port.
-- Packages: `effect` (`Effect`, `Stream`, `SubscriptionRef`, `Data`, `Option`); `./worker.ts` (`Sw`, `SwLifecycle`).
+- Packages: `effect` (`Effect`, `Stream`, `SubscriptionRef`, `Subscribable`, `Data`, `Option`); `./worker.ts` (`Sw`, `SwLifecycle`).
 
 ```typescript
 type InstallStance = Data.TaggedEnum<{
@@ -108,44 +108,44 @@ const _prompts: Stream.Stream<_PromptEvent> = Stream.asyncScoped((emit) =>
 class Install extends Effect.Service<Install>()("browser/shell/Install", {
   scoped: Effect.gen(function* () {
     const sw = yield* Sw
-    const standalone = globalThis.matchMedia("(display-mode: standalone)")
-    const stance = yield* SubscriptionRef.make<InstallStance>(
+    const standalone = yield* Effect.sync(() => globalThis.matchMedia("(display-mode: standalone)"))
+    const _stance = yield* SubscriptionRef.make<InstallStance>(
       standalone.matches ? InstallStance.Standalone() : InstallStance.Browser(),
     )
     const held = yield* SubscriptionRef.make(Option.none<_PromptEvent>())
     yield* _prompts.pipe(
       Stream.runForEach((prompt) =>
         SubscriptionRef.set(held, Option.some(prompt)).pipe(
-          Effect.zipRight(SubscriptionRef.set(stance, InstallStance.Ready())),
+          Effect.zipRight(SubscriptionRef.set(_stance, InstallStance.Ready())),
         ),
       ),
       Effect.forkScoped,
     )
     yield* Stream.fromEventListener(globalThis, "appinstalled").pipe(
-      Stream.runForEach(() => SubscriptionRef.set(stance, InstallStance.Installed())),
+      Stream.runForEach(() => SubscriptionRef.set(_stance, InstallStance.Installed())),
       Effect.forkScoped,
     )
     yield* Stream.fromEventListener(standalone, "change").pipe(
       Stream.runForEach(() =>
-        standalone.matches ? SubscriptionRef.set(stance, InstallStance.Standalone()) : Effect.void,
+        standalone.matches ? SubscriptionRef.set(_stance, InstallStance.Standalone()) : Effect.void,
       ),
       Effect.forkScoped,
     )
     const ask: Effect.Effect<InstallStance, InstallFault> = Effect.gen(function* () {
-      const slot = yield* SubscriptionRef.get(held)
+      const slot = yield* SubscriptionRef.modify(held, (taken) => [taken, Option.none<_PromptEvent>()] as const)
       const prompt = yield* Option.match(slot, {
         onNone: () => new InstallFault({ reason: "unavailable", detail: "<no-captured-prompt>" }),
         onSome: Effect.succeed,
       })
-      yield* SubscriptionRef.set(held, Option.none())
       const choice = yield* Effect.tryPromise({
         try: () => prompt.prompt().then(() => prompt.userChoice),
         catch: (cause) => new InstallFault({ reason: "ceremony", detail: String(cause) }),
       })
       const landed = choice.outcome === "accepted" ? InstallStance.Installed() : InstallStance.Browser()
-      yield* SubscriptionRef.set(stance, landed)
+      yield* SubscriptionRef.set(_stance, landed)
       return landed
     })
+    const stance: Subscribable.Subscribable<InstallStance> = _stance
     return {
       stance,
       ask,

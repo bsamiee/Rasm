@@ -146,6 +146,18 @@ const Law = {
             predicate: (setup, { run }) => _survives(Effect.try(() => FastCheck.modelRun(setup, run))),
             witness: options.witness,
         }),
+    // The async twin: the correspondence holds across real await boundaries — the journal/queue model proof over live lanes.
+    machineAsync: <Model extends object, Real>(
+        options: Law.Stock<() => { readonly model: Model; readonly real: Real }, { readonly run: Iterable<FastCheck.AsyncCommand<Model, Real>> }> & {
+            readonly commands: ReadonlyArray<FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>>;
+        },
+    ): Law.Law<() => { readonly model: Model; readonly real: Real }> =>
+        Law.make({
+            name: options.name ?? 'system honors its model across awaits',
+            arbitraries: { run: FastCheck.commands([...options.commands]) },
+            predicate: (setup, { run }) => _survives(Effect.tryPromise(() => FastCheck.asyncModelRun(setup, run))),
+            witness: options.witness,
+        }),
     // Interleaving law: the subject holds under every scheduler-driven task ordering; the witness pins one refuting ordering via schedulerFor.
     interleave: (
         options: Law.Stock<(schedule: FastCheck.Scheduler) => Promise<boolean>, { readonly schedule: FastCheck.Scheduler }>,

@@ -21,7 +21,7 @@
 - Packages: `nuqs/server` (`createLoader`, `createSerializer`, `parseAs*`, `createParser`, `type ParserMap`, `type inferParserType`); `effect` (`Option`, `Array`, `Record`).
 
 ```typescript
-import { Array, Context, Data, Effect, Layer, Option, Record, Runtime, Stream, SubscriptionRef } from "effect"
+import { Array, Context, Data, Effect, Layer, Option, Record, Runtime, Stream, Subscribable, SubscriptionRef } from "effect"
 import { createLoader, createSerializer, type inferParserType, type ParserMap } from "nuqs/server"
 import { Kv, type KvFault } from "../persist/kv.ts"
 
@@ -51,8 +51,8 @@ declare namespace Router {
     Refuse: {}
   }>
   type Shape<Rows extends Router.Rows> = {
-    readonly location: SubscriptionRef.SubscriptionRef<Location<Rows>>
-    readonly pending: SubscriptionRef.SubscriptionRef<Option.Option<Location<Rows>>>
+    readonly location: Subscribable.Subscribable<Location<Rows>>
+    readonly pending: Subscribable.Subscribable<Option.Option<Location<Rows>>>
     readonly href: <K extends keyof Rows & string>(
       key: K,
       segments: Params<Rows[K]["path"]>,
@@ -100,7 +100,7 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
   rows: Rows,
   key: K,
   segments: Record<string, string>,
-  query: Record<string, unknown>,
+  query: Partial<inferParserType<Rows[K]["query"]>>,
 ): string =>
   createSerializer(rows[key].query)(
     rows[key].path.split("/").map((part) => (part.startsWith(":") ? segments[part.slice(1)] ?? "" : part)).join("/"),
@@ -112,15 +112,15 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
 
 [TRAVERSAL_OWNER]:
 - Owner: `Router.make(spec)` — mints the app's `{ Tag, layer }`: the Tag typed at `Router.Shape<Rows>` under the app's identifier, and `layer(admission)` building the scoped traversal owner: the location cell seeded from `navigation.currentEntry`, the pending cell carrying the in-flight target, the one `navigate`-event ingress, cold-boot query restoration, and the commit law.
-- Law: one commit path — the intercept is the only writer of the location cell: programmatic `go`, link clicks, form submits, and history gestures all raise `navigate` events, the listener parses the destination against the table (an unmatched URL folds to the `fallback` row, never a throw), runs the admission slot, and commits or diverts inside the intercepted handler; the pending cell holds the target for the handler's duration so a guard-delayed transition renders progress instead of a torn location.
+- Law: one commit path — the intercept is the only writer of the location cell: programmatic `go`, link clicks, form submits, and history gestures all raise `navigate` events, the listener parses the destination against the table (an unmatched URL folds to the `fallback` row, never a throw), runs the admission slot, and commits or diverts inside the intercepted handler; a commit stamps the row's `Option`-carried `title` onto the document so the tab caption follows the table, and the pending cell holds the target for the handler's duration so a guard-delayed transition renders progress instead of a torn location. Both cells publish `Subscribable` — the intercept stays the only writer structurally.
 - Law: the admission slot speaks commit mechanics only — `Proceed`/`Divert`/`Refuse` is what an intercept can mechanically honor; the policy semantics that produce them (session, entitlement, confirm ceremonies) are `route/guard`'s fold, handed in as the `admission` parameter at composition, so navigate never imports guard and the slot is the seam. The slot receives both endpoints — the departing location read from the cell and the arriving target — because departure policy (a confirm-on-exit row) is decided by where the user IS, not where they go.
-- Law: the listener is the module's platform-forced statement seam — `event.intercept` must be called synchronously inside the native dispatch, so the listener resolves the match synchronously and defers the admission/commit into the intercepted async handler through the captured runtime (`Runtime.runPromise` — the sanctioned callback-seam spelling); the implementer carries the `// BOUNDARY ADAPTER` mark on `_intercepted`'s first line. `window.navigation` is absent from the DOM lib; `_Navigation`/`_NavigateEvent` are the boundary refinements pinned here once.
+- Law: the listener is the module's platform-forced statement seam — `event.intercept` must be called synchronously inside the native dispatch, so the listener resolves the match synchronously and defers the admission/commit into the intercepted async handler through the captured runtime (`Runtime.runPromise` — the sanctioned callback-seam spelling); the implementer carries the `// BOUNDARY ADAPTER` mark on the navigate listener's first line. `window.navigation` is absent from the DOM lib; `_Navigation`/`_NavigateEvent` are the boundary refinements pinned here once.
 - Law: last-good query continuity rides `persist/kv`'s `route` domain — each commit persists the row's serialized search string under its key; at construction, an entry arriving with an EMPTY query whose key holds a last-good replays it through one `replace` navigation — an explicit URL always wins, restoration never overrides it.
 - Law: hosts without the Navigation API fail the layer at construction with the typed `unsupported` fault — routing degrades loudly at the wiring proof, never silently to a dead SPA.
-- Law: the correlated location construction is the page's marked kernel — a dynamic table's key/row pairing is evidence the checker cannot carry across the distributed union, so `_located` and `_fallback` assert the proven pairing to its element and the implementer carries the `// BOUNDARY ADAPTER` mark on each; the cast algebra stays one-directional and no other `as` exists in the module.
+- Law: the correlated location construction is the page's marked kernel — a dynamic table's key/row pairing is evidence the checker cannot carry across the distributed union, so `_located` and `_fallback` assert the proven pairing to its element and the implementer carries the `// BOUNDARY ADAPTER` mark on each; with the pinned boundary refinements and the listener's event pin these are the module's only cast sites, and the cast algebra stays one-directional.
 - Receipt: the Tag's `Shape` annotation is the whole consumer contract — cells, `href`, `go`, `back`, `forward` — readable without the body; `ui` binds the cells through its atom bridge at app composition.
 - Boundary: scroll restoration rides the intercept's own `scroll` option; view transitions are `ui/act`'s composition over the commit, never authored here.
-- Packages: `effect` (`Context`, `Layer`, `Runtime`, `Stream`, `SubscriptionRef`, `Effect`, `Option`, `Data`); `../persist/kv.ts` (`Kv`).
+- Packages: `effect` (`Context`, `Layer`, `Runtime`, `Stream`, `SubscriptionRef`, `Subscribable`, `Effect`, `Option`, `Data`); `../persist/kv.ts` (`Kv`).
 
 ```typescript
 type _NavigateEvent = Event & {
@@ -175,6 +175,10 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
         const _commit = (target: Router.Location<Rows>, url: URL): Effect.Effect<void, KvFault> =>
           SubscriptionRef.set(location, target).pipe(
             Effect.zipRight(SubscriptionRef.set(pending, Option.none())),
+            Effect.zipRight(Option.match(spec.rows[target.key].title, {
+              onNone: () => Effect.void,
+              onSome: (title) => Effect.sync(() => void (globalThis.document.title = title)),
+            })),
             Effect.zipRight(kv.write("route", target.key, url.search)),
           )
         const _admitted = (target: Router.Location<Rows>, url: URL): Effect.Effect<void> =>
@@ -215,7 +219,7 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
         return {
           location,
           pending,
-          href: (key, segments, query) => _href(spec.rows, key, segments, query as Record<string, unknown>),
+          href: (key, segments, query) => _href(spec.rows, key, segments, query),
           go: (target, history) => Effect.sync(() => navigation.navigate(target, { history: history ?? "push" })),
           back: Effect.sync(() => navigation.back()),
           forward: Effect.sync(() => navigation.forward()),
@@ -229,8 +233,7 @@ const Router: {
   readonly Admission: Data.TaggedEnum.Constructor<Router.Admission>
   readonly table: typeof _table
   readonly make: typeof _make
-  readonly located: typeof _located
-} = { Admission, table: _table, make: _make, located: _located }
+} = { Admission, table: _table, make: _make }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

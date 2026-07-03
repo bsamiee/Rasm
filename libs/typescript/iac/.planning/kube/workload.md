@@ -13,7 +13,7 @@ Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier tur
 
 [SIZING_ROWS]:
 - Owner: the interior `_scale` table keyed by the profile's `dev | standard | fleet` literal — each row carries `replicas`, `requests`, and `limits` as the `core/v1` resource-quantity strings the generated shapes consume; the row is read once at construction and stamps the container's `resources` block.
-- Law: the scale key is `StackSpec`'s vocabulary — this table interprets it for the k8s arm and no second interpretation exists; a per-arm sizing divergence is a second table in that arm's owner, never a widened key.
+- Law: the scale key is `StackSpec`'s vocabulary — this table interprets it for the k8s arm and no second interpretation exists; the guard pair anchors on the spec's own scale union, so a spec tier with no row and an excess row both fail at the declaration, and a per-arm sizing divergence is a second table in that arm's owner, never a widened key.
 - Law: probes are policy columns — `readinessPath` and the probe cadence ride the row so a scale tier tunes health posture with capacity; a workload overrides neither at a call site.
 - Growth: a new tier is one row; a new sizing axis (a GPU request, an ephemeral-storage bound) is one column every row states.
 - Boundary: what the quantities mean to the scheduler is cluster fact; `StackSpec.profile.scale` selection is the app's.
@@ -68,7 +68,7 @@ const _labels = (name: string): Record<string, string> => ({
 })
 
 declare namespace Workload {
-  type Scale = keyof typeof _scale
+  type Scale = StackSpec.Profile["scale"]
   type Row = (typeof _scale)[Scale]
   type Args = {
     readonly spec: StackSpec
@@ -84,6 +84,7 @@ declare namespace Workload {
     readonly readinessPath: string
     readonly probeSeconds: number
   }> = typeof _scale> = T
+  type _Keys<K extends Scale = keyof typeof _scale> = K
 }
 
 class Workload extends Tier {

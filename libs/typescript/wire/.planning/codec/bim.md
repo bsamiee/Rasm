@@ -57,15 +57,21 @@ class IdsAudit extends Schema.Class<IdsAudit>("IdsAudit")({
   })),
 }) {}
 
-const _rows = {
+type _Landing = {
+  readonly BimWire: Model
+  readonly DiffWire: Diff
+  readonly IdsAuditWire: IdsAudit
+}
+
+const _rows: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uint8Array> } = {
   BimWire: ProtoCodec.family(ProtoCodec.suite.BimWire, Model),
   DiffWire: ProtoCodec.family(ProtoCodec.suite.DiffWire, Diff),
   IdsAuditWire: ProtoCodec.family(ProtoCodec.suite.IdsAuditWire, IdsAudit),
-} as const
+}
 
 declare namespace BimExchange {
-  type Family = keyof typeof _rows
-  type Decoded<K extends Family> = Schema.Schema.Type<(typeof _rows)[K]>
+  type Family = keyof _Landing
+  type Decoded<K extends Family> = _Landing[K]
   type Verdict = (typeof _verdicts)[number]
 }
 ```

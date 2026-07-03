@@ -10,9 +10,9 @@
 
 ## [2]-[SUPPORT_CAPTURE]
 
-- Owner: `SupportCapture` — the decoded report class over the closed `kind` vocabulary (`crash`, `bug`, `feedback`), with the evidence band held opaque and the environment fingerprint typed; `SupportIntake`, the `Context.Tag` port whose one member accepts a decoded report and answers with the intake receipt.
-- Entry: `SupportCapture.captured(octets)` — decode plus delivery in one rail: `Effect<SupportReceipt, ParseError, SupportIntake>`; the app root satisfies the port by projecting telemetry's crash intake (`Layer.project` at composition), and a headless deployment satisfies it with a journal-backed sink.
-- Receipt: `SupportReceipt` — the intake's acknowledgment: the assigned reference, the kind, the intake instant — the value the shell surfaces to the reporting user so a support report is never fire-and-forget.
+- Owner: `SupportCapture` — the decoded report class over the closed `kind` vocabulary (`crash`, `bug`, `feedback`), with the evidence band held opaque and the environment fingerprint typed; the receipt class rides the owner as `SupportCapture.Receipt`, and `SupportIntake` is the `Context.Tag` port whose one member accepts a decoded report and answers with that receipt.
+- Entry: `SupportCapture.captured(octets)` — decode plus delivery in one rail: `Effect<SupportCapture.Receipt, ParseError, SupportIntake>`; the app root satisfies the port by projecting telemetry's crash intake (`Layer.project` at composition), and a headless deployment satisfies it with a journal-backed sink.
+- Receipt: `SupportCapture.Receipt` — the intake's acknowledgment: the assigned reference, the kind, the intake instant — the value the shell surfaces to the reporting user so a support report is never fire-and-forget; the receipt travels the owner's one import, never a loose sibling export.
 - Growth: a new report kind is one literal row; a new evidence axis (an attached log window, a session replay coordinate) is one field mirroring the C# emit — the band stays opaque and the port signature is untouched.
 - Law: the evidence band is opaque carriage — crash dumps, log windows, and replay fragments cross as held octets; interpretation belongs to the intake's consumer (telemetry redaction and retention policy run there), and this rail never opens the band.
 - Law: the port is wire-declared, consumer-satisfied — one Tag key, one owning declaration here; telemetry's crash service is projected into it at the app root, so the `telemetry -> wire` and `wire -> telemetry` edges both stay structurally absent.
@@ -25,6 +25,12 @@ import { ProtoCodec } from "../codec/proto.ts"
 
 const _kinds = ["crash", "bug", "feedback"] as const
 
+class SupportReceipt extends Schema.Class<SupportReceipt>("SupportReceipt")({
+  reference: Schema.NonEmptyString,
+  kind: Schema.Literal(..._kinds),
+  at: Schema.DateTimeUtc,
+}) {}
+
 class SupportCapture extends Schema.Class<SupportCapture>("SupportCapture")({
   kind: Schema.Literal(..._kinds),
   note: Schema.NonEmptyString,
@@ -32,8 +38,9 @@ class SupportCapture extends Schema.Class<SupportCapture>("SupportCapture")({
   evidence: Schema.Uint8ArrayFromSelf,
   at: Schema.DateTimeUtc,
 }) {
+  static readonly Receipt: typeof SupportReceipt = SupportReceipt
   static readonly FromBytes: Schema.Schema<SupportCapture, Uint8Array> = ProtoCodec.family(ProtoCodec.suite.SupportCaptureWire, SupportCapture)
-  static readonly captured = (octets: Uint8Array): Effect.Effect<SupportReceipt, ParseResult.ParseError, SupportIntake> =>
+  static readonly captured = (octets: Uint8Array): Effect.Effect<SupportCapture.Receipt, ParseResult.ParseError, SupportIntake> =>
     Schema.decodeUnknown(SupportCapture.FromBytes)(octets).pipe(
       Effect.flatMap((report) => Effect.flatMap(SupportIntake, (intake) => intake.deliver(report))),
     )
@@ -41,16 +48,11 @@ class SupportCapture extends Schema.Class<SupportCapture>("SupportCapture")({
 
 declare namespace SupportCapture {
   type Kind = (typeof _kinds)[number]
+  type Receipt = SupportReceipt
 }
 
-class SupportReceipt extends Schema.Class<SupportReceipt>("SupportReceipt")({
-  reference: Schema.NonEmptyString,
-  kind: Schema.Literal(..._kinds),
-  at: Schema.DateTimeUtc,
-}) {}
-
 class SupportIntake extends Context.Tag("wire/SupportIntake")<SupportIntake, {
-  readonly deliver: (report: SupportCapture) => Effect.Effect<SupportReceipt>
+  readonly deliver: (report: SupportCapture) => Effect.Effect<SupportCapture.Receipt>
 }>() {}
 
 // --- [EXPORTS] --------------------------------------------------------------------------

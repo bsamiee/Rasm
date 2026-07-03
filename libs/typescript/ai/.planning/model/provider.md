@@ -15,7 +15,7 @@ A provider is one row, never a fork: the five `@effect/ai-*` Layer families fold
 [ROWS]:
 - Owner: the interior `_rows` table keyed by provider id — each row carries `cells` (the asymmetry columns as literals: `embed` curated/raw/none, `stream` events/re-emit/binary, `tokens` value/keyed/none, `tools` roster width, `trace` telemetry-module presence), `client` (the provider's `layerConfig` transport Layer, credentials as `Config.redacted` reads resolved at the root), and `stand(model, tuning?)` — the provider's `model()` constructor provided with its own client, yielding one uniform `Layer<LanguageModel | ProviderName, ConfigError, HttpClient>`. The exported `Provider` spreads the rows, so `Provider.anthropic.stand(...)` keeps each row's own tuning type while the guard pair holds every row to the base shape.
 - Law: each client Layer is one hoisted const referenced by its row — diamond memoization by reference identity, so a row's `stand` and a direct `client` composition (the `embed/embedder` rows reuse `Provider.openai.client`) share one transport construction.
-- Law: the tokenizer cells are load-bearing — `anthropic` and `openai` stand through `modelWithTokenizer`, so their rows provide `Tokenizer.Tokenizer` beside the model and `model/token` budgets bind with zero extra wiring; empty cells (`google`, `bedrock`, `openrouter`) fall to `model/token`'s default meter row.
+- Law: the tokenizer cells are load-bearing — `anthropic` and `openai` stand through `modelWithTokenizer` and annotate `Provider.Stood<Tokenizer.Tokenizer>`, so the meter rides the provides set type-visibly and `model/token` budgets bind with zero extra wiring; empty cells (`google`, `bedrock`, `openrouter`) fall to `model/token`'s default meter row.
 - Law: per-request tuning is the provider's own `Config` Tag written through `stand`'s second parameter or scoped by the provider's `withConfigOverride` — the google row alone ships no override combinator (its `Config` Tag is set directly), and the bedrock row's transform Tag id is the upstream copy-paste spelling `@effect/ai-google/AmazonBedrockConfig`, respected verbatim wherever that Tag is named.
 - Law: credentials never exist raw — every key is `Config.redacted` under the row's canonical variable name (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_REGION`, `OPENROUTER_API_KEY`); the app overrides names through the `host/config` provider chain, never through row edits. The bedrock row is node-lane only (SigV4 has no browser binding) — a runtime fact the app root's subpath selection owns.
 - Law: `R` stays `HttpClient.HttpClient` on every row — the root satisfies it with the `host/net` lane client so provider egress inherits the branch timeout/retry/proxy posture; the row never names a runtime binding.
@@ -24,14 +24,14 @@ A provider is one row, never a fork: the five `@effect/ai-*` Layer families fold
 - Packages: `@effect/ai-anthropic`, `@effect/ai-openai`, `@effect/ai-google`, `@effect/ai-amazon-bedrock`, `@effect/ai-openrouter`, `@effect/ai` (`Model`), `@effect/platform` (`HttpClient`), `effect` (`Config`, `Layer`).
 
 ```typescript
-import type { AiError, LanguageModel, Model } from "@effect/ai"
+import { type AiError, LanguageModel, type Model, Prompt, type Response, type Tokenizer, type Tool, type Toolkit } from "@effect/ai"
 import { AmazonBedrockClient, AmazonBedrockLanguageModel } from "@effect/ai-amazon-bedrock"
 import { AnthropicClient, AnthropicLanguageModel } from "@effect/ai-anthropic"
 import { GoogleClient, GoogleLanguageModel } from "@effect/ai-google"
 import { OpenAiClient, OpenAiLanguageModel } from "@effect/ai-openai"
 import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter"
 import type { HttpClient } from "@effect/platform"
-import { Config, type ConfigError, Layer } from "effect"
+import { Array, BigDecimal, Config, type ConfigError, Data, Effect, ExecutionPlan, Layer, Option, type Schedule, Schema, Stream, Struct } from "effect"
 
 const _anthropic = AnthropicClient.layerConfig({ apiKey: Config.redacted("ANTHROPIC_API_KEY") })
 const _bedrock = AmazonBedrockClient.layerConfig({
@@ -47,7 +47,7 @@ const _rows = {
   anthropic: {
     cells: { embed: "none", stream: "events", tokens: "value", tools: 5, trace: false },
     client: _anthropic,
-    stand: (model: string, tuning?: Omit<AnthropicLanguageModel.Config.Service, "model">): Provider.Stood =>
+    stand: (model: string, tuning?: Omit<AnthropicLanguageModel.Config.Service, "model">): Provider.Stood<Tokenizer.Tokenizer> =>
       Layer.provide(AnthropicLanguageModel.modelWithTokenizer(model, tuning), _anthropic),
   },
   bedrock: {
@@ -65,7 +65,7 @@ const _rows = {
   openai: {
     cells: { embed: "curated", stream: "events", tokens: "keyed", tools: 4, trace: true },
     client: _openai,
-    stand: (model: string, tuning?: Omit<OpenAiLanguageModel.Config.Service, "model">): Provider.Stood =>
+    stand: (model: string, tuning?: Omit<OpenAiLanguageModel.Config.Service, "model">): Provider.Stood<Tokenizer.Tokenizer> =>
       Layer.provide(OpenAiLanguageModel.modelWithTokenizer(model, tuning), _openai),
   },
   openrouter: {
@@ -83,18 +83,15 @@ const _rows = {
 - Owner: `Provider.plan(tiers)` — the ordered tier ladder as one `ExecutionPlan` value: each tier is a stood row plus its budget (`attempts`), curve (`schedule`), and gate (`while` over the `AiError` value), and `Effect.withExecutionPlan` attaches the whole ladder as one transformer that eliminates the model requirement from the governed call. A `catchAll` cascade re-standing providers by hand is the rejected spelling.
 - Law: tier gates read the fault — a `while` admitting only `HttpRequestError`/`HttpResponseError` tags keeps schema faults (`MalformedInput`/`MalformedOutput`) from burning failover budget on a defect no second provider repairs; the gate is the family's own routing projection, never a foreign predicate.
 - Law: `Provider.spend(usage, rate)` is the cost fold — token counts fold against a per-million `Rate` of `BigDecimal` prices (scale-6 construction, so per-million pricing is exact arithmetic with no division), and the `Spend` receipt carries counts and cost for the meter fact stream; prices are policy values the app passes, never literals baked into rows.
-- Law: latency-and-cost tier selection is declaration order plus gates — the cheap row leads, the deep row backs it, and the ladder's shape IS the routing policy; the active row is always recoverable at runtime by yielding `Model.ProviderName`. The openrouter row refines cost attribution with per-response upstream metadata on its finish part — reading that metadata slot off the response part is a RESEARCH row pending the part-member spelling, and the rate fold carries attribution meanwhile.
+- Law: latency-and-cost tier selection is declaration order plus gates — the cheap row leads, the deep row backs it, and the ladder's shape IS the routing policy; the active row is always recoverable at runtime by yielding `Model.ProviderName`. The openrouter row refines cost attribution through its verified `FinishPartMetadata.openrouter` slot (`usage.cost`, `provider`); the accessor path from a settled response to its finish part's metadata instance is the one RESEARCH residue, and the rate fold carries attribution meanwhile.
 - Entry: `Provider.plan(tiers)`; `Provider.spend(usage, rate)`.
 - Receipt: `Spend` — `{ input, output, total, cost }`.
 - Packages: `effect` (`ExecutionPlan`, `BigDecimal`, `Array`, `Schedule`).
 
 ```typescript
-import { Array, BigDecimal, ExecutionPlan, type Schedule } from "effect"
-import type { Response } from "@effect/ai"
-
 declare namespace Provider {
-  type Stood = Layer.Layer<
-    LanguageModel.LanguageModel | Model.ProviderName,
+  type Stood<Meter = never> = Layer.Layer<
+    LanguageModel.LanguageModel | Model.ProviderName | Meter,
     ConfigError.ConfigError,
     HttpClient.HttpClient
   >
@@ -167,12 +164,12 @@ const Provider: Provider.Shape = {
 - Law: the screen scans the UNTRUSTED turn only — `call.prompt` is assembled context built from admitted values (`model/token`'s weave), `call.turn` is the raw user line; a breach mints `Gate.Fault` stage `input` before any model call, and a turn-free continuation call (the agent loop's tool rounds) skips the screen by shape, not by flag. `Gate.screen(policy, turn)` is the same fold standalone — the arm `agent/actor` runs once before its loop and any ingress admission reuses — so exactly one screen implementation exists.
 - Law: tool admission is structural — `Safety.admit` partitions the toolkit's own name set under the policy mode, the allowed list becomes `toolChoice: { oneOf }`, an empty list becomes `"none"`, and a withheld tool is therefore unnameable by the model; a tool-free call passes `Toolkit.empty`. Handler resolution stays the package default inside the admitted set — held `confirm`-class rows re-enter only through `agent/actor`'s supervised pause.
 - Law: refusal admission is a union arm — the object modality decodes `Schema.Union(shape, _Refusal)`, so a model that declines yields a typed `Refusal` case folded to `Gate.Fault` stage `refusal` carrying the model's own reason, and the caller's channel stays `A` or a routable fault, never parse garbage.
-- Law: the sweep scans `response.text` after settlement and mints stage `output`; the streaming lane ships the screen and structural tool admission today, and its delta-scan sweep is a RESEARCH row pending exact `Response.StreamPart` member spellings — the gap is recorded here, never worked around with an unverified fold.
+- Law: the sweep scans `response.text` after settlement and mints stage `output`; the streaming lane ships the screen and structural tool admission today, and its delta-scan sweep is a RESEARCH row — the stream part families (`TextStartPart`/`TextDeltaPart`/`TextEndPart`, discriminated on `part.type`) are verified, the delta payload member is not — recorded here, never worked around with an unverified fold.
 - Law: every gate call inherits the package's GenAI span semantics (`Telemetry.addGenAIAnnotations` rides `ProviderOptions.span` inside each provider); the gate adds no second span — one generation, one span, exported by the root's telemetry plane.
 - Boundary: the `Safety` vocabulary and the fail-closed class default are `tool/toolkit`'s; token budgets and context assembly are `model/token`'s; the agent loop that drives repeated gate calls is `agent/actor`'s.
 - Entry: `Gate.text(policy)(call)`, `Gate.object(policy)(call)`, `Gate.stream(policy)(call)`, `Gate.screen(policy, turn)`.
 - Growth: a new moderation rule is one policy pattern row; a new admission stage is one `Gate.Fault` stage literal plus its fold.
-- Packages: `@effect/ai` (`LanguageModel`, `Prompt`, `Tool`, `Toolkit`), `effect` (`Data`, `Effect`, `Option`, `Predicate`, `Schema`, `Stream`, `Struct`).
+- Packages: `@effect/ai` (`LanguageModel`, `Prompt`, `Tool`, `Toolkit`), `effect` (`Data`, `Effect`, `Option`, `Schema`, `Stream`, `Struct`).
 
 ```mermaid
 flowchart LR
@@ -188,8 +185,6 @@ flowchart LR
 ```
 
 ```typescript
-import { LanguageModel, Prompt, type Response, type Tool, type Toolkit } from "@effect/ai"
-import { Array, Data, Effect, Option, Schema, Stream, Struct } from "effect"
 import { Safety } from "../tool/toolkit.ts"
 
 class _Refusal extends Schema.TaggedClass<_Refusal>()("Refusal", {
@@ -221,6 +216,27 @@ declare namespace Gate {
     readonly toolChoice: LanguageModel.ToolChoice<Extract<keyof Tools, string>>
   }
   type Object<A> = { readonly value: A; readonly usage: Response.Usage; readonly finish: Response.FinishReason }
+  type Shape = {
+    readonly Fault: typeof GateFault
+    readonly screen: (policy: Policy, turn: string) => Effect.Effect<string, GateFault>
+    readonly text: <Tools extends Record<string, Tool.Any>>(policy: Policy) => (call: Call<Tools>) => Effect.Effect<
+      LanguageModel.GenerateTextResponse<Tools>,
+      GateFault | LanguageModel.ExtractError<Woven<Tools>>,
+      LanguageModel.LanguageModel | LanguageModel.ExtractContext<Woven<Tools>>
+    >
+    readonly object: <A, I extends Record<string, unknown>, R, Tools extends Record<string, Tool.Any>>(policy: Policy) => (
+      call: Call<Tools> & { readonly shape: Schema.Schema<A, I, R>; readonly label?: string },
+    ) => Effect.Effect<
+      Object<A>,
+      GateFault | LanguageModel.ExtractError<Woven<Tools>>,
+      LanguageModel.LanguageModel | R | LanguageModel.ExtractContext<Woven<Tools>>
+    >
+    readonly stream: <Tools extends Record<string, Tool.Any>>(policy: Policy) => (call: Call<Tools>) => Stream.Stream<
+      Response.StreamPart<Tools>,
+      GateFault | LanguageModel.ExtractError<Woven<Tools>>,
+      LanguageModel.LanguageModel | LanguageModel.ExtractContext<Woven<Tools>>
+    >
+  }
 }
 
 const _screened = (policy: Gate.Policy, turn: string): Effect.Effect<string, GateFault> =>
@@ -257,43 +273,29 @@ const _swept = <Tools extends Record<string, Tool.Any>>(
     onSome: (rule) => Effect.fail(new GateFault({ stage: "output", detail: rule.source })),
   })
 
-const Gate = {
+const Gate: Gate.Shape = {
   Fault: GateFault,
-  screen: (policy: Gate.Policy, turn: string): Effect.Effect<string, GateFault> => _screened(policy, turn),
-  text: <Tools extends Record<string, Tool.Any>>(policy: Gate.Policy) =>
-    (call: Gate.Call<Tools>): Effect.Effect<
-      LanguageModel.GenerateTextResponse<Tools>,
-      GateFault | LanguageModel.ExtractError<Gate.Woven<Tools>>,
-      LanguageModel.LanguageModel | LanguageModel.ExtractContext<Gate.Woven<Tools>>
-    > =>
-      Effect.flatMap(_woven(policy, call), (options) =>
-        Effect.flatMap(LanguageModel.generateText(options), (response) => _swept(policy, response))),
-  object: <A, I extends Record<string, unknown>, R, Tools extends Record<string, Tool.Any>>(policy: Gate.Policy) =>
-    (call: Gate.Call<Tools> & { readonly shape: Schema.Schema<A, I, R>; readonly label?: string }): Effect.Effect<
-      Gate.Object<A>,
-      GateFault | LanguageModel.ExtractError<Gate.Woven<Tools>>,
-      LanguageModel.LanguageModel | R | LanguageModel.ExtractContext<Gate.Woven<Tools>>
-    > =>
-      Effect.flatMap(_woven(policy, call), (options) =>
-        Effect.flatMap(
-          LanguageModel.generateObject({
-            ...options,
-            schema: Schema.Union(call.shape, _Refusal),
-            ...(call.label !== undefined && { objectName: call.label }),
-          }),
-          (response) =>
-            Effect.flatMap(_swept(policy, response), () =>
-              _isRefusal(response.value)
-                ? Effect.fail(new GateFault({ stage: "refusal", detail: response.value.reason }))
-                : Effect.succeed({ value: response.value, usage: response.usage, finish: response.finishReason })),
-        )),
-  stream: <Tools extends Record<string, Tool.Any>>(policy: Gate.Policy) =>
-    (call: Gate.Call<Tools>): Stream.Stream<
-      Response.StreamPart<Tools>,
-      GateFault | LanguageModel.ExtractError<Gate.Woven<Tools>>,
-      LanguageModel.LanguageModel | LanguageModel.ExtractContext<Gate.Woven<Tools>>
-    > => Stream.unwrap(Effect.map(_woven(policy, call), (options) => LanguageModel.streamText(options))),
-} as const
+  screen: _screened,
+  text: (policy) => (call) =>
+    Effect.flatMap(_woven(policy, call), (options) =>
+      Effect.flatMap(LanguageModel.generateText(options), (response) => _swept(policy, response))),
+  object: (policy) => (call) =>
+    Effect.flatMap(_woven(policy, call), (options) =>
+      Effect.flatMap(
+        LanguageModel.generateObject({
+          ...options,
+          schema: Schema.Union(call.shape, _Refusal),
+          ...(call.label !== undefined && { objectName: call.label }),
+        }),
+        (response) =>
+          Effect.flatMap(_swept(policy, response), () =>
+            _isRefusal(response.value)
+              ? Effect.fail(new GateFault({ stage: "refusal", detail: response.value.reason }))
+              : Effect.succeed({ value: response.value, usage: response.usage, finish: response.finishReason })),
+      )),
+  stream: (policy) => (call) =>
+    Stream.unwrap(Effect.map(_woven(policy, call), (options) => LanguageModel.streamText(options))),
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

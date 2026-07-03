@@ -103,17 +103,45 @@ layer(NodeContext.layer)('gauges over the real tree', (it) => {
         ),
     );
 
-    it.effect('dependency trees under the root never join the audit: a node_modules source is pruned', () =>
+    it.effect('dependency, cache, and artifact trees under the root never join the audit: routed litter is pruned', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const fs = yield* FileSystem.FileSystem;
                 const path = yield* Path.Path;
                 const scratch = yield* fs.makeTempDirectoryScoped();
                 yield* fs.makeDirectory(path.join(scratch, 'node_modules', 'foreign'), { recursive: true });
+                yield* fs.makeDirectory(path.join(scratch, '.cache', 'vitest'), { recursive: true });
+                yield* fs.makeDirectory(path.join(scratch, '.artifacts', 'typescript'), { recursive: true });
                 yield* fs.writeFileString(path.join(scratch, 'own.ts'), "import { a } from './a.ts';");
                 yield* fs.writeFileString(path.join(scratch, 'node_modules', 'foreign', 'dep.ts'), "import { b } from 'node:fs';");
+                yield* fs.writeFileString(path.join(scratch, '.cache', 'vitest', 'stale.ts'), "import { c } from 'node:fs';");
+                yield* fs.writeFileString(path.join(scratch, '.artifacts', 'typescript', 'report.ts'), "import { d } from 'node:fs';");
                 const modules = yield* Imports.load(scratch);
                 expect(Array.map(modules, (module) => module.path)).toEqual(['own.ts']);
+            }),
+        ),
+    );
+
+    it.effect('a playwright golden binds to the spec its path embeds under ANY template metadata arity; a ghost is flagged', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const scratch = yield* fs.makeTempDirectoryScoped();
+                // Two metadata segments (project + platform) over one owned spec, one metadata segment over another, one ghost.
+                yield* fs.makeDirectory(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'visual.pw.ts'), { recursive: true });
+                yield* fs.makeDirectory(path.join(scratch, 'e2e', 'goldens', 'webkit', 'engine.pw.ts'), { recursive: true });
+                yield* fs.makeDirectory(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'ghost.pw.ts'), { recursive: true });
+                yield* fs.makeDirectory(path.join(scratch, 'e2e', 'platform'), { recursive: true });
+                yield* fs.writeFileString(path.join(scratch, 'e2e', 'platform', 'visual.pw.ts'), 'export {};');
+                yield* fs.writeFileString(path.join(scratch, 'e2e', 'engine.pw.ts'), 'export {};');
+                yield* fs.writeFileString(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'visual.pw.ts', 'panel.png'), '');
+                yield* fs.writeFileString(path.join(scratch, 'e2e', 'goldens', 'webkit', 'engine.pw.ts', 'trace.png'), '');
+                yield* fs.writeFileString(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'ghost.pw.ts', 'stale.png'), '');
+                const report = yield* Snapshots.audit(scratch);
+                // Only the three golden files are claimed: the goldens home, metadata, and spec-named directories never count.
+                expect(report.scanned).toBe(3);
+                expect(report.orphans).toEqual([path.join('e2e', 'goldens', 'chromium', 'darwin', 'platform', 'ghost.pw.ts', 'stale.png')]);
             }),
         ),
     );

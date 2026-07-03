@@ -14,28 +14,35 @@
 - Entry: `Progress.stream(frames)` — bytes to `Stream<ProgressMark>`: `ProtoCodec.stream` walks the length-prefixed frames, each raw message admits through the composed `state` schema, a poison frame diverts to `Quarantine` and the feed continues, adjacent equal marks suppress, and the throttle prices volume under the `_FLOW` policy row. `Progress.mark` is the single-frame schema for point reads.
 - Receipt: each survivor is a `ProgressMark` — the state evidence row `state/evidence/progress` folds into completion surfaces; `ui` progress displays read the state fold, never this rail.
 - Growth: a new mark axis (a phase label, a sub-task coordinate) is a C# field plus the mirroring `state` vocabulary row; the pipeline is untouched. A new shaping need is a `_FLOW` field, never a second stream spelling.
-- Law: transitions, not samples — `Stream.changesWith` under the mark's own equivalence suppresses consecutive repeats, so a chatty producer costs no downstream fold work; the equivalence is stated because decoded marks are plain records, and `Stream.changes`'s reference identity would suppress nothing.
+- Law: transitions, not samples — `Stream.changesWith` under `_alike` suppresses consecutive repeats, so a chatty producer costs no downstream fold work; the equivalence is a composed projection instance over operation, stage, done, and total — stamp and tenant excluded, so a re-broadcast sample at a fresh stamp is still a repeat — because the derived whole-shape equivalence would suppress nothing.
 - Law: shaping is declared — `Stream.throttle` with chunk-priced cost shapes the feed; a consumer-side sleep loop or counter re-derives the operator.
-- Law: poison is per-frame — one malformed mark quarantines with its octets, the feed continues; the stream ends only on transport fault.
+- Law: poison is per-frame — one malformed mark quarantines with its proto re-emit (the engine's own frame encode, computed only on the failure path), the feed continues; the stream ends only on transport fault.
 - Boundary: the proto engine is `codec/proto.ts`; fold semantics over marks are `state/evidence/progress`; the compute channel that carries the frames arrives via `host/net` at the app root.
 
 ```typescript
+import type { Message } from "@bufbuild/protobuf"
 import { ProgressMark } from "@rasm/ts/state"
 import { Chunk, Effect, Either, Equivalence, Option, type ParseResult, Schema, Stream } from "effect"
 import { Quarantine, WireFault } from "../fault/quarantine.ts"
-import { Pack } from "./crdt.ts"
 import { ProtoCodec } from "./proto.ts"
 
 const _FLOW = { units: 240, per: "1 second", burst: 60 } as const
 
-const _alike: Equivalence.Equivalence<ProgressMark> = ProgressMark.alike
+const _emit = Schema.encodeSync(ProtoCodec.frame(ProtoCodec.suite.ProgressMarkWire))
 
-const _admitted = (raw: unknown): Effect.Effect<Either.Either<ProgressMark, WireFault>, WireFault, Quarantine> =>
-  Schema.decodeUnknown(ProgressMark)(raw).pipe(
+const _alike: Equivalence.Equivalence<ProgressMark> = Equivalence.struct({
+  operation: Equivalence.string,
+  stage: Equivalence.string,
+  done: Equivalence.number,
+  total: Option.getEquivalence(Equivalence.number),
+})
+
+const _admitted = (message: Message): Effect.Effect<Either.Either<ProgressMark, WireFault>, WireFault, Quarantine> =>
+  Schema.decodeUnknown(ProgressMark)(message).pipe(
     Effect.mapError((issue: ParseResult.ParseError) =>
       new WireFault({ family: "ProgressMarkWire", reason: "malformed", detail: issue.message, evidence: Option.none() }),
     ),
-    Quarantine.divert({ family: "ProgressMarkWire", octets: Pack.encode(raw) }),
+    Quarantine.divert({ family: "ProgressMarkWire", octets: () => _emit(message) }),
   )
 
 const Progress: {

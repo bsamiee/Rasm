@@ -15,7 +15,7 @@ The Automation-API entry: inline typed programs over `LocalWorkspace.createOrSel
 [ENGINE_VOCABULARY]:
 - Owner: `RunReceipt`, one `Schema.Class` — `op` (the ledger literal), `stack` (the fully qualified name), `summary` (the per-`OpType` count record the terminal `SummaryEvent.resourceChanges` carries), `steps` (one inline row per `resourcePreEvent`: op, urn, type token, provider, changed property paths), and `diagnostics` (severity-tagged provider messages) — step and diagnostic shapes are inline `Schema.Struct` blocks embedded in the one owner, reachable as `RunReceipt["steps"][number]`, never sibling classes.
 - Law: the interior anchors are tuples — `_ops` (the four-member ledger) and `_opTypes` (the engine's 15-member operation union) — spread into `Schema.Literal` so the schema arm holds the non-empty overload; `RunReceipt.ops`/`RunReceipt.opTypes` ride the class and `policy/drift` buckets over the same anchor, so the operation vocabulary has one spelling folder-wide.
-- Law: the summary decodes as `Schema.Record` keyed by the `OpType` literal — only present buckets decode, an unknown operation fails the decode loudly, and `mutated` projects whether any non-`same` bucket is inhabited so callers gate on evidence, never on stdout text.
+- Law: the summary decodes as `Schema.Record` keyed by the `OpType` literal under `Schema.partialWith({ exact: true })` — the engine's `OpMap` is partial, so only present buckets decode with no `undefined` cell, an unknown operation fails the decode loudly, and `mutated` projects whether any non-`same` bucket is inhabited so callers gate on evidence, never on stdout text.
 - Law: diagnostics keep the engine's own severity union (`info | info#err | warning | error`) verbatim — bridged providers report failures only through this stream, so severity is the one match key and message text is never parsed.
 - Growth: a new receipt dimension is one field decoded from the event arm that carries it; a new engine event arm is one fold row in `[4]`'s `_folded`.
 - Boundary: outputs are not receipt material — `stack/output.md` owns the `OutputMap` decode; the drift reconciliation over these same step rows is `policy/drift.md`'s.
@@ -39,7 +39,7 @@ const _OpType = Schema.Literal(..._opTypes)
 class RunReceipt extends Schema.Class<RunReceipt>("RunReceipt")({
   op: _Op,
   stack: Schema.NonEmptyString,
-  summary: Schema.Record({ key: _OpType, value: Schema.Int }),
+  summary: Schema.Record({ key: _OpType, value: Schema.Int }).pipe(Schema.partialWith({ exact: true })),
   steps: Schema.Array(Schema.Struct({
     op: _OpType,
     urn: Schema.String,
@@ -53,14 +53,16 @@ class RunReceipt extends Schema.Class<RunReceipt>("RunReceipt")({
     urn: Schema.optionalWith(Schema.String, { as: "Option" }),
   })),
 }) {
-  static readonly ops = _ops
-  static readonly opTypes = _opTypes
+  static readonly ops: RunReceipt.Ops = _ops
+  static readonly opTypes: RunReceipt.OpTypes = _opTypes
   get mutated(): boolean {
     return Record.reduce(this.summary, 0, (acc, count, op) => (op === "same" ? acc : acc + count)) > 0
   }
 }
 
 declare namespace RunReceipt {
+  type Ops = typeof _ops
+  type OpTypes = typeof _opTypes
   type Op = (typeof _ops)[number]
   type OpType = (typeof _opTypes)[number]
   type Step = RunReceipt["steps"][number]

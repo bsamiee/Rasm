@@ -20,12 +20,14 @@ The canonical secret owner of the deploy plane: one `Secrets` tier provisions th
 - Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every dispatch arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.token` into `Inject.rows`.
 - Growth: a new credential is one entries row; a new policy axis is one `_Policy` field with its default.
 - Boundary: runtime consumption (`doppler run`, the `security/secret` read path) is `secret/inject.md`'s process boundary; generated-material laws (`keepers`, encodings) follow the random catalogue; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`.
-- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `getSecretsOutput`); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `RunError`); `effect` (`Schema`, `Predicate`, `Record`, `Array`); `../program/spec.ts` (`StackSpec`); `../stack/component.ts` (`Tier`).
+- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `RunError`); `effect` (`Schema`, `Predicate`, `Record`, `Array`, `Option`); `../program/spec.ts` (`StackSpec`); `../stack/component.ts` (`Tier`).
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi"
 import * as random from "@pulumi/random"
 import * as doppler from "@pulumiverse/doppler"
+import * as integration from "@pulumiverse/doppler/integration"
+import * as secretssync from "@pulumiverse/doppler/secretssync"
 import { Array, Option, Predicate, Record, Schema } from "effect"
 import type { StackSpec } from "../program/spec.ts"
 import { Tier } from "../stack/component.ts"
@@ -60,6 +62,22 @@ const _minted = (key: string, policy: Secrets.Policy, epoch: string, child: pulu
   }, child)
 
 class Secrets extends Tier {
+  static readonly mirrored = (owner: Secrets, name: string, row: Secrets.Mirror, child: pulumi.CustomResourceOptions): pulumi.CustomResource =>
+    row.target === "awsSecretsManager"
+      ? new secretssync.AwsSecretsManager(name, {
+          project: owner.project.name,
+          config: owner.config.name,
+          integration: new integration.AwsSecretsManager(name, { name, assumeRoleArn: row.assumeRoleArn }, child).id,
+          region: row.region,
+          path: row.path,
+        }, child)
+      : new secretssync.GithubActions(name, {
+          project: owner.project.name,
+          config: owner.config.name,
+          integration: row.integration,
+          syncTarget: "repo",
+          repoName: row.repoName,
+        }, child)
   readonly project: doppler.Project
   readonly config: doppler.BranchConfig
   readonly token: pulumi.Output<string>
@@ -102,39 +120,21 @@ class Secrets extends Tier {
 ## [3]-[FAN_IN_AND_OUT]
 
 [FAN_IN_AND_OUT]:
-- Law: one read serves every provider — `read(key)` is the single-key pluck over `getSecretsOutput(...).map`, and the consumer roster is data: `postgresql.Provider.password` ← `DB_PASSWORD`, `cloudflare.Provider.apiToken` ← `CLOUDFLARE_API_TOKEN`, `gcp.Provider.credentials` ← `GCP_CREDENTIALS`, `grafana.Provider` auth ← `GRAFANA_PASSWORD`, `docker` registry auth ← `REGISTRY_PASSWORD` — a new consuming provider is a key row on the config the store already owns, never a new read path.
+- Law: one read serves every provider — `read(key)` is the single-key pluck over `getSecretsOutput(...).map`, and the consumer roster is data: `postgresql.Provider.password` ← `DB_ADMIN_PASSWORD` (the CNPG superuser the admin secret governs), `postgresql.Role.password` ← `DB_PASSWORD` (the app role's own entry), `cloudflare.Provider.apiToken` ← `CLOUDFLARE_API_TOKEN`, `gcp.Provider.credentials` ← `GCP_CREDENTIALS`, `grafana.Provider` auth ← `GRAFANA_PASSWORD`, `docker` registry auth ← `REGISTRY_PASSWORD` — a new consuming provider is a key row on the config the store already owns, never a new read path.
 - Law: the in-graph value stays in the graph — the plucked `Output<string>` binds a credential `Input`, is state-encrypted, and never touches process env; the env mode exists only for the runtime processes `secret/inject` wraps.
-- Law: mirroring is one pair per destination — `mirrored` dispatches on the target key: a destination with a credential link constructs `integration.<Target>` then `secretssync.<Target>` referencing it, a GitHub-App destination constructs the sync row alone; targets are rows (`AwsSecretsManager` with `region`/`path`/`kmsKeyId`/`deleteBehavior`, `GithubActions` with repo coordinates), and the mirror is always FROM the canonical config outward.
-- Law: `mirrored` is the module's one operation export beside the owner — data-first over the tier so a dispatch arm composes mirrors without the tier growing per-target methods.
+- Law: mirroring is one pair per destination — `Secrets.mirrored` dispatches on the target key: a destination whose credential link this plane owns constructs `integration.<Target>` then `secretssync.<Target>` referencing its id; a GitHub destination's integration is the pre-existing GitHub-App install, so its row carries the integration slug and constructs the sync row alone (`syncTarget: "repo"`, `repoName` naming the repository); targets are rows (`AwsSecretsManager` with `region`/`path`/`kmsKeyId`/`deleteBehavior`, `GithubActions` with the install slug and repo coordinates), and the mirror is always FROM the canonical config outward.
+- Law: `mirrored` rides the owner as a static — data-first over the tier, so one dispatch owns every target, the module exports one name, and the tier grows no per-target methods.
 - Growth: a new mirror destination is one target row in the `mirrored` dispatch; removing one is deleting the pair.
 - Boundary: what a mirrored store's consumers do with the copy is theirs; the canonical write path never routes through a mirror.
 
 ```typescript
-import * as integration from "@pulumiverse/doppler/integration"
-import * as secretssync from "@pulumiverse/doppler/secretssync"
-
 declare namespace Secrets {
   type Mirror =
     | { readonly target: "awsSecretsManager"; readonly assumeRoleArn: pulumi.Input<string>; readonly region: pulumi.Input<string>; readonly path: pulumi.Input<string> }
-    | { readonly target: "githubActions"; readonly repo: pulumi.Input<string> }
+    | { readonly target: "githubActions"; readonly integration: pulumi.Input<string>; readonly repoName: pulumi.Input<string> }
 }
-
-const mirrored = (owner: Secrets, name: string, row: Secrets.Mirror, child: pulumi.CustomResourceOptions): pulumi.CustomResource =>
-  row.target === "awsSecretsManager"
-    ? new secretssync.AwsSecretsManager(name, {
-        project: owner.project.name,
-        config: owner.config.name,
-        integration: new integration.AwsSecretsManager(name, { name, assumeRoleArn: row.assumeRoleArn }, child).id,
-        region: row.region,
-        path: row.path,
-      }, child)
-    : new secretssync.GithubActions(name, {
-        project: owner.project.name,
-        config: owner.config.name,
-        repo: row.repo,
-      }, child)
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { mirrored, Secrets }
+export { Secrets }
 ```

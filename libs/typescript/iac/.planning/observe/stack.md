@@ -14,7 +14,7 @@ The observability stack rows: one `Lgtm` tier installs the LGTM distribution (Lo
 [CHART_ROWS]:
 - Owner: `Lgtm` — the `_charts` vocabulary carries both rows (`lgtm`: the `lgtm-distributed` chart from the Grafana repo; `collector`: `opentelemetry-collector` from the OpenTelemetry repo), versions arrive as pinned args, and the tier constructs both under one namespace with the collector's exporters aimed at the LGTM services by `Output`-woven URLs.
 - Law: values are typed objects — the Grafana admin password is the Doppler-generated `GRAFANA_PASSWORD` read handed in as `auth`, so the credential is in-graph and `observe/apply` authenticates with the same value; persistence, replica, and pipeline knobs are value rows under the pinned chart's own dialect, drifting only with the version pin.
-- Law: the collector is the one ingest seam — receivers accept OTLP, exporters fan to Loki, Tempo, and Mimir over `[3]`'s projections; app workloads never learn a backend address, only the collector endpoint, so backend re-plumbing never touches an app.
+- Law: the collector is the one ingest seam — the OTLP receiver admits, one named exporter per signal fans out over `[3]`'s projections (`otlphttp/logs` to Loki's OTLP ingest, `otlphttp/traces` to Tempo, `prometheusremotewrite` to Mimir's push path), and the `service.pipelines` rows wire receiver to exporter per signal; app workloads never learn a backend address, only the collector endpoint, so backend re-plumbing never touches an app.
 - Law: charts render, releases do not exist — `helm.v4.Chart` keeps every rendered resource under Pulumi diff and CrossGuard visibility; `helm.v3.Release` is reached only where a chart demands true release lifecycle, and neither row here does.
 - Entry: `new Lgtm("observe", { spec, namespace, versions, auth }, opts)` inside the k8s arm.
 - Growth: a new backend chart is one `_charts` row; a collector pipeline axis is one values row.
@@ -36,9 +36,16 @@ declare namespace Lgtm {
   type Versions = { readonly lgtm: pulumi.Input<string>; readonly collector: pulumi.Input<string> }
   type Urls = {
     readonly grafana: pulumi.Output<string>
-    readonly loki: pulumi.Output<string>
-    readonly tempo: pulumi.Output<string>
-    readonly prometheus: pulumi.Output<string>
+    readonly ingest: {
+      readonly logs: pulumi.Output<string>
+      readonly traces: pulumi.Output<string>
+      readonly metrics: pulumi.Output<string>
+    }
+    readonly query: {
+      readonly loki: pulumi.Output<string>
+      readonly tempo: pulumi.Output<string>
+      readonly prometheus: pulumi.Output<string>
+    }
   }
   type Args = {
     readonly spec: StackSpec
@@ -73,12 +80,17 @@ class Lgtm extends Tier {
         mode: "deployment",
         config: {
           receivers: { otlp: { protocols: { http: {}, grpc: {} } } },
-          exporters: {
-            otlphttp: pulumi.all([this.urls.loki, this.urls.tempo, this.urls.prometheus]).apply(([loki, tempo, prometheus]) => ({
-              logs: { endpoint: loki },
-              traces: { endpoint: tempo },
-              metrics: { endpoint: prometheus },
-            })),
+          exporters: pulumi.all([this.urls.ingest.logs, this.urls.ingest.traces, this.urls.ingest.metrics]).apply(([logs, traces, metrics]) => ({
+            "otlphttp/logs": { endpoint: logs },
+            "otlphttp/traces": { endpoint: traces },
+            prometheusremotewrite: { endpoint: metrics },
+          })),
+          service: {
+            pipelines: {
+              logs: { receivers: ["otlp"], exporters: ["otlphttp/logs"] },
+              traces: { receivers: ["otlp"], exporters: ["otlphttp/traces"] },
+              metrics: { receivers: ["otlp"], exporters: ["prometheusremotewrite"] },
+            },
           },
         },
       },
@@ -92,17 +104,24 @@ class Lgtm extends Tier {
 ## [3]-[ENDPOINT_PROJECTION]
 
 [ENDPOINT_PROJECTION]:
-- Law: endpoints are one projection — `_urls(release, namespace)` derives every backend address from the release name and namespace under the pinned chart's service-naming convention (`{release}-grafana`, `{release}-loki`, `{release}-tempo`, `{release}-mimir-nginx`), centralized so a chart bump that renames a service edits exactly these rows; no consumer ever spells a service DNS.
-- Law: consumers bind outputs, not literals — `urls.grafana` feeds the `Boards` provider and `StackOutputs.grafana`, `collectorEndpoint` feeds the `otlp` output plane and thence the workload env; a hand-written URL anywhere downstream is the drift this projection deletes.
-- Growth: a new backend's address is one `_urls` row beside its chart row.
+- Law: endpoints are one projection in two role planes — `_urls(release, namespace)` derives every backend address from the release name and namespace under the pinned chart's service-naming convention (`{release}-grafana`, `{release}-loki`, `{release}-tempo`, `{release}-mimir-nginx`), with `ingest` rows carrying each backend's write path (Loki OTLP, Tempo OTLP, Mimir remote-write) for the collector exporters and `query` rows carrying each backend's read API for the Grafana data sources — one backend, two roles, never one URL doing both jobs; a chart bump that renames a service or moves a path edits exactly these rows, and no consumer ever spells a service DNS.
+- Law: consumers bind outputs, not literals — `urls.grafana` feeds the `Boards` provider and `StackOutputs.grafana`, `urls.query.*` feeds the `Boards` data sources, `collectorEndpoint` feeds the `otlp` output plane and thence the workload env; a hand-written URL anywhere downstream is the drift this projection deletes.
+- Growth: a new backend's address is one ingest row plus one query row beside its chart row.
 - Boundary: ports and path suffixes are the pinned charts' facts, versioned with the pins.
 
 ```typescript
 const _urls = (release: string, namespace: pulumi.Input<string>): Lgtm.Urls => ({
   grafana: pulumi.interpolate`http://${release}-grafana.${namespace}.svc`,
-  loki: pulumi.interpolate`http://${release}-loki.${namespace}.svc:3100`,
-  tempo: pulumi.interpolate`http://${release}-tempo.${namespace}.svc:4318`,
-  prometheus: pulumi.interpolate`http://${release}-mimir-nginx.${namespace}.svc/api/v1/push`,
+  ingest: {
+    logs: pulumi.interpolate`http://${release}-loki.${namespace}.svc:3100/otlp`,
+    traces: pulumi.interpolate`http://${release}-tempo.${namespace}.svc:4318`,
+    metrics: pulumi.interpolate`http://${release}-mimir-nginx.${namespace}.svc/api/v1/push`,
+  },
+  query: {
+    loki: pulumi.interpolate`http://${release}-loki.${namespace}.svc:3100`,
+    tempo: pulumi.interpolate`http://${release}-tempo.${namespace}.svc:3200`,
+    prometheus: pulumi.interpolate`http://${release}-mimir-nginx.${namespace}.svc/prometheus`,
+  },
 })
 
 // --- [EXPORTS] --------------------------------------------------------------------------

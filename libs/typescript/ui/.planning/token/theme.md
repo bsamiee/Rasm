@@ -21,9 +21,8 @@
 - Growth: a new hue is one `ramp` call emitting one namespace row set; a new contrast tier is one `_APCA` row — never a second color engine or a per-component color literal.
 
 ```typescript
-import { ColorSpace, contrastAPCA, serialize, steps, to, toGamutCSS, tryColor } from "colorjs.io/fn"
+import { ColorSpace, contrastAPCA, type PlainColorObject, serialize, steps, to, toGamutCSS, tryColor } from "colorjs.io/fn"
 import { OKLCH, OKLab, P3, sRGB, sRGB_Linear } from "colorjs.io/spaces"
-import type { PlainColorObject } from "colorjs.io/fn"
 import { Array, Option, ParseResult, Record, Schema } from "effect"
 
 ColorSpace.register(sRGB)
@@ -72,26 +71,27 @@ const _linear = (color: Schema.Schema.Type<typeof _Color>): readonly [number, nu
 }
 
 const _css = (namespace: string, rows: Record.ReadonlyRecord<string, string>): string =>
-  `@theme {\n${Record.collect(rows, (key, value) => `  --${namespace}-${key}: ${value};`).join("\n")}\n}`
+  `@theme {\n${Record.collect(rows, (key, value) => `  --${namespace}${key === "" ? "" : `-${key}`}: ${value};`).join("\n")}\n}`
 ```
 
 ## [3]-[CLASS_RAIL]
 
 - Owner: `cn` — the folder's ONE class composer: `clsx` folds conditional inputs, one `extendTailwindMerge` instance resolves last-wins conflicts, and the extension table teaches it every custom group — the project `@theme` color scale and the `tw-animate-css` motion groups (`fade`/`zoom`/`spin`/`blur`/`slide` setters, `animation-duration`/`delay`/`repeat` modifiers) — so a `cva` variant, a `tailwindcss-react-aria-components` state variant, and a caller override all collapse to the intended winner.
-- Packages: `tailwind-merge` (`extendTailwindMerge`, `fromTheme`, `validators`), `clsx` (`ClassValue` — the shared input vocabulary of the whole styling rail); `class-variance-authority` composes downstream (its `cx` IS `clsx`, so a `cva` module imports `cn` from here, never a second composer).
+- Packages: `tailwind-merge` (`extendTailwindMerge`, `validators`; `fromTheme` where a custom group must reference a whole scale), `clsx` (`ClassValue` — the shared input vocabulary of the whole styling rail); `class-variance-authority` composes downstream (its `cx` IS `clsx`, so a `cva` module imports `cn` from here, never a second composer).
+- Law: the theme extension is data over the default scales — the project hues (`mauve`/`olive`/`mist`/`taupe`) extend the `color` theme scale so every default color group (`bg-`/`text-`/`ring-`/…) resolves them; `fromTheme` inside a theme scale is circular and is the named defect.
 - Law: exactly one merge instance exists — a raw `twMerge` import or a per-component `extendTailwindMerge` silently mis-resolves custom utilities and is the named defect; `twJoin` is admitted only for provably conflict-free static token strings.
 - Law: the group table is data — a new custom utility family is one `classGroups` row over `validators.*` predicates or a `fromTheme` scale reference, never a parser change; `token/scale` contributes its motion rows to this one table at authoring time and never mints a sibling instance.
 - Law: `cn` is pure synchronous string work below the Effect boundary — it runs inside render, memoized by `tailwind-merge`'s LRU, and never lifts onto a rail.
 
 ```typescript
 import { type ClassValue, clsx } from "clsx"
-import { extendTailwindMerge, fromTheme, validators } from "tailwind-merge"
+import { extendTailwindMerge, validators } from "tailwind-merge"
 
 const _motion = (stem: string) => ({ [stem]: ["", validators.isNumber, validators.isArbitraryValue] })
 
 const _merge = extendTailwindMerge({
   extend: {
-    theme: { color: [fromTheme("color")] },
+    theme: { color: ["mauve", "olive", "mist", "taupe"] },
     classGroups: {
       "animate-trigger": ["animate-in", "animate-out", "animate-none"],
       "motion-fade": [_motion("fade-in"), _motion("fade-out")],

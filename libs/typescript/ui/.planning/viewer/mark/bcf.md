@@ -20,20 +20,24 @@
 - Boundary: pin interaction (press opens the topic) rides `act/gesture` discrete rows; the pin's HTML content sanitizes through `view/compose`'s gate when topic text renders rich.
 
 ```typescript
-import { Bcf } from "@rasm/ts/wire/vocab"
-import { Option } from "effect"
+import type { Bcf } from "@rasm/ts/wire/vocab"
+import { Option, type Schema } from "effect"
+
+type _Topic = Schema.Schema.Type<typeof Bcf.Topic>
+type _Viewpoint = Schema.Schema.Type<typeof Bcf.Viewpoint>
+type _GlobalId = _Viewpoint["selection"][number]
 
 declare namespace BcfMark {
   type Pin = {
     readonly guid: string
     readonly anchor: readonly [number, number]
-    readonly status: Bcf.Topic["status"]
+    readonly status: _Topic["status"]
   }
 }
 
 const _pin = (
-  topic: Bcf.Topic,
-  viewpoint: Option.Option<Bcf.Viewpoint>,
+  topic: _Topic,
+  viewpoint: Option.Option<_Viewpoint>,
   project: (world: readonly [number, number, number]) => readonly [number, number],
 ): Option.Option<BcfMark.Pin> =>
   Option.map(viewpoint, (held) => ({
@@ -51,21 +55,20 @@ const _pin = (
 - Boundary: which elements exist is the residency ledger's fact (`viewer/scene/glb`); the intent dispatch is `viewer/geo/project`'s; the selection fold is `viewer/mark/selection`'s.
 
 ```typescript
-import { GlobalId } from "@rasm/ts/kernel"
 import { Array, HashSet } from "effect"
 
 declare namespace Restore {
   type Receipt = {
     readonly requested: number
     readonly resolved: number
-    readonly missing: ReadonlyArray<GlobalId>
+    readonly missing: ReadonlyArray<_GlobalId>
   }
 }
 
 const _restore = (
-  viewpoint: Bcf.Viewpoint,
-  resident: HashSet.HashSet<GlobalId>,
-): { readonly select: ReadonlyArray<GlobalId>; readonly receipt: Restore.Receipt } => {
+  viewpoint: _Viewpoint,
+  resident: HashSet.HashSet<_GlobalId>,
+): { readonly select: ReadonlyArray<_GlobalId>; readonly receipt: Restore.Receipt } => {
   const [missing, resolved] = Array.partition(viewpoint.selection, (id) => HashSet.has(resident, id))
   return {
     select: resolved,
@@ -90,7 +93,7 @@ const _tone = {
   "in-progress": { icon: CircleAlert, tone: "accent" },
   resolved: { icon: CircleCheck, tone: "success" },
   closed: { icon: CircleSlash, tone: "neutral" },
-} as const satisfies Record<Bcf.Topic["status"], { readonly icon: LucideIcon; readonly tone: string }>
+} as const satisfies Record<_Topic["status"], { readonly icon: LucideIcon; readonly tone: string }>
 
 const BcfMark: {
   readonly pin: typeof _pin

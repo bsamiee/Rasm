@@ -104,7 +104,7 @@ def test_tmp_root_writes_nested_text_and_applies_mode(tmp_path: Path) -> None:
 
 def test_ndjson_oracle_decodes_every_row_and_gates_the_exact_count() -> None:
     """A multi-line oracle decodes all rows in order; a count drift fails, and one() refuses multi-line oracles."""
-    stream: NdjsonOracle[dict] = NdjsonOracle(msgspec.json.Decoder(dict), expect_lines=2)
+    stream: NdjsonOracle[dict[str, int]] = NdjsonOracle(msgspec.json.Decoder(dict[str, int]), expect_lines=2)
     assert stream.rows(b'{"a":1}\n{"a":2}\n') == ({"a": 1}, {"a": 2})
     with pytest.raises(AssertionError, match="expected exactly 2"):
         stream.rows(b'{"a":1}\n')
@@ -114,7 +114,7 @@ def test_ndjson_oracle_decodes_every_row_and_gates_the_exact_count() -> None:
 
 def test_ndjson_one_write_contract_reds_on_double_write(capsys: pytest.CaptureFixture[str]) -> None:
     """The default oracle is the one-write contract: a second NDJSON line is a failure, and capture decodes."""
-    oracle: NdjsonOracle[dict] = NdjsonOracle(msgspec.json.Decoder(dict))
+    oracle: NdjsonOracle[dict[str, int]] = NdjsonOracle(msgspec.json.Decoder(dict[str, int]))
     assert oracle.one(b'{"a":1}\n') == {"a": 1}
     with pytest.raises(AssertionError, match="expected exactly 1"):
         oracle.one(b'{"a":1}\n{"a":2}\n')
@@ -126,13 +126,13 @@ def test_ndjson_one_write_contract_reds_on_double_write(capsys: pytest.CaptureFi
 
 
 def test_process_doubles_dispatch_by_pid_and_raise_on_dead_or_unknown() -> None:
-    """autospec doubles carry fields, method returns, and death; the module double routes pids and raises not_found."""
+    """Autospec doubles carry fields, method returns, and death; the module double routes pids and raises not_found."""
     live = autospec_proc(psutil.Process, fields={"pid": 42}, methods={"cpu_percent": 12.5})
     dead = autospec_proc(psutil.Process, fields={"pid": 7}, dead=True)
     assert (live.pid, live.cpu_percent()) == (42, 12.5)
-    fake = psutil_module_double(psutil, {42: live, 7: dead}, not_found=psutil.NoSuchProcess, extra={"boot_time": lambda: 0.0})
+    fake = psutil_module_double(psutil, {42: live, 7: dead}, not_found=psutil.NoSuchProcess, extra={"cpu_count": lambda: 3})
     assert fake.Process(42) is live
-    assert fake.boot_time() == 0.0
+    assert fake.cpu_count() == 3, "extra module bindings were not injected"
     with pytest.raises(psutil.NoSuchProcess):
         fake.Process(7)
     with pytest.raises(psutil.NoSuchProcess):

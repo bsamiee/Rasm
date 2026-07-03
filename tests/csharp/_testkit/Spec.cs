@@ -36,7 +36,8 @@ public static class Law {
         Of(name: name, gen: gen, property: x => Eq(name: name, left: x, right: g(f(x)), eq: eq), refutingWitness: witness);
     public static Law<TIn> Roundtrip<TIn, TOut>(string name, Gen<TIn> gen, Func<TIn, TOut> forward, Func<TOut, TIn> back, TIn witness, Func<TIn, TIn, bool>? eq = null) =>
         Of(name: name, gen: gen, property: x => Eq(name: name, left: x, right: back(forward(x)), eq: eq), refutingWitness: witness);
-    public static Law<(T A, T B)> Commutative<T>(string name, Gen<T> gen, Func<T, T, T> op, (T A, T B) witness, Func<T, T, bool>? eq = null) =>
+    // Commutative is result-typed: closed ops and symmetric projections (distance, dot) share one row.
+    public static Law<(T A, T B)> Commutative<T, TResult>(string name, Gen<T> gen, Func<T, T, TResult> op, (T A, T B) witness, Func<TResult, TResult, bool>? eq = null) =>
         Of(name: name, gen: gen.Select(gen, static (T a, T b) => (A: a, B: b)),
            property: p => Eq(name: name, left: op(p.A, p.B), right: op(p.B, p.A), eq: eq), refutingWitness: witness);
     public static Law<(T A, T B, T C)> Associative<T>(string name, Gen<T> gen, Func<T, T, T> op, (T A, T B, T C) witness, Func<T, T, bool>? eq = null) =>
@@ -202,6 +203,8 @@ public static partial class Spec {
     // Classify-table print: buckets and timing per class over one sample sweep.
     public static void Classified<T>(Gen<T> gen, Func<T, string> classify, Action<string> writeLine, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: gen);
+        ArgumentNullException.ThrowIfNull(argument: classify);
+        ArgumentNullException.ThrowIfNull(argument: writeLine);
         gen.Sample(classify: classify, writeLine: writeLine, seed: seed, iter: iter ?? -1L, time: time ?? -1, threads: threads ?? -1);
     }
     // Chi-squared distribution law: expected counts define both the sample size and the buckets.

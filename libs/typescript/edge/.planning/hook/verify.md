@@ -60,13 +60,20 @@ class HookFault extends Schema.TaggedError<HookFault>()("HookFault", {
 - Owner: `_dialects` — one row per provider signing convention, each carrying `header` (the signature header, lowercase), `parse` (header value to the candidate signature set plus the optional epoch-second stamp — `Option`-total, so any grammar refusal is one `malformed`), and `prefix` (the bytes the convention prepends to the payload before signing — the stripe `${t}.` frame; empty everywhere else): four rows — `github` (`sha256=<hex>`), `stripe` (`t=<epoch>,v1=<hex>` with rotation candidates — every `v1` is tried, so key rotation windows verify), `hex` (bare hex), `base64` (base64 re-encoded to hex at the parse so the compare speaks one encoding).
 - Law: the candidate set is non-empty by parse — a row returning zero marks is a parse refusal, so the verify fold never runs an empty compare loop and "no signature" is `missing`/`malformed`, never a vacuous pass.
 - Law: rows are grammar, never trust policy — tolerance, secrets, and freshness are verify-fold parameters; a row cannot weaken them, so adding a provider row is review-free on the security axis.
-- Growth: a new provider is one row; a provider changing its grammar is a row edit that every intake inherits.
+- Law: the `_kinds` tuple anchors the key set — the `Verified.dialect` wire literal spreads it, and the namespace guard pair closes tuple and table against each other in both directions, so a row without its tuple entry (or the converse) fails at the declaration.
+- Growth: a new provider is one row plus its tuple entry; a provider changing its grammar is a row edit that every intake inherits.
 
 ```typescript
+const _kinds = ["github", "stripe", "hex", "base64"] as const
+
 declare namespace Signature {
   type Dialect = keyof typeof _dialects
   type Parsed = { readonly marks: Array.NonEmptyReadonlyArray<string>; readonly stamp: Option.Option<number> }
+  type _Keys<K extends Dialect = (typeof _kinds)[number]> = K
+  type _Kinds<K extends (typeof _kinds)[number] = Dialect> = K
 }
+
+const _utf8 = new TextEncoder()
 
 const _pairs = (value: string): ReadonlyArray<readonly [string, string]> =>
   Array.filterMap(value.split(","), (part) => {
@@ -95,7 +102,7 @@ const _dialects = {
       )
       return Option.isNone(stamp) ? Option.none() : _marked(Array.filterMap(pairs, ([key, held]) => (key === "v1" ? Option.some(held) : Option.none())), stamp)
     },
-    prefix: (stamp: Option.Option<number>) => new TextEncoder().encode(`${Option.getOrElse(stamp, () => 0)}.`),
+    prefix: (stamp: Option.Option<number>) => _utf8.encode(`${Option.getOrElse(stamp, () => 0)}.`),
   },
   hex: {
     header: "x-signature",
@@ -117,25 +124,37 @@ const _dialects = {
 ## [4]-[VERIFY_FOLD]
 
 [VERIFY_FOLD]:
-- Owner: `Signature.verify` — the one pipeline over any dialect: read the row's header (absence is `missing`), parse (refusal is `malformed`), gate freshness when the row carries a stamp (drift beyond tolerance in either direction is `stale` — both directions, because a future-dated stamp is as forged as an old one), frame the message as the row's prefix over the held octets, then fold the candidate set through `security`'s constant-time compare — first hit wins, exhaustion is `mismatch`. The compare is `Crypto.compare` and nothing else: no local HMAC, no `===` over signature bytes.
-- Law: `Verified` is the receipt — dialect, verification instant, and the provider stamp as `Option<DateTime.Utc>` — the evidence `hook/admit.ts` threads into the admitted hook, so downstream consumers can audit freshness without re-verifying.
+- Owner: `Signature.verify` — the one pipeline over any dialect: read the row's header (absence is `missing`), parse (refusal is `malformed`), gate freshness when the row carries a stamp (the distance folds through `DateTime.distanceDuration`, so drift beyond tolerance in either direction is `stale` — a future-dated stamp is as forged as an old one — and an unrepresentable stamp is stale by construction), frame the message as the row's prefix over the held octets, then fold the candidate set through `security`'s constant-time compare — first hit wins, exhaustion is `mismatch`. The compare is `Crypto.compare` and nothing else: no local HMAC, no `===` over signature bytes.
+- Law: `Verified` is the receipt — dialect, verification instant, and the provider stamp as `Option<DateTime.Utc>`, every field wire-capable so the receipt rides the capture file the CLI replay verb decodes — the evidence `hook/admit.ts` threads into the admitted hook, so downstream consumers can audit freshness without re-verifying.
+- Exemption: `_message` is the marked byte-splice kernel — the platform buffer copy is statement-shaped, the draft detaches immutable, and no mutable reference escapes.
 - Law: the fold's requirement channel carries `Crypto` alone — the secret arrives as a `Redacted<Uint8Array>` parameter from the app's per-source configuration, never resolved here, so one verify serves every source and secret rotation is configuration.
 - Boundary: HMAC mechanics, constant-time discipline, and key handling are `security/sign/crypto`'s; which octets are held and what happens after verification is `hook/admit.ts`'s; endpoint body-ceiling admission is the serve seam's `withMaxBodySize` posture.
 - Packages: `effect` (`Effect`, `DateTime`, `Duration`, `Option`, `Array`); `security/sign/crypto` (`Crypto`).
 
 ```typescript
 class Verified extends Schema.Class<Verified>("Verified")({
-  dialect: Schema.Literal("github", "stripe", "hex", "base64"),
-  at: Schema.DateTimeUtcFromSelf,
-  stamp: Schema.optionalWith(Schema.DateTimeUtcFromSelf, { as: "Option" }),
+  dialect: Schema.Literal(..._kinds),
+  at: Schema.DateTimeUtc,
+  stamp: Schema.optionalWith(Schema.DateTimeUtc, { as: "Option" }),
 }) {}
 
-const _message = (prefix: Uint8Array, held: Uint8Array): Uint8Array => Uint8Array.from([...prefix, ...held])
+const _message = (prefix: Uint8Array, held: Uint8Array): Uint8Array => { // BOUNDARY ADAPTER: byte-splice kernel — the draft detaches immutable
+  const framed = new Uint8Array(prefix.length + held.length)
+  framed.set(prefix)
+  framed.set(held, prefix.length)
+  return framed
+}
+
+const _instant = (seconds: number): Option.Option<DateTime.Utc> => DateTime.make(seconds * 1000)
 
 const _fresh = (stamp: Option.Option<number>, now: DateTime.Utc, tolerance: Duration.Duration): boolean =>
   Option.match(stamp, {
     onNone: () => true,
-    onSome: (seconds) => Math.abs(DateTime.toEpochMillis(now) - seconds * 1000) <= Duration.toMillis(tolerance),
+    onSome: (seconds) =>
+      Option.match(_instant(seconds), {
+        onNone: () => false,
+        onSome: (at) => Duration.lessThanOrEqualTo(DateTime.distanceDuration(now, at), tolerance),
+      }),
   })
 
 const _verify = (
@@ -172,7 +191,7 @@ const _verify = (
         Effect.succeed(new Verified({
           dialect,
           at: now,
-          stamp: Option.flatMap(parsed.stamp, (seconds) => DateTime.make(seconds * 1000)),
+          stamp: Option.flatMap(parsed.stamp, _instant),
         })),
     })
   })

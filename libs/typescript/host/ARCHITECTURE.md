@@ -32,12 +32,16 @@ host/src/ # imports kernel ONLY (W1); runtime-spanning — per-runtime subpath e
 ```text seams
 flag/verdict ← csharp:Rasm.AppHost/Runtime   # [WIRE]: FlagVerdictWire over the shared OpenFeature evaluation contract (ONE_FEATURE_FLAG_PROJECTION)
 flag/verdict ← typescript:wire/codec         # [WIRE]: FlagVerdictWire decode transits the wire codec/flag row into the host-owned verdict vocabulary — host owns verdict evaluation
+flag/verdict → typescript:security/authz     # [SHAPE]: Verdict evidence entitlement claims consume — the legal security → host edge
+flag/rollout ← typescript:kernel/identity    # [SHAPE]: the XxHash128 low-32 bucket projection arrives as the root-passed digest parameter — cross-language bucket parity rides the content-key parity contract
 net/client   → typescript:ai/model           # [SHAPE]: HttpClient default-policy rows (timeout/retry/proxy) the LanguageModel provider rows compose
 net/client   → typescript:work/engine        # [SHAPE]: HttpClient default-policy rows runner discovery composes
 net/client   → typescript:telemetry/otlp     # [TRANSPORT]: HttpClient default-policy rows OTLP export composes
 net/channel  → typescript:ai/model           # [SHAPE]: Socket/Ndjson channel rows selected beside client policy for provider streaming
 net/channel  → typescript:work/engine        # [SHAPE]: Socket/Ndjson channel rows selected beside client policy for runner discovery streams
 net/channel  → typescript:telemetry/otlp     # [TRANSPORT]: Socket/Ndjson channel rows selected beside client policy for OTLP stream egress
+life/health  → typescript:edge/api           # [SHAPE]: the probe kind/route anchor and graded report the serving edge mounts and encodes
+life/cycle   → typescript:iac                # [SHAPE]: the drain total budget mirrored into terminationGracePeriod; the probe route trio written into workload manifests
 ```
 
-The `flag` rows are the one C#-inbound seam: `Rasm.AppHost` mints `FlagVerdictWire`, `wire` decodes it through `codec/flag` into the host-owned verdict vocabulary, and `host` evaluates — entitlement claims stay in `security/authz`, which consumes verdicts over its legal `security → host` edge. The `net` rows run the opposite direction: `host` owns the branch-wide client and channel policy, and `ai` providers, `work` runner discovery, and `telemetry` OTLP export compose the same rows rather than authoring per-folder transport policy.
+The `flag` rows carry the one C#-inbound seam and its two branch edges: `Rasm.AppHost` mints `FlagVerdictWire`, `wire` decodes it through `codec/flag` into the host-owned verdict vocabulary, `host` evaluates under the kernel-delegated bucket digest, and `security/authz` consumes verdict evidence over its legal `security → host` edge — entitlement claims never migrate here. The `net` rows run the opposite direction: `host` owns the branch-wide client and channel policy, and `ai` providers, `work` runner discovery, and `telemetry` OTLP export compose the same rows rather than authoring per-folder transport policy. The `life` rows close the process contract outward: `edge` serves the probe anchor, `iac` mirrors the drain budget and routes — one number, one path set, zero second constants.

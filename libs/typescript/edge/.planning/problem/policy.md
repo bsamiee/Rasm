@@ -16,7 +16,7 @@
 - Owner: `_rows` — the governed record under a stated `Record<FaultClass.Kind, ProblemPolicy.Grade>` annotation: the mapped domain demands one row per kernel class and rejects any excess row, so kernel growth lands here as one compile-forced edit and the record is the only class-to-status site in the branch (`kernel/fault/classify` keeps its table transport-free by this boundary).
 - Law: rows carry three edge-owned axes — `status` (the response code), `title` (the RFC 9457 type summary, human-stable and free of occurrence data), `grace` (the default `Retry-After` window as an `Option<Duration>`, inhabited only on the re-drivable classes) — and nothing the kernel row already states: rank, retryability, and blame stay kernel columns read through `FaultClass[kind]`.
 - Law: the problem `type` member derives — `ProblemPolicy.type(kind)` is `_TYPE_BASE` plus the class literal, so the type-URI vocabulary is the kernel key space and a hand-authored slug registry cannot exist; `about:blank` never appears because every fold lands on a class.
-- Law: `grace` resolution is a two-rung ladder — a runtime hint carried by the fault value (a quota verdict's own window, a limiter's `retryAfter` evidence) wins, the class row's default fills, and absence stays absent — `ProblemPolicy.retryAfter(kind, hint)` folds the ladder to whole seconds once, so no consumer re-derives header arithmetic.
+- Law: `grace` resolution is a two-rung ladder — a runtime hint carried by the fault value (a quota verdict's own window, a limiter's `retryAfter` evidence) wins, the row's `grace` default fills, and absence stays absent — `ProblemPolicy.retryAfter(grace, hint)` folds the ladder to whole seconds once over any row's grace, class or upstream alike, so no consumer re-derives header arithmetic.
 - Growth: a new kernel class is one row here (compile-forced); a new response axis is one `Grade` field plus its column on ten rows.
 - Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `kernel/fault/classify` (`FaultClass`).
 
@@ -59,38 +59,37 @@ const _redact = (kind: FaultClass.Kind, extensions: Readonly<Record<string, stri
 ## [4]-[UPSTREAM_ROWS]
 
 [UPSTREAM_ROWS]:
-- Owner: `_upstream` — the two-row projection for the wire-reconstructed fault: a `retryable` upstream hop projects as 503 under the unavailable grace window, everything else refuses as 502 with no grace, and the `terminal` fact selects the refusal row so a wrong-program upstream reads distinctly from a saturated one.
+- Owner: `_upstream` — the two-row projection for the wire-reconstructed fault: a `retryable` non-`terminal` upstream hop projects as 503 under the unavailable grace window, and everything else refuses as 502 with no grace — the `terminal` fact vetoes re-drive even where the hop claims retryability, so a wrong-program upstream reads distinctly from a saturated one and never invites a retry.
 - Law: the probe is structural, never an import — `problem/detail.ts` recognizes the adopted-verbatim `FaultDetail` tag and reads its `retryable`/`terminal` projections as facts on the value; this page owns only the row those facts select, so the `edge -> wire` edge stays ledger-impossible while the wire altitude still exits through the one problem door (invariant 6).
-- Law: upstream rows are never class rows — an upstream refusal is not the caller's fault and not this process's invariant breach, so it takes its own slugs (`upstream-unavailable`, `upstream-refused`) and always redacts detail: hop chains, sites, and elapsed spans are telemetry material, never response bodies.
+- Law: upstream rows are never class rows — an upstream refusal is not the caller's fault and not this process's invariant breach, so each row derives its own `type` over the one `_TYPE_BASE` anchor (`upstream-unavailable`, `upstream-refused`) and always redacts detail: hop chains, sites, and elapsed spans are telemetry material, never response bodies.
 - Growth: a new upstream disposition is one row keyed by a new structural fact; the probe extends in `problem/detail.ts`, the row lands here.
 
 ```typescript
 const _upstream = {
-  retryable: { slug: "upstream-unavailable", status: 503, title: "upstream temporarily unavailable", grace: _rows.unavailable.grace },
-  refused: { slug: "upstream-refused", status: 502, title: "upstream refused", grace: Option.none<Duration.Duration>() },
+  retryable: { type: `${_TYPE_BASE}upstream-unavailable`, status: 503, title: "upstream temporarily unavailable", grace: _rows.unavailable.grace },
+  refused: { type: `${_TYPE_BASE}upstream-refused`, status: 502, title: "upstream refused", grace: Option.none<Duration.Duration>() },
 } as const
 
 declare namespace ProblemPolicy {
   type Grade = { readonly status: number; readonly title: string; readonly grace: Option.Option<Duration.Duration> }
   type Upstream = { readonly retryable: boolean; readonly terminal: boolean }
-  type _Rows<T extends Record<FaultClass.Kind, Grade> = typeof _rows> = T
 }
 
 const ProblemPolicy: {
   readonly expose: (kind: FaultClass.Kind) => boolean
   readonly grade: (kind: FaultClass.Kind) => ProblemPolicy.Grade
   readonly redact: (kind: FaultClass.Kind, extensions: Readonly<Record<string, string>>) => Readonly<Record<string, string>>
-  readonly retryAfter: (kind: FaultClass.Kind, hint: Option.Option<Duration.Duration>) => Option.Option<number>
+  readonly retryAfter: (grace: Option.Option<Duration.Duration>, hint: Option.Option<Duration.Duration>) => Option.Option<number>
   readonly type: (kind: FaultClass.Kind) => string
-  readonly upstream: (facts: ProblemPolicy.Upstream) => { readonly slug: string } & ProblemPolicy.Grade
+  readonly upstream: (facts: ProblemPolicy.Upstream) => { readonly type: string } & ProblemPolicy.Grade
 } = {
   expose: (kind) => FaultClass[kind].blame === "caller",
   grade: (kind) => _rows[kind],
   redact: _redact,
-  retryAfter: (kind, hint) =>
-    Option.map(Option.orElse(hint, () => _rows[kind].grace), (grace) => Math.ceil(Duration.toMillis(grace) / 1000)),
+  retryAfter: (grace, hint) =>
+    Option.map(Option.orElse(hint, () => grace), (held) => Math.ceil(Duration.toMillis(held) / 1000)),
   type: (kind) => `${_TYPE_BASE}${kind}`,
-  upstream: (facts) => (facts.retryable ? _upstream.retryable : _upstream.refused),
+  upstream: (facts) => (facts.retryable && !facts.terminal ? _upstream.retryable : _upstream.refused),
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 ## [1]-[ROUTER]
 
-Twelve design pages across four sub-domains under `.planning/`; each becomes one `security/src/<sub>/<page>.ts` file.
+Twelve design pages across five sub-domains under `.planning/`; each becomes one `security/src/<sub>/<page>.ts` file.
 
 - `authn/` — the credential-ceremony sub-domain (`arctic`/`@simplewebauthn`/`otplib` admitted here only).
   - [OAUTH](.planning/authn/oauth.md) — `arctic` OAuth/OIDC provider rows (authorization-code + PKCE).

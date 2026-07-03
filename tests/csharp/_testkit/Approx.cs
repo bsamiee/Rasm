@@ -85,19 +85,30 @@ public static class Approx {
 }
 
 // --- [GATES]
-// The throwing gates live beside their oracle so Approx.cs stays the one equality owner.
+// The throwing gates live beside their oracle so Approx.cs stays the one equality owner. Scalar,
+// span, and Seq shapes each reach every Tolerance regime and Metric row; the double-tolerance
+// scalar form is Tolerance.Absolute sugar for the dominant call shape.
 public static partial class Spec {
     public static void Equal(double left, double right, double tolerance = 1.0e-9, Metric? metric = null, string? what = null) =>
         Holds(condition: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance), metric: metric),
               label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Equal"} ({(metric ?? Metric.Absolute).Name}): |{left:R} - {right:R}| = {Math.Abs(value: left - right):R} > {tolerance:R}"));
+    public static void Equal(double left, double right, Tolerance tolerance, Metric? metric = null, string? what = null) =>
+        Holds(condition: Approx.Equal(left: left, right: right, tolerance: tolerance, metric: metric),
+              label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Equal"} ({(metric ?? Metric.Absolute).Name}): {left:R} vs {right:R} diverge beyond (abs={tolerance.Abs:R}, rel={tolerance.Rel:R}, ulps={tolerance.Ulps})"));
     public static void Equal(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, Metric? metric = null, string? what = null) {
         Holds(condition: left.Length == right.Length, label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Equal"}: length {left.Length} != {right.Length}"));
         Holds(condition: Approx.Equal(left: left, right: right, tolerance: tolerance, metric: metric),
-              label: $"{what ?? "Equal"} ({(metric ?? Metric.Absolute).Name}): sequences diverge beyond tolerance");
+              label: $"{what ?? "Equal"} ({(metric ?? Metric.Absolute).Name}): {Render(values: left)} vs {Render(values: right)} diverge beyond tolerance");
     }
     public static void Equal(Seq<double> left, Seq<double> right, Tolerance tolerance, Metric? metric = null, string? what = null) {
         double[] head = [.. left];
         double[] tail = [.. right];
         Equal(left: head, right: tail, tolerance: tolerance, metric: metric, what: what);
+    }
+    // Bounded render keeps span failures actionable without flooding the sampler output.
+    private static string Render(ReadOnlySpan<double> values) {
+        string head = string.Join(separator: ", ", values: values[..Math.Min(val1: 8, val2: values.Length)].ToArray()
+            .Select(selector: static x => x.ToString(format: "R", provider: CultureInfo.InvariantCulture)));
+        return values.Length > 8 ? $"[{head}, .. {values.Length} total]" : $"[{head}]";
     }
 }

@@ -58,7 +58,7 @@ const _classed = (fault: unknown): Problem => {
     status: Option.getOrElse(_statused(fault), () => grade.status),
     detail: ProblemPolicy.expose(kind) ? _text(fault) : grade.title,
     instance: Option.none(),
-    retry: ProblemPolicy.retryAfter(kind, _graced(fault)),
+    retry: ProblemPolicy.retryAfter(grade.grace, _graced(fault)),
     extensions: _extensions(kind, fault),
   })
 }
@@ -69,12 +69,12 @@ const _upstream = (fault: unknown): Problem => {
     terminal: Predicate.hasProperty(fault, "terminal") && fault.terminal === true,
   })
   return new Problem({
-    type: `/problems/${grade.slug}`,
+    type: grade.type,
     title: grade.title,
     status: grade.status,
     detail: grade.title,
     instance: Option.none(),
-    retry: Option.map(grade.grace, (grace) => Math.ceil(Duration.toMillis(grace) / 1000)),
+    retry: ProblemPolicy.retryAfter(grade.grace, Option.none()),
     extensions: {},
   })
 }
@@ -106,7 +106,7 @@ const _stamped = (problem: Problem, mark: Option.Option<Current.Mark>): Problem 
 
 [PROBLEM_OWNER]:
 - Owner: `Problem` — a `Schema.Class` carrying exactly the RFC members (`type`, `title`, `status`, `detail`, `instance` as `Option`) plus the allowlisted `extensions` band and the `retry` seconds the policy ladder resolved; the class is the value, the encode anchor, the fold entry, and the guard under one import, and its encoded twin is the wire body verbatim.
-- Law: `Problem.respond` is the one egress projection — `Schema`-encoded body under `application/problem+json`, the `retry-after` header stamped exactly when `retry` is inhabited — and encoding our own `Problem` failing is a defect (`Effect.orDie`), never a channel member: the fault altitude cannot itself fault.
+- Law: `Problem.respond` is the one egress projection — `Schema`-encoded body under `application/problem+json` at the problem's own `status`, the `retry-after` header stamped exactly when `retry` is inhabited — and encoding our own `Problem` failing is a defect (`Effect.orDie`), never a channel member: the fault altitude cannot itself fault.
 - Law: `Problem.fromCause` discriminates in interrupt-first order — `Cause.isInterruptedOnly` folds to the `unavailable` row (the guard only observes an interrupt under shed or shutdown), a typed failure re-enters the ladder, a defect lands on the `defect` row — the same order every telemetry outcome fold uses.
 - Law: `Problem.guard` is the serve net — `Effect.matchCauseEffect` over the handler app: success passes through, every failure cause folds to a problem, stamps `instance`/`requestId` from the ambient `Current.Stamp`, and responds — so the served app's error channel is `never` by construction and an unmapped fault cannot escape as a naked 500; `instance` and `requestId` are one fact, both projecting the request mark.
 - Boundary: the class-to-status record, exposure, grace, and upstream rows are `problem/policy.ts`'s; declared endpoint faults keep their `HttpApiEndpoint.addError` status — this owner is the net under everything undeclared; attachment is `api/serve.ts`'s one composition; log/OTLP emission of the folded cause is `telemetry`'s, fed from the same guard seam.
@@ -131,7 +131,7 @@ class Problem extends Schema.Class<Problem>("Problem")({
           onSome: _of,
         })
   static readonly respond = (problem: Problem): Effect.Effect<HttpServerResponse.HttpServerResponse> =>
-    HttpServerResponse.schemaJson(Problem)(problem).pipe(
+    HttpServerResponse.schemaJson(Problem)(problem, { status: problem.status }).pipe(
       Effect.map(HttpServerResponse.setHeaders({
         "content-type": "application/problem+json",
         ...(Option.isSome(problem.retry) && { "retry-after": String(problem.retry.value) }),

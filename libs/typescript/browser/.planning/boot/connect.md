@@ -13,12 +13,12 @@
 
 [SIGNAL_CELLS]:
 - Owner: `Connect`, one scoped `Effect.Service` — `online: SubscriptionRef<boolean>` seeded from `navigator.onLine` and advanced only by the merged `online`/`offline` window-event fold; `visible: SubscriptionRef<boolean>` seeded from `document.visibilityState` and advanced only by the `visibilitychange` fold; `profile: SubscriptionRef<Option<Connect.Profile>>` seeded and advanced from the experimental `navigator.connection` surface, `Option.none` where the host ships none.
-- Law: cells are read-only to consumers — each is advanced only by its owned capture fiber forked `Effect.forkScoped` at construction, so listeners die with the runtime scope and no consumer ever sets a cell.
+- Law: cells are read-only structurally — each publishes as `Subscribable`, the write half stays on the interior `SubscriptionRef`, and each is advanced only by its owned capture fiber forked `Effect.forkScoped` at construction, so listeners die with the runtime scope and a consumer write is unspellable, never merely forbidden.
 - Law: the network profile is a closed vocabulary, never a raw string — `_GRADES` maps the host `effectiveType` rows onto the three-grade axis (`swift`/`steady`/`strained`) and `frugal` carries `saveData`, so byte-budget consumers (`transport/fetch` flow rows, `transport/pool` scheduling) dispatch on grade rows and an unrecognized host string folds to `Option.none`, never a throw.
-- Law: `navigator.connection` is absent from the DOM lib — `_NetSource` is the boundary refinement pinned at this owner, the one place the experimental surface is spelled; a consumer never touches `navigator.connection`.
+- Law: `navigator.connection` and the registration's `sync` member are absent from the DOM lib — `_NetSource` and `_SyncHost` are the boundary refinements pinned at this owner, the only places the experimental surfaces are spelled; a consumer never touches either.
 - Growth: a new ambient signal (battery, memory pressure, page freeze) is one cell plus one owned fold on this service — never a sibling owner, never a consumer-side listener.
 - Boundary: `telemetry/signal/vital` owns RUM measurement; this page owns only the runtime-state cells its flush edges read. `host/flag` reconnect fallback, `shell/worker` replay, and `transport/fetch` offline gates read these cells through the requirement channel.
-- Packages: `effect` (`SubscriptionRef`, `Stream`, `Option`, `Record`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`).
+- Packages: `effect` (`SubscriptionRef`, `Subscribable`, `Stream`, `Option`, `Record`, `Array`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`).
 
 ## [3]-[DERIVED_EDGES]
 
@@ -31,7 +31,7 @@
 
 ```typescript
 import { BrowserStream } from "@effect/platform-browser"
-import { Effect, Option, Record, Stream, SubscriptionRef } from "effect"
+import { Array, Effect, Option, Record, Stream, Subscribable, SubscriptionRef } from "effect"
 
 const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "strained" } as const
 
@@ -44,7 +44,10 @@ type _NetSource = EventTarget & { readonly effectiveType?: string; readonly save
 type _SyncHost = ServiceWorkerRegistration & { readonly sync: { readonly register: (tag: string) => Promise<void> } }
 
 const _profiled = (source: _NetSource): Option.Option<Connect.Profile> =>
-  Option.map(Record.get(_GRADES, source.effectiveType ?? ""), (grade) => ({ grade, frugal: source.saveData === true }))
+  Option.map(
+    Array.findFirst(Record.toEntries(_GRADES), ([host]) => host === source.effectiveType),
+    ([, grade]) => ({ grade, frugal: source.saveData === true }),
+  )
 
 const _connection = (): Option.Option<_NetSource> =>
   Option.fromNullable((globalThis.navigator as Navigator & { readonly connection?: _NetSource }).connection)
@@ -62,25 +65,25 @@ const _edged = (feed: Stream.Stream<boolean>, from: boolean): Stream.Stream<void
 
 class Connect extends Effect.Service<Connect>()("browser/boot/Connect", {
   scoped: Effect.gen(function* () {
-    const online = yield* SubscriptionRef.make(globalThis.navigator.onLine)
-    const visible = yield* SubscriptionRef.make(globalThis.document.visibilityState === "visible")
-    const profile = yield* SubscriptionRef.make(Option.flatMap(_connection(), _profiled))
+    const _online = yield* SubscriptionRef.make(globalThis.navigator.onLine)
+    const _visible = yield* SubscriptionRef.make(globalThis.document.visibilityState === "visible")
+    const _profile = yield* SubscriptionRef.make(Option.flatMap(_connection(), _profiled))
     yield* Stream.merge(
       Stream.as(BrowserStream.fromEventListenerWindow("online"), true),
       Stream.as(BrowserStream.fromEventListenerWindow("offline"), false),
     ).pipe(
-      Stream.runForEach((up) => SubscriptionRef.set(online, up)),
+      Stream.runForEach((up) => SubscriptionRef.set(_online, up)),
       Effect.forkScoped,
     )
     yield* BrowserStream.fromEventListenerDocument("visibilitychange").pipe(
-      Stream.runForEach(() => SubscriptionRef.set(visible, globalThis.document.visibilityState === "visible")),
+      Stream.runForEach(() => SubscriptionRef.set(_visible, globalThis.document.visibilityState === "visible")),
       Effect.forkScoped,
     )
     yield* Option.match(_connection(), {
       onNone: () => Effect.void,
       onSome: (source) =>
         Stream.fromEventListener(source, "change").pipe(
-          Stream.runForEach(() => SubscriptionRef.set(profile, _profiled(source))),
+          Stream.runForEach(() => SubscriptionRef.set(_profile, _profiled(source))),
           Effect.forkScoped,
         ),
     })
@@ -93,12 +96,15 @@ class Connect extends Effect.Service<Connect>()("browser/boot/Connect", {
         ),
         Effect.orElseSucceed(() => false),
       )
+    const online: Subscribable.Subscribable<boolean> = _online
+    const visible: Subscribable.Subscribable<boolean> = _visible
+    const profile: Subscribable.Subscribable<Option.Option<Connect.Profile>> = _profile
     return {
       online,
       visible,
       profile,
-      redials: _edged(online.changes, false),
-      hidden: _edged(visible.changes, true),
+      redials: _edged(_online.changes, false),
+      hidden: _edged(_visible.changes, true),
       wake,
     }
   }),

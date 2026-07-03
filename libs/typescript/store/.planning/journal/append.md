@@ -82,20 +82,14 @@ const _ddl: ReadonlyArray<Capability.Ensure> = [
 - Law: the conflict carries evidence — `expected` and `actual` versions — so the caller's recovery is reload-fold-retry as data, and retrying rides a `Schedule` gated on the `VersionConflict` tag, never a loop.
 - Law: `eventVersion` is stamped from `plan.latest(tag)` at write — the write coordinate and the read lift share one anchor; an event whose tag the plan does not know is a defect at the append site, caught before any row is written.
 - Law: `Journal.now(sql)` is the one dialect-now fragment — every sibling statement that stamps a timestamp splices it, so `now()` versus `strftime` exists in exactly one spelling folder-wide.
-- Boundary: encode faults are `ParseError` on the same rail admission uses; transactionality with the outbox and ledger is `journal/outbox.md`'s composition — this surface never opens its own transaction when called inside one (`withTransaction` folds to savepoints).
+- Law: the append body rides `sql.withTransaction` — standalone it owns its commit, and inside `journal/outbox.md`'s publish it folds to a savepoint — so the advisory xact lock and the head check share one transaction on every path; an unwrapped append would release the lock per statement and race its own OCC check.
+- Boundary: encode faults are `ParseError` on the same rail admission uses; the atomic composition with the outbox and ledger is `journal/outbox.md`'s.
 
 ```typescript
-import { Array, Data, Effect, Option, Schema, type ParseResult } from "effect"
+import { Array, Data, Effect, type ParseResult } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import type { Capability } from "../capability/row.ts"
-import type { Upcast } from "./upcast.ts"
-
-type Occ = Data.TaggedEnum<{
-  Exact: { readonly version: number }
-  None: {}
-  Any: {}
-}>
-const _Occ = Data.taggedEnum<Occ>()
+import { Upcast } from "./upcast.ts"
 
 class VersionConflict extends Data.TaggedError("VersionConflict")<{
   readonly stream: StreamKey
@@ -104,7 +98,14 @@ class VersionConflict extends Data.TaggedError("VersionConflict")<{
 }> {}
 
 declare namespace Journal {
-  type Spec<A, I> = {
+  type Occ = Data.TaggedEnum<{
+    Exact: { readonly version: number }
+    None: {}
+    Any: {}
+  }>
+  type Conflict = VersionConflict
+  type Event = { readonly _tag: string }
+  type Spec<A extends Event, I> = {
     readonly family: Schema.Schema<A, I>
     readonly plan: Upcast.Plan<A>
   }
@@ -115,12 +116,12 @@ declare namespace Journal {
     readonly first: number
     readonly rows: ReadonlyArray<{ readonly version: number; readonly tag: string; readonly payload: string }>
   }
-  type Bound<A> = {
+  type Bound<A extends Event> = {
     readonly append: (
       stream: StreamKey,
       events: A | Array.NonEmptyReadonlyArray<A>,
       occ: Occ,
-    ) => Effect.Effect<Receipt, VersionConflict | SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>
+    ) => Effect.Effect<Receipt, Conflict | SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>
     readonly head: (stream: StreamKey) => Effect.Effect<number, SqlError.SqlError, SqlClient.SqlClient>
     readonly read: (
       stream: StreamKey,
@@ -129,52 +130,59 @@ declare namespace Journal {
   }
 }
 
-const _append = <A, I>(spec: Journal.Spec<A, I>) =>
-  (stream: StreamKey, events: A | Array.NonEmptyReadonlyArray<A>, occ: Occ) =>
-    Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient
-      const batch: ReadonlyArray<A> = globalThis.Array.isArray(events) ? events : [events as A]
-      yield* sql.onDialectOrElse({
-        orElse: () => sql`SELECT 1`,
-        pg: () =>
-          sql`SELECT pg_advisory_xact_lock(hashtextextended(${stream.app} || ':' || ${stream.tenant} || ':' || ${stream.aggregate}, 0))`,
-      })
-      const held = yield* Effect.map(
-        sql`SELECT coalesce(max(version), 0) AS head FROM journal_event
-            WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}`.values,
-        (cells) => Number(cells[0]?.[0] ?? 0),
-      )
-      yield* _Occ.$match(occ, {
-        Exact: ({ version }) =>
-          held === version
-            ? Effect.void
-            : Effect.fail(new VersionConflict({ stream, expected: version, actual: held })),
-        None: () =>
-          held === 0
-            ? Effect.void
-            : Effect.fail(new VersionConflict({ stream, expected: 0, actual: held })),
-        Any: () => Effect.void,
-      })
-      const encode = Schema.encode(Schema.parseJson(spec.family))
-      const rows = yield* Effect.forEach(batch, (event, index) =>
-        Effect.map(encode(event), (payload) => ({
-          app: stream.app,
-          tenant: stream.tenant,
-          aggregate: stream.aggregate,
-          version: held + 1 + index,
-          tag: (event as { readonly _tag: string })._tag,
-          eventVersion: Option.getOrThrow(spec.plan.latest((event as { readonly _tag: string })._tag)),
-          payload,
-        })))
-      yield* sql`INSERT INTO journal_event ${sql.insert(rows)}`
-      return {
-        stream,
-        version: held + batch.length,
-        count: batch.length,
-        first: held + 1,
-        rows: rows.map((row) => ({ version: row.version, tag: row.tag, payload: row.payload as string })),
-      } satisfies Journal.Receipt
-    })
+const _Occ = Data.taggedEnum<Journal.Occ>()
+
+const _head = (sql: SqlClient.SqlClient, stream: StreamKey): Effect.Effect<number, SqlError.SqlError> =>
+  Effect.map(
+    sql`SELECT coalesce(max(version), 0) AS head FROM journal_event
+        WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}`.values,
+    (cells) => Number(cells[0]?.[0] ?? 0),
+  )
+
+const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
+  (stream: StreamKey, events: A | Array.NonEmptyReadonlyArray<A>, occ: Journal.Occ) =>
+    Effect.flatMap(SqlClient.SqlClient, (sql) =>
+      sql.withTransaction(
+        Effect.gen(function* () {
+          const batch = Array.ensure(events)
+          yield* sql.onDialectOrElse({
+            orElse: () => sql`SELECT 1`,
+            pg: () =>
+              sql`SELECT pg_advisory_xact_lock(hashtextextended(${stream.app} || ':' || ${stream.tenant} || ':' || ${stream.aggregate}, 0))`,
+          })
+          const held = yield* _head(sql, stream)
+          yield* _Occ.$match(occ, {
+            Exact: ({ version }) =>
+              held === version
+                ? Effect.void
+                : Effect.fail(new VersionConflict({ stream, expected: version, actual: held })),
+            None: () =>
+              held === 0
+                ? Effect.void
+                : Effect.fail(new VersionConflict({ stream, expected: 0, actual: held })),
+            Any: () => Effect.void,
+          })
+          const encode = Schema.encode(Schema.parseJson(spec.family))
+          const rows = yield* Effect.forEach(batch, (event, index) =>
+            Effect.zipWith(encode(event), Effect.orDie(spec.plan.latest(event._tag)), (payload, eventVersion) => ({
+              app: stream.app,
+              tenant: stream.tenant,
+              aggregate: stream.aggregate,
+              version: held + 1 + index,
+              tag: event._tag,
+              eventVersion,
+              payload,
+            })))
+          yield* sql`INSERT INTO journal_event ${sql.insert(rows)}`
+          return {
+            stream,
+            version: held + batch.length,
+            count: batch.length,
+            first: held + 1,
+            rows: rows.map((row) => ({ version: row.version, tag: row.tag, payload: row.payload })),
+          } satisfies Journal.Receipt
+        }),
+      ))
 ```
 
 ## [4]-[READ_SURFACE]
@@ -188,7 +196,7 @@ const _append = <A, I>(spec: Journal.Spec<A, I>) =>
 ```typescript
 import { Stream } from "effect"
 
-const _read = <A, I>(spec: Journal.Spec<A, I>) =>
+const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
   (stream: StreamKey, window?: { readonly from?: number; readonly to?: number }) =>
     Stream.unwrap(
       Effect.map(SqlClient.SqlClient, (sql) =>
@@ -198,12 +206,24 @@ const _read = <A, I>(spec: Journal.Spec<A, I>) =>
             ORDER BY version`.stream.pipe(
           Stream.mapEffect((row) =>
             spec.plan.decode({
-              tag: String(row.tag),
-              version: Number(row.event_version),
-              payload: typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload,
+              tag: String(row["tag"]),
+              version: Number(row["event_version"]),
+              payload: Upcast.body(row["payload"]),
             })),
         )),
     )
+```
+
+## [5]-[OVERLAY]
+
+- Owner: the EventLog overlay bindings — the SQL backings that let the local-first overlay persist onto this journal-owning `SqlClient`, exposed as `Journal.overlay` rows — and the assembled `Journal` export closing the page: `of`, `now`, `ddl`, `overlay`, the `Occ` constructor, and the `Conflict` class under one name.
+- Packages: `@effect/sql` (`SqlEventJournal`, `SqlEventLogServer`); `@effect/experimental` is the overlay's own tier, composed by `browser/persist` and `edge/live`, never here.
+- Entry: `Journal.overlay.journal` = `SqlEventJournal.layer` (`Layer<EventJournal, SqlError, SqlClient>` — the durable-node local-first entry store); `Journal.overlay.server` = `SqlEventLogServer.layerStorage` (the E2E-encrypted sync server's storage, mounted at `edge/live`'s protocol-handler port); `Journal.overlay.serverSubtle` = `SqlEventLogServer.layerStorageSubtle` (the Web-Crypto zero-knowledge variant).
+- Law: `[R19]` is the boundary — the overlay accelerates local-first reads and offline sync; a record whose loss corrupts state lives in THIS journal and is projected to the overlay, never the reverse; the overlay tables are not the record of truth and no projection lane reads them.
+- Law: `[R4]` is the adoption gate — the overlay backings are adopted only if their table bootstrap is verifiably ensure-shaped (idempotent, additive, runnable by `iac`); otherwise their DDL is owned locally as ensure rows beside `_ddl`, and the layers still bind — adopt-or-own, never migrate.
+
+```typescript
+import { SqlEventJournal, SqlEventLogServer } from "@effect/sql"
 
 const _overlay = {
   journal: SqlEventJournal.layer,
@@ -212,15 +232,9 @@ const _overlay = {
 } as const
 
 const Journal = {
-  of: <A, I>(spec: Journal.Spec<A, I>): Journal.Bound<A> => ({
+  of: <A extends Journal.Event, I>(spec: Journal.Spec<A, I>): Journal.Bound<A> => ({
     append: _append(spec),
-    head: (stream) =>
-      Effect.flatMap(SqlClient.SqlClient, (sql) =>
-        Effect.map(
-          sql`SELECT coalesce(max(version), 0) AS head FROM journal_event
-              WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}`.values,
-          (cells) => Number(cells[0]?.[0] ?? 0),
-        )),
+    head: (stream) => Effect.flatMap(SqlClient.SqlClient, (sql) => _head(sql, stream)),
     read: _read(spec),
   }),
   now: (sql: SqlClient.SqlClient) =>
@@ -232,19 +246,7 @@ const Journal = {
   overlay: _overlay,
   Occ: _Occ,
   Conflict: VersionConflict,
-}
-```
-
-## [5]-[OVERLAY]
-
-- Owner: the EventLog overlay bindings — the SQL backings that let the local-first overlay persist onto this journal-owning `SqlClient`, exposed as `Journal.overlay` rows.
-- Packages: `@effect/sql` (`SqlEventJournal`, `SqlEventLogServer`); `@effect/experimental` is the overlay's own tier, composed by `browser/persist` and `edge/live`, never here.
-- Entry: `Journal.overlay.journal` = `SqlEventJournal.layer` (`Layer<EventJournal, SqlError, SqlClient>` — the durable-node local-first entry store); `Journal.overlay.server` = `SqlEventLogServer.layerStorage` (the E2E-encrypted sync server's storage, mounted at `edge/live`'s protocol-handler port); `Journal.overlay.serverSubtle` = `SqlEventLogServer.layerStorageSubtle` (the Web-Crypto zero-knowledge variant).
-- Law: `[R19]` is the boundary — the overlay accelerates local-first reads and offline sync; a record whose loss corrupts state lives in THIS journal and is projected to the overlay, never the reverse; the overlay tables are not the record of truth and no projection lane reads them.
-- Law: `[R4]` is the adoption gate — the overlay backings are adopted only if their table bootstrap is verifiably ensure-shaped (idempotent, additive, runnable by `iac`); otherwise their DDL is owned locally as ensure rows beside `_ddl`, and the layers still bind — adopt-or-own, never migrate.
-
-```typescript
-import { SqlEventJournal, SqlEventLogServer } from "@effect/sql"
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

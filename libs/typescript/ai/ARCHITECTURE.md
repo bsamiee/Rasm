@@ -22,7 +22,7 @@ ai/ # imports kernel, host, work; satisfies the store/retrieve Embedder port at 
     └── memory.ts   # agent memory and session-state rows
 ```
 
-The `model` sub-domain is the spine: `provider.ts` folds every provider onto one capability-asymmetry table under one guardrail gate, and `token.ts` bounds budgets and assembles context from app-passed values. `embed` produces the `Embedder` the `store` retrieval lane consumes; `tool` supplies the toolkits `agent` and MCP hosting both project; `agent` composes `work` cluster entities for durable runs.
+The `model` sub-domain is the spine: `provider.ts` folds every provider onto one capability-asymmetry table under one guardrail gate, and `token.ts` bounds budgets and assembles context from app-passed values. `embed` produces the `Embedder` the `store` retrieval lane consumes; `tool` supplies the toolkits `agent` and MCP hosting both project plus the `Safety` vocabulary the gate admits through; `agent` composes `work` cluster entities for durable runs over the gate, weave, budget, and memory surfaces.
 
 ## [02]-[SEAMS]
 

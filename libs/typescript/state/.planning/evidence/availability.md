@@ -13,13 +13,15 @@
 ## [2]-[LEVEL_VOCABULARY]
 
 - Owner: the `_LEVELS` key tuple and `_ROWS` policy table — each level carries `rank` (the severity lattice coordinate) and `admits` (the gate posture: everything, reads only, nothing); the tuple spread feeds `Schema.Literal` so the wire arm, the type, and the ordered severity axis derive from one anchor.
-- Law: severity is the only comparison — `_byRank` orders levels by their row's rank, `Merge.max(_byRank)` is the worst-wins semilattice, and no consumer ever compares level names lexically or through a hand ladder.
+- Packages: `effect` (`Schema`, `HashMap`, `Order`, `Option`); `@effect/typeclass` (`Semigroup`); `@rasm/ts/kernel` (`Hlc`, `TenantContext`); `../crdt/merge.ts`; `../fold/algebra.ts`.
+- Law: severity is the only comparison — `_byRank` orders levels by their row's rank, the hoisted `_worstLevel` (`Semigroup.max(_byRank)`) is the worst-wins semilattice composed once at the module, and no consumer ever compares level names lexically or through a hand ladder.
 - Law: gate policy is a column, not a branch — `admits` is data a total read projects; adding a level is one tuple entry plus one row, and every dispatch over `Availability.Level` breaks loudly until its arm exists.
 - Boundary: the level roster mirrors the C# `Rasm.AppHost/Observability/Health.cs` `DegradationLevel` one-to-one; roster parity pins at the `wire/codec/envelope` decode seam.
 - Growth: a new gate posture is one `_POSTURES` row; a new level is one `_LEVELS` entry plus its `_ROWS` row.
 
 ```typescript
-import { Array, HashMap, Option, Order, Schema } from "effect"
+import * as Semigroup from "@effect/typeclass/Semigroup"
+import { HashMap, Option, Order, Schema } from "effect"
 import { Hlc, TenantContext } from "@rasm/ts/kernel"
 import { Merge } from "../crdt/merge.ts"
 import { Fold } from "../fold/algebra.ts"
@@ -41,6 +43,9 @@ const _byRank: Order.Order<(typeof _LEVELS)[number]> = Order.mapInput(
   Order.number,
   (level: (typeof _LEVELS)[number]) => _ROWS[level].rank,
 )
+
+const _worstLevel: Semigroup.Semigroup<(typeof _LEVELS)[number]> = Semigroup.max(_byRank)
+const _latestSince: Semigroup.Semigroup<Hlc> = Semigroup.max(Hlc.Order)
 ```
 
 ## [3]-[VERDICT_FAMILY]
@@ -84,11 +89,18 @@ const _worstVerdict: Merge.Instance<typeof _Verdict.Type> = Merge.max(_byRestric
 
 - Owner: `Availability` — the decoded snapshot class: `level`, the per-command verdict `HashMap`, the `since` stamp, and the tenant; `worst` (the snapshot lattice), `admits` (the total gate read), and `plan` (the per-tenant fold) ride it as statics.
 - Law: `Availability.worst` merges snapshots field-wise as a lattice — level by severity max, commands by union with per-command worst-wins, `since` by stamp max — so the fold of N health feeds is associative, commutative, and idempotent, and `crdt/converge` proves it like any instance.
-- Law: `Availability.admits` is total — a command absent from the map answers from the level row's posture (`all` admits, `reads` gates with the level's name as reason, `none` withholds), so the gateway gate never meets `undefined` and never re-implements the fallback.
+- Law: the instance's convergence domain is one tenant lane — the fold plan partitions by tenant BEFORE any merge and the combine carries `self.tenant` through, so the law harness samples within a lane; a cross-tenant combine is an upstream fold-key defect, never a merge question.
+- Law: `Availability.admits` is total — a command absent from the map answers from the level row's posture through the `_FALLBACKS` lookup (`all` admits, `reads` gates with the level's name as reason, `none` withholds), so the gateway gate never meets `undefined`, never re-implements the fallback, and posture-to-verdict stays a keyed row, never a branch ladder.
 - Law: gating durations and retry posture type against `kernel/fault` budget rows — the gateway composes budget vocabulary with these verdicts; neither is re-declared here.
 - Boundary: the wire gateway gate (`wire/gateway/command`) types against this owner; `evidence/timeline` records level shifts; `query/live` serves the folded snapshot to shells.
 
 ```typescript
+const _FALLBACKS: Record<(typeof _POSTURES)[number], (level: (typeof _LEVELS)[number]) => typeof _Verdict.Type> = {
+  all: () => _Available.make({}),
+  reads: (level) => _Gated.make({ reason: level, until: Option.none() }),
+  none: (level) => _Withheld.make({ level, reason: level }),
+}
+
 class Availability extends Schema.Class<Availability>("Availability")({
   level: _Level,
   commands: Schema.HashMap({ key: _Command, value: _Verdict }),
@@ -96,25 +108,21 @@ class Availability extends Schema.Class<Availability>("Availability")({
   tenant: TenantContext,
 }) {
   static readonly worst: Merge.Instance<Availability> = Merge.instance({
-    combine: {
-      combine: (self, that) =>
-        new Availability({
-          level: Merge.max(_byRank).combine.combine(self.level, that.level),
-          commands: HashMap.reduce(that.commands, self.commands, (acc, verdict, command) =>
-            HashMap.set(
-              acc,
-              command,
-              Option.match(HashMap.get(acc, command), {
-                onNone: () => verdict,
-                onSome: (held) => _worstVerdict.combine.combine(held, verdict),
-              }),
-            )),
-          since: Merge.max(Hlc.Order).combine.combine(self.since, that.since),
-          tenant: self.tenant,
-        }),
-      combineMany: (self, rest) =>
-        Array.reduce(Array.fromIterable(rest), self, (held, next) => Availability.worst.combine.combine(held, next)),
-    },
+    combine: Semigroup.make((self: Availability, that: Availability) =>
+      new Availability({
+        level: _worstLevel.combine(self.level, that.level),
+        commands: HashMap.reduce(that.commands, self.commands, (acc, verdict, command) =>
+          HashMap.set(
+            acc,
+            command,
+            Option.match(HashMap.get(acc, command), {
+              onNone: () => verdict,
+              onSome: (held) => _worstVerdict.combine.combine(held, verdict),
+            }),
+          )),
+        since: _latestSince.combine(self.since, that.since),
+        tenant: self.tenant,
+      })),
     posture: { commutative: true, idempotent: true },
     alike: Schema.equivalence(Availability),
     empty: Option.none(),
@@ -126,12 +134,7 @@ class Availability extends Schema.Class<Availability>("Availability")({
     merge: Availability.worst,
   })
   static admits(snapshot: Availability, command: Availability.Command): Availability.Verdict {
-    return Option.getOrElse(HashMap.get(snapshot.commands, command), () =>
-      _ROWS[snapshot.level].admits === "all"
-        ? _Available.make({})
-        : _ROWS[snapshot.level].admits === "reads"
-          ? _Gated.make({ reason: snapshot.level, until: Option.none() })
-          : _Withheld.make({ level: snapshot.level, reason: snapshot.level }))
+    return Option.getOrElse(HashMap.get(snapshot.commands, command), () => _FALLBACKS[_ROWS[snapshot.level].admits](snapshot.level))
   }
 }
 

@@ -48,7 +48,7 @@ class DriftReport extends Schema.Class<DriftReport>("DriftReport")({
 ## [3]-[DRIFT_FOLD]
 
 [DRIFT_FOLD]:
-- Owner: `Drift` — `check(stack, name)` runs the read-only leg: one `Effect.async` binds the interrupt signal and accumulates the event stream while `previewRefresh` settles with its `PreviewResult`, `Automation.receipt("preview", ...)` decodes the events, and `_report` projects drifted rows, rotations, observed buckets, and the skew comparison against `changeSummary`; `sweep(stacks, cadence, sink)` repeats the fleet check under the caller's `Schedule` with an explicit concurrency degree, delivering each cycle's reports to the sink.
+- Owner: `Drift` — `check(stack, name)` runs the read-only leg: one `Effect.async` binds the interrupt signal and accumulates the event stream while `previewRefresh` settles with its `PreviewResult`, `Automation.receipt("preview", ...)` decodes the events, and `_report` projects drifted rows, rotations, observed buckets, and the skew comparison against `changeSummary`; `sweep(stacks, cadence, sink)` repeats the fleet check under the caller's `Schedule` at the fiber's inherited concurrency budget — the boundary that launches the sweep owns the degree through `Effect.withConcurrency`, never a literal here — delivering each cycle's reports to the sink.
 - Law: the leg never mutates — `previewRefresh` is the engine's non-mutating reconcile; the mutating `refresh` stays a ledger op a human or workflow chooses after reading a report.
 - Law: observed buckets fold from steps — group by op, count, compare per `OpType` against the engine summary with absent buckets read as zero; the comparison is total over the anchored vocabulary, so a new engine op is a compile-time event here, never a silent bucket.
 - Law: the callback seam mirrors the ledger wrap — statements live only inside the `Effect.async` registration; the fold, the projections, and the sweep stay expression-shaped on the rail.
@@ -114,7 +114,7 @@ const Drift = {
   ): Effect.Effect<void, DeployFault, R> =>
     Effect.repeat(
       Effect.flatMap(
-        Effect.forEach(fleet, ([spec, stack]) => Drift.check(stack, spec.name), { concurrency: 4 }),
+        Effect.forEach(fleet, ([spec, stack]) => Drift.check(stack, spec.name), { concurrency: "inherit" }),
         sink,
       ),
       { schedule: cadence },

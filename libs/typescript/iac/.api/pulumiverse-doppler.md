@@ -68,7 +68,7 @@ Three parameterized patterns own the surface; the namespace rosters are seed dat
 |  [03]   | `TerraformCloud`    | ✓                   | ✓                   | workspace/variable-set target             |
 |  [04]   | `Circleci`          | ✓                   | ✓                   | project/context target                    |
 |  [05]   | `Flyio`             | ✓                   | ✓                   | app target                                |
-|  [06]   | `GithubActions`     | — (GitHub App)      | ✓                   | repo/environment target; no separate integration |
+|  [06]   | `GithubActions`     | — (GitHub-App install; slug pre-exists) | ✓ | `integration` slug REQUIRED + `syncTarget` (`"repo"`\|`"org"`); `repoName`/`environmentName` or `orgScope`, `deleteBehavior` |
 
 Every sync arg carries `config` + `integration` + `project`; document/drive the pair once parameterized by `<Target>`, not six times.
 

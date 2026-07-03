@@ -12,42 +12,47 @@
 
 ## [2]-[ENTRY_FAMILY]
 
-- Owner: `Timeline.Entry` — a `Data.taggedEnum` over `Receipt`, `Progress`, and `Shift` cases wrapping the sibling owners whole; the family is process-local projection vocabulary (the members already own their wire twins), so the enum form costs zero codecs and carries structural equality for coalescing.
-- Law: projections are total record dispatches — `_at` (the entry's event stamp), `_lane` (the tenant lane), `_subject` (the coalescing coordinate: command, operation, or tenant) — one `$match` record each, so a new entry kind is one case plus three record rows the compiler demands.
+- Owner: `Timeline.Entry` — a `Data.taggedEnum` over `Receipt`, `Progress`, and `Shift` cases wrapping the sibling owners whole; the family is process-local projection vocabulary (the members already own their wire twins), so the enum form costs zero codecs and carries structural equality for coalescing; the type rides the owner's merged namespace, so `Timeline` is the module's one export.
+- Packages: `effect` (`Chunk`, `Data`, `Equal`, `HashMap`, `Option`, `Order`, `SortedMap`); `@effect/typeclass` (`Semigroup.make`); `@rasm/ts/kernel` (`Hlc`, `TenantContext`); `../crdt/merge.ts`; `../fold/algebra.ts`; the three sibling evidence owners.
+- Law: projections are total record dispatches — `_at` (the entry's event stamp), `_lane` (the tenant lane), `_subject` (the coalescing coordinate: command key, operation key, or tenant scope) — one `$match` record each, so a new entry kind is one case plus three record rows the compiler demands.
 - Growth: a new evidence vocabulary joins as one case; the feed, reads, and plan absorb it with zero edits beyond the demanded record rows.
 
 ```typescript
+import * as Semigroup from "@effect/typeclass/Semigroup"
 import { Chunk, Data, Equal, HashMap, Option, Order, SortedMap } from "effect"
-import { ContentKey, Hlc, TenantContext } from "@rasm/ts/kernel"
+import { Hlc, TenantContext } from "@rasm/ts/kernel"
 import { Merge } from "../crdt/merge.ts"
 import { Fold } from "../fold/algebra.ts"
 import { Availability } from "./availability.ts"
 import { ProgressMark } from "./progress.ts"
 import { ReceiptEnvelope } from "./receipt.ts"
 
-type Entry = Data.TaggedEnum<{
-  Receipt: { readonly envelope: ReceiptEnvelope }
-  Progress: { readonly mark: ProgressMark }
-  Shift: { readonly snapshot: Availability }
-}>
-const _Entry = Data.taggedEnum<Entry>()
+declare namespace Timeline {
+  type Entry = Data.TaggedEnum<{
+    Receipt: { readonly envelope: ReceiptEnvelope }
+    Progress: { readonly mark: ProgressMark }
+    Shift: { readonly snapshot: Availability }
+  }>
+}
 
-const _at: (entry: Entry) => Hlc = _Entry.$match({
+const _Entry = Data.taggedEnum<Timeline.Entry>()
+
+const _at: (entry: Timeline.Entry) => Hlc = _Entry.$match({
   Receipt: ({ envelope }) => envelope.stamp,
   Progress: ({ mark }) => mark.stamp,
   Shift: ({ snapshot }) => snapshot.since,
 })
 
-const _lane: (entry: Entry) => TenantContext = _Entry.$match({
+const _lane: (entry: Timeline.Entry) => TenantContext = _Entry.$match({
   Receipt: ({ envelope }) => envelope.tenant,
   Progress: ({ mark }) => mark.tenant,
   Shift: ({ snapshot }) => snapshot.tenant,
 })
 
-const _subject: (entry: Entry) => string = _Entry.$match({
+const _subject: (entry: Timeline.Entry) => string = _Entry.$match({
   Receipt: ({ envelope }) => envelope.command,
   Progress: ({ mark }) => mark.operation,
-  Shift: ({ snapshot }) => snapshot.tenant,
+  Shift: ({ snapshot }) => snapshot.tenant.scope,
 })
 ```
 
@@ -56,7 +61,8 @@ const _subject: (entry: Entry) => string = _Entry.$match({
 - Owner: `Timeline.Feed` — the ordered rows (`SortedMap` keyed by the composed `[stamp, subject, tag]` order) plus the coalescing index (`HashMap` from `[subject, tag]` to the live row key); the absorb step writes both in one advance, so ordering and coalescing are two reads of one fold state, never two structures maintained by different call sites.
 - Law: the row key order composes event stamp, then subject, then tag — total over distinct entries — so concurrent same-stamp evidence from different subjects interleaves deterministically and the feed order is reproducible from any replay (the REPLAY_LAW consequence at feed altitude).
 - Law: the policy row is data — `cap` bounds the census with a single head eviction per insert (the census grows by at most one, so eviction is one `SortedMap.remove` of `headOption`, never a sweep), `coalesce` toggles replacement of the previous same-subject same-kind row.
-- Law: the feed merges as an instance — union of rows re-absorbed under the same policy — commutative and idempotent because row identity is the composed key, so lane-partitioned feeds fuse under `Merge.fold` like every other lattice.
+- Law: coalescing keeps the greatest key per slot — an arrival whose key does not outrank the live pointer is superseded evidence the absorb drops — so absorb order cannot bury newer evidence and the coalescing lane stays commutative; a distinct-entry tie on one composed key is a stamp collision the HLC-monotone mint excludes.
+- Law: the feed merges as an instance — union of rows re-absorbed under the same policy — commutative and idempotent because row identity is the composed key and eviction always drops the global minimum, so lane-partitioned feeds fuse under `Merge.fold` like every other lattice.
 - Boundary: `query/live` serves the feed as a live view; the durable feed projection is `store/project` binding `Timeline.plan`; AppUi rendering consumes the served rows and never re-sorts.
 
 ```typescript
@@ -80,6 +86,11 @@ declare namespace Timeline {
     readonly recent: (feed: Feed, take: number) => Chunk.Chunk<Entry>
   }
 }
+
+const _placed = (feed: Timeline.Feed, slot: readonly [string, Timeline.Entry["_tag"]], key: Timeline.Key, entry: Timeline.Entry): Timeline.Feed => ({
+  rows: SortedMap.set(feed.rows, key, entry),
+  live: HashMap.set(feed.live, slot, key),
+})
 
 const _byKey: Order.Order<Timeline.Key> = Order.combine(
   Order.mapInput(Hlc.Order, (key: Timeline.Key) => key[0]),
@@ -106,19 +117,18 @@ const _evicted = (policy: Timeline.Policy, feed: Timeline.Feed): Timeline.Feed =
         }),
       })
 
-const _absorb = (policy: Timeline.Policy) => (feed: Timeline.Feed, entry: Entry): Timeline.Feed => {
+const _absorb = (policy: Timeline.Policy) => (feed: Timeline.Feed, entry: Timeline.Entry): Timeline.Feed => {
   const slot = Data.tuple(_subject(entry), entry._tag)
   const key: Timeline.Key = Data.tuple(_at(entry), _subject(entry), entry._tag)
-  const cleared = policy.coalesce
+  return policy.coalesce
     ? Option.match(HashMap.get(feed.live, slot), {
-        onNone: () => feed.rows,
-        onSome: (prior) => SortedMap.remove(feed.rows, prior),
+        onNone: () => _evicted(policy, _placed(feed, slot, key, entry)),
+        onSome: (prior) =>
+          Order.lessThan(_byKey)(prior, key)
+            ? _evicted(policy, _placed({ rows: SortedMap.remove(feed.rows, prior), live: feed.live }, slot, key, entry))
+            : feed,
       })
-    : feed.rows
-  return _evicted(policy, {
-    rows: SortedMap.set(cleared, key, entry),
-    live: HashMap.set(feed.live, slot, key),
-  })
+    : _evicted(policy, _placed(feed, slot, key, entry))
 }
 
 const _empty: Timeline.Feed = { rows: SortedMap.empty(_byKey), live: HashMap.empty() }
@@ -140,13 +150,8 @@ const Timeline: Timeline.Shape = {
   absorb: _absorb,
   merge: (policy) =>
     Merge.instance({
-      combine: {
-        combine: (self, that) =>
-          SortedMap.reduce(that.rows, self, (acc, entry) => _absorb(policy)(acc, entry)),
-        combineMany: (self, rest) =>
-          Chunk.reduce(Chunk.fromIterable(rest), self, (acc, next) =>
-            SortedMap.reduce(next.rows, acc, (held, entry) => _absorb(policy)(held, entry))),
-      },
+      combine: Semigroup.make((self: Timeline.Feed, that: Timeline.Feed) =>
+        SortedMap.reduce(that.rows, self, (acc, entry) => _absorb(policy)(acc, entry))),
       posture: { commutative: true, idempotent: true },
       alike: (self, that) =>
         SortedMap.size(self.rows) === SortedMap.size(that.rows)
@@ -178,5 +183,4 @@ const Timeline: Timeline.Shape = {
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Timeline }
-export type { Entry }
 ```

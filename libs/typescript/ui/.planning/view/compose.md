@@ -15,7 +15,7 @@
 
 ## [2]-[FORM_BINDING]
 
-- Owner: `Compose.form` — the Schema→aria binding: one kernel field `Schema` projects through `Schema.standardSchemaV1` into the standard-schema validator RAC fields consume, decode failures land in `FormValidationContext` keyed by field name (server faults and live validation share one error shape), `validationBehavior: "aria"` marks invalid via ARIA without blocking native submit, and `FieldError` renders the `ValidationResult`; the tw-rac `invalid:`/`required:` variants style validity with zero JS branching.
+- Owner: `Compose.form` — the Schema→aria binding: one kernel field `Schema` projects through `Schema.standardSchemaV1` (the package surface used directly — a forwarding wrapper is the named defect) into the standard-schema validator RAC fields consume, decode failures land in `FormValidationContext` keyed by field name (server faults and live validation share one error shape), `validationBehavior: "aria"` marks invalid via ARIA without blocking native submit, and `FieldError` renders the `ValidationResult`; the tw-rac `invalid:`/`required:` variants style validity with zero JS branching.
 - Packages: `effect` `Schema` (`standardSchemaV1`, `decodeUnknownEither`, `ArrayFormatter` at the terminal reporting edge only), `react-aria-components` (`Form`, `TextField`, `NumberField`, `FieldError`, `FormValidationContext`), `react-dom` (`useFormStatus` for submit pending, `requestFormReset` after a successful action).
 - Law: one Schema, both duties — the same owner that decodes the wire payload validates the live field; a parallel validator, a regex beside a brand, or a hand `errors` record is the named defect.
 - Law: submit awaits the store — the action writes through `useAtomSet(mutation, { mode: "promise" })` inside `startTransition`; pending state reads `useFormStatus`, refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path from the `ParseError` tree.
@@ -23,7 +23,7 @@
 - Growth: a new field kind is one RAC field row bound to its schema field; a new form is a schema plus rows — never a form library.
 
 ```typescript
-import { Either, ParseResult, Record, Schema } from "effect"
+import { Array, Either, ParseResult, Record, Schema } from "effect"
 
 declare namespace Form {
   type Errors = Readonly<Record<string, ReadonlyArray<string>>>
@@ -35,20 +35,15 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
       onRight: () => Record.empty<string, ReadonlyArray<string>>(),
       onLeft: (fault) =>
         Record.map(
-          Record.fromIterableWith(
-            ParseResult.ArrayFormatter.formatErrorSync(fault),
-            (issue) => [issue.path.join("."), issue.message] as const,
-          ),
-          (message) => [message] as const,
+          Array.groupBy(ParseResult.ArrayFormatter.formatErrorSync(fault), (issue) => issue.path.join(".")),
+          Array.map((issue) => issue.message),
         ),
     })
-
-const _standard = <A, I>(schema: Schema.Schema<A, I>) => Schema.standardSchemaV1(schema)
 ```
 
 ## [3]-[COMMAND_PALETTE]
 
-- Owner: the `Command.Spec` vocabulary riding `Compose`: one `as const satisfies Record<string, Command.Spec>` table where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (an `intl/message` catalog key), `keywords` (alias tokens for the scorer), and `run` (the intent write — an atom setter or callable atom the app wires); the palette renders the table through cmdk with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
+- Owner: the `CommandSpec` vocabulary riding `Compose`: one `as const satisfies Record<string, CommandSpec>` table where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (an `intl/message` catalog key), `keywords` (alias tokens for the scorer), and `run` (the intent write — an atom setter or callable atom the app wires); the palette renders the table through cmdk with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render — the type never shadows cmdk's own `Command` binding.
 - Packages: `cmdk` (`Command` compound, `useCommandState`, `defaultFilter`), `lucide-react` (`LucideIcon` — icon-as-identity), `intl/message` (labels), `intl/format` (`useFilter` pre-normalization where locale-sensitive).
 - Law: hosting picks exactly one shell — `CommandDialog` for the global modal palette (its own Radix portal + focus trap); a BARE `Command` inside `Drawer.Content` for a sheet palette (vaul owns portal/trap); a bare `Command` inside `FloatingFocusManager` for an anchored palette (floating-ui owns position/portal/trap) — two focus traps on one surface is the named defect, and `useListNavigation`/`useTypeahead` never stack over a cmdk list.
 - Law: item `value` is the stable spec key, never the visible label — filtering and selection survive label localization; `keywords` carry the localized aliases.
@@ -58,16 +53,14 @@ const _standard = <A, I>(schema: Schema.Schema<A, I>) => Schema.standardSchemaV1
 ```typescript
 import type { LucideIcon } from "lucide-react"
 
-declare namespace Command {
-  type Spec = {
-    readonly icon: LucideIcon
-    readonly label: string
-    readonly keywords: ReadonlyArray<string>
-    readonly run: () => void
-  }
+type CommandSpec = {
+  readonly icon: LucideIcon
+  readonly label: string
+  readonly keywords: ReadonlyArray<string>
+  readonly run: () => void
 }
 
-declare const _specs: Record<string, Command.Spec>
+declare const _specs: Record<string, CommandSpec>
 ```
 
 ## [4]-[GRID_COLLECTION]
@@ -77,7 +70,7 @@ declare const _specs: Record<string, Command.Spec>
 - Law: windowing is `useVirtualizer` — `count` from the row model, `estimateSize` + `measureElement` for variable rows, `getTotalSize()` sizing the spacer, `rangeExtractor` unioning pinned/sticky indices; a selection echo scrolls through `scrollToIndex(index, { align: "center" })` when the `GlobalId` selection atom changes (`viewer/mark/selection`'s sync row consumes this).
 - Law: `RowSelectionState` keys are `GlobalId` strings where the grid fronts model elements — the table's selection slice and the viewer's selection set are ONE atom projected two ways, never two stores reconciled.
 - Law: RAC `Table` remains the owner for interactive accessible collections WITHOUT heavy derivation — the TanStack fold is earned by faceting/grouping/virtual scale; one collection never runs both engines.
-- Growth: a new column is one `columnHelper` row; a new derived behavior is one row-model import; a new state slice persists by pointing the atom at `Store.kvs`.
+- Growth: a new column is one `columnHelper` row; a new derived behavior is one row-model import; a new state slice persists by backing the atom with `Atom.kvs` and its owning schema.
 
 ```typescript
 import type { RowSelectionState, SortingState, Updater } from "@tanstack/react-table"
@@ -98,26 +91,27 @@ const _apply = <K extends keyof Grid.Slice>(key: K) =>
 - Owner: the sheet host law riding `Compose` — the vaul host: `Drawer.Root` with `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` atom-bound, `snapPoints` + `fadeFromIndex` as the detent policy row, `Drawer.Title`+`Drawer.Description` always present (visually hidden when no heading shows), `handleOnly` for drag-origin discipline; the sheet's drag is vaul's own — no `use-gesture` binding on a sheet surface.
 - Law: the overlay-class division is absolute — anchored overlays ride floating-ui's stack; the drag-dismissable sheet rides vaul's bundled Radix stack; RAC `Popover`/`Modal` own standard aria overlays; exactly one semantic owner and one positioner per element, with react-aria's `mergeProps` + floating-ui's `useMergeRefs` folding the two prop/ref systems where aria semantics meet floating geometry.
 - Law: nested floats needing dismissal coordination take `FloatingTree`/`FloatingNode`; flat overlays never mount the tree.
+- Law: the `size.apply` style write is floating-ui's platform-forced statement seam — the middleware hands a live element and the write is the documented application; this card carries the exemption.
 - Growth: a new anchored surface is one hook composition over the same pipeline; a new sheet detent is one `snapPoints` entry.
 
 ```typescript
 import { autoUpdate, flip, offset, shift, size } from "@floating-ui/react"
 import type { Placement } from "@floating-ui/react"
 
-const _middleware = (gap: number) => [
-  offset(gap),
+declare namespace Anchor {
+  type Options = { readonly placement: Placement; readonly gap: number; readonly floor: number }
+}
+
+const _middleware = (options: Anchor.Options) => [
+  offset(options.gap),
   flip(),
-  shift({ padding: 8 }),
+  shift({ padding: options.gap }),
   size({
     apply: ({ availableHeight, elements }) => {
-      elements.floating.style.maxHeight = `${Math.max(160, availableHeight)}px`
+      elements.floating.style.maxHeight = `${Math.max(options.floor, availableHeight)}px`
     },
   }),
 ]
-
-declare namespace Anchor {
-  type Options = { readonly placement: Placement; readonly gap: number }
-}
 ```
 
 ## [6]-[PRESENCE_COHORT]
@@ -141,12 +135,12 @@ DOMPurify.setConfig({ USE_PROFILES: { html: true }, FORBID_ATTR: ["style"] })
 const _sanitize = (dirty: string): string => DOMPurify.sanitize(dirty)
 
 const Compose: {
-  readonly form: { readonly errors: typeof _errors; readonly standard: typeof _standard }
+  readonly form: { readonly errors: typeof _errors }
   readonly grid: { readonly apply: typeof _apply }
   readonly anchor: { readonly middleware: typeof _middleware }
   readonly sanitize: typeof _sanitize
 } = {
-  form: { errors: _errors, standard: _standard },
+  form: { errors: _errors },
   grid: { apply: _apply },
   anchor: { middleware: _middleware },
   sanitize: _sanitize,

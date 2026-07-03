@@ -16,7 +16,7 @@
 
 ## [02]-[PROVIDER]
 
-`BasicTracerProvider` is the platform-extensible provider (`NodeTracerProvider`/`WebTracerProvider` subclass it); `TracerConfig` is its one construction bag, and every axis on it — sampler, limits, id generator, processor list — is a policy value, never a subclass. Under the effect facade the `resource` field is supplied by `Resource.layerFromEnv` (`AppIdentity`) and `Omit`'d from the `Configuration`, so a consumer never sets it here.
+`BasicTracerProvider` is the platform-extensible provider (`NodeTracerProvider`/`WebTracerProvider` subclass it); `TracerConfig` is its one construction bag, and every axis on it — sampler, limits, id generator, processor list — is a policy value, never a subclass. Under the effect facade `tracerConfig` is `Omit<TracerConfig, "resource">` — identity enters through the facade `Configuration`'s own resource options (or the `Resource` layer), so a consumer never sets `TracerConfig.resource`.
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CONSUMER / BOUNDARY]                                                  |
 | :-----: | :-------------------------------- | :------------ | :--------------------------------------------------------------------- |
@@ -28,7 +28,7 @@
 |  [06]   | `TimedEvent`                      | type          | a span event with `HrTime` — the `events[]` element                    |
 
 ```ts contract
-// The construction bag. Under @effect/opentelemetry `resource` is Omit'd — the Resource layer owns identity.
+// The construction bag. Under @effect/opentelemetry tracerConfig omits `resource` — the facade's own resource slot owns identity.
 interface TracerConfig {
   sampler?: Sampler                         // default AlwaysOnSampler; wrap in ParentBasedSampler for parent respect
   generalLimits?: GeneralLimits             // attributeCountLimit / attributeValueLengthLimit (trace-wide)
@@ -123,7 +123,7 @@ interface IdGenerator { generateTraceId(): string; generateSpanId(): string }
 
 ## [05]-[STACKING]
 
-- [STACK: `@effect/opentelemetry` `NodeSdk`/`WebSdk`] — the primary consumer. `NodeSdk.Configuration.spanProcessor: SpanProcessor | ReadonlyArray<SpanProcessor>` and `tracerConfig: Omit<TracerConfig, "resource">` are exactly this package's types (verified import). Effect wires them via `layerTracerProvider(spanProcessor, tracerConfig)` and constructs the provider; `telemetry/otlp/export` passes `new BatchSpanProcessor(otlpExporter)` and a `{ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) }) }` tracerConfig — never a `BasicTracerProvider` directly, and never the `resource` field (the effect `Resource` layer owns identity).
+- [STACK: `@effect/opentelemetry` `NodeSdk`/`WebSdk`] — the primary consumer. `NodeSdk.Configuration.spanProcessor: SpanProcessor | ReadonlyArray<SpanProcessor>` and `tracerConfig: Omit<TracerConfig, "resource">` are exactly this package's types (verified import). Effect wires them via `layerTracerProvider(spanProcessor, tracerConfig)` and constructs the provider; `telemetry/otlp/export` passes `new BatchSpanProcessor(otlpExporter)` and a `{ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) }) }` tracerConfig — never a `BasicTracerProvider` directly, and never `TracerConfig.resource` (the facade's resource options own identity).
 - [STACK: sibling `exporter-trace-otlp-http`] — `OTLPTraceExporter implements SpanExporter`; a `BatchSpanProcessor(new OTLPTraceExporter(opts))` is the production trace pipeline. The `SpanExporter` interface is defined HERE; the OTLP-HTTP sibling and any vendor exporter are rows on it. `ExportResult`/`ExportResultCode` (the `resultCallback` payload) come from `@opentelemetry/core`.
 - [STACK: `@opentelemetry/resources` + `semantic-conventions`] — `TracerConfig.resource: Resource` carries the `AppIdentity`-derived resource; `ReadableSpan.attributes` keys are `semantic-conventions` vocabulary rows (`telemetry/signal/convention`), never string literals. `semantic-conventions` is the sole survivor of the `[R3]` collapse.
 - [STACK: effect-native instrumentation] — application code emits through `Effect.withSpan`; the facade's `Tracer` bridge feeds those spans into this pipeline. No `plane:runtime` folder imports `sdk-trace-base` (edge-ledger `scope:telemetry` ban); the pipeline is constructed once at the composition root.

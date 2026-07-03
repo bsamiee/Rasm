@@ -35,27 +35,30 @@ public static class Numeric {
         coarseError <= 0.0 || fineError <= 0.0 ? double.NaN : Math.Log(d: coarseError / fineError) / Math.Log(d: stepRatio);
 
     // --- [POINT_MOMENTS]
-    // Points are d-dimensional rows; mismatched weights or a vanishing mass return NaN vectors so
-    // the calling gate fails loudly instead of the oracle asserting.
+    // Points are d-dimensional rows; mismatched weights, ragged rows, or a vanishing mass return
+    // NaN vectors so the calling gate fails loudly instead of the oracle asserting.
     public static double[] Centroid(double[][] points, double[]? weights = null) {
         ArgumentNullException.ThrowIfNull(argument: points);
         ArgumentOutOfRangeException.ThrowIfZero(value: points.Length, paramName: nameof(points));
         int dim = points[0].Length;
         double[] mass = weights ?? [.. Enumerable.Repeat(element: 1.0 / points.Length, count: points.Length)];
         double total = mass.Sum();
-        return mass.Length != points.Length || Math.Abs(value: total) <= double.Epsilon
+        return mass.Length != points.Length || Math.Abs(value: total) <= double.Epsilon || points.Any(point => point.Length != dim)
             ? [.. Enumerable.Repeat(element: double.NaN, count: dim)]
             : [.. Enumerable.Range(start: 0, count: dim).Select(axis =>
                 Enumerable.Range(start: 0, count: points.Length).Sum(i => points[i][axis] * mass[i]) / total)];
     }
     // Packed upper triangle, row-major: length d(d+1)/2 over the weighted central second moments.
+    // A degraded centroid (mismatch, ragged, vanishing mass) propagates as a NaN triangle.
     public static double[] CovarianceUpper(double[][] points, double[]? weights = null) {
         ArgumentNullException.ThrowIfNull(argument: points);
         double[] mean = Centroid(points: points, weights: weights);
         double[] mass = weights ?? [.. Enumerable.Repeat(element: 1.0 / points.Length, count: points.Length)];
         int dim = mean.Length;
-        return [.. Enumerable.Range(start: 0, count: dim).SelectMany(row => Enumerable.Range(start: row, count: dim - row).Select(col =>
-            Enumerable.Range(start: 0, count: points.Length).Sum(i => mass[i] * (points[i][row] - mean[row]) * (points[i][col] - mean[col]))))];
+        return mean.Any(predicate: double.IsNaN)
+            ? [.. Enumerable.Repeat(element: double.NaN, count: dim * (dim + 1) / 2)]
+            : [.. Enumerable.Range(start: 0, count: dim).SelectMany(row => Enumerable.Range(start: row, count: dim - row).Select(col =>
+                Enumerable.Range(start: 0, count: points.Length).Sum(i => mass[i] * (points[i][row] - mean[row]) * (points[i][col] - mean[col]))))];
     }
     public static double ArcLength(double[][] points) {
         ArgumentNullException.ThrowIfNull(argument: points);

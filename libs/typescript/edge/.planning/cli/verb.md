@@ -33,7 +33,7 @@ const _main = <E, R>(
   (args: ReadonlyArray<string>): Effect.Effect<void, E | ValidationError.ValidationError, R> =>
     built(args).pipe(
       Effect.catchIf(
-        (fault): fault is ValidationError.ValidationError =>
+        (fault): fault is ValidationError.HelpRequested =>
           ValidationError.isValidationError(fault) && ValidationError.isHelpRequested(fault),
         () => Effect.void,
       ),

@@ -64,7 +64,7 @@
 | [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
 |  [01]   | `Activity.make({ name, execute, success?, error?, interruptRetryPolicy? })`           | declare        | `work/flow/activity` — the durable step; `interruptRetryPolicy` a `Schedule` |
-|  [02]   | `Activity.retry(effect, options)`                                                     | retry          | Effect.Retry options (`times`/`while`/`until`/`schedule`); the per-activity budget from `kernel/fault` |
+|  [02]   | `Activity.retry(effect, options)`                                                     | retry          | Effect.Retry options minus `schedule` (`times`/`while`/`until` only — the shipped surface types `schedule` out); bounds and gates from `kernel/fault` rows, pacing composed on the body |
 |  [03]   | `Activity.idempotencyKey(name, { includeAttempt? })`                                  | dedup          | the durable step key; `includeAttempt` splits retries into distinct keys |
 |  [04]   | `Activity.raceAll(name, activities)`                                                  | race           | first durable step to complete wins; the speculative-execution fold |
 
@@ -75,9 +75,9 @@
 | [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
 |  [01]   | `DurableDeferred.make(name, { success?, error? })` — `await` / `into(effect)`         | external signal | suspend the workflow until resolved; `into` binds an effect's result to the deferred |
-|  [02]   | `DurableDeferred.token` / `tokenFromPayload` / `tokenFromExecutionId`                  | correlate      | derive the `Token` an out-of-band caller resolves against |
+|  [02]   | `DurableDeferred.token` / `tokenFromPayload({ workflow, payload })` / `tokenFromExecutionId({ workflow, executionId })` | correlate | derive the `Token` an out-of-band caller resolves against; both take the owning workflow value |
 |  [03]   | `DurableDeferred.succeed` / `fail` / `failCause` / `done` / `raceAll`                  | resolve        | out-of-band completion by `Token` (webhook, human approval, sibling service) |
-|  [04]   | `DurableClock.make({ name, duration })` / `DurableClock.sleep({ name, duration, threshold? })` | durable timer | sleep across restarts; `threshold` runs sub-window sleeps in memory |
+|  [04]   | `DurableClock.make({ name, duration })` / `DurableClock.sleep({ name, duration, inMemoryThreshold? })` | durable timer | sleep across restarts; `inMemoryThreshold` (default 60s) runs sub-window sleeps in memory |
 |  [05]   | `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })`               | declare queue  | `work/queue/job` — the persisted job family; `idempotencyKey` the dedup key |
 |  [06]   | `DurableQueue.process(queue, payload, { retrySchedule? })`                             | offer          | enqueue + suspend until a worker finishes; `retrySchedule` over `PersistedQueueError` is the DLQ/replay budget |
 |  [07]   | `DurableQueue.worker(queue, f, { concurrency? })` / `makeWorker`                       | consume        | the worker `Layer`/effect; bounded concurrency processing |

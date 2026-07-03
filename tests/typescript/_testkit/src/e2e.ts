@@ -137,29 +137,30 @@ const K6 = {
         Effect.map((code) => code === 0),
         Effect.orElseSucceed(() => false),
     ),
-    // `env` feeds the script's `__ENV` — the one sanctioned parameterization channel; a hardcoded target host in a script is the rejected form.
+    // `env` feeds the script's `__ENV` — the one sanctioned parameterization channel; a hardcoded target host in a script is
+    // the rejected form. `binary` defaults to the PATH k6 and exists so the subprocess contract stays falsifiable hermetically.
     run: (lane: {
         readonly script: string;
         readonly summary: string;
         readonly env?: Record<string, string>;
+        readonly binary?: string;
     }): Effect.Effect<K6.Verdict, K6Fault, CommandExecutor.CommandExecutor | FileSystem.FileSystem> =>
         Effect.gen(function* () {
             const code = yield* Effect.mapError(
                 Command.exitCode(
-                    pipe(Command.make('k6', 'run', '--quiet', `--summary-export=${lane.summary}`, lane.script), (spawn) =>
+                    pipe(Command.make(lane.binary ?? 'k6', 'run', '--quiet', `--summary-export=${lane.summary}`, lane.script), (spawn) =>
                         lane.env === undefined ? spawn : Command.env(spawn, lane.env),
                     ),
                 ),
                 (fault: PlatformError) => new K6Fault({ reason: 'crashed', detail: fault.message }),
             );
+            // The exit code is the verdict authority and discriminates FIRST: a crashed run reports its crash,
+            // never a masking summary-read fault over the file the crash prevented.
+            yield* code === _EXIT.pass || code === _EXIT.breach ? Effect.void : new K6Fault({ reason: 'crashed', detail: `exit ${code}` });
             const fs = yield* FileSystem.FileSystem;
             const raw = yield* Effect.mapError(fs.readFileString(lane.summary), (fault) => new K6Fault({ reason: 'summary', detail: fault.message }));
             const summary = yield* Effect.mapError(_summary(raw), (fault) => new K6Fault({ reason: 'summary', detail: fault.message }));
-            return code === _EXIT.pass
-                ? K6.Verdict.Passed({ summary })
-                : code === _EXIT.breach
-                  ? K6.Verdict.Breached({ summary })
-                  : yield* new K6Fault({ reason: 'crashed', detail: `exit ${code}` });
+            return code === _EXIT.pass ? K6.Verdict.Passed({ summary }) : K6.Verdict.Breached({ summary });
         }),
 } as const;
 

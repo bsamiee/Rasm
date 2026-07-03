@@ -21,12 +21,12 @@ Agent memory is one durable session row and three total operations: `Session` is
 - Boundary: which `KeyValueStore` backing satisfies the layer is the app root's runtime row; session RETIREMENT rides the store surface's own removal member — a catalog gap recorded as RESEARCH, not fenced.
 - Entry: `Memory.recall(key)`; `Memory.persist(key, prompt, digest)`.
 - Growth: a new session fact (labels, actor mode, spend accumulation) is one `Session` field; every consumer re-decodes it for free.
-- Packages: `@effect/ai` (`Chat`, `Prompt`), `@effect/platform` (`KeyValueStore`, `PlatformError`), `effect` (`Context`, `DateTime`, `Effect`, `Option`, `Ref`, `Schema`).
+- Packages: `@effect/ai` (`Chat`, `Prompt`), `@effect/platform` (`KeyValueStore`, `PlatformError`), `effect` (`DateTime`, `Effect`, `Layer`, `Option`, `Ref`, `Schema`).
 
 ```typescript
-import { type AiError, Chat, type LanguageModel, Prompt } from "@effect/ai"
+import { type AiError, Chat, type LanguageModel, Prompt, type Tokenizer, Toolkit } from "@effect/ai"
 import { KeyValueStore, type PlatformError } from "@effect/platform"
-import { type Context, DateTime, Effect, Option, type ParseResult, Ref, Schema } from "effect"
+import { DateTime, Effect, type Layer, Option, type ParseResult, Ref, Schema } from "effect"
 
 class _Session extends Schema.Class<_Session>("Session")({
   key: Schema.NonEmptyString.pipe(Schema.brand("SessionKey")),
@@ -41,15 +41,15 @@ const _store = KeyValueStore.layerSchema(_Session, "ai/agent/Session")
 declare namespace Memory {
   type Session = _Session
   type Key = _Session["key"]
-  type Store = Context.Tag.Identifier<typeof _store.tag>
+  type Store = Layer.Layer.Success<typeof _store.layer>
   type Recalled = Effect.Effect<
     Prompt.Prompt,
-    AiError.AiError | ParseResult.ParseError | PlatformError.PlatformError,
+    ParseResult.ParseError | PlatformError.PlatformError,
     LanguageModel.LanguageModel | Store
   >
   type Persisted = Effect.Effect<
     void,
-    AiError.AiError | ParseResult.ParseError | PlatformError.PlatformError,
+    AiError.MalformedOutput | ParseResult.ParseError | PlatformError.PlatformError,
     Store
   >
 }
@@ -90,9 +90,8 @@ const _persist = (key: Memory.Key, prompt: Prompt.Prompt, digest: Option.Option<
 - Packages: `@effect/ai` (`Prompt`, `Tokenizer`, `Toolkit`), `effect` (`Effect`, `Option`).
 
 ```typescript
-import { type Tokenizer, Toolkit } from "@effect/ai"
-import { Budget } from "../model/token.ts"
 import { Gate } from "../model/provider.ts"
+import { Budget } from "../model/token.ts"
 
 declare namespace Memory {
   type Fold =

@@ -17,7 +17,7 @@
 
 ## [2]-[DOMAIN_PACKAGES]
 
-None. `host` admits no folder-local packages — the folder rides the substrate platform bindings; every exec, net, config, flag, and life row composes `effect` and the `@effect/platform` family. A folder-local admission lands here from the folder's ideas and tasks with its catalogue at `.api/`.
+None. `host` admits no folder-local packages — the folder rides the substrate bindings; every exec, net, config, flag, and life row composes `effect` and the `@effect/*` substrate. A folder-local admission lands here from the folder's ideas and tasks with its catalogue at `.api/`.
 
 ## [3]-[SUBSTRATE_PACKAGES]
 
@@ -28,3 +28,4 @@ The branch substrate this folder consumes; the registry lives in `libs/typescrip
 - `@effect/platform-node` — the Node binding behind the `exec/runtime` Node row.
 - `@effect/platform-bun` — the Bun binding behind the `exec/runtime` Bun row.
 - `@effect/platform-browser` — the browser binding the runtime-neutral `flag/verdict` evaluation and the `./browser` subpath ride.
+- `@effect/experimental` — the `Sse` event/retry codec the `net/channel` feed seam decodes; every SSE consumer in the branch shares it.

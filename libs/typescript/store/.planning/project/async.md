@@ -56,20 +56,20 @@ const _quarantineDdl: Capability.Ensure = {
 - Entry: the app composes `AsyncLane.daemon(lane)` into its root — lifetime is the Layer's; there is no start/stop verb, because the scope closing IS stop; `lane.replay(sequence)` is the quarantine re-entry.
 - Receipt: each cycle emits `Mark` through the lane's span (`store.drain` with lane and count attributes) — observability is the declaration's, not the body's.
 - Growth: a new wake source (a second channel, a cron edge) is one more stream merged into `_wake`; a new batch policy axis is a field on `spec.batch`; the fold and apply stay untouched.
-- Law: the wake merges LISTEN with a spaced poll — `Stream.merge(listen, Stream.repeatEffectWithSchedule(Effect.void, Schedule.spaced(spec.batch.patience)))` — the pg lane wakes on NOTIFY within the poll gap, the sqlite lane rides the poll alone through the same `serviceOption` read that makes the listen arm optional; correctness never depends on delivery.
+- Law: the wake merges LISTEN with a spaced poll — `Stream.merge(listen, Stream.repeatEffectWithSchedule(Effect.void, Schedule.spaced(spec.batch.patience)))` under the default both-halt strategy, because the sqlite lane's listen arm is `Stream.empty` and an either-halt merge would end the wake with it — the pg lane wakes on NOTIFY within the poll gap, the sqlite lane rides the poll alone through the same `serviceOption` read, and a dropped LISTEN connection re-registers through `Stream.retry` on the lane's cadence; correctness never depends on delivery.
 - Law: the drain is a bounded fold per cycle — read events `sequence > checkpoint LIMIT batch.size` ordered by sequence, decode through the plan, apply per event with `Either`-diverted poison, advance the checkpoint to the last seen sequence — and repeat until a short page proves the lane is caught up.
 - Law: per-event apply is the quarantine boundary — decode or apply failure quarantines THAT sequence and continues; a `SqlError` on the transaction itself retries the cycle under the lane's `Schedule` (the fault family's retry row), because infrastructure faults are transient where poison is not.
 - Boundary: rebuilds and IVM alternatives are `project/rebuild.md`'s; the sqlite degradation verdicts (`ivm` → these lanes, `channel` → poll) are `lane/sqlite.md` rows consumed here through the optional-service read.
 
 ```typescript
-import { type Duration, Effect, Either, Layer, Option, Schedule, Stream, type ParseResult } from "effect"
+import { Array, type Duration, Effect, Either, Layer, Option, Schedule, Stream, type ParseResult } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"
 import type { AppKey } from "@rasm/ts/kernel"
 import type { Capability } from "../capability/row.ts"
 import { Journal } from "../journal/append.ts"
 import { Outbox } from "../journal/outbox.ts"
-import type { Upcast } from "../journal/upcast.ts"
+import { Upcast } from "../journal/upcast.ts"
 
 declare namespace AsyncLane {
   type Spec<A> = {
@@ -100,30 +100,33 @@ const _cycle = <A>(spec: AsyncLane.Spec<A>) =>
           ON CONFLICT (lane) DO NOTHING`
         const claimed = yield* _claim(sql, spec.name).values
         if (claimed.length === 0) return { lane: spec.name, checkpoint: -1, drained: 0 } satisfies AsyncLane.Mark
-        const checkpoint = Number(claimed[0]![0])
+        const checkpoint = Number(claimed[0]?.[0] ?? 0)
         const page = yield* sql`SELECT sequence, tag, event_version, payload FROM journal_event
           WHERE app = ${spec.app} AND sequence > ${checkpoint}
           ORDER BY sequence LIMIT ${spec.batch.size}`
         const verdicts = yield* Effect.forEach(page, (row) =>
           spec.plan.decode({
-            tag: String(row.tag),
-            version: Number(row.event_version),
-            payload: typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload,
+            tag: String(row["tag"]),
+            version: Number(row["event_version"]),
+            payload: Upcast.body(row["payload"]),
           }).pipe(
-            Effect.flatMap((event) => spec.apply(event, Number(row.sequence))),
-            Effect.as(Either.right(Number(row.sequence))),
+            Effect.flatMap((event) => spec.apply(event, Number(row["sequence"]))),
+            Effect.as(Either.right(Number(row["sequence"]))),
             Effect.catchAll((fault) =>
               Effect.as(
                 sql`INSERT INTO projection_quarantine ${sql.insert([{
                   lane: spec.name,
-                  sequence: Number(row.sequence),
-                  envelope: typeof row.payload === "string" ? row.payload : JSON.stringify(row.payload),
+                  sequence: Number(row["sequence"]),
+                  envelope: typeof row["payload"] === "string" ? row["payload"] : JSON.stringify(row["payload"]),
                   fault: String(fault),
                 }])} ON CONFLICT (lane, sequence) DO NOTHING`,
-                Either.left(Number(row.sequence)),
+                Either.left(Number(row["sequence"])),
               )),
           ))
-        const advanced = page.length === 0 ? checkpoint : Number(page[page.length - 1]!.sequence)
+        const advanced = Option.match(Array.last(page), {
+          onNone: () => checkpoint,
+          onSome: (row) => Number(row["sequence"]),
+        })
         yield* sql`UPDATE projection_checkpoint SET checkpoint = ${advanced}, claimed_at = ${Journal.now(sql)} WHERE lane = ${spec.name}`
         return { lane: spec.name, checkpoint: advanced, drained: verdicts.length } satisfies AsyncLane.Mark
       }),
@@ -135,10 +138,10 @@ const _wake = <A>(spec: AsyncLane.Spec<A>) =>
       Stream.merge(
         Option.match(pg, {
           onNone: () => Stream.empty,
-          onSome: (client) => Stream.orDie(client.listen(Outbox.channel(spec.app))),
+          onSome: (client) =>
+            Stream.retry(client.listen(Outbox.channel(spec.app)), Schedule.spaced(spec.batch.patience)),
         }),
-        Stream.repeatEffectWithSchedule(Effect.succeed("<poll>"), Schedule.spaced(spec.batch.patience)),
-        { haltStrategy: "either" },
+        Stream.repeatEffectWithSchedule(Effect.void, Schedule.spaced(spec.batch.patience)),
       )),
   )
 
@@ -149,9 +152,13 @@ const AsyncLane = {
     Layer.scopedDiscard(
       Effect.forkScoped(
         Stream.runForEach(_wake(spec), () =>
-          Effect.repeat(_cycle(spec).pipe(Effect.withSpan("store.drain", { attributes: { lane: spec.name } })), {
-            until: (mark) => mark.drained < spec.batch.size,
-          })).pipe(Effect.orDie),
+          Effect.repeat(
+            _cycle(spec).pipe(
+              Effect.withSpan("store.drain", { attributes: { lane: spec.name } }),
+              Effect.retry(Schedule.spaced(spec.batch.patience)),
+            ),
+            { until: (mark) => mark.drained < spec.batch.size },
+          )).pipe(Effect.orDie),
       ),
     ),
   replay: (lane: string, sequence: number) =>
@@ -159,7 +166,7 @@ const AsyncLane = {
       sql`UPDATE projection_quarantine SET replayed_at = ${Journal.now(sql)}
           WHERE lane = ${lane} AND sequence = ${sequence} AND replayed_at IS NULL
           RETURNING envelope`),
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

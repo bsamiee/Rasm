@@ -18,13 +18,20 @@ Presigned capability tokens and the derivative fan-out, both content-addressed e
 - Growth: a new presigned operation is a new command value through the same entry; a new signing posture (SSE-C pinning) is a `signableHeaders` policy row on the options, never a second mint.
 - Law: the TTL is `Config`-bounded — `ObjectStore`'s `presignTtl` is the default and a per-grant ttl may only narrow it (`Duration.min`); an unbounded or widened grant is unrepresentable at this surface.
 - Law: config is inherited, never re-declared — `getSignedUrl` reads the live client's resolved `credentials`/`region`/`endpoint`/`forcePathStyle`, so MinIO/R2/Tigris presigns are the same call and no second client exists.
+- Law: `_signed` narrows the command union through `instanceof` control flow before the SDK call — `getSignedUrl`'s generic binds one concrete command input, so the union collapses per arm; `Match.instanceOf` deliberately subtracts nothing and cannot type the terminal arm here, which is why the chain is the checker-proven spelling.
 
 ```typescript
-import { DateTime, Duration, Effect } from "effect"
+import { Data, DateTime, Duration, Effect, Option } from "effect"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { GetObjectCommand, type HeadObjectCommand, type PutObjectCommand, type UploadPartCommand } from "@aws-sdk/client-s3"
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, type S3Client, UploadPartCommand } from "@aws-sdk/client-s3"
+import type { ContentKey } from "@rasm/ts/kernel"
 import { ObjectStore } from "./key.ts"
-import { ContentKey } from "@rasm/ts/kernel"
+
+class _PresignFault extends Data.TaggedError("PresignFault")<{
+  readonly stage: "gate" | "decode" | "encode" | "grant"
+  readonly key: ContentKey | string
+  readonly detail: string
+}> {}
 
 declare namespace Presign {
   type Command = PutObjectCommand | GetObjectCommand | UploadPartCommand | HeadObjectCommand
@@ -35,13 +42,22 @@ declare namespace Presign {
   }
 }
 
+const _signed = (client: S3Client, command: Presign.Command, expiresIn: number): Promise<string> =>
+  command instanceof PutObjectCommand
+    ? getSignedUrl(client, command, { expiresIn })
+    : command instanceof GetObjectCommand
+      ? getSignedUrl(client, command, { expiresIn })
+      : command instanceof UploadPartCommand
+        ? getSignedUrl(client, command, { expiresIn })
+        : getSignedUrl(client, command, { expiresIn })
+
 const _grant = (key: ContentKey, command: Presign.Command, ttl?: Duration.Duration) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
     const bounded = ttl === undefined ? store.presignTtl : Duration.min(ttl, store.presignTtl)
     const url = yield* Effect.tryPromise({
-      try: () => getSignedUrl(store.client, command, { expiresIn: Math.trunc(Duration.toMillis(bounded) / 1000) }),
-      catch: (defect) => new _FanoutFault({ stage: "grant", key, detail: String(defect) }),
+      try: () => _signed(store.client, command, Math.trunc(Duration.toMillis(bounded) / 1000)),
+      catch: (defect) => new _PresignFault({ stage: "grant", key, detail: String(defect) }),
     })
     const minted = yield* DateTime.now
     return {
@@ -65,22 +81,14 @@ const _grant = (key: ContentKey, command: Presign.Command, ttl?: Duration.Durati
 - Boundary: sharp is server-plane native — the `./server` subpath owns this cluster; the browser consumes grants, never the codec; delivery beyond the grant (CDN, cache headers) is `edge` material.
 
 ```typescript
-import { Effect, Option } from "effect"
-import sharp, { type FormatEnum, type OutputInfo, type ResizeOptions, type SharpOptions } from "sharp"
-import { Data } from "effect"
-
-class _FanoutFault extends Data.TaggedError("FanoutFault")<{
-  readonly stage: "gate" | "decode" | "encode" | "grant"
-  readonly key: ContentKey | string
-  readonly detail: string
-}> {}
+import sharp, { type FormatEnum, type OutputInfo, type OutputOptions, type ResizeOptions, type SharpOptions } from "sharp"
 
 declare namespace Presign {
   type Spec = {
     readonly name: string
     readonly resize: ResizeOptions
     readonly format: keyof FormatEnum
-    readonly options?: Record<string, unknown>
+    readonly options?: OutputOptions
     readonly placeholder?: boolean
   }
   type Derivative = {
@@ -98,19 +106,21 @@ const _GATE = {
   autoOrient: true,
 } as const satisfies SharpOptions
 
-const _blockedLoaders: ReadonlyArray<string> = []
+const _DEADLINE = { seconds: 20 } as const
+
+const _blockedLoaders: Array<string> = []
 
 const _fanout = (sourceKey: ContentKey, specs: ReadonlyArray<Presign.Spec>) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
     yield* Effect.when(
-      Effect.sync(() => sharp.block({ operation: _blockedLoaders as Array<string> })),
+      Effect.sync(() => sharp.block({ operation: _blockedLoaders })),
       () => _blockedLoaders.length > 0,
     )
     const bytes = yield* store.get(sourceKey)
     const decoded = yield* Effect.try({
-      try: () => sharp(Buffer.from(bytes), _GATE).timeout({ seconds: 20 }),
-      catch: (defect) => new _FanoutFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
+      try: () => sharp(Buffer.from(bytes), _GATE).timeout(_DEADLINE),
+      catch: (defect) => new _PresignFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
     })
     return yield* Effect.forEach(specs, (spec) =>
       Effect.gen(function* () {
@@ -121,12 +131,12 @@ const _fanout = (sourceKey: ContentKey, specs: ReadonlyArray<Presign.Spec>) =>
               .resize(spec.resize)
               .toFormat(spec.format, spec.options)
               .toBuffer({ resolveWithObject: true }),
-          catch: (defect) => new _FanoutFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
+          catch: (defect) => new _PresignFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
         })
         const dominant = spec.placeholder === true
           ? Option.some((yield* Effect.tryPromise({
               try: () => decoded.clone().stats(),
-              catch: (defect) => new _FanoutFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
+              catch: (defect) => new _PresignFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
             })).dominant)
           : Option.none<{ readonly r: number; readonly g: number; readonly b: number }>()
         const receipt = yield* store.put(new Uint8Array(encoded.data), {
@@ -146,7 +156,7 @@ const Presign = {
   fanout: _fanout,
   gate: _GATE,
   blocked: _blockedLoaders,
-}
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
