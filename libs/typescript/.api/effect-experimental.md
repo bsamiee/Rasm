@@ -28,7 +28,7 @@
 |  [04]   | `EventLog.EventLog`                             | `Context.Tag`     | the append surface; `store`/`browser` EventLog overlay client   |
 |  [05]   | `EventLog.EventLogSchema` / `EventLog.schema`   | schema builder    | `schema(...groups)` freezes the client's event universe        |
 |  [06]   | `EventLog.Identity` / `EventLog.Registry`       | identity/registry | client identity + reducer registry Tags                        |
-|  [07]   | `EventJournal.EventJournal`                     | `Context.Tag`     | append-only journal store; memory or IndexedDB backing         |
+|  [07]   | `EventJournal.EventJournal`                     | `Context.Tag`     | append-only journal store; memory, IndexedDB, or `@effect/sql` `SqlEventJournal` backing |
 |  [08]   | `EventJournal.Entry` / `EventJournal.RemoteEntry` | journal row     | local entry / remote-synced entry Schema classes               |
 |  [09]   | `EventJournal.RemoteId` / `EventJournal.EntryId` | branded id       | `Uint8ArrayFromSelf` branded ids; `entryIdMillis` time-decode  |
 |  [10]   | `EventJournal.EventJournalError`                | tagged error      | journal read/write fault rail                                  |
@@ -42,7 +42,7 @@
 |  [01]   | `EventLogRemote.EventLogRemote`                     | sync client     | client-side change push/pull driver                              |
 |  [02]   | `EventLogRemote.ProtocolRequest` / `ProtocolResponse` | Schema union | closed WriteEntries/RequestChanges/Changes/Ping/Pong wire union  |
 |  [03]   | `EventLogRemote.ProtocolRequestMsgPack` / `…ResponseMsgPack` | MsgPack codec | `decodeRequest`/`encodeRequest`/`decodeResponse`/`encodeResponse` |
-|  [04]   | `EventLogServer.Storage`                            | `Context.Tag`   | server persisted-entry store; `layerStorageMemory` or SQL `[R4]` |
+|  [04]   | `EventLogServer.Storage`                            | `Context.Tag`   | server persisted-entry store; `layerStorageMemory` or `@effect/sql` `SqlEventLogServer.layerStorage` `[R4]` |
 |  [05]   | `EventLogServer.PersistedEntry`                     | Schema class    | server-side stored entry row                                     |
 |  [06]   | `EventLogEncryption.EventLogEncryption`             | `Context.Tag`   | E2E encrypt/decrypt boundary; `security/secret` composes keys    |
 |  [07]   | `EventLogEncryption.EncryptedEntry` / `EncryptedRemoteEntry` | Schema | ciphertext-at-rest entry shapes (zero-knowledge server)          |
@@ -57,7 +57,7 @@
 |  [02]   | `Machine.Actor` / `Machine.SerializableActor`     | live actor      | booted actor; `Subscribable` of state for `state`/`ui` binding |
 |  [03]   | `Machine.MachineContext` / `Machine.MachineDefect` | context/fault  | in-actor context + defect rail                                 |
 |  [04]   | `PersistedQueue.PersistedQueue` / `…Factory`      | durable queue   | `work/queue/job` durable job families over a store            |
-|  [05]   | `PersistedQueue.PersistedQueueStore`              | `Context.Tag`   | queue backing store; `layerStoreMemory` or store-owned driver |
+|  [05]   | `PersistedQueue.PersistedQueueStore`              | `Context.Tag`   | queue backing store; `layerStoreMemory` or `@effect/sql` `SqlPersistedQueue.layerStore` |
 |  [06]   | `PersistedCache.PersistedCache`                   | durable cache   | `work` idempotency/result cache keyed by `Persistence` key    |
 
 [PUBLIC_TYPE_SCOPE]: persistence backing + reactive/streaming + governance
@@ -104,12 +104,12 @@
 |  [03]   | `EventLogRemote.fromSocket(opts)` / `fromWebSocket(url, opts)`                                       | client sync    | run sync over an existing `Socket` / raw WS                  |
 |  [04]   | `EventLogServer.makeHandlerHttp: Effect<Effect<HttpServerResponse, …>, never, Storage>`             | server         | `edge/live` mount as an `HttpApp` upgrade handler            |
 |  [05]   | `EventLogServer.makeHandler: Effect<(socket) => Effect<void, …>, never, Storage>`                   | server         | raw-socket server handler                                    |
-|  [06]   | `EventLogServer.layerStorageMemory: Layer<Storage>`                                                  | server storage | memory storage; SQL storage owned locally `[R4]`             |
+|  [06]   | `EventLogServer.layerStorageMemory: Layer<Storage>`                                                  | server storage | memory storage; SQL storage ships in `@effect/sql` (`SqlEventLogServer.layerStorage`/`layerStorageSubtle` — `store/.api/effect-sql.md`) `[R4]` |
 |  [07]   | `EventLogEncryption.layerSubtle` / `makeEncryptionSubtle(crypto: Crypto)`                            | encryption     | Web Crypto E2E; zero-knowledge server                        |
 
 [ENTRYPOINT_SCOPE]: durable execution + persistence + governance
 - rail: durable-execution/resource
-- `Machine.boot` launches a serializable actor; `snapshot`/`restore` cross process restarts. `Persistence.layerResultKeyValueStore` backs the whole persistence tree onto a `KeyValueStore`. `RateLimiter.makeSleep` parameterizes the algorithm (`fixed-window` | `token-bucket`) and window — one limiter, both strategies as a policy value.
+- `Machine.boot` launches a serializable actor; `snapshot`/`restore` cross process restarts. `Persistence.layerResultKeyValueStore` backs the whole persistence tree onto a `KeyValueStore`. `RateLimiter.makeWithRateLimiter` yields the effect-wrapping limiter (`algorithm`: `fixed-window` | `token-bucket`; `onExceeded`: `delay` | `fail`); `makeSleep` is the bare exceeded-sleep form — one limiter, strategies as policy values.
 
 | [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
@@ -119,7 +119,7 @@
 |  [04]   | `PersistedCache.make({ storeId, lookup, timeToLive, … })`                                      | durable cache  | `work` idempotency / memoized results                    |
 |  [05]   | `Reactivity.mutation` / `query` / `stream` / `invalidate(keys)` / `layer`                      | reactive       | `store/project` read-your-writes invalidation            |
 |  [06]   | `Sse.makeChannel({ bufferSize? })` / `makeParser(onParse)` / `encoder`                         | SSE codec      | `host/net/channel`, `edge/live`, `host/flag` SSE         |
-|  [07]   | `RateLimiter.make` / `layer` / `makeSleep` / `layerStoreMemory`; `makeSleep({ algorithm?, window, limit, key })` | rate limit | `edge/api/middleware` distributed limiter            |
+|  [07]   | `RateLimiter.make` / `layer` / `layerStoreMemory`; `makeWithRateLimiter` → `({ algorithm?, onExceeded?, window, limit, key, tokens? })(effect)`; `makeSleep({ algorithm?, window, limit, key, tokens? })` | rate limit | `edge/api/middleware` distributed limiter            |
 |  [08]   | `RequestResolver.dataLoader({ window, maxBatchSize? })(resolver)` / `persisted({ storeId, … })(resolver)` | batching | batched/persisted request resolution (curried combinators) |
 |  [09]   | `DevTools.layer(url?)` / `layerWebSocket(url?)`                                                | dev            | `telemetry ./dev` fenced DevTools export                 |
 
@@ -127,7 +127,7 @@
 
 [OVERLAY_TOPOLOGY]:
 - `[R19]` system-of-record boundary: `store/journal` on `@effect/sql` is the durable authority; EventLog, PersistedQueue, and PersistedCache are OVERLAYS that accelerate local-first reads and offline queues. A record whose loss corrupts state never lives only in an EventLog journal or a persisted queue — it is projected from, or mirrored to, the SQL journal. `store` catalogues `@effect/experimental` as EventLog-overlay-only; `browser` as the EventLog client; `work` as the durable-execution substrate.
-- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer dependency. `EventJournal` = `layerMemory` (spec) | `layerIndexedDb` (browser) | SQL `[R4]` (durable). `Persistence` = `layerMemory` | `layerKeyValueStore`. `RateLimiterStore`/`PersistedQueueStore`/`EventLogServer.Storage` = memory | store-owned driver. The lane code never names its storage; the app root selects it.
+- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer dependency. `EventJournal` = `layerMemory` (spec) | `layerIndexedDb` (browser) | `@effect/sql` `SqlEventJournal.layer` (durable) `[R4]`. `Persistence` = `layerMemory` | `layerKeyValueStore`. The durable `PersistedQueueStore`/`EventLogServer.Storage` backings ship in `@effect/sql` (`SqlPersistedQueue.layerStore`/`SqlEventLogServer.layerStorage` — `store/.api/effect-sql.md`); `RateLimiterStore` = `layerStoreMemory`. The lane code never names its storage; the app root selects it.
 - closed event families: `Event.make` payloads are `Schema.TaggedClass` closed families with app-authored versioning; read-time upcasting is a `store/journal/upcast` total fold, never a journal rewrite — the same law the SQL journal holds.
 
 [INTEGRATION_LAW]:
@@ -144,5 +144,5 @@
 [RAIL_LAW]:
 - Package: `@effect/experimental`
 - Owns: EventLog local-first event-sourcing (event/group/journal/log), E2E-encrypted WebSocket sync + mountable server, serializable durable `Machine` actors, `KeyValueStore`-backed `Persistence`/`PersistedCache`/`PersistedQueue`, `Reactivity` invalidation, `Sse` codec, distributed `RateLimiter`, batching `RequestResolver`, `DevTools`
-- Accept: EventLog as the local-first OVERLAY client (`schema`→`layer`→`makeClient`), `EventLogServer` mounted at the `edge/live` HttpApp port, swappable storage Layers per lane, `RateLimiter.makeSleep` algorithm as a policy value, `Sse` as the one SSE codec, durable `Machine`/`PersistedQueue` for `work`
+- Accept: EventLog as the local-first OVERLAY client (`schema`→`layer`→`makeClient`), `EventLogServer` mounted at the `edge/live` HttpApp port, swappable storage Layers per lane, `RateLimiter.makeWithRateLimiter`/`makeSleep` with `algorithm`/`onExceeded` as policy values, `Sse` as the one SSE codec, durable `Machine`/`PersistedQueue` for `work`
 - Reject: EventLog or a persisted queue as the system of record (the SQL journal owns truth `[R19]`), a hand-rolled SSE parser or retry loop, a second local-first or durable-actor implementation, `ioredis`/`lmdb` backings, storage hardcoded inside a lane instead of Layer-injected

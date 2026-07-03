@@ -13,7 +13,7 @@
 - runtime: node/bun durable lanes — runners use `@effect/platform` `Socket`/`HttpClient`/`FileSystem`; `MessageStorage`/`RunnerStorage` persist on `@effect/sql` (a store-owned driver); no browser lane
 - catalog-verdict: KEEP — the one durable-actor + sharding engine; a hand-rolled actor mailbox, shard assigner, or message-replay store is the named reinvention defect
 - port-law: `MessageStorage` and `SqlClient` are Tags `work` composes; the `store`-owned SQL driver Layer satisfies them at the app root — the `-pg`/`-sqlite-*` drivers stay banned outside `store`
-- modules: `Entity`, `Sharding`, `ShardingConfig`, `MessageStorage`, `SqlMessageStorage`, `ClusterSchema`, `ClusterError`, `ClusterCron`, `ClusterWorkflowEngine`, `Singleton`, `EntityProxy`/`EntityProxyServer`, `Runner`/`Runners`, `RunnerHealth`, `RunnerStorage`/`SqlRunnerStorage`, `HttpRunner`/`SocketRunner`/`SingleRunner`/`TestRunner`, `K8sHttpClient`, `Snowflake`/`MachineId`, `DeliverAt`, `Message`/`Envelope`/`Reply`, `ClusterMetrics`, and the `EntityAddress`/`EntityId`/`ShardId`/`RunnerAddress` identity family
+- modules: `Entity`, `EntityResource`, `Sharding`, `ShardingConfig`, `ShardingRegistrationEvent`, `MessageStorage`, `SqlMessageStorage`, `ClusterSchema`, `ClusterError`, `ClusterCron`, `ClusterWorkflowEngine`, `Singleton`, `EntityProxy`/`EntityProxyServer`, `Runner`/`Runners`, `RunnerHealth`, `RunnerServer`, `RunnerStorage`/`SqlRunnerStorage`, `HttpRunner`/`SocketRunner`/`SingleRunner`/`TestRunner`, `K8sHttpClient`, `Snowflake`/`MachineId`, `DeliverAt`, `Message`/`Envelope`/`Reply`, `ClusterMetrics`, and the `EntityAddress`/`EntityId`/`EntityType`/`ShardId`/`RunnerAddress`/`SingletonAddress` identity family
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -27,10 +27,13 @@
 |  [02]   | `Entity.Replier<Rpcs>` (`succeed`/`fail`/`failCause`/`complete`) | reply surface | streaming/mailbox handlers reply out-of-band; `complete` takes an `Exit` |
 |  [03]   | `Entity.Request<Rpc>` / `Entity.HandlersFrom<Rpcs>`       | handler contract | the per-message envelope + the exhaustive handler map the entity checks |
 |  [04]   | `Entity.CurrentAddress` / `Entity.CurrentRunnerAddress`   | context Tag     | the running entity's `EntityAddress` and its host `RunnerAddress` inside a handler |
-|  [05]   | `Sharding.Sharding`                                        | routing service Tag | `registerEntity`/`registerSingleton`/`makeClient`/`send`/`notify`/`reset`/`activeEntityCount` |
-|  [06]   | `ShardingConfig.ShardingConfig`                           | topology config | runner address/weight, shard groups, lock intervals, entity mailbox/idle/timeout budgets |
-|  [07]   | `Snowflake.Snowflake` / `MachineId.MachineId`             | distributed id  | the message/request id (timestamp+machineId+sequence); `Schema` codecs + a `layerGenerator` |
-|  [08]   | `DeliverAt.DeliverAt`                                      | delivery policy | a payload's `toMillis` delivery time — the scheduled/delayed-delivery + egress-quota interface `deliver/relay` reads |
+|  [05]   | `EntityResource.EntityResource<A, E>` / `EntityResource.CloseScope` | entity resource | `get`/`close` handle acquired inside an entity; survives shard-move restarts, released on idle TTL or `close`; `CloseScope` the explicit-close scope Tag |
+|  [06]   | `Sharding.Sharding`                                        | routing service Tag | `registerEntity`/`registerSingleton`/`makeClient`/`send`/`notify`/`reset`/`activeEntityCount` |
+|  [07]   | `ShardingRegistrationEvent.ShardingRegistrationEvent` = `EntityRegistered` \| `SingletonRegistered` | registration ADT | streamed by `Sharding.getRegistrationEvents`; fold with `ShardingRegistrationEvent.match` |
+|  [08]   | `ShardingConfig.ShardingConfig`                           | topology config | runner address/weight, shard groups, lock intervals, entity mailbox/idle/timeout budgets |
+|  [09]   | `EntityType.EntityType` / `SingletonAddress.SingletonAddress` | identity        | the branded entity-type string + the `{ shardId, name }` singleton address (`Equal`/`Hash` `Schema.Class`) |
+|  [10]   | `Snowflake.Snowflake` / `MachineId.MachineId`             | distributed id  | the message/request id (timestamp+machineId+sequence); `Schema` codecs + a `layerGenerator` |
+|  [11]   | `DeliverAt.DeliverAt`                                      | delivery policy | a payload's `toMillis` delivery time — the scheduled/delayed-delivery + egress-quota interface `deliver/relay` reads |
 
 [PUBLIC_TYPE_SCOPE]: message storage, annotations, and the fault family
 - rail: durable-actor/rails
@@ -60,6 +63,7 @@
 |  [04]   | `entity.client` — `Effect<(entityId) => RpcClient, never, Sharding>`                           | invoke         | the typed per-id client; faults are `MailboxFull`/`AlreadyProcessingMessage`/`PersistenceError` |
 |  [05]   | `entity.annotateRpcs(ClusterSchema.Persisted, true)` / `.annotate(...)`                        | annotate       | apply durability/shard-group/interrupt policy to the Rpcs above the call |
 |  [06]   | `Entity.makeTestClient(entity, layer)` / `Entity.keepAlive(enabled)`                          | test / lifetime | in-process test client for kit-driven specs; keep an idle entity resident |
+|  [07]   | `EntityResource.make({ acquire, idleTimeToLive? })` / `makeK8sPod(spec, { idleTimeToLive? })` | resource       | an entity-held resource kept alive across restarts; released on idle TTL or `close`; `makeK8sPod` the K8s pod form over `K8sHttpClient` |
 
 [ENTRYPOINT_SCOPE]: message storage + sharding config layers
 - rail: durable-actor/system
@@ -80,13 +84,15 @@
 | [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
 |  [01]   | `HttpRunner.layerHttp` / `SocketRunner.layer` / `SingleRunner.layer` / `TestRunner`             | runner         | the runner entrypoint `Layer`s; `SingleRunner` single-node, `TestRunner` for kit-driven specs |
-|  [02]   | `HttpRunner.layerClientProtocolHttp(options)` / `layerClientProtocolWebsocket` / `toHttpEffect` | runner client  | the inter-runner RPC transport; `toHttpEffect` mounts the runner server as an `HttpApp` |
-|  [03]   | `RunnerHealth.layerK8s(options?)` / `layerPing` / `layerNoop`                                   | discovery      | health/liveness; `layerK8s` discovers runners via `K8sHttpClient` |
-|  [04]   | `K8sHttpClient.layer` — `Layer<K8sHttpClient, never, HttpClient \| FileSystem>` / `makeGetPods` | discovery      | `work/engine/entity` — K8s pod discovery, NEVER provisioning |
-|  [05]   | `ClusterCron.make({ name, cron, execute, shardGroup?, calculateNextRunFromPrevious?, skipIfOlderThan? })` | scheduled job | `work/queue/schedule` — the durable cron; misfire/window policy as fields |
-|  [06]   | `Singleton.make(name, run, options?)`                                                          | singleton      | `work/deliver/relay` — one instance across shards drains the outbox |
-|  [07]   | `EntityProxy.toRpcGroup(entity)` / `toHttpApiGroup(name, entity)`                               | wire expose    | an entity → an `@effect/rpc` `RpcGroup` / `@effect/platform` `HttpApiGroup` for `edge` |
-|  [08]   | `ClusterWorkflowEngine.layer: Layer<WorkflowEngine, never, Sharding \| MessageStorage>`         | workflow bridge | satisfies `@effect/workflow`'s `WorkflowEngine` Tag — durable sharded workflows |
+|  [02]   | `HttpRunner.layerWebsocket` / `layerHttpClientOnly` / `layerWebsocketClientOnly` / `layerHttpOptions({ path })` / `layerWebsocketOptions({ path })` | runner | the websocket-transport, client-only-embed, and mount-on-an-existing-`HttpRouter` forms of the HTTP runner |
+|  [03]   | `HttpRunner.layerClient` / `layerClientProtocolHttp({ path, https? })` / `layerClientProtocolHttpDefault` / `layerClientProtocolWebsocket({ path, https? })` / `layerClientProtocolWebsocketDefault` / `toHttpEffect` | runner client | the inter-runner RPC transport; `layerClient` the client stack over a supplied `RpcClientProtocol`, `*Default` the fixed-path forms; `toHttpEffect` mounts the runner server as an `HttpApp` |
+|  [04]   | `RunnerServer.layer` / `layerWithClients` / `layerClientOnly` / `layerHandlers`                 | runner server  | the message-receiving RPC server over `RpcServer.Protocol`; `layerWithClients` bundles the `Runners`+`Sharding` clients, `layerClientOnly` embeds a cluster client without shard assignment |
+|  [05]   | `RunnerHealth.layerK8s(options?)` / `layerPing` / `layerNoop`                                   | discovery      | health/liveness; `layerK8s` discovers runners via `K8sHttpClient` |
+|  [06]   | `K8sHttpClient.layer` — `Layer<K8sHttpClient, never, HttpClient \| FileSystem>` / `makeGetPods` | discovery      | `work/engine/entity` — K8s pod discovery, NEVER provisioning |
+|  [07]   | `ClusterCron.make({ name, cron, execute, shardGroup?, calculateNextRunFromPrevious?, skipIfOlderThan? })` | scheduled job | `work/queue/schedule` — the durable cron; misfire/window policy as fields |
+|  [08]   | `Singleton.make(name, run, options?)`                                                          | singleton      | `work/deliver/relay` — one instance across shards drains the outbox |
+|  [09]   | `EntityProxy.toRpcGroup(entity)` / `toHttpApiGroup(name, entity)`                               | wire expose    | an entity → an `@effect/rpc` `RpcGroup` / `@effect/platform` `HttpApiGroup` for `edge` |
+|  [10]   | `ClusterWorkflowEngine.layer: Layer<WorkflowEngine, never, Sharding \| MessageStorage>`         | workflow bridge | satisfies `@effect/workflow`'s `WorkflowEngine` Tag — durable sharded workflows |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

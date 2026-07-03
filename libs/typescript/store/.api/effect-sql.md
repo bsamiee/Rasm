@@ -24,7 +24,7 @@
 | [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                            |
 | :-----: | :-------------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
 |  [01]   | `SqlClient` (interface, extends `Constructor`)      | `Context.Tag`     | the neutral client every `journal`/`project`/`capability`/`retrieve` row yields; `work` imports it as the `SqlClient` port |
-|  [02]   | `SqlClient.MakeOptions`                             | driver config     | `acquirer`/`compiler`/`transactionAcquirer`/`begin`/`commit`/`rollback`/`savepoint`/`transformRows` — a driver assembles the client from this |
+|  [02]   | `SqlClient.MakeOptions`                             | driver config     | `acquirer`/`compiler`/`transactionAcquirer`/`beginTransaction`/`commit`/`rollback`/`savepoint`/`transformRows` — a driver assembles the client from this |
 |  [03]   | `SqlClient.safe` / `.withoutTransforms()`           | client variant    | `safe` for SafeQL static analysis; `withoutTransforms` drops row/column name transforms for raw passes |
 |  [04]   | `Connection` / `Connection.Acquirer`               | driver surface    | `execute`/`executeRaw`/`executeStream`/`executeValues`/`executeUnprepared`; the leased connection each statement runs on |
 |  [05]   | `Connection.Row` (`{ [column: string]: unknown }`)  | row shape         | the untyped result row `SqlSchema`/`Model` decode into domain values |

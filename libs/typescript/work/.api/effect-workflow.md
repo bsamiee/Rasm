@@ -26,8 +26,7 @@
 |  [02]   | `Activity.Activity<Success, Error, R>`                     | activity def    | `work/flow/activity` — extends `Effect`; the once-executed durable step |
 |  [03]   | `Workflow.Result<A, E>` = `Complete<A, E>` \| `Suspended`  | result ADT      | `poll` return; `Match` the two arms — a suspended run awaits an external signal |
 |  [04]   | `Activity.CurrentAttempt`                                  | context ref     | the attempt counter (`number`) inside an activity; feeds `idempotencyKey({ includeAttempt })` |
-|  [05]   | `WorkflowInstance`                                         | execution context Tag | per-run state (executionId, workflow, scope, suspended/interrupted flags, cause); the durable-instance handle |
-|  [06]   | `Workflow.AnyStructSchema` / `Workflow.Any`               | erased def      | registry/proxy bounds over heterogeneous workflow sets         |
+|  [05]   | `Workflow.AnyStructSchema` / `Workflow.Any`               | erased def      | registry/proxy bounds over heterogeneous workflow sets         |
 
 [PUBLIC_TYPE_SCOPE]: the durable primitives — deferred, clock, queue, rate limiter
 - rail: durable-execution
@@ -40,6 +39,7 @@
 |  [03]   | `DurableClock.DurableClock`                                | durable timer   | `work/queue/schedule` — sleep across process restarts; short sleeps run in memory |
 |  [04]   | `DurableQueue.DurableQueue<Payload, Success, Error>`      | persisted job   | `work/queue/job` — a `PersistedQueue` whose items complete via a `DurableDeferred` |
 |  [05]   | `WorkflowEngine`                                           | engine Tag      | the execution service; `layerMemory` (spec) or `ClusterWorkflowEngine.layer` (durable) satisfies it |
+|  [06]   | `WorkflowEngine.WorkflowInstance`                          | execution context Tag | per-run state (executionId, workflow, scope, suspended/interrupted flags, cause); the durable-instance handle |
 
 ## [03]-[ENTRYPOINTS]
 
