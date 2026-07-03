@@ -7,7 +7,7 @@ The namespace is a frozen contract axis: the union-ops generator emits `global::
 ## [01]-[INDEX]
 
 - [02]-[OPERATION_KEY]: `Op` — the caller-member-name operation key `[ValueObject<string>]` with the full fault factory, the acceptance bridge, and the `Catch`/`Side` boundary-exception rail.
-- [03]-[GENERATOR_CONTRACTS]: `GenerateUnionOpsAttribute`/`SkipUnionOpsAttribute` — the local codegen vocabulary steering per-case `SelfOp` emission; total by declaration.
+- [03]-[GENERATOR_CONTRACTS]: `GenerateUnionOpsAttribute` — the strictly opt-in codegen marker steering per-case `SelfOp` emission; an unmarked union receives nothing.
 - [04]-[FAULT_BAND]: `Expected` + `Fault` — the twelve-case kernel fault union, `FaultExtensions.Category`, and the explicit two-family seam against the robust-core `GeometryFault` band 2400.
 - [05]-[RESOURCE_RAIL]: `Lease<T>` — Owned/Borrowed disposal discipline with `Use`/`Resource`/`Dispose` folds.
 - [06]-[VALIDITY_FOLD]: `IValidityEvidence` + `ValidityClaim` — the one receipt-validity mechanism that retires the corpus-wide hand-rolled `IsValid` predicate swarm.
@@ -67,10 +67,10 @@ public readonly partial struct Op {
 
 ## [03]-[GENERATOR_CONTRACTS]
 
-- Owner: `GenerateUnionOpsAttribute` + `SkipUnionOpsAttribute` — the local analyzer/generator vocabulary. The union-ops generator resolves the marker by metadata name `Rasm.Domain.GenerateUnionOpsAttribute`; both spellings are frozen contract.
+- Owner: `GenerateUnionOpsAttribute` — the one local analyzer/generator marker. The union-ops generator resolves it by metadata name `Rasm.Domain.GenerateUnionOpsAttribute` (`ForAttributeWithMetadataName`); the spelling is frozen contract.
 - Auto: for every sealed record case of a `[GenerateUnionOps]` union, the generator emits `internal static readonly global::Rasm.Domain.Op SelfOp = global::Rasm.Domain.Op.Of(name: nameof(<Case>));` into a partial case declaration — each case carries its own operation key, minted once, named after the case.
-- Law: union-ops coverage is total by declaration — a `[Union]` whose cases are operations declares `[GenerateUnionOps]`; a `[Union]` whose cases are carriers, resources, or requests declares `[SkipUnionOps]` (`Fault` and `Lease<T>` on this page — failure and resource cases are carriers, never operations). The opt-out is a statement, never an omission.
-- Boundary: the attributes are designed vocabulary, not runtime behavior — they carry no members, apply to classes and structs, and never inherit; a marked union with no sealed record cases is inert (the generator emits nothing). The generator and its analyzer rules live with the repository analyzer; this page owns only the contract names and the emitted `SelfOp` shape.
+- Law: emission is strictly opt-in — `SelfOp` exists only for `[GenerateUnionOps]`-marked unions, whose cases are operations. A `[Union]` whose cases are carriers, resources, or requests simply carries no marker (`Fault` and `Lease<T>` on this page — failure and resource cases are carriers, never operations): the generator never visits an unmarked union, so no suppression attribute exists or is needed, and a `[SkipUnionOps]` opt-out marker is the deleted form.
+- Boundary: the attribute is designed vocabulary, not runtime behavior — it carries no members, applies to classes and structs, and never inherits; a marked union with no sealed record cases is inert (the generator emits nothing). The generator and its analyzer rules live with the repository analyzer; this page owns only the contract name and the emitted `SelfOp` shape.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -79,14 +79,11 @@ namespace Rasm.Domain;
 // --- [TYPES] --------------------------------------------------------------------------------
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
 public sealed class GenerateUnionOpsAttribute : Attribute;
-
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
-public sealed class SkipUnionOpsAttribute : Attribute;
 ```
 
 ## [04]-[FAULT_BAND]
 
-- Owner: `Expected` — the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException` — plus `Fault`, the closed `[SkipUnionOps]` `[Union]` of every kernel-substrate failure (cases are failure carriers keyed by the raising `Op` payload — a per-case `SelfOp` would be twelve dead fields), and `FaultExtensions`, the `extension(Error)` block projecting `Category` off any `Error`.
+- Owner: `Expected` — the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException` — plus `Fault`, the closed `[Union]` of every kernel-substrate failure (cases are failure carriers keyed by the raising `Op` payload, so the union carries no `[GenerateUnionOps]` — a per-case `SelfOp` would be twelve dead fields), and `FaultExtensions`, the `extension(Error)` block projecting `Category` off any `Error`.
 - Cases: `MissingOperation` (Operation) · `MissingContext(Op)` (Operation) · `InvalidInput(Op)` (Input) · `InvalidResult(Op, Option<string>)` (Result) · `Cancelled` (Cancelled) · `Unsupported(Op, Type, Type)` (Unsupported, code 9104) · `ComputationFailed(string)` (Computation) · `MissingGeometry` (Geometry) · `InvalidGeometry(Type, string, string)` (Geometry) · `OutOfRange(string, double, string, Option<Op>)` (Tolerance) · `InvalidUnitSystem(UnitSystem, string)` (Context) · `Caution(Op, string)` (Caution) — twelve cases, each carrying its typed payload and rendering its own `Message`.
 - Law: `Unsupported` is the only coded case — `UnsupportedCode` 9104 is the discriminant the Grasshopper drain reads to distinguish an unsupported projection from a hard failure; every other case discriminates by `Category` string and case type, and recovery predicates match on the case, never on rendered text.
 - Law: payloads are evidence, never live resources — `InvalidGeometry` carries the failing `Type`, not the geometry reference: coercion leases dispose before a fault surfaces, so a live payload would hand consumers a disposed native object and retain host memory inside accumulating `Validation` rails. `OutOfRange` carries an optional `Op` — `None` from keyless factory admission (`context.md`'s triad), re-keyed to the demanding operation by the `AcceptValidated` bridge (`validation.md`).
@@ -110,7 +107,6 @@ public abstract record Expected : Error {
     public virtual string Category => "Fault";
 }
 
-[SkipUnionOps]
 [Union]
 public abstract partial record Fault : Expected {
     private Fault() : base() { }
@@ -156,18 +152,17 @@ public static class FaultExtensions {
 
 ## [05]-[RESOURCE_RAIL]
 
-- Owner: `Lease<T>` — the closed `[SkipUnionOps]` `[Union]` over disposal ownership for any `T : class, IDisposable`. `Owned` carries a value this rail must dispose; `Borrowed` carries a value the host still owns.
+- Owner: `Lease<T>` — the closed `[Union]` over disposal ownership for any `T : class, IDisposable`. `Owned` carries a value this rail must dispose; `Borrowed` carries a value the host still owns.
 - Entry: `Use(project)` and the state-threaded `Use(state, project)` — the sole consumption gate: an `Owned` value is projected inside a `using` window and disposed the moment the projection returns; a `Borrowed` value is projected untouched. `Resource` reads the live value where the caller manages the extent; `Dispose()` releases `Owned` and no-ops `Borrowed`.
 - Law: ownership is a case, never a flag — the coercion lattice (`Domain/normalization.md`) returns `Fin<Lease<Curve|Surface|Brep>>` deciding owned-versus-borrowed per recovery path, `Requirement`'s lease-aware checks (`validation.md`) thread it, and the projection carriers ride `Lease<GeometryBase>`; a raw `IDisposable` field, a scattered `using`, or a parallel owned/borrowed wrapper pair is the deleted form.
 - Law: the state-threaded `Use` overload keeps projections closure-free — state rides the fold, lambdas stay `static`.
-- Boundary: `[SkipUnionOps]` by declaration — resource cases are not operations. The `using` statement inside `Owned.Project` is the named platform-forced disposal seam.
+- Boundary: unmarked by declaration — resource cases are not operations, so `Lease<T>` never carries `[GenerateUnionOps]` and no `SelfOp` is emitted. The `using` statement inside `Owned.Project` is the named platform-forced disposal seam.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[SkipUnionOps]
 [Union]
 public abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
@@ -245,7 +240,7 @@ One substrate floor; growth is a case, a claim row, or a generated `SelfOp` — 
 | [INDEX] | [AXIS/CONCERN]      | [OWNER]                              | [KIND]                                                          | [RAIL]                                        | [CASES] |
 | :-----: | :------------------ | :----------------------------------- | :-------------------------------------------------------------- | :-------------------------------------------- | :-----: |
 |  [01]   | Operation identity  | `Op`                                 | `[ValueObject<string>]` + fault/acceptance factory              | `Op → Error` / `Op → Fin<T>`                  |   17    |
-|  [02]   | Codegen contract    | `GenerateUnionOps`/`SkipUnionOps`    | marker attributes + generated per-case `SelfOp`                 | `[Union] case → Op`                           |    2    |
-|  [03]   | Substrate faults    | `Expected` + `Fault`                 | `[SkipUnionOps]` `[Union]`, typed payloads, code 9104           | `Fault → Error` (direct subtype)              |   12    |
-|  [04]   | Resource ownership  | `Lease<T>`                           | `[SkipUnionOps]` `[Union]` Owned/Borrowed                       | `Lease<T>.Use → TResult`, disposal folded     |    2    |
+|  [02]   | Codegen contract    | `GenerateUnionOps`                   | opt-in marker attribute + generated per-case `SelfOp`           | `[Union] case → Op`                           |    1    |
+|  [03]   | Substrate faults    | `Expected` + `Fault`                 | unmarked `[Union]`, typed payloads, code 9104                    | `Fault → Error` (direct subtype)              |   12    |
+|  [04]   | Resource ownership  | `Lease<T>`                           | unmarked `[Union]` Owned/Borrowed                                | `Lease<T>.Use → TResult`, disposal folded     |    2    |
 |  [05]   | Receipt validity    | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold, implicit `bool`                    | `ValidityClaim.All → bool` → the one oracle   |   13    |

@@ -35,7 +35,6 @@ using Rasm.Vectors;
 namespace Rasm.Analysis;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[SkipUnionOps]
 [Union]
 public abstract partial record Locator {
     private Locator() { }
@@ -60,7 +59,6 @@ public abstract partial record Locator {
     };
 }
 
-[SkipUnionOps]
 [Union]
 public abstract partial record LocationValue {
     private LocationValue() { }
@@ -174,7 +172,6 @@ public abstract partial record LocationValue {
     };
 }
 
-[SkipUnionOps]
 [Union]
 public abstract partial record Division {
     private Division() { }
@@ -192,7 +189,6 @@ public abstract partial record Division {
     };
 }
 
-[SkipUnionOps]
 [Union]
 public abstract partial record CurvatureMode {
     private CurvatureMode() { }
@@ -209,7 +205,6 @@ public abstract partial record CurvatureMode {
     };
 }
 
-[SkipUnionOps]
 [Union]
 public abstract partial record CurvatureAggregation {
     private CurvatureAggregation() { }
@@ -220,7 +215,6 @@ public abstract partial record CurvatureAggregation {
     internal Op Key => this switch { ExtremaCase => LocationKeys.CurvatureExtrema, _ => LocationKeys.Curvature };
 }
 
-[SkipUnionOps]
 [Union]
 public abstract partial record Location {
     private Location() { }
