@@ -351,14 +351,16 @@ const LANG = {
     key: 'ts', name: 'TypeScript', root: 'libs/typescript', stack: 'docs/stacks/typescript', casing: 'camelCase',
     corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
     strata: 'CLAUDE.md manifest law governs.',
-    stackLaw: 'DENSITY BAR + STANDARD: docs/stacks/typescript/ (the README atlas + every concept page it routes). ' +
+    stackLaw: 'DENSITY BAR + STANDARD: docs/stacks/typescript/ composed IN FULL — README plus language, derivation, values, computation, ' +
+      'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries. ' +
       'Author ultra-advanced TS only, discarding naive idioms wholesale. Cite only real members of admitted packages, cross-checked against ' +
       'the published types in node_modules.',
     homing: '',
     apiTiers: 'MINE BOTH catalog tiers: the SHARED/universal `libs/typescript/.api/*.md` (the Effect substrate rails, enumerated from disk, ' +
       'never from memory) AND the folder-specific `<folder>/.api/*.md`, cross-checked against the published types in ' +
       'node_modules; maximize the shared/universal Effect rails wherever relevant, never only the folder set.',
-    readLaw: 'docs/stacks/typescript/ in FULL (the README atlas + every concept page it routes)',
+    readLaw: 'docs/stacks/typescript/ in FULL — README plus language, derivation, values, computation, shapes, surfaces-and-dispatch, ' +
+      'rails-and-effects, services-and-layers, concurrency, streams, boundaries',
     verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
     vocab: '(tagged unions, `Schema` owners, `Effect`/`Layer`, value-derived vocabulary tables)',
     slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',

@@ -79,9 +79,10 @@ const LAW = [
     '`<area>/.planning/<subdomain>/*.md`, and an area-specific `.api/*.md` catalog. The language-wide `libs/typescript/.planning` is OUT of scope ' +
     'this run. Read the area-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`) and `README.md` (admitted-package roster) as governing ' +
     'context; never trample a sibling area owner.',
-  'STANDARD: docs/stacks/typescript/ is the route-owned law (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, ' +
-    'system-apis) — author TypeScript as dense, type-safe, and rich as that bar admits; docs/stacks/csharp/ is the ' +
-    'density/ambition FLOOR. READ the operative docs/stacks/typescript pages and conform exactly. Cite ONLY real members of admitted ' +
+  'STANDARD: docs/stacks/typescript/ is the route-owned law, composed IN FULL — README plus language, derivation, values, computation, ' +
+    'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries — author TypeScript as dense, ' +
+    'type-safe, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR. READ every page and conform exactly. ' +
+    'Cite ONLY real members of admitted ' +
     'packages, cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api` over the ' +
     'node_modules declarations.',
   'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the area SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. ' +

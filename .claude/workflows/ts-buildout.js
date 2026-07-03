@@ -44,7 +44,8 @@ const BUILD = { type: 'object', additionalProperties: false, required: ['pages']
 const LAW = 'Rasm monorepo, TS catch-up campaign stage 5 (build-out). The ' + TS + ' folders were stood up per ' + DECISION + ' + ' + BLUEPRINT +
   ': authored README/ARCHITECTURE, EMPTY IDEAS/TASKLOG placeholders (NEVER open or fill them), one-line page stubs under <folder>/.planning/ ' +
   'mirroring the BLUEPRINT trees, and rebuilt .api catalogues at both tiers. ' + TSD + '/ is the rebuilt route-owned doctrine: the build agent ' +
-  'composes it IN FULL (the README atlas + EVERY concept page it routes) before writing a single fence, and holds every law as fact. THE ' +
+  'composes it IN FULL (README plus language, derivation, values, computation, shapes, surfaces-and-dispatch, rails-and-effects, ' +
+  'services-and-layers, concurrency, streams, boundaries) before writing a single fence, and holds every law as fact. THE ' +
   'PRODUCT: each one-line stub becomes a decision-complete design page - H1 [<PKG>_<PAGE>], one declarative lead, section [1] the cluster ' +
   'index, cluster cards (owner, packages, growth, earned boundary/receipt/entry lines), transcription-complete signature fences an implementer ' +
   'copies verbatim (bodies where the body is the law, ZERO comments in fences, invariants on the card), at most one mermaid per cluster; ' +
@@ -86,8 +87,9 @@ const explorePrompt = (f) => [LAW, '', 'TASK: EXPLORE (read-only API capture) fo
   'never a ceiling - the build agent re-reads and exceeds it. Verified members only; a member you cannot anchor to a catalogue line is marked ' +
   'RESEARCH in the map.'].join('\n')
 const buildPrompt = (f, mapText) => [LAW, '', 'FOLDER READING MAP (API capture):\n' + mapText, '', 'TASK: BUILD the WHOLE folder ' + f.root +
-  ' - you own EVERY page: ' + JSON.stringify(f.pages) + '. FIRST compose ' + TSD + '/ IN FULL (the README atlas + every concept page it ' +
-  'routes), then the folder law sources. Then realize every stub ground-up into a decision-complete design page at the doctrine bar: dense ' +
+  ' - you own EVERY page: ' + JSON.stringify(f.pages) + '. FIRST compose ' + TSD + '/ IN FULL (README plus language, derivation, values, computation, shapes, ' +
+  'surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries), then the folder law sources. Then ' +
+  'realize every stub ground-up into a decision-complete design page at the doctrine bar: dense ' +
   'polymorphic owners, one entrypoint family per rail, total dispatch, policy-as-values, fences transcription-complete with every ' +
   'generated-owner knob, union case, and entrypoint signature spelled exactly; .api ultra-stacking per the map AND beyond it - re-open the ' +
   'catalogues whenever a page needs depth the map did not carry; one shared folder vocabulary across all pages (rails, fault owners, receipts ' +

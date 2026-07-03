@@ -53,7 +53,7 @@ Use the route-owned standard for the file being edited:
 
 - `docs/stacks/csharp` is the route-owned C# production standard. C# source composes `docs/stacks/csharp/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `algorithms.md`, and `system-apis.md`. Specialized C# domains route through `docs/stacks/csharp/domain/README.md`.
 - `docs/stacks/python` is the route-owned Python production standard. Python source composes `docs/stacks/python/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `concurrency.md`, `boundaries.md`, `algorithms.md`, `system-apis.md`, and `runtime.md`. Numerical and scientific computing routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
-- `docs/stacks/typescript` is the route-owned TypeScript production standard. TypeScript source composes `docs/stacks/typescript/README.md` and every concept page its atlas routes.
+- `docs/stacks/typescript` is the route-owned TypeScript production standard. TypeScript source composes `docs/stacks/typescript/README.md`, `language.md`, `derivation.md`, `values.md`, `computation.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `services-and-layers.md`, `concurrency.md`, `streams.md`, and `boundaries.md`.
 
 ## [03]-[NAMING_SCHEMA]
 
