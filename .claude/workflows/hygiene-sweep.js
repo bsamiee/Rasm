@@ -28,7 +28,9 @@ const LAW = [
   'Rasm monorepo. CLAUDE.md governs (WORKSPACE_LAW, DEPENDENCY_POLICY, OWNER_ROUTING). This is a SURGICAL hygiene pass: refine/correct, NEVER ' +
     'explanatory bloat, NEVER a new design page. Cards: default refine-do-not-proliferate (a genuinely-new card only if truly appropriate). VERIFY ' +
     'against disk before removing any done-claimed card. De-bloat verbose ARCHITECTURE comment lines; use correct glyphs; stay concise. Resolve ' +
-    'the language toolchain owner from CLAUDE.md OWNER_ROUTING and invoke its real metadata/resolve command. Fix-in-place.',
+    'the language toolchain owner from CLAUDE.md OWNER_ROUTING and invoke its real metadata/resolve command; when that command fails or is ' +
+    'unavailable (it is under active construction), verify through the fallback tiers instead — BOTH .api catalog tiers, the nuget MCP for NuGet ' +
+    'feed truth / Context7 for API docs, exa/tavily against the package source. Fix-in-place.',
   'MANIFEST OWNER: central package/version ownership lives in ONE owning manifest per language (per DEPENDENCY_POLICY) — identify the one ' +
     'governing this root (the Python pyproject, the C# Directory.Packages.props, or the TS workspace manifest) and treat it as the single source ' +
     'of truth. Each consumed dependency may carry an API/evidence catalog (a .api/<pkg> entry where the root maintains one); a folder README lists ' +
@@ -37,6 +39,11 @@ const LAW = [
     'REPORT of edits ALREADY MADE, never a to-do list, ledger, or would/should hedge; leave nothing behind except genuine cross-FILE items ' +
     '(residual_high). If a file is already correct, return verdict=clean — never invent edits. The cold-verify stage must itself FIX any residual ' +
     'it finds, not just report it.',
+  'EVIDENCE GUARD (deletion + capability): a failed, erroring, or absent toolchain resolve is an OUTAGE signal, never absence evidence. Declare ' +
+    'a cited member or catalog entry a PHANTOM, and delete it, ONLY when a second independent tier corroborates the absence (the .api catalogs, ' +
+    'the nuget MCP feed / Context7 docs, exa/tavily against the package source); an uncorroborated failure KEEPS the entry and lands in ' +
+    'residual_high. Capability is HARDENED, never dropped: zero current consumers never lowers the bar — an admitted capability nothing exploits ' +
+    'is a named gap on the owning card surface, never a removal.',
   'ADVERSARIAL STANCE: presume every audited surface drifted, stale, or illusory until an aggressive attack finds nothing; a prior clean verdict ' +
     'is a rejected self-assessment, and verdict=clean is EARNED by an attack that comes back empty, never conceded on first read. Every ' +
     'enumerated checklist in this prompt is a FLOOR, never the complete set — hunt defects past it: any repeated structure, parallel spelling, ' +
@@ -49,7 +56,8 @@ const LAW = [
 const BLOCKER = [
   'BLOCKER PROTOCOL: for each [BLOCKED] card, classify. GENUINE-EXTERNAL (a dependency build/wheel/target absent for the runtime, upstream issue ' +
     'open, sibling card unmet, live-proof needed) -> keep [BLOCKED], sharpen the rationale. RESEARCH/PROBING-RESOLVABLE -> PROBE NOW (the ' +
-    'toolchain resolve/metadata command, the package index, the sibling page) and: if TRIVIAL, resolve fully (fix/correct tooling, get the info, ' +
+    'toolchain resolve/metadata command — or, when it is down, the .api catalogs / nuget MCP / Context7 / package index — plus the sibling ' +
+    'page) and: if TRIVIAL, resolve fully (fix/correct tooling, get the info, ' +
     'write it where it belongs: manifest/API-catalog/README/seam/card-body); if a BIG task, flip [BLOCKED]->[QUEUED] with a surgical correction ' +
     'plus a reproduce-the-needed-info procedure baked into the card (do NOT implement big work inside hygiene).',
 ].join('\n')
@@ -87,7 +95,8 @@ const h1 = (await pool(FOLDERS, CAP, (f) => agent([
     'manifest with the correct version/marker/floor; every dependency a card claims/wants is admitted or correctly deferred-carded; enumerate ' +
     'BOTH .api tiers IN FULL with a real ls/find (the language-root .api/ and the folder-local .api/ where present, never memory) and read ' +
     'entries at operator depth (members, not titles): every admitted dependency the folder consumes has its catalog entry (CREATE a missing one ' +
-    'NOW); an entry for a removed dependency, or a cited member that fails the toolchain resolve/metadata check, is a phantom — DELETE it NOW; ' +
+    'NOW); an entry for a removed dependency is a phantom — DELETE it NOW; a cited member that fails the toolchain resolve is a phantom ONLY ' +
+    'when a fallback tier corroborates the absence per the EVIDENCE GUARD (delete corroborated NOW; keep uncorroborated, named in residual_high); ' +
     'an admitted capability no page or card exploits is a named gap — record it on the owning card surface. README fresh vs the current ' +
     'manifest. (2) SEAMS — audit ' + f + '/ARCHITECTURE.md LINE BY LINE: every seam truthful (matches a real page/owner/cross-package ' +
     'contract), no missing real cross-folder seam, no stale/wrong info, codemap == the on-disk page set, correct glyphs, concise comment lines ' +
@@ -118,7 +127,8 @@ const h3 = (await pool(FOLDERS, CAP, (f) => agent([
   LAW, '', BLOCKER, '',
   'TASK (COLD VERIFY of ' + f + ' — adversarial and WRITING, no prior verdicts exist for you): re-derive the folder hygiene state from fresh ' +
     'full-file reads and attack it — README <-> central manifest <-> BOTH .api tiers fully consistent (no missing/orphan catalog entry, no ' +
-    'phantom cited member, no manifest drift); ARCHITECTURE seams all truthful and codemap == the on-disk page set; no false-complete card; ' +
+    'phantom cited member — EVIDENCE GUARD corroboration required before any deletion, no manifest drift); ARCHITECTURE seams all truthful and ' +
+    'codemap == the on-disk page set; no false-complete card; ' +
     'every [BLOCKED] card correctly classified per the protocol (genuine vs resolvable); cards fresh and bidirectional. Where the sweep already ' +
     'edited, PROVE each edit on disk, re-derive its necessity and form, and REPAIR any loose, weak, or token fix to its root form NOW. FIX any ' +
     'residual inconsistency in place whatever its severity (you own this folder). Gate: verdict=fixed when you repaired anything; verdict=clean ' +

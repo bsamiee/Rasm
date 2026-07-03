@@ -1,7 +1,7 @@
 export const meta = {
   name: 'rebuild-api',
   whenToUse: 'Rebuild every .api catalog under a target root to full integration-shaped capability.',
-  description: 'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first: the shared tier (libs/<lang>/.api/) is rebuilt as a wave BEFORE folder tiers, so folder catalogs stack onto real rebuilt hubs, never stubs; folder batches never span folders and co-batch sibling families. Residual reconcile normalizes paths, clusters by shared file, packs work-balanced buckets, then fix -> adversarial verify. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules. args = optional scope (e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
+  description: 'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Substrate-first: the shared tier (libs/<lang>/.api/) is rebuilt as a wave BEFORE folder tiers, so folder catalogs stack onto real rebuilt hubs, never stubs; folder batches never span folders and co-batch sibling families. Residual reconcile normalizes paths, clusters by shared file, packs work-balanced buckets, then fix -> adversarial verify. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules, falling back to the nuget MCP / Context7 / source tier when reflection is blocked. args = optional scope (e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
   phases: [
     { title: 'API-Discover', detail: 'list every .api catalog under the target from disk; _tmp/archives excluded' },
     { title: 'API-Substrate', detail: 'shared-tier catalogs (libs/<lang>/.api/) rebuilt first — the hub rails every folder tier stacks onto' },
@@ -35,9 +35,10 @@ const LAW = [
     'license / build-floor / marker or target), then member sections grouped by concern, backticked symbols + signatures + a consumer/boundary ' +
     'note. NO provenance/process narration, NO freshness tails. Cite REAL members only — verify via `uv run --frozen python -m tools.assay api ' +
     'resolve <pkg>` (assay api owns external-artifact reflection over host DLLs, NuGet, installed Python distributions, and node_modules ' +
-    'declarations per CLAUDE.md OWNER_ROUTING); fall back to the package source/official surface only if reflection is blocked, tagging the ' +
-    'catalog accordingly. READ tools/assay/README.md FIRST for the assay api-arm contract (its resolve/decompile/reflection invocation, supported ' +
-    'artifact kinds, and JSON output shape) so you drive it correctly rather than guessing flags.',
+    'declarations per CLAUDE.md OWNER_ROUTING); when reflection is blocked or assay is unavailable, verify through the fallback tier instead ' +
+    '— the nuget MCP for NuGet feed truth, Context7 for official API docs, exa/tavily for the package source/official surface — never from ' +
+    'memory. Before driving assay, READ tools/assay/README.md for the api-arm contract (its resolve/decompile/reflection invocation, ' +
+    'supported artifact kinds, and JSON output shape) so you drive it correctly rather than guessing flags.',
   'MANDATE — INTEGRATION-SHAPED, NOT SURFACE-LEVEL: a rebuilt .api documents (a) the package full ADVANCED surface (combinators, hooks, native ' +
     'pipelines, discriminators, async mirrors — not just the basic members), AND (b) the INTEGRATION patterns the dense design should compose — ' +
     'how this library STACKS with the other admitted libs into single rails (e.g. a decode hook feeding a discriminated model under a retry ' +
@@ -97,7 +98,8 @@ const rebuildPrompt = (files, tier) => [
     'dense rails; (3) HARDEN — the terminal, most aggressive review: attack BOTH naivety axes (COVERAGE thin-slice, APPROACH ' +
     'enumerated-instances-where-one-parameterized-pattern-owns-the-space), then remove every phantom member, wrong floor/marker/target, ' +
     'surface-level framing, missing license/ABI/runtime flag, and un-stacked single-feature framing — a defect list you hunt past — and end ' +
-    'with a full cold re-read of each finished catalog. Verify members via `uv run --frozen python -m tools.assay api resolve`. Also close any ' +
+    'with a full cold re-read of each finished catalog. Verify members via `uv run --frozen python -m tools.assay api resolve` (blocked: the ' +
+    'nuget MCP / Context7 / exa-tavily source tier owns the fallback). Also close any ' +
     'gap a consuming design page genuinely needs (a specific member/signature the design composes). Return the fix-log (files + verdict + ' +
     'residual per the RESIDUAL DISCIPLINE; everything within these catalogs you fix yourself).',
 ].join('\n')
@@ -180,11 +182,13 @@ if (buckets.length) {
     (cl) => agent([LAW, '', 'TASK: RECONCILE these cross-CATALOG residuals the per-batch pass deferred. There is NO severity — address EVERY ' +
       'residual. Read EVERY listed .api catalog IN FULL, make the cross-catalog fix in place at its ROOT — the objectively-best form of the same ' +
       'catalogs, never a token alignment (add the depended-on member/signature, align the stacking note across catalogs), verify members via ' +
-      '`uv run --frozen python -m tools.assay api resolve`, never shrink real content. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, model: 'opus', effort: 'max', stallMs: 300000 }),
+      '`uv run --frozen python -m tools.assay api resolve` (blocked: the nuget MCP / Context7 / exa-tavily source tier owns the fallback), ' +
+      'never shrink real content. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, model: 'opus', effort: 'max', stallMs: 300000 }),
     (fix, cl, i) => fix ? agent([LAW, '', 'TASK: ADVERSARIAL WRITING VERIFY — never a friendly confirmation, never read-only. A reconcile agent ' +
       'claims to have fixed the cross-catalog residuals below. Per claim: (a) re-derive from the catalogs whether the claimed fix was necessary ' +
       'at all; (b) read every named catalog from disk and PROVE the fix landed properly, re-verifying every cited member via `uv run --frozen ' +
-      'python -m tools.assay api resolve`; (c) REPAIR every loose, weak, or token fix in place NOW via Edit/Write to the objectively-best ' +
+      'python -m tools.assay api resolve` (blocked: the nuget MCP / Context7 / exa-tavily source tier owns the fallback); (c) REPAIR every ' +
+      'loose, weak, or token fix in place NOW via Edit/Write to the objectively-best ' +
       'root-level form of the same catalogs — a single-point patch where a root-level denser reconstruction is available is itself a defect you ' +
       'repair; (d) only then classify: status "fixed" (real defect, resolved on disk — your own repair counts), "invalid" (the claim is ' +
       'factually wrong — cite why, only when provably wrong), or "open" (RESERVED for claims genuinely unreachable from the catalogs at hand — ' +

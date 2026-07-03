@@ -1,7 +1,7 @@
 export const meta = {
   name: 'resolve-residuals',
   whenToUse: 'Resolve cross-file hard residuals a rebuild run could not close, with research and adversarial verification.',
-  description: 'Cross-file HARD-RESIDUAL resolver, language-agnostic, two write stages: cluster residuals by spanned files (union-find, atomic; path-less claims form one atomic cluster; oversized components sub-shard by lead file; LPT work-balanced packing into bounded buckets) -> RESOLVE per bucket (research + decide + edit in one pass: full-read spanned pages, enumerate both .api tiers, assay-verify members, make the strongest principled choice and implement it across every spanned page; one re-attempt for a dead bucket) -> VERIFY per bucket, pipelined with no barrier (adversarially re-derive each claim, prove on disk, repair weak fixes in place, one verdict per claim). args = an array, {residuals:[...]}, or a rebuild-* run\'s {hard_residual:[...]}; items are {files,claim}, {id,claim,hint}, or bare claim strings. Empty = no-op.',
+  description: 'Cross-file HARD-RESIDUAL resolver, language-agnostic, two write stages: cluster residuals by spanned files (union-find, atomic; path-less claims form one atomic cluster; oversized components sub-shard by lead file; LPT work-balanced packing into bounded buckets) -> RESOLVE per bucket (research + decide + edit in one pass: full-read spanned pages, enumerate both .api tiers, verify member claims (assay with the .api/nuget-MCP/Context7/web fallback), make the strongest principled choice and implement it across every spanned page; one re-attempt for a dead bucket) -> VERIFY per bucket, pipelined with no barrier (adversarially re-derive each claim, prove on disk, repair weak fixes in place, one verdict per claim). args = an array, {residuals:[...]}, or a rebuild-* run\'s {hard_residual:[...]}; items are {files,claim}, {id,claim,hint}, or bare claim strings. Empty = no-op.',
   phases: [
     { title: 'Resolve', detail: 'per work-balanced bucket: research + decide + implement across all spanned pages in one write pass; dead buckets get one re-attempt' },
     { title: 'Verify', detail: 'per bucket the moment its resolve lands: adversarially re-derive, prove on disk, repair in place, one verdict per claim' },
@@ -43,11 +43,11 @@ const DESIGN_BAR = [
     'boundaries, branded/nominal types, exhaustive discriminated unions, zero `any`/`throw`/`enum`). Read the operative pages for the file ' +
     'language before editing; every fence holds that bar as fact.',
   'ULTRA-STACK .api CAPABILITY by the file language — enumerate BOTH tiers IN FULL with a real `ls`/`fd` listing from disk (never memory) and ' +
-    'mine them to operator depth: C# uses the per-package `<pkg>/.api/*.md` catalogs + the universal Thinktecture/LanguageExt rails (no central ' +
-    'tier; Geometry catalogs live at `libs/csharp/Rasm/.api/`); Python mines the shared `libs/python/.api/*.md` AND the folder ' +
+    'mine them to operator depth: C# mines the shared `libs/csharp/.api/*.md` substrate tier (Thinktecture/Mapperly/QuikGraph and peer rails) AND ' +
+    'the package `libs/csharp/<Pkg>/.api/*.md` domain catalogs; Python mines the shared `libs/python/.api/*.md` AND the folder ' +
     '`libs/python/<folder>/.api/*.md`; TypeScript mines the shared `libs/typescript/.api/*.md` tier AND the folder ' +
     '`libs/typescript/<folder>/.api/*.md`. An admitted capability the resolution admits but no owner exploits is a defect to close; a cited member ' +
-    'no catalog or `assay api` confirms is a phantom to DELETE, never to assert. Maximize the shared/universal rails, never only the folder set.',
+    'no catalog or verification rail confirms is a phantom to DELETE, never to assert. Maximize the shared/universal rails, never only the folder set.',
   'PROSE + COMMENTS: high-signal design-spec prose per docs/standards/style-guide.md — lead with the controlling contract, one idea per paragraph, ' +
     'no hedges/provenance/process narration; BACKTICK every symbol/type/member/path. Keep canonical `# --- [LABEL]` section dividers; comment only ' +
     'where intent is not obvious; zero low-value comments. Prose that ASSERTS capability the fence does not implement is a defect.',
@@ -72,15 +72,18 @@ const RESIDUAL_LAW = [
   'DEFERRED DECISIONS ARE RESOLVED, NOT PUNTED: where a residual is a design decision (a new policy axis, a consumer wiring, a canonical contract, ' +
     'a capability extension), make the STRONGEST principled choice the domain + standards admit (research it; choose the most polymorphic, ' +
     'parameterized, future-ready form) and IMPLEMENT it. Only leave an `open_question` when the choice genuinely requires an operator product ' +
-    'decision you cannot ground.',
+    'decision you cannot ground. HARDENING: capability is improved or extended, NEVER dropped for lack of a current consumer — zero consumers ' +
+    'never lowers the bar; closing a residual by deleting the contested capability is a defect, not a resolution.',
   'REALIZATION-GATE ITEMS STAY IN THE DESIGN PAGE: where a residual notes an owner is "not yet realized as source", the resolution is to ' +
     'SIGNATURE-LOCK the exact contract on the owning DESIGN PAGE so consumers cite it consistently — NEVER create `.cs`/`.py`/`.ts` source (that ' +
     'is the deferred implement pass).',
-  'RESEARCH MANDATE — no guessing: where a claim hinges on a real package/host member, VERIFY it via `uv run python -m tools.assay api` over the ' +
-    'right artifact band (host DLLs / NuGet / Python distributions / node_modules; READ tools/assay/README.md FIRST for the api-arm contract and ' +
-    'the correct invocation, and for a gated/companion Python band the correct interpreter). Where a claim catalogs missing members, WRITE them ' +
-    'into the owning `.api/*.md` catalog — resolutions MAY edit `.api` catalog files as well as design pages. Where a claim hinges on a ' +
-    'domain/math contract, research the real convention before deciding.',
+  'RESEARCH MANDATE — no guessing: where a claim hinges on a real package/host member, VERIFY it. Primary rail: `uv run python -m tools.assay ' +
+    'api` over the right artifact band (host DLLs / NuGet / Python distributions / node_modules; READ tools/assay/README.md FIRST for the ' +
+    'api-arm contract, and for a gated/companion Python band the correct interpreter). When assay is unavailable or errors, the verification ' +
+    'duty stands — fall back to the evidence tier: BOTH `.api` catalog tiers, the nuget MCP for NuGet feed truth, Context7 for official API ' +
+    'docs, exa/tavily for source verification; never memory. Where a claim catalogs missing members, WRITE them into the owning `.api/*.md` ' +
+    'catalog — resolutions MAY edit `.api` catalog files as well as design pages. Where a claim hinges on a domain/math contract, research the ' +
+    'real convention before deciding.',
   'WRITE-FULLY: every edit you identify you MUST make NOW via Edit/Write; the fix-log REPORTS edits already made. Leave behind only a genuine ' +
     'still-cross-file item or a true operator decision (open_question).',
 ].join('\n')
@@ -139,8 +142,8 @@ const resolvePrompt = (rows) => [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, 
 const verifyPrompt = (rows, fix) => [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, '', 'TASK (WRITING VERIFY — adversarial, never a friendly ' +
   'confirmation; you EDIT): a resolver claims to have closed the residuals below. Per residual: (a) RE-DERIVE from the claim and the pages ' +
   'whether the claimed work was necessary at all; (b) read every spanned page from disk and PROVE the resolution is ACTUALLY done — ' +
-  'implemented (not hedged or merely described), correct (math/domain/`.api`-grounded; re-check every cited member against the catalog/`assay ' +
-  'api`; a cited member that fails verification is a phantom you DELETE from the page NOW), and CONSISTENT across every page it spans; (c) ' +
+  'implemented (not hedged or merely described), correct (math/domain/`.api`-grounded; re-check every cited member per the RESEARCH MANDATE ' +
+  'rail; a cited member that fails verification is a phantom you DELETE from the page NOW), and CONSISTENT across every page it spans; (c) ' +
   'where the landed fix is loose, weak, token, or naive on either axis, REPAIR it in place NOW via Edit/Write to the objectively-best ' +
   'root-level form of the same files — never punt a strengthenable fix to `open`; (d) only then classify: `resolved` ONLY if genuinely ' +
   'complete, correct, and consistent ON DISK after your edits (cite the on-disk proof in evidence), else `open` with exactly what remains and ' +

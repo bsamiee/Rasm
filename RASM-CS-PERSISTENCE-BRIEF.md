@@ -1,8 +1,24 @@
 # [RASM_CS_PERSISTENCE_BRIEF]
 
-Campaign: cs track 2/6 — run after the geometry campaign (its DECISION also unblocks the AppHost/AppUi signature-lock re-verification). Phase 1: `Workflow(design-cs-persistence.js)` emits `RASM-CS-PERSISTENCE-DECISION.md`; Phase 2: `Workflow(rebuild.js, {targets: <per-leg pages>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` legs per the DECISION, spine first.
-
 Authoritative campaign input for the ground-up restructure and rebuild of `libs/csharp/Rasm.Persistence/.planning/` — the APP-PLATFORM durable-state spine persisting the `Rasm.Element` `ElementGraph` as its system of record. The campaign is two-phase: `[01]-[PHASE_ARCHITECTURE]` runs ONE ephemeral design workflow that emits `RASM-CS-PERSISTENCE-DECISION.md` — the binding restructure blueprint (final page-set, new owners, splits, seam ledger, band registry, roster deltas, leg partition); `[05]-[BUILD_LEGS]` then runs the durable rebuild engine against that DECISION. This brief binds both phases. Upstream law honored throughout: the conversion-landed kernel corpus (`libs/csharp/Rasm/.planning/` — one root, eight sub-domain folders; `Domain/identity.md` `ContentHash.Of`, `Domain/rails.md` `Expected`, and `Spatial/reconciliation.md` `Encode`/`Reconcile` are the landed surfaces this package composes) together with `RASM-CS-GEOMETRY-BRIEF.md` (the kernel campaign — Persistence writes against the UNION of the landed pages and that brief's mandates: its key-minting consumer, never its re-implementer) and `.archive/RASM-COMPONENT-PARADIGM-DECISION.md` (the frozen-wire rule, the `[AMENDMENTS]` count-prefix law, the 25xx->27xx re-band gate, the `FaultBand` registry shape). `docs/stacks/csharp/` governs unchanged and is never restated here.
+
+## [EXECUTION]
+
+Hinge campaign, cs track 2/6 — runs after the geometry campaign (whose DECISION also unblocks the AppHost/AppUi signature-lock re-verification): design workflow -> `RASM-CS-PERSISTENCE-DECISION.md` -> four rebuild legs spine-first per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, hard residuals resolved before the next leg launches -> card + hygiene settling over `libs/csharp/Rasm.Persistence`; legs re-run across sessions against the same DECISION until a cold pass finds nothing.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+|---|---|---|
+| 1 | `Workflow(design-cs-persistence.js, {brief: "RASM-CS-PERSISTENCE-BRIEF.md"})` | `RASM-CS-PERSISTENCE-DECISION.md` at the repo root — page-set skeletons in both action vocabularies, the re-partitioned 83xx band registry, corrected seam ledger with the twelve counterpart obligations, roster deltas with `.api` obligations, acyclic leg partition, the full card disposition table, the federation hinge ruled from probe evidence |
+| 2 | `Workflow(rebuild.js, {targets: <DECISION leg-1 targets>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` | Leg 1 SPINE + PERIMETER (band registry complete, Element extractions, roster + catalog motion) landed; `hard_residual` array |
+| 3 | `Workflow(resolve-residuals.js, {hard_residual: <step-2 return, when non-empty>})` | Leg-1 residuals closed on disk before leg 2 launches |
+| 4 | `Workflow(rebuild.js, {targets: <DECISION leg-2 targets>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` | Leg 2 VERSION ENGINE landed; `hard_residual` array |
+| 5 | `Workflow(resolve-residuals.js, {hard_residual: <step-4 return, when non-empty>})` | Leg-2 residuals closed |
+| 6 | `Workflow(rebuild.js, {targets: <DECISION leg-3 targets>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` | Leg 3 QUERY + INGEST landed; `hard_residual` array |
+| 7 | `Workflow(resolve-residuals.js, {hard_residual: <step-6 return, when non-empty>})` | Leg-3 residuals closed |
+| 8 | `Workflow(rebuild.js, {targets: <DECISION leg-4 targets>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` | Leg 4 STORE + COORDINATION + EGRESS landed; `hard_residual` array; the four `[05]` acceptance dry-runs compose |
+| 9 | `Workflow(resolve-residuals.js, {hard_residual: <step-8 return, when non-empty>})` | Leg-4 residuals closed |
+| 10 | `Workflow(align-cards.js, "libs/csharp/Rasm.Persistence")` | IDEAS/TASKLOG cards aligned to the rebuilt corpus |
+| 11 | `Workflow(hygiene-sweep.js, "libs/csharp/Rasm.Persistence")` | README/manifest/`.api`/ARCHITECTURE coherence at zero high-severity |
 
 ## [00]-[SHARED_LAW]
 

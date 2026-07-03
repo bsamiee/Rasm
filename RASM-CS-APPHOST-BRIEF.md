@@ -1,8 +1,23 @@
 # [RASM_CS_APPHOST_BRIEF]
 
-Campaign: cs track 4/6 — run after the persistence DECISION emits (the V2/V9/V10 signature-locks re-verify against it at leg entry). Single-phase: `Workflow(rebuild.js, {targets: "libs/csharp/Rasm.AppHost", brief: "RASM-CS-APPHOST-BRIEF.md"})`, legs per `[05]`; hard residuals between legs via `resolve-residuals.js`.
-
 Authoritative campaign input for the restructure-and-harden of `libs/csharp/Rasm.AppHost/.planning/` — the APP-PLATFORM runtime spine (29 pages, 5 folders: Runtime 11 · Agent 6 · Wire 6 · Sandbox 3 · Observability 3). Upstream law honored throughout: `RASM-CS-GEOMETRY-BRIEF.md` plus the landed kernel corpus it governs (`libs/csharp/Rasm/.planning/` + the kernel seam ledger, composed as fully realized law — the `Domain/identity.md` `ContentHash.Of` federation identity entry and the `Drawing/pack.md` `PackOp`/`EncodedGeometry`/`EncodingChannel` wire AppHost's Sandbox decodes, never re-implements), `RASM-CS-PERSISTENCE-BRIEF.md` (the V2 token-VALIDATING coordination store and V3 egress owner AppHost's PORT adapters DECODE — no AppHost interface or type crosses down), `RASM-CS-COMPUTE-BRIEF.md` (the V1 assessment lifecycle and JobState vocabulary AppHost consumes settled; the V13 channels split AppHost re-points against), and `.archive/RASM-COMPONENT-PARADIGM-DECISION.md` (the `FaultBand` registry shape at `:141-149`; AppHost occupies its own APP-PLATFORM band neighborhood, never the AEC 23xx-27xx registry). Six surgical waterfall edits are landed and verified in place: the Persistence `[V2]` per-unit vector debit, the Persistence `[V2]` coordination READ cases (in-flight/expired-lease enumeration), the Persistence `[V3]` wire-native delivery-honesty read, the Persistence `[V12]` presence-driver correction, the Compute `[V13]` channels-split AppHost re-anchor, and the Compute `[02]` `GeometryEncoding` `Field`/`Toolpath` consumer-pressure row. `docs/stacks/csharp/` governs unchanged and is never restated here.
+
+## [EXECUTION]
+
+Settled campaign, cs track 4/6, single-phase — launched after the Persistence DECISION emits (the `[V2]`/`[V9]`/`[V10]` signature-locks re-verify against it at leg entry): the durable rebuild engine runs directly against this brief per the four-leg `[05]` partition with every leg residual-clean before the next launches, the campaign settles on cards + hygiene, and legs re-run across cold sessions against the same brief until a pass finds nothing.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+| :----: | :------- | :--------- |
+| [01] | `Workflow(rebuild, {targets: [<[05] leg-1 page set — PERIMETER FLOOR>], brief: "RASM-CS-APPHOST-BRIEF.md"})` | `[V1]` registry + `[V4]`/`[V12]` extractions + `[V15]`/`[V16]`/`[04]` roster-catalog-csproj motion + `[V17]` ledger re-emit on the 31-page set; `hard_residual` |
+| [02] | `Workflow(resolve-residuals, {hard_residual: <step [01] run array>})` — when non-empty | leg 1 residual-clean |
+| [03] | `Workflow(rebuild, {targets: [<[05] leg-2 page set — RUNTIME SPINE>], brief: "RASM-CS-APPHOST-BRIEF.md"})` | runtime spine landed; `hard_residual` |
+| [04] | `Workflow(resolve-residuals, {hard_residual: <step [03] run array>})` — when non-empty | leg 2 residual-clean |
+| [05] | `Workflow(rebuild, {targets: [<[05] leg-3 page set — AGENT + WIRE>], brief: "RASM-CS-APPHOST-BRIEF.md"})` | agent + wire planes landed; `hard_residual` |
+| [06] | `Workflow(resolve-residuals, {hard_residual: <step [05] run array>})` — when non-empty | leg 3 residual-clean |
+| [07] | `Workflow(rebuild, {targets: [<[05] leg-4 page set — SANDBOX + OBSERVABILITY + CLOSEOUT>], brief: "RASM-CS-APPHOST-BRIEF.md"})` | sandbox/observability closeout + final `[V17]` governance truth pass + the `[05]` acceptance dry-runs; `hard_residual` |
+| [08] | `Workflow(resolve-residuals, {hard_residual: <step [07] run array>})` — when non-empty | leg 4 residual-clean |
+| [09] | `Workflow(align-cards, "libs/csharp/Rasm.AppHost")` | every IDEAS/TASKLOG card under the scope aligned to the rebuilt corpus |
+| [10] | `Workflow(hygiene-sweep, "libs/csharp/Rasm.AppHost")` | README <-> manifest <-> `.api` <-> seam consistency at zero high-severity — campaign landed |
 
 ## [00]-[SHARED_LAW]
 

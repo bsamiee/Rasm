@@ -3,7 +3,7 @@ export const meta = {
   description: 'Ephemeral Phase-1 design pass for the Persistence campaign: survey (5 plane agents re-verifying the register on disk + 1 FEASIBILITY PROBE: the V1 federation hinge — FlowtideDotNet.Substrait envelope vs the SetExpr lowering and the boundary-transcription weight) -> 4 complete structural blueprints under the brief lenses -> 3 judge lenses with FOUR disqualifying gates (verdict disposition, strata acyclicity incl. the V5 inversions, band-registry uniqueness, all four AppHost PORT seams homed) -> synthesize winner+grafts -> red-team decide gate that WRITES RASM-CS-PERSISTENCE-DECISION.md in rebuild-engine-native action vocabulary with the federation hinge ruled AT DECISION TIME from probe evidence -> salvage (4 draft miners + overturn auditor + 1 writing integrator). About 21 agents, peak concurrency 6. args = {brief, out, scratch} with defaults; a string arg overrides the brief path.',
   whenToUse: 'One-shot: turn RASM-CS-PERSISTENCE-BRIEF.md into RASM-CS-PERSISTENCE-DECISION.md — the binding page-set/band-registry/seam-ledger/roster/leg-partition blueprint the durable rebuild engine executes. Launch when the Persistence campaign opens. Delete after the campaign lands.',
   phases: [
-    { title: 'Survey', detail: '5 plane surveyors (register re-verified on disk, assay over verify-or-die members) + 1 feasibility probe (the V1 federation hinge)' },
+    { title: 'Survey', detail: '5 plane surveyors (register re-verified on disk, verify-or-die members proven via assay or the .api/nuget/web fallback rail) + 1 feasibility probe (the V1 federation hinge)' },
     { title: 'Draft', detail: '4 complete blueprints, one per brief lens (coordination-contract-first, federation-egress-first, perimeter-first, folder-architecture-first)' },
     { title: 'Judge', detail: '3 lenses; disqualifying gates: disposition completeness, strata acyclicity + V5 inversions, band-registry uniqueness, all four PORT seams homed' },
     { title: 'Synthesize', detail: '1 agent merges the winning blueprint with every accepted graft' },
@@ -64,14 +64,17 @@ const PRE = 'Rasm monorepo. THE BRIEF ' + BRIEF + ' (repo root) is binding law �
   'structural authority with the ruled-default 24-page map, placement law, generator law, seam-and-rail law, roster reconciliation with the ' +
   'license gate), V1-V13 the binding verdicts with ruled defaults and deciding criteria, [02] the evidence register E1-E14, [03] escalation ' +
   'targets, and every remaining section. Target: libs/csharp/Rasm.Persistence/.planning/ (18 pages: Element/ graph codec identity; Version/ ' +
-  'commits merge timetravel ledger retention recovery provenance; Query/ lane cypher topology columnar; Ingest/ tabular; Store/ blobstore ' +
-  'provisioning cache) plus the package README/ARCHITECTURE/TASKLOG/IDEAS, BOTH .api tiers, and the central Directory.Packages.props. Upstream ' +
+  'commits merge timetravel ledger retention recovery provenance; Query/ lane cypher topology columnar cache; Ingest/ tabular; Store/ blobstore ' +
+  'provisioning) plus the package README/ARCHITECTURE/TASKLOG/IDEAS, BOTH .api tiers, and the central Directory.Packages.props. Upstream ' +
   'law honored, never re-planned: RASM-CS-GEOMETRY-BRIEF.md (Persistence is the kernel campaign KEY-MINTING CONSUMER; its V2 parametric ' +
   'content-identity clause carries the Persistence demand) and .archive/RASM-COMPONENT-PARADIGM-DECISION.md (frozen-wire rule, the [AMENDMENTS] ' +
   'count-prefix law, the 25xx->27xx re-band gate, the FaultBand registry shape at :141-149). docs/stacks/csharp/ governs every fence; the ' +
   'WORKSPACE_LAW strata govern placement (Persistence is APP-PLATFORM: up-only on Rasm + Rasm.Element, never a sibling AEC peer, never a host ' +
-  'SDK); member verification runs uv run python -m tools.assay api over restored assemblies. Your stance is HOSTILE: the 18 fence interiors ' +
-  'are strong but the PERIMETER is fiction until disk proves otherwise; the register is an initial pointer, never a ceiling. ROSTER STANCE: ' +
+  'SDK); member verification runs uv run python -m tools.assay api over restored assemblies — and when assay is unavailable the rail holds: ' +
+  'the .api catalogs (decompile-verified member truth) + the nuget MCP for feed truth + upstream source via web research, never training data. ' +
+  'Your stance is HOSTILE: the 18 fence interiors ' +
+  'are strong but the PERIMETER is fiction until disk proves otherwise; the register is an initial pointer, never a ceiling. HARDENING LAW: ' +
+  'capability is improved or extended, NEVER dropped for lack of a current consumer; zero consumers never lowers the bar. ROSTER STANCE: ' +
   'INTEGRATION-FIRST — an admitted zero-consumer package is realized as a row on its owning axis before it is ever a removal candidate; a ' +
   'removal needs a per-package redundancy/abandonment/charter proof; [V13] parameterizes the store perimeter as provider rows on closed axes, ' +
   'and only the SoR-spine seal (one event store, one materializer, one identity, one changefeed) is unchallengeable.'
@@ -82,8 +85,8 @@ const ENGINE_VOCAB = 'ENGINE-NATIVE ACTIONS: the page-set table carries TWO acti
 const ROW_SCHEMA = 'PAGE-ROW SCHEMA (every row total): path | semantic action + engine lowering | owner charter with its folder home, per-page ' +
   'skeleton, and registry band per V4 | entry signature (the op-union, or NONE for vocabulary pages) | in/out seam edges (one anchor per seam, ' +
   'both ledger directions) | leg. Plus: the band registry table (the re-partitioned 83xx map, duplicate-fails-at-type-init); the corrected own ' +
-  'seam ledger with the thirteen stale sibling rows (COMPUTE:111,115,116,119; BIM:90,92,94,100,101,103; APPHOST:71,73,85) as counterpart ' +
-  'obligations with corrected targets; the roster delta table with .api obligations per [ROSTER_RECONCILIATION]; verdict (V1-V12), evidence ' +
+  'seam ledger with the twelve stale sibling rows (COMPUTE:111,115,116,119; BIM:91,95,101,102,104; APPHOST:71,73,85) as counterpart ' +
+  'obligations with corrected targets; the roster delta table with .api obligations per [ROSTER_RECONCILIATION]; verdict (V1-V13), evidence ' +
   '(E1-E14), and [03]-delta disposition tables; the FULL TASKLOG/IDEAS card disposition table (every phantom-realization clause corrected, ' +
   'every stale -[COMPLETE] card re-pointed). A blueprint leaving ANY disposition open is INCOMPLETE and loses at judge.'
 
@@ -91,7 +94,8 @@ const ROW_SCHEMA = 'PAGE-ROW SCHEMA (every row total): path | semantic action + 
 const surveyPrompt = (lane, scope, rows) => [PRE, 'TASK: READ-ONLY SURVEY, lane = ' + lane + '. Scope: ' + scope + '. Deep-read fully. ' +
   'Re-verify ON DISK every register row assigned: ' + rows + ' — HOLD (anchor exact), DRIFT (real defect, anchor moved — corrected anchor), or ' +
   'REFUTED (disk falsifies — cite the line). Beyond the register: both naivety axes, unwired seams, duplicate mechanisms, dead carriers, ' +
-  'phantom members (assay-verify every [SEAM_AND_RAIL_LAW] verify-or-die member in your lane), band/prose drift. WRITE the dossier to ' +
+  'phantom members (prove every [SEAM_AND_RAIL_LAW] verify-or-die member in your lane: assay api when it answers, else the .api catalogs + ' +
+  'the nuget MCP + upstream source), band/prose drift. WRITE the dossier to ' +
   SCRATCH + '/dossier-' + lane + '.md (per-page verdicts + defects with anchors + charter-as-it-should-be; cross-cutting findings). Dense, ' +
   'evidence-first. NO edits outside ' + SCRATCH + '/.'].join('\n')
 const PROBE_FEDERATION = [PRE, 'TASK: FEASIBILITY PROBE — the V1 federation hinge, the campaign-defining ruling. The ruled default REINTRODUCES ' +
@@ -100,9 +104,10 @@ const PROBE_FEDERATION = [PRE, 'TASK: FEASIBILITY PROBE — the V1 federation hi
   'lane#ELEMENT_SET_ALGEBRA SetExpr + the columnar/ADBC execution lane, pinned to ONE TimeCut with a (plan digest, cut, watermark) receipt. The ' +
   'retire criterion: a transcription heavier than the lowering, or a lowering that cannot land without minting a second query engine. Your job: ' +
   'surface the evidence NOW so the DECISION rules the hinge, never mid-leg. Method: read libs/csharp/Rasm.Persistence/.api/api-flowtide-' +
-  'substrait.md in FULL (the :151 internal-round-trip claim is load-bearing); run uv run python -m tools.assay api over the restored ' +
-  'FlowtideDotNet.Substrait assembly and verify EVERY member V1 names (SqlPlanBuilder.Sql/GetPlan visibility, the RelationVisitor/' +
-  'ExpressionVisitor surface, the Plan/Relation model shapes, any public protobuf ingress); verify the shared-tier protobuf codegen admission ' +
+  'substrait.md in FULL (decompile-verified member truth; the :151 internal-round-trip claim is load-bearing) and verify EVERY member V1 names ' +
+  'against it (SqlPlanBuilder.Sql/GetPlan visibility, the RelationVisitor/ExpressionVisitor surface, the Plan/Relation model shapes, any public ' +
+  'protobuf ingress), corroborating via uv run python -m tools.assay api over the restored FlowtideDotNet.Substrait assembly when it answers — ' +
+  'else the nuget MCP + the upstream FlowtideDotNet source via web research (two-source law); verify the shared-tier protobuf codegen admission ' +
   'and whether Substrait .proto codegen is viable on it; map the Substrait relational op set onto the SetExpr algebra (lane.md) and the ' +
   'columnar lane, naming every op with no lowering target; weigh transcriber LOC/complexity against the lowering itself. WRITE ' + SCRATCH +
   '/probe-federation.md: per-member {exists, signature, visibility}, the codegen viability, the lowering-fit map, the transcription-weight ' +
@@ -135,7 +140,7 @@ const decidePrompt = (synthesis, probes) => [PRE, ENGINE_VOCAB, ROW_SCHEMA, 'TAS
   '(reintroduce as ruled / reintroduce with gap-closes / retire) from ' + JSON.stringify(probes) + '; the V5 frozen-contract ruling across all ' +
   'four inversions; the V6 EF-commit + embedded-boundary + pgvector-lane criteria; the V11 schedule-consumer criterion. Then WRITE ' + OUT +
   ' (repo root) carrying exactly the brief [01] emit contract: (a) the final page-set table (full row schema, both action vocabularies, ' +
-  'per-page skeletons); (b) the band registry with the re-partitioned 83xx map; (c) the corrected seam ledger with the thirteen stale sibling ' +
+  'per-page skeletons); (b) the band registry with the re-partitioned 83xx map; (c) the corrected seam ledger with the twelve stale sibling ' +
   'rows as counterpart obligations; (d) roster deltas with .api obligations (prunes, commits, the recorded rejections carried forward); (e) ' +
   'the leg partition proven acyclic with per-leg rebuild-engine invocation rows; (f) the full TASKLOG/IDEAS card disposition table. ' +
   'Agent-facing declarative; every open item RULED. The DECISION stands alone without ' + SCRATCH + '/.'].join('\n')
@@ -156,13 +161,13 @@ const integratePrompt = (decision, findings) => [PRE, 'TASK: WRITING INTEGRATOR 
 // --- [SURVEY]
 phase('Survey')
 const LANES = [
-  { lane: 'element-store', scope: 'the Element/ pages (graph, codec, identity) + the Store/ pages (blobstore, provisioning, cache) FULLY, plus ' +
-    'the package README/ARCHITECTURE/TASKLOG/IDEAS', rows: 'E5 (the Persistence side), E7, E9 (the blobstore/codec halves), E12, E14, and every register anchor in your six pages' },
+  { lane: 'element-store', scope: 'the Element/ pages (graph, codec, identity) + the Store/ pages (blobstore, provisioning) FULLY, plus ' +
+    'the package README/ARCHITECTURE/TASKLOG/IDEAS', rows: 'E5 (the Persistence side), E7, E9 (the blobstore/codec halves), E12, E14, and every register anchor in your five pages' },
   { lane: 'version', scope: 'the Version/ pages (commits, merge, timetravel, ledger, retention, recovery, provenance) FULLY', rows: 'E8, E9 (the ' +
     'ledger/timetravel/retention halves), E10 (the merge side), E11, and every register anchor in your seven pages' },
-  { lane: 'query-ingest', scope: 'the Query/ pages (lane, cypher, topology, columnar) + Ingest/tabular.md FULLY', rows: 'E4, E13, E14 (the ' +
-    'columnar side), and every register anchor in your five pages' },
-  { lane: 'api-manifests', scope: 'BOTH .api tiers COMPLETE (the ~77 package catalogs under libs/csharp/Rasm.Persistence/.api/ + the ~30 shared ' +
+  { lane: 'query-ingest', scope: 'the Query/ pages (lane, cypher, topology, columnar, cache) + Ingest/tabular.md FULLY', rows: 'E4, E13, E14 (the ' +
+    'columnar side), and every register anchor in your six pages' },
+  { lane: 'api-manifests', scope: 'BOTH .api tiers COMPLETE (the 77 package catalogs under libs/csharp/Rasm.Persistence/.api/ + the 30 shared ' +
     'substrate catalogs under libs/csharp/.api/), the Directory.Packages.props Persistence block, Rasm.Persistence.csproj; verify roster claims ' +
     'against live feeds via the nuget MCP where the brief cites versions', rows: 'E2, E3, and every [ROSTER_RECONCILIATION] disposition (each a register row)' },
   { lane: 'sibling-ledgers', scope: 'the cross-package anchors the brief cites: Rasm.AppHost/ARCHITECTURE.md (the four PORT rows + the two stale ' +

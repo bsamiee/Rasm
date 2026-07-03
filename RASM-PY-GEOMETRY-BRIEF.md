@@ -1,8 +1,17 @@
 # [RASM_PY_GEOMETRY_BRIEF]
 
-Campaign: py track 3/5 — run after RASM-PY-RUNTIME + RASM-PY-DATA. Single-phase: `Workflow(rebuild.js, {targets: "libs/python/geometry", brief: "RASM-PY-GEOMETRY-BRIEF.md"})`, legs per `[05]`; hard residuals between legs via `resolve-residuals.js`.
-
 Authoritative campaign input for the ground-up restructure and rebuild of `libs/python/geometry/.planning/`. The campaign is single-phase: the page-set delta is fully ruled here (seven NEW pages — the four-page `energy/` sub-domain, `mesh/serve.md`, `graduation.md`, `graph/analytic.md` — one vocabulary re-homing, zero page deletions), so no ephemeral DECISION pass runs — the durable rebuild engine takes this brief directly, its plan step classifying per-page kind from `[01]` verdicts against disk, its legs running the `[05]` partition in order. `geometry` is the THIRD folder in the Python campaign sequence (runtime -> data -> geometry -> compute): `RASM-PY-RUNTIME-BRIEF.md` and `RASM-PY-DATA-BRIEF.md` are finalized upstream law this brief consumes at the seam — the identity rename, the lanes offload axis, the reproduction corpus, and the data `MeshPayload`/Arrow-bridge/codec-shed seams are upstream rulings geometry rewires against, never re-plans. Waterfall edits applied upstream: `RASM-PY-RUNTIME-BRIEF.md` `[V5]` now pins the `offload` `retry: RetryClass` keyword, the THREAD-modality band, and the `OCCT`/`RPC`/`OCC_NATIVE` POLICY rows as consumer exports with `geometry` the named demanding consumer; `[V7]` now pins the `GLB_BY_KEY` reproduction fixture and the `IdentityPolicy`-as-generic-seed law with `geometry` named; `[V3]` now names geometry's energy plane the recipe rail's `python:` consumer; runtime `[V2]` now pins the C#-minted tessellation wire rows (`TessellationRequest` + response over the `artifact_frame` leg) as `shapes` registry rows carrying geometry's decoded field floor and `[V6]` now pins `ServerHost`/`dispatch` sibling-composable servicer registration, both with `geometry` `mesh/serve` named; `RASM-PY-DATA-BRIEF.md` `[V12]`+`[04]` now keep `networkx` branch-tier with geometry the analysis consumer of record, and `[V12]` now names geometry's `arrow_las` seam decode on the `pyarrow` data-tier owner line. `compute` is DOWNSTREAM and unbriefed: this brief pins the graduation contract compute inherits (`[V2]`) and geometry stops importing it. `docs/stacks/python/` governs unchanged and is never restated here.
+
+## [EXECUTION]
+
+Settled single-phase campaign, py track 3/5 — launched after the RASM-PY-RUNTIME and RASM-PY-DATA campaigns land: the durable rebuild engine runs this brief directly, one launch per `[05]-[BUILD_LEGS]` leg in leg order, hard residuals resolved before the next leg launches, the settling pair closing the campaign; legs re-run across sessions against this brief until a cold pass finds nothing.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+| :----: | :------- | :--------- |
+| [01] | `rebuild` — `{targets: "libs/python/geometry", brief: "RASM-PY-GEOMETRY-BRIEF.md"}` — one launch per `[05]-[BUILD_LEGS]` leg, in leg order | Each leg's pages authored/rebuilt/improved per the `[01]` verdicts; the run returns a `hard_residual` array |
+| [02] | `resolve-residuals` — `{hard_residual: <the step-[01] run's hard_residual array>}` — whenever non-empty, before the next leg launches | Cross-file residuals closed and adversarially verified on disk |
+| [03] | `align-cards` — `"libs/python/geometry"` | Every IDEAS/TASKLOG card under the folder aligned to the rebuilt corpus with Ripple bidirectionality |
+| [04] | `hygiene-sweep` — `"libs/python/geometry"` | README <-> root `pyproject.toml` <-> both `.api` tiers <-> `ARCHITECTURE.md` agreement; zero high-severity at the cold-verify gate |
 
 ## [00]-[SHARED_LAW]
 

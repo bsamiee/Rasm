@@ -69,16 +69,17 @@ const LANG = {
       'language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis) AND the specialized ' +
       'docs/stacks/csharp/domain/ shard(s) relevant to the page concern, then PUSH PAST it to the objectively strongest form the doctrine admits ' +
       '— the tools/cs-analyzer compiled-doctrine gate enforces it (a true positive is architecture pressure, fix the shape; a false positive is ' +
-      'rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv run python -m tools.assay api`; back bridge claims ' +
-      'with EvidenceCertificate + reviewed ReferenceEvidence.',
-    homing: '',
+      'rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv run python -m tools.assay api` (assay blocked or ' +
+      'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback); ' +
+      'back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
     apiTiers: 'MINE BOTH capability tiers: the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
       'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`; ' +
       'ALWAYS layer the universal Thinktecture/LanguageExt rails onto the domain packages, ' +
       'never only the folder set.',
     readLaw: 'docs/stacks/csharp/ in FULL — README plus language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, ' +
       'system-apis — PLUS the docs/stacks/csharp/domain/ shard(s) relevant to each page concern (READ the shard; conformance to it is a hard gate)',
-    verify: '`uv run python -m tools.assay api`',
+    verify: '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for NuGet feed truth, and ' +
+      'Context7/exa/tavily for the official surface own the fallback)',
     vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
     slur: 'naive, surface-level code dressed in the right vocabulary',
     illusion: 'a `.api`/host member cited but never verified (a phantom)',
@@ -107,7 +108,8 @@ const LANG = {
         'package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS ' +
         'layering the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
         'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); reject surface-level subsets, BCL-first reflexes, ' +
-        'and thin rename wrappers; verify novel members with `uv run python -m tools.assay api`.',
+        'and thin rename wrappers; verify novel members with `uv run python -m tools.assay api` (blocked: the `.api` catalogs + nuget MCP + ' +
+        'Context7 own the fallback).',
       'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
         'ground-up. Never regress correctness or boundary/strata law.',
     ].join('\n'),
@@ -177,7 +179,8 @@ const LANG = {
       'logic, NO mutable accumulation.',
     modernity: '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a ' +
       'host-neutral owner; geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in the package ' +
-      '`.api/` catalog (no phantom member; verify novel members via `uv run python -m tools.assay api`); latest modern C# 14 on net10; FULL ' +
+      '`.api/` catalog (no phantom member; verify novel members via `uv run python -m tools.assay api`, or the nuget MCP + Context7 when ' +
+      'assay is blocked); latest modern C# 14 on net10; FULL ' +
       'docs/stacks/csharp + the relevant domain/ shard conformance (READ the shard); BOTH the package `.api/` catalogs AND the universal ' +
       'Thinktecture/LanguageExt rails maximized, not a surface-level subset; the tools/cs-analyzer compiled-doctrine gate clean.',
     deepPkgs: 'LanguageExt/Thinktecture/MathNet/CSparse',
@@ -191,7 +194,6 @@ const LANG = {
     stackLaw: 'DENSITY BAR: docs/stacks/python/ — author Python as dense, polymorphic, and rich as that bar; docs/stacks/csharp/ is the ' +
       'density/ambition FLOOR (match its richness, never import C#-shaped idioms). Cite ONLY members confirmed in the .api catalogs, mining ' +
       'BOTH tiers fully.',
-    homing: '',
     apiTiers: 'MINE BOTH tiers fully: the SHARED/universal branch catalogs `libs/python/.api/*.md` (anyio, expression, msgspec, pydantic, ' +
       'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder-specific `<package>/.api/*.md`; maximize ' +
       'the shared/universal catalogs wherever relevant, never only the folder set, ALWAYS layering the shared/universal rails ON TOP OF the ' +
@@ -201,7 +203,8 @@ const LANG = {
       'and proceeding in its [01]-[ATLAS] routing order (language, shapes, iteration, surfaces-and-dispatch, rails-and-effects, concurrency, ' +
       'boundaries, algorithms, system-apis, runtime) — never a partial, skim, grep-jump, or section-sample; a root page present on disk but ' +
       'absent from this list is STILL mandatory law',
-    verify: '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package falls back to its catalog/official surface)',
+    verify: '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a blocked/unavailable assay, falls ' +
+      'back to its catalog/official surface)',
     vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
     slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
     illusion: 'a `.api` member cited but never verified (a phantom)',
@@ -355,7 +358,6 @@ const LANG = {
       'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries. ' +
       'Author ultra-advanced TS only, discarding naive idioms wholesale. Cite only real members of admitted packages, cross-checked against ' +
       'the published types in node_modules.',
-    homing: '',
     apiTiers: 'MINE BOTH catalog tiers: the SHARED/universal `libs/typescript/.api/*.md` (the Effect substrate rails, enumerated from disk, ' +
       'never from memory) AND the folder-specific `<folder>/.api/*.md`, cross-checked against the published types in ' +
       'node_modules; maximize the shared/universal Effect rails wherever relevant, never only the folder set.',
@@ -440,7 +442,7 @@ const LANG = {
 const L = LANG[LANG_KEY] || LANG.cs // inert fallback: composition no-ops before any agent call when LANG_KEY is null
 
 const LAW = [
-  'Rasm monorepo, ' + L.corpus + '. ' + L.strata + ' ' + L.stackLaw + (L.homing ? ' ' + L.homing : '') + ' ' + L.apiTiers,
+  'Rasm monorepo, ' + L.corpus + '. ' + L.strata + ' ' + L.stackLaw + ' ' + L.apiTiers,
   'This is a FUNDAMENTAL GROUND-UP REBUILD (or, for a `new` page, a ground-up AUTHORING) of a planning-stage DESIGN PAGE, not a polish pass. ' +
     'Improve the page objectively: collapse surfaces/types, deepen bleeding-edge spellings, maximize admitted-library capability, AND close ' +
     'the concept capability gaps.',
@@ -587,7 +589,7 @@ const READ_MANDATE = (maps) => 'READING MAP (the per-page grounding Discover sur
 const planPrompt = (pkgHint) => ['Rasm monorepo. TASK: thin enumerate + classify (read-only, do NOT edit). TARGETS (repo-relative): ' +
   JSON.stringify(TARGETS) + '. Each TARGET is a package/area ROOT (e.g. ' + L.root + '/<Package>), a SUB-FOLDER under .planning at ANY depth, ' +
   'or a specific design FILE. The OWNING FOLDER of a target is the path BEFORE "/.planning/", or the target itself when it has no ' +
-  '"/.planning/" segment. ' + (L.homing ? L.homing + ' ' : '') + 'Use find/ls; do NOT cd. Return packages — one entry per DISTINCT owning ' +
+  '"/.planning/" segment. Use find/ls; do NOT cd. Return packages — one entry per DISTINCT owning ' +
   'folder: {name: the LAST path segment of the owning root, root, planning: "<root>/.planning", api: ' +
   '"<root>/.api"}. PAGES: expand each target — a ROOT target expands to EVERY design page under its planning tree (repo-relative *.md); a ' +
   'SUB-FOLDER target to every page under it at ANY depth; a FILE target to itself; union + dedup; EXCLUDE ' +

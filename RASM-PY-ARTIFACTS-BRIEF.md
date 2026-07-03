@@ -1,8 +1,22 @@
 # [RASM_PY_ARTIFACTS_BRIEF]
 
-Campaign: py track 5/5, the consumer plane — run after the four py folder campaigns land. Phase 1: `Workflow(design-artifacts-restructure.js)` emits `RASM-PY-ARTIFACTS-DECISION.md` (re-dispositioning the measured-signals card); Phase 2: `Workflow(rebuild.js, {targets: <wave folders per the DECISION>, brief: "RASM-PY-ARTIFACTS-DECISION.md"})` legs per its partition, flagship visual review per the acceptance clause.
-
 Authoritative campaign input for the ground-up restructure and rebuild of `libs/python/artifacts/.planning/`. The campaign is two-phase: `[01]-[PHASE_ARCHITECTURE]` runs ONE ephemeral design workflow that emits `RASM-PY-ARTIFACTS-DECISION.md` — the binding restructure blueprint (final page-set, moves, splits, new owners, seam ledger, entry contract, leg partition); `[05]-[BUILD_LEGS]` then runs the durable rebuild engine against that DECISION, foundations first. This brief binds both phases. It supersedes `libs/python/artifacts/.planning/_REBUILD_BRIEF.md`, which archives when this brief lands. `docs/stacks/python/` governs unchanged and is never restated here.
+
+## [EXECUTION]
+
+Hinge campaign, py track 5/5 — the consumer plane, launched after the four upstream py folder campaigns land: one ephemeral design pass emits the binding DECISION, the durable rebuild engine executes the DECISION's leg partition foundations-first with every leg residual-clean before the next launches, the campaign settles on cards + hygiene, legs re-run across cold sessions against the same DECISION until a pass finds nothing, and acceptance closes on the `[05]` flagship visual review.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+| :----: | :------- | :--------- |
+| [01] | `Workflow(design-artifacts-restructure, {brief: "RASM-PY-ARTIFACTS-BRIEF.md", out: "RASM-PY-ARTIFACTS-DECISION.md"})` | `RASM-PY-ARTIFACTS-DECISION.md` — the binding page-set, seam-ledger, entry-contract, package-delta, leg-partition, and card-disposition blueprint (the measured-signals card re-dispositioned) |
+| [02] | `Workflow(rebuild, {targets: [<DECISION (e) leg-1 wave folders — FOUNDATIONS, 1a/1b per its split ruling>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | foundational plane + corpus-wide `ArtifactWork` entry landed; `hard_residual` |
+| [03] | `Workflow(resolve-residuals, {hard_residual: <step [02] run array>})` — when non-empty | leg 1 residual-clean |
+| [04] | `Workflow(rebuild, {targets: [<DECISION (e) leg-2 wave folders — MID PLANE>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | mid plane landed; `hard_residual` |
+| [05] | `Workflow(resolve-residuals, {hard_residual: <step [04] run array>})` — when non-empty | leg 2 residual-clean |
+| [06] | `Workflow(rebuild, {targets: [<DECISION (e) leg-3 wave folders — AEC/EGRESS>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | AEC/egress plane landed; `hard_residual`; the three `[05]` flagship artifacts render for visual review |
+| [07] | `Workflow(resolve-residuals, {hard_residual: <step [06] run array>})` — when non-empty | leg 3 residual-clean |
+| [08] | `Workflow(align-cards, "libs/python/artifacts")` | every IDEAS/TASKLOG card under the scope aligned to the rebuilt corpus |
+| [09] | `Workflow(hygiene-sweep, "libs/python/artifacts")` | README <-> manifest <-> `.api` <-> seam consistency at zero high-severity — campaign landed |
 
 ## [00]-[SHARED_LAW]
 

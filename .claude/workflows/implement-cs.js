@@ -1,7 +1,7 @@
 export const meta = {
   name: 'implement-cs',
-  whenToUse: 'Realize open cards into design-page code fences for the first C# target set (AppHost, Compute, AppUi, Persistence).',
-  description: 'Realize every open IDEAS/TASKLOG card across the four C# session targets (Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence) into deep design-page code FENCES at the docs/stacks/csharp 11/10 bar, resolve all ripples, and truthfully close the cards. One discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (per folder, all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop out-of-scope C# ripple counterparts, and applies the single central package-pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Disposable, C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
+  whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the C# target folders (default: AppHost, Compute, AppUi, Persistence).',
+  description: 'Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp 11/10 bar, resolve all ripples, and truthfully close the cards. One discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (per folder, all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop out-of-scope C# ripple counterparts, and applies the single central package-pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Durable, C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
   phases: [
     { title: 'Discover', detail: 'one agent: real-listing enumeration of both .api tiers + the doctrine inventory, full reads of the card files, every page the open cards name, and the folder at large; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_csharp / cross_lang), record in-scope gates, malformed ripples, and a per-page capability map downstream stages treat as a pointer never a ceiling' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
@@ -26,6 +26,7 @@ const TARGETS = Array.isArray(args) ? args.filter(Boolean).map(norm)
   : (typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL') ? [norm(args)]
   : DEFAULT_TARGETS
 const TARGET_SET = new Set(TARGETS)
+const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ')
 
 // --- [MODELS] ----------------------------------------------------------------------------
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['targets'], properties: {
@@ -66,11 +67,12 @@ const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required:
 } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+const FB = ' (the `.api` catalogs, the `nuget` MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback when assay is unavailable)'
 const LAW = [
   'Rasm monorepo, libs/csharp planning corpus (markdown specs of intended C# package designs). CLAUDE.md manifest + WORKSPACE_LAW strata govern ' +
     '(KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; a host-neutral owner only where a non-Rhino runtime ' +
-    'consumes the contract). The session targets are the APP-PLATFORM / HOST-BOUNDARY packages `Rasm.AppHost` (the host-neutral runtime spine ' +
-    '`Compute`/`Persistence`/`AppUi` adapt to), `Rasm.Compute`, `Rasm.AppUi`, `Rasm.Persistence`. Each target holds `IDEAS.md` + `TASKLOG.md` + ' +
+    'consumes the contract). The session targets are the libs/csharp packages ' + TARGET_NAMES + ', each on its canonical stratum; `Rasm.AppHost` ' +
+    'is the host-neutral runtime spine `Compute`/`Persistence`/`AppUi` adapt to. Each target holds `IDEAS.md` + `TASKLOG.md` + ' +
     '`ARCHITECTURE.md` + `README.md` + `<pkg>.csproj` at the package ROOT, a deep `.api/api-*.md` capability catalog, and design pages at ' +
     '`<pkg>/.planning/<subdomain>/*.md`. Read the package-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`), `README.md` (admitted-package ' +
     'roster), and `.api/` as the governing context and capability tier for that target. Never trample a sibling package owner.',
@@ -80,7 +82,7 @@ const LAW = [
     'resilience, runtime, transport, validation, visuals), then PUSH PAST it to the objectively strongest form the doctrine admits. READ the ' +
     'relevant shard(s) and conform exactly — a hard gate enforced by the `tools/cs-analyzer` compiled-doctrine gate (a true positive is ' +
     'architecture pressure, fix the shape; a false positive is rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv ' +
-    'run python -m tools.assay api`; back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
+    'run python -m tools.assay api`' + FB + '; back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
   'This is IMPLEMENT, not an untied page rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. A FENCE is a ' +
     'markdown fenced code block inside a `.planning` design page — the work product itself, NEVER a `.cs`/`.py`/`.ts` source file. SCOPE per ' +
     'target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the ' +
@@ -104,13 +106,15 @@ const CARD = [
   'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
     'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to confirm any member or ' +
     'signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; `uv run python -m tools.assay ' +
-    'provision check` (+ tools/assay/README.md) for a native/scientific/database/provisioning band. A `[BLOCKED]` card is REALIZED this turn ' +
-    'whenever a probe resolves its blocker OR its gating work is in scope; a blocker is genuinely legitimate ONLY when it depends on work outside ' +
-    'this run.',
+    'provision check` (+ tools/assay/README.md) for a native/scientific/database/provisioning band. tools/assay is under concurrent construction: ' +
+    'when an assay invocation fails, the probe obligation stands and reroutes — the `.api` catalogs, the `nuget` MCP for feed truth, ' +
+    'Context7/exa/tavily for the official surface — and a blocker provable ONLY through downed assay is a legitimate out-of-run blocker, never a ' +
+    'faked resolution. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope; a blocker ' +
+    'is genuinely legitimate ONLY when it depends on work outside this run.',
   'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): pin the version in the ONE central repo-root ' +
     '`Directory.Packages.props` (a SHARED file — the reconcile pass owns it; you MUST NOT edit it from a folder agent), add `<PackageReference ' +
     'Include="..."/>` WITHOUT a version to `<pkg>/<pkg>.csproj` (folder-local), add the package to the correct group in `<pkg>/README.md` ' +
-    '(folder-local), and author `<pkg>/.api/api-<pkg>.md` from `uv run python -m tools.assay api` (folder-local). Never a per-folder version ' +
+    '(folder-local), and author `<pkg>/.api/api-<pkg>.md` from `uv run python -m tools.assay api`' + FB + ' (folder-local). Never a per-folder version ' +
     'manifest; never re-pin a version outside `Directory.Packages.props`.',
   'CLOSEOUT (the closeout pass ONLY): a genuinely-complete card moves to its file `[02]-[CLOSED]` section as a collapsed one-liner ' +
     '`[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); update the owning `<pkg>/ARCHITECTURE.md` ' +
@@ -163,10 +167,11 @@ const ULTRA = [
     'package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering ' +
     'the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
     'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); an admitted capability the concept admits but no owner ' +
-    'exploits is a DEFECT you close, and a cited member you cannot verify via `uv run python -m tools.assay api` is a PHANTOM you delete or ' +
+    'exploits is a DEFECT you close, and a cited member you cannot verify via `uv run python -m tools.assay api`' + FB + ' is a PHANTOM you delete or ' +
     'correct, never leave standing; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers.',
-  'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
-    'ground-up. Never regress correctness or boundary/strata law.',
+  'PRESERVE all capability (densify, never delete functionality): capability is improved or extended, NEVER dropped for lack of a current ' +
+    'consumer — zero consumers never lowers the bar; planned consumers are real design pressure. Where a fence is already dense, deepen; where ' +
+    'it is flat/naive, rebuild ground-up. Never regress correctness or boundary/strata law.',
 ].join('\n')
 const PATLAW = [
   'C# PATTERN LAW: model the domain precisely — NEVER weak/unbounded/erased types where the language can express the domain; NEVER exception ' +
@@ -244,16 +249,16 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
     'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to; the package-root ' +
     '`ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card concern; BOTH `.api` tiers in full — ' +
     '`libs/csharp/.api/` + `' + folder + '/.api/api-*.md`, enumerated by real listing, never memory — plus the admitted packages; and verify any ' +
-    'novel host/NuGet member via `uv run python -m tools.assay api`. Realize EVERY card in `order` (all ' +
+    'novel host/NuGet member via `uv run python -m tools.assay api`' + FB + '. Realize EVERY card in `order` (all ' +
     'tasks incl. Atomic, then the ideas) into deep fences IN `' + folder + '` PAGES ONLY, in LIFECYCLE order (admit raw ONCE through a generated ' +
     'factory + validation partial -> lift into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting concern as ' +
     'a definition-time source-generated aspect or composition-time effect transformer over a thin pure core -> compose through ONE unified ' +
     '`Fin`/`Validation`/`Option`/`Eff` rail with total generated `Switch` -> project + egress, BOTH ingress and egress parameterized). Collapse ' +
     'parallel shapes into one `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family in the SAME ' +
     'file; drive cases with a `Fold` algebra or a frozen table; one polymorphic entrypoint per modality. Resolve any [BLOCKED] card inline (probe ' +
-    'via `assay api` / Forge band / Rhino WIP). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW ' +
+    'via `assay api`' + FB + ' / Forge band / Rhino WIP). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW ' +
     '— add `<PackageReference Include="..."/>` (no version) to `' + folder + '/' + folderName(folder) + '.csproj`, add the package to the correct ' +
-    'group in `' + folder + '/README.md`, and author `' + folder + '/.api/api-<pkg>.md` from `assay api` — and LOG the central ' +
+    'group in `' + folder + '/README.md`, and author `' + folder + '/.api/api-<pkg>.md` from `assay api`' + FB + ' — and LOG the central ' +
     '`Directory.Packages.props` version pin as a residual_ripple with files including `Directory.Packages.props` (a single reconcile agent owns ' +
     'that shared file; you MUST NOT edit it). RIPPLES: realize ONLY `' + folder + '`\'s OWN half of every seam; NEVER edit another folder page. ' +
     'For each ripple your cards carry, log a residual_ripple {files:[your_page, counterpart_page], pkg, slug, mirror_slug, claim} stating the ' +
@@ -301,7 +306,7 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'in domain logic, NO mutable accumulation.',
   '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a host-neutral owner; ' +
     'geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in a `.api` catalog (verify novel ' +
-    'members via `uv run python -m tools.assay api`; an unverifiable cited member is a PHANTOM — delete or correct it); latest modern C# 14 on ' +
+    'members via `uv run python -m tools.assay api`' + FB + '; an unverifiable cited member is a PHANTOM — delete or correct it); latest modern C# 14 on ' +
     'net10 (primary ctors, collection expressions, `params` collections, list/relational/logical patterns, switch expressions, `required` ' +
     'members, `file` types, `field` accessors, extension blocks, generic math, static abstract members); FULL docs/stacks/csharp + the relevant ' +
     'domain/ shard conformance; BOTH `.api` tiers (`libs/csharp/.api/` substrate + the folder catalogs) AND the universal Thinktecture/LanguageExt ' +
@@ -339,7 +344,7 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     'planning page left STALE by this folder change even when no ripple card names it (ports/boundaries/wires/seams drift) is a defect: fix it ' +
     'within `' + folder + '`, or record it as a residual_ripple. (E) SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal ' +
     'rails expose capability the fence re-derives by hand, flat code below the operator depth the packages reach, a phantom `.api`/host member, or ' +
-    'a thin wrapper: collapse to package depth, verify every cited member (via `assay api`), and DELETE or correct every phantom.',
+    'a thin wrapper: collapse to package depth, verify every cited member (via `assay api`' + FB + '), and DELETE or correct every phantom.',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh ' +
     'hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the ' +
     'two-weave ASPECT taxonomy, rail + closed-`Expected`-fault discipline, charter-completeness per card, strata correctness, modern-C# 14 typing, ' +
@@ -380,7 +385,7 @@ const closeoutPrompt = (folder, seamJson) => [DOCTRINE, '',
     'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +
     'then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior pass verdict a rejected self-assessment — that the ' +
     'fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
-    '`uv run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
+    '`uv run python -m tools.assay api`' + FB + '). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
     'implement->critique->redteam this turn; deepen the fences to genuinely complete the charter), then re-verify. Assign each card a strength: ' +
     '`strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` (most delivered, a clause ' +
     'still thin), `weak` (charter not met). CLOSE only genuinely-complete cards: move them to the `[02]-[CLOSED]` section of their owning file as ' +

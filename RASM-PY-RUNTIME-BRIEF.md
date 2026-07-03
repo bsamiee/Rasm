@@ -1,8 +1,17 @@
 # [RASM_PY_RUNTIME_BRIEF]
 
-Campaign: py track 1/5 — run FIRST (data/geometry/compute/artifacts consume its exports). Single-phase: `Workflow(rebuild.js, {targets: "libs/python/runtime", brief: "RASM-PY-RUNTIME-BRIEF.md"})`, legs per `[05]`; hard residuals between legs via `resolve-residuals.js`.
-
 Authoritative campaign input for the ground-up restructure and rebuild of `libs/python/runtime/.planning/`. The campaign is single-phase: the page-set delta is small and fully ruled here (three NEW pages, two vocabulary re-homings, zero deletions), so no ephemeral DECISION pass runs — the durable rebuild engine takes this brief directly, its plan step classifying per-page kind from `[01]` verdicts against disk, its legs running the `[05]` partition in order. `runtime` is the FIRST folder in the Python campaign sequence (runtime -> data -> geometry -> compute); every later folder brief inherits this one as upstream consumer pressure. `docs/stacks/python/` governs unchanged and is never restated here.
+
+## [EXECUTION]
+
+Settled single-phase campaign, py track 1/5 — launched FIRST (data, geometry, compute, and artifacts consume its exports): the durable rebuild engine runs this brief directly, one launch per `[05]-[BUILD_LEGS]` leg in leg order, hard residuals resolved before the next leg launches, the settling pair closing the campaign; legs re-run across sessions against this brief until a cold pass finds nothing.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+| :----: | :------- | :--------- |
+| [01] | `rebuild` — `{targets: "libs/python/runtime", brief: "RASM-PY-RUNTIME-BRIEF.md"}` — one launch per `[05]-[BUILD_LEGS]` leg, in leg order | Each leg's pages authored/rebuilt/improved per the `[01]` verdicts; the run returns a `hard_residual` array |
+| [02] | `resolve-residuals` — `{hard_residual: <the step-[01] run's hard_residual array>}` — whenever non-empty, before the next leg launches | Cross-file residuals closed and adversarially verified on disk |
+| [03] | `align-cards` — `"libs/python/runtime"` | Every IDEAS/TASKLOG card under the folder aligned to the rebuilt corpus with Ripple bidirectionality |
+| [04] | `hygiene-sweep` — `"libs/python/runtime"` | README <-> root `pyproject.toml` <-> both `.api` tiers <-> `ARCHITECTURE.md` agreement; zero high-severity at the cold-verify gate |
 
 ## [00]-[SHARED_LAW]
 

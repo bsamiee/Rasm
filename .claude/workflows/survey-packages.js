@@ -8,7 +8,7 @@ export const meta = {
     { title: 'Decide', detail: 'reconcile all verdicts, resolve the redundancy graph, anti-bloat + license gate, emit the change-set' },
     { title: 'Verify-Proposals', detail: 'critique then redteam each change adversarially before any write' },
     { title: 'Execute', detail: 'apply manifest + .api + README + code refactor across the whole-repo blast radius, serial' },
-    { title: 'Heal', detail: 'run the assay build/static gate and self-heal until green' },
+    { title: 'Heal', detail: 'run the build/static gate (assay rail, direct-toolchain fallback) and self-heal until green' },
   ],
 }
 
@@ -49,7 +49,15 @@ const LAW = [
     '— a different signature). For C#, the consumer floor is net10.0 (Directory.Build.props TargetFramework): decompile the lib/<tfm> the net10 ' +
     'consumer actually binds (highest compatible lib folder), explicitly, and diff against assay default before trusting any member claim — set ' +
     'DOTNET_ROOT (DOTNET_ROOT=$(dirname "$(readlink -f "$(command -v dotnet)")")) and run ilspycmd <pkg>/lib/<consumer-tfm>/<asm>.dll -t <FQN>. ' +
-    'For Python/TS, verify against the actually-installed distribution / declared .d.ts. Never document or compare a phantom from a non-bound TFM.',
+    'For Python/TS, verify against the actually-installed distribution / declared .d.ts. Never document or compare a phantom from a non-bound TFM. ' +
+    'MEMBER-TRUTH FALLBACK TIER — when the assay rail is unavailable or errors, member truth routes through: both .api tiers first, ilspycmd ' +
+    'directly over the restored package lib/<consumer-tfm> assembly, the nuget MCP (feed truth: versions, license, TFMs, deprecation), Context7 ' +
+    'for official API docs, and exa/tavily source reads — a member no tier can verify stays a phantom.',
+  'GREEN GATE (outage-safe): the build/static gate is `uv run --frozen python -m tools.assay static` over the affected projects/areas, one JSON ' +
+    'Envelope on stdout. When the assay rail is unavailable or errors, the gate falls back to the owning toolchain directly at the SAME green ' +
+    'criterion (zero errors after repairs): C# — `dotnet restore` + `dotnet build` per affected .csproj; Python — `uv lock` + `uv sync` + ' +
+    'import-verification of the changed modules + `ruff check`; TypeScript — `pnpm install` + `pnpm -r build` (or `tsc -p`) over the affected ' +
+    'packages. A gate that cannot run on either rail reports red, never assumed green.',
   'ULTRA-STACKING BOTH .api TIERS: ' + apiTiers + ' are enumerated with a real ls/fd listing and read at operator depth — a member claim comes ' +
     'from a catalog line or a fresh consumer-TFM-correct decompile, never memory. An admitted capability the folder concern admits but no owner ' +
     'exploits is a named defect feeding the keep/replace/remove/integration analysis, never a shrug; a cited member that cannot be re-verified on ' +
@@ -72,7 +80,7 @@ const LAW = [
     'design pressure and zero current consumers never lowers the capability bar. Once justified, implement NOW and FULLY with NO hedging — never ' +
     'pin or document a capability as future / planned / deferred / a separate-future-owner. A justified package is admitted, INSTALLED/RESOLVABLE ' +
     'on the floor, .api-documented, README-listed, AND integrated into the relevant EXISTING design pages by growing the existing owner IN PLACE ' +
-    '(a case / row / field / operation, the rebuild-csharp expand-in-place mentality), not merely mentioned beside it. An ALREADY-ADMITTED package ' +
+    '(a case / row / field / operation, the rebuild-engine expand-in-place mentality), not merely mentioned beside it. An ALREADY-ADMITTED package ' +
     'missing its README row, its .api, its actual install, or its real integration is an INCOMPLETE admission to COMPLETE now (manifest + install ' +
     '+ .api + README + real design integration), never a thing to re-shelve as future.',
   'REDUNDANCY + ANTI-BLOAT DISCIPLINE: only REMOVE a package when another ALREADY-ADMITTED package provably covers EVERY call site it serves — ' +
@@ -139,7 +147,8 @@ const surveyPrompt = (w) => [
       'evidence. Determine: is there a newer / more capable / better-maintained replacement (license-admissible)? Is it stale or poorly ' +
       'maintained? Is it REDUNDANT because another admitted package already covers every call site (cite them)? Use web research (latest stable, ' +
       'release recency, maintenance, license) AND assay decompile (CONSUMER-TFM-CORRECT — for C# decompile the net10-bound lib/<tfm>, not assay ' +
-      'default; diff a multi-target package explicitly) to ground every member claim. Return one verdict: keep | replace (with target + why ' +
+      'default; diff a multi-target package explicitly; on an assay outage the MEMBER-TRUTH FALLBACK TIER owns this) to ground every member ' +
+      'claim. Return one verdict: keep | replace (with target + why ' +
       'strictly better) | remove (with the subsuming admitted package + the call sites it covers) | add is not used here. Apply the license gate ' +
       'to any replacement target. Default to keep unless the evidence is decisive.',
   'Item id: ' + w.name + '. Return the single structured verdict (set name to the id). Write nothing.',
@@ -162,7 +171,8 @@ const critiquePrompt = (c) => [
     'the repo itself, never the rationale string, that the change closes a real gap, is a strict upgrade, or is a true subsumption. (2) TARGET ' +
     'truth: the replacement/new target is real, license-admissible, and strictly better (for remove: the subsuming admitted package covers EVERY ' +
     'call site — re-find them yourself). (3) MEMBER truth: every cited member re-verified consumer-TFM-correct (assay / ilspycmd on the ' +
-    'net10-bound TFM for C#); one phantom sinks the change. (4) BLAST RADIUS re-derived, never trusted: run your own repo-wide rg/fd search across ' +
+    'net10-bound TFM for C#; on an assay outage the MEMBER-TRUTH FALLBACK TIER); one phantom sinks the change. (4) BLAST RADIUS re-derived, ' +
+    'never trusted: run your own repo-wide rg/fd search across ' +
     'the central manifest, every README, both .api tiers, and all code; the proposal touch-point roster is seed data — your search is the ' +
     'generator that derives the true set, and a single missed touch point is a COVERAGE defect. These checks are a FLOOR — hunt past them. Set ' +
     'approved=true only if the change survives everything you can construct AND the re-derived touch-point map is complete; else approved=false ' +
@@ -205,7 +215,8 @@ const verifyPrompt = (c, ex, attempt) => [
     'loose/weak/token fix is a defect YOU repair NOW via Edit/Write to the root-level form of the same files, obeying the route-owned standard — ' +
     'a single-point patch where the dense root form is available is itself a defect to repair. (3) GATE: run `uv run --frozen python -m ' +
     'tools.assay static` over the affected projects/areas (for C# pass --project <csproj> or --folder; for Python/TS pass --folder <path>), parse ' +
-    'the one JSON Envelope on stdout. Report green=true only if the gate is clean AFTER your repairs (no FAILED diagnostics); on red return ' +
+    'the one JSON Envelope on stdout; on an assay outage run the GREEN GATE toolchain fallback at the same criterion. Report green=true only if ' +
+    'the gate is clean AFTER your repairs (no FAILED diagnostics); on red return ' +
     'green=false with the concrete residual diagnostics (file + rule + message) so the heal step can act. List every file you edited in ' +
     'repairedFiles. Attempt index: ' + attempt + '.',
 ].join('\n')
@@ -224,8 +235,9 @@ const finalVerifyPrompt = (applied) => [
     'confirmation: re-derive the union blast radius of the APPLIED changes yourself (repo-wide rg/fd for every changed package), hunt dangling ' +
     'references, stale README rows, orphaned or missing .api catalogs in both tiers, phantom members, and loose/token fixes left by ' +
     'earlier steps — REPAIR every defect in place NOW via Edit/Write to the root-level form, never a note, and list the files in repairedFiles. ' +
-    'Then run the assay build/static gate over the union of affected projects/areas (for C# the affected .csproj set; for Python/TS the affected ' +
-    'folders) via `uv run --frozen python -m tools.assay static ...`, parse the JSON Envelope, and report green=true only if the whole affected ' +
+    'Then run the build/static gate over the union of affected projects/areas (for C# the affected .csproj set; for Python/TS the affected ' +
+    'folders) via `uv run --frozen python -m tools.assay static ...`, parse the JSON Envelope — on an assay outage run the GREEN GATE toolchain ' +
+    'fallback at the same criterion — and report green=true only if the whole affected ' +
     'set is clean after your repairs. On red, return the residual diagnostics.',
 ].join('\n')
 
@@ -283,7 +295,7 @@ for (let i = 0; i < approved.length; i++) {
   if (!ex || ex.verdict !== 'applied') { applied.push({ id: c.id, applied: false, reason: (ex && ex.summary) || 'skipped' }); continue }
   let green = false
   for (let h = 0; h <= MAX_HEAL; h++) {
-    const v = await agent(verifyPrompt(c, ex, h), { label: 'verify:' + c.id + ':' + h, phase: 'Heal', schema: BUILD_SCHEMA, effort: 'low', stallMs: 420000 })
+    const v = await agent(verifyPrompt(c, ex, h), { label: 'verify:' + c.id + ':' + h, phase: 'Heal', schema: BUILD_SCHEMA, effort: 'high', stallMs: 420000 })
     if (v && v.green) { green = true; break }
     if (h === MAX_HEAL) break
     await agent(healPrompt(c, ex, v), { label: 'heal:' + c.id + ':' + h, phase: 'Heal', schema: HEAL_SCHEMA, effort: 'max', stallMs: 420000 })
@@ -293,7 +305,7 @@ for (let i = 0; i < approved.length; i++) {
 
 // --- [HEAL]
 phase('Heal')
-const finalV = await agent(finalVerifyPrompt(applied), { label: 'verify:final', phase: 'Heal', schema: BUILD_SCHEMA, effort: 'low', stallMs: 420000 })
+const finalV = await agent(finalVerifyPrompt(applied), { label: 'verify:final', phase: 'Heal', schema: BUILD_SCHEMA, effort: 'high', stallMs: 420000 })
 const appliedCount = applied.filter((a) => a.applied).length
 log('execute: ' + appliedCount + '/' + approved.length + ' changes applied; final build green=' + (finalV && finalV.green))
 

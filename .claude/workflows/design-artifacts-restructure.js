@@ -88,8 +88,9 @@ const surveyPrompt = (plane, scope, rows) => [PRE, 'TASK: READ-ONLY SURVEY of th
 const draftPrompt = (lens, thesis, dossiers) => [PRE, ENGINE_VOCAB, ROW_SCHEMA, 'TASK: author ONE COMPLETE structural blueprint for the ' +
   'post-campaign ' + ROOT + '/.planning/ under the ' + lens + ' lens: ' + thesis + ' Read the brief in full, then every survey dossier: ' +
   JSON.stringify(dossiers) + ' — dossiers are evidence, the brief is law; where they conflict, re-verify on disk yourself. Honor every ruled ' +
-  'default (V2 pattern home, V5 mark siting, V13 style siting, V15 solar kernel, iptcinfo3/xmp removal, V12 re-home) unless you carry disk proof ' +
-  'a departure is stronger — a departure without proof loses at judge. The partition MUST be provably acyclic: every seam edge points within-wave ' +
+  'default the live verdict set carries (V2 pattern home, V5 mark siting, V13 style siting, V15 solar kernel, V12 re-home, the ' +
+  'iptcinfo3/python-xmp-toolkit removal and the dead-PyICU-pin resolution among them — the brief text governs, never this list) unless you ' +
+  'carry disk proof a departure is stronger — a departure without proof loses at judge. The partition MUST be provably acyclic: every seam edge points within-wave ' +
   'or earlier; dispose the four named inversions explicitly. WRITE the complete blueprint to ' + SCRATCH + '/draft-' + lens + '.md with the full ' +
   'page-row table, seam ledger, disposition tables, and a leg partition honoring [FOUNDATIONS_FIRST] + the 1a/1b ruling. Self-report exact counts. ' +
   'NO edits outside ' + SCRATCH + '/.'].join('\n')
@@ -111,12 +112,15 @@ const decidePrompt = (synthesis) => [PRE, ENGINE_VOCAB, ROW_SCHEMA, 'TASK: RED-T
   'DECISION. Attack the synthesis at ' + synthesis + ' on every axis: walk the seam ledger yourself and prove acyclicity or break it; audit every ' +
   'disposition of every numbered verdict against the brief text; spot-verify at least 10 factual claims on disk (a page it says exists, a member it says is mined, ' +
   'an import it says crosses); attack the leg partition for blast radius (apply the 1a/1b ruling if leg 1 is overloaded); attack any departure ' +
-  'from a ruled default. Record every attack + outcome; overturn what fails with the reason. Then WRITE ' + OUT + ' (repo root) as the BINDING ' +
+  'from a ruled default. Record every attack + outcome; overturn what fails with the reason — an overturn re-sites or strengthens capability, ' +
+  'never drops it (zero current consumers never lowers the bar). Then WRITE ' + OUT + ' (repo root) as the BINDING ' +
   'campaign decision carrying exactly: (a) the final page-set table in the full row schema INCLUDING both action vocabularies; (b) the corrected ' +
   'seam ledger; (c) the ArtifactWork entry contract as law (verbatim-compatible with the brief [SEAM_AND_ENTRY_LAW]); (d) package roster deltas + ' +
   'the pyproject reconciliation rows; (e) the build-leg partition with per-leg page sets + per-leg targets/brief invocation rows for the durable ' +
   'rebuild engine, proven acyclic against (b), honoring [FOUNDATIONS_FIRST] + the 1a/1b ruling + the flagship-acceptance clause; (f) TASKLOG card ' +
-  'dispositions (4 QUEUED absorbed by named legs, 3 BLOCKED untouched). Agent-facing declarative law throughout — no provenance, no narration, no ' +
+  'dispositions (4 QUEUED absorbed by named legs; the two runtime/compute-gated BLOCKED cards re-dispositioned explicitly per the brief [06] — ' +
+  'realize or keep blocked with the residual gate named, never silently — the Persistence-gated third stays blocked). Agent-facing ' +
+  'declarative law throughout — no provenance, no narration, no ' +
   'hedging; every open item RULED, never deferred to build agents. The scratch dir ' + SCRATCH + '/ is working material — the DECISION must stand ' +
   'alone without it.'].join('\n')
 const minePrompt = (draft, decision) => [PRE, 'TASK: SALVAGE MINER. Compare the losing/base blueprint ' + draft + ' against the WRITTEN decision ' +
@@ -152,7 +156,8 @@ const SURVEYS = [
     rows: 'every [04] stub anchor (treat each as a register row)' },
   { plane: 'import-census', scope: 'the whole ' + ROOT + '/.planning/ tree: sweep every cross-domain import in every fence (rg over the corpus), ' +
     'diff the real import graph against the ARCHITECTURE.md [02]-[SEAMS] ledger both directions (declared-unwired + wired-undeclared), and list ' +
-    'every page-level import cycle', rows: 'E7 (full), E10 (ledger side), the four [05] inversions' },
+    'every page-level import cycle', rows: 'E7 (full), E10 (ledger side), E13 (the corpus-wide track-law sweep: content_identity spellings, ' +
+    'frozendict imports, [RESEARCH] tails, folder-minted limiters), the four [05] inversions, plus any register row past E13 the live count carries' },
 ]
 const dossiers = (await parallel(SURVEYS.map((s) => () =>
   agent(surveyPrompt(s.plane, s.scope, s.rows), { label: 'survey:' + s.plane, phase: 'Survey', model: 'opus', effort: 'max', schema: SURVEY_SCHEMA, stallMs: STALL })))).filter(Boolean)

@@ -1,8 +1,24 @@
 # [RASM_CS_GEOMETRY_BRIEF]
 
-Campaign: cs track 1/6 — run FIRST (every cs campaign consumes the kernel planes). Phase 1: `Workflow(design-cs-geometry.js)` emits `RASM-CS-GEOMETRY-DECISION.md`; Phase 2: `Workflow(rebuild.js, {targets: <per-leg pages>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` legs per the DECISION partition.
-
 Authoritative campaign input for the ground-up restructure and rebuild of the ROBUST-CORE design corpus inside `libs/csharp/Rasm/.planning/` — the 18 settled `Rasm.Geometry.*` pages (namespace root, `ARCHITECTURE.md:110`) merged by the kernel conversion into the shared eight-folder root (`Numerics/{predicates,faults}`, `Spatial/{index,naming,reconciliation}`, `Parametric/curve`, `Meshing/{delaunay,arrangement,intersect,offset}`, `Processing/{repair,receipts,decimate,flatten,fit,solver}`, `Drawing/{view,pack}`) plus every NEW plane the verdicts mint. They sit beside 34 landed kernel pages (`Rasm.Domain` 7, `Rasm.Vectors` 21, `Rasm.Analysis` 6) that re-express the retired `Vectors/`/`Domain/`/`Analysis/` source ground-up — those pages are STANDING LAW this campaign composes and extends through declared seams, never re-litigates (`[LANDED_KERNEL_LAW]`). The kernel has no sibling reference; `libs/csharp/Rasm/Rasm.csproj` owns the manifest (12 references), `libs/csharp/Rasm/ARCHITECTURE.md` owns the codemap/seams/namespace matrix, `README.md` the router and roster. `docs/stacks/csharp/` governs unchanged and is never restated here. Two downstream campaigns are GATED on this one: `Rasm.Generation` stand-up (`RASM-GENERATION-SPEC.md:179` KERNEL GATE) and the `Rasm.Fabrication` scope expansion — every verdict grades against both.
+
+## [EXECUTION]
+
+Hinge campaign, cs track 1/6 — runs FIRST (every cs campaign consumes the kernel planes): design workflow -> `RASM-CS-GEOMETRY-DECISION.md` -> four rebuild legs per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, hard residuals resolved before the next leg launches -> card + hygiene settling over `libs/csharp/Rasm`; legs re-run across sessions against the same DECISION until a cold pass finds nothing.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+|---|---|---|
+| 1 | `Workflow(design-cs-geometry.js, {brief: "RASM-CS-GEOMETRY-BRIEF.md"})` | `RASM-CS-GEOMETRY-DECISION.md` at the repo root — page-set skeletons in both action vocabularies, ratified namespace/fault partition, corrected seam ledger, roster deltas with `.api` obligations, acyclic leg partition with per-leg engine-invocation rows, the `[T-BOOLEAN-NATIVE-ASSET]` disposition, both probe rulings (GShark envelope, implicit-point) |
+| 2 | `Workflow(rebuild.js, {targets: <DECISION leg-1 targets>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` | Leg 1 FLOOR + CONTRACTS (+ the residual roster motion) landed; `hard_residual` array |
+| 3 | `Workflow(resolve-residuals.js, {hard_residual: <step-2 return, when non-empty>})` | Leg-1 residuals closed on disk before leg 2 launches |
+| 4 | `Workflow(rebuild.js, {targets: <DECISION leg-2 targets>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` | Leg 2 MESHING LATTICE landed; `hard_residual` array |
+| 5 | `Workflow(resolve-residuals.js, {hard_residual: <step-4 return, when non-empty>})` | Leg-2 residuals closed |
+| 6 | `Workflow(rebuild.js, {targets: <DECISION leg-3 targets>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` | Leg 3 PROCESSING landed; `hard_residual` array |
+| 7 | `Workflow(resolve-residuals.js, {hard_residual: <step-6 return, when non-empty>})` | Leg-3 residuals closed |
+| 8 | `Workflow(rebuild.js, {targets: <DECISION leg-4 targets>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` | Leg 4 NEW MESH OWNERS + PARAMETRIC TIER + DRAWING landed; `hard_residual` array; the four `[05]` acceptance dry-runs compose |
+| 9 | `Workflow(resolve-residuals.js, {hard_residual: <step-8 return, when non-empty>})` | Leg-4 residuals closed |
+| 10 | `Workflow(align-cards.js, "libs/csharp/Rasm")` | IDEAS/TASKLOG cards aligned to the rebuilt corpus |
+| 11 | `Workflow(hygiene-sweep.js, "libs/csharp/Rasm")` | README/manifest/`.api`/ARCHITECTURE coherence at zero high-severity |
 
 ## [00]-[SHARED_LAW]
 

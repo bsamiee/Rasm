@@ -7,6 +7,7 @@ export const meta = {
     { title: 'Ideate', detail: 'author/rebuild the IDEAS + TASKS pool grounded in the survey, genuinely-deferred only' },
     { title: 'Critique', detail: 'fix-in-place: pull the pool up — density, domain-completeness, anchors, ripples' },
     { title: 'Redteam', detail: 'fix-in-place hostile reviewer: attack redundancy, mis-carding, dangling ripples, under-ideation' },
+    { title: 'Reconcile', detail: 'cluster cross-folder Ripple residuals, fix per cluster, adversarial writing verify' },
   ],
 }
 
@@ -28,11 +29,13 @@ const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, r
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
-  'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the exact card schema and voice. You produce a folder ' +
+  'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the role law and voice, and libs/.planning/README.md ' +
+    'for the exact IDEAS/TASKLOG card schema. You produce a folder ' +
     'IDEAS + TASKS card pool: IDEAS are conceptual/multi-step/higher-order deferred capability; TASKS are concrete/focused deferred units. Every ' +
     'card passes the 7-point density rubric (polymorphic collapse; one-hop; growth-axis absorption; Result/Option rails; library-at-depth; ' +
     'policy-values not boolean knobs; greenfield in-place). A card is ONLY for genuinely DEFERRED work — NEVER duplicate a realized design page, ' +
-    'NEVER a test/meta/decision/unblock/create-file card. Cards are FLOORS, not ceilings.',
+    'NEVER a test/meta/decision/unblock/create-file card. Cards are FLOORS, not ceilings. HARDENING: capability is improved or extended, NEVER ' +
+    'dropped for lack of a current consumer — zero consumers never lowers the bar; planned future consumers are real design pressure on every card.',
   'NAIVETY LAW: a card is naive on two axes, both defects repaired on sight — COVERAGE: its Capability/Shape models a thin slice of the concept ' +
     '(the obvious three fields where the domain carries fifteen; a two-case family for a twenty-case domain); APPROACH: enumerated hardcoded ' +
     'instances — a fixed roster of styles/patterns/variants — where a parameterized algorithmic owner should generate the space (a roster is ' +
@@ -77,8 +80,9 @@ const ideatePrompt = (folder, ctx) => [LAW, '', 'SURVEY of ' + folder + ':\n' + 
   'and ' + folder + '/TASKLOG.md, grounded in the survey above — the survey is an initial pointer, never a ceiling: re-read the corpus and both ' +
   '.api tiers yourself and exceed it; it never licenses a skim. Author IDEAS for the conceptual/multi-step gaps and TASKS for the ' +
   'concrete/deferred ones; each card dense at the 7-point rubric and naive on neither axis, genuinely-deferred ONLY (never a realized page from ' +
-  'the survey), correctly anchored, with Ripple refs to existing cross-folder counterparts where the seam exists. Match the exact card ' +
-  'schema/voice from campaign-method.md. Fix-in-place (write the files, create if absent). Return the card-log + residual — each a {files: [both ' +
+  'the survey), correctly anchored, with Ripple refs to existing cross-folder counterparts where the seam exists. Match the exact card schema ' +
+  'from libs/.planning/README.md and the voice from campaign-method.md. Fix-in-place (write the files, create if absent). Return the card-log + ' +
+  'residual — each a {files: [both ' +
   'folders IDEAS.md/TASKLOG.md the Ripple pairs], claim} object for any CROSS-FOLDER Ripple counterpart you cannot author from this folder (NO ' +
   'severity; the reconcile phase fixes all of them).'].join('\n')
 const critiquePrompt = (folder) => [LAW, '', 'TASK: MECHANICAL LINE-BY-LINE CRITIQUE + FIX IN PLACE of every card in ' + folder + '/IDEAS.md + ' +
@@ -117,9 +121,11 @@ const cardFiles = (folder) => [folder + '/IDEAS.md', folder + '/TASKLOG.md']
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Survey')
-const inv = await agent('List the package/area folders under ' + SWEEP + ' that own a design corpus (immediate child directories containing a ' +
-  '.planning directory and/or a README.md + ARCHITECTURE.md). Include the branch-level tier if it owns cards. Return each as a repo-relative path. ' +
-  'Use find/ls against real disk state, never memory; do not cd.', { label: 'discover', phase: 'Survey', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
+const inv = await agent('DISCOVERY: list the package/area folders under ' + SWEEP + ' that own a design corpus (immediate child directories containing a ' +
+  '.planning directory and/or a README.md + ARCHITECTURE.md). Include the branch-level tier if it owns cards. The listing MUST be a live find/ls ' +
+  'run against the working tree — never memory, a prior run, or an index — with the scope path first proven to exist on disk. Completeness is the ' +
+  'product: a folder you miss silently escapes the whole pass; widen the search on any doubt and verify every returned path exists. Return sorted ' +
+  'repo-relative paths. Read-only; do not cd.', { label: 'discover', phase: 'Survey', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
 const FOLDERS = ((inv && inv.folders) || []).filter(Boolean)
 log('Ideate discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders')
 
@@ -158,8 +164,9 @@ if (clusters.length) {
       'files touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 }).then((v) => ({ cluster: cl, fix, verify: v })) : null,
   )).filter(Boolean)
 }
-const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
-const hard_residual = claimsAll.filter((c) => c.status === 'open').map((c) => c.claim)
+const claimsAll = reconciled.flatMap((r) => (((r.verify && r.verify.claims) || []).map((c) => ({ claim: c.claim, status: c.status, cluster: r.cluster }))))
+const filesFor = (c) => { const hit = c.cluster.find((x) => x.claim === c.claim); return hit ? hit.files : [...new Set(c.cluster.flatMap((x) => x.files))] }
+const hard_residual = claimsAll.filter((c) => c.status === 'open').map((c) => ({ files: filesFor(c), claim: c.claim }))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
 return { scope: SWEEP, folders: done.map((r) => r.folder), clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }

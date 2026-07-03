@@ -150,8 +150,9 @@ const TS_CITATION = [
   'ULTRA-STACKING: enumerate BOTH .api tiers IN FULL with a real listing — libs/typescript/.api/ (the substrate catalogs) and every ' +
     'libs/typescript/<folder>/.api/ — and mine them to OPERATOR DEPTH; an admitted capability the concept admits but no owner exploits is a ' +
     'DEFECT to close. Cite ONLY members that exist — verify novel members against the installed packages via `uv run python -m tools.assay api` ' +
-    'over node_modules; a member you cannot verify is a PHANTOM to delete. Use the DEEPEST primitive each package reaches (LIBRARY_DEPTH); flat ' +
-    'code below that operator depth is surface sprawl.',
+    'over node_modules, and when assay is unavailable (it is under concurrent construction) via the installed `.d.ts` read directly, the .api ' +
+    'catalogs, and Context7/exa/tavily against the official package docs, never memory; a member you cannot verify is a PHANTOM to delete. Use ' +
+    'the DEEPEST primitive each package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
   'ECOSYSTEM-DEPTH MANDATE: `effect` and `@effect/experimental` carry far more than any doctrine currently uses — the installed .d.ts module ' +
     'roster (node_modules/effect/dist/dts/, node_modules/@effect/experimental/dist/dts/) is the coverage checklist: a module or combinator ' +
     'family with doctrine-grade decision weight that no page exploits is a COVERAGE gap you close on the owning page; the same law holds for ' +
@@ -254,7 +255,8 @@ const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: INITIAL WAVE — ADVE
   'corpus unification is the later waves\' mandate). Attack the page as naive/shallow/illusory; wherever the attack lands, rebuild that ' +
   'surface GROUND-UP to 13/10 — never polish a weak ' +
   'base. Read the page, the README atlas + doctrine (binding law), the python + csharp stacks (the FLOOR, ' +
-  'READ-ONLY), the style-guide, and verify members against the Effect ecosystem (assay api over node_modules). Construct in ' +
+  'READ-ONLY), the style-guide, and verify members against the Effect ecosystem (assay api over node_modules; assay unavailable — the installed ' +
+  '`.d.ts` directly + the .api catalogs + Context7/exa/tavily). Construct in ' +
   'BOUNDARY_ADMISSION lifecycle order (Schema decode at the edge); collapse parallel shapes into ONE canonical owner with every secondary ' +
   'surface DERIVED — and KILL every const+type+typeof triple, loose interface/type-alias spam, hand-declared wire twin, free-floating brand, ' +
   '`any`, `enum`, and hand-thrown error; weave cross-cutting concerns as Effect combinators/Layers over a thin pure core; parameterize fully; ' +
@@ -268,7 +270,8 @@ const critiquePrompt = (page, arch) => [DOCTRINE, '',
     'docs/stacks/typescript/ IN FULL so your judgments are corpus-aware (vocabulary consistency, region overlap, altitude) — but you EDIT ' +
     'ONLY ' + page + '; siblings are being critiqued concurrently by their own agents, so treat their current text as context, never as ' +
     'settled law, and log a genuinely cross-file defect as residual_high instead of touching a sibling. Also read the python + csharp stacks ' +
-    '(the floor), the style-guide, and verify members via assay api. Run the MECHANICAL checklist LINE-BY-LINE and REPAIR every hit ' +
+    '(the floor), the style-guide, and verify members via assay api (assay unavailable: the installed `.d.ts` / the .api catalogs / ' +
+    'Context7/exa/tavily). Run the MECHANICAL checklist LINE-BY-LINE and REPAIR every hit ' +
     'in place — every hit a fix, never a note; the checklist is a FLOOR, never the complete audit: hunt doctrinal defects past it:',
   '(1) COLLAPSE_SCAN signals (3+ mandatory): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination or ' +
     'overloads; literal-only differences -> a POLICY_VALUE; boolean selecting bodies -> derived/policy; one-hop function -> delete; parallel ' +
@@ -332,7 +335,7 @@ const passPrompt = (ordered) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + 
   '(2) GAP-CLOSE — every COVERAGE FLOOR and CONTENT MANDATE has an owning law on the right page and every fence demonstrates the mandates its ' +
   'layer admits (satisfies tables, one-name exports + the exports block, inline injection/wrapping, overload/dual entries, inference ' +
   'pre-solving, nested Schema owners); enforce the EXPORT LAW and EXPORT-SURFACE COLLAPSE in every snippet corpus-wide; spot-verify named ' +
-  'members and delete phantoms. ' +
+  'members (assay api, or the installed `.d.ts` + the .api catalogs + Context7/exa/tavily when assay is unavailable) and delete phantoms. ' +
   '(3) COMPUTATION-LAW BODIES — the algorithmic-bodies page legislates every working body in the corpus: audit EVERY fence on EVERY page ' +
   'against its law — seed folds over mutable accumulation, scan for running traces, lazy Iterable pipelines materialized once at the tail, ' +
   'window/zip/groupBy co-iteration, `Array.mapAccum` stateful steps, Match-driven structural recursion, tabulation-as-fold memoization, ' +
@@ -366,7 +369,9 @@ const arch = await agent([DOCTRINE, '', 'TASK: ATLAS STRUCTURE CHALLENGE GATE (s
   'no densification path, two pages provably owning one layer, a genuinely disjoint uncovered layer — never taste. Read the README atlas + ' +
   'doctrine, every page from disk, and the inventory maps below. Default outcome: the standing roster unchanged. Where evidence disqualifies: ' +
   'apply ONLY the structure — `git mv` each rename; create a skeleton file (H1 `# [<TOKEN>]` + one-line lead + `## [1]-[INDEX]` stub) for each ' +
-  'genuinely new page; update the README atlas table to match; author NO content (the Harden pass realizes content per charter). Edit ONLY ' +
+  'genuinely new page; update the README atlas table to match; author NO content (the Harden pass realizes content per charter). A merge/kill ' +
+  'DROPS no capability: route every law the retired page owns into the absorbing page charter so the waves realize the absorption — zero ' +
+  'current consumers never lowers the bar, and a kill without a named absorber is forbidden. Edit ONLY ' +
   'under ' + ROOT + '/. Return the FINAL ordered file set {path, order, charter, isNew}, renames, rationale.\nINVENTORY:\n' +
   JSON.stringify(invFiles, null, 1)].join('\n'), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'max', stallMs: STALL })
 const archFiles = ((arch && arch.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order)

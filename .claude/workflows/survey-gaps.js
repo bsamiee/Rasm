@@ -1,6 +1,6 @@
 export const meta = {
   name: 'survey-gaps',
-  description: 'Per-folder capability-gap survey-AND-APPLY across the C# AEC stack, one folder at a time so the apply only ever consolidates a single folder findings and nothing is dropped. Each folder runs its own pipeline: ONE opus survey+synthesize agent (reads the folder + central manifest, emits the gaps AND six research facets), SIX opus research agents (one facet each, find best-in-class modern packages and self-validate the six-condition gate so no nonsense is admitted), ONE opus execute agent (consolidates the six findings, admits the central pins, updates the csproj + README, restores and verifies the install on osx-arm64 at newest), and ONE sonnet stub agent (writes a one-line placeholder .api catalog per admitted package). Folders run sequentially because every execute agent writes the shared central manifest. The full .api authoring and the design-page integration are deliberately deferred — a focused rebuild-api run fills the stubs, and plan-cs threads the capability into the design pages. Disposable, hardcoded scope, no args.',
+  description: 'Per-folder capability-gap survey-AND-APPLY across the C# AEC stack, one folder at a time so the apply only ever consolidates a single folder findings and nothing is dropped. Each folder runs its own pipeline: ONE opus survey+synthesize agent (reads the folder + central manifest, emits the gaps AND six research facets), SIX opus research agents (one facet each, find best-in-class modern packages and self-validate the six-condition gate so no nonsense is admitted), ONE opus execute agent (consolidates the six findings, admits the central pins, updates the csproj + README, restores and verifies the install on osx-arm64 at newest), and ONE sonnet stub agent (writes a one-line placeholder .api catalog per admitted package). Folders run sequentially because every execute agent writes the shared central manifest. The full .api authoring and the design-page integration are deliberately deferred — a focused rebuild-api run fills the stubs, and a brief-driven rebuild pass threads the capability into the design pages. Durable, roster-scoped, no args.',
   whenToUse: 'Admit the world-class modern packages each planned C# AEC folder is missing, persistence-first, one folder at a time with no dropped findings.',
   phases: [
     { title: 'Survey', detail: 'one opus xhigh agent per folder: domain, admitted packages, hand-rolls, gaps, AND the six research facets', model: 'opus' },
@@ -16,12 +16,15 @@ const EXEC_STALL = 600000
 const PERSISTENCE = { name: 'Persistence', primary: true, doc: 'libs/csharp/Rasm.Persistence', api: 'libs/csharp/Rasm.Persistence/.api', planning: 'libs/csharp/Rasm.Persistence/.planning', csproj: 'libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj', note: '' }
 const FOLDERS = [
   PERSISTENCE,
+  { name: 'Element', doc: 'libs/csharp/Rasm.Element', api: 'libs/csharp/Rasm.Element/.api', planning: 'libs/csharp/Rasm.Element/.planning', csproj: 'libs/csharp/Rasm.Element/Rasm.Element.csproj', note: 'The folder-tier .api directory does not exist on disk yet — an empty folder tier is ' +
+    'ground truth, never an error; the STUB stage creates the directory with the first admitted catalog.' },
   { name: 'AppHost', doc: 'libs/csharp/Rasm.AppHost', api: 'libs/csharp/Rasm.AppHost/.api', planning: 'libs/csharp/Rasm.AppHost/.planning', csproj: 'libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj', note: '' },
   { name: 'Bim', doc: 'libs/csharp/Rasm.Bim', api: 'libs/csharp/Rasm.Bim/.api', planning: 'libs/csharp/Rasm.Bim/.planning', csproj: 'libs/csharp/Rasm.Bim/Rasm.Bim.csproj', note: '' },
   { name: 'Fabrication', doc: 'libs/csharp/Rasm.Fabrication', api: 'libs/csharp/Rasm.Fabrication/.api', planning: 'libs/csharp/Rasm.Fabrication/.planning', csproj: 'libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj', note: '' },
   { name: 'Rasm', doc: 'libs/csharp/Rasm', api: 'libs/csharp/Rasm/.api', planning: 'libs/csharp/Rasm/.planning', csproj: 'libs/csharp/Rasm/Rasm.csproj', note: '' },
   { name: 'Compute', doc: 'libs/csharp/Rasm.Compute', api: 'libs/csharp/Rasm.Compute/.api', planning: 'libs/csharp/Rasm.Compute/.planning', csproj: 'libs/csharp/Rasm.Compute/Rasm.Compute.csproj', note: '' },
   { name: 'Materials', doc: 'libs/csharp/Rasm.Materials', api: 'libs/csharp/Rasm.Materials/.api', planning: 'libs/csharp/Rasm.Materials/.planning', csproj: 'libs/csharp/Rasm.Materials/Rasm.Materials.csproj', note: '' },
+  { name: 'AppUi', doc: 'libs/csharp/Rasm.AppUi', api: 'libs/csharp/Rasm.AppUi/.api', planning: 'libs/csharp/Rasm.AppUi/.planning', csproj: 'libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj', note: '' },
 ]
 const HOMING = JSON.stringify(FOLDERS.map((f) => ({ name: f.name, api: f.api, csproj: f.csproj, note: f.note })))
 const MANIFEST = 'Directory.Packages.props (central NuGet pins) + Directory.Build.props (TargetFramework net10.0, RuntimeIdentifiers osx-arm64)'
@@ -37,12 +40,12 @@ const LAW = [
   'Rasm monorepo, PER-FOLDER capability-gap survey-AND-APPLY of the C# AEC stack (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP ' +
     'strata, depend strictly upward). This run works ONE folder at a time end-to-end so the apply only ever consolidates a single folder findings ' +
     'and nothing is dropped. The mission is NOT a per-package keep/replace audit — it is to find AND admit the world-class MODERN packages this ' +
-    'PLANNED folder is MISSING: both functionality gaps in existing concerns and real capability gaps in the planned scope. Persistence is the ' +
-    'PRIMARY weight (backends, store types, store extensions, ingress/egress), then Compute/Bim/Materials/Fabrication/Rasm/AppHost. Central ' +
+    'PLANNED folder is MISSING: both functionality gaps in existing concerns and real capability gaps in the planned scope. The roster runs in ' +
+    'order ' + FOLDERS.map((x) => x.name + (x.primary ? ' (PRIMARY — go deepest)' : '')).join(' -> ') + '. Central ' +
     'pins live in ' + MANIFEST + '.',
   'BAR: the folder must be able to build world-class, bleeding-edge, production-ready, professional-standard apps RIGHT NOW — ' +
     'ultra-dense/complex/rich, minimal-to-no hardcoding, maximal parameterization, easily extended, NO fake or illusory capability. Treat ' +
-    'Persistence/Materials/Bim as likely SHORT-SIGHTED in scope: assume valuable modern packages are missing and hunt them. Where a folder ' +
+    'EVERY folder scope as likely SHORT-SIGHTED: assume valuable modern packages are missing and hunt them. Where a folder ' +
     'hand-rolls a concern a real package owns, that is a gap. Do not hold back: many additions are fine IF each is best-in-class and non-overlapping. ' +
     'Every stage holds the folder picture and every upstream payload naive, thin, or illusory until it survives attack — dense, confident-looking ' +
     'coverage is the prime suspect for hollowness.',
@@ -69,20 +72,26 @@ const LAW = [
     'store/backend types (columnar, time-series, graph, vector, search, object, embedded, lakehouse) and ingress/egress codecs; for Bim — IFC ' +
     '(model graph, geometry/tessellation, validation, BCF, IDS), scheduling (CPM/resource-leveling/4D), cost (estimating/QTO/cost models), ' +
     'GIS/geospatial; for Materials — appearance/spectral/measured-BSDF/datasets; for Compute — solvers/optimization/ML/numerics; for Rasm — ' +
-    'host-neutral geometry/mesh/spatial capability. Rhino/GH2/AEC-adjacent capability is in scope where it is host-neutral. Every named exemplar ' +
+    'kernel geometry/meshing/spatial/numerics/analysis capability across its eight .planning sub-domains; for Element — property-graph modeling ' +
+    'and graph algorithms, content-addressed identity/hashing, and protobuf-era wire codecs; for AppUi — Avalonia-first product-UI capability ' +
+    '(controls, docking, charting/plotting, theming, reactive state). Rhino/GH2/AEC-adjacent capability is in scope where it is host-neutral. ' +
+    'Every named exemplar ' +
     'list here is SEED DATA marking the floor of a sweep, never its extent — the sweep covers the full space the parameters name.',
-  'ASSAY + TFM TRUTH: verify a candidate that is in the cache via `uv run --frozen python -m tools.assay api`; for a multi-target NuGet package ' +
+  'ASSAY + TFM TRUTH: verify a candidate that is in the cache via `uv run --frozen python -m tools.assay api`; when the assay rail is ' +
+    'unavailable or errors, member truth routes through the fallback tier instead — both .api tiers, the nuget MCP (feed truth: newest version, ' +
+    'license, TFMs, deprecation), Context7 for official API docs, and exa/tavily source reads. For a multi-target NuGet package ' +
     'the consumer floor is net10.0 — confirm the lib/<tfm> a net10 consumer actually binds rather than trusting assay default resolution. Confirm ' +
     'versions/license/Mac/packaging against the registry (NuGet flat-container index + nuspec) truthfully; web research for the domain landscape, ' +
-    'newest stable version, and maintenance signals. A package, version, extension, or member that cannot be verified against registry, repo, or ' +
-    'assay evidence is a PHANTOM: never survey it, never return it, never admit it.',
+    'newest stable version, and maintenance signals. A package, version, extension, or member that no evidence tier can verify (registry, repo, ' +
+    'catalog, assay, or the fallback tier) is a PHANTOM: never survey it, never return it, never admit it.',
   'WRITE DISCIPLINE — strict phase ownership: SURVEY and RESEARCH are the DISCOVERY reconnaissance — read-only is that role ONLY concession, ' +
     'never its depth — and they write NOTHING. ONLY the EXECUTE stage ' +
     'admits packages, and it writes EXACTLY four things and NO more: (a) the central pin in Directory.Packages.props (the matching ItemGroup, ' +
     'newest stable version, plus any pure-managed transitive floor pins the new package needs), (b) the PackageReference in the OWNING folder ' +
     'csproj, (c) the OWNING folder README central-manifest/domain-packages section + prose, and (d) the restore/verify of the owning project so ' +
     'the pin resolves and lands in the lockfile. The EXECUTE stage does NOT author .api catalogs and does NOT touch any design page — full .api ' +
-    'authoring is deferred to a focused rebuild-api run over the stubs, and design-page integration is deferred to plan-cs. The STUB stage writes ' +
+    'authoring is deferred to a focused rebuild-api run over the stubs, and design-page integration is deferred to a brief-driven rebuild pass. ' +
+    'The STUB stage writes ' +
     'ONLY a one-line placeholder .api catalog file per admitted package (the proper catalog filename, a single placeholder line, nothing else) so ' +
     'the focused rebuild-api run has an exact target list. On a REPLACEMENT the execute stage ripple-removes the superseded package central row + ' +
     'csproj reference + README mention (its .api removal rides the focused rebuild-api stub list).',
@@ -124,7 +133,8 @@ const researchPrompt = (f, survey, facet) => [
     '(COVERAGE), and prefer ONE parameterized, generator-grade owner over a roster of narrow point solutions (APPROACH). For a PostgreSQL or ' +
     'DuckDB extension facet, survey the FULL first-party/contrib extension set AND the top 25 community extensions and return every valuable one ' +
     '(not a sample). Use web research for the landscape, newest stable version, maintenance, license, and Mac/osx-arm64 fit; confirm ' +
-    'versions/license from the registry where possible and members via `uv run --frozen python -m tools.assay api` when resolvable.',
+    'versions/license from the registry where possible and members via `uv run --frozen python -m tools.assay api` when resolvable (on an assay ' +
+    'outage: both .api tiers, the nuget MCP, Context7, exa/tavily — a member no tier verifies is a phantom).',
   'Then SELF-VALIDATE each candidate against the six-condition gate and set ok=true ONLY when ALL pass: bestOf, macOk (osx-arm64), newest (name ' +
     'the current stable release + active maintenance), licenseOk (OSS or free-full commercial), noLegacy (modern packaging/TFM), notDup (not a ' +
     'duplicate of an admitted package or a sibling candidate — set dupOf when it is, and keep only the single best of an overlapping pair). The ' +
@@ -146,10 +156,12 @@ const executePrompt = (f, survey, research) => [
   'For EACH surviving package: (a) add the central pin to Directory.Packages.props in the matching ItemGroup at the newest stable version, with a ' +
     'one-line comment, plus any pure-managed transitive floor pins it needs; (b) add the PackageReference to the owning folder csproj; (c) update ' +
     'the owning folder README central-manifest/domain-packages section + prose so the admission is registered. Do NOT author any .api catalog and ' +
-    'do NOT touch any design page — those are deferred (the STUB stage writes a one-line .api placeholder; rebuild-api fills it; plan-cs ' +
-    'integrates the design). On a replacement named in fills, ripple-remove the superseded package central row + csproj reference + README mention.',
+    'do NOT touch any design page — those are deferred (the STUB stage writes a one-line .api placeholder; rebuild-api fills it; a brief-driven ' +
+    'rebuild pass integrates the design). On a replacement named in fills, ripple-remove the superseded package central row + csproj reference + README mention.',
   'Then RESTORE and VERIFY the owning project so every new pin resolves on osx-arm64 at the newest stable version and the project restores clean — ' +
-    'run the gate via `uv run --frozen python -m tools.assay static --project ' + f.csproj + '` (or restore) and parse the JSON Envelope. ' +
+    'run the gate via `uv run --frozen python -m tools.assay static --project ' + f.csproj + '` and parse the JSON Envelope; when the assay rail ' +
+    'is unavailable or errors, gate directly on the toolchain — `dotnet restore ' + f.csproj + '` (plus `dotnet build` when restore alone is ' +
+    'inconclusive) at the SAME green criterion: a clean resolve on osx-arm64 at the pinned versions. ' +
     'SELF-HEAL in place on a red gate (wrong ItemGroup, missing pure-managed transitive floor pin, a version that does not exist, a stale README ' +
     'reference). If a package proves genuinely non-resolvable or RID-incompatible on osx-arm64, REVERT its admission entirely (manifest row + ' +
     'csproj reference + README mention) and record it under skipped with the reason — a non-Mac package must not be admitted. For EACH applied ' +

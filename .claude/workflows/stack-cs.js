@@ -1,7 +1,7 @@
 export const meta = {
   name: 'stack-cs',
   whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
-  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Now also a bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, plus QuikGraph/Riok.Mapperly/Generator.Equals elevated to admitted core substrate) hardened into existing owners, plus an optional default-off gated new-core-page valve; still restructure-free at heart — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Gate (default-off justified-new-page valve) -> Initial wave (1 agent/file in parallel, sibling-blind, rebuild under the README + own charter) -> Critique wave (1 agent/file in parallel, each reads the WHOLE stack corpus, edits ONLY its file) -> Redteam wave (same, most aggressive) -> Passes (3 sequential corpus agents: align -> gap-close -> finalize) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial WRITING verify(max)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
+  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; still restructure-free at heart — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Gate (default-off justified-new-page valve) -> Initial wave (1 agent/file in parallel, sibling-blind, rebuild under the README + own charter) -> Critique wave (1 agent/file in parallel, each reads the WHOLE stack corpus, edits ONLY its file) -> Redteam wave (same, most aggressive) -> Passes (3 sequential corpus agents: align -> gap-close -> finalize) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial WRITING verify(max)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
   phases: [
     { title: 'Inventory', detail: 'parse the README atlas + the domain/ router for the ordered core + domain file set + per-file state, emit the region ledger seed' },
     { title: 'Gate', detail: 'justification gate (default harden-in-place): only on an explicit cited justification + target atlas position author ONE new core page, edit the README atlas/STATE, seed the region ledger, and splice it into the ordered set so Harden and Sweep treat it as a corpus member' },
@@ -119,7 +119,8 @@ const CS_AOP = [
     'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers ' +
     'collapse into ONE aspect; an aspect NEVER raises into domain flow; inline-repeated concerns and sibling helper methods are defects.',
   'MAPPING + EQUALITY are DEFINITION-TIME generated aspects, never hand-written: an owner<->DTO/proto/wire projection is emitted by Riok.Mapperly ' +
-    '(a `[Mapper]` partial-producing source-generator; members verified via assay), and structural equality + the content-key ride EITHER the ' +
+    '(a `[Mapper]` partial-producing source-generator; members verified via assay api, else the api-mapperly catalog), and structural equality + ' +
+    'the content-key ride EITHER the ' +
     'Thinktecture generated owner`s value semantics (`[ValueObject]`/`[ComplexValueObject]`) OR Generator.Equals (`[Equatable]`) for shapes ' +
     'Thinktecture does not own — a class-root `[Union]` node/edge type that otherwise SURRENDERS generated equality is the canonical case. A ' +
     'hand-rolled `Equals`/`GetHashCode`, a field-by-field hand mapper, or a runtime-reflection projector is the rejected form. These join ' +
@@ -185,7 +186,8 @@ const CS_SUBSTRATE = [
     'plus every sibling catalog the page concern touches) and, for a domain shard, the per-folder `libs/csharp/<Package>/.api/` host/NuGet catalogs ' +
     'its concern composes — and MINE them to OPERATOR DEPTH (read-only material; edits stay scoped to docs/stacks/csharp). The universals are ' +
     'Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
-    '(rails, effects, schedules, immutable collections; catalog-less — assay api is its evidence), with QuikGraph (graph traversal/topology + ' +
+    '(rails, effects, schedules, immutable collections; catalog-less — assay api is its evidence, and when assay is blocked or unavailable the ' +
+    'nuget MCP `get_package_context` + Context7/exa/tavily over the official LanguageExt surface own the fallback), with QuikGraph (graph traversal/topology + ' +
     'graph algorithms), Riok.Mapperly (generated ' +
     'owner<->DTO/proto/wire mapping), and Generator.Equals (generated structural equality + content-key for shapes Thinktecture does not own, e.g. ' +
     'class-root `[Union]` node/edge types) as ADMITTED CORE substrate integrated ground-up the SAME way and NAMED in the README [02] LIBRARY_DEPTH ' +
@@ -195,8 +197,9 @@ const CS_SUBSTRATE = [
     'Thinktecture/LanguageExt/QuikGraph/Riok.Mapperly/Generator.Equals onto the domain surface, NOT flat one-shot ' +
     'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); an admitted capability the concept ' +
     'admits but NO owner exploits is a DEFECT this pass closes; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers. Cite ' +
-    'ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` (verified-local beats any catalog line on conflict) — a member you ' +
-    'cannot verify is a phantom to delete.',
+    'ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` (verified-local beats any catalog line on conflict; assay blocked or ' +
+    'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback) — a member ' +
+    'you cannot verify through ANY of these rails is a phantom to delete.',
 ].join('\n')
 const PAGECRAFT = [
   'PAGE-CRAFT LAW (README [PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then ONE agnostic snippet beside the rule ' +
@@ -223,7 +226,9 @@ const OPINIONATED = [
   'LOC budget ~450 is a SOFT pressure signal toward DENSIFICATION, NOT a hard gate. The real metric is per-card and per-snippet density: every ' +
     'card and every snippet world-class, zero filler. NEVER strip snippet whitespace, remove design content, or fragment a coherent concept to hit ' +
     'a number; a coherent dense concept (e.g. the algorithms monolith) may exceed 450 when every card and snippet earns its place. A split is ' +
-    'justified ONLY by concept disjointness, never by line count.',
+    'justified ONLY by concept disjointness, never by line count. HARDENING: capability is IMPROVED or EXTENDED, never dropped — zero current ' +
+    'consumers never lowers the capability bar; deletion is lawful only for table-stakes, duplicated-region, phantom, or decorative content, ' +
+    'never for a density number.',
   'ANTI-PROLIFERATION (default = harden what exists): this pass DENSIFIES and CORRECTS existing cards/snippets in place; it does NOT grow the card ' +
     'count to look thorough. A NEW card is added ONLY to close a genuinely-OMITTED opinionated capability NO existing card owns, and every addition ' +
     'cites its ONE source (a verified package member, a doctrine law, or a consumer contract). A card that restates a neighbor, splits one decision ' +
@@ -270,8 +275,9 @@ const authorPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE HARDEN of ' + page 
   'DISBELIEVE the page — ' +
   'assume the fence is naive, junior, or illusory until proven 13/10, and treat dense confident-looking content as a prime suspect for ' +
   'hollow/decorative complexity. Read the page, the README atlas + doctrine + the domain/README router, the PYTHON doctrine (the ' +
-  'read-only rigor benchmark), the style-guide, and VERIFY every cited host/NuGet member via `uv run python ' +
-  '-m tools.assay api`. Construct in BOUNDARY_ADMISSION lifecycle order; collapse parallel shapes into ONE generated closed-family owner chosen by ' +
+  'read-only rigor benchmark), the style-guide, and VERIFY every cited host/NuGet member via `uv run python -m tools.assay api` (assay blocked or ' +
+  'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback). Construct ' +
+  'in BOUNDARY_ADMISSION lifecycle order; collapse parallel shapes into ONE generated closed-family owner chosen by ' +
   'OWNER_CHOOSER; weave every cross-cutting concern as a definition-time source-gen aspect or a composition-time effect transformer over a thin ' +
   'pure core (two-weave AOP); parameterize fully; one polymorphic entrypoint per modality; C# 14 / net10 to the metal. Make the exemplary snippet ' +
   'AGNOSTIC (neutral names, no project noun), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the ' +
@@ -284,7 +290,8 @@ const critiquePrompt = (page) => [DOCTRINE, '',
     'IN FULL so your judgments are corpus-aware (vocabulary consistency, region overlap, altitude) — but you EDIT ONLY ' + page + '; siblings ' +
     'are being critiqued concurrently by their own agents, so treat their current text as context, never as settled law, and log a genuinely ' +
     'cross-file defect as residual_high instead of touching a sibling. Read the page, the README doctrine + domain router, the sibling pages, the ' +
-    'python rigor benchmark, the style-guide, and verify members via assay api. REPAIR every hit in place: (1) COLLAPSE_SCAN signals (3+ ' +
+    'python rigor benchmark, the style-guide, and verify members via assay api (fallback when blocked: the `.api` catalogs + the nuget MCP + ' +
+    'Context7/exa/tavily). REPAIR every hit in place: (1) COLLAPSE_SCAN signals (3+ ' +
     'mandatory); (2) OWNER_CHOOSER per shape — replace any non-discriminant-correct owner, kill parallel DTOs/one-field wrappers/field-rename ' +
     'shapes/nullable-as-failure/`default`-ghosts; (3) KNOB_TEST — collapse flags to policy values/input-shape, move ' +
     '`timeout`/`retry`/`CancellationToken` to the carrier/aspect; (4) TWO-WEAVE AOP — definition-time source-gen vs composition-time effect ' +
@@ -326,7 +333,8 @@ const PASSES = [
   { key: 'gap-close', task: 'GAP-CLOSE — verify every COVERAGE FLOOR, CONTENT MANDATE, and capability-completeness law the doctrine blocks ' +
     'state has an owning law on the right page and every fence demonstrates the mandates its layer admits (generated closed-family owners, the ' +
     'two-weave AOP, the LanguageExt rails, the interface/graph seam law, the CS_SUBSTRATE stacking); close every gap IN PLACE on the owning ' +
-    'page; spot-verify named host/NuGet members via assay api and delete phantoms.' },
+    'page; spot-verify named host/NuGet members via assay api (fallback when blocked: the `.api` catalogs + the nuget MCP + Context7/exa/tavily) ' +
+    'and delete phantoms.' },
   { key: 'finalize', task: 'FINALIZE — the terminal cold read as a first reader with fresh hostile eyes: fix every residual weakness, hedge, ' +
     'meta line, thin card, or under-dense fence; density within the soft ~450 LOC signal without card/snippet spam; the corpus must end ' +
     'objectively denser and more capable than the passes found it — if a page is genuinely at the bar, prove it by finding nothing, never ' +
@@ -338,10 +346,12 @@ const passPrompt = (p, n, ordered) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):
   'note); a genuinely unresolvable cross-corpus item is a residual_high. Return file (the corpus root), verdict, regions [], edits summary, ' +
   'residual_high.'].join('\n')
 const gatePrompt = (ordered) => [DOCTRINE, '',
-  'TASK: JUSTIFICATION GATE (default-off new-page valve). Three law deltas are now doctrine — (1) the CROSS-STRATUM interface seam + ' +
-    'foreign-constraint-vs-internal-switch forms in the interface law, (2) GRAPH-AS-CLOSED-FAMILY (node/edge neutral-algebra union + derived-fold ' +
-    'aggregate + phase split + ALREADY-OWNED content addressing), (3) the mapping/equality generated-aspect clause in the two-weave AOP law (plus ' +
-    'QuikGraph/Riok.Mapperly/Generator.Equals elevated to admitted core substrate). For EACH delta decide its owner. DEFAULT and TIE go to ' +
+  'TASK: JUSTIFICATION GATE (default-off new-page valve). Diff the doctrine blocks above against the ON-DISK README laws + atlas: every law, ' +
+    'mandate, or substrate elevation this doctrine legislates that the README has NOT yet landed is a live DELTA — the known candidates are (1) the ' +
+    'CROSS-STRATUM interface seam + foreign-constraint-vs-internal-switch forms in the interface law, (2) GRAPH-AS-CLOSED-FAMILY (node/edge ' +
+    'neutral-algebra union + derived-fold aggregate + phase split + ALREADY-OWNED content addressing), (3) the mapping/equality generated-aspect ' +
+    'clause in the two-weave AOP law plus the QuikGraph/Riok.Mapperly/Generator.Equals substrate elevation — and each counts ONLY to the extent ' +
+    'the README has not landed it (a landed delta is settled, never re-adjudicated). For EACH live delta decide its owner. DEFAULT and TIE go to ' +
     'harden_in_place: a delta lands as IN-PLACE hardening of an EXISTING owner page — the interface + graph facets DISTRIBUTE across shapes.md ' +
     '(node/edge union, OWNER_CHOOSER), surfaces-and-dispatch.md (dispatch over the seam), boundaries.md (the floor + content key), algorithms.md ' +
     '(the phase split + QuikGraph traversal); the mapping/equality facet folds into the definition-time weave those pages instantiate; ' +

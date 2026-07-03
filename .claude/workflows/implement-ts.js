@@ -84,7 +84,8 @@ const LAW = [
     'type-safe, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR. READ every page and conform exactly. ' +
     'Cite ONLY real members of admitted ' +
     'packages, cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api` over the ' +
-    'node_modules declarations.',
+    'node_modules declarations — and when assay is unavailable (it is under concurrent construction), the published `.d.ts` read directly, ' +
+    'BOTH `.api` tiers, and Context7/exa/tavily against the official package docs are the verification rail, never memory.',
   'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the area SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. ' +
     'A FENCE is a markdown fenced code block inside a `.planning` design page — the work product itself, NEVER a `.ts`/`.tsx` source file. SCOPE ' +
     'per target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the ' +
@@ -113,14 +114,16 @@ const CARD = [
     'leg whose counterpart the other-language workflow realizes, NOT realized this TypeScript-only run).',
   'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
     'decision, not only `[BLOCKED]` ones — read the published types in `node_modules` and/or `uv run python -m tools.assay api` over the ' +
-    'node_modules declarations to confirm any member or type; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge if a live ' +
+    'node_modules declarations to confirm any member or type (assay unavailable: the direct `.d.ts` read + both `.api` tiers + Context7/exa/' +
+    'tavily own the proof); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge if a live ' +
     'host fact is needed. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope (a ' +
     'sibling-area contract resolves at the seam); a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
   'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): add the dependency + version to the ONE central repo-root ' +
     '`package.json` (and the `pnpm-workspace.yaml` catalog if the version is catalog-managed) — a SHARED manifest the reconcile pass owns; you ' +
     'MUST NOT edit it from a folder agent; LOG it as a residual_ripple keyed on `package.json`. Add the package to the correct group in the target ' +
-    '`README.md` (folder-local) and author the target `.api/<package>.md` from the published types via `uv run python -m tools.assay api` ' +
-    '(folder-local). Never a per-area `package.json`.',
+    '`README.md` (folder-local) and author the target `.api/<package>.md` from the published types via `uv run python -m tools.assay api` — or ' +
+    'straight from the package `.d.ts` in node_modules plus Context7/exa/tavily docs when assay is unavailable — (folder-local). Never a ' +
+    'per-area `package.json`.',
   'CLOSEOUT (the closeout pass ONLY): a genuinely-complete card moves to its file `[02]-[CLOSED]` section as a collapsed one-liner ' +
     '`[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); update the target `ARCHITECTURE.md` ' +
     '`[02]-[SEAMS]` section ONLY when a real cross-folder seam landed. Realize/critique/redteam passes NEVER change card status.',
@@ -161,8 +164,9 @@ const ULTRA = [
     're-derived by hand is a defect; a cited member that cannot be verified against the published types is a PHANTOM — delete it and rebuild ' +
     'the fence on verified spellings. (Implement uses the capability the card needs; it does not max-stack every catalog for its own sake — ' +
     'that is rebuild.)',
-  'PRESERVE all intended capability (densify, never delete functionality). Where a fence is already strong, deepen; where it is flat/naive, ' +
-    'rebuild ground-up. Never regress correctness or boundary law.',
+  'PRESERVE all intended capability (densify, never delete functionality): capability is improved or extended, NEVER dropped for lack of a ' +
+    'current consumer — zero consumers never lowers the bar; planned consumers are real design pressure. Where a fence is already strong, ' +
+    'deepen; where it is flat/naive, rebuild ground-up. Never regress correctness or boundary law.',
 ].join('\n')
 const PATLAW = [
   'TS PATTERN LAW (ultra-advanced ONLY; do not preserve the naive idioms of the existing code): ZERO `any`, zero implicit `any`, zero unsafe `as`, ' +
@@ -235,7 +239,8 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
     'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to; the area-root ' +
     '`ARCHITECTURE.md` + `README.md`; the operative docs/stacks/typescript/ pages (docs/stacks/csharp/ as the ambition floor); BOTH ' +
     '.api tiers — the shared `' + SHARED_API + '/*.md` AND the area `' + folder + '/.api/*.md` (stack them, the shared Effect/Schema rails layered ' +
-    'onto the area packages) — cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api`. ' +
+    'onto the area packages) — cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api` ' +
+    '(assay unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory). ' +
     'Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) into deep fences IN `' + folder + '` PAGES ONLY, in LIFECYCLE order ' +
     '(admit raw ONCE through a `Schema` parse at the boundary -> canonical owner -> weave every cross-cutting concern as an Effect ' +
     'combinator/layer/decorator over a thin pure core -> compose through ONE unified `Effect`/`Either`/`Option` rail -> project + egress, BOTH ' +
@@ -243,7 +248,8 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
     'EXHAUSTIVE `Match.exhaustive` dispatch; Schema-refined brands where primitives are overloaded. ZERO `any`/implicit-any/unsafe `as`/non-null `!`, NO ' +
     'runtime `enum`, NO `throw` in domain logic, `import type` explicit. Resolve any [BLOCKED] card inline (read published types in node_modules / ' +
     '`assay api`). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW — add the package to the ' +
-    'correct group in `' + folder + '/README.md` and author `' + folder + '/.api/<pkg>.md` from the published types via `assay api` — and LOG the ' +
+    'correct group in `' + folder + '/README.md` and author `' + folder + '/.api/<pkg>.md` from the published types via `assay api` (or the ' +
+    '`.d.ts` directly when assay is unavailable) — and LOG the ' +
     'central `package.json` (+ `pnpm-workspace.yaml` catalog) dependency add as a residual_ripple with files including `package.json` (a single ' +
     'reconcile agent owns that shared manifest; you MUST NOT edit it). RIPPLES: realize ONLY `' + folder + '`\'s OWN half of every seam; NEVER ' +
     'edit another folder page. For each ripple your cards carry, log a residual_ripple {files:[your_page, counterpart_page], pkg, slug, ' +
@@ -354,7 +360,8 @@ const closeoutPrompt = (folder, seamJson) => [LAW, '', CARD, '', BARHUNT, '', UL
   'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + folder + '`. This is the SOLE owner of card status. For EVERY card that was in scope this ' +
     'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +
     'then SANITY-VERIFY the fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the published types (verify a member via `uv ' +
-    'run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
+    'run python -m tools.assay api`; assay unavailable — the published `.d.ts` + both `.api` tiers + Context7/exa/tavily). If a card is WEAK or ' +
+    'PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
     'implement->critique->redteam this turn; deepen the fences under `' + folder + '` to genuinely complete the charter), then re-verify. Assign ' +
     'each card a strength: `strong` (every charter clause delivered, fences transcription-complete and fully type-safe against the published ' +
     'types), `partial` (most delivered, a clause still thin), `weak` (charter not met). CLOSE only genuinely-complete cards: move them to the ' +

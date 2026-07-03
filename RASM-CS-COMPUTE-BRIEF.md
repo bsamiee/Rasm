@@ -1,8 +1,17 @@
 # [RASM_CS_COMPUTE_BRIEF]
 
-Campaign: cs track 3/6 — run after geometry + persistence. Single-phase: `Workflow(rebuild.js, {targets: "libs/csharp/Rasm.Compute", brief: "RASM-CS-COMPUTE-BRIEF.md"})`, legs per `[05]` (manifest motions stage by proof gate inside the legs); hard residuals between legs via `resolve-residuals.js`.
-
 Authoritative campaign input for the restructure-and-harden of `libs/csharp/Rasm.Compute/.planning/` — the APP-PLATFORM measured-execution engine (41 pages, 7 folders: Analysis · Model · Runtime · Solver · Stats · Symbolic · Tensor). Upstream law honored throughout: `RASM-CS-GEOMETRY-BRIEF.md` over the CONVERTED kernel — the whole `Rasm` corpus lives under one `libs/csharp/Rasm/.planning/` root (34 landed pages standing law + the 18 geometry-campaign robust-core pages; fence namespaces frozen per the kernel `ARCHITECTURE.md` [03] matrix), and the kernel ledger declares exactly five kernel->Compute seams composed as settled law (`Rasm/ARCHITECTURE.md:78,82-83,86,93` — the `ContentHash.Of` identity entry, the `DiscreteCalculus` adjoint bundle, the `MeshAdjointSnapshot` handle, `SpatialIndex.ToAcceleration` node arrays, `EncodedGeometry`-as-`EncodedTensor`; Compute decodes the kernel acceleration/encoding wires, never re-implements kernel geometry), `RASM-CS-PERSISTENCE-BRIEF.md` (Compute reads the surviving cache/retrieval owners by reference; the deleted-owner seam rows re-point here), and `.archive/RASM-COMPONENT-PARADIGM-DECISION.md` (Compute consumes `graph.SectionOf` -> `ComputedSection`/seam `SectionProperties` with ZERO structural ripple, `:72`). `docs/stacks/csharp/` governs unchanged and is never restated here.
+
+## [EXECUTION]
+
+Settled campaign, cs track 3/6 — launch after the GEOMETRY and PERSISTENCE campaigns land; the durable rebuild takes this brief directly (no DECISION pass), its plan step classifying per-page kind from the `[01]` verdicts against disk: steps 1-2 loop once per `[05]-[BUILD_LEGS]` leg in partition order (legs 1-4; manifest motions stage by proof gate inside the legs; a leg's hard residuals resolve before the next leg launches) and re-run across sessions against this same brief until a cold pass lands nothing; steps 3-4 settle the scope once, and the campaign closes on the `[05]` acceptance dry-runs.
+
+| [STEP] | [LAUNCH] | [PRODUCES] |
+| :----: | :------- | :--------- |
+| 1 | `rebuild` — `{targets: "libs/csharp/Rasm.Compute", brief: "RASM-CS-COMPUTE-BRIEF.md"}` | One `[05]-[BUILD_LEGS]` leg landed per run, plus the run's `hard_residual` array |
+| 2 | `resolve-residuals` — the step-1 run's `{hard_residual: [...]}` return, launched only when non-empty | Every cross-file residual closed on disk before the next leg launches |
+| 3 | `align-cards` — `"libs/csharp/Rasm.Compute"` | TASKLOG/IDEAS card truth against the rebuilt corpus — the `[04]` card absorptions and the `[V12]` growth-row reseed verified |
+| 4 | `hygiene-sweep` — `"libs/csharp/Rasm.Compute"` | README <-> `Directory.Packages.props`/csproj <-> both `.api` tiers <-> `ARCHITECTURE.md` seam consistency at zero high-severity |
 
 ## [00]-[SHARED_LAW]
 

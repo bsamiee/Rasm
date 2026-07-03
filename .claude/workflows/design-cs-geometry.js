@@ -1,7 +1,7 @@
 export const meta = {
   name: 'design-cs-geometry',
   description: 'Ephemeral Phase-1 design pass for the kernel geometry campaign: survey (5 plane agents + 2 FEASIBILITY PROBES: GShark envelope vs the V2 op roster, and the V4/V10c implicit-point Tessellation hinge) -> 4 complete structural blueprints under the brief lenses -> 3 judge lenses with disqualifying gates (verdict disposition, strata acyclicity, BOTH consumer gates homed) -> synthesize winner+grafts -> red-team decide gate that WRITES RASM-CS-GEOMETRY-DECISION.md in rebuild-engine-native action vocabulary with the vendor-and-own and implicit-point rulings made AT DECISION TIME from probe evidence -> salvage (4 draft miners + overturn auditor + 1 writing integrator). About 22 agents, peak concurrency 7. args = {brief, out, scratch} with defaults; a string arg overrides the brief path.',
-  whenToUse: 'One-shot: turn RASM-CS-GEOMETRY-BRIEF.md into RASM-CS-GEOMETRY-DECISION.md — the binding page-set/namespace/fault-cluster/seam-ledger/leg-partition blueprint the durable rebuild engine executes. Run before or after the kernel conversion, never mid-conversion. Delete after the campaign lands.',
+  whenToUse: 'One-shot: turn RASM-CS-GEOMETRY-BRIEF.md into RASM-CS-GEOMETRY-DECISION.md — the binding page-set/namespace/fault-cluster/seam-ledger/leg-partition blueprint the durable rebuild engine executes. Launch when the kernel geometry campaign opens. Delete after the campaign lands.',
   phases: [
     { title: 'Survey', detail: '5 plane surveyors (register re-verified on disk) + 2 feasibility probes (GShark envelope, implicit-point hinge)' },
     { title: 'Draft', detail: '4 complete blueprints, one per brief lens (floor-maximalist, consumer-gate-first, roster-mining-first, folder-architecture-first)' },
@@ -64,15 +64,18 @@ const PRE = 'Rasm monorepo. THE BRIEF ' + BRIEF + ' (repo root) is binding law �
   'LANDED_KERNEL_LAW and INDEX_DOC_OBLIGATIONS), V1-V14 the binding verdicts with ruled defaults, [02] the evidence register E1-E16, [03] ' +
   'escalation targets, [04] package pressure with the roster rulings (Manifold in-house manifoldc P/Invoke ADD, the landed Fabrication-lane ' +
   'records, GShark vendor-and-own fallback, the named-and-rejected records), [05] build legs, [06] out-of-scope. Target: the ROBUST-CORE pages ' +
-  'inside libs/csharp/Rasm/.planning/ — the 18 settled Rasm.Geometry.* pages merged into the shared eight-folder root — plus the NEW planes the ' +
-  'verdicts mint; the 34 landed kernel pages beside them (Rasm.Domain/Rasm.Vectors/Rasm.Analysis) are STANDING LAW composed and extended through ' +
-  'declared seams, never re-litigated. docs/stacks/csharp/ + the relevant domain shards govern every fence; the WORKSPACE_LAW ' +
-  'strata govern placement; member verification reads the landed planning fences as kernel truth (the mature source is retired — ' +
+  'inside libs/csharp/Rasm/.planning/ — the 18 pages on the ARCHITECTURE.md [03]-[NAMESPACE_MAP] Rasm.Geometry.* placeholder row, spread across ' +
+  'the shared eight-folder root (Analysis/Domain/Drawing/Meshing/Numerics/Parametric/Processing/Spatial) — plus the NEW planes the verdicts mint; ' +
+  'the 34 landed kernel pages beside them (the frozen Rasm.Domain/Rasm.Vectors/Rasm.Analysis namespace families — contract namespaces on that map, ' +
+  'never folders) are STANDING LAW composed and extended through declared seams, never re-litigated. docs/stacks/csharp/ + the relevant domain ' +
+  'shards govern every fence; the WORKSPACE_LAW ' +
+  'strata govern placement; member verification reads the landed planning fences as kernel truth (the kernel source is retired — ' +
   'fields.md SampleDetailed, intent.md Topology, mesh.md TopologyDetailed, spectral.md DiscreteCalculus are fenced public surfaces) and the ' +
   '.api catalogues (decompile-verified) + the nuget MCP for external members. Both consumer gates are load-bearing law: the Generation KERNEL GATE ' +
   '(RASM-GENERATION-SPEC.md — SpineRef stations/frames, isolines, geodesics, subdivision, panelization, pattern-to-surface) and the Fabrication ' +
   'toolpath gate (corner-strategy offsets, slice stacks, medial-with-clearance-radius, developables, manufacturing-tolerance booleans). Your ' +
-  'stance is HOSTILE: the corpus is naive until disk proves otherwise; the register is an initial pointer, never a ceiling.'
+  'stance is HOSTILE: the corpus is naive until disk proves otherwise; the register is an initial pointer, never a ceiling. HARDENING LAW: ' +
+  'capability is improved or extended, NEVER dropped for lack of a current consumer; zero consumers never lowers the bar.'
 const ENGINE_VOCAB = 'ENGINE-NATIVE ACTIONS: the page-set table carries TWO action columns — the semantic action (KEEP/REBUILD/SPLIT/MERGE/MOVE/' +
   'DELETE/NEW) AND its rebuild-engine lowering (kind new|rebuild|improve, deletePages rows, absorb pairs {into, from}) so the durable rebuild ' +
   'engine executes the DECISION unmodified: a SPLIT lowers to N new pages + one delete-with-absorb; a MERGE lowers to one absorber + ' +

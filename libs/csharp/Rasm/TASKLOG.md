@@ -24,6 +24,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `Processing/intent#DISPATCH`, `Analysis/query#OPERATION_RUNTIME`, `Domain/rails#GENERATOR_CONTRACTS`, the frozen-name law in the kernel index docs, `tools/cs-analyzer` `UnionOpsGenerator` emit.
 - Tension: Blocked on realization, never on planning — no design page waits on this card.
 
+[API_CATALOG_DECOMPILE_REFRESH]-[BLOCKED]: five catalogue gaps wait on the assay decompile rail returning.
+- Capability: Decompile-verified member rows for surfaces the conversion pages compose beyond current catalogue coverage — kernel-tier `api-tensors.md` (`IsFiniteAll`/`SumOfMagnitudes`/`Norm`), `api-mathnet-numerics.md` at both tiers (`Distance.Euclidean`/`Manhattan`/`Cosine`, `Matrix<T>.SolveIterative`), kernel-tier `api-rhino.md` (`Mesh.QuadRemesh` overloads, `MeshUnwrapper`, `ReduceMeshParameters`), a missing `api-languageext` catalogue (indexed `Seq.Map((value, index) => ...)`), and the C# 14 `extension(Op)` static-form lowering evidence `Domain/validation.md` fences.
+- Shape: One focused `rebuild-api` pass over the kernel + shared `.api` tiers once the assay decompile rail is available; the page fences stand as authored (verified against the archived mature source and official docs), the catalogues catch up to them.
+- Unlocks: Full member verification for the conversion corpus; closes the verify residuals the tooling window left open.
+- Anchors: `Numerics/matrix`, `Numerics/spectral`, `Processing/segment`, `Domain/validation`, `Spatial/cloud`, the conversion drop register.
+- Tension: Blocked solely on assay availability, never on page work.
+
 [T-BOOLEAN-NATIVE-ASSET]-[BLOCKED]: native arrangement asset remains a scale-only gate after the managed exact boolean path lands.
 - Capability: Admit a robust exact-arithmetic mesh-arrangement native asset only for boolean workloads beyond the managed arrangement scale ceiling.
 - Shape: `HealOp.Boolean` composes `Arrangement.Apply(ArrangementKind.MeshBoolean, ...)` for common managed cases; `NativeAssetMissing` stays reserved for the future tier-3 scale route.

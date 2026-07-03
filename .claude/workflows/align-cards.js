@@ -41,10 +41,12 @@ const LAW = [
     'enumerate BOTH `.api` tiers with a real listing — folder-local `.api/` and language-root `libs/<lang>/.api/` — and read every catalog ' +
     'a thesis touches to operator depth; a cited member you cannot verify in a catalog or the corpus is a phantom — correct it to the verified ' +
     'spelling or disposition the card; an admitted capability neither realized in-corpus nor carded as deferred is a REAL gap, fillable only in ' +
-    'the completeness stage.',
+    'the completeness stage. HARDENING: capability is improved or extended, NEVER dropped for lack of a current consumer — zero consumers never ' +
+    'lowers a card\'s bar, and a card is dropped only against realized work or a proven falsehood on disk, never against missing demand.',
   'WRITE-FULLY MANDATE: every alignment/correction you identify you MUST make NOW via Edit/Write directly in the card file — the structured ' +
     'fix-log is a REPORT of edits ALREADY MADE, never a to-do list or hedge; leave nothing behind. If a card file is already aligned and correct, ' +
-    'return verdict=clean — never invent edits.',
+    'return verdict=clean — never invent edits. A genuinely cross-file claim you cannot close from the file(s) at hand goes to residual as a ' +
+    'claim string — never a silent skip.',
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -104,6 +106,7 @@ const verify = (await parallel([
     'disposition is repaired to the root card form, never noted. Never duplicate a realized page. Return the fix-log of edits already made; ' +
     'set file to a card file you edited and list every edited file in repaired.'].join('\n'), { label: 'verify:complete', phase: 'Cards-Verify', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 }),
 ])).filter(Boolean)
-log('Cards verify done')
+const hard_residual = [...aligned, ...verify].flatMap((r) => (r.residual || []).map((claim) => ({ files: [...new Set([r.file, ...(r.repaired || [])].filter(Boolean))], claim })))
+log('Cards verify done; ' + hard_residual.length + ' hard residuals')
 
-return { scope: SWEEP, files: CARD_FILES.length, aligned: aligned.map((r) => ({ file: r.file, verdict: r.verdict, applied: (r.applied || []).length })), verify: verify.map((r) => ({ file: r.file, verdict: r.verdict })) }
+return { scope: SWEEP, files: CARD_FILES.length, aligned: aligned.map((r) => ({ file: r.file, verdict: r.verdict, applied: (r.applied || []).length })), verify: verify.map((r) => ({ file: r.file, verdict: r.verdict })), hard_residual: hard_residual }

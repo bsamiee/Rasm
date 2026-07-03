@@ -1,7 +1,7 @@
 export const meta = {
   name: 'implement-py',
   whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the Python target folders.',
-  description: 'Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central pyproject.toml pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-python. Disposable, Python-only. args = a target path string, an array of paths, or empty for the five defaults. The language-wide libs/python/.planning is out of scope.',
+  description: 'Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central pyproject.toml pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Durable, Python-only. args = a target path string, an array of paths, or empty for the five defaults. The language-wide libs/python/.planning is out of scope.',
   phases: [
     { title: 'Discover', detail: 'one agent: enumerate folders + both .api tiers + doctrine from disk, full-read each target IDEAS/TASKLOG and anchored pages; extract open cards (all tasks incl atomic + 1-3 ideas) as map rows, sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang), record in-scope gates and malformed ripples' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
@@ -25,6 +25,7 @@ const TARGETS = Array.isArray(args) ? args.filter(Boolean).map(norm)
   : (typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL') ? [norm(args)]
   : DEFAULT_TARGETS
 const TARGET_SET = new Set(TARGETS)
+const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ')
 
 // --- [MODELS] ----------------------------------------------------------------------------
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['targets'], properties: {
@@ -64,25 +65,27 @@ const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required:
 } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+const FB = ' (the `.api` catalogs, Context7/exa/tavily for the official surface, and the `nuget` MCP for NuGet-side members own the fallback when assay is unavailable)'
 const LAW = [
   'Rasm monorepo, libs/python planning corpus (markdown specs of intended Python module designs). CLAUDE.md manifest + WORKSPACE_LAW strata ' +
-    'govern. The session targets are the libs/python package folders `artifacts`, `compute`, `data`, `geometry`, `runtime`. Each holds `IDEAS.md` ' +
+    'govern. The session targets are the libs/python package folders ' + TARGET_NAMES + '. Each holds `IDEAS.md` ' +
     '+ `TASKLOG.md` + `ARCHITECTURE.md` + `README.md` at its package ROOT, design pages at `<folder>/.planning/<subdomain>/*.md`, and a ' +
     'folder-specific `.api/*.md` catalog. The language-wide `libs/python/.planning` is OUT of scope this run. Read the package-root ' +
     '`ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`) and `README.md` (admitted-package roster) as governing context; never trample a sibling ' +
     'folder owner.',
   'STANDARD: docs/stacks/python/ is the route-owned law ' +
-    '(README/language/shapes/surfaces-and-dispatch/rails-and-effects/algorithms/type-system/boundaries/runtime/system-apis) — author Python as ' +
-    'dense, polymorphic, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR (match its richness, never import ' +
-    'C#-shaped idioms). READ the operative docs/stacks/python pages and conform exactly. Cite ONLY members confirmed in the .api catalogs; verify ' +
-    'any novel member via `uv run python -m tools.assay api`.',
+    '(README/language/shapes/surfaces-and-dispatch/rails-and-effects/algorithms/iteration/concurrency/boundaries/runtime/system-apis) — author ' +
+    'Python as dense, polymorphic, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR (match its richness, never ' +
+    'import C#-shaped idioms). READ the operative docs/stacks/python pages and conform exactly. Cite ONLY members confirmed in the .api catalogs; ' +
+    'verify any novel member via `uv run python -m tools.assay api`' + FB + '.',
   'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page ' +
     'FENCES. A FENCE is a markdown fenced code block inside a `.planning` design page — the work product itself, NEVER a `.py` source file. SCOPE ' +
     'per target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the ' +
     'card charter (Capability/Shape/Unlocks/Anchors), composing the right admitted capability and crushing surface sprawl into fewer richer owners ' +
     'with zero functionality loss.',
   'TWO-TIER .api: every fence draws on BOTH the shared/universal catalogs at `libs/python/.api/*.md` (anyio, expression, msgspec, pydantic, ' +
-    'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*, protobuf, grpcio) AND the folder-specific catalogs at ' +
+    'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*, protobuf, grpcio, and siblings — the disk listing owns the ' +
+    'roster) AND the folder-specific catalogs at ' +
     '`<folder>/.api/*.md`. The shared tier is SHARED capability you MUST consider and compose to realize the card properly — never re-derive by ' +
     'hand or settle for a thin folder-only subset; layer the shared rails (expression `Result`/`Option`, msgspec/pydantic discriminated models, ' +
     'beartype validation, stamina retry, structlog + opentelemetry spans, anyio structured concurrency) ON TOP OF the folder-specific domain ' +
@@ -106,16 +109,19 @@ const CARD = [
     'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over Python distributions / host DLLs / NuGet / ' +
     'node_modules to confirm any member; `uv run python -m tools.assay provision check` (+ `pyproject.toml` + tools/assay/README.md) for a ' +
     'native/scientific/database/provisioning band (sanitized Rasm evidence — direct `forge-provision` is Forge-level debugging, not the normal ' +
-    'entry); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host behavior. A `[BLOCKED]` card is REALIZED this ' +
-    'turn whenever a probe resolves its blocker OR its gating work is in scope; a blocker is genuinely legitimate ONLY when it depends on work ' +
-    'outside this run.',
+    'entry); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host behavior. tools/assay is under concurrent ' +
+    'construction: when an assay invocation fails, the probe obligation stands and reroutes — the `.api` catalogs, Context7/exa/tavily for the ' +
+    'official surface, the `nuget` MCP for NuGet-side members — and a blocker provable ONLY through downed assay is a legitimate out-of-run ' +
+    'blocker, never a faked resolution. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in ' +
+    'scope; a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
   'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): the new dependency is exactly ONE of three bands, which ' +
     'decides the central `pyproject.toml` marker AND the install/reflect path — (a) pure-Python wheel -> installs to `.venv`; (b) ' +
     'scientific/native (numpy/scipy-class, C/C++/Fortran build) -> NOT in `.venv`, the `forge-scientific-*` env, decided via `uv run python -m ' +
-    'tools.assay provision check`; (c) companion-band -> pinned with a `; python_version<\'3.15\'` marker. Pin the version + band marker in the ' +
+    'tools.assay provision check` (the package own wheel/build metadata via Context7/PyPI evidence decides the band when assay is unavailable); ' +
+    '(c) companion-band -> pinned with a `; python_version<\'3.15\'` marker. Pin the version + band marker in the ' +
     'ONE central repo-root `pyproject.toml` (a SHARED file — the reconcile pass owns it; you MUST NOT edit it from a folder agent; LOG it as a ' +
     'residual_ripple keyed on `pyproject.toml`), add the package to the correct group in the target `README.md` (folder-local), and author the ' +
-    'target `.api/<package>.md` from `uv run python -m tools.assay api` (folder-local). Never a per-folder `pyproject.toml`.',
+    'target `.api/<package>.md` from `uv run python -m tools.assay api`' + FB + ' (folder-local). Never a per-folder `pyproject.toml`.',
   'CLOSEOUT (the closeout pass ONLY): a genuinely-complete card moves to its file `[02]-[CLOSED]` section as a collapsed one-liner ' +
     '`[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); update the target `ARCHITECTURE.md` ' +
     '`[02]-[SEAMS]` section ONLY when a real cross-folder seam landed. Realize/critique/redteam passes NEVER change card status.',
@@ -182,10 +188,11 @@ const ULTRA = [
     'folder-specific domain packages — e.g. `msgspec dec_hook` -> pydantic discriminated union -> stamina `retry_context` -> opentelemetry span ' +
     'around the domain op — NOT flat one-shot per-library uses. Use the DEEPEST primitive each package itself reaches (LIBRARY_DEPTH). An ' +
     'admitted capability the card charter needs that no owner exploits is a DEFECT the pass closes by deepening a fence; a cited member that ' +
-    'cannot be verified in the catalogs or via `uv run python -m tools.assay api` is a PHANTOM the pass deletes or corrects on sight. (Implement ' +
+    'cannot be verified in the catalogs or via `uv run python -m tools.assay api`' + FB + ' is a PHANTOM the pass deletes or corrects on sight. (Implement ' +
     'composes the capability the card needs; it does not max-stack every catalog for its own sake — that is rebuild.)',
-  'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
-    'ground-up. Never regress correctness or boundary law.',
+  'PRESERVE all capability (densify, never delete functionality): capability is improved or extended, NEVER dropped for lack of a current ' +
+    'consumer — zero consumers never lowers the bar; planned consumers are real design pressure. Where a fence is already dense, deepen; where ' +
+    'it is flat/naive, rebuild ground-up. Never regress correctness or boundary law.',
 ].join('\n')
 const PATLAW = [
   'PY-VERSION LAW: target Python 3.15 on the full modern band (3.11/3.12/3.13/3.14/3.15) — advanced patterns ONLY, zero legacy idioms, IDENTICAL ' +
@@ -257,7 +264,7 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
     'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to; the package-root ' +
     '`ARCHITECTURE.md` + `README.md`; the operative docs/stacks/python/ pages (docs/stacks/csharp/ as the ambition floor); BOTH .api tiers — the ' +
     'shared `' + SHARED_API + '/*.md` AND the folder `' + folder + '/.api/*.md` (stack them, the shared rails layered onto the folder packages); ' +
-    'and verify any novel member via `uv run python -m tools.assay api`. Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) ' +
+    'and verify any novel member via `uv run python -m tools.assay api`' + FB + '. Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) ' +
     'into deep fences IN `' + folder + '` PAGES ONLY, in LIFECYCLE order (admit raw ONCE into a typed `TypedDict`/Pydantic payload -> materialize ' +
     'into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting concern ' +
     '(retry/telemetry/validation/contracts/memo/receipts) as a STACKED signature+rail-preserving aspect over a thin pure core -> compose the ' +
@@ -265,9 +272,9 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
     'parameterized). Collapse parallel shapes into one closed family/ADT (`@tagged_union`); drive cases with a derived `frozendict` table or fold; ' +
     'one polymorphic entrypoint per modality (`T | Iterable[T]` normalized once). py3.15-modern only (PEP 585/604/695, `frozendict` builtin, ' +
     'newest payload forms; NO `from __future__ import annotations`, NO legacy typing, NO `asyncio`/`None`-as-failure). Resolve any [BLOCKED] card ' +
-    'inline (assay api for members; `uv run python -m tools.assay provision check` for native/scientific/provisioning bands). PACKAGE ADMISSION ' +
+    'inline (assay api for members' + FB + '; `uv run python -m tools.assay provision check` for native/scientific/provisioning bands). PACKAGE ADMISSION ' +
     '(only if a card needs a not-yet-admitted package): decide the band (pure-Python / scientific-native / companion), do the FOLDER-LOCAL parts ' +
-    'NOW — add the package to the correct group in `' + folder + '/README.md` and author `' + folder + '/.api/<pkg>.md` from `assay api` — and LOG ' +
+    'NOW — add the package to the correct group in `' + folder + '/README.md` and author `' + folder + '/.api/<pkg>.md` from `assay api`' + FB + ' — and LOG ' +
     'the central `pyproject.toml` pin + band marker as a residual_ripple with files including `pyproject.toml` (a single reconcile agent owns that ' +
     'shared file; you MUST NOT edit it). RIPPLES: realize ONLY `' + folder + '`\'s OWN half of every seam; NEVER edit another folder page. For ' +
     'each ripple your cards carry, log a residual_ripple {files:[your_page, counterpart_page], pkg, slug, mirror_slug, claim} stating the contract ' +
@@ -333,7 +340,7 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     'names it (ports/boundaries/wires/seams drift) is a defect: fix it within `' + folder + '`, or record it as a residual_ripple. (E) ' +
     'SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` exposes capability the card needs but the fence re-derives by hand, flat code below ' +
     'the operator depth the packages reach, a phantom `.api` member, or a thin wrapper: collapse to package depth and verify the member exists ' +
-    '(via `assay api`).',
+    '(via `assay api`' + FB + ').',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh ' +
     'hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the ' +
     'ASPECT taxonomy, rail + closed-fault-vocabulary discipline, charter-completeness per card, BOTH naivety axes (COVERAGE thin-slice; ' +
@@ -371,8 +378,9 @@ const reconcileVerifyPrompt = (cl, fix) => [LAW, '', CARD, '', BARHUNT, '', ULTR
 const closeoutPrompt = (folder, seamJson) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '',
   'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + folder + '`. This is the SOLE owner of card status. For EVERY card that was in scope this ' +
     'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +
-    'then SANITY-VERIFY the fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
-    '`uv run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
+    'then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior pass verdict a rejected self-assessment — that the ' +
+    'fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
+    '`uv run python -m tools.assay api`' + FB + '). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
     'implement->critique->redteam this turn; deepen the fences under `' + folder + '` to genuinely complete the charter — a token single-point ' +
     'patch where a root-level deepening of the same fences is available is itself a defect, repair to the root form), then re-verify. Assign ' +
     'each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` (most ' +
