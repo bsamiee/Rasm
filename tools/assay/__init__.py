@@ -31,7 +31,7 @@ from tools.assay.composition.settings import AssaySettings
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DRAIN_MS: int = 1500  # shared trace flush budget; keep in sync with exit drain
+DRAIN_MS: int = 1500  # shared trace flush budget; keep in sync with exit drain
 _SERVICE: dict[str, str | int] = {
     "service.name": "assay",
     "service.namespace": "rasm",
@@ -61,7 +61,7 @@ def install_tracing(endpoint: str) -> None:
 
             # Exporter connects on force_flush, not construction; a stale endpoint fails silently until flush time.
             provider = TracerProvider(resource=Resource.create(_SERVICE))
-            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=target), schedule_delay_millis=_DRAIN_MS))
+            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=target), schedule_delay_millis=DRAIN_MS))
             set_tracer_provider(provider)
 
 
@@ -82,4 +82,4 @@ configure_logging(_SETTINGS.log_format)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["bootstrap_error", "configure_logging", "install_tracing"]
+__all__ = ["DRAIN_MS", "bootstrap_error", "configure_logging", "install_tracing"]

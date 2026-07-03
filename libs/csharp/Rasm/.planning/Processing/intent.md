@@ -1,0 +1,357 @@
+# [RASM_VECTORS_INTENT]
+
+THE kernel consumer rail — ONE `VectorIntent` `[Union]` whose case families span every capability band the kernel owns (axis/direction algebra, angles and relations, support proximity, extraction, rays, frames, curve/surface evaluation, cloud metrics and winding, cones, component decomposition, bounce, streamlines, lerp/slerp, plane projection and mirroring, pose interpolation, mesh flatten/remesh/topology/features/descriptors/segmentation, hulls, sampling, registration, optimal transport, and discrete calculus), and ONE `Project<TOut>(Context, Op?)` egress preserved VERBATIM — `Rasm.Rhino` Camera and the settled corpus bind this exact signature, so the entry contract is frozen while everything behind it is re-derived against the new owners. The former 41-factory construction spam is dead: construction is exactly ONE factory per case — the `Cloud`/`Hull`/`Features` overload pairs collapse onto `Option<policy>` parameters whose defaults derive from the policy owners, and the six extraction factories collapse to ONE `Extract(Extraction)` because the extraction request vocabulary is `extract.md`'s public union with its own admitting factories. Every factory internalizes admission (the `Domain/validation.md` vocabulary plus each payload owner's `Admit`), so an existing `VectorIntent` is proof its payload was admitted — the dispatch never re-validates.
+
+The dispatch COMPOSES, never re-implements: every arm routes to the owning page's entry and projects the result through the `Numerics/atoms.md` `AtomProjection` rail. The two former in-dispatch math inlines are dead by delegation — quaternion slerp (including the antiparallel branch) lives at `Parametric/projections.md`'s `MotionInterpolation`, THE one slerp site serving poses and directions alike; lerp, planar projection, and mirroring are `Numerics/atoms.md` `Direction` combinators (`Direction.Lerp`/`ProjectedOnto`/`Mirrored`). Mesh-band arms dispatch through the owning vocabulary value's own entry (`MeshSegmentation`/`MeshDescriptor`/`RemeshKind`/`MeshFeaturePolicy`/`MeshLaplacian` — `Processing/segment.md`, `Processing/geodesics.md`, `Meshing/dec.md` own the solvers), the frozen `MeshKernel.TopologyDetailed` + `TopologyReceipt` projection stands by name, cloud/hull/winding route through `Spatial/cloud.md`'s `CloudKernel`, transport through `Spatial/transport.md`'s `SinkhornPlan`, registration through `Processing/register.md`'s `AlignKind.AlignDetailed`, sampling through `sample.md`'s `SampleKind`, extraction through `extract.md`, and streamlines through `flow.md`'s `FlowKernel`. `Op` stays the explicit value key threaded through construction and dispatch — the rail's pipelines are short by design; the long-pipeline `Eff<Env>` carriage is the `Rasm.Analysis` runtime's concern, never a second paradigm here.
+
+## [01]-[INDEX]
+
+- [02]-[CONSTRUCTION]: the case-family roster; the one-factory-per-case law; internalized admission; the extraction-band collapse onto `extract.md`'s public request union.
+- [03]-[DISPATCH]: the verbatim `Project<TOut>(Context, Op?)` contract; the total generated `Switch`; per-arm delegation to the owning pages; the atoms projection rail as the sole output gate.
+
+## [02]-[CONSTRUCTION]
+
+- Owner: `VectorIntent` `[Union]` — 33 sealed cases, private root constructor, case constructors `internal` wherever a payload must arrive pre-admitted (support spaces, extraction requests, clouds with metric policies, streamline bundles, mesh queries) and positional-public only where the payload is a raw value the dispatch admits through its owner (`Direction`, `Axes`, `Angular`, `Components`, `Relation`, `ProjectOnto`, `Mirror`, `Ray`, `Frame`).
+- Cases: `Axis` · `Direction` · `Axes` · `Angular` · `Support` · `Extraction` · `Ray` · `Frame` · `Curve` · `Cloud` · `Winding` · `Cone` · `Components` · `Relation` · `Bounce` · `Streamline` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Surface` · `Pose` · `Flatten` · `Hull` · `Sample` · `Align` · `Remesh` · `Transport` · `Topology` · `Features` · `Descriptor` · `DiscreteCalculus` · `Segmentation` — every capability band of the retired file preserved one-for-one; the six former extraction factories are ONE `ExtractionCase` carrying `extract.md`'s union.
+- Entry: exactly one factory per case. Raw scalars admit through `Op.AcceptValidated<UnitInterval|PositiveMagnitude|Dimension>`; geometry admits through the `Admit` vocabulary (`NotNull`/`Plane`/`Direction`/`Cone`/`Finite`/`MeshNative`); payloads with owners re-admit through those owners (`SampleKind.Admit`, `Termination.Admit`, `FieldIntegrator.AdmitOrFixed`, `AlignmentPolicy.Admit`, `CloudTransportPolicy.Admit`, `CloudMetricPolicy.AdmitOrDefault`, `CloudHullPolicy.AdmitOrDefault`, `MeshFeaturePolicy.Admit`, `SurfaceSpace.Of` + its own UV admission). Optional policies enter as `Option<T> = default` resolved against the owner's canonical row — never a sibling overload, never a `bool` knob.
+- Growth: a new kernel capability is one case + one factory + one dispatch arm — the generated `Switch` breaks every dispatch site at compile time; a new modality of an existing capability is a policy row or case field on the OWNING page, reaching this rail with zero new surface.
+- Boundary: the factory surface is the ONLY construction path (private root constructor; no implicit conversions), so no un-admitted intent exists; a factory never buries a solver decision — solver selection is the payload's own vocabulary (`AlignKind`, `SampleKind`, `MeshLaplacian`, `MeshSegmentation`), carried not interpreted; the `Features(space, dihedralRadians)` convenience of the retired file is dead — `MeshFeaturePolicy.Of` is the policy's one constructor and this rail accepts only the constructed policy.
+
+## [03]-[DISPATCH]
+
+- Entry: `public Fin<TOut> Project<TOut>(Context context, Op? key = null)` — FROZEN. The context gate (`MissingContext` on null) precedes the total `Switch`; `TOut` is the output discriminant resolved by each owner's projection rows, so one entry serves `Vector3d`, `Direction`, `Plane`, `VectorFrame`, `double`, `Circle`, `Point3d`, receipts, traces, curves, clouds, matrices, and every typed evidence carrier the owners publish.
+- Auto: arms delegate — direction band to `Direction.Of/Lerp/ProjectedOnto/Mirrored` and `VectorAngle.Of`/`VectorRelation.Of`/`VectorSpan.Of`/`VectorFrame.Of`/`SignedAxis.Cardinal` (`Numerics/atoms.md`); slerp and pose to `MotionInterpolation` (`Parametric/projections.md` — the antiparallel `IsParallelTo == −1` perpendicular-axis branch lives there, in the ONE slerp owner); curve/surface/cone evaluation to `CurveProjection`/`SurfaceProjection`/`ConeProjection` selectors (`Parametric/projections.md`); support and bounce to `SupportSpace.Closest` + `SupportProjection.Project`/`BouncePolicy.Apply`; extraction to `extraction.Value.Project` (`extract.md`); streamline to `FlowKernel.Trace` (`flow.md`); sample to `SampleKind.Project` (`sample.md`); cloud metrics/winding/hull to `VectorCloudMetric.Project`/`CloudKernel.Winding`/`CloudKernel.ComputeHullDetailed` (`Spatial/cloud.md`); transport to `SinkhornPlan.Of(...).Project` (`Spatial/transport.md`); align to `AlignKind.AlignDetailed` (`Processing/register.md`); topology to the frozen `MeshKernel.TopologyDetailed` → `TopologyReceipt.Project` (`Meshing/mesh.md`); flatten/remesh to `MeshRestructure.Flatten/Apply`, features to `MeshFeaturePolicy.Detect`, descriptors to `MeshDescriptor.Project`, segmentation to `MeshSegmentation.Project` (`Processing/segment.md`); discrete calculus to `DiscreteCalculus.Of` → `Project` (`Meshing/dec.md`, the `Rasm.Compute` adjoint seam).
+- Receipt: none of its own — the rail is pure composition; every arm surfaces the OWNER's typed receipt through the owner's projection rows, so evidence provenance is single-sourced.
+- Packages: `Rasm`/Numerics + `Rasm`/Spatial + `Rasm`/Parametric + `Rasm`/Meshing + `Rasm`/Processing (every owner named above, composed), `Rasm`/Domain (`Op`/`Context`/`Admit`), LanguageExt.Core (`Fin`/`Option`/`Seq`), Thinktecture.Runtime.Extensions (`[Union]` + generated total `Switch`), RhinoCommon (case-field value carriers only).
+- Boundary: the dispatch carries ZERO domain math — an arm that computes instead of composing is the named defect this rebuild deletes (the retired file's inline slerp/lerp/mirror/projectOnto bodies); `Project<TOut>` is total over the `Fin` rail and an unsupported `TOut` is the owner's typed `Unsupported` fault naming both the case and the requested type; the generated `Switch` is the exhaustiveness proof — no `_` arm exists, so a new case cannot silently no-op.
+
+```csharp contract
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System;
+using LanguageExt;
+using LanguageExt.Common;
+using Rasm.Domain;
+using Rhino.Geometry;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Vectors;
+
+// --- [TYPES] ----------------------------------------------------------------------------------
+[Union]
+public abstract partial record VectorIntent {
+    public sealed record AxisCase(SignedAxis Value, Option<Plane> Basis) : VectorIntent;
+    public sealed record DirectionCase(Vector3d Value) : VectorIntent;
+    public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
+    public sealed record AngularCase(Vector3d A, Vector3d B, AnglePivot Pivot) : VectorIntent;
+    public sealed record SupportCase : VectorIntent { internal SupportCase(SupportSpace space, Point3d query, SupportProjection projection) { Space = space; Query = query; Projection = projection; } public SupportSpace Space { get; } public Point3d Query { get; } public SupportProjection Projection { get; } }
+    public sealed record ExtractionCase : VectorIntent { internal ExtractionCase(Extraction value) => Value = value; public Extraction Value { get; } }
+    public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
+    public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
+    public sealed record CurveCase : VectorIntent { internal CurveCase(Curve source, double parameter, CurveProjection mode) { Source = source; Parameter = parameter; Mode = mode; } public Curve Source { get; } public double Parameter { get; } public CurveProjection Mode { get; } }
+    public sealed record CloudCase : VectorIntent { internal CloudCase(VectorCloud value, VectorCloudMetric metric, CloudMetricPolicy policy) { Value = value; Metric = metric; Policy = policy; } public VectorCloud Value { get; } public VectorCloudMetric Metric { get; } public CloudMetricPolicy Policy { get; } }
+    public sealed record WindingCase : VectorIntent { internal WindingCase(VectorCloud value, Point3d query) { Value = value; Query = query; } public VectorCloud Value { get; } public Point3d Query { get; } }
+    public sealed record ConeCase(VectorCone Value, ConeProjection Mode) : VectorIntent;
+    public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Basis) : VectorIntent;
+    public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
+    public sealed record BounceCase(Direction Incident, SupportSpace Target, Point3d Query, BouncePolicy Policy) : VectorIntent;
+    public sealed record StreamlineCase : VectorIntent { internal StreamlineCase(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination) { Source = source; Seed = seed; InitialStep = initialStep; Integrator = integrator; Termination = termination; } public VectorField Source { get; } public Point3d Seed { get; } public PositiveMagnitude InitialStep { get; } public FieldIntegrator Integrator { get; } public Termination Termination { get; } }
+    public sealed record LerpCase(Vector3d A, Vector3d B, UnitInterval Parameter) : VectorIntent;
+    public sealed record SlerpCase(Direction A, Direction B, UnitInterval Parameter) : VectorIntent;
+    public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
+    public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
+    public sealed record SurfaceCase : VectorIntent { internal SurfaceCase(SurfaceSpace source, Point2d uv, SurfaceProjection mode) { Source = source; Uv = uv; Mode = mode; } public SurfaceSpace Source { get; } public Point2d Uv { get; } public SurfaceProjection Mode { get; } }
+    public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
+    public sealed record FlattenCase : VectorIntent { internal FlattenCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
+    public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy) { Source = source; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
+    public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain domain, SampleKind kind) { Domain = domain; Kind = kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
+    public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy policy) { Source = source; Target = target; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } public AlignmentPolicy Policy { get; } }
+    public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace space, RemeshKind kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
+    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud source, VectorCloud target, CloudTransportPolicy policy) { Source = source; Target = target; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public CloudTransportPolicy Policy { get; } }
+    public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
+    public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace space, MeshFeaturePolicy policy) { Space = space; Policy = policy; } public MeshSpace Space { get; } public MeshFeaturePolicy Policy { get; } }
+    public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace space, MeshDescriptor kind, Dimension pairs) { Space = space; Kind = kind; Pairs = pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
+    public sealed record DiscreteCalculusCase : VectorIntent { internal DiscreteCalculusCase(MeshSpace space, MeshLaplacian kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public MeshLaplacian Kind { get; } }
+    public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace space, MeshSegmentation kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
+    private VectorIntent() { }
+
+    // --- [OPERATIONS] — construction: exactly one factory per case, admission internalized -----
+    public static Fin<VectorIntent> Axis(SignedAxis axis, Plane? frame = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Admit.NotNull(value: axis, key: op)
+               from basis in frame is null ? Fin.Succ(Option<Plane>.None) : Admit.Plane(basis: frame.Value, key: op).Map(static plane => Some(plane))
+               select (VectorIntent)new AxisCase(Value: active, Basis: basis);
+    }
+    public static VectorIntent Direction(Vector3d value) => new DirectionCase(Value: value);
+    public static VectorIntent Axes(Option<Seq<Vector3d>> values = default, bool planar = false) => new AxesCase(Values: values, Planar: planar);
+    public static VectorIntent Angular(Vector3d a, Vector3d b, AnglePivot? pivot = null) => new AngularCase(A: a, B: b, Pivot: pivot ?? AnglePivot.World);
+    public static Fin<VectorIntent> Support(SupportSpace space, Point3d sample, SupportProjection projection, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validSpace in Admit.NotNull(value: space, key: op)
+               from validProjection in Admit.NotNull(value: projection, key: op)
+               from validSample in op.AcceptValue(value: sample)
+               select (VectorIntent)new SupportCase(space: validSpace, query: validSample, projection: validProjection);
+    }
+    // The extraction band: construction lives at extract.md's request union; this rail carries it as ONE case.
+    public static Fin<VectorIntent> Extract(Extraction request, Op? key = null) =>
+        Admit.NotNull(value: request, key: key.OrDefault()).Map(static value => (VectorIntent)new ExtractionCase(value: value));
+    public static VectorIntent Ray(Point3d origin, Direction direction, RayPolicy? policy = null) =>
+        new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
+    public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
+        new FrameCase(Origin: origin, Normal: normal, XHint: xHint);
+    public static Fin<VectorIntent> Curve(Curve source, double parameter, CurveProjection mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Admit.NotNull(value: source, key: op)
+               from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), op.InvalidInput())
+               from validMode in Admit.NotNull(value: mode, key: op)
+               select (VectorIntent)new CurveCase(source: active, parameter: parameter, mode: validMode);
+    }
+    public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Option<CloudMetricPolicy> policy = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validCloud in Admit.NotNull(value: cloud, key: op)
+               from validMetric in Admit.NotNull(value: metric, key: op)
+               from validPolicy in CloudMetricPolicy.AdmitOrDefault(policy: policy, key: op)
+               from _ in guard(validMetric.AdmitsCase(cloud: validCloud), op.Unsupported(geometryType: validCloud.GetType(), outputType: validMetric.Output))
+               select (VectorIntent)new CloudCase(value: validCloud, metric: validMetric, policy: validPolicy);
+    }
+    public static Fin<VectorIntent> Winding(VectorCloud cloud, Point3d query, Op? key = null) {
+        Op op = key.OrDefault();
+        return Admit.NotNull(value: cloud, key: op).Bind(valid => valid is VectorCloud.RingCase
+            ? op.AcceptValue(value: query).Map(point => (VectorIntent)new WindingCase(value: valid, query: point))
+            : Fin.Fail<VectorIntent>(op.Unsupported(geometryType: valid.GetType(), outputType: typeof(int))));
+    }
+    public static Fin<VectorIntent> Cone(VectorCone cone, ConeProjection mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeCone in Admit.Cone(value: cone, key: op)
+               from activeMode in Admit.NotNull(value: mode, key: op)
+               select (VectorIntent)new ConeCase(Value: activeCone, Mode: activeMode);
+    }
+    public static VectorIntent Components(Point3d anchor, Vector3d value, Plane frame) => new ComponentsCase(Anchor: anchor, Value: value, Basis: frame);
+    public static VectorIntent Relation(Vector3d a, Vector3d b) => new RelationCase(A: a, B: b);
+    public static Fin<VectorIntent> Bounce(Direction incident, SupportSpace surface, Point3d sample, BouncePolicy? policy = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeIncident in Admit.Direction(value: incident, key: op)
+               from target in Admit.NotNull(value: surface, key: op)
+               from bounce in Admit.NotNull(value: policy ?? BouncePolicy.Reflect, key: op)
+               from point in op.AcceptValue(value: sample)
+               select (VectorIntent)new BounceCase(Incident: activeIncident, Target: target, Query: point, Policy: bounce);
+    }
+    public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validField in Admit.NotNull(value: field, key: op)
+               from validStop in Termination.Admit(value: termination, key: op)
+               from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
+               from validSeed in op.AcceptValue(value: seed)
+               from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
+               select (VectorIntent)new StreamlineCase(source: validField, seed: validSeed, initialStep: h, integrator: validIntegrator, termination: validStop);
+    }
+    public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
+        key.OrDefault().AcceptValidated<UnitInterval>(candidate: t).Map(unit => (VectorIntent)new LerpCase(A: a, B: b, Parameter: unit));
+    public static Fin<VectorIntent> Slerp(Direction a, Direction b, double t, Op? key = null) =>
+        from left in Admit.Direction(value: a, key: key.OrDefault())
+        from right in Admit.Direction(value: b, key: key.OrDefault())
+        from unit in key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
+        select (VectorIntent)new SlerpCase(A: left, B: right, Parameter: unit);
+    public static VectorIntent ProjectOnto(Vector3d value, Plane target) => new ProjectOntoCase(Value: value, Target: target);
+    public static VectorIntent Mirror(Vector3d value, Plane across) => new MirrorCase(Value: value, Across: across);
+    public static Fin<VectorIntent> Surface(SurfaceSpace surface, double u, double v, SurfaceProjection mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in SurfaceSpace.Of(native: surface.Native, context: surface.Tolerance, key: op)
+               from uv in active.SurfaceUv(u: u, v: v, key: op)
+               from validMode in Admit.NotNull(value: mode, key: op)
+               select (VectorIntent)new SurfaceCase(source: active, uv: uv, mode: validMode);
+    }
+    public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from source in Admit.Plane(basis: @from, key: op)
+               from target in Admit.Plane(basis: to, key: op)
+               from activeMode in Admit.NotNull(value: mode, key: op)
+               from unit in op.AcceptValidated<UnitInterval>(candidate: t)
+               select (VectorIntent)new PoseCase(From: source, To: target, Parameter: unit, Mode: activeMode);
+    }
+    public static Fin<VectorIntent> Flatten(MeshSpace space, Op? key = null) =>
+        Admit.MeshNative(space: space, key: key.OrDefault()).Map(_ => (VectorIntent)new FlattenCase(space: space));
+    public static Fin<VectorIntent> Hull(VectorCloud source, Option<CloudHullKind> kind = default, Option<CloudHullPolicy> policy = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validSource in Admit.NotNull(value: source, key: op)
+               from validKind in Admit.NotNull(value: kind.IfNone(CloudHullKind.Convex3D), key: op)
+               from cluster in validSource is VectorCloud.ClusterCase c
+                   ? Fin.Succ(c)
+                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudHullResult)))
+               from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
+               select (VectorIntent)new HullCase(source: cluster, kind: validKind, policy: validPolicy);
+    }
+    public static Fin<VectorIntent> Sample(ExtractionDomain domain, SampleKind kind, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validDomain in Admit.NotNull(value: domain, key: op).Bind(active => active.Admit(key: op))
+               from validKind in SampleKind.Admit(value: kind, key: op)
+               select (VectorIntent)new SampleCase(domain: validDomain, kind: validKind);
+    }
+    public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy? policy = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validSource in Admit.NotNull(value: source, key: op)
+               from validTarget in Admit.NotNull(value: target, key: op)
+               from validKind in Admit.NotNull(value: kind, key: op)
+               from validPolicy in (policy ?? AlignmentPolicy.Default).Admit(key: op)
+               select (VectorIntent)new AlignCase(source: validSource, target: validTarget, kind: validKind, policy: validPolicy);
+    }
+    public static Fin<VectorIntent> Remesh(MeshSpace space, RemeshKind kind, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Admit.MeshNative(space: space, key: op)
+               from activeKind in Admit.NotNull(value: kind, key: op)
+               select (VectorIntent)new RemeshCase(space: space, kind: activeKind);
+    }
+    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validSource in Admit.NotNull(value: source, key: op)
+               from validTarget in Admit.NotNull(value: target, key: op)
+               from activePolicy in policy.Admit(key: op)
+               select (VectorIntent)new TransportCase(source: validSource, target: validTarget, policy: activePolicy);
+    }
+    public static Fin<VectorIntent> Topology(MeshSpace space, Op? key = null) =>
+        Admit.MeshNative(space: space, key: key.OrDefault()).Map(_ => (VectorIntent)new TopologyCase(space: space));
+    public static Fin<VectorIntent> Features(MeshSpace space, MeshFeaturePolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in policy.Admit(space: space, key: op)
+               select (VectorIntent)new FeaturesCase(space: space, policy: active);
+    }
+    public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Admit.MeshNative(space: space, key: op)
+               from active in Admit.NotNull(value: kind, key: op)
+               from count in op.AcceptValidated<Dimension>(candidate: pairs)
+               select (VectorIntent)new DescriptorCase(space: space, kind: active, pairs: count);
+    }
+    public static Fin<VectorIntent> DiscreteCalculus(MeshSpace space, MeshLaplacian? kind = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Admit.MeshNative(space: space, key: op)
+               from active in Admit.NotNull(value: kind ?? MeshLaplacian.IntrinsicDelaunay, key: op)
+               select (VectorIntent)new DiscreteCalculusCase(space: space, kind: active);
+    }
+    public static Fin<VectorIntent> Segmentation(MeshSpace space, MeshSegmentation kind, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Admit.MeshNative(space: space, key: op)
+               from active in Admit.NotNull(value: kind, key: op)
+               select (VectorIntent)new SegmentationCase(space: space, kind: active);
+    }
+
+    // --- [OPERATIONS] — the frozen consumer egress + the total delegating dispatch --------------
+    public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from model in Admit.NotNull(value: context, error: op.MissingContext())
+               from result in Dispatch<TOut>(context: model, op: op)
+               select result;
+    }
+    private Fin<TOut> Dispatch<TOut>(Context context, Op op) => Switch(
+        state: (Context: context, Key: op),
+        axisCase: static (state, axis) =>
+            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Basis), context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        directionCase: static (state, intent) =>
+            from direction in Vectors.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        axesCase: static (state, intent) =>
+            from axes in intent.Values.IfNone(SignedAxis.Cardinal(planar: intent.Planar).Map(static axis => axis.World))
+                .TraverseM(axis => Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
+                .As()
+            from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
+            from output in AtomProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
+            select output,
+        angularCase: static (state, intent) =>
+            from angle in VectorAngle.Of(a: intent.A, b: intent.B, context: state.Context, pivot: intent.Pivot, key: state.Key)
+            from output in angle.Project<TOut>(key: state.Key)
+            select output,
+        supportCase: static (state, intent) =>
+            from hit in intent.Space.Closest(sample: intent.Query, key: state.Key)
+            from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Query, context: state.Context, key: state.Key)
+            select output,
+        extractionCase: static (state, intent) => intent.Value.Project<TOut>(context: state.Context, key: state.Key),
+        rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
+        frameCase: static (state, intent) =>
+            from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
+            from output in frame.Project<TOut>(key: state.Key)
+            select output,
+        curveCase: static (state, intent) => intent.Mode.Project<TOut>(curve: intent.Source, parameter: intent.Parameter, context: state.Context, key: state.Key),
+        cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, policy: intent.Policy, key: state.Key),
+        windingCase: static (state, intent) => CloudKernel.Winding<TOut>(cloud: intent.Value, query: intent.Query, key: state.Key),
+        coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
+        componentsCase: static (state, intent) =>
+            from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
+            from components in span.Components(frame: intent.Basis, key: state.Key)
+            from output in AtomProjection.Self<ValueTuple<double, double>, TOut>(value: components, key: state.Key, owner: typeof(VectorSpan))
+            select output,
+        relationCase: static (state, intent) =>
+            from relation in VectorRelation.Of(a: intent.A, b: intent.B, context: state.Context, key: state.Key)
+            from output in relation.Project<TOut>(key: state.Key)
+            select output,
+        bounceCase: static (state, intent) =>
+            from hit in intent.Target.Closest(sample: intent.Query, key: state.Key)
+            from rawNormal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
+            from normal in Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
+            from reflected in intent.Policy.Apply(incident: intent.Incident, normal: normal, key: state.Key)
+            from output in reflected.Project<TOut>(key: state.Key)
+            select output,
+        streamlineCase: static (state, intent) => FlowKernel.Trace<TOut>(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key),
+        // Direction combinators are atoms.md arms — the dispatch composes, never interpolates inline.
+        lerpCase: static (state, intent) =>
+            from direction in Vectors.Direction.Lerp(a: intent.A, b: intent.B, parameter: intent.Parameter, context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        // THE one slerp site is projections.md's MotionInterpolation; the antiparallel branch lives there.
+        slerpCase: static (state, intent) =>
+            from direction in MotionInterpolation.Slerp.Direction(a: intent.A, b: intent.B, parameter: intent.Parameter, context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        projectOntoCase: static (state, intent) =>
+            from direction in Vectors.Direction.ProjectedOnto(value: intent.Value, target: intent.Target, context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        mirrorCase: static (state, intent) =>
+            from direction in Vectors.Direction.Mirrored(value: intent.Value, across: intent.Across, context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        surfaceCase: static (state, intent) => intent.Source.Sample<TOut>(projection: intent.Mode, u: intent.Uv.X, v: intent.Uv.Y, key: state.Key),
+        poseCase: static (state, intent) =>
+            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, key: state.Key)
+            from output in Admit.Plane(basis: pose, key: state.Key)
+                .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
+            select output,
+        flattenCase: static (state, intent) =>
+            from result in MeshRestructure.Flatten(space: intent.Space, key: state.Key)
+            from output in result.Project<TOut>(key: state.Key)
+            select output,
+        hullCase: static (state, intent) =>
+            from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
+            from output in result.Project<TOut>(context: state.Context, key: state.Key)
+            select output,
+        sampleCase: static (state, intent) => intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),
+        alignCase: static (state, intent) =>
+            from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
+            from output in receipt.Project<TOut>(key: state.Key)
+            select output,
+        remeshCase: static (state, intent) =>
+            from result in MeshRestructure.Apply(kind: intent.Kind, space: intent.Space, key: state.Key)
+            from output in result.Project<TOut>(key: state.Key)
+            select output,
+        transportCase: static (state, intent) =>
+            from plan in SinkhornPlan.Of(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
+            from output in plan.Project<TOut>(key: state.Key)
+            select output,
+        topologyCase: static (state, intent) =>
+            from topology in MeshKernel.TopologyDetailed(space: intent.Space)
+            from output in topology.Project<TOut>(key: state.Key)
+            select output,
+        featuresCase: static (state, intent) =>
+            from receipt in intent.Policy.Detect(space: intent.Space, key: state.Key)
+            from output in receipt.Project<TOut>(key: state.Key)
+            select output,
+        descriptorCase: static (state, intent) => intent.Kind.Project<TOut>(space: intent.Space, eigenpairs: intent.Pairs, key: state.Key),
+        discreteCalculusCase: static (state, intent) =>
+            from calculus in Vectors.DiscreteCalculus.Of(space: intent.Space, kind: intent.Kind, key: state.Key)
+            from output in calculus.Project<TOut>(key: state.Key)
+            select output,
+        segmentationCase: static (state, intent) => intent.Kind.Project<TOut>(space: intent.Space, key: state.Key));
+}
+```

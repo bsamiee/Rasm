@@ -2,9 +2,12 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+from contextvars import ContextVar
+import enum
 from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
 import sys
 import tomllib
+from types import SimpleNamespace
 from unittest.mock import create_autospec
 
 from hypothesis import is_hypothesis_test
@@ -13,11 +16,13 @@ import pytest
 
 from tests.python._testkit import laws as laws_mod
 from tests.python._testkit.bench import _series_from_storage
-from tests.python._testkit.laws import assert_law_coverage, LawRecord, MANIFEST, SUT_PACKAGES
+from tests.python._testkit.laws import assert_law_coverage, auto_exempt, consume_covers, LawRecord, MANIFEST, SUT_PACKAGES
 from tests.python._testkit.runtime import REPO_ROOT
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (consume_covers,)
 
 _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
@@ -102,6 +107,73 @@ def test_law_coverage_is_package_scoped_not_name_global(tmp_path: Path, monkeypa
     monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": frozenset(), "lawpkg_beta": frozenset()})
     with pytest.raises(AssertionError, match="lawpkg_beta"):
         assert_law_coverage()
+
+
+# --- [COVERS_AND_AUTO_EXEMPTION]
+
+
+class _Vocabulary(enum.StrEnum):
+    PRIMARY = "primary"
+
+
+class _FrozenRow(msgspec.Struct, frozen=True):
+    field: int = 0
+
+
+class _FrozenOwner(msgspec.Struct, frozen=True):
+    field: int = 0
+
+    def doubled(self) -> int:
+        return self.field * 2
+
+
+class _MutableRow(msgspec.Struct):
+    field: int = 0
+
+
+class _Plain:
+    pass
+
+
+def test_covers_tuple_consumed_at_collection() -> None:
+    """The runtime plugin folds this module's COVERS tuple into the manifest during collection."""
+    assert any(rec.law == "covers" and rec.module == __name__ and rec.subject == "consume_covers" for rec in MANIFEST), (
+        "COVERS declared above was not consumed — pytest_collection_modifyitems is not folding module COVERS tuples"
+    )
+
+
+@pytest.mark.parametrize(
+    "subject, exempt",
+    [
+        pytest.param(_Vocabulary, True, id="strenum"),
+        pytest.param(_FrozenRow, True, id="frozen-struct-method-free"),
+        pytest.param(42, True, id="value-int"),
+        pytest.param((1, 2), True, id="value-tuple"),
+        pytest.param(ContextVar("seam"), True, id="value-contextvar"),
+        pytest.param(msgspec.json.Decoder(int), True, id="value-codec"),
+        pytest.param(_FrozenOwner, False, id="frozen-struct-with-method"),
+        pytest.param(_MutableRow, False, id="mutable-struct"),
+        pytest.param(_Plain, False, id="plain-class"),
+        pytest.param(consume_covers, False, id="function"),
+    ],
+)
+def test_auto_exempt_partitions_symbol_kinds(subject: object, *, exempt: bool) -> None:
+    """StrEnums, method-free frozen structs, and value-only objects are exempt; behavior-bearing symbols never are."""
+    assert auto_exempt(subject) is exempt, f"auto_exempt({subject!r}) != {exempt}"
+
+
+def test_consume_covers_registers_once_and_rejects_value_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """COVERS consumption is idempotent per module and refuses value-only entries."""
+    monkeypatch.setattr(laws_mod, "MANIFEST", [])
+    monkeypatch.setattr(laws_mod, "_CONSUMED", set())
+    module = SimpleNamespace(__name__="covers_probe", COVERS=(_FrozenOwner, consume_covers))
+    consume_covers(module)
+    consume_covers(module)
+    assert [(rec.subject, rec.law) for rec in laws_mod.MANIFEST] == [("_FrozenOwner", "covers"), ("consume_covers", "covers")]
+
+    monkeypatch.setattr(laws_mod, "_CONSUMED", set())
+    with pytest.raises(TypeError, match="value-only"):
+        consume_covers(SimpleNamespace(__name__="covers_bad", COVERS=(42,)))
 
 
 # --- [MANIFEST_STRUCTURAL_LAWS]

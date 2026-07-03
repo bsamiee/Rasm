@@ -29,7 +29,8 @@ from tests.python._testkit.seams import (
 )
 from tests.python._testkit.strategies import resolve
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.composition.settings import ArtifactScope, AssaySettings, Ssh
+from tools.assay.composition.settings import AssaySettings, Ssh
+from tools.assay.composition.store import ArtifactScope
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
@@ -70,7 +71,7 @@ if TYPE_CHECKING:
     import pytest
 
     from tests.python._testkit.seams import Shape as _Shape
-    from tools.assay.composition.settings import ArtifactStore
+    from tools.assay.composition.store import ArtifactStore
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -233,7 +234,8 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
 
     @property
     def commands(self) -> list[tuple[str, ...]]:
-        return [tuple(c.tool.command) for c in self.captured]
+        # The filled command is the spawned argv body; holeless rows fill to identity.
+        return [tuple(c.args.fill(c.tool.command)) for c in self.captured]
 
     @staticmethod
     def ok(argv: tuple[str, ...] = ("rasm-bridge", "check"), status: RailStatus = RailStatus.OK) -> Result[Completed, Fault]:

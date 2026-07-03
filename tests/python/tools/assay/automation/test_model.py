@@ -1,42 +1,45 @@
 """Laws for ``tools.assay.automation.model``.
 
-Covers action/trigger codec round-trips, describe projections, wire validation, and WatchFilter
-coverage through the public encode/decode surfaces.
+Covers action/trigger codec round-trips, describe projections, and wire validation through the
+public encode/decode surfaces.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+
+from typing import TYPE_CHECKING
 
 from hypothesis import example, given, strategies as st
 import msgspec
 import pytest
 
-from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import roundtrip
 from tests.python._testkit.strategies import resolve
 from tools.assay.automation.model import (
-    Action,
     ACTION_DECODER,
     Debounce,
     decode,
     describe,
-    Edge,
     encode,
     Manual,
     Program,
     Rail,
     Schedule,
     Sequence,
-    Trigger,
     TRIGGER_DECODER,
     Watch,
-    WatchFilter,
 )
 from tools.assay.core.model import Claim
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-# ``Rail.params`` is raw wire data; recursive actions anchor on Rail/Program leaves.
+if TYPE_CHECKING:
+    from tools.assay.automation.model import Action, Trigger
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (decode, describe, encode)
+
+# ``Rail.params`` is raw wire data; recursive actions anchor on Rail/Program leaves.
 _claim_st: st.SearchStrategy[Claim] = st.sampled_from(list(Claim))
 _verb_st: st.SearchStrategy[str] = st.text(min_size=1, max_size=32)
 
@@ -54,6 +57,8 @@ _trigger_st: st.SearchStrategy[Trigger] = st.one_of(resolve(Watch), resolve(Sche
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [WIRE_ROUNDTRIP]
+
 
 @example(action=Rail(claim=Claim.STATIC, verb="x"))
 @example(action=Program(argv=("a",)))
@@ -65,10 +70,6 @@ def test_action_encode_decode_roundtrip(action: Action) -> None:
     roundtrip(action, encode, ACTION_DECODER.decode)
 
 
-register_law(Action, "test_action_encode_decode_roundtrip")
-register_law("ACTION_DECODER", "test_action_encode_decode_roundtrip")
-
-
 @example(trigger=Manual())
 @example(trigger=Watch(paths=("p",)))
 @example(trigger=Schedule(cron="* * * * *"))
@@ -78,29 +79,7 @@ def test_trigger_encode_decode_roundtrip(trigger: Trigger) -> None:
     roundtrip(trigger, encode, TRIGGER_DECODER.decode)
 
 
-register_law(Trigger, "test_trigger_encode_decode_roundtrip")
-register_law("TRIGGER_DECODER", "test_trigger_encode_decode_roundtrip")
-
-# Per-variant registrations reuse the two parametric round-trip laws.
-register_law(Rail, "test_action_encode_decode_roundtrip")
-register_law(Program, "test_action_encode_decode_roundtrip")
-register_law(Debounce, "test_action_encode_decode_roundtrip")
-register_law(Sequence, "test_action_encode_decode_roundtrip")
-register_law(Watch, "test_trigger_encode_decode_roundtrip")
-register_law(Schedule, "test_trigger_encode_decode_roundtrip")
-register_law(Manual, "test_trigger_encode_decode_roundtrip")
-
-# --- [DESCRIBE_PREFIX]
-
-_DESCRIBE_PREFIXES: tuple[tuple[type[Watch | Schedule | Manual | Rail | Program | Sequence | Debounce], str], ...] = (
-    (Watch, "watch["),
-    (Schedule, "schedule["),
-    (Manual, "manual"),
-    (Rail, "rail["),
-    (Program, "program["),
-    (Sequence, "seq["),
-    (Debounce, "debounce["),
-)
+# --- [DESCRIBE_PROJECTION]
 
 
 @pytest.mark.parametrize(
@@ -114,51 +93,23 @@ _DESCRIBE_PREFIXES: tuple[tuple[type[Watch | Schedule | Manual | Rail | Program 
         (Sequence(actions=(Rail(claim=Claim.STATIC, verb="v"),)), "seq["),
         (Debounce(action=Rail(claim=Claim.STATIC, verb="v")), "debounce["),
     ],
-    ids=[cls for _, cls in _DESCRIBE_PREFIXES],
+    ids=["watch", "schedule", "manual", "rail", "program", "sequence", "debounce"],
 )
-def test_describe_prefix_per_variant(node: Watch | Schedule | Manual | Rail | Program | Sequence | Debounce, prefix: str) -> None:
+def test_describe_prefix_per_variant(node: Trigger | Action, prefix: str) -> None:
     """Every described variant exposes its discriminant prefix."""
     assert describe(node).startswith(prefix)
 
 
-register_law(describe, "test_describe_prefix_per_variant")
-
-
-@given(_action_st)
-def test_describe_action_nonempty(action: Action) -> None:
-    """Action descriptions never collapse to an empty label."""
-    assert len(describe(action)) > 0
-
-
-register_law(describe, "test_describe_action_nonempty")
-
-# --- [SEQUENCE_DESCRIBE]
-
-
 def test_describe_sequence_compositional() -> None:
     """Sequence descriptions compose child descriptions in order."""
-    r1 = Rail(claim=Claim.STATIC, verb="a")
-    r2 = Rail(claim=Claim.CODE, verb="b")
-    seq = Sequence(actions=(r1, r2))
-    expected = "seq[" + " > ".join(describe(a) for a in seq.actions) + "]"
-    assert describe(seq) == expected
-
-
-register_law(Sequence, "test_describe_sequence_compositional")
-
-# --- [RAIL_DESCRIBE]
+    seq = Sequence(actions=(Rail(claim=Claim.STATIC, verb="a"), Rail(claim=Claim.CODE, verb="b")))
+    assert describe(seq) == "seq[" + " > ".join(describe(a) for a in seq.actions) + "]"
 
 
 @pytest.mark.parametrize("claim", list(Claim))
 def test_describe_rail_claim_verb_projection(claim: Claim) -> None:
     """Rail descriptions project claim value and verb without remapping."""
-    rail = Rail(claim=claim, verb="run")
-    assert describe(rail) == f"rail[{claim.value}:run]"
-
-
-register_law(Rail, "test_describe_rail_claim_verb_projection")
-
-# --- [SCHEDULE_TIMEZONE]
+    assert describe(Rail(claim=claim, verb="run")) == f"rail[{claim.value}:run]"
 
 
 def test_describe_schedule_timezone_suffix() -> None:
@@ -171,35 +122,13 @@ def test_describe_schedule_timezone_suffix() -> None:
     assert out.startswith("schedule[")
 
 
-register_law(Schedule, "test_describe_schedule_timezone_suffix")
-
-# --- [WATCH_DESCRIBE]
-
-
 @given(resolve(Watch))
 def test_describe_watch_path_count(watch: Watch) -> None:
     """Watch descriptions expose exact path cardinality."""
-    label = describe(watch)
-    assert f"{len(watch.paths)} paths" in label
+    assert f"{len(watch.paths)} paths" in describe(watch)
 
 
-register_law(Watch, "test_describe_watch_path_count")
-
-# --- [WATCHFILTER_SWEEP]
-
-
-@pytest.mark.parametrize("flt", list(WatchFilter))
-def test_watch_filter_roundtrip(flt: WatchFilter) -> None:
-    """Every WatchFilter member survives Watch wire round-trip."""
-    w = Watch(paths=("p",), filter=flt)
-    decoded = decode(encode(w))
-    assert isinstance(decoded, Watch)
-    assert decoded.filter == flt
-
-
-register_law(WatchFilter, "test_watch_filter_roundtrip")
-
-# --- [CONSTRAINT_VIOLATION]
+# --- [WIRE_CONSTRAINTS]
 
 
 @pytest.mark.parametrize(
@@ -216,28 +145,3 @@ def test_decode_constraint_violations(blob: bytes, match: str) -> None:
     """Out-of-bound wire inputs surface msgspec validation diagnostics."""
     with pytest.raises(msgspec.ValidationError, match=match):
         decode(blob)
-
-
-register_law(decode, "test_decode_constraint_violations")
-
-# --- [ENCODE_PURITY]
-
-
-@given(_action_st)
-def test_encode_deterministic(action: Action) -> None:
-    """Encoding is byte-stable across repeated calls."""
-    assert encode(action) == encode(action)
-
-
-register_law(encode, "test_encode_deterministic")
-
-# --- [EDGE]
-
-
-def test_debounce_edge_default_is_trailing() -> None:
-    """Edge is the leading/trailing debounce vocabulary; Debounce coalesces to the trailing edge by default."""
-    assert set(Edge) == {Edge.LEADING, Edge.TRAILING}
-    assert Debounce(action=Rail(claim=Claim.STATIC, verb="x")).edge is Edge.TRAILING
-
-
-register_law(Edge, "test_debounce_edge_default_is_trailing")

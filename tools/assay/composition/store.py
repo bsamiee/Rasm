@@ -11,16 +11,18 @@ from pathlib import Path
 from typing import Final, Protocol, runtime_checkable, TYPE_CHECKING
 
 import msgspec
-from upath import UPath
 import zstandard
 
-from tools.assay.core.model import ArtifactKind, Claim, Envelope, Report, wire_encode
+from tools.assay.core.model import ArtifactKind, Envelope, Report, wire_encode
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from upath import UPath
+
     from tools.assay.composition.settings import AssaySettings
+    from tools.assay.core.model import Claim
 
 
 # --- [TYPES] ----------------------------------------------------------------------------

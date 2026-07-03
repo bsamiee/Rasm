@@ -191,15 +191,21 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Auto-apply ``network`` and ``property`` markers from fixture and Hypothesis membership."""
+    """Auto-apply ``network``/``property`` markers and consume each module's declarative ``COVERS`` tuple."""
+    from tests.python._testkit.laws import consume_covers  # noqa: PLC0415  # laws imports runtime; deferral breaks the cycle
+
     network = pytest.mark.network
     property_ = pytest.mark.property
+    modules: dict[int, object] = {}
     for item in items:
         if "socket_enabled" in getattr(item, "fixturenames", ()):
             item.add_marker(network, append=False)
         fn = getattr(item, "function", None)
         if fn is not None and is_hypothesis_test(fn):
             item.add_marker(property_, append=False)
+        module = getattr(item, "module", None)
+        modules.setdefault(id(module), module) if module is not None else None
+    [consume_covers(module) for module in modules.values()]
 
 
 @pytest.fixture(scope="session")

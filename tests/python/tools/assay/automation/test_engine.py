@@ -1,7 +1,8 @@
 """Laws for ``tools.assay.automation.engine``.
 
 Covers ContextVar CPU governance and trigger/action projection through canned process, rail, psutil,
-watchfiles, and emit boundaries.
+watchfiles, and emit boundaries. The ``run_check_async`` probe is the module-bound spawn seam:
+``drive()`` exposes no executor parameter, so the probe replaces the process boundary itself.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -13,13 +14,12 @@ from typing import TYPE_CHECKING
 
 import anyio
 import anyio.lowlevel
-from expression import Ok
 import msgspec
 import pytest
 
-from tests.python._testkit.laws import register_law
+from tests.python.tools.assay.kit import RailProbe
 from tools.assay.automation import engine as _eng
-from tools.assay.automation.engine import is_governed
+from tools.assay.automation.engine import drive, is_governed
 from tools.assay.automation.model import Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
 from tools.assay.core.model import Claim, Counts, envelope, RailStatus, receipt
 from tools.assay.diagnostics import fold
@@ -28,30 +28,131 @@ from tools.assay.diagnostics import fold
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from tests.python.tools.assay.kit import AssayHarness, CpuDoubleInstaller, CpuSampler, RailProbe
-    from tools.assay.automation.model import Action, Trigger
+    from tests.python.tools.assay.kit import AssayHarness, CpuDoubleInstaller, CpuSampler
     from tools.assay.core.model import Envelope
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+COVERS: tuple[object, ...] = (drive, is_governed)
+
 _FIRST: tuple[tuple[str, str], ...] = (("added", "first.txt"),)
 _SECOND: tuple[tuple[str, str], ...] = (("modified", "second.txt"),)
 
-_GOVERNOR_CASES: list[tuple[float | None, float, bool]] = [
-    (0.9, 91.0, True),
-    (0.95, 91.0, False),
-    (None, 91.0, False),
-    (0.0, 0.0, False),
-    (1.0, 100.0, True),
-    (1.0, 99.9, False),
-    (0.91, 91.0, True),
-]
+# --- [TABLES] ---------------------------------------------------------------------------
 
-_FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
+
+class _GovernorCase(msgspec.Struct, frozen=True, gc=False):
+    """Governor predicate row; ``intervals`` of None skips the sampler-interval assertion."""
+
+    label: str
+    threshold: float | None
+    cpu: float
+    governed: bool
+    primed: bool = True
+    intervals: tuple[float | None, ...] | None = None
+
+
+class _ProgramCase(msgspec.Struct, frozen=True, gc=False):
+    """Program outcome row; ``counts`` of None selects the error-arm assertions."""
+
+    label: str
+    argv: tuple[str, ...]
+    canned: object
+    status: RailStatus
+    counts: Counts | None = None
+    message: str | None = None
+
+
+class _LeafCase(msgspec.Struct, frozen=True, gc=False):
+    """Sequence/Debounce tree row: expected emit count, per-emit status, fired command count."""
+
+    label: str
+    action: object
+    emits: int
+    status: RailStatus
+    fired: int
+
+
+class _FaultCase(msgspec.Struct, frozen=True, gc=False):
+    """Setup/guard/resolve/decode fault row with expected Envelope label and message substrings."""
+
+    label: str
+    trigger: object
+    action: object
+    claim: Claim
+    verb: str
+    substrings: tuple[str, ...] = ()
+
+
+_GOVERNOR_CASES: tuple[_GovernorCase, ...] = (
+    _GovernorCase("t0.9-skip", 0.9, 91.0, governed=True),
+    _GovernorCase("t0.95-run", 0.95, 91.0, governed=False),
+    _GovernorCase("tNone-run", None, 91.0, governed=False),
+    _GovernorCase("t0.0-run", 0.0, 0.0, governed=False),
+    _GovernorCase("t1.0-100-skip", 1.0, 100.0, governed=True),
+    _GovernorCase("t1.0-99.9-run", 1.0, 99.9, governed=False),
+    _GovernorCase("t0.91-skip", 0.91, 91.0, governed=True),
+    # Disabled governor never touches psutil even when unprimed.
+    _GovernorCase("disabled-never-samples", None, 0.0, governed=False, primed=False, intervals=()),
+    # A primed latch reads once, non-blocking, with no warmup.
+    _GovernorCase("primed-reads-nonblocking", 0.5, 80.0, governed=True, intervals=(None,)),
+)
+
+_PROGRAM_CASES: tuple[_ProgramCase, ...] = (
+    _ProgramCase(
+        "ok-report",
+        ("dotnet", "build"),
+        RailProbe.receipt(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n"),
+        RailStatus.OK,
+        counts=Counts(1, 0, 1),
+    ),
+    _ProgramCase(
+        "fault-arm",
+        ("missing-tool",),
+        RailProbe.error(("missing-tool",), "spawn: executable not found"),
+        RailStatus.FAULTED,
+        message="spawn: executable not found",
+    ),
+    _ProgramCase(
+        "rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED, stdout=b"out"), RailStatus.FAILED, counts=Counts(0, 1, 1)
+    ),
+    _ProgramCase(
+        "rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY, stdout=b"out"), RailStatus.EMPTY, counts=Counts(1, 0, 1)
+    ),
+    _ProgramCase(
+        "rc124-timeout",
+        ("tool",),
+        RailProbe.receipt(("tool",), 124, status=RailStatus.TIMEOUT, stdout=b"out"),
+        RailStatus.TIMEOUT,
+        counts=Counts(0, 0, 0),
+    ),
+)
+
+_LEAF_CASES: tuple[_LeafCase, ...] = (
+    _LeafCase("sequence-two-ok", Sequence(actions=(Program(argv=("p", "1")), Program(argv=("p", "2")))), 2, RailStatus.OK, 2),
+    _LeafCase(
+        "nested-seq-debounce",
+        Sequence(
+            actions=(
+                Program(argv=("p", "outer")),
+                Sequence(actions=(Program(argv=("p", "nested")),)),
+                Debounce(action=Program(argv=("p", "wrapped"))),
+            )
+        ),
+        3,
+        RailStatus.OK,
+        3,
+    ),
+    _LeafCase("manual-debounce-unwrap", Debounce(action=Program(argv=("tool",)), window_ms=500, edge=Edge.TRAILING), 1, RailStatus.OK, 1),
+    # A FAULTED leaf (empty argv) short-circuits _sequence before the trailing leaf runs.
+    _LeafCase("halt-on-fault", Sequence(actions=(Program(argv=()), Program(argv=("p", "2")))), 1, RailStatus.FAULTED, 0),
+)
+
+_FAULT_CASES: tuple[_FaultCase, ...] = (
     # Setup faults stay envelope-local instead of escaping the task group.
-    (
-        "test_drive_setup_error_emits_faulted_envelope",
+    _FaultCase(
+        "setup-error",
         Schedule(cron="* * * * *", timezone="Invalid/Zone"),
         Rail(claim=Claim.STATIC, verb="static"),
         Claim.STATIC,
@@ -59,10 +160,10 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
         ("automation setup",),
     ),
     # Empty argv faults before process spawn.
-    ("test_drive_empty_argv_emits_faulted_envelope", Manual(), Program(argv=()), Claim.STATIC, "program", ("non-empty",)),
+    _FaultCase("empty-argv", Manual(), Program(argv=()), Claim.STATIC, "program", ("non-empty",)),
     # Unbound rails fault at the leaf with no prior emission.
-    (
-        "test_drive_rail_unbound_emits_faulted_via_leaf",
+    _FaultCase(
+        "rail-unbound",
         Manual(),
         Rail(claim=Claim.STATIC, verb="does-not-exist"),
         Claim.STATIC,
@@ -70,24 +171,22 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
         ("unbound rail", "static:does-not-exist"),
     ),
     # Registered rail params decode failures fold to Fault.
-    (
-        "test_drive_rail_param_decode_failure_folds_to_fault",
-        Manual(),
-        Rail(claim=Claim.STATIC, verb="static", params=msgspec.Raw(b"{not json")),
-        Claim.STATIC,
-        "static",
-        (),
-    ),
+    _FaultCase("rail-param-decode", Manual(), Rail(claim=Claim.STATIC, verb="static", params=msgspec.Raw(b"{not json")), Claim.STATIC, "static"),
     # Setup faults label Debounce wrappers by the inner action.
-    (
-        "test_drive_debounce_setup_fault_labels_inner_action",
+    _FaultCase(
+        "debounce-setup-inner-label",
         Schedule(cron="* * * * *", timezone="Invalid/Zone"),
         Debounce(action=Rail(claim=Claim.CODE, verb="search")),
         Claim.CODE,
         "search",
-        (),
     ),
-]
+)
+
+# (label, canned awatch batches, expected fire count) — empty timeout heartbeats never fire.
+_WATCH_BATCH_CASES: tuple[tuple[str, tuple[tuple[tuple[str, str], ...], ...], int], ...] = (
+    ("fires-per-batch", (_FIRST, _SECOND), 2),
+    ("skips-empty-heartbeat", ((), _FIRST, ()), 1),
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -134,34 +233,30 @@ def _cron_tick(stop: anyio.Event | None = None) -> SimpleNamespace:
 # --- [LAWS_IS_GOVERNED]
 
 
-@pytest.mark.parametrize(
-    "threshold,cpu,expected", _GOVERNOR_CASES, ids=["t0.9-skip", "t0.95-run", "tNone-run", "t0.0-run", "t1.0-100-skip", "t1.0-99.9-run", "t0.91-skip"]
-)
-def test_is_governed_boundary(threshold: float | None, cpu: float, *, expected: bool, cpu_double: CpuDoubleInstaller) -> None:
-    """``is_governed`` returns True iff a positive ceiling trips (``cpu_percent >= threshold * 100``); ``None`` and ``0.0`` disable it.
+@pytest.mark.parametrize("row", _GOVERNOR_CASES, ids=[c.label for c in _GOVERNOR_CASES])
+def test_is_governed_matrix(row: _GovernorCase, cpu_double: CpuDoubleInstaller) -> None:
+    """``is_governed`` trips iff ``cpu_percent >= threshold * 100`` on a positive ceiling; ``None``/``0.0`` disable without sampling.
 
-    Falsified by: removing the ``>= threshold * 100`` check, gating instead of disabling on ``0.0``,
-    or treating the boundary as strict-greater-than instead of >=.
+    Falsified by: removing the ``>=`` boundary, gating instead of disabling on ``0.0``, sampling in the
+    disabled arm, or re-priming a primed latch with the blocking warmup.
     """
-    # Isolate the decision predicate from warmup.
-    _eng._CPU_PRIMED.set(True)
-    cpu_double(lambda *_a, **_k: cpu)
-    assert is_governed(threshold) is expected
+    sampler, log = _recording_sampler(row.cpu)
+    cpu_double(sampler)
+    _eng._CPU_PRIMED.set(row.primed)
+    assert is_governed(row.threshold) is row.governed
+    assert row.intervals is None or tuple(log) == row.intervals, f"sampler intervals {log} != {row.intervals}"
 
 
-register_law(is_governed, "test_is_governed_boundary")
+def test_is_governed_latch_context_isolated(cpu_double: CpuDoubleInstaller) -> None:
+    """The warmup ``cpu_percent(0.1)`` fires exactly once per fresh ``contextvars.Context``; the latch never leaks across runs.
 
-
-def test_is_governed_latch_primes_once(cpu_double: CpuDoubleInstaller) -> None:
-    """The warmup ``cpu_percent(0.1)`` fires exactly once per ``anyio.run`` context (fresh ``contextvars.Context``).
-
-    Falsified by: removing ``_CPU_PRIMED.set(True)`` or replacing the ContextVar with module state.
+    Falsified by: removing ``_CPU_PRIMED.set(True)``, replacing the ContextVar with module state, or
+    a stale latch surviving into a fresh context.
     """
     sampler, intervals = _recording_sampler(50.0)
     cpu_double(sampler)
 
     async def _run() -> None:
-        # Fresh contextvars.Context ignores outer latch pollution.
         await anyio.lowlevel.checkpoint()
         assert _eng._CPU_PRIMED.get() is False, "ContextVar must start at its False default in a fresh context"
         is_governed(0.9)
@@ -169,147 +264,40 @@ def test_is_governed_latch_primes_once(cpu_double: CpuDoubleInstaller) -> None:
         is_governed(0.9)
 
     contextvars.Context().run(anyio.run, _run)
+    contextvars.Context().run(anyio.run, _run)
 
-    assert [c for c in intervals if c is not None] == [0.1], f"expected one warmup call, got {intervals}"
-    assert [c for c in intervals if c is None] == [None, None], f"expected two non-blocking reads, got {intervals}"
+    assert [c for c in intervals if c is not None] == [0.1, 0.1], f"expected one warmup per fresh context, got {intervals}"
+    assert [c for c in intervals if c is None] == [None] * 4, f"expected two non-blocking reads per context, got {intervals}"
 
-
-register_law(is_governed, "test_is_governed_latch_primes_once")
-
-
-def test_is_governed_contextvar_isolates_across_runs(cpu_double: CpuDoubleInstaller) -> None:
-    """``_CPU_PRIMED`` resets to ``False`` for each ``anyio.run`` — no cross-test contamination.
-
-    Falsified by: a module-level mutable latch staying True across separate ``anyio.run`` calls.
-    """
-    seen_defaults: list[bool] = []
-    _eng._CPU_PRIMED.set(False)
-    cpu_double(lambda *_a, **_k: 50.0)
-
-    async def _capture_default() -> None:
-        await anyio.lowlevel.checkpoint()
-        seen_defaults.append(_eng._CPU_PRIMED.get())
-        _eng._CPU_PRIMED.set(True)  # deliberately pollute the inner context
-
-    anyio.run(_capture_default)
-    anyio.run(_capture_default)
-
-    assert seen_defaults == [False, False], f"ContextVar must be False at start of each anyio.run, got {seen_defaults}"
-
-
-register_law(is_governed, "test_is_governed_contextvar_isolates_across_runs")
-
-
-def test_is_governed_disabled_never_primes(cpu_double: CpuDoubleInstaller) -> None:
-    """``is_governed(None)`` returns ``False`` without touching psutil.
-
-    Falsified by: calling ``cpu_percent`` in the ``None`` branch.
-    """
-    sampler, calls = _recording_sampler(0.0)
-    cpu_double(sampler)
-    _eng._CPU_PRIMED.set(False)
-
-    assert is_governed(None) is False
-    assert not calls, f"psutil.cpu_percent must not be called when threshold is None; got {calls}"
-
-
-register_law(is_governed, "test_is_governed_disabled_never_primes")
-
-
-def test_is_governed_primed_latch_reads_without_warmup(cpu_double: CpuDoubleInstaller) -> None:
-    """A primed latch reads the non-blocking sample without warmup.
-
-    Falsified by: re-priming on every call — a primed latch would still issue the blocking 0.1s warmup.
-    """
-    sampler, intervals = _recording_sampler(80.0)
-    cpu_double(sampler)
-    _eng._CPU_PRIMED.set(True)
-
-    assert is_governed(0.5) is True
-    assert intervals == [None], f"primed latch must read once with no warmup; got {intervals}"
-
-
-register_law(is_governed, "test_is_governed_primed_latch_reads_without_warmup")
 
 # --- [LAWS_DRIVE_PROGRAM]
 
 
-def test_drive_program_projects_completed_to_report(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("row", _PROGRAM_CASES, ids=[c.label for c in _PROGRAM_CASES])
+def test_drive_program_outcome_matrix(
+    row: _ProgramCase, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A canned OK ``Completed`` (rc=0, stdout payload) projects through ``fold`` into one STATIC/program OK Envelope.
+    """Program leaves project outcomes through ``fold``: rc rides the Completed channel, spawn/timeout Faults ride the error arm.
 
-    Falsified by: mis-folding status, wrapping the success arm as Fault, or dropping the OK receipt.
+    Falsified by: ``_program_outcome`` promoting a nonzero exit to Fault, swallowing a Fault into an OK
+    Report, mis-routing the argv, or ``fold`` miscounting a receipt status.
     """
-    canned = Ok(receipt(("dotnet", "build"), 0, stdout=b"Build succeeded.\n", status=RailStatus.OK))
-    rail_probe.install(monkeypatch, _eng, "run_check_async", canned)
+    rail_probe.install(monkeypatch, _eng, "run_check_async", row.canned)  # type: ignore[arg-type]  # canned rows own the Result shape
 
-    anyio.run(_eng.drive, Manual(), Program(argv=("dotnet", "build")), assay_root.settings)
+    anyio.run(drive, Manual(), Program(argv=row.argv), assay_root.settings)
 
-    assert rail_probe.commands == [("dotnet", "build")], f"engine must route the program argv verbatim; got {rail_probe.commands}"
+    assert rail_probe.commands == [row.argv], f"engine must route the program argv verbatim; got {rail_probe.commands}"
     env = _one(captured_emits)
-    assert (env.status, env.claim, env.verb) == (RailStatus.OK, Claim.STATIC, "program")
-    assert env.report is not None
-    assert (env.report.status, env.report.counts) == (RailStatus.OK, Counts(1, 0, 1))
+    assert (env.status, env.claim, env.verb) == (row.status, Claim.STATIC, "program")
+    match row.counts:
+        case None:
+            assert env.error is not None
+            assert row.message is not None
+            assert row.message in env.error.message
+        case counts:
+            assert env.report is not None
+            assert env.report.counts == counts
 
-
-register_law(_eng.drive, "test_drive_program_projects_completed_to_report")
-
-
-def test_drive_program_fault_arm_emits_fault(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A spawn/timeout ``Fault`` flows through the error arm to a FAULTED Envelope.
-
-    Falsified by: swallowing the Fault into an OK Report or re-wrapping it as Completed.
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.error(("missing-tool",), "spawn: executable not found"))
-
-    anyio.run(_eng.drive, Manual(), Program(argv=("missing-tool",)), assay_root.settings)
-
-    env = _one(captured_emits)
-    assert (env.status, env.verb) == (RailStatus.FAULTED, "program")
-    assert env.error is not None
-    assert env.error.message == "spawn: executable not found"
-
-
-register_law(_eng.drive, "test_drive_program_fault_arm_emits_fault")
-
-
-@pytest.mark.parametrize(
-    "rc,status,counts",
-    [
-        (1, RailStatus.FAILED, Counts(0, 1, 1)),  # nonzero exit stays on the Completed channel as FAILED
-        (0, RailStatus.EMPTY, Counts(1, 0, 1)),  # zero-exit no-op folds to EMPTY (still ok-counted)
-        (124, RailStatus.TIMEOUT, Counts(0, 0, 0)),  # timeout receipt folds to neither ok nor failed
-    ],
-    ids=["rc1-failed", "rc0-empty", "rc124-timeout"],
-)
-def test_drive_program_status_projection(
-    rc: int,
-    status: RailStatus,
-    counts: Counts,
-    assay_root: AssayHarness,
-    captured_emits: list[Envelope],
-    rail_probe: RailProbe,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Process exit codes ride the Completed channel: rc projects to status+counts via ``fold``.
-
-    Falsified by: ``_program_outcome`` promoting a nonzero exit to a Fault (only spawn/timeout Fault),
-    or ``fold``/``_count`` miscounting the receipt status into the wrong (ok, failed, total) bucket.
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.receipt(("tool",), rc, status=status, stdout=b"out"))
-
-    anyio.run(_eng.drive, Manual(), Program(argv=("tool",)), assay_root.settings)
-
-    env = _one(captured_emits)
-    assert env.status is status
-    assert env.report is not None
-    assert env.report.counts == counts
-
-
-register_law(_eng.drive, "test_drive_program_status_projection")
 
 # --- [LAWS_DRIVE_RAIL]
 
@@ -324,13 +312,11 @@ def test_drive_rail_resolves_bind_and_emits_canned_envelope(
     rail_env = envelope(fold(Claim.STATIC, "static", (receipt(("static",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="static")
     rail_probe.install(monkeypatch, _eng, "rail", rail_env)
 
-    anyio.run(_eng.drive, Manual(), Rail(claim=Claim.STATIC, verb="static"), assay_root.settings)
+    anyio.run(drive, Manual(), Rail(claim=Claim.STATIC, verb="static"), assay_root.settings)
 
     assert [c for c in rail_probe.calls if c[0] == "rail.run"], "the registry runner must be invoked with decoded params"
     assert captured_emits == [], f"already-emitted rail Envelope must not be re-emitted; got {len(captured_emits)}"
 
-
-register_law(_eng.drive, "test_drive_rail_resolves_bind_and_emits_canned_envelope")
 
 # --- [LAWS_DRIVE_GOVERNOR]
 
@@ -349,7 +335,7 @@ def test_drive_governed_skip_emits_one_skip_envelope(
     monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST,)))
 
     spec = Watch(paths=(str(assay_root.root),), cpu_threshold=0.5)
-    anyio.run(_eng.drive, spec, Program(argv=("tool",)), assay_root.settings)
+    anyio.run(drive, spec, Program(argv=("tool",)), assay_root.settings)
 
     assert rail_probe.commands == [], "the governor must skip the fire before the leaf runs"
     env = _one(captured_emits)
@@ -359,68 +345,26 @@ def test_drive_governed_skip_emits_one_skip_envelope(
     assert any(note.startswith("governed:") and "cpu>=" in note for note in env.report.notes)
 
 
-register_law(_eng.drive, "test_drive_governed_skip_emits_one_skip_envelope")
-
-# --- [LAWS_DRIVE_SEQUENCE]
+# --- [LAWS_DRIVE_LEAVES]
 
 
-def test_drive_sequence_folds_to_highest_severity(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("row", _LEAF_CASES, ids=[c.label for c in _LEAF_CASES])
+def test_drive_leaf_matrix(
+    row: _LeafCase, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A Sequence of OK leaves folds by severity so OK dominates the EMPTY seed.
+    """Sequence/Debounce trees recurse through ``_emit_leaf`` exactly once per leaf and halt on the first terminal status.
 
-    Falsified by: ``_sequence`` halting early on a non-defect status, or the severity fold losing the OK status across leaves.
+    Falsified by: ``_sequence`` continuing past FAULTED, ``_emit_leaf`` skipping a nested Sequence or
+    Debounce unwrap, or a leaf firing twice.
     """
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("p",)))
 
-    seq = Sequence(actions=(Program(argv=("p", "1")), Program(argv=("p", "2"))))
-    anyio.run(_eng.drive, Manual(), seq, assay_root.settings)
+    anyio.run(drive, Manual(), row.action, assay_root.settings)  # type: ignore[arg-type]  # rows carry real Action trees
 
-    assert len(captured_emits) == 2, f"both sequence leaves must emit; got {len(captured_emits)}"
-    assert all(env.status is RailStatus.OK for env in captured_emits)
-
-
-register_law(_eng.drive, "test_drive_sequence_folds_to_highest_severity")
-
-
-def test_drive_nested_sequence_and_debounce_leaves(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Nested Sequence and Debounce leaves recurse through ``_emit_leaf`` exactly once each.
-
-    Falsified by: ``_emit_leaf`` not recursing on a nested Sequence, or the Debounce arm not unwrapping to its inner action (a missing or extra fire).
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("p",)))
-
-    seq = Sequence(
-        actions=(Program(argv=("p", "outer")), Sequence(actions=(Program(argv=("p", "nested")),)), Debounce(action=Program(argv=("p", "wrapped"))))
-    )
-    anyio.run(_eng.drive, Manual(), seq, assay_root.settings)
-
-    assert len(captured_emits) == 3, f"every nested leaf must fire exactly once; got {len(captured_emits)}"
-    assert all(env.status is RailStatus.OK for env in captured_emits)
-
-
-register_law(_eng.drive, "test_drive_nested_sequence_and_debounce_leaves")
-
-
-def test_drive_manual_debounce_unwraps_to_inner_leaf(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Manual Debounce unwraps to the inner leaf without starting a worker.
-
-    Falsified by: ``_fire`` treating a Manual Debounce as a no-op, or double-firing the inner leaf.
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
-
-    action = Debounce(action=Program(argv=("tool",)), window_ms=500, edge=Edge.TRAILING)
-    anyio.run(_eng.drive, Manual(), action, assay_root.settings)
-
-    env = _one(captured_emits)
-    assert (env.status, env.verb) == (RailStatus.OK, "program")
-
-
-register_law(_eng.drive, "test_drive_manual_debounce_unwraps_to_inner_leaf")
+    assert len(captured_emits) == row.emits, f"expected {row.emits} emits, got {len(captured_emits)}"
+    assert all(env.status is row.status for env in captured_emits), f"statuses {[e.status for e in captured_emits]} != {row.status}"
+    assert all(env.verb == "program" for env in captured_emits)
+    assert len(rail_probe.commands) == row.fired, f"expected {row.fired} fired leaves, got {rail_probe.commands}"
 
 
 def test_hardened_fire_coalesces_reentrant_tick(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -450,14 +394,100 @@ def test_hardened_fire_coalesces_reentrant_tick(assay_root: AssayHarness, monkey
     assert completed == [1]
 
 
-register_law(_eng.drive, "test_hardened_fire_coalesces_reentrant_tick")
+def test_hardened_fire_faults_reset_after_exception(
+    assay_root: AssayHarness, captured_emits: list[Envelope], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A raising fire emits one FAULTED Envelope and resets the cell for the next tick.
+
+    Falsified by: removing the ``except``/``finally`` — the exception escapes the task group or wedges
+    ``running=True`` so later ticks never fire.
+    """
+    monkeypatch.setattr(_eng, "_JITTER_MS", 1)
+    calls: list[int] = []
+
+    async def _fire(_changes: tuple[tuple[str, str], ...]) -> None:
+        await anyio.lowlevel.checkpoint()
+        calls.append(1)
+        if len(calls) == 1:
+            msg = "boom"
+            raise RuntimeError(msg)
+
+    async def _run() -> None:
+        hardened = _eng._hardened_fire(_fire, assay_root.settings)
+        await hardened(())
+        await hardened(())
+
+    anyio.run(_run)
+
+    assert calls == [1, 1], "the cell must reset and fire again after a fault"
+    env = _one(captured_emits)
+    assert (env.status, env.claim, env.verb) == (RailStatus.FAULTED, Claim.STATIC, "automation")
+    assert env.error is not None
+    assert "RuntimeError: boom" in env.error.message
+
+
+# --- [LAWS_DRIVE_DEBOUNCE]
+
+
+@pytest.mark.parametrize("edge", [Edge.LEADING, Edge.TRAILING], ids=["leading", "trailing"])
+@pytest.mark.anyio
+async def test_debounce_fires_once_per_storm(*, edge: Edge) -> None:
+    """Leading and trailing debounce modes fire once per storm window.
+
+    Falsified by: firing per-signal, or the worker leaking the channel under ``filterwarnings=error`` (an
+    unclosed-stream ResourceWarning fails). The size-1 channel coalesces the second signal until quiescence.
+    """
+    fired: list[tuple[tuple[str, str], ...]] = []
+
+    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
+        fired.append(changes)
+
+    signal, worker = _eng._debounce(_inner, 40, edge=edge)
+    async with anyio.create_task_group() as tg:
+        _ = tg.start_soon(worker)
+        await signal(_FIRST)
+        await anyio.lowlevel.checkpoint()
+        await signal(_SECOND)
+        await anyio.sleep(0.07)
+        tg.cancel_scope.cancel()
+
+    assert len(fired) == 1, f"each storm window must produce exactly one fire; got {fired}"
+
+
+def test_debounce_signal_ignores_when_buffer_full() -> None:
+    """Signals drop silently while the debounce worker's size-1 buffer is full.
+
+    Falsified by: the signal raising on a full channel (no ``send_nowait`` guard), or growing past size 1
+    (a second signal reaches ``inner``). Pinning the first fire keeps the worker from draining the channel.
+    """
+    fired: list[tuple[tuple[str, str], ...]] = []
+    pinned = anyio.Event()
+
+    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:
+        fired.append(changes)
+        await pinned.wait()
+
+    async def _run() -> None:
+        signal, worker = _eng._debounce(_inner, 40, edge=Edge.LEADING)
+        async with anyio.create_task_group() as tg:
+            _ = tg.start_soon(worker)
+            await signal(_FIRST)
+            await anyio.sleep(0.02)
+            await signal(_SECOND)
+            await signal(_FIRST)
+            await anyio.sleep(0.02)
+            tg.cancel_scope.cancel()
+
+    anyio.run(_run)
+
+    assert fired == [_FIRST], f"buffer-full signals must drop, not fire; got {fired}"
 
 
 def test_debounce_signal_after_close_is_silent() -> None:
     """Post-close debounce signals return silently through the ClosedResourceError arm.
 
-    Falsified by: removing the closed-resource arm and raising on a late shutdown tick. Cancelling the worker closes
-    both streams before the final signal.
+    Falsified by: removing the closed-resource arm and raising on a late shutdown tick. Cancelling the worker
+    closes both streams before the final signal.
     """
 
     async def _inner(_changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
@@ -474,48 +504,33 @@ def test_debounce_signal_after_close_is_silent() -> None:
     anyio.run(_run)
 
 
-register_law(_eng.drive, "test_debounce_signal_after_close_is_silent")
-
-
-def test_drive_sequence_halts_on_fault(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A FAULTED leaf (first leaf empty argv) short-circuits ``_sequence`` before the trailing leaf runs.
-
-    Falsified by: ``_sequence`` continuing past a FAULTED status, which would emit a second Envelope.
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("p",)))
-
-    seq = Sequence(actions=(Program(argv=()), Program(argv=("p", "2"))))
-    anyio.run(_eng.drive, Manual(), seq, assay_root.settings)
-
-    assert _one(captured_emits).status is RailStatus.FAULTED
-    assert rail_probe.commands == [], "the trailing leaf must not run after a FAULTED halt"
-
-
-register_law(_eng.drive, "test_drive_sequence_halts_on_fault")
-
 # --- [LAWS_DRIVE_WATCH]
 
 
-def test_drive_watch_fires_per_canned_batch(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("label,batches,fires", _WATCH_BATCH_CASES, ids=[c[0] for c in _WATCH_BATCH_CASES])
+def test_drive_watch_batch_matrix(
+    label: str,
+    batches: tuple[tuple[tuple[str, str], ...], ...],
+    fires: int,
+    assay_root: AssayHarness,
+    captured_emits: list[Envelope],
+    rail_probe: RailProbe,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Watch drive fires once per canned ``awatch`` batch when no worker co-resides.
+    """Watch drive fires once per non-empty ``awatch`` batch; empty timeout heartbeats never fire.
 
-    Falsified by: ``_watch`` dropping a batch, ``_drive`` deadlocking with no debounce worker, or ``_watch_filter`` returning the wrong filter.
+    Falsified by: ``_watch`` dropping a real batch, firing on a heartbeat, or ``_drive`` deadlocking with no
+    debounce worker.
     """
+    _ = label
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
-    monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST, _SECOND)))
+    monkeypatch.setattr(_eng, "awatch", _fake_awatch(batches))
 
     spec = Watch(paths=(str(assay_root.root),))
-    anyio.run(_eng.drive, spec, Program(argv=("tool",)), assay_root.settings)
+    anyio.run(drive, spec, Program(argv=("tool",)), assay_root.settings)
 
-    assert len(captured_emits) == 2, f"one Envelope per watch batch; got {len(captured_emits)}"
+    assert len(captured_emits) == fires, f"expected {fires} fires for {batches!r}; got {len(captured_emits)}"
     assert all(env.status is RailStatus.OK for env in captured_emits)
-
-
-register_law(_eng.drive, "test_drive_watch_fires_per_canned_batch")
 
 
 @pytest.mark.parametrize(
@@ -533,9 +548,6 @@ def test_watch_filter_resolves_tag_to_watchfiles_filter(filter_tag: WatchFilter,
     assert type(_eng._watch_filter(spec)).__name__ == expected_type
 
 
-register_law(_eng.drive, "test_watch_filter_resolves_tag_to_watchfiles_filter")
-
-
 def test_watch_filter_default_extends_builtin_noise_suppression() -> None:
     """DEFAULT extends watchfiles noise suppression instead of replacing it.
 
@@ -549,35 +561,13 @@ def test_watch_filter_default_extends_builtin_noise_suppression() -> None:
     assert {".git", "node_modules"} <= set(flt._ignore_dirs), "default ignore_dirs (.git/node_modules) stay suppressed"
 
 
-register_law(_eng.drive, "test_watch_filter_default_extends_builtin_noise_suppression")
-
-
-def test_watch_skips_empty_timeout_heartbeat(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Empty ``awatch`` timeout heartbeats do not fire the action.
-
-    Falsified by: firing once per heartbeat window with no file event.
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
-    monkeypatch.setattr(_eng, "awatch", _fake_awatch(((), _FIRST, ())))
-
-    spec = Watch(paths=(str(assay_root.root),))
-    anyio.run(_eng.drive, spec, Program(argv=("tool",)), assay_root.settings)
-
-    assert len(captured_emits) == 1, f"only the non-empty batch fires; empty heartbeats are dropped, got {len(captured_emits)}"
-
-
-register_law(_eng.drive, "test_watch_skips_empty_timeout_heartbeat")
-
-
 def test_drive_watch_debounce_collapses_storm(
     assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Debounced Watch co-resides the worker and collapses a two-batch storm to one fire.
 
-    Falsified by: the debounce firing per-batch, or ``_co_resident`` failing to cancel the task group on stop (the run hangs past the timeout).
-    The release delay exceeds the debounce window so the collapsed storm can fire before stop.
+    Falsified by: the debounce firing per-batch, or ``_co_resident`` failing to cancel the task group on stop
+    (the run hangs past the timeout). The release delay exceeds the debounce window so the collapsed storm fires before stop.
     """
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
     monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST, _SECOND)))
@@ -600,8 +590,6 @@ def test_drive_watch_debounce_collapses_storm(
 
     assert _one(captured_emits).status is RailStatus.OK
 
-
-register_law(_eng.drive, "test_drive_watch_debounce_collapses_storm")
 
 # --- [LAWS_DRIVE_SCHEDULE]
 
@@ -628,9 +616,6 @@ def test_drive_schedule_fires_then_stops(
     anyio.run(_drive)
 
     assert _one(captured_emits).status is RailStatus.OK
-
-
-register_law(_eng.drive, "test_drive_schedule_fires_then_stops")
 
 
 def test_drive_schedule_debounce_co_resides_worker(
@@ -677,14 +662,11 @@ def test_drive_schedule_debounce_co_resides_worker(
     assert _one(captured_emits).status is RailStatus.OK
 
 
-register_law(_eng.drive, "test_drive_schedule_debounce_co_resides_worker")
-
-
 def test_quiesce_drains_until_quiet_window() -> None:
     """``_quiesce`` drains until a quiet window and returns the latest batch.
 
-    Falsified by: ``_quiesce`` returning on the first signal (no drain) or returning a stale batch instead of the latest before the quiet window.
-    The second signal arrives inside the quiet window to exercise the drain-continue arm.
+    Falsified by: returning on the first signal (no drain) or returning a stale batch instead of the latest
+    before the quiet window. The second signal arrives inside the quiet window to exercise the drain-continue arm.
     """
     latest: list[tuple[tuple[str, str], ...]] = []
 
@@ -703,9 +685,6 @@ def test_quiesce_drains_until_quiet_window() -> None:
     anyio.run(_run)
 
     assert latest == [_SECOND], f"_quiesce must return the latest drained batch; got {latest}"
-
-
-register_law(_eng.drive, "test_quiesce_drains_until_quiet_window")
 
 
 def test_schedule_exits_on_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -728,13 +707,11 @@ def test_schedule_exits_on_cancellation(monkeypatch: pytest.MonkeyPatch) -> None
     anyio.run(_run)
 
 
-register_law(_eng.drive, "test_schedule_exits_on_cancellation")
-
-
 def test_fire_with_coalesce_runs_catch_up_on_missed_tick(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A missed tick runs one catch-up fire and resets the backlog.
 
-    Falsified by: dropping the catch-up fire (one call not two), or returning a nonzero backlog that would wedge the hardened cell on the next tick.
+    Falsified by: dropping the catch-up fire (one call not two), or returning a nonzero backlog that would
+    wedge the hardened cell on the next tick.
     """
     monkeypatch.setattr(_eng, "_JITTER_MS", 1)
     fired: list[tuple[tuple[str, str], ...]] = []
@@ -751,145 +728,21 @@ def test_fire_with_coalesce_runs_catch_up_on_missed_tick(assay_root: AssayHarnes
     assert backlog == 0, "the coalesced cell must reset its backlog to 0"
 
 
-register_law(_eng.drive, "test_fire_with_coalesce_runs_catch_up_on_missed_tick")
-
-
-def test_hardened_fire_faults_reset_after_exception(
-    assay_root: AssayHarness, captured_emits: list[Envelope], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A raising fire emits one FAULTED Envelope and resets the cell for the next tick.
-
-    Falsified by: removing the ``except``/``finally`` — the exception escapes the task group or wedges ``running=True`` so later ticks never fire.
-    """
-    monkeypatch.setattr(_eng, "_JITTER_MS", 1)
-    calls: list[int] = []
-
-    async def _fire(_changes: tuple[tuple[str, str], ...]) -> None:
-        await anyio.lowlevel.checkpoint()
-        calls.append(1)
-        if len(calls) == 1:
-            msg = "boom"
-            raise RuntimeError(msg)
-
-    async def _run() -> None:
-        hardened = _eng._hardened_fire(_fire, assay_root.settings)
-        await hardened(())
-        await hardened(())
-
-    anyio.run(_run)
-
-    assert calls == [1, 1], "the cell must reset and fire again after a fault"
-    env = _one(captured_emits)
-    assert (env.status, env.claim, env.verb) == (RailStatus.FAULTED, Claim.STATIC, "automation")
-    assert env.error is not None
-    assert "RuntimeError: boom" in env.error.message
-
-
-register_law(_eng.drive, "test_hardened_fire_faults_reset_after_exception")
-
-# --- [LAWS_DRIVE_DEBOUNCE]
-
-
-@pytest.mark.parametrize("edge", [Edge.LEADING, Edge.TRAILING], ids=["leading", "trailing"])
-@pytest.mark.anyio
-async def test_debounce_fires_once_per_storm(*, edge: Edge) -> None:
-    """Leading and trailing debounce modes fire once per storm window.
-
-    Falsified by: firing per-signal, or the worker leaking the channel under ``filterwarnings=error`` (an unclosed-stream ResourceWarning fails).
-    The size-1 channel coalesces the second signal until the quiescence window elapses.
-    """
-    fired: list[tuple[tuple[str, str], ...]] = []
-
-    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
-        fired.append(changes)
-
-    signal, worker = _eng._debounce(_inner, 40, edge=edge)
-    async with anyio.create_task_group() as tg:
-        _ = tg.start_soon(worker)
-        await signal(_FIRST)
-        await anyio.lowlevel.checkpoint()
-        await signal(_SECOND)
-        await anyio.sleep(0.07)
-        tg.cancel_scope.cancel()
-
-    assert len(fired) == 1, f"each storm window must produce exactly one fire; got {fired}"
-
-
-register_law(_eng.drive, "test_debounce_fires_once_per_storm")
-
-
-def test_debounce_signal_ignores_when_buffer_full() -> None:
-    """Signals drop silently while the debounce worker's size-1 buffer is full.
-
-    Falsified by: the signal raising on a full channel (no ``send_nowait`` guard), or growing past size 1 (a second signal reaches ``inner``).
-    Pinning the first fire keeps the worker from draining the channel.
-    """
-    fired: list[tuple[tuple[str, str], ...]] = []
-    pinned = anyio.Event()
-
-    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:
-        fired.append(changes)
-        await pinned.wait()
-
-    async def _run() -> None:
-        signal, worker = _eng._debounce(_inner, 40, edge=Edge.LEADING)
-        async with anyio.create_task_group() as tg:
-            _ = tg.start_soon(worker)
-            await signal(_FIRST)
-            await anyio.sleep(0.02)
-            await signal(_SECOND)
-            await signal(_FIRST)
-            await anyio.sleep(0.02)
-            tg.cancel_scope.cancel()
-
-    anyio.run(_run)
-
-    assert fired == [_FIRST], f"buffer-full signals must drop, not fire; got {fired}"
-
-
-register_law(_eng.drive, "test_debounce_signal_ignores_when_buffer_full")
-
 # --- [LAWS_DRIVE_SETUP_FAULT]
 
 
-def test_drive_manual_program_emits_single_envelope(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``drive(Manual(), Program(argv=('true',)), settings)`` emits exactly one Envelope.
-
-    Falsified by: no emission or double emission across the Program and outer fault boundaries.
-    """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("true",)))
-
-    anyio.run(_eng.drive, Manual(), Program(argv=("true",)), assay_root.settings)
-
-    env = _one(captured_emits)
-    assert (env.claim, env.verb) == (Claim.STATIC, "program")
-
-
-register_law(_eng.drive, "test_drive_manual_program_emits_single_envelope")
-
-
-@pytest.mark.parametrize(
-    "trigger,action,claim,verb,substrings", [c[1:] for c in _FAULT_CASES], ids=[c[0].removeprefix("test_drive_") for c in _FAULT_CASES]
-)
-def test_drive_faults(
-    trigger: Trigger, action: Action, claim: Claim, verb: str, substrings: tuple[str, ...], assay_root: AssayHarness, captured_emits: list[Envelope]
-) -> None:
+@pytest.mark.parametrize("row", _FAULT_CASES, ids=[c.label for c in _FAULT_CASES])
+def test_drive_fault_matrix(row: _FaultCase, assay_root: AssayHarness, captured_emits: list[Envelope]) -> None:
     """Setup, guard, resolve, and decode defects fold into one labelled FAULTED Envelope.
 
     Falsified by: dropping any boundary that converts those defects into a self-contained Fault.
     """
-    anyio.run(_eng.drive, trigger, action, assay_root.settings)
+    anyio.run(drive, row.trigger, row.action, assay_root.settings)  # type: ignore[arg-type]  # rows carry real Trigger/Action values
 
     env = _one(captured_emits)
-    assert (env.status, env.claim, env.verb) == (RailStatus.FAULTED, claim, verb)
+    assert (env.status, env.claim, env.verb) == (RailStatus.FAULTED, row.claim, row.verb)
     assert env.error is not None
-    assert all(s in env.error.message for s in substrings), f"expected {substrings} in {env.error.message!r}"
-
-
-for _case in _FAULT_CASES:
-    register_law(_eng.drive, _case[0])
+    assert all(s in env.error.message for s in row.substrings), f"expected {row.substrings} in {env.error.message!r}"
 
 
 def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
@@ -901,12 +754,9 @@ def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: py
         read_one_envelope_from_bytes,
     )
 
-    anyio.run(_eng.drive, Manual(), Program(argv=()), assay_root.settings)
+    anyio.run(drive, Manual(), Program(argv=()), assay_root.settings)
 
     cap = capsysbinary.readouterr()
     env = read_one_envelope_from_bytes(cap.out)
     assert env.status is RailStatus.FAULTED
     assert b"rasm.automation" not in cap.out, "structlog must not bleed onto the Envelope stdout channel"
-
-
-register_law(_eng.drive, "test_drive_emits_ndjson_on_stdout")

@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from shutil import copy2, rmtree
 from tempfile import mkdtemp
-from typing import Final, override, Self, TYPE_CHECKING
+from typing import ClassVar, Final, override, Self, TYPE_CHECKING
 
 from expression import Error, Ok, Result
 from expression.collections import block
@@ -23,11 +23,10 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves these at import time, not under TYPE_CHECKING
-    ArtifactScope,
-    AssaySettings,
-)
-from tools.assay.core.engine import Executor, leased, proc_dead  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves these at import time, not under TYPE_CHECKING
+from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # beartype resolves these at import time, not under TYPE_CHECKING
+from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.govern import leased, proc_dead
 from tools.assay.core.model import (
     ArtifactKind,
     Base,
@@ -37,16 +36,15 @@ from tools.assay.core.model import (
     Completed,
     Counts,
     Fault,
-    Input,
     Language,
     Match,
     Mode,
     PackageRun,
     RailStatus,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
-    Runner,
     Step,
     Tool,
+    ToolArgs,
 )
 from tools.assay.core.routing import parse_csproj, Routed, Scope
 from tools.assay.diagnostics import fold
@@ -58,8 +56,6 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Step = tuple[str, ...]
 
 
 class _LifecycleStep(StrEnum):
@@ -131,6 +127,8 @@ _HOST_EXCLUDES: Final[tuple[str, ...]] = (
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackageParams(BaseParams):
     """Parameters shared by package verbs."""
+
+    SLOTS: ClassVar[dict[str, str]] = {"": ""}
 
     slug: str = ""
     version: str = ""
@@ -282,35 +280,31 @@ def _safe_package_pattern(pattern: str) -> bool:
     return bool(pattern) and "/" not in pattern and "\\" not in pattern and "\x00" not in pattern and ".." not in Path(pattern).parts
 
 
-def _yak_tool(meta: YakMeta, command: _Step, mode: Mode) -> Result[Tool, Fault]:
-    # Input.NONE: no changed-file routing tail; yak operates on committed package_dir.
-    match select(Claim.PACKAGE, Language.CSHARP):
-        case (base, *_):
-            return Ok(msgspec.structs.replace(base, command=(str(meta.yak_path), *command), mode=mode))
+def _row(name: str, mode: Mode) -> Result[Tool, Fault]:
+    match next((t for t in select(Claim.PACKAGE, Language.CSHARP) if t.name == name and t.mode is mode), None):
+        case Tool() as tool:
+            return Ok(tool)
         case _:
-            return Error(Fault(("yak", *command), message="no yak catalog row for Claim.PACKAGE"))
+            return Error(Fault((name, mode.value), message=f"no {name} catalog row for Claim.PACKAGE mode {mode.value}"))
 
 
-def _yak_build_tail(meta: YakMeta, version: str) -> _Step:
-    return ("build", "--platform", meta.yak_platform, "--version", version)
+def _yak_args(meta: YakMeta, mode: Mode, version: str, package_file: Path | None) -> ToolArgs:
+    # One splice builder per yak lifecycle mode: STAGE builds, DEPLOY installs, PUBLISH pushes with an optional source.
+    binary = str(meta.yak_path)
+    match mode:
+        case Mode.STAGE:
+            return ToolArgs(binary=binary, platform=meta.yak_platform, version=version)
+        case Mode.DEPLOY:
+            return ToolArgs(binary=binary, target=str(package_file))
+        case _:
+            return ToolArgs(binary=binary, flags=("--source", meta.yak_push_source) if meta.yak_push_source else (), target=str(package_file))
 
 
-def _yak_install_tail(package_file: Path) -> _Step:
-    return ("install", str(package_file))
-
-
-def _yak_push_tail(meta: YakMeta, package_file: Path) -> _Step:
-    source = ("--source", meta.yak_push_source) if meta.yak_push_source else ()
-    return ("push", *source, str(package_file))
-
-
-def _run_yak(
-    meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor
-) -> Result[Completed, Fault]:
+def _run_yak(mode: Mode, args: ToolArgs, *, cwd: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> Result[Completed, Fault]:
     # Non-zero yak exits stay on Completed, not Fault.
-    return _yak_tool(meta, command, mode).bind(
+    return _row("yak", mode).bind(
         lambda tool: executor.run(
-            Check(tool=tool, cwd=cwd), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED)
+            Check(tool=tool, cwd=cwd, args=args), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED)
         )
     )
 
@@ -318,23 +312,19 @@ def _run_yak(
 def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, slug: str, version: str, executor: Executor) -> Result[YakMeta, Fault]:
     """Evaluate and validate yak metadata for one project.
 
+    An empty ``version`` (plan) drops the ``-p:Version``/``-p:YakVersion`` tokens whole, leaving MSBuild defaults.
+
     Returns:
         Validated yak metadata, or an MSBuild/decode/precondition fault.
     """
-    query: _Step = (
-        "msbuild",
-        project,
-        f"-p:Configuration={settings.configuration.value}",
-        f"-p:Version={version}",
-        f"-p:YakVersion={version}",
-        *(f"-getProperty:{name}" for name in _META_PROPS),
-        "-nologo",
+    args = ToolArgs(
+        project=project, configuration=settings.configuration.value, version=version, props=tuple(f"-getProperty:{name}" for name in _META_PROPS)
     )
-    tool = Tool("dotnet-msbuild", Runner.DOTNET, query, Input.NONE, Language.CSHARP, Claim.PACKAGE, mode=Mode.QUERY)
-    check = Check(tool=tool, cwd=Path(str(settings.root)))
-    routed = Routed(language=tool.language, scope=Scope.CHANGED)
-    return executor.run(check, settings=settings, scope=scope, routed=routed).bind(
-        lambda done: _decode_props(project, done).bind(lambda props: YakMeta.from_props(project, props, settings, slug))
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    return (
+        _row("dotnet-msbuild", Mode.QUERY)
+        .bind(lambda tool: executor.run(Check(tool=tool, cwd=Path(str(settings.root)), args=args), settings=settings, scope=scope, routed=routed))
+        .bind(lambda done: _decode_props(project, done).bind(lambda props: YakMeta.from_props(project, props, settings, slug)))
     )
 
 
@@ -517,20 +507,14 @@ def _build_outputs(  # structural staging slots; the executor rides last
     projects = (_RASM_BRIDGE_SHELL_PROJECT, meta.project) if slug == _RASM_BRIDGE_SLUG else (meta.project,)
 
     def run_project(project: str) -> Result[Completed, Fault]:
-        tool = Tool(
-            "dotnet-build",
-            Runner.DOTNET,
-            ("build", project, "-c", settings.configuration.value, f"-p:Version={version}", "-v:quiet", "/clp:ErrorsOnly"),
-            Input.NONE,
-            Language.CSHARP,
-            Claim.PACKAGE,
-            mode=Mode.BUILD,
-        )
-        return executor.run(
-            Check(tool=tool, cwd=Path(str(settings.root))),
-            settings=settings,
-            scope=scope,
-            routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED),
+        args = ToolArgs(project=project, configuration=settings.configuration.value, version=version)
+        return _row("dotnet-build", Mode.BUILD).bind(
+            lambda tool: executor.run(
+                Check(tool=tool, cwd=Path(str(settings.root)), args=args),
+                settings=settings,
+                scope=scope,
+                routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED),
+            )
         )
 
     def combined(done: tuple[Completed, ...]) -> Completed:
@@ -564,7 +548,7 @@ def _copy_after_build(  # structural staging pipeline slots; the executor rides 
                 _stage_artifacts(meta, staged, target_dir, extra_dirs)
                 .bind(
                     lambda _: _run_yak(
-                        meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope, executor=executor
+                        Mode.STAGE, _yak_args(meta, Mode.STAGE, version, None), cwd=staged, settings=settings, scope=scope, executor=executor
                     )
                 )
                 .bind(lambda done: _commit_or_fail(meta, staged, slug, version, done))
@@ -593,11 +577,9 @@ def _run_step(  # structural lifecycle slots; the executor rides last
 ) -> Result[Completed, Fault]:
     # Refresh failure after install is recoverable via bridge relaunch; bridge steps fold into Completed, not Fault.
     match step:
-        case _LifecycleStep.INSTALL:
-            return _run_yak(meta, _yak_install_tail(package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope, executor=executor)
-        case _LifecycleStep.PUSH:
+        case _LifecycleStep.INSTALL | _LifecycleStep.PUSH:
             return _run_yak(
-                meta, _yak_push_tail(meta, package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope, executor=executor
+                step.mode, _yak_args(meta, step.mode, "", package_file), cwd=meta.package_dir, settings=settings, scope=scope, executor=executor
             )
         case _:
             return client_run(settings, step.wire, executor=executor)

@@ -4,15 +4,17 @@
 
 import pytest
 
-from tests.python._testkit.laws import register_law, spec
+from tests.python._testkit.laws import spec
 from tests.python._testkit.spec import assert_roundtrip, idempotent
 from tests.python._testkit.strategies import resolve as _resolve  # noqa: F401  # registers the Tool Hypothesis strategy on import; no call site
-from tools.assay.composition.catalog import select, TOOLS
-from tools.assay.core.model import Claim, Input, Language, Mode, Parser, Tool
+from tools.assay.composition.catalog import launch, PROBE_TIMEOUT_S, select, TOOLS
+from tools.assay.core.model import Claim, Input, Language, Mode, Parser, Runner, Tool
 from tools.assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (launch, select)
 
 _VALID_RG_JSON: bytes = b'{"type":"match","data":{"path":{"text":"foo.py"},"lines":{"text":"x = 1\\n"},"line_number":7}}'
 
@@ -34,9 +36,6 @@ def test_capture_roundtrip(capture: Capture) -> None:
     assert decoded == (capture,), f"roundtrip broken: {capture!r} -> {decoded!r}"
 
 
-register_law("tools.assay.diagnostics.CAPTURES", "capture_codec_roundtrip", module=__name__)
-register_law("tools.assay.diagnostics.CAPTURE_ENCODER", "capture_codec_roundtrip", module=__name__)
-
 # --- [CAPTURES_STRUCTURAL]
 
 
@@ -45,8 +44,6 @@ def test_captures_empty_array_decodes_to_empty_tuple() -> None:
     result = CAPTURES.decode(b"[]")
     assert result == (), f"expected empty tuple, got {result!r}"
 
-
-register_law("tools.assay.diagnostics.CAPTURES", "captures_empty_array", module=__name__)
 
 # --- [CAPTURE_ASSERT_ROUNDTRIP]
 
@@ -64,9 +61,6 @@ def test_ast_matches_empty_array() -> None:
     assert result == (), f"expected empty tuple, got {result!r}"
 
 
-register_law("tools.assay.diagnostics.AST_MATCHES", "ast_matches_empty_array", module=__name__)
-
-
 def test_ast_matches_field_identity() -> None:
     """AST_MATCHES preserves text, file, and line identity."""
     rows = AST_MATCHES.decode(_AST_MATCH_PAYLOAD)
@@ -76,8 +70,6 @@ def test_ast_matches_field_identity() -> None:
     assert m.file == "a.py"
     assert m.lines == "1-3"
 
-
-register_law("tools.assay.diagnostics.AST_MATCHES", "ast_matches_field_identity", module=__name__)
 
 # --- [RG_EVENT_ALIAS]
 
@@ -90,17 +82,12 @@ def test_rg_event_type_to_kind_alias() -> None:
     assert ev.data.line_number == 7
 
 
-register_law("tools.assay.diagnostics.RG_EVENT", "rg_event_type_alias", module=__name__)
-
-
 def test_rg_event_default_fields() -> None:
     ev = RG_EVENT.decode(b"{}")
     assert not ev.kind
     assert not ev.data.path.text
     assert ev.data.line_number == 0
 
-
-register_law("tools.assay.diagnostics.RG_EVENT", "rg_event_defaults", module=__name__)
 
 # --- [TOOLS_CENSUS]
 
@@ -112,8 +99,6 @@ def test_catalog_census_every_tool_selects_back(claim: Claim) -> None:
     assert not failures, f"select did not return these TOOLS rows: {failures}"
 
 
-register_law("tools.assay.composition.catalog.TOOLS", "tools_census_select_back", module=__name__)
-
 # --- [SELECT_TOTAL]
 
 
@@ -121,8 +106,6 @@ register_law("tools.assay.composition.catalog.TOOLS", "tools_census_select_back"
 def test_select_total_subset_of_tools(claim: Claim) -> None:
     assert all(t in TOOLS for t in select(claim)), f"select({claim!r}) returned rows not in TOOLS"
 
-
-register_law(select, "select_total_subset", module=__name__)
 
 # --- [SELECT_MONOTONE]
 
@@ -137,8 +120,6 @@ def test_select_monotone_language_refinement(claim: Claim, language: Language) -
     assert not extras, f"select({claim!r}, {language!r}) returned rows outside select({claim!r}): {extras}"
 
 
-register_law(select, "select_monotone_language", module=__name__)
-
 # --- [SELECT_IDEMPOTENT]
 
 
@@ -147,8 +128,6 @@ def test_select_idempotent(claim: Claim) -> None:
     """Repeated claim selection is deterministic and side-effect-free."""
     idempotent(select(claim), lambda _: select(claim))
 
-
-register_law(select, "select_idempotent", module=__name__)
 
 # --- [TOOL_GENERATED]
 
@@ -171,9 +150,6 @@ def test_parser_families_all_declared() -> None:
     assert declared == frozenset(Parser), f"parser families drifted: declared={sorted(declared)}"
 
 
-register_law("tools.assay.core.model.Parser", "parser_families_all_declared", module=__name__)
-
-
 def test_parser_rows_key_static_diagnostic_tools() -> None:
     """The argv-sniffing replacement: the exact static rows whose output the fold parses carry their family key."""
     by_name = {(t.name, t.language): t.parser for t in select(Claim.STATIC)}
@@ -188,8 +164,6 @@ def test_parser_rows_key_static_diagnostic_tools() -> None:
     assert by_name["dotnet-format", Language.CSHARP] is Parser.CS_CONSOLE
     assert by_name["lint-imports", Language.PYTHON] is Parser.NONE
 
-
-register_law("tools.assay.core.model.Parser", "parser_rows_key_static_diagnostic_tools", module=__name__)
 
 # --- [MUTATION_INPUT_OWNERSHIP]
 
@@ -206,8 +180,6 @@ def test_mutation_rows_own_input_placement() -> None:
     assert not offenders, f"mutation rows must own input placement, got NONE on: {offenders}"
 
 
-register_law(select, "mutation_rows_own_input_placement", module=__name__)
-
 # --- [STATIC_INPUT_OWNERSHIP]
 
 
@@ -216,9 +188,6 @@ def test_validate_pyproject_owns_its_single_input() -> None:
     rows = [t for t in select(Claim.STATIC, Language.PYTHON) if t.name == "validate-pyproject"]
     assert len(rows) == 1
     assert rows[0].input is Input.OWNED
-
-
-register_law(select, "validate_pyproject_owns_single_input", module=__name__)
 
 
 def test_static_native_fixers_are_scoped_rows() -> None:
@@ -232,4 +201,29 @@ def test_static_native_fixers_are_scoped_rows() -> None:
     assert "--write" in biome_write[0].command
 
 
-register_law(select, "static_native_fixers_are_scoped_rows", module=__name__)
+# --- [LAUNCH_SPELLER]
+
+
+@pytest.mark.parametrize("tool", TOOLS, ids=[f"{i}-{t.name}-{t.claim.value}-{t.mode.value}" for i, t in enumerate(TOOLS)])
+def test_launch_is_the_one_prefix_speller(tool: Tool) -> None:
+    """launch() derives every row's launcher prefix: uv lock + dependency groups for UV, module runner for MODULE, raw prefix otherwise."""
+    prefix = launch(tool)
+    match tool.runner:
+        case Runner.UV:
+            groups = tuple(part for group in tool.uv_groups() for part in ("--group", group.value))
+            assert prefix == ("uv", "run", "--locked", *groups)
+        case Runner.MODULE:
+            assert prefix == ("uv", "run", "--locked", "python", "-m")
+        case _:
+            assert prefix == tool.runner.prefix
+
+
+# --- [PROBE_TIMEOUT]
+
+
+def test_probe_timeout_bounds_query_probe_rows() -> None:
+    """PROBE_TIMEOUT_S is a positive bound and every probe/program template row that declares it stays under the mutation ceiling."""
+    assert PROBE_TIMEOUT_S > 0
+    probes = tuple(t for t in TOOLS if t.name in {"git-head", "git-dirty", "tool-probe"})
+    assert probes, "probe rows must exist in the catalog"
+    assert all(t.timeout == PROBE_TIMEOUT_S for t in probes)

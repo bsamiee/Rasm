@@ -4,7 +4,6 @@
 
 import contextlib
 from datetime import datetime, UTC
-import operator
 import os
 from pathlib import Path
 import tempfile
@@ -21,36 +20,38 @@ import pytest
 from upath import UPath
 import zstandard
 
-from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
 from tests.python.tools.assay.kit import (  # noqa: TC001  # runtime use: instantiated in fixture bodies, not annotation-only
     AssayHarness,
     make_history_envelope,
     WIRE_ENCODER,
 )
-from tools.assay.composition import settings as _settings_mod
+from tools.assay.composition import settings as _settings_mod, store as _store_mod
 from tools.assay.composition.settings import (
     ArtifactBackend,
-    ArtifactFileSystem,
-    ArtifactScope,
-    ArtifactStore,
     AssaySettings,
     backend_capability,
     Configuration,
-    CS_ARTIFACT_ROOTS,
     Local,
-    LogFormat,
-    mtime_from_info,
     Offload,
-    prune_python_artifacts,
     PullStrategy,
-    PY_ARTIFACT_ROOTS,
-    PY_COVERAGE_FILES,
     remote_path,
     resolve_tilde,
     run_id_host_token,
-    size_from_info,
     Ssh,
+)
+from tools.assay.composition.store import (
+    ArtifactFileSystem,
+    ArtifactScope,
+    ArtifactStore,
+    CS_ARTIFACT_ROOTS,
+    DOTNET_BUILD_CLOSURE,
+    mtime_from_info,
+    prune_python_artifacts,
+    PY_ARTIFACT_ROOTS,
+    PY_COVERAGE_FILES,
+    safe_segment,
+    size_from_info,
     unframe,
 )
 from tools.assay.core.model import Artifact, ArtifactKind, Claim
@@ -58,12 +59,31 @@ from tools.assay.core.model import Artifact, ArtifactKind, Claim
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from enum import StrEnum
 
     from tools.assay.core.model import Envelope
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (
+    ArtifactBackend,
+    ArtifactFileSystem,
+    ArtifactScope,
+    ArtifactStore,
+    AssaySettings,
+    Local,
+    Offload,
+    Ssh,
+    backend_capability,
+    mtime_from_info,
+    prune_python_artifacts,
+    remote_path,
+    resolve_tilde,
+    run_id_host_token,
+    safe_segment,
+    size_from_info,
+    unframe,
+)
 
 _CPU_MIN: Final = 1
 _CPU_MAX: Final = 256
@@ -187,22 +207,7 @@ class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [STR_ENUM_LAWS]
-
-
-@pytest.mark.parametrize("enum_cls", [Configuration, LogFormat], ids=["configuration", "log_format"])
-def test_str_enum_value_roundtrip(enum_cls: type[StrEnum]) -> None:
-    """Every member is a str whose value is its str() form and round-trips Enum(str(member)) is member."""
-    for member in enum_cls:
-        assert isinstance(member, str)
-        assert str(member) == member.value
-        roundtrip(member, str, enum_cls, eq=operator.is_)
-
-
-register_law(Configuration, "str_enum_value_roundtrip")
-register_law(LogFormat, "str_enum_value_roundtrip")
-
-# --- [MTIME_FROM_INFO_LAWS]
+# --- [INFO_PROJECTION_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -222,9 +227,6 @@ def test_mtime_from_info_projection(info: dict[str, object], expected: float) ->
     assert mtime_from_info(info) == expected
 
 
-register_law(mtime_from_info, "mtime_from_info_projection")
-
-
 @given(st.one_of(st.floats(min_value=0.0, max_value=1e12, allow_nan=False, allow_infinity=False), st.integers(min_value=0, max_value=2**53 + 2)))
 @hyp_settings(max_examples=80)
 def test_mtime_from_info_numeric_identity(v: float) -> None:
@@ -233,12 +235,6 @@ def test_mtime_from_info_numeric_identity(v: float) -> None:
     assert isinstance(result, float)
     assert result == float(v)  # noqa: RUF069  # float() int→float promotion is deterministic; precision loss past 2^53 is the contract
     target(float(v), label="mtime_magnitude")  # biases Hypothesis toward 2^53+1, where int→float first loses precision
-
-
-register_law(mtime_from_info, "mtime_from_info_numeric_identity")
-
-
-# --- [SIZE_FROM_INFO_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -251,19 +247,7 @@ def test_size_from_info_projection(info: dict[str, object], fallback: int, expec
     assert size_from_info(info, fallback=fallback) == expected
 
 
-register_law(size_from_info, "size_from_info_projection")
-
 # --- [ARTIFACT_BACKEND_LAWS]
-
-
-def test_artifact_backend_defaults_to_file_protocol() -> None:
-    """ArtifactBackend default protocol is 'file' with an empty root."""
-    b = ArtifactBackend()
-    assert b.protocol == "file"
-    assert not b.root
-
-
-register_law(ArtifactBackend, "artifact_backend_defaults_to_file_protocol")
 
 
 def test_artifact_backend_validation_matrix() -> None:
@@ -289,64 +273,34 @@ def _backend_ok(protocol: str, root: str) -> bool:
     return True
 
 
-register_law(ArtifactBackend, "artifact_backend_validation_matrix")
-
-
 @pytest.mark.parametrize(
     "protocol, root, expect_part",
     [
         ("file", "", ".artifacts/assay"),  # file+empty -> store_root
-        ("file", "rel/path", "rel/path"),  # file+relative -> joined to workspace root
         ("memory", "my-prefix", "my-prefix"),  # non-file -> root stripped
+        ("memory", "my-prefix/", "my-prefix"),  # rstrip: trailing slash only
+        ("memory", "my-prefix//", "my-prefix"),  # rstrip: repeated slashes only
+        ("memory", "prefixX", "prefixX"),  # rstrip must not eat the trailing X sentinel
     ],
-    ids=["file_empty", "file_relative", "non_file_root"],
+    ids=["file_empty", "non_file_root", "trailing_slash", "double_trailing_slash", "trailing_capital_x"],
 )
 def test_artifact_backend_target_dispatch(protocol: str, root: str, expect_part: str, assay_root: AssayHarness) -> None:
-    """ArtifactBackend.target dispatches to the correct root path for each protocol/root pairing."""
-    assert expect_part in ArtifactBackend(protocol=protocol, root=root).target(assay_root.settings)
+    """ArtifactBackend.target dispatches per protocol/root; non-file roots strip only trailing slash characters."""
+    result = ArtifactBackend(protocol=protocol, root=root).target(assay_root.settings)
+    hit = expect_part in result if protocol == "file" else result == expect_part
+    assert hit, f"target({protocol!r}, {root!r}) -> {result!r}, expected {expect_part!r}"
 
 
-def test_artifact_backend_target_file_absolute(assay_root: AssayHarness) -> None:
-    """ArtifactBackend.target with an absolute file root returns that absolute path directly."""
+def test_artifact_backend_target_file_root_anchoring(assay_root: AssayHarness) -> None:
+    """Absolute file roots pass through; relative file roots anchor under settings.root, never the non-file strip arm."""
     with tempfile.TemporaryDirectory() as td:
         assert ArtifactBackend(protocol="file", root=td).target(assay_root.settings) == td
-
-
-register_law(ArtifactBackend, "artifact_backend_target_dispatch")
-register_law(ArtifactBackend, "artifact_backend_target_file_absolute")
-
-
-def test_artifact_backend_target_relative_file_root_joins_workspace(assay_root: AssayHarness) -> None:
-    """Relative file roots anchor under settings.root, not the non-file strip arm.
-
-    Equality plus is_absolute pins the full workspace join; substring checks would miss the bare
-    relative fallback.
-    """
     settings = assay_root.settings
     result = ArtifactBackend(protocol="file", root="rel/path").target(settings)
     assert result == str(settings.root / UPath("rel/path"))
     assert UPath(result).is_absolute()
     assert result != "rel/path"
 
-
-register_law(ArtifactBackend, "artifact_backend_target_relative_file_root_joins_workspace")
-
-
-@pytest.mark.parametrize(
-    "root, expected",
-    [("my-prefix/", "my-prefix"), ("my-prefix//", "my-prefix"), ("prefixX", "prefixX")],
-    ids=["trailing_slash", "double_trailing_slash", "trailing_capital_x"],
-)
-def test_artifact_backend_target_non_file_root_rstrips_only_slashes(root: str, expected: str, assay_root: AssayHarness) -> None:
-    """Non-file backend roots strip only trailing slash characters.
-
-    The rows distinguish slash-only right-strip from whitespace strip, left-strip, and wider character
-    stripping that would eat the trailing X sentinel.
-    """
-    assert ArtifactBackend(protocol="memory", root=root).target(assay_root.settings) == expected
-
-
-register_law(ArtifactBackend, "artifact_backend_target_non_file_root_rstrips_only_slashes")
 
 # --- [ASSAY_SETTINGS_LAWS]
 
@@ -375,34 +329,17 @@ def _cpu_ok(build: Callable[[int], AssaySettings], cpu_count: int) -> bool:
     return True
 
 
-register_law(AssaySettings, "assay_settings_cpu_count_boundary")
-
-
-def test_assay_settings_default_fields_present(assay_root: AssayHarness) -> None:
-    """S2 defaults: non-empty probe_fixture_prefixes tuple[str], non-empty mutation_python, typed enum fields."""
-    s = assay_root.settings
-    assert s.probe_fixture_prefixes == IsTuple(length=(1, ...))
-    assert all(isinstance(p, str) for p in s.probe_fixture_prefixes)
-    assert s.mutation_python == IsStr(min_length=1)
-    assert isinstance(s.configuration, Configuration)
-    assert isinstance(s.log_format, LogFormat)
-
-
-register_law(AssaySettings, "assay_settings_default_fields_present")
-
-
 def test_assay_settings_computed_projections(assay_root: AssayHarness) -> None:
     """Computed solution / agent_context / python_tool_env project off root, run_id, and agent_task_id."""
     s = assay_root.settings
     assert s.solution == s.root / "Workspace.slnx"
     assert s.agent_context == IsPartialDict({"run.id": s.run_id, "agent.task.id": s.agent_task_id})
+    assert s.probe_fixture_prefixes == IsTuple(length=(1, ...))
+    assert s.mutation_python == IsStr(min_length=1)
     env = s.python_tool_env
     assert env.keys() >= {"UV_CACHE_DIR", "HYPOTHESIS_STORAGE_DIRECTORY", "PYTEST_CACHE_DIR", "RUFF_CACHE_DIR", "MYPY_CACHE_DIR", "COVERAGE_FILE"}
     root_str = str(s.local_root)
     assert all(v.startswith(root_str) for v in env.values())
-
-
-register_law(AssaySettings, "assay_settings_computed_projections")
 
 
 def test_assay_settings_local_root_raises_for_non_file_protocol() -> None:
@@ -416,17 +353,11 @@ def test_assay_settings_local_root_raises_for_non_file_protocol() -> None:
         _ = settings.local_root
 
 
-register_law(AssaySettings, "assay_settings_local_root_raises_for_non_file_protocol")
-
-
 def test_assay_settings_wire_safe_scrubs_surrogates(tmp_path: Path) -> None:
     """_wire_safe replaces lone surrogates in run_id / agent_task_id so the result is UTF-8 encodable."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     settings = AssaySettings(root=UPath(tmp_path), run_id="run-1", agent_task_id="run-\udcff", exec_known_hosts=None)
     settings.agent_task_id.encode("utf-8")
-
-
-register_law(AssaySettings, "assay_settings_wire_safe_scrubs_surrogates")
 
 
 def test_run_id_host_token_carves_the_per_host_prune_namespace(tmp_path: Path) -> None:
@@ -443,10 +374,6 @@ def test_run_id_host_token_carves_the_per_host_prune_namespace(tmp_path: Path) -
     assert not AssaySettings(root=UPath(tmp_path), run_id="custom-run", exec_known_hosts=None).host_run_token
 
 
-register_law(AssaySettings, "run_id_host_token_carves_the_per_host_prune_namespace")
-register_law(run_id_host_token, "run_id_host_token_carves_the_per_host_prune_namespace")
-
-
 @pytest.mark.parametrize(
     "exec_target, error_match",
     [("ssh://user@host:notaport", "non-numeric ssh port"), ("http://host/path", "without path/query/fragment")],
@@ -459,12 +386,15 @@ def test_assay_settings_exec_target_rejected(exec_target: str, error_match: str,
         AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": exec_target, "exec_known_hosts": None})
 
 
-def test_assay_settings_exec_target_valid_ssh_with_port(tmp_path: Path) -> None:
-    """exec_target admits ssh://[user@]host:port into an Ssh value object whose host/port/user round-trip the URL."""
+def test_assay_settings_exec_target_modal_union(tmp_path: Path) -> None:
+    """exec_target admits ssh://[user@]host:port into an Ssh value object; an empty target admits the falsy Local case."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     s = AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": "ssh://user@host:22", "exec_known_hosts": None})
     assert isinstance(s.exec_target, Ssh)
     assert (s.exec_target.host, s.exec_target.port, s.exec_target.user, s.exec_target.url) == ("host", 22, "user", "ssh://user@host:22")
+    local = AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": "", "exec_known_hosts": None})
+    assert isinstance(local.exec_target, Local)
+    assert (bool(local.exec_target), local.offload) == (False, None)
 
 
 def test_assay_settings_exec_target_admits_raw_ssh_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -483,63 +413,35 @@ def test_assay_settings_exec_target_admits_raw_ssh_url_from_env(tmp_path: Path, 
     assert s.exec_target.url == "ssh://root@31.97.131.41"
 
 
-def test_assay_settings_exec_target_local_is_falsy_modal_identity(tmp_path: Path) -> None:
-    """An empty exec_target admits the Local case: falsy, with no offload binding derived."""
-    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    s = AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": "", "exec_known_hosts": None})
-    assert isinstance(s.exec_target, Local)
-    assert (bool(s.exec_target), s.offload) == (False, None)
+@pytest.mark.parametrize(
+    "backend, expected_protocol, expected_root, strategy",
+    [
+        (None, "sftp", "/srv/work/run-1/.artifacts/assay", PullStrategy.TRANSFER),
+        ({"protocol": "s3", "root": "bucket/runs"}, "s3", "bucket/runs/run-1/.artifacts/assay", PullStrategy.SHARED),
+    ],
+    ids=["sftp_derived", "shared_cloud"],
+)
+def test_settings_offload_derivation_matrix(
+    backend: dict[str, str] | None, expected_protocol: str, expected_root: str, strategy: PullStrategy, tmp_path: Path
+) -> None:
+    """A remote Ssh target derives one Offload binding pinned under the target's remote run dir.
 
-
-def test_settings_offload_derives_sftp_backend_under_run_dir(tmp_path: Path) -> None:
-    """A remote Ssh target derives one Offload binding: an sftp backend rooted under <workroot>/<run_id>/.artifacts/assay.
-
-    Host and backend cannot disagree — the backend is never a separate knob, it is pinned under the target's remote run dir,
-    and its TRANSFER pull strategy reads from the capability table, not a dispatch literal.
+    Host and backend cannot disagree — the backend is never a separate knob: sftp byte-transfer by default, the
+    configured SHARED cloud store when admitted, with the pull strategy read off the capability table.
     """
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    s = AssaySettings.model_validate({
+    payload: dict[str, object] = {
         "root": UPath(tmp_path),
         "exec_target": "ssh://host:22",
         "exec_known_hosts": None,
         "run_id": "run-1",
         "exec_workroot": "/srv/work",
-    })
-    offload = s.offload
+        **({"artifact_backend": backend} if backend else {}),
+    }
+    offload = AssaySettings.model_validate(payload).offload
     assert offload is not None
-    assert (offload.backend.protocol, offload.backend.root) == ("sftp", "/srv/work/run-1/.artifacts/assay")
-    assert offload.pull_strategy is PullStrategy.TRANSFER
-
-
-def test_settings_offload_derives_shared_cloud_backend_under_run_dir(tmp_path: Path) -> None:
-    """A remote target with a configured SHARED cloud backend derives the offload at that cloud store under the run dir.
-
-    Host/backend inconsistency stays unrepresentable: the SHARED protocol is read off the configured backend's capability
-    row, never a separate knob, and the derived store is pinned at ``<root>/<run_id>/.artifacts/assay`` so the remote tool
-    writes and the agent reads the same universal paths with the SHARED pull strategy — no sftp byte download.
-    """
-    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    s = AssaySettings.model_validate({
-        "root": UPath(tmp_path),
-        "exec_target": "ssh://host:22",
-        "exec_known_hosts": None,
-        "run_id": "run-7",
-        "exec_workroot": "/srv/work",
-        "artifact_backend": {"protocol": "s3", "root": "bucket/runs"},
-    })
-    offload = s.offload
-    assert offload is not None
-    assert (offload.backend.protocol, offload.backend.root) == ("s3", "bucket/runs/run-7/.artifacts/assay")
-    assert offload.pull_strategy is PullStrategy.SHARED
-
-
-register_law(Ssh, "assay_settings_exec_target_rejected")
-register_law(Ssh, "assay_settings_exec_target_admits_raw_ssh_url_from_env")
-register_law(Ssh, "assay_settings_exec_target_valid_ssh_with_port")
-register_law(Local, "assay_settings_exec_target_local_is_falsy_modal_identity")
-register_law(Offload, "settings_offload_derives_sftp_backend_under_run_dir")
-register_law(Offload, "settings_offload_derives_shared_cloud_backend_under_run_dir")
-register_law(Ssh, "settings_offload_derives_shared_cloud_backend_under_run_dir")
+    assert (offload.backend.protocol, offload.backend.root) == (expected_protocol, expected_root)
+    assert offload.pull_strategy is strategy
 
 
 @pytest.mark.parametrize(
@@ -562,9 +464,6 @@ def test_backend_capability_table_owns_admission(protocol: str, reachable: bool,
     assert backend_capability(protocol) == (reachable, admitted, strategy)
     assert ArtifactBackend(protocol=protocol, root="x/y").capability == (reachable, admitted, strategy)
 
-
-register_law(backend_capability, "backend_capability_table_owns_admission")
-register_law(PullStrategy, "backend_capability_table_owns_admission")
 
 # --- [BOUNDARY_VALIDATOR_LAWS]
 
@@ -595,9 +494,6 @@ def _ssh_parse_ok(url: str) -> bool:
     return True
 
 
-register_law(Ssh, "ssh_parse_accepts_root_path_only")
-
-
 def test_ssh_resolve_home_rebinds_tilde_to_absolute_workroot() -> None:
     """``resolve_home`` rebinds a leading ``~`` workroot to the connection's absolute home; an absolute workroot is unchanged.
 
@@ -615,11 +511,6 @@ def test_ssh_resolve_home_rebinds_tilde_to_absolute_workroot() -> None:
     assert remote_path("/root") == "/root/.local/bin:/usr/local/dotnet:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
-register_law(Ssh, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
-register_law(resolve_tilde, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
-register_law(remote_path, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
-
-
 def test_unframe_inflates_zstd_frame_and_passes_plain_bytes_through() -> None:
     """The store read boundary inflates a zstd-framed payload and passes a non-framed payload through unchanged.
 
@@ -631,9 +522,6 @@ def test_unframe_inflates_zstd_frame_and_passes_plain_bytes_through() -> None:
     assert framed[:4] == zstandard.FRAME_HEADER, "a zstd frame must carry the magic prefix unframe sniffs"
     assert unframe(framed) == payload, "a framed payload must inflate to the original bytes"
     assert unframe(payload) == payload, "a non-framed payload (no magic prefix) must pass through unchanged"
-
-
-register_law(unframe, "unframe_inflates_zstd_frame_and_passes_plain_bytes_through")
 
 
 @pytest.mark.parametrize(
@@ -649,9 +537,6 @@ def test_expand_or_none_projection(value: str | None, expected: str | None) -> N
     assert _settings_mod._expand_or_none(value) == expected
 
 
-register_law(AssaySettings, "expand_or_none_projection")
-
-
 @pytest.mark.parametrize(
     "reported, expected",
     [(0, 8), (1, 1), (8, 8), (257, 256)],
@@ -664,9 +549,6 @@ def test_default_cpu_count_clamp_table(reported: int, expected: int, monkeypatch
     """
     monkeypatch.setattr(_settings_mod.os, "process_cpu_count", lambda: reported)
     assert _settings_mod._default_cpu_count() == expected
-
-
-register_law(AssaySettings, "default_cpu_count_clamp_table")
 
 
 def test_assay_settings_remote_env_filters_and_injects_run_id(assay_root: AssayHarness) -> None:
@@ -688,9 +570,6 @@ def test_assay_settings_remote_env_filters_and_injects_run_id(assay_root: AssayH
     assert "ROW_DECLARED" not in bare, "forward must be opt-in: the bare allowlist still gates row keys"
 
 
-register_law(AssaySettings, "assay_settings_remote_env_filters_and_injects_run_id")
-
-
 def test_assay_settings_with_configuration_roundtrip(assay_root: AssayHarness) -> None:
     """with_configuration rebinds via model_copy (no re-validation), switches configuration, and preserves all other fields."""
     debug = assay_root.settings.with_configuration(Configuration.DEBUG)
@@ -700,17 +579,11 @@ def test_assay_settings_with_configuration_roundtrip(assay_root: AssayHarness) -
     assert release.run_id == assay_root.settings.run_id
 
 
-register_law(AssaySettings, "assay_settings_with_configuration_roundtrip")
-
-
 def test_assay_settings_artifact_projects_safe_path(assay_root: AssayHarness) -> None:
     """artifact() produces a path rooted under store_root/<kind>/<safe-segment...>."""
     path = str(assay_root.settings.artifact(ArtifactKind.CODE, "search", "run-1", "matches.txt"))
     assert ArtifactKind.CODE.value in path
     assert "matches.txt" in path
-
-
-register_law(AssaySettings, "assay_settings_artifact_projects_safe_path")
 
 
 @pytest.mark.parametrize(
@@ -720,9 +593,6 @@ def test_assay_settings_artifact_rejects_unsafe_segments(part: str, assay_root: 
     """artifact() rejects traversal / unsafe path segments before they reach the backend."""
     with pytest.raises(ValueError, match="unsafe artifact path segment"):
         assay_root.settings.artifact(ArtifactKind.CODE, part, "matches.txt")
-
-
-register_law(AssaySettings, "assay_settings_artifact_rejects_unsafe_segments")
 
 
 def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: AssayHarness) -> None:
@@ -746,8 +616,6 @@ def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: Assa
     assert no_mkdir.fs.auto_mkdir is False, "store must forward **opts (auto_mkdir) onto the constructed filesystem"
 
 
-register_law(AssaySettings, "assay_settings_store_honors_protocol_and_forwards_opts")
-
 # --- [ARTIFACT_SCOPE_LAWS]
 
 
@@ -768,9 +636,6 @@ def test_artifact_scope_open_computes_path_lazily_per_claim(claim: Claim, assay_
     assert not _Path(scope.path).exists(), "open() must not materialize the scope directory (no empty scope dirs)"
 
 
-register_law(ArtifactScope, "artifact_scope_open_computes_path_lazily_per_claim")
-
-
 def test_artifact_scope_ensure_materializes_through_store_boundary(assay_root: AssayHarness) -> None:
     """ArtifactScope.ensure materializes lazy scopes through the ArtifactStore boundary.
 
@@ -789,10 +654,6 @@ def test_artifact_scope_ensure_materializes_through_store_boundary(assay_root: A
         scope.store.ensure_path("/outside/the/store/root")
 
 
-register_law(ArtifactScope, "artifact_scope_ensure_materializes_through_store_boundary")
-register_law(ArtifactStore, "artifact_scope_ensure_materializes_through_store_boundary")
-
-
 @pytest.mark.parametrize(
     "config_arg, expect_in_path",
     [(None, "Release"), (Configuration.DEBUG, "Debug"), ("Custom", "Custom")],
@@ -804,65 +665,33 @@ def test_artifact_scope_build_configuration_variants(config_arg: Configuration |
     assert expect_in_path in scope.path
     assert "my-closure" in scope.path
     assert "--artifacts-path" in scope.dotnet_flags
-    assert "--disable-build-servers" not in scope.dotnet_flags  # VBCSCompiler stays on; --artifacts-path is the isolation boundary
 
 
-register_law(ArtifactScope, "artifact_scope_build_configuration_variants")
+def test_artifact_scope_dotnet_isolation_policy(assay_root: AssayHarness) -> None:
+    """Scopes route artifacts via DOTNET_CLI_HOME + --artifacts-path; VBCSCompiler shared compilation stays on for open and build."""
+    for scope in (ArtifactScope.open(assay_root.settings, Claim.STATIC), ArtifactScope.build(assay_root.settings, "static-closure")):
+        assert scope.dotnet_env == IsPartialDict({"DOTNET_CLI_HOME": IsStr(regex=rf"{scope.path}.*")})
+        assert "MSBUILDDISABLENODEREUSE" not in scope.dotnet_env
+        assert "--disable-build-servers" not in scope.dotnet_flags
+        assert scope.path in scope.dotnet_flags
 
-
-def test_artifact_scope_dotnet_env_isolation(assay_root: AssayHarness) -> None:
-    """ArtifactScope.dotnet_env provides DOTNET_CLI_HOME under the scope path; VBCSCompiler stays on (no node-reuse disable)."""
-    scope = ArtifactScope.open(assay_root.settings, Claim.STATIC)
-    assert scope.dotnet_env == IsPartialDict({"DOTNET_CLI_HOME": IsStr(regex=rf"{scope.path}.*")})
-    assert "MSBUILDDISABLENODEREUSE" not in scope.dotnet_env
-    assert "--disable-build-servers" not in scope.dotnet_flags
-
-
-register_law(ArtifactScope, "artifact_scope_dotnet_env_isolation")
-
-
-def test_artifact_scope_can_leave_build_servers_enabled(assay_root: AssayHarness) -> None:
-    """Build scopes route artifacts without forcing build-server isolation; VBCSCompiler shared compilation stays on."""
-    scope = ArtifactScope.build(assay_root.settings, "static-closure")
-    assert "--artifacts-path" in scope.dotnet_flags
-    assert scope.path in scope.dotnet_flags
-    assert "--disable-build-servers" not in scope.dotnet_flags
-    assert scope.dotnet_env == IsPartialDict({"DOTNET_CLI_HOME": IsStr(regex=rf"{scope.path}.*")})
-    assert "MSBUILDDISABLENODEREUSE" not in scope.dotnet_env
-
-
-register_law(ArtifactScope, "can_leave_build_servers_enabled")
 
 # --- [PROTOCOL]
 
 
-def test_artifact_file_system_protocol_runtime_checkable(mem_store: ArtifactStore) -> None:
-    """ArtifactFileSystem is @runtime_checkable: fsspec MemoryFileSystem satisfies it structurally."""
+def test_artifact_file_system_protocol_contract(mem_store: ArtifactStore) -> None:
+    """ArtifactFileSystem is @runtime_checkable and its default transaction is a usable nullcontext."""
     assert isinstance(mem_store.fs, ArtifactFileSystem)
 
-
-register_law(ArtifactFileSystem, "artifact_file_system_protocol_runtime_checkable")
-
-
-def test_artifact_file_system_protocol_default_transaction_is_nullcontext() -> None:
-    """Protocol-default transaction supplies a usable nullcontext to non-transactional backends.
-
-    _DefaultTxFs rebinds the property so this test exercises the Protocol default, not the stub
-    class attribute.
-    """
-
     class _DefaultTxFs(_FsStub):
-        transaction = (
-            ArtifactFileSystem.transaction
-        )  # re-bind Protocol default so the property path is exercised, not _FsStub's class-level attribute
+        # Re-bind the Protocol default so the property path is exercised, not _FsStub's class-level attribute.
+        transaction = ArtifactFileSystem.transaction
 
     ctx = _DefaultTxFs().transaction
     assert isinstance(ctx, contextlib.AbstractContextManager)
     with ctx:
         pass
 
-
-register_law(ArtifactFileSystem, "artifact_file_system_protocol_default_transaction_is_nullcontext")
 
 # --- [ARTIFACT_STORE_IO_LAWS]
 
@@ -881,11 +710,8 @@ def test_artifact_store_write_bytes_identity(payload: bytes, mem_store: Artifact
     )
 
 
-register_law(ArtifactStore, "artifact_store_write_bytes_identity")
-
-
-def test_artifact_store_text_and_path_variants(mem_store: ArtifactStore) -> None:
-    """Write_text/read_text round-trip, and write_bytes_path/write_text_path/read_text_path overwrite in place."""
+def test_artifact_store_io_lifecycle(mem_store: ArtifactStore, tmp_path: Path) -> None:
+    """Text/path write variants round-trip and overwrite in place; glob/info/write_many/open_write/adopt/remove close the lifecycle."""
     roundtrip(
         "alpha\nbeta\ngamma\n",
         lambda t: mem_store.write_text(t, "scope", "api", "surface.txt"),
@@ -898,25 +724,30 @@ def test_artifact_store_text_and_path_variants(mem_store: ArtifactStore) -> None
     assert mem_store.read_text("scope", "overwrite.txt") == "new-text"
     assert mem_store.read_text_path(path) == "new-text"
 
-
-register_law(ArtifactStore, "artifact_store_text_and_path_variants")
-
-
-def test_artifact_store_glob_info_and_write_many(mem_store: ArtifactStore) -> None:
-    """Glob discovers written paths, info/info_path expose file metadata, and write_many persists a batch in order."""
     mem_store.write_bytes(b"payload", "history", "run-1", "envelope.json")
     assert any("envelope.json" in m for m in mem_store.glob("history/*/envelope.json"))
-
     meta = mem_store.write_bytes(b"meta-check", "scope", "meta.txt")
     assert mem_store.info("scope", "meta.txt") == IsPartialDict({"type": "file"})
     assert mem_store.info_path(meta) == IsPartialDict({"type": "file"})
-
     paths = mem_store.write_many(((b"alpha", ("scope", "a.txt")), (b"beta", ("scope", "b.txt"))))
     assert len(paths) == 2
     assert (mem_store.read_bytes("scope", "a.txt"), mem_store.read_bytes("scope", "b.txt")) == (b"alpha", b"beta")
 
-
-register_law(ArtifactStore, "artifact_store_glob_info_and_write_many")
+    payload = b"size-check-payload"
+    backend = mem_store.write_bytes(payload, "scope", "check.txt")
+    assert mem_store.exists("scope", "check.txt")
+    assert mem_store.exists_path(backend)
+    assert mem_store.size_path(backend) == len(payload)
+    assert not mem_store.exists("scope", "missing.txt")
+    stream_path, fh = mem_store.open_write("scope", "stream.bin")
+    assert "stream.bin" in stream_path
+    assert hasattr(fh, "write")
+    local = tmp_path / "to-adopt.bin"
+    local.write_bytes(b"adopted-content")
+    mem_store.adopt_file(local, "artifacts", "copy.bin")
+    assert mem_store.read_bytes("artifacts", "copy.bin") == b"adopted-content"
+    mem_store.remove_path(backend)
+    assert not mem_store.exists("scope", "check.txt")
 
 
 def test_artifact_store_path_guards_reject(mem_store: ArtifactStore) -> None:
@@ -929,35 +760,17 @@ def test_artifact_store_path_guards_reject(mem_store: ArtifactStore) -> None:
         mem_store.write_bytes(b"second", "scope", "api", "once.txt", create=True)
 
 
-register_law(ArtifactStore, "artifact_store_path_guards_reject")
-
-
-def test_artifact_store_write_at_atomic_no_partial_on_failure() -> None:
-    """_write_at leaves no partial target when the autocommit-deferred write fails.
-
-    The failing stub raises inside the context body; exists() staying false rejects eager writes that
-    land bytes before failure.
-    """
+def test_artifact_store_write_at_atomic_commit_and_failure() -> None:
+    """_write_at commits through the autocommit-deferred open handle and leaves no partial target on failure."""
     failing = _FsStub(write_fails=True)
     store = ArtifactStore(fs=failing, root="atomic-root")
     with pytest.raises(OSError, match="injected write failure"):
         store.write_bytes(b"payload", "scope", "partial.bin")
     assert not store.exists("scope", "partial.bin"), "a failed write must not leave a partial file at the target path"
 
-
-register_law(ArtifactStore, "artifact_store_write_at_atomic_no_partial_on_failure")
-
-
-def test_artifact_store_write_at_commits_through_open_handle(mem_store: ArtifactStore) -> None:
-    """A clean _write_at commits through the autocommit-deferred open handle.
-
-    Read-back identity rejects no-op writers and dropped commit buffers.
-    """
-    path = mem_store.write_bytes(b"committed-via-open", "scope", "via-open.bin")
-    assert mem_store.read_path(path) == b"committed-via-open"
-
-
-register_law(ArtifactStore, "artifact_store_write_at_commits_through_open_handle")
+    committing = ArtifactStore(fs=_FsStub(), root="atomic-root")
+    path = committing.write_bytes(b"committed-via-open", "scope", "via-open.bin")
+    assert committing.read_path(path) == b"committed-via-open"
 
 
 def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, tmp_path: Path) -> None:
@@ -982,8 +795,6 @@ def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, 
     assert not mem_store.exists("scope", "check.txt")
 
 
-register_law(ArtifactStore, "artifact_store_exists_size_remove_open_adopt")
-
 # --- [ARTIFACT_STORE_WALK_LAWS]
 
 
@@ -998,16 +809,10 @@ def test_artifact_store_walk_detail_dict_keyed_branch() -> None:
     assert info == IsPartialDict({"type": "file"})
 
 
-register_law(ArtifactStore, "artifact_store_walk_detail_dict_keyed_branch")
-
-
 def test_artifact_store_walk_absent_path_returns_empty_tuple(mem_store: ArtifactStore) -> None:
     """Walk catches FileNotFoundError on an absent path in both the find (recursive) and ls arms, returning ()."""
     assert mem_store.walk("missing-scope-entirely", recursive=True) == ()
     assert mem_store.walk("missing-scope-entirely", recursive=False) == ()
-
-
-register_law(ArtifactStore, "artifact_store_walk_absent_path_returns_empty_tuple")
 
 
 @pytest.mark.parametrize(
@@ -1020,8 +825,6 @@ def test_artifact_store_info_path_non_numeric_fallback(info_payload: dict[str, o
     store = ArtifactStore(fs=_FsStub(info_payload=info_payload), root="info-root")
     assert not getattr(store, reader)("info-root/scope/f.txt")
 
-
-register_law(ArtifactStore, "artifact_store_info_path_non_numeric_fallback")
 
 # --- [ARTIFACT_STORE_HISTORY_LAWS]
 
@@ -1040,9 +843,6 @@ def test_artifact_store_write_history_roundtrip_and_unknown(mem_store: ArtifactS
     assert mem_store.load_history("run-corrupt-env") is None
 
 
-register_law(ArtifactStore, "artifact_store_write_history_roundtrip_and_unknown")
-
-
 @pytest.mark.parametrize("keep, survivors", [(1, 1), (0, 0)], ids=["keep_one", "keep_zero"])
 def test_artifact_store_retain_history_prunes_oldest(keep: int, survivors: int, mem_store: ArtifactStore) -> None:
     """retain_history(keep=N) prunes oldest runs leaving exactly N survivors."""
@@ -1051,9 +851,6 @@ def test_artifact_store_retain_history_prunes_oldest(keep: int, survivors: int, 
     mem_store.retain_history(keep=keep)
     present = [i for i in range(3) if mem_store.load_history(f"run-{i}") is not None]
     assert len(present) == survivors
-
-
-register_law(ArtifactStore, "artifact_store_retain_history_prunes_oldest")
 
 
 @pytest.mark.parametrize("keep, expected", [(2, ("scope-1", "scope-2")), (1, ("scope-2",)), (0, ())], ids=["keep_two", "keep_one", "keep_zero"])
@@ -1077,9 +874,6 @@ def test_artifact_store_retain_scopes_prunes_oldest_per_claim(keep: int, expecte
     assert store.exists(Claim.CODE.value, "scope-0", "artifact.bin"), "retain_scopes must not prune a different claim's root"
 
 
-register_law(ArtifactStore, "artifact_store_retain_scopes_prunes_oldest_per_claim")
-
-
 def test_artifact_store_sorted_history_ids_mtime_tie_lexicographic_fallback() -> None:
     """sorted_history_ids breaks omitted-mtime ties by ascending run id.
 
@@ -1090,9 +884,6 @@ def test_artifact_store_sorted_history_ids_mtime_tie_lexicographic_fallback() ->
     for run in ("run-c", "run-a", "run-b"):
         stub.seed(f"tie-root/{ArtifactKind.HISTORY.value}/{run}/envelope.json", b"{}")
     assert store.sorted_history_ids() == ("run-a", "run-b", "run-c")
-
-
-register_law(ArtifactStore, "artifact_store_sorted_history_ids_mtime_tie_lexicographic_fallback")
 
 
 def test_artifact_store_retain_history_already_removed_is_tolerated() -> None:
@@ -1106,20 +897,14 @@ def test_artifact_store_retain_history_already_removed_is_tolerated() -> None:
     store.retain_history(keep=0)
 
 
-register_law(ArtifactStore, "artifact_store_retain_history_already_removed_is_tolerated")
-
-
 def test_artifact_store_sorted_history_ids_order(mem_store: ArtifactStore, monkeypatch: pytest.MonkeyPatch) -> None:
     """sorted_history_ids returns run ids oldest-first using (mtime, run_id) as the rank key."""
     for run_id in ("run-b", "run-a"):
         mem_store.write_history(run_id, WIRE_ENCODER.encode(make_history_envelope(run_id)))
-    monkeypatch.setattr(_settings_mod, "mtime_from_info", lambda info: 1.0 if "run-a" in str(info.get("name", "")) else 2.0)
+    monkeypatch.setattr(_store_mod, "mtime_from_info", lambda info: 1.0 if "run-a" in str(info.get("name", "")) else 2.0)
     ids = mem_store.sorted_history_ids()
     seeded = tuple(rid for rid in ids if rid in {"run-a", "run-b"})
     assert seeded == IsTuple("run-a", "run-b")  # mtime rank (1.0 < 2.0) orders run-a before run-b; both present, in order
-
-
-register_law(ArtifactStore, "artifact_store_sorted_history_ids_order")
 
 
 def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> None:
@@ -1148,8 +933,6 @@ def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> 
     no_report = msgspec.structs.replace(env, report=None)
     assert mem_store.restore_full_report(no_report) is no_report
 
-
-register_law(ArtifactStore, "artifact_store_full_report_restore_matrix")
 
 # --- [STATEFUL_HISTORY_RBSM]
 
@@ -1212,8 +995,6 @@ def test_history_retention_state_machine() -> None:
     model_based(HistoryRetentionStateMachine)
 
 
-register_law(ArtifactStore, "history_retention_state_machine")
-
 # --- [ARTIFACT_STORE_RESOLVE_ARTIFACTS_LAWS]
 
 
@@ -1222,9 +1003,6 @@ def test_artifact_store_resolve_artifacts_empty_token_returns_empty(mem_store: A
     mem_store.write_bytes(b"x", "scope", "a.txt")
     assert mem_store.resolve_artifacts("", "scope") == ()
     assert mem_store.resolve_artifacts("  ", "scope") == ()
-
-
-register_law(ArtifactStore, "artifact_store_resolve_artifacts_empty_token_returns_empty")
 
 
 def test_artifact_store_resolve_artifacts_basename_substring_and_direct(mem_store: ArtifactStore) -> None:
@@ -1242,22 +1020,17 @@ def test_artifact_store_resolve_artifacts_basename_substring_and_direct(mem_stor
     assert mem_store.resolve_artifacts(direct, "scope") == (direct,)
 
 
-register_law(ArtifactStore, "artifact_store_resolve_artifacts_basename_substring_and_direct")
-
-
 def test_artifact_store_resolve_artifacts_latest_across_roots(mem_store: ArtifactStore, monkeypatch: pytest.MonkeyPatch) -> None:
     """resolve_artifacts latest=True returns the first non-empty root's newest file (root priority)."""
     mem_store.write_bytes(b"first", "scope", "a.txt")
     mem_store.write_bytes(b"newer", "history", "run-x", "b.txt")
-    monkeypatch.setattr(_settings_mod, "mtime_from_info", lambda info: 2.0 if str(info.get("name", "")).endswith("b.txt") else 1.0)
+    monkeypatch.setattr(_store_mod, "mtime_from_info", lambda info: 2.0 if str(info.get("name", "")).endswith("b.txt") else 1.0)
     ranked = mem_store.resolve_artifacts("latest", "scope", "history", latest=True)
     assert len(ranked) >= 1
     assert "a.txt" in ranked[0]
 
     assert mem_store.resolve_artifacts("latest", "empty-scope", "empty-history", latest=True) == ()
 
-
-register_law(ArtifactStore, "artifact_store_resolve_artifacts_latest_across_roots")
 
 # --- [ARTIFACT_STORE_OPTION_LAWS]
 
@@ -1271,38 +1044,28 @@ def test_artifact_store_load_history_option_projection(mem_store: ArtifactStore)
     assert_none(Option.of_optional(mem_store.load_history("absent-run")))
 
 
-register_law(ArtifactStore, "artifact_store_load_history_option_projection")
-
-
 def test_artifact_store_write_bytes_idempotent_overwrite(mem_store: ArtifactStore) -> None:
     """Re-writing the same payload at a backend path is idempotent in read-back (overwrite semantics)."""
     idempotent(b"idem-payload", lambda p: (mem_store.write_bytes(p, "scope", "idem.bin"), mem_store.read_bytes("scope", "idem.bin"))[1])
 
 
-register_law(ArtifactStore, "artifact_store_write_bytes_idempotent_overwrite")
-
-# --- [PY_ARTIFACT_PATH_POLICY]
+# --- [ARTIFACT_PATH_POLICY]
 
 
-def test_py_artifact_roots_own_python_tree() -> None:
-    """PY_ARTIFACT_ROOTS is the single owner of the .artifacts/python heavy-lane roots; coverage files derive from its coverage root."""
+def test_artifact_roots_route_all_heavy_lanes() -> None:
+    """PY/CS artifact root tables own every heavy-lane output path; coverage files and the Stryker work tree derive from them.
+
+    DOTNET_BUILD_CLOSURE stays one shared solution tree id — never per-claim or per-sha keys.
+    """
     assert set(PY_ARTIFACT_ROOTS) == {"coverage", "benchmarks", "mutmut"}
     assert all(root.startswith(".artifacts/python/") for root in PY_ARTIFACT_ROOTS.values())
     assert set(PY_COVERAGE_FILES) == {"json", "xml", "lcov"}
     assert all(path == f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt, path in PY_COVERAGE_FILES.items())
-
-
-register_law("PY_ARTIFACT_ROOTS", "py_artifact_roots_own_python_tree")
-register_law("PY_COVERAGE_FILES", "py_artifact_roots_own_python_tree")
-
-
-def test_cs_artifact_roots_own_csharp_tree() -> None:
-    """CS_ARTIFACT_ROOTS owns the .artifacts/csharp staged roots that keep Stryker's sandbox and reports off the repo root."""
-    assert set(CS_ARTIFACT_ROOTS) == {"stryker"}
+    assert set(CS_ARTIFACT_ROOTS) == {"stryker", "stryker-output"}
     assert all(root.startswith(".artifacts/csharp/") for root in CS_ARTIFACT_ROOTS.values())
-
-
-register_law("CS_ARTIFACT_ROOTS", "cs_artifact_roots_own_csharp_tree")
+    assert CS_ARTIFACT_ROOTS["stryker"].startswith(f"{CS_ARTIFACT_ROOTS['stryker-output']}/"), "work tree nests under the report root"
+    assert DOTNET_BUILD_CLOSURE == "dotnet"
+    assert "/" not in DOTNET_BUILD_CLOSURE
 
 
 def test_prune_python_artifacts_bounds_benchmark_autosaves(assay_root: AssayHarness) -> None:
@@ -1322,4 +1085,21 @@ def test_prune_python_artifacts_bounds_benchmark_autosaves(assay_root: AssayHarn
     assert (coverage / "coverage.json").exists()
 
 
-register_law(prune_python_artifacts, "prune_python_artifacts_bounds_benchmark_autosaves")
+# --- [STORE_PATH_LAW]
+
+
+@pytest.mark.parametrize("segment", ["run-1", "a.b-c_d", "envelope.json"], ids=["run-id", "dotted", "file"])
+def test_safe_segment_admits_single_clean_pieces(segment: str) -> None:
+    """safe_segment is the identity on single, relative, NUL-free path pieces."""
+    assert safe_segment(segment) == segment
+
+
+@pytest.mark.parametrize(
+    "segment",
+    ["../up", "a/b", "/abs", "", ".", "..", "nul\x00byte", "tail/"],
+    ids=["traversal", "multi", "abs", "empty", "dot", "parent", "nul", "trailing-slash"],
+)
+def test_safe_segment_rejects_unsafe_pieces(segment: str) -> None:
+    """safe_segment rejects absolute, empty, dotted, multi-piece, and NUL-bearing segments."""
+    with pytest.raises(ValueError, match="unsafe artifact path segment"):
+        _ = safe_segment(segment)

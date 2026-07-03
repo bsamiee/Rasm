@@ -1,12 +1,14 @@
-"""Law decorators, registry records, SUT registration, and coverage gate."""
+"""Law registration via ``@spec`` + declarative ``COVERS``, auto-exemption, and the coverage census gate."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable  # noqa: TC003  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
+import enum
 import functools
 import importlib
 import inspect
 from pathlib import Path
+from typing import TypeAliasType
 
 from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
 import msgspec
@@ -31,6 +33,7 @@ class LawRecord(msgspec.Struct, frozen=True):
 
 MANIFEST: list[LawRecord] = []
 SUT_PACKAGES: dict[str, frozenset[str]] = {}
+_CONSUMED: set[str] = set()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -39,12 +42,39 @@ def _qualname(subject: object) -> str:
     return getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
 
 
-# The filesystem walk and per-module public-name fold are one import-failure-aware coverage pass.
-def _public_surface(package_name: str) -> tuple[frozenset[str], tuple[tuple[str, str], ...]]:  # noqa: PLR0912
-    """Collect a package's public symbol names and import failures.
+def auto_exempt(subject: object) -> bool:
+    """Decide whether a public symbol needs no law: StrEnum, method-free frozen struct, or value-only object.
 
     Returns:
-        Public simple-name set and ``(module_name, error)`` import failures.
+        True when the census must not demand a law for ``subject``.
+    """
+    match subject:
+        case type() if issubclass(subject, enum.StrEnum):
+            return True
+        case type() if issubclass(subject, msgspec.Struct):
+            declared = any(
+                callable(member) or isinstance(member, (property, classmethod, staticmethod, functools.cached_property))
+                for klass in subject.__mro__
+                if klass not in {msgspec.Struct, object}
+                for name, member in vars(klass).items()
+                if not name.startswith("__")
+            )
+            return bool(subject.__struct_config__.frozen) and not declared
+        case type():
+            return False
+        case TypeAliasType():
+            return True
+        case _:
+            # Value-only symbols: constants, tables, codecs, ContextVars, typing aliases — anything neither class nor callable.
+            return type(subject).__module__ == "typing" or not callable(subject)
+
+
+# The filesystem walk and per-module public-name fold are one import-failure-aware coverage pass.
+def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, str], ...]]:
+    """Collect a package's public symbols and import failures.
+
+    Returns:
+        Public simple-name → object mapping and ``(module_name, error)`` import failures.
     """
     root = importlib.import_module(package_name)
     # rglob keeps namespace subpackages visible; pkgutil.walk_packages silently skips them.
@@ -62,16 +92,17 @@ def _public_surface(package_name: str) -> tuple[frozenset[str], tuple[tuple[str,
             except Exception as exc:  # noqa: BLE001  # accumulated and surfaced by assert_law_coverage, never swallowed
                 failures.append((mod_name, repr(exc)))
 
-    surface: set[str] = set()
+    surface: dict[str, object] = {}
     for mod in modules:
         all_names: object = getattr(mod, "__all__", None)
-        match all_names:
-            case list() | tuple() as names:
-                surface.update(n for n in names if isinstance(n, str) and not inspect.ismodule(getattr(mod, n, None)))
-            case _:
-                surface.update(n for n in dir(mod) if not n.startswith("_") and not inspect.ismodule(getattr(mod, n, None)))
+        names = (
+            [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
+        )
+        for name in names:
+            member = getattr(mod, name, None)
+            surface.setdefault(name, member) if not inspect.ismodule(member) else None
 
-    return frozenset(surface), tuple(failures)
+    return surface, tuple(failures)
 
 
 def spec[**P](
@@ -148,35 +179,25 @@ def spec[**P](
     return _decorator
 
 
-def register_law(subject: object, law: str, *, module: str | None = None) -> None:
-    """Imperatively register a law for ``subject`` without decorating a function.
+def consume_covers(module: object) -> None:
+    """Fold a test module's declarative ``COVERS`` tuple into the manifest, once per module.
 
-    Use inside ``@pytest.mark.parametrize`` loops or for metamorphic / matrix laws that call
-    ``assert_*`` oracles directly without ``@spec``.
+    The runtime plugin calls this for every collected test module.
 
-    Args:
-        subject: The type or callable the law covers.
-        law: The law name (usually the function or parametrize ID).
-        module: Override the module recorded in ``MANIFEST``; defaults to the caller's ``__name__``.
+    Raises:
+        TypeError: When a ``COVERS`` entry is neither a type nor a callable — value-only symbols
+            are auto-exempt and never need census credit.
     """
-    frame = inspect.currentframe()
-    caller_module = module or (frame.f_back.f_globals.get("__name__", "<unknown>") if frame and frame.f_back else "<unknown>")
-    MANIFEST.append(LawRecord(subject=_qualname(subject), law=law, module=caller_module, subject_module=getattr(subject, "__module__", "") or ""))
-
-
-def register_laws(*pairs: tuple[object, tuple[str, ...]]) -> None:
-    """Batch-register import-time law families sharing the caller module.
-
-    Args:
-        *pairs: Variable-length sequence of ``(subject, (law_name, ...))`` 2-tuples.
-    """
-    frame = inspect.currentframe()
-    caller_module = frame.f_back.f_globals.get("__name__", "<unknown>") if frame and frame.f_back else "<unknown>"
-    MANIFEST.extend(
-        LawRecord(subject=_qualname(subject), law=law_name, module=caller_module, subject_module=getattr(subject, "__module__", "") or "")
-        for subject, law_names in pairs
-        for law_name in law_names
-    )
+    name: str = getattr(module, "__name__", "")
+    covers = getattr(module, "COVERS", None)
+    if not name or name in _CONSUMED or covers is None:
+        return
+    _CONSUMED.add(name)
+    for subject in covers:
+        if not (isinstance(subject, type) or inspect.isroutine(subject)):
+            msg = f"COVERS in {name} lists {subject!r}: entries must be types or callables; value-only symbols are auto-exempt"
+            raise TypeError(msg)
+        MANIFEST.append(LawRecord(subject=_qualname(subject), law="covers", module=name, subject_module=getattr(subject, "__module__", "") or ""))
 
 
 def register_sut(package: str, *, exempt: frozenset[str] = frozenset()) -> None:
@@ -187,13 +208,14 @@ def register_sut(package: str, *, exempt: frozenset[str] = frozenset()) -> None:
 
     Args:
         package: Fully-qualified package name (e.g. ``"tools.<package>"``).
-        exempt: Symbol simple-names that are explicitly exempt from law coverage.
+        exempt: Symbol simple-names that are explicitly exempt from law coverage, each with a
+            standing justification at the call site; auto-exempt symbols never need listing.
     """
     SUT_PACKAGES[package] = SUT_PACKAGES.get(package, frozenset()) | exempt
 
 
 def assert_law_coverage() -> None:
-    """Assert every registered SUT public symbol is law-covered or explicitly exempt."""
+    """Assert every registered SUT public symbol is law-covered, auto-exempt, or explicitly exempt."""
     global_covered = frozenset(rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if not rec.subject_module)
 
     for package, exempt in SUT_PACKAGES.items():
@@ -201,7 +223,7 @@ def assert_law_coverage() -> None:
         covered = global_covered | frozenset(
             rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if rec.subject_module == package or rec.subject_module.startswith(f"{package}.")
         )
-        uncovered = surface - covered - exempt
+        uncovered = frozenset(name for name, member in surface.items() if name not in covered and name not in exempt and not auto_exempt(member))
         gaps = [*(f"  - {name}" for name in sorted(uncovered)), *(f"  ! {mod}: {err}" for mod, err in failures)]
         assert not gaps, (
             f"Law coverage gap in '{package}': {len(uncovered)} symbol(s) have no law, {len(failures)} module import failure(s):\n" + "\n".join(gaps)
@@ -210,4 +232,4 @@ def assert_law_coverage() -> None:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["spec", "register_law", "register_laws", "register_sut", "assert_law_coverage", "MANIFEST", "LawRecord"]
+__all__ = ["spec", "consume_covers", "register_sut", "assert_law_coverage", "auto_exempt", "MANIFEST", "LawRecord"]

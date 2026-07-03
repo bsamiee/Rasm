@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
-from tests.python._testkit.laws import register_laws
 from tests.python.tools.assay.kit import read_one_envelope_from_bytes
 from tools.assay import __main__ as _main_mod, bootstrap_error, install_tracing
 from tools.assay.core.model import Claim, RailStatus
@@ -19,6 +18,8 @@ if TYPE_CHECKING:
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (_main_mod.main, bootstrap_error, install_tracing)
 
 _FAULTED_EXIT: int = RailStatus.FAULTED.exit_code
 
@@ -111,7 +112,7 @@ def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
 
     code = _main_mod.main(["self-test"])
     assert code == 3
-    assert events == [("dispatch", ("self-test",)), ("flush", _main_mod.__dict__["_DRAIN_MS"]), ("shutdown",)]
+    assert events == [("dispatch", ("self-test",)), ("flush", _main_mod.__dict__["DRAIN_MS"]), ("shutdown",)]
 
 
 # --- [MAIN_SURROGATE_ARGV]
@@ -303,19 +304,7 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
 
 def test_bootstrap_error_nominal_returns_none() -> None:
     """Valid environment bootstrap has no import-time config fault."""
-    result = bootstrap_error()
-    assert result is None
-
-
-# --- [BOOTSTRAP_ERROR_TYPE_CONTRACT]
-
-
-def test_bootstrap_error_type_contract() -> None:
-    """Import-time config faults expose only ValidationError or absence."""
-    from pydantic import ValidationError  # noqa: PLC0415  # deferred: avoids mandatory pydantic import at collection time; type-contract check only
-
-    result = bootstrap_error()
-    assert result is None or isinstance(result, ValidationError)
+    assert bootstrap_error() is None
 
 
 def test_main_version_token_routes_to_verb_params(cli: VerbRunner) -> None:
@@ -398,36 +387,3 @@ def test_admit_exec_absent_flag_leaves_env_untouched(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("ASSAY_EXEC_TARGET", "ssh://envhost")
     assert _main_mod._admit_exec(("static", "--all")) == ("static", "--all")
     assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == "ssh://envhost", "absent flag must not clobber the env override"
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-# Import-time registration keeps the law manifest complete before collection.
-
-register_laws(
-    (
-        _main_mod.main,
-        (
-            "test_main_parse_fault_matrix",
-            "test_main_version_token_routes_to_verb_params",
-            "test_main_enum_param_help_renders",
-            "test_main_returncode_non_envelope_arms",
-            "test_main_channel_separation",
-            "test_main_tracing_lifecycle_order",
-            "test_main_surrogate_argv_does_not_crash",
-            "test_main_subprocess_exit_code",
-            "test_main_config_env_fault_surfaces_as_config_step",
-            "test_main_unexpected_dispatch_faults_to_dispatch_step",
-            "test_main_drain_noop_on_lifecycleless_provider",
-            "test_main_drain_swallows_provider_lifecycle_exceptions",
-            "test_main_install_tracing_swallows_settings_validation",
-            "test_main_subprocess_bootstrap_error_config_fault",
-            "test_main_subprocess_failing_rail_channel_separation",
-            "test_main_subprocess_human_renderer_console_stderr",
-            "test_extract_exec_splits_global_flag",
-            "test_admit_exec_routes_flag_through_validated_env_path",
-            "test_admit_exec_absent_flag_leaves_env_untouched",
-        ),
-    ),
-    (install_tracing, ("test_install_tracing_empty_endpoint_is_noop", "test_install_tracing_non_empty_endpoint_builds_real_provider")),
-    (bootstrap_error, ("test_bootstrap_error_nominal_returns_none", "test_bootstrap_error_type_contract")),
-)

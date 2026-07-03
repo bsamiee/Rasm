@@ -12,11 +12,14 @@ import msgspec
 import pytest
 import structlog
 
-from tests.python._testkit.laws import register_laws
 from tools.assay import configure_logging
 from tools.assay._logging import _StderrBridgeHandler, _StderrLogger  # private factory products are the test surface
 from tools.assay.composition.settings import LogFormat
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (configure_logging,)
 
 # --- [TABLES]
 
@@ -144,8 +147,3 @@ def test_reconfigure_does_not_stack_bridge_handlers() -> None:
     bridges = [h for h in root.handlers if isinstance(h, _StderrBridgeHandler)]
     assert len(bridges) == 1
     assert root.handlers == bridges
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-register_laws((configure_logging, ("test_configure_logging_stderr_sink_matrix", "test_reconfigure_does_not_stack_bridge_handlers")))

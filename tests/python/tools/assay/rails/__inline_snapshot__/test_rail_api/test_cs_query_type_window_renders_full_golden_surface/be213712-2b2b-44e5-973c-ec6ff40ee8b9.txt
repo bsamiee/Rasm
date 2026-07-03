@@ -1,8 +1,0 @@
-    public sealed class Widget
-    {
-        public void Spin(int turns) { }
-        public int Count => 3;
-        public double Ratio => 1.5;
-        public string Tag => "x";
-    }
-}

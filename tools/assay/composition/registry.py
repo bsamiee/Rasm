@@ -2,7 +2,8 @@
 
 This module owns claim dispatch, parameter binding, rail-layer composition, artifact
 scope lifecycle, one-envelope enforcement, history persistence, and root commands that
-sit outside the `REGISTRY` fold.
+sit outside the `REGISTRY` fold. Probe, cache, and hygiene evidence folds in from the
+health rail; the registry keeps only verb binding and layer-composition checks.
 """
 
 from collections import deque
@@ -23,23 +24,21 @@ from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
 from opentelemetry import trace
-import psutil
 from pydantic import ValidationError
 import structlog
 
-from tools.assay.composition.catalog import select, TOOLS
-from tools.assay.composition.settings import ArtifactScope, AssaySettings, prune_python_artifacts
-from tools.assay.core.aspect import _CHECKED_LAYER, _RING, compose, Layer, logged, traced  # noqa: PLC2701
-from tools.assay.core.engine import _measure, _RESOURCE, EngineExecutor, Executor  # noqa: PLC2701  # co-owned resource-snapshot seam
+from tools.assay.composition.catalog import TOOLS
+from tools.assay.composition.settings import AssaySettings
+from tools.assay.composition.store import ArtifactScope, prune_python_artifacts
+from tools.assay.core.aspect import CHECKED_LAYER, compose, Layer, logged, RING, traced
+from tools.assay.core.exec import EngineExecutor, Executor
+from tools.assay.core.govern import measure, RESOURCE
 from tools.assay.core.model import (
-    _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
-    _RESULT_CAP,  # noqa: PLC2701  # private symbol; canonical result-cap saturation site
     Artifact,
     ArtifactKind,
     BaseParams,
     Bind,
     BridgeLifecycle,
-    Check,
     Claim,
     Completed,
     Counts,
@@ -48,30 +47,28 @@ from tools.assay.core.model import (
     envelope,
     Fault,
     field_cap,
-    Input,
-    Language,
+    HINT_CAP,
     Match,
     RailStatus,
     receipt,
     Report,
+    RESULT_CAP,
     RunDelta,
-    Runner,
     RunSnapshot,
     StaticRun,
     Step,
-    Tool,
     validate_detail,
     VerifySummary,
     wire_encode,
     wire_safe,
 )
-from tools.assay.core.routing import Routed, Scope
-from tools.assay.diagnostics import fold
+from tools.assay.diagnostics import cap_note, fold
 from tools.assay.rails import (
     api as api_rail,
     bridge as bridge_rail,
     code as code_rail,
     docs as docs_rail,
+    health as health_rail,
     package as package_rail,
     provision as provision_rail,
     static as static_rail,
@@ -79,7 +76,7 @@ from tools.assay.rails import (
 )
 from tools.assay.rails.api import ApiParams
 from tools.assay.rails.bridge import BridgeParams
-from tools.assay.rails.code import _cap_note, CodeParams  # noqa: PLC2701  # _cap_note: single truncation-note grammar owner
+from tools.assay.rails.code import CodeParams
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
 from tools.assay.rails.provision import ProvisionParams
@@ -107,72 +104,13 @@ _MESSAGE_CAP: Final[int] = field_cap(Fault, "message", default=1 << 62)
 _DISPATCH_NONE: Final = f"{Step.DISPATCH}=none"
 # Per-invocation counter; long-lived automation processes must not trip the one-Envelope guard on reuse.
 _WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
-_PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-_PROBE_TIMEOUT: Final = 8.0
-_PROBE_TTL: Final = 900.0
-_PROBE_CACHE_FILE: Final = "probe-cache.json"
-_PROBE_CACHE_KEY: Final = "probe:%s"
 _PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
-ORPHAN_MIN_AGE_S: Final = 900.0
-_ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
-_UV_RUN_VALUE_OPTIONS: Final[frozenset[str]] = frozenset((
-    "--directory",
-    "--env-file",
-    "--extra",
-    "--group",
-    "--index",
-    "--index-url",
-    "--project",
-    "--python",
-    "--with",
-    "--with-editable",
-    "--with-requirements",
-))
-# Prefix order is semantic: MODULE must win the shared `uv run` head before UV.
-_PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
-    (Runner.MODULE.prefix, "uv.lock"),
-    (Runner.UV.prefix, "uv.lock"),
-    (Runner.PNPM.prefix, "pnpm-lock.yaml"),
-)
-# Claim slots name polymorphic positionals; verb slots name the tokens BaseParams.bound projects out of paths.
-_CLAIM_SLOTS: Final[dict[Claim, str]] = {
-    Claim.STATIC: "[--all | --project PROJECT | --folder F... --file F...]",
-    Claim.CODE: "PATTERN [PATHS]...",
-    Claim.TEST: "[PATHS]...",
-    Claim.BRIDGE: "",
-    Claim.PACKAGE: "",
-    Claim.API: "",
-    Claim.DOCS: "[PATHS]...",
-    Claim.PROVISION: "",
-}
-_VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
-    (Claim.BRIDGE, "verify"): "[PATTERN]",
-    (Claim.API, "resolve"): "[KEY [KIND]]",
-    (Claim.API, "query"): "[SYMBOL]",
-    (Claim.API, "show"): "[TOKEN]",
-}
-
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class _ProbeRow(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
-    # Path+mtime tokens invalidate cached probes on tool or lockfile upgrades.
-    token: str = ""
-    ts: float = 0.0
-    note: str = ""
-    ok: bool = True
-
-
-class _ProcessRow(msgspec.Struct, frozen=True, gc=False):
-    pid: int
-    age_s: float
-    command: str
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
-_PROBE_DECODER: Final[msgspec.json.Decoder[dict[str, _ProbeRow]]] = msgspec.json.Decoder(dict[str, _ProbeRow])
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -192,12 +130,12 @@ def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object, _
 
 
 def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
-    cmd = " ".join(tokens)[:_HINT_CAP]
-    match _RING.get():
+    cmd = " ".join(tokens)[:HINT_CAP]
+    match RING.get():
         case deque() as ring:
             ring.extend((f"{Step.DISPATCH}={dispatch}", cmd))
         case None:
-            _RING.set(deque((f"{Step.DISPATCH}={dispatch}", cmd), maxlen=16))
+            RING.set(deque((f"{Step.DISPATCH}={dispatch}", cmd), maxlen=16))
 
 
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
@@ -240,17 +178,17 @@ def _distill(
     fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: Step | None = None
 ) -> tuple[Diagnostic, bool]:
     # Resource snapshots are lazy; clipping any byte sets Envelope.truncated.
-    ring = events if events is not None else tuple(_RING.get() or ())
+    ring = events if events is not None else tuple(RING.get() or ())
     step = step if step is not None else _failing_step(fault)
     reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
     framing = f"{step}: after {duration_ms:.1f}ms"
-    # Reserve the separator byte so the final hint cannot exceed _HINT_CAP.
-    budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
+    # Reserve the separator byte so the final hint cannot exceed HINT_CAP.
+    budgeted = reason[: max(HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    # One-hop into private engine._measure is intentional: engine owns the Measurements/to_resources shape — a co-owned
-    # seam beside the _RESOURCE reach. The fallback carries proc.children/proc.children_rss_bytes for the streaming receipt keys.
-    snap = resource or _RESOURCE.get() or _measure().to_resources()
+    # One-hop into private engine.measure is intentional: engine owns the Measurements/to_resources shape — a co-owned
+    # seam beside the RESOURCE reach. The fallback carries proc.children/proc.children_rss_bytes for the streaming receipt keys.
+    snap = resource or RESOURCE.get() or measure().to_resources()
     ctx = trace.get_current_span().get_span_context()
     ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
     return Diagnostic(
@@ -280,7 +218,7 @@ def _defect_preserving_cap(rows: tuple[Match, ...]) -> tuple[Match, ...]:
     # first, then filling the remaining budget with non-defects in original order, keeps the cap from hiding a fault while
     # preserving the source-first/defects-last contract _result_rows pins.
     defects = sum(1 for row in rows if row.severity in _DEFECT_SEVERITIES)
-    budget = max(_RESULT_CAP - defects, 0)
+    budget = max(RESULT_CAP - defects, 0)
     kept: list[Match] = []
     spent = 0
     for row in rows:
@@ -297,16 +235,16 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
     # _cap_note owns the N-of-M grammar; the first cap tripped owns the (shown, total) pair.
     # defect_rows reads the full pre-cap results so the fault count stays truthful even when the display slice drops rows.
     defect_rows = tuple(m for m in report.results if m.severity in _DEFECT_SEVERITIES)
-    truncated = len(report.results) > _RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
+    truncated = len(report.results) > RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
     if truncated:
         artifact = _full_report_artifact(settings, bind, report)
         artifacts = ((*artifact, *report.artifacts) if artifact else report.artifacts)[:_ARTIFACT_CAP]
-        cap, total = (_RESULT_CAP, len(report.results)) if len(report.results) > _RESULT_CAP else (_ARTIFACT_CAP, len(report.artifacts))
+        cap, total = (RESULT_CAP, len(report.results)) if len(report.results) > RESULT_CAP else (_ARTIFACT_CAP, len(report.artifacts))
         report = msgspec.structs.replace(
             report,
             results=_defect_preserving_cap(report.results),
             artifacts=artifacts,
-            notes=(*report.notes, *_cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")),
+            notes=(*report.notes, *cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")),
         )
     defect_events = tuple(f"{m.id}: {m.text[:120]}" for m in defect_rows[:16])
     ctx = (
@@ -427,7 +365,7 @@ def rail(bind: Bind, settings: AssaySettings | None = None, executor: Executor |
     def run(params: object) -> Envelope:
         active = settings or AssaySettings()
         started = time.perf_counter()
-        ring_token, writes_token, resource_token = _RING.set(deque(maxlen=16)), _WRITES.set(count()), _RESOURCE.set(())
+        ring_token, writes_token, resource_token = RING.set(deque(maxlen=16)), _WRITES.set(count()), RESOURCE.set(())
         try:
             # ArtifactScope.open raises OSError when the .artifacts root is unwritable; fold it here outside _guard.
             scope = ArtifactScope.open(active, bind.claim)
@@ -436,9 +374,9 @@ def rail(bind: Bind, settings: AssaySettings | None = None, executor: Executor |
         except OSError as exc:
             return _emit(bind, active, started, Error(Fault((), RailStatus.FAULTED, f"scope: {exc}")))
         finally:
-            _RESOURCE.reset(resource_token)
+            RESOURCE.reset(resource_token)
             _WRITES.reset(writes_token)
-            _RING.reset(ring_token)
+            RING.reset(ring_token)
 
     run.__name__ = bind.verb
     return run
@@ -599,216 +537,6 @@ def parse_fault(tokens: tuple[str, ...], message: str, *, step: Step = Step.PARS
     return _emit_envelope(settings, env, persist=False)
 
 
-def _uv_run_program(argv: tuple[str, ...]) -> str | None:
-    if argv[:2] != ("uv", "run"):
-        return None
-    index = 2
-    while index < len(argv) and argv[index].startswith("-"):
-        option = argv[index]
-        if option == "--":
-            index += 1
-            break
-        index += 2 if option in _UV_RUN_VALUE_OPTIONS else 1
-    if index >= len(argv):
-        return ""
-    return argv[index + 2] if argv[index : index + 2] == ("python", "-m") and index + 2 < len(argv) else argv[index]
-
-
-def _probe_token(argv: tuple[str, ...]) -> str | None:
-    import shutil  # noqa: PLC0415  # deferred: avoids module-load cost on non-probe paths
-
-    def mtime(path: str | None) -> int | None:
-        try:
-            return Path(path).stat().st_mtime_ns if path is not None else None
-        except OSError:
-            return None
-
-    def lock_path(name: str) -> str | None:
-        # Start at the .venv shim so lockfile ancestry follows the workspace, not the Nix-store target.
-        bases = Path(sys.executable).parents
-        return next((str(base / name) for base in bases if (base / name).exists()), None)
-
-    if argv[:2] == ("uv", "run"):
-        program = _uv_run_program(argv) or ""
-        resolved = shutil.which(program) or (sys.executable if "." in program or not program else None)
-        program_mtime, lock_mtime = mtime(resolved), mtime(lock_path("uv.lock"))
-        return None if program_mtime is None and lock_mtime is None else f"{resolved}|{program_mtime}|uv.lock:{lock_mtime}"
-
-    matched = next(((prefix, lock) for prefix, lock in _PROBE_LOCKED if argv[: len(prefix)] == prefix), None) if argv else None
-    match matched:
-        case (prefix, lock):
-            program = argv[len(prefix)] if len(argv) > len(prefix) else ""
-            resolved = shutil.which(program) or (sys.executable if "." in program or not program else None)
-            program_mtime, lock_mtime = mtime(resolved), mtime(lock_path(lock))
-            return None if program_mtime is None and lock_mtime is None else f"{resolved}|{program_mtime}|{lock}:{lock_mtime}"
-        case _ if argv:
-            path = shutil.which(argv[0])
-            return None if (m := mtime(path)) is None else f"{path}|{m}"
-        case _:
-            return None
-
-
-def _tooling_process(cmdline: tuple[str, ...]) -> bool:
-    return any(Path(part).name in _ORPHAN_PROCESS_TOKENS or Path(part).name.startswith("python") for part in cmdline)
-
-
-def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _ProcessRow | None:
-    try:
-        info = proc.info
-        cmdline = tuple(str(part) for part in (info.get("cmdline") or ()))
-        command = " ".join(cmdline) or str(info.get("name") or "")
-        in_root = bool(info.get("cwd")) and Path(str(info["cwd"])).resolve().is_relative_to(root)
-    except OSError, psutil.Error, TypeError, ValueError:
-        return None
-    age = max(now - float(info.get("create_time") or now), 0.0)
-    match (int(info.get("ppid") or -1) == 1, in_root, age >= ORPHAN_MIN_AGE_S, _tooling_process(cmdline or (command,))):
-        case (True, True, True, True):
-            return _ProcessRow(pid=int(info.get("pid") or 0), age_s=age, command=command[:160])
-        case _:
-            return None
-
-
-def _process_hygiene(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    root, now = Path(str(settings.root)).resolve(), time.time()
-    rows = tuple(
-        filter(None, (_orphan_process(proc, root, now=now) for proc in psutil.process_iter(("pid", "ppid", "create_time", "name", "cmdline", "cwd"))))
-    )
-    if not rows:
-        note = "process hygiene: no orphaned repo Python/UV/type-server processes"
-        return (Match(id="process-hygiene", kind=ArtifactKind.PROCESS, text=note),), (note,)
-    notes = tuple(f"process hygiene: orphan pid={row.pid} age={row.age_s / 60:.0f}m command={row.command}" for row in rows)
-    return tuple(
-        Match(id=f"process-hygiene-{row.pid}", kind=ArtifactKind.PROCESS, text=note, severity="failed") for row, note in zip(rows, notes, strict=True)
-    ), notes
-
-
-def _probe(name: str, argv: tuple[str, ...]) -> Check:
-    tool = Tool(name=name, runner=Runner.DIRECT, command=argv, input=Input.NONE, language=Language.PYTHON, claim=Claim.STATIC, timeout=_PROBE_TIMEOUT)
-    return Check(tool=tool)
-
-
-_GIT_HEAD: Final = _probe("git-head", ("git", "rev-parse", "--short", "HEAD"))
-_GIT_DIRTY: Final = _probe("git-dirty", ("git", "status", "--porcelain"))
-
-
-def _cache_hit(cache: Mapping[str, _ProbeRow], argv: tuple[str, ...]) -> tuple[str, bool] | None:
-    match (cache.get(_PROBE_CACHE_KEY % "\x00".join(argv)), _probe_token(argv)):
-        case (_ProbeRow(token=stored, ts=ts, note=note, ok=ok), str() as token) if stored == token and 0 <= time.time() - ts < _PROBE_TTL:
-            return note, ok
-        case _:
-            return None
-
-
-def _probe_cache_load(settings: AssaySettings) -> dict[str, _ProbeRow]:
-    try:
-        return _PROBE_DECODER.decode(settings.store().read_bytes("cache", _PROBE_CACHE_FILE))
-    except OSError, msgspec.MsgspecError:
-        return {}
-
-
-def _probe_cache_store(
-    settings: AssaySettings, prior: Mapping[str, _ProbeRow], fresh: Mapping[tuple[str, ...], tuple[str, bool]], current: frozenset[tuple[str, ...]]
-) -> None:
-    # Best-effort cache: persist token-resolvable catalog probes and evict removed-tool keys.
-    fresh_rows = {
-        _PROBE_CACHE_KEY % "\x00".join(argv): _ProbeRow(token=token, ts=time.time(), note=note, ok=ok)
-        for argv, (note, ok) in fresh.items()
-        if argv in current
-        for token in (_probe_token(argv),)
-        if token is not None
-    }
-    current_keys = frozenset(_PROBE_CACHE_KEY % "\x00".join(argv) for argv in current)
-    retained = {key: row for key, row in prior.items() if key in current_keys and key not in fresh_rows}
-    try:
-        store = settings.store()
-        store.write_bytes(wire_encode({**retained, **fresh_rows}), "cache", _PROBE_CACHE_FILE)
-    except OSError as exc:
-        _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
-
-
-def _tool_probes() -> tuple[Check, ...]:
-    # DOTNET tools share one SDK probe; INPROC tools have no external --version surface.
-    def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:
-        match tool.runner:
-            case Runner.DOTNET:
-                return "dotnet", ("dotnet", "--version")
-            case Runner.UV if uv := tool.uv_groups():
-                group_flags = tuple(part for group in uv for part in ("--group", group))
-                return f"{tool.runner.value}:{tool.command[0]}:{','.join(uv)}", ("uv", "run", "--locked", *group_flags, tool.command[0], "--version")
-            case Runner.UV:
-                return f"{tool.runner.value}:{tool.command[0]}", ("uv", "run", "--locked", tool.command[0], "--version")
-            case Runner.MODULE if tool.command[0] == "tools.py_analyzer":
-                return f"{tool.runner.value}:{tool.command[0]}", ("uv", "run", "--locked", "python", "-m", tool.command[0], "--help")
-            case Runner.MODULE:
-                return f"{tool.runner.value}:{tool.command[0]}", ("uv", "run", "--locked", "python", "-m", tool.command[0], "--version")
-            case _:
-                return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
-
-    deduped = dict(keyed(t) for t in TOOLS if t.runner is not Runner.INPROC)
-    return tuple(_probe(argv[-2], argv) for argv in deduped.values())
-
-
-def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bool]:
-    name = check.tool.name
-    match result.ok if result.is_ok() else None:
-        case None:
-            note = f"git: {name.removeprefix('git-')} unavailable" if name in {"git-head", "git-dirty"} else f"tool {name}: MISSING"
-            return note, name in {"git-head", "git-dirty"}
-        case Completed() as d if name == "git-head":
-            return f"git: HEAD {d.stdout.decode(errors='replace').strip()[:40] or 'unknown'}", True
-        case Completed() as d if name == "git-dirty":
-            return f"git: {'dirty' if d.stdout.strip() else 'clean'}", True
-        case Completed(returncode=0) as d:
-            lines = d.stdout.decode(errors="replace").strip().splitlines()
-            return f"tool {name}: {lines[0][:80] if lines else 'present'}", True
-        case Completed() as d:
-            # Nonzero --version output still proves the launcher exists; missing launchers return the fault rail.
-            lines = (d.stdout or d.stderr).decode(errors="replace").strip().splitlines()
-            version = f": {lines[0][:80]}" if lines else ""
-            return f"tool {name}: present (exit {d.returncode}){version}", True
-
-
-def _census() -> bool:
-    # Every Tool must select back to itself; catches catalog/claim mismatches when adding TOOLS rows.
-    return all(t in select(t.claim, t.language) for t in TOOLS)
-
-
-def _yak_ready() -> bool:
-    # shutil.which mirrors DIRECT execvp lookup; os.access would check CWD-relative paths.
-    import shutil  # noqa: PLC0415  # deferred: executed only on --rhino path
-
-    return any(
-        t.runner is Runner.DIRECT and t.command and t.command[0] == "yak" and shutil.which(t.command[0]) is not None
-        for t in TOOLS
-        if t.claim is Claim.PACKAGE
-    )
-
-
-def _health(settings: AssaySettings, executor: Executor) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    # Missing tools report as notes; tokenized tool probes cache, while git probes stay live.
-    probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
-    volatile = frozenset(c.tool.command for c in (_GIT_HEAD, _GIT_DIRTY))
-    cache = _probe_cache_load(settings)
-    hits = {c.tool.command: hit for c in probes if c.tool.command not in volatile for hit in (_cache_hit(cache, c.tool.command),) if hit is not None}
-    misses = tuple(c for c in probes if hits.get(c.tool.command) is None)
-    results = executor.fan(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
-    fresh = dict(zip((c.tool.command for c in misses), map(_probe_note, misses, results, strict=True), strict=True))
-    current = frozenset(c.tool.command for c in probes if c.tool.command not in volatile)
-    _probe_cache_store(settings, cache, fresh, current)
-    noted = tuple(hits.get(c.tool.command) or fresh[c.tool.command] for c in probes)
-    hygiene = _process_hygiene(settings)
-    return (
-        (
-            *tuple(
-                Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
-                for check, (note, ok) in zip(probes, noted, strict=True)
-            ),
-            *hygiene[0],
-        ),
-        (*tuple(note for note, _ in noted), *hygiene[1]),
-    )
-
-
 def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Parameter(parse=False)] = None) -> Envelope:
     """Run the Assay composition preflight and emit a health Envelope.
 
@@ -824,10 +552,10 @@ def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Param
     """
     settings = AssaySettings()
     bound_claims = frozenset(b.claim for b in REGISTRY)
-    health_probes, health_notes = _health(settings, executor if executor is not None else _EXECUTOR)
-    yak = _yak_ready()
+    health_probes, health_notes = health_rail.probes(settings, executor if executor is not None else _EXECUTOR)
+    yak = health_rail.yak_ready()
     # Claim enum coverage makes the check fail when a declared claim loses its last verb.
-    healthy = all(callable(b.handler) for b in REGISTRY) and all(c in bound_claims for c in Claim) and _composes() and _census()
+    healthy = all(callable(b.handler) for b in REGISTRY) and all(c in bound_claims for c in Claim) and _composes() and health_rail.census()
     status = RailStatus.FAILED if (not healthy or (rhino and not yak)) else RailStatus.OK
     summary = (
         f"rows={len(REGISTRY)} claims={len(bound_claims)} tools={len(TOOLS)} "
@@ -853,7 +581,7 @@ def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Param
 
 # compose sorts layers by Slot; rails apply checked/logged/traced without spawn retry.
 # PEP 696: the aspect-owned checked layer's free vars do not unify with ReportLayer; same seam as engine._spawn's compose.
-_CHECKED: ReportLayer = _CHECKED_LAYER  # ty: ignore[invalid-assignment]
+_CHECKED: ReportLayer = CHECKED_LAYER  # ty: ignore[invalid-assignment]
 _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (_CHECKED, logged(event="rail", keys=_correlate), traced(span="assay.rail", attrs=_correlate))
 
 REGISTRY: Final[tuple[Bind, ...]] = (
@@ -924,8 +652,9 @@ def _leaf(bind: Bind, executor: Executor) -> Callable[[object], Envelope]:
 
 
 def _usage(bind: Bind, *, root_leaf: bool = False) -> str:
-    # Root-leaf usage omits the verb token for single-verb claims.
-    slots = _VERB_SLOTS.get((bind.claim, bind.verb), _CLAIM_SLOTS[bind.claim])
+    # Slot grammar is params-owned data: the verb row wins, the "" row is the claim default. Root leaves omit the verb token.
+    slots_map: dict[str, str] = getattr(bind.params, "SLOTS", {})
+    slots = slots_map.get(bind.verb, slots_map.get("", ""))
     verb = "" if root_leaf else bind.verb
     return " ".join(part for part in ("Usage: assay", bind.claim.value, verb, slots, "[OPTIONS]") if part)
 
@@ -1001,4 +730,4 @@ def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]], executor: E
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ORPHAN_MIN_AGE_S", "REGISTRY", "Handler", "build_app", "delta", "parse_fault", "rail", "self_test"]
+__all__ = ["REGISTRY", "Handler", "build_app", "delta", "parse_fault", "rail", "self_test"]

@@ -3,12 +3,10 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # noqa: TC003  # Callable annotation in parametrize parameter evaluated at collection time
-from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
 import time
-from typing import Final, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from beartype.roar import BeartypeCallHintViolation
 from expression import Error, Ok, Result  # noqa: TC002  # Result appears in inner-function annotations evaluated at runtime
@@ -17,7 +15,6 @@ import msgspec.structs
 from pydantic import BaseModel, ValidationError
 import pytest
 
-from tests.python._testkit.laws import register_laws
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
 from tests.python.tools.assay.kit import (  # noqa: TC001  # fixture annotation resolved at collection time, not import time
     AssayHarness,
@@ -27,12 +24,12 @@ from tests.python.tools.assay.kit import (  # noqa: TC001  # fixture annotation 
 )
 from tools.assay.composition import registry as registry_mod
 from tools.assay.composition.catalog import TOOLS
-from tools.assay.composition.registry import _PROBE_TTL, build_app, delta, ORPHAN_MIN_AGE_S, parse_fault, rail, REGISTRY, self_test
-from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings
-from tools.assay.core.aspect import _RING  # ring ContextVar's home module (registry imports it for _seed_parse_ring)
-from tools.assay.core.engine import _RESOURCE  # ContextVar set/reset directly for per-test context isolation in test_emit_double_write_guard
+from tools.assay.composition.registry import build_app, delta, parse_fault, rail, REGISTRY, self_test
+from tools.assay.composition.settings import AssaySettings
+from tools.assay.composition.store import ArtifactScope, ArtifactStore
+from tools.assay.core.aspect import RING  # ring ContextVar's home module (registry imports it for _seed_parse_ring)
+from tools.assay.core.govern import RESOURCE  # ContextVar set/reset directly for per-test context isolation in test_emit_double_write_guard
 from tools.assay.core.model import (
-    _RESULT_CAP,  # private cap used to construct overflow tuple in test_ok_envelope_truncation_persists_full_report
     ArtifactKind,
     BridgeLifecycle,
     Claim,
@@ -45,6 +42,7 @@ from tools.assay.core.model import (
     RailStatus,
     receipt,
     Report,
+    RESULT_CAP,  # private cap used to construct overflow tuple in test_ok_envelope_truncation_persists_full_report
     RunDelta,
     StaticRun,
     Step,
@@ -52,6 +50,7 @@ from tools.assay.core.model import (
     wire_encode,
 )
 from tools.assay.diagnostics import fold
+from tools.assay.rails import health as health_mod
 from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.docs import FaultedPromotion
 from tools.assay.rails.static import StaticParams
@@ -63,20 +62,10 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+COVERS: tuple[object, ...] = (build_app, delta, parse_fault, rail, self_test)
+
 _EXPECTED_CLAIMS: frozenset[Claim] = frozenset(b.claim for b in REGISTRY)
-_REGISTRY_ROOT: Final = f"{registry_mod.__name__}.REGISTRY"
-_ORPHAN_SUBJECT: Final = f"{registry_mod.__name__}.ORPHAN_MIN_AGE_S"
 _STATIC_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "static")
-
-# --- [HARNESS] --------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class _Proc:
-    """Minimal psutil process double with a pre-populated ``info`` dict."""
-
-    info: dict[str, object]
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -138,21 +127,14 @@ def test_registry_structural_invariants() -> None:
     )
 
 
-register_laws(
-    (
-        _REGISTRY_ROOT,
-        ("registry_unique_claim_verb_pairs", "registry_all_handlers_callable", "registry_every_claim_covered", "registry_all_resolve_via_rail"),
-    ),
-    (rail, ("rail_runner_name_matches_verb", "rail_runner_is_callable_for_every_bind")),
-)
-
 # --- [BUILD_APP]
 
 
-def test_build_app_returns_cyclopts_app() -> None:
-    """build_app exposes every registry leaf plus self-test and delta.
+def test_build_app_structure_and_root_configuration() -> None:
+    """build_app exposes every registry leaf plus self-test/delta and pins root App identity and error posture.
 
-    Mutants caught: wrong App type, skipped bind rows, and missing root utility commands.
+    Mutants caught: wrong App type, skipped bind rows, missing root utility commands, argv-derived name,
+    missing version, truthy Cyclopts error exits, corrupted result_action, and hidden default parameters.
     """
     from cyclopts import App  # noqa: PLC0415
 
@@ -165,15 +147,6 @@ def test_build_app_returns_cyclopts_app() -> None:
         valid=lambda b: (b.claim.value in app) if b.claim in single_verb else (b.verb in app[b.claim.value]),
     )
     support_matrix(("self-test reachable", lambda: "self-test" in app, True), ("delta reachable", lambda: "delta" in app, True))
-
-
-def test_build_app_root_configuration() -> None:
-    """build_app pins root App identity, version, parse-fault posture, and return-value exits.
-
-    Mutants caught: argv-derived name, missing version, truthy Cyclopts error exits, corrupted
-    result_action, and hidden default parameters.
-    """
-    app = build_app(REGISTRY)
     assert app.name == ("assay",)
     assert app.version == registry_mod._VERSION
     assert app.help.startswith("Rasm polyglot quality operator.")
@@ -183,99 +156,6 @@ def test_build_app_root_configuration() -> None:
     assert app.default_parameter is not None
     assert app.default_parameter.show_default is True
 
-
-register_laws((
-    build_app,
-    (
-        "build_app_returns_cyclopts_app",
-        "build_app_every_leaf_reachable",
-        "build_app_self_test_and_delta_registered",
-        "build_app_root_name_version_pinned",
-        "build_app_error_posture_disabled",
-        "build_app_result_action_return_value",
-    ),
-))
-
-# --- [ORPHAN_MIN_AGE_S]
-
-
-def test_orphan_min_age_s_value() -> None:
-    """ORPHAN_MIN_AGE_S equals 900 seconds (15 minutes) — threshold for orphan hygiene.
-
-    Mutant caught: changing the constant → hygiene filter breaks for 14-min-old processes.
-    """
-    assert int(ORPHAN_MIN_AGE_S) == 900
-
-
-def test_orphan_min_age_s_threshold_boundary(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Processes past the ORPHAN_MIN_AGE_S threshold are reportable; processes at exact boundary differ.
-
-    Mutant caught: changing >= to > (or vice versa) in _orphan_process age check → boundary case fails.
-    """
-    root = str(assay_root.root)
-    base_info: dict[str, object] = {"ppid": 1, "create_time": 0.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": root}
-    monkeypatch.setattr(
-        registry_mod.__dict__["psutil"], "process_iter", lambda _attrs: (_Proc({**base_info, "pid": 1}), _Proc({**base_info, "pid": 2}))
-    )
-
-    def orphan_ids(now: float) -> frozenset[str]:
-        monkeypatch.setattr(registry_mod.__dict__["time"], "time", lambda: now)
-        matches, _ = registry_mod._process_hygiene(assay_root.settings)
-        return frozenset(m.id for m in matches if m.severity == "failed")
-
-    assert orphan_ids(ORPHAN_MIN_AGE_S + 1.0) >= orphan_ids(ORPHAN_MIN_AGE_S), "more orphans expected past threshold"
-
-
-def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hygiene reports only old root-cwd tooling orphans.
-
-    Mutants caught: ppid/cwd/sentinel drift, age arithmetic errors, and notes that lose exact
-    pid, age, or command text.
-    """
-    root = str(assay_root.root)
-    rows = (
-        _Proc({"pid": 123, "ppid": 1, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": root}),
-        _Proc({"pid": 456, "ppid": 99, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": root}),
-        _Proc({"pid": 789, "ppid": 1, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": str(assay_root.root.parent)}),
-        _Proc({"pid": 999, "ppid": 0, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": root}),
-    )
-    monkeypatch.setattr(registry_mod.__dict__["psutil"], "process_iter", lambda _attrs: rows)
-    monkeypatch.setattr(registry_mod.__dict__["time"], "time", lambda: 100.0 + ORPHAN_MIN_AGE_S + 1.0)
-    matches, notes = registry_mod._process_hygiene(assay_root.settings)
-
-    failed = [m for m in matches if m.severity == "failed"]
-    assert len(failed) == 1, f"expected exactly 1 orphan match, got {len(failed)}"
-    assert "pid=123" in failed[0].text
-    assert "age=15m" in failed[0].text
-    assert "command=python3 -" in failed[0].text
-    assert all("pid=456" not in n and "pid=789" not in n and "pid=999" not in n for n in notes)
-
-
-def test_orphan_process_exception_returns_none() -> None:
-    """_orphan_process returns None when proc.info raises OSError — defensive against dead processes.
-
-    Mutant caught: propagating OSError → process_hygiene crashes when a process vanishes mid-scan.
-    """
-    from unittest.mock import create_autospec, PropertyMock  # noqa: PLC0415
-
-    import psutil as _ps  # noqa: PLC0415
-
-    broken: _ps.Process = create_autospec(_ps.Process, instance=True)
-    type(broken).info = PropertyMock(side_effect=OSError("process gone"))
-    assert registry_mod._orphan_process(broken, Path("/private/tmp"), now=10000.0) is None
-
-
-register_laws((
-    _ORPHAN_SUBJECT,
-    (
-        "orphan_min_age_s_value",
-        "orphan_min_age_s_threshold_boundary",
-        "process_hygiene_reports_old_repo_orphans",
-        "orphan_ppid_zero_not_reported",
-        "orphan_note_pid_age_command_pinned",
-        "orphan_process_exception_returns_none",
-    ),
-))
 
 # --- [STEP_VOCABULARY]
 
@@ -294,8 +174,6 @@ def test_step_roster_pin() -> None:
     assert tuple(str(member) for member in classify_only) == ("timeout", "lease_busy", "defects")
     assert f"{Step.DISPATCH}=none" == registry_mod._DISPATCH_NONE
 
-
-register_laws((Step, ("step_roster_pin",)))
 
 # --- [PARSE_FAULT]
 
@@ -327,23 +205,17 @@ def test_parse_fault_dispatch_and_fallback() -> None:
     assert all(parse_fault(tokens, "msg").status is RailStatus.FAULTED for tokens in cases), "every dispatch path must emit FAULTED"
 
 
-def test_parse_fault_diagnostic_context_present() -> None:
-    """parse_fault populates error_context.failing_step='parse' and recent_events contains dispatch token.
+def test_parse_fault_diagnostic_context_and_rejected_argv() -> None:
+    """parse_fault seeds failing_step='parse', the dispatch ring token, and the exact rejected argv for repair hints.
 
-    Mutant caught: omitting _seed_parse_ring call → recent_events empty; wrong failing_step label.
+    Mutants caught: omitted _seed_parse_ring (empty recent_events), wrong failing_step label, dropped argv tokens.
     """
-    env = parse_fault(("static", "static"), "something wrong")
-    assert env.error_context is not None
-    assert env.error_context.failing_step == "parse"
-    assert any("dispatch=static" in ev for ev in env.error_context.recent_events)
-
-
-def test_parse_fault_preserves_rejected_argv() -> None:
-    """Parse faults retain the exact rejected argv tokens for agent-facing repair hints."""
     env = parse_fault(("static", "static", "--folder", "src/App"), "unexpected option")
     assert env.error is not None
     assert env.error.argv == ("static", "static", "--folder", "src/App")
     assert env.error_context is not None
+    assert env.error_context.failing_step == "parse"
+    assert any("dispatch=static" in ev for ev in env.error_context.recent_events)
     assert "static static --folder src/App" in env.error_context.recent_events
 
 
@@ -362,17 +234,17 @@ def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pyte
 def test_seed_parse_ring_extends_or_creates(initial: str, dispatch: str, tokens: tuple[str, ...]) -> None:
     """_seed_parse_ring extends or creates the ring while preserving dispatch and command text.
 
-    Mutants caught: dropped prior events and None-arm failure to set _RING.
+    Mutants caught: dropped prior events and None-arm failure to set RING.
     """
-    token = _RING.set(deque(maxlen=16) if initial == "existing" else None)
+    token = RING.set(deque(maxlen=16) if initial == "existing" else None)
     try:
         registry_mod._seed_parse_ring(dispatch, tokens)
-        ring = _RING.get()
+        ring = RING.get()
         assert ring is not None
         assert f"dispatch={dispatch}" in ring
         assert " ".join(tokens) in ring
     finally:
-        _RING.reset(token)
+        RING.reset(token)
 
 
 @pytest.mark.parametrize(
@@ -484,28 +356,6 @@ def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.Mon
     assert "invalid characters" in (decoded.notes[0] if decoded.notes else "")
 
 
-register_laws((
-    parse_fault,
-    (
-        "parse_fault_known_claim_dispatch",
-        "parse_fault_unknown_token_falls_back_to_static",
-        "parse_fault_empty_tokens_fallback",
-        "parse_fault_status_always_faulted",
-        "parse_fault_diagnostic_context_present",
-        "parse_fault_preserves_rejected_argv",
-        "seed_parse_ring_extends_existing_ring",
-        "seed_parse_ring_creates_ring_when_none",
-        "failing_step_classification",
-        "distill_with_explicit_events_and_resource",
-        "distill_dispatch_none_marks_not_dispatched",
-        "ok_envelope_static_failed_context_uses_source_diagnostics_and_resources",
-        "parse_fault_never_persisted",
-        "parse_fault_config_error_path",
-        "validation_message_formats_pydantic_errors",
-        "encode_unicode_error_produces_scrubbed_envelope",
-    ),
-))
-
 # --- [RAIL]
 
 
@@ -531,52 +381,44 @@ def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
     assert registry_mod._correlate(assay_root.settings, scope, object(), SeamExecutor())["strict"] is False
 
 
-def test_bound_passthrough_and_surplus_fault() -> None:
-    """_bound passes non-BaseParams through and faults surplus BaseParams tokens.
+def test_bound_passthrough_identity_and_surplus_fault() -> None:
+    """_bound passes non-BaseParams through, preserves bound params identity, and faults surplus tokens.
 
-    Mutants caught: missing catchall arm and surplus-token success.
+    Mutants caught: missing catchall arm, surplus-token success, and Ok(None) replacing the params object.
     """
     assert assert_ok(registry_mod._bound(42, Claim.STATIC, "static")) == 42
+    params = StaticParams()
+    assert assert_ok(registry_mod._bound(params, Claim.STATIC, "static")) is params
     surplus = registry_mod._bound(BridgeParams(paths=("extra", "tokens")), Claim.BRIDGE, "verify")  # verify arity=0
     assert isinstance(assert_error(surplus), Fault)
 
 
-@pytest.mark.parametrize("status", [RailStatus.EMPTY, RailStatus.SKIP])
-def test_strict_promotes_noop_fold_to_fault(status: RailStatus) -> None:
-    """_strict(Ok(no-op report), strict=True) → Error(Fault) — strict mode gates EMPTY and SKIP folds.
+@pytest.mark.parametrize(
+    "status, strict, passes",
+    [
+        (RailStatus.EMPTY, True, False),  # strict gates no-op EMPTY folds
+        (RailStatus.SKIP, True, False),  # strict gates SKIP folds too, not EMPTY alone
+        (RailStatus.EMPTY, False, True),
+        (RailStatus.OK, True, True),
+        (RailStatus.OK, False, True),
+    ],
+    ids=["strict_empty", "strict_skip", "lax_empty", "strict_ok", "lax_ok"],
+)
+def test_strict_gate_truth_table(status: RailStatus, strict: bool, passes: bool) -> None:  # noqa: FBT001  # parametrize matrix columns
+    """_strict promotes only strict EMPTY/SKIP folds to FAULTED; every other cell passes through unchanged.
 
-    Mutants caught: removing the strict guard (no-op folds pass); only gating EMPTY but not SKIP.
+    Mutants caught: removed strict guard, EMPTY-only gating, boolean gate drift, attrless strict defaults,
+    and argv=None on the promoted fault.
     """
-    result = registry_mod._strict(Ok(Report(Claim.STATIC, "static", status)), _strict_params(strict=True))
-    fault = assert_error_status(result, RailStatus.FAULTED)
-    assert "strict" in fault.message
-
-
-def test_strict_passthrough_for_ok_non_strict() -> None:
-    """_strict with strict=False passes Ok(report) through unchanged.
-
-    Mutant caught: always returning Error regardless of strict flag → false fault on OK reports.
-    """
-    assert registry_mod._strict(Ok(Report(Claim.STATIC, "static", RailStatus.OK)), _strict_params(strict=False)).is_ok()
-
-
-def test_strict_gate_truth_table_and_bound_identity() -> None:
-    """_strict promotes only strict EMPTY/SKIP, and _bound preserves params identity.
-
-    Mutants caught: boolean gate drift, attrless strict defaults, argv=None faults, and Ok(None)
-    replacing the bound params object.
-    """
-    empty = Report(Claim.STATIC, "static", RailStatus.EMPTY)
-    ok = Report(Claim.STATIC, "static", RailStatus.OK)
-    support_matrix(
-        ("non-strict EMPTY passes", lambda: registry_mod._strict(Ok(empty), _strict_params(strict=False)).is_ok(), True),
-        ("attrless params EMPTY passes", lambda: registry_mod._strict(Ok(empty), object()).is_ok(), True),
-        ("strict OK passes", lambda: registry_mod._strict(Ok(ok), _strict_params(strict=True)).is_ok(), True),
-    )
-    promoted = assert_error_status(registry_mod._strict(Ok(empty), _strict_params(strict=True)), RailStatus.FAULTED)
-    assert promoted.argv == ()
-    params = StaticParams()
-    assert assert_ok(registry_mod._bound(params, Claim.STATIC, "static")) is params
+    result = registry_mod._strict(Ok(Report(Claim.STATIC, "static", status)), _strict_params(strict=strict))
+    match passes:
+        case True:
+            assert result.is_ok()
+        case False:
+            fault = assert_error_status(result, RailStatus.FAULTED)
+            assert "strict" in fault.message
+            assert fault.argv == ()
+    assert registry_mod._strict(Ok(Report(Claim.STATIC, "static", status)), object()).is_ok(), "attrless params must default non-strict"
 
 
 def test_narrow_raises_type_error_for_non_function() -> None:
@@ -700,13 +542,13 @@ def test_emit_double_write_guard(assay_root: AssayHarness, capsysbinary: pytest.
     bind = _STATIC_BIND
     report = fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))
     writes_token = registry_mod._WRITES.set(iter([1, 2]))  # past 0 so the "second write" arm fires
-    ring_token, resource_token = _RING.set(deque(maxlen=16)), _RESOURCE.set(())
+    ring_token, resource_token = RING.set(deque(maxlen=16)), RESOURCE.set(())
     try:
         env = registry_mod._emit(bind, assay_root.settings, time.perf_counter(), Ok(report))
     finally:
-        _RESOURCE.reset(resource_token)
+        RESOURCE.reset(resource_token)
         registry_mod._WRITES.reset(writes_token)
-        _RING.reset(ring_token)
+        RING.reset(ring_token)
 
     assert env.status is RailStatus.FAULTED
     assert env.error is not None
@@ -740,53 +582,17 @@ def test_emit_exit_code_duration_and_persistence_matrix(
     """
     bind = _STATIC_BIND
     settings = assay_root.settings.model_copy(update={"run_id": f"{assay_root.settings.run_id}-{label}"})
-    tokens = (_RING.set(deque(maxlen=16)), registry_mod._WRITES.set(count()), _RESOURCE.set(()))
+    tokens = (RING.set(deque(maxlen=16)), registry_mod._WRITES.set(count()), RESOURCE.set(()))
     try:
         env = registry_mod._emit(bind, settings, time.perf_counter() - 1.0, outcome)
     finally:
-        _RESOURCE.reset(tokens[2])
+        RESOURCE.reset(tokens[2])
         registry_mod._WRITES.reset(tokens[1])
-        _RING.reset(tokens[0])
+        RING.reset(tokens[0])
     assert env.exit_code == exit_code
     assert env.duration_ms >= 500.0
     assert (settings.store().load_history(settings.run_id) is not None) is persisted
 
-
-register_laws(
-    (build_app, ("identity_hom_returns_ok_report", "correlate_maps_run_id_and_strict")),
-    (
-        rail,
-        (
-            "bound_non_base_params_passes_through",
-            "bound_surplus_paths_faults",
-            "strict_promotes_empty_report_to_fault",
-            "strict_promotes_skip_report_to_fault",
-            "strict_passthrough_for_ok_non_strict",
-            "narrow_raises_type_error_for_non_function",
-            "validated_executes_on_ok_report",
-            "validated_passthrough_for_error",
-            "validated_invalid_detail_raises_into_validation_fault",
-            "guard_catches_faulted_promotion",
-            "guard_catches_beartype_violation",
-            "guard_catches_msgspec_error",
-            "rail_runner_ok_path_executes_emit",
-            "rail_runner_fault_path_executes_emit",
-            "rail_runner_scope_oserror_faults",
-            "rail_scope_oserror_envelope_wire_round_trip",
-            "rail_surplus_fault_seeds_dispatch_ring",
-            "rail_surplus_parse_fault_not_persisted",
-            "rail_handler_receives_artifact_scope",
-            "strict_gate_truth_table",
-            "strict_promoted_fault_carries_empty_argv",
-            "bound_success_returns_params_identity",
-            "emit_double_write_guard",
-            "emit_double_write_envelope_shape_and_stderr_decode",
-            "emit_exit_code_per_outcome_status",
-            "emit_duration_wall_clock_ms",
-            "emit_persistence_parse_gate",
-        ),
-    ),
-)
 
 # --- [DELTA]
 
@@ -827,21 +633,30 @@ def test_delta_history_projection(mem_store: ArtifactStore, assay_root: AssayHar
     assert (report.detail.before.id, report.detail.after.id) == (run_b, run_c)
 
 
-def test_delta_missing_after_and_symmetric_difference() -> None:
-    """_delta_report folds a missing `after` to EMPTY and counts added/removed as the symmetric difference of result keys.
+def test_delta_report_orientation_matrix() -> None:
+    """_delta_report counts added/removed as the symmetric difference of result keys and folds missing sides to EMPTY.
 
-    Mutants caught: calling .status on None when after is absent; using union instead of difference for added/removed.
+    Mutants caught: .status on a None side, union instead of difference, dropped removed count, nulled
+    EMPTY claim/notes, and corrupted EMPTY counts.
     """
     from tools.assay.composition.registry import _delta_report  # noqa: PLC0415
 
     assert _delta_report("run-b", "run-c", make_history_envelope("run-b"), None).status is RailStatus.EMPTY
 
-    before_env = make_history_envelope("run-x")
-    after_report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, status=RailStatus.FAILED),))
-    after_env = msgspec.structs.replace(envelope(after_report, claim=Claim.STATIC, verb="check"), run_id="run-y")
-    diff = _delta_report("run-x", "run-y", before_env, after_env)
-    assert isinstance(diff.detail, RunDelta)
-    assert (diff.detail.added, diff.detail.removed) == (1, 0)
+    failed_report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, status=RailStatus.FAILED),))
+    failed_env = msgspec.structs.replace(envelope(failed_report, claim=Claim.STATIC, verb="check"), run_id="run-y")
+    added = _delta_report("run-x", "run-y", make_history_envelope("run-x"), failed_env)
+    assert isinstance(added.detail, RunDelta)
+    assert (added.detail.added, added.detail.removed) == (1, 0)
+
+    removed = _delta_report("run-x", "run-y", msgspec.structs.replace(failed_env, run_id="run-x"), make_history_envelope("run-y"))
+    assert isinstance(removed.detail, RunDelta)
+    assert (removed.detail.added, removed.detail.removed) == (0, 1)
+
+    empty = _delta_report("", "run-z", None, None)
+    assert (empty.claim, empty.verb, empty.status) == (Claim.STATIC, "delta", RailStatus.EMPTY)
+    assert empty.counts == Counts(ok=1, failed=0, total=1)
+    assert empty.notes
 
 
 def test_delta_host_drift_from_bridge_facts() -> None:
@@ -893,26 +708,6 @@ def test_delta_end_to_end_projection_identity(assay_root: AssayHarness, monkeypa
     assert set(store.sorted_history_ids()) == {run_b, run_c}
 
 
-@pytest.mark.parametrize("orientation", ["removed", "empty"])
-def test_delta_report_orientation_and_empty_identity(orientation: str) -> None:
-    """_delta_report counts removed keys and preserves EMPTY identity on missing sides.
-
-    Mutants caught: dropped removed count, nulled EMPTY claim, missing notes, and corrupted counts.
-    """
-    match orientation:
-        case "removed":
-            before_report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, status=RailStatus.FAILED),))
-            before = msgspec.structs.replace(envelope(before_report, claim=Claim.STATIC, verb="check"), run_id="run-x")
-            diff = registry_mod._delta_report("run-x", "run-y", before, make_history_envelope("run-y"))
-            assert isinstance(diff.detail, RunDelta)
-            assert (diff.detail.added, diff.detail.removed) == (0, 1)
-        case _:
-            rep = registry_mod._delta_report("", "run-z", None, None)
-            assert (rep.claim, rep.verb, rep.status) == (Claim.STATIC, "delta", RailStatus.EMPTY)
-            assert rep.counts == Counts(ok=1, failed=0, total=1)
-            assert rep.notes
-
-
 def test_emit_envelope_persist_is_required_keyword() -> None:
     """_emit_envelope requires an explicit keyword-only persist decision.
 
@@ -933,22 +728,6 @@ def test_persist_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pyt
     _patch_store(monkeypatch, "write_history")
     registry_mod._persist(assay_root.settings, make_history_envelope("run-x"))
 
-
-register_laws((
-    delta,
-    (
-        "delta_no_prior_emits_empty_status",
-        "delta_history_projection",
-        "delta_missing_after_folds_to_empty",
-        "delta_symmetric_difference_oracle",
-        "delta_end_to_end_snapshot_identity",
-        "delta_envelope_never_persisted",
-        "delta_removed_side_counted",
-        "delta_empty_arm_report_identity",
-        "persist_oserror_is_swallowed",
-        "emit_envelope_persist_is_required_keyword",
-    ),
-))
 
 # --- [SELF_TEST]
 
@@ -973,8 +752,7 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
     assert verb_ids <= result_ids, f"missing verb ids from self_test census: {verb_ids - result_ids}"
     claims = frozenset(b.claim for b in REGISTRY)
     assert (
-        env.notes[0]
-        == f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} healthy=True yak_ready={registry_mod._yak_ready()} rhino=skipped"
+        env.notes[0] == f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} healthy=True yak_ready={health_mod.yak_ready()} rhino=skipped"
     )
     assert (env.report.claim, env.report.verb) == (Claim.STATIC, "self-test")
     assert env.run_id
@@ -984,14 +762,14 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
     assert persisted.verb == "self-test"
 
 
-@pytest.mark.parametrize("probe", ["_census", "_composes"])
+@pytest.mark.parametrize("probe", ["census", "_composes"])
 def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """self_test health is a strict conjunction over composition probes.
 
     Mutants caught: OR-folded health, corrupted defect argv, and status/exit drift from healthy.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    monkeypatch.setattr(registry_mod, probe, lambda: False)
+    monkeypatch.setattr(health_mod if probe == "census" else registry_mod, probe, lambda: False)
     env = self_test(executor=SeamExecutor(fan_fn=lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks)))
     assert env.status is RailStatus.FAILED
     assert env.exit_code == RailStatus.FAILED.exit_code
@@ -1018,57 +796,10 @@ def test_self_test_summary_carries_yak_ready_token(assay_root: AssayHarness, mon
     Mutants caught: dropped packaging-readiness signal and summary/preflight decoupling.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    monkeypatch.setattr(registry_mod, "_yak_ready", lambda: True)
+    monkeypatch.setattr(health_mod, "yak_ready", lambda: True)
     assert "yak_ready=True" in self_test().notes[0]
-    monkeypatch.setattr(registry_mod, "_yak_ready", lambda: False)
+    monkeypatch.setattr(health_mod, "yak_ready", lambda: False)
     assert "yak_ready=False" in self_test().notes[0]
-
-
-def test_health_probe_cache_warm_path(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_health warms from cache while re-probing only volatile or token-unresolvable tools.
-
-    Mutants caught: inverted cache filters, routed=None fan-out, broken DOTNET probe collapse,
-    corrupted --version argv, or inverted INPROC exclusion.
-    """
-    calls: list[tuple[tuple[Check, ...], object]] = []
-
-    def spy(checks: tuple[Check, ...], **kwargs: object) -> tuple[Result[Completed, Fault], ...]:
-        calls.append((checks, kwargs["routed"]))
-        return tuple(Ok(_completed(c)) for c in checks)
-
-    registry_mod._health(assay_root.settings, SeamExecutor(fan_fn=spy))
-    registry_mod._health(assay_root.settings, SeamExecutor(fan_fn=spy))
-    (cold, cold_routed), (warm, warm_routed) = calls
-    assert cold_routed is registry_mod._PROBE_ROUTED
-    assert warm_routed is registry_mod._PROBE_ROUTED
-    cold_cmds = {c.tool.command for c in cold}
-    warm_cmds = {c.tool.command for c in warm}
-    assert ("dotnet", "--version") in cold_cmds
-    volatile = {registry_mod._GIT_HEAD.tool.command, registry_mod._GIT_DIRTY.tool.command}
-    assert volatile <= cold_cmds
-    assert volatile <= warm_cmds
-    cacheable = {cmd for cmd in cold_cmds - volatile if registry_mod._probe_token(cmd) is not None}
-    assert cacheable, "expected at least one token-resolvable catalogued probe"
-    assert warm_cmds.isdisjoint(cacheable)
-
-
-def test_probe_cache_round_trip_and_retention(assay_root: AssayHarness) -> None:
-    """Probe cache rows round-trip and retention keeps only catalogued keys.
-
-    Mutants caught: lost row fields, corrupted cache key path/separator, and inverted keep/evict sets.
-    """
-    argv = registry_mod._GIT_HEAD.tool.command
-    registry_mod._probe_cache_store(assay_root.settings, {}, {argv: ("note-x", False)}, frozenset((argv,)))
-    loaded = registry_mod._probe_cache_load(assay_root.settings)
-    assert registry_mod._cache_hit(loaded, argv) == ("note-x", False)
-
-    key = registry_mod._PROBE_CACHE_KEY % "\x00".join(argv)
-    prior = {
-        key: loaded[key],
-        "probe:ghost": registry_mod._ProbeRow(token="t", ts=time.time(), note="gone", ok=True),  # noqa: S106  # mtime token, not a secret
-    }
-    registry_mod._probe_cache_store(assay_root.settings, prior, {}, frozenset((argv,)))
-    assert set(registry_mod._probe_cache_load(assay_root.settings)) == {key}
 
 
 def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness) -> None:
@@ -1079,12 +810,12 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
-    at_cap = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(_RESULT_CAP))
+    at_cap = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(RESULT_CAP))
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=at_cap))
     assert env.truncated is False
     assert env.status is RailStatus.OK
     assert env.report is not None
-    assert len(env.report.results) == _RESULT_CAP
+    assert len(env.report.results) == RESULT_CAP
     assert "full-report" not in {a.id for a in env.report.artifacts}
 
     rows = (
@@ -1111,21 +842,21 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
-    rows = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(_RESULT_CAP + 1))
+    rows = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(RESULT_CAP + 1))
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=rows))
 
     assert env.truncated
     assert env.report is not None
-    assert len(env.report.results) == _RESULT_CAP
+    assert len(env.report.results) == RESULT_CAP
     assert "full-report" in {a.id for a in env.report.artifacts}
-    note = f"results: {_RESULT_CAP} of {_RESULT_CAP + 1} (cap={_RESULT_CAP}); full report artifact under {assay_root.settings.run_id}"
+    note = f"results: {RESULT_CAP} of {RESULT_CAP + 1} (cap={RESULT_CAP}); full report artifact under {assay_root.settings.run_id}"
     assert note in env.report.notes, "the cap signal must stay in-band"
     assert env.notes == env.report.notes, "the Envelope mirrors the report notes carrying the cap note"
     assert capsysbinary.readouterr().err == b"", "no stderr truncation side-channel is written"
 
     full = next(a for a in env.report.artifacts if a.id == "full-report")
     full_raw = assay_root.settings.store().read_path(full.path)
-    assert len(msgspec.json.decode(full_raw, type=Report).results) == _RESULT_CAP + 1
+    assert len(msgspec.json.decode(full_raw, type=Report).results) == RESULT_CAP + 1
     assert full.path.endswith("static-static.full-report.json")
     assert full.kind is ArtifactKind.HISTORY
     assert (full.bytes, full.lines) == (len(full_raw), 0)
@@ -1134,12 +865,12 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
 def test_ok_envelope_cap_preserves_defects_over_generated_overflow(assay_root: AssayHarness) -> None:
     """The display cap retains every error/failed row when generated diagnostics overflow it, and the count stays truthful.
 
-    A blind ``results[:_RESULT_CAP]`` slice would clip the trailing error rows that ``_result_rows`` ranks last; the
+    A blind ``results[:RESULT_CAP]`` slice would clip the trailing error rows that ``_result_rows`` ranks last; the
     defect-preserving cap reserves them first, so the FAILED diagnostic count and the shown error rows both survive.
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
-    generated = tuple(Match(id=f"gen-{i}", kind=ArtifactKind.PROCESS, text="x", severity="warning") for i in range(_RESULT_CAP))
+    generated = tuple(Match(id=f"gen-{i}", kind=ArtifactKind.PROCESS, text="x", severity="warning") for i in range(RESULT_CAP))
     errors = (
         Match(id="cs0103", kind=ArtifactKind.CODE, text="undefined name", severity="error"),
         Match(id="proc-fail", kind=ArtifactKind.PROCESS, text="tool failed", severity="failed"),
@@ -1148,13 +879,13 @@ def test_ok_envelope_cap_preserves_defects_over_generated_overflow(assay_root: A
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, report)
     assert env.truncated
     assert env.report is not None
-    assert len(env.report.results) == _RESULT_CAP
+    assert len(env.report.results) == RESULT_CAP
     shown_defects = {m.id for m in env.report.results if m.severity in {"error", "failed"}}
     assert shown_defects == {"cs0103", "proc-fail"}, "defect rows must survive the cap, not be clipped by the blind slice"
     ctx = env.error_context
     assert ctx is not None
     assert "2 diagnostic(s) failed" in ctx.hint, "the fault count reads the full pre-cap results"
-    note = f"results: {_RESULT_CAP} of {_RESULT_CAP + len(errors)} (cap={_RESULT_CAP}); full report artifact under {assay_root.settings.run_id}"
+    note = f"results: {RESULT_CAP} of {RESULT_CAP + len(errors)} (cap={RESULT_CAP}); full report artifact under {assay_root.settings.run_id}"
     assert note in env.report.notes
 
 
@@ -1169,114 +900,6 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
     assert _full_report_artifact(assay_root.settings, _STATIC_BIND, Report(Claim.STATIC, "static", RailStatus.OK)) == ()
 
 
-@pytest.mark.parametrize(
-    "check_factory, outcome, want_substrings, want_ok",
-    [
-        (lambda: registry_mod._GIT_HEAD, lambda c: Ok(_completed(c, stdout=b"abc1234\n")), ("HEAD", "abc1234"), True),
-        (lambda: registry_mod._GIT_DIRTY, lambda c: Ok(_completed(c, stdout=b" M file.py\n")), ("dirty",), True),
-        (lambda: registry_mod._GIT_DIRTY, lambda c: Ok(_completed(c, stdout=b"")), ("clean",), True),
-        (
-            lambda: registry_mod._probe("ruff", ("ruff", "--version")),
-            lambda c: Ok(_completed(c, rc=2, status=RailStatus.FAILED, stdout=b"ruff 0.8.0\n")),
-            ("present (exit 2)", "ruff 0.8.0"),
-            True,
-        ),
-        (lambda: registry_mod._GIT_HEAD, lambda _c: Error(Fault((), RailStatus.FAULTED, "err")), (), True),
-        (lambda: registry_mod._probe("ruff", ("ruff", "--version")), lambda _c: Error(Fault((), RailStatus.FAULTED, "err")), ("MISSING",), False),
-    ],
-    ids=["git-head-ok", "git-dirty", "git-clean", "tool-nonzero-exit", "git-missing-ok", "tool-missing-false"],
-)
-def test_probe_note_projects_result_to_note(
-    check_factory: Callable[[], Check],
-    outcome: Callable[[Check], Result[Completed, Fault]],
-    want_substrings: tuple[str, ...],
-    want_ok: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
-) -> None:
-    """_probe_note projects tool and git probe outcomes to note/health pairs.
-
-    Mutants caught: git note drift, dirty/clean swaps, nonzero-exit health drift, and
-    inverted absence semantics for tools versus git.
-    """
-    check = check_factory()
-    note, ok = registry_mod._probe_note(check, outcome(check))
-    assert all(s in note for s in want_substrings)
-    assert ok is want_ok
-
-
-@pytest.mark.parametrize("fresh", [True, False], ids=["fresh", "stale"])
-def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001  # parametrize-injected, not a call-site positional bool
-    """_cache_hit returns fresh token hits and rejects stale rows.
-
-    Mutants caught: ignored cache hits and stale rows masking tool upgrades.
-    """
-    argv = registry_mod._GIT_HEAD.tool.command
-    token = registry_mod._probe_token(argv)
-    assert token is not None  # real git installed
-    ts = time.time() if fresh else time.time() - _PROBE_TTL - 1
-    cache = {registry_mod._PROBE_CACHE_KEY % "\x00".join(argv): registry_mod._ProbeRow(token=token, ts=ts, note="git: HEAD abc1234", ok=True)}
-    assert registry_mod._cache_hit(cache, argv) == (("git: HEAD abc1234", True) if fresh else None)
-
-
-@pytest.mark.parametrize("argv", [(), ("__no_such_program_xyz__",)], ids=["empty-argv", "unresolvable"])
-def test_probe_token_returns_none(argv: tuple[str, ...]) -> None:
-    """_probe_token returns None for empty argv and unresolvable programs.
-
-    Mutants caught: empty-key cache hits and stale defaults for missing programs.
-    """
-    assert registry_mod._probe_token(argv) is None
-
-
-def test_probe_token_uv_locked_module_uses_module_boundary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """UV module probes cache against the Python executable plus uv.lock, never --locked."""
-    python = tmp_path / ".venv" / "bin" / "python"
-    python.parent.mkdir(parents=True)
-    python.write_text("#!/bin/sh\n", encoding="utf-8")
-    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
-    monkeypatch.setattr(registry_mod.sys, "executable", str(python))
-
-    token = registry_mod._probe_token(("uv", "run", "--locked", "python", "-m", "tools.assay", "--version"))
-
-    assert token is not None
-    assert str(python) in token
-    assert "--locked" not in token
-
-
-def test_probe_token_uv_locked_group_uses_group_program(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """UV group probes skip runner flags before resolving the probed executable."""
-    mutmut = tmp_path / "mutmut"
-    mutmut.write_text("#!/bin/sh\n", encoding="utf-8")
-    monkeypatch.setattr("shutil.which", lambda program: str(mutmut) if program == "mutmut" else None)
-
-    token = registry_mod._probe_token(("uv", "run", "--locked", "--group", "mutation", "mutmut", "--version"))
-
-    assert token is not None
-    assert token.startswith(f"{mutmut}|")
-    assert "--group" not in token
-
-
-@pytest.mark.parametrize("seed", [None, b"{bad json"], ids=["missing", "corrupt"])
-def test_probe_cache_load_folds_to_empty(assay_root: AssayHarness, seed: bytes | None) -> None:
-    """_probe_cache_load returns {} for an absent cache file or corrupt bytes — both are clean misses.
-
-    Mutants caught: raising on the OSError (missing) path; propagating MsgspecError on the corrupt path.
-    """
-    match seed:
-        case bytes() as raw:
-            assay_root.settings.store().write_bytes(raw, "cache", "probe-cache.json")
-        case None:
-            pass
-    assert registry_mod._probe_cache_load(assay_root.settings) == {}
-
-
-def test_probe_cache_store_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_probe_cache_store swallows OSError from write_bytes — a failing write never crashes self_test.
-
-    Mutant caught: re-raising OSError → self_test crashes when the cache store is read-only.
-    """
-    _patch_store(monkeypatch, "write_bytes")
-    registry_mod._probe_cache_store(assay_root.settings, {}, {}, frozenset())
-
-
 def test_composes_health_and_type_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """_composes returns True for valid layers and False for slot-inversion TypeError.
 
@@ -1286,74 +909,6 @@ def test_composes_health_and_type_error(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(registry_mod, "compose", lambda *_a, **_k: (_ for _ in ()).throw(TypeError("slot order inversion")))
     assert registry_mod._composes() is False
 
-
-def test_yak_ready_without_yak_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_yak_ready() returns False when shutil.which('yak') returns None.
-
-    Mutant caught: always returning True → self_test passes even without yak installed.
-    """
-    import shutil  # noqa: PLC0415
-
-    original_which = shutil.which
-    monkeypatch.setattr(shutil, "which", lambda name: None if name == "yak" else original_which(name))
-    assert registry_mod._yak_ready() is False
-
-
-def test_yak_ready_present_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_yak_ready() is True when the catalogued PACKAGE yak tool resolves on PATH.
-
-    Mutants caught: inverted row filters or corrupted yak command literals.
-    """
-    import shutil  # noqa: PLC0415
-
-    monkeypatch.setattr(shutil, "which", lambda name: "/opt/yak/yak" if name == "yak" else None)
-    assert registry_mod._yak_ready() is True
-
-
-register_laws((
-    self_test,
-    (
-        "self_test_structure",
-        "self_test_census_rows_cover_all_registry_verbs",
-        "self_test_ok_when_composition_healthy",
-        "self_test_rhino_default_false",
-        "self_test_summary_note_pinned",
-        "self_test_envelope_wire_round_trip",
-        "self_test_persisted_to_history",
-        "self_test_unhealthy_on_census_failure",
-        "self_test_unhealthy_on_compose_failure",
-        "self_test_unhealthy_when_claim_loses_its_last_row",
-        "self_test_summary_carries_yak_ready_token",
-        "self_test_failed_exit_code_and_defect_row",
-        "health_routes_probe_routed_to_fan_out",
-        "health_warm_pass_reprobes_only_volatile_and_unresolvable",
-        "health_dotnet_probe_collapse_present",
-        "probe_cache_round_trip_identity",
-        "probe_cache_retention_evicts_removed_tools",
-        "ok_envelope_truncation_persists_full_report",
-        "ok_envelope_result_cap_boundary_untruncated",
-        "ok_envelope_failed_report_defects_diagnostic",
-        "ok_envelope_cap_preserves_defects_over_generated_overflow",
-        "full_report_artifact_claim_verb_identity",
-        "full_report_artifact_oserror_returns_empty",
-        "probe_note_git_head_ok",
-        "probe_note_git_dirty_states",
-        "probe_note_tool_nonzero_exit",
-        "probe_note_git_missing_returns_ok",
-        "probe_note_tool_missing_returns_false",
-        "cache_hit_valid_token_returns_note",
-        "cache_hit_stale_token_returns_none",
-        "probe_token_empty_argv_returns_none",
-        "probe_token_unresolvable_direct_returns_none",
-        "probe_cache_load_missing_returns_empty",
-        "probe_cache_load_corrupt_returns_empty",
-        "probe_cache_store_oserror_is_swallowed",
-        "composes_returns_true_for_healthy_layers",
-        "composes_returns_false_on_type_error",
-        "yak_ready_without_yak_on_path",
-        "yak_ready_present_on_path",
-    ),
-))
 
 # --- [LEAF]
 
@@ -1414,16 +969,3 @@ def test_register_all_match_arms() -> None:
     registry_mod._register(app, lambda: None, name="my-noop")  # (verb, '') arm
     registry_mod._register(app, lambda: None, name="my-noop2", help="Some help text")  # (verb, text) arm
     assert {"sub-app", "my-noop", "my-noop2"} <= set(app)
-
-
-register_laws((
-    build_app,
-    (
-        "leaf_command_closure_callable",
-        "leaf_command_invocation_returns_envelope",
-        "leaf_command_forwards_params_identity",
-        "read_version_matches_pyproject_exactly",
-        "read_version_oserror_returns_default",
-        "register_all_match_arms",
-    ),
-))

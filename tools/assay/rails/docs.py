@@ -10,11 +10,9 @@ from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves ArtifactScope/AssaySettings in function annotations at import time
-    ArtifactScope,
-    AssaySettings,
-)
-from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves rail annotations at import time
+from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # beartype resolves rail annotations at import time
+from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -28,6 +26,7 @@ from tools.assay.core.model import (
     Mode,
     RailStatus,
     Report,  # noqa: TC001  # beartype resolves Report in return annotations at import time
+    ToolArgs,
 )
 from tools.assay.core.routing import route
 from tools.assay.diagnostics import fold
@@ -102,9 +101,7 @@ def _outcomes(
     pairs = tuple((t, f, _sink_stem(f)) for t in select(claim, routed.language) if t.mode is mode for f in routed.files)
     files = tuple(f for _, f, _ in pairs)
     stems = tuple(stem for *_, stem in pairs)
-    checks = tuple(
-        Check(tool=msgspec.structs.replace(t, command=(*t.command, "-i", f, "-a", scope_dir, "-o", f"{scope_dir}/{stem}.md"))) for t, f, stem in pairs
-    )
+    checks = tuple(Check(tool=t, args=ToolArgs(input=f, sink_dir=scope_dir, sink=f"{scope_dir}/{stem}.md")) for t, f, stem in pairs)
     slots = executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
     def _promote(done: tuple[Completed, ...]) -> Report:

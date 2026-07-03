@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 from expression import Error, Ok
 import msgspec
+import pytest
 
-from tests.python._testkit.laws import register_law
-from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix
+from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.registry import REGISTRY
 from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, StaticRun, Tool
@@ -24,11 +24,14 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from expression import Result
-    import pytest
 
     from tests.python.tools.assay.kit import AssayHarness, VerbRunner
     from tools.assay.core.model import Completed
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (StaticParams, run, sarif_status)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -41,6 +44,10 @@ def _compiling_probe(check: Check, **_kw: object) -> Result[Completed, Fault]:
     return Ok(receipt((check.tool.name,), 0, status=RailStatus.OK))
 
 
+def _failing_probe(check: Check, **_kw: object) -> Result[Completed, Fault]:
+    return Ok(receipt((check.tool.name,), 1, status=RailStatus.FAILED))
+
+
 def _recording_fan(calls: list[tuple[Mode, ...]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         calls.append(tuple(check.tool.mode for check in checks))
@@ -49,29 +56,12 @@ def _recording_fan(calls: list[tuple[Mode, ...]]) -> Callable[..., tuple[Result[
     return fan
 
 
-# --- [STATICPARAMS_LAWS]
-
-
-def test_staticparams_defaults() -> None:
-    """Default static params carry no implicit project, solution, path, or language selector."""
-    params = StaticParams()
-    assert params.all is False
-    assert not params.project
-    assert params.folders == ()
-    assert params.files == ()
-    assert not hasattr(params, "paths")
-    assert not hasattr(params, "language")
-
-
-register_law(StaticParams, "defaults_are_folder_file_only")
+# --- [VERB_SURFACE_LAWS]
 
 
 def test_registry_exposes_one_polymorphic_static_verb() -> None:
     """The static claim collapses to exactly one verb; no check/build/fix split remains."""
     assert tuple(row.verb for row in REGISTRY if row.claim is Claim.STATIC) == ("static",)
-
-
-register_law(REGISTRY, "static_collapses_to_one_verb")
 
 
 def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_root: AssayHarness) -> None:
@@ -85,9 +75,6 @@ def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_roo
     assert isinstance(report.detail, StaticRun)
     assert report.detail.targets == (("folder", "src"), ("folder", "pkg"), ("file", "single/c.py"))
     assert any(row[0] == "python" and row[2] == "3" for row in report.detail.routes)
-
-
-register_law(StaticParams, "grouped_folder_file_cli_consumption")
 
 
 def test_static_help_admits_scoped_target_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
@@ -104,9 +91,6 @@ def test_static_help_admits_scoped_target_flags(monkeypatch: pytest.MonkeyPatch,
     assert b"--folder" in cap.out
     assert b"--file" in cap.out
     assert b"--no-all" not in cap.out
-
-
-register_law(run, "help_admits_scoped_target_flags")
 
 
 # --- [LANE_LAWS]
@@ -127,9 +111,6 @@ def test_python_lane_runs_fix_before_diagnostics(monkeypatch: pytest.MonkeyPatch
     assert report.notes[0] == f"planned={len(report.detail.planned)} skipped={len(report.detail.skipped)}"
 
 
-register_law(run, "python_lane_fixes_before_diagnostics")
-
-
 def test_csharp_project_lane_runs_full_ordered_lane(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """A C# project target runs the full ordered lane: fix, diagnostics, restore, then build."""
     assay_root.write("src/App/App.csproj", "<Project />")
@@ -140,9 +121,6 @@ def test_csharp_project_lane_runs_full_ordered_lane(monkeypatch: pytest.MonkeyPa
     assert report.detail.phases == ("fix", "diagnostic", "restore", "build")
     assert any(row[0] == "csharp" and row[3] == "1" for row in report.detail.routes)
     assert any("dotnet build" in argv and "src/App/App.csproj" in argv for _, _, argv in report.detail.planned)
-
-
-register_law(run, "csharp_project_runs_full_ordered_lane")
 
 
 def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
@@ -162,17 +140,11 @@ def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.Monk
     assert report.counts.total == len(report.detail.planned)
 
 
-register_law(run, "folder_lane_spans_all_languages")
-
-
 def test_empty_target_is_changed_default_not_a_fault(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """Empty target input routes through the changed-default lane."""
     monkeypatch.setattr(static_rail, "target_files", lambda *_a, **_k: Ok(TargetFiles()))
     report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(), SeamExecutor(fan_fn=_ok_static_fan)))
     assert isinstance(report.detail, StaticRun)
-
-
-register_law(run, "empty_target_routes_changed_default")
 
 
 def test_unsupported_file_target_is_skipped_not_faulted(assay_root: AssayHarness) -> None:
@@ -181,9 +153,6 @@ def test_unsupported_file_target_is_skipped_not_faulted(assay_root: AssayHarness
     report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(files=("Workspace.slnx",)), executor))
     assert isinstance(report.detail, StaticRun)
     assert any(kind == "file" and "Workspace.slnx" in path for kind, path, _ in report.detail.skipped)
-
-
-register_law(run, "unsupported_file_is_skipped_not_faulted")
 
 
 def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
@@ -195,25 +164,25 @@ def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
     assert "choose only one" in fault.message
 
 
-register_law(run, "rejects_combined_target_axes")
-
-
 # --- [SELECTION_LAWS]
 
+# White-box seams below (_phase_checks/_planned/_build_fan/_dispatch) prove selection and phase-gating
+# decisions the public verb cannot isolate per-language without spawning real toolchains.
 
-def test_full_typescript_keeps_build_row(assay_root: AssayHarness) -> None:
-    """Full TypeScript static routes keep the project-wide tsc build row while scoped TS files skip it."""
-    full = Routed(Language.TYPESCRIPT, Scope.FULL, files=(".",))
-    scoped = Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",))
-    full_phases, full_skipped = static_rail._phase_checks(full, assay_root.settings, assay_root.scope(Claim.STATIC))
-    scoped_phases, scoped_skipped = static_rail._phase_checks(scoped, assay_root.settings, assay_root.scope(Claim.STATIC))
+
+def test_typescript_scope_gates_tsc_and_keeps_scoped_fixer(assay_root: AssayHarness) -> None:
+    """Full TS keeps the project-wide tsc build row; scoped TS skips it whole while the scoped Biome write fixer stays."""
+    full_phases, full_skipped = static_rail._phase_checks(
+        Routed(Language.TYPESCRIPT, Scope.FULL, files=(".",)), assay_root.settings, assay_root.scope(Claim.STATIC)
+    )
+    scoped_phases, scoped_skipped = static_rail._phase_checks(
+        Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",)), assay_root.settings, assay_root.scope(Claim.STATIC)
+    )
     assert any(check.tool.name == "tsc" for _, checks in full_phases for check in checks)
     assert not any(row[1] == "tsc" for row in full_skipped)
-    assert not any(check.tool.name == "tsc" for _, checks in scoped_phases for check in checks)
+    assert all(check.tool.name != "tsc" for _, checks in scoped_phases for check in checks)
     assert ("build", "tsc", "project-wide tool unsupported by scoped static") in scoped_skipped
-
-
-register_law(static_rail._phase_checks, "full_typescript_keeps_build_row")
+    assert any(check.tool.name == "biome" and check.tool.mode is Mode.WRITE for _, checks in scoped_phases for check in checks)
 
 
 def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
@@ -224,45 +193,35 @@ def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
     assert ("build", "tsc", "pnpm exec tsc --noEmit -p tsconfig.base.json") in planned
 
 
-register_law(static_rail._phase_checks, "full_typescript_tsc_has_no_file_tail")
+_PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], ...]], bool]], ...] = (
+    (
+        "changed-files-bind-project-plus-include",
+        Routed(
+            Language.CSHARP,
+            Scope.CHANGED,
+            files=("src/App/a.cs",),
+            projects=("src/App/App.csproj",),
+            groups=(("src/App/App.csproj", ("src/App/a.cs",)),),
+        ),
+        lambda planned: any("dotnet format" in argv and "src/App/App.csproj --include src/App/a.cs" in argv for _, _, argv in planned),
+    ),
+    (
+        "direct-project-binds-project-not-empty-include",
+        Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj",)),
+        lambda planned: any(argv.endswith("src/App/App.csproj") for _, name, argv in planned if name == "dotnet-format"),
+    ),
+)
 
 
-def test_scoped_glob_build_skips_but_native_fixer_stays(assay_root: AssayHarness) -> None:
-    """A scoped TypeScript route skips repo-wide tsc while keeping the scoped Biome write fixer."""
-    routed = Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/view.ts",))
-    phases, skips = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC))
-    assert ("build", "tsc", "project-wide tool unsupported by scoped static") in skips
-    assert any(check.tool.name == "biome" and check.tool.mode is Mode.WRITE for _, checks in phases for check in checks)
-    assert all(check.tool.name != "tsc" for _, checks in phases for check in checks)
-
-
-register_law(static_rail._phase_checks, "scoped_glob_build_skips_native_fixer_stays")
-
-
-def test_csharp_format_uses_include_placement(assay_root: AssayHarness) -> None:
-    """C# format rows bind to the owner project plus ``--include`` file tails, not Workspace.slnx."""
-    routed = Routed(
-        Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",), groups=(("src/App/App.csproj", ("src/App/a.cs",)),)
-    )
+@pytest.mark.parametrize("routed, admitted", [row[1:] for row in _PLACEMENT_ROWS], ids=[row[0] for row in _PLACEMENT_ROWS])
+def test_csharp_format_placement_matrix(
+    assay_root: AssayHarness, routed: Routed, admitted: Callable[[tuple[tuple[str, str, str], ...]], bool]
+) -> None:
+    """C# format rows bind to the owner project (plus ``--include`` file tails when files route), never Workspace.slnx."""
     phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC))
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
     assert skipped == ()
-    assert any("dotnet format" in argv and "src/App/App.csproj --include src/App/a.cs" in argv for _, _, argv in planned)
-
-
-register_law(static_rail._phase_checks, "csharp_format_uses_project_include")
-
-
-def test_csharp_project_format_uses_project_placement(assay_root: AssayHarness) -> None:
-    """Direct project routes format the project, not an empty ``--include`` tail."""
-    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj",))
-    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC))
-    planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
-    assert skipped == ()
-    assert any(argv.endswith("src/App/App.csproj") for _, name, argv in planned if name == "dotnet-format")
-
-
-register_law(static_rail._phase_checks, "csharp_project_format_uses_project_placement")
+    assert admitted(planned)
 
 
 def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarness) -> None:
@@ -276,29 +235,19 @@ def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarnes
     assert all("--disable-build-servers" not in argv for _, _, argv in planned)
 
 
-register_law(static_rail._phase_checks, "csharp_workspace_uses_solution_placement")
-
-
 def test_csharp_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -> None:
     """Expanded C# build checks write SARIF into per-invocation directories, not one shared project-name path."""
     scope = assay_root.scope(Claim.STATIC)
     routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"))
     phases, skipped = static_rail._phase_checks(routed, assay_root.settings, scope)
     assert skipped == ()
-    sarif_dirs = tuple(
-        part.split("=", 1)[1]
-        for phase, checks in phases
-        if phase is static_rail.Phase.BUILD
-        for check in checks
-        for part in check.tool.command
-        if part.startswith("-p:CspSarifDir=")
-    )
+    sarif_dirs = tuple(check.args.sarif_dir for phase, checks in phases if phase is static_rail.Phase.BUILD for check in checks)
     assert len(sarif_dirs) == 2
     assert len(set(sarif_dirs)) == 2
     assert all(path.startswith(f"{scope.sarif_dir}/") for path in sarif_dirs)
-
-
-register_law(static_rail._phase_checks, "csharp_build_checks_use_distinct_sarif_dirs")
+    assert all(f"-p:CspSarifDir={path}" not in check.tool.command for path in sarif_dirs for _, checks in phases for check in checks), (
+        "the SARIF drop dir is a typed splice value, never a command-surgery token"
+    )
 
 
 # --- [BUILD_PHASE_LAWS]
@@ -328,9 +277,6 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
     assert skipped.notes == ("restore failed; build skipped",)
 
 
-register_law(static_rail._build_fan, "restore_failure_skips_build_phase")
-
-
 # --- [PROBE_GATE_LAWS]
 
 
@@ -352,37 +298,10 @@ def _csharp_closure_phases() -> static_rail.PhaseChecks:
     )
 
 
-def test_format_gate_drops_write_and_check_format_rows_when_target_does_not_compile(
-    monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness
-) -> None:
-    """A non-compiling probe drops both dotnet-format rows (write fix and its read-only check) but runs restore and build.
-
-    dotnet-format binds against the analyzer view and mutates a target the compiler itself rejects, so the format phase is
-    gated whole; the closure restore and build still run, proving compiles (probe) and blocked (restore->build) stay distinct.
-    """
-    routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
-    ran: list[tuple[str, ...]] = []
-
-    def recording_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
-        ran.append(tuple(check.tool.name for check in checks))
-        return _ok_static_fan(checks)
-
-    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    executor = SeamExecutor(run_fn=lambda check, **_kw: Ok(receipt((check.tool.name,), 1, status=RailStatus.FAILED)), fan_fn=recording_fan)
-    rows = static_rail._dispatch(
-        routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
-    )
-    names_run = tuple(name for batch in ran for name in batch)
-    assert "dotnet-format" not in names_run, "the format phase is skipped entirely on a non-compiling target"
-    assert {"dotnet-restore", "dotnet-build"} <= set(names_run), "restore and build still run despite the gated format phase"
-    assert all(assert_ok(row).status is RailStatus.OK for row in rows)
-
-
-register_law(static_rail._dispatch, "format_gate_skips_format_when_probe_fails")
-
-
-def test_format_gate_runs_format_when_target_compiles(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """A compiling probe leaves the full lane intact: both format rows, restore, and build all run."""
+@pytest.mark.parametrize("compiles", [True, False], ids=["compiling", "non-compiling"])
+def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, compiles: bool) -> None:
+    """A non-compiling probe drops both dotnet-format rows whole (write fix and read-only check); a compiling probe leaves
+    the full lane intact. The closure restore and build run either way — compiles (probe) and blocked (restore->build) stay distinct."""
     routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
     ran: list[str] = []
 
@@ -391,25 +310,13 @@ def test_format_gate_runs_format_when_target_compiles(monkeypatch: pytest.Monkey
         return _ok_static_fan(checks)
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    executor = SeamExecutor(run_fn=_compiling_probe, fan_fn=recording_fan)
-    static_rail._dispatch(
+    executor = SeamExecutor(run_fn=_compiling_probe if compiles else _failing_probe, fan_fn=recording_fan)
+    rows = static_rail._dispatch(
         routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
     )
-    assert ran.count("dotnet-format") == 2, "both the write fix and the read-only format check run when the target compiles"
+    assert ran.count("dotnet-format") == (2 if compiles else 0)
     assert {"dotnet-restore", "dotnet-build"} <= set(ran)
-
-
-register_law(static_rail._dispatch, "format_gate_runs_format_when_probe_compiles")
-
-
-def test_static_status_matrix() -> None:
-    """The mode vocabulary preserves the write/read distinctions the lane dispatch relies on."""
-    support_matrix(
-        ("check is read-only", lambda: not Mode.CHECK.writes, True),
-        ("build is read-only", lambda: not Mode.BUILD.writes, True),
-        ("restore is read-only", lambda: not Mode.RESTORE.writes, True),
-        ("write mutates", lambda: Mode.WRITE.writes, True),
-    )
+    assert all(assert_ok(row).status is RailStatus.OK for row in rows)
 
 
 # --- [SARIF_STATUS_LAWS]
@@ -447,9 +354,6 @@ def test_sarif_status_distinguishes_incremental_from_clean(tmp_path: Path) -> No
     assert sarif_status((_build_receipt("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
 
 
-register_law(sarif_status, "distinguishes_incremental_from_clean")
-
-
 # --- [BACKPRESSURE_LAWS]
 
 
@@ -472,6 +376,3 @@ def test_backpressure_note_threads_structured_pressure() -> None:
     assert static_rail._backpressure_note(quiet) == ()
     waited = (("concurrency.original", 8.0), ("concurrency.reduced", 8.0), ("dotnet.slot_wait_ms.max", 1500.0), ("memory.percent", 40.0))
     assert static_rail._backpressure_note(waited)[0].endswith("dotnet.slot max_wait=1500ms")
-
-
-register_law(static_rail._backpressure_note, "threads_structured_pressure")

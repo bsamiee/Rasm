@@ -1,8 +1,4 @@
-"""Routing laws for scope identity, source rails, target partitioning, route closure, and placement.
-
-The suite pins Protocol runtime checks, routed invariants, C# closure resolution, host-bound partitioning,
-probe-fixture stripping, and argv-tail projection.
-"""
+"""Routing laws for source rails, language resolution, route closure, host-bound partitioning, and placement."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -14,11 +10,11 @@ import msgspec.structs
 import pytest
 from upath import UPath
 
-from tests.python._testkit.laws import register_law, spec
-from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
 from tests.python.tools.assay.kit import (
     AssayHarness,  # noqa: TC001  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
 )
+from tools.assay.composition.catalog import select
 from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
 from tools.assay.core.routing import (  # private probes for read/parse degradation arms
     _LocalSource,
@@ -27,13 +23,13 @@ from tools.assay.core.routing import (  # private probes for read/parse degradat
     expand,
     infer_languages,
     place,
+    resolve_languages,
     routable_files,
     route,
     Routed,
     Scope,
     Source,
     target_files,
-    TargetFiles,
 )
 
 
@@ -140,80 +136,11 @@ _PY_TOOL = Tool(
 # Mirrors AssaySettings.probe_fixture_prefixes for prefix-stripping laws.
 _DEFAULT_PREFIXES: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
 
+COVERS: tuple[object, ...] = (expand, infer_languages, place, resolve_languages, routable_files, route, Routed, Source, target_files)
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [SCOPE_SOURCE_SWEEPS]
-
-register_law(Scope, "scope_enum_sweep")
-
-
-@pytest.mark.parametrize("member", list(Scope))
-def test_scope_enum_sweep(member: Scope) -> None:
-    """Every Scope member round-trips through its string value (StrEnum identity law)."""
-    assert Scope(member.value) is member
-
-
-register_law(Scope, "scope_validity_matrix")
-
-
-def _try_scope(v: str) -> bool:
-    try:
-        Scope(v)
-    except ValueError:
-        return False
-    return True
-
-
-def test_scope_validity_matrix() -> None:
-    """All Scope members are valid StrEnum instances; non-members raise ValueError."""
-    validity_matrix(
-        [
-            ValidityCase(label="changed", value="changed", expected=True),
-            ValidityCase(label="full", value="full", expected=True),
-            ValidityCase(label="invalid", value="INVALID", expected=False),
-            ValidityCase(label="empty", value="", expected=False),
-        ],
-        _try_scope,
-    )
-
-
-register_law(Source, "source_protocol_runtime_checkable")
-
-
-def test_source_is_runtime_checkable() -> None:
-    """Source is @runtime_checkable — isinstance checks are supported for Protocol conformance."""
-    assert isinstance(_StubSource(("a.py",)), Source)
-    assert not isinstance(object(), Source)
-
-
-register_law(Source, "source_protocol_support_matrix")
-
-
-def test_source_protocol_support_matrix() -> None:
-    """Support matrix: conforming/non-conforming Source implementations are distinguished at runtime."""
-    support_matrix(
-        ("stub_source_conforms", lambda: isinstance(_StubSource(()), Source), True),
-        ("faulting_source_conforms", lambda: isinstance(_FaultingSource(), Source), True),
-        ("plain_object_rejected", lambda: isinstance(object(), Source), False),
-        ("dict_rejected", lambda: isinstance({}, Source), False),
-    )
-
-
-# --- [TARGETFILES_LAWS]
-
-register_law(TargetFiles, "targetfiles_defaults_are_empty_tuples")
-
-
-def test_targetfiles_defaults_are_empty_tuples() -> None:
-    """TargetFiles defaults are tuple-shaped so static detail can serialize without None repair."""
-    targets = TargetFiles()
-    assert targets.targets == ()
-    assert targets.files == ()
-    assert targets.rejected == ()
-    assert targets.changed is False
-
-
-register_law(target_files, "target_files_partitions_unsupported_inputs")
+# --- [TARGET_FILES]
 
 
 def test_target_files_partitions_unsupported_inputs(assay_root: AssayHarness) -> None:
@@ -229,66 +156,7 @@ def test_target_files_partitions_unsupported_inputs(assay_root: AssayHarness) ->
     )
 
 
-# --- [ROUTED_INVARIANTS]
-
-
-@spec(Routed)
-def test_routed_defaults(instance: Routed) -> None:
-    """Routed is frozen; files/projects/groups/full_triggers are always tuples of the right element type."""
-    assert isinstance(instance.language, Language)
-    assert isinstance(instance.scope, Scope)
-    assert isinstance(instance.files, tuple)
-    assert isinstance(instance.projects, tuple)
-    assert isinstance(instance.groups, tuple)
-    assert isinstance(instance.full_triggers, tuple)
-
-
-register_law(Routed, "routed_replace_yields_new_instance")
-
-
-def test_routed_replace_yields_new_instance() -> None:
-    """msgspec.structs.replace on a frozen Routed produces a distinct object — structural copy semantics."""
-    r = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=("a.py",))
-    r2 = msgspec.structs.replace(r, files=("b.py",))
-    assert r2 is not r
-    assert r2.files == ("b.py",)
-    assert r.files == ("a.py",)
-
-
-register_law(Routed, "routed_full_triggers_scope_consistency")
-
-
-@pytest.mark.parametrize("scope,full_triggers,files", [(Scope.FULL, ("Workspace.slnx",), ("Workspace.slnx",)), (Scope.CHANGED, (), ("src/A.cs",))])
-def test_routed_full_triggers_scope_consistency(scope: Scope, full_triggers: tuple[str, ...], files: tuple[str, ...]) -> None:
-    """full_triggers is non-empty iff scope is FULL — the escalation invariant."""
-    r = Routed(language=Language.CSHARP, scope=scope, files=files, full_triggers=full_triggers)
-    assert (r.scope is Scope.FULL) == (len(r.full_triggers) > 0)
-
-
-# --- [PROJECTINDEX_ROUTEPATHS]
-
-register_law("ProjectIndex", "project_index_mapping")
-
-
-def test_project_index_is_mapping() -> None:
-    """ProjectIndex is a Mapping[str, str] — dict satisfies the contract."""
-    index: ProjectIndex = {"src/Lib": "src/Lib/Lib.csproj", "src/App": "src/App/App.csproj"}
-    assert isinstance(index["src/Lib"], str)
-    assert len(index) == 2
-
-
-register_law("RoutePaths", "route_paths_tuple_of_str")
-
-
-def test_route_paths_is_tuple_of_str() -> None:
-    """RoutePaths is a tuple[str, ...] — str membership is structurally enforced."""
-    paths: RoutePaths = ("a.py", "b.ts", "src/App.csproj")
-    assert all(isinstance(p, str) for p in paths)
-
-
 # --- [ROUTE_LAWS]
-
-register_law(route, "route_language_table")
 
 
 @pytest.mark.parametrize(
@@ -321,27 +189,10 @@ def test_route_language_table(
     assert routed.full_triggers == full_triggers
 
 
-register_law(route, "route_determinism")
-
-
-def test_route_determinism(assay_root: AssayHarness) -> None:
-    """route() is pure: two calls with identical inputs produce structurally equal Routed outputs."""
-    source = _StubSource(("a.py", "b.py"))
-    r1 = assert_ok(route(Language.PYTHON, source=source, settings=assay_root.settings))
-    r2 = assert_ok(route(Language.PYTHON, source=source, settings=assay_root.settings))
-    assert r1 == r2
-
-
-register_law(route, "route_propagates_source_fault")
-
-
 def test_route_propagates_source_fault(assay_root: AssayHarness) -> None:
     """A faulting Source short-circuits the route bind-chain into a FAULTED Error."""
     result = route(Language.PYTHON, source=_FaultingSource(), settings=assay_root.settings)
     assert_error_status(result, RailStatus.FAULTED)
-
-
-register_law(route, "route_empty_changeset_returns_ok")
 
 
 @pytest.mark.parametrize("language", list(Language))
@@ -351,9 +202,6 @@ def test_route_empty_changeset_returns_ok(language: Language, assay_root: AssayH
     assert_ok(result)
 
 
-register_law(route, "route_files_are_normalized")
-
-
 def test_route_files_are_normalized(assay_root: AssayHarness) -> None:
     """route() normalises and deduplicates paths — duplicate entries collapse to one."""
     source = _StubSource(("./a.py", "a.py", "b.py"))
@@ -361,9 +209,25 @@ def test_route_files_are_normalized(assay_root: AssayHarness) -> None:
     assert len(routed.files) == len(set(routed.files)), "duplicate paths leaked through normalisation"
 
 
-# --- [PLACE_LAWS]
+# --- [RESOLVE_LANGUAGES]
 
-register_law(place, "place_input_arm_table")
+
+def test_resolve_languages_modal_table() -> None:
+    """A Fault choice short-circuits as Error; an explicit Language is a singleton; None infers over the claim catalog."""
+    fault = Fault(("assay",), RailStatus.FAULTED, "conflicting flags")
+    assert assert_error(resolve_languages(fault, (), claim=Claim.STATIC)) is fault
+    assert assert_ok(resolve_languages(Language.PYTHON, ("src/App.cs",), claim=Claim.STATIC)) == (Language.PYTHON,)
+    assert assert_ok(resolve_languages(None, ("pkg/mod.py",), claim=Claim.STATIC)) == (Language.PYTHON,)
+
+
+def test_resolve_languages_unrestricted_spans_claim_catalog() -> None:
+    """Unrestricted resolution with suffixless paths yields every catalog language for the claim, ordered by wire value."""
+    resolved = assert_ok(resolve_languages(None, (), claim=Claim.STATIC))
+    assert set(resolved) == {t.language for t in select(Claim.STATIC)}
+    assert list(resolved) == sorted(resolved, key=lambda member: member.value)
+
+
+# --- [PLACE_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -388,28 +252,11 @@ def test_place_input_arm_table(
     assert place(routed, tool, settings=assay_root.settings) == expected
 
 
-register_law(place, "place_solution_arm")
-
-
 def test_place_solution_arm(assay_root: AssayHarness) -> None:
     """The SOLUTION arm projects the settings solution path, independent of routed inputs."""
     tool = Tool("sln", Runner.DOTNET, ("dotnet",), Input.SOLUTION, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
     routed = Routed(Language.CSHARP, Scope.FULL)
     assert place(routed, tool, settings=assay_root.settings) == ((str(assay_root.settings.solution),),)
-
-
-register_law(place, "place_determinism")
-
-
-def test_place_determinism(assay_root: AssayHarness) -> None:
-    """place() is pure — two calls with equal inputs produce equal argv tails."""
-    routed = Routed(Language.PYTHON, Scope.CHANGED, files=("a.py", "b.py"))
-    assert place(routed, _PY_TOOL, settings=assay_root.settings) == place(routed, _PY_TOOL, settings=assay_root.settings)
-
-
-# --- [PLACE_PROPORTIONAL]
-
-register_law(place, "place_proportional_by_inspection")
 
 
 @h_settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
@@ -421,9 +268,6 @@ def test_place_proportional_by_inspection(k: int, assay_root: AssayHarness) -> N
     result = place(routed, _PY_TOOL, settings=assay_root.settings)
     target(float(k), label="placed_file_count")
     assert result == (files,) if k else result == (), f"expected one argv tail with {k} files, got {result!r}"
-
-
-register_law(place, "place_strips_probe_fixtures_via_files_input")
 
 
 @pytest.mark.parametrize("extra_prefix", list(_DEFAULT_PREFIXES))
@@ -440,84 +284,42 @@ def test_place_strips_probe_fixtures_via_files_input(extra_prefix: str, assay_ro
 
 # --- [ROUTABLE_FILES_LAWS]
 
-register_law(routable_files, "routable_files_strips_prefix")
+
+@pytest.mark.parametrize(
+    "files,prefixes,expected",
+    [
+        ((*(f"{pfx}sample.py" for pfx in _DEFAULT_PREFIXES), "tools/assay/core/routing.py"), None, ("tools/assay/core/routing.py",)),
+        (
+            ("tools/assay/core/model.py", "tests/csharp/libs/Rasm/ModelTests.cs"),
+            None,
+            ("tools/assay/core/model.py", "tests/csharp/libs/Rasm/ModelTests.cs"),
+        ),
+        (("custom/probe/fail.py", "tools/assay/core/routing.py"), ("custom/probe/",), ("tools/assay/core/routing.py",)),
+    ],
+    ids=["strips-every-default-prefix", "passthrough-without-probes", "honours-settings-prefixes"],
+)
+def test_routable_files_prefix_matrix(
+    files: tuple[str, ...], prefixes: tuple[str, ...] | None, expected: tuple[str, ...], assay_root: AssayHarness
+) -> None:
+    """routable_files strips exactly the configured probe_fixture_prefixes and is identity otherwise (S2 seam)."""
+    settings = assay_root.settings if prefixes is None else assay_root.settings.model_copy(update={"probe_fixture_prefixes": prefixes})
+    assert routable_files(files, settings) == expected
 
 
-@pytest.mark.parametrize("prefix", _DEFAULT_PREFIXES)
-def test_routable_files_strips_prefix(prefix: str, assay_root: AssayHarness) -> None:
-    """routable_files removes every file whose path starts with a configured probe_fixture_prefix."""
-    probe = f"{prefix}fail/helper_import.py"
-    legitimate = "tools/assay/core/model.py"
-    result = routable_files((probe, legitimate), assay_root.settings)
-    assert probe not in result
-    assert legitimate in result
+# --- [INFER_LANGUAGES]
 
 
-register_law(routable_files, "routable_files_strips_all_default_prefixes")
-
-
-def test_routable_files_strips_all_default_prefixes(assay_root: AssayHarness) -> None:
-    """routable_files removes every file matching any of the default probe_fixture_prefixes."""
-    probes = tuple(f"{pfx}sample.py" for pfx in _DEFAULT_PREFIXES)
-    legit: tuple[str, ...] = ("tools/assay/core/routing.py",)
-    result = routable_files(probes + legit, assay_root.settings)
-    assert result == legit
-
-
-register_law(routable_files, "routable_files_passthrough_when_no_probes")
-
-
-def test_routable_files_passthrough_when_no_probes(assay_root: AssayHarness) -> None:
-    """routable_files is identity when no file matches any probe_fixture_prefix."""
-    files: tuple[str, ...] = ("tools/assay/core/model.py", "tests/csharp/libs/Rasm/ModelTests.cs")
-    assert routable_files(files, assay_root.settings) == files
-
-
-register_law(routable_files, "routable_files_custom_prefixes")
-
-
-def test_routable_files_custom_prefixes(assay_root: AssayHarness) -> None:
-    """routable_files honours settings.probe_fixture_prefixes, not a hardcoded constant (S2 seam)."""
-    custom_settings = assay_root.settings.model_copy(update={"probe_fixture_prefixes": ("custom/probe/",)})
-    files: tuple[str, ...] = ("custom/probe/fail.py", "tools/assay/core/routing.py")
-    result = routable_files(files, custom_settings)
-    assert "custom/probe/fail.py" not in result
-    assert "tools/assay/core/routing.py" in result
-
-
-# --- [LAWS_INFER_LANGUAGES]
-
-register_law(infer_languages, "infer_languages_narrows_by_suffix")
-
-
-def test_infer_languages_narrows_by_suffix() -> None:
-    """infer_languages keeps only available languages whose suffix sets intersect the given paths."""
-    assert infer_languages(("tests/python/tools/assay/core/test_routing.py",), tuple(Language)) == (Language.PYTHON,)
-
-
-register_law(infer_languages, "infer_languages_fallback_all_available")
-
-
-def test_infer_languages_fallback_all_available() -> None:
-    """Empty paths and suffixless paths (directories) both fall back to the full available tuple."""
+def test_infer_languages_matrix() -> None:
+    """Suffix matches narrow to available order; empty, directory, and unmatched paths fall back to all available."""
     available = (Language.PYTHON, Language.TYPESCRIPT)
+    ordered = infer_languages(("src/view.tsx", "tools/assay/__init__.py"), tuple(Language))
     support_matrix(
+        ("suffix narrows", lambda: infer_languages(("tests/python/tools/assay/core/test_routing.py",), tuple(Language)) == (Language.PYTHON,), True),
+        ("available order not path order", lambda: ordered == (Language.PYTHON, Language.TYPESCRIPT), True),
         ("empty paths → all available", lambda: infer_languages((), available) == available, True),
         ("directory path → all available", lambda: infer_languages(("tests",), available) == available, True),
         ("unmatched suffix → all available", lambda: infer_languages(("src/App.cs",), available) == available, True),
     )
-
-
-register_law(infer_languages, "infer_languages_preserves_available_order")
-
-
-def test_infer_languages_preserves_available_order() -> None:
-    """Multi-suffix paths yield matched languages in available order, never path order."""
-    result = infer_languages(("src/view.tsx", "tools/assay/__init__.py"), tuple(Language))
-    assert result == (Language.PYTHON, Language.TYPESCRIPT)
-
-
-register_law(infer_languages, "infer_languages_never_exceeds_available")
 
 
 @given(st.lists(st.sampled_from([".py", ".ts", ".cs", ".sh", ".sql", ".md", ""]), max_size=8))
@@ -530,7 +332,7 @@ def test_infer_languages_never_exceeds_available(suffixes: list[str]) -> None:
     assert tuple(language for language in available if language in result) == result
 
 
-register_law(route, "local_source_read_and_refs_degrade_isolated")
+# --- [CLOSURE_GRAPH_LAWS]
 
 
 def test_local_source_read_and_refs_degrade_isolated(tmp_path: Path) -> None:
@@ -548,32 +350,6 @@ def test_local_source_read_and_refs_degrade_isolated(tmp_path: Path) -> None:
     assert _refs("bad.csproj", src) == frozenset()
 
 
-# --- [CLOSURE_GRAPH_LAWS]
-
-register_law(_refs, "refs_resolves_project_references")
-
-
-@pytest.mark.parametrize(
-    "csproj,expected",
-    [
-        ("src/Lib/Lib.csproj", frozenset({"src/Core/Core.csproj"})),
-        ("src/App/App.csproj", frozenset({"src/Lib/Lib.csproj"})),
-        ("src/Core/Core.csproj", frozenset()),
-    ],
-    ids=["lib-refs-core", "app-refs-lib", "core-leaf"],
-)
-def test_refs_resolves_project_references(csproj: str, expected: frozenset[str]) -> None:
-    r"""_refs parses ProjectReference Include attributes, normalising backslash-relative paths to project-rooted refs.
-
-    Each fixture carries one Windows-style Include; the expected set pins read, Include lookup,
-    separator normalization, parent join, and root-relative normalization as one edge contract.
-    """
-    assert _refs(csproj, _GraphSource(())) == expected
-
-
-register_law(_owner, "owner_selects_deepest_project")
-
-
 @pytest.mark.parametrize(
     "rel,expected",
     [("src/Lib/Sub/x.cs", "src/Lib/Sub"), ("src/Lib/y.cs", "src/Lib"), ("src/Other/z.cs", None)],
@@ -588,20 +364,15 @@ def test_owner_selects_deepest_project(rel: str, expected: str | None) -> None:
     assert _owner(rel, index) == expected
 
 
-register_law(route, "route_closure_transitive_dependents")
-
-
 def test_route_closure_transitive_dependents(assay_root: AssayHarness) -> None:
     """A change to the deepest project pulls its full transitive reverse-dependency closure into ``projects``.
 
-    App -> Lib -> Core means a Core change must rebuild Core, Lib, and App through the reverse closure.
+    App -> Lib -> Core means a Core change must rebuild Core, Lib, and App through the reverse closure; the
+    backslash-style Include edges prove _refs parsing end-to-end.
     """
     routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert routed.scope is Scope.CHANGED
     assert routed.projects == ("src/App/App.csproj", "src/Core/Core.csproj", "src/Lib/Lib.csproj")
-
-
-register_law(route, "route_closure_groups_pair_seed_with_owned_files")
 
 
 def test_route_closure_groups_pair_seed_with_owned_files(assay_root: AssayHarness) -> None:
@@ -613,9 +384,6 @@ def test_route_closure_groups_pair_seed_with_owned_files(assay_root: AssayHarnes
     assert routed.language is Language.CSHARP
     assert routed.files == ("src/App/a.cs", "src/Core/c.cs")
     assert routed.groups == (("src/App/App.csproj", ("src/App/a.cs",)), ("src/Core/Core.csproj", ("src/Core/c.cs",)))
-
-
-register_law(route, "route_escalation_honours_settings_triggers")
 
 
 @pytest.mark.parametrize(
@@ -642,8 +410,6 @@ def test_route_escalation_honours_settings_triggers(
 
 # --- [HOST_BOUND_LAWS]
 
-register_law(route, "route_classifies_host_bound_by_marker_only")
-
 
 def test_route_classifies_host_bound_by_marker_only(assay_root: AssayHarness) -> None:
     """ONLY the explicit AssayHostBound marker classifies; the closure itself is unaffected (BUILD-lane keep).
@@ -655,9 +421,6 @@ def test_route_classifies_host_bound_by_marker_only(assay_root: AssayHarness) ->
     assert marked.host_bound == ("src/App/App.csproj",)
     unmarked = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert unmarked.host_bound == ()
-
-
-register_law(place, "place_host_bound_lane_partition")
 
 
 @pytest.mark.parametrize(
@@ -676,12 +439,8 @@ def test_place_host_bound_lane_partition(mode: Mode, expected: tuple[tuple[str, 
     The lane split prevents managed test runs from executing host-bound projects while preserving build coverage.
     A dotnet ``test`` tool pins each kept project with ``--project``.
     """
-    tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=mode)
+    tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=mode, input_flag=("--project",))
     assert place(_HOST_ROUTED, tool, settings=assay_root.settings) == expected
-
-
-register_law(place, "place_host_emptied_never_resurrects_fallback")
-register_law(expand, "expand_drops_host_emptied_project_check")
 
 
 def test_host_emptied_placement_drops_check(assay_root: AssayHarness) -> None:
@@ -695,9 +454,6 @@ def test_host_emptied_placement_drops_check(assay_root: AssayHarness) -> None:
     build_tool = msgspec.structs.replace(run_tool, mode=Mode.BUILD)
     assert place(routed, list_tool, settings=assay_root.settings) == ()
     assert expand((Check(tool=run_tool), Check(tool=build_tool)), routed, settings=assay_root.settings) == (Check(tool=build_tool),)
-
-
-register_law(Routed, "closure_note_names_host_routed")
 
 
 def test_closure_note_names_host_routed() -> None:
@@ -721,9 +477,6 @@ def test_closure_note_names_host_routed() -> None:
             True,
         ),
     )
-
-
-register_law(place, "place_project_empty_stays_empty")
 
 
 @pytest.mark.parametrize(

@@ -1,8 +1,7 @@
 """Aspect laws for decorator ordering, ROP weaving, telemetry, and ring capture.
 
 Pins double-decoration guards, Slot monotonicity, beartype validation, finish severity, OTel
-status/event stamping, and recent-event ring projection. Law registration runs at import time
-because the policy ledger reads the MANIFEST immediately after collection.
+status/event stamping, and recent-event ring projection.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -21,10 +20,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 import pytest
 from structlog.contextvars import get_contextvars
 
-from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error, assert_ok, identity, support_matrix
 from tools.assay.core.aspect import (
-    _RING,  # ring seam seeded directly for projection laws
     assemble,
     checked,
     checked_call,
@@ -33,6 +30,7 @@ from tools.assay.core.aspect import (
     Inversion,
     Layer,  # noqa: TC001  # runtime layer-tuple annotation
     logged,
+    RING,  # ring seam seeded directly for projection laws
     ring_processor,
     ring_recent,
     Slot,
@@ -45,6 +43,9 @@ from tools.assay.diagnostics import fold
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _REPORT: Report = fold(Claim.STATIC, "probe", ())
+
+# Inversion is the weave's slot-regression error carrier, exercised by the assemble/compose laws below.
+COVERS: tuple[object, ...] = (assemble, checked, checked_call, compose, Inversion, logged, ring_processor, ring_recent, Slot, traced)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -299,7 +300,7 @@ def test_traced_stamps_fault_status_and_adds_fault_event(otel_spans: InMemorySpa
 def test_ring_processor_seeds_ring_and_passes_dict(level: str, event: str) -> None:
     """``ring_processor`` appends one ``<level>:<event>`` summary to the active ring and returns the dict."""
     ring: deque[str] = deque(maxlen=4)
-    token = _RING.set(ring)
+    token = RING.set(ring)
     try:
         payload: dict[str, object] = {"event": event, "level": level, "extra": 1}
         out = ring_processor(None, "method", payload)
@@ -308,7 +309,7 @@ def test_ring_processor_seeds_ring_and_passes_dict(level: str, event: str) -> No
         assert tuple(ring) == (f"{level}:{event}",)
         assert ring_recent() == (f"{level}:{event}",)
     finally:
-        _RING.reset(token)
+        RING.reset(token)
 
 
 def test_ring_processor_injects_trace_ids_under_active_span(otel_spans: InMemorySpanExporter) -> None:
@@ -328,21 +329,3 @@ def test_ring_processor_injects_trace_ids_under_active_span(otel_spans: InMemory
 def test_ring_recent_empty_without_active_ring() -> None:
     """``ring_recent`` returns an empty tuple when no ring contextvar is bound in the current context."""
     assert ring_recent() == ()
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-for _subject, _law in (
-    (Slot, "test_slot_ordering_is_monotonic"),
-    (compose, "test_compose_double_checked_equals_single"),
-    (assemble, "test_assemble_accepts_ascending_rejects_inversion"),
-    (checked, "test_checked_is_checked_slot_layer"),
-    (checked_call, "test_checked_call_is_idempotent_under_repeat"),
-    (logged, "test_logged_binds_keys_during_call_clears_after"),
-    (logged, "test_logged_finish_severity_gate_info_below_failed"),
-    (logged, "test_logged_emits_faulted_finish_on_raised_then_reraises"),
-    (traced, "test_traced_sync_records_one_span_with_status"),
-    (ring_processor, "test_ring_processor_seeds_ring_and_passes_dict"),
-    (ring_recent, "test_ring_recent_empty_without_active_ring"),
-):
-    register_law(_subject, _law, module=__name__)

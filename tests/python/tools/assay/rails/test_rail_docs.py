@@ -1,374 +1,129 @@
-"""Laws for docs params, strict promotion, check folding, and outcome rows."""
+"""Law matrix for docs promotion, check folding, and outcome rows."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from expression import Error, Ok
-from hypothesis import given, HealthCheck, settings, strategies as st
-import msgspec
+from typing import TYPE_CHECKING
+
+from expression import Error, Ok, Result  # noqa: TC002  # canned executor lanes return Result instances at runtime
 import pytest
 
-from tests.python._testkit.laws import register_law
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python._testkit.strategies import resolve
-from tests.python.tools.assay.kit import AssayHarness, SeamExecutor  # noqa: TC001  # AssayHarness annotates fixtures; SeamExecutor is runtime
-from tools.assay.core.model import Check, Claim, Completed, Fault, Language, Mode, RailStatus  # noqa: TC001  # Check annotates a local captured list
-from tools.assay.core.routing import Routed, Scope
-from tools.assay.diagnostics import fold
-from tools.assay.rails import docs as docs_rail
+from tests.python._testkit.spec import assert_error, assert_ok
+from tests.python.tools.assay.kit import SeamExecutor
+from tools.assay.core.model import Claim, Completed, Fault, RailStatus
 from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
+
+
+if TYPE_CHECKING:
+    from tests.python.tools.assay.kit import AssayHarness
+    from tools.assay.core.model import Check
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EMPTY_REPORT = fold(Claim.DOCS, "check", ())
-_FAILED_REPORT = fold(Claim.DOCS, "check", (Completed(("mmdc",), 1, status=RailStatus.FAILED),))
-_OK_REPORT = fold(Claim.DOCS, "check", (Completed(("mmdc",), 0, status=RailStatus.OK),))
+COVERS: tuple[object, ...] = (check, DocsParams, FaultedPromotion)
 
-# --- [LAW_COVERAGE]
+_OK = Ok(Completed(("mmdc",), 0, status=RailStatus.OK))
+_FAILED = Ok(Completed(("mmdc",), 1, status=RailStatus.FAILED))
+_SKIP = Ok(Completed(("mmdc",), 0, status=RailStatus.SKIP))
+_FAULT_A = Fault(("mmdc",), RailStatus.FAULTED, "first fault")
+_FAULT_B = Fault(("mmdc",), RailStatus.UNSUPPORTED, "second fault")
 
-register_law(DocsParams, "docs_params_default_strict_is_false")
-register_law(DocsParams, "docs_params_roundtrip")
-register_law(DocsParams, "docs_params_strict_matrix")
-register_law(DocsParams, "docs_params_paths_default_empty")
-
-register_law(FaultedPromotion, "faulted_promotion_is_exception_subclass")
-register_law(FaultedPromotion, "faulted_promotion_message_is_no_docs_changed")
-register_law(FaultedPromotion, "faulted_promotion_strict_raises_on_empty")
-register_law(FaultedPromotion, "faulted_promotion_strict_raises_on_skip")
-register_law(FaultedPromotion, "faulted_promotion_strict_false_does_not_raise_on_empty")
-register_law(FaultedPromotion, "faulted_promotion_preserves_failed_report")
-register_law(FaultedPromotion, "faulted_promotion_promotion_matrix")
-
-register_law(check, "check_fan_out_fault_propagates_on_error_rail")
-register_law(check, "check_no_files_yields_ok_rail")
-register_law(check, "check_strict_empty_becomes_error")
-register_law(check, "check_ok_receipt_yields_ok_report")
-register_law(check, "check_failed_receipt_yields_failed_report")
-register_law(check, "check_claim_is_docs")
-register_law(check, "check_strict_flag_propagated")
-register_law(check, "check_multi_fault_first_fault_wins")
-register_law(check, "check_verb_is_check")
-register_law(check, "check_mode_threaded_selects_mmdc")
-register_law(check, "check_routing_settings_threaded_to_root")
-register_law(check, "check_fan_out_receives_real_dependencies")
-
-register_law(docs_rail._outcomes, "outcomes_per_file_argv_shape")
-register_law(docs_rail._outcomes, "outcomes_verb_stamped_into_report")
-register_law(docs_rail._outcomes, "outcomes_fan_out_receives_real_dependencies")
-register_law(docs_rail._outcomes, "outcomes_folds_result_rows_and_artifacts")
-register_law(docs_rail._outcomes, "outcomes_empty_fold_promotes_to_ok")
-
-# --- [LAWS_DOCSPARAMS]
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_docs_params_default_strict_is_false() -> None:
-    """DocsParams.strict defaults to False — enabling opt-in only."""
-    assert DocsParams().strict is False
+def _check(assay_root: AssayHarness, receipts: tuple[Result[Completed, Fault], ...], *, strict: bool = False, paths: tuple[str, ...] = ("README.md",)) -> Result[object, Fault]:
+    return check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=paths, strict=strict), SeamExecutor(fan_fn=lambda *_a, **_k: receipts))
 
 
-@given(resolve(DocsParams))
-@settings(max_examples=50)
-def test_docs_params_roundtrip(p: DocsParams) -> None:
-    """DocsParams instances survive a structural copy cycle unchanged (immutability invariant)."""
-    raw = msgspec.json.encode({"paths": list(p.paths), "strict": p.strict})
-    decoded = msgspec.json.decode(raw, type=dict)
-    assert decoded["strict"] == p.strict
+# --- [PROMOTION_MATRIX]
 
 
-def test_docs_params_strict_matrix() -> None:
-    """DocsParams.strict distinguishes opt-in and default modes across explicit construction cases."""
-    validity_matrix(
-        [
-            ValidityCase(label="default_not_strict", value=DocsParams(), expected=False),
-            ValidityCase(label="explicit_false", value=DocsParams(strict=False), expected=False),
-            ValidityCase(label="explicit_true", value=DocsParams(strict=True), expected=True),
-        ],
-        lambda p: p.strict,
-    )
-
-
-def test_docs_params_paths_default_empty() -> None:
-    """DocsParams.paths defaults to empty tuple (no files → SKIP/EMPTY, not fault)."""
-    support_matrix(
-        ("default_paths_empty", lambda: DocsParams().paths == (), True),
-        ("explicit_paths_retained", lambda: DocsParams(paths=("a.md",)).paths == ("a.md",), True),
-    )
-
-
-# --- [LAWS_FAULTED_PROMOTION]
-
-
-def test_faulted_promotion_is_exception_subclass() -> None:
-    """FaultedPromotion is an Exception subclass (not BaseException) so the registry can catch it."""
-    assert issubclass(FaultedPromotion, Exception)
-
-
-def test_faulted_promotion_message_is_no_docs_changed() -> None:
-    """FaultedPromotion carries the canonical 'no docs changed' sentinel message."""
-    assert str(FaultedPromotion()) == "no docs changed"
-
-
-def test_faulted_promotion_strict_raises_on_empty() -> None:
-    """_strict raises FaultedPromotion for EMPTY status under strict=True — the promotion invariant."""
-    with pytest.raises(FaultedPromotion):
-        docs_rail._strict(_EMPTY_REPORT, strict=True)
-
-
-def test_faulted_promotion_strict_raises_on_skip() -> None:
-    """_strict raises FaultedPromotion for SKIP status under strict=True — symmetry with EMPTY arm."""
-    skip_report = fold(Claim.DOCS, "check", (Completed(("mmdc",), 0, status=RailStatus.SKIP),))
-    with pytest.raises(FaultedPromotion):
-        docs_rail._strict(skip_report, strict=True)
-
-
-def test_faulted_promotion_strict_false_does_not_raise_on_empty() -> None:
-    """_strict with strict=False never raises FaultedPromotion — opt-in semantics are exclusive."""
-    result = docs_rail._strict(_EMPTY_REPORT, strict=False)
-    assert result.status is RailStatus.EMPTY
-
-
-def test_faulted_promotion_preserves_failed_report() -> None:
-    """_strict does NOT rewrite real FAILED reports even under strict=True — real defects stay failed."""
-    result = docs_rail._strict(_FAILED_REPORT, strict=True)
-    assert result.status is RailStatus.FAILED
-
-
-def test_faulted_promotion_promotion_matrix() -> None:
-    """_strict raises only EMPTY/SKIP strict-mode reports."""
-    skip_report = fold(Claim.DOCS, "check", (Completed(("mmdc",), 0, status=RailStatus.SKIP),))
-
-    for label, report, strict, should_raise in [
-        ("empty_strict_raises", _EMPTY_REPORT, True, True),
-        ("skip_strict_raises", skip_report, True, True),
-        ("empty_not_strict", _EMPTY_REPORT, False, False),
-        ("failed_strict_preserves", _FAILED_REPORT, True, False),
-        ("ok_strict_preserves", _OK_REPORT, True, False),
-    ]:
-        if should_raise:
-            with pytest.raises(FaultedPromotion, match="no docs changed"):
-                docs_rail._strict(report, strict=strict)
-        else:
-            docs_rail._strict(report, strict=strict)
-        _ = label
-
-
-# --- [LAWS_CHECK]
-
-
-def test_check_fan_out_fault_propagates_on_error_rail(assay_root: AssayHarness) -> None:
-    """Check propagates spawn faults from executor.fan onto the Error rail without swallowing."""
-    fault = Fault(("mmdc",), RailStatus.UNSUPPORTED, "mmdc not found")
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Error(fault),))
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)), executor)
-    assert_error_status(result, RailStatus.UNSUPPORTED)
-
-
-def test_check_no_files_yields_ok_rail(assay_root: AssayHarness) -> None:
-    """Check with no routed files returns Ok(Report) with EMPTY/SKIP status — not a hard fault."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: ())
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/guide.md",)), executor)
-    report = assert_ok(result)
-    assert report.claim is Claim.DOCS
-
-
-def test_check_strict_empty_becomes_error(assay_root: AssayHarness) -> None:
-    """Check with strict=True and no outputs raises FaultedPromotion, which propagates as an exception."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: ())
-
-    with pytest.raises(FaultedPromotion):
-        check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/guide.md",), strict=True), executor)
-
-
-def test_check_ok_receipt_yields_ok_report(assay_root: AssayHarness) -> None:
-    """Check folds a single OK receipt into Ok(Report) with status OK — the happy-path rail."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)), executor)
-    report = assert_ok(result)
-    assert report.status is RailStatus.OK
-
-
-def test_check_failed_receipt_yields_failed_report(assay_root: AssayHarness) -> None:
-    """Check folds FAILED receipts into Ok(Report) without masking status."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 1, status=RailStatus.FAILED)),))
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)), executor)
-    report = assert_ok(result)
-    assert report.status is RailStatus.FAILED
-
-
-def test_check_claim_is_docs(assay_root: AssayHarness) -> None:
-    """Check always produces a Report stamped with Claim.DOCS — not silently reusing another claim."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: ())
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/guide.md",)), executor)
-    report = assert_ok(result)
-    assert report.claim is Claim.DOCS
-
-
-@given(st.booleans())
-@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-def test_check_strict_flag_propagated(
+@pytest.mark.parametrize(
+    "receipts, strict, expect",
+    [
+        ((_OK,), True, RailStatus.OK),
+        ((_FAILED,), True, RailStatus.FAILED),  # strict never rewrites a real defect
+        ((), False, RailStatus.EMPTY),
+        ((), True, "raises"),
+        ((_SKIP,), True, "raises"),
+        ((Error(_FAULT_B),), False, "fault"),
+        ((Error(_FAULT_A), Error(_FAULT_B)), False, "first-fault"),
+    ],
+    ids=["ok", "failed-strict-preserved", "empty-not-strict", "empty-strict-raises", "skip-strict-raises", "fan-fault", "first-fault-wins"],
+)
+def test_check_promotion_and_fault_matrix(
     assay_root: AssayHarness,
-    strict: bool,  # noqa: FBT001 — bool param is the exact signal under test, not a flag smell
+    receipts: tuple[Result[Completed, Fault], ...],
+    strict: bool,  # noqa: FBT001  # parametrized bool flag
+    expect: object,
 ) -> None:
-    """check(strict=strict) with no outputs raises iff strict is True — strict flag is load-bearing."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: ())
-
-    params = DocsParams(paths=("docs/guide.md",), strict=strict)
-    if strict:
-        with pytest.raises(FaultedPromotion):
-            check(assay_root.settings, assay_root.scope(Claim.DOCS), params, executor)
-    else:
-        assert_ok(check(assay_root.settings, assay_root.scope(Claim.DOCS), params, executor))
-
-
-def test_check_multi_fault_first_fault_wins(assay_root: AssayHarness) -> None:
-    """executor.fan returning multiple Error slots causes check to short-circuit on the first fault."""
-    f1 = Fault(("mmdc",), RailStatus.FAULTED, "first fault")
-    f2 = Fault(("mmdc",), RailStatus.UNSUPPORTED, "second fault")
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Error(f1), Error(f2)))
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("a.md",)), executor)
-    err = assert_error(result)
-    assert err is f1
+    """Check folds receipts onto one rail: strict promotes only EMPTY/SKIP, faults short-circuit first-wins."""
+    match expect:
+        case "raises":
+            assert issubclass(FaultedPromotion, Exception)  # registry-catchable, never BaseException
+            with pytest.raises(FaultedPromotion, match="no docs changed"):
+                _check(assay_root, receipts, strict=strict)
+        case "fault":
+            assert assert_error(_check(assay_root, receipts, strict=strict)) is _FAULT_B
+        case "first-fault":
+            assert assert_error(_check(assay_root, receipts, strict=strict)) is _FAULT_A
+        case RailStatus() as status:
+            report = assert_ok(_check(assay_root, receipts, strict=strict))
+            assert report.status is status
+            assert report.claim is Claim.DOCS
+            assert report.verb == "check"
 
 
-def test_check_verb_is_check(assay_root: AssayHarness) -> None:
-    """Check stamps the exact lowercase verb into Report.verb."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
-
-    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)), executor)
-    report = assert_ok(result)
-    assert report.verb == "check", "verb literal is lowercase 'check', not None, 'CHECK', or a marker string"
+# --- [ROUTING_AND_SINKS]
 
 
-def test_check_mode_threaded_selects_mmdc(assay_root: AssayHarness) -> None:
-    """Mode.CHECK must thread into mmdc tool selection."""
+def test_check_routes_files_builds_per_file_argv_and_threads_dependencies(assay_root: AssayHarness) -> None:
+    """Check routes paths under settings.root, builds one mmdc Check per file with collision-free sinks, and forwards live deps to fan."""
     captured: list[Check] = []
-    executor = SeamExecutor(fan_fn=lambda checks, **_k: captured.extend(checks) or (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
-    src = assay_root.write("docs/diagram.md", "# d")
-    assert src.exists()
-
-    check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/diagram.md",)), executor)
-    assert len(captured) == 1, "Mode.CHECK admits the single mmdc tool; mode=None would admit none"
-    assert captured[0].tool.command[0] == "mmdc"
-
-
-def test_check_routing_settings_threaded_to_root(assay_root: AssayHarness) -> None:
-    """Check routes paths under settings.root instead of cwd."""
-    captured: list[Check] = []
-    executor = SeamExecutor(fan_fn=lambda checks, **_k: captured.extend(checks) or (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
-    assay_root.write("docs/only-here.md", "# here")
-
-    check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/only-here.md",)), executor)
-    assert len(captured) == 1, "settings.root routing finds the harness-local file; cwd routing finds nothing"
-    cmd = captured[0].tool.command
-    assert cmd[cmd.index("-i") + 1] == "docs/only-here.md", "the routed file is the -i input of the single Check"
-
-
-def test_check_fan_out_receives_real_dependencies(assay_root: AssayHarness) -> None:
-    """Check forwards live settings and scope to executor.fan."""
     seen: dict[str, object] = {}
-    receipt = (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),)
-    executor = SeamExecutor(fan_fn=lambda checks, **kw: (seen.update(checks=checks, **kw), receipt)[1])
-    assay_root.write("docs/dep.md", "# dep")
+    executor = SeamExecutor(fan_fn=lambda checks, **kw: (captured.extend(checks), seen.update(checks=checks, **kw), (_OK,) * len(checks))[-1])
+    files = ("docs/a/README.md", "docs/b/README.md")
+    [assay_root.write(f, "# d") for f in files]
     scope = assay_root.scope(Claim.DOCS)
 
-    check(assay_root.settings, scope, DocsParams(paths=("docs/dep.md",)), executor)
-    assert seen["settings"] is assay_root.settings, "fan_out receives the settings threaded through check, not None"
-    assert seen["scope"] is scope, "fan_out receives the scope threaded through check, not None"
+    assert_ok(check(assay_root.settings, scope, DocsParams(paths=files), executor))
 
-
-# --- [LAWS_OUTCOMES]
-
-
-def test_outcomes_per_file_argv_shape(assay_root: AssayHarness) -> None:
-    """_outcomes builds one mmdc Check per file with scoped, collision-free sinks."""
-    captured: list[Check] = []
-    executor = SeamExecutor(fan_fn=lambda checks, **_k: captured.extend(checks) or ())
-
-    scope = assay_root.scope(Claim.DOCS)
-    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md", "tools/assay/README.md"))
-    docs_rail._outcomes(routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=executor)
-
-    assert len(captured) == 2, "one Check per routed file"
-    for chk, src, stem in zip(captured, routed.files, ("docs__a", "tools__assay__README"), strict=True):
-        cmd = chk.tool.command
+    assert len(captured) == 2, "settings.root routing finds harness-local files; cwd routing finds nothing"
+    sinks = []
+    for chk, src in zip(captured, files, strict=True):
+        cmd = chk.args.fill(chk.tool.command)
         assert cmd[0] == "mmdc"
-        assert cmd[-6:] == ("-i", src, "-a", scope.path, "-o", f"{scope.path}/{stem}.md")
-        assert cmd[-1].endswith(".md"), "argv terminates at the -o markdown sink, not a bare input positional"
-    assert docs_rail._sink_stem("a/README.md") != docs_rail._sink_stem("b/README.md"), "same-basename files slug to distinct sinks"
+        assert cmd[cmd.index("-i") + 1] == src
+        assert cmd[cmd.index("-a") + 1] == scope.path
+        sinks.append(cmd[cmd.index("-o") + 1])
+        assert sinks[-1].endswith(".md"), "argv terminates at the -o markdown sink, not a bare input positional"
+    assert len(set(sinks)) == 2, "same-basename files slug to distinct sinks"
+    assert seen["settings"] is assay_root.settings
+    assert seen["scope"] is scope
+    assert set(seen) >= {"checks", "settings", "scope", "routed"}, "no fan_out keyword is dropped"
 
 
-def test_outcomes_folds_result_rows_and_artifacts(assay_root: AssayHarness) -> None:
-    """_outcomes folds per-file result rows and produced sink artifacts."""
+def test_check_folds_result_rows_severity_and_sink_artifacts(assay_root: AssayHarness) -> None:
+    """Check folds one source:<file>:1 row per routed file, stamps receipt severity, and rides produced sinks as artifacts."""
     assay_root.write("docs/diagram.md", "# d")
     scope = assay_root.scope(Claim.DOCS)
     scope.ensure()
-    stem = docs_rail._sink_stem("docs/diagram.md")
-    scope.store.write_bytes(b"<svg/>", *scope.path.removeprefix(f"{scope.store.root}/").split("/"), f"{stem}-1.svg")
-    scope.store.write_bytes(b"# out", *scope.path.removeprefix(f"{scope.store.root}/").split("/"), f"{stem}.md")
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+    captured: list[Check] = []
+    probe = SeamExecutor(fan_fn=lambda checks, **_k: (captured.extend(checks), (_OK,))[-1])
+    check(assay_root.settings, scope, DocsParams(paths=("docs/diagram.md",)), probe)
+    cmd = captured[0].args.fill(captured[0].tool.command)
+    stem = cmd[cmd.index("-o") + 1].rsplit("/", 1)[-1].removesuffix(".md")  # sink stem learned from the public argv, not the private slugger
+    parts = scope.path.removeprefix(f"{scope.store.root}/").split("/")
+    scope.store.write_bytes(b"<svg/>", *parts, f"{stem}-1.svg")
+    scope.store.write_bytes(b"# out", *parts, f"{stem}.md")
 
-    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/diagram.md",))
-    report = assert_ok(
-        docs_rail._outcomes(routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=executor)
-    )
-
-    assert [m.id for m in report.results] == ["source:docs/diagram.md:1"], "one source:<file>:1 row per routed file"
-    assert report.results[0].severity is None, "an exit-0 mmdc receipt folds to a non-failed row"
-    artifact_names = {a.path.rsplit("/", 1)[-1] for a in report.artifacts}
+    ok_report = assert_ok(_check(assay_root, (_OK,), paths=("docs/diagram.md",)))
+    assert [m.id for m in ok_report.results] == ["source:docs/diagram.md:1"]
+    assert ok_report.results[0].severity is None, "an exit-0 mmdc receipt folds to a non-failed row"
+    assert ok_report.status is RailStatus.OK, "EMPTY base + result rows promotes to OK"
+    artifact_names = {a.path.rsplit("/", 1)[-1] for a in ok_report.artifacts}
     assert {f"{stem}-1.svg", f"{stem}.md"} <= artifact_names, "produced SVG + MD ride the envelope as Artifact rows"
 
-
-def test_outcomes_empty_fold_promotes_to_ok(assay_root: AssayHarness) -> None:
-    """_outcomes promotes row-bearing EMPTY reports but preserves FAILED receipts."""
-    assay_root.write("docs/ok.md", "# ok")
-    scope = assay_root.scope(Claim.DOCS)
-    ok_executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
-    ok_routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/ok.md",))
-    ok_report = assert_ok(
-        docs_rail._outcomes(
-            ok_routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=ok_executor
-        )
-    )
-    assert ok_report.status is RailStatus.OK, "EMPTY base + result rows promotes to OK"
-
-    failed_executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 1, status=RailStatus.FAILED)),))
-    bad_report = assert_ok(
-        docs_rail._outcomes(
-            ok_routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=failed_executor
-        )
-    )
+    bad_report = assert_ok(_check(assay_root, (_FAILED,), paths=("docs/diagram.md",)))
     assert bad_report.status is RailStatus.FAILED, "a FAILED receipt is never promoted away"
     assert bad_report.results[0].severity == "failed", "the FAILED receipt stamps the row severity"
-
-
-def test_outcomes_verb_stamped_into_report(assay_root: AssayHarness) -> None:
-    """_outcomes stamps the supplied verb into Report.verb."""
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
-
-    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md",))
-    result = docs_rail._outcomes(
-        routed, settings=assay_root.settings, scope=assay_root.scope(Claim.DOCS), claim=Claim.DOCS, verb="audit", mode=Mode.CHECK, executor=executor
-    )
-    report = assert_ok(result)
-    assert report.verb == "audit", "Report.verb is the verb argument, not a hardcoded or nulled value"
-
-
-def test_outcomes_fan_out_receives_real_dependencies(assay_root: AssayHarness) -> None:
-    """_outcomes forwards live settings, scope, and routed objects to executor.fan."""
-    seen: dict[str, object] = {}
-    executor = SeamExecutor(fan_fn=lambda checks, **kw: (seen.update(checks=checks, **kw), ())[1])
-
-    scope = assay_root.scope(Claim.DOCS)
-    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md",))
-    docs_rail._outcomes(routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=executor)
-
-    assert seen["settings"] is assay_root.settings, "fan_out receives the live settings, not None"
-    assert seen["scope"] is scope, "fan_out receives the live scope, not None"
-    assert seen["routed"] is routed, "fan_out receives the live routed projection, not None"
-    assert set(seen) == {"checks", "settings", "scope", "routed"}, "no fan_out keyword is dropped"

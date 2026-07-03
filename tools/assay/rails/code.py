@@ -1,27 +1,27 @@
 """Search code with ast-grep, ripgrep, and in-process tree-sitter query rails."""
 
 from dataclasses import dataclass, replace
-from functools import cache, reduce
+from functools import reduce
 from hashlib import sha256
 from pathlib import Path
 import re
-from typing import Annotated, Final, override, TYPE_CHECKING
+from typing import Annotated, ClassVar, Final, override, TYPE_CHECKING
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
-from expression.extra.result import catch, sequence
+from expression.extra.result import sequence
 import msgspec
-from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor, QueryError
+from tree_sitter import Parser as TSParser, QueryCursor
 import tree_sitter_python
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
-from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
+from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
+from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
-    _RESULT_CAP,  # noqa: PLC2701  # shared saturation site for in-process tree-sitter match limiting
     Artifact,
     ArtifactKind,
     BaseParams,
@@ -37,17 +37,18 @@ from tools.assay.core.model import (
     RailStatus,
     receipt,
     Report,
+    RESULT_CAP,
     Step,
+    ToolArgs,
 )
 from tools.assay.core.routing import resolve_languages, route, Routed, Scope
-from tools.assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, fold, RG_EVENT
+from tools.assay.diagnostics import AST_MATCHES, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, fold, node_text, RG_EVENT, ts_language, ts_query
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from expression.collections import Block
-    from tree_sitter import Node
 
     from tools.assay.core.model import InprocThunk, Tool
     from tools.assay.diagnostics import AstMatch, RgEvent
@@ -65,6 +66,8 @@ _METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CodeParams(BaseParams):
     """Parameters shared by code verbs."""
+
+    SLOTS: ClassVar[dict[str, str]] = {"": "PATTERN [PATHS]..."}
 
     # language selectors are optional; hide default so help does not advertise an unset flag
     csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
@@ -131,16 +134,16 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: A
     return sequence(block.of_seq(route(language, paths or _DEFAULT_TARGET, settings=settings) for language in languages))
 
 
-def _checks(routed: Routed, mode: Mode, splice: Callable[[Tool, Routed], Tool]) -> tuple[Check, ...]:
+def _checks(routed: Routed, mode: Mode, splice: Callable[[Tool, Routed], Check]) -> tuple[Check, ...]:
     match routed.files:
         case ():
             return ()
         case _:
-            return tuple(Check(tool=splice(t, routed), paths=routed.files) for t in select(Claim.CODE, routed.language) if t.mode is mode)
+            return tuple(splice(t, routed) for t in select(Claim.CODE, routed.language) if t.mode is mode)
 
 
 def _dispatch(
-    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, splice: Callable[[Tool, Routed], Tool], executor: Executor
+    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor
 ) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, mode, splice)
     match checks:
@@ -151,7 +154,7 @@ def _dispatch(
 
 
 def _fan(
-    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool], executor: Executor
+    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
     return resolve_languages(params.language, params.paths, claim=Claim.CODE).bind(
@@ -172,16 +175,16 @@ def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
             return tuple(p for p in paths if (root / p).exists()) or _DEFAULT_TARGET
 
 
-def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Tool]:
+def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Check]:
     # Targets ride the command body to avoid ARG_MAX; tracked dot-dirs stay visible, gitignored dirs stay excluded.
     targets = _targets(params.paths, root)
-    return lambda tool, routed: msgspec.structs.replace(
-        tool, command=(*tool.command, "-p", params.pattern, "-l", routed.language.value, "--json=compact", "--no-ignore", "hidden", *targets)
+    return lambda tool, routed: Check(
+        tool=tool, paths=routed.files, args=ToolArgs(pattern=params.pattern, language=routed.language.value, targets=targets)
     )
 
 
-def _query_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Tool]:
-    return lambda tool, routed: msgspec.structs.replace(tool, thunk=_ts_thunk(params.pattern, routed.language, root, limit=params.max_results))
+def _query_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Check]:
+    return lambda tool, routed: Check(tool=tool, paths=routed.files, thunk=_ts_thunk(params.pattern, routed.language, root, limit=params.max_results))
 
 
 def _top_level_patterns(query_src: str) -> int:
@@ -230,34 +233,6 @@ def _ts_grammar(language: Language, *, is_tsx: bool) -> Callable[[], object]:
     return _TSX_GRAMMAR if language is Language.TYPESCRIPT and is_tsx else _GRAMMARS[language]
 
 
-@cache
-def ts_language(grammar: Callable[[], object]) -> TSLanguage:
-    """Compile and cache a tree-sitter language keyed on grammar-fn identity.
-
-    Returns:
-        TSLanguage compiled from the grammar factory; subsequent calls with the same
-        callable return the cached instance.
-    """
-    return TSLanguage(grammar())
-
-
-@cache
-@catch(exception=QueryError)
-def ts_query(grammar: Callable[[], object], query_src: str) -> TSQuery:
-    """Compile and cache a tree-sitter query keyed on grammar-fn identity and source text.
-
-    Returns:
-        Ok carrying the compiled TSQuery, or Error carrying the QueryError from a
-        syntactically invalid query_src.
-    """
-    return TSQuery(ts_language(grammar), query_src)
-
-
-def _node_text(node: Node) -> str:
-    raw = node.text
-    return raw.decode(errors="replace") if raw is not None else ""
-
-
 def _read(path: Path) -> bytes | None:
     try:
         return path.read_bytes()
@@ -283,7 +258,7 @@ def _ts_file_captures(
     captures = tuple(
         Capture(
             name=name,
-            text=_node_text(node)[:_TEXT_CAP],
+            text=node_text(node)[:_TEXT_CAP],
             file=rel,
             line=node.start_point.row + 1,
             column=node.start_point.column + 1,
@@ -314,7 +289,7 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
         in stdout and a RailStatus reflecting query success, empty match, or parse error.
     """
     needles = _eq_needles(query_src)
-    cap = limit if limit > 0 else _RESULT_CAP
+    cap = limit if limit > 0 else RESULT_CAP
     parsers: dict[Callable[[], object], TSParser] = {}
 
     def run(check: Check) -> Completed:
@@ -351,12 +326,6 @@ def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -
         return decoder.decode(raw)
     except msgspec.MsgspecError:
         return empty
-
-
-def _cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail: str = "full listing in artifact") -> tuple[str, ...]:
-    # Saturation means total is a floor; the note must name the full-payload route.
-    detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
-    return (f"results: {shown} of {total} ({detail}); {tail}",) if total > shown or saturated else ()
 
 
 def _report(
@@ -438,13 +407,13 @@ def _project_rows[M](
     # Rows are capped for the report; artifact listing stays complete across match families.
     matches = spec.extract(completeds)
     rows = tuple(spec.row(m, pattern) for m in matches[:cap])
-    return rows, "\n".join(spec.entry(m) for m in matches), _cap_note(len(rows), len(matches), cap, saturated=spec.saturated(matches))
+    return rows, "\n".join(spec.entry(m) for m in matches), cap_note(len(rows), len(matches), cap, saturated=spec.saturated(matches))
 
 
-def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
+def _content_args(params: CodeParams, root: Path) -> ToolArgs:
     # --glob narrows to language suffixes; missing paths drop to the default target, matching _targets behavior in ast-grep splices.
     globs = tuple(arg for suffix in (params.language.suffixes if params.language is not None else ()) for arg in ("--glob", f"*{suffix}"))
-    return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *_targets(params.paths, root)))
+    return ToolArgs(globs=globs, pattern=params.pattern, targets=_targets(params.paths, root))
 
 
 def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailStatus, tuple[str, ...]]:
@@ -489,7 +458,7 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
         case None:
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
         case tool:
-            check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
+            check = Check(tool=tool, paths=tuple(params.paths or _DEFAULT_TARGET), args=_content_args(params, Path(str(settings.root))))
             routed = Routed(language=tool.language, scope=Scope.CHANGED)
             return executor.run(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
 

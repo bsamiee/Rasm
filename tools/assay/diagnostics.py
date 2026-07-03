@@ -261,6 +261,55 @@ _LOG = structlog.get_logger("assay.diagnostics")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [TREE_SITTER]
+
+
+@cache
+def ts_language(grammar: Callable[[], object]) -> TSLanguage:
+    """Compile and cache a tree-sitter language keyed on grammar-fn identity.
+
+    Returns:
+        TSLanguage compiled from the grammar factory; subsequent calls with the same
+        callable return the cached instance.
+    """
+    return TSLanguage(grammar())
+
+
+@cache
+@catch(exception=QueryError)
+def ts_query(grammar: Callable[[], object], query_src: str) -> TSQuery:
+    """Compile and cache a tree-sitter query keyed on grammar-fn identity and source text.
+
+    Returns:
+        Ok carrying the compiled TSQuery, or Error carrying the QueryError from a
+        syntactically invalid query_src.
+    """
+    return TSQuery(ts_language(grammar), query_src)
+
+
+def node_text(node: Node) -> str:
+    """Decode a tree-sitter node's text.
+
+    Returns:
+        UTF-8 text with invalid bytes replaced, or "" for a detached node.
+    """
+    raw = node.text
+    return raw.decode(errors="replace") if raw is not None else ""
+
+
+def cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail: str = "full listing in artifact") -> tuple[str, ...]:
+    """Render the one truncation-note grammar every capped listing shares.
+
+    Returns:
+        One note naming shown/total/cap and the full-payload route, or empty when nothing was clipped.
+    """
+    # Saturation means total is a floor; the note must name the full-payload route.
+    detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
+    return (f"results: {shown} of {total} ({detail}); {tail}",) if total > shown or saturated else ()
+
+
+# --- [SARIF_FOLD]
+
 
 @cache
 def _sarif_decode(path: Path, stat_key: tuple[int, int]) -> _SarifLog:
@@ -312,12 +361,9 @@ def _sarif_match(result: _SarifResult) -> Match:
     )
 
 
-def _argv_sarif_dir(argv: tuple[str, ...], fallback: Path) -> Path:
-    return next((Path(token.split("=", 1)[1]) for token in argv if token.startswith("-p:CspSarifDir=")), fallback)
-
-
-def _sarif_files(base: Path, argv: tuple[str, ...], stem: str, *, slnx: bool) -> tuple[Path, ...]:
-    active = _argv_sarif_dir(argv, base)
+def _sarif_files(base: Path, stamped: str, stem: str, *, slnx: bool) -> tuple[Path, ...]:
+    # The typed Completed.sarif_dir stamp is authoritative; the fold never re-parses argv for the drop directory.
+    active = Path(stamped) if stamped else base
     match (slnx, bool(stem)):
         case (True, _):
             return tuple(sorted(active.glob("*.sarif")))
@@ -337,7 +383,7 @@ def _sarif_rows(sarif_dir: str | None, outcomes: tuple[Completed, ...]) -> tuple
             path
             for done in builds
             for stem, slnx in (_build_targets(done.argv) or (("", True),))
-            for path in _sarif_files(base, done.argv, stem, slnx=slnx)
+            for path in _sarif_files(base, done.sarif_dir, stem, slnx=slnx)
         )
         if builds
         else tuple(sorted(base.glob("*.sarif")))
@@ -362,15 +408,15 @@ def sarif_status(outcomes: tuple[Completed, ...], sarif_dir: str | None) -> tupl
     """
     base = Path(sarif_dir) if sarif_dir else None
     return tuple(
-        (stem, _classify_sarif(done.status, base, done.argv, stem, slnx=slnx).token(_sarif_results(base, done.argv, stem, slnx=slnx)))
+        (stem, _classify_sarif(done.status, base, done.sarif_dir, stem, slnx=slnx).token(_sarif_results(base, done.sarif_dir, stem, slnx=slnx)))
         for done in outcomes
         if "dotnet" in done.argv and "build" in done.argv
         for stem, slnx in (_build_targets(done.argv) or (("", False),))
     )
 
 
-def _classify_sarif(status: RailStatus, base: Path | None, argv: tuple[str, ...], stem: str, *, slnx: bool) -> SarifStatus:
-    produced = base is not None and any(path.is_file() for path in _sarif_files(base, argv, stem, slnx=slnx))
+def _classify_sarif(status: RailStatus, base: Path | None, stamped: str, stem: str, *, slnx: bool) -> SarifStatus:
+    produced = base is not None and any(path.is_file() for path in _sarif_files(base, stamped, stem, slnx=slnx))
     match (produced, status):
         case (True, _):
             return SarifStatus.PRODUCED
@@ -382,10 +428,10 @@ def _classify_sarif(status: RailStatus, base: Path | None, argv: tuple[str, ...]
             return SarifStatus.BUILD_FAILED
 
 
-def _sarif_results(base: Path | None, argv: tuple[str, ...], stem: str, *, slnx: bool) -> int:
+def _sarif_results(base: Path | None, stamped: str, stem: str, *, slnx: bool) -> int:
     if base is None:
         return 0
-    files = _sarif_files(base, argv, stem, slnx=slnx)
+    files = _sarif_files(base, stamped, stem, slnx=slnx)
     return sum(1 for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions)
 
 
@@ -707,4 +753,16 @@ _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AST_MATCHES", "CAPTURES", "CAPTURE_ENCODER", "Capture", "RG_EVENT", "fold", "sarif_status"]
+__all__ = [
+    "AST_MATCHES",
+    "CAPTURES",
+    "CAPTURE_ENCODER",
+    "Capture",
+    "RG_EVENT",
+    "cap_note",
+    "fold",
+    "node_text",
+    "sarif_status",
+    "ts_language",
+    "ts_query",
+]

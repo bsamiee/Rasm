@@ -513,9 +513,11 @@ max_stack_depth = -1              # disables mutmut's strict stack walk over imp
 # Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
 [tool.importlinter]
 root_packages = ["tools.assay", "tools.py_analyzer"]
+# TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
+exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
-name = "assay strata: model -> diagnostics -> settings/aspect -> catalog -> routing -> engine -> rails -> registry -> automation"
+name = "assay strata: model -> diagnostics -> store -> settings/aspect -> catalog -> routing -> govern -> remote -> exec -> oracle -> rails -> registry -> automation"
 type = "layers"
 containers = ["tools.assay"]
 layers = [
@@ -523,15 +525,18 @@ layers = [
     "automation",
     "composition.registry",
     "rails",
-    "core.engine",
+    "oracle",
+    "core.exec",
+    "core.remote",
+    "core.govern",
     "core.routing",
     "composition.catalog",
     "_logging",
     "composition.settings | core.aspect",
+    "composition.store",
     "diagnostics",
     "core.model",
 ]
-ignore_imports = ["tools.assay.core.routing -> tools.assay.core.engine"]  # deferred in-function import; the cycle dies at the assay rebuild's exec split
 
 [[tool.importlinter.contracts]]
 name = "rails are peer-independent"
@@ -541,23 +546,20 @@ modules = [
     "tools.assay.rails.bridge",
     "tools.assay.rails.code",
     "tools.assay.rails.docs",
+    "tools.assay.rails.health",
     "tools.assay.rails.mutation_gate",
     "tools.assay.rails.package",
     "tools.assay.rails.provision",
     "tools.assay.rails.static",
     "tools.assay.rails.test",
 ]
-# Both edges are standing debt the assay rebuild retires by moving shared rail primitives to neutral owners.
-ignore_imports = [
-    "tools.assay.rails.api -> tools.assay.rails.code",
-    "tools.assay.rails.package -> tools.assay.rails.bridge",
-]
+# Named debt: package rides bridge's apphost lease/client seam until a neutral client owner exists.
+ignore_imports = ["tools.assay.rails.package -> tools.assay.rails.bridge"]
 
 [[tool.importlinter.contracts]]
 name = "py_analyzer and assay meet at the process boundary, never by import"
 type = "independence"
 modules = ["tools.assay", "tools.py_analyzer"]
-ignore_imports = ["tools.py_analyzer.analyzer -> tools.assay.rails.code"]  # ts_language inversion; debt for the assay rebuild's neutral grammar owner
 
 # --- [RUFF] ----------------------------------------------------------------
 

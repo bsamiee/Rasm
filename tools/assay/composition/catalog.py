@@ -201,7 +201,17 @@ TOOLS: tuple[Tool, ...] = (
     ),
     # Analyzer-free, SARIF-free compile probe gating the C# FIX phase; VERIFY keeps it off the BUILD phase fan.
     Tool("dotnet-probe", DOTNET, ("build", "-p:RunAnalyzers=false", "-tl:off", "-v:quiet"), PROJECT, CS, Claim.STATIC, mode=Mode.VERIFY),
-    Tool("dotnet-test", DOTNET, ("test", "--minimum-expected-tests", "1", "{filter*}"), PROJECT, CS, Claim.TEST, mode=Mode.RUN, input_flag=("--project",)),
+    # {flags*} carries the opt-in TRX evidence tail (--report-trx --results-directory <trx-dir>) the test rail splices per project.
+    Tool(
+        "dotnet-test",
+        DOTNET,
+        ("test", "--minimum-expected-tests", "1", "{filter*}", "{flags*}"),
+        PROJECT,
+        CS,
+        Claim.TEST,
+        mode=Mode.RUN,
+        input_flag=("--project",),
+    ),
     Tool("dotnet-test", DOTNET, ("test", "--list-tests", "{filter*}"), PROJECT, CS, Claim.TEST, mode=Mode.LIST, input_flag=("--project",)),
     # Stryker.NET runs from the empty staged work root: the config file pins mutation policy, {solution} anchors the
     # real tree, and {output} routes reports to the pre-created report root so no sandbox litter escapes .artifacts.
@@ -325,7 +335,9 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.CONTENT,
     ),
     # --- [PROVISION]
-    Tool("forge-provision", DIRECT, ("forge-provision", "{flags*}", "{verb}"), NONE, PY, Claim.PROVISION, mode=Mode.RUN, timeout=_PROVISION_TIMEOUT_S),
+    Tool(
+        "forge-provision", DIRECT, ("forge-provision", "{flags*}", "{verb}"), NONE, PY, Claim.PROVISION, mode=Mode.RUN, timeout=_PROVISION_TIMEOUT_S
+    ),
     Tool(
         "forge-provision",
         DIRECT,
@@ -389,7 +401,7 @@ def launch(tool: Tool) -> tuple[str, ...]:
     """
     match tool.runner:
         case Runner.UV:
-            return ("uv", "run", "--locked", *(part for group in tool.uv_groups() for part in ("--group", group)))
+            return ("uv", "run", "--locked", *(part for group in tool.uv_groups() for part in ("--group", group.value)))
         case Runner.MODULE:
             return ("uv", "run", "--locked", "python", "-m")
         case _:

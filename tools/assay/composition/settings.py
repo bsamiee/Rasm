@@ -26,10 +26,7 @@ from pydantic_settings import (  # noqa: TC002  # Runtime annotations call the P
 from upath import UPath
 
 from tools.assay.composition.store import ArtifactStore, safe_segment
-from tools.assay.core.model import (  # noqa: TC001  # Settings/model field hooks evaluate these annotations at runtime.
-    ArtifactKind,
-    wire_safe,
-)
+from tools.assay.core.model import ArtifactKind, wire_safe  # noqa: TC001  # Settings/model field hooks evaluate these annotations at runtime.
 
 
 # --- [TYPES] ----------------------------------------------------------------------------

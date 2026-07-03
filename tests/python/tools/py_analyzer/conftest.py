@@ -1,14 +1,16 @@
-"""py_analyzer suite wiring: SUT registration for the law-coverage gate (second-package pilot) plus the module-tree kit.
+"""py_analyzer suite wiring: SUT registration for the law-coverage gate plus the module-tree kit.
 
-The two-line integration recipe: import ``register_sut``, call it with the package and its exempt set.
-The generic gate (``tests.python._testkit.test_policy``) walks this package's public surface on every
-full-suite run with no further configuration. The ``kit`` fixture binds the shared ``TmpRoot`` writer through
-the testkit ``KitFactory`` seam (this suite carries no settings payload).
+The two-line integration recipe: import ``register_sut``, call it with the package. The generic gate
+(``tests.python._testkit.test_policy``) walks this package's public surface on every full-suite run;
+StrEnum vocabularies, method-free frozen structs, and value-only symbols auto-exempt by predicate,
+and every remaining public symbol carries census credit through the suite's ``COVERS`` tuple.
+The ``kit`` fixture binds the shared ``TmpRoot`` writer through the testkit ``KitFactory`` seam
+(this suite carries no settings payload).
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from typing import Final, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -24,18 +26,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# PILOT DEBT LEDGER, not an endorsement: every entry is a currently-uncovered public symbol awaiting
-# laws. Shrink this set by authoring laws, never by deleting symbols from it without one. cli.py now
-# declares __all__, so its import-noise symbols (Path/TYPE_CHECKING/annotations/assert_never) leave the
-# walked surface — only the 15 real public symbols remain on the ledger.
-_EXEMPT: Final = frozenset({
-    "analyze_paths", "classify_scope", "PY_ANALYZER_ROOT",                                  # analyzer: walk + scope engine
-    "Diagnostic", "JsonValue", "OutputFormat", "Rule", "RULES",                             # rules: catalog + wire shape
-    "RuleCategory", "RuleId", "Scope", "Severity", "diagnostic",                            # rules: vocabularies + constructor
-    "emit", "main",                                                                  # cli: output contract + entrypoint
-})  # fmt: skip
-
-register_sut("tools.py_analyzer", exempt=_EXEMPT)
+register_sut("tools.py_analyzer")
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

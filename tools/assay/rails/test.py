@@ -17,15 +17,17 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves ArtifactScope/ArtifactStore/AssaySettings annotations at runtime
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves rail annotations at runtime
+from tools.assay.composition.store import (  # noqa: TC001  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
     ArtifactScope,
     ArtifactStore,
-    AssaySettings,
+    CS_ARTIFACT_ROOTS,
     DOTNET_BUILD_CLOSURE,
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
 )
-from tools.assay.core.engine import Executor, leased  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.govern import leased
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -45,9 +47,9 @@ from tools.assay.core.model import (
     receipt,
     Report,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
-    Stage,
     TestRun,
     Tool,
+    ToolArgs,
     ToolGroup,
 )
 from tools.assay.core.routing import expand, parse_csproj, resolve_languages, route, Scope
@@ -83,6 +85,8 @@ class _DiscoveryLane(StrEnum):
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
 # Only these lanes reach dotnet dispatch; SHELL/SUPPORT/BENCHMARK/NON_TEST rows are report evidence, never test targets.
 _RUNNABLE_LANES: frozenset[_TestProjectLane] = frozenset((_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND))
+# TRX evidence root beside the sibling C# artifact roots; per-project dirs nest under it.
+_TRX_ROOT: str = f"{PurePosixPath(CS_ARTIFACT_ROOTS['stryker-output']).parent}/trx"
 _COVERAGE_JSON: str = PY_COVERAGE_FILES["json"]
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.json", ("uv", "run", "coverage", "json", "-o", PY_COVERAGE_FILES["json"])),
@@ -108,18 +112,6 @@ _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
 }
 # mutmut self-parallelizes below the rail governor; --max-children caps that second tier.
 _MUTATION_GOVERNOR: frozenset[str] = frozenset(("mutmut",))
-# Lease-riding kill-rate gate over the staged mutmut cache; group splice only.
-_GATE_TOOL = Tool(
-    name="mutmut-gate",
-    runner=Runner.UV,
-    command=("python", "-m", "tools.assay.rails.mutation_gate"),
-    input=Input.OWNED,
-    language=Language.PYTHON,
-    claim=Claim.TEST,
-    mode=Mode.MUTATION,
-    groups=(ToolGroup.MUTATION,),
-    stage=Stage(project=True),
-)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -140,6 +132,7 @@ class TestParams(BaseParams):
     mutation: MutationLane = MutationLane.OFF
     benchmark: bool = False
     coverage: bool = False
+    trx: bool = False
     filter: str = ""
     limit: NonNegativeInt = 0
     grep: str = ""
@@ -231,23 +224,31 @@ def _filter(expr: str) -> tuple[str, ...]:
             return ("--filter-method", f"*{method}*")
 
 
-def _governor(tool: Tool, settings: AssaySettings) -> tuple[str, ...]:
-    # --max-children binds mutmut's internal pytest fan-out to mutation_max_cpu.
-    return ("--max-children", str(settings.mutation_max_cpu)) if tool.name in _MUTATION_GOVERNOR else ()
+def _mutation_args(tool: Tool, params: TestParams, settings: AssaySettings, files: tuple[str, ...]) -> ToolArgs | None:
+    """Project one mutation row's typed splice values: governor cap, changed-file scope, and the staged Stryker anchors.
 
-
-def _scoped_mutation(tool: Tool, params: TestParams, settings: AssaySettings, files: tuple[str, ...]) -> Tool | None:
-    # One mutation argv shaper owns governors and changed-file scoping for every runner.
-    govern = _governor(tool, settings)
-    match (tool.mode, params.mutation, _MUTATION_SCOPE.get(tool.name)):
-        case (Mode.MUTATION, MutationLane.CHANGED, None):
+    Returns:
+        Typed splice values for the row's holes, or ``None`` when the CHANGED lane has no scope projection for the runner.
+    """
+    match (params.mutation, _MUTATION_SCOPE.get(tool.name)):
+        case (MutationLane.CHANGED, None):
             return None
-        case (Mode.MUTATION, MutationLane.CHANGED, scoped) if scoped is not None:
-            return msgspec.structs.replace(tool, command=(*tool.command, *govern, *scoped(files)))
-        case (Mode.MUTATION, _, _):
-            return msgspec.structs.replace(tool, command=(*tool.command, *govern)) if govern else tool
+        case (MutationLane.CHANGED, scoped) if scoped is not None:
+            scope = scoped(files)
         case _:
-            return tool
+            scope = ()
+    # A staged dotnet mutation row (Stryker) runs from an empty work root: absolute --solution/--output anchor it to
+    # the real tree; Stryker.NET requires the report --output dir to pre-exist, so the rail creates it here.
+    staged_dotnet = tool.runner is Runner.DOTNET and bool(tool.stage.root)
+    output = str(Path(str(settings.root)).resolve() / CS_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
+    if output:
+        Path(output).mkdir(parents=True, exist_ok=True)
+    return ToolArgs(
+        max_children=str(settings.mutation_max_cpu) if tool.name in _MUTATION_GOVERNOR else "",
+        output=output,
+        scope=scope,
+        solution=str(settings.solution) if staged_dotnet else "",
+    )
 
 
 def _relative_project(project: str | Path, settings: AssaySettings) -> str:
@@ -296,28 +297,38 @@ def _lane_counts(rows: Iterable[tuple[str, StrEnum]]) -> tuple[tuple[str, int], 
 
 
 def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: Mode) -> tuple[Check, ...]:
-    # MTP consumes the filter; non-dotnet rows ignore it. CHANGED mutation rows scope to routed files.
+    # MTP consumes the filter through the dotnet rows' {filter*} hole; CHANGED mutation rows scope to routed files.
     filt = _filter(params.filter)
 
-    def _splice(tool: Tool) -> Tool | None:
-        scoped = _scoped_mutation(tool, params, settings, routed.files)
-        match (scoped, tool.mode, bool(filt), tool.runner):
-            case (None, _, _, _) | (_, Mode.MUTATION, _, _):
-                return scoped
-            case (_, Mode.RUN | Mode.LIST, True, Runner.DOTNET):
-                return msgspec.structs.replace(tool, command=(*tool.command, *filt))
+    def _args(tool: Tool) -> ToolArgs | None:
+        match (tool.mode, bool(filt), tool.runner):
+            case (Mode.MUTATION, _, _):
+                return _mutation_args(tool, params, settings, routed.files)
+            case (Mode.RUN | Mode.LIST, True, Runner.DOTNET):
+                return ToolArgs(filter=filt)
             case _:
-                return tool
+                return ToolArgs()
 
     # Explicit [paths...] scope the pytest family; the changed-file default and --all keep the full configured suite.
     suite_wide = not params.paths or params.all
 
-    def _check(tool: Tool) -> Check:
+    def _check(tool: Tool, args: ToolArgs) -> Check:
         pinned = suite_wide and tool.runner is Runner.UV and tool.input is Input.FILES
-        return Check(tool=tool, paths=routed.files, tail=()) if pinned else Check(tool=tool, paths=routed.files)
+        return Check(tool=tool, paths=routed.files, tail=() if pinned else None, args=args)
 
-    selected = tuple(_check(spliced) for t in _rows(routed.language, params, mode) for spliced in (_splice(t),) if spliced is not None)
-    return expand(selected, routed, settings=settings)
+    def _trx(check: Check) -> Check:
+        # Opt-in TRX evidence rides the {flags*} hole per expanded project; the pinned tail (or the deferred
+        # single-project placement) names the results dir, an unpinned suite run lands under "solution".
+        if not (params.trx and check.tool.runner is Runner.DOTNET and check.tool.mode is Mode.RUN):
+            return check
+        deferred = routed.projects[0] if check.tail is None and len(routed.projects) == 1 else ""
+        sources = (*(check.tail or ()), deferred)
+        project = next((PurePosixPath(part.replace("\\", "/")).stem for part in sources if part.endswith(".csproj")), "solution")
+        trx_dir = Path(str(settings.root)).resolve() / _TRX_ROOT / project
+        return msgspec.structs.replace(check, args=msgspec.structs.replace(check.args, flags=("--report-trx", "--results-directory", str(trx_dir))))
+
+    selected = tuple(_check(t, args) for t in _rows(routed.language, params, mode) for args in (_args(t),) if args is not None)
+    return tuple(_trx(check) for check in expand(selected, routed, settings=settings))
 
 
 def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettings, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
@@ -568,12 +579,14 @@ def _gate(
     executor: Executor,
 ) -> tuple[Result[Completed, Fault], ...]:
     # Kill-rate gate rides the held mutation lease: one sequential check against the staged mutmut cache.
+    # The gate is the catalog VERIFY row tagged MUTATION; VERIFY keeps it off every dispatch fan.
     staged = next((t for t in _rows(routed.language, params, Mode.MUTATION) if t.stage.root), None)
+    gate_row = next((t for t in select(Claim.TEST, routed.language) if t.mode is Mode.VERIFY and ToolGroup.MUTATION in t.groups), None)
     succeeded = any(c.returncode == 0 and "mutmut" in c.argv for r in done if r.is_ok() for c in (r.ok,))
-    match (staged, succeeded):
-        case (Tool() as row, True):
+    match (staged, gate_row, succeeded):
+        case (Tool() as row, Tool() as gate_tool, True):
             work = Path(str(settings.root)) / row.stage.root
-            return executor.fan((Check(tool=_GATE_TOOL, cwd=work),), settings=settings, scope=scope, routed=routed)
+            return executor.fan((Check(tool=gate_tool, cwd=work),), settings=settings, scope=scope, routed=routed)
         case _:
             return ()
 

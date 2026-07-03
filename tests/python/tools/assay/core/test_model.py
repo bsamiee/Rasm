@@ -1,11 +1,12 @@
-"""Model laws for wire determinism, report folding, envelopes, and enum payloads.
+"""Model laws for wire determinism, status algebra, report folding, envelopes, and enum payloads.
 
-Every registered wire struct is swept through encode/decode/re-encode identity, while report arithmetic
-is pinned through count consistency and fold-specific projection laws.
+Every registered wire struct sweeps through encode/decode/re-encode identity; the RailStatus join/fold
+algebra pins its full truth table; report arithmetic pins count consistency and fold projection laws.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+import itertools
 from pathlib import Path
 from typing import get_args
 
@@ -14,8 +15,8 @@ import msgspec
 import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests.python._testkit.laws import register_law, register_laws, spec
-from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, support_matrix
+from tests.python._testkit.laws import spec
+from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic
 from tests.python.tools.assay.kit import (
     api_resolution_st,
     api_source_st,
@@ -34,6 +35,7 @@ from tests.python.tools.assay.kit import (
     match_st,
     package_run_st,
     provision_run_st,
+    rail_status_st,
     report_st,
     run_delta_st,
     run_snapshot_st,
@@ -65,12 +67,11 @@ from tools.assay.core.model import (
     ExecReceipt,
     Fault,
     field_cap,
+    HOST_BOUND_CLAIMS,
     Input,
     Language,
     language_choice,
     Match,
-    Mode,
-    MutationLane,
     PackageRun,
     Parser,
     ProvisionRun,
@@ -81,12 +82,11 @@ from tools.assay.core.model import (
     Runner,
     RunSnapshot,
     SarifStatus,
-    SourceKind,
     Stage,
     StaticRun,
-    SymbolShape,
     TestRun,
     Tool,
+    ToolArgs,
     ToolGroup,
     validate_detail,
     VerifySummary,
@@ -127,12 +127,43 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (Envelope, envelope_st),
 )
 
-_BARE_STRENUM_CLASSES: tuple[type[Claim | SourceKind | ArtifactKind | MutationLane | SymbolShape], ...] = (
-    Claim,
-    SourceKind,
-    ArtifactKind,
-    MutationLane,
-    SymbolShape,
+_STATUSES: tuple[RailStatus, ...] = tuple(RailStatus)
+
+_FROM_RC: tuple[tuple[int, RailStatus], ...] = (
+    (0, RailStatus.EMPTY),
+    (5, RailStatus.BUSY),
+    (124, RailStatus.TIMEOUT),
+    (1, RailStatus.FAILED),
+    (2, RailStatus.FAILED),
+    (127, RailStatus.FAILED),
+    (255, RailStatus.FAILED),
+)
+
+# Pre-trace history fixture keeps additive Diagnostic defaults hermetic.
+_PRE_TRACE_ENVELOPE: bytes = (
+    b'{"claim":"static","verb":"fix","status":"faulted","exit_code":2,'
+    b'"run_id":"2026-06-10T05-34-31.783586-61744","error":{"argv":[],"message":"parse: x"},'
+    b'"error_context":{"kind":"diagnostic","failing_step":"parse",'
+    b'"recent_events":["dispatch=static","static fix","dispatch=static","static fix"],'
+    b'"elapsed_ms":0.0,"hint":"parse: x after 0.0ms",'
+    b'"resource":[["mem.rss_bytes",95715328.0],["sys.mem_percent",52.6],["sys.swap_percent",80.9]]}}'
+)
+
+COVERS: tuple[object, ...] = (
+    *(row[0] for row in _WIRE_ROWS),
+    Base,
+    BaseParams,
+    Bind,
+    Detail,
+    envelope,
+    field_cap,
+    fold,
+    language_choice,
+    receipt,
+    ToolArgs,
+    validate_detail,
+    wire_encode,
+    wire_safe,
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -156,10 +187,16 @@ def test_wire_struct_round_trips(subject: type[Base], strategy: st.SearchStrateg
 
 
 @given(detail_st)
-def test_any_detail_variant_round_trips(detail: AnyDetail) -> None:
-    """Every AnyDetail variant subclasses Detail and survives the deterministic codec byte-identically."""
+def test_any_detail_contract(detail: AnyDetail) -> None:
+    """Every AnyDetail variant subclasses Detail, survives both codecs, validates, and rejects surplus keys."""
     assert isinstance(detail, Detail)
     assert_roundtrip(detail, type(detail), codec=WIRE_ENCODER)
+    assert msgspec.json.decode(wire_encode(detail), type=type(detail)) == detail
+    assert validate_detail(detail) == detail
+    raw: dict[str, object] = msgspec.json.decode(WIRE_ENCODER.encode(detail), type=dict)
+    raw["__probe__"] = 1
+    with pytest.raises(msgspec.ValidationError, match="__probe__"):
+        msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
 
 
 def test_any_detail_tags_are_injective() -> None:
@@ -168,13 +205,51 @@ def test_any_detail_tags_are_injective() -> None:
     assert len(tags) == len(set(tags)), f"duplicate tags: {tags}"
 
 
-@given(detail_st)
-def test_wire_struct_forbids_unknown_fields(detail: AnyDetail) -> None:
-    """The shared Base policy forbids unknown fields — a surplus key is rejected at decode."""
-    raw: dict[str, object] = msgspec.json.decode(WIRE_ENCODER.encode(detail), type=dict)
-    raw["__probe__"] = 1
-    with pytest.raises(msgspec.ValidationError, match="__probe__"):
-        msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
+# --- [STATUS_ALGEBRA]
+
+
+@pytest.mark.mutation
+def test_dominant_full_truth_table_left_wins_ties() -> None:
+    """Dominant is max-by-severity returning an operand, left on ties.
+
+    Severity injectivity pins ties to the diagonal today; the ``>=`` oracle keeps left-bias law-bound
+    should a future member share a rank. The full product subsumes associativity, commutativity-on-
+    severity, monotonicity, EMPTY-identity, and FAULTED-absorption as corollaries of max.
+    """
+    assert len({s.severity for s in _STATUSES}) == len(_STATUSES), "severity ranks must stay injective"
+    for a in _STATUSES:
+        assert RailStatus.dominant(a, a) is a
+        for b in _STATUSES:
+            assert RailStatus.dominant(a, b) is (a if a.severity >= b.severity else b)
+
+
+@pytest.mark.mutation
+@given(st.lists(rail_status_st, max_size=8))
+def test_fold_is_max_severity_floored_at_empty(members: list[RailStatus]) -> None:
+    """RailStatus.fold returns the max-by-severity member floored at the EMPTY seed; ``fold()`` is EMPTY."""
+    result = RailStatus.fold(*members)
+    assert result in {*members, RailStatus.EMPTY}
+    assert result.severity == max([RailStatus.EMPTY.severity, *(m.severity for m in members)])
+    assert RailStatus.fold() is RailStatus.EMPTY
+
+
+def test_severity_ordering_is_strict_declaration_ascent() -> None:
+    """Members ascend strictly in severity in declaration order: SKIP is minimal, FAULTED the absorbing max."""
+    assert all(lo.severity < hi.severity for lo, hi in itertools.pairwise(_STATUSES))
+    assert _STATUSES[0] is RailStatus.SKIP
+    assert _STATUSES[-1] is RailStatus.FAULTED
+
+
+@pytest.mark.mutation
+@pytest.mark.parametrize("rc,expected", _FROM_RC, ids=[f"rc={r}" for r, _ in _FROM_RC])
+def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
+    """from_returncode maps {0->EMPTY, 5->BUSY, 124->TIMEOUT, *->FAILED} exactly."""
+    assert RailStatus.from_returncode(rc) is expected
+
+
+def test_alias_skipped_resolves_to_skip() -> None:
+    """RailStatus('skipped') is RailStatus.SKIP — the wire alias contract."""
+    assert RailStatus("skipped") is RailStatus.SKIP
 
 
 # --- [FOLD]
@@ -233,16 +308,8 @@ def test_fold_local_run_leaves_exec_carrier_none() -> None:
     assert fold(Claim.STATIC, "check", (receipt(("ruff",), 0),)).exec is None
 
 
-def test_fold_failed_stderr_reaches_results_text() -> None:
-    """Fold carries a FAILED Completed.stderr value into results[0].text."""
-    marker = b"unique-sentinel-stderr-content"
-    report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, stderr=marker),))
-    assert report.results
-    assert marker.decode() in report.results[0].text
-
-
-def test_fold_failed_result_identifies_full_argv_and_long_tail() -> None:
-    """Failed process evidence carries the shell-rendered argv and a 4 KiB stderr tail."""
+def test_fold_failed_defect_row_carries_argv_id_and_stderr_tail() -> None:
+    """A FAILED receipt's defect row ids the shell-rendered argv and carries the 4 KiB stderr tail."""
     payload = b"x" * 5000
     report = fold(Claim.STATIC, "build", (receipt(("dotnet", "format", "src/App.csproj"), 1, stderr=payload),))
     assert report.results
@@ -334,7 +401,7 @@ def test_fold_sarif_findings_scope_to_built_project_stem(tmp_path: Path) -> None
 
 
 def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
-    """Build receipts read their own CspSarifDir, with .csproj rows still scoped to the target project stem."""
+    """Build receipts read their own typed sarif_dir stamp, with .csproj rows still scoped to the target project stem."""
     sarif_dir = tmp_path / "sarif"
     app_dir, lib_dir = sarif_dir / "App-a1", sarif_dir / "Lib-b2"
     app_dir.mkdir(parents=True)
@@ -342,9 +409,10 @@ def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
     (app_dir / "App.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0101", "error", 3, "target")))
     (app_dir / "Dep.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency")))
     (lib_dir / "Lib.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0303", "warning", 11, "second")))
+    # The engine stamps Completed.sarif_dir from Check.args; the fold never re-parses the argv token.
     outcomes = (
-        receipt(("dotnet", "build", "src/App/App.csproj", f"-p:CspSarifDir={app_dir}"), 0, status=RailStatus.OK),
-        receipt(("dotnet", "build", "src/Lib/Lib.csproj", f"-p:CspSarifDir={lib_dir}"), 0, status=RailStatus.OK),
+        msgspec.structs.replace(receipt(("dotnet", "build", "src/App/App.csproj"), 0, status=RailStatus.OK), sarif_dir=str(app_dir)),
+        msgspec.structs.replace(receipt(("dotnet", "build", "src/Lib/Lib.csproj"), 0, status=RailStatus.OK), sarif_dir=str(lib_dir)),
     )
     report = fold(Claim.STATIC, "build", outcomes, sarif_dir=str(sarif_dir))
     assert [m.id for m in report.results] == ["csp0101", "csp0303"]
@@ -609,17 +677,6 @@ def test_envelope_projects_fault_status(fault: Fault) -> None:
     assert env.exit_code == fault.status.exit_code
 
 
-# Pre-trace history fixture keeps additive Diagnostic defaults hermetic.
-_PRE_TRACE_ENVELOPE: bytes = (
-    b'{"claim":"static","verb":"fix","status":"faulted","exit_code":2,'
-    b'"run_id":"2026-06-10T05-34-31.783586-61744","error":{"argv":[],"message":"parse: x"},'
-    b'"error_context":{"kind":"diagnostic","failing_step":"parse",'
-    b'"recent_events":["dispatch=static","static fix","dispatch=static","static fix"],'
-    b'"elapsed_ms":0.0,"hint":"parse: x after 0.0ms",'
-    b'"resource":[["mem.rss_bytes",95715328.0],["sys.mem_percent",52.6],["sys.swap_percent",80.9]]}}'
-)
-
-
 def test_envelope_decodes_pre_trace_history_artifact() -> None:
     """Additive-compat: a pre-trace Envelope decodes with ``trace_id``/``span_id`` defaulted under ``schema_version=1``.
 
@@ -669,20 +726,6 @@ def test_field_cap_introspection(subject: type[msgspec.Struct], name: str, defau
     assert field_cap(subject, name, default=default) == expected
 
 
-# --- [VALIDATE_DETAIL]
-
-
-@given(detail_st)
-def test_validate_detail_round_trips(detail: AnyDetail) -> None:
-    """validate_detail round-trips any AnyDetail variant through the tagged-union codec."""
-    assert validate_detail(detail) == detail
-
-
-def test_validate_detail_none_passthrough() -> None:
-    """validate_detail(None) returns None — the optional slot survives the codec."""
-    assert validate_detail(None) is None
-
-
 # --- [WIRE_CODEC]
 
 
@@ -692,10 +735,9 @@ def test_wire_encode_is_deterministic(detail: Diagnostic) -> None:
     metamorphic(detail, wire_encode, WIRE_ENCODER.encode)
 
 
-@given(detail_st)
-def test_wire_encode_decodes_clean(detail: AnyDetail) -> None:
-    """wire_encode output decodes back to a structurally equal value."""
-    assert msgspec.json.decode(wire_encode(detail), type=type(detail)) == detail
+def test_validate_detail_none_passthrough() -> None:
+    """validate_detail(None) returns None — the optional slot survives the codec."""
+    assert validate_detail(None) is None
 
 
 @given(st.text(alphabet=st.characters(min_codepoint=0xDC80, max_codepoint=0xDCFF), min_size=1, max_size=8))
@@ -736,47 +778,51 @@ def test_baseparams_default_arity_is_identity(paths: list[str], verb: str) -> No
     assert bound is params
 
 
+# --- [TOOL_ARGS_SPLICE]
+
+
+def test_tool_args_fill_embedded_substitution_and_empty_drop() -> None:
+    """An embedded ``{name}`` hole substitutes the string field in place; an empty value drops the whole token."""
+    args = ToolArgs(max_cpu="4", sarif_dir="")
+    assert args.fill(("build", "-maxCpuCount:{max_cpu}", "-p:CspSarifDir={sarif_dir}")) == ("build", "-maxCpuCount:4")
+
+
+def test_tool_args_fill_tuple_splice_and_passthrough() -> None:
+    """A ``{name*}`` hole splices the tuple field's tokens whole; hole-free tokens pass through verbatim."""
+    args = ToolArgs(filter=("--filter", "Cat=Fast"), argv=())
+    assert args.fill(("test", "{filter*}", "--")) == ("test", "--filter", "Cat=Fast", "--")
+    assert args.fill(("test", "{argv*}")) == ("test",)
+
+
+@pytest.mark.parametrize(
+    "template", [("{targets}",), ("prefix-{filter}",), ("{max_cpu*}",)], ids=["tuple-embedded", "tuple-in-token", "string-under-star"]
+)
+def test_tool_args_fill_kind_mismatch_faults(template: tuple[str, ...]) -> None:
+    """A hole naming a field of the wrong kind (tuple embedded, or string under ``*``) raises ValueError."""
+    with pytest.raises(ValueError, match="hole"):
+        _ = ToolArgs(max_cpu="4", filter=("x",), targets=("t",)).fill(template)
+
+
+@given(st.lists(st.text(alphabet=st.characters(exclude_characters="{}"), min_size=1), max_size=6))
+def test_tool_args_fill_identity_on_hole_free_commands(tokens: list[str]) -> None:
+    """``fill`` is the identity on commands carrying no holes."""
+    assert ToolArgs().fill(tuple(tokens)) == tuple(tokens)
+
+
 # --- [ENUM_PAYLOADS]
 
 
-@pytest.mark.parametrize("member", list(Runner), ids=[m.name for m in Runner])
-def test_runner_prefix_is_str_tuple(member: Runner) -> None:
-    """Runner.prefix is a string tuple; in-process/direct runners are empty, launcher runners are non-empty."""
-    empty_prefix = {Runner.DIRECT, Runner.INPROC}
-    assert isinstance(member.prefix, tuple)
-    assert all(isinstance(p, str) for p in member.prefix)
-    support_matrix(("prefix_emptiness_matches_runner_kind", lambda: member.prefix == (), member in empty_prefix))
+def test_host_bound_claims_partition() -> None:
+    """HOST_BOUND_CLAIMS pins exactly the claims that cannot run off-host; all are real Claim members."""
+    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION)) == HOST_BOUND_CLAIMS
+    assert frozenset(Claim) > HOST_BOUND_CLAIMS
 
 
-@pytest.mark.parametrize("member", list(Mode), ids=[m.name for m in Mode])
-def test_mode_flags_are_bool(member: Mode) -> None:
-    """Mode.stream and Mode.writes are genuine booleans, not int aliases."""
-    assert isinstance(member.stream, bool)
-    assert isinstance(member.writes, bool)
-
-
-@pytest.mark.parametrize("member", list(Language), ids=[m.name for m in Language])
-def test_language_payload(member: Language) -> None:
-    """Language.suffixes are dot-prefixed; strategy is a closed routing discriminant."""
-    assert member.suffixes
-    assert all(s.startswith(".") for s in member.suffixes)
-    assert member.strategy in {"closure", "glob"}
-
-
-@pytest.mark.parametrize("member", list(Input), ids=[m.name for m in Input])
-def test_input_payload(member: Input) -> None:
-    """Input.flag is a string tuple and Input.scoped is a genuine boolean."""
-    assert isinstance(member.flag, tuple)
-    assert all(isinstance(f, str) for f in member.flag)
-    assert isinstance(member.scoped, bool)
-
-
-@pytest.mark.parametrize("enum_cls", [Claim, SourceKind, ArtifactKind, MutationLane, SymbolShape], ids=lambda c: c.__name__)
-def test_bare_strenum_token_identity(enum_cls: type[Claim | SourceKind]) -> None:
-    """Every bare StrEnum member's wire token equals its lowercase string value — injective, str-typed."""
-    members = list(enum_cls)
-    assert all(isinstance(m.value, str) and m.value == m for m in members)
-    assert len({m.value for m in members}) == len(members)
+def test_enum_payloads_pin_launch_and_routing_data() -> None:
+    """Runner prefixes partition by kind; Language suffixes are dot-prefixed with a closed strategy discriminant."""
+    assert {r for r in Runner if r.prefix == ()} == {Runner.DIRECT, Runner.INPROC}
+    assert all(lang.suffixes and lang.strategy in {"closure", "glob"} for lang in Language)
+    assert all(s.startswith(".") for lang in Language for s in lang.suffixes)
 
 
 def test_toolgroup_uv_flag_splits_dependency_groups_from_policy_tags() -> None:
@@ -839,55 +885,3 @@ def test_bind_is_well_formed(bind: Bind) -> None:
     assert bind.verb
     assert isinstance(bind.params, type)
     assert isinstance(bind.help, str)
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-# Import-time registration fully populates MANIFEST before policy collection.
-
-for _row in _WIRE_ROWS:
-    register_law(_row[0], "wire_round_trip")
-
-register_laws(
-    (AnyDetail, ("variant_round_trip", "tags_injective")),
-    (Detail, ("variant_is_subclass",)),
-    (Base, ("forbid_unknown_fields",)),
-    (
-        fold,
-        (
-            "count_oracle",
-            "defect_row_per_failed",
-            "empty_report",
-            "failed_stderr_in_text",
-            "ignores_argv_text_without_parser_stamp",
-            "static_source_diagnostics_precede_defect_rows",
-            "csharp_process_output_parses_and_dedupes_source_diagnostics",
-            "static_dedupes_relative_console_against_absolute_sarif",
-            "static_groups_generated_diagnostics_after_source_rows",
-        ),
-    ),
-    (Report, ("counts_consistent", "envelope_source")),
-    (Counts, ("fold_arithmetic",)),
-    (Match, ("defect_row_severity",)),
-    (envelope, ("report_status_projection", "fault_status_projection")),
-    (Envelope, ("fault_branch",)),
-    (Fault, ("envelope_error_payload",)),
-    (receipt, ("status_derivation",)),
-    (Completed, ("receipt_construction",)),
-    (field_cap, ("introspection_oracle",)),
-    (validate_detail, ("detail_round_trip", "none_passthrough")),
-    # @spec registers wire_encode determinism at decoration time.
-    (wire_encode, ("decode_clean",)),
-    (wire_safe, ("surrogate_neutralization", "idempotent")),
-    (BaseParams, ("surplus_within_cap", "default_arity_identity")),
-    (Runner, ("prefix_str_tuple",)),
-    (Mode, ("flags_are_bool",)),
-    (Language, ("suffix_and_strategy",)),
-    (Input, ("flag_and_scoped",)),
-    (Bind, ("well_formed",)),
-    (ToolGroup, ("uv_flag_splits_dependency_groups_from_policy_tags",)),
-    (SarifStatus, ("token_qualifies_produced_only",)),
-    (language_choice, ("projects_single_flag", "conflicting_flags_fault")),
-)
-
-for _cls in _BARE_STRENUM_CLASSES:
-    register_law(_cls, "token_identity")

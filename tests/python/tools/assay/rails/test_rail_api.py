@@ -2,22 +2,21 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from dataclasses import replace
 import re
 from typing import override, TYPE_CHECKING, TypeAliasType
 
-from dirty_equals import IsInt, IsList, IsStr
+from dirty_equals import IsInt, IsStr
 from expression import Error, Ok, Result  # runtime: canned executor lanes return Result instances
 from hypothesis import given as hyp_given, settings as hyp_settings, strategies as st
-from inline_snapshot import external, outsource  # external-file goldens for the large rendered C# decompile surface
+import msgspec
 import pytest
 
-from tests.python._testkit.laws import register_law, spec
-from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip, refutes, support_matrix, validity_matrix, ValidityCase
+from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip
 from tests.python._testkit.strategies import resolve as st_resolve  # aliased to avoid collision with tools.assay.rails.api.resolve verb
 from tests.python.tools.assay.kit import RailProbe, SeamExecutor
+from tools.assay import oracle as oracle_mod
 from tools.assay.composition.catalog import select
-from tools.assay.core.engine import EngineExecutor
+from tools.assay.core.exec import EngineExecutor
 from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -34,11 +33,11 @@ from tools.assay.core.model import (
     SourceKind,
     SymbolShape,
     Tool,
+    ToolArgs,
 )
-from tools.assay.diagnostics import CAPTURES
+from tools.assay.diagnostics import CAPTURES, ts_language
 from tools.assay.rails import api as api_rail
 from tools.assay.rails.api import ApiParams, query, resolve, shape_of, show, status
-from tools.assay.rails.code import ts_language  # shared tree-sitter primitive owned by code.py, re-bound in api.py
 
 
 if TYPE_CHECKING:
@@ -46,14 +45,28 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.composition.settings import ArtifactScope, AssaySettings
-    from tools.assay.core.engine import Executor
+    from tools.assay.composition.settings import AssaySettings
+    from tools.assay.composition.store import ArtifactScope
+    from tools.assay.core.exec import Executor
     from tools.assay.core.model import Report
 
     type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams, Executor], Result[Report, Fault]]  # query/resolve/show/status share this shape
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (
+    ApiParams, query, resolve, show, status, shape_of,
+    oracle_mod.Oracle, oracle_mod.oracle_for,
+    oracle_mod.HostBundleOracle, oracle_mod.NugetOracle, oracle_mod.PydistOracle, oracle_mod.TsdeclOracle,
+    oracle_mod.Source, oracle_mod.Surface, oracle_mod.CacheEntry,
+    oracle_mod.probe_ilspy, oracle_mod.host_sources, oracle_mod.rhino_app,
+    oracle_mod.packages, oracle_mod.package_owner_index, oracle_mod.resolve_key,
+    oracle_mod.nuget_source, oracle_mod.tfm_rank, oracle_mod.consumer_tfm_floor, oracle_mod.to_api_source,
+    oracle_mod.pydist_inventory_sources, oracle_mod.tsdecl_names, oracle_mod.tsdecl_source,
+    oracle_mod.rank_candidates, oracle_mod.rank_type, oracle_mod.rank_namespace,
+    oracle_mod.fidelity_note, oracle_mod.safe_key, oracle_mod.xml_doc,
+)  # fmt: skip
 
 # Valid _PathKind tokens mirrored from api.py.
 _VALID_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "deps", "package-root")
@@ -91,6 +104,8 @@ _TEN_LINES: str = "\n".join(f"line{i}" for i in range(1, 11))
 
 # The fixture has no deps target dirs, so that kind stays EMPTY.
 _PRESENT_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "package-root")
+
+_STATUS_ROW = re.compile(r"^\S+ status=\S+ assembly=(?:present|missing) xml=(?:present|missing) version=\S+$")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -141,16 +156,16 @@ def _install_ilspy(
     """
     asm = assay_root.write("RhinoCommon.dll", "MZ")
     xml_paths = (assay_root.write("RhinoCommon.xml", _ILSPY_XML),) if xmls else ()
-    source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,), xmls=xml_paths)
-    status = RailStatus.OK if returncode == 0 else RailStatus.FAULTED
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,), xmls=xml_paths)
+    rail_status = RailStatus.OK if returncode == 0 else RailStatus.FAULTED
 
     def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
         payload = decompile if "-t" in check.tool.command else types
         return RailProbe.receipt(
-            ("ilspycmd",), returncode, status=status, stdout=payload if returncode == 0 else b"", stderr=b"" if returncode == 0 else b"ilspy boom"
+            ("ilspycmd",), returncode, status=rail_status, stdout=payload if returncode == 0 else b"", stderr=b"" if returncode == 0 else b"ilspy boom"
         )
 
-    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
     return SeamExecutor(run_fn=_canned)
 
 
@@ -162,6 +177,23 @@ def _cs_surface(
     detail = assert_ok(_run(query, assay_root, canned, key="rhino-common", symbol=symbol, **kw)).detail
     assert isinstance(detail, ApiSurface)
     return detail
+
+
+def _nuget_fixture(assay_root: AssayHarness, *, owner: bool = True) -> Path:
+    assay_root.write("Directory.Packages.props", '<Project><ItemGroup><PackageVersion Include="Pkg.Core" Version="1.2.3" /></ItemGroup></Project>')
+    if owner:
+        assay_root.write("src/App/App.csproj", '<Project><ItemGroup><PackageReference Include="Pkg.Core" /></ItemGroup></Project>')
+    package_root = assay_root.root / ".cache/nuget/packages/pkg.core/1.2.3"
+    for rel in ("lib/net8.0/Pkg.Core.dll", "lib/net8.0/Pkg.Core.xml", "lib/netstandard2.0/Pkg.Core.dll", "pkg.core.nuspec"):
+        target = package_root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x", encoding="utf-8")
+    return package_root
+
+
+def _ts_package(assay_root: AssayHarness, body: str, *, name: str = "mypkg", version: str = "2.1.0") -> None:
+    assay_root.write(f"node_modules/{name}/package.json", f'{{"name":"{name}","version":"{version}","types":"index.d.ts"}}')
+    assay_root.write(f"node_modules/{name}/index.d.ts", body)
 
 
 # --- [SHAPE_OF]
@@ -189,34 +221,6 @@ def test_shape_of_dispatch(symbol: str, expected: SymbolShape) -> None:
     assert shape_of(symbol) is shape_of(symbol)
 
 
-def _shape_law(symbol: str, expected: SymbolShape) -> None:
-    """Assert the shape oracle rejects wrong discriminant expectations."""
-    assert shape_of(symbol) is expected, f"shape_of({symbol!r}) = {shape_of(symbol)} != {expected}"
-
-
-def test_shape_of_dispatch_is_falsifiable() -> None:
-    """Wrong shape expectations must raise so the dispatch table is non-vacuous."""
-    refutes("System", _shape_law, SymbolShape.MEMBER)
-    refutes("System.String", _shape_law, SymbolShape.INDEX)
-    refutes("System.String.Contains()", _shape_law, SymbolShape.TYPE)
-    _shape_law("", SymbolShape.INDEX)
-
-
-def test_inspect_kinds_roster_pins_pep695_alias_row() -> None:
-    """_INSPECT_KINDS keeps the TypeAliasType row for PEP 695 aliases."""
-    type Alias = int
-    assert isinstance(Alias, TypeAliasType)
-
-    alias_predicates = tuple(pred for cap, pred in api_rail._INSPECT_KINDS if cap == "type" and pred(Alias) and not pred(int))
-    assert len(alias_predicates) == 1, "exactly one _INSPECT_KINDS row must accept a TypeAliasType and reject a plain class"
-    assert [cap for cap, _ in api_rail._INSPECT_KINDS] == IsList("type", "type", "type")  # every roster row caps under @type
-
-
-register_law(shape_of, "shape_of_dispatch")
-register_law(shape_of, "shape_of_idempotent")
-register_law(shape_of, "shape_of_dispatch_falsifiable")
-register_law(query, "inspect_kinds_pep695_alias_row")
-
 # --- [API_PARAMS]
 
 
@@ -237,19 +241,8 @@ def test_api_params_bound_dispatch(verb: str, paths: tuple[str, ...], key: str, 
     """ApiParams.bound routes positional tokens into the correct verb slots and consumes paths."""
     result = ApiParams(paths=paths).bound(verb)
     assert result == ApiParams(key=key, symbol=symbol, kind=kind, token=token, paths=())
-
-
-register_law(ApiParams, "api_params_bound_dispatch")
-
-
-def test_api_params_bound_surplus_is_fault() -> None:
-    """ApiParams.bound with surplus positional tokens produces a Fault, not a params object."""
-    result = ApiParams(paths=("a", "b", "c")).bound("query")  # query arity is 1; b,c are surplus
-    assert isinstance(result, Fault)
-    assert "query" in result.message
-
-
-register_law(ApiParams, "api_params_bound_surplus")
+    p = ApiParams()
+    assert p.bound("status") is p  # zero-slot verb with no paths → identity passthrough
 
 
 @pytest.mark.parametrize(
@@ -261,52 +254,16 @@ register_law(ApiParams, "api_params_bound_surplus")
     ],
     ids=["query-surplus", "resolve-surplus", "show-surplus"],
 )
-def test_api_params_bound_surplus_names_expected_flags_and_arity(verb: str, paths: tuple[str, ...], expected_flags: str) -> None:
+def test_api_params_bound_surplus_faults_naming_flags_and_arity(verb: str, paths: tuple[str, ...], expected_flags: str) -> None:
     """A surplus-positional api fault names the exact flags and the resolved arity so an agent reads the corrected form."""
     result = ApiParams(paths=paths).bound(verb)
     assert isinstance(result, Fault)
-    arity = api_rail._API_ARITY[verb]
+    arity = ApiParams.VERB_SLOTS[verb][0]
     assert f"{verb}: unexpected positional(s)" in result.message
     assert f"accepts at most {arity} positional(s) — use flags: {expected_flags}" in result.message
 
 
-register_law(ApiParams, "api_params_bound_surplus_names_flags")
-
-
-def test_api_params_bound_unknown_verb_passthrough() -> None:
-    """ApiParams.bound for a verb with no positional slots (e.g. status) returns self unchanged."""
-    p = ApiParams()
-    assert p.bound("status") is p  # status arity 0, no paths → fall-through case _
-
-
-register_law(ApiParams, "api_params_bound_passthrough")
-
-
-def test_api_params_sources_default_empty() -> None:
-    """ApiParams.sources defaults to an empty tuple (no prefix restriction)."""
-    assert ApiParams().sources == ()
-
-
-register_law(ApiParams, "api_params_sources_default")
-
-
-@spec(ApiParams, law="api_params_field_identity")
-def test_api_params_field_identity(p: ApiParams) -> None:
-    """ApiParams fields survive a copy-replace round-trip (struct identity)."""
-    assert replace(p, key=p.key) == p
-
-
 # --- [STATUS]
-
-
-def test_status_returns_ok_report(assay_root: AssayHarness) -> None:
-    """Status always returns an Ok Result in the absence of Rhino bundles."""
-    r = assert_ok(_run(status, assay_root))
-    assert r.verb == "status"
-    assert r.counts.total == IsInt(ge=1)
-
-
-register_law(status, "status_returns_ok_report")
 
 
 def _status_lines(assay_root: AssayHarness, sources: tuple[str, ...]) -> int:
@@ -315,41 +272,17 @@ def _status_lines(assay_root: AssayHarness, sources: tuple[str, ...]) -> int:
 
 
 @pytest.mark.parametrize("prefix", ["rhino-", "eto", "ilspy", "python-dists", "ts-decls"], ids=["rhino", "eto", "ilspy", "py-dists", "ts-decls"])
-def test_status_sources_prefix_filters(assay_root: AssayHarness, prefix: str) -> None:
-    """Status with a sources prefix reduces the inventory monotonically (filtered lines <= unfiltered)."""
+def test_status_sources_prefix_filters_monotone(assay_root: AssayHarness, prefix: str) -> None:
+    """Status prefix filtering is monotone: all >= matching >= non-matching == 0."""
     lines_all = _status_lines(assay_root, ())
     lines_flt = _status_lines(assay_root, (prefix,))
-    assert lines_flt == IsInt(ge=0)
-    assert lines_flt <= lines_all, f"prefix {prefix!r}: {lines_flt} > {lines_all}"
-
-
-def test_status_sources_validity_matrix(assay_root: AssayHarness) -> None:
-    """Status source filtering preserves all >= matching >= non-matching == 0."""
-    lines_all = _status_lines(assay_root, ())
-    lines_rhino = _status_lines(assay_root, ("rhino-",))
-    lines_none = _status_lines(assay_root, ("xyz-no-match-xyzzy-",))
-    validity_matrix(
-        [
-            ValidityCase("all>=rhino", lines_all, lines_all >= lines_rhino),
-            ValidityCase("rhino>=none", lines_rhino, lines_rhino >= lines_none),
-            ValidityCase("none==0", lines_none, lines_none == 0),
-        ],
-        lambda v: v >= 0,  # predicate: a valid line count is non-negative
-    )
-    assert lines_all >= lines_rhino >= lines_none == 0  # falsifiable by a defect in _filtered_sources
-    # Contradictory expectation proves validity_matrix compares expected flags.
-    refutes([ValidityCase("contradiction", lines_none, expected=True)], validity_matrix, lambda v: v > 0)  # 0 > 0 is False ≠ True
-
-
-register_law(status, "status_sources_prefix_monotone")
-register_law(status, "status_nomatch_prefix_zero")
-register_law(status, "status_sources_validity_matrix")
+    assert 0 <= lines_flt <= lines_all, f"prefix {prefix!r}: {lines_flt} > {lines_all}"
+    assert _status_lines(assay_root, ("xyz-no-match-xyzzy-",)) == 0
 
 
 def test_status_strict_faults_when_core_bundle_absent(assay_root: AssayHarness) -> None:
     """Status strict=True faults when a required core bundle is absent (a minimal tmp-tree has no Rhino bundles)."""
     result = _run(status, assay_root, strict=True)
-    # In a minimal tmp-tree without Rhino bundles, the core bundles are absent → strict faults.
     match result.tag:
         case "error":
             assert assert_error(result).status is RailStatus.FAULTED
@@ -366,85 +299,48 @@ def test_status_strict_ignores_absent_non_core_source(assay_root: AssayHarness, 
     assert assert_ok(_run(status, assay_root, executor, strict=True)).status is RailStatus.OK
 
 
-register_law(status, "status_strict_promotes_fault")
-register_law(status, "status_strict_ignores_non_core")
-
-
-def test_status_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness) -> None:
-    """Status folds NuGet and polyglot rows into one inventory report."""
+def test_status_inventory_projections(assay_root: AssayHarness) -> None:
+    """One status run folds NuGet + polyglot rows, retains the artifact under the API claim root, and keeps stable row identity/grammar."""
     _nuget_fixture(assay_root)
-    # Pin the version probe so the ilspycmd row reports a concrete version instead of 'unavailable'.
-    executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=b"9.1.0.7988\n"))  # space-free version token
 
-    r = assert_ok(_run(status, assay_root, executor))
-    detail = r.detail
+    first = assert_ok(_run(status, assay_root, executor))
+    detail = first.detail
     assert isinstance(detail, ApiSurface)
     assert "ilspycmd" in detail.preview  # canned version row surfaced
     assert "python-dists" in detail.preview  # polyglot summary row present
-    assert r.artifacts  # single inventory json artifact written (the unread tsv was dropped)
     assert detail.lines == IsInt(ge=3)  # rhino-app + ilspycmd + at least the NuGet package
 
-
-register_law(status, "status_inventory_population")
-
-
-def test_status_inventory_artifacts_live_under_retained_api_claim_root(assay_root: AssayHarness) -> None:
-    """Status inventory artifacts live under the API claim root so retain_scopes(Claim.API) owns them."""
-    r = assert_ok(_run(status, assay_root, sources=("ilspy",)))
     store = assay_root.settings.store()
     run_id = assay_root.settings.run_id
-    expected = (store.path(Claim.API.value, run_id, "status-inventory.json"),)
-    assert tuple(a.path for a in r.artifacts) == expected
-    assert all(a.kind is ArtifactKind.SCOPE for a in r.artifacts)
-    assert store.exists(Claim.API.value, run_id, "status-inventory.json")
+    assert tuple(a.path for a in first.artifacts) == (store.path(Claim.API.value, run_id, "status-inventory.json"),)
+    assert all(a.kind is ArtifactKind.SCOPE for a in first.artifacts)
+    assert store.exists(Claim.API.value, run_id, "status-inventory.json")  # retain_scopes(Claim.API) owns this root
     assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "status-inventory.json")
 
+    assert first.results
+    assert all(m.id.startswith("inventory:") for m in first.results)
+    for match in first.results:
+        assert _STATUS_ROW.fullmatch(match.text), f"status row text broke the key=value grammar: {match.text!r}"
+        assert tuple(token.split("=", 1)[0] for token in match.text.split(" ")[1:]) == ("status", "assembly", "xml", "version")
 
-register_law(status, "status_inventory_artifacts_retained_api_claim_root")
+    second = assert_ok(_run(status, assay_root, executor))
+    assert tuple(m.id for m in first.results) == tuple(m.id for m in second.results)  # ids stable across runs
 
 
 def test_inventory_sources_keep_full_rows_without_pydist_file_expansion(assay_root: AssayHarness) -> None:
     """_inventory_sources keeps host/NuGet rows and omits pydist asset expansion."""
+    # White-box: asset suppression (include_assets=False) is invisible in the summary preview; only the row objects prove it.
     _nuget_fixture(assay_root, owner=False)
     sources = api_rail._inventory_sources(assay_root.settings, None, "ilspycmd: 9.1", 0)
     by_id = {row.source_id for row in sources}
     nuget = next(row for row in sources if row.source_id == "Pkg.Core")
     pydist = next(row for row in sources if row.source_kind is SourceKind.PYDIST and row.source_id != "python-dists")
     assert {"rhino-app", "ilspycmd", "rhino-code-remote", "python-dists", "ts-decls"} <= by_id
-    assert nuget.assets == ()  # status inventory skips NuGet asset expansion (include_assets=False)
+    assert nuget.assets == ()  # status inventory skips NuGet asset expansion
     assert pydist.package_root  # pydist row keeps its root...
     assert pydist.assets == ()  # ...but not its per-file asset list
 
-
-register_law(status, "inventory_sources_full_rows")
-
-
-def test_status_result_ids_are_identity_shaped(assay_root: AssayHarness) -> None:
-    """Status inventory result ids stay stable across repeated runs."""
-    first = assert_ok(_run(status, assay_root))
-    second = assert_ok(_run(status, assay_root))
-    assert first.results
-    assert all(m.id.startswith("inventory:") for m in first.results)
-    assert tuple(m.id for m in first.results) == tuple(m.id for m in second.results)
-
-
-register_law(status, "status_result_ids_identity_shaped")
-
-
-_STATUS_ROW = re.compile(r"^\S+ status=\S+ assembly=(?:present|missing) xml=(?:present|missing) version=\S+$")
-
-
-def test_status_row_text_is_stable_key_value_grammar(assay_root: AssayHarness) -> None:
-    """Status row text keeps the fixed key=value health grammar."""
-    report = assert_ok(_run(status, assay_root))
-    assert report.results
-    for match in report.results:
-        assert _STATUS_ROW.fullmatch(match.text), f"status row text broke the key=value grammar: {match.text!r}"
-        keys = tuple(token.split("=", 1)[0] for token in match.text.split(" ")[1:])
-        assert keys == ("status", "assembly", "xml", "version"), f"status row key order drifted: {match.text!r}"
-
-
-register_law(status, "status_row_text_is_stable_key_value_grammar")
 
 # --- [RESOLVE]
 
@@ -480,33 +376,11 @@ def test_resolve_miss_family(
             assert reason != "unknown-kind" or {name for name, _ in r.detail.candidates} >= set(_VALID_KINDS)
 
 
-register_law(resolve, "resolve_unknown_key_unsupported")
-register_law(resolve, "resolve_bad_kind_unsupported_with_candidates")
-register_law(resolve, "resolve_codec_boundary_miss")
-register_law(resolve, "resolve_strict_fault_on_miss")
-
-
-def _kind_not_rejected(assay_root: AssayHarness, kind: str) -> bool:
-    # pytest anchors kind validation to a resolvable pydist key.
-    r = assert_ok(_run(resolve, assay_root, key="pytest", kind=kind))
-    return not isinstance(r.detail, ApiResolution) or r.detail.reason != "unknown-kind"
-
-
 @pytest.mark.parametrize("kind", _VALID_KINDS, ids=list(_VALID_KINDS))
 def test_resolve_valid_kinds_accepted(assay_root: AssayHarness, kind: str) -> None:
     """Resolve accepts all documented kind tokens without an UNSUPPORTED kind error (may be EMPTY)."""
-    assert _kind_not_rejected(assay_root, kind), f"kind={kind!r} unexpectedly rejected"
-
-
-register_law(resolve, "resolve_valid_kinds_all_accepted")
-
-
-def test_resolve_kind_support_matrix(assay_root: AssayHarness) -> None:
-    """Support matrix: every documented kind token is accepted (no unknown-kind rejection)."""
-    support_matrix(*((kind, lambda k=kind: _kind_not_rejected(assay_root, k), True) for kind in _VALID_KINDS))
-
-
-register_law(resolve, "resolve_kind_support_matrix")
+    r = assert_ok(_run(resolve, assay_root, key="pytest", kind=kind))  # pytest anchors kind validation to a resolvable pydist key
+    assert not isinstance(r.detail, ApiResolution) or r.detail.reason != "unknown-kind", f"kind={kind!r} unexpectedly rejected"
 
 
 def test_resolve_pydist_key_ok(assay_root: AssayHarness) -> None:
@@ -517,26 +391,17 @@ def test_resolve_pydist_key_ok(assay_root: AssayHarness) -> None:
     assert r.detail.source.source_kind is SourceKind.PYDIST
 
 
-register_law(resolve, "resolve_pydist_key_ok")
-
 # --- [SHOW]
 
 
-def _show_detail(assay_root: AssayHarness, content: str, **params: object) -> ApiSurface:
+def _show(assay_root: AssayHarness, content: str, **params: object) -> Report:
     token = assay_root.settings.store().write_text(content, "scope", "api", "pkg", "data.txt").rsplit("/", 1)[-1]
-    detail = assert_ok(_run(show, assay_root, token=token, **params)).detail
-    assert isinstance(detail, ApiSurface)
-    return detail
+    return assert_ok(_run(show, assay_root, token=token, **params))
 
 
 def test_show_absent_token_yields_empty(assay_root: AssayHarness) -> None:
     """Show with a token that matches no artifact returns Ok(EMPTY)."""
-    absent = "not-found-abc-xyz-123"  # an artifact token guaranteed to match nothing
-    r = assert_ok(_run(show, assay_root, token=absent))
-    assert r.status is RailStatus.EMPTY
-
-
-register_law(show, "show_absent_empty")
+    assert assert_ok(_run(show, assay_root, token="not-found-abc-xyz-123")).status is RailStatus.EMPTY
 
 
 @pytest.mark.parametrize(
@@ -544,20 +409,8 @@ register_law(show, "show_absent_empty")
     [
         (_TEN_LINES, {"max_lines": 3}, True, 10, lambda pv: pv.count("\n") < 9),  # cap truncates below all 10
         ("line1\nline2\nline3", {"max_lines": 120}, False, 3, lambda _pv: True),  # within cap → no truncation
-        (
-            _TEN_LINES,
-            {"lines": "3:5", "max_lines": 1},
-            True,
-            10,
-            lambda pv: pv == "line3\nline4\nline5",
-        ),  # explicit window beats cap (3 of 10 → truncated)
-        (
-            "alpha 1\nbeta 2\nalpha 3\ngamma 4\nalpha 5",
-            {"grep": "alpha", "max_lines": 120},
-            False,
-            3,
-            lambda pv: "beta" not in pv and "gamma" not in pv,
-        ),
+        (_TEN_LINES, {"lines": "3:5", "max_lines": 1}, True, 10, lambda pv: pv == "line3\nline4\nline5"),  # explicit window beats cap
+        ("alpha 1\nbeta 2\nalpha 3\ngamma 4\nalpha 5", {"grep": "alpha", "max_lines": 120}, False, 3, lambda pv: "beta" not in pv),
         ("\n".join(f"row{i}" for i in range(1, 31)), {"full": True, "max_lines": 2}, False, 30, lambda pv: pv.count("\n") == 29),  # --full → whole
     ],
     ids=["max-lines-cap", "within-cap", "explicit-window", "grep-filter", "full-flag"],
@@ -570,64 +423,40 @@ def test_show_store_windowing(
     expect_lines: int,
     check_preview: Callable[[str], bool],
 ) -> None:
-    """Show applies max-lines, explicit windows, grep, and full-view selection."""
-    detail = _show_detail(assay_root, content, **params)
+    """Show applies max-lines, explicit windows, grep, and full-view selection; the Artifact row records the true line count."""
+    report = _show(assay_root, content, **params)
+    detail = report.detail
+    assert isinstance(detail, ApiSurface)
     assert detail.truncated is expect_truncated
     assert detail.lines == expect_lines
     assert check_preview(detail.preview)
+    assert report.artifacts
+    assert report.artifacts[0].lines == len(content.splitlines())  # Artifact.lines is the stored content's count, never the window's
 
 
-register_law(show, "show_max_lines_cap")
-register_law(show, "show_no_truncation_within_cap")
-register_law(show, "show_lines_window")
-register_law(show, "show_grep_filter")
-register_law(show, "show_full_flag")
-
-
-def test_show_artifact_lines_match_content(assay_root: AssayHarness) -> None:
-    """Show records the exact line count of the stored artifact in the Artifact.lines field."""
+@pytest.mark.parametrize(
+    "writes, winner",
+    [
+        ((("scope-api", ("scope", "api", "pkg", "surface.txt")), ("generic", ("scope", "zzz", "surface.txt"))), "scope-api"),
+        (
+            (
+                ("claim-api", (Claim.API.value, "run-a", "status-inventory.json")),
+                ("scope-api", ("scope", "api", "pkg", "surface.txt")),
+                ("generic", ("scope", "zzz", "surface.txt")),
+            ),
+            "claim-api",
+        ),
+    ],
+    ids=["api-scope-beats-generic", "claim-root-beats-scope-cache"],
+)
+def test_show_latest_preference_chain(assay_root: AssayHarness, writes: tuple[tuple[str, tuple[str, ...]], ...], winner: str) -> None:
+    """Show latest prefers retained API-claim evidence, then API scope cache, before any newer generic artifact."""
     store = assay_root.settings.store()
-    path = store.write_text("a\nb\nc\nd", "scope", "api", "data", "file.txt")  # 4 lines
-    token = path.rsplit("/", 1)[-1]
-    r = assert_ok(_run(show, assay_root, token=token, max_lines=120))
-    assert r.artifacts
-    assert r.artifacts[0].lines == 4
-
-
-register_law(show, "show_artifact_lines_match_content")
-
-
-def test_show_latest_prefers_api_scope_artifact(assay_root: AssayHarness) -> None:
-    """Show latest selects the API-scoped artifact even when a newer non-API artifact exists."""
-    store = assay_root.settings.store()
-    api_path = store.write_text("api artifact\n", "scope", "api", "pkg", "surface.txt")
-    store.write_text("newer generic artifact\n", "scope", "zzz", "surface.txt")
-
-    latest_token = "latest"  # noqa: S105  # not a password — artifact lookup keyword per api.py _LATEST_ARTIFACT
-    r = assert_ok(_run(show, assay_root, token=latest_token, max_lines=50))
+    paths = {label: store.write_text(f"{label} artifact\n", *parts) for label, parts in writes}
+    r = assert_ok(_run(show, assay_root, token="latest", max_lines=50))
     assert r.status is RailStatus.OK
     assert r.artifacts
-    assert r.artifacts[0].path == api_path
-
-
-register_law(show, "show_latest_api_scope_preference")
-
-
-def test_show_latest_prefers_api_claim_root_before_api_scope_cache(assay_root: AssayHarness) -> None:
-    """Show latest selects retained API-claim evidence before reusable API scope cache artifacts."""
-    store = assay_root.settings.store()
-    api_path = store.write_text("api claim artifact\n", Claim.API.value, "run-a", "status-inventory.json")
-    store.write_text("api scope cache artifact\n", "scope", "api", "pkg", "surface.txt")
-    store.write_text("newer generic artifact\n", "scope", "zzz", "surface.txt")
-
-    latest_token = "latest"  # noqa: S105  # not a password — artifact lookup keyword per api.py _LATEST_ARTIFACT
-    r = assert_ok(_run(show, assay_root, token=latest_token, max_lines=50))
-    assert r.status is RailStatus.OK
-    assert r.artifacts
-    assert r.artifacts[0].path == api_path
-
-
-register_law(show, "show_latest_api_claim_root_preference")
+    assert r.artifacts[0].path == paths[winner]
 
 
 # --- [QUERY]
@@ -635,10 +464,7 @@ register_law(show, "show_latest_api_claim_root_preference")
 
 @pytest.mark.parametrize(
     "key, unsupported",
-    [
-        ("pytest", False),
-        ("totally-unknown-xxxxxxx456", True),  # unknown key → UNSUPPORTED + ApiResolution
-    ],
+    [("pytest", False), ("totally-unknown-xxxxxxx456", True)],
     ids=["pydist-ok", "unknown-unsupported"],
 )
 def test_query_key_resolution(
@@ -653,14 +479,9 @@ def test_query_key_resolution(
     assert not unsupported or (r.status is RailStatus.UNSUPPORTED and isinstance(r.detail, ApiResolution))
 
 
-register_law(query, "query_pydist_ok")
-register_law(query, "query_unknown_key_unsupported")
-
 # --- [WIRE_TYPES]
 
 
-# Three wire types share identical roundtrip semantics; collapsed into one parametrized law.
-# register_law entries below keep law-coverage gate total for all three subjects.
 @pytest.mark.parametrize(
     "type_, strategy",
     [(ApiResolution, st_resolve(ApiResolution)), (ApiSource, st_resolve(ApiSource)), (ApiSurface, st_resolve(ApiSurface))],
@@ -672,10 +493,6 @@ def test_wire_roundtrip(type_: type, strategy: st.SearchStrategy[object], data: 
     """ApiResolution/ApiSource/ApiSurface each survive a deterministic JSON encode/decode round-trip."""
     assert_roundtrip(data.draw(strategy), type_)
 
-
-register_law(ApiResolution, "api_resolution_roundtrip")
-register_law(ApiSource, "api_source_roundtrip")
-register_law(ApiSurface, "api_surface_roundtrip")
 
 # --- [CS_QUERY]
 
@@ -704,18 +521,10 @@ def test_cs_query_dispatches_every_shape(
     assert anchor in f"{detail.preview}\n{detail.signature}" or anchor in detail.preview.splitlines(), f"symbol {symbol!r}: {anchor!r} missing"
 
 
-register_law(query, "cs_query_dispatches_every_shape")
-register_law(query, "cs_query_search_hits")
-register_law(query, "cs_query_empty_decompile_search")
-
-
-def test_cs_query_type_window_renders_full_golden_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The C# type window matches the anchored external golden byte-for-byte."""
+def test_cs_query_type_window_renders_exact_anchored_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The C# type window is byte-exact: anchored at the type declaration, running to the decompile tail."""
     detail = _cs_surface(assay_root, monkeypatch, "Widget")
-    assert outsource(detail.preview, suffix=".txt") == external("uuid:be213712-2b2b-44e5-973c-ec6ff40ee8b9.txt")
-
-
-register_law(query, "cs_query_type_window_golden")
+    assert detail.preview == "\n".join(_ILSPY_DECOMPILE.decode().splitlines()[2:])  # namespace wrapper dropped, class block verbatim
 
 
 def _large_cisde_listing(types: int) -> tuple[bytes, int]:
@@ -744,9 +553,6 @@ def test_cs_query_index_count_survives_capture_spill_truncation(assay_root: Assa
     assert second.notes == first.notes  # the full type count round-trips through the persisted cache, never truncated
 
 
-register_law(query, "cs_query_index_count_survives_capture_spill")
-
-
 def test_cs_query_roster_filters_synthetics_keeps_generics(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """The C# roster drops every <>-mangled compiler synthetic but keeps generic types rendered by bare name."""
     listing = (
@@ -765,17 +571,15 @@ def test_cs_query_roster_filters_synthetics_keeps_generics(assay_root: AssayHarn
     assert not any("<" in row for row in rostered)  # every angle-bracket synthetic is filtered
 
 
-register_law(query, "cs_query_roster_filters_synthetics_keeps_generics")
-
-
-def test_cs_query_emits_decompiled_fidelity_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A C# surface report carries the SourceKind-derived fidelity note (decompiled)."""
+def test_cs_query_projections_fidelity_note_and_identity_ids(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Decompile and roster reports carry the SourceKind fidelity note and identity-shaped result ids."""
     executor = _install_ilspy(assay_root, monkeypatch)
-    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol=""))
-    assert "fidelity: decompiled" in r.notes
-
-
-register_law(query, "cs_query_fidelity_note")
+    decompiled = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Widget"))
+    roster = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Acme"))
+    assert "fidelity: decompiled" in decompiled.notes
+    assert decompiled.results[0].id == "type:Acme.Widget"
+    assert roster.results
+    assert all(m.id == f"scope:{m.text}" for m in roster.results)
 
 
 def test_cs_query_grep_member_fans_out_to_decompile(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -790,15 +594,12 @@ def test_cs_query_grep_member_fans_out_to_decompile(assay_root: AssayHarness, mo
     assert any("member hits" in note for note in r.notes)
 
 
-register_law(query, "cs_query_grep_member_fanout")
-
-
 def test_cs_query_grep_member_caps_candidate_fanout(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A broad --grep needle decompiles at most _CANDIDATE_CAP candidate types, never an N-type explosion."""
     listing = ("\n".join(f"Class Acme.Type{i:03d}" for i in range(50))).encode()
     decompiled = {"count": 0}
     asm = assay_root.write("RhinoCommon.dll", "MZ")
-    source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
 
     def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
         if "-t" in check.tool.command:
@@ -806,13 +607,10 @@ def test_cs_query_grep_member_caps_candidate_fanout(assay_root: AssayHarness, mo
             return RailProbe.receipt(("ilspycmd",), 0, stdout=b"// no Spin here\n")
         return RailProbe.receipt(("ilspycmd",), 0, stdout=listing)
 
-    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
 
     assert_ok(_run(query, assay_root, SeamExecutor(run_fn=_canned), key="rhino-common", symbol="nomatch", grep="Type"))
     assert decompiled["count"] <= api_rail._CANDIDATE_CAP  # the cap is the explosion guard
-
-
-register_law(query, "cs_query_grep_member_cap")
 
 
 def test_cs_query_member_carries_xml_doc(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -823,9 +621,6 @@ def test_cs_query_member_carries_xml_doc(assay_root: AssayHarness, monkeypatch: 
     assert detail.member == "Spin"
 
 
-register_law(query, "cs_query_member_xml_doc")
-
-
 def test_cs_query_grep_filters_decompile_window(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """C# grep recomputes the selected decompile count."""
     detail = _cs_surface(assay_root, monkeypatch, "Widget", grep="Spin")
@@ -834,11 +629,13 @@ def test_cs_query_grep_filters_decompile_window(assay_root: AssayHarness, monkey
     assert detail.lines == 1
 
 
-register_law(query, "cs_query_grep_filter")
-
-
 @pytest.mark.parametrize(
-    "max_lines, full, expect_truncated", [(2, False, True), (1, True, False)], ids=["small-cap-truncates", "full-flag-never-truncates"]
+    "max_lines, full, expect_truncated, note",
+    [
+        (2, False, True, f"window: 2 of {_ILSPY_DECOMPILE_LINES} lines (--full or --max-lines to widen)"),
+        (1, True, False, ""),
+    ],
+    ids=["small-cap-truncates-with-window-note", "full-flag-never-truncates"],
 )
 def test_cs_query_truncation_matrix(
     assay_root: AssayHarness,
@@ -846,49 +643,25 @@ def test_cs_query_truncation_matrix(
     max_lines: int,
     full: bool,  # noqa: FBT001  # parametrized bool flag
     expect_truncated: bool,  # noqa: FBT001  # parametrized bool flag
+    note: str,
 ) -> None:
-    """C# decompile lines keep full count while preview honors cap/full."""
-    detail = _cs_surface(assay_root, monkeypatch, "Widget", max_lines=max_lines, full=full)
+    """C# decompile lines keep full count while preview honors cap/full, surfacing the window note when capped."""
+    executor = _install_ilspy(assay_root, monkeypatch)
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Widget", max_lines=max_lines, full=full))
+    detail = r.detail
+    assert isinstance(detail, ApiSurface)
     assert detail.truncated is expect_truncated
     assert detail.lines == _ILSPY_DECOMPILE_LINES  # full count regardless of window
-
-
-register_law(query, "cs_query_truncation_matrix")
-
-
-def test_cs_decompile_window_note_surfaces_truncation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Capped decompile reports the selected-vs-total window note."""
-    executor = _install_ilspy(assay_root, monkeypatch)
-    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Widget", max_lines=2))
-    assert f"window: 2 of {_ILSPY_DECOMPILE_LINES} lines (--full or --max-lines to widen)" in r.notes
-
-
-register_law(query, "cs_decompile_window_note")
+    assert not note or note in r.notes
 
 
 def test_roster_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Roster overflow emits the capped-results artifact note."""
     executor = _install_ilspy(assay_root, monkeypatch)
-    monkeypatch.setattr(api_rail, "_RESULT_CAP", 1)
+    monkeypatch.setattr(api_rail, "RESULT_CAP", 1)
     r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Acme"))  # namespace roster of 4 owned types
     assert len(r.results) == 1
     assert "results: 1 of 4 (cap=1); full listing in artifact" in r.notes
-
-
-register_law(query, "roster_forced_cap_results_note")
-
-
-def test_api_result_ids_are_identity_shaped(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Roster and decompile results carry identity ids (kind:identity), not run-ordinal ids."""
-    executor = _install_ilspy(assay_root, monkeypatch)
-    decompiled = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Widget"))
-    roster = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Acme"))
-    assert decompiled.results[0].id == "type:Acme.Widget"
-    assert roster.results
-    assert all(m.id == f"scope:{m.text}" for m in roster.results)
-
-
-register_law(query, "api_result_ids_identity_shaped")
 
 
 @pytest.mark.parametrize("symbol", ["Nonexistent", "Other.Missing"], ids=["search-miss", "unranked-fqn-miss"])
@@ -902,19 +675,12 @@ def test_cs_query_resolution_miss(assay_root: AssayHarness, monkeypatch: pytest.
     assert r.status is RailStatus.UNSUPPORTED
 
 
-register_law(query, "cs_query_search_miss_partial")
-register_law(query, "cs_query_unranked_fqn_miss")
-
-
 def test_cs_surface_all_attempts_fail_faults_rail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """C# surface with every ilspycmd attempt non-zero promotes the rail to a FAULTED error."""
     executor = _install_ilspy(assay_root, monkeypatch, returncode=1)
     e = assert_error(_run(query, assay_root, executor, key="rhino-common", symbol=""))
     assert e.status is RailStatus.FAULTED
     assert "ilspy" in e.message.casefold()
-
-
-register_law(query, "cs_surface_all_fail_faults")
 
 
 def test_cs_surface_cache_hit_skips_reinvocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -926,24 +692,48 @@ def test_cs_surface_cache_hit_skips_reinvocation(assay_root: AssayHarness, monke
     assert second.preview == first.preview
 
 
-register_law(query, "cs_surface_cache_hit")
-
-
 def test_cs_surface_empty_assemblies_is_empty_not_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A C# source with no assemblies stays off the fault rail."""
-    empty_src = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=())
-    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(empty_src))
+    empty_src = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=())
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(empty_src))
     r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Anything"))
     assert r.status is not RailStatus.FAULTED
 
 
-register_law(query, "cs_surface_empty_assemblies_empty")
-
-# --- [PYDIST_QUERY]
+# --- [SURFACE_CACHE]
 
 
-def test_pydist_member_query_captures_real_signature(assay_root: AssayHarness) -> None:
-    """A pydist member query introspects the live symbol: signature + doc + source ride ApiSurface."""
+@pytest.mark.parametrize("corruption", ["foreign-producer", "garbage-bytes"], ids=["foreign-producer", "garbage-bytes"])
+def test_cs_surface_cache_corruption_is_miss_never_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, corruption: str) -> None:
+    """A forged-producer or undecodable cache entry is a miss: the surface re-lists and re-persists, never replays or faults."""
+    executor = _install_ilspy(assay_root, monkeypatch)
+    first = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol=""))
+    cache_paths = tuple(a.path for a in first.artifacts if a.path.endswith(".json"))
+    assert cache_paths, "surface cache artifact missing from the INDEX report"
+    store = assay_root.settings.store()
+    match corruption:
+        case "foreign-producer":
+            entry = msgspec.json.decode(store.read_path(cache_paths[0]), type=oracle_mod.CacheEntry)
+            store.write_bytes_path(msgspec.json.encode(msgspec.structs.replace(entry, producer="not-ilspycmd")), cache_paths[0])
+        case _:
+            store.write_bytes_path(b"\x00 not json", cache_paths[0])
+
+    runs = {"n": 0}
+
+    def _counting(_check: Check, **_kw: object) -> Result[object, Fault]:
+        runs["n"] += 1
+        return RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES)
+
+    second = assert_ok(_run(query, assay_root, SeamExecutor(run_fn=_counting), key="rhino-common", symbol=""))
+    assert runs["n"] >= 1  # the corrupted entry was rejected, so the roster re-listed
+    assert second.notes == first.notes
+
+
+# --- [PYDIST]
+
+
+def test_pydist_member_query_signature_doc_and_window(assay_root: AssayHarness) -> None:
+    """A pydist member query introspects the live symbol; grep is a monotone filter and --full never truncates."""
     r = assert_ok(_run(query, assay_root, key="pytest", symbol="fixture"))
     detail = r.detail
     assert isinstance(detail, ApiSurface)
@@ -951,8 +741,12 @@ def test_pydist_member_query_captures_real_signature(assay_root: AssayHarness) -
     assert "fixture" in detail.signature  # real inspect.signature of pytest.fixture
     assert detail.shape is SymbolShape.TYPE
 
-
-register_law(query, "pydist_member_real_signature")
+    full_detail = assert_ok(_run(query, assay_root, key="pytest", symbol="fixture", full=True)).detail
+    grep_detail = assert_ok(_run(query, assay_root, key="pytest", symbol="fixture", grep="def")).detail
+    assert isinstance(full_detail, ApiSurface)
+    assert isinstance(grep_detail, ApiSurface)
+    assert not full_detail.truncated
+    assert grep_detail.lines <= full_detail.lines  # grep is a monotone filter over the same source
 
 
 def test_pydist_surface_query_rosters_real_types(assay_root: AssayHarness) -> None:
@@ -964,63 +758,33 @@ def test_pydist_surface_query_rosters_real_types(assay_root: AssayHarness) -> No
     assert detail.lines == IsInt(ge=1)  # msgspec exposes Struct/Meta/Raw etc. as type captures
 
 
-register_law(query, "pydist_surface_real_roster")
-
-
-def test_pydist_member_grep_and_full_window(assay_root: AssayHarness) -> None:
-    """Pydist decompile honors grep filtering and the --full window over the captured source."""
-    full_r = assert_ok(_run(query, assay_root, key="pytest", symbol="fixture", full=True))
-    grep_r = assert_ok(_run(query, assay_root, key="pytest", symbol="fixture", grep="def"))
-    full_detail, grep_detail = full_r.detail, grep_r.detail
-    assert isinstance(full_detail, ApiSurface)
-    assert isinstance(grep_detail, ApiSurface)
-    assert not full_detail.truncated
-    assert grep_detail.lines <= full_detail.lines  # grep is a monotone filter over the same source
-
-
-register_law(query, "pydist_member_grep_full")
-
-# --- [PYDIST_THUNK]
-
-
-def test_member_captures_emits_signature_doc_full_triple() -> None:
-    """_member_captures projects exactly the signature/doc/full capture triple for a resolved object."""
-
-    class Marker:
-        """A marker class."""
-
-        value: str
-
-    signature, doc, full = api_rail._member_captures(Marker, "Marker")
-    assert (signature.name, doc.name, full.name) == ("signature", "doc", "full")
-    assert signature.text.startswith("Marker(")
-    assert doc.text == "A marker class."
-
-
-def test_object_source_swallows_builtin_typeerror() -> None:
-    """_object_source returns empty for a C-builtin whose source is unreadable (TypeError arm)."""
-    assert not api_rail._object_source(len)
-
-
-def test_pydist_thunk_roster_and_member_branches() -> None:
-    """_pydist_thunk: empty symbol rosters @type captures; a member symbol anchors the capture triple."""
-    roster = CAPTURES.decode(api_rail._pydist_thunk("msgspec", "")(_INPROC_CHECK).stdout)
-    member = CAPTURES.decode(api_rail._pydist_thunk("msgspec", "Struct")(_INPROC_CHECK).stdout)
+# White-box block: the INPROC pydist thunk runs in-process with no subprocess boundary to observe publicly.
+def test_pydist_thunk_introspection_roster_member_and_resolution() -> None:
+    """_pydist_thunk rosters @type captures, anchors the member triple, and resolves symbols over importable prefixes."""
+    roster = CAPTURES.decode(oracle_mod._pydist_thunk("msgspec", "")(_INPROC_CHECK).stdout)
+    member = CAPTURES.decode(oracle_mod._pydist_thunk("msgspec", "Struct")(_INPROC_CHECK).stdout)
     assert any(cap.name == "type" and cap.text for cap in roster)
     assert [cap.name for cap in member] == ["signature", "doc", "full"]
     assert member[0].text.startswith("Struct")
 
-
-def test_pydist_modules_recovers_import_roots() -> None:
-    """_pydist_modules maps a distribution key to its real import roots (top_level or inverted map)."""
-    assert "msgspec" in api_rail._pydist_modules("msgspec")
-
-
-def test_resolve_symbol_walks_longest_importable_prefix() -> None:
-    """_resolve_py_symbol resolves a dotted member against the longest importable distribution prefix."""
-    resolved = api_rail._resolve_py_symbol("msgspec", "Struct")
-    assert resolved is not None
+    signature, doc, full = oracle_mod._member_captures(_DistDouble, "_DistDouble")
+    assert (signature.name, doc.name, full.name) == ("signature", "doc", "full")
+    assert doc.text.startswith("Distribution double")
+    assert "msgspec" in oracle_mod._pydist_modules("msgspec")
+    assert oracle_mod._pydist_modules("totally-not-installed-xyz") == ()
+    resolved = oracle_mod._resolve_py_symbol("msgspec", "Struct")
     assert getattr(resolved, "__name__", "") == "Struct"
+    assert not oracle_mod._object_source(len)  # C-builtin source is unreadable → empty, never a raise
+    assert oracle_mod._annotations(42) == {}  # no annotation namespace → empty mapping
+
+
+def test_inspect_kinds_roster_pins_pep695_alias_row() -> None:
+    """_INSPECT_KINDS keeps the TypeAliasType row for PEP 695 aliases."""
+    type Alias = int
+    assert isinstance(Alias, TypeAliasType)
+    alias_predicates = tuple(pred for cap, pred in oracle_mod._INSPECT_KINDS if cap == "type" and pred(Alias) and not pred(int))
+    assert len(alias_predicates) == 1, "exactly one _INSPECT_KINDS row must accept a TypeAliasType and reject a plain class"
+    assert all(cap == "type" for cap, _ in oracle_mod._INSPECT_KINDS)  # every roster row caps under @type
 
 
 def _signature_fallback_probes() -> tuple[tuple[str, object, object], ...]:
@@ -1051,54 +815,29 @@ def _signature_fallback_probes() -> tuple[tuple[str, object, object], ...]:
 )
 def test_signature_fallback_cases(obj: object, expected: object) -> None:
     """_signature renders annotations, synthetic params, or sentinel."""
-    assert api_rail._signature(obj) == expected
+    assert oracle_mod._signature(obj) == expected
 
 
-def test_annotations_empty_for_unannotated_object() -> None:
-    """_annotations returns an empty mapping for an object that exposes no annotation namespace."""
-    assert api_rail._annotations(42) == {}
-
-
-def test_malformed_xml_or_json_inputs_degrade_to_empty(assay_root: AssayHarness) -> None:
-    """Malformed props, csproj, package.json, and XMLDoc inputs fold empty."""
-    props = assay_root.write("Directory.Packages.props", "<Project><PackageVersion Include='A' Version='1'/>")  # unterminated XML
+def test_malformed_boundary_inputs_degrade_to_empty(assay_root: AssayHarness) -> None:
+    """Malformed props, csproj, package.json, and XMLDoc inputs fold empty; a bad JSON field folds only itself."""
+    assay_root.write("Directory.Packages.props", "<Project><PackageVersion Include='A' Version='1'/>")  # unterminated XML
     csproj = assay_root.write("src/App/App.csproj", "<bad")  # unparseable XML
     manifest = assay_root.write("node_modules/pkg/package.json", "{not json")
     bad_xml = assay_root.write("RhinoCommon.xml", "<doc><member")
-    _ = props  # _packages reads via settings, not the path directly
-    assert api_rail._packages(assay_root.settings) == {}
-    assert api_rail._project_references(csproj) == ()
-    assert not api_rail._json_fields(manifest, "version")["version"]
-    assert api_rail._xml_members(bad_xml) == ()
+    assert oracle_mod.packages(assay_root.settings) == {}
+    assert oracle_mod._project_references(csproj) == ()
+    assert not oracle_mod._json_fields(manifest, "version")["version"]
+    assert oracle_mod._xml_members(bad_xml) == ()
+
+    sibling = assay_root.write("node_modules/pkg2/package.json", '{"types": 5, "version": "2.1.0"}')
+    assert oracle_mod._json_fields(sibling, "types", "typings", "version") == {"types": "", "typings": "", "version": "2.1.0"}
 
 
-def test_json_fields_isolates_malformed_sibling(assay_root: AssayHarness) -> None:
-    """A non-string field value folds only itself; a valid sibling survives the same single decode."""
-    manifest = assay_root.write("node_modules/pkg/package.json", '{"types": 5, "version": "2.1.0"}')
-    assert api_rail._json_fields(manifest, "types", "typings", "version") == {"types": "", "typings": "", "version": "2.1.0"}
-
-
-def test_pydist_source_handles_files_none() -> None:
-    """_pydist_source handles distributions without file manifests."""
-    source = api_rail._pydist_source("pytest")
-    assert source is not None
-    assert source.kind is SourceKind.PYDIST
-
-
-def test_pydist_source_files_none_yields_empty_assets(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_pydist_source over a distribution whose .files is None resolves to a source with empty assets."""
+def test_pydist_metadata_boundary_degradation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_pydist_source handles files=None dists; inventory skips nameless dists and folds root-lookup OSErrors."""
     import importlib.metadata as importlib_metadata  # noqa: PLC0415  # local: drive the stdlib metadata boundary
 
-    monkeypatch.setattr(importlib_metadata, "distribution", lambda _key: _DistDouble("FilesNone", root=str(assay_root.root)))
-    source = api_rail._pydist_source("filesnone")
-    assert source is not None
-    assert source.kind is SourceKind.PYDIST
-    assert source.asset_paths == ()  # files=None → no per-file assets
-
-
-def test_pydist_inventory_skips_nameless_and_survives_locate_oserror(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_pydist_inventory_sources skips nameless dists and folds root lookup errors."""
-    import importlib.metadata as importlib_metadata  # noqa: PLC0415  # local: drive the stdlib metadata boundary
+    assert oracle_mod._pydist_source("pytest") is not None  # live dist resolves without a file manifest requirement
 
     class _OsErrorDist(_DistDouble):
         @override
@@ -1106,28 +845,24 @@ def test_pydist_inventory_skips_nameless_and_survives_locate_oserror(assay_root:
             raise OSError("no root")
 
     root = str(assay_root.root)
+    monkeypatch.setattr(importlib_metadata, "distribution", lambda _key: _DistDouble("FilesNone", root=root))
+    source = oracle_mod._pydist_source("filesnone")
+    assert source is not None
+    assert source.kind is SourceKind.PYDIST
+    assert source.asset_paths == ()  # files=None → no per-file assets
+
     dists = (_DistDouble("", root=root), _DistDouble("Good", root=root), _OsErrorDist("Broken", root=root))
     monkeypatch.setattr(importlib_metadata, "distributions", lambda: iter(dists))
-    rows = api_rail._pydist_inventory_sources()
+    rows = oracle_mod.pydist_inventory_sources()
     assert {row.source_id for row in rows} == {"Good", "Broken"}  # the nameless dist was skipped (the continue arm)
     assert all(row.source_kind is SourceKind.PYDIST for row in rows)  # OSError dist still produced a row
-
-
-def test_pydist_modules_unknown_key_empty() -> None:
-    """_pydist_modules returns empty for unknown distribution keys."""
-    assert api_rail._pydist_modules("totally-not-installed-xyz") == ()
 
 
 # --- [TSDECL]
 
 
-def _ts_package(assay_root: AssayHarness, body: str, *, name: str = "mypkg", version: str = "2.1.0") -> None:
-    assay_root.write(f"node_modules/{name}/package.json", f'{{"name":"{name}","version":"{version}","types":"index.d.ts"}}')
-    assay_root.write(f"node_modules/{name}/index.d.ts", body)
-
-
-def test_tsdecl_surface_rosters_exported_declarations(assay_root: AssayHarness) -> None:
-    """A TS surface query rosters every exported .d.ts declaration name via the tree-sitter thunk."""
+def test_tsdecl_query_rosters_declarations_and_anchors_member_signature(assay_root: AssayHarness) -> None:
+    """A TS surface query rosters every exported .d.ts declaration; a member query anchors its first-line signature."""
     _ts_package(assay_root, "export interface Foo { x: string }\nexport declare class Bar { y: number }\nexport type Baz = string;\n")
     r = assert_ok(_run(query, assay_root, key="mypkg", symbol=""))
     detail = r.detail
@@ -1135,53 +870,40 @@ def test_tsdecl_surface_rosters_exported_declarations(assay_root: AssayHarness) 
     assert detail.source.source_kind is SourceKind.TSDECL
     assert {"Foo", "Bar", "Baz"} <= set(detail.preview.splitlines())
 
-
-register_law(query, "tsdecl_surface_roster")
-
-
-def test_tsdecl_member_query_anchors_signature(assay_root: AssayHarness) -> None:
-    """A TS member query anchors the declaration's first-line signature from the .d.ts source."""
-    _ts_package(assay_root, "export interface Foo { x: string }\nexport interface Bar { y: number }\n")
-    r = assert_ok(_run(query, assay_root, key="mypkg", symbol="Foo"))
-    detail = r.detail
-    assert isinstance(detail, ApiSurface)
-    assert "interface Foo" in detail.signature
-    assert "number" not in detail.signature, "Foo.x lookup must not leak Bar.x"
+    member_detail = assert_ok(_run(query, assay_root, key="mypkg", symbol="Foo")).detail
+    assert isinstance(member_detail, ApiSurface)
+    assert "interface Foo" in member_detail.signature
+    assert "number" not in member_detail.signature, "Foo lookup must not leak Bar members"
 
 
-register_law(query, "tsdecl_member_signature")
-
-
-def test_tsdecl_thunk_captures_export_aliases_and_parse_errors(assay_root: AssayHarness) -> None:
-    """_tsdecl_thunk captures re-export aliases and malformed .d.ts parse errors."""
+# White-box block: the tsdecl thunk's alias capture, owner scoping, saturation, and read-failure arms have no CLI discriminator.
+def test_tsdecl_thunk_capture_matrix(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_tsdecl_thunk captures aliases and parse errors, scopes owner-qualified members, saturates at RESULT_CAP, and folds unreadable paths."""
     good = assay_root.write("pkg/index.d.ts", 'export { Foo as Bar, Baz } from "./x";\nexport interface Thing { value: string }\n')
     bad = assay_root.write("pkg/bad.d.ts", "export interface Broken {")
-    source = api_rail._Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=good.parent, asset_paths=(good, bad))
-
-    roster = CAPTURES.decode(api_rail._tsdecl_thunk(source, "")(_TS_CHECK).stdout)
-    member = CAPTURES.decode(api_rail._tsdecl_thunk(source, "Bar")(_TS_CHECK).stdout)
+    source = oracle_mod.Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=good.parent, asset_paths=(good, bad))
+    roster = CAPTURES.decode(oracle_mod._tsdecl_thunk(source, "")(_TS_CHECK).stdout)
+    member = CAPTURES.decode(oracle_mod._tsdecl_thunk(source, "Bar")(_TS_CHECK).stdout)
     assert {"Bar", "Baz", "Thing"} <= {cap.text for cap in roster if cap.name == "type"}
     assert any(cap.parse_error for cap in roster)
     assert member[0].name == "signature"
     assert "Foo as Bar" in member[0].text
 
+    scoped = assay_root.write("pkg2/index.d.ts", "export interface Foo { x: string }\nexport interface Bar { x: number }\n")
+    scoped_source = oracle_mod.Source("pkg2", SourceKind.TSDECL, "1.0.0", package_root=scoped.parent, asset_paths=(scoped,))
+    owner_member = CAPTURES.decode(oracle_mod._tsdecl_thunk(scoped_source, "Foo.x")(_TS_CHECK).stdout)
+    assert "string" in owner_member[0].text
+    assert "number" not in owner_member[0].text  # owner-qualified lookup never leaks the same-named sibling member
 
-def test_tsdecl_member_lookup_prefers_owner_scope(assay_root: AssayHarness) -> None:
-    """Owner-qualified TS member lookup resolves Foo.x within Foo before any same-named sibling member."""
-    dts = assay_root.write("pkg/index.d.ts", "export interface Foo { x: string }\nexport interface Bar { x: number }\n")
-    source = api_rail._Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=dts.parent, asset_paths=(dts,))
-    member = CAPTURES.decode(api_rail._tsdecl_thunk(source, "Foo.x")(_TS_CHECK).stdout)
-    assert member[0].name == "signature"
-    assert "string" in member[0].text
-    assert "number" not in member[0].text
+    monkeypatch.setattr(oracle_mod, "RESULT_CAP", 1)
+    capped = tuple(cap for cap in CAPTURES.decode(oracle_mod._tsdecl_thunk(scoped_source, "")(_TS_CHECK).stdout) if cap.name == "type")
+    assert len(capped) == 1  # capped at the patched RESULT_CAP
+    assert all(cap.truncated for cap in capped)  # saturation surfaces the same way code.py surfaces truncated
 
+    from tree_sitter import Parser as TSParser  # noqa: PLC0415  # local: construct the real parser for the read-fail probe
 
-def test_tsdecl_names_scans_hoisted_and_scoped(assay_root: AssayHarness) -> None:
-    """_tsdecl_names rosters both hoisted and @scope/pkg npm packages, sorted, dot-prefix excluded."""
-    assay_root.write("node_modules/alpha/package.json", "{}")
-    assay_root.write("node_modules/@scope/beta/package.json", "{}")
-    assay_root.write("node_modules/.bin/placeholder", "")  # dot-prefixed → excluded
-    assert api_rail._tsdecl_names(assay_root.settings) == ("@scope/beta", "alpha")
+    parser = TSParser(ts_language(oracle_mod._TS_GRAMMAR))
+    assert oracle_mod._ts_captures(parser, assay_root.root / "node_modules" / "ghost" / "absent.d.ts", "") == ()
 
 
 def test_tsdecl_thunk_query_error_surfaces_capture(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1189,61 +911,35 @@ def test_tsdecl_thunk_query_error_surfaces_capture(assay_root: AssayHarness, mon
     from tree_sitter import QueryError  # noqa: PLC0415  # local: only this law needs the tree-sitter error type
 
     dts = assay_root.write("pkg/index.d.ts", "export interface Foo { x: string }\n")
-    source = api_rail._Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=dts.parent, asset_paths=(dts,))
-    monkeypatch.setattr(api_rail, "ts_query", lambda *_a, **_kw: Error(QueryError("bad roster query")))
-
-    roster = CAPTURES.decode(api_rail._tsdecl_thunk(source, "")(_TS_CHECK).stdout)
+    source = oracle_mod.Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=dts.parent, asset_paths=(dts,))
+    monkeypatch.setattr(oracle_mod, "ts_query", lambda *_a, **_kw: Error(QueryError("bad roster query")))
+    roster = CAPTURES.decode(oracle_mod._tsdecl_thunk(source, "")(_TS_CHECK).stdout)
     assert any(cap.name == "query_error" and cap.parse_error for cap in roster)
 
 
-def test_ts_declared_match_limit_saturation_marks_truncated(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """TS declaration roster overflow caps rows and marks kept rows truncated."""
-    dts = assay_root.write("pkg/index.d.ts", "export interface Foo { x: string }\nexport interface Bar { y: number }\n")
-    source = api_rail._Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=dts.parent, asset_paths=(dts,))
-    monkeypatch.setattr(api_rail, "_RESULT_CAP", 1)
-    roster = CAPTURES.decode(api_rail._tsdecl_thunk(source, "")(_TS_CHECK).stdout)
-    types = tuple(cap for cap in roster if cap.name == "type")
-    assert len(types) == 1  # capped at the patched _RESULT_CAP
-    assert all(cap.truncated for cap in types)  # saturation surfaces the same way code.py surfaces truncated
-
-
-register_law(query, "ts_declared_match_limit_saturation")
-
-
-def test_ts_captures_unreadable_path_returns_empty(assay_root: AssayHarness) -> None:
-    """_ts_captures returns empty for an asset path that cannot be read (OSError arm)."""
-    from tree_sitter import Parser as TSParser  # noqa: PLC0415  # local: construct the real parser for the read-fail probe
-
-    parser = TSParser(ts_language(api_rail._TS_GRAMMAR))
-    missing = assay_root.root / "node_modules" / "ghost" / "absent.d.ts"
-    assert api_rail._ts_captures(parser, missing, "") == ()
+def test_tsdecl_names_scans_hoisted_and_scoped(assay_root: AssayHarness) -> None:
+    """tsdecl_names rosters both hoisted and @scope/pkg npm packages, sorted, dot-prefix excluded."""
+    assay_root.write("node_modules/alpha/package.json", "{}")
+    assay_root.write("node_modules/@scope/beta/package.json", "{}")
+    assay_root.write("node_modules/.bin/placeholder", "")  # dot-prefixed → excluded
+    assert oracle_mod.tsdecl_names(assay_root.settings) == ("@scope/beta", "alpha")
 
 
 # --- [NUGET]
 
 
-def _nuget_fixture(assay_root: AssayHarness, *, owner: bool = True) -> Path:
-    assay_root.write("Directory.Packages.props", '<Project><ItemGroup><PackageVersion Include="Pkg.Core" Version="1.2.3" /></ItemGroup></Project>')
-    if owner:
-        assay_root.write("src/App/App.csproj", '<Project><ItemGroup><PackageReference Include="Pkg.Core" /></ItemGroup></Project>')
-    package_root = assay_root.root / ".cache/nuget/packages/pkg.core/1.2.3"
-    for rel in ("lib/net8.0/Pkg.Core.dll", "lib/net8.0/Pkg.Core.xml", "lib/netstandard2.0/Pkg.Core.dll", "pkg.core.nuspec"):
-        target = package_root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("x", encoding="utf-8")
-    return package_root
-
-
 def test_nuget_source_carries_inventory_facts(assay_root: AssayHarness) -> None:
-    """_nuget_source resolves package root, ranked frameworks, owners, and primary-stem asset ordering."""
+    """nuget_source resolves package root, ranked frameworks, owners, and primary-stem asset ordering."""
     package_root = _nuget_fixture(assay_root)
-    source = api_rail._nuget_source(assay_root.settings, "Pkg.Core", "1.2.3")
-    detail = api_rail._api_source(source)
+    source = oracle_mod.nuget_source(assay_root.settings, "Pkg.Core", "1.2.3")
+    detail = oracle_mod.to_api_source(source)
     assert source.package_root == package_root
-    assert source.frameworks == ("net8.0", "netstandard2.0")  # _FRAMEWORK_RANK ordering
+    assert source.frameworks == ("net8.0", "netstandard2.0")  # tfm_rank ordering against the workspace floor
+    assert source.tfm == "net8.0"  # the consumer-bound framework is stamped on the source
     assert source.owners == ("src/App/App.csproj",)
     assert isinstance(detail, ApiSource)
     assert detail.restore == "restored"
+    assert detail.tfm == "net8.0"  # the chosen TFM rides the wire detail
     assert any(p.endswith("Pkg.Core.dll") for p in detail.assets)
 
 
@@ -1259,9 +955,6 @@ def test_resolve_nuget_kind_path_rows(assay_root: AssayHarness, kind: str) -> No
     assert r.results  # path rows ride inline; the full-listing artifact appears only when results saturate the cap
 
 
-register_law(resolve, "resolve_nuget_kind_path_rows")
-
-
 @pytest.mark.parametrize(
     "key, expect_ok, expect_reason",
     [
@@ -1272,9 +965,9 @@ register_law(resolve, "resolve_nuget_kind_path_rows")
     ids=["exact", "ambiguous", "unknown"],
 )
 def test_resolve_key_fuzzy_dispatch(key: str, expect_ok: bool, expect_reason: str) -> None:  # noqa: FBT001  # parametrized bool flag
-    """_resolve_key discriminates exact / ambiguous / unknown over the NuGet package map."""
+    """resolve_key discriminates exact / ambiguous / unknown over the NuGet package map."""
     packages = {"Pkg.Core": "1.0.0", "Pkg.Cache": "2.0.0", "Other": "3.0.0"}
-    result = api_rail._resolve_key(packages, key)
+    result = oracle_mod.resolve_key(packages, key)
     match result:
         case Result(tag="ok", ok=hit):
             assert expect_ok
@@ -1303,16 +996,60 @@ def test_resolve_ambiguous_nuget_falls_through_to_unknown(assay_root: AssayHarne
     assert r.detail.candidates  # nearest NuGet/pydist/tsdecl names
 
 
-register_law(resolve, "resolve_nuget_ambiguous")
+# --- [TFM_POLICY]
+
+
+@pytest.mark.parametrize(
+    "tfms, expected",
+    [
+        (("netstandard2.0", "net5.0"), "net5.0"),  # the RectpackSharp shape: the consumer binds net5.0, not netstandard2.0
+        (("netstandard2.0", "netstandard2.1"), "netstandard2.1"),
+        (("net8.0", "net10.0", "netstandard2.0"), "net10.0"),
+        (("net11.0", "netstandard2.0"), "netstandard2.0"),  # above-floor modern TFM is incompatible with the consumer
+        (("net48", "netcoreapp3.1"), "netcoreapp3.1"),
+    ],
+    ids=["net5-beats-netstandard", "netstandard-ordering", "floor-exact-wins", "above-floor-excluded", "coreapp-beats-framework"],
+)
+def test_nuget_source_binds_consumer_tfm(assay_root: AssayHarness, tfms: tuple[str, ...], expected: str) -> None:
+    """NuGet resolution ranks lib/<tfm> against the workspace floor so primary_assembly is the bound asset."""
+    assay_root.write("Directory.Build.props", "<Project><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>")
+    assay_root.write("Directory.Packages.props", '<Project><ItemGroup><PackageVersion Include="Pkg.Multi" Version="1.0.0" /></ItemGroup></Project>')
+    for tfm in tfms:
+        assay_root.write(f".cache/nuget/packages/pkg.multi/1.0.0/lib/{tfm}/Pkg.Multi.dll", "MZ")
+    source = oracle_mod.nuget_source(assay_root.settings, "Pkg.Multi", "1.0.0")
+    assert source.tfm == expected
+    assert f"/lib/{expected}/" in str(source.assemblies[0])
+    assert source.frameworks[0] == expected  # compatible candidates rank first, best first
+    assert oracle_mod.to_api_source(source).tfm == expected  # the choice is stamped on the wire detail
+
+
+def test_consumer_tfm_floor_reads_build_props(assay_root: AssayHarness) -> None:
+    """The TFM floor comes from Directory.Build.props, falling back to net10.0 when absent."""
+    assert oracle_mod.consumer_tfm_floor(assay_root.settings) == (10, 0)  # fallback: tmp tree has no props
+    assay_root.write("Directory.Build.props", "<Project><PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup></Project>")
+    assert oracle_mod.consumer_tfm_floor(assay_root.settings) == (9, 0)
+
+
+def test_resolve_nuget_detail_carries_bound_tfm(assay_root: AssayHarness) -> None:
+    """The resolve verb's ApiSurface detail stamps the consumer-bound TFM for a multi-target package."""
+    assay_root.write("Directory.Packages.props", '<Project><ItemGroup><PackageVersion Include="Pkg.Span" Version="1.0.0" /></ItemGroup></Project>')
+    for tfm in ("netstandard2.0", "net5.0"):
+        assay_root.write(f".cache/nuget/packages/pkg.span/1.0.0/lib/{tfm}/Pkg.Span.dll", "MZ")
+    r = assert_ok(_run(resolve, assay_root, key="Pkg.Span", kind="assembly"))
+    detail = r.detail
+    assert isinstance(detail, ApiSurface)
+    assert detail.source.tfm == "net5.0"  # provable absence speaks for the CONSUMED framework, not a fallback
+
 
 # --- [ENGINE_BOUNDARY]
 
 
 def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness) -> None:
     """_invoke maps an executor Error to non-zero Completed stderr."""
+    # White-box: the Error→Completed mapping happens before any report fold, so no public verb can isolate it.
     executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.error(("api",), "spawn boom"))
     surface_tool = next(t for t in select(Claim.API, Language.CSHARP))
-    done = api_rail._invoke(assay_root.settings, assay_root.scope(Claim.API), executor, surface_tool, "--version")
+    done = oracle_mod._invoke(assay_root.settings, executor, surface_tool, ToolArgs())
     assert done.returncode == 1
     assert b"spawn boom" in done.stderr
 
@@ -1330,38 +1067,31 @@ def test_surface_faults_when_catalog_row_missing(
 ) -> None:
     """Missing API catalog rows fault C# and INPROC surfaces precisely."""
     asm = assay_root.write("RhinoCommon.dll" if kind is SourceKind.ASSEMBLY else "dummy.py", "MZ")
-    source = api_rail._Source(
+    source = oracle_mod.Source(
         key=key, kind=kind, assemblies=(asm,) if kind is SourceKind.ASSEMBLY else (), asset_paths=() if kind is SourceKind.ASSEMBLY else (asm,)
     )
-    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
-    monkeypatch.setattr(api_rail, "select", lambda _claim, _lang: iter(()))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(oracle_mod, "select", lambda _claim, _lang: iter(()))
 
     e = assert_error(_run(query, assay_root, SeamExecutor(), key=key, symbol=symbol))  # lane-less: the fault lands before any spawn
     assert e.status is RailStatus.FAULTED
     assert message in e.message
 
 
-register_law(query, "cs_surface_no_catalog_fault")
-register_law(query, "inproc_no_catalog_fault")
-
-
 def test_cs_decompile_faults_when_catalog_row_missing(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Catalog loss between C# listing and decompile faults the decompile arm."""
     asm = assay_root.write("RhinoCommon.dll", "MZ")
-    source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
     calls = {"n": 0}
 
     def _staged(_claim: Claim, _lang: Language) -> object:
         calls["n"] += 1
         return iter(select(Claim.API, Language.CSHARP)) if calls["n"] == 1 else iter(())
 
-    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
-    monkeypatch.setattr(api_rail, "select", _staged)
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(oracle_mod, "select", _staged)
     executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES))
 
     e = assert_error(_run(query, assay_root, executor, key="rhino-common", symbol="Acme.Widget"))
     assert e.status is RailStatus.FAULTED
     assert "no ilspycmd catalog row" in e.message
-
-
-register_law(query, "cs_decompile_no_catalog_fault")

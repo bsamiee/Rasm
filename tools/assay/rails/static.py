@@ -6,7 +6,7 @@ from enum import StrEnum
 from hashlib import sha256
 from pathlib import PurePosixPath
 from shutil import rmtree
-from typing import Annotated, Self, TYPE_CHECKING
+from typing import Annotated, ClassVar, Self, TYPE_CHECKING
 
 from cyclopts import Parameter
 from expression import Error, Ok, Result
@@ -16,17 +16,10 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import (  # noqa: TC001  # runtime: public rail signatures are inspected
-    ArtifactScope,
-    AssaySettings,
-    DOTNET_BUILD_CLOSURE,
-)
-from tools.assay.core.engine import (  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
-    argv_for,
-    Executor,
-    leased,
-    resource_projection,
-)
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # runtime: public rail signatures are inspected
+from tools.assay.composition.store import ArtifactScope, DOTNET_BUILD_CLOSURE  # runtime: public rail signatures are inspected
+from tools.assay.core.exec import argv_for, Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.govern import leased, resource_projection
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -44,6 +37,7 @@ from tools.assay.core.model import (
     StaticRun,
     Step,
     Tool,  # noqa: TC001 - runtime: Tool participates in public check expansion annotations
+    ToolArgs,
 )
 from tools.assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles
 from tools.assay.diagnostics import fold, sarif_status
@@ -82,13 +76,13 @@ type SkipRows = tuple[tuple[Phase, str, str], ...]
 _MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
 # Reverse of the Phase->Mode payload; a non-lane mode is a loud KeyError, not a silent default.
 _PHASE: dict[Mode, Phase] = {phase.mode: phase for phase in Phase}
-# Analyzer-free, SARIF-free compile probe: dotnet-format mutates and binds against the analyzer view, so a non-compiling
-# target must gate the format phase before any write lands. RunAnalyzers=false isolates the raw C# compile from analyzer
-# diagnostics; the throwaway scope's --artifacts-path keeps the probe's output off the real build scope and its SARIF drop.
-_PROBE_COMMAND: tuple[str, ...] = ("build", "-p:RunAnalyzers=false", "-tl:off", "-v:quiet")
 # Probe status that proves the target compiles; FAULTED/TIMEOUT/BUSY and any Error are infra-ambiguous and take the safe
 # no-mutation path, never read as "does not compile".
 _COMPILES: frozenset[RailStatus] = frozenset((RailStatus.OK, RailStatus.EMPTY))
+# Analyzer-free, SARIF-free compile probe row gating the format phase: dotnet-format mutates and binds against the
+# analyzer view, so a non-compiling target must gate the write before it lands. The VERIFY catalog row carries no
+# SARIF hole, so a probe never drops SARIF the report could fold.
+_PROBE_ROW: Tool = next(t for t in select(Claim.STATIC, Language.CSHARP) if t.mode is Mode.VERIFY)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -96,6 +90,8 @@ _COMPILES: frozenset[RailStatus] = frozenset((RailStatus.OK, RailStatus.EMPTY))
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaticParams:
     """Targets for the polyglot static lane."""
+
+    SLOTS: ClassVar[dict[str, str]] = {"": "[--all | --project PROJECT | --folder F... --file F...]"}
 
     all: Annotated[
         bool,
@@ -153,14 +149,6 @@ def _phase(mode: Mode) -> Phase:
     return _PHASE[mode]
 
 
-def _dotnet_policy(tool: Tool, settings: AssaySettings) -> Tool:
-    match (tool.runner, tool.mode, any(part.startswith("-maxCpuCount:") for part in tool.command)):
-        case (Runner.DOTNET, Mode.BUILD, False):
-            return msgspec.structs.replace(tool, command=(*tool.command, f"-maxCpuCount:{settings.dotnet_max_cpu}"))
-        case _:
-            return tool
-
-
 def _sarif_key(check: Check, routed: Routed, settings: AssaySettings) -> str:
     tail = check.tail or next(iter(place(routed, check.tool, settings=settings)), ())
     seed = "\n".join((*check.tool.command, *tail, *check.paths))
@@ -168,18 +156,20 @@ def _sarif_key(check: Check, routed: Routed, settings: AssaySettings) -> str:
     return f"{stem}-{sha256(seed.encode()).hexdigest()[:12]}"
 
 
-def _sarif_pin(check: Check, routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> Check:
+def _build_args(check: Check, routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> Check:
+    # Typed splice values fill the build row's {max_cpu}/{sarif_dir} holes; the per-invocation SARIF drop dir also
+    # rides the receipt as the typed fold key, so nothing downstream re-parses argv.
     match (check.tool.runner, check.tool.mode):
         case (Runner.DOTNET, Mode.BUILD):
-            tool = msgspec.structs.replace(
-                check.tool, command=(*check.tool.command, f"-p:CspSarifDir={scope.sarif_dir}/{_sarif_key(check, routed, settings)}")
-            )
-            return msgspec.structs.replace(check, tool=tool)
+            args = ToolArgs(max_cpu=str(settings.dotnet_max_cpu), sarif_dir=f"{scope.sarif_dir}/{_sarif_key(check, routed, settings)}")
+            return msgspec.structs.replace(check, args=args)
         case _:
             return check
 
 
 def _routed_tool(tool: Tool, routed: Routed) -> Tool:
+    # Route-driven placement policy the row cannot carry: one catalog row serves scoped and full-workspace routes,
+    # so the resolved route (not the tool) re-pins the Input axis; the command template is never edited.
     match (routed.language, routed.scope, tool.input, bool(routed.projects)):
         case (Language.TYPESCRIPT, Scope.FULL, Input.PROJECT, _):
             return msgspec.structs.replace(tool, input=Input.OWNED)
@@ -209,10 +199,10 @@ def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope)
         if tool.mode is active
         for projected in (_routed_tool(tool, routed),)
     )
-    selected = tuple((phase, Check(tool=_dotnet_policy(tool, settings), paths=routed.files)) for phase, tool, reason in rows if not reason)
+    selected = tuple((phase, Check(tool=tool, paths=routed.files)) for phase, tool, reason in rows if not reason)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
     expanded = tuple(
-        (phase, _sarif_pin(clone, routed, settings, scope)) for phase, check in selected for clone in expand((check,), routed, settings=settings)
+        (phase, _build_args(clone, routed, settings, scope)) for phase, check in selected for clone in expand((check,), routed, settings=settings)
     )
     phases = tuple(dict.fromkeys(_phase(mode) for mode in _MODES))
     return tuple((phase, tuple(check for row_phase, check in expanded if row_phase is phase)) for phase in phases), skipped
@@ -476,11 +466,9 @@ def _write_fan(
 
 
 def _probe_check(build_check: Check) -> Check:
-    # Reuse the build check's resolved input/tail/placement so the probe targets exactly what the closure build will,
-    # but swap in the analyzer-free, CspSarifDir-free command. CspSarifDir rides _dotnet_policy on the real build tool
-    # only; the fresh probe command never carries it, so the probe drops no SARIF the report could fold.
-    probe = msgspec.structs.replace(build_check.tool, name="dotnet-probe", command=_PROBE_COMMAND)
-    return msgspec.structs.replace(build_check, tool=probe)
+    # Reuse the build check's resolved tail/placement so the probe targets exactly what the closure build will;
+    # zeroed args keep the real build's SARIF drop and cpu cap off the analyzer-free probe row.
+    return msgspec.structs.replace(build_check, tool=_PROBE_ROW, args=ToolArgs())
 
 
 def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: AssaySettings, executor: Executor) -> bool:

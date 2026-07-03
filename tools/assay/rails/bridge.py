@@ -5,13 +5,16 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path, PurePosixPath
 import time
-from typing import Final, Literal, override
+from typing import ClassVar, Final, Literal, override
 
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # beartype resolves public rail annotations at runtime
-from tools.assay.core.engine import Executor, leased  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.catalog import select
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves public rail annotations at runtime
+from tools.assay.composition.store import ArtifactScope  # beartype resolves public rail annotations at runtime
+from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.govern import leased
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -22,15 +25,14 @@ from tools.assay.core.model import (
     Completed,  # noqa: TC001  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
     Diagnostic,
     Fault,
-    Input,
     Language,
     Match,
     Mode,
     RailStatus,
     receipt,
     Report,  # noqa: TC001  # beartype resolves Result[Report, Fault] forward-ref at runtime under PEP 649
-    Runner,
     Tool,
+    ToolArgs,
     VerifySummary,
 )
 from tools.assay.core.routing import Routed, Scope
@@ -73,6 +75,8 @@ type _CountRow[T] = tuple[str, Callable[[T], int]]
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BridgeParams(BaseParams):
     """Parameters shared by bridge verbs."""
+
+    SLOTS: ClassVar[dict[str, str]] = {"": "", "verify": "[PATTERN]"}
 
     evidence: Literal["verify", "author"] = "verify"
 
@@ -290,28 +294,17 @@ _EVIDENCE_COUNT_ROWS: Final[tuple[_CountRow[_EvidenceCounts], ...]] = (
 )
 
 _SUPERVISOR_BINARY: Final[str] = "Rasm.Bridge.Supervisor"
-_SUPERVISOR_TOOL: Final[Tool] = Tool(
-    name="rasm-bridge",
-    runner=Runner.DIRECT,
-    command=(),
-    input=Input.NONE,
-    language=Language.CSHARP,
-    claim=Claim.BRIDGE,
-    mode=Mode.VERIFY,
-    timeout=_SCENARIO_TIMEOUT_S,
-)
-_BUILD_TOOL: Final[Tool] = Tool(
-    name="rasm-bridge-build",
-    runner=Runner.DOTNET,
-    command=("build", "-tl:off", "-v:quiet", "/clp:ErrorsOnly"),
-    input=Input.OWNED,
-    language=Language.CSHARP,
-    claim=Claim.BRIDGE,
-    mode=Mode.BUILD,
-)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _bridge_row(mode: Mode) -> Result[Tool, Fault]:
+    match next((t for t in select(Claim.BRIDGE, Language.CSHARP) if t.mode is mode), None):
+        case Tool() as tool:
+            return Ok(tool)
+        case _:
+            return Error(Fault(("bridge", mode.value), message=f"no Claim.BRIDGE catalog row for mode {mode.value}"))
 
 
 def _routed() -> Routed:
@@ -344,8 +337,8 @@ def _client_check(settings: AssaySettings, *args: str) -> Result[Check, Fault]:
                 )
             )
         case binary:
-            tool = msgspec.structs.replace(_SUPERVISOR_TOOL, command=(str(binary), verb, *args[1:]))
-            return Ok(Check(tool=tool, cwd=Path(str(settings.root))))
+            args_slice = ToolArgs(binary=str(binary), verb=verb, argv=args[1:])
+            return _bridge_row(Mode.VERIFY).map(lambda tool: Check(tool=tool, cwd=Path(str(settings.root)), args=args_slice))
 
 
 def client_run(settings: AssaySettings, *args: str, executor: Executor, timeout: float | None = None) -> Result[Completed, Fault]:
@@ -628,10 +621,12 @@ def _sarif_artifacts(scope: ArtifactScope) -> tuple[Artifact, ...]:
 
 
 def _build_project(settings: AssaySettings, scope: ArtifactScope, project: str, executor: Executor) -> Result[Completed, Fault]:
-    tool = msgspec.structs.replace(
-        _BUILD_TOOL, command=(*_BUILD_TOOL.command, "--configuration", settings.configuration.value, str(settings.root / project))
+    args = ToolArgs(configuration=settings.configuration.value, project=str(settings.root / project))
+    return _bridge_row(Mode.BUILD).bind(
+        lambda tool: executor.run(
+            Check(tool=tool, cwd=Path(str(settings.root)), args=args), settings=settings, scope=scope, routed=_routed(), deadline=None
+        )
     )
-    return executor.run(Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=_routed(), deadline=None)
 
 
 def _first_diagnostic(rows: tuple[Completed, ...]) -> str:

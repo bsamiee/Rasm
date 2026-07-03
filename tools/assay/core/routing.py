@@ -8,9 +8,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import reduce
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from posixpath import normpath
-from typing import assert_never, Protocol, runtime_checkable
+from typing import assert_never, Protocol, runtime_checkable, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
 import anyio
@@ -32,6 +32,10 @@ from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/To
     RailStatus,
     Tool,
 )
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -435,7 +439,9 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
             # copy-staged work root, not the repo tree.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             return tuple(
-                (*tool.input_flag, str(settings.root / project) if tool.input_flag and tool.stage.root else project) if tool.input_flag else (project,)
+                (*tool.input_flag, str(settings.root / project) if tool.input_flag and tool.stage.root else project)
+                if tool.input_flag
+                else (project,)
                 for project in kept
             )
         case Input.SOLUTION:

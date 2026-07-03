@@ -23,10 +23,11 @@ import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
 from tools.assay.automation.model import Debounce, describe, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
+from tools.assay.composition.catalog import select
 from tools.assay.composition.registry import rail, REGISTRY
-from tools.assay.composition.settings import ArtifactScope
-from tools.assay.core.engine import run_check_async
-from tools.assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, Input, Language, Mode, RailStatus, Report, Runner, Tool
+from tools.assay.composition.store import ArtifactScope
+from tools.assay.core.exec import run_check_async
+from tools.assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, Language, RailStatus, Report, ToolArgs
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.diagnostics import fold
 
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
 
     from tools.assay.automation.model import Action, Trigger
     from tools.assay.composition.settings import AssaySettings
-    from tools.assay.core.model import Bind
+    from tools.assay.core.model import Bind, Tool
 
     class _CronTrigger(Protocol):
         def get_next_fire_time(self, previous_fire_time: datetime | None, now: datetime) -> datetime | None: ...
@@ -69,6 +70,8 @@ _ENCODER = msgspec.json.Encoder(order="deterministic")
 _JITTER_MS: int = 100
 _NO_CHANGES: ChangeBatch = ()
 _PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
+# The one total row for automation Program actions; a missing row is an immediate import-time KeyError.
+_PROGRAM_TOOL: Tool = next(t for t in select(Claim.STATIC, Language.PYTHON) if t.name == "program")
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -122,17 +125,8 @@ def _label(action: Action) -> tuple[Claim, str]:
 
 
 def _program_check(argv: tuple[str, ...]) -> Check:
-    # DIRECT/NONE keeps argv owned by the Check command instead of registry stdin.
-    tool = Tool(
-        name=argv[0] if argv else "program",
-        runner=Runner.DIRECT,
-        command=argv,
-        input=Input.NONE,
-        language=Language.PYTHON,
-        claim=Claim.STATIC,
-        mode=Mode.RUN,
-    )
-    return Check(tool=tool, paths=argv)
+    # The catalog `program` row owns arbitrary automation argv; the whole command rides the {argv*} splice.
+    return Check(tool=_PROGRAM_TOOL, args=ToolArgs(argv=argv))
 
 
 async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:

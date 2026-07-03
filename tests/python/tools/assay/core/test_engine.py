@@ -51,33 +51,27 @@ from tests.python._testkit.spec import (
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness, fault_st  # noqa: TC001
 from tools.assay.composition.settings import AssaySettings, PullStrategy
-from tools.assay.core.aspect import _RING  # ring seam seeded directly for ring-content assertions
-import tools.assay.core.engine as engine_mod
-from tools.assay.core.engine import (
-    argv_for,
+from tools.assay.core.aspect import RING  # ring seam seeded directly for ring-content assertions
+import tools.assay.core.exec as exec_mod
+from tools.assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
+import tools.assay.core.govern as govern_mod
+from tools.assay.core.govern import (
     Captured,
     decode_lease_owner,
-    discover,
     drain_stream,
-    EngineExecutor,
     exclusive_lease,
-    Executor,
-    fan_out,
     governed_concurrency,
     is_lease_stale,
     leased,
     proc_dead,
-    remote_command,
     resource_projection,
-    retry_predicate,
-    run_check,
-    run_check_async,
-    splice_command,
-    ssh_outcome,
     WriteSink,
 )
 from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Stage, Tool, ToolGroup
-from tools.assay.core.routing import Routed, Scope
+import tools.assay.core.remote as remote_mod
+from tools.assay.core.remote import remote_command, ssh_outcome
+import tools.assay.core.routing as routing_mod
+from tools.assay.core.routing import discover, Routed, Scope
 
 
 if TYPE_CHECKING:
@@ -88,7 +82,7 @@ if TYPE_CHECKING:
     from fsspec.spec import AbstractFileSystem
 
     from tests.python._testkit.env import Provisioned
-    from tools.assay.composition.settings import ArtifactScope
+    from tools.assay.composition.store import ArtifactScope
     from tools.assay.core.model import Completed
 
     type SshEnv = Provisioned[Awaitable[asyncssh.SSHClientConnection]]
@@ -149,19 +143,19 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (Captured, "captured_defaults_are_the_empty_aggregate"),
     (WriteSink, "write_sink_receives_every_drained_chunk"),
     (discover, "discover_maps_process_status_to_result"),
-    (engine_mod._stall_sample, "stall_sample_aggregates_process_tree"),
-    (engine_mod._stall_verdict, "stall_verdict_triage_table"),
-    (engine_mod._stall_monitor, "stall_monitor_shrunk_constant_matrix"),
-    (engine_mod.discover_async, "discover_async_via_discover"),
-    (engine_mod._dotnet_root, "dotnet_root_probe_precedence"),
-    (engine_mod._apphost, "apphost_overlays_tool_run_heads_only"),
+    (govern_mod._stall_sample, "stall_sample_aggregates_process_tree"),
+    (govern_mod._stall_verdict, "stall_verdict_triage_table"),
+    (govern_mod.stall_monitor, "stall_monitor_shrunk_constant_matrix"),
+    (routing_mod.discover_async, "discover_async_via_discover"),
+    (exec_mod._dotnet_root, "dotnet_root_probe_precedence"),
+    (exec_mod._apphost, "apphost_overlays_tool_run_heads_only"),
     (run_check, "run_check_executes_direct_tool"),
     (run_check, "provision_process_suppresses_raw_artifacts"),
-    (engine_mod._overlay, "overlay_merges_row_env_into_spawned_process"),
+    (exec_mod._overlay, "overlay_merges_row_env_into_spawned_process"),
     (run_check, "spawned_children_detach_into_own_session"),
     (discover, "discover_detaches_child_session"),
-    (engine_mod._terminate_process_tree, "terminate_tree_reap_ledger_per_phase"),
-    (engine_mod._child_pgid, "child_pgid_self_group_guard"),
+    (govern_mod._terminate_process_tree, "terminate_tree_reap_ledger_per_phase"),
+    (govern_mod._child_pgid, "child_pgid_self_group_guard"),
     (run_check_async, "run_check_async_is_the_event_loop_boundary"),
     (fan_out, "fan_out_contains_escaped_check_fault"),
     (fan_out, "fan_out_preserves_order_and_backfills_timeout"),
@@ -169,38 +163,57 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (EngineExecutor, "engine_executor_delegates_run_and_fan"),
     (exclusive_lease, "exclusive_lease_is_busy_under_a_live_holder"),
     (leased, "leased_runs_action_only_when_held"),
-    (engine_mod._claim, "claim_contention_busy_vs_steal_decision"),
-    (engine_mod._steal, "claim_contention_busy_vs_steal_decision"),
-    (engine_mod._measure, "measure_and_load_info_pin_exact_metric_projection"),
-    (engine_mod._load_info, "measure_and_load_info_pin_exact_metric_projection"),
-    (engine_mod.Measurements, "to_resources_projects_exact_metric_evidence_eliding_degraded_arms"),
-    (engine_mod.StalledProcess, "stall_sample_aggregates_process_tree"),
-    (engine_mod._guarded, "guarded_projects_argv_scope_and_governed_limiter_into_execute"),
-    (engine_mod._dotnet_slot, "dotnet_slot_surfaces_queue_and_pressure_note"),
-    (engine_mod._guarded, "guarded_fault_messages_are_stamped_exactly"),
-    (engine_mod._run_process_backend, "local_spawn_arms_honor_check_cwd_and_exit_code"),
-    (engine_mod._run_process_backend, "run_process_backend_routes_on_exec_target"),
-    (engine_mod._remote_transfer, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
-    (engine_mod._remote_transfer, "remote_transfer_keeps_exec_cancellable_under_deadline"),
-    (engine_mod._run_remote, "remote_transfer_keeps_exec_cancellable_under_deadline"),
-    (engine_mod._sftp_pull_scope, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
-    (engine_mod._push_repo, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
-    (engine_mod._push_repo, "push_repo_pipelines_nested_tree_preserving_structure"),
-    (engine_mod._grouped_by_parent, "push_repo_pipelines_nested_tree_preserving_structure"),
-    (engine_mod._stale_remote_runs, "stale_remote_runs_keeps_newest_per_host_namespace"),
-    (engine_mod._remote_prune, "remote_prune_sweeps_only_this_hosts_stale_run_dirs"),
-    (engine_mod._sweep_remote_runs, "remote_prune_sweeps_only_this_hosts_stale_run_dirs"),
-    (engine_mod._probe_toolchain, "probe_toolchain_faults_unsupported_on_missing_remote_tool"),
-    (engine_mod._fold_receipt, "fold_receipt_projects_exec_facts_onto_completed"),
+    (govern_mod._claim, "claim_contention_busy_vs_steal_decision"),
+    (govern_mod._steal, "claim_contention_busy_vs_steal_decision"),
+    (govern_mod.measure, "measure_and_load_info_pin_exact_metric_projection"),
+    (govern_mod._load_info, "measure_and_load_info_pin_exact_metric_projection"),
+    (govern_mod.Measurements, "to_resources_projects_exact_metric_evidence_eliding_degraded_arms"),
+    (govern_mod.StalledProcess, "stall_sample_aggregates_process_tree"),
+    (exec_mod._guarded, "guarded_projects_argv_scope_and_governed_limiter_into_execute"),
+    (govern_mod.dotnet_slot, "dotnet_slot_surfaces_queue_and_pressure_note"),
+    (exec_mod._guarded, "guarded_fault_messages_are_stamped_exactly"),
+    (exec_mod._run_process_backend, "local_spawn_arms_honor_check_cwd_and_exit_code"),
+    (exec_mod._run_process_backend, "run_process_backend_routes_on_exec_target"),
+    (remote_mod._remote_transfer, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (remote_mod._remote_transfer, "remote_transfer_keeps_exec_cancellable_under_deadline"),
+    (remote_mod.run_remote, "remote_transfer_keeps_exec_cancellable_under_deadline"),
+    (remote_mod._sftp_pull_scope, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (remote_mod._push_repo, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (remote_mod._push_repo, "push_repo_pipelines_nested_tree_preserving_structure"),
+    (remote_mod._grouped_by_parent, "push_repo_pipelines_nested_tree_preserving_structure"),
+    (remote_mod._stale_remote_runs, "stale_remote_runs_keeps_newest_per_host_namespace"),
+    (remote_mod._remote_prune, "remote_prune_sweeps_only_this_hosts_stale_run_dirs"),
+    (remote_mod._sweep_remote_runs, "remote_prune_sweeps_only_this_hosts_stale_run_dirs"),
+    (remote_mod._probe_toolchain, "probe_toolchain_faults_unsupported_on_missing_remote_tool"),
+    (remote_mod._fold_receipt, "fold_receipt_projects_exec_facts_onto_completed"),
     (discover, "discover_runs_at_root_and_pins_fault_evidence"),
     (argv_for, "argv_for_pins_uv_group_project_segments_and_query_passthrough"),
     (splice_command, "splice_command_cuts_before_first_separator"),
-    (engine_mod._contained, "contained_verdicts_and_stage_fault_evidence"),
-    (engine_mod._copy_stage_input, "contained_verdicts_and_stage_fault_evidence"),
-    (engine_mod._materialize, "staged_tool_executes_from_materialized_worktree"),
+    (exec_mod._contained, "contained_verdicts_and_stage_fault_evidence"),
+    (exec_mod._copy_stage_input, "contained_verdicts_and_stage_fault_evidence"),
+    (exec_mod._materialize, "staged_tool_executes_from_materialized_worktree"),
     (drain_stream, "drain_stream_newline_terminus_rows"),
+    (govern_mod.ExecPlan, "provision_process_suppresses_raw_artifacts"),
+    (govern_mod.diagnose, "diagnose_records_resource_snapshot"),
+    (govern_mod.reap, "reap_terminates_live_tree_and_passes_through_exited"),
+    (govern_mod.recv_anyio, "drain_none_stream_is_empty_tail"),
+    (govern_mod.touched, "streaming_local_receipt_carries_full_payload_and_artifact"),
+    (govern_mod.drain_pair, "streaming_local_receipt_carries_full_payload_and_artifact"),
+    (govern_mod.stream_artifacts, "streaming_local_receipt_carries_full_payload_and_artifact"),
+    (govern_mod.captured_outputs, "local_spawn_arms_honor_check_cwd_and_exit_code"),
+    (govern_mod.line_count, "nonstreaming_scoped_process_persists_output_artifacts"),
+    (govern_mod.recv_ssh, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (govern_mod.max_resources, "streaming_local_receipt_carries_full_payload_and_artifact"),
+    (govern_mod.resource_sample, "streaming_local_receipt_carries_full_payload_and_artifact"),
+    (govern_mod.resource_monitor, "streaming_local_receipt_carries_full_payload_and_artifact"),
+    (govern_mod.remaining, "check_timeout_overrides_row_timeout"),
+    (govern_mod.fan_schedule, "fan_out_preserves_order_and_backfills_timeout"),
+    (govern_mod.reset_foreign_census, "fan_out_preserves_order_and_backfills_timeout"),
+    (govern_mod.LeaseScope, "dotnet_slot_surfaces_queue_and_pressure_note"),
+    (remote_mod.pooled_ssh, "pooled_ssh_logs_close_failures"),
 )
 _ = tuple(starmap(register_law, _LAWS))
+register_law("RESOURCE", "diagnose_records_resource_snapshot")  # ContextVar carries no __name__; string subject
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -230,7 +243,7 @@ def _stream_tool(name: str, command: tuple[str, ...], language: Language = Langu
 
 def test_decode_lease_owner_inverts_encode() -> None:
     """``decode_lease_owner`` is the left inverse of ``msgspec.json.encode`` over a real owner block."""
-    owner = engine_mod._LeaseOwner(resource="r", run_id="run-x", pid=4321, create_time=_CT, project="p", mode="exclusive")
+    owner = govern_mod._LeaseOwner(resource="r", run_id="run-x", pid=4321, create_time=_CT, project="p", mode="exclusive")
     roundtrip(owner, msgspec.json.encode, lambda raw: decode_lease_owner(raw) or pytest.fail("decode_lease_owner lost a valid owner block"))
 
 
@@ -238,7 +251,7 @@ def test_decode_lease_owner_inverts_encode() -> None:
 def test_decode_lease_owner_is_total(data: bytes) -> None:
     """``decode_lease_owner`` never raises on arbitrary bytes — only ``None`` or a real ``_LeaseOwner``."""
     decoded = decode_lease_owner(data)
-    assert decoded is None or isinstance(decoded, engine_mod._LeaseOwner)
+    assert decoded is None or isinstance(decoded, govern_mod._LeaseOwner)
 
 
 def test_decode_lease_owner_corrupt_bytes_are_none() -> None:
@@ -271,8 +284,8 @@ def test_is_lease_stale_decision_table(label: str, proc_kw: _ProcKw, expected: b
     """``is_lease_stale``: dead/not-running/create-time-drift/zombie/dead-status ⇒ True; live-and-matching ⇒ False."""
     _ = label
     fake = _make_psutil_module({None: _proc(), 99999: _proc(pid=99999, **proc_kw)})
-    monkeypatch.setattr(engine_mod, "psutil", fake)
-    owner = engine_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
+    owner = govern_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
     assert is_lease_stale(owner, tolerance=1.0) is expected
 
 
@@ -283,9 +296,9 @@ def test_is_lease_stale_monotone_in_drift(drift: float) -> None:
     A wider band never flips fresh→stale — the tolerance is an upper gate.
     """
     fake = _make_psutil_module({99999: _proc(pid=99999, running=True, create_time=_CT + drift)})
-    owner = engine_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
+    owner = govern_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(engine_mod, "psutil", fake)
+        patch.setattr(govern_mod, "psutil", fake)
         monotone(drift + 0.005, drift - 0.005, lambda tol: int(is_lease_stale(owner, tolerance=tol)))
 
 
@@ -295,8 +308,8 @@ def test_is_lease_stale_access_denied_stays_live(monkeypatch: pytest.MonkeyPatch
     proc.create_time.side_effect = psutil.AccessDenied(pid=99999)
     fake = _make_psutil_module({99999: proc})
     fake.pid_exists.return_value = True
-    monkeypatch.setattr(engine_mod, "psutil", fake)
-    owner = engine_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
+    owner = govern_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
     assert is_lease_stale(owner, tolerance=1.0) is False
 
 
@@ -314,7 +327,7 @@ _PROC_DEAD_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (
 def test_proc_dead_truth_table(label: str, proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001
     """``proc_dead``: zombie/dead/vanished pids are dead, a running pid is live — the shared ownership-liveness ladder."""
     _ = label
-    monkeypatch.setattr(engine_mod, "psutil", _make_psutil_module({4242: _proc(pid=4242, **proc_kw)}))
+    monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({4242: _proc(pid=4242, **proc_kw)}))
     assert proc_dead(4242) is expected
 
 
@@ -328,7 +341,7 @@ def test_proc_dead_access_denied_defers_to_pid_exists(monkeypatch: pytest.Monkey
     guarded = _proc(pid=4242)
     guarded.status.side_effect = psutil.AccessDenied(pid=4242)
     fake = _make_psutil_module({4242: guarded})
-    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
     fake.pid_exists.return_value = True
     assert proc_dead(4242) is False
     fake.pid_exists.return_value = False
@@ -362,8 +375,8 @@ def test_governed_concurrency_cap_table(
 ) -> None:
     """``governed_concurrency`` folds the cpu / dotnet-runner / mutation-mode ceilings into one floor ≥ 1."""
     # Host pressure is pinned below every ceiling so the cap table stays deterministic.
-    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
-    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 0)
+    monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 0)
     settings = assay_root.settings.model_copy(
         update={"cpu_count": cpu_count, "max_checks": max_checks, "dotnet_max_cpu": dotnet, "mutation_max_cpu": mutation}
     )
@@ -375,12 +388,12 @@ def test_governed_concurrency_halves_under_memory_pressure(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]
 ) -> None:
     """At ≥ 90% system RAM the folded limit halves (floor 1) and each pressured fold emits ``concurrency.backpressure``."""
-    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=92.5))
+    monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=92.5))
     wide = assay_root.settings.model_copy(update={"cpu_count": 8, "max_checks": 8})
     narrow = assay_root.settings.model_copy(update={"cpu_count": 1, "max_checks": 8})
     assert governed_concurrency(wide, ()) == 4, "pressured limit did not halve"
     assert governed_concurrency(narrow, ()) == 1, "halving broke the floor of 1"
-    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=89.9))
+    monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=89.9))
     assert governed_concurrency(wide, ()) == 8, "sub-ceiling memory must not halve"
     events = tuple(e for e in log_events if e.get("event") == "concurrency.backpressure")
     assert len(events) == 2, f"backpressure telemetry not emitted once per pressured fold: {events!r}"
@@ -394,13 +407,13 @@ def test_governed_concurrency_halves_under_foreign_dotnet_census(
 
     Rows pin DOTNET-only census gating, the inclusive threshold, and emitted pressure fields.
     """
-    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
-    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 8)
+    monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 8)
     settings = assay_root.settings.model_copy(update={"cpu_count": 8, "max_checks": 8, "dotnet_max_cpu": 8})
     dotnet_batch = (Check(tool=msgspec.structs.replace(_ECHO_TOOL, runner=Runner.DOTNET)),)
     assert governed_concurrency(settings, dotnet_batch) == 4, "census at cpu_count did not halve a DOTNET batch"
     assert governed_concurrency(settings, ()) == 8, "census must not throttle a batch with no DOTNET runner"
-    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 7)
+    monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 7)
     assert governed_concurrency(settings, dotnet_batch) == 8, "sub-threshold census must not halve"
     event = next(e for e in log_events if e.get("event") == "concurrency.backpressure")
     assert (event.get("foreign_dotnet"), event.get("dotnet_pressure"), event.get("mem_pressure")) == (8, True, False)
@@ -520,7 +533,7 @@ def test_argv_for_composes_runner_prefix_scope_and_routed_tails(assay_root: Assa
 def test_argv_for_scopes_dotnet_project_tail_after_expansion(assay_root: AssayHarness) -> None:
     """Argv composition injects the per-project scope after routed ``--project`` tails are known."""
     scope = assay_root.scope(Claim.TEST)
-    tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN)
+    tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN, input_flag=("--project",))
     routed = Routed(language=Language.CSHARP, scope=Scope.FULL, projects=("tests/csharp/libs/Shape/Shape.Tests.csproj",))
     argv = assert_ok(argv_for(Check(tool=tool), routed, settings=assay_root.settings, scope=scope))
     artifact_path = argv[argv.index("--artifacts-path") + 1]
@@ -561,7 +574,7 @@ def test_remote_command_shell_quotes_cwd_env_argv(argv: tuple[str, ...], cwd: st
 # --- [DRAIN_STREAM_CAPTURED]
 
 
-def _recv_of(chunks: tuple[bytes, ...]) -> engine_mod.ByteRecv:
+def _recv_of(chunks: tuple[bytes, ...]) -> govern_mod.ByteRecv:
     """Build a ``ByteRecv`` double yielding chunks then ``None`` at EOF.
 
     Returns:
@@ -655,9 +668,9 @@ def test_discover_deadline_and_spawn_faults(tmp_path: Path) -> None:
 @pytest.fixture
 def _fresh_dotnet_root() -> Iterator[None]:
     """Reset the cached dotnet-root probe around source-precedence tests."""
-    engine_mod._dotnet_root.cache_clear()
+    exec_mod._dotnet_root.cache_clear()
     yield
-    engine_mod._dotnet_root.cache_clear()
+    exec_mod._dotnet_root.cache_clear()
 
 
 def _runtime_tree(base: Path) -> Path:
@@ -674,7 +687,7 @@ def _dotnet_env_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
     # A valid DOTNET_ROOT short-circuits before the listing probe can spawn.
     root = _runtime_tree(tmp_path / "env-root")
     mp.setenv("DOTNET_ROOT", str(root))
-    mp.setattr(engine_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
+    mp.setattr(exec_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
     return str(root)
 
 
@@ -683,7 +696,7 @@ def _dotnet_listing_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
     real = _runtime_tree(tmp_path / "real-root")
     mp.setenv("DOTNET_ROOT", str(tmp_path / "absent"))
     listing = f"Microsoft.NETCore.App 10.0.0 [{real}/shared/Microsoft.NETCore.App]\nnoise\n"
-    mp.setattr(engine_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
+    mp.setattr(exec_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
     return str(real)
 
 
@@ -692,8 +705,8 @@ def _dotnet_muxer_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
     real = _runtime_tree(tmp_path / "muxer-root")
     (real / "dotnet").write_bytes(b"")
     mp.delenv("DOTNET_ROOT", raising=False)
-    mp.setattr(engine_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
-    mp.setattr(engine_mod.shutil, "which", lambda _name: str(real / "dotnet"))
+    mp.setattr(exec_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
+    mp.setattr(exec_mod.shutil, "which", lambda _name: str(real / "dotnet"))
     return str(real)
 
 
@@ -705,24 +718,24 @@ def test_dotnet_root_probe_precedence(setup: Callable[[Path, pytest.MonkeyPatch]
     Rows pin the env short-circuit, bracketed listing path, and muxer-parent fallback.
     """
     expected = setup(tmp_path, monkeypatch)
-    assert engine_mod._dotnet_root() == expected
+    assert exec_mod._dotnet_root() == expected
 
 
 def test_apphost_overlays_tool_run_heads_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """DOTNET ``tool run`` heads gain apphost env; every other head passes through."""
     root = _runtime_tree(tmp_path / "env-root")
-    monkeypatch.setattr(engine_mod, "_dotnet_root", lambda: str(root))
+    monkeypatch.setattr(exec_mod, "_dotnet_root", lambda: str(root))
     base = {"PATH": "/bin"}
-    assert engine_mod._apphost(_TOOL_RUN, base) == {"PATH": "/bin", "DOTNET_ROOT": str(root), "DOTNET_MULTILEVEL_LOOKUP": "0"}
+    assert exec_mod._apphost(_TOOL_RUN, base) == {"PATH": "/bin", "DOTNET_ROOT": str(root), "DOTNET_MULTILEVEL_LOOKUP": "0"}
     sdk = msgspec.structs.replace(_TOOL_RUN, command=("build", "--no-restore"))
-    assert engine_mod._apphost(sdk, base) is base
-    assert engine_mod._apphost(_ECHO_TOOL, base) is base
+    assert exec_mod._apphost(sdk, base) is base
+    assert exec_mod._apphost(_ECHO_TOOL, base) is base
 
 
 def test_apphost_strips_unresolvable_root_for_tool_run(monkeypatch: pytest.MonkeyPatch) -> None:
     """When no runtime root resolves, a ``("tool", "run")`` head sheds an inherited (possibly nix-broken) ``DOTNET_ROOT``."""
-    monkeypatch.setattr(engine_mod, "_dotnet_root", lambda: None)
-    assert engine_mod._apphost(_TOOL_RUN, {"DOTNET_ROOT": "/nix/store/garbage", "PATH": "/bin"}) == {"PATH": "/bin"}
+    monkeypatch.setattr(exec_mod, "_dotnet_root", lambda: None)
+    assert exec_mod._apphost(_TOOL_RUN, {"DOTNET_ROOT": "/nix/store/garbage", "PATH": "/bin"}) == {"PATH": "/bin"}
 
 
 # --- [RUN_CHECK_FAN_OUT]
@@ -802,7 +815,7 @@ async def test_run_check_async_is_the_event_loop_boundary(assay_root: AssayHarne
 @pytest.mark.anyio
 async def test_dotnet_slot_surfaces_queue_and_pressure_note(assay_root: AssayHarness) -> None:
     """The machine-wide dotnet slot pool emits the slot, wait, census, and concurrency decision as receipt notes."""
-    async with engine_mod._dotnet_slot(Check(tool=_REMOTE_TOOL), assay_root.settings, None) as acquired:
+    async with govern_mod.dotnet_slot(Check(tool=_REMOTE_TOOL), assay_root.settings, None) as acquired:
         notes = assert_ok(acquired)
     joined = " ".join(notes)
     assert "dotnet.slot" in joined
@@ -832,7 +845,7 @@ def test_run_check_retries_transient_spawn_via_rail_probe(
             case _:
                 return receipt(("dotnet", "test"), 0)
 
-    monkeypatch.setattr(engine_mod, "_execute", flaky)
+    monkeypatch.setattr(exec_mod, "_execute", flaky)
     done = assert_ok(_run(Check(tool=_REMOTE_TOOL), assay_root))
     assert (calls[0], "retry attempts=2" in done.notes) == (2, True), f"expected one retry with attempt evidence, got {calls[0]} attempts: {done!r}"
     scheduled = tuple(e for e in log_events if e.get("event") == "stamina.retry_scheduled")
@@ -848,7 +861,7 @@ def test_fan_out_preserves_order_and_backfills_timeout(assay_root: AssayHarness,
         await anyio.sleep(0.0 if idx < 2 else 10.0)
         return receipt((check.tool.name,), 0)
 
-    monkeypatch.setattr(engine_mod, "_execute", indexed)
+    monkeypatch.setattr(exec_mod, "_execute", indexed)
     checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, name=f"check-{i}", runner=Runner.DOTNET)) for i in range(3))
     results = fan_out(checks, settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED, deadline=time.monotonic() + 0.3)
     assert len(results) == 3
@@ -868,7 +881,7 @@ def test_fan_out_contains_escaped_check_fault(assay_root: AssayHarness, monkeypa
             case False:
                 return receipt((check.tool.name,), 0)
 
-    monkeypatch.setattr(engine_mod, "_execute", volatile)
+    monkeypatch.setattr(exec_mod, "_execute", volatile)
     checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, name=f"contain-{i}")) for i in range(3))
     results = fan_out(checks, settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED)
     assert_ok(results[0])
@@ -1018,6 +1031,18 @@ def test_run_check_classifies_spawn_faults(
     assert_error_status(run_check(Check(tool=tool), settings=assay_root.settings, scope=None, routed=_PY_CHANGED), status)
 
 
+def test_check_timeout_overrides_row_timeout(assay_root: AssayHarness) -> None:
+    """``Check.timeout`` is the per-invocation deadline override: it beats a generous row timeout without minting a sibling row."""
+    slow = (sys.executable, "-c", "import time; time.sleep(10)")
+    tool = Tool("timeout-law", Runner.DIRECT, slow, Input.NONE, Language.PYTHON, Claim.TEST, mode=Mode.CHECK, timeout=60.0)
+    outcome = run_check(Check(tool=tool, timeout=0.2), settings=assay_root.settings, scope=None, routed=_PY_CHANGED)
+    fault = assert_error_status(outcome, RailStatus.TIMEOUT)
+    assert fault.status is RailStatus.TIMEOUT
+
+
+register_law(Check, "check_timeout_overrides_row_timeout")
+
+
 # --- [INPROC_THUNK]
 
 
@@ -1035,8 +1060,8 @@ def test_inproc_thunk_outcomes(assay_root: AssayHarness) -> None:
         return receipt((check.tool.name,), 0, stdout=b"inproc-ok")
 
     no_thunk = assert_ok(_run(Check(tool=base), assay_root))
-    raising = assert_ok(_run(Check(tool=msgspec.structs.replace(base, thunk=_raise), paths=("p",)), assay_root))
-    healthy = assert_ok(_run(Check(tool=msgspec.structs.replace(base, thunk=_good)), assay_root))
+    raising = assert_ok(_run(Check(tool=base, paths=("p",), thunk=_raise), assay_root))
+    healthy = assert_ok(_run(Check(tool=base, thunk=_good), assay_root))
     assert (no_thunk.returncode, b"no thunk" in no_thunk.stderr.lower()) == (1, True), f"missing-thunk receipt wrong: {no_thunk!r}"
     assert (raising.returncode, b"RuntimeError" in raising.stderr) == (1, True), f"raising-thunk receipt wrong: {raising!r}"
     assert (healthy.returncode, healthy.stdout) == (0, b"inproc-ok"), f"healthy-thunk receipt wrong: {healthy!r}"
@@ -1103,13 +1128,13 @@ def test_provision_process_suppresses_raw_artifacts(mode: Mode, assay_root: Assa
     assert done.artifacts == ()
 
 
-def _spill_plan(assay_root: AssayHarness, scope: ArtifactScope, spill_cap: int) -> engine_mod._ExecPlan:
-    """Build a scoped ``_ExecPlan`` with a small spill cap for capture-boundary laws.
+def _spill_plan(assay_root: AssayHarness, scope: ArtifactScope, spill_cap: int) -> govern_mod.ExecPlan:
+    """Build a scoped ``ExecPlan`` with a small spill cap for capture-boundary laws.
 
     Returns:
         Streaming plan whose ``spill_cap`` forces the inline/spill split at a unit-testable threshold.
     """
-    return engine_mod._ExecPlan(
+    return govern_mod.ExecPlan(
         argv=("/bin/echo", "spill-law"),
         check=Check(tool=_stream_tool("spill-law", ("/bin/echo", "x"))),
         cwd=str(assay_root.root),
@@ -1133,12 +1158,12 @@ def test_capture_spill_boundary_is_strict_greater_than(size: int, expect_spill: 
     spill_cap, scope = 64, assay_root.scope(Claim.STATIC)
     payload = b"x" * size
     plan = _spill_plan(assay_root, scope, spill_cap)
-    captured = engine_mod._capture_payload(plan, "out", payload)
+    captured = govern_mod._capture_payload(plan, "out", payload)
     assert captured.spilled is expect_spill, f"_capture_payload spill verdict wrong at size={size}: {captured!r}"
     assert (captured.full == b"") is expect_spill, f"inline ``full`` retained iff not spilled: {captured!r}"
     assert captured.read(scope.store) == payload, "capture-payload read did not resolve the full payload"
 
-    path, handle = engine_mod._stream_writer(plan, "out")
+    path, handle = govern_mod._stream_writer(plan, "out")
     assert handle is not None, "scoped plan must return a real _WriteContext"
     with handle as sink:
         drained = anyio.run(
@@ -1168,13 +1193,13 @@ def test_stall_verdict_triage_table() -> None:
 
     Rows pin one-core rendering, the inclusive contention boundary, and the negative-delta quiet clamp.
     """
-    window = engine_mod._STALL_SAMPLE_S
+    window = govern_mod._STALL_SAMPLE_S
 
-    def sample(cpu_s: float = 0.0, invol: float = 0.0, status: str = psutil.STATUS_RUNNING, procs: int = 1) -> engine_mod.StalledProcess:
-        return engine_mod.StalledProcess(cpu_s=cpu_s, invol=invol, status=status, procs=procs)
+    def sample(cpu_s: float = 0.0, invol: float = 0.0, status: str = psutil.STATUS_RUNNING, procs: int = 1) -> govern_mod.StalledProcess:
+        return govern_mod.StalledProcess(cpu_s=cpu_s, invol=invol, status=status, procs=procs)
 
     idle = sample()
-    cases: tuple[ProjectionCase[tuple[engine_mod.StalledProcess, engine_mod.StalledProcess]], ...] = (
+    cases: tuple[ProjectionCase[tuple[govern_mod.StalledProcess, govern_mod.StalledProcess]], ...] = (
         ProjectionCase(
             label="cpu-bound",
             intent=(idle, sample(cpu_s=window, procs=3)),
@@ -1209,9 +1234,9 @@ def test_stall_verdict_triage_table() -> None:
         ),
     )
 
-    def project(intent: tuple[engine_mod.StalledProcess, engine_mod.StalledProcess]) -> str:
+    def project(intent: tuple[govern_mod.StalledProcess, govern_mod.StalledProcess]) -> str:
         first, second = intent
-        return engine_mod._stall_verdict(first, second)
+        return govern_mod._stall_verdict(first, second)
 
     projection_matrix(cases, project)
 
@@ -1229,12 +1254,12 @@ def test_stall_sample_aggregates_process_tree(monkeypatch: pytest.MonkeyPatch) -
     flaky.cpu_times.side_effect = psutil.Error("times down")
     flaky.num_ctx_switches.side_effect = NotImplementedError("off-platform probe")
     root.children.return_value = (kid, flaky)
-    monkeypatch.setattr(engine_mod, "psutil", _make_psutil_module({777: root}))
-    sample = engine_mod._stall_sample(777)
-    expected = engine_mod.StalledProcess(cpu_s=3.75, invol=42.0, status=psutil.STATUS_RUNNING, procs=3)
+    monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({777: root}))
+    sample = govern_mod._stall_sample(777)
+    expected = govern_mod.StalledProcess(cpu_s=3.75, invol=42.0, status=psutil.STATUS_RUNNING, procs=3)
     assert sample == expected, f"tree aggregate wrong: {sample!r}"
-    empty = engine_mod._stall_sample(2_147_483_646)
-    assert empty == engine_mod.StalledProcess(cpu_s=0.0, invol=0.0, status="", procs=0), f"vanished pid did not degrade: {empty!r}"
+    empty = govern_mod._stall_sample(2_147_483_646)
+    assert empty == govern_mod.StalledProcess(cpu_s=0.0, invol=0.0, status="", procs=0), f"vanished pid did not degrade: {empty!r}"
 
 
 @pytest.mark.parametrize("label, command, stalled", _STALL_RUNS, ids=[c[0] for c in _STALL_RUNS])
@@ -1251,8 +1276,8 @@ def test_stall_monitor_shrunk_constant_matrix(
 
     A silent slow child emits one receipt note plus log/span events; a fast child emits none.
     """
-    monkeypatch.setattr(engine_mod, "_STALL_AFTER_S", 0.2)
-    monkeypatch.setattr(engine_mod, "_STALL_SAMPLE_S", 0.05)
+    monkeypatch.setattr(govern_mod, "_STALL_AFTER_S", 0.2)
+    monkeypatch.setattr(govern_mod, "_STALL_SAMPLE_S", 0.05)
     done = assert_ok(_run(Check(tool=_stream_tool(f"{label}-tool", command, Language.PYTHON)), assay_root))
     notes = tuple(n for n in done.notes if n.startswith("proc.stall"))
     events = tuple(e for e in log_events if e.get("event") == "proc.stall")
@@ -1354,17 +1379,17 @@ def test_host_bound_tool_requires_local_execution(assay_root: AssayHarness, clai
 
 def test_reap_terminates_live_tree_and_passes_through_exited(monkeypatch: pytest.MonkeyPatch) -> None:
     """``_reap`` kills live child trees and preserves already-exited return codes."""
-    monkeypatch.setattr(engine_mod, "_reap_tree", lambda _pid: None)
+    monkeypatch.setattr(govern_mod, "_reap_tree", lambda _pid: None)
 
     async def _live() -> int | None:
         proc = await anyio.open_process([sys.executable, "-c", "import time; time.sleep(30)"])
-        await engine_mod._reap(proc)
+        await govern_mod.reap(proc)
         return proc.returncode
 
     async def _exited() -> int | None:
         proc = await anyio.open_process([sys.executable, "-c", "pass"])
         await proc.wait()
-        await engine_mod._reap(proc)
+        await govern_mod.reap(proc)
         return proc.returncode
 
     assert anyio.run(_live) is not None, "live child not reaped to a terminal returncode"
@@ -1379,13 +1404,13 @@ def test_reap_tree_terminates_real_process_tree() -> None:
 
     async def _drive() -> int | None:
         async with await anyio.open_process([sys.executable, "-c", "import time; time.sleep(30)"]) as proc:
-            await anyio.to_thread.run_sync(engine_mod._reap_tree, proc.pid)  # ty: ignore[unresolved-attribute]
+            await anyio.to_thread.run_sync(govern_mod._reap_tree, proc.pid)  # ty: ignore[unresolved-attribute]
             with anyio.fail_after(5.0):
                 await proc.wait()
             return proc.returncode
 
     assert anyio.run(_drive) is not None, "live process not terminated by _reap_tree"
-    engine_mod._reap_tree(2_147_483_646)
+    govern_mod._reap_tree(2_147_483_646)
 
 
 def test_terminate_process_tree_kills_terminate_resistant_child(log_events: list[dict[str, object]]) -> None:
@@ -1395,8 +1420,8 @@ def test_terminate_process_tree_kills_terminate_resistant_child(log_events: list
     fake = _make_psutil_module({4242: survivor, 4243: already_dead})
     fake.wait_procs.side_effect = (((already_dead,), (survivor,)), ((survivor,), ()))
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(engine_mod, "psutil", fake)
-        engine_mod._terminate_process_tree((already_dead, survivor), None)
+        patch.setattr(govern_mod, "psutil", fake)
+        govern_mod._terminate_process_tree((already_dead, survivor), None)
     sent = tuple(call.args[0] for call in survivor.send_signal.call_args_list)
     assert sent == (signal.SIGTERM, signal.SIGKILL), f"ladder escalation wrong: {sent!r}"  # ty: ignore[possibly-missing-attribute]
     already_dead.send_signal.assert_not_called()
@@ -1406,15 +1431,15 @@ def test_terminate_process_tree_kills_terminate_resistant_child(log_events: list
 
 def test_child_pgid_guards_engine_group() -> None:
     """``_child_pgid`` protects the engine group, vanished pids, and session-leader children."""
-    assert engine_mod._child_pgid(os.getpid()) is None, "own process group must never be group-killed"
-    assert engine_mod._child_pgid(2_147_483_646) is None, "vanished pid must degrade to the walk fallback"
+    assert govern_mod._child_pgid(os.getpid()) is None, "own process group must never be group-killed"
+    assert govern_mod._child_pgid(2_147_483_646) is None, "vanished pid must degrade to the walk fallback"
 
     async def _spawn() -> tuple[int | None, int]:
         proc = await anyio.open_process([sys.executable, "-c", "import time; time.sleep(30)"], start_new_session=True)
         try:
-            return engine_mod._child_pgid(proc.pid), proc.pid
+            return govern_mod._child_pgid(proc.pid), proc.pid
         finally:
-            await engine_mod._reap(proc)
+            await govern_mod.reap(proc)
 
     pgid, pid = anyio.run(_spawn)
     assert pgid == pid, "session-leader child must own its process group"
@@ -1429,27 +1454,27 @@ def test_diagnose_records_resource_snapshot(monkeypatch: pytest.MonkeyPatch) -> 
     It also seeds ``_RESOURCE`` so cross-``anyio.run`` fault construction carries resource evidence.
     """
     fake = _make_psutil_module({None: _proc(rss=65536)})
-    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
     events: list[tuple[str, dict[str, object]]] = []
     exceptions: list[BaseException] = []
     span = SimpleNamespace(record_exception=exceptions.append, add_event=lambda name, attributes: events.append((name, attributes)))
     monkeypatch.setattr(trace, "get_current_span", lambda: span)
-    token = engine_mod._RESOURCE.set(())
-    ring_token = _RING.set(deque(("info:probe.start", "warning:probe.fault")))
+    token = govern_mod.RESOURCE.set(())
+    ring_token = RING.set(deque(("info:probe.start", "warning:probe.fault")))
     try:
         exc = TimeoutError("synthetic diagnose timeout")
-        engine_mod._diagnose(exc)
+        govern_mod.diagnose(exc)
         assert exceptions == [exc], "exception not recorded on the fault span"
         name, attrs = events[0]
-        assert (name, attrs.get("mem.rss_bytes")) == (engine_mod._FAULT_SNAPSHOT, 65536.0), f"snapshot event wrong: {name!r} {attrs!r}"
-        assert events[1] == (engine_mod._RING_SNAPSHOT, {"events": ("info:probe.start", "warning:probe.fault")}), (
+        assert (name, attrs.get("mem.rss_bytes")) == (govern_mod._FAULT_SNAPSHOT, 65536.0), f"snapshot event wrong: {name!r} {attrs!r}"
+        assert events[1] == (govern_mod._RING_SNAPSHOT, {"events": ("info:probe.start", "warning:probe.fault")}), (
             f"ring event not built from ring_recent(): {events[1]!r}"
         )
-        rss = dict(engine_mod._RESOURCE.get())["mem.rss_bytes"]
+        rss = dict(govern_mod.RESOURCE.get())["mem.rss_bytes"]
         assert rss == pytest.approx(65536.0), "resource ContextVar not seeded from the snapshot"
     finally:
-        _RING.reset(ring_token)
-        engine_mod._RESOURCE.reset(token)
+        RING.reset(ring_token)
+        govern_mod.RESOURCE.reset(token)
 
 
 def test_measure_pressure_arms_degrade_to_empty(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1462,7 +1487,7 @@ def test_measure_pressure_arms_degrade_to_empty(monkeypatch: pytest.MonkeyPatch)
     fake = _make_psutil_module({None: self_proc})
     fake.virtual_memory.side_effect = psutil.Error("vm down")
     fake.swap_memory.side_effect = psutil.Error("swap down")
-    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
     fd_proc = _proc()
     fd_proc.num_fds.side_effect = NotImplementedError("no num_fds")
 
@@ -1470,15 +1495,15 @@ def test_measure_pressure_arms_degrade_to_empty(monkeypatch: pytest.MonkeyPatch)
         raise ValueError("probe down")
 
     support_matrix(
-        ("load-info-mem-fault→load-only", lambda: set(engine_mod._load_info().to_rows()) == {"sys.load1_percent"}, True),
-        ("measure-children-fault→elided", lambda: "proc.children" not in dict(engine_mod._measure().to_resources()), True),
-        ("num-fds-not-implemented→default", lambda: engine_mod._safe_call(lambda: float(fd_proc.num_fds()), -1.0) == pytest.approx(-1.0), True),
-        ("measure-keeps-num-fds-key", lambda: "proc.num_fds" in dict(engine_mod._measure().to_resources()), True),
-        ("safe-call-value-arm", lambda: engine_mod._safe_call(lambda: 7.0, -1.0) == pytest.approx(7.0), True),
-        ("safe-call-default-arm", lambda: engine_mod._safe_call(_fault, -1.0) == pytest.approx(-1.0), True),
+        ("load-info-mem-fault→load-only", lambda: set(govern_mod._load_info().to_rows()) == {"sys.load1_percent"}, True),
+        ("measure-children-fault→elided", lambda: "proc.children" not in dict(govern_mod.measure().to_resources()), True),
+        ("num-fds-not-implemented→default", lambda: govern_mod._safe_call(lambda: float(fd_proc.num_fds()), -1.0) == pytest.approx(-1.0), True),
+        ("measure-keeps-num-fds-key", lambda: "proc.num_fds" in dict(govern_mod.measure().to_resources()), True),
+        ("safe-call-value-arm", lambda: govern_mod._safe_call(lambda: 7.0, -1.0) == pytest.approx(7.0), True),
+        ("safe-call-default-arm", lambda: govern_mod._safe_call(_fault, -1.0) == pytest.approx(-1.0), True),
         (
             "as-bytes-projection",
-            lambda: (engine_mod._as_bytes(b"x"), engine_mod._as_bytes(None), engine_mod._as_bytes("s")) == (b"x", b"", b"s"),
+            lambda: (remote_mod._as_bytes(b"x"), remote_mod._as_bytes(None), remote_mod._as_bytes("s")) == (b"x", b"", b"s"),
             True,
         ),
     )
@@ -1491,9 +1516,9 @@ def test_load_info_load_arm_degrades_without_getloadavg(monkeypatch: pytest.Monk
         raise OSError("load unavailable")
 
     monkeypatch.setattr(os, "getloadavg", _boom, raising=False)
-    assert "sys.load1_percent" not in engine_mod._load_info().to_rows(), "failing getloadavg not degraded to an absent key"
+    assert "sys.load1_percent" not in govern_mod._load_info().to_rows(), "failing getloadavg not degraded to an absent key"
     monkeypatch.delattr(os, "getloadavg", raising=False)
-    assert "sys.load1_percent" not in engine_mod._load_info().to_rows(), "absent getloadavg not degraded to an absent key"
+    assert "sys.load1_percent" not in govern_mod._load_info().to_rows(), "absent getloadavg not degraded to an absent key"
 
 
 # --- [LEASE_CLAIM]
@@ -1533,7 +1558,7 @@ def test_claim_held_flock_is_busy(label: str, populate: bool, assay_root: AssayH
 
     Populated and empty mid-write bodies both read as live contention under ``LOCK_EX``.
     """
-    owner = engine_mod._LeaseOwner(resource=label, run_id="holder", pid=os.getpid(), create_time=time.time())
+    owner = govern_mod._LeaseOwner(resource=label, run_id="holder", pid=os.getpid(), create_time=time.time())
     seed = msgspec.json.encode(owner) if populate else None
     lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, f"{label}.lock")
     with _lock_fd(lock_path, exclusive=True, seed=seed), exclusive_lease(label, "contender", settings=assay_root.settings) as contended:
@@ -1548,10 +1573,10 @@ def test_claim_steals_dead_holder_lock(assay_root: AssayHarness, monkeypatch: py
     """
     dead_pid, self_pid = 88_888, os.getpid()
     fake = _make_psutil_module({self_pid: _proc(pid=self_pid), dead_pid: _proc(pid=dead_pid, raise_no_such=True)})
-    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
     lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "stale.lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    stale = engine_mod._LeaseOwner(resource="stale", run_id="old-run", pid=dead_pid, create_time=0.0)
+    stale = govern_mod._LeaseOwner(resource="stale", run_id="old-run", pid=dead_pid, create_time=0.0)
     lock_path.write_bytes(msgspec.json.encode(stale))
     with exclusive_lease("stale", "new-run", settings=assay_root.settings) as reclaimed:
         owner = assert_ok(reclaimed).owner
@@ -1599,7 +1624,7 @@ def test_leased_maps_lease_io_error_to_fault(assay_root: AssayHarness, monkeypat
             raise OSError("lease fs gone")
         yield None  # pragma: no cover
 
-    monkeypatch.setattr(engine_mod, "exclusive_lease", _boom)
+    monkeypatch.setattr(govern_mod, "exclusive_lease", _boom)
 
     def _action(_held: object) -> Result[object, Fault]:
         ran[0] = True
@@ -1612,9 +1637,9 @@ def test_leased_maps_lease_io_error_to_fault(assay_root: AssayHarness, monkeypat
 
 def test_steal_rewrites_owner_on_uncontended_lock(assay_root: AssayHarness) -> None:
     """``_steal`` re-locks an uncontended fd and rewrites the owner block."""
-    prior = engine_mod._LeaseOwner(resource="steal-direct", run_id="dead", pid=88_888, create_time=0.0)
+    prior = govern_mod._LeaseOwner(resource="steal-direct", run_id="dead", pid=88_888, create_time=0.0)
     with _lock_fd(assay_root.settings.artifact(ArtifactKind.LOCKS, "steal-direct.lock")) as fd:
-        won = engine_mod._steal(fd, "steal-direct", run_id="winner", target="", owner=prior)
+        won = govern_mod._steal(fd, "steal-direct", run_id="winner", target="", owner=prior)
     assert won is not None, "_steal did not return a won owner on an uncontended lock"
     assert (won.run_id, won.pid) == ("winner", os.getpid()), f"_steal did not rewrite the owner: {won!r}"
 
@@ -1623,7 +1648,7 @@ def test_steal_yields_busy_on_lost_toctou_race(assay_root: AssayHarness) -> None
     """``_steal`` returns ``None`` (BUSY, never FAULTED) when a sibling holds the flock through the steal attempt."""
     lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "steal-lost.lock")
     with _lock_fd(lock_path, exclusive=True), _lock_fd(lock_path) as contender:
-        assert engine_mod._steal(contender, "steal-lost", run_id="loser", target="", owner=None) is None, "lost TOCTOU race did not yield BUSY"
+        assert govern_mod._steal(contender, "steal-lost", run_id="loser", target="", owner=None) is None, "lost TOCTOU race did not yield BUSY"
 
 
 # --- [SSH_ROUND_TRIP]
@@ -1717,8 +1742,9 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: P
     and the ``ExecReceipt`` carrying the pushed and pulled file counts.
     """
     from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # sftp-capable loopback for the real put/get
-    from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC0415  # runtime scope construction
-    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the scope/backend the transfer dispatches on
+    from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime settings construction
+    from tools.assay.composition.store import ArtifactScope  # noqa: PLC0415  # runtime scope construction
+    from tools.assay.core.govern import ExecPlan  # noqa: PLC0415  # plan carries the scope/backend the transfer dispatches on
 
     # The Offload derives the sftp backend from the host: <workroot>/<run_id>/.artifacts/assay, sited inside the SFTP chroot.
     remote = AssaySettings.model_validate({
@@ -1746,7 +1772,7 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: P
 
     provisioned = provision(SshHost(sftp_root=tmp_path))
     conn = await provisioned.client_factory()
-    plan = _ExecPlan(
+    plan = ExecPlan(
         argv=("echo",),
         check=Check(tool=_stream_tool("remote-transfer-law", ("/bin/echo", "x"))),
         cwd=remote_cwd,
@@ -1760,7 +1786,7 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: P
         thread_limiter=None,
     )
     try:
-        async with engine_mod._remote_transfer(conn, plan) as transfer:
+        async with remote_mod._remote_transfer(conn, plan) as transfer:
             pass  # exec is a no-op here: the push runs on bracket entry, the pull on transfer.pull
         pulled = await transfer.pull({})
         # The remote run dir holds both the pushed manifest and the pre-seeded scope tree; the push leg owns only the former.
@@ -1804,7 +1830,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
     """
     from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # real sftp loopback for the concurrent put/makedirs
     from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime settings construction
-    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the resolved absolute workroot the push lands under
+    from tools.assay.core.govern import ExecPlan  # noqa: PLC0415  # plan carries the resolved absolute workroot the push lands under
 
     remote = AssaySettings.model_validate({
         "root": UPath(assay_root.root),
@@ -1825,11 +1851,11 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
         "docs/y/deep/leaf.md": b"leaf\n",
     }
     await _git_seed(Path(str(remote.local_root)), manifest)
-    remote_cwd = remote.exec_target.remote_workroot(run_id) if isinstance(remote.exec_target, engine_mod.Ssh) else ""
+    remote_cwd = remote.exec_target.remote_workroot(run_id) if isinstance(remote.exec_target, remote_mod.Ssh) else ""
     assert "~" not in remote_cwd, f"workroot must be absolute, not a literal tilde: {remote_cwd!r}"
 
     conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
-    plan = _ExecPlan(
+    plan = ExecPlan(
         argv=("echo",),
         check=Check(tool=_stream_tool("push-shape-law", ("/bin/echo", "x"))),
         cwd=remote_cwd,
@@ -1843,7 +1869,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
         thread_limiter=None,
     )
     try:
-        pushed, notes = await engine_mod._push_repo(conn, plan, tuple(sorted(manifest)))
+        pushed, notes = await remote_mod._push_repo(conn, plan, tuple(sorted(manifest)))
         run_dir = tmp_path / "work" / run_id
         landed = {
             rel: (run_dir / rel).read_bytes() for p in run_dir.rglob("*") if p.is_file() for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
@@ -1874,11 +1900,11 @@ def test_stale_remote_runs_keeps_newest_per_host_namespace() -> None:
         ("custom-no-token", 10.0),  # tokenless id: filtered out by every host token
     )
     assert run_id_host_token(rows[0][0]) == mine, "host token must round-trip out of the canonical run id"
-    keep1 = engine_mod._stale_remote_runs(rows, token=mine, keep=1)
+    keep1 = remote_mod._stale_remote_runs(rows, token=mine, keep=1)
     assert keep1 == (rows[0][0], rows[1][0]), f"keep=1 must drop this host's two oldest, newest-first retained: {keep1!r}"
     assert all(theirs not in run_id and "custom" not in run_id for run_id in keep1), "a foreign or tokenless run leaked into the prune set"
-    assert engine_mod._stale_remote_runs(rows, token=mine, keep=3) == (), "keep>=own count prunes nothing"
-    assert engine_mod._stale_remote_runs(rows, token=absent, keep=0) == (), "an absent host token owns no runs to prune"
+    assert remote_mod._stale_remote_runs(rows, token=mine, keep=3) == (), "keep>=own count prunes nothing"
+    assert remote_mod._stale_remote_runs(rows, token=absent, keep=0) == (), "an absent host token owns no runs to prune"
 
 
 @pytest.mark.anyio
@@ -1913,7 +1939,7 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
 
     conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
     try:
-        notes = await engine_mod._remote_prune(conn, remote)
+        notes = await remote_mod._remote_prune(conn, remote)
         survivors = {p.name for p in workdir.iterdir() if p.is_dir()}
     finally:
         conn.close()
@@ -1923,9 +1949,9 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
     assert survivors == {mine_new, theirs}, f"prune must keep the newest own run and the foreign run, drop the rest: {survivors!r}"
 
 
-def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = ()) -> engine_mod._ExecPlan:
-    # Minimal _ExecPlan carrying just the lane discriminant (runner) and the seed tokens the manifest scoper reads.
-    return engine_mod._ExecPlan(
+def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = ()) -> govern_mod.ExecPlan:
+    # Minimal ExecPlan carrying just the lane discriminant (runner) and the seed tokens the manifest scoper reads.
+    return govern_mod.ExecPlan(
         argv=tool.command,
         check=Check(tool=tool, paths=paths),
         cwd="",
@@ -1965,7 +1991,7 @@ def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: A
         "libs/C/Other.cs",
     )
     tool = Tool("cs-build", Runner.DOTNET, ("build", str(root / "libs/A/A.csproj")), Input.OWNED, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
-    scoped = frozenset(engine_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
+    scoped = frozenset(remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
     closure_files = frozenset({"libs/A/Owner.cs", "libs/B/Dep.cs"})
     config_files = frozenset({"Directory.Build.props", "Directory.Packages.props"})
     assert closure_files <= scoped, f"closure dropped a transitive project file: {scoped!r}"
@@ -1974,31 +2000,31 @@ def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: A
     assert "README.md" not in scoped, f"a non-config repo-root file is off the C# closure: {scoped!r}"
 
 
-register_law(engine_mod._lane_manifest, "lane_manifest_csharp_scopes_to_transitive_project_closure")
-register_law(engine_mod._project_closure, "lane_manifest_csharp_scopes_to_transitive_project_closure")
+register_law(remote_mod._lane_manifest, "lane_manifest_csharp_scopes_to_transitive_project_closure")
+register_law(remote_mod._project_closure, "lane_manifest_csharp_scopes_to_transitive_project_closure")
 
 
 def test_lane_manifest_python_scopes_to_package_tests_and_config(assay_root: AssayHarness) -> None:
     """The Python lane manifest is package source + tests + config anchors, never the whole git tree or C# sources."""
     universe = ("pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py", "libs/csharp/Rasm/Foo.cs", "docs/x.md")
     tool = Tool("py-lint", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.STATIC)
-    scoped = set(engine_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
+    scoped = set(remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
     expected = {"pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py"}
     assert scoped == expected, f"python lane scope drifted: {scoped!r}"
 
 
-register_law(engine_mod._lane_manifest, "lane_manifest_python_scopes_to_package_tests_and_config")
-register_law(engine_mod._python_manifest, "lane_manifest_python_scopes_to_package_tests_and_config")
+register_law(remote_mod._lane_manifest, "lane_manifest_python_scopes_to_package_tests_and_config")
+register_law(remote_mod._python_manifest, "lane_manifest_python_scopes_to_package_tests_and_config")
 
 
 def test_lane_manifest_unknown_lane_keeps_full_universe(assay_root: AssayHarness) -> None:
     """A lane with no project graph (DIRECT runner) keeps the full git universe: nothing to scope against."""
     universe = ("a", "b/c", "d/e/f")
     tool = Tool("direct", Runner.DIRECT, ("echo",), Input.NONE, Language.CSHARP, Claim.STATIC)
-    assert engine_mod._lane_manifest(_manifest_plan(assay_root, tool), universe) == universe
+    assert remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe) == universe
 
 
-register_law(engine_mod._lane_manifest, "lane_manifest_unknown_lane_keeps_full_universe")
+register_law(remote_mod._lane_manifest, "lane_manifest_unknown_lane_keeps_full_universe")
 
 
 def test_remote_scope_argv_rebases_host_absolute_scope_paths(assay_root: AssayHarness) -> None:
@@ -2018,7 +2044,7 @@ def test_remote_scope_argv_rebases_host_absolute_scope_paths(assay_root: AssayHa
         "/p:Unrelated=value",
         f"{local_root}/libs/A/A.csproj",
     )
-    rebased = engine_mod._remote_scope_argv(argv, local_root=local_root, remote_root=remote_root)
+    rebased = remote_mod._remote_scope_argv(argv, local_root=local_root, remote_root=remote_root)
     assert rebased[2] == f"-p:CspSarifDir={remote_root}/.artifacts/assay/build/bridge/Release/sarif", f"CspSarifDir not rebased: {rebased[2]!r}"
     assert rebased[4] == f"{remote_root}/.artifacts/assay/build/bridge/Release", f"--artifacts-path value not rebased: {rebased[4]!r}"
     assert rebased[:2] == ("dotnet", "build"), "leading runner/verb tokens must survive the rebase"
@@ -2027,8 +2053,8 @@ def test_remote_scope_argv_rebases_host_absolute_scope_paths(assay_root: AssayHa
     assert rebased[6] == f"{remote_root}/libs/A/A.csproj", "a bare absolute project token under local_root rebases whole"
 
 
-register_law(engine_mod._remote_scope_argv, "remote_scope_argv_rebases_host_absolute_scope_paths")
-register_law(engine_mod._resolve_remote_plan, "remote_scope_argv_rebases_host_absolute_scope_paths")
+register_law(remote_mod._remote_scope_argv, "remote_scope_argv_rebases_host_absolute_scope_paths")
+register_law(remote_mod._resolve_remote_plan, "remote_scope_argv_rebases_host_absolute_scope_paths")
 
 
 @contextlib.contextmanager
@@ -2065,8 +2091,10 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  
         provision,
         SshHost,
     )
-    from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC0415  # runtime scope/settings construction
-    from tools.assay.core.engine import _ExecPlan, _Transfer  # noqa: PLC0415  # the transfer dispatches pull on the offload strategy
+    from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime settings construction
+    from tools.assay.composition.store import ArtifactScope  # noqa: PLC0415  # runtime scope construction
+    from tools.assay.core.govern import ExecPlan  # noqa: PLC0415  # the plan the transfer dispatches pull on
+    from tools.assay.core.remote import _Transfer  # noqa: PLC0415  # the transfer dispatches pull on the offload strategy
 
     _ = socket_enabled  # lifts the INET socket ban for the moto loopback server; the hook auto-applies the network marker
     with _moto_s3(monkeypatch) as fs:
@@ -2084,7 +2112,7 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  
         # The scope's store is the same SHARED backend: _scope_relative yields <claim>/<run_id>, the parts both sides agree on.
         shared = remote.store(protocol="s3", root=backend_root, skip_instance_cache=True)
         scope = ArtifactScope(store=shared, path=shared.path(claim, run_id), dotnet_flags=())
-        plan = _ExecPlan(
+        plan = ExecPlan(
             argv=("echo",),
             check=Check(tool=_stream_tool("shared-pull-law", ("/bin/echo", "x"))),
             cwd=offload.target.remote_workroot(run_id),
@@ -2129,8 +2157,8 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  
     assert by_name["coverage.xml"].path.endswith("/sarif/coverage.xml"), "recursive walk dropped the nested scope file"
 
 
-register_law(engine_mod._Transfer, "remote_transfer_reads_shared_cloud_scope_without_byte_transfer")
-register_law(engine_mod._shared_read_scope, "remote_transfer_reads_shared_cloud_scope_without_byte_transfer")
+register_law(remote_mod._Transfer, "remote_transfer_reads_shared_cloud_scope_without_byte_transfer")
+register_law(remote_mod._shared_read_scope, "remote_transfer_reads_shared_cloud_scope_without_byte_transfer")
 
 
 @pytest.mark.anyio
@@ -2145,7 +2173,7 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(  # noqa: P
     """
     from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # chrooted loopback so the real push leg lands the manifest
     from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime remote-settings construction
-    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the cwd/settings the bracket pushes under
+    from tools.assay.core.govern import ExecPlan  # noqa: PLC0415  # plan carries the cwd/settings the bracket pushes under
 
     remote = AssaySettings.model_validate({
         "root": UPath(assay_root.root),
@@ -2169,11 +2197,11 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(  # noqa: P
         await anyio.sleep(5.0)  # a hung remote tool: longer than the deadline, must be cancelled not awaited
         raise AssertionError("wedged remote exec was awaited to completion — the deadline failed to cancel it")
 
-    monkeypatch.setattr(engine_mod, "_ssh_connection", _fixed_conn)
-    monkeypatch.setattr(engine_mod, "_remote_exec", _wedged_exec)
-    monkeypatch.setattr(engine_mod, "_probe_toolchain", lambda *_a, **_k: _async_none())
+    monkeypatch.setattr(remote_mod, "_ssh_connection", _fixed_conn)
+    monkeypatch.setattr(remote_mod, "_remote_exec", _wedged_exec)
+    monkeypatch.setattr(remote_mod, "_probe_toolchain", lambda *_a, **_k: _async_none())
 
-    plan = _ExecPlan(
+    plan = ExecPlan(
         argv=("dotnet", "test"),
         check=Check(tool=_stream_tool("remote-deadline-law", ("/bin/echo", "x"))),
         cwd=remote_cwd,
@@ -2190,7 +2218,7 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(  # noqa: P
     try:
         with pytest.raises(TimeoutError):
             with anyio.fail_after(0.4):
-                await engine_mod._run_remote(plan, target)
+                await remote_mod.run_remote(plan, target)
     finally:
         conn.close()
         await conn.wait_closed()
@@ -2215,9 +2243,9 @@ async def test_probe_toolchain_faults_unsupported_on_missing_remote_tool() -> No
 
     conn = await provision(SshHost(handler=_handler)).client_factory()
     try:
-        absent = await engine_mod._probe_toolchain(conn, ("missing-tool", "build"))
-        present = await engine_mod._probe_toolchain(conn, ("git", "ls-files"))
-        absolute = await engine_mod._probe_toolchain(conn, ("/bin/echo", "x"))
+        absent = await remote_mod._probe_toolchain(conn, ("missing-tool", "build"))
+        present = await remote_mod._probe_toolchain(conn, ("git", "ls-files"))
+        absolute = await remote_mod._probe_toolchain(conn, ("/bin/echo", "x"))
     finally:
         conn.close()
         await conn.wait_closed()
@@ -2232,7 +2260,7 @@ def test_fold_receipt_projects_exec_facts_onto_completed() -> None:
     from tools.assay.composition.settings import Ssh  # noqa: PLC0415  # the value object owns the url/host projection
 
     target = Ssh(host="vps", port=22, user="root")
-    done = engine_mod._fold_receipt(receipt(("dotnet", "test"), 0), target, exit_status=0, signal="", notes=("n",), pushed=3, pulled=2)
+    done = remote_mod._fold_receipt(receipt(("dotnet", "test"), 0), target, exit_status=0, signal="", notes=("n",), pushed=3, pulled=2)
     assert done.exec is not None
     assert (done.exec.target, done.exec.host, done.exec.exit_status) == ("ssh://root@vps:22", "vps", 0)
     assert (done.exec.pushed, done.exec.pulled, done.exec.notes) == (3, 2, ("n",))
@@ -2259,8 +2287,8 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
     conn = SimpleNamespace(close=_mark_closed, wait_closed=_wait_closed)
     # Local-target settings: the teardown's once-per-fan prune is Ssh-gated, so it skips the structural conn double here.
     settings = AssaySettings(exec_known_hosts=None)
-    async with engine_mod._pooled_ssh(settings):
-        cache = engine_mod._SSH_CACHE.get()
+    async with remote_mod.pooled_ssh(settings):
+        cache = remote_mod._SSH_CACHE.get()
         assert cache is not None, "_pooled_ssh did not seed the connection cache"
         cache.conns["ssh://x@host:22"] = conn  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # structural conn double
     assert closed[0] is True, "pooled connection close was not attempted before wait_closed faulted"
@@ -2271,25 +2299,25 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
 
 def test_drain_none_stream_is_empty_tail() -> None:
     """``_recv_anyio(None, ...)`` (the inherited-fd / absent-pipe arm) drains to the empty capture immediately."""
-    assert anyio.run(lambda: drain_stream(engine_mod._recv_anyio(None, 32), tail_cap=128, spill_cap=1 << 20)) == Captured(), (
+    assert anyio.run(lambda: drain_stream(govern_mod.recv_anyio(None, 32), tail_cap=128, spill_cap=1 << 20)) == Captured(), (
         "None stream did not drain to empty"
     )
 
 
 def test_total_backfills_none_slot_as_timeout() -> None:
     """``_total`` backfills absent fan-out slots as TIMEOUT and passes present results through."""
-    backfilled = engine_mod._total(None)
+    backfilled = govern_mod._total(None)
     present = Ok(receipt(("echo",), 0))
     assert_error_status(backfilled, RailStatus.TIMEOUT)
-    assert engine_mod._total(present) is present, "present slot not passed through by identity"
+    assert govern_mod._total(present) is present, "present slot not passed through by identity"
 
 
 def test_measure_children_sum_resident_set_sizes(monkeypatch: pytest.MonkeyPatch) -> None:
     """``_measure`` counts the recursive child set and folds each child's RSS through the ``_safe_call`` guard."""
     parent, kid_a, kid_b = _proc(pid=os.getpid()), _proc(rss=8192), _proc(rss=4096)
     parent.children.return_value = (kid_a, kid_b)
-    monkeypatch.setattr(engine_mod, "psutil", _make_psutil_module({None: parent}))
-    rows = dict(engine_mod._measure().to_resources())
+    monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({None: parent}))
+    rows = dict(govern_mod.measure().to_resources())
     assert (rows["proc.children"], rows["proc.children_rss_bytes"]) == (2.0, 12288.0)
 
 
@@ -2298,7 +2326,7 @@ def test_copy_stage_input_reports_missing_input(tmp_path: Path) -> None:
     root, work = tmp_path / "root", tmp_path / "work"
     root.mkdir()
     work.mkdir()
-    fault = engine_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "absent-input.txt")
+    fault = exec_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "absent-input.txt")
     assert fault is not None, "missing stage input did not fault"
     assert "missing stage input" in fault.message, f"wrong missing-input message: {fault!r}"
 
@@ -2310,7 +2338,7 @@ def test_stream_writer_rejects_non_context_backend_handle(assay_root: AssayHarne
     """
     scope = assay_root.scope(Claim.STATIC)
     monkeypatch.setattr(type(scope.store), "open_write", lambda _self, *_parts: ("art/path", object()))
-    plan = engine_mod._ExecPlan(
+    plan = govern_mod.ExecPlan(
         argv=("/bin/echo", "x"),
         check=Check(tool=_stream_tool("sw-law", ("/bin/echo", "x"))),
         cwd=str(assay_root.root),
@@ -2324,7 +2352,7 @@ def test_stream_writer_rejects_non_context_backend_handle(assay_root: AssayHarne
         thread_limiter=None,
     )
     with pytest.raises(TypeError, match="non-context writer"):
-        engine_mod._stream_writer(plan, "out")
+        govern_mod._stream_writer(plan, "out")
 
 
 # --- [MUTATION_HARDENING]
@@ -2346,7 +2374,7 @@ def test_claim_contention_busy_vs_steal_decision(  # noqa: PLR0915  # three cont
         live_pid: _proc(pid=live_pid, running=True, create_time=_CT),
         dead_pid: _proc(pid=dead_pid, raise_no_such=True),
     })
-    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
     flock_calls: list[int] = []
     busy_first = [False]
 
@@ -2355,17 +2383,17 @@ def test_claim_contention_busy_vs_steal_decision(  # noqa: PLR0915  # three cont
         if busy_first[0] and len(flock_calls) == 1:
             raise BlockingIOError
 
-    monkeypatch.setattr(engine_mod, "_FLOCK", scripted_flock)
+    monkeypatch.setattr(govern_mod, "_FLOCK", scripted_flock)
 
-    def claim(name: str, holder_pid: int | None, *, busy: bool) -> tuple[engine_mod._LeaseOwner | None, engine_mod._LeaseOwner | None, int]:
+    def claim(name: str, holder_pid: int | None, *, busy: bool) -> tuple[govern_mod._LeaseOwner | None, govern_mod._LeaseOwner | None, int]:
         flock_calls.clear()
         busy_first[0] = busy
         fd = os.open(str(assay_root.root / f"{name}.lock"), os.O_RDWR | os.O_CREAT, 0o644)
         try:
             if holder_pid is not None:
-                _ = os.write(fd, msgspec.json.encode(engine_mod._LeaseOwner(resource=name, run_id="holder", pid=holder_pid, create_time=_CT)))
+                _ = os.write(fd, msgspec.json.encode(govern_mod._LeaseOwner(resource=name, run_id="holder", pid=holder_pid, create_time=_CT)))
                 _ = os.lseek(fd, 0, os.SEEK_SET)
-            won = engine_mod._claim(
+            won = govern_mod._claim(
                 fd, name, run_id="claim-run", tolerance=1.0, target="ssh://probe", cwd="/work/claim", project="proj-claim", mode="shared"
             )
             _ = os.lseek(fd, 0, os.SEEK_SET)
@@ -2414,11 +2442,11 @@ def test_measure_and_load_info_pin_exact_metric_projection(monkeypatch: pytest.M
     fake = _make_psutil_module({None: proc})
     fake.virtual_memory.return_value = SimpleNamespace(total=8192, available=4096, percent=37.5)
     fake.swap_memory.return_value = SimpleNamespace(percent=12.5)
-    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(govern_mod, "psutil", fake)
     monkeypatch.setattr(os, "getloadavg", lambda: (2.0, 9.0, 9.0), raising=False)
     load = {"sys.mem_available_bytes": 4096.0, "sys.mem_percent": 37.5, "sys.swap_percent": 12.5, "sys.load1_percent": 50.0}
-    assert engine_mod._load_info().to_rows() == load, "load projection drifted from the doubled sources"
-    assert dict(engine_mod._measure().to_resources()) == {
+    assert govern_mod._load_info().to_rows() == load, "load projection drifted from the doubled sources"
+    assert dict(govern_mod.measure().to_resources()) == {
         "mem.rss_bytes": 2048.0,
         "mem.vms_bytes": 4096.0,
         "mem.uss_bytes": 1024.0,
@@ -2453,9 +2481,9 @@ def test_guarded_projects_argv_scope_and_governed_limiter_into_execute(assay_roo
         seen.append((scope, argv, int(thread_limiter.total_tokens)))
         return receipt(argv, 0)
 
-    monkeypatch.setattr(engine_mod, "_execute", capture)
-    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
-    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 0)
+    monkeypatch.setattr(exec_mod, "_execute", capture)
+    monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 0)
     settings = assay_root.settings.model_copy(update={"cpu_count": 4, "max_checks": 8, "dotnet_max_cpu": 2, "mutation_max_cpu": 8})
     scope = assay_root.scope(Claim.STATIC)
     tool = Tool("argv-proj-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
@@ -2521,7 +2549,7 @@ def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, mon
         recorded.append((target.url, dict(getattr(plan, "env", {}))))  # ty: ignore[unresolved-attribute]  # target is the Ssh value object
         return receipt(("remote",), 0, stdout=b"recorded")
 
-    monkeypatch.setattr(engine_mod, "_run_remote", _record)
+    monkeypatch.setattr(exec_mod, "run_remote", _record)
     env_tool = msgspec.structs.replace(_ECHO_TOOL, name="route-law", env=(("ASSAY_ROW_DECLARED", "row-value"),))
     monkeypatch.setenv("ASSAY_AMBIENT_UNDECLARED", "ambient-value")
 
@@ -2565,7 +2593,7 @@ def test_argv_for_pins_uv_group_project_segments_and_query_passthrough(assay_roo
         "uv-argv-law", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.TEST, groups=(ToolGroup.MUTATION,), stage=Stage(project=True)
     )
     uv_argv = assert_ok(argv_for(Check(tool=uv_tool), _PY_CHANGED, settings=settings, scope=None))
-    assert uv_argv == ("uv", "run", "--locked", "--project", str(settings.root), "--group", "mutation", "ruff", "check"), (
+    assert uv_argv == ("uv", "run", "--locked", "--group", "mutation", "--project", str(settings.root), "ruff", "check"), (
         f"uv argv drifted: {uv_argv!r}"
     )
     module_tool = Tool("module-argv-law", Runner.MODULE, ("tools.py_analyzer", "check"), Input.NONE, Language.PYTHON, Claim.STATIC)
@@ -2608,22 +2636,22 @@ def test_contained_verdicts_and_stage_fault_evidence(tmp_path: Path) -> None:
     (root / "link").symlink_to(outside)
     unsafe = ("..\\evil", "a\x00b", "/abs/path", "", ".", "..", "a//b", "nested/../escape")
     for rel in unsafe:
-        verdict = engine_mod._contained(root, rel)
+        verdict = exec_mod._contained(root, rel)
         assert isinstance(verdict, ValueError), f"unsafe path admitted: {rel!r} -> {verdict!r}"
         assert str(verdict) == f"unsafe stage path: {rel!r}", f"unsafe message drifted: {verdict!s}"
-    escaped = engine_mod._contained(root, "link/f.txt")
+    escaped = exec_mod._contained(root, "link/f.txt")
     assert isinstance(escaped, ValueError), f"symlink escape admitted: {escaped!r}"
     assert str(escaped) == "stage path escaped root: 'link/f.txt'", f"escape message drifted: {escaped!s}"
-    safe = engine_mod._contained(root, "sub/file.txt")
+    safe = exec_mod._contained(root, "sub/file.txt")
     assert safe == (root / "sub" / "file.txt").resolve(), f"safe path mis-resolved: {safe!r}"
     work = base / "work"
     work.mkdir()
-    missing = engine_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "sub/absent.txt")
+    missing = exec_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "sub/absent.txt")
     assert missing is not None, "missing stage input did not fault"
     assert (missing.argv, missing.message) == ((_ECHO_TOOL.name, "stage", "sub/absent.txt"), "missing stage input: sub/absent.txt"), (
         f"missing-input fault evidence wrong: {missing!r}"
     )
-    breach = engine_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "../x")
+    breach = exec_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "../x")
     assert breach is not None, "escaping stage input did not fault"
     assert (breach.argv, breach.message) == ((_ECHO_TOOL.name, "stage", "../x"), "unsafe stage path: '../x'"), (
         f"escape fault evidence wrong: {breach!r}"

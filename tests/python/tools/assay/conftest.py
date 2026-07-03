@@ -41,7 +41,8 @@ if TYPE_CHECKING:
 
     from tests.python._testkit.env import Provisioned
     from tests.python.tools.assay.kit import CpuDoubleInstaller, CpuSampler, VerbRunner
-    from tools.assay.composition.settings import ArtifactStore, Ssh
+    from tools.assay.composition.settings import Ssh
+    from tools.assay.composition.store import ArtifactStore
     from tools.assay.core.model import Envelope
 
 
@@ -57,18 +58,8 @@ _BENCHMARK_ROOT_DEFAULT: Final = "file://./.benchmarks"
 
 _SUT_SEAMS: dict[str, ExitStack] = {}
 
-# Exempt aliases and ContextVar seams with no independent behavior; model.Bind remains covered.
-_EXEMPT: Final = frozenset({
-    "Attrs", "Bind", "Hom", "Layer", "Inversion",   # aspect: type aliases + decoration-time TypeError
-    "ByteRecv", "_RESOURCE",                        # engine: Callable alias + resource ContextVar
-    "InprocThunk",                                  # model: Callable alias
-    "Handler",                                      # registry: Callable alias
-    "Fire", "Worker", "ChangeBatch",                # automation/engine: Callable + type aliases
-    "_CHECKED_LAYER", "_RING",                      # aspect: ContextVar seams (assembled layer + ring buffer)
-    "_HINT_CAP", "_RESULT_CAP",                     # model: int caps; _HINT_CAP exercised via field_cap
-})  # fmt: skip
-
-register_sut(SUT_PACKAGE, exempt=_EXEMPT)
+# Type aliases, ContextVar seams, codecs, and caps auto-exempt by predicate; classes and callables need laws or COVERS credit.
+register_sut(SUT_PACKAGE)
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -94,14 +85,15 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     import structlog  # noqa: PLC0415
 
     from tools.assay.automation.engine import _CPU_PRIMED  # noqa: PLC0415
-    from tools.assay.core.aspect import _RING  # noqa: PLC0415
-    from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415
+    from tools.assay.core.aspect import RING  # noqa: PLC0415
+    from tools.assay.core.govern import RESOURCE  # noqa: PLC0415
+    from tools.assay.core.remote import _SSH_CACHE  # noqa: PLC0415
 
     structlog.contextvars.clear_contextvars()
     seams = ExitStack()
-    seams.enter_context(isolate(_RING, None))
+    seams.enter_context(isolate(RING, None))
     seams.enter_context(isolate(_CPU_PRIMED, value=False))
-    seams.enter_context(isolate(_RESOURCE, ()))
+    seams.enter_context(isolate(RESOURCE, ()))
     seams.enter_context(isolate(_SSH_CACHE, None))
     _SUT_SEAMS[item.nodeid] = seams
 
@@ -243,7 +235,7 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awai
     Returns:
         Provisioned remote target whose factory runs the asyncssh handshake inside the awaiting loop.
     """
-    from tools.assay.core import engine as engine_mod  # noqa: PLC0415  # patch target re-imported here
+    from tools.assay.core import remote as remote_mod  # noqa: PLC0415  # patch target re-imported here
 
     # The Offload always derives an sftp backend for a remote run; the chrooted SFTP subsystem lets the scope pull resolve.
     provisioned = provision(SshHost(sftp_root=tmp_path))
@@ -252,7 +244,7 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awai
         _ = target
         return provisioned.client_factory()
 
-    monkeypatch.setattr(engine_mod, "_connect_once", _connect)
+    monkeypatch.setattr(remote_mod, "_connect_once", _connect)
     return provisioned
 
 

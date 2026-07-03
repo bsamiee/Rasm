@@ -1,32 +1,32 @@
 """Run local provisioning infrastructure through the Forge-owned CLI."""
 
 from dataclasses import dataclass
-from itertools import starmap
 import re
-from typing import Final, override
+from typing import ClassVar, Final, override
 
 from expression import Error, Ok, Result  # noqa: TC002  # beartype resolves provision handler annotations at registry runtime
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry runtime resolves handler annotations
-from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.catalog import select
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # registry runtime resolves handler annotations
+from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # registry runtime resolves handler annotations
+from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (  # noqa: TC001
     BaseParams,
     Check,
     Claim,
     Completed,
     Fault,
-    Input,
     Language,
     Mode,
     ProvisionRun,
     RailStatus,
     Report,
-    Runner,
     Step,
     Tool,
+    ToolArgs,
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.diagnostics import fold
@@ -38,6 +38,8 @@ from tools.assay.diagnostics import fold
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProvisionParams(BaseParams):
     """Parameters for Forge-owned provisioning commands."""
+
+    SLOTS: ClassVar[dict[str, str]] = {"": ""}
 
     @override
     def _arity(self, verb: str) -> int:
@@ -253,30 +255,20 @@ _SENSITIVE_VALUE: Final[re.Pattern[str]] = re.compile(
     r")"
 )
 _SAFE_WIRE_CAP: Final[int] = 512
-_PYTHON_ABI_PROBE: Final[str] = "import sys, sysconfig; print(sys.implementation.cache_tag, sysconfig.get_config_var('Py_GIL_DISABLED') or 0)"
-_ONNXRUNTIME_LIB_PROBE: Final[str] = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXRUNTIME_LIB" && printf "present:%s\\n" "${ONNXRUNTIME_LIB##*/}"'
-_CHECK_PROBES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("forge-python-abi", ("forge-scientific-env", "python3", "-c", _PYTHON_ABI_PROBE)),
-    ("forge-openblas", ("forge-scientific-env", "pkg-config", "--modversion", "openblas")),
-    ("forge-onnxruntime-lib", ("forge-scientific-env", "sh", "-lc", _ONNXRUNTIME_LIB_PROBE)),
-)
+# Catalog owns every probe row and its argv; the roster names pin the check-verb fan order.
+_PROBE_NAMES: Final[tuple[str, ...]] = ("forge-python-abi", "forge-openblas", "forge-onnxruntime-lib")
+_PROVISION_ROWS: Final[dict[tuple[str, Mode], Tool]] = {(t.name, t.mode): t for t in select(Claim.PROVISION, Language.PYTHON)}
+_PROBE_ROWS: Final[tuple[Tool, ...]] = tuple(_PROVISION_ROWS[name, Mode.RUN] for name in _PROBE_NAMES)
 _PAYLOAD_DECODER: Final[msgspec.json.Decoder[_ProvisionPayload]] = msgspec.json.Decoder(_ProvisionPayload)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _tool(name: str, argv: tuple[str, ...], *, mode: Mode = Mode.RUN, timeout: float = 120.0) -> Tool:
-    return Tool(name, Runner.DIRECT, argv, Input.NONE, Language.PYTHON, Claim.PROVISION, mode=mode, timeout=timeout)
-
-
-def _stack(verb: str) -> Tool:
-    return _tool(
-        f"forge-provision-{verb}",
-        ("forge-provision", *(("--json", verb) if verb in _JSON_VERBS else (verb,))),
-        mode=_VERB_MODE.get(verb, Mode.RUN),
-        timeout=_VERB_TIMEOUT.get(verb, 120.0),
-    )
+def _stack(verb: str) -> Check:
+    # The verb selects the RUN or WRITE forge-provision row; per-verb timeout rides the Check override.
+    args = ToolArgs(flags=("--json",) if verb in _JSON_VERBS else (), verb=verb)
+    return Check(tool=_PROVISION_ROWS["forge-provision", _VERB_MODE.get(verb, Mode.RUN)], args=args, timeout=_VERB_TIMEOUT.get(verb, 120.0))
 
 
 def _unsafe_key(key: str) -> bool:
@@ -732,7 +724,7 @@ def _decode_check_detail(done: tuple[Completed, ...], stack: Completed | None, t
 
 
 def _probe_name(argv: tuple[str, ...]) -> str:
-    return next((name for name, prefix in _CHECK_PROBES if argv[: len(prefix)] == prefix), " ".join(argv[:2]))
+    return next((row.name for row in _PROBE_ROWS if argv[: len(row.command)] == row.command), " ".join(argv[:2]))
 
 
 def _probe_text(outcome: Completed) -> str:
@@ -901,8 +893,8 @@ def _detail(verb: str, done: tuple[Completed, ...]) -> Result[ProvisionRun, Faul
     return _validate_local_probe_values(done).bind(lambda _: _decode_check_detail(done, stack, tools_outcome))
 
 
-def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[Tool, ...], executor: Executor) -> Result[Report, Fault]:
-    outcomes = sequence(block.of_seq(executor.fan(tuple(Check(tool=tool) for tool in tools), settings=settings, scope=scope, routed=_ROUTED)))
+def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, checks: tuple[Check, ...], executor: Executor) -> Result[Report, Fault]:
+    outcomes = sequence(block.of_seq(executor.fan(checks, settings=settings, scope=scope, routed=_ROUTED)))
     return outcomes.bind(
         lambda done: _detail(verb, tuple(done)).map(
             lambda detail: fold(
@@ -1003,7 +995,7 @@ def check(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParam
     Returns:
         Provision report, or provisioning fault.
     """
-    return _run(settings, scope, "check", (_stack("check"), _stack("tools"), *tuple(starmap(_tool, _CHECK_PROBES))), executor)
+    return _run(settings, scope, "check", (_stack("check"), _stack("tools"), *(Check(tool=row) for row in _PROBE_ROWS)), executor)
 
 
 def apply(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:

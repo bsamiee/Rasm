@@ -1,6 +1,7 @@
 """Tree-sitter analyzer for Python source policy."""
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, UTC
 from functools import cache
@@ -10,10 +11,9 @@ from pathlib import Path
 import re
 from typing import TYPE_CHECKING
 
-from tree_sitter import Node, Parser
+from tree_sitter import Language, Node, Parser
 import tree_sitter_python
 
-from tools.assay.rails.code import ts_language
 from tools.py_analyzer.rules import diagnostic, RuleId, Scope
 
 
@@ -329,8 +329,14 @@ def classify_scope(path: Path, root: Path) -> Scope:
 
 
 @cache
+def _ts_language(grammar: Callable[[], object]) -> Language:
+    # Local cached compile keeps py_analyzer import-independent of assay; the process boundary is the only seam.
+    return Language(grammar())
+
+
+@cache
 def _parser() -> Parser:
-    return Parser(ts_language(_PYTHON_GRAMMAR))
+    return Parser(_ts_language(_PYTHON_GRAMMAR))
 
 
 def _analyze_file(root: Path, path: Path) -> ModuleFacts:

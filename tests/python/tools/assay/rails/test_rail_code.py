@@ -21,8 +21,10 @@ from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error, assert_ok, validity_matrix, ValidityCase
 from tests.python._testkit.strategies import resolve
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.engine import apply_row_status, EngineExecutor
+from tools.assay.composition.catalog import select
+from tools.assay.composition.settings import AssaySettings
+from tools.assay.composition.store import ArtifactScope
+from tools.assay.core.exec import apply_row_status, EngineExecutor
 from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
 from tools.assay.core.routing import resolve_languages, Routed, Scope
 from tools.assay.diagnostics import AstMatch, Capture, CAPTURE_ENCODER, CAPTURES
@@ -31,7 +33,7 @@ from tools.assay.rails.code import (
     _AG_SPEC,
     _artifact,
     _checks,
-    _content_splice,
+    _content_args,
     _dispatch,
     _eq_needles,
     _project_rows,
@@ -300,9 +302,14 @@ def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatc
 def test_checks_and_dispatch_empty_routed(assay_root: AssayHarness) -> None:
     """_checks() and _dispatch() on Routed with no files return empty tuples without spawning."""
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=())
-    assert _checks(routed, Mode.CHECK, lambda t, _r: t) == ()
+    assert _checks(routed, Mode.CHECK, lambda t, _r: Check(tool=t)) == ()
     empty = _dispatch(
-        routed, settings=assay_root.settings, scope=assay_root.scope(Claim.CODE), mode=Mode.CHECK, splice=lambda t, _r: t, executor=SeamExecutor()
+        routed,
+        settings=assay_root.settings,
+        scope=assay_root.scope(Claim.CODE),
+        mode=Mode.CHECK,
+        splice=lambda t, _r: Check(tool=t),
+        executor=SeamExecutor(),
     )
     assert empty == ()
 
@@ -661,15 +668,22 @@ def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
 
 
 def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
-    """Search and content splices preserve exact spawn argv shape."""
+    """Search and content splice values weave the catalog row templates into exact spawn argv."""
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-    ag = _search_splice(CodeParams(pattern="$X = $Y"), assay_root.root)(_QUERY_TOOL, routed)
-    assert ag.command == (*_QUERY_TOOL.command, "-p", "$X = $Y", "-l", "python", "--json=compact", "--no-ignore", "hidden", ".")
-    rg = _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha", language=Language.PYTHON), assay_root.root)
-    globs, tail = rg.command[len(_QUERY_TOOL.command) : -4], rg.command[-4:]
+    ag_row = next(t for t in select(Claim.CODE, Language.PYTHON) if t.mode is Mode.CHECK)
+    ag = _search_splice(CodeParams(pattern="$X = $Y"), assay_root.root)(ag_row, routed)
+    assert ag.tool is ag_row, "the splice binds typed values; the catalog row template is never edited"
+    assert ag.args.fill(ag_row.command) == ("ast-grep", "run", "-p", "$X = $Y", "-l", "python", "--json=compact", "--no-ignore", "hidden", ".")
+    rg_row = next(t for t in select(Claim.CODE) if t.mode is Mode.CONTENT)
+    filled = _content_args(CodeParams(pattern="alpha", language=Language.PYTHON), assay_root.root).fill(rg_row.command)
+    globs, tail = filled[8:-4], filled[-4:]
+    assert filled[:8] == ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git")
     assert tail == ("-e", "alpha", "--", ".")
     assert (globs[::2], set(globs[1::2])) == (("--glob", "--glob"), {"*.py", "*.pyi"})
-    assert _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha"), assay_root.root).command == (*_QUERY_TOOL.command, "-e", "alpha", "--", ".")
+    bare = _content_args(CodeParams(pattern="alpha"), assay_root.root).fill(rg_row.command)
+    assert bare == ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git", "-e", "alpha", "--", "."), (
+        "an unset language drops the {globs*} splice whole"
+    )
 
 
 @pytest.mark.parametrize(
@@ -772,6 +786,10 @@ register_law(search, "checks_empty_routed_returns_empty_tuple")
 register_law(search, "dispatch_empty_checks_returns_empty_tuple")
 register_law(search, "targets_empty_paths_returns_default_target")
 register_law(search, "ts_language_tsx_key_resolves_tsx_grammar")
+register_law("tools.assay.diagnostics.ts_language", "ts_language_tsx_key_resolves_tsx_grammar", module=__name__)
+register_law("tools.assay.diagnostics.ts_query", "ts_thunk_invalid_query_emits_query_error_row", module=__name__)
+register_law("tools.assay.diagnostics.node_text", "ts_rows_produces_match_rows_and_listing", module=__name__)
+register_law("tools.assay.diagnostics.cap_note", "content_search_forced_cap_emits_results_note", module=__name__)
 register_law(search, "empty_on_exit1_group_becomes_empty")
 register_law(query, "ts_rows_produces_match_rows_and_listing")
 register_law(query, "top_level_patterns_masked_depth_count")

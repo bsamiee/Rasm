@@ -15,11 +15,7 @@ from cyclopts.exceptions import CycloptsError
 from opentelemetry.trace import get_tracer_provider
 from pydantic import ValidationError
 
-from tools.assay import (
-    _DRAIN_MS,  # noqa: PLC2701  # shared trace budget owned by the package runtime hook
-    configure_logging,
-    install_tracing,
-)
+from tools.assay import configure_logging, DRAIN_MS, install_tracing
 from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.model import Step, wire_safe
@@ -143,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         match getattr(provider, "force_flush", None):
             case flush if callable(flush):
                 try:
-                    flush(_DRAIN_MS)
+                    flush(DRAIN_MS)
                 except Exception as exc:  # noqa: BLE001  # lifecycle boundary: tracing errors go to stderr, not stdout
                     sys.stderr.write(f"assay: trace force_flush failed: {exc}\n")
             case _:

@@ -4,6 +4,7 @@ The score uses mutmut's own persisted status taxonomy. Only killed and survived 
 denominator; no-tests, timeout, and suspicious mutants stay on the structured stderr triage channel.
 """
 
+import ast
 from collections import Counter
 import contextlib
 from functools import reduce
@@ -11,12 +12,13 @@ import io
 from itertools import groupby
 import json
 from operator import itemgetter
+from pathlib import Path
 import sys
-from typing import Literal, TYPE_CHECKING
+from typing import Final, Literal, TYPE_CHECKING
 
 from expression import Error, Ok
 import msgspec
-from mutmut.__main__ import get_diff_for_mutant, status_by_exit_code, walk_mutatable_files
+from mutmut.__main__ import get_diff_for_mutant, orig_function_and_class_names_from_key, status_by_exit_code, walk_mutatable_files
 from mutmut.mutation.data import SourceFileMutationData
 
 from tools.assay.core.model import MutationLane, TestRun
@@ -24,7 +26,6 @@ from tools.assay.core.model import MutationLane, TestRun
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from pathlib import Path
 
     from expression import Result
 
@@ -39,6 +40,22 @@ type _LoadCause = Literal["corrupt", "skewed", "io"]
 
 _FLOOR: float = 0.80
 _TOP_SURVIVORS: int = 10
+
+# mutation-testing-report-schema mutant statuses keyed by mutmut's persisted status taxonomy.
+_SCHEMA_STATUS: Final[dict[str, str]] = {
+    "killed": "Killed",
+    "survived": "Survived",
+    "no tests": "NoCoverage",
+    "timeout": "Timeout",
+    "suspicious": "RuntimeError",
+    "segfault": "RuntimeError",
+    "caught by type check": "CompileError",
+    "skipped": "Ignored",
+    "not checked": "Pending",
+    "check was interrupted by user": "Pending",
+}
+
+_SCHEMA_ARTIFACT: Final = Path(".artifacts/python/mutmut/mutation-report.json")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -68,6 +85,56 @@ class SurvivorReport(msgspec.Struct, frozen=True):
     clusters: tuple[FileCluster, ...] = ()
     diffs: tuple[tuple[str, str], ...] = ()
     unloadable: tuple[_LoadFault, ...] = ()
+
+
+# --- [SCHEMA_REPORT]
+# mutation-testing-report-schema wire models: files[].mutants[]{id, mutatorName, status, location}.
+
+
+class SchemaPosition(msgspec.Struct, frozen=True):
+    """1-based schema position."""
+
+    line: int
+    column: int = 1
+
+
+class SchemaLocation(msgspec.Struct, frozen=True):
+    """Schema mutant location; mutmut's trampoline granularity pins the owning function span."""
+
+    start: SchemaPosition
+    end: SchemaPosition
+
+
+class SchemaMutant(msgspec.Struct, frozen=True, rename="camel"):
+    """One schema mutant row keyed by mutmut's mutant name."""
+
+    id: str
+    mutator_name: str
+    location: SchemaLocation
+    status: str
+
+
+class SchemaFile(msgspec.Struct, frozen=True):
+    """One schema file entry carrying source text and its mutant rows."""
+
+    language: str
+    source: str
+    mutants: tuple[SchemaMutant, ...]
+
+
+class SchemaThresholds(msgspec.Struct, frozen=True):
+    """Schema score thresholds; ``low`` mirrors the gate floor."""
+
+    high: int
+    low: int
+
+
+class SchemaReport(msgspec.Struct, frozen=True, rename="camel"):
+    """mutation-testing-report-schema document rendered by mutation-testing-elements."""
+
+    schema_version: str
+    thresholds: SchemaThresholds
+    files: dict[str, SchemaFile]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -130,6 +197,84 @@ def _diff(name: str) -> str:
     return ""
 
 
+def _location(node: ast.FunctionDef | ast.AsyncFunctionDef) -> SchemaLocation:
+    return SchemaLocation(
+        start=SchemaPosition(line=node.lineno, column=node.col_offset + 1),
+        end=SchemaPosition(line=node.end_lineno or node.lineno, column=(node.end_col_offset or 0) + 1),
+    )
+
+
+def _spans(source: str) -> dict[tuple[str | None, str], SchemaLocation]:
+    """Index function spans by ``(class_name, function_name)`` for mutant location resolution.
+
+    Returns:
+        Span map from the parsed module; empty on unparsable source.
+    """
+    try:
+        walk = tuple(ast.walk(ast.parse(source)))
+    except SyntaxError:
+        return {}
+    spans = {
+        (node.name, child.name): _location(child)
+        for node in walk
+        if isinstance(node, ast.ClassDef)
+        for child in node.body
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for node in walk:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            spans.setdefault((None, node.name), _location(node))
+    return spans
+
+
+def _owner_of(key: str) -> tuple[str | None, str]:
+    """Resolve a mutant key to its ``(class_name, function_name)`` span index.
+
+    Returns:
+        Owner pair, or ``(None, "")`` for keys outside mutmut's mangling grammar.
+    """
+    try:
+        function_name, class_name = orig_function_and_class_names_from_key(key)
+    except AssertionError, ValueError:
+        return None, ""
+    # Method keys keep the trampoline mangle prefix; module-level keys come back demangled.
+    return class_name, function_name.removeprefix("x_")
+
+
+def schema_report(scanned: Iterable[SourceFileMutationData], *, floor: float = _FLOOR) -> SchemaReport:
+    """Project persisted mutmut results into a mutation-testing-report-schema document.
+
+    Mutant ids are mutmut's mutant names; locations resolve to the owning function span through the
+    original source (mutmut's trampoline granularity carries no finer position). Unresolvable spans
+    fall back to line 1 so the document stays schema-valid.
+
+    Returns:
+        Schema report ready for JSON emission under the mutmut artifact home.
+    """
+    files: dict[str, SchemaFile] = {}
+    fallback = SchemaLocation(start=SchemaPosition(line=1), end=SchemaPosition(line=1))
+    for data in scanned:
+        source = Path(data.path).read_text(encoding="utf-8") if Path(data.path).exists() else ""
+        spans = _spans(source)
+        mutants = tuple(
+            SchemaMutant(
+                id=key,
+                mutator_name="mutmut",
+                location=spans.get(_owner_of(key), fallback),
+                status=_SCHEMA_STATUS.get(status_by_exit_code[code], "Pending"),
+            )
+            for key, code in sorted(data.exit_code_by_key.items())
+        )
+        files[str(data.path)] = SchemaFile(language="python", source=source, mutants=mutants)
+    return SchemaReport(schema_version="2", thresholds=SchemaThresholds(high=90, low=round(floor * 100)), files=files)
+
+
+def _emit_schema(report: SchemaReport, artifact: Path = _SCHEMA_ARTIFACT) -> None:
+    """Write the schema JSON under the mutmut artifact home, creating parents."""
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_bytes(msgspec.json.encode(report))
+
+
 def _tally(scanned: Iterable[SourceFileMutationData] | None = None) -> Counter[str]:
     """Fold persisted exit codes into mutmut's status taxonomy.
 
@@ -172,6 +317,7 @@ def gate(floor: float = _FLOOR) -> int:
         ``0`` when the scored population is non-empty and meets ``floor``; ``1`` otherwise.
     """
     scanned, faulted = _scan()
+    _emit_schema(schema_report(scanned, floor=floor))
     tally = _tally(scanned)
     killed, survived = tally["killed"], tally["survived"]
     scored = killed + survived
@@ -189,8 +335,8 @@ def gate(floor: float = _FLOOR) -> int:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-# Only the python -m entrypoint is exported; stderr projections stay leaf-internal.
-__all__ = ["gate"]
+# The python -m entrypoint plus the pure schema converter; stderr projections stay leaf-internal.
+__all__ = ["gate", "schema_report"]
 
 # --- [ENTRY] ----------------------------------------------------------------------------
 
