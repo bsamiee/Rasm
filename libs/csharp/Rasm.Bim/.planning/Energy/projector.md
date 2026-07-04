@@ -68,8 +68,9 @@ static class EnergyClassRows {
         Rows.ToFrozenDictionary(static r => r.Face, static r => (r.Class, r.Predefined));
 
     // The OSM read's string leg — Surface.surfaceType() tokens ARE the FaceType names — derived from the one table.
+    // OrdinalIgnoreCase like ByOpeningType: IDF fields are case-insensitive, so a reverse-translated "WALL" is legal.
     internal static readonly FrozenDictionary<string, (IfcClass Class, string Predefined)> BySurfaceType =
-        Rows.ToFrozenDictionary(static r => r.Face.ToString(), static r => (r.Class, r.Predefined));
+        Rows.ToFrozenDictionary(static r => r.Face.ToString(), static r => (r.Class, r.Predefined), StringComparer.OrdinalIgnoreCase);
 
     // The OSM SubSurface.subSurfaceType() tokens onto the opening classes (validSubSurfaceTypeValues roster):
     // glass-bearing tokens fold to IfcWindow, door tokens to IfcDoor — the Compute FixedWindow/Door build inverts it.
@@ -124,22 +125,17 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .MapFail(error => new BimFault.ModelRejected(ctx.Key, $"energy-decode:{error.Message}"))
             .Bind(model => model is null
                 ? Fin.Fail<GraphDelta>(new BimFault.ModelRejected(ctx.Key, "energy-decode:<type-mismatch>"))
-                : RaiseRooms(Library(model.Properties?.Energy), toSeq(model.Rooms ?? []), ctx));
+                : RaiseRooms(Library(model.Properties?.Energy?.Constructions, model.Properties?.Energy?.Materials), toSeq(model.Rooms ?? []), ctx));
 
     // The model-level canonical lists projected ONCE per document — the abridged-reference resolve source, opaque
-    // AND window rows. Two overloads because the dragonfly store is its OWN type carrying the SAME honeybee element
-    // vocabulary, so Building.Room3ds route through the identical room fold with no second resolve path.
-    static EnergyLibrary Library(Hb.ModelEnergyProperties? store) => (
-        toSeq(store?.Constructions ?? []).Choose(static any => any.Obj is Hb.OpaqueConstructionAbridged oc ? Some(oc) : None),
-        toSeq(store?.Materials ?? []).Choose(static any => any.Obj is Hb.EnergyMaterial m ? Some(m) : None),
-        toSeq(store?.Constructions ?? []).Choose(static any => any.Obj is Hb.WindowConstructionAbridged wc ? Some(wc) : None),
-        toSeq(store?.Materials ?? []).Choose(static any => any.Obj is Hb.EnergyWindowMaterialGlazing g ? Some(g) : None));
-
-    static EnergyLibrary Library(Df.ModelEnergyProperties? store) => (
-        toSeq(store?.Constructions ?? []).Choose(static any => any.Obj is Hb.OpaqueConstructionAbridged oc ? Some(oc) : None),
-        toSeq(store?.Materials ?? []).Choose(static any => any.Obj is Hb.EnergyMaterial m ? Some(m) : None),
-        toSeq(store?.Constructions ?? []).Choose(static any => any.Obj is Hb.WindowConstructionAbridged wc ? Some(wc) : None),
-        toSeq(store?.Materials ?? []).Choose(static any => any.Obj is Hb.EnergyWindowMaterialGlazing g ? Some(g) : None));
+    // AND window rows. ONE body serves both schemas: the dragonfly store is its OWN type but its lists are
+    // HoneybeeSchema.AnyOf rows (DragonflySchema ships no AnyOf of its own), so both stores enter covariantly as
+    // IEnumerable<Hb.AnyOf> and Building.Room3ds route through the identical room fold with no second resolve path.
+    static EnergyLibrary Library(IEnumerable<Hb.AnyOf>? constructions, IEnumerable<Hb.AnyOf>? materials) => (
+        toSeq(constructions ?? []).Choose(static any => any.Obj is Hb.OpaqueConstructionAbridged oc ? Some(oc) : None),
+        toSeq(materials ?? []).Choose(static any => any.Obj is Hb.EnergyMaterial m ? Some(m) : None),
+        toSeq(constructions ?? []).Choose(static any => any.Obj is Hb.WindowConstructionAbridged wc ? Some(wc) : None),
+        toSeq(materials ?? []).Choose(static any => any.Obj is Hb.EnergyWindowMaterialGlazing g ? Some(g) : None));
 
     Fin<GraphDelta> RaiseRooms(EnergyLibrary library, Seq<Hb.Room> rooms, ProjectionContext ctx) =>
         rooms.Fold(
@@ -262,7 +258,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 ? Fin.Fail<GraphDelta>(new BimFault.ModelRejected(ctx.Key, "energy-decode:<type-mismatch>"))
                 : toSeq(model.Buildings ?? []).Fold(
                     Fin.Succ(GraphDelta.Empty.Reheader(ctx.Header)),
-                    (acc, building) => acc.Bind(delta => RaiseBuilding(Library(model.Properties?.Energy), building, ctx).Map(delta.Merge))));
+                    (acc, building) => acc.Bind(delta => RaiseBuilding(Library(model.Properties?.Energy?.Constructions, model.Properties?.Energy?.Materials), building, ctx).Map(delta.Merge))));
 
     Fin<GraphDelta> RaiseBuilding(EnergyLibrary library, Df.Building building, ProjectionContext ctx) {
         NodeId buildingId = NodeId.Rooted();
@@ -332,7 +328,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try {
             File.WriteAllBytes(temp, doc.Bytes.ToArray());
-            Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
+            using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
             if (doc.Format == InterchangeFormat.GbXml) {
                 using Os.GbXMLReverseTranslator gb = new();
                 using Os.OptionalModel fromGb = gb.loadModel(path);
@@ -386,7 +382,9 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // The OSM opening fold: Surface.subSurfaces() land as IfcWindow/IfcDoor Objects joined to the SPACE by the
     // same Host-attributed boundary edge the honeybee arm mints — an OSM raised without its fenestration
     // simulates an unglazed building, the deleted coverage hole; each opening's own construction resolves
-    // through the ONE PlanarSurface composition fold.
+    // through the ONE PlanarSurface composition fold. An out-of-roster subSurfaceType degrades warning-counted
+    // where a base-surface class miss FAULTS — deliberate: an opening is envelope refinement, a base surface
+    // envelope structure (all eight validSubSurfaceTypeValues are mapped, so a miss is an invalid file token).
     GraphDelta OsmSubSurfaces(Os.Model model, Os.Surface surf, NodeId spaceId, GraphDelta delta, ProjectionContext ctx) {
         using Os.SubSurfaceVector subs = surf.subSurfaces();
         string host = surf.nameString();
@@ -466,9 +464,11 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 new MaterialLayer(MaterialId.Create(g.nameString()), MeasureValue.OfSi(Dimension.LengthDim, g.thickness()), g.nameString())));
     }
 
-    // Read a SWIG OptionalDouble onto Option<double> and DISPOSE the native handle (the getter's optional is
-    // itself disposable) — the one lowering a missing OSM field takes, never a faulting get().
-    static Option<double> Opt(Os.OptionalDouble optional) { using (optional) { return optional.is_initialized() ? Some(optional.get()) : None; } }
+    // Read a SWIG OptionalDouble onto the K-KINDED Option slot and DISPOSE the native handle (the getter's optional
+    // is itself disposable) — the one lowering a missing OSM field takes, never a faulting get(). K<Option, double>,
+    // NOT Option<double>: the shipped tuple Apply binds only on (K<F,A>, …) receivers (decompile-verified 5.0.0-beta-77,
+    // no concrete-carrier tuple overload exists), and a concrete Option tuple neither infers nor converts at the receiver.
+    static K<Option, double> Opt(Os.OptionalDouble optional) { using (optional) { return optional.is_initialized() ? Some(optional.get()) : None; } }
 
     // --- [SHARED_MINTS]
     // The energy boundary payload keys: BoundaryLevel is the SemanticProjector-owned attr (ONE symbol across both

@@ -77,8 +77,10 @@ public static class EnergyToolchain {
                 },
             };
             probe.Start();
+            Task<string> stderrDrain = probe.StandardError.ReadToEndAsync();   // both pipes drain — the RunSubprocess two-stream law
             string banner = probe.StandardOutput.ReadToEnd().Trim();
             probe.WaitForExit();
+            _ = stderrDrain.GetAwaiter().GetResult();
             return banner.Length > 0 ? banner : "<version-unreported>";
         }
         catch (SystemException ex) { return $"<version-probe-failed:{ex.GetType().Name}>"; }
@@ -145,7 +147,8 @@ public static partial class EnergySimulation {
             + toSeq(Enumerable.Range(0, (int)warnings.Count)).Map(i => AssessmentFact.Text($"osm-warning-{i}", warnings[i].logMessage()));
         if (errors.Count > 0) { return Fin.Fail<OsmBuild>(new ComputeFault.AnalysisRunFailed($"<osm-forward-translate-errors:{errors.Count}>")); }
         string idfPath = Path.Combine(scratch, "in.idf");
-        idf.save(OpenStudio.OpenStudioUtilitiesCore.toPath(idfPath), overwrite: true);
+        using OpenStudio.Path outPath = OpenStudio.OpenStudioUtilitiesCore.toPath(idfPath);   // the SWIG Path is itself a native handle
+        idf.save(outPath, overwrite: true);
         return Fin.Succ(new OsmBuild(idfPath, log));
     }
 
@@ -165,7 +168,8 @@ public static partial class EnergySimulation {
         // AnnualBuildingUtilityPerformanceSummary + End-Uses tabular reports, emitted only when AllSummary is requested —
         // armed here (get-or-create, idempotent with the translator default) so a result read never depends on an ambient FT default.
         OpenStudio.OpenStudioModelSimulation.getOutputTableSummaryReports(model).addSummaryReport("AllSummary");
-        using OpenStudio.EpwFile epw = new(OpenStudio.OpenStudioUtilitiesCore.toPath(request.Weather.EpwPath));
+        using OpenStudio.Path epwPath = OpenStudio.OpenStudioUtilitiesCore.toPath(request.Weather.EpwPath);
+        using OpenStudio.EpwFile epw = new(epwPath);
         using OpenStudio.OptionalWeatherFile attached = OpenStudio.WeatherFile.setWeatherFile(model, epw);  // embeds the design context; the returned optional is itself a native handle — bracketed, never dropped
     }
 
@@ -300,9 +304,9 @@ public static partial class EnergySimulation {
 
 ## [04]-[SIMULATION_RUN]
 
-- Owner: `EnergySimulation.Run` the ONE energy entry dispatching the `EnergyRoute` row (`[04]` declares the axis and the cloud arm); `RunLocal` the subprocess arm; `RunSubprocess` the EnergyPlus subprocess over the resolved binary; `ReadResults`/`EndUseFacts`/`ValidityFacts`/`GoverningEui`/`Eui`/`Slug`/`Lower`/`Vertices` the `SqlFile` result read (the site/source totals, the site/source EUI, the structured per-end-use fold, the hours-simulated annual-completeness validity fact) and the measure projection SHARED by both routes; the scratch run-directory lifetime.
-- Entry: `static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, ClockPolicy clocks)` — the `EnergyRoute.Local` arm the `Run` dispatch enters — resolves the EnergyPlus binary through `EnergyToolchain.Resolve`, builds the OSM model and IDF through `BuildModel` (threading the seam `GeometrySource` so each bounding surface's analytical `FootprintPolygon` resolves one-hop by content key off `surface.Representations.FootPrint`), runs EnergyPlus as a subprocess over the scratch directory, reads `eplusout.sql` through `SqlFile`, and emits the `total-site-energy`/`total-source-energy`/`net-source-energy`/`eui`/`source-eui` scalars plus the `end-use:<category>` breakdown family and the `hours-simulated` annual-completeness validity fact, bracketing the scratch directory and every native handle so nothing leaks.
-- Auto: the subprocess is `energyplus -w <weather.epw> -d <outdir> -r <in.idf>` over the resolved binary; a non-zero exit code rails `ComputeFault.AnalysisRunFailed` with the captured stderr tail; the `SqlFile` annual accessors return SWIG `OptionalDouble` lowered to `Option<double>` AND disposed at the lowering boundary (a getter's optional is itself disposable); the per-end-use breakdown folds the structured `SqlFile.endUses()` summary — one all-energy-fuel sum per `EndUseCategoryType` enumerated from the static `EndUses.fuelTypes()`/`categories()` vectors (each handle bracketed under `using`, the SWIG marshaling exemption), the `Water` fuel (m³ consumption, never energy) the one excluded column — so a gas- or district-heated building's heating end use stays fuel-agnostic AND the lighting/equipment/fan/pump loads that dominate a modern EUI are reported, never the electricity-only or HVAC-only slice; the site/source EUI divides the total site/source energy by the conditioned floor area read from the graph; the `hours-simulated` validity fact carries `SqlFile.hoursSimulated()` as a `Duration` measure so a downstream verdict can reject a partial-year run (a short count means the solver terminated early and the totals are not a full annual result) — the setpoint-not-met hours are an EnergyPlus tabular read the binding exposes through no `SqlFile` accessor and no generic SQL exec, a growth axis a SQLite reader opens; every result measure is constructed SI-native through `MeasureValue.OfSi` with the energy `Dimension` composed from the seam `Force×Length` algebra (and `÷Area` for the EUI intensity), the GJ→J coercion riding `UnitsNet.Energy` once (never a literal conversion factor); the governing verdict converts the SI EUI (J·m⁻²) back to the conventional kWh·m⁻²·a⁻¹ through `UnitsNet.Energy` and divides by the policy target, projecting `double.NaN` (the `AssessmentVerdict.FromRatio` not-applicable signal) when the policy carries no target rather than a misleading `0.0`-ratio satisfied verdict.
+- Owner: `EnergySimulation.Run` the ONE energy entry dispatching the `EnergyRoute` row (`[04]` declares the axis and the cloud arm); `RunLocal` the subprocess arm; `RunSubprocess` the EnergyPlus subprocess over the resolved binary; `ReadResults`/`EndUseFacts`/`ValidityFacts`/`GoverningEui`/`Slug`/`Lower`/`Vertices` the `SqlFile` result read (the site/source totals, the site/source EUI, the structured per-end-use fold, the hours-simulated annual-completeness validity fact) and the measure projection SHARED by both routes; the scratch run-directory lifetime.
+- Entry: `static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, ClockPolicy clocks)` — the `EnergyRoute.Local` arm the `Run` dispatch enters — resolves the EnergyPlus binary through `EnergyToolchain.Resolve`, builds the OSM model and IDF through `BuildModel` (threading the seam `GeometrySource` so each bounding surface's analytical `FootprintPolygon` resolves one-hop by content key off `surface.Representations.FootPrint`), runs EnergyPlus as a subprocess over the scratch directory, reads `eplusout.sql` through `SqlFile`, and emits the `total-site-energy`/`total-source-energy`/`net-source-energy` scalars, the `eui`/`source-eui` intensity pair (over a positive conditioned area only), the `end-use:<category>` breakdown family, and the `hours-simulated` annual-completeness validity fact, bracketing the scratch directory and every native handle so nothing leaks.
+- Auto: the subprocess is `energyplus -w <weather.epw> -d <outdir> -r <in.idf>` over the resolved binary; a non-zero exit code rails `ComputeFault.AnalysisRunFailed` with the captured stderr tail; the `SqlFile` annual accessors return SWIG `OptionalDouble` lowered to `Option<double>` AND disposed at the lowering boundary (a getter's optional is itself disposable); the per-end-use breakdown folds the structured `SqlFile.endUses()` summary — one all-energy-fuel sum per `EndUseCategoryType` enumerated from the static `EndUses.fuelTypes()`/`categories()` vectors (each handle bracketed under `using`, the SWIG marshaling exemption), the `Water` fuel (m³ consumption, never energy) the one excluded column — so a gas- or district-heated building's heating end use stays fuel-agnostic AND the lighting/equipment/fan/pump loads that dominate a modern EUI are reported, never the electricity-only or HVAC-only slice; the site/source EUI divides the total site/source energy by the conditioned floor area read from the graph — emitted only over a POSITIVE area, a zero-conditioned-area set carrying no intensity fact so the verdict bands `NotApplicable` rather than a fabricated 0.0-EUI `Satisfied`; the `hours-simulated` validity fact carries `SqlFile.hoursSimulated()` as a `Duration` measure so a downstream verdict can reject a partial-year run (a short count means the solver terminated early and the totals are not a full annual result) — the setpoint-not-met hours are an EnergyPlus tabular read the binding exposes through no `SqlFile` accessor and no generic SQL exec, a growth axis a SQLite reader opens; every result measure is constructed SI-native through `MeasureValue.OfSi` with the energy `Dimension` composed from the seam `Force×Length` algebra (and `÷Area` for the EUI intensity), the GJ→J coercion riding `UnitsNet.Energy` once (never a literal conversion factor); the governing verdict converts the SI EUI (J·m⁻²) back to the conventional kWh·m⁻²·a⁻¹ through `UnitsNet.Energy` and divides by the policy target, projecting `double.NaN` (the `AssessmentVerdict.FromRatio` not-applicable signal) when the policy carries no target rather than a misleading `0.0`-ratio satisfied verdict.
 - Receipt: the `Assessment` `ComputeReceipt` case carries the energy discipline/route/content-key plus the elapsed wall time the subprocess dominated; the translator log, the surface-default-construction notes, and the version-guard warning fold into the fact stream as soft notes.
 - Packages: NREL.OpenStudio.macOS-arm64 (the `SqlFile` totals + the structured `EndUses` end-use fold + the `hoursSimulated` accessor + the static `OpenStudioModelSimulation.get*(model)` run-context helpers), UnitsNet (the GJ→J / J→kWh dimensioned conversion AND the hours→s coercion), LanguageExt.Core, NodaTime, Rasm.Element (project — `ElementGraph`, `Dimension`, `MeasureValue`, `PropertyValue`, `NodeId`), BCL inbox (`System.Diagnostics.Process`, `System.IO`, `System.Text.StringBuilder`).
 - Boundary: the EnergyPlus binary is the resolved subprocess (OpenStudio does NOT run it) so the runner owns the process lifetime, the scratch directory, and the stderr capture, bracketing them in `try-finally` (the platform-forced statement boundary — Exemption: native subprocess + filesystem); the model build and the SQL read are the single-threaded native OpenStudio boundary, one serialized unit of work; every `OpenStudio.*` handle (`Model`, translator, `Workspace`, `EpwFile`, `SqlFile`, every `OptionalDouble`/`Point3d`/`*Vector`) is disposed; the SQL accessors return SWIG `OptionalDouble` lowered to `Option<double>` so a missing output is carried, never a bare `get()` faulting in native code; result measures are SI-native `MeasureValue.OfSi` (a phantom 2-arg `MeasureValue.Of(value, "unit")` is the rejected form — the seam factory is `Of(value, unit, key)`/`OfSi(dimension, si)`, and OfSi is the entry a Compute-computed result writes through); the verdict is the EUI against a target when the policy carries one, else the energy use is reported informationally; a subprocess non-zero exit or a missing SQL file rails `AnalysisRunFailed`, never a silent zero-energy result; the sub-annual per-month consumption profile is a growth axis over `SqlFile.energyConsumptionByMonth(EndUseFuelType, EndUseCategoryType, MonthOfYear)` — the annual fact stream reports the site/source energy, the site/source EUI, the full per-end-use breakdown, and the hours-simulated annual-completeness validity fact, the per-month consumption deepening as one fold when a seasonal/demand-shape route requires it.
@@ -344,8 +348,14 @@ public static partial class EnergySimulation {
             },
         };
         process.Start();
-        string stderr = process.StandardError.ReadToEnd();
+        // BOTH redirected pipes drain concurrently: EnergyPlus streams progress on stdout, so a redirected-but-undrained
+        // stream fills its pipe buffer and deadlocks the child against WaitForExit — the two-stream hazard the async
+        // drains close (stderr is the evidence read, stdout drained-and-discarded).
+        Task<string> stderrDrain = process.StandardError.ReadToEndAsync();
+        Task<string> stdoutDrain = process.StandardOutput.ReadToEndAsync();
         process.WaitForExit();
+        string stderr = stderrDrain.GetAwaiter().GetResult();
+        _ = stdoutDrain.GetAwaiter().GetResult();
         string sqlPath = Path.Combine(scratch, "eplusout.sql");
         return process.ExitCode == 0 && File.Exists(sqlPath)
             ? Fin.Succ(sqlPath)
@@ -353,20 +363,27 @@ public static partial class EnergySimulation {
     }
 
     static Fin<Seq<AssessmentFact>> ReadResults(string sqlPath, ElementGraph graph, AssessmentRequest.Energy request) {
-        using OpenStudio.SqlFile sql = new(OpenStudio.OpenStudioUtilitiesCore.toPath(sqlPath));
+        using OpenStudio.Path resultsPath = OpenStudio.OpenStudioUtilitiesCore.toPath(sqlPath);
+        using OpenStudio.SqlFile sql = new(resultsPath);
         double floorAreaM2 = graph.ConditionedFloorArea(request.Targets);
         // totalSiteEnergy is the REQUIRED headline output (its absence is a failed run, never a silent zero); the source
         // energy, the site/source EUI, the FULL per-end-use breakdown, and the hours-simulated annual-completeness validity fact ride alongside.
         return Lower(sql.totalSiteEnergy()).Match(
             Some: siteGj => {
                 double sourceGj = Lower(sql.totalSourceEnergy()).IfNone(0.0);
+                // The EUI intensity exists only over a POSITIVE conditioned floor area: a zero-area target set emits NO
+                // eui/source-eui fact, GoverningEui reads NaN, and the verdict bands NotApplicable — a fabricated
+                // 0.0-EUI over no denominator banded a misleading Satisfied, the deleted form.
+                Seq<AssessmentFact> intensity = floorAreaM2 > 0.0
+                    ? Seq(
+                        AssessmentFact.Measure("eui", MeasureValue.OfSi(EuiDim, Joules(siteGj) / floorAreaM2)),
+                        AssessmentFact.Measure("source-eui", MeasureValue.OfSi(EuiDim, Joules(sourceGj) / floorAreaM2)))
+                    : Seq<AssessmentFact>();
                 return Fin.Succ(Seq(
                     AssessmentFact.Measure("total-site-energy", MeasureValue.OfSi(EnergyDim, Joules(siteGj))),
                     AssessmentFact.Measure("total-source-energy", MeasureValue.OfSi(EnergyDim, Joules(sourceGj))),
-                    AssessmentFact.Measure("net-source-energy", MeasureValue.OfSi(EnergyDim, Joules(Lower(sql.netSourceEnergy()).IfNone(0.0)))),
-                    AssessmentFact.Measure("eui", MeasureValue.OfSi(EuiDim, Eui(siteGj, floorAreaM2))),
-                    AssessmentFact.Measure("source-eui", MeasureValue.OfSi(EuiDim, Eui(sourceGj, floorAreaM2))))
-                    + EndUseFacts(sql) + ValidityFacts(sql));
+                    AssessmentFact.Measure("net-source-energy", MeasureValue.OfSi(EnergyDim, Joules(Lower(sql.netSourceEnergy()).IfNone(0.0)))))
+                    + intensity + EndUseFacts(sql) + ValidityFacts(sql));
             },
             None: () => Fin.Fail<Seq<AssessmentFact>>(new ComputeFault.AnalysisRunFailed("<energyplus-sql-no-total-site-energy>")));
     }
@@ -420,8 +437,6 @@ public static partial class EnergySimulation {
                 .Head.Map(euiSi => UnitsNet.Energy.FromJoules(euiSi).KilowattHours / policy.TargetEui).IfNone(double.NaN)
             : double.NaN;
 
-    static double Eui(double gigajoules, double floorAreaM2) => floorAreaM2 > 0.0 ? Joules(gigajoules) / floorAreaM2 : 0.0;
-
     // The EndUseCategoryType.valueName() PascalCase token lowered to the page's kebab fact-name convention (InteriorLights -> interior-lights).
     static string Slug(string valueName) {
         System.Text.StringBuilder b = new(valueName.Length + 4);
@@ -461,9 +476,11 @@ public static class EnergyGraphReads {
     const string SpaceBoundary  = "IfcRelSpaceBoundary";
     const string SpaceClass     = "IfcSpace";
     const string BaseQuantities = "Qto_SpaceBaseQuantities";
-    const string BoundaryLevelAttr = "BoundaryLevel";   // the Bim SpatialBoundaries Generic-edge payload key — THREE-valued: "1st"/"2nd" plus "" for a base-class IfcRelSpaceBoundary whose level the file never declared (the fabricated-"1st" upgrade is deleted)
-    const string SecondLevel    = "2nd";                // prefer 2nd-level (space-to-space adjacency) boundaries so a 1st+2nd export never double-counts the envelope; the "" undeclared rows read 1st-EQUIVALENT by policy — included when no 2nd-level set exists, excluded beside one
-    const string HostAttr       = "Host";               // the Bim energy-raise opening-correlation attr: a Host-bearing boundary edge is an OPENING boundary, never an opaque base surface
+    const string SecondLevel    = "2nd";                // prefer 2nd-level (space-to-space adjacency) boundaries so a 1st+2nd export never double-counts the envelope; the "" undeclared rows read 1st-EQUIVALENT by policy — included when no 2nd-level set exists, excluded beside one; const because the Text pattern match needs a constant
+    // The two hot edge-attr keys minted ONCE (the Bim EnergyProjector [SHARED_MINTS] static discipline mirrored —
+    // a per-edge PropertyName.Create inside the Choose lambdas re-validated the key on every boundary read).
+    static readonly PropertyName BoundaryLevelAttr = PropertyName.Create("BoundaryLevel");   // the Bim SpatialBoundaries Generic-edge payload key — THREE-valued: "1st"/"2nd" plus "" for a base-class IfcRelSpaceBoundary whose level the file never declared (the fabricated-"1st" upgrade is deleted)
+    static readonly PropertyName HostAttr = PropertyName.Create("Host");                     // the Bim energy-raise opening-correlation attr: a Host-bearing boundary edge is an OPENING boundary, never an opaque base surface
 
     public static Seq<Node.Object> SpacesOf(this ElementGraph graph, Seq<NodeId> targets) =>
         targets.IsEmpty
@@ -480,10 +497,10 @@ public static class EnergyGraphReads {
     public static Seq<Node.Object> BoundingSurfacesOf(this ElementGraph graph, NodeId space) {
         Seq<(Relationship.Generic Edge, Node.Object Surface)> boundaries =
             graph.EdgesAt(space).Choose(e => e is Relationship.Generic g && g.WireName == SpaceBoundary && g.Relating == space
-                && g.Attributes.Find(PropertyName.Create(HostAttr)).IsNone
+                && g.Attributes.Find(HostAttr).IsNone
                 ? graph.Find<Node.Object>(g.Related).Map(s => (Edge: g, Surface: s)) : None).ToSeq();
         Seq<(Relationship.Generic Edge, Node.Object Surface)> secondLevel = boundaries.Filter(static b =>
-            b.Edge.Attributes.Find(PropertyName.Create(BoundaryLevelAttr)).Exists(static v => v is PropertyValue.Text { Value: SecondLevel }));
+            b.Edge.Attributes.Find(BoundaryLevelAttr).Exists(static v => v is PropertyValue.Text { Value: SecondLevel }));
         return (secondLevel.IsEmpty ? boundaries : secondLevel).Map(static b => b.Surface);
     }
 
@@ -493,7 +510,7 @@ public static class EnergyGraphReads {
     public static Seq<Node.Object> OpeningsOf(this ElementGraph graph, NodeId space, string hostIdentifier) =>
         graph.EdgesAt(space).Choose(e =>
             e is Relationship.Generic g && g.WireName == SpaceBoundary && g.Relating == space
-                && g.Attributes.Find(PropertyName.Create(HostAttr)).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
+                && g.Attributes.Find(HostAttr).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
                 ? graph.Find<Node.Object>(g.Related) : None).ToSeq();
 
     // The EUI denominator: the net floor area of every conditioned space under the targets, summed in SI m2 off each space's
@@ -549,7 +566,7 @@ public static class EnergyGraphReads {
 - Receipt: the `Assessment` receipt carries the cloud provenance (`Pollination {owner}/{project}`) beside the route/content-key columns; the watch-status trail folds into the fact stream as soft notes.
 - Packages: PollinationSDK (the `Wrapper` job/run/asset orchestration + `RunStatusEnum` terminal vocabulary — sidecar-isolated: its vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` closure never meets the STJ rails and never loads in-Rhino), LanguageExt.Core, NodaTime, BCL inbox (`Directory`, `Path`).
 - Growth: a new cloud provider is one `EnergyRoute` case plus one arm — the `Switch` breaks every dispatch site at compile time; a recipe change is job-descriptor DATA, never a signature; per-output typed decodes beyond the SQLite (a parquet result frame, a comfort-map asset) widen `Orchestrate` by one asset row.
-- Boundary: `Configuration`/`TokenRepo` auth is composition-root connection input handed to the ambient SDK configuration — never a policy column, never a fence member (the Persistence catalog's token-lifecycle law verbatim); the async SDK orchestration is ONE blocking boundary kernel bracketed with the scratch directory (Exemption: sidecar HTTP + filesystem), and the classification is exception-typed — an `ApiException`/HTTP transport fault maps `ComputeFault.EndpointUnreachable` (2208, the EC3 precedent) while every other raise (a malformed job descriptor, a download IO fault), a failed/cancelled terminal, or a missing SQL asset maps `AnalysisRunFailed` (2219) — ZERO new band codes, the classification rows the compute brief `[V2]` calls for; the cloud row composes the Persistence object plane for artifact residency (presigned-grant transfer, `ArtifactKind.CloudRun` reuse index, PROV attribution are the Persistence owners' rows — seam alignment, never an import); a cloud-side model REBUILD from the graph is the rejected form — the cloud consumes the Bim-lowered HBJSON artifact, the local route consumes the in-process OSM build, and the two stay two rows on one axis.
+- Boundary: `Configuration`/`TokenRepo` auth is composition-root connection input handed to the ambient SDK configuration — never a policy column, never a fence member (the Persistence catalog's token-lifecycle law verbatim); the async SDK orchestration is ONE blocking boundary kernel bracketed with the scratch directory (Exemption: sidecar HTTP + filesystem), and the classification is exception-typed — an `ApiException`/HTTP transport fault maps `ComputeFault.EndpointUnreachable` (2208, the EC3 precedent) while every other raise (a malformed job descriptor, a download IO fault), a failed/cancelled terminal, or a missing SQL asset maps `AnalysisRunFailed` (2219) — ZERO new band codes; the cloud row composes the Persistence object plane for artifact residency (presigned-grant transfer, `ArtifactKind.CloudRun` reuse index, PROV attribution are the Persistence owners' rows — seam alignment, never an import); a cloud-side model REBUILD from the graph is the rejected form — the cloud consumes the Bim-lowered HBJSON artifact, the local route consumes the in-process OSM build, and the two stay two rows on one axis.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -563,6 +580,11 @@ public abstract partial record EnergyRoute {
 
     // Owner/Project name the Pollination project; JobDescriptor is the app-authored Wrapper.JobInfo JSON
     // (recipe ref + inputs incl. the staged Bim-lowered HBJSON artifact); Platform keys GetOutputAssets.
+    // The descriptor is CANONICAL analysis identity — it folds VERBATIM into the assessment content key, so it
+    // references inputs by object-plane content key and carries NO volatile token: no local path, no signed URL,
+    // no timestamp, no auth material, and none of the SDK's Local* provisioning columns (LocalRunFolder/
+    // LocalCPUNumber/LocalJobStatus are machine state, not analysis identity — the ConfiguredDir precedent);
+    // a volatile token over-keys the cache and silently re-runs a token-metered cloud job, the named defect.
     public sealed record Cloud(string Owner, string Project, string JobDescriptor, string Platform) : EnergyRoute;
 
     public static readonly EnergyRoute Local = new Subprocess();

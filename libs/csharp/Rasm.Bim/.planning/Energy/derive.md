@@ -13,15 +13,16 @@ Wire posture: HOST-LOCAL, foreign types emit-confined. The lowered `Hb.Model`/`D
 
 - Owner: `EnergyDerive` the BIM-to-BEM lower fold (graph → honeybee HBJSON envelope + energy library, graph → dragonfly DFJSON massing).
 - Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` — the `hbjson` arm selects the `IfcSpace`-classified `Object` nodes under the scope, folds each space's `IfcRelSpaceBoundary` `Generic`-edged bounding surfaces into honeybee `Face`s (`Face3D` boundary from the seam `GeometrySource`-resolved `FootprintPolygon` — the same one-hop content-key resolve the Compute build takes; `FaceType` from the derived `EnergyClassRows.ToFace` index; the `Host`-attributed opening boundaries into `Aperture`/`Door` sub-faces carrying their OWN lowered constructions), lowers each surface's and opening's `MaterialComposition.LayerSet` through ONE property-case-discriminated fold — an `Optical`-free set onto `EnergyMaterial` + `OpaqueConstructionAbridged`, an all-`Optical` set onto `EnergyWindowMaterialGlazing` + `WindowConstructionAbridged`, a mixed set a warning-counted degrade (no legal EnergyPlus construction exists, the Compute `BuildConstruction` mixed rejection mirrored) — populated into the model store through the identifier-dedup `ModelEnergyProperties` extension `AddMaterial`/`AddConstruction` mutators, the construction id the content-hashed material-key join (the abridged form referenced from `FaceEnergyPropertiesAbridged`/`ApertureEnergyPropertiesAbridged`/`DoorEnergyPropertiesAbridged` — the abridged-reference law, never expand-then-reinline), assembles `new Hb.Model(identifier, properties, rooms:, units: Meters, tolerance: Header.Tolerance)` and emits `model.ToJson()`; the `dfjson` arm folds the `IfcBuilding`/`IfcBuildingStorey` `Compose` tree into `Building`/`Story` with each space's footprint ring flattened to a `Room2D` floor plate, the `Qto_SpaceBaseQuantities` `Height` quantity read back as the floor-to-ceiling height, and the `Pset_EnergyModel`/`StoryMultiplier` evidence read back onto `Story(multiplier:)`.
-- Auto: the lowered model carries the SEMANTIC envelope and library only — no `SimulationParameter`, no run period, no conditioning, no weather (simulation context is Compute's or the python recipe plane's); boundary conditions derive from the boundary edge's `BoundaryCondition` payload where the raise stamped one (`Ground`/`Adiabatic`/`Outdoors` text → the `IBoundarycondition` case) and default `Outdoors` otherwise; the artifact content-key is the emitted-bytes derivation with `Graph = Some(ContentAddress.OfGraph(graph))` stamping the semantic pedigree.
+- Auto: the lowered model carries the SEMANTIC envelope and library only — no `SimulationParameter`, no run period, no conditioning, no weather (simulation context is Compute's or the python recipe plane's); boundary conditions derive from the boundary edge's `BoundaryCondition` payload where the raise stamped one (`Ground`/`Adiabatic`/`Outdoors` text → the `IBoundarycondition` case) and default `Outdoors` otherwise; the artifact content-key is the emitted-bytes derivation with `Graph = Some(ContentAddress.OfGraph(graph))` stamping the semantic pedigree, and the model IDENTIFIER is that same pedigree key (`rasm-energy-{key:x32}`) so a re-lowered identical graph emits byte-identical documents and the object-plane 412-noop dedup fires — a timestamp identifier forked the bytes per second, the deleted form.
 - Receipt: one `EnergyReceipt` per emit — `Lowered` legs count the folded spaces/surfaces/openings/constructions; the lowered model's `Validate()` DataAnnotations results fold into `Warnings` beside the degrade tallies, never an exception.
 - Packages: HoneybeeSchema, DragonflySchema, Rasm.Element, Rasm, LanguageExt.Core, NodaTime
-- Growth: a new lower target is one `EnergyDerive` arm row; per-space program/loads lower as `ProgramTypeAbridged` rows once the seam carries occupancy evidence; a NoMass R-value lower is one arm row the moment the seam carries an R-value-only thermal case; the space-adjacency `Surface` boundary condition is one arm row the moment the seam carries a second-level adjacency payload naming the counterpart face — until then the `Surface` text degrades `Outdoors` by the documented default.
+- Growth: a new lower target is one row on the frozen `Lowers` target table (the `EnergyProjector.Arms`/`EnergyTranslate.Matrix` row law); per-space program/loads lower as `ProgramTypeAbridged` rows once the seam carries occupancy evidence; a NoMass R-value lower is one arm row the moment the seam carries an R-value-only thermal case; the space-adjacency `Surface` boundary condition is one arm row the moment the seam carries a second-level adjacency payload naming the counterpart face — until then the `Surface` text degrades `Outdoors` by the documented default.
 - Boundary: the lower reads the graph through seam-owned surfaces (`ObjectNodes`, `EdgesAt`, `CompositionOf`, `Material`, the `GeometrySource` port) and the `Model/query#ELEMENT_SET` algebra for scope selection — a Compute-owned discipline read (`SpacesOf`/`BoundingSurfacesOf`) is never referenced (Compute is a peer stratum, not a dependency); a space whose footprint blob is absent lowers as a logged warning and a skipped room, never a zero-area fabrication; a layer-set material lacking BOTH the `Thermal` and `Optical` case degrades warning-counted, never a fabricated physics row; the density reads the seam `Mechanical` case when carried, the 1000 kg/m³ fallback mirroring the Compute OSM-build row (the `Thermal` case itself carries no density); the graph→OSM/gbXML/IDF DIRECT egress is deliberately absent — no in-process HBJSON→OSM translation is admitted (`honeybee-openstudio` is the python peer's leg) and a second graph→OSM builder beside Compute's simulation-scoped `BuildModel` would be the duplicate-fold defect, so the request rails `BimFault.CapabilityMiss` (`energy-graph-egress-pending`) and the capability lands as one matrix column when its translation is admitted.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -42,15 +43,28 @@ namespace Rasm.Bim;
 // model store populates through the ModelEnergyProperties Add* mutators (the canonical lists), faces and
 // openings reference by abridged id.
 public static class EnergyDerive {
+    // The frozen target→arm table (the EnergyTranslate.Matrix and EnergyProjector.Arms row law): a new lower
+    // target is ONE row here, never a widened ternary chain — the miss splits CapabilityMiss (a raise-served form
+    // whose graph egress is pending) from CodecReject (a form no energy arm serves).
+    static readonly FrozenDictionary<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Op, Fin<EnergyOutcome.Emitted>>> Lowers =
+        new KeyValuePair<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Op, Fin<EnergyOutcome.Emitted>>>[] {
+            new(InterchangeFormat.Hbjson, Honeybee),
+            new(InterchangeFormat.Dfjson, Dragonfly),
+        }.ToFrozenDictionary();
+
     internal static Fin<EnergyOutcome.Emitted> Lower(
         ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key) =>
-        target == InterchangeFormat.Hbjson ? Honeybee(graph, scope, geometry, at, key)
-        : target == InterchangeFormat.Dfjson ? Dragonfly(graph, scope, geometry, at, key)
-        : EnergyProjector.Serves(target)
-            ? Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CapabilityMiss(key, $"energy-graph-egress-pending:{target.Key}"))
-            : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CodecReject(key, $"energy-lower-unsupported:{target.Key}"));
+        Lowers.TryGetValue(target, out var arm)
+            ? arm(graph, scope, geometry, at, key)
+            : EnergyProjector.Serves(target)
+                ? Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CapabilityMiss(key, $"energy-graph-egress-pending:{target.Key}"))
+                : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CodecReject(key, $"energy-lower-unsupported:{target.Key}"));
 
     static Fin<EnergyOutcome.Emitted> Honeybee(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
+        // The model identifier IS the graph pedigree: a timestamp identifier forked the emitted BYTES per second,
+        // so a re-lowered identical graph never byte-matched and the object-plane 412-noop dedup never fired —
+        // the content-stable identifier restores the reuse join the dual-key law states.
+        ContentAddress pedigree = ContentAddress.OfGraph(graph);
         var store = new Hb.ModelEnergyProperties();
         var state = (Rooms: Seq<Hb.Room>(), Surfaces: 0, Openings: 0, Constructions: 0, Warnings: 0);
         foreach (Node.Object space in SpacesUnder(graph, scope)) {
@@ -75,10 +89,10 @@ public static class EnergyDerive {
             state.Rooms = state.Rooms.Add(new Hb.Room(
                 space.ExternalId.IfNone(space.Name), [.. faces], new Hb.RoomPropertiesAbridged()));
         }
-        var model = new Hb.Model($"rasm-energy-{at.ToUnixTimeSeconds()}", new Hb.ModelProperties(energy: store),
+        var model = new Hb.Model($"rasm-energy-{pedigree.Value:x32}", new Hb.ModelProperties(energy: store),
             rooms: [.. state.Rooms], units: Hb.Units.Meters, tolerance: graph.Header.Tolerance);
         int warnings = state.Warnings + model.Validate().Count();
-        return Fin.Succ(Emit(InterchangeFormat.Hbjson, Encoding.UTF8.GetBytes(model.ToJson()), graph, at,
+        return Fin.Succ(Emit(InterchangeFormat.Hbjson, Encoding.UTF8.GetBytes(model.ToJson()), pedigree, at,
             new EnergyReceipt(EnergyLeg.Lowered, InterchangeFormat.Hbjson, None,
                 state.Rooms.Count, state.Surfaces, state.Openings, state.Constructions, warnings,
                 default, at)));
@@ -181,26 +195,27 @@ public static class EnergyDerive {
             e is Relationship.Generic g && g.WireName == IfcRelKind.SpaceBoundary.Key && g.Relating == space
                 && g.Attributes.Find(EnergyProjector.Host).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
                 ? graph.Find<Node.Object>(g.Related) : None)) {
-            foreach (var ring in geometry.Footprint(opening.Representations).ToSeq()) {
-                Option<string> construction = LowerComposition(graph, opening.Id, store, ref warnings);
-                if (construction.IsSome) { constructions++; }
-                if (opening.Classification.Code == IfcClass.Window.Key) {
-                    apertures.Add(new Hb.Aperture(opening.ExternalId.IfNone(opening.Name), Face3D(ring),
-                        new Hb.Outdoors(), new Hb.AperturePropertiesAbridged(
-                            energy: construction.Match(
-                                Some: static id => new Hb.ApertureEnergyPropertiesAbridged(construction: id),
-                                None: static () => (Hb.ApertureEnergyPropertiesAbridged?)null))));
-                }
-                else if (opening.Classification.Code == IfcClass.Door.Key) {
-                    doors.Add(new Hb.Door(opening.ExternalId.IfNone(opening.Name), Face3D(ring),
-                        new Hb.Outdoors(), new Hb.DoorPropertiesAbridged(
-                            energy: construction.Match(
-                                Some: static id => new Hb.DoorEnergyPropertiesAbridged(construction: id),
-                                None: static () => (Hb.DoorEnergyPropertiesAbridged?)null))));
-                }
-                else { continue; }
-                openings++;
+            if (opening.Classification.Code != IfcClass.Window.Key && opening.Classification.Code != IfcClass.Door.Key) { continue; }
+            // A footprint-less opening is warning-counted exactly as a footprint-less surface — a silent skip
+            // under-glazed the emitted model with zero receipt evidence, the deleted asymmetry.
+            if (geometry.Footprint(opening.Representations).Case is not FootprintPolygon ring) { warnings++; continue; }
+            Option<string> construction = LowerComposition(graph, opening.Id, store, ref warnings);
+            if (construction.IsSome) { constructions++; }
+            if (opening.Classification.Code == IfcClass.Window.Key) {
+                apertures.Add(new Hb.Aperture(opening.ExternalId.IfNone(opening.Name), Face3D(ring),
+                    new Hb.Outdoors(), new Hb.AperturePropertiesAbridged(
+                        energy: construction.Match(
+                            Some: static id => new Hb.ApertureEnergyPropertiesAbridged(construction: id),
+                            None: static () => (Hb.ApertureEnergyPropertiesAbridged?)null))));
             }
+            else if (opening.Classification.Code == IfcClass.Door.Key) {
+                doors.Add(new Hb.Door(opening.ExternalId.IfNone(opening.Name), Face3D(ring),
+                    new Hb.Outdoors(), new Hb.DoorPropertiesAbridged(
+                        energy: construction.Match(
+                            Some: static id => new Hb.DoorEnergyPropertiesAbridged(construction: id),
+                            None: static () => (Hb.DoorEnergyPropertiesAbridged?)null))));
+            }
+            openings++;
         }
         return (apertures, doors);
     }
@@ -210,6 +225,7 @@ public static class EnergyDerive {
     // the storey multiplier evidence reads back onto Story(multiplier:), so a unique-stories-x-repeat tower
     // round-trips its repeat factor.
     static Fin<EnergyOutcome.Emitted> Dragonfly(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
+        ContentAddress pedigree = ContentAddress.OfGraph(graph);   // the content-stable identifier + Graph pedigree, one derivation
         var buildings = Seq<Df.Building>();
         int spaces = 0, warnings = 0;
         foreach (Node.Object building in graph.ObjectNodes.Filter(o => o.Classification.Code == IfcClass.Building.Key)) {
@@ -237,10 +253,10 @@ public static class EnergyDerive {
                     new Df.BuildingPropertiesAbridged(), uniqueStories: [.. stories]));
             }
         }
-        var model = new Df.Model($"rasm-massing-{at.ToUnixTimeSeconds()}", new Df.ModelProperties(),
+        var model = new Df.Model($"rasm-massing-{pedigree.Value:x32}", new Df.ModelProperties(),
             buildings: [.. buildings], units: Df.Units.Meters, tolerance: graph.Header.Tolerance);
         warnings += model.Validate().Count();
-        return Fin.Succ(Emit(InterchangeFormat.Dfjson, Encoding.UTF8.GetBytes(model.ToJson()), graph, at,
+        return Fin.Succ(Emit(InterchangeFormat.Dfjson, Encoding.UTF8.GetBytes(model.ToJson()), pedigree, at,
             new EnergyReceipt(EnergyLeg.Lowered, InterchangeFormat.Dfjson, None, spaces, 0, 0, 0, warnings, default, at)));
     }
 
@@ -280,8 +296,8 @@ public static class EnergyDerive {
         wholeModel: static _ => true,
         spaces:     s => space.ExternalId.Exists(s.GlobalIds.Contains));
 
-    static EnergyOutcome.Emitted Emit(InterchangeFormat format, byte[] bytes, ElementGraph graph, Instant at, EnergyReceipt receipt) {
-        EnergyArtifact artifact = EnergyArtifact.Of(format, bytes, Some(ContentAddress.OfGraph(graph)), at);
+    static EnergyOutcome.Emitted Emit(InterchangeFormat format, byte[] bytes, ContentAddress graph, Instant at, EnergyReceipt receipt) {
+        EnergyArtifact artifact = EnergyArtifact.Of(format, bytes, Some(graph), at);
         return new EnergyOutcome.Emitted(artifact, receipt with { Key = artifact.ContentKey });
     }
 }
@@ -348,7 +364,7 @@ public static class EnergyTranslate {
         string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try {
             File.WriteAllBytes(temp, doc.Bytes.ToArray());
-            Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
+            using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
             if (doc.Format == InterchangeFormat.GbXml) {
                 using Os.GbXMLReverseTranslator gb = new();
                 using Os.OptionalModel fromGb = gb.loadModel(path);
@@ -373,7 +389,7 @@ public static class EnergyTranslate {
     // Path-bound emit crossed via a bracketed scratch path (Exemption: SWIG + filesystem boundary).
     static byte[] Saved(Action<Os.Path> save) {
         string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        try { save(Os.OpenStudioUtilitiesCore.toPath(temp)); return File.ReadAllBytes(temp); }
+        try { using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp); save(path); return File.ReadAllBytes(temp); }
         finally { File.Delete(temp); }
     }
 

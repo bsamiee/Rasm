@@ -150,7 +150,10 @@ public abstract partial record AssessmentRequest {
     // AND the heating/cooling setpoints and lighting/equipment internal loads (the OSM-model
     // simulation drivers), AND the energy EXECUTION ROUTE (the local in-process OSM build and a Pollination cloud
     // recipe over the Bim-lowered HBJSON are two different model derivations, so the provider discriminant plus the
-    // cloud owner/project/platform/job-descriptor coordinates re-key — a cloud result never false-hits a local one),
+    // cloud owner/project/platform/job-descriptor coordinates re-key — a cloud result never false-hits a local one;
+    // the descriptor folds VERBATIM, so the Cloud case's canonical-descriptor law holds it token-free: content-keyed
+    // input refs only, no local path/signed URL/timestamp/auth or SDK Local* provisioning column — a volatile token
+    // over-keys and silently re-runs a metered cloud job),
     // AND the carbon OmfByMaterial per-ply category overrides (a different EC3 category yields a
     // different declaration), so a setpoint, load, route, or category edit re-keys and never reuses the prior result; NEVER the
     // discovery paths (ConfiguredDir/ExecutableName — provisioning, not analysis identity). Every variable-length
