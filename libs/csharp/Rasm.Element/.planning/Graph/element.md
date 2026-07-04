@@ -219,21 +219,24 @@ public abstract partial class Node {
 
  public abstract NodeId Id { get; init; }
 
+ // PascalCase primary-ctor parameters: every projector constructs this case with PascalCase NAMED arguments
+ // (Id:, Kind:, ...) — named args bind to PARAMETER names, so the parameters carry the corpus spelling and the
+ // same-name property initializers read the shadowing parameter (the C# primary-ctor idiom records generate).
  public sealed partial class Object(
- NodeId id, ObjectKind kind, Option<string> externalId, Classification classification, PredefinedType predefinedType,
- string name, string tag, RepresentationContentHash representations,
- Option<OwnerHistory> history, SchemaSpan span, Seq<Classification> classifications = default) : Node {
-  public override NodeId Id { get; init; } = id;
-  public ObjectKind Kind { get; } = kind;
-  public Option<string> ExternalId { get; } = externalId;
-  public Classification Classification { get; } = classification;
-  public PredefinedType PredefinedType { get; } = predefinedType;
-  public string Name { get; } = name;
-  public string Tag { get; } = tag;
-  public RepresentationContentHash Representations { get; } = representations;
-  public Option<OwnerHistory> History { get; } = history;
-  public SchemaSpan Span { get; } = span;
-  [property: UnorderedEquality] public Seq<Classification> Classifications { get; } = classifications;
+ NodeId Id, ObjectKind Kind, Option<string> ExternalId, Classification Classification, PredefinedType PredefinedType,
+ string Name, string Tag, RepresentationContentHash Representations,
+ Option<OwnerHistory> History, SchemaSpan Span, Seq<Classification> Classifications = default) : Node {
+  public override NodeId Id { get; init; } = Id;
+  public ObjectKind Kind { get; } = Kind;
+  public Option<string> ExternalId { get; } = ExternalId;
+  public Classification Classification { get; } = Classification;
+  public PredefinedType PredefinedType { get; } = PredefinedType;
+  public string Name { get; } = Name;
+  public string Tag { get; } = Tag;
+  public RepresentationContentHash Representations { get; } = Representations;
+  public Option<OwnerHistory> History { get; } = History;
+  public SchemaSpan Span { get; } = Span;
+  [property: UnorderedEquality] public Seq<Classification> Classifications { get; } = Classifications;
 
   // The Representations-EXCLUDED canonical seed NodeId.RootedType hashes for the deterministic Type id: the SAME
   // WriteObject the full hash uses, with includeRepresentations: false, so seed and full hash agree byte-for-byte on

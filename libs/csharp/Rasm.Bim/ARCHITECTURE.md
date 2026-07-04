@@ -33,8 +33,11 @@ Rasm.Bim/
 │   ├── Export.cs          # BimExport emit fold — GLB/AssimpNetter/UsdStage scene + IFC serialization + subtree .subtree availability bitstream
 │   ├── Tessellation.cs    # TessellationRequest Compute companion bridge
 │   ├── Reconstruct.cs     # Scan-to-BIM ReconstructionProjector over the dual-engine Themis.Las/laszip LAS/LAZ ingest front
-│   ├── Energy.cs          # EnergyExchange.Apply over EnergyOp — EnergyProjector HBJSON/DFJSON/OSM/gbXML/IDF raise, EnergyDerive BIM-to-BEM lower, EnergyTranslate OSM matrix, content-keyed EnergyArtifact
 │   └── Wire.cs            # Host-free IfcWire IFC interchange artifact the Python and TypeScript peers decode
+├── Energy/                # Building-energy-model exchange
+│   ├── Exchange.cs        # EnergyExchange.Apply over the closed EnergyOp [Union] — EnergyDoc/EnergyArtifact content-keyed carriers, EnergyScope/EnergyReceipt
+│   ├── Projector.cs       # EnergyProjector HBJSON/DFJSON/OSM/gbXML/IDF raise + EnergyClassRows onto the Compute-readable seam shape (openings + glazing evidence on every arm)
+│   └── Derive.cs          # EnergyDerive BIM-to-BEM lower (honeybee envelope + opaque/glazing library, dragonfly massing) + EnergyTranslate OSM matrix
 ├── Review/                # Model-checking and coordination
 │   ├── Validation.cs      # IDS v1.0 owner folding six IdsFacet arms over the seam ElementGraph
 │   ├── Issues.cs          # BCF 3.0 issue exchange with .bcfzip codec and BcfApi REST projection
@@ -104,10 +107,10 @@ schedule                  ⇄  csharp:Rasm.Persistence/Sync/schedule    # [WIRE]
 coordination              →  csharp:Rasm.AppUi/Editing/issues         # [PORT]: BCF issue-board projection
 Exchange/import           ⇄  csharp:Rasm.Persistence/Sync             # [TRANSPORT]: Speckle Base object-graph -> seam ElementGraph import over the Persistence-owned Speckle.Sdk SyncTransport.SpeckleLikeDiff
 Exchange/tessellation     ⇄  csharp:Rasm.Compute                      # [SHAPE]: SharpGLTF/meshopt leg split — Bim authors per-tile EXT_structural_metadata/EXT_mesh_features glTF encode, Compute composes residency/transport meshopt-encode at interchange/codecs#TILE_PARTITION
-Exchange/energy           ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: OpenStudio energy SIMULATION (Compute) distinct from the energy-model EXCHANGE (Bim EnergyExchange) — the raise lands the IfcRelSpaceBoundary/BoundaryLevel/Host/FootPrint/Qto shape EnergyGraphReads consumes, aligned by the seam graph never coupled
+Energy/projector          ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: OpenStudio energy SIMULATION (Compute) distinct from the energy-model EXCHANGE (Bim EnergyExchange) — the raise lands the IfcRelSpaceBoundary/BoundaryLevel/Host/FootPrint/Qto shape EnergyGraphReads consumes, aligned by the seam graph never coupled
 Projection/semantic       →  csharp:Rasm.Compute/Analysis             # [PROJECTION]: the IFC ingest bakes the same energy contract — IfcRelSpaceBoundary neutral Generic edges (three-valued BoundaryLevel payload), the content-keyed analytical FootPrint, Qto_SpaceBaseQuantities NetFloorArea, Pset_SpaceCommon.IsExternal — the Compute EnergyGraphReads consume (mirror of the Compute Analysis/energy ← Rasm.Bim/Projection row)
-Exchange/energy           →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: EnergyArtifact bytes land content-keyed on the object plane ({ContentKey:x32}:<form>, write-blob-first), the Graph pedigree ContentAddress.OfGraph joining the artifact index to its source graph
-Exchange/energy           ⇄  python:geometry/energy                   # [WIRE]: HBJSON/DFJSON document bytes under the one seed-zero XxHash128 identity — the py honeybee/dragonfly stack decodes the same documents; honeybee-openstudio HBJSON→OSM translation is the python plane's leg, never a shared client
+Energy/exchange           →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: EnergyArtifact bytes land content-keyed on the object plane ({ContentKey:x32}:<form>, write-blob-first), the Graph pedigree ContentAddress.OfGraph joining the artifact index to its source graph
+Energy/exchange           ⇄  python:geometry/energy                   # [WIRE]: HBJSON/DFJSON document bytes under the one seed-zero XxHash128 identity — the py honeybee/dragonfly stack decodes the same documents; honeybee-openstudio HBJSON→OSM translation is the python plane's leg, never a shared client
 Planning                  ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: construction schedule/4D MPXJ (Bim) vs embodied material-cost takeoff (Compute), aligned by the seam graph never coupled
 Exchange                  →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: imported IFC/BREP geometry by IfcRepHash; IfcConvert GLB content-keyed wire, write-blob-first
 ```
@@ -121,7 +124,7 @@ The `[CONTENT_KEY]` seam rows above are one canonical idiom, not per-page scheme
 - `Planning/schedule` derives `(GeometryKey, ScheduleKey)` — the element geometry plus its 4D task-time hash, the schedule catalog read.
 - `Planning/cost` derives `(QuantityKey, ResourceKey)` — the quantity-set hash plus the per-value resource-rate hash, the cost-rollup join.
 - `Review/diff` derives `(ContentKey, PlacementKey)` — the element fingerprint plus its placement hash, the federation dedup and three-way merge anchor.
-- `Exchange/tessellation`, `Exchange/export`, `Exchange/import`, and `Exchange/energy` mint the artifact `ContentKey` through the same kernel `ContentHash` + `CanonicalWriter` fold, and `Exchange/wire` stamps the serialization-independent seam `ContentAddress.OfGraph` (the `Exchange/energy` `EnergyArtifact.Graph` pedigree reuses it) — so the tessellation cache, the emitted artifact, the reimport delta, the energy-model document, and the wire identity all address one content space.
+- `Exchange/tessellation`, `Exchange/export`, `Exchange/import`, and `Energy/exchange` mint the artifact `ContentKey` through the same kernel `ContentHash` + `CanonicalWriter` fold, and `Exchange/wire` stamps the serialization-independent seam `ContentAddress.OfGraph` (the `Energy/exchange` `EnergyArtifact.Graph` pedigree reuses it) — so the tessellation cache, the emitted artifact, the reimport delta, the energy-model document, and the wire identity all address one content space.
 
 A second identity scheme, a per-page hash function, or a `Guid`-keyed federation join is the named cross-folder drift defect: a page deriving a new content key inherits this idiom from the map and mints through the one kernel seed-zero `XxHash128` owner.
 
