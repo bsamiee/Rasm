@@ -194,7 +194,7 @@ const LANES = [
 const surveyors = LANES.map((l) => () =>
   agent(surveyPrompt(l.lane, l.scope, l.rows), { label: 'survey:' + l.lane, phase: 'Survey', model: 'opus', effort: 'max', schema: SURVEY_SCHEMA, stallMs: STALL }))
 const probes = [
-  () => agent(PROBE_OPENCAMLIB, { label: 'probe:opencamlib', phase: 'Survey', effort: 'max', schema: PROBE_SCHEMA, stallMs: STALL }),
+  () => agent(PROBE_OPENCAMLIB, { label: 'probe:opencamlib', phase: 'Survey', model: 'opus', effort: 'max', schema: PROBE_SCHEMA, stallMs: STALL }),
 ]
 const surveyed = (await parallel(surveyors.concat(probes))).filter(Boolean)
 const dossiers = surveyed.filter((s) => s.lane)
@@ -222,7 +222,7 @@ const LENSES = [
     'package — to the exact structure that produces them.' },
 ]
 const drafts = (await parallel(LENSES.map((l) => () =>
-  agent(draftPrompt(l.lens, l.thesis, DOSSIER_PATHS, PROBE_PATHS), { label: 'draft:' + l.lens, phase: 'Draft', effort: 'max', schema: DRAFT_SCHEMA, stallMs: STALL })))).filter(Boolean)
+  agent(draftPrompt(l.lens, l.thesis, DOSSIER_PATHS, PROBE_PATHS), { label: 'draft:' + l.lens, phase: 'Draft', model: 'opus', effort: 'max', schema: DRAFT_SCHEMA, stallMs: STALL })))).filter(Boolean)
 log('Draft: ' + drafts.length + '/4 blueprints; rows [' + drafts.map((d) => d.page_rows).join(', ') + '] folders [' + drafts.map((d) => d.folders).join(', ') +
   ']; dispositions V[' + drafts.map((d) => d.verdicts_disposed).join(',') + '] E[' + drafts.map((d) => d.evidence_disposed).join(',') + '] cards[' +
   drafts.map((d) => d.cards_disposed).join(',') + '] pkgs[' + drafts.map((d) => d.packages_disposed).join(',') + ']')
@@ -241,18 +241,18 @@ const JUDGES = [
     'over- vs under-splitting against the 13-folder floor, MOVE/MERGE churn honesty, offset-block sizing.' },
 ]
 const judges = (await parallel(JUDGES.map((j) => () =>
-  agent(judgePrompt(j.lens, j.focus, DRAFT_PATHS), { label: 'judge:' + j.lens, phase: 'Judge', effort: 'xhigh', schema: JUDGE_SCHEMA, stallMs: STALL })))).filter(Boolean)
+  agent(judgePrompt(j.lens, j.focus, DRAFT_PATHS), { label: 'judge:' + j.lens, phase: 'Judge', model: 'opus', effort: 'xhigh', schema: JUDGE_SCHEMA, stallMs: STALL })))).filter(Boolean)
 log('Judge: ' + judges.length + '/3; winners [' + judges.map((j) => j.lens + '->' + j.winner).join(', ') + ']')
 
 // --- [SYNTHESIZE]
 phase('Synthesize')
-const synth = await agent(synthPrompt(DRAFT_PATHS, JSON.stringify(judges)), { label: 'synthesize', phase: 'Synthesize', effort: 'max', schema: SYNTH_SCHEMA, stallMs: STALL })
+const synth = await agent(synthPrompt(DRAFT_PATHS, JSON.stringify(judges)), { label: 'synthesize', phase: 'Synthesize', model: 'opus', effort: 'max', schema: SYNTH_SCHEMA, stallMs: STALL })
 if (!synth) { log('Synthesize produced nothing — aborting before Decide; resume re-runs it.'); return { dossiers: DOSSIER_PATHS, probes: PROBE_PATHS, drafts: DRAFT_PATHS, aborted: 'synthesize' } }
 log('Synthesize: base=' + synth.base + ', ' + (synth.grafts_applied || []).length + ' grafts, ' + (synth.open_items || []).length + ' open items')
 
 // --- [DECIDE]
 phase('Decide')
-const decided = await agent(decidePrompt(synth.synthesis, PROBE_PATHS), { label: 'decide', phase: 'Decide', effort: 'max', schema: DECIDE_SCHEMA, stallMs: STALL })
+const decided = await agent(decidePrompt(synth.synthesis, PROBE_PATHS), { label: 'decide', phase: 'Decide', model: 'opus', effort: 'max', schema: DECIDE_SCHEMA, stallMs: STALL })
 if (!decided) { log('Decide produced nothing — DECISION not written; resume re-runs it.'); return { dossiers: DOSSIER_PATHS, probes: PROBE_PATHS, synthesis: synth.synthesis, aborted: 'decide' } }
 log('Decide: ' + decided.decision + ' — ' + decided.page_rows + ' rows, legs [' + (decided.legs || []).join(' | ') + '], hinge rulings [' +
   (decided.probe_rulings || []).map((r) => r.hinge + ': ' + r.ruling).join(' | ') + '], ' + (decided.overturns || []).length + ' overturn(s)')
@@ -264,7 +264,7 @@ const mined = (await parallel(DRAFT_PATHS.map((p) => () =>
 const audit = await agent(auditPrompt(decided.decision, JSON.stringify({ gate_record: decided.gate_record, overturns: decided.overturns })),
   { label: 'overturn-audit', phase: 'Salvage', model: 'opus', effort: 'max', schema: AUDIT_SCHEMA, stallMs: STALL })
 const integrated = await agent(integratePrompt(decided.decision, JSON.stringify({ miners: mined, audit: audit || { overturn_verdicts: [], silent_drops: [] } })),
-  { label: 'integrate', phase: 'Salvage', effort: 'max', schema: INTEGRATE_SCHEMA, stallMs: STALL })
+  { label: 'integrate', phase: 'Salvage', model: 'opus', effort: 'max', schema: INTEGRATE_SCHEMA, stallMs: STALL })
 log('Salvage: ' + mined.reduce((n, m) => n + (m.findings || []).length, 0) + ' mined, ' + ((audit && audit.silent_drops) || []).length +
   ' silent drop(s), applied ' + ((integrated && integrated.applied) || []).length + ' / rejected ' + ((integrated && integrated.rejected) || []).length)
 

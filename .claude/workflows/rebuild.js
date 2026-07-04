@@ -1,14 +1,14 @@
 export const meta = {
   name: 'rebuild',
   whenToUse: 'The standing rebuild engine for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number) and optionally a campaign brief; it plans, discovers, hostile-implements, critiques, red-teams, and reconciles at the owning-language doctrine bar.',
-  description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief}; empty = no-op; language derives from the target root and selects the doctrine (cs/py/ts), both .api tiers, casing, and the member-verification rail. Plan (1 sonnet agent) expands targets to pages and, when a brief is given, classifies kind (new/rebuild/improve) + deletions + absorb pairs FROM THE BRIEF against real disk state. Discover (1 agent per 4 pages, opus) deep-reads pages + folder + BOTH .api tiers + the language doctrine and emits per-page reading maps. Implement (1 agent per 2 pages, fable, kind-aware) authors new pages ground-up / hostile-rebuilds / cold-improves with absorb-then-delete mechanics. Critique (1 per 3 pages, fable xhigh, mechanical checklists) then Redteam (1 per 3 pages, fable max, six lenses + cold re-review) fix in place, redteam paired after its critique batch. Reconcile: union-find residual clusters packed into at most 6 buckets -> parallel opus fixers -> exactly ONE terminal fable verify agent (skipped when no fixer changed a file), critique-grade repair-in-place, unreachable claims returned as hard_residual for resolve-residuals — NO re-entry loop.',
+  description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief}; empty = no-op; language derives from the target root and selects the doctrine (cs/py/ts), both .api tiers, casing, and the member-verification rail. Plan (1 sonnet agent) expands targets to pages and, when a brief is given, admits ONLY brief-named pages (kind new/rebuild/improve + deletions + absorb pairs FROM THE BRIEF against real disk state; an unnamed page is out of scope — no cold-pass set). Discover (1 agent per 4 pages, opus) deep-reads pages + folder + BOTH .api tiers + the language doctrine and emits per-page reading maps. Implement (1 agent per 4 pages, fable, kind-aware) authors new pages ground-up / hostile-rebuilds / cold-improves with absorb-then-delete mechanics. Critique (1 per 4 pages, fable xhigh, mechanical checklists) then Redteam (1 per 4 pages, fable max, six lenses + cold re-review) fix in place, redteam paired after its critique batch. Reconcile: ONE fable agent resolves every deferred cross-file residual in one terminal pass; unreachable claims return as hard_residual for resolve-residuals — no verify, no re-entry loop.',
   phases: [
-    { title: 'Plan', detail: 'one thin agent expands the targets into the page list; with a brief, classifies kind + deletePages + absorb pairs from the brief against real disk state', model: 'sonnet' },
+    { title: 'Plan', detail: 'one thin agent expands the targets into the page list; with a brief, only brief-named pages enter the run (kind + deletePages + absorb pairs from the brief against real disk state)', model: 'sonnet' },
     { title: 'Discover', detail: '1 agent per 4 pages: deep-read each page + the folder at large + BOTH .api tiers + the language doctrine; emit per-page apiUsed / apiUnderutilized / context / stacking / weak reading maps', model: 'opus' },
-    { title: 'Implement', detail: '1 agent per 2 pages, kind-aware: ground-up author / hostile rebuild / cold improve, absorb-then-delete, write-fully; plus one brief-deletion executor when the brief drops pages outright' },
-    { title: 'Critique', detail: '1 agent per 3 pages: mechanical line-by-line checklists (COLLAPSE_SCAN / OWNER_CHOOSER / KNOB_TEST / ASPECTS / RAILS / language-modernity / CAPABILITY-COMPLETENESS + ILLUSION), fix in place' },
-    { title: 'Redteam', detail: '1 agent per 3 pages, paired after its critique batch: six adversarial lenses + a full cold re-review, fix in place' },
-    { title: 'Reconcile', detail: 'union-find residual clusters -> at most 6 buckets -> parallel fable fixers -> ONE terminal verify agent (guarded: skipped when no fixer changed a file); open claims return as hard_residual, no re-entry loop', model: 'fable' },
+    { title: 'Implement', detail: '1 agent per 4 pages, kind-aware: ground-up author / hostile rebuild / cold improve, absorb-then-delete, write-fully; plus one brief-deletion executor when the brief drops pages outright' },
+    { title: 'Critique', detail: '1 agent per 4 pages: mechanical line-by-line checklists (COLLAPSE_SCAN / OWNER_CHOOSER / KNOB_TEST / ASPECTS / RAILS / language-modernity / CAPABILITY-COMPLETENESS + ILLUSION), fix in place' },
+    { title: 'Redteam', detail: '1 agent per 4 pages, paired after its critique batch: six adversarial lenses + a full cold re-review, fix in place' },
+    { title: 'Reconcile', detail: 'ONE fable agent resolves every deferred cross-file residual in one terminal pass; open claims return as hard_residual for resolve-residuals — no verify, no re-entry', model: 'fable' },
   ],
 }
 
@@ -18,9 +18,8 @@ const CAP = 10
 const STAGGER_MS = 1500
 const STALL = 300000
 const DISCOVER_BATCH = 4
-const IMPL_BATCH = 2
-const REVIEW_BATCH = 3
-const RECON_CAP = 6 // reconcile is ONE encompassing pass: residuals pack into <=6 buckets -> <=6 fixers -> ONE terminal verify, never a re-entry loop
+const IMPL_BATCH = 4
+const REVIEW_BATCH = 4
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -55,7 +54,6 @@ const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: [
 const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const DELETE_SCHEMA = { type: 'object', additionalProperties: false, required: ['deleted', 'summary'], properties: { deleted: { type: 'array', items: { type: 'string' } }, kept: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'reason'], properties: { page: { type: 'string' }, reason: { type: 'string' } } } }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: RESIDUAL, summary: { type: 'string' } } }
-const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, repaired: { type: 'array', items: { type: 'string' } }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 
@@ -536,39 +534,6 @@ const pool = async (items, cap, worker) => {
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
 const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-// packClusters — consolidate the union-find clusters into AT MOST n buckets. Balance by WORK, never residual count
-// (count-greedy hands bucket 0 the largest component then tops it to parity — the measured 2x long pole), and CAP
-// atomicity at the fair share: an interlinked corpus fuses most residuals into ONE connected component (a measured
-// 125-of-134), so an over-budget cluster sub-shards by lead file — same-lead-file rows never split (the edit-collision
-// floor); the terminal verify owns the deliberate cross-shard seams.
-const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files || []) files.add(f); return files.size * 2 + c.length }
-const shardOversized = (clusters, cap) => clusters.flatMap((c) => {
-  if (clusterWork(c) <= cap) return [c]
-  const byFile = new Map()
-  for (const r of c) { const k = (r.files || [])[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
-  const shards = []
-  for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
-    const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
-    if (t) t.push(...g); else shards.push([...g])
-  }
-  return shards
-})
-const packClusters = (clusters, n) => {
-  const cap = Math.max(1, Math.ceil(clusters.reduce((w, c) => w + clusterWork(c), 0) / n))
-  const shards = shardOversized(clusters, cap)
-  if (shards.length <= n) return shards
-  const buckets = Array.from({ length: n }, () => ({ work: 0, rows: [] }))
-  const sorted = shards.slice().sort((a, b) => clusterWork(b) - clusterWork(a) || ((a[0] && a[0].claim) || '').localeCompare((b[0] && b[0].claim) || ''))
-  for (const c of sorted) { let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].work < buckets[mi].work) mi = i; buckets[mi].rows.push(...c); buckets[mi].work += clusterWork(c) }
-  return buckets.filter((b) => b.rows.length).map((b) => b.rows)
-}
-const unionFind = (uniq) => {
-  const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
-  for (const r of uniq) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
-  const by = new Map()
-  for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
-  return [...by.values()]
-}
 const folderOf = (p) => { const head = p.split('/.planning/')[0].split('/'); return head[head.length - 1] || 'root' }
 
 // MAP_BY_PAGE — the per-page reading map Discover surfaced, indexed for every downstream stage.
@@ -598,8 +563,9 @@ const planPrompt = (pkgHint) => ['Rasm monorepo. TASK: thin enumerate + classify
     ? 'CAMPAIGN BRIEF: READ ' + BRIEF + ' — the shared-law head plus every section covering the targeted folder(s). Classify each page FROM ' +
       'THE BRIEF against REAL DISK STATE: a brief-NEW page confirmed ABSENT on disk -> kind `new` (it may open a NEW sub-folder; carry ' +
       '`absorb` when the brief names an existing page it absorbs); a brief-new page that ALREADY EXISTS on disk -> kind `rebuild`; a page the ' +
-      'brief names for rebuild/paradigm work -> kind `rebuild`; every OTHER existing page under the targets -> kind `improve` (the cold-pass ' +
-      'set). deletePages: ONLY brief-declared outright deletions confirmed PRESENT on disk whose content the brief maps to a destination ' +
+      'brief names for rebuild/paradigm work -> kind `rebuild`; a page the brief explicitly assigns a bounded improve disposition (a ' +
+      'KEEP-with-extension row) -> kind `improve`; every OTHER existing page under the targets is OUT OF SCOPE — exclude it from the page ' +
+      'list entirely (the brief is the scope law; no cold-pass set, no general-improve tangents). deletePages: ONLY brief-declared outright deletions confirmed PRESENT on disk whose content the brief maps to a destination ' +
       'OUTSIDE the page set (report each as {page, capturedIn: the brief-named destination}); an absorbed page whose absorber is IN the page ' +
       'set travels via `absorb` on the absorber instead, never in deletePages; a brief-delete page already ABSENT on disk is a no-op — ' +
       'exclude it entirely.'
@@ -695,8 +661,9 @@ const redteamPrompt = (batch, i, crit) => [PRE, READ_MANDATE(mapsFor(batch)), ''
   'result below and add your own. CRITIQUE RESULT:\n' + JSON.stringify((crit && { verdict: crit.verdict, residual_high: crit.residual_high || [] }) || {}, null, 1) +
   '\nReturn the batched fix-log (files = pages touched) + extended + residual_high — each a {files:[...], claim} object for CROSS-FILE ' +
   'items only.'].join('\n')
-const reconcilePrompt = (bucket, pkgs) => [PRE, 'TASK: RECONCILE these cross-FILE residuals the build pass deferred. There is NO severity — ' +
-  'treat EVERY residual as must-address. Your blast radius is the OWNING FOLDER(S) of this run (' + pkgs + ') PLUS every file a residual ' +
+const reconcilePrompt = (residuals, pkgs) => [PRE, 'TASK: RECONCILE these cross-FILE residuals the build pass deferred. There is NO severity — ' +
+  'treat EVERY residual as must-address. You are the ONE terminal reconcile agent — no verify pass follows, so every fix lands at the ' +
+  'objectively-best root-level form NOW, never a token patch. Your blast radius is the OWNING FOLDER(S) of this run (' + pkgs + ') PLUS every file a residual ' +
   'names, wherever it lives under libs/: any sibling page under the owning folders, the owning-folder index docs (ARCHITECTURE.md + ' +
   'README.md), the folder entry/receipt seam owners, AND the out-of-target seam counterparts — a sibling folder in the SAME language whose ' +
   'seam rows, consumer sites, or index docs the built pages disturbed, and the cross-LANGUAGE seam mirrors (the counterpart ARCHITECTURE ' +
@@ -707,23 +674,8 @@ const reconcilePrompt = (bucket, pkgs) => [PRE, 'TASK: RECONCILE these cross-FIL
   'EVERY listed file. For each residual: if it is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, add the ' +
   'depended-on case/field, repair the strata/boundary issue, update the index-doc maps); if it is FACTUALLY INCORRECT, leave it and say why ' +
   'in the summary — never silently skip a real one to avoid work. Preserve all capability, regress nothing. ' +
-  'A concurrent sibling may share a page with your cluster (oversized components shard file-atomically): edit any potentially shared page with ' +
-  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
   'Residuals:\n' +
-  JSON.stringify(bucket, null, 1)].join('\n')
-const verifyPrompt = (work) => [PRE, 'TASK: TERMINAL RECONCILE VERIFY — ADVERSARIAL, CRITIQUE-GRADE, WRITING (never a friendly ' +
-  'confirmation) + FIX IN PLACE, the LAST pass (no further spawning, no new rounds). Fix agents claim to have resolved the residual buckets ' +
-  'below. Work BUCKET-BY-BUCKET — never skim a bucket: re-read EVERY named file from disk, RE-DERIVE from the residual + the files whether ' +
-  'the claimed work was NECESSARY, PROVE on disk it was done properly, and hold each claim to the CRITIQUE bar — is the fix the OBJECTIVELY ' +
-  'BEST cross-file reconciliation (complete, dense, doctrine-conformant, BOTH seam endpoints aligned, index-doc maps truthful, all ' +
-  'capability preserved) or is it LOOSE/WEAK/token/partial? Where the fix is loose/weak or a better reconciliation of these SAME files ' +
-  'exists, REPAIR it IN PLACE NOW to the objectively-best ROOT-LEVEL form — a single-point patch where a root-level dense reconstruction of ' +
-  'the same files is available is ITSELF a defect you repair; you FIX rather than defer. Then classify EVERY claim (ONE verdict per claim; ' +
-  'a dropped claim cannot validate): "fixed" (real, complete, objectively-best after your repair), "invalid" (provably wrong or genuinely ' +
-  'unnecessary — cite why), or "open" (a claim you genuinely CANNOT reach from these files — an external blocker needing an out-of-scope ' +
-  'decision; describe it; NEVER mark open to punt a fix you could strengthen). Do NOT surface new unrelated cross-file work and do NOT ' +
-  'request another round. Report every file you repaired in `repaired`. BUCKETS (each with its residual claims and the files its fixer ' +
-  'touched):\n' + JSON.stringify(work, null, 1)].join('\n')
+  JSON.stringify(residuals, null, 1)].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -781,41 +733,21 @@ const allRes = []
 for (const r of builtAll) if (r && r.residual_high) for (const x of r.residual_high) allRes.push(norm(x, (r.files && r.files[0]) || fallbackPage))
 for (const r of reviewed) for (const k of ['crit', 'redteam']) { const l = r[k]; if (l && l.residual_high) for (const x of l.residual_high) allRes.push(norm(x, (l.files && l.files[0]) || fallbackPage)) }
 const uniq = dedup(allRes.filter((r) => r && r.claim))
-const clusters = unionFind(uniq)
-const buckets = packClusters(clusters, RECON_CAP)
 log('Build: ' + built.length + ' implement batch(es), ' + reviewed.length + ' review pair(s), ' + deleted.length + ' page(s) deleted; ' +
-  'reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters -> ' + buckets.length + ' bucket(s) (cap ' + RECON_CAP + ', ONE pass, no re-entry)' +
-  (buckets.length ? '; bucket work [' + buckets.map((b) => clusterWork(b)).join(', ') + '] (2*files+claims — the long pole is visible, never silent)' : ''))
+  uniq.length + ' residual(s) -> ONE reconcile pass (no verify, no re-entry)')
 let hard_residual = []
 let dropped = []
-let repaired = []
-if (buckets.length) {
+if (uniq.length) {
   phase('Reconcile')
   const pkgs = packages.map((p) => p.planning || p.root).join(', ')
-  const fixes = await pool(buckets, RECON_CAP, (bucket, i) =>
-    agent(reconcilePrompt(bucket, pkgs), { label: 'reconcile-fix:' + i, phase: 'Reconcile', model: 'fable', effort: 'max', schema: RESIDUAL_FIX_SCHEMA, stallMs: STALL }))
-  const work = buckets.map((bucket, i) => ({ bucket, fix: fixes[i] }))
-  for (const w of work) {
-    if (!w.fix) { hard_residual.push(...w.bucket) } // fixer skipped/died — its residuals stay live
-    else if (w.fix.residual_high) hard_residual.push(...w.fix.residual_high.map((x) => norm(x, fallbackPage))) // newly surfaced: NO re-entry, hand off
+  const fix = await agent(reconcilePrompt(uniq, pkgs), { label: 'reconcile', phase: 'Reconcile', model: 'fable', effort: 'max', schema: RESIDUAL_FIX_SCHEMA, stallMs: STALL })
+  if (!fix) hard_residual = uniq // reconciler skipped/died — every residual stays live
+  else {
+    if (fix.residual_high) hard_residual = dedup(fix.residual_high.map((x) => norm(x, fallbackPage))) // unreachable claims hand off, NO re-entry
+    if (fix.verdict === 'clean') dropped = uniq.map((r) => r.claim + ' [reconcile verdict clean: ' + (fix.summary || 'judged not a real defect') + ']')
   }
-  const changed = work.filter((w) => w.fix && w.fix.verdict === 'fixed' && (w.fix.files || []).length)
-  const cleaned = work.filter((w) => w.fix && !(w.fix.verdict === 'fixed' && (w.fix.files || []).length))
-  dropped = cleaned.flatMap((w) => w.bucket.map((r) => r.claim + ' [fixer verdict clean: ' + (w.fix.summary || 'judged not a real defect') + ']'))
-  if (changed.length) {
-    const verify = await agent(verifyPrompt(changed.map((w) => ({ residuals: w.bucket, fixerTouched: w.fix.files, fixerSummary: w.fix.summary }))),
-      { label: 'reconcile-verify', phase: 'Reconcile', model: 'fable', effort: 'xhigh', schema: VERIFY_SCHEMA, stallMs: STALL })
-    const claims = (verify && verify.claims) || []
-    const openClaims = new Set(claims.filter((c) => c.status === 'open').map((c) => c.claim))
-    hard_residual.push(...changed.flatMap((w) => w.bucket).filter((r) => openClaims.has(r.claim)))
-    dropped.push(...claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
-    repaired = (verify && verify.repaired) || []
-    if (!verify) hard_residual.push(...changed.flatMap((w) => w.bucket)) // verify skipped/died — claims stay live
-  } else { log('Reconcile: no fixer changed a file — terminal verify skipped (guard)') }
-  hard_residual = dedup(hard_residual)
 }
-log('Reconcile: ' + buckets.length + ' bucket(s); ' + hard_residual.length + ' hard residual -> resolve-residuals, ' + dropped.length +
-  ' dropped, verify repaired ' + repaired.length + ' file(s)')
+log('Reconcile: ' + uniq.length + ' residual(s); ' + hard_residual.length + ' hard residual -> resolve-residuals, ' + dropped.length + ' dropped')
 return { targets: TARGETS, language: LANG_KEY, brief: BRIEF, packages: packages.map((p) => p.name), pages: PAGES.length,
   kinds: { new: kindCount('new'), rebuild: kindCount('rebuild'), improve: kindCount('improve') }, deleted: deleted,
-  deleteKept: (deleteLog && deleteLog.kept) || [], clusters: clusters.length, buckets: buckets.length, hard_residual: hard_residual, dropped: dropped, repaired: repaired }
+  deleteKept: (deleteLog && deleteLog.kept) || [], hard_residual: hard_residual, dropped: dropped }
