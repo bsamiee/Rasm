@@ -1,13 +1,15 @@
 export const meta = {
   name: 'finalize',
   whenToUse: 'The finalization engine — the complement to rebuild: where rebuild improves/extends, finalize corrects and closes. Run it over a package (or folder subset) whose build legs have landed to kill split-brain, unify paradigms, adjudicate phantoms, collapse duplication/indirection in place, smooth logic flow end-to-end, and finish naive/mini surfaces — folder by folder in dependency order so the pass never chases itself.',
-  description: 'Durable language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages. Strata (opus readers, 3 folders each) derive the folder dependency order from disk; the script toposorts. Then FOLDER BY FOLDER in that order: Discover — ONE opus agent PER PAGE fully understands the page + its related pages + the package README/ARCHITECTURE/manifest + every relevant .api catalog (both tiers), and returns the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references); Fix — ONE fable agent holding all the folder dossiers + the doctrine ROOT pages corrects the folder in place and may emit folder-tagged residuals the script routes into later folders\' fix prompts. Leftover residuals (backward or out-of-set) close in ONE terminal fable sweep — self-contained, no handoff.',
+  description: 'Durable language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages. Strata (opus readers, 3 folders each) derive the folder dependency order from disk; the script toposorts. Then FOLDER BY FOLDER in that order: Discover — ONE opus agent PER PAGE fully understands the page + its related pages + the package README/ARCHITECTURE/manifest + every relevant .api catalog (both tiers), and returns the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references); Fix — ONE fable agent holding all the folder dossiers + the doctrine ROOT pages corrects the folder in place and may emit folder-tagged residuals the script routes into later folders\' fix prompts. Leftover residuals (backward or out-of-set) close in ONE terminal fable sweep. The campaign-method adversarial close then runs over the WHOLE finalized set: ONE fable critique (logic/quality — gaps, mistakes, oversights, broken functionality, dead ends, cross-folder inconsistency, doctrine adherence, density/LOC-through-collapse) and ONE fable redteam (most aggressive: counterfactual owners, diff-of-next-feature, long-tail attack, phantom hunt, full cold re-review), each fixing in place — self-contained, no handoff.',
   phases: [
     { title: 'Plan', detail: 'one thin agent enumerates the planning sub-folders and their design pages', model: 'sonnet' },
     { title: 'Strata', detail: 'opus readers (3 folders each) read their folders + the package README/ARCHITECTURE and emit folder dependency edges; the script toposorts the processing order', model: 'opus' },
     { title: 'Discover', detail: 'per folder in order: 1 opus agent PER PAGE — full understanding of the page, its related pages, the manifest, and every relevant .api catalog; returns the correction census with anchors', model: 'opus' },
     { title: 'Fix', detail: 'per folder in order: ONE fable agent (doctrine root pages read in full) corrects the folder in place — unify, collapse, realize-or-delete phantoms, smooth flow, densify; emits folder-tagged residuals routed downstream', model: 'fable' },
     { title: 'Sweep', detail: 'ONE terminal fable agent closes any residual left pointing backward or out of the folder set; nothing hands off', model: 'fable' },
+    { title: 'Critique', detail: 'ONE fable agent over the whole finalized set: logic/quality audit — gaps, mistakes, oversights, broken functionality, dead ends, cross-folder inconsistency, doctrine adherence, density/sophistication — fixed in place', model: 'fable' },
+    { title: 'Redteam', detail: 'ONE fable agent, most aggressive + full cold re-review: counterfactual owners, diff-of-next-feature, long-tail attack, phantom hunt — fixed in place; the corpus ends objectively stronger or proves nothing was found', model: 'fable' },
   ],
 }
 
@@ -155,11 +157,36 @@ const fixPrompt = (folder, pages, dossiers, forwarded, processed, root) => [LAW,
   'set entirely returns with folder "". WRITE-FULLY now; keep README/ARCHITECTURE truthful in the same motion. DOSSIERS:\n' +
   JSON.stringify(dossiers, null, 1) + (forwarded.length ? '\nFORWARDED RESIDUALS (close these):\n' + JSON.stringify(forwarded, null, 1) : '') +
   '\nReturn the fix-log: files (every page edited), verdict, collapsed (what merged), realized (phantoms made real), summary, residuals.'].join('\n')
-const sweepPrompt = (leftovers, root) => [LAW, '', BOUNDARY, '', 'TASK: TERMINAL SWEEP — the run\'s last agent; nothing follows, nothing hands ' +
-  'off. FIRST read ' + L.stackLaw + '. Close EVERY leftover residual below: each points backward at an already-finalized folder or outside ' +
+const sweepPrompt = (leftovers, root) => [LAW, '', BOUNDARY, '', 'TASK: TERMINAL SWEEP — nothing hands off after you. FIRST read ' +
+  L.stackLaw + '. Close EVERY leftover residual below: each points backward at an already-finalized folder or outside ' +
   'the folder set — read every named file plus the owning folder context at ' + root + ', decide the canonical fix, and implement it NOW at ' +
   'the objectively-best root-level form (whole-package authority; wire-canonical seam names stay frozen). Where disk proves a claim factually ' +
   'wrong, cite the proof in the summary — never silently skip. RESIDUALS:\n' + JSON.stringify(leftovers, null, 1) +
+  '\nReturn files, verdict, summary.'].join('\n')
+const critiquePrompt = (order, root) => [LAW, '', BOUNDARY, '', 'TASK: TERMINAL CRITIQUE — ONE agent over the WHOLE finalized set (folders in ' +
+  'their processing order: ' + order.join(' -> ') + '). You are ULTRA-HARSH and UNAGREEABLE per the campaign method: the folder fixers are ' +
+  'PRIOR AUTHORS whose work is suspect until it survives your attack; a fixed/clean verdict is a rejected self-assessment; assume a defect ' +
+  'exists in every fence until you prove otherwise. FIRST read ' + L.stackLaw + '. Then read EVERY page of every processed folder IN FULL ' +
+  '(plus the package README.md/ARCHITECTURE.md at ' + root + '). Hunt LOGIC and QUALITY: gaps, mistakes, oversights, broken functionality, ' +
+  'dead ends, unreachable cases, rail breaches, half-finished corrections (a unification applied on one page and missed on its sibling), ' +
+  'cross-folder inconsistency the folder-by-folder order could not see, admission done twice or never, receipts/evidence that no longer match ' +
+  'their producers. Enforce the doctrine on every surface (the root pages you read ARE the bar — the newest advanced language standards the ' +
+  'doctrine names, integrated correctly, never half-adopted); push density, sophistication, and richness — surface count and LOC reduced ' +
+  'THROUGH collapse in place (same file, polymorphic owners, derived tables, folds), never through capability loss. Verify every novel member ' +
+  'via ' + L.verify + '. FIX every hit in place NOW; write-fully. Return files (every page edited), verdict, summary.'].join('\n')
+const redteamPrompt = (order, root, crit) => [LAW, '', BOUNDARY, '', 'TASK: TERMINAL REDTEAM — the LAST and MOST AGGRESSIVE pass over the ' +
+  'WHOLE finalized set (folders: ' + order.join(' -> ') + '); assume the fixers AND the critique missed things; burden of proof on the code. ' +
+  'FIRST read ' + L.stackLaw + '. Then, per folder: (A) COUNTERFACTUAL on every core owner/algebra/dispatch — is it categorically the ' +
+  'strongest form the doctrine admits, or does a denser owner, a derived table, a parameterized generator over an enumerated space, or a ' +
+  'deeper admitted-package primitive collapse the whole fence? Rebuild to the stronger form — never defend the incumbent. (B) ' +
+  'DIFF-OF-THE-NEXT-FEATURE: the next case/dimension/modality/provider lands as ONE case/row/policy value with every consumer untouched or ' +
+  'broken loudly at type-check; reshape where it would not. (C) LONG-TAIL attack: empty/singular/plural/stream/malformed/concurrent/' +
+  'cancelled/partial-failure/version-skew; accumulate-vs-abort correct at every boundary; ingress AND egress parameterized. (D) PHANTOM HUNT: ' +
+  'spot-verify 10+ cited members against ' + L.verify + ' and the .api catalogs — a failed claim is corrected or deleted. (E) FULL COLD ' +
+  'RE-REVIEW of every conformance dimension with fresh hostile eyes — logic flow end-to-end, split-brain, differentiation, naivety on both ' +
+  'axes, doctrine modernity, prose/comment hygiene. FIX everything in place; the corpus must end objectively denser, MORE CAPABLE, and more ' +
+  'correct than the critique left it — or prove the strongest form is present by finding nothing (earn it; never invent churn). CRITIQUE ' +
+  'RESULT:\n' + JSON.stringify((crit && { verdict: crit.verdict, summary: crit.summary }) || {}, null, 1) +
   '\nReturn files, verdict, summary.'].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -218,10 +245,24 @@ if (leftovers.length) {
   const opts = { label: 'sweep (' + leftovers.length + ' claims)', phase: 'Sweep', model: 'fable', effort: 'max', schema: SWEEP_SCHEMA, stallMs: STALL }
   sweep = (await agent(sweepPrompt(leftovers, ROOT), opts)) || (await agent(sweepPrompt(leftovers, ROOT), { ...opts, label: opts.label + ':retry' }))
 }
+
+// --- [CRITIQUE]
+phase('Critique')
+const critOpts = { label: 'critique (corpus)', phase: 'Critique', model: 'fable', effort: 'xhigh', schema: SWEEP_SCHEMA, stallMs: STALL }
+const crit = (await agent(critiquePrompt(ORDER, ROOT), critOpts)) || (await agent(critiquePrompt(ORDER, ROOT), { ...critOpts, label: critOpts.label + ':retry' }))
+
+// --- [REDTEAM]
+phase('Redteam')
+const redOpts = { label: 'redteam (corpus)', phase: 'Redteam', model: 'fable', effort: 'max', schema: SWEEP_SCHEMA, stallMs: STALL }
+const red = (await agent(redteamPrompt(ORDER, ROOT, crit), redOpts)) || (await agent(redteamPrompt(ORDER, ROOT, crit), { ...redOpts, label: redOpts.label + ':retry' }))
+
 log('finalize[' + LANG_KEY + ']: ' + processed.length + '/' + ORDER.length + ' folder(s); ' + leftovers.length + ' leftover residual(s)' +
-  (leftovers.length ? (sweep ? ' swept (' + sweep.verdict + ')' : ' — SWEEP DIED TWICE, surfaced in the return') : ''))
+  (leftovers.length ? (sweep ? ' swept (' + sweep.verdict + ')' : ' — SWEEP DIED TWICE, surfaced in the return') : '') +
+  '; critique ' + (crit ? crit.verdict : 'DIED TWICE') + ', redteam ' + (red ? red.verdict : 'DIED TWICE'))
 
 return {
   targets: TARGETS, language: LANG_KEY, root: ROOT, order: ORDER,
   folders: fixLogs, leftovers: sweep ? [] : leftovers, sweep: sweep ? { verdict: sweep.verdict, files: sweep.files, summary: sweep.summary } : null,
+  critique: crit ? { verdict: crit.verdict, files: crit.files, summary: crit.summary } : null,
+  redteam: red ? { verdict: red.verdict, files: red.files, summary: red.summary } : null,
 }

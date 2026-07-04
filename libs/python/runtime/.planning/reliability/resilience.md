@@ -66,6 +66,7 @@ class RetryClass(StrEnum):
     WIRE = "wire"
     SCAN = "scan"
     SECRET = "secret"
+    ENGINE = "engine"
     OCCT = "occt"
     RPC = "rpc"
     LAKE_COMMIT = "lake-commit"
@@ -245,6 +246,11 @@ POLICY: Final[Map[str, Policy]] = Map.of_seq([
     ("wire", Policy(attempts=5, timeout=15.0, target=(ConnectionError,))),
     ("scan", Policy(attempts=2, timeout=60.0, target=(OSError,), wait_max=30.0)),
     ("secret", Policy(attempts=3, timeout=10.0, target=(KeyringLocked, OSError))),
+    # the external-simulation-engine precheck transient: the `execution/recipe#RECIPE` gate runs the
+    # lbt_recipes `version.check_*` probes (Radiance/OpenStudio/EnergyPlus folder+binary reads) through
+    # `guarded_sync(RetryClass.ENGINE, ...)` — a transiently-locked config folder or slow first probe
+    # retries tightly, while a genuinely missing engine exhausts fast and fails BEFORE the subprocess.
+    ("engine", Policy(attempts=2, timeout=10.0, target=(OSError, TimeoutError))),
     # the subinterpreter-offload transient: a `BrokenWorkerInterpreter` cold-start crash on the PEP-734
     # hop (the OCCT/native-geometry 200-400ms warm-up surface) retries under one stamina row, while a
     # `BrokenWorkerProcess` covers the to_thread degradation path; `wait_initial` opens wide so a

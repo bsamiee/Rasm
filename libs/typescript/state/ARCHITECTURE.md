@@ -21,7 +21,7 @@ state/src/               # imports kernel ONLY; runtime:neutral — no platform 
 │   ├── receipt.ts       # ReceiptEnvelope-decoded evidence vocabulary — the typed receipt family, never erased
 │   ├── availability.ts  # DegradationLevel / CommandAvailability vocabulary the wire gateway gate types against
 │   ├── progress.ts      # progress-mark evidence folds
-│   └── timeline.ts      # evidence feed/timeline folds
+│   └── timeline.ts      # evidence feed/timeline folds + the content-keyed Document reference with its column band
 └── query/               # The live and windowed read surfaces
     ├── live.ts          # Subscribable live queries + presence semantics (edge/live serves these)
     └── window.ts        # windowed query folds + the REPLAY_LAW spine; AsOf 3-coordinate time-travel reads + asOfDiff + HLC event-time watermarks

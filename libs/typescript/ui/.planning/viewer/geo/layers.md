@@ -1,13 +1,13 @@
 # [UI_LAYERS]
 
-`viewer/geo/layers.ts` is the geospatial surface: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; GeoArrow layers stream `apache-arrow` columns zero-copy (one layer per `RecordBatch`, one hoisted earcut pool); and `@turf/turf` runs the planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON — WKB decode stays in `wire` (BM:77), and this module never parses a byte.
+`viewer/geo/layers.ts` is the geospatial surface: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; GeoArrow layers stream `apache-arrow` columns zero-copy (one layer per `RecordBatch`, one hoisted earcut pool); tile streaming rides `TileLayer`/`MVTLayer` rows keyed by the wire tile-grid coordinate; and `@turf/turf` runs the planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON — WKB decode stays in `wire` (BM:77), and this module never parses a byte.
 
 ## [1]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                     |
 | :-----: | :---------------- | :---------------------------------------------------------------------------- |
 |   [1]   | `SURFACE_ACQUIRE` | the map + interleaved overlay as one `Scope`-bracketed resource                |
-|   [2]   | `LAYER_ROWS`      | the atom-derived layer vocabulary — GeoJSON, GeoArrow fan, extension rows      |
+|   [2]   | `LAYER_ROWS`      | the atom-derived layer vocabulary — GeoJSON, GeoArrow fan, tile rows, extensions |
 |   [3]   | `PLANAR_OPS`      | the turf peer law — planar compute over decoded features                       |
 |   [4]   | `STYLE_DATA`      | declarative style rows and feature-state echo                                  |
 
@@ -52,12 +52,15 @@ const _surface = (options: MapOptions) =>
 - Law: decoded features render through `GeoJsonLayer` — the `wire` geo row delivers GeoJSON (`GeoFeature.geometry` resolved behind wire's `WkbParser` port), `pointType` and the fill/stroke/3D accessor sub-groups fan one Feature stream to the whole mark vocabulary; per-object styling is one function `Accessor` plus its trigger key, never a parallel prop.
 - Law: columnar geometry rides the GeoArrow fan — `data` per GeoArrow layer is ONE `arrow.RecordBatch` (v0.4 grain), so a chunked `Table` fans through `Table.batches` into a `LayersList` of per-batch layers; `initEarcutPool` hoists ONE pool shared by every polygon layer via `earcutWorkerPool`, and its type derives as `Awaited<ReturnType<typeof initEarcutPool>>` — the transitive `threads` package is never imported; picking returns the zero-copy `StructRowProxy` the selection page resolves to `GlobalId`.
 - Law: cross-layer capability is an extension row — `DataFilterExtension` (GPU time-window/range filtering driven by an atom clock through `filterRange`), `MaskExtension` (geofence keyed to a mask layer), `CollisionFilterExtension` (label declutter) join any layer's `extensions` array; constructor options bake the shader path once, runtime props ride `setProps`.
-- Boundary: tile/terrain/3D-tile streaming (`TileLayer`/`MVTLayer`/`Tile3DLayer`) joins as layer rows under the same sink when a consumer earns them; the deck base vocabulary is settled catalogue law.
+- Law: tile streaming is a layer row over the wire tile grid — `TileLayer.getTileData({ index, signal })` speaks the wire `GeoFeature.Tile` coordinate (`{zoom: z, x, y}`), the fetch rides the app's authed transport honoring the abort signal, and `renderSubLayers` projects each loaded tile into ordinary rows bounded by the tile header's `boundingBox`; vector tiles are the `MVTLayer` specialization (`binary: true`, cross-tile highlight by `uniqueIdProperty`), and `Tile3DLayer`/`TerrainLayer` join as further payload rows under the same engine — never a second tiling machine.
+- Law: layer assembly admits by `Crs` row — a `geographic` feature feeds a layer directly, a `projected` row crosses `toWgs84` exactly once at the assembly boundary, and an SRID `Crs.of` cannot resolve renders nothing and surfaces as evidence; per-feature projection inside an accessor is the named defect.
 
 ```typescript
 import type { LayersList } from "@deck.gl/core"
-import { GeoJsonLayer } from "@deck.gl/layers"
+import { MVTLayer, TileLayer } from "@deck.gl/geo-layers"
+import { BitmapLayer, GeoJsonLayer } from "@deck.gl/layers"
 import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geoarrow"
+import type { GeoFeature } from "@rasm/ts/wire/vocab"
 import { Array } from "effect"
 import type { RecordBatch, Table } from "apache-arrow"
 import type { FeatureCollection } from "@turf/turf"
@@ -85,6 +88,21 @@ const _arrowFan = (id: string, table: Table, pool: _EarcutPool): LayersList =>
       earcutWorkerPool: pool,
     }))
 
+const _rasterTiles = (id: string, fetched: (tile: GeoFeature.Tile, signal?: AbortSignal) => Promise<ImageBitmap>): TileLayer<ImageBitmap> =>
+  new TileLayer<ImageBitmap>({
+    id,
+    getTileData: ({ index, signal }) => fetched({ zoom: index.z, x: index.x, y: index.y }, signal), // the deck index speaks the wire tile coordinate; the abort signal crosses with the fetch
+    renderSubLayers: (props) =>
+      new BitmapLayer({
+        id: `${props.id}/frame`,
+        image: props.data,
+        bounds: [props.tile.boundingBox[0][0]!, props.tile.boundingBox[0][1]!, props.tile.boundingBox[1][0]!, props.tile.boundingBox[1][1]!], // BOUNDARY ADAPTER: the header's min/max pair is the bounds evidence the checker cannot carry
+      }),
+  })
+
+const _vectorTiles = (id: string, template: string, idProperty: string): MVTLayer =>
+  new MVTLayer({ id, data: template, binary: true, pickable: true, uniqueIdProperty: idProperty })
+
 const _push = (surface: GeoLayers.Surface, layers: LayersList): void =>
   surface.overlay.setProps({ layers })
 ```
@@ -106,11 +124,15 @@ const GeoLayers: {
   readonly surface: typeof _surface
   readonly features: typeof _features
   readonly arrowFan: typeof _arrowFan
+  readonly rasterTiles: typeof _rasterTiles
+  readonly vectorTiles: typeof _vectorTiles
   readonly push: typeof _push
 } = {
   surface: _surface,
   features: _features,
   arrowFan: _arrowFan,
+  rasterTiles: _rasterTiles,
+  vectorTiles: _vectorTiles,
   push: _push,
 }
 

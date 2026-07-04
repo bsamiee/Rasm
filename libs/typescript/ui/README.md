@@ -19,7 +19,7 @@
 [VIEWER] — the second Nx project, `scope:viewer`:
 - [11]-[GLB](.planning/viewer/scene/glb.md): `GLB_VIEWPORT` scene residency and three rows; consumes the `browser` decode-worker port; meshopt decode gated.
 - [12]-[APPEARANCE](.planning/viewer/scene/appearance.md): OpenPBR appearance binding over `wire#vocab` appearance.
-- [13]-[LAYERS](.planning/viewer/geo/layers.md): maplibre/deck.gl geo layers and turf planar ops (WKB decode stays in `wire`).
+- [13]-[LAYERS](.planning/viewer/geo/layers.md): maplibre/deck.gl geo layers, tile-streaming rows over the wire tile grid, and turf planar ops (WKB decode stays in `wire`).
 - [14]-[PROJECT](.planning/viewer/geo/project.md): projection/camera sync rows.
 - [15]-[BCF](.planning/viewer/mark/bcf.md): BCF topic/viewpoint anchors (`GlobalId`).
 - [16]-[SELECTION](.planning/viewer/mark/selection.md): `GlobalId` selection sets.

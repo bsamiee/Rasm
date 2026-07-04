@@ -29,7 +29,7 @@ libs/typescript/ui/
     │   ├── glb.ts         # GLB_VIEWPORT scene residency + three rows; consumes the browser decode-worker port; meshopt decode gated
     │   └── appearance.ts  # OpenPBR appearance binding over wire#vocab appearance
     ├── geo/               # geospatial plane
-    │   ├── layers.ts      # maplibre/deck.gl geo layers + turf planar ops (WKB decode stays in wire)
+    │   ├── layers.ts      # maplibre/deck.gl geo layers + tile-streaming rows + turf planar ops (WKB decode stays in wire)
     │   └── project.ts     # projection/camera sync rows
     ├── mark/              # overlay-mark plane
     │   ├── bcf.ts         # BCF topic/viewpoint anchors (GlobalId)

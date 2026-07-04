@@ -41,7 +41,7 @@ The `Process` owner and the `Polygon` substrate are read by every kernel, the `P
 *                   →  csharp:Rasm.Element/Projection            # [CONTRACT]: depends up on {Rasm, Rasm.Element}; a future FabricationProjector:IElementProjection lowers fabrication output onto the seam ElementGraph as one registration row — AEC peers align via the seam, never each other [§4A]
 Posting/projection  ←  csharp:Rasm/Numerics/predicates           # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
 Posting/projection  ←  csharp:Rasm/Meshing/arrangement           # [WIRE]: Arrangement Apply/ToMesh kept-cell watertight outline for the BooleanSolid silhouette arm
-Posting/projection  ←  csharp:Rasm/Processing/repair             # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries
+Posting/projection  ←  csharp:Rasm/Meshing/arrangement           # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries
 Posting/projection  ←  csharp:Rasm/Spatial/index                 # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
 Posting/projection  ←  csharp:Rasm/Drawing/view                  # [PROJECTION]: DrawingProjection HLR visible/hidden segments beside the in-folder BSP solver
 Posting/projection  →  csharp:Rasm.AppUi/Render                  # [RECEIPT]: HiddenLineResult Viewport2D edge sets, the BSP visibility solver superseding the AppUi painter sort

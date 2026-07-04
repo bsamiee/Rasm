@@ -23,7 +23,7 @@ The decode surface sequences by sub-domain — codec → frame → gateway → i
 - [CONTROL](.planning/codec/control.md): `ControlIntentWire` kind-discriminated decode.
 - [LAYOUT](.planning/codec/layout.md): `LayoutConstraintWire` ordered Cassowary-program decode.
 - [BCF](.planning/codec/bcf.md): `BcfTopicWire`/`BcfViewpointWire` decode.
-- [GEO](.planning/codec/geo.md): `GeoFeature` WKB decode; turf owns planar ops only, in the viewer.
+- [GEO](.planning/codec/geo.md): `GeoFeature` WKB decode + the geospatial vocabulary (exhaustive geometry union, extent, CRS rows, tile addressing); turf owns planar ops only, in the viewer.
 - [BIM](.planning/codec/bim.md): `BimWire`/`DiffWire`/`IdsAudit` golden-byte decode.
 - [APPEARANCE](.planning/codec/appearance.md): `MaterialWire`/`OpenPbrGroupsWire`/`AppearanceSummary` field-for-field decode.
 

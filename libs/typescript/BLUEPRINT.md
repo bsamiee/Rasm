@@ -55,7 +55,7 @@ state/src/
     receipt.ts       # ReceiptEnvelope-decoded evidence vocabulary — the typed receipt family, never erased
     availability.ts  # DegradationLevel / CommandAvailability vocabulary the wire gateway gate types against
     progress.ts      # progress-mark evidence folds
-    timeline.ts      # evidence feed/timeline folds
+    timeline.ts      # evidence feed/timeline folds + the content-keyed Document reference with its column band
   query/
     live.ts          # Subscribable live queries + presence semantics (edge/live serves these)
     window.ts        # windowed query folds + the REPLAY_LAW spine; AsOf 3-coordinate time-travel reads + asOfDiff + HLC event-time watermarks
@@ -179,7 +179,7 @@ wire/src/
     control.ts       # ControlIntentWire kind-discriminated decode
     layout.ts        # LayoutConstraintWire ordered Cassowary program decode
     bcf.ts           # BcfTopicWire/BcfViewpointWire decode
-    geo.ts           # GeoFeature WKB decode (parser identity R6; turf owns planar ops only, in the viewer)
+    geo.ts           # GeoFeature WKB decode + geometry/extent/CRS/tile vocabulary (parser identity R6; turf owns planar ops only, in the viewer)
     bim.ts           # BimWire/DiffWire/IdsAudit golden-byte decode
     appearance.ts    # MaterialWire/OpenPbrGroupsWire/AppearanceSummary field-for-field decode — the index-promised cluster
   frame/
@@ -388,7 +388,7 @@ ui/viewer/src/       # second Nx project — scope:viewer
     glb.ts           # GLB_VIEWPORT scene residency + three rows; consumes the browser decode-worker port; meshopt decode gated [R23]
     appearance.ts    # OpenPBR appearance binding over wire#vocab appearance
   geo/
-    layers.ts        # maplibre/deck.gl geo layers + turf planar ops (WKB decode stays in wire)
+    layers.ts        # maplibre/deck.gl geo layers + tile-streaming rows + turf planar ops (WKB decode stays in wire)
     project.ts       # projection/camera sync rows
   mark/
     bcf.ts           # BCF topic/viewpoint anchors (GlobalId)

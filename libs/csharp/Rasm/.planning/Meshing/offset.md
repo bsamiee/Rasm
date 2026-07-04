@@ -2,7 +2,7 @@
 
 The exact wavefront offsetting owner of `Rasm.Geometry.Offsetting` — ONE `OffsetOp` `[Union]` (`Skeleton`/`Weighted`/`Offset`/`Medial`/`Minkowski`/`Clearance`) folded by ONE `Offsetting.Apply(OffsetOp, Op? key = null)` entry over one Aichholzer-Aurenhammer wavefront propagation. The exactness lives where a sign decides structure: reflex classification and split-hit admission read the `Numerics/predicates#ROBUST_PREDICATES` exact `Orient2D` turn signs over INPUT geometry, ring simplicity routes `Meshing/intersect` `Intersection.Apply` (the local `SegmentsCross` copy is DEAD — the E7 collapse), and self-overlapping result loops resolve through `Meshing/arrangement` `PlanarOverlay` under the nonzero winding rule (the `Mesh.CreateFromClosedPolyline` null-skip of the prior fence is DEAD — loops route the arrangement DIRECTLY as ring sets); event times are analytic `double` schedule data validated at fire by liveness, ring adjacency, and the collapse band — the prior fence's decorative exact-zero test on float trajectory positions was ILLUSORY exactness and is deleted, the honest contract stated instead.
 
-This page MINTS the kernel's ONE clearance vocabulary — `ClearanceNode(At, Radius, NearestEdge)`, the per-point clearance RADIUS as a first-class result field on every skeleton and medial node plus the `Clearance(probe)` arbitrary-probe op case — the SAME result family `Meshing/skeleton` (W4, 3D MCF) composes, so 2D medial and 3D curve-skeleton speak one clearance language across the `Rasm.Fabrication` toolpath seam (`FAB:22` — `Toolpath/Skeleton.cs` dies for `Offsetting.Apply`; the `RASM-CS-FABRICATION [V5]` weighted/variable-speed rows ride the existing `Weighted` modality). The medial axis is REAL against the `Meshing/delaunay` `VoronoiDual` projection: the ring's constrained Delaunay dual supplies circumcenters WITH circumradii (the clearance payload) whose interior sub-graph carries the parabolic reflex arcs the linear straight skeleton only approximates — the prior fence built the tessellation and DISCARDED it; this one reads the dual as the medial locus and reconciles the skeleton's reflex arcs against it. Corner strategy is a generator: `JoinType` (Miter/Round/Bevel/Square) and `EndType` (Closed/Butt/Square/Round) rows carry their own emission delegates over the ONE offset assembly — the next join is a data row, never a sibling assembler (the CavalierContours kerf/arc lane stays `Rasm.Fabrication` stratum). `MinkowskiConvolution` is COMPLETE: BOTH convolution directions (edges-of-A × compatible-vertices-of-B AND vertices-of-A × compatible-edges-of-B, compatibility the exact normal-cone containment) plus the convex-vertex fan, assembled through the arrangement. The `WavefrontStore` is an honest single-writer arena under the `Meshing/edit#ARENA_LAW` contract with amortized-doubling capacity — the fixed `2n` under-allocation and the immutable-record prose of the prior fence are dead. Failures route the `offsetting` cluster (`DegenerateOffset` 2416, `SkeletonStalled` 2417, `CollapseStalled` 2418).
+This page MINTS the kernel's ONE clearance vocabulary — `ClearanceNode(At, Radius, NearestEdge)`, the per-point clearance RADIUS as a first-class result field on every skeleton and medial node plus the `Clearance(probe)` arbitrary-probe op case — the SAME result family `Meshing/skeleton` (W4, 3D MCF) composes, so 2D medial and 3D curve-skeleton speak one clearance language across the `Rasm.Fabrication` toolpath seam (`FAB:22` — `Toolpath/Skeleton.cs` dies for `Offsetting.Apply`; the `RASM-CS-FABRICATION [V5]` weighted/variable-speed rows ride the existing `Weighted` modality). The medial axis is REAL against the `Meshing/delaunay` `VoronoiDual` projection: the ring's constrained Delaunay dual supplies circumcenters WITH circumradii (the clearance payload) whose interior sub-graph carries the parabolic reflex arcs the linear straight skeleton only approximates — the prior fence built the tessellation and DISCARDED it; this one reads the dual as the medial locus and reconciles the skeleton's reflex arcs against it. Corner strategy is a generator: `JoinType` (Miter/Round/Bevel/Square) and `EndType` (Closed/Butt/Square/Round) rows carry their own emission delegates over the ONE offset assembly — the next join is a data row, never a sibling assembler (the CavalierContours kerf/arc lane stays `Rasm.Fabrication` stratum). `MinkowskiConvolution` is COMPLETE as one ordered normal MERGE: both CCW boundaries' edge-normal sequences interleave, so translated A-edges AND the B-edge fan at every convex A vertex emit from the one merge, connected by construction (a reflex element routes the typed fault — its convex decomposition is the recorded growth row), the cycle resolved through the arrangement. The `WavefrontStore` is an honest single-writer arena under the `Meshing/edit#ARENA_LAW` contract with amortized-doubling capacity — the fixed `2n` under-allocation and the immutable-record prose of the prior fence are dead. Failures route the `offsetting` cluster (`DegenerateOffset` 2416, `SkeletonStalled` 2417, `CollapseStalled` 2418).
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ This page MINTS the kernel's ONE clearance vocabulary — `ClearanceNode(At, Rad
 
 - Owner: `OffsetKind` `[SmartEnum<string>]` the operation discriminant (`skeleton`/`weighted`/`offset`/`medial`/`minkowski`/`clearance`) binding the shipped `ComparerAccessors.StringOrdinal`, carrying `EmitsGraph`/`EmitsCurves` columns; `JoinType` `[SmartEnum<string>]` (`miter`/`round`/`bevel`/`square`) — each row carries its `[UseDelegateFromConstructor]` `Corner` emission delegate (the fan a convex offset corner inserts between its two offset segments: the clamped miter apex, the arc fan at `ArcTolerance`, the bare chord, the squared pair) so the offset assembly reads the row and a join `switch` is unspellable; `EndType` `[SmartEnum<string>]` (`closed`/`butt`/`square`/`round`) — cap emission rows for open-path offsets, `closed` the ring row that emits nothing; `OffsetPolicy` the policy row (`TimeBudget` · `MaxEvents` · `CollapseTolerance` · `MiterLimit` · `ArcTolerance` · `EdgeSpeed` the per-edge speed table the `Weighted` modality reads via `SpeedOf`) registering `IValidityEvidence`; `ClearanceNode` THE minted clearance carrier (`At` · `Radius` — the distance-to-boundary payload every consumer reads · `NearestEdge` the witness); `SkeletonArc(From, To, OriginEdge)`; `SkeletonGraph(Seq<ClearanceNode>, Seq<SkeletonArc>)`; `MedialAxis(Seq<ClearanceNode>, Seq<SkeletonArc>)` — the SAME node family, dual-sourced; `OffsetCurves(Seq<Chain> Loops, double Distance)` — composing intersect's oriented `Chain` rows, open and closed; `WavefrontStore` the single-writer propagation arena (position/velocity columns, `Prev`/`Next` active rings, dead bitset + free list, `SpawnTime`/`Origin` provenance; `Spawn` grows every column by amortized doubling); `OffsetEvent` `[Union]` (`Edge`/`Split`) the time-ordered queue algebra; `OffsetOp`/`OffsetResult` the request/result unions; `Offsetting` the static surface.
 - Cases: `OffsetKind` rows 6; `JoinType` rows 4; `EndType` rows 4; `OffsetEvent` cases 2; `OffsetOp` cases `Skeleton` · `Weighted` · `Offset` · `Medial` · `Minkowski` · `Clearance` (6); `OffsetResult` cases `Graph` · `Axis` · `Curves` · `Probe` (4).
-- Entry: `public static Fin<OffsetResult> Apply(OffsetOp op, Op? key = null)` — the ONE entry discriminating on the op case. `Fin<T>` routes `GeometryFault.DegenerateOffset(vertex, time)` 2416 on an inadmissible ring (open where a ring is demanded, zero area, self-intersecting — simplicity checked through `Intersection.Apply`, never a local crossing kernel) or a wavefront that dies at a vertex; `GeometryFault.SkeletonStalled(pendingEvents, time)` 2417 when the event budget exhausts with the queue non-empty; `GeometryFault.CollapseStalled(iteration, residual)` 2418 on a zero-progress event cycle (a same-time re-enqueue livelock — the residual is the stalled time delta). `Skeleton`/`Weighted` return `Graph`; `Medial` returns `Axis`; `Offset`/`Minkowski` return `Curves`; `Clearance` returns `Probe`. `Offset` accepts a CLOSED ring (EndType `closed`) or an OPEN path (the doubled-path wavefront with `EndType` caps) — the input shape plus the `EndType` row discriminate, never a sibling `OffsetOpen` entry. No `BuildSkeleton`/`BuildMedial`/`OffsetPolyline` sibling statics — one polymorphic `Apply`.
-- Auto: `Skeleton`/`Weighted`/`Offset` run the ONE `Propagate` wavefront — `Seed` builds the active ring with each vertex's inward bisector velocity (the `Weighted` row scaling each edge's unit normal by `OffsetPolicy.SpeedOf(edge)` — the weighted straight skeleton is the SAME queue at non-unit speeds, never a parallel skeletonizer), `EnqueueAll` computes analytic edge-collapse and reflex-split candidate times (`IsReflex` the exact `Orient2D` turn sign over input geometry — a near-collinear vertex never spuriously splits), and the time-ordered `PriorityQueue` drains: an `Edge` event re-validates liveness + ring adjacency + the collapse band then merges the pair into one respawned vertex (skeleton node minted WITH its clearance radius — the collapse time times the unit speed IS the boundary distance; under `Weighted` the radius recomputes as the true Euclidean edge distance so the clearance payload never lies), a `Split` event re-validates the reflex hit on its opposing edge then divides the ring into two live rings, and every affected vertex re-enqueues its candidates. `Offset` freezes the surviving rings at `Distance` — EVERY live ring walks out (the multi-ring snapshot; the prior fence's first-ring-only walk dropped every post-split component), each traced corner whose origin vertex the offset turns convex emitting the `JoinType` row's fan, open-path caps emitting the `EndType` row — and any self-overlapping loop set routes `Arrangement.Apply(PlanarOverlay(loops, ∅, Union, plane, policy))` under the nonzero winding rule. `Medial` builds the ring's constrained Delaunay (`Tessellation.Build`, `Delaunay` mode, boundary `Constraint.Segment` rows), takes `VoronoiDual`, keeps the interior sub-graph (dual nodes of inside triangles — the even-odd parity of each triangle against the ring), and emits `MedialAxis` nodes as `ClearanceNode(circumcenter, circumradius, nearestEdge)` — the parabolic reflex arcs ARE the dual's curved sampling, reconciled against the straight skeleton's linear reflex arcs (the skeleton underestimates clearance at reflex fans; the dual carries the true bisector locus). `Minkowski` runs BOTH convolution directions — an edge of A contributes its translate by every B vertex whose normal cone contains the edge normal, a vertex of A contributes the fan of B edges whose normals its own cone contains (cone containment = two exact `Orient2D` signs over the adjacent edge normals) — and the convolution cycles resolve through the arrangement's nonzero winding into the sum boundary. `Clearance` answers the arbitrary probe: the exact scan over ring edges for the minimum point-segment distance, returning `ClearanceNode(probe, radius, argminEdge)`.
+- Entry: `public static Fin<OffsetResult> Apply(OffsetOp op, Op? key = null)` — the ONE entry discriminating on the op case. `Fin<T>` routes `GeometryFault.DegenerateOffset(vertex, time)` 2416 on an inadmissible ring (open where a ring is demanded, zero area, self-intersecting — simplicity checked through `Intersection.Apply`, never a local crossing kernel) or a wavefront that dies at a vertex; `GeometryFault.SkeletonStalled(pendingEvents, time)` 2417 when the event budget exhausts with the queue non-empty; `GeometryFault.CollapseStalled(iteration, residual)` 2418 on a zero-progress event cycle (a same-time re-enqueue livelock — the residual is the stalled time delta). `Skeleton`/`Weighted` return `Graph`; `Medial` returns `Axis`; `Offset`/`Minkowski` return `Curves`; `Clearance` returns `Probe`. `Offset` owns every offset modality in one case: an inward closed-ring offset (positive `Distance` — the wavefront lane, where topology events live), an outward closed-ring offset (negative `Distance` — the direct ribbon lane), and an open-path offset (the two-sided ribbon with `EndType` caps) — the input shape plus the distance sign discriminate, never a sibling `OffsetOpen`/`OffsetOutward` entry. No `BuildSkeleton`/`BuildMedial`/`OffsetPolyline` sibling statics — one polymorphic `Apply`.
+- Auto: `Skeleton`/`Weighted`/`Offset` run the ONE `Propagate` wavefront — `Seed` builds the active ring with each vertex's inward bisector velocity (the `Weighted` row scaling each edge's unit normal by `OffsetPolicy.SpeedOf(edge)` — the weighted straight skeleton is the SAME queue at non-unit speeds, never a parallel skeletonizer), `EnqueueAt` computes each vertex's analytic edge-collapse and reflex-split candidate times (`IsReflex` the exact `Orient2D` turn sign — a near-collinear vertex never spuriously splits), and the time-ordered `PriorityQueue` drains: an `Edge` event re-validates liveness + ring adjacency + the collapse band then merges the pair into one respawned vertex (skeleton node minted WITH its clearance radius — the collapse time times the unit speed IS the boundary distance; under `Weighted` the radius recomputes as the true Euclidean edge distance so the clearance payload never lies), a `Split` event re-validates the reflex hit on its opposing edge then divides the ring into two live rings, and every affected vertex re-enqueues its candidates. `Offset` splits by lane: the inward closed-ring offset drains the wavefront FROZEN at `until = Distance` (events past the instant stay unfired, so the store IS the state at `Distance` — never the fully-collapsed end state) and EVERY surviving ring walks out (the multi-ring snapshot; the prior fence's first-ring-only walk dropped every post-split component) with the `JoinType` row's fan dressed at each corner; the outward and open-path offsets ride the direct ribbon (per-edge translates + corner fans + `EndType` caps — no topology events exist on the growing side); and any self-overlapping loop set from either lane routes `Arrangement.Apply(PlanarOverlay(loops, ∅, Union, plane, policy))` under the nonzero winding rule. `Medial` builds the ring's constrained Delaunay (`Tessellation.Build`, `Delaunay` mode, boundary `Constraint.Segment` rows), takes `VoronoiDual`, keeps the interior sub-graph (dual nodes of inside triangles — the even-odd parity of each triangle against the ring), and emits `MedialAxis` nodes as `ClearanceNode(circumcenter, circumradius, nearestEdge)` — the parabolic reflex arcs ARE the dual's curved sampling, reconciled against the straight skeleton's linear reflex arcs (the skeleton underestimates clearance at reflex fans; the dual carries the true bisector locus). `Minkowski` gates the element convex (exact turn signs; a reflex turn faults — convex decomposition is the recorded growth row) then runs the ordered normal MERGE: both boundaries CCW, both edge-normal sequences CCW-sorted, so advancing whichever boundary's normal leads emits translated A-edges and the B-edge fan at each convex A vertex as ONE connected cycle — both convolution directions from one merge — resolved through the arrangement's nonzero winding into the sum boundary. `Clearance` answers the arbitrary probe: the exact scan over ring edges for the minimum point-segment distance, returning `ClearanceNode(probe, radius, argminEdge)`.
 - Receipt: none on a dedicated rail — the `OffsetResult` union IS the typed result, every node row carrying its clearance radius as first-class evidence; the hash-eligible artifacts are the emitted `Polyline`/`Chain` values, never the live `WavefrontStore`.
 - Packages: `Rasm.Geometry.Numerics` (`Predicate.Orient2D`/`Sign`/`Axis` — the exact-turn floor), `Rasm.Geometry.Intersection` (`Intersection.Apply` `SegmentSegment` — ring simplicity + convolution crossing checks; `Chain` — the loop rows), `Rasm.Geometry.Arrangement` delaunay owners (`Tessellation.Build` + `VoronoiDual`/`DualGraph` — the medial substrate) and arrangement owners (`Arrangement.Apply` `PlanarOverlay` — loop resolution), `Rasm.Geometry` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Rasm`/Vectors (`Point3d`/`Vector3d`/`Polyline`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<TElement,TPriority>`).
 - Growth: a new offsetting modality (curved-input offset, multi-ring nesting offset) is one `OffsetKind` row plus one `OffsetOp` case over the SAME propagation; a new corner strategy is ONE `JoinType` row carrying its emission delegate (the generator law — never a fourth assembly body); a new cap is one `EndType` row; a new event shape is one `OffsetEvent` case plus one drain arm; the 3D clearance consumer (`Meshing/skeleton`, W4) COMPOSES `ClearanceNode` — the family widens by zero types; the Fabrication variable-speed rows ride `EdgeSpeed`; zero new surface.
@@ -270,15 +270,17 @@ public static class Offsetting {
     // --- [WAVEFRONT]
     // Event times are analytic schedule data; validity at fire is liveness + ring adjacency + the
     // collapse band. The exact signs live at reflex classification and split admission over input
-    // geometry — never a fake zero-test of float trajectory positions.
-    static Fin<Trace> Propagate(Polyline ring, OffsetPolicy policy, bool weighted) {
+    // geometry — never a fake zero-test of float trajectory positions. `until` freezes the drain:
+    // events past it stay unfired, so the store IS the wavefront state at that time — the offset
+    // snapshot reads a true instant, never the fully-collapsed end state.
+    static Fin<Trace> Propagate(Polyline ring, OffsetPolicy policy, bool weighted, double until = double.PositiveInfinity) {
         WavefrontStore store = Seed(ring, policy, weighted);
         var queue = new PriorityQueue<OffsetEvent, double>();
         var nodes = new List<ClearanceNode>();
         var arcs = new List<SkeletonArc>();
         for (int v = 0; v < store.Count; v++) { EnqueueAt(store, queue, v, 0.0, policy); }
         (int fired, double lastTime, int sameTime) = (0, -1.0, 0);
-        while (queue.Count > 0) {
+        while (queue.Count > 0 && queue.Peek().Time <= until) {
             if (fired++ > policy.MaxEvents) { return Fin.Fail<Trace>(new GeometryFault.SkeletonStalled(queue.Count, queue.Peek().Time).ToError()); }
             OffsetEvent ev = queue.Dequeue();
             if (ev.Time > policy.TimeBudget) { return Fin.Fail<Trace>(new GeometryFault.SkeletonStalled(queue.Count, ev.Time).ToError()); }
@@ -394,26 +396,29 @@ public static class Offsetting {
         && Predicate.Orient2D(store.At(store.Prev(v), now), store.At(v, now), store.At(store.Next(v), now)) == Sign.Negative;
 
     // --- [OFFSET_ASSEMBLY]
-    // The multi-ring snapshot: EVERY surviving ring walks out at Distance; corner rows emit at
-    // traced convex origins; open paths ride the doubled-path wavefront with EndType caps; a
-    // self-overlapping loop set routes the arrangement under the nonzero winding rule.
-    static Fin<OffsetResult> Snapshot(OffsetOp.Offset op, Op? key) {
-        (Polyline ring, bool open) = op.Path.IsClosed ? (op.Path, false) : (Doubled(op.Path), true);
-        return AdmitRing(ring, op.Policy, key)
-            .Bind(admitted => Propagate(admitted, op.Policy, weighted: false))
-            .Map(trace => Rings(trace.Store, op.Distance))
-            .Bind(loops => loops.IsEmpty
-                ? Fin.Fail<Seq<Polyline>>(new GeometryFault.DegenerateOffset(0, op.Distance).ToError())
-                : Fin.Succ(loops.Map(loop => Dressed(loop, op, ring))))
-            .Bind(loops => Resolve(loops, op.Policy, key))
-            .Map(chains => (OffsetResult)new OffsetResult.Curves(new OffsetCurves(chains, op.Distance)));
-    }
+    // Two lanes, one modality: INWARD (positive distance, closed ring) rides the wavefront frozen
+    // at `until = Distance` — the event queue owns the topology changes, EVERY surviving ring
+    // walks out; OUTWARD (negative distance) and OPEN paths ride the direct ribbon (edge
+    // translates + JoinType fans + EndType caps — no topology events exist there). Both resolve
+    // self-overlap through the arrangement under the nonzero winding rule.
+    static Fin<OffsetResult> Snapshot(OffsetOp.Offset op, Op? key) =>
+        (op.Path.IsClosed && op.Distance > 0.0
+            ? AdmitRing(op.Path, op.Policy, key)
+                .Bind(ring => Propagate(ring, op.Policy, weighted: false, until: op.Distance))
+                .Map(trace => Rings(trace.Store, op.Distance).Map(loop => Dressed(loop, op)))
+            : op.Path.IsClosed
+                ? AdmitRing(op.Path, op.Policy, key).Map(ring => Ribbon(op with { Path = ring }))
+                : Fin.Succ(Ribbon(op)))
+        .Bind(loops => loops.IsEmpty
+            ? Fin.Fail<Seq<Polyline>>(new GeometryFault.DegenerateOffset(0, op.Distance).ToError())
+            : Resolve(loops, op.Policy, key))
+        .Map(chains => (OffsetResult)new OffsetResult.Curves(new OffsetCurves(chains, op.Distance)));
 
     static Seq<Polyline> Rings(WavefrontStore store, double distance) {
         var seen = new HashSet<int>();
         var loops = new List<Polyline>();
         for (int v = 0; v < store.Count; v++) {
-            if (!store.Alive(v) || seen.Contains(v) || store.SpawnTime(v) > distance) { continue; }
+            if (!store.Alive(v) || seen.Contains(v)) { continue; }
             var loop = new Polyline();
             int cur = v;
             do {
@@ -426,26 +431,58 @@ public static class Offsetting {
         return toSeq(loops);
     }
 
-    // Corner/cap dressing reads the rows; Miter is the wavefront's own trajectory (no insert).
-    static Polyline Dressed(Polyline loop, OffsetOp.Offset op, Polyline source) {
-        if (op.Join == JoinType.Miter && op.End == EndType.Closed) { return loop; }
+    // Corner dressing on the wavefront snapshot: Miter IS the trajectory (no insert); other rows
+    // insert their fan at each loop corner.
+    static Polyline Dressed(Polyline loop, OffsetOp.Offset op) {
+        if (op.Join == JoinType.Miter) { return loop; }
+        int n = loop.Count - 1;
         var dressed = new Polyline();
-        for (int i = 0; i < loop.Count - 1; i++) {
+        for (int i = 0; i < n; i++) {
             dressed.Add(loop[i]);
-            Vector3d nIn = Unit(new Vector3d(loop[i].Y - loop[(i - 1 + loop.Count - 1) % (loop.Count - 1)].Y, loop[(i - 1 + loop.Count - 1) % (loop.Count - 1)].X - loop[i].X, 0.0));
-            Vector3d nOut = Unit(new Vector3d(loop[(i + 1) % (loop.Count - 1)].Y - loop[i].Y, loop[i].X - loop[(i + 1) % (loop.Count - 1)].X, 0.0));
+            Vector3d nIn = Unit(Normal(loop[(i - 1 + n) % n], loop[i]));
+            Vector3d nOut = Unit(Normal(loop[i], loop[(i + 1) % n]));
             foreach (Point3d fan in op.Join.Corner(loop[i], nIn, nOut, op.Distance, op.Policy)) { dressed.Add(fan); }
         }
-        if (dressed.Count > 0) { dressed.Add(dressed[0]); }
-        foreach (Point3d cap in op.End.Cap(source[^1], Unit(source[^1] - source[int.Max(source.Count - 2, 0)]), op.Distance, op.Policy)) { dressed.Add(cap); }
-        return dressed.Count > 2 ? dressed : loop;
+        if (dressed.Count > 2) { dressed.Add(dressed[0]); return dressed; }
+        return loop;
     }
 
-    static Polyline Doubled(Polyline path) {
-        var ring = new Polyline(path);
-        for (int i = path.Count - 2; i >= 1; i--) { ring.Add(path[i]); }
-        ring.Add(path[0]);
-        return ring;
+    // The direct ribbon: per-edge offset translates with the row's fan at every turned-convex
+    // vertex; open paths close through the EndType caps and the mirrored return side.
+    static Seq<Polyline> Ribbon(OffsetOp.Offset op) {
+        Polyline path = op.Path;
+        bool closed = path.IsClosed;
+        int n = path.Count - (closed ? 1 : 0);
+        double d = Math.Abs(op.Distance);
+        var cycle = new Polyline();
+        Emit(cycle, path, n, closed, d, forward: true, op);
+        if (!closed) {
+            foreach (Point3d cap in op.End.Cap(path[n - 1], Unit(path[n - 1] - path[n - 2]), d, op.Policy)) { cycle.Add(cap); }
+            Emit(cycle, Reversed(path), n, closed: false, d, forward: true, op);
+            foreach (Point3d cap in op.End.Cap(path[0], Unit(path[0] - path[1]), d, op.Policy)) { cycle.Add(cap); }
+        }
+        if (cycle.Count > 2) { cycle.Add(cycle[0]); return Seq(cycle); }
+        return Seq<Polyline>();
+
+        static void Emit(Polyline cycle, Polyline path, int n, bool closed, double d, bool forward, OffsetOp.Offset op) {
+            int edges = closed ? n : n - 1;
+            for (int i = 0; i < edges; i++) {
+                (Point3d a, Point3d b) = (path[i], path[(i + 1) % n]);
+                Vector3d normal = d * Unit(Normal(a, b));
+                cycle.Add(a + normal);
+                cycle.Add(b + normal);
+                if (closed || i + 1 < edges) {
+                    foreach (Point3d fan in op.Join.Corner(b, Unit(Normal(a, b)), Unit(Normal(b, path[(i + 2) % n])), d, op.Policy)) { cycle.Add(fan); }
+                }
+            }
+            _ = forward;
+        }
+
+        static Polyline Reversed(Polyline path) {
+            var back = new Polyline(path);
+            back.Reverse();
+            return back;
+        }
     }
 
     // Self-overlap check routes the ONE crossing owner; resolution routes the arrangement ring-direct.
@@ -501,40 +538,39 @@ public static class Offsetting {
     }
 
     // --- [MINKOWSKI]
-    // COMPLETE convolution: edges-of-A x compatible-verts-of-B AND verts-of-A x compatible-edges-
-    // of-B; compatibility = the exact normal-cone containment (two Orient2D signs over normals).
+    // The COMPLETE convolution as an ordered normal merge: both boundaries CCW, both edge-normal
+    // sequences CCW-sorted, so the convolution cycle interleaves translated A-edges (advancing A
+    // while its normal leads) and B-edge fans at A's vertices (advancing B while its normal leads)
+    // — BOTH directions and every convex-vertex fan emitted by the ONE merge, connected by
+    // construction. Merge order rides normal angles (a near-tie merged either way differs by a
+    // degenerate sliver the arrangement resolve removes); the element must be CONVEX — a reflex
+    // element turn routes the typed fault, its convex decomposition the recorded growth row.
     static Fin<OffsetCurves> Convolve(Polyline ring, Polyline element, OffsetPolicy policy, Op? key) {
         int rn = ring.Count - 1, en = element.Count - 1;
-        var loops = new List<Polyline>();
-        var cycle = new Polyline();
-        for (int i = 0; i < rn; i++) {
-            Vector3d edgeNormal = Unit(Normal(ring[i], ring[i + 1]));
-            for (int j = 0; j < en; j++) {
-                if (InCone(edgeNormal, Normal(element[(j - 1 + en) % en], element[j]), Normal(element[j], element[(j + 1) % en]))) {
-                    cycle.Add(ring[i] + (element[j] - Point3d.Origin));
-                    cycle.Add(ring[i + 1] + (element[j] - Point3d.Origin));
-                }
-            }
-            for (int j = 0; j < en; j++) {
-                Vector3d bNormal = Unit(Normal(element[j], element[j + 1]));
-                if (InCone(bNormal, Normal(ring[(i - 1 + rn) % rn], ring[i]), Normal(ring[i], ring[(i + 1) % rn]))) {
-                    cycle.Add(ring[i] + (element[j] - Point3d.Origin));
-                    cycle.Add(ring[i] + (element[j + 1] - Point3d.Origin));
-                }
+        for (int j = 0; j < en; j++) {
+            if (Predicate.Orient2D(element[(j - 1 + en) % en], element[j], element[(j + 1) % en]) == Sign.Negative) {
+                return Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(j, 0.0).ToError());
             }
         }
-        if (cycle.Count > 2) { cycle.Add(cycle[0]); loops.Add(cycle); }
-        return Arrangement.Apply(new ArrangementOp.PlanarOverlay(toSeq(loops), Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
+        double AngleA(int i) => Math.Atan2(Normal(ring[i % rn], ring[(i + 1) % rn]).Y, Normal(ring[i % rn], ring[(i + 1) % rn]).X);
+        double AngleB(int j) => Math.Atan2(Normal(element[j % en], element[(j + 1) % en]).Y, Normal(element[j % en], element[(j + 1) % en]).X);
+        int b0 = Enumerable.Range(0, en).OrderBy(AngleB).First();  // align B's sweep start under A's first edge normal
+        var cycle = new Polyline();
+        (int i, int j) = (0, b0);
+        for (int emitted = 0; emitted < rn + en; emitted++) {
+            cycle.Add(ring[i % rn] + (element[j % en] - Point3d.Origin));
+            double turnA = Sweep(AngleA(i));
+            double turnB = Sweep(AngleB(j));
+            if (turnA <= turnB && i < rn) { i++; }
+            else { j++; }
+        }
+        cycle.Add(cycle[0]);
+        return Arrangement.Apply(new ArrangementOp.PlanarOverlay(Seq(cycle), Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
             .Bind(static result => result is ArrangementResult.Overlay overlay
                 ? Fin.Succ(new OffsetCurves(overlay.Loops, 0.0))
                 : Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(0, 0.0).ToError()));
-    }
 
-    // n lies inside the CCW cone [nIn, nOut]: both boundary signs read exactly on the normals.
-    static bool InCone(Vector3d n, Vector3d nIn, Vector3d nOut) {
-        Sign a = Predicate.Orient2D(Point3d.Origin, ToPoint(nIn), ToPoint(n));
-        Sign b = Predicate.Orient2D(Point3d.Origin, ToPoint(n), ToPoint(nOut));
-        return a != Sign.Negative && b != Sign.Negative;
+        static double Sweep(double angle) => angle < 0.0 ? angle + (2.0 * Math.PI) : angle;
     }
 
     // --- [CLEARANCE]
@@ -555,7 +591,6 @@ public static class Offsetting {
 
     // --- [PRIMITIVES]
     static Vector3d Normal(Point3d a, Point3d b) => new(b.Y - a.Y, a.X - b.X, 0.0);
-    static Point3d ToPoint(Vector3d v) => new(v.X, v.Y, v.Z);
     static Vector3d Unit(Vector3d v) { double len = v.Length; return len == 0.0 ? v : (1.0 / len) * v; }
 
     static double SignedArea(Polyline ring) {
@@ -625,4 +660,4 @@ The prior fence's `SegmentsCross` copy, `Mesh.CreateFromClosedPolyline` loop pat
 - [WAVEFRONT_HONESTY] — the Aichholzer-Aurenhammer propagation is exact where exactness is structural and analytic where it is schedule: `IsReflex` and the split-hit admission read exact `Orient2D` turn signs (a mis-classified reflex vertex produces a spurious split or a missed one — the failure class the predicate floor closes), while candidate event TIMES are analytic ray intersections whose staleness is caught at fire by liveness + ring-adjacency + collapse-band validation — a superseded event is skipped by structure, never by an epsilon guess, and the prior fence's exact-sign test over float trajectory positions (which could essentially never fire and silently skipped collapse events) is the deleted illusory form. Zero-progress livelock (a same-time re-enqueue cycle) routes `CollapseStalled(iteration, residual)`; budget exhaustion routes `SkeletonStalled(pending, time)`. The `Weighted` row is the SAME queue at non-unit `EdgeSpeed` — its skeleton nodes recompute the TRUE Euclidean clearance radius so the minted family never carries a weighted time as a distance. The law-matrix (`SkeletonLaws`, CsCheck under `testing-cs`) asserts arcs partition the interior, per-edge monotone faces, termination within budget, weighted determinism, and that every snapshot ring is simple.
 - [CLEARANCE_FAMILY] — `ClearanceNode(At, Radius, NearestEdge)` is the kernel's ONE clearance vocabulary: skeleton nodes carry collapse-time radii (unit speed = boundary distance), medial nodes carry circumradii off the dual, the `Clearance(probe)` case answers arbitrary probes with the exact minimum edge distance and its witness — and `Meshing/skeleton` (W4) emits its 3D MCF nodes as the SAME family, so the `Rasm.Fabrication` toolpath seam (`FAB:22`) reads one payload across dimensionalities: per-point clearance radius plus arbitrary-probe query, the `[V5]` weighted/variable-speed demands riding `EdgeSpeed` and the existing `Weighted` case.
 - [MEDIAL_VIA_DUAL] — the medial axis composes the delaunay `VoronoiDual`: the ring's CDT interior circumcenters sample the true bisector locus — including the PARABOLIC point-edge bisectors at reflex fans the linear straight skeleton only approximates — each dual node carrying its circumradius, tightened against the exact edge-distance scan, as the clearance payload; interior selection is the exact-sign ray parity of each triangle centroid. The straight skeleton and the medial coincide on convex input and diverge exactly at reflex vertices — the two projections serve different consumers (offset assembly wants the skeleton's monotone faces; toolpath clearance wants the medial's true radii) off one wavefront + one dual, never two skeleton engines. The exact circumcenter side-of trim is the recorded growth row on the dual.
-- [CONVOLUTION_AND_RESOLUTION] — the Minkowski convolution is complete: BOTH directions contribute (edge-of-A × B-vertices whose normal cone contains the edge normal; vertex-of-A × B-edges whose normal falls in A's vertex cone — containment two exact `Orient2D` signs over normals, the fan at each convex vertex arising as the cone-compatible edge run), and the self-overlapping convolution cycles resolve through `Arrangement.Apply` `PlanarOverlay` under the NONZERO winding rule — even-odd would punch false holes where the convolution winds twice, so the arrangement's ring classification counts signed crossings. The same resolution serves the offset snapshot: any self-overlapping offset loop set routes the arrangement ring-direct — the prior `CreateFromClosedPolyline` bridge failed on exactly the self-intersecting loops the resolve exists for and is deleted as a circular dependency, not merely as noise.
+- [CONVOLUTION_AND_RESOLUTION] — the Minkowski convolution is one ordered normal MERGE over two CCW boundaries: because both edge-normal sequences are CCW-sorted, advancing whichever boundary's normal leads interleaves translated A-edges with the B-edge fan at each convex A vertex — BOTH convolution directions and every fan from one merge, the cycle connected by construction; the element is gated CONVEX by exact turn signs (a reflex element faults typed, its convex decomposition the recorded growth row), merge ORDER rides normal angles (a near-tie merged either way differs by a degenerate sliver the resolve removes — order is assembly scheduling, never a sign decision), and the self-overlapping convolution cycle resolves through `Arrangement.Apply` `PlanarOverlay` under the NONZERO winding rule — even-odd would punch false holes where the convolution winds twice, so the arrangement's ring classification counts signed crossings. The same resolution serves the offset snapshot: any self-overlapping offset loop set routes the arrangement ring-direct — the prior `CreateFromClosedPolyline` bridge failed on exactly the self-intersecting loops the resolve exists for and is deleted as a circular dependency, not merely as noise.

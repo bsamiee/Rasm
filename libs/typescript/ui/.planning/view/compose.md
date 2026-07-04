@@ -70,7 +70,8 @@ declare const _specs: Record<string, CommandSpec>
 - Law: windowing is `useVirtualizer` — `count` from the row model, `estimateSize` + `measureElement` for variable rows, `getTotalSize()` sizing the spacer, `rangeExtractor` unioning pinned/sticky indices; a selection echo scrolls through `scrollToIndex(index, { align: "center" })` when the `GlobalId` selection atom changes (`viewer/mark/selection`'s sync row consumes this).
 - Law: `RowSelectionState` keys are `GlobalId` strings where the grid fronts model elements — the table's selection slice and the viewer's selection set are ONE atom projected two ways, never two stores reconciled.
 - Law: RAC `Table` remains the owner for interactive accessible collections WITHOUT heavy derivation — the TanStack fold is earned by faceting/grouping/virtual scale; one collection never runs both engines.
-- Growth: a new column is one `columnHelper` row; a new derived behavior is one row-model import; a new state slice persists by backing the atom with `Atom.kvs` and its owning schema.
+- Law: a self-described tabular source binds by its column band — the `state` `Timeline.Document` band (`name`/`kind`/`dimension`/`nullable`) folds into the column set as dynamic `columnHelper.accessor((row) => row[column.name], { id: column.name })` rows, so a producer-opaque result artifact renders with zero static row Schema and zero producer branching; a `dimension`-carrying column formats through `intl/format` as a projection over the SI magnitude, and the band — never the payload — is the binding contract.
+- Growth: a new column is one `columnHelper` row — or, for banded sources, one band row the fold picks up; a new derived behavior is one row-model import; a new state slice persists by backing the atom with `Atom.kvs` and its owning schema.
 
 ```typescript
 import type { RowSelectionState, SortingState, Updater } from "@tanstack/react-table"

@@ -13,7 +13,7 @@
 - [07]-[RECEIPT](.planning/evidence/receipt.md): the `ReceiptEnvelope`-decoded evidence vocabulary — the typed receipt family, never erased.
 - [08]-[AVAILABILITY](.planning/evidence/availability.md): the `DegradationLevel`/`CommandAvailability` vocabulary the wire gateway gate types against.
 - [09]-[PROGRESS](.planning/evidence/progress.md): the progress-mark evidence folds.
-- [10]-[TIMELINE](.planning/evidence/timeline.md): the evidence feed/timeline folds.
+- [10]-[TIMELINE](.planning/evidence/timeline.md): the evidence feed/timeline folds plus the content-keyed, producer-opaque `Document` result-artifact reference with its column band.
 - [11]-[LIVE](.planning/query/live.md): the `Subscribable` live queries and the presence semantics `edge/live` serves.
 - [12]-[WINDOW](.planning/query/window.md): the windowed query folds and the REPLAY_LAW spine — AsOf three-coordinate time-travel reads, `asOfDiff`, and HLC event-time watermarks.
 

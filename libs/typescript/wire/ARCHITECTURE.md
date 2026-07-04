@@ -25,7 +25,7 @@ wire/ # W2 runtime; refs kernel, state, host ONLY; ALL C#-minted *Wire decode, a
 │ ├── control.ts # ControlIntentWire kind-discriminated decode
 │ ├── layout.ts # LayoutConstraintWire ordered Cassowary-program decode
 │ ├── bcf.ts # BcfTopicWire/BcfViewpointWire decode
-│ ├── geo.ts # GeoFeature WKB decode — turf owns planar ops only, in ui/viewer
+│ ├── geo.ts # GeoFeature WKB decode + geometry/extent/CRS/tile vocabulary — turf owns planar ops only, in ui/viewer
 │ ├── bim.ts # BimWire/DiffWire/IdsAudit golden-byte decode
 │ └── appearance.ts # MaterialWire/OpenPbrGroupsWire/AppearanceSummary field-for-field decode
 ├── frame/ # Multi-part payload reassembly with content-key verification (the kernel-delegating mint sites)
