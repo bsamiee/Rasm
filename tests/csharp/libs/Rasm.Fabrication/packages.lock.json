@@ -258,6 +258,7 @@
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
+          "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "GShark": "[2.3.1, )",
@@ -265,7 +266,6 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
-          "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
@@ -352,6 +352,12 @@
         "resolved": "2.0.0",
         "contentHash": "2X23RZxJrjRjOSZc20aqXY9jpmHLekDRy4PIMfrsi2LPNzxFYlnuqzX/nLdk77fbURHUeX+gMhUn2a1z9/wMTQ=="
       },
+      "CommunityToolkit.HighPerformance": {
+        "type": "CentralTransitive",
+        "requested": "[8.4.2, )",
+        "resolved": "8.4.2",
+        "contentHash": "2hmtrrU18x6NL3mbuAqwy0KpnoEEJOuK6sH5RKQfD/jHijn2pqvqBUC7WGy9dgNBL9BDA7eOC0kirsNPMp2f4Q=="
+      },
       "CSparse": {
         "type": "CentralTransitive",
         "requested": "[4.4.0, )",
@@ -402,15 +408,6 @@
         "requested": "[6.0.0-beta2, )",
         "resolved": "6.0.0-beta2",
         "contentHash": "ew55vr5MqCEokG0jRsndoRSPNxdDvSgGwhWyxEFhzc8EuGn3TNtSGKRppCcpHnwXtjFiUvFBN+BBo75yrdKOrQ=="
-      },
-      "MathNet.Numerics.Providers.OpenBLAS": {
-        "type": "CentralTransitive",
-        "requested": "[6.0.0-beta2, )",
-        "resolved": "6.0.0-beta2",
-        "contentHash": "IQb4xRyrkwYFd6XQz5pvj1bpHhCrzX09kvBSOcuqcPUFKbZRwUNm7Ht7uhLc0oP6DkWSyJGUuRkgy8/nJp9Z7Q==",
-        "dependencies": {
-          "MathNet.Numerics": "6.0.0-beta2"
-        }
       },
       "MIConvexHull": {
         "type": "CentralTransitive",

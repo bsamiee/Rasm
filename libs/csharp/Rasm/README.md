@@ -78,7 +78,6 @@ The numeric solver and geometry host packages this folder consumes outside the C
 
 [NUMERIC_SOLVERS]:
 - `MathNet.Numerics`
-- `MathNet.Numerics.Providers.OpenBLAS`
 - `CSparse`
 
 [EXACT_PRECISION]:
@@ -98,6 +97,7 @@ Host-neutral managed geometry owners the kernel composes additively beside its f
 
 The one computational-geometry leaf library the kernel composes; pure-managed AnyCPU on osx-arm64. The float-domain polygon boolean/offset/Voronoi/fill packages (`Clipper2`, `CavalierContours`, `SharpVoronoiLib`, `LibTessDotNet`) are NOT admitted here — the corpus owns those concerns exactly: `Meshing/arrangement` `PlanarOverlay` is the exact 2D polygon boolean and messy-winding fill (GWN cell classification over the CDT), `Meshing/offset` is the exact wavefront offset/skeleton, `Meshing/delaunay` owns the constrained Voronoi dual, and `Meshing/mesh` owns the restricted power diagram; the `Clipper2`/`CavalierContours`/`SharpVoronoiLib` float lanes live in `Rasm.Fabrication`, never in the robust core, and `LibTessDotNet` is retired outright — `Meshing/delaunay` subsumes its polygon-fill concern.
 - `MIConvexHull` — 2D/3D incremental convex hull + Delaunay complex; realizes the `Spatial/cloud` convex/concave-outline/alpha-shape hull rail over `Triangulation.CreateDelaunay`
+- `manifoldc` (in-house P/Invoke over `elalish/manifold`, Apache-2.0 — NO NuGet pin; the `Manifold` NuGet ID is an unrelated homonym) — the tier-3 guaranteed-manifold boolean SCALE companion behind `ArrangementPolicy.ScaleCeiling`, gated on RID-asset resolution + the golden-boolean fixture; the managed exact arrangement stays the ONE correctness rail
 
 [PROJECTS]:
 - `Rhino.Geometry` / `RhinoCommon` — the host compile surface; the kernel reads value structs and Mesh/Curve/Brep reference geometry, never `RhinoDoc`/`RhinoApp`/UI
@@ -116,6 +116,7 @@ The C# substrate registry cards this folder consumes; full registry and substrat
 
 [NUMERIC_SUBSTRATE]:
 - `System.Numerics.Tensors`
+- `CommunityToolkit.HighPerformance` — `Span2D`/`MemoryOwner<T>`/`ParallelHelper` on the SoA build arenas, frozen or partition-disjoint spans only
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — the `Spatial/neighbors` Prim-MST normal-orientation lane (`MinimumSpanningTreePrim` over the kNN graph); the `Processing/segment` normalized cut is spectral through the `Numerics/matrix` owner, not a combinatorial cut

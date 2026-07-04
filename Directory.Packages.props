@@ -59,6 +59,7 @@
     <ItemGroup Label="Kernel Numerics">
         <PackageVersion Include="CSparse"                             Version="4.4.0" />
         <PackageVersion Include="ExtendedNumerics.BigRational"        Version="3000.0.2.132" />
+        <!-- MathNet beta held: Integrate.OnCuboid (Compute Tensor/quadrature) is 6.0-only; downgrade blocked until a stable 6.0 ships. -->
         <PackageVersion Include="MathNet.Numerics"                    Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.Providers.MKL"      Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.Providers.OpenBLAS" Version="6.0.0-beta2" />
@@ -67,22 +68,23 @@
     </ItemGroup>
 
     <ItemGroup Label="Kernel Geometry">
-        <PackageVersion Include="CavalierContours"        Version="1.0.0" />
-        <PackageVersion Include="Clipper2"                Version="2.0.0" />
-        <PackageVersion Include="geometry3Sharp"          Version="1.0.324" />
         <PackageVersion Include="GShark"                  Version="2.3.1" />
         <PackageVersion Include="MIConvexHull"            Version="1.1.19.1019" />
-        <PackageVersion Include="SharpVoronoiLib"         Version="1.2.0" />
         <PackageVersion Include="Supercluster.KDTree.Net" Version="1.0.22" />
     </ItemGroup>
 
     <ItemGroup Label="Fabrication">
+        <PackageVersion Include="CavalierContours"     Version="1.0.0" />
+        <PackageVersion Include="Clipper2"             Version="2.0.0" />
         <PackageVersion Include="DSTV.Net"             Version="1.3.0" />
+        <!-- geometry3Sharp: Bim co-consumes; disposition rides the Bim/Fabrication campaigns. -->
+        <PackageVersion Include="geometry3Sharp"       Version="1.0.324" />
         <PackageVersion Include="MTConnect.NET-Common" Version="6.9.0.2" />
         <PackageVersion Include="OcctNet.Wrapper"      Version="0.1.1" />
         <PackageVersion Include="PicoGK"               Version="2.2.0" />
         <PackageVersion Include="RectpackSharp"        Version="1.2.0" />
         <PackageVersion Include="Robots"               Version="2.1.2" />
+        <PackageVersion Include="SharpVoronoiLib"      Version="1.2.0" />
     </ItemGroup>
 
     <ItemGroup Label="Compute/BIM Interchange">

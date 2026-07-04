@@ -38,7 +38,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `System.IO.Hashing` — Rasm, Element, Bim, Fabrication, AppHost, Compute, Persistence, AppUi.
 
 [NUMERIC_SUBSTRATE]:
-- `CommunityToolkit.HighPerformance` — Compute, Persistence.
+- `CommunityToolkit.HighPerformance` — Rasm, Compute, Persistence.
 - `System.Numerics.Tensors` — Rasm, AppHost, Compute.
 - `UnitsNet` — Element, Bim, Compute, Fabrication, Materials, AppUi.
 

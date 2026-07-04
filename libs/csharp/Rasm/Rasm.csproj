@@ -8,10 +8,13 @@
         <PackageReference Include="CSparse" />
         <PackageReference Include="ExtendedNumerics.BigRational" />
         <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
         <PackageReference Include="PeterO.Numbers" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="TYoshimura.DoubleDouble" />
+    </ItemGroup>
+
+    <ItemGroup Label="Performance Primitives">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
     </ItemGroup>
 
     <ItemGroup Label="Geometry">
