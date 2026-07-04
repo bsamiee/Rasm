@@ -128,8 +128,9 @@ public sealed record OffsetPolicy(
 public sealed record ClearanceNode(Point3d At, double Radius, int NearestEdge);
 
 // ONE graph shape for skeleton AND medial (the OffsetResult case carries the semantics — two
-// field-identical records are the deleted sibling form): the first n nodes are the ring vertices
-// at radius zero (the degree-1 skeleton endpoints), arcs reference node ids uniformly.
+// field-identical records are the deleted sibling form). The propagation graph pre-seeds the ring
+// vertices as nodes 0..n-1 at radius zero (the degree-1 endpoints), so arcs reference node ids
+// uniformly — never a ring-index/node-index pun in one field.
 public sealed record SkeletonArc(int From, int To, int OriginEdge);
 public sealed record SkeletonGraph(Seq<ClearanceNode> Nodes, Seq<SkeletonArc> Arcs);
 public sealed record OffsetCurves(Seq<Chain> Loops, double Distance);
@@ -549,7 +550,7 @@ public static class Offsetting {
     // REAL against the delaunay dual: interior circumcenters ARE medial samples carrying their
     // circumradius as the clearance payload; the dual's curved sampling carries the parabolic
     // reflex arcs the linear skeleton approximates.
-    static Fin<MedialAxis> MedialOf(Polyline ring, OffsetPolicy policy, Op? key) {
+    static Fin<SkeletonGraph> MedialOf(Polyline ring, OffsetPolicy policy, Op? key) {
         int n = ring.Count - 1;
         Implicit[] rows = [.. Enumerable.Range(0, n).Select(i => new Implicit(ring[i]))];
         Seq<Constraint> edges = toSeq(Enumerable.Range(0, n).Select(i => (Constraint)new Constraint.Segment(i, (i + 1) % n)));
@@ -572,44 +573,55 @@ public static class Offsetting {
                     (int a, int b) = x.Dual.Edges[e];
                     if (keep.TryGetValue(a, out int ka) && keep.TryGetValue(b, out int kb)) { arcs.Add(new SkeletonArc(ka, kb, x.Dual.Across[e].U)); }
                 }
-                return new MedialAxis(toSeq(nodes), toSeq(arcs));
+                return new SkeletonGraph(toSeq(nodes), toSeq(arcs));
             });
     }
 
     // --- [MINKOWSKI]
-    // The COMPLETE convolution as an ordered normal merge: both boundaries CCW, both edge-normal
-    // sequences CCW-sorted, so the convolution cycle interleaves translated A-edges (advancing A
-    // while its normal leads) and B-edge fans at A's vertices (advancing B while its normal leads)
-    // — BOTH directions and every convex-vertex fan emitted by the ONE merge, connected by
-    // construction. Merge order rides normal angles (a near-tie merged either way differs by a
-    // degenerate sliver the arrangement resolve removes); the element must be CONVEX — a reflex
-    // element turn routes the typed fault, its convex decomposition the recorded growth row.
+    // The COMPLETE convolution as a SUPPORT-VERTEX walk — a global two-pointer normal merge is
+    // unsound for non-convex rings (their normal sequence is not angle-sorted): each ring edge
+    // translates by the element vertex EXTREME under its outward normal, and at each ring vertex
+    // the element boundary walks from the previous support to the next — CCW at convex turns (the
+    // vertex fan), CW at reflex turns (the reversed arc) — so BOTH convolution directions emit
+    // from one walk, connected by construction; the possibly self-overlapping cycle resolves
+    // through the arrangement's nonzero winding. The element is gated CLOSED + CCW-oriented +
+    // CONVEX by exact turn signs (a reflex element routes the typed fault — its convex
+    // decomposition is the recorded growth row); support ties on an edge-parallel normal differ by
+    // a degenerate sliver the resolve removes.
     static Fin<OffsetCurves> Convolve(Polyline ring, Polyline element, OffsetPolicy policy, Op? key) {
-        int rn = ring.Count - 1, en = element.Count - 1;
+        if (element.Count < 4 || !element.IsClosed) { return Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(0, 0.0).ToError()); }
+        Polyline b = Oriented(element);
+        int rn = ring.Count - 1, en = b.Count - 1;
         for (int j = 0; j < en; j++) {
-            if (Predicate.Orient2D(element[(j - 1 + en) % en], element[j], element[(j + 1) % en]) == Sign.Negative) {
+            if (Predicate.Orient2D(b[(j - 1 + en) % en], b[j], b[(j + 1) % en]) == Sign.Negative) {
                 return Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(j, 0.0).ToError());
             }
         }
-        double AngleA(int i) => Math.Atan2(Normal(ring[i % rn], ring[(i + 1) % rn]).Y, Normal(ring[i % rn], ring[(i + 1) % rn]).X);
-        double AngleB(int j) => Math.Atan2(Normal(element[j % en], element[(j + 1) % en]).Y, Normal(element[j % en], element[(j + 1) % en]).X);
-        int b0 = Enumerable.Range(0, en).OrderBy(AngleB).First();  // align B's sweep start under A's first edge normal
+        int Support(Vector3d outward) {
+            (int best, double reach) = (0, double.NegativeInfinity);
+            for (int j = 0; j < en; j++) {
+                double dot = (b[j].X * outward.X) + (b[j].Y * outward.Y);
+                if (dot > reach) { (best, reach) = (j, dot); }
+            }
+            return best;
+        }
+        Span<int> support = new int[rn];
+        for (int i = 0; i < rn; i++) { support[i] = Support(Normal(ring[i], ring[(i + 1) % rn])); }
         var cycle = new Polyline();
-        (int i, int j) = (0, b0);
-        for (int emitted = 0; emitted < rn + en; emitted++) {
-            cycle.Add(ring[i % rn] + (element[j % en] - Point3d.Origin));
-            double turnA = Sweep(AngleA(i));
-            double turnB = Sweep(AngleB(j));
-            if (turnA <= turnB && i < rn) { i++; }
-            else { j++; }
+        for (int i = 0; i < rn; i++) {
+            int from = support[(i - 1 + rn) % rn], to = support[i];
+            bool convex = Predicate.Orient2D(ring[(i - 1 + rn) % rn], ring[i], ring[(i + 1) % rn]) != Sign.Negative;
+            for (int k = from, step = 0; k != to && step <= en; k = (k + (convex ? 1 : en - 1)) % en, step++) {
+                cycle.Add(ring[i] + (b[k] - Point3d.Origin));  // the fan (CCW) or reversed arc (CW) at the vertex
+            }
+            cycle.Add(ring[i] + (b[to] - Point3d.Origin));
+            cycle.Add(ring[(i + 1) % rn] + (b[to] - Point3d.Origin));  // the translated edge under its support
         }
         cycle.Add(cycle[0]);
         return Arrangement.Apply(new ArrangementOp.PlanarOverlay(Seq(cycle), Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
             .Bind(static result => result is ArrangementResult.Overlay overlay
                 ? Fin.Succ(new OffsetCurves(overlay.Loops, 0.0))
                 : Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(0, 0.0).ToError()));
-
-        static double Sweep(double angle) => angle < 0.0 ? angle + (2.0 * Math.PI) : angle;
     }
 
     // --- [CLEARANCE]
