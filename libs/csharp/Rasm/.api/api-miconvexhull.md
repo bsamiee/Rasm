@@ -117,7 +117,7 @@ adjacencies. Reachable via either `VoronoiMesh.Create` or `Triangulation.CreateV
 
 [LOCAL_ADMISSION]:
 - MIConvexHull is the kernel's `[COMPUTATIONAL_GEOMETRY]` owner for convex-hull / Delaunay / Voronoi (Rasm.csproj Computational Geometry group, DIRECT `PackageReference`). It is PRIMARILY owned by the kernel per the strata law; Materials' `InteractionDiagram` consumes the SAME single central pin downstream (assembling the N-M-M structural-capacity vertices into a closed onion hull), so the central pin doubles as the kernel reference AND the Materials transitive floor — never a second owner.
-- the kernel implements `IVertex` on (or adapts `Rasm.Vectors` →) its point type, carries the `Rasm` index/payload on the vertex or a custom `TFace : ConvexFace`, and recovers connectivity from `Faces`/`Cells`/`Edges` — it never round-trips through `double[]` when a typed vertex is available.
+- the kernel implements `IVertex` on (or adapts `Rasm.Spatial` →) its point type, carries the `Rasm` index/payload on the vertex or a custom `TFace : ConvexFace`, and recovers connectivity from `Faces`/`Cells`/`Edges` — it never round-trips through `double[]` when a typed vertex is available.
 - ALWAYS fold `ConvexHullCreationResult.Outcome` into the kernel's `Fin`/`Validation` rail at the boundary; do NOT call the throwing `ConvexHullGenerationException` path or ignore the outcome and read a possibly-null `Result`.
 - USE `Create2D` for 2D hulls (the ND `Create` errors with `DimensionTwoWrongMethod`); this is the planar-section / interaction-curve hull case.
 

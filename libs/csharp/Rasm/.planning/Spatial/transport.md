@@ -18,6 +18,9 @@ The kernel is numerically owned end to end: every scaling update runs in log spa
 - Boundary: the residual KIND derives from the policy (`MassRelaxation.IsSome` selects `ScalingChange`), never a caller flag; a `BalancedPolicy`/`UnbalancedPolicy`/`DebiasedPolicy` sibling family is the rejected form — the record's columns span the product.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+namespace Rasm.Spatial;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SinkhornStopKind {

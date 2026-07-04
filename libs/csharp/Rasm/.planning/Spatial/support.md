@@ -21,6 +21,9 @@ The page composes the `Domain` floor as settled vocabulary: `evaluation.md` owns
 - Boundary: the raw→typed resolution happens ONCE at the egress by delegating to the canonical owners' own `Project<TOut>` (`ClosestHit`, `Direction`, `VectorSpan` — each an `atoms.md` `AtomProjection` consumer) — a per-row `typeof` ladder or a local box-and-cast switch re-deriving those owners' dispatch is the deleted form; a `ProjectClosest`/`ProjectNormal`/`ProjectDistance` method family beside the enum is the rejected sibling surface; capability reads the handle's captured verdicts (`space.Admits.Normal`), never a per-call re-derivation of the `normalization.md` admission rows.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+namespace Rasm.Spatial;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
@@ -95,7 +98,7 @@ public sealed partial class SupportProjection {
                 .Bind(value => value switch {
                     TOut output => Fin.Succ(output),
                     ClosestHit owner => owner.Project<TOut>(key: key),
-                    Vectors.Direction owner => owner.Project<TOut>(key: key),
+                    Numerics.Direction owner => owner.Project<TOut>(key: key),
                     VectorSpan owner => owner.Project<TOut>(key: key),
                     _ => Fin.Fail<TOut>(error: key.InvalidResult()),
                 }),
@@ -103,7 +106,7 @@ public sealed partial class SupportProjection {
 
     private static bool DirectionOrVector(Type output) => output == typeof(Direction) || output == typeof(Vector3d);
     private static Fin<object> DirectionOf(Vector3d vector, SupportState state) =>
-        Vectors.Direction.Of(value: vector, context: state.Context, key: state.Key).Map(static direction => (object)direction);
+        Numerics.Direction.Of(value: vector, context: state.Context, key: state.Key).Map(static direction => (object)direction);
 }
 ```
 

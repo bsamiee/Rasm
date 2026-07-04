@@ -1,6 +1,6 @@
 # [SECURITY_VERIFY]
 
-The external-signature ingress row: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. The byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. The HMAC dialects route `crypt/sign`'s `Crypto.compare`; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface — `verifyECDSASignature`/`verifyRSASSAPKCS1v15Signature`/`verifyRSASSAPSSSignature` decode a partner or attestation key and check a signature Rasm never minted, the row that closes the entire inbound trust surface HMAC alone cannot reach. `VerifyFault` instantiates the folder fault shape, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis.
+The external-signature ingress row: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. The byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. The HMAC dialects route `crypt/sign`'s `Crypto.compare`; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface — `verifyECDSASignature`/`verifyRSASSAPKCS1v15Signature`/`verifyRSASSASignature` (the PSS row) decode a partner or attestation key and check a signature Rasm never minted, the row that closes the entire inbound trust surface HMAC alone cannot reach. `VerifyFault` instantiates the folder fault shape, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis.
 
 ## [1]-[CLUSTERS]
 
@@ -25,7 +25,7 @@ import { decodePKCS1RSAPublicKey, decodePKIXRSAPublicKey, SHA256ObjectIdentifier
 import { SHA256, sha256 } from "@oslojs/crypto/sha2"
 import { decodeBase64, decodeHex, encodeHexLowerCase } from "@oslojs/encoding"
 import { FaultClass } from "@rasm/ts/core"
-import { Array, DateTime, Duration, Effect, Either, HashMap, Number, Option, Predicate, Redacted, Schema, pipe } from "effect"
+import { Array, Context, DateTime, Duration, Effect, Either, Number, Option, Redacted, Schema, pipe } from "effect"
 import { Crypto, SignFault } from "./sign.ts"
 
 const _reasons = ["missing", "malformed", "mismatch", "stale", "unknownKey"] as const
@@ -63,7 +63,7 @@ const _respell = (fault: SignFault): VerifyFault => new VerifyFault({ reason: "m
 [DIALECT_TABLE]:
 - Owner: `_dialects` — one row per inbound signing convention, each carrying `header` (the signature header, lowercase), `scheme` (`"hmac"` symmetric or `"ecdsa"`/`"rsa-pkcs1"`/`"rsa-pss"` asymmetric), `parse` (header value to the candidate signature set plus the optional epoch-second stamp — `Option`-total, so any grammar refusal is one `malformed`), and `prefix` (the bytes prepended to the payload before signing — the `${t}.` stripe frame, empty elsewhere). The rows: `github` (`sha256=<hex>`, HMAC), `stripe` (`t=<epoch>,v1=<hex>` rotation candidates, HMAC), `hmacHex`/`hmacBase64` (bare digests, HMAC), `ecdsaPkix` (`kid=<id>,sig=<base64>` PKIX-encoded ECDSA), `rsaPss`/`rsaPkcs1` (`kid=<id>,sig=<base64>` RSA), `attestation` (raw base64 signature over the attestation object, ECDSA).
 - Law: the candidate set is non-empty by parse — a row returning zero marks is a parse refusal, so the verify fold never runs an empty compare loop and "no signature" is `missing`/`malformed`, never a vacuous pass; stripe's every `v1` candidate is tried, so key-rotation windows verify.
-- Law: rows are grammar, never trust policy — tolerance, secrets, and keys are verify-fold parameters a row cannot weaken; asymmetric rows carry a `kid` field the fold resolves against the key registry, and the scheme selects the oslo verify primitive and its curve/hash roster.
+- Law: rows are grammar, never trust policy — tolerance, secrets, and keys are verify-fold parameters a row cannot weaken; an asymmetric row resolves its registry key by the presented `kid`, or by the dialect name when the row carries none (`attestation`), and the scheme selects the oslo verify primitive and its curve/hash roster.
 - Law: the `_kinds` tuple anchors the key set — the `Verified.dialect` wire literal spreads it, and the guard pair closes tuple and table against each other in both directions, so a row without its tuple entry (or the converse) fails at the declaration.
 - Growth: a new provider is one row plus its tuple entry; a provider changing grammar is a row edit every intake inherits; a new asymmetric suite (Ed25519 when a partner signs with it) is one row over the existing key-registry resolution.
 - Packages: `@oslojs/crypto` (`decodeSEC1ECDSAPublicKey`, `decodePKIXECDSASignature`, `decodePKCS1RSAPublicKey`/`decodePKIXRSAPublicKey`, curve/OID rows); `@oslojs/encoding` (base64/hex decode).
@@ -92,7 +92,7 @@ const _marked = (marks: ReadonlyArray<string>, kid: Option.Option<string>, stamp
   Array.isNonEmptyReadonlyArray(marks) ? Option.some({ marks, kid, stamp }) : Option.none()
 
 const _base64Hex = (value: string): ReadonlyArray<string> =>
-  Either.match(decodeBase64(value), { onLeft: () => [], onRight: (bytes) => [encodeHexLowerCase(bytes)] })
+  Either.match(Either.try(() => decodeBase64(value)), { onLeft: () => [], onRight: (bytes) => [encodeHexLowerCase(bytes)] })
 
 const _keyed = (value: string, decodeSig: (raw: string) => ReadonlyArray<string>): Option.Option<Verify.Parsed> => {
   const pairs = _pairs(value)
@@ -135,7 +135,7 @@ const _dialects = {
 [VERIFY_FOLD]:
 - Owner: `Verify` — the assembled owner: `verify` runs a dialect over held octets against a resolved key into a `Verified` receipt, and `PublicKeyStore` is the `Context.Tag` registry the asymmetric dialects resolve a partner or attestation public key from by `kid`. The HMAC schemes route `Crypto.compare` over the `MacKey` the caller passes; the asymmetric schemes hash the prefixed payload with SHA-256 and check the decoded signature against the registered public key through the oslo verify primitive the scheme selects.
 - Law: the compare runs over the exact admitted bytes — the payload is the held request octets, the prefix rides the row, and freshness is checked before the signature (a stale stamp short-circuits to `stale` under the caller's tolerance `Duration`), so a replay outside the window never reaches the compare.
-- Law: every asymmetric candidate resolves its key first — a presented `kid` with no registered key is `unknownKey` (class `denied`), never a silent skip; the ECDSA scheme decodes SEC1 keys and PKIX signatures over the `p256`/`p384`/`p521` roster the registry pins per key, the RSA schemes decode PKCS1/PKIX keys and check PKCS1-v1.5 or PSS with the SHA-256 OID.
+- Law: every asymmetric candidate resolves its key first — the registry key is the presented `kid` or the dialect name for a kid-less row, and a miss is `unknownKey` (class `denied`), never a silent skip; a scheme/key family mismatch verifies `false`, the ECDSA scheme decodes SEC1 keys and PKIX signatures over the `p256`/`p384`/`p521` roster the registry pins per key, the RSA schemes decode PKCS1/PKIX keys and check PKCS1-v1.5 or PSS with the SHA-256 OID.
 - Law: the HMAC fold tries every candidate under one `Crypto.compare` and folds a primitive throw to `malformed`; a non-empty candidate set that matches none is `mismatch`.
 - Receipt: `Verified` — the `dialect`, the resolved `kid` when asymmetric, and the verified octet length, so the admitting edge enqueues exactly what was verified; `verify` returns `Verified` or a `VerifyFault`, never a boolean.
 - Growth: a new scheme is one `_verifyAsym` arm; a new key roster is a registry row; the HMAC path never changes when an asymmetric row lands.
@@ -170,19 +170,23 @@ const _fresh = (stamp: Option.Option<number>, tolerance: Duration.Duration): Eff
           : Effect.fail(new VerifyFault({ reason: "stale", detail: String(epoch) }))),
   })
 
-const _verifyAsym = (scheme: Verify.Scheme, key: PublicKey, digest: Uint8Array, mark: string): boolean => {
-  const sig = decodeHex(mark)
-  if (scheme === "ecdsa" && key.scheme === "ecdsa") {
-    return verifyECDSASignature(decodeSEC1ECDSAPublicKey(_CURVES[key.curve], key.sec1), digest, decodePKIXECDSASignature(sig))
-  }
-  if (key.scheme === "rsa") {
-    const pub = key.encoding === "pkcs1" ? decodePKCS1RSAPublicKey(key.key) : decodePKIXRSAPublicKey(key.key)
-    return scheme === "rsa-pss"
-      ? verifyRSASSASignature(pub, SHA256, SHA256, 32, digest, sig)
-      : verifyRSASSAPKCS1v15Signature(pub, SHA256ObjectIdentifier, digest, sig)
-  }
-  return false
-}
+const _verifyAsym = (scheme: Verify.Scheme, key: PublicKey, digest: Uint8Array, mark: string): boolean =>
+  Either.getOrElse(
+    Either.try(() => {
+      const sig = decodeHex(mark)
+      if (scheme === "ecdsa" && key.scheme === "ecdsa") {
+        return verifyECDSASignature(decodeSEC1ECDSAPublicKey(_CURVES[key.curve], key.sec1), digest, decodePKIXECDSASignature(sig))
+      }
+      if ((scheme === "rsa-pss" || scheme === "rsa-pkcs1") && key.scheme === "rsa") {
+        const pub = key.encoding === "pkcs1" ? decodePKCS1RSAPublicKey(key.key) : decodePKIXRSAPublicKey(key.key)
+        return scheme === "rsa-pss"
+          ? verifyRSASSASignature(pub, SHA256, SHA256, 32, digest, sig)
+          : verifyRSASSAPKCS1v15Signature(pub, SHA256ObjectIdentifier, digest, sig)
+      }
+      return false
+    }),
+    () => false,
+  )
 
 class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
   effect: Effect.gen(function* () {
@@ -216,11 +220,11 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
               ),
             )
           : Effect.gen(function* () {
-              const kid = yield* Option.match(parsed.kid, { onNone: () => Effect.succeed(Option.none<string>()), onSome: (k) => Effect.succeed(Option.some(k)) })
-              const key = yield* Effect.flatMap(
-                Option.match(kid, { onNone: () => Effect.succeed(Option.none<PublicKey>()), onSome: keys.byKid }),
-                Option.match({ onNone: () => Effect.fail(new VerifyFault({ reason: "unknownKey", detail: Option.getOrElse(kid, () => dialect) })), onSome: Effect.succeed }),
-              )
+              const keyId = Option.getOrElse(parsed.kid, () => dialect)
+              const key = yield* Effect.flatMap(keys.byKid(keyId), Option.match({
+                onNone: () => Effect.fail(new VerifyFault({ reason: "unknownKey", detail: keyId })),
+                onSome: Effect.succeed,
+              }))
               const digest = sha256(payload)
               return Array.some(parsed.marks, (mark) => _verifyAsym(row.scheme, key, digest, mark))
             })

@@ -36,11 +36,13 @@ using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Numerics;
+using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
-namespace Rasm.Vectors;
+namespace Rasm.Processing;
 
 // --- [TYPES] ----------------------------------------------------------------------------------
 [SmartEnum<int>]

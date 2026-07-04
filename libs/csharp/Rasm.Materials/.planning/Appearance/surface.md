@@ -26,7 +26,7 @@ using LanguageExt;                       // Seq, Option, Fin
 using Rasm.Domain;                       // Op
 using Rasm.Materials.Appearance.Bsdf;    // MaterialFault, RgbSpectrum, ComplexIor, BsdfLobe, LayeredBsdf, LobeWeight, Microfacet, MultiScatter, LocalVector, SpectralBand-consumers
 using Rasm.Materials.Appearance.Graph;   // MaterialParameters, SubsurfaceRadius, ThinFilm (the OpenPbrSurface.Of source row + its scatter/film carriers), PortValue.SceneLinear (the one Acescg Configuration instance)
-using Rasm.Vectors;                      // UnitInterval
+using Rasm.Numerics;                      // UnitInterval
 using Thinktecture;                      // ComparerAccessors, [SmartEnum]/[Union]/[KeyMember*], ConversionOperatorsGeneration
 using Wacton.Unicolour;
 using static LanguageExt.Prelude;

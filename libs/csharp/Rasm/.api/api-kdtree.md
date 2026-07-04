@@ -11,7 +11,7 @@ overlap queries. The fork is `net8.0` and fully generic over `System.Numerics` g
 `TDimension : INumber<TDimension>, IMinMaxValue<TDimension>` (so a tree binds `double`/`float`/
 `Half`/`decimal`/`ddouble` coordinates), `TNode` is an arbitrary per-point payload, and a
 `DistanceMetrics` enum (Manhattan/Euclidean/Chebyshev/Cosine) or a custom `Func` metric drives
-the search. The kernel maps `Rasm.Vectors` points → `IReadOnlyList<TDimension>` AT THE BOUNDARY
+the search. The kernel maps `Rasm.Spatial` points → `IReadOnlyList<TDimension>` AT THE BOUNDARY
 and carries the cloud's `Rasm` index/payload as `TNode`. Pure-managed AnyCPU, ZERO dependencies,
 osx-arm64-safe.
 
@@ -93,7 +93,7 @@ priority/`radius` is in SQUARED distance (the metric skips the sqrt) — pass `r
 [LOCAL_ADMISSION]:
 - this kd-tree is the DISCRETE POINT-NEAREST leaf feeding `Solving/fit` (MLESAC primitive-fit, normal estimation via local k-NN PCA) and the `registration/ICP` correspondence step — the per-iteration "nearest source point to each target point" query over a static cloud.
 - it is ADDITIVE to, NOT a replacement for, the kernel's primitive broad-phase: the SAH-BVH + Morton octree (`Spatial/index`) owns primitive (triangle/curve/AABB) overlap and ray queries; this kd-tree owns POINT-cloud k-NN/radius. A query is routed by SHAPE — point set → kd-tree, primitive set → BVH/octree — never duplicated.
-- the kernel maps `Rasm.Vectors` points → `IReadOnlyList<TDimension>` AT THE BOUNDARY and carries the cloud's `Rasm` index or payload as `TNode`, recovering it from the `(point, payload)` query tuple; the kd-tree never holds a `Rasm.Vectors` type directly.
+- the kernel maps `Rasm.Spatial` points → `IReadOnlyList<TDimension>` AT THE BOUNDARY and carries the cloud's `Rasm` index or payload as `TNode`, recovering it from the `(point, payload)` query tuple; the kd-tree never holds a kernel type directly.
 - prefer `KDTree.Create(points, nodes, DistanceMetrics.EuclideanDistance)` over the raw constructor unless a custom metric or search window is genuinely needed; do NOT hand-write the Euclidean `Func` the enum already wires.
 
 [STACKING_LAW]:
@@ -106,5 +106,5 @@ priority/`radius` is in SQUARED distance (the metric skips the sqrt) — pass `r
 [RAIL_LAW]:
 - Package: `Supercluster.KDTree.Net` (assembly `KDTree.dll`, namespace `SuperClusterKDTree`)
 - Owns: the generic N-dimensional exact-k-NN kd-tree — `KDTree.Create<TDimension,TNode>(points, nodes, DistanceMetrics)` factory and the raw `KDTree<TDimension,TPriority,TNode>` constructors, the `NearestNeighbors(point, k)` exact k-nearest and `RadialSearch(center, radius, k=-1)` radius queries returning `(coordinate, payload)` tuples, the `DistanceMetrics` enum (Manhattan/Euclidean²/Chebyshev/Cosine) + the static distance functions, and the `HyperRect<T>` split-region primitive — all over `INumber<TDimension>` coordinates with an arbitrary `TNode` payload.
-- Accept: exact k-NN / radius search over a STATIC low-dimensional point cloud (sample sets, normal-estimation neighbourhoods, ICP correspondence); a `Rasm.Vectors` cloud mapped to `IReadOnlyList<TDimension>` with the `Rasm` index/payload carried as `TNode`; a `ddouble`/`float`/`Half` coordinate type bound through the generic-math constraint; the built-in metric wired via `Create`.
+- Accept: exact k-NN / radius search over a STATIC low-dimensional point cloud (sample sets, normal-estimation neighbourhoods, ICP correspondence); a `Rasm.Spatial` cloud mapped to `IReadOnlyList<TDimension>` with the `Rasm` index/payload carried as `TNode`; a `ddouble`/`float`/`Half` coordinate type bound through the generic-math constraint; the built-in metric wired via `Create`.
 - Reject: using the package name `Supercluster.KDTree.Net` as the namespace or `using Supercluster.KDTree;` (the namespace is `SuperClusterKDTree`, the assembly `KDTree.dll` — the `Supercluster.KDTree` namespace belongs to the upstream arity-1 lineage, a different FQN); treating it as a primitive (triangle/curve/AABB) broad-phase or ray-query structure (that is the kernel BVH/octree — the kd-tree is POINT-only); expecting incremental insert/delete (the tree is build-once immutable — rebuild on change); passing an un-squared radius under `EuclideanDistance` (that metric is squared-L2); hand-writing a Euclidean `Func` the `DistanceMetrics` enum already supplies; re-implementing curve/surface continuous closest-point on the kd-tree (that is the vendored `Parametric/nurbs` engine's `ClosestParameter`).

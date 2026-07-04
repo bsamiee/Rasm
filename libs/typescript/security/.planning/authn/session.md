@@ -45,7 +45,7 @@ declare namespace SessionFault {
 
 class Subject extends Schema.Class<Subject>("Subject")({
   id: _SubjectId,
-  tenant: Schema.optionalWith(TenantContext.Key, { as: "Option" }),
+  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
   verified: Schema.Boolean,
 }) {}
 
@@ -57,7 +57,7 @@ class CredentialRef extends Schema.Class<CredentialRef>("CredentialRef")({
 class Session extends Schema.Class<Session>("Session")({
   id: _SessionId,
   subject: _SubjectId,
-  tenant: Schema.optionalWith(TenantContext.Key, { as: "Option" }),
+  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
   scope: Schema.Array(Schema.NonEmptyString),
   issuedAt: Schema.DateTimeUtc,
   expiresAt: Schema.DateTimeUtc,
@@ -104,7 +104,7 @@ class IdentityJournal extends Context.Tag("security/authn/IdentityJournal")<Iden
 [ROTATION_LAW]:
 - Owner: `Token` — `establish` resolves-or-enrolls a `CredentialRef` into a `Subject` and mints the first pair, `refresh` rotates with reuse detection, `revoke` ends a session. The access token is a `crypt/sign` `AccessClaims` JWT; the refresh is a `Crypto` opaque token whose SHA-256 fingerprint alone is stored, the wire form `${sid}.${secret}` so `refresh` reads the session before touching the secret.
 - Law: rotation is mandatory per `refresh` — a fresh secret, a bumped `generation`, a replaced session; a live session whose current fingerprint rejects the presented secret is a replayed rotated token, so `reuse` fires and `revokeSubject` collapses the whole family; an expired window is `expired`, a missing/revoked session is `notFound`. The access and refresh TTLs are `Config` `Duration` policy values.
-- Law: a `Jwt` mint fault re-spells to `store` at this seam — the caller sees one session fault family, and a JWT failure is an infrastructure fault, not a session-logic branch.
+- Law: a `Jwt` mint fault re-spells to `store` at this seam — the caller sees one session fault family, and a JWT failure is an infrastructure fault, not a session-logic branch; `Jwt` rides the requirement channel — `Jwt.Default` is a Layer factory over a `Keyset`, so the composition root satisfies it with the `Reloadable`-wrapped ring layer, never a static dependency row here.
 - Receipt: `TokenPair` — access and refresh both `Redacted`, the `Session` embedded so the caller frames it or audits it without a second read.
 - Growth: a new session policy (idle timeout, device binding) is one `Session` field plus one fold arm.
 - Boundary: `authn/*` resolves a `CredentialRef` and calls `establish`; `Cookie` frames the pair; the ports carry state.
@@ -168,7 +168,7 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
     const revoke = (id: Session["id"]): Effect.Effect<void, SessionFault> => store.revoke(id)
     return { establish, refresh, revoke } as const
   }),
-  dependencies: [Jwt.Default, Crypto.Default],
+  dependencies: [Crypto.Default],
   accessors: true,
 }) {}
 ```

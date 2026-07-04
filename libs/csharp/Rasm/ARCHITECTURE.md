@@ -1,6 +1,6 @@
 # [RASM_ARCHITECTURE]
 
-The domain map of `Rasm` — the KERNEL RhinoCommon-aware geometry/numeric kernel, an ordinary planning-scoped package whose whole design corpus lives under one `.planning/` root in nine sub-domain folders. Folder is domain grouping; fence namespace is the frozen contract axis (`[03]`). The kernel remains RhinoCommon-aware end to end per the Tier-0 universal-vs-capture law; the pure-numeric floor is host-neutral-shaped without minting a host-free assembly.
+The domain map of `Rasm` — the KERNEL RhinoCommon-aware geometry/numeric kernel, an ordinary planning-scoped package whose whole design corpus lives under one `.planning/` root in nine sub-domain folders. Namespace mirrors folder path (`[03]`). The kernel remains RhinoCommon-aware end to end per the Tier-0 universal-vs-capture law; the pure-numeric floor is host-neutral-shaped without minting a host-free assembly.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -123,15 +123,8 @@ Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands                   # [B
 *                         ←  csharp:Rasm.Fabrication                      # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 
-## [03]-[NAMESPACE_MAP]
+## [03]-[NAMESPACES]
 
-Folder is domain grouping; fence namespace is the frozen contract axis. Every design fence declares one of four namespace roots, pinned by live consumers and the sibling design corpus, never by folder path.
+Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, giving the nine roots `Rasm.Analysis`, `Rasm.Domain`, `Rasm.Drawing`, `Rasm.Meshing`, `Rasm.Numerics`, `Rasm.Parametric`, `Rasm.Processing`, `Rasm.Solving`, `Rasm.Spatial`.
 
-| [INDEX] | [NAMESPACE] | [PAGES] | [FROZEN_BY] |
-| :-----: | :--- | :--- | :--- |
-| [01] | `Rasm.Domain` | `Domain/*` (7) | The union-ops generator emits `global::Rasm.Domain.Op.Of` and resolves the `GenerateUnionOpsAttribute` marker by metadata name, the Grasshopper `using Op =` aliases, the props global usings, the `ContentHash` federation seams, and the `Topology`/`Kind`/`Context` vocabulary the settled pages compose |
-| [02] | `Rasm.Vectors` | `Numerics/{Atoms,Matrix,Integrate,Spectral,Calculus}`, `Spatial/{Support,Cloud,Neighbors,Transport,Fields}`, `Parametric/Projections`, `Meshing/{Mesh,Dec,Reconstruct}`, `Processing/{Intent,Sample,Extract,Flow,Register,Geodesics,Segment}` (21) | The `Rasm.Rhino` Camera members (`VectorIntent`/`VectorFrame`/`MotionInterpolation`), the `MeshSpace` + DEC/field/cloud vocabulary the settled pages compose, and the Materials/Fabrication/Element design anchors |
-| [03] | `Rasm.Analysis` | `Analysis/*` (5), `Parametric/Locate` (1) | The cs-analyzer docIDs (`IntersectionHit`, `RayQuery`), the `Rasm.Rhino` Commands/Overlay bindings (`Analyze`/`AnalysisQuery`/`Env`), and the props-injected usings |
-| [04] | `Rasm.Geometry.*` | `Numerics/{Predicates,Faults}`, `Spatial/{Index,Naming,Reconciliation}`, `Parametric/Curve`, `Meshing/{Edit,Delaunay,Arrangement,Intersect,Offset}`, `Processing/{Repair,Receipts,Decimate,Flatten}`, `Solving/{Solver,Fit}`, `Drawing/*` (19) | Settled robust-core law; the geometry campaign owns its namespace reconciliation |
-
-`Rasm.Domain.Fault` and the `Rasm.Geometry` band-2400 `GeometryFault` are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.
+`Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

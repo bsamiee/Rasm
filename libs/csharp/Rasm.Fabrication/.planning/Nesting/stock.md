@@ -35,8 +35,7 @@ Wire posture: HOST-LOCAL. The `NestPlan` crosses only the in-package seam to `Ne
 using LanguageExt;
 using LanguageExt.Common;
 using Thinktecture;                  // [Union] (NestStrategy), [SmartEnum<string>] (NestFamily)
-using Rasm.Vectors;                  // PositiveMagnitude (the kernel dimensional value-object)
-using Rasm.Geometry;                 // GeometryFault (the kernel band-2400 degenerate-input rail)
+using Rasm.Numerics;                  // PositiveMagnitude (the kernel dimensional value-object) + GeometryFault (the kernel band-2400 degenerate-input rail)
 using Rasm.Element;                  // MaterialId (the seam-carried material identity a cut part is cut from)
 using RectangleBinPacking;           // MaxRectsBinPack/SkylineBinPack/GuillotineBinPack/ShelfBinPack/SingleBinPack, Rect, the heuristic enums
 using static LanguageExt.Prelude;

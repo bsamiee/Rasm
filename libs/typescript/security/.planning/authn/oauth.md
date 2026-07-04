@@ -127,6 +127,8 @@ const _rows = {
   },
 } as const satisfies Record<string, ProviderRow>
 
+const _reasons = ["provider", "transport", "shape", "state", "idToken", "lifecycle"] as const
+
 const _faults = {
   provider: { class: "unavailable" },
   transport: { class: "unavailable" },
@@ -146,7 +148,7 @@ declare namespace OAuthFault {
 }
 
 class OAuthFault extends Schema.TaggedError<OAuthFault>()("OAuthFault", {
-  reason: Schema.Literal("provider", "transport", "shape", "state", "idToken", "lifecycle"),
+  reason: Schema.Literal(..._reasons),
   detail: Schema.String,
 }) {
   get class(): FaultClass.Kind {
@@ -168,13 +170,15 @@ class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAut
 [CEREMONY]:
 - Owner: `OAuth.authorize` mints `state`+`verifier`, stashes them, and returns the redirect `URL`; `OAuth.callback` consumes the stash, exchanges the code, verifies the OIDC `id_token`, reads the grant's expiry and scopes, and establishes the session. Dispatch is by `Provider.Kind`, the ceremony closure erasing per-provider arity.
 - Law: credentials resolve and the arctic client constructs once per kind — `Effect.cachedFunction` memoizes the bound ceremony on first use, so an unconfigured provider costs nothing and no request re-reads `Config` or re-mints a client; the state is consumed single-use so a replayed or foreign state is `OAuthFault.state`; the verifier is never client-readable.
-- Law: `decodeIdToken` is never verification — `Jwt.verifyExternal` pins issuer/audience/algorithms against the row's `oidc`; a non-OIDC row resolves its subject through the caller's `resolveSubject`, so every path lands a verified `CredentialRef`; `accessTokenExpiresAt`/`scopes` seed the session so the granted scope, not the requested scope, is authoritative.
+- Law: `decodeIdToken` is never verification — `Jwt.verifyExternal` pins issuer/audience/algorithms against the row's `oidc`; the throwing `idToken()` read is `Option`-lifted at the seam, so an OIDC row whose exchange returns no `id_token` is `OAuthFault.idToken`, never a defect; a non-OIDC row resolves its subject through the caller's `resolveSubject`, so every path lands a verified `CredentialRef`; `accessTokenExpiresAt`/`scopes` seed the session so the granted scope, not the requested scope, is authoritative.
 - Receipt: `URL` on authorize (the edge redirects), `TokenPair` on callback (the edge frames it) — never a raw `OAuth2Tokens`.
 - Growth: a new provider is one row; a new claim projection is one `resolveSubject` composition.
 - Boundary: `authn/session` `Token.establish` mints the session; `crypt/sign` verifies external tokens; the state store is data/session-satisfied.
 - Packages: `arctic` (PKCE mints, the fault family); `crypt/sign` (`Jwt.verifyExternal`); `authn/session` (`Token.establish`, `CredentialRef`).
 
 ```typescript
+const _idToken = Option.liftThrowable((tokens: OAuth2Tokens) => tokens.idToken())
+
 const _faultOf: (cause: unknown) => OAuthFault = Match.type<unknown>().pipe(
   Match.when(Match.instanceOf(OAuth2RequestError), (error) => new OAuthFault({ reason: "provider", detail: error.code })),
   Match.when(Match.instanceOf(ArcticFetchError), (error) => new OAuthFault({ reason: "transport", detail: String(error) })),
@@ -202,7 +206,10 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         return { clientId, clientSecret, redirectURI, tenant, teamId, keyId, pkcs8, issuerUrl }
       }).pipe(Effect.orDie)
     const _bound = yield* Effect.cachedFunction((kind: Provider.Kind) =>
-      Effect.map(_credsOf(kind), (creds) => ({ row: _rows[kind] as ProviderRow, clientId: creds.clientId, ceremony: (_rows[kind] as ProviderRow).ceremony(creds) })))
+      Effect.map(_credsOf(kind), (creds) => {
+        const row: ProviderRow = _rows[kind]
+        return { row, clientId: creds.clientId, ceremony: row.ceremony(creds) }
+      }))
     const authorize = (kind: Provider.Kind): Effect.Effect<URL, OAuthFault> =>
       Effect.gen(function* () {
         const bound = yield* _bound(kind)
@@ -219,10 +226,14 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         const tokens = yield* Effect.tryPromise({ try: () => bound.ceremony.exchange(code, Option.getOrElse(stashed.verifier, () => "")), catch: _faultOf })
         const sub = yield* Option.match(Option.fromNullable(bound.row.oidc), {
           onSome: (oidc) =>
-            jwt.verifyExternal(Redacted.make(tokens.idToken()), { issuer: oidc.issuer, audience: bound.clientId, jwksUri: oidc.jwksUri, algorithms: oidc.algorithms }).pipe(
-              Effect.mapError((fault) => new OAuthFault({ reason: "idToken", detail: fault.detail })),
-              Effect.map((payload) => String(payload.sub)),
-            ),
+            Option.match(_idToken(tokens), {
+              onNone: () => Effect.fail(new OAuthFault({ reason: "idToken", detail: "id_token absent" })),
+              onSome: (raw) =>
+                jwt.verifyExternal(Redacted.make(raw), { issuer: oidc.issuer, audience: bound.clientId, jwksUri: oidc.jwksUri, algorithms: oidc.algorithms }).pipe(
+                  Effect.mapError((fault) => new OAuthFault({ reason: "idToken", detail: fault.detail })),
+                  Effect.map((payload) => String(payload.sub)),
+                ),
+            }),
           onNone: () => resolveSubject(tokens),
         })
         const scopes = tokens.hasScopes() ? tokens.scopes() : bound.row.scopes
@@ -235,7 +246,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
       Effect.flatMap(_bound(kind), (bound) => _lifecycle(bound.row, bound.ceremony).revoke(tokens))
     return { authorize, callback, refresh, revoke } as const
   }),
-  dependencies: [Jwt.Default, Token.Default],
+  dependencies: [Token.Default],
   accessors: true,
 }) {}
 ```
@@ -245,7 +256,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
 [GRANT_LIFECYCLE]:
 - Owner: `OAuth.refresh` rotates a stored provider refresh grant when the row's `hasRefresh` flag is set, reading the new `accessTokenExpiresAt`/`scopes`; `OAuth.revoke` retires the grant on sign-out when `hasRevoke` is set. Both dispatch by `Provider.Kind` through `_bound` and route the arctic fault family through the same `_faultOf` triage; `_lifecycle` is the bound-row closure the service delegates to, declared before the service so both legs read one shape.
 - Law: the availability flags gate the legs — a provider without a refresh grant (`github`) short-circuits to `OAuthFault.lifecycle` rather than calling an unsupported endpoint, so the unavailable capability is a typed refusal, never a swallowed no-op; `hasRefreshToken` on the tokens gates whether a refresh grant exists to rotate.
-- Law: the rotated grant's expiry and scopes are read from the fresh `OAuth2Tokens`, so a provider-side scope reduction propagates and the session re-establishes with the narrowed grant.
+- Law: the rotated grant's expiry and scopes are read from the fresh `OAuth2Tokens`, so a provider-side scope reduction propagates and the session re-establishes with the narrowed grant; a grant without an expiry projects `none` — the throwing `accessTokenExpiresAt` read is `Option`-lifted at the seam.
 - Receipt: the fresh grant projection (expiry + scopes) the caller re-establishes a session from, or `void` on revoke.
 - Growth: a lifecycle capability change is a row flag flip; the legs never change.
 - Boundary: the caller composes `refresh` output back into `authn/session`; the provider grant storage is the caller's coordinate; this page owns only the arctic legs.
@@ -254,13 +265,15 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
 The `_lifecycle` closure is declared above the `OAuth` service (the service delegates its `refresh`/`revoke` members to it over a `_bound` row):
 
 ```typescript
+const _expiry = Option.liftThrowable((tokens: OAuth2Tokens) => tokens.accessTokenExpiresAt())
+
 const _lifecycle = (row: ProviderRow, ceremony: Ceremony) => ({
   refresh: (tokens: OAuth2Tokens): Effect.Effect<{ readonly expiresAt: Option.Option<DateTime.Utc>; readonly scopes: ReadonlyArray<string> }, OAuthFault> =>
     !row.hasRefresh || !tokens.hasRefreshToken()
       ? Effect.fail(new OAuthFault({ reason: "lifecycle", detail: "no refresh grant" }))
-      : Effect.flatMap(
+      : Effect.map(
           Effect.tryPromise({ try: () => ceremony.refresh(tokens.refreshToken(), row.scopes), catch: _faultOf }),
-          (fresh) => Effect.map(DateTime.make(fresh.accessTokenExpiresAt()), (at) => ({ expiresAt: at, scopes: fresh.hasScopes() ? fresh.scopes() : row.scopes })),
+          (fresh) => ({ expiresAt: Option.flatMap(_expiry(fresh), DateTime.make), scopes: fresh.hasScopes() ? fresh.scopes() : row.scopes }),
         ),
   revoke: (tokens: OAuth2Tokens): Effect.Effect<void, OAuthFault> =>
     !row.hasRevoke

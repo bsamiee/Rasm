@@ -18,6 +18,9 @@ Ownership seams are explicit. `Numerics/calculus.md` owns the sample-anywhere ma
 - Boundary: `Falloff` and `KernelKind` are `Numerics/calculus.md` OWNERS composed here — the weight-profile math and kernel support/derivative profiles never re-derive on this page, and the `NoiseKind` rows POINT AT calculus.md's `FieldNoise` lattices, never re-implement them; the erosion factors ride the `BlendKind` cases so a new blend species declares its factor in its own declaration — the detached constant table is the deleted form; `RayPolicy.Project` resolves through typed `ProjectionRow` entries and a `typeof` ladder is the killed dispatch.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+namespace Rasm.Spatial;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public abstract partial record BlendKind {

@@ -23,10 +23,12 @@ The page owns the trace policies (`GeodesicTracePolicy`, `WindowPropagationPolic
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Foundation.CSharp.Analyzers.Contracts;
-using IntrinsicEdge = Rasm.Vectors.MeshKernel.IntrinsicEdge;
-using IntrinsicMesh = Rasm.Vectors.MeshKernel.IntrinsicMesh;
+using Rasm.Meshing;
+using Rasm.Numerics;
+using IntrinsicEdge = Rasm.Meshing.MeshKernel.IntrinsicEdge;
+using IntrinsicMesh = Rasm.Meshing.MeshKernel.IntrinsicMesh;
 
-namespace Rasm.Vectors;
+namespace Rasm.Processing;
 
 // --- [MODELS] -------------------------------------------------------------------------------
 // The per-mesh vertex tangent frames: angle-consistent (X, Y, N) triads under the SAME weak-identity law the

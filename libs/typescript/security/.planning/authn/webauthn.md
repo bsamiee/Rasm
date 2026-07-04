@@ -1,6 +1,6 @@
 # [SECURITY_WEBAUTHN]
 
-Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-side verifier over `@simplewebauthn/server` (node `./server`) mints ceremony options and verifies the signed response into a typed verdict, and the browser-safe invocation over `@simplewebauthn/browser` (`./browser`) wraps `navigator.credentials` into an `Effect` gated on a capability probe — the exports map keeps the node verifier physically unreachable from browser resolution. The whole surface is one options→verify pattern across registration and authentication; the attestation-format dispatch is internal, parameterized by policy, never a hand switch. Attestation trust is exploited: `SettingsService` pins the root certificates and `MetadataService` loads the FIDO MDS blob, so a policy of `direct`/`enterprise` attestation validates the authenticator's cert chain and AAGUID metadata rather than accepting `none` blind. The challenge is stateful across the two phases (minted at start, stashed in the `ChallengeStore` port, consumed single-use through the resolver-closure form at finish), and the verified `Passkey` is public-key crypto — a typed boundary value, not a `Redacted` secret — persisted through the `WebAuthnStore` port with its signature counter, the non-increasing-counter check the clone/replay defense. The browser half arms the `WebAuthnAbortService` single-live-ceremony law, gates on `browserSupportsWebAuthn`/`platformAuthenticatorIsAvailable`/`browserSupportsWebAuthnAutofill`, and exposes conditional-UI autofill through `useBrowserAutofill`. A successful assertion establishes a session through `authn/session`; the verdict is a discriminated rail, never a boolean-plus-throw.
+Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-side verifier over `@simplewebauthn/server` (node `./server`) mints ceremony options and verifies the signed response into a typed verdict, and the browser-safe invocation over `@simplewebauthn/browser` (`./browser`) wraps `navigator.credentials` into an `Effect` gated on a capability probe — the exports map keeps the node verifier physically unreachable from browser resolution. The whole surface is one options→verify pattern across registration and authentication; the attestation-format dispatch is internal, parameterized by policy, never a hand switch. Attestation trust is exploited: `SettingsService` pins the root certificates and `MetadataService` loads the FIDO MDS blob, so a policy of `direct`/`enterprise` attestation validates the authenticator's cert chain and AAGUID metadata rather than accepting `none` blind. The challenge is stateful across the two phases (minted at start, stashed in the `ChallengeStore` port, consumed single-use on the rail at finish and handed to `verify*` as the exact expected value), and the verified `Passkey` is public-key crypto — a typed boundary value, not a `Redacted` secret — persisted through the `WebAuthnStore` port with its signature counter, the non-increasing-counter check the clone/replay defense. The browser half arms the `WebAuthnAbortService` single-live-ceremony law, gates on `browserSupportsWebAuthn`/`platformAuthenticatorIsAvailable`/`browserSupportsWebAuthnAutofill`, and exposes conditional-UI autofill through `useBrowserAutofill`. A successful assertion establishes a session through `authn/session`; the verdict is a discriminated rail, never a boolean-plus-throw.
 
 ## [1]-[CLUSTERS]
 
@@ -24,7 +24,7 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 import {
   generateAuthenticationOptions, generateRegistrationOptions, MetadataService, SettingsService,
   verifyAuthenticationResponse, verifyRegistrationResponse,
-  type AuthenticationResponseJSON, type AttestationFormat, type PublicKeyCredentialCreationOptionsJSON,
+  type AuthenticationResponseJSON, type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON, type RegistrationResponseJSON, type VerifiedRegistrationResponse, type WebAuthnCredential,
 } from "@simplewebauthn/server"
 import { FaultClass } from "@rasm/ts/core"
@@ -87,7 +87,7 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
     WebAuthnTrust,
     Effect.gen(function* () {
       const attestationType = yield* Config.literal("none", "direct", "enterprise")("WEBAUTHN_ATTESTATION").pipe(Config.withDefault("none" as const))
-      const roots = yield* Config.array(Config.string("WEBAUTHN_ROOT_CERT")).pipe(Config.nested("MDS"), Config.withDefault([] as ReadonlyArray<string>))
+      const roots = yield* Config.array(Config.string(), "WEBAUTHN_ROOT_CERTS").pipe(Config.withDefault([] as ReadonlyArray<string>))
       const mode = yield* Config.literal("strict", "permissive")("WEBAUTHN_MDS_MODE").pipe(Config.withDefault("permissive" as const))
       yield* attestationType === "none"
         ? Effect.void

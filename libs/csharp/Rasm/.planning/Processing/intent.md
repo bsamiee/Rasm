@@ -31,11 +31,15 @@ using System;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Meshing;
+using Rasm.Numerics;
+using Rasm.Parametric;
+using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
-namespace Rasm.Vectors;
+namespace Rasm.Processing;
 
 // --- [TYPES] ----------------------------------------------------------------------------------
 [Union]
@@ -248,16 +252,16 @@ public abstract partial record VectorIntent {
     private Fin<TOut> Dispatch<TOut>(Context context, Op op) => Switch(
         state: (Context: context, Key: op),
         axisCase: static (state, axis) =>
-            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Basis), context: state.Context, key: state.Key)
+            from direction in Numerics.Direction.Of(value: axis.Value.Of(frame: axis.Basis), context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         directionCase: static (state, intent) =>
-            from direction in Vectors.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
+            from direction in Numerics.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         axesCase: static (state, intent) =>
             from axes in intent.Values.IfNone(SignedAxis.Cardinal(planar: intent.Planar).Map(static axis => axis.World))
-                .TraverseM(axis => Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
+                .TraverseM(axis => Numerics.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
                 .As()
             from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
             from output in AtomProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
@@ -298,14 +302,14 @@ public abstract partial record VectorIntent {
         bounceCase: static (state, intent) =>
             from hit in intent.Target.Closest(sample: intent.Query, key: state.Key)
             from rawNormal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
-            from normal in Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
+            from normal in Numerics.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
             from reflected in intent.Policy.Apply(incident: intent.Incident, normal: normal, key: state.Key)
             from output in reflected.Project<TOut>(key: state.Key)
             select output,
         streamlineCase: static (state, intent) => FlowKernel.Trace<TOut>(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key),
         // Lerp/projectOnto/mirror: ONE native affine/Transform expression each, admitted through Direction.Of.
         lerpCase: static (state, intent) =>
-            from direction in Vectors.Direction.Of(value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B), context: state.Context, key: state.Key)
+            from direction in Numerics.Direction.Of(value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B), context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         // THE one slerp site is projections.md's MotionInterpolation.Rotate; the antiparallel branch lives there.
@@ -314,11 +318,11 @@ public abstract partial record VectorIntent {
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         projectOntoCase: static (state, intent) =>
-            from direction in Vectors.Direction.Of(value: Transform.PlanarProjection(plane: intent.Target) * intent.Value, context: state.Context, key: state.Key)
+            from direction in Numerics.Direction.Of(value: Transform.PlanarProjection(plane: intent.Target) * intent.Value, context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         mirrorCase: static (state, intent) =>
-            from direction in Vectors.Direction.Of(value: Transform.Mirror(mirrorPlane: intent.Across) * intent.Value, context: state.Context, key: state.Key)
+            from direction in Numerics.Direction.Of(value: Transform.Mirror(mirrorPlane: intent.Across) * intent.Value, context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         surfaceCase: static (state, intent) => intent.Source.Sample<TOut>(projection: intent.Mode, u: intent.Uv.X, v: intent.Uv.Y, key: state.Key),

@@ -24,8 +24,10 @@ The page owns the descriptor evidence (`DescriptorReceipt`/`DescriptorResult`/`M
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using System.Numerics;
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Meshing;
+using Rasm.Numerics;
 
-namespace Rasm.Vectors;
+namespace Rasm.Processing;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union]

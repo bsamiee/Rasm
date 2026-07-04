@@ -22,8 +22,10 @@ The page owns the stop vocabularies (`AlignmentStopKind`, `AlignmentOptimizerSto
 ```csharp
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Numerics;
+using Rasm.Spatial;
 
-namespace Rasm.Vectors;
+namespace Rasm.Processing;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]

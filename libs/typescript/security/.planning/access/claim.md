@@ -33,7 +33,7 @@ const Role = {
   admin: { rank: 3, inherits: ["member"] },
   member: { rank: 2, inherits: ["viewer"] },
   viewer: { rank: 1, inherits: [] },
-} as const satisfies Record<(typeof _roles)[number], { readonly rank: number; readonly inherits: ReadonlyArray<string> }>
+} as const satisfies Record<(typeof _roles)[number], { readonly rank: number; readonly inherits: ReadonlyArray<(typeof _roles)[number]> }>
 
 const _claimReasons = ["store"] as const
 const _claimFaults = { store: { class: "unavailable" } } as const
@@ -50,7 +50,7 @@ declare namespace ClaimFault {
 
 class ClaimSet extends Schema.Class<ClaimSet>("ClaimSet")({
   subject: Schema.NonEmptyString,
-  tenant: Schema.optionalWith(TenantContext.Key, { as: "Option" }),
+  tenant: Schema.optionalWith(TenantContext.fields.tenant, { as: "Option" }),
   roles: Schema.HashSet(Schema.Literal(..._roles)),
   scopes: Schema.HashSet(Schema.NonEmptyString),
 }) {}
@@ -92,8 +92,8 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
     const fallback = yield* Config.option(Config.string("DEFAULT_TENANT"))
     const _tenantOf = (claims: AccessClaims): Effect.Effect<Option.Option<TenantContext.Key>> =>
       Option.match(claims.tid, {
-        onSome: (raw) => Schema.decode(TenantContext.Key)(raw).pipe(Effect.option),
-        onNone: () => Option.match(fallback, { onSome: (raw) => Schema.decode(TenantContext.Key)(raw).pipe(Effect.option), onNone: () => Effect.succeed(Option.none()) }),
+        onSome: (raw) => Schema.decode(TenantContext.fields.tenant)(raw).pipe(Effect.option),
+        onNone: () => Option.match(fallback, { onSome: (raw) => Schema.decode(TenantContext.fields.tenant)(raw).pipe(Effect.option), onNone: () => Effect.succeed(Option.none()) }),
       })
     const resolve = (claims: AccessClaims): Effect.Effect<ClaimSet, ClaimFault> =>
       Effect.gen(function* () {
@@ -201,7 +201,7 @@ class FlagGate extends Context.Tag("security/access/FlagGate")<FlagGate, {
 ```typescript
 const _PolicyDecision = Data.taggedEnum<PolicyDecision>()
 
-const _expand = (role: Role.Kind): ReadonlyArray<Role.Kind> => [role, ...Array.flatMap(Role[role].inherits as ReadonlyArray<Role.Kind>, _expand)]
+const _expand = (role: Role.Kind): ReadonlyArray<Role.Kind> => [role, ...Array.flatMap(Role[role].inherits, _expand)]
 
 const _granted = (roles: HashSet.HashSet<Role.Kind>, action: Permission.Kind): boolean =>
   HashSet.some(roles, (role) => Array.some(_expand(role), (inherited) => Array.contains(RolePermission[inherited], action)))

@@ -23,7 +23,7 @@ Wire posture: HOST-LOCAL. The `Process`/`Machine` axis is host-local input state
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Geometry;
+using Rasm.Numerics;
 using Thinktecture;
 using static LanguageExt.Prelude;
 

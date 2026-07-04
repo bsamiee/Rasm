@@ -22,7 +22,7 @@ using Rasm.Domain;                           // Op (the fault-correlation key th
 using Rasm.Materials.Appearance.Bsdf;        // RgbSpectrum (MaterialFault rails only inside the composed MaterialParameters.Of)
 using Rasm.Materials.Appearance.Graph;       // MaterialParameters, PortValue (PortValue.SceneLinear is the Acescg working space), MaterialLibrary (the MapToPointer real-surface wrapper) — declared in the .Graph child namespace, not auto-imported by the parent
 using Rasm.Materials.Appearance.Surface;     // Slab, SlabStack
-using Rasm.Vectors;                          // UnitInterval
+using Rasm.Numerics;                          // UnitInterval
 using Thinktecture;                          // [SmartEnum]/[ValueObject], [UseDelegateFromConstructor], ComparerAccessors, ValidationError
 using Wacton.Unicolour;                      // Unicolour, ColourSpace, GamutMap, DeltaE, ConvertToConfiguration
 using Wacton.Unicolour.Datasets;             // Colourmaps, Css, Xkcd

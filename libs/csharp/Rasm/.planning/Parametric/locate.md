@@ -29,10 +29,12 @@ The structural law is the (value × locator) matrix as CASE-OWNED rows: each `Lo
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// Rhino.Geometry, Rasm.Domain, the LanguageExt prelude, and Thinktecture arrive as global usings; Rasm.Vectors does not.
-using Rasm.Vectors;
+// Rhino.Geometry, Rasm.Domain, the LanguageExt prelude, and Thinktecture arrive as global usings; Rasm.Processing and Rasm.Spatial do not.
 
-namespace Rasm.Analysis;
+using Rasm.Processing;
+using Rasm.Spatial;
+
+namespace Rasm.Parametric;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union]

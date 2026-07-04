@@ -1,6 +1,6 @@
 # [RASM_NUMERICS_ATOMS]
 
-The typed vector-algebra primitive floor of `Rasm.Vectors` and the promoted output-projection owner every `.Project<TOut>` in the kernel routes through. The page owns the scalar admission floor (`EpsilonPolicy` owned epsilon constants over `double.IsFinite` — the host-neutral-shaped gate; `Dimension`/`PositiveMagnitude`/`UnitInterval` generated value objects), the direction/angle vocabulary (`BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, `VectorAngle`), the four vector-algebra models (`Direction` with Snell refraction and plane-sequence parallel transport, `VectorSpan`, `VectorFrame`, `VectorCone` with solid angle, envelope merge, and sector partition), and `AtomProjection` + `ProjectionRow` — the corpus-wide raw→typed projection dispatch, promoted from a buried internal helper to the named owner whose typed row table is the ONE sanctioned type-directed dispatch site in the kernel.
+The typed vector-algebra primitive floor of `Rasm.Numerics` and the promoted output-projection owner every `.Project<TOut>` in the kernel routes through. The page owns the scalar admission floor (`EpsilonPolicy` owned epsilon constants over `double.IsFinite` — the host-neutral-shaped gate; `Dimension`/`PositiveMagnitude`/`UnitInterval` generated value objects), the direction/angle vocabulary (`BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, `VectorAngle`), the four vector-algebra models (`Direction` with Snell refraction and plane-sequence parallel transport, `VectorSpan`, `VectorFrame`, `VectorCone` with solid angle, envelope merge, and sector partition), and `AtomProjection` + `ProjectionRow` — the corpus-wide raw→typed projection dispatch, promoted from a buried internal helper to the named owner whose typed row table is the ONE sanctioned type-directed dispatch site in the kernel.
 
 Rhino geometry value structs (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform`, `Circle`) remain the coordinate carriers per the kernel boundary law; the RhinoMath numeric primitives do not — finiteness is `double.IsFinite`, epsilons are `EpsilonPolicy` rows, and the full turn is `Math.Tau`. Every operation threads the `Rasm.Domain` `Op` key explicitly and fails through its typed fault factory; long pipelines lift the same key into `Eff<Env>` at the consumer, never a second threading paradigm.
 
@@ -23,7 +23,7 @@ Rhino geometry value structs (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-namespace Rasm.Vectors;
+namespace Rasm.Numerics;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------------
 public static class EpsilonPolicy {

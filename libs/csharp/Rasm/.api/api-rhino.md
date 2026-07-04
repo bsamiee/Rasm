@@ -1,6 +1,6 @@
 # [RASM_API_RHINO]
 
-`Rhino.Geometry` is the host-ABI value-type geometry vocabulary the kernel reads, composes through `Rasm.Vectors`, and re-emits at the seam — points, vectors, transforms, intervals, bounding volumes, primitive solids, NURBS curves, meshes with strongly-typed topology lists, and the `Rhino.Geometry.Intersect` parametric-intersection surface — never re-minted as a parallel kernel primitive and never reached through a document, view, command, or display surface. The kernel authors its discrete predicate-exact crossing and broad-phase acceleration FROM FIRST PRINCIPLES over this value vocabulary (`Mesh`/`MeshFace`/`Plane`/`Ray3d`/`BoundingBox`); the host `Intersection` parametric curve/surface surface is the `Analysis` layer's concern alone, and the two meet at no interior.
+`Rhino.Geometry` is the host-ABI value-type geometry vocabulary the kernel reads, composes through `Rasm.Numerics`, and re-emits at the seam — points, vectors, transforms, intervals, bounding volumes, primitive solids, NURBS curves, meshes with strongly-typed topology lists, and the `Rhino.Geometry.Intersect` parametric-intersection surface — never re-minted as a parallel kernel primitive and never reached through a document, view, command, or display surface. The kernel authors its discrete predicate-exact crossing and broad-phase acceleration FROM FIRST PRINCIPLES over this value vocabulary (`Mesh`/`MeshFace`/`Plane`/`Ray3d`/`BoundingBox`); the host `Intersection` parametric curve/surface surface is the `Analysis` layer's concern alone, and the two meet at no interior.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -24,7 +24,7 @@
 | :-----: | :----------- | :---------------- | :------------------------------------------------------------------------------------------------------- |
 |  [01]   | `Point3d`    | blittable struct  | double point; `X`/`Y`/`Z`, `Origin` (the `(0,0,0)` anchor the offset/fit folds seed from), `DistanceTo`/`DistanceToSquared`, full ordered operators, `Point3f` interop |
 |  [02]   | `Point3f`    | blittable struct  | single point; implicit-widens to `Point3d`, mesh-vertex storage scalar                                    |
-|  [03]   | `Vector3d`   | blittable struct  | double vector; the kernel's settled direction carrier composed through `Rasm.Vectors`; `Length`/`SquareLength` magnitude (the unit/degeneracy guard reads `SquareLength`), `Zero`/`XAxis`/`YAxis`/`ZAxis` static axis constants |
+|  [03]   | `Vector3d`   | blittable struct  | double vector; the kernel's settled direction carrier composed through `Rasm.Numerics`; `Length`/`SquareLength` magnitude (the unit/degeneracy guard reads `SquareLength`), `Zero`/`XAxis`/`YAxis`/`ZAxis` static axis constants |
 |  [04]   | `Vector3f`   | blittable struct  | single vector; mesh-normal storage scalar, implicit-widens to `Vector3d`                                 |
 |  [05]   | `Transform`  | 4x4 struct        | affine transform; `M00`..`M33` row-major, factory family, decomposition, `operator *` on self and points |
 |  [06]   | `Quaternion` | struct            | rotation rotor; `GetRotation` to axis-angle / `Plane` / `Transform`, `CreateFromRotationZYX`/`ZYZ`        |
@@ -93,7 +93,7 @@
 
 | [INDEX] | [SURFACE]                                  | [SURFACE_ROOT] | [CALL_SHAPE / NOTE]                                                                                    |
 | :-----: | :----------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `CrossProduct(a,b)` / `operator *(a,b)`    | `Vector3d`     | cross product; `operator *` is the dot product — both static, the kernel composes through `Rasm.Vectors` |
+|  [01]   | `CrossProduct(a,b)` / `operator *(a,b)`    | `Vector3d`     | cross product; `operator *` is the dot product — both static, the kernel composes through `Rasm.Numerics` |
 |  [02]   | `Unitize()` / `IsUnitVector`               | `Vector3d`     | in-place normalize returning success `bool`; `IsTiny`/`IsZero` guard the degenerate direction          |
 |  [03]   | `IsParallelTo` / `IsPerpendicularTo`       | `Vector3d`     | `int` (-1/0/1) parallelism and `bool` perpendicularity under an angle tolerance — the orientation tests the predicate floor backs |
 |  [04]   | `VectorAngle(a,b[,plane\|vNormal])`        | `Vector3d`     | signed/unsigned angle; the planar-overlay and frame builders read it                                   |
@@ -180,8 +180,8 @@ Every remesh/reduce entry is a native long-running call; the instance forms retu
 
 [GEOMETRY_VALUE_LAW]:
 - Package: `RhinoCommon` (`Rhino.Geometry`)
-- Owns: the value-type geometry vocabulary the kernel reads, composes through `Rasm.Vectors`, and re-emits at the seam (`Point3d`/`Vector3d`/`Plane`/`Line`/`Polyline`/`Mesh`/`MeshFace`/`BoundingBox`/`Ray3d`/`Transform`/`Interval`)
-- Accept: `Rhino.Geometry` value types composed through `Rasm.Vectors`; the kernel reads a struct's full member surface (`Vector3d.IsParallelTo`, `Transform.DecomposeAffine`, `BoundingBox.Union`, `Mesh.TopologyVertices`) rather than re-deriving the operation
+- Owns: the value-type geometry vocabulary the kernel reads, composes through `Rasm.Numerics`, and re-emits at the seam (`Point3d`/`Vector3d`/`Plane`/`Line`/`Polyline`/`Mesh`/`MeshFace`/`BoundingBox`/`Ray3d`/`Transform`/`Interval`)
+- Accept: `Rhino.Geometry` value types composed through `Rasm.Numerics`; the kernel reads a struct's full member surface (`Vector3d.IsParallelTo`, `Transform.DecomposeAffine`, `BoundingBox.Union`, `Mesh.TopologyVertices`) rather than re-deriving the operation
 - Reject: a kernel-local re-mint of a Rhino value type (a domain `Aabb`/`Ray`/`Vec3` duplicating `BoundingBox`/`Ray3d`/`Vector3d`); an epsilon-snapped coordinate where the robust-core owns an exact construction; a thin pass-through wrapper that renames a struct member without adding domain value
 
 [PREDICATE_EXACT_BOUNDARY]:
@@ -193,5 +193,5 @@ Every remesh/reduce entry is a native long-running call; the instance forms retu
 [BOUNDARY_LAW]:
 - Package: `RhinoCommon` (`Rhino.Geometry`)
 - Owns: the geometry-only Rhino surface below the document, view, command, and display strata
-- Accept: geometry values cross the seam as `Rasm.Vectors` carriers, the robust-core re-emitting `Polyline`/`Point3d`/`Mesh` results at the boundary; reference geometry (`Mesh`/`Curve`/`Brep`) is the kernel's disposable native-handle owner, released at the seam
+- Accept: geometry values cross the seam as `Rasm.Numerics` carriers, the robust-core re-emitting `Polyline`/`Point3d`/`Mesh` results at the boundary; reference geometry (`Mesh`/`Curve`/`Brep`) is the kernel's disposable native-handle owner, released at the seam
 - Reject: a `RhinoDoc`/`RhinoApp`/`RhinoView`/`DisplayConduit`/`ObjectTable` reach from the kernel — the document/view/command/display surface is the host-boundary stratum's concern, never the kernel's

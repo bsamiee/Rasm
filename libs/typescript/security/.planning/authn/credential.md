@@ -1,6 +1,6 @@
 # [SECURITY_CREDENTIAL]
 
-The one digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, store its argon2 digest keyed by a public index, resolve a presented secret by index-scoped candidate scan then constant-time verify. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index — so the `findFirst` candidate scan and the `Crypto.digest`/`Crypto.verify` pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the `OtpVerdict` carries the RFC-6238 `timeStep` so a caller enforces the `afterTimeStep` replay floor that a valid-within-window token otherwise slips past, and `createGuardrails` caps secret length, period, digits, and window per policy. Every secret — enrollment secret, provisioning URI, recovery code, API key — is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws.
+The one digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, store its argon2 digest keyed by a public index, resolve a presented secret by index-scoped candidate scan then constant-time verify. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index — so the `findFirst` candidate scan and the `Crypto.digest`/`Crypto.verify` pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option — the caller's stored floor rejects a valid-within-window replay inside the library — and `Accepted.timeStep` is what the caller persists as the next floor; `createGuardrails` bounds secret bytes, period, counter, and window per policy. Every secret — enrollment secret, provisioning URI, recovery code, API key — is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws.
 
 ## [1]-[CLUSTERS]
 
@@ -21,9 +21,9 @@ The one digest-at-rest credential owner: second-factor OTP, recovery codes, and 
 - Packages: `crypt/sign` (`Crypto.token`/`.digest`/`.verify`); `effect` (`Array`, `Effect`, `Option`, `Redacted`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { createGuardrails, generate, generateSecret, generateURI, verify, type OTPGuardrails, type OTPVerifyOptions } from "otplib"
+import { createGuardrails, generateSecret, generateURI, verify, type OTPGuardrails, type OTPVerifyFunctionalOptions } from "otplib"
 import { FaultClass } from "@rasm/ts/core"
-import { Array, Config, Context, Data, DateTime, type Duration, Effect, Option, Redacted, Schema } from "effect"
+import { Array, Context, Data, DateTime, type Duration, Effect, Option, Redacted, Schema } from "effect"
 import { Crypto } from "../crypt/sign.ts"
 
 const _reasons = ["mint", "verify", "malformed", "notFound", "revoked", "expired"] as const
@@ -74,14 +74,14 @@ const _digest = (cipher: Context.Tag.Service<Crypto>) => ({
 ## [3]-[SECOND_FACTOR]
 
 [SECOND_FACTOR]:
-- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI, `Otp.verify` checks a presented token, `Otp.mintRecovery` issues N single-use codes over `Digest`, `Otp.redeem` finds the matching unspent code. `OtpVerdict` is the second-factor result — `Accepted({ delta, timeStep })` or `Rejected` — and `RecoverySet` carries the codes and their digests. The otplib `crypto`/`base32` ports bind to `Crypto.plugin`/`Crypto.base32`, and `createGuardrails` caps secret length, period, digits, and window per policy.
+- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI, `Otp.verify` checks a presented token, `Otp.mintRecovery` issues N single-use codes over `Digest`, `Otp.redeem` finds the matching unspent code. `OtpVerdict` is the second-factor result — `Accepted({ delta, timeStep })` or `Rejected` — and `RecoverySet` carries the codes and their digests. The otplib `crypto`/`base32` ports bind to `Crypto.plugin`/`Crypto.base32`, and `createGuardrails` bounds secret bytes, period, counter, and window per policy.
 - Law: verification is result-typed and constant-time inside otplib — a wrong code is `Rejected`, never a throw; TOTP verifies past-only under `_EPOCH_TOLERANCE`, HOTP look-ahead under `_COUNTER_TOLERANCE` when the caller passes a `Some` counter; a valid HOTP match persists `counter + delta + 1` — the `Accepted.delta` resync signal.
-- Law: the TOTP replay floor is enforced — `Accepted.timeStep` carries the RFC-6238 step number, and `verify` rejects a token whose matched `timeStep` is not strictly greater than the caller's stored `afterTimeStep` floor, so a token valid within its window cannot be replayed; HOTP carries no `timeStep` (its counter is the floor).
+- Law: the TOTP replay floor is library-enforced — the caller's stored floor passes as otplib's `afterTimeStep` option, so a token whose matched `timeStep` is not strictly greater lands `{ valid: false }` inside the constant-time verify; `Accepted.timeStep` carries the RFC-6238 step number the caller persists as the next floor, and HOTP carries no `timeStep` (its counter is the floor).
 - Law: recovery codes are `Digest` material, not an otplib feature — `mintRecovery` composes `Digest.mint` per code and `redeem` composes `Digest.resolve` over the digests, returning the matched index so the store marks exactly that code spent.
 - Receipt: `OtpVerdict` on verify, `Option<number>` on redeem (the spent index), `RecoverySet` on mint — never a raw boolean.
 - Growth: a Steam-Guard-style alphabet is one otplib `hooks` value; HOTP is the same call with a `Some` counter — the input value is the strategy discriminant, never a name fork.
 - Boundary: the edge renders the `otpauth://` URI to a QR (the one secret egress); `Digest` owns the recovery mint/resolve; `crypt/sign` owns the HMAC and the digest.
-- Packages: `otplib` (`generate`/`verify`/`generateSecret`/`generateURI`, `createGuardrails`, `OTPGuardrails`); `Digest` (recovery); `Crypto` (ports).
+- Packages: `otplib` (`verify`/`generateSecret`/`generateURI`, `createGuardrails`, `OTPGuardrails`, `afterTimeStep`); `Digest` (recovery); `Crypto` (ports).
 
 ```typescript
 type OtpVerdict = Data.TaggedEnum<{
@@ -94,7 +94,7 @@ class RecoverySet extends Schema.Class<RecoverySet>("RecoverySet")({
   digests: Schema.Array(Schema.Redacted(Schema.String)),
 }) {}
 
-const _EPOCH_TOLERANCE: readonly [number, number] = [1, 0]
+const _EPOCH_TOLERANCE: readonly [number, number] = [30, 0]
 const _COUNTER_TOLERANCE: readonly [number, number] = [0, 2]
 const _RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 const _OtpVerdict = Data.taggedEnum<OtpVerdict>()
@@ -104,11 +104,11 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
     const cipher = yield* Crypto
     const digest = _digest(cipher)
     const _ports = { crypto: cipher.plugin, base32: cipher.base32 } as const
-    const _rails: OTPGuardrails = createGuardrails({ minSecretLength: 16, minPeriod: 30, allowedDigits: [6, 8], maxWindow: 2 })
+    const _rails: OTPGuardrails = createGuardrails({ MIN_SECRET_BYTES: 16, MIN_PERIOD: 30, MAX_WINDOW: 2 })
     const enroll = (issuer: string, label: string): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly uri: Redacted.Redacted<string> }, CredentialFault> =>
       Effect.try({
         try: () => {
-          const secret = generateSecret({ ..._ports, guardrails: _rails })
+          const secret = generateSecret({ ..._ports })
           return { secret: Redacted.make(secret), uri: Redacted.make(generateURI({ strategy: "totp", issuer, label, secret })) }
         },
         catch: (cause) => new CredentialFault({ reason: "mint", detail: String(cause) }),
@@ -117,15 +117,14 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
       Effect.tryPromise({
         try: () =>
           Option.match(counter, {
-            onNone: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, epochTolerance: _EPOCH_TOLERANCE, guardrails: _rails, ..._ports } satisfies OTPVerifyOptions),
-            onSome: (at) => verify({ strategy: "hotp", secret: Redacted.value(secret), token, counter: at, counterTolerance: _COUNTER_TOLERANCE, guardrails: _rails, ..._ports } satisfies OTPVerifyOptions),
+            onNone: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, epochTolerance: _EPOCH_TOLERANCE, ...(Option.isSome(floor) && { afterTimeStep: floor.value }), guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
+            onSome: (at) => verify({ strategy: "hotp", secret: Redacted.value(secret), token, counter: at, counterTolerance: _COUNTER_TOLERANCE, guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
           }),
         catch: (cause) => new CredentialFault({ reason: "verify", detail: String(cause) }),
-      }).pipe(Effect.map((result) => {
-        const step = result.valid && "timeStep" in result ? Option.some(result.timeStep) : Option.none<number>()
-        const replayed = Option.isSome(floor) && Option.isSome(step) && step.value <= floor.value
-        return result.valid && !replayed ? _OtpVerdict.Accepted({ delta: result.delta, timeStep: step }) : _OtpVerdict.Rejected()
-      }))
+      }).pipe(Effect.map((result) =>
+        result.valid
+          ? _OtpVerdict.Accepted({ delta: result.delta, timeStep: "timeStep" in result ? Option.some(result.timeStep) : Option.none<number>() })
+          : _OtpVerdict.Rejected()))
     const mintRecovery = (count: number): Effect.Effect<RecoverySet, CredentialFault> =>
       Effect.map(
         Effect.forEach(Array.range(1, count), () => digest.mint(_RECOVERY_ALPHABET, 10)),
@@ -182,8 +181,10 @@ class ApiKeyStore extends Context.Tag("security/authn/ApiKeyStore")<ApiKeyStore,
   readonly revoke: (id: string, at: DateTime.Utc) => Effect.Effect<void, CredentialFault>
 }>() {}
 
-const _prefixOf = (presented: string): Option.Option<string> =>
-  Option.filterMap(Option.some(presented.indexOf(".")), (dot) => (dot > 0 ? Option.some(presented.slice(0, dot)) : Option.none()))
+const _prefixOf = (presented: string): Option.Option<string> => {
+  const dot = presented.indexOf(".")
+  return dot > 0 ? Option.some(presented.slice(0, dot)) : Option.none()
+}
 
 class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
   effect: Effect.gen(function* () {
@@ -196,21 +197,21 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
         const prefixBody = yield* cipher.token(_ALPHABET, 8).pipe(Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })))
         const prefix = `rk_${Redacted.value(prefixBody)}`
         const minted = yield* digest.mint(_ALPHABET, 40)
-        const presented = Redacted.make(`${prefix}.${Redacted.value(minted.secret)}`)
-        const stored = yield* cipher.digest("apiKey", presented).pipe(Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })))
         const record = new ApiKeyRecord({
-          id: crypto.randomUUID(), prefix, subject, digest: stored, name, scopes, createdAt: now,
+          id: crypto.randomUUID(), prefix, subject, digest: minted.digest, name, scopes, createdAt: now,
           expiresAt: Option.map(ttl, (input) => DateTime.addDuration(now, input)), revokedAt: Option.none(), lastUsedAt: Option.none(),
         })
         yield* store.insert(record)
-        return new MintReceipt({ record, secret: presented })
+        return new MintReceipt({ record, secret: Redacted.make(`${prefix}.${Redacted.value(minted.secret)}`) })
       })
     const resolve = (presented: Redacted.Redacted<string>): Effect.Effect<ApiKeyRecord, CredentialFault> =>
       Effect.gen(function* () {
-        const prefix = yield* Option.match(_prefixOf(Redacted.value(presented)), { onNone: () => Effect.fail(new CredentialFault({ reason: "malformed", detail: "no prefix" })), onSome: Effect.succeed })
+        const raw = Redacted.value(presented)
+        const prefix = yield* Option.match(_prefixOf(raw), { onNone: () => Effect.fail(new CredentialFault({ reason: "malformed", detail: "no prefix" })), onSome: Effect.succeed })
+        const secret = Redacted.make(raw.slice(prefix.length + 1))
         const candidates = yield* store.byPrefix(prefix)
         const record = yield* Effect.flatMap(
-          digest.resolve(presented, candidates, (candidate) => candidate.digest),
+          digest.resolve(secret, candidates, (candidate) => candidate.digest),
           Option.match({ onNone: () => Effect.fail(new CredentialFault({ reason: "notFound", detail: prefix })), onSome: Effect.succeed }),
         )
         yield* Option.isSome(record.revokedAt) ? Effect.fail(new CredentialFault({ reason: "revoked", detail: record.id })) : Effect.void

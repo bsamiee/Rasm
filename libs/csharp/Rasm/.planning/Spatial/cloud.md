@@ -21,6 +21,9 @@ Covariance is computed exactly once in the corpus: `CloudKernel.CovarianceOf` co
 - Boundary: admission runs ONCE at the factory — every kernel fold below consumes admitted vertices and never re-validates; the native `PointCloud`/`RTree` probes are the named platform seam (mutating native containers under `key.Catch` inside the memo and probe bodies only); `OriginalToUnique` is the published re-index contract and a consumer re-deriving the merge map by coordinate comparison is the deleted form; the self-intersection preflight leases its `PolylineCurve` (`Lease<T>.Owned.Use`) so no native curve escapes the check.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+namespace Rasm.Spatial;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public abstract partial record VectorCloud {

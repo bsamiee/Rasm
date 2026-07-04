@@ -24,7 +24,7 @@
 | :-----: | :-------------------------------------------------------------------------- | :---------------- | :---------------------------------------------------------- |
 |  [01]   | `OTPStrategy = 'totp' \| 'hotp'`                                             | strategy value    | the one dispatch key; `generate`/`verify`/`OTP` route on it  |
 |  [02]   | `VerifyResult = { valid: true; delta; epoch; timeStep }` (TOTP) `\| { valid: true; delta }` (HOTP) `\| { valid: false }` | tagged result     | `delta` → HOTP counter resync (`counter + delta + 1`) / TOTP drift; TOTP-only `timeStep` → RFC-6238 step number (the `afterTimeStep` replay floor), `epoch` → matched period start |
-|  [03]   | `OTPFunctionalOptions` (`OTPGenerateOptions`) / `OTPVerifyFunctionalOptions` (`OTPVerifyOptions`) | option algebra | `secret`, `strategy`, `algorithm`, `digits`, `period`/`epoch`/`t0` (TOTP), `counter` (HOTP) |
+|  [03]   | `OTPFunctionalOptions` (`OTPGenerateOptions`) / `OTPVerifyFunctionalOptions` (`OTPVerifyOptions`) | option algebra | `secret`, `strategy`, `algorithm`, `digits`, `period`/`epoch`/`t0` (TOTP), `counter` (HOTP); verify adds `token`, `epochTolerance`/`counterTolerance`, and `afterTimeStep` — the native TOTP replay floor rejecting `timeStep <= afterTimeStep` |
 |  [04]   | `OTPAuthOptions` `{ crypto?: CryptoPlugin; base32?: Base32Plugin }`          | plugin override   | the port-injection slot on every entry                       |
 |  [05]   | `HashAlgorithm = 'sha1' \| 'sha256' \| 'sha512'` (root) · `digits` numeric field (default 6) | primitive params  | authenticator-compat defaults (`sha1`/6-digit); raise per policy |
 
@@ -39,7 +39,7 @@
 |  [03]   | `NobleCryptoPlugin` / `ScureBase32Plugin`                                         | `otplib` root  | the bundled defaults (`@noble/hashes` / `@scure/base32`)    |
 |  [04]   | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })` / `createBase32Plugin({ name?, encode, decode })` / `stringToBytes` | `@otplib/core` (factory) · root (`stringToBytes`) | named plugin construction — optional; a plain object satisfies the port |
 |  [05]   | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }`                      | `@otplib/core` | non-standard OTP (Steam Guard alphabet, custom truncation); reached via the `hooks?` option field |
-|  [06]   | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)`                 | `otplib` root  | validation caps — bound secret length / period / digits / window per policy |
+|  [06]   | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)`                 | `otplib` root  | validation caps — `Partial<OTPGuardrailsConfig>` over `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` (UPPER_SNAKE keys; no digits guardrail — `digits` is an option field) |
 |  [07]   | `OTPResult<T,E>` / `wrapResult` / `wrapResultAsync`                               | `otplib` root  | optional never-throw wrapping of an entry into a tagged result |
 
 ## [03]-[ENTRYPOINTS]
@@ -69,7 +69,7 @@
 
 [OTP_TOPOLOGY]:
 - one strategy discriminant: `'totp' | 'hotp'` is a value on the options/constructor, not two APIs. `generate({ strategy })` is the polymorphic entry; `TOTP`/`HOTP` are its strategy-fixed specializations. Never fork a `generateTotp`/`generateHotp` pair.
-- parameterized window: `epochTolerance` (TOTP) and `counterTolerance` (HOTP) are `number` (symmetric) or `[past, future]` (asymmetric). RFC-compliant past-only TOTP is `[N, 0]`; HOTP look-ahead is `[0, N]`. The window is data, never an enumerated set of verify variants.
+- parameterized window: `epochTolerance` (TOTP, in SECONDS — one prior 30s step is `[30, 0]`, never `[1, 0]`) and `counterTolerance` (HOTP, in counter steps) are `number` (symmetric) or `[past, future]` (asymmetric). RFC-compliant past-only TOTP is `[N, 0]`; HOTP look-ahead is `[0, N]`. The window is data, never an enumerated set of verify variants; the TOTP replay floor is the native `afterTimeStep` verify option, never a caller-side re-check.
 - result-typed, constant-time: `verify` returns `VerifyResult`, never throws on a wrong code; comparison is constant-time internally. `delta` on the valid arm is the resync signal — persist `counter + delta + 1` after an HOTP match; nonzero TOTP `delta` is clock drift. The TOTP valid arm additionally carries `timeStep` (the RFC-6238 step number — the `afterTimeStep` replay floor) and `epoch` (matched period start).
 - async-first: `generate`/`verify` are `Promise`-returning because the `CryptoPlugin.hmac` may be async (WebCrypto). The `*Sync` mirror is admitted only with a sync-HMAC plugin and throws `HMACError` otherwise.
 
