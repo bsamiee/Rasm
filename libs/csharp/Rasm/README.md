@@ -48,7 +48,7 @@
 - [33]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): The implicit-reconstruction owner — RBF/MLS/Levin/APSS/screened-Poisson kernels, the unified signed-heat spine across three discretizations, the three mesh-SDF methods, and marching-cubes iso-extraction.
 
 [PROCESSING]:
-- [34]-[REPAIR](.planning/Processing/repair.md): Repair rail — the `HealOp` closed algebra (six author-kernels + one native-gate boolean) and the `Heal.Repair` session fold composing the predicate floor.
+- [34]-[REPAIR](.planning/Processing/repair.md): Repair rail — `Heal.Repair(HealPlan, Op?)` folds the `HealOp` closed algebra (six author-kernels + the managed arrangement-boolean delegation) over the `MeshEdit` arena with Genus-tolerant topology threading and the typed `RebuildReceipt` chain.
 - [35]-[RECEIPTS](.planning/Processing/receipts.md): Typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold feeding the naming re-anchor.
 - [36]-[DECIMATE](.planning/Processing/decimate.md): Predicate-guarded decimation/LOD — one `SimplifyOp` over a Garland-Heckbert QEM collapse queue and the `DecimationReceipt` carrier.
 - [37]-[FLATTEN](.planning/Processing/flatten.md): Robust parameterization/UV-flattening — one `ParamOp` (harmonic/LSCM/ARAP/BFF) over the DEC substrate returning the typed `ChartAtlas`.

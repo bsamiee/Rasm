@@ -56,6 +56,7 @@ The session shapes and their entry rails — selected when the objective arrives
 | Idea/task pool + realization       | `ideate` (pool generation), `implement-cs`/`implement-py`/`implement-ts` (cards -> fences)                         |
 | Doctrine refining (`docs/stacks/`) | `stack-cs`/`stack-py`/`stack-ts`                                                                                   |
 | Package roster / catalog work      | `survey-packages`, `survey-gaps`, `rebuild-api`                                                                    |
+| Finalization / corrections pass    | `finalize` with a package root or folder subset (split-brain, phantoms, flow, collapse — post-build closure)      |
 
 A shape with no fitting durable gets an ephemeral workflow authored via `.claude/skills/workflow-creator` and deleted after landing. Legs re-run across sessions against the same brief until cold passes find nothing.
 
