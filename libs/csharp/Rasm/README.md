@@ -61,7 +61,7 @@
 - [44]-[SEGMENT](.planning/Processing/segment.md): The spectral shape-analysis and restructure owner — HKS/WKS descriptors, feature-edge detection, the `MeshSegmentation` 6-algorithm union, Knöppel cross-fields + stripes, and the host-native QuadRemesh/Reduce/unwrap capture tier.
 
 [SOLVING]:
-- [45]-[SOLVER](.planning/Solving/solver.md): The one nonlinear least-squares owner — `Lm.Minimize(ILmModel, SolvePolicy, Op?)` the corpus's ONE damped Gauss-Newton λ-ladder, plus the geometric constraint solver: the closed 12-case `Constraint` residual/Jacobian algebra, QuikGraph island decomposition with the König-matching `DofReport`, the witness-rank `DofAnalysis`, and the island-folded `ConstraintSolver.Solve`.
+- [45]-[SOLVER](.planning/Solving/solver.md): The one nonlinear least-squares owner — `Lm.Minimize(ILmModel, SolvePolicy, Op?)` the corpus's ONE damped Gauss-Newton λ-ladder, plus the geometric constraint solver: the closed 15-case `Constraint` residual/Jacobian algebra, QuikGraph island decomposition with the König-matching `DofReport`, the witness-rank `DofAnalysis`, and the island-folded `ConstraintSolver.Solve`.
 - [46]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — one `Fit.Apply` over a kind-as-data `FitOp` (single or multi-kind detection), the MLESAC truncated-cost sampler with PROSAC/NAPSAC draw rows over the `Spatial/neighbors` kd-tree lane, and the orthogonal-distance refine instantiating `Lm.Minimize`, returning the typed `FitReceipt`.
 
 [DRAWING]:

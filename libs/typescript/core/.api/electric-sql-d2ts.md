@@ -23,7 +23,7 @@ The graph is constructed once, wired with `pipe`, then driven; time is a partial
 |  [04]   | `Version` (`v()` factory)       | class              | partially-ordered logical time — `join`/`meet`/`lessThan`/`advanceBy`/`extend` |
 |  [05]   | `Antichain` / `Frontier`        | class              | minimal incomparable version set — `meet`, `lessEqualVersion`; the frontier bound |
 |  [06]   | `MultiSet<T>` (`MultiSetArray`) | class              | signed multiset (`[value, multiplicity][]`) — the delta unit; negative = retraction |
-|  [07]   | `Message<T>` / `MessageType`    | tagged union       | `DATA`(version+collection) \| `FRONTIER`(version\|antichain) — the `output` payload |
+|  [07]   | `Message<T>` / `MessageType`    | tagged union       | `DATA` (`data.version` + `data.collection`) \| `FRONTIER` (`data`: version\|antichain) — the `output` payload |
 |  [08]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias        | the keyed-record shape every keyed operator (`join`/`reduce`/`groupBy`) requires |
 |  [09]   | `PipedOperator<I, O>`           | function alias     | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape      |
 
@@ -49,6 +49,10 @@ declare class Version {
   advanceBy(frontier: Antichain): Version
 }
 declare function v(version: number | number[]): Version   // cached/interned — safe as a Map key
+declare class Antichain {
+  constructor(elements: Version[])
+  meet(o: Antichain): Antichain; lessEqualVersion(version: Version): boolean
+}
 ```
 
 ```ts contract
@@ -117,12 +121,14 @@ declare function iterate<T>(f: (s: IStreamBuilder<T>) => IStreamBuilder<T>): (s:
 
 | [INDEX] | [SURFACE]                                     | [PRODUCES]              | [CAPABILITY]                                                    |
 | :-----: | :-------------------------------------------- | :---------------------- | :------------------------------------------------------------- |
-|  [01]   | `Index<K, V>.reconstructAt(key, version)`     | `[V, number][]`         | time-travel read — the AsOf materialization at a partial-order version |
-|  [02]   | `Index<K, V>.compact(frontier, keys?)`        | — (in-place)            | collapse trace below the stability frontier — the retention handoff |
-|  [03]   | `Index<K, V>.versions(key)` / `.join(other)`  | `Version[]` / diff rows | the per-key version set; incremental join at matching versions  |
-|  [04]   | `./sqlite` `SQLiteDb` / `BetterSQLite3Wrapper`| durable operator state  | the persistent trace — a node fold survives restart (peer: `better-sqlite3`) |
-|  [05]   | `./electric` `electricStreamToD2Input(opts)`  | `RootStreamBuilder`     | binds a Postgres `ShapeStream` as graph input, `lsnToVersion` maps LSN → `Version` |
-|  [06]   | `./electric` `outputElectricMessages(fn)`     | `PipedOperator`         | emits `ChangeMessage<Row>[]` — the replication-shaped egress (peer: `@electric-sql/client`) |
+|  [01]   | `new Index<K, V>()`                           | empty versioned trace   | default-constructible — an owned trace an `output` sink appends |
+|  [02]   | `Index<K, V>.addValue(key, version, [value, multiplicity])` | — (in-place) | the trace append — one signed row at a partial-order version    |
+|  [03]   | `Index<K, V>.reconstructAt(key, version)`     | `[V, number][]`         | time-travel read — the AsOf materialization at a partial-order version |
+|  [04]   | `Index<K, V>.compact(compactionFrontier: Antichain, keys?)` | — (in-place) | collapse trace below the stability frontier — the retention handoff |
+|  [05]   | `Index<K, V>.keys()` / `.entries()` / `.versions(key)` / `.join(other)` | `K[]` / rows / `Version[]` / diff rows | key census, entry walk, per-key version set, incremental join |
+|  [06]   | `./sqlite` `SQLiteDb` / `BetterSQLite3Wrapper`| durable operator state  | the persistent trace — a node fold survives restart (peer: `better-sqlite3`) |
+|  [07]   | `./electric` `electricStreamToD2Input(opts)`  | `RootStreamBuilder`     | binds a Postgres `ShapeStream` as graph input, `lsnToVersion` maps LSN → `Version` |
+|  [08]   | `./electric` `outputElectricMessages(fn)`     | `PipedOperator`         | emits `ChangeMessage<Row>[]` — the replication-shaped egress (peer: `@electric-sql/client`) |
 
 ```ts contract
 // The ./sqlite subpath mirrors the core operator set (join/reduce/distinct/groupBy/orderBy/topK/consolidate/buffer) over a SQLite-backed version index — the durable node altitude.

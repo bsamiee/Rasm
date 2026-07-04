@@ -131,8 +131,10 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
             mergeReceipt:         static m => (m.SelectedVertices, Set<int>.Empty, m.SelectedFaces));
 }
 
-public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Faces, Seq<string> Ops) {
-    public static readonly RebuildLog Empty = new(Set<int>.Empty, Set<int>.Empty, Set<int>.Empty, Seq<string>());
+// Ops carries the HealStage vocabulary itself — a consumer reads the typed row (or its Key), never a
+// re-parsed string.
+public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Faces, Seq<HealStage> Ops) {
+    public static readonly RebuildLog Empty = new(Set<int>.Empty, Set<int>.Empty, Set<int>.Empty, Seq<HealStage>());
 
     public bool ReanchorsLineage => !Vertices.IsEmpty || !Edges.IsEmpty || !Faces.IsEmpty;
 }
@@ -154,7 +156,7 @@ public sealed record HealSession(MeshSpace Input, MeshSpace Healed, Seq<RebuildR
                     Vertices = log.Vertices.TryAddRange(v),
                     Edges = log.Edges.TryAddRange(e),
                     Faces = log.Faces.TryAddRange(f),
-                    Ops = log.Ops.Add(receipt.Stage.Key),
+                    Ops = log.Ops.Add(receipt.Stage),
                 };
             });
 }

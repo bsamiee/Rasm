@@ -61,10 +61,8 @@ import { createBLAKE3, createCRC32, createXXHash64, createXXHash128, type IHashe
 
 const _hex = (width: number): RegExp => new RegExp(`^[0-9a-f]{${width}}$`)
 
-const ContentKey: Schema.brand<Schema.filter<typeof Schema.String>, "ContentKey"> = Schema.String.pipe(
-  Schema.pattern(_hex(32)),
-  Schema.brand("ContentKey"),
-)
+const _content = Schema.String.pipe(Schema.pattern(_hex(32)))
+const ContentKey: Schema.brand<typeof _content, "ContentKey"> = _content.pipe(Schema.brand("ContentKey"))
 type ContentKey = typeof ContentKey.Type
 
 const _Trace = Schema.String.pipe(Schema.pattern(_hex(16)), Schema.brand("TraceKey"))
