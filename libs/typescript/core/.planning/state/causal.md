@@ -1,6 +1,6 @@
 # [CORE_CAUSAL]
 
-The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `clock` uncertainty window, the causal hold-and-drain buffer, the stability frontier (the GLB meet of per-replica acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance, ack merge, and frontier reads are single STM transactions with `STM.check` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
+The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `value/clock` uncertainty window, the causal hold-and-drain buffer, the stability frontier (the GLB meet of per-replica acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance, ack merge, and frontier reads are single STM transactions with `STM.check` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
 
 ## [1]-[CLUSTERS]
 
@@ -20,11 +20,11 @@ The causality owner: `Vector` — the per-replica version vector whose compariso
 - Law: replica identity is `Vector.Replica` — the schema rides the class as a static and the branded type rides the merged namespace, one spelling for presence actors, delivery origins, commit authors, and ack keys; a free-floating replica-id export is the named defect.
 - Growth: a new causal comparison read is a static on `Vector`; a new ordering verdict is a `_ORDERINGS` row — consumers dispatching on `Vector.Ordering` break loudly at the missing arm.
 - Boundary: the interchange codec decodes the C# version-vector wire into `Vector`; the commit graph riding vectors is `commit#COMMIT_OWNER`'s; both consume this owner and this owner imports neither.
-- Packages: `@effect/typeclass` (`Semigroup.make`); `effect` (`Schema`, `Chunk`, `Equal`, `HashMap`, `Number`, `Option`, `Order`, `STM`, `TRef`, `Effect`); `../value/clock.ts` (`Hlc`, `Uncertainty`); `./merge.ts` (`Merge`).
+- Packages: `@effect/typeclass` (`Semigroup.make`); `effect` (`Schema`, `Array`, `Chunk`, `Effect`, `Equal`, `HashMap`, `Number`, `Option`, `STM`, `TRef`); `../value/clock.ts` (`Hlc`, `Uncertainty`); `./merge.ts` (`Merge`).
 
 ```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
-import { Array, Chunk, Effect, Equal, HashMap, Number, Option, Order, pipe, Schema, STM, TRef } from "effect"
+import { Array, Chunk, Effect, Equal, HashMap, Number, Option, pipe, Schema, STM, TRef } from "effect"
 import { Hlc, Uncertainty } from "../value/clock.ts"
 import { Merge } from "./merge.ts"
 

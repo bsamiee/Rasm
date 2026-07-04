@@ -199,8 +199,9 @@ const architectPrompt = (folder, dossiers) => [CONTEXT, MANDATE, READ_FIRST, STA
   'units, packageDeltas, summary}.',
 ].join('\n\n')
 
-const implementPrompt = (folder, unit, preSwap, dossiers) => [CONTEXT, MANDATE, READ_FIRST, STANCE, WRITE_FULLY,
-  'TASK: GROUND-UP AUTHOR unit ' + unit.key + ' of ' + folder.name + ' - EXACTLY these pages: ' +
+const implementPrompt = (folder, unit, preSwap, dossiers) => [CONTEXT, MANDATE, READ_FIRST, WRITE_FULLY,
+  'TASK: GROUND-UP AUTHOR unit ' + unit.key + ' of ' + folder.name + ' - build freely and ambitiously to the full ' +
+  'bar; the trailing critique and red-team passes carry the attack. EXACTLY these pages: ' +
   unit.pages.join(', ') + '. CHARTER: ' + unit.charter + ' ' +
   (unit.catalogs && unit.catalogs.length ? 'CATALOGS you author first, verified-member-only, integration-shaped: ' +
     unit.catalogs.join(', ') + '. ' : '') +
@@ -214,14 +215,20 @@ const implementPrompt = (folder, unit, preSwap, dossiers) => [CONTEXT, MANDATE, 
 ].join('\n\n')
 
 const critiquePrompt = (folder, unit) => [CONTEXT, MANDATE, READ_FIRST, STANCE, WRITE_FULLY,
-  'TASK: HOSTILE DOCTRINAL-CONFORMANCE + CAPABILITY AUDIT; fix EACH page of unit ' + unit.key + ' in place: ' +
-  unit.pages.join(', ') + '. Audit every fence against the doctrine you read at source; repair every hit now. ' +
-  '- COLLAPSE_SCAN: run the README [03] table on every fence; the table is a FLOOR you hunt past. ' +
+  'TASK: CRITIQUE - your role law is libs/.planning/campaign-method.md [04] CRITIQUE, read at source and held to the ' +
+  'letter: the mechanical line-by-line doctrinal-conformance and capability-completeness audit, every hit a fix made ' +
+  'now, never a note; the named checklists are a FLOOR you hunt past. Fix EACH page of unit ' + unit.key +
+  ' in place: ' + unit.pages.join(', ') + '. ' +
+  '- COLLAPSE_SCAN: run the docs/stacks/csharp README [03] table on every fence. ' +
   '- OWNER_CHOOSER (shapes.md [01]): re-derive every shape from its discriminants; kill every parallel DTO, ' +
   'one-field wrapper, and null/default ghost. ' +
   '- KNOB_TEST: delete each parameter - where the value reconstructs it, collapse to a policy value or input-shape ' +
   'discriminant. ' +
   '- ASPECTS + RAILS: audit against surfaces-and-dispatch.md and rails-and-effects.md at their owning pages. ' +
+  '- BLOAT + OPTIMIZATION: density is anti-redundancy and polymorphic collapse - fold parallel shapes into one ' +
+  'owner, unify rails, reduce LOC through collapse with capability conserved, never through capability loss; ' +
+  'optimization is correctness and sophistication in the algorithmic form, not only line count; prose and comment ' +
+  'hygiene per the file-organization law. ' +
   '- HOST TRUTH: every RhinoCommon/Eto/GH2 member re-verified; a legacy idiom (GH1, Rhino 7-era) is a phantom - ' +
   'delete or rebuild on the current surface. ' +
   '- BOUNDARY: the folder references ONLY the Rasm kernel; a coupling to any other sibling or to AppUi is a defect ' +
@@ -232,7 +239,10 @@ const critiquePrompt = (folder, unit) => [CONTEXT, MANDATE, READ_FIRST, STANCE, 
 ].join('\n\n')
 
 const redteamPrompt = (folder, unit, crit) => [CONTEXT, MANDATE, READ_FIRST, STANCE, WRITE_FULLY,
-  'TASK: ADVERSARIAL ARCHITECT RED-TEAM; fix EACH page of unit ' + unit.key + ' in place: ' + unit.pages.join(', ') +
+  'TASK: RED-TEAM - your role law is libs/.planning/campaign-method.md [04] RED-TEAM, read at source and held to the ' +
+  'letter: the terminal and most aggressive review; every defect repaired in place, and the work ends objectively ' +
+  'DENSER and MORE CAPABLE than critique left it. Fix EACH page of unit ' + unit.key + ' in place: ' +
+  unit.pages.join(', ') +
   '. Assume the author and critique missed things. (A) COUNTERFACTUAL on the core owner/algebra/dispatch - does a ' +
   'denser generated family, a derived table, a parameterized generator over the enumerated space, or a deeper ' +
   'LanguageExt/Thinktecture/host primitive collapse the whole fence? A fundamentally stronger design is built, never ' +

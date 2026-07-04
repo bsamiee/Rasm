@@ -1,5 +1,9 @@
 # [CLAUDE_MANIFEST]
 
+[REQUIRED]: ALWAYS READ `.editorconfig` + `Directory.Build.props` UNDERSTAND FORMAT STYLING, ERRORS, ANALYZERS, NEVER IGNORE, NEVER USE VAR, NEVER USE INCORRECT NAMESPACING FOR CSHARP; ADHERE TO ALL EDTIORCONFIG RULINGS, DO NOT MAKE NONSENSE IN DESIGN DOCS, CODE FENCES, OR REAL CODE THAT WILL INSTANTLY FAIL AND GENERATE ERRORS.
+
+BEFORE DOING ANY ACTION IN REPO, YOU MUST LIST ALL ROOT LEVEL FILES; BE AWARE OF ALL CONFIGS, TOOLING, ETC FOR ANY LANGUAGE OR SOURCE, NEVER IGNORE WHEN RELEVANT.
+
 [COMMENT_DISCIPLINE]: Never tolerate comment spam. Maintain the section organizational style per `[09]-[FILE_ORGANIZATION]` — proper sub-section styling (no trailing dashes) and canonical section labels. Whenever any file is created or edited, aggressively refactor/prune/refine its prose and comments in the same pass (including inside code fences). Comments are RARELY larger than 1-2 lines, framed agent-first, and justified only as critical signal for maintaining/understanding code — never boilerplate or self-explanation. ALL prose, comments included, follows `docs/standards/style-guide.md`: concise, declarative, active voice, assertive, never hedging or qualifying, always concrete decisions — never ambiguity. Remove noise comments on sight; a comment earns its keep only when it serves agents working the file, never humans. THE SAME STANDARD APPLIES TO ALL `.md` PROSE WITHIN `libs/`.
 
 Read: `README.md` + `tools/assay/README.md`

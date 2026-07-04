@@ -131,6 +131,9 @@ internal static partial class GeodesicKernel {
     }
 
     // --- [MEAN_CURVATURE_FLOW]
+    // Scalar-field MCF owner: fixed connectivity, ONE memoized SPD factor, displacement MAGNITUDES
+    // out. The Au contraction (Meshing/skeleton) re-assembles per round over mutating connectivity
+    // — its own loop over the composed Cotangent/matrix owners; the two forms meet at no interior.
     internal static Fin<double> MeanCurvatureMagnitudeAt(MeshSpace space, double timeStep, int iterations, Point3d sample, Op key) =>
         from displacements in EnsureMcfDisplacements(space: space, timeStep: timeStep, iterations: iterations, key: key)
         from value in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: displacements, key: key)

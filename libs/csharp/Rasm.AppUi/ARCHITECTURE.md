@@ -58,7 +58,7 @@ Rasm.AppUi/
 ```text seams
 Shell/commands    →  typescript:wire/gateway            # [WIRE]: CommandPayloadWire + AvailabilityStore gate
 Render/capture    →  typescript:wire                # [PROJECTION]: RenderReceiptWire frame-hash proof
-Render/evidence   →  typescript:state              # [PROJECTION]: EvidenceFeed / EvidenceTimeline
+Render/evidence   →  typescript:core/state/feed    # [PROJECTION]: EvidenceFeed / EvidenceTimeline
 Render/pipeline   →  typescript:wire/frame               # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
 Render/glb        →  typescript:ui/viewer                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
 Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation

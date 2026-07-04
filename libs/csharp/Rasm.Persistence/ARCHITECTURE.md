@@ -43,7 +43,7 @@ Element/codec        ←  csharp:Rasm                        # [CONTENT_KEY]: ke
 Element/codec        →  typescript:wire                    # [WIRE]: SnapshotHeader + canonical-CBOR content-stable bytes
 Version/commits      →  typescript:wire                    # [WIRE]: CrdtOpWire MessagePack union + Hlc 16-byte cell
 Version/commits      ⇄  python:runtime/transport           # [WIRE]: CrdtOp None-companion bytes + the one XxHash128 seed parity corpus
-Version/commits      →  typescript:state                   # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
+Version/commits      →  typescript:core/state/causal + typescript:core/state/commit # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
 Version/merge        →  typescript:wire                    # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
 Version/ledger       ⇄  python:runtime/transport           # [WIRE]: OpLogEntry Payload CRDT delta over the one wire vocabulary
 Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceSlot trace-id slot

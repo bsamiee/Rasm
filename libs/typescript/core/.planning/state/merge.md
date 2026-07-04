@@ -23,7 +23,7 @@ The one lawful merge owner of the branch and its law surface in one module: ever
 - Packages: `@effect/typeclass` (`Semigroup`, `Monoid`, `Bounded`, `data/*` atoms); `effect` (`Array`, `Data`, `Effect`, `Either`, `Equivalence`, `HashMap`, `Option`, `Order`, `Record`, `STM`, `TMap`).
 
 ```typescript
-import * as Bounded from "@effect/typeclass/Bounded"
+import type * as Bounded from "@effect/typeclass/Bounded"
 import * as Monoid from "@effect/typeclass/Monoid"
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import * as BooleanInstances from "@effect/typeclass/data/Boolean"

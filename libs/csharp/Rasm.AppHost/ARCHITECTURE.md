@@ -55,12 +55,12 @@ Runtime/Ports.cs            ⇄  python:runtime/execution                    # [
 *                           →  typescript:wire                             # [WIRE]: CredentialPemWire redacted carrier
 *                           →  typescript:wire/gateway                     # [WIRE]: support-capture verb
 Agent/Capability.cs         ⇄  python:runtime/transport                    # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
-Observability/Health.cs     →  typescript:state                            # [WIRE]: DegradationLevel / CommandAvailabilityWire
+Observability/Health.cs     →  typescript:core/state/evidence              # [WIRE]: DegradationLevel / CommandAvailabilityWire
 Observability/Telemetry.cs  ←  python:runtime/observability                # [WIRE]: W3C trace-context inbound extraction
 Observability/Telemetry.cs  →  typescript:wire                             # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
 Runtime/Config.cs           →  python:runtime/execution                    # [WIRE]: CredentialPem
 Runtime/Ports.cs            ⇄  python:runtime/transport                    # [WIRE]: HLC two-half stamp + Tenant partition
-Runtime/Ports.cs            →  typescript:state                            # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
+Runtime/Ports.cs            →  typescript:core/state/evidence              # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
 Runtime/Ports.cs            →  python:runtime/clock + typescript:core/value/clock # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
 Wire/Livewire.cs            →  typescript:wire                             # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
 Observability/Telemetry.cs  →  typescript:telemetry                        # [TRANSPORT]: OtelExport OTLP egress

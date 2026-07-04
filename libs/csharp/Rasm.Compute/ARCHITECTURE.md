@@ -70,7 +70,7 @@ Runtime/channels  →  typescript:wire/frame         # [WIRE]: ArtifactFrameWire
 Runtime/channels  →  typescript:wire/frame                  # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
 Runtime/channels  ⇄  python:runtime/transport              # [WIRE]: PROTO_VOCABULARY service contracts
 Runtime/channels  ⇄  python:geometry/mesh                  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
-Runtime/progress  →  typescript:state        # [WIRE]: ProgressMarkWire
+Runtime/progress  →  typescript:core/state/evidence  # [WIRE]: ProgressMarkWire
 Runtime           ←  python:geometry/mesh                  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
 Runtime/codecs    ←  python:geometry/mesh                  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
 Runtime/progress  →  typescript:wire          # [PROJECTION]: ProgressStore stream proto

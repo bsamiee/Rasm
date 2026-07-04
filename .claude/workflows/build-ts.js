@@ -1,6 +1,6 @@
 export const meta = {
   name: 'build-ts',
-  description: 'Execute the approved TypeScript branch re-architecture: scaffold swap (6 new folders, .api moves, old 13-folder deletion, one commit), then wave-ordered fable builders authoring the ruled page roster per folder, one combined critique+redteam fixer per folder, then branch index docs, tests-plane alignment, and the repo-wide drift sweep. Every agent fixes what it notices with whole-repository authority; the ruling is embedded as data rows.',
+  description: 'Execute the approved TypeScript branch re-architecture: scaffold swap (6 new folders, .api moves, old 13-folder deletion, one commit), then wave-ordered fable builders authoring the ruled page roster per folder, a hostile critique pass then a red-team pass per folder, then branch index docs, tests-plane alignment, and the repo-wide drift sweep. Every agent fixes what it notices with whole-repository authority; the ruling is embedded as data rows.',
   whenToUse: 'Launch once after the partition ruling is approved. Ephemeral - delete after the campaign lands.',
   phases: [
     { title: 'Scaffold' },
@@ -101,20 +101,68 @@ const BUILDER_LAW =
   'else. Deferral exists ONLY for a fact owned by a folder later in the wave order. Return pages written, amendments, ' +
   'kills, residuals (strictly later-wave-owned facts, nothing else), summary max 8 lines.'
 
-const FIXER_LAW =
-  'YOU ARE THE FOLDER FIXER - one combined critique + red-team pass, every finding FIXED IN PLACE, hostile until an ' +
-  'attack finds nothing. Read the whole folder plus the doctrine and the census rows for the folder scope. Attack: ' +
-  '(a) collapse scan - parallel shapes, restated machinery, knob smell, pair-page residue; (b) phantom hunt - every ' +
-  'external member verified against the .api catalogs, unverifiable members deleted or demoted to RESEARCH; ' +
-  '(c) disposition audit - every census row for this scope landed or explicitly killed by the builders; fix gaps; ' +
-  '(d) seam truth - cross-language rows match the C#-side ARCHITECTURE.md fences on disk verbatim; (e) altitude - a ' +
-  'page under owner altitude is densified or absorbed, naive coverage (thin slice of a wide concept) is widened; ' +
-  '(f) doctrine conformance - owner forms, rails, vocabulary derivation, exports law, naming; (g) diff-of-next-feature ' +
-  'per page - the next engine/provider/wire-shape/lane lands as a row with zero new surfaces. Your write authority is ' +
-  'the whole repository: a defect you notice OUTSIDE this folder - an earlier folder page, a C#-side seam fence, a ' +
-  'stale doc or manifest row - you fix NOW yourself; nothing is handed off. Deferral exists only for a fact owned by ' +
-  'a folder later in the wave order. Fix everything; return the fix log, residuals (later-wave-owned only), verdict ' +
-  'max 5 lines.'
+const REVIEW_READ =
+  'READ FIRST, AT SOURCE, BEFORE ANY EDIT: enumerate docs/stacks/typescript/ with a real ls (never memory) and read ' +
+  'the README plus EVERY page it routes IN FULL in atlas order. Then STATE the complete README [02]-[DOCTRINE] law ' +
+  'set by name - all sixteen across FLOW, SHAPE, DERIVATION, MATERIAL, and INTEGRATION - each with a one-line reading ' +
+  'of how it bears on this folder; a law you cannot state is a law you have not read, and no edit lands before this. ' +
+  'Then ls BOTH .api tiers in full - libs/typescript/.api/ AND the folder .api/ - and read every catalog the folder ' +
+  'composes. ULTRA-STACKING IS LAW: an admitted capability the concept admits that no page exploits is a defect YOU ' +
+  'close by growing the owning page; a cited member you cannot verify against the catalog or the node_modules ' +
+  'declarations is a phantom YOU delete. Your write authority is the whole repository: a defect outside this folder ' +
+  'is yours to fix now; deferral exists only for a fact owned by a folder later in the wave order.'
+
+const CRITIQUE_LAW =
+  'YOU ARE THE CRITIQUE - the mechanical line-by-line doctrinal-conformance and capability-completeness audit; every ' +
+  'hit is a fix made NOW, never a note; the named dimensions are a FLOOR you hunt past. ' +
+  '- COLLAPSE_SCAN: run the README [03] table on every fence - any signal triggers the move, three or more make it ' +
+  'mandatory. ' +
+  '- OWNER_CHOOSER (shapes.md [01]): re-derive every shape from its discriminants (fallibility, payload arity, wire ' +
+  'crossing); kill every parallel interface or type alias beside a Schema owner, every DTO, every one-field wrapper, ' +
+  'every standalone brand export. The SHAPE BUDGET is one fifth of naive TypeScript and LOOSE TYPE/CONST SPAM IS THE ' +
+  'PRIME TARGET: a hand-written union a table derives, a const-plus-type restatement, a shape minted to name an ' +
+  'intermediate step, a low-value object a richer owner absorbs - each is deleted into derivation (typeof, keyof ' +
+  'typeof, indexed access, Schema.Schema.Type, pick/omit/extend) or folded into the owning family as a case, row, ' +
+  'field, or variant. ' +
+  '- KNOB_TEST + MODAL_ARITY: delete each parameter - where the value reconstructs it, collapse to a policy value or ' +
+  'input-shape discriminant; one entrypoint owns every modality through input-shape discrimination, Function.dual ' +
+  'twins, and overload sets over discriminated input - never suffix families, never boolean knobs. ' +
+  '- INJECTION: capability travels the requirement channel - Effect.Service owners, Context.Tag ports, Layer graphs, ' +
+  'Context.Reference ambients; a module-level live instance, an ambient import, or a parameter-drilled dependency is ' +
+  'rewired now. ' +
+  '- RAILS + ASPECTS (rails-and-effects.md + surfaces-and-dispatch.md, both owners): typed error channel, closed ' +
+  'tagged fault families, accumulate-vs-abort fixed once at the boundary, Schedule policy values, telemetry and ' +
+  'resilience attached at the definition seam. ' +
+  '- STRINGY/FRAGILE: raw string plumbing dies - vocabulary literals derive from as-const anchors, brands ride Schema ' +
+  'fields, structured strings ride TemplateLiteralParser, keys are keyof-typeof proven; zero any, zero unsafe as, ' +
+  'zero non-null assertion. ' +
+  '- DISPOSITION + SEAMS: every census row for this scope landed or explicitly killed by the builders - fix the gaps; ' +
+  'cross-language rows mirror the C#-side ARCHITECTURE.md fences on disk verbatim, both ends. ' +
+  '- CAPABILITY + ILLUSION: the body implements what names and prose promise; ANTICIPATE COMPLEX USAGE - every owner ' +
+  'is sized for five-times demand and the hard modality (batch, stream, concurrent, multi-tenant), never the naive ' +
+  'single-shot case. Fix everything; return the fix log, residuals (later-wave-owned only), verdict max 5 lines.'
+
+const REDTEAM_LAW =
+  'YOU ARE THE RED-TEAM - the terminal and most aggressive pass; assume the builders AND the critique missed things; ' +
+  'the folder ends objectively DENSER and MORE CAPABLE than the critique left it. ' +
+  '(A) COUNTERFACTUAL on every core owner, algebra, and dispatch surface: does a denser tagged family with exhaustive ' +
+  'Match, a Schema class family with derived variants and projections, a vocabulary table with lookup dispatch, a ' +
+  'parameterized generator over the enumerated space, or a deeper Effect-ecosystem primitive (Stream, Layer algebra, ' +
+  'RequestResolver, STM, Cluster, Workflow, VariantSchema) collapse the whole fence? A fundamentally stronger design ' +
+  'is BUILT, never defended against. ' +
+  '(B) ANTICIPATORY_COLLAPSE: compute the diff of the next feature - the next engine row, provider, wire shape, lane, ' +
+  'or modality lands as ONE row with every consumer untouched or loudly broken at Match.exhaustive. ' +
+  '(C) LONG-TAIL: empty, singular, plural, batch, stream, malformed, concurrent, cancelled, partial-failure, ' +
+  'version-skew; backpressure and interruption correct; ingress AND egress parameterized. ' +
+  '(D) BOUNDARY/STRATA: wave order holds, no downward dependency, seams repaired on BOTH ends, entry surfaces stay ' +
+  'few and deep - a consumer imports a small set of deep owners, never a spray of modules. ' +
+  '(E) SPRAWL + PHANTOMS: hand-re-derived package capability, flat code below the operator depth the admitted ' +
+  'packages reach, any/unsafe-as/non-null smuggled anywhere, phantom members, thin wrappers, barrel indirection - ' +
+  'deleted or rebuilt on the real surface. ' +
+  '(F) FULL COLD RE-REVIEW of every critique dimension by name - COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST + ' +
+  'MODAL_ARITY, INJECTION, RAILS + ASPECTS, STRINGY, shape budget, both-tier .api ultra-stacking, prose hygiene - and ' +
+  'verify on disk that the critique fix-log genuinely landed. Fix everything; return the fix log, residuals ' +
+  '(later-wave-owned only), verdict max 5 lines.'
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
@@ -137,7 +185,7 @@ const MANIFEST_REMAP =
 
 const ROSTER = [
   {
-    folder: 'core', wave: 'W0',
+    folder: 'core', wave: 'W0', stages: [['value+observe'], ['state'], ['interchange']],
     units: [
       {
         key: 'value+observe',
@@ -187,7 +235,7 @@ const ROSTER = [
     ],
   },
   {
-    folder: 'security', wave: 'W1',
+    folder: 'security', wave: 'W1', stages: [['all']],
     units: [
       {
         key: 'all',
@@ -210,7 +258,7 @@ const ROSTER = [
     ],
   },
   {
-    folder: 'data', wave: 'W2',
+    folder: 'data', wave: 'W2', stages: [['lane+journal'], ['read+object']],
     units: [
       {
         key: 'lane+journal',
@@ -255,7 +303,7 @@ const ROSTER = [
     ],
   },
   {
-    folder: 'runtime', wave: 'W3',
+    folder: 'runtime', wave: 'W3', stages: [['proc+net+otel'], ['serve', 'browser'], ['work+ai']],
     units: [
       {
         key: 'proc+net+otel',
@@ -322,7 +370,7 @@ const ROSTER = [
     ],
   },
   {
-    folder: 'ui', wave: 'W4',
+    folder: 'ui', wave: 'W4', stages: [['system+view'], ['viewer']],
     units: [
       {
         key: 'system+view',
@@ -350,7 +398,7 @@ const ROSTER = [
     ],
   },
   {
-    folder: 'iac', wave: 'W4',
+    folder: 'iac', wave: 'W4', stages: [['all']],
     units: [
       {
         key: 'all',
@@ -409,10 +457,15 @@ const builderPrompt = (folder, unit, preSwap) =>
   'Earlier waves are settled on disk under ' + ROOT + ' - compose their vocabulary. Doctrine, planning law, and your ' +
   'folder .api catalogs are read IN FULL before the first fence.'
 
-const fixerPrompt = (folder, unitReports) =>
-  LAW + ' ' + FIXER_LAW + ' ' +
+const critiquePrompt = (folder, unitReports) =>
+  LAW + ' ' + REVIEW_READ + ' ' + CRITIQUE_LAW + ' ' +
   'SCOPE: the whole folder ' + ROOT + '/' + folder + ' as just built. Builder reports (amendments/kills/residuals to ' +
-  'verify, not trust): ' + JSON.stringify(unitReports) + '. EVIDENCE: ' + EVIDENCE + '.'
+  'verify, never trust): ' + JSON.stringify(unitReports) + '. EVIDENCE: ' + EVIDENCE + '.'
+
+const redteamPrompt = (folder, crit) =>
+  LAW + ' ' + REVIEW_READ + ' ' + REDTEAM_LAW + ' ' +
+  'SCOPE: the whole folder ' + ROOT + '/' + folder + ' as the critique left it. CRITIQUE RESULT (verify its fixes on ' +
+  'disk, never trust the log): ' + JSON.stringify(crit || {}) + '. EVIDENCE: ' + EVIDENCE + '.'
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
 
@@ -428,37 +481,50 @@ log('swap committed: ' + scaffold.commit + ' (preSwap ' + scaffold.preSwap + ')'
 // --- [BUILD]
 
 phase('Build')
+const WAVE_GROUPS = [['core'], ['security'], ['data'], ['runtime'], ['ui', 'iac']]
 const folderResults = []
-const carried = []
+let carried = []
 
-for (const entry of ROSTER) {
-  log(entry.wave + ' ' + entry.folder + ': ' + entry.units.length + ' builder(s) then 1 fixer')
+const runFolder = async (entry, carriedIn) => {
+  log(entry.wave + ' ' + entry.folder + ': ' + entry.stages.length + ' stage(s), then critique, then red-team')
+  const carriedNote = carriedIn.length > 0
+    ? ' RESIDUALS carried from earlier folders that name your scope - land or explicitly return them: ' + JSON.stringify(carriedIn)
+    : ''
   const reports = []
-  for (const unit of entry.units) {
-    const carriedNote = carried.length > 0
-      ? ' RESIDUALS carried from earlier folders that name your scope - land or explicitly return them: ' + JSON.stringify(carried)
-      : ''
-    const report = await agent(builderPrompt(entry.folder, unit, scaffold.preSwap) + carriedNote, {
-      label: 'build:' + entry.folder + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'xhigh', schema: BUILD_OUT,
-    })
-    if (report) reports.push({ unit: unit.key, ...report })
+  for (const stageKeys of entry.stages) {
+    const stage = stageKeys.map((key) => entry.units.find((unit) => unit.key === key)).filter(Boolean)
+    const stageOut = (await parallel(stage.map((unit) => () =>
+      agent(builderPrompt(entry.folder, unit, scaffold.preSwap) + carriedNote, {
+        label: 'build:' + entry.folder + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'xhigh', schema: BUILD_OUT,
+      }).then((report) => (report ? { unit: unit.key, ...report } : null))))).filter(Boolean)
+    reports.push(...stageOut)
   }
-  const fixed = await agent(fixerPrompt(entry.folder, reports), {
-    label: 'fix:' + entry.folder, phase: 'Build', model: 'fable', effort: 'max', schema: FIX_OUT,
+  const crit = await agent(critiquePrompt(entry.folder, reports), {
+    label: 'crit:' + entry.folder, phase: 'Build', model: 'fable', effort: 'xhigh', schema: FIX_OUT,
   })
-  const residuals = [
-    ...reports.flatMap((report) => report.residuals || []),
-    ...((fixed && fixed.residuals) || []),
-  ]
-  carried.length = 0
-  carried.push(...residuals)
-  folderResults.push({
-    folder: entry.folder,
-    pages: reports.flatMap((report) => report.pages || []).length,
-    kills: reports.flatMap((report) => report.kills || []),
-    fixes: fixed ? fixed.fixes.length : 0,
-    verdict: fixed ? fixed.verdict : 'fixer dropped',
+  const rt = await agent(redteamPrompt(entry.folder, crit), {
+    label: 'rt:' + entry.folder, phase: 'Build', model: 'fable', effort: 'max', schema: FIX_OUT,
   })
+  return { entry, reports, crit, rt }
+}
+
+for (const group of WAVE_GROUPS) {
+  const entries = group.map((name) => ROSTER.find((row) => row.folder === name)).filter(Boolean)
+  const outs = (await parallel(entries.map((entry) => () => runFolder(entry, carried)))).filter(Boolean)
+  carried = outs.flatMap((out) => [
+    ...out.reports.flatMap((report) => report.residuals || []),
+    ...((out.crit && out.crit.residuals) || []),
+    ...((out.rt && out.rt.residuals) || []),
+  ])
+  for (const out of outs) {
+    folderResults.push({
+      folder: out.entry.folder,
+      pages: out.reports.flatMap((report) => report.pages || []).length,
+      kills: out.reports.flatMap((report) => report.kills || []),
+      fixes: (out.crit ? out.crit.fixes.length : 0) + (out.rt ? out.rt.fixes.length : 0),
+      verdict: out.rt ? out.rt.verdict : out.crit ? out.crit.verdict : 'reviews dropped',
+    })
+  }
 }
 
 // --- [TERMINAL]

@@ -234,9 +234,12 @@ const MODE = {
       'from a brief census figure. deletePages: only brief-declared outright deletions confirmed present on disk ' +
       'whose content maps to a destination outside the page set ({page, capturedIn, wave}); an absorbed page whose ' +
       'absorber is in the page set travels via `absorb` on the absorber. ',
-    legRead: LEG != null ? 'LEG SELECTOR: read the brief leg/wave-partition table and admit ONLY the selected leg(s) ' +
-      JSON.stringify(LEG) + ' page rows, in their listed order (listed order IS dependency order), consuming their ' +
-      'declared kind/absorb/deletePages/rider cells verbatim — verified against disk, never re-invented. Transcribe ' +
+    legRead: LEG != null ? 'LEG SELECTOR: the brief leg/wave-partition table OWNS the page set — the selected leg(s) ' +
+      JSON.stringify(LEG) + ' page rows ARE the pages. When TARGETS is empty the leg rows are the SOLE source: resolve ' +
+      'each row\'s page path repo-relative under the brief\'s package root and derive `packages` from those paths; when ' +
+      'TARGETS is present the rows bound the admission. Admit them in their listed order (listed order IS dependency ' +
+      'order), consuming their declared kind/absorb/deletePages/rider cells verbatim — verified against disk, never ' +
+      're-invented. An empty `pages` return with a leg selected is a DEFECT — the leg row names its targets. Transcribe ' +
       'each rider cell into a typed rider row (SYMBOL anchors, never line numbers). Emit the brief acceptance ' +
       'dry-runs covering the selected leg(s) as `acceptance` traces. Where a selected leg names an upstream-leg page ' +
       'absent on disk, list it in `upstreamMissing` — never silently proceed. ' : '',
@@ -318,6 +321,10 @@ const readFirst = (pkg, dossier) => [
   L.key === 'cs' ? '(1b) Enumerate `docs/stacks/csharp/domain/` with a real `ls` through its router README, then read every ' +
     'shard the page concerns touch — chosen from the enumerated set, truthfully, never from memory or skipped; shard ' +
     'conformance is a hard gate.' : '',
+  '(1c) ANALYZER LAW — read the repo `.editorconfig` rules for your language: every rule at `error` severity is a COMPILE ' +
+    'GATE the fences must satisfy (`dotnet_style_namespace_match_folder = true:error` means namespace ALWAYS equals folder ' +
+    'path — a namespace matrix, mapping table, or doc claim that contradicts an error-level analyzer rule is a FICTION to ' +
+    'correct, never law to compose).',
   '(2) .API — `ls` BOTH catalog tiers in full — the shared substrate `' + L.root + '/.api/` AND the folder `' + pkg +
     '/.api/` — then read every catalog relevant to these pages, layering the shared rails (' + L.deepPkgs + ') ON TOP OF the ' +
     'folder domain packages, never the folder set alone.',
@@ -377,7 +384,9 @@ const preamble = (batch, dossier) => [CONTEXT, readFirst(pkgOf(batch[0].page), d
 
 // --- [PROMPTS] — each task states only its own action; shared checks are referenced by name.
 const planPrompt = () => [CONTEXT,
-  'TASK: thin enumerate + classify (read-only, do NOT edit). TARGETS (repo-relative): ' + JSON.stringify(TARGETS) + '. The ' +
+  'TASK: thin enumerate + classify (read-only, do NOT edit). TARGETS (repo-relative): ' + JSON.stringify(TARGETS) +
+  (TARGETS.length ? '. The ' : ' — EMPTY: the brief leg selector below supplies the page set; the selected leg rows ARE ' +
+  'the expansion, so skip target expansion and go straight to the brief. The ') +
   'OWNING PACKAGE of a page is the path before `/.planning/`. Use find/ls; validate the expansion against ' +
   '`libs/.planning/planning-targets.md` (a mis-scoped or renamed target is reported in `upstreamMissing`, a deliberately ' +
   'page-less target is skipped silently). Return `packages` (one entry per distinct owning package: {name, root, planning, ' +
