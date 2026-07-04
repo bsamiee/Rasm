@@ -12,9 +12,9 @@ The crossing is fence-pinned per the data assessment-wire discipline: every resu
 
 - Owner: `Simulation` — the frozen owner holding the admitted `BuildingModel`, the `LanePolicy` its CPU legs offload under, and the `RecipeExecution` handle execution routes through (constructed once at the composition edge from the caller's admission budget — never per call); `TranslateTarget` the closed format vocabulary (`OSM`/`IDF`/`EPJSON`/`GBXML`) keying the `WRITERS` row (the `honeybee_openstudio.writer` function name — a format is a row, never a parallel translator); `SimPar` the simulation-parameter request — reporting frequency, the requested-output families as boolean policy rows (`zone_energy`/`hvac_energy`/`comfort_metrics`/`unmet_hours`), run-period window, north angle, terrain — folded onto one `SimulationParameter` document, never a hand-stitched JSON; `RunSpec` the simulation request — the weather artifact path, the `SimPar`, and the `Option` extra recipe inputs — projected into the runtime `RecipeSpec` for the `annual-energy-use` catalog row; `ResultQuery` the closed decode union — `collections` (output names against the sql), `eui` (the end-use census), `tabular` (a named summary table), `outputs` (the available-output census the router reads first); `ResultFrame` the self-describing crossing carrier — the column-disciplined rows plus the frame `ContentKey`; `SimulationReceipt` the `ReceiptContributor` evidence.
 - Cases: `WRITERS` rows `OSM -> model_to_osm` · `IDF -> model_to_idf` · `EPJSON -> model_to_epjson` · `GBXML -> model_to_gbxml`; `ResultQuery.collections` carries the output-name tuple (`available_outputs` is the discriminator a caller reads first — never a guessed name), `eui` carries no payload, `tabular` carries the table name, `outputs` carries no payload.
-- Entry: `translate(target, folder)` probes the native SDK once (`find_spec("openstudio")`) inside the kernel — present, the `WRITERS` row's in-process writer serializes the honeybee `Model` to the format STRING (the writers take no folder — verified against the live distribution) and the kernel owns the durable artifact write into `folder`; absent, the fall-through builds the OSW (`to_openstudio_osw(folder, model_path)`) and runs the OpenStudio CLI (`run_osw(osw, measures_only=True)` — translation only, returning the `(osm, idf)` pair the target selects from) — one translation concept, the SDK probe the selector, the whole kernel offloaded through `self.lane.offload(..., modality=Modality.THREAD)` because both legs are blocking (CPU-bound SDK translation, child-process CLI wait). `sim_par(spec)` builds the `SimulationParameter` — `SimulationOutput(reporting_frequency=...)` with the requested families added through their owned methods (`add_zone_energy_use`/`add_hvac_energy_use`/`add_comfort_metrics`/`add_unmet_hours` — request rows, never raw output strings), run period/north/terrain applied — and returns the document dict for the recipe's sim-par input. `simulate(run)` writes the model's durable `.hbjson` through `BuildingModel.hbjson`, projects the runtime `RecipeSpec(recipe=RecipeName.ANNUAL_ENERGY_USE, inputs={model, epw, sim-par, ...})`, and awaits `self.recipes.execute(spec)` — the runtime owner runs the engine gates, the handler coercion, the `queenbee local run` subprocess, and the luigi-evidence verdict; geometry receives the typed `RecipeProduct` back and never re-parses a log; `job()` projects the queenbee submission schema (`RecipeInterface` through the runtime `interface`, `Job`/`JobArgument` rows over it) for a consumer that submits rather than runs locally. `results(sql, query)` decodes: `collections` folds `data_collections_by_output_name(name)` per requested output into long-form rows — one row per (output, zone, step) with the `Header`'s unit/period and the collection metadata's zone identifier riding every row; `eui` folds `eui_from_sql` into (end-use, kWh/m2) rows; `tabular` folds `tabular_data_by_name`; `outputs` returns the census — every arm landing in a `ResultFrame` keyed by `ContentIdentity.key("energy-result", ...)` over its canonical bytes. `crossing(frame)` composes the CONSUMER-EDGE physical crossing: the deferred `pyarrow` table lifts the column-disciplined rows, the data `tabular/columnar` public Arrow-bytes fold serializes canonically, and the frame's `ContentKey` travels WITH the bytes — the artifacts chart/table suites and the C# decode read a frame that attributes and dedupes itself.
+- Entry: `translate(target, folder)` probes the native SDK once (`find_spec("openstudio")`) inside the kernel — present, the `WRITERS` row's in-process writer serializes the honeybee `Model` to the format STRING (the writers take no folder — verified against the live distribution) and the kernel owns the durable artifact write into `folder`; absent, the fall-through builds the OSW (`to_openstudio_osw(folder, model_path)`) and runs the OpenStudio CLI (`run_osw(osw, measures_only=True)` — translation only, returning the `(osm, idf)` path pair the target selects from; the CLI pair serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact) — one translation concept, the SDK probe the selector, the whole kernel offloaded through `self.lane.offload(..., modality=Modality.THREAD)` because both legs are blocking (CPU-bound SDK translation, child-process CLI wait). `sim_par(spec)` builds the `SimulationParameter` — `SimulationOutput(reporting_frequency=...)` with the requested families added through their owned methods (`add_zone_energy_use`/`add_hvac_energy_use`/`add_comfort_metrics`/`add_unmet_hours` — request rows, never raw output strings), run period/north/terrain applied — and returns the document dict for the recipe's sim-par input. `simulate(run)` writes the model's durable `.hbjson` through `BuildingModel.hbjson`, projects the runtime `RecipeSpec(recipe=RecipeName.ANNUAL_ENERGY_USE, inputs={model, epw, sim-par, ...})`, and awaits `self.recipes.execute(spec)` — the runtime owner runs the engine gates, the handler coercion, the `queenbee local run` subprocess, and the luigi-evidence verdict; geometry receives the typed `RecipeProduct` back and never re-parses a log; `job()` projects the queenbee submission schema (`RecipeInterface` through the runtime `interface`, `Job`/`JobArgument` rows over it) for a consumer that submits rather than runs locally. `results(sql, query)` decodes: `collections` folds `data_collections_by_output_name(name)` per requested output into long-form rows — one row per (output, zone, step) with the `Header`'s unit/period and the collection metadata's zone identifier riding every row; `eui` folds `eui_from_sql` into (end-use, kWh/m2) rows; `tabular` folds `tabular_data_by_name`; `outputs` returns the census — every arm landing in a `ResultFrame` keyed by `ContentIdentity.key("energy-result", ...)` over its canonical bytes. `crossing(frame)` composes the CONSUMER-EDGE physical crossing: the deferred `pyarrow` table lifts the column-disciplined rows, the data `tabular/columnar` public Arrow-bytes fold serializes canonically, and the frame's `ContentKey` travels WITH the bytes — the artifacts chart/table suites and the C# decode read a frame that attributes and dedupes itself.
 - Auto: every entry rides `evidence_run(EvidenceScope.ENERGY_SIMULATE, <operation>, dispatch)`; the translate offload carries no retry class (a deterministic translation owns no transiency — the runtime recipe owner already retries its own engine gate); `DetailedHVAC` models route through the OpenStudio measure path by construction (the in-process writer and the OSW pair both carry it; the pure-EnergyPlus IDF row rejects a `DetailedHVAC` model with a typed fault naming the constraint); the sql decode never guesses an output name — the `outputs` census is the router, and a requested name absent from the census is a typed fault naming the name and the census size; frame column discipline is load-bearing: `output`/`unit`/`period`/`zone`/`step`/`value`/`content_key` are THE columns, a wire consumer decodes by symbol, and a frame without its key column is the deleted form.
-- Receipt: `SimulationReceipt` carries the operation, the translate target or recipe discriminant, the model `ContentKey`, the frame row/column counts, the `Option[float]` total-EUI evidence, and the frame `ContentKey`; `contribute` yields one emitted-phase `Receipt.of("rasm.geometry.energy.simulate", self)` row; `graduates(key, ceiling)` folds under `GeometrySubject.BUILDING_ENERGY` — the measured fact is the total EUI (kWh/m2) against the caller's compliance ceiling, real building-physics evidence crossing to compute, never a row count.
+- Receipt: `SimulationReceipt` carries the operation, the translate target or recipe discriminant, the model `ContentKey`, the frame row/column counts, the `Option[float]` total-EUI evidence, and the frame `ContentKey`; `contribute` yields one emitted-phase `Receipt.of("rasm.geometry.energy.simulate", ("emitted", subject, facts))` triple — the receipts owner's `Evidence` shape, never the receipt struct itself; `graduates(key, ceiling)` folds under `GeometrySubject.BUILDING_ENERGY` — the measured fact is the total EUI (kWh/m2) against the caller's compliance ceiling, real building-physics evidence crossing to compute, never a row count.
 - Packages: `honeybee-openstudio` (`writer.model_to_openstudio`/`model_to_osm`/`model_to_idf`/`model_to_epjson`/`model_to_gbxml` — the in-process leg over the native `openstudio` SDK (BSD), gated on the `find_spec` probe; every SDK class reaches code only through `honeybee_openstudio.openstudio` — AGPL posture on the wrapper, function-local imports), `honeybee-energy` (`run.to_openstudio_osw`/`run_osw` the CLI fall-through pair, `simulation.parameter.SimulationParameter`/`simulation.output.SimulationOutput` + the `add_*` request rows, `result.eui.eui_from_sql` — same posture), `ladybug-core` (`sql.SQLiteResult` — `available_outputs`/`data_collections_by_output_name`/`tabular_data_by_name`/`run_periods` — the ONLY EnergyPlus SQL decode path), `queenbee` (`Job` + `queenbee.io.inputs.job.JobArgument`/`JobPathArgument` constructed over the runtime `interface` projection — schema only), `pyarrow` (`Table.from_pydict` the frame lift — module-level-banned, deferred inside the crossing kernel), `expression` (`Block`/`Map`/`Option`/`tagged_union`), `msgspec` (`Struct` carriers, canonical json bytes), data (`tabular/columnar` public Arrow-bytes fold — the one canonical serialization the crossing composes at the consumer edge), geometry (`energy/model` `BuildingModel` downward, `evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`), runtime (`RecipeExecution`/`RecipeSpec`/`RecipeName`/`RecipeProduct` the execution seam, `LanePolicy`/`Modality` the offload, `ContentIdentity`/`ContentKey`, `RuntimeRail`/`BoundaryFault`, `Receipt`).
 - Growth: a new translation format is one `WRITERS` row; a new requested-output family is one `SimPar` policy row over its `SimulationOutput.add_*` method; a new result decode is one `ResultQuery` case (`loadbalance`/`emissions`/`generation`/`component_sizes` are the named next rows over their `honeybee_energy.result` parsers); the daylight/comfort-map recipes ride the SAME `simulate` shape — one more `RecipeName` row in the runtime spec, their folder outputs already typed by the runtime handler readers, the `ladybug_comfort.map` kernels composing over those matrices through the climate owner's vocabulary; a cloud submission consumes `job()` against the Pollination API when a consumer names it.
 - Boundary: no execution (runtime `execution/recipe` owns the subprocess, the engine gates, and the luigi verdict), no model semantics (`energy/model`), no weather algebra (`energy/climate`), no SQL schema parse (`SQLiteResult` owns it), no OSM/IDF object mapping (`honeybee-openstudio` owns it), and no intra-data egress import beyond the one public Arrow-bytes fold. The deleted forms: a blocking `model_to_openstudio` on the event loop where the lane offload owns the CPU leg; parallel `to_osm`/`to_idf` methods where one `translate` reads the `WRITERS` row; a second runner or a re-parsed luigi log where the runtime `RecipeProduct` is the verdict; a raw project folder returned where the handled outputs and typed frames are the product; a result frame missing its `unit`/`period`/`zone`/`content_key` columns (the C# decoder can neither attribute nor dedupe it — the fence-pinned floor); a guessed output name where the `outputs` census routes; a hand-stitched sim-par JSON where the `SimulationParameter` family owns assembly; and a fresh Arrow serialization where the data fold is the one canonical derivation.
@@ -25,9 +25,9 @@ from collections.abc import Iterable
 from enum import StrEnum
 from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Final, Literal, assert_never
 
-from expression import Error, Option, case, tag, tagged_union
+from expression import Error, Nothing, Option, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from msgspec import json as msgjson
@@ -75,6 +75,8 @@ WRITERS: Final[Map[TranslateTarget, str]] = Map.of_seq([
 
 FRAME_COLUMNS: Final[tuple[str, ...]] = ("output", "unit", "period", "zone", "step", "value", "content_key")
 
+_ENCODER: Final = msgjson.Encoder(order="deterministic")  # one module-level canonical-bytes codec; never per-call construction
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -86,6 +88,7 @@ class SimPar(Struct, frozen=True, gc=False):
     unmet_hours: bool = True
     north_angle: float = 0.0
     terrain: str = "City"
+    run_period: Option[tuple[tuple[int, int], tuple[int, int]]] = Nothing  # ((st_month, st_day), (end_month, end_day)); Nothing = annual
 
 
 class RunSpec(Struct, frozen=True):
@@ -109,7 +112,19 @@ class SimulationReceipt(Struct, frozen=True):
     frame_key: Option[ContentKey]
 
     def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of("rasm.geometry.energy.simulate", self)
+        yield Receipt.of(
+            "rasm.geometry.energy.simulate",
+            (
+                "emitted",
+                f"{self.operation}:{self.discriminant}",
+                {
+                    "rows": self.rows,
+                    "eui": self.eui_total.default_value(0.0),
+                    "model_key": self.model_key.hex,
+                    "frame_key": self.frame_key.map(lambda key: key.hex).default_value(""),
+                },
+            ),
+        )
 
     def graduates(self, key: ContentKey, ceiling: float) -> GeometryHandoff:
         measured = self.eui_total.default_value(0.0)
@@ -133,6 +148,8 @@ class Simulation(Struct, frozen=True):
         def fold() -> dict[str, object]:
             from honeybee_energy.simulation.output import SimulationOutput  # noqa: PLC0415 — AGPL boundary import
             from honeybee_energy.simulation.parameter import SimulationParameter  # noqa: PLC0415
+            from honeybee_energy.simulation.runperiod import RunPeriod  # noqa: PLC0415
+            from ladybug.dt import Date  # noqa: PLC0415
 
             output = SimulationOutput(reporting_frequency=spec.reporting_frequency)
             requests = (
@@ -144,7 +161,8 @@ class Simulation(Struct, frozen=True):
             for wanted, add in requests:  # Exemption: SimulationOutput accumulates requests in place; the rows select its owned adders.
                 if wanted:
                     add()
-            parameter = SimulationParameter(output=output, north_angle=spec.north_angle, terrain_type=spec.terrain)
+            window = spec.run_period.map(lambda period: RunPeriod(Date(*period[0]), Date(*period[1]))).to_optional()
+            parameter = SimulationParameter(output=output, run_period=window, north_angle=spec.north_angle, terrain_type=spec.terrain)
             return parameter.to_dict()
 
         return evidence_run(EvidenceScope.ENERGY_SIMULATE, "sim_par", fold)
@@ -190,7 +208,9 @@ class Simulation(Struct, frozen=True):
                     rows = tuple((name, "", "", str(key), 0, value) for key, values in reader.tabular_data_by_name(name).items() for value in values)
                 case ResultQuery(tag="outputs", outputs=None):
                     rows = tuple((name, "", "", "", 0, 0.0) for name in census)
-            key = ContentIdentity.key("energy-result", msgjson.Encoder(order="deterministic").encode(rows))
+                case _ as unreachable:
+                    assert_never(unreachable)
+            key = ContentIdentity.key("energy-result", _ENCODER.encode(rows))
             return ResultFrame(columns=FRAME_COLUMNS, rows=tuple((*row, key.hex) for row in rows), content_key=key)
 
         return evidence_run(EvidenceScope.ENERGY_SIMULATE, f"results.{query.tag}", fold)
@@ -228,6 +248,9 @@ def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) 
 
     def cli() -> Path:
         from honeybee_energy.run import run_osw, to_openstudio_osw  # noqa: PLC0415 — AGPL boundary import
+
+        if target not in (TranslateTarget.OSM, TranslateTarget.IDF):
+            raise ValueError(f"cli-translate-unsupported:{target}:requires-openstudio-sdk")  # converted once by the evidence_run fence
 
         model_path = building.model.to_hbjson(name=building.model.identifier, folder=str(folder))
         osw = to_openstudio_osw(str(folder), model_path)

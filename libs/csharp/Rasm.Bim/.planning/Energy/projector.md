@@ -21,9 +21,11 @@ Wire posture: HOST-LOCAL, foreign types decode-confined. The LBT-Newtonsoft `Mod
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LanguageExt;
+using LanguageExt.Traits;
 using NodaTime;
 using Rasm;
 using Rasm.Domain;

@@ -106,9 +106,9 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 [EPD_LCA]:
 - `openepd` — OpenEPD/EC3 typed declaration model, EC3 sync client, and offline bundle IO.
 - `epdx` — ILCD+EPD to EPDx common-format conversion.
-- `bw2data` — Brightway project and node/edge graph store (system of record); owns the `bw2setup` and ecoinvent/EEIO import bootstrap with `bw2io`.
+- `bw2data` — Brightway project and node/edge graph store (system of record).
 - `bw2calc` — Brightway LCA solver (sparse matrix assembly and score).
-- `bw2io` — Brightway LCI/LCIA import/export and database ingestion.
+- `bw2io` — Brightway LCI/LCIA import/export and database ingestion; owns the `bw2setup` and ecoinvent/EEIO bootstrap against the current `bw2data` project.
 - `bw2analyzer` — Brightway contribution/comparison analysis: `annotated_top_processes`/`annotated_top_emissions` depth on the solve leg.
 - `bw-processing` — Brightway matrix-datapackage substrate (COO triples).
 - `olca-ipc` — live openLCA IPC/REST client and result queries; carries `olca-schema` as its wire model.
