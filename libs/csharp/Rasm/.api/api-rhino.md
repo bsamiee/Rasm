@@ -113,7 +113,7 @@
 | :-----: | :------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------- |
 |  [01]   | `ClosestPoint` / `RemapToPlaneSpace` / `ClosestParameter` | `Plane`        | frame projection and world<->plane-space remap; `ValueAt`/`DistanceTo` give the signed plane distance the `PlaneMesh` straddle reads |
 |  [02]   | `GetPlaneEquation` / `Rotate` / `Transform` / `Translate` / `Flip` | `Plane`        | the plane equation `[a,b,c,d]`, in-place reframing, and the `ExtendThroughBox` parameter window  |
-|  [03]   | `CreateFromNormal` / `CreateFromPoints` / `CreateFromFrame` / `FitPlaneToPoints` | `Plane`        | the static frame-construction family; `FitPlaneToPoints` is the least-squares fit the `Processing/fit` page composes |
+|  [03]   | `CreateFromNormal` / `CreateFromPoints` / `CreateFromFrame` / `FitPlaneToPoints` | `Plane`        | the static frame-construction family; `FitPlaneToPoints` is the least-squares fit the `Spatial/cloud` `CloudKernel.BestFitPlaneOf` fold composes |
 |  [04]   | `Union(a,b)` / `Union(box,point)` / `Intersection(a,b)` | `BoundingBox`  | static and in-place AABB merge / overlap — the broad-phase the kernel BVH `NodeStore` accumulates |
 |  [05]   | `Contains` / `ClosestPoint` / `FurthestPoint` / `Corner` / `GetCorners` / `PointAt` | `BoundingBox`  | point-in-box, nearest/farthest on the box, the eight corners, parametric sampling               |
 |  [06]   | `Inflate` / `Transform` / `MakeValid` / `IsDegenerate` / `Volume` / `Area` / `Diagonal` | `BoundingBox`  | grow/shrink, transform the box, validity and degeneracy classification, extent measures          |

@@ -202,7 +202,11 @@ public readonly record struct TopologyReceipt(
         return AtomProjection.Rows<TopologyReceipt, TOut>(self: self, key: key,
             ProjectionRow.Of<(int Euler, int Genus, int BoundaryComponents)>(() => self.Genus.Match(
                 Some: genus => Fin.Succ((self.EulerCharacteristic, genus, self.BoundaryComponents)),
-                None: () => Fin.Fail<(int Euler, int Genus, int BoundaryComponents)>(key.InvalidResult()))));
+                None: () => Fin.Fail<(int Euler, int Genus, int BoundaryComponents)>(key.InvalidResult()))),
+            // Genus-tolerant total row: un-gated over non-manifold/boundaried/odd-Euler meshes — the heal
+            // rail's own input class projects instead of failing; Genus stays Option (absence, no sentinel).
+            ProjectionRow.Of<(int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus)>(() =>
+                Fin.Succ((self.EulerCharacteristic, self.BoundaryComponents, self.IsManifold, self.IsOriented, self.NonManifoldEdges, self.Genus))));
     }
 }
 

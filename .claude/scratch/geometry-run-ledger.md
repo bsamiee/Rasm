@@ -13,10 +13,17 @@ Run ledger for the RASM-CS-GEOMETRY rebuild legs. Resume is launching-session-on
 - SALVAGE (user-ruled): ONE direct fable redteam agent over the 4 meshing pages, engine semantics, kernel-wide fix authority; RECONCILE SKIPPED by operator ruling. On its return: `git add -A` + commit = leg 2 CLOSED.
 - Leg 3 launches ONLY on user signal (auto-chain suspended for this handoff).
 
-## Legs 3-4 — queued (DECISION `[10]` rows)
+## Leg 3 — PROCESSING + SOLVING — RUNNING
 
-- Leg 3 PROCESSING + SOLVING: Solving/solver + Solving/fit (new-with-absorb from Processing twins), receipts, repair, decimate, flatten
-- Leg 4 NEW OWNERS + PARAMETRIC + DRAWING: slice, skeleton, remesh, nurbs, curve, surface, subdivide, develop, panelize, patternmap, view, pack — then the four acceptance dry-runs close the campaign
+- Run ID: `wf_ce8d239c-260` (task `wi2kc0ii1`), RECONCILE-FREE engine (every pass repairs its own cross-file ripples; no residual machinery exists)
+- Args: `{targets: [Solving/solver.md, Solving/fit.md, Processing/receipts.md, Processing/repair.md, Processing/decimate.md, Processing/flatten.md] (libs/csharp/Rasm/.planning/-prefixed), brief: RASM-CS-GEOMETRY-DECISION.md}`
+- Expected kinds: new ×2 with absorb {Solving/solver ← Processing/solver}, {Solving/fit ← Processing/fit} + deletePages [Processing/solver.md, Processing/fit.md]; rebuild ×4
+- Resume: `Workflow({scriptPath: ".claude/workflows/rebuild.js", resumeFromRunId: "wf_ce8d239c-260"})`
+- On return: commit → leg 4 on user signal.
+
+## Leg 4 — queued (DECISION `[10]` row 4)
+
+- NEW OWNERS + PARAMETRIC + DRAWING: slice, skeleton, remesh, nurbs, curve, surface, subdivide, develop, panelize, patternmap, view, pack — then the four acceptance dry-runs close the campaign
 
 ## Leg 5 — FINALIZE (our own, post leg-4)
 

@@ -1,14 +1,12 @@
 export const meta = {
   name: 'rebuild',
-  whenToUse: 'The standing rebuild engine for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number) and optionally a campaign brief; it plans, discovers, hostile-implements, critiques, red-teams, and reconciles at the owning-language doctrine bar.',
-  description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief}; empty = no-op; language derives from the target root and selects the doctrine (cs/py/ts), both .api tiers, casing, and the member-verification rail. Plan (1 sonnet agent) expands targets to pages and, when a brief is given, admits ONLY brief-named pages (kind new/rebuild/improve + deletions + absorb pairs FROM THE BRIEF against real disk state; an unnamed page is out of scope — no cold-pass set). Discover (1 agent per 4 pages, opus) deep-reads pages + folder + BOTH .api tiers + the language doctrine and emits per-page reading maps. Implement (1 agent per 4 pages, fable, kind-aware) authors new pages ground-up / hostile-rebuilds / cold-improves with absorb-then-delete mechanics. Critique (1 per 4 pages, fable xhigh, mechanical checklists) then Redteam (1 per 4 pages, fable max, six lenses + cold re-review) fix in place, redteam paired after its critique batch. Reconcile: read-only opus investigators (at most 5) validate every deferred residual against disk (real/stale/phantom/duplicate, disk-cited evidence, fail-open) and resolve its true touch-point set; ONE fable agent with whole-repository write authority closes the confirmed set in one terminal pass — no verify, no re-entry, no downstream residual workflow.',
+  whenToUse: 'The standing rebuild engine for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number) and optionally a campaign brief with a leg selector; it plans, discovers, hostile-implements, critiques, and red-teams in dependency-ordered waves at the owning-language doctrine bar — one serialized tail per wave owns the shared central files, one read-only acceptance agent closes the run.',
+  description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief, leg, waves, riders, acceptance}; empty = no-op; language derives from the target root (or the RASM-<CS|PY|TS>- brief name when a leg supplies the targets) and selects the doctrine, both .api tiers, casing, and the member-verification rail. Plan (1 sonnet) expands targets to pages IN DEPENDENCY ORDER; with a brief it admits ONLY brief-named pages classified against real disk state (kind new/rebuild/improve + deletions + absorb pairs + typed rider rows + acceptance traces + wave/leg partition; an unnamed page is out of scope; an out-of-order leg halts via upstreamMissing); without one the owning-package charter owns scope (full expansion, charter-demanded new, settled-page skip). Then per WAVE and per PACKAGE LANE: Discover (opus, read-only, 1 per 4 pages) deep-reads pages + folder + BOTH .api tiers + the doctrine, emits per-page reading maps, and writes a grounding dossier of verified primary extracts; Build runs a bounded per-batch pipeline in dependency order — implement (fable, kind-aware) then critique (fable xhigh) then redteam (fable max), each batch chained behind its predecessor so consumers author against landed foundations, page-routed riders receipt-forced in the implement pass; a delete executor handles brief-declared deletions verify-then-delete; ONE serialized per-wave TAIL (fable) is the sole writer for package index docs and central manifests (applies reported indexRows + serial riders, audits rider receipts); a failed page halts before dependent waves, landed waves intact. Close: one read-only fail-open acceptance agent (opus) runs the brief dry-run traces plus a generic cross-page symbol-resolution sweep. No reconcile stage: every agent repairs the cross-file ripples its own work exposes in its own pass; shared central files have exactly one writer.',
   phases: [
-    { title: 'Plan', detail: 'one thin agent expands the targets into the page list; with a brief, only brief-named pages enter the run (kind + deletePages + absorb pairs from the brief against real disk state)', model: 'sonnet' },
-    { title: 'Discover', detail: 'hostile read-only discovery, 1 agent per 4 pages: deep-read each page + the folder at large + BOTH .api tiers + the language doctrine, attack every catalog for unexploited capability, diff the admitted inventory against the whole folder; emit per-page apiUsed / apiUnderutilized (concrete members + integration shape) / context / stacking / weak reading maps — buildout framing only, zero removal authority', model: 'opus' },
-    { title: 'Implement', detail: '1 agent per 4 pages, kind-aware: ground-up author / hostile rebuild / cold improve, absorb-then-delete, write-fully; plus one brief-deletion executor when the brief drops pages outright' },
-    { title: 'Critique', detail: '1 agent per 4 pages: mechanical line-by-line checklists (COLLAPSE_SCAN / OWNER_CHOOSER / KNOB_TEST / ASPECTS / RAILS / language-modernity / CAPABILITY-COMPLETENESS + ILLUSION), fix in place' },
-    { title: 'Redteam', detail: '1 agent per 4 pages, paired after its critique batch: six adversarial lenses + a full cold re-review, fix in place' },
-    { title: 'Reconcile', detail: 'read-only opus investigators (at most 5) validate every deferred residual against disk and resolve its true touch-point set (real/stale/phantom/duplicate, disk-cited evidence, fail-open on death) -> ONE fable agent with whole-repository write authority closes the confirmed set in one terminal pass; no verify, no re-entry, no handoff' },
+    { title: 'Plan', detail: 'one thin agent expands the targets into the dependency-ordered page list; with a brief it admits only brief-named pages (kinds from disk, riders + acceptance traces transcribed, wave/leg partition honored); without one the owning-package charter owns scope', model: 'sonnet' },
+    { title: 'Discover', detail: 'per wave, per package lane: hostile read-only discovery, 1 agent per 4 pages — deep-read each page + the folder + BOTH .api tiers + the doctrine at source, emit per-page reading maps, write the grounding dossier of verified primary extracts', model: 'opus' },
+    { title: 'Build', detail: 'per wave, per package lane: bounded per-batch pipeline in dependency order — implement then critique then redteam, each batch chained behind its predecessor; page riders receipt-forced; brief deletions verify-then-delete; one serialized tail applies index rows + serial riders and audits receipts' },
+    { title: 'Close', detail: 'one read-only fail-open acceptance agent runs the brief dry-run traces plus the generic cross-page symbol-resolution sweep', model: 'opus' },
   ],
 }
 
@@ -17,517 +15,255 @@ export const meta = {
 const CAP = 10
 const STAGGER_MS = 1500
 const STALL = 300000
-const DISCOVER_BATCH = 4
-const IMPL_BATCH = 4
-const REVIEW_BATCH = 4
-const TRIAGE_BATCH = 8
-const TRIAGE_CAP = 5
+const DISCOVER_BATCH = 4 // policy value; discover rides the build batching so dossier paths align
+const IMPL_BATCH = 4 // policy value; the dossier landing licenses 2-3 later — never below it
+const SCRATCH = '.claude/scratch/rebuild-grounding' // deterministic dossier root
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '')
 // Hosts may deliver object args JSON-encoded; decode before shape dispatch.
 const argsIn = (typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args
+const isObj = !!argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn)
 const rawTargets = Array.isArray(argsIn) ? argsIn
-  : (argsIn && typeof argsIn === 'object' && Array.isArray(argsIn.targets)) ? argsIn.targets
-  : (argsIn && typeof argsIn === 'object' && typeof argsIn.targets === 'string') ? [argsIn.targets]
+  : (isObj && Array.isArray(argsIn.targets)) ? argsIn.targets
+  : (isObj && typeof argsIn.targets === 'string') ? [argsIn.targets]
   : (typeof argsIn === 'string' && argsIn.trim()) ? [argsIn]
   : []
-const BRIEF = (argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn) && typeof argsIn.brief === 'string' && argsIn.brief.trim()) ? argsIn.brief.trim() : ''
+const BRIEF = (isObj && typeof argsIn.brief === 'string' && argsIn.brief.trim()) ? argsIn.brief.trim() : ''
+const rawLeg = (isObj && argsIn.leg != null) ? argsIn.leg : null
+const LEG = BRIEF ? rawLeg : null // leg without brief is a no-op
+const ARG_WAVES = (isObj && Array.isArray(argsIn.waves)) ? argsIn.waves : null // no-brief wave pinning
+const ARG_RIDERS = (isObj && Array.isArray(argsIn.riders)) ? argsIn.riders : []
+const ARG_ACCEPT = (isObj && Array.isArray(argsIn.acceptance)) ? argsIn.acceptance : []
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))]
 const langOf = (t) => t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null
 const LANG_KEYS = [...new Set(TARGETS.map(langOf))]
-const LANG_KEY = (LANG_KEYS.length === 1 && LANG_KEYS[0]) ? LANG_KEYS[0] : null
+// Brief-derived language covers the targetless {brief, leg} form: RASM-<CS|PY|TS>- names the root.
+const briefLang = BRIEF ? (((/RASM-(CS|PY|TS)-/i.exec(BRIEF) || [])[1]) || '').toLowerCase() : ''
+const LANG_KEY = (LANG_KEYS.length === 1 && LANG_KEYS[0]) ? LANG_KEYS[0] : (!TARGETS.length && briefLang) ? briefLang : null
 
 // --- [MODELS] ----------------------------------------------------------------------------
 
-const RESIDUAL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }
-const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
+const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'],
+  properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
+const RIDER = { type: 'object', additionalProperties: false, required: ['motion', 'target', 'anchor', 'wave'], properties: {
+  motion: { type: 'string', enum: ['manifest-drop', 'manifest-add', 'catalog-delete', 'counterpart-edit', 'verify'] },
+  target: { type: 'string' }, // repo-relative file the motion edits or asserts
+  anchor: { type: 'string' }, // SYMBOL anchor — never a line number
+  detail: { type: 'string' },
+  page: { type: 'string' }, // owning in-run page (counterpart-edit / verify); absent -> tail-routed
+  guardPage: { type: 'string' }, // catalog-delete: the vendored owner that must exist on disk first
+  wave: { type: 'integer' } } }
+const TRACE = { type: 'object', additionalProperties: false, required: ['name', 'needs'], properties: {
+  name: { type: 'string' }, needs: { type: 'array', items: { type: 'string' } } } } // '<page>#<entry>' | '<seam-anchor>'
 const PLAN_SCHEMA = { type: 'object', additionalProperties: false, required: ['packages', 'pages'], properties: {
-  packages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'root', 'planning', 'api'], properties: { name: { type: 'string' }, root: { type: 'string' }, planning: { type: 'string' }, api: { type: 'string' }, note: { type: 'string' } } } },
-  pages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'kind'], properties: { page: { type: 'string' }, kind: { type: 'string', enum: ['new', 'rebuild', 'improve'] }, absorb: { type: 'string' } } } },
-  deletePages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'capturedIn'], properties: { page: { type: 'string' }, capturedIn: { type: 'string' } } } } } }
-// WORK item — the per-page reading map Discover hands every downstream stage.
-const WORK = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'kind', 'apiUsed', 'apiUnderutilized', 'contextNote', 'stackingGuidance', 'weak'], properties: {
-  page: { type: 'string' }, kind: { type: 'string', enum: ['new', 'rebuild', 'improve'] }, absorb: { type: 'string' }, apiUsed: { type: 'array', items: { type: 'string' } },
-  apiUnderutilized: UNDERUTIL, contextNote: { type: 'string' }, stackingGuidance: { type: 'string' }, weak: { type: 'boolean' } } } }
-const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist'], properties: { worklist: WORK, summary: { type: 'string' } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
-const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
-const DELETE_SCHEMA = { type: 'object', additionalProperties: false, required: ['deleted', 'summary'], properties: { deleted: { type: 'array', items: { type: 'string' } }, kept: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'reason'], properties: { page: { type: 'string' }, reason: { type: 'string' } } } }, residual_high: RESIDUAL, summary: { type: 'string' } } }
-const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
-const TRIAGE_SCHEMA = { type: 'object', additionalProperties: false, required: ['items'], properties: { items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'verdict'], properties: { id: { type: 'string' }, verdict: { type: 'string', enum: ['real', 'stale', 'phantom', 'duplicate'] }, files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' }, evidence: { type: 'string' } } } } } }
+  packages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'root', 'planning', 'api'],
+    properties: { name: { type: 'string' }, root: { type: 'string' }, planning: { type: 'string' }, api: { type: 'string' }, note: { type: 'string' } } } },
+  pages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'kind', 'wave'], properties: {
+    page: { type: 'string' }, kind: { type: 'string', enum: ['new', 'rebuild', 'improve'] }, absorb: { type: 'string' },
+    wave: { type: 'integer' } } } }, // ARRAY ORDER IS DEPENDENCY ORDER — the engine never re-sorts
+  deletePages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'capturedIn', 'wave'],
+    properties: { page: { type: 'string' }, capturedIn: { type: 'string' }, wave: { type: 'integer' } } } },
+  riders: { type: 'array', items: RIDER },
+  acceptance: { type: 'array', items: TRACE },
+  upstreamMissing: { type: 'array', items: { type: 'string' } } } }
+const WORK = { type: 'array', items: { type: 'object', additionalProperties: false,
+  required: ['page', 'kind', 'apiUsed', 'apiUnderutilized', 'contextNote', 'stackingGuidance', 'weak'], properties: {
+  page: { type: 'string' }, kind: { type: 'string', enum: ['new', 'rebuild', 'improve'] }, absorb: { type: 'string' },
+  apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL,
+  contextNote: { type: 'string' }, stackingGuidance: { type: 'string' }, weak: { type: 'boolean' } } } }
+const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist', 'dossier'], properties: {
+  worklist: WORK, dossier: { type: 'string' }, summary: { type: 'string' } } } // dossier = the path it WROTE
+const SEAMS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['file', 'counterpart', 'bothEnds'],
+  properties: { file: { type: 'string' }, counterpart: { type: 'string' }, bothEnds: { type: 'boolean' } } } }
+const BEYOND = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'member'],
+  properties: { catalog: { type: 'string' }, member: { type: 'string' } } } }
+const INDEXROWS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['doc', 'row'],
+  properties: { doc: { type: 'string' }, row: { type: 'string' } } } } // doc = the package index file; row = the exact row text
+const RECEIPTS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['anchor', 'disposition', 'evidence'],
+  properties: { anchor: { type: 'string' }, disposition: { type: 'string', enum: ['done', 'drift', 'blocked'] },
+  evidence: { type: 'string' } } } }
+// Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/dossierPhantoms
+// make "read fully / exceed the map / repair both ends" structurally checkable, never wishful prose.
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false,
+  required: ['files', 'verdict', 'summary', 'seamsTouched', 'beyondMap', 'indexRows', 'dossierPhantoms'], properties: {
+  files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'rebuilt', 'refined', 'clean'] },
+  collapsed: { type: 'string' }, extended: { type: 'string' }, summary: { type: 'string' },
+  seamsTouched: SEAMS, beyondMap: BEYOND, indexRows: INDEXROWS, dossierPhantoms: { type: 'array', items: { type: 'string' } },
+  riders: RECEIPTS } }
+const REVIEW_SCHEMA = { type: 'object', additionalProperties: false,
+  required: ['files', 'verdict', 'summary', 'seamsTouched', 'beyondMap', 'indexRows'], properties: {
+  files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] },
+  extended: { type: 'string' }, summary: { type: 'string' }, seamsTouched: SEAMS, beyondMap: BEYOND, indexRows: INDEXROWS } }
+const DELETE_SCHEMA = { type: 'object', additionalProperties: false, required: ['deleted', 'summary'], properties: {
+  deleted: { type: 'array', items: { type: 'string' } }, indexRows: INDEXROWS,
+  kept: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'reason'],
+    properties: { page: { type: 'string' }, reason: { type: 'string' } } } }, summary: { type: 'string' } } }
+const TAIL_SCHEMA = { type: 'object', additionalProperties: false, required: ['applied', 'summary'], properties: {
+  applied: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'action', 'evidence'],
+    properties: { target: { type: 'string' }, action: { type: 'string' }, evidence: { type: 'string' } } } },
+  drift: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
+const ACCEPT_SCHEMA = { type: 'object', additionalProperties: false, required: ['traces', 'summary'], properties: {
+  traces: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'verdict'], properties: {
+    name: { type: 'string' }, verdict: { type: 'string', enum: ['pass', 'miss'] },
+    missing: { type: 'array', items: { type: 'string' } } } } },
+  unresolved: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+// LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached
+// through READ_FIRST at the source, never paraphrased here.
 
 const LANG = {
   cs: {
     key: 'cs', name: 'C#', root: 'libs/csharp', stack: 'docs/stacks/csharp', casing: 'PascalCase',
     corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
-    strata: 'CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly ' +
-      'upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
-    stackLaw: 'MANDATORY STANDARDS — docs/stacks/csharp/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/csharp/ (README, ' +
-      'language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis) AND the specialized ' +
-      'docs/stacks/csharp/domain/ shard(s) relevant to the page concern, then PUSH PAST it to the objectively strongest form the doctrine admits ' +
-      '— the tools/cs-analyzer compiled-doctrine gate enforces it (a true positive is architecture pressure, fix the shape; a false positive is ' +
-      'rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv run python -m tools.assay api` (assay blocked or ' +
-      'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback); ' +
-      'back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
-    apiTiers: 'MINE BOTH capability tiers: the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
-      'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`; ' +
-      'ALWAYS layer the universal Thinktecture/LanguageExt rails onto the domain packages, ' +
-      'never only the folder set.',
-    readLaw: 'docs/stacks/csharp/ in FULL — README plus language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, ' +
-      'system-apis — PLUS the docs/stacks/csharp/domain/ shard(s) relevant to each page concern (READ the shard; conformance to it is a hard gate)',
-    verify: '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for NuGet feed truth, and ' +
-      'Context7/exa/tavily for the official surface own the fallback)',
+    strata: 'CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
+      'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
+    stackFloor: 'docs/stacks/csharp is the FLOOR, never the ceiling — every fence meets it and pushes past it to the strongest ' +
+      'form the doctrine admits; the tools/cs-analyzer compiled-doctrine gate enforces it (a true positive is architecture ' +
+      'pressure, a false positive is rule pressure, never a suppression).',
+    apiTiers: 'the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
+      'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
+      '`<package>/.api/*.md`, always layering the universal Thinktecture/LanguageExt rails onto the domain packages, never the ' +
+      'folder set alone.',
+    verify: '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed ' +
+      'truth, and Context7/exa/tavily for the official surface own the fallback)',
     vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
     slur: 'naive, surface-level code dressed in the right vocabulary',
-    illusion: 'a `.api`/host member cited but never verified (a phantom)',
-    ultra: [
-      'OPERATIVE DOCTRINE — the 16 named laws of docs/stacks/csharp/README.md, held as fact: [FLOW] EXPRESSION_SPINE (domain logic is ' +
-        'expression-shaped; dependent steps `Bind` monadically, independent ones accumulate applicatively; the carrier, never a flag, selects ' +
-        'the algebra; statements survive only in measured `ref struct`/span kernels that name the exemption) + BOUNDARY_ADMISSION (raw admitted ' +
-        'EXACTLY ONCE into an evidence-carrying owner; interior never re-validates or sees null/sentinel/provider shape). [SHAPE] SHAPE_BUDGET ' +
-        '(one concept owns ONE type; variants are cases in one closed family) + DEEP_SURFACES + MODAL_ARITY (one entrypoint owns every modality, ' +
-        'discriminating on input shape) + ANTICIPATORY_COLLAPSE (shape the owner for the family it will absorb). [DERIVATION] POLICY_VALUES + ' +
-        'DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ' +
-        'ROOT_REBUILD (weave new capability into the owner as if always present; no shims/aliases/[Obsolete]/migration layers) + ' +
-        'ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
-      'ULTRA-ADVANCED COLLAPSE MANDATE: COLLAPSE >=3 parallel types / sibling factory methods / repeated switch arms / single-call private ' +
-        'helpers into ONE polymorphic owner IN THE SAME FILE via `[Union]` / `[Union<T1,...>]` ad-hoc / `[SmartEnum<TKey>]` / `[SmartEnum]` ' +
-        'keyless / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case families / `Fold` algebra / frozen data tables — never ' +
-        'extract a new file to reduce LOC, never delete capability.',
-      'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE (generated factory + validation partial admits/rejects; one ' +
-        'rail bridge lifts the generated outcome into `Fin<T>` / `Validation<Error,T>`; `Option<T>` carries absence; exceptions convert at the ' +
-        'owning boundary only) -> canonical owner -> unified rail -> projection -> egress. Interior code never re-validates, never sees ' +
-        '`null`-as-failure, sentinels, or provider shapes; parameterize BOTH ingress AND egress so the same owner sources and sinks across many ' +
-        'consumers without interior edits.',
-      'STACK CAPABILITY: C# has NO central runtime `.api/` tier beyond the shared substrate catalogs — the universals are Thinktecture ' +
-        '(generated domain shape) / LanguageExt (rails, effects, schedules, immutable collections) plus the full docs/stacks/csharp doctrine, ' +
-        'with MathNet / CSparse owning numeric algorithms. There is NO fixed package count: compose EVERY relevant host API + admitted NuGet ' +
-        'package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS ' +
-        'layering the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
-        'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); reject surface-level subsets, BCL-first reflexes, ' +
-        'and thin rename wrappers; verify novel members with `uv run python -m tools.assay api` (blocked: the `.api` catalogs + nuget MCP + ' +
-        'Context7 own the fallback).',
-      'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
-        'ground-up. Never regress correctness or boundary/strata law.',
-    ].join('\n'),
-    mechanics: '',
-    patlaw: [
-      'C# PATTERN LAW: model the domain precisely — NEVER weak/unbounded/erased types where the language can express the domain; NEVER exception ' +
-        'control flow in domain logic (use the LanguageExt typed rails / ROP and the route recovery patterns); NEVER imperative branching where ' +
-        'a bounded vocabulary, frozen table, generated `Switch`, match, or `Fold` owns the variation; NEVER mutable accumulation for domain ' +
-        'transforms (use immutable folds, projections, collection combinators). Total generated `Switch` with compile-time exhaustiveness (a new ' +
-        'case breaks every dispatch site — NEVER a runtime-silent `_` arm). Typed algorithm receipts (NEVER a generic `IReceipt`/ledger) when ' +
-        'fields carry route/status/sampling/solver/spectral/mesh/extraction/benchmark/host evidence. The fault type is a CLOSED `[Union]` family ' +
-        'deriving from `Expected` (a bare exception or a generic untyped `Error` for a multi-cause domain is a defect).',
-      'Latest stable C# 14 on `net10.0` to the metal (`Nullable enable`, NRT enforced): primary constructors, collection expressions with ' +
-        'spread, `params` collections (incl. `params ReadOnlySpan<T>`), list/slice/relational/logical pattern matching, switch expressions, ' +
-        '`required` members, `file`-scoped types, `field` accessors, extension blocks (`extension(Receiver)`) and extension operators, generic ' +
-        'math / static abstract+virtual interface members, `with` expressions, `nameof` with unbound generics, `System.Threading.Lock`, raw ' +
-        'string + `u8` literals where they fit. Treat analyzer diagnostics as architecture pressure. Apply the docs/stacks/csharp ' +
-        'file-organization and section-order law (`[Union]`/`[SmartEnum]`/`[ValueObject]` and generated case families stay inside the declaring ' +
-        'owner block; canonical section order TYPES -> CONSTANTS -> MODELS -> ERRORS -> SERVICES -> OPERATIONS -> COMPOSITION -> EXPORTS).',
-      'Keep conventions IDENTICAL across every package; place each package on its canonical stratum and depend strictly upward; ' +
-        'geometry/mesh/IFC meet at the wire with one owner per runtime; never leak a host type into a host-neutral owner. SEMANTIC_NAMING: one ' +
-        'canonical bounded-context term per concept (one word default, three the ceiling); arity/filter/provider/modality live in request shape, ' +
-        'case, or policy row, never parallel `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` names; ONE_HOP_RESOLUTION (no alias chains, forwarding ' +
-        'helpers, or util shells).',
-    ].join('\n'),
-    boundaries: 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with one ' +
-      'owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner while ' +
-      'densifying; never introduce a downward dependency or leak a host type into a host-neutral owner. Cross-language wire seams are recorded ' +
-      'as ALIGNED seams at the wire contract — a page pass fixes the local side and records the wire; a counterpart mirror (same-language ' +
-      'sibling or cross-language decode side) is repaired only by the reconcile stage under the brief consumer-ripple rules, never ad hoc ' +
-      'from a page pass.',
+    illusion: 'a `.api`/host member cited but never verified',
     docBloat: 'XML-doc',
-    collapseInto: 'ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case family IN THE SAME FILE',
-    gapPkg: 'LIBRARY_DEPTH: e.g. an IFC schema gives a zone its quantities, space boundaries, and properties the page never reads — stacking ' +
-      'that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
-    gapDomain: 'a BIM zone owns its boundary/area/volume, per-kind attributes — a fire compartment a rating, a thermal zone a setpoint, a load ' +
-      'group its combinations, an MEP system its medium/flow/pressure — adjacency/nesting topology, and coverage/aggregation/spatial-query ' +
-      'operations, not a flat member-id set alone; a profile owns section properties, grade, fabrication + code-check inputs, not width/height; ' +
-      'a durable store owns its constraints, indexes, partitions, RLS, migration, and lifecycle, not naive columns',
+    collapseInto: 'ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case ' +
+      'family IN THE SAME FILE',
+    gapPkg: 'LIBRARY_DEPTH: e.g. an IFC schema gives a zone its quantities, space boundaries, and properties the page never ' +
+      'reads — stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
+    gapDomain: 'a BIM zone owns its boundary/area/volume, per-kind attributes — a fire compartment a rating, a thermal zone a ' +
+      'setpoint, a load group its combinations, an MEP system its medium/flow/pressure — adjacency/nesting topology, and ' +
+      'coverage/aggregation/spatial-query operations, not a flat member-id set alone; a profile owns section properties, grade, ' +
+      'fabrication + code-check inputs, not width/height; a durable store owns its constraints, indexes, partitions, RLS, ' +
+      'migration, and lifecycle, not naive columns',
     ownerGrammar: 'a CASE in the existing closed family, a ROW or richer data on the existing smart-enum, a FIELD or a composed ' +
-      '`[ValueObject]`/`[ComplexValueObject]` on the existing record, an OPERATION on the existing surface, or a POLICY_VALUE on the existing vocabulary',
-    ownerChooser: '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, ' +
-      'payload timing, openness) and select the OWNER_CHOOSER row, most-specific wins: invariant-bearing scalar -> `[ValueObject<TKey>]`; ' +
-      'N-field one-concept product, no discriminator -> `[ComplexValueObject]`; bounded vocabulary with wire-keyed identity -> ' +
-      '`[SmartEnum<TKey>]`; bounded vocabulary with process-local behavior -> `[SmartEnum]` keyless; closed alternatives with per-occurrence ' +
-      'payload -> `[Union]`; one value over 2-5 unrelated types -> `[Union<T1,...>]` ad-hoc; interior product, no invariant/admission -> ' +
-      '`record`/`readonly record struct`; combinable capability set -> a frozen set; cross-product or external policy key -> a frozen table; ' +
-      'foreign wire enum / ABI bits / kernel ordinal -> a language `enum` AT THE SEAM ONLY (re-closed at conversion). Kill every parallel DTO, ' +
-      'one-field wrapper, field-rename shape, nullable payload bag, enum-dictionary pair, protocol shadow, nullable-as-failure, and ' +
-      'struct-`default` ghost.',
-    knob: '(3) KNOB_TEST — removal: delete each parameter; if the value reconstructs what it carried, it was a knob -> collapse a ' +
-      '`bool`/`mode`/`strict`/`batch` flag into a policy value or input-shape discriminant; a nullable flag tail (`T? a = null, ..., bool x = ' +
-      'false`) -> one `Option<ContextRecord>`; the single optional form is `Option<T> x = default` consumed via `IfNone(canonical)`; move every ' +
-      '`timeout`/`retry`/`deadline`/`CancellationToken` OFF the signature onto the carrier or a composition-time effect aspect.',
-    aspects: '(4) ASPECTS — the two-weave taxonomy: definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) ' +
-      'attach via attribute-directed SOURCE GENERATION in the fixed generator-owned order; composition-time concerns attach as effect ' +
-      'transformers in author order — retry as `Schedule`-driven `IO<T>.Retry(Schedule)`/`Prelude.retry`, recovery as named catch combinators ' +
-      '(`@catch`/`catchOf`/`CatchM` composed via `|`), resource lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE ' +
-      'seam, the admission rail bridge. 2-4 co-occurring wrappers collapse into one aspect; an aspect NEVER raises into domain flow; ' +
-      'deterministic stacking order verified. Inline-repeated concerns and sibling helper methods are defects.',
-    rails: '(5) RAILS — RAIL_CHOOSER, the narrowest carrier chosen ONCE at admission: `Option<T>` absence, `Fin<T>` synchronous fallibility, ' +
-      '`Validation<Error,T>` independent accumulated faults, `Eff<RT,T>` runtime capability, `IO<T>` deferred boundary work, `Schedule` retry ' +
-      'policy, `Seq<T>`/`Arr<T>`/`HashMap<K,V>` immutable traversal/lookup; the fault type is a CLOSED `[Union]` family deriving from `Expected` ' +
-      '(recovery identity via `Is`/`HasCode`/`IsType<E>`, never `==`); accumulate-vs-abort disposition correct (`Apply`/`&`/`.Traverse` for ' +
-      'independents, `Bind`/`.TraverseM`/query expressions for dependents); total generated `Switch` with compile-time exhaustiveness (NO `_` ' +
-      'arm hiding a case); `.Fold`/`.Traverse`/`.Choose` traversal with the mandatory `.As()` re-anchor; NO exception control flow in domain ' +
-      'logic, NO mutable accumulation.',
-    modernity: '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a ' +
-      'host-neutral owner; geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in the package ' +
-      '`.api/` catalog (no phantom member; verify novel members via `uv run python -m tools.assay api`, or the nuget MCP + Context7 when ' +
-      'assay is blocked); latest modern C# 14 on net10; FULL ' +
-      'docs/stacks/csharp + the relevant domain/ shard conformance (READ the shard); BOTH the package `.api/` catalogs AND the universal ' +
-      'Thinktecture/LanguageExt rails maximized, not a surface-level subset; the tools/cs-analyzer compiled-doctrine gate clean.',
+      '`[ValueObject]`/`[ComplexValueObject]` on the existing record, an OPERATION on the existing surface, or a POLICY_VALUE ' +
+      'on the existing vocabulary',
     deepPkgs: 'LanguageExt/Thinktecture/MathNet/CSparse',
     exhaust: 'total generated `Switch`, no silent `_` arm',
     modern: 'Latest modern C# 14 on net10',
+    mechanics: '',
+    fileOrg: 'apply the `docs/stacks/csharp` file-organization + section-order law',
   },
   py: {
     key: 'py', name: 'Python', root: 'libs/python', stack: 'docs/stacks/python', casing: 'snake_case',
     corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
     strata: 'CLAUDE.md manifest law governs.',
-    stackLaw: 'DENSITY BAR: docs/stacks/python/ — author Python as dense, polymorphic, and rich as that bar; docs/stacks/csharp/ is the ' +
-      'density/ambition FLOOR (match its richness, never import C#-shaped idioms). Cite ONLY members confirmed in the .api catalogs, mining ' +
-      'BOTH tiers fully.',
-    apiTiers: 'MINE BOTH tiers fully: the SHARED/universal branch catalogs `libs/python/.api/*.md` (anyio, expression, msgspec, pydantic, ' +
-      'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder-specific `<package>/.api/*.md`; maximize ' +
-      'the shared/universal catalogs wherever relevant, never only the folder set, ALWAYS layering the shared/universal rails ON TOP OF the ' +
-      'folder-specific domain packages.',
-    readLaw: 'docs/stacks/python/ in FULL, atlas order: STEP 0 — enumerate docs/stacks/python/ with a real ls/find to obtain the COMPLETE root ' +
-      'inventory (the sub-folders domain/ and numerics/ are OUT of this read), THEN read EVERY root page top-to-bottom starting at the README ' +
-      'and proceeding in its [01]-[ATLAS] routing order (language, shapes, iteration, surfaces-and-dispatch, rails-and-effects, concurrency, ' +
-      'boundaries, algorithms, system-apis, runtime) — never a partial, skim, grep-jump, or section-sample; a root page present on disk but ' +
-      'absent from this list is STILL mandatory law',
-    verify: '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a blocked/unavailable assay, falls ' +
-      'back to its catalog/official surface)',
+    stackFloor: 'docs/stacks/python is the bar and docs/stacks/csharp is the density/ambition FLOOR — match its richness, ' +
+      'never import C#-shaped idioms.',
+    apiTiers: 'the SHARED/universal branch catalogs `libs/python/.api/*.md` (anyio, expression, msgspec, pydantic, ' +
+      'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs ' +
+      '`<package>/.api/*.md`, always layering the shared/universal rails ON TOP OF the folder-specific domain packages, never ' +
+      'the folder set alone.',
+    verify: '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a blocked/unavailable ' +
+      'assay, falls back to its catalog/official surface)',
     vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
     slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
-    illusion: 'a `.api` member cited but never verified (a phantom)',
-    ultra: [
-      'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows `Raw -> Payload -> Canonical owner -> Rail -> Projection -> Egress`. Raw ' +
-        'material is admitted EXACTLY ONCE into an evidence-carrying owner (Pydantic/`TypedDict` payload at ingress); interior code never ' +
-        're-validates, never sees `None`-as-failure, sentinels, or provider shapes; egress projects outward (`msgspec.Struct` wire) from the ' +
-        'canonical owner. Parameterize BOTH ingress AND egress so the same owner sources and sinks across many providers/apps without touching ' +
-        'its interior.',
-      'SHAPE LAW: one concept owns exactly ONE type (SHAPE_BUDGET) — variants are cases in one closed family, never sibling types; one rich ' +
-        'polymorphic surface over many shallow (DEEP_SURFACES); the owner is shaped for the family it will ABSORB (ANTICIPATORY_COLLAPSE) so the ' +
-        'next case/dimension/modality lands as ONE declaration with every consumer untouched or broken loudly at type-check. Choose each owner ' +
-        'by the OWNER_CHOOSER discriminants — admission (trusted/untrusted), identity regime (value/tag/key/reference), variant arity ' +
-        '(one/closed-family/open), payload timing (def-time/runtime), openness (closed/semi/open) -> the right owner among `TypedDict`, ' +
-        'Pydantic, `msgspec.Struct`, frozen dataclass, rich class, `StrEnum`/`Literal`, `sentinel`, `Option`/`Result`, ' +
-        '`frozendict`/`Map`/`tuple`, `Protocol`. A misplaced shape traces to one mis-answered discriminant.',
-      'ASPECT-FIRST (DEFINITION_TIME_ASPECTS): every CROSS-CUTTING capability — retry, telemetry/spans, validation, contracts, memoization, ' +
-        'registration, receipts, fault rails — is a SIGNATURE- and RAIL-PRESERVING decorator (inline `**P` + `functools.wraps`) that ' +
-        'materializes policy, STACKS in deterministic order (bottom-up at definition, top-down at call), and NEVER raises into domain flow (a ' +
-        'failing aspect returns the rail `Error`). Two-to-four wrappers that always co-occur collapse into ONE parameterized aspect factory. ' +
-        'Code reads as STACKED DECORATORS over a thin pure core, never inline-repeated concerns or sibling helper functions; the domain ' +
-        'transform itself stays a pure function/fold.',
-      'DERIVATION + ARITY: cases sharing generative structure are DERIVED — one primary `frozendict` correspondence declared, every secondary ' +
-        'map derived from it (DERIVED_LOGIC), or a fold/comprehension — never enumerated arms. Configuration enters as ONE behavior-carrying ' +
-        'value (vocabulary member, tagged variant, frozen policy table), never flag sets the body re-derives (POLICY_VALUES). ONE entrypoint ' +
-        'owns every modality (singular/plural/batch/stream), discriminating on the INPUT SHAPE (`T | Iterable[T]` normalized once at the head), ' +
-        'never a name suffix or a `mode`/`batch` knob (MODAL_ARITY); a `timeout`/`retry`/`deadline` is an aspect or an `anyio` scope, never a ' +
-        'signature param (KNOB_TEST).',
-      'RAILS (rails-and-effects): the narrowest carrier that states the outcome, chosen ONCE at admission — `Option[T]` non-failing absence, ' +
-        '`Result[T, E]` typed fallibility, `effect.result` do-notation for sequential `bind`, `Block`/`Map` immutable traversal, an `anyio` ' +
-        'task group as the failure boundary (NEVER `asyncio.gather`), `stamina.retry` as the decorator (never a sleep-loop). The fault type `E` ' +
-        'is a CLOSED vocabulary — `Literal` set, `StrEnum`, or `@tagged_union` family — NEVER a bare `str` for a multi-cause domain. ' +
-        'Accumulate-vs-abort is a correctness decision fixed at the boundary: `map2`/accumulating-fold for independent operands, `bind` ' +
-        'short-circuit for dependent steps. Cancellation is not failure; resource cleanup is `AsyncExitStack` + a shielded scope.',
-      'STACK .api CAPABILITY (load-bearing): FIRST inventory the COMPLETE catalog set available to this page — BOTH tiers — then mine them for ' +
-        'the full ADVANCED surface of each package (combinators, hooks, native pipelines, discriminators, async mirrors) and how packages ' +
-        'STACK. List BOTH `.api/` tier DIRECTORIES in full and DIFF that complete inventory against what the page already cites: every admitted ' +
-        'catalog whose domain the page admits but does NOT yet use is an ADOPTION TARGET — adopt it to depth here, or when it belongs on a ' +
-        'sibling page surface it as a residual; a relevant admitted catalog left unadopted is a DEFECT. There is NO fixed library count: ' +
-        'compose EVERY relevant admitted library into single dense operations woven as ONE rail. Use the DEEPEST primitive each package itself ' +
-        'reaches for (LIBRARY_DEPTH); reject surface-level single-feature subsets and any thin rename wrapper.',
-      'PRESERVE all capability (densify, never delete functionality). Where a page is already dense, refine; where it is flat/naive, rebuild ' +
-        'ground-up. Never regress correctness or boundary law.',
-    ].join('\n'),
-    mechanics: [
-      'MECHANICAL EXECUTABILITY — a design-page fence is a SIGNATURE-AND-IMPLEMENTATION CONTRACT, never a sketch: every fence MUST parse under ' +
-        'the active py3.15 surface AND type-check against the REAL cross-page canonical owners it imports, because the corpus is ONE body ' +
-        '(CORPUS_LAW three-layer inheritance) and a fence reading a field/case/attribute a sibling owner does not declare is a runtime DEFECT, ' +
-        'not a design liberty. Mentally COMPILE and TYPE-CHECK each fence before accepting it. Find each class below BY NAME and FIX it in ' +
-        'place by growing the EXISTING owner (a case/field/operation/row), never a new file:',
-      'FENCE-PARSES (language.md CLOSED_MATCH_SITE) — every `match`/structural pattern, `for`-target, comprehension, and t-string parses: an ' +
-        'OR-pattern whose alternatives bind DIFFERENT names, an invalid iterable-unpacking or starred target, or a malformed pattern is a ' +
-        'NON-COMPILING fence and an automatic rebuild target.',
-      'MODEL-COHERENCE (CORPUS_LAW) — every attribute, field, case tag, method, and imported symbol a fence reads off a canonical owner ' +
-        'declared on ANOTHER page (or earlier in this one) MUST exist on the real declaration of that owner: verify each cross-owner read ' +
-        'against the sibling owner before writing it, reconcile to the ONE canonical name, never invent a field the owner does not carry, and ' +
-        'surface an un-reconcilable cross-page name as a residual.',
-      'TOTAL-DISPATCH (shapes.md families) — `assert_never(unreachable)` is an exhaustiveness WITNESS, valid ONLY when every member of the FULL ' +
-        'closed family is handled before it: enumerate the complete case set and prove NO valid case routes to `assert_never`; a parallel ' +
-        'dispatch map keyed by a closed family must be TOTAL over it. A partial `match`/map dressed as total is a DEFECT.',
-      'SINGLE-FACT EVIDENCE (rails-and-effects.md STATE_RECEIPTS; boundaries.md BYTE_IDENTITY) — the bytes, the content key, and the receipt ' +
-        'evidence derive from ONE computed fact stored once on the stepped owner: the producer computes the fact, the receipt/contribute path ' +
-        'READS the stored fact, never re-renders. A path that recomputes a render/placement/native-mutation a second time to mint receipt ' +
-        'evidence is a DOUBLE-RENDER defect.',
-      'LOOP-OFFLOAD (concurrency.md OFFLOAD_LANE) — synchronous CPU-bound or GIL-hostile provider work NEVER runs on the event loop, NOR as an ' +
-        'argument expression evaluated before the offload call: it crosses on exactly one arm — `anyio.to_thread.run_sync` for a GIL-releasing ' +
-        'native call or blocking I/O, `to_interpreter.run_sync` for pure-Python isolate-safe CPU work, `to_process.run_sync` for a GIL-hostile ' +
-        'or not-isolate-safe native call — each bounded by an explicit `CapacityLimiter`. A heavy synchronous call inside an async body is an ' +
-        'event-loop-starvation DEFECT.',
-      'HANDLE-LIFETIME (boundaries.md CAPSULE_OWNER) — every native/FFI handle a provider opens closes DETERMINISTICALLY through an ' +
-        '`AsyncExitStack.enter_async_context`, a `with` bracket, or a capsule registering release via `weakref.finalize` under a shielded ' +
-        'teardown — never left for the GC to reap. An opened handle with no deterministic close is a LEAK defect; callers receive detached ' +
-        'values or rails.',
-      'BINARY-KERNEL (boundaries.md CAPSULE_OWNER) — a multi-megabyte binary mutated across N steps is ONE imperative measured kernel ' +
-        'threading ONE owned handle mutated in place, NOT a functional fold that rebinds and recopies the whole buffer per step; the kernel ' +
-        'lives inside the shielded resource bracket, returns the rail `Result`, and carries one `# Exemption:` line naming the platform-forced ' +
-        'in-place-mutation seam.',
-      'IDENTITY-REGIME (boundaries.md MEMO_KEY) — a content-addressed key indexes by CONTENT, so two structurally-distinct siblings carrying ' +
-        'identical content collide and silently overwrite in a `Map[ContentKey, _]`. Where an index/diff must distinguish identical-content ' +
-        'siblings, the key joins a STRUCTURAL discriminant to the content digest — a content-only key under a structural index is a CORRUPTION ' +
-        'defect.',
-      'TEMPLATE-SAFETY (language.md TEMPLATE_STRUCTURE_SITE) — structured-text and markup egress (SVG, XML, Typst, HTML, query strings) built ' +
-        'from dynamic or untrusted input uses PEP 750 t-strings / `string.templatelib.Template` processors or a structured builder ' +
-        '(`xml.etree.ElementTree`), NEVER f-string interpolation with a hand-rolled escape. An f-string splicing a value into markup is an ' +
-        'INJECTION defect.',
-      'STREAM-OVER-MATERIALIZE (iteration.md LAZY_COMBINATORS) — a large or unbounded extraction is a lazy `itertools`/generator pipeline or a ' +
-        '`yield from` fusion typed `Iterator[T]`, never an eagerly allocated `tuple`/`Block` of the whole result held in RAM and materialized ' +
-        'only at the persistence/egress edge.',
-      'NO-EXCEPTION-HOTLOOP (rails-and-effects.md EXPRESSION_SPINE) — a per-element `try`/`except` driving control flow inside a fold over a ' +
-        'large collection is BOTH a domain-logic violation AND a throughput defect: a total predicate or a non-raising `Option`-returning ' +
-        'parse replaces the per-element raise, and the boundary `catch` trap stays at the boundary, never in the hot fold.',
-      'DERIVED-NOT-PARALLEL + PER-MODE PAYLOADS (DERIVED_LOGIC) — a secondary map hand-synced to a primary is a DERIVATION defect: declare ONE ' +
-        'primary correspondence and DERIVE every secondary by comprehension. A monolithic typed bag whose fields are irrelevant for most modes ' +
-        'is a permissive-bag DEFECT even when fully typed: collapse it into a discriminated per-mode `@tagged_union` whose each case carries ' +
-        'ONLY the fields of its own mode — WITHOUT splitting the owner into new files.',
-    ].join('\n'),
-    patlaw: [
-      'PY-VERSION LAW: target Python 3.15 on the full modern band (3.11/3.12/3.13/3.14/3.15) — advanced patterns ONLY, zero legacy idioms, ' +
-        'IDENTICAL conventions across every folder and package.',
-      'NEVER write `from __future__ import annotations`. NEVER use legacy typing: use PEP 585 builtin generics (`list[T]`, `dict[K, V]`, ' +
-        '`tuple[...]`, `set[T]`) NOT `typing.List/Dict/Tuple/Set`; PEP 604 unions (`X | None`, `A | B`) NOT `Optional`/`Union`; PEP 695 type ' +
-        'parameters (`class C[T]:`, `def f[T](...)`, `type Alias[T] = ...`) NOT `TypeVar` + `Generic`. Use `Self`, `override`, ' +
-        '`TypeIs`/`TypeGuard`, `assert_never`, `ReadOnly`, `TypedDict` + `NotRequired`/`Required`, `LiteralString`, `enum.StrEnum`/`IntEnum`, ' +
-        'and `@dataclass(slots=True, frozen=True)` or `msgspec.Struct`/pydantic models where each best fits.',
-      'PAYLOADS — NEWEST FORM: ingress payloads are static `TypedDict` contracts with `closed=True` or `extra_items=T` and per-key ' +
-        '`Required[]`/`NotRequired[]`/`ReadOnly[T]`, admitted through a module-level `TypeAdapter`, with `Unpack[TypedDict]` at root keyword ' +
-        'entrypoints; extension bands fold into `frozendict`/tuple evidence at materialization, and `msgspec.Struct(frozen=True)` owns ' +
-        'wire/egress. NO `dict[str, Any]` bags, homogeneous `**kwargs`, or `Mapping[str, object]` payloads.',
-      'FROZENDICT (py3.15 builtin): `from builtins import frozendict` is the owner for immutable map rows, dispatch/policy TABLES (one primary ' +
-        '`frozendict[K, tuple[...]]`, secondary maps derived from it), payload `extra_items` extension bands, and immutable evidence — REJECT ' +
-        '`MappingProxyType`, a module-level mutable `dict` used as a table, tuple-pair pseudo-maps, and mutate-then-freeze. Prefer total ' +
-        '`match`/structural pattern matching over if-chains, walrus where it tightens, and `assert_never` on closed unions ONLY where it is ' +
-        'genuinely unreachable over the FULL case set; PEP 750 t-strings are MANDATORY for all dynamic or untrusted structured-text and markup ' +
-        'egress. Keep every choice CONSISTENT across folders so the corpus reads as one ultra-advanced codebase.',
-    ].join('\n'),
-    boundaries: 'BOUNDARY LAW: keep every package/folder owner strictly in its lane; internal code uses canonical names and shapes with mapping ' +
-      'only at the edge; do not trample a sibling owner while densifying; respect the dependency direction of the workspace strata. ' +
-      'Cross-language wire seams are recorded as ALIGNED seams at the wire contract (the C# boundary is law: Rasm.Bim owns IFC semantics) — ' +
-      'a page pass fixes the local side and records the wire; a counterpart mirror (same-language sibling or cross-language decode side) is ' +
-      'repaired only by the reconcile stage under the brief consumer-ripple rules, never ad hoc from a page pass.',
+    illusion: 'a `.api` member cited but never verified',
     docBloat: 'docstring',
     collapseInto: 'one closed `@tagged_union`/`Literal`/`StrEnum` family, a derived `frozendict` table, or a fold IN THE SAME FILE',
     gapPkg: 'BOTH tiers; stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
-    gapDomain: 'a dimension owner owns the full ISO 129-1 linear/aligned/angular/radial/diameter/ordinate/chain/baseline + tolerance family, ' +
-      'not a single linear case; a layer codec owns the full ISO 13567 + NCS discipline/major/minor/status structure, not a flat string',
-    ownerGrammar: 'a CASE in the existing closed `@tagged_union`/`Literal`/`StrEnum` family, a ROW or richer data on the existing `frozendict` ' +
-      'table, a FIELD on the existing `msgspec.Struct`/Pydantic model/frozen dataclass/`TypedDict`, an OPERATION on the existing surface, or a ' +
-      'POLICY_VALUE on the existing vocabulary',
-    ownerChooser: '(2) OWNER_CHOOSER — re-derive every shape from the 5 discriminants (admission, identity regime, variant arity, payload ' +
-      'timing, openness) and replace any non-discriminant-correct owner; kill every parallel DTO, one-field wrapper, field-rename class, ' +
-      'tag-only shape, and None-as-failure.',
-    knob: '(3) KNOB_TEST — delete each parameter the value already encodes; move every timeout/retry/deadline out of the signature into an ' +
-      'aspect/`anyio` scope.',
-    aspects: '(4) ASPECTS — every cross-cutting concern is a signature+rail-preserving STACKED decorator that never raises into domain flow; ' +
-      'co-occurring wrappers collapse into one factory.',
-    rails: '(5) RAILS — narrowest carrier chosen once; CLOSED fault vocabulary (a bare `str` fault is a defect); accumulate-vs-abort correct; ' +
-      'NO asyncio, hand-rolled retry, None-as-failure, or exception control flow in domain logic.',
-    modernity: '(6) PAYLOADS/FROZENDICT/PEP — `closed=`/`extra_items=` `TypedDict` via module-level `TypeAdapter` + `Unpack`; `frozendict` ' +
-      'builtin owns tables; PEP 585/604/695 only; total `match` + `assert_never`; plus the full MECHANICAL EXECUTABILITY sweep (fence-parses, ' +
-      'model-coherence, total-dispatch, single-fact evidence, loop-offload, handle-lifetime, identity-regime, template-safety, ' +
-      'stream-over-materialize, no-exception-hotloop, derived-not-parallel).',
+    gapDomain: 'a dimension owner owns the full ISO 129-1 linear/aligned/angular/radial/diameter/ordinate/chain/baseline + ' +
+      'tolerance family, not a single linear case; a layer codec owns the full ISO 13567 + NCS discipline/major/minor/status ' +
+      'structure, not a flat string',
+    ownerGrammar: 'a CASE in the existing closed `@tagged_union`/`Literal`/`StrEnum` family, a ROW or richer data on the ' +
+      'existing `frozendict` table, a FIELD on the existing `msgspec.Struct`/Pydantic model/frozen dataclass/`TypedDict`, an ' +
+      'OPERATION on the existing surface, or a POLICY_VALUE on the existing vocabulary',
     deepPkgs: 'the admitted both-tier catalogs (expression/msgspec/pydantic/anyio + the folder domain packages)',
     exhaust: 'total `match` + `assert_never` over the FULL case set',
     modern: 'py3.15-modern only',
+    mechanics: 'MECHANICAL EXECUTABILITY — a fence is a signature-and-implementation contract: mentally compile and type-check ' +
+      'each one against the real cross-page owners it imports, then hunt these defect classes at their owning doctrine sites ' +
+      'and fix each in place by growing the existing owner: FENCE-PARSES (`language.md` CLOSED_MATCH_SITE) · MODEL-COHERENCE ' +
+      '(README CORPUS_LAW) · TOTAL-DISPATCH (`shapes.md` families) · SINGLE-FACT-EVIDENCE (`rails-and-effects.md` ' +
+      'STATE_RECEIPTS + `boundaries.md` BYTE_IDENTITY) · LOOP-OFFLOAD (`concurrency.md` OFFLOAD_LANE) · HANDLE-LIFETIME + ' +
+      'BINARY-KERNEL (`boundaries.md` CAPSULE_OWNER) · IDENTITY-REGIME (`boundaries.md` MEMO_KEY) · TEMPLATE-SAFETY ' +
+      '(`language.md` TEMPLATE_STRUCTURE_SITE) · STREAM-OVER-MATERIALIZE (`iteration.md` LAZY_COMBINATORS) · ' +
+      'NO-EXCEPTION-HOTLOOP (`rails-and-effects.md` EXPRESSION_SPINE) · DERIVED-NOT-PARALLEL + PER-MODE PAYLOADS (README ' +
+      'DERIVED_LOGIC). The defect definitions live at the sites; read them there.',
+    fileOrg: 'apply the `docs/stacks/python` file-organization + section-order law',
   },
   ts: {
     key: 'ts', name: 'TypeScript', root: 'libs/typescript', stack: 'docs/stacks/typescript', casing: 'camelCase',
     corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
     strata: 'CLAUDE.md manifest law governs.',
-    stackLaw: 'DENSITY BAR + STANDARD: docs/stacks/typescript/ composed IN FULL — README plus language, derivation, values, computation, ' +
-      'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries. ' +
-      'Author ultra-advanced TS only, discarding naive idioms wholesale. Cite only real members of admitted packages, cross-checked against ' +
-      'the published types in node_modules.',
-    apiTiers: 'MINE BOTH catalog tiers: the SHARED/universal `libs/typescript/.api/*.md` (the Effect substrate rails, enumerated from disk, ' +
-      'never from memory) AND the folder-specific `<folder>/.api/*.md`, cross-checked against the published types in ' +
-      'node_modules; maximize the shared/universal Effect rails wherever relevant, never only the folder set.',
-    readLaw: 'docs/stacks/typescript/ in FULL — README plus language, derivation, values, computation, shapes, surfaces-and-dispatch, ' +
-      'rails-and-effects, services-and-layers, concurrency, streams, boundaries',
+    stackFloor: 'docs/stacks/typescript composed in full is the bar — author ultra-advanced TS only, discarding naive idioms wholesale.',
+    apiTiers: 'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs ' +
+      '`<folder>/.api/*.md`, cross-checked against the published types in node_modules, always layering the shared Effect ' +
+      'ecosystem end-to-end ON TOP OF the area-specific packages, never the folder set alone.',
     verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
     vocab: '(tagged unions, `Schema` owners, `Effect`/`Layer`, value-derived vocabulary tables)',
     slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
-    illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules (a phantom)',
-    ultra: [
-      'ULTRA-ADVANCED REBUILD MANDATE: COLLAPSE >=3 parallel interfaces/types/classes modelling one concept into ONE polymorphic surface ' +
-        '(tagged discriminated union + exhaustive match), never parallel names. AOP: cross-cutting concerns (retry, telemetry, validation, ' +
-        'caching, receipts, fault rails) as Effect combinators/layers/decorators, not repeated inline. UNIFIED rails + UNIFIED pipelines + ' +
-        'feature-arms-as-cases (never loose separate). Parameterize inputs AND outputs with generics at depth; no stringy/weak typing.',
-      'STACK CAPABILITY: FIRST inventory the COMPLETE catalog set — BOTH tiers — then compose the admitted libraries into single dense rails. ' +
-        'There is NO fixed library count: weave EVERY relevant library, ALWAYS layering the shared/universal Effect ecosystem ' +
-        '(`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON TOP OF the area-specific packages, NOT naive `Promise`/`try`-`catch` ' +
-        'glue. Use the MOST powerful combinators; reject surface-level single-feature uses.',
-      'PRESERVE all intended capability (densify, never delete functionality). Where a page is already strong, refine; where it is flat/naive, ' +
-        'rebuild ground-up. Never regress correctness or boundary law.',
-    ].join('\n'),
-    mechanics: '',
-    patlaw: [
-      'TS PATTERN LAW (ultra-advanced ONLY; do not preserve the naive idioms of the existing code): ZERO `any`, zero implicit `any`, zero ' +
-        'unsafe `as`, zero non-null `!`; model with exact discriminated unions under EXHAUSTIVE handling (`Match.exhaustive` or a checked ' +
-        '`never` sink), `readonly`/`as const`, template-literal types, conditional/mapped types, and the `satisfies` operator. NO runtime ' +
-        '`enum` — use `const` unions or `Schema`/Effect.',
-      'COLLAPSE MANDATES: one `as const satisfies <Contract>` table is the single source of truth for a vocabulary — `typeof`/`keyof typeof`/' +
-        'indexed-access derive the types FROM the value; a hand-written union a value table could derive is a defect. A concept exports ONE ' +
-        'name serving value and type (declaration merging, `Schema.Class` owners, const+type pairing) — a consumer forced to alias, ' +
-        're-instantiate, or `typeof` at the call site is a defect; const type parameters, `NoInfer`, and instantiation expressions pre-solve ' +
-        'inference at the owner. Wrapping/injection/decoration attach INLINE at the owner declaration, never as loose intermediate consts. One ' +
-        'entrypoint owns every call modality via overload signatures or a discriminated input union; `Function.dual` gives pipe + direct call ' +
-        'in one function. SCHEMA AUTHORITY: static types derive (`Schema.Schema.Type`/`Schema.Schema.Encoded`, `X.Type`), wire twins derive ' +
-        'through `Schema.transform` — a hand-declared parallel interface/DTO beside a Schema owner is a defect. SHAPE BUDGET: one deep nested ' +
-        'owner replaces 5+ loose interfaces/aliases/DTOs/brands; brands live INSIDE rich owners as Schema refinements, never free-floating. ' +
-        'EXPORT LAW: no in-body exports — declarations are unexported and the file ends with ONE `// --- [EXPORTS]` block (`export { A, B }` + ' +
-        '`export type { T, U }`) carrying the complete public surface; the block is itself a collapse target — sibling exports for one concept ' +
-        'merge into ONE polymorphic export (modality discriminated inside on input shape; companions ride the same name via declaration ' +
-        'merging), 1-2 exports per module the bar.',
-      'Domain logic runs on typed-error rails — `Effect`/`Either`/`Option`, NEVER `throw` in domain code; boundaries validate through `Schema` ' +
-        '(parse, never trust input). `import type`/`export type` are explicit; side-effect/value imports preserve runtime order. Per the ' +
-        'docs/stacks/typescript file-organization overlay: `Effect.Service` owners are SERVICES, `Layer`/runtime wiring is COMPOSITION, ' +
-        'runtime schemas/classes are MODELS, and catalog or registry rows stay after the owners they reference.',
-      'Keep conventions IDENTICAL across every area so the corpus reads as one ultra-advanced codebase. One canonical semantic name per ' +
-        'bounded concept; discriminate on input shape rather than proliferating `get`/`getMany`/`getById` names.',
-    ].join('\n'),
-    boundaries: 'BOUNDARY LAW: keep every area owner strictly in its lane; internal code uses canonical names and shapes with mapping (and ' +
-      '`Schema` validation) only at the edge; do not trample a sibling owner while densifying; respect the dependency direction of the ' +
-      'workspace. Cross-language wire seams are recorded as ALIGNED seams at the wire contract — fix the local side and record the wire, never ' +
-      'edit the counterpart language from this run.',
+    illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
     docBloat: 'TSDoc',
     collapseInto: 'ONE tagged discriminated union + exhaustive match (with `Schema`/branded owners) IN THE SAME FILE',
-    gapPkg: 'BOTH tiers: the shared `libs/typescript/.api/` Effect substrate rails AND the folder domain packages, cross-checked against the ' +
-      'published node_modules types; stacking that full surface IS new functionality woven into the owner, not naive Promise/try-catch glue',
-    gapDomain: 'a chart owns scale/axis/series/interaction/annotation families and zoom/brush/tooltip/legend operations, not two naive ' +
-      'renders; a service owns retry/telemetry/validation/cache layers, not a bare fetch; a projection owns the full transform/diff/patch ' +
-      'family the domain needs',
-    ownerGrammar: 'a CASE in the existing tagged discriminated union, a FIELD on the existing `Schema`/`Struct`/branded record, a member on ' +
-      'the existing `Effect.Service`, a ROW in the existing const-union/table, or a POLICY value on the existing vocabulary',
-    ownerChooser: '(2) OWNER_CHOOSER — Schema-refined brands INSIDE rich owners where primitives are overloaded; exact discriminated unions ' +
-      'for closed alternatives; `Schema.Class`/`Schema` owners for validated boundary shapes (types derived, never parallel-declared); ' +
-      '`Effect.Service` for capability owners; `as const satisfies` tables for ' +
-      'vocabularies; kill every parallel interface/type, one-field wrapper, field-rename shape, hand-declared wire twin, and thrown-error control flow.',
-    knob: '(3) KNOB_TEST — delete each parameter the value already encodes; a `bool`/`mode`/`batch` flag selecting bodies collapses into a ' +
-      'policy value or input-shape discriminant; every timeout/retry/deadline moves off the signature into Effect combinators/layers.',
-    aspects: '(4) ASPECTS — cross-cutting concerns (retry, telemetry, validation, caching, receipts, fault rails) are Effect ' +
-      'combinators/layers/decorators stacked over a thin pure core, never repeated inline; co-occurring wrappers collapse into one combinator.',
-    rails: '(5) RAILS — domain logic on typed-error rails (`Effect`/`Either`/`Option`), NEVER `throw` in domain code; boundaries parse through ' +
-      '`Schema` (never trust input); exhaustive union handling via `Match.exhaustive` or a checked `never` sink; accumulate-vs-abort correct ' +
-      'at the boundary; no naive ' +
-      '`Promise`/`async` glue where `Effect`/`Layer` belongs.',
-    modernity: '(6) TS-MODERNITY — ZERO `any`/implicit-`any`/unsafe `as`/non-null `!`; no runtime `enum` (const unions or `Schema`); ' +
-      '`readonly`/`as const`; template-literal/conditional/mapped types + `satisfies` where they tighten; `import type`/`export type` explicit; ' +
-      'the docs/stacks/typescript file-organization overlay respected (`Effect.Service` owners are SERVICES, `Layer` wiring is COMPOSITION, ' +
-      'runtime schemas are MODELS, registry rows after their owners).',
+    gapPkg: 'BOTH tiers: the shared `libs/typescript/.api/` Effect substrate rails AND the folder domain packages, ' +
+      'cross-checked against the published node_modules types; stacking that full surface IS new functionality woven into the ' +
+      'owner, not naive Promise/try-catch glue',
+    gapDomain: 'a chart owns scale/axis/series/interaction/annotation families and zoom/brush/tooltip/legend operations, not ' +
+      'two naive renders; a service owns retry/telemetry/validation/cache layers, not a bare fetch; a projection owns the full ' +
+      'transform/diff/patch family the domain needs',
+    ownerGrammar: 'a CASE in the existing tagged discriminated union, a FIELD on the existing `Schema`/`Struct`/branded record, ' +
+      'a member on the existing `Effect.Service`, a ROW in the existing const-union/table, or a POLICY value on the existing vocabulary',
     deepPkgs: 'the Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream`) + the area packages',
     exhaust: 'exhaustive `Match.exhaustive` dispatch (or a checked `never` sink)',
     modern: 'ultra-advanced modern TS only',
+    mechanics: '',
+    fileOrg: 'apply the `docs/stacks/typescript` file-organization + section-order law',
   },
 }
 const L = LANG[LANG_KEY] || LANG.cs // inert fallback: composition no-ops before any agent call when LANG_KEY is null
 
-const LAW = [
-  'Rasm monorepo, ' + L.corpus + '. ' + L.strata + ' ' + L.stackLaw + ' ' + L.apiTiers,
-  'This is a FUNDAMENTAL GROUND-UP REBUILD (or, for a `new` page, a ground-up AUTHORING) of a planning-stage DESIGN PAGE, not a polish pass. ' +
-    'Improve the page objectively: collapse surfaces/types, deepen bleeding-edge spellings, maximize admitted-library capability, AND close ' +
-    'the concept capability gaps.',
-  'REMOVAL DISCIPLINE — buildout over removal, ALWAYS: a package admission, a capability, or a domain concept is removed ONLY where the ' +
-    'campaign brief explicitly rules that removal. Underutilization is NEVER removal evidence — an admitted capability the concept admits is ' +
-    'an INTEGRATION target woven into the owning page (a case/row/field/operation/policy value) or surfaced as a cross-page integration ' +
-    'residual; an orphan-looking admission is a missing-owner gap to close, and a weak/thin/illusory fence is a rebuild-to-stronger target, ' +
-    'never a delete-the-concept license. The only sanctioned deletion absent a brief ruling is a PHANTOM (a cited member that does not exist ' +
-    '— a lie, not capability); everything real gets built out, connected, and integrated, never steered toward removal.',
-  'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
-    'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FILE ' +
-    'items (report those in residual_high).',
-].concat(BRIEF ? [
-  'CAMPAIGN BRIEF — READ ' + BRIEF + ' FIRST as binding scope: the SHARED-LAW HEAD plus every section covering the targeted folder(s) (each ' +
-    'leg reads head + own section only). The brief overrides page-local precedent on paradigm, rename, absorb, and delete decisions; frozen ' +
-    'invariants the brief names are byte-identical law; seam-canonical wire names stay frozen unless the brief explicitly amends them AND ' +
-    'assigns the counterpart work; a brief RESEARCH item is resolved by verification, never asserted.',
-] : []).join('\n')
-const ADVERSARIAL = [
-  'ADVERSARIAL STANCE — EVERY stage (author, critique, AND red-team) is HOSTILE: assume the existing fence is NAIVE, SHALLOW, JUNIOR, or ' +
-    'ILLUSORY until it survives an aggressive attack; the burden of proof is ON THE CODE, never on you. "Mature", "already strong", "good ' +
-    'enough", "done", "polished", and a prior `clean` verdict are REJECTED self-assessments and prior-author claims — MOST of this corpus is ' +
-    L.slur + ', and it is NOT tolerable. Default to "this fence is naive and must be rebuilt to the strongest form the doctrine admits" and ' +
-    'MAKE that rebuild; a no-edit verdict is reached ONLY after a genuinely aggressive attack on the real domain + the verified package ' +
-    'surface finds nothing — never a first-read concession, never to avoid work. Reject "good enough" categorically.',
-  'NAIVETY is a defect on TWO orthogonal axes, both intolerable: COVERAGE — the owner models a thin slice of its concept; APPROACH — ' +
-    'enumerated hardcoded instances where a parameterized, algorithmic owner should GENERATE the space: a fixed roster of ' +
-    'styles/patterns/variants/arms is seed DATA feeding ONE generator over named parameters, NEVER the mechanism itself. COLLAPSE FREEDOM: ' +
-    'every enumerated collapse-signal list in these prompts is a FLOOR, never the complete set — any repeated structure, parallel spelling, ' +
-    'or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself.',
-  'ILLUSORY / FAKE CODE is the PRIMARY target — the MOST dangerous code is the code that PRETENDS to be advanced: it uses the doctrine ' +
-    'vocabulary ' + L.vocab + ', cites packages, reads dense and confident — yet is HOLLOW. Treat dense, confident-looking fences with MORE ' +
-    'suspicion, not less, and DISBELIEVE every claim the page makes about itself until you verify it against the real domain and the ' +
-    'catalogued package surface. HUNT: a name/signature/prose that PROMISES capability the body does not implement; an owner naive on ' +
-    'EITHER axis (a COVERAGE thin slice — a 2-case union for a 20-case domain, the obvious 3 fields where the concept carries fifteen; an ' +
-    'APPROACH roster of enumerated instances where a generator belongs); decorative ' +
-    'density, ceremony, and vocabulary carrying no real capability; a placeholder/stub/sketch dressed as a finished design; prose that ' +
-    'ASSERTS richness the fence does not contain; a structurally-correct collapse that is semantically empty; ' + L.illusion + '. Every such ' +
-    'illusion is a DEFECT to rebuild, not a feature to preserve; where you genuinely cannot break the fence, say so by finding nothing — but ' +
-    'earn it; never invent churn to look busy either.',
-].join('\n')
-const EXTEND = [
-  'CAPABILITY EXTENSION (justified, in-place, never flat spam) — structural collapse and .api-stacking are NECESSARY but NOT SUFFICIENT. A ' +
-    'page can be fully collapsed into one polymorphic owner and STILL be capability-thin: modeling a NAIVE, LIMITED slice of its domain ' +
-    'concept — a flat membership/id set where the concept owns geometry, metrics, per-kind attributes, topology, and operations; a 2-case ' +
-    'vocabulary where the domain has twenty; a record with the obvious 3 fields where the concept carries fifteen. Structural completeness ' +
-    'and CAPABILITY completeness are ORTHOGONAL. A FULL rebuild ALSO closes the capability gap so the page OWNS ITS DOMAIN CONCEPT ' +
-    'COMPLETELY. Per COMPOSED_IMPLEMENTATION + the doctrine growth law (capability grows sublinearly; growth lands as cases/rows/policy-values ' +
-    'INSIDE existing owners, never new surfaces beside them), every real missing concern lands as ' + L.ownerGrammar + ' — reshaping the owner ' +
-    'as if it had always carried it; NEVER a parallel type, a new file, a sibling shape, or flat appended code.',
-  'GAP SOURCES (every extension MUST cite exactly one — justified, never speculative): (a) PACKAGE — a member the admitted package/host ' +
-    'surface exposes that the concept ADMITS but the page IGNORES is a missing case in the owner law (' + L.gapPkg + '; the apiUnderutilized ' +
-    'reading map is the first place to look; verify the member via ' + L.verify + '). (b) DOMAIN — an attribute, metric, sub-kind, ' +
-    'relationship, state, or operation the REAL concept demands but the page omits (' + L.gapDomain + '). (c) CONSUMER — a contract a sibling ' +
-    'or downstream owner will require that has no composed spelling here yet (a need with no spelling marks a missing case: the law extends ' +
-    'first, the feature lands second).',
-  'COVERAGE OVER SIZE: byte-count is a WEAK proxy — capability COVERAGE against the full domain + both-tier package surface is the real ' +
-    'measure. A SMALL page modeling a rich concept is almost always under-built (give it the DEEPEST sweep), AND a LARGE, well-collapsed page ' +
-    'can still be capability-SPARSE. Assess each owner against its domain independently of size and EXTEND every owner the concept ' +
-    'under-realizes IN PLACE — integrated and unified into the one owner at full operator depth, every new field/case/operation composing the ' +
-    'existing rails — never a new flat surface beside it.',
-  'JUSTIFIED, NOT RANDOM: if after a real domain + package + consumer sweep the concept is genuinely complete, prove it by adding nothing — ' +
-    'never invent capability to look busy or pad with flat fields. Every added case/row/field/operation is load-bearing, cites a package ' +
-    'member / domain attribute / consumer contract, and composes the existing rails; preserve ALL existing capability — extension only ' +
-    'deepens, never regresses.',
-].join('\n')
-const PROSE = [
-  'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the ' +
-    'controlling rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, ' +
-    'freshness disclaimers, report framing, or empty hedges (may/might/probably/generally/where possible). Trim walls of explanation to the ' +
-    'load-bearing contract, and prefer a table, a typed signature block, or a tight bullet wherever it carries the design better than a ' +
-    'paragraph. Prose that ASSERTS capability the fence does not implement is a defect, not content.',
-  'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in backticks. ' +
-    'Name the exact member/type/rail in backticks instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or ' +
-    'remove design content.',
-].join('\n')
-const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical ' +
-  'section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ' +
-  'ONLY where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line ' +
-  'where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no ' +
-  'narration, no task/process/session/history/proof/review comments, no ' + L.docBloat + ' bloat. Densify names and types so comments are ' +
-  'rarely needed; cut every low-value comment.'
-const PRE = [LAW, '', ADVERSARIAL, '', L.ultra, '', EXTEND].concat(L.mechanics ? ['', L.mechanics] : [])
-  .concat(['', L.patlaw, '', L.boundaries, '', PROSE, '', COMMENTS, '']).join('\n')
+// --- [MODALITY] --------------------------------------------------------------------------
+// The modality discriminant, resolved once. A third modality later is one MODE row.
+
+const MODE = {
+  brief: {
+    scopeLaw: 'CAMPAIGN BRIEF: READ ' + BRIEF + ' — the shared-law head plus every section covering the targeted ' +
+      'folder(s). Classify each page FROM THE BRIEF against REAL DISK STATE: a brief-new page confirmed absent on ' +
+      'disk -> kind `new` (it may open a new sub-folder; carry `absorb` when the brief names an existing page it ' +
+      'absorbs); a brief-new page already on disk -> `rebuild`; a page the brief names for rebuild/paradigm work -> ' +
+      '`rebuild`; a page with a bounded KEEP-with-extension row -> `improve`; every other existing page under the ' +
+      'targets is OUT OF SCOPE — the brief is the scope law, no cold-pass set. Kind counts derive from disk, never ' +
+      'from a brief census figure. deletePages: only brief-declared outright deletions confirmed present on disk ' +
+      'whose content maps to a destination outside the page set ({page, capturedIn, wave}); an absorbed page whose ' +
+      'absorber is in the page set travels via `absorb` on the absorber. ',
+    legRead: LEG != null ? 'LEG SELECTOR: read the brief leg/wave-partition table and admit ONLY the selected leg(s) ' +
+      JSON.stringify(LEG) + ' page rows, in their listed order (listed order IS dependency order), consuming their ' +
+      'declared kind/absorb/deletePages/rider cells verbatim — verified against disk, never re-invented. Transcribe ' +
+      'each rider cell into a typed rider row (SYMBOL anchors, never line numbers). Emit the brief acceptance ' +
+      'dry-runs covering the selected leg(s) as `acceptance` traces. Where a selected leg names an upstream-leg page ' +
+      'absent on disk, list it in `upstreamMissing` — never silently proceed. ' : '',
+    conceptSource: 'in the brief',
+    intentRead: 'Read ' + BRIEF + ' — the shared-law head plus every section covering these folders — in FULL. ',
+    decisionClause: 'Every paradigm, rename, absorb, and delete decision follows the brief. ',
+    frozenGuard: 'BRIEF-FROZEN: a signature, name, or invariant the brief freezes is byte-identical law — never ' +
+      'rename, re-shape, or re-collapse it, even to a stronger form; seam-canonical wire names stay frozen unless ' +
+      'the brief amends them AND assigns the counterpart work; no page outside the brief scope is rebuilt. ',
+    deleteAuthority: true,
+  },
+  folder: {
+    scopeLaw: 'FOLDER CHARTER SCOPE: full-target expansion — every existing design page under the targets enters ' +
+      'as kind `rebuild`; a page the owning-package charter (ARCHITECTURE.md + README.md + IDEAS.md) demands but ' +
+      'disk lacks enters as kind `new`; a page the charter marks landed/settled is SKIPPED (excluded from the page ' +
+      'list). deletePages is empty; no absorb pairs; `improve` does not apply. ',
+    legRead: '',
+    conceptSource: 'from the owning-package charter (ARCHITECTURE.md + README.md + IDEAS.md)',
+    intentRead: 'Read the owning-package charter — ARCHITECTURE.md + README.md + IDEAS.md — as the INTENT authority ' +
+      'for what each page owns and which pages are settled. ',
+    decisionClause: '',
+    frozenGuard: 'CHARTER-SETTLED: a page the charter marks landed or settled is not re-litigated; every other page ' +
+      'is rebuilt to the strongest form the doctrine admits. ',
+    deleteAuthority: false,
+  },
+}
+const M = BRIEF ? MODE.brief : MODE.folder
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -542,257 +278,331 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
-const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-const folderOf = (p) => { const head = p.split('/.planning/')[0].split('/'); return head[head.length - 1] || 'root' }
+const pkgOf = (p) => p.split('/.planning/')[0] // package = the write-partition key (index docs live at its root)
+const dossierPath = (w, pkg, i) => SCRATCH + '/w' + w + '-' + pkg.split('/').pop() + '-b' + i + '.md'
+const serialRider = (r) => r.motion === 'manifest-drop' || r.motion === 'manifest-add' || r.motion === 'catalog-delete' || !r.page
+const pageRiders = (batch, w, riders) => riders.filter((r) => r.wave === w && !serialRider(r) && batch.some((p) => p.page === r.page))
+// Preserves plan emission order (dependency order); dedupe key = page|wave, first wins; args-pinned waves override.
+const normalizePages = (pl, pinned) => {
+  const seen = new Set()
+  const out = []
+  for (const p of ((pl && pl.pages) || [])) {
+    if (!p || !p.page) continue
+    let wave = Number.isInteger(p.wave) ? p.wave : 0
+    if (pinned) { const i = pinned.findIndex((ws) => Array.isArray(ws) && ws.indexOf(p.page) >= 0); if (i >= 0) wave = i }
+    const key = p.page + '|' + wave
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ page: p.page, kind: p.kind || 'rebuild', absorb: p.absorb, wave })
+  }
+  return out
+}
 
-// MAP_BY_PAGE — the per-page reading map Discover surfaced, indexed for every downstream stage.
+// MAP_BY_PAGE — the per-page reading map Discover surfaced, wave-local, indexed for every downstream stage.
 let MAP_BY_PAGE = new Map()
-const mapFor = (p) => MAP_BY_PAGE.get(p.page || p) || { page: p.page || p, kind: p.kind || 'rebuild', absorb: p.absorb, apiUsed: [], apiUnderutilized: [], contextNote: '', stackingGuidance: '', weak: true }
+const mapFor = (p) => MAP_BY_PAGE.get(p.page || p) || { page: p.page || p, kind: p.kind || 'rebuild', absorb: p.absorb,
+  apiUsed: [], apiUnderutilized: [], contextNote: '', stackingGuidance: '', weak: true }
 const mapsFor = (pgs) => pgs.map((p) => mapFor(p))
-const READ_MANDATE = (maps) => 'READING MAP (the per-page grounding Discover surfaced — an INITIAL POINTER, never the ceiling):\n' +
-  JSON.stringify(maps, null, 1) + '\nBEFORE editing, ULTRA-DEEP-READ: (1) the language doctrine — ' + L.readLaw + ' — never a subset; ' +
-  (BRIEF ? '(2) the campaign brief ' + BRIEF + ' (the shared-law head + every section covering these folders) in FULL; ' : '') +
-  '(' + (BRIEF ? '3' : '2') + ') BOTH .api tiers — ' + L.apiTiers + ' — list both tier directories in full and read every catalog relevant to ' +
-  'these pages. The map POINTS; you VERIFY and EXCEED it: COMPOSE every `apiUsed` catalog at full operator depth, STACK every ' +
-  '`apiUnderutilized` {catalog, capability} INTO the owning page (closing the underutilization is new functionality woven into the owner — a ' +
-  'case/row/field/operation), AND independently CONFIRM no other relevant admitted catalog (either tier) is missing or unconsidered — an ' +
-  'admitted capability the concept admits that NO owner exploits is a DEFECT to close, and the map never licenses a skim: the discovery ' +
-  'agent only pointed, you do the exhaustive read. Verify every cited member via ' + L.verify + '; a member you cannot verify is a ' +
-  'phantom to delete.'
 
-const planPrompt = (pkgHint) => ['Rasm monorepo. TASK: thin enumerate + classify (read-only, do NOT edit). TARGETS (repo-relative): ' +
-  JSON.stringify(TARGETS) + '. Each TARGET is a package/area ROOT (e.g. ' + L.root + '/<Package>), a SUB-FOLDER under .planning at ANY depth, ' +
-  'or a specific design FILE. The OWNING FOLDER of a target is the path BEFORE "/.planning/", or the target itself when it has no ' +
-  '"/.planning/" segment. Use find/ls; do NOT cd. Return packages — one entry per DISTINCT owning ' +
-  'folder: {name: the LAST path segment of the owning root, root, planning: "<root>/.planning", api: ' +
-  '"<root>/.api"}. PAGES: expand each target — a ROOT target expands to EVERY design page under its planning tree (repo-relative *.md); a ' +
-  'SUB-FOLDER target to every page under it at ANY depth; a FILE target to itself; union + dedup; EXCLUDE ' +
-  'IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md and any _*.md campaign brief from the page list.',
-  BRIEF
-    ? 'CAMPAIGN BRIEF: READ ' + BRIEF + ' — the shared-law head plus every section covering the targeted folder(s). Classify each page FROM ' +
-      'THE BRIEF against REAL DISK STATE: a brief-NEW page confirmed ABSENT on disk -> kind `new` (it may open a NEW sub-folder; carry ' +
-      '`absorb` when the brief names an existing page it absorbs); a brief-new page that ALREADY EXISTS on disk -> kind `rebuild`; a page the ' +
-      'brief names for rebuild/paradigm work -> kind `rebuild`; a page the brief explicitly assigns a bounded improve disposition (a ' +
-      'KEEP-with-extension row) -> kind `improve`; every OTHER existing page under the targets is OUT OF SCOPE — exclude it from the page ' +
-      'list entirely (the brief is the scope law; no cold-pass set, no general-improve tangents). deletePages: ONLY brief-declared outright deletions confirmed PRESENT on disk whose content the brief maps to a destination ' +
-      'OUTSIDE the page set (report each as {page, capturedIn: the brief-named destination}); an absorbed page whose absorber is IN the page ' +
-      'set travels via `absorb` on the absorber instead, never in deletePages; a brief-delete page already ABSENT on disk is a no-op — ' +
-      'exclude it entirely.'
-    : 'No campaign brief: every page gets kind `rebuild`; deletePages is empty; no absorb pairs.',
-  pkgHint].filter(Boolean).join('\n')
-const discoverPrompt = (batch) => [LAW, '', ADVERSARIAL, '', 'TASK: HOSTILE READ-ONLY DISCOVERY over these ' + batch.length + ' pages — ' +
-  'read-only is the ONLY concession; the hunt itself is as adversarial as the implement/critique/redteam passes (investigate, do NOT edit): ' +
-  batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. ' +
-  (BRIEF ? 'Read ' + BRIEF + ' (head + the sections covering these folders) for the per-page concern. ' : '') +
-  'For a kind=`improve`/`rebuild` page READ the page IN FULL; for a kind=`new` page (it does not exist yet) read its concept ' +
-  (BRIEF ? 'in the brief' : 'from the folder charter') + ' + its nearest SIBLING pages. ALSO read the folder at large — the sibling pages ' +
-  'each composes and the owning-folder index docs (ARCHITECTURE.md + README.md) — as FULL-FILE reads, never a skim, a section-sample, or a ' +
-  'memory-recall inventory. Then ENUMERATE BOTH .api tiers IN FULL with a real `ls` — ' + L.apiTiers + ' — AND the doctrine inventory IN ' +
-  'FULL with a real ls/find from the source of truth (never memory), holding the language doctrine (' + L.readLaw + ') as the bar. ' +
-  'DISBELIEVE the page: prose claiming a package is "composed" is verified against the fence body, and a dense package-fluent LOOK is the ' +
-  'prime suspect for shallow single-member usage — attack every admitted catalog (BOTH tiers) for the members, combinators, generated ' +
-  'surfaces, and native pipelines the page concept ADMITS but no fence exploits, and DIFF the complete admitted inventory against the WHOLE ' +
-  'FOLDER: a capability no page in the folder exploits is a named integration gap ROUTED to its best owning page, never dropped and never ' +
-  'read as a removal candidate. BUILDOUT FRAMING LAW (absolute, per the campaign method): discovery has ZERO removal authority — an ' +
-  'underutilized catalog, an orphan-looking admission, or a weak fence is ALWAYS framed as a buildout/integration/connection target (WHICH ' +
-  'owner grows WHICH case/row/field/operation/policy value; which cross-page seam connects it into the project as a whole), NEVER as ' +
-  'evidence to remove a package, prune a catalog, or delete a concept/capability; removal exists only where the brief explicitly rules it, ' +
-  'and the map never proposes it. For EACH page produce its reading map: (a) `apiUsed` — the .api catalogs the page CURRENTLY composes, ' +
-  'BOTH tiers (for a new page, the catalogs its concept WILL compose); (b) `apiUnderutilized` — each {catalog, capability}: the CONCRETE ' +
-  'unexploited member/combinator/pipeline in exact catalog-anchored spellings PLUS its integration shape (which owner grows which ' +
-  'case/row/field/operation to weave it in) — REAL analysis against the verified .api inventory, never a guess, never a vague "use more of ' +
-  'X"; (c) `contextNote` — the page contextual relation: which sibling owners/seams it composes, where it sits in the folder, which folder ' +
-  'entry/receipt seam it contributes to, plus any folder-wide gap routed here; (d) `stackingGuidance` — the INITIAL integration pointer on ' +
-  'what api stacking + capability extension the implement should BUILD IN (the implement confirms + deepens it); (e) `weak` — true when the ' +
-  'page is naive/thin/illusory relative to the doctrine bar — a hostility verdict EARNED by the attack above, never a courtesy, and always ' +
-  'paired with buildout guidance in (d), never a removal reading. Your product is a MAP, never a bare verdict — the initial pointer every ' +
-  'downstream stage verifies and EXCEEDS, never a ceiling, never a license for a downstream skim. Members are verified via ' + L.verify +
-  '; never list a phantom. Return worklist (each {page, kind, absorb?, apiUsed, apiUnderutilized, contextNote, stackingGuidance, weak}).'].join('\n')
-const implementPrompt = (batch) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: HOSTILE IMPLEMENT of these ' + batch.length + ' pages IN ' +
-  'PLACE, each per its kind: ' + batch.map((p) => p.page + ' [' + mapFor(p).kind + ']').join(', ') + '. kind=`new`: GROUND-UP AUTHOR the page ' +
-  '(it does not exist; it may open a NEW sub-folder) to the full doctrine + domain-complete capability bar, in the code-fence-first ' +
-  'design-page form of its mature siblings, wired into the owning-folder ARCHITECTURE.md + README.md maps and the folder entry/receipt seam ' +
-  'owners where the folder has them; if its reading map names an absorb target, MOVE the real content over and then DELETE the absorbed page ' +
-  'so no duplicate owner remains. kind=`rebuild`: HOSTILE GROUND-UP REBUILD in place. kind=`improve`: general cold-pass improve. EVERY page: ' +
-  'DISBELIEVE it (assume naive/junior/illusory until it survives an aggressive attack; dense confident code is the PRIME suspect for ' +
-  'hollowness); construct in LIFECYCLE order (admit raw ONCE -> canonical owner by OWNER_CHOOSER -> stacked rail/aspect over a thin pure core ' +
-  '-> projection -> egress, BOTH parameterized); collapse parallel shapes into ' + L.collapseInto + '; one polymorphic entrypoint per ' +
-  'modality. COMPOSE the reading-map `apiUsed` at full operator depth + STACK every `apiUnderutilized` into the owner + CONFIRM no other ' +
-  'admitted catalog is missing (the map is the initial pointer; you ultra-deep-read both .api tiers yourself). CLOSE the concept capability ' +
-  'gaps by growing the EXISTING owner in place (case/row/field/operation/policy-value, each citing a package member / domain attribute / ' +
-  'consumer contract). ' + (BRIEF ? 'Every paradigm, rename, absorb, and delete decision follows the brief; frozen invariants the brief names ' +
-  'stay byte-identical. ' : '') + L.modern + '; high-signal all-backticked prose. Keep the owning-folder index docs truthful for every page ' +
-  'you add, absorb, or delete. WRITE-FULLY now (the fix-log REPORTS edits already made). Cross-file items -> residual_high {files, claim}. ' +
-  'Return the fix-log (files = pages you touched) + collapsed + extended + residual_high + summary.'].join('\n')
-const deletePrompt = (dels) => [LAW, '', L.boundaries, '', 'TASK: BRIEF-DECLARED PAGE DELETIONS (verify-then-delete, zero content loss). The ' +
-  'brief maps the content of each page below to a destination OUTSIDE the page set. For EACH page: read it IN FULL, read the brief-named ' +
-  'destination (capturedIn), and VERIFY the page design intent is genuinely captured there — every load-bearing owner, seam row, and real ' +
-  'standards value accounted for. Where captured, DELETE the file and update the owning-folder ARCHITECTURE.md + README.md maps (and any ' +
-  'sibling page that still routes to it). Where NOT fully captured, do NOT delete — report the exact gap as residual_high {files: [page, ' +
-  'destination], claim}. Pages:\n' + JSON.stringify(dels, null, 1)].join('\n')
-const critiquePrompt = (batch, i) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: HOSTILE DOCTRINAL-CONFORMANCE + CAPABILITY-COMPLETENESS ' +
-  'AUDIT + FIX IN PLACE over these ' + batch.length + ' pages (batch ' + i + ', audit EACH independently, fix EACH in place): ' +
-  batch.map((p) => p.page).join(', ') + '. You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation exists in EVERY fence until you ' +
-  'prove otherwise, trust NOTHING the author or prose claims, treat dense confident code as the PRIME suspect for hollowness, and "good ' +
-  'enough"/"mature"/a prior clean verdict is rejected outright. For EACH page run the MECHANICAL checklists line-by-line — each checklist is ' +
-  'a FLOOR you hunt past, never the complete audit — and REPAIR every hit in place (a fix, never a ledger note): (1) COLLAPSE_SCAN (12 ' +
-  'signals, 3+ instances mandatory; the 12 are a FLOOR — hunt collapse targets beyond them): sibling prefix/suffix names -> one ' +
-  'modality-polymorphic entrypoint; same return rail differing only by arity -> input-shape discrimination; a get/get-many/get-by family -> ' +
-  'one input-keyed entrypoint; functions differing only by a literal -> parameterize as policy; a bool selecting two bodies -> one derived ' +
-  'body; a one-call hop -> delete it; a one-public-method class -> module function or fold-on-owner; parallel dispatch arms -> a derived ' +
-  'table or fold; several types sharing fields -> one closed family; 3+ sibling constants -> one vocabulary/table owner; a wrapper renaming ' +
-  'a package API -> use the package directly; recurring 2-4 wrappers -> one aspect factory; >=3 parallel shapes -> ' + L.collapseInto + '. ' +
-  L.ownerChooser + ' ' + L.knob + ' ' + L.aspects + ' ' + L.rails + ' ' + L.modernity + ' (7) CAPABILITY-COMPLETENESS + ILLUSION — structural ' +
-  'collapse and capability completeness are ORTHOGONAL: verify the body implements what the names/prose promise; ANY capability the ' +
-  'reading-map `apiUnderutilized` / the both-tier admitted-package surface / the real domain / a consumer contract admits that the owner ' +
-  'OMITS is a DEFECT — close it in place by growing the EXISTING owner, citing its source; attack BOTH naivety axes — COVERAGE (a thin ' +
-  'slice of the concept) AND APPROACH (a roster of parallel arms/rows/values where ONE parameterized generator belongs — demote the roster ' +
-  'to seed DATA feeding that generator); delete speculative/padding/decorative additions. ' +
-  'Also enforce the ' + L.stack + ' file-organization + section-order law, cross-package convention consistency, and prose + comment ' +
-  'hygiene. EDIT to fix every hit; OVERRIDE any earlier residual you can now resolve. Return the batched fix-log (files = pages touched) + ' +
-  'extended + residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
-const redteamPrompt = (batch, i, crit) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE over ' +
-  'these ' + batch.length + ' pages (batch ' + i + ', red-team EACH independently, fix EACH in place): ' + batch.map((p) => p.page).join(', ') +
-  '. You are the LAST and MOST AGGRESSIVE pass: assume the author and critique missed things and the chosen design is naive or illusory ' +
-  'until PROVEN the strongest, burden of proof ON THE DESIGN; trust nothing the prior passes or the prose claimed. For EACH page: (A) ' +
-  'COUNTERFACTUAL on the core owner/algebra/dispatch — is it categorically the strongest form the doctrine admits, or does a denser owner ' +
-  '(' + L.collapseInto + '), a derived data table, a parameterized GENERATOR owning an enumerated space (the roster demoted to seed DATA ' +
-  'over named parameters), or a DEEPER admitted-package primitive (' + L.deepPkgs + '; an `apiUnderutilized` member is the first place to ' +
-  'look) collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — never defend the ' +
-  'incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: the next case/dimension/knob/modality/provider lands as ONE ' +
-  'case/row/policy value with every consumer untouched or broken LOUDLY at type-check (' + L.exhaust + '); if it would touch multiple sites, ' +
-  'reshape so the growth axis is a case, row, policy value, or carrier swap. (C) LONG-TAIL multi-dimensional attack ' +
-  '(empty/singular/plural/stream/malformed/concurrent/cancelled/partial-failure/version-skew); accumulate-vs-abort correct for the REAL ' +
-  'boundary; BOTH ingress AND egress parameterized so the owner sources and sinks across hundreds of consumers without interior edits. (D) ' +
-  'BOUNDARY/STRATA-INTEGRITY — a concern owned twice, a folder mixing concerns, a concern scattered across folders, a downward dependency, ' +
-  'or coupling to a sibling owner INTERIOR (vs its wire/seam) is a defect; fix it or record it as a cross-file residual. (E) SURFACE-SPRAWL ' +
-  '+ PHANTOMS — an admitted package whose .api exposes capability the fence re-derives by hand, flat code below the operator depth the ' +
-  'packages reach, a phantom member (cited but unverifiable via ' + L.verify + ' — delete it), or a thin wrapper: collapse to package depth ' +
-  'and verify the member exists. (F) CAPABILITY-COMPLETENESS + ILLUSION — counterfactually attack the owner for DOMAIN-COMPLETENESS ' +
-  'independently of how collapsed or confident it looks; name any omitted capability (reading-map / domain / consumer) with a cite and ' +
-  'EXTEND THE OWNER IN PLACE; conversely REJECT any flat-spam/speculative/parallel-surface extension. ALSO run a FULL COLD ADVERSARIAL ' +
-  'RE-REVIEW of every conformance dimension with fresh hostile eyes — the COLLAPSE_SCAN signals (a FLOOR — hunt collapse targets beyond ' +
-  'them), OWNER_CHOOSER correctness per shape, the KNOB_TEST per param, the aspect taxonomy, rail + closed-fault discipline, ' +
-  'capability-completeness + illusion + BOTH naivety axes (COVERAGE + APPROACH) per owner, ' + L.modern + ' ' +
-  'typing, full ' + L.stack + ' conformance, both-tier .api maximization, and prose/comment hygiene — and fix every defect. Even absent a ' +
-  'structural rebuild the fence must end objectively denser, MORE CAPABLE, more correct than the critique left it; if the strongest form is ' +
-  'genuinely present, prove it by finding nothing — never invent churn. CARRY FORWARD any unresolved cross-file residual from the critique ' +
-  'result below and add your own. CRITIQUE RESULT:\n' + JSON.stringify((crit && { verdict: crit.verdict, residual_high: crit.residual_high || [] }) || {}, null, 1) +
-  '\nReturn the batched fix-log (files = pages touched) + extended + residual_high — each a {files:[...], claim} object for CROSS-FILE ' +
-  'items only.'].join('\n')
-const triagePrompt = (batch) => [LAW, '', ADVERSARIAL, '', 'TASK: READ-ONLY RESIDUAL INVESTIGATION (investigate, do NOT edit, do NOT design ' +
-  'fixes): the build pass deferred the cross-file residual claims below. For EACH claim, resolve the TRUE touch-point set against real disk ' +
-  'state — read every named file IN FULL, then hunt the rest of the repository for every file the claim genuinely spans (sibling pages, index ' +
-  'docs, `.api` catalogs, seam counterparts, root manifests; the claim text may be stale or incomplete) — and rule its validity NOW, one verdict ' +
-  'per id, no id dropped: (a) `real` — a genuine, still-open cross-file defect or deferred decision; return the exact touch-point file set, a ' +
-  'corrected claim, and `evidence` — the disk-verified FACTS the implementer needs (what each touched file currently declares, which members ' +
-  'verify, where the inconsistency lives); facts ONLY, never a fix proposal or design recommendation — the implementer owns every design ' +
-  'decision; (b) `stale` — the corpus already satisfies it on disk (a later stage fixed it, or the cited state no longer exists); (c) `phantom` ' +
-  '— the claim misreads the corpus and the defect never existed; (d) `duplicate` — the same underlying defect as another id in THIS list (name ' +
-  'it in evidence; the strongest one stays `real`). Dropping is an EVIDENCE verdict, never a workload dodge: cite the disk proof in `evidence` ' +
-  'for every non-real verdict; when genuinely uncertain rule `real`. REMOVAL DISCIPLINE binds: a claim proposing capability/package/concept ' +
-  'removal without an explicit brief ruling is ruled `real` with its claim corrected to the integration gap it evidences, never carried as a ' +
-  'removal. RESIDUALS:\n' + JSON.stringify(batch, null, 1) + '\nReturn items — one verdict per id.'].join('\n')
-const reconcilePrompt = (residuals, pkgs) => [PRE, 'TASK: RECONCILE these cross-FILE residuals the build pass deferred. Each residual below ' +
-  'SURVIVED an adversarial read-only disk investigation; its `evidence` carries the investigators\' disk-verified facts (the touch-point set, ' +
-  'what each file currently declares, which members verify) — trust it as grounding, verify anything load-bearing, and OWN the design decision ' +
-  'yourself. There is NO severity — treat EVERY residual as must-address. You are the ONE TERMINAL agent — nothing runs after you, no verify ' +
-  'pass, no downstream residual workflow — so every fix lands at the objectively-best root-level form NOW, never a token patch, and NOTHING is ' +
-  'deferred, punted, or handed off. Your write authority is the WHOLE REPOSITORY: the owning folder(s) of this run (' + pkgs + '), every file a ' +
-  'residual names wherever it lives, sibling pages and folders in ANY language, the owning-folder index docs (ARCHITECTURE.md + README.md), the ' +
-  'folder entry/receipt seam owners, cross-language seam mirrors (counterpart ARCHITECTURE seam records and decode-side vocabulary), `.api` ' +
-  'catalogs, and root manifests — whatever the root-level fix genuinely requires; repair BOTH endpoints of every touched seam so they stay ' +
-  'mirrored. Authority is not license to sprawl: fix what each residual requires at its root, keep every owner in its lane and on its stratum, ' +
-  'never rebuild a foreign folder interior beyond the residual\'s reach, and keep seam-canonical wire names frozen unless the brief explicitly ' +
-  'amends them AND assigns the counterpart work. ' +
-  (BRIEF ? 'The brief (' + BRIEF + ') consumer-ripple rules govern every seam-name decision and every counterpart edit. ' : '') + 'Read ' +
-  'EVERY listed file. For each residual, FIX it in place (unify the shared type/seam/rail, add the depended-on case/field, repair the ' +
-  'strata/boundary issue, update the index-doc maps); where disk proves a confirmed claim FACTUALLY INCORRECT despite the investigation, leave ' +
-  'it and cite the proof in the summary — never silently skip a real one to avoid work. Preserve all capability, regress nothing. ' +
-  'Residuals:\n' +
-  JSON.stringify(residuals, null, 1)].join('\n')
+// --- [SHARED_BLOCKS] — every rigor law appears exactly once, here; stages compose subsets.
+const CONTEXT = 'Rasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor
+const readFirst = (pkg, dossier) => [
+  'READ FIRST, IN ORDER, BEFORE ANY EDIT — no fence is judged before this read lands.',
+  '(1) DOCTRINE — enumerate `' + L.stack + '/` with a real `ls` (never memory), then read the README and EVERY root page it ' +
+    'routes IN FULL in the README [01]-[ATLAS] order — top-to-bottom, never a partial, skim, grep-jump, or section-sample; a ' +
+    'root page on disk but absent from the atlas is still mandatory law. The README [02]-[DOCTRINE] laws, the ' +
+    '[03]-[COLLAPSE_SCAN] table, OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER (`rails-and-effects.md` [01]), and the aspect ' +
+    'two-weave (`surfaces-and-dispatch.md` AND `rails-and-effects.md` — both owners) are binding law AT THE SOURCE. This ' +
+    'prompt does not restate the doctrine; read it there, hold it as fact, and conform every fence to it — a summary is never ' +
+    'a substitute for the read.',
+  L.key === 'cs' ? '(1b) Enumerate `docs/stacks/csharp/domain/` with a real `ls` through its router README, then read every ' +
+    'shard the page concerns touch — chosen from the enumerated set, truthfully, never from memory or skipped; shard ' +
+    'conformance is a hard gate.' : '',
+  '(2) .API — `ls` BOTH catalog tiers in full — the shared substrate `' + L.root + '/.api/` AND the folder `' + pkg +
+    '/.api/` — then read every catalog relevant to these pages, layering the shared rails (' + L.deepPkgs + ') ON TOP OF the ' +
+    'folder domain packages, never the folder set alone.',
+  dossier ? 'The grounding dossier at `' + dossier + '` carries verified two-tier extracts for this batch: read it, ' +
+    'SPOT-VERIFY its anchors (a fake anchor goes in `dossierPhantoms`), and hunt PAST it — members you compose beyond it are ' +
+    'enumerated in `beyondMap`. Absent or stale, run the full two-tier `ls`+read yourself.' : '',
+  '(3) SCOPE — ' + M.intentRead,
+].filter(Boolean).join('\n')
+const STANCE = 'STANCE — every pass is hostile: author, critique, and red-team alike. Hold the fence naive, shallow, or ' +
+  'illusory until it survives a real attack; the burden of proof is on the code, never on you. "Mature", "already strong", ' +
+  '"good enough", and a prior clean verdict are rejected self-assessments — most of this corpus is ' + L.slur + '. Dense, ' +
+  'confident, package-fluent code is the PRIME suspect for hollowness: disbelieve every claim a fence makes about itself and ' +
+  'verify it against the real domain and the catalogued package surface. NAIVETY is a defect on two orthogonal axes. ' +
+  'COVERAGE — the owner models a thin slice of its concept: a 2-case family for a 20-case domain, three fields where the ' +
+  'concept carries fifteen. APPROACH — an enumerated roster of styles, variants, or arms where one parameterized generator ' +
+  'should GENERATE the space; the roster demotes to seed DATA over named parameters. ILLUSORY code is the primary target: ' +
+  'doctrine vocabulary ' + L.vocab + ', cited packages, confident prose, hollow body — a phantom (' + L.illusion + '), a name ' +
+  'promising capability the body omits, decorative density carrying nothing, a stub dressed as a finished design. Every ' +
+  'collapse-signal list in these prompts is a FLOOR, never the complete set. Reach a no-edit verdict only after an attack ' +
+  'finds nothing; prove completeness by adding nothing — never invent churn.'
+const BUILD_LAW = 'BUILD LAW — buildout over removal, always. A package admission, a capability, or a domain concept is ' +
+  'removed only where the campaign brief rules that removal; the sole exception is a PHANTOM — a cited member that does not ' +
+  'exist. An underutilized catalog, an orphan-looking admission, or a weak fence is an INTEGRATION target: the capability ' +
+  'lands as ' + L.ownerGrammar + ' — inside the existing owner, reshaped as if always carried — or is wired into its owning ' +
+  'sibling page in the same pass. Never a parallel type, a new file, a sibling shape, or flat appended code; never extract a ' +
+  'file to cut LOC; never regress existing capability. Structural collapse and CAPABILITY completeness are orthogonal — a ' +
+  'fully collapsed owner can still model a naive slice; close both. Every extension cites exactly one gap source. PACKAGE — ' +
+  'a member the admitted surface exposes that the concept admits but the page ignores (' + L.gapPkg + '). DOMAIN — an ' +
+  'attribute, metric, sub-kind, relationship, state, or operation the real concept demands (' + L.gapDomain + '). CONSUMER — ' +
+  'a contract a sibling or downstream owner will require. Byte-count is a weak proxy: assess every owner against its full ' +
+  'domain and both-tier package surface independently of size.'
+const VERIFY = 'VERIFY — cite only members confirmed via ' + L.verify + '; a member you cannot verify is a phantom to delete. ' +
+  'Mine BOTH .api tiers to operator depth: ' + L.apiTiers + ' An admitted capability the concept admits that no owner ' +
+  'exploits is a defect to close.'
+const WRITE_FULLY = 'WRITE FULLY — every fix you identify you make NOW via Edit/Write; the fix-log is a report of edits ' +
+  'already made, never a to-do, a ledger, or a would/should hedge. A cross-file ripple your edit causes is YOURS in the same ' +
+  'pass: repair the seam counterpart and the consumer site wherever the fix lives — surgical anchored edits, wire-canonical ' +
+  'names frozen (the branch ARCHITECTURE.md [02]-[SEAMS] ledger names the wire rows), never a foreign-interior rebuild — and ' +
+  'record every touched seam in `seamsTouched`, both ends. TWO surfaces are serialized and never yours to write: the ' +
+  'owning-package index docs (ARCHITECTURE.md + README.md at the path before `/.planning/`) and the central manifests — ' +
+  'report the exact rows you need in `indexRows`; the wave tail applies them once.'
+const PROSE_COMMENTS = 'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md. ' +
+  'The page is a design spec: lead each section with the controlling contract, one idea per paragraph, close on the ' +
+  'consequence; no provenance, process narration, freshness disclaimers, or hedges. Backtick every symbol, type, field, ' +
+  'function, operator, package ID, path, command, flag, and literal; name the exact member instead of paraphrasing behavior; ' +
+  'trimming never reduces technical density. Code fences comment for the next agent only: keep the canonical section-divider ' +
+  'headers; beyond them default to zero comments, 1-2 lines only for a truly subtle invariant, contract, or boundary; no ' +
+  'restating the code, no narration, no ' + L.docBloat + ' bloat.'
+const readingMap = (maps) => 'READING MAP — the per-page grounding Discover surfaced (an initial pointer, never the ' +
+  'ceiling):\n' + JSON.stringify(maps, null, 1) + '\nThe map POINTS; you VERIFY and EXCEED it: compose every `apiUsed` ' +
+  'catalog at full operator depth, stack every `apiUnderutilized` {catalog, capability} INTO the owning page as a case, row, ' +
+  'field, or operation, and independently confirm no other relevant admitted catalog (either tier) is missing. Members you ' +
+  'compose beyond the map are enumerated in `beyondMap` — an empty `beyondMap` is an attestation that the map was genuinely ' +
+  'complete, not a license to treat it as a ceiling.'
+const preamble = (batch, dossier) => [CONTEXT, readFirst(pkgOf(batch[0].page), dossier), STANCE, BUILD_LAW, VERIFY,
+  WRITE_FULLY, PROSE_COMMENTS].concat(L.mechanics ? [L.mechanics] : []).concat([readingMap(mapsFor(batch))])
+
+// --- [PROMPTS] — each task states only its own action; shared checks are referenced by name.
+const planPrompt = () => [CONTEXT,
+  'TASK: thin enumerate + classify (read-only, do NOT edit). TARGETS (repo-relative): ' + JSON.stringify(TARGETS) + '. The ' +
+  'OWNING PACKAGE of a page is the path before `/.planning/`. Use find/ls; validate the expansion against ' +
+  '`libs/.planning/planning-targets.md` (a mis-scoped or renamed target is reported in `upstreamMissing`, a deliberately ' +
+  'page-less target is skipped silently). Return `packages` (one entry per distinct owning package: {name, root, planning, ' +
+  'api}). PAGES: expand each target — a ROOT to every design page under its planning tree, a SUB-FOLDER to every page under ' +
+  'it, a FILE to itself; union + dedup; exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md and any campaign-brief page.',
+  M.scopeLaw + M.legRead,
+  (!BRIEF && ARG_WAVES) ? 'ARGS-PINNED WAVES (page arrays by wave index): ' + JSON.stringify(ARG_WAVES) : '',
+  'EMIT `pages` IN DEPENDENCY ORDER — the brief\'s listed order where a brief rules it, otherwise grouped by sub-folder then ' +
+  'alphabetical; the engine chunks in your emitted order and never re-sorts. Assign each page its `wave` (brief wave/leg ' +
+  'partition; args-pinned waves; otherwise 0). A page carrying both an earlier-wave `improve` pre-motion and a later-wave ' +
+  'main motion emits TWO rows, one per (wave, kind). Home each absorb pair to the absorber\'s wave. `riders`: transcribe ' +
+  'every brief rider cell covering the admitted pages into typed rows — symbol anchors only.',
+].filter(Boolean).join('\n\n')
+const discoverPrompt = (batch, dossier) => [CONTEXT, readFirst(pkgOf(batch[0].page), ''), STANCE, VERIFY,
+  'TASK: HOSTILE READ-ONLY DISCOVERY over these ' + batch.length + ' pages — read-only is the only concession; the hunt is ' +
+  'as adversarial as every writing pass (investigate, do NOT edit): ' +
+  batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. For an improve/rebuild page read the page IN FULL; for a ' +
+  '`new` page read its concept ' + M.conceptSource + ' plus its nearest sibling pages. Read the folder at large — the ' +
+  'sibling pages each composes and the owning-package index docs — as full-file reads. DISBELIEVE the page: prose claiming ' +
+  'a package is composed is verified against the fence body; attack every admitted catalog (both tiers) for the members, ' +
+  'combinators, generated surfaces, and native pipelines the concept ADMITS but no fence exploits, and DIFF the complete ' +
+  'admitted inventory against the whole folder — a capability no page exploits is a named integration gap ROUTED to its ' +
+  'best owning page. Discovery has ZERO removal authority: an underutilized catalog, orphan-looking admission, or weak ' +
+  'fence is always framed as a buildout target (which owner grows which case/row/field/operation), never as removal ' +
+  'evidence.\n' +
+  'For EACH page produce its reading map: `apiUsed` (catalogs the page composes — for a new page, will compose), ' +
+  '`apiUnderutilized` ({catalog, capability}: the concrete unexploited member in exact catalog-anchored spelling plus its ' +
+  'integration shape), `contextNote` (sibling owners/seams composed, folder position, any folder-wide gap routed here), ' +
+  '`stackingGuidance` (the initial integration pointer the implement confirms and deepens), `weak` (a hostility verdict ' +
+  'earned by the attack, always paired with buildout guidance). The map is a pointer downstream stages verify and EXCEED, ' +
+  'never a ceiling. Verify every cited member via ' + L.verify + '; never list a phantom.\n' +
+  'GROUNDING DOSSIER: write `' + dossier + '` carrying VERIFIED PRIMARY EXTRACTS ONLY for this batch — the real `ls` ' +
+  'inventories of both .api tiers and the doctrine root, quoted .api member blocks with `file:line` anchors for every ' +
+  'member the maps cite, the brief seam/rider anchors covering these pages, and folder-context anchors. FORBIDDEN in the ' +
+  'dossier: any doctrine-law digest, summary, or paraphrase; any removal framing; any claim without a `file:line` anchor. ' +
+  'Downstream agents spot-verify your anchors — a fake anchor is your defect, surfaced loudly. Return worklist + dossier ' +
+  '(the path).',
+].join('\n\n')
+const implementPrompt = (batch, dossier, riders) => preamble(batch, dossier).concat([
+  'TASK: HOSTILE IMPLEMENT of these ' + batch.length + ' pages IN PLACE, each per its kind: ' +
+  batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '.\n' +
+  'kind=`new`: GROUND-UP AUTHOR the page (it does not exist; it may open a new sub-folder) to the full doctrine + ' +
+  'domain-complete capability bar, in the code-fence-first design-page form of its mature siblings, wired into the folder ' +
+  'entry/receipt seam owners where the folder has them; when its map names an absorb target, MOVE the real content over ' +
+  'and DELETE the absorbed page in this pass. kind=`rebuild`: HOSTILE GROUND-UP REBUILD in place. kind=`improve`: bounded ' +
+  'cold improve per the ruled disposition. Construct in LIFECYCLE order — admit raw once, canonical owner by ' +
+  'OWNER_CHOOSER, stacked rail/aspect over a thin pure core, projection, egress, BOTH ingress and egress parameterized; ' +
+  'collapse parallel shapes into ' + L.collapseInto + '; one polymorphic entrypoint per modality. COMPOSE the map\'s ' +
+  '`apiUsed` at full operator depth, STACK every `apiUnderutilized` into the owner, and CONFIRM no other admitted catalog ' +
+  'is missing. CLOSE the concept capability gaps per BUILD LAW.\n' + M.decisionClause + M.frozenGuard + '\n' +
+  'RIDERS (yours, receipt-forced): ' + JSON.stringify(riders) + '. Execute each now — a counterpart-edit is a surgical ' +
+  'wire edit at the symbol anchor; a verify is a read-and-assert returning `drift` with disk evidence when the assertion ' +
+  'fails. Report every rider in `riders` receipts. ' + L.modern + '; ' + L.fileOrg + '; high-signal all-backticked prose. ' +
+  'Return the fix-log.',
+]).join('\n\n')
+const deletePrompt = (dels) => [CONTEXT, WRITE_FULLY,
+  'TASK: BRIEF-DECLARED PAGE DELETIONS (verify-then-delete, zero content loss). For EACH page: read it in full, read the ' +
+  'brief-named destination (capturedIn), VERIFY the design intent is genuinely captured — every load-bearing owner, seam ' +
+  'row, and real standards value accounted for. Captured: delete the file and report the index rows the deletion requires ' +
+  'in `indexRows` (the tail applies them). Not captured: MOVE the missing content into the destination yourself, verify, ' +
+  'then delete. Keep a page only when the destination itself is wrong (kept {page, reason}). Pages: ' + JSON.stringify(dels),
+].join('\n\n')
+const critiquePrompt = (batch, dossier) => preamble(batch, dossier).concat([
+  'TASK: HOSTILE DOCTRINAL-CONFORMANCE + CAPABILITY AUDIT; fix EACH page in place: ' +
+  batch.map((p) => p.page).join(', ') + '. Audit every fence against the doctrine you read at source, never a summary; ' +
+  'repair every hit now — a fix, never a ledger note; a cross-file hit is yours per WRITE FULLY. ' + M.frozenGuard + '\n' +
+  '- COLLAPSE_SCAN: run the README [03] table on every fence — any signal triggers the move, 3+ instances make it ' +
+  'mandatory, the table is a FLOOR you hunt past.\n' +
+  '- OWNER_CHOOSER (`shapes.md` [01]): re-derive every shape from the 5 discriminants — admission, identity regime, ' +
+  'variant arity, payload timing, openness — and replace any non-discriminant-correct owner; kill every parallel DTO, ' +
+  'one-field wrapper, field-rename shape, and null/default ghost.\n' +
+  '- KNOB_TEST: delete each parameter — where the value reconstructs it, collapse the knob to a policy value or ' +
+  'input-shape discriminant; move every timeout/retry/deadline off the signature onto the carrier or a composition-time ' +
+  'aspect.\n' +
+  '- ASPECTS (`surfaces-and-dispatch.md` AND `rails-and-effects.md` — both owners), RAILS + closed-fault + ' +
+  'accumulate-vs-abort (`rails-and-effects.md` [01]), STRATA/MEMBERS (' + L.modern + '; both .api tiers maximized per ' +
+  'VERIFY; ' + L.fileOrg + '): audit each at its owning page.\n' +
+  '- CAPABILITY-COMPLETENESS + ILLUSION: verify the body implements what names and prose promise; close any admitted ' +
+  'capability the owner omits by growing it per BUILD LAW; attack both naivety axes.\n' +
+  'Return the batched fix-log.',
+]).join('\n\n')
+const redteamPrompt = (batch, dossier, crit) => preamble(batch, dossier).concat([
+  'TASK: ADVERSARIAL ARCHITECT RED-TEAM; fix EACH page in place: ' + batch.map((p) => p.page).join(', ') + '. Assume the ' +
+  'author and critique missed things. ' + M.frozenGuard + '\n' +
+  '(A) COUNTERFACTUAL on the core owner/algebra/dispatch — does a denser owner (' + L.collapseInto + '), a derived table, ' +
+  'a parameterized generator over the enumerated space, or a deeper admitted-package primitive (' + L.deepPkgs + ') ' +
+  'collapse the whole fence? A fundamentally stronger design is built, never defended against. (B) ANTICIPATORY_COLLAPSE ' +
+  '— compute the diff of the next feature: the next case/dimension/modality lands as one row with every consumer ' +
+  'untouched or loudly broken (' + L.exhaust + '). (C) LONG-TAIL — empty/singular/plural/stream/malformed/concurrent/' +
+  'cancelled/partial-failure/version-skew; accumulate-vs-abort correct for the real boundary; ingress AND egress ' +
+  'parameterized. (D) BOUNDARY/STRATA — grade every concern against `libs/.planning/architecture.md` and the branch ' +
+  'ARCHITECTURE.md [02]-[SEAMS] ledger (read the ledger, never a summary of it): a concern owned twice, a downward ' +
+  'dependency, a host-type leak, or coupling to a sibling interior is a defect fixed both ends. (E) SPRAWL + PHANTOMS — ' +
+  'hand-re-derived package capability, flat code below the operator depth the packages reach, a phantom member (delete), ' +
+  'a thin wrapper. (F) CAPABILITY-COMPLETENESS + ILLUSION per STANCE and BUILD LAW. Then a FULL COLD RE-REVIEW of every ' +
+  'conformance dimension by name — COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, ASPECTS, RAILS, ' + L.modern + ', ' +
+  L.fileOrg + ', both-tier .api maximization, prose + comment hygiene. VERIFY the critique\'s `seamsTouched` landed on ' +
+  'BOTH ends of every seam; make any missed repair yourself. CRITIQUE RESULT: ' + JSON.stringify(crit || {}) + '. Return ' +
+  'the batched fix-log.',
+]).join('\n\n')
+const tailPrompt = (w, rows, serial, receipts) => [CONTEXT, PROSE_COMMENTS,
+  'TASK: SERIALIZED WAVE CLOSE — you are the wave\'s ONLY writer for shared central files. (1) INDEX ROWS: apply every ' +
+  'reported row below to its owning-package ARCHITECTURE.md / README.md exactly once — dedupe semantically identical ' +
+  'rows, keep each doc\'s section grammar, verify every landed page, absorb, and delete this wave is truthfully ' +
+  'reflected: ' + JSON.stringify(rows) + '. (2) SERIAL RIDERS: execute each row — `manifest-drop`/`manifest-add` ' +
+  'hand-edit the grouped central manifest at the SYMBOL anchor (never a line number), preserving label-group order; ' +
+  '`catalog-delete` first confirms `guardPage` exists on disk with the vendored owner landed, then deletes the catalog ' +
+  'and its index references: ' + JSON.stringify(serial) + '. (3) RECEIPT AUDIT: the page-routed rider receipts below ' +
+  'claim done/drift — spot-verify each `done` on disk and report any lie in `drift`: ' + JSON.stringify(receipts) + '. ' +
+  'Return applied (target, action, evidence) + drift.',
+].join('\n\n')
+const acceptancePrompt = (traces, pages) => [CONTEXT,
+  'TASK: READ-ONLY ACCEPTANCE TRACE — investigate, never edit, never block. (1) For each trace, confirm every `needs` ' +
+  'entry resolves on landed disk — the page exists, the named entry/owner carries the expected signature, the seam ' +
+  'anchor is present — and return pass/miss with the missing entries named: ' + JSON.stringify(traces) + '. (2) GENERIC ' +
+  'SWEEP: over the pages landed this run — ' + JSON.stringify(pages.map((p) => p.page)) + ' — confirm every cross-page ' +
+  'symbol a landed fence composes resolves on a sibling owner with a matching signature; report each unresolved symbol ' +
+  'as `unresolved` with `file -> missing owner` evidence. A miss is a report, never a fix.',
+].join('\n\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-if (!TARGETS.length) { log('No targets — pass a target path, an array, or {targets, brief}. Empty args is a no-op.'); return { targets: [], total: 0 } }
-if (!LANG_KEY) { log('Targets must live under ONE language root (libs/csharp | libs/python | libs/typescript). Got: ' + JSON.stringify(TARGETS)); return { targets: TARGETS, total: 0 } }
+if (!TARGETS.length && !(BRIEF && LEG != null)) {
+  log('No targets — pass a target path, an array, or {targets, brief, leg}. Empty args is a no-op.')
+  return { targets: [], total: 0 }
+}
+if (rawLeg != null && !BRIEF) log('leg without brief is a no-op — the leg selector is ignored.')
+if (!LANG_KEY) {
+  log('Targets must live under ONE language root (libs/csharp | libs/python | libs/typescript), or a targetless run needs a ' +
+    'RASM-<CS|PY|TS>- brief name. Got: ' + JSON.stringify({ targets: TARGETS, brief: BRIEF }))
+  return { targets: TARGETS, total: 0 }
+}
 
-// --- [PLAN]
 phase('Plan')
-const plan = await agent(planPrompt(''), { label: 'plan', phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL })
-const packages = ((plan && plan.packages) || []).filter((p) => p && p.name)
-const PAGES = [...new Map(((plan && plan.pages) || []).filter((p) => p && p.page).map((p) => [p.page, { page: p.page, kind: p.kind || 'rebuild', absorb: p.absorb }])).values()]
-  .sort((a, b) => a.page.localeCompare(b.page))
-const deletePages = ((plan && plan.deletePages) || []).filter((d) => d && d.page)
+const plan = await agent(planPrompt(), { label: 'plan', phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL })
+const PAGES = normalizePages(plan, (!BRIEF && ARG_WAVES) ? ARG_WAVES : null)
+const DELS = ((plan && plan.deletePages) || []).filter((d) => d && d.page)
+  .map((d) => ({ page: d.page, capturedIn: d.capturedIn, wave: Number.isInteger(d.wave) ? d.wave : 0 }))
+const RIDERS = ((plan && plan.riders) || []).concat(ARG_RIDERS).filter((r) => r && r.motion && r.target)
+  .map((r) => ({ motion: r.motion, target: r.target, anchor: r.anchor || '', detail: r.detail, page: r.page,
+    guardPage: r.guardPage, wave: Number.isInteger(r.wave) ? r.wave : 0 }))
+const ACCEPT = ((plan && plan.acceptance) || []).concat(ARG_ACCEPT).filter((t) => t && t.name)
+  .map((t) => ({ name: t.name, needs: Array.isArray(t.needs) ? t.needs : [] }))
+const MISSING = (plan && plan.upstreamMissing) || []
+if (MISSING.length) {
+  log('HALT at plan — upstream not landed: ' + MISSING.join(', '))
+  return { targets: TARGETS, halted: 'plan', upstreamMissing: MISSING }
+}
 const kindCount = (k) => PAGES.filter((p) => p.kind === k).length
-log('Plan[' + LANG_KEY + (BRIEF ? '|brief' : '') + ']: ' + PAGES.length + ' pages (' + kindCount('new') + ' new, ' + kindCount('rebuild') + ' rebuild, ' +
-  kindCount('improve') + ' improve) + ' + deletePages.length + ' outright deletion(s) across ' + packages.length + ' folder(s) [' +
-  packages.map((p) => p.name).join(', ') + ']; CAP=' + CAP)
-if (!PAGES.length && !deletePages.length) { log('No pages resolved under the targets'); return { targets: TARGETS, language: LANG_KEY, brief: BRIEF, total: 0 } }
+log('Plan[' + LANG_KEY + (BRIEF ? '|brief' : '') + (LEG != null ? '|leg ' + JSON.stringify(LEG) : '') + ']: ' + PAGES.length +
+  ' pages (' + kindCount('new') + ' new, ' + kindCount('rebuild') + ' rebuild, ' + kindCount('improve') + ' improve) + ' +
+  DELS.length + ' deletion(s), ' + RIDERS.length + ' rider(s), ' + ACCEPT.length + ' trace(s); CAP=' + CAP)
+if (!PAGES.length && !DELS.length) {
+  log('No pages resolved under the targets')
+  return { targets: TARGETS, language: LANG_KEY, brief: BRIEF, total: 0 }
+}
+const WAVES = [...new Set(PAGES.map((p) => p.wave).concat(DELS.map((d) => d.wave)))].sort((a, b) => a - b)
 
-// --- [DISCOVER]
-phase('Discover')
-const discovered = (await pool(chunk(PAGES, DISCOVER_BATCH), CAP, (batch, i) =>
-  agent(discoverPrompt(batch), { label: 'discover:b' + i, phase: 'Discover', model: 'opus', effort: 'max', schema: DISCOVER_SCHEMA, stallMs: STALL }))).filter(Boolean)
-MAP_BY_PAGE = new Map(discovered.flatMap((d) => (d.worklist || []).filter((w) => w && w.page).map((w) => [w.page, w])))
-log('Discover: reading map for ' + MAP_BY_PAGE.size + '/' + PAGES.length + ' pages (' +
-  [...MAP_BY_PAGE.values()].filter((w) => w.weak).length + ' marked weak) across ' + discovered.length + ' batch(es)')
+const landed = []
+let halt = null
+for (const w of WAVES) { // ── the ONE inter-wave barrier — real: cross-wave content moves ──
+  const wp = PAGES.filter((p) => p.wave === w)
+  const wd = DELS.filter((d) => d.wave === w)
+  if (!wp.length && !wd.length) continue
+  const lanes = [...new Set(wp.map((p) => pkgOf(p.page)))].map((pkg) => ({ pkg, pages: wp.filter((p) => pkgOf(p.page) === pkg) }))
+  phase('W' + w + ' Discover'); phase('W' + w + ' Build')
+  MAP_BY_PAGE = new Map() // wave-local, rebuilt from landed disk
 
-// --- [IMPLEMENT]
-phase('Implement')
-const implWork = chunk(PAGES, IMPL_BATCH).map((batch) => ({ kind: 'impl', batch }))
-if (deletePages.length) implWork.push({ kind: 'delete', batch: deletePages })
-const builtRaw = await pool(implWork, CAP, (w, i) => w.kind === 'delete'
-  ? agent(deletePrompt(w.batch), { label: 'delete:brief', phase: 'Implement', model: 'fable', effort: 'high', schema: DELETE_SCHEMA, stallMs: STALL })
-  : agent(implementPrompt(w.batch), { label: 'impl:b' + i + ':' + folderOf(w.batch[0].page), phase: 'Implement', model: 'fable', effort: 'max', schema: FIXLOG_SCHEMA, stallMs: STALL }))
-const deleteLog = deletePages.length ? builtRaw[implWork.length - 1] : null // pool preserves item order; the delete executor is the last work item
-const builtAll = builtRaw.filter(Boolean)
-const built = builtAll.filter((r) => Array.isArray(r.files))
-const deleted = (deleteLog && deleteLog.deleted) || []
+  const laneOut = (await pool(lanes, CAP, async (lane) => {
+    const batches = chunk(lane.pages, IMPL_BATCH) // plan order preserved = dependency order
+    const dos = await pool(batches, CAP, (b, i) =>
+      agent(discoverPrompt(b, dossierPath(w, lane.pkg, i)), { label: 'discover:w' + w + ':' + lane.pkg + ':b' + i,
+        phase: 'W' + w + ' Discover', model: 'opus', effort: 'max', schema: DISCOVER_SCHEMA, stallMs: STALL }))
+    dos.filter(Boolean).forEach((d) => (d.worklist || []).forEach((m) => { if (m && m.page) MAP_BY_PAGE.set(m.page, m) }))
+    // Bounded per-batch pipeline: impl chain + review chain, both in dependency order —
+    // B[k].impl awaits B[k-1].impl; B[k]'s reviews await B[k].impl + B[k-1]'s reviews.
+    let prevImpl = Promise.resolve(true)
+    let prevReview = Promise.resolve(true)
+    const chains = batches.map((b, i) => {
+      const implP = prevImpl.then((ok) => ok === null ? null :
+        agent(implementPrompt(b, dossierPath(w, lane.pkg, i), pageRiders(b, w, RIDERS)),
+          { label: 'impl:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'max', schema: FIXLOG_SCHEMA, stallMs: STALL }))
+      prevImpl = implP
+      const revP = Promise.all([implP, prevReview]).then(async (pair) => {
+        const fix = pair[0]
+        if (!fix) return { batch: b, fix: null, crit: null, rt: null } // failure isolation: a dead impl skips its reviews
+        const crit = await agent(critiquePrompt(b, dossierPath(w, lane.pkg, i)),
+          { label: 'crit:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'xhigh', schema: REVIEW_SCHEMA, stallMs: STALL })
+        const rt = await agent(redteamPrompt(b, dossierPath(w, lane.pkg, i), crit),
+          { label: 'rt:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'max', schema: REVIEW_SCHEMA, stallMs: STALL })
+        return { batch: b, fix, crit, rt }
+      })
+      prevReview = revP
+      return revP
+    })
+    const done = await Promise.all(chains)
+    return { pkg: lane.pkg, done, failed: done.filter((d) => !d.fix).flatMap((d) => d.batch.map((p) => p.page)) }
+  })).filter(Boolean)
 
-// --- [CRITIQUE]
-// --- [REDTEAM]
-phase('Critique')
-phase('Redteam')
-const reviewed = (await pool(chunk(PAGES, REVIEW_BATCH), CAP, async (batch, i) => {
-  const crit = await agent(critiquePrompt(batch, i), { label: 'critique:b' + i, phase: 'Critique', model: 'fable', effort: 'xhigh', schema: REVIEW_SCHEMA, stallMs: STALL })
-  const redteam = await agent(redteamPrompt(batch, i, crit), { label: 'redteam:b' + i, phase: 'Redteam', model: 'fable', effort: 'max', schema: REVIEW_SCHEMA, stallMs: STALL })
-  return { batch, crit, redteam }
-})).filter(Boolean)
-
-// --- [RECONCILE]
-const norm = (x, page) => { const files = Array.isArray(x.files) ? x.files.filter(Boolean) : []; return { files: files.length ? files : [page], claim: x.claim } }
-const fallbackPage = (PAGES[0] && PAGES[0].page) || (packages[0] && packages[0].planning) || L.root
-const allRes = []
-for (const r of builtAll) if (r && r.residual_high) for (const x of r.residual_high) allRes.push(norm(x, (r.files && r.files[0]) || fallbackPage))
-for (const r of reviewed) for (const k of ['crit', 'redteam']) { const l = r[k]; if (l && l.residual_high) for (const x of l.residual_high) allRes.push(norm(x, (l.files && l.files[0]) || fallbackPage)) }
-const uniq = dedup(allRes.filter((r) => r && r.claim))
-log('Build: ' + built.length + ' implement batch(es), ' + reviewed.length + ' review pair(s), ' + deleted.length + ' page(s) deleted; ' +
-  uniq.length + ' residual(s) -> ONE reconcile pass (no verify, no re-entry)')
-let unresolved = []
-let dropped = []
-if (uniq.length) {
-  phase('Reconcile')
-  const pkgs = packages.map((p) => p.planning || p.root).join(', ')
-  const ids = uniq.map((r, i) => ({ id: 'R' + (i + 1), files: r.files, claim: r.claim }))
-  const triaged = (await pool(chunk(ids, Math.max(TRIAGE_BATCH, Math.ceil(ids.length / TRIAGE_CAP))), CAP, (batch, i) =>
-    agent(triagePrompt(batch), { label: 'investigate:b' + i, phase: 'Reconcile', model: 'opus', effort: 'high', schema: TRIAGE_SCHEMA, stallMs: STALL }))).filter(Boolean)
-  const verdictById = new Map(triaged.flatMap((t) => t.items || []).map((v) => [v.id, v]))
-  // Fail-open: a residual whose investigator died stays live — only an explicit non-real verdict drops.
-  const confirmed = ids.filter((r) => !verdictById.has(r.id) || verdictById.get(r.id).verdict === 'real')
-    .map((r) => { const v = verdictById.get(r.id); return v ? { id: r.id, files: (v.files && v.files.length ? v.files : r.files), claim: v.claim || r.claim, evidence: v.evidence || '' } : { id: r.id, files: r.files, claim: r.claim, evidence: '' } })
-  dropped = ids.filter((r) => verdictById.has(r.id) && verdictById.get(r.id).verdict !== 'real')
-    .map((r) => { const v = verdictById.get(r.id); return r.claim + ' [' + v.verdict + ': ' + (v.evidence || 'no evidence returned') + ']' })
-  log('Investigate: ' + confirmed.length + '/' + ids.length + ' confirmed real, ' + dropped.length + ' dropped with disk-cited verdicts')
-  if (confirmed.length) {
-    // One bounded re-attempt: a transient agent death must never silently lose the terminal pass.
-    const opts = { label: 'reconcile (' + confirmed.length + ' claims)', phase: 'Reconcile', model: 'fable', effort: 'max', schema: RESIDUAL_FIX_SCHEMA, stallMs: STALL }
-    const fix = (await agent(reconcilePrompt(confirmed, pkgs), opts)) || (await agent(reconcilePrompt(confirmed, pkgs), { ...opts, label: opts.label + ':retry' }))
-    if (!fix) unresolved = confirmed.map((r) => ({ files: r.files, claim: r.claim })) // both attempts died — surfaced in the return, never lost
-    else if (fix.verdict === 'clean') dropped = dropped.concat(confirmed.map((r) => r.claim + ' [reconcile verdict clean: ' + (fix.summary || 'judged not a real defect') + ']'))
+  const delLog = (wd.length && M.deleteAuthority)
+    ? await agent(deletePrompt(wd), { label: 'delete:w' + w, phase: 'W' + w + ' Build', model: 'fable', effort: 'high', schema: DELETE_SCHEMA, stallMs: STALL })
+    : null
+  const rows = laneOut.flatMap((l) => l.done.flatMap((d) =>
+    ((d.fix && d.fix.indexRows) || []).concat((d.crit && d.crit.indexRows) || [], (d.rt && d.rt.indexRows) || [])))
+    .concat((delLog && delLog.indexRows) || [])
+  const receipts = laneOut.flatMap((l) => l.done.flatMap((d) => (d.fix && d.fix.riders) || []))
+  const serial = RIDERS.filter((r) => r.wave === w && serialRider(r))
+  const tail = (rows.length || serial.length || receipts.length)
+    ? await agent(tailPrompt(w, rows, serial, receipts), { label: 'tail:w' + w, phase: 'W' + w + ' Build', model: 'fable', effort: 'high', schema: TAIL_SCHEMA, stallMs: STALL })
+    : null
+  const failed = laneOut.flatMap((l) => l.failed)
+  landed.push({ wave: w, lanes: laneOut.length, pages: wp.length - failed.length, failed,
+    deleted: (delLog && delLog.deleted) || [], tail: (tail && tail.applied && tail.applied.length) || 0 })
+  log('Wave ' + w + ': ' + (wp.length - failed.length) + '/' + wp.length + ' pages landed across ' + laneOut.length +
+    ' lane(s)' + (failed.length ? ' — FAILED: ' + failed.join(', ') : ''))
+  if (failed.length) {
+    halt = { wave: w, failed }
+    log('HALT before dependent waves — landed waves intact; resume re-runs only the failed agents')
+    break
   }
 }
-log('Reconcile: ' + uniq.length + ' residual(s); ' + dropped.length + ' dropped' + (unresolved.length ? '; ' + unresolved.length + ' UNRESOLVED (terminal agent died twice — surfaced, not lost)' : ''))
-return { targets: TARGETS, language: LANG_KEY, brief: BRIEF, packages: packages.map((p) => p.name), pages: PAGES.length,
-  kinds: { new: kindCount('new'), rebuild: kindCount('rebuild'), improve: kindCount('improve') }, deleted: deleted,
-  deleteKept: (deleteLog && deleteLog.kept) || [], dropped: dropped, unresolved: unresolved }
+
+phase('Close')
+const accept = !halt
+  ? await agent(acceptancePrompt(ACCEPT, PAGES), { label: 'acceptance', phase: 'Close', model: 'opus', effort: 'max', schema: ACCEPT_SCHEMA, stallMs: STALL })
+  : null
+return { targets: TARGETS, language: LANG_KEY, brief: BRIEF, leg: LEG, waves: landed, halted: halt,
+  acceptance: accept && { traces: accept.traces, unresolved: accept.unresolved } }
