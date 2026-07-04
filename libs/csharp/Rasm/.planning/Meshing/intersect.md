@@ -82,9 +82,13 @@ public sealed record IntersectPolicy(double BroadPhaseInflation, int SeedCapacit
 // --- [MODELS] -----------------------------------------------------------------------------
 // The defining-entity merge key: integer equality IS the cross-face merge. Side = the operand
 // contributing the piercing edge; EdgeU/EdgeV canonical (U < V); Face = the pierced face of the
-// other operand, -1 for the cutting plane.
-public readonly record struct CrossKey(int Side, int EdgeU, int EdgeV, int Face) {
+// other operand, -1 for the cutting plane. OtherU/OtherV carry the SECOND defining edge for
+// coplanar edge x edge crossings (Face = -1 there — the two edges define the point globally);
+// Vertex keys (EdgeU == EdgeV) carry an original vertex lying exactly on the other operand.
+public readonly record struct CrossKey(int Side, int EdgeU, int EdgeV, int Face, int OtherU = -1, int OtherV = -1) {
     public static CrossKey Of(int side, int u, int v, int face) => new(side, int.Min(u, v), int.Max(u, v), face);
+    public static CrossKey Vertex(int side, int w) => new(side, w, w, -1);
+    public static CrossKey Coplanar(int u, int v, int s, int t) => new(0, int.Min(u, v), int.Max(u, v), -1, int.Min(s, t), int.Max(s, t));
 }
 
 // One exact carrier, one key; Round() happens at the emission seam only.
@@ -93,14 +97,18 @@ public readonly record struct Crossing(Implicit Point, CrossKey Key);
 public sealed record Chain(Polyline Points, bool Closed);
 
 // Frozen projection of the arena: the per-face crossing/segment sets the arrangement constrains
-// its substrate on, with defining-entity carriage intact. Coplanar rows are constraint-only
-// contributions (an area contact is not a curve — it never enters the chain walk).
+// its substrate on, with defining-entity carriage intact. Coplanar rows are clipped SUB-SEGMENTS
+// of one operand's edge inside the other's face — constraint-only contributions carrying their
+// ORIGINAL carrier edge (an area contact is not a curve; the rows never enter the chain walk).
 public sealed record CrossLattice(
     Crossing[] Rows,
     (int A, int B, int FaceA, int FaceB)[] Segments,
-    (int A, int B, int FaceA, int FaceB)[] Coplanar) {
+    (int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)[] Coplanar) {
     public IEnumerable<(int A, int B, int FaceA, int FaceB)> OnFace(int side, int face) =>
-        Segments.Concat(Coplanar).Where(s => (side == 0 ? s.FaceA : s.FaceB) == face);
+        Segments.Where(s => (side == 0 ? s.FaceA : s.FaceB) == face);
+
+    public IEnumerable<(int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)> CoplanarOnFace(int side, int face) =>
+        Coplanar.Where(s => (side == 0 ? s.FaceA : s.FaceB) == face);
 }
 
 // Single-writer arena under the Meshing/edit ARENA_LAW: key-interned crossing rows, segment pairs,
@@ -110,7 +118,7 @@ public sealed class CrossingStore {
     int[] next;
     readonly Dictionary<CrossKey, int> interned = [];
     readonly List<(int A, int B, int FaceA, int FaceB)> segments = [];
-    readonly List<(int A, int B, int FaceA, int FaceB)> coplanar = [];
+    readonly List<(int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)> coplanar = [];
     int count;
 
     public CrossingStore(int seed) { rows = new Crossing[seed]; next = new int[seed]; }
@@ -130,7 +138,7 @@ public sealed class CrossingStore {
     }
 
     public void Segment(int a, int b, int faceA, int faceB) => segments.Add((a, b, faceA, faceB));
-    public void CoplanarRow(int a, int b, int faceA, int faceB) => coplanar.Add((a, b, faceA, faceB));
+    public void CoplanarRow(int a, int b, int faceA, int faceB, int carrierU, int carrierV, int carrierSide) => coplanar.Add((a, b, faceA, faceB, carrierU, carrierV, carrierSide));
 
     public CrossLattice Freeze() => new([.. rows.AsSpan(0, count)], [.. segments], [.. coplanar]);
 
@@ -233,34 +241,55 @@ public static class Intersection {
         Sign su = Predicate.Orient3D(a, b, c, u), sv = Predicate.Orient3D(a, b, c, v);
         if (su.Times(sv) != Sign.Negative) { return None; }
         Implicit hit = new Lpi(u, v, a, b, c);
-        Axis axis = DominantAxis(a, b, c);
-        Sign s0 = Predicate.Orient2D(new Implicit(a), new Implicit(b), hit, axis);
-        Sign s1 = Predicate.Orient2D(new Implicit(b), new Implicit(c), hit, axis);
-        Sign s2 = Predicate.Orient2D(new Implicit(c), new Implicit(a), hit, axis);
-        bool inside = (s0 != Sign.Negative && s1 != Sign.Negative && s2 != Sign.Negative)
+        return InsideProjected(in hit, a, b, c, DominantAxis(a, b, c)) ? Some(hit) : None;
+    }
+
+    // Boundary-inclusive projected containment, exact over the carrier: both winding orientations.
+    static bool InsideProjected(in Implicit p, Point3d a, Point3d b, Point3d c, Axis axis) {
+        Sign s0 = Predicate.Orient2D(new Implicit(a), new Implicit(b), in p, axis);
+        Sign s1 = Predicate.Orient2D(new Implicit(b), new Implicit(c), in p, axis);
+        Sign s2 = Predicate.Orient2D(new Implicit(c), new Implicit(a), in p, axis);
+        return (s0 != Sign.Negative && s1 != Sign.Negative && s2 != Sign.Negative)
             || (s0 != Sign.Positive && s1 != Sign.Positive && s2 != Sign.Positive);
-        return inside ? Some(hit) : None;
     }
 
     // --- [GUIGUE_DEVILLERS]
-    // Mutual straddle rejection with zero constructed coordinates; on a real crossing the two
-    // pierced edges mint Lpi endpoints ordered by the exact Compare on the crossing line's
-    // dominant axis. The coplanar pair (all six signs Zero) is the caller-visible None here — the
-    // mesh fold routes it to the coplanar Ssi sweep.
+    // Mutual straddle rejection with zero constructed coordinates; on a real crossing the pierced
+    // edges mint Lpi endpoints and a vertex EXACTLY ON the other plane (a detected Zero, never an
+    // epsilon) contributes its explicit row — the interval orders by the exact Compare on the
+    // dominant axis of the CROSSING LINE nP×nQ (a triangle-normal axis compares Zero on every hit
+    // for an axis-aligned operand and is the deleted wrong-axis form). The coplanar pair (all six
+    // signs Zero) is the caller-visible None here — the mesh fold routes it to the coplanar clip.
     static Option<(Implicit A, Implicit B)> TriTriSegment(Point3d pa, Point3d pb, Point3d pc, Point3d qa, Point3d qb, Point3d qc) {
         Span<Sign> q = [Predicate.Orient3D(pa, pb, pc, qa), Predicate.Orient3D(pa, pb, pc, qb), Predicate.Orient3D(pa, pb, pc, qc)];
+        if (ZeroPair(q) is int zq) {  // one Q edge lies IN P's plane: the contact is its exact clip against P
+            (Point3d u, Point3d v) = zq == 0 ? (qa, qb) : zq == 1 ? (qb, qc) : (qc, qa);
+            List<Implicit> clip = ClipToTriangle(u, v, pa, pb, pc, DominantAxis(pa, pb, pc));
+            return clip.Count >= 2 ? Some((clip[0], clip[^1])) : None;
+        }
         if (SameSide(q)) { return None; }
         Span<Sign> p = [Predicate.Orient3D(qa, qb, qc, pa), Predicate.Orient3D(qa, qb, qc, pb), Predicate.Orient3D(qa, qb, qc, pc)];
+        if (ZeroPair(p) is int zp) {
+            (Point3d u, Point3d v) = zp == 0 ? (pa, pb) : zp == 1 ? (pb, pc) : (pc, pa);
+            List<Implicit> clip = ClipToTriangle(u, v, qa, qb, qc, DominantAxis(qa, qb, qc));
+            return clip.Count >= 2 ? Some((clip[0], clip[^1])) : None;
+        }
         if (SameSide(p)) { return None; }
         var hits = new List<Implicit>(4);
         Collect(hits, pa, pb, pc, p, qa, qb, qc);
         Collect(hits, qa, qb, qc, q, pa, pb, pc);
         if (hits.Count < 2) { return None; }
-        Axis order = DominantAxis(pa, pb, pc);
+        Axis order = DominantOf(Vector3d.CrossProduct(Vector3d.CrossProduct(pb - pa, pc - pa), Vector3d.CrossProduct(qb - qa, qc - qa)));
         hits.Sort((l, r) => Predicate.Compare(in l, in r, order).Key);
         return Some((hits[0], hits[^1]));
 
         static void Collect(List<Implicit> hits, Point3d a, Point3d b, Point3d c, ReadOnlySpan<Sign> signs, Point3d ta, Point3d tb, Point3d tc) {
+            Axis axis = DominantAxis(ta, tb, tc);
+            Span<(Point3d W, Sign S)> verts = [(a, signs[0]), (b, signs[1]), (c, signs[2])];
+            foreach ((Point3d w, Sign s) in verts) {
+                Implicit row = new(w);
+                if (s == Sign.Zero && InsideProjected(in row, ta, tb, tc, axis)) { hits.Add(row); }
+            }
             Span<(Point3d U, Point3d V, Sign Su, Sign Sv)> edges = [(a, b, signs[0], signs[1]), (b, c, signs[1], signs[2]), (c, a, signs[2], signs[0])];
             foreach ((Point3d u, Point3d v, Sign su, Sign sv) in edges) {
                 if (su.Times(sv) == Sign.Negative && EdgePierce(u, v, ta, tb, tc).Case is Implicit hit) { hits.Add(hit); }
@@ -271,6 +300,32 @@ public static class Intersection {
     static bool SameSide(ReadOnlySpan<Sign> s) =>
         (s[0] != Sign.Negative && s[1] != Sign.Negative && s[2] != Sign.Negative && (s[0] == Sign.Positive || s[1] == Sign.Positive || s[2] == Sign.Positive))
         || (s[0] != Sign.Positive && s[1] != Sign.Positive && s[2] != Sign.Positive && (s[0] == Sign.Negative || s[1] == Sign.Negative || s[2] == Sign.Negative));
+
+    // Exactly two Zero signs name the in-plane edge (its first vertex ordinal); all-Zero is the
+    // coplanar pair and routes elsewhere.
+    static int? ZeroPair(ReadOnlySpan<Sign> s) =>
+        (s[0] == Sign.Zero, s[1] == Sign.Zero, s[2] == Sign.Zero) switch {
+            (true, true, false) => 0,
+            (false, true, true) => 1,
+            (true, false, true) => 2,
+            _                   => null,
+        };
+
+    // Exact clip of the in-plane segment (u,v) against triangle (a,b,c): boundary-inclusive
+    // endpoint rows plus strict edge crossings, ordered along the carrier — convexity makes every
+    // consecutive pair an inside sub-segment.
+    static List<Implicit> ClipToTriangle(Point3d u, Point3d v, Point3d a, Point3d b, Point3d c, Axis plane) {
+        var kept = new List<Implicit>(4);
+        Implicit ru = new(u), rv = new(v);
+        if (InsideProjected(in ru, a, b, c, plane)) { kept.Add(ru); }
+        if (InsideProjected(in rv, a, b, c, plane)) { kept.Add(rv); }
+        foreach ((Point3d s, Point3d t) in (ReadOnlySpan<(Point3d, Point3d)>)[(a, b), (b, c), (c, a)]) {
+            if (CrossSegments2D(new Line(u, v), new Line(s, t), plane).Case is Crossing hit) { kept.Add(hit.Point); }
+        }
+        Axis along = DominantOf(v - u);
+        kept.Sort((l, r) => Predicate.Compare(in l, in r, along).Key);
+        return kept;
+    }
 
     // --- [BROAD_PHASE]
     // Every SpatialAnswer projects by TYPED match routing Fin — a hard cast is the deleted form.

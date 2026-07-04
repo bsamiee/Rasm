@@ -13,7 +13,7 @@
 
 ## [2]-[SURFACE_ACQUIRE]
 
-- Owner: `GeoLayers.surface` — one scoped acquisition: `new MapLibreMap(options)` over the app-provided container, `new MapboxOverlay({ interleaved: true })` added through `map.addControl` (deck registers a `CustomLayerInterface` per layer into the shared context and depth buffer, so 3D deck geometry occludes against basemap layers); release removes the control, calls `overlay.finalize()`, then `map.remove()` — one context, one camera, one teardown order.
+- Owner: `GeoLayers.surface` — one scoped acquisition: `new MapLibreMap(options)` over the app-provided container, `new MapboxOverlay({ interleaved: true })` added through `map.addControl` (deck registers a `CustomLayerInterface` per layer into the shared context and depth buffer, so 3D deck geometry occludes against basemap layers); release removes the control — deck's full teardown rides the `IControl.onRemove` hook, and `overlay.finalize()` is the identical teardown spelled from the overlay side, never a second step — then `map.remove()` — one context, one camera, one teardown order.
 - Packages: `maplibre-gl` (`Map` as `MapLibreMap`, `MapOptions`, the `addSource`/`addLayer`/`addControl` rails), `@deck.gl/mapbox` (`MapboxOverlay` — `MapboxOverlayProps` structurally forbids the camera-owning props), `effect` (`Effect.acquireRelease`, `Scope`).
 - Law: the map owns the camera — the overlay syncs deck's view state from the maplibre `Camera` each `move`; a `viewState` prop, a second `Deck`, or a peer context beside the overlay is the named defect (camera intents live at `viewer/geo/project`).
 - Law: events fold into atoms — `map.on(...)` returns `Subscription`s registered as scope finalizers; React owns only mount/unmount and the imperative map lifecycle never leaks into render.
@@ -39,8 +39,7 @@ const _surface = (options: MapOptions) =>
     }),
     (surface) =>
       Effect.sync(() => {
-        surface.map.removeControl(surface.overlay)
-        surface.overlay.finalize()
+        surface.map.removeControl(surface.overlay) // deck's whole teardown rides the IControl onRemove hook; overlay.finalize() is this same call spelled from the overlay side
         surface.map.remove()
       }),
   )
@@ -63,7 +62,7 @@ import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geo
 import type { GeoFeature } from "@rasm/ts/wire/vocab"
 import { Array } from "effect"
 import type { RecordBatch, Table } from "apache-arrow"
-import type { FeatureCollection } from "@turf/turf"
+import type { FeatureCollection } from "geojson" // the type seam deck's own data prop names; @turf/turf ships the featureCollection builder, never the type
 
 type _EarcutPool = Awaited<ReturnType<typeof initEarcutPool>>
 

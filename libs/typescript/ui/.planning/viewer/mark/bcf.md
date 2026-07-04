@@ -42,20 +42,25 @@ const _pin = (
 ): Option.Option<BcfMark.Pin> =>
   Option.map(viewpoint, (held) => ({
     guid: topic.guid,
-    anchor: project([held.camera.position[0], held.camera.position[1], held.camera.position[2]]),
+    anchor: project([
+      held.camera.position[0] + held.camera.direction[0],
+      held.camera.position[1] + held.camera.direction[1],
+      held.camera.position[2] + held.camera.direction[2],
+    ]), // the look-at target anchors the pin: the eye is where the viewer stood, never what the topic marks
     status: topic.status,
   }))
 ```
 
 ## [3]-[VIEWPOINT_RESTORE]
 
-- Owner: `BcfMark.restore(viewpoint)` — one fold, two outputs and one receipt: the camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` — eye from the position rows, target from position plus direction — that every surface class dispatches through `Camera.drive` (the map grounds it, the scene backends consume it natively); the `selection` GlobalId array mints `Selection.Op.Replace`; and the anchor receipt reports which selection ids resolved against the live model — the partial-failure evidence the operator sees.
+- Owner: `BcfMark.restore(viewpoint, resident, millis)` — one fold, two outputs and one receipt: the camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` — eye from the position rows, target from position plus direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive` (the map grounds it, the scene backends consume it natively); the `selection` GlobalId array mints `Selection.Op.Replace`; and the anchor receipt reports which selection ids resolved against the live model — the partial-failure evidence the operator sees.
 - Law: restore never re-derives — TS computes no view geometry beyond coordinate adaptation; the viewpoint IS the proof, and a restore that "corrects" the camera is the drift defect.
 - Law: the receipt is data — `{ requested, resolved, missing }` counts plus the missing id list; it renders as an evidence row (`intl/message` plural forms), never throws, and a fully-missing selection still restores the camera.
 - Boundary: which elements exist is the residency ledger's fact (`viewer/scene/glb`); the intent dispatch is `viewer/geo/project`'s; the selection fold is `viewer/mark/selection`'s.
 
 ```typescript
-import { Array, HashSet } from "effect"
+import { Array, HashSet, pipe } from "effect"
+import { Camera } from "../geo/project.ts"
 
 declare namespace Restore {
   type Receipt = {
@@ -68,13 +73,24 @@ declare namespace Restore {
 const _restore = (
   viewpoint: _Viewpoint,
   resident: HashSet.HashSet<_GlobalId>,
-): { readonly select: ReadonlyArray<_GlobalId>; readonly receipt: Restore.Receipt } => {
-  const [missing, resolved] = Array.partition(viewpoint.selection, (id) => HashSet.has(resident, id))
-  return {
-    select: resolved,
-    receipt: { requested: viewpoint.selection.length, resolved: resolved.length, missing },
-  }
-}
+  millis: number,
+): { readonly intent: Camera.Intent; readonly select: ReadonlyArray<_GlobalId>; readonly receipt: Restore.Receipt } =>
+  pipe(
+    Array.partition(viewpoint.selection, (id) => HashSet.has(resident, id)),
+    ([missing, resolved]) => ({
+      intent: Camera.Intent.LookAt({
+        eye: viewpoint.camera.position,
+        target: [
+          viewpoint.camera.position[0] + viewpoint.camera.direction[0],
+          viewpoint.camera.position[1] + viewpoint.camera.direction[1],
+          viewpoint.camera.position[2] + viewpoint.camera.direction[2],
+        ], // the carriage is consume-only: target derives from position plus direction, no view geometry is re-computed
+        millis,
+      }),
+      select: resolved,
+      receipt: { requested: viewpoint.selection.length, resolved: resolved.length, missing },
+    }),
+  )
 ```
 
 ## [4]-[TOPIC_BOARD]

@@ -15,7 +15,7 @@
 - Law: the geometry union is exhaustive over the closed WKB kind set (Point through GeometryCollection, kinds 1-7) — every kind the parser can emit has a landing case, dispatch sites close with `Match.exhaustive` or record totality, and a parser emitting an unlisted kind is a `WireFault` at the port, never a silent widening; Z-carrying variants land in the position's optional third slot, and the parser projects a WKB M ordinate away because measure is not position.
 - Law: `Extent` is bounds carriage, not computation — `west > east` is the legal antimeridian crossing, so no order refinement exists; DERIVING an extent from a geometry is a planar fold fenced to `ui/viewer` `geo/layers` (`bbox`), and the camera fit that consumes one is `ui/viewer` `geo/project`'s `FitBounds` intent.
 - Law: `Crs.of(srid)` resolves the well-known rows — `kind` (`geographic` | `projected`) and `unit` (`degree` | `metre`) are the columns projection handling dispatches on: a `geographic` feature feeds the map directly, a `projected` one crosses through the viewer's mercator rows once at the boundary — and an unlisted SRID answers `Option.none`, the explicit no-known-handling verdict a consumer surfaces as evidence; a new well-known system is one row.
-- Law: `Tile` addressing is integer arithmetic only — `quadkey` interleaves the x/y bits per zoom level, `parent`/`children` shift the grid, and the refinement pins `x, y < 2^zoom` at admission; tile-to-extent conversion is inverse web-mercator projection and therefore the viewer's (`WebMercatorViewport` at `ui/viewer` `geo/project`), never this page's.
+- Law: `Tile` addressing is integer arithmetic only — `quadkey` interleaves the x/y bits per zoom level and the zoom-0 root answers the empty key, `parent`/`children` shift the grid with both boundary answers explicit (no parent above the root, no children below the depth ceiling — the refinement's own bound, never a throw), and the refinement pins `x, y < 2^zoom` at admission; tile-to-extent conversion is inverse web-mercator projection and therefore the viewer's (`WebMercatorViewport` at `ui/viewer` `geo/project`), never this page's.
 - Growth: a new geometry kind is one union member plus its hand-stated arm when the WKB spec grows; a new CRS is one `_CRS` row; a new tile read (a sibling test, a zoom clamp) is one member on the tile owner.
 - Boundary: `ui/viewer` `geo/layers` streams tiles through these coordinates and renders these geometries; `ui/viewer` `geo/project` owns every projection crossing; feature identity stays the held band under the byte-identity law.
 
@@ -54,8 +54,10 @@ const _CrsOwner: {
   of: (srid) => (srid in _CRS ? Option.some(_CRS[srid as GeoFeature.Srid]) : Option.none()), // BOUNDARY ADAPTER: the in-probe is the evidence the checker cannot carry onto the key
 }
 
+const _ZOOM_CEILING = 30 // web-mercator grid depth: 2^30 tiles per axis is the deepest addressable rank
+
 const _Tile = Schema.Struct({
-  zoom: Schema.Int.pipe(Schema.between(0, 30)),
+  zoom: Schema.Int.pipe(Schema.between(0, _ZOOM_CEILING)),
   x: Schema.Int.pipe(Schema.nonNegative()),
   y: Schema.Int.pipe(Schema.nonNegative()),
 }).pipe(Schema.filter((tile) => tile.x < 2 ** tile.zoom && tile.y < 2 ** tile.zoom, { identifier: "TileInGrid" }))
@@ -68,22 +70,26 @@ const _TileOwner: {
 } = {
   schema: _Tile,
   quadkey: (tile) =>
-    Array.join(
-      Array.makeBy(tile.zoom, (rank) => {
-        const bit = tile.zoom - rank - 1
-        return String((((tile.y >> bit) & 1) << 1) | ((tile.x >> bit) & 1))
-      }),
-      "",
-    ),
+    tile.zoom === 0
+      ? "" // the root's key is empty by the quadkey grammar; Array.makeBy floors its count at one, so the guard answers, never the fold
+      : Array.join(
+          Array.makeBy(tile.zoom, (rank) => {
+            const bit = tile.zoom - rank - 1
+            return String((((tile.y >> bit) & 1) << 1) | ((tile.x >> bit) & 1))
+          }),
+          "",
+        ),
   parent: (tile) =>
     tile.zoom === 0
       ? Option.none()
       : Option.some(_Tile.make({ zoom: tile.zoom - 1, x: tile.x >> 1, y: tile.y >> 1 })),
   children: (tile) =>
-    Array.map(
-      [[0, 0], [1, 0], [0, 1], [1, 1]] as const,
-      ([dx, dy]) => _Tile.make({ zoom: tile.zoom + 1, x: tile.x * 2 + dx, y: tile.y * 2 + dy }),
-    ),
+    tile.zoom === _ZOOM_CEILING
+      ? [] // the ceiling has no finer rank: an empty family is the boundary answer, a zoom-31 mint would breach the refinement
+      : Array.map(
+          [[0, 0], [1, 0], [0, 1], [1, 1]] as const,
+          ([dx, dy]) => _Tile.make({ zoom: tile.zoom + 1, x: tile.x * 2 + dx, y: tile.y * 2 + dy }),
+        ),
 }
 ```
 

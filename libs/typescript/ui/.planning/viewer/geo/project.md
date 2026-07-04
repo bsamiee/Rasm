@@ -13,15 +13,17 @@
 ## [2]-[CAMERA_FOLD]
 
 - Owner: `Camera` — the camera vocabulary: `Camera.State` (center `[lng, lat]`, `zoom`, `bearing`, `pitch` — the shape both the maplibre getters and deck's `MapViewState` speak), the intent family `Camera.Intent` as a closed `Data.taggedEnum` (`JumpTo` instant, `EaseTo` animated, `FlyTo` curved, `FitBounds` extent-driven, `LookAt` eye/target — the 3D viewpoint carriage BCF restores and scene framings mint), and the fold pair: `Camera.drive(map, intent)` dispatches an intent onto the maplibre `Camera` verbs, `Camera.settled(map)` reads the getters into a `State` — the `moveend` subscription writes it to the atom so the store always holds the authority's last settled truth.
-- Packages: `maplibre-gl` (`Camera` verbs — `jumpTo`/`easeTo`/`flyTo`/`fitBounds`, getters, `LngLatBoundsLike`), `effect` (`Data`, `Match`), `@effect-atom/atom-react` (the camera atom rides `atom/binding`'s store).
+- Law: intent payloads speak canonical shapes only — `FitBounds` carries the wire `GeoFeature.Extent` quadruple, never a maplibre bounds dialect, so the closed family stays backend-agnostic and every backend arm respells at its own adapter; a foreign camera type inside the intent vocabulary is the named defect.
+- Packages: `maplibre-gl` (`Camera` verbs — `jumpTo`/`easeTo`/`flyTo`/`fitBounds`, getters), `@rasm/ts/wire/vocab` (`GeoFeature.Extent` as the bounds carriage), `effect` (`Data`, `Match`), `@effect-atom/atom-react` (the camera atom rides `atom/binding`'s store).
 - Law: one authority per surface — under `MapboxOverlay` the map owns pan/zoom/pitch and deck's view state syncs automatically; hand-syncing deck's camera under an overlay is the named defect; the free-`Deck` surface (map-less) instead drives `viewState` from the same atom with `FlyToInterpolator`/`LinearInterpolator` as the transition rows.
 - Law: intents are the only write path — a gesture (`act/gesture`'s `Gesture.useCanvas`), a BCF viewpoint restore, and a fit-to-selection all mint `Camera.Intent` values on every surface class; nothing calls a map verb outside `Camera.drive`, so camera motion is replayable and the undo stack (`History` over the camera atom) works by construction.
-- Law: `LookAt` grounds on the map through the interior `_grounded` fold — bearing from the eye→target look vector, pitch from its rise over run, center at the target — the adapter's small-extent approximation, exact by construction on the scene backends whose arms consume eye and target natively; a `LookAt` payload is consume-only viewpoint carriage, never re-derived camera truth.
+- Law: `LookAt` grounds on the map through the interior `_grounded` fold — the eye→target offset lifts onto the local tangent plane (cos-latitude scaling on the east axis, one metre-per-degree constant) so bearing and pitch compute in metres against the metre altitude axis, center lands at the target, and pitch clamps at the map's 85° absolute ceiling — the adapter's small-extent approximation, exact by construction on the scene backends whose arms consume eye and target natively; a `LookAt` payload is consume-only viewpoint carriage, never re-derived camera truth.
 - Growth: a new motion kind (an orbit-around) is one intent case plus one dispatch arm per backend — consumers break loudly at the missing arm.
 
 ```typescript
+import type { GeoFeature } from "@rasm/ts/wire/vocab"
 import { Data, pipe } from "effect"
-import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl"
+import type { Map as MapLibreMap } from "maplibre-gl"
 
 declare namespace Camera {
   type State = {
@@ -35,7 +37,7 @@ declare namespace Camera {
     JumpTo: { readonly state: Partial<Camera.State> }
     EaseTo: { readonly state: Partial<Camera.State>; readonly millis: number }
     FlyTo: { readonly state: Partial<Camera.State>; readonly speed: number }
-    FitBounds: { readonly bounds: LngLatBoundsLike; readonly padding: number }
+    FitBounds: { readonly bounds: GeoFeature.Extent; readonly padding: number }
     LookAt: { readonly eye: Camera.Eye; readonly target: Camera.Eye; readonly millis: number }
   }>
 }
@@ -44,6 +46,10 @@ const _Intent = Data.taggedEnum<Camera.Intent>()
 
 const _DEGREES = 180 / Math.PI
 
+const _METERS_PER_DEGREE = 111_320 // WGS84 mean meridian degree: the local-tangent scale that grounds degree offsets against metre altitudes
+
+const _PITCH_CEILING = 85 // the map's absolute pitch bound: an eye below its target clamps here instead of folding past the horizon
+
 const _payload = (state: Partial<Camera.State>) => ({
   ...(state.center !== undefined && { center: [state.center[0], state.center[1]] satisfies [number, number] }),
   ...(state.zoom !== undefined && { zoom: state.zoom }),
@@ -51,18 +57,25 @@ const _payload = (state: Partial<Camera.State>) => ({
   ...(state.pitch !== undefined && { pitch: state.pitch }),
 })
 
-const _grounded = (eye: Camera.Eye, target: Camera.Eye): Partial<Camera.State> => ({
-  center: [target[0], target[1]] as const,
-  bearing: Math.atan2(target[0] - eye[0], target[1] - eye[1]) * _DEGREES,
-  pitch: Math.atan2(Math.hypot(target[0] - eye[0], target[1] - eye[1]), eye[2] - target[2]) * _DEGREES, // 0 pitch is the nadir view: rise over run against the vertical drop
-})
+const _grounded = (eye: Camera.Eye, target: Camera.Eye): Partial<Camera.State> =>
+  pipe(
+    {
+      east: (target[0] - eye[0]) * Math.cos(target[1] / _DEGREES) * _METERS_PER_DEGREE,
+      north: (target[1] - eye[1]) * _METERS_PER_DEGREE,
+    },
+    ({ east, north }) => ({
+      center: [target[0], target[1]] as const,
+      bearing: Math.atan2(east, north) * _DEGREES,
+      pitch: Math.min(Math.atan2(Math.hypot(east, north), eye[2] - target[2]) * _DEGREES, _PITCH_CEILING), // 0 pitch is the nadir view: metre run over metre drop, one coherent axis
+    }),
+  )
 
 const _drive = (map: MapLibreMap, intent: Camera.Intent): void =>
   _Intent.$match(intent, {
     JumpTo: ({ state }) => void map.jumpTo(_payload(state)),
     EaseTo: ({ state, millis }) => void map.easeTo({ ..._payload(state), duration: millis }),
     FlyTo: ({ state, speed }) => void map.flyTo({ ..._payload(state), speed }),
-    FitBounds: ({ bounds, padding }) => void map.fitBounds(bounds, { padding }),
+    FitBounds: ({ bounds, padding }) => void map.fitBounds([bounds[0], bounds[1], bounds[2], bounds[3]], { padding }), // BOUNDARY ADAPTER: the readonly wire quadruple respells into the map's mutable bounds at the one maplibre arm
     LookAt: ({ eye, millis, target }) => void map.easeTo({ ..._payload(_grounded(eye, target)), duration: millis }),
   })
 
@@ -80,7 +93,7 @@ const _settled = (map: MapLibreMap): Camera.State =>
 - Law: screen↔world is pure math — `map.project(lnglat)`/`map.unproject(point)` for live-surface reads; `WebMercatorViewport` (constructed from a `Camera.State` snapshot plus surface extent) for derived-atom anchor math — `project`/`unproject`/`fitBounds` on the immutable viewport compute BCF pin positions and marquee extents with no live instance in the derivation.
 - Law: mercator crossings are turf rows — `toMercator`/`toWgs84` convert whole geometries at the boundary where planar compute meets the geographic camera; a hand-rolled projection formula anywhere is the named defect.
 - Law: fit intents derive from geometry — `bbox(featureOrCollection)` (turf) feeds `Camera.Intent.FitBounds`; centroid targets feed `EaseTo` — geometry-to-camera is a fold from decoded features to intent values.
-- Law: the wire extent is fit material as-is — the `GeoFeature.Extent` `[west, south, east, north]` tuple published through `wire` `#vocab` IS a `LngLatBoundsLike`, so an extent-carrying payload feeds `FitBounds` with zero adaptation, and tile-to-extent conversion happens here (`WebMercatorViewport`), never in `wire`.
+- Law: the wire extent is fit material as-is — `Camera.Intent.FitBounds` carries the `GeoFeature.Extent` `[west, south, east, north]` tuple published through `wire` `#vocab`, so an extent-carrying payload mints the intent with zero adaptation; the maplibre arm alone respells the readonly quadruple into the map's mutable bounds at the drive boundary, an antimeridian crossing (`west > east`, the wire's own law) survives the fit because the map's bounds conversion unwraps the east limb by +360 before the camera solve, and tile-to-extent conversion happens here (`WebMercatorViewport`), never in `wire`.
 
 ```typescript
 import { WebMercatorViewport } from "@deck.gl/core"
