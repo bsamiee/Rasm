@@ -4,7 +4,7 @@ export const meta = {
   description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief}; empty = no-op; language derives from the target root and selects the doctrine (cs/py/ts), both .api tiers, casing, and the member-verification rail. Plan (1 sonnet agent) expands targets to pages and, when a brief is given, admits ONLY brief-named pages (kind new/rebuild/improve + deletions + absorb pairs FROM THE BRIEF against real disk state; an unnamed page is out of scope — no cold-pass set). Discover (1 agent per 4 pages, opus) deep-reads pages + folder + BOTH .api tiers + the language doctrine and emits per-page reading maps. Implement (1 agent per 4 pages, fable, kind-aware) authors new pages ground-up / hostile-rebuilds / cold-improves with absorb-then-delete mechanics. Critique (1 per 4 pages, fable xhigh, mechanical checklists) then Redteam (1 per 4 pages, fable max, six lenses + cold re-review) fix in place, redteam paired after its critique batch. Reconcile: ONE fable agent resolves every deferred cross-file residual in one terminal pass; unreachable claims return as hard_residual for resolve-residuals — no verify, no re-entry loop.',
   phases: [
     { title: 'Plan', detail: 'one thin agent expands the targets into the page list; with a brief, only brief-named pages enter the run (kind + deletePages + absorb pairs from the brief against real disk state)', model: 'sonnet' },
-    { title: 'Discover', detail: '1 agent per 4 pages: deep-read each page + the folder at large + BOTH .api tiers + the language doctrine; emit per-page apiUsed / apiUnderutilized / context / stacking / weak reading maps', model: 'opus' },
+    { title: 'Discover', detail: 'hostile read-only discovery, 1 agent per 4 pages: deep-read each page + the folder at large + BOTH .api tiers + the language doctrine, attack every catalog for unexploited capability, diff the admitted inventory against the whole folder; emit per-page apiUsed / apiUnderutilized (concrete members + integration shape) / context / stacking / weak reading maps — buildout framing only, zero removal authority', model: 'opus' },
     { title: 'Implement', detail: '1 agent per 4 pages, kind-aware: ground-up author / hostile rebuild / cold improve, absorb-then-delete, write-fully; plus one brief-deletion executor when the brief drops pages outright' },
     { title: 'Critique', detail: '1 agent per 4 pages: mechanical line-by-line checklists (COLLAPSE_SCAN / OWNER_CHOOSER / KNOB_TEST / ASPECTS / RAILS / language-modernity / CAPABILITY-COMPLETENESS + ILLUSION), fix in place' },
     { title: 'Redteam', detail: '1 agent per 4 pages, paired after its critique batch: six adversarial lenses + a full cold re-review, fix in place' },
@@ -444,6 +444,12 @@ const LAW = [
   'This is a FUNDAMENTAL GROUND-UP REBUILD (or, for a `new` page, a ground-up AUTHORING) of a planning-stage DESIGN PAGE, not a polish pass. ' +
     'Improve the page objectively: collapse surfaces/types, deepen bleeding-edge spellings, maximize admitted-library capability, AND close ' +
     'the concept capability gaps.',
+  'REMOVAL DISCIPLINE — buildout over removal, ALWAYS: a package admission, a capability, or a domain concept is removed ONLY where the ' +
+    'campaign brief explicitly rules that removal. Underutilization is NEVER removal evidence — an admitted capability the concept admits is ' +
+    'an INTEGRATION target woven into the owning page (a case/row/field/operation/policy value) or surfaced as a cross-page integration ' +
+    'residual; an orphan-looking admission is a missing-owner gap to close, and a weak/thin/illusory fence is a rebuild-to-stronger target, ' +
+    'never a delete-the-concept license. The only sanctioned deletion absent a brief ruling is a PHANTOM (a cited member that does not exist ' +
+    '— a lie, not capability); everything real gets built out, connected, and integrated, never steered toward removal.',
   'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
     'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FILE ' +
     'items (report those in residual_high).',
@@ -571,24 +577,34 @@ const planPrompt = (pkgHint) => ['Rasm monorepo. TASK: thin enumerate + classify
       'exclude it entirely.'
     : 'No campaign brief: every page gets kind `rebuild`; deletePages is empty; no absorb pairs.',
   pkgHint].filter(Boolean).join('\n')
-const discoverPrompt = (batch) => [LAW, '', ADVERSARIAL, '', 'TASK: READ-ONLY DISCOVERY for these ' + batch.length + ' pages (investigate, do ' +
-  'NOT edit): ' + batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. ' +
+const discoverPrompt = (batch) => [LAW, '', ADVERSARIAL, '', 'TASK: HOSTILE READ-ONLY DISCOVERY over these ' + batch.length + ' pages — ' +
+  'read-only is the ONLY concession; the hunt itself is as adversarial as the implement/critique/redteam passes (investigate, do NOT edit): ' +
+  batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. ' +
   (BRIEF ? 'Read ' + BRIEF + ' (head + the sections covering these folders) for the per-page concern. ' : '') +
   'For a kind=`improve`/`rebuild` page READ the page IN FULL; for a kind=`new` page (it does not exist yet) read its concept ' +
   (BRIEF ? 'in the brief' : 'from the folder charter') + ' + its nearest SIBLING pages. ALSO read the folder at large — the sibling pages ' +
   'each composes and the owning-folder index docs (ARCHITECTURE.md + README.md) — as FULL-FILE reads, never a skim, a section-sample, or a ' +
   'memory-recall inventory. Then ENUMERATE BOTH .api tiers IN FULL with a real `ls` — ' + L.apiTiers + ' — AND the doctrine inventory IN ' +
-  'FULL with a real ls/find from the source of truth (never memory), holding the language doctrine (' + L.readLaw + ') as the bar. For EACH ' +
-  'page produce its reading map: (a) `apiUsed` — the ' +
-  '.api catalogs the page CURRENTLY composes, BOTH tiers (for a new page, the catalogs its concept WILL compose); (b) `apiUnderutilized` — ' +
-  'each {catalog, capability}: an admitted catalog or member (either tier) the page concept ADMITS but the page IGNORES — REAL analysis ' +
-  'against the verified .api inventory, never a guess, naming the concrete capability the implement MUST stack; (c) `contextNote` — the page ' +
-  'contextual relation: which sibling owners/seams it composes, where it sits in the folder, which folder entry/receipt seam it contributes ' +
-  'to; (d) `stackingGuidance` — the INITIAL pointer on what api stacking + capability extension the implement should add (the implement ' +
-  'confirms + deepens it); (e) `weak` — true when the page is naive/thin/illusory relative to the doctrine bar (a hostility verdict, never a ' +
-  'courtesy). Your product is a MAP, never a bare verdict — the initial pointer every downstream stage verifies and EXCEEDS, never a ' +
-  'ceiling, never a license for a downstream skim. Members are verified via ' + L.verify + '; never list a phantom. Return worklist (each ' +
-  '{page, kind, absorb?, apiUsed, apiUnderutilized, contextNote, stackingGuidance, weak}).'].join('\n')
+  'FULL with a real ls/find from the source of truth (never memory), holding the language doctrine (' + L.readLaw + ') as the bar. ' +
+  'DISBELIEVE the page: prose claiming a package is "composed" is verified against the fence body, and a dense package-fluent LOOK is the ' +
+  'prime suspect for shallow single-member usage — attack every admitted catalog (BOTH tiers) for the members, combinators, generated ' +
+  'surfaces, and native pipelines the page concept ADMITS but no fence exploits, and DIFF the complete admitted inventory against the WHOLE ' +
+  'FOLDER: a capability no page in the folder exploits is a named integration gap ROUTED to its best owning page, never dropped and never ' +
+  'read as a removal candidate. BUILDOUT FRAMING LAW (absolute, per the campaign method): discovery has ZERO removal authority — an ' +
+  'underutilized catalog, an orphan-looking admission, or a weak fence is ALWAYS framed as a buildout/integration/connection target (WHICH ' +
+  'owner grows WHICH case/row/field/operation/policy value; which cross-page seam connects it into the project as a whole), NEVER as ' +
+  'evidence to remove a package, prune a catalog, or delete a concept/capability; removal exists only where the brief explicitly rules it, ' +
+  'and the map never proposes it. For EACH page produce its reading map: (a) `apiUsed` — the .api catalogs the page CURRENTLY composes, ' +
+  'BOTH tiers (for a new page, the catalogs its concept WILL compose); (b) `apiUnderutilized` — each {catalog, capability}: the CONCRETE ' +
+  'unexploited member/combinator/pipeline in exact catalog-anchored spellings PLUS its integration shape (which owner grows which ' +
+  'case/row/field/operation to weave it in) — REAL analysis against the verified .api inventory, never a guess, never a vague "use more of ' +
+  'X"; (c) `contextNote` — the page contextual relation: which sibling owners/seams it composes, where it sits in the folder, which folder ' +
+  'entry/receipt seam it contributes to, plus any folder-wide gap routed here; (d) `stackingGuidance` — the INITIAL integration pointer on ' +
+  'what api stacking + capability extension the implement should BUILD IN (the implement confirms + deepens it); (e) `weak` — true when the ' +
+  'page is naive/thin/illusory relative to the doctrine bar — a hostility verdict EARNED by the attack above, never a courtesy, and always ' +
+  'paired with buildout guidance in (d), never a removal reading. Your product is a MAP, never a bare verdict — the initial pointer every ' +
+  'downstream stage verifies and EXCEEDS, never a ceiling, never a license for a downstream skim. Members are verified via ' + L.verify +
+  '; never list a phantom. Return worklist (each {page, kind, absorb?, apiUsed, apiUnderutilized, contextNote, stackingGuidance, weak}).'].join('\n')
 const implementPrompt = (batch) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: HOSTILE IMPLEMENT of these ' + batch.length + ' pages IN ' +
   'PLACE, each per its kind: ' + batch.map((p) => p.page + ' [' + mapFor(p).kind + ']').join(', ') + '. kind=`new`: GROUND-UP AUTHOR the page ' +
   '(it does not exist; it may open a NEW sub-folder) to the full doctrine + domain-complete capability bar, in the code-fence-first ' +
