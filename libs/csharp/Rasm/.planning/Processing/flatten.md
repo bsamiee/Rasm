@@ -2,7 +2,7 @@
 
 The robust mesh parameterization / UV-flattening owner — ONE `ParamOp` `[Union]` (`Harmonic`/`Lscm`/`Arap`/`Bff`) folded by ONE `Flatten.Apply(ParamOp, Op? key = null)` that flattens a disk-topology chart into the plane by composing the `Rasm.Vectors` discrete-exterior-calculus substrate at its public boundary handle, never by re-assembling a mesh Laplacian. Every modality lowers the same `MeshAdjointSnapshot.Of(space)` `DiscreteCalculus` (the cotangent `D0`/`Star1` exterior-derivative and Hodge-star operators) into its own energy, and every pinned solve rides the ELIMINATE-BOUNDARY-ROWS reduced system: pinned DOFs LEAVE the system, the interior stiffness factors ONCE through the `matrix.md` `CholeskySparse` owner as a genuinely SPD operator, and constraints are satisfied EXACTLY with zero conditioning penalty — the diagonal-shift/penalty formulation whose κ scales with the penalty is the deleted conditioning-failure class, and `MassShift` died with it. `Harmonic` is the boundary-pinned Dirichlet solve (two back-substitutions through the one reduced factor); `Lscm` is spectral conformal parameterization — the conformal energy `L_C = L_D − 2A` assembled SPARSE (two cotangent stiffness blocks plus the boundary-edge area couplings) and its first non-trivial smallest eigenpair solved through the `matrix.md` `SparseMatrix.SmallestEigenpairsDetailed` LOBPCG lane, so the dense `(2n)²` operator and its `O((2n)³)` SVD are dead (10k vertices no longer cost 3.2 GB and 8·10¹² flops); `Arap` is the local-global alternation whose global step re-uses the ONE gauge-pinned reduced factor across every iteration and whose per-face assembly is O(F) with the loop cursor passed in (the `IndexOf` re-scan of all F faces per face per iteration is dead); `Bff` is the boundary-first flattening — the boundary curve integrates from prescribed geodesic curvature and the interior fills harmonically through the same reduced machinery.
 
-The page owns `ChartId` (the `[ValueObject<int>]` the `GeometryFault.ParameterizationFault(ChartId, double)` 2432 payload names), the `ParamKind` discriminant, the pooled `ChartStore` working planes (fold-internal scratch under the arena law — never a published carrier), the typed `ChartAtlas` result whose members are ALL structurally equal (`Seq<UvIsland>` islands of `Arr`-typed vertices/faces/UVs — the raw-array reference-equality members that made the hash-friendly claim illusory are dead), and the `DistortionReceipt` evidence. Distortion scoring runs as a partition-disjoint parallel per-face pass (`ParallelHelper.For` struct action writing disjoint plane slots) and folds through vectorized `TensorPrimitives.Max`/`Sum` reductions over the per-face planes; the UV-flip verdict is the exact `Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` sign per face; island labeling folds the non-seam edge set into a QuikGraph `AdjacencyGraph<int, SEdge<int>>` and takes `WeaklyConnectedComponents` (the hand-rolled queue-BFS over an ad-hoc adjacency dictionary is the deleted form the QuikGraph admission names). Every reachable failure routes the band-2400 union — admission-class defects as `DegenerateInput` 2400, parameterization defects as the typed `ParameterizationFault(chart, distortion)` 2432 — and the kernel computes no hash: the `ChartAtlas` is the hash-friendly carrier the `Spatial/reconciliation#NAMING_HASH` `Encode` content-addresses through the `MeshSpace` UV projection. The mature `Vectors` `Mesh.cs` Rhino-delegated unwrap stays the host convenience rail; this owner is the kernel-quality conformal/ARAP/BFF solve, never a thinning of it.
+The page owns `ChartId` (the `[ValueObject<int>]` the `GeometryFault.ParameterizationFault(ChartId, double)` 2432 payload names), the `ParamKind` discriminant, the pooled `ChartStore` working planes (fold-internal scratch under the arena law — never a published carrier), the typed `ChartAtlas` result whose members are ALL structurally equal (`Seq<UvIsland>` islands of `Arr`-typed vertices/faces/UVs — the raw-array reference-equality members that made the hash-friendly claim illusory are dead), and the `DistortionReceipt` evidence. Distortion scoring runs as a partition-disjoint parallel per-face pass (`ParallelHelper.For` struct action writing disjoint plane slots) and folds through vectorized `TensorPrimitives.Max`/`Sum` reductions over the per-face planes; the UV-flip verdict is the exact `Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` sign per face; island labeling folds the FACE-DUAL — faces adjacent across a non-seam interior edge — into a QuikGraph `AdjacencyGraph<int, SEdge<int>>` and takes `WeaklyConnectedComponents`, so every face lands in exactly one island and seam vertices duplicate per island (wedge semantics — the vertex-labeled cut that dropped seam-straddling faces and the hand-rolled queue-BFS over an ad-hoc adjacency dictionary are both deleted forms). Every reachable failure routes the band-2400 union — admission-class defects as `DegenerateInput` 2400, parameterization defects as the typed `ParameterizationFault(chart, distortion)` 2432 — and the kernel computes no hash: the `ChartAtlas` is the hash-friendly carrier the `Spatial/reconciliation#NAMING_HASH` `Encode` content-addresses through the `MeshSpace` UV projection. The mature `Vectors` `Mesh.cs` Rhino-delegated unwrap stays the host convenience rail; this owner is the kernel-quality conformal/ARAP/BFF solve, never a thinning of it.
 
 ## [01]-[INDEX]
 
@@ -10,14 +10,14 @@ The page owns `ChartId` (the `[ValueObject<int>]` the `GeometryFault.Parameteriz
 
 ## [02]-[PARAMETERIZATION]
 
-- Owner: `ChartId` `[ValueObject<int>]` the chart identity the 2432 fault payload carries (`Whole` the pre-island canonical instance); `ParamKind` `[SmartEnum<string>]` the flattening-modality discriminant binding `ComparerAccessors.StringOrdinal` (`harmonic`/`lscm`/`arap`/`bff`) carrying the per-kind `Conformal`/`AreaPreserving`/`FreeBoundary`/`Iterative` columns; `ParamPolicy` the validated policy row registering `IValidityEvidence` — `ResidualTolerance` (the ARAP convergence band), `MaxIterations` (the ARAP outer budget), `EigenBudget` (the LOBPCG inner budget — a distinct iteration semantic, never one knob serving both), `SeamDihedralRadians` (the seam-cut classification threshold), `ParallelFloor` (the `minimumActionsPerThread` floor the distortion pass derives from) — the `MassShift` conditioning knob and the `FlipTolerance` escape hatch are DEAD (elimination makes the reduced system SPD without a shift; a flipped layout always faults typed, never ships behind a knob); `ChartStore` the pooled fold-internal working planes (`MemoryOwner<double>` U/V, `MemoryOwner<int>` chart labels, `MemoryOwner<double>` per-face conformal/area/quasi-conformal planes, `MemoryOwner<bool>` flip plane — deterministic dispose, single-writer, NEVER published; the `Dead`/`FreeList`/`Kill` slot-reuse apparatus is deleted — BFS labelling is the island former and no vertex slot is ever reclaimed); `UvIsland` the per-chart structural carrier (`Arr<int>` vertices, `Arr<(int A, int B, int C)>` faces, `Arr<Point2d>` UVs — LanguageExt structural equality, never reference-equal raw arrays); `ChartAtlas` the published result (`Source`, `Seq<UvIsland>` islands, `Seq<FeatureEdge>` seams, `DistortionReceipt`) with the `ToMesh`/`ToTextureMesh` projections; `DistortionReceipt` the typed energy evidence; `Flatten` the static surface.
+- Owner: `ChartId` `[ValueObject<int>]` the chart identity the 2432 fault payload carries (`Whole` the pre-island canonical instance); `ParamKind` `[SmartEnum<string>]` the flattening-modality discriminant binding `ComparerAccessors.StringOrdinal` (`harmonic`/`lscm`/`arap`/`bff`) carrying the per-kind `Conformal`/`AreaPreserving`/`FreeBoundary`/`Iterative` columns; `ParamPolicy` the validated policy row registering `IValidityEvidence` — `ResidualTolerance` (the ARAP convergence band), `MaxIterations` (the ARAP outer budget), `EigenBudget` (the LOBPCG inner budget — a distinct iteration semantic, never one knob serving both), `SeamDihedralRadians` (the seam-cut classification threshold), `ParallelFloor` (the `minimumActionsPerThread` floor the distortion pass derives from) — the `MassShift` conditioning knob and the `FlipTolerance` escape hatch are DEAD (elimination makes the reduced system SPD without a shift; a flipped layout always faults typed, never ships behind a knob); `ChartStore` the pooled fold-internal working planes (`MemoryOwner<double>` U/V, `MemoryOwner<int>` per-face island labels, `MemoryOwner<double>` per-face conformal/area/quasi-conformal planes, `MemoryOwner<bool>` flip plane — deterministic dispose, single-writer, NEVER published; the `Dead`/`FreeList`/`Kill` slot-reuse apparatus is deleted — BFS labelling is the island former and no vertex slot is ever reclaimed); `UvIsland` the per-chart structural carrier (`Arr<int>` vertices, `Arr<(int A, int B, int C)>` faces, `Arr<Point2d>` UVs — LanguageExt structural equality, never reference-equal raw arrays); `ChartAtlas` the published result (`Source`, `Seq<UvIsland>` islands, `Seq<FeatureEdge>` seams, `DistortionReceipt`) with the `ToMesh`/`ToTextureMesh` projections; `DistortionReceipt` the typed energy evidence; `Flatten` the static surface.
 - Cases: `ParamKind` rows `harmonic` · `lscm` · `arap` · `bff` (4); `ParamOp` cases `Harmonic(Chart, Option<Polyline> Boundary, Policy)` · `Lscm(Chart, Policy)` · `Arap(Chart, Policy)` · `Bff(Chart, Option<Arr<double>> TargetCurvature, Policy)` (4 — each case carries its chart, its constraint payload, and the policy row, so the entry discriminates on the value alone). No parallel `HarmonicMap`/`LscmSolver`/`ArapFlattener`/`BffFlattener` class family — one `[Union]` folded by one `Apply`.
 - Entry: `public static Fin<ChartAtlas> Flatten.Apply(ParamOp op, Op? key = null)` — the ONE parameterization entrypoint; the admitted `MeshSpace` is NOT re-validated (admission happened once — the empty/non-finite re-checks the old `Admit` ran were the double-admission defect); the genuine parameterization gates fault typed: a non-disk chart (zero or multiple boundary loops for the pinned modalities) routes `ParameterizationFault(ChartId.Whole, 0.0)`, an ARAP alternation exhausting `MaxIterations` above `ResidualTolerance` routes `ParameterizationFault(ChartId.Whole, residual)` (the old silent return of a non-converged iterate is dead), a rank-deficient conformal operator routes `ParameterizationFault(ChartId.Whole, 0.0)`, and a flipped UV triangle routes `ParameterizationFault(chartOf(flippedFace), maxConformal)` — the flip is always a refusal, never a knob-admitted layout. `ChartAtlas.ToMesh(Op?)` re-emits the source chart carrying the UV channel as texture coordinates; `ChartAtlas.ToTextureMesh(Op?)` re-emits the flattened islands as 2D geometry through the `MeshEdit` arena soup + freeze.
-- Auto: `Apply` reads the `Flatteners` `FrozenDictionary` keyed by `ParamKind` so modality selection is a data-table row — every row lowers the SAME `MeshDec.Of` composition (the `MeshAdjointSnapshot.Of(space)` `DiscreteCalculus` handle, the `VectorIntent.Features` seam classification, the ORIENTED boundary-loop walk) and differs only in the energy it lowers. The reduced machinery: `MeshDec.Reduced(pinned)` eliminates the pin set — interior DOFs re-index, the `D0`/`Star1` edge fold scatters interior-interior stiffness triplets and collects interior↔pinned couplings as rhs contributions, and `CholeskySparse.Of` factors the genuinely SPD interior operator ONCE per pin set (a one-slot memo keyed on the pin set; `Harmonic`/`Bff` share the boundary-loop factor, `Arap` its gauge-pin factor, and every ARAP iteration re-uses the same factor — CSparse `Refactorize`/`Update`/`Downdate` amortize a pin-set change without a full symbolic refactorization). `Harmonic` pins the loop to the unit circle or a caller polyline resampled by arc length and back-substitutes two channels. `Lscm` assembles the SPARSE conformal operator `L_C = L_D − 2A` (two stiffness diagonal blocks off the SAME edge fold + four symmetrized ±½ area couplings per oriented boundary half-edge) and solves `SmallestEigenpairsDetailed(k: 3, ResidualTolerance, EigenBudget)` — the first pair past the two trivial constant modes is the free-boundary conformal map (spectral conformal parameterization), its eigenvalue the conformal-energy residual the receipt records. `Arap` seeds from `Lscm`, then alternates the LOCAL per-face polar rotation fit and the GLOBAL Poisson solve through the cached gauge-pin factor, `RotatedGradient` passing the in-scope face cursor `f` into the accumulation (O(F) per iteration), and the per-iteration displacement folds through `TensorPrimitives.Subtract` + `MaxMagnitude` over the U/V planes. `Bff` integrates the boundary curve from prescribed geodesic curvature (default the uniform disk turning `2π/n`; steps sized by original boundary edge lengths; the closure gap distributed linearly so the loop closes) and fills the interior harmonically through the boundary-pin factor. `Pack` scores distortion in ONE partition-disjoint parallel per-face pass (Jacobian singular values → conformal `σ₁/σ₂`, area `σ₁·σ₂`, quasi-conformal `(σ₁−σ₂)/(σ₁+σ₂)`, exact `Orient2D` flip bit — disjoint plane slots), folds the receipt through `TensorPrimitives.Max`/`Sum`/`MaxMagnitude` over the planes, labels islands through QuikGraph `WeaklyConnectedComponents` over the non-seam edge graph, and refuses any flip typed.
+- Auto: `Apply` reads the `Flatteners` `FrozenDictionary` keyed by `ParamKind` so modality selection is a data-table row — every row lowers the SAME `MeshDec.Of` composition (the `MeshAdjointSnapshot.Of(space)` `DiscreteCalculus` handle, the `VectorIntent.Features` seam classification, the ORIENTED boundary-loop walk) and differs only in the energy it lowers. The reduced machinery: `MeshDec.Reduced(pinned)` eliminates the pin set — interior DOFs re-index, the `D0`/`Star1` edge fold scatters interior-interior stiffness triplets and collects interior↔pinned couplings as rhs contributions, and `CholeskySparse.Of` factors the genuinely SPD interior operator ONCE per pin set (a one-slot memo keyed on the pin set; `Harmonic`/`Bff` share the boundary-loop factor, `Arap` its gauge-pin factor, and every ARAP iteration re-uses the same factor — CSparse `Refactorize`/`Update`/`Downdate` amortize a pin-set change without a full symbolic refactorization). `Harmonic` pins the loop to the unit circle or a caller polyline resampled by arc length and back-substitutes two channels. `Lscm` assembles the SPARSE conformal operator `L_C = L_D − 2A` (two stiffness diagonal blocks off the SAME edge fold + four symmetrized ±½ area couplings per oriented boundary half-edge) and solves `SmallestEigenpairsDetailed(k: 3, ResidualTolerance, EigenBudget)` — the first pair past the two trivial constant modes is the free-boundary conformal map (spectral conformal parameterization), its eigenvalue the conformal-energy residual the receipt records. `Arap` seeds from `Lscm`, then alternates the LOCAL per-face polar rotation fit and the GLOBAL Poisson solve through the cached gauge-pin factor, `RotatedGradient` passing the in-scope face cursor `f` into the accumulation (O(F) per iteration), and the per-iteration displacement folds through `TensorPrimitives.Subtract` + `MaxMagnitude` over the U/V planes. `Bff` integrates the boundary curve from prescribed geodesic curvature (default the uniform disk turning `2π/n`; steps sized by original boundary edge lengths; the closure gap distributed linearly so the loop closes) and fills the interior harmonically through the boundary-pin factor. `Pack` scores distortion in ONE partition-disjoint parallel per-face pass (Jacobian singular values → conformal `σ₁/σ₂`, area `σ₁·σ₂`, quasi-conformal `(σ₁−σ₂)/(σ₁+σ₂)`, exact `Orient2D` flip bit — disjoint plane slots), folds the receipt through `TensorPrimitives.Max`/`Sum`/`MaxMagnitude` over the planes, labels islands through QuikGraph `WeaklyConnectedComponents` over the FACE-DUAL graph (faces adjacent across a non-seam interior edge — every face lands in exactly one island, seam vertices duplicate per island), and refuses any flip typed.
 - Receipt: `Apply` carries a `DistortionReceipt` — `MaxConformal`/`MeanConformal`, `MaxArea`/`MeanArea`, `MaxQuasiConformal`, `Iterations` (ARAP outer count; the LOBPCG inner count for `Lscm`; `1` for the direct solves), `Residual` (final ARAP displacement or the conformal eigenvalue), `FactorNonZeros` (the ACTUAL `CholeskySparse.FactorNonZeros` factor fill — the `D1.NonZeros` wrong-operator readout is dead; `0` on the factorless eigen path), `FlipFreeBijective` (the exact-`Orient2D` verdict, `true` on every emitted atlas because a flip refuses) — never a generic ledger; the distortion triple IS the evidence the `Rasm.Fabrication` nesting strain gate reads.
 - Packages: `Rasm`/Vectors (`MeshSpace`, `MeshAdjointSnapshot.Of`/`DiscreteCalculus` the public DEC handle — never the internal `IntrinsicMesh`/`LaplacianCache`; `FeatureEdge`/`MeshFeatureKind` seam source; `Point3d`/`Point2d`/`Vector3d`), `Rasm.Vectors` `Numerics/matrix` (`SparseMatrix.FromTriplets`/`SmallestEigenpairsDetailed` the LOBPCG lane, `CholeskySparse.Of`/`SolveDetailed`/`FactorNonZeros` the reduced direct factor — the ONE `matrix.md` owner law: every dense/sparse/eigen solve routes these owners, never a raw MathNet/CSparse call), `Rasm.Geometry.Numerics` (`Predicate.Orient2D`/`Sign` the exact flip floor), `Rasm.Geometry.Meshing` (`MeshEdit` soup + freeze for `ToTextureMesh`), QuikGraph (`AdjacencyGraph<int, SEdge<int>>` + `AlgorithmExtensions.WeaklyConnectedComponents` — the island former), System.Numerics.Tensors (`TensorPrimitives.Max`/`Sum`/`MaxMagnitude`/`Subtract` — the vectorized distortion and residual folds over raw-`double` planes), CommunityToolkit.HighPerformance (`MemoryOwner<T>` pooled planes, `ParallelHelper.For` + `IAction` the distortion pass), Rasm.Domain (`Context`/`Op`/`Kind`/`IValidityEvidence`/`ValidityClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new flattening modality (spectral conformal with cone singularities, a Yamabe flow, a seamless global parameterization) is one `ParamKind` row + one `ParamOp` case + one `Flatteners` row lowering the SAME `DiscreteCalculus` substrate and reduced machinery; a new distortion measure is one pooled plane + one `DistortionReceipt` field folded by the same `TensorPrimitives` pass; a new constraint mode (a hard cone vertex, a packing target) is one `ParamPolicy` column or one op-case payload; a new seam source is one `MeshFeatureKind` row the cut reads; zero new surface.
-- Boundary: the parameterization is the ONE polymorphic `ParamOp` `[Union]` and a sibling flattener-class family is the named density defect; every solve COMPOSES the `matrix.md` owners (`CholeskySparse`, `SparseMatrix`, the LOBPCG lane) and a raw `CSparse.Double.Factorization.SparseCholesky.Create` or MathNet `Matrix<double>.Svd()` call is the named lower-level-reinvention defect — the DENSE `(2n)²` conformal operator + `DecomposeSvd` this rebuild killed was exactly that class (non-scalable memory and flops beside a sparse eigensolver the substrate already owns); pinned constraints ELIMINATE — the penalty/shift formulation is the rejected conditioning-failure class (κ scales with the penalty; the reduced interior operator is SPD by construction); the DEC substrate is reached ONLY through the public `MeshAdjointSnapshot.Of` handle and a Geometry-side cotangent re-assembly or a reach into the internal `LaplacianCache` is the named boundary violation; the UV-flip verdict is the exact `Predicate.Orient2D` sign and a float signed-area band is the named precision-loss defect; the seam cut composes the `Vectors` `FeatureEdge` classification and a domain-local dihedral detector is the deleted double-owner form; island labeling rides QuikGraph `WeaklyConnectedComponents` and a hand-rolled queue-BFS over an ad-hoc adjacency dictionary is the deleted form the QuikGraph `[LOCAL_ADMISSION]` names; the published `ChartAtlas` carries ONLY structurally-equal members (`Seq`/`Arr`) and a raw-array record member comparing by reference is the deleted illusory-equality form; the `ChartStore` planes are fold-internal single-writer scratch under the corpus arena law (pooled, disposed, never hashed, never published); `Apply` is total over the `Fin` rail and a thrown exception on a non-disk chart or a diverged solve is forbidden — parameterization defects route the typed `ParameterizationFault(ChartId, double)` 2432 payload; the result is the hash-friendly carrier the reconciliation `Encode` content-addresses and this owner mints NO second hash; the flattening preserves capability — a seam cut splits a chart into islands rather than discarding a region.
+- Boundary: the parameterization is the ONE polymorphic `ParamOp` `[Union]` and a sibling flattener-class family is the named density defect; every solve COMPOSES the `matrix.md` owners (`CholeskySparse`, `SparseMatrix`, the LOBPCG lane) and a raw `CSparse.Double.Factorization.SparseCholesky.Create` or MathNet `Matrix<double>.Svd()` call is the named lower-level-reinvention defect — the DENSE `(2n)²` conformal operator + `DecomposeSvd` this rebuild killed was exactly that class (non-scalable memory and flops beside a sparse eigensolver the substrate already owns); pinned constraints ELIMINATE — the penalty/shift formulation is the rejected conditioning-failure class (κ scales with the penalty; the reduced interior operator is SPD by construction); the DEC substrate is reached ONLY through the public `MeshAdjointSnapshot.Of` handle and a Geometry-side cotangent re-assembly or a reach into the internal `LaplacianCache` is the named boundary violation; the UV-flip verdict is the exact `Predicate.Orient2D` sign and a float signed-area band is the named precision-loss defect; the seam cut composes the `Vectors` `FeatureEdge` classification and a domain-local dihedral detector is the deleted double-owner form; island labeling rides QuikGraph `WeaklyConnectedComponents` over the face-dual and BOTH a hand-rolled queue-BFS over an ad-hoc adjacency dictionary AND a vertex-labeled cut that drops seam-straddling faces are deleted forms (the QuikGraph `[LOCAL_ADMISSION]` names the first, the region-preservation law the second); the published `ChartAtlas` carries ONLY structurally-equal members (`Seq`/`Arr`) and a raw-array record member comparing by reference is the deleted illusory-equality form; the `ChartStore` planes are fold-internal single-writer scratch under the corpus arena law (pooled, disposed, never hashed, never published); `Apply` is total over the `Fin` rail and a thrown exception on a non-disk chart or a diverged solve is forbidden — parameterization defects route the typed `ParameterizationFault(ChartId, double)` 2432 payload; the result is the hash-friendly carrier the reconciliation `Encode` content-addresses and this owner mints NO second hash; the flattening preserves capability — a seam cut splits a chart into islands rather than discarding a region.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -91,7 +91,7 @@ public sealed class ChartStore : IDisposable {
     ChartStore(int vertices, int faces) {
         u = MemoryOwner<double>.Allocate(vertices, AllocationMode.Clear);
         v = MemoryOwner<double>.Allocate(vertices, AllocationMode.Clear);
-        chart = MemoryOwner<int>.Allocate(vertices, AllocationMode.Clear);
+        chart = MemoryOwner<int>.Allocate(faces, AllocationMode.Clear);   // per-FACE island labels
         conformal = MemoryOwner<double>.Allocate(faces, AllocationMode.Clear);
         area = MemoryOwner<double>.Allocate(faces, AllocationMode.Clear);
         quasiConformal = MemoryOwner<double>.Allocate(faces, AllocationMode.Clear);
@@ -127,7 +127,9 @@ public sealed record DistortionReceipt(
     bool FlipFreeBijective);
 
 public sealed record ChartAtlas(MeshSpace Source, Seq<UvIsland> Islands, Seq<FeatureEdge> Seams, DistortionReceipt Receipt) {
-    // UV channel onto the source topology — the texture projection the AppUi lane reads.
+    // UV channel onto the source topology — the texture projection the AppUi lane reads. Source
+    // topology carries ONE coordinate per vertex, so a shared seam vertex takes its last island's UV;
+    // wedge-faithful output is ToTextureMesh.
     public Fin<MeshSpace> ToMesh(Op? key = null) {
         Mesh native = Source.DuplicateNative();
         foreach (UvIsland island in Islands) {
@@ -138,12 +140,13 @@ public sealed record ChartAtlas(MeshSpace Source, Seq<UvIsland> Islands, Seq<Fea
         return MeshSpace.Of(native, Source.Tolerance, key: key);
     }
 
-    // Flattened islands as 2D geometry — arena soup + freeze, never a hand-built native mesh.
+    // Flattened islands as 2D geometry — arena soup + freeze, never a hand-built native mesh. The
+    // remap is per-ISLAND: a seam vertex shared by two islands duplicates, which IS the cut.
     public Fin<MeshSpace> ToTextureMesh(Op? key = null) {
         var vertices = new List<Point3d>();
         var faces = new List<(int A, int B, int C)>();
-        var remap = new Dictionary<int, int>();
         foreach (UvIsland island in Islands) {
+            var remap = new Dictionary<int, int>(island.Vertices.Count);
             for (int i = 0; i < island.Vertices.Count; i++) {
                 remap[island.Vertices[i]] = vertices.Count;
                 vertices.Add(new Point3d(island.Uv[i].X, island.Uv[i].Y, 0.0));
@@ -220,30 +223,31 @@ public static class Flatten {
                 ? Fin.Succ(SplitComplex(dec, eigen.Pairs[GaugeModes], eigen.Iterations.IfNone(0)))
                 : Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(ChartId.Whole, 0.0).ToError()));
 
-    // Local-global alternation: the global step re-uses the ONE gauge-pinned reduced factor across every
-    // iteration; a budget exhausted above tolerance faults typed — never a silently non-converged iterate.
+    // Local-global alternation as one Fin fold: the global step re-uses the ONE gauge-pinned reduced
+    // factor every iteration, a converged state short-circuits, and a budget exhausted above tolerance
+    // faults typed — never a silently non-converged iterate.
     static Fin<Solved> FlattenArap(MeshDec dec, ParamPolicy policy, Op key) =>
         FlattenLscm(dec, policy, key).Bind(seed => {
             int[] gauge = [dec.Anchor];
             return dec.Reduced(gauge, key).Bind(system => {
-                double[] u = [.. seed.U], v = [.. seed.V];
                 using MemoryOwner<double> scratch = MemoryOwner<double>.Allocate(dec.VertexCount, AllocationMode.Clear);
-                double residual = double.PositiveInfinity;
-                int iteration = 0;
-                for (; iteration < policy.MaxIterations && residual > policy.ResidualTolerance; iteration++) {
-                    Matrix2[] rotations = dec.LocalRotations(u, v);
-                    Fin<(double[] U, double[] V)> step =
-                        from solvedU in system.SolveWith(dec.RotatedGradient(rotations, axis: 0), k => u[gauge[k]], key)
-                        from solvedV in system.SolveWith(dec.RotatedGradient(rotations, axis: 1), k => v[gauge[k]], key)
-                        select (system.Scatter(gauge, k => u[gauge[k]], solvedU), system.Scatter(gauge, k => v[gauge[k]], solvedV));
-                    if (step.IsFail) return step.Map(static _ => default(Solved)!);
-                    (double[] nextU, double[] nextV) = step.IfFail((u, v));
-                    residual = MaxDelta(u, nextU, v, nextV, scratch.Span);
-                    (u, v) = (nextU, nextV);
+                return Range(0, policy.MaxIterations)
+                    .Fold(
+                        Fin.Succ((U: seed.U, V: seed.V, Iterations: 0, Residual: double.PositiveInfinity)),
+                        (acc, _) => acc.Bind(state => state.Residual <= policy.ResidualTolerance ? Fin.Succ(state) : Step(state)))
+                    .Bind(state => state.Residual <= policy.ResidualTolerance
+                        ? Fin.Succ(new Solved(state.U, state.V, state.Iterations, state.Residual, system.FactorNonZeros))
+                        : Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(ChartId.Whole, state.Residual).ToError()));
+
+                Fin<(double[] U, double[] V, int Iterations, double Residual)> Step((double[] U, double[] V, int Iterations, double Residual) state) {
+                    Matrix2[] rotations = dec.LocalRotations(state.U, state.V);
+                    return from solvedU in system.SolveWith(dec.RotatedGradient(rotations, axis: 0), k => state.U[gauge[k]], key)
+                           from solvedV in system.SolveWith(dec.RotatedGradient(rotations, axis: 1), k => state.V[gauge[k]], key)
+                           let nextU = system.Scatter(gauge, k => state.U[gauge[k]], solvedU)
+                           let nextV = system.Scatter(gauge, k => state.V[gauge[k]], solvedV)
+                           select (U: nextU, V: nextV, Iterations: state.Iterations + 1,
+                                   Residual: MaxDelta(state.U, nextU, state.V, nextV, scratch.Span));
                 }
-                return residual <= policy.ResidualTolerance
-                    ? Fin.Succ(new Solved(u, v, iteration, residual, system.FactorNonZeros))
-                    : Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(ChartId.Whole, residual).ToError());
             });
         });
 
@@ -285,7 +289,7 @@ public static class Flatten {
         int flipped = store.Flip.Span.IndexOf(true);
         return flipped < 0
             ? Fin.Succ(new ChartAtlas(op.Chart, islands, dec.Seams, receipt))
-            : Fin.Fail<ChartAtlas>(new GeometryFault.ParameterizationFault(ChartId.Create(store.Chart[dec.Face(flipped).A]), receipt.MaxConformal).ToError());
+            : Fin.Fail<ChartAtlas>(new GeometryFault.ParameterizationFault(ChartId.Create(store.Chart[flipped]), receipt.MaxConformal).ToError());
     }
 
     // Partition-disjoint per-face pass: distortion triple + exact Orient2D flip bit into disjoint slots.
@@ -316,27 +320,33 @@ public static class Flatten {
             FlipFreeBijective: !store.Flip.Span.Contains(true));
     }
 
-    // Island former: non-seam edges fold into ONE QuikGraph and WeaklyConnectedComponents labels charts —
-    // the hand-rolled queue-BFS over an ad-hoc adjacency dictionary is the deleted form.
+    // Island former: FACES adjacent across a non-seam interior edge fold into ONE QuikGraph face-dual
+    // and WeaklyConnectedComponents labels charts — every face lands in exactly one island (a
+    // vertex-labeled cut drops seam-straddling faces), seam vertices belong to every island whose
+    // faces touch them (wedge semantics), and the hand-rolled queue-BFS is the deleted form.
     static Seq<UvIsland> Islands(ChartStore store, MeshDec dec) {
-        var graph = new AdjacencyGraph<int, SEdge<int>>(allowParallelEdges: false);
-        graph.AddVertexRange(Enumerable.Range(0, dec.VertexCount));
-        foreach ((int u, int v) in dec.Edges()) {
-            if (!dec.IsSeamEdge(u, v)) graph.AddEdge(new SEdge<int>(u, v));   // one arc: weak components ignore direction
+        var dual = new AdjacencyGraph<int, SEdge<int>>(allowParallelEdges: false);
+        dual.AddVertexRange(Enumerable.Range(0, dec.FaceCount));
+        foreach (((int u, int v), int faceA, int faceB) in dec.InteriorEdges()) {
+            if (!dec.IsSeamEdge(u, v)) dual.AddEdge(new SEdge<int>(faceA, faceB));   // one arc: weak components ignore direction
         }
-        var label = new Dictionary<int, int>(dec.VertexCount);
-        int count = graph.WeaklyConnectedComponents(label);
-        for (int v = 0; v < dec.VertexCount; v++) store.Chart[v] = label[v];
+        var label = new Dictionary<int, int>(dec.FaceCount);
+        int count = dual.WeaklyConnectedComponents(label);
+        for (int f = 0; f < dec.FaceCount; f++) store.Chart[f] = label[f];
         return toSeq(Enumerable.Range(0, count).Select(chart => IslandOf(chart, store, dec))).Strict();
     }
 
     static UvIsland IslandOf(int chart, ChartStore store, MeshDec dec) {
         var vertices = new List<int>();
-        for (int v = 0; v < dec.VertexCount; v++) { if (store.Chart[v] == chart) vertices.Add(v); }
+        var seen = new HashSet<int>();
         var faces = new List<(int A, int B, int C)>();
         for (int f = 0; f < dec.FaceCount; f++) {
+            if (store.Chart[f] != chart) continue;
             (int a, int b, int c) = dec.Face(f);
-            if (store.Chart[a] == chart && store.Chart[b] == chart && store.Chart[c] == chart) faces.Add((a, b, c));
+            faces.Add((a, b, c));
+            if (seen.Add(a)) vertices.Add(a);
+            if (seen.Add(b)) vertices.Add(b);
+            if (seen.Add(c)) vertices.Add(c);
         }
         return new UvIsland(chart, toArr(vertices), toArr(faces), toArr(vertices.Select(store.At)));
     }
@@ -345,9 +355,21 @@ public static class Flatten {
     static Point2d[] UnitCircle(int count) =>
         [.. Enumerable.Range(0, count).Select(i => { double t = 2.0 * Math.PI * i / count; return new Point2d(Math.Cos(t), Math.Sin(t)); })];
 
+    // Polyline evaluates on the segment parameter (integer = vertex, fraction = within segment);
+    // the cumulative-length table inverts arc length onto that parameter — Polyline carries no
+    // length-parameterized evaluator of its own.
     static Point2d[] Resample(Polyline boundary, int count) {
-        double step = boundary.Length / count;
-        return [.. Enumerable.Range(0, count).Select(i => { Point3d p = boundary.PointAtLength(i * step); return new Point2d(p.X, p.Y); })];
+        var cumulative = new double[boundary.Count];
+        for (int v = 1; v < boundary.Count; v++) cumulative[v] = cumulative[v - 1] + boundary[v - 1].DistanceTo(boundary[v]);
+        double step = cumulative[^1] / count;
+        return [.. Enumerable.Range(0, count).Select(i => {
+            double target = i * step;
+            int hit = Array.BinarySearch(cumulative, target);
+            int segment = Math.Min(hit >= 0 ? hit : ~hit - 1, boundary.Count - 2);
+            double span = cumulative[segment + 1] - cumulative[segment];
+            Point3d p = boundary.PointAt(segment + (span > 0.0 ? (target - cumulative[segment]) / span : 0.0));
+            return new Point2d(p.X, p.Y);
+        })];
     }
 
     // Per-iteration displacement: |Δu| ∪ |Δv| folded by ONE vectorized pass per plane.
@@ -401,7 +423,7 @@ file sealed class MeshDec {
     public readonly Seq<FeatureEdge> Seams;
     readonly Mesh native;
     readonly HashSet<(int, int)> seamEdges;
-    (string Key, ReducedSystem System)? reduced;  // one-slot pin-set memo; Refactorize/Update/Downdate amortize a pin change
+    (int[] Pins, ReducedSystem System)? reduced;  // one-slot pin-set memo; Refactorize/Update/Downdate amortize a pin change
 
     MeshDec(DiscreteCalculus calculus, Mesh native, int[][] loops, Seq<FeatureEdge> seams, HashSet<(int, int)> seamEdges) {
         (Calculus, this.native, Loops, Seams, this.seamEdges) = (calculus, native, loops, seams, seamEdges);
@@ -410,13 +432,14 @@ file sealed class MeshDec {
 
     public static Fin<MeshDec> Of(MeshSpace chart, ParamPolicy policy, Op key) =>
         from snapshot in MeshAdjointSnapshot.Of(chart, key)
-        from intent in VectorIntent.Features(chart, policy.SeamDihedralRadians)
-        from features in intent.Project<FeatureReceipt>(chart.Tolerance)
+        from featurePolicy in MeshFeaturePolicy.Of(dihedralRadians: policy.SeamDihedralRadians, space: chart, faceRegions: Option<Arr<int>>.None, key: key)
+        from intent in VectorIntent.Features(chart, featurePolicy, key)
+        from features in intent.Project<FeatureReceipt>(chart.Tolerance, key)
         let native = chart.DuplicateNative()
-        let seamEdges = features.Edges
-            .Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary))
-            .Map(static e => Order(e.A, e.B)).ToHashSet()
-        select new MeshDec(snapshot.Calculus, native, BoundaryLoops(native), features.Edges, seamEdges);
+        // Seams = the CUT set (crease/boundary) — the atlas publishes exactly what separated islands.
+        let seams = features.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary))
+        let seamEdges = seams.Map(static e => Order(e.A, e.B)).ToHashSet()
+        select new MeshDec(snapshot.Calculus, native, BoundaryLoops(native), seams, seamEdges);
 
     public int Anchor => Loops.Length > 0 ? Loops[0][0] : 0;   // the ARAP gauge pin
 
@@ -429,8 +452,7 @@ file sealed class MeshDec {
     // ELIMINATE-BOUNDARY-ROWS: interior-interior triplets + interior↔pinned couplings off the ONE
     // D0/Star1 edge fold; the reduced operator is SPD (no shift) and factors once per pin set.
     public Fin<ReducedSystem> Reduced(int[] pinned, Op key) {
-        string memoKey = string.Join(',', pinned);
-        if (reduced is { } hit && hit.Key == memoKey) return Fin.Succ(hit.System);
+        if (reduced is { } hit && hit.Pins.AsSpan().SequenceEqual(pinned)) return Fin.Succ(hit.System);
         var slot = new Dictionary<int, int>(pinned.Length);
         for (int k = 0; k < pinned.Length; k++) slot[pinned[k]] = k;
         var map = new int[VertexCount];
@@ -452,7 +474,7 @@ file sealed class MeshDec {
             .Bind(stiffness => CholeskySparse.Of(stiffness, key))
             .Map(factor => {
                 var system = new ReducedSystem(factor, map, [.. couplings], interior);
-                reduced = (memoKey, system);
+                reduced = ([.. pinned], system);
                 return system;
             });
     }
@@ -502,21 +524,24 @@ file sealed class MeshDec {
         return b;
     }
 
-    public (double S1, double S2) JacobianSingularValues(int face, Point2d ua, Point2d ub, Point2d uc) {
-        (Point3d pa, Point3d pb, Point3d pc) = FacePoints(face);
-        (Vector2 e1, Vector2 e2) = LocalBasis(pa, pb, pc);
-        return SingularValues(JacobianOf(e1, e2, ua, ub, uc));
-    }
+    public (double S1, double S2) JacobianSingularValues(int face, Point2d ua, Point2d ub, Point2d uc) =>
+        SingularValues(Jacobian(face, ua, ub, uc));
 
     public (int A, int B, int C) Face(int face) { MeshFace mf = native.Faces.GetFace(face); return (mf.A, mf.B, mf.C); }
 
-    public IEnumerable<(int U, int V)> Edges() {
-        var seen = new HashSet<(int, int)>(3 * FaceCount);
+    // Interior edges with both incident faces — the face-dual arc source the island former folds.
+    public IEnumerable<((int U, int V) Edge, int FaceA, int FaceB)> InteriorEdges() {
+        var first = new Dictionary<(int, int), int>(3 * FaceCount);
         for (int f = 0; f < FaceCount; f++) {
             (int a, int b, int c) = Face(f);
-            if (seen.Add(Order(a, b))) yield return Order(a, b);
-            if (seen.Add(Order(b, c))) yield return Order(b, c);
-            if (seen.Add(Order(c, a))) yield return Order(c, a);
+            foreach ((int u, int v) in Sides(a, b, c)) {
+                if (first.TryGetValue((u, v), out int other)) yield return ((u, v), other, f);
+                else first[(u, v)] = f;
+            }
+        }
+
+        static IEnumerable<(int, int)> Sides(int a, int b, int c) {
+            yield return Order(a, b); yield return Order(b, c); yield return Order(c, a);
         }
     }
 
@@ -552,14 +577,34 @@ file sealed class MeshDec {
     }
 
     Matrix2 PolarRotation(int face, Point2d ua, Point2d ub, Point2d uc) {
-        (Point3d pa, Point3d pb, Point3d pc) = FacePoints(face);
-        (Vector2 e1, Vector2 e2) = LocalBasis(pa, pb, pc);
-        Matrix2 jacobian = JacobianOf(e1, e2, ua, ub, uc);
+        Matrix2 jacobian = Jacobian(face, ua, ub, uc);
         (double s1, double s2) = SingularValues(jacobian);
         double det = jacobian.M00 * jacobian.M11 - jacobian.M01 * jacobian.M10;
         double scale = (s1 + s2) == 0.0 ? 1.0 : 1.0 / (s1 + s2);
         double r00 = (jacobian.M00 + jacobian.M11) * scale, r01 = (jacobian.M01 - jacobian.M10) * scale;
         return det < 0.0 ? new Matrix2(r00, -r01, -r01, -r00) : new Matrix2(r00, r01, -r01, r00);
+    }
+
+    // Reference coordinates of the face in ITS OWN plane: pa -> (0,0), pb -> (|ab|, 0), pc -> (ac·x̂, ac·ŷ).
+    (Point2d Rb, Point2d Rc) Reference(int face) {
+        (Point3d pa, Point3d pb, Point3d pc) = FacePoints(face);
+        Vector3d ab = pb - pa, ac = pc - pa;
+        Vector3d x = ab; x.Unitize();
+        Vector3d normal = Vector3d.CrossProduct(ab, ac); normal.Unitize();
+        Vector3d y = Vector3d.CrossProduct(normal, x);
+        return (new Point2d(ab.Length, 0.0), new Point2d(ac * x, ac * y));
+    }
+
+    // The TRUE per-face map J = U·R⁻¹ — the UV edge matrix against the 3D reference triangle. The
+    // UV-only edge matrix (reference ignored) measured nothing and is the deleted hollow form.
+    Matrix2 Jacobian(int face, Point2d ua, Point2d ub, Point2d uc) {
+        (Point2d rb, Point2d rc) = Reference(face);
+        double det = rb.X * rc.Y;   // rb.Y = 0 by construction; det = 2·(reference area)
+        if (det == 0.0) return new Matrix2(0.0, 0.0, 0.0, 0.0);   // degenerate face flags σ = (0,0)
+        (double u1x, double u2x, double u1y, double u2y) = (ub.X - ua.X, uc.X - ua.X, ub.Y - ua.Y, uc.Y - ua.Y);
+        return new Matrix2(
+            u1x * rc.Y / det, (u2x * rb.X - u1x * rc.X) / det,
+            u1y * rc.Y / det, (u2y * rb.X - u1y * rc.X) / det);
     }
 
     void AccumulateRotated(double[] b, Matrix2 rotation, int face, int axis, int i, int j, int k, double cotI, double cotJ, double cotK) {
@@ -576,16 +621,6 @@ file sealed class MeshDec {
         double cross = Vector3d.CrossProduct(a, b).Length;
         return cross == 0.0 ? 0.0 : (a * b) / cross;
     }
-
-    static (Vector2 E1, Vector2 E2) LocalBasis(Point3d a, Point3d b, Point3d c) {
-        Vector3d x = b - a; x.Unitize();
-        Vector3d normal = Vector3d.CrossProduct(b - a, c - a); normal.Unitize();
-        Vector3d y = Vector3d.CrossProduct(normal, x);
-        return (new Vector2(x.X, x.Y), new Vector2(y.X, y.Y));
-    }
-
-    static Matrix2 JacobianOf(Vector2 e1, Vector2 e2, Point2d ua, Point2d ub, Point2d uc) =>
-        new(ub.X - ua.X, uc.X - ua.X, ub.Y - ua.Y, uc.Y - ua.Y);
 
     static (double S1, double S2) SingularValues(Matrix2 m) {
         double e = (m.M00 + m.M11) * 0.5, f = (m.M00 - m.M11) * 0.5, g = (m.M10 + m.M01) * 0.5, h = (m.M10 - m.M01) * 0.5;
@@ -621,8 +656,6 @@ file sealed class MeshDec {
         return [.. loops];
     }
 }
-
-file readonly record struct Vector2(double X, double Y);
 ```
 
 ```mermaid
@@ -638,8 +671,8 @@ flowchart LR
     Apply -->|parallel per-face pass| Distortion["conformal/area/quasi planes + flip bits"]
     Distortion -->|TensorPrimitives Max/Sum/MaxMagnitude| Receipt["DistortionReceipt"]
     Distortion -->|exact Orient2D flip| Predicate
-    Seams -->|non-seam edge graph| QuikGraph["WeaklyConnectedComponents"]
-    QuikGraph -->|chart labels| Islands["UvIsland (Arr, structural)"]
+    Seams -->|face-dual, non-seam arcs| QuikGraph["WeaklyConnectedComponents"]
+    QuikGraph -->|per-face island labels| Islands["UvIsland (Arr, structural)"]
     Islands --> ChartAtlas
     ChartAtlas -->|ToMesh / ToTextureMesh| MeshSpaceOut["MeshSpace"]
     ParamOp -.->|non-disk / diverged / flip| GeometryFault["ParameterizationFault(ChartId, distortion)"]
@@ -677,4 +710,4 @@ The four flattening kinds are transcription-complete managed fences over one `Pa
 - [LSCM_SPECTRAL_CONFORMAL] — `FlattenLscm` minimizes the conformal energy `E_C = ½ xᵀ L_C x` with `L_C = L_D − 2A`: the Dirichlet term is TWO copies of the cotangent stiffness (one per coordinate block, off the SAME `StiffnessEdges` fold), and the area term contributes four symmetrized `±½` couplings per ORIENTED boundary half-edge — the whole operator assembled SPARSE through `SparseMatrix.FromTriplets`. The free-boundary conformal map is the first non-trivial smallest eigenpair (`SmallestEigenpairsDetailed(k: 3, …)` — LOBPCG through the `matrix.md` lane; the two trivial constant modes span the zero eigenspace, `GaugeModes = 2`), its eigenvalue the residual conformal energy the receipt records — spectral conformal parameterization, natural free boundary, no pinned pair. The deleted form assembled `new double[(2n)·(2n)]` and ran a dense SVD: O((2n)²) memory and O((2n)³) flops — 3.2 GB and 8·10¹² flops at n = 10⁴ — beside a sparse eigensolver the substrate already owns. The `ParameterizationLaws` matrix asserts the achieved energy is minimal under rigid perturbation, `σ₁/σ₂ → 1` on refining developable patches, and eigen-gauge invariance.
 - [ARAP_LOCAL_GLOBAL] — `FlattenArap` seeds from `Lscm` then alternates: LOCAL fits each face's best rigid rotation by the closed-form polar decomposition of the 2×2 Jacobian (the reflected case dispatched on the determinant sign); GLOBAL solves the Poisson system through the SAME gauge-pinned reduced factor every iteration — one vertex pinned kills the constant kernel, so the factor is SPD and factors once. `RotatedGradient` passes the in-scope face cursor `f` into `AccumulateRotated` — the deleted `IndexOf` re-scanned all F faces to recover the index the loop already held, O(F²) per iteration × the 64-iteration budget. The per-iteration displacement folds through `TensorPrimitives.Subtract` + `MaxMagnitude` over the U/V planes into one scratch buffer. A budget exhausted above `ResidualTolerance` faults `ParameterizationFault(ChartId.Whole, residual)` — the deleted form returned the non-converged iterate silently. The `ParameterizationLaws` matrix asserts the ARAP energy is monotone non-increasing across iterations and the alternation converges within budget on developable patches.
 - [BFF_BOUNDARY_FIRST] — `FlattenBff` designs the flattening from its boundary: the target geodesic curvature (caller-prescribed per boundary vertex, default the uniform disk turning `2π/n`) integrates into the boundary curve — `IntegrateBoundary` walks the loop accumulating exterior turning, steps sized by the ORIGINAL boundary edge lengths (a unit-step walk distorts every non-uniform rim), and distributes the closure gap linearly so the loop closes — then the interior fills harmonically through the SAME boundary-pinned reduced factor as two back-substitutions. The boundary-first flow makes the interior conformal with a caller-chosen boundary shape (a disk, a rectangle-like profile, a prescribed curvature program) — the design axis `Harmonic`'s fixed-shape pin cannot express. The `ParameterizationLaws` matrix asserts the integrated boundary closes exactly after distribution, the uniform prescription reproduces the harmonic disk, and the interior satisfies the discrete Laplace equation at the factor's residual.
-- [DISTORTION_SEAMS_AND_ISLANDS] — `Pack` scores every face in ONE partition-disjoint parallel pass (`ParallelHelper.For` struct action at the policy floor): per-face Jacobian singular values from the `LocalBasis` 3D→2D frame, the conformal/area/quasi-conformal triple into disjoint plane slots, and the exact `Predicate.Orient2D` flip bit — then folds the receipt through vectorized `TensorPrimitives.Max`/`Sum`/`MaxMagnitude` reductions over the planes (raw-`double` lane; the exact signs stay scalar) — the scalar `for`+`Math.Max` element loops are dead. A set flip bit ALWAYS refuses with `ParameterizationFault(chartOf(face), maxConformal)` — the `FlipTolerance` knob that could ship a self-overlapping layout is dead. The seam set reads the `Vectors` `FeatureEdge` `Crease`/`Boundary` classification, and islands form by folding non-seam edges into ONE QuikGraph `AdjacencyGraph<int, SEdge<int>>` (one arc per undirected edge — weak components ignore direction) labeled by `WeaklyConnectedComponents` — the hand-rolled queue-BFS over an ad-hoc `Dictionary<int, List<int>>` adjacency is the deleted form the QuikGraph admission names. The published `UvIsland` carries `Arr`-typed members so the atlas is structurally equal end to end — the raw-array record members whose reference equality made the hash-friendly claim illusory are dead. The `ParameterizationLaws` matrix asserts distortion rigid-invariance, flip-verdict agreement with the exact sign, and seam cuts partitioning into disk-topology islands.
+- [DISTORTION_SEAMS_AND_ISLANDS] — `Pack` scores every face in ONE partition-disjoint parallel pass (`ParallelHelper.For` struct action at the policy floor): per-face Jacobian singular values from the TRUE map `J = U·R⁻¹` — the UV edge matrix solved against the face's own reference coordinates `(0,0)/(|ab|,0)/(ac·x̂, ac·ŷ)`, so a large face and a small face mapped to one UV triangle score differently (the UV-only edge matrix that ignored the reference measured nothing and is dead) — the conformal/area/quasi-conformal triple into disjoint plane slots, and the exact `Predicate.Orient2D` flip bit — then folds the receipt through vectorized `TensorPrimitives.Max`/`Sum`/`MaxMagnitude` reductions over the planes (raw-`double` lane; the exact signs stay scalar) — the scalar `for`+`Math.Max` element loops are dead. A set flip bit ALWAYS refuses with `ParameterizationFault(chartOf(face), maxConformal)` — the `FlipTolerance` knob that could ship a self-overlapping layout is dead. The seam set reads the `Vectors` `FeatureEdge` `Crease`/`Boundary` classification, and islands form by folding the FACE-DUAL — faces adjacent across a non-seam interior edge — into ONE QuikGraph `AdjacencyGraph<int, SEdge<int>>` (one arc per dual edge — weak components ignore direction) labeled by `WeaklyConnectedComponents`: every face lands in exactly one island and a seam vertex belongs to every island whose faces touch it, duplicating per island in `ToTextureMesh` (the cut) — the hand-rolled queue-BFS over an ad-hoc `Dictionary<int, List<int>>` adjacency and the vertex-labeled cut that dropped seam-straddling faces are both deleted forms. The published `UvIsland` carries `Arr`-typed members so the atlas is structurally equal end to end — the raw-array record members whose reference equality made the hash-friendly claim illusory are dead. The `ParameterizationLaws` matrix asserts distortion rigid-invariance, flip-verdict agreement with the exact sign, and seam cuts partitioning into disk-topology islands.

@@ -6,7 +6,7 @@ Authoritative campaign input for the ground-up restructure and rebuild of the RO
 
 ## [EXECUTION]
 
-Hinge campaign, cs track 1/6 — runs FIRST (every cs campaign consumes the kernel planes): design workflow -> `RASM-CS-GEOMETRY-DECISION.md` -> four rebuild legs per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, each leg self-contained (the engine's terminal reconcile closes every residual in-run with whole-repository write authority); legs re-run across sessions against the same DECISION until a cold pass finds nothing.
+Hinge campaign, cs track 1/6 — runs FIRST (every cs campaign consumes the kernel planes): design workflow -> `RASM-CS-GEOMETRY-DECISION.md` -> four rebuild legs per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, each leg self-contained (pass agents repair the cross-file ripples their own work exposes in-pass; a serialized per-wave tail closes index docs and central manifests in-run); legs re-run across sessions against the same DECISION until a cold pass finds nothing.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 |---|---|---|

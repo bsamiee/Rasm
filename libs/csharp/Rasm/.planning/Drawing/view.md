@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Rasm.Geometry;
 using Rasm.Geometry.Healing;
 using Rasm.Geometry.Intersection;
@@ -242,7 +243,8 @@ public static class Projection {
 
     static HashSet<long> CreaseEdges((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, Context tolerance, ViewPolicy policy) =>
         MeshSpace.Of(BuildNative(soup), tolerance)
-            .Bind(space => VectorIntent.Features(space, policy.CreaseDihedralRadians))
+            .Bind(space => MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedralRadians, space: space, faceRegions: Option<Arr<int>>.None, key: Op.Of())
+                .Bind(features => VectorIntent.Features(space, features)))
             .Bind(intent => intent.Project<FeatureReceipt>(tolerance))
             .Map(static receipt => receipt.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease)).Map(static e => Key(e.A, e.B)).ToHashSet())
             .IfFail(new HashSet<long>());

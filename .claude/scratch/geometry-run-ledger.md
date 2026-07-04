@@ -21,9 +21,11 @@ Run ledger for the RASM-CS-GEOMETRY rebuild legs. Resume is launching-session-on
 - Resume: `Workflow({scriptPath: ".claude/workflows/rebuild.js", resumeFromRunId: "wf_ce8d239c-260"})`
 - On return: commit → leg 4 on user signal.
 
-## Leg 4 — queued (DECISION `[10]` row 4)
+## Leg 4 — queued (DECISION `[10]` row 4) — RUNS ON THE REDESIGNED ENGINE
 
-- NEW OWNERS + PARAMETRIC + DRAWING: slice, skeleton, remesh, nurbs, curve, surface, subdivide, develop, panelize, patternmap, view, pack — then the four acceptance dry-runs close the campaign
+- Invocation: `Workflow({scriptPath: ".claude/workflows/rebuild.js", args: {brief: "RASM-CS-GEOMETRY-DECISION.md", leg: 4}})` — targets derive from the leg row itself; kinds re-derived from disk (9 new / 3 rebuild; the row's "8/4" census is a recorded DECISION defect).
+- The new engine executes leg 4's full rider layer natively: GShark props/csproj drop + `api-gshark.md` deletion in the serialized tail, `guardPage`-gated on `Parametric/nurbs.md` landing; FAB counterpart edits + AppHost signature-lock verify receipt-forced on their owning pages; the four `[05]` acceptance dry-runs in the read-only Close agent; `nurbs` batched before its consumers by dependency order.
+- DECISION-side handoff defects (engine never edits briefs; fix before or after leg 4 by operator call): stale `[10]:262` reconcile sentence, row-4 kind census 8/4 vs disk 9/3, stale `Rasm.csproj:18` anchor.
 
 ## Leg 5 — FINALIZE (our own, post leg-4)
 

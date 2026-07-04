@@ -80,7 +80,7 @@ Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec        # [C
 Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity           # [CONTENT_KEY]: ModelIdentity.Checksum composes ContentHash.Of — the ONE federation hasher, never a per-call-site XxHash128
 Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query/topology       # [CONTENT_KEY]: adjacency-derived GeometryHash canonical-byte content-identity hashed through the kernel Domain/Identity seed-zero entry; geometry crosses the seam by content-hash ONLY, read never re-minted
 Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity             # [CONTENT_KEY]: canonical-byte content-identity reproducing the one Domain/Identity seed (XxHash128 seed-zero)
-Spatial/Reconciliation.cs ⇄  typescript:kernel                            # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/Identity seed (XxHash128 seed-zero)
+Spatial/Reconciliation.cs ⇄  typescript:core/value/contentKey             # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/Identity seed (XxHash128 seed-zero)
 Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute                          # [SHAPE]: DiscreteCalculus DEC operator bundle — the frozen adjoint-carrier shape
 Meshing/Mesh.cs           →  csharp:Rasm.Compute                          # [SHAPE]: MeshAdjointSnapshot adjoint handle over the cached DiscreteCalculus
 Spatial/Index.cs          ⇄  csharp:Rasm.Fabrication/Toolpath/guard       # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune

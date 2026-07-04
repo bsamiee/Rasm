@@ -292,7 +292,7 @@ Re-anchor all 77 package catalogs to LIVE pages (dead-page map: `Store/{profiles
 
 ## [06]-[LEG_PARTITION] — proven acyclic; per-leg rebuild-engine invocation rows
 
-Within a leg the listed order IS dependency order, never prose order. Per-leg closeout: residuals resolve in-run — the leg's own reconcile closes every confirmed residual before it returns; `README.md` router/groups and `ARCHITECTURE.md` codemap/seams update in the leg that changes their facts; `.api` stubs, catalog re-anchors, and manifest edits land with the leg that admits/removes/first-composes the package; residuals naming a later leg's pages transfer forward explicitly in the leg return.
+Within a leg the listed order IS dependency order, never prose order. Per-leg closeout: residuals resolve in-run — every pass agent repairs the cross-file ripples its own work exposes in-pass, and the leg's serialized per-wave tail closes index docs and central manifests before it returns; `README.md` router/groups and `ARCHITECTURE.md` codemap/seams update in the leg that changes their facts; `.api` stubs, catalog re-anchors, and manifest edits land with the leg that admits/removes/first-composes the package; residuals naming a later leg's pages transfer forward explicitly in the leg return.
 
 | Leg | Rebuild-engine invocation | Targets (dependency order) | Charter |
 |---|---|---|---|

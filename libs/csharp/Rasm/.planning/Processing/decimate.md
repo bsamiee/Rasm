@@ -15,7 +15,7 @@ The owner composes `Vectors` `Point3d`/`Vector3d`/`MeshSpace` carriers, the aren
 - Entry: `public static Fin<DecimationResult> Simplify.Apply(SimplifyOp op, Op? key = null)` — the ONE decimation entrypoint discriminating by `SimplifyOp` case; the tolerance model is the op's own `MeshSpace.Tolerance` `Context` (never a second tolerance parameter beside the value that already carries it); `Fin<T>` routes `GeometryFault.DecimationFault(faceBudget, achieved)` when the gate stalls with live collapses rejected before the requested budget (a budget a manifold-preserving collapse cannot satisfy is a typed defect, never a silently over-reduced mesh), `GeometryFault.DegenerateInput(Kind.Mesh, …)` for a faceless input, and `key.InvalidResult(…)` when the achieved Hausdorff bound breaches the policy ceiling — the admitted `MeshSpace` is NOT re-validated for finiteness (admission happened once; the arena freeze re-gates at publish). No `Decimate`/`ReduceTo`/`RemeshVoxel` sibling entrypoints — one polymorphic `Apply` discriminates by kind.
 - Auto: `Apply` reads the `Weights` `FrozenDictionary` keyed by `SimplifyKind` so kind selection is a data-table row, never a `kind switch` cascade — every row fills the SAME pooled weight plane and lowers to the SAME `Collapse` loop. The fold: (1) `VoxelRemesh` resamples FIRST — `SdfMeshPolicy.GeneralizedWinding()` seeds a `ScalarField.SignedDistanceFromMeshCase`, `IsoSurface.Detailed` extracts the level set at `VoxelResolution`, and the clean manifold re-admits through `MeshSpace.Of` — then decimates like every other kind; (2) ONE arena opens (`MeshEdit.Of(space)` — quads split through the arena's exact diagonal gate) and `QuadricStore.Seed` builds the one-ring/incident-face indexes, the boundary roster, and the pooled planes; (3) the weight row fills the pooled weight plane ON THE RAIL — a curvature or feature projection failure routes `Fin`, never a silent uniform fallback; (4) `Accumulate` runs TWO partition-disjoint parallel passes through the arena's budgeted `Parallel` verb — per-FACE plane coefficients into disjoint face slots, then per-VERTEX `ddouble` quadric sums over the incidence index into disjoint vertex slots (the per-face scatter that races three vertex slots per face is the forbidden form) — and `Boundaries` adds the Garland-Heckbert constraint quadric on each boundary edge: the plane THROUGH the edge PERPENDICULAR to its single incident face (edge × face-normal), scaled by `BoundaryPenalty`, so a rim resists drift without freezing; (5) `Drain` pops the lowest-cost live edge, skips stale entries by version (no decrease-key), gates through `CollapseValid` — link condition per edge class (interior `shared == 2`, boundary `shared == 1`, and an interior edge joining two boundary vertices refused as the pinch it would create) plus the EXACT flip guard: every surviving fan face's moved triangle keeps `Predicate.Orient3D(moved, original-plane reference) == Sign.Positive` against its ORIGINAL supporting plane (the reference point `oa + (ob−oa)×(oc−oa)` is float-constructed — the axis-choice class — and the deciding sign is exact; `Sign.Zero` refuses the degenerate) — then applies: survivor re-seats via `SetPosition`, the collapsing fan dies via `KillFace`, the remaining fan re-points via `SetFace`, indexes re-home, quadrics merge `Qᵤ ← Qᵤ + Qᵥ`, versions bump, the one-ring re-enqueues; (6) termination at budget under an OUTER FIXPOINT — a drained queue above budget re-seeds when `NoAdmissibleCollapse` (a sweep of the live one-ring edge set, never the face table) still finds an admissible edge, because a rejected edge can become admissible after its neighborhood changes; each re-seed applies at least one collapse, and a genuine stall routes `DecimationFault(budget, achieved)`. `Emit` freezes ONCE through `edit.ToSpace(context, key)` (tombstone compaction and the finiteness gate are the arena's), computes the directed Hausdorff bound, enforces the ceiling, and lifts the preserved-feature set on the rail.
 - Receipt: `Apply` carries a `DecimationResult` typed to the decimation — `Mesh` (the frozen simplified `MeshSpace`), `Vertices`/`Faces` (the achieved live counts), `RequestedFaces` (the budget requested — dual evidence beside the achieved), `Hausdorff` (the one-sided directed bound from simplified to source — the error a LOD consumer thresholds), `Features` (the preserved crease/boundary `FeatureEdge` set), `Splits` (the reversible `VertexSplit` stream) — never a generic `IReceipt`/ledger. The Compute tile-pyramid reads `Mesh`+`Hausdorff` to seat a mesh at the LOD whose directed error fits the screen-space tolerance, the coarse-solver-seed reads the budgeted `Mesh` as the multigrid coarse level, the meshlet-residency reads the achieved `Faces` per residency tier, and the continuous-LOD consumer replays `Splits` — each through `Apply` and the result, never the interior `QuadricStore`.
-- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d`/`MeshSpace`; `VectorCloudMetric.PrincipalCurvature` + `VectorCloud.Cluster` the curvature signal; `VectorIntent.Features`/`FeatureReceipt`/`FeatureEdge`/`MeshFeatureKind` the dihedral classification; `ScalarField.SignedDistanceFromMeshCase` the SDF field case), `Rasm.Geometry.Meshing` (`MeshEdit` arena — `Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel`/`ToSpace`, composed never re-minted; `IsoSurface.Detailed` + `IsoSurfacePolicy` + `SdfMeshPolicy.GeneralizedWinding` the iso lane), `Rasm.Geometry.Numerics` (`Predicate.Orient3D`/`Sign` — the exact collapse-validity floor), `Rasm.Geometry.Spatial` (`Spatial.Apply` + `SpatialOp.Build`/`Query` + `SpatialQuery.Nearest` + `SpatialAnswer`/`QueryResult` — the ONE broad-phase entry the Hausdorff bound rides), `Rasm.Vectors` `Numerics/matrix` (`SymmetricMatrix.DecomposeCholesky` → `CholeskyResult.SolveDetailed` — the 3×3 optimal-position sub-solve through the ONE matrix owner, its `SolveReceipt` gating the solution all-finite), TYoshimura.DoubleDouble (`ddouble` — the 106-bit quadric coefficient killing the Garland-Heckbert catastrophic cancellation, narrowed to `double` only at the cost readout), System.Numerics.Tensors (`TensorPrimitives.Max` — the vectorized Hausdorff reduction over the pooled distance plane; the exact predicates and the `ddouble` fold stay scalar per the not-the-exact-predicate law), CommunityToolkit.HighPerformance (`MemoryOwner<T>` pooled planes + `IAction` struct rows the arena `Parallel` verb runs), Rasm.Domain (`Context`/`Op`/`Kind`/`IValidityEvidence`/`ValidityClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<EdgeRef,double>`, `HashSet<int>`, `System.Random` the deterministic sampler).
+- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d`/`MeshSpace`; `VectorCloudMetric.PrincipalCurvature` + `VectorCloud.Cluster` → `CurvatureResult`/`CurvatureSample` the curvature signal; `MeshFeaturePolicy.Of` + `VectorIntent.Features`/`FeatureReceipt`/`FeatureEdge`/`MeshFeatureKind` the dihedral classification; `ScalarField.SignedDistanceFromMeshCase` the SDF field case), `Rasm.Geometry.Meshing` (`MeshEdit` arena — `Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel`/`ToSpace`, composed never re-minted; `IsoSurface.Detailed` + `IsoSurfacePolicy` + `SdfMeshPolicy.GeneralizedWinding` the iso lane), `Rasm.Geometry.Numerics` (`Predicate.Orient3D`/`Sign` — the exact collapse-validity floor), `Rasm.Geometry.Spatial` (`Spatial.Apply` + `SpatialOp.Build`/`Query` + `SpatialQuery.Nearest` + `SpatialAnswer`/`QueryResult` — the ONE broad-phase entry the Hausdorff bound rides), `Rasm.Vectors` `Numerics/matrix` (`SymmetricMatrix.DecomposeCholesky` → `CholeskyResult.SolveDetailed` — the 3×3 optimal-position sub-solve through the ONE matrix owner, its `SolveReceipt` gating the solution all-finite), TYoshimura.DoubleDouble (`ddouble` — the 106-bit quadric coefficient killing the Garland-Heckbert catastrophic cancellation, narrowed to `double` only at the cost readout), System.Numerics.Tensors (`TensorPrimitives.Max` — the vectorized Hausdorff reduction over the pooled distance plane; the exact predicates and the `ddouble` fold stay scalar per the not-the-exact-predicate law), CommunityToolkit.HighPerformance (`MemoryOwner<T>` pooled planes + `IAction` struct rows the arena `Parallel` verb runs), Rasm.Domain (`Context`/`Op`/`Kind`/`IValidityEvidence`/`ValidityClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<EdgeRef,double>`, `HashSet<int>`, `System.Random` the deterministic sampler).
 - Growth: a new decimation modality (appearance-preserving with a color/UV quadric, out-of-core uniform resample) is one `SimplifyKind` row + one `SimplifyOp` case + one `Weights` row over the SAME `Collapse` loop; a new quadric weight is one `Weights` row reading one `SimplifyPolicy` column; a new error bound (two-sided symmetric Hausdorff, mean L²) is one `DecimationResult` column over the SAME sampler and reduction plane; a new termination rule (error-threshold-driven collapse) is one `SimplifyPolicy` column on the same loop; zero new surface.
 - Boundary: the decimation owner is the ONE polymorphic `SimplifyOp` `[Union]` and a `QuadricDecimator`/`ProgressiveMeshBuilder`/`VoxelRemesher`/`FeaturePreservingSimplifier` sibling-class family is the named density defect collapsed onto one union folded by one `Apply`; the collapse-validity gate compares each fan face's exact `Orient3D` against its ORIGINAL supporting plane and the self-referential `before`/`after` pair that tests each triangle against its OWN offset point — identically `Positive`, deciding nothing — is the deleted vacuous form this rebuild killed; the link condition admits boundary edges at `shared == 1` and the `shared == 2` freeze that made open meshes undecimatable is the deleted form; fan, collapsed-face, and admissibility queries read the vertex→incident-face index in O(degree) and a full face-table scan per query is the deleted O(F²) form; positions and faces live on the ARENA (`SetPosition`/`SetFace`/`KillFace` — the corner-rewrite contract `edit.md` declares for exactly this collapse) and a store-private position column or face table beside the arena is the deleted third-carrier form; the voxel resample composes the REAL static `IsoSurface.Detailed(field, bounds, resolution, policy, context, key)` and the `field.IsoSurfaceDetailed` instance spelling is the deleted phantom; the Hausdorff bound routes the ONE `Spatial.Apply` entry with every answer matched on the union through `Fin` and a hard `(QueryResult.Nearest)` cast is the deleted form; the distance reduction is ONE `TensorPrimitives.Max` pass over the pooled plane (admissible because the sampled distances are raw `double`, not the exact-predicate lane) and a scalar `Math.Max` element loop is the rejected form — the vectorized lane holds its speed claim under the corpus benchmark gate, correctness never depending on it; the quadric accumulation carries 106-bit `ddouble` narrowing to `double` only at the priority-queue cost key, and the parallel accumulate partitions per-VERTEX over the incidence index because a per-face scatter races; `VoxelRemesh` (SDF resample of a defective/over-tessellated input, genus follows the level set) is DISTINCT from `Processing/remesh.md` (isotropic/quad re-tessellation of a valid mesh under edge-length and cross-field targets) — the two coexist under the widened Simplification charter, one anchor each, never a merged rewriter; `Alimer.Bindings.MeshOptimizer` is `Rasm.Compute`'s residency-lane binding, never this kernel's decimator (recorded stratum split); the mature host `Mesh.Reduce` is NOT thinned — this owner adds the exact gate, the directed bound, and the reversible stream the host reduce lacks; `Apply` is total over the `Fin` rail and a thrown exception on a degenerate mesh or stalled budget is forbidden.
 
@@ -246,12 +246,12 @@ public abstract partial record SimplifyOp {
 public static class Simplify {
     // Kind selection is a data-table row filling the caller-rented weight plane ON THE RAIL — a
     // projection failure routes Fin, never a silent uniform fallback.
-    static readonly FrozenDictionary<SimplifyKind, Func<SimplifyOp, Context, Memory<double>, Fin<Unit>>> Weights =
-        new Dictionary<SimplifyKind, Func<SimplifyOp, Context, Memory<double>, Fin<Unit>>> {
-            [SimplifyKind.QuadricCollapse] = static (op, ctx, plane) => Uniform(plane),
-            [SimplifyKind.ProgressiveMesh] = static (op, ctx, plane) => Curvature(op, ctx, plane),
-            [SimplifyKind.VoxelRemesh]     = static (op, ctx, plane) => Uniform(plane),
-            [SimplifyKind.FeaturePreserve] = static (op, ctx, plane) => FeaturePins(op, ctx, plane),
+    static readonly FrozenDictionary<SimplifyKind, Func<SimplifyOp, Context, Op, Memory<double>, Fin<Unit>>> Weights =
+        new Dictionary<SimplifyKind, Func<SimplifyOp, Context, Op, Memory<double>, Fin<Unit>>> {
+            [SimplifyKind.QuadricCollapse] = static (op, ctx, key, plane) => Uniform(plane),
+            [SimplifyKind.ProgressiveMesh] = Curvature,
+            [SimplifyKind.VoxelRemesh]     = static (op, ctx, key, plane) => Uniform(plane),
+            [SimplifyKind.FeaturePreserve] = FeaturePins,
         }.ToFrozenDictionary();
 
     public static Fin<DecimationResult> Apply(SimplifyOp op, Op? key = null) {
@@ -282,7 +282,7 @@ public static class Simplify {
     // least one collapse, so the loop terminates; a genuine stall routes the typed fault.
     static Fin<Unit> Collapse(QuadricStore store, MeshEdit edit, SimplifyOp op, int budget, Context context, Op key) {
         using MemoryOwner<double> weights = MemoryOwner<double>.Allocate(edit.VertexCount, AllocationMode.Clear);
-        return Weights[op.Kind](op, context, weights.Memory).Bind(_ => {
+        return Weights[op.Kind](op, context, key, weights.Memory).Bind(_ => {
             Accumulate(store, edit, weights.Memory, op.Policy);
             while (store.Live > budget) {
                 EnqueueAll(store, edit);
@@ -470,23 +470,24 @@ public static class Simplify {
         return Fin.Succ(unit);
     }
 
-    static Fin<Unit> Curvature(SimplifyOp op, Context context, Memory<double> plane) =>
+    static Fin<Unit> Curvature(SimplifyOp op, Context context, Op key, Memory<double> plane) =>
         Uniform(plane).Bind(_ =>
             VectorCloud.Cluster(toSeq(VertexPositions(op.Mesh)), context)
-                .Bind(cloud => VectorIntent.Cloud(cloud, VectorCloudMetric.PrincipalCurvature, Option<CloudMetricPolicy>.None))
-                .Bind(intent => intent.Project<CloudCurvatureResult>(context))
+                .Bind(cloud => VectorIntent.Cloud(cloud, VectorCloudMetric.PrincipalCurvature, Option<CloudMetricPolicy>.None, key))
+                .Bind(intent => intent.Project<CurvatureResult>(context, key))
                 .Map(curvature => {
                     Span<double> w = plane.Span;
-                    foreach (CloudCurvatureSample sample in curvature.Samples) {
+                    foreach (CurvatureSample sample in curvature.Samples) {
                         if (sample.Index < w.Length) w[sample.Index] = 1.0 + op.Policy.CurvatureGain * Math.Max(Math.Abs(sample.K1), Math.Abs(sample.K2));
                     }
                     return unit;
                 }));
 
-    static Fin<Unit> FeaturePins(SimplifyOp op, Context context, Memory<double> plane) =>
+    static Fin<Unit> FeaturePins(SimplifyOp op, Context context, Op key, Memory<double> plane) =>
         Uniform(plane).Bind(_ =>
-            VectorIntent.Features(op.Mesh, op.Policy.CreaseDihedralRadians)
-                .Bind(intent => intent.Project<FeatureReceipt>(context))
+            MeshFeaturePolicy.Of(dihedralRadians: op.Policy.CreaseDihedralRadians, space: op.Mesh, faceRegions: Option<Arr<int>>.None, key: key)
+                .Bind(features => VectorIntent.Features(op.Mesh, features, key))
+                .Bind(intent => intent.Project<FeatureReceipt>(context, key))
                 .Map(receipt => {
                     Span<double> w = plane.Span;
                     foreach (FeatureEdge edge in receipt.Edges) {
@@ -522,7 +523,7 @@ public static class Simplify {
         edit.ToSpace(context, key).Bind(space =>
             Hausdorff(space, op.Mesh, op.Policy, key).Bind(bound =>
                 bound <= op.Policy.HausdorffCeiling
-                    ? Preserved(op, context).Map(features => new DecimationResult(
+                    ? Preserved(op, context, key).Map(features => new DecimationResult(
                         space,
                         Enumerable.Range(0, edit.VertexCount).Count(store.Alive),
                         store.Live,
@@ -614,10 +615,11 @@ public static class Simplify {
         return (query - (a + u * ab + w * ac)).Length;
     }
 
-    static Fin<Seq<FeatureEdge>> Preserved(SimplifyOp op, Context context) =>
+    static Fin<Seq<FeatureEdge>> Preserved(SimplifyOp op, Context context, Op key) =>
         op is SimplifyOp.FeaturePreserve
-            ? VectorIntent.Features(op.Mesh, op.Policy.CreaseDihedralRadians)
-                .Bind(intent => intent.Project<FeatureReceipt>(context))
+            ? MeshFeaturePolicy.Of(dihedralRadians: op.Policy.CreaseDihedralRadians, space: op.Mesh, faceRegions: Option<Arr<int>>.None, key: key)
+                .Bind(features => VectorIntent.Features(op.Mesh, features, key))
+                .Bind(intent => intent.Project<FeatureReceipt>(context, key))
                 .Map(static receipt => receipt.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary)))
             : Fin.Succ(Seq<FeatureEdge>());
 }

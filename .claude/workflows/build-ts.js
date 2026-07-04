@@ -1,6 +1,6 @@
 export const meta = {
   name: 'build-ts',
-  description: 'Execute the approved TypeScript branch re-architecture: scaffold swap (6 new folders, .api moves, old 13-folder deletion, one commit), then wave-ordered fable builders authoring the ruled page roster per folder, one combined critique+redteam fixer per folder, terminal reconcile + index docs. The ruling is embedded as data rows.',
+  description: 'Execute the approved TypeScript branch re-architecture: scaffold swap (6 new folders, .api moves, old 13-folder deletion, one commit), then wave-ordered fable builders authoring the ruled page roster per folder, one combined critique+redteam fixer per folder, then branch index docs, tests-plane alignment, and the repo-wide drift sweep. Every agent fixes what it notices with whole-repository authority; the ruling is embedded as data rows.',
   whenToUse: 'Launch once after the partition ruling is approved. Ephemeral - delete after the campaign lands.',
   phases: [
     { title: 'Scaffold' },
@@ -95,8 +95,11 @@ const BUILDER_LAW =
   'assigned; a roster amendment (merge/split/rename, max 1 page delta) is allowed only with a returned justification. ' +
   'Weave the unexploited-capability signals from the census and the effect/backend dossiers into the owning pages - ' +
   'an admitted capability with no exploiting owner is a defect. Every new-admission package your pages compose needs a ' +
-  'folder .api catalog; author a real one (verified members, integration-shaped) if missing. Return pages written, ' +
-  'amendments, kills, residuals (cross-folder facts a later wave must land), summary max 8 lines.'
+  'folder .api catalog; author a real one (verified members, integration-shaped) if missing. YOU FIX WHAT YOU NOTICE: ' +
+  'your write authority is the whole repository - a defect in an earlier folder page, a stale cross-language seam ' +
+  'mirror in libs/csharp, a wrong manifest row, a drifted doc: repair it in place NOW, never report it for someone ' +
+  'else. Deferral exists ONLY for a fact owned by a folder later in the wave order. Return pages written, amendments, ' +
+  'kills, residuals (strictly later-wave-owned facts, nothing else), summary max 8 lines.'
 
 const FIXER_LAW =
   'YOU ARE THE FOLDER FIXER - one combined critique + red-team pass, every finding FIXED IN PLACE, hostile until an ' +
@@ -107,8 +110,11 @@ const FIXER_LAW =
   '(d) seam truth - cross-language rows match the C#-side ARCHITECTURE.md fences on disk verbatim; (e) altitude - a ' +
   'page under owner altitude is densified or absorbed, naive coverage (thin slice of a wide concept) is widened; ' +
   '(f) doctrine conformance - owner forms, rails, vocabulary derivation, exports law, naming; (g) diff-of-next-feature ' +
-  'per page - the next engine/provider/wire-shape/lane lands as a row with zero new surfaces. Fix everything; return ' +
-  'the fix log, surviving residuals, verdict max 5 lines.'
+  'per page - the next engine/provider/wire-shape/lane lands as a row with zero new surfaces. Your write authority is ' +
+  'the whole repository: a defect you notice OUTSIDE this folder - an earlier folder page, a C#-side seam fence, a ' +
+  'stale doc or manifest row - you fix NOW yourself; nothing is handed off. Deferral exists only for a fact owned by ' +
+  'a folder later in the wave order. Fix everything; return the fix log, residuals (later-wave-owned only), verdict ' +
+  'max 5 lines.'
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
@@ -459,36 +465,65 @@ for (const entry of ROSTER) {
 
 phase('Terminal')
 
-const reconcile = await agent(
-  LAW + ' TERMINAL RECONCILE over the whole rebuilt ' + ROOT + ' corpus - you WRITE, fixing everything you find. ' +
-  '(a) Close every surviving residual: ' + JSON.stringify(carried) + ' - land each at its owner or record the explicit ' +
-  'kill. (b) Cross-folder seam audit: every cross-language row mirrors the C#-side libs/csharp/*/ARCHITECTURE.md ' +
-  'fences verbatim, and cross-FOLDER references (core vocabulary consumed downstream, security Shredder in data, ' +
-  'data SqlClient in runtime work, StackOutputs->ShardingConfig) resolve against real pages on disk. (c) Catalog ' +
-  'audit: every new-admission package (sql-libsql, sql-d1, sql-clickhouse, duckdb node+wasm, openfeature, tus family, ' +
-  'lib-storage, nats-core, jetstream) has a real folder .api catalog - author any missing one with verified members. ' +
-  '(d) Kill-list audit vs the census dossiers (' + EVIDENCE + '): every killed capability has a ruling, every landed ' +
-  'row a page. Return {fixes, summary}.',
-  { label: 'reconcile', phase: 'Terminal', model: 'fable', effort: 'max', schema: TERMINAL_OUT },
+const docs = await agent(
+  LAW + ' BRANCH INDEX DOCS for the rebuilt branch - you WRITE, and you fix every defect you notice on the way. ' +
+  'Author per the planning standard (libs/.planning/README.md [02]): per new folder - README.md (page router + ' +
+  'domain-package registry + substrate section), ARCHITECTURE.md (codemap + [02]-[SEAMS] fence mirroring the C# ' +
+  'endpoints verbatim + folder-specific sections), template IDEAS.md and TASKLOG.md (empty [OPEN]/[CLOSED] shells). ' +
+  'Then the branch core: rewrite ' + ROOT + '/.planning/README.md (folder router + substrate registry), ' +
+  ROOT + '/.planning/ARCHITECTURE.md (codemap, wave order, branch seam ledger, AND the permitted-edge table inline - ' +
+  'composition-system.md is dead and is NOT re-authored), and rebuild dataflow-system.md against the new owners ' +
+  '(content identity, interchange plane, journal spine, time/order, tenancy, cross-language invariants - same law, ' +
+  'new homes). Update libs/.planning/planning-targets.md TYPESCRIPT rows. While authoring: land every carried ' +
+  'later-wave fact at its owner page or record its explicit kill (' + JSON.stringify(carried) + '); verify every ' +
+  'new-admission package (sql-libsql, sql-d1, sql-clickhouse, duckdb node+wasm, openfeature, tus family, lib-storage, ' +
+  'nats-core, jetstream) has a real folder .api catalog and author any missing one with verified members. All prose ' +
+  'obeys docs/standards/style-guide.md: declarative present-tense fact, zero meta framing, and never fragile ' +
+  'count-based prose - name structure by its members and its law, never by how many there are. Folder build results ' +
+  'for the routers: ' + JSON.stringify(folderResults) + '. Return {fixes, summary}.',
+  { label: 'docs', phase: 'Terminal', model: 'fable', effort: 'max', schema: TERMINAL_OUT },
 )
 
-const docs = await agent(
-  LAW + ' TERMINAL INDEX DOCS for the rebuilt branch. Author per the planning standard (libs/.planning/README.md ' +
-  '[02]): per new folder - README.md (page router + domain-package registry + substrate section), ARCHITECTURE.md ' +
-  '(codemap + [02]-[SEAMS] fence mirroring the C# endpoints verbatim + folder-specific sections), template IDEAS.md ' +
-  'and TASKLOG.md (empty [OPEN]/[CLOSED] shells). Then the branch core: rewrite ' + ROOT + '/.planning/README.md ' +
-  '(six-folder router + substrate registry), ' + ROOT + '/.planning/ARCHITECTURE.md (6-folder codemap, wave order, ' +
-  'branch seam ledger, AND the permitted-edge table inline - composition-system.md is dead and is NOT re-authored), ' +
-  'and rebuild dataflow-system.md against the new owners (content identity, interchange plane, journal spine, ' +
-  'time/order, tenancy, cross-language invariants - same law, new homes). Update libs/.planning/planning-targets.md ' +
-  'TYPESCRIPT rows to the six folders. Folder build results for the routers: ' + JSON.stringify(folderResults) + '. ' +
-  'Return {fixes, summary}.',
-  { label: 'docs', phase: 'Terminal', model: 'fable', effort: 'xhigh', schema: TERMINAL_OUT },
-)
+const [tests, sweep] = await parallel([
+  () => agent(
+    LAW + ' ALIGN THE TESTS PLANE to the rebuilt branch - nothing is deferred, you fix everything now, surgically, ' +
+    'preserving the established idiom of each suite (this is a re-target, never a rebuild). The rebuilt state is on ' +
+    'disk; the branch ' + ROOT + '/.planning/ARCHITECTURE.md carries the permitted-edge table inline. ' +
+    '(a) tests/typescript/_architecture/src/boundaries.spec.ts: point the ledger parser at the inline edge table ' +
+    '(composition-system.md is dead), update the hardcoded admission/crypto zone rows to the new folders (iac -> ' +
+    '@pulumi family; data -> @effect/sql family + duckdb; security -> jose/arctic/@simplewebauthn/@oslojs; ui -> ' +
+    'react family; runtime -> @effect/cluster/workflow/ai + nats + openfeature + tus), the tag-triple assertions, ' +
+    'the @rasm/ts/<folder> zone grammar, and every folder literal in the falsification block. ' +
+    '(b) admission.spec.ts: verify the two pnpm packages rows and catalogMode facts still hold, verify the per-folder ' +
+    '.api tier walk resolves the new folder set, and keep the banned-module rows true to the journal law. ' +
+    '(c) hygiene.spec.ts: verify the estate globs. (d) tests/typescript/_testkit corpus reader + ' +
+    'tests/contracts/MANIFEST.md: verify the re-mapped consumer tokens parse and the reader stays folder-agnostic - ' +
+    'fix any token the scaffold missed. (e) e2e: verify no import names an old subpath. Every comment or prose line ' +
+    'you touch obeys docs/standards/style-guide.md. Return {fixes, summary}.',
+    { label: 'tests', phase: 'Terminal', model: 'fable', effort: 'xhigh', schema: TERMINAL_OUT },
+  ),
+  () => agent(
+    LAW + ' REPO-WIDE DRIFT SWEEP - the rebuilt branch is the state that always was; every stale reference is yours ' +
+    'to fix NOW, zero deferral, zero meta framing. Hunt with rg across libs/csharp/**, libs/python/**, ' +
+    'libs/.planning/**, docs/** (excluding docs/stacks - code doctrine is out of scope), and root-level *.md for: ' +
+    'old TS owner tokens (kernel, state, host, telemetry, wire, work, store, ai, edge, browser spelled as ' +
+    'libs/typescript paths, typescript:<folder> seam tokens, or @rasm/ts/<folder> subpaths), composition-system.md ' +
+    'mentions, #vocab, and dead rulings surviving as live claims (MinIO as the object-store row, ioredis as admitted, ' +
+    'pg_uuidv7 as a matrix row, AiPlan, ShardManager, NodeClusterRunnerSocket). Update every C#-side ARCHITECTURE.md ' +
+    '[02]-[SEAMS] fence naming a typescript endpoint to the new owner tokens, mirroring the TS-side branch seam ' +
+    'ledger on disk verbatim. Update libs/.planning/architecture.md per-language-role and wire sections to the ' +
+    'rebuilt structure. PROSE LAW - docs/standards/style-guide.md in full: declarative present-tense fact, active ' +
+    'voice, zero session or process narration, and never fragile enumeration prose (a folder roster is named by its ' +
+    'members or its law, never by its count). Do not touch tests/ (owned by a sibling agent), .cache/, .claude/, ' +
+    'docs/stacks/, or ' + ROOT + ' (already rebuilt). Return {fixes, summary}.',
+    { label: 'sweep', phase: 'Terminal', model: 'fable', effort: 'xhigh', schema: TERMINAL_OUT },
+  ),
+])
 
 return {
   commit: scaffold.commit,
   folders: folderResults,
-  reconcile: reconcile ? reconcile.summary : 'dropped',
   docs: docs ? docs.summary : 'dropped',
+  tests: tests ? tests.summary : 'dropped',
+  sweep: sweep ? sweep.summary : 'dropped',
 }

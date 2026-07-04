@@ -50,7 +50,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 ```text seams
 Agent/Capability.cs         →  typescript:wire/invoke                      # [CONTENT_KEY]: CapabilityDescriptor command-shape
-Runtime/Ports.cs            →  typescript:kernel                           # [CONTENT_KEY]: HLC two-half bigint round-trip parity
+Runtime/Ports.cs            →  typescript:core/value/clock                 # [CONTENT_KEY]: HLC two-half bigint round-trip parity
 Runtime/Ports.cs            ⇄  python:runtime/execution                    # [PORT]: CausalFrame Hlc two-half + Tenant
 *                           →  typescript:wire                             # [WIRE]: CredentialPemWire redacted carrier
 *                           →  typescript:wire/gateway                     # [WIRE]: support-capture verb
@@ -61,7 +61,7 @@ Observability/Telemetry.cs  →  typescript:wire                             # [
 Runtime/Config.cs           →  python:runtime/execution                    # [WIRE]: CredentialPem
 Runtime/Ports.cs            ⇄  python:runtime/transport                    # [WIRE]: HLC two-half stamp + Tenant partition
 Runtime/Ports.cs            →  typescript:state                            # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
-Runtime/Ports.cs            →  python:runtime/clock + typescript:kernel    # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
+Runtime/Ports.cs            →  python:runtime/clock + typescript:core/value/clock # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
 Wire/Livewire.cs            →  typescript:wire                             # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
 Observability/Telemetry.cs  →  typescript:telemetry                        # [TRANSPORT]: OtelExport OTLP egress
 Runtime                     ←  csharp:Rasm/Drawing/pack                    # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant

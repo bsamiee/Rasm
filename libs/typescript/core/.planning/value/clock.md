@@ -1,0 +1,182 @@
+# [CORE_CLOCK]
+
+The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Schema.Class` of two branded non-negative bigint halves, `physical` then `logical`, whose compose order is byte-identical to the C# port law (physical half first, logical half second, both little-endian), asserted bit-level by the `tests/contracts` `HLC_TWO_HALF` parity vectors — and `Uncertainty` is the honest wall-clock window on the same physical axis, carrying the sync-posture grade ladder that prices how wide an unproven clock must claim. Stamp algebra (order, tick, receive, the sixteen-byte layout twin, the single epoch unit-site) and window algebra (precedence verdicts, hull, containment) are two clusters of one module because they share one branded axis: `state/causal` orders stamps through `Hlc.Order` and folds happened-before verdicts over windows, and a definite order is claimed only when the windows prove it. The module is `core/src/value/clock.ts`; a new clock fold is one static, a new sync posture is one grade row.
+
+## [1]-[CLUSTERS]
+
+| [INDEX] | [CLUSTER]         | [OWNS]                                                              | [PUBLIC]        |
+| :-----: | :---------------- | :-------------------------------------------------------------------- | :-------------- |
+|  [01]   | `STAMP_OWNER`     | the two-half value, its order, the tick/receive folds, the unit site  | `Hlc`           |
+|  [02]   | `TWO_HALF_LAYOUT` | the sixteen-byte little-endian twin and its overflow seam             | `Hlc.FromBytes` |
+|  [03]   | `GRADE_LADDER`    | the sync-posture vocabulary and its conservative bounds               | `Uncertainty.grades` |
+|  [04]   | `WINDOW_ALGEBRA`  | the interval value, precedence verdicts, hull and containment         | `Uncertainty`   |
+
+## [2]-[STAMP_OWNER]
+
+[STAMP_OWNER]:
+- Owner: `Hlc`, the one stamp authority — `physical` and `logical` are `Schema.BigIntFromSelf` non-negative brands declared as interior anchors, reached by consumers only as `Hlc.fields.physical`/`Hlc.fields.logical` (field composition) and `Hlc.Physical`/`Hlc.Logical` (merged-namespace types), never as standalone brand exports.
+- Law: the value space is unbounded-monotone — the brands bound only `>= 0n`, so `tick` and `receive` are total folds with no mid-domain range throw; the u64 ceiling is a wire-layout fact enforced by the `FromBytes` encode seam alone.
+- Law: `Hlc.Order` is physical-then-logical lexicographic ascending — the one causal comparison every fold, sort, and max shares; the member name mirrors the ecosystem's canonical-instance convention (`Duration.Order`, `DateTime.Order`).
+- Law: `tick(local, now)` is the send/local-event fold — a wall reading beyond `physical` resets `logical` to zero, otherwise `logical` advances by one; `receive(local, remote, now)` is the merge fold — the greatest physical wins and `logical` advances past whichever operands share it — so a merged stamp never regresses under `Hlc.Order` and causality survives clock skew.
+- Law: `physicalOf(instant)` and `delta(span)` are the single unit site — epoch milliseconds, zero-clamped so a pre-epoch wall reading folds to the genesis physical instead of a mid-domain throw, pinned by the parity vectors; a C#-proven different epoch encoding repairs as these two bodies with zero call-site edits, which is why no other module in the branch converts time into the physical half.
+- Law: `genesis` is the zero stamp — the fold seed for empty causality chains and the identity every replay starts from.
+- Law: interior mints ride `Schema.decodeSync` over proven inputs — zero literals, `+ 1n` on a non-negative brand, zero-clamped epoch reads — so the throw path is structurally unreachable and the mint stays inside the trusted-construction channel `new Hlc` completes.
+- Growth: a new clock fold (bounded-drift tick, batch merge) is one static composing the existing folds; a new stamp field is a wire-shape question for the interchange codec, never a widening here.
+- Boundary: wall-clock reads ride the consumer's rail (`DateTime.now` under its `Clock` service) and arrive as values; the wire stamp shape coupling an `Hlc` with a tenant is the interchange codec's decode, built from this value.
+- Packages: `effect` (`Schema`, `Order`, `DateTime`, `Duration`, `ParseResult`).
+
+## [3]-[TWO_HALF_LAYOUT]
+
+[TWO_HALF_LAYOUT]:
+- Owner: `Hlc.FromBytes`, the sixteen-byte layout twin riding the class as a static — bytes 0..7 the physical half, bytes 8..15 the logical half, both read and written little-endian (`getBigUint64(offset, true)`/`setBigUint64(offset, true)`) — so the byte order, the half order, and the endianness flag live in one declaration and the parity drivers assert exactly this twin against the frozen vectors.
+- Law: decode is total over sixteen admitted bytes — both halves land non-negative by construction and the class filters re-prove; encode is the one overflow seam — a half above `0xffffffffffffffff` fails as a typed `ParseResult.Type` fault at the boundary, so the unbounded value space meets the u64 wire honestly.
+- Law: a half-swap is the named catastrophic drift — reading the logical half into the physical slot silently folds fresh ops as stale — so the offsets are spelled once here and every byte-carried stamp in the branch decodes through this twin, never through a second `DataView` read.
+- Exemption: `_unpacked`/`_packed` are marked kernels — `DataView` reads and writes are the platform-forced statement seam; each detaches an immutable value, and the implementer carries the `// BOUNDARY ADAPTER` mark on each kernel's first line.
+- Growth: a JSON or proto stamp spelling is an interchange codec built from `Hlc.fields`; a second byte layout is unspellable — this twin is the layout.
+- Boundary: the fixture bytes and the cross-runtime equality grade live in `tests/contracts` with TS readers in `tests/typescript/_testkit`; this owner fixes the reproduction obligation and stores no fixture.
+- Packages: the `DataView` platform surface inside the marked kernels.
+
+```typescript
+import { DateTime, Duration, Order, ParseResult, Schema, type Types } from "effect"
+
+const _Physical = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("HlcPhysical"))
+const _Logical = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("HlcLogical"))
+const _Bytes = Schema.Uint8ArrayFromSelf.pipe(Schema.filter((bytes) => bytes.length === 16))
+const _U64 = 0xffffffffffffffffn
+
+const _physical = Schema.decodeSync(_Physical)
+const _logical = Schema.decodeSync(_Logical)
+const _FLOOR = _logical(0n)
+
+const _succ = (held: typeof _Logical.Type): typeof _Logical.Type => _logical(held + 1n)
+
+const _unpacked = (bytes: Uint8Array): { readonly physical: bigint; readonly logical: bigint } => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return { physical: view.getBigUint64(0, true), logical: view.getBigUint64(8, true) }
+}
+
+const _packed = (stamp: { readonly physical: bigint; readonly logical: bigint }): Uint8Array => {
+  const view = new DataView(new ArrayBuffer(16))
+  view.setBigUint64(0, stamp.physical, true)
+  view.setBigUint64(8, stamp.logical, true)
+  return new Uint8Array(view.buffer)
+}
+
+class Hlc extends Schema.Class<Hlc>("Hlc")({
+  physical: _Physical,
+  logical: _Logical,
+}) {
+  static readonly Order: Order.Order<Hlc> = Order.combine(
+    Order.mapInput(Order.bigint, (stamp: Hlc) => stamp.physical),
+    Order.mapInput(Order.bigint, (stamp: Hlc) => stamp.logical),
+  )
+  static readonly genesis: Hlc = new Hlc({ physical: _physical(0n), logical: _FLOOR })
+  static readonly FromBytes: Schema.transformOrFail<typeof _Bytes, typeof Hlc> = Schema.transformOrFail(_Bytes, Hlc, {
+    strict: true,
+    decode: (bytes) => ParseResult.succeed(_unpacked(bytes)),
+    encode: (stamp, _options, ast) =>
+      stamp.physical > _U64 || stamp.logical > _U64
+        ? ParseResult.fail(new ParseResult.Type(ast, stamp, "<u64-overflow>"))
+        : ParseResult.succeed(_packed(stamp)),
+  })
+  static readonly physicalOf = (instant: DateTime.Utc): Hlc.Physical => _physical(BigInt(Math.max(DateTime.toEpochMillis(instant), 0)))
+  static readonly delta = (span: Duration.DurationInput): Hlc.Physical => _physical(BigInt(Math.trunc(Duration.toMillis(span))))
+  static readonly tick = (local: Hlc, now: Hlc.Physical): Hlc =>
+    now > local.physical
+      ? new Hlc({ physical: now, logical: _FLOOR })
+      : new Hlc({ physical: local.physical, logical: _succ(local.logical) })
+  static readonly receive = (local: Hlc, remote: Hlc, now: Hlc.Physical): Hlc =>
+    now > local.physical && now > remote.physical
+      ? new Hlc({ physical: now, logical: _FLOOR })
+      : local.physical > remote.physical
+        ? new Hlc({ physical: local.physical, logical: _succ(local.logical) })
+        : remote.physical > local.physical
+          ? new Hlc({ physical: remote.physical, logical: _succ(remote.logical) })
+          : new Hlc({
+              physical: local.physical,
+              logical: _succ(local.logical > remote.logical ? local.logical : remote.logical),
+            })
+}
+
+declare namespace Hlc {
+  type Physical = typeof _Physical.Type
+  type Logical = typeof _Logical.Type
+  type Packed = typeof Hlc.FromBytes.Encoded
+}
+```
+
+## [4]-[GRADE_LADDER]
+
+[GRADE_LADDER]:
+- Owner: `Uncertainty.grades`, the sync-posture vocabulary riding the window owner — an interior key tuple anchors order and non-emptiness, the interior row table carries each posture's bound, and the assembled static exposes rows plus `kinds` so the ladder is one lookup away from the constructor it parameterizes.
+- Law: three postures ride the ladder — `disciplined` (sync-disciplined clock, 250ms bound), `drifting` (wall clock with no sync evidence, 5s bound), `isolated` (offline or never-synced device, 5m bound) — ordered most- to least-trustworthy; the bounds are conservative floors, and a host that measures a tighter real offset passes its measured `Duration` to the window constructor instead of a grade.
+- Law: the grade is chosen by evidence the host actually holds — sync-daemon health, last-sync age, platform monotonicity — and the runtime owns that evidence read; this vocabulary owns only the posture-to-bound correspondence.
+- Law: the grade never travels a wire — wire stamps carry windows or points, and the posture that produced them stays a process fact.
+- Growth: a new posture is one tuple entry plus one row; a per-deployment bound override is a caller-supplied `Duration` at the window constructor, never a row edit.
+- Packages: `effect` (`Duration`, `Schema`).
+
+## [5]-[WINDOW_ALGEBRA]
+
+[WINDOW_ALGEBRA]:
+- Owner: `Uncertainty`, a `Schema.Class` of `earliest`/`latest` bounds composed from `Hlc.fields.physical` — the brand reaches this cluster only through the owning class's field record, so window and stamp are the same axis by construction and no second physical notion exists.
+- Law: `around(at, bound)` is the one constructor and its `bound` is modality-polymorphic — a grade kind selects the ladder row, any `Duration.DurationInput` carries a measured bound — discriminated by the derived grade guard on the value itself, never a flag; the window is `[at - delta, at + delta]` with the lower edge clamped at zero.
+- Law: `precedes(left, right)` is the three-verdict fold — `"before"` when `left.latest < right.earliest`, `"after"` when `right.latest < left.earliest`, `"indeterminate"` on overlap — and the verdict union is a pure type anchor (`Uncertainty.Precedence`) because only the type plane reads it; `state/causal` dispatches on the literal and a definite order is claimed only when the windows prove it.
+- Law: `hull(left, right)` is the associative window join — least earliest, greatest latest — the aggregation fold a batch of readings collapses under; `contains(self, at)` answers point membership for watermark and frontier reads.
+- Law: construction rides `around`/`spanning` and the interior mint proves its own inputs — clamped subtraction and checked addition stay non-negative — while the class carries `earliest <= latest` as its own filter, so decode, `new`, and `make` all prove the window, an inverted wire window fails admission as a `ParseError`, and `width` is total on every channel.
+- Growth: a new verdict consumer is a `state` fold over `Precedence`; a new window operation (meet, widen-by-grade) is one static composing the existing bounds.
+- Boundary: happened-before over stamps (physical+logical) is `Hlc.Order`'s total comparison; windows answer the honest wall-clock question only, and `state/causal` decides when each applies.
+- Packages: `effect` (`Schema`, `Duration`).
+
+```typescript
+const _kinds = ["disciplined", "drifting", "isolated"] as const
+const _grades = {
+  disciplined: { bound: Duration.millis(250) },
+  drifting: { bound: Duration.seconds(5) },
+  isolated: { bound: Duration.minutes(5) },
+} as const
+
+const _Grade = Schema.Literal(..._kinds)
+const _isGrade = Schema.is(_Grade)
+
+const _mint = Schema.decodeSync(Hlc.fields.physical)
+
+const _floored = (at: Hlc.Physical, spread: Hlc.Physical): Hlc.Physical =>
+  at > spread ? _mint(at - spread) : _mint(0n)
+
+class Uncertainty extends Schema.Class<Uncertainty>("Uncertainty")(
+  Schema.Struct({
+    earliest: Hlc.fields.physical,
+    latest: Hlc.fields.physical,
+  }).pipe(Schema.filter((window) => window.earliest <= window.latest)),
+) {
+  static readonly grades: Uncertainty.Grades = { ..._grades, kinds: _kinds }
+  static readonly around = (at: Hlc.Physical, bound: Duration.DurationInput | Uncertainty.Grade): Uncertainty =>
+    Uncertainty.spanning(at, Hlc.delta(_isGrade(bound) ? _grades[bound].bound : bound))
+  static readonly spanning = (at: Hlc.Physical, spread: Hlc.Physical): Uncertainty =>
+    new Uncertainty({ earliest: _floored(at, spread), latest: _mint(at + spread) })
+  static readonly precedes = (left: Uncertainty, right: Uncertainty): Uncertainty.Precedence =>
+    left.latest < right.earliest ? "before" : right.latest < left.earliest ? "after" : "indeterminate"
+  static readonly hull = (left: Uncertainty, right: Uncertainty): Uncertainty =>
+    new Uncertainty({
+      earliest: left.earliest < right.earliest ? left.earliest : right.earliest,
+      latest: left.latest > right.latest ? left.latest : right.latest,
+    })
+  static readonly contains = (self: Uncertainty, at: Hlc.Physical): boolean =>
+    self.earliest <= at && at <= self.latest
+  get width(): Hlc.Physical {
+    return _mint(this.latest - this.earliest)
+  }
+}
+
+declare namespace Uncertainty {
+  type Grade = keyof typeof _grades
+  type GradeRow = { readonly bound: Duration.Duration }
+  type Grades = Types.Simplify<typeof _grades & { readonly kinds: typeof _kinds }>
+  type Precedence = "after" | "before" | "indeterminate"
+  type _Rows<T extends Record<Grade, GradeRow> = typeof _grades> = T
+}
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Hlc, Uncertainty }
+```
