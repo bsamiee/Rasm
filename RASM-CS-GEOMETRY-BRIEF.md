@@ -1,5 +1,7 @@
 # [RASM_CS_GEOMETRY_BRIEF]
 
+[TRACK_ORDER]: **Geometry (1)** -> Persistence (2) -> Compute (3) -> AppHost (4) -> AppUi (5) -> Fabrication (6) — run the cs campaigns in this order; this campaign is 1/6 and runs FIRST.
+
 Authoritative campaign input for the ground-up restructure and rebuild of the ROBUST-CORE design corpus inside `libs/csharp/Rasm/.planning/` — the 18 settled `Rasm.Geometry.*` pages (namespace root, `ARCHITECTURE.md:110`) merged by the kernel conversion into the shared eight-folder root (`Numerics/{predicates,faults}`, `Spatial/{index,naming,reconciliation}`, `Parametric/curve`, `Meshing/{delaunay,arrangement,intersect,offset}`, `Processing/{repair,receipts,decimate,flatten,fit,solver}`, `Drawing/{view,pack}`) plus every NEW plane the verdicts mint. They sit beside 34 landed kernel pages (`Rasm.Domain` 7, `Rasm.Vectors` 21, `Rasm.Analysis` 6) that re-express the retired `Vectors/`/`Domain/`/`Analysis/` source ground-up — those pages are STANDING LAW this campaign composes and extends through declared seams, never re-litigates (`[LANDED_KERNEL_LAW]`). The kernel has no sibling reference; `libs/csharp/Rasm/Rasm.csproj` owns the manifest (12 references), `libs/csharp/Rasm/ARCHITECTURE.md` owns the codemap/seams/namespace matrix, `README.md` the router and roster. `docs/stacks/csharp/` governs unchanged and is never restated here. Two downstream campaigns are GATED on this one: `Rasm.Generation` stand-up (`RASM-GENERATION-SPEC.md:179` KERNEL GATE) and the `Rasm.Fabrication` scope expansion — every verdict grades against both.
 
 ## [EXECUTION]
