@@ -16,20 +16,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-[DELTA_CRDT]-[QUEUED]: the `GraphDelta` becomes the convergence substrate for offline multi-writer and IFC 3-way merge.
-- Capability: a commutative/idempotent `GraphDelta` algebra (an HLC-stamped op-log over the `Graph/delta#GRAPH_DELTA` cases) the Persistence Sync owner replays for offline convergence, the `Generator.Equals` `Inequalities` diff feeding the 3-way `StructuralMerge`.
-- Shape: a delta-ordering policy (last-writer-wins per node field, set-union per edge) the Persistence `Version` engine projects from the Marten event stream.
-- Unlocks: collaborative editing and IFC model merge without a central lock.
-- Anchors: the `GraphDelta` monoid (`Empty`/`Combine`), the `ContentAddress` causal key, the Persistence CRDT/time-travel engine.
-- Tension: delta commutativity under concurrent structural edits (a drop racing an attach) needs an explicit conflict case the merge resolves.
-- Ripple: `csharp:Rasm.Persistence` `[VERSION_CRDT_OVER_DELTA]`.
-
-[STREAMING_BAKE]-[BLOCKED]: a viewport-scoped partial `Bake` for million-node federated models.
-- Capability: an incremental `Bake` that materializes only the reachable subgraph of a requested object set, the incidence index and `QuikGraph` view sharing structure across partial freezes so a million-node model bakes a viewport in O(visible).
-- Shape: a `Graph/element#ELEMENT_GRAPH` `BakeScope` that bounds the `Compose` descent and lazily resolves payloads.
-- Unlocks: interactive editing of a federated model the frozen-whole snapshot cannot hold in memory.
-- Anchors: the HAMT working form, the per-snapshot `Bake` memo, the `QuikGraph` reachability.
-- Tension: the spatial-partition stream grain must align the partial bake scope with the Persistence per-model-partition stream so a scope never spans a stream boundary mid-bake.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -37,5 +24,4 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-[WIRE_CODEC]-[COMPLETE]: `Graph/wire.md` authored — the `rasm.element.v1` `oneof` proto contract (`ElementGraphWire`/`GraphDeltaWire`/`NodeWire`/`RelationshipWire`/recursive `PropertyValueWire`), the `WireCodec` Mapperly per-case transcription family with verbatim key codecs, and the `ElementWire` `Fin`-railed `Encode`/`Decode` boundary under the `CodedInputStream.CreateWithLimits` depth gate; Ripple pointers `python:geometry/ifc` `[SEAM_WIRE_DECODE]` / `typescript:wire` `[SEAM_WIRE_DECODE]` retained for the peer card pools.
-[SEAM_DECOMPOSITION]-[COMPLETE]: the property-graph collapse of the two parallel unaligned element owners (`Rasm.Bim` `BimElement`/`BimModel` and `Rasm.Materials` `Element`/`MaterialAssignment`) into the one `ElementGraph` whose consumer-facing `Element` is the `Bake` derived fold — the canonical `Node` `[Union]`, the neutral `Relationship` edge algebra, the typed `PropertyValue`/`MeasureValue` value vocabulary, the generic `Classification`/`Discipline` axes, the `Material` composition + property family with the relocated acoustic folds, the generic `Assessment` receipt, the geospatial `Coverage`/`GeoReference`, the one canonical content codec, and the `IElementProjection`/`IGraphConstraint` contracts — authored as the `Rasm.Element` design corpus; the AEC peers now project onto this graph rather than owning parallel element records.
+(none)

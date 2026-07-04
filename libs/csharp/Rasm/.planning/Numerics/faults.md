@@ -1,103 +1,204 @@
 # [RASM_FAULTS]
 
-The consolidated geometry fault family (band 2400). The page owns `GeometryFault` — the single `[Union]` every `Fin`/`Validation`/`Eff` rail in the geometry sub-domains routes through, one case per reachable domain failure with its typed payload and its band-2400 ordinal code, lowered into the LanguageExt `Error` rail through its `ToError()` member; the domain's string-keyed smart enums bind the shipped `ComparerAccessors.StringOrdinal` accessor, so the ordinal comparer is named once by the runtime library and never re-minted per enum. Every sibling cluster (`spatial`, `topology`, `healing`, `constraints`, `offsetting`, `arrangement`, `intersection`, `fitting`, `parameterization`, `projection`, `simplification`, `encoding`) names its relevant fault cases inline by shape and routes them through this union by `GeometryFault.<Case>(...).ToError()`; this page is the single owner of the union itself, so the cases live in one closed family and never as per-page error types.
+The consolidated geometry fault family (band 2400-2449). The page owns `GeometryFault` — the single `[Union]` every `Fin`/`Validation`/`Eff` rail in the geometry sub-domains routes through, one case per reachable domain failure carrying its TYPED discriminant payload and its band-2400 ordinal code, lowered into the LanguageExt `Error` rail through `ToError()` — plus `FaultCluster`, the 13-row cluster taxonomy the band arithmetic derives a code's owner from, and the two faults-minted stage vocabularies `ParametricStage`/`DevelopmentStage`. The union lives at the `Rasm.Geometry` ROOT namespace; the 13 fault-routing TIER-2 namespaces map BIJECTIVELY onto the 13 clusters covering exactly 2400-2449, and every sibling routes a failure as `GeometryFault.<Case>(...).ToError()` — the cases live in one closed family, never as per-page error types.
 
-`GeometryFault` is the domain failure rail, not a wire payload — it crosses no transport; the consuming `Fin<T>` channel lowers it at the in-process seam. The ordinal band (2400) is the geometry domain's slice of the package fault space, contiguous so a reader scans the family by code.
+Two fault families exist by explicit decision and neither absorbs the other: `Rasm.Domain` owns the kernel-substrate `Expected`/`Fault` family (admission, validation, host-boundary faults on the generated-owner weave), and this page owns the band-2400 `GeometryFault` union (robust-core geometry failures on the `Fin` rail). `Domain/rails.md` states the seam from its side; this page states it from the geometry side: a geometry owner never mints a `Rasm.Domain` `Fault` case for a robust-core failure, a substrate owner never claims a band-2400 code, and the ordinal band keeps a telemetry reader banding by code from ever conflating the two — 2400-2449 sits strictly below the AEC `MaterialFault` band 2450.
+
+Every case payload is a typed discriminant owned by the failure's own sibling — never an erased `string Detail` carrier where a vocabulary row, an index, or a measure states the cause precisely. A `string` survives only as a WITNESS field beside typed discriminants (the free-text evidence a fold cannot type), never as the sole payload.
 
 ## [01]-[INDEX]
 
-- [01]-[FAULT_BAND]: `GeometryFault` `[Union]` (band 2400) — one closed family over every geometry failure, lowered into the `Error` rail through `ToError()`; geometry string-enums bind the shipped `ComparerAccessors.StringOrdinal` accessor.
+- [01]-[FAULT_BAND]: `GeometryFault` `[Union]` (25 cases, band 2400-2449) — one closed family over every geometry failure, typed discriminant payloads, `Code`/`Message`/`Cluster` derived projections, `ToError()` lowering into the `Error` rail; `FaultCluster` the 13-row `[SmartEnum<int>]` cluster taxonomy keyed by stride base; `ParametricStage`/`DevelopmentStage` the two faults-minted stage vocabularies; the two-family seam against `Rasm.Domain` `Expected`/`Fault`.
 
 ## [02]-[FAULT_BAND]
 
-- Owner: `GeometryFault` the closed `[Union]` lowered into the LanguageExt `Error` rail through its `ToError()` member, one case per reachable domain failure carrying its typed payload and its band-2400 ordinal `Code`; the domain's string-keyed smart enums (`HealKind`, `SpatialKind`) bind the shipped `ComparerAccessors.StringOrdinal` accessor through `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, so the ordinal comparer is named once by the library and never re-minted per enum.
-- Cases: the band-2400 family is the union of the cases the sibling clusters route — `DegenerateInput` (2400, empty/non-finite primitive set, `spatial`) · `IndexMismatch` (2401, refit primitive-count mismatch, `spatial`) · `NameCollision` (2404, non-injective re-anchor, `topology`) · `HashMismatch` (2405, dangling reconciliation reference, `topology`) · `UnrepairableMesh` (2408, a heal kernel cannot satisfy its post-condition within budget, `healing`) · `NativeAssetMissing` (2409, the boolean op invoked without its tier-3 native asset, `healing`) · `OverConstrained` (2412, redundant + inconsistent system, `constraints`) · `SingularSystem` (2413, damped normal matrix rank-deficient through the ladder, `constraints`) · `DegenerateOffset` (2416, a self-intersecting or zero-area offset input the wavefront cannot propagate, `offsetting`) · `SkeletonStalled` (2417, the straight-skeleton event queue stalls with pending events past the time budget, `offsetting`) · `DegenerateArrangement` (2420, two triangle soups whose intersection is non-manifold or whose cell classification is ambiguous, `arrangement`) · `IntersectionFault` (2424, a narrow-phase exact test on a degenerate primitive pair, `intersection`) · `FitFault` (2428, a RANSAC consensus never reaching the inlier-fraction floor within the sample budget, carrying the achieved fraction vs the floor, `fitting`) · `ParameterizationFault` (2432, a flattening solve that diverges or a non-disk-topology chart, `parameterization`) · `ProjectionFault` (2436, a BSP partition stall or a silhouette extraction over a non-manifold view, `projection`) · `DecimationFault` (2440, a QEM collapse that cannot satisfy the topology-preservation gate within the face budget, carrying the budget vs the achieved count, `simplification`) · `EncodingFault` (2444, a channel pack whose round-trip witness fails the content-hash identity, carrying the failing channel, `encoding`). The whole band fits inside the geometry century 2400–2449 — strictly below the AEC `MaterialFault` band 2450 so a telemetry reader banding by code never conflates a geometry fault with a Material/Element/Bim fault — and the codes are sub-banded by sibling on a 4-wide stride so a reader maps a code to its owning cluster: 2400–2403 spatial, 2404–2407 topology, 2408–2411 healing, 2412–2415 constraints, 2416–2419 offsetting, 2420–2423 arrangement, 2424–2427 intersection, 2428–2431 fitting, 2432–2435 parameterization, 2436–2439 projection, 2440–2443 simplification, 2444–2447 encoding.
-- Entry: each case is a static factory on the union (`GeometryFault.DegenerateInput(string detail)`, `GeometryFault.NameCollision(UInt128 name, int kind)`, `GeometryFault.OverConstrained(int redundantRows, double residual)`, and so on) returning the union value; `public Error ToError()` lowers the union value into the LanguageExt `Error` the `Fin<T>` failure channel carries, threading the `Code` and a rendered message, so a sibling routes a failure as `GeometryFault.<Case>(...).ToError()` and the case payload is preserved on the rail. `public int Code` reads the ordinal band-2400 code the case carries.
-- Auto: the union projects into the `Error` rail through `ToError` — it reads the case payload and builds the `Error` with the band-2400 ordinal `Code` (`Error.New(int, string)`) and the rendered detail, so no separate exception type or error-code enum sits beside the union; a rail consumer matches on the `GeometryFault` case to recover the typed payload or reads the `Code` to band the failure for telemetry.
-- Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries on the failure side; it carries no residual receipt because a fault IS the residual.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), LanguageExt.Core (`Error`, `Fin`), BCL inbox (`UInt128`).
-- Growth: a new reachable domain failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's 4-wide sub-band — never a parallel error type, never an `int` error-code constant inlined at the throw site; a new sibling sub-band claims the next free 4-wide stride above encoding (the band now runs through encoding 2444–2447, so a further sibling claims 2448–2449 — the last headroom inside the geometry century — and the band must stay below the AEC `MaterialFault` 2450 boundary, so an outright federation re-plan rather than a 13th cluster is the move once the century fills). The string-key comparer is `ComparerAccessors.StringOrdinal` for every string-keyed enum and a second ordinal comparer is the deleted form.
-- Boundary: `GeometryFault` is the ONE fault union for the geometry domain and a per-cluster `SpatialFault`/`TopologyFault`/`HealFault`/`ConstraintFault` family is the named density defect collapsed here onto one closed union lowered into the `Error` rail through `ToError()` — the cluster is the sub-band, not a parallel union; an exception thrown from domain logic is forbidden, every failure routes the `Fin`/`Validation`/`Eff` rail as `GeometryFault.<Case>(...).ToError()`, and a `try`/`catch` in domain logic (rather than at the one host-numeric boundary in `Processing/solver#CONSTRAINT_SOLVER` where MathNet may throw) is the deleted form; the union is NOT a generic `IFault`/`IError`/reported-value abstraction — each case is typed to its failure with its real payload (`NameCollision` carries the colliding name and kind, `OverConstrained` carries the redundant-row count and the residual), so a generic erasing carrier is the deleted form; `ComparerAccessors.StringOrdinal` is the one ordinal string-key comparer and a per-enum `StringComparer.Ordinal` field is the duplicated form collapsed onto the one accessor.
+- Owner: `GeometryFault` the closed `[Union]` at the `Rasm.Geometry` root, one case per reachable domain failure carrying its typed payload and its band-2400 ordinal `Code`, lowered into the LanguageExt `Error` rail through `ToError()` (`Error.New(Code, Message)`); `FaultCluster` the `[SmartEnum<int>]` cluster taxonomy — 13 rows keyed by stride base, each carrying its cluster name and owning TIER-2 namespace, resolved from a code by the stride arithmetic `Items[(code - 2400) >> 2]` (the 12 four-wide strides index 0-11; the two-code `parametric` tail 2448-2449 both resolve to index 12) so telemetry bands a code to its owner with zero lookup table beside the vocabulary; `ParametricStage` (`Construction`/`Evaluation`/`Station`/`Offset`/`Encode`) and `DevelopmentStage` (`Subdivision`/`Strip`/`Panel`/`Pattern`) the keyless `[SmartEnum]` stage vocabularies minted HERE because their consumers (`ParametricFault`/`DevelopmentFault`) span the whole Parametric tier and no single tier page owns the stage axis; the domain's string-keyed smart enums bind the shipped `ComparerAccessors.StringOrdinal` accessor through `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, so the ordinal comparer is named once by the runtime library and never re-minted per enum.
+- Cases: 25, sub-banded by cluster on the ratified 13-cluster partition covering exactly 2400-2449 (12 × 4-wide + the 2-wide `parametric` tail — the century closes arithmetically, zero headroom remains):
+  - 2400-2403 `spatial` (`Rasm.Geometry.Spatial`): `DegenerateInput(Kind, int, string)` 2400 — empty, non-finite, or kind-invalid primitive set; the ONE cross-cutting admission case any namespace routes (the recorded exception to cluster-locality) · `IndexMismatch(EntityKind, int, int)` 2401 — refit entity-count mismatch, expected vs actual · `KindMismatch(SpatialKind, QueryKind)` 2402 — a query modality the built index kind cannot answer (the silent-empty die).
+  - 2404-2407 `naming` (`Rasm.Geometry.Naming`, renamed from `topology` — the phantom namespace is dead): `NameCollision(UInt128, int)` 2404 · `HashMismatch(UInt128, int)` 2405.
+  - 2408-2411 `healing` (`Rasm.Geometry.Healing`): `UnrepairableMesh(HealStage, int, int)` 2408 — the failing heal stage, iterations spent, defects remaining. `NativeAssetMissing` RE-CODES OUT of this cluster to 2423 — the tier-3 gate lives with the boolean owner.
+  - 2412-2415 `constraints` (`Rasm.Geometry.Constraints`): `OverConstrained(int, double)` 2412 · `SingularSystem(int, int)` 2413 (both rich, kept verbatim).
+  - 2416-2419 `offsetting` (`Rasm.Geometry.Offsetting`): `DegenerateOffset(int, double)` 2416 — the wavefront vertex the propagation dies at and the event time · `SkeletonStalled(int, double)` 2417 (rich, stays) · `CollapseStalled(int, double)` 2418 — a wavefront/MCF collapse iteration stalling with its residual.
+  - 2420-2423 `arrangement` (`Rasm.Geometry.Arrangement` — delaunay homed here; the `Tessellation` TYPE keeps its name inside this namespace): `DegenerateArrangement(int, string)` 2420 — cell count plus the manifold witness · `ConstraintUnrecoverable(int, int)` 2421 — the constraint id whose recovery exhausts its Steiner budget · `DegenerateTessellation(int, string)` 2422 — the simplex id plus the degeneracy witness · `NativeAssetMissing(string, string, long)` 2423 — engine, RID, and the `ScaleCeiling` the tier-3 route was gated behind (RE-CODED from 2409).
+  - 2424-2427 `intersection` (`Rasm.Geometry.Intersection`): `IntersectionFault(PrimitiveKind, PrimitiveKind)` 2424 — the degenerate primitive pair by kind · `SectionFault(int, double, int)` 2425 — layer index, elevation, and the open-chain count of a non-watertight section.
+  - 2428-2431 `fitting` (`Rasm.Geometry.Fitting`): `FitFault(double, double)` 2428 (rich, stays).
+  - 2432-2435 `parameterization` (`Rasm.Geometry.Parameterization`): `ParameterizationFault(ChartId, double)` 2432 — the diverging chart and its distortion; the curve borrow ENDS (parametric-tier failures route 2448).
+  - 2436-2439 `projection` (`Rasm.Geometry.Projection`): `ProjectionFault(EdgeKind, int)` 2436 — the projected-edge kind and segment index.
+  - 2440-2443 `simplification` (`Rasm.Geometry.Simplification` — the widened mesh-rewrite-under-budget charter): `DecimationFault(int, int)` 2440 (rich, stays) · `RemeshStalled(double, double, int)` 2441 — target edge length, achieved length, iterations spent.
+  - 2444-2447 `encoding` (`Rasm.Geometry.Encoding`): `EncodingFault(EncodingChannel, ChannelDtype, string)` 2444 — the failing channel row, its quantization row, and the witness detail.
+  - 2448-2449 `parametric` (`Rasm.Geometry.Parametric` — the deliberate two-code headroom spend forming the 13th cluster): `ParametricFault(ParametricStage, string, string)` 2448 — the failing stage, the carrier name, the witness · `DevelopmentFault(DevelopmentStage, int, double)` 2449 — the failing stage, the unit index, and the per-concern measure (refinement level · isometry error · panel defect · instance defect by stage).
+- Entry: each case is a positional record constructor on the union (`new GeometryFault.KindMismatch(index, query)`, `new GeometryFault.NativeAssetMissing(engine, rid, ceiling)`) returning the union value; `public Error ToError()` lowers it into the LanguageExt `Error` the `Fin<T>` failure channel carries (`Error.New(int, string)` threading the band-2400 `Code` and the rendered `Message`), so a sibling routes a failure as `GeometryFault.<Case>(...).ToError()` and the typed payload is preserved on the rail; `public int Code` reads the ordinal; `public FaultCluster Cluster` derives the owning cluster row from `Code` by the stride arithmetic — telemetry reads cluster name and owning namespace off the code with no second map.
+- Auto: `Code` and `Message` are two total generated `Switch` folds over the 25 cases in code order — a new case breaks both folds loudly at compile time, never a runtime-silent `_` arm; `Message` renders `geometry:<case>:<field>=<value>` with every typed discriminant projected through its `Key` so the rendered text is recoverable to the vocabulary row; `Cluster` is pure stride arithmetic over the `FaultCluster` declaration order (`Items` order = code order), so the taxonomy has exactly one authoritative declaration.
+- Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries on the failure side; a fault IS the residual.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[SmartEnum<int>]`, `ComparerAccessors.StringOrdinal`), LanguageExt.Core (`Error.New(int, string)`, the `Fin`/`Validation`/`Eff` failure channel), BCL inbox (`UInt128`).
+- Growth: a new reachable domain failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's sub-band — never a parallel error type, never an `int` error-code constant inlined at the routing site; the century 2400-2449 is FULLY ALLOCATED across the 13 clusters (the `parametric` 2448-2449 spend closed the last headroom), so a genuinely new cluster is a federation re-plan against the AEC 2450 boundary, never a silent squeeze; a new stage on `ParametricStage`/`DevelopmentStage` is one `static readonly` row every stage-reading `Switch` re-proves at compile time; the string-key comparer is `ComparerAccessors.StringOrdinal` for every string-keyed enum and a second ordinal comparer is the deleted form.
+- Boundary: `GeometryFault` is the ONE fault union for the geometry domain and a per-cluster `SpatialFault`/`NamingFault`/`HealFault` family is the named density defect collapsed onto this one closed union — the cluster is the sub-band, not a parallel union; an exception thrown from domain logic is forbidden, every failure routes the `Fin`/`Validation`/`Eff` rail as `GeometryFault.<Case>(...).ToError()`, and a `try`/`catch` in domain logic (rather than at an owning host-numeric or native boundary) is the deleted form; the union is NOT a generic `IFault`/erased-detail carrier — an erased `string Detail` standing where a sibling vocabulary row types the cause is the named defect this rebuild deleted on ten cases; the two-family seam holds — `GeometryFault` (band 2400, robust core) ⟂ `Rasm.Domain` `Expected`/`Fault` (kernel substrate), neither absorbs, each page states its side; every payload discriminant is composed from its owning sibling, never re-minted here: `Kind` (`Rasm.Domain` normalization taxonomy), `EntityKind` (naming), `SpatialKind`/`QueryKind` (index), `HealStage` (repair), `PrimitiveKind` (intersect), `ChartId` (flatten), `EdgeKind` (view), `EncodingChannel`/`ChannelDtype` (pack), while `ParametricStage`/`DevelopmentStage` mint here because no single Parametric page owns the tier-wide stage axis.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
+using Rasm.Geometry.Encoding;
+using Rasm.Geometry.Healing;
+using Rasm.Geometry.Intersection;
+using Rasm.Geometry.Naming;
+using Rasm.Geometry.Parameterization;
+using Rasm.Geometry.Projection;
+using Rasm.Geometry.Spatial;
 using Thinktecture;
 
 namespace Rasm.Geometry;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// The 13-cluster taxonomy as data: Items order = code order, so `(code - 2400) >> 2` indexes the
+// owning row (the two-code parametric tail 2448-2449 both land on index 12).
+[SmartEnum<int>]
+public sealed partial class FaultCluster {
+    public static readonly FaultCluster Spatial          = new(2400, "spatial",          "Rasm.Geometry.Spatial");
+    public static readonly FaultCluster Naming           = new(2404, "naming",           "Rasm.Geometry.Naming");
+    public static readonly FaultCluster Healing          = new(2408, "healing",          "Rasm.Geometry.Healing");
+    public static readonly FaultCluster Constraints      = new(2412, "constraints",      "Rasm.Geometry.Constraints");
+    public static readonly FaultCluster Offsetting       = new(2416, "offsetting",       "Rasm.Geometry.Offsetting");
+    public static readonly FaultCluster Arrangement      = new(2420, "arrangement",      "Rasm.Geometry.Arrangement");
+    public static readonly FaultCluster Intersection     = new(2424, "intersection",     "Rasm.Geometry.Intersection");
+    public static readonly FaultCluster Fitting          = new(2428, "fitting",          "Rasm.Geometry.Fitting");
+    public static readonly FaultCluster Parameterization = new(2432, "parameterization", "Rasm.Geometry.Parameterization");
+    public static readonly FaultCluster Projection       = new(2436, "projection",       "Rasm.Geometry.Projection");
+    public static readonly FaultCluster Simplification   = new(2440, "simplification",   "Rasm.Geometry.Simplification");
+    public static readonly FaultCluster Encoding         = new(2444, "encoding",         "Rasm.Geometry.Encoding");
+    public static readonly FaultCluster Parametric       = new(2448, "parametric",       "Rasm.Geometry.Parametric");
+
+    public string Name { get; }
+    public string Namespace { get; }
+
+    public static FaultCluster OfCode(int code) => Items[int.Min((code - 2400) >> 2, 12)];
+}
+
+// Stage vocabularies minted HERE: their consumers span the whole Parametric tier, so no tier page owns the axis.
+[SmartEnum]
+public sealed partial class ParametricStage {
+    public static readonly ParametricStage Construction = new();
+    public static readonly ParametricStage Evaluation   = new();
+    public static readonly ParametricStage Station      = new();
+    public static readonly ParametricStage Offset       = new();
+    public static readonly ParametricStage Encode       = new();
+}
+
+[SmartEnum]
+public sealed partial class DevelopmentStage {
+    public static readonly DevelopmentStage Subdivision = new();
+    public static readonly DevelopmentStage Strip       = new();
+    public static readonly DevelopmentStage Panel       = new();
+    public static readonly DevelopmentStage Pattern     = new();
+}
 
 // --- [ERRORS] -----------------------------------------------------------------------------
+// Declaration order = code order; Code and Message are total generated folds, so a new case
+// breaks every dispatch site at compile time. Payload discriminants compose their owning
+// sibling's vocabulary: Kind (Rasm.Domain), EntityKind (naming), SpatialKind/QueryKind (index),
+// HealStage (repair), PrimitiveKind (intersect), ChartId (flatten), EdgeKind (view),
+// EncodingChannel/ChannelDtype (pack).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeometryFault {
     private GeometryFault() { }
 
-    public sealed record DegenerateInput(string Detail) : GeometryFault;
-    public sealed record IndexMismatch(string Detail) : GeometryFault;
+    public sealed record DegenerateInput(Kind Kind, int Index, string Witness) : GeometryFault;
+    public sealed record IndexMismatch(EntityKind Kind, int Expected, int Actual) : GeometryFault;
+    public sealed record KindMismatch(SpatialKind Index, QueryKind Query) : GeometryFault;
 
     public sealed record NameCollision(UInt128 Name, int Kind) : GeometryFault;
     public sealed record HashMismatch(UInt128 Name, int Kind) : GeometryFault;
 
-    public sealed record UnrepairableMesh(string Detail) : GeometryFault;
-    public sealed record NativeAssetMissing(string Detail) : GeometryFault;
+    public sealed record UnrepairableMesh(HealStage Stage, int Iterations, int Remaining) : GeometryFault;
 
     public sealed record OverConstrained(int RedundantRows, double Residual) : GeometryFault;
     public sealed record SingularSystem(int Rank, int Parameters) : GeometryFault;
 
-    public sealed record DegenerateOffset(string Detail) : GeometryFault;
+    public sealed record DegenerateOffset(int WavefrontVertex, double Time) : GeometryFault;
     public sealed record SkeletonStalled(int PendingEvents, double Time) : GeometryFault;
+    public sealed record CollapseStalled(int Iteration, double Residual) : GeometryFault;
 
-    public sealed record DegenerateArrangement(string Detail) : GeometryFault;
-    public sealed record IntersectionFault(string Detail) : GeometryFault;
+    public sealed record DegenerateArrangement(int CellCount, string ManifoldWitness) : GeometryFault;
+    public sealed record ConstraintUnrecoverable(int Constraint, int Budget) : GeometryFault;
+    public sealed record DegenerateTessellation(int Simplex, string Witness) : GeometryFault;
+    public sealed record NativeAssetMissing(string Engine, string Rid, long Ceiling) : GeometryFault;
+
+    public sealed record IntersectionFault(PrimitiveKind A, PrimitiveKind B) : GeometryFault;
+    public sealed record SectionFault(int Layer, double Elevation, int OpenChains) : GeometryFault;
+
     public sealed record FitFault(double AchievedInlierFraction, double Floor) : GeometryFault;
-    public sealed record ParameterizationFault(string Detail) : GeometryFault;
-    public sealed record ProjectionFault(string Detail) : GeometryFault;
+
+    public sealed record ParameterizationFault(ChartId Chart, double Distortion) : GeometryFault;
+
+    public sealed record ProjectionFault(EdgeKind Kind, int Segment) : GeometryFault;
+
     public sealed record DecimationFault(int FaceBudget, int Achieved) : GeometryFault;
-    public sealed record EncodingFault(string Channel, string Detail) : GeometryFault;
+    public sealed record RemeshStalled(double TargetLength, double Achieved, int Iterations) : GeometryFault;
+
+    public sealed record EncodingFault(EncodingChannel Channel, ChannelDtype Dtype, string Detail) : GeometryFault;
+
+    public sealed record ParametricFault(ParametricStage Stage, string Carrier, string Witness) : GeometryFault;
+    public sealed record DevelopmentFault(DevelopmentStage Stage, int Unit, double Witness) : GeometryFault;
 
     public int Code =>
         Switch(
-            degenerateInput:       static _ => 2400,
-            indexMismatch:         static _ => 2401,
-            nameCollision:         static _ => 2404,
-            hashMismatch:          static _ => 2405,
-            unrepairableMesh:      static _ => 2408,
-            nativeAssetMissing:    static _ => 2409,
-            overConstrained:       static _ => 2412,
-            singularSystem:        static _ => 2413,
-            degenerateOffset:      static _ => 2416,
-            skeletonStalled:       static _ => 2417,
-            degenerateArrangement: static _ => 2420,
-            intersectionFault:     static _ => 2424,
-            fitFault:              static _ => 2428,
-            parameterizationFault: static _ => 2432,
-            projectionFault:       static _ => 2436,
-            decimationFault:       static _ => 2440,
-            encodingFault:         static _ => 2444);
+            degenerateInput:         static _ => 2400,
+            indexMismatch:           static _ => 2401,
+            kindMismatch:            static _ => 2402,
+            nameCollision:           static _ => 2404,
+            hashMismatch:            static _ => 2405,
+            unrepairableMesh:        static _ => 2408,
+            overConstrained:         static _ => 2412,
+            singularSystem:          static _ => 2413,
+            degenerateOffset:        static _ => 2416,
+            skeletonStalled:         static _ => 2417,
+            collapseStalled:         static _ => 2418,
+            degenerateArrangement:   static _ => 2420,
+            constraintUnrecoverable: static _ => 2421,
+            degenerateTessellation:  static _ => 2422,
+            nativeAssetMissing:      static _ => 2423,
+            intersectionFault:       static _ => 2424,
+            sectionFault:            static _ => 2425,
+            fitFault:                static _ => 2428,
+            parameterizationFault:   static _ => 2432,
+            projectionFault:         static _ => 2436,
+            decimationFault:         static _ => 2440,
+            remeshStalled:           static _ => 2441,
+            encodingFault:           static _ => 2444,
+            parametricFault:         static _ => 2448,
+            developmentFault:        static _ => 2449);
+
+    public FaultCluster Cluster => FaultCluster.OfCode(Code);
 
     public Error ToError() => Error.New(Code, Message);
 
     string Message =>
         Switch(
-            degenerateInput:       static f => $"geometry:degenerate-input:{f.Detail}",
-            indexMismatch:         static f => $"geometry:index-mismatch:{f.Detail}",
-            nameCollision:         static f => $"geometry:name-collision:name={f.Name}:kind={f.Kind}",
-            hashMismatch:          static f => $"geometry:hash-mismatch:name={f.Name}:kind={f.Kind}",
-            unrepairableMesh:      static f => $"geometry:unrepairable-mesh:{f.Detail}",
-            nativeAssetMissing:    static f => $"geometry:native-asset-missing:{f.Detail}",
-            overConstrained:       static f => $"geometry:over-constrained:redundant={f.RedundantRows}:residual={f.Residual}",
-            singularSystem:        static f => $"geometry:singular-system:rank={f.Rank}:parameters={f.Parameters}",
-            degenerateOffset:      static f => $"geometry:degenerate-offset:{f.Detail}",
-            skeletonStalled:       static f => $"geometry:skeleton-stalled:pending={f.PendingEvents}:time={f.Time}",
-            degenerateArrangement: static f => $"geometry:degenerate-arrangement:{f.Detail}",
-            intersectionFault:     static f => $"geometry:intersection-fault:{f.Detail}",
-            fitFault:              static f => $"geometry:fit-fault:inliers={f.AchievedInlierFraction}:floor={f.Floor}",
-            parameterizationFault: static f => $"geometry:parameterization-fault:{f.Detail}",
-            projectionFault:       static f => $"geometry:projection-fault:{f.Detail}",
-            decimationFault:       static f => $"geometry:decimation-fault:budget={f.FaceBudget}:achieved={f.Achieved}",
-            encodingFault:         static f => $"geometry:encoding-fault:channel={f.Channel}:{f.Detail}");
+            degenerateInput:         static f => $"geometry:degenerate-input:kind={f.Kind.Key}:index={f.Index}:{f.Witness}",
+            indexMismatch:           static f => $"geometry:index-mismatch:kind={f.Kind.Key}:expected={f.Expected}:actual={f.Actual}",
+            kindMismatch:            static f => $"geometry:kind-mismatch:index={f.Index.Key}:query={f.Query}",
+            nameCollision:           static f => $"geometry:name-collision:name={f.Name}:kind={f.Kind}",
+            hashMismatch:            static f => $"geometry:hash-mismatch:name={f.Name}:kind={f.Kind}",
+            unrepairableMesh:        static f => $"geometry:unrepairable-mesh:stage={f.Stage}:iterations={f.Iterations}:remaining={f.Remaining}",
+            overConstrained:         static f => $"geometry:over-constrained:redundant={f.RedundantRows}:residual={f.Residual}",
+            singularSystem:          static f => $"geometry:singular-system:rank={f.Rank}:parameters={f.Parameters}",
+            degenerateOffset:        static f => $"geometry:degenerate-offset:vertex={f.WavefrontVertex}:time={f.Time}",
+            skeletonStalled:         static f => $"geometry:skeleton-stalled:pending={f.PendingEvents}:time={f.Time}",
+            collapseStalled:         static f => $"geometry:collapse-stalled:iteration={f.Iteration}:residual={f.Residual}",
+            degenerateArrangement:   static f => $"geometry:degenerate-arrangement:cells={f.CellCount}:{f.ManifoldWitness}",
+            constraintUnrecoverable: static f => $"geometry:constraint-unrecoverable:constraint={f.Constraint}:budget={f.Budget}",
+            degenerateTessellation:  static f => $"geometry:degenerate-tessellation:simplex={f.Simplex}:{f.Witness}",
+            nativeAssetMissing:      static f => $"geometry:native-asset-missing:engine={f.Engine}:rid={f.Rid}:ceiling={f.Ceiling}",
+            intersectionFault:       static f => $"geometry:intersection-fault:a={f.A}:b={f.B}",
+            sectionFault:            static f => $"geometry:section-fault:layer={f.Layer}:elevation={f.Elevation}:open={f.OpenChains}",
+            fitFault:                static f => $"geometry:fit-fault:inliers={f.AchievedInlierFraction}:floor={f.Floor}",
+            parameterizationFault:   static f => $"geometry:parameterization-fault:chart={f.Chart}:distortion={f.Distortion}",
+            projectionFault:         static f => $"geometry:projection-fault:kind={f.Kind}:segment={f.Segment}",
+            decimationFault:         static f => $"geometry:decimation-fault:budget={f.FaceBudget}:achieved={f.Achieved}",
+            remeshStalled:           static f => $"geometry:remesh-stalled:target={f.TargetLength}:achieved={f.Achieved}:iterations={f.Iterations}",
+            encodingFault:           static f => $"geometry:encoding-fault:channel={f.Channel.Key}:dtype={f.Dtype.Key}:{f.Detail}",
+            parametricFault:         static f => $"geometry:parametric-fault:stage={f.Stage}:carrier={f.Carrier}:{f.Witness}",
+            developmentFault:        static f => $"geometry:development-fault:stage={f.Stage}:unit={f.Unit}:witness={f.Witness}");
 }
 ```
 
@@ -105,6 +206,9 @@ public abstract partial record GeometryFault {
 
 One owner for the whole geometry fault rail; a new failure is a case in its sibling's sub-band, never a sibling union. The `[RAIL]` cell names the channel each owner serves.
 
-| [INDEX] | [AXIS/CONCERN] | [OWNER]             | [KIND]                                                                                      | [RAIL]                                                                       | [CASES] |
-| :-----: | :------------- | :------------------ | :------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------- | :-----: |
-|  [01]   | Fault family   | `GeometryFault`     | `[Union]` band 2400 sub-banded by sibling + `Code`/`ToError` lowering into the `Error` rail | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   17    |
+| [INDEX] | [AXIS/CONCERN]     | [OWNER]            | [KIND]                                                                                         | [RAIL]                                                                       | [CASES] |
+| :-----: | :----------------- | :----------------- | :--------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------- | :-----: |
+|  [01]   | Fault family       | `GeometryFault`    | `[Union]` band 2400-2449, typed discriminant payloads + `Code`/`Message`/`Cluster` derived folds + `ToError` lowering | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   25    |
+|  [02]   | Cluster taxonomy   | `FaultCluster`     | `[SmartEnum<int>]` keyed by stride base, `Name`/`Namespace` columns + `OfCode` stride arithmetic | `FaultCluster.OfCode(code)` (pure, total over the band)                      |   13    |
+|  [03]   | Parametric stages  | `ParametricStage`  | keyless `[SmartEnum]` behavior-row vocabulary (`ParametricFault` discriminant)                  | payload row on the union                                                     |    5    |
+|  [04]   | Development stages | `DevelopmentStage` | keyless `[SmartEnum]` behavior-row vocabulary (`DevelopmentFault` discriminant)                 | payload row on the union                                                     |    4    |
