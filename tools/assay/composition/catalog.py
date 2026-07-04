@@ -24,7 +24,7 @@ _ONNXRUNTIME_LIB_PROBE: str = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXR
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-DIRECT, MODULE, UV, DOTNET, PNPM, INPROC = Runner.DIRECT, Runner.MODULE, Runner.UV, Runner.DOTNET, Runner.PNPM, Runner.INPROC
+DIRECT, UV, DOTNET, PNPM, INPROC = Runner.DIRECT, Runner.UV, Runner.DOTNET, Runner.PNPM, Runner.INPROC
 FILES, INCLUDE, PROJECT, SOLUTION, NONE, OWNED = (Input.FILES, Input.INCLUDE, Input.PROJECT, Input.SOLUTION, Input.NONE, Input.OWNED)
 PY, TS, CS, BASH, SQL, DOCS = (Language.PYTHON, Language.TYPESCRIPT, Language.CSHARP, Language.BASH, Language.SQL, Language.DOCS)
 
@@ -38,17 +38,6 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ty", UV, ("ty", "check", "--no-progress"), OWNED, PY, Claim.STATIC, parser=Parser.TY),
     Tool("mypy", UV, ("mypy", "--no-error-summary", "--hide-error-context", "--no-pretty"), OWNED, PY, Claim.STATIC, parser=Parser.MYPY),
     Tool("lint-imports", UV, ("lint-imports", "--cache-dir", ".cache/grimp"), OWNED, PY, Claim.STATIC),
-    Tool("ast-grep-py", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error"), FILES, PY, Claim.STATIC),
-    Tool(
-        "ast-grep-py",
-        PNPM,
-        ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error", "tests/ast-grep/fail", "--no-color"),
-        FILES,
-        PY,
-        Claim.TEST,
-        mode=Mode.VERIFY,
-    ),
-    Tool("py-analyzer", MODULE, ("tools.py_analyzer", "check", "--format", "json"), NONE, PY, Claim.STATIC, parser=Parser.PY_ANALYZER),
     Tool(
         "pytest",
         UV,
@@ -171,16 +160,6 @@ TOOLS: tuple[Tool, ...] = (
         "biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true", "--colors=off", "--reporter=json"), NONE, TS, Claim.STATIC, parser=Parser.BIOME
     ),
     Tool("biome", PNPM, ("biome", "check", "--write", "--files-ignore-unknown=true"), FILES, TS, Claim.STATIC, mode=Mode.WRITE, parser=Parser.BIOME),
-    Tool("ast-grep-ts", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error"), FILES, TS, Claim.STATIC),
-    Tool(
-        "ast-grep-ts",
-        PNPM,
-        ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error", "tests/ast-grep/fail", "--no-color"),
-        FILES,
-        TS,
-        Claim.TEST,
-        mode=Mode.VERIFY,
-    ),
     Tool("vitest", PNPM, ("vitest", "run"), NONE, TS, Claim.TEST, mode=Mode.RUN, empty_signature=(1, b"No test files found")),
     # --- [CSHARP]
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC, parser=Parser.CS_CONSOLE),
@@ -402,8 +381,6 @@ def launch(tool: Tool) -> tuple[str, ...]:
     match tool.runner:
         case Runner.UV:
             return ("uv", "run", "--locked", *(part for group in tool.uv_groups() for part in ("--group", group.value)))
-        case Runner.MODULE:
-            return ("uv", "run", "--locked", "python", "-m")
         case _:
             return tool.runner.prefix
 

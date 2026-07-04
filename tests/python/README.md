@@ -12,7 +12,7 @@ Authoring law for every Python spec, kit member, and tool suite under `tests/pyt
 |  [02]   | `strategies.py` | `resolve(subject)` — the one Hypothesis strategy resolver over msgspec and pydantic-core schema algebras; defaulted struct fields sample presence and absence so the `UNSET`/omitted wire lane generates |
 |  [03]   | `seams.py`      | the `Shape` call-shape union (`Sync`/`Async`/`FanOut`/`Factory`), `SeamProbe`, `Loopback`, `loopback_server`/`grpc_loopback`, `VariantWriter`, `TmpRoot`/`tmp_root`, `NdjsonOracle`, `autospec_proc`, module-attr doubles |
 |  [04]   | `env.py`        | declarative environment doubles: `SshHost`, `RemoteFS`, `ObjectStore`, `Provisioned`, one polymorphic `provision` dispatch |
-|  [05]   | `bench.py`      | `BenchCase` registry rows, `bench_params`/`run_bench`/`run_registry`, absolute-budget gates, sustained-regression detection |
+|  [05]   | `bench.py`      | `BenchCase` registry rows, `case_params`/`run_bench`/`run_registry`, absolute-budget gates, sustained-regression detection |
 |  [06]   | `laws.py`       | `@spec` law registration, declarative `COVERS` consumption, `auto_exempt`, `LawRecord`/`MANIFEST`, SUT registration, `assert_law_coverage` — the law-coverage census gate |
 |  [07]   | `runtime.py`    | the pytest plugin: Hypothesis profiles + example database, marker auto-application, observability and profiling artifact routing |
 

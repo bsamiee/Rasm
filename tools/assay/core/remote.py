@@ -371,7 +371,7 @@ def _lane_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]
     match plan.check.tool.runner:
         case Runner.DOTNET:
             return _csharp_manifest(plan, universe)
-        case Runner.UV | Runner.MODULE | Runner.PNPM:
+        case Runner.UV | Runner.PNPM:
             return _python_manifest(universe)
         case _:
             return universe

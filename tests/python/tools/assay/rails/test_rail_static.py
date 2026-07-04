@@ -134,8 +134,8 @@ def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.Monk
     report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src",)), executor))
     assert isinstance(report.detail, StaticRun)
     planned_names = {name for _, name, _ in report.detail.planned}
-    assert {"ruff", "ruff-format", "ty", "mypy", "lint-imports", "ast-grep-py", "py-analyzer"} <= planned_names
-    assert {"biome", "ast-grep-ts"} <= planned_names
+    assert {"ruff", "ruff-format", "ty", "mypy", "lint-imports"} <= planned_names
+    assert {"biome"} <= planned_names
     assert {"dotnet-format", "dotnet-restore", "dotnet-build"} <= planned_names
     assert report.counts.total == len(report.detail.planned)
 

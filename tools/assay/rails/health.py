@@ -49,12 +49,7 @@ _UV_RUN_VALUE_OPTIONS: Final[frozenset[str]] = frozenset((
     "--with-editable",
     "--with-requirements",
 ))
-# Prefix order is semantic: MODULE must win the shared `uv run` head before UV.
-_PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
-    (Runner.MODULE.prefix, "uv.lock"),
-    (Runner.UV.prefix, "uv.lock"),
-    (Runner.PNPM.prefix, "pnpm-lock.yaml"),
-)
+_PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = ((Runner.UV.prefix, "uv.lock"), (Runner.PNPM.prefix, "pnpm-lock.yaml"))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -188,8 +183,6 @@ def _tool_probes() -> tuple[tuple[str, Check], ...]:
         match tool.runner:
             case Runner.DOTNET:
                 return "dotnet", ("dotnet", "--version")
-            case Runner.MODULE if tool.command[0] == "tools.py_analyzer":
-                return f"{tool.runner.value}:{tool.command[0]}", (*launch(tool), tool.command[0], "--help")
             case Runner.UV if uv := tool.uv_groups():
                 return f"{tool.runner.value}:{tool.command[0]}:{','.join(uv)}", (*launch(tool), tool.command[0], "--version")
             case _:

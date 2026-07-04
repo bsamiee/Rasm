@@ -137,16 +137,6 @@ class _SarifLog(msgspec.Struct, frozen=True, gc=False):
 # --- [TOOL_JSON]
 
 
-class _PyAnalyzerDiagnostic(msgspec.Struct, frozen=True, gc=False):
-    rule_id: str = ""
-    severity: str = ""
-    path: str = ""
-    line: int = 0
-    column: int = 0
-    title: str = ""
-    message: str = ""
-
-
 class _BiomePoint(msgspec.Struct, frozen=True, gc=False):
     line: int = 0
     column: int = 0
@@ -712,7 +702,6 @@ def fold(
 # Converter rows reference the projection functions above; module-level decode tables resolve real objects.
 
 _SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
-_PY_ANALYZER_LOG: msgspec.json.Decoder[tuple[_PyAnalyzerDiagnostic, ...]] = msgspec.json.Decoder(tuple[_PyAnalyzerDiagnostic, ...])
 _BIOME_LOG: msgspec.json.Decoder[_BiomeReport] = msgspec.json.Decoder(_BiomeReport)
 AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])
 CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
@@ -740,15 +729,6 @@ _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
     Parser.TY: lambda payload: _text_rows("ty", payload),
     Parser.MYPY: lambda payload: _text_rows("mypy", payload),
     Parser.TSC: lambda payload: _text_rows("tsc", payload),
-    Parser.PY_ANALYZER: lambda payload: _json_rows(
-        payload,
-        decoder=_PY_ANALYZER_LOG,
-        project="py-analyzer",
-        rows=lambda diagnostics: tuple(
-            _diagnostic_match("py-analyzer", row.rule_id, row.severity, row.path, str(row.line), str(row.column), row.message or row.title)
-            for row in diagnostics
-        ),
-    ),
     Parser.BIOME: lambda payload: _json_rows(
         payload,
         decoder=_BIOME_LOG,

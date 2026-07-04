@@ -236,7 +236,7 @@ public static partial class Spec {
         ArgumentNullException.ThrowIfNull(argument: items);
         ArgumentNullException.ThrowIfNull(argument: expectedKeys);
         ArgumentNullException.ThrowIfNull(argument: key);
-        Assert.Equal(expected: items.Count, actual: items.Select(selector: key).Distinct().Count());
+        Assert.Equal(expected: items.Count, actual: items.Select(selector: key).ToHashSet().Count);
         Assert.Equal(expected: [.. expectedKeys.Order()], actual: (TKey[])[.. items.Select(selector: key).Order()]);
         _ = items.AsIterable().Iter(item => { Cancel(); law?.Invoke(item); });
     }

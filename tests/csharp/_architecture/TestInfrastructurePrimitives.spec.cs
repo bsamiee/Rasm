@@ -516,7 +516,7 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Spec.ForAll(gen: Gens.SortedArray(element: Gens.IntEdges), property: static xs =>
             Spec.Holds(condition: xs.Length <= 32 && xs.SequenceEqual(second: xs.Order()), label: "sorted small band"));
         Spec.ForAll(gen: Gens.UniqueArray(element: Gen.Int[0, 1000]), property: static xs =>
-            Spec.Holds(condition: xs.Length is >= 1 and <= 64 && xs.Distinct().Count() == xs.Length, label: "unique band"));
+            Spec.Holds(condition: xs.Length is >= 1 and <= 64 && xs.ToHashSet().Count == xs.Length, label: "unique band"));
         Spec.ForAll(gen: Gens.DistinctTriple(element: Gen.Int[0, 100]), property: static t =>
             Spec.Holds(condition: t.A != t.B && t.B != t.C && t.A != t.C, label: "distinct triple"));
         Spec.ForAll(gen: Gens.OrderedPair(element: Gens.Finite), property: static p =>

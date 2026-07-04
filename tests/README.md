@@ -1,6 +1,6 @@
 # [TESTS]
 
-`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, the cross-language contract corpus, and the structural rule fixtures the quality operator consumes. Everything under this root exists to falsify production behavior, and everything under it is rebuilt ground-up the moment a denser shape exists — kit files, suite folders, external test libraries, and tooling configuration alike. No workarounds, no aliasing, no band-aids, no backwards compatibility: breaking old tests is never a reason to preserve chaff, and a gate nobody can run is deleted, not kept as aspiration.
+`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, and the cross-language contract corpus. Everything under this root exists to falsify production behavior, and everything under it is rebuilt ground-up the moment a denser shape exists — kit files, suite folders, external test libraries, and tooling configuration alike. No workarounds, no aliasing, no band-aids, no backwards compatibility: breaking old tests is never a reason to preserve chaff, and a gate nobody can run is deleted, not kept as aspiration.
 
 ## [01]-[LAYOUT]
 
@@ -8,7 +8,6 @@ One folder scheme spans all languages:
 
 ```text conceptual
 tests/
-├── ast-grep/          # pass/ + fail/ fixtures per structural rule; the rules live in .rules/<language>/
 ├── contracts/         # cross-language frozen corpus; C# produces, Python/TS round-trip
 ├── csharp/
 │   ├── _architecture/ # boundary + infra-primitive laws proving both kits
@@ -21,7 +20,7 @@ tests/
 ├── python/
 │   ├── _testkit/      # project-agnostic kit: spec/strategies/seams/env/bench/laws/runtime
 │   ├── libs/          # per-package suites mirroring libs/python
-│   └── tools/         # assay + py_analyzer suites
+│   └── tools/         # assay suites
 └── typescript/
     ├── .api/          # dev-tool API catalogs the kit and suites compose
     ├── _architecture/ # branch-boundary gauge suites; manifest gauges live, source gauges self-activate
@@ -110,9 +109,7 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [11]   | TS e2e suite             | `tests/typescript/e2e`                                                                   |
 |  [12]   | TS architecture gauge    | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
 |  [13]   | TS dev-tool API catalog  | `tests/typescript/.api/`, one catalog per dev-plane package                              |
-|  [14]   | structural rule          | `.rules/<language>/`, registered through the root `sgconfig.yml`                         |
-|  [15]   | structural rule fixture  | `tests/ast-grep/pass` + `tests/ast-grep/fail` — every rule carries both                  |
-|  [16]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                             |
+|  [14]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                             |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 
@@ -155,8 +152,7 @@ Before touching any testing surface, an agent checks the owners that carry the f
 |  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers                  |
 |  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                                 |
 |  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                                 |
-|  [06]   | `sgconfig.yml` + `.rules/`                           | structural ast-grep rules; the assay static rail enforces them and probes the fail fixtures     |
-|  [07]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, both root Stryker mutation configs, project-graph targets |
-|  [08]   | `tools/assay`                                        | the gate authority: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision` rails    |
+|  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, both root Stryker mutation configs, project-graph targets |
+|  [07]   | `tools/assay`                                        | the gate authority: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision` rails    |
 
-The operator is itself a tested surface: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/py_analyzer` with `tests/python/tools/py_analyzer`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.
+The operator is itself a tested surface: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.

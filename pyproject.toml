@@ -328,8 +328,6 @@ exclude = [
     "dist",
     "node_modules",
     "test-results",
-    "tests/ast-grep/fail/**",
-    "tests/ast-grep/pass/**",  # structural probe corpus; ast-grep verification owns pass/fail semantics
     "tmp",
 ]
 
@@ -378,8 +376,6 @@ exclude = [
     "^coverage/",
     "^test-results/",
     "^node_modules/",
-    "^tests/ast-grep/fail/",
-    "^tests/ast-grep/pass/",
     "^tmp/",
 ]
 
@@ -519,7 +515,7 @@ timeout_constant = 5.0
 
 # Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
 [tool.importlinter]
-root_packages = ["tools.assay", "tools.py_analyzer"]
+root_packages = ["tools.assay"]
 # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
 exclude_type_checking_imports = true
 
@@ -563,11 +559,6 @@ modules = [
 # Named debt: package rides bridge's apphost lease/client seam until a neutral client owner exists.
 ignore_imports = ["tools.assay.rails.package -> tools.assay.rails.bridge"]
 
-[[tool.importlinter.contracts]]
-name = "py_analyzer and assay meet at the process boundary, never by import"
-type = "independence"
-modules = ["tools.assay", "tools.py_analyzer"]
-
 # --- [RUFF] ----------------------------------------------------------------
 
 [tool.ruff]
@@ -584,7 +575,6 @@ extend-exclude = [
     "**/test-results/**",
     "**/coverage/**",
     "**/.history/**",
-    "**/tests/ast-grep/**",
 ]
 
 [tool.ruff.format]
@@ -655,7 +645,6 @@ ignore = [
     "TID251",
     "TRY300",
 ]
-"tools/py_analyzer/**" = ["TC003"]
 "tests/**"         = ["S101", "PT018", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: specs import the private-by-design _testkit package
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]

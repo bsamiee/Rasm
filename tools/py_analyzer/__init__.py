@@ -1,1 +1,0 @@
-"""Python semantic analyzer package."""

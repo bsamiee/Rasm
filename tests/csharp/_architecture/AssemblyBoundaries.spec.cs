@@ -29,6 +29,15 @@ internal static class HostFreeModel {
 public sealed class AssemblyBoundaryLaws {
     private static readonly string[] ProjectRoots = ["apps", "libs", "tests", "tools"];
 
+    // HOST_BOUNDARY_REENTRY: host-boundary rows live on disk but stay out of Workspace.slnx until
+    // kernel realization lands; the roster shrinks to empty when those slnx rows return.
+    private static readonly string[] HostBoundaryRows = [
+        "libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj",
+        "libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj",
+        "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
+        "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
+    ];
+
     // Exact reference topology per project — "only" is implied by exactness, so per-project
     // sibling facts collapse into this one folded table.
     private static readonly (string Project, string[] References)[] Strata = [
@@ -53,7 +62,10 @@ public sealed class AssemblyBoundaryLaws {
     public void WorkspaceSolutionMatchesDiskAndCarriesTheScenarioHome() {
         FrozenSet<string> solution = Manifests.SolutionProjects();
         FrozenSet<string> disk = Manifests.DiskProjects(roots: ProjectRoots);
-        Assert.Equal(expected: Sorted(rows: disk), actual: Sorted(rows: solution));
+        Assert.Equal(
+            expected: Sorted(rows: disk.Except(second: HostBoundaryRows, comparer: StringComparer.Ordinal)),
+            actual: Sorted(rows: solution));
+        Assert.All(collection: HostBoundaryRows, action: row => Assert.Contains(expected: row, collection: disk));
         Assert.Contains(expected: "tests/csharp/scenarios/Rasm.Scenarios.csproj", collection: solution);
     }
 

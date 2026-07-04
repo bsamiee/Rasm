@@ -25,7 +25,6 @@ from tools.assay.core.routing import (  # private probes for read/parse degradat
     infer_languages,
     place,
     resolve_languages,
-    routable_files,
     route,
     Routed,
     Scope,
@@ -135,10 +134,7 @@ _PY_TOOL = Tool(
     name="py-check", runner=Runner.UV, command=("ruff", "check"), input=Input.FILES, language=Language.PYTHON, claim=Claim.CODE, mode=Mode.CHECK
 )
 
-# Mirrors AssaySettings.probe_fixture_prefixes for prefix-stripping laws.
-_DEFAULT_PREFIXES: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
-
-COVERS: tuple[object, ...] = (expand, infer_languages, place, resolve_languages, routable_files, route, Routed, Source, target_files, TargetFiles)
+COVERS: tuple[object, ...] = (expand, infer_languages, place, resolve_languages, route, Routed, Source, target_files, TargetFiles)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -270,42 +266,6 @@ def test_place_proportional_by_inspection(k: int, assay_root: AssayHarness) -> N
     result = place(routed, _PY_TOOL, settings=assay_root.settings)
     target(float(k), label="placed_file_count")
     assert result == (files,) if k else result == (), f"expected one argv tail with {k} files, got {result!r}"
-
-
-@pytest.mark.parametrize("extra_prefix", list(_DEFAULT_PREFIXES))
-def test_place_strips_probe_fixtures_via_files_input(extra_prefix: str, assay_root: AssayHarness) -> None:
-    """place(INPUT.FILES) delegates to routable_files — probe-fixture paths are absent from argv."""
-    probe = f"{extra_prefix}fail/helper_import.py"
-    legit = "tools/assay/core/model.py"
-    routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=(probe, legit))
-    result = place(routed, _PY_TOOL, settings=assay_root.settings)
-    argv_flat = tuple(arg for tail in result for arg in tail)
-    assert probe not in argv_flat
-    assert legit in argv_flat
-
-
-# --- [ROUTABLE_FILES_LAWS]
-
-
-@pytest.mark.parametrize(
-    "files,prefixes,expected",
-    [
-        ((*(f"{pfx}sample.py" for pfx in _DEFAULT_PREFIXES), "tools/assay/core/routing.py"), None, ("tools/assay/core/routing.py",)),
-        (
-            ("tools/assay/core/model.py", "tests/csharp/libs/Rasm/ModelTests.cs"),
-            None,
-            ("tools/assay/core/model.py", "tests/csharp/libs/Rasm/ModelTests.cs"),
-        ),
-        (("custom/probe/fail.py", "tools/assay/core/routing.py"), ("custom/probe/",), ("tools/assay/core/routing.py",)),
-    ],
-    ids=["strips-every-default-prefix", "passthrough-without-probes", "honours-settings-prefixes"],
-)
-def test_routable_files_prefix_matrix(
-    files: tuple[str, ...], prefixes: tuple[str, ...] | None, expected: tuple[str, ...], assay_root: AssayHarness
-) -> None:
-    """routable_files strips exactly the configured probe_fixture_prefixes and is identity otherwise (S2 seam)."""
-    settings = assay_root.settings if prefixes is None else assay_root.settings.model_copy(update={"probe_fixture_prefixes": prefixes})
-    assert routable_files(files, settings) == expected
 
 
 # --- [INFER_LANGUAGES]

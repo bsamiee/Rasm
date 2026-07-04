@@ -157,7 +157,6 @@ def test_parser_rows_key_static_diagnostic_tools() -> None:
     assert by_name["ruff-format", Language.PYTHON] is Parser.RUFF_FORMAT
     assert by_name["ty", Language.PYTHON] is Parser.TY
     assert by_name["mypy", Language.PYTHON] is Parser.MYPY
-    assert by_name["py-analyzer", Language.PYTHON] is Parser.PY_ANALYZER
     assert by_name["biome", Language.TYPESCRIPT] is Parser.BIOME
     assert by_name["tsc", Language.TYPESCRIPT] is Parser.TSC
     assert by_name["dotnet-build", Language.CSHARP] is Parser.CS_CONSOLE
@@ -206,14 +205,12 @@ def test_static_native_fixers_are_scoped_rows() -> None:
 
 @pytest.mark.parametrize("tool", TOOLS, ids=[f"{i}-{t.name}-{t.claim.value}-{t.mode.value}" for i, t in enumerate(TOOLS)])
 def test_launch_is_the_one_prefix_speller(tool: Tool) -> None:
-    """launch() derives every row's launcher prefix: uv lock + dependency groups for UV, module runner for MODULE, raw prefix otherwise."""
+    """launch() derives every row's launcher prefix: uv lock + dependency groups for UV, raw prefix otherwise."""
     prefix = launch(tool)
     match tool.runner:
         case Runner.UV:
             groups = tuple(part for group in tool.uv_groups() for part in ("--group", group.value))
             assert prefix == ("uv", "run", "--locked", *groups)
-        case Runner.MODULE:
-            assert prefix == ("uv", "run", "--locked", "python", "-m")
         case _:
             assert prefix == tool.runner.prefix
 

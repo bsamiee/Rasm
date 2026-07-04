@@ -11,6 +11,14 @@
         <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
     </PropertyGroup>
 
+    <!-- AssayTestShell derives from the project body, invisible at props time; reclassification lands here so
+         spec-free shells build as empty libraries and solution-scope dotnet test never discovers them. -->
+    <PropertyGroup Label="Shell Classification" Condition="'$(AssayTestShell)' == 'true'">
+        <IsTestProject>false</IsTestProject>
+        <OutputType>Library</OutputType>
+        <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    </PropertyGroup>
+
     <!-- Create the SARIF parent before Roslyn writes ErrorLog. -->
     <Target Name="EnsureCspSarifDir" BeforeTargets="CoreCompile" Condition="'$(CspSarifDir)' != ''">
         <MakeDir Directories="$(CspSarifDir)" />
@@ -35,7 +43,7 @@
     </Target>
 
     <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
-            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsScenarioKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(IsTestProject)' == 'false'">
+            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsScenarioKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(AssayTestShell)' != 'true' and '$(IsTestProject)' == 'false'">
         <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsScenarioKitProject, IsBenchmarkProject, AssayHostBound, or AssayTestShell for routing." />
     </Target>
 

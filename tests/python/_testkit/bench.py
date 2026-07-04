@@ -91,7 +91,7 @@ class _StoredDoc(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def bench_params(rows: Sequence[BenchCase]) -> pytest.MarkDecorator:
+def case_params(rows: Sequence[BenchCase]) -> pytest.MarkDecorator:
     """Build the benchmark ``(row, size)`` parametrization.
 
     Args:
@@ -192,7 +192,7 @@ def run_registry(rows: Sequence[BenchCase]) -> Callable[..., None]:
     """
     caller_module: str = inspect.stack()[1].frame.f_globals["__name__"]
 
-    @bench_params(rows)
+    @case_params(rows)
     def bench_(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> None:
         run_bench(benchmark, row, size)
 
@@ -301,4 +301,4 @@ def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, outp
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BenchCase", "bench_params", "run_bench", "run_registry"]
+__all__ = ["BenchCase", "case_params", "run_bench", "run_registry"]

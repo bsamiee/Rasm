@@ -1,9 +1,0 @@
-id: no-direct-annotations
-language: Python
-severity: error
-message: Use inspect.get_annotations() or annotationlib.get_annotations(); direct __annotations__ access bypasses Python 3.15 annotation semantics.
-rule:
-  any:
-    - pattern: $OBJ.__annotations__
-    - pattern: $OBJ.__dict__["__annotations__"]
-    - pattern: $OBJ.__dict__.get("__annotations__")

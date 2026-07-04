@@ -410,17 +410,6 @@ def target_files(
     )
 
 
-def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
-    """Filter probe-fixture paths from an explicit file list.
-
-    Explicit type-checker file args bypass project excludes; probe fixture prefixes restore the configured exclusion boundary.
-
-    Returns:
-        File paths with probe-fixture prefixes removed.
-    """
-    return tuple(path for path in files if not any(path.startswith(prefix) for prefix in settings.probe_fixture_prefixes))
-
-
 def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # one arm per Input member; the axis is closed
     """Project routed inputs into command argument tail groups for one tool.
 
@@ -434,8 +423,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
     """
     match tool.input:
         case Input.FILES:
-            files = routable_files(routed.files, settings)
-            return ((*files,),) if files else ()
+            return ((*routed.files,),) if routed.files else ()
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
         case Input.PROJECT:
@@ -452,8 +440,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.SOLUTION:
             return ((str(settings.solution),),)
         case Input.NONE:
-            files = routable_files(routed.files, settings)
-            return ((*files,),) if files else ((),)
+            return ((*routed.files,),) if routed.files else ((),)
         case Input.OWNED:
             # The command embeds its own input placement; one invocation with no extra tail.
             return ((),)
@@ -503,7 +490,6 @@ __all__ = [
     "parse_csproj",
     "place",
     "resolve_languages",
-    "routable_files",
     "route",
     "target_files",
 ]

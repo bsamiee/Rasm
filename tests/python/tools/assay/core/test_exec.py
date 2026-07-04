@@ -274,7 +274,7 @@ def test_splice_command_separator_identity_and_project_isolation(assay_root: Ass
 def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exact-argv law: every runner/mode row shares the settings/scope fixture
     """``argv_for`` composes runner prefix, spliced body, and routed tails exactly per runner/mode row.
 
-    Rows pin UV group/project segments, MODULE prefix, DIRECT passthrough, QUERY splice bypass, routed file
+    Rows pin UV group/project segments, DIRECT passthrough, QUERY splice bypass, routed file
     tails, and per-project dotnet scope injection after ``--project`` expansion.
     """
     settings = assay_root.settings
@@ -285,9 +285,6 @@ def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exac
     assert uv_argv == ("uv", "run", "--locked", "--group", "mutation", "--project", str(settings.root), "ruff", "check"), (
         f"uv argv drifted: {uv_argv!r}"
     )
-    module_tool = Tool("module-argv-law", Runner.MODULE, ("tools.py_analyzer", "check"), Input.NONE, Language.PYTHON, Claim.STATIC)
-    module_argv = assert_ok(argv_for(Check(tool=module_tool), _PY_CHANGED, settings=settings, scope=None))
-    assert module_argv == ("uv", "run", "--locked", "python", "-m", "tools.py_analyzer", "check"), f"module argv drifted: {module_argv!r}"
     direct = msgspec.structs.replace(uv_tool, runner=Runner.DIRECT)
     direct_argv = assert_ok(argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None))
     assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"

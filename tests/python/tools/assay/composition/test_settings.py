@@ -334,7 +334,6 @@ def test_assay_settings_computed_projections(assay_root: AssayHarness) -> None:
     s = assay_root.settings
     assert s.solution == s.root / "Workspace.slnx"
     assert s.agent_context == IsPartialDict({"run.id": s.run_id, "agent.task.id": s.agent_task_id})
-    assert s.probe_fixture_prefixes == IsTuple(length=(1, ...))
     assert s.mutation_python == IsStr(min_length=1)
     env = s.python_tool_env
     assert env.keys() >= {"UV_CACHE_DIR", "HYPOTHESIS_STORAGE_DIRECTORY", "PYTEST_CACHE_DIR", "RUFF_CACHE_DIR", "MYPY_CACHE_DIR", "COVERAGE_FILE"}

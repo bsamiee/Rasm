@@ -132,8 +132,7 @@ def test_tool_probes_derive_from_launch() -> None:
     by_argv = {health_mod._probe_argv(check): label for label, check in health_mod._tool_probes()}
     probed_rows = tuple(t for t in TOOLS if t.runner not in {Runner.INPROC, Runner.DOTNET} and "{" not in t.command[0])
     for tool in probed_rows:
-        flag = "--help" if tool.command[0] == "tools.py_analyzer" else "--version"
-        assert (*launch(tool), tool.command[0], flag) in by_argv, f"probe argv for {tool.name} not launch()-derived"
+        assert (*launch(tool), tool.command[0], "--version") in by_argv, f"probe argv for {tool.name} not launch()-derived"
     assert ("dotnet", "--version") in by_argv, "DOTNET rows must collapse to one SDK probe"
 
 

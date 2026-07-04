@@ -463,7 +463,6 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
         "global.json",
     ))
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
-    probe_fixture_prefixes: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
     mutation_python: str = "3.15"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"

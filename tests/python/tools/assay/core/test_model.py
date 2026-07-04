@@ -508,10 +508,7 @@ def test_fold_static_text_tools_emit_structured_diagnostics(parser: Parser, payl
 
 
 def test_fold_static_json_tools_emit_structured_diagnostics() -> None:
-    """JSON diagnostics from py-analyzer and Biome become first-class source Match rows."""
-    py_payload = msgspec.json.encode((
-        {"rule_id": "PY001", "severity": "warning", "path": "pkg/a.py", "line": 5, "column": 2, "title": "strict", "message": ""},
-    ))
+    """Embedded Biome JSON diagnostics become first-class source Match rows."""
     biome_payload = msgspec.json.encode({
         "diagnostics": [
             {
@@ -525,14 +522,10 @@ def test_fold_static_json_tools_emit_structured_diagnostics() -> None:
     report = fold(
         Claim.STATIC,
         "check",
-        (
-            _stamped(receipt(("uv", "run", "-m", "tools.py_analyzer"), 1, stdout=py_payload), Parser.PY_ANALYZER),
-            _stamped(receipt(("pnpm", "exec", "biome"), 1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n"), Parser.BIOME),
-        ),
+        (_stamped(receipt(("pnpm", "exec", "biome"), 1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n"), Parser.BIOME),),
     )
-    assert [(row.id, row.severity, row.path, row.line, row.column, row.message) for row in report.results[:2]] == [
-        ("biome:lint/correctness/nounusedvariables", "warning", "src/a.ts", 6, 3, "unused variable"),
-        ("py-analyzer:py001", "warning", "pkg/a.py", 5, 2, "strict"),
+    assert [(row.id, row.severity, row.path, row.line, row.column, row.message) for row in report.results[:1]] == [
+        ("biome:lint/correctness/nounusedvariables", "warning", "src/a.ts", 6, 3, "unused variable")
     ]
 
 

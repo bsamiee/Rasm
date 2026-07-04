@@ -35,7 +35,7 @@
         "noEmit": true,
         "types": ["node", "vite/client", "vitest"]
     },
-    "exclude": ["**/node_modules", "**/dist", "**/build", "**/.cache", "**/.artifacts", "**/.history", "tests/ast-grep/**"],
+    "exclude": ["**/node_modules", "**/dist", "**/build", "**/.cache", "**/.artifacts", "**/.history"],
     "watchOptions": {
         "excludeDirectories": [
             "**/node_modules",

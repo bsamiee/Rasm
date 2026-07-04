@@ -125,7 +125,6 @@ class Parser(StrEnum):
     BIOME = "biome"
     CS_CONSOLE = "cs-console"
     MYPY = "mypy"
-    PY_ANALYZER = "py-analyzer"
     RUFF = "ruff"
     RUFF_FORMAT = "ruff-format"
     TSC = "tsc"
@@ -196,7 +195,6 @@ class Runner(StrEnum):
 
     prefix: tuple[str, ...]
     DIRECT = "direct", ()
-    MODULE = "module", ("uv", "run", "python", "-m")
     UV = "uv", ("uv", "run")
     DOTNET = "dotnet", ("dotnet",)
     PNPM = "pnpm", ("pnpm", "exec")

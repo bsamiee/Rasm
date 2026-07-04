@@ -35,7 +35,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Kernel Usings">
-        <Using Include="Rasm.Domain" />
         <Using Include="Rhino" />
         <Using Include="Rhino.FileIO" />
         <Using Include="Rhino.Geometry" />
