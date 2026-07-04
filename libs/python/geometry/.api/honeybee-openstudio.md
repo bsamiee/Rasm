@@ -9,6 +9,7 @@
 - import: `import honeybee_openstudio` then `from honeybee_openstudio.writer import model_to_openstudio, model_to_osm, model_to_idf`, `from honeybee_openstudio.reader import model_from_osm_file, model_from_idf_file`, `from honeybee_openstudio.openstudio import OSModel` (the SDK re-export indirection)
 - owner: `geometry`
 - rail: energy-modeling
+- consumer: `.planning/energy/simulate.md` (the `WRITERS` format rows behind the `find_spec("openstudio")` probe, lane-offloaded)
 - installed: `0.5.5`
 - license: AGPL-3.0 (Ladybug Tools copyleft); the bound `openstudio` SDK is BSD-3-Clause
 - abi: pure-Python `py3-none-any` wheel itself; it hard-imports the native `openstudio` SDK (`3.10.0`) at module load. That SDK ships a `py3-none-<platform>` wheel (compiled C++ OpenStudio/EnergyPlus core, platform-keyed not interpreter-keyed — e.g. `py3-none-macosx_11_0_arm64`, `Requires-Python >=3.7.1`), installed and importable on the active interpreter. `model_to_openstudio` returns a real `openstudio.openstudiomodelcore.Model`, so any consumer of the return value also links the native SDK.
@@ -42,10 +43,10 @@
 | [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
 | :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
 |  [01]   | `model_to_openstudio(model, seed_model=None, schedule_directory=None, use_geometry_names=False, ...)` | honeybee `Model`         | translate to a live OpenStudio `Model` (the in-process core) |
-|  [02]   | `model_to_osm(model, seed_model=None, ...)`                    | honeybee `Model`         | translate and write an `.osm` file (returns its path) |
-|  [03]   | `model_to_idf(model, seed_model=None, ...)`                    | honeybee `Model`         | translate and write an EnergyPlus `.idf` file      |
-|  [04]   | `model_to_epjson(model, seed_model=None, ...)`                 | honeybee `Model`         | translate and write an EnergyPlus `.epJSON` file   |
-|  [05]   | `model_to_gbxml(model, triangulate_non_planar_orphaned=True, full_geometry=False, ...)` | honeybee `Model`         | translate and write a gbXML file (interoperability export) |
+|  [02]   | `model_to_osm(model, seed_model=None, ...)`                    | honeybee `Model`         | translate to the serialized OSM STRING (no folder arg; the consumer owns the artifact write) |
+|  [03]   | `model_to_idf(model, seed_model=None, ...)`                    | honeybee `Model`         | translate to the serialized EnergyPlus IDF STRING  |
+|  [04]   | `model_to_epjson(model, seed_model=None, ...)`                 | honeybee `Model`         | translate to the serialized EnergyPlus epJSON STRING |
+|  [05]   | `model_to_gbxml(model, triangulate_non_planar_orphaned=True, full_geometry=False, ...)` | honeybee `Model`         | translate to the serialized gbXML STRING (interoperability export) |
 |  [06]   | `room_to_openstudio` / `face_to_openstudio` / `aperture_to_openstudio` / `door_to_openstudio` / `shade_to_openstudio` / `shade_mesh_to_openstudio` | object + `os_model`      | per-object translators the model writer composes (adjacency-mapped) |
 
 [ENTRYPOINT_SCOPE]: model readers (`honeybee_openstudio.reader`)

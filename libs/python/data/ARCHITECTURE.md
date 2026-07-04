@@ -28,7 +28,7 @@ data/
 ├── graph/                # Rustworkx graph payloads with networkx compat, typed result receipts
 │   └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt
 └── impact/               # Material environmental-impact: EPD declaration ingest + LCA compute, normalized to one EN 15804 carrier
-    └── impact.py         # MaterialImpact owner over an ImpactSource axis (OpenEPD/ILCD+EPD/Brightway/openLCA/premise) folding to one indicator × stage matrix keyed by ContentIdentity
+    └── impact.py         # MaterialImpact owner over an ImpactSource axis (OpenEPD/ILCD+EPD/Brightway/openLCA/premise) folding to one indicator × stage matrix with unit-row + Spread evidence, bw2analyzer contribution depth, keyed by ContentIdentity
 ```
 
 ## [02]-[SEAMS]

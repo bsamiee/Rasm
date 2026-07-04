@@ -223,15 +223,6 @@ wheels = [
 ]
 
 [[package]]
-name = "appdirs"
-version = "1.4.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41", size = 13470, upload-time = "2020-05-11T07:59:51.037Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128", size = 9566, upload-time = "2020-05-11T07:59:49.499Z" },
-]
-
-[[package]]
 name = "apscheduler"
 version = "3.11.2"
 source = { registry = "https://pypi.org/simple" }
@@ -636,41 +627,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/79/2f4be1896db3db7ccf44504253a175d56b6bd6b669619edc5147d1aa21ea/botocore-1.43.0.tar.gz", hash = "sha256:e933b31a2d644253e1d029d7d39e99ba41b87e29300534f189744cc438cdf928", size = 15286817, upload-time = "2026-04-29T22:07:31.723Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bf/4b/afc1fef8a43bafb139f57f73bbd70df82807af5934321e8112ae50668827/botocore-1.43.0-py3-none-any.whl", hash = "sha256:cc5b15eaec3c6eac05d8012cb5ef17ebe891beb88a16ca13c374bfaece1241e6", size = 14970102, upload-time = "2026-04-29T22:07:27Z" },
-]
-
-[[package]]
-name = "brightway2"
-version = "2.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "appdirs" },
-    { name = "asteval" },
-    { name = "bw2analyzer" },
-    { name = "bw2calc" },
-    { name = "bw2data" },
-    { name = "bw2io" },
-    { name = "bw2parameters" },
-    { name = "docopt" },
-    { name = "eight" },
-    { name = "flask" },
-    { name = "future" },
-    { name = "lxml" },
-    { name = "numpy" },
-    { name = "peewee" },
-    { name = "psutil" },
-    { name = "pyprind" },
-    { name = "requests" },
-    { name = "scipy" },
-    { name = "stats-arrays" },
-    { name = "unicodecsv" },
-    { name = "voluptuous" },
-    { name = "whoosh" },
-    { name = "xlrd" },
-    { name = "xlsxwriter" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/02/e8/85c994e7df81a0c921e54792500b73c7ab0314de847e26ba9d5280ecf024/brightway2-2.3.tar.gz", hash = "sha256:d4a6662bc7e6a41dcee6f8a478a070ba35269c0bd2bcbe59938acf239094e5c6", size = 11115483, upload-time = "2018-06-01T12:03:28.417Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f0/7e/d632306756abea5aae1ae463d644cdd17f0e81d43d27fd6970581e2108ff/brightway2-2.3-py3-none-any.whl", hash = "sha256:e7eebf0b07d8a1bf461008447de8639225f6dbe271844e5cb2e8cc026c592eb9", size = 5179, upload-time = "2018-06-01T12:03:31.636Z" },
 ]
 
 [[package]]
@@ -1508,12 +1464,6 @@ wheels = [
 ]
 
 [[package]]
-name = "docopt"
-version = "0.6.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a2/55/8f8cab2afd404cf578136ef2cc5dfb50baa1761b68c9da1fb1e4eed343c9/docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491", size = 25901, upload-time = "2014-06-16T11:18:57.406Z" }
-
-[[package]]
 name = "docstring-parser"
 version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1647,18 +1597,6 @@ name = "duckdb"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/31/29/9bad86ed7aa812d8c822a27c15c355b6d5423b991feeec86ed18027b6daa/duckdb-1.5.4.tar.gz", hash = "sha256:f9e32f1cdd106793d79d190186bed9e75289d51e68bd9174e47c04bffedeab6f", size = 18046634, upload-time = "2026-06-17T10:48:52.499Z" }
-
-[[package]]
-name = "eight"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "future" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/17/16e936433e7eb99ae62080846e6a47b3cbfea645ae59e25db2d6560570c0/eight-1.0.1.tar.gz", hash = "sha256:6465970d3c12a1d759151690629b10b50ffb124c9b62e912999ee9233378a562", size = 11021, upload-time = "2021-03-16T00:12:21.942Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/17/0bc3026bbd6ee63dcff9a276a3db4ab11d845ba748aab8cdf20fa4d241f8/eight-1.0.1-py2.py3-none-any.whl", hash = "sha256:bd6967ec7cf9e61ab18b55751236ed89a8363cfcb69127aace336869615245d5", size = 10432, upload-time = "2021-03-16T00:12:20.604Z" },
-]
 
 [[package]]
 name = "email-validator"
@@ -1953,12 +1891,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/d5/8d/1c51c094345df128c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/0c/043d5e551459da400957a1395e0febbf771446ff34291afcbe3d8be2a279/fsspec-2026.4.0-py3-none-any.whl", hash = "sha256:11ef7bb35dab8a394fde6e608221d5cf3e8499401c249bebaeaad760a1a8dec2", size = 203402, upload-time = "2026-04-29T20:42:36.842Z" },
 ]
-
-[[package]]
-name = "future"
-version = "0.18.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8f/2e/cf6accf7415237d6faeeebdc7832023c90e0282aa16fd3263db0eb4715ec/future-0.18.3.tar.gz", hash = "sha256:34a17436ed1e96697a86f9de3d15a3b0be01d8bc8de9c1dffd59fb8234ed5307", size = 840896, upload-time = "2023-01-13T03:15:17.607Z" }
 
 [[package]]
 name = "gcsfs"
@@ -5337,15 +5269,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/81/d7/803232913cab9163a1a97ecf2236cd7135903c46ac8d49613448d88e8759/pyppmd-1.3.1.tar.gz", hash = "sha256:ced527f08ade4408c1bfc5264e9f97ffac8d221c9d13eca4f35ec1ec0c7b6b2e", size = 1351815, upload-time = "2025-11-27T22:08:44.175Z" }
 
 [[package]]
-name = "pyprind"
-version = "2.11.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6d/10/ca67b50d71e3c85143c1dc16d7954cc12b01f8866ec4250a4f3389727c3f/PyPrind-2.11.3.tar.gz", hash = "sha256:e37dcab6e1a9c8e0a7f0fce65fde7a79e2deda1c75aa015910a49e2137b54cbf", size = 11632, upload-time = "2021-04-18T18:10:04.594Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/b3/1f12ebc5009c65b607509393ad98240728b4401bc3593868fb161fdd3760/PyPrind-2.11.3-py2.py3-none-any.whl", hash = "sha256:cc8edb66aabb18f25f7a3cce65312b3bc64b49992ddc93ba4cf511e5e25c1be3", size = 8373, upload-time = "2021-04-18T18:10:03.431Z" },
-]
-
-[[package]]
 name = "pyproj"
 version = "3.7.2"
 source = { registry = "https://pypi.org/simple" }
@@ -6924,12 +6847,6 @@ wheels = [
 ]
 
 [[package]]
-name = "unicodecsv"
-version = "0.14.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6f/a4/691ab63b17505a26096608cc309960b5a6bdf39e4ba1a793d5f9b1a53270/unicodecsv-0.14.1.tar.gz", hash = "sha256:018c08037d48649a0412063ff4eda26eaa81eff1546dbffa51fa5293276ff7fc", size = 10267, upload-time = "2015-09-22T22:00:19.516Z" }
-
-[[package]]
 name = "uniseg"
 version = "0.10.1"
 source = { registry = "https://pypi.org/simple" }
@@ -7180,15 +7097,6 @@ wheels = [
 ]
 
 [[package]]
-name = "whoosh"
-version = "2.7.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/25/2b/6beed2107b148edc1321da0d489afc4617b9ed317ef7b72d4993cad9b684/Whoosh-2.7.4.tar.gz", hash = "sha256:7ca5633dbfa9e0e0fa400d3151a8a0c4bec53bd2ecedc0a67705b17565c31a83", size = 968741, upload-time = "2016-04-04T01:19:32.327Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/19/24d0f1f454a2c1eb689ca28d2f178db81e5024f42d82729a4ff6771155cf/Whoosh-2.7.4-py2.py3-none-any.whl", hash = "sha256:aa39c3c3426e3fd107dcb4bde64ca1e276a65a889d9085a6e4b54ba82420a852", size = 468790, upload-time = "2016-04-04T01:19:40.379Z" },
-]
-
-[[package]]
 name = "widgetsnbextension"
 version = "4.0.15"
 source = { registry = "https://pypi.org/simple" }
@@ -7226,9 +7134,9 @@ dependencies = [
     { name = "bcf-client" },
     { name = "beartype" },
     { name = "blackrenderer" },
-    { name = "brightway2" },
     { name = "brotli" },
     { name = "bw-processing" },
+    { name = "bw2analyzer" },
     { name = "bw2calc" },
     { name = "bw2data" },
     { name = "bw2io" },
@@ -7484,9 +7392,9 @@ requires-dist = [
     { name = "beartype", git = "https://github.com/beartype/beartype.git?rev=f370a0b1733413681e7a72bf36fbe839e60b3c85" },
     { name = "blackjax", marker = "python_full_version < '3.15'" },
     { name = "blackrenderer" },
-    { name = "brightway2" },
     { name = "brotli" },
     { name = "bw-processing" },
+    { name = "bw2analyzer" },
     { name = "bw2calc" },
     { name = "bw2data" },
     { name = "bw2io" },

@@ -14,9 +14,10 @@
 - [08]-[WIRE](.planning/transport/wire.md)
 - [09]-[ADMISSION](.planning/execution/admission.md)
 - [10]-[LANES](.planning/execution/lanes.md)
-- [11]-[IDENTITY](.planning/evidence/identity.md)
-- [12]-[EVIDENCE](.planning/evidence/evidence.md)
-- [13]-[CLOCK](.planning/clock/clock.md)
+- [11]-[RECIPE](.planning/execution/recipe.md)
+- [12]-[IDENTITY](.planning/evidence/identity.md)
+- [13]-[EVIDENCE](.planning/evidence/evidence.md)
+- [14]-[CLOCK](.planning/clock/clock.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

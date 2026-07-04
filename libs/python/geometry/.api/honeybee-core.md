@@ -9,6 +9,7 @@
 - import: `import honeybee` then `from honeybee.model import Model`, `from honeybee.room import Room`, `from honeybee.face import Face`, `from honeybee.aperture import Aperture`, `from honeybee.door import Door`, `from honeybee.shade import Shade`, `from honeybee.shademesh import ShadeMesh`
 - owner: `geometry`
 - rail: energy-modeling
+- consumer: `.planning/energy/model.md` (the one `check_all`-gated admission, aperture mint, adjacency, HBJSON wire)
 - version: `1.60.0`
 - license: AGPL-3.0 (the Ladybug Tools copyleft; AGPL obligations attach to any networked redistribution)
 - abi: pure-Python `py3-none-any` wheel; no compiled payload

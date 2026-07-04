@@ -9,6 +9,7 @@
 - import: `import honeybee_standards` then `honeybee_standards.energy_default` / `honeybee_standards.radiance_default` (absolute paths to the bundled JSON); consumed indirectly through `honeybee_energy.config.folders.defaults_file`
 - owner: `geometry`
 - rail: energy-modeling
+- consumer: `.planning/energy/model.md` — reached exclusively through the `honeybee_energy.lib` `RESOLVERS` rows, never a direct JSON read
 - installed: `2.0.6`
 - license: GPL-3.0 (the wheel declares the `GNU General Public License v3 (GPLv3)` classifier; the bundled `LICENSE` file conflictingly carries the MIT text and the `License` metadata field is unset — a Ladybug Tools metadata inconsistency, read as the conservative GPLv3)
 - abi: pure-data `py3-none-any` wheel — JSON/IDF/MAT resource files plus a trivial `__init__.py` exposing two path constants; no compiled payload and no executable code

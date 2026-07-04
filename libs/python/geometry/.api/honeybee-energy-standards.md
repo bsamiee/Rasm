@@ -9,6 +9,7 @@
 - import: `import honeybee_energy_standards` (a docstring-only module; it exposes NO callable API); consumed indirectly through `honeybee_energy.config.folders.standards_extension_folders` and the `honeybee_energy.lib.*_by_identifier` loaders
 - owner: `geometry`
 - rail: energy-modeling
+- consumer: `.planning/energy/model.md` — reached exclusively through the `honeybee_energy.lib` `RESOLVERS` rows, never a direct JSON read
 - version: `2.3.0`
 - license: AGPL-3.0 (Ladybug Tools copyleft)
 - abi: pure-data `py3-none-any` wheel — JSON resource files plus a trivial docstring-only `__init__.py`; no compiled payload and no executable code (the module note: "this package contains no Python code and only contains JSON objects that can be consumed by the honeybee-energy package when installed")

@@ -24,7 +24,7 @@ The urban-district massing owner — the 2.5-D layer above the building model wh
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map

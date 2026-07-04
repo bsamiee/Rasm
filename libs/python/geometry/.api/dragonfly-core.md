@@ -12,6 +12,7 @@
 - module: pure Python — `dragonfly.{model,building,story,room2d,context}` (the object graph), `dragonfly.{windowparameter,skylightparameter,shadingparameter,roof,projection}` (parameter families + GeoJSON projection), `dragonfly.properties` (extension hosts), `dragonfly.dictutil` (polymorphic loader)
 - owner: `geometry`
 - rail: energy-companion (urban massing)
+- consumer: `.planning/energy/district.md` (dfjson/GeoJSON/massing admission, ordered auto-zoning, the `to_honeybee` explosion seam)
 - asset: pure Python over `ladybug-geometry`; no compiled extensions
 - depends: `honeybee-core==1.60.0` (exact pin — the building model `to_honeybee` targets; transitively `ladybug-geometry`, `ladybug-core`), `dragonfly-schema==1.12.6` (the Pydantic dfjson schema validating `to_dict`/`from_dict`)
 - capability: build/edit an urban massing graph, solve inter-room adjacencies, import/export urban GeoJSON, and translate the district into an array of Honeybee energy models with multiplier/plenum/adjacency handling

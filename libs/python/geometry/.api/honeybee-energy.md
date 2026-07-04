@@ -9,6 +9,7 @@
 - import: `import honeybee_energy` (the `_extend_honeybee` import attaches `.properties.energy`); then `from honeybee_energy.construction.opaque import OpaqueConstruction`, `from honeybee_energy.programtype import ProgramType`, `from honeybee_energy.lib.programtypes import program_type_by_identifier`, `from honeybee_energy.simulation.parameter import SimulationParameter`, `from honeybee_energy.run import to_openstudio_osw, run_osw`
 - owner: `geometry`
 - rail: energy-modeling
+- consumer: `.planning/energy/model.md` (`.properties.energy` assignment, `lib` standards resolution, `HVAC_TYPES_DICT`) + `.planning/energy/simulate.md` (`SimulationParameter`/`SimulationOutput`, the OSW/CLI fall-through, `result.eui`)
 - version: `1.109.27`
 - license: AGPL-3.0 (Ladybug Tools copyleft)
 - abi: pure-Python `py3-none-any` wheel, no compiled payload; the energy simulation itself runs in the external EnergyPlus/OpenStudio CLI, not in-process

@@ -161,10 +161,10 @@ dependencies = [
     "laszip",                                        # [DATA]: alternate compressed-COPC LAZ backend for laspy.copc
     "openepd",                                       # [DATA]: OpenEPD declarations and PCR material-impact payloads
     "epdx<1.0",                                      # [DATA]: EPDx environmental product declaration interchange; 1.x ships no mac wheel and a broken sdist
-    "brightway2",                                    # [DATA]: Brightway LCA facade for material-impact calculations
     "bw2data",                                       # [DATA]: Brightway project, database, and storage layer
     "bw2calc",                                       # [DATA]: Brightway LCA calculation engine
     "bw2io",                                         # [DATA]: Brightway import/export and database ingestion
+    "bw2analyzer",                                   # [DATA]: Brightway contribution and comparison analysis on the solve leg
     "bw-processing",                                 # [DATA]: Brightway matrix-processing substrate
     "olca-ipc",                                      # [DATA]: openLCA IPC client for foreground/background LCA interchange
     "premise; python_version<'3.15'",                # [DATA]: prospective LCA scenario database transformer; sparse/unfold hard-require numba (no cp315)

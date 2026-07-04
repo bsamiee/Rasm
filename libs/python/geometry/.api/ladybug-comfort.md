@@ -9,6 +9,7 @@
 - import: `import ladybug_comfort`
 - owner: `geometry`
 - rail: energy / comfort
+- consumer: `.planning/energy/climate.md` (PMV/UTCI/PET rows, SolarCal MRT, the `MAPS` comfort-map rows)
 - installed: `0.18.61`
 - license: AGPL-3.0 (strong copyleft; runs as the out-of-process energy companion rail graduating comfort `DataCollection`/map evidence across the wire)
 - entry points: `ladybug-comfort` console script (CLI command groups `datacollection`/`epw`/`map`/`mtx`/`sql`); the rail composes the API

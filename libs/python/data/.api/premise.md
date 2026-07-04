@@ -60,7 +60,7 @@
 - `pyarrow` — the `datapackage`/superstructure export rides Arrow; route it through the data owner's Arrow rail for downstream tabular consumption.
 
 [SIBLING_STACK]: stacking with the data EPD/LCA folder cluster (`libs/python/data/.api/`)
-- `bw2data` — the SOURCE and TARGET: `source_type='brightway'` reads `source_db` from the current `bw2data` project; `write_db_to_brightway(name)` registers the prospective database(s) back. Set the project with `bd.projects.set_current(...)` and run `bw2setup()` (via `brightway2`) before building. Install `premise[bw25]` so this is the modern `bw2data 4.x` store, not the legacy bw2 line.
+- `bw2data` — the SOURCE and TARGET: `source_type='brightway'` reads `source_db` from the current `bw2data` project; `write_db_to_brightway(name)` registers the prospective database(s) back. Set the project with `bd.projects.set_current(...)` and run `bw2io.bw2setup()` before building. Install `premise[bw25]` so this is the modern `bw2data 4.x` store, not the legacy bw2 line.
 - `bw2calc` — the consumer: after `write_db_to_brightway`, score the prospective database with `bw2calc.LCA`/`MultiLCA` exactly as a present-day database; the superstructure form feeds a scenario-difference `MultiLCA`.
 - `bw2io` — premise uses `bw2io` strategies to import `additional_inventories` and normalize units before transformation; the importer surface is `bw2io.md`.
 - `bw-processing` — `write_datapackage`/`write_db_to_matrices` emit `bw_processing` datapackages/matrices, and the prospective-scenario overlay rides `bw_processing.merge_datapackages_with_mask` (splice future-scenario coefficients onto the baseline background datapackage); that catalog owns the on-disk superstructure format.

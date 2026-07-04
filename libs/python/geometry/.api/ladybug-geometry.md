@@ -9,6 +9,7 @@
 - import: `import ladybug_geometry`
 - owner: `geometry`
 - rail: energy / geometry-substrate
+- consumer: `.planning/energy/model.md` (`Face3D`/`Polyface3D` BIM-to-BEM lifting) + `.planning/energy/district.md` (footprint rings)
 - installed: `1.33.11`
 - license: AGPL-3.0 (strong copyleft; the energy band runs as an out-of-process companion rail graduating HBJSON/result evidence across the wire, never linked into a distributed host binary)
 - abi: pure-Python (`py2.py3-none-any`, purelib; no native extension)

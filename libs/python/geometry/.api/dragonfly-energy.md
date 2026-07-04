@@ -12,6 +12,7 @@
 - module: pure Python — `dragonfly_energy.properties.{model,building,story,room2d,context}` (the `.energy` extension), `dragonfly_energy.{writer,run,reopt,measure}` (translation + run pipeline), `dragonfly_energy.des.{loop,ghe,connector,junction}` (district energy system), `dragonfly_energy.opendss.*` (electrical network)
 - owner: `geometry`
 - rail: energy-companion (district energy translation)
+- consumer: `.planning/energy/district.md` (the `DistrictTarget` URBANopt/DES/OpenDSS/REopt translation rows and `.properties.energy` assignment)
 - abi: pure-Python `py3-none-any` wheel; no compiled payload — the actual simulation is EXTERNAL (see `[RUNTIME_BOUNDARY]`)
 - depends: `dragonfly-core==1.57.10` (the host model), `honeybee-energy==1.109.27` (the EnergyPlus object library wrapped by `.properties.energy`); the `standards` extra adds `honeybee-energy-standards`; `honeybee-openstudio` is the separately admitted OSW->OpenStudio runtime companion `run_urbanopt` drives
 - capability: attach Honeybee-Energy properties to an urban model, then translate it to URBANopt (feature GeoJSON + scenario), to a DES (4th-gen hot/chilled loop or GHE-based ambient loop with borefield sizing), to an OpenDSS electrical network, or to a REopt analysis — and drive the external engines through the run pipeline

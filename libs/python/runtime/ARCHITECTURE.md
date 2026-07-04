@@ -19,9 +19,10 @@ runtime/
 │   ├── roots.py       # ResourceRoot/ResourceRef over fsspec/upath/obstore and HTTP/SSH TransportResource
 │   ├── serve.py       # ServerHost grpc.aio lifecycle, decoded Credential axis, descriptor-driven CapabilityInvoke, and cyclopts Entrypoint
 │   └── wire.py        # WireProtoCodec protobuf seam and CrdtOp union with DecompressFn-injected CrdtOpDecode
-├── execution/         # Caller-owned admission of host facts and bounded structured concurrency
+├── execution/         # Caller-owned admission of host facts, bounded structured concurrency, and local recipe execution
 │   ├── admission.py   # RuntimeContext policy table, causal frames, and SettingsAdmission secret boundary
-│   └── lanes.py       # LanePolicy anyio task groups with DrainReceipt and StagePlan DAG
+│   ├── lanes.py       # LanePolicy anyio task groups with DrainReceipt and StagePlan DAG
+│   └── recipe.py      # RecipeExecution: queenbee-schema recipe runs via lbt-recipes over the lane, engine-gated, content-keyed, luigi-evidence verdicts
 ├── evidence/          # Content-addressing plus external-surface and structural-parsing evidence
 │   ├── identity.py    # ContentIdentity/ContentKey reproducing C# XxHash128 seed bit-identically
 │   └── evidence.py    # ApiPackage/ApiMember reflection and Structural tree-sitter queries

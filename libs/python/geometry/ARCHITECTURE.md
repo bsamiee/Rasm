@@ -26,10 +26,15 @@ geometry/
 │   ├── brep.py               # BrepOp: cadquery-ocp B-rep evaluation, manifold3d solid algebra, mesh-brep subject
 │   ├── spatial.py            # MeshSpatial: trimesh + numpy proximity/ray/contains/AABB-tree + clearance spatial query over in-memory triangulation (runtime spine; FCL CollisionManager clearance + manifold3d.min_gap enrichment worker, offloaded by find_spec)
 │   └── quality.py            # MeshQuality: trimesh + numpy aspect-ratio/skewness/manifold-edge/genus mesh-quality metric receipts
-└── graph/                    # Non-manifold topology over topologicpy and AEC computational geometry over compas, network analytics over networkx
-    ├── nonmanifold.py        # TopologyAlgebra: CellComplex/Cell/Aperture construction, decomposition, adjacency, dual-graph
-    ├── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra
-    └── features.py           # GraphFeatures: networkx centrality/community/shortest-path/connectivity analytics over the network-graph projection
+├── graph/                    # Non-manifold topology over topologicpy and AEC computational geometry over compas, network analytics over networkx
+│   ├── nonmanifold.py        # TopologyAlgebra: CellComplex/Cell/Aperture construction, decomposition, adjacency, dual-graph
+│   ├── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra
+│   └── features.py           # GraphFeatures: networkx centrality/community/shortest-path/connectivity analytics over the network-graph projection
+└── energy/                   # Out-of-process AGPL Ladybug Tools building-physics band: climate, HBJSON model, urban district, simulation egress
+    ├── climate.py            # Climate: polymorphic EPW admission, DataCollection series algebra, Sunpath solar, PMV/UTCI/PET comfort + map rows
+    ├── model.py              # BuildingModel: one HBJSON/BIM-to-BEM admission under one check_all gate, standards-resolved energy assignment, content-keyed HBJSON wire
+    ├── district.py           # District: dragonfly dfjson/GeoJSON/massing admission, ordered auto-zoning, to_honeybee explosion, URBANopt/DES/OpenDSS/REopt translation rows
+    └── simulate.py           # Simulation: offloaded OSM/IDF/epJSON/gbXML translation, runtime recipe binding, SQLiteResult/EUI decode into self-describing frames
 ```
 
 ## [02]-[SEAMS]
@@ -58,10 +63,17 @@ mesh           ←  python:data/spatial          # [SHAPE]: MeshPayload cell-blo
 mesh/repair    →  python:data/spatial          # [CODEC_SHED]: repair/brep/spatial/quality return in-memory Trimesh; mesh-file decode/encode + GLB preview,
 mesh           ⇄  python:artifacts/figures     # [BOUNDARY]: visualization-scene/USD/GLTF/OBJ export is artifacts figures/scene, mesh-file codec is data
 scan/ingestion ←  python:data/spatial          # [SHAPE]: COPC arm decode leaves the pdal filter-graph owner unchanged
+energy/model   ⇄  csharp:Rasm.Bim/Exchange     # [WIRE]: content-keyed canonical HBJSON document bytes — the Energy exchange peers at document bytes, one XxHash128 derivation
+energy/model   ←  csharp:Rasm.Bim/Exchange     # [SHAPE]: IFC SPF source bytes for the BIM-to-BEM derivation modality
+energy/simulate →  python:runtime/recipe       # [PORT]: RecipeExecution/RecipeSpec — geometry binds Job/RecipeInterface schema, runtime owns execution
+energy/simulate →  python:data/tabular         # [SHAPE]: self-describing result frames (output/unit/period/zone/step/value/content_key) over the columnar arrow_bytes fold
+energy/*       →  graduation                   # [GRADUATION]: building-energy / thermal-comfort GeometryHandoff evidence
 ```
 
 ## [03]-[COMPANION_LANES]
 
 Every sub-domain rides the companion engine selection the branch manifest owns, with compiled geometry/IFC cores and copyleft packages isolated at the process boundary.
 
-The runtime lane carries `numpy`, `trimesh`, `rhino3dm`, `laspy`, and `networkx` for the `mesh/spatial`, `mesh/quality`, `graph/features`, and mesh/spatial spine owners. Worker lanes carry compiled enrichment rows such as `manifold3d`, `cadquery-ocp`, `compas`, `compas_dr`, `compas_tna`, `open3d`, `small-gicp`, `kiss-matcher`, `pye57`, and `sectionproperties`; `ifcopenshell` remains the worker IFC package behind `ifc/authoring` and `ifc/structural`.
+The runtime lane carries `numpy`, `trimesh`, `rhino3dm`, `laspy`, and `networkx` for the `mesh/spatial`, `mesh/quality`, `graph/features`, and mesh/spatial spine owners. Worker lanes carry compiled enrichment rows such as `manifold3d`, `cadquery-ocp`, `compas`, `compas_dr`, `compas_tna`, `open3d`, `small-gicp`, `kiss-matcher`, `pye57`, and `sectionproperties`; `ifcopenshell` remains the worker IFC package behind `ifc/authoring`, `ifc/structural`, and the `energy/model` BIM-to-BEM derivation arm.
+
+The AGPL Ladybug Tools band (`ladybug-core`/`ladybug-geometry`/`ladybug-comfort`, `honeybee-core`/`honeybee-energy`/`honeybee-openstudio` + the two standards data backends, `dragonfly-core`/`dragonfly-energy`) rides the `energy/` owners with strictly function-local boundary imports and process-boundary evidence exchange — HBJSON/dfjson/EPW document bytes and result frames across the wire, never a distributed link. The simulation engines (Radiance/OpenStudio/EnergyPlus behind the runtime recipe rail; URBANopt/Modelica/RNM/REopt behind the district translation rows) are external process-boundary services.

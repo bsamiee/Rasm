@@ -19,7 +19,7 @@
 - [13]-[RAGGED](.planning/gridded/ragged.md): Ragged N-D store owner over `awkward` with the `from_arrow`/`to_arrow` zero-copy bridge to the interop Arrow carrier.
 - [14]-[FIELD](.planning/gridded/field.md): CF-conventioned labelled N-D field dataset over `xarray` (netcdf4/HDF5/Zarr engines), CF-aware selection, and `flox` grouped/resampled reductions.
 - [15]-[GRAPH](.planning/graph/graph.md): Graph payloads over `rustworkx` with `networkx` compat, typed algorithm receipts, and graph egress.
-- [16]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing external EPD declarations (OpenEPD/EC3, ILCD+EPD) and computed LCA results (Brightway solver, live openLCA, prospective `premise` backgrounds) into one EN 15804 indicator × life-cycle-stage carrier keyed by `ContentIdentity`.
+- [16]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing external EPD declarations (OpenEPD/EC3, ILCD+EPD) and computed LCA results (the staged Brightway solve with Monte Carlo spread and `bw2analyzer` contribution depth, the live openLCA lifecycle, prospective `premise` backgrounds) into one EN 15804 indicator × life-cycle-stage carrier with canonical unit rows, keyed by `ContentIdentity` and lowered to the eight-column self-describing assessment frame.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -106,10 +106,10 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 [EPD_LCA]:
 - `openepd` — OpenEPD/EC3 typed declaration model, EC3 sync client, and offline bundle IO.
 - `epdx` — ILCD+EPD to EPDx common-format conversion.
-- `brightway2` — Brightway umbrella/bootstrap facade; admit for `bw2setup` plus ecoinvent/EEIO import, and compose new code against the owning packages below.
-- `bw2data` — Brightway project and node/edge graph store (system of record).
+- `bw2data` — Brightway project and node/edge graph store (system of record); owns the `bw2setup` and ecoinvent/EEIO import bootstrap with `bw2io`.
 - `bw2calc` — Brightway LCA solver (sparse matrix assembly and score).
 - `bw2io` — Brightway LCI/LCIA import/export and database ingestion.
+- `bw2analyzer` — Brightway contribution/comparison analysis: `annotated_top_processes`/`annotated_top_emissions` depth on the solve leg.
 - `bw-processing` — Brightway matrix-datapackage substrate (COO triples).
 - `olca-ipc` — live openLCA IPC/REST client and result queries; carries `olca-schema` as its wire model.
 - `premise` — prospective ecoinvent background-database transformer over IAM scenarios.

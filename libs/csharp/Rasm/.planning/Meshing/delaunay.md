@@ -12,8 +12,8 @@ The page owns `TessellationKind` (dimensional discriminant), `TessellationMode` 
 
 - Owner: `TessellationKind` `[SmartEnum<string>]` the dimensional discriminant (`triangulation`/`tetrahedralization`) binding the shipped `ComparerAccessors.StringOrdinal`, carrying the `SimplexArity` column (3/4); `TessellationMode` `[SmartEnum<string>]` the restoration regime (`delaunay`/`constrained`) carrying the `Restores` column the insert fold consults — `Constrained` is the zero-in-circum regime the R2 exact-arrangement path mandates for implicit-bearing builds; `TessellationPolicy` the policy row (`Mode` · `MaxFlipPasses` · `MaxRecoverySteiner` · `SuperSimplexScale`) registering `IValidityEvidence`; `SimplexStore` the single-writer mutable arena under the `Meshing/edit#ARENA_LAW` contract — `Implicit[]` vertex rows (the R2 hybrid vertex table: explicit and crossing rows in ONE closed carrier, implicit rows referencing INPUT points only — depth-1 sealed), `arity*capacity` simplex-vertex and neighbour slot columns (`-1` neighbour = hull face), a dead bitset + free list, every column grown by amortized doubling (never an input-derived size guess); `Constraint` the closed recovery input — `Segment(A,B)` a constrained edge over vertex ids, `Facet(int[])` a 3D constrained face, `Crossing(A,B,P,Q,R)` the implicit-point case: a constrained segment that is the TRACE of a foreign supporting plane (its three ORIGINAL points carried on the case) so a recovery-time split re-anchors on the carrier — a constraint×constraint crossing re-expresses as `Tpi` over nine input points, a crossing with an explicit in-plane edge as `Lpi` over five, never a construction over implicit endpoints; `TessellationOp` `[Union]` (`Points`/`Insert`/`Recover`) the modality union; `Tessellation` `[Union]` (`Triangulation` carrying store + `SuperBase` + projection `Axis` + policy, `Tetrahedralization` carrying store + `SuperBase` + policy) with the three result projections; `DualGraph` the Voronoi-dual projection carrier (circumcenters + circumradii + dual edges + the crossed DT edge per dual edge).
 - Cases: `TessellationKind` rows 2; `TessellationMode` rows 2; `Constraint` cases `Segment` · `Facet` · `Crossing` (3); `TessellationOp` cases `Points` · `Insert` · `Recover` (3); `Tessellation` cases 2.
-- Entry: `public static Fin<Tessellation> Build(TessellationOp op, Op? key = null)` — the ONE entry over every modality: `Points(kind, vertices, constraints, policy, plane, support)` seeds, Morton-orders, inserts, recovers, and strips in one fold; `Insert(into, vertex)` is one incremental insertion into an existing tessellation; `Recover(into, constraints)` forces a constraint set into an existing complex. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind, index, witness)` 2400 on an empty set, a non-finite explicit row, a fully-degenerate set (no valid simplex), an implicit-bearing build under `TessellationMode.Delaunay`, or an implicit row in a `Tetrahedralization` build (the 3D implicit family is recorded growth); `GeometryFault.ConstraintUnrecoverable(constraint, budget)` 2421 when a constraint exhausts its Steiner budget; `GeometryFault.DegenerateTessellation(simplex, witness)` 2422 when a cavity or flip invariant breaks. Projections on the result: `public Fin<MeshSpace> ToMesh(Context context, Op? key = null)` freezes through the `Meshing/edit` arena (implicit rows `Round()` HERE — the one emission-seam materialization); `public Fin<(Point3d A, Point3d B, Point3d C)[]> Triangles(Op? key = null)` the lightweight sub-triangle emission the arrangement's per-face readback and the overlay classification consume — live-simplex order is the index law shared with the dual; `public Fin<DualGraph> VoronoiDual(Op? key = null)` emits exact DT adjacency with circumcenters and circumradii materialized at emission, node `i` naming the same live triangle as `Triangles()[i]` (all-explicit builds — the V10c decoupled medial input; an implicit-bearing dual is a typed fail, the exact circumcenter side-of test a recorded growth row); `public Fin<MeshSpace> LowerHull(Context context, Op? key = null)` emits the boundary facets — the exact convex hull by the paraboloid-lift equivalence. No `BuildTriangulation`/`BuildTetrahedralization`/`InsertVertex` sibling statics — one polymorphic `Build` discriminates on the op case.
-- Auto: the `Points` arm validates, seeds the store with the scaled bounding super-simplex (explicit rows, occupying the table tail from `SuperBase`), folds insertion over the `Delaunay.InsertionOrder` Morton sequence (the 30-bit Z-order bit-spread over `Round()` materializations — insertion order is a LOCALITY heuristic carrying zero correctness weight; every sign decision reads the exact carrier), folds `RecoverOne` over the constraints, and strips super-incident simplices. `Insert` locates the containing simplex by the exact straight-walk (`ExitFace` crosses the face whose projected `Predicate.Orient2D` sign over the `Implicit` rows places the query strictly outside — one member spans every explicit/implicit combination via the carrier's case shape and the `Axis` row; the tetrahedral walk reads `Orient3D` over explicit rows), then dispatches the `TessellationMode` row: `Delaunay` floods the in-circum cavity (`Restorable` gates each candidate on explicit corners — the landed `InCircle(a,b,c, in Implicit, axis)`/`InSphere(…, in Implicit)` members serve an explicit OR constructed query against explicit corners; a candidate with an implicit corner is skipped, its restoration the recorded multi-implicit growth) and cones the cavity star to the vertex; `Constrained` performs the zero-in-circum split-insertion (interior 1→3, on-edge 2→4 across the shared face) — the reference exact-arrangement shape. `RecoverOne` walks each missing constraint edge: a crossing UNCONSTRAINED diagonal flips when the surrounding quad is convex (four projected orientation signs — the ONE `SimplexFlip` both recovery and restoration ride); a crossing CONSTRAINED edge is a constraint×constraint crossing that mints the exact Steiner row over ORIGINAL entities — `Ssi` over four explicit endpoints in the build plane, `Lpi` over an explicit edge × the carried foreign plane, `Tpi` over the build's `Support` witness plane × two carried foreign planes — inserted by split-insertion, both sub-segments re-anchored ON THE PARENT CARRIER (a `Crossing` child keeps the foreign-plane carriage; the budget decrements per split); `Facet` recovery forces boundary segments first, then the interior by orientation-guarded 2-3/3-2 bistellar passes bounded by `MaxFlipPasses`. Delaunay-mode restoration re-runs the flip pass over non-constrained explicit-cornered edges until empty-circum holds or the pass budget exhausts.
+- Entry: `public static Fin<Tessellation> Build(TessellationOp op, Op? key = null)` — the ONE entry over every modality: `Points(kind, vertices, constraints, policy, plane, support)` seeds, Morton-orders, inserts, recovers, and strips in one fold; `Insert(into, vertex)` is one incremental insertion into an existing tessellation (through the SAME one-row admission — the interior never re-validates); `Recover(into, constraints)` forces a constraint set into an existing complex (ids gated against the live vertex table). `Fin<T>` routes `GeometryFault.DegenerateInput(Kind, index, witness)` 2400 on an empty set, a non-finite explicit row, a BIT-IDENTICAL duplicate row (a coincident vertex degenerates every split that touches it), a constraint id outside the vertex table, a fully-degenerate set (nothing survives the super strip), an implicit-bearing build under `TessellationMode.Delaunay`, or an implicit row in a `Tetrahedralization` build (the 3D implicit family is recorded growth); `GeometryFault.ConstraintUnrecoverable(constraint, budget)` 2421 when a constraint exhausts its Steiner or flip budget; `GeometryFault.DegenerateTessellation(simplex, witness)` 2422 when a cavity, walk, or flip invariant breaks. Projections on the result: `public Fin<MeshSpace> ToMesh(Context context, Op? key = null)` freezes through the `Meshing/edit` arena (implicit rows `Round()` HERE — the one emission-seam materialization; tetra boundary faces wind outward by the exact apex sign); `public Fin<(Point3d A, Point3d B, Point3d C)[]> Triangles(Op? key = null)` the lightweight sub-triangle emission the arrangement's per-face readback and the overlay classification consume — live-simplex order is the index law shared with the dual; `public Fin<DualGraph> VoronoiDual(Op? key = null)` emits exact DT adjacency with circumcenters and circumradii materialized at emission, node `i` naming the same live triangle as `Triangles()[i]` (all-explicit builds — the V10c decoupled medial input; an implicit-bearing dual is a typed fail, the exact circumcenter side-of test a recorded growth row); `public Fin<MeshSpace> LowerHull(Context context, Op? key = null)` emits the outward-wound boundary facets — the exact convex hull by the paraboloid-lift equivalence, a TETRAHEDRALIZATION projection (a triangulation's hull is its boundary edge chain; the mesh spelling refuses typed). No `BuildTriangulation`/`BuildTetrahedralization`/`InsertVertex` sibling statics — one polymorphic `Build` discriminates on the op case.
+- Auto: the `Points` arm validates, seeds the store with the scaled bounding super-simplex (explicit rows, occupying the table tail from `SuperBase`), folds insertion over the `Delaunay.InsertionOrder` Morton sequence (the 30-bit Z-order bit-spread over `Round()` materializations — insertion order is a LOCALITY heuristic carrying zero correctness weight; every sign decision reads the exact carrier), folds `RecoverOne` over the constraints, and strips super-incident simplices through the degenerate gate. `Insert` locates the containing simplex by the exact straight-walk (`ExitFace` crosses the face whose projected `Predicate.Orient2D` sign over the `Implicit` rows places the query strictly outside — one member spans every explicit/implicit combination via the carrier's case shape and the `Axis` row; the tetrahedral test is APEX-RELATIVE — query strictly opposite `vs[f]` — because the cyclic face triple flips parity with the face index), then dispatches the `TessellationMode` row: `Delaunay` floods the in-circum cavity (`Restorable` gates each candidate on explicit corners — the landed `InCircle(a,b,c, in Implicit, axis)`/`InSphere(…, in Implicit)` members serve an explicit OR constructed query against explicit corners; a candidate with an implicit corner is skipped, its restoration the recorded multi-implicit growth) and cones the cavity star to the vertex; `Constrained` performs the zero-in-circum split-insertion (interior 1→3, on-edge 2→4 across the shared face) — the reference exact-arrangement shape. Every interior query rides the vertex-anchored STAR WALK (`SimplexStore.Anchor` + neighbour flood — `EdgePresent`, `FirstCrossing`, `IncidentPair` are O(star), never table scans). 2D `RecoverOne` walks each missing constraint edge: a crossing UNCONSTRAINED diagonal flips when the surrounding quad is convex (four projected orientation signs — the ONE `SimplexFlip` both recovery and restoration ride); a crossing CONSTRAINED edge is a constraint×constraint crossing that mints the exact Steiner row over ORIGINAL entities — `Ssi` over four explicit endpoints in the build plane, `Lpi` over an explicit edge × the carried foreign plane, `Tpi` over the build's `Support` witness plane × two carried foreign planes — inserted by split-insertion, both sub-segments re-anchored ON THE PARENT CARRIER (a `Crossing` child keeps the foreign-plane carriage; the budget decrements per split). 3D edge recovery is FLIP-ONLY: `BlockingFace` finds the a-incident face strictly pierced by the segment (exact plane straddle + three same-sign edge-plane gates) and the 2-3 bistellar move removes it; `Facet` recovery forces boundary segments first, then `FacetConform` removes every facet-crossing tet edge by 3-2 moves (incidence three) or a 2-3 peel (higher incidence), orientation-guarded on the convex-bipyramid signs and bounded by `MaxFlipPasses` — a stuck corridor or surviving crossing faults typed. Delaunay-mode restoration re-runs the flip pass over non-constrained explicit-cornered edges until empty-circum holds or the pass budget exhausts.
 - Receipt: none on the build rail — the `Tessellation` value IS the result, registering `IValidityEvidence` (`ValidityClaim.All` over live-simplex count and column extents); the frozen `MeshSpace` the `ToMesh` freeze publishes is the hash-eligible artifact `Spatial/reconciliation` `Encode` content-addresses; a live `SimplexStore` is never hashed.
 - Packages: `Rasm.Geometry.Numerics` (`Predicate` direct + implicit family, `Implicit`/`Ssi`/`Lpi`/`Tpi`, `Sign`, `Axis` — the exact floor, composed never re-minted), `Rasm.Geometry.Meshing` (`MeshEdit.Of` soup arena + `ToSpace` freeze — the ONE `ToMesh` path), `Rasm.Geometry` (`GeometryFault` band-2400 union), `Rasm.Domain` (`Op` key threading, `Context`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Rasm`/Vectors (`Point3d`/`BoundingBox`/`MeshSpace`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`Stack<T>`, `Dictionary<,>`).
 - Growth: a new tessellation modality (power/weighted Delaunay, an alpha-complex filter) is one `TessellationKind` or `TessellationMode` row plus one fold arm over the SAME `SimplexStore` — never a parallel triangulator; a new constraint shape is one `Constraint` case plus one `RecoverOne` arm; a new vertex-row construction is the predicate owner's `Implicit` case, this page widening by ZERO members (the carrier is closed there); the multi-implicit in-circum ({IIEE..IIII}) and 3D multi-implicit orientation family are RECORDED GROWTH on `Numerics/predicates` gated on a CDTet consumer — landing them widens `Restorable` by one arm and deletes the tetrahedral explicit-only admission gate; the exact circumcenter side-of test (medial trim) is a recorded `DualGraph` growth row; zero new surface.
@@ -80,6 +80,7 @@ public sealed class SimplexStore {
     Implicit[] rows;
     int[] vertices;
     int[] neighbours;
+    int[] anchor;
     bool[] dead;
     readonly Stack<int> free = new();
     readonly int arity;
@@ -90,6 +91,7 @@ public sealed class SimplexStore {
         rows = new Implicit[capacity];
         vertices = new int[arity * capacity];
         neighbours = new int[arity * capacity];
+        anchor = new int[capacity];
         dead = new bool[capacity];
     }
 
@@ -104,7 +106,9 @@ public sealed class SimplexStore {
 
     internal int AddVertex(in Implicit row) {
         Grow(ref rows, vertexCount + 1);
+        Grow(ref anchor, vertexCount + 1);
         rows[vertexCount] = row;
+        anchor[vertexCount] = -1;
         return vertexCount++;
     }
 
@@ -116,7 +120,19 @@ public sealed class SimplexStore {
         verts.CopyTo(vertices.AsSpan(arity * simplex, arity));
         nbrs.CopyTo(neighbours.AsSpan(arity * simplex, arity));
         dead[simplex] = false;
+        foreach (int v in verts) { anchor[v] = simplex; }
         return lastLive = simplex;
+    }
+
+    // One live incident simplex per vertex: Spawn stamps it, a stale stamp repairs by one scan and
+    // re-caches — the star walks the recovery inner loop rides stay O(star) amortized.
+    public int Anchor(int vertex) {
+        int s = anchor[vertex];
+        if (s >= 0 && Alive(s) && SimplexVertices(s).Contains(vertex)) { return s; }
+        for (int i = 0; i < simplexCount; i++) {
+            if (!dead[i] && SimplexVertices(i).Contains(vertex)) { return anchor[vertex] = i; }
+        }
+        return -1;
     }
 
     internal void Kill(int simplex) { dead[simplex] = true; free.Push(simplex); }
@@ -168,6 +184,10 @@ public abstract partial record Constraint {
             crossing: c => c with { A = a, B = b });
 }
 
+// Voronoi-dual projection carrier: circumcenters + circumradii (the clearance payload), dual
+// edges, and the crossed DT edge per dual edge; node i names the same live triangle Triangles()[i].
+public sealed record DualGraph(Point3d[] Circumcenters, double[] Radius, (int A, int B)[] Edges, (int U, int V)[] Across);
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TessellationOp {
@@ -181,8 +201,6 @@ public abstract partial record TessellationOp {
     public sealed record Insert(Tessellation Into, Implicit Vertex) : TessellationOp;
     public sealed record Recover(Tessellation Into, Seq<Constraint> Constraints) : TessellationOp;
 }
-
-public sealed record DualGraph(Point3d[] Circumcenters, double[] Radius, (int A, int B)[] Edges, (int U, int V)[] Across);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Tessellation : IValidityEvidence {
@@ -219,27 +237,62 @@ public abstract partial record Tessellation : IValidityEvidence {
             TessellationOp.Points p  => Admit(p).Bind(static p => Seeded(p)
                 .Bind(seed => Delaunay.InsertionOrder(p.Vertices).Fold(
                     Fin.Succ(seed), (acc, v) => acc.Bind(t => t.InsertRow(v).Map(_ => t))))
-                .Bind(filled => p.Constraints.Map((i, c) => (Index: i, Row: c)).ToSeq()
+                .Bind(filled => p.Constraints.Map(static (c, i) => (Index: i, Row: c))
                     .Fold(Fin.Succ(filled), (acc, c) => acc.Bind(t => t.RecoverOne(c.Row, c.Index))))
                 .Bind(static done => done.Restore())
-                .Map(static done => done.StripSuper())),
-            TessellationOp.Insert i  => i.Into.InsertRow(i.Into.Store.AddVertex(i.Vertex)).Map(_ => i.Into),
-            TessellationOp.Recover r => r.Constraints.Map((i, c) => (Index: i, Row: c)).ToSeq()
-                .Fold(Fin.Succ(r.Into), (acc, c) => acc.Bind(t => t.RecoverOne(c.Row, c.Index))),
+                .Bind(static done => done.Stripped())),
+            TessellationOp.Insert i  => i.Into.AdmitRow(i.Vertex)
+                .Bind(row => i.Into.InsertRow(i.Into.Store.AddVertex(in row)))
+                .Map(_ => i.Into),
+            TessellationOp.Recover r => r.Constraints.Map(static (c, i) => (Index: i, Row: c))
+                .Fold(r.Into.AdmitIds(r.Constraints), (acc, c) => acc.Bind(t => t.RecoverOne(c.Row, c.Index))),
             _                        => Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "unmatched tessellation op").ToError()),
         };
 
     static Fin<TessellationOp.Points> Admit(TessellationOp.Points p) {
+        if (p.Vertices.Length == 0) { return Reject(0, "empty vertex set"); }
+        var seen = new Dictionary<Point3d, int>(p.Vertices.Length);
+        for (int i = 0; i < p.Vertices.Length; i++) {
+            if (!p.Vertices[i].IsExplicit) { continue; }
+            Point3d at = p.Vertices[i].AsExplicit;
+            if (!ValidityClaim.Finite(point: at)) { return Reject(i, "non-finite explicit row"); }
+            if (!seen.TryAdd(at, i)) { return Reject(i, "bit-identical duplicate row"); }  // a coincident vertex degenerates every split that touches it
+        }
+        foreach ((Constraint row, int index) in p.Constraints.Map(static (c, i) => (c, i))) {
+            (int a, int b) = row.Ends;
+            bool broken = a == b || a < 0 || b < 0 || a >= p.Vertices.Length || b >= p.Vertices.Length
+                || (row is Constraint.Facet facet && facet.Boundary.Any(v => v < 0 || v >= p.Vertices.Length));
+            if (broken) { return Reject(index, "constraint id outside the vertex table"); }
+        }
         bool implicitBearing = p.Vertices.Any(static v => !v.IsExplicit);
-        return p.Vertices.Length == 0
-            ? Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Kind.Point, 0, "empty vertex set").ToError())
-            : p.Vertices.Index().Where(static v => v.Item.IsExplicit && !ValidityClaim.Finite(point: v.Item.AsExplicit)).HeadOrNone().Match(
-                Some: bad => Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Kind.Point, bad.Index, "non-finite explicit row").ToError()),
-                None: () => implicitBearing && p.Policy.Mode == TessellationMode.Delaunay
-                    ? Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Kind.Point, 0, "implicit rows demand constrained mode").ToError())
-                    : implicitBearing && p.Kind == TessellationKind.Tetrahedralization
-                        ? Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Kind.Point, 0, "3D implicit rows are CDTet-gated growth").ToError())
-                        : Fin.Succ(p));
+        return implicitBearing && p.Policy.Mode == TessellationMode.Delaunay ? Reject(0, "implicit rows demand constrained mode")
+            : implicitBearing && p.Kind == TessellationKind.Tetrahedralization ? Reject(0, "3D implicit rows are CDTet-gated growth")
+            : Fin.Succ(p);
+
+        static Fin<TessellationOp.Points> Reject(int index, string witness) =>
+            Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Kind.Point, index, witness).ToError());
+    }
+
+    // Insert-modality admission: the one-row mirror of Admit — every entry arm admits once, the
+    // interior never re-validates (the tetrahedral walk reads AsExplicit unconditionally).
+    Fin<Implicit> AdmitRow(Implicit vertex) =>
+        vertex.IsExplicit && !ValidityClaim.Finite(point: vertex.AsExplicit)
+            ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Kind.Point, Store.VertexCount, "non-finite explicit row").ToError())
+            : !vertex.IsExplicit && Policy.Mode == TessellationMode.Delaunay
+                ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Kind.Point, Store.VertexCount, "implicit rows demand constrained mode").ToError())
+                : !vertex.IsExplicit && Kind == TessellationKind.Tetrahedralization
+                    ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Kind.Point, Store.VertexCount, "3D implicit rows are CDTet-gated growth").ToError())
+                    : Fin.Succ(vertex);
+
+    // Recover-modality admission: constraint ids must address the live vertex table.
+    Fin<Tessellation> AdmitIds(Seq<Constraint> constraints) {
+        foreach ((Constraint row, int index) in constraints.Map(static (c, i) => (c, i))) {
+            (int a, int b) = row.Ends;
+            bool broken = a == b || a < 0 || b < 0 || a >= Store.VertexCount || b >= Store.VertexCount
+                || (row is Constraint.Facet facet && facet.Boundary.Any(v => v < 0 || v >= Store.VertexCount));
+            if (broken) { return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Point, index, "constraint id outside the vertex table").ToError()); }
+        }
+        return Fin.Succ(this);
     }
 
     // --- [INSERT]
@@ -272,13 +325,21 @@ public abstract partial record Tessellation : IValidityEvidence {
         return Fin.Fail<int>(new GeometryFault.DegenerateTessellation(current, "locate walk overran the live count").ToError());
     }
 
+    // The tetrahedral test is APEX-RELATIVE: the cyclic face triple (f+1, f+2, f+3) flips parity
+    // with f, so a fixed-sign convention is wrong on half the faces — the query exits face f when
+    // it lies strictly opposite the apex vs[f]; the 2D triangle rows are CCW by construction.
     int ExitFace(int simplex, in Implicit query) {
         ReadOnlySpan<int> vs = Store.SimplexVertices(simplex);
         int arity = Kind.SimplexArity;
         for (int f = 0; f < arity; f++) {
-            Sign side = arity == 3
-                ? Predicate.Orient2D(Store.Row(vs[(f + 1) % 3]), Store.Row(vs[(f + 2) % 3]), query, Projection)
-                : Predicate.Orient3D(Store.Row(vs[(f + 1) & 3]).AsExplicit, Store.Row(vs[(f + 2) & 3]).AsExplicit, Store.Row(vs[(f + 3) & 3]).AsExplicit, query.AsExplicit);
+            Sign side;
+            if (arity == 3) {
+                side = Predicate.Orient2D(Store.Row(vs[(f + 1) % 3]), Store.Row(vs[(f + 2) % 3]), query, Projection);
+            }
+            else {
+                (Point3d u1, Point3d u2, Point3d u3) = (Store.Row(vs[(f + 1) & 3]).AsExplicit, Store.Row(vs[(f + 2) & 3]).AsExplicit, Store.Row(vs[(f + 3) & 3]).AsExplicit);
+                side = Predicate.Orient3D(u1, u2, u3, query.AsExplicit).Times(Predicate.Orient3D(u1, u2, u3, Store.Row(vs[f]).AsExplicit));
+            }
             if (side == Sign.Negative) { return f; }
         }
         return -1;
@@ -386,6 +447,7 @@ public abstract partial record Tessellation : IValidityEvidence {
     // re-pin the split crossing constraint's own halves.
     Fin<Tessellation> RecoverOne(Constraint constraint, int index) {
         if (constraint is Constraint.Facet facet) { return RecoverFacet(facet, index); }
+        if (Kind == TessellationKind.Tetrahedralization) { return RecoverEdge3D(constraint, index); }  // 2D diagonal flips corrupt a tet store
         var queue = new Queue<Constraint>();
         queue.Enqueue(constraint);
         int budget = Policy.MaxRecoverySteiner;
@@ -479,20 +541,37 @@ public abstract partial record Tessellation : IValidityEvidence {
         }
     }
 
+    // Star walk: flood the live simplices sharing a vertex through neighbour links from the
+    // vertex's anchored simplex — O(star), never a table scan; the recovery inner loop rides this.
+    IEnumerable<int> Star(int vertex) {
+        int seed = Store.Anchor(vertex);
+        if (seed < 0) { yield break; }
+        var seen = new HashSet<int> { seed };
+        var stack = new Stack<int>();
+        stack.Push(seed);
+        while (stack.Count > 0) {
+            int s = stack.Pop();
+            yield return s;
+            for (int f = 0; f < Kind.SimplexArity; f++) {
+                int n = Store.Neighbour(s, f);
+                if (n >= 0 && Store.Alive(n) && Store.SimplexVertices(n).Contains(vertex) && seen.Add(n)) { stack.Push(n); }
+            }
+        }
+    }
+
     bool EdgePresent(int a, int b) {
-        for (int s = 0; s < Store.SimplexCount; s++) {
-            if (!Store.Alive(s)) { continue; }
-            ReadOnlySpan<int> vs = Store.SimplexVertices(s);
-            if (vs.Contains(a) && vs.Contains(b)) { return true; }
+        foreach (int s in Star(a)) {
+            if (Store.SimplexVertices(s).Contains(b)) { return true; }
         }
         return false;
     }
 
-    // First live edge strictly crossed by segment (a,b): both straddle tests exact over the rows.
+    // The corridor's first crossing: among a's star triangles, the edge OPPOSITE a strictly
+    // straddled by segment (a,b) — the walk re-runs after every flip or split, so the corridor
+    // advances one exact decision at a time.
     Option<(int P, int Q, bool Constrained)> FirstCrossing(int a, int b) {
         (Implicit ra, Implicit rb) = (Store.Row(a), Store.Row(b));
-        for (int s = 0; s < Store.SimplexCount; s++) {
-            if (!Store.Alive(s)) { continue; }
+        foreach (int s in Star(a)) {
             ReadOnlySpan<int> vs = Store.SimplexVertices(s);
             for (int f = 0; f < 3; f++) {
                 (int p, int q) = (vs[(f + 1) % 3], vs[(f + 2) % 3]);
@@ -523,12 +602,13 @@ public abstract partial record Tessellation : IValidityEvidence {
 
     // --- [RESTORE]
     // Delaunay-mode terminal pass: flip non-pinned explicit-cornered edges failing empty-circum,
-    // bounded by MaxFlipPasses; the constrained regime returns immediately.
+    // bounded by MaxFlipPasses; the constrained regime returns immediately. The pass is 2D — the
+    // 3D Delaunay property rides the cavity insertion itself.
     Fin<Tessellation> Restore() {
-        if (!Policy.Mode.Restores) { return Fin.Succ(this); }
+        if (!Policy.Mode.Restores || Kind.SimplexArity != 3) { return Fin.Succ(this); }
         for (int pass = 0; pass < Policy.MaxFlipPasses; pass++) {
             bool flipped = false;
-            for (int s = 0; s < Store.SimplexCount && Kind.SimplexArity == 3; s++) {
+            for (int s = 0; s < Store.SimplexCount; s++) {
                 if (!Store.Alive(s)) { continue; }
                 ReadOnlySpan<int> vs = Store.SimplexVertices(s);
                 for (int f = 0; f < 3; f++) {
@@ -545,7 +625,9 @@ public abstract partial record Tessellation : IValidityEvidence {
         return Fin.Succ(this);
     }
 
-    Tessellation StripSuper() {
+    // Strip, then the degenerate gate: a set whose every simplex touches the super frame
+    // (collinear, or coplanar in 3D) leaves nothing live — typed, never an empty success.
+    Fin<Tessellation> Stripped() {
         int arity = Kind.SimplexArity;
         for (int s = 0; s < Store.SimplexCount; s++) {
             if (!Store.Alive(s)) { continue; }
@@ -558,11 +640,15 @@ public abstract partial record Tessellation : IValidityEvidence {
                 }
             }
         }
-        return this;
+        return Store.LiveCount == 0
+            ? Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Point, 0, "fully degenerate set: no simplex survives the super strip").ToError())
+            : Fin.Succ(this);
     }
 
     // --- [PROJECTIONS]
     // Emission seam: implicit rows Round() HERE, the arena freeze re-admits — no second mesh path.
+    // Tetra boundary faces wind OUTWARD by the exact apex sign (the cyclic triple alone flips
+    // parity with the face index — a fixed winding is inward on half the faces).
     public Fin<MeshSpace> ToMesh(Context context, Op? key = null) {
         using var edit = MeshEdit.Of([], []);
         var slot = new Dictionary<int, int>();
@@ -573,10 +659,17 @@ public abstract partial record Tessellation : IValidityEvidence {
             ReadOnlySpan<int> vs = Store.SimplexVertices(s);
             if (arity == 3) { edit.AddFace(Emit(vs[0]), Emit(vs[1]), Emit(vs[2])); continue; }
             for (int f = 0; f < 4; f++) {
-                if (Store.Neighbour(s, f) < 0) { edit.AddFace(Emit(vs[(f + 1) & 3]), Emit(vs[(f + 2) & 3]), Emit(vs[(f + 3) & 3])); }
+                if (Store.Neighbour(s, f) < 0) { EmitOutward(edit, Emit, vs, f); }
             }
         }
         return edit.ToSpace(context, key);
+    }
+
+    void EmitOutward(MeshEdit edit, Func<int, int> emit, ReadOnlySpan<int> vs, int f) {
+        (int a, int b, int c) = (vs[(f + 1) & 3], vs[(f + 2) & 3], vs[(f + 3) & 3]);
+        bool flip = Predicate.Orient3D(Store.Row(a).AsExplicit, Store.Row(b).AsExplicit, Store.Row(c).AsExplicit, Store.Row(vs[f]).AsExplicit) == Sign.Positive;
+        if (flip) { edit.AddFace(emit(a), emit(c), emit(b)); }
+        else { edit.AddFace(emit(a), emit(b), emit(c)); }
     }
 
     // The lightweight emission projection consumers read sub-triangles through (the arrangement's
@@ -626,18 +719,20 @@ public abstract partial record Tessellation : IValidityEvidence {
 
     // Paraboloid-lift equivalence: the Delaunay complex IS the lower hull of the lift, so the live
     // boundary facets ARE the predicate-exact convex hull — the [V11] robust-grade envelope tier.
+    // The projection is TETRAHEDRAL: a triangulation's hull is its boundary edge chain, not a face
+    // set — a mesh spelling of it is the typed refusal, never per-edge triangle garbage.
     public Fin<MeshSpace> LowerHull(Context context, Op? key = null) {
+        if (Kind != TessellationKind.Tetrahedralization) {
+            return Fin.Fail<MeshSpace>(new GeometryFault.DegenerateTessellation(0, "hull facets are a tetrahedralization projection").ToError());
+        }
         using var edit = MeshEdit.Of([], []);
         var slot = new Dictionary<int, int>();
         int Emit(int v) => slot.TryGetValue(v, out int at) ? at : slot[v] = edit.AddVertex(Store.Row(v).Round());
-        int arity = Kind.SimplexArity;
         for (int s = 0; s < Store.SimplexCount; s++) {
             if (!Store.Alive(s)) { continue; }
             ReadOnlySpan<int> vs = Store.SimplexVertices(s);
-            for (int f = 0; f < arity; f++) {
-                if (Store.Neighbour(s, f) >= 0) { continue; }
-                if (arity == 3) { edit.AddFace(Emit(vs[(f + 1) % 3]), Emit(vs[(f + 2) % 3]), Emit(vs[f])); }
-                else { edit.AddFace(Emit(vs[(f + 1) & 3]), Emit(vs[(f + 2) & 3]), Emit(vs[(f + 3) & 3])); }
+            for (int f = 0; f < 4; f++) {
+                if (Store.Neighbour(s, f) < 0) { EmitOutward(edit, Emit, vs, f); }
             }
         }
         return edit.ToSpace(context, key);
@@ -653,10 +748,10 @@ public abstract partial record Tessellation : IValidityEvidence {
 
     Option<(int S, int T, int Sp, int Tp)> IncidentPair(int p, int q) {
         (int s, int t) = (-1, -1);
-        for (int i = 0; i < Store.SimplexCount && t < 0; i++) {
-            if (!Store.Alive(i)) { continue; }
-            ReadOnlySpan<int> vs = Store.SimplexVertices(i);
-            if (vs.Contains(p) && vs.Contains(q)) { if (s < 0) { s = i; } else { t = i; } }
+        foreach (int i in Star(p)) {
+            if (!Store.SimplexVertices(i).Contains(q)) { continue; }
+            if (s < 0) { s = i; }
+            else { t = i; break; }
         }
         return s >= 0 && t >= 0 ? Some((s, t, Apex(s, p, q), Apex(t, p, q))) : None;
     }
@@ -698,14 +793,216 @@ public abstract partial record Tessellation : IValidityEvidence {
         }
     }
 
-    Fin<Tessellation> RecoverFacet(Constraint.Facet facet, int index) {
-        Fin<Tessellation> bounded = facet.Boundary.Index().ToSeq().Fold(
+    Fin<Tessellation> RecoverFacet(Constraint.Facet facet, int index) =>
+        facet.Boundary.Index().ToSeq().Fold(
             Fin.Succ(this),
-            (acc, e) => acc.Bind(t => t.RecoverOne(new Constraint.Segment(facet.Boundary[e.Index], facet.Boundary[(e.Index + 1) % facet.Boundary.Length]), index)));
-        // interior 2-3/3-2 bistellar passes: orientation-guarded, MaxFlipPasses-bounded — the 3D
-        // interior conformance fold over the same store ops.
-        return bounded;
+            (acc, e) => acc.Bind(t => t.RecoverOne(new Constraint.Segment(facet.Boundary[e.Index], facet.Boundary[(e.Index + 1) % facet.Boundary.Length]), index)))
+        .Bind(t => t.FacetConform(facet, index));
+
+    // --- [BISTELLAR_3D]
+    // 3D edge recovery is FLIP-ONLY: the blocking face pierced by segment (a,b) takes the 2-3 move
+    // when its bipyramid is convex; a stuck corridor faults typed within budget — 3D Steiner
+    // constructions stay CDTet-gated growth on the predicate owner.
+    Fin<Tessellation> RecoverEdge3D(Constraint edge, int index) {
+        (int a, int b) = edge.Ends;
+        int guard = Policy.MaxFlipPasses * int.Max(Store.SimplexCount, 1);
+        while (!EdgePresent(a, b)) {
+            if (guard-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses).ToError()); }
+            Option<(int Simplex, int Face)> blocking = BlockingFace(a, b);
+            if (blocking.Case is not ((int s, int f))) {
+                return Fin.Fail<Tessellation>(new GeometryFault.DegenerateTessellation(Store.LastLive(), "edge walk found no blocking face").ToError());
+            }
+            if (!Flip23(s, f)) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses).ToError()); }
+        }
+        Pin(a, b, edge);
+        return Fin.Succ(this);
     }
+
+    // The a-incident tet face strictly pierced by segment (a,b): plane straddle plus the three
+    // same-sign edge-plane tests — every decision an exact Orient3D.
+    Option<(int Simplex, int Face)> BlockingFace(int a, int b) {
+        (Point3d pa, Point3d pb) = (Store.Row(a).AsExplicit, Store.Row(b).AsExplicit);
+        foreach (int s in Star(a)) {
+            ReadOnlySpan<int> vs = Store.SimplexVertices(s);
+            for (int f = 0; f < 4; f++) {
+                if (vs[f] != a) { continue; }
+                (Point3d u, Point3d v, Point3d w) = (Store.Row(vs[(f + 1) & 3]).AsExplicit, Store.Row(vs[(f + 2) & 3]).AsExplicit, Store.Row(vs[(f + 3) & 3]).AsExplicit);
+                if (Predicate.Orient3D(u, v, w, pa).Times(Predicate.Orient3D(u, v, w, pb)) != Sign.Negative) { continue; }
+                Sign s1 = Predicate.Orient3D(pa, pb, u, v), s2 = Predicate.Orient3D(pa, pb, v, w), s3 = Predicate.Orient3D(pa, pb, w, u);
+                if (s1 != Sign.Zero && s1 == s2 && s2 == s3) { return Some((s, f)); }
+            }
+        }
+        return None;
+    }
+
+    // 2-3 bistellar move: the shared face (u,v,w) of tets s and t dies for the edge (p,q) joining
+    // their apexes — legal exactly when that edge pierces the face (the convex five-point
+    // bipyramid, three same-sign Orient3D gates); outward links re-wire through LinkBack, the
+    // three born tets pair on their (p,q,·) faces.
+    bool Flip23(int s, int f) {
+        int t = Store.Neighbour(s, f);
+        if (t < 0 || !Store.Alive(t)) { return false; }
+        ReadOnlySpan<int> svs = Store.SimplexVertices(s);
+        int p = svs[f];
+        Span<int> face = [svs[(f + 1) & 3], svs[(f + 2) & 3], svs[(f + 3) & 3]];
+        int q = -1;
+        foreach (int v in Store.SimplexVertices(t)) {
+            if (v != face[0] && v != face[1] && v != face[2]) { q = v; break; }
+        }
+        (Point3d pp, Point3d pq) = (Store.Row(p).AsExplicit, Store.Row(q).AsExplicit);
+        (Point3d fu, Point3d fv, Point3d fw) = (Store.Row(face[0]).AsExplicit, Store.Row(face[1]).AsExplicit, Store.Row(face[2]).AsExplicit);
+        Sign s1 = Predicate.Orient3D(pp, pq, fu, fv), s2 = Predicate.Orient3D(pp, pq, fv, fw), s3 = Predicate.Orient3D(pp, pq, fw, fu);
+        if (s1 == Sign.Zero || s1 != s2 || s2 != s3) { return false; }
+        Span<int> sOpp = [OppositeOf(s, face[0]), OppositeOf(s, face[1]), OppositeOf(s, face[2])];
+        Span<int> tOpp = [OppositeOf(t, face[0]), OppositeOf(t, face[1]), OppositeOf(t, face[2])];
+        Store.Kill(s);
+        Store.Kill(t);
+        Span<int> born = stackalloc int[3];
+        for (int k = 0; k < 3; k++) {
+            Span<int> verts = [p, q, face[(k + 1) % 3], face[(k + 2) % 3]];
+            Span<int> nbrs = [tOpp[k], sOpp[k], -1, -1];
+            born[k] = Store.Spawn(verts, nbrs);
+            Store.LinkBack(tOpp[k], t, born[k]);
+            Store.LinkBack(sOpp[k], s, born[k]);
+        }
+        for (int k = 0; k < 3; k++) {
+            Store.Link(born[k], 2, born[(k + 1) % 3]);
+            Store.Link(born[(k + 1) % 3], 3, born[k]);
+        }
+        return true;
+    }
+
+    // 3-2 bistellar move: the edge (p,q) shared by EXACTLY three tets dies for the face (x,y,z) of
+    // their off-edge vertices — legal exactly when (p,q) pierces that face.
+    bool Flip32(int p, int q) {
+        var around = new List<int>(4);
+        foreach (int s in Star(p)) {
+            if (Store.SimplexVertices(s).Contains(q)) { around.Add(s); }
+        }
+        if (around.Count != 3) { return false; }
+        var off = new List<int>(3);
+        foreach (int s in around) {
+            foreach (int v in Store.SimplexVertices(s)) {
+                if (v != p && v != q && !off.Contains(v)) { off.Add(v); }
+            }
+        }
+        if (off.Count != 3) { return false; }
+        (int x, int y, int z) = (off[0], off[1], off[2]);
+        (Point3d pp, Point3d pq) = (Store.Row(p).AsExplicit, Store.Row(q).AsExplicit);
+        (Point3d px, Point3d py, Point3d pz) = (Store.Row(x).AsExplicit, Store.Row(y).AsExplicit, Store.Row(z).AsExplicit);
+        if (Predicate.Orient3D(px, py, pz, pp).Times(Predicate.Orient3D(px, py, pz, pq)) != Sign.Negative) { return false; }
+        Sign s1 = Predicate.Orient3D(pp, pq, px, py), s2 = Predicate.Orient3D(pp, pq, py, pz), s3 = Predicate.Orient3D(pp, pq, pz, px);
+        if (s1 == Sign.Zero || s1 != s2 || s2 != s3) { return false; }
+        int Txy = around.First(s => Store.SimplexVertices(s).Contains(x) && Store.SimplexVertices(s).Contains(y));
+        int Tyz = around.First(s => Store.SimplexVertices(s).Contains(y) && Store.SimplexVertices(s).Contains(z));
+        int Tzx = around.First(s => Store.SimplexVertices(s).Contains(z) && Store.SimplexVertices(s).Contains(x));
+        (int aOx, int aOy, int aOz) = (OppositeOf(Tyz, q), OppositeOf(Tzx, q), OppositeOf(Txy, q));
+        (int bOx, int bOy, int bOz) = (OppositeOf(Tyz, p), OppositeOf(Tzx, p), OppositeOf(Txy, p));
+        foreach (int s in around) { Store.Kill(s); }
+        Span<int> av = [p, x, y, z];
+        Span<int> an = [-1, aOx, aOy, aOz];
+        Span<int> bv = [q, x, y, z];
+        Span<int> bn = [-1, bOx, bOy, bOz];
+        int ta = Store.Spawn(av, an);
+        int tb = Store.Spawn(bv, bn);
+        Store.Link(ta, 0, tb);
+        Store.Link(tb, 0, ta);
+        Store.LinkBack(aOx, Tyz, ta);
+        Store.LinkBack(aOy, Tzx, ta);
+        Store.LinkBack(aOz, Txy, ta);
+        Store.LinkBack(bOx, Tyz, tb);
+        Store.LinkBack(bOy, Tzx, tb);
+        Store.LinkBack(bOz, Txy, tb);
+        return true;
+    }
+
+    // A face CONTAINING crossing edge (u,v) taken by the 2-3 move drops the edge's incidence by
+    // one — the peel that unlocks a 3-2 on over-populated edges.
+    bool Peel(int u, int v) {
+        foreach (int s in Star(u)) {
+            if (!Store.SimplexVertices(s).Contains(v)) { continue; }
+            ReadOnlySpan<int> vs = Store.SimplexVertices(s);
+            for (int i = 0; i < 4; i++) {
+                if (vs[i] != u && vs[i] != v && Flip23(s, i)) { return true; }
+            }
+        }
+        return false;
+    }
+
+    // Interior conformance: bounded passes remove every tet edge crossing the facet's interior —
+    // incidence-three crossings take the 3-2 move directly, higher incidence peels one containing
+    // face by the 2-3 move first; crossings surviving the budget fault typed.
+    Fin<Tessellation> FacetConform(Constraint.Facet facet, int index) {
+        if (Kind != TessellationKind.Tetrahedralization) { return Fin.Succ(this); }
+        Option<(Point3d A, Point3d B, Point3d C)> witness = PlaneWitness(facet.Boundary);
+        if (witness.Case is not ((Point3d wa, Point3d wb, Point3d wc))) {
+            return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Point, index, "collinear facet boundary").ToError());
+        }
+        Axis plane = DominantOf(Vector3d.CrossProduct(wb - wa, wc - wa));
+        for (int pass = 0; pass < Policy.MaxFlipPasses; pass++) {
+            (bool crossing, bool moved) = (false, false);
+            for (int s = 0; s < Store.SimplexCount && !moved; s++) {
+                if (!Store.Alive(s)) { continue; }
+                ReadOnlySpan<int> vs = Store.SimplexVertices(s);
+                for (int i = 0; i < 4 && !moved; i++) {
+                    for (int j = i + 1; j < 4 && !moved; j++) {
+                        if (!CrossesFacet(vs[i], vs[j], facet.Boundary, wa, wb, wc, plane)) { continue; }
+                        crossing = true;
+                        moved = Flip32(vs[i], vs[j]) || Peel(vs[i], vs[j]);
+                    }
+                }
+            }
+            if (!crossing) { return Fin.Succ(this); }
+            if (!moved) { break; }
+        }
+        return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses).ToError());
+    }
+
+    // Strict facet crossing: plane straddle, then the Lpi crossing's exact projected parity
+    // against the facet polygon — the containment runs ON the implicit point.
+    bool CrossesFacet(int u, int v, int[] boundary, Point3d wa, Point3d wb, Point3d wc, Axis plane) {
+        (Point3d pu, Point3d pv) = (Store.Row(u).AsExplicit, Store.Row(v).AsExplicit);
+        if (Predicate.Orient3D(wa, wb, wc, pu).Times(Predicate.Orient3D(wa, wb, wc, pv)) != Sign.Negative) { return false; }
+        Implicit hit = new Lpi(pu, pv, wa, wb, wc);
+        Axis vOrdinal = Ordinal(plane.V);
+        bool inside = false;
+        for (int e = 0; e < boundary.Length; e++) {
+            (Implicit rc, Implicit rd) = (Store.Row(boundary[e]), Store.Row(boundary[(e + 1) % boundary.Length]));
+            Sign sc = Predicate.Compare(in rc, in hit, vOrdinal);
+            Sign sd = Predicate.Compare(in rd, in hit, vOrdinal);
+            if (sc.Times(sd) != Sign.Negative) { continue; }
+            if (Predicate.Orient2D(in rc, in rd, in hit, plane).Times(sd) == Sign.Positive) { inside = !inside; }
+        }
+        return inside;
+    }
+
+    Option<(Point3d A, Point3d B, Point3d C)> PlaneWitness(int[] boundary) {
+        (Point3d a, Point3d b) = (Store.Row(boundary[0]).AsExplicit, Store.Row(boundary[1]).AsExplicit);
+        for (int k = 2; k < boundary.Length; k++) {
+            Point3d c = Store.Row(boundary[k]).AsExplicit;
+            bool collinear =
+                Predicate.Orient2D(new Implicit(a), new Implicit(b), new Implicit(c), Axis.X) == Sign.Zero
+                && Predicate.Orient2D(new Implicit(a), new Implicit(b), new Implicit(c), Axis.Y) == Sign.Zero
+                && Predicate.Orient2D(new Implicit(a), new Implicit(b), new Implicit(c), Axis.Z) == Sign.Zero;
+            if (!collinear) { return Some((a, b, c)); }
+        }
+        return None;
+    }
+
+    int OppositeOf(int simplex, int vertex) {
+        ReadOnlySpan<int> vs = Store.SimplexVertices(simplex);
+        for (int i = 0; i < vs.Length; i++) {
+            if (vs[i] == vertex) { return Store.Neighbour(simplex, i); }
+        }
+        return -1;
+    }
+
+    static Axis DominantOf(Vector3d d) {
+        (double x, double y, double z) = (Math.Abs(d.X), Math.Abs(d.Y), Math.Abs(d.Z));
+        return x >= y && x >= z ? Axis.X : y >= z ? Axis.Y : Axis.Z;
+    }
+
+    static Axis Ordinal(int key) => key == 0 ? Axis.X : key == 1 ? Axis.Y : Axis.Z;
 
     static (Point3d Center, double Radius) Circumcircle(Point3d a, Point3d b, Point3d c, Axis plane) {
         (int u, int v) = (plane.U, plane.V);
@@ -776,7 +1073,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 |  [1d]   | Recovery input     | `Constraint`        | `[Union]` (`Segment`/`Facet`/`Crossing` foreign-plane carriage) + `Ends`/`Rebound` re-anchoring           | carrier (folded by `RecoverOne`)              |    3    |
 |  [1e]   | Dual projection    | `DualGraph`         | record — circumcenters · circumradii · dual edges · crossed DT edge                                       | `VoronoiDual(Op?) → Fin<DualGraph>`           |    —    |
 
-The vertex payload is the landed `Numerics/predicates` `Implicit` carrier — this page mints NO point union of its own; the seven store-op bodies (`Seeded`, `Cone`, `SplitInsert`, `RecoverOne`+`SteinerOf`, `StripSuper`, `LastLive` on the store, the `ToMesh`/`LowerHull` emission folds) are transcription-complete over the one arena; the `SimplexStore` obeys the `Meshing/edit#ARENA_LAW` contract verbatim (single-writer, amortized doubling, publish-by-freeze, no fault union).
+The vertex payload is the landed `Numerics/predicates` `Implicit` carrier — this page mints NO point union of its own; the store-op bodies (`Seeded`, `Cone`, `SplitInsert`, `RecoverOne`+`SteinerOf`, the `RecoverEdge3D`/`Flip23`/`Flip32`/`FacetConform` bistellar family, `Stripped`, `LastLive`/`Anchor` on the store, the `ToMesh`/`LowerHull` emission folds) are transcription-complete over the one arena; interior queries ride the anchored star walk, never a table scan; the `SimplexStore` obeys the `Meshing/edit#ARENA_LAW` contract verbatim (single-writer, amortized doubling, publish-by-freeze, no fault union).
 
 ## [04]-[RESEARCH]
 

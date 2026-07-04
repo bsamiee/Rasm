@@ -9,6 +9,7 @@
 - import: `import ladybug`
 - owner: `geometry`
 - rail: energy / climate
+- consumer: `.planning/energy/climate.md` (weather/series/solar/psychrometrics) + `.planning/energy/simulate.md` (`SQLiteResult` decode)
 - installed: `0.43.18`
 - license: AGPL-3.0 (strong copyleft; runs as the out-of-process energy companion rail graduating `DataCollection`/EPW evidence across the wire)
 - entry points: `ladybug` console script (CLI: `translate`, `setconfig`); the rail composes the API, not the CLI

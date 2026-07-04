@@ -32,7 +32,7 @@ from msgspec import Struct
 from msgspec import json as msgjson
 
 from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.receipts import Receipt
 

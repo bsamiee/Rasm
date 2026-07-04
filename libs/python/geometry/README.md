@@ -17,6 +17,10 @@
 - [11]-[REPAIR](.planning/mesh/repair.md): `MeshOp` robust mesh repair, exact boolean, and mesh-file codec owner over `trimesh`/`manifold3d`/`rhino3dm`/`meshio`.
 - [12]-[NONMANIFOLD](.planning/graph/nonmanifold.md): Non-manifold `CellComplex`/`Cell`/`Aperture` topology over `topologicpy`.
 - [13]-[ALGEBRA](.planning/graph/algebra.md): `compas` network adjacency, form-finding, numerical primitives, and mesh algebra.
+- [14]-[CLIMATE](.planning/energy/climate.md): Polymorphic EPW weather admission, `DataCollection` series algebra, `Sunpath` solar geometry, and the PMV/UTCI/PET point-comfort tier with SolarCal MRT and the spatial comfort-map rows.
+- [15]-[MODEL](.planning/energy/model.md): One HBJSON building-model admission — wire-arrived document bytes and the computed IFC BIM-to-BEM derivation — under one `check_all` gate, standards-resolved energy assignment, and the content-keyed HBJSON wire egress.
+- [16]-[DISTRICT](.planning/energy/district.md): Dragonfly 2.5-D urban massing — dfjson/GeoJSON/massing admission, ordered auto-zoning, the `to_honeybee` explosion onto the model owner, and the URBANopt/DES/OpenDSS/REopt translation rows.
+- [17]-[SIMULATE](.planning/energy/simulate.md): Simulation egress — offloaded OSM/IDF/epJSON/gbXML translation, the runtime recipe binding for `annual-energy-use`, and the `SQLiteResult`/EUI decode into self-describing result frames crossing the data seam.
 
 ## [02]-[DOMAIN_PACKAGES]
 
