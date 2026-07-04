@@ -75,4 +75,4 @@ if (clusters.length) {
   // A separate verifier with one-verdict-per-claim PROVES completeness: a dropped claim cannot validate.
   hard = out.flatMap((o) => ((o.v && o.v.claims) || []).filter((c) => !c.resolved).map((c) => c.claim))
 }
-return { files: FILES.length, clusters: clusters.length, hard_residual: hard }
+return { files: FILES.length, clusters: clusters.length, unresolved: hard }

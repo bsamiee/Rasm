@@ -166,7 +166,7 @@ if (clusters.length) {
 }
 const claimsAll = reconciled.flatMap((r) => (((r.verify && r.verify.claims) || []).map((c) => ({ claim: c.claim, status: c.status, cluster: r.cluster }))))
 const filesFor = (c) => { const hit = c.cluster.find((x) => x.claim === c.claim); return hit ? hit.files : [...new Set(c.cluster.flatMap((x) => x.files))] }
-const hard_residual = claimsAll.filter((c) => c.status === 'open').map((c) => ({ files: filesFor(c), claim: c.claim }))
+const unresolved = claimsAll.filter((c) => c.status === 'open').map((c) => ({ files: filesFor(c), claim: c.claim }))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
-log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
-return { scope: SWEEP, folders: done.map((r) => r.folder), clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }
+log('Reconcile: ' + clusters.length + ' clusters; ' + unresolved.length + ' still open — surfaced in the return, ' + dropped.length + ' dropped as invalid')
+return { scope: SWEEP, folders: done.map((r) => r.folder), clusters: clusters.length, unresolved: unresolved, dropped: dropped }

@@ -38,6 +38,7 @@
 
     <ItemGroup Label="Energy Simulation">
         <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
+        <PackageReference Include="PollinationSDK" />
     </ItemGroup>
 
     <ItemGroup Label="Models">

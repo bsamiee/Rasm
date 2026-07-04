@@ -2294,7 +2294,7 @@
           "K4os.Compression.LZ4": "[1.3.8, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "LightningDB": "[0.21.0, )",
-          "MPXJ.Net": "[16.4.1, )",
+          "MPXJ.Net": "[16.5.0, )",
           "Marten": "[9.11.0, )",
           "MessagePack": "[3.1.7, )",
           "Microsoft.AspNetCore.JsonPatch.SystemTextJson": "[10.0.9, )",
@@ -4115,9 +4115,9 @@
       },
       "MPXJ.Net": {
         "type": "CentralTransitive",
-        "requested": "[16.4.1, )",
-        "resolved": "16.4.1",
-        "contentHash": "1agguzrmEOypCb467SvMHF4nNHh5b3Lv+uquIHNxhPARQq6Zv1hcVp3lX0gUDi+ukaQE1rZIZhS/J++tQ0BxXQ==",
+        "requested": "[16.5.0, )",
+        "resolved": "16.5.0",
+        "contentHash": "qJ76PYTbzpiG3IhstwvfW+0W4qq1VXirxskhtpt4hHPR0UKV4z1rBDdSN27/8H8QoWqzYCkAQEFL9wcegPQj0w==",
         "dependencies": {
           "IKVM.Maven.Sdk": "1.11.0",
           "Portable.System.DateTimeOnly": "8.0.2"

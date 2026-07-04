@@ -9,7 +9,7 @@ export const meta = {
     { title: 'Critique', detail: 'wave: 1 agent per file in parallel — reads README + EVERY stack file for corpus awareness, edits ONLY its own file' },
     { title: 'Redteam', detail: 'wave: 1 agent per file in parallel — corpus-aware, most aggressive, edits ONLY its own file' },
     { title: 'Pass', detail: '1 corpus agent: full-chain harden — align, gap-close, computation-law bodies, cold finalize in one sweep' },
-    { title: 'Reconcile', detail: '1 corpus agent: every deferred cross-file residual fixed in place; unresolved items hand off to resolve-residuals' },
+    { title: 'Reconcile', detail: '1 corpus agent: every deferred cross-file residual fixed in place; a genuinely unresolvable claim is surfaced in the return, never handed off' },
   ],
 }
 
@@ -406,7 +406,7 @@ const allRes = []
 for (const r of [...initialLogs, ...critLogs, ...redLogs, ...(passLog ? [{ page: ROOT, log: passLog }] : [])]) if (r.log.residual_high) for (const x of r.log.residual_high) allRes.push(norm(x, r.page))
 const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
 log('Waves+Pass done; ' + uniq.length + ' deferred cross-file residual(s)')
-let hard_residual = []
+let unresolved = []
 if (uniq.length) {
   phase('Reconcile')
   const rec = await agent([DOCTRINE, '', 'TASK: RECONCILE — the terminal cross-file residual sweep; you are ONE agent owning the whole corpus, ' +
@@ -418,8 +418,8 @@ if (uniq.length) {
     'unresolvable from the files at hand — and ONLY that — returns in `unresolved` with its claim VERBATIM; never punt a strengthenable fix. ' +
     'Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(uniq, null, 1)].join('\n'),
     { label: 'reconcile', phase: 'Reconcile', schema: RECONCILE_SCHEMA, effort: 'max', stallMs: STALL })
-  hard_residual = rec ? (rec.unresolved || []).filter((r) => r && r.claim) : uniq
-  log('Reconcile: ' + uniq.length + ' residuals consumed; ' + hard_residual.length + ' unresolved -> resolve-residuals')
+  unresolved = rec ? (rec.unresolved || []).filter((r) => r && r.claim) : uniq
+  log('Reconcile: ' + uniq.length + ' residuals consumed; ' + unresolved.length + ' unresolved — surfaced in the return')
 }
 return { workflow: 'stack-ts', root: ROOT, settled: arch, ordered: ordered, initial: initialLogs.length, critiqued: critLogs.length,
-  redteamed: redLogs.length, pass: (passLog && passLog.summary) || null, total: ordered.length, hard_residual: hard_residual }
+  redteamed: redLogs.length, pass: (passLog && passLog.summary) || null, total: ordered.length, unresolved: unresolved }

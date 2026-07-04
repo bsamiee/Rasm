@@ -10,7 +10,7 @@ The page composes `Vectors` `MeshSpace`, the native `Mesh` topology surface, and
 
 ## [02]-[HEALING]
 
-- Owner: `HealKind` `[SmartEnum<string>]` the repair-modality discriminant binding the shipped `ComparerAccessors.StringOrdinal` as its string-key comparer (`degenerate`/`gap`/`weld`/`manifold`/`self-intersect`/`orient`/`boolean`) carrying the per-kind `RebuildsTopology` and `Tier` columns; `HealOp` `[Union]` the closed repair algebra — six author-kernel cases each owning a real repair body plus the one `Boolean` case composing the managed `Meshing/arrangement#ARRANGEMENT` companion (native-gated only at scale); `RepairPolicy` the tolerance/aggression row (weld-cluster tolerance, gap-bridge max span, sliver area floor, max manifold-repair passes, self-intersect broad-phase AABB inflation) the kernels read; `MeshEdit` the immutable working-set carrier (vertex positions, face indices, the dirty/affected-index set) every kernel transforms and the receipt records; `Heal` the static session surface whose `Repair` fold runs an ordered `HealOp` sequence over a `MeshEdit` derived from a `MeshSpace`, threading the `RebuildReceipt` chain and routing `GeometryFault` on an unrepairable defect.
+- Owner: `HealKind` `[SmartEnum<string>]` the repair-modality discriminant binding the shipped `ComparerAccessors.StringOrdinal` as its string-key comparer (`degenerate`/`gap`/`weld`/`manifold`/`self-intersect`/`orient`/`boolean`) carrying the per-kind `RebuildsTopology` and `Tier` columns; `HealOp` `[Union]` the closed repair algebra — six author-kernel cases each owning a real repair body plus the one `Boolean` case composing the managed `Meshing/arrangement#ARRANGEMENT` companion (native-gated only at scale); `RepairPolicy` the tolerance/aggression row (weld-cluster tolerance, gap-bridge max span, sliver area floor, max manifold-repair passes, self-intersect broad-phase AABB inflation) the kernels read; `MeshEdit` the working-set arena every kernel transforms and the receipt records (vertex positions, face indices, the dirty/affected-index set) — owned by `Meshing/edit.md`, composed here, never re-minted; `Heal` the static session surface whose `Repair` fold runs an ordered `HealOp` sequence over a `MeshEdit` derived from a `MeshSpace`, threading the `RebuildReceipt` chain and routing `GeometryFault` on an unrepairable defect.
 - Cases: `HealKind` rows `degenerate` · `gap` · `weld` · `manifold` · `self-intersect` · `orient` · `boolean` (7); `HealOp` cases `DegenerateCollapse` · `GapClose` · `DuplicateWeld` · `ManifoldRepair` · `SelfIntersectResolve` · `OrientNormals` (6 author-kernel) plus `Boolean` (1 managed-arrangement-companion, native-gated only at scale) (7); `RebuildReceipt` cases one per `HealOp` (7, owned in `receipts.md`).
 - Entry: `public static Fin<HealSession> Repair(MeshSpace input, Seq<HealOp> ops, RepairPolicy policy)` — the ONE heal entrypoint, `Fin<T>` routing a band-2400 `GeometryFault.UnrepairableMesh` when a repair kernel cannot satisfy its post-condition (a non-manifold edge survives the max-pass budget, a self-intersection cannot be resolved without deleting capability, the boolean is invoked at a scale beyond the managed arrangement without its native asset gated in); the fold runs each `HealOp` in `ops` order over the working `MeshEdit`, accumulating a `RebuildReceipt` per op into the `HealSession` and re-emitting the healed `MeshSpace` at the seam. `public static Seq<HealOp> Standard(RepairPolicy policy)` is the canonical repair order (`DuplicateWeld` → `DegenerateCollapse` → `GapClose` → `ManifoldRepair` → `OrientNormals` → `SelfIntersectResolve` — manifold repair precedes orientation so the BFS orients a 2-manifold dual graph, not a fan of contradictory flip constraints) so a "heal everything" call is one `Repair(input, Standard(policy), policy)` and never a sibling per-defect entrypoint.
 - Auto: `Repair` folds the `HealOp` sequence over a `MeshEdit` snapshot read once from `MeshSpace.DuplicateNative()`; each op's `Apply` transforms the `MeshEdit` and the session binds the before/after `ManifoldStatus` (the `(Euler, Genus, BoundaryComponents)` triple the public `VectorIntent.Topology(...).Project` seam yields) on the `Fin` rail — never a swallowed default — so the receipt records the real topological delta plus the affected vertex/face index set; the predicate floor does the exact work: `DuplicateWeld` clusters vertices within the weld tolerance then snaps each cluster to its centroid, `DegenerateCollapse` reads `Predicate.Orient2D` over each face's DOMINANT-axis projected triangle (the axis of the largest normal component dropped, never a fixed XY drop) to flag exact-collinear slivers and drops them, the float area floor gating only a face the exact sign already KEEPS; `GapClose` matches naked boundary edges by endpoint proximity and stitches a bridging triangle pair; `ManifoldRepair` splits non-manifold edges (>2 incident faces) into per-fan edge copies; `SelfIntersectResolve` runs a `SpatialIndex`-broad-phased triangle-pair test where the SYMMETRIC exact `Predicate.Orient3D` straddle plus exact in-triangle containment decides a true crossing, then APPENDS the exact crossing point and retriangulates the offending face into its sub-faces (a split, never a discard); `OrientNormals` propagates a consistent winding across the dual face-adjacency graph by a BFS that flips a neighbor whose shared-edge traversal direction agrees (a coherent manifold has opposite traversal on a shared edge) — run AFTER `ManifoldRepair` in the `Standard` order so the dual graph is 2-manifold before orientation. The `Boolean` case now re-routes through the managed `Meshing/arrangement#ARRANGEMENT` companion — `BooleanArrangement` composes `Arrangement.Apply(ArrangementKind.MeshBoolean, ...)` for the common managed cases (the exact-arithmetic mesh-arrangement classification the arrangement owner authors) and re-emits through `Arrangement.ToMesh`; the `GeometryFault.NativeAssetMissing` rail propagates from `Arrangement.Apply` ONLY at the scale threshold past the managed-arrangement ceiling (the arrangement owner gates the reserved tier-3 native path), so the healing kernel adds no second scale gate.
@@ -28,6 +28,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Geometry;
 using Rasm.Geometry.Arrangement;
+using Rasm.Geometry.Meshing;
 using Rasm.Geometry.Numerics;
 using Rasm.Geometry.Spatial;
 using Rasm.Vectors;
@@ -70,35 +71,6 @@ public sealed record RepairPolicy(
     double IntersectTolerance) {
     public static readonly RepairPolicy Canonical =
         new(WeldTolerance: 1e-6, GapMaxSpan: 1e-2, SliverAreaFloor: 1e-12, MaxManifoldPasses: 8, IntersectTolerance: 1e-9);
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record MeshEdit(Arr<Point3d> Vertices, Arr<(int A, int B, int C)> Faces, Set<int> AffectedFaces, Set<int> AffectedVertices) {
-    public static MeshEdit OfMesh(MeshSpace input) {
-        Mesh mesh = input.DuplicateNative();
-        Arr<Point3d> vertices = toArr(mesh.Vertices.Select(static v => new Point3d(v.X, v.Y, v.Z)));
-        Arr<(int A, int B, int C)> faces = toArr(Enumerable.Range(0, mesh.Faces.Count)
-            .SelectMany(f => Triangulate(mesh.Faces.GetFace(f), vertices)));
-        return new MeshEdit(vertices, faces, Set<int>.Empty, Set<int>.Empty);
-    }
-
-    public Fin<MeshSpace> ToSpace(Context tolerance) {
-        Mesh mesh = new();
-        foreach (Point3d v in Vertices) mesh.Vertices.Add(v);
-        foreach ((int a, int b, int c) in Faces) mesh.Faces.AddFace(a, b, c);
-        mesh.RebuildNormals();
-        return MeshSpace.Of(mesh, tolerance);
-    }
-
-    public MeshEdit Touch(IEnumerable<int> faces, IEnumerable<int> vertices) =>
-        this with { AffectedFaces = AffectedFaces.TryAddRange(faces), AffectedVertices = AffectedVertices.TryAddRange(vertices) };
-
-    static IEnumerable<(int A, int B, int C)> Triangulate(MeshFace face, Arr<Point3d> vertices) =>
-        face.IsTriangle
-            ? [(face.A, face.B, face.C)]
-            : Kernels.QuadDiagonal(vertices[face.A], vertices[face.B], vertices[face.C], vertices[face.D]) == 0
-                ? [(face.A, face.B, face.C), (face.A, face.C, face.D)]
-                : [(face.A, face.B, face.D), (face.B, face.C, face.D)];
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -289,7 +261,7 @@ internal static class Kernels {
         edit.ToSpace(tolerance).Bind(a => op.Tool.ToSpace(tolerance).Bind(b =>
             Arrangement.Apply(ArrangementKind.MeshBoolean, a, b, op.Op, ArrangementPolicy.Canonical)
                 .Bind(arrangement => arrangement.ToMesh(tolerance))
-                .Map(MeshEdit.OfMesh)));
+                .Map(static merged => MeshEdit.Of(merged))));
 
     // --- [PRIMITIVES]
     static Point3d Project(Point3d p, int axis) => axis switch {
@@ -377,7 +349,7 @@ internal static class Kernels {
 
 public static class Heal {
     public static Fin<HealSession> Repair(MeshSpace input, Seq<HealOp> ops, RepairPolicy policy) =>
-        ops.Fold(Fin.Succ((Edit: MeshEdit.OfMesh(input), Receipts: Seq<RebuildReceipt>(), Tolerance: input.Tolerance)),
+        ops.Fold(Fin.Succ((Edit: MeshEdit.Of(input), Receipts: Seq<RebuildReceipt>(), Tolerance: input.Tolerance)),
             (acc, op) => acc.Bind(state =>
                 from before in Topology(state.Edit, state.Tolerance)
                 from next in op.Apply(state.Edit, state.Tolerance)
@@ -404,7 +376,7 @@ public static class Heal {
 
 ```mermaid
 flowchart LR
-    MeshSpace -->|OfMesh| MeshEdit
+    MeshSpace -->|MeshEdit.Of| MeshEdit
     MeshEdit -->|Heal.Repair fold| HealOp
     HealOp -->|Orient2D/Orient3D| Predicate
     HealOp -->|broad-phase| SpatialIndex
@@ -423,7 +395,7 @@ One owner per axis; capability is a case, row, or column, never a sibling surfac
 | :-----: | :-------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- | :-----: |
 |  [04]   | Healing rail    | `Heal`/`HealOp` | static surface + `HealKind` `[SmartEnum<string>]` + `HealOp` `[Union]` (6 author-kernel + 1 native-gate) + `RepairPolicy` + `Kernels` bodies | `Heal.Repair → Fin<HealSession>`    |    7    |
 |  [4a]   | Repair modality | `HealKind`      | `[SmartEnum<string>]` degenerate/gap/weld/manifold/self-intersect/orient/boolean + `RebuildsTopology`/`Tier` columns                         | discriminant (pure)                 |    7    |
-|  [4b]   | Working set     | `MeshEdit`      | immutable record (vertices/faces/affected sets) + `OfMesh`/`ToSpace`/`Touch`                                                                 | `MeshEdit.ToSpace → Fin<MeshSpace>` |    —    |
+|  [4b]   | Working set     | `MeshEdit`      | composed from `Meshing/edit.md` (vertices/faces/affected sets) + `Of`/`ToSpace`/`Touch`                                                      | `MeshEdit.ToSpace → Fin<MeshSpace>` |    —    |
 
 The six author-kernel repair ops (`DuplicateWeld`, `DegenerateCollapse`, `GapClose`, `ManifoldRepair`, `SelfIntersectResolve`, `OrientNormals`) are pure-managed first-principles kernels composing the `Predicate` exact-sign floor, the `SpatialIndex` broad-phase, and the `Vectors` `TopologyReceipt`, none depending on a live-host member spelling beyond the stable native `Mesh`/`MeshFace` surface the topology sibling already pins. The `Boolean` row composes the managed `Meshing/arrangement#ARRANGEMENT` companion through `Arrangement.Apply` for the common managed cases (the seam ALIGNED to the arrangement owner) and propagates `NativeAssetMissing` only when the arrangement owner's own scale gate routes the reserved tier-3 native path — the tier-3 native deploy-asset gate is reserved for that scale path alone, never the only boolean body.
 

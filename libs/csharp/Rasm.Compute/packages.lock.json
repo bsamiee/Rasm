@@ -301,6 +301,19 @@
         "resolved": "3.11.0",
         "contentHash": "0Qb91RC0bmwwgv9MvSBh3P8y8Gaq5OWW2htFAwBqhYVOhrT6BRKRNU0RNii+KDoPYHxCeU5WvfSH5EtspGVWdA=="
       },
+      "PollinationSDK": {
+        "type": "Direct",
+        "requested": "[1.10.0, )",
+        "resolved": "1.10.0",
+        "contentHash": "lVg6PFdM9Q4xTpQqOW9gHnCdm5DAVuuAZOSa8ZH+O7zW1sGWmvAYYDUJFcOZps6VCpOPHWv9iWCxVCs/4CprsQ==",
+        "dependencies": {
+          "LBT.Newtonsoft.Json": "13.0.3.2",
+          "LBT.RestSharp": "106.11.7.1",
+          "Microsoft.Data.Sqlite": "8.0.3",
+          "Pollination.Logger": "1.1.4",
+          "System.ComponentModel.Annotations": "5.0.0"
+        }
+      },
       "SharpGLTF.Core": {
         "type": "Direct",
         "requested": "[1.0.6, )",
@@ -3608,19 +3621,6 @@
         "contentHash": "cchud9Atak0l9VUPmLxR8CNC1rV0Hr+ZNWEypAiukzYJEBd1bZ53JJ/ihHBRO96lqDFC67XnJxbI2MDt4MyGDw==",
         "dependencies": {
           "NetTopologySuite": "2.5.0"
-        }
-      },
-      "PollinationSDK": {
-        "type": "CentralTransitive",
-        "requested": "[1.10.0, )",
-        "resolved": "1.10.0",
-        "contentHash": "lVg6PFdM9Q4xTpQqOW9gHnCdm5DAVuuAZOSa8ZH+O7zW1sGWmvAYYDUJFcOZps6VCpOPHWv9iWCxVCs/4CprsQ==",
-        "dependencies": {
-          "LBT.Newtonsoft.Json": "13.0.3.2",
-          "LBT.RestSharp": "106.11.7.1",
-          "Microsoft.Data.Sqlite": "8.0.3",
-          "Pollination.Logger": "1.1.4",
-          "System.ComponentModel.Annotations": "5.0.0"
         }
       },
       "Polly.Core": {

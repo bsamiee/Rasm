@@ -8,9 +8,10 @@ flat `Numerator`/`Denominator` rational) and `BigRational` (a mixed `WholePart` 
 Stern-Brocot bracketing step. It is the topmost, infinitely-precise tier of the predicate
 precision ladder: interior `double` (`NumericsPolicy`) -> `TYoshimura.DoubleDouble` 106-bit
 middle tier -> `Expansion` sign-exact expansion -> `Fraction` exact-rational adjudication.
-Orient2D/Orient3D/InCircle/InSphere and the four implicit-point predicates (OrientLPI/
-OrientTPI/InCircleLPI/InSphereTPI) reduce their determinant to a `Fraction.Sign` query when
-every faster tier reports an indeterminate sign. It does NOT implement `INumber<T>` or any
+`Orient2D`/`Orient3D`/`InCircle`/`InSphere` and the implicit-point family (the axis-projected
+`Orient2D(in Implicit, …)`, the `Compare` order key, and the implicit-query `InCircle`/`InSphere`
+members) reduce their determinant to a `Fraction.Sign` query when every faster tier reports an
+indeterminate sign. It does NOT implement `INumber<T>` or any
 `System.Numerics` generic-math interface — the only contracts are `IComparable`/`IComparable<T>`/
 `IEquatable<T>` (plus `IEqualityComparer<Fraction>` on `Fraction`), so a rail composes it as a
 hand-typed value, never through `INumberBase<T>`.
@@ -150,7 +151,7 @@ readout only — never an interior predicate step.
 
 [STACKING_LAW]:
 - precision ladder: this oracle sits above `TYoshimura.DoubleDouble` (`api-doubledouble`, the 106-bit hi/lo middle tier whose FMA `TwoProduct` + Knuth `TwoSum` transforms match the kernel) and the in-house `Expansion` sign-exact branch; the kernel escalates tier-by-tier and only the indeterminate residue reaches `Fraction.Sign`, so the BigInteger cost is paid on the measure-zero degenerate set, never the bulk.
-- predicate floor: `Predicate.Orient2D/Orient3D/InCircle/InSphere` and the implicit-point `OrientLPI/OrientTPI/InCircleLPI/InSphereTPI` are PROVED against the `Fraction` oracle in the law-matrix — the oracle is both the runtime last-resort adjudicator and the test-time ground truth the faster tiers are differentially fuzzed against (`CsCheck` random determinants compared `double`/`Expansion`/`DoubleDouble` vs `Fraction.Sign`).
+- predicate floor: `Predicate.Orient2D/Orient3D/InCircle/InSphere` and the implicit-point family (axis-projected `Orient2D(in Implicit, …)`, the `Compare` order key, the implicit-query `InCircle`/`InSphere`) are PROVED against the `Fraction` oracle in the law-matrix — the oracle is both the runtime last-resort adjudicator and the test-time ground truth the faster tiers are differentially fuzzed against (`CsCheck` random determinants compared `double`/`Expansion`/`DoubleDouble`/`Interval` vs `Fraction.Sign`).
 - arrangement / intersection keys: `Arrangement` planar-overlay cell ordering and `IntersectOp` exact parametric `t`-keys carry a `Fraction` ordering key when an `Lpi`/`Tpi` implicit point's coordinate is only known as an exact rational; `Fraction.Compare`/`CompareTo` totally orders them, so the cell complex never depends on a floating tolerance for its combinatorial structure.
 
 [RAIL_LAW]:

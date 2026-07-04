@@ -27,7 +27,7 @@ Rasm/
 ├── Spatial/                 # Proximity, clouds, neighborhoods, transport, fields, acceleration, naming
 │   ├── Index.cs             # SAH-BVH/Morton-octree SpatialIndex over NodeStore with query/refit fold
 │   ├── Naming.cs            # TopoName lineage/NameTable/Track re-anchor
-│   ├── Reconciliation.cs    # CanonicalTopology↔NamingHash content-hash reconciliation fence
+│   ├── Reconciliation.cs    # Reconciliation.Apply(ReconcileOp) fence: EncodeForm {Mesh·Cloud·Parametric} → GeometryHash + NamingHash reconcile
 │   ├── Support.cs           # SupportProjection 14-case gated projection over the SupportSpace boundary adapter
 │   ├── Cloud.cs             # VectorCloud union, 30-case VectorCloudMetric, CloudKernel PCA, realized hull rail
 │   ├── Neighbors.cs         # The one kNN/radius/graph substrate: RTree + KDTree, MST normals, curvature, the one RMF owner
@@ -43,6 +43,7 @@ Rasm/
 │   ├── Intersect.cs         # Predicate-exact IntersectOp crossing lattice
 │   ├── Offset.cs            # Aichholzer-Aurenhammer skeleton/medial/minkowski OffsetOp
 │   ├── Mesh.cs              # MeshSpace snapshot handle, LaplacianCache, IntrinsicMesh + MeshAdjointSnapshot, one cotangent owner, power diagram
+│   ├── Edit.cs              # MeshEdit single-writer SoA build arena: one polymorphic Of (space|soup), weld kernel + knob
 │   ├── Dec.cs               # AssembleDecOperators, CR connection heat, CDS holonomy, harmonic basis + Hodge decomposition
 │   └── Reconstruct.cs       # RBF/MLS/Levin/APSS/Poisson kernels, the unified signed-heat spine, mesh-SDF, iso-extraction
 ├── Processing/              # Algorithm pipelines over the floors
@@ -76,17 +77,18 @@ Rasm/
 Domain/Identity.cs        →  csharp:Rasm.Element/Projection/address       # [CONTENT_KEY]: the kernel seed-zero XxHash128 ContentHash.Of entry the Rasm.Element seam composes for every NodeId/ContentAddress — ONE hasher, no second hasher
 Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec        # [CONTENT_KEY]: ContentAddress composes the kernel seed-zero XxHash128 entry — no second hasher at the codec
 Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity           # [CONTENT_KEY]: ModelIdentity.Checksum composes ContentHash.Of — the ONE federation hasher, never a per-call-site XxHash128
-Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query                # [CONTENT_KEY]: CanonicalTopology→GeometryHash canonical-byte content-identity hashed through the kernel Domain/Identity seed-zero entry; geometry crosses the seam by content-hash ONLY
+Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query/topology       # [CONTENT_KEY]: adjacency-derived GeometryHash canonical-byte content-identity hashed through the kernel Domain/Identity seed-zero entry; geometry crosses the seam by content-hash ONLY, read never re-minted
 Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity             # [CONTENT_KEY]: canonical-byte content-identity reproducing the one Domain/Identity seed (XxHash128 seed-zero)
 Spatial/Reconciliation.cs ⇄  typescript:kernel                            # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/Identity seed (XxHash128 seed-zero)
 Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute                          # [SHAPE]: DiscreteCalculus DEC operator bundle — the frozen adjoint-carrier shape
 Meshing/Mesh.cs           →  csharp:Rasm.Compute                          # [SHAPE]: MeshAdjointSnapshot adjoint handle over the cached DiscreteCalculus
-Spatial/Index.cs          →  csharp:Rasm.Fabrication/Toolpath/guard       # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
-Spatial/Index.cs          ←  csharp:Rasm.Fabrication/Posting/projection   # [SHAPE]: SpatialIndex BVH broad-phase
-Spatial/Index.cs          ⇄  csharp:Rasm.Compute                          # [SHAPE]: SpatialIndex.ToAcceleration BVH/octree node arrays
+Spatial/Index.cs          ⇄  csharp:Rasm.Fabrication/Toolpath/guard       # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
+Spatial/Index.cs          ⇄  csharp:Rasm.Fabrication/Posting/projection   # [SHAPE]: SpatialIndex BVH broad-phase
+Spatial/Index.cs          →  csharp:Rasm.Compute                          # [WIRE]: Spatial.Apply Wire case emits; Compute decodes
 Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Posting              # [WIRE]: IntersectResult / PlaneMesh section curve
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Posting/projection   # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    ←  csharp:Rasm.Fabrication/Posting              # [WIRE]: Predicate.Orient2D/Orient3D exact verdict
+Numerics/Predicates.cs    ←  csharp:Rasm.Compute/Solver/discretization    # [SHAPE]: CDTet exact gates — the public Predicate.Orient3D/InSphere verdicts satisfy by shape, never a Compute-side predicate mint
 Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting              # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Drawing/View.cs           →  csharp:Rasm.AppUi/Render                     # [PROJECTION]: DrawingProjection / drafting-sheet layout
 Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                  # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
@@ -107,6 +109,6 @@ Folder is domain grouping; fence namespace is the frozen contract axis. Every de
 | [01] | `Rasm.Domain` | `Domain/*` (7) | The union-ops generator emits `global::Rasm.Domain.Op.Of` and resolves the `GenerateUnionOpsAttribute` marker by metadata name, the Grasshopper `using Op =` aliases, the props global usings, the `ContentHash` federation seams, and the `Topology`/`Kind`/`Context` vocabulary the settled pages compose |
 | [02] | `Rasm.Vectors` | `Numerics/{Atoms,Matrix,Integrate,Spectral,Calculus}`, `Spatial/{Support,Cloud,Neighbors,Transport,Fields}`, `Parametric/Projections`, `Meshing/{Mesh,Dec,Reconstruct}`, `Processing/{Intent,Sample,Extract,Flow,Register,Geodesics,Segment}` (21) | The `Rasm.Rhino` Camera members (`VectorIntent`/`VectorFrame`/`MotionInterpolation`), the `MeshSpace` + DEC/field/cloud vocabulary the settled pages compose, and the Materials/Fabrication/Element design anchors |
 | [03] | `Rasm.Analysis` | `Analysis/*` (5), `Parametric/Locate` (1) | The cs-analyzer docIDs (`IntersectionHit`, `RayQuery`), the `Rasm.Rhino` Commands/Overlay bindings (`Analyze`/`AnalysisQuery`/`Env`), and the props-injected usings |
-| [04] | `Rasm.Geometry.*` | `Numerics/{Predicates,Faults}`, `Spatial/{Index,Naming,Reconciliation}`, `Parametric/Curve`, `Meshing/{Delaunay,Arrangement,Intersect,Offset}`, `Processing/{Repair,Receipts,Decimate,Flatten,Fit,Solver}`, `Drawing/*` (18) | Settled robust-core law; the geometry campaign owns its namespace reconciliation |
+| [04] | `Rasm.Geometry.*` | `Numerics/{Predicates,Faults}`, `Spatial/{Index,Naming,Reconciliation}`, `Parametric/Curve`, `Meshing/{Edit,Delaunay,Arrangement,Intersect,Offset}`, `Processing/{Repair,Receipts,Decimate,Flatten,Fit,Solver}`, `Drawing/*` (19) | Settled robust-core law; the geometry campaign owns its namespace reconciliation |
 
 `Rasm.Domain.Fault` and the `Rasm.Geometry` band-2400 `GeometryFault` are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

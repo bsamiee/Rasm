@@ -506,4 +506,4 @@ if (pending.length) {
   if (pending.length) log('Reconcile: ' + pending.length + ' residual(s) STILL OPEN after ' + MAX_ROUNDS + ' rounds — REPORTED, never dropped')
   else log('Reconcile: all residuals fixed + adversarially verified across ' + round + ' round(s)')
 } else { log('Reconcile: no residuals — clean') }
-return { workflow: 'stack-cs', root: ROOT, ordered: ordered, initial: initialLogs.length, critiqued: critLogs.length, redteamed: redLogs.length, passes: passLogs.map((r) => ({ key: r.log.file, summary: r.log.summary })), total: ordered.length, reconcileRounds: round, invalidClaims: invalid.map((x) => ({ files: x.files, claim: x.claim })), hard_residual: pending.map((x) => ({ files: x.files, claim: x.claim })) }
+return { workflow: 'stack-cs', root: ROOT, ordered: ordered, initial: initialLogs.length, critiqued: critLogs.length, redteamed: redLogs.length, passes: passLogs.map((r) => ({ key: r.log.file, summary: r.log.summary })), total: ordered.length, reconcileRounds: round, invalidClaims: invalid.map((x) => ({ files: x.files, claim: x.claim })), unresolved: pending.map((x) => ({ files: x.files, claim: x.claim })) }

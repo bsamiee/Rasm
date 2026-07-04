@@ -16,11 +16,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-[WATCH_PACKAGES]-[QUEUED]: four ecosystem candidates re-enter the roster review on their next release gate.
-- Capability: Admit `geometry4Sharp` (1.0.0 shipped 2022-11 — the trigger is a POST-2022 release signaling revived maintenance, never the existing stale drop), `CSparse.Extensions` (managed iterative solvers; still unpublished — on first NuGet), `TVGL` (2019-stale — if repackaged current), and `Kemsekov.GraphSharp` (3.1.2, 2024-02 — optional graph enrichment) when each clears the feed/license/arm64 gates.
-- Shape: One roster admission per candidate through the central manifest + a kernel `.api` catalogue; owning pages — `Meshing/mesh`, `Numerics/matrix`, `Spatial/cloud`, `Spatial/neighbors`.
-- Unlocks: Managed mesh substrate depth, iterative sparse breadth, and graph-algorithm enrichment without hand-rolls.
-- Anchors: The ecosystem survey verdicts; every current finalist fails a gate (stale drop, unpublished, dead, or x64-only), so the pool waits on release signals, never on research.
+(none)
 
 ## [02]-[CLOSED]
 

@@ -198,7 +198,7 @@ if (buckets.length) {
 }
 const spanOf = new Map(uniq.map((r) => [r.claim, r.files]))
 const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
-const hard_residual = claimsAll.filter((c) => c.status === 'open').map((c) => ({ files: spanOf.get(c.claim) || [], claim: c.claim }))
+const unresolved = claimsAll.filter((c) => c.status === 'open').map((c) => ({ files: spanOf.get(c.claim) || [], claim: c.claim }))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
-log('Reconcile: ' + buckets.length + ' buckets; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
-return { scope: SWEEP, catalogs: totalFiles, batches: totalBatches, complete: done.length, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }
+log('Reconcile: ' + buckets.length + ' buckets; ' + unresolved.length + ' still open — surfaced in the return, ' + dropped.length + ' dropped as invalid')
+return { scope: SWEEP, catalogs: totalFiles, batches: totalBatches, complete: done.length, clusters: clusters.length, unresolved: unresolved, dropped: dropped }

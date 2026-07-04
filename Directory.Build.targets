@@ -19,6 +19,14 @@
         <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
     </PropertyGroup>
 
+    <!-- MPXJ.Net rides ikvm-maven: JARs resolve from Maven Central and IKVM-compile inside the consumer build.
+         The import task hosts a JVM that dies in the Roslyn LSP's shared MSBuild task host and poisons unrelated
+         project loads; design-time builds empty the Maven chains, real builds keep the full pipeline. -->
+    <PropertyGroup Label="Maven Design-Time Guard" Condition="'$(DesignTimeBuild)' == 'true'">
+        <GetMavenReferenceItemsDependsOn></GetMavenReferenceItemsDependsOn>
+        <GetMavenIkvmReferenceItemsDependsOn></GetMavenIkvmReferenceItemsDependsOn>
+    </PropertyGroup>
+
     <!-- Create the SARIF parent before Roslyn writes ErrorLog. -->
     <Target Name="EnsureCspSarifDir" BeforeTargets="CoreCompile" Condition="'$(CspSarifDir)' != ''">
         <MakeDir Directories="$(CspSarifDir)" />

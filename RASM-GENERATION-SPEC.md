@@ -85,7 +85,7 @@ Evaluation law, decision-complete for the stand-up:
 - Occurrences bind via `Relationship.Assign` with `AssignKind.TypeDefinition`; part-of structure via `Relationship.Compose`; openings via `Relationship.Void`; material association via `Relationship.Associate` carrying the `CompositionAuthor.UsageOf`-derived `MaterialUsage`; `Rewrite` topology, mating, and adjacency constraints emit `Relationship.Connect` — so the grammar exercises the full five-kind edge algebra plus `Generic`.
 - `Instance` recursion threads an ancestry `Seq<AssemblageId>`; re-entering an ancestor rails `GenerationFault.Program`.
 - Every Materials-minted IFC stamp on a generated node is validated composition-time by the Bim `IfcLegality` vocabulary arms at `Assemble` — the engine never carries its own IFC validity logic.
-- `Placements` streams are host-neutral `Placement` tuples per `[04]`; the HOST-BOUNDARY materializes them (the `Seq<Placement>`, rebar-bend, and dome ring-course materialization seam formerly recorded on the Materials Construction boundary row).
+- `Placements` streams are host-neutral `Placement` tuples per `[04]`; the HOST-BOUNDARY materializes them — this spec owns the `Seq<Placement>`, rebar-bend, and dome ring-course materialization seam, never `Rasm.Materials`.
 
 ## [03]-[ROW_PLANES]
 
@@ -148,7 +148,7 @@ Diff-of-next-thing, priced (zero type edits each):
 | Member run with hardware | one `PathRow`: `new PathRow(PathId.Of("run.w14-lus26"), SpineRef.OfLine(6100), Seq<SlotBinding>(new SlotBinding.Frame(ComponentId.Of("steel.W14X90"), 0), new SlotBinding.Fasten(ComponentId.Of("connector.lus26"), PatternRef.Of("pattern.station-610"))), ModuleRepeat.At([0, 610, 1220]), JointPolicy.Standard)` |
 | Panel (new board type) | one `ComponentRow` on the Materials `PanelSeed` page — the Materials plane, consumed here by `ComponentId` |
 
-`OpeningPartition`, `PanelOperation`, `PanelPosition`, `AssemblageKind`, `FaceSelector`, `SplitAxis`, and `ModuleRepeat` are seed vocabularies authored at stand-up from the IFC 4.3.2 operation/partitioning token sets with `USERDEFINED` tails; `LiningVector`/`PanelVector` column lists finalize against the IFC 4.3.2 door/window lining- and panel-property attribute tables before stand-up (the one carried research item on this plane).
+`OpeningPartition`, `PanelOperation`, `PanelPosition`, `AssemblageKind`, `FaceSelector`, `SplitAxis`, and `ModuleRepeat` are seed vocabularies authored at stand-up from the IFC 4.3.2 operation/partitioning token sets with `USERDEFINED` tails; `LiningVector`/`PanelVector` column lists finalize against the IFC 4.3.2 door/window lining- and panel-property attribute tables — the LINING/PANEL COLUMN GATE: this plane's row types seal only after that attribute-table alignment, a stand-up precondition beside the `[04]` KERNEL GATE.
 
 Id-construction law: the new-plane id types (`OpeningId`, `AssemblageId`, `PathId`, `RuleRef`, `PatternRef`) charter their `Of` factories in this spec; a `ComponentId` appearing in an exemplar row is shorthand for an already-admitted Materials catalogue id — admitted through the on-disk `ComponentId.Validate` form at seed time — never a new factory on the Materials owner.
 
@@ -160,7 +160,7 @@ The emission vocabulary law: FORMS LIVE IN KERNEL GEOMETRY, never in Generation 
 // --- [TYPES] -------------------------------------------------------------------------------
 // The kernel-geometry spine reference: a content-keyed kernel curve + parameter interval. The
 // exact shape (curve vs surface-region overload, frame policy) finalizes at stand-up against the
-// kernel surface — a RESEARCH row. OfLine mints the degenerate straight spine for seed rows.
+// kernel surface under the KERNEL GATE. OfLine mints the degenerate straight spine for seed rows.
 public readonly record struct SpineRef(ContentKey Geometry, double T0, double T1) {
     public static SpineRef Of(ContentKey geometry, double t0, double t1) => new(geometry, t0, t1);
     public static SpineRef OfLine(double lengthMm) => /* the chartered degenerate-line mint */ ;
