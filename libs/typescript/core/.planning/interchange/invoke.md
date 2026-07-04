@@ -16,6 +16,7 @@ The capability plane of the interchange: both directions of the command contract
 [TRANSPORT_FAULT]:
 - Owner: `Transport`, the transport-fault fold — `fault(caught)` normalizes any caught value through `ConnectError.from`, maps the closed sixteen-value `Code` enum through the codec `Hops` projection, decodes a server-attached `FaultDetailWire` detail through `findDetails` against the format registry, and reconstructs the codec `FaultDetail` with the local edge hop appended — so the error channel is one reconstructed wire fault end to end and no `ConnectError`, bare code, or raw `try`/`catch` reaches domain flow.
 - Law: the fold is total — an `AbortError`/`TimeoutError` lands as `Canceled` through `ConnectError.from`, `Hops.fromCode` maps with `unknown` as the residue row, and a carried detail's hop chain merges ahead of the local edge hop so the first hop stays the origin; no ladder inspects codes.
+- Law: the carried detail decodes through `FaultDetail.FromWire` — the codec's tagged-landing twin — so the untagged proto detail reconstructs whole and a decode miss degrades to the edge-only fault, never a dropped call.
 - Law: this is the second and last `FaultDetail` construction site — the first is the codec registry's decode row; a third anywhere in the branch is the altitude defect the architecture suite audits.
 - Growth: a new evidence axis follows the C# shape at the codec landing; this fold inherits it field-for-field with zero edits.
 - Boundary: `Hops`, `FaultDetail`, and the enricher Layer are `codec#LANDING_WIRE`'s owners; the `Code` and `ConnectError` spellings are the `@connectrpc/connect` surface.
@@ -37,7 +38,7 @@ const Transport: {
     const error = ConnectError.from(caught, Code.Unknown)
     const carried = Array.head(error.findDetails(Proto.suite.FaultDetailWire))
     return Option.match(
-      Option.flatMap(carried, (wire) => Option.getRight(Schema.decodeUnknownEither(FaultDetail)(wire))),
+      Option.flatMap(carried, (wire) => Option.getRight(Schema.decodeUnknownEither(FaultDetail.FromWire)(wire))),
       {
         onNone: () =>
           new FaultDetail({
@@ -164,7 +165,7 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
 - Law: the derivation is kind-total over the shipped axis — `unary` and `server_streaming` bind; `client_streaming` and `bidi_streaming` refuse at bind time as `drift` evidence because the C# emitter does not mint them, and silence over an unbindable method strands its caller at runtime.
 - Law: retry policy is the branch budget vocabulary — a method with a budget row composes `Effect.retry(Budget.schedule(kind))`, class-gated through the fault's own `class` projection so a terminal reason never re-drives; a method without a row never retries, the safe default for non-idempotent verbs; the per-attempt deadline is the transport's `timeoutMs` below the retry while the budget's window bounds the whole call above it.
 - Law: every bound method runs under the failover plan — `Effect.withExecutionPlan` attaches the `Dial` ladder so a retryable transport fault walks the lane ladder before the budget schedule re-drives, and the lane choice is invisible at every call site.
-- Exemption: the terminal `Object.fromEntries` assembly is the page's one sanctioned assertion site — the mapped type computes from `Client<T>` while the runtime record builds from the descriptor's `methods` walk; the assertion states that one-descriptor correspondence, confined under the `// BOUNDARY ADAPTER` mark.
+- Exemption: the `_slots` client pin, the walk's slot reads, and the terminal `Object.fromEntries` assembly are the page's one sanctioned assertion cluster — the mapped type computes from `Client<T>` while the runtime record builds from the descriptor's `methods` walk, so the pin, the proven-slot reads, and the assembly each state that one-descriptor correspondence, confined under the `// BOUNDARY ADAPTER` mark.
 - Growth: a new method appears in the SDK at regeneration with zero edits here; a method gaining idempotency is one budget row at the caller.
 - Boundary: the emitted `DescService` consts are build artifacts the app's capability modules import; the `CapabilityDescriptorWire` census row homes here; `Budget` rows are `value/fault.ts` vocabulary.
 - Packages: `@connectrpc/connect` (`Client`); `@bufbuild/protobuf` (`DescService`); `effect` (`Effect`, `Stream`, `Option`, `Schema`); `./codec.ts` (`Parity`, `WireFault`); `./format.ts` (`Proto`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/fault.ts` (`Budget`).
@@ -203,7 +204,14 @@ declare namespace Capability {
         : never
   }
   type Budgets = Readonly<Record<string, Budget.Kind>>
+  type _Slot = (
+    input: unknown,
+    options?: { readonly signal?: AbortSignal; readonly headers?: Headers.Headers },
+  ) => Promise<unknown> & AsyncIterable<unknown>
 }
+
+const _slots = <T extends DescService>(client: Client<T>): Readonly<Record<string, Capability._Slot>> =>
+  client as unknown as Readonly<Record<string, Capability._Slot>>
 
 const Capability: {
   readonly Descriptor: typeof CapabilityDescriptor
@@ -213,7 +221,7 @@ const Capability: {
   bind: <T extends DescService>(service: T, budgets?: Capability.Budgets) =>
     Effect.gen(function* () {
       const dial = yield* Dial
-      const clients = dial.client(service)
+      const slots = Record.map(dial.client(service), _slots)
       const rows = yield* Effect.forEach(service.methods, (method) =>
         method.methodKind === "unary"
           ? Effect.succeed([
@@ -221,7 +229,7 @@ const Capability: {
               (input: unknown) => {
                 const call = Effect.withExecutionPlan(
                   Effect.flatMap(Lane, (lane) =>
-                    dial.unary((signal, headers) => clients[lane.protocol][method.localName](input, { signal, headers }))),
+                    dial.unary((signal, headers) => slots[lane.protocol][method.localName]!(input, { signal, headers }))),
                   dial.plan,
                 )
                 const kind = budgets?.[method.localName]
@@ -235,7 +243,7 @@ const Capability: {
                   Stream.unwrap(
                     Effect.withExecutionPlan(
                       Effect.map(Lane, (lane) =>
-                        dial.stream((headers) => clients[lane.protocol][method.localName](input, { headers }))),
+                        dial.stream((headers) => slots[lane.protocol][method.localName]!(input, { headers }))),
                       dial.plan,
                     ),
                   ),
@@ -261,6 +269,7 @@ const Capability: {
 - Law: the gate types against `state` vocabulary, never re-declares it — the port answers `Availability.Verdict`, refusal transports the verdict whole (`Gated` keeps its `until`, `Withheld` its level), and gating is read-then-dispatch: staleness policy belongs to the providing Layer.
 - Law: the support verb is one row on the same plane — the evidence band crosses opaque, interpretation belongs to the intake's consumer, and the port is declared here and satisfied at the root so the observe unit and this plane stay ledger-clean; the receipt travels back to the reporter so a support report is never fire-and-forget.
 - Law: the duplex channel is one schema seam over a swappable frame row — `ChannelSchema.duplexUnknown` types commands inbound and outcomes outbound with backpressure, the msgpack and ndjson frame rows swap under the unchanged seam, and the socket arrives as a byte channel through the runtime-satisfied constructor Tag; raw listeners and hand framing are unspellable above it.
+- Law: the msgpack row is the command lane's standing frame — the `Hlc` halves are `bigint` and JSON owns no bigint spelling, so the ndjson row is legal only over JSON-safe encoded schemas on both directions; a serving edge that must frame commands as text lands its JSON stamp spelling first, and swapping the row for a bigint-carrying schema is the precision defect the frame discriminant cannot absorb.
 - Growth: a new verb is one row in the app's table; a new outcome kind is one tagged case every exhaustive consumer breaks on; a third frame row is one arm on the `Frame` discriminant.
 - Boundary: the `CommandPayloadWire`/`SupportCaptureWire` census rows home here; the availability vocabulary and the total `admits` fallback are `state/evidence.ts`'s; the socket Layer and the serving loop are the runtime wave's.
 - Packages: `@effect/platform` (`ChannelSchema`, `MsgPack`, `Ndjson`, `Socket`); `effect` (`Context`, `Data`, `Effect`, `Schema`, `Option`); `./codec.ts` (`WireFault`); `./format.ts` (`Proto`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../state/evidence.ts` (`Availability`).

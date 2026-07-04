@@ -33,15 +33,23 @@ Rasm/
 │   ├── Neighbors.cs         # The one kNN/radius/graph substrate: RTree + KDTree, MST normals, curvature, the one RMF owner
 │   ├── Transport.cs         # Log-domain Sinkhorn OT (balanced/unbalanced/debiased) + SinkhornPlan projections
 │   └── Fields.cs            # ScalarField/VectorField/TensorField unions, typed SdfKind primitives, BlendKind, SampleDetailed seam
-├── Parametric/              # Curve/surface evaluation + location
-│   ├── Curve.cs             # Host-neutral GShark NURBS contract: evaluate, fit, intersect, sample, analyze
+├── Parametric/              # The vendored NURBS engine + host-neutral op tier, evaluation + location
+│   ├── Nurbs.cs             # THE vendored NURBS engine (MIT set owned in-kernel): Nurbs.Of(NurbsWire) one four-shape admission, KnotVector normalized-clamped algebra, De Boor + fixed-convention RationalDerivatives, Bezier-decomposed arc-length, Wang-2008 RMF, Piegl-Tiller curve/surface fits, fundamental forms, ToEncodeForm identity projection
+│   ├── Curve.cs             # ParametricOp eight-case op rail (Evaluate·Measure·Divide·Stations·Split·Reconstruct·Offset·Intersect2D) over NurbsForm.Curve; StationField SoA producer, promoted deviation-refined Offset, Fill overlay delegation
+│   ├── Surface.cs           # SurfaceOp six-case op rail (Tessellate·Isolines·Geodesics·NormalOffset·CurvatureSample·Pullback); UvTessellation the tier's UV-provenance carrier, real NURBS normal offset, kd-tree-seeded batch pullback
+│   ├── Subdivide.cs         # Stencil-row subdivision: Catmull-Clark/Loop as SubdivisionScheme data rows over ONE sparse-operator refinement fold, semi-sharp creases + region closure, Stam eigenbasis limit evaluation
+│   ├── Develop.cs           # Guaranteed-isometric developable strips: MMP-exact rails, torsal ruling solve, exact rigid unroll, ddouble isometry witness, ChartAtlas emission with DevelopmentReceipt beside
+│   ├── Panelize.cs          # Cross-field-guided panelization: Lattice (remesh QuadProvenance substrate) + Seeded (sample suite, geodesic-Voronoi cells) families, per-panel placement frames, planarity acceptance, PanelField SoA wire
+│   ├── Patternmap.cs        # Wallpaper-group pattern-to-surface instancing: 17 theorem-closed Seitz rows over ONE orbit fold, PL log-map inversion with flip/clip censuses, vector-heat-transported instance frames
 │   ├── Projections.cs       # CurveProjection/SurfaceProjection selectors, the one shape-operator + pose-slerp owners, SurfaceSpace
 │   └── Locate.cs            # Locator/LocationValue/Division location algebra with curvature extrema
 ├── Meshing/                 # Mesh substrate + construction lattice
 │   ├── Delaunay.cs          # Constrained Bowyer-Watson Delaunay/tetrahedralization on InCircle/InSphere
 │   ├── Arrangement.cs       # Managed exact boolean/overlay cell-complex retiring the native CSG gate
 │   ├── Intersect.cs         # Predicate-exact IntersectOp crossing lattice
+│   ├── Slice.cs             # Slicing.Apply slice-stack fold: LayerPlan height-law rows over ONE March integrator, oriented contours + typed open chains, exact-parity nesting forest, SliceStack five-channel SoA wire
 │   ├── Offset.cs            # Aichholzer-Aurenhammer skeleton/medial/minkowski OffsetOp
+│   ├── Skeleton.cs          # Au-2008 MCF 3D curve-skeleton: implicit contraction over the MeshEdit arena, cost-ordered collapse to 1D, Kruskal tree extraction, CurveSkeleton SoA wire composing offset's clearance family
 │   ├── Mesh.cs              # MeshSpace snapshot handle, LaplacianCache, IntrinsicMesh + MeshAdjointSnapshot, one cotangent owner, power diagram
 │   ├── Edit.cs              # MeshEdit single-writer SoA build arena: one polymorphic Of (space|soup), weld kernel + knob
 │   ├── Dec.cs               # AssembleDecOperators, CR connection heat, CDS holonomy, harmonic basis + Hodge decomposition
@@ -50,6 +58,7 @@ Rasm/
 │   ├── Repair.cs            # HealOp repair algebra + Heal.Repair session fold
 │   ├── Receipts.cs          # Typed RebuildReceipt chain + ManifoldStatus + HealSession/RebuildLog
 │   ├── Decimate.cs          # Garland-Heckbert QEM SimplifyOp decimation
+│   ├── Remesh.cs            # Remeshing.Apply two-row rewrite: Botsch-Kobbelt isotropic + cross-field-guided quad extraction; exact projected-convexity flip gate, RemeshTrace receipt, QuadProvenance the panelize substrate
 │   ├── Flatten.cs           # LSCM/ARAP/BFF ParamOp UV-flattening over the DEC substrate
 │   ├── Intent.cs            # VectorIntent consumer rail: Project<TOut>(Context, Op?) dispatch composing every owner
 │   ├── Sample.cs            # SampleKind union (Bridson…BNOT power-CCVT) + SampleKernel domain dispatch
@@ -87,6 +96,11 @@ Spatial/Index.cs          ⇄  csharp:Rasm.Fabrication/Toolpath/guard       # [S
 Spatial/Index.cs          ⇄  csharp:Rasm.Fabrication/Posting/projection   # [SHAPE]: SpatialIndex BVH broad-phase
 Spatial/Index.cs          →  csharp:Rasm.Compute                          # [WIRE]: Spatial.Apply Wire case emits; Compute decodes
 Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Posting              # [WIRE]: IntersectResult / PlaneMesh section curve
+Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Toolpath             # [WIRE]: SliceStack five-channel forest wire (layers · contours · nesting parent/child · open chains · elevations) — the FAB:48 re-route realized; the in-folder planar section dies
+Meshing/Slice.cs          →  csharp:Rasm.Compute                          # [WIRE]: AtElevations story-elevation contours through the SliceStack wire — the circulation decoder (RASM-CS-COMPUTE [V12]a)
+Meshing/Offset.cs         ⇄  csharp:Rasm.Fabrication/Toolpath             # [SHAPE]: the ONE 2D/3D clearance family — Medial + Clearance(probe) radius payload; Toolpath/Skeleton.cs dies for Offsetting.Apply
+Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath             # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — the 3D half of the same clearance family, composed from offset.md's rows
+Processing/Remesh.cs      →  csharp:Rasm.Compute                          # [SHAPE]: Isotropic the named volumetric boundary-conditioning pre-step, decoded through the wire, never a Compute-side remesher (RASM-CS-COMPUTE [V7] recorded growth)
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Posting/projection   # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    ←  csharp:Rasm.Fabrication/Posting              # [WIRE]: Predicate.Orient2D/Orient3D exact verdict
 Numerics/Predicates.cs    ←  csharp:Rasm.Compute/Solver/discretization    # [SHAPE]: CDTet exact gates — the public Predicate.Orient3D/InSphere verdicts satisfy by shape, never a Compute-side predicate mint
@@ -96,6 +110,14 @@ Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                  # [W
 Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency         # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
 Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp          # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
 Processing/Flatten.cs     →  csharp:Rasm.AppUi/Render                     # [PROJECTION]: ChartAtlas / texture UV channel
+Parametric/Develop.cs     →  csharp:Rasm.Fabrication/Nesting/nfp          # [PROJECTION]: ChartAtlas unrolled isometric strips (same seam type as flatten) + DevelopmentReceipt isometry witness — the sheet/plywood/fabric acceptance evidence
+Parametric/Nurbs.cs       →  csharp:Rasm.Generation                       # [WIRE]: Nurbs.Of(NurbsWire) public arbitrary-knot ingress — SpineRef surface resolution (G1); spec-decided consumer, folder not stood up (RASM-GENERATION-SPEC)
+Parametric/Curve.cs       →  csharp:Rasm.Generation                       # [WIRE]: Stations (station, frame) StationField SoA over the SpineRef [T0,T1] window — the PathRow/Placement producer
+Parametric/Surface.cs     →  csharp:Rasm.Generation                       # [WIRE]: UvTessellation / Isolines / Geodesics / NormalOffset gate items; the UV-provenance carrier the whole Parametric tier's consumers demand
+Parametric/Subdivide.cs   →  csharp:Rasm.Generation                       # [WIRE]: region subdivision via SubdividePolicy.Region with sealed T-junction closure; quad-preserving publish
+Parametric/Develop.cs     →  csharp:Rasm.Generation                       # [WIRE]: developable gate item — isometry-witnessed strips read off DevelopmentReceipt
+Parametric/Panelize.cs    →  csharp:Rasm.Generation                       # [WIRE]: PanelField panel graph + per-panel placement frames — the panelization gate item
+Parametric/Patternmap.cs  →  csharp:Rasm.Generation                       # [WIRE]: InstanceStream with vector-heat-transported per-instance frames — the PATTERN/TILING plane's exact input
 Processing/Intent.cs      →  csharp:Rasm.Rhino/Camera                     # [BOUNDARY]: VectorIntent (here) + VectorFrame (Numerics/Atoms.cs) + MotionInterpolation (Parametric/Projections.cs) frozen-name contract; dormant host edge until host-boundary re-entry
 Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands                   # [BOUNDARY]: Analyze/AnalysisQuery/Env frozen-name contract (Commands + Overlay bind the same entry); dormant host edge until host-boundary re-entry
 *                         ←  csharp:Rasm.Fabrication                      # [SHAPE]: Matrix / Point3d / Vector3d

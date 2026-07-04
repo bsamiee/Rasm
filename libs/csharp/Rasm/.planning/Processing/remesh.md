@@ -1,6 +1,6 @@
 # [RASM_SIMPLIFICATION_REMESH]
 
-The remesh substrate of `Rasm.Geometry.Simplification` — ONE `Remeshing.Apply(RemeshOp, Op? key = null)` folding a two-row `RemeshOp` `[Union]`: `Isotropic`, the Botsch-Kobbelt split/collapse/flip/tangential-relax rewrite driving every edge toward one target length while preserving genus, features, and the original surface (relaxed vertices re-project onto the source through the `Spatial/index` BVH); and `QuadField`, the cross-field-guided quad extraction composing the landed `segment.md` Knöppel machinery — `SegmentKernel.CrossFieldAt` smoothest/constrained n-RoSy fields and `StripeAt` field-aligned stripe scalars — into an integer-isoline quad grid with per-patch decomposition over `WeaklyConnectedComponents`. This is the AUTHOR-KERNEL robust tier of the widened Simplification charter (mesh rewrite under budget): it sits BESIDE `segment.md`'s landed HOST-capture tier (`RemeshKind`/`QuadTarget` over native `QuadRemesh`/`Reduce`) under the standing capture law — one anchor each, the host tier captures RhinoCommon parameters and receipts, this tier owns the first-principles rewrite a non-Rhino runtime and a predicate-gated pipeline demand — and `decimate.md`'s `VoxelRemesh` stays its own distinct modality row (volumetric re-tessellation under a budget, never an edge-length equalizer).
+The remesh substrate of `Rasm.Geometry.Simplification` — ONE `Remeshing.Apply(RemeshOp, Op? key = null)` folding a two-row `RemeshOp` `[Union]`: `Isotropic`, the Botsch-Kobbelt split/collapse/flip/tangential-relax rewrite driving every edge toward one target length while preserving genus, features, and the original surface (relaxed vertices re-project onto the source through the `Spatial/index` BVH); and `QuadField`, the cross-field-guided quad extraction composing the landed `segment.md` Knöppel machinery — `SegmentKernel.CrossFieldAt` smoothest/constrained n-RoSy fields and `StripeAt` field-aligned stripe scalars — into an integer-isoline quad grid with per-patch decomposition over `ConnectedComponents`. This is the AUTHOR-KERNEL robust tier of the widened Simplification charter (mesh rewrite under budget): it sits BESIDE `segment.md`'s landed HOST-capture tier (`RemeshKind`/`QuadTarget` over native `QuadRemesh`/`Reduce`) under the standing capture law — one anchor each, the host tier captures RhinoCommon parameters and receipts, this tier owns the first-principles rewrite a non-Rhino runtime and a predicate-gated pipeline demand — and `decimate.md`'s `VoxelRemesh` stays its own distinct modality row (volumetric re-tessellation under a budget, never an edge-length equalizer).
 
 Exactness lands where a sign decides structure: the edge-flip admission is the exact projected-convexity gate — both diagonals of the edge's corner quad must strictly separate the opposite pair under `Predicate.Orient2D` signs on the quad's dominant-axis projection, the same reflex-separation law as the arena's quad-diagonal gate — never a float dihedral threshold; the quad emission triangulates through the composed `Kernels.QuadDiagonal`. Every structural operation is an arena verb (`AddVertex`/`AddFace`/`SetFace`/`KillFace` — `SetFace` IS the flip re-point and the collapse re-point), the tangential-relax sweep partitions through the arena's budgeted `Parallel` struct-action verb double-buffered over frozen position reads, and the result publishes by freeze through `ToSpace` → `MeshSpace.Of`. A convergence stall routes the typed `GeometryFault.RemeshStalled(targetLength, achieved, iterations)` 2441; the `QuadField` result carries `QuadProvenance` — the SoA quad/patch/UV channels `Parametric/panelize` composes as its substrate — and `Rasm.Compute` `[V7]` names `Isotropic` as its volumetric boundary-conditioning pre-step, decoded through the wire, never a Compute-side remesher.
 
@@ -10,12 +10,12 @@ Exactness lands where a sign decides structure: the edge-flip admission is the e
 
 ## [02]-[REMESHING]
 
-- Owner: `RemeshPolicy` the policy row (`Iterations` — the pass budget; `SplitRatio`/`CollapseRatio` — the Botsch-Kobbelt `4/3`/`4/5` hysteresis band around the target; `FeatureAngle` — the dihedral threshold pinning crease edges (boundary edges pin unconditionally); `ConvergenceBand` — the achieved-deviation acceptance fraction; `ProjectCandidates` — the BVH nearest-K the surface re-projection refines exactly; `Symmetry` — the n-RoSy order the quad arm solves (4 = quads, the diagrid/tri family is this one integer); `ParallelFloor`) registering `IValidityEvidence`; `RemeshOp` the two-row request `[Union]` (`Isotropic(Mesh, TargetLength, Policy)` · `QuadField(Mesh, TargetLength, Policy)` — the target length is per-request data, the knobs are policy); `RemeshTrace` the typed receipt (target · achieved mean/max deviation · iterations · split/collapse/flip counts · feature-edge census); `QuadProvenance` the quad substrate channels (`Corners` — 4 ordinals per quad · `PatchOf` — per-quad patch label · `U`/`V` — per-emitted-vertex stripe coordinates · `SingularFaces` — the cut source faces); `RemeshResult` the carrier (`Mesh` rewritten `MeshSpace` · `Trace` · `Quads` the `Option<QuadProvenance>` the quad arm fills); `Remeshing` the static surface.
+- Owner: `RemeshPolicy` the policy row (`Iterations` — the pass budget; `SplitRatio`/`CollapseRatio` — the Botsch-Kobbelt `4/3`/`4/5` hysteresis band around the target; `FeatureAngle` — the dihedral threshold pinning crease edges (boundary edges pin unconditionally); `ConvergenceBand` — the achieved-deviation acceptance fraction; `ProjectCandidates` — the BVH nearest-K the surface re-projection refines exactly; `ParallelFloor`) registering `IValidityEvidence`; `RemeshOp` the two-row request `[Union]` (`Isotropic(Mesh, TargetLength, Policy)` · `QuadField(Mesh, TargetLength, Symmetry, Policy)` — target length and the quad arm's n-RoSy `Symmetry` are per-request DATA (4 = quads, the diagrid/tri family is this one integer, proven ∈ {1,2,4,6} at the `VectorField.CrossField` admission), the knobs are policy); `RemeshTrace` the typed receipt (target · achieved mean/max deviation · iterations · split/collapse/flip counts · feature-edge census); `QuadProvenance` the quad substrate channels (`Corners` — 4 ordinals per quad · `PatchOf` — per-quad patch label · `U`/`V` — per-emitted-vertex stripe coordinates · `SingularFaces` — the cut source faces); `RemeshResult` the carrier (`Mesh` rewritten `MeshSpace` · `Trace` · `Quads` the `Option<QuadProvenance>` the quad arm fills); `Remeshing` the static surface.
 - Cases: `RemeshOp` cases 2 — `Isotropic` the edge-length equalizer, `QuadField` the field-guided quad extraction; a third rewrite modality (anisotropic curvature-adapted sizing, feature-aligned tri remesh) is one further case over the SAME pass machinery with a sizing law as its data.
 - Entry: `public static Fin<RemeshResult> Apply(RemeshOp op, Op? key = null)` — the ONE entry discriminating on the op case. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind.Mesh, index, witness)` 2400 on an inadmissible request (empty mesh, non-positive target length, invalid policy) and `GeometryFault.RemeshStalled(targetLength, achieved, iterations)` 2441 when the pass budget exhausts with the achieved mean edge deviation still outside `ConvergenceBand` — the achieved length is the residual evidence, so a caller distinguishes "converged", "converged early", and "stalled at this deviation" structurally; a freeze failure surfaces as `MeshSpace.Of`'s own rail. No `RemeshIsotropic`/`RemeshQuad` sibling statics — one polymorphic `Apply`.
-- Auto: `Isotropic` opens ONE `MeshEdit.Of(space)` arena, builds the ORIGINAL-surface BVH once (`Spatial.Apply(SpatialOp.Build(SpatialKind.Bvh, faceBounds, BuildPolicy.Canonical))` — every projection targets the source, so the rewrite never drifts), and runs `Iterations` passes: (1) SPLIT every edge past `SplitRatio·ℓ` at its midpoint — `AddVertex` + per-incident-face `SetFace`/`AddFace`; (2) COLLAPSE every non-feature edge under `CollapseRatio·ℓ` — the survivor re-points through the per-pass vertex→incident-face index (never a full-array rescan), guarded by the hysteresis bound (a collapse minting an edge past `SplitRatio·ℓ` is skipped) and the feature/boundary pin; (3) FLIP every non-feature edge whose valence deviation improves — target valence 6 interior / 4 boundary — admitted ONLY by the exact projected-convexity gate: on the corner quad's dominant-axis projection BOTH `Predicate.Orient2D` separation products are `Sign.Negative` (a float dihedral or an unguarded valence flip is the deleted form), landed as two `SetFace` corner rewrites; (4) RELAX every unpinned vertex to its area-weighted incident-face centroid projected onto its own tangent plane — the equalization smoother, double-buffered through the arena's `Parallel` struct action (frozen reads, disjoint writes), feature vertices pinned; (5) PROJECT every relaxed vertex back to the original surface — `SpatialQuery.Nearest(p, ProjectCandidates)` candidate faces, exact point-triangle minimization over the candidates, `SetPosition` to the foot. The pass loop stops early when an iteration performs zero structural ops and the mean deviation sits inside `ConvergenceBand`; exhaustion outside the band routes 2441. `QuadField` first runs the isotropic conditioning at the target (the field solve wants bounded aspect ratios — the same `Equalize` fold, the same stall law), then composes the landed field machinery: the base stripe family `U` samples `SegmentKernel.StripeAt(space, crossCase, 1/ℓ, vertex, key)` over the memoized `VectorField.CrossField(space, Symmetry, None, None)` solve, the orthogonal family `V` samples a second constrained solve whose anchor hint is the base field's representative at the seed vertex rotated a quarter turn about its normal (two memoized solves, one field owner); extraction interns a grid vertex per integer `(⌈u⌉,⌈v⌉)` crossing by inverse-linear interpolation on the triangle, emits one quad per completed cell, skips and records SINGULAR faces (corner stripe spans past one period after branch alignment — the field-index witness), labels patches through `WeaklyConnectedComponents` over the transient face-adjacency `UndirectedGraph<int, SEdge<int>>` cut at singular faces, and triangulates the emitted quads through the composed exact `Kernels.QuadDiagonal` into a fresh arena → `ToSpace`.
+- Auto: `Isotropic` opens ONE `MeshEdit.Of(space, ...)` arena (the policy floor threaded into `ArenaPolicy` at `Of`), builds the ORIGINAL-surface BVH once (`Spatial.Apply(SpatialOp.Build(SpatialKind.Bvh, faceBounds, BuildPolicy.Canonical))` — every projection targets the source, so the rewrite never drifts), and runs `Iterations` passes: (1) SPLIT every edge past `SplitRatio·ℓ` at its midpoint — `AddVertex` + per-incident-face `SetFace`/`AddFace`; (2) COLLAPSE every non-feature edge under `CollapseRatio·ℓ` — the survivor re-points through the per-pass vertex→incident-face index (never a full-array rescan), guarded by the manifold link condition (`N(u) ∩ N(v)` = exactly the edge's opposite corners, 2 interior / 1 boundary, one-rings merged in-sweep — the genus-preservation gate), the hysteresis bound (a collapse minting an edge past `SplitRatio·ℓ` is skipped), and the feature/boundary pin — the collapse runs TOWARD a pinned end (the feature vertex survives in place) and only a both-ends-pinned crease segment holds; (3) FLIP every non-feature edge whose valence deviation improves — target valence 6 interior / 4 boundary — admitted ONLY by the exact projected-convexity gate: on the corner quad's dominant-axis projection BOTH `Predicate.Orient2D` separation products are `Sign.Negative` (a float dihedral or an unguarded valence flip is the deleted form), landed as two `SetFace` corner rewrites; (4) RELAX every unpinned vertex to its area-weighted incident-face centroid projected onto its own tangent plane — the equalization smoother, double-buffered through the arena's `Parallel` struct action (frozen reads, disjoint writes), feature vertices pinned; (5) PROJECT every relaxed vertex back to the original surface — `SpatialQuery.Nearest(p, ProjectCandidates)` candidate faces, exact point-triangle minimization over the candidates, `SetPosition` to the foot. The pass loop stops early when an iteration performs zero structural ops and the mean deviation sits inside `ConvergenceBand`; exhaustion outside the band routes 2441. `QuadField` first runs the isotropic conditioning at the target (the field solve wants bounded aspect ratios — the same `Equalize` fold, the same stall law), then composes the landed field machinery: the base stripe family `U` samples `SegmentKernel.StripeAt(space, crossCase, 1/ℓ, vertex, key)` over the memoized `VectorField.CrossField(space, Symmetry, None, None)` case (the request's own `Symmetry`), the orthogonal family `V` samples a second constrained solve whose anchor hint is the base field's representative at the seed vertex rotated a quarter turn about its face normal — the seed is a corner of that face and its ordinal is the anchored constraint (two memoized solves, one field owner); extraction interns a grid vertex per integer `(⌈u⌉,⌈v⌉)` crossing by inverse-linear interpolation on the triangle, emits one quad per completed cell, skips and records SINGULAR faces (corner stripe spans past one period after branch alignment — the field-index witness), labels patches through `ConnectedComponents` over the transient face-adjacency `UndirectedGraph<int, SEdge<int>>` cut at singular faces, and triangulates the emitted quads through the composed exact `Kernels.QuadDiagonal` into a fresh arena → `ToSpace`.
 - Receipt: `RemeshTrace` — target, achieved mean/max deviation, iterations spent, per-verb counts, feature census — the reproducibility evidence; `QuadProvenance` rides `RemeshResult.Quads` as the panelize substrate: quad corners, patch labels, per-vertex `(u,v)` stripe coordinates, singular-face ordinals — SoA channels a decoder binds without re-running the field solve.
-- Packages: `Rasm.Geometry.Meshing` (`MeshEdit.Of`/`AddVertex`/`AddFace`/`SetFace`/`KillFace`/`SetPosition`/`Parallel`/`ToSpace` + `Kernels.QuadDiagonal` — the arena and the exact diagonal gate), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` + `Sign`/`Axis` — the exact flip gate), `Rasm.Geometry.Spatial` (`Spatial.Apply` Build/Nearest — the projection acceleration, typed match routing `Fin`), `Rasm`/Vectors (`MeshSpace`; `SegmentKernel.CrossFieldAt`/`StripeAt` the landed Knöppel owners; `VectorField.CrossField` the field case; `Direction`/`Dimension` atoms), `Rasm.Geometry` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), QuikGraph (`UndirectedGraph<int, SEdge<int>>`, `AddVertexRange`, `WeaklyConnectedComponents` — in-computation only), CommunityToolkit.HighPerformance (`IAction` struct actions through the arena verb), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rhino.Geometry (`Point3d`/`Vector3d`/`BoundingBox` at the seam), BCL inbox.
+- Packages: `Rasm.Geometry.Meshing` (`MeshEdit.Of`/`AddVertex`/`AddFace`/`SetFace`/`KillFace`/`SetPosition`/`Parallel`/`ToSpace` + `Kernels.QuadDiagonal` — the arena and the exact diagonal gate; `ArenaPolicy` the floor carrier the policy threads at `Of`), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` + `Sign`/`Axis` — the exact flip gate), `Rasm.Geometry.Spatial` (`Spatial.Apply` Build/Nearest — the projection acceleration, typed match routing `Fin`), `Rasm`/Vectors (`MeshSpace`; `SegmentKernel.CrossFieldAt`/`StripeAt` the landed Knöppel owners; `VectorField.CrossField` the field case; `Direction`/`Dimension` atoms), `Rasm.Geometry` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), QuikGraph (`UndirectedGraph<int, SEdge<int>>`, `AddVertexRange`, `ConnectedComponents` — in-computation only), CommunityToolkit.HighPerformance (`IAction` struct actions through the arena verb), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rhino.Geometry (`Point3d`/`Vector3d`/`BoundingBox` at the seam), BCL inbox.
 - Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a sizing FIELD (curvature-adaptive target length) is one policy delegate replacing the constant `ℓ` in the same hysteresis tests; feature-vertex sliding (relax along the crease instead of pinning) is one relax-arm branch on the feature census; a fifth pass verb is one arm in the pass fold; the quad arm's per-patch parameterization refinement is `panelize`'s consumption, never a second extraction here; zero new entry surface.
 - Boundary: this page is the AUTHOR-KERNEL robust tier and `segment.md`'s `RemeshKind`/`QuadTarget`/`ApplyRemeshDetailed` is the HOST-capture tier — coexisting under the standing capture law, one anchor each, and a native `QuadRemesh`/`Reduce` call appearing HERE is the named tier violation (the host tier owns parameter capture; this tier owns the predicate-gated rewrite); `decimate.md`'s `VoxelRemesh` row stays a DISTINCT modality (volumetric re-tessellation under budget) and neither page absorbs the other; the flip gate is exact signs over the corner quad and a float dihedral criterion is the deleted non-robust form; structural rewrites are arena verbs and a page-local vertex/face buffer beside the two-carrier seam is the deleted third carrier; per-operation incidence updates ride per-pass indexes and a per-collapse full-array rescan is the deleted `O(F²)` class; the relax smoother is the area-weighted equalizer BY DESIGN — the substrate's cotangent owner reproduces the current shape and would defeat sampling equalization, so it is deliberately NOT consumed here (the one place a "deeper" operator is the wrong operator); projection targets the ORIGINAL surface through the composed index owner and an unprojected relax (shrinking drift) or a local acceleration structure is the deleted form; QuikGraph is transient and the quad RESULT leaves as the frozen `QuadProvenance` channels; `Apply` is total over the `Fin` rail and a thrown exception on a stalled rewrite is forbidden.
 
@@ -44,17 +44,16 @@ namespace Rasm.Geometry.Simplification;
 // an immediately-collapsible edge and a collapse never mints an immediately-splittable one.
 public sealed record RemeshPolicy(
     int Iterations, double SplitRatio, double CollapseRatio, double FeatureAngle,
-    double ConvergenceBand, int ProjectCandidates, int Symmetry, int ParallelFloor) : IValidityEvidence {
+    double ConvergenceBand, int ProjectCandidates, int ParallelFloor) : IValidityEvidence {
     public static readonly RemeshPolicy Canonical = new(
         Iterations: 8, SplitRatio: 4.0 / 3.0, CollapseRatio: 4.0 / 5.0, FeatureAngle: 0.6981317007977318,
-        ConvergenceBand: 0.2, ProjectCandidates: 8, Symmetry: 4, ParallelFloor: 4_096);
+        ConvergenceBand: 0.2, ProjectCandidates: 8, ParallelFloor: 4_096);
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: Iterations),
         ValidityClaim.Positive(value: FeatureAngle),
         ValidityClaim.Positive(value: ConvergenceBand),
         ValidityClaim.Positive(value: ProjectCandidates),
-        ValidityClaim.Positive(value: Symmetry),
         ValidityClaim.Positive(value: ParallelFloor))
         && SplitRatio > 1.0 && CollapseRatio is > 0.0 and < 1.0;
 }
@@ -77,7 +76,7 @@ public abstract partial record RemeshOp {
     private RemeshOp() { }
 
     public sealed record Isotropic(MeshSpace Mesh, double TargetLength, RemeshPolicy Policy) : RemeshOp;
-    public sealed record QuadField(MeshSpace Mesh, double TargetLength, RemeshPolicy Policy) : RemeshOp;
+    public sealed record QuadField(MeshSpace Mesh, double TargetLength, int Symmetry, RemeshPolicy Policy) : RemeshOp;
 }
 
 public static class Remeshing {
@@ -98,7 +97,7 @@ public static class Remeshing {
     // edge/incidence indexes, features pinned, every relaxed vertex re-projected onto the ORIGINAL
     // surface through the composed BVH. Statement bodies ride the arena-tier exemption.
     static Fin<(MeshSpace Space, RemeshTrace Trace)> Equalize(MeshSpace source, double target, RemeshPolicy policy, Op? key) {
-        using MeshEdit arena = MeshEdit.Of(source);
+        using MeshEdit arena = MeshEdit.Of(source, ArenaPolicy.Canonical with { ParallelFloor = policy.ParallelFloor });
         return SourceIndex(source, key).Bind(frozen => {
             (int splits, int collapses, int flips, int features) = (0, 0, 0, 0);
             int round = 0;
@@ -186,6 +185,9 @@ public static class Remeshing {
     static bool Follows(int a, int b, int c, int u, int v) =>
         (a == u && b == v) || (b == u && c == v) || (c == u && a == v);
 
+    static bool Holds((int A, int B, int C) face, int u, int v) =>
+        (face.A == u || face.B == u || face.C == u) && (face.A == v || face.B == v || face.C == v);
+
     static int Collapse(MeshEdit arena, Edges edges, double floor, double ceiling) {
         var facesOf = new Dictionary<int, List<int>>();
         for (int f = 0; f < arena.FaceCount; f++) {
@@ -195,11 +197,21 @@ public static class Remeshing {
                 (facesOf.TryGetValue(v, out List<int>? fs) ? fs : facesOf[v] = []).Add(f);
             }
         }
+        var neighbors = new Dictionary<int, HashSet<int>>();
+        foreach (((int u, int v), _) in edges.Table) {
+            (neighbors.TryGetValue(u, out HashSet<int>? nu) ? nu : neighbors[u] = []).Add(v);
+            (neighbors.TryGetValue(v, out HashSet<int>? nv) ? nv : neighbors[v] = []).Add(u);
+        }
         var dead = new HashSet<int>();
         int did = 0;
-        foreach (((int u, int v), _) in edges.Table) {
-            if (dead.Contains(u) || dead.Contains(v) || edges.Pinned.Contains(u)) { continue; }
+        foreach (((int cu, int cv), (_, int f1)) in edges.Table) {
+            if (dead.Contains(cu) || dead.Contains(cv)) { continue; }
+            (int u, int v) = edges.Pinned.Contains(cu) ? (cv, cu) : (cu, cv);  // collapse TOWARD the feature: the pinned end survives
+            if (edges.Pinned.Contains(u)) { continue; }  // both ends pinned — a crease segment, held
             if (arena.Position(u).DistanceTo(arena.Position(v)) >= floor) { continue; }
+            // link condition — the genus/manifold gate: N(u) ∩ N(v) must be exactly the edge's
+            // opposite corners (2 interior, 1 boundary); a wider intersection pinches the surface.
+            if (neighbors[u].Count(w => neighbors[v].Contains(w)) != (f1 < 0 ? 1 : 2)) { continue; }
             bool minted = facesOf.TryGetValue(u, out List<int>? around) && around.Where(arena.Alive).Any(f => {
                 (int a, int b, int c) = arena.Face(f);
                 foreach (int w in (ReadOnlySpan<int>)[a, b, c]) {
@@ -218,6 +230,12 @@ public static class Remeshing {
                     (facesOf.TryGetValue(v, out List<int>? vf) ? vf : facesOf[v] = []).Add(f);
                 }
             }
+            foreach (int w in neighbors[u].Where(w => w != v)) {  // merge one-rings so the link gate stays sound within the sweep
+                neighbors[w].Remove(u);
+                neighbors[w].Add(v);
+                neighbors[v].Add(w);
+            }
+            neighbors[v].Remove(u);
             dead.Add(u);
             did++;
         }
@@ -236,6 +254,7 @@ public static class Remeshing {
         int did = 0;
         foreach (((int a0, int b0), (int f0, int f1)) in edges.Table.ToArray()) {
             if (f1 < 0 || edges.Feature.Contains((a0, b0)) || !arena.Alive(f0) || !arena.Alive(f1)) { continue; }
+            if (!Holds(arena.Face(f0), a0, b0) || !Holds(arena.Face(f1), a0, b0)) { continue; }  // stale row — an earlier flip re-cornered a face
             (int fa, int fb, int fc) = arena.Face(f0);
             // normalize so f0 traverses a→b: winding-consistent flip emission depends on it
             (int a, int b) = Follows(fa, fb, fc, a0, b0) ? (a0, b0) : (b0, a0);
@@ -247,11 +266,11 @@ public static class Remeshing {
             int after = Deviate(a, -1) + Deviate(b, -1) + Deviate(c, +1) + Deviate(d, +1);
             if (after >= before) { continue; }
             Axis axis = DominantAxis(arena.Position(a), arena.Position(c), arena.Position(b), arena.Position(d));
+            (Implicit pa, Implicit pb, Implicit pc, Implicit pd) =
+                (new(arena.Position(a)), new(arena.Position(b)), new(arena.Position(c)), new(arena.Position(d)));
             bool convex =
-                Predicate.Orient2D(arena.Position(c), arena.Position(d), arena.Position(a), axis)
-                    .Times(Predicate.Orient2D(arena.Position(c), arena.Position(d), arena.Position(b), axis)) == Sign.Negative
-                && Predicate.Orient2D(arena.Position(a), arena.Position(b), arena.Position(c), axis)
-                    .Times(Predicate.Orient2D(arena.Position(a), arena.Position(b), arena.Position(d), axis)) == Sign.Negative;
+                Predicate.Orient2D(in pc, in pd, in pa, axis).Times(Predicate.Orient2D(in pc, in pd, in pb, axis)) == Sign.Negative
+                && Predicate.Orient2D(in pa, in pb, in pc, axis).Times(Predicate.Orient2D(in pa, in pb, in pd, axis)) == Sign.Negative;
             if (!convex) { continue; }
             arena.SetFace(f0, a, d, c);
             arena.SetFace(f1, b, c, d);
@@ -365,25 +384,25 @@ public static class Remeshing {
 
     // --- [QUAD_FIELD]
     // One isotropic conditioning pass, then the landed Knöppel composition: base stripes over the
-    // memoized CrossField solve, the orthogonal family over a quarter-turned anchor hint (two
-    // memoized solves, one field owner), integer-isoline cell extraction, patch labels via weak
-    // components cut at singular faces, quads triangulated through the exact diagonal gate.
+    // memoized CrossField solve, the orthogonal family over a quarter-turned anchor hint at the
+    // seed corner (two memoized solves, one field owner), integer-isoline cell extraction, patch
+    // labels via connected components cut at singular faces, quads through the exact diagonal gate.
     static Fin<RemeshResult> Quadrangulate(RemeshOp.QuadField op, Op? key) =>
         Equalize(op.Mesh, op.TargetLength, op.Policy, key).Bind(pair => {
             MeshSpace space = pair.Space;
             Op threaded = key.OrDefault();
             double frequency = 1.0 / op.TargetLength;
-            Point3d seed = space.Native.Vertices[0];
             (int a, int b, int c) = (space.Native.Faces[0].A, space.Native.Faces[0].B, space.Native.Faces[0].C);
+            Point3d seed = space.Native.Vertices[a];  // the anchored ordinal IS a corner of the normal's face
             Vector3d normal = Vector3d.CrossProduct(
                 (Point3d)space.Native.Vertices[b] - space.Native.Vertices[a],
                 (Point3d)space.Native.Vertices[c] - space.Native.Vertices[a]);
-            return SegmentKernel.CrossFieldAt(space, op.Policy.Symmetry, None, None, seed, threaded)
+            return SegmentKernel.CrossFieldAt(space, op.Symmetry, None, None, seed, threaded)
                 .Bind(baseDir => Direction.Of(value: Vector3d.CrossProduct(normal, baseDir), context: space.Tolerance, key: threaded))
                 .Bind(turned => {
-                    Option<Seq<(int, Direction)>> anchor = Some(Seq((0, turned)));
-                    var cross = new VectorField.CrossField(space, Dimension.Create(value: op.Policy.Symmetry), None, None);
-                    var rotated = new VectorField.CrossField(space, Dimension.Create(value: op.Policy.Symmetry), anchor, None);
+                    Option<Seq<(int, Direction)>> anchor = Some(Seq((a, turned)));
+                    var cross = new VectorField.CrossField(space, Dimension.Create(value: op.Symmetry), None, None);
+                    var rotated = new VectorField.CrossField(space, Dimension.Create(value: op.Symmetry), anchor, None);
                     return (SampleStripes(space, cross, frequency, threaded).ToValidation(),
                             SampleStripes(space, rotated, frequency, threaded).ToValidation())
                         .Apply(static (us, vs) => (Us: us, Vs: vs)).As().ToFin()
@@ -420,7 +439,7 @@ public static class Remeshing {
                 }
             }
         }
-        // patch labels: transient face-adjacency graph cut at singular faces — weak components
+        // patch labels: transient face-adjacency graph cut at singular faces — connected components
         var adjacency = new UndirectedGraph<int, SEdge<int>>(allowParallelEdges: false);
         adjacency.AddVertexRange(Enumerable.Range(0, soup.FaceCount).Where(f => !singular.Contains(f)));
         var byEdge = new Dictionary<(int, int), int>();
@@ -434,7 +453,7 @@ public static class Remeshing {
             }
         }
         var faceComponent = new Dictionary<int, int>();
-        adjacency.WeaklyConnectedComponents(faceComponent);
+        adjacency.ConnectedComponents(faceComponent);
 
         // one interned grid vertex per (iu, iv, patch) cell corner; one quad per completed cell
         using MeshEdit emit = MeshEdit.Of(ReadOnlySpan<Point3d>.Empty, ReadOnlySpan<(int, int, int)>.Empty);
@@ -544,7 +563,7 @@ flowchart LR
     MeshEdit -->|"Nearest(p, K) candidates → exact foot"| SpatialIndex
     RemeshOp -->|QuadField: CrossFieldAt + StripeAt| SegmentKernel
     SegmentKernel -->|per-vertex U/V stripe scalars| Extraction["integer-isoline cells"]
-    Extraction -->|weak components cut at singular faces| QuikGraph
+    Extraction -->|connected components cut at singular faces| QuikGraph
     Extraction -->|QuadDiagonal exact triangulation| Kernels
     MeshEdit -->|ToSpace freeze| RemeshResult
     RemeshResult -->|QuadProvenance channels| Panelize["Parametric/panelize substrate"]
@@ -558,12 +577,12 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 | [INDEX] | [AXIS/CONCERN]   | [OWNER]          | [KIND]                                                                                        | [RAIL]                                    | [CASES] |
 | :-----: | :--------------- | :--------------- | :---------------------------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
 |  [01]   | Remeshing        | `RemeshOp`       | `[Union]` two rows folded by ONE `Apply` with `Op?` threading                                 | `Remeshing.Apply → Fin<RemeshResult>`     |    2    |
-|  [1a]   | Rewrite policy   | `RemeshPolicy`   | policy row — pass budget · hysteresis band · feature angle · convergence · symmetry · floor   | value (`IValidityEvidence`)               |    —    |
+|  [1a]   | Rewrite policy   | `RemeshPolicy`   | policy row — pass budget · hysteresis band · feature angle · convergence · projection K · floor  | value (`IValidityEvidence`)               |    —    |
 |  [1b]   | Evidence         | `RemeshTrace`    | typed receipt — target/achieved deviation, iterations, per-verb counts, feature census        | carrier on the result                     |    —    |
 |  [1c]   | Quad substrate   | `QuadProvenance` | SoA channels — quad corners · patch labels · per-vertex `(u,v)` · singular faces              | carrier (`Option` on the result)          |    —    |
 
 ## [04]-[RESEARCH]
 
-- [BOTSCH_KOBBELT_LAW] — the isotropic pass is the canonical incremental remesher: split past `4/3·ℓ`, collapse under `4/5·ℓ` (the hysteresis pair that provably cannot ping-pong — a split's children sit inside the collapse floor's complement and a collapse is refused when it would mint a splittable edge), flip toward valence 6/4, relax tangentially, project to the source. Two decisions carry the robustness: the FLIP admits only under exact projected strict-convexity signs (`Predicate.Orient2D` products `Negative` for BOTH diagonals on the corner quad's dominant-axis projection — a flip through a reflex or degenerate quad folds the surface, and a float dihedral gate mis-classifies exactly the skinny configurations remeshing produces), and the RELAX is the AREA-WEIGHTED equalizer with tangent-plane projection — deliberately not the substrate's cotangent operator, whose shape-reproducing weights would null the sampling equalization that is the pass's purpose; the deliberate non-consumption is stated so no later pass "upgrades" it into a defect. Convergence is the mean edge deviation against `ConvergenceBand`; budget exhaustion outside the band routes the typed 2441 with the achieved length as residual evidence.
-- [STRIPE_QUADDING] — the quad arm composes the landed Knöppel machinery end to end: the memoized `CrossFieldAt` smoothest/constrained n-RoSy solve (symmetry the one integer — 4 quads, 6 tri/diagrid — the `int symmetry` data-axis `panelize` inherits), `StripeAt` field-aligned stripe scalars at frequency `1/ℓ` for the base family and a quarter-turned anchor-hinted second solve for the orthogonal family, then integer-isoline extraction: each face's corner `(u,v)` values locate the `(⌈u⌉,⌈v⌉)` crossings by inverse-linear barycentric solve, cells complete into quads, and faces whose corner stripe values span past one period are SINGULAR — the field-index witness — cut from the patch graph before `WeaklyConnectedComponents` labels the decomposition. Emitted quads triangulate through the composed exact `Kernels.QuadDiagonal` and freeze through `ToSpace`; the quad STRUCTURE survives on `QuadProvenance` (corners/patches/UV/singularities), the substrate `Parametric/panelize` binds without re-running any solve.
+- [BOTSCH_KOBBELT_LAW] — the isotropic pass is the canonical incremental remesher: split past `4/3·ℓ`, collapse under `4/5·ℓ` (the hysteresis pair that provably cannot ping-pong — a split's children sit inside the collapse floor's complement and a collapse is refused when it would mint a splittable edge), flip toward valence 6/4, relax tangentially, project to the source. Three decisions carry the robustness: the COLLAPSE admits only under the manifold link condition — the shared one-ring of the endpoints is exactly the edge's opposite corners (2 interior, 1 boundary), the gate that makes the genus-preservation claim structural rather than asserted; the FLIP admits only under exact projected strict-convexity signs (`Predicate.Orient2D` products `Negative` for BOTH diagonals on the corner quad's dominant-axis projection — a flip through a reflex or degenerate quad folds the surface, and a float dihedral gate mis-classifies exactly the skinny configurations remeshing produces), and the RELAX is the AREA-WEIGHTED equalizer with tangent-plane projection — deliberately not the substrate's cotangent operator, whose shape-reproducing weights would null the sampling equalization that is the pass's purpose; the deliberate non-consumption is stated so no later pass "upgrades" it into a defect. Convergence is the mean edge deviation against `ConvergenceBand`; budget exhaustion outside the band routes the typed 2441 with the achieved length as residual evidence.
+- [STRIPE_QUADDING] — the quad arm composes the landed Knöppel machinery end to end: the memoized `CrossFieldAt` smoothest/constrained n-RoSy solve (symmetry the one integer riding the `QuadField` case as request DATA — 4 quads, 6 tri/diagrid — the `int symmetry` data-axis `panelize` inherits), `StripeAt` field-aligned stripe scalars at frequency `1/ℓ` for the base family and a quarter-turned anchor-hinted second solve for the orthogonal family, then integer-isoline extraction: each face's corner `(u,v)` values locate the `(⌈u⌉,⌈v⌉)` crossings by inverse-linear barycentric solve, cells complete into quads, and faces whose corner stripe values span past one period are SINGULAR — the field-index witness — cut from the patch graph before `ConnectedComponents` labels the decomposition. Emitted quads triangulate through the composed exact `Kernels.QuadDiagonal` and freeze through `ToSpace`; the quad STRUCTURE survives on `QuadProvenance` (corners/patches/UV/singularities), the substrate `Parametric/panelize` binds without re-running any solve.
 - [TIER_MAP] — three rewrite owners coexist by charter, one anchor each: `segment.md` `[06]-[RESTRUCTURE]` is the HOST-capture tier (native `QuadRemesh`/`Reduce` behind `RemeshKind`/`QuadTarget`, parameter-echo receipts); `decimate.md` owns budgeted REDUCTION (`QuadricCollapse`/`VoxelRemesh` — element count down under quality gates); this page owns REWRITE toward a target sampling (element count follows the target length, quality is the product). The Simplification cluster's widened charter — mesh rewrite under budget — spans the latter two; `RemeshStalled` 2441 is this page's mint and `DecimationFault` 2440 stays decimate's. `Rasm.Compute` `[V7]` consumes `Isotropic` as its boundary-conditioning pre-step through the frozen `MeshSpace` wire — the recorded consumer, never a Compute-side remesher.

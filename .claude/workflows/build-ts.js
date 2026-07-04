@@ -186,6 +186,7 @@ const MANIFEST_REMAP =
 const ROSTER = [
   {
     folder: 'core', wave: 'W0', stages: [['value+observe'], ['state'], ['interchange']],
+    efforts: { build: 'xhigh', crit: 'xhigh', rt: 'max' },
     units: [
       {
         key: 'value+observe',
@@ -236,6 +237,7 @@ const ROSTER = [
   },
   {
     folder: 'security', wave: 'W1', stages: [['all']],
+    efforts: { build: 'high', crit: 'high', rt: 'high' },
     units: [
       {
         key: 'all',
@@ -259,6 +261,7 @@ const ROSTER = [
   },
   {
     folder: 'data', wave: 'W2', stages: [['lane+journal'], ['read+object']],
+    efforts: { build: 'high', crit: 'high', rt: 'high' },
     units: [
       {
         key: 'lane+journal',
@@ -304,6 +307,7 @@ const ROSTER = [
   },
   {
     folder: 'runtime', wave: 'W3', stages: [['proc+net+otel'], ['serve', 'browser'], ['work+ai']],
+    efforts: { build: 'high', crit: 'high', rt: 'high' },
     units: [
       {
         key: 'proc+net+otel',
@@ -371,6 +375,7 @@ const ROSTER = [
   },
   {
     folder: 'ui', wave: 'W4', stages: [['system+view'], ['viewer']],
+    efforts: { build: 'high', crit: 'high', rt: 'high' },
     units: [
       {
         key: 'system+view',
@@ -399,6 +404,7 @@ const ROSTER = [
   },
   {
     folder: 'iac', wave: 'W4', stages: [['all']],
+    efforts: { build: 'high', crit: 'high', rt: 'high' },
     units: [
       {
         key: 'all',
@@ -495,15 +501,15 @@ const runFolder = async (entry, carriedIn) => {
     const stage = stageKeys.map((key) => entry.units.find((unit) => unit.key === key)).filter(Boolean)
     const stageOut = (await parallel(stage.map((unit) => () =>
       agent(builderPrompt(entry.folder, unit, scaffold.preSwap) + carriedNote, {
-        label: 'build:' + entry.folder + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'xhigh', schema: BUILD_OUT,
+        label: 'build:' + entry.folder + ':' + unit.key, phase: 'Build', model: 'fable', effort: entry.efforts.build, schema: BUILD_OUT,
       }).then((report) => (report ? { unit: unit.key, ...report } : null))))).filter(Boolean)
     reports.push(...stageOut)
   }
   const crit = await agent(critiquePrompt(entry.folder, reports), {
-    label: 'crit:' + entry.folder, phase: 'Build', model: 'fable', effort: 'xhigh', schema: FIX_OUT,
+    label: 'crit:' + entry.folder, phase: 'Build', model: 'fable', effort: entry.efforts.crit, schema: FIX_OUT,
   })
   const rt = await agent(redteamPrompt(entry.folder, crit), {
-    label: 'rt:' + entry.folder, phase: 'Build', model: 'fable', effort: 'max', schema: FIX_OUT,
+    label: 'rt:' + entry.folder, phase: 'Build', model: 'fable', effort: entry.efforts.rt, schema: FIX_OUT,
   })
   return { entry, reports, crit, rt }
 }
@@ -547,7 +553,7 @@ const docs = await agent(
   'obeys docs/standards/style-guide.md: declarative present-tense fact, zero meta framing, and never fragile ' +
   'count-based prose - name structure by its members and its law, never by how many there are. Folder build results ' +
   'for the routers: ' + JSON.stringify(folderResults) + '. Return {fixes, summary}.',
-  { label: 'docs', phase: 'Terminal', model: 'fable', effort: 'max', schema: TERMINAL_OUT },
+  { label: 'docs', phase: 'Terminal', model: 'fable', effort: 'high', schema: TERMINAL_OUT },
 )
 
 const [tests, sweep] = await parallel([
@@ -566,7 +572,7 @@ const [tests, sweep] = await parallel([
     'tests/contracts/MANIFEST.md: verify the re-mapped consumer tokens parse and the reader stays folder-agnostic - ' +
     'fix any token the scaffold missed. (e) e2e: verify no import names an old subpath. Every comment or prose line ' +
     'you touch obeys docs/standards/style-guide.md. Return {fixes, summary}.',
-    { label: 'tests', phase: 'Terminal', model: 'fable', effort: 'xhigh', schema: TERMINAL_OUT },
+    { label: 'tests', phase: 'Terminal', model: 'fable', effort: 'high', schema: TERMINAL_OUT },
   ),
   () => agent(
     LAW + ' REPO-WIDE DRIFT SWEEP - the rebuilt branch is the state that always was; every stale reference is yours ' +
@@ -582,7 +588,7 @@ const [tests, sweep] = await parallel([
     'voice, zero session or process narration, and never fragile enumeration prose (a folder roster is named by its ' +
     'members or its law, never by its count). Do not touch tests/ (owned by a sibling agent), .cache/, .claude/, ' +
     'docs/stacks/, or ' + ROOT + ' (already rebuilt). Return {fixes, summary}.',
-    { label: 'sweep', phase: 'Terminal', model: 'fable', effort: 'xhigh', schema: TERMINAL_OUT },
+    { label: 'sweep', phase: 'Terminal', model: 'fable', effort: 'high', schema: TERMINAL_OUT },
   ),
 ])
 

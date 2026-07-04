@@ -26,7 +26,7 @@ The reassembly rail of the interchange plane: multi-part payloads from the compu
 import { Array, Chunk, Effect, Either, HashMap, Option, Schema, Stream } from "effect"
 import { ContentKey, Digest } from "../value/contentKey.ts"
 import { Ingress } from "../value/schema.ts"
-import { Gap, Parity, Quarantine, type Wire, WireFault } from "./codec.ts"
+import { Gap, Parity, type Quarantine, Wire, WireFault } from "./codec.ts"
 import { Proto } from "./format.ts"
 
 class Frame extends Schema.Class<Frame>("Frame")({
@@ -157,6 +157,7 @@ const ArtifactFrame: {
 - Owner: `GeometryFrame`, the GLB control plane — mesh content key, LOD ordinal, the closed `encoding` vocabulary (`glb`, `draco`, `meshopt`), the tensor row set (semantic, dtype, shape, offset, stride), and the artifact coordinate binding the envelope to its verified octets; `_views` is the dtype-to-constructor vocabulary the `view` static reads.
 - Law: the GLB band is consume-only carriage — the interchange opens no glTF parser; the band travels verbatim from artifact verify to the viewer's loader, and this plane's knowledge ends at the encoding row.
 - Law: envelopes decode independently of octets — envelopes are small control-plane frames, octets are bulk artifact frames; the two planes join by content key, so envelope loss never strands verified bytes and byte loss never blocks planning.
+- Law: the envelope streams instantiate the codec's `Wire.diverted` framed-divert combinator over their own suite rows — the frame page spells no pipeline of its own, and the `_framed` partial application is the only local surface.
 - Law: views alias, transfers detach — `view` is a window over the verified buffer positioned by offset and sized by the shape product; the moment the buffer transfers to a decode worker the view is dead on this side, so views construct where they are consumed and never store in cells.
 - Law: bounds prove before construction — offset plus extent fitting the buffer is the caller's evidence pair; an envelope overrunning its octets is `parity`-grade evidence minted by the holder of both extents, never a repair.
 - Exemption: the typed-array window construction is the platform-forced seam; only the aliasing view leaves and the transfer list is the consumer's marshal declaration.
@@ -177,19 +178,7 @@ const _views = {
 
 const _framed = <A, I>(gen: (typeof Proto.suite)[keyof typeof Proto.suite], family: Wire.Family, owned: Schema.Schema<A, I>) =>
 (frames: AsyncIterable<Uint8Array>): Stream.Stream<Either.Either<A, WireFault>, WireFault, Quarantine> =>
-  Proto.stream(gen)(frames).pipe(
-    Stream.mapError((defect) =>
-      new WireFault({ family, reason: "malformed", detail: String(defect), evidence: Option.none() })),
-    Stream.mapEffect(
-      (message) =>
-        Schema.decodeUnknown(owned)(message).pipe(
-          Effect.mapError((issue) =>
-            new WireFault({ family, reason: "malformed", detail: issue.message, evidence: Option.none() })),
-          Quarantine.divert({ family, octets: () => Schema.encodeSync(Proto.frame(gen))(message) }),
-        ),
-      { concurrency: 1 },
-    ),
-  )
+  Wire.diverted(family, Proto.stream(gen)(frames), Schema.decodeUnknown(owned), Schema.encodeSync(Proto.frame(gen)))
 
 const _Tensor = Schema.Struct({
   semantic: Schema.Literal(..._semantics),

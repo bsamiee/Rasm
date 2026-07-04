@@ -1400,7 +1400,6 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
-          "GShark": "[2.3.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -2153,12 +2152,6 @@
         "requested": "[2.81.1, )",
         "resolved": "2.81.1",
         "contentHash": "me0a6Xyk4Apw5kL2q6dOTZW8YvPnRHyirfxNwEoXwnVZmzS32BiUJFBYWrYvteH0KtEY4uugih+Go8OvIeptJg=="
-      },
-      "GShark": {
-        "type": "CentralTransitive",
-        "requested": "[2.3.1, )",
-        "resolved": "2.3.1",
-        "contentHash": "WdMXLzNiRy/StHGpt9MgftlFkWuGJ65Ly6ilzGfx0gmkglWfhprT8N5kDjtrBxj/9ISU+0dKJA7UvJdWJtyVsQ=="
       },
       "K4os.Compression.LZ4": {
         "type": "CentralTransitive",

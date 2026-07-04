@@ -23,18 +23,18 @@ The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>
 - Law: `Fold.run` is one entrypoint over both bounded modalities, discriminated on the input value — an admitted `ReadonlyArray` folds pure to the table, a `Stream` folds on the rail with the same `_absorb` — and `Fold.run(plan)` partially applied is the run argument `merge#LAW_SURFACE`'s `Converge.commutes` consumes, so the replay proof exercises exactly this fold. Unbounded live maintenance is never a `run` modality: it is a `Replay` handle bound to the same plan.
 - Growth: a new fold is one `Fold.plan` row binding an existing or new merge instance; a new consumer altitude binds the plan, never re-declares the fold.
 - Boundary: the durable altitude is the data branch binding these plans over the engine's persistent trace; serving handles over sockets and binding them into view atoms are runtime- and ui-branch concerns.
-- Packages: `@electric-sql/d2mini`, `@electric-sql/d2ts`; `effect` (`Array`, `Chunk`, `Data`, `Duration`, `Effect`, `Either`, `Equal`, `HashMap`, `HashSet`, `Option`, `Order`, `Predicate`, `Record`, `Ref`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `../value/clock.ts` (`Hlc`, `Uncertainty`); `../value/schema.ts` (`Refined`); `./causal.ts` (`Causal`, `Vector`); `./merge.ts` (`Merge`).
+- Packages: `@electric-sql/d2mini`, `@electric-sql/d2ts`; `effect` (`Array`, `Chunk`, `Data`, `Duration`, `Effect`, `Either`, `Equal`, `HashMap`, `HashSet`, `Option`, `Order`, `Predicate`, `Record`, `Ref`, `Schema`, `SortedMap`, `Stream`, `Subscribable`, `SubscriptionRef`); `../value/clock.ts` (`Hlc`, `Uncertainty`); `../value/schema.ts` (`Refined`); `./causal.ts` (`Causal`, `Vector`); `./merge.ts` (`Merge`).
 
 ```typescript
 import * as Mini from "@electric-sql/d2mini"
 import * as Diff from "@electric-sql/d2ts"
 import {
   Array, Chunk, Data, type Duration, Effect, Either, Equal, HashMap, HashSet, Option, Order, pipe, Predicate, Record,
-  Ref, Schema, Stream, Subscribable, SubscriptionRef,
+  Ref, Schema, SortedMap, Stream, Subscribable, SubscriptionRef,
 } from "effect"
-import { Hlc, Uncertainty } from "../value/clock.ts"
+import { Hlc, type Uncertainty } from "../value/clock.ts"
 import { Refined } from "../value/schema.ts"
-import { Causal, Vector } from "./causal.ts"
+import { Causal, type Vector } from "./causal.ts"
 import { Merge } from "./merge.ts"
 
 declare namespace Fold {

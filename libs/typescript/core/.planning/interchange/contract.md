@@ -23,8 +23,8 @@ The schema-drift authority of the interchange plane: pure reflection over two `F
 - Packages: `effect` (`Schema`, `Array`, `Order`); `./codec.ts` (`Wire`).
 
 ```typescript
-import { Array, Order, Schema } from "effect"
-import { Wire } from "./codec.ts"
+import { Array, Effect, HashMap, Match, Option, Order, type ParseResult, Schema } from "effect"
+import { Wire, WireFault } from "./codec.ts"
 
 const _severity = {
   identical: { rank: 0, admitted: true, alarm: false },
@@ -105,14 +105,22 @@ declare namespace ContractDrift {
 - Owner: the interior walk — `_leaf` classifies a `DescField` to its type signature through the `fieldKind` record dispatch, `_wireFacts` renders the delimited/packed encoding posture, `_enumChanges` pairs enum value rosters by number, and `_diffed` walks one pinned `DescMessage` against its live counterpart by field number, folding every disagreement into `DriftChange` rows.
 - Law: fields pair by number, never by name — the wire is number-addressed, so a renamed field with a stable number and signature is `identical`, a re-numbered field is a remove-plus-add pair, and a reused number whose signature changed is `NumberReused`, the severest field-level lie.
 - Law: `_leaf` is type equality and `_wireFacts` is encoding equality, compared separately — a field whose leaf identity holds but whose `delimitedEncoding` or `packed` posture flipped emits `WireTypeChanged` carrying both fact signatures, because the bytes on the wire change while the type story claims stability; presentation facts (json name, comments) never enter either signature.
-- Law: enum rosters walk on every shared enum-kind field — a live value number absent from the pinned roster emits `EnumValueAdded`, a pinned number absent live emits `EnumValueRemoved`; the walk keys by value number, so a renamed enum value with a stable number is `identical`.
-- Law: both directions run in one fold over the deduped union of field numbers — pinned-only numbers emit `FieldRemoved`, live-only numbers emit `FieldAdded`, shared numbers compare signature, wire facts, enum rosters, then names.
+- Law: enum rosters walk on every shared enum-carrying field — singular, list, and map-valued enum kinds all reach the roster through one `_enumOf` projection; a live value number absent from the pinned roster emits `EnumValueAdded`, a pinned number absent live emits `EnumValueRemoved`, and the walk keys by value number, so a renamed enum value with a stable number is `identical`.
+- Law: both directions run in one fold over the deduped union of field numbers — pinned-only numbers emit `FieldRemoved`, live-only numbers emit `FieldAdded`, shared numbers compare leaf signature (a leaf change under a stable name is `TypeChanged`, under a new name `NumberReused`), then wire facts, then enum rosters; a stable-number rename with equal signatures is `identical`.
 - Growth: an option-level change or reserved-range violation is one change case plus one comparison line here; the walk shape never changes.
 - Packages: `@bufbuild/protobuf` (`DescEnum`, `DescField`, `DescMessage`, `ScalarType`, `qualifiedName`); `effect` (`Array`, `HashMap`, `Match`, `Option`).
 
 ```typescript
-import { type DescEnum, type DescField, type DescMessage, qualifiedName, ScalarType } from "@bufbuild/protobuf"
-import { HashMap, Match, Option } from "effect"
+import {
+  createFileRegistry,
+  type DescEnum,
+  type DescField,
+  type DescMessage,
+  isMessage,
+  type MessageShape,
+  qualifiedName,
+  ScalarType,
+} from "@bufbuild/protobuf"
 
 const _leaf = (field: DescField): string =>
   Match.value(field).pipe(
@@ -143,6 +151,7 @@ const _coord = (message: DescMessage, field: DescField): typeof _FieldCoord.Type
 
 const _enumOf = (field: DescField): Option.Option<DescEnum> =>
   field.fieldKind === "enum" || (field.fieldKind === "list" && field.listKind === "enum")
+    || (field.fieldKind === "map" && field.mapKind === "enum")
     ? Option.some(field.enum)
     : Option.none()
 
@@ -216,10 +225,7 @@ const _diffed = (pinned: DescMessage, live: DescMessage): ReadonlyArray<Contract
 - Packages: `@bufbuild/protobuf` (`createFileRegistry`, `isMessage`, `qualifiedName`, `MessageShape`), `@bufbuild/protobuf/wkt` (`FileDescriptorSetSchema`); `effect` (`Effect`, `HashMap`, `Option`, `Schema`); `./format.ts` (`Proto`); `./codec.ts` (`Wire`, `WireFault`).
 
 ```typescript
-import { createFileRegistry, isMessage, type MessageShape } from "@bufbuild/protobuf"
 import { FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt"
-import { Effect, type ParseResult } from "effect"
-import { type Wire, WireFault } from "./codec.ts"
 import { Proto } from "./format.ts"
 
 const _PINNED = "<build-pin>"

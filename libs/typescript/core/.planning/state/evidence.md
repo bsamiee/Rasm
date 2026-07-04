@@ -24,7 +24,7 @@ The decoded evidence vocabularies as one bounded family: `Receipt`/`ReceiptEnvel
 ```typescript
 import * as Monoid from "@effect/typeclass/Monoid"
 import * as Semigroup from "@effect/typeclass/Semigroup"
-import { Array, type Duration, Equivalence, HashMap, Number, Option, Order, pipe, Schema } from "effect"
+import { Array, type Duration, Equivalence, HashMap, Number, Option, Order, pipe, Record, Schema } from "effect"
 import { Hlc } from "../value/clock.ts"
 import { ContentKey } from "../value/contentKey.ts"
 import { FaultClass } from "../value/fault.ts"
@@ -250,6 +250,7 @@ const Progress: Progress.Shape = {
 - Law: verdicts order by restrictiveness — `Available < Gated < Withheld`, `Withheld` tie-broken by level rank — and `_worstVerdict` is `Merge.max` over that order, so merging two sources never loosens a constraint; a verdict carries its evidence, and retry surfacing derives from `Gated.until`, never from prose parsing.
 - Law: `Availability.worst` merges snapshots field-wise as a lattice — level by the bounded monoid, commands by union with per-command worst-wins, `since` by stamp max — associative, commutative, idempotent, proven at `merge#LAW_SURFACE` like any instance; the convergence domain is one tenant lane — the plan partitions by tenant BEFORE any merge and the combine carries `self.tenant` through, so a cross-tenant combine is an upstream fold-key defect, never a merge question.
 - Law: `Availability.admits` is total — a command absent from the map answers from the level row's posture through the `_FALLBACKS` lookup, so the gate never meets `undefined`, never re-implements the fallback, and posture-to-verdict stays a keyed row, never a branch ladder.
+- Law: the command map crosses the wire as a keyed object — the protobuf map shape — and `_Commands` respells it into the interior `HashMap` at the field, so the decoded gate keys structurally while the encoded twin stays exactly what the C# mint emits; a pairs-array wire spelling is the shape no proto map produces.
 - Law: gating durations and retry posture type against `value/fault` budget rows — the gate composes budget vocabulary with these verdicts; neither is re-declared here.
 - Boundary: the level roster mirrors the C# AppHost health plane one-to-one; roster parity pins at the interchange decode seam; `feed#ENTRY_FAMILY` records level shifts.
 - Growth: a new gate posture is one `_POSTURES` row; a new level is one `_LEVELS` entry plus its `_ROWS` row, and the bounded lattice re-tops in the same edit.
@@ -300,6 +301,16 @@ const _Verdict: Schema.Union<[typeof _Available, typeof _Gated, typeof _Withheld
 
 const _VERDICT_RANKS = { Available: 0, Gated: 1, Withheld: 2 } as const
 
+const _Commands = Schema.transform(
+  Schema.Record({ key: _Command, value: _Verdict }),
+  Schema.HashMapFromSelf({ key: Schema.typeSchema(_Command), value: Schema.typeSchema(_Verdict) }),
+  {
+    strict: true,
+    decode: (record) => HashMap.fromIterable(Record.toEntries(record)),
+    encode: (map) => Record.fromEntries(HashMap.toEntries(map)),
+  },
+)
+
 const _byRestrictiveness: Order.Order<typeof _Verdict.Type> = Order.combine(
   Order.mapInput(Order.number, (verdict: typeof _Verdict.Type) => _VERDICT_RANKS[verdict._tag]),
   Order.mapInput(Order.number, (verdict: typeof _Verdict.Type) =>
@@ -316,7 +327,7 @@ const _FALLBACKS: Record<(typeof _POSTURES)[number], (level: (typeof _LEVELS)[nu
 
 class Availability extends Schema.Class<Availability>("Availability")({
   level: _Level,
-  commands: Schema.HashMap({ key: _Command, value: _Verdict }),
+  commands: _Commands,
   since: Hlc,
   tenant: TenantContext,
 }) {

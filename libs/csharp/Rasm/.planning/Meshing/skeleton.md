@@ -1,6 +1,6 @@
 # [RASM_OFFSETTING_SKELETON]
 
-The 3D curve-skeleton owner of `Rasm.Geometry.Offsetting` — ONE `Skeletonize.Apply(SkeletonOp, Op? key = null)` running Au-2008-class mean-curvature-flow contraction to the medial curve: per-iteration implicit backward-Euler steps `(diag(W_H) + w_L·L_k)·x' = diag(W_H)·x` over the CURRENT geometry's clamped cotangent stiffness, the contraction weight `w_L` scaling geometrically per round while the per-vertex attraction `W_H,i = attraction·√(A⁰_i/A_i)` anchors collapsed neighborhoods, interleaved with degenerate-face surgery on the `MeshEdit` arena, until the surface collapses toward its 1D medial; a cost-ordered edge-collapse surgery then eliminates every remaining face, and the surviving edge set extracts through QuikGraph — `MinimumSpanningTreePrim` prunes numerical cycles to the curve-skeleton tree, `WeaklyConnectedComponents` labels the branches — never a hand-rolled branch/junction walk.
+The 3D curve-skeleton owner of `Rasm.Geometry.Offsetting` — ONE `Skeletonize.Apply(SkeletonOp, Op? key = null)` running Au-2008-class mean-curvature-flow contraction to the medial curve: per-iteration implicit backward-Euler steps `(diag(W_H) + w_L·L_k)·x' = diag(W_H)·x` over the CURRENT geometry's clamped cotangent stiffness, the contraction weight `w_L` scaling geometrically per round while the per-vertex attraction `W_H,i = attraction·√(A⁰_i/A_i)` anchors collapsed neighborhoods, interleaved with degenerate-face surgery on the `MeshEdit` arena, until the surface collapses toward its 1D medial; a cost-ordered edge-collapse surgery then eliminates every remaining face (face-bearing edges only — a face-less edge IS the emerging 1D skeleton and never collapses), and the surviving edge set extracts through QuikGraph — `MinimumSpanningTreeKruskal` prunes numerical cycles to the curve-skeleton tree and spans a multi-shell remnant as a forest, `ConnectedComponents` labels the branches — never a hand-rolled branch/junction walk.
 
 The page COMPOSES the clearance vocabulary `offset.md` mints and widens the family by ZERO types: every skeleton node is a `ClearanceNode(At, Radius, NearestEdge)` — `Radius` the distance-to-boundary payload recovered from the node's merged ORIGINAL surface vertices, `NearestEdge` the nearest-feature witness — arcs are `SkeletonArc(From, To, OriginEdge)` rows, the typed view is the SAME `SkeletonGraph` shape the 2D medial emits, and the arbitrary-probe query is `CurveSkeleton.Clearance(Point3d probe) → ClearanceNode` with the SAME distance-to-boundary semantics (`r(foot) − |probe − foot|`, the medial-transform estimate), so 2D medial and 3D curve-skeleton speak one clearance language across the `Rasm.Fabrication` seam (`FAB:22` — `Toolpath/Skeleton.cs` dies for `Offsetting.Apply` + `Skeletonize.Apply`; the `RASM-CS-FABRICATION [V5]` weighted/variable-speed and arbitrary-probe demands land on this one family). Skeleton topology is a kernel-owned SoA wire — node coordinate/radius/witness columns plus arc from/to/origin/component columns — QuikGraph in-computation only per the bounded-lane law, `SkeletonGraph` and `ClearanceNode` rows minted FROM the columns on read. Failures route the `offsetting` cluster: `CollapseStalled(iteration, residual)` 2418 for a stalled contraction, `SkeletonStalled(pendingEvents, time)` 2417 for an exhausted surgery queue.
 
@@ -13,9 +13,9 @@ The page COMPOSES the clearance vocabulary `offset.md` mints and widens the fami
 - Owner: `SkeletonPolicy` the policy row (`LaplaceSeed` — the initial contraction weight factor `w_L⁰ = seed·√(mean face area)`; `ContractionScale` — the per-round `w_L` multiplier; `Attraction` — the `W_H` base; `CotangentCeiling` — the |cot| clamp the near-degenerate contraction regime demands; `MaxIterations` · `CollapseAreaRatio` — the convergence target `ΣA_k/ΣA⁰` · `StallBand` — the zero-progress band; `SamplingWeight` — the surgery cost's λ blending shape against sampling cost; `SmoothBranches` — the spline pass row; `ParallelFloor`) registering `IValidityEvidence`; `SkeletonOp` the request record (`Mesh` · `Policy` — one modality, the probe query a RESULT member, so the request is a record); `CurveSkeleton` the frozen SoA result — node columns (`NodeX`/`NodeY`/`NodeZ` · `Radius` · `Witness`) + arc columns (`ArcFrom`/`ArcTo` · `ArcOrigin` — the seed original-vertex provenance riding `SkeletonArc.OriginEdge` · `Component` — the branch label) — with the `Graph` projection minting the composed `SkeletonGraph` and the `Clearance(Point3d)` arbitrary-probe member; `Skeletonize` the static surface.
 - Cases: none minted — the clearance family (`ClearanceNode` · `SkeletonArc` · `SkeletonGraph`) is `offset.md`'s, composed verbatim; the result's node and arc rows ARE that family's rows read off the columns. Zero new clearance types is this page's first law.
 - Entry: `public static Fin<CurveSkeleton> Apply(SkeletonOp op, Op? key = null)` — the ONE entry. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind.Mesh, index, witness)` 2400 on an inadmissible input — an empty mesh, or a non-watertight one: the contraction flows a closed surface toward its interior medial, so the admission composes the landed `MeshKernel.TopologyDetailed` total witness and gates `IsManifold ∧ IsOriented ∧ BoundaryComponents == 0` (an open shell has no interior curve-skeleton; the honest refusal beats a silent garbage graph); `GeometryFault.CollapseStalled(iteration, residual)` 2418 when the area ratio stalls inside `StallBand` above `CollapseAreaRatio` or `MaxIterations` exhausts with the residual ratio recorded; `GeometryFault.SkeletonStalled(pendingEvents, time)` 2417 when the surgery queue exhausts its admissible collapses while faces remain — `PendingEvents` the live-face count, `Time` the surgery round. No `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling statics — one polymorphic `Apply`; the probe rides the result.
-- Auto: admission snapshots the ORIGINAL positions and one-ring areas (`A⁰_i`, the anchoring denominators and the radius provenance), opens ONE `MeshEdit.Of(space)` arena, and iterates: (1) assemble the clamped cotangent stiffness from LIVE arena positions — per face, `Cotangent.OfEdges(u, v, twoArea)` per corner clamped to `±CotangentCeiling` with degenerate-area faces skipped, accumulated as triplets into `SparseMatrix.FromTriplets` (the mesh substrate's `Laplacian` rows serve quality-gated snapshots; the contraction lives PAST the quality regime by design — see Boundary); (2) factor `diag(W_H) + w_L·L_k` once via `CholeskySparse.Of` and solve the three coordinate axes' mass-weighted right-hand sides through `TraverseM` (the geodesics backward-Euler shape, re-weighted per round); (3) write the contracted positions back through `SetPosition`, kill faces whose area collapses under the scale floor, and refresh `W_H,i = Attraction·√(A⁰_i/A_i)` — the one-ring area sweep partitioned by the arena's own budgeted `Parallel` struct-action verb under `ParallelFloor`; (4) scale `w_L ← ContractionScale·w_L` and test the area ratio against `CollapseAreaRatio`/`StallBand`. Surgery then collapses to 1D: the undirected edge multiset (unique face edges, re-keyed on every collapse) drains a cost-ordered `PriorityQueue` — collapse cost = quadric shape distance + `SamplingWeight`·(edge length × adjacent-length sum), the Au blending that keeps nodes centered AND evenly sampled — each half-edge collapse `u→v` re-pointing faces through `SetFace`, tombstoning degenerates through `KillFace`, folding `u`'s merge set (its accumulated original vertices) into `v`; when no live face remains the surviving edges ARE the raw skeleton. Extraction folds them into a transient `UndirectedGraph<int, SEdge<int>>` (`AddVertexRange` admits every surviving node so an isolated component still lands), takes `MinimumSpanningTreePrim(e => |pos(Source) − pos(Target)|)` — contraction noise mints spurious short cycles; the MST is the curve-skeleton tree — and labels branches through `WeaklyConnectedComponents`; node radii recover from provenance — `Radius = mean |node − original(merged)|`, `Witness = argmin` original ordinal (the nearest surface feature) — and `SmoothBranches` runs the one `IInterpolation` pass: every maximal degree-2 chain chord-length-parameterizes and re-samples its INTERIOR nodes through `Interpolate.CubicSplineRobust` per coordinate (junctions and endpoints pinned; chains under four nodes pass through), deleting the per-iteration contraction jitter with one policy row, never a hand-rolled smoother.
+- Auto: admission snapshots the ORIGINAL positions and one-ring areas (`A⁰_i`, the anchoring denominators and the radius provenance), opens ONE `MeshEdit.Of(space, ...)` arena with the policy floor threaded into `ArenaPolicy` at `Of`, and iterates: (1) assemble the clamped cotangent stiffness from LIVE arena positions — per face, `Cotangent.OfEdges(u, v, twoArea)` per corner clamped to `±CotangentCeiling` with degenerate-area faces skipped, accumulated as triplets into `SparseMatrix.FromTriplets` (the mesh substrate's `Laplacian` rows serve quality-gated snapshots; the contraction lives PAST the quality regime by design — see Boundary); (2) factor `diag(W_H) + w_L·L_k` once via `CholeskySparse.Of` and solve the three coordinate axes' mass-weighted right-hand sides through `TraverseM` (the geodesics backward-Euler shape, re-weighted per round); (3) write the contracted positions back through `SetPosition`, kill faces whose area collapses under the scale floor, and refresh `W_H,i = Attraction·√(A⁰_i/A_i)` — the one-ring area sweep partitioned by the arena's own budgeted `Parallel` struct-action verb under `ParallelFloor`; (4) scale `w_L ← ContractionScale·w_L` and test the area ratio against `CollapseAreaRatio`/`StallBand`. Surgery then collapses to 1D: the undirected edge multiset (unique face edges, re-keyed on every collapse) drains a cost-ordered `PriorityQueue` gated on face incidence — a dequeued edge collapses ONLY while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge (the emerging 1D skeleton) survives untouched — collapse cost = edge length (the local shape term) + `SamplingWeight`·(edge length × adjacent-length sum), the Au blending that keeps nodes centered AND evenly sampled — each half-edge collapse `u→v` re-pointing faces through `SetFace`, tombstoning degenerates through `KillFace`, folding `u`'s merge set (its accumulated original vertices) into `v`; when no live face remains the surviving edges ARE the raw skeleton. Extraction folds them into a transient `UndirectedGraph<int, SEdge<int>>` (`AddVertexRange` admits every surviving node so an isolated component still lands), takes `MinimumSpanningTreeKruskal(e => |pos(Source) − pos(Target)|)` — contraction noise mints spurious short cycles; the MST is the curve-skeleton tree, and Kruskal spans a disconnected multi-shell remnant as a forest with no root choice — and labels branches through `ConnectedComponents` (the undirected components read; `WeaklyConnectedComponents` binds only the directed `IVertexListGraph` contract); node radii recover from provenance — `Radius = mean |node − original(merged)|`, `Witness = argmin` original ordinal (the nearest surface feature) — and `SmoothBranches` runs the one `IInterpolation` pass: every maximal degree-2 chain chord-length-parameterizes and re-samples its INTERIOR nodes through `Interpolate.CubicSplineRobust` per coordinate (junctions and endpoints pinned; chains under four nodes pass through), deleting the per-iteration contraction jitter with one policy row, never a hand-rolled smoother.
 - Receipt: none on a dedicated rail — `CurveSkeleton` IS the typed result and the wire: node/arc/radius columns are the evidence the Fabrication decoder binds, `Graph` projects the composed `SkeletonGraph`, `Clearance(probe)` answers the arbitrary probe from the same columns; hash-eligible artifacts are the frozen columns, never the live arena or the transient graph.
-- Packages: `Rasm.Geometry.Offsetting` (sibling file — `ClearanceNode`/`SkeletonArc`/`SkeletonGraph`, composed never re-minted), `Rasm.Geometry.Meshing` (`MeshEdit.Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel` — the arena; `MeshSpace` the admission snapshot), `Rasm`/Vectors (`MeshKernel.TopologyDetailed` the watertight gate; `Cotangent.OfEdges` THE cotangent arithmetic; `SparseMatrix.FromTriplets` + `CholeskySparse.Of`/`Solve` the landed sparse owners; `Point3d`/`Vector3d`), MathNet.Numerics (`Interpolate.CubicSplineRobust` → `IInterpolation.Interpolate` — the branch-smoothing pass), QuikGraph (`UndirectedGraph<int, SEdge<int>>`, `AddVertexRange`/`AddVerticesAndEdge`, `MinimumSpanningTreePrim`, `WeaklyConnectedComponents` — in-computation only), CommunityToolkit.HighPerformance (`IAction` struct actions through the arena's `Parallel` verb; `SpanOwner<T>` kernel staging), `Rasm.Geometry` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<TElement,TPriority>`).
+- Packages: `Rasm.Geometry.Offsetting` (sibling file — `ClearanceNode`/`SkeletonArc`/`SkeletonGraph`, composed never re-minted), `Rasm.Geometry.Meshing` (`MeshEdit.Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel` — the arena; `ArenaPolicy` the floor carrier the policy threads at `Of`; `MeshSpace` the admission snapshot), `Rasm`/Vectors (`MeshKernel.TopologyDetailed` the watertight gate; `Cotangent.OfEdges` THE cotangent arithmetic; `SparseMatrix.FromTriplets` + `CholeskySparse.Of`/`Solve` the landed sparse owners; `Point3d`/`Vector3d`), MathNet.Numerics (`Interpolate.CubicSplineRobust` → `IInterpolation.Interpolate` — the branch-smoothing pass), QuikGraph (`UndirectedGraph<int, SEdge<int>>`, `AddVertexRange`, `MinimumSpanningTreeKruskal`, `ConnectedComponents` — in-computation only), CommunityToolkit.HighPerformance (`IAction` struct actions through the arena's `Parallel` verb), `Rasm.Geometry` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<TElement,TPriority>`).
 - Growth: a new contraction law (anisotropic weighting, feature-pinned contraction) is a policy column feeding the SAME assembly; a new surgery cost term is one addend in the cost fold; a per-node cross-section ellipse (beyond the scalar radius) is one further node column pair on the wire; a geodesic-distance radius (surface distance instead of Euclidean) is one policy row re-routing the provenance measure through the landed `geodesics.md` distance arm; zero new entry surface, zero new clearance types.
 - Boundary: the clearance vocabulary is `offset.md`'s ONE family and a skeleton-local node/arc/graph shape, a per-consumer clearance record, or a second probe semantics is the named capability defect — `Radius` means distance-to-boundary on BOTH pages and the probe returns `r(foot) − |probe − foot|`, the medial-transform boundary estimate; the contraction COMPOSES the landed owners at the right altitude and re-derives none — `Cotangent.OfEdges` is the one cotangent arithmetic (an inline `(a·b)/2A` re-derivation is the collapsed duplication re-opening), `SparseMatrix.FromTriplets`/`CholeskySparse` are the one sparse rail, and the per-round re-assembly is skeleton's OWN loop because the substrate's `Laplacian(Cotangent)` row quality-gates exactly the degenerate regime contraction inhabits while `IntrinsicDelaunay` re-triangulates away the connectivity the surgery must own — the composed-primitive/authored-loop split is the design, not a shortcut; `geodesics.md`'s memoized MCF arm stays the SCALAR-FIELD owner (fixed connectivity, one factor, displacement magnitudes; `fields.md` `MeanCurvatureFlowCase` samples it) and this page never reaches into it — the two MCF forms meet at no interior, one anchor each; QuikGraph is transient in-computation state and a stored graph field or a hand-rolled junction/branch walk is the deleted form; the arena is single-writer under the `Meshing/edit#ARENA_LAW` contract — parallel sweeps ride the budgeted `Parallel` verb over partition-disjoint slots, and the surgery's adjacency scratch is kernel-local under the arena statement exemption; the ORIGINAL mesh is never mutated (the arena copies at admission; radius provenance reads the snapshot); `Apply` is total over the `Fin` rail and a thrown exception on a stalled contraction or an open shell is forbidden.
 
@@ -104,7 +104,7 @@ public sealed record CurveSkeleton(
 public static class Skeletonize {
     public static Fin<CurveSkeleton> Apply(SkeletonOp op, Op? key = null) =>
         Admit(op).Bind(_ => {
-            using MeshEdit arena = MeshEdit.Of(op.Mesh);
+            using MeshEdit arena = MeshEdit.Of(op.Mesh, ArenaPolicy.Canonical with { ParallelFloor = op.Policy.ParallelFloor });
             return Contract(arena, op, key)
                 .Bind(state => Surgery(state, op.Policy))
                 .Map(state => Extract(state, op.Policy));
@@ -112,18 +112,13 @@ public static class Skeletonize {
 
     // Watertight gate over the landed TOTAL topology witness: the contraction flows a closed
     // surface to its interior medial — an open shell refuses honestly.
-    static Fin<Unit> Admit(SkeletonOp op) {
-        if (op.Mesh.Native.Faces.Count == 0) {
-            return Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "empty mesh").ToError());
-        }
-        if (!op.Policy.IsValid) {
-            return Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "invalid skeleton policy").ToError());
-        }
-        var topology = MeshKernel.TopologyDetailed(op.Mesh);
-        return topology.IsManifold && topology.IsOriented && topology.BoundaryComponents == 0
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, topology.BoundaryComponents, "skeletonization requires a watertight oriented manifold").ToError());
-    }
+    static Fin<Unit> Admit(SkeletonOp op) =>
+        op.Mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "empty mesh").ToError())
+        : !op.Policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "invalid skeleton policy").ToError())
+        : MeshKernel.TopologyDetailed(op.Mesh).Bind(static topology =>
+            topology.IsManifold && topology.IsOriented && topology.BoundaryComponents == 0
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, topology.BoundaryComponents, "skeletonization requires a watertight oriented manifold").ToError()));
 
     // Contraction working state: the live arena, the frozen originals (radius provenance + W_H
     // anchors + the pre-surgery face triples the extraction maps through), and the union-find
@@ -158,7 +153,7 @@ public static class Skeletonize {
         double priorRatio = 1.0;
 
         for (int round = 0; round < op.Policy.MaxIterations; round++) {
-            Fin<Unit> step = Assemble(arena, wl, wh, op.Policy.CotangentCeiling)
+            Fin<Unit> step = Assemble(arena, wl, wh, op.Policy.CotangentCeiling, key)
                 .Bind(system => CholeskySparse.Of(symmetric: system, key: key))
                 .Bind(factor => SolveAxes(arena, factor, wh, key));
             if (step.Case is LanguageExt.Common.Error fault) { return Fin.Fail<ContractState>(fault); }
@@ -183,7 +178,7 @@ public static class Skeletonize {
     // Clamped cotangent stiffness from LIVE positions + the W_H diagonal: (diag(W_H) + wL·L) is SPD.
     // The substrate Laplacian rows quality-gate exactly the degenerate regime contraction inhabits,
     // so the assembly loop is skeleton's own; the cotangent ARITHMETIC is the one composed primitive.
-    static Fin<SparseMatrix> Assemble(MeshEdit arena, double wl, double[] wh, double ceiling) {
+    static Fin<SparseMatrix> Assemble(MeshEdit arena, double wl, double[] wh, double ceiling, Op? key) {
         var triplets = new List<(int Row, int Col, double Value)>();
         for (int f = 0; f < arena.FaceCount; f++) {
             if (!arena.Alive(f)) { continue; }
@@ -202,7 +197,7 @@ public static class Skeletonize {
             }
         }
         for (int v = 0; v < arena.VertexCount; v++) { triplets.Add((v, v, wh[v])); }
-        return SparseMatrix.FromTriplets(Dimension.Create(arena.VertexCount), Dimension.Create(arena.VertexCount), triplets);
+        return SparseMatrix.FromTriplets(Dimension.Create(arena.VertexCount), Dimension.Create(arena.VertexCount), triplets, key);
     }
 
     // The geodesics backward-Euler shape re-weighted per round: rhs_axis = W_H ⊙ x_axis, three
@@ -246,11 +241,13 @@ public static class Skeletonize {
     }
 
     // --- [SURGERY]
-    // Cost-ordered half-edge collapses over the live edge multiset until no face survives: cost =
+    // Cost-ordered half-edge collapses over FACE-BEARING edges until no face survives: cost =
     // edge length + λ·(length × adjacent-length sum) — the Au blending keeping the 1D remnant
-    // centered AND evenly sampled. Vertex→incident-face and vertex→vertex indexes update per
-    // collapse (never a full-array rescan — the decimate O(F²) class); stale queue rows drop by
-    // adjacency containment (the lazy-invalidation queue); merges route the union-find parents.
+    // centered AND evenly sampled. A dequeued edge with no live face carrying both endpoints is
+    // the emerging 1D skeleton and skips (never collapses); an accepted collapse therefore kills
+    // ≥1 face, bounding the loop by the face count. Vertex→incident-face and vertex→vertex
+    // indexes update per collapse (never a full-array rescan — the decimate O(F²) class); stale
+    // queue rows drop by adjacency containment; merges route the union-find parents.
     static Fin<ContractState> Surgery(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
         var adjacency = new Dictionary<int, HashSet<int>>();
@@ -280,6 +277,8 @@ public static class Skeletonize {
             }
             (int u, int v) = edge;
             if (!adjacency.TryGetValue(u, out HashSet<int>? uSet) || !uSet.Contains(v)) { continue; }  // stale row
+            bool faced = facesOf.TryGetValue(u, out HashSet<int>? uFaces) && uFaces.Any(f => arena.Alive(f) && Holds(arena.Face(f), v));
+            if (!faced) { continue; }  // face-less edge — the emerging 1D skeleton, never collapsed
             rounds++;
             foreach (int f in facesOf.TryGetValue(u, out HashSet<int>? incident) ? incident.ToArray() : []) {
                 if (!arena.Alive(f)) { continue; }
@@ -307,6 +306,8 @@ public static class Skeletonize {
         return Fin.Succ(state);
     }
 
+    static bool Holds((int A, int B, int C) face, int v) => face.A == v || face.B == v || face.C == v;
+
     static double Cost(MeshEdit arena, Dictionary<int, HashSet<int>> adjacency, int u, int v, double lambda) {
         double length = arena.Position(u).DistanceTo(arena.Position(v));
         double sampling = adjacency.TryGetValue(u, out HashSet<int>? around)
@@ -316,9 +317,10 @@ public static class Skeletonize {
     }
 
     // --- [EXTRACTION]
-    // Surviving edges -> transient UndirectedGraph -> Prim MST (contraction noise mints spurious
-    // short cycles; the MST is the tree) -> WeaklyConnectedComponents branch labels -> SoA columns
-    // with clearance radii recovered from merge provenance; optional spline smoothing per branch.
+    // Surviving edges -> transient UndirectedGraph -> Kruskal MST (contraction noise mints spurious
+    // short cycles; the MST is the tree, and Kruskal spans a disconnected multi-shell remnant as a
+    // FOREST) -> ConnectedComponents branch labels -> SoA columns with clearance radii
+    // recovered from merge provenance; optional spline smoothing per branch.
     static CurveSkeleton Extract(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
         int[] survivors = [.. Enumerable.Range(0, state.Merged.Length).Where(o => Home(state.Merged, o) == o).Order()];
@@ -332,10 +334,10 @@ public static class Skeletonize {
                 if (hu != hv && seen.Add((int.Min(hu, hv), int.Max(hu, hv)))) { graph.AddEdge(new SEdge<int>(int.Min(hu, hv), int.Max(hu, hv))); }
             }
         }
-        SEdge<int>[] tree = [.. graph.MinimumSpanningTreePrim(e =>
+        SEdge<int>[] tree = [.. graph.MinimumSpanningTreeKruskal(e =>
             arena.Position(survivors[e.Source]).DistanceTo(arena.Position(survivors[e.Target])))];
         var components = new Dictionary<int, int>();
-        graph.WeaklyConnectedComponents(components);
+        graph.ConnectedComponents(components);
 
         int nodes = survivors.Length;
         var (nx, ny, nz, radius, witness) = (new double[nodes], new double[nodes], new double[nodes], new double[nodes], new int[nodes]);
@@ -421,7 +423,7 @@ flowchart LR
     SparseMatrix -->|"(diag W_H + wL·L) SPD factor"| CholeskySparse
     CholeskySparse -->|three-axis solves → SetPosition| MeshEdit
     MeshEdit -->|cost-ordered collapse to 1D| Surgery["edge surgery"]
-    Surgery -->|surviving edges| QuikGraph["Prim MST + weak components"]
+    Surgery -->|surviving edges| QuikGraph["Kruskal MST forest + connected components"]
     QuikGraph -->|SoA node/arc/radius columns| CurveSkeleton
     CurveSkeleton -->|Graph projection — offset's ONE clearance family| SkeletonGraph
     CurveSkeleton -->|"Clearance(probe) → ClearanceNode"| Fabrication["FAB:22 toolpath seam"]
@@ -441,5 +443,5 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 ## [04]-[RESEARCH]
 
 - [AU_CONTRACTION_LAW] — the contraction is the Au-2008 implicit form: each round solves `(diag(W_H) + w_L·L_k)·x' = diag(W_H)·x` — the SAME backward-Euler shape as the landed heat/MCF machinery, with three re-weightings that make it a skeletonizer rather than a smoother: `L_k` re-assembles from the CONTRACTED positions every round (the flow follows the collapsing geometry), `w_L` scales geometrically (`ContractionScale` per round, seeded at `LaplaceSeed·√(mean face area)`) so contraction pressure outruns the shrinking cotangent scale, and `W_H,i = Attraction·√(A⁰_i/A_i)` grows exactly where the one-ring has collapsed, anchoring the emerging curve against drift. Convergence is the total-area ratio against `CollapseAreaRatio`; a ratio stalling inside `StallBand` routes the typed 2418 with the residual recorded — a stall is evidence (near-zero-volume input, a policy mis-fit), never an infinite loop. The boundary against the landed owners is deliberate and stated on both sides: `geodesics.md`'s MCF arm is the SCALAR-FIELD owner — fixed connectivity, one memoized SPD factor, displacement magnitudes out — and the substrate `Laplacian(Cotangent)` row quality-gates skinny triangles while `IntrinsicDelaunay` re-triangulates them away; skeletonization NEEDS the degenerate regime and the raw connectivity, so it composes the `Cotangent.OfEdges` arithmetic and the `matrix.md` sparse owners directly and owns its loop.
-- [SURGERY_AND_TREE] — the 1D extraction is a cost-ordered half-edge collapse over the contracted remnant: cost = edge length + `SamplingWeight`·(length × adjacent-length sum), the Au blending whose first term keeps collapses local (shape) and second term penalizes gobbling long neighborhoods (sampling), so skeleton nodes stay evenly spaced along the medial; every collapse folds the victim's merge set into the survivor, and that provenance IS the clearance recovery — `Radius = mean |node − merged originals|` is the distance from the medial curve to the surface region it abstracts, `Witness` the nearest original vertex. A queue that exhausts admissible collapses while faces remain routes the typed 2417 (`PendingEvents` = live faces, `Time` = surgery rounds) — the non-manifold-remnant witness. Extraction composes QuikGraph in-computation only: `MinimumSpanningTreePrim` under Euclidean edge weights prunes the spurious short cycles contraction noise mints (the curve-skeleton of a genus-0 solid is a tree; a genuine genus loop surfaces as the MST dropping its longest cycle edge — the recorded growth row is a cycle-preserving policy for genus-bearing input), `WeaklyConnectedComponents` labels branches for multi-shell input, and the RESULT leaves as frozen SoA columns per the bounded-lane law.
+- [SURGERY_AND_TREE] — the 1D extraction is a cost-ordered half-edge collapse over the contracted remnant's FACE-BEARING edges: cost = edge length + `SamplingWeight`·(length × adjacent-length sum), the Au blending whose first term keeps collapses local (shape) and second term penalizes gobbling long neighborhoods (sampling), so skeleton nodes stay evenly spaced along the medial; an edge whose last incident face died is already 1D output and never collapses — the gate that stops the queue from eating the skeleton it is producing and bounds surgery by the face count; every collapse folds the victim's merge set into the survivor, and that provenance IS the clearance recovery — `Radius = mean |node − merged originals|` is the distance from the medial curve to the surface region it abstracts, `Witness` the nearest original vertex. A queue that exhausts admissible collapses while faces remain routes the typed 2417 (`PendingEvents` = live faces, `Time` = surgery rounds) — the non-manifold-remnant witness. Extraction composes QuikGraph in-computation only: `MinimumSpanningTreeKruskal` under Euclidean edge weights prunes the spurious short cycles contraction noise mints (the curve-skeleton of a genus-0 solid is a tree; a genuine genus loop surfaces as the MST dropping its longest cycle edge — the recorded growth row is a cycle-preserving policy for genus-bearing input), `ConnectedComponents` labels branches for multi-shell input, and the RESULT leaves as frozen SoA columns per the bounded-lane law.
 - [ONE_CLEARANCE_FAMILY] — `offset.md` minted the kernel's clearance vocabulary and this page proves the "widens by zero types" claim: nodes are `ClearanceNode` rows, arcs `SkeletonArc` rows, the typed view the SAME `SkeletonGraph`, and the probe query returns `ClearanceNode(probe, r(foot) − |probe − foot|, arc)` — the medial-transform boundary-distance estimate, exactly the semantics the 2D ring probe answers, so `Rasm.Fabrication` reads ONE clearance language across plan-view medial toolpaths and volumetric skeleton passes (`FAB:22`); the `[V5]` weighted/variable-speed rows ride `offset.md`'s `Weighted` modality and the per-node radius column here, with no third clearance surface anywhere in the kernel.

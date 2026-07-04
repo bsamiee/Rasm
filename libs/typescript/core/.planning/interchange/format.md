@@ -22,7 +22,7 @@ The four format engines of the interchange plane — one arm per C#-minted byte 
 - Packages: `effect` (`Schema`, `ParseResult`, `Either`).
 
 ```typescript
-import { Either, ParseResult, Schema } from "effect"
+import { Array, Effect, Either, Layer, Option, ParseResult, pipe, Predicate, Schema, Stream, type Types } from "effect"
 
 const _lifted = (
   decode: (octets: Uint8Array) => unknown,
@@ -50,7 +50,7 @@ const _lifted = (
 - Law: `_Message` admits the foreign message by identity through `Schema.declare` over `isMessage` — a decoded message is `$typeName`-branded plain data, never `instanceof`-discriminated, and it leaves this module only through `family`'s composed owned vocabulary.
 - Law: 64-bit fields are `bigint` end to end — `protoInt64` bridges construction sites, and a `Number`-coerced i64 loses precision past 2^53 and is the named defect.
 - Law: the suite is the only site touching the generated `interchange_pb.ts` — sibling pages import `Proto`, never the emit; the generated module is `@bufbuild/protoc-gen-es` output pinned lockstep with the runtime by the workspace catalog, regenerated atomically with a census edit, and never hand-edited.
-- Law: the registry is program-wide singular — a second `createRegistry` call forks `Any` and detail resolution and is the drift defect; `peek` reads a size-delimited header without consuming, the triage the quarantine rail classifies `truncated` against.
+- Law: the registry is program-wide singular — a second `createRegistry` call forks `Any` and detail resolution and is the drift defect; `peek` reads a size-delimited header without consuming — `sizeDelimitedPeek` answers `{ size, offset, eof }` and an incomplete varint carries `size: null`, folded to `Option.none` — the triage the quarantine rail classifies `truncated` against.
 - Law: `toBinary` canonical bytes are the content-key input — proto is deterministic per field order, so the codec parity combinator hashes engine egress and never a second serialization.
 - Growth: a new proto wire family is one census row, one regenerated emit, and one `_suite` row — the tuple/table guards break until all three agree; a read-posture axis is a `_READ` field.
 - Boundary: which family binds which suite row, quarantine classification, and every landing shape are the codec registry's; descriptor reflection over the `FileDescriptorSet` is the contract gate's altitude.
@@ -68,7 +68,6 @@ import {
   sizeDelimitedPeek,
   toBinary,
 } from "@bufbuild/protobuf"
-import { Array, Option, Stream, type Types } from "effect"
 import * as pb from "./interchange_pb.ts"
 
 const _READ = { readUnknownFields: true, recursionLimit: 24 } as const
@@ -154,7 +153,7 @@ const Proto: Proto.Shape = {
   frame: _frame,
   family: (gen, owned) => _frame(gen).pipe(Schema.compose(owned, { strict: false })),
   stream: (gen) => (frames) => Stream.fromAsyncIterable(sizeDelimitedDecodeStream(gen, frames, _READ), (defect) => defect),
-  peek: (octets) => Option.filter(Option.some(sizeDelimitedPeek(octets)), (size) => size >= 0),
+  peek: (octets) => Option.fromNullable(sizeDelimitedPeek(octets).size),
 }
 ```
 
@@ -172,7 +171,6 @@ const Proto: Proto.Shape = {
 
 ```typescript
 import { Decoder, setSizeLimits } from "cbor-x"
-import { Effect, Layer } from "effect"
 
 declare module "cbor-x" {
   function setSizeLimits(limits: {
@@ -268,6 +266,7 @@ const Pack: Pack.Shape = {
 - Law: rfc6902 stays the pure engine under the Schema boundary — the C#-authored `JsonPatchDocument` decodes once through the union, `applyPatch` returns one result slot per op with errors as values, and the first non-`null` slot folds through the `Match.instanceOf` triage into the interchange fault vocabulary at the consuming registry row; a raw operation array or a thrown apply fault never crosses.
 - Law: mutation is fenced by a clone — the engine applies in place, so `apply` clones the target before `applyPatch` and the decoded base stays immutable on the rail.
 - Law: the diff is parameterized, never enumerated — `_reconciled` is the one `VoidableDiff` hook: content-keyed values replace whole on key change and fall through to `diffAny` otherwise; a per-shape differ roster is the rejected form, and a new entity family is a hook arm.
+- Law: egress mints through `_mintedDoc` — the engine emits RFC 6901-valid pointers by construction, so the interior `Schema.decodeSync` brand mint is the trusted-construction channel over proven inputs and the throw path is structurally unreachable; `diff` and `guarded` land the branded `Document` every consumer already speaks.
 - Law: the egress is self-guarding — `guarded` emits `test` ops over the base pre-image ahead of the mutation so the C# OCC append refuses a stale patch before applying; `key` mints the patch content key through the one `Digest` content row over the encoded document, so `EntityEdit` identity is the branch identity.
 - Law: `TestError` slots carry `{ actual, expected }` both ways — the drift report reads evidence as data; an op outside the closed six is contract-drift material graded at the contract page's verdict vocabulary.
 - Growth: an apply-policy axis is one `_APPLY` field; a new reconciliation family is one `_reconciled` arm.
@@ -278,7 +277,6 @@ const Pack: Pack.Shape = {
 import { applyPatch, createPatch, createTests, isDestructive, type VoidableDiff } from "rfc6902"
 import type { InvalidOperationError, MissingError, TestError } from "rfc6902/patch"
 import { clone } from "rfc6902/util"
-import { Effect, type ParseResult, pipe, Predicate } from "effect"
 import { type ContentKey, Digest } from "../value/contentKey.ts"
 import { Refined } from "../value/schema.ts"
 
@@ -294,6 +292,7 @@ const _op = Schema.Union(
 const _document = Schema.Array(_op)
 const _FromJson: Schema.Schema<Patch.Document, string> = Schema.parseJson(_document)
 const _encodedPatch = Schema.encode(_FromJson)
+const _mintedDoc = Schema.decodeSync(_document)
 
 const _APPLY = { implicitArrayCreation: false } as const
 const _utf8 = new TextEncoder()
@@ -336,9 +335,9 @@ const Patch: Patch.Shape = {
         { onNone: () => Effect.succeed(successor), onSome: Effect.fail },
       )
     }),
-  diff: (base, next) => createPatch(base, next, _reconciled),
+  diff: (base, next) => _mintedDoc(createPatch(base, next, _reconciled)),
   guarded: (base, next) =>
-    pipe(createPatch(base, next, _reconciled), (mutation) => [...createTests(base, mutation), ...mutation]),
+    pipe(createPatch(base, next, _reconciled), (mutation) => _mintedDoc([...createTests(base, mutation), ...mutation])),
   encode: _encodedPatch,
   key: (patch) => Effect.flatMap(_encodedPatch(patch), (text) => Digest.mint("content", _utf8.encode(text))),
 }

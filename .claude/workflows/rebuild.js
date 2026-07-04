@@ -1,7 +1,7 @@
 export const meta = {
   name: 'rebuild',
   whenToUse: 'The standing rebuild engine for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number) and optionally a campaign brief with a leg selector; it plans, discovers, hostile-implements, critiques, and red-teams in dependency-ordered waves at the owning-language doctrine bar — one serialized tail per wave owns the shared central files, one read-only acceptance agent closes the run.',
-  description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief, leg, waves, riders, acceptance}; empty = no-op; language derives from the target root (or the RASM-<CS|PY|TS>- brief name when a leg supplies the targets) and selects the doctrine, both .api tiers, casing, and the member-verification rail. Plan (1 sonnet) expands targets to pages IN DEPENDENCY ORDER; with a brief it admits ONLY brief-named pages classified against real disk state (kind new/rebuild/improve + deletions + absorb pairs + typed rider rows + acceptance traces + wave/leg partition; an unnamed page is out of scope; an out-of-order leg halts via upstreamMissing); without one the owning-package charter owns scope (full expansion, charter-demanded new, settled-page skip). Then per WAVE and per PACKAGE LANE: Discover (opus, read-only, 1 per 4 pages) deep-reads pages + folder + BOTH .api tiers + the doctrine, emits per-page reading maps, and writes a grounding dossier of verified primary extracts; Build runs a bounded per-batch pipeline in dependency order — implement (fable, kind-aware) then critique (fable xhigh) then redteam (fable max), each batch chained behind its predecessor so consumers author against landed foundations, page-routed riders receipt-forced in the implement pass; a delete executor handles brief-declared deletions verify-then-delete; ONE serialized per-wave TAIL (fable) is the sole writer for package index docs and central manifests (applies reported indexRows + serial riders, audits rider receipts); a failed page halts before dependent waves, landed waves intact. Close: one read-only fail-open acceptance agent (opus) runs the brief dry-run traces plus a generic cross-page symbol-resolution sweep. No reconcile stage: every agent repairs the cross-file ripples its own work exposes in its own pass; shared central files have exactly one writer.',
+  description: 'Durable language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array, or {targets, brief, leg, waves, riders, acceptance}; empty = no-op; language derives from the target root (or the RASM-<CS|PY|TS>- brief name when a leg supplies the targets) and selects the doctrine, both .api tiers, casing, and the member-verification rail. Plan (1 sonnet) expands targets to pages IN DEPENDENCY ORDER; with a brief it admits ONLY brief-named pages classified against real disk state (kind new/rebuild/improve + deletions + absorb pairs + typed rider rows + acceptance traces + wave/leg partition; an unnamed page is out of scope; an out-of-order leg halts via upstreamMissing); without one the owning-package charter owns scope (full expansion, charter-demanded new, settled-page skip). Then per WAVE and per PACKAGE LANE: Discover (opus, read-only, 1 per 4 pages) deep-reads pages + folder + BOTH .api tiers + the doctrine, emits per-page reading maps, and writes a grounding dossier of verified primary extracts; Build runs a bounded per-batch pipeline in dependency order — implement then critique then redteam (all fable, effort high), each batch chained behind its predecessor so consumers author against landed foundations, page-routed riders receipt-forced in the implement pass; a delete executor handles brief-declared deletions verify-then-delete; ONE serialized per-wave TAIL (fable) is the sole writer for package index docs and central manifests (applies reported indexRows + serial riders, audits rider receipts); a failed page halts before dependent waves, landed waves intact. Close: one read-only fail-open acceptance agent (opus) runs the brief dry-run traces plus a generic cross-page symbol-resolution sweep. No reconcile stage: every agent repairs the cross-file ripples its own work exposes in its own pass; shared central files have exactly one writer.',
   phases: [
     { title: 'Plan', detail: 'one thin agent expands the targets into the dependency-ordered page list; with a brief it admits only brief-named pages (kinds from disk, riders + acceptance traces transcribed, wave/leg partition honored); without one the owning-package charter owns scope', model: 'sonnet' },
     { title: 'Discover', detail: 'per wave, per package lane: hostile read-only discovery, 1 agent per 4 pages — deep-read each page + the folder + BOTH .api tiers + the doctrine at source, emit per-page reading maps, write the grounding dossier of verified primary extracts', model: 'opus' },
@@ -559,7 +559,7 @@ for (const w of WAVES) { // ── the ONE inter-wave barrier — real: cross-wa
     const batches = chunk(lane.pages, IMPL_BATCH) // plan order preserved = dependency order
     const dos = await pool(batches, CAP, (b, i) =>
       agent(discoverPrompt(b, dossierPath(w, lane.pkg, i)), { label: 'discover:w' + w + ':' + lane.pkg + ':b' + i,
-        phase: 'W' + w + ' Discover', model: 'opus', effort: 'max', schema: DISCOVER_SCHEMA, stallMs: STALL }))
+        phase: 'W' + w + ' Discover', model: 'opus', effort: 'high', schema: DISCOVER_SCHEMA, stallMs: STALL }))
     dos.filter(Boolean).forEach((d) => (d.worklist || []).forEach((m) => { if (m && m.page) MAP_BY_PAGE.set(m.page, m) }))
     // Bounded per-batch pipeline: impl chain + review chain, both in dependency order —
     // B[k].impl awaits B[k-1].impl; B[k]'s reviews await B[k].impl + B[k-1]'s reviews.
@@ -568,15 +568,15 @@ for (const w of WAVES) { // ── the ONE inter-wave barrier — real: cross-wa
     const chains = batches.map((b, i) => {
       const implP = prevImpl.then((ok) => ok === null ? null :
         agent(implementPrompt(b, dossierPath(w, lane.pkg, i), pageRiders(b, w, RIDERS)),
-          { label: 'impl:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'max', schema: FIXLOG_SCHEMA, stallMs: STALL }))
+          { label: 'impl:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'high', schema: FIXLOG_SCHEMA, stallMs: STALL }))
       prevImpl = implP
       const revP = Promise.all([implP, prevReview]).then(async (pair) => {
         const fix = pair[0]
         if (!fix) return { batch: b, fix: null, crit: null, rt: null } // failure isolation: a dead impl skips its reviews
         const crit = await agent(critiquePrompt(b, dossierPath(w, lane.pkg, i)),
-          { label: 'crit:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'xhigh', schema: REVIEW_SCHEMA, stallMs: STALL })
+          { label: 'crit:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'high', schema: REVIEW_SCHEMA, stallMs: STALL })
         const rt = await agent(redteamPrompt(b, dossierPath(w, lane.pkg, i), crit),
-          { label: 'rt:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'max', schema: REVIEW_SCHEMA, stallMs: STALL })
+          { label: 'rt:w' + w + ':' + lane.pkg + ':b' + i, phase: 'W' + w + ' Build', model: 'fable', effort: 'high', schema: REVIEW_SCHEMA, stallMs: STALL })
         return { batch: b, fix, crit, rt }
       })
       prevReview = revP
@@ -611,7 +611,7 @@ for (const w of WAVES) { // ── the ONE inter-wave barrier — real: cross-wa
 
 phase('Close')
 const accept = !halt
-  ? await agent(acceptancePrompt(ACCEPT, PAGES), { label: 'acceptance', phase: 'Close', model: 'opus', effort: 'max', schema: ACCEPT_SCHEMA, stallMs: STALL })
+  ? await agent(acceptancePrompt(ACCEPT, PAGES), { label: 'acceptance', phase: 'Close', model: 'opus', effort: 'high', schema: ACCEPT_SCHEMA, stallMs: STALL })
   : null
 return { targets: TARGETS, language: LANG_KEY, brief: BRIEF, leg: LEG, waves: landed, halted: halt,
   acceptance: accept && { traces: accept.traces, unresolved: accept.unresolved } }

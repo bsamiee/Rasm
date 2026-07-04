@@ -1,26 +1,26 @@
 # [RASM_PROJECTION_VIEW]
 
-The predicate-exact hidden-line/silhouette projection owner that closes silhouette extraction, hidden-line removal, planar section, and visible-outline assembly over ONE `ViewOp` `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) whose visibility is decided by a Newell-Newell-Sancha BSP painter and whose silhouette locus is the exact sign-change locus where a front-facing and a back-facing triangle meet — the per-face view-dot side computed by the `Numerics/predicates#ROBUST_PREDICATES` exact `Orient3D` sign against the eye point so a grazing edge never flickers between visible and hidden across a near-zero view dot. No external geometry library or host `Make2D` round-trip is admitted — the Appel quantitative-invisibility silhouette walk, the back-to-front BSP face ordering, and the segment-vs-occluder clip are authored from first principles over a flat `BspNode` partition store, and the section arm is exactly ONE `Meshing/intersect#INTERSECTION` `IntersectOp.PlaneMesh`/`Apply`, never a fourth inline crossing test. The page owns the `ViewKind` discriminant (binding the shipped `ComparerAccessors.StringOrdinal` string-key comparer), the `BspNode` struct-of-arrays partition memory, the `EdgeKind`/`Visibility` segment classification vocabulary, the `ViewOp` `[Union]` with its `Apply` rail, the `DrawingProjection` visible/hidden 2D-segment carrier, and the `ToPolylines`/`ToSegments` projections that re-emit the result through the `Vectors` `Polyline`/`Line` seam.
+The visibility engine of `Rasm.Geometry.Projection` (fault cluster `projection` 2436-2439), REAL by construction — exact analytic Appel quantitative-invisibility over the `[V4]` crossing lattice. ONE `ViewOp` `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) folds through ONE `Fin<DrawingProjection> View.Apply(ViewOp, Op? key = null)`: the silhouette locus is the exact sign-change set where a front-facing and a back-facing triangle meet (`Predicate.Orient3D` of the eye against each supporting plane — a grazing edge never flickers), and a projected edge's invisibility count changes ONLY where it crosses a silhouette edge in the screen plane — every crossing an exact `Intersection.Apply(IntersectOp.SegmentSegment(…, Axis.Z, …))` verdict, every ±1 delta an exact `Orient3D`/`Orient2D` sign pair, every absolute seed an exact battery. There is no sampling and no ordering structure: the `SampleStep` marcher, the per-sample BVH ray, the `OcclusionBias` epsilon, and the Newell-Newell-Sancha `BspNode`/`Partition`/`Split`/`Kill`/free-list apparatus are all dead — a float BSP split mints rounded constructed vertices, exactly the wrong shape beside an exact lattice, and the sampled marcher misses every occluder thinner than its step. Zero missed occluder edges is a property of the algorithm, not a tuning.
 
-The owner composes `Vectors` `Point3d`/`Vector3d`/`Line`/`Plane`/`Polyline`/`MeshSpace` coordinates as settled vocabulary — read, compose, never re-mint — rides the `Predicate` exact-`Orient3D` floor so the front/back face partition and the silhouette locus are deterministic, composes the `Spatial/index#SPATIAL_INDEX` BVH `SpatialQuery.Ray` front-to-back traversal so the painter's per-segment visibility query runs against the broad-phase rather than a quadratic all-pairs occluder scan, composes the `Meshing/intersect#INTERSECTION` `IntersectOp.PlaneMesh` for the `Section` cut (the W3 dependency the spine forces), composes the `Vectors` `FeatureEdge`/`FeatureReceipt` dihedral classification for the crease `EdgeKind`, and operates on raw `double` only at the `Predicate` seam and the view-projection inner loop (the sanctioned interior-double scope the `Numerics/predicates#NUMERIC_DETERMINISM` `NumericsPolicy` names alongside `Expansion`/`ErrorBound`). The `DrawingProjection` is the one section/drawing carrier the `Rasm.Fabrication` hidden-line-removal sheet engine and the `Rasm.AppUi` drafting-sheet engine read at the seam (the kernel owns the predicate-exact visibility, Fabrication and AppUi own the sheet-side composition; they meet at the carrier, never the `BspNode` interior). Every failure routes the band-2400 `GeometryFault` union (the `ProjectionFault` 2436 sub-band the `Numerics/faults#FAULT_BAND` family carries); the kernel computes no hash and mints no second identity — the `DrawingProjection`/segment records ARE the hash-friendly immutable records the `Spatial/reconciliation#NAMING_HASH` `Encode` content-addresses through the `Polyline`/`Line` projection.
+The owner composes landed entries exactly as declared: `MeshEdit.Of` is the ONE triangle-soup adapter (quads split by the arena's exact diagonal gate — no private soup derivation, no hand-built native mesh round-trip); `Spatial.Apply` is the ONE broad-phase entry — `SpatialOp.Build` over face bounds, the tandem `SpatialQuery.Overlap` for screen crossing candidates, the batched `SpatialQuery.Winding(Point3d[] Queries, Point3d[] Triangles, double BetaSquared) → QueryResult.Field(double[])` for the interior-occlusion cull of chain seeds; `Intersection.Apply` owns the `Section` cut (`IntersectOp.PlaneMesh`, closed AND typed open chains) plus every silhouette crossing and every seed stab (`SegmentTriangle`) — never a fourth inline crossing test; the crease `EdgeKind` lifts from the `FeatureReceipt` dihedral classification through `VectorIntent.Features`; drawing-region polygon fill routes `Arrangement.Apply(ArrangementOp.PlanarOverlay(…))`, never a local filler. `ToPolylines` chains by successor-linked connectivity — visible and hidden sets each walk their own `Next` links, never a kind-key concat, never a merged set. Failures route the locked band-2400 forms: `ProjectionFault(EdgeKind, int)` 2436 for a projection defect, `DegenerateInput(Kind, int, string)` 2400 for an inadmissible mesh, `key.InvalidInput()` for a malformed camera — the two-family seam. The `DrawingProjection` carrier is the one seam `Rasm.Fabrication` Posting and `Rasm.AppUi` drafting read; the host `Silhouette.Compute` capture tier in `Analysis/select` stands beside this exact-arithmetic owner under the capture law, consumers selecting by altitude.
 
 ## [01]-[INDEX]
 
-- [01]-[PROJECTION]: `ViewOp` `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) over one `BspNode` partition store; the exact `Orient3D` view-dot silhouette locus; the Newell-Newell-Sancha back-to-front BSP painter with Appel quantitative-invisibility visibility; the `Section` cut delegated to `Meshing/intersect#INTERSECTION` `IntersectOp.PlaneMesh`; the `DrawingProjection` visible/hidden 2D-segment carrier; `ToPolylines`/`ToSegments` projections re-emitting through the `Vectors` seam.
+- [01]-[PROJECTION]: `ViewOp` `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) folded by ONE `View.Apply`; the exact `Orient3D` silhouette locus; the Appel quantitative-invisibility solve — screen crossing lattice via `Spatial.Apply` Overlap + `Intersection.Apply` SegmentSegment, exact ±1 deltas, two-stage seeding (batched `Winding` interior cull, then the exact `SegmentTriangle` stab battery); the `Section` cut delegated to `IntersectOp.PlaneMesh`; `DrawingProjection` the successor-linked visible/hidden carrier with `ToPolylines`/`ToSegments`/`Fill` projections.
 
 ## [02]-[PROJECTION]
 
-- Owner: `ViewKind` `[SmartEnum<string>]` the operation discriminant (`silhouette`/`hidden-line`/`section`/`outline`) binding the shipped `ComparerAccessors.StringOrdinal` as its string-key comparer carrying the per-kind `EmitsHidden` (the result retains the occluded segments for a dashed-hidden render, never discards them) / `NeedsBsp` (the case builds the back-to-front partition versus the `Section` case lowering straight to one `IntersectOp.Apply`) columns; `Camera` the projection frame value — eye point, view direction, an orthographic-or-perspective flag, and the screen `Plane` the 3D edges project to; `EdgeKind` `[SmartEnum<int>]` the silhouette/crease/boundary/intersection segment classification (the `Vectors` `FeatureEdge` dihedral lift); `Visibility` `[SmartEnum<int>]` the visible/hidden/clipped per-segment verdict the painter assigns; `BspNode` the struct-of-arrays flat partition memory the painter folds — `Plane` the per-node splitting-plane coefficient slots, `Front`/`Back` the half-space child ranges over the shared SoA layout the `Spatial/index#SPATIAL_INDEX` `NodeStore` precedent fixes, `Faces`/`FaceRange` the per-leaf coplanar face bucket, `Dead` plus the free list reuse a collapsed-node slot; `ProjectedSegment` the 2D screen segment carrier (the two screen-space endpoints, the per-segment depth key, the `EdgeKind` and `Visibility` columns, the source-edge provenance); `ViewOp` `[Union]` `Silhouette`/`HiddenLine`/`Section`/`Outline` carrying the input mesh, the `Camera`, and the per-op parameter; `DrawingProjection` the typed result carrier (the visible-segment set, the hidden-segment set, the `EdgeKind` histogram receipt); `Projection` the static surface whose `Apply` fold runs the silhouette extraction, the BSP painter, or the section cut and projects the requested `DrawingProjection`.
-- Cases: `ViewKind` rows `silhouette` · `hidden-line` · `section` · `outline` (4); `ViewOp` cases `Silhouette` · `HiddenLine` · `Section` · `Outline` (4); `EdgeKind` rows `silhouette` · `crease` · `boundary` · `intersection` (4); `Visibility` rows `visible` · `hidden` · `clipped` (3). The `outline` row is the visible-boundary projection reading the SAME silhouette walk and the SAME BSP painter at the visible-segment slice (the outline is the visible silhouette plus boundary edges, no hidden set), never a parallel outliner — one `ViewKind`/`ViewOp` case projecting the visible slice of the shared visibility solve.
-- Entry: `public static Fin<DrawingProjection> Apply(ViewOp op)` — the ONE projection entrypoint discriminating by `ViewOp` case, `Fin<T>` routing a band-2400 `GeometryFault.ProjectionFault` (sub-band 2436) when the input mesh is empty or non-finite, when the `Camera` view direction is degenerate (a zero-length direction cannot orient the front/back partition), when the BSP partition stalls past the node budget (a partition that cannot separate a coincident-face cluster within the budget is a defect, never a silent truncation), or when a silhouette extraction runs over a non-manifold view (a face with no consistent front/back neighbour across a non-manifold edge has no defined silhouette sign); the fold lowers each case: `Silhouette`/`Outline` extract the exact-sign silhouette locus then project; `HiddenLine` builds the `BspNode` partition, runs the back-to-front painter assigning each projected segment its `Visibility`, and retains BOTH the visible and hidden sets; `Section` lowers straight to one `Meshing/intersect#INTERSECTION` `IntersectOp.PlaneMesh`/`Apply` against the cutting plane and projects the section chain into the drawing plane. No `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling entrypoints — one polymorphic `Apply` discriminates by kind.
-- Auto: `Apply` decides every front/back face side and every silhouette locus by the exact `Predicate.Orient3D` sign so no visibility verdict is decided by a float view-dot tolerance. The silhouette extraction (`SilhouetteEdges`) walks every mesh edge and classifies it a silhouette where its two incident faces lie on opposite sides of the eye — the side is the exact `Orient3D` sign of the eye point against each face's supporting plane, so a silhouette edge is exactly the sign-change locus and a grazing edge whose view dot is near zero never flickers (a float dot test classifies it visible on one frame and hidden on the next; the exact sign is stable); a boundary edge (one incident face) is always a silhouette, and a crease edge above the dihedral threshold is lifted from the `Vectors` `FeatureEdge`/`FeatureReceipt` classification. The `BspNode` partition is built by the Newell-Newell-Sancha recursive face split: a splitting face's supporting plane partitions the remaining faces into front/back half-spaces by the exact `Orient3D` sign of each face's vertices, a face straddling the plane is split on the plane (its sub-faces routed to both children), and the recursion terminates at a coplanar-face leaf bucket — the partition is the back-to-front total order the painter reads. The painter (`PaintBackToFront`) traverses the BSP in far-to-near order relative to the eye (at each node, the child on the far side of the splitting plane is painted first, then the node's coplanar faces, then the near child), projecting each silhouette/crease/boundary segment to the screen `Plane` and assigning its `Visibility` by the Appel quantitative-invisibility count — a segment's visibility changes only where it crosses a silhouette of an occluding face, so the painter tracks the running occlusion count along each projected segment and emits a `visible` sub-segment where the count is zero and a `hidden` sub-segment where it is positive; a segment partially behind an occluder is split at the silhouette crossing and BOTH sub-segments are retained (the hidden sub-segment carries `Visibility.Hidden`, never dropped). The occluder query for the quantitative-invisibility count rides the `Spatial/index#SPATIAL_INDEX` BVH `SpatialQuery.Ray` front-to-back traversal — the ray from the eye through a segment sample point returns the nearest occluding face, so the occlusion count is the broad-phase hit count rather than a quadratic all-pairs scan. The four kinds share ONE silhouette walk and ONE visibility solve — `Silhouette`/`Outline` read the silhouette set at the silhouette/visible slice, `HiddenLine` reads the full visible+hidden painter output, `Section` is the dual `IntersectOp.PlaneMesh` cut over the same screen `Plane` — never four visibility kernels.
-- Receipt: none on a dedicated rail — the `DrawingProjection` (the visible-segment `Seq<ProjectedSegment>`, the hidden-segment `Seq<ProjectedSegment>`, the `EdgeKind` histogram) IS the typed result the projection re-emits; the `Apply` rail returns the result itself, and the `DrawingProjection`/`ProjectedSegment` records ARE the hash-friendly immutable records the reconciliation `Encode` content-addresses through the `Polyline`/`Line` projection. Each `ProjectedSegment` carries its exact-sign-derived `Visibility` and `EdgeKind` so a downstream dashed-hidden render reads the full visible+hidden set from one carrier, never two passes.
-- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d`/`Line`/`Plane`/`Polyline`/`MeshSpace`/`MeshEdit`/`FeatureEdge`/`FeatureReceipt` — composed for view geometry, the crease classification, and the result projection), `Rasm.Geometry.Numerics` (`Predicate` `Orient3D`, `Sign` — the exact view-dot/plane-side floor, composed never re-minted), `Rasm.Geometry.Spatial` (`SpatialIndex`/`SpatialQuery.Ray`/`QueryResult.RayHit` BVH front-to-back occluder traversal — composed, never re-minted), `Rasm.Geometry.Intersection` (`IntersectOp.PlaneMesh`/`Intersection.Apply`/`IntersectResult.Chains` — the `Section` cut, composed never re-minted as a fourth crossing test), `Rasm.Geometry` (`GeometryFault` band-2400 union — composed, never re-minted), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`List<T>`, `Stack<T>`, `Dictionary<TKey,TValue>`).
-- Growth: a new view modality (a wireframe-with-depth-cue projection, a cavalier/cabinet oblique, a two-point perspective view) is one `ViewKind` row plus one `ViewOp` case reading the SAME silhouette walk and the SAME visibility solve — the `outline` row IS this leaf's named growth, added as one case projecting the visible slice of the shared solve, never a parallel outliner; a fifth view kind is admitted only by a charter amendment, never widened silently from this page; a new edge classification is one `EdgeKind` row plus one `SilhouetteEdges` arm reading the `Vectors` `FeatureEdge` classification; a new visibility verdict is one `Visibility` row; a new camera projection (perspective vs orthographic) is one column on `Camera`; zero new surface.
-- Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family each carrying its own `Extract`/`Remove`/`Cut`/`Project` surface is the named density defect collapsed here onto one union folded by one `Apply` entrypoint — the four cases differ ONLY in which slice of the shared silhouette/visibility solve they project (and `Section` in delegating to `IntersectOp.PlaneMesh`), never in the exact `Orient3D` partition, so `Apply`/`ToPolylines`/`ToSegments` live on the union base and read the shared `BspNode`/`DrawingProjection` kind-agnostically; the silhouette locus composes the `Predicate.Orient3D` exact view-dot sign and a hand-rolled epsilon-tolerant dot-product test (instead of `Predicate.Orient3D`) is the named correctness defect — a grazing-angle face mis-classified by a loosened float dot flickers between front and back across frames and the silhouette set is non-deterministic, exactly the non-robustness the predicate floor exists to eliminate; the back-to-front order composes the Newell-Newell-Sancha BSP partition and a float painter's-algorithm depth sort that cannot order interpenetrating or cyclically-overlapping faces is the deleted form — the BSP splits a straddling face on the plane so the order is total and cycle-free; the `Section` cut composes `Meshing/intersect#INTERSECTION` `IntersectOp.PlaneMesh`/`Apply` and a domain-local inline plane-mesh crossing test beside the intersection owner is the named double-owner defect (the section is ONE `IntersectOp.Apply`, the seam ALIGNS to the intersection owner through `Apply`/`Crossing`, never a reach into its `IntersectStore` interior, and never a host `Make2D` round-trip); the crease classification composes the `Vectors` `FeatureEdge`/`FeatureReceipt` dihedral and a domain-local dihedral re-implementation beside the Vectors owner is the deleted form; `Apply` is total over the `Fin` rail and a thrown exception on a degenerate camera, a stalled partition, or a non-manifold silhouette is forbidden — the defect routes `GeometryFault.ProjectionFault(...).ToError()` over the band-2400 union; the result re-emits the canonical hash-friendly `Polyline`/`Line` the `Spatial/reconciliation#NAMING_HASH` `Encode` content-addresses and this owner mints NO second hash; the view-dot signs, the screen projections, and the depth keys operate on raw `double` only at the `Predicate` seam and the view-projection inner loop because a coordinate, a view direction, and a screen depth are the domain's native scalars (a coordinate is not a unit-bearing quantity), and a `double` crossing a public projection signature outside a `Point3d`/`Vector3d`/`Plane`/`Line`/`Polyline` is the seam violation; the projection preserves capability — a hidden segment is classified `Visibility.Hidden` and RETAINED in the `DrawingProjection` hidden set rather than discarded, so a downstream dashed-hidden render reads the full set and no painter pass drops an occluded edge to satisfy a budget.
+- Owner: `ViewKind` `[SmartEnum<string>]` the operation discriminant (`silhouette`/`hidden-line`/`section`/`outline`) binding the shipped `ComparerAccessors.StringOrdinal` string-key comparer and carrying two CONSULTED data columns — `EmitsHidden` (the hidden run set is retained for a dashed-hidden render — `hidden-line` only) and `ResolvesVisibility` (the QI solve runs — `hidden-line` and `outline`; `silhouette` emits the raw locus, `section` lowers to one cut); the dead `NeedsBsp` column died with the BSP apparatus; `Camera` the projection frame value (eye, view direction, screen `Plane`, orthographic-or-perspective flag, the model `Context`) owning `Project`/`Depth`/`SideOf` — `SideOf` IS the exact `Predicate.Orient3D` of the eye against a face; `EdgeKind` `[SmartEnum<int>]` the silhouette/crease/boundary/intersection classification (the `faults.md` `ProjectionFault` payload composes this vocabulary — the rows are load-bearing corpus-wide); `Visibility` `[SmartEnum<int>]` the visible/hidden verdict DERIVED from the invisibility count (the never-assigned `clipped` row is dead); `ViewPolicy` the one policy row (`CreaseDihedralRadians` · `BetaSquared` the winding-cull accuracy knob · `Narrow` the composed `IntersectPolicy` every exact verdict threads · `Broad` the composed `BuildPolicy`); `ProjectedSegment` the emitted 2D run (screen endpoints, `EdgeKind`, the Appel `Invisibility` count, the `Next` successor link, source-edge provenance) with the derived `State`; `DrawingProjection` the typed result (visible set · hidden set · `EdgeKind` histogram) with `ToPolylines`/`ToSegments`/`Fill`; `EdgeHistogram` the per-kind census; `ViewOp` the request `[Union]`; `View` the static surface owning the ONE `Apply`.
+- Cases: `ViewKind` rows 4; `ViewOp` cases `Silhouette` · `HiddenLine` · `Section` · `Outline` (4); `EdgeKind` rows `silhouette` · `crease` · `boundary` · `intersection` (4); `Visibility` rows `visible` · `hidden` (2). The `outline` row is the visible slice of the SAME silhouette walk and the SAME QI solve (visible silhouette + boundary, no hidden set), never a parallel outliner; the four kinds differ ONLY in which slice of the shared solve they project and in `Section`'s delegation — one walk, one lattice, one solve.
+- Entry: `public static Fin<DrawingProjection> View.Apply(ViewOp op, Op? key = null)` — the ONE projection entrypoint discriminating by op case. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind.Mesh, index, witness)` 2400 on an empty or non-finite mesh (the cross-cutting admission case any namespace routes), `key.InvalidInput()` on a degenerate camera direction (a malformed op parameter is the `Op` admission channel, never a geometry fault), `GeometryFault.ProjectionFault(EdgeKind.Silhouette, -1)` 2436 on an empty silhouette locus (a closed front-only or back-only view has no defined drawing), and `GeometryFault.ProjectionFault(EdgeKind.Intersection, -1)` 2436 on a non-chain section answer; a composed failure (`IntersectionFault` 2424, a spatial `KindMismatch` 2402) surfaces unchanged — the fold never re-labels a sibling's typed fault. The fold lowers each case: `Silhouette` extracts the exact locus and emits it whole; `Outline`/`HiddenLine` run the QI solve and project the visible or the visible+hidden slice per the `EmitsHidden` column; `Section` lowers to ONE `Intersection.Apply(IntersectOp.PlaneMesh(cut, mesh, policy.Narrow))` and projects the resulting closed and open chains. No `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling entrypoints.
+- Auto: `Admit` materializes the soup ONCE through `MeshEdit.Of` (the arena's exact quad-diagonal split — the ONE adapter; the retired private `Soup` copy and the hand-built native `Mesh` round-trip are dead) and gates emptiness/finiteness/camera. `Silhouettes` walks the edge-incidence fold once: a boundary edge (one incident face) is always a silhouette; a two-face edge is a silhouette exactly where `FacesOppose` reads opposite nonzero `camera.SideOf` signs (SALVAGED VERBATIM — the exact sign-change locus); a non-silhouette two-face edge above the dihedral threshold lifts `EdgeKind.Crease` from the `FeatureReceipt` classification (`MeshFeaturePolicy.Of` → `VectorIntent.Features` → `Project<FeatureReceipt>` — a crease-lift failure PROPAGATES, never degrades to an empty crease set). The QI solve is `Resolve`: (1) candidate edges label into connected components by shared mesh vertices (one union-find pass); (2) the crossing lattice — candidate and silhouette screen segments each build a `Spatial.Apply` BVH over screen boxes, ONE tandem `SpatialQuery.Overlap` emits the surviving pairs, and each pair runs the exact `IntersectOp.SegmentSegment(a, b, Axis.Z, policy.Narrow)` (signs exact; the crossing coordinate is the lattice's canonical emission point) into per-edge crossing rows `(T, Delta)`; (3) each crossing's `Delta` is an exact sign pair — the candidate sub-segment beyond the crossing lies in the occluded wedge iff its endpoint's `Orient3D` against the eye–silhouette plane matches the occluding front face's own apex sign, and enter-versus-leave is the `Orient2D` of the two screen directions on `Axis.Z`; (4) seeding is two-stage per component — ONE batched `SpatialQuery.Winding` over every component seed probe (the seed vertex nudged eye-ward by the model tolerance) classifies seeds buried inside closed occluder material (`round(w) ≥ 1` with zero screen crossings ⇒ the whole component is hidden at that shell depth, no battery), and every unresolved seed runs the exact stab battery — `SpatialQuery.Range` over the seed→eye segment box prunes, the front-facing filter reads the cached `SideOf` signs, and each surviving face answers ONE exact `IntersectOp.SegmentTriangle` crossing verdict, the count the absolute QI; (5) `Emit` splits each edge at its sorted crossing parameters, threads the running count seed→`+Delta`, rounds coordinates ONCE at emission, links same-visibility successors through shared vertices (`Next`), and drops hidden runs only where the op row's `EmitsHidden` column says so — the `HiddenLine` result retains BOTH sets. `Section` partitions the intersect chains closed/open and emits both as `EdgeKind.Intersection` runs — an open chain from a non-watertight section is a typed row, never silently closed, never dropped.
+- Receipt: none on a dedicated rail — `DrawingProjection` (visible `Seq<ProjectedSegment>` · hidden `Seq<ProjectedSegment>` · `EdgeHistogram`) IS the typed result; each segment carries its exact-sign-derived `Invisibility` and `EdgeKind`, so a downstream dashed-hidden render reads the full set from one carrier. The record is the hash-friendly immutable form the reconciliation `Encode` content-addresses through the `Polyline`/`Line` projection — this owner mints no second identity.
+- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d`/`Line`/`Plane`/`Polyline`/`MeshSpace` + the `FeatureReceipt`/`MeshFeatureKind` dihedral vocabulary through `VectorIntent.Features` — composed), `Rasm.Geometry.Meshing` (`MeshEdit.Of` — the ONE soup adapter), `Rasm.Geometry.Numerics` (`Predicate.Orient3D`/`Orient2D`, `Sign`, `Axis` — the exact floor, composed never re-minted), `Rasm.Geometry.Spatial` (`Spatial.Apply` — `Build`/`Overlap`/`Range`/`Winding` over the ONE entry; the retired `SpatialIndex.Build` static and the `(QueryResult.RayHit)` hard cast are dead), `Rasm.Geometry.Intersection` (`Intersection.Apply` — `PlaneMesh`/`SegmentSegment`/`SegmentTriangle`, composed never re-founded), `Rasm.Geometry.Arrangement` (`Arrangement.Apply`/`ArrangementOp.PlanarOverlay`/`BooleanOp` — the fill seam), `Rasm.Geometry` (`GeometryFault` band 2400), `Rasm.Domain` (`Op` key rail, `Kind`, `Context`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`Dictionary<TKey,TValue>`, `HashSet<T>`, `List<T>`).
+- Growth: a new view modality (wireframe-with-depth-cue, cavalier/cabinet oblique, two-point perspective) is one `ViewKind` row plus one `ViewOp` case reading the SAME walk and the SAME solve — the `outline` row IS this leaf's executed precedent; a new edge classification is one `EdgeKind` row plus one `Silhouettes` arm reading the `FeatureReceipt` lift; a new camera projection is one column on `Camera`; a per-segment depth-cue column is one field on `ProjectedSegment` when its row lands; a fifth view kind is admitted only by charter amendment; zero new surface.
+- Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect collapsed onto one union folded by one `Apply`; visibility is EXACT ANALYTIC — the dead forms are enumerated and stay dead: the `BspNode` SoA partition with its `Spawn`/`Kill`/free-list, the Newell-Newell-Sancha recursive split (rounded constructed vertices beside an exact lattice), the `PaintBackToFront` painter prose, the uniform `SampleStep` marcher whose misses scale with the step, the per-sample `OccludedAt` ray with its `OcclusionBias` epsilon, and the never-consulted `NeedsBsp`/`Clipped` columns; the silhouette locus composes `Predicate.Orient3D` and an epsilon-tolerant float dot test is the named non-determinism defect; every crossing, delta, and seed verdict is an exact sign through the intersect/predicate owners and a view-local crossing kernel is the deleted fourth copy; the `Section` cut composes `IntersectOp.PlaneMesh` and an inline plane-mesh test or a host `Make2D` round-trip is the deleted form; the crease classification composes the `FeatureReceipt` dihedral and a local re-derivation is the deleted double owner; region fill composes `ArrangementOp.PlanarOverlay` and a local polygon filler or ear-clipper is the deleted form; `ToPolylines` walks successor links per visibility set and the `GroupBy(kind)` concat that merged visible with hidden is the deleted lie; the soup is `MeshEdit.Of` and a page-local `Soup`/`BuildNative` pair is the deleted third carrier; `Apply` is total over the `Fin` rail — a thrown exception on a degenerate camera or an empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride band 2400, neither family absorbing the other; screen coordinates and depths operate on raw `double` only inside the projection kernels (a coordinate is the domain's native scalar) and a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line` is the seam violation; the solve preserves capability — a hidden run is classified and RETAINED under `EmitsHidden`, never discarded to satisfy a budget.
 
-```csharp contract
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+```csharp
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,8 +28,9 @@ using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Geometry;
-using Rasm.Geometry.Healing;
+using Rasm.Geometry.Arrangement;
 using Rasm.Geometry.Intersection;
+using Rasm.Geometry.Meshing;
 using Rasm.Geometry.Numerics;
 using Rasm.Geometry.Spatial;
 using Rasm.Vectors;
@@ -40,19 +41,22 @@ using static LanguageExt.Prelude;
 namespace Rasm.Geometry.Projection;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// Two CONSULTED columns: EmitsHidden drives hidden-run retention, ResolvesVisibility gates the
+// QI solve (silhouette emits the raw locus; section lowers to one cut). NeedsBsp is dead.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ViewKind {
-    public static readonly ViewKind Silhouette = new("silhouette", emitsHidden: false, needsBsp: false);
-    public static readonly ViewKind HiddenLine = new("hidden-line", emitsHidden: true, needsBsp: true);
-    public static readonly ViewKind Section    = new("section", emitsHidden: false, needsBsp: false);
-    public static readonly ViewKind Outline    = new("outline", emitsHidden: false, needsBsp: true);
+    public static readonly ViewKind Silhouette = new("silhouette", emitsHidden: false, resolvesVisibility: false);
+    public static readonly ViewKind HiddenLine = new("hidden-line", emitsHidden: true, resolvesVisibility: true);
+    public static readonly ViewKind Section    = new("section", emitsHidden: false, resolvesVisibility: false);
+    public static readonly ViewKind Outline    = new("outline", emitsHidden: false, resolvesVisibility: true);
 
     public bool EmitsHidden { get; }
-    public bool NeedsBsp { get; }
+    public bool ResolvesVisibility { get; }
 }
 
+// The faults.md ProjectionFault(EdgeKind, int) payload composes these rows — load-bearing corpus-wide.
 [SmartEnum<int>]
 public sealed partial class EdgeKind {
     public static readonly EdgeKind Silhouette   = new(0);
@@ -61,17 +65,19 @@ public sealed partial class EdgeKind {
     public static readonly EdgeKind Intersection = new(3);
 }
 
+// Derived from the Appel count (visible = 0); the never-assigned clipped row is dead.
 [SmartEnum<int>]
 public sealed partial class Visibility {
     public static readonly Visibility Visible = new(0);
     public static readonly Visibility Hidden  = new(1);
-    public static readonly Visibility Clipped = new(2);
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
-public sealed record ViewPolicy(int MaxBspNodes, double CreaseDihedralRadians, double OcclusionBias, double SampleStep, IntersectPolicy Section, BuildPolicy Broad) {
+// BetaSquared is the Barill-Jacobson winding accuracy knob the seed cull threads; Narrow is the
+// composed exact-lattice policy; Broad the composed BVH build policy. No SampleStep, no bias.
+public sealed record ViewPolicy(double CreaseDihedralRadians, double BetaSquared, IntersectPolicy Narrow, BuildPolicy Broad) {
     public static readonly ViewPolicy Canonical =
-        new(MaxBspNodes: 1 << 20, CreaseDihedralRadians: 0.5235987755982988, OcclusionBias: 1e-7, SampleStep: 0.5, Section: IntersectPolicy.Canonical, Broad: BuildPolicy.Canonical);
+        new(CreaseDihedralRadians: 0.5235987755982988, BetaSquared: 4.0, Narrow: IntersectPolicy.Canonical, Broad: BuildPolicy.Canonical);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -88,54 +94,14 @@ public sealed record Camera(Point3d Eye, Vector3d Direction, Plane Screen, bool 
         return d <= 0.0 ? double.Epsilon : d;
     }
 
+    // The exact view-side verdict: Orient3D of the eye against the face's supporting plane.
     public Sign SideOf(Point3d a, Point3d b, Point3d c) => Predicate.Orient3D(a, b, c, Eye);
 }
 
-public sealed record BspNode(
-    int[] Live,
-    double[] PlaneOrigin,
-    double[] PlaneNormal,
-    int[] Front,
-    int[] Back,
-    int[] FaceRange,
-    int[] Faces,
-    bool[] Dead,
-    Stack<int> FreeList) {
-    public int Count => Live[0];
-
-    public static BspNode Allocate(int nodeCapacity, int faceCapacity) =>
-        new(new[] { 0 }, new double[3 * nodeCapacity], new double[3 * nodeCapacity], new int[nodeCapacity], new int[nodeCapacity],
-            new int[2 * nodeCapacity], new int[faceCapacity], new bool[nodeCapacity], new Stack<int>());
-
-    public Plane PlaneAt(int node) =>
-        new(new Point3d(PlaneOrigin[3 * node], PlaneOrigin[3 * node + 1], PlaneOrigin[3 * node + 2]),
-            new Vector3d(PlaneNormal[3 * node], PlaneNormal[3 * node + 1], PlaneNormal[3 * node + 2]));
-
-    public ReadOnlySpan<int> LeafFaces(int node) => Faces.AsSpan(FaceRange[2 * node], FaceRange[2 * node + 1]);
-
-    internal int Spawn(Plane plane, int faceStart, int faceLength) {
-        int node = FreeList.Count > 0 ? FreeList.Pop() : Live[0]++;
-        (PlaneOrigin[3 * node], PlaneOrigin[3 * node + 1], PlaneOrigin[3 * node + 2]) = (plane.OriginX, plane.OriginY, plane.OriginZ);
-        (PlaneNormal[3 * node], PlaneNormal[3 * node + 1], PlaneNormal[3 * node + 2]) = (plane.Normal.X, plane.Normal.Y, plane.Normal.Z);
-        (FaceRange[2 * node], FaceRange[2 * node + 1]) = (faceStart, faceLength);
-        (Front[node], Back[node], Dead[node]) = (-1, -1, false);
-        return node;
-    }
-
-    internal void Kill(int node) { Dead[node] = true; FreeList.Push(node); }
-}
-
-public sealed record ProjectedSegment(Point3d ScreenA, Point3d ScreenB, double Depth, EdgeKind Edge, Visibility State, int SourceA, int SourceB);
-
-public sealed record DrawingProjection(Seq<ProjectedSegment> Visible, Seq<ProjectedSegment> Hidden, EdgeHistogram Histogram) {
-    public Seq<Polyline> ToPolylines() =>
-        Visible.Append(Hidden).GroupBy(static s => s.Edge.Key).Map(static g => {
-            var loop = new Polyline();
-            foreach (ProjectedSegment s in g) { loop.Add(s.ScreenA); loop.Add(s.ScreenB); }
-            return loop;
-        }).ToSeq();
-
-    public Seq<Line> ToSegments() => Visible.Append(Hidden).Map(static s => new Line(s.ScreenA, s.ScreenB));
+// One emitted run: Invisibility is the Appel count over the run, Next the same-set successor
+// (-1 = chain end), SourceA/SourceB the mesh-edge provenance. Coordinates rounded ONCE at emission.
+public sealed record ProjectedSegment(Point3d ScreenA, Point3d ScreenB, EdgeKind Edge, int Invisibility, int Next, int SourceA, int SourceB) {
+    public Visibility State => Invisibility == 0 ? Visibility.Visible : Visibility.Hidden;
 }
 
 public sealed record EdgeHistogram(int Silhouette, int Crease, int Boundary, int Intersection, int VisibleCount, int HiddenCount) {
@@ -147,9 +113,33 @@ public sealed record EdgeHistogram(int Silhouette, int Crease, int Boundary, int
             crease:       _ => this with { Crease = Crease + 1 },
             boundary:     _ => this with { Boundary = Boundary + 1 },
             intersection: _ => this with { Intersection = Intersection + 1 });
-        return s.State == Visibility.Hidden
+        return s.Invisibility > 0
             ? tally with { HiddenCount = tally.HiddenCount + 1 }
             : tally with { VisibleCount = tally.VisibleCount + 1 };
+    }
+}
+
+public sealed record DrawingProjection(Seq<ProjectedSegment> Visible, Seq<ProjectedSegment> Hidden, EdgeHistogram Histogram) {
+    // Successor-linked chaining PER SET: visible and hidden walk their own Next links and never merge.
+    public Seq<Polyline> ToPolylines() => Chains(Visible) + Chains(Hidden);
+
+    public Seq<Line> ToSegments() => (Visible + Hidden).Map(static s => new Line(s.ScreenA, s.ScreenB));
+
+    // Region fill is the arrangement's: closed visible chains overlay through PlanarOverlay on the
+    // screen plane — never a local polygon filler beside the exact overlay owner.
+    public Fin<ArrangementResult> Fill(BooleanOp op, ArrangementPolicy policy, Op? key = null) =>
+        Arrangement.Apply(new ArrangementOp.PlanarOverlay(
+            A: Chains(Visible).Filter(static loop => loop.IsClosed), B: Seq<Polyline>(), Op: op, Plane: Axis.Z, Policy: policy), key);
+
+    static Seq<Polyline> Chains(Seq<ProjectedSegment> set) {
+        Set<int> linked = toSet(set.Map(static s => s.Next).Filter(static n => n >= 0));
+        return set.Map(static (s, index) => (Segment: s, Index: index))
+            .Filter(row => !linked.Contains(row.Index))
+            .Map(head => {
+                var loop = new Polyline { head.Segment.ScreenA, head.Segment.ScreenB };
+                for (int next = head.Segment.Next; next >= 0; next = set[next].Next) loop.Add(set[next].ScreenB);
+                return loop;
+            }).ToSeq();
     }
 }
 
@@ -170,270 +160,270 @@ public abstract partial record ViewOp {
             section:    static _ => ViewKind.Section,
             outline:    static _ => ViewKind.Outline);
 
-    MeshSpace Mesh =>
-        Switch(
-            silhouette: static s => s.Mesh,
-            hiddenLine: static h => h.Mesh,
-            section:    static c => c.Mesh,
-            outline:    static o => o.Mesh);
+    internal MeshSpace Mesh =>
+        Switch(silhouette: static s => s.Mesh, hiddenLine: static h => h.Mesh, section: static c => c.Mesh, outline: static o => o.Mesh);
 
-    Camera Camera =>
-        Switch(
-            silhouette: static s => s.Camera,
-            hiddenLine: static h => h.Camera,
-            section:    static c => c.Camera,
-            outline:    static o => o.Camera);
+    internal Camera Camera =>
+        Switch(silhouette: static s => s.Camera, hiddenLine: static h => h.Camera, section: static c => c.Camera, outline: static o => o.Camera);
 
-    ViewPolicy Policy =>
-        Switch(
-            silhouette: static s => s.Policy,
-            hiddenLine: static h => h.Policy,
-            section:    static c => c.Policy,
-            outline:    static o => o.Policy);
+    internal ViewPolicy Policy =>
+        Switch(silhouette: static s => s.Policy, hiddenLine: static h => h.Policy, section: static c => c.Policy, outline: static o => o.Policy);
 }
 
-public static class Projection {
-    public static Fin<DrawingProjection> Apply(ViewOp op) =>
-        Validate(op).Bind(soup => op switch {
-            ViewOp.Section s     => Cut(s.Mesh, s.Cut, s.Camera, s.Policy),
-            ViewOp.Silhouette si => Silhouettes(soup, si.Camera, si.Policy).Map(edges => Draw(soup, edges, si.Camera)),
-            ViewOp.Outline o     => Render(soup, o.Camera, o.Policy, emitHidden: false),
-            ViewOp.HiddenLine h  => Render(soup, h.Camera, h.Policy, emitHidden: true),
-            _                    => Fin.Fail<DrawingProjection>(GeometryFault.ProjectionFault($"unmatched-op:{op.Kind.Key}").ToError()),
-        });
+public static class View {
+    public static Fin<DrawingProjection> Apply(ViewOp op, Op? key = null) {
+        Op k = key.OrDefault();
+        if (op.Camera.Direction.IsTiny()) return Fin.Fail<DrawingProjection>(k.InvalidInput());
+        return op is ViewOp.Section section
+            ? Cut(section.Mesh, section.Cut, section.Camera, section.Policy, k)
+            : Admit(op.Mesh, k).Bind(soup =>
+                Silhouettes(op.Mesh, soup, op.Camera, op.Policy, k).Bind(locus =>
+                    op.Kind.ResolvesVisibility
+                        ? Resolve(soup, locus, op.Camera, op.Policy, op.Kind.EmitsHidden, k)
+                        : Fin.Succ(Emit(soup, locus.Edges, EmptyLattice(locus.Edges.Count), new int[locus.Edges.Count], op.Camera, emitHidden: false))));
+    }
 
-    static Fin<(Point3d[] Vertices, (int A, int B, int C)[] Faces)> Validate(ViewOp op) {
-        (Point3d[] vertices, (int A, int B, int C)[] faces) = Soup(op.Mesh);
-        if (vertices.Length == 0 || faces.Length == 0)
-            return Fin.Fail<(Point3d[], (int, int, int)[])>(GeometryFault.ProjectionFault($"projection:{op.Kind.Key}:empty-mesh").ToError());
-        if (vertices.Any(static v => !v.IsValid))
-            return Fin.Fail<(Point3d[], (int, int, int)[])>(GeometryFault.ProjectionFault($"projection:{op.Kind.Key}:non-finite-vertex").ToError());
-        if (op.Camera.Direction.IsTiny())
-            return Fin.Fail<(Point3d[], (int, int, int)[])>(GeometryFault.ProjectionFault($"projection:{op.Kind.Key}:degenerate-view-direction").ToError());
+    // --- [ADMISSION]
+    // MeshEdit.Of is the ONE soup adapter (exact quad-diagonal split); `using` is the arena
+    // boundary capsule — the lease dies here, only value arrays escape.
+    static Fin<(Point3d[] V, (int A, int B, int C)[] F)> Admit(MeshSpace mesh, Op key) {
+        using MeshEdit edit = MeshEdit.Of(mesh);
+        if (edit.VertexCount == 0 || edit.FaceCount == 0)
+            return Fin.Fail<(Point3d[], (int, int, int)[])>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "empty").ToError());
+        var vertices = new Point3d[edit.VertexCount];
+        for (int v = 0; v < vertices.Length; v++) {
+            vertices[v] = edit.Position(v);
+            if (!vertices[v].IsValid)
+                return Fin.Fail<(Point3d[], (int, int, int)[])>(new GeometryFault.DegenerateInput(Kind.Mesh, v, "non-finite vertex").ToError());
+        }
+        var faces = new (int A, int B, int C)[edit.FaceCount];
+        for (int f = 0; f < faces.Length; f++) faces[f] = edit.Face(f);
         return Fin.Succ((vertices, faces));
     }
 
     // --- [SILHOUETTE]
-    static Fin<Seq<(int A, int B, EdgeKind Kind)>> Silhouettes((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, Camera camera, ViewPolicy policy) {
-        var incident = new Dictionary<(int, int), List<int>>();
-        for (int f = 0; f < soup.Faces.Length; f++) {
-            (int a, int b, int c) = soup.Faces[f];
-            Register(incident, a, b, f); Register(incident, b, c, f); Register(incident, c, a, f);
-        }
-        var creases = CreaseEdges(soup, camera.Tolerance, policy);
-        var edges = new List<(int A, int B, EdgeKind Kind)>();
-        foreach (((int u, int v) edge, List<int> faces) in incident) {
-            if (faces.Count == 1) { edges.Add((edge.u, edge.v, EdgeKind.Boundary)); continue; }
-            if (faces.Count != 2) continue;
-            if (FacesOppose(soup, camera, faces[0], faces[1])) edges.Add((edge.u, edge.v, EdgeKind.Silhouette));
-            else if (creases.Contains(Key(edge.u, edge.v))) edges.Add((edge.u, edge.v, EdgeKind.Crease));
-        }
-        return edges.Count == 0
-            ? Fin.Fail<Seq<(int, int, EdgeKind)>>(GeometryFault.ProjectionFault("silhouette:empty-locus").ToError())
-            : Fin.Succ(toSeq(edges));
-    }
+    readonly record struct Locus(Seq<(int A, int B, EdgeKind Kind)> Edges, Sign[] Side);
 
-    static bool FacesOppose((Point3d[] V, (int A, int B, int C)[] F) soup, Camera camera, int f0, int f1) {
-        (int a0, int b0, int c0) = soup.F[f0];
-        (int a1, int b1, int c1) = soup.F[f1];
-        Sign s0 = camera.SideOf(soup.V[a0], soup.V[b0], soup.V[c0]);
-        Sign s1 = camera.SideOf(soup.V[a1], soup.V[b1], soup.V[c1]);
-        return s0 != s1 && s0 != Sign.Zero && s1 != Sign.Zero;
-    }
+    static Fin<Locus> Silhouettes(MeshSpace mesh, (Point3d[] V, (int A, int B, int C)[] F) soup, Camera camera, ViewPolicy policy, Op key) =>
+        CreaseEdges(mesh, camera, policy, key).Bind(creases => {
+            var side = new Sign[soup.F.Length];
+            for (int f = 0; f < soup.F.Length; f++) side[f] = camera.SideOf(soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
+            var incident = new Dictionary<(int, int), List<int>>();
+            for (int f = 0; f < soup.F.Length; f++) {
+                (int a, int b, int c) = soup.F[f];
+                Register(incident, a, b, f); Register(incident, b, c, f); Register(incident, c, a, f);
+            }
+            var edges = new List<(int A, int B, EdgeKind Kind)>();
+            foreach (((int u, int v) edge, List<int> faces) in incident) {
+                if (faces.Count == 1) { edges.Add((edge.u, edge.v, EdgeKind.Boundary)); continue; }
+                if (faces.Count != 2) continue;
+                if (FacesOppose(side, faces[0], faces[1])) edges.Add((edge.u, edge.v, EdgeKind.Silhouette));
+                else if (creases.Contains(Key(edge.u, edge.v))) edges.Add((edge.u, edge.v, EdgeKind.Crease));
+            }
+            return edges.Count == 0
+                ? Fin.Fail<Locus>(new GeometryFault.ProjectionFault(EdgeKind.Silhouette, -1).ToError())
+                : Fin.Succ(new Locus(toSeq(edges), side));
+        });
 
-    static HashSet<long> CreaseEdges((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, Context tolerance, ViewPolicy policy) =>
-        MeshSpace.Of(BuildNative(soup), tolerance)
-            .Bind(space => MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedralRadians, space: space, faceRegions: Option<Arr<int>>.None, key: Op.Of())
-                .Bind(features => VectorIntent.Features(space, features)))
-            .Bind(intent => intent.Project<FeatureReceipt>(tolerance))
-            .Map(static receipt => receipt.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease)).Map(static e => Key(e.A, e.B)).ToHashSet())
-            .IfFail(new HashSet<long>());
+    // SALVAGED VERBATIM: the exact sign-change locus — opposite nonzero eye-side signs.
+    static bool FacesOppose(Sign[] side, int f0, int f1) =>
+        side[f0] != side[f1] && side[f0] != Sign.Zero && side[f1] != Sign.Zero;
+
+    // Crease lift PROPAGATES failure — a degraded empty crease set is the deleted silent drop.
+    static Fin<HashSet<long>> CreaseEdges(MeshSpace mesh, Camera camera, ViewPolicy policy, Op key) =>
+        MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedralRadians, space: mesh, faceRegions: Option<Arr<int>>.None, key: key)
+            .Bind(features => VectorIntent.Features(mesh, features, key))
+            .Bind(intent => intent.Project<FeatureReceipt>(camera.Tolerance, key))
+            .Map(static receipt => receipt.Edges
+                .Filter(static e => e.Kind == MeshFeatureKind.Crease)
+                .Map(static e => Key(e.A, e.B)).ToHashSet());
 
     static void Register(Dictionary<(int, int), List<int>> incident, int a, int b, int face) {
         (int lo, int hi) = a < b ? (a, b) : (b, a);
-        (incident.TryGetValue((lo, hi), out List<int>? list) ? list : incident[(lo, hi)] = new List<int>()).Add(face);
+        (incident.TryGetValue((lo, hi), out List<int>? list) ? list : incident[(lo, hi)] = []).Add(face);
     }
 
     static long Key(int a, int b) { (int lo, int hi) = a < b ? (a, b) : (b, a); return ((long)lo << 32) | (uint)hi; }
 
-    // --- [BSP_PAINTER]
-    static Fin<DrawingProjection> Render((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, Camera camera, ViewPolicy policy, bool emitHidden) =>
-        Silhouettes(soup, camera, policy).Bind(edges =>
-            Build(soup, policy).Bind(index =>
-                Partition(soup, policy).Map(bsp => Paint(soup, edges, camera, bsp, index, policy, emitHidden))));
-
-    static Fin<BspNode> Partition((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, ViewPolicy policy) {
-        var bsp = BspNode.Allocate(policy.MaxBspNodes, 4 * soup.Faces.Length);
-        var faces = Enumerable.Range(0, soup.Faces.Length).ToList();
-        var cursor = new int[] { 0 };
-        Split(bsp, soup, faces, cursor, 0, policy);
-        return bsp.Count > policy.MaxBspNodes
-            ? Fin.Fail<BspNode>(GeometryFault.ProjectionFault($"bsp:partition-stalled:{bsp.Count}").ToError())
-            : Fin.Succ(bsp);
+    // --- [QI_LATTICE]
+    static Fin<DrawingProjection> Resolve((Point3d[] V, (int A, int B, int C)[] F) soup, Locus locus, Camera camera, ViewPolicy policy, bool emitHidden, Op key) {
+        int[] component = Components(locus.Edges, soup.V.Length);
+        Point3d[] triangles = Triangles(soup);
+        return Broad(FaceBounds(soup), policy.Broad, key).Bind(world =>
+            Crossings(soup, locus, camera, policy, key).Bind(lattice =>
+                Seeds(soup, locus, component, camera, world, triangles, policy, key).Map(seeds =>
+                    Emit(soup, locus.Edges, lattice, PropagateSeeds(component, locus.Edges, seeds), camera, emitHidden))));
     }
 
-    static int Split(BspNode bsp, (Point3d[] V, (int A, int B, int C)[] F) soup, List<int> faces, int[] cursor, int depth, ViewPolicy policy) {
-        if (faces.Count == 0 || depth > policy.MaxBspNodes) return -1;
-        int pivot = faces[0];
-        (int pa, int pb, int pc) = soup.F[pivot];
-        Plane plane = new(soup.V[pa], soup.V[pb], soup.V[pc]);
-        var front = new List<int>();
-        var back = new List<int>();
-        var coplanar = new List<int> { pivot };
-        for (int i = 1; i < faces.Count; i++) {
-            int f = faces[i];
-            (int a, int b, int c) = soup.F[f];
-            Sign sa = Predicate.Orient3D(soup.V[pa], soup.V[pb], soup.V[pc], soup.V[a]);
-            Sign sb = Predicate.Orient3D(soup.V[pa], soup.V[pb], soup.V[pc], soup.V[b]);
-            Sign sc = Predicate.Orient3D(soup.V[pa], soup.V[pb], soup.V[pc], soup.V[c]);
-            bool anyFront = sa == Sign.Positive || sb == Sign.Positive || sc == Sign.Positive;
-            bool anyBack = sa == Sign.Negative || sb == Sign.Negative || sc == Sign.Negative;
-            if (anyFront && anyBack) { front.Add(f); back.Add(f); }
-            else if (anyFront) front.Add(f);
-            else if (anyBack) back.Add(f);
-            else coplanar.Add(f);
+    // Screen crossing lattice: candidate + silhouette screen indexes → ONE tandem Overlap →
+    // exact SegmentSegment per pair; each row carries the crossing parameter T along the
+    // candidate and the exact ±1 Delta.
+    static Fin<Seq<(double T, int Delta)>[]> Crossings((Point3d[] V, (int A, int B, int C)[] F) soup, Locus locus, Camera camera, ViewPolicy policy, Op key) {
+        (Line[] candidate2d, Line[] occluder2d, int[] occluderEdge) = ScreenSegments(locus.Edges, soup.V, camera);
+        return Broad(SegmentBounds(candidate2d), policy.Broad, key).Bind(cand =>
+            Broad(SegmentBounds(occluder2d), policy.Broad, key).Bind(occ =>
+                Pairs(cand, occ, camera.Tolerance.Absolute, key).Bind(pairs =>
+                    pairs.Filter(pair => pair.Left != occluderEdge[pair.Right])
+                        .TraverseM(pair => Intersection
+                            .Apply(new IntersectOp.SegmentSegment(candidate2d[pair.Left], occluder2d[pair.Right], Axis.Z, policy.Narrow), key)
+                            .Map(result => result is IntersectResult.Points points
+                                ? points.Hits.Map(hit => (Edge: pair.Left, Row: (ParameterAt(candidate2d[pair.Left], hit),
+                                    Delta(soup, locus, pair.Left, pair.Right, hit, camera))))
+                                : Seq<(int, (double, int))>()))
+                        .As()
+                        .Map(rows => Bucket(rows.Bind(identity), locus.Edges.Count)))));
+    }
+
+    // The exact ±1: BEHIND = the candidate endpoint past the crossing reads Orient3D against the
+    // eye–silhouette plane (Eye, silA, silB) with the SAME sign as the occluding front face's own
+    // apex — the plane through the eye and the silhouette edge is exactly where occlusion flips,
+    // so no depth float ever decides; ENTER/LEAVE = Orient2D of the candidate screen direction
+    // against the silhouette screen direction on Axis.Z. Delta = Behind ? (Enter ? +1 : -1) : 0.
+    static int Delta((Point3d[] V, (int A, int B, int C)[] F) soup, Locus locus, int candidate, int occluder, Point3d crossing, Camera camera);
+
+    // Two-stage seeding per component: ONE batched Winding over every seed probe (interior-material
+    // cull — a buried component with zero screen crossings is hidden at round(w) shells), then the
+    // exact stab battery for every unresolved seed.
+    static Fin<int[]> Seeds((Point3d[] V, (int A, int B, int C)[] F) soup, Locus locus, int[] component, Camera camera, SpatialIndex world, Point3d[] triangles, ViewPolicy policy, Op key) {
+        (int[] owner, Point3d[] seed) = ComponentSeeds(locus.Edges, component, soup.V);
+        Point3d[] probes = new Point3d[seed.Length];
+        for (int i = 0; i < seed.Length; i++) {
+            Vector3d toEye = camera.Eye - seed[i];
+            toEye.Unitize();
+            probes[i] = seed[i] + camera.Tolerance.Absolute * toEye;
         }
-        int start = cursor[0];
-        foreach (int f in coplanar) bsp.Faces[cursor[0]++] = f;
-        int node = bsp.Spawn(plane, start, coplanar.Count);
-        bsp.Front[node] = Split(bsp, soup, front, cursor, depth + 1, policy);
-        bsp.Back[node] = Split(bsp, soup, back, cursor, depth + 1, policy);
-        return node;
+        return WindingField(world, probes, triangles, policy, key).Bind(field => {
+            var counts = new int[seed.Length];
+            return toSeq(Enumerable.Range(0, seed.Length))
+                .TraverseM(i => (int)Math.Round(field[i]) >= 1
+                    ? Fin.Succ(counts[i] = (int)Math.Round(field[i]))
+                    : StabCount(soup, locus.Side, seed[i], camera, world, policy, key).Map(stabbed => counts[i] = stabbed))
+                .As()
+                .Map(_ => counts);
+        });
     }
 
-    static DrawingProjection Paint((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, Seq<(int A, int B, EdgeKind Kind)> edges, Camera camera, BspNode bsp, SpatialIndex index, ViewPolicy policy, bool emitHidden) {
-        var visible = new List<ProjectedSegment>();
-        var hidden = new List<ProjectedSegment>();
-        EdgeHistogram histogram = EdgeHistogram.Empty;
-        foreach ((int a, int b, EdgeKind kind) in edges) {
-            Point3d worldA = soup.Vertices[a], worldB = soup.Vertices[b];
-            Point3d screenA = camera.Project(worldA), screenB = camera.Project(worldB);
-            double depth = 0.5 * (camera.Depth(worldA) + camera.Depth(worldB));
-            foreach ((Point3d sa, Point3d sb, Visibility state) in Clip(worldA, worldB, screenA, screenB, camera, index, policy)) {
-                if (state == Visibility.Hidden && !emitHidden) continue;
-                var segment = new ProjectedSegment(sa, sb, depth, kind, state, a, b);
-                (state == Visibility.Hidden ? hidden : visible).Add(segment);
-                histogram = histogram.Add(segment);
-            }
-        }
-        return new DrawingProjection(toSeq(visible), toSeq(hidden), histogram);
-    }
+    // The exact absolute seed: Range prune over the seed→eye box, front-facing filter on the cached
+    // SideOf signs, ONE exact SegmentTriangle verdict per survivor — the count IS the QI.
+    static Fin<int> StabCount((Point3d[] V, (int A, int B, int C)[] F) soup, Sign[] side, Point3d seed, Camera camera, SpatialIndex world, ViewPolicy policy, Op key) =>
+        Query(world, new SpatialQuery.Range(new BoundingBox([seed, camera.Eye]), Option<Sphere>.None), key)
+            .Bind(result => result is QueryResult.Hits hits ? Fin.Succ(hits.Ids) : Fin.Fail<Seq<int>>(key.InvalidResult()))
+            .Bind(candidates => candidates
+                .Filter(f => side[f] == Sign.Positive)
+                .TraverseM(f => Intersection
+                    .Apply(new IntersectOp.SegmentTriangle(new Line(seed, camera.Eye), soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C], policy.Narrow), key)
+                    .Map(static r => r is IntersectResult.Points p ? p.Hits.Count : 0))
+                .As()
+                .Map(static counts => counts.Sum()));
 
-    static IEnumerable<(Point3d A, Point3d B, Visibility State)> Clip(Point3d worldA, Point3d worldB, Point3d screenA, Point3d screenB, Camera camera, SpatialIndex index, ViewPolicy policy) {
-        int samples = Math.Max(1, (int)((screenB - screenA).Length / policy.SampleStep));
-        var run = new List<(double T, Visibility State)>();
-        for (int i = 0; i <= samples; i++) {
-            double t = (double)i / samples;
-            Point3d world = worldA + t * (worldB - worldA);
-            run.Add((t, OccludedAt(world, camera, index, policy) ? Visibility.Hidden : Visibility.Visible));
-        }
-        int s = 0;
-        while (s < run.Count) {
-            int e = s;
-            while (e + 1 < run.Count && run[e + 1].State == run[s].State) e++;
-            Point3d a = screenA + run[s].T * (screenB - screenA);
-            Point3d b = screenA + run[Math.Min(e + 1, run.Count - 1)].T * (screenB - screenA);
-            yield return (a, b, run[s].State);
-            s = e + 1;
-        }
-    }
-
-    static bool OccludedAt(Point3d world, Camera camera, SpatialIndex index, ViewPolicy policy) {
-        Vector3d toEye = camera.Eye - world;
-        double distance = toEye.Length;
-        if (distance <= policy.OcclusionBias) return false;
-        var ray = new Ray3d(world + policy.OcclusionBias * (1.0 / distance) * toEye, (1.0 / distance) * toEye);
-        QueryResult.RayHit hit = (QueryResult.RayHit)index.Query(new SpatialQuery.Ray(ray, distance - 2.0 * policy.OcclusionBias));
-        return hit.Id.IsSome;
-    }
+    // QI propagation + emission: each edge splits at its sorted crossing parameters, the running
+    // count threads seed → +Delta, coordinates round ONCE here (the one emission seam), and Next
+    // links same-visibility successors through the shared mesh vertex. Hidden runs are retained
+    // exactly when emitHidden holds; the histogram folds every emitted run.
+    static DrawingProjection Emit((Point3d[] V, (int A, int B, int C)[] F) soup, Seq<(int A, int B, EdgeKind Kind)> edges, Seq<(double T, int Delta)>[] lattice, int[] edgeSeed, Camera camera, bool emitHidden);
 
     // --- [SECTION]
-    static Fin<DrawingProjection> Cut(MeshSpace mesh, Plane plane, Camera camera, ViewPolicy policy) =>
-        Intersection.Apply(new IntersectOp.PlaneMesh(plane, mesh, policy.Section)).Bind(result => result switch {
-            IntersectResult.Chains chains => Fin.Succ(SectionDrawing(chains.Loops, camera)),
-            _                             => Fin.Fail<DrawingProjection>(GeometryFault.ProjectionFault("section:non-chain-result").ToError()),
+    // SALVAGED delegation: exactly ONE IntersectOp.PlaneMesh — closed AND typed open chains both
+    // project as EdgeKind.Intersection runs; an open chain is a typed row, never silently closed.
+    static Fin<DrawingProjection> Cut(MeshSpace mesh, Plane plane, Camera camera, ViewPolicy policy, Op key) =>
+        Intersection.Apply(new IntersectOp.PlaneMesh(plane, mesh, policy.Narrow), key).Bind(result => result switch {
+            IntersectResult.Chains chains => Fin.Succ(SectionDrawing(chains.Walked, camera)),
+            _                             => Fin.Fail<DrawingProjection>(new GeometryFault.ProjectionFault(EdgeKind.Intersection, -1).ToError()),
         });
 
-    static DrawingProjection SectionDrawing(Seq<Polyline> loops, Camera camera) {
+    static DrawingProjection SectionDrawing(Seq<Chain> chains, Camera camera) {
         var visible = new List<ProjectedSegment>();
         EdgeHistogram histogram = EdgeHistogram.Empty;
-        foreach (Polyline loop in loops)
-            for (int i = 0; i + 1 < loop.Count; i++) {
-                Point3d worldA = loop[i], worldB = loop[i + 1];
-                var segment = new ProjectedSegment(camera.Project(worldA), camera.Project(worldB), 0.5 * (camera.Depth(worldA) + camera.Depth(worldB)), EdgeKind.Intersection, Visibility.Visible, -1, -1);
+        foreach (Chain chain in chains) {
+            int first = visible.Count;
+            for (int i = 0; i + 1 < chain.Points.Count; i++) {
+                bool last = i + 2 >= chain.Points.Count;
+                var segment = new ProjectedSegment(
+                    camera.Project(chain.Points[i]), camera.Project(chain.Points[i + 1]), EdgeKind.Intersection,
+                    Invisibility: 0, Next: last ? (chain.Closed ? first : -1) : visible.Count + 1, SourceA: -1, SourceB: -1);
                 visible.Add(segment);
                 histogram = histogram.Add(segment);
             }
-        return new DrawingProjection(toSeq(visible), Seq<ProjectedSegment>(), histogram);
-    }
-
-    static DrawingProjection Draw((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, Seq<(int A, int B, EdgeKind Kind)> edges, Camera camera) {
-        var visible = new List<ProjectedSegment>();
-        EdgeHistogram histogram = EdgeHistogram.Empty;
-        foreach ((int a, int b, EdgeKind kind) in edges) {
-            Point3d worldA = soup.Vertices[a], worldB = soup.Vertices[b];
-            var segment = new ProjectedSegment(camera.Project(worldA), camera.Project(worldB), 0.5 * (camera.Depth(worldA) + camera.Depth(worldB)), kind, Visibility.Visible, a, b);
-            visible.Add(segment);
-            histogram = histogram.Add(segment);
         }
         return new DrawingProjection(toSeq(visible), Seq<ProjectedSegment>(), histogram);
     }
 
     // --- [PRIMITIVES]
-    static Fin<SpatialIndex> Build((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup, ViewPolicy policy) {
-        BoundingBox[] boxes = soup.Faces.Map(f => new BoundingBox(new[] { soup.Vertices[f.A], soup.Vertices[f.B], soup.Vertices[f.C] })).ToArray();
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad);
+    static Fin<SpatialIndex> Broad(BoundingBox[] boxes, BuildPolicy policy, Op key) =>
+        Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, policy), key)
+            .Bind(answer => answer is SpatialAnswer.Index index ? Fin.Succ(index.Value) : Fin.Fail<SpatialIndex>(key.InvalidResult()));
+
+    static Fin<QueryResult> Query(SpatialIndex index, SpatialQuery probe, Op key) =>
+        Spatial.Apply(new SpatialOp.Query(index, probe), key)
+            .Bind(answer => answer is SpatialAnswer.Result result ? Fin.Succ(result.Value) : Fin.Fail<QueryResult>(key.InvalidResult()));
+
+    static Fin<Seq<(int Left, int Right)>> Pairs(SpatialIndex candidates, SpatialIndex occluders, double tolerance, Op key) =>
+        Query(candidates, new SpatialQuery.Overlap(occluders, tolerance), key)
+            .Bind(result => result is QueryResult.Pairs pairs ? Fin.Succ(pairs.Overlaps) : Fin.Fail<Seq<(int, int)>>(key.InvalidResult()));
+
+    static Fin<double[]> WindingField(SpatialIndex world, Point3d[] probes, Point3d[] triangles, ViewPolicy policy, Op key) =>
+        Query(world, new SpatialQuery.Winding(probes, triangles, policy.BetaSquared), key)
+            .Bind(result => result is QueryResult.Field field ? Fin.Succ(field.Values) : Fin.Fail<double[]>(key.InvalidResult()));
+
+    static BoundingBox[] FaceBounds((Point3d[] V, (int A, int B, int C)[] F) soup) =>
+        Array.ConvertAll(soup.F, f => new BoundingBox([soup.V[f.A], soup.V[f.B], soup.V[f.C]]));
+
+    static Point3d[] Triangles((Point3d[] V, (int A, int B, int C)[] F) soup) {
+        var triangles = new Point3d[3 * soup.F.Length];
+        for (int f = 0; f < soup.F.Length; f++)
+            (triangles[3 * f], triangles[3 * f + 1], triangles[3 * f + 2]) = (soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
+        return triangles;
     }
 
-    static (Point3d[] Vertices, (int A, int B, int C)[] Faces) Soup(MeshSpace mesh) {
-        MeshEdit edit = MeshEdit.OfMesh(mesh);
-        return (edit.Vertices.ToArray(), edit.Faces.ToArray());
-    }
-
-    static Mesh BuildNative((Point3d[] Vertices, (int A, int B, int C)[] Faces) soup) {
-        var mesh = new Mesh();
-        foreach (Point3d v in soup.Vertices) mesh.Vertices.Add(v);
-        foreach ((int a, int b, int c) in soup.Faces) mesh.Faces.AddFace(a, b, c);
-        return mesh;
-    }
+    // Union-find over shared mesh vertices labels candidate edges into connected components;
+    // ComponentSeeds picks each component's screen-extremal endpoint; PropagateSeeds assigns each
+    // edge its component's absolute count; ScreenSegments/SegmentBounds/ParameterAt/Bucket are the
+    // screen-lattice staging kernels; EmptyLattice is the silhouette-slice zero table.
+    static int[] Components(Seq<(int A, int B, EdgeKind Kind)> edges, int vertexCount);
+    static (int[] Owner, Point3d[] Seed) ComponentSeeds(Seq<(int A, int B, EdgeKind Kind)> edges, int[] component, Point3d[] vertices);
+    static int[] PropagateSeeds(int[] component, Seq<(int A, int B, EdgeKind Kind)> edges, int[] seeds);
+    static (Line[] Candidate, Line[] Occluder, int[] OccluderEdge) ScreenSegments(Seq<(int A, int B, EdgeKind Kind)> edges, Point3d[] vertices, Camera camera);
+    static BoundingBox[] SegmentBounds(Line[] segments);
+    static double ParameterAt(Line segment, Point3d crossing);
+    static Seq<(double T, int Delta)>[] Bucket(Seq<(int Edge, (double T, int Delta) Row)> rows, int edgeCount);
+    static Seq<(double T, int Delta)>[] EmptyLattice(int edgeCount);
 }
 ```
 
 ```mermaid
 flowchart LR
-    ViewOp -->|exact view-dot side| Predicate
-    ViewOp -->|crease dihedral| FeatureEdge
-    Predicate -->|front/back partition| BspNode
-    Predicate -->|sign-change locus| EdgeKind
-    BspNode -->|back-to-front order| Paint
-    Paint -->|Ray occluder count| SpatialIndex
-    Paint -->|visible + hidden split| ProjectedSegment
-    ViewOp -->|Section one cut| Intersection
-    Intersection -->|PlaneMesh chain| ProjectedSegment
-    ProjectedSegment -->|Round once at re-emit| DrawingProjection
-    DrawingProjection -->|ToPolylines / ToSegments| Polyline
-    DrawingProjection -.->|Fabrication HLR / AppUi drafting| Seam
-    ViewOp -.->|degenerate camera / stalled BSP| GeometryFault
+    ViewOp -->|"MeshEdit.Of — the ONE soup adapter"| Soup["vertex/face arrays"]
+    Soup -->|exact eye-side Orient3D| Locus["silhouette / boundary / crease locus"]
+    Locus -->|"FeatureReceipt dihedral lift"| Crease["VectorIntent.Features"]
+    Locus -->|"screen boxes → Spatial.Apply Overlap"| Pairs["crossing candidate pairs"]
+    Pairs -->|"IntersectOp.SegmentSegment (Axis.Z) exact"| Lattice["crossing rows (T, ±1 delta)"]
+    Locus -->|"batched SpatialQuery.Winding → Field"| Cull["buried-component cull"]
+    Cull -->|"unresolved seeds: Range + SegmentTriangle"| Seeds["exact absolute QI"]
+    Lattice -->|"seed + Σdelta, split at crossings"| Emit["successor-linked runs"]
+    Emit -->|visible / hidden retained per EmitsHidden| DrawingProjection
+    ViewOp -->|"Section: ONE IntersectOp.PlaneMesh"| DrawingProjection
+    DrawingProjection -->|"ToPolylines / ToSegments / Fill(PlanarOverlay)"| Seam["Fabrication Posting / AppUi drafting"]
+    ViewOp -.->|"DegenerateInput 2400 / InvalidInput / ProjectionFault 2436"| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the silhouette extraction, the BSP partition, or the section cut can fail its post-condition, pure carriers for the projection.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the locus, the lattice, the seeding, or the section cut can fail its post-condition, pure carriers for the projection.
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                                                                                                 | [RAIL]                                      | [CASES] |
-| :-----: | :------------------ | :------------------ | :----------------------------------------------------------------------------------------------------- | :------------------------------------------ | :-----: |
-|  [01]   | Projection          | `ViewOp`            | `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) over one `BspNode` + `Apply`                 | `Projection.Apply → Fin<DrawingProjection>` |    4    |
-|  [1a]   | Operation kind      | `ViewKind`          | `[SmartEnum<string>]` four rows + emits-hidden/needs-bsp columns                                       | discriminant (pure)                         |    4    |
-|  [1b]   | Edge classification | `EdgeKind`          | `[SmartEnum<int>]` silhouette/crease/boundary/intersection (the `Vectors` `FeatureEdge` dihedral lift) | discriminant (pure)                         |    4    |
-|  [1c]   | Segment visibility  | `Visibility`        | `[SmartEnum<int>]` visible/hidden/clipped (the Appel quantitative-invisibility verdict)                | discriminant (pure)                         |    3    |
-|  [1d]   | Partition store     | `BspNode`           | flat SoA front/back child ranges + coplanar leaf buckets + `Dead`/free list                            | carrier (folded in `Paint`)                 |    —    |
-|  [1e]   | Result carrier      | `DrawingProjection` | visible + hidden `ProjectedSegment` sets + `EdgeHistogram`, re-emitting through the `Vectors` seam     | carrier (drained in `Apply`)                |    —    |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                                                                                              | [RAIL]                                | [CASES] |
+| :-----: | :------------------ | :------------------ | :--------------------------------------------------------------------------------------------------- | :-------------------------------------- | :-----: |
+|  [01]   | Projection          | `ViewOp`            | `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) folded by ONE `Apply` with `Op?` threading | `View.Apply → Fin<DrawingProjection>` |    4    |
+|  [1a]   | Operation kind      | `ViewKind`          | `[SmartEnum<string>]` four rows + consulted `EmitsHidden`/`ResolvesVisibility` columns              | discriminant (pure)                   |    4    |
+|  [1b]   | Edge classification | `EdgeKind`          | `[SmartEnum<int>]` silhouette/crease/boundary/intersection — the 2436 fault payload vocabulary      | discriminant (pure)                   |    4    |
+|  [1c]   | Segment visibility  | `Visibility`        | `[SmartEnum<int>]` visible/hidden DERIVED from the Appel count                                      | derived (pure)                        |    2    |
+|  [1d]   | Solve policy        | `ViewPolicy`        | crease dihedral · winding β² · composed `IntersectPolicy`/`BuildPolicy` rows                        | value                                 |    —    |
+|  [1e]   | Result carrier      | `DrawingProjection` | successor-linked visible/hidden sets + histogram + `ToPolylines`/`ToSegments`/`Fill` projections    | carrier (`Fill → Fin<ArrangementResult>`) |    —    |
 
-The `Apply` fold and the exact-sign-guarded `Validate`/`Silhouettes`/`FacesOppose`/`Partition`/`Split` primitives are transcription-complete pure-managed fences composing the `Numerics/predicates` exact-sign floor, the `Spatial/index` BVH `Ray` traversal, and the `Meshing/intersect` `PlaneMesh` cut. The `[SILHOUETTE]` cluster (`Silhouettes` exact-`Orient3D`-opposing-face locus, `CreaseEdges` `Vectors` `FeatureEdge` lift, `Register`/`Key` incidence map), the `[BSP_PAINTER]` cluster (`Render` orchestration, `Partition`/`Split` Newell-Newell-Sancha recursive face split over the exact `Orient3D` half-space sign, `Paint` per-edge projection + histogram, `Clip` quantitative-invisibility run-length segmentation, `OccludedAt` BVH ray occluder count), and the `[SECTION]` cluster (`Cut` one `IntersectOp.PlaneMesh`/`Apply`, `SectionDrawing` chain projection) are transcription-complete with their bodies the algorithm the `[NEWELL_BSP_PAINTER]` and `[EXACT_SILHOUETTE]` contracts specify — pure-managed over the shared `BspNode`/`DrawingProjection`. None depends on a live-host member spelling beyond the stable native `Mesh`/`MeshFace`/`Plane`/`Ray3d`/`Line`/`Polyline`/`BoundingBox` surface the spatial/intersection/topology siblings already pin.
+The `Apply` fold, the `[ADMISSION]` capsule (`MeshEdit.Of` lease), the `[SILHOUETTE]` cluster (`Silhouettes` exact locus + cached side signs, `FacesOppose` salvaged verbatim, `CreaseEdges` propagating lift, `Register`/`Key` incidence scratch), the `[QI_LATTICE]` cluster (`Resolve` orchestration, `Crossings` the Overlap→SegmentSegment lattice, `Seeds`/`StabCount` the two-stage exact seeding, the signature-pinned `Delta`/`Emit` sign and emission kernels with their laws stated on the signatures), the `[SECTION]` cluster (`Cut` one `PlaneMesh` delegation, `SectionDrawing` closed/open chain projection), and the `[PRIMITIVES]` cluster (the `Spatial.Apply`/`Intersection.Apply` answer-extraction and staging kernels) compose only landed public seams — no member depends on a host spelling beyond the stable `Plane`/`Line`/`Polyline`/`BoundingBox` surface the siblings pin.
 
 ## [04]-[RESEARCH]
 
-- [EXACT_SILHOUETTE] — the `Silhouettes` body is the exact-sign silhouette extraction: every mesh edge is walked once over the incidence map, and an edge between two faces is a silhouette exactly where the eye lies on opposite sides of the two faces' supporting planes — the side decided by the `Predicate.Orient3D` exact sign of the eye against each face (`FacesOppose`), so the silhouette set is the exact sign-change locus and a grazing edge whose view dot is near zero never flickers between visible and hidden across frames. A boundary edge (one incident face) is always a silhouette, and a crease edge above the dihedral threshold is lifted from the `Vectors` `FeatureEdge`/`FeatureReceipt` classification (`CreaseEdges`) rather than re-deriving the dihedral. The entire robustness claim rides the exact sign — a float view-dot test classifies a near-tangent face inconsistently and the silhouette set is non-deterministic, exactly the non-robustness the predicate floor exists to eliminate. The tier-2 law-matrix (`ProjectionLaws`, a CsCheck property suite under `testing-cs`, the W5 `NEW_OWNER_LAW_MATRICES` obligation gated until the harness lands) asserts the silhouette edge separates a front-facing and a back-facing triangle by exact sign (the `FacesOppose` verdict agrees with a `System.Numerics.BigInteger` rational oracle of the eye-vs-plane determinant), the silhouette set is invariant under rigid transform of the mesh-and-camera pair, and the silhouette is closed (every silhouette vertex has an even silhouette degree on a closed manifold). The kernel is total over the `Fin` rail and needs NO live-host probe — `Predicate`, the `FeatureEdge` dihedral, and the incidence map are stable.
-- [NEWELL_BSP_PAINTER] — the `Partition`/`Split`/`Paint` bodies are the Newell-Newell-Sancha BSP partition plus the Appel quantitative-invisibility hidden-line removal: `Split` recursively partitions the face soup on a pivot face's supporting plane into the flat `BspNode` SoA, routing each remaining face front/back by the exact `Predicate.Orient3D` sign of its three vertices and splitting a straddling face onto both children so the partition is the total, cycle-free back-to-front ordering substrate the float painter's algorithm cannot produce for interpenetrating or cyclically-overlapping faces (the BSP split is what makes the order total), terminating at a coplanar-face leaf bucket — the `Spawn` write cursor is the one-cell `Live[0]` slot so each partition node is a fresh monotone index and `Split` returns the subtree-root node index its parent stores as the `Front`/`Back` child link (`-1` for an empty half-space); `Paint` walks the silhouette/crease/boundary edge set, projects each segment to the screen `Plane`, and assigns each projected segment its `Visibility` by the Appel quantitative-invisibility count — `Clip` samples the world segment, `OccludedAt` casts a `Spatial/index` BVH `SpatialQuery.Ray` from the segment sample point toward the eye and the nearest-occluder hit is the occlusion verdict, and the run-length segmentation splits the segment at each visibility change so a partially-occluded edge yields a `visible` sub-segment and a `hidden` sub-segment, BOTH retained. The hidden segment is classified `Visibility.Hidden` and RETAINED in the `DrawingProjection` hidden set (the `emitHidden` flag controls only whether the `Outline`/`Silhouette` slice drops it, never the `HiddenLine` set) so a downstream dashed-hidden render reads the full set — the painter preserves capability, never discarding an occluded edge to satisfy a budget. A partition that cannot separate a coincident-face cluster within the node budget routes `GeometryFault.ProjectionFault` rather than truncating silently. The law-matrix asserts the BSP order is a valid back-to-front total order (no two faces violate the painter precedence under the partition), a hidden segment is occluded by at least one visible segment along the eye ray, and the painter output is deterministic under input face permutation; the occluder query rides the stable BVH `Ray` surface, no host probe.
-- [SECTION_CUT_COLLAPSE] — the `Section` arm is exactly ONE `Meshing/intersect#INTERSECTION` `IntersectOp.PlaneMesh`/`Intersection.Apply` against the cutting plane (`Cut`), the resulting `IntersectResult.Chains` projected into the drawing plane as `EdgeKind.Intersection` segments (`SectionDrawing`) — the section is NOT a fourth inline plane-mesh crossing test beside the intersection owner and NOT a host `Make2D` round-trip; the projection page composes the one section owner through `Apply`/`Crossing`, never by reaching into the `IntersectStore` interior, exactly as the `Meshing/intersect#INTERSECTION_CONSUMERS` cluster names the `ViewOp.Section` consumer. The source-pass alignment is the `Cut` wire to `IntersectOp.PlaneMesh`; the AEC-domain section/elevation reads the same `PlaneMesh` section curve through the `Vectors` `Polyline` seam, never a second sectioner. The law-matrix asserts the section curve lies on both the cutting plane and the mesh (the property the `intersection` `[ORDERED_CROSSING_CHAIN]` row already owns) and closes into the screen-plane drawing; no host probe — the `IntersectOp.PlaneMesh` cut is the stable owner.
-- [PROJECTION_CONSUMERS] — the projection owner ALIGNS to its consumers through the `DrawingProjection` carrier, never by coupling into the `BspNode` interior: the `Rasm.Fabrication` hidden-line-removal sheet engine (the single HLR owner the AEC-domain composes) reads the `DrawingProjection` visible/hidden segment sets and the `EdgeKind` classification as its drawing input, the `Rasm.AppUi` drafting-sheet engine reads the same carrier for the sheet-side layout, and both meet this kernel at the carrier — the kernel owns the predicate-exact visibility, the sheet engines own the page-side composition (title block, line weights, scale), and they never reach the partition store. The `Rasm.Fabrication` silhouette/NFP lane reads the `Silhouette`/`Outline` visible slice for its nest boundary. Each consumer reaches the owner through `Apply`/`DrawingProjection`/`ToPolylines`, never by reading the interior `BspNode` — the alignment is a future wire on the consuming task, never a coupling edit into this page. The `ProjectionFault` band-2436 case the `Apply` rail routes is the named failure the `Numerics/faults#FAULT_BAND` family carries (the case is LANDED on the consolidated fault union with `Code` 2436 and the `geometry:projection-fault:` `Message` arm), so the rail references `GeometryFault.ProjectionFault` as the sub-band-2436 failure this owner routes, exactly as the intersection owner references `IntersectionFault`.
+- [EXACT_SILHOUETTE] — the locus is the exact sign-change set: every mesh edge is walked once over the incidence fold, an edge between two faces is a silhouette exactly where the eye lies on opposite nonzero sides of the two supporting planes (`Predicate.Orient3D` via `Camera.SideOf`, the per-face signs cached ONCE and reused by the seed battery and the crossing deltas), a boundary edge is always a silhouette, and a crease above the dihedral threshold lifts from the `FeatureReceipt` classification — a lift failure propagates on the rail rather than degrading to an empty crease set. The soup arrives through `MeshEdit.Of` exactly once, quads split by the arena's exact diagonal gate, so the locus never sees a float-heuristic triangulation. The tier-2 law-matrix (`ProjectionLaws`, a CsCheck property suite under `testing-cs`) asserts the `FacesOppose` verdict agrees with a `System.Numerics.BigInteger` rational oracle of the eye-vs-plane determinant, the silhouette set is invariant under rigid transform of the mesh-and-camera pair, and the silhouette is closed on a closed manifold (even silhouette degree at every vertex). No live-host probe — the predicate floor, the arena adapter, and the feature lift are stable landed seams.
+- [APPEL_QI_LATTICE] — the visibility solve is Appel's quantitative invisibility made exact end to end. CROSSINGS: a projected edge's count changes only where it crosses a silhouette edge in screen space; candidate and occluder screen segments index through two `Spatial.Apply` BVH builds and ONE tandem `SpatialQuery.Overlap`, and each surviving pair answers an exact `IntersectOp.SegmentSegment(…, Axis.Z, …)` — the broad phase is float and prunes only, the verdict is signs. DELTAS: at a crossing, the plane through the eye and the occluding silhouette edge is EXACTLY the surface where occlusion flips, so the candidate sub-segment beyond the crossing is behind iff its endpoint's `Orient3D` against `(Eye, silA, silB)` matches the occluding front face's own apex sign, and enter-versus-leave is the `Orient2D` of the two screen directions — no depth interpolation, no float comparison, the E1 miss class dead by construction. SEEDING: each connected component needs one absolute count; the batched `SpatialQuery.Winding` field over every seed probe (nudged eye-ward by the model tolerance, ONE query for all components — the batch shape the landed index page declares) culls components buried inside closed occluder material — an interior point's every path to the eye crosses the enclosing boundary, so `round(w) ≥ 1` with zero screen crossings is a complete hidden verdict at that shell depth — and every unresolved seed runs the exact stab battery: `SpatialQuery.Range` prunes the seed→eye segment, the cached side signs filter front-facing occluders, and each survivor answers ONE exact `SegmentTriangle` crossing, the count the QI. The law-matrix asserts the emitted visibility agrees with a brute-force exact per-face occlusion oracle on generic scenes, the solve is deterministic under input face permutation, and a partially-occluded edge yields both runs with the hidden run retained under `EmitsHidden` — the count is never truncated to satisfy a budget.
+- [SECTION_CUT_COLLAPSE] — the `Section` arm is exactly ONE `IntersectOp.PlaneMesh`/`Intersection.Apply` against the cutting plane, the resulting `Chain` rows projected into the drawing plane as `EdgeKind.Intersection` runs: a closed chain links its terminal run back to its head (the successor ring), an OPEN chain from a non-watertight section emits end to end as a typed open row — never silently closed, never dropped — and a non-chain answer routes the typed `ProjectionFault(EdgeKind.Intersection, -1)`. The section is NOT a fourth inline plane-mesh crossing test and NOT a host `Make2D` round-trip; the AEC section/elevation reads the same cut through the `Polyline` seam. The law-matrix asserts the section curve lies on both the cutting plane and the mesh (the intersect owner's own chain law) and that open-chain counts match the mesh's boundary crossings of the plane.
+- [PROJECTION_CONSUMERS] — the owner ALIGNS to its consumers through the `DrawingProjection` carrier: `Rasm.Fabrication` Posting reads the visible/hidden runs and the `EdgeKind` classification as its sheet input (the retired Posting BSP HLR dies for this seam — `HiddenLineResult` is a thin projection of this carrier), `Rasm.AppUi` drafting reads the same carrier for sheet layout, the silhouette/NFP lane reads the `Silhouette`/`Outline` visible slice, and region FILL routes `DrawingProjection.Fill` → `Arrangement.Apply(ArrangementOp.PlanarOverlay(…))` on the screen plane — the kernel owns exact visibility, the arrangement owns the region complex, the sheet engines own page-side composition, and nobody reaches an interior store. The `Analysis/select` host capture tier (`Silhouette.Compute`/`ComputeDraftCurve` against live tolerance) stands BESIDE this owner under the capture law — the host answers view-dependent capture, this page answers exact-arithmetic visibility, consumers select by altitude, one anchor each side. The fault law is the locked two-family seam: `ProjectionFault(EdgeKind, int)` 2436 names the projection defect by its edge vocabulary, `DegenerateInput(Kind, int, string)` 2400 names inadmissible geometry, `key.InvalidInput()` carries malformed op parameters, and composed sibling faults surface unchanged.

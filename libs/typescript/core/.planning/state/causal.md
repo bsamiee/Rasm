@@ -15,6 +15,7 @@ The causality owner: `Vector` — the per-replica version vector whose compariso
 
 [VECTOR_LATTICE]:
 - Owner: `Vector` — one `Schema.Class` whose `clocks` field is the decoded `HashMap` of replica counters; comparison, dominance, increment, and the two lattice instances ride the class as statics, so one import carries the shape, the decode target, and the whole causal-order algebra.
+- Law: the wire clocks are a keyed object — the proto and msgpack map shape — and the interior `_Clocks` transform respells it into the `HashMap` at the field, replica keys re-proving their brand on admission; the encoded twin stays the keyed object the C# mint emits, and msgpack's `sortKeys` egress keeps it byte-canonical.
 - Law: `Vector.compare` answers the happened-before question structurally — `"before"` when strictly dominated, `"after"` when strictly dominating, `"equal"` on identical clocks, `"concurrent"` when each side carries a count the other lacks — and the ordering vocabulary anchors on the interior tuple so every verdict consumer derives the same literal union.
 - Law: `join` is the pointwise-max lattice (semilattice posture, empty `Vector.zero`) — the merge every delivery advances `seen` by; `meet` is the pointwise-min GLB over the key union with absent-as-zero, so a replica that never acked pins the frontier at zero rather than being skipped — the stability-frontier semantics the tracker requires.
 - Law: replica identity is `Vector.Replica` — the schema rides the class as a static and the branded type rides the merged namespace, one spelling for presence actors, delivery origins, commit authors, and ack keys; a free-floating replica-id export is the named defect.
@@ -24,13 +25,24 @@ The causality owner: `Vector` — the per-replica version vector whose compariso
 
 ```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
-import { Array, Chunk, Effect, Equal, HashMap, Number, Option, pipe, Schema, STM, TRef } from "effect"
+import { Array, Chunk, Effect, Equal, HashMap, Number, Option, pipe, Record, Schema, STM, TRef } from "effect"
 import { Hlc, Uncertainty } from "../value/clock.ts"
 import { Merge } from "./merge.ts"
 
 const _ORDERINGS = ["before", "after", "equal", "concurrent"] as const
 
 const _Replica = Schema.NonEmptyString.pipe(Schema.brand("ReplicaId"))
+const _Counter = Schema.Int.pipe(Schema.nonNegative())
+
+const _Clocks = Schema.transform(
+  Schema.Record({ key: _Replica, value: _Counter }),
+  Schema.HashMapFromSelf({ key: Schema.typeSchema(_Replica), value: Schema.typeSchema(_Counter) }),
+  {
+    strict: true,
+    decode: (record) => HashMap.fromIterable(Record.toEntries(record)),
+    encode: (map) => Record.fromEntries(HashMap.toEntries(map)),
+  },
+)
 
 declare namespace Vector {
   type Ordering = (typeof _ORDERINGS)[number]
@@ -64,7 +76,7 @@ const _lattice = (pick: (left: number, right: number) => number, empty: Option.O
   })
 
 class Vector extends Schema.Class<Vector>("Vector")({
-  clocks: Schema.HashMap({ key: _Replica, value: Schema.Int.pipe(Schema.nonNegative()) }),
+  clocks: _Clocks,
 }) {
   static readonly Replica: typeof _Replica = _Replica
   static readonly zero: Vector = new Vector({ clocks: HashMap.empty() })

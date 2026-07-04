@@ -91,7 +91,6 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
-          "GShark": "[2.3.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -217,12 +216,6 @@
         "requested": "[3.35.1, )",
         "resolved": "3.35.1",
         "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
-      },
-      "GShark": {
-        "type": "CentralTransitive",
-        "requested": "[2.3.1, )",
-        "resolved": "2.3.1",
-        "contentHash": "WdMXLzNiRy/StHGpt9MgftlFkWuGJ65Ly6ilzGfx0gmkglWfhprT8N5kDjtrBxj/9ISU+0dKJA7UvJdWJtyVsQ=="
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",

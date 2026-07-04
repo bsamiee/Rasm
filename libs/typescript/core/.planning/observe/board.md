@@ -17,6 +17,7 @@ Dashboards are data derived from identity, and the pack library is the same owne
 - Owner: the `Query` closed family — `Instant` (a labeled series selector), `Rate` (per-second rate over a window), `Sum` (aggregation with a group-by label set), `Ratio` (one expression over another), `Quantile` (histogram quantile over a windowed rate) — recursive where composition demands it (`Sum`/`Ratio` hold `Query` operands), with `Query.render` as the one total fold to the PromQL-dialect string.
 - Law: series names are `Convention.MetricName` rows and the group-by axis is `Convention.Key` rows — the algebra admits no free-string metric or grouping label, so a dashboard query cannot reference a series or axis the plane does not emit; filter label keys spell as `Convention` rows at every call site, the label-value pair set renders as the selector body, and the tenant template variable enters as an ordinary label value (`$tenant`).
 - Law: windows are `Duration` values rendered by the interior `_span` projection — a dialect window string is never authored.
+- Law: the rendered dialect is Prometheus UTF-8 — every selector emits the quoted `{"metric.name","label.key"="value"}` form and every grouping key quotes, because dotted OTel names are not legacy-PromQL identifiers; the quantile arm aggregates the windowed rate `by (le)` before `histogram_quantile`, the histogram-series contract the backend demands.
 - Law: one dialect fold — a second backend dialect is a second render fold over the SAME family, never a second family; the expression data is dialect-free by construction.
 - Entry: constructors ride the family (`Query.Rate({ metric, window, labels })`), `Query.render(query)` at pack-build time.
 - Growth: a new expression shape is one case plus one render arm — the compiler enforces the arm at the fold.
@@ -42,18 +43,18 @@ const _span = (window: Duration.Duration): string =>
 
 const _selector = (metric: Convention.MetricName, labels: Convention.Attributes): string =>
   pipe(
-    Record.collect(labels, (key, value) => `${key}="${String(value)}"`),
-    (pairs) => (pairs.length === 0 ? metric : `${metric}{${pairs.join(",")}}`),
+    Record.collect(labels, (key, value) => `"${key}"="${String(value)}"`),
+    (pairs) => `{"${metric}"${pairs.length === 0 ? "" : `,${pairs.join(",")}`}}`,
   )
 
 const _render = (query: Query): string =>
   _Query.$match(query, {
     Instant: ({ labels, metric }) => _selector(metric, labels),
     Quantile: ({ labels, metric, q, window }) =>
-      `histogram_quantile(${q}, rate(${_selector(metric, labels)}[${_span(window)}]))`,
+      `histogram_quantile(${q}, sum by (le) (rate(${_selector(metric, labels)}[${_span(window)}])))`,
     Rate: ({ labels, metric, window }) => `rate(${_selector(metric, labels)}[${_span(window)}])`,
     Ratio: ({ good, total }) => `(${_render(good)}) / (${_render(total)})`,
-    Sum: ({ by, of }) => `sum by (${by.join(",")}) (${_render(of)})`,
+    Sum: ({ by, of }) => `sum by (${Array.map(by, (key) => `"${key}"`).join(",")}) (${_render(of)})`,
   })
 
 const Query: Data.TaggedEnum.Constructor<Query> & { readonly render: (query: Query) => string } = {

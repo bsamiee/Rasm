@@ -41,10 +41,10 @@
 
 | [INDEX] | [SYMBOL]                                                                              | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                       |
 | :-----: | :----------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|  [01]   | `verifyECDSASignature(pub, hash, sig)` / `ECDSAPublicKey` / `ECDSASignature`          | ECDSA verify   | external ECDSA signature verify; SEC1/PKIX/IEEE-P1363 codecs |
+|  [01]   | `verifyECDSASignature(pub, hash, sig)` / `ECDSAPublicKey(curve, x, y)` / `ECDSASignature(r, s)` / `decodeSEC1ECDSAPublicKey(curve, sec1)` / `decodePKIXECDSAPublicKey(der, curves)` / `decodePKIXECDSASignature(der)` / `decodeIEEEP1363ECDSASignature(curve, raw)` | ECDSA verify | external ECDSA signature verify; SEC1/PKIX/IEEE-P1363 codecs |
 |  [02]   | `ECDSANamedCurve` + `p256`/`p384`/`p521` (NIST) / `secp256k1`…`secp521r1` (SEC) values | curve roster   | curve is a value row passed to the decoders, never a call family |
-|  [03]   | `verifyRSASSAPKCS1v15Signature(...)` / `verifyRSASSAPSSSignature(...)` / `RSAPublicKey` | RSA verify     | external RSA signature verify (PKCS1-v1.5 + PSS)            |
-|  [04]   | `decodePKCS1RSAPublicKey` / `decodePKIXRSAPublicKey` / `sha{1,224,256,384,512}ObjectIdentifier` | key + OID codec | PKCS1/PKIX key decode; hash OID constants for PKCS1-v1.5    |
+|  [03]   | `verifyRSASSAPKCS1v15Signature(pub, hashOID, hash, sig)` / `verifyRSASSASignature(pub, hashAlg, mgf1Hash, saltLength, hash, sig)` / `RSAPublicKey(n, e)` | RSA verify | external RSA verify — PKCS1-v1.5 takes the hash OID; PSS is `verifyRSASSASignature` taking the `HashAlgorithm` class, MGF1 hash class, and salt length |
+|  [04]   | `decodePKCS1RSAPublicKey` / `decodePKIXRSAPublicKey` / `SHA256ObjectIdentifier` (+ `SHA1`/`SHA224`/`SHA384`/`SHA512` OIDs) | key + OID codec | PKCS1/PKIX key decode; the hash-OID constants (capitalized `SHA<n>ObjectIdentifier`) for PKCS1-v1.5 |
 
 ## [03]-[ENTRYPOINTS]
 

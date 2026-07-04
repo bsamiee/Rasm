@@ -149,8 +149,8 @@ const _monoid = <A>(instance: Merge.Instance<A>): Option.Option<Monoid.Monoid<A>
 ## [5]-[LAW_SURFACE]
 
 [LAW_SURFACE]:
-- Owner: `Converge` — the `_LAWS` anchor and the `_WITNESSES` record, one total witness per law over an instance and a three-value sample, so a law is data a harness enumerates, never prose a spec restates; `Breach` is the typed fault carrying the broken law and the sample operands themselves — evidence as data the harness shrinks, rendered only at the reporting edge.
-- Law: obligations derive from the instance itself — `associativity` unconditionally, `commutativity`/`idempotence` from the posture, `identity` from `Option.isSome(empty)` — so an instance cannot under-declare its proof surface, and `Merge.counter`'s non-idempotent posture routes it around the idempotence law toward the op-identity dedup the engine lane's structural `consolidate` provides.
+- Owner: `Converge` — the `_LAWS` anchor with its `_OBLIGED` gate record and the `_WITNESSES` record, one gate and one total witness per law over an instance and a three-value sample, so a law is data a harness enumerates, never prose a spec restates; `Breach` is the typed fault carrying the broken law and the sample operands themselves — evidence as data the harness shrinks, rendered only at the reporting edge.
+- Law: obligations derive as one filter of the `_LAWS` anchor through the `_OBLIGED` gates — `associativity` unconditionally, `commutativity`/`idempotence` from the posture, `identity` from `Option.isSome(empty)` — so an instance cannot under-declare its proof surface, a new law is one anchor entry plus one gate row plus one witness row, and `Merge.counter`'s non-idempotent posture routes it around the idempotence law toward the op-identity dedup the engine lane's structural `consolidate` provides.
 - Law: every witness compares through the instance's own `alike` — the equivalence declared at the instance is the equality the law is proven under, so structural classes, plain records, and branded scalars all prove under one spelling.
 - Law: `Converge.commutes` is the bridge law between instance and fold — for a convergence-legal instance, folding any two permutations of one delivered op set through the caller-supplied run yields equivalent tables; the run parameter is `fold#PLAN_CONTRACT`'s `Fold.run` partially applied, so instance proofs and replay proofs share one predicate with zero import cycle, and a non-convergent instance answers `false` by construction rather than sampling its way to a lie.
 - Law: `Converge.tables` compares key census and per-key states under the instance's `alike` — the one table comparison every convergence and replay assertion uses; a `JSON.stringify` table diff or reference comparison is the deleted spelling.
@@ -184,6 +184,13 @@ class Breach extends Data.TaggedError("Breach")<{
   readonly operands: ReadonlyArray<unknown>
 }> {}
 
+const _OBLIGED: { readonly [L in Converge.Law]: <A>(instance: Merge.Instance<A>) => boolean } = {
+  associativity: () => true,
+  commutativity: (instance) => instance.posture.commutative,
+  idempotence: (instance) => instance.posture.idempotent,
+  identity: (instance) => Option.isSome(instance.empty),
+}
+
 const _WITNESSES: { readonly [L in Converge.Law]: <A>(instance: Merge.Instance<A>, sample: Converge.Sample<A>) => boolean } = {
   associativity: (instance, { first, second, third }) =>
     instance.alike(
@@ -216,12 +223,7 @@ const _commutes = <Op, K, S>(
   Merge.convergent(instance) && _tables<K, S>(instance.alike)(run(left), run(right))
 
 const Converge: Converge.Shape = {
-  obligations: (instance) => [
-    "associativity" as const,
-    ...(instance.posture.commutative ? ["commutativity" as const] : []),
-    ...(instance.posture.idempotent ? ["idempotence" as const] : []),
-    ...(Option.isSome(instance.empty) ? ["identity" as const] : []),
-  ],
+  obligations: (instance) => Array.filter(_LAWS, (law) => _OBLIGED[law](instance)),
   witness: (instance, sample) =>
     Option.match(
       Array.findFirst(Converge.obligations(instance), (law) => !_WITNESSES[law](instance, sample)),
