@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "runtime",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/runtime/src",
+    "tags": [
+        "scope:runtime",
+        "runtime:neutral",
+        "plane:runtime"
+    ]
+}

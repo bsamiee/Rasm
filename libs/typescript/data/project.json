@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "data",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/data/src",
+    "tags": [
+        "scope:data",
+        "runtime:neutral",
+        "plane:runtime"
+    ]
+}

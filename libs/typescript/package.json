@@ -3,37 +3,32 @@
     "private": true,
     "type": "module",
     "exports": {
-        "./kernel": "./kernel/src/index.ts",
-        "./state": "./state/src/index.ts",
-        "./host": "./host/src/index.ts",
-        "./host/server": "./host/src/server.ts",
-        "./host/browser": "./host/src/browser.ts",
-        "./host/wasm": "./host/src/wasm.ts",
-        "./security": "./security/src/index.ts",
-        "./security/server": "./security/src/server.ts",
-        "./security/browser": "./security/src/browser.ts",
-        "./security/wasm": "./security/src/wasm.ts",
-        "./telemetry": "./telemetry/src/index.ts",
-        "./telemetry/server": "./telemetry/src/server.ts",
-        "./telemetry/browser": "./telemetry/src/browser.ts",
-        "./telemetry/wasm": "./telemetry/src/wasm.ts",
-        "./wire": "./wire/src/index.ts",
-        "./wire/server": "./wire/src/server.ts",
-        "./wire/browser": "./wire/src/browser.ts",
-        "./wire/wasm": "./wire/src/wasm.ts",
-        "./work": "./work/src/index.ts",
-        "./store": "./store/src/index.ts",
-        "./store/server": "./store/src/server.ts",
-        "./store/browser": "./store/src/browser.ts",
-        "./store/wasm": "./store/src/wasm.ts",
-        "./ai": "./ai/src/index.ts",
-        "./edge": "./edge/src/index.ts",
-        "./browser": "./browser/src/index.ts",
+        "./core": {
+            "server": "./core/src/server.ts",
+            "browser": "./core/src/browser.ts",
+            "wasm": "./core/src/wasm.ts",
+            "default": "./core/src/index.ts"
+        },
+        "./security": {
+            "server": "./security/src/server.ts",
+            "browser": "./security/src/browser.ts",
+            "wasm": "./security/src/wasm.ts",
+            "default": "./security/src/index.ts"
+        },
+        "./data": {
+            "server": "./data/src/server.ts",
+            "browser": "./data/src/browser.ts",
+            "wasm": "./data/src/wasm.ts",
+            "default": "./data/src/index.ts"
+        },
+        "./runtime": {
+            "server": "./runtime/src/server.ts",
+            "browser": "./runtime/src/browser.ts",
+            "wasm": "./runtime/src/wasm.ts",
+            "default": "./runtime/src/index.ts"
+        },
         "./ui": "./ui/src/index.ts",
         "./ui/viewer": "./ui/viewer/src/index.ts",
         "./iac": "./iac/src/index.ts"
-    },
-    "imports": {
-        "#vocab": "./wire/src/vocab.ts"
     }
 }

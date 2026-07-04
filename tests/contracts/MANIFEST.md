@@ -22,7 +22,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `content-identity`
 - Producer: `csharp:Rasm/Geometry/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY`
-- Consumers: `python:runtime/evidence/identity#SEED_REPRODUCTION`; `typescript:kernel/identity/contentkey` (delegating sites `wire/frame`, `browser/transport`, `store/object`; readers in `tests/typescript/_testkit`); the C# shared-corpus harness under `tests/csharp`.
+- Consumers: `python:runtime/evidence/identity#SEED_REPRODUCTION`; `typescript:core/value/contentKey` (delegating sites `core/interchange/frame`, `runtime/browser/fetch`, `data/object/store`; readers in `tests/typescript/_testkit`); the C# shared-corpus harness under `tests/csharp`.
 - Payload: `wire-bytes` + `digest`
 - Pin: REAL
 - Shape: the canonical-adjacency byte stream — `int32`-LE `VertexCount`, `int32`-LE `EdgeCount`, `(int32-LE Min, int32-LE Max)` per sorted edge pair, `int32`-LE `FaceCount`, per lowest-vertex-rotated face cycle `(int32-LE CycleLength, int32-LE Vertex…)` — contiguous, no padding, hashed by `XxHash128.HashToUInt128` at seed zero. Discriminating laws: a morph (moved control points, same adjacency) re-hashes identically; a topology break re-hashes distinctly.
@@ -33,7 +33,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `content-identity`
 - Producer: `csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS`
-- Consumers: `python:runtime/evidence/identity#SEED_REPRODUCTION` (`_CORPUS` row, `planned`-phase obligation until pinned); `typescript:kernel/identity/contentkey` (the `hash-wasm` bit-parity gate); `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` (the `MaterialLayerWire` three-runtime round-trip).
+- Consumers: `python:runtime/evidence/identity#SEED_REPRODUCTION` (`_CORPUS` row, `planned`-phase obligation until pinned); `typescript:core/value/contentKey` (the `hash-wasm` bit-parity gate); `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` (the `MaterialLayerWire` three-runtime round-trip).
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the producer has not frozen the concrete `MaterialComposition.LayerSet` node and its digest — the `CanonicalWriter` counted-bag pin on `csharp:Rasm.Element/Projection/address`.
@@ -55,7 +55,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `fault-triples`
 - Producer: `csharp:Rasm.Compute/Runtime/channels#FAULT_PROJECTION`
-- Consumers: `typescript:wire/fault/detail` (`faultTagOf`/`FAULT_CTOR` reconstruction; unmapped packages fold to `Quarantine`). Python mints `FaultDetail` outbound but is not a package-keyed decoder, so the round-trip scope is C#-to-TypeScript.
+- Consumers: `typescript:core/interchange/codec` (`faultTagOf`/`FAULT_CTOR` reconstruction; unmapped packages fold to `Quarantine`). Python mints `FaultDetail` outbound but is not a package-keyed decoder, so the round-trip scope is C#-to-TypeScript.
 - Payload: `wire-bytes` + `canonical-json`
 - Pin: DESIGN-PIN
 - Blocker: the producer has not pinned the concrete `(package, code, case)` triple set spanning the disjoint bands.
@@ -66,7 +66,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `crdt-op-set`
 - Producer: `csharp:Rasm.Persistence/Version/commits#CRDT_ALGEBRA`
-- Consumers: `typescript:wire/codec/crdt` feeding `typescript:state/crdt/merge`; `python:runtime/transport/serve#CRDT_DECODE`.
+- Consumers: `typescript:core/interchange/format` feeding `typescript:core/state/merge`; `python:runtime/transport/serve#CRDT_DECODE`.
 - Payload: `wire-bytes`
 - Pin: DESIGN-PIN
 - Blocker: the op-set input is unpinned, and the producer must settle the MessagePack envelope — `MessagePackCompression.None` for the companion lane or one published `Lz4BlockArray` framing spec — plus the `Beat` `state` byte-encoding.
@@ -77,7 +77,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `glb-by-key`
 - Producer: `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` over the GLB tessellation result, content-keyed through `csharp:Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING`.
-- Consumers: `typescript:ui` viewer `scene/glb` fetching by `ContentKey` through `typescript:wire/frame`; `python:geometry/mesh/daemon#TESSELLATE` (the tessellation companion whose output the key addresses).
+- Consumers: `typescript:ui/viewer/scene` fetching by `ContentKey` through `typescript:core/interchange/frame`; `python:geometry/mesh/daemon#TESSELLATE` (the tessellation companion whose output the key addresses).
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the producer has not pinned the byte-deriving input — the sample source geometry plus `TessellationPolicy` — and the leaf-tile content emit is gated on the Bim tile-emit codec admission.
@@ -88,7 +88,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `hlc-two-half`
 - Producer: `csharp:Rasm.AppHost/Runtime/ports#PORT_RECORDS`
-- Consumers: `typescript:kernel/clock/hlc` (readers in `tests/typescript/_testkit`; `state/causal` orders by the decoded band); `python:runtime/clock` and `python:runtime/transport/serve#SERVE` (decoding `hlc_physical`/`hlc_logical` plus `tenant` from the receipt slot).
+- Consumers: `typescript:core/value/clock` (readers in `tests/typescript/_testkit`; `core/state/causal` orders by the decoded band); `python:runtime/clock` and `python:runtime/transport/serve#SERVE` (decoding `hlc_physical`/`hlc_logical` plus `tenant` from the receipt slot).
 - Payload: `wire-bytes`
 - Pin: DESIGN-PIN
 - Blocker: the producer page carries no frozen two-half stamp vectors — the corpus index names an `HLC_FANIN` fixture cluster the ports page has not authored; the fixture landing is the upstream blocker and is not resolvable consumer-side.
@@ -99,7 +99,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `ifc-wire`
 - Producer: `csharp:Rasm.Bim/Exchange/wire#WIRE_PROJECTION`
-- Consumers: `typescript:wire/codec/bim`; the `python:geometry` ifcopenshell companion — each decodes the same bytes, projects its own graph, and reproduces the seam `ContentAddress` GraphKey (`WireParity.Agrees`).
+- Consumers: `typescript:core/interchange/codec`; the `python:geometry` ifcopenshell companion — each decodes the same bytes, projects its own graph, and reproduces the seam `ContentAddress` GraphKey (`WireParity.Agrees`).
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
 - Blocker: the producer has not pinned the canonical corpus IFC payload the `WireParity` row freezes.
@@ -110,7 +110,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 - Seam: `descriptor-drift`
 - Producer: `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` (`Graph/element.proto`, the `rasm.element.v1` descriptor source) and `csharp:Rasm.Compute/Runtime/channels#CONTRACT_EVOLUTION` (the suite proto vocabulary) — one snapshot per descriptor source.
-- Consumers: `typescript:wire/contract/descriptor` and `typescript:wire/contract/drift` (the `Identical`/`Additive`/`Breaking` verdict at the dial).
+- Consumers: `typescript:core/interchange/contract` (the `Identical`/`Additive`/`Breaking` verdict at the dial).
 - Payload: `descriptor-set`
 - Pin: DESIGN-PIN
 - Blocker: no `.proto` exists on disk; the snapshot lands the day the first `.proto` lands, when `buf breaking` (FILE category, against `main`) becomes the required gate.
