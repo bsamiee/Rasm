@@ -13,7 +13,7 @@
 ## [2]-[PROGRAM_FOLD]
 
 - Owner: `PanelLayout.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression` (`Σ coeff·var + constant`), map the closed `relation` vocabulary (`le`/`ge`/`eq`) onto `Operator` and the closed `strength` vocabulary (`required`/`strong`/`medium`/`weak`) onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.
-- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver` — zero-dependency Cassowary, CPU-only), `@rasm/ts/wire/vocab` (`LayoutProgram` — `surface`, `edits`, ordered `constraints`), `effect` (`Effect.try`, `HashMap`).
+- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver` — zero-dependency Cassowary, CPU-only), `#vocab` (`LayoutProgram` — `surface`, `edits`, ordered `constraints`), `effect` (`Effect.try`, `HashMap`).
 - Fault: `PanelLayout.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint's rank — a program-construction defect surfaced to the operator as evidence, never retried.
 - Law: the solver is the imperative foreign resource — the fold's statements (the name ledger, the ordered walk) live inside its `Effect.try` seam, the interior `Map` is the kernel's draft holding kiwi cells only, and the sole escape is the immutable `HashMap` positions read; this card carries the statement-seam exemption.
 - Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the `CROSS_LANGUAGE_WIRE` drift defect this page's whole existence guards against.
@@ -22,7 +22,7 @@
 
 ```typescript
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
-import type { LayoutProgram } from "@rasm/ts/wire/vocab"
+import type { LayoutProgram } from "#vocab"
 import { Data, Effect, HashMap, Iterable } from "effect"
 
 const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const

@@ -13,14 +13,14 @@
 ## [2]-[METRIC_PROBES]
 
 - Owner: `Benchmark.metrics` — the local capture: deck's `_onMetrics` callback is the GPU-side sink (`DeckMetrics` — `fps`, `gpuTime`, `cpuTime`, `pickTime`, `gpuMemory`), folded into a bounded rolling window whose projections run as ONE seed fold — `computation`'s seed-fold law applied verbatim: raw sums accumulate in a single `Chunk.reduce` pass and means project at read, so a new statistic (a peak, a `p95` seed) is one seed field plus one row, never a second traversal; the three loop contributes a frame-time row measured inside its own `setAnimationLoop` tick (delta between ticks — the loop is already the timing source, no second RAF); each captured quantity lands as the SAME metric row shape the wire claim carries — `{ label, value, unit }` — so comparison is a keyed join, not a shape adaptation.
-- Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay), `effect` (`Chunk`, the fold), `@rasm/ts/wire/vocab` (`Claim` — the metric row shape is its vocabulary).
+- Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay), `effect` (`Chunk`, the fold), `#vocab` (`Claim` — the metric row shape is its vocabulary).
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: windows are policy rows — sample count and projection kind (`mean`, `p95`, `peak`) are one `as const` record; a per-metric bespoke window is the named defect.
 - Boundary: `Deck`/renderer acquisition is `viewer/geo/layers`/`viewer/scene/glb`'s — the sinks arrive as wiring parameters; React tree render cost (`Profiler`) is app-plane telemetry, not this probe.
 
 ```typescript
 import type { DeckMetrics } from "@deck.gl/core"
-import { Claim } from "@rasm/ts/wire/vocab"
+import { Claim } from "#vocab"
 import { Array, Chunk, Number, Option, pipe } from "effect"
 
 const _WINDOW = { samples: 120 } as const

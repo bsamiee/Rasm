@@ -13,13 +13,13 @@
 ## [2]-[SELECTION_FOLD]
 
 - Owner: `Selection` — the op-driven fold: `Selection.Op` is a closed `Data.taggedEnum` and `Selection.step(set, op)` the total fold (`Match`-free — each arm is one `HashSet` combinator); the live atom is `History.make(HashSet.empty())` so undo/redo is construction, with writes minting `History.Op.Push` over the stepped set and the `present` projection feeding every consumer.
-- Packages: `effect` (`HashSet`, `Data`), `@rasm/ts/wire/vocab` (`Bcf` — the `GlobalId` brand is wire-interior, so the element type derives as `_Viewpoint["selection"][number]`; the brand string is `Equal`-stable so set membership is structural), `atom/derive` (`History`).
+- Packages: `effect` (`HashSet`, `Data`), `#vocab` (`Bcf` — the `GlobalId` brand is wire-interior, so the element type derives as `_Viewpoint["selection"][number]`; the brand string is `Equal`-stable so set membership is structural), `atom/derive` (`History`).
 - Law: ops are the only writes — a marquee, a click, a BCF viewpoint restore, and a table row toggle all mint `Selection.Op` values; no consumer holds a second set or mutates through any other path.
 - Law: modality lives in the op value — click maps to `Toggle` (with modifier policy deciding `Replace` vs `Toggle` at the interaction row), marquee maps to `Add` or `Replace`, viewpoint restore maps to `Replace` — never a boolean knob on the fold.
 - Growth: a new set behavior (invert, filter-to-visible) is one op case plus one fold arm.
 
 ```typescript
-import type { Bcf } from "@rasm/ts/wire/vocab"
+import type { Bcf } from "#vocab"
 import { Data, HashSet, type Schema } from "effect"
 
 type GlobalId = Schema.Schema.Type<typeof Bcf.Viewpoint>["selection"][number]

@@ -166,7 +166,7 @@ public static partial class EnergySimulation {
         // armed here (get-or-create, idempotent with the translator default) so a result read never depends on an ambient FT default.
         OpenStudio.OpenStudioModelSimulation.getOutputTableSummaryReports(model).addSummaryReport("AllSummary");
         using OpenStudio.EpwFile epw = new(OpenStudio.OpenStudioUtilitiesCore.toPath(request.Weather.EpwPath));
-        OpenStudio.WeatherFile.setWeatherFile(model, epw);                    // OptionalWeatherFile — embeds the design context
+        using OpenStudio.OptionalWeatherFile attached = OpenStudio.WeatherFile.setWeatherFile(model, epw);  // embeds the design context; the returned optional is itself a native handle — bracketed, never dropped
     }
 
     // Constant heating/cooling setpoint schedules from the policy comfort band — one pair shared across every conditioned zone

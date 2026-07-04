@@ -59,7 +59,7 @@ import type { LayersList } from "@deck.gl/core"
 import { MVTLayer, TileLayer } from "@deck.gl/geo-layers"
 import { BitmapLayer, GeoJsonLayer } from "@deck.gl/layers"
 import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geoarrow"
-import type { GeoFeature } from "@rasm/ts/wire/vocab"
+import type { GeoFeature } from "#vocab"
 import { Array } from "effect"
 import type { RecordBatch, Table } from "apache-arrow"
 import type { FeatureCollection } from "geojson" // the type seam deck's own data prop names; @turf/turf ships the featureCollection builder, never the type

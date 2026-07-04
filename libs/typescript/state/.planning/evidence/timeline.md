@@ -51,6 +51,7 @@ class DocumentRef extends Schema.Class<DocumentRef>("DocumentRef")({
 
 declare namespace Timeline {
   type Column = typeof _Column.Type
+  type Document = DocumentRef // the type rides the owner's one name beside the Shape's value slot: one import serves both planes
   type Entry = Data.TaggedEnum<{
     Receipt: { readonly envelope: ReceiptEnvelope }
     Progress: { readonly mark: ProgressMark }

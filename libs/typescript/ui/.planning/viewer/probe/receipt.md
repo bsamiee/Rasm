@@ -12,14 +12,14 @@
 ## [2]-[CAPTURE_FOLD]
 
 - Owner: `RenderProbe.capture` — the capture discipline as one fold: render into a fixed-extent target (capture never reads the live swap chain — DPR and resize would break determinism), await the settled frame (`compileAsync` before first capture; capture runs after the residency fold quiesces), read pixels through `renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, buffer)` (the WebGPU-safe async readback; a synchronous read stalls the pipeline and is the named defect), and delegate the octets to the kernel mint — `ContentKey` is minted in exactly one place in the branch, and this fold calls it, never re-implements it (`[R2]` gates the mint going load-bearing; this page inherits the gate transitively and carries no hash code to rewrite either way).
-- Packages: `three` (`WebGLRenderTarget`-family targets, the async readback — members verified against the shipped runtime), `@rasm/ts/kernel` (`ContentKey` — the one mint), `@rasm/ts/wire/vocab` (`Envelope` — the receipt type derives as `Schema.Schema.Type<typeof Envelope.render>` off the `#vocab` schema value, never a parallel shape), `effect`.
+- Packages: `three` (`WebGLRenderTarget`-family targets, the async readback — members verified against the shipped runtime), `@rasm/ts/kernel` (`ContentKey` — the one mint), `#vocab` (`Envelope` — the receipt type derives as `Schema.Schema.Type<typeof Envelope.render>` off the `#vocab` schema value, never a parallel shape), `effect`.
 - Law: capture parameters are a policy row — extent, target format, and the settle predicate live in one `as const` record; a capture with ad-hoc parameters produces an incomparable hash and is the named defect.
 - Law: the comparison is structural — the local key and the receipt's key compare through `Equal.equals` on the brand; the verdict is `{ view, expected, actual, matched, at }` — a plain data row.
 - Boundary: the wire receipt's decode is `wire/codec/envelope`'s; the renderer and scene are `viewer/scene/glb`'s (the capture fold takes them as parameters); the MRT/post chain that would feed a G-buffer capture is the same fold with a different target row.
 
 ```typescript
 import type { ContentKey } from "@rasm/ts/kernel"
-import type { Envelope } from "@rasm/ts/wire/vocab"
+import type { Envelope } from "#vocab"
 import { DateTime, Effect, Equal, type Schema } from "effect"
 
 const _CAPTURE = { width: 1024, height: 1024 } as const

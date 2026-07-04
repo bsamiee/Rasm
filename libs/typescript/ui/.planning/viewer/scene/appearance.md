@@ -14,14 +14,14 @@
 ## [2]-[BIND_FOLD]
 
 - Owner: `Pbr` — one fold: `Pbr.bind(material, bound)` where `bound` is the resolved pair (a `Material` row plus its `PbrGroups` reference resolved against the census); the wire's five blocks assign onto the physical lobes exactly as projected — base → `color`/`metalness`/`roughness`, specular → `specularColor`/`specularIntensity`/`ior`, transmission → `transmission`/`attenuationColor`/`attenuationDistance` (the wire's `depth` IS the attenuation depth), emission → `emissive`/`emissiveIntensity` (the wire's `luminance`), geometry → `opacity`/`transparent`/`side` — and `needsUpdate` stamps once at the fold's tail.
-- Packages: `three` (`MeshPhysicalMaterial` lobes, `Color`, `LinearSRGBColorSpace`, `FrontSide`/`DoubleSide` — members verified against the shipped runtime exports; `@types/three` is not admitted), `@rasm/ts/wire/vocab` (`Appearance` — the decoded types derive as `Schema.Schema.Type` off the `#vocab` class values, never a parallel shape).
+- Packages: `three` (`MeshPhysicalMaterial` lobes, `Color`, `LinearSRGBColorSpace`, `FrontSide`/`DoubleSide` — members verified against the shipped runtime exports; `@types/three` is not admitted), `#vocab` (`Appearance` — the decoded types derive as `Schema.Schema.Type` off the `#vocab` class values, never a parallel shape).
 - Law: assignments mirror the projection's grouping — the fold's arm order IS the wire's block order (base, specular, transmission, emission, geometry), so a C# projection change lands here as the same-shaped field wave; a flattened group or a renamed field breaks the mirror and the golden fixtures upstream.
 - Law: unit semantics are C#-owned — weights arrive unit-interval, distances arrive in the projection's units; a clamp, remap, or "fix" in the fold is the drift defect, and an out-of-range value is upstream evidence.
 - Law: `transparent` and `side` are the two render-representation toggles, not derivations — three demands the booleans, so `opacity < 1` raises the blend flag and `thinWalled` selects `DoubleSide`; both are structural consequences of carriage, and no other computed value exists in the fold.
 - Growth: a new OpenPBR block (coat, sheen, iridescence, anisotropy — `MeshPhysicalMaterial` already carries the target lobes) is one wire mirror field wave plus one assignment arm here, landed in the same wave as the C# projection change — the fold signature never changes and TS never emits a block ahead of the wire.
 
 ```typescript
-import type { Appearance } from "@rasm/ts/wire/vocab"
+import type { Appearance } from "#vocab"
 import { DoubleSide, FrontSide, LinearSRGBColorSpace, type Color, type MeshPhysicalMaterial } from "three"
 import type { Schema } from "effect"
 

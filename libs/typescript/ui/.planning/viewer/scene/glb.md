@@ -15,7 +15,7 @@
 ## [2]-[VIEWPORT_PORT]
 
 - Owner: `GlbViewport` — the runtime-capability port record this folder declares and NEVER implements: `manifest` (the current `Residency.Manifest` as an atom-bridgeable `Subscribable`), `deltas` (the `Residency.Delta` feed as a `Stream`), and `bytes(mesh)` (verified GLB octets per content key — the decode worker already reassembled frames and verified the `ContentKey` against the kernel mint, so bytes arriving here are proof-carrying). `browser/transport/pool` provides the Layer at app composition; `ui` and `browser` never import each other.
-- Packages: `effect` (`Context.Tag`, `Stream`, `Subscribable`), `@rasm/ts/kernel` (`ContentKey`), `@rasm/ts/wire/vocab` (`Residency` — the manifest/delta/state vocabulary decoded once at `wire`).
+- Packages: `effect` (`Context.Tag`, `Stream`, `Subscribable`), `@rasm/ts/kernel` (`ContentKey`), `#vocab` (`Residency` — the manifest/delta/state vocabulary decoded once at `wire`).
 - Law: the port is the ONLY byte ingress — a fetch, a worker message, or an `ArrayBuffer` reaching this module by any other path bypasses content-key verification and is the named defect.
 - Law: `bytes` yields whole-buffer octets — the worker reassembles into a fresh buffer with `byteOffset` zero, so `parseAsync(octets.buffer, "")` is exact by contract; a sliced view smuggling a neighbor's bytes is the port implementation's defect, never the graft's guard.
 - Law: port shape is sized for the family — prefetch hints, eviction acknowledgement, and priority lanes land as members HERE when earned; consumers already hold the Tag, so growth is a member row, never a second port.
@@ -24,7 +24,7 @@
 
 ```typescript
 import type { ContentKey } from "@rasm/ts/kernel"
-import type { Residency } from "@rasm/ts/wire/vocab"
+import type { Residency } from "#vocab"
 import { Context, type Effect, type Schema, type Stream, type Subscribable } from "effect"
 
 type _Manifest = Schema.Schema.Type<typeof Residency.Manifest>

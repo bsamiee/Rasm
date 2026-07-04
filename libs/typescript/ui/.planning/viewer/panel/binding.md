@@ -13,13 +13,13 @@
 ## [2]-[FEED_FOLD]
 
 - Owner: `BindingPanel.fold` — the keyed accumulator: the event feed (a `Stream<Livewire.Event>` the app wires from its transport, entering the view plane through `Atom.make(stream)`) folds via `Stream.mapAccum` into a `HashMap<binding, BindingPanel.Row>` where each event's arm updates exactly its slots — `BindingStatus` advances `phase` (and clears the optimistic value on `refused`/`detached`), `CoercedValue` records the offered→landed pair with its path, `WriteReceipt` lands the value and stamp and clears the optimistic slot; the fold is total over the union by `Match.valueTags` — the one-shot record dispatch over the held event, no matcher value built per fold step.
-- Packages: `@rasm/ts/wire/vocab` (`Livewire` — `Status`/`Coerced`/`Receipt` classes and the `Event` union), `effect` (`Stream`, `HashMap`, `Match`, `Option`), `@effect-atom/atom-react`.
+- Packages: `#vocab` (`Livewire` — `Status`/`Coerced`/`Receipt` classes and the `Event` union), `effect` (`Stream`, `HashMap`, `Match`, `Option`), `@effect-atom/atom-react`.
 - Law: the row is the panel's whole truth — `phase`, `landed`, `optimistic`, `coercion`, `stamp`; a panel component reads one row through a `Atom.family` keyed by binding name and re-renders only on its own row's change.
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row (string projection with type badge), never assuming shape.
 - Boundary: the feed's transport and decode are `wire`/app composition; `Hlc` display is `intl/format` + the kernel brand's own projection.
 
 ```typescript
-import { Livewire } from "@rasm/ts/wire/vocab"
+import { Livewire } from "#vocab"
 import type { Hlc } from "@rasm/ts/kernel"
 import { HashMap, Match, Option } from "effect"
 

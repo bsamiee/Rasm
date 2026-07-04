@@ -115,7 +115,7 @@ public static class EnergyExchange {
     // nodes, so the vocabulary legality arms gate them exactly as an IFC ingest; Lower and Translate are
     // artifact emits. Every arm returns the one outcome union; the fold counts ride the projector/derive state.
     public static Fin<EnergyOutcome> Apply(EnergyOp op) => op.Switch(
-        raise: r => {
+        raise: static r => {
             var projector = new EnergyProjector(r.Source);
             return EnergyProjector.Serves(r.Source.Format)
                 ? ProjectionAssembly.Assemble(

@@ -15,7 +15,7 @@ Wire posture: HOST-LOCAL, foreign types decode-confined. The LBT-Newtonsoft `Mod
 - Auto: every arm lands the Compute-readable seam shape — a room/space mints an `IfcSpace`-classified rooted `Object` (`ExternalId` = the schema identifier, so a re-raise correlates), each bounding face a surface `Object` through the `EnergyClassRows` row (`Wall`→`IfcWall`, `Floor`→`IfcSlab`+`FLOOR`, `RoofCeiling`→`IfcSlab`+`ROOF`, `AirBoundary`→`IfcVirtualElement`), joined by the `IfcRelKind.SpaceBoundary`-named neutral `Generic` edge carrying `BoundaryLevel: "2nd"` (a honeybee/OSM face is a per-space bounded surface — the second-level shape `Rasm.Compute` `EnergyGraphReads.BoundingSurfacesOf` prefers) plus the `BoundaryCondition` text payload; the face ring content-keys into `Representations.FootPrint` through the seam footprint byte projection (recorded on the projector's `Footprints` side-channel for the caller's write-blob-first landing); openings land on EVERY arm — honeybee `Aperture`/`Door` rows and OSM `Surface.subSurfaces()` alike mint `IfcWindow`/`IfcDoor` Objects joined to the space by the SAME boundary edge shape with a `Host` correlation attribute naming their face (an opening IS a space boundary in energy modeling; the typed `Void`/fill lowering demands the `IfcOpeningElement` intermediary no energy schema carries), and each opening's own abridged window construction resolves through the ONE `Composition` fold so raised fenestration carries the `Optical` layer evidence the Compute `SubSurface` glazing build reads; an abridged construction resolves through the model-level canonical lists (the `[ABRIDGED_REFERENCE_MODEL]` law — construction ids into `ModelEnergyProperties.Constructions`, material ids into `.Materials`) discriminating opaque versus window by which list carries the id — an `EnergyMaterial` mints a content-keyed seam `Node.Material` carrying `MaterialPropertySet.OfThermal(conductivity, specificHeat, conductivity/thickness, 1.0, key)` (the per-layer U derived, the vapour factor floored at the vapour-open 1.0 the schema does not carry), an `EnergyWindowMaterialGlazing` mints the `OfOptical` nine-fraction case (the `AnyOf<Autocalculate,double>` back-reflectances resolving to the front value — the honeybee autocalculate semantic, never a zero read) — and the surface or opening takes an `Associate` edge over `MaterialComposition.OfLayerSet`; the OSM arm reads `Model.getSpaces()`/`Space.surfaces`/`PlanarSurface.vertices()`/`Surface.surfaceType()`/`outsideBoundaryCondition()` and resolves typed layer materials through `Construction.layers()` + the handle re-read pair `Model.getStandardOpaqueMaterial(handle)`/`getStandardGlazing(handle)` (the SWIG vector element is statically `Material` — the handle re-read is the ONLY typed downcast the binding owns, and ONE `TypedLayer` read serves the opaque and glazing rows); the dragonfly massing arm additionally lands each `Room2D.FloorToCeilingHeight` as the `Qto_SpaceBaseQuantities` `Height` quantity the derive's massing lower reads back (a DFJSON round trip falling to the 3.0 m policy default was the deleted round-trip hole) and stamps `Story.Multiplier > 1` as `Pset_EnergyModel`/`StoryMultiplier` Import-source bag evidence (a 40-storey tower ships unique stories × multiplier — dropped, the re-emitted model under-counts by the repeat factor).
 - Receipt: the projector tallies `Spaces`/`Surfaces`/`Openings`/`Constructions` and the degraded-material warnings as owner-local fold state projected once into the `Energy/exchange#ENERGY_EXCHANGE` `EnergyReceipt`; the managed decodes reject inside `FromJson` (the funnel owns the evidence), so the raise tallies degrade warnings only — `Validate()` counting belongs to the lower legs authoring models locally.
 - Packages: HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, Rasm.Element, Rasm, LanguageExt.Core, Thinktecture.Runtime.Extensions
-- Growth: a new face/class correspondence is one `EnergyClassRows` row (both directions derive); a new OSM opening token is one `ByOpeningType` row; a new energy form is one `Arms` row; a dragonfly parameter (window ratios, shading, skylights) deepens the massing arm as row folds over the `Room2D` `AnyOf` unions; a NoMass/Vegetation material arm is one typed-layer row the moment the seam carries an R-value-only thermal case; honeybee `Shade`/`ShadeMesh` context geometry raises as one arm row the moment an `IfcShadingDevice` roster row is exercised by a consumer read.
+- Growth: a new face/class correspondence is one `EnergyClassRows` row (both directions derive); a new OSM opening token is one `ByOpeningType` row; a new energy form is one `Arms` row; a dragonfly parameter (window ratios, shading, skylights) deepens the massing arm as row folds over the `Room2D` `AnyOf` unions; a NoMass/Vegetation material arm is one typed-layer row the moment the seam carries an R-value-only thermal case; the FULL (non-abridged) `OpaqueConstruction`/`WindowConstruction` store rows — inline material OBJECTS, not id references, so a different resolve shape — are one `Library` projection widening plus one inline-material arm the moment full-form documents ship, and until then a full-form construction id resolves in neither abridged list and faults `DanglingReference` (the declared abridged-only restraint, never a silent partial read); honeybee `Shade`/`ShadeMesh` context geometry raises as one arm row the moment an `IfcShadingDevice` roster row is exercised by a consumer read.
 - Boundary: the projector decodes INSIDE `Project`, so no LBT DTO or SWIG handle outlives the projection (every OpenStudio wrapper — the model, translators, `Optional*`, `*Vector`, per-element handles — is `using`-bracketed; the SWIG index-loop with per-element disposal is the named marshaling exemption); the `EnergyMaterial` density has NO seam thermal column and a fabricated `OfMechanical` stiffness is the rejected form — the density is DROPPED at the raise (systematic, so never a per-material warning), and the OSM rebuild's documented 1000 kg/m³ fallback carries the consequence; a glazing layer mints ONLY the `Optical` case — an `OfThermal` with a fabricated specific heat is the rejected fabricated-physics form, and the Compute glazing build already tolerates the absent Thermal (`setThermalConductivity` rides an optional read); an OSM layer whose typed re-read misses BOTH rows (a massless/airgap/gas-mixture layer) degrades the WHOLE set to the assembly `ConstructionBase.uFactor()` landed as `Pset_EnergyModel` bag evidence plus a warning, never a fabricated layer set; the structural-graph legality (endpoints, ids) is the seam's `ElementFault`, the IFC-semantic legality is the composed `IfcLegality` → `BimFault.ModelRejected`, and this projector re-checks neither; the rooted `NodeId` is LOCAL per raise (Guid-v7), the schema identifier riding `ExternalId` for correlation — the wire law verbatim.
 
 ```csharp signature
@@ -148,7 +148,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     Fin<GraphDelta> RaiseRoom(EnergyLibrary library, Hb.Room room, ProjectionContext ctx, Option<NodeId> host = default) {
         NodeId spaceId = NodeId.Rooted();
         spaces++;
-        GraphDelta seed = GraphDelta.Empty.Put(Element(spaceId, IfcClass.Space, "", room.Identifier, ctx));
+        GraphDelta seed = GraphDelta.Empty.Put(Element(spaceId, IfcClass.Space, "", room.Identifier));
         seed = host.Match(Some: building => seed.Link(new Relationship.Compose(building, spaceId, ComposeKind.Contain)), None: () => seed);
         return toSeq(room.Faces ?? []).Fold(
             Fin.Succ(seed),
@@ -168,7 +168,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         surfaces++;
         UInt128 footprint = Footprint(Ring(face.Geometry.Boundary), ctx.Header.Tolerance);
         GraphDelta seed = GraphDelta.Empty
-            .Put(Element(surfaceId, row.Class, row.Predefined, face.Identifier, ctx, footprint))
+            .Put(Element(surfaceId, row.Class, row.Predefined, face.Identifier, footprint))
             .Link(Boundary(spaceId, surfaceId,
                 face.BoundaryCondition.Obj is Hb.OpenAPIGenBaseModel bc ? bc.Type : "Outdoors"));   // the schema Type discriminator, never a downcast chain
         Seq<(string Identifier, List<List<double>> Ring, string? Construction, IfcClass Class)> rows =
@@ -201,7 +201,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         string id, Seq<string> materialIds,
         Func<string, Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>>> arm, ProjectionContext ctx) =>
         materialIds.Traverse(arm).As().ToFin()
-            .Bind(rows => rows.Somes().ToSeq() is { IsEmpty: false } typed
+            .Bind(rows => rows.Somes() is { IsEmpty: false } typed
                 ? MaterialComposition.OfLayerSet(typed.Map(static r => r.Layer), ctx.Key)
                     .Map(set => Some((Mint(id, set, Seq<MaterialPropertySet>(), ctx.Header.Tolerance), typed.Map(static r => r.Node))))
                 : Fin.Succ(Option<(Node.Material, Seq<Node.Material>)>.None));
@@ -264,10 +264,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     Fin<GraphDelta> RaiseBuilding(EnergyLibrary library, Df.Building building, ProjectionContext ctx) {
         NodeId buildingId = NodeId.Rooted();
-        var seed = GraphDelta.Empty.Put(Element(buildingId, IfcClass.Building, "", building.Identifier, ctx));
+        var seed = GraphDelta.Empty.Put(Element(buildingId, IfcClass.Building, "", building.Identifier));
         Fin<GraphDelta> massing = toSeq(building.UniqueStories ?? []).Fold(Fin.Succ(seed), (acc, story) => acc.Map(delta => {
             NodeId storeyId = NodeId.Rooted();
-            var d = delta.Put(Element(storeyId, IfcClass.BuildingStorey, "", story.Identifier, ctx))
+            var d = delta.Put(Element(storeyId, IfcClass.BuildingStorey, "", story.Identifier))
                 .Link(new Relationship.Compose(buildingId, storeyId, ComposeKind.Aggregate));
             d = story.Multiplier > 1 ? Assigned(d, storeyId, MultiplierEvidence(story.Multiplier, ctx.Header.Tolerance)) : d;
             return toSeq(story.Room2ds ?? []).Fold(d, (dd, room) => {
@@ -275,7 +275,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 spaces++;
                 UInt128 plate = Footprint(PlateRing(room), ctx.Header.Tolerance);
                 return Assigned(
-                    dd.Put(Element(spaceId, IfcClass.Space, "", room.Identifier, ctx, plate))
+                    dd.Put(Element(spaceId, IfcClass.Space, "", room.Identifier, plate))
                         .Link(new Relationship.Compose(storeyId, spaceId, ComposeKind.Contain)),
                     spaceId, HeightQuantity(room.FloorToCeilingHeight, ctx.Header.Tolerance));
             });
@@ -309,35 +309,38 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // --- [OSM_ARM]
     // Three decode arms, one raise fold. loadModelFromString upgrades any older .osm in-string; the gbXML/IDF
-    // readers are Path-bound, crossed via a bracketed temp path (Exemption: SWIG + filesystem boundary).
-    Fin<GraphDelta> OsmFamily(ProjectionContext ctx) =>
-        Decode(ctx).Bind(model => { using (model) { return RaiseOsm(model, ctx); } });
-
-    Fin<Os.Model> Decode(ProjectionContext ctx) {
+    // readers are Path-bound, crossed via a bracketed temp path (Exemption: SWIG + filesystem boundary). The
+    // catch spans decode AND raise: every SWIG member on the fold path can throw natively, and a raise escaping
+    // the Fin signature is the exception-control-flow defect the funnel closes.
+    Fin<GraphDelta> OsmFamily(ProjectionContext ctx) {
         try {
-            if (doc.Format == InterchangeFormat.Osm) {
-                using Os.VersionTranslator vt = new();
-                using Os.OptionalModel osm = vt.loadModelFromString(doc.Text);
-                return Lowered(osm, ctx, "osm");
-            }
-            string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            try {
-                File.WriteAllBytes(temp, doc.Bytes.ToArray());
-                Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
-                if (doc.Format == InterchangeFormat.GbXml) {
-                    using Os.GbXMLReverseTranslator gb = new();
-                    using Os.OptionalModel fromGb = gb.loadModel(path);
-                    return Lowered(fromGb, ctx, "gbxml");
-                }
-                using Os.EnergyPlusReverseTranslator ep = new();
-                using Os.OptionalModel fromIdf = ep.loadModel(path);
-                return Lowered(fromIdf, ctx, "idf");
-            }
-            finally { File.Delete(temp); }
+            return Decode(ctx).Bind(model => { using (model) { return RaiseOsm(model, ctx); } });
         }
         catch (Exception ex) when (ex is SystemException or ApplicationException) {
-            return Fin.Fail<Os.Model>(new BimFault.ModelRejected(ctx.Key, $"energy-decode:{ex.Message}"));
+            return Fin.Fail<GraphDelta>(new BimFault.ModelRejected(ctx.Key, $"energy-decode:{ex.Message}"));
         }
+    }
+
+    Fin<Os.Model> Decode(ProjectionContext ctx) {
+        if (doc.Format == InterchangeFormat.Osm) {
+            using Os.VersionTranslator vt = new();
+            using Os.OptionalModel osm = vt.loadModelFromString(doc.Text);
+            return Lowered(osm, ctx, "osm");
+        }
+        string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try {
+            File.WriteAllBytes(temp, doc.Bytes.ToArray());
+            Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
+            if (doc.Format == InterchangeFormat.GbXml) {
+                using Os.GbXMLReverseTranslator gb = new();
+                using Os.OptionalModel fromGb = gb.loadModel(path);
+                return Lowered(fromGb, ctx, "gbxml");
+            }
+            using Os.EnergyPlusReverseTranslator ep = new();
+            using Os.OptionalModel fromIdf = ep.loadModel(path);
+            return Lowered(fromIdf, ctx, "idf");
+        }
+        finally { File.Delete(temp); }
     }
 
     static Fin<Os.Model> Lowered(Os.OptionalModel optional, ProjectionContext ctx, string arm) =>
@@ -356,7 +359,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             using Os.Space osSpace = osSpaces[i];
             NodeId spaceId = NodeId.Rooted();
             spaces++;
-            delta = delta.Put(Element(spaceId, IfcClass.Space, "", osSpace.nameString(), ctx));
+            delta = delta.Put(Element(spaceId, IfcClass.Space, "", osSpace.nameString()));
             using Os.SurfaceVector surfs = osSpace.surfaces;
             for (int j = 0; j < surfs.Count; j++) {
                 using Os.Surface surf = surfs[j];
@@ -369,7 +372,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 using Os.Point3dVector vertices = surf.vertices();
                 UInt128 footprint = Footprint(OsmRing(vertices), ctx.Header.Tolerance);
                 delta = delta
-                    .Put(Element(surfaceId, row.Class, row.Predefined, surf.nameString(), ctx, footprint))
+                    .Put(Element(surfaceId, row.Class, row.Predefined, surf.nameString(), footprint))
                     .Link(Boundary(spaceId, surfaceId, surf.outsideBoundaryCondition()));
                 delta = OsmComposition(model, surf, surfaceId, delta, ctx);
                 delta = OsmSubSurfaces(model, surf, spaceId, delta, ctx);
@@ -432,8 +435,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // ONE typed-layer read serving both re-reads: the opaque row (StandardOpaqueMaterial -> Thermal) and the
     // glazing row (StandardGlazing -> Optical) — the SWIG vector element is statically Material, so the handle
-    // re-read is the ONLY typed downcast; an unset normal-incidence optional degrades the layer (None), never a
-    // fabricated zero fraction.
+    // re-read is the ONLY typed downcast; all SIX normal-incidence fractions read the OptionalDouble getters (the
+    // plain solarTransmittance() sibling THROWS over the same unset IDD field), an unset optional degrading the layer.
     Option<(Node.Material Node, MaterialLayer Layer)> TypedLayer(Os.Model model, Os.Material element, ProjectionContext ctx) {
         using Os.OptionalStandardOpaqueMaterial opaque = model.getStandardOpaqueMaterial(element.handle());
         if (opaque.is_initialized()) {
@@ -450,9 +453,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         using Os.StandardGlazing g = glass.get();
         return (Opt(g.visibleTransmittanceatNormalIncidence()),
                 Opt(g.frontSideVisibleReflectanceatNormalIncidence()), Opt(g.backSideVisibleReflectanceatNormalIncidence()),
+                Opt(g.solarTransmittanceatNormalIncidence()),
                 Opt(g.frontSideSolarReflectanceatNormalIncidence()), Opt(g.backSideSolarReflectanceatNormalIncidence()))
-            .Apply((vt, rvf, rvb, rsf, rsb) => MaterialPropertySet.OfOptical(
-                vt, rvf, rvb, g.solarTransmittance(), rsf, rsb,
+            .Apply((vt, rvf, rvb, st, rsf, rsb) => MaterialPropertySet.OfOptical(
+                vt, rvf, rvb, st, rsf, rsb,
                 g.infraredTransmittanceatNormalIncidence(), g.frontSideInfraredHemisphericalEmissivity(), g.backSideInfraredHemisphericalEmissivity(), ctx.Key))
             .As().Bind(static fin => fin.ToOption())
             .Map(optical => (
@@ -472,7 +476,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     internal static readonly PropertyName Host = PropertyName.Create("Host");
     internal static readonly PropertyName StoryMultiplier = PropertyName.Create("StoryMultiplier");
 
-    static Node.Object Element(NodeId id, IfcClass @class, string predefined, string identifier, ProjectionContext ctx, UInt128 footprint = default) =>
+    static Node.Object Element(NodeId id, IfcClass @class, string predefined, string identifier, UInt128 footprint = default) =>
         new(Id: id, Kind: ObjectKind.Occurrence,
             ExternalId: Optional(identifier).Filter(static s => s.Length > 0),
             Classification: Classification.Create("ifc", @class.Key, "", None, None, None),
@@ -496,7 +500,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         NodeId openingId = NodeId.Rooted();
         openings++;
         return (delta
-            .Put(Element(openingId, @class, "", identifier, ctx, Footprint(ring, ctx.Header.Tolerance)))
+            .Put(Element(openingId, @class, "", identifier, Footprint(ring, ctx.Header.Tolerance)))
             .Link(new Relationship.Generic(IfcRelKind.SpaceBoundary.Key, space, openingId, Map(
                 (SemanticProjector.BoundaryLevel, (PropertyValue)new PropertyValue.Text("2nd")),
                 (Host,                            (PropertyValue)new PropertyValue.Text(hostIdentifier))))), openingId);
@@ -554,5 +558,5 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 ## [03]-[RESEARCH]
 
 - [SCHEMA_STACK]: the managed decode grounds against the folder catalogs and the decompile tier — `HoneybeeSchema 2.102.0` (`.api/api-honeybee-schema`): `Model.FromJson(string)`, `Room(identifier, List<Face>, RoomPropertiesAbridged, …)`, `Face(identifier, Face3D, FaceType, AnyOf<Ground,Outdoors,Adiabatic,Surface,OtherSideTemperature>, FacePropertiesAbridged, …)`, `Aperture`/`Door` with their `AperturePropertiesAbridged(energy:)`/`DoorEnergyPropertiesAbridged.Construction` abridged window-construction references, `EnergyMaterial(identifier, thickness, conductivity, density, specificHeat, …)`, `EnergyWindowMaterialGlazing(identifier, …, thickness, solarTransmittance, solarReflectance, AnyOf<Autocalculate,double> solarReflectanceBack, visibleTransmittance, visibleReflectance, AnyOf<Autocalculate,double> visibleReflectanceBack, infraredTransmittance, emissivity, emissivityBack, conductivity, …)`, `OpaqueConstructionAbridged(identifier, List<string> materials, …)`/`WindowConstructionAbridged(identifier, List<string> materials, …)`, `IsValid(bool)` (`FromJson` gates through `IsValid(throwException: true)` — null on `"type"` mismatch, `ArgumentException` on a DataAnnotations reject), and the `AnyOf.Obj` boxed read — all decompile-verified (`assay api query --key openstudio`/`honeybee-schema`); `DragonflySchema 2.201.0` (`.api/api-dragonfly-schema`): `Model(identifier, ModelProperties, …, List<Building>, …)`, `Building(identifier, BuildingPropertiesAbridged, …, List<Story> uniqueStories, List<Room> room3ds, …)`, `Story(identifier, List<Room2D>, StoryPropertiesAbridged, …, int multiplier = 1, …)`, `Room2D(identifier, List<List<double>> floorBoundary, double floorHeight, double floorToCeilingHeight, Room2DPropertiesAbridged, …)` — dragonfly composes the honeybee vocabulary by identifier (`[HONEYBEE_STACK_LAW]`), so the massing arm re-declares nothing; `FloorToCeilingHeight` and `Multiplier` are the two source columns the massing raise preserves as seam evidence.
-- [OSM_SURFACE]: the OSM raise grounds against the OpenStudio 3.11.0 decompile — `VersionTranslator.loadModelFromString(string) → OptionalModel` (the version-upgrading in-string read), `GbXMLReverseTranslator.loadModel(Path)`/`EnergyPlusReverseTranslator.loadModel(Path)` the path-bound reverse readers; the model read is `Model.getSpaces() → SpaceVector`, the `Space.surfaces` PROPERTY (not a method), `PlanarSurface.vertices() → Point3dVector`/`.construction() → OptionalConstructionBase` (shared by `Surface` AND `SubSurface`, which is why one composition fold serves both), `Surface.surfaceType()`/`outsideBoundaryCondition()` strings, `Surface.subSurfaces() → SubSurfaceVector` and `SubSurface.subSurfaceType()` over the `validSubSurfaceTypeValues` roster (`FixedWindow`/`OperableWindow`/`Door`/`GlassDoor`/`OverheadDoor`/`Skylight`/`TubularDaylightDome`/`TubularDaylightDiffuser`), `Construction.layers() → MaterialVector`, and the typed-downcast pair `Model.getStandardOpaqueMaterial(UUID)`/`Model.getStandardGlazing(UUID)` over `IdfObject.handle()` — the SWIG binding constructs a vector element at its STATIC type with no `to_*` cast surface, so the handle re-read is the ONLY typed layer read and a C# `as StandardOpaqueMaterial` downcast is the verified-absent phantom; `StandardOpaqueMaterial.conductivity()/specificHeat()/thickness()` and `StandardGlazing.solarTransmittance()`/`infraredTransmittanceatNormalIncidence()`/`front|backSideInfraredHemisphericalEmissivity()` are plain doubles while the normal-incidence transmittance/reflectance getters return `OptionalDouble` — an unset optional degrades the layer, never a fabricated zero fraction.
-- [SEAM_ALIGNMENT]: the raise lands the exact contract `csharp:Rasm.Compute/Analysis/energy` `EnergyGraphReads` consumes — `IfcSpace` classification codes, `IfcRelSpaceBoundary`-named `Generic` edges with the three-valued `BoundaryLevel` payload (this page stamps `"2nd"`: a honeybee/OSM face is a per-space bounded surface, the second-level shape the Compute read prefers when both levels exist), the `Host` opening-correlation attribute (`BoundingSurfacesOf` excludes Host-bearing edges, `OpeningsOf` joins them onto typed OSM `SubSurface`s — a window never simulates as an opaque base surface), `Representations.FootPrint` content keys the seam `GeometrySource` resolves, and the `Qto_SpaceBaseQuantities` bags the Compute floor-area and the derive height reads consume — so raised-then-simulated needs zero adapter and the alignment is the seam row `Energy ⇄ csharp:Rasm.Compute/Analysis`, never a reference; the footprint blob layout rides the seam `Rasm.Element/Projection/address#CANONICAL_WRITER` projection the `Projection/semantic` [M2] mint owns, and the raise returns the `(key, ring)` pairs so the caller lands blobs WRITE-BLOB-FIRST before the delta applies; the opaque layer evidence (`Thermal` conductivity/specific-heat, no density column, 1000 kg/m³ Compute fallback) and the glazing evidence (`Optical` nine fractions, no fabricated Thermal) mirror exactly what the Compute `BuildConstruction`/`Layer` fold reads back, so the two derivations of one graph agree on the layer physics by construction.
+- [OSM_SURFACE]: the OSM raise grounds against the OpenStudio 3.11.0 decompile — `VersionTranslator.loadModelFromString(string) → OptionalModel` (the version-upgrading in-string read), `GbXMLReverseTranslator.loadModel(Path)`/`EnergyPlusReverseTranslator.loadModel(Path)` the path-bound reverse readers; the model read is `Model.getSpaces() → SpaceVector`, the `Space.surfaces` PROPERTY (not a method), `PlanarSurface.vertices() → Point3dVector`/`.construction() → OptionalConstructionBase` (shared by `Surface` AND `SubSurface`, which is why one composition fold serves both), `Surface.surfaceType()`/`outsideBoundaryCondition()` strings, `Surface.subSurfaces() → SubSurfaceVector` and `SubSurface.subSurfaceType()` over the `validSubSurfaceTypeValues` roster (`FixedWindow`/`OperableWindow`/`Door`/`GlassDoor`/`OverheadDoor`/`Skylight`/`TubularDaylightDome`/`TubularDaylightDiffuser`), `Construction.layers() → MaterialVector`, and the typed-downcast pair `Model.getStandardOpaqueMaterial(UUID)`/`Model.getStandardGlazing(UUID)` over `IdfObject.handle()` — the SWIG binding constructs a vector element at its STATIC type with no `to_*` cast surface, so the handle re-read is the ONLY typed layer read and a C# `as StandardOpaqueMaterial` downcast is the verified-absent phantom; `StandardOpaqueMaterial.conductivity()/specificHeat()/thickness()` and the defaulted-IDD `StandardGlazing` IR trio (`infraredTransmittanceatNormalIncidence()`/`front|backSideInfraredHemisphericalEmissivity()`) are plain doubles, while the SIX normal-incidence transmittance/reflectance getters (`solar|visible` × `Transmittance|frontSideReflectance|backSideReflectance` `atNormalIncidence`) return `OptionalDouble` — the plain `solarTransmittance()` sibling reads the SAME optional IDD field and THROWS natively when a spectral-data glazing leaves it unset, so the raise reads only the optional forms and an unset optional degrades the layer, never a fabricated zero fraction and never a native throw.
+- [SEAM_ALIGNMENT]: the raise lands the exact contract `csharp:Rasm.Compute/Analysis/energy` `EnergyGraphReads` consumes — `IfcSpace` classification codes, `IfcRelSpaceBoundary`-named `Generic` edges with the three-valued `BoundaryLevel` payload (this page stamps `"2nd"`: a honeybee/OSM face is a per-space bounded surface, the second-level shape the Compute read prefers when both levels exist), the `Host` opening-correlation attribute (`BoundingSurfacesOf` excludes Host-bearing edges, `OpeningsOf` joins them onto typed OSM `SubSurface`s — a window never simulates as an opaque base surface), `Representations.FootPrint` content keys the seam `GeometrySource` resolves, and the `Qto_SpaceBaseQuantities` bags the Compute floor-area and the derive height reads consume — so raised-then-simulated needs zero adapter and the alignment is the seam row `Energy/projector ⇄ csharp:Rasm.Compute/Analysis`, never a reference; the footprint blob layout rides the seam `Rasm.Element/Projection/address#CANONICAL_WRITER` projection the `Projection/semantic` [M2] mint owns, and the raise returns the `(key, ring)` pairs so the caller lands blobs WRITE-BLOB-FIRST before the delta applies; the opaque layer evidence (`Thermal` conductivity/specific-heat, no density column, 1000 kg/m³ Compute fallback) and the glazing evidence (`Optical` nine fractions, no fabricated Thermal) mirror exactly what the Compute `BuildConstruction`/`Layer` fold reads back, so the two derivations of one graph agree on the layer physics by construction.

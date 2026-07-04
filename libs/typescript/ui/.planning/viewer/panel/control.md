@@ -13,13 +13,13 @@
 ## [2]-[SINK_DISPATCH]
 
 - Owner: `ControlPanel` — the derived dispatch: `ControlPanel.Sinks` is one mapped handler record computed from the wire union (`{ [K in ControlIntent.Tag]: (intent: Arm<K>) => void }` — the record's key space IS the wire's tag space, so a new case breaks the record loudly at compile time), and `ControlPanel.route(sinks)` closes it as the reusable record terminal — `Match.tagsExhaustive` over the sinks record is the only place intent cases meet handlers.
-- Packages: `@rasm/ts/wire/vocab` (`ControlIntent` — the closed union with its `Intent`/`Tag` namespace types), `effect` (`Match`).
+- Packages: `#vocab` (`ControlIntent` — the closed union with its `Intent`/`Tag` namespace types), `effect` (`Match`).
 - Law: the materializer is total by the record — every tag demands a handler; an unknown-kind arm cannot exist because the union is closed at the wire, and the mapped contract proves coverage.
 - Law: payloads are carriage — `yaw`/`pitch`, `dx`/`dy`, `targets`/`additive`, section `origin`/`normal`, measure `from`/`to`, focus `target` land verbatim on the sink; a clamp, remap, or local default is the drift defect, and an out-of-range value is upstream evidence.
 - Growth: a new control kind = one wire case (C# emits it, `wire` mirrors it) + one handler row here + zero dispatch edits.
 
 ```typescript
-import type { ControlIntent } from "@rasm/ts/wire/vocab"
+import type { ControlIntent } from "#vocab"
 import { Match } from "effect"
 
 declare namespace ControlPanel {

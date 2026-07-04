@@ -13,14 +13,14 @@
 ## [2]-[ANCHOR_PINS]
 
 - Owner: `BcfMark.pins` — the pin projection: each open topic's primary viewpoint yields a world anchor (the viewpoint camera target, or the first resolvable selection element's centroid), projected per camera change through `Camera.anchor` (the pure `WebMercatorViewport` math on geo surfaces) or the live `map.project` seam; pins render as DOM anchors — a maplibre `Marker` on map surfaces, a floating-ui `VirtualElement` whose `getBoundingClientRect` wraps the projected point on scene surfaces — one pin mechanism per surface class, chosen by the surface row, never stacked.
-- Packages: `@rasm/ts/wire/vocab` (`Bcf`), `maplibre-gl` (`Marker`), `@floating-ui/react` (`VirtualElement` anchoring for scene overlays), `viewer/geo/project` (`Camera.anchor`).
+- Packages: `#vocab` (`Bcf`), `maplibre-gl` (`Marker`), `@floating-ui/react` (`VirtualElement` anchoring for scene overlays), `viewer/geo/project` (`Camera.anchor`).
 - Law: pins are projections of decoded topics — pin identity is the topic guid; a pin's screen position derives per frame/camera-settle from the anchor, and no pin holds its own position state.
 - Law: pin glyph and tone key off the lifecycle vocabulary — the status→tone table below is the single styling source; a status conditional in a pin row marks the table unused.
 - Law: `<model-viewer>` surfaces anchor through the element's own ray — `positionAndNormalFromPoint` mints new anchors on authoring gestures, and `updateHotspot`/`queryHotspot` carry pins as element hotspots — the embed's adapter row, same vocabulary.
 - Boundary: pin interaction (press opens the topic) rides `act/gesture` discrete rows; the pin's HTML content sanitizes through `view/compose`'s gate when topic text renders rich.
 
 ```typescript
-import type { Bcf } from "@rasm/ts/wire/vocab"
+import type { Bcf } from "#vocab"
 import { Option, type Schema } from "effect"
 
 type _Topic = Schema.Schema.Type<typeof Bcf.Topic>
@@ -53,7 +53,7 @@ const _pin = (
 
 ## [3]-[VIEWPOINT_RESTORE]
 
-- Owner: `BcfMark.restore(viewpoint, resident, millis)` — one fold, two outputs and one receipt: the camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` — eye from the position rows, target from position plus direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive` (the map grounds it, the scene backends consume it natively); the `selection` GlobalId array mints `Selection.Op.Replace`; and the anchor receipt reports which selection ids resolved against the live model — the partial-failure evidence the operator sees.
+- Owner: `BcfMark.restore(viewpoint, resident, millis)` — one fold, two outputs and one receipt: the camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` — eye from the position rows, target from position plus direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive` (the map solves it through its own camera model, the scene backends consume it natively); the `selection` GlobalId array mints `Selection.Op.Replace`; and the anchor receipt reports which selection ids resolved against the live model — the partial-failure evidence the operator sees.
 - Law: restore never re-derives — TS computes no view geometry beyond coordinate adaptation; the viewpoint IS the proof, and a restore that "corrects" the camera is the drift defect.
 - Law: the receipt is data — `{ requested, resolved, missing }` counts plus the missing id list; it renders as an evidence row (`intl/message` plural forms), never throws, and a fully-missing selection still restores the camera.
 - Boundary: which elements exist is the residency ledger's fact (`viewer/scene/glb`); the intent dispatch is `viewer/geo/project`'s; the selection fold is `viewer/mark/selection`'s.

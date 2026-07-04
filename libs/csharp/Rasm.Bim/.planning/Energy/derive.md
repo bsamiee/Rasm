@@ -181,7 +181,7 @@ public static class EnergyDerive {
             e is Relationship.Generic g && g.WireName == IfcRelKind.SpaceBoundary.Key && g.Relating == space
                 && g.Attributes.Find(EnergyProjector.Host).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
                 ? graph.Find<Node.Object>(g.Related) : None)) {
-            foreach (var ring in geometry.Footprint(opening.Representations)) {
+            foreach (var ring in geometry.Footprint(opening.Representations).ToSeq()) {
                 Option<string> construction = LowerComposition(graph, opening.Id, store, ref warnings);
                 if (construction.IsSome) { constructions++; }
                 if (opening.Classification.Code == IfcClass.Window.Key) {

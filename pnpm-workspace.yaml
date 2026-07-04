@@ -133,6 +133,7 @@ catalog:
   '@google/model-viewer': 4.3.1
   '@lume/kiwi': 0.4.4
   '@turf/turf': 7.3.5
+  '@types/geojson': 7946.0.16
   '@webgpu/types': 0.1.71
   # iac — the deploy plane
   '@pulumi/pulumi': 3.250.0
