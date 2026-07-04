@@ -7,13 +7,11 @@ Run ledger for the RASM-CS-GEOMETRY rebuild legs. Resume is launching-session-on
 - Run `wf_e5cec0fa-836`: 14 agents, 0 errors; 9 pages (1 new, 5 rebuild, 3 improve). Landed at commit `7c0c9d30`.
 - Its 3 `hard_residual` items were forward-leg respell advisories (self-keyed W2/W3/W4 → DECISION rows 7-9 / 11-16 / 17-28) naming only leg-2/3/4 targets — SKIPPED per policy; each leg's Discover re-derives the drift from disk. Full text: the run journal return (`subagents/workflows/wf_e5cec0fa-836/journal.jsonl`).
 
-## Leg 2 — MESHING LATTICE — RUNNING
+## Leg 2 — MESHING LATTICE — CLOSING VIA SALVAGE
 
-- Run ID: `wf_219d9ec6-cc4` (task `w33jwc1xx`), current self-contained engine (whole-repo terminal reconcile, no `hard_residual`)
-- Args: `{targets: [Meshing/delaunay.md, Meshing/intersect.md, Meshing/arrangement.md, Meshing/offset.md, Processing/repair.md] (libs/csharp/Rasm/.planning/-prefixed), brief: RASM-CS-GEOMETRY-DECISION.md}`
-- Expected kinds: rebuild ×4, improve ×1 (repair = `BooleanOp` `:57-62` + `BooleanArrangement` `:288-292` excision ONLY)
-- Resume: `Workflow({scriptPath: ".claude/workflows/rebuild.js", resumeFromRunId: "wf_219d9ec6-cc4"})`
-- On return: no residual step (self-contained) → leg 3 per DECISION `[10]` row 3.
+- Run `wf_219d9ec6-cc4` DIED at redteam on credit exhaustion (never resume it): Plan/Discover/Implement (all 5 pages) + Critique (both batches) + redteam on `repair.md` COMPLETED; the 4-page meshing redteam died mid-write on `delaunay.md`.
+- SALVAGE (user-ruled): ONE direct fable redteam agent over the 4 meshing pages, engine semantics, kernel-wide fix authority; RECONCILE SKIPPED by operator ruling. On its return: `git add -A` + commit = leg 2 CLOSED.
+- Leg 3 launches ONLY on user signal (auto-chain suspended for this handoff).
 
 ## Legs 3-4 — queued (DECISION `[10]` rows)
 

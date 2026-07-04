@@ -459,16 +459,21 @@ public abstract partial record Tessellation : IValidityEvidence {
                 if (guard-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxRecoverySteiner).ToError()); }
                 Option<(int P, int Q, bool Constrained)> crossing = FirstCrossing(a, b);
                 if (crossing.Case is not ((int p, int q, bool pinned))) {
+                    // No straddling edge: the corridor obstruction is a VERTEX exactly on (a,b) —
+                    // a grid T-junction — and the constraint splits AT it, no Steiner minted.
+                    if (OnSegment(a, b).Case is int through) {
+                        queue.Enqueue(edge.Rebound(a, through));
+                        queue.Enqueue(edge.Rebound(through, b));
+                        break;
+                    }
                     return Fin.Fail<Tessellation>(new GeometryFault.DegenerateTessellation(Store.LastLive(), "constraint walk found no crossing").ToError());
                 }
                 if (!pinned && FlipDiagonal(p, q)) { continue; }
                 if (budget-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxRecoverySteiner).ToError()); }
-                Fin<int> steiner = SteinerOf(edge, p, q, index).Map(row => Store.AddVertex(in row)).Bind(InsertRow);
+                // Thread the VERTEX id through the insert — InsertRow returns the seeded SIMPLEX,
+                // and re-anchoring the halves on a simplex id is the deleted mis-key.
+                Fin<int> steiner = SteinerOf(edge, p, q, index).Map(row => Store.AddVertex(in row)).Bind(v => InsertRow(v).Map(_ => v));
                 if (steiner.Case is not int w) { return steiner.Map(_ => (Tessellation)this); }
-                if (pinned && ConstraintOf(p, q) is Constraint other) {  // the split crossing constraint re-pins its own halves
-                    Pin(p, w, other.Rebound(p, w));
-                    Pin(w, q, other.Rebound(w, q));
-                }
                 queue.Enqueue(edge.Rebound(a, w));
                 queue.Enqueue(edge.Rebound(w, b));
                 break;
@@ -476,6 +481,24 @@ public abstract partial record Tessellation : IValidityEvidence {
             if (EdgePresent(a, b)) { Pin(a, b, edge); }
         }
         return Fin.Succ(this);
+    }
+
+    // The first link vertex lying EXACTLY on segment (a,b), strictly between its ends — exact
+    // collinearity by the projected orientation, exact betweenness by Compare on a separating
+    // axis; the through-vertex obstruction FirstCrossing's strict straddle cannot see.
+    Option<int> OnSegment(int a, int b) {
+        (Implicit ra, Implicit rb) = (Store.Row(a), Store.Row(b));
+        Axis u = Ordinal(Projection.U);
+        Axis extent = Predicate.Compare(in ra, in rb, u) != Sign.Zero ? u : Ordinal(Projection.V);
+        foreach (int s in Star(a)) {
+            foreach (int w in Store.SimplexVertices(s)) {
+                if (w == a || w == b) { continue; }
+                Implicit rw = Store.Row(w);
+                if (Predicate.Orient2D(in ra, in rb, in rw, Projection) != Sign.Zero) { continue; }
+                if (Predicate.Compare(in rw, in ra, extent).Times(Predicate.Compare(in rw, in rb, extent)) == Sign.Negative) { return Some(w); }
+            }
+        }
+        return None;
     }
 
     // The exact Steiner construction over ORIGINAL entities — depth-1 by case shape: two in-plane
