@@ -4,20 +4,18 @@ Authoritative campaign input for the restructure-and-harden of `libs/csharp/Rasm
 
 ## [EXECUTION]
 
-Settled campaign, cs track 5/6, single-phase — launched after the AppHost campaign lands (and the Persistence DECISION emits, for the collab-recharter signature-locks): the durable rebuild engine runs directly against this brief per the four-leg `[05]` partition with every leg residual-clean before the next launches, the campaign settles on cards + hygiene, and legs re-run across cold sessions against the same brief until a pass finds nothing.
+Settled campaign, cs track 5/6, single-phase — launched after the AppHost campaign lands (and the Persistence DECISION emits, for the collab-recharter signature-locks): the durable rebuild engine runs directly against this brief per the four-leg `[05]` partition with every leg residual-clean before the next launches, and legs re-run across cold sessions against the same brief until a pass finds nothing.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 | :----: | :------- | :--------- |
-| [01] | `Workflow(rebuild, {targets: [<[05] leg-1 page set — PERIMETER + STRUCTURE FLOOR>], brief: "RASM-CS-APPUI-BRIEF.md"})` | `[V3]` structure motion to the 8-folder/43-page map + `[V1]` 6xxx registry + `[V9]` ledger corrections + `[V12]` catalog/manifest motion; `hard_residual` |
-| [02] | `Workflow(resolve-residuals, {hard_residual: <step [01] run array>})` — when non-empty | leg 1 residual-clean |
-| [03] | `Workflow(rebuild, {targets: [<[05] leg-2 page set — VOCABULARY + SHELL SPINE>], brief: "RASM-CS-APPUI-BRIEF.md"})` | Theme vocabulary + Shell spine landed; `hard_residual` |
-| [04] | `Workflow(resolve-residuals, {hard_residual: <step [03] run array>})` — when non-empty | leg 2 residual-clean |
-| [05] | `Workflow(rebuild, {targets: [<[05] leg-3 page set — RENDER PLANE>], brief: "RASM-CS-APPUI-BRIEF.md"})` | render plane landed; `hard_residual` |
-| [06] | `Workflow(resolve-residuals, {hard_residual: <step [05] run array>})` — when non-empty | leg 3 residual-clean |
-| [07] | `Workflow(rebuild, {targets: [<[05] leg-4 page set — CONSUMER PLANES + CLOSEOUT>], brief: "RASM-CS-APPUI-BRIEF.md"})` | Collab/Document/Editing/Charts/Diagnostics planes + final `[V9]` governance truth pass + the `[05]` acceptance dry-runs; `hard_residual` |
-| [08] | `Workflow(resolve-residuals, {hard_residual: <step [07] run array>})` — when non-empty | leg 4 residual-clean |
-| [09] | `Workflow(align-cards, "libs/csharp/Rasm.AppUi")` | every IDEAS/TASKLOG card under the scope aligned to the rebuilt corpus |
-| [10] | `Workflow(hygiene-sweep, "libs/csharp/Rasm.AppUi")` | README <-> manifest <-> `.api` <-> seam consistency at zero high-severity — campaign landed |
+| 1 | `Workflow(rebuild, {targets: [<[05] leg-1 page set — PERIMETER + STRUCTURE FLOOR>], brief: "RASM-CS-APPUI-BRIEF.md"})` | `[V3]` structure motion to the 8-folder/43-page map + `[V1]` 6xxx registry + `[V9]` ledger corrections + `[V12]` catalog/manifest motion; `hard_residual` |
+| 2 | `Workflow(resolve-residuals, {hard_residual: <step-1 run array>})` — when non-empty | leg 1 residual-clean |
+| 3 | `Workflow(rebuild, {targets: [<[05] leg-2 page set — VOCABULARY + SHELL SPINE>], brief: "RASM-CS-APPUI-BRIEF.md"})` | Theme vocabulary + Shell spine landed; `hard_residual` |
+| 4 | `Workflow(resolve-residuals, {hard_residual: <step-3 run array>})` — when non-empty | leg 2 residual-clean |
+| 5 | `Workflow(rebuild, {targets: [<[05] leg-3 page set — RENDER PLANE>], brief: "RASM-CS-APPUI-BRIEF.md"})` | render plane landed; `hard_residual` |
+| 6 | `Workflow(resolve-residuals, {hard_residual: <step-5 run array>})` — when non-empty | leg 3 residual-clean |
+| 7 | `Workflow(rebuild, {targets: [<[05] leg-4 page set — CONSUMER PLANES + CLOSEOUT>], brief: "RASM-CS-APPUI-BRIEF.md"})` | Collab/Document/Editing/Charts/Diagnostics planes + final `[V9]` governance truth pass + the `[05]` acceptance dry-runs; `hard_residual` |
+| 8 | `Workflow(resolve-residuals, {hard_residual: <step-7 run array>})` — when non-empty | leg 4 residual-clean — campaign landed |
 
 ## [00]-[SHARED_LAW]
 

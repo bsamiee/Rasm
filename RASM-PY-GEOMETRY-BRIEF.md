@@ -4,14 +4,12 @@ Authoritative campaign input for the ground-up restructure and rebuild of `libs/
 
 ## [EXECUTION]
 
-Settled single-phase campaign, py track 3/5 — launched after the RASM-PY-RUNTIME and RASM-PY-DATA campaigns land: the durable rebuild engine runs this brief directly, one launch per `[05]-[BUILD_LEGS]` leg in leg order, hard residuals resolved before the next leg launches, the settling pair closing the campaign; legs re-run across sessions against this brief until a cold pass finds nothing.
+Settled single-phase campaign, py track 3/5 — launched after the RASM-PY-RUNTIME and RASM-PY-DATA campaigns land: the durable rebuild engine runs this brief directly, one launch per `[05]-[BUILD_LEGS]` leg in leg order, hard residuals resolved before the next leg launches; legs re-run across sessions against this brief until a cold pass finds nothing.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 | :----: | :------- | :--------- |
-| [01] | `rebuild` — `{targets: "libs/python/geometry", brief: "RASM-PY-GEOMETRY-BRIEF.md"}` — one launch per `[05]-[BUILD_LEGS]` leg, in leg order | Each leg's pages authored/rebuilt/improved per the `[01]` verdicts; the run returns a `hard_residual` array |
-| [02] | `resolve-residuals` — `{hard_residual: <the step-[01] run's hard_residual array>}` — whenever non-empty, before the next leg launches | Cross-file residuals closed and adversarially verified on disk |
-| [03] | `align-cards` — `"libs/python/geometry"` | Every IDEAS/TASKLOG card under the folder aligned to the rebuilt corpus with Ripple bidirectionality |
-| [04] | `hygiene-sweep` — `"libs/python/geometry"` | README <-> root `pyproject.toml` <-> both `.api` tiers <-> `ARCHITECTURE.md` agreement; zero high-severity at the cold-verify gate |
+| 1 | `rebuild` — `{targets: "libs/python/geometry", brief: "RASM-PY-GEOMETRY-BRIEF.md"}` — one launch per `[05]-[BUILD_LEGS]` leg, in leg order | Each leg's pages authored/rebuilt/improved per the `[01]` verdicts; the run returns a `hard_residual` array |
+| 2 | `resolve-residuals` — `{hard_residual: <the step-1 run's hard_residual array>}` — whenever non-empty, before the next leg launches | Cross-file residuals closed and adversarially verified on disk |
 
 ## [00]-[SHARED_LAW]
 

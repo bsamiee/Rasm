@@ -4,7 +4,7 @@ Authoritative campaign input for the ground-up restructure and rebuild of `libs/
 
 ## [EXECUTION]
 
-Hinge campaign, cs track 2/6 — runs after the geometry campaign (whose DECISION also unblocks the AppHost/AppUi signature-lock re-verification): design workflow -> `RASM-CS-PERSISTENCE-DECISION.md` -> four rebuild legs spine-first per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, hard residuals resolved before the next leg launches -> card + hygiene settling over `libs/csharp/Rasm.Persistence`; legs re-run across sessions against the same DECISION until a cold pass finds nothing.
+Hinge campaign, cs track 2/6 — runs after the geometry campaign (whose DECISION also unblocks the AppHost/AppUi signature-lock re-verification): design workflow -> `RASM-CS-PERSISTENCE-DECISION.md` -> four rebuild legs spine-first per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, hard residuals resolved before the next leg launches; legs re-run across sessions against the same DECISION until a cold pass finds nothing.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 |---|---|---|
@@ -16,9 +16,7 @@ Hinge campaign, cs track 2/6 — runs after the geometry campaign (whose DECISIO
 | 6 | `Workflow(rebuild.js, {targets: <DECISION leg-3 targets>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` | Leg 3 QUERY + INGEST landed; `hard_residual` array |
 | 7 | `Workflow(resolve-residuals.js, {hard_residual: <step-6 return, when non-empty>})` | Leg-3 residuals closed |
 | 8 | `Workflow(rebuild.js, {targets: <DECISION leg-4 targets>, brief: "RASM-CS-PERSISTENCE-DECISION.md"})` | Leg 4 STORE + COORDINATION + EGRESS landed; `hard_residual` array; the four `[05]` acceptance dry-runs compose |
-| 9 | `Workflow(resolve-residuals.js, {hard_residual: <step-8 return, when non-empty>})` | Leg-4 residuals closed |
-| 10 | `Workflow(align-cards.js, "libs/csharp/Rasm.Persistence")` | IDEAS/TASKLOG cards aligned to the rebuilt corpus |
-| 11 | `Workflow(hygiene-sweep.js, "libs/csharp/Rasm.Persistence")` | README/manifest/`.api`/ARCHITECTURE coherence at zero high-severity |
+| 9 | `Workflow(resolve-residuals.js, {hard_residual: <step-8 return, when non-empty>})` | Leg-4 residuals closed — campaign landed |
 
 ## [00]-[SHARED_LAW]
 

@@ -4,14 +4,12 @@ Authoritative campaign input for the ground-up restructure and rebuild of `libs/
 
 ## [EXECUTION]
 
-Settled campaign, py track 4/5 and the branch terminal — launch after RASM-PY-RUNTIME/DATA/GEOMETRY land, against a frozen upstream corpus; the page-set delta is fully ruled in `[01]` (zero new pages, zero deletions, one vocabulary re-homing, one hub rebuild in place), so the durable rebuild takes this brief directly (no DECISION pass), its plan step classifying per-page kind from the `[01]` verdicts against disk: steps 1-2 loop once per `[05]-[BUILD_LEGS]` leg in partition order (legs 1-3; a leg's hard residuals resolve before the next leg launches) and re-run across sessions against this same brief until a cold pass lands nothing; steps 3-4 settle the scope once, and the campaign closes on the `[05]` acceptance proofs.
+Settled campaign, py track 4/5 and the branch terminal — launch after RASM-PY-RUNTIME/DATA/GEOMETRY land, against a frozen upstream corpus; the page-set delta is fully ruled in `[01]` (zero new pages, zero deletions, one vocabulary re-homing, one hub rebuild in place), so the durable rebuild takes this brief directly (no DECISION pass), its plan step classifying per-page kind from the `[01]` verdicts against disk: steps 1-2 loop once per `[05]-[BUILD_LEGS]` leg in partition order (legs 1-3; a leg's hard residuals resolve before the next leg launches) and re-run across sessions against this same brief until a cold pass lands nothing; the campaign closes on the `[05]` acceptance proofs.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 | :----: | :------- | :--------- |
 | 1 | `rebuild` — `{targets: "libs/python/compute", brief: "RASM-PY-COMPUTE-BRIEF.md"}` | One `[05]-[BUILD_LEGS]` leg landed per run, plus the run's `hard_residual` array |
 | 2 | `resolve-residuals` — the step-1 run's `{hard_residual: [...]}` return, launched only when non-empty | Every cross-file residual closed on disk before the next leg launches |
-| 3 | `align-cards` — `"libs/python/compute"` | TASKLOG/IDEAS card truth against the rebuilt corpus — the `[04]` card absorptions and the `[V13]` card motions verified |
-| 4 | `hygiene-sweep` — `"libs/python/compute"` | README <-> `pyproject.toml` <-> both `.api` tiers <-> `ARCHITECTURE.md` seam consistency at zero high-severity |
 
 ## [00]-[SHARED_LAW]
 

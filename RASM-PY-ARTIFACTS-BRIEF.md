@@ -4,19 +4,17 @@ Authoritative campaign input for the ground-up restructure and rebuild of `libs/
 
 ## [EXECUTION]
 
-Hinge campaign, py track 5/5 — the consumer plane, launched after the four upstream py folder campaigns land: one ephemeral design pass emits the binding DECISION, the durable rebuild engine executes the DECISION's leg partition foundations-first with every leg residual-clean before the next launches, the campaign settles on cards + hygiene, legs re-run across cold sessions against the same DECISION until a pass finds nothing, and acceptance closes on the `[05]` flagship visual review.
+Hinge campaign, py track 5/5 — the consumer plane, launched after the four upstream py folder campaigns land: one ephemeral design pass emits the binding DECISION, the durable rebuild engine executes the DECISION's leg partition foundations-first with every leg residual-clean before the next launches, legs re-run across cold sessions against the same DECISION until a pass finds nothing, and acceptance closes on the `[05]` flagship visual review.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 | :----: | :------- | :--------- |
-| [01] | `Workflow(design-artifacts-restructure, {brief: "RASM-PY-ARTIFACTS-BRIEF.md", out: "RASM-PY-ARTIFACTS-DECISION.md"})` | `RASM-PY-ARTIFACTS-DECISION.md` — the binding page-set, seam-ledger, entry-contract, package-delta, leg-partition, and card-disposition blueprint (the measured-signals card re-dispositioned) |
-| [02] | `Workflow(rebuild, {targets: [<DECISION (e) leg-1 wave folders — FOUNDATIONS, 1a/1b per its split ruling>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | foundational plane + corpus-wide `ArtifactWork` entry landed; `hard_residual` |
-| [03] | `Workflow(resolve-residuals, {hard_residual: <step [02] run array>})` — when non-empty | leg 1 residual-clean |
-| [04] | `Workflow(rebuild, {targets: [<DECISION (e) leg-2 wave folders — MID PLANE>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | mid plane landed; `hard_residual` |
-| [05] | `Workflow(resolve-residuals, {hard_residual: <step [04] run array>})` — when non-empty | leg 2 residual-clean |
-| [06] | `Workflow(rebuild, {targets: [<DECISION (e) leg-3 wave folders — AEC/EGRESS>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | AEC/egress plane landed; `hard_residual`; the three `[05]` flagship artifacts render for visual review |
-| [07] | `Workflow(resolve-residuals, {hard_residual: <step [06] run array>})` — when non-empty | leg 3 residual-clean |
-| [08] | `Workflow(align-cards, "libs/python/artifacts")` | every IDEAS/TASKLOG card under the scope aligned to the rebuilt corpus |
-| [09] | `Workflow(hygiene-sweep, "libs/python/artifacts")` | README <-> manifest <-> `.api` <-> seam consistency at zero high-severity — campaign landed |
+| 1 | `Workflow(design-artifacts-restructure, {brief: "RASM-PY-ARTIFACTS-BRIEF.md", out: "RASM-PY-ARTIFACTS-DECISION.md"})` | `RASM-PY-ARTIFACTS-DECISION.md` — the binding page-set, seam-ledger, entry-contract, package-delta, leg-partition, and card-disposition blueprint (the measured-signals card re-dispositioned) |
+| 2 | `Workflow(rebuild, {targets: [<DECISION (e) leg-1 wave folders — FOUNDATIONS, 1a/1b per its split ruling>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | foundational plane + corpus-wide `ArtifactWork` entry landed; `hard_residual` |
+| 3 | `Workflow(resolve-residuals, {hard_residual: <step-2 run array>})` — when non-empty | leg 1 residual-clean |
+| 4 | `Workflow(rebuild, {targets: [<DECISION (e) leg-2 wave folders — MID PLANE>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | mid plane landed; `hard_residual` |
+| 5 | `Workflow(resolve-residuals, {hard_residual: <step-4 run array>})` — when non-empty | leg 2 residual-clean |
+| 6 | `Workflow(rebuild, {targets: [<DECISION (e) leg-3 wave folders — AEC/EGRESS>], brief: "RASM-PY-ARTIFACTS-DECISION.md"})` | AEC/egress plane landed; `hard_residual`; the three `[05]` flagship artifacts render for visual review |
+| 7 | `Workflow(resolve-residuals, {hard_residual: <step-6 run array>})` — when non-empty | leg 3 residual-clean — campaign landed |
 
 ## [00]-[SHARED_LAW]
 

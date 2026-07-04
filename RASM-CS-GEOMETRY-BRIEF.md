@@ -4,7 +4,7 @@ Authoritative campaign input for the ground-up restructure and rebuild of the RO
 
 ## [EXECUTION]
 
-Hinge campaign, cs track 1/6 — runs FIRST (every cs campaign consumes the kernel planes): design workflow -> `RASM-CS-GEOMETRY-DECISION.md` -> four rebuild legs per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, hard residuals resolved before the next leg launches -> card + hygiene settling over `libs/csharp/Rasm`; legs re-run across sessions against the same DECISION until a cold pass finds nothing.
+Hinge campaign, cs track 1/6 — runs FIRST (every cs campaign consumes the kernel planes): design workflow -> `RASM-CS-GEOMETRY-DECISION.md` -> four rebuild legs per the DECISION leg partition under the `[05]-[BUILD_LEGS]` sequencing law, hard residuals resolved before the next leg launches; legs re-run across sessions against the same DECISION until a cold pass finds nothing.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 |---|---|---|
@@ -16,9 +16,7 @@ Hinge campaign, cs track 1/6 — runs FIRST (every cs campaign consumes the kern
 | 6 | `Workflow(rebuild.js, {targets: <DECISION leg-3 targets>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` | Leg 3 PROCESSING landed; `hard_residual` array |
 | 7 | `Workflow(resolve-residuals.js, {hard_residual: <step-6 return, when non-empty>})` | Leg-3 residuals closed |
 | 8 | `Workflow(rebuild.js, {targets: <DECISION leg-4 targets>, brief: "RASM-CS-GEOMETRY-DECISION.md"})` | Leg 4 NEW MESH OWNERS + PARAMETRIC TIER + DRAWING landed; `hard_residual` array; the four `[05]` acceptance dry-runs compose |
-| 9 | `Workflow(resolve-residuals.js, {hard_residual: <step-8 return, when non-empty>})` | Leg-4 residuals closed |
-| 10 | `Workflow(align-cards.js, "libs/csharp/Rasm")` | IDEAS/TASKLOG cards aligned to the rebuilt corpus |
-| 11 | `Workflow(hygiene-sweep.js, "libs/csharp/Rasm")` | README/manifest/`.api`/ARCHITECTURE coherence at zero high-severity |
+| 9 | `Workflow(resolve-residuals.js, {hard_residual: <step-8 return, when non-empty>})` | Leg-4 residuals closed — campaign landed |
 
 ## [00]-[SHARED_LAW]
 

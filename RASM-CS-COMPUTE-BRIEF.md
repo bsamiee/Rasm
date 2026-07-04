@@ -4,14 +4,12 @@ Authoritative campaign input for the restructure-and-harden of `libs/csharp/Rasm
 
 ## [EXECUTION]
 
-Settled campaign, cs track 3/6 — launch after the GEOMETRY and PERSISTENCE campaigns land; the durable rebuild takes this brief directly (no DECISION pass), its plan step classifying per-page kind from the `[01]` verdicts against disk: steps 1-2 loop once per `[05]-[BUILD_LEGS]` leg in partition order (legs 1-4; manifest motions stage by proof gate inside the legs; a leg's hard residuals resolve before the next leg launches) and re-run across sessions against this same brief until a cold pass lands nothing; steps 3-4 settle the scope once, and the campaign closes on the `[05]` acceptance dry-runs.
+Settled campaign, cs track 3/6 — launch after the GEOMETRY and PERSISTENCE campaigns land; the durable rebuild takes this brief directly (no DECISION pass), its plan step classifying per-page kind from the `[01]` verdicts against disk: steps 1-2 loop once per `[05]-[BUILD_LEGS]` leg in partition order (legs 1-4; manifest motions stage by proof gate inside the legs; a leg's hard residuals resolve before the next leg launches) and re-run across sessions against this same brief until a cold pass lands nothing; the campaign closes on the `[05]` acceptance dry-runs.
 
 | [STEP] | [LAUNCH] | [PRODUCES] |
 | :----: | :------- | :--------- |
 | 1 | `rebuild` — `{targets: "libs/csharp/Rasm.Compute", brief: "RASM-CS-COMPUTE-BRIEF.md"}` | One `[05]-[BUILD_LEGS]` leg landed per run, plus the run's `hard_residual` array |
 | 2 | `resolve-residuals` — the step-1 run's `{hard_residual: [...]}` return, launched only when non-empty | Every cross-file residual closed on disk before the next leg launches |
-| 3 | `align-cards` — `"libs/csharp/Rasm.Compute"` | TASKLOG/IDEAS card truth against the rebuilt corpus — the `[04]` card absorptions and the `[V12]` growth-row reseed verified |
-| 4 | `hygiene-sweep` — `"libs/csharp/Rasm.Compute"` | README <-> `Directory.Packages.props`/csproj <-> both `.api` tiers <-> `ARCHITECTURE.md` seam consistency at zero high-severity |
 
 ## [00]-[SHARED_LAW]
 
