@@ -350,22 +350,25 @@ public static class Arrangement {
             });
     }
 
-    // Exact NONZERO winding: the +U half-line from the probe crosses edge (a,b) iff the endpoints
-    // strictly straddle on V and the crossing sits strictly right (side.Times(sb) positive — both
-    // exact signs); upward crossings count +1, downward -1. Nonzero — not even-odd — so a
+    // Exact NONZERO winding: the +U half-line from the probe counts edge (a,b) iff the endpoints
+    // straddle on V HALF-OPEN (a Zero endpoint counts with the non-negative side — a ring vertex
+    // exactly on the ray line never double-counts or vanishes) and the exact side sign puts the
+    // crossing at +U; upward crossings count +1, downward -1. Nonzero — not even-odd — so a
     // self-overlapping cycle set (the Minkowski convolution, a doubled offset loop) resolves to
-    // its true covered region; on simple rings the two rules coincide.
+    // its true covered region; on simple rings the two rules coincide. Probes are triangle
+    // centroids of the same build, never boundary points — an on-edge Zero side skips.
     static bool Winding(Point3d probe, Seq<Polyline> rings, Axis plane) {
         int v = plane.V;
         int count = 0;
         foreach (Polyline ring in rings) {
             for (int e = 0; e < ring.Count - 1; e++) {
                 (Point3d a, Point3d b) = (ring[e], ring[e + 1]);
-                Sign sa = Sign.Of(Axis.Coord(a, v).CompareTo(Axis.Coord(probe, v)));
-                Sign sb = Sign.Of(Axis.Coord(b, v).CompareTo(Axis.Coord(probe, v)));
-                if (sa.Times(sb) != Sign.Negative) { continue; }
+                bool aBelow = Sign.Of(Axis.Coord(a, v).CompareTo(Axis.Coord(probe, v))) == Sign.Negative;
+                bool bBelow = Sign.Of(Axis.Coord(b, v).CompareTo(Axis.Coord(probe, v))) == Sign.Negative;
+                if (aBelow == bBelow) { continue; }
                 Sign side = Predicate.Orient2D(new Implicit(a), new Implicit(b), new Implicit(probe), plane);
-                if (side.Times(sb) == Sign.Positive) { count += sb.Key; }
+                if (side == Sign.Zero) { continue; }
+                if (aBelow ? side == Sign.Positive : side == Sign.Negative) { count += aBelow ? 1 : -1; }
             }
         }
         return count != 0;
@@ -459,8 +462,8 @@ file static partial class ManifoldGate {
             raw = manifold_boolean(manifold_alloc_manifold(), ma, mb, op.Native);
             return manifold_status(raw) is int status and not 0
                 ? Fin.Fail<ArrangementResult>(new GeometryFault.DegenerateArrangement(0, $"manifoldc boolean status {status}").ToError())
-                : Lower(raw, tolerance, policy, key).Map(lowered => (ArrangementResult)new ArrangementResult.Boolean(
-                    lowered.Solid, lowered.Receipt with { Route = BooleanRoute.Native }));
+                : Lower(raw, tolerance, policy, key).Map(lowered =>
+                    (ArrangementResult)new ArrangementResult.Boolean(lowered.Solid, lowered.Receipt));
         }
         finally {
             if (raw != 0) { manifold_delete_manifold(raw); }

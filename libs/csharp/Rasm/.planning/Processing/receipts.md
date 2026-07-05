@@ -21,7 +21,6 @@ The boolean case carries the `Meshing/arrangement#ARRANGEMENT` `BooleanReceipt` 
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;

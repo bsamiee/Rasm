@@ -32,7 +32,6 @@ Every `.Project<TOut>` on this page routes through `Numerics/atoms.md`'s `AtomPr
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
@@ -43,6 +42,9 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
+using SegmentKeySet = System.Collections.Generic.HashSet<(ScalarIsolinePointKey A, ScalarIsolinePointKey B)>;
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
@@ -267,7 +269,7 @@ public abstract partial record ExtractionDomain {
         return ledger;
     }
     private static (Seq<ScalarIsolineSegment> Unique, IsolineLedger Ledger) DeduplicateSegments(List<ScalarIsolineSegment> segments, double tolerance, IsolineLedger ledger) {
-        HashSet<(ScalarIsolinePointKey A, ScalarIsolinePointKey B)> seen = [];
+        SegmentKeySet seen = [];
         List<ScalarIsolineSegment> unique = [];
         foreach (ScalarIsolineSegment segment in segments) {
             ScalarIsolinePointKey a = KeyOf(point: segment.A, tolerance: tolerance);

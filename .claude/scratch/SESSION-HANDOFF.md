@@ -36,6 +36,14 @@ Commits (chronological): `54cd740e` baseline (DECISION+scratch+workflow deltas) 
 
 **Integration dossiers (binding blueprints on disk, feed input already consumed by live agents)**: `.claude/scratch/integration-fix/dossier-cs-persistence.md` (all 8 prunes→integrations; PollinationSDK three-row store split + Compute counterpart; ScyllaDB wide-column axis + `WideColumnFault` 8450; NTS spatial plane + NEW `Ingest/geospatial.md` 8440; EF-Sqlite embedded provider row on the ONE identity DbContext; Redis L2 backplane + `EgressSink.RedisStream`; linq2db COMMIT; `[V13]` 7→11; NO fifth leg) and `dossier-cross-language.md` (G1 Bim energy phantom → being implemented NOW; G2 PollinationSDK split; G3 cross-language concert seams ride owning-doc LEDGER ROWS, never resurrected cards; py energy fully brief-routed; three C# hinge pins feed-verified current).
 
+## [03B]-[ROOT-REFRESH CAMPAIGN] (running — the post-kernel durable refresh)
+
+Phase A RUNNING: 6 opus miners → `.claude/scratch/root-refresh/` (m1 kernel foundations truth, m2 kernel build planes truth, m3 persistence launch-readiness — THE priority: next session launches persistence clean, m4 compute+materials+bim, m5 fab+apphost+appui, m6 root-docs-as-documents: chaff/engine-contract/waterfall/leg-structure/poison-top-10).
+Phase B (gates on all 6 miners): ONE fable writer consuming all dossiers → surgical in-place refresh of ALL root durables EXCEPT the geometry pair (retiring — its sibling citations re-point to landed corpus anchors instead): kernel-truth integration (compose landed contracts, forbid the named handroll bait), engine-executable EXECUTION rows ({brief, leg}, typed riders, acceptance traces), optimized legs/waves (no mini-leg spam, one-run multi-leg where dependencies allow), chaff/wasted sections deleted, waterfall-finalized assumptions, style-guide prose.
+Phase C (gates on B): 3 opus sanity fanout over the refreshed root set — executability walk, waterfall-contradiction hunt, poison/prose sweep — surgical prose fixes in place, structural findings report back.
+CAMPAIGN 2 (launches as miner slots free): wider project hygiene — libs/python + libs/csharp siblings (EXCLUDING kernel Rasm/ + the Compute redteam-docket files + libs/typescript foreign session + root docs + docs/stacks + libs/.planning): fragile counts ("the N pages"), hardcoded coupling, altitude re-iteration, stale refs — surgical prose fixes only.
+Standing: geometry redteam returns → immediate snapshot commit; archive move (geometry pair → .archive/) after Phase C passes.
+
 ## [04]-[REMAINING_WORK] (ordered)
 
 1. DONE: leg 1 returned → residuals skipped (forward-leg advisories) → gate commit `7c0c9d30` → leg 2 launched (`wf_219d9ec6-cc4`).

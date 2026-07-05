@@ -118,7 +118,7 @@ public sealed partial record Requirement {
     }
     [SmartEnum<string>]
     [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-    [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+    [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
     private sealed partial class Check {
         public static readonly Check Validity = new(key: "rhino-validity", applies: static _ => true, run: static (check, _, g, _) => check.Demand(geometry: g, condition: g.IsValidWithLog(log: out string log), log: log));
         public static readonly Check UsableBounds = new(key: "usable-bounds", applies: static _ => true, run: static (check, ctx, g, _) => check.Demand(geometry: g, condition: g.GetBoundingBox(accurate: true) is { IsValid: true } box && box.IsDegenerate(tolerance: ctx.Absolute.Value) < 4, log: "Rhino could not compute a usable accurate bounding box."));
@@ -178,6 +178,7 @@ public sealed partial record Requirement {
 using System.Collections.Frozen;
 using System.Linq.Expressions;
 using Foundation.CSharp.Analyzers.Contracts;
+using Rhino;
 
 namespace Rasm.Domain;
 
@@ -327,6 +328,7 @@ internal static class RequirementContext {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
+using Rhino;
 
 namespace Rasm.Domain;
 

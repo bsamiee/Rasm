@@ -70,8 +70,9 @@ public sealed partial class GeodesicGrade {
 // --- [CONSTANTS] --------------------------------------------------------------------------------
 public sealed record GeodesicPlan(Arr<Point2d> Sources, Arr<double> Levels, GeodesicGrade Grade) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        Sources.Count > 0, Levels.Count > 0,
-        Levels.All(static level => ValidityClaim.Positive(value: level)));
+        ValidityClaim.CountAtLeast(count: Sources.Count, floor: 1),
+        ValidityClaim.CountAtLeast(count: Levels.Count, floor: 1),
+        ValidityClaim.Of(holds: Levels.All(static level => ValidityClaim.Positive(value: level))));
 }
 
 // DenseFloor: the probe count where per-probe engine seeding yields to ONE kd-tree seed grid;
@@ -79,7 +80,11 @@ public sealed record GeodesicPlan(Arr<Point2d> Sources, Arr<double> Levels, Geod
 public sealed record PullbackPolicy(int DenseFloor, int SeedU, int SeedV, NurbsPolicy Projection) : IValidityEvidence {
     public static readonly PullbackPolicy Canonical = new(DenseFloor: 32, SeedU: 24, SeedV: 24, NurbsPolicy.Canonical);
 
-    public bool IsValid => ValidityClaim.All(DenseFloor > 0, SeedU > 1, SeedV > 1, Projection.IsValid);
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountAtLeast(count: DenseFloor, floor: 1),
+        ValidityClaim.CountAtLeast(count: SeedU, floor: 2),
+        ValidityClaim.CountAtLeast(count: SeedV, floor: 2),
+        ValidityClaim.Evidence(evidence: Projection));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -222,7 +227,7 @@ public static class Surfaces {
             seedUv, DistanceMetrics.EuclideanDistance);
         return op.Probes.TraverseM(probe =>
                 tree.NearestNeighbors([probe.X, probe.Y, probe.Z], 1).First() switch {
-                    var (_, seed) => op.Surface.ClosestParameter(probe, op.Policy.Projection, Some((seed.X, seed.Y))),
+                    (_, Point2d seed) => op.Surface.ClosestParameter(probe, op.Policy.Projection, Some((seed.X, seed.Y))),
                 })
             .As().Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])));
     }

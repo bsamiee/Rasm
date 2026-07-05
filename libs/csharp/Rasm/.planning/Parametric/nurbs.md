@@ -30,6 +30,7 @@ using MathNet.Numerics.RootFinding;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -113,8 +114,8 @@ public readonly record struct KnotVector(int Degree, Arr<double> Knots) {
         // Two admitted spellings, discriminated by END MULTIPLICITY: full clamped carries degree+1
         // repeats, the Rhino-trimmed wire carries degree and extends by one duplicate per end.
         double[] full = (head, tail) switch {
-            var (h, t) when h == degree + 1 && t == degree + 1 => knots,
-            var (h, t) when h == degree && t == degree => [0.0, .. knots, 1.0],
+            (int h, int t) when h == degree + 1 && t == degree + 1 => knots,
+            (int h, int t) when h == degree && t == degree => [0.0, .. knots, 1.0],
             _ => [],
         };
         return full.Length == 0 ? Fail("unclamped knot vector — neither the full nor the trimmed spelling")

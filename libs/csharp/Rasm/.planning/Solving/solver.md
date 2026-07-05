@@ -186,6 +186,9 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry.Matrix/Dimension collide with the Rasm.Numerics owners under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
+using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Solving;
 
@@ -281,7 +284,8 @@ public abstract partial record Constraint {
             onCircle:      static o => Seq(o.Point, o.Circle));
 
     // Operand-kind law: an arm reading End/Direction/Radius demands the owning kind; Origin-only
-    // arms are total. A mismatched operand would silently read a FOREIGN parameter slice.
+    // arms are total. A mismatched operand would silently read a FOREIGN parameter slice. Equal
+    // names Line/Circle POSITIVELY so a future kind row rejects at admission until its arm lands.
     public bool WellFormed =>
         Switch(
             distance:      static _ => true,
@@ -294,7 +298,7 @@ public abstract partial record Constraint {
             pointOnLine:   static o => o.Line.Kind == SketchEntityKind.Line,
             midpoint:      static m => m.Line.Kind == SketchEntityKind.Line,
             axis:          static x => x.Line.Kind == SketchEntityKind.Line,
-            equal:         static e => e.A.Kind == e.B.Kind && e.A.Kind != SketchEntityKind.Point,
+            equal:         static e => e.A.Kind == e.B.Kind && (e.A.Kind == SketchEntityKind.Line || e.A.Kind == SketchEntityKind.Circle),
             symmetric:     static s => s.Axis.Kind == SketchEntityKind.Line,
             ground:        static _ => true,
             radius:        static r => r.Circle.Kind == SketchEntityKind.Circle,
@@ -678,7 +682,9 @@ public static class ConstraintSolver {
             Fail: _ => (Analyze(system, rows), Math.Max(rows - system.ParameterCount, 0)));
     }
 
-    // Left-null-space projection ‖U_tailᵀ·r‖ read off the owner's SvdResult: U columns past Rank span null(Jᵀ).
+    // Left-null-space projection ‖U_tailᵀ·r‖ read off the owner's SvdResult: U columns past Rank span
+    // null(Jᵀ); k ∈ [Rank, rows) is in-bounds BECAUSE SvdResult.U is the FULL rows×rows factor by
+    // construction (matrix.md MatrixKernel.Svd wraps MathNet full U) — a thin-U swap breaks this loop.
     static bool ConsistentAtWitness(SvdResult svd, double[] r, int rows) {
         double rNorm = 0.0;
         for (int i = 0; i < rows; i++) rNorm += r[i] * r[i];

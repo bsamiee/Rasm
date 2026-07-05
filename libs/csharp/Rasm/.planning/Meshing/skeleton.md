@@ -12,7 +12,7 @@ The page COMPOSES the clearance vocabulary `offset.md` mints and widens the fami
 
 - Owner: `SkeletonPolicy` the policy row (`LaplaceSeed` — the initial contraction weight factor `w_L⁰ = seed·√(mean face area)`; `ContractionScale` — the per-round `w_L` multiplier; `Attraction` — the `W_H` base; `CotangentCeiling` — the |cot| clamp the near-degenerate contraction regime demands; `MaxIterations` · `CollapseAreaRatio` — the convergence target `ΣA_k/ΣA⁰` · `StallBand` — the zero-progress band; `SamplingWeight` — the surgery cost's λ blending shape against sampling cost; `SmoothBranches` — the spline pass row; `ParallelFloor`) registering `IValidityEvidence`; `SkeletonOp` the request record (`Mesh` · `Policy` — one modality, the probe query a RESULT member, so the request is a record); `CurveSkeleton` the frozen SoA result — node columns (`NodeX`/`NodeY`/`NodeZ` · `Radius` · `Witness`) + arc columns (`ArcFrom`/`ArcTo` · `ArcOrigin` — the seed original-vertex provenance riding `SkeletonArc.OriginEdge` · `Component` — the branch label) — with the `Graph` projection minting the composed `SkeletonGraph` and the `Clearance(Point3d)` arbitrary-probe member; `Skeletonize` the static surface.
 - Cases: none minted — the clearance family (`ClearanceNode` · `SkeletonArc` · `SkeletonGraph`) is `offset.md`'s, composed verbatim; the result's node and arc rows ARE that family's rows read off the columns. Zero new clearance types is this page's first law.
-- Entry: `public static Fin<CurveSkeleton> Apply(SkeletonOp op, Op? key = null)` — the ONE entry. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind.Mesh, index, witness)` 2400 on an inadmissible input — an empty mesh, or a non-watertight one: the contraction flows a closed surface toward its interior medial, so the admission composes the landed `MeshKernel.TopologyDetailed` total witness and gates `IsManifold ∧ IsOriented ∧ BoundaryComponents == 0` (an open shell has no interior curve-skeleton; the honest refusal beats a silent garbage graph); `GeometryFault.CollapseStalled(iteration, residual)` 2418 when the area ratio stalls inside `StallBand` above `CollapseAreaRatio` or `MaxIterations` exhausts with the residual ratio recorded; `GeometryFault.SkeletonStalled(pendingEvents, time)` 2417 when the surgery queue exhausts its admissible collapses while faces remain — `PendingEvents` the live-face count, `Time` the surgery round. No `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling statics — one polymorphic `Apply`; the probe rides the result.
+- Entry: `public static Fin<CurveSkeleton> Apply(SkeletonOp op, Op? key = null)` — the ONE entry. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind.Mesh, index, witness)` 2400 on an inadmissible input — an empty mesh, an invalid policy row, or a non-watertight one: the contraction flows a closed surface toward its interior medial, so the admission composes the landed `MeshKernel.TopologyDetailed` total witness and gates `IsManifold ∧ IsOriented ∧ BoundaryComponents == 0` (an open shell has no interior curve-skeleton; the honest refusal beats a silent garbage graph); `GeometryFault.CollapseStalled(iteration, residual)` 2418 when the area ratio stalls inside `StallBand` above `CollapseAreaRatio` or `MaxIterations` exhausts with the residual ratio recorded; `GeometryFault.SkeletonStalled(pendingEvents, time)` 2417 when the surgery queue exhausts its admissible collapses while faces remain — `PendingEvents` the live-face count, `Time` the surgery round. No `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling statics — one polymorphic `Apply`; the probe rides the result.
 - Auto: admission snapshots the ORIGINAL positions and one-ring areas (`A⁰_i`, the anchoring denominators and the radius provenance), opens ONE `MeshEdit.Of(space, ...)` arena with the policy floor threaded into `ArenaPolicy` at `Of`, and iterates: (1) assemble the clamped cotangent stiffness from LIVE arena positions — per face, `Cotangent.OfEdges(u, v, twoArea)` per corner clamped to `±CotangentCeiling` with degenerate-area faces skipped, accumulated as triplets into `SparseMatrix.FromTriplets` (the mesh substrate's `Laplacian` rows serve quality-gated snapshots; the contraction lives PAST the quality regime by design — see Boundary); (2) factor `diag(W_H) + w_L·L_k` once via `CholeskySparse.Of` and solve the three coordinate axes' mass-weighted right-hand sides through `TraverseM` (the geodesics backward-Euler shape, re-weighted per round); (3) write the contracted positions back through `SetPosition`, kill faces whose area collapses under the scale floor, and refresh `W_H,i = Attraction·√(A⁰_i/A_i)` — the one-ring area sweep partitioned by the arena's own budgeted `Parallel` struct-action verb under `ParallelFloor`; (4) scale `w_L ← ContractionScale·w_L` and test the area ratio against `CollapseAreaRatio`/`StallBand`. Surgery then collapses to 1D: the undirected edge multiset (unique face edges, re-keyed on every collapse) drains a cost-ordered `PriorityQueue` gated on face incidence — a dequeued edge collapses ONLY while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge (the emerging 1D skeleton) survives untouched — collapse cost = edge length (the local shape term) + `SamplingWeight`·(edge length × adjacent-length sum), the Au blending that keeps nodes centered AND evenly sampled — each half-edge collapse `u→v` re-pointing faces through `SetFace`, tombstoning degenerates through `KillFace`, folding `u`'s merge set (its accumulated original vertices) into `v`; when no live face remains the surviving edges ARE the raw skeleton. Extraction folds them into a transient `UndirectedGraph<int, SEdge<int>>` (`AddVertexRange` admits every surviving node so an isolated component still lands), takes `MinimumSpanningTreeKruskal(e => |pos(Source) − pos(Target)|)` — contraction noise mints spurious short cycles; the MST is the curve-skeleton tree, and Kruskal spans a disconnected multi-shell remnant as a forest with no root choice — and labels branches through `ConnectedComponents` (the undirected components read; `WeaklyConnectedComponents` binds only the directed `IVertexListGraph` contract); node radii recover from provenance — `Radius = mean |node − original(merged)|`, `Witness = argmin` original ordinal (the nearest surface feature) — and `SmoothBranches` runs the one `IInterpolation` pass: every maximal degree-2 chain chord-length-parameterizes and re-samples its INTERIOR nodes through `Interpolate.CubicSplineRobust` per coordinate (junctions and endpoints pinned; chains under four nodes pass through), deleting the per-iteration contraction jitter with one policy row, never a hand-rolled smoother.
 - Receipt: none on a dedicated rail — `CurveSkeleton` IS the typed result and the wire: node/arc/radius columns are the evidence the Fabrication decoder binds, `Graph` projects the composed `SkeletonGraph`, `Clearance(probe)` answers the arbitrary probe from the same columns; hash-eligible artifacts are the frozen columns, never the live arena or the transient graph.
 - Packages: `Rasm.Meshing` (sibling file — `ClearanceNode`/`SkeletonArc`/`SkeletonGraph`, composed never re-minted), `Rasm.Meshing` (`MeshEdit.Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel` — the arena; `ArenaPolicy` the floor carrier the policy threads at `Of`; `MeshSpace` the admission snapshot), `Rasm.Meshing` (`MeshKernel.TopologyDetailed` the watertight gate; `Cotangent.OfEdges` THE cotangent arithmetic), `Rasm.Numerics` (`SparseMatrix.FromTriplets` + `CholeskySparse.Of`/`Solve` the landed sparse owners), `Rhino.Geometry` (`Point3d`/`Vector3d`), MathNet.Numerics (`Interpolate.CubicSplineRobust` → `IInterpolation.Interpolate` — the branch-smoothing pass), QuikGraph (`UndirectedGraph<int, SEdge<int>>`, `AddVertexRange`, `MinimumSpanningTreeKruskal`, `ConnectedComponents` — in-computation only), CommunityToolkit.HighPerformance (`IAction` struct actions through the arena's `Parallel` verb), `Rasm.Numerics` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<TElement,TPriority>`).
@@ -34,6 +34,10 @@ using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
+// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
+using EdgeKeySet = System.Collections.Generic.HashSet<(int, int)>;
+using IndexSet = System.Collections.Generic.HashSet<int>;
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Meshing;
 
@@ -83,9 +87,16 @@ public sealed record CurveSkeleton(
     // Arbitrary-probe clearance, the SAME distance-to-boundary semantics as offset's ring probe:
     // the exact scan finds the nearest arc foot; Radius = r(foot) − |probe − foot| (the medial
     // transform's boundary-distance estimate), NearestEdge = the arc ordinal witness. A zero-arc
-    // skeleton (an all-merged blob) answers from its single node — never a −∞ radius.
+    // skeleton (fully merged shells — one isolated node EACH) answers from its nearest node.
     public ClearanceNode Clearance(Point3d probe) {
-        if (ArcCount == 0) { return new ClearanceNode(probe, Radius[0] - probe.DistanceTo(NodeAt(0)), -1); }
+        if (ArcCount == 0) {
+            (double near, int at) = (double.PositiveInfinity, 0);
+            for (int n = 0; n < NodeCount; n++) {
+                double d = probe.DistanceTo(NodeAt(n));
+                if (d < near) { (near, at) = (d, n); }
+            }
+            return new ClearanceNode(probe, Radius[at] - near, -1);
+        }
         (double best, int arc, double radiusAtFoot) = (double.PositiveInfinity, -1, 0.0);
         for (int a = 0; a < ArcCount; a++) {
             (Point3d p, Point3d q) = (NodeAt(ArcFrom[a]), NodeAt(ArcTo[a]));
@@ -251,11 +262,11 @@ public static class Skeletonize {
     // queue rows drop by adjacency containment; merges route the union-find parents.
     static Fin<ContractState> Surgery(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
-        Dictionary<int, HashSet<int>> adjacency = [];
-        Dictionary<int, HashSet<int>> facesOf = [];
+        Dictionary<int, IndexSet> adjacency = [];
+        Dictionary<int, IndexSet> facesOf = [];
         void Link(int u, int v) {
-            (adjacency.TryGetValue(u, out HashSet<int>? su) ? su : adjacency[u] = []).Add(v);
-            (adjacency.TryGetValue(v, out HashSet<int>? sv) ? sv : adjacency[v] = []).Add(u);
+            (adjacency.TryGetValue(u, out IndexSet? su) ? su : adjacency[u] = []).Add(v);
+            (adjacency.TryGetValue(v, out IndexSet? sv) ? sv : adjacency[v] = []).Add(u);
         }
         int liveFaces = 0;
         for (int f = 0; f < arena.FaceCount; f++) {
@@ -264,11 +275,11 @@ public static class Skeletonize {
             (int a, int b, int c) = arena.Face(f);
             Link(a, b); Link(b, c); Link(c, a);
             foreach (int v in (ReadOnlySpan<int>)[a, b, c]) {
-                (facesOf.TryGetValue(v, out HashSet<int>? fs) ? fs : facesOf[v] = []).Add(f);
+                (facesOf.TryGetValue(v, out IndexSet? fs) ? fs : facesOf[v] = []).Add(f);
             }
         }
         PriorityQueue<(int U, int V), double> queue = new();
-        foreach ((int u, HashSet<int> around) in adjacency) {
+        foreach ((int u, IndexSet around) in adjacency) {
             foreach (int v in around) { if (u < v) { queue.Enqueue((u, v), Cost(arena, adjacency, u, v, policy.SamplingWeight)); } }
         }
         int rounds = 0;
@@ -277,11 +288,11 @@ public static class Skeletonize {
                 return Fin.Fail<ContractState>(new GeometryFault.SkeletonStalled(liveFaces, rounds).ToError());
             }
             (int u, int v) = edge;
-            if (!adjacency.TryGetValue(u, out HashSet<int>? uSet) || !uSet.Contains(v)) { continue; }  // stale row
-            bool faced = facesOf.TryGetValue(u, out HashSet<int>? uFaces) && uFaces.Any(f => arena.Alive(f) && Holds(arena.Face(f), v));
+            if (!adjacency.TryGetValue(u, out IndexSet? uSet) || !uSet.Contains(v)) { continue; }  // stale row
+            bool faced = facesOf.TryGetValue(u, out IndexSet? uFaces) && uFaces.Any(f => arena.Alive(f) && Holds(arena.Face(f), v));
             if (!faced) { continue; }  // face-less edge — the emerging 1D skeleton, never collapsed
             rounds++;
-            foreach (int f in facesOf.TryGetValue(u, out HashSet<int>? incident) ? incident.ToArray() : []) {
+            foreach (int f in facesOf.TryGetValue(u, out IndexSet? incident) ? incident.ToArray() : []) {
                 if (!arena.Alive(f)) { continue; }
                 (int a, int b, int c) = arena.Face(f);
                 (a, b, c) = (a == u ? v : a, b == u ? v : b, c == u ? v : c);
@@ -291,7 +302,7 @@ public static class Skeletonize {
                 }
                 else {
                     arena.SetFace(f, a, b, c);
-                    (facesOf.TryGetValue(v, out HashSet<int>? vf) ? vf : facesOf[v] = []).Add(f);
+                    (facesOf.TryGetValue(v, out IndexSet? vf) ? vf : facesOf[v] = []).Add(f);
                 }
             }
             facesOf.Remove(u);
@@ -309,9 +320,9 @@ public static class Skeletonize {
 
     static bool Holds((int A, int B, int C) face, int v) => face.A == v || face.B == v || face.C == v;
 
-    static double Cost(MeshEdit arena, Dictionary<int, HashSet<int>> adjacency, int u, int v, double lambda) {
+    static double Cost(MeshEdit arena, Dictionary<int, IndexSet> adjacency, int u, int v, double lambda) {
         double length = arena.Position(u).DistanceTo(arena.Position(v));
-        double sampling = adjacency.TryGetValue(u, out HashSet<int>? around)
+        double sampling = adjacency.TryGetValue(u, out IndexSet? around)
             ? around.Sum(w => arena.Position(u).DistanceTo(arena.Position(w)))
             : 0.0;
         return length + (lambda * length * sampling);
@@ -328,7 +339,7 @@ public static class Skeletonize {
         Dictionary<int, int> dense = survivors.Index().ToDictionary(static row => row.Item, static row => row.Index);
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, survivors.Length));
-        HashSet<(int, int)> seen = [];
+        EdgeKeySet seen = [];
         foreach ((int a, int b, int c) in state.OriginalFaces) {
             foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
                 (int hu, int hv) = (dense[Home(state.Merged, u)], dense[Home(state.Merged, v)]);
@@ -398,7 +409,7 @@ public static class Skeletonize {
             (next.TryGetValue(skeleton.ArcFrom[a], out List<int>? f) ? f : next[skeleton.ArcFrom[a]] = []).Add(skeleton.ArcTo[a]);
             (next.TryGetValue(skeleton.ArcTo[a], out List<int>? t) ? t : next[skeleton.ArcTo[a]] = []).Add(skeleton.ArcFrom[a]);
         }
-        HashSet<(int, int)> visited = [];
+        EdgeKeySet visited = [];
         foreach (int anchor in Enumerable.Range(0, skeleton.NodeCount).Where(n => degree[n] != 2)) {
             foreach (int start in next.TryGetValue(anchor, out List<int>? around) ? around : []) {
                 if (!visited.Add((anchor, start))) { continue; }

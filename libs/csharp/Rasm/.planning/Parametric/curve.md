@@ -74,8 +74,9 @@ public sealed record StationPlan(double T0, double T1, DivideRule Rule, int Tabl
     public const int TableCeiling = 256;
 
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Finite(value: T0), ValidityClaim.Finite(value: T1),
-        T0 >= 0.0 && T1 <= 1.0 && T0 < T1, TableFloor > 1);
+        ValidityClaim.UnitInterval(value: T0), ValidityClaim.UnitInterval(value: T1),
+        ValidityClaim.Of(holds: T0 < T1),
+        ValidityClaim.CountAtLeast(count: TableFloor, floor: 2));
 }
 
 // The shared deviation-refinement row — surface.md NormalOffset composes the SAME loop shape.
@@ -85,7 +86,7 @@ public sealed record RefinePolicy(double DeviationTolerance, int MaxRounds, int 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: DeviationTolerance),
         ValidityClaim.Positive(value: MaxRounds),
-        SeedSamples > 3);
+        ValidityClaim.CountAtLeast(count: SeedSamples, floor: 4));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
@@ -185,7 +186,7 @@ public static class Parametric {
                 .Map(ts => new StationRows(curve, arcs, new Arr<double>([.. ts])))
             : Fin.Succ(InvertByTable(curve, arcs)));
 
-    static Fin<Arr<double>> ArcTargets(NurbsForm.Curve curve, DivideRule rule);          // rule lattice: i·L/n · capped march + tail · equalized · ParameterAtChordLength march
+    static Fin<Arr<double>> ArcTargets(NurbsForm.Curve curve, DivideRule rule);          // rule lattice: i·L/n · capped march + tail · equalized · ParameterAtChordLength march; a degenerate rule (count < 1, non-positive length/chord) or a zero-length curve routes the Station fault — targets are never empty
     static StationRows InvertByTable(NurbsForm.Curve curve, Arr<double> arcs);           // (LengthAt(tⱼ), tⱼ) samples → CubicSplineMonotone → t(s) per arc
 
     static Fin<ParametricResult> StationsOf(ParametricOp.Stations op, Op? key) =>
@@ -251,7 +252,8 @@ public static class Parametric {
     static Arr<double> Densified(Arr<double> stations, Arr<double> breaching);
 
     // Trim: chord-sample the fit, sweep neighbor-excluded AABB candidate pairs through
-    // Intersection.Apply(IntersectOp.SegmentSegment(a, b, DominantAxis(op.Frame), IntersectPolicy.Canonical), key),
+    // Intersection.Apply(IntersectOp.SegmentSegment(a, b, axis, IntersectPolicy.Canonical), key)
+    // with axis = the Axis row at op.Frame.ZAxis's dominant |component| ordinal,
     // map crossing chords to fit parameters, fit.SplitAt(sorted) → pieces, keep a piece ⇔ its
     // midpoint base foot ≥ |Distance| − DeviationTolerance; emit Offsets(kept, receipt, trimmed, kept.Count).
     static Fin<ParametricResult> TrimLoops(ParametricOp.Offset op, NurbsForm.Curve fit, RefineReceipt receipt, Op? key);

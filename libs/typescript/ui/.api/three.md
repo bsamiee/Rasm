@@ -102,6 +102,20 @@
 |  [02]   | `Fn(([...]) => node)` / `uniform(v)` / `texture(t, uv)` / `vec3` / `mix` / `mrt({...})` (`three/tsl`) | node shader   | `viewer/scene/appearance` — TSL node graphs authoring the WebGPU-path material lobes; `mrt` for the G-buffer receipt targets |
 |  [03]   | `renderer.getPixelRatio()` / `renderer.readRenderTargetPixelsAsync(rt, ...)`                    | frame readback | `viewer/probe/receipt` — the pixel readback the `RenderReceipt` frame-hash consumes for deterministic render evidence |
 |  [04]   | `BufferGeometryUtils.mergeGeometries(list)` / `.mergeVertices(geo)` (`three/addons`)            | geometry fold  | `viewer/scene/glb` — merges same-material submeshes into one buffer, cutting draw calls on large residency sets |
+|  [05]   | `controls.addEventListener("change", fn)` / `controls.target`                                  | control events | `viewer/geo` — `OrbitControls extends Controls extends EventDispatcher`; the `change` dispatch folds the settled camera into the atom |
+
+[ENTRYPOINT_SCOPE]: animation drive and draw-call collapse
+- rail: scene
+
+| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `new AnimationMixer(root)` / `mixer.clipAction(clip)` / `mixer.update(deltaTime)` / `mixer.timeScale` | mixer drive    | `viewer/scene` — one mixer per animated graft; `update` advances inside the one frame loop |
+|  [02]   | `action.play()` / `.stop()` / `.reset()` / `.setLoop(mode, repetitions)` / `.paused` / `.enabled` — `LoopOnce` / `LoopRepeat` / `LoopPingPong` | action control | `viewer/scene` — clip playback policy; loop-mode constants from core `three` |
+|  [03]   | `mixer.stopAllAction()` / `mixer.uncacheRoot(root)`                                             | mixer teardown | `viewer/scene` — eviction releases every action binding before the subtree disposes |
+|  [04]   | `new Clock()` / `clock.getDelta()` / `clock.getElapsedTime()`                                   | time source    | `viewer/scene` — the one delta source the frame loop feeds every mixer |
+|  [05]   | `new InstancedMesh(geometry, material, count)` / `.setMatrixAt(i, matrix)` / `.instanceMatrix` / `.computeBoundingSphere()` | instanced draw | `viewer/scene` — repeated identical geometry as one draw call |
+|  [06]   | `new BatchedMesh(maxInstances, maxVertices, maxIndices, material)` / `.addGeometry(geo)` / `.addInstance(geoId)` / `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)` | batched draw   | `viewer/scene` — distinct same-material geometries batched into one draw call with per-instance visibility |
+|  [07]   | `renderer.initTexture(texture)`                                                                 | eager upload   | `viewer/scene` — uploads decoded textures ahead of first use so the first frame never hitches |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -26,8 +26,10 @@ using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
+using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Processing;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -105,9 +107,9 @@ public sealed record PatternPlan(
     TangentLogMapAlgorithm Algorithm) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: Extent),
-        Anchors.Count > 0,
-        Anchors.All(static a => a.Site.X is >= 0.0 and < 1.0 && a.Site.Y is >= 0.0 and < 1.0),
-        Group.Lattice.Admits(BasisA, BasisB, tolerance: RhinoMath.ZeroTolerance));
+        ValidityClaim.CountAtLeast(count: Anchors.Count, floor: 1),
+        ValidityClaim.Of(holds: Anchors.All(static a => a.Site.X is >= 0.0 and < 1.0 && a.Site.Y is >= 0.0 and < 1.0)),
+        ValidityClaim.Of(holds: Group.Lattice.Admits(BasisA, BasisB, tolerance: RhinoMath.ZeroTolerance)));
 }
 
 // HeatTime drives the vector-heat log arm AND the frame transport; FrameBudget is the instance

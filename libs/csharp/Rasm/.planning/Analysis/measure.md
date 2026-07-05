@@ -29,6 +29,7 @@ using System.Linq;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using Rasm.Domain;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -314,6 +315,7 @@ using System;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Processing;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -504,7 +506,7 @@ public static partial class Analyze {
 - Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight policy rows, each binding the typed `Output` (`double`/`bool`/`Stat`/`ResidualSample`/`Distribution`), the `IsSigned`/`IsContainment`/`ExactCurveDeviation` admission columns, and the `ConformanceProjection` delegate folding the sampled residual stream into the metric's result: `Distance` streams the raw distances, `Rms`/`WithinTolerance`/`Summary` fold the `Domain/stats` Welford `Stat` with `StatContext.Tolerance` provenance, `Maximum` extracts the worst sample through `Stat.Extrema`, `SignedResidual`/`Containment` stream the typed samples themselves, `Distribution` folds `Distribution.Of` over caller percentiles. `ResidualSample` `[BoundaryAdapter]` — the per-sample receipt (`Index`, `Location`, `Distance`, `Tolerance`, `WithinTolerance`) declaring `IValidityEvidence` through the `Domain/rails` `ValidityClaim` fold: non-negative index, finite location and distance, non-negative tolerance, and the `WithinTolerance == (|Distance| <= Tolerance)` consistency law.
 - Cases: `Distance` · `Rms` · `WithinTolerance` · `Summary` · `Maximum` · `SignedResidual` · `Containment` · `Distribution` (8).
 - Entry: `Analyze.RelationConformance<TGeometry, TTarget, TOut>(metric, count, percentiles, key)` — the pair operation `Analysis/query`'s `Conformance` case forwards to; build-time gates reject a null metric, a non-positive count, an inadmissible `(geometry, target)` kind pair, or an output mismatching the metric's `Output`.
-- Auto: admission is data-driven — `AcceptsTarget` reads the metric columns (containment demands `Brep`/`Mesh` targets; signed demands `Capability.SignedDistance` targets; unsigned accepts any closest-point-capable or curve-like target) and `TargetRequirement` escalates containment targets to `Requirement.SolidTopology`; the two-operand gate runs `RequirementContext.Pair` — kind-resolve both operands, demand curve-or-surface source topology, apply `Requirement.ForKind` to the source and the metric-derived requirement to the target, all before a single sample; curve-vs-curve pairs under an `ExactCurveDeviation` metric SHORT-CIRCUIT to the `Analysis/relations` exact `CurveDeviationOf` — one host call replaces N samples when exactness is available; every other pair samples N points through the `Domain/evaluation` `SamplePoints` extension and measures each through `SupportSpace.Of` + the metric-selected `SupportProjection` (`ContainmentDistance`/`SignedDistance`/`Distance`) projected by `VectorIntent.Support`.
+- Auto: admission is data-driven — `AcceptsTarget` reads the metric columns (containment demands `Brep`/`Mesh` targets; signed demands `Capability.SignedDistance` targets; unsigned accepts any closest-point-capable or curve-like target) and `TargetRequirement` escalates containment targets to `Requirement.SolidTopology`; the two-operand gate runs `RequirementContext.Pair` — kind-resolve both operands, demand curve-or-surface source topology, apply `Requirement.ForKind` to the source and the metric-derived requirement to the target, all before a single sample; curve-vs-curve pairs under an `ExactCurveDeviation` metric SHORT-CIRCUIT to the `Analysis/relations` exact `CurveDeviationOf` — one host call replaces N samples when exactness is available; every other pair samples N points through the `Domain/evaluation` `SamplePoints` extension and measures each through `SupportSpace.Of` + the metric-selected `SupportProjection` (`ContainmentDistance`/`SignedDistance`/`Distance`) projected by `VectorIntent.Support`, reading the runtime token between samples so a cancelled run faults `Fault.Cancelled` mid-stream, never passing a truncated residual set as complete.
 - Receipt: `ResidualSample` — evidence-carrying, oracle-admitted; aggregate metrics re-emit `Stat`/`Distribution` whose own validity the Domain oracle already owns.
 - Packages: `Rasm.Spatial` (`SupportSpace`/`SupportProjection` — the `Spatial/support` adapter), `Rasm.Processing` (`VectorIntent.Support` — the `Processing/intent` rail), `Rasm.Domain` (`Stat`/`StatContext`/`Distribution` — the `Domain/stats` substrate; `RequirementContext.Pair`; `SamplePoints`/`CurveForm` owners; `Capability` rows), RhinoCommon (geometry payloads), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new conformance metric (a percentile band, a signed RMS, a Hausdorff estimate) is ONE row — key, output, three columns, one projection delegate — zero pipeline edits; a new target admission class is one column read by `AcceptsTarget`, never a parallel sampling pipeline.
@@ -514,6 +516,7 @@ public static partial class Analyze {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using Rasm.Domain;
@@ -607,21 +610,23 @@ public static partial class Analyze {
         from intent in VectorIntent.Support(space: space, sample: point, projection: projection, key: key)
         from distance in intent.Project<double>(context: context, key: key)
         select distance;
-    private static Fin<Seq<ResidualSample>> ConformanceSampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Op key, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
+    private static Fin<Seq<ResidualSample>> ConformanceSampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Op key, CancellationToken cancel, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: key)
-            .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
-    private static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(ConformanceMetric metric, int count, TGeometry geometry, TTarget target, Context context, Op key) where TGeometry : notnull where TTarget : notnull =>
+            .Bind(points => points.Map((p, i) => cancel.IsCancellationRequested
+                ? Fin.Fail<ResidualSample>(new Fault.Cancelled())
+                : distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
+    private static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(ConformanceMetric metric, int count, TGeometry geometry, TTarget target, Context context, Op key, CancellationToken cancel) where TGeometry : notnull where TTarget : notnull =>
         (geometry, target) switch {
             (object curveLike, object targetCurveLike) when Capability.CurveForm.Admits(type: curveLike.GetType()) && Capability.CurveForm.Admits(type: targetCurveLike.GetType()) && metric.ExactCurveDeviation =>
                 Normalization.CurveForm(source: curveLike, key: key).Bind(leftLease => Normalization.CurveForm(source: targetCurveLike, key: key).Bind(rightLease => leftLease.Use(left => rightLease.Use(right =>
                     CurveDeviationOf(left: left, right: right, context: context, op: key)
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))))))),
             (object curveLike, _) when Capability.CurveForm.Admits(type: curveLike.GetType()) =>
-                Normalization.CurveForm(source: curveLike, key: key).Bind(lease => lease.Use(curve => ConformanceSampleResiduals(curve, target, count, context, key,
+                Normalization.CurveForm(source: curveLike, key: key).Bind(lease => lease.Use(curve => ConformanceSampleResiduals(curve, target, count, context, key, cancel,
                     sampler: static (c, n, ctx, op) => c.SamplePoints(count: n, context: ctx, key: op),
                     distance: (t, pt, model) => ConformanceDistanceFor(metric: metric, target: t, point: pt, context: model, key: key)))),
             (object surfaceLike, _) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
-                Normalization.SurfaceForm(source: surfaceLike, key: key).Bind(lease => lease.Use(surface => ConformanceSampleResiduals(surface, target, count, context, key,
+                Normalization.SurfaceForm(source: surfaceLike, key: key).Bind(lease => lease.Use(surface => ConformanceSampleResiduals(surface, target, count, context, key, cancel,
                     sampler: static (s, n, ctx, op) => s.SamplePoints(count: n, context: ctx, key: op),
                     distance: (t, pt, model) => ConformanceDistanceFor(metric: metric, target: t, point: pt, context: model, key: key)))),
             _ => Fin.Fail<Seq<ResidualSample>>(key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
@@ -634,7 +639,7 @@ public static partial class Analyze {
                 from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: state.Key, requirements: (op, kindG, kindT) =>
                     guard(kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface, op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))).ToFin()
                         .Map(_ => (A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT))), cancel: runtime.Cancellation).ToEff()
-                from residuals in ConformanceSamples(metric: state.Metric, count: state.Count, geometry: resolved.A, target: resolved.B, context: runtime.Context, key: state.Key).ToEff()
+                from residuals in ConformanceSamples(metric: state.Metric, count: state.Count, geometry: resolved.A, target: resolved.B, context: runtime.Context, key: state.Key, cancel: runtime.Cancellation).ToEff()
                 from result in state.Metric.Project<TValue>(residuals: residuals, percentiles: state.Percentiles, context: runtime.Context, key: state.Key).ToEff()
                 select result);
 }

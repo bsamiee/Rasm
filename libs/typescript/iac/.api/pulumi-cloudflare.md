@@ -46,7 +46,7 @@
 
 [EDGE_SCOPE]: Workers, KV, R2, Pages — edge compute + object store
 - rail: cloudflare
-- The service-equivalence compute/object rows: `R2Bucket` is the object-store equivalent (the MinIO/Garage/S3 counterpart in the equivalence map); `WorkersScript` + `WorkersRoute` are edge compute; `PagesProject` is static hosting.
+- The service-equivalence compute/object rows: `R2Bucket` is the object-store equivalent (the managed counterpart to the MinIO-continuation/Ceph-RGW self-host rows in the equivalence map); `WorkersScript` + `WorkersRoute` are edge compute; `PagesProject` is static hosting.
 
 | [INDEX] | [SYMBOL] | [ROLE] |
 | :-----: | :------- | :----- |

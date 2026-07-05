@@ -16,7 +16,7 @@ This is the ONLY Parametric page whose output is a MESH: `Refine` publishes Loop
 - Auto: `Refine` admits the base level — the triangle scheme normalizes through `MeshEdit.Of(space)` (the arena's exact quad-diagonal ingress) and reads the arena columns, the quad scheme reads `space.Native` polygons directly — then folds levels: per level ONE sorted-edge-key pass builds the flat SoA incidence (face-corner offsets + the edge table with per-edge incident faces; an edge with three or more incident faces routes the fault — the stencil space is manifold-with-boundary), stencil rows EMIT TRIPLETS into the `(V_{l+1} × V_l)` subdivision operator — face-point rows `1/deg` per corner, edge-point rows off `EdgeStencil` (boundary and crease edges take the spline midpoint row instead; a semi-sharp edge takes the crease row while `Sharpness ≥ 1` and the blended row on the fractional tail), vertex-point rows off `VertexStencil(valence)` (boundary vertices take the `⅛, ¾, ⅛` spline mask; a vertex incident to two or more crease edges takes the crease-vertex mask, three or more pins it corner) — `SparseMatrix.FromTriplets` assembles S_l and THREE `Multiply` sweeps advance the x/y/z columns; connectivity rebuilds per `Arity` (one quad per face corner; four tris per tri); `Region` restricts stencil emission to the named faces plus their closure ring, sealing T-junctions by red-green bisection (tri) or inserted-midpoint splits (quad), counted on the receipt; after the last level the LIMIT operator (rows off `LimitStencil`/`TangentWeight`) runs one more SpMV set — limit positions plus two tangent columns whose normalized cross product is the limit normal; the quad scheme publishes a native quad `Mesh` through `MeshSpace.Of(native, context, key: key)`, the tri scheme through the arena freeze. `Limit` evaluates `(face, u, v)` samples on the BASE mesh: one setup refinement isolates extraordinary vertices (a face with two or more extraordinary corners cannot seat the eigenbasis), a regular sample evaluates the B-spline/box-spline basis over its 16/12-point neighborhood directly, an irregular sample resolves `Eigenbasis(valence)` — the subdivision matrix `Ā` for valence `n` assembled as `Matrix.Of` rows, decomposed ONCE through `Matrix.DecomposeEigenDetailed` (the general operator is non-symmetric; the imaginary-residual gate rejects a defective basis and routes the fault), memo-cached by `(scheme.Key, valence)` — then Stam's evaluation: `m = ⌈−log₂ max(u, v)⌉` selects the sub-domain level, the transformed `(u, v)` lands in one of three regular sub-patches, and the sample is the eigen-scaled projection `(P̂ᵀV) Λᵐ (V⁻¹b(u, v))` with the tangent pair from the basis derivatives.
 - Receipt: `SubdivisionReceipt(Levels, Vertices, Faces, Extraordinary, CreasedEdges, RegionClosures)` — the refinement census the Generation gate and `panelize.md` read; `LimitPositions`/`LimitNormals` ride the `Refined` case as columns, never a second result type.
 - Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`/`Multiply` — the subdivision and limit operators as data; `Matrix.Of` + `Matrix.DecomposeEigenDetailed` — the Stam eigenstructure), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` the quad publish), `Rasm.Meshing` (`MeshEdit.Of` the tri-scheme base normalization and publish arena), `Rasm.Numerics` (`GeometryFault.DevelopmentFault` + `DevelopmentStage`), `Rasm.Domain` (`Op`, `Context`, `ValidityClaim`/`IValidityEvidence`), Rhino.Geometry (`Mesh`/`Point3d`/`Vector3d` — the native quad publish seam), Thinktecture.Runtime.Extensions (`[SmartEnum]` + `[UseDelegateFromConstructor]` stencil columns), LanguageExt.Core (`Fin`/`Arr`/`Atom`/`HashMap`), BCL inbox (`ArrayPool<double>` level staging).
-- Growth: a new scheme is one `SubdivisionScheme` row with its delegate columns (Doo-Sabin, √3 — recorded); a new boundary behavior is one mask variant on the row; adaptive per-face sharpness is a `Creases` policy widening; a new limit quantity (limit curvature via the second eigen pair) is one mask column plus one SpMV; zero new entry surfaces, zero sibling subdividers.
+- Growth: a new PRIMAL scheme is one `SubdivisionScheme` row with its delegate columns; the recorded Doo-Sabin (dual) and √3 rows additionally widen the row with one refinement-topology delegate column read by the same fold — the `Arity ∈ {3,4}` rebuild gate keeps a topology-less row loud, never a silent primal fallthrough, and never a sibling subdivider; a new boundary behavior is one mask variant on the row; adaptive per-face sharpness is a `Creases` policy widening; a new limit quantity (limit curvature via the second eigen pair) is one mask column plus one SpMV; zero new entry surfaces.
 - Boundary: the scheme is DATA and the fold is ONE — a `CatmullClarkSubdivider`/`LoopSubdivider` class pair, a per-scheme refinement loop, or a hand-rolled half-edge structure beside the flat SoA incidence is the named density defect (the level store is offset-column SoA in the arena's own discipline: no twins, no next pointers, one sorted-key pass per level); the subdivision operator is a `matrix.md` sparse value and a per-vertex weight loop re-deriving the SpMV is the deleted flat form; limit evaluation is MANDATORY capability — a page emitting refined positions with no limit lane is the discrete-refinement half-concept this owner exists to exceed — and the eigenstructure is computed through the landed EVD owner, never a local eigensolver; the quad scheme's output PRESERVES quads (the consumer's arena admission triangulates when IT chooses — pre-triangulating here corrupts every level-≥2 refinement a downstream re-subdivision would run); `remesh.md` (row 19, Simplification) is REWRITE-UNDER-BUDGET and this page is SCHEME REFINEMENT — one anchor each, distinct charters, no shared machinery beyond the arena; every failure routes 2449 `Subdivision` with the level witness, and an exception crossing the surface is forbidden; OpenSubdiv stays the recorded rejection with its named gate.
 
 ```csharp signature
@@ -30,6 +30,9 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
+using Matrix = Rasm.Numerics.Matrix;
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Parametric;
 
@@ -50,9 +53,9 @@ public sealed partial class SubdivisionScheme {
 
     public static readonly SubdivisionScheme Loop = new(
         "loop", arity: 3,
-        vertexStencil: static n => Beta(n) switch { var b => (1.0 - (n * b), b, 0.0) },
+        vertexStencil: static n => Beta(n) switch { double b => (1.0 - (n * b), b, 0.0) },
         edgeStencil: static () => (0.375, 0.125),
-        limitStencil: static n => (3.0 / (8.0 * Beta(n))) switch { var w => (w / (w + n), 1.0 / (w + n), 0.0) },
+        limitStencil: static n => (3.0 / (8.0 * Beta(n))) switch { double w => (w / (w + n), 1.0 / (w + n), 0.0) },
         tangentWeight: TangentLoop,
         eigenbasis: static n => StamCache.For("loop", n));
 
@@ -154,7 +157,8 @@ public static class Subdivision {
     // Advance = ONE sorted-edge-key incidence pass (an edge with 3+ incident faces routes the fault)
     // → stencil triplets (interior rows off the scheme columns; boundary/crease/corner masks
     // override; region emission + ring closure counted) → SparseMatrix.FromTriplets → Multiply ×3
-    // → Arity connectivity rebuild; child creases carry Sharpness − 1.
+    // → Arity connectivity rebuild (the PRIMAL law: one quad per face corner at 4, four tris at 3 —
+    // an Arity outside {3,4} routes the fault loudly); child creases carry Sharpness − 1.
 
     static Fin<SubdivisionResult> Publish(SubdivideOp.Refine op, SubdivisionLevel terminal, int closures, Op? key);
     // Limit SpMV (LimitStencil rows) + tangent-mask SpMV pair → normals; Loop publishes through

@@ -22,11 +22,24 @@ The page owns the descriptor evidence (`DescriptorReceipt`/`DescriptorResult`/`M
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Threading;
 using Foundation.CSharp.Analyzers.Contracts;
+using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
+using Rasm.Spatial;
+using Rhino;
+using Rhino.Geometry;
+using Thinktecture;
+using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
@@ -744,7 +757,7 @@ internal static partial class SegmentKernel {
 ## [05]-[DIRECTION_FIELDS]
 
 - Owner: `CrossFieldKey` the value-identity cache probe (symmetry + canonically ordered constraints + canonically ordered cones — permuted prescriptions hit one memo, through the `mesh` cache's one type-keyed `Memoized` entry); the `SegmentKernel` GODF arms and the stripe scalar.
-- Entry: `SegmentKernel.CrossFieldAt(space, symmetry, constraints, cones, sample, key)` → `Fin<Vector3d>` (the frozen `VectorField.CrossField` delegate — the n-RoSy representative direction at the sample); `SegmentKernel.StripeAt(space, crossField, frequency, sample, key)` → `Fin<double>` (the frozen `ScalarField.Stripe` delegate — the cross-field-aligned level-set scalar).
+- Entry: `SegmentKernel.CrossFieldAt(space, symmetry, constraints, cones, sample, key)` → `Fin<Vector3d>` (the frozen `VectorField.CrossField` delegate — the n-RoSy representative direction at the sample); `SegmentKernel.StripeAt(space, crossField, frequency, sample, key)` → `Fin<double>` (the frozen `ScalarField.Stripe` delegate — the cross-field-aligned level-set scalar). Both entries re-prove their raw ingress — `symmetry ∈ {1,2,4,6}`, positive finite frequency — so a direct kernel caller meets the same gate the field factories admit through.
 - Auto: the smoothest field solves the SMALLEST eigenpair of the Hermitian vertex connection Laplacian by the `matrix` LOBPCG owner — the residual tolerance travels RELATIVE to the operator scale (the full-Hermitian Frobenius norm, mirrored off-diagonals counted twice, floored at `SqrtEpsilon`) and the iteration ceiling travels off the Krylov dimension (`ceil(√n)` times the budget, clamped to `n`) — a bare absolute floor or a magic iteration const is the rejected form; the gate accepts ONLY `EigenSolveStop.ResidualConverged`. The constrained field encodes hints as `symmetry`-th powers of unit tangent complexes, rescales by the mass B-norm so hint energy is independent of hint count, stacks the mass-weighted RHS as `[Re; Im]`, and solves through the cached real-block connection Cholesky at the shift-reciprocal time. Cone prescriptions route the `dec` trivial-connection owner (`DistributeHolonomy` over cone indices `deficit/2π`) into the connection assembly as edge adjustments — the holonomy math is composed, never re-derived. Sampling decodes the n-RoSy angle (`atan2/symmetry`) through barycentrically blended vertex frames.
 - Boundary: per-vertex normalization floors at `ZeroTolerance` (a zero connection component decodes to the zero vector, not NaN); the connection transport angles (`Rho` rows) are the `mesh` signpost seam — `MeshKernel.ConnectionEntriesOf` over the intrinsic snapshot, the SAME rows the cached real-block `ConnectionCholesky` assembles from, and a page-local transport-angle derivation is the deleted fourth transport path; the Hermitian eigen path and the real-block Cholesky path are TWO discretizations of one operator, both assembled from the SAME connection entries.
 
@@ -763,7 +776,10 @@ internal static partial class SegmentKernel {
     private const int CrossFieldKrylovBudget = 16;
 
     // --- [CROSS_FIELD]
+    // Direct internal callers meet the same {1,2,4,6} proof the fields factory admits through — the
+    // n-RoSy classes the decode owns; an unproven symmetry never reaches the connection assembly.
     internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Point3d sample, Op key) =>
+        from _ in guard(symmetry is 1 or 2 or 4 or 6, key.InvalidInput())
         from cached in space.Cache.Memoized(probe: CrossFieldKey.Of(symmetry: symmetry, constraints: constraints, cones: cones),
             compute: () => ComputeCrossField(space: space, symmetry: symmetry, constraints: constraints, cones: cones, key: key))
         from value in MeshProbe.ComplexBlend(space: space, sample: sample, perVertex: cached, key: key,
@@ -879,6 +895,7 @@ internal static partial class SegmentKernel {
 
     // --- [STRIPE_PATTERN] — cross-field-aligned level-set scalar
     internal static Fin<double> StripeAt(MeshSpace space, VectorField crossField, double frequency, Point3d sample, Op key) =>
+        from _ in guard(double.IsFinite(frequency) && frequency > 0.0, key.InvalidInput())
         from cross in crossField.SampleVector(sample: sample, context: space.Tolerance, key: key)
         from value in MeshProbe.ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => {
             FrameBundle frames = FrameBundle.For(space.Native);

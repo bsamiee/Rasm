@@ -31,6 +31,8 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
+using IndexSet = System.Collections.Generic.HashSet<int>;
 
 namespace Rasm.Meshing;
 
@@ -613,13 +615,13 @@ public static class Intersection {
     // second outgoing OR second incoming on one endpoint is the non-manifold junction fault.
     static Fin<IntersectResult> Walk(CrossLattice lattice, IntersectKind kind) {
         Dictionary<int, int> outgoing = new();
-        HashSet<int> incoming = new();
+        IndexSet incoming = new();
         foreach ((int a, int b, _, _) in lattice.Segments) {
             if (!outgoing.TryAdd(a, b) || !incoming.Add(b)) {
                 return Fin.Fail<IntersectResult>(new GeometryFault.IntersectionFault(kind.A, kind.B).ToError());
             }
         }
-        HashSet<int> visited = new();
+        IndexSet visited = new();
         List<Chain> chains = new();
         // Seeds in SLOT order, sources first: emission order is deterministic — intern order is a
         // function of the input alone, never of dictionary iteration.

@@ -20,14 +20,26 @@ The page owns the trace policies (`GeodesicTracePolicy`, `WindowPropagationPolic
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
+using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
+using Rhino;
+using Rhino.Geometry;
+using Thinktecture;
+using static LanguageExt.Prelude;
+// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
+using IndexSet = System.Collections.Generic.HashSet<int>;
 using IntrinsicEdge = Rasm.Meshing.MeshKernel.IntrinsicEdge;
 using IntrinsicMesh = Rasm.Meshing.MeshKernel.IntrinsicMesh;
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
@@ -36,7 +48,7 @@ namespace Rasm.Processing;
 // LaplacianCache rides (ConditionalWeakTable keyed by Mesh reference). Vector heat, cross fields, and stripe
 // decoding all encode/decode tangent complexes through ONE bundle; a second frame derivation is the deleted form.
 internal sealed record FrameBundle(Vector3d[] X, Vector3d[] Y, Vector3d[] N) {
-    private static readonly ConditionalWeakTable<Mesh, FrameBundle> Table = [];
+    private static readonly ConditionalWeakTable<Mesh, FrameBundle> Table = new();
     internal static FrameBundle For(Mesh mesh) => Table.GetValue(key: mesh, createValueCallback: static m => Compute(mesh: m));
     internal Complex Tangent(Vector3d direction, int vertex) => new(real: direction * X[vertex], imaginary: direction * Y[vertex]);
     private static FrameBundle Compute(Mesh mesh) {
@@ -156,8 +168,8 @@ internal static partial class GeodesicKernel {
         double[][] coordinates = [new double[n], new double[n], new double[n]];
         for (int i = 0; i < n; i++) { Point3d v = space.Native.Vertices[index: i]; coordinates[0][i] = v.X; coordinates[1][i] = v.Y; coordinates[2][i] = v.Z; }
         return toSeq(Enumerable.Range(start: 0, count: iterations)).Fold(
-            initialState: Fin.Succ(coordinates),
-            f: (state, _) => state.Bind(current => {
+            Fin.Succ(coordinates),
+            (state, _) => state.Bind(current => {
                 double[][] rhs = [new double[n], new double[n], new double[n]];
                 for (int i = 0; i < n; i++) { double m = mass[index: i]; rhs[0][i] = m * current[0][i]; rhs[1][i] = m * current[1][i]; rhs[2][i] = m * current[2][i]; }
                 return toSeq(rhs).TraverseM(axis => system.Solve(rhs: new Arr<double>(axis), key: key).Map(solution => solution.AsIterable().ToArray())).As().Map(axes => axes.AsIterable().ToArray());
@@ -240,21 +252,8 @@ internal static partial class GeodesicKernel {
         for (int e = 0; e < perEdge.Length; e++) perEdge[e] = [];
         PriorityQueue<PendingWindow, double> frontier = new();
         int occlusionClamps = 0; int pseudosourceCount = 0;
-        // Seed: every source-incident face casts a window onto its opposite edge; sigma = 0.
-        foreach (int f in imesh.LiveFaceIndices()) {
-            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
-            if (a != source && b != source && c != source) continue;
-            (int vL, int vH) = a == source ? (b, c) : b == source ? (c, a) : (a, b);
-            int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vL, val2: vH), hi: Math.Max(val1: vL, val2: vH));
-            if (edgeIndex < 0) continue;
-            IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
-            if (!(edge.Length > RhinoMath.ZeroTolerance)) continue;
-            double dLo = imesh.EdgeLengthOf(i: source, j: edge.Lo); double dHi = imesh.EdgeLengthOf(i: source, j: edge.Hi);
-            (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: dLo, d1: dHi);
-            vertexDistance[edge.Lo] = Math.Min(val1: vertexDistance[edge.Lo], val2: dLo);
-            vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: dHi);
-            EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: 0.0, pseudosource: source, dropped: out _);
-        }
+        // Seed: the source casts exactly like a saddle at sigma = 0 — ONE vertex-cast owner serves seed and saddle.
+        _ = CastVertexWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, vertex: source, sigma: 0.0, vertexDistance: vertexDistance);
         // Wavefront: pop nearest, unfold across, update the apex inside the shadow, cast children, shed saddles.
         // Cone angles precomputed in ONE face sweep — the per-pop saddle test reads the array, never rescans faces.
         double[] coneAngle = ConeAnglesOf(imesh: imesh);
@@ -278,7 +277,7 @@ internal static partial class GeodesicKernel {
             CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eLoApex, near: baseEdge.Lo, nearX: 0.0, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
             CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eHiApex, near: baseEdge.Hi, nearX: baseLength, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
             if (RhinoMath.IsValidDouble(x: vertexDistance[apex]) && imesh.IsInteriorVertex(vertex: apex) && coneAngle[apex] > saddleThreshold
-                && SeedSaddleWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, saddle: apex, sigma: vertexDistance[apex], vertexDistance: vertexDistance) > 0)
+                && CastVertexWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, vertex: apex, sigma: vertexDistance[apex], vertexDistance: vertexDistance) > 0)
                 pseudosourceCount++;
         }
         // Stranded-vertex cleanup: ONE Jacobi edge sweep against a snapshot (order-independent; the wavefront's
@@ -318,21 +317,23 @@ internal static partial class GeodesicKernel {
         if ((d0 * d0) - (sx * sx) < 0.0) clamps++;
         EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: fromFace, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: win.Sigma, pseudosource: win.Pseudosource, dropped: out _);
     }
-    private static int SeedSaddleWindows(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int saddle, double sigma, double[] vertexDistance) {
+    // ONE vertex-cast owner: the source seed (sigma = 0) and every saddle pseudosource re-emission are the
+    // SAME fold over the vertex's incident faces — a second seeding loop was the deleted duplicate.
+    private static int CastVertexWindows(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int vertex, double sigma, double[] vertexDistance) {
         int seeded = 0;
         foreach (int f in imesh.LiveFaceIndices()) {
             (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
-            if (a != saddle && b != saddle && c != saddle) continue;
-            (int vL, int vH) = a == saddle ? (b, c) : b == saddle ? (c, a) : (a, b);
+            if (a != vertex && b != vertex && c != vertex) continue;
+            (int vL, int vH) = a == vertex ? (b, c) : b == vertex ? (c, a) : (a, b);
             int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vL, val2: vH), hi: Math.Max(val1: vL, val2: vH));
             if (edgeIndex < 0) continue;
             IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
             if (!(edge.Length > RhinoMath.ZeroTolerance)) continue;
-            double dLo = sigma + imesh.EdgeLengthOf(i: saddle, j: edge.Lo); double dHi = sigma + imesh.EdgeLengthOf(i: saddle, j: edge.Hi);
+            double dLo = sigma + imesh.EdgeLengthOf(i: vertex, j: edge.Lo); double dHi = sigma + imesh.EdgeLengthOf(i: vertex, j: edge.Hi);
             (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: dLo, d1: dHi);
             vertexDistance[edge.Lo] = Math.Min(val1: vertexDistance[edge.Lo], val2: dLo);
             vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: dHi);
-            EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: sigma, pseudosource: saddle, dropped: out bool dropped);
+            EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: sigma, pseudosource: vertex, dropped: out bool dropped);
             if (!dropped) seeded++;
         }
         return seeded;
@@ -689,7 +690,7 @@ internal static partial class GeodesicKernel {
         int[] vid = [a, b, c];
         LayoutFace(imesh: imesh, va: a, vb: b, vc: c, px: px, py: py);
         double tx = targetX; double ty = targetY;
-        System.Collections.Generic.HashSet<int> seen = [face];
+        IndexSet seen = [face];
         for (int hop = 0; hop < maxHops; hop++) {
             int sLocal = vid[0] == source ? 0 : vid[1] == source ? 1 : vid[2] == source ? 2 : -1;
             if (sLocal >= 0) {
@@ -899,7 +900,7 @@ internal static partial class GeodesicKernel {
         if (!sourceDirection.Unitize()) sourceDirection = frames.X[source];
         return from distances in EnsureGeodesicDistances(space: space, sources: Seq(source), key: key)
                from distance in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: distances, key: key)
-               from transported in VectorHeatAt(space: space, sources: toSeq([(Vertex: source, Direction: sourceDirection)]), time: time, sample: sample, key: key)
+               from transported in VectorHeatAt(space: space, sources: Seq((Vertex: source, Direction: sourceDirection)), time: time, sample: sample, key: key)
                // The REAL magnitude residual: vector-heat transported magnitude vs the heat distance, read BEFORE the
                // unit rescale (the returned tangent has |t| = distance by construction, so a post-scale residual is 0).
                let residual = Math.Abs(value: transported.Length - distance)

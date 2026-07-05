@@ -37,6 +37,9 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry.Matrix/Dimension collide with the Rasm.Numerics owners under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
+using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Solving;
 

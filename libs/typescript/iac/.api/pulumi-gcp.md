@@ -80,7 +80,7 @@ This is the integration shape of the prepared row: the `provider/surface` `gcp` 
 | :-----: | :--------------------------------- | :---------------------------------------------------------------- |
 |  [01]   | typed workloads (k8s cluster)      | `container.Cluster` + `container.NodePool` (GKE)                   |
 |  [02]   | CNPG PG18.4 database               | `sql.DatabaseInstance` + `sql.Database` + `sql.User` (Cloud SQL)   |
-|  [03]   | object-store (MinIO / Garage)      | `storage.Bucket` + `storage.BucketIAMMember` (GCS)                 |
+|  [03]   | object-store (conditional-put row) | `storage.Bucket` + `storage.BucketIAMMember` (GCS)                 |
 |  [04]   | cert / dns / ingress (traffic)     | `dns.ManagedZone` + `dns.RecordSet`; `certificatemanager.Certificate`; `compute.GlobalAddress`/`compute.URLMap` |
 |  [05]   | secret owner (Doppler)             | `secretmanager.Secret` + `secretmanager.SecretVersion`            |
 |  [06]   | identity / RBAC                    | `serviceaccount.Account`; `projects.IAMMember`; `organizations.getClientConfig` |

@@ -78,7 +78,7 @@
 | [INDEX] | [CAPABILITY]                     | [AWS RESOURCE CLASS]                                             | [SELFHOSTED-K8S EQUIVALENT]                       |
 | :-----: | :------------------------------- | :-------------------------------------------------------------- | :------------------------------------------------ |
 |  [01]   | managed Postgres (`store` matrix)| `aws.rds.Cluster` / `aws.rds.Instance` (Aurora PG18)            | the CNPG-provisioned PG18.4-extension image       |
-|  [02]   | object store                     | `aws.s3.BucketV2`                                               | the MinIO-vs-Garage object row                    |
+|  [02]   | object store                     | `aws.s3.BucketV2`                                               | the conditional-put self-host object row          |
 |  [03]   | container compute                | `aws.ecs.Cluster` / `aws.eks.Cluster`                          | typed `@pulumi/kubernetes` workloads              |
 |  [04]   | ingress / load balancing         | `aws.lb.LoadBalancer` (+ `Listener`/`TargetGroup`)             | the `kube/traffic` ingress row                    |
 |  [05]   | TLS certificate                  | `aws.acm.Certificate`                                          | the `kube/traffic` cert row                       |

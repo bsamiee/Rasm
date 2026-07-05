@@ -139,6 +139,8 @@ public readonly record struct SpectralAssemblyReceipt(
         ValidityClaim.Nonnegative(value: SymmetryResidual),
         ValidityClaim.Of(AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount),
         ValidityClaim.Of(SymmetryResidual <= SymmetryTolerance),
+        // Tolerance 0 = witness-only (the minting assembly gated the residual itself); positive enforces.
+        ValidityClaim.Of(BoundaryCompositionTolerance <= 0.0 || BoundaryCompositionResidual <= BoundaryCompositionTolerance),
         ValidityClaim.Of(FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)),
         ValidityClaim.Of(Kind is not null
             && (Kind.Equals(SpectralAssemblyKind.EdgeConnection)

@@ -21,10 +21,22 @@ The page owns the stop vocabularies (`AlignmentStopKind`, `AlignmentOptimizerSto
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
+using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
+using Rhino;
+using Rhino.Geometry;
+using Thinktecture;
+using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
+using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Processing;
 

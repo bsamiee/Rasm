@@ -34,13 +34,14 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 

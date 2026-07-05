@@ -17,7 +17,7 @@ The measured-query runtime — the kernel's public analysis entry. `AnalysisQuer
 - Auto: `SurfaceForm`/`BrepForm` collapse onto `Coerce(typeof(Surface))`/`Coerce(typeof(Brep))` because their operations are the same coercion op gated by the same output-type test — three factory spellings, one case, one operation; `Kind` routes to `Selection(Topologies.Kind)` and parameterless `Bounds()` defaults to `Bounds(Bounds.AxisAligned)` because those requests were always the identical operations reached through a second vocabulary. The `Conformance` factory computes its percentile payload eagerly — percentiles survive only under `ConformanceMetric.Distribution`, every other metric carries the empty `Seq<double>`.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, generated `Switch`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Eff`), `Rasm.Domain` (`Op`/`Fault`/`Requirement`/`Context`/`Kind` capability web/`CurveForm`/`ClosestHit`/coercion-evaluation extension lattice), `Rasm.Spatial` (`NeighborIndex`/`NeighborQuery`/`NeighborSource`/`NeighborAnswer` — the `Spatial/neighbors` substrate), RhinoCommon (`Point3d`/`Point2d`/`BoundingBox`/`Sphere` payload values).
 - Growth: a new query modality is one case on the owning band plus one factory — a family page gaining a capability adds a case to ITS union and this algebra is untouched; a new relation is one case forwarding to a `Analysis/relations` builder; a new spatial probe shape is one `NeighborQuery` case on the `Spatial/neighbors` owner. A new band is admitted only by charter amendment.
-- Boundary: the request algebra is ONE union — a `GeometryRequest`-style second ADT wrapped by a `Geometry(…)` case and re-dispatched through a `request switch` mapping into the same operations is the collapsed dead form, and the twin coercion builders it forced (`GeometryCoerce` beside `Coerce`) collapse to one; factory spellings preserve every absorbed request (`Kind`, `Bounds`, `CurveForm`, `SurfaceForm`, `BrepForm`, `Vertices`, `SamplePoints`, `SurfaceUv`, `Closest`, `SignedDistance`) so no consumer capability is dropped by the unification; the output-type gates (`Output == typeof(TOut)`, `typeof(TOut) == typeof(CurveForm)`) reject at operation-build time onto the `Fault.Unsupported` rail — code 9104, the host binding's probe discriminant — never at evaluation; the geometry-band operations compose the `Domain/normalization` coercion lattice and the `Domain/evaluation` closest/sampling surface as settled owner vocabulary (`CoerceTo<TOut>`/`CurveForm`/`SurfaceForm`/`CurveFormOf`/`VerticesOf`/`SamplePoints`/`SurfaceUv`/`ClosestOf`/`SignedDistanceOf`), never re-implementing a coercion or an evaluation locally; the spatial band rides ONE service spine — every builder resolves its index, forwards to the `Spatial/neighbors` owner's `NeighborIndex.Query` dispatch (`Box`/`Ball`/`Overlaps`/`Pairs` cases) with the runtime token threaded into the substrate's cancellation capsule, and projects its `NeighborAnswer` union (`Hits(Seq<NeighborHit>)` and `PairsFound(Seq<NeighborPair>)` are the two arms this band lifts, every other answer shape rejects as `InvalidResult`); pair-probe admission is the substrate's own law — volume/overlap/nested probes refuse THERE, so a new pair-admissible probe lands as one upstream case with zero edits here — and a query-side probe whitelist, RTree wrapper, or second answer vocabulary beside that substrate is the deleted parallel rail.
+- Boundary: the request algebra is ONE union — a `GeometryRequest`-style second ADT wrapped by a `Geometry(…)` case and re-dispatched through a `request switch` mapping into the same operations is the collapsed dead form, and the twin coercion builders it forced (`GeometryCoerce` beside `Coerce`) collapse to one; factory spellings preserve every absorbed request (`Kind`, `Bounds`, `CurveForm`, `SurfaceForm`, `BrepForm`, `Vertices`, `SamplePoints`, `SurfaceUv`, `Closest`, `SignedDistance`) so no consumer capability is dropped by the unification; the output-type gates (`Output == typeof(TOut)`, `typeof(TOut) == typeof(CurveForm)`) reject at operation-build time onto the `Fault.Unsupported` rail — code 9104, the host binding's probe discriminant — never at evaluation, while spatial VALUE defects (an invalid box or sphere, a negative or non-finite tolerance) reject `InvalidInput` at build so 9104 stays a pure modality discriminant; the geometry-band operations compose the `Domain/normalization` coercion lattice and the `Domain/evaluation` closest/sampling surface as settled owner vocabulary (`CoerceTo<TOut>`/`CurveForm`/`SurfaceForm`/`CurveFormOf`/`VerticesOf`/`SamplePoints`/`SurfaceUv`/`ClosestOf`/`SignedDistanceOf`), never re-implementing a coercion or an evaluation locally; the spatial band rides ONE service spine — every builder resolves its index, forwards to the `Spatial/neighbors` owner's `NeighborIndex.Query` dispatch (`Box`/`Ball`/`Overlaps`/`Pairs` cases) with the runtime token threaded into the substrate's cancellation capsule, and projects its `NeighborAnswer` union (`Hits(Seq<NeighborHit>)` and `PairsFound(Seq<NeighborPair>)` are the two arms this band lifts, every other answer shape rejects as `InvalidResult`); pair-probe admission is the substrate's own law — volume/overlap/nested probes refuse THERE, so a new pair-admissible probe lands as one upstream case with zero edits here — and a query-side probe whitelist, RTree wrapper, or second answer vocabulary beside that substrate is the deleted parallel rail.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -25,6 +25,7 @@ using System;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Parametric;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
@@ -114,7 +115,7 @@ public static partial class Analyze {
             ? Operation<TGeometry, TOut>.Build(key: key, requirement: Requirement.Basic, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from value in geometry.CoerceTo<TOut>(context: context, op: op).ToEff()
+                    from value in geometry.CoerceTo<TOut>(context: context, key: op).ToEff()
                     from output in new AnalysisOutput<TOut>(Key: op).One(value: value).ToEff()
                     select output)
             : key.Unsupported<TGeometry, TOut>();
@@ -172,17 +173,23 @@ public static partial class Analyze {
 
     // --- [SPATIAL_BAND_BUILDERS]
     internal static Operation<Unit, TOut> SpatialSearch<TOut>(NeighborIndex index, BoundingBox box, Op key) where TOut : notnull =>
-        typeof(TOut) == typeof(NeighborHit) && box.IsValid
-            ? SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(index), query: new NeighborQuery.BoxCase(Bounds: box), anchor: box.Center)
-            : key.Unsupported<Unit, TOut>();
+        (typeof(TOut) == typeof(NeighborHit), box.IsValid) switch {
+            (false, _) => key.Unsupported<Unit, TOut>(),
+            (_, false) => Operation<Unit, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            _ => SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(index), query: new NeighborQuery.BoxCase(Bounds: box), anchor: box.Center),
+        };
     internal static Operation<Unit, TOut> SpatialSearch<TOut>(NeighborIndex index, Sphere sphere, Op key) where TOut : notnull =>
-        typeof(TOut) == typeof(NeighborHit) && sphere.IsValid
-            ? SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(index), query: new NeighborQuery.BallCase(Ball: sphere), anchor: sphere.Center)
-            : key.Unsupported<Unit, TOut>();
+        (typeof(TOut) == typeof(NeighborHit), sphere.IsValid) switch {
+            (false, _) => key.Unsupported<Unit, TOut>(),
+            (_, false) => Operation<Unit, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            _ => SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(index), query: new NeighborQuery.BallCase(Ball: sphere), anchor: sphere.Center),
+        };
     internal static Operation<Unit, TOut> SpatialOverlaps<TOut>(NeighborIndex left, NeighborIndex right, double tolerance, Op key) where TOut : notnull =>
-        typeof(TOut) == typeof(NeighborPair) && double.IsFinite(tolerance) && tolerance >= 0.0
-            ? SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(left), query: new NeighborQuery.OverlapsCase(Other: right, Tolerance: tolerance), anchor: Point3d.Origin)
-            : key.Unsupported<Unit, TOut>();
+        (typeof(TOut) == typeof(NeighborPair), double.IsFinite(tolerance) && tolerance >= 0.0) switch {
+            (false, _) => key.Unsupported<Unit, TOut>(),
+            (_, false) => Operation<Unit, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            _ => SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(left), query: new NeighborQuery.OverlapsCase(Other: right, Tolerance: tolerance), anchor: Point3d.Origin),
+        };
     internal static Operation<Unit, TOut> SpatialPointPairs<TOut>(Seq<Point3d> points, Seq<Point3d> needles, NeighborQuery probe, Op key) where TOut : notnull =>
         typeof(TOut) == typeof(NeighborPair)
             ? SpatialService<TOut>(key: key, resolve: op => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: points), key: op), query: new NeighborQuery.PairsCase(Needles: needles, Probe: probe), anchor: Point3d.Origin)

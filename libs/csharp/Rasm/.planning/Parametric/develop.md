@@ -30,6 +30,7 @@ using MathNet.Numerics.RootFinding;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Domain;
+using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Processing;
 using Rhino.Geometry;
@@ -51,7 +52,7 @@ public sealed record DevelopPolicy(
         ValidityClaim.Positive(value: StripWidth),
         ValidityClaim.Positive(value: TorsalTolerance),
         ValidityClaim.Positive(value: IsometryBudget),
-        RulingStations > 1);
+        ValidityClaim.CountAtLeast(count: RulingStations, floor: 2));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
@@ -121,15 +122,16 @@ public static class Development {
     // third vertex by two-circle intersection on 3D lengths — no solve, no relaxation. The witness
     // accumulates Σ(‖e‖₃D−‖e‖₂D)² in ddouble and narrows ONLY at readout.
     static Fin<DevelopmentResult> UnrollOf(SurfaceResult.UvTessellation source, DevelopPolicy policy, StripField field, Op? key) =>
-        StripCount(field) is var strips && strips == 0
-            ? Fault<DevelopmentResult>(unit: 0, witness: 0.0)
-            : Range(0, strips).Fold(
+        StripCount(field) switch {
+            0 => Fault<DevelopmentResult>(unit: 0, witness: 0.0),
+            int strips => Range(0, strips).Fold(
                     Fin.Succ(Seq<UnrolledStrip>()),
                     (state, strip) => state.Bind(done => Develop(source, field, strip).Bind(unrolled =>
                         (double)unrolled.Witness <= policy.IsometryBudget
                             ? Fin.Succ(done.Add(unrolled))
                             : Fault<Seq<UnrolledStrip>>(unit: strip, witness: (double)unrolled.Witness))))
-                .Bind(unrolled => Emit(source, field, unrolled, key));
+                .Bind(unrolled => Emit(source, field, unrolled, key)),
+        };
 
     internal readonly record struct UnrolledStrip(int Strip, Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Planar, ddouble Witness, double MaxJacobianRatio);
 

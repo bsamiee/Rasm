@@ -47,6 +47,7 @@ public static class ContentHash {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
+using Rhino;
 
 namespace Rasm.Domain;
 

@@ -218,7 +218,7 @@ public static partial class Analyze {
 - Owner: `MeshSampleGroup` `[BoundaryAdapter]` `[SmartEnum<int>]` — five bands (`None`/`Validity`/`Count`/`Defect`/`Quality`) with the `Inspect` column marking the one band that demands a `Mesh.Check` capture, and `Kinds` deriving each band's row set from the full `MeshSampleKind.Items` — the band membership IS the query, never a hand-kept list. `MeshSampleKind` `[SmartEnum<int>]` — thirty-plus rows binding the band and the `[UseDelegateFromConstructor]` `Sample(Mesh, MeshCheckParameters)` delegate: validity flags (`Valid`/`Closed`/`Oriented`/`Solid`/`Manifold`/`BoundaryFree`), census counts (`Vertices`/`Faces`/`Triangles`/`Quads`/`Edges`/`Euler`/`VisiblePolygons` — the topology rows reusing the `TopologyScalar` extractors), the THIRTEEN defect counters reading the threaded `MeshCheckParameters` capture (`DegenerateFaceCount`/`DisjointMeshCount`/`DuplicateFaceCount`/`ExtremelyShortEdgeCount`/`InvalidNgonCount`/`NakedEdgeCount`/`NonManifoldEdgeCount`/`NonUnitVectorNormalCount`/`RandomFaceNormalCount`/`SelfIntersectingPairsCount`/`UnusedVertexCount`/`VertexFaceNormalsDifferCount`/`ZeroLengthNormalCount`), and quality folds (`MaximumValence`/`MinimumValence`/`AverageValence` over `TopologyVertices.ConnectedEdgesCount`, `BoundaryLoopCount`, `Genus`). `MeshMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` — six rows (`None` rejecting, `EdgeAspect`/`Area`/`Perimeter`/`Skewness`/`DihedralAngle`) measuring one visible polygon through the `[UseDelegateFromConstructor]` measure delegate. `Meshes` `[Union]` — `SamplesCase(MeshSampleGroup)`/`FaceQualityCase(MeshMetric)`/`FaceShapeCase`/`AtVisiblePolygonCase(Option<int>)`/`VisiblePolygonCountCase`/`NakedEdgesCase`/`OutlineCase(Plane)`.
 - Cases: `Meshes` 7 declared (factories `Validity`/`Counts`/`Defects`/`Quality`/`FaceQuality`/`FaceShape`/`AtVisiblePolygon`/`VisiblePolygonCount`/`NakedEdges`/`Outline`); `MeshSampleKind` 32 rows in 5 bands; `MeshMetric` 6 rows.
 - Entry: `Meshes.Operation<TGeometry, TOut>()` — every arm lifts through `MeshLift` (the `Analyze.Native` mesh specialization: a typed `Operation<Mesh, TValue>` applied to any geometry that IS a mesh, rejecting the rest), so the family accepts `object`-typed pipelines and stays mesh-strict at evaluation.
-- Auto: the sample census runs `Mesh.Check` ONCE — `MeshCheck` captures `MeshCheckParameters.Defaults()` through `Requirement.MeshReport`, and the band's rows all read the same capture; visible-polygon resolution (`VisiblePolygonSourceOf`) maps an ngon-or-face onto the canonical `ComponentIndex` (`MeshNgon` where the face belongs to an ngon, `MeshFace` otherwise) so every per-polygon metric addresses the SAME component vocabulary the rest of the corpus uses; `VerticesOf` extracts the polygon boundary ring (`GetFaceVertices` for faces, `NgonBoundaryVertexList` for ngons); metric measurement short-circuits host fast paths (`GetFaceAspectRatio` for face aspect; `FaceNormals` for face normals) and folds the ring metric via `VectorCloud.Ring` + `VectorIntent.Cloud` everywhere else; ngon area sums constituent-face areas, ngon normals area-weight constituent face normals, and the dihedral fold walks `AdjacentFaces` neighbours (ngon-external only) taking the maximum `VectorIntent.Angular` normal angle; `MeshMetricStatOp` folds any metric's samples through the `Domain/stats` Welford `Stat.Of` so per-polygon streams and their summary ride one machinery.
+- Auto: the sample census runs `Mesh.Check` ONCE — `MeshCheck` captures `MeshCheckParameters.Defaults()` through `Requirement.MeshReport`, and the band's rows all read the same capture; visible-polygon resolution (`VisiblePolygonSourceOf`) maps an ngon-or-face onto the canonical `ComponentIndex` (`MeshNgon` where the face belongs to an ngon, `MeshFace` otherwise) so every per-polygon metric addresses the SAME component vocabulary the rest of the corpus uses; `VerticesOf` extracts the polygon boundary ring (`GetFaceVertices` for faces, `NgonBoundaryVertexList` for ngons); metric measurement short-circuits host fast paths (`GetFaceAspectRatio` for face aspect; `FaceNormals` for face normals) and folds the ring metric via `VectorCloud.Ring` + `VectorIntent.Cloud` everywhere else; ngon area sums constituent-face areas, ngon normals area-weight constituent face normals, and the dihedral fold walks `AdjacentFaces` neighbours (ngon-external only) taking the maximum `VectorIntent.Angular` normal angle; `MeshMetricStatOp` folds any metric's samples through the `Domain/stats` Welford `Stat.Of` so per-polygon streams and their summary ride one machinery; the per-polygon folds read the runtime token between polygons, so a cancelled run faults `Fault.Cancelled` mid-census instead of finishing a stale sweep.
 - Receipt: `MeshSample(Kind, Value)` — non-negative sample under a real band; `MeshMetricSample(Source, Value)` — addressed finite non-negative measurement; `MeshFaceShape(Source, Shape)` — addressed `Spatial/cloud` `VectorCloudShape` classification; all three declare `IValidityEvidence` through the `Domain/rails` `ValidityClaim` fold, oracle-admitted.
 - Packages: RhinoCommon (`Mesh.Check` + `MeshCheckParameters`, `MeshNgon` + `Ngons` census, `Faces` `GetFaceVertices`/`GetFaceAspectRatio`/`AdjacentFaces`/`TriangleCount`/`QuadCount`, `FaceNormals.ComputeFaceNormals`, `TopologyVertices.ConnectedEdgesCount`, `GetNakedEdges`, `GetOutlines(Plane)`, `GetNgonAndFacesEnumerable`/`GetNgonAndFacesCount`, `ComponentIndex`), `Rasm.Spatial` (`VectorCloud.Ring`, `VectorCloudMetric`, `VectorCloudShape`), `Rasm.Processing` (`VectorIntent.Cloud`/`Direction`/`Angular`), `Rasm.Domain` (`Requirement.MeshCheck`/`MeshReport`, `Stat`, `TopologyProjection`, `Op`/`Fault` rail), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new mesh sample is one `MeshSampleKind` row in its band — the census, the banded factories, and the receipt machinery are untouched; a new face metric is one `MeshMetric` row binding a measure delegate over the SAME polygon resolution; a new polygon-level extraction is one `Meshes` case lifted through `MeshLift`.
@@ -229,6 +229,7 @@ public static partial class Analyze {
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using Rasm.Domain;
@@ -469,22 +470,24 @@ public static partial class Analyze {
     internal static Operation<Mesh, MeshMetricSample> MeshMetricSamplesOp(MeshMetric metric, Op key) =>
         Operation<Mesh, MeshMetricSample>.Build(key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck, requiresContext: true,
             evaluator: static (state, geometry) =>
-                from context in Env.Asks
-                from samples in MeshMetricSamples(mesh: geometry, metric: state.Metric, context: context, key: state.Key).ToEff()
+                from runtime in Env.EnvAsks
+                from samples in MeshMetricSamples(mesh: geometry, metric: state.Metric, context: runtime.Context, key: state.Key, cancel: runtime.Cancellation).ToEff()
                 select samples);
     internal static Operation<Mesh, Stat> MeshMetricStatOp(MeshMetric metric, Op key) =>
         Operation<Mesh, Stat>.Build(key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck, requiresContext: true,
             evaluator: static (state, geometry) =>
-                from context in Env.Asks
-                from stat in MeshMetricSamples(mesh: geometry, metric: state.Metric, context: context, key: state.Key)
+                from runtime in Env.EnvAsks
+                from stat in MeshMetricSamples(mesh: geometry, metric: state.Metric, context: runtime.Context, key: state.Key, cancel: runtime.Cancellation)
                     .Bind(samples => Stat.Of(values: samples.Map(static sample => sample.Value), key: state.Key))
                     .Bind(stat => state.Key.Accept(value: stat)).ToEff()
                 select stat);
     internal static Operation<Mesh, MeshFaceShape> MeshFaceShapesOp(Op key) =>
         Operation<Mesh, MeshFaceShape>.Build(key: key, state: key, requirement: Requirement.MeshCheck, requiresContext: true,
             evaluator: static (op, geometry) =>
-                from context in Env.Asks
-                from shapes in VisiblePolygonsOf(mesh: geometry, key: op).Bind(polygons => polygons.TraverseM(polygon => MeshMetric.Shape(mesh: geometry, polygon: polygon, context: context, key: op)).As()).ToEff()
+                from runtime in Env.EnvAsks
+                from shapes in VisiblePolygonsOf(mesh: geometry, key: op).Bind(polygons => polygons.TraverseM(polygon => runtime.Cancellation.IsCancellationRequested
+                    ? Fin.Fail<MeshFaceShape>(new Fault.Cancelled())
+                    : MeshMetric.Shape(mesh: geometry, polygon: polygon, context: runtime.Context, key: op)).As()).ToEff()
                 select shapes);
     internal static Operation<Mesh, TopologyProjection> MeshAtVisiblePolygon(Option<int> index = default) {
         Op key = Op.Of();
@@ -526,8 +529,10 @@ public static partial class Analyze {
                 uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
                 _ => Fin.Fail<ComponentIndex>(key.InvalidInput()),
             }));
-    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Context context, Op key) =>
-        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => metric.Sample(mesh: mesh, polygon: polygon, context: context, key: key)).As());
+    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Context context, Op key, CancellationToken cancel) =>
+        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => cancel.IsCancellationRequested
+            ? Fin.Fail<MeshMetricSample>(new Fault.Cancelled())
+            : metric.Sample(mesh: mesh, polygon: polygon, context: context, key: key)).As());
     private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult()).Map(static polygons => toSeq(polygons));
 }

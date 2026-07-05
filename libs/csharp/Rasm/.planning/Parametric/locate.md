@@ -1,6 +1,6 @@
 # [RASM_PARAMETRIC_LOCATE]
 
-The curve/surface location algebra — the `Rasm.Analysis` measured-query family that answers WHERE on a parametric geometry and WHAT lives there: `Locator` (the addressing algebra: curve parameter, arc length, normalized arc-length station, surface UV, closest-to-probe, perpendicular parameter sets), `LocationValue` (the value algebra: point, frame, normal, tangent, curvature, derivative, parameter, length), `Division` (by-count/by-length subdivision), `CurvatureMode` + `CurvatureAggregation` (the curvature sweep: raw samples, per-metric scalars, Welford `Stat` summaries, tolerance-banded extrema), and the `Location` aspect union folding all of it to one `Operation<TGeometry, TOut>` the `Analysis/query` runtime executes under `Eff<Env, Seq<TOut>>`. `AnalysisQuery.Location(Location)` is the routing fence: the query union's `LocationCase` calls `Query.Operation<TGeometry, TOut>()` and nothing else — this page owns everything behind that call. The page sits in the `Parametric` folder with its domain (parameter-addressed evaluation) while its namespace stays the frozen `Rasm.Analysis` contract axis.
+The curve/surface location algebra — the measured-query family the `Rasm.Analysis` runtime executes, answering WHERE on a parametric geometry and WHAT lives there: `Locator` (the addressing algebra: curve parameter, arc length, normalized arc-length station, surface UV, closest-to-probe, perpendicular parameter sets), `LocationValue` (the value algebra: point, frame, normal, tangent, curvature, derivative, parameter, length), `Division` (by-count/by-length subdivision), `CurvatureMode` + `CurvatureAggregation` (the curvature sweep: raw samples, per-metric scalars, Welford `Stat` summaries, tolerance-banded extrema), and the `Location` aspect union folding all of it to one `Operation<TGeometry, TOut>` the `Analysis/query` runtime executes under `Eff<Env, Seq<TOut>>`. `AnalysisQuery.Location(Location)` is the routing fence: the query union's `LocationCase` calls `Location.Operation<TGeometry, TOut>()` and nothing else — this page owns everything behind that call. The page sits in the `Parametric` folder with its domain (parameter-addressed evaluation) and the folder law names its namespace — `Rasm.Parametric` — while the frozen `Rasm.Analysis` `AnalysisQuery` contract composes it across the one-assembly namespace seam.
 
 The structural law is the (value × locator) matrix as CASE-OWNED rows: each `LocationValue` case declares its curve-family arm, surface-family arm, closest-projection column (a `Spatial/support` `SupportProjection` row — the closest modality is table data, not code), and perpendicular arm — a flat central tuple mega-switch over the matrix is the killed shape, and adding a value case is one case with its columns, every consumer untouched. `Locator` owns its own parameter resolution (`ResolveParameter`) and its own requirement derivation (`CurveRequirement`), so addressing policy travels with the address. The operation spine is the page-local `Locate` static owner — the `Analyze` facade stays the `Analysis/query` page's, and spreading location builders across a corpus-wide partial class is the killed shape. Curve-frame/tangent/curvature evaluation delegates to the `Parametric/projections` `CurveProjection` rows through the `Processing/intent` rail; surface evaluation composes the `Domain/evaluation` `NormalAt`/`FrameAt`/`SurfaceUv`/`SurfaceSampleUv`/`CurveSampleParameters` lattice; coercion rides the `Domain/normalization` `CurveForm`/`SurfaceForm` leases; statistics ride `Domain/stats` (`Stat.Of` Welford, `Stat.Extrema` tolerance-banded, `ScalarMetric`, `StatContext`, `ExtremumDirection`); every scalar-projecting `SurfaceCurvature` read runs inside a `Lease` scope with the `IsSet` gate inside the lease, and the two bundle-valued rows transfer disposal to the caller on success — a refused or unset bundle, or an acquired batch that fails the gate, is disposed in full before the fault leaves.
 
@@ -29,11 +29,13 @@ The structural law is the (value × locator) matrix as CASE-OWNED rows: each `Lo
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// Rhino.Geometry, the LanguageExt prelude, and Thinktecture arrive as global usings; Rasm.Domain, Rasm.Processing, and Rasm.Spatial do not.
+// Rhino.Geometry, the LanguageExt prelude, and Thinktecture arrive as global usings; Rasm.Analysis, Rasm.Domain, Rasm.Processing, and Rasm.Spatial do not.
 
+using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Processing;
 using Rasm.Spatial;
+using Rhino;
 
 namespace Rasm.Parametric;
 
@@ -481,7 +483,7 @@ internal static class Locate {
 
 ```mermaid
 flowchart LR
-    Query["Analysis/query AnalysisQuery.Location"] -->|Query.Operation| Location["Location aspect Switch"]
+    Query["Analysis/query AnalysisQuery.Location"] -->|Location.Operation| Location["Location aspect Switch"]
     Location -->|At| Rows["LocationValue case rows — Key · Closest column · OnCurve / OnSurface / OnPerpendicular"]
     Location -->|Curvature| Sweep["Locate.Curvature matrix → Sweep"]
     Location -->|Divide / Orientation / Contains / ShortPath| Spine["Locate aspect builders"]

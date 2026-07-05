@@ -17,7 +17,7 @@ Rasm/
 │   ├── Evaluation.cs        # ClosestHit receipt + ClosestOf polymorphic evaluation, frames, sampling, signed distance
 │   └── Stats.cs             # ScalarMetric vocabulary, Welford Stat, banded Extrema, Distribution, SampleMoment covariance
 ├── Numerics/                # Exact-predicate floor + host-neutral-shaped numerics
-│   ├── Predicates.cs        # PrecisionTier ladder (double→ddouble→Expansion→Fraction) exact + implicit-point predicates
+│   ├── Predicates.cs        # PrecisionTier ladder (Double→DoubleDouble→Interval→Expansion→Rational) exact + implicit-point predicates
 │   ├── Faults.cs            # Consolidated band-2400 GeometryFault family
 │   ├── Atoms.cs             # Vector-algebra primitive floor + the AtomProjection/ProjectionRow projection dispatch
 │   ├── Matrix.cs            # Dense/sparse/complex algebra over MathNet+CSparse; CholeskySparse, GaugePolicy, LOBPCG MatrixKernel
@@ -48,7 +48,7 @@ Rasm/
 │   ├── Arrangement.cs       # Managed exact boolean/overlay cell-complex retiring the native CSG gate
 │   ├── Intersect.cs         # Predicate-exact IntersectOp crossing lattice
 │   ├── Slice.cs             # Slicing.Apply slice-stack fold: LayerPlan height-law rows over ONE March integrator, oriented contours + typed open chains, exact-parity nesting forest, SliceStack five-channel SoA wire
-│   ├── Offset.cs            # Aichholzer-Aurenhammer skeleton/medial/minkowski OffsetOp
+│   ├── Offset.cs            # Aichholzer-Aurenhammer wavefront OffsetOp (Skeleton/Weighted/Offset/Medial/Minkowski/Clearance)
 │   ├── Skeleton.cs          # Au-2008 MCF 3D curve-skeleton: implicit contraction over the MeshEdit arena, cost-ordered collapse to 1D, Kruskal tree extraction, CurveSkeleton SoA wire composing offset's clearance family
 │   ├── Mesh.cs              # MeshSpace snapshot handle, LaplacianCache, IntrinsicMesh + MeshAdjointSnapshot, one cotangent owner, power diagram
 │   ├── Edit.cs              # MeshEdit single-writer SoA build arena: one polymorphic Of (space|soup), weld kernel + knob
@@ -57,9 +57,9 @@ Rasm/
 ├── Processing/              # Algorithm pipelines over the floors
 │   ├── Repair.cs            # HealOp repair algebra + Heal.Repair session fold
 │   ├── Receipts.cs          # Typed RebuildReceipt chain + ManifoldStatus + HealSession/RebuildLog
-│   ├── Decimate.cs          # Garland-Heckbert QEM SimplifyOp decimation
+│   ├── Decimate.cs          # SimplifyOp (QuadricCollapse/ProgressiveMesh/VoxelRemesh/FeaturePreserve) Garland-Heckbert QEM decimation
 │   ├── Remesh.cs            # Remeshing.Apply two-row rewrite: Botsch-Kobbelt isotropic + cross-field-guided quad extraction; exact projected-convexity flip gate, RemeshTrace receipt, QuadProvenance the panelize substrate
-│   ├── Flatten.cs           # LSCM/ARAP/BFF ParamOp UV-flattening over the DEC substrate
+│   ├── Flatten.cs           # Harmonic/LSCM/ARAP/BFF ParamOp UV-flattening over the DEC substrate
 │   ├── Intent.cs            # VectorIntent consumer rail: Project<TOut>(Context, Op?) dispatch composing every owner
 │   ├── Sample.cs            # SampleKind union (Bridson…BNOT power-CCVT) + SampleKernel domain dispatch
 │   ├── Extract.cs           # ExtractionDomain ingress, ContourPolicy native-first sectioning, Extraction union
@@ -126,5 +126,7 @@ Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands                   # [B
 ## [03]-[NAMESPACES]
 
 Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, giving the nine roots `Rasm.Analysis`, `Rasm.Domain`, `Rasm.Drawing`, `Rasm.Meshing`, `Rasm.Numerics`, `Rasm.Parametric`, `Rasm.Processing`, `Rasm.Solving`, `Rasm.Spatial`.
+
+The kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the nine namespaces with no build edge; the root-homed `GeometryFault` union composing upper-tier discriminants (`Numerics/Faults.cs`) is the recorded exception to strata direction under that one-assembly law.
 
 `Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

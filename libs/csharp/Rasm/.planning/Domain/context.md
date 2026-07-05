@@ -20,6 +20,7 @@ The tolerance/units substrate (`Rasm.Domain`). This page owns the tolerance tria
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Foundation.CSharp.Analyzers.Contracts;
+using Rhino;
 
 namespace Rasm.Domain;
 
@@ -71,6 +72,7 @@ public readonly partial struct AngleTolerance {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Foundation.CSharp.Analyzers.Contracts;
+using Rhino;
 
 namespace Rasm.Domain;
 

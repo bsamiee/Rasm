@@ -2,7 +2,7 @@
 
 The kernel ROP substrate (`Rasm.Domain`). This page owns the operation key `Op` with its fault and acceptance factory, the kernel fault band `Expected`/`Fault`, the `Lease<T>` resource-ownership rail, the corpus-wide validity fold (`IValidityEvidence` + `ValidityClaim`), the union-ops generator contracts, and the ONE Op-threading law every kernel page obeys. Nothing in the kernel compiles without this floor: every fallible surface fails through `Fault`, every disposable crossing rides `Lease<T>`, every receipt proves itself through the fold, and every operation is keyed by one `Op` value.
 
-The namespace mirrors the folder path and is consumer-pinned: the union-ops generator emits `global::Rasm.Domain.Op.Of`, eleven Grasshopper sources alias `using Op = Rasm.Domain.Op`, `Rasm.csproj` injects `Rasm.Domain` as a global using, and the sibling planning corpus anchors `Rasm.Domain` by name.
+The namespace mirrors the folder path and is consumer-pinned: the union-ops generator emits `global::Rasm.Domain.Op.Of`, eleven Grasshopper sources alias `using Op = Rasm.Domain.Op`, `Directory.Build.props` injects `Rasm.Domain` as the Grasshopper-aware global using, and the sibling planning corpus anchors `Rasm.Domain` by name.
 
 ## [01]-[INDEX]
 
@@ -15,12 +15,12 @@ The namespace mirrors the folder path and is consumer-pinned: the union-ops gene
 
 ## [02]-[OPERATION_KEY]
 
-- Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality, ordinal-ignore-case ordering — the identity of one kernel operation. Every fault minted through the key's factory carries the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it. The ambient cases carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — because no single operation identity exists where they arise.
+- Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality AND ordinal ordering, one collation, so comparison-zero and equality never diverge for case-differing member names — the identity of one kernel operation. Every fault minted through the key's factory carries the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it. The ambient cases carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — because no single operation identity exists where they arise.
 - Entry: `Op.Of([CallerMemberName] string name = "")` mints the key from the calling member with zero ceremony; a `[GenerateUnionOps]` union case carries its generated `SelfOp` instead of re-minting per call. Public polymorphic surfaces accept `Op? key = null` and resolve through `OrDefault()` (the extension is `validation.md`'s); internal kernels demand a required `Op key` tail parameter.
 - Cases: fault factories `MissingContext()`/`InvalidInput()`/`InvalidResult(detail?)`/`Unsupported(geometryType, outputType)`/`Caution(concern)` → `Error`; acceptance bridges `AcceptInput`/`AcceptValue`/`AcceptText`/`Confirm`/`Need`(class + `Option<T>`) → `Fin<T>` delegating to `OpAcceptance` (`validation.md`'s oracle); scalar guards `Finite`/`Positive` → `Fin<double>` lifting the `[06]` claim rows; boundary-exception rail `Catch<T>(Func<Fin<T>>)` + side-effect brackets `Side(Action)`/`SideWhen(bool, Action)`.
 - Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (`Error.HasException<E>` discriminates, recursing `ManyErrors`, so a host call cancelled mid-body keeps its category — derived cancellations included — instead of masquerading as a result failure), every other capture survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. A bare `try`/`catch` in domain flow is the deleted form.
 - Law: `Finite`/`Positive` lift the `[06]` claim rows (`ValidityClaim.Finite`/`Positive`) into key-bound admission — the host predicate is stated once, on the claim row, never re-spelled here; collection- and shape-level admission is `validation.md`'s `Admit` vocabulary, never re-spelled per kernel.
-- Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads; the key renders inside the case `Message` and nowhere else.
+- Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads; the key renders inside the case `Message` and nowhere else. The `ValidateFactoryArguments` partial rejects a blank key at mint — `[CallerMemberName]` never supplies one, so a whitespace literal is a caller defect surfacing at the generated factory, never a silent empty identity.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -31,8 +31,10 @@ namespace Rasm.Domain;
 // --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct Op {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = string.IsNullOrWhiteSpace(value: value) ? new ValidationError(message: "Op requires a non-whitespace member name.") : null;
     [BoundaryAdapter] public static Op Of([CallerMemberName] string name = "") => Create(value: name);
     [BoundaryAdapter] public Error MissingContext() => new Fault.MissingContext(Key: this);
     [BoundaryAdapter] public Error InvalidInput() => new Fault.InvalidInput(Key: this);
@@ -192,6 +194,7 @@ public abstract partial record Lease<T> where T : class, IDisposable {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics.Tensors;
 using Foundation.CSharp.Analyzers.Contracts;
+using Rhino;
 
 namespace Rasm.Domain;
 
@@ -228,7 +231,7 @@ public readonly record struct ValidityClaim(bool Holds) {
 
 The ONE Op-threading law. Every kernel page obeys it; no page re-decides it.
 
-- Law: `Op` is an explicit VALUE — minted once at the public entry through `Op.Of()` caller-member-name or read off a union case's generated `SelfOp`, threaded as the trailing parameter of every fallible kernel (`Op key` required on internal kernels, `Op? key = null` resolved through `OrDefault()` on public polymorphic surfaces), and read by every fault factory. The key identifies the operation that failed; it is never runtime capability.
+- Law: `Op` is an explicit VALUE — minted once at the public entry through `Op.Of()` caller-member-name or read off a union case's generated `SelfOp`, threaded as the trailing parameter of every fallible kernel (`Op key` required on internal kernels, `Op? key = null` resolved through `OrDefault()` on public polymorphic surfaces), and read by every fault factory. The key identifies the operation that failed; it is never runtime capability. Repeated `OrDefault()` inside ONE member is value-identical, never a split key: `Op` is a string-keyed `[ValueObject<string>]` and `[CallerMemberName]` resolves lexically to the enclosing member (lambdas included), so every resolution in that member mints the equal value — bind `Op op = key.OrDefault();` once for read clarity, but the law is value identity, not call count.
 - Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`; `Env` carries `Context`, `IProgress<double>?`, and `CancellationToken`, and nothing else rides it. The `Op` key never enters `Env`, and no ambient static, `AsyncLocal`, or second key mechanism exists anywhere in the kernel.
 - Law: below the `Eff` floor, the synchronous rails thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a kernel is a `Fin`/`Validation` body with a key tail, or an `Eff<Env, T>` pipeline threading the same key as a value — never both, never a hybrid.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — the Grasshopper binding constructs it directly; this page legislates the carriage law, that page owns the record and demonstrates the pipeline shape.

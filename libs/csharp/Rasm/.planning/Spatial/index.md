@@ -162,10 +162,10 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // Admitted ONCE with a detaching copy: the frozen index never aliases a caller-mutable array.
     internal static Fin<BoundingBox[]> Admit(BoundingBox[] primitives) {
         if (primitives.Length == 0)
-            return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Kind.BoundingBox, -1, "empty").ToError());
+            return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, -1, "empty").ToError());
         for (int i = 0; i < primitives.Length; i++)
             if (!primitives[i].IsValid)
-                return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Kind.BoundingBox, i, "non-finite-bound").ToError());
+                return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, i, "non-finite-bound").ToError());
         return Fin.Succ((BoundingBox[])primitives.Clone());
     }
 

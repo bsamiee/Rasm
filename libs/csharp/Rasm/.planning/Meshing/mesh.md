@@ -31,9 +31,12 @@ using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Meshing;
 
@@ -635,7 +638,7 @@ One owner per axis; capability is a row, case, memo slot, or fold arm, never a s
 |  [08]   | Tangent transport     | `SignpostPolicy` + transport receipts  | policy + gauge-angle kernel + overlay                               | `SignpostTransportReceiptOf → Fin<...>`              |    —    |
 |  [09]   | Power diagram         | `RestrictedPowerDiagram`               | receipt-carrying Laguerre diagram, scale-derived clip policy        | `RestrictedPowerCells → Fin<RestrictedPowerDiagram>` |    —    |
 
-The `MeshSpace`/`LaplacianCache`/`Cotangent`/`TopologyDetailed`/`AssembleCotangent`/`AssembleMassStiffnessSystem` fences are transcription-complete; the `IntrinsicMesh` member cluster, `TuftedCoverMesh`, the signpost/overlay kernels, and the power-clip run are signature-fixed with their bodies the algorithms the `[04]` research contracts specify — each is a named statement-kernel exemption whose invariants (FLIP-N parity, cover closure, fan ordering, partition of unity, radical-clip degeneracy counting) are stated on the owning receipt gates, so a rebuild that loses an invariant fails the receipt, never silently.
+The `MeshSpace`/`LaplacianCache`/`Cotangent`/`TopologyDetailed`/`AssembleCotangent`/`AssembleMassStiffnessSystem` fences are transcription-complete; the four cache factor/bundle recipes (`SpectralBasisBundleOf`/`ConnectionCholesky`/`ScalarHeatCholesky`/`EdgeConnectionCholeskyDetailed`), the `IntrinsicMesh` member cluster, `TuftedCoverMesh`, the signpost/overlay kernels, and the power-clip run are signature-fixed with their bodies the algorithms the `[04]` research contracts specify — each is a named statement-kernel exemption whose invariants (FLIP-N parity, cover closure, fan ordering, partition of unity, radical-clip degeneracy counting) are stated on the owning receipt gates, so a rebuild that loses an invariant fails the receipt, never silently.
 
 ## [04]-[RESEARCH]
 

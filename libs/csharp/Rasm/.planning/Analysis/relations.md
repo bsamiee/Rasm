@@ -29,6 +29,7 @@ using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using Rasm.Domain;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -162,7 +163,8 @@ namespace Rasm.Analysis;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union]
-internal partial record IntersectionResult {
+internal abstract partial record IntersectionResult {
+    private IntersectionResult() { }
     public sealed record Lines(Seq<Line> Values) : IntersectionResult;
     public sealed record Points(Seq<Point3d> Values) : IntersectionResult;
     public sealed record Intervals(Seq<Interval> Values) : IntersectionResult;
@@ -334,10 +336,14 @@ public static partial class Analyze {
             });
     private static Option<IntersectionResult> IntersectionShapeOrdered(Type left, Type right, Type output) =>
         IntersectionCases.Find(predicate: row => row.CanProject(left: left, right: right, output: output)).Map(static row => row.Shape);
+    // First-match fold, short-circuited by state: once a row answers, later rows are never computed —
+    // Seq.Choose is eager and would double-run overlapping admissions (analytic row + lowering row).
     private static Fin<IntersectionResult> IntersectOrdered(object left, object right, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) =>
         cancel.IsCancellationRequested switch {
             true => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
-            false => IntersectionCases.Choose(row => row.TryCompute(left: left, right: right, context: context, op: op, cancel: cancel, progress: progress)).Head
+            false => IntersectionCases.Fold(
+                    initialState: Option<Fin<IntersectionResult>>.None,
+                    f: (found, row) => found.IsSome ? found : row.TryCompute(left: left, right: right, context: context, op: op, cancel: cancel, progress: progress))
                 .ToFin(op.Unsupported(left.GetType(), right.GetType()))
                 .Bind(static result => result),
         };

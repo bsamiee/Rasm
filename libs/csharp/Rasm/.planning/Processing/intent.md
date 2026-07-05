@@ -11,7 +11,7 @@ The dispatch COMPOSES, never re-implements: every arm routes to the owning page'
 
 ## [02]-[CONSTRUCTION]
 
-- Owner: `VectorIntent` `[Union]` — 33 sealed cases, private root constructor, case constructors `internal` wherever a payload must arrive pre-admitted (support spaces, extraction requests, clouds with metric policies, streamline bundles, mesh queries) and positional-public only where the payload is a raw value the dispatch admits through its owner (`Direction`, `Axes`, `Angular`, `Components`, `Relation`, `ProjectOnto`, `Mirror`, `Ray`, `Frame`).
+- Owner: `VectorIntent` `[Union]` — 33 sealed cases, private root constructor, case constructors `internal` wherever a payload must arrive pre-admitted (support spaces, extraction requests, clouds with metric policies, streamline bundles, mesh queries) and positional-public only where every payload is a raw value the dispatch admits through its owner or an admitted-by-construction carrier (`Axis` · `Direction` · `Axes` · `Angular` · `Ray` · `Frame` · `Cone` · `Components` · `Relation` · `Bounce` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Pose` — 15 positional, 18 internal).
 - Cases: `Axis` · `Direction` · `Axes` · `Angular` · `Support` · `Extraction` · `Ray` · `Frame` · `Curve` · `Cloud` · `Winding` · `Cone` · `Components` · `Relation` · `Bounce` · `Streamline` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Surface` · `Pose` · `Flatten` · `Hull` · `Sample` · `Align` · `Remesh` · `Transport` · `Topology` · `Features` · `Descriptor` · `DiscreteCalculus` · `Segmentation` — every capability band of the retired file preserved one-for-one; the six former extraction factories are ONE `ExtractionCase` carrying `extract.md`'s union.
 - Entry: exactly one factory per case. Raw scalars admit through `Op.AcceptValidated<UnitInterval|PositiveMagnitude|Dimension>`; geometry admits through the `Admit` vocabulary (`NotNull`/`Plane`/`Cone`/`Finite`) — a `MeshSpace` or `Direction` payload is admitted-by-construction evidence, so the factory gates only its presence; payloads with owners re-admit through those owners (`SampleKind.Admit`, `Termination.Admit`, `FieldIntegrator.AdmitOrFixed`, `AlignmentPolicy.Admit`, `CloudMetricPolicy.AdmitOrDefault`, `CloudHullPolicy.AdmitOrDefault`, `MeshFeaturePolicy.Admit`, `SurfaceSpace.Of` + `Evaluation.SurfaceUv`); a `CloudTransportPolicy` admits at its own `Of` factory and arrives as construction evidence — this rail rejects only the default-struct sentinel. Optional policies enter as `Option<T> = default` resolved against the owner's canonical row — never a sibling overload, never a `bool` knob.
 - Growth: a new kernel capability is one case + one factory + one dispatch arm — the generated `Switch` breaks every dispatch site at compile time; a new modality of an existing capability is a policy row or case field on the OWNING page, reaching this rail with zero new surface.
@@ -27,7 +27,6 @@ The dispatch COMPOSES, never re-implements: every arm routes to the owning page'
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
@@ -37,6 +36,8 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 

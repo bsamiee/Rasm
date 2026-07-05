@@ -33,6 +33,8 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
+// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
+using EdgeKeySet = System.Collections.Generic.HashSet<long>;
 
 namespace Rasm.Drawing;
 
@@ -61,7 +63,7 @@ public sealed partial class EdgeKind {
     public static readonly EdgeKind Intersection = new(3);
 }
 
-// Derived from the Appel count (visible = 0); the never-assigned clipped row is dead.
+// Derived from the Appel count (visible = 0).
 [SmartEnum<int>]
 public sealed partial class Visibility {
     public static readonly Visibility Visible = new(0);
@@ -103,11 +105,12 @@ public sealed record EdgeHistogram(int Silhouette, int Crease, int Boundary, int
     public static readonly EdgeHistogram Empty = new(0, 0, 0, 0, 0, 0);
 
     public EdgeHistogram Add(ProjectedSegment s) {
+        // Stateless smart-enum Switch takes parameterless arms — the receiver already names the row.
         EdgeHistogram tally = s.Edge.Switch(
-            silhouette:   _ => this with { Silhouette = Silhouette + 1 },
-            crease:       _ => this with { Crease = Crease + 1 },
-            boundary:     _ => this with { Boundary = Boundary + 1 },
-            intersection: _ => this with { Intersection = Intersection + 1 });
+            silhouette:   () => this with { Silhouette = Silhouette + 1 },
+            crease:       () => this with { Crease = Crease + 1 },
+            boundary:     () => this with { Boundary = Boundary + 1 },
+            intersection: () => this with { Intersection = Intersection + 1 });
         return s.Invisibility > 0
             ? tally with { HiddenCount = tally.HiddenCount + 1 }
             : tally with { VisibleCount = tally.VisibleCount + 1 };
@@ -240,13 +243,13 @@ public static class View {
         side[f0] != side[f1] && side[f0] != Sign.Zero && side[f1] != Sign.Zero;
 
     // Crease lift PROPAGATES failure — a degraded empty crease set is the deleted silent drop.
-    static Fin<HashSet<long>> CreaseEdges(MeshSpace mesh, Camera camera, ViewPolicy policy, Op key) =>
+    static Fin<EdgeKeySet> CreaseEdges(MeshSpace mesh, Camera camera, ViewPolicy policy, Op key) =>
         MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedralRadians, space: mesh, faceRegions: Option<Arr<int>>.None, key: key)
             .Bind(features => VectorIntent.Features(mesh, features, key))
             .Bind(intent => intent.Project<FeatureReceipt>(camera.Tolerance, key))
-            .Map(static receipt => receipt.Edges
+            .Map(static receipt => new EdgeKeySet(receipt.Edges
                 .Filter(static e => e.Kind == MeshFeatureKind.Crease)
-                .Map(static e => Key(e.A, e.B)).ToHashSet());
+                .Map(static e => Key(e.A, e.B))));
 
     static void Register(Dictionary<(int, int), List<int>> incident, int a, int b, int face) {
         (int lo, int hi) = a < b ? (a, b) : (b, a);
@@ -272,7 +275,7 @@ public static class View {
         (Line[] candidate2d, Line[] occluder2d, int[] occluderEdge) = ScreenSegments(locus.Edges, soup.V, camera);
         return Broad(SegmentBounds(candidate2d), policy.Broad, key).Bind(cand =>
             Broad(SegmentBounds(occluder2d), policy.Broad, key).Bind(occ =>
-                Pairs(cand, occ, camera.Tolerance.Absolute, key).Bind(pairs =>
+                Pairs(cand, occ, camera.Tolerance.Absolute.Value, key).Bind(pairs =>
                     pairs.Filter(pair => pair.Left != occluderEdge[pair.Right])
                         .TraverseM(pair => Intersection
                             .Apply(new IntersectOp.SegmentSegment(candidate2d[pair.Left], occluder2d[pair.Right], Axis.Z, policy.Narrow), key)
@@ -300,7 +303,7 @@ public static class View {
         for (int i = 0; i < seed.Length; i++) {
             Vector3d toEye = camera.Eye - seed[i];
             toEye.Unitize();
-            probes[i] = seed[i] + camera.Tolerance.Absolute * toEye;
+            probes[i] = seed[i] + camera.Tolerance.Absolute.Value * toEye;
         }
         return WindingField(world, probes, triangles, policy, key).Bind(field =>
             toSeq(Enumerable.Range(0, seed.Length))
