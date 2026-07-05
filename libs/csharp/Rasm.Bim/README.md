@@ -46,7 +46,7 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 - `GeometryGymIFC_Core`
 
 [STRUCTURAL_ANALYSIS_EXCHANGE]:
-- `StructuralAnalysisFormat` — SAF/XLSX structural-analysis exchange over the seam structural payloads `Model/structural.md` defines (members, supports, load cases, combinations, result tables lowered from the neutral `Generic` edge/bag attrs onto `ExcelModel`), an `Exchange/format` candidate row until its import/export arms land — never a canonical model beside the seam graph.
+- `StructuralAnalysisFormat` — SAF/XLSX exchange over the seam structural payloads onto `ExcelModel`; an `Exchange/format` candidate row, never a second model.
 
 [LIGHTWEIGHT_BIM_EXCHANGE]:
 - `dotbim` — lightweight `.bim` mesh+metadata interchange for preview, portable issue payloads, and low-friction external model exchange beside IFC/glTF/USD.
@@ -106,9 +106,9 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 - `BrickSchema.Net`
 
 [ENERGY_MODEL_EXCHANGE]:
-- `HoneybeeSchema` — the HBJSON object graph (`Model.FromJson`/`ToJson`, the energy library, the abridged-reference model) the `Energy/projector` raise and `Energy/derive` lower compose to operator depth.
-- `DragonflySchema` — the DFJSON urban-massing layer (`Building`/`Story`/`Room2D`) composing the honeybee vocabulary by identifier; the `Energy/projector` massing arm.
-- `OpenStudio` via `NREL.OpenStudio.macOS-arm64` — the OSM/IDF object store + the `VersionTranslator`/gbXML/EnergyPlus translator matrix backing the `Energy/projector` OSM-family raise and `Energy/derive` `Translate` rows; the SIMULATION half of the one central pin is `Rasm.Compute/Analysis/energy`'s, aligned by the seam graph never coupled.
+- `HoneybeeSchema` — HBJSON object graph the `Energy/projector` raise and `Energy/derive` lower compose to operator depth.
+- `DragonflySchema` — DFJSON `Building`/`Story`/`Room2D` massing layer composing honeybee by identifier; the `Energy/projector` massing arm.
+- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store + translators behind the `Energy/projector` raise and `Energy/derive` `Translate`; SIMULATION is Compute's half.
 
 [STRUCTURAL_TAXONOMY]:
 - `VividOrange.Loads`
@@ -146,11 +146,11 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 The C# substrate registry cards this folder consumes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`.
 
 [ELEMENT_SEAM]:
-- `Rasm.Element` — the lowest-AEC element seam this folder depends UP on and implements: the `ElementGraph`/`Node`/`Relationship`/`GraphDelta` canonical graph, the `IElementProjection`/`IGraphConstraint` contracts the `SemanticProjector`/`IfcLegality` implement, and the seam-owned typed value family (`PropertyValue`/`MeasureValue`/`Dimension`, `Classification`, `PredefinedType`, `GeoReference`/`ProjectedCrs`, `OwnerHistory`, `StepHeader`, `InheritanceMode`, `RepresentationContentHash`).
+- `Rasm.Element` — the element seam Bim depends UP on: the canonical graph, the `IElementProjection`/`IGraphConstraint` contracts, and the typed value family.
 
 [SEAM_GENERATORS]:
-- `Riok.Mapperly` — compile-time `ElementGraph`↔DTO/proto boundary transcription (`[MapDerivedType]` over the `Node`/`Relationship` `[Union]`), shared substrate in `libs/csharp/.api`.
-- `Generator.Equals` — compile-time node/edge structural equality + member-level `Inequalities` diff (the `Emit` `ChangeAction` derivation), shared substrate in `libs/csharp/.api`.
+- `Riok.Mapperly` — compile-time `ElementGraph`↔DTO/proto boundary transcription, `[MapDerivedType]` over the `Node`/`Relationship` `[Union]`.
+- `Generator.Equals` — node/edge structural equality + `Inequalities` member diff, the `Emit` `ChangeAction` derivation.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -163,13 +163,13 @@ The C# substrate registry cards this folder consumes; full registry and substrat
 - `System.IO.Hashing`
 
 [BUFFER_POOLING]:
-- `CommunityToolkit.HighPerformance` — `ArrayPoolBufferWriter<T>`/`MemoryOwner<T>` pooled staging behind the Draco/meshopt encode kernels and the import `MeshSoup` accumulation, shared substrate in `libs/csharp/.api`.
+- `CommunityToolkit.HighPerformance` — `ArrayPoolBufferWriter<T>`/`MemoryOwner<T>` staging behind the Draco/meshopt encoders and `MeshSoup` accumulation.
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — the pure-managed graph containers + `AlgorithmExtensions` facade the Bim CPM topological-sort (`Planning/schedule`), MEP `SystemTrace` reachability (`Model/systems`), commit-DAG common-ancestor (`Review/versioning`), and coordination impact/`Reachable`-rule transitive-closure (`Review/coordination`) walks fold a transient graph through, shared substrate in `libs/csharp/.api` (the seam `ElementGraph` topology view and the Persistence `Query/topology` lane co-consume it).
+- `QuikGraph` — graph containers + `AlgorithmExtensions` behind the CPM sort, `SystemTrace` reachability, commit-DAG ancestor, and coordination closure walks.
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*`

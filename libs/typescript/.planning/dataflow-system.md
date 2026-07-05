@@ -57,4 +57,5 @@ Frozen law; the `tests/contracts` corpus drivers (TS readers in `tests/typescrip
 |  [08]   | fold consumer   | `core/state/fold` plan instances               | one op-vocabulary instance                               |
 |  [09]   | tenancy shape   | `data/lane/tenant` cases                       | one scope case — isolation never forks                   |
 |  [10]   | fanout engine   | `runtime/net/pubsub` engine rows               | one engine row; the port stays engine-blind              |
-|  [11]   | dashboard pack  | `core/observe/board` pack rows                 | one pack row realized by `iac/operate/observe`           |
+|  [11]   | coordination engine | `runtime/net/coordinate` engine rows       | one engine row on the `Accord` port; reads stay versioned |
+|  [12]   | dashboard pack  | `core/observe/board` pack rows                 | one pack row realized by `iac/operate/observe`           |

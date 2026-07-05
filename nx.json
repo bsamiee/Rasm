@@ -66,11 +66,23 @@
             "plugin": "@nx/vite/plugin",
             "options": {
                 "buildTargetName": "build",
+                "compiler": "tsgo",
+                "typecheckTargetName": "typecheck"
+            }
+        },
+        {
+            "plugin": "@nx/vitest",
+            "options": {
                 "ciGroupName": "vitest",
                 "ciTargetName": "test-ci",
-                "compiler": "tsgo",
-                "testTargetName": "test",
-                "typecheckTargetName": "typecheck"
+                "testMode": "run",
+                "testTargetName": "test"
+            }
+        },
+        {
+            "plugin": "@berenddeboer/nx-biome",
+            "options": {
+                "targetName": "lint"
             }
         },
         {

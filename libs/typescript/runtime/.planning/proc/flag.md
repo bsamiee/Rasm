@@ -399,7 +399,7 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
               })),
             Effect.tap((changed) =>
               Effect.sync(() => events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: [...changed] }))),
-            Effect.catchAll(() => Effect.void),
+            Effect.ignoreLogged,
           )),
         Effect.retry(pace),
         Effect.repeat(pace),

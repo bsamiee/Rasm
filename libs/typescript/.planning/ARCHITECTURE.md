@@ -47,12 +47,12 @@ Dependency flows strictly downward through five waves — W0 `core`, W1 `securit
 |  [03]   | `data`     | `core`, `security`        | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
 |  [04]   | `runtime`  | `core`, `security`, `data`| Both process planes; the browser condition is the same package, never a sibling                      |
 |  [05]   | `ui`       | `core`, `runtime`         | `viewer` is a second Nx project inside the folder with the same edge set                             |
-|  [06]   | `iac`      | `core`, `data`            | Type/value reads only (`DashboardModel`, `Alert`, `Pg`); depended on by nothing at runtime           |
+|  [06]   | `iac`      | `core`, `data`            | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`, the lane tenancy locus rows); depended on by nothing at runtime |
 
 Port satisfaction happens at app composition, never as an upward import:
 
 - Security's `SessionStore`/`IdentityJournal`/`ClaimStore`/`RelationStore` Tags are satisfied by `data` scope-built Layers.
-- Data's `Embedder`/`Reranker` Tags are satisfied by the `runtime` ai plane.
+- Data's `Embedder`/`Reranker` Tags are satisfied by the `runtime` ai plane; the durable embed band's `Persistence.BackingPersistence` requirement is satisfied at the same root by the data key-value scope.
 - The `ui` viewer `GlbViewport` Tag is satisfied by the browser composition root from `runtime` Depot verified-arrival pairs (ContentKey + whole-buffer GLB octets, byteOffset zero) and the Depot residency ledger cell.
 - The `ui` atom `LIVE_BRIDGE` rows bind the `runtime` browser host planes — Router location/pending, Install stance/fresh, Guard.dirty, Vault.status — through `Atom.subscribable`/`Atom.subscriptionRef` at app composition; the wiring is the composition root's own code.
 - The one value crossing back from `iac` is typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.

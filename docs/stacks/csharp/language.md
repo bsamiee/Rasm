@@ -42,6 +42,7 @@ Each table routes a concept to the C# 14 form that owns it; the most specific ro
 |  [04]   | span text dispatch            | constant string patterns over a `char` span  | `ToString()` then `==` comparison         |
 |  [05]   | shape probe with binding      | property and positional patterns, `out var`  | `as` plus null check, pre-declared locals |
 |  [06]   | exhaustiveness                | total switch, no `_` arm over a closed owner | a `_` default arm hiding a missing case   |
+|  [07]   | joint multi-value decision    | one tuple pattern over the discriminants     | nested switch arms, chained conditionals  |
 
 [CONSTRUCTION_AND_CONVERSION_FORMS]: how values are composed, how arity and span boundaries are crossed, and how C# 14 span conversions remove copies.
 
@@ -99,7 +100,7 @@ public static class SpanSurface {
 [PATTERN_DISPATCH_SITE]:
 - Use when: a value-returning decision states its whole law as one total pattern expression over sequence shape, range, or a closed owner.
 - Accept: a switch expression composing list and slice patterns, relational and logical patterns, property and positional patterns, constant string patterns over a `char` span, and `var` bindings inside arms; a `when` guard only to relate two pattern-bound values an arm cannot otherwise express (`head.Key == tail.Key`); the closed owner's generated `Switch` when the discriminant is a `[Union]` or `[SmartEnum]` case.
-- Reject: an `if`/`else` ladder, a statement switch for a value decision, an `as`-plus-null-check probe, a `when` guard carrying the structural narrowing a list, slice, relational, or property pattern already expresses, and a `_` arm hiding a missing case of a closed owner — the `_` over an open span shape is the documented exhaustiveness floor, never a swallowed case.
+- Reject: an `if`/`else` ladder, a statement switch for a value decision, an `as`-plus-null-check probe, a switch expression nested inside another's arm over discriminants available together — one tuple, property, or list pattern over the joint discriminant states the law in one level, and only an inner discriminant the outer arm's computation produces earns a sequenced second decision — a chained conditional (`a ? b : c ? d : e`) re-spelling a relational or property pattern ladder, a `when` guard carrying the structural narrowing a list, slice, relational, or property pattern already expresses, and a `_` arm hiding a missing case of a closed owner — the `_` over an open span shape is the documented exhaustiveness floor, never a swallowed case.
 - Boundary: closed-family ownership, generated dispatch, and case exhaustiveness belong to the `shapes.md` owner; this site owns the structural-pattern grammar that probes raw or open shapes before that owner reaches them.
 
 The form spotlight: one switch expression states a span's whole banding law — `[]` empty, head and tail property probes `[{ Rank: < 0 }, ..]` and `[.., { Rank: >= 9, Key: var key }]`, the single-element capture `[{ ... } only]`, and the cross-binding `when` that relates the bound head and tail no single pattern can — collapsing an `if`/`else` ladder over `marks.Length` and `marks[0].Rank` into one total expression; the sibling `Routed` shows constant-string and `['<', .. var body, '>']` slice patterns dispatching protocol text over a `char` span with no `ToString` allocation. Both prove the `_` floor sits over an open shape, not a closed owner whose missing case must break the build instead.
@@ -256,9 +257,9 @@ Run each test before keeping a local construct beside the language form that sub
 - Done when: callers reach the member on the receiver directly, the accessor owns its invariant with no second field, and no equality method is hand-written on inert data.
 
 [BRANCH_REPAIR]:
-- Smell: an `if`/`else` ladder, a statement switch, a comparison chain, or an `as`-plus-null-check decides a value or probes a shape the structural patterns express as one total expression.
-- Collapse: state the decision as one switch expression over list, slice, relational, logical, property, and positional patterns; route a closed-owner discriminant through its generated `Switch`.
-- Done when: the decision is one expression, every arm binds with `var`, and a missing case of a closed owner breaks the build rather than falling to a `_` arm.
+- Smell: an `if`/`else` ladder, a statement switch, a comparison chain, or an `as`-plus-null-check decides a value or probes a shape the structural patterns express as one total expression; or the decision deepens vertically — a switch arm dispatching again over a discriminant already in hand, a conditional chained into a conditional — where one pattern over the joint discriminant flattens it.
+- Collapse: state the decision as one switch expression over list, slice, relational, logical, property, and positional patterns, flattening joint discriminants into one tuple or property pattern instead of nesting dispatch; route a closed-owner discriminant through its generated `Switch`.
+- Done when: the decision is one expression one dispatch level deep over the discriminants it holds, every arm binds with `var`, and a missing case of a closed owner breaks the build rather than falling to a `_` arm.
 
 [COPY_REPAIR]:
 - Smell: a `new[]` plus `Concat` chain, a list-add sequence, a manual `.AsSpan()` adapter, or a per-arity overload family composes a value the collection-expression and C# 14 span-conversion forms compose in one literal.

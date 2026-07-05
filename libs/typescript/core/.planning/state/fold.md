@@ -33,7 +33,6 @@ import {
   Ref, Schema, SortedMap, Stream, Subscribable, SubscriptionRef,
 } from "effect"
 import { Hlc, type Uncertainty } from "../value/clock.ts"
-import { Refined } from "../value/schema.ts"
 import { Causal, type Vector } from "./causal.ts"
 import { Merge } from "./merge.ts"
 
@@ -96,27 +95,31 @@ const Fold: Fold.Shape = { plan: (spec) => spec, step: _step, trace: _trace, run
 ## [3]-[TIME_COORDINATE]
 
 [TIME_COORDINATE]:
-- Owner: `AsOf` — the `Schema.Class` owner of `{ stamp: Hlc, ordinal: Refined.OrdinalKey }`: event time plus journal position, totally ordered lexicographically on one lane (`AsOf.Order` composes the `Hlc` order then the ordinal), the one decode anchor for any serialized coordinate — a resume token, a scrub bookmark — and the one value every handle's push, seal, read, diff, and compaction takes. The old engine-time/read-time split is dead: `AsOf.time` projects into the engine's number plane interior to this module, and no consumer meets a bare coordinate triple.
-- Law: the engine projection narrows the bigint stamp halves through `Number` at this one seam — total in practice because the physical half is clamped epoch milliseconds and the logical half a small counter, both far inside the 2^53 window — and the narrowed triple drives engines only, never re-enters `Hlc`.
+- Owner: `AsOf` — the `Schema.Class` owner of `{ stamp: Hlc, ordinal }` where the ordinal is a non-negative bigint journal sequence branded in-field, lossless at any journal length: event time plus journal position, totally ordered lexicographically on one lane (`AsOf.Order` composes the `Hlc` order then `Order.bigint` on the ordinal), the one decode anchor for any serialized coordinate — a resume token, a scrub bookmark — and the one value every handle's push, seal, read, diff, and compaction takes. `AsOf.at(stamp, sequence)` is the one mint from a durable position — the data branch's lanes construct through it and a bare position tuple never travels. The old engine-time/read-time split is dead: `AsOf.time` projects into the engine's number plane interior to this module, and no consumer meets a bare coordinate triple.
+- Law: the engine projection narrows all three bigint coordinates through `Number` at this one seam — total in practice because the physical half is clamped epoch milliseconds, the logical half a small counter, and a journal ordinal at engine scale sits far inside the 2^53 window — and the narrowed triple drives engines only, never re-enters `Hlc` or the identity-bearing coordinate.
 - Law: `AsOf.covers` answers containment through the engine's own product order (`Diff.v(...).lessEqual`), so watermark and retention reads share exactly the order the trace retains under; `AsOf.Order` is the total single-lane order sorts and resume tokens use — the two orders answer different questions and neither substitutes.
 - Law: cross-replica completeness is never an `AsOf` question — the coordinate orders one journal lane; multi-replica frontiers are `Vector` facts folded in `causal`, and the two vocabularies meet only at the watermark.
 - Growth: a branch axis is a key-space partition (a plan key row), never a fourth coordinate.
 - Boundary: the data branch mints `AsOf` values from journal positions; history scrubbing consumes `read`/`diff` through served views.
 
 ```typescript
-const _origin = Schema.decodeSync(Refined.OrdinalKey)(0)
+const _Sequence = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("Sequence"))
+const _sequence = Schema.decodeSync(_Sequence)
 
 class AsOf extends Schema.Class<AsOf>("AsOf")({
   stamp: Hlc,
-  ordinal: Refined.OrdinalKey,
+  ordinal: _Sequence,
 }) {
   static readonly Order: Order.Order<AsOf> = Order.combine(
     Order.mapInput(Hlc.Order, (asOf: AsOf) => asOf.stamp),
-    Order.mapInput(Order.number, (asOf: AsOf) => asOf.ordinal),
+    Order.mapInput(Order.bigint, (asOf: AsOf) => asOf.ordinal),
   )
-  static readonly genesis: AsOf = new AsOf({ stamp: Hlc.genesis, ordinal: _origin })
+  static readonly genesis: AsOf = new AsOf({ stamp: Hlc.genesis, ordinal: _sequence(0n) })
+  static at(stamp: Hlc, sequence: bigint): AsOf {
+    return new AsOf({ stamp, ordinal: _sequence(sequence) })
+  }
   static time(asOf: AsOf): AsOf.Time {
-    return [Number(asOf.stamp.physical), Number(asOf.stamp.logical), asOf.ordinal] as const
+    return [Number(asOf.stamp.physical), Number(asOf.stamp.logical), Number(asOf.ordinal)] as const
   }
   static covers(upper: AsOf, lower: AsOf): boolean {
     return Diff.v([...AsOf.time(lower)]).lessEqual(Diff.v([...AsOf.time(upper)]))

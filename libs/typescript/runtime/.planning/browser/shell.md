@@ -278,7 +278,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
                   ([refused]) => (refused.length === 0 ? Effect.void : Effect.ignore(kv.write("outbox", refused))),
                 ),
               ),
-              Effect.catchAll(() => Effect.void),
+              Effect.ignoreLogged,
             ),
           ),
           Effect.forkScoped,

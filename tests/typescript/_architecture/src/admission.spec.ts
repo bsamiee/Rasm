@@ -1,4 +1,4 @@
-import { FileSystem, Path } from '@effect/platform';
+import { Command, FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
 import { Array, Effect, Option, Order, Record, Schema } from 'effect';
@@ -30,7 +30,9 @@ const _COUNTERFEIT = "catalogMode: loose\npackages:\n- 'apps/*'\npeerDependencyR
 // rejects is one GritQL rule at error under tools/biome/ — this roster is the law biome.json realizes.
 const _PROMOTED = [
     'no-arity-sibling',
+    'no-await-in-domain',
     'no-barrel-reexport',
+    'no-blanket-catchall',
     'no-domain-throw',
     'no-mutable-accumulation',
     'no-nullable-return',
@@ -68,6 +70,9 @@ const _ARMED = [
     { mark: 'carries its non-firing span', want: /\/\/ CLEAN:/ },
 ] as const;
 
+// The live-fire span grammar: each proof span is one statement line the real binary executes.
+const _SPANS = { clean: /^\/\/ CLEAN: (.+)$/gm, fires: /^\/\/ FIRES: (.+)$/gm } as const;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 const _Pins = Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { default: () => ({}) });
@@ -77,6 +82,8 @@ const _Manifest = Schema.Struct({
     devDependencies: _Pins,
     peerDependencies: _Pins,
 });
+
+const _LintReport = Schema.Struct({ diagnostics: Schema.Array(Schema.Struct({ category: Schema.String })) });
 
 const _Biome = Schema.Struct({
     plugins: Schema.Array(Schema.Struct({ path: Schema.String, includes: Schema.Array(Schema.String) })),
@@ -94,6 +101,15 @@ const _Biome = Schema.Struct({
 const _decode = Schema.decodeUnknown(Schema.parseJson(_Manifest));
 
 const _decodeBiome = Schema.decodeUnknown(Schema.parseJson(_Biome));
+
+const _decodeReport = Schema.decodeUnknown(Schema.parseJson(_LintReport));
+
+// One rule's proof material, extracted from its own file: every span line of the kind, newline-joined.
+const _spanOf = (text: string, kind: keyof typeof _SPANS): string =>
+    Array.join(
+        Array.filterMap(Array.fromIterable(text.matchAll(_SPANS[kind])), (hit) => Option.fromNullable(hit[1])),
+        '\n',
+    );
 
 // The lint-legislature predicate: one violation list over the decoded config, falsifiable in isolation.
 const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
@@ -220,6 +236,57 @@ layer(NodeContext.layer)('workspace admission', (it) => {
         }),
     );
 
+    it.effect('every promoted rule proves live: the FIRES span draws the plugin diagnostic, the CLEAN span lints silent', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const bin = path.join(_ROOT, 'node_modules/.bin/biome');
+                const home = path.join(_ROOT, 'tools/biome');
+                const lint = (dir: string, file: string) =>
+                    Effect.flatMap(Command.string(Command.make(bin, 'lint', '--reporter=json', `--config-path=${dir}`, file)), (raw) =>
+                        Effect.orDie(_decodeReport(raw)),
+                    );
+                const verdicts = yield* Effect.forEach(
+                    _PROMOTED,
+                    (rule) =>
+                        Effect.gen(function* () {
+                            const dir = yield* fs.makeTempDirectoryScoped();
+                            const text = yield* fs.readFileString(path.join(home, `${rule}.grit`));
+                            yield* fs.writeFileString(
+                                path.join(dir, 'biome.json'),
+                                JSON.stringify({
+                                    assist: { enabled: false },
+                                    formatter: { enabled: false },
+                                    linter: { enabled: true, rules: { recommended: false } },
+                                    plugins: [path.join(home, `${rule}.grit`)],
+                                }),
+                            );
+                            yield* fs.writeFileString(path.join(dir, 'fire.ts'), _spanOf(text, 'fires'));
+                            yield* fs.writeFileString(path.join(dir, 'clean.ts'), _spanOf(text, 'clean'));
+                            const fire = yield* lint(dir, path.join(dir, 'fire.ts'));
+                            const clean = yield* lint(dir, path.join(dir, 'clean.ts'));
+                            return Array.flatten([
+                                Array.some(fire.diagnostics, (found) => found.category === 'plugin')
+                                    ? []
+                                    : [`${rule}: the FIRES span never drew the plugin diagnostic`],
+                                Array.isEmptyReadonlyArray(clean.diagnostics)
+                                    ? []
+                                    : [
+                                          `${rule}: the CLEAN span drew [${Array.join(
+                                              Array.map(clean.diagnostics, (found) => found.category),
+                                              ', ',
+                                          )}] — a span that fires or fails to parse proves nothing`,
+                                      ],
+                            ]);
+                        }),
+                    { concurrency: 4 },
+                );
+                expect(Array.flatten(verdicts)).toEqual([]);
+            }),
+        ),
+    );
+
     it.effect('a package holds one canonical catalog; every extra copy is a declared overlay naming it', () =>
         Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
@@ -289,6 +356,13 @@ describe('admission predicates', () => {
         expect(_disarmed('specimen', armed.replace('// FIRES:', '//'))).not.toEqual([]);
         expect(_disarmed('specimen', armed.replace('// CLEAN:', '//'))).not.toEqual([]);
         expect(_disarmed('specimen', 'language js(typescript, jsx)\n`throw $e`')).not.toEqual([]);
+    });
+
+    it('the span extractor reads every proof line and yields nothing from a span-free rule', () => {
+        const text = '// FIRES: const a = 1;\n// FIRES: const b = 2;\n// CLEAN: const c = 3;\n`throw $e`';
+        expect(_spanOf(text, 'fires')).toBe('const a = 1;\nconst b = 2;');
+        expect(_spanOf(text, 'clean')).toBe('const c = 3;');
+        expect(_spanOf('`throw $e`', 'fires')).toBe('');
     });
 
     it('the promoted and review-only rosters split the law set with no overlap', () => {

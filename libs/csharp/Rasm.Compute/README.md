@@ -65,17 +65,17 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `GeneticSharp`
 
 [STRUCTURAL_SOLVERS]:
-- `FEALiTE2D` — 2D frame/beam/truss solver backend for the Solver discretization lane, the `Analysis/structural` planar `FrameBackend`, and structural-analysis receipts.
+- `FEALiTE2D` — 2D frame/beam/truss solver backend: the `Analysis/structural` planar `FrameBackend` and its structural receipts.
 - `FEALiTE2D.Plotting` — DXF export for FEALiTE2D internal-force, shear-force, bending-moment, and displacement diagrams as solver evidence artifacts.
-- `BriefFiniteElement.Net` — the 3D `Analysis/structural` `FrameBackend`, confined to the sparse-factored `BarElement` frame path (its embedded dense `DenseLU` is binary-incompatible with the unified `CSparse 4.4.0` pin); the linear solve injects the Rasm CSparse-4.x `ISolverFactory` via `Solve(ISolverFactory)`, sharing the one `Tensor/factor` factorization owner. The `Analysis/structural` AISC 360 / EN 1993 / EN 1992 / NDS / ACI 318 / TMS 402 / AISI S100 design-code checks are HAND-ROLLED as a `DesignCode`×`LimitState` capacity table (no .NET package owns them); section properties resolve once via the `Rasm.Materials` VividOrange M7 one-hop and ride the seam graph, so Compute admits no VividOrange.
+- `BriefFiniteElement.Net` — 3D `FrameBackend`, sparse `BarElement` path; shared CSparse `ISolverFactory` solve; design codes hand-rolled, sections via M7.
 - `BriefFiniteElementNet.CustomElements`
 
 [ENERGY_SIMULATION]:
-- `NREL.OpenStudio.macOS-arm64` — the osx-arm64 SWIG OpenStudio SDK the `Analysis/energy` runner drives in-process: it BUILDS the OSM `Model` from the `Rasm.Element` `ElementGraph`, forward-translates to an EnergyPlus IDF via `EnergyPlusForwardTranslator`, and reads the results `SqlFile`; it neither runs nor bundles the EnergyPlus solver. The EnergyPlus binary is a PARAMETERIZED subprocess resolved through `EnergyToolchain` (env-var → configured-path → bundled-fallback) and version-locked to the OpenStudio SWIG version. This is the SIMULATION concern, distinct from the `Rasm.Bim/Energy/exchange` energy-model exchange owner.
-- `PollinationSDK` — the Pollination cloud-compute transport backing the `Analysis/energy` `EnergyRoute.Cloud` provider row: the `Wrapper` job/run/asset orchestration (`JobInfo.RunJobAsync` → `ScheduledJobInfo.WatchJobStatusAsync` → `RunInfo.GetOutputAssets`/`DownloadRunAssetsAsync`) converging on the same `SqlFile` result fold the local subprocess uses. Sidecar-isolated (its vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` closure never meets the STJ rails and never loads in-Rhino); token auth is composition-root input; the durable half (presigned-grant object transfer, `ArtifactKind.CloudRun` reuse index, PROV attribution) is `Rasm.Persistence`'s, composed at the seam; catalog at `Rasm.Persistence/.api/api-pollination-sdk.md` (the Compute-scoped orchestration twin is pending).
+- `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK: `ElementGraph` → OSM → IDF, reads `SqlFile`; EnergyPlus runs as the `EnergyToolchain` subprocess.
+- `PollinationSDK` — `EnergyRoute.Cloud` transport, `Wrapper` orchestration onto the same `SqlFile` fold; sidecar-isolated, durable half Persistence-owned.
 
 [EMBODIED_CARBON]:
-- `EC3` / openEPD REST — Building Transparency embodied-carbon service consumed hand-thin over `HttpClient` (no NuGet pin; API evidence in `.api/api-ec3.md`); the EN 15978 LCA Assessment lane reads per-EPD `gwp` measurements (kgCO2e per declared unit) and category GWP statistics, then writes content-keyed `Node.Assessment` nodes on the (input subgraph, route, carbon policy) key the `Analysis/assessment` spine mints.
+- `EC3` — openEPD REST consumed hand-thin over `HttpClient`, no pin; the EN 15978 lane reads per-EPD `gwp` and writes content-keyed `Node.Assessment` rows.
 
 [CLASSICAL_ML_BLAS]:
 - `TorchSharp`

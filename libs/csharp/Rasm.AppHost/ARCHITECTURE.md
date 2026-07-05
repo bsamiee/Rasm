@@ -79,8 +79,8 @@ Runtime/orchestration       ⇄  csharp:Rasm.Persistence                     # [
 Wire/outbox                 ⇄  csharp:Rasm.Persistence                     # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
 Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence                     # [PORT]: CAS + fenced-lease + membership backing store (ONE_FENCED_LEASE_STORE)
 Wire/Coordination.cs        →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [PORT]: MembershipView.Serving roster + RoleElection conductor lease
-Runtime/Features.cs         →  csharp:Rasm.AppHost/Agent/Reasoning.cs      # [SEAM]: FlagVerdict -> ModelRoute.From model-routing select
-Runtime/Features.cs         →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [SEAM]: FlagVerdict -> RollStrategy progressive-rollout select
+Runtime/Features.cs         →  csharp:Rasm.AppHost/Agent/Reasoning.cs      # [SHAPE]: FlagVerdict -> ModelRoute.From model-routing select
+Runtime/Features.cs         →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [SHAPE]: FlagVerdict -> RollStrategy progressive-rollout select
 Runtime/Features.cs         →  typescript:core/interchange/codec           # [WIRE]: FlagVerdictWire over the shared OpenFeature evaluation contract, consumed at runtime/proc flag
 Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission       # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
 Observability/Health.cs     →  csharp:Rasm.Persistence/Store               # [HEALTH_PROBE]: HealthContributorRow fold over Npgsql/Redis/Kafka driver

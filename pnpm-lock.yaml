@@ -267,6 +267,9 @@ catalogs:
     '@oslojs/encoding':
       specifier: 1.1.0
       version: 1.1.0
+    '@otplib/core':
+      specifier: 13.4.1
+      version: 13.4.1
     '@perspective-dev/client':
       specifier: 4.5.1
       version: 4.5.1
@@ -931,6 +934,9 @@ importers:
       '@oslojs/encoding':
         specifier: 'catalog:'
         version: 1.1.0
+      '@otplib/core':
+        specifier: 'catalog:'
+        version: 13.4.1
       '@perspective-dev/client':
         specifier: 'catalog:'
         version: 4.5.1

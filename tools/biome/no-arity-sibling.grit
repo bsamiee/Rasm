@@ -5,7 +5,7 @@ language js(typescript, jsx)
 // or a verb-led `ById`/`ByKey`/`ByName` filter twin. Exemption: none; one modality-polymorphic entry
 // discriminates on input shape, Function.dual owns the data-first/data-last pair.
 // FIRES: export const getUserById = (id: UserId) => lookup(id); export const loadRowsMany = (ids: ReadonlyArray<RowId>) => rows(ids);
-// CLEAN: export const resolve = (key: UserId | ReadonlyArray<UserId>) => Match.value(key).pipe(...);
+// CLEAN: export const resolve = (key: UserId | ReadonlyArray<UserId>) => Match.value(key).pipe(Match.when(Array.isArray, lookupAll), Match.orElse(lookup));
 `export const $name = $init` where {
     $name <: r"^(?:\w+(?:Many|All|ByIds)|(?:get|list|find|fetch|load|read|put|delete)[A-Z]\w*By(?:Id|Key|Name))$",
     register_diagnostic(span=$name, message="Arity/suffix twin export. Collapse the family into one modality-polymorphic entry that discriminates on input shape; a data-first/data-last pair is one Function.dual.", severity="error")

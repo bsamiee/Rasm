@@ -5,7 +5,7 @@ language js(typescript, jsx)
 // substrate owns each (HashMap/HashSet, Effect, Clock, Random, Effect.sleep/Schedule). Exemption:
 // none in-pattern; the FFI seam rides the plugin's negated include globs.
 // FIRES: const seen = new Map<string, number>(); const at = Date.now(); const dice = Math.random();
-// CLEAN: const seen = HashMap.empty<string, number>(); const at = yield* Clock.currentTimeMillis; const dice = yield* Random.next;
+// CLEAN: const seen = HashMap.empty<string, number>(); const stamped = Effect.zipWith(Clock.currentTimeMillis, Random.next, (at, dice) => Row.make({ at, dice }));
 or {
     `new Map($_)`,
     `new Map<$_>($_)`,

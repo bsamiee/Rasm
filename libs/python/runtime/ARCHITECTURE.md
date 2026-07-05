@@ -9,11 +9,11 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ```text codemap
 runtime/
 ├── observability/     # Local evidence production: receipts, contributor port, signals, OTLP gate
-│   ├── receipts.py    # Receipt union, ReceiptContributor port, and structlog/OTel/psutil signals
+│   ├── receipts.py    # Receipt union, DrainOutcome/DRAIN_COLUMNS/DrainReceipt[T] drain taxonomy, ReceiptContributor port, and structlog/OTel/psutil signals
 │   ├── metrics.py     # Async-observable durations/drain-counters/process-gauges over MeterProvider
 │   └── telemetry.py   # One OTLP install owner minting Resource + provider trio, profile-gated
 ├── reliability/       # One fault family and resilience policy every sibling returns through
-│   ├── faults.py      # BoundaryFault tagged union and one exception-to-fault boundary
+│   ├── faults.py      # BoundaryFault tagged union, latched one-shot aspect, Scope/SCOPES tracer-meter vocabulary, and one exception-to-fault boundary
 │   └── resilience.py  # Retry stamina-backed policy table, one row per retryable class
 ├── transport/         # Filesystem/object-store roots, remote-AEC transports, companion server, and wire codec
 │   ├── roots.py       # ResourceRoot/ResourceRef over fsspec/upath/obstore and HTTP/SSH TransportResource
@@ -21,10 +21,11 @@ runtime/
 │   └── wire.py        # WireProtoCodec protobuf seam and CrdtOp union with DecompressFn-injected CrdtOpDecode
 ├── execution/         # Caller-owned admission of host facts, bounded structured concurrency, and local recipe execution
 │   ├── admission.py   # RuntimeContext policy table, causal frames, and SettingsAdmission secret boundary
-│   ├── lanes.py       # LanePolicy anyio task groups with DrainReceipt and StagePlan DAG
+│   ├── lanes.py       # LanePolicy anyio task groups and StagePlan DAG
 │   └── recipe.py      # RecipeExecution: queenbee-schema recipe runs via lbt-recipes over the lane, engine-gated, content-keyed, luigi-evidence verdicts
-├── evidence/          # Content-addressing plus external-surface and structural-parsing evidence
+├── evidence/          # Content-addressing, cross-runtime seed-parity corpus, and external-surface/structural-parsing evidence
 │   ├── identity.py    # ContentIdentity/ContentKey reproducing C# XxHash128 seed bit-identically
+│   ├── reproduction.py # SeedReproduction/CorpusFixture/ParityRow/ParityReceipt nine-row ONE_WIRE_FIXTURE_CORPUS parity fold — traversed(ACCUMULATE), 4-aspect KeyView coverage, DESIGN-PIN planned obligations, ReceiptContributor port
 │   └── evidence.py    # ApiPackage/ApiMember reflection and Structural tree-sitter queries
 └── clock/             # Logical/causal time: the host-minted HLC stamp and content-stable element id
     └── clock.py       # Hlc two-half NodaTime-parity stamp, ElementId, Tenant, and CausalFrame.of
@@ -33,14 +34,13 @@ runtime/
 ## [02]-[SEAMS]
 
 ```text seams
-evidence/identity        ⇄  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: XxHash128 digest endianness + seed parity (CANONICAL_BYTE_IDENTITY)
-evidence/identity        ⇄  csharp:Rasm.Element/Projection     # [CONTENT_KEY]: MATERIAL_LAYER_GOLDEN float-bearing IfcMaterialLayer parity ([H7]); CanonicalWriter IEEE-754-LE Double/Measure seed-zero digest == ContentIdentity — decode the producer reference, never re-mint
+evidence/reproduction    ⇄  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: XxHash128 digest endianness + seed parity (CANONICAL_BYTE_IDENTITY)
+evidence/reproduction    ⇄  csharp:Rasm.Element/Projection     # [CONTENT_KEY]: MATERIAL_LAYER_GOLDEN float-bearing IfcMaterialLayer parity ([H7]) — decode the producer reference, never re-mint
 clock/clock              ←  csharp:Rasm.AppHost/Runtime        # [PORT_RECORDS]: Hlc two-half NodaTime stamp single mint
 transport/wire           ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: WireProtoCodec PROTO_VOCABULARY transcode
 transport/wire           ⇄  csharp:Rasm.Persistence/Version    # [WIRE]: CrdtOp MessagePack union decode (DecompressFn seam)
-execution/admission      ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: CausalFrame Hlc two-half + Tenant
 execution/admission      ←  csharp:Rasm.AppHost/Runtime        # [WIRE]: CredentialPem
-observability/receipts   →  csharp:Rasm.AppHost/Observability  # [WIRE]: W3C trace-context inbound extraction
+transport/serve          →  csharp:Rasm.AppHost/Observability  # [WIRE]: W3C trace-context inbound extraction
 transport/serve          ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: PROTO_VOCABULARY
 transport/serve          ⇄  csharp:Rasm.AppHost/Agent          # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
 transport/serve          ⇄  csharp:Rasm.AppHost/Runtime        # [WIRE]: HLC two-half stamp + Tenant partition

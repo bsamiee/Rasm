@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
-"""Fence-line length gate for codemap/seam fences in markdown docs.
+"""Deterministic hygiene gates for planning docs. Two scoped checks, zero prose reach beyond them.
 
-Reports file:line:length for lines INSIDE tree/seam fences that exceed the cap;
-prose outside those fences is never reported. A fence is in scope when its info
-string carries `codemap` or `seams`, or when its body draws tree/seam glyphs.
+FENCE GATE: lines inside tree/seam fences (info string carries `codemap`/`seams`, or the body
+draws tree/seam glyphs) longer than the cap. Prose outside those fences is never reported.
 
-Usage: fence-linelen.py [--cap N] <file|dir> [...]
+CARD GATE (README.md only): package-card rows shaped `- \x60<package>\x60 ...` — reports a row
+longer than the cap, and parenthesis notation after the package span (the dash-notation law:
+one concise dash-led line, never parentheses).
+
+Usage: fence-linelen.py [--cap N] [--no-cards] <file|dir> [...]
 """
 import pathlib
 import re
 import sys
 
-CAP = 120
+CAP = 160
+CARDS = True
 GLYPH = re.compile(r"[│├└⇄←→]")
+CARD = re.compile(r"^\s*- `[^`]+`(\s*)(.*)$")
 
 args = []
 it = iter(sys.argv[1:])
 for a in it:
     if a == "--cap":
         CAP = int(next(it))
+    elif a == "--no-cards":
+        CARDS = False
     else:
         args.append(a)
 
@@ -36,6 +43,7 @@ for f in files:
         lines = f.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError):
         continue
+    is_readme = f.name == "README.md"
     in_fence = False
     scope = False
     tagged = False
@@ -50,10 +58,21 @@ for f in files:
                 in_fence = False
                 scope = False
             continue
-        if in_fence and not scope and not tagged and GLYPH.search(line):
-            scope = True
-        if in_fence and scope and len(line) > CAP:
-            hits += 1
-            print(f"{f}:{i}: {len(line)} chars (cap {CAP}); overflow: ...{line[CAP:CAP + 60]}")
+        if in_fence:
+            if not scope and not tagged and GLYPH.search(line):
+                scope = True
+            if scope and len(line) > CAP:
+                hits += 1
+                print(f"{f}:{i}: FENCE {len(line)} chars (cap {CAP}); overflow: ...{line[CAP:CAP + 60]}")
+            continue
+        if CARDS and is_readme:
+            m = CARD.match(line)
+            if m:
+                if len(line) > CAP:
+                    hits += 1
+                    print(f"{f}:{i}: CARD {len(line)} chars (cap {CAP}); overflow: ...{line[CAP:CAP + 60]}")
+                if m.group(2).startswith("("):
+                    hits += 1
+                    print(f"{f}:{i}: CARD parenthesis notation; use one dash-led line: {line.strip()[:90]}")
 
-print(f"-- {hits} offending fence line(s) at cap {CAP}", file=sys.stderr)
+print(f"-- {hits} finding(s) at cap {CAP}", file=sys.stderr)

@@ -2,6 +2,7 @@
     "name": "@rasm/ts",
     "private": true,
     "type": "module",
+    "sideEffects": false,
     "exports": {
         "./core": {
             "server": "./core/src/server.ts",

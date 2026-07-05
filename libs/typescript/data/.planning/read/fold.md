@@ -1,30 +1,30 @@
 # [DATA_FOLD]
 
-The projection plane: the durable altitude of the core fold contract. A lane binds one `Fold.Plan` to one keyed relation, and the same binding runs at three staleness budgets — the inline slot executing inside the publish transaction (budget zero, read-your-writes structural), the checkpointed drain daemon woken by LISTEN/NOTIFY and claimed under SKIP LOCKED (budget seconds, replicas cooperate with zero coordination), and the maintenance plane where the database itself owns the fold (`pg_ivm` views, `pg_incremental` exactly-once batch pipelines, `pg_cron` grooming) or a shadow-table replay repairs a drifted model under a session advisory lock. Poison never wedges a lane: a failing event diverts to a typed quarantine and the checkpoint advances past it. This page also mints `AsOf` — journal position plus event stamp — so every windowed and time-travel read upstream coordinates against real durable positions.
+The projection plane: the durable altitude of the core fold contract. A lane binds one `Fold.Plan` to one keyed relation, and the same binding runs at three staleness budgets — the inline slot executing inside the publish transaction (budget zero, read-your-writes structural), the checkpointed drain daemon woken by LISTEN/NOTIFY and claimed under SKIP LOCKED (budget seconds, replicas cooperate with zero coordination), and the maintenance plane where the database itself owns the fold (`pg_ivm` views, `pg_incremental` exactly-once batch pipelines, `pg_cron` grooming) or a shadow-table replay repairs a drifted model under a session advisory lock. Poison never wedges a lane: a failing event diverts to a typed quarantine and the checkpoint advances past it. Time coordinates leave this folder only through the core-owned `AsOf.at` mint — journal position plus event stamp — so every windowed and time-travel read upstream coordinates against real durable positions.
 
 ## [1]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
 | :-----: | :------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `LANE_SPEC`    | the plan-bound lane value, the keyed read-model relation, the `AsOf` mint               |
+|  [01]   | `LANE_SPEC`    | the plan-bound lane value, the keyed read-model relation, the coordinate law            |
 |  [02]   | `INLINE_SLOT`  | the zero-staleness lane — the slot the publish transaction executes                     |
 |  [03]   | `DRAIN_DAEMON` | checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the daemon Layer          |
 |  [04]   | `MAINTENANCE`  | cron/ivm/incremental rows and the shadow-table rebuild with atomic swap                 |
 
 ## [2]-[LANE_SPEC]
 
-- Owner: `Lane.Spec` — one value binding a core `Fold.Plan<A, K, S>` to durability: the plan, the state schema, the target relation, the cell spelling of the plan's key, and the batch policy; `Lane.ddl` derives the relation's ensure row and `Lane.asOf` mints the time coordinate from a journal position.
-- Packages: `@rasm/ts/core` (`Fold`, `AsOf`, `Hlc`); `effect` (`Schema`); `@effect/sql` (`SqlClient`); `lane/capability.md` (`Capability.Ensure` — the shape), `journal/evolve.md` (`Upcast.Plan` — the decode road every lane shares).
+- Owner: `Lane.Spec` — one value binding a core `Fold.Plan<A, K, S>` to durability: the plan, the state schema, the target relation, the cell spelling of the plan's key, and the batch policy; `Lane.ddl` derives the relation's ensure row.
+- Packages: `@rasm/ts/core` (`Fold`); `effect` (`Schema`); `@effect/sql` (`SqlClient`); `lane/capability.md` (`Capability.Ensure` — the shape), `journal/evolve.md` (`Upcast.Plan` — the decode road every lane shares).
 - Entry: an app declares lanes beside its journal binding — `Lane.of({ name, plan, state, table, cell, batch })` — and hands the inline projection to `publish` as a slot value while the daemon registers at the root; the plan arrives as a value from the core fold page and this page never re-declares fold algebra.
 - Receipt: the persisted row is `{ cell, state, version, folded_at }` — the folded state under the plan's merge, the stream version it reflects, and the write stamp; a reader distinguishing staleness reads `version` against the journal head, both decoded loads.
 - Growth: a new read model is one `Lane.of`; a new state field is the plan's business (the merge instance widens, the state schema follows); a lane never grows a second table.
 - Law: the keyed upsert realizes the plan's fold durably — insert (`none -> lift`) and update (`some -> combine`) are the two arms of `ON CONFLICT (cell) DO UPDATE`, exactly the `HashMap.modifyAt` shape the core contract states, so the durable altitude and the memory altitude cannot disagree on merge semantics.
 - Law: `cell` is the plan key's one string spelling — the lane's `cell` member projects `K` to the relation key and the invalidation coordinate alike, so the fold table, the reactive keys, and the quarantine rows address one vocabulary.
-- Law: `Lane.asOf(sequence, stamp)` is the folder's `AsOf` mint — ordinal from the journal's global `sequence`, stamp from the event's `Hlc` — the coordinate the core versioned lanes, window reads, and resume tokens consume; a bare position tuple leaving this page is the defect the mint exists to prevent.
+- Law: time coordinates mint through the core-owned `AsOf.at(stamp, sequence)` — stamp from the event's `Hlc`, the journal's bigint global `sequence` carried losslessly into the branded ordinal — the coordinate the core versioned lanes, window reads, and resume tokens consume; a bare position tuple leaving this folder is the defect that mint exists to prevent.
 
 ```typescript
 import { Duration, Schema } from "effect"
-import { AsOf, Fold, Hlc, Refined } from "@rasm/ts/core"
+import { Fold } from "@rasm/ts/core"
 import { SqlClient } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal, type StreamKey } from "../journal/append.ts"
@@ -56,8 +56,6 @@ const _ddl = (table: string): Capability.Ensure => ({
     folded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));`,
 })
 
-const _asOf = (sequence: number, stamp: Hlc): AsOf =>
-  new AsOf({ stamp, ordinal: Schema.decodeSync(Refined.OrdinalKey)(sequence) })
 ```
 
 ## [3]-[INLINE_SLOT]
@@ -378,7 +376,6 @@ const Lane = {
   of: <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) => spec,
   ddl: _ddl,
   ledger: [_checkpointDdl, _quarantineDdl],
-  asOf: _asOf,
   inline: _inline,
   daemon: _daemon,
   cycle: _cycle,

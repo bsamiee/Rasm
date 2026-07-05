@@ -1,13 +1,20 @@
 language js(typescript, jsx)
 
 // BOUNDARY_ADMISSION promotion. Trigger: a domain function returning an absence sentinel. Predicate:
-// `return null` or `return undefined` — interior absence is Option, admitted once at the edge by
-// Schema.optionalWith. Exemption: none in-pattern; the FFI seam rides the plugin's negated include globs.
-// FIRES: const head = (xs: ReadonlyArray<Row>) => { if (xs.length === 0) { return null; } return xs[0]; };
+// `return null`/`return undefined`, or an arrow whose expression body IS the sentinel — interior
+// absence is Option, admitted once at the edge by Schema.optionalWith. Exemption: none in-pattern;
+// the FFI seam rides the plugin's negated include globs.
+// FIRES: const head = (xs: ReadonlyArray<Row>) => { if (xs.length === 0) { return null; } return xs[0]; }; const miss = () => undefined;
 // CLEAN: const head = (xs: ReadonlyArray<Row>) => Array.head(xs);
 or {
     `return null`,
-    `return undefined`
+    `return undefined`,
+    arrow_function(body=$body) where {
+        $body <: or {
+            `null`,
+            `undefined`
+        }
+    }
 } as $hit where {
-    register_diagnostic(span=$hit, message="Absence sentinel returned from domain flow. Absence is Option — Array.head, Option.fromNullable at the seam, Option.none in the interior.", severity="error")
+    register_diagnostic(span=$hit, message="Absence sentinel returned from domain flow. Absence is Option — Array.head, Option.fromNullable at the seam, Option.none in the interior; an arrow whose whole body is the sentinel is the same defect.", severity="error")
 }

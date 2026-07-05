@@ -43,20 +43,20 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Projection/component       ←  csharp:Rasm.Element/Projection    # [CONTRACT]: IElementProjection / ProjectionContext / GraphDelta / Node / NodeId / ObjectKind / Classification / PredefinedType / Relationship / AssignKind / MaterialUsage / DetailSchema / ContentAddress / Assemble + the IGraphConstraint.Validate gate (Rasm.Bim-implemented) composed after the seam structural law
+Projection/component       ←  csharp:Rasm.Element/Projection    # [SHAPE]: IElementProjection / ProjectionContext / GraphDelta / Node / NodeId / ObjectKind / Classification / PredefinedType / Relationship / AssignKind / MaterialUsage / DetailSchema / ContentAddress / Assemble + the IGraphConstraint.Validate gate (Rasm.Bim-implemented) composed after the seam structural law
 Projection/component       →  csharp:Rasm.Element/Graph         # [PROJECTION]: ComponentProjector mints the deterministic-rooted Type Object (ObjectKind.Type, NodeId from Component canonical bytes EXCLUDING Representations), stamps Classification/PredefinedType, bakes the section + authors the neutral detail bag, binds occurrences via Assign.TypeDefinition; also authors the content-keyed Material/Appearance subgraph
 Projection/component       →  csharp:Rasm.Element/Relations     # [H12]: element→material Associate edge (Subject=element, Resource=material) + C7 MaterialUsage + the Type→occurrence Assign.TypeDefinition bind, authored only when ctx.Owns vouches the element/occurrence NodeId
-Projection/component       ←  csharp:Rasm.Element/Properties    # [CONTRACT]: DetailSchema.Realization for discrete realizing rows and DetailSchema.Product for panel/deck/membrane rows + canonical PropertyName vocabulary the ComponentProjector authors onto (the IFC Pset names stay Bim-only)
-Projection/component       →  csharp:Rasm.Bim/Semantics         # [READ]: Rasm.Bim reads/round-trips the IDENTICAL neutral DetailSchema realization bag at IFC ingress+Emit (mapped to the Rasm_ConnectionRealization Pset, Bim-only); a connection's material binding rides the Associate edge, the joint topology the Bim Connect(Realizing) edge
+Projection/component       ←  csharp:Rasm.Element/Properties    # [SHAPE]: DetailSchema.Realization for discrete realizing rows and DetailSchema.Product for panel/deck/membrane rows + canonical PropertyName vocabulary the ComponentProjector authors onto (the IFC Pset names stay Bim-only)
+Projection/component       →  csharp:Rasm.Bim/Semantics         # [SHAPE]: Rasm.Bim reads/round-trips the IDENTICAL neutral DetailSchema realization bag at IFC ingress+Emit (mapped to the Rasm_ConnectionRealization Pset, Bim-only); a connection's material binding rides the Associate edge, the joint topology the Bim Connect(Realizing) edge
 Component/component        ⇄  csharp:Rasm.Element/Graph         # [SHAPE]: the owner-mints-its-identity law + the named Bake type→occurrence inheritance (single fields occurrence-overrides-type, Seq fields union+dedup-by-key) + TypeId on the baked Element + the BakedMaterial/TypeBinding rename
-Component/component        ←  csharp:Rasm.Element/Composition   # [CONTRACT]: ProfileRef / ProfileSet / SectionProperties — the seam ProfileSet case's section handle + neutral receipt (seam-canonical; the semantic rename STOPS at the Materials boundary, Component composes them unchanged)
+Component/component        ←  csharp:Rasm.Element/Composition   # [SHAPE]: ProfileRef / ProfileSet / SectionProperties — the seam ProfileSet case's section handle + neutral receipt (seam-canonical; the semantic rename STOPS at the Materials boundary, Component composes them unchanged)
 Component/component        ←  csharp:Rasm.Element/Composition   # [M7]: ComponentResolution resolves the seam ProfileRef → ResolvedComponent(Component, Option<ComputedSection>) one-hop, the Component-owned twenty-field ComputedSection lifting onto the seam SectionProperties so a structural consumer reads graph.SectionOf without re-resolving per call
 Component/capacity         →  csharp:Rasm.Compute              # [WIRE]: section capacity feeds the structural Assessment route
-Properties/properties      ←  csharp:Rasm.Element/Composition   # [CONTRACT]: MaterialPropertySet cases + MeasureBand uncertainty/evidence lowering + the intrinsic acoustic folds (Nrc/Saa/StcWeighted over the shared RatingContour.Fit kernel), referenced not re-authored
+Properties/properties      ←  csharp:Rasm.Element/Composition   # [SHAPE]: MaterialPropertySet cases + MeasureBand uncertainty/evidence lowering + the intrinsic acoustic folds (Nrc/Saa/StcWeighted over the shared RatingContour.Fit kernel), referenced not re-authored
 Properties/properties      →  csharp:Rasm.Compute              # [WIRE]: the per-material Discipline-keyed MaterialPropertySet set IS the analysis input Compute reads off the Material node DIRECTLY (no Materials-authored Assessment-input node) + the relocated multi-ply AssemblyAggregator + discipline solvers + Assessment.Result writeback
 Properties/sustainability  →  csharp:Rasm.Compute              # [WIRE]: the lifecycle AggregateEnvironmental / AggregateCost folds + embodied-carbon/cost rollup (RELOCATED)
 Properties                 →  csharp:Rasm.Fabrication/Process  # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
-Projection/component       ←  csharp:Rasm.Element/Composition   # [CONTRACT]: MaterialComposition (Single/LayerSet/ProfileSet(ProfileRef)/ConstituentSet) + MaterialUsage (None/LayerSet/ProfileSet) — the absorbed CompositionAuthor coerce-and-delegate builders + the C7 UsageOf derivation
+Projection/component       ←  csharp:Rasm.Element/Composition   # [SHAPE]: MaterialComposition (Single/LayerSet/ProfileSet(ProfileRef)/ConstituentSet) + MaterialUsage (None/LayerSet/ProfileSet) — the absorbed CompositionAuthor coerce-and-delegate builders + the C7 UsageOf derivation
 Appearance/interchange     →  csharp:Rasm.Element/Graph         # [CONTENT_KEY]: MaterialWire.Summary lowers a library row to the content-keyed seam AppearanceSummary (the AppearanceKey via the seam AppearanceSummary.Of, tolerance 0.0 so the PBR scalars hash at full IEEE precision — the SAME no-quantization Rasm.Bim AppearanceProjection passes, the dedup invariant); the full MaterialWire/MtlxDocument are the payload behind that key
 Appearance/interchange     →  typescript:core/interchange/codec # [WIRE]: decode-only MaterialWire/OpenPbrGroupsWire/AppearanceSummary mirroring the C# projection field-for-field; a peer re-mint of the OpenPBR algebra is the CROSS_LANGUAGE_WIRE drift defect
 Appearance/interchange     →  typescript:ui/viewer              # [WIRE]: PbrGroups appearance decode at the scene appearance leaves
@@ -65,12 +65,12 @@ Appearance/bsdf            →  csharp:Rasm.AppUi/Render/pathtrace  # [BOUNDARY]
 Appearance/bsdf            →  csharp:Rasm.AppUi/Render/shading    # [BOUNDARY]: LayeredBsdf lobe-weight uniforms at SURFACE_SHADE seam
 Appearance/graph           →  csharp:Rasm.AppUi/Render/pathtrace  # [BOUNDARY]: MaterialGraph.Evaluate SurfaceShade sink to integrator + GPU shading pass
 Appearance/acquisition     ←  host-free-peer / host-edge wire  # [WIRE]: the EPFL RGL .bsdf goniophotometer + neural-SVBRDF .exr binary decode the Rasm.Bim/app root owns, feeding the decoded Seq<BrdfSample>/Seq<MaterialParameters> the import fold consumes — this owner never binds the binary file format
-Appearance/acquisition     →  csharp:Rasm.Compute/blas          # [DOCTRINE]: the DENSE_ALGEBRA thin-QR overdetermined route shape SolveGgx follows; MathNet.Numerics is the DIRECT in-folder Materials pin, NOT a Compute project edge (the acyclic strata forbids the AEC->app-platform reference) — citation only, no edge lands
-Component/steel            ←  VividOrange.Profiles.Catalogue   # [DATA]
-Component/capacity         ←  VividOrange.InteractionDiagram   # [DATA]
-Component/capacity         ←  VividOrange.Sections.SectionProperties  # [DATA]
-Component/reinforcement    ←  VividOrange.Sections             # [DATA]
-Component/reinforcement    ←  VividOrange.Materials            # [DATA]
+Appearance/acquisition     →  csharp:Rasm.Compute/blas          # [SHAPE]: the DENSE_ALGEBRA thin-QR overdetermined route shape SolveGgx follows; MathNet.Numerics is the DIRECT in-folder Materials pin, NOT a Compute project edge (the acyclic strata forbids the AEC->app-platform reference) — citation only, no edge lands
+Component/steel            ←  VividOrange.Profiles.Catalogue   # [BOUNDARY]
+Component/capacity         ←  VividOrange.InteractionDiagram   # [BOUNDARY]
+Component/capacity         ←  VividOrange.Sections.SectionProperties  # [BOUNDARY]
+Component/reinforcement    ←  VividOrange.Sections             # [BOUNDARY]
+Component/reinforcement    ←  VividOrange.Materials            # [BOUNDARY]
 ```
 
 ## [03]-[DOMAIN_LAW]

@@ -28,7 +28,7 @@ import {
 } from "@effect/platform"
 import { type RpcGroup, RpcServer } from "@effect/rpc"
 import { DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
-import { Cookie, type MacKey, OAuth, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
+import { Cookie, Departed, type MacKey, OAuth, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
 import { Rail } from "@rasm/ts/data"
 import { Life } from "../proc/life.ts"
 import { Current } from "./api.ts"
@@ -129,10 +129,10 @@ const Intake = { of: _intake } as const
 [CEREMONY_ROWS]:
 - Owner: `Ceremony` — the HTTP lift of the security wave's authentication round-trips, four route pairs under one prefix: `authorize` redirects to `OAuth.authorize`'s minted URL (302, the state stash already held); `callback` decodes the provider's `code`/`state` query, exchanges through `OAuth.callback` into a `TokenPair`, and lands the session as cookies; `enroll`/`assert` serve the webauthn halves — the options POST returns the RP-minted challenge JSON, the finish POST verifies through `WebAuthn.enrollFinish`/`assertFinish` and lands the session; `refresh` rotates through `Token.refresh` reading the path-scoped refresh cookie; `logout` revokes and writes the clearing set.
 - Law: cookie application is one fold — `_cookied(response, framed)` reduces the security wave's `Cookies.Cookie` set through `HttpServerResponse.setCookie(name, value, options)`, so the security attribute policy table decides every attribute and no route names `httpOnly`, `sameSite`, or a path; the CSRF pair verifies through `Cookie.verify` on the mutating ceremonies before any state changes.
-- Law: ceremonies own HTTP shape only — redirect codes, query decode, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), so a ceremony handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status.
+- Law: ceremonies own HTTP shape only — redirect codes, query decode, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), so a ceremony handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status. The `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the seam as a decode refusal, never inside the ceremony.
 - RESEARCH: the passkey response-body admission — one Schema pair decoding the POSTed registration and authentication response JSON into the `RegistrationResponseJSON`/`AuthenticationResponseJSON` parameters `WebAuthn.enrollFinish`/`assertFinish` take — is unverified until the security catalogue rows it; the route pair and the cookie fold are settled, the admission schema spelling is the research item and the browser collection half is the ui wave's.
 - Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair composing its security owner; a new cookie role reframes through the same fold with zero route edits.
-- Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest`, `HttpServerResponse`, `Cookies`); `@rasm/ts/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`); `effect` (`Schema`, `Redacted`).
+- Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest`, `HttpServerResponse`, `Cookies`); `@rasm/ts/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `Departed` — the provider-kind decode anchor); `effect` (`Schema`, `Redacted`).
 
 ```typescript
 const _cookied = (
@@ -143,6 +143,8 @@ const _cookied = (
     HttpServerResponse.setCookie(held, cookie.name, cookie.value, cookie.options).pipe(Effect.orDie))
 
 const _Callback = Schema.Struct({ code: Schema.NonEmptyString, state: Schema.NonEmptyString })
+
+const _Provider = Schema.Struct({ provider: Departed.fields.kind })
 
 declare const _asserted: Effect.Effect<
   { readonly subject: Parameters<WebAuthn["assertFinish"]>[0]; readonly response: Parameters<WebAuthn["assertFinish"]>[1] },
@@ -165,18 +167,17 @@ const _ceremony = (base: `/${string}`) =>
     HttpLayerRouter.add("GET", `${base}/authorize/:provider`, () =>
       Effect.gen(function* () {
         const oauth = yield* OAuth
-        const { provider } = yield* HttpLayerRouter.params
-        const target = yield* oauth.authorize(provider ?? "")
+        const { provider } = yield* Effect.flatMap(HttpLayerRouter.params, Schema.decodeUnknown(_Provider))
+        const target = yield* oauth.authorize(provider)
         return HttpServerResponse.empty({ status: 302 }).pipe(HttpServerResponse.setHeader("location", target.href))
       })),
     HttpLayerRouter.add("GET", `${base}/callback/:provider`, () =>
       Effect.gen(function* () {
         const oauth = yield* OAuth
         const cookie = yield* Cookie
-        const request = yield* HttpServerRequest.HttpServerRequest
         const query = yield* HttpServerRequest.schemaSearchParams(_Callback)
-        const { provider } = yield* HttpLayerRouter.params
-        const pair = yield* oauth.callback(provider ?? "", query.code, query.state, _subjectOf)
+        const { provider } = yield* Effect.flatMap(HttpLayerRouter.params, Schema.decodeUnknown(_Provider))
+        const pair = yield* oauth.callback(provider, query.code, query.state, _subjectOf)
         const framed = yield* cookie.frame(pair)
         const csrf = yield* cookie.csrf()
         return yield* _cookied(HttpServerResponse.empty({ status: 302 }).pipe(HttpServerResponse.setHeader("location", "/")), [...framed, csrf])

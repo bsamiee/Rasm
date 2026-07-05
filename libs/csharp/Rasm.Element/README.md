@@ -32,7 +32,7 @@ The C# substrate registry cards this folder composes; full registry and substrat
 
 [TIME_IDENTITY]:
 - `NodaTime`
-- `NodaTime.Serialization.Protobuf` — the `Instant`↔`google.protobuf.Timestamp` (and `Duration`) crossings the `Graph/wire` `HeaderWire`/`OwnerHistoryWire`/`ProvenanceWire` fields ride; interior code carries NodaTime values only.
+- `NodaTime.Serialization.Protobuf` — `Instant`↔`google.protobuf.Timestamp`/`Duration` crossings on the `Graph/wire` headers; interior code stays NodaTime.
 - `System.IO.Hashing`
 
 [NUMERIC_SUBSTRATE]:
@@ -42,10 +42,10 @@ The C# substrate registry cards this folder composes; full registry and substrat
 - `QuikGraph`
 
 [BOUNDARY_TRANSCRIPTION]:
-- `Riok.Mapperly` — compile-time seam↔wire transcription (`.planning/Graph/wire.md`): the `WireCodec` `[Mapper]` per-case field mappings and `[UserMapping]` verbatim key codecs; the seam owns identity/hash/rail, Mapperly only the boundary transcription, the union case dispatch riding the generated total `Switch` (encode) and the generated `PayloadCase` closed enums (decode).
-- `Google.Protobuf` — the `rasm.element.v1` generated wire messages (`.planning/Graph/wire.md`): `IMessage<T>`/`MessageParser<T>` payload flow, `CodedInputStream.CreateWithLimits` the hostile-payload depth/size gate, `ByteString` the 16-byte big-endian content-key carrier.
+- `Riok.Mapperly` — seam↔wire transcription only: `WireCodec` `[Mapper]` case mappings + `[UserMapping]` key codecs on the generated `Switch`/`PayloadCase`.
+- `Google.Protobuf` — `rasm.element.v1` wire messages: `IMessage<T>`/`MessageParser<T>` flow, `CreateWithLimits` payload gate, `ByteString` content-key carrier.
 - `Grpc.Tools` — build-only `<Protobuf>` message codegen for `Graph/element.proto` (`GrpcServices=None`, `PrivateAssets=all`); never a runtime surface.
-- `Generator.Equals` — compile-time structural equality and the `Inequalities` member-level diff over the `ElementGraph` snapshot, feeding the Persistence 3-way `StructuralMerge`; complements, never replaces, the kernel `XxHash128` content-addressing rail.
+- `Generator.Equals` — structural equality + `Inequalities` member diff, feeding the 3-way `StructuralMerge`; never replaces the `XxHash128` rail.
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*`

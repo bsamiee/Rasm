@@ -1,6 +1,6 @@
 # [PY_RUNTIME]
 
-`runtime` is the host-free execution foundation every `libs/python` sibling composes. It mints shared value shapes once and references no sibling: the single content-identity owner reproducing the C# `XxHash128` seed bit-identically, the one boundary-fault and `Result`/`Option` rail, the one resilience policy, caller-owned context and settings admission, resource roots and bounded structured-concurrency lanes, local receipts and the contributor port, the inbound companion gRPC server-runtime decoding the C#-owned protobuf wire, the `msgspec.msgpack` op-log delta, the capability-descriptor SDK, external-API and structural-parsing evidence, and the private daemon entrypoint grammar. The companion owns no wire vocabulary and decodes only C#-minted shapes (single-mint invariant). `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`runtime` is the host-free execution foundation every `libs/python` sibling composes. It mints shared value shapes once and references no sibling: the single content-identity owner reproducing the C# `XxHash128` seed bit-identically, the one boundary-fault and `Result`/`Option` rail, the one resilience policy, caller-owned context and settings admission, resource roots and bounded structured-concurrency lanes, local receipts and the contributor port, the inbound companion gRPC server-runtime decoding the C#-owned protobuf wire, the `msgspec.msgpack` op-log delta, the capability-descriptor SDK, external-API and structural-parsing evidence, the cross-runtime seed-parity corpus binding (`identity < receipts < reproduction`), and the private daemon entrypoint grammar. The companion owns no wire vocabulary and decodes only C#-minted shapes (single-mint invariant). `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [01]-[ROUTER]
 
@@ -16,8 +16,9 @@
 - [10]-[LANES](.planning/execution/lanes.md)
 - [11]-[RECIPE](.planning/execution/recipe.md)
 - [12]-[IDENTITY](.planning/evidence/identity.md)
-- [13]-[EVIDENCE](.planning/evidence/evidence.md)
-- [14]-[CLOCK](.planning/clock/clock.md)
+- [13]-[REPRODUCTION](.planning/evidence/reproduction.md)
+- [14]-[EVIDENCE](.planning/evidence/evidence.md)
+- [15]-[CLOCK](.planning/clock/clock.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

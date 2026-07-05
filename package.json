@@ -102,6 +102,7 @@
         "@opentelemetry/semantic-conventions": "catalog:",
         "@oslojs/crypto": "catalog:",
         "@oslojs/encoding": "catalog:",
+        "@otplib/core": "catalog:",
         "@perspective-dev/client": "catalog:",
         "@perspective-dev/viewer": "catalog:",
         "@perspective-dev/viewer-charts": "catalog:",

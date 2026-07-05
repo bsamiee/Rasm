@@ -396,7 +396,7 @@ REFLECTED: Reflected = reflected(Shape)
 [CLOSED_MATCH_SITE]:
 - Use when: a closed domain must project every case through one operation-local `match` statement.
 - Accept: structural pattern dispatch over the sealed member set, one operation-local projection, and `case _ as unreachable: assert_never(unreachable)` as the exhaustiveness witness; a `TypeIs` predicate narrows at the projection boundary before the `match`, never as a guarded arm the checker cannot prove total.
-- Reject: tag `if` chains, a `case x if predicate(x):` guard arm carrying the only narrowing, catch-all raises, default arms that hide a missing case, and pre-match normalization that erases the discriminant.
+- Reject: tag `if` chains, an arm body opening a second `match` or an `if` ladder where a refining guard or an or-pattern carries the sub-case, a `case x if predicate(x):` guard arm carrying the only narrowing, catch-all raises, default arms that hide a missing case, and pre-match normalization that erases the discriminant.
 - Boundary: the type-evidence spotlight above demonstrates the closed `match` over `@disjoint_base` members; variant ownership, error rail shape, and cross-module dispatch architecture belong to the owning domain or surface concept page.
 
 [SENTINEL_DEFAULT_SITE]:

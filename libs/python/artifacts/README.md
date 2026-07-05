@@ -146,7 +146,7 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `zxing-cpp` - 2D-matrix symbology owner — DataMatrix/PDF417/Aztec/MaxiCode encode and `read_barcodes` decode round-trip — beside the python-barcode linear arm
 - `pyvips` - Fast libvips raster pipeline — resize/thumbnail/format-convert/composite — on the libvips Forge native floor
 - `resvg-py` - Resvg SVG-to-raster render with accurate font/filter support
-- `svgelements` - Pure-Python SVG geometry/transform/parse — `SVG.parse`/`Path`/`Matrix`/`bbox` — owning the `figures/compose` SVG scale-to-fit/n-up/crop/bounds composition over the SVG the chart/QR/nanoplot owners emit.
+- `svgelements` - Pure-Python SVG geometry/transform/parse owning the `figures/compose` scale-to-fit/n-up/crop/bounds composition over chart/QR/nanoplot SVG.
 - `skia-pathops` - Skia boolean/offset/stroke-to-outline path operations for `graphic/vector`, beside the `shapely` planar set-op surface.
 - `drawsvg` - Hierarchical named-layer SVG authoring — `Drawing`/`Group(id=...)`/`as_svg` — for the `export/layered` Illustrator/InDesign editable hand-off.
 - `tifffile` - TIFF container IO, extratag authoring, ICC/metadata fields, and Photoshop-compatible layered TIFF writer boundary.
@@ -162,7 +162,7 @@ Every domain rendering library this folder uses. Versions are centralized in the
 [Typography]:
 - `fonttools`
 - `pyhanko`
-- `uharfbuzz` - OpenType text shaping — the `Blob`/`Face`/`Font`/`Buffer`/`shape`/`GlyphInfo`/`GlyphPosition` pipeline, COLRv1 `PaintFuncs`, `Font.set_variations`, and the `draw_glyph_with_pen` fontTools outline bridge
+- `uharfbuzz` - OpenType shaping pipeline, COLRv1 `PaintFuncs`, `Font.set_variations`, and the `draw_glyph_with_pen` fontTools outline bridge
 - `blackrenderer` - COLRv1 color-glyph raster/SVG rendering over the uharfbuzz/fontTools paint chain
 - `python-bidi` - UAX#9 bidirectional reorder pass before HarfBuzz shaping for mixed-direction Perso-Arabic runs, feeding `typography/shape`
 - `uniseg` - Unicode line, grapheme, and word segmentation for line-break opportunities and paragraph layout.
@@ -172,19 +172,19 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `PyICU` - ICU locale line-break/bidi/collation (gated `python_version<'3.15'`; sdist-only, needs ICU native).
 
 [Composition]:
-- `pdfimpose` - Saddle-stitch, wire, cards, cut/fold, and signature page-order computation normalized into `composition/imposition` placement and `ImposedPlan` facts.
+- `pdfimpose` - Saddle-stitch, wire, cards, cut/fold, and signature page-order computation normalized into `composition/imposition` `ImposedPlan` facts.
 
 [Editable export]:
 - `simpleidml` - IDML package mutation and page/layer/template composition for the InDesign export owner.
-- `PhotoshopAPI` - native PSD/PSB layered-document writer, the PSD authority for `export/layered` (gated `python_version<'3.15'`; no cp315 wheel/sdist, source-build is a Forge follow-up).
+- `PhotoshopAPI` - native PSD/PSB layered writer, the PSD authority for `export/layered`; gated `python_version<'3.15'`, source-build a Forge follow-up.
 - `psd-tools` - PSD read/inspect plus pixel author beside the `PhotoshopAPI` writer.
 - `imagecodecs` - PackBits/ZIP channel codecs for layered raster egress.
 
 [CAD exchange]:
-- `ezdxf` - DXF document/entity model, read/write, and render backend for `export/dxf`, the drawing-plane symbol/detail block store (`doc.blocks.new`/`add_blockref`/`Importer`/`xref`), and the `drawing/standard` symbol-table lowering.
+- `ezdxf` - DXF document/entity model and render backend for `export/dxf`, the drawing-plane block store, and the `drawing/standard` symbol-table lowering.
 
 [Diagrams]:
-- `grandalf` - Sugiyama hierarchy layout, edge routing, and layered graph coordinates for diagram layout beside `rustworkx` (fallback until `fast-sugiyama` parity lands).
+- `grandalf` - Sugiyama hierarchy layout and edge routing beside `rustworkx`, fallback until `fast-sugiyama` parity lands.
 - `pyelk` - ELK layered/orthogonal/ports/nesting diagram layout for the node-link/ER/flowchart diagram pages.
 - `fast-sugiyama` - fast Sugiyama layered placement (Rust/abi3) replacing `grandalf` placement.
 - `kiwisolver` - Cassowary constraint-layout solver promoted to a direct surface.
@@ -197,10 +197,10 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `c2pa-python` - C2PA content-credential manifest sign/verify keyed by the content key, feeding `provenance/credential`
 
 [Metadata]:
-- `pyexiftool` - richest cross-format descriptive-metadata read/write over the exiftool binary; the `exchange/metadata` cross-format owner, replaces the abandoned `exif`.
+- `pyexiftool` - cross-format descriptive-metadata read/write over the exiftool binary; the `exchange/metadata` owner, replaces `exif`.
 - `pyexiv2` - in-process EXIF/IPTC/XMP read/write (gated `python_version<'3.15'`; wheels-only, no cp315 wheel yet).
-- `iptcinfo3` - superseded on the raster carrier by the `pyexiftool`/`pyexiv2` cross-format pass; flagged for the final `pyproject` reconciliation, no longer imported by `exchange/metadata`.
-- `python-xmp-toolkit` - superseded on the raster carrier by the `pyexiftool`/`pyexiv2` cross-format pass (`pikepdf` owns the PDF/XMP path); flagged for the final `pyproject` reconciliation, no longer imported by `exchange/metadata`.
+- `iptcinfo3` - superseded on the raster carrier by `pyexiftool`/`pyexiv2`; flagged for final `pyproject` reconciliation.
+- `python-xmp-toolkit` - superseded by the `pyexiftool`/`pyexiv2` pass, `pikepdf` owning PDF/XMP; flagged for final `pyproject` reconciliation.
 
 [Compression]:
 - `zstandard`
@@ -213,21 +213,21 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `detools` - Binary-diff/patch generation for incremental artifact delta bundles
 
 [Media]:
-- `av` (PyAV in-process container/codec read/write/filtergraph for the `media/` plane; capability-detection filter routing — native `drawtext`/`subtitles`/`ass`/`eq` when the build exposes them, verified `overlay`/`colorbalance`/`curves`/`nlmeans` substitutes otherwise. Source-build against the machine ffmpeg-full is a Forge follow-up.)
+- `av` - PyAV container/codec/filtergraph for the `media/` plane; capability-detected native filters, verified substitutes; ffmpeg-full build a Forge follow-up.
 - `pysubs2` - subtitle parse/convert/retime/restyle model for `media/subtitle`.
 
 [UNLOCKED_ADMITTED_SURFACES]: capabilities the new pages reach through existing package rows:
-- `pikepdf` XMP — `Pdf.open_metadata()` scalar read/write, the in-process `exchange/metadata` PDF/XMP path beside the `/OCProperties` object-model surgery the `export/layered` `PdfSurgery` arm uses.
-- `pyvips` ICC — the fused-libvips decode/downscale/ICC/smartcrop streaming pipeline the `graphic/raster/io` high-throughput provider reaches through the Forge `libvips` runtime.
+- `pikepdf` XMP — `Pdf.open_metadata()` scalar read/write, the in-process PDF/XMP path beside the `/OCProperties` surgery the `PdfSurgery` arm uses.
+- `pyvips` ICC — the fused decode/downscale/ICC/smartcrop streaming pipeline reached through the Forge `libvips` runtime.
 
 [ADMITTED_LOCAL_OVERLAYS]: these packages have root manifest rows and folder `.api` catalogues; production pages consume them only through their owning planning files.
 - `grandalf` — `visualization/diagram/layout` hierarchy coordinate assignment and edge routing beside the admitted `rustworkx` graph substrate.
 - `uniseg` + `pyphen` — `typography/layout` Unicode line-break segmentation plus language-aware hyphenation feeding the paragraph-fit owner.
 - `simpleidml` — `export/indesign` IDML package mutation over template, layer, spread, page, XML, and imported asset operations.
 - `psdtags` + `tifffile` — `export/layered` Photoshop-compatible layered TIFF output and TIFF extratag authoring.
-- `pyexiftool` + `pyexiv2` — `exchange/metadata` cross-format raster descriptive-metadata carrier facts (the `RASTER` `pyexiftool`-standing / `pyexiv2`-optional arm), with `pikepdf` the `PDF` carrier and `av` the `MEDIA` carrier; `iptcinfo3`/`python-xmp-toolkit` superseded on this carrier, pending final-reconciliation removal.
+- `pyexiftool` + `pyexiv2` — `exchange/metadata` raster carrier, `pikepdf` the `PDF` and `av` the `MEDIA` carrier; `iptcinfo3`/`python-xmp-toolkit` superseded.
 - `pdfimpose` — `composition/imposition` saddle/wire/card/cut/fold/signature page-order computation normalized into local placement facts.
-- `polars` + `rustworkx` + `zlib-ng` — artifact-local overlays for admitted substrate rows consumed directly by table/diagram/package owners; `rustworkx` also owns the `drawing/detail` sheet cross-reference `PyDAG` (cycle rejection, transitive reduction, revision-impact closure) and the `core/plan` producer dependency graph (`topological_generations` fronts, `digraph_find_cycle` gate, `ancestors` target closure, CPM scheduling).
+- `polars` + `rustworkx` + `zlib-ng` — overlays for table/diagram/package owners; `rustworkx` also owns the detail `PyDAG` and `core/plan` producer graph.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

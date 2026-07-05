@@ -68,7 +68,7 @@ Every domain library the folder uses, planned or implemented. Versions are centr
 - `honeybee-energy` - Building-energy extension: constructions, loads, schedules, HVAC, EnergyPlus/OpenStudio exchange
 - `honeybee-openstudio` - In-process OpenStudio/EnergyPlus translator over the native SDK
 - `honeybee-standards` - Baseline default construction, schedule, and program data backend
-- `honeybee-energy-standards` - Large ASHRAE 90.1 / DOE-prototype standards extension: climate-zone/vintage construction sets, programs, and schedules resolved by identifier through `honeybee-energy.lib`
+- `honeybee-energy-standards` - ASHRAE 90.1/DOE-prototype standards: climate-zone/vintage construction sets, programs, schedules via `honeybee-energy.lib`
 - `dragonfly-core` - District/urban 2.5-D massing object model exploding to Honeybee
 - `dragonfly-energy` - District-energy translation (URBANopt/DES/OpenDSS/REopt)
 - `queenbee` - Recipe/workflow schema contract; geometry binds `RecipeInterface`/`Job` while `runtime` owns execution

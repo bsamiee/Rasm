@@ -115,7 +115,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `Microsoft.IdentityModel.JsonWebTokens`
 - `Microsoft.IdentityModel.Tokens`
 - `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- `Microsoft.IdentityModel.Protocols` — transitive base of both `Microsoft.IdentityModel.Protocols.OpenIdConnect` and `OpenIddict.Client` (version-locked to the OpenIdConnect admission, not separately pinned); cataloged as the `ConfigurationManager<T>` refresh-manager seam for a design page that constructs the manager directly
+- `Microsoft.IdentityModel.Protocols` — transitive base of OpenIdConnect and `OpenIddict.Client`, version-locked; the `ConfigurationManager<T>` refresh seam.
 
 [SUPPLY_CHAIN]:
 - `Sigstore`

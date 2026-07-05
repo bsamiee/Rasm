@@ -57,6 +57,6 @@ impact              ←   python:runtime                            # [PORT]: Tr
 impact              →   python:runtime/observability              # [RECEIPT]: ImpactReceipt contribution keyed by ContentIdentity
 impact              →   tabular/contract                          # [SHAPE]: EN 15804 indicator × stage matrix as a pydantic/pandera-gated frame
 impact              →   tabular/profile                           # [WIRE]: flattened method × indicator × stage frame for the data-quality plane
-impact              →   csharp:Rasm.Materials                     # [ASSESSMENT]: EN 15804 set as the seam Discipline.Environmental Assessment / MaterialPropertySet.Environmental, content-keyed (one XxHash128 seed); Rasm.Compute the assessment runner (EC3 sibling) — decode the seam vocabulary, never re-mint
+impact              →   csharp:Rasm.Materials                     # [WIRE]: EN 15804 set as the seam Discipline.Environmental Assessment / MaterialPropertySet.Environmental, content-keyed (one XxHash128 seed); Rasm.Compute the assessment runner (EC3 sibling) — decode the seam vocabulary, never re-mint
 impact              ⇄   csharp:Rasm.Persistence                   # [CONTENT_KEY]: EPD/LCA identity deduped in the durable reuse ledger
 ```

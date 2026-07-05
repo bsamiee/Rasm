@@ -43,7 +43,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `UnitsNet` — Element, Bim, Compute, Fabrication, Materials, AppUi.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — Rasm, Element, Materials, Bim, Persistence (the pure-managed graph containers + `AlgorithmExtensions` facade; the kernel `Spatial/neighbors` Prim-MST normal orientation, the seam `ElementGraph` topology view, the Materials `Appearance/graph` node-graph folds, the Persistence synchronous `Query/topology` lane, the Bim CPM/`SystemTrace`/version-DAG walks).
+- `QuikGraph` — Rasm, Element, Materials, Bim, Persistence: pure-managed graph containers + `AlgorithmExtensions` behind the MST/topology/CPM/version-DAG walks.
 
 [WIRE_CODEGEN]:
 - `Generator.Equals` — Element, Bim, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).

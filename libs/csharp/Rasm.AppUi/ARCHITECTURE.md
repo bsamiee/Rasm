@@ -77,7 +77,7 @@ Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]:
 Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
 Render/pathtrace  ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
 Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain
-Editing           ←  csharp:Rasm.Bim/coordination                # [DOMAIN]: BcfTopic/BcfComment/BcfViewpoint annotation domain
+Editing           ←  csharp:Rasm.Bim/coordination                # [SHAPE]: BcfTopic/BcfComment/BcfViewpoint annotation domain
 Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: Forward/inverse delta replays as SyncOpKind durable inverse stream
 Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
 Shell/controls    →  typescript:core/interchange/codec           # [WIRE]: ControlIntentWire kind-discriminated control vocabulary

@@ -52,7 +52,7 @@ The typing/rails, concurrency, observability, numeric-substrate, identity, compr
 - `protobuf`
 
 [TEST_SUBSTRATE]:
-- `pytest` (+ its plugins)
+- `pytest` — with its plugin set
 - `hypothesis`
 - `inline-snapshot`
 - `coverage`

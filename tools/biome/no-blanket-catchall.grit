@@ -1,0 +1,20 @@
+language js(typescript, jsx)
+
+// EXPRESSION_SPINE promotion. Trigger: a catchAll/catchAllCause whose handler discards the failure.
+// Predicate: the handler is an arrow whose whole body is Effect.void or a constant Effect.succeed —
+// the typed channel is buried undiscriminated. Exemption: a handler that maps, logs, refails, or
+// discriminates has a real body; a ruled discard is Effect.ignore/Effect.ignoreLogged at the call
+// site, and typed recovery is catchTag/catchTags.
+// FIRES: const buried = program.pipe(Effect.catchAll(() => Effect.void));
+// CLEAN: const typed = program.pipe(Effect.catchTag("JournalFault", (fault) => recover(fault)));
+or {
+    `Effect.catchAll($handler)`,
+    `Effect.catchAllCause($handler)`
+} as $hit where {
+    $handler <: arrow_function(body=$body),
+    $body <: or {
+        `Effect.void`,
+        `Effect.succeed($_)`
+    },
+    register_diagnostic(span=$hit, message="Blanket swallow of the typed failure channel. Recover by tag — Effect.catchTag/catchTags — or state the ruled discard as Effect.ignore/Effect.ignoreLogged where the surrounding contract names the reason.", severity="error")
+}

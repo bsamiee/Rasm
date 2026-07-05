@@ -38,7 +38,15 @@
     "plugins": [
         { "path": "./tools/biome/no-arity-sibling.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
         {
+            "path": "./tools/biome/no-await-in-domain.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
+        },
+        {
             "path": "./tools/biome/no-barrel-reexport.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
+        },
+        {
+            "path": "./tools/biome/no-blanket-catchall.grit",
             "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
         },
         { "path": "./tools/biome/no-domain-throw.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },

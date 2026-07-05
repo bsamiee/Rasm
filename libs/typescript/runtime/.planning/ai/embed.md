@@ -24,8 +24,9 @@ The embedding corpus pipeline and the retrieval port's satisfying side: determin
 ```typescript
 import { EmbeddingModel, type LanguageModel } from "@effect/ai"
 import { OpenAiEmbeddingModel } from "@effect/ai-openai"
-import { Array, Duration, Effect, Layer, Schema } from "effect"
-import { Embedder, EmbedFault, Reranker, Search } from "@rasm/ts/data"
+import type { Persistence } from "@effect/experimental"
+import { Array, Duration, Effect, Layer, PrimaryKey, Schema } from "effect"
+import { Batch, Embedder, EmbedFault, Reranker, Search } from "@rasm/ts/data"
 import { Guardrail } from "./model.ts"
 
 const _packed = (spans: ReadonlyArray<{ readonly start: number; readonly body: string }>, ceiling: number) =>
@@ -92,11 +93,11 @@ const Cut = { pieces: _pieces, scrub: _scrubbed }
 
 [ROWS]:
 - Owner: `Embedding.rows` — the capability rows over the native engine: `batched` (the OpenAI polymorphic `model` under `{ mode: "batched", maxBatchSize, cache: { capacity, timeToLive } }` — request coalescing plus the hot in-memory tier in one shipped option), `windowed` (`{ mode: "data-loader", window, maxBatchSize }` — wall-clock coalescing across unrelated fibers, the bulk-ingest row), and `custom` (`EmbeddingModel.make`/`makeDataLoader` over any raw `embedMany` — the row a non-shipped provider or a local ONNX model lands on without a new surface).
-- Law: the cache is two tiers with distinct owners — the hot tier is the engine's own bounded `cache` option; the durable tier is the persisted request-resolver band (`RequestResolver.dataLoader` composed with `persisted({ storeId })` over `Persistence.BackingPersistence` backed by a data-wave key-value scope at the root), keyed on the scrubbed body — so a re-embedding of unchanged corpus text after restart is a durable hit, not a provider call.
+- Law: the cache is two tiers with distinct owners — the hot tier is the engine's own bounded `cache` option; the durable tier is the `_Embedded` persisted request family riding the data wave's engine values (`Batch.windowed` under the wall-clock window, then `Batch.durable({ storeId })` over `Persistence.BackingPersistence`, backed at the root by the data-wave `KeyValueStore` scope with `CacheLane.scoped` interposed per tenant), primary-keyed `<fingerprint>:<body>` on the scrubbed body — so a re-embedding of unchanged corpus text after restart is a durable hit, not a provider call.
 - Law: dimensions are row facts — a row declares its `dims` and `revision`, and the fingerprint below derives from them; mixing rows in one corpus is unrepresentable because the fingerprint is the vector table's key.
 - RESEARCH: the Google raw-embedding row (`EmbedContent`/`BatchEmbedContents` over the raw client) lands as a `custom` row when its request payload members settle from the shipped declaration; the row slot and the `custom` constructor are settled law.
 - Growth: a new provider row is one table entry over `custom`; a cache policy change is an option field.
-- Packages: `@effect/ai` (`EmbeddingModel`); `@effect/ai-openai` (`OpenAiEmbeddingModel`); `@effect/experimental` (`RequestResolver.dataLoader`/`persisted`, `Persistence`); `effect` (`Duration`, `Layer`).
+- Packages: `@effect/ai` (`EmbeddingModel`); `@effect/ai-openai` (`OpenAiEmbeddingModel`); `@rasm/ts/data` (`Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.BackingPersistence` — the band's requirement); `effect` (`Duration`, `Layer`, `PrimaryKey`, `Schema`).
 
 ```typescript
 declare namespace Embedding {
@@ -105,6 +106,12 @@ declare namespace Embedding {
     readonly dims: number
     readonly revision: string
     readonly layer: Layer.Layer<EmbeddingModel.EmbeddingModel, never, R>
+  }
+  type Durable = {
+    readonly storeId: string
+    readonly window: Duration.DurationInput
+    readonly maxBatchSize: number
+    readonly timeToLive: Duration.DurationInput
   }
 }
 
@@ -135,13 +142,37 @@ const _rows = {
     layer: Layer.effect(EmbeddingModel.EmbeddingModel, EmbeddingModel.make({ embedMany, maxBatchSize: 64 })),
   }),
 } as const
+
+class _Embedded extends Schema.TaggedRequest<_Embedded>()("Embedded", {
+  payload: { fingerprint: Schema.String, body: Schema.String },
+  success: Schema.Array(Schema.Number),
+  failure: EmbedFault,
+}) {
+  [PrimaryKey.symbol]() {
+    return `${this.fingerprint}:${this.body}`
+  }
+}
+
+const _band = (
+  embed: (bodies: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<ReadonlyArray<number>>, EmbedFault>,
+  policy: Embedding.Durable,
+) =>
+  Effect.flatMap(
+    Batch.windowed(
+      Batch.tagged<_Embedded>()({
+        Embedded: (window) => embed(Array.map(window, (request) => request.body)),
+      }),
+      { window: policy.window, maxBatchSize: policy.maxBatchSize },
+    ),
+    (windowed) => Batch.durable(windowed, { storeId: policy.storeId, timeToLive: () => policy.timeToLive }),
+  )
 ```
 
 ## [4]-[PORT]
 
 [PORT]:
 - Owner: the port satisfaction — `Embedding.embedder(row)` builds the Layer that satisfies the data wave's `Embedder` Tag at app composition: `fingerprint` publishes `<model>:<dims>:<revision>` (the brand the vector table's primary key carries, so a model migration is a new fingerprint and old vectors stay queryable under theirs), `embed` delegates to the `EmbeddingModel` Tag the row's layer provides, and every provider fault folds into the port's own family — a token-ceiling rejection to `budget`, a transport or provider failure to `provider`, a dimension mismatch to `shape` — so retrieval's lane-exclusion fold reads one vocabulary.
-- Law: batching identity is the resolver value — the port's provider side coalesces through the data wave's request-batching engine law: one resolver minted at Layer construction, identity stable, windows grouping across the whole scope; a resolver minted per call defeats the window and is the structural defect that law exists to kill.
+- Law: batching identity is the resolver value — the port's provider side coalesces through the data wave's request-batching engine law: one resolver minted at Layer construction, identity stable, windows grouping across the whole scope; a resolver minted per call defeats the window and is the structural defect that law exists to kill. The durable posture is the second `embedder(row, durable)` overload — the `_band` resolver mints once inside the Layer scope and `embed` routes through `Effect.request` under `{ batching: true }`, so restart-surviving hits and window coalescing ride the same identity.
 - Law: `Embedding.reranker(policy)` satisfies the optional `Reranker` Tag — one gated structured-output call (`Guardrail.object` with `Toolkit`-free options and a `Schema`-typed score array) over the fusion window's `{ cell, body }` pairs, answering re-ordered cell keys; rerank presence is `Effect.serviceOption` on the retrieval side, so shipping without a reranker is a composition choice, never a knob.
 - Law: the two Tags are the whole seam — this page imports the port types and nothing else data-owned; retrieval results flow back as app-passed values through the model page's `Tokens.weave`, never through an import edge.
 - Growth: a scope-selected second model is a second `embedder(row)` Layer against the same Tag at the root; a cross-encoder reranker is a `Reranker` implementation swap.
@@ -163,16 +194,28 @@ const _folded = (fault: { readonly _tag: string; readonly description?: string }
     detail: fault.description ?? fault._tag,
   })
 
-const _embedder = <R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R> =>
-  Layer.effect(
+function _embedder<R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R>
+function _embedder<R>(
+  row: Embedding.Row<R>,
+  durable: Embedding.Durable,
+): Layer.Layer<Embedder, never, R | Persistence.BackingPersistence>
+function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
+  return Layer.scoped(
     Embedder,
     Effect.gen(function* () {
       const engine = yield* EmbeddingModel.EmbeddingModel
+      const print = _fingerprint(row)
+      const provider = (bodies: ReadonlyArray<string>) => Effect.mapError(engine.embedMany(bodies), _folded)
+      const band = durable === undefined ? undefined : yield* _band(provider, durable)
       return {
-        fingerprint: _fingerprint(row),
+        fingerprint: print,
         embed: (texts: Array.NonEmptyReadonlyArray<string>) =>
-          engine.embedMany(texts).pipe(
-            Effect.mapError(_folded),
+          (band === undefined
+            ? provider(texts)
+            : Effect.forEach(texts, (body) => Effect.request(new _Embedded({ fingerprint: print, body }), band), {
+                batching: true,
+              })
+          ).pipe(
             Effect.filterOrFail(
               (vectors): vectors is Array.NonEmptyArray<ReadonlyArray<number>> =>
                 Array.isNonEmptyArray(vectors) && Array.every(vectors, (vector) => vector.length === row.dims),
@@ -182,6 +225,7 @@ const _embedder = <R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R> =>
       }
     }),
   ).pipe(Layer.provide(row.layer))
+}
 
 const _Scores = Schema.Struct({ order: Schema.NonEmptyArray(Schema.String) })
 
