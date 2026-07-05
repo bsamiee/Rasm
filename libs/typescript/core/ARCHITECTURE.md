@@ -41,6 +41,8 @@ core/
 
 ```text seams
 value/contentKey     ⇄  csharp:Rasm                # [CONTENT_KEY]: XxHash128 seed-zero :x32 content identity
+value/contentKey     ⇄  typescript:data/object     # [CONTENT_KEY]: ObjectKey IS ContentKey — a delegating mint site, never a second hash
+value/contentKey     ⇄  typescript:runtime/browser # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site
 value/clock          ←  csharp:Rasm.AppHost        # [WIRE]: Hlc two-half compose-order parity
 value/quantity       ⇄  csharp:Rasm.Compute        # [WIRE]: QuantityWire SI-scalar decode
 interchange/codec    ←  csharp:Rasm.AppHost        # [WIRE]: ReceiptEnvelope/TenantContext/livewire triple/FlagVerdict/CredentialPem landings

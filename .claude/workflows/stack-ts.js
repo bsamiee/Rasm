@@ -57,8 +57,9 @@ const ADVERSARIAL = [
 const TS_DOCTRINE = [
   'HOLD the docs/stacks/typescript/README [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] signals as fact, never restated on a concept page. ' +
     'BOUNDARY_ADMISSION: raw is admitted EXACTLY ONCE through a Schema decode at the edge into an evidence-carrying owner; the interior never ' +
-    're-validates, never sees `unknown`/`null`-as-failure/provider shape. Run the COLLAPSE_SCAN on every fence: any signal triggers the move, 3+ ' +
-    'instances make it mandatory — and the signal list is a FLOOR, never the complete set: hunt collapse targets beyond it, in any repeated ' +
+    're-validates, never sees `unknown`/`null`-as-failure/provider shape. Run the COLLAPSE_SCAN on every fence: any signal triggers the move — ' +
+    'shapes sharing an identity regime, an admission path, a payload timing, or a consumer collapse into ONE owner, and a shape survives only on ' +
+    'a genuinely distinct discriminant — and the signal list is a FLOOR, never the complete set: hunt collapse targets beyond it, in any repeated ' +
     'structure, parallel spelling, or enumerable family an algebra, table, fold, or generator can own.',
   'A page that demonstrates a coding law must itself obey every law it can reach — the doctrine pages are the reference implementation of the ' +
     'doctrine.',
@@ -92,7 +93,8 @@ const TS_EFFECT = [
     'boundary). Recovery is `Effect.catchTag`/`catchTags`, retry is `Effect.retry(Schedule)`, resource lifetime is ' +
     '`Effect.acquireRelease`/`Scope`.',
   'CROSS-CUTTING capability — retry, telemetry/spans, validation, contracts, caching, receipts — composes as Effect combinators and ' +
-    '`Layer`/`Context` services woven over a THIN PURE CORE, never inline-repeated or hand-rolled; 2-4 co-occurring wrappers collapse into ONE ' +
+    '`Layer`/`Context` services woven over a THIN PURE CORE, never inline-repeated or hand-rolled; co-occurring wrappers sharing an admission ' +
+    'path collapse into ONE ' +
     'combinator/Layer. BOUNDARIES are SCHEMA-FIRST: decode-don`t-validate with the `effect` `Schema` module at ingress and egress, refined owners ' +
     'carry the proof inward, and the same owner sources and sinks across consumers without interior edits.',
 ].join('\n')
@@ -114,7 +116,10 @@ const PARAM_POLY = [
     'both call shapes, never a parallel pair.',
   'Configuration enters as ONE behavior-carrying value — a literal-union member, a tagged variant, a frozen policy record (POLICY_VALUES) — never ' +
     'a flag set the body re-derives. A `timeout`/`retry`/`deadline` is an Effect aspect/`Schedule`, never a signature param. Cases sharing ' +
-    'generative structure are DERIVED from one primary record/table, never enumerated arms.',
+    'generative structure are DERIVED from one primary record/table, never enumerated arms. Capability exits through FEW dense unified entry ' +
+    'points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input detection, forward and inverse ' +
+    'directions on one surface), variation living in input shape, policy values, and table rows, never parallel exports or modality-named ' +
+    'siblings; the surface narrows by absorption, never by omission.',
 ].join('\n')
 const TS_LANG = [
   'BLEEDING-EDGE TypeScript ONLY (latest stable): `satisfies`, `const` type parameters, `NoInfer`, instantiation expressions, variance ' +
@@ -273,7 +278,8 @@ const critiquePrompt = (page, arch) => [DOCTRINE, '',
     '(the floor), the style-guide, and verify members via assay api (assay unavailable: the installed `.d.ts` / the .api catalogs / ' +
     'Context7/exa/tavily). Run the MECHANICAL checklist LINE-BY-LINE and REPAIR every hit ' +
     'in place — every hit a fix, never a note; the checklist is a FLOOR, never the complete audit: hunt doctrinal defects past it:',
-  '(1) COLLAPSE_SCAN signals (3+ mandatory): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination or ' +
+  '(1) COLLAPSE_SCAN signals (shapes sharing an identity regime, admission path, payload timing, or consumer collapse into ONE owner; a shape ' +
+    'survives only on a genuinely distinct discriminant): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination or ' +
     'overloads; literal-only differences -> a POLICY_VALUE; boolean selecting bodies -> derived/policy; one-hop function -> delete; parallel ' +
     'dispatch arms -> a satisfies-checked record/table or fold; types sharing fields -> one closed family; recurring wrappers -> one ' +
     'combinator/Layer — a FLOOR: hunt collapse targets beyond it. (2) ONE-CANONICAL-FORM + SCHEMA AUTHORITY -> replace any non-canonical owner; ' +

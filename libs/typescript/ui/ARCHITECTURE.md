@@ -22,7 +22,7 @@ ui/
 │       └── chart.ts           # The analytic chart owner: Plot/visx declared charts, uplot streaming series, perspective live pivot over one Arrow bus
 └── viewer/
     └── src/                   # The spatial tier (second Nx project)
-        ├── scene.ts           # The GLB scene: content-key mesh residency behind the GlbViewport port; three | model-viewer backend rows
+        ├── scene.ts           # The GLB scene: content-key mesh residency behind the GlbViewport port; three | model-viewer backend rows; Theme.linear appearance ingestion
         ├── geo.ts             # The geospatial surface: one maplibre Map + MapboxOverlay-interleaved deck.gl layers as a pure value tree
         ├── mark.ts            # The GlobalId mark plane: one HashSet selection atom, a closed op vocabulary, every pick pipeline folding into it
         ├── panel.ts           # The wire materializer: livewire triple, ControlIntent union, LayoutProgram rendered through the system owners
@@ -36,7 +36,6 @@ view/table    ←  typescript:core/state      # [SHAPE]: Feed.Document column ba
 system/atom   ⇄  typescript:runtime/browser # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
 system/primitive ← typescript:runtime/browser # [PORT]: ui-declared Clipboard Tag satisfied from the platform clipboard layer
 viewer/geo    ←  typescript:runtime/browser # [PORT]: ui-declared Position/Grant Tags satisfied from the platform geolocation/permissions layers
-system/token  →  typescript:ui/viewer       # [PROJECTION]: Theme.linear srgb-linear ingestion into the scene appearance leaves
 viewer/scene  ←  typescript:runtime/browser # [PORT]: GlbViewport satisfied from Depot.haul verified arrivals + the residency ledger
 viewer/scene  ←  typescript:runtime/serve   # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
 viewer/scene  ←  csharp:Rasm.Materials      # [WIRE]: PbrGroups appearance decode

@@ -65,7 +65,8 @@ const CSDOCTRINE = [
     'INTERFACE_SEAM. ' +
     '[DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + ' +
     'DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION. Run the COLLAPSE_SCAN on every fence: any ' +
-    'signal triggers the move, 3+ make it mandatory; the scan list is a FLOOR, never the complete set — any repeated structure, parallel spelling, ' +
+    'signal triggers the move — shapes sharing an identity regime, an admission path, a payload timing, or a consumer collapse into ONE owner, and ' +
+    'a shape survives only on a genuinely distinct discriminant; the scan list is a FLOOR, never the complete set — any repeated structure, parallel spelling, ' +
     'or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself.',
   'A page that demonstrates a coding law must itself obey every law it can reach; a domain shard COMPOSES the finalized core laws as settled ' +
     'material and never re-opens admission/shape/rail/dispatch/boundary decisions.',
@@ -75,8 +76,9 @@ const CS_SHAPE = [
     '(invariant-bearing scalar), `[ComplexValueObject]` (N-field product), `[SmartEnum<TKey>]` (wire-keyed vocabulary) / `[SmartEnum]` keyless ' +
     '(process-local behavior), `[Union]` (closed alternatives with per-occurrence payload) / `[Union<T1,...>]` ad-hoc, `record`/`readonly record ' +
     'struct` (interior product), a frozen set/table, or a language `enum` at the seam only. KILL parallel DTOs, one-field wrappers, field-rename ' +
-    'shapes, nullable-as-failure, struct-`default` ghosts, and 3+ sibling types/factories/switch-arms for one concept (collapse to ONE generated ' +
-    'owner or a `Fold` algebra / frozen data table); this kill list is a floor, never the full set — hunt collapse targets beyond it.',
+    'shapes, nullable-as-failure, struct-`default` ghosts, and sibling types/factories/switch-arms for one concept sharing an identity regime, ' +
+    'admission path, payload timing, or consumer (collapse to ONE generated owner or a `Fold` algebra / frozen data table — a shape survives only ' +
+    'on a genuinely distinct discriminant); this kill list is a floor, never the full set — hunt collapse targets beyond it.',
   'ANTICIPATORY_COLLAPSE: shape the owner for the family it WILL absorb so the next case/dimension/modality lands as ONE generated case/row/policy ' +
     'value with every consumer untouched or broken LOUDLY at compile time (total generated `Switch`, NO runtime-silent `_` arm). The exemplary ' +
     'snippet shows one owner ready to replace 10+ loose things with the growth axis visible.',
@@ -116,8 +118,8 @@ const CS_AOP = [
   'TWO-WEAVE AOP: definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE ' +
     'GENERATION in the fixed generator-owned order; composition-time concerns attach as effect transformers in author order — retry as ' +
     '`Schedule`-driven `IO<T>.Retry`/`Prelude.retry`, recovery as named catch combinators (`@catch`/`catchOf`/`CatchM` composed via `|`), resource ' +
-    'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers ' +
-    'collapse into ONE aspect; an aspect NEVER raises into domain flow; inline-repeated concerns and sibling helper methods are defects.',
+    'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. Co-occurring wrappers ' +
+    'sharing an admission path collapse into ONE aspect; an aspect NEVER raises into domain flow; inline-repeated concerns and sibling helper methods are defects.',
   'MAPPING + EQUALITY are DEFINITION-TIME generated aspects, never hand-written: an owner<->DTO/proto/wire projection is emitted by Riok.Mapperly ' +
     '(a `[Mapper]` partial-producing source-generator; members verified via assay api, else the api-mapperly catalog), and structural equality + ' +
     'the content-key ride EITHER the ' +
@@ -169,7 +171,10 @@ const PARAM_POLY = [
     'the value reconstructs what it carried, it was a knob — collapse a flag into a policy value or input-shape discriminant; move ' +
     '`timeout`/`retry`/`deadline`/`CancellationToken` off the signature onto the carrier or a composition-time aspect). Configuration enters as ' +
     'ONE behavior-carrying value (smart-enum row, union case, frozen table — POLICY_VALUES), never flag sets the body re-derives; cases sharing ' +
-    'structure are DERIVED (one primary correspondence, secondaries derived) — never enumerated arms.',
+    'structure are DERIVED (one primary correspondence, secondaries derived) — never enumerated arms. Capability exits through FEW dense unified ' +
+    'entry points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input detection, forward and ' +
+    'inverse directions on one surface), variation living in input shape, policy values, and table rows, never parallel exports or modality-named ' +
+    'siblings; the surface narrows by absorption, never by omission.',
 ].join('\n')
 const CS14 = [
   'LATEST STABLE C# 14 on net10 to the metal (`Nullable enable`, NRT enforced): primary constructors, collection expressions with spread, `params` ' +
@@ -291,8 +296,9 @@ const critiquePrompt = (page) => [DOCTRINE, '',
     'are being critiqued concurrently by their own agents, so treat their current text as context, never as settled law, and log a genuinely ' +
     'cross-file defect as residual_high instead of touching a sibling. Read the page, the README doctrine + domain router, the sibling pages, the ' +
     'python rigor benchmark, the style-guide, and verify members via assay api (fallback when blocked: the `.api` catalogs + the nuget MCP + ' +
-    'Context7/exa/tavily). REPAIR every hit in place: (1) COLLAPSE_SCAN signals (3+ ' +
-    'mandatory); (2) OWNER_CHOOSER per shape — replace any non-discriminant-correct owner, kill parallel DTOs/one-field wrappers/field-rename ' +
+    'Context7/exa/tavily). REPAIR every hit in place: (1) COLLAPSE_SCAN signals (shapes sharing an identity regime, admission path, payload ' +
+    'timing, or consumer collapse into ONE owner; a shape survives only on a genuinely distinct ' +
+    'discriminant); (2) OWNER_CHOOSER per shape — replace any non-discriminant-correct owner, kill parallel DTOs/one-field wrappers/field-rename ' +
     'shapes/nullable-as-failure/`default`-ghosts; (3) KNOB_TEST — collapse flags to policy values/input-shape, move ' +
     '`timeout`/`retry`/`CancellationToken` to the carrier/aspect; (4) TWO-WEAVE AOP — definition-time source-gen vs composition-time effect ' +
     'transformers, one seam, no inline-repeated concerns; (5) RAILS — narrowest carrier, closed `Expected` `[Union]` fault, accumulate-vs-abort ' +

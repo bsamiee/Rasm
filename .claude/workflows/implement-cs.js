@@ -150,10 +150,13 @@ const ULTRA = [
     'DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD (weave ' +
     'new capability into the owner as if always present; no shims/aliases/[Obsolete]/migration layers) + ONE_HOP_RESOLUTION + ' +
     'COMPOSED_IMPLEMENTATION.',
-  'ULTRA-ADVANCED COLLAPSE MANDATE: COLLAPSE >=3 parallel types / sibling factory methods / repeated switch arms / single-call private helpers ' +
-    'into ONE polymorphic owner IN THE SAME FILE via `[Union]` / `[Union<T1,...>]` ad-hoc / `[SmartEnum<TKey>]` / `[SmartEnum]` keyless / ' +
-    '`[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case families / `Fold` algebra / frozen data tables — never extract a new file ' +
-    'to reduce LOC, never delete capability.',
+  'ULTRA-ADVANCED COLLAPSE MANDATE: parallel types / sibling factory methods / repeated switch arms / single-call private helpers sharing an ' +
+    'identity regime, an admission path, a payload timing, or a consumer COLLAPSE into ONE polymorphic owner IN THE SAME FILE via `[Union]` / ' +
+    '`[Union<T1,...>]` ad-hoc / `[SmartEnum<TKey>]` / `[SmartEnum]` keyless / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case ' +
+    'families / `Fold` algebra / frozen data tables — a shape survives only on a genuinely distinct discriminant; never extract a new file to ' +
+    'reduce LOC, never delete capability. Capability exits through FEW dense unified entry points — one polymorphic entry per rail discriminating ' +
+    'on input shape (single|batch|stream absorbed by input detection, forward and inverse directions on one surface), variation living in input ' +
+    'shape, policy values, and table rows, never parallel exports or modality-named siblings; the surface narrows by absorption, never by omission.',
   'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE (generated factory + validation partial admits/rejects; one rail ' +
     'bridge lifts the generated outcome into `Fin<T>` / `Validation<Error,T>`; `Option<T>` carries absence; exceptions convert at the owning ' +
     'boundary only) -> canonical owner -> unified rail -> projection -> egress. Interior code never re-validates, never sees `null`-as-failure, ' +
@@ -272,13 +275,15 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'docs/stacks/csharp/ core + the relevant domain/ shard(s), and BOTH `.api` tiers by real listing — `libs/csharp/.api/` substrate + ' +
     '`' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line as a FLOOR you hunt ' +
     'past, never the complete audit, and REPAIR every hit in place (a fix, never a ledger note):',
-  '(1) COLLAPSE_SCAN — apply the move for any signal (3+ instances makes it mandatory): sibling prefix/suffix names -> one modality-polymorphic ' +
+  '(1) COLLAPSE_SCAN — apply the move for any signal (shapes sharing an identity regime, an admission path, a payload timing, or a consumer ' +
+    'collapse into ONE owner; a shape survives only on a genuinely distinct discriminant): sibling prefix/suffix names -> one modality-polymorphic ' +
     'entrypoint; same return rail differing only by arity -> input-shape discrimination; functions differing only by a literal -> parameterize the ' +
     'literal as a POLICY_VALUE; a `bool`/`mode`/`batch` parameter selecting two bodies -> one derived body or policy value; a method calling ' +
     'exactly one other -> delete the hop (ONE_HOP_RESOLUTION); parallel dispatch arms repeating structure -> a `Fold` algebra or frozen table ' +
     '(DERIVED_LOGIC); several types sharing fields for one concept -> one closed family; a `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` family -> ' +
-    'one input-keyed polymorphic operation; a wrapper renaming a package API -> use the package surface directly (LIBRARY_DEPTH); 3+ parallel ' +
-    'types / sibling factories / repeated switch arms / single-call helpers -> ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / ' +
+    'one input-keyed polymorphic operation; a wrapper renaming a package API -> use the package surface directly (LIBRARY_DEPTH); parallel ' +
+    'types / sibling factories / repeated switch arms / single-call helpers sharing an identity regime, admission path, payload timing, or ' +
+    'consumer -> ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / ' +
     '`[ComplexValueObject]` / source-generated case family IN THE SAME FILE. These signals are a FLOOR, never the complete set — hunt past them.',
   '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, payload timing, ' +
     'openness), most-specific wins: invariant-bearing scalar -> `[ValueObject<TKey>]`; N-field one-concept product no discriminator -> ' +
@@ -294,8 +299,8 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
   '(4) ASPECTS — definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE ' +
     'GENERATION in the fixed generator order; composition-time concerns attach as effect transformers in author order — retry as `Schedule`-driven ' +
     '`IO<T>.Retry(Schedule)`/`Prelude.retry`, recovery as named catch combinators (`@catch`/`catchOf`/`CatchM` composed via `|`), resource ' +
-    'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers ' +
-    'collapse into one aspect; an aspect NEVER raises into domain flow; deterministic stacking order verified. Inline-repeated concerns and ' +
+    'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. Co-occurring wrappers ' +
+    'sharing an admission path collapse into ONE aspect; an aspect NEVER raises into domain flow; deterministic stacking order verified. Inline-repeated concerns and ' +
     'sibling helper methods are defects.',
   '(5) RAILS — RAIL_CHOOSER, the narrowest carrier chosen ONCE at admission: `Option<T>` absence, `Fin<T>` synchronous fallibility, ' +
     '`Validation<Error,T>` independent accumulated faults, `Eff<RT,T>` runtime capability, `IO<T>` deferred boundary work, `Schedule` retry ' +

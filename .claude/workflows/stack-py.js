@@ -69,7 +69,8 @@ const PYDOCTRINE17 = [
     'owner; interior never re-validates or sees `None`-as-failure/sentinel/provider shape). [SHAPE] SHAPE_BUDGET + DEEP_SURFACES + MODAL_ARITY + ' +
     'ANTICIPATORY_COLLAPSE. [DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] ' +
     'LIBRARY_DEPTH + DEFERRED_IMPORTS + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
-  'RUN the README [03]-[COLLAPSE_SCAN] 12-signal table on every fence: any signal triggers the collapse move, 3+ instances make it mandatory. ' +
+  'RUN the README [03]-[COLLAPSE_SCAN] 12-signal table on every fence: any signal triggers the collapse move — shapes sharing an identity regime, ' +
+    'an admission path, a payload timing, or a consumer collapse into ONE owner, and a shape survives only on a genuinely distinct discriminant. ' +
     'Every enumerated collapse/kill list in this doctrine is a FLOOR, never the complete set: any repeated structure, parallel spelling, or ' +
     'enumerable family an algebra, table, fold, or generator can own is a collapse target you hunt down yourself, listed or not. A page that ' +
     'demonstrates a coding law must itself obey every law it can reach.',
@@ -78,7 +79,8 @@ const SHAPE_ADT = [
   'EXTREME SHAPE/TYPE DENSITY (the central mandate): one concept owns exactly ONE type as a dense CLOSED-FAMILY ADT — `@tagged_union` / `Literal` ' +
     'set / `StrEnum` / `msgspec.Struct` / frozen dataclass / `frozendict` table — chosen by the OWNER_CHOOSER 5 discriminants (admission, identity ' +
     'regime, variant arity, payload timing, openness). KILL on sight: loose 1-2-field classes, parallel DTOs, field-rename wrappers, tag-only ' +
-    'shapes, and 3+ sibling module constants/types for one concept (collapse to one `frozendict`/`StrEnum`/closed family). No loose/weak type or ' +
+    'shapes, and sibling module constants/types for one concept sharing an identity regime, admission path, payload timing, or consumer (collapse ' +
+    'to one `frozendict`/`StrEnum`/closed family — a shape survives only on a genuinely distinct discriminant). No loose/weak type or ' +
     'constant spam survives.',
   'ANTICIPATORY_COLLAPSE: shape the owner for the family it WILL absorb so the next case/dimension/modality lands as ONE declaration with every ' +
     'consumer untouched or broken loudly at type-check — one owner READY TO REPLACE 10+ loose things. The exemplary snippet MUST show the owner at ' +
@@ -90,8 +92,8 @@ const AOP_FIRST = [
     'materializes policy, stacks in deterministic order, and NEVER raises into domain flow (a failing aspect returns the rail `Error`). The domain ' +
     'transform itself stays a pure function/fold under the stack.',
   'AOP is NOT merely applying `@beartype`/`@msgspec` decorators — though `beartype` (contracts) and `msgspec` (struct/codec) MUST be fully ' +
-    'integrated. It means our code SHAPED TOWARD decorators: MAXIMIZE how much functionality is expressed AS stacked decorators; 2-4 co-occurring ' +
-    'wrappers collapse into ONE parameterized aspect factory; a page reads as stacked decorators over a pure core, never inline-repeated concerns ' +
+    'integrated. It means our code SHAPED TOWARD decorators: MAXIMIZE how much functionality is expressed AS stacked decorators; co-occurring ' +
+    'wrappers sharing an admission path collapse into ONE parameterized aspect factory; a page reads as stacked decorators over a pure core, never inline-repeated concerns ' +
     'or sibling helper functions. A concern open-coded where a decorator belongs is a defect.',
 ].join('\n')
 const PARAM_POLY = [
@@ -100,7 +102,10 @@ const PARAM_POLY = [
     'delete each parameter; if the value reconstructs what it carried, it was a knob to collapse).',
   'Configuration enters as ONE behavior-carrying value — a vocabulary member, a tagged variant, a frozen policy table (POLICY_VALUES) — never a ' +
     'flag set the body re-derives. A `timeout`/`retry`/`deadline` is an aspect or an `anyio` scope, never a signature param. Cases sharing ' +
-    'generative structure are DERIVED from one primary `frozendict` correspondence (DERIVED_LOGIC), never enumerated arms.',
+    'generative structure are DERIVED from one primary `frozendict` correspondence (DERIVED_LOGIC), never enumerated arms. Capability exits ' +
+    'through FEW dense unified entry points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input ' +
+    'detection, forward and inverse directions on one surface), variation living in input shape, policy values, and table rows, never parallel ' +
+    'exports or modality-named siblings; the surface narrows by absorption, never by omission.',
 ].join('\n')
 const CORE_LOGIC = [
   'WORLD-CLASS ALGORITHMIC BODIES (the function-body mandate, owner = iteration.md): every body that does real work is expression-shaped at full ' +
@@ -259,19 +264,20 @@ const critiquePrompt = (page) => [DOCTRINE, '',
     'of touching a sibling. Read the page, the README doctrine sections, its sibling pages, the csharp reference, the style-guide, and the .api catalogs it ' +
     'composes. Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note); the checklists are a ' +
     'FLOOR you hunt past, never the boundary of the audit:',
-  '(1) COLLAPSE_SCAN — apply the move for any of the README [03] 12 signals (3+ instances mandatory): sibling prefix/suffix -> one ' +
+  '(1) COLLAPSE_SCAN — apply the move for any of the README [03] 12 signals (shapes sharing an identity regime, admission path, payload timing, ' +
+    'or consumer collapse into ONE owner; a shape survives only on a genuinely distinct discriminant): sibling prefix/suffix -> one ' +
     'modality-polymorphic entrypoint; same rail differing by arity -> input-shape discrimination; a get/get_many/get_by family -> one input-keyed ' +
     'entrypoint; functions differing only by a literal -> parameterize as a POLICY_VALUE; a bool selecting two bodies -> one derived body/policy ' +
     'value; a function calling exactly one other -> delete the hop; a class exposing one public method -> module function/fold; parallel dispatch ' +
-    'arms -> a `frozendict` table/fold; several types sharing fields -> one closed family; 3+ sibling constants -> one `frozendict`/`StrEnum`; a ' +
-    'package-rename wrapper -> use the surface directly; 2-4 recurring wrappers -> one aspect factory. These 12 signals are a FLOOR — hunt ' +
+    'arms -> a `frozendict` table/fold; several types sharing fields -> one closed family; sibling constants sharing one concept -> one `frozendict`/`StrEnum`; a ' +
+    'package-rename wrapper -> use the surface directly; co-occurring wrappers sharing an admission path -> one aspect factory. These 12 signals are a FLOOR — hunt ' +
     'collapse targets past them.',
   '(2) OWNER_CHOOSER — re-derive EVERY shape from the 5 discriminants and replace any non-discriminant-correct owner; KILL every parallel DTO, ' +
     'one-field wrapper, field-rename class, tag-only shape, and `None`-as-failure. (3) KNOB_TEST — delete each parameter; collapse any ' +
     '`strict`/`mode`/`batch` flag into a policy value or input-shape discriminant; move every `timeout`/`retry`/`deadline` off the signature into ' +
     'an aspect or `anyio` scope.',
   '(4) ASPECTS / AOP — every cross-cutting concern is a signature+rail-preserving STACKED decorator over a pure core that never raises into domain ' +
-    'flow; 2-4 co-occurring wrappers collapse into one aspect factory; `beartype`/`msgspec` integrated; inline-repeated concerns and sibling ' +
+    'flow; co-occurring wrappers sharing an admission path collapse into one aspect factory; `beartype`/`msgspec` integrated; inline-repeated concerns and sibling ' +
     'helpers are defects. (5) RAILS — narrowest carrier chosen once; the fault type is a CLOSED `Literal`/`StrEnum`/`@tagged_union` (a bare `str` ' +
     'fault for a multi-cause domain is a defect); accumulate-vs-abort correct (`map2`/fold for independents, `bind` for dependents); NO `asyncio`, ' +
     'NO hand-rolled retry loop, NO `None`-as-failure, NO exception control flow in domain logic.',

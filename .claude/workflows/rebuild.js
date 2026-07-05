@@ -496,8 +496,9 @@ const critiquePrompt = (batch, dossier) => preamble(batch, dossier).concat([
   'TASK: HOSTILE DOCTRINAL-CONFORMANCE + CAPABILITY AUDIT; fix EACH page in place: ' +
   batch.map((p) => p.page).join(', ') + '. Audit every fence against the doctrine you read at source, never a summary; ' +
   'repair every hit now — a fix, never a ledger note; a cross-file hit is yours per WRITE FULLY. ' + M.frozenGuard + '\n' +
-  '- COLLAPSE_SCAN: run the README [03] table on every fence — any signal triggers the move, 3+ instances make it ' +
-  'mandatory, the table is a FLOOR you hunt past.\n' +
+  '- COLLAPSE_SCAN: run the README [03] table on every fence — any signal triggers the move; shapes sharing an identity ' +
+  'regime, an admission path, a payload timing, or a consumer collapse into ONE owner, and a shape survives only on a ' +
+  'genuinely distinct discriminant; the table is a FLOOR you hunt past.\n' +
   '- OWNER_CHOOSER (`shapes.md` [01]): re-derive every shape from the 5 discriminants — admission, identity regime, ' +
   'variant arity, payload timing, openness — and replace any non-discriminant-correct owner; kill every parallel DTO, ' +
   'one-field wrapper, field-rename shape, and null/default ghost.\n' +

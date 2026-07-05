@@ -149,8 +149,12 @@ const BARHUNT = [
 ].join('\n')
 const ULTRA = [
   'OPERATIVE DOCTRINE: docs/stacks/typescript/ is the route-owned law — hold every fence to it as fact; docs/stacks/csharp/ is the ' +
-    'density/ambition FLOOR. COLLAPSE >=3 parallel interfaces/types/classes modelling one concept into ONE polymorphic surface (tagged ' +
-    'discriminated union + exhaustive match), never parallel names. AOP: cross-cutting concerns (retry, telemetry, validation, caching, receipts, ' +
+    'density/ambition FLOOR. Parallel interfaces/types/classes modelling one concept and sharing an identity regime, an admission path, a payload ' +
+    'timing, or a consumer COLLAPSE into ONE polymorphic surface (tagged discriminated union + exhaustive match), never parallel names — a shape ' +
+    'survives only on a genuinely distinct discriminant. Capability exits through FEW dense unified entry points — one polymorphic entry per rail ' +
+    'discriminating on input shape (single|batch|stream absorbed by input detection, forward and inverse directions on one surface), variation ' +
+    'living in input shape, policy values, and table rows, never parallel exports or modality-named siblings; the surface narrows by absorption, ' +
+    'never by omission. AOP: cross-cutting concerns (retry, telemetry, validation, caching, receipts, ' +
     'fault rails) as Effect combinators/layers/decorators, not repeated inline. UNIFIED rails + UNIFIED pipelines + feature-arms-as-cases (never ' +
     'loose separate). Parameterize inputs AND outputs with generics at depth; no stringy/weak typing.',
   'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE through a `Schema` parse at the boundary (parse, never trust input) ' +
@@ -264,11 +268,12 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'the realized pages under `' + folder + '/.planning/**`, the sibling pages, docs/stacks/typescript/, and BOTH .api tiers (shared `' + SHARED_API + '` ' +
     '+ area `' + folder + '/.api`). Run these MECHANICAL checklists line-by-line as a FLOOR you hunt PAST, and REPAIR every hit in place (a fix, ' +
     'never a ledger note):',
-  '(1) COLLAPSE_SCAN — sibling prefix/suffix names -> one input-shape-discriminating entrypoint; >=3 parallel interfaces/types/classes for one ' +
-    'concept -> ONE tagged discriminated union with exhaustive `match`; a `get`/`getMany`/`getById` family -> one input-keyed entrypoint; ' +
+  '(1) COLLAPSE_SCAN — sibling prefix/suffix names -> one input-shape-discriminating entrypoint; parallel interfaces/types/classes for one ' +
+    'concept sharing an identity regime, admission path, payload timing, or consumer -> ONE tagged discriminated union with exhaustive `match` ' +
+    '(a shape survives only on a genuinely distinct discriminant); a `get`/`getMany`/`getById` family -> one input-keyed entrypoint; ' +
     'functions differing only by a literal -> parameterize as policy; a bool selecting two bodies -> one derived body/policy value; a function ' +
-    'calling exactly one other -> delete the hop; parallel dispatch arms repeating structure -> a table or fold; the same 2-4 wrappers recurring ' +
-    '-> one Effect combinator/layer aspect. These signals are a FLOOR, never the complete set — hunt collapse targets beyond them per the ' +
+    'calling exactly one other -> delete the hop; parallel dispatch arms repeating structure -> a table or fold; co-occurring wrappers sharing ' +
+    'an admission path -> one Effect combinator/layer aspect. These signals are a FLOOR, never the complete set — hunt collapse targets beyond them per the ' +
     'COLLAPSE FLOOR law.',
   '(2) SHAPE/BRANDING — model each concept as ONE polymorphic surface; brand/nominal types where a primitive is overloaded (ids, units, tokens); ' +
     'exact discriminated unions with a discriminant tag; `readonly`/`as const`/`satisfies`; template-literal/conditional/mapped types where they ' +
@@ -277,7 +282,7 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'into a policy value or input-shape discriminant; move every `timeout`/`retry`/`deadline` into an Effect combinator/layer, never a signature ' +
     'param.',
   '(4) ASPECTS — every cross-cutting concern (retry/telemetry/validation/caching/receipts/fault rails) MUST be an Effect ' +
-    'combinator/`Layer`/decorator that never throws into domain flow; 2-4 co-occurring wrappers collapse into one aspect; deterministic layer ' +
+    'combinator/`Layer`/decorator that never throws into domain flow; co-occurring wrappers sharing an admission path collapse into one aspect; deterministic layer ' +
     'order verified. Inline-repeated concerns and sibling helper functions are defects.',
   '(5) RAILS/BOUNDARIES — domain logic on `Effect`/`Either`/`Option`, NEVER `throw`; every boundary validates through `Schema` (parse, never trust ' +
     'input); the error channel is a typed union, not `unknown`/`Error`; accumulate-vs-abort disposition correct; `Layer`/`Context` for dependency ' +

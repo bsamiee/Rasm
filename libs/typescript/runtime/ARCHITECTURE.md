@@ -67,6 +67,7 @@ work/entity    ←  typescript:iac/program       # [PORT]: StackOutputs.sharding
 ai/embed       →  typescript:data/read         # [PORT]: Embedder fingerprint Layer + the gated Reranker fold
 browser/route  ⇄  typescript:security/authn    # [SHAPE]: Vault session residency + CookieSpec.csrf double-submit read
 browser/route  ⇄  typescript:security/authn    # [BOUNDARY]: OAuth redirect-ceremony continuity (depart/land)
+browser/fetch  ⇄  typescript:core/value        # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site, never a second hash
 browser/fetch  →  typescript:ui/viewer         # [PORT]: Depot.haul verified arrivals + residency ledger into GlbViewport
 browser/*      ⇄  typescript:ui/system         # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
 proc/life      →  typescript:iac/kube          # [SHAPE]: Setting.life.drain + probe routes mirrored as the workload _LIFE anchor

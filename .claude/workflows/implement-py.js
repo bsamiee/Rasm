@@ -165,7 +165,7 @@ const ULTRA = [
   'ASPECT-FIRST (DEFINITION_TIME_ASPECTS): every CROSS-CUTTING capability — retry, telemetry/spans, validation, contracts, memoization, ' +
     'registration, receipts, fault rails — is a SIGNATURE- and RAIL-PRESERVING decorator (inline `**P` + `functools.wraps`) that materializes ' +
     'policy, STACKS in deterministic order (bottom-up at definition, top-down at call), and NEVER raises into domain flow (a failing aspect ' +
-    'returns the rail `Error`). Two-to-four wrappers that always co-occur collapse into ONE parameterized aspect factory. Code reads as STACKED ' +
+    'returns the rail `Error`). Co-occurring wrappers sharing an admission path collapse into ONE parameterized aspect factory. Code reads as STACKED ' +
     'DECORATORS over a thin pure core, never inline-repeated concerns or sibling helper functions; the domain transform itself stays a pure ' +
     'function/fold.',
   'DERIVATION + ARITY: cases sharing generative structure are DERIVED — one primary `frozendict` correspondence declared, every secondary map ' +
@@ -173,7 +173,9 @@ const ULTRA = [
     '(vocabulary member, tagged variant, frozen policy table), never flag sets the body re-derives (POLICY_VALUES). ONE entrypoint owns every ' +
     'modality (singular/plural/batch/stream), discriminating on the INPUT SHAPE (`T | Iterable[T]` normalized once at the head), never a name ' +
     'suffix or a `mode`/`batch` knob (MODAL_ARITY); a `timeout`/`retry`/`deadline` is an aspect or an `anyio` scope, never a signature param ' +
-    '(KNOB_TEST).',
+    '(KNOB_TEST). Capability exits through FEW dense unified entry points — one polymorphic entry per rail discriminating on input shape ' +
+    '(single|batch|stream absorbed by input detection, forward and inverse directions on one surface), variation living in input shape, policy ' +
+    'values, and table rows, never parallel exports or modality-named siblings; the surface narrows by absorption, never by omission.',
   'RAILS (rails-and-effects): the narrowest carrier that states the outcome, chosen ONCE at admission — `Option[T]` non-failing absence, ' +
     '`Result[T, E]` typed fallibility, `effect.result` do-notation for sequential `bind`, `Block`/`Map` immutable traversal, an `anyio` task group ' +
     'as the failure boundary (NEVER `asyncio.gather`), `stamina.retry` as the decorator (never a sleep-loop). The fault type `E` is a CLOSED ' +
@@ -288,13 +290,14 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'the sibling pages, the operative docs/stacks/python/ pages, and BOTH .api tiers (shared `' + SHARED_API + '` + folder `' + folder + '/.api`). ' +
     'Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note); the checklists are a FLOOR you ' +
     'hunt past, never the complete audit:',
-  '(1) COLLAPSE_SCAN — apply the move for any of the 12 signals (3+ instances makes it mandatory): sibling prefix/suffix names -> one ' +
+  '(1) COLLAPSE_SCAN — apply the move for any of the 12 signals (shapes sharing an identity regime, an admission path, a payload timing, or a ' +
+    'consumer collapse into ONE owner; a shape survives only on a genuinely distinct discriminant): sibling prefix/suffix names -> one ' +
     'modality-polymorphic entrypoint; same return rail differing only by arity -> input-shape discrimination; a `get`/`get_many`/`get_by_id` ' +
     'family -> one input-keyed entrypoint; functions differing only by a literal -> parameterize the literal as policy; a bool parameter selecting ' +
     'two bodies -> one derived body or policy value; a function calling exactly one other -> delete the hop; a class exposing one public method -> ' +
     'module function or fold-on-owner; parallel dispatch arms repeating structure -> a `frozendict` table or fold algebra; several types sharing ' +
-    'fields for one concept -> one closed family; 3+ sibling module constants for one concept -> one `frozendict`/`StrEnum`; a wrapper renaming a ' +
-    'package API -> use the package surface directly; the same 2-4 wrappers recurring -> one parameterized aspect factory. The 12 signals are a ' +
+    'fields for one concept -> one closed family; sibling module constants sharing one concept -> one `frozendict`/`StrEnum`; a wrapper renaming a ' +
+    'package API -> use the package surface directly; co-occurring wrappers sharing an admission path -> one parameterized aspect factory. The 12 signals are a ' +
     'FLOOR — hunt collapse targets past them.',
   '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, payload timing, ' +
     'openness); if it is not the discriminant-correct owner (`TypedDict`/Pydantic/`msgspec.Struct`/frozen dataclass/rich ' +
@@ -304,7 +307,7 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'flag into a policy value or input-shape discriminant, and move every `timeout`/`retry`/`deadline` out of the signature into an aspect or ' +
     '`anyio` scope.',
   '(4) ASPECTS — every cross-cutting concern (retry/telemetry/validation/contracts/memo/registration/receipts) MUST be a signature+rail-preserving ' +
-    'STACKED decorator that never raises into domain flow; 2-4 co-occurring wrappers collapse into one aspect factory; deterministic stacking ' +
+    'STACKED decorator that never raises into domain flow; co-occurring wrappers sharing an admission path collapse into one aspect factory; deterministic stacking ' +
     'order verified. Inline-repeated concerns and sibling helper functions are defects.',
   '(5) RAILS — narrowest carrier chosen once; the fault type is a CLOSED `Literal`/`StrEnum`/`@tagged_union` (a bare `str` fault for a multi-cause ' +
     'domain is a defect); accumulate-vs-abort disposition correct (`map2`/fold for independents, `bind` for dependents); NO `asyncio`, NO ' +
