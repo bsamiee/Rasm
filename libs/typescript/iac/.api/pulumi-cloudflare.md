@@ -62,10 +62,11 @@
 
 | [INDEX] | [SYMBOL] | [ROLE] |
 | :-----: | :------- | :----- |
-|  [01]   | `ZeroTrustTunnelCloudflared` | the named tunnel (cloudflared) into the cluster |
-|  [02]   | `ZeroTrustTunnelCloudflaredConfig` / `…Route` / `…VirtualNetwork` | tunnel ingress rules, network routes, virtual network |
-|  [03]   | `ZeroTrustAccessApplication` / `…Policy` / `…Group` | Access app + authorization policy + identity group |
+|  [01]   | `ZeroTrustTunnelCloudflared` | the named tunnel (cloudflared) into the cluster — args `{ accountId, name (required), tunnelSecret?, configSrc? }`; `id` is the CNAME target base (`<id>.cfargotunnel.com`) |
+|  [02]   | `ZeroTrustTunnelCloudflaredConfig` / `…Route` / `…VirtualNetwork` | tunnel ingress rules, network routes, virtual network — config args `{ accountId, tunnelId, config: { ingresses: [{ hostname?, service (required), path?, originRequest? }], originRequest? } }`; the last ingress row is the catch-all (`service: "http_status:404"`) |
+|  [03]   | `ZeroTrustAccessApplication` / `…Policy` / `…Group` | Access app + authorization policy + identity group — app args `{ accountId?, domain?, type?, name?, sessionDuration?, policies: [{ id?, decision?, … }] }`; policy args `{ accountId?, name (required), decision (required), includes: [{ everyone?, email?, group?, anyValidServiceToken?, … }] }` |
 |  [04]   | `ZeroTrustAccessServiceToken` / `…IdentityProvider` | service-to-service token, IdP binding |
+|  [05]   | `getZeroTrustTunnelCloudflaredToken` / `…Output` | connector credential read — `({ accountId, tunnelId }) → { token }`, the `TUNNEL_TOKEN` the in-cluster cloudflared Deployment runs with (cross a manifest only `pulumi.secret`-wrapped) |
 
 [TRAFFIC_SCOPE]: load balancing, rulesets, certificates
 - rail: cloudflare

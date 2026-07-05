@@ -55,6 +55,7 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
 - Packages: `@use-gesture/react` (`createUseGesture`, `dragAction`/`pinchAction`/`wheelAction`, the config/state algebra); `react` (`startTransition`).
 - Entry: one `Gesture.useCanvas` per interactive surface — a new gesture on that surface is a handler key or sub-config on the same call, never a second hook on the element.
 - Law: start state rides `memo`, origin rides `from` — the handler captures the origin on `first`, applies `movement` against it, and returns the memo; `from: () => read(camera)` binds the offset origin to the live atom so consecutive gestures accumulate; an external mutable ref for gesture accumulation is the named defect.
+- Law: the wheel arm integrates per-event `delta` — wheel `offset` accumulates for the surface lifetime with no `from`-bound origin, so offset math against the live atom double-integrates every event; `delta` applies each tick exactly once against the current read.
 - Law: the handler stays in domain coordinates — `transform` maps the raw screen `Vector2` into world/canvas space before the handler sees `movement`/`offset`; `bounds` + `rubberband` clamp with elastic overflow; `axis: "lock"` locks the dominant axis past `threshold`.
 - Law: one bounds policy clamps every zoom write path — the pinch engine clamps through `scaleBounds`, the wheel arm clamps against the SAME policy row before the write; a zoom path escaping the bounds is the named defect.
 - Law: high-frequency writes commit non-urgently — the camera atom write wraps in `startTransition` so the pointer stream stays responsive while the non-urgent camera commit deprioritizes; the write itself is `useAtomSet(camera)` with `"value"` mode.
@@ -102,11 +103,11 @@ const Gesture: {
           startTransition(() => options.write({ ...options.read(), center: [x, y] })),
         onPinch: ({ offset: [scale, angle] }) =>
           startTransition(() => options.write({ ...options.read(), zoom: scale, bearing: angle })),
-        onWheel: ({ offset: [, y] }) =>
+        onWheel: ({ delta: [, dy] }) =>
           startTransition(() =>
             options.write({
               ...options.read(),
-              zoom: Math.min(bounds.max, Math.max(bounds.min, options.read().zoom - y / 500)),
+              zoom: Math.min(bounds.max, Math.max(bounds.min, options.read().zoom - dy / 500)),
             })),
       },
       {

@@ -97,7 +97,7 @@ const _host = (
 - Boundary: claims arrive already admitted; persisting local runs as new claims is app egress through wire encode.
 
 ```typescript
-import { Array, HashMap } from "effect"
+import { Array, HashMap, HashSet } from "effect"
 
 declare namespace Probe {
   type BoardRow = {
@@ -110,15 +110,22 @@ declare namespace Probe {
 
 const _board = (claim: Claim, local: ReadonlyArray<Metric>): ReadonlyArray<Probe.BoardRow> => {
   const mine = HashMap.fromIterable(Array.map(local, (row) => [row.label, row] as const))
-  return Array.map(claim.metrics, (row) => {
-    const held = HashMap.get(mine, row.label)
-    return {
-      label: row.label,
-      claimed: Option.some(row),
-      local: held,
-      delta: Option.flatMap(held, (near) => (near.unit === row.unit ? Option.some(near.value - row.value) : Option.none())),
-    }
-  })
+  const named = HashSet.fromIterable(Array.map(claim.metrics, (row) => row.label))
+  return Array.appendAll(
+    Array.map(claim.metrics, (row) => {
+      const held = HashMap.get(mine, row.label)
+      return {
+        label: row.label,
+        claimed: Option.some(row),
+        local: held,
+        delta: Option.flatMap(held, (near) => (near.unit === row.unit ? Option.some(near.value - row.value) : Option.none())),
+      }
+    }),
+    Array.filterMap(local, (row) =>
+      HashSet.has(named, row.label)
+        ? Option.none()
+        : Option.some({ label: row.label, claimed: Option.none<Metric>(), local: Option.some(row), delta: Option.none<number>() })),
+  )
 }
 ```
 

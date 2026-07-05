@@ -68,8 +68,8 @@ export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.Invo
 
 | [INDEX] | [NAMESPACE]            | [CONSUMED_BY_TELEMETRY] | [OWNS]                                                          |
 | :-----: | :--------------------- | :----------------------: | :------------------------------------------------------------- |
-|  [01]   | `oss`                  | ● boards                 | `Dashboard`, `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*` |
-|  [02]   | `alerting`             | ● alerts                 | `RuleGroup`, `ContactPoint`, `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1` |
+|  [01]   | `oss`                  | ● boards                 | `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*` |
+|  [02]   | `alerting`             | ● alerts                 | `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1` |
 |  [03]   | `slo`                  | ● SLOs                   | `Slo` + `getSlos`                                              |
 |  [04]   | `cloud`                | prepared                 | Grafana Cloud stacks, access policies, plugins                |
 |  [05]   | `machinelearning`      | prepared                 | ML jobs, holidays, outlier detectors                          |

@@ -149,7 +149,7 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 - Owner: `Glb.graft` — the residency fold over the port: one `Scene` roots the graph, an interior ledger (`HashMap<ContentKey, Glb.Graft>`) tracks grafted subtrees, and two arms drive it concurrently — the arrival arm parses verified octets through the ONE codec-injected `GLTFLoader` (`parseAsync` over the whole buffer), mints the animation half (a per-subtree `AnimationMixer` whose every `gltf.animations` clip binds through `clipAction(...).setLoop(LoopRepeat, Infinity).play()` — the loader result's animation array is retained, never discarded), grafts `gltf.scene` under the root, and registers the mixer on the loop roster; the eviction arm diffs the port ledger's `evicted` rows against held grafts, removes the subtree, tears the mixer down (`stopAllAction` then `uncacheRoot`) and walks it through the disposal kernel before the interior ledger drops the key. The returned `Glb.Loop.advance(delta)` is the one tick the frame loop calls — every live mixer advances under one `Clock` delta.
 - Packages: `three` (`Scene`, `Mesh`, `AnimationMixer`, `Clock`, `LoopRepeat`); `three/addons` (`GLTFLoader`); `effect` (`Effect`, `HashMap`, `Option`, `Ref`, `Stream`, `Scope`); `@rasm/ts/core` (`ContentKey`).
 - Law: codec injection is capability wiring — `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
-- Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases geometry and material handles; three's `traverse` callback is the kernel's platform-forced statement seam and no reference escapes it.
+- Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases its geometry, every texture slot its materials hold, then the materials themselves, because `material.dispose()` frees the program and never its textures; three's `traverse` callback is the kernel's platform-forced statement seam and no reference escapes it.
 - Law: `preload`/`preinit` hints warm decoder wasm and imminent GLB fetches ahead of first frame (`react-dom` hint family), issued from the ledger's `pending` census, never per-mesh at draw time.
 - Exemption: the graft kernel's mixer roster is operation-local mutable state read synchronously by the frame loop — the loop callback is the platform-forced statement seam, and only the immutable ledger snapshot leaves the fold.
 - Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint.
@@ -157,7 +157,7 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 ```typescript
 import type { ContentKey } from "@rasm/ts/core"
 import { Context, Effect, HashMap, Option, Ref, Scope, Stream } from "effect"
-import { AnimationMixer, Clock, LoopRepeat, Mesh, Scene } from "three"
+import { AnimationMixer, Clock, LoopRepeat, Mesh, Scene, Texture } from "three"
 import type { Object3D, PerspectiveCamera } from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 
@@ -173,7 +173,10 @@ const _dispose = (node: Object3D): void => {
     if (child instanceof Mesh) {
       child.geometry.dispose()
       const materials = Array.isArray(child.material) ? child.material : [child.material]
-      materials.forEach((material) => material.dispose())
+      materials.forEach((material) => {
+        Object.values(material).forEach((slot) => slot instanceof Texture && slot.dispose())
+        material.dispose()
+      })
     }
   })
 }

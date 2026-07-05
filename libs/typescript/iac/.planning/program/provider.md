@@ -22,7 +22,7 @@ Provider dispatch and the service surface as ONE owner keyed by one union: the `
 - Entry: `Dispatch.column(spec.target)` inside an arm; `Dispatch.cell("data", "aws")` for a point read.
 - Growth: a new capability is one `_capabilities` entry plus one `_map` row; a new arm is one cell per realized row under the new column key.
 - Boundary: kube-row mechanics are `kube/*`; the object/data engine choices are `StackSpec.profile` values; cross-stack output reads ride `StackReference` inside a consuming program when a multi-stack estate earns one.
-- Packages: `effect` (`Array`, `Option`, `Types`); `./spec.ts` (`StackSpec`).
+- Packages: `effect` (`Array`, `Option`, `Record`); `./spec.ts` (`StackSpec`).
 
 ```typescript
 import { Array, Option, Record } from "effect"
@@ -128,8 +128,8 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
-- Law: arms prove, never assume — a selfhosted arm lifts `spec.connection` and the SSH key together and an absence mints an `input` fault naming the coordinate; a prepared arm demands `region` the same way; no arm body ever meets an unproven `Option`.
-- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions, the extension-image ref, the install script, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
+- Law: arms prove, never assume — a selfhosted arm lifts `spec.connection` and the SSH key together and an absence mints an `input` fault naming the coordinate; a prepared arm demands its coordinates (`region`, the gcp `project`, the cloudflare `domain`/`zone`) the same way; no arm body ever meets an unproven `Option`.
+- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions, the extension-image ref, the cloudflared connector image, the install script, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
@@ -142,7 +142,7 @@ import type { PulumiFn } from "@pulumi/pulumi/automation"
 import { Config, Effect, Option, Redacted } from "effect"
 import type { Alert, DashboardModel } from "@rasm/ts/core"
 import { DeployFault } from "./automation.ts"
-import { StackSpec } from "./spec.ts"
+import type { StackSpec } from "./spec.ts"
 
 declare namespace Dispatch {
   type Material = { readonly sshKey: Option.Option<Redacted.Redacted<string>> }
@@ -155,6 +155,7 @@ declare namespace Dispatch {
     readonly nats: string
     readonly lgtm: string
     readonly collector: string
+    readonly cloudflared: string
     readonly port: number
     readonly context: string
     readonly ensures: ReadonlyArray<string>
@@ -245,9 +246,9 @@ class Bootstrap extends Tier {
 [ARM_PROGRAMS]:
 - Law: the k8s arm composes in dependency order — `Bootstrap` (kubeconfig) → `k8s.Provider` + one `Namespace` → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Workload.token` → optional `Workload` whose live-`Output` env pairs derive from the same outputs record through the one `_pairs` fold (when `spec.image` is present) → one `Certs.root` CA → `Traffic` over the workload service with the issuance capability injected — and returns every realized `StackOutputs` plane, `fanout` included.
 - Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, and by-value `secrets` bind Doppler outputs so no build credential touches disk. The fastcdc wasm artifact is a build-stage product of this same image — a rust stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg — so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm is build-plus-runtime — the `ssh://` `docker.Provider` binds the proven connection (the daemon `Bootstrap`'s docker install left behind), `docker.Network` and `docker.Volume` fence and persist, and the app `docker.Container` pins the built digest at its flat verified members (`image`, `restart`, `envs`, `command`); the nested `ports`/`mounts`/`networksAdvanced` arg records are a RESEARCH row until the docker catalog carries their field spellings, so the container constructs without them, publishes no phantom output plane, and the arm returns only the planes it realizes.
+- Law: the docker arm is build-plus-runtime — the `ssh://` `docker.Provider` binds the proven connection (the daemon `Bootstrap`'s docker install left behind), and the app `docker.Container` pins the built digest with the runtime fully wired at the catalogued nested spellings: `ports` rows (`internal`/`external`), `networksAdvanced` binding the `docker.Network` by its `name` output, `volumes` binding the `docker.Volume` by `volumeName`/`containerPath`; the arm publishes no output plane it does not realize, so its return stays empty until a traffic cell lands on this column.
 - Law: the aws arm realizes its column through the composition tier — one `aws.Provider` from the proven region (credentials ambient under `doppler run`), `awsx.ec2.Vpc` expands the AZ intent, `awsx.ecr.Repository` + `awsx.ecr.Image` build-and-push through the same bundled buildx builder, `aws.ecs.Cluster` + `awsx.ecs.FargateService` run the digest behind `awsx.lb.ApplicationLoadBalancer`, and `aws.s3.BucketV2` is the object cell; raw `aws.*` resources compose only where the component does not expose the attribute.
-- Law: the gcp and cloudflare arms are provider-seam-complete — `gcp` binds `credentials` from the `GCP_CREDENTIALS` fan-in read and realizes the GKE anchor (`container.Cluster` at its catalogued fields); `cloudflare` binds `apiToken` from `CLOUDFLARE_API_TOKEN` and realizes the dns cell (`DnsRecord` at its catalogued fields); the Cloud SQL, GCS, R2, and Workers realizers stay declared rows whose argument records are the standing RESEARCH items, and promoting either arm is implementing its declared realizer against the catalogued args — the record row, signature, and outputs contract never move.
+- Law: the gcp and cloudflare arms are provider-seam-complete — `gcp` proves `region` and `project`, binds `credentials` from the `GCP_CREDENTIALS` fan-in read, and realizes the GKE anchor (`container.Cluster` at its catalogued fields); `cloudflare` binds `apiToken` from `CLOUDFLARE_API_TOKEN` and realizes the dns cell (`DnsRecord` at its catalogued fields); each returns exactly the planes it realizes — no declared-signature bag pads an output record — and promoting either arm is realizing more of its map column (Cloud SQL, GCS, R2, Workers) against the catalogued args: the record row, signature, and outputs contract never move.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
 - Growth: promoting a prepared arm is one realizer body; a new cloud is one record row plus one map column.
 - Boundary: tier mechanics live on the tier pages; the declared realizers' argument catalogues are the standing research items on the provider `.api` files.
@@ -266,9 +267,6 @@ import { Traffic } from "../kube/traffic.ts"
 import { Workload } from "../kube/workload.ts"
 import { Boards, Lgtm } from "../operate/observe.ts"
 import { Certs, Secrets } from "../operate/secret.ts"
-
-declare const _gcpRows: (spec: StackSpec, provider: gcp.Provider, plane: gcp.container.Cluster) => Record.ReadonlyRecord<string, unknown>
-declare const _cloudflareRows: (spec: StackSpec, provider: cloudflare.Provider) => Record.ReadonlyRecord<string, unknown>
 
 const _pairs = (
   planes: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, pulumi.Input<string | number>>>,
@@ -350,6 +348,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
             namespace: ns.metadata.name,
             service: workload.service.metadata.name,
             port: pins.port,
+            connector: pins.cloudflared,
             issue: (hostname) => Certs.issue("edge", { ca, hostname }),
             apiToken: secrets.read("CLOUDFLARE_API_TOKEN"),
           }, bound)
@@ -376,11 +375,14 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           cacheFrom: [{ registry: { ref: `${ref}-cache` } }],
           cacheTo: [{ registry: { ref: `${ref}-cache` } }],
         })
-        new docker.Network("fence", { driver: "bridge", internal: false }, { provider })
-        new docker.Volume("state", { driver: "local" }, { provider })
+        const fence = new docker.Network("fence", { driver: "bridge", internal: false }, { provider })
+        const state = new docker.Volume("state", { driver: "local" }, { provider })
         new docker.Container("app", {
           image: image.ref,
           restart: "unless-stopped",
+          ports: [{ internal: pins.port, external: pins.port }],
+          networksAdvanced: [{ name: fence.name }],
+          volumes: [{ volumeName: state.name, containerPath: "/var/lib/rasm" }],
         }, { provider })
         return {}
       },
@@ -412,19 +414,22 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
     ),
   gcp: (spec, _material, _pins) =>
     Effect.map(
-      Effect.mapError(spec.region, () => _input(spec, "<missing-region>")),
-      (region) => async () => {
+      Effect.all([
+        Effect.mapError(spec.region, () => _input(spec, "<missing-region>")),
+        Effect.mapError(spec.project, () => _input(spec, "<missing-project>")),
+      ]),
+      ([region, project]) => async () => {
         const secrets = new Secrets("secrets", { spec, entries: {} })
         const provider = new gcp.Provider("gcp", {
-          project: spec.doppler.project,
+          project,
           region,
           credentials: secrets.read("GCP_CREDENTIALS"),
         })
-        const plane = new gcp.container.Cluster("plane", {
+        new gcp.container.Cluster("plane", {
           location: region,
           initialNodeCount: 2,
         }, { provider })
-        return _gcpRows(spec, provider, plane)
+        return {}
       },
     ),
   cloudflare: (spec, _material, _pins) =>
@@ -444,7 +449,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           proxied: true,
           ttl: 1,
         }, { provider })
-        return { ..._cloudflareRows(spec, provider), ingress: { hostname: `${spec.app}.${domain}` } }
+        return { ingress: { hostname: `${spec.app}.${domain}` } }
       },
     ),
 }

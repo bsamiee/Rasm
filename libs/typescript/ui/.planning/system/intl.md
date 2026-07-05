@@ -127,7 +127,7 @@ const Format: {
     const magnitude = Math.abs(millis)
     const row = Option.getOrElse(
       Array.findFirst(_ladder, ([floor]) => floor > 0 && magnitude >= floor),
-      () => _ladder[6],
+      () => Array.lastNonEmpty(_ladder),
     )
     const divisor = row[0] === 0 ? Duration.toMillis(Duration.seconds(1)) : row[0]
     return [Math.round(millis / divisor), row[1]] as const

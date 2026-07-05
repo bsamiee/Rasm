@@ -22,7 +22,7 @@ The program shapes of the deploy plane in one page: `StackSpec` is the decoded v
 ## [3]-[SPEC_OWNER]
 
 [SPEC_OWNER]:
-- Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), the coordinate options (`region` for prepared clouds, `domain`/`zone` for the traffic rows, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
+- Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), the coordinate options (`region` for prepared clouds, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
 - Law: coordinates, never material — `connection` carries host/user/port and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
 - Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the direct-DNS-versus-tunnel traffic row, `data` carries instance count, storage, backup cron, and retention, and `fanout` carries the NATS replica quorum and stream storage — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
@@ -86,6 +86,8 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
   region: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   domain: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   zone: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  project: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  account: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   connection: Schema.optionalWith(_Connection, { as: "Option" }),
   image: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   doppler: _Doppler,
@@ -145,7 +147,7 @@ abstract class Tier extends pulumi.ComponentResource {
 - Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint) — each an inline `Schema.Struct` block because no plane has a second consumer shape; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
 - Law: `read(stack, name)` is the one exit from the engine's `OutputMap` — `stack.outputs()` converts at this seam with the `DeployFault` triage, the secret gate refuses any `{ secret: true }` entry naming the leaked keys in the fault detail, the `{ value, secret }` envelope strips to plain values, and the record decodes through the class; the `Object` reads sit inside the boundary because the map is FFI material, and no decoded value is re-checked downstream.
 - Law: coordinates, never material — a role name, host, port, origin, or URL is publishable; a password, token, or key is not, and the fix for a refused output is moving the value into the Doppler store, never widening the gate.
-- Law: decode failure is admission evidence — an output key no field admits, or a malformed plane record, re-spells the `ParseError` as an `input` fault, because the program and this owner are two spellings of one contract and drift between them is a defect at the seam.
+- Law: decode failure is admission evidence — the configured decode (`errors: "all"`, `onExcessProperty: "error"`) makes an output key no field admits, or a malformed plane record, fail loudly and re-spell the `ParseError` as an `input` fault, because the program and this owner are two spellings of one contract and drift between them is a defect at the seam.
 - Law: the seam is env-shaped and derived — the `pairs` getter flattens every realized plane into `[channel, value]` rows whose channel spelling computes as `<plane>.<field>` from the owner's own field record, so no pair row is hand-listed and a field rename cannot drift from its channel; `kube/workload.md` owns the channel-to-env-key spelling, so this page never encodes a consumer's variable names and a key rename lands in one map there.
 - Law: `sharding` is the sole value crossing back to the runtime graph — `work`'s `ShardingConfig.layerFromEnv` consumes the env rows the sharding channels populate, deployment topology stays plane-distinct, and no runtime import exists in either direction; every other plane serves the app's own boot config through the same env assembly.
 - Law: the projection is total over presence — absent planes contribute zero rows, numbers render through `String` at this seam exactly once, and a consumer never re-derives a pair from the decoded owner; the widened `Record<string, string | number>` view on the fold is the type-seam bracket posture, since every plane record is flat scalars by construction.
@@ -195,7 +197,7 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
       Effect.map((outputs) => Object.fromEntries(Object.entries(outputs).map(([key, entry]) => [key, entry.value]))),
       Effect.flatMap((record) =>
         Effect.mapError(
-          Schema.decodeUnknown(StackOutputs)(record),
+          Schema.decodeUnknown(StackOutputs, { errors: "all", onExcessProperty: "error" })(record),
           (parse) => new DeployFault({ reason: "input", stack: name, detail: parse.message }),
         )),
     )

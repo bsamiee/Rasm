@@ -57,7 +57,7 @@
 | [INDEX] | [SYMBOL] | [INTENT ARGS → OUTPUTS] |
 | :-----: | :------- | :---------------------- |
 |  [01]   | `ecr.Repository` | `{ imageScanningConfiguration, imageTagMutability, encryptionConfigurations, lifecyclePolicy, forceDelete }` → `repository: aws.ecr.Repository`, `url`, `lifecyclePolicy` |
-|  [02]   | `ecr.Image` | `{ repositoryUrl, context, dockerfile, cacheFrom, platform, target, builderVersion }` → pushed image ref |
+|  [02]   | `ecr.Image` | `{ repositoryUrl, context, dockerfile, cacheFrom, platform, target, builderVersion }` → `imageUri: Output<string>` (the pushed ref a task definition pins) |
 |  [03]   | `ecr.RegistryImage` | push an existing local image to a repo |
 
 [TRAFFIC_SCOPE]: `awsx.lb` — load balancers

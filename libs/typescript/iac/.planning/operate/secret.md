@@ -62,22 +62,18 @@ const _minted = (key: string, policy: Secrets.Policy, epoch: string, child: pulu
   }, child)
 
 class Secrets extends Tier {
-  static readonly mirrored = (owner: Secrets, name: string, row: Secrets.Mirror, child: pulumi.CustomResourceOptions): pulumi.CustomResource =>
-    row.target === "awsSecretsManager"
-      ? new secretssync.AwsSecretsManager(name, {
-          project: owner.project.name,
-          config: owner.config.name,
-          integration: new integration.AwsSecretsManager(name, { name, assumeRoleArn: row.assumeRoleArn }, child).id,
-          region: row.region,
-          path: row.path,
-        }, child)
-      : new secretssync.GithubActions(name, {
-          project: owner.project.name,
-          config: owner.config.name,
-          integration: row.integration,
-          syncTarget: "repo",
-          repoName: row.repoName,
-        }, child)
+  static readonly mirrored = <K extends Secrets.Mirror["target"]>(
+    owner: Secrets,
+    name: string,
+    row: Extract<Secrets.Mirror, { readonly target: K }>,
+    child: pulumi.CustomResourceOptions,
+  ): pulumi.CustomResource => _MIRRORS[row.target](owner, name, row, child)
+  static readonly webhook = (owner: Secrets, name: string, url: pulumi.Input<string>, child: pulumi.CustomResourceOptions): doppler.Webhook =>
+    new doppler.Webhook(name, {
+      project: owner.project.name,
+      url,
+      enabledConfigs: [owner.config.name],
+    }, child)
   readonly project: doppler.Project
   readonly config: doppler.BranchConfig
   readonly token: pulumi.Output<string>
@@ -122,9 +118,9 @@ class Secrets extends Tier {
 [FAN_IN_AND_OUT]:
 - Law: one read serves every provider — `read(key)` is the single-key pluck over `getSecretsOutput(...).map`, and the consumer roster is data: `postgresql.Provider.password` ← `DB_ADMIN_PASSWORD`, `postgresql.Role.password` ← `DB_PASSWORD`, `cloudflare.Provider.apiToken` ← `CLOUDFLARE_API_TOKEN`, `gcp.Provider.credentials` ← `GCP_CREDENTIALS`, grafana auth ← `GRAFANA_PASSWORD`, registry auth ← `REGISTRY_PASSWORD` — a new consuming provider is a key row on the config the store already owns, never a new read path.
 - Law: the in-graph value stays in the graph — the plucked `Output<string>` binds a credential `Input`, is state-encrypted, and never touches process env; the env mode exists only for the runtime processes the workload assembly wraps.
-- Law: mirroring is one pair per destination — `Secrets.mirrored` dispatches on the target key: a destination whose credential link this plane owns constructs `integration.<Target>` then `secretssync.<Target>` referencing its id; a GitHub destination's integration is the pre-existing GitHub-App install, so its row carries the integration slug and constructs the sync row alone; targets are rows, the mirror is always FROM the canonical config outward, and `mirrored` rides the owner as a static so the tier grows no per-target methods.
-- Law: rotation observes itself — `_webhook(owner, name, url, child)` is one `doppler.Webhook` row delivering secret-change events to the endpoint the composing arm names, so an epoch bump or an out-of-band edit surfaces as evidence the drift sweep correlates; delivery is a signal, never a second read path.
-- Growth: a new mirror destination is one target row in the `mirrored` dispatch; the remaining shipped sync targets (parameter store, workspace variables, CI contexts, app platforms) land the same way when a consumer exists.
+- Law: mirroring is one pair per destination — `Secrets.mirrored` is the generic indexed call over the `_MIRRORS` handler record keyed by the target discriminant, each row's payload correlated through `Extract`: a destination whose credential link this plane owns constructs `integration.<Target>` then `secretssync.<Target>` referencing its id; a GitHub destination's integration is the pre-existing GitHub-App install, so its row carries the integration slug and constructs the sync row alone; targets are rows, the mirror is always FROM the canonical config outward, and `mirrored` rides the owner as a static so the tier grows no per-target methods.
+- Law: rotation observes itself — `Secrets.webhook(owner, name, url, child)` is one `doppler.Webhook` row riding the owner, delivering secret-change events to the endpoint the composing arm names, so an epoch bump or an out-of-band edit surfaces as evidence the drift sweep correlates; delivery is a signal, never a second read path.
+- Growth: a new mirror destination is one `_MIRRORS` row plus its `Mirror` case; the remaining shipped sync targets (parameter store, workspace variables, CI contexts, app platforms) land the same way when a consumer exists.
 - Boundary: what a mirrored store's consumers do with the copy is theirs; the canonical write path never routes through a mirror.
 
 ```typescript
@@ -134,12 +130,31 @@ declare namespace Secrets {
     | { readonly target: "githubActions"; readonly integration: pulumi.Input<string>; readonly repoName: pulumi.Input<string> }
 }
 
-const _webhook = (owner: Secrets, name: string, url: pulumi.Input<string>, child: pulumi.CustomResourceOptions): doppler.Webhook =>
-  new doppler.Webhook(name, {
-    project: owner.project.name,
-    url,
-    enabledConfigs: [owner.config.name],
-  }, child)
+const _MIRRORS: {
+  readonly [K in Secrets.Mirror["target"]]: (
+    owner: Secrets,
+    name: string,
+    row: Extract<Secrets.Mirror, { readonly target: K }>,
+    child: pulumi.CustomResourceOptions,
+  ) => pulumi.CustomResource
+} = {
+  awsSecretsManager: (owner, name, row, child) =>
+    new secretssync.AwsSecretsManager(name, {
+      project: owner.project.name,
+      config: owner.config.name,
+      integration: new integration.AwsSecretsManager(name, { name, assumeRoleArn: row.assumeRoleArn }, child).id,
+      region: row.region,
+      path: row.path,
+    }, child),
+  githubActions: (owner, name, row, child) =>
+    new secretssync.GithubActions(name, {
+      project: owner.project.name,
+      config: owner.config.name,
+      integration: row.integration,
+      syncTarget: "repo",
+      repoName: row.repoName,
+    }, child),
+}
 ```
 
 ## [4]-[CERT_CHAIN]

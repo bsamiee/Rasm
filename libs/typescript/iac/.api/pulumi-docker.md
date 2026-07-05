@@ -51,9 +51,10 @@
 
 | [INDEX] | [SYMBOL] | [KEY ARGS] |
 | :-----: | :------- | :--------- |
-|  [01]   | `Container` | `image`, `ports: ContainerPort[]`, `envs`, `mounts`/`volumes`, `networksAdvanced`, `restart`/`maxRetryCount`, `healthcheck`, `command`/`entrypoints`, `gpus`/`devices`/`capabilities`, `memory`/`cpus`, `labels` |
-|  [02]   | `Network` | `driver`, `ipamConfigs`/`ipamDriver`, `attachable`, `internal`, `ingress`, `options`, `labels` |
-|  [03]   | `Volume` | `driver`/`driverOpts`, `cluster`, `labels` |
+|  [01]   | `Container` | `image`, `ports: ContainerPort[]`, `envs: string[]` (`KEY=VALUE` rows), `mounts`/`volumes`, `networksAdvanced`, `restart`/`maxRetryCount`, `healthcheck`, `command`/`entrypoints`, `gpus`/`devices`/`capabilities`, `memory`/`cpus`, `labels` |
+|  [02]   | `Network` | `driver`, `ipamConfigs`/`ipamDriver`, `attachable`, `internal`, `ingress`, `options`, `labels` → `name: Output<string>` |
+|  [03]   | `Volume` | `driver`/`driverOpts`, `cluster`, `labels` → `name: Output<string>` |
+|  [04]   | nested arg records | `ContainerPort { internal (required), external?, ip?, protocol? }`; `ContainerNetworksAdvanced { name (required — bind `Network.name`), aliases?, ipv4Address?, driverOpts? }`; `ContainerVolume { volumeName? (bind `Volume.name`), containerPath?, hostPath?, readOnly?, fromContainer? }`; `ContainerMount { target (required), type (required), source?, readOnly?, bindOptions?, volumeOptions?, tmpfsOptions? }` |
 
 [SWARM_SCOPE]: swarm-mode services
 - rail: selfhosted-docker

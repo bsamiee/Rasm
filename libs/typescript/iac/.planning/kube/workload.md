@@ -50,7 +50,7 @@ declare namespace _LIFE {
 [ENV_ASSEMBLY]:
 - Owner: the env seam — `_KEYS` is the channel-to-variable map (the one place a `StackOutputs` channel becomes an environment spelling), `Workload.token` provisions the namespace-scoped `core/v1.Secret` carrying `DOPPLER_TOKEN`, `Workload.rows` assembles the container's `EnvVar` list, and `Workload.entrypoint` is the `doppler run --` wrap; pair values are `Input`-typed, so live tier `Output`s (the in-program assembly) and decoded `StackOutputs.Pair` strings (the post-run projection) ride one signature.
 - Law: the map is total over emitted channels — a channel with no `_KEYS` row is dropped by `filterMap` and that drop is deliberate absence, so publishing a new channel to processes is exactly one map row; the runtime-consumed spellings are pinned to their owners: `otlp.endpoint → OTEL_EXPORTER_OTLP_ENDPOINT` (the OTel exporter contract), `fanout.origin → RUNTIME_FANOUT_ORIGIN` (the runtime `Setting` fanout group), `object.* → OBJECT_*` (the data object plane's own Config rows), `sharding.* → IAC_SHARDING_*` (the rows `ShardingConfig.layerFromEnv` reads at the work seam).
-- Law: policy rows stamp beside output rows — `_POLICY` carries the deploy-owned runtime Setting rows no output plane emits: `RUNTIME_LIFE_DRAIN` from the `_LIFE` anchor and `RUNTIME_CLUSTER_LOCK_REFRESH`/`RUNTIME_CLUSTER_LOCK_EXPIRY` (the leaderless grid's advisory-lock cadence, a topology posture the deploy plane owns); the `rows` signature's `policy` parameter is the merge seam an arm widens with the `RUNTIME_MAIL_*` coordinate set (SMTP host, port, user, DKIM domain and selector, rate ceiling) when the app's mail coordinates exist. Every value is a coordinate or a duration literal — the SMTP password rides Doppler like every credential.
+- Law: policy rows stamp beside output rows — `_POLICY` carries the deploy-owned runtime Setting rows no output plane emits: `RUNTIME_LIFE_DRAIN` from the `_LIFE` anchor and `RUNTIME_CLUSTER_LOCK_REFRESH`/`RUNTIME_CLUSTER_LOCK_EXPIRY` (the leaderless grid's advisory-lock cadence, a topology posture the deploy plane owns); the `rows` signature's `policy` parameter is the merge seam an arm widens with the `RUNTIME_MAIL_*` coordinate set (SMTP host, port, user, DKIM domain and selector, rate ceiling) when the app's mail coordinates exist — widening rows merge over the `_POLICY` base, so an arm never re-spells the standing rows to add one. Every value is a coordinate or a duration literal — the SMTP password rides Doppler like every credential.
 - Law: coordinates ride plain rows, material rides references — output pairs are non-secret by `StackOutputs.read`'s gate, so they inject as `value`; the only secret-bearing row is the token `secretKeyRef`, and a second secret row is evidence a value bypassed Doppler.
 - Law: the entrypoint wrap is the injection moment — a container carrying a `command` stamps `Workload.entrypoint(cmd)`, and a container without one runs an image whose baked `ENTRYPOINT` is the same `doppler run --` wrap (the app image's build contract), so `doppler run` resolves the scoped config into the process environment at start, the runtime's provider chain reads validated values, and the security plane's leased-secret owner reads the same config; the deploy plane never writes a decrypted payload to any surface a process reads before injection.
 - Entry: `Workload.token(name, { namespace, token }, opts)` once per arm; `Workload.rows(tokenRef, pairs, policy?)` into the container env; `Workload.entrypoint(cmd)` as the container command.
@@ -107,10 +107,10 @@ const _token = (
 const _rows = (
   tokenSecret: pulumi.Output<string>,
   outputPairs: ReadonlyArray<Workload.Pair>,
-  policy: Record.ReadonlyRecord<string, string> = _POLICY,
+  policy?: Record.ReadonlyRecord<string, string>,
 ): ReadonlyArray<Workload.EnvRow> => [
   { name: _TOKEN, valueFrom: { secretKeyRef: { name: tokenSecret, key: _TOKEN } } },
-  ...Array.map(Record.toEntries(policy), ([name, value]) => ({ name, value })),
+  ...Array.map(Record.toEntries({ ..._POLICY, ...policy }), ([name, value]) => ({ name, value })),
   ...Array.filterMap(outputPairs, ([channel, value]) =>
     Option.map(Option.fromNullable(_keyed[channel]), (key) => ({ name: key, value }))),
 ]

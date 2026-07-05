@@ -17,7 +17,7 @@ The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issue
 - Law: material crosses as the triple only — `args.issue(hostname)` yields `Certs.Issued` with `key` and `cert` as state-encrypted `Output`s and `renewal` as the rotation boolean; the tier never sees a private-key PEM outside the sink write, and a second consumer of the same material is a second sink row, never a second issuance.
 - Law: TLS is structural — the ingress carries its `tls` block by construction and the policy pack rejects one without it, so an unencrypted edge is unshippable from both directions.
 - Law: the controller identity is one `_EDGE` anchor — the ingress's `ingressClassName` and the fence's namespace selector are its two projections, so the bootstrap-installed controller renames in one edit and the routing class and the admission fence cannot drift; a fence naming a namespace no controller occupies, or an ingress naming a class no controller serves, is the split this anchor deletes.
-- Entry: `new Traffic("traffic", { spec, namespace, service, port, issue, apiToken }, opts)`; `traffic.hostname` feeds `StackOutputs.ingress`, `traffic.renewal` feeds the drift watch.
+- Entry: `new Traffic("traffic", { spec, namespace, service, port, connector, issue, apiToken }, opts)`; `traffic.hostname` feeds `StackOutputs.ingress`, `traffic.renewal` feeds the drift watch.
 - Growth: a second hostname is a second issue-and-sink pass on the same CA; a stricter fence (egress allowlist) is one `NetworkPolicy` spec row.
 - Boundary: issuance mechanics, the usage vocabulary, and the renewal window are `operate/secret.md`'s; the workload service is `kube/workload.md`'s; the cloud-LB ingress cells are the prepared arms'.
 - Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `networking.v1.Ingress`, `networking.v1.NetworkPolicy`); `@pulumi/pulumi`; `effect` (`Option`); `../program/spec.ts` (`StackSpec`, `Tier`); `../operate/secret.ts` (`Certs`).
@@ -26,6 +26,7 @@ The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issue
 import * as cloudflare from "@pulumi/cloudflare"
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
+import * as random from "@pulumi/random"
 import { Option } from "effect"
 import type { Certs } from "../operate/secret.ts"
 import { Tier, type StackSpec } from "../program/spec.ts"
@@ -39,6 +40,7 @@ declare namespace Traffic {
     readonly namespace: pulumi.Input<string>
     readonly service: pulumi.Input<string>
     readonly port: number
+    readonly connector: pulumi.Input<string>
     readonly issue: (hostname: string) => Certs.Issued
     readonly apiToken: pulumi.Input<string>
   }
@@ -68,21 +70,80 @@ const _fenced = (
 
 [EXPOSURE]:
 - Law: `direct` is a proxied record at the metal — `cloudflare.DnsRecord` (`type: "A"`, `content: address`, `proxied: true`, zone from the spec's `zone`), the current-spelling class, never the deprecated `Record` alias; the address is the proven connection host, so exposure and bootstrap share one coordinate.
-- Law: `tunnel` is the no-public-address row — `ZeroTrustTunnelCloudflared` with its `…Config` ingress rules routing the hostname to the in-cluster service, a `DnsRecord` CNAME onto the tunnel address, and a `ZeroTrustAccessApplication`/`…Policy` pair fronting authentication; the class spellings are catalogued, the argument-record field spellings are the standing RESEARCH row, and `_tunneled` stays a declared signature until they settle — a settled fence over unverified members is the defect this declare refuses.
+- Law: `tunnel` is the no-public-address row, settled whole — an epoch-keyed `RandomBytes` mints the tunnel secret, `ZeroTrustTunnelCloudflared` names the tunnel, its `…Config` `ingresses` rows route the hostname to the in-cluster service and close on the `http_status:404` catch-all, `getZeroTrustTunnelCloudflaredTokenOutput` feeds the secret-wrapped `TUNNEL_TOKEN` of the in-cluster `cloudflared` connector `Deployment` (image from the arm's `connector` pin, k8s-provider-bound while every Cloudflare row rides the arm provider), a `DnsRecord` CNAMEs the hostname onto `<tunnelId>.cfargotunnel.com`, and a `ZeroTrustAccessPolicy`/`…Application` pair fronts the edge; the `account` coordinate proves exactly as `domain`/`zone` do.
 - Law: one provider per arm — the Cloudflare provider constructs once here from the fan-in token and threads `{ provider }` to every record; a per-record provider is the named defect.
 - Law: a rules posture is a member, not a mode — a WAF or redirect need is one `cloudflare.Ruleset` row on the same provider (`phase` selecting the rules engine plane), growth the exposure dispatch never widens for.
-- Growth: an access-group row (`ZeroTrustAccessGroup`) rides the tunnel arm when it settles; a second zone is a second record on the same provider.
+- Growth: an identity-gated posture is one `includes` row on the access policy (`ZeroTrustAccessGroup` when a group earns it); a second zone is a second record on the same provider.
 - Boundary: the token's mint and fan-in are `operate/secret.md`'s; the prepared `cloudflare` arm's own cells are `program/provider.md`'s.
-- Packages: `@pulumi/cloudflare` (`Provider`, `DnsRecord`, `ZeroTrustTunnelCloudflared`, `Ruleset`); `effect` (`Option`).
+- Packages: `@pulumi/cloudflare` (`Provider`, `DnsRecord`, `ZeroTrustTunnelCloudflared`, `ZeroTrustTunnelCloudflaredConfig`, `getZeroTrustTunnelCloudflaredTokenOutput`, `ZeroTrustAccessApplication`, `ZeroTrustAccessPolicy`, `Ruleset`); `@pulumi/random` (`RandomBytes`); `@pulumi/kubernetes` (`apps.v1.Deployment`); `effect` (`Option`).
 
 ```typescript
-declare const _tunneled: (
+const _tunneled = (
   name: string,
-  provider: cloudflare.Provider,
-  hostname: string,
-  zone: pulumi.Input<string>,
-  child: pulumi.CustomResourceOptions,
-) => pulumi.Output<string>
+  args: Traffic.Args,
+  coords: { readonly hostname: string; readonly zone: pulumi.Input<string>; readonly account: string },
+  opts: { readonly cf: pulumi.CustomResourceOptions; readonly kube: pulumi.CustomResourceOptions },
+): pulumi.Output<string> => {
+  const secret = new random.RandomBytes(`${name}-tunnel-key`, { length: 32, keepers: { epoch: args.spec.epoch } }, opts.cf)
+  const tunnel = new cloudflare.ZeroTrustTunnelCloudflared(name, {
+    accountId: coords.account,
+    name: coords.hostname,
+    tunnelSecret: secret.base64,
+    configSrc: "cloudflare",
+  }, opts.cf)
+  new cloudflare.ZeroTrustTunnelCloudflaredConfig(name, {
+    accountId: coords.account,
+    tunnelId: tunnel.id,
+    config: {
+      ingresses: [
+        { hostname: coords.hostname, service: pulumi.interpolate`http://${args.service}:${args.port}` },
+        { service: "http_status:404" },
+      ],
+    },
+  }, opts.cf)
+  const labels = { "app.kubernetes.io/name": `${name}-connector` }
+  const token = cloudflare.getZeroTrustTunnelCloudflaredTokenOutput({ accountId: coords.account, tunnelId: tunnel.id }, opts.cf)
+  new k8s.apps.v1.Deployment(`${name}-connector`, {
+    metadata: { namespace: args.namespace, labels },
+    spec: {
+      replicas: 2,
+      selector: { matchLabels: labels },
+      template: {
+        metadata: { labels },
+        spec: {
+          containers: [{
+            name: "cloudflared",
+            image: args.connector,
+            args: ["tunnel", "run"],
+            env: [{ name: "TUNNEL_TOKEN", value: pulumi.secret(token.token) }],
+          }],
+        },
+      },
+    },
+  }, opts.kube)
+  const admit = new cloudflare.ZeroTrustAccessPolicy(name, {
+    accountId: coords.account,
+    name: `${name}-admit`,
+    decision: "allow",
+    includes: [{ everyone: {} }],
+  }, opts.cf)
+  new cloudflare.ZeroTrustAccessApplication(name, {
+    accountId: coords.account,
+    name: coords.hostname,
+    domain: coords.hostname,
+    type: "self_hosted",
+    sessionDuration: "24h",
+    policies: [{ id: admit.id }],
+  }, opts.cf)
+  return new cloudflare.DnsRecord(name, {
+    zoneId: coords.zone,
+    type: "CNAME",
+    name: coords.hostname,
+    content: pulumi.interpolate`${tunnel.id}.cfargotunnel.com`,
+    proxied: true,
+    ttl: 1,
+  }, opts.cf).name
+}
 
 class Traffic extends Tier {
   readonly hostname: string
@@ -130,7 +191,11 @@ class Traffic extends Tier {
           proxied: true,
           ttl: 1,
         }, this.child({ provider })).name
-      : _tunneled(name, provider, this.hostname, zone, this.child({ provider }))
+      : _tunneled(name, args, {
+          hostname: this.hostname,
+          zone,
+          account: Option.getOrThrowWith(args.spec.account, () => new pulumi.RunError("<missing-account>")),
+        }, { cf: this.child({ provider }), kube: this.child() })
     this.seal({ hostname: this.hostname, renewal: this.renewal })
   }
 }

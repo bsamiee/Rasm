@@ -132,7 +132,7 @@ const _urls = (release: string, namespace: pulumi.Input<string>): Lgtm.Urls => (
 - Law: one provider per stack — every resource in the tier threads `{ provider }` through `child()`; a second provider instance is the split-diamond defect; auth never rides env here — the in-graph read is the canonical binding for deploy-time application.
 - Law: models arrive encoded — the tier consumes `typeof DashboardModel.Encoded` values and `pulumi.jsonStringify` is the only serialization; the model's uid is the resource name, so the board's identity derivation survives into the Grafana state and the drift receipt, and no dashboard JSON exists on disk anywhere.
 - Law: sources bind outputs — every `DataSource` url is an `Lgtm` query-plane projection `Output` (the read API, never an ingest path), so re-plumbing a backend re-points every board with zero board edits; a literal URL in a source row is the named defect.
-- Law: the unverified argument surfaces stay declared — `_boardArgs`, `_alertRows`, and `_sloRows` are declared signatures over the catalogued class names (`oss.Dashboard`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `slo.Slo`) whose exact argument-record field spellings are the standing RESEARCH row; the tier's shape, ordering, and identity law are settled now, and the machine-identity upgrade (`oss.ServiceAccount` + `ServiceAccountToken` over the `admin:password` binding) lands the same way when its argument records reach catalogue depth.
+- Law: the board write is settled, the alert compile stays declared — `_boardArgs` constructs `oss.DashboardArgs` at the verified spellings (`configJson` as the one `pulumi.jsonStringify` serialization, `folder` as the uid binding); `_alertRows` and `_sloRows` remain declared signatures over the catalogued class names (`alerting.RuleGroup` — `folderUid`/`intervalSeconds`/`rules` verified — `alerting.ContactPoint`, `alerting.NotificationPolicy`, `slo.Slo`) because the `Alert.Spec` `sli`-to-rule-model compile is the standing design item, and the machine-identity upgrade (`oss.ServiceAccount` + `ServiceAccountToken` over the `admin:password` binding) lands the same way when its argument records reach catalogue depth.
 - Entry: `new Boards("boards", { spec, lgtm, auth, boards, alerts }, opts)` inside the k8s arm, `boards`/`alerts` produced by the app's core observe suite call.
 - Growth: a new panel family or board is upstream data — this tier changes only when Grafana grows a resource kind worth a row; alert silencing and templated notification rows (`alerting.MuteTiming`, `alerting.MessageTemplate`) land beside the alert rows when a paging policy earns them.
 - Boundary: `DashboardModel`/`Alert` shapes are the core observe plane's owners consumed as encoded values; folder placement conventions live here, board content never does; drift interpretation is `operate/policy.md`'s.
@@ -154,7 +154,11 @@ declare namespace Boards {
   }
 }
 
-declare const _boardArgs: (model: Boards.Model, folder: pulumi.Output<string>) => grafana.oss.DashboardArgs
+const _boardArgs = (model: Boards.Model, folder: pulumi.Output<string>): grafana.oss.DashboardArgs => ({
+  configJson: pulumi.jsonStringify(model),
+  folder,
+})
+
 declare const _alertRows: (
   alerts: ReadonlyArray<Alert.Spec>,
   folder: pulumi.Output<string>,
