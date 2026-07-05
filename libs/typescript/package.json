@@ -31,5 +31,8 @@
         "./ui": "./ui/src/index.ts",
         "./ui/viewer": "./ui/viewer/src/index.ts",
         "./iac": "./iac/src/index.ts"
+    },
+    "devDependencies": {
+        "@rasm/ts-testkit": "workspace:*"
     }
 }

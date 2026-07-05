@@ -54,10 +54,11 @@ const _REVIEW_ONLY = [
     'semantic-naming',
 ] as const;
 
-// Every promoted rule binds the domain estate and exempts the spec dialects. Plugin includes match
-// the full file path, so the estate glob leads with `**/` — the bare `libs/typescript/**` form never
-// matches and silently disarms the whole promotion layer.
-const _PLUGIN_SCOPE = ['**/libs/typescript/**', '!**/*.spec.ts', '!**/*.test.ts', '!**/*.bench.ts'] as const;
+// Every promoted rule binds the domain estate and exempts every spec dialect — the trailing `.*`
+// covers ts/tsx/mts/cts and the browser dialects in one row, matching the runner's include globs.
+// Plugin includes match the full file path, so the estate glob leads with `**/` — the bare
+// `libs/typescript/**` form never matches and silently disarms the whole promotion layer.
+const _PLUGIN_SCOPE = ['**/libs/typescript/**', '!**/*.spec.*', '!**/*.test.*', '!**/*.bench.*'] as const;
 
 // The type-aware, import-graph, and test domains stay armed at recommended.
 const _DOMAINS = ['project', 'test', 'types'] as const;
@@ -70,7 +71,8 @@ const _ARMED = [
     { mark: 'carries its non-firing span', want: /\/\/ CLEAN:/ },
 ] as const;
 
-// The live-fire span grammar: each proof span is one statement line the real binary executes.
+// The live-fire span grammar: each FIRES line is one self-contained fixture the real binary lints
+// in isolation — a multi-arm rule proves every arm; CLEAN lines join into one silent file.
 const _SPANS = { clean: /^\/\/ CLEAN: (.+)$/gm, fires: /^\/\/ FIRES: (.+)$/gm } as const;
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -104,12 +106,9 @@ const _decodeBiome = Schema.decodeUnknown(Schema.parseJson(_Biome));
 
 const _decodeReport = Schema.decodeUnknown(Schema.parseJson(_LintReport));
 
-// One rule's proof material, extracted from its own file: every span line of the kind, newline-joined.
-const _spanOf = (text: string, kind: keyof typeof _SPANS): string =>
-    Array.join(
-        Array.filterMap(Array.fromIterable(text.matchAll(_SPANS[kind])), (hit) => Option.fromNullable(hit[1])),
-        '\n',
-    );
+// One rule's proof material, extracted from its own file: every span line of the kind, in file order.
+const _spans = (text: string, kind: keyof typeof _SPANS): ReadonlyArray<string> =>
+    Array.filterMap(Array.fromIterable(text.matchAll(_SPANS[kind])), (hit) => Option.fromNullable(hit[1]));
 
 // The lint-legislature predicate: one violation list over the decoded config, falsifiable in isolation.
 const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
@@ -236,7 +235,7 @@ layer(NodeContext.layer)('workspace admission', (it) => {
         }),
     );
 
-    it.effect('every promoted rule proves live: the FIRES span draws the plugin diagnostic, the CLEAN span lints silent', () =>
+    it.effect('every promoted rule proves live: each FIRES line draws the plugin diagnostic in isolation, the CLEAN spans lint silent', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const fs = yield* FileSystem.FileSystem;
@@ -262,18 +261,24 @@ layer(NodeContext.layer)('workspace admission', (it) => {
                                     plugins: [path.join(home, `${rule}.grit`)],
                                 }),
                             );
-                            yield* fs.writeFileString(path.join(dir, 'fire.ts'), _spanOf(text, 'fires'));
-                            yield* fs.writeFileString(path.join(dir, 'clean.ts'), _spanOf(text, 'clean'));
-                            const fire = yield* lint(dir, path.join(dir, 'fire.ts'));
+                            const fired = yield* Effect.forEach(_spans(text, 'fires'), (line, at) =>
+                                Effect.gen(function* () {
+                                    const file = path.join(dir, `fire-${at}.ts`);
+                                    yield* fs.writeFileString(file, line);
+                                    const report = yield* lint(dir, file);
+                                    return Array.some(report.diagnostics, (found) => found.category === 'plugin')
+                                        ? []
+                                        : [`${rule}: FIRES line ${at + 1} never drew the plugin diagnostic`];
+                                }),
+                            );
+                            yield* fs.writeFileString(path.join(dir, 'clean.ts'), Array.join(_spans(text, 'clean'), '\n'));
                             const clean = yield* lint(dir, path.join(dir, 'clean.ts'));
                             return Array.flatten([
-                                Array.some(fire.diagnostics, (found) => found.category === 'plugin')
-                                    ? []
-                                    : [`${rule}: the FIRES span never drew the plugin diagnostic`],
+                                Array.flatten(fired),
                                 Array.isEmptyReadonlyArray(clean.diagnostics)
                                     ? []
                                     : [
-                                          `${rule}: the CLEAN span drew [${Array.join(
+                                          `${rule}: the CLEAN spans drew [${Array.join(
                                               Array.map(clean.diagnostics, (found) => found.category),
                                               ', ',
                                           )}] — a span that fires or fails to parse proves nothing`,
@@ -358,11 +363,11 @@ describe('admission predicates', () => {
         expect(_disarmed('specimen', 'language js(typescript, jsx)\n`throw $e`')).not.toEqual([]);
     });
 
-    it('the span extractor reads every proof line and yields nothing from a span-free rule', () => {
+    it('the span extractor reads every proof line as its own fixture and yields nothing from a span-free rule', () => {
         const text = '// FIRES: const a = 1;\n// FIRES: const b = 2;\n// CLEAN: const c = 3;\n`throw $e`';
-        expect(_spanOf(text, 'fires')).toBe('const a = 1;\nconst b = 2;');
-        expect(_spanOf(text, 'clean')).toBe('const c = 3;');
-        expect(_spanOf('`throw $e`', 'fires')).toBe('');
+        expect(_spans(text, 'fires')).toEqual(['const a = 1;', 'const b = 2;']);
+        expect(_spans(text, 'clean')).toEqual(['const c = 3;']);
+        expect(_spans('`throw $e`', 'fires')).toEqual([]);
     });
 
     it('the promoted and review-only rosters split the law set with no overlap', () => {

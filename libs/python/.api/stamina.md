@@ -32,6 +32,7 @@
 
 [PUBLIC_TYPE_SCOPE]: retry-target discriminator
 - rail: resilience
+- The two aliases below are SHAPES, not importable symbols — they live in `stamina._core` (private) and are re-exported nowhere public (`stamina.typing` carries only `RetryDetails`/`RetryHook`); a consumer spells the union as a local `type` alias.
 - The `on=` parameter is a discriminated union, not just an exception type: a single error class, a tuple of classes, OR a backoff hook. The hook receives the raised `Exception` and returns `bool | float | timedelta` — `True`/`False` decides whether to retry, a `float`/`timedelta` both decides yes AND overrides the computed exponential backoff for that attempt (the `Retry-After`-header pattern). A custom backoff bypasses the `wait_*` machinery entirely.
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [DEFINITION]                                                    |

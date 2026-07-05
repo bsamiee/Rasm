@@ -31,9 +31,10 @@ Feature gating and killswitch state are data-driven rows on `PROFILE_POLICY`, ne
   - a `Hlc.packed.to_bytes(16, ...)` re-packing of the parent-id beside the un-hexed canonical rendering (the packing semantics are the clock owner's, not admission's to duplicate); an inline `frame.map(lambda f: bytes.fromhex(...)).to_optional()` parent-seed lambda at the `admit` call site beside the one `Correlation.seed(frame)` classmethod.
   - a redundant `profile` field on the `ProfilePolicy` value beside the `Map` key; a bare-`total_seconds()` deadline conversion at the lane seam beside `Deadline.seconds`; an inline `Nothing if x is None else Some(x)` ternary beside `Option.of_optional`.
   - a boolean-per-capability feature flag beside the policy table, or a killswitch left as dead policy a row never folds — a tripped switch must revoke its `KILLSWITCH_FEATURE`-paired feature in the one `admits` fold, never a separate predicate the caller forgets to AND.
-- The broader multi-source structured settings schema stays the deferred `STRUCTURED_SETTINGS_SCHEMA` IDEA; this page realizes only its local cell, the feature/killswitch rows folded into `PROFILE_POLICY`.
+- The broader multi-source structured settings schema stays the deferred `STRUCTURED_SETTINGS_SCHEMA` IDEA except its cloud-secret slice, realized in `[03]-[SETTINGS]`; this region realizes the local cell, the feature/killswitch rows folded into `PROFILE_POLICY`.
 
 ```python signature
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from datetime import timedelta
 from enum import StrEnum
 from secrets import token_bytes
@@ -44,6 +45,8 @@ from expression.collections import Map
 from msgspec import Struct, field
 
 from rasm.runtime.clock import CausalFrame
+
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class RuntimeProfile(StrEnum):
@@ -64,6 +67,8 @@ class Killswitch(StrEnum):
     DISABLE_SECRET_MANAGER = "disable_secret_manager"
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
 # the one disabling-edge table: each killswitch names the feature it revokes, so a tripped
 # switch and an admitted feature meet in one `admits` fold rather than two predicates a
 # caller must remember to AND — a new killswitch is one row, never a parallel boolean knob.
@@ -71,6 +76,8 @@ KILLSWITCH_FEATURE: Final[Map[Killswitch, Feature]] = Map.of_seq([
     (Killswitch.DISABLE_OUTBOUND, Feature.OUTBOUND_TRANSPORT),
     (Killswitch.DISABLE_SECRET_MANAGER, Feature.SECRET_MANAGER),
 ])
+
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class FeatureGate(Struct, frozen=True, gc=False):
@@ -228,7 +235,7 @@ from typing import Final, Literal, assert_never, overload
 import anyio
 import asyncssh
 import keyring
-from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression import Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct
 from pydantic import AnyUrl, DirectoryPath, FilePath, HttpUrl, SecretStr
@@ -318,12 +325,13 @@ class SecretBoundary(Struct, frozen=True):
         async def walk(rows: Block[TierRow]) -> RuntimeRail[Option[BasicCredential]]:
             # the synchronous `Block.fold` cannot thread the per-tier `guarded` await, so the closed
             # `SecretTier`-arity-bounded ladder recurses head-then-tail; the empty ladder folds to `Ok(Nothing)`.
+            # `Ok`/`Error`/`Some` are constructor functions, so the arms match the carrier tag, never a class pattern.
             match rows.try_head():
-                case Some(head):
+                case Option(tag="some", some=head):
                     match await self._probe(head, service, username):
-                        case Error(_) as faulted:
+                        case Result(tag="error") as faulted:
                             return faulted
-                        case Ok(Some(_)) as hit:
+                        case Result(tag="ok", ok=Option(tag="some")) as hit:
                             return hit
                         case _:
                             return await walk(rows.tail())
@@ -353,7 +361,7 @@ class SecretBoundary(Struct, frozen=True):
                 return await guarded(row.retry_class, anyio.to_thread.run_sync, keystore_read, subject="secret")
             case SecretTier(tag="cloud", cloud=namespace):
                 match Option.of_optional(self.settings.gcp_project_id):
-                    case Some(project):
+                    case Option(tag="some", some=project):
 
                         def cloud_read() -> Option[BasicCredential]:
                             # a missing secret version is a MISS (`NotFound` -> `Nothing`, the keyring

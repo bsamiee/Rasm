@@ -10,7 +10,7 @@
 - license: `MIT`
 - effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`)
 - backing: `@clickhouse/client` (HTTP interface, streaming inserts, `ClickHouseClientConfigOptions`)
-- runtime: `runtime:node`/bun services; the browser analytical row is `@duckdb/duckdb-wasm` (`.api/duckdb-wasm.md`)
+- runtime: `runtime:node`/bun services; the browser analytical row is `@duckdb/duckdb-wasm` (`.api/duckdb-duckdb-wasm.md`)
 - modules: `ClickhouseClient`
 
 ## [02]-[PUBLIC_TYPES]

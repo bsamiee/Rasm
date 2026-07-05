@@ -1,13 +1,21 @@
 language js(typescript, jsx)
 
-// BOUNDARY_ADMISSION promotion. Trigger: an `await` in domain flow. Predicate: any await outside an
-// Effect.tryPromise/Effect.promise admission callback — a Promise consumed mid-domain rides a second
-// untyped rail beside Effect. Exemption: awaits inside those callbacks are the sanctioned FFI seam
-// the typed rail decodes; spec and bench files ride the plugin's negated include globs.
+// BOUNDARY_ADMISSION promotion. Trigger: an `await` or `for await` drain in domain flow. Predicate:
+// any await outside an Effect.tryPromise/Effect.promise/Effect.tryMapPromise admission callback — a
+// Promise consumed mid-domain rides a second untyped rail beside Effect, and a for-await loop is the
+// streaming spelling of the same leak. Exemption: awaits inside those callbacks are the sanctioned
+// FFI seam the typed rail decodes; spec and bench files ride the plugin's negated include globs.
 // FIRES: const leak = async (id: RowId) => await fetchRow(id);
+// FIRES: const drain = async (rows: AsyncIterable<Row>) => { for await (const row of rows) { consume(row); } };
 // CLEAN: const admitted = Effect.tryPromise({ try: async () => (await fetch(url)).json(), catch: (cause) => new WireFault({ cause }) });
-`await $step` as $hit where {
+// CLEAN: const lazy = Effect.promise(async () => (await load()).rows);
+// CLEAN: const mapped = Effect.tryMapPromise(load, { try: async (rows) => (await hydrate(rows)).count, catch: (cause) => new WireFault({ cause }) });
+or {
+    `await $step` as $hit,
+    `for await (const $row of $source) { $body }` as $hit
+} where {
     $hit <: not within `Effect.tryPromise($_)` ,
     $hit <: not within `Effect.promise($_)` ,
-    register_diagnostic(span=$hit, message="Await in domain flow. A Promise converts once at the owning boundary — Effect.tryPromise/Effect.promise — and the interior composes Effect rails; a promise-colored domain function is a second untyped rail.", severity="error")
+    $hit <: not within `Effect.tryMapPromise($_)` ,
+    register_diagnostic(span=$hit, message="Await in domain flow. A Promise converts once at the owning boundary — Effect.tryPromise/Effect.promise/Effect.tryMapPromise — and the interior composes Effect rails; an async iterable drains through Stream.fromAsyncIterable, never a for-await loop.", severity="error")
 }

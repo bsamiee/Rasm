@@ -8,7 +8,6 @@
         "@playwright/test": "catalog:",
         "@rasm/ts-testkit": "workspace:*",
         "@types/k6": "catalog:",
-        "effect": "catalog:",
-        "typescript": "catalog:"
+        "effect": "catalog:"
     }
 }

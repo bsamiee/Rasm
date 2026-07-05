@@ -104,7 +104,7 @@
 |  [03]   | `EventLogRemote.fromSocket(opts)` / `fromWebSocket(url, opts)`                                       | client sync    | run sync over an existing `Socket` / raw WS                  |
 |  [04]   | `EventLogServer.makeHandlerHttp: Effect<Effect<HttpServerResponse, …>, never, Storage>`             | server         | `edge/live` mount as an `HttpApp` upgrade handler            |
 |  [05]   | `EventLogServer.makeHandler: Effect<(socket) => Effect<void, …>, never, Storage>`                   | server         | raw-socket server handler                                    |
-|  [06]   | `EventLogServer.layerStorageMemory: Layer<Storage>`                                                  | server storage | memory storage; SQL storage ships in `@effect/sql` (`SqlEventLogServer.layerStorage`/`layerStorageSubtle` — `store/.api/effect-sql.md`) `[R4]` |
+|  [06]   | `EventLogServer.layerStorageMemory: Layer<Storage>`                                                  | server storage | memory storage; SQL storage ships in `@effect/sql` (`SqlEventLogServer.layerStorage`/`layerStorageSubtle` — `data/.api/effect-sql.md`) `[R4]` |
 |  [07]   | `EventLogEncryption.layerSubtle` / `makeEncryptionSubtle(crypto: Crypto)`                            | encryption     | Web Crypto E2E; zero-knowledge server                        |
 
 [ENTRYPOINT_SCOPE]: durable execution + persistence + governance
@@ -127,7 +127,7 @@
 
 [OVERLAY_TOPOLOGY]:
 - `[R19]` system-of-record boundary: `store/journal` on `@effect/sql` is the durable authority; EventLog, PersistedQueue, and PersistedCache are OVERLAYS that accelerate local-first reads and offline queues. A record whose loss corrupts state never lives only in an EventLog journal or a persisted queue — it is projected from, or mirrored to, the SQL journal. `store` catalogues `@effect/experimental` as EventLog-overlay-only; `browser` as the EventLog client; `work` as the durable-execution substrate.
-- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer dependency. `EventJournal` = `layerMemory` (spec) | `layerIndexedDb` (browser) | `@effect/sql` `SqlEventJournal.layer` (durable) `[R4]`. `Persistence` = `layerMemory` | `layerKeyValueStore`. The durable `PersistedQueueStore`/`EventLogServer.Storage` backings ship in `@effect/sql` (`SqlPersistedQueue.layerStore`/`SqlEventLogServer.layerStorage` — `store/.api/effect-sql.md`); `RateLimiterStore` = `layerStoreMemory`. The lane code never names its storage; the app root selects it.
+- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer dependency. `EventJournal` = `layerMemory` (spec) | `layerIndexedDb` (browser) | `@effect/sql` `SqlEventJournal.layer` (durable) `[R4]`. `Persistence` = `layerMemory` | `layerKeyValueStore`. The durable `PersistedQueueStore`/`EventLogServer.Storage` backings ship in `@effect/sql` (`SqlPersistedQueue.layerStore`/`SqlEventLogServer.layerStorage` — `data/.api/effect-sql.md`); `RateLimiterStore` = `layerStoreMemory`. The lane code never names its storage; the app root selects it.
 - closed event families: `Event.make` payloads are `Schema.TaggedClass` closed families with app-authored versioning; read-time upcasting is a `store/journal/upcast` total fold, never a journal rewrite — the same law the SQL journal holds.
 
 [INTEGRATION_LAW]:

@@ -1,6 +1,9 @@
 <Solution>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
+  <Folder Name="/libs/csharp/Rasm/">
+    <Project Path="libs/csharp/Rasm/Rasm.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/Rasm.AppHost/">
     <Project Path="libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
   </Folder>
@@ -19,9 +22,6 @@
   <Folder Name="/libs/csharp/Rasm.Fabrication/">
     <Project Path="libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj" />
   </Folder>
-  <Folder Name="/libs/csharp/Rasm/">
-    <Project Path="libs/csharp/Rasm/Rasm.csproj" />
-  </Folder>
   <Folder Name="/libs/csharp/Rasm.Materials/">
     <Project Path="libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
   </Folder>
@@ -30,22 +30,22 @@
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/csharp/" />
-  <Folder Name="/tests/csharp/_testkit/">
-    <Project Path="tests/csharp/_testkit/Rasm.TestKit.csproj" />
-  </Folder>
-  <Folder Name="/tests/csharp/_scenariokit/">
-    <Project Path="tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj" />
-  </Folder>
   <Folder Name="/tests/csharp/_architecture/">
     <Project Path="tests/csharp/_architecture/Rasm.Architecture.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/_benchmarks/">
     <Project Path="tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/scenarios/">
-    <Project Path="tests/csharp/scenarios/Rasm.Scenarios.csproj" />
+  <Folder Name="/tests/csharp/_scenariokit/">
+    <Project Path="tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/_testkit/">
+    <Project Path="tests/csharp/_testkit/Rasm.TestKit.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/" />
+  <Folder Name="/tests/csharp/libs/Rasm/">
+    <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.AppHost/">
     <Project Path="tests/csharp/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj" />
   </Folder>
@@ -64,14 +64,14 @@
   <Folder Name="/tests/csharp/libs/Rasm.Fabrication/">
     <Project Path="tests/csharp/libs/Rasm.Fabrication/Rasm.Fabrication.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Materials/">
+    <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Persistence/">
     <Project Path="tests/csharp/libs/Rasm.Persistence/Rasm.Persistence.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm/">
-    <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm.Materials/">
-    <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
+  <Folder Name="/tests/csharp/scenarios/">
+    <Project Path="tests/csharp/scenarios/Rasm.Scenarios.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/tools/cs-analyzer/">
     <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />
@@ -91,6 +91,9 @@
   <Folder Name="/tools/rhino-bridge/Contract/">
     <Project Path="tools/rhino-bridge/Contract/Contract.csproj" />
   </Folder>
+  <Folder Name="/tools/rhino-bridge/Gate/">
+    <Project Path="tools/rhino-bridge/Gate/Gate.csproj" />
+  </Folder>
   <Folder Name="/tools/rhino-bridge/Shell/">
     <Project Path="tools/rhino-bridge/Shell/Shell.csproj" />
   </Folder>
@@ -99,8 +102,5 @@
   </Folder>
   <Folder Name="/tools/rhino-bridge/Supervisor/">
     <Project Path="tools/rhino-bridge/Supervisor/Supervisor.csproj" />
-  </Folder>
-  <Folder Name="/tools/rhino-bridge/Gate/">
-    <Project Path="tools/rhino-bridge/Gate/Gate.csproj" />
   </Folder>
 </Solution>

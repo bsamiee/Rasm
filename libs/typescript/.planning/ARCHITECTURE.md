@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/typescript` — six capability domains in five dependency waves, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph; dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never in the branch. The data spine is `dataflow-system.md`; folder sub-domain maps and mirrored seam rows live in each folder `ARCHITECTURE.md`.
+The branch domain map of `libs/typescript` — capability domains in dependency waves, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph; dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never in the branch. The data spine is `dataflow-system.md`; folder sub-domain maps and mirrored seam rows live in each folder `ARCHITECTURE.md`.
 
 Each node is a folder root; the `.planning/` scaffold is authoring substrate, never part of the map.
 
@@ -38,19 +38,18 @@ Every C#-minted family decodes exactly once through the core interchange codec r
 
 ## [03]-[DEPENDENCY_DIRECTION]
 
-Dependency flows strictly downward through five waves — W0 `core`, W1 `security`, W2 `data`, W3 `runtime`, W4 `ui`/`iac`. The permitted-edge table is the whole import law:
+Dependency flows strictly downward through the waves — W0 `core`, W1 `security`, W2 `data`, W3 `runtime`, W4 `ui`/`iac`. The permitted-edge table is the whole import law:
 
-| [INDEX] | [FROM]     | [MAY_IMPORT]              | [NOTES]                                                                                             |
-| :-----: | :--------- | :------------------------ | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `core`     | (nothing)                 | Runs identically under node, bun, and the browser; imported by every runtime folder                  |
-|  [02]   | `security` | `core`                    | State lives behind port Tags; the folder never imports `data`                                        |
-|  [03]   | `data`     | `core`, `security`        | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
-|  [04]   | `runtime`  | `core`, `security`, `data`| Both process planes; the browser condition is the same package, never a sibling                      |
-|  [05]   | `ui`       | `core`, `runtime`         | `viewer` is a second Nx project inside the folder with the same edge set                             |
-|  [06]   | `iac`      | `core`, `data`            | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`, the lane tenancy locus rows); depended on by nothing at runtime |
+| [INDEX] | [FROM]     | [MAY_IMPORT]               | [NOTES]                                                                                              |
+| :-----: | :--------- | :------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `core`     | (nothing)                  | Runs identically under node, bun, and the browser; imported by every runtime folder                  |
+|  [02]   | `security` | `core`                     | State lives behind port Tags; the folder never imports `data`                                        |
+|  [03]   | `data`     | `core`, `security`         | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
+|  [04]   | `runtime`  | `core`, `security`, `data` | Both process planes; the browser condition is the same package, never a sibling                      |
+|  [05]   | `ui`       | `core`, `runtime`          | `viewer` is a second Nx project inside the folder with the same edge set                             |
+|  [06]   | `iac`      | `core`, `data`             | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`)                             |
 
 Port satisfaction happens at app composition, never as an upward import:
-
 - Security's `SessionStore`/`IdentityJournal`/`ClaimStore`/`RelationStore` Tags are satisfied by `data` scope-built Layers.
 - Data's `Embedder`/`Reranker` Tags are satisfied by the `runtime` ai plane; the durable embed band's `Persistence.BackingPersistence` requirement is satisfied at the same root by the data key-value scope.
 - The `ui` viewer `GlbViewport` Tag is satisfied by the browser composition root from `runtime` Depot verified-arrival pairs (ContentKey + whole-buffer GLB octets, byteOffset zero) and the Depot residency ledger cell.

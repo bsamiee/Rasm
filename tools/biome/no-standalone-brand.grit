@@ -1,12 +1,25 @@
 language js(typescript, jsx)
 
-// SHAPE_BUDGET promotion. Trigger: a module-level const export whose initializer carries a
-// Schema.brand call. Predicate: the brand rides a standalone export instead of a field refinement
-// inside its owning Schema class family. Exemption: `export class` owners are untouched — a branded
-// field inside a Schema.Class/TaggedClass declaration is the sanctioned home.
+// SHAPE_BUDGET promotion. Trigger: a const declaration whose initializer carries a Schema.brand
+// call or an effect Brand module constructor. Predicate: the brand rides a free-floating module
+// symbol instead of a field refinement inside its owning Schema class family — Brand.nominal and
+// Brand.refined mint the same loose scalar the Schema spelling does; anchoring at the declaration
+// catches the bare const, the export const, and the terminal `export { ... }` escape alike.
+// Exemption: class owners are untouched — a branded field inside a Schema.Class/TaggedClass
+// declaration is the sanctioned home.
 // FIRES: export const DocumentId = Schema.String.pipe(Schema.brand('DocumentId'));
+// FIRES: const RowId = S.String.pipe(S.brand('RowId')); export { RowId };
+// FIRES: const UserId = Brand.nominal<UserId>(); export { UserId };
+// FIRES: export const Distance = Brand.refined<Distance>((raw) => raw >= 0, (raw) => Brand.error(String(raw)));
 // CLEAN: export class Document extends Schema.Class<Document>('Document')({ id: Schema.String.pipe(Schema.brand('DocumentId')) }) {}
-`export const $name = $init` where {
-    or { $init <: contains `Schema.brand($_)`, $init <: contains `S.brand($_)` },
-    register_diagnostic(span=$name, message="Standalone brand export. The brand is a field refinement inside its owning Schema class family; consumers reach it as an owner projection, never a loose module symbol.", severity="error")
+`const $name = $init` where {
+    or {
+        $init <: contains `Schema.brand($_)`,
+        $init <: contains `S.brand($_)`,
+        $init <: contains `Brand.nominal($_)`,
+        $init <: contains `Brand.nominal<$_>($_)`,
+        $init <: contains `Brand.refined($_)`,
+        $init <: contains `Brand.refined<$_>($_)`
+    },
+    register_diagnostic(span=$name, message="Standalone brand declaration. The brand is a field refinement inside its owning Schema class family; consumers reach it as an owner projection, never a loose module symbol.", severity="error")
 }

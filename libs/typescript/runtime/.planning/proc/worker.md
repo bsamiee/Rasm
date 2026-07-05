@@ -26,7 +26,7 @@ import { Transferable, Worker, type WorkerError, WorkerRunner } from "@effect/pl
 import { Context, Effect, Layer, type ParseResult, Schema, Stream } from "effect"
 import { FaultClass } from "@rasm/ts/core"
 
-class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
+class BenchFault extends Schema.TaggedError<BenchFault>()("BenchFault", {
   reason: Schema.Literal("refused", "starved"),
   class: FaultClass.schema,
 }) {}
@@ -34,45 +34,45 @@ class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
 class Grade extends Schema.TaggedRequest<Grade>()("Grade", {
   payload: { octets: Transferable.Uint8Array },
   success: Schema.Struct({ key: Schema.String, extent: Schema.Number }),
-  failure: PoolFault,
+  failure: BenchFault,
 }) {
   static readonly executed = (
     octets: Uint8Array,
-  ): Effect.Effect<{ readonly key: string; readonly extent: number }, PoolFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+  ): Effect.Effect<{ readonly key: string; readonly extent: number }, BenchFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
     Effect.flatMap(Bench, (pool) => pool.executeEffect(new Grade({ octets })))
 }
 
 class Sweep extends Schema.TaggedRequest<Sweep>()("Sweep", {
   payload: { keys: Schema.Array(Schema.String) },
   success: Schema.String,
-  failure: PoolFault,
+  failure: BenchFault,
 }) {
   static readonly streamed = (
     keys: ReadonlyArray<string>,
-  ): Stream.Stream<string, PoolFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+  ): Stream.Stream<string, BenchFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
     Stream.unwrap(Effect.map(Bench, (pool) => pool.execute(new Sweep({ keys }))))
 }
 
 class Drop extends Schema.TaggedRequest<Drop>()("Drop", {
   payload: { epoch: Schema.Int },
   success: Schema.Void,
-  failure: PoolFault,
+  failure: BenchFault,
 }) {
   static readonly announced = (
     epoch: number,
-  ): Effect.Effect<void, PoolFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+  ): Effect.Effect<void, BenchFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
     Effect.asVoid(Effect.flatMap(Bench, (pool) => pool.broadcast(new Drop({ epoch }))))
 }
 
 class Render extends Schema.TaggedRequest<Render>()("Render", {
   payload: { kind: Schema.Literal("pdf", "bundle"), plan: Transferable.Uint8Array },
   success: Transferable.Uint8Array,
-  failure: PoolFault,
+  failure: BenchFault,
 }) {
   static readonly rendered = (
     kind: "pdf" | "bundle",
     plan: Uint8Array,
-  ): Effect.Effect<Uint8Array, PoolFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+  ): Effect.Effect<Uint8Array, BenchFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
     Effect.flatMap(Bench, (pool) => pool.executeEffect(new Render({ kind, plan })))
 }
 
@@ -123,5 +123,5 @@ const RunnerLive: Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.Platf
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Bench, BenchLive, Drop, Grade, PoolFault, Render, RunnerLive, Sweep }
+export { Bench, BenchFault, BenchLive, Drop, Grade, Render, RunnerLive, Sweep }
 ```

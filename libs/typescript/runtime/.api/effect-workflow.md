@@ -9,7 +9,7 @@
 - version: `0.18.2`
 - license: `MIT`
 - effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x`, `@effect/rpc ^0.75.x`, `@effect/experimental ^0.60.x` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`)
-- engine-peer: `@effect/cluster` (`work/.api/effect-cluster.md`) provides the durable `WorkflowEngine` via `ClusterWorkflowEngine.layer`; not a hard dependency — `layerMemory` runs without it
+- engine-peer: `@effect/cluster` (`runtime/.api/effect-cluster.md`) provides the durable `WorkflowEngine` via `ClusterWorkflowEngine.layer`; not a hard dependency — `layerMemory` runs without it
 - runtime: node/bun durable lanes — the memory engine is universal (specs), the durable engine rides cluster `MessageStorage` on `@effect/sql` (a node/bun store driver)
 - catalog-verdict: KEEP — the one durable-execution engine; a hand-rolled saga, retry-persistence loop, or state-machine runner is the named reinvention defect
 - modules: `Workflow`, `Activity`, `DurableDeferred`, `DurableClock`, `DurableQueue`, `DurableRateLimiter`, `WorkflowEngine`, `WorkflowProxy`, `WorkflowProxyServer`
@@ -104,11 +104,11 @@
 - external signals are token-addressed: a workflow `await`s a `DurableDeferred`; an out-of-band caller resolves it by `Token` (`tokenFromPayload`/`tokenFromExecutionId` → `succeed`/`fail`/`done`). The suspended workflow resumes when the token is set — the human-approval / webhook-callback pattern.
 
 [STACKS_WITH]:
-- `@effect/cluster` (`work/.api/effect-cluster.md`): `ClusterWorkflowEngine.layer` satisfies `WorkflowEngine` over `Sharding` + `MessageStorage` — durable workflows run sharded on the cluster runtime. THE core seam: `work/flow` defines, `work/entity` provides the engine.
-- `@effect/experimental` (`.api/effect-experimental.md`): `DurableQueue` wraps `PersistedQueue`/`PersistedQueueFactory`; `DurableRateLimiter` wraps `RateLimiter` (the SAME limiter `edge/api/middleware` uses, here durable-wrapped as an `Activity` with `algorithm` as a policy value). The persisted backing is the store-owned `KeyValueStore`/SQL driver.
+- `@effect/cluster` (`runtime/.api/effect-cluster.md`): `ClusterWorkflowEngine.layer` satisfies `WorkflowEngine` over `Sharding` + `MessageStorage` — durable workflows run sharded on the cluster runtime. THE core seam: `work/flow` defines, `work/entity` provides the engine.
+- `@effect/experimental` (`.api/effect-experimental.md`): `DurableQueue` wraps `PersistedQueue`/`PersistedQueueFactory`; `DurableRateLimiter` wraps `RateLimiter` (the SAME limiter the `serve/api` middleware uses, here durable-wrapped as an `Activity` with `algorithm` as a policy value). The persisted backing is the data-owned `KeyValueStore`/SQL driver.
 - `effect` (`.api/effect.md`): payload/success/error are `Schema`; the `Result` ADT folds through `Match`; retry budgets are `Schedule`; a `Workflow` composes ordinary `Effect.gen` bodies with `Activity` steps and `DurableClock.sleep` — the durable layer adds no new rail, it is `effect` made replay-durable.
-- `@effect/rpc` + `@effect/platform` (`.api/effect-platform.md`, `edge/.api/`): `WorkflowProxy.toRpcGroup`/`toHttpApiGroup` turns a workflow set into an `edge` contribution group (execute/poll/interrupt endpoints) with the typed client and OpenAPI for free — a workflow is invokable over the wire, and `wire/invoke` or `deliver/webhook` resolves a `DurableDeferred` `Token` from an inbound signed callback.
-- `work/report` + `work/deliver` (`work/.api/exceljs.md`, `work/.api/nodemailer.md`): a `deliver` job is one `Activity` in a workflow — idempotent, retryable, resumable; the compensation finalizer un-sends or marks-suppressed on rollback.
+- `@effect/rpc` + `@effect/platform` (`.api/effect-platform.md`, `runtime/.api/effect-rpc.md`): `WorkflowProxy.toRpcGroup`/`toHttpApiGroup` turns a workflow set into a `serve` contribution group (execute/poll/interrupt endpoints) with the typed client and OpenAPI for free — a workflow is invokable over the wire, and `interchange/invoke` or `work/deliver` resolves a `DurableDeferred` `Token` from an inbound signed callback.
+- `work/report` + `work/deliver` (`runtime/.api/exceljs.md`, `runtime/.api/nodemailer.md`): a `deliver` job is one `Activity` in a workflow — idempotent, retryable, resumable; the compensation finalizer un-sends or marks-suppressed on rollback.
 
 [LOCAL_ADMISSION]:
 - Define workflows/activities against the `WorkflowEngine` Tag; never hardcode `layerMemory` or the cluster engine inside a definition — the app root selects.

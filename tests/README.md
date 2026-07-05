@@ -25,7 +25,7 @@ tests/
     ├── .api/          # dev-tool API catalogs the kit and suites compose
     ├── _architecture/ # branch-boundary gauge suites; manifest gauges live, source gauges self-activate
     ├── _testkit/      # @rasm/ts-testkit: corpus readers, laws, arbitraries, harness, bench, gauges
-    └── e2e/           # playwright home, stood up at TS buildout
+    └── e2e/           # playwright + k6 estate: fixture tower, engine rows, committed goldens
 ```
 
 [CASING_LAW]:

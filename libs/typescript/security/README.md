@@ -25,6 +25,7 @@ Every folder-specific external library, planned or implemented. Versions are cen
 - `@node-rs/argon2`
 - `@oslojs/crypto`
 - `@oslojs/encoding`
+- `@otplib/core` — the OTP substrate under `otplib`: `OTPHooks` variant hooks, plugin factories, guardrail caps, the typed OTP error taxonomy
 - `otplib`
 
 [OAUTH_CEREMONY]:

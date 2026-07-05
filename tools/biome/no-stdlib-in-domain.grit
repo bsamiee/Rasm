@@ -1,10 +1,14 @@
 language js(typescript, jsx)
 
-// LIBRARY_DEPTH promotion. Trigger: a stdlib collection, promise, clock, or entropy primitive in
-// domain code. Predicate: construction or ambient-capability call of the named globals — the Effect
-// substrate owns each (HashMap/HashSet, Effect, Clock, Random, Effect.sleep/Schedule). Exemption:
-// none in-pattern; the FFI seam rides the plugin's negated include globs.
+// LIBRARY_DEPTH promotion. Trigger: a stdlib collection, promise, clock, scheduler, or entropy
+// primitive in domain code. Predicate: construction, static-combinator, or ambient-capability call
+// of the named globals — the Effect substrate owns each (HashMap/HashSet, Effect.all/raceAll and
+// the rail for async, Clock/DateTime for time, Random for entropy, Effect.sleep/Schedule for
+// timers, Effect.yieldNow for scheduling). Exemption: none in-pattern; the FFI seam rides the
+// plugin's negated include globs.
 // FIRES: const seen = new Map<string, number>(); const at = Date.now(); const dice = Math.random();
+// FIRES: const settled = Promise.all([left, right]); const eager = Promise.resolve(seed); const gate = Promise.withResolvers();
+// FIRES: const at = Date.parse(stamp); const tick = performance.now(); queueMicrotask(drain);
 // CLEAN: const seen = HashMap.empty<string, number>(); const stamped = Effect.zipWith(Clock.currentTimeMillis, Random.next, (at, dice) => Row.make({ at, dice }));
 or {
     `new Map($_)`,
@@ -15,11 +19,21 @@ or {
     `new WeakSet($_)`,
     `new Promise($_)`,
     `new Promise<$_>($_)`,
+    `Promise.all($_)`,
+    `Promise.allSettled($_)`,
+    `Promise.race($_)`,
+    `Promise.any($_)`,
+    `Promise.resolve($_)`,
+    `Promise.reject($_)`,
+    `Promise.withResolvers($_)`,
     `new Date($_)`,
     `Date.now()`,
+    `Date.parse($_)`,
     `Math.random()`,
+    `performance.now()`,
+    `queueMicrotask($_)`,
     `setTimeout($_)`,
     `setInterval($_)`
 } as $hit where {
-    register_diagnostic(span=$hit, message="Stdlib primitive in domain code. The Effect substrate owns this concern: HashMap/HashSet for collections, Effect for async, Clock for time, Random for entropy, Effect.sleep/Schedule for timers.", severity="error")
+    register_diagnostic(span=$hit, message="Stdlib primitive in domain code. The Effect substrate owns this concern: HashMap/HashSet for collections, Effect for async, Clock/DateTime for time, Random for entropy, Effect.sleep/Schedule for timers, Effect.yieldNow for scheduling.", severity="error")
 }

@@ -7,5 +7,5 @@
         "rootDir": ".",
         "types": ["node"]
     },
-    "include": ["fixtures.ts", "platform/**/*.ts", "engine/**/*.ts", "gpu/**/*.ts", "load/**/*.ts"]
+    "include": ["**/*.ts"]
 }

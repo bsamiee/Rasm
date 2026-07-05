@@ -30,7 +30,7 @@
 
 [PUBLIC_TYPE_SCOPE]: the plugin ports — the swap point that makes crypto shared, not siloed
 - rail: authn/otp ← sign/crypto
-- `CryptoPlugin`/`Base32Plugin` are structural ports exported from the `otplib` root — satisfy one with a plain object literal, no factory needed. The named `create*Plugin` factories, the `*Context` wrappers, and the `OTPHooks`/`Digits` types live in `@otplib/core` (the transitively-present substrate otplib re-exports selectively); reach for them by sub-import only when named construction beats a literal. This is the seam by which otplib HMAC rides `@oslojs/crypto`.
+- `CryptoPlugin`/`Base32Plugin` are structural ports exported from the `otplib` root — satisfy one with a plain object literal, no factory needed. The named `create*Plugin` factories, the `*Context` wrappers, and the `OTPHooks`/`Digits` types live in `@otplib/core` — a direct catalog pin with its own catalogue (`.api/otplib-core.md`); reach for them by sub-import only when named construction beats a literal. This is the seam by which otplib HMAC rides `@oslojs/crypto`.
 
 | [INDEX] | [SYMBOL]                                                                          | [SOURCE]       | [CONSUMER / BOUNDARY]                                        |
 | :-----: | :------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------- |

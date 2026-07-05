@@ -8,9 +8,9 @@ Fanout and replay are one port with engines as rows: `Fanout` is the broadcast p
 | :-----: | :-------------- | :---------------------------------------------------------------------------------- | :---------------------- |
 |  [01]   | `TOPIC_ROWS`    | the topic policy vocabulary: subject, retention, replay, ack posture, redelivery    | `Fanout`                |
 |  [02]   | `PORT_SHAPE`    | the engine-neutral port — publish, subscribe, consume, replay, stash, haul — faults | `Fanout`, `FanoutFault` |
-|  [03]   | `LOCAL_ROW`     | the in-process engine over `PubSub` replay plus the in-process blob shelf           | `Engines.local`         |
-|  [04]   | `TAB_ROW`       | the browser cross-tab engine — `BroadcastChannel` bridge decorating the local cells | `Engines.tab`           |
-|  [05]   | `JETSTREAM_ROW` | the NATS engine: ordered vs durable lanes, dedup, double-ack, heartbeat, blob store | `Engines.jetstream`     |
+|  [03]   | `LOCAL_ROW`     | the in-process engine over `PubSub` replay plus the in-process blob shelf           | `Fanout.local`          |
+|  [04]   | `TAB_ROW`       | the browser cross-tab engine — `BroadcastChannel` bridge decorating the local cells | `Fanout.tab`            |
+|  [05]   | `JETSTREAM_ROW` | the NATS engine: ordered vs durable lanes, dedup, double-ack, heartbeat, blob store | `Fanout.jetstream`, `Broker` |
 
 ## [2]-[TOPIC_ROWS]
 
@@ -65,7 +65,7 @@ const _Anchor = Data.taggedEnum<Fanout.Anchor>()
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `horizon` (the anchor precedes the engine's window, the topic is undeclared, or the blob is absent — class `absent`), `publish` (an unacknowledged publish or a rejected stash, class `unavailable`), `poison` (the handler proves an envelope unprocessable, class `malformed` — the consume lane's terminate signal) — so the core budget gate re-drives the transient rows and a horizon miss routes as the terminal evidence it is.
 - Law: delivery semantics are the row's, not the call site's — a consumer never re-states ack posture, replay depth, retention, or redelivery ceiling; it names the topic and the engine answers the row; an unknown topic answers `horizon` identically on every engine and every member.
 - Law: the port is engine-blind — no member names NATS, and swapping any row for another edits the root merge and nothing else; the engine roster law is the services doctrine's, instantiated here.
-- Entry: `yield* Fanout` then the six members; engines land as `Engines.local(topics)` / `Engines.tab(topics)` / `Engines.jetstream(topics)` root Layers.
+- Entry: `yield* Fanout` then the six members; engines land as `Fanout.local(topics)` / `Fanout.tab(topics)` / `Fanout.jetstream(topics)` root Layers.
 - Packages: `effect` (`Context`, `Data`, `Stream`).
 
 ```typescript
@@ -92,13 +92,16 @@ class Fanout extends Context.Tag("runtime/Fanout")<Fanout, {
 }>() {
   static readonly Anchor = _Anchor
   static readonly Envelope = Envelope
+  static readonly local = (topics: Fanout.Topics): Layer.Layer<Fanout> => _local(topics)
+  static readonly tab = (topics: Fanout.Topics): Layer.Layer<Fanout> => _tab(topics)
+  static readonly jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting | Broker> => _jetstream(topics)
 }
 ```
 
 ## [4]-[LOCAL_ROW]
 
 [LOCAL_ROW]:
-- Owner: `Engines.local(topics)` — one scoped `PubSub.bounded<Envelope>({ capacity, replay: row.replay })` per topic row plus one `Ref`-held blob shelf; `publish` offers (a local publish is never a duplicate — the dedup window is a server guarantee the local row honestly lacks), `subscribe` is the scoped `Stream.fromPubSub` whose late attach receives the replay window, `consume` folds the same stream through the handler with the ack posture vacuous (in-process delivery has no redelivery to confirm or terminate), `replay` answers only the `Window` anchor — a `Sequence` or `Instant` anchor folds to the `horizon` fault because the local tier holds no log — and the blob lane collects into and streams out of the shelf keyed `topic/name`, digest honestly absent.
+- Owner: `Fanout.local(topics)` — one scoped `PubSub.bounded<Envelope>({ capacity, replay: row.replay })` per topic row plus one `Ref`-held blob shelf; `publish` offers (a local publish is never a duplicate — the dedup window is a server guarantee the local row honestly lacks), `subscribe` is the scoped `Stream.fromPubSub` whose late attach receives the replay window, `consume` folds the same stream through the handler with the ack posture vacuous (in-process delivery has no redelivery to confirm or terminate), `replay` answers only the `Window` anchor — a `Sequence` or `Instant` anchor folds to the `horizon` fault because the local tier holds no log — and the blob lane collects into and streams out of the shelf keyed `topic/name`, digest honestly absent.
 - Law: the degradation is the table read aloud — replay-is-a-warm-up, no cross-process reach, no dedup window, no durable redelivery, no digest evidence; a proof or a single-process deployment selects this row deliberately, and promoting a workload that needs the missing rows is a root Layer swap, never a local re-implementation.
 - Law: capacity backpressures — the bounded construction suspends a producer ahead of the slowest subscriber's window; a sliding local topic is a row decision, never a default.
 - Packages: `effect` (`PubSub`, `Stream`, `Layer`, `Record`, `Ref`, `HashMap`, `Chunk`).
@@ -154,7 +157,7 @@ const _local = (topics: Fanout.Topics): Layer.Layer<Fanout> => Layer.scoped(Fano
 ## [5]-[TAB_ROW]
 
 [TAB_ROW]:
-- Owner: `Engines.tab(topics)` — the browser cross-tab engine: the local cells decorated with one `BroadcastChannel` per topic row keyed by the row's `subject`. `publish` offers locally then posts the encoded envelope, an arriving post decodes through the `Envelope` schema and offers into the same cells, and every other member is the local row's — so same-tab and cross-tab subscribers read one replay window and the engine is one decoration, never a second implementation.
+- Owner: `Fanout.tab(topics)` — the browser cross-tab engine: the local cells decorated with one `BroadcastChannel` per topic row keyed by the row's `subject`. `publish` offers locally then posts the encoded envelope, an arriving post decodes through the `Envelope` schema and offers into the same cells, and every other member is the local row's — so same-tab and cross-tab subscribers read one replay window and the engine is one decoration, never a second implementation.
 - Law: the channel loop is structural — `BroadcastChannel` never delivers a post to the posting context, so re-offering an arrival cannot echo; a malformed arrival drops at the decode seam, never poisons a cell.
 - Law: the degradation extends the local row's — no cross-process reach beyond the origin's tabs, no dedup, no durable redelivery, and the blob shelf stays per-tab (a cross-tab `haul` of another tab's stash answers `horizon`); a browser workload needing the durable rows dials the jetstream row over websockets instead.
 - Boundary: the session plane's own `BroadcastChannel` (`browser/route` `Vault`) is a distinct, single-purpose channel — session continuity is not fanout, and neither surface composes the other.
@@ -202,7 +205,7 @@ const _tab = (topics: Fanout.Topics): Layer.Layer<Fanout> =>
 ## [6]-[JETSTREAM_ROW]
 
 [JETSTREAM_ROW]:
-- Owner: `Engines.jetstream(topics)` — the NATS engine. The connection is capability: the exported `Wire` Tag holds the one scoped `wsconnect({ servers })` against `Setting.fanout.origin`, drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Wire.live` is the named defect. Construction ensures the substrate: `jetstreamManager(nc)` then one `jsm.streams.add({ name, subjects, max_age, duplicate_window })` per topic row — retention and the dedup window are the row's durations in nanoseconds — and one `Objm(nc)` store for the blob lane, so stream and store shape are declared where topic policy lives and the server's own durability posture (fsync interval, replicas) stays a deployment fact.
+- Owner: `Fanout.jetstream(topics)` — the NATS engine. The connection is capability: the exported `Broker` Tag holds the one scoped `wsconnect({ servers })` against `Setting.fanout.origin`, drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Broker.live` is the named defect. Construction ensures the substrate: `jetstreamManager(nc)` then one `jsm.streams.add({ name, subjects, max_age, duplicate_window })` per topic row — retention and the dedup window are the row's durations in nanoseconds — and one `Objm(nc)` store for the blob lane, so stream and store shape are declared where topic policy lives and the server's own durability posture (fsync interval, replicas) stays a deployment fact.
 - Law: the consumer lanes are split by ack capability — the ordered lane (`subscribe`, `replay`) mints a nameless ordered consumer via `js.consumers.get(stream, startOptions)`, which the server fixes to `AckPolicy.None`: it replays and tails but CANNOT acknowledge, so no ack call exists on it and the lane is read-only by construction; the durable lane (`consume`) declares `jsm.consumers.add(stream, { durable_name, ack_policy: AckPolicy.Explicit, ack_wait, max_deliver, ...anchor })` then binds `js.consumers.get(stream, durable_name)`, and only there does the ack algebra exist. An ack against an ordered consumer is unspellable because the lanes never share a mint.
 - Law: exactly-once publish is the dedup window under the circuit — `js.publish(subject, body, { msgID: envelope.key })` carries the content-derived identity, the server recognizes a replay inside `duplicate_window`, the `PubAck`'s `duplicate` flag rides the `Receipt`, and the whole publish rides `Breaker.guard` so a dead broker sheds fast instead of hammering; the `expect` rows (`lastMsgID`, `lastSequence`, `lastSubjectSequence`) are the optimistic-concurrency arms a coordinating producer composes.
 - Law: at-least-once is the full ack algebra — the handler runs under a heartbeat race that stamps `msg.working()` every half `ack_wait` so a long handler never triggers spurious redelivery; success acks — `ack()` on `"fire"` rows, `ackAck()` awaited on `"double"` rows so the acknowledgement itself is confirmed; a `poison` handler fault terminates through `msg.term(reason)` so an unprocessable envelope never redelivers; every other handler fault `nak()`s and the server's own clock redelivers up to the row's `max_deliver` — no hand redelivery ledger exists.
@@ -225,9 +228,9 @@ const _start = (anchor: Fanout.Anchor): { readonly deliver_policy: DeliverPolicy
     Instant: ({ at }) => ({ deliver_policy: DeliverPolicy.StartTime, opt_start_time: DateTime.formatIso(at) }),
   })
 
-class Wire extends Context.Tag("runtime/Wire")<Wire, NatsConnection>() {
-  static readonly live: Layer.Layer<Wire, FanoutFault, Setting> = Layer.scoped(
-    Wire,
+class Broker extends Context.Tag("runtime/Broker")<Broker, NatsConnection>() {
+  static readonly live: Layer.Layer<Broker, FanoutFault, Setting> = Layer.scoped(
+    Broker,
     Effect.flatMap(Setting, (setting) =>
       Effect.acquireRelease(
         Effect.tryPromise({
@@ -239,12 +242,12 @@ class Wire extends Context.Tag("runtime/Wire")<Wire, NatsConnection>() {
   )
 }
 
-const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting | Wire> =>
+const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting | Broker> =>
   Layer.scoped(
     Fanout,
     Effect.gen(function* () {
       const setting = yield* Setting
-      const nc = yield* Wire
+      const nc = yield* Broker
       const js = jetstream(nc)
       const jsm = yield* Effect.promise(() => jetstreamManager(nc))
       yield* Effect.forEach(
@@ -406,13 +409,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
     }),
   )
 
-const Engines = {
-  local: _local,
-  tab: _tab,
-  jetstream: _jetstream,
-} as const
-
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Engines, Envelope, Fanout, FanoutFault, Wire }
+export { Broker, Envelope, Fanout, FanoutFault }
 ```

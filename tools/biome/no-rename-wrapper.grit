@@ -1,11 +1,19 @@
 language js(typescript, jsx)
 
-// ONE_HOP_RESOLUTION promotion. Trigger: a module-level export aliasing a bare identifier. Predicate:
-// the initializer is a lone symbol — a rename hop that adds no semantics between the consumer and the
-// owner. Exemption: literal keywords are not aliases; a wrapper that adds behavior has a body.
+// ONE_HOP_RESOLUTION promotion. Trigger: a module-level declaration aliasing a bare identifier.
+// Predicate: the initializer is a lone symbol — a rename hop that adds no semantics between the
+// consumer and the owner; anchoring at the declaration catches the export const and the terminal
+// `export { ... }` escape alike, and the alias guard skips destructuring, which projects rather
+// than renames. Exemption: literal keywords are not aliases; a wrapper that adds behavior has a
+// body; arrow and class-method interiors are implementation scope, not public surface.
 // FIRES: const _fold = (rows: Rows) => collapse(rows); export const fold = _fold;
+// FIRES: const _digest = (input: Wire) => fold(input); const digest = _digest; export { digest };
 // CLEAN: export const fold = (rows: Rows) => collapse(rows);
-`export const $alias = $target` where {
+// CLEAN: const { rows } = result; export { rows };
+// CLEAN: const scoped = () => { const swap = fold; return swap(1); };
+// CLEAN: class Journal { open() { const held = cache; return held; } }
+`const $alias = $target` where {
+    $alias <: r"^[A-Za-z_$][A-Za-z0-9_$]*$",
     $target <: r"^[A-Za-z_$][A-Za-z0-9_$]*$",
     $target <: not or {
         `undefined`,
@@ -16,5 +24,7 @@ language js(typescript, jsx)
         `Infinity`,
         `globalThis`
     },
-    register_diagnostic(span=$alias, message="Rename wrapper: this export forwards a bare symbol. Export the owner under its one canonical name; resolution is one hop to semantics.", severity="error")
+    $alias <: not within arrow_function() ,
+    $alias <: not within `class $klass { $members }` ,
+    register_diagnostic(span=$alias, message="Rename wrapper: this declaration forwards a bare symbol. Export the owner under its one canonical name; resolution is one hop to semantics.", severity="error")
 }

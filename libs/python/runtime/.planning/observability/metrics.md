@@ -28,8 +28,7 @@ from time import perf_counter
 from typing import ClassVar, Final, Literal, Protocol, overload
 
 import psutil
-from expression import Block
-from expression.collections import Map
+from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import replace
 from opentelemetry import context as otel_context

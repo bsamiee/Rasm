@@ -273,7 +273,13 @@ overrides:
 
 peerDependencyRules:
   allowedVersions:
+    # Ahead-of-peer pins the workspace vetted: the one installed version leads the dependent's declared range.
+    '@effect/experimental': 0.60.0
+    '@effect/platform': 0.96.2
+    '@effect/rpc': 0.75.1
+    '@nx/devkit': 23.0.1
     puppeteer: 25.1.0
+    three: 0.185.1
     typescript: 6.0.3
     # @effect/vitest 0.29.x declares peer vitest ^3.2; suites are written v4-forward against installed 4.1.x.
     vitest: 4.1.9

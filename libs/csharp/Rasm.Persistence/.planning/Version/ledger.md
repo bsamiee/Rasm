@@ -18,7 +18,7 @@ Rasm.Persistence projects the durable changefeed, the multi-writer convergence, 
 - Receipt: changefeed position and queue depth ride `SyncApplyReceipt`; the projected-segment evidence rides `ReceiptSinkPort`.
 - Packages: Marten (`SubscriptionBase`/`ProcessEventsAsync`/`EventRange`/`ISubscriptionController`/`IDocumentOperations`/`IChangeListener`/`NullChangeListener`/`IEvent<T>`), Rasm.Element (`GraphDelta`/`Node`/`Node.Object`/`RepresentationContentHash`), Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher; a direct `XxHash128` call site is the deleted spelling), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.Diagnostics.DiagnosticSource, BCL inbox.
 - Growth: a new synced concern is one `SyncOpKind` verb, one `ColumnFamily` lane carrying its `MergeStance`/`SnapshotCodec` columns, or one payload kind keyed by the lane row's `Codec`; a new windowed-read consumer is one `ReplayWindow` parameterization, never a new read surface; zero new surface — a per-entity-kind outbox table, a bespoke op-log store beneath Marten, a per-payload-kind parallel record, or a per-lane string literal in the merge fold is the deleted form.
-- Boundary: the changefeed is PROJECTED from Marten events — the op-log IS the audit artifact, the change feed, and the sync feed as folds over the one Marten stream, never a second store (`H11` — Marten is the append substrate beneath, the engine projects from its events); a `Project`ed `GraphEvent` entry is the structural `geometry`-lane `GraphDelta` (the durable graph change is an LWW structural delta, NOT a CRDT op — `Project` produces no `crdt`-lane entry), while the `crdt` lane's `Payload` is the `Version/commits#CRDT_WIRE` `CrdtOp` delta a CRDT mutation `Stamp`s and the `commit` lane's a `CommitNode`, so the trace slot is a top-level envelope field beside `ContentKey`, NOT inside `Payload`, and triggers no `CrdtOpWire` schema fork; `OriginStoreId` reads the Marten `origin` header (the SAME slot `Version/timetravel#TIME_TRAVEL` `OriginOf` reads) so the LWW `(Hlc, OriginStoreId)` tie-break is deterministic across peers and never a fabricated zero collapsing every origin to one bucket; Persistence only READS `Activity.Current` and projects to the `TraceSlot` value, never re-minting the propagator (the AppHost `TraceContext` correlation-spine fold owns `Inject`/`Extract`/`Continue` — the `TraceSlot` is named distinctly so the Persistence trace SLOT never collides with that propagation surface); the 16-byte trace-id admits once through the TOTAL `TraceSlot.FromHex` (the span `Convert.TryFromHexString`, never the throwing `Convert.FromHexString` that would fault the projection fold on a 32-char non-hex correlation) so the interior never re-parses; `OpLogEntry` carries NO correlation field — correlation rides the sync session frame and receipts, so the trace slot is a genuinely new envelope field; a Marten-projected entry whose stored `CorrelationId` is absent, wrong-length, OR not valid hex carries `TraceSlot.Empty` (Persistence never fabricates a span the substrate did not carry and never throws on an arbitrary correlation value), and the apply continues the parent only when one exists; the durable lanes (`Family.Durable`) are the exactly-once CDC row source the `Version/egress` pump drains past the `Store/coordination#OUTBOX_CURSOR` — `ReplayWindow.DurableOps` is that drain's parameterization, and the presence/awareness lane (`durable: false`) stays the lossy `DrainSurface` channel, NEVER the exactly-once CDC envelope.
+- Boundary: the changefeed is PROJECTED from Marten events — the op-log IS the audit artifact, the change feed, and the sync feed as folds over the one Marten stream, never a second store (`H11` — Marten is the append substrate beneath, the engine projects from its events); a `Project`ed `GraphEvent` entry is the structural `geometry`-lane `GraphDelta` (the durable graph change is an LWW structural delta, NOT a CRDT op — `Project` produces no `crdt`-lane entry), while the `crdt` lane's `Payload` is the `Version/commits#CRDT_WIRE` `CrdtOp` delta a CRDT mutation `Stamp`s and the `commit` lane's a `CommitNode`, so the trace slot is a top-level envelope field beside `ContentKey`, NOT inside `Payload`, and triggers no `CrdtOpWire` schema fork; `OriginStoreId` reads the Marten `origin` header (the SAME slot `Version/timetravel#TIME_TRAVEL` `OriginOf` reads) so the LWW `(Hlc, OriginStoreId)` tie-break is deterministic across peers and never a fabricated zero collapsing every origin to one bucket; Persistence only READS `Activity.Current` and projects to the `TraceSlot` value, never re-minting the propagator (the AppHost `TraceContext` correlation-spine fold owns `Inject`/`Extract`/`Continue` — the `TraceSlot` is named distinctly so the Persistence trace SLOT never collides with that propagation surface); the 16-byte trace-id admits once through the TOTAL `TraceSlot.FromHex` (the span `Convert.FromHexString(source, destination, out charsConsumed, out bytesWritten)` `OperationStatus` overload gated on `Done`, never the throwing array-returning `Convert.FromHexString(string)` that would fault the projection fold on a 32-char non-hex correlation) so the interior never re-parses; `OpLogEntry` carries NO correlation field — correlation rides the sync session frame and receipts, so the trace slot is a genuinely new envelope field; a Marten-projected entry whose stored `CorrelationId` is absent, wrong-length, OR not valid hex carries `TraceSlot.Empty` (Persistence never fabricates a span the substrate did not carry and never throws on an arbitrary correlation value), and the apply continues the parent only when one exists; the durable lanes (`Family.Durable`) are the exactly-once CDC row source the `Version/egress` pump drains past the `Store/coordination#OUTBOX_CURSOR` — `ReplayWindow.DurableOps` is that drain's parameterization, and the presence/awareness lane (`durable: false`) stays the lossy `DrainSurface` channel, NEVER the exactly-once CDC envelope.
 
 ```csharp signature
 
@@ -77,14 +77,15 @@ public sealed partial class TraceSlot {
         Activity.Current is { } a && a.Context.TraceId != default ? From(a.Context, a.TraceStateString) : Empty;
     // The TOTAL hex admission a daemon-projected entry takes — the stored Marten `CorrelationId` is decoded ONLY when it
     // is a valid 32-char (16-byte) hex trace-id; a wrong-length OR a 32-char NON-hex correlation string yields `Empty`,
-    // never a throwing `Convert.FromHexString` inside the projection fold (which would fault the subscription daemon on a
-    // legitimately-arbitrary correlation value). The span `Convert.TryFromHexString` is the non-throwing decode.
+    // never the throwing array-returning `Convert.FromHexString(string)` inside the projection fold (which would fault
+    // the subscription daemon on a legitimately-arbitrary correlation value). The span `Convert.FromHexString(source,
+    // destination, out charsConsumed, out bytesWritten)` `OperationStatus` overload is the non-throwing decode.
     public static TraceSlot FromHex(string? correlation) {
         if (correlation is not { Length: 32 }) { return Empty; }
         var span = new byte[16];
-        // TryFromHexString fills the 16-byte span iff all 32 chars are valid hex; `charsConsumed == 32` confirms the
-        // whole input decoded (the bool guards hex-validity, the count guards a partial decode), never a throw.
-        return Convert.TryFromHexString(correlation, span, out int charsConsumed) && charsConsumed == 32
+        // `OperationStatus.Done` holds iff every one of the 32 chars decoded into the 16-byte span; `InvalidData`
+        // reports a partial decode through the status value, never a throw.
+        return Convert.FromHexString(correlation, span, out _, out _) == System.Buffers.OperationStatus.Done
             ? Create(span, ReadOnlyMemory<byte>.Empty)
             : Empty;
     }
@@ -216,19 +217,19 @@ public static class OpLog {
 |  [01]   | changefeed source     | Marten `SubscriptionBase.ProcessEventsAsync` | the bespoke op-log store is retired beneath Marten        |
 |  [02]   | projected lane        | `geometry` (LWW) for a `GraphEvent` | `Project` produces a structural delta, never a `crdt` op  |
 |  [03]   | payload shape         | `(Family, Codec)` discriminates  | `Codec` is the lane row's column, `Family`-derived, never stored |
-|  [08]   | windowed read         | `ReplayWindow` origin/entity/family/window | AppUi edit-intent, AppHost determinism, egress CDC drain — one case |
-|  [04]   | lane → merge stance   | `ColumnFamily.Stance`            | dispatch reads the lane row, never a `"crdt"` string compare |
-|  [05]   | HLC cell              | event `Timestamp` + `Version`    | one stamp for op-log, CRDT merge, commit cell, wire       |
-|  [06]   | origin tie-break      | the Marten `origin` header       | LWW `(Hlc, OriginStoreId)` deterministic; never a zero    |
-|  [07]   | trace slot            | top-level `TraceSlot` field      | never inside `Payload`; distinct from AppHost `TraceContext` fold |
+|  [04]   | windowed read         | `ReplayWindow` origin/entity/family/window | AppUi edit-intent, AppHost determinism, egress CDC drain — one case |
+|  [05]   | lane → merge stance   | `ColumnFamily.Stance`            | dispatch reads the lane row, never a `"crdt"` string compare |
+|  [06]   | HLC cell              | event `Timestamp` + `Version`    | one stamp for op-log, CRDT merge, commit cell, wire       |
+|  [07]   | origin tie-break      | the Marten `origin` header       | LWW `(Hlc, OriginStoreId)` deterministic; never a zero    |
+|  [08]   | trace slot            | top-level `TraceSlot` field      | never inside `Payload`; distinct from AppHost `TraceContext` fold |
 
 ## [03]-[MERGE_LAW]
 
-- Owner: `ConflictReceipt`, `ConflictVerdict` `[SmartEnum<string>]`, `ConflictResult`, `SyncApplyReceipt` (with its `Conserves` invariant), `SyncFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` (parameterless `: base()` + per-case `Code`/`Message`/`Category` `Switch`, NOT `LanguageExt.Common.Expected`; no `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in) in the 825x band, `SyncSession` the one session capsule carrying the injected `ProjectionContext` frame plus the delegate rows (`Commit`/`Truncate`/`Converge`/`Held`/…); `SyncMerge` the fold surface routing each `OpLogEntry` by its `ColumnFamily.Stance` — `Lww`/`FirstWriter` through `Adjudicate`, `Crdt` into `Crdt.Apply`, a winning whole-relation `Truncate` through the `Truncate` delegate.
+- Owner: `ConflictReceipt`, `ConflictVerdict` `[SmartEnum<string>]`, `ConflictResult`, `SyncApplyReceipt` (the `IValidityEvidence` conservation receipt — the kernel `ValidityClaim.All` fold over its own carried `Batch`), `SyncFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` (parameterless `: base()` + per-case `Code`/`Message`/`Category` `Switch`, NOT `LanguageExt.Common.Expected`; no `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in) in the 825x band, `SyncSession` the one session capsule carrying the injected `ProjectionContext` frame plus the delegate rows (`Commit`/`Truncate`/`Converge`/`Held`/…); `SyncMerge` the fold surface routing each `OpLogEntry` by its `ColumnFamily.Stance` — `Lww`/`FirstWriter` through `Adjudicate`, `Crdt` into `Crdt.Apply`, a winning whole-relation `Truncate` through the `Truncate` delegate.
 - Cases: 4 verdict rows on `ConflictVerdict` — `LocalWin | RemoteWin | Merged | Rejected` — collapsed into one `ConflictResult(Verdict, Receipt, Conflicted, Held)` where `Conflicted` distinguishes a genuine divergence (an HLC-resolved `LocalWin`/`RemoteWin` over differing content) from an idempotent-replay `LocalWin` (content-equal) or a fresh `Merged`, and `Held` carries the held content key the fork fault reads without a second lookup; `Rejected` is reachable only on an equal `(stamp, origin)` with divergent content (the causal fork the `Apply` fold lifts to `SyncFault.Forked` and halts on), never a soft conflict bucket; the `SyncFault` family is `SchemaMismatch | ReplicationFaulted | SpeckleMarshal | TransferDecode | Unconserved | Forked`.
-- Entry: `public static IO<SyncApplyReceipt> Apply(SyncSession session, Seq<OpLogEntry> incoming)` carries commit effects; replay converges idempotently and the receipt proves applied, skipped, conflicted, converged, and pushed counts under `Conserves` (each entry increments EXACTLY ONE counter so the conservation sum is exact), an auto-resolved LWW divergence counting as `Conflicted` and recording its `ConflictReceipt` into `Conflicts` (whether the winner was committed or the local kept), an `IO.fail` `SyncFault.Unconserved` when the batch does not close.
+- Entry: `public static IO<SyncApplyReceipt> Apply(SyncSession session, Seq<OpLogEntry> incoming)` carries commit effects; replay converges idempotently and the receipt proves applied, skipped, conflicted, converged, and pushed counts under the receipt's own `IValidityEvidence` conservation fold (the carried `Batch` plus exactly-one-counter-per-entry accounting make `IsValid` the exact settled-sum proof), an auto-resolved LWW divergence counting as `Conflicted` and recording its `ConflictReceipt` into `Conflicts` (whether the winner was committed or the local kept), an `IO.fail` `SyncFault.Unconserved` when the batch does not close.
 - Receipt: `ConflictReceipt` is the typed fork evidence the `SyncFault.Forked` halt carries and the inspector projects; `SyncApplyReceipt` is the per-run apply evidence.
-- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
+- Packages: Rasm (`Rasm.Domain` `Expected` — the federation fault base; `IValidityEvidence`/`ValidityClaim` — the receipt-validity floor `SyncApplyReceipt` registers through), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new merge stance is one `MergeStance` row feeding `Held` resolution; a fifth `ConflictVerdict` row is the named defect; a new fault cause is one `SyncFault` case; a new replicated data type is a `Version/commits#CRDT_ALGEBRA` `CrdtField` case dispatched by this fold, never a fifth scalar arm.
 - Boundary: LWW per column family is the default — `Held` resolves the competing local entry per model and family, content-key equality adjudicates `LocalWin` (idempotent replay — `Conflicted: false`, a pure skip), an absent competitor adjudicates `Merged` through `Fresh` whose held slots carry the `Hlc.Zero` absence sentinel, an HLC-resolved `LocalWin`/`RemoteWin` over differing content is a genuine divergence (`Conflicted: true`) the fold counts as `Conflicted` and whose `ConflictReceipt` it records even when the winner commits, and an equal `(stamp, origin)` with divergent content is the causal fork which `Apply` halts as the epoch-class `SyncFault.Forked` carrying the two divergent content keys, never a soft conflict that counts and continues; the `FirstWriter` (`Presence`) lane is EARLIEST-wins, the INVERSE comparison direction of the LWW latest-wins default, so the older `(stamp, origin)` wins regardless of arrival order — the `Adjudicate` `(comparison, isFirstWriter)` tuple-`switch` flips both the newer-incoming and the older-incoming arm for FirstWriter, never the LWW-only direction that would silently keep a later first-writer-lane row over the genuine first writer; the `Conflicted`/`Conflicts` audit fields are thus exact (every auto-resolved divergence recorded, an idempotent replay never miscounted as a conflict), not an always-empty placeholder; HLC ordering ties break on origin store id so adjudication is deterministic across peers; the `crdt` column family routes its `Payload` through `Crdt.Apply` so a concurrent edit converges by the join-semilattice least-upper-bound rather than scalar LWW (the LWW `Adjudicate` surviving only as the `LwwRegister` arm) — the multi-writer offline + IFC 3-way merge substrate; the `SpeckleSend`/`SpeckleReceive` delegates are the marshal seam binding the DI-resolved instance `IOperations.Send`/`Receive`, projecting the returned `rootObjId` content hash onto the `ContentKey` (zero second identity) and mapping the inbound `Base`/`DataObject` graph to closed Rasm op-log entries at the seam, the SDK boundary faults lifting once into `SyncFault.SpeckleMarshal`; a winning whole-relation entry (`Kind.WholeRelation` — the `Truncate` verb) commits through the session `Truncate` delegate clearing the whole `(Model, Family)` relation (the `Held` resolver answers the relation's LATEST entry for a whole-relation verb, so the truncate still adjudicates `(Hlc, OriginStoreId)` LWW against the relation head — the policy bit selects the relation-wide commit lane, never a dead flag); a `SyncEngine` service class is the rejected form — the fold and the dispatch rows own the engine.
 
@@ -304,9 +305,15 @@ public abstract partial record SyncFault : Expected, IValidationError<SyncFault>
     public static SyncFault Create(string message) => new ReplicationFaulted(string.Empty, message);
 }
 
-public readonly record struct SyncApplyReceipt(long Applied, long Skipped, long Conflicted, long Converged, long Pushed, long QueueDepth, Seq<ConflictReceipt> Conflicts, SyncCursor Cursor, Guid Correlation, Instant At) {
+// The per-run apply evidence, self-attesting through the kernel receipt-validity floor: `Batch` carries the run's
+// input count so `IsValid` is the parameterless `ValidityClaim.All` conservation fold — the settled sum equals the
+// batch AND every counted conflict carries its recorded receipt — and `OpAcceptance.ValidityOf` reads the same
+// `IValidityEvidence` arm. The parameterized `Conserves(long)` knob and a hand-rolled `&&` chain are the deleted
+// forms: the receipt reconstructs the check from its own fields, so a downstream consumer re-proves conservation
+// without the caller's batch count.
+public readonly record struct SyncApplyReceipt(long Batch, long Applied, long Skipped, long Conflicted, long Converged, long Pushed, long QueueDepth, Seq<ConflictReceipt> Conflicts, SyncCursor Cursor, Guid Correlation, Instant At) : IValidityEvidence {
     public long Settled => Applied + Skipped + Conflicted + Converged;
-    public bool Conserves(long batch) => batch == Settled;
+    public bool IsValid => ValidityClaim.All(ValidityClaim.Of(Batch == Settled), ValidityClaim.Of(Conflicts.Count == Conflicted));
 }
 
 // The session capsule: the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame carries clock,
@@ -344,7 +351,8 @@ public static class SyncMerge {
                 }
             : new ConflictResult(ConflictVerdict.Merged, Fresh(session, incoming), Conflicted: false, UInt128.Zero);
 
-    // The idempotent-convergent apply fold. Each entry lands in EXACTLY ONE counter so `Conserves` is exact:
+    // The idempotent-convergent apply fold. Each entry lands in EXACTLY ONE counter so the receipt's `IsValid`
+    // conservation fold is exact:
     // a convergent `crdt`-lane entry is `Converged`; a fresh `Merged` is `Applied`; a `RemoteWin` commits the
     // incoming winner AND counts `Conflicted` (an auto-resolved divergence is still a conflict for audit), its
     // receipt recorded; a conflict `LocalWin` keeps the local entry (no commit) and counts `Conflicted`, its
@@ -366,8 +374,8 @@ public static class SyncMerge {
                     { Conflicted: true } result => IO.pure(counts with { Conflicted = counts.Conflicted + 1L, Conflicts = counts.Conflicts.Add(result.Receipt) }),
                     _ => IO.pure(counts with { Skipped = counts.Skipped + 1L }),
                 }))
-            .Map(c => new SyncApplyReceipt(c.Applied, c.Skipped, c.Conflicted, c.Converged, Pushed: 0L, session.QueueDepth(), c.Conflicts, session.Cursor, session.Frame.Correlation, session.Frame.Now()))
-            .Bind(receipt => receipt.Conserves(incoming.Count) ? IO.pure(receipt) : IO.fail<SyncApplyReceipt>(new SyncFault.Unconserved(incoming.Count, receipt.Settled)));
+            .Map(c => new SyncApplyReceipt(incoming.Count, c.Applied, c.Skipped, c.Conflicted, c.Converged, Pushed: 0L, session.QueueDepth(), c.Conflicts, session.Cursor, session.Frame.Correlation, session.Frame.Now()))
+            .Bind(receipt => receipt.IsValid ? IO.pure(receipt) : IO.fail<SyncApplyReceipt>(new SyncFault.Unconserved(receipt.Batch, receipt.Settled)));
 }
 ```
 
@@ -376,7 +384,7 @@ public static class SyncMerge {
 |  [01]   | scalar default        | LWW by `(Hlc, OriginStoreId)`; `FirstWriter` inverts to earliest-wins | total order, deterministic across peers; the `(cmp, isFirstWriter)` switch flips both arms |
 |  [02]   | crdt lane             | `Crdt.Apply` join-semilattice                       | converges by merge; the multi-writer offline substrate    |
 |  [03]   | causal fork           | equal `(stamp, origin)` divergent content           | `SyncFault.Forked` halts merge; never a soft conflict     |
-|  [04]   | conservation          | `Conserves(batch)` over the settled sum             | a breach is `SyncFault.Unconserved` failing the rail      |
+|  [04]   | conservation          | receipt `IsValid` — `ValidityClaim.All` over the carried `Batch` | a breach is `SyncFault.Unconserved` failing the rail      |
 |  [05]   | whole-relation truncate | `Kind.WholeRelation` → session `Truncate` delegate | the winning truncate clears the `(Model, Family)` relation; `Held` answers the relation head |
 
 ## [04]-[SYNC_TRANSPORTS]
@@ -441,7 +449,7 @@ public static class SyncPump {
             ? s.Pull(row.Peer, s.Cursor).Bind(segment => segment.SchemaFingerprint == s.SchemaFingerprint
                 ? SyncMerge.Apply(s, segment.Entries).Map(receipt => receipt with { Cursor = segment.Cursor })
                 : IO.fail<SyncApplyReceipt>(new SyncFault.SchemaMismatch(s.SchemaFingerprint, segment.SchemaFingerprint)))
-            : IO.pure(new SyncApplyReceipt(0L, 0L, 0L, 0L, 0L, s.QueueDepth(), Seq<ConflictReceipt>(), s.Cursor, s.Frame.Correlation, s.Frame.Now())))
+            : IO.pure(new SyncApplyReceipt(0L, 0L, 0L, 0L, 0L, 0L, s.QueueDepth(), Seq<ConflictReceipt>(), s.Cursor, s.Frame.Correlation, s.Frame.Now())))
         .Bind(receipt => row.Flow.Pushes
             ? IO.pure(s.Pending(receipt.Cursor)).Bind(pending => s.Push(row.Peer, pending).Map(cursor => receipt with { Pushed = pending.Count, Cursor = cursor }))
             : IO.pure(receipt));
@@ -453,7 +461,7 @@ public static class SyncPump {
                 .Bind(missing => s.SpeckleSend(row.Peer, missing).Bind(sent =>
                     missing.Head.Map(h => h.ContentKey) is { IsSome: true, Case: UInt128 root } && root != sent.RootContentKey
                         ? IO.fail<SyncApplyReceipt>(new SyncFault.SpeckleMarshal(row.Peer, $"root-key-drift:{root}!={sent.RootContentKey}:refs={sent.ConvertedReferences}"))
-                        : IO.pure(new SyncApplyReceipt(0L, 0L, 0L, 0L, missing.Count, s.QueueDepth(), Seq<ConflictReceipt>(), s.Cursor with { Sequence = s.Cursor.Sequence + missing.Count }, s.Frame.Correlation, s.Frame.Now())))));
+                        : IO.pure(new SyncApplyReceipt(0L, 0L, 0L, 0L, 0L, missing.Count, s.QueueDepth(), Seq<ConflictReceipt>(), s.Cursor with { Sequence = s.Cursor.Sequence + missing.Count }, s.Frame.Correlation, s.Frame.Now())))));
 }
 ```
 

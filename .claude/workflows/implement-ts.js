@@ -1,12 +1,12 @@
 export const meta = {
   name: 'implement-ts',
   whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
-  description: 'Realize every open IDEAS/TASKLOG card across the libs/typescript platform folders (kernel, state, host, security, telemetry, wire, ' +
-    'work, store, ai, edge, browser, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for all platform folders. The language-wide libs/typescript/.planning is out of scope.',
+  description: 'Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, ' +
+    'iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central pnpm-workspace.yaml catalog pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. Durable, TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.',
   phases: [
     { title: 'Discover', detail: 'one agent: resolve scope against a real disk listing, full-read each target IDEAS/TASKLOG (cards only; design pages are downstream scope); extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang) with every counterpart confirmed on disk, record in-scope gates and malformed ripples' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(adversarial + charter-completeness) -> redteam(adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
-    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central package.json pin / defer cross-lang) -> adversarial WRITING verify(xhigh: proves fixes on disk, repairs weak fixes to root, then classifies)' },
+    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central catalog pin / defer cross-lang) -> adversarial WRITING verify(xhigh: proves fixes on disk, repairs weak fixes to root, then classifies)' },
     { title: 'Closeout', detail: 'per folder: verify each card vs full charter, FINAL-remediate weak cards in place, close genuinely-complete (move to [02]-[CLOSED], collapse, update ARCHITECTURE [02]-[SEAMS]), honestly re-open the rest; strength-demotion makes closed mechanically truthful' },
   ],
 }
@@ -16,8 +16,8 @@ const CAP = 10
 const STAGGER_MS = 1500
 const ROOT = 'libs/typescript'
 const SHARED_API = 'libs/typescript/.api'
-const CENTRAL = 'package.json'
-const DEFAULT_TARGETS = ['libs/typescript/kernel', 'libs/typescript/state', 'libs/typescript/host', 'libs/typescript/security', 'libs/typescript/telemetry', 'libs/typescript/wire', 'libs/typescript/work', 'libs/typescript/store', 'libs/typescript/ai', 'libs/typescript/edge', 'libs/typescript/browser', 'libs/typescript/ui', 'libs/typescript/iac']
+const CENTRAL = 'pnpm-workspace.yaml'
+const DEFAULT_TARGETS = ['libs/typescript/core', 'libs/typescript/security', 'libs/typescript/data', 'libs/typescript/runtime', 'libs/typescript/ui', 'libs/typescript/iac']
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 const norm = (t) => { const s = String(t).trim(); return s.indexOf('libs/') === 0 ? s : ROOT + '/' + s }
@@ -72,8 +72,8 @@ const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required:
 const LAW = [
   'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). This is ultra-advanced TS realization, ' +
     'never a polish pass — discard naive idioms wholesale. CLAUDE.md manifest + ' +
-    'WORKSPACE_LAW strata govern. The session targets are libs/typescript platform folders (the 13-folder roster: kernel, state, host, ' +
-    'security, telemetry, wire, work, store, ai, edge, browser, ui, iac; test infrastructure lives under tests/, never in the branch). Each holds ' +
+    'WORKSPACE_LAW strata govern. The session targets are libs/typescript capability folders (core, security, data, runtime, ui, iac; ' +
+    'test infrastructure lives under tests/, never in the branch). Each holds ' +
     '`IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + ' +
     '`README.md` at its area ROOT, design pages at ' +
     '`<area>/.planning/<subdomain>/*.md`, and an area-specific `.api/*.md` catalog. The language-wide `libs/typescript/.planning` is OUT of scope ' +
@@ -81,7 +81,7 @@ const LAW = [
     'context; never trample a sibling area owner.',
   'STANDARD: docs/stacks/typescript/ is the route-owned law, composed IN FULL — README plus language, derivation, values, computation, ' +
     'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries — author TypeScript as dense, ' +
-    'type-safe, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR. READ every page and conform exactly. ' +
+    'type-safe, and rich as that bar admits; the doctrine is the FLOOR the work pushes past, never the ceiling. READ every page and conform exactly. ' +
     'Cite ONLY real members of admitted ' +
     'packages, cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api` over the ' +
     'node_modules declarations — and when assay is unavailable (it is under concurrent construction), the published `.d.ts` read directly, ' +
@@ -118,9 +118,9 @@ const CARD = [
     'tavily own the proof); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge if a live ' +
     'host fact is needed. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope (a ' +
     'sibling-area contract resolves at the seam); a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
-  'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): add the dependency + version to the ONE central repo-root ' +
-    '`package.json` (and the `pnpm-workspace.yaml` catalog if the version is catalog-managed) — a SHARED manifest the reconcile pass owns; you ' +
-    'MUST NOT edit it from a folder agent; LOG it as a residual_ripple keyed on `package.json`. Add the package to the correct group in the target ' +
+  'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): pin the version in the ONE central `pnpm-workspace.yaml` ' +
+    'catalog and reference it as `catalog:` from the owning manifest (`libs/typescript/package.json` or the root `package.json`) — SHARED manifests the reconcile pass owns; you ' +
+    'MUST NOT edit them from a folder agent; LOG it as a residual_ripple keyed on `pnpm-workspace.yaml`. Add the package to the correct group in the target ' +
     '`README.md` (folder-local) and author the target `.api/<package>.md` from the published types via `uv run python -m tools.assay api` — or ' +
     'straight from the package `.d.ts` in node_modules plus Context7/exa/tavily docs when assay is unavailable — (folder-local). Never a ' +
     'per-area `package.json`.',
@@ -254,7 +254,7 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
     '`assay api`). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW — add the package to the ' +
     'correct group in `' + folder + '/README.md` and author `' + folder + '/.api/<pkg>.md` from the published types via `assay api` (or the ' +
     '`.d.ts` directly when assay is unavailable) — and LOG the ' +
-    'central `package.json` (+ `pnpm-workspace.yaml` catalog) dependency add as a residual_ripple with files including `package.json` (a single ' +
+    'central `pnpm-workspace.yaml` catalog pin (+ its `catalog:` manifest row) as a residual_ripple with files including `pnpm-workspace.yaml` (a single ' +
     'reconcile agent owns that shared manifest; you MUST NOT edit it). RIPPLES: realize ONLY `' + folder + '`\'s OWN half of every seam; NEVER ' +
     'edit another folder page. For each ripple your cards carry, log a residual_ripple {files:[your_page, counterpart_page], pkg, slug, ' +
     'mirror_slug, claim} stating the contract your half exposes (cross-language/lib-wide legs are deferred to the other-language workflow). Do NOT ' +
@@ -338,8 +338,8 @@ const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', P
     'must-address. Read EVERY listed file. Handle each residual by KIND: (a) IN-SCOPE SEAM (both halves already realized by their own target ' +
     'folders) — read both pages, ALIGN them to ONE shared `Schema`/type contract, fix any mismatch, set `seam_landed` true; (b) OUT-OF-SCOPE ' +
     'SAME-LANGUAGE COUNTERPART (the counterpart card lives in a non-target libs/typescript area) — realize that ONE counterpart card fence (its ' +
-    'half only, NEVER the area other cards) at the same bar and align the seam; (c) CENTRAL PIN — apply every `package.json` (+ ' +
-    '`pnpm-workspace.yaml` catalog) dependency add in this cluster (you are the ONLY agent that edits that shared manifest; apply them all ' +
+    'half only, NEVER the area other cards) at the same bar and align the seam; (c) CENTRAL PIN — apply every `pnpm-workspace.yaml` catalog ' +
+    'pin (+ its `catalog:` row in the owning `package.json`) in this cluster (you are the ONLY agent that edits those shared manifests; apply them all ' +
     'serially, keeping the existing group/order) and list them in `admitted`; (d) CROSS-LANGUAGE / LIB-WIDE LEG — record it in `deferred_legs` and ' +
     'do NOT realize it (its counterpart is the other-language workflow concern). Preserve all capability, regress no file, never trample a sibling ' +
     'owner interior. For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, seam_landed}. If a residual is FACTUALLY ' +

@@ -8,7 +8,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
+import { defineConfig, devices, type PlaywrightTestConfig, type Project } from '@playwright/test';
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
@@ -36,7 +36,7 @@ const _LANES = {
         testMatch: ['engine/**/*.pw.ts'],
         use: { ...devices['Desktop Safari'] },
     },
-};
+} satisfies Record<string, Pick<Project, 'testMatch' | 'use'>>;
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
 

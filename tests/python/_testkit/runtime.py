@@ -51,7 +51,9 @@ if TYPE_CHECKING:
 
 # Public constant imported directly by suites that cannot use fixture indirection.
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
-_SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
+# filter_too_much: recursive resolve() strategies bound depth via engine rejection (st.deferred marks
+# over-deep draws invalid); unreachable lanes still fail as Unsatisfiable, the correctness signal.
+_SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large, HealthCheck.filter_too_much)
 
 # Symbolic profile vocabulary for non-pytest consumers and model-based profile resolution.
 PROFILE_DEFAULT = "rasm"

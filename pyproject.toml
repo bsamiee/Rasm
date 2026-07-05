@@ -319,6 +319,7 @@ respect-type-ignore-comments = false
 exclude = [
     ".artifacts",
     ".cache",
+    ".claude/scratch",
     ".claude/skills/**/.cache",
     ".claude/worktrees",
     ".history",
@@ -394,7 +395,7 @@ warn_unreachable =        false
 disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*"]  # backend imports lack py.typed coverage
+module =                 ["boto3", "boto3.*", "fsspec", "fsspec.*", "s3fs"]  # backend imports lack py.typed coverage
 ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------
@@ -479,11 +480,9 @@ exclude_also = [
 [tool.coverage.json]
 output = ".artifacts/python/coverage/coverage.json"
 pretty_print = true
-show_contexts = true
 
 [tool.coverage.html]
 directory = ".artifacts/python/coverage/html"
-show_contexts = true
 
 [tool.coverage.xml]
 output = ".artifacts/python/coverage/coverage.xml"
@@ -495,7 +494,7 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 [tool.mutmut]
 source_paths = ["tools/assay"]                                    # Mutation runs through the Assay-staged workdir; retired `.cache/mut-venv` and requirements fallbacks stay retired.
-pytest_add_cli_args_test_selection = ["tests/python/tools/assay"] # Mutmut's type-check prefilter raises on unrelated checker diagnostics; tests remain the kill mechanism.
+pytest_add_cli_args_test_selection = ["tests/python/tools/assay"] # `type_check_command` stays unset: the prefilter aborts on any pre-existing checker diagnostic; tests are the kill mechanism.
 pytest_add_cli_args = [
     "--hypothesis-profile=rasm-mutation",
     "-o",
@@ -570,6 +569,7 @@ target-version =   "py315"
 extend-exclude = [
     "**/.artifacts/**",
     "**/.cache/**",
+    "**/.claude/scratch/**",
     "**/.claude/skills/**/.cache/**",
     "**/.claude/worktrees/**",
     "**/test-results/**",
@@ -578,6 +578,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
+exclude =                   ["*.md"] # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
 line-ending =               "lf"
 docstring-code-format =     true
 skip-magic-trailing-comma = true

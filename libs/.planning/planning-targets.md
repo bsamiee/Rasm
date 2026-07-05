@@ -31,5 +31,5 @@
 - Toolchain evidence: Assay provision reports and per-folder `.api` catalogues verify Forge-provided server services, native capabilities, and extension availability.
 - Pass-prompts: `.claude/prompts/1-ideate-pass.md`, `.claude/prompts/2-refine-pass.md`, `.claude/prompts/3-implement-pass.md`, `.claude/prompts/3-targeted-implement.md`
 - Workflow engine: `.claude/workflows/` (the durable set; role law in `campaign-method.md` [04])
-- Code doctrine: `docs/stacks/<lang>/`, with `docs/stacks/csharp/` the universal floor
+- Code doctrine: `docs/stacks/<lang>/`, composed in full by whichever agent writes or judges fences in that language
 - Form standards: `docs/standards/information-structure.md`, `docs/standards/formatting.md`, `docs/standards/style-guide.md`

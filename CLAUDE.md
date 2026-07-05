@@ -11,8 +11,8 @@ Read: `README.md` + `tools/assay/README.md`
 [CRITICAL]:
 - We are in a long-term planning phase of the project, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning`, and read them fully: `libs/.planning/planning-targets.md`, `libs/.planning/campaign-method.md`, `libs/.planning/README.md`, `libs/.planning/architecture.md`.
 - All main agent + sub-agents MUST approach any/all content within our `libs/` with EXTREME hostility and be adversarial, always attacking code quality, naivety, and code quality + structure; we are aggressively rebuilding files constantly ground/root-up to achieve world-class, award winning folders, functionality, and code.
-- When working in `libs/python/` we MUST fully read and UNDERSTAND all of the files within `docs/stacks/python/` and follow them to the letter. The same is true for working in `libs/csharp/` and all files in `docs/stacks/csharp/` including the extended `docs/stacks/csharp/domain` folder files.
-- THE PURPOSE OF WORKING IN `.md` FILES IS TO GIVE US MAXIMUM FREEDOM TO REBUILD ALL DESIGN DOCS/FEATURES/CAPABILITIES ROOT/GROUND-UP WITH NO HESITATION, TO ENSURE WE HAVE THE WORLD-CLASS/BLEEDING-EDGE CAPABILITY WE WANT, ALL FEATURES ADDED VIA REBUILDING, NEVER TACKING-ON FLAT CODE. Constantly finding weak implementations, further opportunities to push code sophistication, density, complexity, and richness whilst collapsing total surface as much as possible, and reducing LOC as well, and most importantly ULTRA stacking all content from our `.api/` folders, the language specific ones, as well as planning folder specific `libs/csharp/.api/`, `libs/python/.api/`, `libs/csharp/<folder>/.api/`, `libs/python/<folder>/.api/` etc...
+- When working in `libs/python/` we MUST fully read and UNDERSTAND all of the files within `docs/stacks/python/` and follow them to the letter. The same is true for working in `libs/csharp/` and all files in `docs/stacks/csharp/` including the extended `docs/stacks/csharp/domain` folder files, and for working in `libs/typescript/` and all files in `docs/stacks/typescript/`.
+- THE PURPOSE OF WORKING IN `.md` FILES IS TO GIVE US MAXIMUM FREEDOM TO REBUILD ALL DESIGN DOCS/FEATURES/CAPABILITIES ROOT/GROUND-UP WITH NO HESITATION, TO ENSURE WE HAVE THE WORLD-CLASS/BLEEDING-EDGE CAPABILITY WE WANT, ALL FEATURES ADDED VIA REBUILDING, NEVER TACKING-ON FLAT CODE. Constantly finding weak implementations, further opportunities to push code sophistication, density, complexity, and richness whilst collapsing total surface as much as possible, and reducing LOC as well, and most importantly ULTRA stacking all content from our `.api/` folders, the language specific ones, as well as planning folder specific `libs/csharp/.api/`, `libs/python/.api/`, `libs/typescript/.api/`, `libs/csharp/<folder>/.api/`, `libs/python/<folder>/.api/`, `libs/typescript/<folder>/.api/` etc...
 - We are AGGRESSIVELY reviewing and judging the quality of external libs/packages we've added to central package managers, and each planning folder, always removing and replacing weak selections with more advanced/bleeding-edge and powerful ones as well as just ADDING more as needed for increased scope/capability/functionality as needed. Always centralizing to `Directory.Packages.props`, `pnpm-workspace.yaml`, `pyproject.toml`. Update the respective `README.md` of each planning folder when external sources change, and the `.csproj` if the changes are in a csharp planning folder to maintain/align documentation with new package additions, as well as ensuring the creation of the `.api/` files of any new additions.
 - The universal standard for all languages is: FULL parameterization, no hardcoded values, no fragile logic, no coupling in any way, to other folders, unusual pathing, or fragile logic. UNIVERSAL/MAXIMIALIST polymorphism, and the LEAST POSSIBLE shapes/objects/types/constants/etc as we can, pushing to increase density/richness/complexity over adding flat/spam code. FULL ADT, and stacking the smallest amount with the most possible, AOP (python), interface/graphing/mapping (csharp), FP+ROP+Expression code that is world-class, bleeding-edge, and award winning.
 
@@ -45,15 +45,16 @@ Read: `README.md` + `tools/assay/README.md`
 
 Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                          | [ROUTE]                  |
-| :-----: | ------------------------------------ | ------------------------ |
-|  [01]   | TypeScript (`.ts`, `.tsx`)           | `docs/stacks/typescript` |
-|  [02]   | C# production (`.cs`)                | `docs/stacks/csharp`     |
-|  [03]   | C# tests (`.spec.cs`)                | `testing-cs`             |
-|  [04]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`             |
-|  [05]   | Python (`.py`)                       | `docs/stacks/python`     |
-|  [06]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`            |
-|  [07]   | SQL (`.sql`)                         | `coding-pg`              |
+| [INDEX] | [FILE_TYPE]                              | [ROUTE]                  |
+| :-----: | ---------------------------------------- | ------------------------ |
+|  [01]   | TypeScript (`.ts`, `.tsx`)               | `docs/stacks/typescript` |
+|  [02]   | TypeScript tests (`.spec.ts`, `.pw.ts`)  | `testing-ts`             |
+|  [03]   | C# production (`.cs`)                    | `docs/stacks/csharp`     |
+|  [04]   | C# tests (`.spec.cs`)                    | `testing-cs`             |
+|  [05]   | Runtime scenarios (`Scenarios/*.cs`)     | `testing-cs`             |
+|  [06]   | Python (`.py`)                           | `docs/stacks/python`     |
+|  [07]   | Bash/sh (`.sh`, `.bash`)                 | `coding-bash`            |
+|  [08]   | SQL (`.sql`)                             | `coding-pg`              |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 

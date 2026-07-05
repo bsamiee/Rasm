@@ -1,6 +1,6 @@
 # [PY_RUNTIME_RESILIENCE]
 
-The one retry-policy table for the whole branch. `RetryClass` is the single behavior-carrying `stamina`-backed `StrEnum` the fault, transport, lane, and concurrency clusters consume through `guard`/`guarded`/`retrying` only. Each member binds one frozen `Policy` row per retryable resource class (`attempts`, `timeout`, the `ExcOrBackoffHook` `target`, and four optional backoff columns), never a flag the caller re-derives.
+The one retry-policy table for the whole branch. `RetryClass` is the single behavior-carrying `stamina`-backed `StrEnum` the fault, transport, lane, and concurrency clusters consume through `guard`/`guarded`/`retrying` only. Each member binds one frozen `Policy` row per retryable resource class (`attempts`, `timeout`, the `RetryTarget` `target`, and four optional backoff columns), never a flag the caller re-derives.
 
 This is a BASE-tier module: it imports no sibling-tier package. Every provider-discriminated row is import-free by construction — the `target` column is the full `stamina` discriminator over one axis, an exception-set tuple where the classes are stdlib or branch-substrate, and a `BackoffHook` predicate everywhere else. `_named` matches the raise's type or any base over the MRO by qualname (dotted names compare module-qualified), so a gated provider's subclass tree retries with zero imports; `_adbc_transient` reads the remote-database `status_code` name structurally; `_wire_transient` admits exactly the transient gRPC status trio (`UNAVAILABLE`/`DEADLINE_EXCEEDED`/`RESOURCE_EXHAUSTED`) off an `AioRpcError`'s `code().name` — the `(ConnectionError,)` tuple that could never match it is the deleted form — and `_retry_after` honors a server-directed delay. Backoff geometry is row data: `wait_initial`/`wait_max`/`wait_jitter`/`wait_exp_base` are `UNSET`-defaulting `Policy` columns, and `Policy.schedule` is the one projection spreading the present columns into the `**`-passable `stamina` keyword schema both caller shapes read.
 
@@ -14,12 +14,13 @@ The triad is three native `stamina` application shapes over the one row, with `g
 
 ## [02]-[RESILIENCE]
 
-- Owner: `RetryClass` — the single closed `StrEnum` resilience vocabulary whose every member carries a frozen `Policy` row over `stamina`, resolving its row through the `policy` property; `Policy` the frozen `msgspec.Struct` row owning `Policy.schedule` — the one projection folding the present (non-`UNSET`) schedule columns into the keyword dict so the bound-caller builds and the `retrying` inline context consume one source; `POLICY` the one `expression` `Map[str, Policy]` keyed by `RetryClass.value`; `guard`/`guard_sync` the `functools.cache`-memoised member-keyed entries minting the reusable `stamina.BoundAsyncRetryingCaller`/`BoundRetryingCaller` once per class (a module-level cache rather than a `cached_property`, since an `Enum` member carries no writable `__dict__`; only the reusable bound caller is safe to cache — the one-shot `retry_context` rebuilds per call); `RetryAfter` and `StatusCarrier`/`StatusCoded` the structural protocols the backoff hooks read typed slots through instead of importing a provider shape; `RetryMode` the closed install-mode vocabulary; `RetryReceiptHook` the one `RetryHookFactory` mapping `RetryDetails` onto the receipt and the active span; `RETRY_HOOKS` the one composed hook stack.
+- Owner: `RetryClass` — the single closed `StrEnum` resilience vocabulary whose every member carries a frozen `Policy` row over `stamina`, resolving its row through the `policy` property; `Policy` the frozen `msgspec.Struct` row owning `Policy.schedule` — the one projection folding the present (non-`UNSET`) schedule columns into the keyword dict so the bound-caller builds and the `retrying` inline context consume one source; `POLICY` the one `expression` `Map[RetryClass, Policy]` keyed by the member itself, the `policy` property reading `POLICY[self]` so no `.value` string re-spells the vocabulary; `RetryTarget`/`BackoffHook` the page-local aliases of the `stamina` `on=` discriminator shape (`type[Exception] | tuple[...] | Callable[[Exception], bool | float | timedelta]`) — `stamina` exports no public alias for it, `stamina.typing` carrying only `RetryDetails`/`RetryHook`; `guard`/`guard_sync` the `functools.cache`-memoised member-keyed entries minting the reusable `stamina.BoundAsyncRetryingCaller`/`BoundRetryingCaller` once per class (a module-level cache rather than a `cached_property`, since an `Enum` member carries no writable `__dict__`; only the reusable bound caller is safe to cache — the one-shot `retry_context` rebuilds per call); `RetryAfter` and `StatusCarrier`/`StatusCoded` the structural protocols the backoff hooks read typed slots through instead of importing a provider shape; `RetryMode` the closed install-mode vocabulary; `RetryReceiptHook` the one `RetryHookFactory` mapping `RetryDetails` onto the receipt and the active span; `RETRY_HOOKS` the one composed hook stack.
 - Entry: `guarded(cls, fn, *args, subject, **kwargs)` is the primary consumer envelope — the cached bound caller inside one `start_as_current_span` retry span, the terminal raise lifted through `async_boundary` exactly once, so a budget-exhausted transient surfaces as the `boundary` case naming the final cause and a non-transient raise surfaces immediately. Every fetch-shaped leg delegates the whole retry/span/lift triplet: `transport/roots#RESOURCE` `Transfer.run`, `transport/wire#WIRE_RAIL` `Decode.acquired`, `transport/serve#SERVE` dispatch (`guarded(RetryClass.WIRE, ...)` — real now that the row's `_wire_transient` hook matches the transient status codes), and `execution/admission#SETTINGS` `_probe`. `guarded_sync(cls, fn, *args, subject, **kwargs)` is the sync mirror over `guard_sync` and the sync `boundary` — the `data:tabular/lakehouse#LAKEHOUSE` commit legs bind it at their fifteen synchronous sites. `guard(cls)` is the bare bound caller driven `await guard(cls)(fn, *args, **kwargs)` — the lanes `retried` admission row's per-unit aspect. `retrying(cls)` is the inline `async for attempt in retrying(cls): with attempt: ...` form with `attempt.num`/`attempt.next_wait` for inline instrumentation. `install(mode)` registers the hook stack and returns `get_on_retry_hooks()` — the finalized `tuple[RetryHook, ...]` with factories executed, the typed registration evidence a spec or composition root reads.
-- Auto: `Policy.schedule` seeds `{"attempts", "timeout"}` and folds each non-`UNSET` `wait_*` column in, so a `stamina` default stands for an absent column; `guard` spreads it as `AsyncRetryingCaller(**row.schedule).on(row.target)` and `retrying` as `retry_context(on=row.target, **row.schedule)`. Every `BackoffHook` arm returns `bool` (or the `_retry_after` server delay) so the `stamina` exponential schedule owns the wait; the hooks are import-free — the MRO walk in `_named` gives isinstance semantics over a provider's subclass tree without the class object, and the two status predicates read `status_code.name`/`code().name` through structural protocols. `RetryReceiptHook`'s built hook reads the `RetryDetails` payload field-for-field, mints the `planned` fact through `Receipt.of("resilience", ("planned", name, facts))` carrying native scalars (the receipts `enc_hook=repr` renderer owns JSON coercion), sets the child span's `Status(StatusCode.ERROR, cause)`, and returns the `trace.use_span` context manager wrapping the scheduled wait so each retry is a child span entered when scheduled and exited before the retry runs; the `stamina` `RetryHook` is synchronous even on the async path, so the receipt mints through the sync `Signals.emit`.
-- Boundary: no sibling-tier module-top import (the `adbc-driver-manager`/`daft`/`obstore` imports are the deleted forms their `_named`/`_adbc_transient` rows replace); no second policy table, no hand-rolled sleep loop, no scope literal beside the `SCOPES` row, no second `set_on_retry_hooks` owner, no retry around a pure transform (`stamina` rides only flaky external oracles through this table), and no narrowing of the exported consumer contract — `guarded`/`guarded_sync`/`retrying`/`guard`/`guard_sync`, every `POLICY` row, and the `RetryClass` vocabulary are branch-consumer law (`data` binds both fused envelopes and the `OBJECT_STORE`/`HTTP`/`WIRE`/`RPC`/`LAKE_COMMIT`/`REMOTE_DB`/`STREAMING` rows; `geometry` binds `OCCT`/`RPC`/`OCC_NATIVE`; `compute` and `artifacts` bind the offload axis, `artifacts` the `ORACLE` row); narrowing the `OCCT` target below the `BrokenWorkerInterpreter | BrokenWorkerProcess` pair is a cross-folder break.
+- Auto: `Policy.schedule` seeds `{"attempts", "timeout"}` and folds each non-`UNSET` `wait_*` column in, so a `stamina` default stands for an absent column; `guard` spreads it as `AsyncRetryingCaller(**row.schedule).on(row.target)` and `retrying` as `retry_context(on=row.target, **row.schedule)`. Every `BackoffHook` arm returns `bool` (or the `_retry_after` server delay) so the `stamina` exponential schedule owns the wait; the hooks are import-free — the MRO walk in `_named` gives isinstance semantics over a provider's subclass tree without the class object, and the two status predicates read `status_code.name`/`code().name` through structural protocols. `RetryReceiptHook`'s built hook reads the `RetryDetails` payload field-for-field, mints the `planned` fact through `Receipt.of("resilience", ("planned", name, facts))` under the receipts-owned `OPEN` keep-all redaction (no classified field rides a retry fact — a local `Redaction(classified=Map.empty())` re-mint is the deleted form), carrying native scalars (the receipts `enc_hook=repr` renderer owns JSON coercion), sets the child span's `Status(StatusCode.ERROR, cause)`, and returns the `trace.use_span` context manager wrapping the scheduled wait so each retry is a child span entered when scheduled and exited before the retry runs; the `stamina` `RetryHook` is synchronous even on the async path, so the receipt mints through the sync `Signals.emit`.
+- Boundary: no sibling-tier module-top import (the `adbc-driver-manager`/`daft`/`obstore` imports are the deleted forms their `_named`/`_adbc_transient` rows replace); no second policy table, no hand-rolled sleep loop, no scope literal beside the `SCOPES` row, no second `set_on_retry_hooks` owner, no retry around a pure transform (`stamina` rides only flaky external oracles through this table); a `POLICY[cls.value]` string-keyed read beside the member-keyed `Map`, a `stamina.BackoffHook`/`stamina.ExcOrBackoffHook` attribute reach (the aliases live in `stamina._core`, private — the page-local `RetryTarget`/`BackoffHook` are the spelling), and a re-minted `Redaction(classified=Map.empty())` beside the receipts-owned `OPEN` keep-all are each the deleted form; and no narrowing of the exported consumer contract — `guarded`/`guarded_sync`/`retrying`/`guard`/`guard_sync`, every `POLICY` row, and the `RetryClass` vocabulary are branch-consumer law (`data` binds both fused envelopes and the `OBJECT_STORE`/`HTTP`/`WIRE`/`RPC`/`LAKE_COMMIT`/`REMOTE_DB`/`STREAMING` rows; `geometry` binds `OCCT`/`RPC`/`OCC_NATIVE`; `compute` and `artifacts` bind the offload axis, `artifacts` the `ORACLE` row); narrowing the `OCCT` target below the `BrokenWorkerInterpreter | BrokenWorkerProcess` pair is a cross-folder break.
 
 ```python signature
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractContextManager
 from datetime import timedelta
@@ -38,19 +39,14 @@ from stamina.instrumentation import RetryDetails, RetryHook, RetryHookFactory, S
 
 from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, async_boundary, boundary
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt, Redaction, Signals
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_RETRY_FACTS: Final = Redaction(classified=Map.empty())
-# the four optional schedule columns whose `UNSET` value defers to the `stamina` default;
-# `Policy.schedule` folds only the columns the row actually set.
-_WAIT_COLUMNS: Final[tuple[str, ...]] = ("wait_initial", "wait_max", "wait_jitter", "wait_exp_base")
-# the transient gRPC status trio the grpcio client-fault law names retriable.
-_WIRE_STATUS: Final[frozenset[str]] = frozenset({"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED"})
-
+from rasm.runtime.receipts import OPEN, Receipt, Signals
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+# the stamina `on=` discriminator shape spelled locally: stamina exports no public alias for it
+# (`stamina.typing` carries only `RetryDetails`/`RetryHook`; `stamina._core` is private).
+type BackoffHook = Callable[[Exception], bool | float | timedelta]
+type RetryTarget = type[Exception] | tuple[type[Exception], ...] | BackoffHook
 
 
 @runtime_checkable
@@ -88,7 +84,7 @@ class RetryClass(StrEnum):
 
     @property
     def policy(self) -> "Policy":
-        return POLICY[self.value]
+        return POLICY[self]
 
 
 class RetryMode(StrEnum):
@@ -97,13 +93,22 @@ class RetryMode(StrEnum):
     TEST = "test"
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+# the four optional schedule columns whose `UNSET` value defers to the `stamina` default;
+# `Policy.schedule` folds only the columns the row actually set.
+_WAIT_COLUMNS: Final[tuple[str, ...]] = ("wait_initial", "wait_max", "wait_jitter", "wait_exp_base")
+# the transient gRPC status trio the grpcio client-fault law names retriable.
+_WIRE_STATUS: Final[frozenset[str]] = frozenset({"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED"})
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Policy(Struct, frozen=True):
     attempts: int
     timeout: float
-    target: stamina.ExcOrBackoffHook
+    target: RetryTarget
     wait_initial: float | UnsetType = UNSET
     wait_max: float | UnsetType = UNSET
     wait_jitter: float | UnsetType = UNSET
@@ -125,7 +130,7 @@ _TRACER: Final = trace.get_tracer(SCOPES[Scope.RESILIENCE])
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _retry_after(*transient: type[Exception]) -> stamina.BackoffHook:
+def _retry_after(*transient: type[Exception]) -> BackoffHook:
     def backoff(exc: Exception) -> bool | float | timedelta:
         match exc:
             case RetryAfter(retry_after=float() as seconds):
@@ -136,7 +141,7 @@ def _retry_after(*transient: type[Exception]) -> stamina.BackoffHook:
     return backoff
 
 
-def _named(*names: str) -> stamina.BackoffHook:
+def _named(*names: str) -> BackoffHook:
     # import-free transient discriminator: matches the raise's type OR any base over the MRO by
     # qualname (a dotted name compares module-qualified) — isinstance semantics over a gated
     # provider's subclass tree with zero imports; `bool` return leaves the wait to the schedule.
@@ -144,7 +149,7 @@ def _named(*names: str) -> stamina.BackoffHook:
     return lambda exc: any(k.__qualname__ in wanted or f"{k.__module__}.{k.__qualname__}" in wanted for k in type(exc).__mro__)
 
 
-def _adbc_transient(*transient: type[Exception]) -> stamina.BackoffHook:
+def _adbc_transient(*transient: type[Exception]) -> BackoffHook:
     # the REMOTE_DB discriminator, import-free: an adbc `OperationalError` retries ONLY when its
     # `status_code` names a transport transient (`TIMEOUT`/`IO` — never `INVALID_ARGUMENT`/`NOT_FOUND`
     # a re-issue cannot clear), read structurally; the stdlib classes retry unconditionally.
@@ -160,7 +165,7 @@ def _adbc_transient(*transient: type[Exception]) -> stamina.BackoffHook:
     return backoff
 
 
-def _wire_transient(*transient: type[Exception]) -> stamina.BackoffHook:
+def _wire_transient(*transient: type[Exception]) -> BackoffHook:
     # the WIRE discriminator, import-free: an `AioRpcError` retries only on the transient status
     # trio; every other status is terminal, and the stdlib classes retry unconditionally.
     def backoff(exc: Exception) -> bool:
@@ -187,7 +192,7 @@ def _retry_receipt() -> RetryHook:
                     {"retry_num": details.retry_num, "wait_for": details.wait_for, "waited_so_far": details.waited_so_far, "caused_by": cause},
                 ),
             ),
-            _RETRY_FACTS,
+            OPEN,
         )
         span = _TRACER.start_span(
             "resilience.retry", attributes={"rasm.retry_num": details.retry_num, "rasm.wait_for": details.wait_for, "rasm.caused_by": cause}
@@ -253,47 +258,48 @@ def install(mode: RetryMode = RetryMode.EMIT) -> tuple[RetryHook, ...]:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# the one row-per-member policy table, keyed by `RetryClass.value`; a new class is one member
-# plus one row, every provider-discriminated target import-free.
-POLICY: Final[Map[str, Policy]] = Map.of_seq([
+# the one row-per-member policy table, keyed by the `RetryClass` member itself (the `.value`
+# string key is the deleted spelling); a new class is one member plus one row, every
+# provider-discriminated target import-free.
+POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
     # obstore transients raise as subclasses of `obstore.exceptions.BaseError` — MRO-matched.
-    ("object-store", Policy(attempts=4, timeout=30.0, target=_named("obstore.exceptions.BaseError", "TimeoutError"))),
-    ("http", Policy(attempts=3, timeout=20.0, target=_retry_after(TimeoutError, ConnectionError))),
-    ("ssh", Policy(attempts=3, timeout=30.0, target=(ConnectionError, TimeoutError))),
+    (RetryClass.OBJECT_STORE, Policy(attempts=4, timeout=30.0, target=_named("obstore.exceptions.BaseError", "TimeoutError"))),
+    (RetryClass.HTTP, Policy(attempts=3, timeout=20.0, target=_retry_after(TimeoutError, ConnectionError))),
+    (RetryClass.SSH, Policy(attempts=3, timeout=30.0, target=(ConnectionError, TimeoutError))),
     # the serve outbound leg's `guarded(RetryClass.WIRE, ...)` retries the transient status trio.
-    ("wire", Policy(attempts=5, timeout=15.0, target=_wire_transient(ConnectionError))),
-    ("scan", Policy(attempts=2, timeout=60.0, target=(OSError,), wait_max=30.0)),
-    ("secret", Policy(attempts=3, timeout=10.0, target=(KeyringLocked, OSError))),
+    (RetryClass.WIRE, Policy(attempts=5, timeout=15.0, target=_wire_transient(ConnectionError))),
+    (RetryClass.SCAN, Policy(attempts=2, timeout=60.0, target=(OSError,), wait_max=30.0)),
+    (RetryClass.SECRET, Policy(attempts=3, timeout=10.0, target=(KeyringLocked, OSError))),
     # `execution/recipe#RECIPE` runs the lbt engine prechecks through `guarded_sync(RetryClass.ENGINE, ...)`:
     # a transiently-locked config folder retries tightly, a missing engine exhausts fast, before the subprocess.
-    ("engine", Policy(attempts=2, timeout=10.0, target=(OSError, TimeoutError))),
+    (RetryClass.ENGINE, Policy(attempts=2, timeout=10.0, target=(OSError, TimeoutError))),
     # flaky external-oracle subprocess verdicts (artifacts `exchange/conformance` is the demanding
     # consumer): name-matched so no subprocess import rides this tier; tight attempts.
-    ("oracle", Policy(attempts=2, timeout=30.0, target=_named("CalledProcessError", "TimeoutError", "OSError"))),
+    (RetryClass.ORACLE, Policy(attempts=2, timeout=30.0, target=_named("CalledProcessError", "TimeoutError", "OSError"))),
     # subinterpreter/process worker-death band: the pair is exported law — artifacts and compute bind
     # the process half, geometry the interpreter half; `wait_initial` opens wide for the re-spawn.
-    ("occt", Policy(attempts=3, timeout=120.0, target=(anyio.BrokenWorkerInterpreter, anyio.BrokenWorkerProcess), wait_initial=0.5)),
+    (RetryClass.OCCT, Policy(attempts=3, timeout=120.0, target=(anyio.BrokenWorkerInterpreter, anyio.BrokenWorkerProcess), wait_initial=0.5)),
     # in-process transient OCC `RuntimeError` band (geometry `ifc/analysis` clash-tree boundary);
     # tight attempts so a genuinely broken kernel surfaces fast.
-    ("occ-native", Policy(attempts=2, timeout=20.0, target=(RuntimeError,))),
+    (RetryClass.OCC_NATIVE, Policy(attempts=2, timeout=20.0, target=(RuntimeError,))),
     # `compas.rpc.Proxy` bring-up: cold-start `RPCServerError`/remote-dispatch `RPCClientError`,
     # name-matched (compas is gated dark); long timeout covers the worst-case ping-loop bring-up.
-    ("rpc", Policy(attempts=3, timeout=120.0, target=_named("RPCServerError", "RPCClientError"), wait_initial=0.5)),
+    (RetryClass.RPC, Policy(attempts=3, timeout=120.0, target=_named("RPCServerError", "RPCClientError"), wait_initial=0.5)),
     # lakehouse commit-conflict transients (deltalake/pyiceberg conflict classes, name-matched);
     # the mutating arms ride `guarded_sync(RetryClass.LAKE_COMMIT, ...)`; `wait_initial` lets a
     # competing commit land before the re-read.
     (
-        "lake-commit",
+        RetryClass.LAKE_COMMIT,
         Policy(
             attempts=4, timeout=60.0, target=_named("CommitFailedError", "CommitFailedException", "CommitStateUnknownException"), wait_initial=0.2
         ),
     ),
     # ADBC/Flight SQL transport stalls, status-discriminated so a permanent driver fault is never
     # retried; `data:tabular/query#QUERY` rides `guarded(RetryClass.REMOTE_DB, ...)`.
-    ("remote-db", Policy(attempts=3, timeout=30.0, target=_adbc_transient(ConnectionError, TimeoutError), wait_initial=0.2)),
+    (RetryClass.REMOTE_DB, Policy(attempts=3, timeout=30.0, target=_adbc_transient(ConnectionError, TimeoutError), wait_initial=0.2)),
     # daft's one Rust-backed transient base plus the stdlib pair, MRO-matched; `wait_max` widens
     # for a long distributed scan without inflating attempts.
-    ("streaming", Policy(attempts=3, timeout=120.0, target=_named("DaftTransientError", "TimeoutError", "ConnectionError"), wait_max=30.0)),
+    (RetryClass.STREAMING, Policy(attempts=3, timeout=120.0, target=_named("DaftTransientError", "TimeoutError", "ConnectionError"), wait_max=30.0)),
 ])
 
 

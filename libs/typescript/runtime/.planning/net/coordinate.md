@@ -1,14 +1,14 @@
 # [RUNTIME_COORDINATE]
 
-Distributed coordination is one engine-blind port beside the fanout plane: `Accord` owns the mutual-exclusion lease, leader election, and revision-guarded shared state that keep many processes — and many tabs — agreeing without a second store. The engines are rows: the `kv` row rides `@nats-io/kv` revision-CAS over the same `Wire` connection the fanout engine holds — `create` is the claim mint, `update` at a read revision is the only write that can win a race, a leader's seat survives through a marker-TTL heartbeat so a crashed holder expires instead of deadlocking the fleet; the `locks` row rides the browser's own `navigator.locks` arbiter for cross-tab exclusion, where the ledger members honestly answer their absence. Every read is a versioned fact — value plus revision — never a bare value, so compare-and-swap is spellable by construction and last-writer-wins is a deliberate row choice made elsewhere. A polled `get` waiting for absence, a hand lock file, a second dial beside `Wire`, and a fanout topic bent into a mutex are the named defects; the bucket is bounded coordination state, never the system of record. The module ships the `kv` row on the `./server` subpath; the `locks` row is the browser condition. The module is `runtime/src/net/coordinate.ts`.
+Distributed coordination is one engine-blind port beside the fanout plane: `Accord` owns the mutual-exclusion lease, leader election, and revision-guarded shared state that keep many processes — and many tabs — agreeing without a second store. The engines are rows: the `kv` row rides `@nats-io/kv` revision-CAS over the same `Broker` connection the fanout engine holds — `create` is the claim mint, `update` at a read revision is the only write that can win a race, a leader's seat survives through a marker-TTL heartbeat so a crashed holder expires instead of deadlocking the fleet; the `locks` row rides the browser's own `navigator.locks` arbiter for cross-tab exclusion, where the ledger members honestly answer their absence. Every read is a versioned fact — value plus revision — never a bare value, so compare-and-swap is spellable by construction and last-writer-wins is a deliberate row choice made elsewhere. A polled `get` waiting for absence, a hand lock file, a second dial beside `Broker`, and a fanout topic bent into a mutex are the named defects; the bucket is bounded coordination state, never the system of record. The module ships the `kv` row on the `./server` subpath; the `locks` row is the browser condition. The module is `runtime/src/net/coordinate.ts`.
 
 ## [1]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]    | [OWNS]                                                                            | [PUBLIC]               |
 | :-----: | :----------- | :--------------------------------------------------------------------------------- | :--------------------- |
 |  [01]   | `PORT_SHAPE` | the engine-neutral port — lease, elect, cas, read, watch — the fact and the faults | `Accord`, `AccordFault` |
-|  [02]   | `KV_ROW`     | the distributed engine: claim mint, TTL-heartbeat seat, revision-CAS, watch tail   | `Engines.kv`           |
-|  [03]   | `LOCKS_ROW`  | the browser engine: Web Locks arbiter bridge, honest ledger degradation            | `Engines.locks`        |
+|  [02]   | `KV_ROW`     | the distributed engine: claim mint, TTL-heartbeat seat, revision-CAS, watch tail   | `Accord.kv`            |
+|  [03]   | `LOCKS_ROW`  | the browser engine: Web Locks arbiter bridge, honest ledger degradation            | `Accord.locks`         |
 
 ## [2]-[PORT_SHAPE]
 
@@ -17,14 +17,14 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `busy` (a `try` lease found the lock held, class `unavailable` — retryable by the caller's own schedule), `stale` (a CAS lost its race, class `conflicted` — re-read then re-fold, never blind retry), `ledger` (the engine carries no state ledger, class `absent` — the locks row's honest answer to `cas`/`read`/`watch`) — so the core budget gate re-drives the transient rows and a lost CAS routes to a re-read.
 - Law: state is versioned facts — `Accord.Fact` is value plus revision; a caller that writes without a prior fact spells `Option.none()` and gets create-if-absent semantics, so an unguarded overwrite is unspellable through this port.
 - Law: the port is engine-blind and identity-scoped — no member names NATS or the Web Locks API; a per-tenant or per-app lease is a name prefix, so thousands of apps coordinate on one plane without a surface change.
-- Entry: `yield* Accord` then the five members; engines land as `Engines.kv(bucket)` / `Engines.locks()` root Layers.
+- Entry: `yield* Accord` then the five members; engines land as `Accord.kv(bucket)` / `Accord.locks()` root Layers.
 - Packages: `effect` (`Context`, `Data`, `Option`, `Stream`), `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 import { Context, Data, Deferred, Duration, Effect, Layer, Option, Random, Ref, Schedule, type Scope, Stream } from "effect"
 import { type KV, Kvm } from "@nats-io/kv"
 import type { FaultClass } from "@rasm/ts/core"
-import { Wire } from "./pubsub.ts"
+import { Broker } from "./pubsub.ts"
 
 class AccordFault extends Data.TaggedError("AccordFault")<{
   readonly reason: "dial" | "busy" | "stale" | "ledger"
@@ -47,18 +47,21 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
   readonly cas: (key: string, expected: Option.Option<Accord.Fact>, next: Uint8Array) => Effect.Effect<Accord.Fact, AccordFault>
   readonly read: (key: string) => Effect.Effect<Option.Option<Accord.Fact>, AccordFault>
   readonly watch: (key: string) => Stream.Stream<Option.Option<Accord.Fact>, AccordFault>
-}>() {}
+}>() {
+  static readonly kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> => _kv(bucket)
+  static readonly locks = (): Layer.Layer<Accord> => _locks()
+}
 ```
 
 ## [3]-[KV_ROW]
 
 [KV_ROW]:
-- Owner: `Engines.kv(bucket)` — the distributed engine over one `Kvm(nc).create(bucket)` bucket riding the shared `Wire` connection. A lease is a `create` claim released by `purge` under the scope bracket: `try` surfaces the claim conflict as `busy`, `wait` parks on the key's `watch` tail and re-claims when a tombstone lands (event-driven, never a polled `get`), `steal` purges then claims. A seat is a marker-TTL claim plus a scoped heartbeat: `elect` claims with `_LEASE.ttl`, a winner forks a scoped refresh that `update`s at the tracked revision every half-TTL so a crashed leader expires by the server's clock and the fleet re-elects off the watch tail — no session daemon, no lock server.
+- Owner: `Accord.kv(bucket)` — the distributed engine over one `Kvm(nc).create(bucket)` bucket riding the shared `Broker` connection. A lease is a `create` claim released by `purge` under the scope bracket: `try` surfaces the claim conflict as `busy`, `wait` parks on the key's `watch` tail and re-claims when a tombstone lands (event-driven, never a polled `get`), `steal` purges then claims. A seat is a marker-TTL claim plus a scoped heartbeat: `elect` claims with `_LEASE.ttl`, a winner forks a scoped refresh that `update`s at the tracked revision every half-TTL so a crashed leader expires by the server's clock and the fleet re-elects off the watch tail — no session daemon, no lock server.
 - Law: CAS is the write mode — `cas` compiles `Option.none()` to `create` and a held fact to `update(key, next, revision)`; the server rejects a stale revision and the engine folds it to `stale`, so the caller re-reads and re-folds; a blind `put` is not reachable through this engine.
 - Law: reads are facts — `get` folds `null` and tombstone operations (`DEL`, `PURGE`) to `Option.none()`, a live entry to `{ value, revision }`; `watch` lifts the bucket's ordered iterator through `Stream.fromAsyncIterable` under a scoped bracket and projects the same fold, so the tail and the point read agree on one shape.
 - Law: bucket ensure is Layer construction — `kvm.create(bucket)` at engine build from the root's bucket name; bucket shape never lives beside a call site, and the bucket is bounded coordination state whose history depth is a bucket option, never an audit log.
-- Boundary: the connection is `pubsub#JETSTREAM_ROW`'s `Wire` — this engine never dials; the ordered watch iterator carries no ack surface, exactly as the fanout ordered lane.
-- Packages: `@nats-io/kv` (`Kvm`, `KV`), `effect` (`Effect`, `Layer`, `Ref`, `Schedule`, `Stream`, `Random`, `Duration`), `./pubsub.ts` (`Wire`).
+- Boundary: the connection is `pubsub#JETSTREAM_ROW`'s `Broker` — this engine never dials; the ordered watch iterator carries no ack surface, exactly as the fanout ordered lane.
+- Packages: `@nats-io/kv` (`Kvm`, `KV`), `effect` (`Effect`, `Layer`, `Ref`, `Schedule`, `Stream`, `Random`, `Duration`), `./pubsub.ts` (`Broker`).
 
 ```typescript
 const _LEASE = { ttl: Duration.seconds(30) } as const
@@ -68,11 +71,11 @@ const _fact = (entry: { readonly value: Uint8Array; readonly revision: number; r
     ? Option.none()
     : Option.some({ value: entry.value, revision: entry.revision })
 
-const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Wire> =>
+const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
   Layer.scoped(
     Accord,
     Effect.gen(function* () {
-      const nc = yield* Wire
+      const nc = yield* Broker
       const kv: KV = yield* Effect.tryPromise({
         try: () => new Kvm(nc).create(bucket),
         catch: () => new AccordFault({ reason: "dial", name: bucket }),
@@ -186,7 +189,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Wire> =>
 ## [4]-[LOCKS_ROW]
 
 [LOCKS_ROW]:
-- Owner: `Engines.locks()` — the browser engine over the origin's own lock arbiter. A lease bridges `navigator.locks.request(name, { mode: "exclusive", ifAvailable, steal }, grant)` to the scope: the grant callback settles a granted `Deferred` and then parks on a release `Deferred` the scope's finalizer resolves, so the platform holds the lock exactly as long as the scope lives and an orphaned hold is unspellable; a `try` miss (the callback receives `null`) folds to `busy`. `elect` is the `try` lease read as a seat — the arbiter's own queue is the succession order, so a follower simply re-elects when its own later request is granted.
+- Owner: `Accord.locks()` — the browser engine over the origin's own lock arbiter. A lease bridges `navigator.locks.request(name, { mode: "exclusive", ifAvailable, steal }, grant)` to the scope: the grant callback settles a granted `Deferred` and then parks on a release `Deferred` the scope's finalizer resolves, so the platform holds the lock exactly as long as the scope lives and an orphaned hold is unspellable; a `try` miss (the callback receives `null`) folds to `busy`. `elect` is the `try` lease read as a seat — the arbiter's own queue is the succession order, so a follower simply re-elects when its own later request is granted.
 - Law: the ledger members answer honestly — `cas`, `read`, and `watch` fold to the `ledger` fault because the arbiter holds no state; a browser workload needing shared facts dials the `kv` row over websockets, and a session cell is `browser/persist`'s concern, never this port's.
 - Law: the callback seam is the platform-forced boundary — the grant callback runs `Effect.runPromise` over pure `Deferred` settles only (no capability, no domain logic crosses), the sanctioned bridge spelling. Exemption: the grant callback is the one statement kernel.
 - Boundary: cross-tab exclusion only — the arbiter scopes to the origin's agent cluster; process-plane coordination is the `kv` row's.
@@ -235,9 +238,7 @@ const _locks = (): Layer.Layer<Accord> =>
     })(),
   )
 
-const Engines = { kv: _kv, locks: _locks } as const
-
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Accord, AccordFault, Engines }
+export { Accord, AccordFault }
 ```

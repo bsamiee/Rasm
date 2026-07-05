@@ -3,7 +3,6 @@
         <OutputType>Exe</OutputType>
         <!-- BenchmarkDotNet rejects unoptimized benchmark assemblies; assay routes benchmarks through Release closure. -->
         <Optimize>true</Optimize>
-        <NoWarn>$(NoWarn);CA1515</NoWarn>
     </PropertyGroup>
     <ItemGroup Label="Benchmark Packages">
         <PackageReference Include="BenchmarkDotNet" PrivateAssets="all" />

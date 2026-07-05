@@ -32,7 +32,7 @@
 
 [INTEGRATION_LAW]:
 - One wire law: an analytical result crossing any engine seam travels as Arrow (`Table` in memory, IPC on the wire); a JSON/row re-encoding between engines is the named defect.
-- The DuckDB wasm row returns `arrow.Table` natively and ingests via `insertArrowTable`/`insertArrowFromIPCStream` (`.api/duckdb-wasm.md`); the node row and ClickHouse meet the same wire at the lane seam.
+- The DuckDB wasm row returns `arrow.Table` natively and ingests via `insertArrowTable`/`insertArrowFromIPCStream` (`.api/duckdb-duckdb-wasm.md`); the node row and ClickHouse meet the same wire at the lane seam.
 
 [RAIL_LAW]:
 - Package: `apache-arrow`

@@ -68,7 +68,7 @@ Omit when: `<signature, annotation, schema, catalog, shell declaration, or SQL o
 
 [SECTION_CARDINALITY]:
 - Opening lead, `Use when`, `Decision router`, `Produced shape`, `Surface model`, `Language capsules`, `Lifecycle references`, `Anti-patterns`, `Boundaries`, and `Result check`: required, single.
-- Language capsule: required for C# 14, TypeScript 7, Python 3.15, Bash 5.3+, and PostgreSQL 18.4 when the source language applies.
+- Language capsule: required for C# 14, TypeScript 6, Python 3.15, Bash 5.3+, and PostgreSQL 18.4 when the source language applies.
 - Generated-reference handoff: conditional; include only when a source-comment fact changes a generated mirror or adjacent maintained route.
 - Lifecycle-tag record: conditional; include only when an external support contract consumes a lifecycle marker.
 - Example: conditional; include only beside non-obvious misuse where prose alone is likely to fail.
@@ -125,7 +125,7 @@ Language-version claims are target standards and route refresh through [proof.md
 | [INDEX] | [LANGUAGE]      | [SYNTAX]                   | [GENERATOR]                          |
 | :-----: | :-------------- | :------------------------- | :----------------------------------- |
 |  [01]   | C# 14           | XML documentation comments | compiler XML and DocFX               |
-|  [02]   | TypeScript 7    | TSDoc                      | API Extractor and TypeDoc            |
+|  [02]   | TypeScript 6    | TSDoc                      | API Extractor and TypeDoc            |
 |  [03]   | Python 3.15     | Google docstrings          | Griffe and mkdocstrings              |
 |  [04]   | Bash 5.3+       | contract comments          | none by default                      |
 |  [05]   | PostgreSQL 18.4 | `COMMENT ON`               | catalog comments and describe output |
@@ -168,7 +168,7 @@ Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable int
 
 ### [6.2]-[TYPESCRIPT]
 
-Toolchain: TSDoc for exported TypeScript 7 `.ts` APIs that form a package, module, service, schema, model, runner, or testkit contract. TypeScript syntax, exported schemas, models, and `Effect<A, E, R>` carry machine shape; API Extractor is the strict package-API canon, and TypeDoc is the browsing renderer.
+Toolchain: TSDoc for exported TypeScript 6 `.ts` APIs that form a package, module, service, schema, model, runner, or testkit contract. TypeScript syntax, exported schemas, models, and `Effect<A, E, R>` carry machine shape; API Extractor is the strict package-API canon, and TypeDoc is the browsing renderer.
 Generated profile: API Extractor for strict package API and TypeDoc for browsing.
 
 [COMMENT_OWNS]:

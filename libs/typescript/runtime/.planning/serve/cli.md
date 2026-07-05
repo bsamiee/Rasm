@@ -8,9 +8,9 @@ The terminal entry family under the one front-door assembly law: a verb family i
 | :-----: | :--------------- | :------------------------------------------------------------------------------ | :------- |
 |  [01]   | `ASSEMBLY_LAW`   | the contribution shape, the clean-exit run rail, bridge rows, completion table   | `Verb`   |
 |  [02]   | `OPS_FAMILY`     | the doctor/replay/inspect runbooks over their capability sources                 | `Ops`    |
-|  [03]   | `ROLE_TABLE`     | the semantic-role directive rows, the role annotator, the theming seam           | `Render` |
-|  [04]   | `STRUCTURE_ROWS` | kv, table, verdicts, banner, prose, pretty composition rows                      | `Render` |
-|  [05]   | `RENDER_SEAM`    | the ambient mode row, the fold to string, the display effect, live redraw        | `Render` |
+|  [03]   | `ROLE_TABLE`     | the semantic-role directive rows, the role annotator, the theming seam           | `Print`  |
+|  [04]   | `STRUCTURE_ROWS` | kv, table, verdicts, banner, prose, pretty composition rows                      | `Print`  |
+|  [05]   | `PRINT_SEAM`     | the ambient mode row, the fold to string, the display effect, live redraw        | `Print`  |
 
 ## [2]-[ASSEMBLY_LAW]
 
@@ -177,8 +177,8 @@ const Ops = { family: _family } as const
 ## [4]-[ROLE_TABLE]
 
 [ROLE_TABLE]:
-- Owner: `_roles` — six composed `Ansi` values under one `as const satisfies Record<string, Ansi.Ansi>` anchor: `fault` (`bold` ⊕ `red`), `warn` (`yellow`), `ok` (`green`), `path` (`cyan`), `emph` (`bold`), `faint` (`blackBright`) — each a monoid composition attached by ONE `Doc.annotate` through `Render.role(kind, doc)`, never one annotate per style bit.
-- Law: verbs speak roles, never colors — a verb marks a value `path` or a verdict `fault` and the table decides what that means on a terminal; a theme change is a row edit with zero verb diffs, and `Render.themed(palette)` is the theming seam — one `Doc.reAnnotate` mapping every role annotation through a caller-supplied palette record, so a second palette is a value, never a second render path.
+- Owner: `_roles` — six composed `Ansi` values under one `as const satisfies Record<string, Ansi.Ansi>` anchor: `fault` (`bold` ⊕ `red`), `warn` (`yellow`), `ok` (`green`), `path` (`cyan`), `emph` (`bold`), `faint` (`blackBright`) — each a monoid composition attached by ONE `Doc.annotate` through `Print.role(kind, doc)`, never one annotate per style bit.
+- Law: verbs speak roles, never colors — a verb marks a value `path` or a verdict `fault` and the table decides what that means on a terminal; a theme change is a row edit with zero verb diffs, and `Print.themed(palette)` is the theming seam — one `Doc.reAnnotate` mapping every role annotation through a caller-supplied palette record, so a second palette is a value, never a second render path.
 - Growth: a new semantic intent is one row; a verb needing a color that is not an intent is the smell — name the intent.
 - Packages: `@effect/printer-ansi` (`Ansi`); `@effect/printer` (`Doc`).
 
@@ -260,20 +260,20 @@ const _pretty = <A, I, R>(schema: Schema.Schema<A, I, R>): ((value: A) => AnsiDo
 }
 ```
 
-## [6]-[RENDER_SEAM]
+## [6]-[PRINT_SEAM]
 
-[RENDER_SEAM]:
-- Owner: the one fold from document to terminal — `Render.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission) the app root or a global flag overrides once; `Render.text(doc, mode)` is the pure fold — `tty` renders escape codes through `AnsiDoc.render({ style: "pretty" })`, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form; `Render.out(doc)` reads the ambient mode and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.
-- Law: mode is ambient, never a parameter — verbs call `Render.out(doc)` with zero knowledge of the egress form, `--no-color` is one root-level `Effect.provideService(Render.Mode, "plain")`, and CI inherits `plain` by the same provision; a per-call mode argument smuggles the knob back into every verb and is the rejected form.
-- Law: live redraw is a directive row over the same seam — `Render.sweep(rows)` writes `Ansi.stringify(Ansi.eraseLines(rows))` through the terminal before the next `out`, so a progress loop is erase-then-render with zero cursor arithmetic in verbs, and the directive short-circuits to a plain newline outside `tty` mode so piped output stays append-only.
-- Law: deeply nested structures render through `Render.deep` — `Optimize.optimize(doc, FusionDepth.Deep)` fuses associativity before the `smart` layout commits its look-ahead, so a nested spec tree or recursive verdict lays out once over a fused tree; the width policy stays the printer's 80-column default, stated here so a change is one edit.
+[PRINT_SEAM]:
+- Owner: the one fold from document to terminal — `Print.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission) the app root or a global flag overrides once; `Print.text(doc, mode)` is the pure fold — `tty` renders escape codes through `AnsiDoc.render({ style: "pretty" })`, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form; `Print.out(doc)` reads the ambient mode and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.
+- Law: mode is ambient, never a parameter — verbs call `Print.out(doc)` with zero knowledge of the egress form, `--no-color` is one root-level `Effect.provideService(Print.Mode, "plain")`, and CI inherits `plain` by the same provision; a per-call mode argument smuggles the knob back into every verb and is the rejected form.
+- Law: live redraw is a directive row over the same seam — `Print.sweep(rows)` writes `Ansi.stringify(Ansi.eraseLines(rows))` through the terminal before the next `out`, so a progress loop is erase-then-render with zero cursor arithmetic in verbs, and the directive short-circuits to a plain newline outside `tty` mode so piped output stays append-only.
+- Law: deeply nested structures render through `Print.deep` — `Optimize.optimize(doc, FusionDepth.Deep)` fuses associativity before the `smart` layout commits its look-ahead, so a nested spec tree or recursive verdict lays out once over a fused tree; the width policy stays the printer's 80-column default, stated here so a change is one edit.
 - Boundary: `@effect/cli`'s own `HelpDoc` lowers onto this same `AnsiDoc` rail, so parse-error help and verb output share one render seam; the `Terminal` binding is the runtime row's.
 - Packages: `@effect/printer-ansi` (`AnsiDoc`, `Ansi`); `@effect/printer` (`Doc`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`).
 
 ```typescript
 const _MODES = ["tty", "plain", "wire"] as const
 
-class _Mode extends Context.Reference<_Mode>()("runtime/serve/Render/Mode", {
+class _Mode extends Context.Reference<_Mode>()("runtime/serve/Print/Mode", {
   defaultValue: (): (typeof _MODES)[number] => "tty",
 }) {}
 
@@ -301,7 +301,7 @@ const _sweep = (rows: number): Effect.Effect<void, PlatformError.PlatformError, 
 const _deep = (doc: AnsiDoc.AnsiDoc): string =>
   AnsiDoc.render(Optimize.optimize(doc, Optimize.FusionDepth.Deep), { style: "smart" })
 
-const Render = {
+const Print = {
   Mode: _Mode,
   modes: _MODES,
   roles: _roles,
@@ -323,5 +323,5 @@ const Render = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Ops, OpsFault, Render, Verb }
+export { Ops, OpsFault, Print, Verb }
 ```

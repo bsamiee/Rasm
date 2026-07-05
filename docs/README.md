@@ -11,3 +11,4 @@ Each `stacks/<lang>/` folder keeps language policy, platform truth, testing refe
 [STACK_ROUTERS]:
 - [C#](stacks/csharp/README.md)
 - [Python](stacks/python/README.md)
+- [TypeScript](stacks/typescript/README.md)

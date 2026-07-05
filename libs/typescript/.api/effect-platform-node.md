@@ -81,9 +81,9 @@
 [STACKS_WITH]:
 - `@effect/platform` (`.api/effect-platform.md`): this package is its runtime half — every `Node*` Layer satisfies a platform Tag. Domain code composes the abstract contract; the app root provides the Node Layer. There is no Node-specific domain API to learn.
 - `effect` (`.api/effect.md`): `NodeRuntime.runMain` is the `Effect.runFork` edge; the Layers plug into the `Layer` graph; `NodeHttpServer.layerConfig` reads `Config` through the `ConfigProvider`. The Node tier adds bindings, never a new rail.
-- `@effect/platform-bun` (`.api/effect-platform-bun.md`): the peer runtime — `BunContext.layer`, `BunHttpServer.layer`, `BunRuntime.runMain` satisfy the same platform Tags. `runtime/src/proc/exec.ts` and `edge/serve` select node versus bun as a `Layer` row; a bun swap touches only the app root.
+- `@effect/platform-bun` (`.api/effect-platform-bun.md`): the peer runtime — `BunContext.layer`, `BunHttpServer.layer`, `BunRuntime.runMain` satisfy the same platform Tags. `runtime/src/proc/exec.ts` and `runtime/src/serve` select node versus bun as a `Layer` row; a bun swap touches only the app root.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): the `NodeSdk` OTel Layer (from `@effect/opentelemetry/NodeSdk`) is provided beside `NodeContext.layer` to bind the `Tracer`/`MetricRegistry`; `runtime/src/otel/emit.ts` owns the `NodeSdk` row.
-- `@effect/cluster` + `@effect/sql` (catalogued at `libs/typescript/work|store/.api/`): `NodeClusterHttp`/`NodeClusterSocket` transport cluster messages, and the `MessageStorage` Tag is satisfied by a `store` `@effect/sql` driver Layer at the app root — the `work`/`store` seam meets at these bindings.
+- `@effect/cluster` + `@effect/sql` (catalogued at `libs/typescript/runtime/.api/` and `libs/typescript/data/.api/`): `NodeClusterHttp`/`NodeClusterSocket` transport cluster messages, and the `MessageStorage` Tag is satisfied by a `data` `@effect/sql` driver Layer at the app root — the runtime work/data lane seam meets at these bindings.
 
 [LOCAL_ADMISSION]:
 - Use the abstract `@effect/platform` Tag in domain code and provide `NodeContext.layer` (plus `NodeHttpClient.layerUndici`, `NodeHttpServer.layer`) only at the app composition root; never import `Node*` Layers into a folder's domain modules.

@@ -12,7 +12,7 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 - `net10.0` for hosted plugins and shared C# projects.
 - Grasshopper product surfaces through `Grasshopper2`.
 - Yak package output for Mac package roots.
-- Polyglot workspace roots: C# libraries and plugins, Python tooling, TypeScript/web surfaces and generated wire consumers.
+- Polyglot workspace roots: C# libraries and plugins, Python companion libraries and tooling, TypeScript web/edge platform libraries.
 - Out of scope: NO GH1 `.gha` OR Rhino 8 target, Windows package target, RhinoCode publishing path, speculative Rhino command shells, and app-side reinvention of shared library capability.
 
 ## [02]-[TOPOLOGY]
@@ -26,8 +26,9 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 |  [05]   | `tools/assay`        | Typed operator           | Static, test, bridge, package, code, docs, provision, and API evidence rails. |
 |  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.     |
 |  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                      |
-|  [08]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                            |
-|  [09]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.   |
+|  [08]   | `tools/biome`        | TS architecture pressure | Promoted GritQL lint rules the root `biome.json` registers at error.          |
+|  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                            |
+|  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.   |
 
 ## [03]-[LIBRARY_OWNERS]
 
@@ -50,6 +51,7 @@ Every root, tool, and library routes generated output through an owned store: `.
 - Rasm agents invoke Assay as `uv run python -m tools.assay provision up|down|status|doctor|ports|inventory|extensions|plan|env|check|apply`. Assay accepts Forge schema-v3 JSON only and projects sanitized `ProvisionRun` evidence. Direct `forge-provision`, `psql`, `paths`, `prune`, `self-test`, Docker/Compose, cleanup, and diagnostic JSON remain Forge-level debugging surfaces.
 - `tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
 - `tools/cs-analyzer` captures repeated C# shape laws after source diffs prove the rule reduces surface while preserving behavior. Analyzer diagnostics are architecture pressure, not suppression targets.
+- `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. The root `biome.json` registers every rule at error, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
 - `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 
 ## [06]-[PLANNING_AND_EVIDENCE]

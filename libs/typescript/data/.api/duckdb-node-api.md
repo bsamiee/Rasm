@@ -9,7 +9,7 @@
 - version: `1.5.4-r.1`
 - license: `MIT`
 - backing: `@duckdb/node-bindings` (N-API native, prebuilt platform binaries)
-- runtime: `runtime:node`/bun services and CLI; the browser row is `@duckdb/duckdb-wasm` (`.api/duckdb-wasm.md`)
+- runtime: `runtime:node`/bun services and CLI; the browser row is `@duckdb/duckdb-wasm` (`.api/duckdb-duckdb-wasm.md`)
 - rail: `lane/olap` embedded node row — no Effect peer; boundary-kernel wrap is the lane's
 
 ## [02]-[PUBLIC_TYPES]

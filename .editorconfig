@@ -157,7 +157,6 @@ dotnet_diagnostic.MA0182.severity = none                                      # 
 dotnet_diagnostic.TTRESG1000.severity = none                                  # Thinktecture source-generator self-warning on its own internal IMetadataOwner; not actionable in user code.
 dotnet_diagnostic.CA1002.severity = error                                     # Avoid exposing mutable List<T> in public APIs.
 dotnet_diagnostic.CA1008.severity = error                                     # Require enums to define a zero-valued member.
-dotnet_diagnostic.CA1021.severity = error                                     # Avoid out parameters for clearer API contracts.
 dotnet_diagnostic.CA1031.severity = error                                     # Prevent catching overly broad exception types.
 dotnet_diagnostic.CA1032.severity = error                                     # Ensure custom exceptions expose standard constructors.
 dotnet_diagnostic.CA1051.severity = error                                     # Disallow visible instance fields; require encapsulation.
@@ -238,7 +237,6 @@ dotnet_diagnostic.CA1872.severity = error                                     # 
 dotnet_diagnostic.CA1873.severity = error                                     # Avoid expensive logging argument evaluation.
 dotnet_diagnostic.CA1874.severity = error                                     # Prefer Regex.IsMatch for boolean checks.
 dotnet_diagnostic.CA1875.severity = error                                     # Prefer Regex.Count when counting matches.
-dotnet_diagnostic.CA1877.severity = error                                     # Prefer Path.Combine/Join overloads over manual concatenation.
 dotnet_diagnostic.CA2000.severity = error                                     # Ensure IDisposable instances are disposed.
 dotnet_diagnostic.CA2002.severity = error                                     # Avoid locking on objects with weak identity.
 dotnet_diagnostic.CA2009.severity = error                                     # Avoid redundant ToImmutable* on already immutable collections.
@@ -253,7 +251,6 @@ dotnet_diagnostic.CA2022.severity = error                                     # 
 dotnet_diagnostic.CA2023.severity = error                                     # Ensure logger message templates use valid braces.
 dotnet_diagnostic.CA2024.severity = error                                     # Avoid EndOfStream checks in async read flows.
 dotnet_diagnostic.CA2025.severity = error                                     # Avoid passing IDisposable into unawaited tasks.
-dotnet_diagnostic.CA2026.severity = error                                     # Prefer JsonElement.Parse over JsonDocument.Parse().RootElement.
 dotnet_diagnostic.CA2200.severity = error                                     # Preserve stack traces by rethrowing correctly.
 dotnet_diagnostic.CA2201.severity = error                                     # Avoid throwing reserved/general exception types.
 
@@ -274,7 +271,6 @@ dotnet_diagnostic.CA2251.severity = error                                     # 
 dotnet_diagnostic.CA2253.severity = error                                     # Use named logging placeholders instead of numeric names.
 dotnet_diagnostic.CA2254.severity = error                                     # Require static log templates for structured logging.
 dotnet_diagnostic.CA2263.severity = error                                     # Prefer generic overloads when concrete type is known.
-dotnet_diagnostic.CA1801.severity = error                                     # Prevent unused parameter declarations in implementation code.
 
 # --- [THREADING_ANALYZERS] ---------------------------------------------------
 dotnet_diagnostic.VSTHRD003.severity = none                                   # ASP.NET/Core apps can safely await foreign tasks without JTF context.
@@ -379,10 +375,8 @@ dotnet_diagnostic.TTRESG1001.severity = error                                 # 
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.
 dotnet_diagnostic.MA0191.severity = none                                      # Adversarial null-payload laws intentionally use null-forgiving to enter non-nullable production boundaries.
 
-[tests/**/Scenarios/Vectors.cs]
-dotnet_diagnostic.IDE0306.severity = none                                     # RhinoCommon PointCloud collection-expression form binds Add(PointCloudItem), not the Point3d ctor; the simplification does not compile.
-
-# Verify
+# --- [VERIFY_SNAPSHOTS] ------------------------------------------------------
+# VerifyChecks matches this section literal verbatim; the brace form is the tool's canonical shape.
 [*.{received,verified}.{txt}]
 charset = utf-8-bom
 end_of_line = lf

@@ -11,7 +11,7 @@
 - deps: `archiver` + `jszip` (OOXML zip), `saxes` + `unzipper` (XML parse), `fast-csv` (the `.csv` surface), `dayjs`, `readable-stream`, `tmp`, `uuid`
 - runtime: node/bun — the streaming `WorkbookWriter`/`WorkbookReader`, `archiver`, and `readable-stream` are node-only; a prebuilt browser bundle (`dist/exceljs.min.js`) exists but the `work/report` durable lane is a node runner, so treat exceljs as node-lane egress
 - effect-peer: none — exceljs is a plain library; `effect`/`@effect/platform` (`.api/effect.md`, `.api/effect-platform.md`) wrap it at the `work/report` boundary
-- catalog-verdict: KEEP for `.xlsx` — the one workbook-model owner; `.csv` DEFERS to `papaparse` (`work/.api/papaparse.md`), the admitted CSV owner, so `exceljs.csv` (fast-csv) is reserved for re-projecting an existing `Worksheet`
+- catalog-verdict: KEEP for `.xlsx` — the one workbook-model owner; `.csv` DEFERS to `papaparse` (`runtime/.api/papaparse.md`), the admitted CSV owner, so `exceljs.csv` (fast-csv) is reserved for re-projecting an existing `Worksheet`
 - entry: `import ExcelJS from "exceljs"` (CJS default) or the `exceljs` types; `Workbook`, `stream.xlsx.WorkbookWriter`/`WorkbookReader`, and the model interfaces are the surface
 
 ## [02]-[PUBLIC_TYPES]
@@ -101,10 +101,10 @@
 
 [STACKS_WITH]:
 - `effect` (`.api/effect.md`): `Effect.tryPromise` wraps IO onto a `Data.TaggedError` rail; `Effect.acquireRelease` scopes the streaming writer; `Stream.runForEach` drives row egress; `Match` dispatches the `CellValue`/`ConditionalFormattingRule` unions in the projection.
-- `@effect/platform` (`.api/effect-platform.md`): produce a `Buffer` via `writeBuffer()` and write it through the `FileSystem` Tag or an object-store upload — never `workbook.xlsx.writeFile`, which bypasses the runtime-portable platform rail. The row source is a `@effect/sql` cursor or a `store/journal` query streamed as `effect/Stream`.
-- `@effect/workflow` (`work/.api/effect-workflow.md`): a report is one `Activity.make({ name, execute: renderWorkbook })` — idempotent (keyed on the report request), retryable under `interruptRetryPolicy`, resumable past a crash without re-rendering. The `work/report` durable job is that activity inside a `deliver` workflow.
-- `jspdf` + `papaparse` (`work/.api/jspdf.md`, `work/.api/papaparse.md`): the report output-format peers — the same decoded rows render to PDF (`jspdf`), XLSX (`exceljs`), or CSV (`papaparse`) selected by one output-format policy row, never a forked pipeline per format. XLSX is exceljs's arm; `.csv` (fast-csv) is REJECTED for standalone tabular CSV since `papaparse` is the admitted CSV owner — use `exceljs.csv` only to re-project an existing `Worksheet` model.
-- `jszip` + `nodemailer` (`work/.api/jszip.md`, `work/.api/nodemailer.md`): the shared `deliver` egress channels that transport the format-arm bytes — the `writeBuffer()` `Buffer` feeds `jszip` for multi-artifact bundling and `nodemailer` as a mail attachment; exceljs produces the spreadsheet bytes, the container and mail owners carry them.
+- `@effect/platform` (`.api/effect-platform.md`): produce a `Buffer` via `writeBuffer()` and write it through the `FileSystem` Tag or an object-store upload — never `workbook.xlsx.writeFile`, which bypasses the runtime-portable platform rail. The row source is a `@effect/sql` cursor or a `data/read/query` stream on `effect/Stream`.
+- `@effect/workflow` (`runtime/.api/effect-workflow.md`): a report is one `Activity.make({ name, execute: renderWorkbook })` — idempotent (keyed on the report request), retryable under `interruptRetryPolicy`, resumable past a crash without re-rendering. The `work/report` durable job is that activity inside a `deliver` workflow.
+- `jspdf` + `papaparse` (`runtime/.api/jspdf.md`, `runtime/.api/papaparse.md`): the report output-format peers — the same decoded rows render to PDF (`jspdf`), XLSX (`exceljs`), or CSV (`papaparse`) selected by one output-format policy row, never a forked pipeline per format. XLSX is exceljs's arm; `.csv` (fast-csv) is REJECTED for standalone tabular CSV since `papaparse` is the admitted CSV owner — use `exceljs.csv` only to re-project an existing `Worksheet` model.
+- `jszip` + `nodemailer` (`runtime/.api/jszip.md`, `runtime/.api/nodemailer.md`): the shared `deliver` egress channels that transport the format-arm bytes — the `writeBuffer()` `Buffer` feeds `jszip` for multi-artifact bundling and `nodemailer` as a mail attachment; exceljs produces the spreadsheet bytes, the container and mail owners carry them.
 
 [LOCAL_ADMISSION]:
 - Wrap every exceljs terminal in `Effect.tryPromise` onto a tagged report-error rail; never `await workbook.xlsx.writeBuffer()` in domain code.

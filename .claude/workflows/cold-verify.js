@@ -1,12 +1,11 @@
 export const meta = {
   name: 'cold-verify',
-  whenToUse: 'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. A clean close is earned by attack; findings resolve in-run, never as a report.',
-  description: 'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; opus verifiers fan out, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts); one fable resolver re-verifies every finding on disk and fixes ALL of it in place with full write authority, pushing touched pages past the ruling per the floor law; one fable cold close re-attacks the resolved corpus and fixes residuals itself — a clean verdict is earned by an attack that finds nothing.',
+  whenToUse: 'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver is the terminal finalizer — findings resolve in-run, never as a report, and no phase follows it.',
+  description: 'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; opus verifiers fan out, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts); ONE terminal fable resolver then finalizes the campaign — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose, and pushes touched pages past the ruling per the floor law. No phase follows the resolver.',
   phases: [
     { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
     { title: 'Verify', detail: 'per campaign: opus slice verifiers + one governance verifier, read-only, typed anchored findings', model: 'opus' },
-    { title: 'Resolve', detail: 'per campaign: one fable fixes every validated finding in place, floor law on touched pages', model: 'fable' },
-    { title: 'Close', detail: 'per campaign: one fable cold adversarial re-read, residuals fixed in place', model: 'fable' },
+    { title: 'Resolve', detail: 'per campaign: one terminal fable finalizer — findings as signals, own hunt beyond them, every ripple resolved in-run', model: 'fable' },
   ],
 }
 
@@ -28,16 +27,16 @@ const FINDINGS = { type: 'object', additionalProperties: false, required: ['find
     target: { type: 'string' }, class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
     finding: { type: 'string' }, anchor: { type: 'string' }, fix: { type: 'string' } } } },
   summary: { type: 'string' } } }
-const FIXLOG = { type: 'object', additionalProperties: false, required: ['files', 'resolved', 'rejected', 'summary'], properties: {
+// Required-but-possibly-empty `beyond` is an attestation: the resolver's own hunt ran, not only the signal list.
+const FIXLOG = { type: 'object', additionalProperties: false, required: ['files', 'resolved', 'beyond', 'rejected', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } },
   resolved: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'action'], properties: {
+    target: { type: 'string' }, action: { type: 'string' } } } },
+  beyond: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'action'], properties: {
     target: { type: 'string' }, action: { type: 'string' } } } },
   rejected: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['finding', 'reason'], properties: {
     finding: { type: 'string' }, reason: { type: 'string' } } } },
   summary: { type: 'string' } } }
-const CLOSE = { type: 'object', additionalProperties: false, required: ['verdict', 'files', 'summary'], properties: {
-  verdict: { type: 'string', enum: ['clean', 'fixed'] }, files: { type: 'array', items: { type: 'string' } },
-  residual: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [SHARED_BLOCKS] ---
 const CTX = (c) => 'Rasm monorepo, planning phase. The campaign over ' + c.root + ' is LANDED; ' + c.doc + ' at the repo ' +
@@ -79,22 +78,22 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
   const found = (await parallel(verifyTasks)).filter(Boolean)
   const all = found.flatMap((f) => f.findings || [])
   log(tag + ': ' + all.length + ' finding(s) from ' + found.length + ' verifier(s)')
-  const fix = await agent(CTX(c) + '\n\nTASK: RESOLVE EVERYTHING (WRITER — full authority over ' + c.root + ', its ' +
-    'manifest rows, and ' + c.doc + ' where a finding proves the doc itself wrong). For each finding below: re-verify ' +
-    'it on disk (a finding without a verifiable anchor is rejected with reason); fix every validated finding IN PLACE ' +
-    'at its root — grow the owning page at its bar, repair both ends of a drifted seam, correct the governance surface ' +
-    'that lied. The floor law governs every page you touch: exceed the ruling with denser, deeper, more capable form; ' +
-    'a single-point patch where a root-level reconstruction is available is itself a defect. Frozen signatures and ' +
-    'wire names stay byte-identical. FINDINGS: ' + JSON.stringify(all),
+  const fix = await agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: TERMINAL FINALIZE (WRITER — full authority over ' + c.root +
+    ', its manifest rows, and ' + c.doc + ' where a finding proves the doc itself wrong; you are the run\'s LAST agent, ' +
+    'no phase follows you). Read ' + c.doc + ' IN FULL first. The verifier findings below are SIGNALS, not law: do not ' +
+    're-litigate a correct finding — re-verify each on disk, then implement the STRONGEST resolution, which is the ' +
+    'suggested fix only when that fix is already the root-level form; where a suggestion is weak, short-sighted, or a ' +
+    'single-point patch, implement the denser root-level reconstruction instead (a finding without a verifiable anchor ' +
+    'is rejected with reason). Then hunt PAST the signal list on your own authority — the hunt classes above over the ' +
+    'corpus and governance surface as you work it — and fix what the verifiers missed; `beyond` enumerates those fixes, ' +
+    'and an empty `beyond` attests your own hunt found nothing, never that it did not run. Every ripple an edit exposes ' +
+    'is YOURS in the same pass: seam counterparts both ends, consumer sites, index docs, manifest rows, .api anchors — ' +
+    'the run ends finalized, nothing deferred. The floor law governs every page you touch: exceed the ruling with ' +
+    'denser, deeper, more capable form. Frozen signatures and wire names stay byte-identical. ' +
+    'FINDINGS: ' + JSON.stringify(all),
     { label: 'resolve:' + tag, phase: 'Resolve', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: STALL })
-  const close = await agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: COLD ADVERSARIAL CLOSE (WRITER). You run after the ' +
-    'resolver; assume it missed things and introduced ripples. Re-read every file it touched — ' +
-    JSON.stringify((fix && fix.files) || []) + ' — plus a hostile sample of the untouched corpus and the governance ' +
-    'surface. Attack every conformance dimension cold; FIX every residual yourself in place. `clean` is earned only by ' +
-    'an attack that finds nothing; `residual` carries only what is genuinely beyond surgical reach, with anchors.',
-    { label: 'close:' + tag, phase: 'Close', model: 'fable', effort: 'high', schema: CLOSE, stallMs: STALL })
   return { campaign: c.root, findings: all.length, resolved: (fix && fix.resolved && fix.resolved.length) || 0,
-    rejected: (fix && fix.rejected && fix.rejected.length) || 0, verdict: (close && close.verdict) || 'unknown',
-    residual: (close && close.residual) || [], summary: (close && close.summary) || '' }
+    beyond: (fix && fix.beyond && fix.beyond.length) || 0, rejected: (fix && fix.rejected && fix.rejected.length) || 0,
+    summary: (fix && fix.summary) || '' }
 }))
 return { campaigns: lanes.filter(Boolean) }

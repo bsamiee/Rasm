@@ -18,7 +18,7 @@ runtime/
     ├── net/                   # Outbound transport and the fanout/replay port
     │   ├── client.ts          # The outbound HTTP lane table — status admission, retry pulses compiled from core Budget rows
     │   ├── channel.ts         # Framed long-lived byte channels: socket duplex under a closed frame vocabulary + SSE feeds
-    │   ├── pubsub.ts          # Fanout — engine-blind broadcast/replay/blob port; local, cross-tab, and NATS JetStream rows over one Wire
+    │   ├── pubsub.ts          # Fanout — engine-blind broadcast/replay/blob port; local, cross-tab, and NATS JetStream rows over one Broker
     │   └── coordinate.ts      # Accord — engine-blind lease/elect/CAS port; NATS KV revision row + browser Web Locks row
     ├── otel/                  # The OTLP wire: export/ingest, crash capture, browser RUM
     │   ├── emit.ts            # Export.live(policy) — the one OTLP egress Layer + collector ingress, with the Redaction scrub

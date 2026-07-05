@@ -1,6 +1,6 @@
 # [RUNTIME_REPORT]
 
-Document egress as one folded spec: a report is a `Report.Spec` value — column contract, style rows, furniture, format policy — rendered by one entry that dispatches on the format row into three engine arms over the SAME decoded rows: `xlsx` on the exceljs constant-memory streaming writer, `pdf` on the jsPDF measured-paging fold, `csv` on the papaparse serializer with its streaming duplex — and one `bundle` container fold on jszip for multi-artifact archives. The engines are mutation-heavy and Promise-or-sync; the boundary law is fixed once: builds run inside one `Effect` fold, the mutable document never crosses the rail, every Promise terminal lifts through `Effect.tryPromise` onto the one `RenderFault` family, and the unbounded arms stream — the xlsx writer commits rows, the CSV duplex pipes — so their memory is constant regardless of row count, while the pdf arm is a bounded-set fold by the engine's own in-memory document model and an oversized pdf routes to the worker offload. Bytes are reproducible by construction (pinned creation instants, fixed compression) so an artifact's content key is stable, a re-render under an equal spec dedupes against the artifact index, and a report activity replay regenerates identical bytes. Variation is vocabulary, never code: a new report is a spec value, a new look is a style row, a new output is a format-row arm. The module is node-lane egress on the `./server` exports subpath as `runtime/src/work/report.ts`.
+Document egress as one folded spec: a report is a `Report.Spec` value — column contract, style rows, furniture, format policy — rendered by one entry that dispatches on the format row into three engine arms over the SAME decoded rows: `xlsx` on the exceljs constant-memory streaming writer, `pdf` on the jsPDF measured-paging fold, `csv` on the papaparse serializer with its streaming duplex — and one `bundle` container fold on jszip for multi-artifact archives. The engines are mutation-heavy and Promise-or-sync; the boundary law is fixed once: builds run inside one `Effect` fold, the mutable document never crosses the rail, every Promise terminal lifts through `Effect.tryPromise` onto the one `ReportFault` family, and the unbounded arms stream — the xlsx writer commits rows, the CSV duplex pipes — so their memory is constant regardless of row count, while the pdf arm is a bounded-set fold by the engine's own in-memory document model and an oversized pdf routes to the worker offload. Bytes are reproducible by construction (pinned creation instants, fixed compression) so an artifact's content key is stable, a re-render under an equal spec dedupes against the artifact index, and a report activity replay regenerates identical bytes. Variation is vocabulary, never code: a new report is a spec value, a new look is a style row, a new output is a format-row arm. The module is node-lane egress on the `./server` exports subpath as `runtime/src/work/report.ts`.
 
 ## [1]-[CLUSTERS]
 
@@ -43,7 +43,7 @@ const _reasons = {
   slip: "malformed",
 } as const satisfies Record<string, FaultClass.Kind>
 
-class RenderFault extends Data.TaggedError("RenderFault")<{
+class ReportFault extends Data.TaggedError("ReportFault")<{
   readonly reason: keyof typeof _reasons
   readonly arm: "csv" | "xlsx" | "pdf" | "zip"
   readonly detail: string
@@ -93,7 +93,7 @@ const _OFFLOAD = { rows: 50_000 } as const
 const _render = <A, R>(
   spec: Report.Spec<A>,
   rows: Stream.Stream<A, never, R>,
-): Effect.Effect<Report.Artifact, RenderFault, R | Bench> =>
+): Effect.Effect<Report.Artifact, ReportFault, R | Bench> =>
   Match.value(spec.format).pipe(
     Match.when("xlsx", () => _xlsx(spec, rows)),
     Match.when("pdf", () => _pdf(spec, rows)),
@@ -150,7 +150,7 @@ const _xlsx = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
   }).pipe(
     Effect.timed,
     Effect.map(([span, artifact]) => ({ ...artifact, span }) satisfies Report.Artifact),
-    Effect.mapError((cause) => new RenderFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
+    Effect.mapError((cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
   )
 ```
 
@@ -184,7 +184,7 @@ const _drawn = <A>(
   spec: Report.Spec<A>,
   cells: ReadonlyArray<ReadonlyArray<Report.Cell>>,
   span: Duration.Duration,
-): Effect.Effect<Report.Artifact, RenderFault> =>
+): Effect.Effect<Report.Artifact, ReportFault> =>
   Effect.try({
     try: () => {
       const doc = new jsPDF({
@@ -210,19 +210,19 @@ const _drawn = <A>(
         span,
       } satisfies Report.Artifact
     },
-    catch: (cause) => new RenderFault({ reason: "engine", arm: "pdf", detail: String(cause) }),
+    catch: (cause) => new ReportFault({ reason: "engine", arm: "pdf", detail: String(cause) }),
   })
 
 const _pdf = <A, R>(
   spec: Report.Spec<A>,
   rows: Stream.Stream<A, never, R>,
-): Effect.Effect<Report.Artifact, RenderFault, R | Bench> =>
+): Effect.Effect<Report.Artifact, ReportFault, R | Bench> =>
   Effect.flatMap(Effect.timed(Stream.runCollect(rows)), ([span, collected]) => {
     const cells = Array.map(Chunk.toReadonlyArray(collected), (row) => spec.project(row))
     return cells.length > _OFFLOAD.rows && Option.isNone(spec.protect)
       ? Render.rendered("pdf", _planned(spec, cells)).pipe(
           Effect.map((bytes): Report.Artifact => ({ bytes, rows: cells.length, format: "pdf", span })),
-          Effect.mapError((fault) => new RenderFault({ reason: "sink", arm: "pdf", detail: fault._tag })),
+          Effect.mapError((fault) => new ReportFault({ reason: "sink", arm: "pdf", detail: fault._tag })),
         )
       : _drawn(spec, cells, span)
   })
@@ -254,7 +254,7 @@ const _csv = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
         span,
       } satisfies Report.Artifact
     }),
-    Effect.mapError((cause) => new RenderFault({ reason: "engine", arm: "csv", detail: String(cause) })),
+    Effect.mapError((cause) => new ReportFault({ reason: "engine", arm: "csv", detail: String(cause) })),
   )
 
 const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
@@ -278,7 +278,7 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 
 ```typescript
 const _bundle = (entries: ReadonlyArray<{ readonly name: string; readonly artifact: Report.Artifact }>) =>
-  Stream.async<Uint8Array, RenderFault>((emit) => {
+  Stream.async<Uint8Array, ReportFault>((emit) => {
     const zip = new JSZip()
     for (const entry of entries) {
       zip.file(entry.name, entry.artifact.bytes, {
@@ -290,14 +290,14 @@ const _bundle = (entries: ReadonlyArray<{ readonly name: string; readonly artifa
     const helper = zip.generateInternalStream<"uint8array">({ type: "uint8array", streamFiles: true })
     helper.on("data", (chunk) => emit.single(chunk))
     helper.on("end", () => emit.end())
-    helper.on("error", (cause) => emit.fail(new RenderFault({ reason: "archive", arm: "zip", detail: String(cause) })))
+    helper.on("error", (cause) => emit.fail(new ReportFault({ reason: "archive", arm: "zip", detail: String(cause) })))
     helper.resume()
   })
 
 const _unbundle = (bytes: Uint8Array, root: string) =>
   Effect.tryPromise({
     try: () => JSZip.loadAsync(bytes, { checkCRC32: true }),
-    catch: (cause) => new RenderFault({ reason: "archive", arm: "zip", detail: String(cause) }),
+    catch: (cause) => new ReportFault({ reason: "archive", arm: "zip", detail: String(cause) }),
   }).pipe(
     Effect.flatMap((zip) => {
       const anchor = path.resolve(root)
@@ -306,9 +306,9 @@ const _unbundle = (bytes: Uint8Array, root: string) =>
         return target === anchor || target.startsWith(`${anchor}${path.sep}`)
           ? Effect.tryPromise({
             try: () => entry.async("uint8array"),
-            catch: (cause) => new RenderFault({ reason: "archive", arm: "zip", detail: String(cause) }),
+            catch: (cause) => new ReportFault({ reason: "archive", arm: "zip", detail: String(cause) }),
           }).pipe(Effect.map((body) => ({ name: target, body })))
-          : Effect.fail(new RenderFault({ reason: "slip", arm: "zip", detail: entry.name }))
+          : Effect.fail(new ReportFault({ reason: "slip", arm: "zip", detail: entry.name }))
       })
     }),
   )
@@ -321,5 +321,5 @@ const Report = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { RenderFault, Report }
+export { Report, ReportFault }
 ```
