@@ -89,16 +89,10 @@ const _toasts = new UNSTABLE_ToastQueue<Note>({ maxVisibleToasts: 4 })
 
 ```typescript
 import type { ReactNode } from "react"
-import type { ErrorBoundaryProps, FallbackProps } from "react-error-boundary"
+import type { FallbackProps } from "react-error-boundary"
 
 declare namespace Boundary {
   type Fold<E> = (error: E, reset: FallbackProps["resetErrorBoundary"]) => ReactNode
-  type Props<E> = {
-    readonly fold: Fold<E>
-    readonly resetKeys?: ReadonlyArray<unknown>
-    readonly onReset?: ErrorBoundaryProps["onReset"]
-    readonly onError?: ErrorBoundaryProps["onError"]
-  }
 }
 
 const _fallbackRender = <E,>(fold: Boundary.Fold<E>): ((props: FallbackProps) => ReactNode) =>

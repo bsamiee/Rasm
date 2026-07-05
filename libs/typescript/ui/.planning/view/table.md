@@ -16,7 +16,7 @@ The one data-grid owner: TanStack Table models — rows, headers, facets, groupi
 
 [STATE_FOLD]:
 - Owner: `Grid` — the state fold: ONE atom holds the whole TanStack `TableState` slice (sorting, filters, selection, grouping, expanded, pagination, sizing, order, pinning, visibility), `useReactTable` reads it as controlled `state` with `onStateChange` writing through `useAtomSet` (the exact `Updater` shape `makeStateUpdater` builds), and `Grid.apply(key)` folds one slice key through `functionalUpdate` so every `on<Slice>Change` handler is one row over one fold — never a per-slice `useState`.
-- Packages: `@tanstack/react-table` (`useReactTable`, `functionalUpdate`, `makeStateUpdater`, the state types — `SortingState`, `RowSelectionState`, `GroupingState`, `ExpandedState`, `ColumnPinningState`, `ColumnOrderState`, `ColumnSizingState`, `VisibilityState`); `@effect-atom/atom-react` (the one store, `system/atom` law).
+- Packages: `@tanstack/react-table` (`useReactTable`, `functionalUpdate`, `makeStateUpdater`, the state types — `SortingState`, `ColumnFiltersState`, `RowSelectionState`, `GroupingState`, `ExpandedState`, `PaginationState`, `ColumnPinningState`, `ColumnOrderState`, `ColumnSizingState`, `VisibilityState`); `@effect-atom/atom-react` (the one store, `system/atom` law).
 - Law: a state slice persists by backing the atom with `Atom.kvs` and its owning schema — column order, sizing, and visibility survive reload as decoded values; a raw `localStorage` read beside the store is the named defect.
 - Law: the slice is one product — a second atom holding a parallel copy of any slice, or a component mirroring `sorting` into local state, restates the fold; projections read through `useAtomValue(atom, selector)`.
 - Growth: a new managed slice is one field on the slice product plus one `Grid.apply` row — never a sibling state cell.
@@ -24,11 +24,13 @@ The one data-grid owner: TanStack Table models — rows, headers, facets, groupi
 ```typescript
 import type {
   ColumnDef,
+  ColumnFiltersState,
   ColumnOrderState,
   ColumnPinningState,
   ColumnSizingState,
   ExpandedState,
   GroupingState,
+  PaginationState,
   RowSelectionState,
   SortingState,
   Updater,
@@ -41,9 +43,12 @@ import { Array, Option } from "effect"
 declare namespace Grid {
   type Slice = {
     readonly sorting: SortingState
+    readonly columnFilters: ColumnFiltersState
+    readonly globalFilter: string
     readonly rowSelection: RowSelectionState
     readonly grouping: GroupingState
     readonly expanded: ExpandedState
+    readonly pagination: PaginationState
     readonly columnOrder: ColumnOrderState
     readonly columnPinning: ColumnPinningState
     readonly columnSizing: ColumnSizingState
@@ -54,9 +59,12 @@ declare namespace Grid {
 
 const _SLICE: Grid.Slice = {
   sorting: [],
+  columnFilters: [],
+  globalFilter: "",
   rowSelection: {},
   grouping: [],
   expanded: {},
+  pagination: { pageIndex: 0, pageSize: 50 },
   columnOrder: [],
   columnPinning: { left: [], right: [] },
   columnSizing: {},

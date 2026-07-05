@@ -64,16 +64,16 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 ```text seams
 Runtime           ⇄  python:geometry/mesh                  # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
-Runtime/channels  →  typescript:wire          # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
-Runtime/channels  →  typescript:wire/contract       # [WIRE]: FileDescriptorSet ContractDrift verdict
-Runtime/channels  →  typescript:wire/frame         # [WIRE]: ArtifactFrameWire reassembly
-Runtime/channels  →  typescript:wire/frame                  # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
+Runtime/channels  →  typescript:core/interchange/codec     # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
+Runtime/channels  →  typescript:core/interchange/contract  # [WIRE]: FileDescriptorSet ContractDrift verdict
+Runtime/channels  →  typescript:core/interchange/frame     # [WIRE]: ArtifactFrameWire reassembly
+Runtime/channels  →  typescript:core/interchange/frame     # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
 Runtime/channels  ⇄  python:runtime/transport              # [WIRE]: PROTO_VOCABULARY service contracts
 Runtime/channels  ⇄  python:geometry/mesh                  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 Runtime/progress  →  typescript:core/state/evidence  # [WIRE]: ProgressMarkWire
 Runtime           ←  python:geometry/mesh                  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
 Runtime/codecs    ←  python:geometry/mesh                  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
-Runtime/progress  →  typescript:wire          # [PROJECTION]: ProgressStore stream proto
+Runtime/progress  →  typescript:core/interchange/codec     # [PROJECTION]: ProgressStore stream proto
 Runtime           ←  python:geometry                       # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
 Runtime/payload   →  csharp:Rasm.AppUi/Render/pipeline      # [PROJECTION]: ResidencyPayload (blob + StreamSpan layout) 1:1 → ResidencyManifest.Mint EXT_meshopt_compression bufferView (TS_PROJECTION WEB_GEOMETRY_RESIDENCY_WIRE; payload owns the blob, AppUi owns the manifest mint)
 Analysis          ←  csharp:Rasm.Element/Graph             # [READ]: ElementGraph concrete above the seam (no IElementProjection); seam-owned Find/ObjectNodes/Material/MaterialsOf/CompositionOf/MechanicalOf/SectionOf reads + the seam GeometrySource port (content key → AxisCurve/FootprintPolygon, app-wired over the Persistence blob store) + Compute-owned AxisOf/SpacesOf/BoundingSurfacesOf/OpeningsOf discipline extensions composing them (AxisOf/BuildSurface resolve the analytical Axis/FootPrint one-hop by content key through GeometrySource, never a phantom node field)

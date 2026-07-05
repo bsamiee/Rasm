@@ -62,7 +62,7 @@ const Store: {
 - Boundary: the `HttpApi`/`RpcGroup` values are edge contract material the app supplies, so the binding class is an APP-SIDE declaration this page legislates the exact shape of — the fence below is that shape, not a member of this module's export surface.
 
 ```typescript
-import { AtomHttpApi, AtomRpc } from "@effect-atom/atom-react"
+import { AtomHttpApi } from "@effect-atom/atom-react"
 import type { HttpApi } from "@effect/platform"
 import { FetchHttpClient } from "@effect/platform"
 

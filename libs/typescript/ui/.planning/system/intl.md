@@ -223,21 +223,13 @@ const _base = (locale: Locale): Option.Option<Locale> =>
         : Schema.decodeOption(Refined.Locale)(subtags.slice(0, -1).join("-")),
   )
 
+const _chain = (locale: Locale): ReadonlyArray<Locale> =>
+  Array.unfold(Option.some(locale), Option.map((current) => [current, _base(current)] as const))
+
 const _resolve = (book: Message.Book, locale: Locale, fallback: Locale, key: string): Option.Option<Message.Spec> =>
-  pipe(
-    HashMap.get(book, locale),
-    Option.flatMap((catalog) => Option.fromNullable(catalog[key])),
-    Option.orElse(() =>
-      pipe(
-        _base(locale),
-        Option.flatMap((base) => HashMap.get(book, base)),
-        Option.flatMap((catalog) => Option.fromNullable(catalog[key])),
-      )),
-    Option.orElse(() =>
-      pipe(
-        HashMap.get(book, fallback),
-        Option.flatMap((catalog) => Option.fromNullable(catalog[key])),
-      )),
+  Option.firstSomeOf(
+    Array.map(Array.append(_chain(locale), fallback), (hop) =>
+      Option.flatMap(HashMap.get(book, hop), (catalog) => Option.fromNullable(catalog[key]))),
   )
 
 const Message: {

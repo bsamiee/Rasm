@@ -1,10 +1,9 @@
 export const meta = {
   name: 'rebuild-ts',
-  description: 'Focused ultra-rebuild of the whole libs/typescript corpus in place: sonnet census fan, opus .api repair + package admission groundwork, per-folder parallel lanes (api-stacking researcher + line-by-line doctrine auditor feeding one fable improver, then critique, then red-team), one terminal fable align over the whole branch, read-only acceptance. Collapse and extend in place to the 13/10 bar: fewer denser owners, single entry points, internalized capability, research-grade machines, world-class pubsub/streaming/resilience/PG-18.4/filesystem-cloud/IaC.',
-  whenToUse: 'Dispatch once build-ts has landed and its output is committed. Ephemeral - delete after the campaign lands.',
+  description: 'Focused ultra-rebuild of the whole libs/typescript corpus in place: sonnet census fan, then per-folder parallel lanes (api-stacking researcher + line-by-line doctrine auditor feeding one fable improver, then critique, then red-team), one terminal fable align over the whole branch, read-only acceptance. Pure rebuilding - package admission and .api authoring happened before dispatch. Collapse and extend in place to the 13/10 bar: fewer denser owners, single entry points, internalized capability, research-grade machines, world-class pubsub/streaming/resilience/PG-18.4/filesystem-cloud/IaC.',
+  whenToUse: 'Dispatch once build-ts has landed, the admissions plan is applied, and the output is committed. Ephemeral - delete after the campaign lands.',
   phases: [
     { title: 'Census', model: 'sonnet' },
-    { title: 'Groundwork', model: 'opus' },
     { title: 'Lanes' },
     { title: 'Close' },
   ],
@@ -38,15 +37,7 @@ const LANE_KEYS = ACTIVE.concat(
 
 const DOSSIER = { type: 'object', additionalProperties: false, required: ['path', 'summary'], properties: {
   path: { type: 'string' }, summary: { type: 'string' } } }
-const APIFIX = { type: 'object', additionalProperties: false, required: ['fixes', 'candidates', 'summary'], properties: {
-  fixes: { type: 'array', items: { type: 'string' } },
-  candidates: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['pkg', 'tier', 'why'],
-    properties: { pkg: { type: 'string' }, tier: { type: 'string', enum: ['substrate', 'folder'] }, why: { type: 'string' } } } },
-  summary: { type: 'string' } } }
-const MANIFEST_OUT = { type: 'object', additionalProperties: false, required: ['added', 'rejected', 'catalogs', 'summary'],
-  properties: { added: { type: 'array', items: { type: 'string' } }, rejected: { type: 'array', items: { type: 'string' } },
-    catalogs: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const FIXLOG = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: {
+const FIXLOG ={ type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } },
   verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] },
   collapsed: { type: 'string' }, extended: { type: 'string' },
@@ -175,37 +166,10 @@ const censusPrompt = (scope, file) => [CONTEXT,
   'Write the dossier to ' + SCRATCH + '/' + file + ' and return {path, summary} - summary max 10 lines.',
 ].join('\n\n')
 
-const apiFixPrompt = (folder) => [CONTEXT, MANDATE,
-  'TASK: DEEP .API REPAIR for ' + ROOT + '/' + folder + ' - you WRITE. Read the folder census dossier at ' +
-  SCRATCH + '/census-' + folder + '.md, then every catalog in ' + ROOT + '/' + folder + '/.api/ IN FULL against the ' +
-  'real package surface (node_modules declarations first, Context7/official docs second). FIX IN PLACE every weak, ' +
-  'wrong, stale, or thin catalog: verified members only, integration-shaped (how the package STACKS with the Effect ' +
-  'substrate and the folder siblings, not a flat API dump), current versions, zero phantoms. Also TRUTH-CHECK the ' +
-  'folder README.md and ARCHITECTURE.md against disk - fix every stale router row, missing page, wrong seam, or ' +
-  'orphaned package reference in place. Then hunt NEW package candidates the folder concept admits (bleeding-edge, ' +
-  'maintained, license-clean, Effect-composable) - return each as {pkg, tier, why} in candidates; do NOT edit ' +
-  'pnpm-workspace.yaml yourself. Return {fixes, candidates, summary}.',
-].join('\n\n')
-
-const manifestPrompt = (candidateRows) => [CONTEXT, MANDATE,
-  'TASK: SERIALIZED MANIFEST + SUBSTRATE GROUNDWORK - you are the ONE writer for pnpm-workspace.yaml and the branch ' +
-  'tier. (1) Rule every new-package candidate below: admit or reject with one-line justification each; verify ' +
-  'latest stable versions and license/maintenance signals against live sources, never memory. Apply admissions to ' +
-  'pnpm-workspace.yaml at the correct folder-labeled catalog blocks. (2) Author a real .api catalog for EVERY ' +
-  'admitted package at its ruled tier - substrate at ' + ROOT + '/.api/, folder-specific at the folder .api/ - ' +
-  'verified members, integration-shaped. (3) Repair the branch substrate tier in place: every catalog in ' +
-  ROOT + '/.api/ read in full against node_modules and fixed to current truth. (4) Truth-check the TS-facing root ' +
-  'files (tsconfig.base.json, biome.json, the ' + ROOT + '/package.json exports map, project.json tag triples) ' +
-  'against the six-folder state and repair drift in place. PRE-STAGED RESEARCH: the prefetch dossiers under ' +
-  SCRATCH + '/ (prefetch-remote.md, prefetch-machines-pubsub.md, prefetch-ui-iac.md) carry candidate verdict rows ' +
-  'with versions and licenses - consolidate their admit rows with the folder candidates below, spot-verifying ' +
-  'rather than re-researching. CANDIDATES: ' + candidateRows + ' Return {added, rejected, catalogs, summary}.',
-].join('\n\n')
-
 const stackResearchPrompt = (folder) => [CONTEXT, MANDATE,
   'TASK: ULTRA-STACKING RESEARCH for ' + ROOT + '/' + folder + ' - findings only, you edit nothing except your ' +
   'dossier. Read the branch substrate catalogs (' + ROOT + '/.api/) and the folder catalogs (' + ROOT + '/' +
-  folder + '/.api/) IN FULL - post-groundwork state - plus the folder census dossier at ' + SCRATCH + '/census-' +
+  folder + '/.api/) IN FULL - current admitted state - plus the folder census dossier at ' + SCRATCH + '/census-' +
   folder + '.md. Then dig FAR past the catalogs: node_modules declarations, Context7, current official docs for ' +
   'every admitted package - the full effect core plus @effect/platform(+node/bun/browser), experimental, cluster, ' +
   'workflow, rpc, sql family, ai, printer at operator depth. PRODUCT: the stacking dossier - (a) underutilized ' +
@@ -231,15 +195,6 @@ const doctrineAuditPrompt = (folder) => [CONTEXT, MANDATE, READ_FIRST,
   'admits, and the collapse or extension that closes it; plus a folder-level verdict of the deepest structural ' +
   'weaknesses (shape spam, missing machines, naive SQL, missing resilience, thin coverage) ranked by leverage. ' +
   'Write to ' + SCRATCH + '/audit-' + folder + '.md; return {path, summary}.',
-].join('\n\n')
-
-const toolApiFixPrompt = () => [CONTEXT, MANDATE,
-  'TASK: DEEP DEV-TIER .API REPAIR - you WRITE. Read the tooling census dossier at ' + SCRATCH + '/census-tooling.md, ' +
-  'then every catalog in tests/typescript/.api/ IN FULL against the real installed surfaces (node_modules first, ' +
-  'Context7/official docs second). FIX IN PLACE every weak, wrong, stale, or thin catalog: verified members only, ' +
-  'integration-shaped, current versions, zero phantoms. Hunt NEW dev-tool candidates the estate genuinely earns - ' +
-  'return each as {pkg, tier, why} in candidates (tier folder = the dev tier); do NOT edit pnpm-workspace.yaml. ' +
-  'Return {fixes, candidates, summary}.',
 ].join('\n\n')
 
 const toolResearchPrompt = () => [CONTEXT, MANDATE,
@@ -369,18 +324,6 @@ const censusScopes = ACTIVE.map((f) => ({ scope: ROOT + '/' + f + ' (its .planni
 await pool(censusScopes, CAP, (c) =>
   agent(censusPrompt(c.scope, c.file), { label: 'census:' + c.key, phase: 'Census', model: 'sonnet', effort: 'medium', schema: DOSSIER, stallMs: STALL }))
 
-// --- [GROUNDWORK]
-
-phase('Groundwork')
-const apiFixes = (await pool(LANE_KEYS, CAP, (f) =>
-  agent(f === 'tooling' ? toolApiFixPrompt() : apiFixPrompt(f),
-    { label: 'apifix:' + f, phase: 'Groundwork', model: 'opus', effort: 'high', schema: APIFIX, stallMs: STALL }))).filter(Boolean)
-const candidates = apiFixes.flatMap((r) => r.candidates || [])
-const manifest = await agent(manifestPrompt(JSON.stringify(candidates)), {
-  label: 'manifest', phase: 'Groundwork', model: 'opus', effort: 'high', schema: MANIFEST_OUT, stallMs: STALL })
-log('Groundwork: ' + apiFixes.length + ' folder api-repairs, ' + candidates.length + ' candidates ruled, ' +
-  ((manifest && manifest.added) || []).length + ' admitted')
-
 // --- [LANES]
 
 phase('Lanes')
@@ -416,7 +359,6 @@ const accept = await agent(acceptPrompt(), {
 
 return {
   folders: lanes,
-  manifest: manifest ? { added: manifest.added, rejected: manifest.rejected } : 'dropped',
   align: align ? align.summary : 'dropped',
   acceptance: accept ? { unresolved: accept.unresolved, summary: accept.summary } : 'dropped',
 }
