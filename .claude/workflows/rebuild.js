@@ -269,7 +269,10 @@ const MODE = {
       'absent on disk, list it in `upstreamMissing` — never silently proceed. ' : '',
     conceptSource: 'in the brief',
     intentRead: 'Read ' + BRIEF + ' — the shared-law head plus every section covering these folders — in FULL. ',
-    decisionClause: 'Every paradigm, rename, absorb, and delete decision follows the brief. ',
+    decisionClause: 'Every paradigm, rename, absorb, and delete decision follows the brief. A ruled disposition is a ' +
+      'FLOOR, never a ceiling — after its motions land, the page receives the same hostile agnostic pass as a rebuild ' +
+      '(both naivety axes attacked, both .api tiers stacked, collapse hunted) within the frozen guard; exceeding the ' +
+      'ruling with denser, deeper, more capable form is the default, diluting it the defect. ',
     frozenGuard: 'BRIEF-FROZEN: a signature, name, or invariant the brief freezes is byte-identical law — never ' +
       'rename, re-shape, or re-collapse it, even to a stronger form; seam-canonical wire names stay frozen unless ' +
       'the brief amends them AND assigns the counterpart work; no page outside the brief scope is rebuilt. ',
@@ -474,8 +477,10 @@ const implementPrompt = (batch, dossier, riders) => preamble(batch, dossier).con
   'kind=`new`: GROUND-UP AUTHOR the page (it does not exist; it may open a new sub-folder) to the full doctrine + ' +
   'domain-complete capability bar, in the code-fence-first design-page form of its mature siblings, wired into the folder ' +
   'entry/receipt seam owners where the folder has them; when its map names an absorb target, MOVE the real content over ' +
-  'and DELETE the absorbed page in this pass. kind=`rebuild`: HOSTILE GROUND-UP REBUILD in place. kind=`improve`: bounded ' +
-  'cold improve per the ruled disposition. Construct in LIFECYCLE order — admit raw once, canonical owner by ' +
+  'and DELETE the absorbed page in this pass. kind=`rebuild`: HOSTILE GROUND-UP REBUILD in place. kind=`improve`: execute ' +
+  'the ruled disposition IN FULL, then push the page through the same hostile agnostic pass as a rebuild — both naivety ' +
+  'axes attacked, both .api tiers stacked, collapse hunted — within the frozen guard; the disposition is a floor, never a ' +
+  'ceiling. Construct in LIFECYCLE order — admit raw once, canonical owner by ' +
   'OWNER_CHOOSER, stacked rail/aspect over a thin pure core, projection, egress, BOTH ingress and egress parameterized; ' +
   'collapse parallel shapes into ' + L.collapseInto + '; one polymorphic entrypoint per modality. COMPOSE the map\'s ' +
   '`apiUsed` at full operator depth, STACK every `apiUnderutilized` into the owner, and CONFIRM no other admitted catalog ' +
