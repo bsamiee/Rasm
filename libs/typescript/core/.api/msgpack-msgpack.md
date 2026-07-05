@@ -63,7 +63,7 @@
 - Stack with `effect` `Data`/`Match` (`.api/effect.md`): the decoded `CrdtOpWire` discriminant dispatches through `Data.taggedEnum().$match`/`Match.exhaustive` into the `state/crdt` op family (a missing arm is a compile error); an unregistered ext surfaces as `ExtData` and is `Match`-dispatched, never dropped.
 - Stack with `effect` `Schema` (`.api/effect.md`): `decode` output crosses `Schema.decodeUnknown(CrdtOpSchema)` once; `useBigInt64:true` feeds the `Schema.BigIntFromSelf`/branded HLC fields, so the interior sees a branded `Hlc`/`bigint`, never a raw MessagePack value.
 - Stack with `value/identity`: the `ExtensionCodec` `Hlc` row mints through the interner carried on `context`; `wire` composes the mint and never re-implements the 16-byte layout — a TS re-mint of the `Hlc` cell is the named cross-language drift defect.
-- Stack with `@effect/platform` `Worker` (`.api/effect-platform.md`): `Encoder.encodeSharedRef` returns a view over the encoder's internal `ArrayBuffer` for a zero-copy `Transferable` into the `browser/transport/pool` decode worker; `interchange/codec` bounds untrusted frames with the `max*Length` ceilings before decode.
+- Stack with `@effect/platform` `Worker` (`.api/effect-platform.md`): `Encoder.encodeSharedRef` returns a view over the encoder's internal `ArrayBuffer` for a zero-copy `Transferable` into the `runtime browser/fetch` decode worker; `interchange/codec` bounds untrusted frames with the `max*Length` ceilings before decode.
 
 [LOCAL_ADMISSION]:
 - construct one `new Decoder({ extensionCodec, context, useBigInt64:true, ...max*Length })` per policy; register the `Hlc` and domain CRDT ext rows once — never call the top-level `decode` without the shared `ExtensionCodec`, which cannot see the 16-byte `Hlc` ext.

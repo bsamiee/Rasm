@@ -71,7 +71,7 @@
 |  [03]   | `Persistence.Persistable`                            | schema mixin    | `WithResult` schema keyed for persistence                    |
 |  [04]   | `Persistence.PersistenceParseError` / `…BackingError` | tagged error   | persistence fault rail                                       |
 |  [05]   | `Reactivity.Reactivity`                              | `Context.Tag`   | `store/project` query-key invalidation signal                |
-|  [06]   | `Sse.Event` / `Sse.EventEncoded` / `Sse.Parser` / `Sse.Encoder` | codec | `host/net/channel`, `edge/live`, `host/flag` SSE seam        |
+|  [06]   | `Sse.Event` / `Sse.EventEncoded` / `Sse.Parser` / `Sse.Encoder` | codec | `net/client/channel`, `edge/live`, `proc/flag` SSE seam        |
 |  [07]   | `Sse.Retry`                                          | tagged control  | SSE reconnection `retry:` directive                          |
 |  [08]   | `RateLimiter.RateLimiter` / `RateLimiter.RateLimiterStore` | `Context.Tag` | `edge/api/middleware` rate/quota; store-backed for distributed |
 |  [09]   | `RateLimiter.RateLimitExceeded` / `RateLimitStoreError` | tagged error  | `RateLimiterError` union — 429/Retry-After mapping           |
@@ -114,11 +114,11 @@
 | [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
 |  [01]   | `Machine.make(…)` / `makeSerializable(…)` / `boot(machine, input)` / `snapshot(actor)` / `restore(machine, snapshot)` | actor | `work/flow/durable` durable actors                       |
-|  [02]   | `Persistence.layerResult` / `layerResultKeyValueStore` / `layerMemory` / `layerKeyValueStore`  | persistence    | back persistence onto memory or `KeyValueStore`          |
+|  [02]   | `Persistence.layerResult` / `layerResultMemory` / `layerResultKeyValueStore` / `layerMemory` / `layerKeyValueStore` | persistence | `ResultPersistence` rows back `PersistedCache`/`RequestResolver.persisted`; `layerMemory`/`layerKeyValueStore` are the raw `BackingPersistence` tier beneath `layerResult` |
 |  [03]   | `PersistedQueue.make(opts)` / `makeFactory` / `layer` / `layerStoreMemory`                     | durable queue  | `work/queue/job` durable jobs                            |
 |  [04]   | `PersistedCache.make({ storeId, lookup, timeToLive, … })`                                      | durable cache  | `work` idempotency / memoized results                    |
 |  [05]   | `Reactivity.mutation` / `query` / `stream` / `invalidate(keys)` / `layer`                      | reactive       | `store/project` read-your-writes invalidation            |
-|  [06]   | `Sse.makeChannel({ bufferSize? })` / `makeParser(onParse)` / `encoder`                         | SSE codec      | `host/net/channel`, `edge/live`, `host/flag` SSE         |
+|  [06]   | `Sse.makeChannel({ bufferSize? })` / `makeParser(onParse)` / `encoder`                         | SSE codec      | `net/client/channel`, `edge/live`, `proc/flag` SSE         |
 |  [07]   | `RateLimiter.make` / `layer` / `layerStoreMemory`; `makeWithRateLimiter` → `({ algorithm?, onExceeded?, window, limit, key, tokens? })(effect)`; `makeSleep({ algorithm?, window, limit, key, tokens? })` | rate limit | `edge/api/middleware` distributed limiter            |
 |  [08]   | `RequestResolver.dataLoader({ window, maxBatchSize? })(resolver)` / `persisted({ storeId, … })(resolver)` | batching | batched/persisted request resolution (curried combinators) |
 |  [09]   | `DevTools.layer(url?)` / `layerWebSocket(url?)`                                                | dev            | `telemetry ./dev` fenced DevTools export                 |
@@ -134,7 +134,7 @@
 - Stack with `@effect/platform-browser` / `@effect/platform-bun`: EventLog client identity rides `EventLog.layerIdentityKvs({ key })` over a `KeyValueStore` satisfied by `BrowserKeyValueStore.layerLocalStorage` (browser) or `BunKeyValueStore.layerFileSystem` (node/bun). WebSocket sync rides `EventLogRemote.layerWebSocket` over a `Socket.WebSocketConstructor` from `BrowserSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor`. The overlay declares the `@effect/platform` Tag; the platform binding satisfies it.
 - Stack with `@effect/platform` HttpApp: `EventLogServer.makeHandlerHttp` mounts at `edge/live/socket` as the protocol-handler mount port (an `HttpApp` port Tag); the `BunHttpServer`/`NodeHttpServer` serve row hosts it. `EventLogEncryption.layerSubtle` composes `security/secret` key material so the server stays zero-knowledge.
 - Stack with `store`/`state`: EventLog reducers fold into `state` vocabulary; `Reactivity.invalidate` is the read-your-writes signal `store/project/inline` emits after an OCC append; `Machine` actors persist through `PersistedQueue`/`Persistence` onto the store-owned `KeyValueStore` driver.
-- Stack with `stamina`-equivalent retry / `host/net`: sync reconnection and `Sse.Retry` reconnection budgets ride `kernel/fault` degradation budgets, not a hand-rolled loop; `edge/api/middleware` reads `RateLimiter` `RateLimitExceeded` into a 429/Retry-After problem detail.
+- Stack with `stamina`-equivalent retry / `net/client`: sync reconnection and `Sse.Retry` reconnection budgets ride `kernel/fault` degradation budgets, not a hand-rolled loop; `edge/api/middleware` reads `RateLimiter` `RateLimitExceeded` into a 429/Retry-After problem detail.
 
 [LOCAL_ADMISSION]:
 - EventLog client and journal are browser-safe (`layerIndexedDb`, `layerWebSocketBrowser`, `layerSubtle` over Web Crypto); `EventLogServer`/`Machine`/`PersistedQueue` durable lanes are node/bun only.

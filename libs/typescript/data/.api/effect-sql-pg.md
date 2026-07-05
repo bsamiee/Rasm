@@ -83,17 +83,17 @@
 |  [04]   | `sql`\``… FOR UPDATE SKIP LOCKED LIMIT $n`\`                                                         | async lane     | `project/async` — competing-consumer checkpoint drain    |
 |  [05]   | `client.reserve` → `conn` → `pg` `COPY … FROM STDIN` write stream                                   | COPY bulk      | `journal`/`retrieve` bulk ingest over a dedicated conn   |
 |  [06]   | `client.listen(channel)` ⇒ `Stream` woken by `project/inline`'s `client.notify(channel, id)`        | notify wake    | `project/async` LISTEN/NOTIFY-woken checkpoint lanes     |
-|  [07]   | `sql`\``SET LOCAL app.current_tenant = ${tenantId}`\`` inside withTransaction`                       | RLS GUC        | `scope/tenant` — per-transaction tenant scope, not a fork |
+|  [07]   | `sql`\``SELECT set_config('app.current_tenant', ${tenantId}, true)`\`` inside withTransaction` (bare `SET LOCAL` cannot bind parameters) | RLS GUC | `scope/tenant` — per-transaction tenant scope, not a fork |
 |  [08]   | `client.reactive(keys, query): Stream` ← `Reactivity.invalidate(keys)`                              | reactive read  | `project/inline` read-your-writes signal after an append |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PG_SPINE_TOPOLOGY]:
 - `PgClient` IS a `SqlClient`: `layer*` provides `PgClient | SqlClient`, so domain rows depend on the neutral `SqlClient` Tag and stay dialect-agnostic; only rows using `listen`/`notify`/`json` yield the `PgClient` Tag. This is what lets `sql.onDialect({ pg, sqlite })` compile one journal/projection statement that the PG spine and the `lane/sqlite` rows both run.
-- the durable law is SQL, not driver API: advisory locks (`pg_advisory_xact_lock` / `pg_advisory_lock`), COPY, `ON CONFLICT … RETURNING (xmax = 0)`, `FOR UPDATE SKIP LOCKED`, and the RLS `SET LOCAL app.current_tenant` GUC are parameterized `sql` fragments over `reserve` (dedicated `Connection`) and `withTransaction` (transaction scope). The driver owns the pool, the wire protocol, LISTEN/NOTIFY, and the OTel span — nothing more. A new capability is a new statement.
+- the durable law is SQL, not driver API: advisory locks (`pg_advisory_xact_lock` / `pg_advisory_lock`), COPY, `ON CONFLICT … RETURNING (xmax = 0)`, `FOR UPDATE SKIP LOCKED`, and the RLS `set_config('app.current_tenant', …, true)` GUC are parameterized `sql` fragments over `reserve` (dedicated `Connection`) and `withTransaction` (transaction scope). The driver owns the pool, the wire protocol, LISTEN/NOTIFY, and the OTel span — nothing more. A new capability is a new statement.
 - one atomic commit: `journal/append` + `journal/outbox` + the idempotency ledger share one `withTransaction`, so the event, the outbox row, and the `(xmax = 0)` claim commit or roll back together — the exactly-once boundary.
 - `reserve` is the session-state boundary: session advisory locks and COPY streams need a connection pinned across statements; `reserve` yields a scoped `Connection` from the pool that returns on scope close. A bare `client`\``…`\` runs pool-per-statement and cannot hold session locks.
-- extension capability is fail-closed SQL: each `capability/row` `probeSql` runs through `sql` and gates the feature; extensions are `iac`/CNPG deployment-image facts (`pgvector`, `pg_search`, `pg_cron`, `pg_ivm`, `pg_uuidv7`), never a JS dependency.
+- extension capability is fail-closed SQL: each `capability/row` `probeSql` runs through `sql` and gates the feature; extensions are `iac`/CNPG deployment-image facts (`pgvector`, `vchord`, `vchord_bm25`, `pg_cron`, `pg_ivm`, `pg_partman`), never a JS dependency — identity mint is native `uuidv7()`, no extension row.
 
 [INTEGRATION_LAW]:
 - Stack with `@effect/sql` core (`.api/effect-sql.md`): `PgClient` supplies the pooled connection; `SqlSchema.findAll`/`findOne` decode rows into `Schema` models, `SqlResolver.grouped`/`findById` batch reads to kill N+1, `Model.makeRepository` types the journal/projection tables with `Generated`/`Sensitive`/`DateTimeInsert` variant schemas, and `SqlStream.asyncPauseResume` streams a `pg-cursor` under backpressure. The pg catalog documents stacking ONTO this core, never re-implementing it.

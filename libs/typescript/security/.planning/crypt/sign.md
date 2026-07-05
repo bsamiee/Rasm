@@ -451,7 +451,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
       const verifyExternal = (token: Redacted.Redacted<string>, issuer: { readonly issuer: string; readonly audience: string; readonly jwksUri: string; readonly algorithms: ReadonlyArray<KeyAlg.Kind> }): Effect.Effect<JWTPayload, SignFault> =>
         Effect.flatMap(_remote(issuer.jwksUri), ({ resolver, record }) =>
           Effect.tryPromise({
-            try: () => jwtVerify(Redacted.value(token), resolver, { algorithms: issuer.algorithms, issuer: issuer.issuer, audience: issuer.audience, clockTolerance: tolerance }),
+            try: () => jwtVerify(Redacted.value(token), resolver, { algorithms: [...issuer.algorithms], issuer: issuer.issuer, audience: issuer.audience, clockTolerance: tolerance }),
             catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
           }).pipe(
             Effect.tap(() =>

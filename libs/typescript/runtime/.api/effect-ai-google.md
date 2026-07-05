@@ -2,9 +2,9 @@
 
 `@effect/ai-google` 0.15.0 · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-google/GoogleClient`) · marker TSDECL `node_modules/@effect/ai-google/dist/dts/*.d.ts` · peers `@effect/ai@^0.36`, `@effect/platform@^0.96`, `@effect/experimental@^0.60`, `effect@^3.21` · tier node|browser (platform-neutral; depends only on `@effect/ai`, `@effect/platform`, `effect`)
 
-The Google Generative AI (Gemini) binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tool` tags against the Gemini **generateContent** API. Its asymmetry row is the leanest of the admitted providers — a language model and four provider-defined tools, but **no** curated embedding, tokenizer, or telemetry owner module; embeddings and token-counting exist only through the raw `Generated.Client` (`EmbedContent`/`BatchEmbedContents`/`CountTokens`), so `embed/embedder.ts` cannot bind a Google `EmbeddingModel` the way it binds OpenAI, and the design routes Google embeddings through the low-level client. Five owner modules re-export through the barrel (`GoogleClient`, `GoogleConfig`, `GoogleLanguageModel`, `GoogleTool`, `Generated`); the Gemini wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+The Google Generative AI (Gemini) binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tool` tags against the Gemini **generateContent** API. Its asymmetry row is the leanest of the admitted providers — a language model and four provider-defined tools, but **no** curated embedding, tokenizer, or telemetry owner module; embeddings and token-counting exist only through the raw `Generated.Client` (`EmbedContent`/`BatchEmbedContents`/`CountTokens`), so `ai/embed.ts` cannot bind a Google `EmbeddingModel` the way it binds OpenAI, and the design routes Google embeddings through the low-level client. Five owner modules re-export through the barrel (`GoogleClient`, `GoogleConfig`, `GoogleLanguageModel`, `GoogleTool`, `Generated`); the Gemini wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
-## [01]-[ASYMMETRY] — the row `model/provider.ts` folds
+## [01]-[ASYMMETRY] — the row `ai/model.ts` folds
 
 | [COLUMN]              | [Google]                                  | openai       | anthropic    | bedrock          |
 | :-------------------- | :---------------------------------------- | :----------- | :----------- | :--------------- |
@@ -56,7 +56,7 @@ declare const make:  (options: { model: (string & {}) | Model; config?: Omit<Con
 declare const layer: (options: { model; config? }) => Layer.Layer<LanguageModel.LanguageModel, never, GoogleClient>
 ```
 
-`Config` (tag `@effect/ai-google/GoogleLanguageModel/Config`, `static getOrUndefined`) is the `GenerateContentRequest` minus SDK-owned keys (`contents`/`tools`/`toolConfig`/`systemInstruction`) made partial, with a re-added partial `toolConfig.functionCallingConfig` (the mode-less function-calling policy). It is the tier-routing seam `provider.ts` writes per call.
+`Config` (tag `@effect/ai-google/GoogleLanguageModel/Config`, `static getOrUndefined`) is the `GenerateContentRequest` minus SDK-owned keys (`contents`/`tools`/`toolConfig`/`systemInstruction`) made partial, with a re-added partial `toolConfig.functionCallingConfig` (the mode-less function-calling policy). It is the tier-routing seam `ai/model.ts` writes per call.
 
 ```ts contract
 namespace Config {
@@ -66,7 +66,7 @@ namespace Config {
 }
 ```
 
-The `declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across many part interfaces; `FinishPartMetadata.google` is the single surface aggregating grounding, safety, URL-context, and usage off a finished response — the `safetyRatings` slot is what the `provider.ts` guardrail gate reads for output moderation.
+The `declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across many part interfaces; `FinishPartMetadata.google` is the single surface aggregating grounding, safety, URL-context, and usage off a finished response — the `safetyRatings` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
 
 | [AUGMENTS]        | [INTERFACES]                                                                                  | [`google` slot]                                              |
 | :---------------- | :-------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
@@ -106,8 +106,8 @@ The only curated `Service` entries are `generateContent`/`generateContentStream`
 
 ## [07]-[INTEGRATION] — how the row stacks into single rails
 
-- Universal Effect rails: `GoogleLanguageModel.model(id)` produces the same `LanguageModel.LanguageModel` tag as every sibling — provider choice is a single `Layer` swap in `provider.ts`. `Redacted`+`Config` own credential resolution; `Stream` folds the re-emitted `GenerateContentResponse` (candidate deltas, not a `type`-union); `Schema` decodes `Config`/responses; `Effect.catchTag` branches `AiError`. Compose top-down: `Effect.provide(GoogleLanguageModel.model(id))` over `GoogleClient.layer({ apiKey })` over an `HttpClient` layer.
-- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` from the `host/net` default-policy row; platform-neutral, so `FetchHttpClient.layer` (browser) or `NodeHttpClient.layer` (node) both satisfy it.
+- Universal Effect rails: `GoogleLanguageModel.model(id)` produces the same `LanguageModel.LanguageModel` tag as every sibling — provider choice is a single `Layer` swap in `ai/model.ts`. `Redacted`+`Config` own credential resolution; `Stream` folds the re-emitted `GenerateContentResponse` (candidate deltas, not a `type`-union); `Schema` decodes `Config`/responses; `Effect.catchTag` branches `AiError`. Compose top-down: `Effect.provide(GoogleLanguageModel.model(id))` over `GoogleClient.layer({ apiKey })` over an `HttpClient` layer.
+- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` from the `net/client` default-policy row; platform-neutral, so `FetchHttpClient.layer` (browser) or `NodeHttpClient.layer` (node) both satisfy it.
 - `@effect/ai` core (sibling catalog `effect-ai.md`): satisfies `LanguageModel.LanguageModel`, `Tool.ProviderDefined`/`Tool.FailureMode`; augments `Prompt`/`Response` provider slots. No `EmbeddingModel`, `Tokenizer`, or `Telemetry` tag — those asymmetry cells are empty, and any Google embedding/token-count goes through the raw `Generated.Client`, never a curated binding.
-- Sibling providers: the leanest row — `provider.ts` reads Google's empty embedding/tokenizer/telemetry cells against the OpenAI reference row and the free-form (enum-less) model-id column.
-- Design consumers: `model/provider.ts` (row + tier-routing + the guardrail gate, which reads `FinishPartMetadata.google.safetyRatings` for output moderation), `tool/toolkit.ts`+`tool/mcp.ts` (the four provider-defined tools projected). No `model/token.ts` tokenizer binding and no `embed/embedder.ts` `EmbeddingModel` — both are asymmetry gaps the design fills through the raw client or another provider.
+- Sibling providers: the leanest row — `ai/model.ts` reads Google's empty embedding/tokenizer/telemetry cells against the OpenAI reference row and the free-form (enum-less) model-id column.
+- Design consumers: `ai/model.ts` (row + tier-routing + the guardrail gate, which reads `FinishPartMetadata.google.safetyRatings` for output moderation), `ai/tool.ts`+`ai/tool.ts` (the four provider-defined tools projected). No `ai/model.ts` tokenizer binding and no `ai/embed.ts` `EmbeddingModel` — both are asymmetry gaps the design fills through the raw client or another provider.

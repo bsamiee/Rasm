@@ -1,6 +1,6 @@
 # [workbox-build] — the build-time precache/SW emitter: the RuntimeCaching strategy vocabulary and the manifest entry points
 
-`workbox-build` is a NODE build-time tool. It runs inside the app build (driven by the Vite PWA plugin, tooling tier), reads a glob config, and writes the precache manifest plus the service-worker asset — it never enters the browser runtime bundle. Its two load-bearing surfaces are the emit functions (`generateSW`/`injectManifest`/`getManifest`) run only in the build script, and the `RuntimeCaching`/`StrategyName` TYPES that `shell/worker.ts` composes as runtime-cache route rows through a type-only import. `workbox-window` registers the emitted asset at runtime — distinct altitude, one concern each.
+`workbox-build` is a NODE build-time tool. It runs inside the app build (driven by the Vite PWA plugin, tooling tier), reads a glob config, and writes the precache manifest plus the service-worker asset — it never enters the browser runtime bundle. Its two load-bearing surfaces are the emit functions (`generateSW`/`injectManifest`/`getManifest`) run only in the build script, and the `RuntimeCaching`/`StrategyName` TYPES that `browser/shell.md` composes as runtime-cache route rows through a type-only import. `workbox-window` registers the emitted asset at runtime — distinct altitude, one concern each.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 - exports: `generateSW`, `injectManifest`, `getManifest`, `copyWorkboxLibraries`, `getModuleURL`, and the full `./types` surface
 - bound asset: TSDECL `node_modules/workbox-build/build/{index,generate-sw,inject-manifest,get-manifest,types}.d.ts`
 - admission: folder-local `# browser` catalog group; version centralized in `pnpm-workspace.yaml`
-- role: `shell/worker.ts` (the precache manifest emitted at app build + the strategy-row vocabulary); the SW asset `shell/install.ts` and `workbox-window` consume at runtime
+- role: `browser/shell.md` (the precache manifest emitted at app build + the strategy-row vocabulary); the SW asset `browser/shell.md` and `workbox-window` consume at runtime
 - rail: `browser/shell` (build-time)
 
 ## [02]-[EMIT_ENTRYPOINTS]
@@ -83,7 +83,7 @@ Consumer note: `navigateFallback` + `navigationPreload` arm the SPA offline app-
 - sibling `workbox-window`: the same `RuntimeCaching`/`StrategyName` types cross the build/runtime seam (type-only in the runtime fold); the SW asset generated here is the exact script `Workbox` registers, so the strategy rows are one source of truth.
 - `vite-plugin-pwa` (tooling): internalizes `injectManifest`/`generateSW` into the Vite pipeline — the browser catalog owns the `workbox-build` surface, the tooling catalog owns the plugin wiring; the runtime rows import types only.
 - `effect` `Schema`: validate `RuntimeCaching`/`GenerateSWOptions` at the build boundary so a malformed strategy row fails the build, not the runtime; the `StrategyBehavior` → `RuntimeCaching` projection is a total `Record.map`, matching the keyed-vocabulary lookup over a `Match` chain.
-- `kernel/identity`: `ManifestEntry.revision` and `cacheId` derive from the same `ContentKey`/build fingerprint the runtime cache-version uses, so build-time and runtime agree on the precache identity.
+- `core/value/identity`: `ManifestEntry.revision` and `cacheId` derive from the same `ContentKey`/build fingerprint the runtime cache-version uses, so build-time and runtime agree on the precache identity.
 - `browser` prerender rows: `getManifest` folds the build-time per-route static HTML into the precache manifest, hydrated by `boot` — the client-rendered-PWA-plus-prerender SEO posture.
 
 ## [06]-[RAIL_LAW]

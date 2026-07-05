@@ -105,7 +105,7 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
 
 [RP_VERIFICATION]:
 - Owner: `WebAuthn.enrollStart`/`enrollFinish` register a passkey, `WebAuthn.assertStart`/`assertFinish` authenticate one. The `verified` discriminant is matched so the credential is extracted only on the true arm, and `newCounter` is the replay defense.
-- Law: the challenge is minted server-side, stashed, and consumed single-use — the finish leg consumes the stashed challenge on the rail (a miss is `WebAuthnFault.challenge`) and hands `verify*` the exact expected value, so the challenge is never trusted from the client and the store owns single-use; the response is `Schema`-decoded before verify.
+- Law: the challenge is minted server-side, stashed, and consumed single-use — the finish leg consumes the stashed challenge on the rail (a miss is `WebAuthnFault.challenge`) and hands `verify*` the exact expected value, so the challenge is never trusted from the client and the store owns single-use; the response is `Schema`-decoded before verify; the resolved passkey must belong to the ceremony's subject — a cross-subject assertion is `verification`, so one subject's challenge can never complete against another subject's credential.
 - Law: attestation dispatches inside the verifier keyed by the decoded `fmt`, parameterized by `WebAuthnTrust.attestationType` and the pinned root certs — a `direct`/`enterprise` policy validates the cert chain and records the `aaguid`, while `none` accepts any authenticator; the caller never writes the format switch.
 - Law: a non-increasing counter is a cloned authenticator (`WebAuthnFault.counter`, class `breached`); a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero.
 - Receipt: `Passkey` on registration, `TokenPair` on assertion — never a raw `VerifiedRegistrationResponse` past the seam.
@@ -169,6 +169,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
     const assertFinish = (subject: Subject["id"], response: AuthenticationResponseJSON): Effect.Effect<TokenPair, WebAuthnFault | SessionFault> =>
       Effect.gen(function* () {
         const passkey = yield* Effect.flatMap(store.byId(response.id), Option.match({ onNone: () => Effect.fail(new WebAuthnFault({ reason: "verification", detail: response.id })), onSome: Effect.succeed }))
+        yield* passkey.subject === subject ? Effect.void : Effect.fail(new WebAuthnFault({ reason: "verification", detail: response.id }))
         const expectedChallenge = yield* _expected(subject)
         const credential: WebAuthnCredential = {
           id: passkey.id, publicKey: passkey.publicKey, counter: passkey.counter,

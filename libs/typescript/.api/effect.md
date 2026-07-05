@@ -20,12 +20,12 @@
 | :-----: | :------------------------------------------------ | :------------------- | :-------------------------------------------------------------------- |
 |  [01]   | `Effect<A, E, R>`                                 | carrier              | every folder — the one rail; `R` is the Tag requirement set the app root satisfies |
 |  [02]   | `Option<A>` / `Either<R, L>`                      | value union          | `kernel` absence, decode results; `Option` replaces `null`/`undefined` in domain |
-|  [03]   | `Cause<E>` / `Exit<A, E>`                         | failure tree / outcome | `wire/fault` reconstruction, `telemetry/signal/crash` — retains defect + interrupt + parallel failures |
+|  [03]   | `Cause<E>` / `Exit<A, E>`                         | failure tree / outcome | `wire/fault` reconstruction, `otel/crash` — retains defect + interrupt + parallel failures |
 |  [04]   | `Data.TaggedEnum<...>` / `Data.Class`             | closed family        | `state` CRDT ops, `wire` decoded unions, `edge` control intents — value equality by structure |
-|  [05]   | `Redacted<A>`                                     | secret carrier       | `security/secret`, `host/config` — never logged; `Redacted.value` unwraps at the crypto seam only |
+|  [05]   | `Redacted<A>`                                     | secret carrier       | `security/secret`, `proc/config` — never logged; `Redacted.value` unwraps at the crypto seam only |
 |  [06]   | `Duration` / `DateTime.Utc` / `DateTime.Zoned`    | time value           | `kernel/clock`, `work/queue`, `store/journal` — monotonic + wall-clock evidence |
 |  [07]   | `Brand.Branded<A, K>`                             | nominal refinement   | `kernel/schema` brand floor (`ContentKey`, `Hlc`, `OrdinalKey`) — decode-once type identity |
-|  [08]   | `Scope` / `Fiber<A, E>`                           | resource / handle    | `host/life`, `work/engine`, `browser/boot` — structured lifetime and interruptible child fibers |
+|  [08]   | `Scope` / `Fiber<A, E>`                           | resource / handle    | `proc/life`, `work/engine`, `browser/boot` — structured lifetime and interruptible child fibers |
 
 [PUBLIC_TYPE_SCOPE]: schema, its derivations, and boundary shapes
 - rail: boundaries
@@ -48,7 +48,7 @@
 |  [01]   | `Context.Tag<Id, Service>` / `Context.TagClass` / `Context.Reference`| service key        | every port (`SqlClient`, `Embedder`, `SessionStore`); `class X extends Context.Tag("id")<X, S>()` mints a `TagClass` — the form `ai`/`store` service Tags carry; `Reference` carries a default |
 |  [02]   | `Layer<ROut, E, RIn>`                           | wiring             | app composition roots — folders ship `Layer` families the thin `main.ts` selects |
 |  [03]   | `LayerMap.Service` / `LayerMap`                 | keyed layer cache | `store/scope` per-tenant `StoreHandle` Layers keyed `(appKey, tenancy)` — isolation as a scope value |
-|  [04]   | `ManagedRuntime<R, E>`                          | runtime root      | `browser/boot`, `host/exec` — a built runtime the imperative host edge calls into |
+|  [04]   | `ManagedRuntime<R, E>`                          | runtime root      | `browser/boot`, `proc/exec` — a built runtime the imperative host edge calls into |
 |  [05]   | `Match.Matcher` (`Match.type`/`Match.value`)    | dispatch builder  | `wire` codec dispatch, `iac/provider` closed-arm selection, `edge` fault mapping |
 |  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span` | signal owner     | `telemetry` — counters/histograms, structured loggers, spans composed onto the rail |
 
@@ -65,8 +65,8 @@
 |  [04]   | `Effect.all(effects, { concurrency, mode })` / `Effect.forEach` / `Effect.validateAll`      | applicative        | independent operands accumulate; `mode: "validate"` collects every failure, not just the first |
 |  [05]   | `Effect.flatMap` / `Effect.andThen` / `Effect.zipWith` / `Effect.tap`                        | sequence           | dependent steps; `andThen` accepts value, `Effect`, or thunk — one combinator, many operands |
 |  [06]   | `Effect.catchTag` / `Effect.catchTags` / `Effect.catchAll` / `Effect.tapErrorTag`           | recover            | `wire`/`store` typed recovery by `_tag`; exhaustive over the tagged error family |
-|  [07]   | `Effect.retry(policy)` / `Effect.timeout` / `Effect.withExecutionPlan` / `Effect.race`      | resilience         | `host/net`, `ai/model`, `work/activity` — `ExecutionPlan` is multi-provider fallback with per-tier schedules |
-|  [08]   | `Effect.acquireRelease` / `Effect.acquireUseRelease` / `Effect.addFinalizer` / `Effect.scoped` | resource        | `host/life`, `store` connections, `work` leases — release runs on success, failure, and interrupt |
+|  [07]   | `Effect.retry(policy)` / `Effect.timeout` / `Effect.withExecutionPlan` / `Effect.race`      | resilience         | `net/client`, `ai/model`, `work/activity` — `ExecutionPlan` is multi-provider fallback with per-tier schedules |
+|  [08]   | `Effect.acquireRelease` / `Effect.acquireUseRelease` / `Effect.addFinalizer` / `Effect.scoped` | resource        | `proc/life`, `store` connections, `work` leases — release runs on success, failure, and interrupt |
 |  [09]   | `Effect.fork` / `Effect.forkScoped` / `Effect.forkDaemon` / `Effect.interrupt`              | concurrency        | `edge/live` subscriptions, `browser/transport` workers — scoped forks die with their scope |
 |  [10]   | `Effect.provide` / `Effect.provideService` / `Effect.updateService`                         | context supply     | app root injects `Layer`/service; `provideService` for a single Tag at a call site |
 |  [11]   | `Effect.withSpan` / `Effect.annotateLogs` / `Effect.withMetric` / `Effect.log*`             | observability seam | `telemetry` — `DEFINITION_TIME_ASPECTS` attach span/log/metric onto the rail, recoverable from declaration |
@@ -97,10 +97,10 @@
 |  [02]   | `class Tag extends Context.Tag("app/Port")<Tag, Shape>() {}` / `Context.Reference`            | port Tag        | `PORT_LAW` — `security`/`store`/`ui` declare ports the app root satisfies across the ledger edge |
 |  [03]   | `Layer.effect(Tag, build)` / `Layer.scoped(Tag, build)` / `Layer.succeed(Tag, value)`         | construct layer | folder Layers; `scoped` ties the service to a `Scope` so teardown is structural |
 |  [04]   | `Layer.provide` / `Layer.provideMerge` / `Layer.mergeAll` / `Layer.merge`                     | compose layer   | app root builds the dependency graph; `provideMerge` keeps the provided service in the output |
-|  [05]   | `Layer.launch(layer)` / `Layer.memoize` / `Layer.fresh` / `Layer.retry(schedule)`             | run / lifetime  | `host/life` long-lived roots; `memoize` shares one instance, `fresh` forces a new build |
-|  [06]   | `Layer.setConfigProvider` / `Layer.setTracer` / `Layer.setClock` / `Layer.setRequestBatching` | override policy | `host/config`, `telemetry`, the testkit harness (TestClock) swap the runtime service under the whole graph |
+|  [05]   | `Layer.launch(layer)` / `Layer.memoize` / `Layer.fresh` / `Layer.retry(schedule)`             | run / lifetime  | `proc/life` long-lived roots; `memoize` shares one instance, `fresh` forces a new build |
+|  [06]   | `Layer.setConfigProvider` / `Layer.setTracer` / `Layer.setClock` / `Layer.setRequestBatching` | override policy | `proc/config`, `telemetry`, the testkit harness (TestClock) swap the runtime service under the whole graph |
 |  [07]   | `ManagedRuntime.make(layer)` → `.runFork` / `.runPromise` / `.dispose`                         | runtime root    | `browser/boot` builds once, the imperative host calls in; `LayerMap.make` for keyed runtimes |
-|  [08]   | `Reloadable.auto(Tag, { layer, schedule })` / `Reloadable.reload`                             | hot reload      | `host/flag` re-evaluates a remote provider on a schedule without tearing the graph |
+|  [08]   | `Reloadable.auto(Tag, { layer, schedule })` / `Reloadable.reload`                             | hot reload      | `proc/flag` re-evaluates a remote provider on a schedule without tearing the graph |
 
 [ENTRYPOINT_SCOPE]: dispatch — `Match` and `Data`
 - rail: surfaces-and-dispatch
@@ -142,12 +142,12 @@
 | [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY]  | [CONSUMER]                                                 |
 | :-----: | :---------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------- |
 |  [01]   | `Schedule.exponential` / `Schedule.jittered` / `Schedule.intersect` / `Schedule.recurWhile` / `Schedule.cron` | recurrence | `kernel/fault` budget rows compile to schedules; `work/queue` cron; retry policy as a value |
-|  [02]   | `Config.string` / `Config.redacted` / `Config.integer` / `Config.withDefault` / `Config.nested` | config schema   | `host/config` typed ingress; `Config.redacted` keeps secrets in `Redacted` end-to-end |
-|  [03]   | `ConfigProvider.fromEnv` / `ConfigProvider.fromJson` / `.orElse` / `ConfigProvider.constantCase`| provider chain  | `host/config/provider.ts` env→file→remote chain; case adapters map `FOO_BAR`↔`fooBar` |
+|  [02]   | `Config.string` / `Config.redacted` / `Config.integer` / `Config.withDefault` / `Config.nested` | config schema   | `proc/config` typed ingress; `Config.redacted` keeps secrets in `Redacted` end-to-end |
+|  [03]   | `ConfigProvider.fromEnv` / `ConfigProvider.fromJson` / `.orElse` / `ConfigProvider.constantCase`| provider chain  | `runtime/src/proc/config.ts` env→file→remote chain; case adapters map `FOO_BAR`↔`fooBar` |
 |  [04]   | `Duration.seconds` / `Duration.decode` / `DateTime.now` / `DateTime.addDuration` / `Cron.parse` | time            | `kernel/clock` HLC composition, `work` deadlines, `store` retention windows |
 |  [05]   | `Metric.counter` / `Metric.histogram` / `Metric.gauge` / `Metric.timerWithBoundaries` / `.tagged` | metric        | `telemetry/signal` — `(app, tenant)`-tagged instruments; `Effect.withMetric` attaches to a rail |
 |  [06]   | `Logger.make` / `Logger.replace` / `Logger.batched` / `LogLevel.Debug` / `Logger.structuredLogger`| logger        | `telemetry` structured logging; `Logger.batched` for buffered export, `withMinimumLogLevel` gate |
-|  [07]   | `Metric.snapshot` / `Tracer.externalSpan` / `Effect.makeSpanScoped`                             | signal read     | `telemetry/board` reads the registry; `externalSpan` continues an extracted W3C trace context |
+|  [07]   | `Metric.snapshot` / `Tracer.externalSpan` / `Effect.makeSpanScoped`                             | signal read     | `core/observe/board` reads the registry; `externalSpan` continues an extracted W3C trace context |
 
 [ENTRYPOINT_SCOPE]: immutable collections, equality, and caching
 - rail: shapes
@@ -157,8 +157,8 @@
 |  [01]   | `Chunk` / `HashMap` / `HashSet` / `SortedMap` / `MutableHashMap` (algorithm-local)           | collection      | `state/fold` keyed folds, `wire` decoded maps — Effect collections, not JS `Map`/`Set` |
 |  [02]   | `Array.*` / `Record.*` / `Struct.*` / `Tuple.*` (module functions over plain values)          | stdlib fold     | `DERIVED_LOGIC` folds; `Array.reduce`/`Record.map` replace imperative loops at FFI-safe altitude |
 |  [03]   | `Order.*` / `Equivalence.*` / `Equal.equals` / `Hash.hash` / `Predicate.*`                    | comparison      | `state/causal` ordering, `Data`-backed structural equality, `Predicate.and`/`or` refinement algebra |
-|  [04]   | `Cache.make({ capacity, timeToLive, lookup })` / `RcMap.make` / `KeyedPool.make` / `Pool.make`| cache / pool     | `store/scope` lookups, `host/net` connection pools, `ai` provider clients — TTL + reference counting |
-|  [05]   | `RateLimiter.make({ limit, interval })` / `Request.Class` / `RequestResolver.makeBatched`     | rate / batch     | `host/net` API-key limits, `store`/`ai` request de-duplication and batching under one resolver |
+|  [04]   | `Cache.make({ capacity, timeToLive, lookup })` / `RcMap.make` / `KeyedPool.make` / `Pool.make`| cache / pool     | `store/scope` lookups, `net/client` connection pools, `ai` provider clients — TTL + reference counting |
+|  [05]   | `RateLimiter.make({ limit, interval })` / `Request.Class` / `RequestResolver.makeBatched`     | rate / batch     | `net/client` API-key limits, `store`/`ai` request de-duplication and batching under one resolver |
 |  [06]   | `Encoding.encodeBase64` / `Encoding.decodeHex` / `Redacted.make` / `Redacted.value`           | codec / secret   | `security` byte encodings, `wire` frame codecs; `Redacted` unwraps only at the crypto boundary |
 
 ## [04]-[IMPLEMENTATION_LAW]

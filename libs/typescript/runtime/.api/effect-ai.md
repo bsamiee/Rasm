@@ -7,8 +7,8 @@ the MCP server (`McpServer`/`McpSchema`). Provider packages never subclass these
 provider-tagged `Model` (`Model.make(name, layer)`) into these Tags, so a provider is one row on the
 capability-asymmetry table, never a fork. All generation is `Effect`/`Stream`; all failure flows through
 the tagged `AiError` union; every tool-augmented call type-infers its added errors and context from the
-toolkit (`ExtractError`/`ExtractContext`). The `model/provider.ts` guardrail gate wraps `generateText`/
-`streamText`; `agent/memory.ts` composes `Chat.Persistence`; `tool/mcp.ts` hosts on `McpServer`.
+toolkit (`ExtractError`/`ExtractContext`). The `ai/model.ts` guardrail gate wraps `generateText`/
+`streamText`; `ai/agent.ts` composes `Chat.Persistence`; `ai/tool.ts` hosts on `McpServer`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -94,7 +94,7 @@ interface ConstructorParams {
 
 `Model.make(name, layer)` is the provider row: a value that is BOTH a `Layer` (provide it to bind the Tags)
 AND an `Effect` (yield it to lift the provider's dependencies into a parent). It auto-provides `ProviderName`,
-so the guardrail/tier-routing folds read the active provider by yielding one Tag. `provider.ts` folds every
+so the guardrail/tier-routing folds read the active provider by yielding one Tag. `ai/model.ts` folds every
 provider (anthropic/openai/google/bedrock/openrouter) onto this one constructor — asymmetry lives in the row's
 config, never in a parallel API.
 
@@ -130,8 +130,8 @@ is uniform across all five; the asymmetry lives in the row config, catalogued pe
 [PUBLIC_TYPE_SCOPE]: vector embedding + built-in batch/cache — rail: ai-embed
 
 `make` already owns request batching (`maxBatchSize`) and an Effect `Cache` (`capacity`/`timeToLive`);
-`makeDataLoader` owns time-window coalescing (Scope-scoped). `embed/embedder.ts` satisfies the
-`store/retrieve` `Embedder` port with the `EmbeddingModel` Tag; `embed/chunk.ts` feeds `embedMany`.
+`makeDataLoader` owns time-window coalescing (Scope-scoped). `ai/embed.ts` satisfies the
+`store/retrieve` `Embedder` port with the `EmbeddingModel` Tag; `ai/embed.ts` feeds `embedMany`.
 
 ```ts contract
 declare class EmbeddingModel extends Context.Tag("@effect/ai/EmbeddingModel")<EmbeddingModel, Service> {}
@@ -220,7 +220,7 @@ declare const merge: <const Toolkits extends ReadonlyArray<Any>>(...toolkits: To
 [PUBLIC_TYPE_SCOPE]: prompt construction + response part algebra — rail: ai-core
 
 `Prompt` is the conversation value: `make`/`fromMessages`/`fromResponseParts` build it, `merge`/`setSystem`/
-`prependSystem`/`appendSystem` are the context-assembly combinators `token.ts` folds app-passed retrieval into.
+`prependSystem`/`appendSystem` are the context-assembly combinators `ai/model.ts` folds app-passed retrieval into.
 `RawInput` is what `generateText({ prompt })` accepts (string | messages | `Prompt`). `Response` is the
 discriminated part union `streamText` yields — the design's streaming fold discriminates on `part.type`.
 
@@ -270,8 +270,8 @@ declare module "@effect/ai/Prompt"   { interface FilePartOptions   { readonly an
 
 `Chat` maintains history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while
 appending both turns. `export`/`exportJson` serialize; `fromJson`/`fromExport`/`fromPrompt` restore.
-`Persistence` + `layerPersisted` back durable sessions — the exact substrate `agent/memory.ts` and
-`agent/actor.ts` compose for durable agents over `work` entities.
+`Persistence` + `layerPersisted` back durable sessions — the exact substrate `ai/agent.ts` and
+`ai/agent.ts` compose for durable agents over `work` entities.
 
 ```ts contract
 declare class Chat extends Context.Tag("@effect/ai/Chat")<Chat, Service> {}
@@ -298,7 +298,7 @@ declare const layerPersisted: (o: { /* … */ }) => Layer.Layer<Persistence, nev
 
 [PUBLIC_TYPE_SCOPE]: token counting + budget truncation — rail: ai-token
 
-`token.ts` budgets own this Tag; the two provider tokenizers `AnthropicTokenizer` (bare `Service` value) and
+`ai/model.ts` budgets own this Tag; the two provider tokenizers `AnthropicTokenizer` (bare `Service` value) and
 `OpenAiTokenizer.make({model})` are the Layers that provide it (`effect-ai-anthropic.md` [04] / `effect-ai-openai.md` [05]);
 `modelWithTokenizer`/`layerWithTokenizer` fold either into the provides set. `truncate` is the budget enforcement — trim a
 `Prompt` to a token ceiling before generation.
@@ -316,7 +316,7 @@ declare const make: (o: { readonly tokenize: (content: Prompt.Prompt) => Effect.
 
 [PUBLIC_TYPE_SCOPE]: native MCP server + protocol schema — rail: ai-tool
 
-`tool/mcp.ts` hosts app toolkits as MCP tools with NO extra dependency: `McpServer.toolkit(toolkit)` registers a
+`ai/tool.ts` hosts app toolkits as MCP tools with NO extra dependency: `McpServer.toolkit(toolkit)` registers a
 `Toolkit` as MCP tools, and one transport Layer (`layerStdio`/`layerHttp`/`layerHttpRouter`) serves it.
 `resource`/`prompt`/`elicit` round out server capability; `McpSchema` is the full MCP wire (Schema.Class-based)
 with typed error subclasses. This is the sole MCP host — `@modelcontextprotocol/sdk` is client-only.
@@ -384,7 +384,7 @@ declare const isAiError: (u: unknown) => u is AiError
 ## [11]-[INTEGRATION]
 
 [STACK]: provider rows + the ONE guardrail gate — rail: ai-core
-- `provider.ts` is a table of `Model.make(name, providerLayer)` rows; the app root provides one. The guardrail
+- `ai/model.ts` is a table of `Model.make(name, providerLayer)` rows; the app root provides one. The guardrail
   gate wraps `generateText`/`streamText` in a fold: input moderation runs before the call, output moderation +
   `Schema`-refusal admission run over the `Response.Part` stream, and a rejected call short-circuits into `AiError`
   — one admission surface over every row, not a per-provider fork. Tier-routing reads `Model.ProviderName` +
@@ -396,7 +396,7 @@ declare const isAiError: (u: unknown) => u is AiError
 - `effect`: `Schema` types every tool/prompt/response and the `generateObject` output; `Stream` carries
   `streamText` deltas folded by `part.type`; `Layer`/`Context.Tag` bind every service; `Match.tag` dispatches
   `AiError`; `Cache`/`Duration` back `EmbeddingModel.make`.
-- `@effect/platform`: provider Layers require `HttpClient` — `host/net` supplies the default-policy client
+- `@effect/platform`: provider Layers require `HttpClient` — `net/client` supplies the default-policy client
   (timeout/retry/proxy); `McpServer.layerHttp` composes `HttpRouter`/`HttpLayerRouter`.
 - `@effect/opentelemetry`: `Telemetry.addGenAIAnnotations` writes GenAI semconv onto the `ProviderOptions.span`;
   the `telemetry` folder's OTLP exporter ships them — one span per generation, tool call, and agent run.
@@ -406,7 +406,7 @@ declare const isAiError: (u: unknown) => u is AiError
   through an in-memory transport.
 
 [STACK]: `embed` -> `store` `Embedder` port — rail: ai-embed
-- `embedder.ts` publishes the `EmbeddingModel` Tag (batched + cached via `make`, or window-coalesced via
+- `ai/embed.ts` publishes the `EmbeddingModel` Tag (batched + cached via `make`, or window-coalesced via
   `makeDataLoader`) as the `Layer` the app root wires into the `store/retrieve` `Embedder` port; `ai` imports no
-  `store` code. `token.ts` folds app-passed `store/retrieve` results into a `Prompt` via `merge`/`appendSystem` —
+  `store` code. `ai/model.ts` folds app-passed `store/retrieve` results into a `Prompt` via `merge`/`appendSystem` —
   retrieval arrives as values, never a `store` import edge.

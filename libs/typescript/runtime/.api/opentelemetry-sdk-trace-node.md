@@ -10,7 +10,7 @@
 - asset: TSDECL `build/src/index.d.ts` (`assay api resolve @opentelemetry/sdk-trace-node` → `2.8.0`, restored).
 - peer: `@opentelemetry/api >=1.0.0 <1.10.0`; deps `@opentelemetry/context-async-hooks` (`AsyncLocalStorageContextManager`), `@opentelemetry/core` (the W3C propagators), `@opentelemetry/sdk-trace-base` (the re-exported roster).
 - runtime: node/bun only — the async-local-storage context manager is a node runtime dependency; the browser counterpart is `sdk-trace-web` (`WebTracerProvider`, `StackContextManager`).
-- plane: `plane:runtime` / `plane:server`, edge-ledger-fenced to `scope:telemetry`.
+- plane: `plane:runtime` / `plane:server`, edge-ledger-fenced to `scope:runtime`.
 - rail: observability/sdk-bridge; `[R3]` collapse target.
 - role: backs the `@effect/opentelemetry` `NodeSdk` layer (the `telemetry` NodeSdk export row); supplies the node `NodeTracerProvider` effect wraps, and re-exports the whole base trace roster.
 
@@ -54,5 +54,5 @@ The barrel re-exports the full `sdk-trace-base` public surface — a node consum
 
 - Owns: the node trace provider — `NodeTracerProvider` + the `register()` global-install semantics (async-local-storage context manager + W3C composite propagator) — and the superset barrel re-exporting the full `sdk-trace-base` roster.
 - Accept: `new NodeTracerProvider(tracerConfig)` reached through `@effect/opentelemetry` `NodeSdk` for the node/bun telemetry lane; `register()` only in a pure-SDK non-Effect path; base processors/exporters/samplers imported from this barrel.
-- Reject: calling `.register()` under the effect facade (effect owns global context wiring — a double registration); using this leg in the browser (`sdk-trace-web` owns that); re-documenting or re-implementing the base roster (it is re-exported, catalogued in `opentelemetry-sdk-trace-base.md`); importing outside `scope:telemetry`; treating the node lane as permanent — it collapses at `[R3]`.
+- Reject: calling `.register()` under the effect facade (effect owns global context wiring — a double registration); using this leg in the browser (`sdk-trace-web` owns that); re-documenting or re-implementing the base roster (it is re-exported, catalogued in `opentelemetry-sdk-trace-base.md`); importing outside `scope:runtime`; treating the node lane as permanent — it collapses at `[R3]`.
 - Boundary: `NodeTracerConfig` carries no node-specific axis (`= TracerConfig`); the node-specific behavior lives entirely in `register()`. Under effect the `resource` is the `AppIdentity`-derived `Resource` layer, not a field set here.

@@ -133,10 +133,9 @@ const _rasm = {
 } as const
 
 const _metric = {
-  auditDrained: "rasm.audit.drained",
   crashCaptured: "rasm.crash.captured",
+  factDrained: "rasm.fact.drained",
   httpServerDuration: METRIC_HTTP_SERVER_REQUEST_DURATION,
-  meterDrained: "rasm.meter.drained",
   meterUsage: "rasm.meter.usage",
   vitalLevel: "rasm.vital.level",
   vitalObserved: "rasm.vital.observed",

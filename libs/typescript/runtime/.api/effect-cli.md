@@ -1,6 +1,6 @@
 # [@effect/cli] — the Command/Args/Options/Prompt vocabulary behind the cli/verb contribution families; the app assembles exactly one Command root
 
-`@effect/cli` is the terminal entry family under the one edge assembly law. Each verb family in `cli/verb.ts` is a `Command<Name, R, E, A>` VALUE — itself an `Effect` yielding its parsed config — exported as data; the APP folds selected families through `Command.withSubcommands` into exactly one root and runs it via `Command.run({name, version})` under the platform `Environment` (`FileSystem | Path | Terminal`). The god-CLI is structurally impossible because the root has no lib-side existence. doctor/replay/inspect ship as the lib ops family, their handlers executing over `host/exec`. `cli/render.ts` renders output through `@effect/printer`(-ansi), and the package's own `HelpDoc` lowers onto that same rail. This is the terminal peer of the `@effect/rpc` `RpcGroup` contribution family.
+`@effect/cli` is the terminal entry family under the one edge assembly law. Each verb family in `cli/verb.ts` is a `Command<Name, R, E, A>` VALUE — itself an `Effect` yielding its parsed config — exported as data; the APP folds selected families through `Command.withSubcommands` into exactly one root and runs it via `Command.run({name, version})` under the platform `Environment` (`FileSystem | Path | Terminal`). The god-CLI is structurally impossible because the root has no lib-side existence. doctor/replay/inspect ship as the lib ops family, their handlers executing over `proc/exec`. `cli/render.ts` renders output through `@effect/printer`(-ansi), and the package's own `HelpDoc` lowers onto that same rail. This is the terminal peer of the `@effect/rpc` `RpcGroup` contribution family.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - peers: `effect` `^3.21.2`, `@effect/platform` `^0.96.1`, `@effect/printer` + `@effect/printer-ansi` `^0.49.0` (catalog-resolved to `3.21.4` / `0.96.2` / `0.49.0`); the `Environment` is satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun`
 - bound asset: TSDECL `node_modules/@effect/cli/dist/dts/*.d.ts` (`assay api resolve @effect/cli` → `0.75.2`)
 - admission: folder-local `# edge` catalog group; version centralized in `pnpm-workspace.yaml`
-- role: `cli/verb.ts` (Command contribution families + the one-root assembly), `cli/render.ts` (Doc-composed output); the ops family executes over `host/exec`
+- role: `cli/verb.ts` (Command contribution families + the one-root assembly), `cli/render.ts` (Doc-composed output); the ops family executes over `proc/exec`
 - rail: `edge/cli`
 
 ## [02]-[COMMAND_OWNER]
@@ -45,7 +45,7 @@ declare const run: {
 }
 ```
 
-Consumer note: each verb family is a `Command` value; the app folds selected families through `withSubcommands([verbA, verbB, …])` into ONE root, then `Command.run({ name, version })` turns it into `argv => Effect<void, E | ValidationError, R | Environment>`. `provide` scopes a Layer to a verb subtree so the ops family's `host/exec` runtime is injected per-command, never at the whole tree.
+Consumer note: each verb family is a `Command` value; the app folds selected families through `withSubcommands([verbA, verbB, …])` into ONE root, then `Command.run({ name, version })` turns it into `argv => Effect<void, E | ValidationError, R | Environment>`. `provide` scopes a Layer to a verb subtree so the ops family's `proc/exec` runtime is injected per-command, never at the whole tree.
 
 ## [03]-[OPTIONS_ARGS_ALGEBRA]
 
@@ -65,7 +65,7 @@ declare const withSchema:         <A, I extends A, B>(schema: Schema<B, I, FileS
 declare const withFallbackPrompt: <B>(prompt: Prompt<B>) => <A>(self: Options<A>) => Options<B | A>   // prompt when the flag is absent
 ```
 
-Consumer note: `withFallbackConfig(Config)` is the bridge that unifies a CLI flag with an `effect/Config` value (env / config provider) in one declaration — the canonical way a verb resolves a flag from `host/config`. `withSchema(Schema)` decodes a flag straight into a kernel-branded value, so the terminal boundary decodes-once exactly like the wire and route boundaries. The one asymmetry: `Args.mapEffect` fails with `HelpDoc` while `Options.mapEffect` fails with `ValidationError`; `Args.validate` returns `[leftover, A]` and `Options.processCommandLine` returns `[Option<ValidationError>, leftover, A]`.
+Consumer note: `withFallbackConfig(Config)` is the bridge that unifies a CLI flag with an `effect/Config` value (env / config provider) in one declaration — the canonical way a verb resolves a flag from `proc/config`. `withSchema(Schema)` decodes a flag straight into a kernel-branded value, so the terminal boundary decodes-once exactly like the wire and route boundaries. The one asymmetry: `Args.mapEffect` fails with `HelpDoc` while `Options.mapEffect` fails with `ValidationError`; `Args.validate` returns `[leftover, A]` and `Options.processCommandLine` returns `[Option<ValidationError>, leftover, A]`.
 
 ## [04]-[PROMPT]
 
@@ -107,12 +107,12 @@ Consumer note: `isHelpRequested` is matched in the run rail to treat `--help`/`-
 
 ## [06]-[STACKING]
 
-- `@effect/platform` env: `Command.run` yields `Effect<…, R | Environment>` where `Environment = FileSystem | Path | Terminal`; satisfy it with `@effect/platform-node` `NodeContext.layer` (node) or `@effect/platform-bun` — the same serve-row selection `host/exec` makes for the HTTP family, so one runtime choice covers CLI and server.
+- `@effect/platform` env: `Command.run` yields `Effect<…, R | Environment>` where `Environment = FileSystem | Path | Terminal`; satisfy it with `@effect/platform-node` `NodeContext.layer` (node) or `@effect/platform-bun` — the same serve-row selection `proc/exec` makes for the HTTP family, so one runtime choice covers CLI and server.
 - sibling `@effect/printer`(-ansi): `cli/render.ts` composes `Doc` (`text`/`vcat`/`hsep`/`nest`/`annotate`) and renders through `@effect/printer-ansi` `Ansi`/`AnsiDoc`; `HelpDoc.toAnsiDoc` IS a `@effect/printer-ansi` `AnsiDoc`, so parse-error help and app output share one render rail — no second styling path.
 - sibling `@effect/rpc`: `RpcGroup` and `Command` are the two contribution families under the one assembly law — the app assembles one `HttpApi`, selects `RpcServer` protocol rows, and folds one `Command` root; the verb and rpc families compose identically, so a capability shipped as an rpc method and a verb reuses one handler `Effect`.
-- `effect` `Config` + `host/config`: `withFallbackConfig`/`ConfigFile.layer` fold CLI flags into the `host/config` provider chain (env → doppler → file → remote) in one declaration, so a flag and its env var are never two sources.
+- `effect` `Config` + `proc/config`: `withFallbackConfig`/`ConfigFile.layer` fold CLI flags into the `proc/config` provider chain (env → doppler → file → remote) in one declaration, so a flag and its env var are never two sources.
 - kernel `Schema`: `Options.withSchema`/`Args.withSchema`/`fileSchema(schema)` decode a flag/arg/file into a kernel brand at the terminal boundary — decode-once, matching the wire and route boundaries.
-- `host/exec` ops family: doctor/replay/inspect are `Command` values whose handlers run over `host/exec` runtime rows; `Command.provide` scopes their Layers so the ops subtree carries its process/exec capability without leaking it to app verbs.
+- `proc/exec` ops family: doctor/replay/inspect are `Command` values whose handlers run over `proc/exec` runtime rows; `Command.provide` scopes their Layers so the ops subtree carries its process/exec capability without leaking it to app verbs.
 
 ## [07]-[RAIL_LAW]
 

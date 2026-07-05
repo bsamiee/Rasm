@@ -1,6 +1,6 @@
-# [nuqs] — the route/navigate URL query-state codec: the framework-agnostic parse/serialize core, never a router
+# [nuqs] — the browser/route URL query-state codec: the framework-agnostic parse/serialize core, never a router
 
-`nuqs` is a type-safe URL search-param state manager. `route/navigate.ts` consumes ONLY its framework-agnostic codec core from the `nuqs/server` entry — the `parseAs*` builder atoms, `createParser`, `createSerializer`, `createLoader`, `createStandardSchemaV1` — and composes it against the Navigation API: nuqs owns typed parse/serialize of the query string, the Navigation API owns traversal. That split IS the zero-routing-package law. The React `useQueryState`/`useQueryStates` hooks require a `nuqs/adapters/*` provider plus React and are outside the browser rail; the `nuqs/server` parsers, serializer, loader, and standard-schema are React-free in behavior, so a browser build tree-shakes to the codec alone — only `createSearchParamsCache` (the RSC cache) statically touches React, dropped when unused.
+`nuqs` is a type-safe URL search-param state manager. `browser/route.md` consumes ONLY its framework-agnostic codec core from the `nuqs/server` entry — the `parseAs*` builder atoms, `createParser`, `createSerializer`, `createLoader`, `createStandardSchemaV1` — and composes it against the Navigation API: nuqs owns typed parse/serialize of the query string, the Navigation API owns traversal. That split IS the zero-routing-package law. The React `useQueryState`/`useQueryStates` hooks require a `nuqs/adapters/*` provider plus React and are outside the browser rail; the `nuqs/server` parsers, serializer, loader, and standard-schema are React-free in behavior, so a browser build tree-shakes to the codec alone — only `createSearchParamsCache` (the RSC cache) statically touches React, dropped when unused.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - marker: `sideEffects` limited to `./dist/debug.js`; peer `@standard-schema/spec` (Standard Schema v1 interop); the `Options` type references React's `TransitionStartFunction` type-only, never a runtime pull
 - bound asset: TSDECL `node_modules/nuqs/dist/{index,server,parsers,defs}.d.ts` (`assay api resolve nuqs` → `2.9.0`, `restore: restored`)
 - admission: folder-local `# browser` catalog group; version centralized in `pnpm-workspace.yaml`, never pinned here
-- role: `route/navigate.ts` (the R17 composition site — URL query-state typing over the Navigation-API router); `route/guard.ts` folds the decoded params
+- role: `browser/route.md` (the R17 composition site — URL query-state typing over the Navigation-API router); `browser/route.md` folds the decoded params
 - rail: `browser/route`
 
 ## [02]-[PARSER_ALGEBRA]
@@ -37,7 +37,7 @@ type ParserMap = Record<string, ParserWithOptionalDefault<any>>
 type inferParserType<Input> // GenericParserBuilder<T> → T | null (or T when .withDefault); ParserMap → { [K]: … }
 ```
 
-Consumer note: `route/navigate.ts` declares one `ParserMap` per route; `.withDefault(v)` makes a key non-nullable and (with `clearOnDefault`) omits it from the URL at the default; `createParser` owns any bespoke encoding rather than string-mashing `URLSearchParams`.
+Consumer note: `browser/route.md` declares one `ParserMap` per route; `.withDefault(v)` makes a key non-nullable and (with `clearOnDefault`) omits it from the URL at the default; `createParser` owns any bespoke encoding rather than string-mashing `URLSearchParams`.
 
 ## [03]-[BUILTIN_PARSERS]
 
@@ -105,18 +105,18 @@ Consumer note: `createSerializer` honors ONLY `clearOnDefault` (plus `urlKeys`, 
 
 ## [06]-[REACT_SURFACE_BOUNDARY]
 
-`useQueryState<T>(key, options)` and `useQueryStates<KeyMap>(keyMap, options?)` bind a `[value, setter]` pair (setter returns `Promise<URLSearchParams>`, batching writes) — but only inside a React tree wrapped by a `nuqs/adapters/{react,next,react-router,tanstack-router}` provider. They are catalogued as the boundary a future `browser` rebuild must NOT reach for: the browser folder is non-React, so any query-state hook is a `ui`-tier concern, and `route/navigate.ts` composes the `nuqs/server` codec instead.
+`useQueryState<T>(key, options)` and `useQueryStates<KeyMap>(keyMap, options?)` bind a `[value, setter]` pair (setter returns `Promise<URLSearchParams>`, batching writes) — but only inside a React tree wrapped by a `nuqs/adapters/{react,next,react-router,tanstack-router}` provider. They are catalogued as the boundary a future `browser` rebuild must NOT reach for: the browser folder is non-React, so any query-state hook is a `ui`-tier concern, and `browser/route.md` composes the `nuqs/server` codec instead.
 
 ## [07]-[STACKING]
 
 - kernel `Schema`: `parseAsJson(Schema.standardSchemaV1(RouteParamSchema))` feeds a kernel `Schema` (projected to Standard Schema v1) straight into the JSON parser — the URL param decodes once into a kernel-branded value, never a raw string. Conversely `createStandardSchemaV1(parsers)` hands the whole route's `ParserMap` to any Standard-Schema consumer.
-- `browser/route/navigate` Navigation API: nuqs is the codec, `navigation.navigate(url)` the traversal; a `navigate`-event listener re-runs `createLoader(parsers)(new URL(navigation.currentEntry.url))` to derive the current typed query state — zero routing package.
-- `effect` rails: the pure `createSerializer`/`createLoader` wrap in `Effect.sync`; the decoded param record drives `Match.value` route dispatch; a `SubscriptionRef` holds the current typed query state the `route/guard` admission folds read.
-- sibling `idb-keyval` (`persist/kv`): `set`/`get` the last-good serialized query string per route key so a cold boot `createLoader`-decodes the restored string to typed state before the Navigation API resolves the entry.
-- `state/query`: a decoded query record is a live-query key — `createLoader` output feeds a `Subscribable` window rather than a bespoke param bag.
+- `browser/route` Navigation API: nuqs is the codec, `navigation.navigate(url)` the traversal; a `navigate`-event listener re-runs `createLoader(parsers)(new URL(navigation.currentEntry.url))` to derive the current typed query state — zero routing package.
+- `effect` rails: the pure `createSerializer`/`createLoader` wrap in `Effect.sync`; the decoded param record drives `Match.value` route dispatch; a `SubscriptionRef` holds the current typed query state the `browser/route` admission folds read.
+- sibling `idb-keyval` (`browser/persist`): `set`/`get` the last-good serialized query string per route key so a cold boot `createLoader`-decodes the restored string to typed state before the Navigation API resolves the entry.
+- `data read/live`: a decoded query record is a live-query key — `createLoader` output feeds a `Subscribable` window rather than a bespoke param bag.
 
 ## [08]-[RAIL_LAW]
 
-- Owns: typed URL query-state parse, serialize, and load — the codec half of `route/navigate`.
+- Owns: typed URL query-state parse, serialize, and load — the codec half of `browser/route`.
 - Accept: the `nuqs/server` core (`parseAs*` atoms, `createParser`, `createSerializer`, `createLoader`, `createStandardSchemaV1`) composed against the Navigation API and kernel `Schema`.
 - Reject: the React hooks/adapters inside `browser` (a `ui`-tier surface); `createSearchParamsCache` (RSC non-goal); manual `URLSearchParams` manipulation for state a parser can own; treating nuqs as the router (the Navigation API is).

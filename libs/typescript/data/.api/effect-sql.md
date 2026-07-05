@@ -112,6 +112,7 @@
 |  [02]   | `SqlResolver.ordered(tag, { Request, Result, execute })`                                            | batch resolver | 1:1 request→result, order-matched (`ResultLengthMismatch` guard) — `project/async` batched loads |
 |  [03]   | `SqlResolver.grouped(tag, { Request, RequestGroupKey, Result, ResultGroupKey, execute })`           | batch resolver | 1:N grouped by extracted key — `retrieve/hybrid` fan-in of per-key result sets |
 |  [04]   | `SqlResolver.findById(tag, { Id, Result, ResultId, execute })` → `Option`                           | batch resolver | id→`Option` DataLoader; `withContext: true` threads a `Schema` requirement into the batch |
+|  [4b]   | `SqlResolver.void(tag, { Request, execute })`                                                       | batch resolver | batched write with no result decode — windowed touch/complete statements |
 |  [05]   | `resolver.execute(input)` / `.cachePopulate(id, result)` / `.cacheInvalidate(id)`                  | dispatch/cache | run a batched request; seed or evict the per-resolver cache on write |
 
 [ENTRYPOINT_SCOPE]: the `Model` domain class and its repository/loader helpers

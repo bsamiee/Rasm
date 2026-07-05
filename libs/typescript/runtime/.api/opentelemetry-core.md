@@ -1,6 +1,6 @@
-# [@opentelemetry/core] — the SDK primitive toolkit behind the `@effect/opentelemetry` facade, W3C propagation + export-rail + env-config source for `otlp/context`
+# [@opentelemetry/core] — the SDK primitive toolkit behind the `@effect/opentelemetry` facade, W3C propagation + export-rail + env-config source for `otel/emit`
 
-`@opentelemetry/core` is the dependency-free primitive layer every `@opentelemetry/sdk-*` and `@opentelemetry/exporter-*` package builds on: the concrete W3C `TextMapPropagator` triad (`W3CTraceContextPropagator`/`W3CBaggagePropagator`/`CompositePropagator`) plus the raw `traceparent`/`tracestate`/`baggage` codecs, the `ExportResult`/`ExportResultCode` rail every exporter reports through, the `Context`-key operators (`suppressTracing`, `getRPCMetadata`), the typed `OTEL_*` env readers, and the `HrTime` conversion algebra. It carries no third-party runtime dependency — only the `@opentelemetry/api` peer and the pure-data `@opentelemetry/semantic-conventions` sibling. Inside Rasm it is one row of the `[OTLP_SDK]` SDK-bridge pin block behind the `@effect/opentelemetry` facade: `telemetry/otlp/context` composes the propagation codecs to turn an inbound `traceparent` into a `SpanContext` for the facade's `Tracer.makeExternalSpan`/`withSpanContext`, and the SDK-bridge lane (`NodeSdk`/`WebSdk`) rides core's `ExportResult` rail. The edge ledger fences `@opentelemetry/*` to `scope:telemetry` only; this whole block is the `[R3]`-collapse target that retires once native `Otlp` parity closes (`semantic-conventions` survives, this does not).
+`@opentelemetry/core` is the dependency-free primitive layer every `@opentelemetry/sdk-*` and `@opentelemetry/exporter-*` package builds on: the concrete W3C `TextMapPropagator` triad (`W3CTraceContextPropagator`/`W3CBaggagePropagator`/`CompositePropagator`) plus the raw `traceparent`/`tracestate`/`baggage` codecs, the `ExportResult`/`ExportResultCode` rail every exporter reports through, the `Context`-key operators (`suppressTracing`, `getRPCMetadata`), the typed `OTEL_*` env readers, and the `HrTime` conversion algebra. It carries no third-party runtime dependency — only the `@opentelemetry/api` peer and the pure-data `@opentelemetry/semantic-conventions` sibling. Inside Rasm it is one row of the `[OTLP_SDK]` SDK-bridge pin block behind the `@effect/opentelemetry` facade: `otel/emit` composes the propagation codecs to turn an inbound `traceparent` into a `SpanContext` for the facade's `Tracer.makeExternalSpan`/`withSpanContext`, and the SDK-bridge lane (`NodeSdk`/`WebSdk`) rides core's `ExportResult` rail. The edge ledger fences `@opentelemetry/*` to `scope:runtime` only; this whole block is the `[R3]`-collapse target that retires once native `Otlp` parity closes (`semantic-conventions` survives, this does not).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,8 +9,8 @@
 - version: `2.8.0`
 - license: `Apache-2.0`
 - otel-peer: `@opentelemetry/api >=1.0.0 <1.10.0` (the `Context`/`SpanContext`/`TextMapPropagator`/`HrTime`/`Attributes` type source); dep `@opentelemetry/semantic-conventions ^1.29.0` (pure-data, the sole runtime dep) — no third-party runtime dependency
-- consumed-by: `telemetry/otlp/context` (W3C extract-and-continue codecs), the SDK-bridge lane on `telemetry/otlp/export` (`ExportResult` rail), and every sibling `@opentelemetry/sdk-*`/`exporter-*` peer transitively
-- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:telemetry`; `[R3]`-collapse member of the `[OTLP_SDK]` block (retires when native `Otlp` covers W3C context + export)
+- consumed-by: `otel/emit` (W3C extract-and-continue codecs), the SDK-bridge lane on `otel/emit` (`ExportResult` rail), and every sibling `@opentelemetry/sdk-*`/`exporter-*` peer transitively
+- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[R3]`-collapse member of the `[OTLP_SDK]` block (retires when native `Otlp` covers W3C context + export)
 - runtime: dual — one index over a `platform/{node,browser}` split; `node` reads `process.env`, `browser` reads `globalThis`; the propagation, time, and export surfaces are runtime-neutral
 - module-families: W3C propagation (`W3C*Propagator`, `CompositePropagator`, `parseTraceParent`, `TraceState`), export rail (`ExportResult*`, `internal._export`), context-key operators (`*Tracing`, `*RPCMetadata`), typed env readers (`get*FromEnv`), `HrTime` algebra (`hrTime*`), attribute/error/util primitives
 
@@ -22,12 +22,12 @@
 
 | [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]      | [CONSUMER / BOUNDARY]                                               |
 | :-----: | :-------------------------------------------------------------- | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `W3CTraceContextPropagator` (`implements TextMapPropagator`)    | propagator         | `telemetry/otlp/context` `traceparent`/`tracestate` inject+extract |
+|  [01]   | `W3CTraceContextPropagator` (`implements TextMapPropagator`)    | propagator         | `otel/emit` `traceparent`/`tracestate` inject+extract |
 |  [02]   | `W3CBaggagePropagator` (`implements TextMapPropagator`)         | propagator         | W3C `baggage` header inject+extract at the same ingress            |
 |  [03]   | `CompositePropagator` (`implements TextMapPropagator`)          | propagator monoid  | fold trace-context + baggage into one ingress/egress propagator    |
 |  [04]   | `CompositePropagatorConfig { propagators?: TextMapPropagator[] }`| config             | the ordered propagator set the composite injects/extracts in turn  |
 |  [05]   | `TraceState` (`implements api.TraceState`)                      | `tracestate` list  | immutable `set`/`unset`/`get`/`serialize` list; `makeExternalSpan` |
-|  [06]   | `TRACE_PARENT_HEADER = "traceparent"` / `TRACE_STATE_HEADER = "tracestate"` | header const | the header keys `otlp/context` reads from the carrier              |
+|  [06]   | `TRACE_PARENT_HEADER = "traceparent"` / `TRACE_STATE_HEADER = "tracestate"` | header const | the header keys `otel/emit` reads from the carrier              |
 
 [PUBLIC_TYPE_SCOPE]: export rail + diagnostic carriers
 - rail: observability/export
@@ -46,7 +46,7 @@
 
 [ENTRYPOINT_SCOPE]: W3C extract-and-continue codecs
 - rail: observability/propagation
-- `otlp/context` decodes an inbound header with `parseTraceParent` (never a hand-rolled regex — root policy bans stringy `traceparent` parsing), lifts the `tracestate` through `new TraceState(raw)`, and hands the resulting `SpanContext` to the facade's `Tracer.makeExternalSpan`/`withSpanContext`. `parseKeyPairsIntoRecord` is the symmetric `baggage` decoder.
+- `otel/emit` decodes an inbound header with `parseTraceParent` (never a hand-rolled regex — root policy bans stringy `traceparent` parsing), lifts the `tracestate` through `new TraceState(raw)`, and hands the resulting `SpanContext` to the facade's `Tracer.makeExternalSpan`/`withSpanContext`. `parseKeyPairsIntoRecord` is the symmetric `baggage` decoder.
 
 | [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                          |
 | :-----: | :-------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
@@ -96,22 +96,22 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SDK_BRIDGE_TOPOLOGY]:
-- SDK-bridge only, never the native lane: the facade's native `Otlp` lane owns its own W3C context bridge and serialization; core is composed only on the SDK-bridge path (`NodeSdk`/`WebSdk` `[R3]`) and on `otlp/context` for raw `traceparent` parsing. Prefer the native `Otlp` lane per the facade's `[R3]` law; reach for core's codecs only where the facade does not already own the extract-and-continue.
+- SDK-bridge only, never the native lane: the facade's native `Otlp` lane owns its own W3C context bridge and serialization; core is composed only on the SDK-bridge path (`NodeSdk`/`WebSdk` `[R3]`) and on `otel/emit` for raw `traceparent` parsing. Prefer the native `Otlp` lane per the facade's `[R3]` law; reach for core's codecs only where the facade does not already own the extract-and-continue.
 - one index, two platforms, never a fork: the `platform/{node,browser}` split under one index is a build-time selection (`process.env` vs `globalThis`) — a runtime change is a bundler condition, never a second import in design code.
 
 [INTEGRATION_LAW]:
-- Stack with `.api/effect-opentelemetry.md` `Tracer` (the primary seam): `otlp/context` reads the carrier header, calls `parseTraceParent(header)` → `SpanContext`, lifts `tracestate` via `new TraceState(raw)`, and hands both to `Tracer.makeExternalSpan({ traceId, spanId, traceFlags, traceState })` / `Tracer.withSpanContext` — core supplies the codec, the facade owns the Effect parent-span continuation. Root policy bans hand-rolled `traceparent` parsing, so `parseTraceParent` is the one admitted decoder.
+- Stack with `.api/effect-opentelemetry.md` `Tracer` (the primary seam): `otel/emit` reads the carrier header, calls `parseTraceParent(header)` → `SpanContext`, lifts `tracestate` via `new TraceState(raw)`, and hands both to `Tracer.makeExternalSpan({ traceId, spanId, traceFlags, traceState })` / `Tracer.withSpanContext` — core supplies the codec, the facade owns the Effect parent-span continuation. Root policy bans hand-rolled `traceparent` parsing, so `parseTraceParent` is the one admitted decoder.
 - Stack with the sibling `[OTLP_SDK]` exporters + processors: `opentelemetry-exporter-trace-otlp-http`/`-metrics-otlp-http` and every SDK processor report through core's `ExportResult`/`ExportResultCode`; the exporters call `suppressTracing` on their own outbound HTTP `Context` so OTLP egress is never self-traced. `internal._export` is the callback→promise adapter at that seam.
-- Stack with `.api/effect-platform.md` `HttpClient` posture: core is transport-agnostic (it carries no HTTP client); the SDK exporters that consume core bring their own `http`/`XMLHttpRequest` transport, so the SDK-bridge lane does NOT inherit the `host/net/client` retry/proxy policy the native `Otlp` lane gets — a real reason the native lane is `[R3]`-preferred.
+- Stack with `.api/effect-platform.md` `HttpClient` posture: core is transport-agnostic (it carries no HTTP client); the SDK exporters that consume core bring their own `http`/`XMLHttpRequest` transport, so the SDK-bridge lane does NOT inherit the `net/client` retry/proxy policy the native `Otlp` lane gets — a real reason the native lane is `[R3]`-preferred.
 - Stack with `opentelemetry-resources` + the facade `Resource`: `SDK_INFO` seeds the `telemetry.sdk.*` resource attributes that `defaultResource()` merges onto the `AppIdentity`-derived base; the typed env readers back `OTEL_RESOURCE_ATTRIBUTES` ingestion on the same resource.
 
 [LOCAL_ADMISSION]:
-- `@opentelemetry/*` is admitted ONLY inside `scope:telemetry` (edge-ledger ban); no other folder imports core. Instrumentation code uses Effect's native `Effect.withSpan`/`Metric`/`Effect.log` and never touches these primitives.
-- core's `semconv` internal module is NOT on the package index — the semantic-convention vocabulary is owned by `@opentelemetry/semantic-conventions` (`telemetry/signal/convention`); do not transcribe core's internal `ATTR_*` constants.
+- `@opentelemetry/*` is admitted ONLY inside `scope:runtime` (edge-ledger ban); no other folder imports core. Instrumentation code uses Effect's native `Effect.withSpan`/`Metric`/`Effect.log` and never touches these primitives.
+- core's `semconv` internal module is NOT on the package index — the semantic-convention vocabulary is owned by `@opentelemetry/semantic-conventions` (`telemetry/core/observe/convention`); do not transcribe core's internal `ATTR_*` constants.
 - `_export`/`Exporter` sit under the `internal` namespace export — used only where the SDK-bridge lane adapts a callback exporter, never as a first-class instrumentation surface.
 
 [RAIL_LAW]:
 - Package: `@opentelemetry/core`
 - Owns: the concrete W3C `TextMapPropagator` triad + raw `traceparent`/`tracestate`/`baggage` codecs, the `ExportResult`/`ExportResultCode` export rail, the `suppressTracing`/`RPCMetadata` context-key operators, the typed `OTEL_*` env readers, the `HrTime` conversion algebra, and shared attribute/error/util primitives
-- Accept: `parseTraceParent` + `TraceState` feeding the facade's `makeExternalSpan`/`withSpanContext` on `otlp/context`; `CompositePropagator` as the one folded propagator; `ExportResult` as the terminal export disposition; typed env readers over raw `process.env`; core composed only on the SDK-bridge/context path
-- Reject: `@opentelemetry/*` imports outside `scope:telemetry`, hand-rolled `traceparent`/`tracestate` parsing, core codecs where the native `Otlp` lane already owns the seam, transcribing core's internal `semconv` constants (that is `semantic-conventions`), treating the runtime `platform/*` split as a fork
+- Accept: `parseTraceParent` + `TraceState` feeding the facade's `makeExternalSpan`/`withSpanContext` on `otel/emit`; `CompositePropagator` as the one folded propagator; `ExportResult` as the terminal export disposition; typed env readers over raw `process.env`; core composed only on the SDK-bridge/context path
+- Reject: `@opentelemetry/*` imports outside `scope:runtime`, hand-rolled `traceparent`/`tracestate` parsing, core codecs where the native `Otlp` lane already owns the seam, transcribing core's internal `semconv` constants (that is `semantic-conventions`), treating the runtime `platform/*` split as a fork

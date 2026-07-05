@@ -1,6 +1,6 @@
 # [@modelcontextprotocol/sdk] — the MCP-client lane only, consuming external MCP servers; hosting stays on the native @effect/ai McpServer/McpSchema
 
-The reference MCP SDK, admitted for ONE lane: `tool/mcp.ts` uses `Client` + a client transport to consume
+The reference MCP SDK, admitted for ONE lane: `ai/tool.ts` uses `Client` + a client transport to consume
 external MCP servers (their tools become `Tool.providerDefined`-style rows in an app toolkit). The entire
 `./server` subpath — `McpServer`, `server/mcp`, `server/stdio`, `server/streamableHttp` — is out of scope:
 Rasm hosts MCP on the native `@effect/ai` `McpServer`/`McpSchema`, and this SDK never re-owns hosting. The
@@ -17,7 +17,7 @@ re-parse of each result through `effect/Schema` into native shapes. External too
 - entry: subpath exports `./client`, `./server` (OUT OF SCOPE), `./validation`, `./validation/ajv`, `./validation/cfworker`, `./experimental`, `./experimental/tasks`, `./*`
 - in-scope modules: `client/index`, `client/{stdio,streamableHttp,sse,websocket}`, `shared/{protocol,transport,auth}`, `client/auth`, `types`, `inMemory`, `validation/*`, `experimental/tasks/client`
 - asset: Promise-based MCP client on a pluggable transport; Zod-schema protocol wire; OAuth 2.0 client flow
-- boundary: Promise + Zod — transcribe to `Effect` + `Schema` at `tool/mcp.ts`
+- boundary: Promise + Zod — transcribe to `Effect` + `Schema` at `ai/tool.ts`
 - rail: mcp-client
 
 ## [02]-[CLIENT]
@@ -75,7 +75,7 @@ type ClientOptions = ProtocolOptions & {
 
 [PUBLIC_TYPE_SCOPE]: pluggable client transports — rail: mcp-client
 
-One `Transport` interface, four client implementations plus an in-memory pair for tests. `tool/mcp.ts` picks by
+One `Transport` interface, four client implementations plus an in-memory pair for tests. `ai/tool.ts` picks by
 server locality: `Stdio` spawns a local server process; `StreamableHTTP` (the current remote transport) POSTs +
 SSE-streams with OAuth + reconnection + session resumption; `SSE` is the legacy remote transport; `InMemory`
 pairs a client and server in-process for kit-driven specs.
@@ -149,7 +149,7 @@ at the boundary. The tool-annotation hints are the seam onto native `Tool` annot
 
 ## [06]-[INTEGRATION]
 
-[STACK]: `tool/mcp.ts` external-server consumption — rail: mcp-client
+[STACK]: `ai/tool.ts` external-server consumption — rail: mcp-client
 - Own the connection as a `Scope`d resource: `acquireRelease(Effect.tryPromise(() => client.connect(transport)),
   () => Effect.promise(() => client.close()))` so a server process/HTTP session is released on interruption. Wrap
   every call in `Effect.tryPromise`, mapping `UnauthorizedError`/transport rejections into one typed `McpClientError`
@@ -164,8 +164,8 @@ at the boundary. The tool-annotation hints are the seam onto native `Tool` annot
 [STACK]: universal-tier rails — rail: mcp-client
 - `effect`: `Scope`/`acquireRelease` own the transport lifecycle; `Effect.tryPromise` + `Match.tag` own the error
   rail; `Schema` re-parses results; `Effect.timeout`/interruption map onto `RequestOptions.timeout`/`signal`.
-- `@effect/platform`: remote transports honor `fetch`/`requestInit` — thread the `host/net` policy `HttpClient`'s
-  fetch so timeout/retry/proxy stay uniform; local `Stdio` servers spawn through `host/exec`.
+- `@effect/platform`: remote transports honor `fetch`/`requestInit` — thread the `net/client` policy `HttpClient`'s
+  fetch so timeout/retry/proxy stay uniform; local `Stdio` servers spawn through `proc/exec`.
 - `security`/`session`: the OAuth `authProvider` composes `security`'s runtime-neutral OAuth ceremony + browser
   token storage, so remote MCP auth reuses the one session lane rather than a second OAuth notion.
 - `@effect/vitest`: `InMemoryTransport.createLinkedPair()` drives kit-driven specs that exercise the client against an
@@ -173,5 +173,5 @@ at the boundary. The tool-annotation hints are the seam onto native `Tool` annot
 
 [BOUNDARY]: hosting stays native — rail: mcp-client
 - The `./server` subpath (`McpServer`, `server/mcp`, `server/stdio`, `server/streamableHttp`, `server/completable`)
-  is never imported. Rasm MCP hosting is `@effect/ai` `McpServer.toolkit` + `layerStdio`/`layerHttp` on `tool/mcp.ts`;
+  is never imported. Rasm MCP hosting is `@effect/ai` `McpServer.toolkit` + `layerStdio`/`layerHttp` on `ai/tool.ts`;
   this SDK is strictly the outbound client that consumes other servers.

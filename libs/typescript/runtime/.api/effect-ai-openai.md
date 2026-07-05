@@ -2,9 +2,9 @@
 
 `@effect/ai-openai` 0.40.1 · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-openai/OpenAiClient`) · marker TSDECL `node_modules/@effect/ai-openai/dist/dts/*.d.ts` · peers `@effect/ai@^0.36`, `@effect/platform@^0.96`, `@effect/experimental@^0.60`, `effect@^3.21` · tier node|browser (`FetchHttpClient.layer`)
 
-The OpenAI binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Tool`/`Telemetry` tags against the OpenAI **Responses** API. It is the ONLY admitted provider carrying all four asymmetry capabilities — language model, embeddings (two batching modalities), tokenizer, and a provider-namespaced GenAI telemetry module — so `model/provider.ts` reads it as the fully-populated reference row of the capability-asymmetry table, and `embed/embedder.ts` binds its `EmbeddingModel` to the `store/retrieve` `Embedder` port. Eight owner modules re-export through the barrel (`OpenAiClient`, `OpenAiConfig`, `OpenAiEmbeddingModel`, `OpenAiLanguageModel`, `OpenAiTelemetry`, `OpenAiTokenizer`, `OpenAiTool`, `Generated`); every provider-facing symbol below is one parameterized surface, and the OpenAI wire corpus (`Generated`) is a category with named anchors, never enumerated. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+The OpenAI binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Tool`/`Telemetry` tags against the OpenAI **Responses** API. It is the ONLY admitted provider carrying all four asymmetry capabilities — language model, embeddings (two batching modalities), tokenizer, and a provider-namespaced GenAI telemetry module — so `ai/model.ts` reads it as the fully-populated reference row of the capability-asymmetry table, and `ai/embed.ts` binds its `EmbeddingModel` to the `store/retrieve` `Embedder` port. Eight owner modules re-export through the barrel (`OpenAiClient`, `OpenAiConfig`, `OpenAiEmbeddingModel`, `OpenAiLanguageModel`, `OpenAiTelemetry`, `OpenAiTokenizer`, `OpenAiTool`, `Generated`); every provider-facing symbol below is one parameterized surface, and the OpenAI wire corpus (`Generated`) is a category with named anchors, never enumerated. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
-## [01]-[ASYMMETRY] — the row `model/provider.ts` folds
+## [01]-[ASYMMETRY] — the row `ai/model.ts` folds
 
 The provider is ONE row with asymmetry columns; a new provider is a row, never a fork. OpenAI's columns against the four admitted siblings (the contrast is the whole point of the table):
 
@@ -74,7 +74,7 @@ declare const layerWithTokenizer:(options: { model; config? }) => Layer.Layer<La
 declare const withConfigOverride: { (o: Config.Service): <A,E,R>(self: Effect.Effect<A,E,R>) => Effect.Effect<A,E,R>; <A,E,R>(self: Effect.Effect<A,E,R>, o: Config.Service): Effect.Effect<A,E,R> }
 ```
 
-`Config` is a `Context.TagClass` (id `@effect/ai-openai/OpenAiLanguageModel/Config`, `static getOrUndefined`) — the per-request override carrier, the whole `CreateResponse` request minus SDK-owned keys (`input`/`tools`/`tool_choice`/`stream`/`text`) made partial, plus three OpenAI-specific knobs. It is the tier-routing seam `provider.ts` writes per call.
+`Config` is a `Context.TagClass` (id `@effect/ai-openai/OpenAiLanguageModel/Config`, `static getOrUndefined`) — the per-request override carrier, the whole `CreateResponse` request minus SDK-owned keys (`input`/`tools`/`tool_choice`/`stream`/`text`) made partial, plus three OpenAI-specific knobs. It is the tier-routing seam `ai/model.ts` writes per call.
 
 ```ts contract
 namespace Config {
@@ -101,7 +101,7 @@ The module `declare module`-augments `@effect/ai/Prompt` and `@effect/ai/Respons
 
 ## [04]-[EMBEDDING_MODEL] — two batching modalities behind one polymorphic entry
 
-`OpenAiEmbeddingModel` is the only provider `EmbeddingModel` binding — the `embed/embedder.ts` source of the `store/retrieve` `Embedder` port. ONE polymorphic `model` discriminates on `mode`: `"batched"` coalesces calls up to `maxBatchSize` with an optional bounded `{capacity, timeToLive}` cache; `"data-loader"` windows requests over a `Duration`. `makeDataLoader` requires `Scope` (background batcher); the layers scope internally. `Config` (tag `@effect/ai-openai/OpenAiEmbeddingModel/Config`) is the `CreateEmbeddingRequest` minus `input`, made partial, with `Batched`/`DataLoader` extensions.
+`OpenAiEmbeddingModel` is the only provider `EmbeddingModel` binding — the `ai/embed.ts` source of the `store/retrieve` `Embedder` port. ONE polymorphic `model` discriminates on `mode`: `"batched"` coalesces calls up to `maxBatchSize` with an optional bounded `{capacity, timeToLive}` cache; `"data-loader"` windows requests over a `Duration`. `makeDataLoader` requires `Scope` (background batcher); the layers scope internally. `Config` (tag `@effect/ai-openai/OpenAiEmbeddingModel/Config`) is the `CreateEmbeddingRequest` minus `input`, made partial, with `Batched`/`DataLoader` extensions.
 
 ```ts contract
 export type Model = typeof Generated.CreateEmbeddingRequestModelEnum.Encoded
@@ -119,9 +119,9 @@ namespace Config {
 }
 ```
 
-## [05]-[TOKENIZER] — the `token.ts` budget binding
+## [05]-[TOKENIZER] — the `ai/model.ts` budget binding
 
-`OpenAiTokenizer.make` is pure (no Effect wrapper), keyed by model; `layer` provides the `Tokenizer.Tokenizer` tag dependency-free. `OpenAiLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in implicitly. This is one of the two tokenizer owners `token.ts` budgets read (the other is `AnthropicTokenizer`).
+`OpenAiTokenizer.make` is pure (no Effect wrapper), keyed by model; `layer` provides the `Tokenizer.Tokenizer` tag dependency-free. `OpenAiLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in implicitly. This is one of the two tokenizer owners `ai/model.ts` budgets read (the other is `AnthropicTokenizer`).
 
 ```ts contract
 declare const make:  (options: { readonly model: string }) => Tokenizer.Service
@@ -130,7 +130,7 @@ declare const layer: (options: { readonly model: string }) => Layer.Layer<Tokeni
 
 ## [06]-[TOOL] — provider-defined tool family as one pattern + roster
 
-`OpenAiTool` exports four provider-executed tool constructors, each ONE instance of the same shape: `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"OpenAi<Name>", { args; parameters; success; failure; failureMode: Mode extends undefined ? "error" : Mode }, false>`. The provider runs them (`requiresHandler=false`); the app collects them with `Toolkit.make(...)` and projects them through `tool/toolkit.ts`. The four rows:
+`OpenAiTool` exports four provider-executed tool constructors, each ONE instance of the same shape: `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"OpenAi<Name>", { args; parameters; success; failure; failureMode: Mode extends undefined ? "error" : Mode }, false>`. The provider runs them (`requiresHandler=false`); the app collects them with `Toolkit.make(...)` and projects them through `ai/tool.ts`. The four rows:
 
 | [CTOR]             | [tag]                     | [args]                                                                 | [parameters]                    | [success]                                                    |
 | :----------------- | :------------------------ | :-------------------------------------------------------------------- | :------------------------------ | :----------------------------------------------------------- |
@@ -191,9 +191,9 @@ interface ClientError<Tag extends string, E> { readonly _tag: Tag; readonly requ
 
 ## [10]-[INTEGRATION] — how the row stacks into single rails
 
-- Universal Effect rails: provider choice is a single composition-root `Layer` swap — every provider's `model(...)` produces the same `LanguageModel.LanguageModel` tag, so `OpenAiLanguageModel.model("gpt-…")` ↔ any sibling is one line in `provider.ts`. `Redacted` + `Config` own credential resolution (`layerConfig`); `Stream` folds `ResponseStreamEvent`; `Schema` decodes `Config`/tool-params/responses; `Duration` bounds the embedding cache/window; `Match.discriminator("type")`/`Effect.catchTag` dispatch the streaming union and the `AiError` rail. Compose the stack top-down: `Effect.provide(OpenAiLanguageModel.model(id))` over `OpenAiClient.layer({ apiKey })` over an `HttpClient` layer.
-- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` — the `host/net` default-policy row (timeout/retry/proxy) provides it; browser binds `FetchHttpClient.layer`, node binds `NodeHttpClient.layer`. `streamRequest` takes an `HttpClientRequest` for uncurated SSE endpoints.
+- Universal Effect rails: provider choice is a single composition-root `Layer` swap — every provider's `model(...)` produces the same `LanguageModel.LanguageModel` tag, so `OpenAiLanguageModel.model("gpt-…")` ↔ any sibling is one line in `ai/model.ts`. `Redacted` + `Config` own credential resolution (`layerConfig`); `Stream` folds `ResponseStreamEvent`; `Schema` decodes `Config`/tool-params/responses; `Duration` bounds the embedding cache/window; `Match.discriminator("type")`/`Effect.catchTag` dispatch the streaming union and the `AiError` rail. Compose the stack top-down: `Effect.provide(OpenAiLanguageModel.model(id))` over `OpenAiClient.layer({ apiKey })` over an `HttpClient` layer.
+- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` — the `net/client` default-policy row (timeout/retry/proxy) provides it; browser binds `FetchHttpClient.layer`, node binds `NodeHttpClient.layer`. `streamRequest` takes an `HttpClientRequest` for uncurated SSE endpoints.
 - `@effect/ai` core (sibling catalog `effect-ai.md`): satisfies `LanguageModel.LanguageModel` (+ `GenerateTextResponse`/`GenerateObjectResponse` accessors), `EmbeddingModel.EmbeddingModel`, `Tokenizer.Tokenizer`, `Tool.ProviderDefined`/`Tool.FailureMode`, and `Telemetry`. Failures are the core `AiError.AiError` union.
-- Sibling providers: OpenAI is the reference row — the only one populating all of embeddings + tokenizer + telemetry; `provider.ts` reads the empty asymmetry cells of anthropic/google/bedrock against this row.
+- Sibling providers: OpenAI is the reference row — the only one populating all of embeddings + tokenizer + telemetry; `ai/model.ts` reads the empty asymmetry cells of anthropic/google/bedrock against this row.
 - Observability: `OpenAiTelemetry.addGenAIAnnotations` writes GenAI semantic-convention attributes into the active `@effect/opentelemetry` span (`system:"openai"`, `operation.name:"chat"|"embeddings"`, usage/request/response), the pre-bound alternative to raw `Telemetry.addGenAIAnnotations`.
-- Design consumers: `model/provider.ts` (row + tier-routing via `Config` + the one guardrail gate), `model/token.ts` (`OpenAiTokenizer` budgets), `embed/embedder.ts` (`OpenAiEmbeddingModel` → `Embedder` port), `tool/toolkit.ts`+`tool/mcp.ts` (the four provider-defined tools projected as MCP tools).
+- Design consumers: `ai/model.ts` (row + tier-routing via `Config` + the one guardrail gate), `ai/model.ts` (`OpenAiTokenizer` budgets), `ai/embed.ts` (`OpenAiEmbeddingModel` → `Embedder` port), `ai/tool.ts`+`ai/tool.ts` (the four provider-defined tools projected as MCP tools).

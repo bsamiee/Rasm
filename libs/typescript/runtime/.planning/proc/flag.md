@@ -1,0 +1,472 @@
+# [RUNTIME_FLAG]
+
+Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, instant — the single shape the C#-evaluated `FlagVerdictWire` decodes into and local evaluation mints. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
+
+## [1]-[CLUSTERS]
+
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                          | [PUBLIC]            |
+| :-----: | :---------------- | :--------------------------------------------------------------------------------- | :------------------ |
+|  [01]   | `TARGETING_RULES` | the recursive rule family, the deterministic bucket, the total `decide` fold       | `Rollout`           |
+|  [02]   | `STICKY_ROWS`     | stickiness mode rows, the held-variant ledger, the reason-keyed expiry fold        | `Sticky`            |
+|  [03]   | `VERDICT_CONTRACT`| the OpenFeature projection, the document and delta families, the JSON value arm    | `Verdict`           |
+|  [04]   | `PROVIDER_OWNER`  | the SDK `Provider` implementation, events, hooks, the promise boundary             | `Flags`             |
+|  [05]   | `GATE_SERVICE`    | the evaluation service, the reason-expiring memo, the `FlagGate` satisfaction      | `Flags`             |
+
+## [2]-[TARGETING_RULES]
+
+[TARGETING_RULES]:
+- Owner: `Rollout` — the targeting owner. `Rollout.Rule` is one `Schema.Union` of tagged cases: `On`/`Off` (static arms), `Fraction` (salted percentage gate), `Segment` (axis membership over the subject's dimensions — the axes are the `AppIdentity` span plus free attributes), `Window` (a UTC validity interval), `Split` (weighted variant arms over the same salted bucket), and the composites `AllOf`/`AnyOf`/`Not` closing self-reference through `Schema.suspend`; rules are wire values the remote provider ships, so a new targeting dimension is one case row plus one fold arm, breaking every dispatch loudly.
+- Law: `decide` is total — every rule folds to an `Outcome` (`on`, `variant: Option`, `reason`), and the reason rows are the OpenFeature `StandardResolutionReasons` spellings anchored once as the `_REASONS` tuple; `Verdict` and the provider project these and never re-declare them.
+- Law: determinism is parameterization — `decide(rule, probe)` reads the wall clock and the bucket from the `probe` value (`at: DateTime.Utc`, `bucket: (salt) => number`), so evaluation is a pure fold provable by replay; an ambient clock or hash read inside the fold is the named defect.
+- Law: bucket parity is a delegation fact — the bucket function is the low 32 bits of the kernel `XxHash128` seed-zero mint over `salt:subjectKey`, modulo 100; `core/value/contentKey` owns the mint, this page owns only the projection, and the C# evaluator lands identical buckets because the mint already holds cross-language parity.
+- Boundary: rules arrive decoded (the provider document transits the interchange codec into this family); the fold neither fetches nor caches — sourcing is `[4]`'s, holding is `[3]`'s.
+- Entry: `Rollout.decide(rule, probe)`; `Rollout.Rule` as the decode target.
+- Packages: `effect` (`Schema`, `Match`, `Array`, `Option`, `DateTime`).
+
+```typescript
+import { Array, DateTime, Duration, Match, Option, Schema, pipe } from "effect"
+
+const _REASONS = ["STATIC", "DEFAULT", "TARGETING_MATCH", "SPLIT", "CACHED", "DISABLED", "STALE", "ERROR", "UNKNOWN"] as const
+
+const _On = Schema.TaggedStruct("On", {})
+const _Off = Schema.TaggedStruct("Off", {})
+const _Fraction = Schema.TaggedStruct("Fraction", {
+  gate: Schema.Int.pipe(Schema.between(0, 100)),
+  salt: Schema.NonEmptyString,
+})
+const _Segment = Schema.TaggedStruct("Segment", {
+  axis: Schema.NonEmptyString,
+  values: Schema.Array(Schema.NonEmptyString),
+})
+const _Window = Schema.TaggedStruct("Window", {
+  from: Schema.DateTimeUtc,
+  until: Schema.DateTimeUtc,
+})
+const _Split = Schema.TaggedStruct("Split", {
+  arms: Schema.NonEmptyArray(Schema.Struct({ variant: Schema.NonEmptyString, weight: Schema.Number.pipe(Schema.positive()) })),
+  salt: Schema.NonEmptyString,
+})
+
+interface _AllOfEncoded {
+  readonly _tag: "AllOf"
+  readonly rules: ReadonlyArray<_RuleEncoded>
+}
+interface _AnyOfEncoded {
+  readonly _tag: "AnyOf"
+  readonly rules: ReadonlyArray<_RuleEncoded>
+}
+interface _NotEncoded {
+  readonly _tag: "Not"
+  readonly rule: _RuleEncoded
+}
+type _RuleEncoded =
+  | typeof _On.Encoded
+  | typeof _Off.Encoded
+  | typeof _Fraction.Encoded
+  | typeof _Segment.Encoded
+  | typeof _Window.Encoded
+  | typeof _Split.Encoded
+  | _AllOfEncoded
+  | _AnyOfEncoded
+  | _NotEncoded
+
+const _Rule: Schema.Schema<Rollout.Rule, _RuleEncoded> = Schema.Union(
+  _On,
+  _Off,
+  _Fraction,
+  _Segment,
+  _Window,
+  _Split,
+  Schema.TaggedStruct("AllOf", { rules: Schema.Array(Schema.suspend((): Schema.Schema<Rollout.Rule, _RuleEncoded> => _Rule)) }),
+  Schema.TaggedStruct("AnyOf", { rules: Schema.Array(Schema.suspend((): Schema.Schema<Rollout.Rule, _RuleEncoded> => _Rule)) }),
+  Schema.TaggedStruct("Not", { rule: Schema.suspend((): Schema.Schema<Rollout.Rule, _RuleEncoded> => _Rule) }),
+)
+
+declare namespace Rollout {
+  type Reason = (typeof _REASONS)[number]
+  type Rule = typeof _On.Type | typeof _Off.Type | typeof _Fraction.Type | typeof _Segment.Type | typeof _Window.Type | typeof _Split.Type
+    | { readonly _tag: "AllOf"; readonly rules: ReadonlyArray<Rule> }
+    | { readonly _tag: "AnyOf"; readonly rules: ReadonlyArray<Rule> }
+    | { readonly _tag: "Not"; readonly rule: Rule }
+  type Subject = { readonly key: string; readonly axes: Readonly<Record<string, string>> }
+  type Probe = { readonly subject: Subject; readonly at: DateTime.Utc; readonly bucket: (salt: string) => number }
+  type Outcome = { readonly on: boolean; readonly variant: Option.Option<string>; readonly reason: Reason }
+  type Shape = {
+    readonly Rule: typeof _Rule
+    readonly reasons: typeof _REASONS
+    readonly decide: (rule: Rule, probe: Probe) => Outcome
+  }
+}
+
+const _OUTCOME = (on: boolean, reason: Rollout.Reason, variant: Option.Option<string> = Option.none()): Rollout.Outcome =>
+  ({ on, variant, reason })
+
+const _picked = (arms: Array.NonEmptyReadonlyArray<{ readonly variant: string; readonly weight: number }>, point: number): Option.Option<string> =>
+  pipe(
+    Array.mapAccum(arms, 0, (spent, arm) => [spent + arm.weight, { until: spent + arm.weight, variant: arm.variant }] as const),
+    ([total, spans]) => Array.findFirst(spans, (span) => (point * total) / 100 < span.until),
+    Option.map((span) => span.variant),
+  )
+
+const _decide = (rule: Rollout.Rule, probe: Rollout.Probe): Rollout.Outcome =>
+  Match.valueTags(rule, {
+    On: () => _OUTCOME(true, "STATIC"),
+    Off: () => _OUTCOME(false, "DISABLED"),
+    Fraction: ({ gate, salt }) => (probe.bucket(salt) < gate ? _OUTCOME(true, "TARGETING_MATCH") : _OUTCOME(false, "DEFAULT")),
+    Segment: ({ axis, values }) =>
+      Option.match(Option.fromNullable(probe.subject.axes[axis]), {
+        onNone: () => _OUTCOME(false, "DEFAULT"),
+        onSome: (held) => (Array.contains(values, held) ? _OUTCOME(true, "TARGETING_MATCH") : _OUTCOME(false, "DEFAULT")),
+      }),
+    Window: ({ from, until }) =>
+      DateTime.between(probe.at, { minimum: from, maximum: until })
+        ? _OUTCOME(true, "TARGETING_MATCH")
+        : _OUTCOME(false, "DEFAULT"),
+    Split: ({ arms, salt }) =>
+      Option.match(_picked(arms, probe.bucket(salt)), {
+        onNone: () => _OUTCOME(false, "DEFAULT"),
+        onSome: (variant) => _OUTCOME(true, "SPLIT", Option.some(variant)),
+      }),
+    AllOf: ({ rules }) =>
+      pipe(
+        Array.map(rules, (child) => _decide(child, probe)),
+        (folds) =>
+          Array.every(folds, (fold) => fold.on)
+            ? _OUTCOME(true, "TARGETING_MATCH", Array.head(Array.getSomes(Array.map(folds, (fold) => fold.variant))))
+            : _OUTCOME(false, "DEFAULT"),
+      ),
+    AnyOf: ({ rules }) =>
+      Option.match(Array.findFirst(Array.map(rules, (child) => _decide(child, probe)), (fold) => fold.on), {
+        onNone: () => _OUTCOME(false, "DEFAULT"),
+        onSome: (fold) => fold,
+      }),
+    Not: ({ rule: inner }) =>
+      pipe(_decide(inner, probe), (fold) => (fold.on ? _OUTCOME(false, "DEFAULT") : _OUTCOME(true, "TARGETING_MATCH"))),
+  })
+
+const Rollout: Rollout.Shape = { Rule: _Rule, reasons: _REASONS, decide: _decide }
+```
+
+## [3]-[STICKY_ROWS]
+
+[STICKY_ROWS]:
+- Owner: `Sticky` — the holding policy beside the rules. Mode rows close the vocabulary: `none` (evaluate every read), `session` (memoize in-process), `durable` (memoize plus a held-variant ledger surviving restarts — the browser localStorage row and the node filesystem row satisfy the same `KeyValueStore` Tag); a held variant is `Sticky.Held`: flag, variant, epoch, mint instant — one Schema class, one ledger shape on every runtime.
+- Law: the epoch is the invalidation edge — a ruleset version bump retires every held variant at recall time (`recalled` folds an epoch mismatch to `None`), so stickiness never outlives the rules that granted it and no ledger sweep exists.
+- Law: expiry is reason-keyed — `Sticky.expiry(reason, lease)` folds `ERROR`/`STALE`/`UNKNOWN` outcomes to a short quarantine window and every settled outcome to the configured lease (`Setting.flag.sticky`), so a degraded evaluation never lingers as long as a targeted one; `[5]`'s memo consumes this fold as its `timeToLive` policy.
+- Boundary: the ledger is a `SchemaStore` over the abstract `KeyValueStore` Tag — binding is a root row; the memo tier is `[5]`'s `Cache`, this cluster owns only the policy values and folds it consumes.
+- Packages: `effect` (`Schema`, `Duration`, `DateTime`, `Option`).
+
+```typescript
+const _modes = {
+  none: { memo: false, ledger: false },
+  session: { memo: true, ledger: false },
+  durable: { memo: true, ledger: true },
+} as const
+
+class Held extends Schema.Class<Held>("Held")({
+  flag: Schema.NonEmptyString,
+  variant: Schema.NonEmptyString,
+  epoch: Schema.Int,
+  at: Schema.DateTimeUtc,
+}) {}
+
+declare namespace Sticky {
+  type Mode = keyof typeof _modes
+  type Row = { readonly memo: boolean; readonly ledger: boolean }
+  type Shape = {
+    readonly Held: typeof Held
+    readonly modes: typeof _modes
+    readonly expiry: (reason: Rollout.Reason, lease: Duration.Duration) => Duration.Duration
+    readonly recalled: (held: Held, epoch: number, at: DateTime.Utc, lease: Duration.Duration) => Option.Option<string>
+  }
+  type _Rows<T extends Record<Mode, Row> = typeof _modes> = T
+}
+
+const _QUARANTINE = Duration.seconds(20)
+
+const Sticky: Sticky.Shape = {
+  Held,
+  modes: _modes,
+  expiry: (reason, lease) =>
+    reason === "ERROR" || reason === "STALE" || reason === "UNKNOWN" ? _QUARANTINE : lease,
+  recalled: (held, epoch, at, lease) =>
+    held.epoch === epoch && Duration.lessThan(DateTime.distanceDuration(held.at, at), lease)
+      ? Option.some(held.variant)
+      : Option.none(),
+}
+```
+
+## [4]-[VERDICT_CONTRACT]
+
+[VERDICT_CONTRACT]:
+- Owner: `Verdict` — one `Schema.Class` carrying `flag`, `kind` (`boolean | string | number | object`), `value` (the kind-typed union whose object arm is the page's one recursive `_Json` schema), `variant: Option`, `reason` (the tuple spread of `Rollout.reasons`), `code: Option` (the OpenFeature `ErrorCode` rows), and `at`; the wire twins ride the owner — `Verdict.Ruleset` is the provider document, `Verdict.Shift` the live delta family (`Set | Clear | Reset`), `Verdict.codes` the error-code anchor — one import carries the whole contract.
+- Law: the contract is shared, not owned twice — `Rasm.AppHost` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics; the interchange codec decodes it into this class (admitted as `CACHED` evidence), this page owns evaluation, and a second verdict shape anywhere in the branch is the named defect.
+- Law: the document row is a flag definition — `FlagDef` carries `kind`, the targeting `rule`, and the per-variant value map whose values ride `_Json`, so an object-valued flag is one definition row and value resolution is a variant lookup; the definition's `kind` gates type agreement at resolution, a mismatch minting `TYPE_MISMATCH` evidence.
+- Law: deltas are epoch-guarded — `Reset` replaces the document only at an equal-or-newer epoch, `Set`/`Clear` patch single flags in place; a stale delta is a no-op by fold, never a race.
+- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`).
+
+```typescript
+const _CODES = ["PROVIDER_NOT_READY", "FLAG_NOT_FOUND", "PARSE_ERROR", "TYPE_MISMATCH", "TARGETING_KEY_MISSING", "INVALID_CONTEXT", "GENERAL"] as const
+
+type _JsonValue = boolean | number | string | null | ReadonlyArray<_JsonValue> | { readonly [key: string]: _JsonValue }
+
+const _Json: Schema.Schema<_JsonValue> = Schema.Union(
+  Schema.Boolean,
+  Schema.Number,
+  Schema.String,
+  Schema.Null,
+  Schema.Array(Schema.suspend((): Schema.Schema<_JsonValue> => _Json)),
+  Schema.Record({ key: Schema.String, value: Schema.suspend((): Schema.Schema<_JsonValue> => _Json) }),
+)
+
+const _KINDS = ["boolean", "string", "number", "object"] as const
+
+class FlagDef extends Schema.Class<FlagDef>("FlagDef")({
+  kind: Schema.Literal(..._KINDS),
+  rule: _Rule,
+  variants: Schema.Record({ key: Schema.String, value: _Json }),
+  fallback: Schema.NonEmptyString,
+}) {}
+
+class Ruleset extends Schema.Class<Ruleset>("Ruleset")({
+  epoch: Schema.Int,
+  flags: Schema.HashMap({ key: Schema.NonEmptyString, value: FlagDef }),
+}) {}
+
+const _Shift = Schema.Union(
+  Schema.TaggedStruct("Set", { flag: Schema.NonEmptyString, def: FlagDef }),
+  Schema.TaggedStruct("Clear", { flag: Schema.NonEmptyString }),
+  Schema.TaggedStruct("Reset", { ruleset: Ruleset }),
+)
+
+class Verdict extends Schema.Class<Verdict>("Verdict")({
+  flag: Schema.NonEmptyString,
+  kind: Schema.Literal(..._KINDS),
+  value: _Json,
+  variant: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  reason: Schema.Literal(...Rollout.reasons),
+  code: Schema.optionalWith(Schema.Literal(..._CODES), { as: "Option" }),
+  at: Schema.DateTimeUtc,
+}) {
+  static readonly Def = FlagDef
+  static readonly Ruleset = Ruleset
+  static readonly Shift = _Shift
+  static readonly codes = _CODES
+}
+
+declare namespace Verdict {
+  type Code = (typeof _CODES)[number]
+  type Kind = (typeof _KINDS)[number]
+  type Json = _JsonValue
+  type Shift = typeof _Shift.Type
+  type Document = Ruleset
+  type Wire = typeof Verdict.Encoded
+}
+```
+
+## [5]-[PROVIDER_OWNER]
+
+[PROVIDER_OWNER]:
+- Owner: the SDK `Provider` implementation the Layer constructs over the live ruleset cell — `runsOn: "server"`, `metadata`, one `OpenFeatureEventEmitter`, the four `resolve*Evaluation` members delegating to one interior `_resolved(kind, flag, fallback, context)` that recalls the cell, folds `Rollout.decide` under the subject's salted bucket, resolves the variant's value from the definition's map, and answers `ResolutionDetails` — value, variant, reason, `errorCode` on degradation; the object kind rides `resolveObjectEvaluation` over the `_Json` arm, so the SDK's whole kind surface is real.
+- Law: the promise members are the platform-forced boundary — each `resolve*` bridges through the runtime captured at Layer build (`Effect.runtime` then `Runtime.runPromise`), the sanctioned callback-seam spelling, and the bridged effect is total, so a provider promise never rejects on a domain condition; `initialize` resolves once registration completes and `onClose` releases nothing because the feed fiber's lifetime is the Layer scope.
+- Law: events are the invalidation edge — every accepted patch emits `ProviderEvents.ConfigurationChanged` with the changed flag keys, so SDK consumers and the memo tier invalidate on the SDK's own signal; a poll or side-channel epoch probe beside the emitter is the rejected second signal.
+- Law: the subject projects from the SDK `EvaluationContext` — `targetingKey` is the subject key (absent folds to `TARGETING_KEY_MISSING` evidence on targeted rules), string-valued attributes are the axes — so context construction is the SDK's standard seam and transaction-context propagation composes at the app edge, never a parallel context shape.
+- Law: kind agreement is evidence — a resolved value that fails the requested kind's guard answers the fallback with `TYPE_MISMATCH`; a cold cell (epoch 0) answers `PROVIDER_NOT_READY`; a populated cell missing the flag answers `FLAG_NOT_FOUND` — the error channel stays empty and every degradation is data.
+- Packages: `@openfeature/server-sdk` (`Provider`, `ResolutionDetails`, `EvaluationContext`, `OpenFeatureEventEmitter`, `ProviderEvents`, `JsonValue`), `effect` (`Effect`, `Runtime`, `Option`, `HashMap`, `DateTime`).
+
+## [6]-[GATE_SERVICE]
+
+[GATE_SERVICE]:
+- Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest (the kernel mint's low-32 projection, passed at the root so evaluation stays pure). The scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell) re-registered on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.
+- Law: `evaluate` is total — the memo's lookup calls the SDK client's `get*Details` member for the probe's kind, projects the `EvaluationDetails` into a `Verdict`, and folds any rejection to `reason: "ERROR"` with `GENERAL` code and the stated fallback, so the error channel is `never` and every degradation is verdict evidence policy reads.
+- Law: the memo is the stickiness tier — `Cache.makeWith` keyed by the `Data`-constructed (flag, subject, fallback) probe collapses concurrent evaluations of one key into one SDK call, its `timeToLive` folds each verdict's reason through `Sticky.expiry`, and a `ConfigurationChanged` emission invalidates the memo wholesale so a flip propagates inside the lease; the durable held-variant ledger (`Sticky.modes.durable`) composes the `Sticky.Held` store over the `KeyValueStore` Tag at the root.
+- Law: one telemetry hook rides registration — an SDK `Hook` whose `after` stamps the active span with the flag key and resolved reason rows — so evaluation evidence reaches the trace plane through the SDK's own lifecycle, never a hand tap inside `evaluate`.
+- Law: `Flags.gate` satisfies the `security` port — a Layer building the `FlagGate` Tag over `evaluate`, the claim set projected to the subject axes — so the access fold's runtime edge is one root merge.
+- Entry: `Flags.Default(digest)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph.
+- Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
+- Packages: `@openfeature/server-sdk` (`OpenFeature`, `Hook`), `effect` (`Cache`, `Data`, `Effect`, `Exit`, `HashMap`, `Match`, `Option`, `Runtime`, `Schedule`, `Schema`, `Stream`, `SubscriptionRef`), `./config.ts` (`Setting`), `../net/channel.ts` (`Feed`), `@rasm/ts/security` (`FlagGate`).
+
+```typescript
+import {
+  type EvaluationContext, type Hook, type JsonValue, OpenFeature, OpenFeatureEventEmitter, type Provider,
+  ProviderEvents, type ResolutionDetails,
+} from "@openfeature/server-sdk"
+import { Cache, Data, Effect, Exit, HashMap, Layer, Predicate, Record, Runtime, Schedule, Stream, SubscriptionRef } from "effect"
+import { FlagGate } from "@rasm/ts/security"
+import { Setting } from "./config.ts"
+import { Feed } from "../net/channel.ts"
+
+const _shifted = Schema.decodeUnknown(Schema.parseJson(_Shift))
+
+const _MEMO = { capacity: 4096 } as const
+
+const _patched = (held: Ruleset, shift: Verdict.Shift): readonly [Ruleset, ReadonlyArray<string>] =>
+  Match.valueTags(shift, {
+    Set: ({ flag, def }) => [new Ruleset({ epoch: held.epoch, flags: HashMap.set(held.flags, flag, def) }), [flag]] as const,
+    Clear: ({ flag }) => [new Ruleset({ epoch: held.epoch, flags: HashMap.remove(held.flags, flag) }), [flag]] as const,
+    Reset: ({ ruleset }) =>
+      ruleset.epoch >= held.epoch
+        ? ([ruleset, Array.fromIterable(HashMap.keys(ruleset.flags))] as const)
+        : ([held, []] as const),
+  })
+
+const _guards = {
+  boolean: Predicate.isBoolean,
+  string: Predicate.isString,
+  number: Predicate.isNumber,
+  object: (value: Verdict.Json): value is Verdict.Json => true,
+} as const
+
+const _resolved = (
+  cell: SubscriptionRef.SubscriptionRef<Ruleset>,
+  digest: (text: string) => number,
+) =>
+<T extends Verdict.Json>(kind: Verdict.Kind, flag: string, fallback: T, context: EvaluationContext): Effect.Effect<ResolutionDetails<T>> =>
+  Effect.gen(function* () {
+    const held = yield* SubscriptionRef.get(cell)
+    const at = yield* DateTime.now
+    const key = context.targetingKey ?? ""
+    const axes = Record.filterMap(context, (value) => (Predicate.isString(value) ? Option.some(value) : Option.none()))
+    const bucket = (salt: string): number => digest(`${salt}:${key}`) % 100
+    return Option.match(HashMap.get(held.flags, flag), {
+      onNone: (): ResolutionDetails<T> => ({
+        value: fallback,
+        reason: "ERROR",
+        errorCode: held.epoch === 0 ? "PROVIDER_NOT_READY" : "FLAG_NOT_FOUND",
+      }),
+      onSome: (def): ResolutionDetails<T> => {
+        const outcome = Rollout.decide(def.rule, { subject: { key, axes }, at, bucket })
+        const variant = Option.getOrElse(outcome.variant, () => (outcome.on ? def.fallback : ""))
+        const value = Option.fromNullable(def.variants[variant]).pipe(
+          Option.orElse(() => (def.kind === "boolean" ? Option.some(outcome.on as Verdict.Json) : Option.none())),
+        )
+        return Option.match(value, {
+          onNone: () => ({ value: fallback, reason: outcome.reason, variant }),
+          onSome: (resolved) =>
+            def.kind === kind && _guards[kind](resolved)
+              ? { value: resolved as T, reason: outcome.reason, variant }
+              : { value: fallback, reason: "ERROR", errorCode: "TYPE_MISMATCH" },
+        })
+      },
+    })
+  })
+
+class Flags extends Effect.Service<Flags>()("runtime/Flags", {
+  scoped: (digest: (text: string) => number) =>
+    Effect.gen(function* () {
+      const setting = yield* Setting
+      const feed = yield* Feed
+      const cell = yield* SubscriptionRef.make(new Ruleset({ epoch: 0, flags: HashMap.empty() }))
+      const events = new OpenFeatureEventEmitter()
+      const runtime = yield* Effect.runtime<never>()
+      const resolve = _resolved(cell, digest)
+      const pace = Schedule.spaced(setting.flag.cadence)
+
+      yield* feed.open(setting.flag.origin).pipe(
+        Stream.runForEach((event) =>
+          _shifted(event.data).pipe(
+            Effect.flatMap((shift) =>
+              SubscriptionRef.modify(cell, (held) => {
+                const [next, changed] = _patched(held, shift)
+                return [changed, next] as const
+              })),
+            Effect.tap((changed) =>
+              Effect.sync(() => events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: [...changed] }))),
+            Effect.catchAll(() => Effect.void),
+          )),
+        Effect.retry(pace),
+        Effect.repeat(pace),
+        Effect.forkScoped,
+      )
+
+      const provider: Provider = {
+        runsOn: "server",
+        metadata: { name: "rasm" } as const,
+        events,
+        resolveBooleanEvaluation: (flag, fallback, context) =>
+          Runtime.runPromise(runtime)(resolve("boolean", flag, fallback, context)),
+        resolveStringEvaluation: (flag, fallback, context) =>
+          Runtime.runPromise(runtime)(resolve("string", flag, fallback, context)),
+        resolveNumberEvaluation: (flag, fallback, context) =>
+          Runtime.runPromise(runtime)(resolve("number", flag, fallback, context)),
+        resolveObjectEvaluation: <T extends JsonValue>(flag: string, fallback: T, context: EvaluationContext) =>
+          Runtime.runPromise(runtime)(resolve("object", flag, fallback as Verdict.Json, context) as Effect.Effect<ResolutionDetails<T>>),
+      }
+
+      const traced: Hook = {
+        after: (hooked, details) =>
+          Runtime.runPromise(runtime)(
+            Effect.all(
+              [
+                Effect.annotateCurrentSpan("flag.key", hooked.flagKey),
+                Effect.annotateCurrentSpan("flag.reason", details.reason ?? "UNKNOWN"),
+              ],
+              { discard: true },
+            ),
+          ),
+      }
+
+      yield* Effect.acquireRelease(
+        Effect.promise(() => OpenFeature.setProviderAndWait(provider)),
+        () => Effect.promise(() => OpenFeature.close()),
+      )
+      const client = OpenFeature.getClient()
+      client.addHooks(traced)
+
+      const memo = yield* Cache.makeWith({
+        capacity: _MEMO.capacity,
+        lookup: (probe: { readonly flag: string; readonly key: string; readonly axes: Readonly<Record<string, string>>; readonly fallback: boolean }) =>
+          Effect.gen(function* () {
+            const at = yield* DateTime.now
+            const details = yield* Effect.tryPromise({
+              try: () => client.getBooleanDetails(probe.flag, probe.fallback, { targetingKey: probe.key, ...probe.axes }),
+              catch: () => ({ flagKey: probe.flag, value: probe.fallback, reason: "ERROR", errorCode: "GENERAL" } as const),
+            }).pipe(Effect.merge)
+            return new Verdict({
+              flag: probe.flag,
+              kind: "boolean",
+              value: details.value,
+              variant: Option.fromNullable(details.variant),
+              reason: Array.contains(Rollout.reasons, details.reason as Rollout.Reason) ? (details.reason as Rollout.Reason) : "UNKNOWN",
+              code: Option.fromNullable(details.errorCode as Verdict.Code | undefined),
+              at,
+            })
+          }),
+        timeToLive: (exit) =>
+          Exit.match(exit, {
+            onFailure: () => Sticky.expiry("ERROR", setting.flag.sticky),
+            onSuccess: (verdict) => Sticky.expiry(verdict.reason, setting.flag.sticky),
+          }),
+      })
+      client.addHandler(ProviderEvents.ConfigurationChanged, () => void Runtime.runPromise(runtime)(memo.invalidateAll))
+
+      return {
+        evaluate: (flag: string, subject: Rollout.Subject, fallback: boolean = false): Effect.Effect<Verdict> =>
+          memo.get(Data.struct({ flag, key: subject.key, axes: Data.struct(subject.axes), fallback })),
+        changes: cell.changes,
+      }
+    }),
+}) {
+  static readonly gate = (digest: (text: string) => number): Layer.Layer<FlagGate> =>
+    Layer.effect(
+      FlagGate,
+      Effect.map(Flags, (flags) => ({
+        enabled: (key, claims) =>
+          Effect.map(
+            flags.evaluate(key, {
+              key: claims.subject,
+              axes: Option.match(claims.tenant, {
+                onNone: () => ({}),
+                onSome: (tenant) => ({ tenant }),
+              }),
+            }),
+            (verdict) => verdict.value === true,
+          ),
+      })),
+    ).pipe(Layer.provide(Flags.Default(digest)))
+}
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Flags, Rollout, Sticky, Verdict }
+```

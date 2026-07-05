@@ -1,6 +1,6 @@
 # [workbox-window] — the window-side service-worker lifecycle owner: registration, update handshake, and background-sync replay observation
 
-`workbox-window` runs in the WINDOW, never the service worker. `shell/worker.ts` holds one `Workbox` instance as an `Effect.acquireRelease` resource, bridges its lifecycle event target through `Stream.asyncScoped` into a single `SwLifecycle` `SubscriptionRef`, and drives the `messageSkipWaiting` update handshake that reloads on the next `controlling` event. The service-worker ASSET it registers is emitted at build time by `workbox-build` — distinct altitude, one concern each, so a cache-strategy row authored here is the named two-owner defect. The runtime SW-side background-sync `Queue` owns replay; this package OBSERVES and kicks it through window→worker messaging.
+`workbox-window` runs in the WINDOW, never the service worker. `browser/shell.md` holds one `Workbox` instance as an `Effect.acquireRelease` resource, bridges its lifecycle event target through `Stream.asyncScoped` into a single `SwLifecycle` `SubscriptionRef`, and drives the `messageSkipWaiting` update handshake that reloads on the next `controlling` event. The service-worker ASSET it registers is emitted at build time by `workbox-build` — distinct altitude, one concern each, so a cache-strategy row authored here is the named two-owner defect. The runtime SW-side background-sync `Queue` owns replay; this package OBSERVES and kicks it through window→worker messaging.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 - exports: `Workbox`, `messageSW`, and the `utils/WorkboxEvent` event-map types (`WorkboxLifecycleEventMap`, `WorkboxEventMap`, `WorkboxLifecycleEvent`, `WorkboxLifecycleWaitingEvent`, `WorkboxMessageEvent`)
 - bound asset: TSDECL `node_modules/workbox-window/{index,Workbox,messageSW,utils/WorkboxEvent}.d.ts`
 - admission: folder-local `# browser` catalog group; version centralized in `pnpm-workspace.yaml`
-- role: `shell/worker.ts` (SW runtime lifecycle + update handshake + sync-replay observation); `shell/install.ts` reads the update-available cell for a refresh affordance
+- role: `browser/shell.md` (SW runtime lifecycle + update handshake + sync-replay observation); `browser/shell.md` reads the update-available cell for a refresh affordance
 - rail: `browser/shell`
 
 ## [02]-[WORKBOX_LIFECYCLE_OWNER]
@@ -69,7 +69,7 @@ Consumer note: background-sync replay lives in the SERVICE WORKER — the `Queue
 - `@effect/platform-browser`: `BrowserStream` is the alternate typed event-source adapter when a `Stream` from a DOM `EventTarget` is preferred over the hand-bridged `asyncScoped`.
 - sibling `workbox-build`: shares the `RuntimeCaching`/`StrategyName` vocabulary across the build/runtime seam — the asset generated at build is exactly what `Workbox` registers; a type-only import keeps the strategy rows one source of truth.
 - `ui` port: the `updateAvailable` `SubscriptionRef` surfaces to `ui` through a declared runtime-capability port bound to an `@effect-atom` binding — `browser` provides the Layer at app composition, `ui` never imports `browser`.
-- `kernel/identity`: the SW script URL and precache cache-version derive from the `AppIdentity` build fingerprint, so a build bump forces a fresh install rather than a silent stale worker.
+- `core/value/identity`: the SW script URL and precache cache-version derive from the `AppIdentity` build fingerprint, so a build bump forces a fresh install rather than a silent stale worker.
 
 ## [06]-[RAIL_LAW]
 

@@ -1,4 +1,4 @@
-# [idb-keyval] — the `persist/kv` typed KV lane over IndexedDB
+# [idb-keyval] — the `browser/persist` typed KV lane over IndexedDB
 
 Eleven promise-returning KV ops over one IndexedDB object store, each closing over an optional `UseStore`
 transaction-runner, plus the synchronous `createStore(dbName, storeName)` factory that mints one and the
@@ -6,9 +6,9 @@ transaction-runner, plus the synchronous `createStore(dbName, storeName)` factor
 handle. Omitting `customStore` targets a lazily-created default `keyval-store`/`keyval` store, so the
 store roster is a value, never a parallel function family. `setMany`, `delMany`, and `update` run
 inside a single IndexedDB transaction and are atomic (an `update` is a read-modify-write in one tx that
-survives concurrent writers). Values must be structured-cloneable — the `persist/kv.ts` Layer encodes
+survives concurrent writers). Values must be structured-cloneable — the `browser/persist.md` Layer encodes
 domain values through `Schema` to a cloneable shape at the boundary and decodes on read. This is the
-local-first cache lane, never the record of truth (that is `persist/opfs.ts`'s `EventLog`/sqlite-wasm).
+local-first cache lane, never the record of truth (that is the data journal behind `browser/persist.md`'s `EventLog` overlay).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -91,13 +91,13 @@ declare function promisifyRequest<T = undefined>(request: IDBRequest<T> | IDBTra
   eleven method names downstream.
 
 [STACK]: sibling `browser` lanes — rail: persist-kv
-- `shell/worker.ts` background-sync replay drains a durable outbox: `keys`/`values` enumerate pending frames,
+- `browser/shell.md` background-sync replay drains a durable outbox: `keys`/`values` enumerate pending frames,
   `setMany` re-hydrates atomically after a flush, `delMany` evicts acknowledged frames in one tx.
-- `persist/opfs.ts` owns the record of truth (`@effect/experimental` `EventLog` + sqlite-wasm); this KV lane is
-  the overlay cache it rebuilds from — treat divergence as cache-invalidate, never as data loss.
-- `boot/connect.ts` reads/writes connectivity + last-sync markers here so a cold boot restores session state
+- `browser/persist.md`'s `Overlay` cluster carries the `EventLog` backings and the sqlite-wasm lane seam; this KV lane is
+  the overlay cache beside them — treat divergence as cache-invalidate, never as data loss.
+- `browser/boot.md` reads/writes connectivity + last-sync markers here so a cold boot restores session state
   before the network settles; `promisifyRequest` backs any cursor scan the OPFS lane needs over a shared store.
-- `route/navigate.ts` (the `nuqs` `persist/kv` consumer) persists the last-good serialized query string per
+- `browser/route.md` (the `nuqs` `browser/persist` consumer) persists the last-good serialized query string per
   route key: `set(routeKey, serialized)` on each `createSerializer` write, `get(routeKey)` on cold boot so
   `nuqs`'s `createLoader` re-decodes typed query-state before the Navigation API resolves the entry. The value
   is already a cloneable `string`, so this lane's `V` is `Schema.String` (identity encode), never a payload.

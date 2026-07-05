@@ -12,7 +12,7 @@
 - transport: own `requestHandler` — `@smithy/node-http-handler` (Node `https.Agent` pool / HTTP2) or `@smithy/fetch-http-handler` (browser); NOT the `@effect/platform` `HttpClient`
 - runtime: `runtime:node` (server object plane) and browser (presigned direct-to-S3 uploads); `credentialDefaultProvider` (`@aws-sdk/credential-provider-node`) is node-only
 - module format: ESM/CJS dual, `sideEffects: false`, tree-shakeable command imports; deep-import subpaths per command
-- unadmitted companion: `@aws-sdk/lib-storage` (managed `Upload`) is NOT in the roster — multipart is hand-composed from the low-level command family under an Effect scope
+- admitted companion: `@aws-sdk/lib-storage` (managed `Upload`; `.api/aws-sdk-lib-storage.md`) owns streaming/unknown-length bodies — bounded-bytes multipart stays hand-composed from the low-level command family under an Effect scope
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -81,7 +81,7 @@
 | :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
 |  [01]   | `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256, ChecksumAlgorithm: "SHA256" }` | conditional put | `object/key` — first-writer wins; digest = key, checksum = integrity |
 |  [02]   | `catch` → `$metadata.httpStatusCode === 412` ⇒ `Effect.void` (idempotent noop)                     | idempotency     | the content-address re-put is a proven noop, not a fault |
-|  [03]   | `Effect.acquireRelease(CreateMultipartUpload, ({ UploadId }) ⇒ AbortMultipartUpload)` then `UploadPart` fold ⇒ `CompleteMultipartUpload{ IfNoneMatch: "*" }` | multipart | large-blob ingest; abort on interrupt, conditional at completion, no `lib-storage` |
+|  [03]   | `Effect.acquireRelease(CreateMultipartUpload, ({ UploadId }) ⇒ AbortMultipartUpload)` then `UploadPart` fold ⇒ `CompleteMultipartUpload{ IfNoneMatch: "*" }` | multipart | bounded-bytes large-blob ingest; abort on interrupt, conditional at completion; streaming bodies ride `lib-storage` `Upload` |
 |  [04]   | `GetObjectCommand{ ChecksumMode: "ENABLED" }` → verify `ChecksumSHA256` against the key             | read verify     | `object/key` end-to-end content-address verification     |
 |  [05]   | `PutBucketLifecycleConfigurationCommand{ Rules }` + `PutObjectTaggingCommand`                       | retention GC    | `object/key` reference-sweep GC by retention class       |
 |  [06]   | `GetObjectCommandOutput.Body` — node `SdkStream<IncomingMessage \| Readable>`; one-shot `transformToByteArray(): Promise<Uint8Array>` / `transformToWebStream(): ReadableStream` / `transformToString(enc?)` | body read | the `sharp` fan-out source read: `Body.transformToByteArray()` once → `Buffer` → `sharp(buffer).clone()` per derivative; the `Body` is single-consume, so buffer-then-clone, never a re-piped stream per derivative |
@@ -94,7 +94,7 @@
 - checksums are the integrity proof: `ChecksumSHA256` + `ChecksumAlgorithm: "SHA256"` on write and `ChecksumMode: "ENABLED"` on read make S3 verify the content-address digest end to end; `requestChecksumCalculation`/`responseChecksumValidation` set the default policy at the client.
 - own transport, Effect is the wrap: the SDK uses its own `requestHandler` (`@smithy/node-http-handler` pool), NOT the `@effect/platform` `HttpClient` — so the Effect seam is the resource wrap and the `AbortSignal` bridge, not the wire. Interruption of the fiber aborts the in-flight request; the client is `destroy`ed on scope close.
 - S3-compatible by parameterization: `endpoint` + `forcePathStyle: true` target MinIO/R2/Tigris/Ceph; `credentials` are static keys or a provider; nothing is hardcoded to AWS. The provider is a `Config` fact.
-- multipart is composed, not managed: with `@aws-sdk/lib-storage` unadmitted, large blobs ride the low-level `CreateMultipartUpload`/`UploadPart`/`CompleteMultipartUpload` family under `Effect.acquireRelease` that `AbortMultipartUpload`s on interrupt — part size is a parameter, not a library default.
+- multipart splits by body shape: bounded bytes ride the low-level `CreateMultipartUpload`/`UploadPart`/`CompleteMultipartUpload` family under `Effect.acquireRelease` that `AbortMultipartUpload`s on interrupt — part size is a parameter, not a library default; a streaming or unknown-length body rides `@aws-sdk/lib-storage`'s `Upload` (`.api/aws-sdk-lib-storage.md`), whose params spread carries the same conditional and checksum members onto both its legs.
 
 [INTEGRATION_LAW]:
 - Stack with `effect` (`.api/effect.md`): `Layer.scoped` holds the `S3Client` via `acquireRelease`; `Effect.tryPromise` with `{ abortSignal }` lifts each `send`; the `S3ServiceException` hierarchy maps through `Match` to `Data.TaggedError` (`ObjectMissing`/`ObjectConflict`/`ObjectFault`); `Stream.fromAsyncIterable` lifts a paginator; `Config.redacted` supplies credentials; `Schedule` policy composes with `maxAttempts`/`retryMode`. The client adds no rail — Effect owns lifecycle, cancellation, and error.
@@ -108,10 +108,10 @@
 - compose commands as values through the one `send`; never build a `get`/`put`/`list` method family, and never reach for the `S3` flat client where the command form tree-shakes.
 - detect the conditional-put noop by `$metadata.httpStatusCode === 412` on the caught `S3ServiceException`; never catch a `PreconditionFailed` class (it does not exist) and never treat the 412 as a fault.
 - target S3-compatible providers by `endpoint` + `forcePathStyle` as `Config` facts; never hardcode an AWS region/endpoint. Credentials and SSE-C keys are `Redacted`.
-- hand-compose multipart under `Effect.acquireRelease` with `AbortMultipartUpload` on release; do not admit `@aws-sdk/lib-storage` without a roster decision.
+- hand-compose bounded-bytes multipart under `Effect.acquireRelease` with `AbortMultipartUpload` on release; route streaming bodies through `@aws-sdk/lib-storage`'s `Upload` with the conditional stated on `params`.
 
 [RAIL_LAW]:
 - Package: `@aws-sdk/client-s3`
 - Owns: the `S3Client` + `send` dispatch, the object/multipart/list command family, `paginate*` iterables, `waitUntil*` pollers, the `S3ServiceException` hierarchy, the bounded enum vocabularies, and `S3ClientConfig` (endpoint/credentials/checksum/retry/transport)
 - Accept: one `Effect`-wrapped `send` discriminated by command value, `IfNoneMatch: "*"` + checksum as the content-address idempotency pattern, 412-by-status noop detection, `endpoint`+`forcePathStyle` S3-compat parameterization, hand-composed multipart under a scope, `Redacted` credentials, spans via `Effect.withSpan`, paginators lifted to `Stream`
-- Reject: imperative SDK use or a missing `abortSignal`, a per-verb method family, a `PreconditionFailed` class or a 412-as-fault, hardcoded AWS endpoints/credentials, riding the `@effect/platform` `HttpClient` for S3 transport, `@aws-sdk/lib-storage` admitted silently, the `S3` flat client where the command form fits
+- Reject: imperative SDK use or a missing `abortSignal`, a per-verb method family, a `PreconditionFailed` class or a 412-as-fault, hardcoded AWS endpoints/credentials, riding the `@effect/platform` `HttpClient` for S3 transport, `@aws-sdk/lib-storage` reached for bounded bytes, the `S3` flat client where the command form fits

@@ -1,13 +1,13 @@
 # [@effect/ai-openrouter] — the OpenRouter provider Layer family: a LanguageModel row on the capability-asymmetry table
 
-One of the five provider Layer families `model/provider.ts` folds onto the capability-asymmetry table.
+One of the five provider Layer families `ai/model.ts` folds onto the capability-asymmetry table.
 `OpenRouterLanguageModel.model(id)` returns a `Model<"openrouter", LanguageModel, OpenRouterClient>` row —
 `Model.make` under the hood, so it is a `Layer` and an `Effect` that resolve `@effect/ai`'s `LanguageModel`
 Tag. OpenRouter's asymmetry is aggregation: one API fronts every upstream provider, so the row carries
 provider-routing preferences (`ProviderPreferences`, price/throughput/latency sort), reasoning-effort control,
 prompt-caching breakpoints (`cacheControl`), and per-response cost + upstream-provider transparency in the
 finish-part metadata — exactly the columns tier-routing reads. The client authenticates with a `Redacted`
-API key (or `effect/Config`), threads through the `host/net` `HttpClient`, and the whole 348-class OpenRouter
+API key (or `effect/Config`), threads through the `net/client` `HttpClient`, and the whole 348-class OpenRouter
 OpenAPI surface is available typed via `Generated` for endpoints the AI abstraction does not cover.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -26,7 +26,7 @@ OpenAPI surface is available typed via `Generated` for endpoints the AI abstract
 
 The Tag exposes typed `createChatCompletion`/`createChatCompletionStream` plus the raw `Generated.Client` for
 uncovered endpoints. `layer` takes literals; `layerConfig` reads `effect/Config` so the key/URL come from the
-environment as a `ConfigError`-typed Layer. `transformClient` composes the `host/net` default-policy `HttpClient`.
+environment as a `ConfigError`-typed Layer. `transformClient` composes the `net/client` default-policy `HttpClient`.
 
 ```ts contract
 declare class OpenRouterClient extends Context.Tag("@effect/ai-openrouter/OpenRouterClient")<OpenRouterClient, Service> {}
@@ -59,7 +59,7 @@ class ChatStreamingResponseChunk { // .provider (upstream), .usage (ChatGenerati
 
 [PUBLIC_TYPE_SCOPE]: the provider row + generation config — rail: ai-provider
 
-`model(id, config?)` is the row `provider.ts` selects; `layer`/`make` are the direct forms. `Config` is a
+`model(id, config?)` is the row `ai/model.ts` selects; `layer`/`make` are the direct forms. `Config` is a
 per-request generation-parameter Tag (temperature, top_p, reasoning, provider routing — everything except
 messages/tools/response_format/stream); `withConfigOverride` scopes an override onto an Effect. Module
 augmentation adds OpenRouter columns to `@effect/ai`'s `Prompt` and `Response` shapes.
@@ -128,7 +128,7 @@ declare const withClientTransform: {
 ## [06]-[INTEGRATION]
 
 [STACK]: the capability-asymmetry row + tier-routing — rail: ai-provider
-- `provider.ts` folds `OpenRouterLanguageModel.model(id, config)` as one row among anthropic/openai/google/
+- `ai/model.ts` folds `OpenRouterLanguageModel.model(id, config)` as one row among anthropic/openai/google/
   bedrock/openrouter; the app root provides the row's `Model` Layer plus its `OpenRouterClient.layerConfig`.
   OpenRouter's row is the aggregator lane: `config.provider` (`ProviderPreferences`) sorts upstreams by
   price/throughput/latency, `config.models` supplies fallbacks, `config.route` sets fallback policy, and
@@ -140,7 +140,7 @@ declare const withClientTransform: {
 [STACK]: universal-tier rails — rail: ai-provider
 - `effect`: `Redacted` hides the API key end-to-end; `Config` (`layerConfig`) reads it from the environment as a
   typed `ConfigError` Layer; `Schema` types every `Generated` shape; `Stream` carries the streaming chunks.
-- `@effect/platform`: the row requires `HttpClient` — `host/net` provides the default-policy client; `transformClient`
+- `@effect/platform`: the row requires `HttpClient` — `net/client` provides the default-policy client; `transformClient`
   and `OpenRouterConfig.withClientTransform` compose proxy/retry/header policy without a rebuild.
 - `@effect/ai`: the row resolves the `LanguageModel` Tag, so `generateText`/`streamText`/`generateObject`, the
   guardrail gate, toolkits, and telemetry all compose unchanged; `Model.ProviderName` reads `"openrouter"` for routing.

@@ -1,10 +1,10 @@
-# [@effect/ai-anthropic] — the Anthropic provider Layer family plus the AnthropicTokenizer the model/token budgets own
+# [@effect/ai-anthropic] — the Anthropic provider Layer family plus the AnthropicTokenizer the ai/model budgets own
 
 `@effect/ai-anthropic` 0.26.0 · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-anthropic/AnthropicClient`) · marker TSDECL `node_modules/@effect/ai-anthropic/dist/dts/*.d.ts` · peers `@effect/ai@^0.36`, `@effect/platform@^0.96`, `@effect/experimental@^0.60`, `effect@^3.21` · tier node|browser (`FetchHttpClient.layer`)
 
-The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tokenizer`/`Tool` tags against the Anthropic **Messages** (beta) API. Its asymmetry row carries a language model, the `AnthropicTokenizer` that `model/token.ts` names as one of its two budget owners, and the richest provider-defined tool family — but no embedding or telemetry module. It uniquely exports `prepareTools`, the tool-preparation helper `@effect/ai-amazon-bedrock` reuses to run Claude on Bedrock, so this catalog is the upstream seam for that sibling. Six owner modules re-export through the barrel (`AnthropicClient`, `AnthropicConfig`, `AnthropicLanguageModel`, `AnthropicTokenizer`, `AnthropicTool`, `Generated`); every provider-facing symbol is one parameterized surface, and the OpenAPI wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`Tokenizer`/`Tool` tags against the Anthropic **Messages** (beta) API. Its asymmetry row carries a language model, the `AnthropicTokenizer` that `ai/model.ts` names as one of its two budget owners, and the richest provider-defined tool family — but no embedding or telemetry module. It uniquely exports `prepareTools`, the tool-preparation helper `@effect/ai-amazon-bedrock` reuses to run Claude on Bedrock, so this catalog is the upstream seam for that sibling. Six owner modules re-export through the barrel (`AnthropicClient`, `AnthropicConfig`, `AnthropicLanguageModel`, `AnthropicTokenizer`, `AnthropicTool`, `Generated`); every provider-facing symbol is one parameterized surface, and the OpenAPI wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
-## [01]-[ASYMMETRY] — the row `model/provider.ts` folds
+## [01]-[ASYMMETRY] — the row `ai/model.ts` folds
 
 | [COLUMN]              | [Anthropic]                               | openai       | google        | bedrock          |
 | :-------------------- | :---------------------------------------- | :----------- | :------------ | :--------------- |
@@ -88,7 +88,7 @@ export type AnthropicReasoningInfo =
   | { readonly type: "redacted_thinking"; readonly redactedData: typeof Generated.RequestRedactedThinkingBlock.fields.data.Encoded }
 ```
 
-`Config` (tag `@effect/ai-anthropic/AnthropicLanguageModel/Config`, `static getOrUndefined`) is the `CreateMessageParams` minus SDK-owned keys (`messages`/`tools`/`tool_choice`/`stream`) made partial, plus `disableParallelToolCalls` — the tier-routing seam `provider.ts` writes per call.
+`Config` (tag `@effect/ai-anthropic/AnthropicLanguageModel/Config`, `static getOrUndefined`) is the `CreateMessageParams` minus SDK-owned keys (`messages`/`tools`/`tool_choice`/`stream`) made partial, plus `disableParallelToolCalls` — the tier-routing seam `ai/model.ts` writes per call.
 
 ```ts contract
 namespace Config { interface Service extends Simplify<Partial<Omit<typeof Generated.CreateMessageParams.Encoded, "messages"|"tools"|"tool_choice"|"stream">>> { readonly disableParallelToolCalls?: boolean } }
@@ -106,9 +106,9 @@ The `declare module` augmentations attach an optional `anthropic` key — ONE bo
 | `Response`        | `DocumentSourcePartMetadata`                                                       | `char_location` \| `page_location` citation                   |
 | `Response`        | `UrlSourcePartMetadata`                                                            | `{ source:"url"; citedText; encryptedIndex }`                 |
 
-## [04]-[TOKENIZER] — the `token.ts` budget owner
+## [04]-[TOKENIZER] — the `ai/model.ts` budget owner
 
-`AnthropicTokenizer.make` is a bare `Tokenizer.Service` **value** (not a factory function — distinct from `OpenAiTokenizer.make`, which takes `{ model }`); `layer` provides the `Tokenizer.Tokenizer` tag dependency-free, and `AnthropicLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in. This is the canonical tokenizer `model/token.ts` names as its primary budget owner.
+`AnthropicTokenizer.make` is a bare `Tokenizer.Service` **value** (not a factory function — distinct from `OpenAiTokenizer.make`, which takes `{ model }`); `layer` provides the `Tokenizer.Tokenizer` tag dependency-free, and `AnthropicLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in. This is the canonical tokenizer `ai/model.ts` names as its primary budget owner.
 
 ```ts contract
 declare const make: Tokenizer.Service
@@ -150,8 +150,8 @@ Load-bearing anchors (exact spelling): `Model` (the 21-id literal), `CreateMessa
 
 ## [08]-[INTEGRATION] — how the row stacks into single rails
 
-- Universal Effect rails: `AnthropicLanguageModel.model(id)` produces the same `LanguageModel.LanguageModel` tag as every sibling — provider choice is a single `Layer` swap in `provider.ts`. `Redacted`+`Config` own credential resolution; `Stream` folds `MessageStreamEvent`; `Schema` decodes `Config`/tools/responses; `Match.discriminator("type")` dispatches the streaming union and its nested `delta` arms; `Effect.catchTag` branches `AiError`. Compose top-down: `Effect.provide(AnthropicLanguageModel.modelWithTokenizer(id))` over `AnthropicClient.layer({ apiKey })` over an `HttpClient` layer.
-- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` from the `host/net` default-policy row; browser binds `FetchHttpClient.layer`, node `NodeHttpClient.layer`.
+- Universal Effect rails: `AnthropicLanguageModel.model(id)` produces the same `LanguageModel.LanguageModel` tag as every sibling — provider choice is a single `Layer` swap in `ai/model.ts`. `Redacted`+`Config` own credential resolution; `Stream` folds `MessageStreamEvent`; `Schema` decodes `Config`/tools/responses; `Match.discriminator("type")` dispatches the streaming union and its nested `delta` arms; `Effect.catchTag` branches `AiError`. Compose top-down: `Effect.provide(AnthropicLanguageModel.modelWithTokenizer(id))` over `AnthropicClient.layer({ apiKey })` over an `HttpClient` layer.
+- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` from the `net/client` default-policy row; browser binds `FetchHttpClient.layer`, node `NodeHttpClient.layer`.
 - `@effect/ai` core (sibling catalog `effect-ai.md`): satisfies `LanguageModel.LanguageModel`, `Tokenizer.Tokenizer`, `Tool.ProviderDefined`/`Tool.FailureMode`; consumes `LanguageModel.ProviderOptions` in `prepareTools`; augments `Prompt`/`Response` provider slots. No embedding or telemetry tag — those asymmetry cells are empty.
 - Sibling providers: `prepareTools` + `Generated.BetaCacheControlEphemeral` are imported by `@effect/ai-amazon-bedrock` (which peer-depends on this package) to run Claude on Bedrock — this catalog is that seam's upstream; see `effect-ai-amazon-bedrock.md`.
-- Design consumers: `model/provider.ts` (row + tier-routing + guardrail gate), `model/token.ts` (`AnthropicTokenizer` as the primary budget owner), `tool/toolkit.ts`+`tool/mcp.ts` (the tool family projected — `requiresHandler:true` tools bind app handlers via `Toolkit.toLayer`). No `embed/*` binding (embeddings are OpenAI-only).
+- Design consumers: `ai/model.ts` (row + tier-routing + guardrail gate), `ai/model.ts` (`AnthropicTokenizer` as the primary budget owner), `ai/tool.ts`+`ai/tool.ts` (the tool family projected — `requiresHandler:true` tools bind app handlers via `Toolkit.toLayer`). No `embed/*` binding (embeddings are OpenAI-only).

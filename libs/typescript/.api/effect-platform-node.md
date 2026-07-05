@@ -20,7 +20,7 @@
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CONSUMER]                                                        |
 | :-----: | :---------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
 |  [01]   | `NodeContext.layer`                              | context layer    | `host` — one `Layer` binding `FileSystem`+`Path`+`CommandExecutor`+`Terminal`+`Worker` |
-|  [02]   | `NodeHttpClient.Dispatcher` / `NodeHttpClient.HttpAgent` | pool Tags | `host/net/client.ts` — undici connection-pool / keep-alive agent behind `HttpClient` |
+|  [02]   | `NodeHttpClient.Dispatcher` / `NodeHttpClient.HttpAgent` | pool Tags | `runtime/src/net/client.ts` — undici connection-pool / keep-alive agent behind `HttpClient` |
 |  [03]   | `NodeHttpServer` (server `Layer` factory)        | server binding   | `edge/serve` — binds `HttpServer` to a `node:http` listener |
 |  [04]   | `Undici` (re-export of `undici`)                 | raw client       | escape hatch for a raw undici request; domain code stays on `HttpClient` |
 
@@ -31,17 +31,17 @@
 
 | [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]  | [CONSUMER]                                                   |
 | :-----: | :--------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `NodeRuntime.runMain(effect, { disableErrorReporting?, teardown? })`   | run-main        | `host/exec/runtime.ts` — the Node `Effect.runFork` edge; drains on `SIGINT`/`SIGTERM` |
+|  [01]   | `NodeRuntime.runMain(effect, { disableErrorReporting?, teardown? })`   | run-main        | `runtime/src/proc/exec.ts` — the Node `Effect.runFork` edge; drains on `SIGINT`/`SIGTERM` |
 |  [02]   | `NodeContext.layer`                                                    | context layer   | provided at the app root under every node service — fs, path, command, terminal, worker |
 |  [03]   | `NodeFileSystem.layer` / `NodePath.layer` / `NodePath.layerPosix`      | single binding  | when a folder needs one contract without the full `NodeContext` aggregate |
-|  [04]   | `NodeCommandExecutor.layer` / `NodeTerminal.layer`                     | exec / tty      | `host/exec/process.ts` subprocess execution; `edge/cli` interactive terminal |
+|  [04]   | `NodeCommandExecutor.layer` / `NodeTerminal.layer`                     | exec / tty      | `runtime/src/proc/exec.ts` subprocess execution; `edge/cli` interactive terminal |
 
 [ENTRYPOINT_SCOPE]: HTTP client and server bindings
 - rail: boundaries
 
 | [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY]  | [CONSUMER]                                                   |
 | :-----: | :-------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `NodeHttpClient.layerUndici` / `.layer` / `.layerWithoutAgent`                     | client layer    | `host/net/client.ts` — the undici-backed `HttpClient` (HTTP/2, pooling) |
+|  [01]   | `NodeHttpClient.layerUndici` / `.layer` / `.layerWithoutAgent`                     | client layer    | `runtime/src/net/client.ts` — the undici-backed `HttpClient` (HTTP/2, pooling) |
 |  [02]   | `NodeHttpClient.dispatcherLayer` / `.dispatcherLayerGlobal` / `.makeDispatcher`    | dispatcher      | tune the undici `Dispatcher` (connections, pipelining, TLS) under the client |
 |  [03]   | `NodeHttpServer.layer(createServer, listenOptions)` / `.layerConfig(createServer, config)` | server layer    | `edge/serve` — bind `HttpServer` to a `node:http` server; `layerConfig` reads host/port from `Config` |
 |  [04]   | `NodeHttpServer.layerTest` / `NodeHttpServer.makeHandler`                          | test / handler  | kit-driven in-process server specs; a raw `IncomingMessage => ServerResponse` handler |
@@ -52,10 +52,10 @@
 
 | [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY]  | [CONSUMER]                                                   |
 | :-----: | :-------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `NodeSocket.layerWebSocket(url)` / `NodeSocketServer.layer` / `.layerWebSocket`    | socket          | `host/net/channel.ts` — `ws`-backed WebSocket client/server behind `Socket`/`SocketServer` |
-|  [02]   | `NodeWorker.layer(spawn)` / `.layerManager` / `.layerPlatform`                     | worker pool     | `host/exec` — worker-thread pool binding for `Worker.makePoolSerialized` |
+|  [01]   | `NodeSocket.layerWebSocket(url)` / `NodeSocketServer.layer` / `.layerWebSocket`    | socket          | `runtime/src/net/channel.ts` — `ws`-backed WebSocket client/server behind `Socket`/`SocketServer` |
+|  [02]   | `NodeWorker.layer(spawn)` / `.layerManager` / `.layerPlatform`                     | worker pool     | `proc/worker` — worker-thread pool binding for `Worker.makePoolSerialized` |
 |  [03]   | `NodeWorkerRunner.layer`                                                           | worker runner   | the worker-thread entrypoint side of a `WorkerRunner` handler |
-|  [04]   | `NodeStream.fromReadable` / `.toReadable` / `.pipeThroughDuplex` / `.stdin` / `.stdout` | stream bridge | `host/exec/process.ts` — Node `Readable`/`Duplex` ⇄ Effect `Stream`; process stdio |
+|  [04]   | `NodeStream.fromReadable` / `.toReadable` / `.pipeThroughDuplex` / `.stdin` / `.stdout` | stream bridge | `runtime/src/proc/exec.ts` — Node `Readable`/`Duplex` ⇄ Effect `Stream`; process stdio |
 |  [05]   | `NodeSink.fromWritable` / `NodeSink.stdout` / `NodeSink.stderr`                    | sink bridge     | write an Effect `Stream` into a Node `Writable`; CLI/process output |
 |  [06]   | `NodeKeyValueStore.layerFileSystem(dir)`                                           | kv layer        | `store/lane` — filesystem-backed `KeyValueStore` binding on node |
 
@@ -72,8 +72,8 @@
 
 [PLATFORM_NODE_TOPOLOGY]:
 - This package is binding, not contract: every export is a `Layer` (or a factory returning one) that satisfies a `@effect/platform` Tag on Node. `NodeContext.layer` is the aggregate — provide it once at the app root and `FileSystem`/`Path`/`CommandExecutor`/`Terminal`/`Worker` resolve for every service beneath. A folder never imports `NodeFileSystem` in domain code; it imports the abstract `FileSystem.FileSystem` Tag and the app root supplies the Node Layer.
-- `NodeRuntime.runMain` is the one Node execution edge: it runs the root `Effect` as a forked fiber, installs `SIGINT`/`SIGTERM` handlers that interrupt the fiber so `acquireRelease`/`Layer.scoped` finalizers run, and reports unhandled failures through the `Cause` pretty-printer. `host/exec/runtime.ts` selects `NodeRuntime.runMain` versus the Bun edge as a runtime row — the app body above it is identical.
-- The HTTP client is undici, not `node:http`: `NodeHttpClient.layerUndici` binds `HttpClient.HttpClient` to an undici `Dispatcher` with connection pooling, keep-alive, and HTTP/2. `host/net/client.ts` layers the branch default policy (timeout, retry, proxy) on top through `HttpClient.retryTransient`/`.mapRequest`, so the pooling is a `Dispatcher` config and the policy is composed transformers — one client, both concerns.
+- `NodeRuntime.runMain` is the one Node execution edge: it runs the root `Effect` as a forked fiber, installs `SIGINT`/`SIGTERM` handlers that interrupt the fiber so `acquireRelease`/`Layer.scoped` finalizers run, and reports unhandled failures through the `Cause` pretty-printer. `runtime/src/proc/exec.ts` selects `NodeRuntime.runMain` versus the Bun edge as a runtime row — the app body above it is identical.
+- The HTTP client is undici, not `node:http`: `NodeHttpClient.layerUndici` binds `HttpClient.HttpClient` to an undici `Dispatcher` with connection pooling, keep-alive, and HTTP/2. `runtime/src/net/client.ts` layers the branch default policy (timeout, retry, proxy) on top through `HttpClient.retryTransient`/`.mapRequest`, so the pooling is a `Dispatcher` config and the policy is composed transformers — one client, both concerns.
 - Server binding is `Config`-driven: `NodeHttpServer.layerConfig` reads host/port from the `ConfigProvider`, and `HttpApiBuilder.serve` (from `@effect/platform`) mounts the assembled `HttpApi` onto it. `edge/serve` selects `NodeHttpServer` versus `BunHttpServer` versus `toWebHandler` as a serve row — the served `HttpApi` value is runtime-agnostic.
 - `NodeStream`/`NodeSink` are the Node-boundary bridges: `NodeStream.fromReadable` lifts a `node:stream.Readable` into an Effect `Stream` with backpressure, `NodeStream.stdin`/`stdout` expose process stdio as streams, and `NodeSink.fromWritable` drains a `Stream` into a `Writable`. These are the only place a raw Node stream is admitted; downstream stays on the Effect `Stream`/`Channel` rail.
 - Cluster transports are node-only capability: `NodeClusterSocket.layerK8sHttpClient` discovers runner pods via the Kubernetes API (discovery, never provisioning — provisioning is `iac`), and `NodeClusterHttp`/`NodeClusterSocket` carry `@effect/cluster` entity messages. `work/engine` composes these behind the `MessageStorage`/`Sharding` Tags the app root satisfies with a `store` driver.
@@ -81,8 +81,8 @@
 [STACKS_WITH]:
 - `@effect/platform` (`.api/effect-platform.md`): this package is its runtime half — every `Node*` Layer satisfies a platform Tag. Domain code composes the abstract contract; the app root provides the Node Layer. There is no Node-specific domain API to learn.
 - `effect` (`.api/effect.md`): `NodeRuntime.runMain` is the `Effect.runFork` edge; the Layers plug into the `Layer` graph; `NodeHttpServer.layerConfig` reads `Config` through the `ConfigProvider`. The Node tier adds bindings, never a new rail.
-- `@effect/platform-bun` (`.api/effect-platform-bun.md`): the peer runtime — `BunContext.layer`, `BunHttpServer.layer`, `BunRuntime.runMain` satisfy the same platform Tags. `host/exec/runtime.ts` and `edge/serve` select node versus bun as a `Layer` row; a bun swap touches only the app root.
-- `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): the `NodeSdk` OTel Layer (from `@effect/opentelemetry/NodeSdk`) is provided beside `NodeContext.layer` to bind the `Tracer`/`MetricRegistry`; `telemetry/otlp/export.ts` owns the `NodeSdk` row.
+- `@effect/platform-bun` (`.api/effect-platform-bun.md`): the peer runtime — `BunContext.layer`, `BunHttpServer.layer`, `BunRuntime.runMain` satisfy the same platform Tags. `runtime/src/proc/exec.ts` and `edge/serve` select node versus bun as a `Layer` row; a bun swap touches only the app root.
+- `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): the `NodeSdk` OTel Layer (from `@effect/opentelemetry/NodeSdk`) is provided beside `NodeContext.layer` to bind the `Tracer`/`MetricRegistry`; `runtime/src/otel/emit.ts` owns the `NodeSdk` row.
 - `@effect/cluster` + `@effect/sql` (catalogued at `libs/typescript/work|store/.api/`): `NodeClusterHttp`/`NodeClusterSocket` transport cluster messages, and the `MessageStorage` Tag is satisfied by a `store` `@effect/sql` driver Layer at the app root — the `work`/`store` seam meets at these bindings.
 
 [LOCAL_ADMISSION]:
