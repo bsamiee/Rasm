@@ -14,7 +14,7 @@ Rasm.Persistence owns the causal lineage of every durable change as a W3C-PROV-O
 - Owner: `ProvKind` the `[SmartEnum<string>]` PROV-node-class axis carrying its PROV-O class IRI and the `AssociationRole` an agent associated with this activity kind plays; `AgentClass` the `[SmartEnum<string>]` PROV-O agent-subtype axis (`Person`/`SoftwareAgent`/`Organization`); `ProvRole` the `[SmartEnum<string>]` qualified-influence role vocabulary the association carries; `ProvNode` the `[Union]` causal node (`Entity`/`Activity`/`Agent`) whose `Entity` refines into the `EntitySubclass` PROV form (`Plain`/`Collection`/`Bundle`/`Plan`); `ProvRelation` the `[SmartEnum<string>]` influence vocabulary carrying its PROV-O term, its endpoint-property law (the W3C-PROV-JSON edge map property names), and the derivation-subclass parent it specializes; `ProvEndpoint` the `[SmartEnum<string>]` from/to property-name axis the JSON projection reads; `ProvEdge` the typed causal edge carrying its qualified `ProvRole`/plan; `LineageWalk` the bounded ancestry/descent frontier fold; `CloudRunFact` the sidecar-projected completed-cloud-run value the second `Derive` modality folds; `CausalDag` the static surface owning lineage derivation (changefeed AND cloud-run modalities), the walks, and the PROV-JSON projection.
 - Cases: `ProvNode` is `Entity(ContentAddress, ProvKind, EntitySubclass, Instant)`, `Activity(UInt128 Id, ProvKind Kind, Instant Started, Instant Ended)`, `Agent(string Actor, AgentClass Class, bool Signed)` — the agent identity is the stable actor SUBJECT string (the one identifier the changefeed `Actor` header and a `SignedAuthorship.Actor.Subject` both yield, never a full `StoreActor` frozen into a durable node — role claims are session facts), the CLASS is the PROV-O subtype derived through `AgentClass.Of(StoreActor)` off the actor's role claims, the `Signed` flag the attestation fact, never a `bool`-as-type; `EntitySubclass` is `Plain | Collection | Bundle | Plan` (the PROV-O `Entity` subclasses — a model is a `Collection` of element entities, the lineage export a `Bundle`, a merge strategy a `Plan`); `ProvRelation` is the eleven W3C-PROV-O influence terms — `WasGeneratedBy | Used | WasInformedBy | WasDerivedFrom | WasRevisionOf | WasQuotedFrom | HadPrimarySource | WasInvalidatedBy | WasAttributedTo | WasAssociatedWith | ActedOnBehalfOf` — each a row carrying its `prov:` term, its endpoint-property law, and the derivation-subclass parent it specializes (`WasRevisionOf`/`WasQuotedFrom`/`HadPrimarySource` generalize to `WasDerivedFrom`), a twelfth being one row, never a parallel edge family; `AgentClass` is the three PROV-O agent subtypes; `ProvRole` is `Author | Reviser | Importer | Merger | Solver | Delegate` — the role an agent played in an association; `ProvKind` closes at nine rows — the four entity kinds (`Graph`/`Delta`/`Snapshot`/`Blob`) and the five activity kinds (`Commit`/`Merge`/`Import`/`Solve`/`CloudRun`), the `CloudRun` row REUSING `ProvRole.Solver` because a cloud solver and a local solver play the one role.
 - Entry: `public static Seq<ProvEdge> Derive(Seq<OpLogEntry> changefeed, Func<UInt128, Option<CommitNode>> resolve)` projects the lineage graph from the changefeed plus the commit DAG with EXACT PROV-O endpoint typing — each delta entity `WasGeneratedBy` its commit activity, the commit activity `WasAssociatedWith` its signed agent under the agent's `ProvRole`, the delta entity `WasAttributedTo` that agent, a revised entity `WasRevisionOf` each parent commit's produced op-key entities (the derivation subclass, resolved one hop through `resolve` — never the geometry `Closure`), a retired entity `WasInvalidatedBy` its commit activity, and a software agent `ActedOnBehalfOf` its delegating principal; `public static Seq<ProvEdge> Derive(CloudRunFact run)` is the SAME entry's cloud-run modality (input shape discriminates) — the completed run is a W3C-PROV `Activity`: `Used` each input-asset content key, each output-asset entity `WasGeneratedBy` the run activity and `WasAttributedTo` the service agent, the activity `WasAssociatedWith` the `SoftwareAgent` behind `Configuration.AccessToken` (`TokenRepo`) qualified `ProvRole.Solver` with `hadPlan` the recipe reference (`owner/name:tag` + the registry `PackageVersion.Digest`), and the service agent `ActedOnBehalfOf` the human subject who submitted; `public static Seq<ProvNode> Walk(LineageWalk walk, Func<ContentAddress, Seq<ProvEdge>> adjacency, Func<UInt128, (ProvKind, EntitySubclass)> kindOf)` is the one bounded breadth-first frontier fold the ancestry and descent directions both dial; `public static Seq<ProvNode> Derivations(ContentAddress root, int depth, Func<ContentAddress, Seq<ProvEdge>> incoming, Func<UInt128, (ProvKind, EntitySubclass)> kindOf)` composes `Walk` over a derivation-family-filtered adjacency for the transitive `wasDerivedFrom` closure; `public static ProvBundle Bundle(Seq<ProvEdge> lineage, StoreActor authority, Option<SignedAuthorship> attestation, Instant at)` names the lineage as a PROV `Bundle` whose asserting `ProvNode.Agent` DERIVES its `AgentClass` off the actor's role claims (`AgentClass.Of`) and its `Signed` fact off the attestation presence — the provenance-of-provenance header, never a hardcoded `Person`/`signed=false` pair; `public static JsonElement ProvJson(ProvBundle bundle, Func<UInt128, ProvNode> resolve)` projects the standards-conformant W3C-PROV-JSON document.
-- Auto: lineage is DERIVED from the changefeed plus the commit DAG, never a parallel provenance write — a delta IS the `WasGeneratedBy` evidence (delta entity → its commit activity), and the `Version/commits#COMMIT_DAG` parent commits' op-key entities (resolved one hop through `resolve`, the parent commit being an Activity whose produced entities are its `OpKeys`) ARE the `WasRevisionOf` sources, NEVER the `OpLogEntry.Closure` geometry-blob manifest, so the PROV graph is a fold over the events the system already holds; the association edge reads the `Element/identity#KMS_CUSTODY` `SignedAuthorship` so a `WasAssociatedWith` names a verified `Person`/`Organization` `Agent` when the op was KMS-signed and a `SoftwareAgent` (a Compute solver activity, an IFC importer, a Pollination cloud run) when an automated activity produced the entity, the automated agent `ActedOnBehalfOf` the human principal that triggered the run; the activity span reads the commit cell `Hlc` so the PROV `startedAtTime`/`endedAtTime` ride the one causal clock; the qualified `hadRole`/`hadPlan` of an association reads the activity's `ProvKind` (an `Import` activity's agent plays `Importer`, a `Merge` activity's plays `Merger` and `hadPlan` the merge strategy, a `CloudRun` activity's plays `Solver` and `hadPlan` the recipe reference) so the influence is qualified, never bare; the cloud-run modality folds the SAME edge vocabulary from `CloudRunFact` values the sidecar projects — the SDK fork closure (`LBT.RestSharp`/`LBT.Newtonsoft.Json`) never loads here, and the attested verify makes the externally-computed result tamper-evident locally, the federation-wide verify template this page owns.
+- Auto: lineage is DERIVED from the changefeed plus the commit DAG, never a parallel provenance write — a delta IS the `WasGeneratedBy` evidence (delta entity → its commit activity), and the `Version/commits#COMMIT_DAG` parent commits' op-key entities (resolved one hop through `resolve`, the parent commit being an Activity whose produced entities are its `OpKeys`) ARE the `WasRevisionOf` sources, NEVER the `OpLogEntry.Closure` geometry-blob manifest, so the PROV graph is a fold over the events the system already holds; the association edge reads the `Element/identity#KMS_CUSTODY` `SignedAuthorship` so a `WasAssociatedWith` names a verified `Person`/`Organization` `Agent` when the op was KMS-signed and a `SoftwareAgent` (a Compute solver activity, an IFC importer, a Pollination cloud run) when an automated activity produced the entity, the automated agent `ActedOnBehalfOf` the human principal that triggered the run; the activity span reads the commit cell `Hlc` so the PROV `startedAtTime`/`endedAtTime` ride the one causal clock; the qualified `hadRole`/`hadPlan` of an association reads the activity's `ProvKind` (an `Import` activity's agent plays `Importer`, a `Merge` activity's plays `Merger`, a `CloudRun` activity's plays `Solver` with `hadPlan` the recipe-reference `Plan` entity) so the influence is role-qualified, never bare — `hadPlan` rides ONLY a modality that supplies a real `Plan` entity (`CommitNode` records no strategy entity, so the changefeed association carries no plan; an activity key cited as its own plan is a PROV typing contradiction, the deleted form); the cloud-run modality folds the SAME edge vocabulary from `CloudRunFact` values the sidecar projects — the SDK fork closure (`LBT.RestSharp`/`LBT.Newtonsoft.Json`) never loads here, and the attested verify makes the externally-computed result tamper-evident locally, the federation-wide verify template this page owns.
 - Receipt: a lineage derivation rides `store.prov.derive` carrying the edge count by `ProvRelation`; an ancestry/descent walk rides `store.prov.walk` carrying the reached-node count, depth, and direction; a PROV-JSON bundle export rides `store.prov.export` carrying the bundle node and edge counts.
 - Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the agent/plan/activity durable key mints, [B]), System.IO.Hashing (`XxHash128.Append`/`GetCurrentHashAsUInt128` — the bundle-id rolling digest ONLY, a transparency-log construction the [B] ruling keeps local), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.Text.Json (the `Element/codec#CODEC_AXIS` `ElementJson.Options` Thinktecture-converter set the PROV-JSON `SerializeToElement` egress composes, never a second converter registration), System.Runtime.InteropServices, PollinationSDK (sidecar seam only — `RunsApi.GetRunAsync` → `Run`/`RunStatusEnum`, `Configuration.AccessToken` → `TokenRepo`, `ArtifactsApi` asset landings project the `CloudRunFact` VALUES; no fence references the SDK), BCL inbox.
 - Growth: a new PROV relation is one `ProvRelation` row carrying its term + endpoint law + derivation-subclass parent; a new node class is one `ProvNode`/`EntitySubclass`/`ProvKind` row; a new activity source is one `ProvKind` activity row plus one `Derive` input modality (as `CloudRun`/`CloudRunFact` is); a new agent subtype is one `AgentClass` row; a new association role is one `ProvRole` row; a new walk direction is one `LineageWalk` disposition over the one `Walk` fold; zero new surface — a parallel provenance store, a second lineage walker, an attribution edge mis-typed off an activity, or a free-string PROV term is the deleted form because the lineage is a fold over the changefeed and the PROV vocabulary is the closed W3C-PROV-O term set.
@@ -122,7 +122,7 @@ public sealed partial class ProvRelation {
     public Option<ProvRelation> GeneralizesTo { get; }
     // True iff this relation OR its generalization is the derivation family — the `Derivations` ancestry
     // bound, so a revision/quotation/primary-source edge counts as a derivation step.
-    public bool IsDerivation => this == WasDerivedFrom || GeneralizesTo == Some(WasDerivedFrom);
+    public bool IsDerivation => (this == WasDerivedFrom) || (GeneralizesTo == Some(WasDerivedFrom));
     private ProvRelation(string key, string term, ProvEndpoint endpoint, Option<ProvRelation> generic) : this(key) => (Term, Endpoint, GeneralizesTo) = (term, endpoint, generic);
 }
 
@@ -144,7 +144,7 @@ public abstract partial record ProvNode {
     public sealed record Activity(UInt128 Id, ProvKind Kind, Instant Started, Instant Ended) : ProvNode;
     public sealed record Agent(string Actor, AgentClass Class, bool Signed) : ProvNode;
 
-    // Mint the CORRECT PROV class from the kind: an `IsActivity` kind (Commit/Merge/Import/Solve, `prov:Activity`) is an
+    // Mint the CORRECT PROV class from the kind: an `IsActivity` kind (Commit/Merge/Import/Solve/CloudRun, `prov:Activity`) is an
     // Activity node, an entity kind (Graph/Delta/Snapshot/Blob, `prov:Entity`) an Entity — so a reached COMMIT in a
     // lineage walk is never mis-minted as an Entity (the prior `new ProvNode.Entity(...)`-for-everything tangle would
     // emit a `prov:Activity`-kinded Entity, a PROV-O typing contradiction the JSON projection's class map would mis-file).
@@ -197,17 +197,17 @@ public static class CausalDag {
             Option<CommitNode> node = resolve(entry.ContentKey);
             Option<UInt128> commit = node.Map(static c => c.ContentKey);
             // The COMMIT (activity) nature decides the association role: a multi-parent commit IS a merge
-            // (CommitNode.IsMerge), so its agent plays Merger and the activity hadPlan the merge; an
-            // ordinary commit's agent plays Author. The role is read off the activity, never the entity kind.
+            // (CommitNode.IsMerge), so its agent plays Merger; an ordinary commit's plays Author. The role reads
+            // off the activity, never the entity kind; no plan rides here — CommitNode records no Plan entity.
             ProvKind activity = node.Map(static c => c.IsMerge ? ProvKind.Merge : ProvKind.Commit).IfNone(ProvKind.Commit);
             UInt128 agent = AgentKey(entry.Actor);
             // EXACT PROV-O: the delta/snapshot Entity WasGeneratedBy its commit Activity; the Activity
-            // WasAssociatedWith its Agent qualified by the activity's role + plan; the produced Entity
+            // WasAssociatedWith its Agent qualified by the activity's role; the produced Entity
             // WasAttributedTo that Agent; a merge Activity WasInformedBy each parent commit Activity; a
             // revised Entity WasRevisionOf its prior (the derivation subclass), a retired one WasInvalidatedBy
             // its activity. No attribution is ever sourced off an activity (that is association).
             Seq<ProvEdge> generated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasGeneratedBy, entry.ContentKey, c, entry.Stamp));
-            Seq<ProvEdge> associated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasAssociatedWith, c, agent, entry.Stamp).Qualified(activity.AssociationRole, commit));
+            Seq<ProvEdge> associated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasAssociatedWith, c, agent, entry.Stamp).Qualified(activity.AssociationRole, None));
             Seq<ProvEdge> attributed = Seq(ProvEdge.Of(ProvRelation.WasAttributedTo, entry.ContentKey, agent, entry.Stamp));
             // WasInformedBy is the MERGE chain only — ordinary succession already rides the entity-level WasRevisionOf,
             // so an activity-level edge per single-parent commit would restate it as a parallel lineage.
@@ -248,7 +248,7 @@ public static class CausalDag {
         // ceiling or quiescence — never re-descending an already-visited node (the prior re-walk-every-
         // reached-node tangle is the deleted form).
         Seq<ProvNode> Expand(Seq<ContentAddress> frontier, LanguageExt.HashSet<UInt128> seen, Seq<ProvNode> reached, int depth) {
-            if (depth <= 0 || frontier.IsEmpty) return reached;
+            if ((depth <= 0) || frontier.IsEmpty) return reached;
             (LanguageExt.HashSet<UInt128> Seen, Seq<ContentAddress> Next, Seq<ProvNode> Reached) level = frontier
                 .Bind(node => adjacency(node).Map(walk.Direction.Step))
                 .Distinct()
@@ -271,9 +271,9 @@ public static class CausalDag {
     // The asserting Agent node derives HERE — class off the actor's role claims (`AgentClass.Of`), Signed off
     // the attestation presence — so the JSON projection reads a settled node and never re-classifies.
     public static ProvBundle Bundle(Seq<ProvEdge> lineage, StoreActor authority, Option<SignedAuthorship> attestation, Instant at) {
-        var rolling = new XxHash128();
+        XxHash128 rolling = new();
         Span<byte> word = stackalloc byte[16];
-        foreach (var edge in lineage.OrderBy(static e => (e.From, e.To, e.Relation.Key))) {
+        foreach (ProvEdge edge in lineage.OrderBy(static e => (e.From, e.To, e.Relation.Key))) {
             BinaryPrimitives.WriteUInt128LittleEndian(word, edge.From); rolling.Append(word);
             BinaryPrimitives.WriteUInt128LittleEndian(word, edge.To); rolling.Append(word);
             rolling.Append(MemoryMarshal.AsBytes(edge.Relation.Key.AsSpan()));
@@ -289,25 +289,26 @@ public static class CausalDag {
         static string Iri(UInt128 id) => $"rasm:{id:x32}";
         // The bundle is itself an attributable PROV `Bundle` entity: it registers under `entity` as a `prov:Bundle`,
         // its asserting Agent node under `agent` through the SAME `NodeMembers` projection every lineage agent takes
-        // (class + signed DERIVED at `Bundle`, never re-hardcoded here), and a bundle->asserter `wasAttributedTo`
-        // edge is emitted so the export carries its own provenance-of-provenance. The lineage nodes group by PROV
-        // class and merge into the same three class maps.
-        var authorityKey = AgentKey(bundle.Asserter.Actor);
-        var byClass = bundle.Lineage.Bind(static e => Seq(e.From, e.To)).Distinct().Map(resolve)
+        // (class + signed DERIVED at `Bundle`, never re-hardcoded here), and the bundle->asserter attribution rides
+        // the ONE edge grouping as a `WasAttributedTo` `ProvEdge` — never a hand-set top-level literal a lineage
+        // attribution group would clobber. Top-level influence keys are the UNPREFIXED `ProvRelation.Key` names the
+        // PROV-JSON schema fixes; the `prov:` prefix belongs to member properties, never the top-level map key.
+        UInt128 authorityKey = AgentKey(bundle.Asserter.Actor);
+        Seq<ProvEdge> edges = bundle.Lineage.Add(ProvEdge.Of(ProvRelation.WasAttributedTo, bundle.Id, authorityKey, new Hlc(bundle.At, 0UL)));
+        Dictionary<string, Dictionary<string, object>> byClass = bundle.Lineage.Bind(static e => Seq(e.From, e.To)).Distinct().Map(resolve)
             .GroupBy(static n => n.Switch(entity: static _ => "entity", activity: static _ => "activity", agent: static _ => "agent"))
-            .ToDictionary(static g => g.Key, static g => g.ToDictionary(n => Iri(n.Identity), NodeMembers));
-        var entities = byClass.TryGetValue("entity", out var es) ? es : new Dictionary<string, object>();
-        var agents = byClass.TryGetValue("agent", out var gs) ? gs : new Dictionary<string, object>();
+            .ToDictionary(static g => g.Key, static g => g.ToDictionary(static n => Iri(n.Identity), NodeMembers));
+        Dictionary<string, object> entities = byClass.TryGetValue("entity", out var es) ? es : new Dictionary<string, object>();
+        Dictionary<string, object> agents = byClass.TryGetValue("agent", out var gs) ? gs : new Dictionary<string, object>();
         entities[Iri(bundle.Id)] = new Dictionary<string, object?> { ["prov:type"] = EntitySubclass.Bundle.ClassIri, ["prov:generatedAtTime"] = bundle.At.ToString() };
         agents[Iri(authorityKey)] = NodeMembers(bundle.Asserter);
-        var document = new Dictionary<string, object> {
+        Dictionary<string, object> document = new() {
             ["prefix"] = new Dictionary<string, string> { ["prov"] = "http://www.w3.org/ns/prov#", ["rasm"] = "urn:rasm:prov:" },
             ["entity"] = entities, ["agent"] = agents,
-            ["wasAttributedTo"] = new Dictionary<string, object> { ["_:b0"] = new Dictionary<string, object?> { ["prov:entity"] = Iri(bundle.Id), ["prov:agent"] = Iri(authorityKey) } },
         };
         if (byClass.TryGetValue("activity", out var acts)) document["activity"] = acts;
-        foreach (var byRelation in bundle.Lineage.GroupBy(static e => e.Relation.Term))
-            document[byRelation.Key] = byRelation.Select(static (e, i) => (Key: $"_:e{i}", Edge: e)).ToDictionary(static p => p.Key, p => EdgeMembers(p.Edge));
+        foreach (IGrouping<string, ProvEdge> byRelation in edges.GroupBy(static e => e.Relation.Key))
+            document[byRelation.Key] = byRelation.Select(static (e, i) => (Key: $"_:e{i}", Edge: e)).ToDictionary(static p => p.Key, static p => EdgeMembers(p.Edge));
         return JsonSerializer.SerializeToElement(document, ElementJson.Options);
 
         static object NodeMembers(ProvNode node) => node.Switch(
@@ -316,7 +317,7 @@ public static class CausalDag {
             agent: static g => new Dictionary<string, object?> { ["prov:type"] = g.ClassIri, ["rasm:id"] = g.Actor, ["rasm:signed"] = g.Signed });
 
         static object EdgeMembers(ProvEdge edge) {
-            var members = new Dictionary<string, object?> {
+            Dictionary<string, object?> members = new() {
                 [$"prov:{edge.Relation.Endpoint.FromProperty}"] = Iri(edge.From),
                 [$"prov:{edge.Relation.Endpoint.ToProperty}"] = Iri(edge.To),
                 ["rasm:atTime"] = edge.Cell.Physical.ToString(),
@@ -391,7 +392,7 @@ public abstract partial record AttestVerdict {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AttestedLedger {
     public static AttestedEntry Append(Option<AttestedEntry> prior, UInt128 contentKey, Option<SignedAuthorship> authorship) {
-        var rolling = new XxHash128();
+        XxHash128 rolling = new();
         Span<byte> word = stackalloc byte[16];
         prior.Iter(p => { BinaryPrimitives.WriteUInt128LittleEndian(word, p.Chain); rolling.Append(word); });
         BinaryPrimitives.WriteUInt128LittleEndian(word, contentKey);
@@ -412,8 +413,8 @@ public static class AttestedLedger {
             (acc, entry) => {
                 // FIRST-DEFECT-WINS: a later mismatch never overwrites the earliest break locus — the verdict slot
                 // assigns only while still `Authentic`, so the receipt names the discontinuity the auditor replays from.
-                var recomputed = Append(acc.State, entry.ContentKey, entry.Authorship);
-                return recomputed.Chain != entry.Chain || acc.State.Map(static s => s.Chain) != entry.Prior
+                AttestedEntry recomputed = Append(acc.State, entry.ContentKey, entry.Authorship);
+                return (recomputed.Chain != entry.Chain) || (acc.State.Map(static s => s.Chain) != entry.Prior)
                     ? IO.pure((Some(entry), acc.Verdict is AttestVerdict.Authentic ? new AttestVerdict.Broken(acc.Index, recomputed.Chain, entry.Chain) : acc.Verdict, acc.Index + 1, acc.Signed))
                     : entry.Authorship.Match(
                         Some: authorship => Custody.Verify(authorship, digestOf(entry), keyringFor(authorship)).Map(decision => decision switch {
@@ -424,18 +425,18 @@ public static class AttestedLedger {
                         }),
                         None: () => IO.pure((Some(entry), acc.Verdict, acc.Index + 1, acc.Signed)));
             })
-            .Map(final => final.Verdict is AttestVerdict.Authentic ? (final.Signed == 0 && chain.Count > 0 ? (AttestVerdict)new AttestVerdict.Unsigned(chain.Count) : new AttestVerdict.Authentic(chain.Count)) : final.Verdict).As();
+            .Map(final => final.Verdict is AttestVerdict.Authentic ? ((final.Signed == 0) && (chain.Count > 0) ? (AttestVerdict)new AttestVerdict.Unsigned(chain.Count) : new AttestVerdict.Authentic(chain.Count)) : final.Verdict).As();
 
     public static MerkleAudit Seal(Seq<AttestedEntry> chain) {
         Seq<UInt128> leaves = chain.Map(static e => e.Chain);
         Seq<Seq<UInt128>> levels = Seq(leaves);
-        for (var level = leaves; level.Count > 1; level = levels.Last.IfNone(level))
+        for (Seq<UInt128> level = leaves; level.Count > 1; level = levels.Last.IfNone(level))
             levels = levels.Add(toSeq(level.AsEnumerable().Chunk(2).Select(static pair => pair.Length == 2 ? Pair(pair[0], pair[1]) : pair[0])));
         return new MerkleAudit(leaves.IsEmpty ? Seq(Seq<UInt128>()) : levels, chain.Count);
     }
 
     public static Option<InclusionProof> Prove(MerkleAudit audit, int leaf) =>
-        leaf < 0 || leaf >= audit.Leaves ? None : Some(audit.Levels.Take(audit.Levels.Count - 1).Fold(
+        (leaf < 0) || (leaf >= audit.Leaves) ? None : Some(audit.Levels.Take(audit.Levels.Count - 1).Fold(
             (Index: leaf, Path: Seq<(UInt128, bool)>()),
             (acc, level) => (acc.Index >> 1, (acc.Index ^ 1) < level.Count
                 ? acc.Path.Add((level[acc.Index ^ 1], (acc.Index & 1) == 1))
@@ -453,16 +454,16 @@ public static class AttestedLedger {
     // old root, is a rewrite the proof rejects. `Frontier` is the older tree's right-edge witness the
     // operator publishes and an offline auditor compares against its cached head, never folded here.
     public static bool Consistent(ConsistencyProof proof, MerkleAudit newer) =>
-        proof.NewSize >= proof.OldSize
-        && newer.Root == proof.NewRoot
-        && (proof.OldSize == 0 || Reseal(newer.Levels.Head.IfNone(Seq<UInt128>()).Take(proof.OldSize)).Root == proof.OldRoot);
+        (proof.NewSize >= proof.OldSize)
+        && (newer.Root == proof.NewRoot)
+        && ((proof.OldSize == 0) || (Reseal(newer.Levels.Head.IfNone(Seq<UInt128>()).Take(proof.OldSize)).Root == proof.OldRoot));
 
     // Re-seal a leaf prefix into its Merkle audit — the inverse the consistency check folds the prefix
     // through, composing the one `Seal` pairing over synthetic chain-address leaves.
     static MerkleAudit Reseal(Seq<UInt128> leaves) => Seal(leaves.Map(static leaf => new AttestedEntry(default, None, leaf, None, Instant.MinValue)));
 
     static UInt128 Pair(UInt128 left, UInt128 right) {
-        var node = new XxHash128();
+        XxHash128 node = new();
         Span<byte> word = stackalloc byte[16];
         BinaryPrimitives.WriteUInt128LittleEndian(word, left); node.Append(word);
         BinaryPrimitives.WriteUInt128LittleEndian(word, right); node.Append(word);

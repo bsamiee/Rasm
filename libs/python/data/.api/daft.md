@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `daft`
 - package: `daft`
 - import: `daft`
-- owner: `data`
 - rail: distributed dataframe
 - installed: `0.7.16`
 - entry points: console script `daft` (`daft.cli:main`); library use is import-only

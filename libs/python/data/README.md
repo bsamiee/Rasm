@@ -85,6 +85,7 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 
 [GRIDDED]:
 - `zarr`
+- `numcodecs` — zarr v3 chunk filter/compressor codec registry; `Blosc`/`Zstd` own archival numeric chunk compression.
 - `cubed`
 - `tensorstore`
 - `awkward`
@@ -94,6 +95,7 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 - `virtualizarr`
 - `h5py`
 - `netcdf4`
+- `h5netcdf` — pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`; rejects the netCDF-C lossy-quantization keys (`least_significant_digit`/`significant_digits`/`quantize_mode`).
 
 [MESH_INTERCHANGE]:
 - `meshio`
@@ -133,3 +135,6 @@ Cross-cutting Python substrate libraries this folder directly consumes; these ar
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
+
+[TRANSPORT]:
+- `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session via `register_filesystem`. Branch-owned; the data-consumed read-slice catalogue is folder-tier at `data/.api/fsspec.md`.

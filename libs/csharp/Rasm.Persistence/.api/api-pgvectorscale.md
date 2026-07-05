@@ -5,7 +5,7 @@
 graph with statistical binary quantization (SBQ) that scales approximate-nearest-neighbour search
 beyond RAM-resident HNSW. It carries no managed assembly: every surface is server-side SQL the
 `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` row's `CreateSql` carries (the `CREATE EXTENSION` install), the diskann index DDL projecting through a `ProvisionSql` `Fin<string>`
-that lands into `MigrationBuilder.Sql` on the EF migration rail (`Element/identity#SCHEMA_VERDICT`), and the `Query/lane#FUSION_AND_CACHE`
+that lands into `MigrationBuilder.Sql` on the EF migration rail (`Element/identity#SCHEMA_VERDICT`), and the `Query/retrieval#FUSION_AND_REUSE`
 planner routes a `pgvector` distance query through transparently. The companion is preload-free — it
 registers through its index AM, so it is correctly absent from the `ClusterConfig`
 `shared_preload_libraries` row — and runs in-process inside the PG18 server tier, never linked into
@@ -20,7 +20,7 @@ its `vector` (pgvector) dependency in one step.
 - namespace: SQL (`CREATE INDEX ... USING diskann`, `diskann.*` session GUCs)
 - license: PostgreSQL License (Timescale) — the in-DB deployment is the license boundary, no managed linkage
 - registration: index-AM, preload-free — absent from `ClusterConfig.Rows` `shared_preload_libraries` by design; the `ServerExtension("vectorscale", AccessMethod: "diskann", Cascade: true)` row carries its install story
-- consumed by: the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail), `VectorMetric`/`FusionRank` (`Query/lane#FUSION_AND_CACHE`), the `vector_cosine_ops`/`vector_l2_ops`/`vector_ip_ops` ops classes shared with `api-pgvector-ef.md`
+- consumed by: the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail), `VectorMetric`/`FusionRank` (`Query/retrieval#FUSION_AND_REUSE`), the `vector_cosine_ops`/`vector_l2_ops`/`vector_ip_ops` ops classes shared with `api-pgvector-ef.md`
 - rail: search-provisioning, search-lanes
 
 ## [02]-[INDEX_DDL]
@@ -73,7 +73,7 @@ set per-session or per-transaction, never a build option.
 |  [02]   | `diskann.query_rescore`          | `50`      | full-precision rescore count after SBQ pre-filter  |
 
 These GUCs are a SEARCH-LANE concern, never a build option — they are `SET LOCAL` per session/
-transaction by the `Query/lane#FUSION_AND_CACHE` binder, distinct from the `WITH (...)` build map the
+transaction by the `Query/retrieval#SEARCH_PROVISIONING_PROBE` binder, distinct from the `WITH (...)` build map the
 `ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail) owns. A build-time `query_*` knob is the rejected spelling.
 
 ## [05]-[IMPLEMENTATION_LAW]
@@ -87,7 +87,7 @@ transaction by the `Query/lane#FUSION_AND_CACHE` binder, distinct from the `WITH
 [SEARCH_LANE_STACK]:
 - Transparent route: a `vector(N)` distance query ordered by the catalogued pgvector distance function (`CosineDistance`/`L2Distance`/`MaxInnerProduct`, `api-pgvector-ef.md`) is planner-routed through the diskann index with no query rewrite — the `VectorMetric.Order` `Switch` projects the `ORDER BY` distance `Expression` and the planner picks diskann over the exact scan.
 - Route observability: the `search.vector.route` fact discriminates exact-scan vs HNSW vs IVFFlat vs diskann; the always-present exact brute-force scan stays the correctness baseline so a route degradation is observable. diskann complements, never replaces, RAM-resident HNSW — it scales disk-backed ANN beyond memory.
-- Hybrid fusion: `FusionRank.Fuse` (`Query/lane#FUSION_AND_CACHE`) composes the diskann vector branch and the `pg_search` BM25 branch (`api-pg-search.md`) in one reciprocal-rank-fusion CTE — `SUM(1.0 / (rrfConstant + rank))` with `rrfConstant=60` — projecting identities (not re-materializing both payloads) and needing no learned reranker. The dense embedding the vector branch probes is generated upstream at `Compute/models#INFERENCE_MODES`.
+- Hybrid fusion: `FusionRank.Fuse` (`Query/retrieval#FUSION_AND_REUSE`) composes the diskann vector branch and the `pg_search` BM25 branch (`api-pg-search.md`) in one reciprocal-rank-fusion CTE — `SUM(1.0 / (rrfConstant + rank))` with `rrfConstant=60` — projecting identities (not re-materializing both payloads) and needing no learned reranker. The dense embedding the vector branch probes is generated upstream at `Compute/models#INFERENCE_MODES`.
 
 [RAIL_LAW]:
 - Package: `pgvectorscale` / extension `vectorscale` (server-side, in the deploy-image PG18)

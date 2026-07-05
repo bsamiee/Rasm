@@ -16,6 +16,7 @@
         <PackageReference Include="CSparse" />
         <PackageReference Include="GeneticSharp" />
         <PackageReference Include="Google.OrTools" />
+        <PackageReference Include="HyperJet" />
         <PackageReference Include="libtorch-cpu" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
@@ -25,8 +26,11 @@
     </ItemGroup>
 
     <ItemGroup Label="Symbolic">
-        <PackageReference Include="FParsec" />
         <PackageReference Include="MathNet.Symbolics" />
+    </ItemGroup>
+
+    <ItemGroup Label="Constraint Solving">
+        <PackageReference Include="Microsoft.Z3" />
     </ItemGroup>
 
     <ItemGroup Label="Structural Solvers">
@@ -45,9 +49,7 @@
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime" />
-        <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
-        <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" />
         <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
     </ItemGroup>
 

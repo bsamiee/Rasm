@@ -134,7 +134,8 @@
 - Color↔hex transport is the static codec, not a hand-rolled formatter: `ColorToHexConverter.ToHexString(color, alphaPosition, includeAlpha, includeSymbol)` and `ParseHexString(text, alphaPosition)` are the canonical hex rail — a settings persistence layer or a swatch import reads/writes hex through these statics, and the same converter binds in XAML for live hex fields.
 - Conversion between RGB and HSV uses Avalonia.Media's framework types (`Color.ToHsv()`/`HsvColor.ToRgb()` live on the framework value types), not this package's `internal` `Hsv`/`Rgb` structs — a design page composing those internal primitives is composing a non-surface and is the rejected form.
 - Palette swatches stack with the app theme: an `IColorPalette` implementation feeds `ColorView.Palette` and the grid lays out by `ColorCount`×`ShadeCount` with `PaletteColumnCount` columns, so a brand palette is a data source, not a templated fork.
-- Contrast/accessibility composes off `ColorHelper.GetRelativeLuminance` — a foreground/background pair feeds the WCAG contrast computation the accessibility rail reports, and `ToDisplayName` supplies the announced color label.
+- `[V10]` caveat — `ColorHelper.GetRelativeLuminance` is the DELETED form: the WCAG contrast/luminance transform routes through the Unicolour kernel (`tokens.md:20`, the one suite colour owner that owns the sRGB->luminance transform beside OKLab mix and colormap sampling), never Avalonia's `ColorHelper`. `ColorHelper.ToDisplayName` STAYS (the announced color label has no Unicolour counterpart). The accessibility rail's `ContrastGate` composes the Unicolour luminance, not `GetRelativeLuminance`.
+- The `ColorView` editor is the inspector's color-value row (`Editing/inspector.md`, the `EditorFactory` color editor) — selected color crosses as an Avalonia.Media `Color`/`HsvColor`, mapped at the boundary onto the inspector's typed value.
 
 [MODEL_LAW]:
 - Package: `Avalonia.Controls.ColorPicker`

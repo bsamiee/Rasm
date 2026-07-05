@@ -4,7 +4,7 @@
 a Tantivy-backed BM25 full-text engine providing high-power lexical relevance over a PostgreSQL
 table beside the always-present native `tsvector`/`ts_rank` baseline. It carries no managed assembly:
 every surface is server-side SQL the `Store/provisioning#SERVER_EXTENSIONS` `Bm25Predicate`/`IndexSpec.Bm25`
-fold emits and the `Query/lane#FUSION_AND_CACHE` `FusionRank.Fuse` BM25 branch matches through. Only
+fold emits and the `Query/retrieval#FUSION_AND_REUSE` `FusionRank.Fuse` BM25 branch matches through. Only
 the `pdb.*` builders and the bare column operators are emitted; `paradedb.*` is absent. The extension is
 preload-gated (it rides the `ClusterConfig` `shared_preload_libraries` row), runs in-process inside the
 PG18 server tier under its AGPL boundary at the DB deployment, and is never linked into managed code.
@@ -87,12 +87,12 @@ tags and `150` `max_num_chars`.
 
 ## [06]-[STACKING]
 
-- The `Query/lane#FUSION_AND_CACHE` `Bm25Predicate` `[Union]` is the C# projection of section
+- The `Query/retrieval#LEXICAL_ALGEBRA` `Bm25Predicate` `[Union]` is the C# projection of section
   `[04]` — one union case per builder/operator/cast, `Bm25Predicate.Sql()` switching to the exact SQL
   string; the `SearchProjection` static surface is the C# projection of section `[05]`
   (`Score`/`Snippet`/`Snippets`/`SnippetPositions`/`Agg`). A new builder, operator, or cast is one
   union case, never a sibling method, so the catalog's member set is the union's case roster.
-- The `Query/lane#FUSION_AND_CACHE` `FusionRank.Fuse` composes the BM25 route ONTO the pgvector dense
+- The `Query/retrieval#FUSION_AND_REUSE` `FusionRank.Fuse` composes the BM25 route ONTO the pgvector dense
   route inside one reciprocal-rank-fusion CTE: the BM25 branch matches `corpus @@@ pdb.parse($terms)`
   and orders by `pdb.score(<key_col>)` (the index's declared `key_field` anchor), the vector branch
   orders by the `EmbeddingArity` distance operator, and `1.0 / (rrfConstant + rank)` is summed across

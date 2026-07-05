@@ -25,7 +25,7 @@ dependencies = [
     "obstore",                                       # [DATA]: object-store backend
     "obspec-utils",                                  # [DATA]: multi-store ObjectStoreRegistry companion to obstore
     "fsspec",                                        # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
-    "universal-pathlib",                             # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry
+    "universal-pathlib",                             # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry; compute experiments/model UPath consumer
     "httpx",                                         # [TRANSPORT]: approved HTTP client surface for typed adapters
     "watchfiles",
     "apscheduler",                                   # [RUNTIME]: cron, interval, and date triggers
@@ -37,8 +37,7 @@ dependencies = [
     "google-cloud-secret-manager",                   # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
     "zstandard",                                     # [TOOLING]: zstd compression for tools.assay logging and cache payloads
     "trio",                                          # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
-    "zlib-ng",                                       # [DATA]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
-    "csvkit",                                        # [DATA]: CSV CLI suite for the tabular subprocess boundary
+    "zlib-ng",                                       # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
     # --- [SCIENTIFIC]
     "adbc-driver-manager",                           # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
     "arro3-core",                                    # [DATA]: Arrow core bridge
@@ -47,19 +46,20 @@ dependencies = [
     "compas",                                        # [GEOMETRY]: algebra toolkit
     "connectorx; python_version<'3.15'",             # [DATA]: SQL-to-Arrow loader
     "cubed",                                         # [DATA]: bounded-memory distributed arrays
-    "dask",
+    "dask",                                          # [DATA_COMPUTE]: out-of-core arrays and dataframes; passive array_namespace backend
     "deltalake",                                     # [DATA]: lakehouse tables
     "duckdb",                                        # [DATA]: analytical SQL engine
     "geopandas",                                     # [GEOMETRY]: geospatial frames
     "h5py",                                          # [DATA]: HDF5 arrays
+    "h5netcdf",                                      # [DATA]: pure-h5py netCDF-4 engine for FieldEngine.H5NETCDF
     "icechunk",                                      # [DATA]: versioned tensor store
     "ibis-framework",                                # [DATA]: backend-agnostic SQL-expression IR
     "jax; python_version<'3.15'",                    # [COMPUTE]: XLA accelerator
-    "laspy",                                         # [GEOMETRY]: LAS/LAZ point-cloud IO
-    "meshio",
+    "laspy",                                         # [DATA]: LAS/LAZ point-cloud IO
+    "meshio",                                        # [DATA_COMPUTE]: mesh format codec IO; scikit-fem physical-group round-trip
     "nanoarrow",                                     # [DATA]: Arrow C Data Interface interop
-    "narwhals",                                      # [DATA]: dataframe-agnostic API
-    "netcdf4",                                       # [COMPUTE]: CFD and field IO
+    "narwhals",                                      # [DATA_COMPUTE]: dataframe-agnostic API; the compute DOE-frame lens
+    "netcdf4",                                       # [DATA]: CFD and field IO
     "networkx",
     "numcodecs",                                     # [DATA]: zarr v3 filter and compressor codec registry
     "numba; python_version<'3.15'",                  # [COMPUTE]: LLVM JIT accelerator
@@ -72,7 +72,7 @@ dependencies = [
     "pandas-stubs",
     "pandera",                                       # [DATA]: schema and quality-rule contracts
     "pdal",                                          # [GEOMETRY]: point-cloud pipeline
-    "pint",
+    "pint",                                          # [COMPUTE]: unit registry and quantity arithmetic
     "polars",                                        # [DATA]: dataframe engine
     "pyarrow<24",                                    # [DATA]: Arrow C++ bridge; ceiling tracks the Forge arrow-cpp major
     "pye57; python_version<'3.15'",                  # [GEOMETRY]: E57 scan IO; sdist hardcodes /usr/local xerces-c (no cp315 wheel)
@@ -82,7 +82,7 @@ dependencies = [
     "python-flint",                                  # [COMPUTE]: Arb interval numerics
     "rasterio",                                      # [DATA]: raster geospatial IO
     "rhino3dm",                                      # [GEOMETRY]: Rhino mesh and 3DM IO
-    "rustworkx",                                     # [COMPUTE_DATA]: graph algorithms
+    "rustworkx",                                     # [DATA_ARTIFACTS]: graph algorithms
     "salib",                                         # [COMPUTE]: global sensitivity analysis
     "clarabel",                                      # [COMPUTE]: Clarabel conic solver and cvxpy backend
     "pywavelets",                                    # [COMPUTE]: discrete and continuous wavelet transforms
@@ -103,6 +103,7 @@ dependencies = [
     "interpax; python_version<'3.15'",               # [COMPUTE]: JAX interpolation and splines
     "quadax; python_version<'3.15'",                 # [COMPUTE]: JAX adaptive quadrature
     "optax; python_version<'3.15'",                  # [COMPUTE]: first-order JAX optimizers for optimistix
+    "jaxtyping; python_version<'3.15'",              # [COMPUTE]: JAX array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype)
     "cvxpy<1.9",                                     # [COMPUTE]: disciplined convex optimization; 1.9 pulls sparsediffpy whose OpenMP CMake build fails (no cp315 wheel)
     "manifold3d",                                    # [GEOMETRY]: robust mesh booleans
     "sectionproperties",                             # [GEOMETRY]: cross-section property solver enrichment
@@ -115,10 +116,10 @@ dependencies = [
     "scipy",                                         # [COMPUTE]: numerical algorithms
     "scipy-stubs",
     "shapely",                                       # [GEOMETRY]: planar operations
-    "sparse; python_version<'3.15'",                 # [DATA]: sparse n-D arrays
-    "sympy",
+    "sparse; python_version<'3.15'",                 # [COMPUTE]: sparse n-D arrays
+    "sympy",                                         # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
     "trimesh",
-    "uncertainties",
+    "uncertainties",                                 # [COMPUTE]: first-order error propagation with correlated_values/unumpy
     "xarray",
     "xxhash",                                        # [RUNTIME]: content identity hashes matching C# System.IO.Hashing
     "grpcio-tools",                                  # [RUNTIME]: gRPC protoc codegen companion
@@ -126,6 +127,8 @@ dependencies = [
     "blackjax; python_version<'3.15'",               # [COMPUTE]: JAX NUTS/HMC samplers
     "cadquery-ocp; python_version<'3.15'",           # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel
     "kiss-matcher; python_version<'3.15'",           # [GEOMETRY]: global point-cloud registration
+    "rtree",                                         # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
+    "python-fcl; python_version<'3.15'",             # [GEOMETRY]: FCL collision and distance queries for the CORE-clearance arm
     "bcf-client",                                    # [GEOMETRY]: BCF 3.0 coordination XML
     "honeybee-core",                                 # [GEOMETRY]: HBJSON base object model and validation companion
     "honeybee-energy",                               # [GEOMETRY]: Honeybee energy model construction and simulation exchange
@@ -177,6 +180,7 @@ dependencies = [
     "lxml",                                          # [ARTIFACTS]: XML processing
     "lz4",                                           # [ARTIFACTS]: compression
     "matplotlib",                                    # [ARTIFACTS]: plotting
+    "pvlib",                                         # [ARTIFACTS]: solar position and irradiance modeling for the solar diagram owner
     "nbclient",                                      # [ARTIFACTS]: headless notebook execution client
     "openpyxl",
     "papermill",                                     # [ARTIFACTS]: parameterized notebook runs
@@ -220,9 +224,7 @@ dependencies = [
     "drawsvg",                                       # [ARTIFACTS]: hierarchical named-layer SVG authoring
     "pyexiftool",                                    # [ARTIFACTS]: richest cross-format descriptive metadata read/write over the exiftool binary, replaces abandoned exif
     "puremagic",                                     # [ARTIFACTS]: pure-Python format sniffer, default detect path beside libmagic
-    "pyexiv2; python_version<'3.15'",                # [ARTIFACTS]: in-process EXIF/IPTC/XMP read/write (wheels-only, no cp315 wheel yet)
     "grandalf",                                      # [ARTIFACTS]: Sugiyama and routed diagram layout (fallback until fast-sugiyama parity lands)
-    "iptcinfo3",                                     # [ARTIFACTS]: IPTC raster metadata; superseded on the raster carrier by the pyexiftool/pyexiv2 cross-format pass, retained per roster lock — final-reconciliation removal candidate
     "pdfimpose",                                     # [ARTIFACTS]: press signatures, creep, cuts, and folds
     "psdtags",                                       # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
     "pyphen",                                        # [ARTIFACTS]: language-aware hyphenation dictionaries
@@ -234,7 +236,6 @@ dependencies = [
     "lets-plot; python_version<'3.15'",              # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
     "python-bidi",                                   # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
     "python-calamine",                               # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
-    "python-xmp-toolkit",                            # [ARTIFACTS]: XMP packet read/write; superseded on the raster carrier by the pyexiftool/pyexiv2 cross-format pass (pikepdf owns PDF/XMP), retained per roster lock — final-reconciliation removal candidate
     "uniseg",                                        # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
     "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode

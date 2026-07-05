@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_OBSTORE]
 
-`obstore` supplies a unified object-storage interface over S3, GCS, Azure Blob, HTTP, and local/memory stores via Rust-backed store classes (`S3Store`, `GCSStore`, `AzureStore`, `HTTPStore`, `LocalStore`, `MemoryStore`) bound by the `ObjectStore` union, with module-level sync/async dispatch functions (`get`/`get_async`, `put`/`put_async`, `head`, `delete`, `list`, `copy`, `rename`, `sign`, `get_range`/`get_ranges`, `list_with_delimiter`, `open_reader`/`open_writer`), conditional-write preconditions (`PutMode`, `UpdateVersion`, `GetOptions`), typed config/retry/credential TypedDicts, an Arrow-native listing path, a zero-copy `Bytes` buffer, and a typed exception hierarchy. It is the Rust `object_store` read backend the runtime `transport/roots` object-store scheme legs compose — `get_async`/`list`/`sign_async`/streaming range reads route here while pure-Python cloud-storage packages lag on CPython 3.15; the `put`/conditional-write/`PutMode` surfaces stay the data folder's to mine, not the runtime read-slice.
+`obstore` supplies a unified object-storage interface over S3, GCS, Azure Blob, HTTP, and local/memory stores via Rust-backed store classes (`S3Store`, `GCSStore`, `AzureStore`, `HTTPStore`, `LocalStore`, `MemoryStore`) bound by the `ObjectStore` union, with module-level sync/async dispatch functions (`get`/`get_async`, `head`, `delete`, `list`, `copy`, `rename`, `sign`, `get_range`/`get_ranges`, `list_with_delimiter`, `open_reader`), conditional-get options (`GetOptions`), typed config/retry/credential TypedDicts, an Arrow-native listing path, a zero-copy `Bytes` buffer, and a typed exception hierarchy. It is the Rust `object_store` read backend the runtime `transport/roots` object-store scheme legs compose — `get_async`/`list`/`sign_async`/streaming range reads route here while pure-Python cloud-storage packages lag on CPython 3.15; the `put`/conditional-write/`PutMode` surfaces stay the data folder's to mine, not the runtime read-slice.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 - rail: object-storage
 - namespaces: `obstore`, `obstore.store`, `obstore.exceptions`, `obstore.auth`, `obstore.fsspec`
 - installed: `0.11.0`
-- capability: unified multi-cloud object storage, sync/async operation pairs, conditional writes, byte-range and multi-range reads, streaming reader/writer, Arrow listing, presigned URLs, typed config/retry/credential providers, pluggable auth providers (`boto3`/Azure/Google/Earthdata/Planetary-Computer), and an `fsspec` `AbstractFileSystem` adapter
+- capability: unified multi-cloud object storage, sync/async operation pairs, conditional gets, byte-range and multi-range reads, streaming reader, Arrow listing, presigned URLs, typed config/retry/credential providers, pluggable auth providers (`boto3`/Azure/Google/Earthdata/Planetary-Computer), and an `fsspec` `AbstractFileSystem` adapter
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -44,60 +44,55 @@
 
 [PUBLIC_TYPE_SCOPE]: result, request, and buffer types
 - rail: object-storage
-- `Bytes` and the operation functions are top-level runtime exports; `GetResult`/`ObjectMeta`/`PutResult`/`ListResult`/`GetOptions` are `TYPE_CHECKING` return/option annotations.
+- `Bytes` and the operation functions are top-level runtime exports; `GetResult`/`ObjectMeta`/`ListResult`/`GetOptions` are `TYPE_CHECKING` return/option annotations.
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                                                |
 | :-------: | :------------------------------ | :------------ | :------------------------------------------------------------------------------------ |
 |  [01]   | `Bytes`                           | buffer        | zero-copy bytes wrapper (buffer protocol; `to_bytes()` materializes)                  |
 |  [02]   | `GetResult`                       | result        | streamed get; `.meta`, `.range`, `.attributes`, `.bytes()`, `.stream(min_chunk_size)` |
 |  [03]   | `ObjectMeta`                      | dict          | `path`, `last_modified`, `size`, `e_tag`, `version`                                   |
-|  [04]   | `PutResult`                       | dict          | `e_tag`, `version`                                                                    |
-|  [05]   | `ListResult`                      | dict          | `common_prefixes`, `objects`                                                          |
-|  [06]   | `GetOptions`                      | request dict  | `if_match`, `if_none_match`, `if_modified_since`, `if_unmodified_since`, `range`, `version`, `head` |
-|  [07]   | `PutMode`                         | precond alias | `"create" \| "overwrite" \| UpdateVersion` — atomic-write precondition                |
-|  [08]   | `UpdateVersion`                   | precond dict  | `e_tag` + `version` for conditional compare-and-set put                               |
-|  [09]   | `OffsetRange` / `SuffixRange`     | range dict    | `{offset}` (from N) / `{suffix}` (last N bytes) range selectors                       |
-|  [10]   | `Attributes` / `Attribute`        | metadata      | object attribute map (content-type, content-encoding, cache-control, custom)          |
-|  [11]   | `BytesStream`                     | async stream  | async iterator of `Bytes` chunks from `GetResult.stream`                              |
-|  [12]   | `ReadableFile` / `WritableFile`   | file handle   | sync streaming file handle from `open_reader`/`open_writer`                           |
-|  [13]   | `AsyncReadableFile` / `AsyncWritableFile` | file handle | async streaming file handle                                                       |
+|  [04]   | `ListResult`                      | dict          | `common_prefixes`, `objects`                                                          |
+|  [05]   | `GetOptions`                      | request dict  | `if_match`, `if_none_match`, `if_modified_since`, `if_unmodified_since`, `range`, `version`, `head` |
+|  [06]   | `OffsetRange` / `SuffixRange`     | range dict    | `{offset}` (from N) / `{suffix}` (last N bytes) range selectors                       |
+|  [07]   | `Attributes` / `Attribute`        | metadata      | object attribute map (content-type, content-encoding, cache-control, custom)          |
+|  [08]   | `BytesStream`                     | async stream  | async iterator of `Bytes` chunks from `GetResult.stream`                              |
+|  [09]   | `ReadableFile`                    | file handle   | sync streaming file handle from `open_reader`                                        |
+|  [10]   | `AsyncReadableFile`               | file handle   | async streaming file handle                                                           |
 
 [PUBLIC_TYPE_SCOPE]: exceptions family
 - rail: object-storage
-- all subclass `exceptions.BaseError` (itself an `Exception`); the conditional-write/get errors map to the precondition rails.
+- all subclass `exceptions.BaseError` (itself an `Exception`); the conditional-get errors map to the precondition rails.
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [RAIL]                                          |
 | :-----: | :---------------------------------------- | :------------- | :---------------------------------------------- |
 |  [01]   | `exceptions.BaseError`                    | base exception | root of all obstore errors                      |
 |  [02]   | `exceptions.NotFoundError`                | exception      | path not found                                  |
-|  [03]   | `exceptions.AlreadyExistsError`           | exception      | path collision on `PutMode="create"`            |
-|  [04]   | `exceptions.PreconditionError`            | exception      | conditional write/`UpdateVersion` compare failed |
-|  [05]   | `exceptions.NotModifiedError`             | exception      | conditional get (`if_none_match`) not-modified  |
-|  [06]   | `exceptions.PermissionDeniedError`        | exception      | access denied                                   |
-|  [07]   | `exceptions.UnauthenticatedError`         | exception      | missing or invalid credentials                  |
-|  [08]   | `exceptions.NotSupportedError`            | exception      | operation not supported by backend (e.g. `sign`) |
-|  [09]   | `exceptions.InvalidPathError`             | exception      | invalid object path                             |
-|  [10]   | `exceptions.UnknownConfigurationKeyError` | exception      | unknown config key at construction              |
-|  [11]   | `exceptions.GenericError`                 | exception      | unclassified backend error                      |
-|  [12]   | `exceptions.JoinError`                    | exception      | async task join failure                         |
+|  [03]   | `exceptions.PreconditionError`            | exception      | conditional get (`if_match`) compare failed     |
+|  [04]   | `exceptions.NotModifiedError`             | exception      | conditional get (`if_none_match`) not-modified  |
+|  [05]   | `exceptions.PermissionDeniedError`        | exception      | access denied                                   |
+|  [06]   | `exceptions.UnauthenticatedError`         | exception      | missing or invalid credentials                  |
+|  [07]   | `exceptions.NotSupportedError`            | exception      | operation not supported by backend (e.g. `sign`) |
+|  [08]   | `exceptions.InvalidPathError`             | exception      | invalid object path                             |
+|  [09]   | `exceptions.UnknownConfigurationKeyError` | exception      | unknown config key at construction              |
+|  [10]   | `exceptions.GenericError`                 | exception      | unclassified backend error                      |
+|  [11]   | `exceptions.JoinError`                    | exception      | async task join failure                         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: object operations (sync and async)
 - rail: object-storage
-- Each operation has a matching `_async` variant (`get_async`, `put_async`, `copy_async`, `delete_async`, `head_async`, `rename_async`, `get_range_async`, `get_ranges_async`, `sign_async`); signatures are identical.
+- Each operation has a matching `_async` variant (`get_async`, `copy_async`, `delete_async`, `head_async`, `rename_async`, `get_range_async`, `get_ranges_async`, `sign_async`); signatures are identical.
 
 | [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]   | [RAIL]                                          |
 | :-----: | :----------------------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------- |
 |  [01]   | `get(store, path, *, options=None) -> GetResult`                                                             | object read      | fetch object; `options` carries conditional get |
-|  [02]   | `put(store, path, file, *, attributes, tags, mode, use_multipart, chunk_size, max_concurrency) -> PutResult` | object write     | upload; `mode` is the atomic-write precondition |
-|  [03]   | `head(store, path) -> ObjectMeta`                                                                            | metadata read    | fetch object metadata dict                      |
-|  [04]   | `delete(store, paths) -> None`                                                                               | object delete    | delete one path or a sequence of paths          |
-|  [05]   | `copy(store, from_, to, *, overwrite=True) -> None`                                                          | object copy      | server-side copy                                |
-|  [06]   | `rename(store, from_, to, *, overwrite=True) -> None`                                                        | object move      | server-side rename/move                         |
-|  [07]   | `get_range(store, path, *, start, end=None, length=None) -> Bytes`                                           | partial read     | read a byte range from an object                |
-|  [08]   | `get_ranges(store, path, *, starts, ends=None, lengths=None) -> list[Bytes]`                                 | multi-range read | coalesced concurrent multi-range read           |
-|  [09]   | `sign(store, method, paths, expires_in: timedelta) -> str \| list[str]`                                       | presign          | presigned URL(s); `store` is restricted to `SignCapableStore` (`S3Store \| GCSStore \| AzureStore`), `method` is `HTTP_METHOD` (`GET`/`PUT`/`POST`/`DELETE`/`HEAD`...), `expires_in` is a `timedelta`; a single path returns `str`, a sequence returns `list[str]` |
+|  [02]   | `head(store, path) -> ObjectMeta`                                                                            | metadata read    | fetch object metadata dict                      |
+|  [03]   | `delete(store, paths) -> None`                                                                               | object delete    | delete one path or a sequence of paths          |
+|  [04]   | `copy(store, from_, to, *, overwrite=True) -> None`                                                          | object copy      | server-side copy                                |
+|  [05]   | `rename(store, from_, to, *, overwrite=True) -> None`                                                        | object move      | server-side rename/move                         |
+|  [06]   | `get_range(store, path, *, start, end=None, length=None) -> Bytes`                                           | partial read     | read a byte range from an object                |
+|  [07]   | `get_ranges(store, path, *, starts, ends=None, lengths=None) -> list[Bytes]`                                 | multi-range read | coalesced concurrent multi-range read           |
+|  [08]   | `sign(store, method, paths, expires_in: timedelta) -> str \| list[str]`                                       | presign          | presigned URL(s); `store` is restricted to `SignCapableStore` (`S3Store \| GCSStore \| AzureStore`), `method` is `HTTP_METHOD` (`GET`/`PUT`/`POST`/`DELETE`/`HEAD`...), `expires_in` is a `timedelta`; a single path returns `str`, a sequence returns `list[str]` |
 
 [ENTRYPOINT_SCOPE]: listing operations
 - rail: object-storage
@@ -109,12 +104,11 @@
 
 [ENTRYPOINT_SCOPE]: streaming IO
 - rail: object-storage
-- Each has an `_async` variant (`open_reader_async`, `open_writer_async`).
+- The reader has an `_async` variant (`open_reader_async`).
 
 | [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :----------------------------------------------------------------------------------- | :------------- | :---------------------------------- |
 |  [01]   | `open_reader(store, path, *, buffer_size=..., size=None) -> ReadableFile`            | reader         | seekable streaming reader           |
-|  [02]   | `open_writer(store, path, *, attributes, buffer_size=..., tags, max_concurrency=12) -> WritableFile` | writer | buffered multipart streaming writer |
 
 [ENTRYPOINT_SCOPE]: store construction
 - rail: object-storage
@@ -145,21 +139,21 @@
 
 [STORAGE_TOPOLOGY]:
 - `ObjectStore` is the canonical store-handle type — the runtime `UnionType` alias `S3Store | GCSStore | AzureStore | HTTPStore | LocalStore | MemoryStore` `from_url(...) -> ObjectStore` returns; annotate every store handle with it. `store.ObjectStoreMethods` is the concrete mixin base class (a real `type`, NOT a `Protocol`, NOT `runtime_checkable`) capturing the shared store surface (`copy`/`get`/`list`/`put`/`prefix`/pickle `__getstate__`/`__setstate__`) every store in the union subclasses — the structural superset that also admits a hypothetical custom store, not the idiomatic handle annotation. Module-level functions accept any `ObjectStore` member as the first positional argument; the Rust core dispatches structurally rather than through Python method calls, so the union is for type-checking, not runtime virtual dispatch. The runtime composes the existing `store.ObjectStore`/`store.ObjectStoreMethods` surface and never re-declares a parallel store base class.
-- conditional-write law: `put(..., mode=...)` is the atomic precondition — `"overwrite"` (default), `"create"` (raises `AlreadyExistsError` on collision), or an `UpdateVersion` (`{e_tag, version}`) compare-and-set that raises `PreconditionError` on mismatch; conditional get rides `GetOptions.if_match`/`if_none_match`/`if_modified_since` and surfaces `NotModifiedError`/`PreconditionError`. Optimistic concurrency rides these, never a read-then-write race.
+- conditional-get law: conditional get rides `GetOptions.if_match`/`if_none_match`/`if_modified_since` and surfaces `NotModifiedError`/`PreconditionError`; e-tag cache validation rides these, never an unconditional re-fetch.
 - byte-range law: `get_range`/`get_ranges` and `GetOptions.range` accept `(start, end)` tuples, `OffsetRange` (`{offset}`, from N to end), or `SuffixRange` (`{suffix}`, last N bytes); `get_ranges` coalesces nearby ranges into concurrent fetches.
-- streaming law: `GetResult.bytes()` materializes the full body; `GetResult.stream(min_chunk_size)` returns a `BytesStream` async iterator; `open_reader`/`open_writer` own large-object seekable streaming and multipart upload, `get`/`put` own single-buffer transfers.
+- streaming law: `GetResult.bytes()` materializes the full body; `GetResult.stream(min_chunk_size)` returns a `BytesStream` async iterator; `open_reader` owns large-object seekable streaming, `get` owns single-buffer transfers.
 - retry/credential law: transient faults (5xx, connection drops, timeouts on read-only requests) are governed by `RetryConfig` + `BackoffConfig` passed at construction, and rotating credentials by a `*CredentialProvider` — either a bare sync/async callable or an `obstore.auth` provider (`Boto3CredentialProvider`/`StsCredentialProvider` for S3, `Google[Async]CredentialProvider` for GCS, `Azure[Async]CredentialProvider` for Azure) the Rust core re-invokes on expiry; retry scheduling for storage faults lives in the store config, never a hand-rolled loop, and credential refresh lives in the provider, never a hand-rolled refresh thread.
 - fsspec-bridge law: `obstore.fsspec.register(...)` installs an `fsspec` `AsyncFileSystem` so Arrow/pandas/zarr/parquet readers that speak `fsspec` consume an obstore-backed URL directly; this is the single bridge into the `fsspec` ecosystem (see `fsspec.md`/`s3fs.md`/`gcsfs.md`), not a parallel filesystem shim.
 - listing law: `list()` returns a `ListStream`; `return_arrow=True` yields Arrow `RecordBatch` for zero-copy bulk metadata into the Arrow/data tier instead of `Sequence[ObjectMeta]`.
-- defaults: `put` `chunk_size` defaults to 5 MiB, `max_concurrency` to 12 for multipart; `list` `chunk_size` to 50.
+- defaults: `list` `chunk_size` defaults to 50.
 
 [LOCAL_ADMISSION]:
 - `from_url` is the canonical store construction path in composition roots, threading `config`/`client_options`/`retry_config`/`credential_provider`; direct class constructors accept the same keyword config for explicit wiring.
 - async variants (`*_async`) are used inside asyncio contexts and the `grpc.aio` serve leg; sync variants in blocking/thread-pool contexts.
-- integration rail: `get(..., options=GetOptions(if_none_match=etag))` returns `Bytes` (buffer-protocol, zero-copy into Arrow/NumPy or a `msgspec.Decoder`), the conditional get/put preconditions back content-keyed idempotent writes, and the `*CredentialProvider` is fed from a `pydantic-settings`-validated credential model — one validated settings layer, never a hard-coded key. Transient `BaseError` subclasses lift to `BoundaryFault` at the data egress; `NotModifiedError`/`PreconditionError` are control-flow signals on the conditional rail, not faults.
+- integration rail: `get(..., options=GetOptions(if_none_match=etag))` returns `Bytes` (buffer-protocol, zero-copy into Arrow/NumPy or a `msgspec.Decoder`), the conditional-get preconditions back content-keyed cache validation, and the `*CredentialProvider` is fed from a `pydantic-settings`-validated credential model — one validated settings layer, never a hard-coded key. Transient `BaseError` subclasses lift to `BoundaryFault` at the data egress; `NotModifiedError`/`PreconditionError` are control-flow signals on the conditional rail, not faults.
 
 [RAIL_LAW]:
 - Package: `obstore`
-- Owns: cloud and local object-storage reads, writes, listings, conditional writes, byte-range reads, streaming, and presigned URLs over the Rust `object_store` core
-- Accept: `from_url` construction with `config`/`retry_config`/`credential_provider`; `LocalStore(prefix=...)` path-scoped roots; module-level sync/async dispatch functions for all operations; `PutMode`/`UpdateVersion` conditional writes; `GetOptions` conditional/range gets; `open_reader`/`open_writer` for streaming; `return_arrow=True` for bulk listing; the `Bytes` zero-copy buffer; `obstore.auth` credential providers for rotating cloud credentials; `obstore.fsspec.register` to expose a store through the `fsspec` ecosystem
-- Reject: a re-declared store base class or store-surface protocol duplicating `store.ObjectStoreMethods`; direct HTTP calls to storage APIs; hand-rolled S3/GCS request signing; a hand-rolled credential-refresh thread where `obstore.auth` providers or a `*CredentialProvider` callable already rotate; read-then-write races where a conditional `PutMode` applies; blocking `bytes()` reads of large objects when `stream`/`open_reader` is available; hand-rolled retry loops where `RetryConfig` governs
+- Owns: cloud and local object-storage reads, listings, conditional gets, byte-range reads, streaming reads, and presigned URLs over the Rust `object_store` core — the runtime read slice; the `put`/conditional-write/`PutMode` surface is the data folder's to catalog
+- Accept: `from_url` construction with `config`/`retry_config`/`credential_provider`; `LocalStore(prefix=...)` path-scoped roots; module-level sync/async dispatch functions for the read slice; `GetOptions` conditional/range gets; `open_reader` for streaming; `return_arrow=True` for bulk listing; the `Bytes` zero-copy buffer; `obstore.auth` credential providers for rotating cloud credentials; `obstore.fsspec.register` to expose a store through the `fsspec` ecosystem
+- Reject: a re-declared store base class or store-surface protocol duplicating `store.ObjectStoreMethods`; direct HTTP calls to storage APIs; hand-rolled S3/GCS request signing; a hand-rolled credential-refresh thread where `obstore.auth` providers or a `*CredentialProvider` callable already rotate; blocking `bytes()` reads of large objects when `stream`/`open_reader` is available; hand-rolled retry loops where `RetryConfig` governs; a runtime-side write leg re-cataloging the data folder's `put`/conditional-write surface

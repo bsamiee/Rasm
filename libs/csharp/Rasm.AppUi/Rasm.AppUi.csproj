@@ -94,7 +94,6 @@
     <ItemGroup Label="Drafting Export">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="DocumentFormat.OpenXml" />
-        <PackageReference Include="netDxf" />
         <PackageReference Include="PDFsharp" />
         <PackageReference Include="PDFsharp-MigraDoc" />
     </ItemGroup>
@@ -126,6 +125,7 @@
     <ItemGroup Label="Dev Loop">
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" PrivateAssets="all" />
         <PackageReference Include="HotAvalonia" PrivateAssets="all" />
+        <PackageReference Include="ProDiagnostics" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

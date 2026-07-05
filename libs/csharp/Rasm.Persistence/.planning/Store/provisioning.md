@@ -1,26 +1,28 @@
 # [PERSISTENCE_STORE_PROVISIONING]
 
-Rasm.Persistence provisions the PostgreSQL 18 server tier as ONE VERIFICATION-FIRST read fold and the embedded SQLite floor as ONE idempotent open ritual, the two engines the closed `StoreProfile` axis selects by deployment and never a third: a Rasm process NEVER executes runtime `ALTER SYSTEM`, NEVER spawns or bundles PostgreSQL, and NEVER mutates the cluster — provisioning is a typed `ProvisionVerdict` over what the operator-provisioned cluster already carries, and a gap is a typed signal the operator resolves at the four provisioning rungs (migration artifact, idempotent seed, operator runbook, environment), the fold reading all four and EMITTING repair artifacts (reconciliation grants, `shared_preload_libraries` diffs) as typed verification outputs it never executes. Each server extension is a `ServerExtension` `[SmartEnum<string>]` row carrying its `CreateSql`, its `Admission` gate (preload library, base type, or access method the install requires), the analytical `lane` it serves, and the `RestartClass` its preload gap repairs under — so a new extension is one row and a gap names its repair's disruption class; each verified cluster knob is a `ClusterSetting` row, and the absence policy is not a `Switch` arm but `FailureRank` behavior — a `[SmartEnum]` whose `Absorb` delegate threads the floor-miss receipt, `Required` refusing the profile, `Degradable` folding the lane out so absence surfaces at admission instead of first query, `Observational` recording evidence. The verification is ONE `NpgsqlBatch` round trip over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots`/`pg_index`, folding the required roster, the held analytical lanes, the emitted repair set, and a stamped `VerificationEpoch` into one verdict the process dispatches on and never re-probes, so admission cost is data-volume-independent and environment drift is an observable epoch event on the fact stream. Beneath the server tier the embedded SQLite floor is the same fold discipline for a single-process store — the open ritual folds pragma rows by RESIDENCY (file-persistent provisioning rows versus per-connection rows), registers connection-scoped capabilities (`uuid7`/`xxh128` UDFs, the `instant_iso` collation, a domain aggregate) before the first statement, hardens through the `SqliteConnection.Handle` raw `sqlite3_db_config` defensive set, gates first-opener migration under one IMMEDIATE transaction, and arms extended result codes — and the `EngineOps` capsule owns the raw-handle operations the managed ADO surface omits (the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder), every throwing crossing converting to a closed `EmbeddedFault` and disposing the connection on every failure path. `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, `TenantContext` arrive from AppHost; `NpgsqlDataSource`/`IDocumentSession`/`IDocumentStore` from the substrate; the analytical lanes that consume the verified extensions arrive from `Query/columnar`/`Query/cypher`/`Query/topology`; the `h3-pg` cell convention the `h3_postgis` bridge serves matches the managed `pocketken.H3` (`Element/identity#ELEMENT_IDENTITY`).
+Rasm.Persistence provisions the PostgreSQL 18 server tier as ONE VERIFICATION-FIRST read fold and the embedded SQLite floor as ONE idempotent open ritual, the two engines the closed `StoreProfile` axis selects by deployment and never a third: a Rasm process NEVER executes runtime `ALTER SYSTEM`, NEVER spawns or bundles PostgreSQL, and NEVER mutates the cluster — provisioning is a typed `ProvisionVerdict` over what the operator-provisioned cluster already carries, and a gap is a typed signal the operator resolves at the four provisioning rungs (migration artifact, idempotent seed, operator runbook, environment), the fold reading all four and EMITTING repair artifacts (reconciliation grants, `shared_preload_libraries` diffs) as typed verification outputs it never executes. Each server extension is a `ServerExtension` `[SmartEnum<string>]` row carrying its `CreateSql`, its `Admission` gate (preload library, base type, or access method the install requires), the analytical `lane` it serves, and the `RestartClass` its preload gap repairs under — so a new extension is one row and a gap names its repair's disruption class; each verified cluster knob is a `ClusterSetting` row, and the absence policy is not a `Switch` arm but `FailureRank` behavior — a `[SmartEnum]` whose `Absorb` delegate threads the floor-miss receipt, `Required` refusing the profile, `Degradable` folding the lane out so absence surfaces at admission instead of first query, `Observational` recording evidence. The verification is ONE `NpgsqlBatch` round trip over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots`/`pg_index`, folding the required roster, the held analytical lanes, the emitted repair set, and a stamped `VerificationEpoch` into one verdict the process dispatches on and never re-probes, so admission cost is data-volume-independent and environment drift is an observable epoch event on the fact stream. Beneath the server tier the embedded SQLite floor is the same fold discipline for a single-process store — the open ritual folds pragma rows by RESIDENCY (file-persistent provisioning rows versus per-connection rows), registers connection-scoped capabilities (`uuid7`/`xxh128` UDFs, the `instant_iso` collation, a domain aggregate) before the first statement, hardens through the `SqliteConnection.Handle` raw `sqlite3_db_config` defensive set, gates first-opener migration under one IMMEDIATE transaction, and arms extended result codes — and the `EngineOps` capsule owns the raw-handle operations the managed ADO surface omits (the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder), every throwing crossing converting to a closed `EmbeddedFault` and disposing the connection on every failure path. Every loose provisioning integer is a typed case — `ServerFault` carries the WHOLE re-banded 838x decade (`FaultBand.Server`, the absence/readiness/admission receipts included) and the foreign-store/epoch-ahead refusals are `EmbeddedFault.Refused` in-band 771x, so a bare `Error.New` is the deleted form here; the `StoreProfile` rows additionally carry the wire and EF provider bindings — the `NpgsqlDataSourceBuilder.UseNetTopologySuite` ADO codec row (raw Npgsql lanes read/write geometry: the `cypher` pgrouting results, the verification probes over PostGIS, any `QueueSqlCommand` spatial write; `geographyAsDefault`/precision/ordinates are profile POLICY values, never call-site literals — the EF plugin does not place the codec on raw connections) and the `Ef` bind row (`Server` → `UseNpgsql`, `Embedded` → `UseSqlite` over the connection the open ritual already dialed) feeding the ONE `Element/identity#ELEMENT_IDENTITY` DbContext, so provider variance stays row data on the closed axis and a hand ADO mapping beside the generated rail is the deleted form; the `Npgsql.OpenTelemetry` observability row (`TracerProviderBuilder.AddNpgsql()` + `MeterProviderBuilder.AddNpgsqlInstrumentation()`) subscribes at the AppHost composition root; the `pg_jsonschema` validation lane degrades to the in-process `Json.Schema.JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` fence when the server extension folds out, one schema serving both residences. This page also hosts the `[V13]` `#STORE_AXIS_MAP` — the 11-axis store perimeter whose provider rows are deployment/policy DATA. Wall clock, correlation, and tenant ride the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame — a `ClockPolicy`/`CorrelationId`/`TenantContext` parameter on any signature here is the named strata inversion; `ReceiptSinkPort` arrives settled from AppHost; `FaultBand` from `Element/graph#FAULT_TABLES`; `NpgsqlDataSource`/`IDocumentSession`/`IDocumentStore` from the substrate; the analytical lanes that consume the verified extensions arrive from `Query/columnar`/`Query/cypher`/`Query/topology`; the `h3-pg` cell convention the `h3_postgis` bridge serves matches the managed `pocketken.H3` (`Element/identity#ELEMENT_IDENTITY`).
 
 ## [01]-[INDEX]
 
-- [01]-[SERVER_EXTENSIONS]: the extension × admission-gate × lane roster, the `FailureRank` absence behavior, the one-batch verification fold over the catalog reads, the four provisioning rungs, the emitted repair set, and the stamped verification epoch.
+- [01]-[SERVER_EXTENSIONS]: the extension × admission-gate × lane roster, the `FailureRank` absence behavior, the one-batch verification fold over the catalog reads, the four provisioning rungs, the emitted repair set, the wire/EF provider-binding rows, the `pg_jsonschema` in-process fallback fence, and the stamped verification epoch.
 - [02]-[EMBEDDED_FLOOR]: the residency-split pragma ladder, the connection-scoped capability registration, the defensive `sqlite3_db_config` hardening, the first-opener IMMEDIATE migration gate, and the closed-engine law.
 - [03]-[ENGINE_OPERATIONS]: the `Handle`-bridge capsule, the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder, and the closed `EmbeddedFault` rail.
+- [04]-[STORE_AXIS_MAP]: the 11-axis store perimeter — every provider row deployment/policy DATA on one axis surface, each scale-out row carrying its proven ceiling.
 
 ## [02]-[SERVER_EXTENSIONS]
 
 - Owner: `StoreProfile` the `[SmartEnum<string>]` engine-selection axis the deployment dials (`server` the PostgreSQL 18 tier, `embedded` the SQLite floor) carrying the `Verify`/`Open` provisioning rail each engine runs — the closed two-engine sweep, never a third; `ServerExtension` the `[SmartEnum<string>]` extension axis, each row carrying its `CreateSql`, its `Admission` install gate, the analytical `Lane` it serves, and the `RestartClass` its preload gap repairs under; `ExtensionAdmission` the closed install-gate `[Union]` (a preload library, a base type the extension extends, a real queryable access method it registers, or a prerequisite-free standalone function/type extension); `RestartClass` the `[SmartEnum<string>]` repair-disruption vocabulary (`session`/`reload`/`restart`); `FailureRank` the `[SmartEnum]` whose `Absorb` delegate IS the absence policy; `ClusterSetting` the verified-knob vocabulary; `ProvisionVerdict` the verification verdict carrying the held set, the receipts, the emitted repair artifacts, and the stamped `VerificationEpoch`; `ServerFault` the closed catalog-read fault `[Union]` over `Expected`; `ClusterProvision` the static surface running the one-batch verification fold and the gated admission — never an `ALTER SYSTEM`.
-- Cases: `ServerExtension` is the AUTHORITATIVE provisioning roster — it SUPERSETS the consumer-facing `README#SERVER_EXTENSIONS` subset with the base-type and toolkit rows a dependency chain requires (`postgis` the standalone base the raster/sfcgal/pgrouting rows gate on, `pgvector` the `vector` base `pgvectorscale` gates on, `pg_duckdb` the in-PG DuckDB bridge, `timescaledb_toolkit` over the `timescaledb` base) so the `BaseType` gate resolves against a row the same fold can admit, never against an externally-assumed prerequisite; each gate is the `.api`-verified install precondition, NOT a loose label: `timescaledb` (preload, the hypertable/continuous-aggregate/columnstore analytics, `Query/columnar`), `timescaledb_toolkit` (the hyperfunction/time-weighted-aggregate layer over the `timescaledb` base type), `pg_duckdb` (preload, the in-PG DuckDB analytical bridge distinct from the in-process `DuckDB.NET` lane, `Query/columnar`), `apache-age` (preload, the OPTIONAL openCypher graph demoted beneath QuikGraph, `Query/cypher#GRAPH_SESSION`), `pg_cron` (preload, the in-database maintenance scheduler), `postgis` (standalone — operator classes over the BUILT-IN `gist` AM, registers no custom access method, the base the raster/3D/routing rows extend), `postgis_raster`/`postgis_sfcgal` (PostGIS raster + exact 3D geometry over the `postgis` base type), `pgvector` (the `hnsw` access-method ANN tier) / `pgvectorscale` (the `diskann` AM gated on the `vector` base type), `pg_search` (PRELOAD-gated — the ParadeDB Tantivy `bm25` engine rides `shared_preload_libraries` and hard-errors on `CREATE EXTENSION` without it), `h3-pg` (standalone — the in-PG H3 cell index over built-in AMs plus the `h3_postgis` bridge over the `h3` base type, matching `pocketken.H3`), `pgrouting` (the network routing over the `postgis` base type, `Query/cypher#GRAPH_QUERY`), `pg_partman` (PRELOAD-gated — its `pg_partman_bgw` background worker rides `shared_preload_libraries`), `pg_squeeze` (preload, lock-light table-bloat reclamation), `pg_jsonschema` (standalone — `CREATE EXTENSION`-registered JSON Schema CHECK functions, no preload), `pgaudit` (preload, session/object audit logging), `pg_net` (PRELOAD-gated — its `libcurl` background worker is statically `RegisterBackgroundWorker`'d in `_PG_init` and hard-errors without `shared_preload_libraries`), `pg_graphql` (standalone — pgrx SQL functions + DDL event triggers, no worker, no preload); `ExtensionAdmission` is `Preload(library)` | `BaseType(extension)` | `AccessMethod(method)` (a real queryable index AM the row registers, e.g. `hnsw`) | `Standalone(reason)` (prerequisite-free function/type/operator-class extension that registers NO gating AM); `FailureRank` is `Required`/`Degradable`/`Observational`; `ProvisionVerdict` is `Provisioned | MissingExtension | MissingPreload | SettingDrift | Faulted`; `ServerFault` is `Unreachable | CatalogDenied | Unmapped`.
+- Cases: `ServerExtension` is the AUTHORITATIVE provisioning roster — it SUPERSETS the consumer-facing `README#SERVER_EXTENSIONS` subset with the base-type and toolkit rows a dependency chain requires (`postgis` the standalone base the raster/sfcgal/pgrouting rows gate on, `pgvector` the `vector` base `pgvectorscale` gates on, `pg_duckdb` the in-PG DuckDB bridge, `timescaledb_toolkit` over the `timescaledb` base) so the `BaseType` gate resolves against a row the same fold can admit, never against an externally-assumed prerequisite; each gate is the `.api`-verified install precondition, NOT a loose label: `timescaledb` (preload, the hypertable/continuous-aggregate/columnstore analytics, `Query/columnar`), `timescaledb_toolkit` (the hyperfunction/time-weighted-aggregate layer over the `timescaledb` base type), `pg_duckdb` (preload, the in-PG DuckDB analytical bridge distinct from the in-process `DuckDB.NET` lane, `Query/columnar`), `apache-age` (preload, the OPTIONAL openCypher graph demoted beneath QuikGraph, `Query/cypher#GRAPH_SESSION`), `pg_cron` (preload, the in-database maintenance scheduler), `postgis` (standalone — operator classes over the BUILT-IN `gist` AM, registers no custom access method, the base the raster/3D/routing rows extend), `postgis_raster`/`postgis_sfcgal` (PostGIS raster + exact 3D geometry over the `postgis` base type), `pgvector` (the `hnsw` access-method ANN tier) / `pgvectorscale` (the `diskann` AM gated on the `vector` base type), `pg_search` (PRELOAD-gated — the ParadeDB Tantivy `bm25` engine rides `shared_preload_libraries` and hard-errors on `CREATE EXTENSION` without it), `h3-pg` (standalone — the in-PG H3 cell index over built-in AMs plus the `h3_postgis` bridge over the `h3` base type, matching `pocketken.H3`), `pgrouting` (the network routing over the `postgis` base type, `Query/cypher#GRAPH_QUERY`), `pg_partman` (PRELOAD-gated — its `pg_partman_bgw` background worker rides `shared_preload_libraries`), `pg_squeeze` (preload, lock-light table-bloat reclamation), `pg_jsonschema` (standalone — `CREATE EXTENSION`-registered JSON Schema CHECK functions, no preload), `pgaudit` (preload, session/object audit logging), `pg_net` (PRELOAD-gated — its `libcurl` background worker is statically `RegisterBackgroundWorker`'d in `_PG_init` and hard-errors without `shared_preload_libraries`), `pg_graphql` (standalone — pgrx SQL functions + DDL event triggers, no worker, no preload); `ExtensionAdmission` is `Preload(library)` | `BaseType(extension)` | `AccessMethod(method)` (a real queryable index AM the row registers, e.g. `hnsw`) | `Standalone(reason)` (prerequisite-free function/type/operator-class extension that registers NO gating AM); `FailureRank` is `Required`/`Degradable`/`Observational`; `ProvisionVerdict` is `Provisioned | MissingExtension | MissingPreload | SettingDrift | Faulted`; `ServerFault` is the WHOLE re-banded 838x decade — the catalog-read faults (`Unmapped | Unreachable | CatalogDenied`), the absence receipts the `FailureRank.Absorb` delegates thread (`RequiredAbsent | LaneFolded | Evidence`), the readiness evidence (`SlotLag | InvalidIndex`), and the admission refusals (`Ungated | AdmitRefused`) — ten typed cases deriving `FaultBand.Server + n`, so every loose provisioning integer is a registry-derived case and a bare `Error.New(83xx)` is the deleted form.
 - Entry: `public static IO<ProvisionVerdict> Verify(NpgsqlDataSource source, Seq<ServerExtension> required, VerificationEpoch epoch)` runs ONE `CreateBatch` over the catalog reads and folds the required roster, the held analytical lanes, the `FailureRank`-absorbed receipts, the emitted repair set, and the stamped epoch into one verdict — a polymorphic op whose arity is the `required` `Seq`, never a per-extension probe; `public static IO<Fin<Unit>> Admit(IDocumentSession session, ServerExtension extension, IReadOnlySet<string> preloaded, IReadOnlySet<string> created)` RE-GATES on the live `preloaded`/`created` sets (the ones the caller's `Verify` fold read, no second probe) and queues the `CREATE EXTENSION IF NOT EXISTS` SQL inside the one `IDocumentSession` (committing the DDL with the schema migration) ONLY when the `ExtensionAdmission` gate is satisfied, REFUSING (`8379`, no DDL queued) a preload-gated one whose library is absent or a base-type-gated one whose base is uncreated; `public static IO<Unit> Reload(NpgsqlDataSource source)` calls `ReloadTypesAsync` so live processes re-resolve the wire types a freshly-admitted enum/composite/extension introduced — deployment completes when types reload, not when the DDL lands.
 - Auto: verification is ONE six-command batch — `current_setting('shared_preload_libraries')`, `pg_extension` (created), `pg_available_extensions` (installed-on-disk-but-uncreated), the `pg_settings` rows for every `ClusterSetting`, the `pg_replication_slots` `pg_wal_lsn_diff` max-lag scalar, and the `pg_index WHERE NOT indisvalid` count — folded so a preload-gated extension whose library is absent from `shared_preload_libraries` is `MissingPreload` and EMITS a `shared_preload_libraries` repair diff carrying the `RestartClass.Max` worst-disruption rank across the gap set (so the operator reads ONE bounce cost, never a per-row minimum) the operator applies and restarts (never a runtime `ALTER SYSTEM`), an extension PRESENT in `pg_available_extensions` and uncreated with a satisfied gate admits through `CREATE EXTENSION IF NOT EXISTS` in the one session (one absent from the available set has no admissible repair and threads its `FailureRank.Absorb` instead), a `pg_settings` row whose live value fails its `Satisfied` check folds `SettingDrift` carrying the row's `RestartClass`, and a held analytical lane absent below its `FailureRank` threads its `Absorb` receipt — `Required` refusing the profile, `Degradable` folding the lane out so the gap surfaces at admission, `Observational` recording evidence; a lagging replication slot and any invalid index fold in as `Observational` readiness receipts on the held verdict (server-disk liability and an interrupted concurrent build, visible on the fact stream, never profile-refusing) — the slot scalar `max(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn))::bigint` measures the byte lag of ANY operator-configured replication slot the cluster carries (a physical streaming replica or a third-party logical consumer) read through `NpgsqlDataReader.GetInt64` since `pg_wal_lsn_diff(...)::bigint` is a PG `bigint`, the `restart_lsn` column being the WAL-retention floor every slot kind exposes so the gauge is provider-physical and never assumes a slot identity; it is NOT the durability op-log lane's lag, because the op-log changefeed is a Marten async SUBSCRIPTION reading the committed event table (`Version/ledger#CHANGEFEED`, `H11`), NOT a logical-decoding slot consumer, so the lane carries no `pg_replication_slots` row and `confirmed_flush_lsn` (a logical-slot-only column) is deliberately NOT the surface here — the `wal_level=logical` `ClusterSetting` exists for the recovery `LogicalReplicationConnection.IdentifySystem` RPO probe (`Version/recovery#RECOVERY_ROUTES`) and operator logical consumers, not for an op-log slot; the fold carries zero rank arms (a new rank is one `FailureRank` row), the `h3-pg` cell id matches the managed `pocketken.H3` so the same cell indexes at ingest and in SQL, and a periodic re-`Verify` stamps a fresh `VerificationEpoch` so cluster drift becomes an observable event the AppHost health probe reads (`ARCHITECTURE#SEAMS` `[HEALTH_PROBE]`).
 - Receipt: a verification rides `store.provision.verify` carrying the verdict, the held lane set, the emitted repair count, and the stamped epoch; an admission rides `store.provision.admit` carrying the extension; a type reload rides `store.provision.reload`.
-- Packages: Npgsql (`NpgsqlDataSource.CreateBatch`, `NpgsqlBatchCommand`, `NpgsqlBatch.ExecuteReaderAsync`, `NpgsqlDataReader.NextResultAsync`/`GetInt64`/`GetString`, `NpgsqlParameter<string[]>`, `ReloadTypesAsync`, `PostgresException.SqlState`/`PostgresErrorCodes.InsufficientPrivilege`, `NpgsqlException.IsTransient`), Marten (`IDocumentSession.QueueSqlCommand`/`SaveChangesAsync`), NodaTime, LanguageExt.Core (`Seq`/`Fin`/`@catch`), Thinktecture.Runtime.Extensions, BCL inbox.
+- Packages: Npgsql (`NpgsqlDataSource.CreateBatch`, `NpgsqlBatchCommand`, `NpgsqlBatch.ExecuteReaderAsync`, `NpgsqlDataReader.NextResultAsync`/`GetInt64`/`GetString`, `NpgsqlParameter<string[]>`, `ReloadTypesAsync`, `PostgresException.SqlState`/`PostgresErrorCodes.InsufficientPrivilege`, `NpgsqlException.IsTransient`, `NpgsqlDataSourceBuilder`), Npgsql.NetTopologySuite (`NpgsqlDataSourceBuilder.UseNetTopologySuite(handleOrdinates, geographyAsDefault)` — the ADO codec row), Npgsql.OpenTelemetry (`TracerProviderBuilder.AddNpgsql()` / `MeterProviderBuilder.AddNpgsqlInstrumentation()` — the observability row subscribed at the AppHost composition root), JsonSchema.Net (`Json.Schema.JsonSchema.FromText`/`Evaluate(JsonElement, EvaluationOptions?)` — the in-process validation fence), NetTopologySuite (`Ordinates`), Microsoft.EntityFrameworkCore (+ `.Sqlite` `UseSqlite` and the Npgsql EF `UseNpgsql` — the `StoreProfile.Ef` bind row over the `Element/identity` DbContext), Marten (`IDocumentSession.QueueSqlCommand`/`SaveChangesAsync`), Rasm.Persistence.Element (`FaultBand`), NodaTime, LanguageExt.Core (`Seq`/`Fin`/`@catch`), Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new server extension is one `ServerExtension` row carrying its SQL, install gate, lane, and restart class; a new install-gate shape is one `ExtensionAdmission` case; a new absence policy is one `FailureRank` row landing every floor-miss branch with zero `Switch` edits; a new verified setting is one `ClusterSetting` row; zero new surface — a runtime `ALTER SYSTEM`, a Rasm-spawned PostgreSQL, a per-extension managed package, a `Switch` re-enumerating the absence policy at the fold, a per-extension probe round trip, or a second relational engine row is the deleted form because provisioning is verification-first SQL, the absence policy IS the rank-row delegate, the verification is one batch, and the engine sweep is closed.
 - Boundary: a Rasm process NEVER spawns or bundles PostgreSQL and NEVER executes runtime `ALTER SYSTEM` — provisioning is verification-only over the operator-provisioned cluster (`#SERVER_EXTENSIONS`), so a `MissingPreload`/`SettingDrift`/`MissingExtension` verdict is a typed signal carrying the EMITTED repair artifact (a `shared_preload_libraries` diff, a `CREATE EXTENSION` reconciliation, a settings diff) the operator resolves at one of the four provisioning rungs, never a self-mutation; the server extensions carry no managed assembly and admit through raw `CREATE EXTENSION IF NOT EXISTS` gated by the row's `ExtensionAdmission` (a preload library, a base type, a real queryable access method, or a prerequisite-free standalone function/type extension) — the `.api`-verified gate per row, so a preload-gated extension mislabeled no-prerequisite cannot leak a hard-erroring `CREATE EXTENSION` past the gate; the `pg_duckdb` extension is the in-PG DuckDB bridge distinct from the in-process `DuckDB.NET` analytical lane (`Query/columnar`), the two meeting at the columnar SQL surface; `apache-age` is the OPTIONAL self-hosted openCypher graph (`Query/cypher#GRAPH_SESSION`) demoted beneath the in-process QuikGraph (`H5`), so its admission is gated and the lane is disabled by default and never assumed co-resident with Marten; spatial→PG GiST (`postgis_raster`/`postgis_sfcgal`) and ANN→`pgvector`/`pgvectorscale` are the transactional index owners while DuckDB `spatial`/`vss` are the columnar aggregators (`L2`), never duplicated; a catalog read denied by privilege folds `ServerFault.CatalogDenied` (`PostgresErrorCodes.InsufficientPrivilege`) and a transport failure folds through `NpgsqlException.IsTransient` so a retry re-drives only the transient class; `ReloadTypesAsync` completes the deploy by re-resolving wire types, the rejected form being a process that resolves a freshly-admitted enum/composite as unknown until restart.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
 using Expected = Rasm.Domain.Expected;            // the federation fault-band base — NOT LanguageExt.Common.Expected
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -29,17 +31,32 @@ using Expected = Rasm.Domain.Expected;            // the federation fault-band b
 // `cls.Key == "blob"`-style string compare or a third engine is the deleted form (`#EMBEDDED_FLOOR` keeps the sweep
 // closed). `Server` is the operator-provisioned PostgreSQL 18 tier whose provisioning is `ClusterProvision.Verify`
 // (verification-first, never `ALTER SYSTEM`); `Embedded` is the single-process SQLite floor whose provisioning is the
-// `EmbeddedStore.Open` ritual. `Durable` is true for both (the floor persists to a file); the profile selects which
-// rail a `StoreProfile`-keyed composition root runs, never both, so an app dials one engine by deployment.
+// `EmbeddedStore.Open` ritual. The row carries BOTH provider bindings as data: `Ef` binds the ONE identity DbContext
+// (`Element/identity#ELEMENT_IDENTITY` — Server -> UseNpgsql, Embedded -> UseSqlite over the ritual-dialed connection;
+// a hand ADO mapping beside the generated rail is the deleted form) and the Server row's data source composes the
+// `Npgsql.NetTopologySuite` ADO codec so RAW Npgsql lanes read/write geometry (`ClusterProvision.Source`).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StoreProfile {
-    public static readonly StoreProfile Server = new("server", relational: "postgresql-18", isEmbedded: false);
-    public static readonly StoreProfile Embedded = new("embedded", relational: "sqlite", isEmbedded: true);
+    public static readonly StoreProfile Server = new("server", relational: "postgresql-18", isEmbedded: false, ef: static (builder, connection) => builder.UseNpgsql((NpgsqlConnection)connection));
+    public static readonly StoreProfile Embedded = new("embedded", relational: "sqlite", isEmbedded: true, ef: static (builder, connection) => builder.UseSqlite((SqliteConnection)connection));
     public string Relational { get; }
     public bool IsEmbedded { get; }
-    private StoreProfile(string key, string relational, bool isEmbedded) : this(key) => (Relational, IsEmbedded) = (relational, isEmbedded);
+    private StoreProfile(string key, string relational, bool isEmbedded, Func<DbContextOptionsBuilder, DbConnection, DbContextOptionsBuilder> ef) : this(key) => (Relational, IsEmbedded, Ef) = (relational, isEmbedded, ef);
+
+    // The EF provider-bind row ([05] EF-Sqlite admission): provider variance as row DATA on the closed axis —
+    // the ONE identity DbContext maps both engines through the generated rail (`IsSqlite()`-keyed model rows
+    // live at the identity owner); raw ADO keeps EmbeddedRitual/EngineOps/HandleBridge untouched.
+    public Func<DbContextOptionsBuilder, DbConnection, DbContextOptionsBuilder> Ef { get; }
+}
+
+// The ADO spatial-codec policy row ([05] Npgsql.NetTopologySuite admission): geographyAsDefault / SRID /
+// precision / ordinates are PROFILE policy values, never call-site literals — the EF plugin does not place
+// the codec on raw connections, so the data source composes it once for every raw Npgsql lane (the cypher
+// pgrouting results, the verification probes over PostGIS, any QueueSqlCommand spatial write).
+public sealed record SpatialWire(bool GeographyAsDefault, int Srid, Ordinates HandleOrdinates) {
+    public static readonly SpatialWire Canonical = new(GeographyAsDefault: false, Srid: 4326, Ordinates.XYZ);
 }
 
 [SmartEnum<string>]
@@ -68,10 +85,11 @@ public sealed partial class FailureRank {
     // The absence policy IS behavior-carrying row data (`#SERVER_EXTENSIONS`): the floor-miss branch threads
     // the receipt through one `Absorb` delegate, so `Required` refuses the profile and stays minimal, `Degradable`
     // folds the lane out so absence surfaces at admission not first query, `Observational` records evidence — a new
-    // rank lands as one row, the fold carrying zero rank arms.
-    public static readonly FailureRank Required = new(static (_, key) => Fin.Fail<Seq<Error>>(Error.New(8371, $"<required-absent:{key}>")));
-    public static readonly FailureRank Degradable = new(static (receipts, key) => Fin.Succ(receipts.Add(Error.New(8372, $"<lane-folded:{key}>"))));
-    public static readonly FailureRank Observational = new(static (receipts, key) => Fin.Succ(receipts.Add(Error.New(8373, $"<evidence:{key}>"))));
+    // rank lands as one row, the fold carrying zero rank arms. Every receipt is a TYPED `ServerFault` case
+    // deriving off the 8380 registry row — the loose `Error.New(8371/8372/8373)` integers are the deleted form.
+    public static readonly FailureRank Required = new(static (_, key) => Fin.Fail<Seq<Error>>(new ServerFault.RequiredAbsent(key)));
+    public static readonly FailureRank Degradable = new(static (receipts, key) => Fin.Succ(receipts.Add(new ServerFault.LaneFolded(key))));
+    public static readonly FailureRank Observational = new(static (receipts, key) => Fin.Succ(receipts.Add(new ServerFault.Evidence(key))));
 
     [UseDelegateFromConstructor]
     public partial Fin<Seq<Error>> Absorb(Seq<Error> receipts, string extensionKey);
@@ -199,14 +217,13 @@ public abstract partial record ProvisionVerdict {
 }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
-// The closed catalog-read fault band (835x): a [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless protected
-// ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the seam
-// `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
-// (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no
-// `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly
-// opt-in, so the band carries no per-case `SelfOp` and the `[Union]`-generated `Switch`/`Map` is untouched; band membership is a per-case `Code` override and `Category` the telemetry label,
-// so the case lifts BARE onto `Fin<T>` with no `.ToError()` hop and a retry reads `error.IsType<ServerFault.Unreachable>()`.
-// `IsTransient` stays an abstract per-case bit (the transient-vs-deterministic retry gate) the nested records override.
+// The re-banded server-tier fault band (838x — `FaultBand.Server`, off the 835x Columnar collision): a [Union] over
+// the KERNEL `Rasm.Domain.Expected` (parameterless protected ctor; `Category` virtual; `Code`/`Message` inherited from
+// `Error`), the SAME federation base the seam `ElementFault` (2500) and `BimFault` (2600) realize — NOT
+// `LanguageExt.Common.Expected`. No `[GenerateUnionOps]`. The decade absorbs EVERY formerly-loose provisioning
+// integer as a typed case — the `FailureRank` receipts, the readiness evidence, the admission refusals — deriving
+// `Code => FaultBand.Server + n` through the registry pointer so a duplicate decade integer fails at type init.
+// `IsTransient` stays an abstract per-case bit (only `Unreachable` retries).
 [Union]
 public abstract partial record ServerFault : Expected, IValidationError<ServerFault> {
     private ServerFault() : base() { }
@@ -214,21 +231,49 @@ public abstract partial record ServerFault : Expected, IValidationError<ServerFa
     public sealed record Unmapped(string SqlState, string Detail) : ServerFault { public override bool IsTransient => false; }
     public sealed record Unreachable(string Detail) : ServerFault { public override bool IsTransient => true; }
     public sealed record CatalogDenied(string Relation) : ServerFault { public override bool IsTransient => false; }
+    public sealed record RequiredAbsent(string Extension) : ServerFault { public override bool IsTransient => false; }
+    public sealed record LaneFolded(string Extension) : ServerFault { public override bool IsTransient => false; }
+    public sealed record Evidence(string Extension) : ServerFault { public override bool IsTransient => false; }
+    public sealed record SlotLag(long Bytes) : ServerFault { public override bool IsTransient => false; }
+    public sealed record InvalidIndex(long Count) : ServerFault { public override bool IsTransient => false; }
+    public sealed record Ungated(string Extension) : ServerFault { public override bool IsTransient => false; }
+    public sealed record AdmitRefused(string Detail) : ServerFault { public override bool IsTransient => false; }
 
-    public override int Code => Switch(
-        unmapped:      static _ => 8350,
-        unreachable:   static _ => 8351,
-        catalogDenied: static _ => 8352);
+    public override int Code => FaultBand.Server + Switch(
+        unmapped:       static _ => 0,
+        unreachable:    static _ => 1,
+        catalogDenied:  static _ => 2,
+        requiredAbsent: static _ => 3,
+        laneFolded:     static _ => 4,
+        evidence:       static _ => 5,
+        slotLag:        static _ => 6,
+        invalidIndex:   static _ => 7,
+        ungated:        static _ => 8,
+        admitRefused:   static _ => 9);
 
     public override string Message => Switch(
-        unmapped:      static c => $"<sqlstate:{c.SqlState}>:{c.Detail}",
-        unreachable:   static c => $"cluster unreachable: {c.Detail}",
-        catalogDenied: static c => $"catalog read denied: {c.Relation}");
+        unmapped:       static c => $"<sqlstate:{c.SqlState}>:{c.Detail}",
+        unreachable:    static c => $"cluster unreachable: {c.Detail}",
+        catalogDenied:  static c => $"catalog read denied: {c.Relation}",
+        requiredAbsent: static c => $"<required-absent:{c.Extension}>",
+        laneFolded:     static c => $"<lane-folded:{c.Extension}>",
+        evidence:       static c => $"<evidence:{c.Extension}>",
+        slotLag:        static c => $"<slot-lag:{c.Bytes}>",
+        invalidIndex:   static c => $"<invalid-indexes:{c.Count}>",
+        ungated:        static c => $"<provision-ungated:{c.Extension}>",
+        admitRefused:   static c => $"<provision-admit:{c.Detail}>");
 
     public override string Category => Switch(
-        unmapped:      static _ => "Unmapped",
-        unreachable:   static _ => "Unreachable",
-        catalogDenied: static _ => "CatalogDenied");
+        unmapped:       static _ => "Unmapped",
+        unreachable:    static _ => "Unreachable",
+        catalogDenied:  static _ => "CatalogDenied",
+        requiredAbsent: static _ => "Absence",
+        laneFolded:     static _ => "Absence",
+        evidence:       static _ => "Readiness",
+        slotLag:        static _ => "Readiness",
+        invalidIndex:   static _ => "Readiness",
+        ungated:        static _ => "Admission",
+        admitRefused:   static _ => "Admission");
 
     public static ServerFault Create(string message) => new Unmapped("none", message);
 }
@@ -289,8 +334,8 @@ public static class ClusterProvision {
         // `Degradable`/`Observational` rank records the receipt and the held lanes still compose. Readiness evidence — a
         // lagging replication slot (server-disk liability) and any invalid index (an interrupted concurrent build) — folds
         // in as `Observational` receipts on the held verdict, never refusing the profile but visible on the fact stream.
-        var readiness = (slotLag > 0 ? Seq(Error.New(8374, $"<slot-lag:{slotLag}>")) : Seq<Error>())
-            + (invalidIndexes > 0 ? Seq(Error.New(8375, $"<invalid-indexes:{invalidIndexes}>")) : Seq<Error>());
+        var readiness = (slotLag > 0 ? Seq<Error>(new ServerFault.SlotLag(slotLag)) : Seq<Error>())
+            + (invalidIndexes > 0 ? Seq<Error>(new ServerFault.InvalidIndex(invalidIndexes)) : Seq<Error>());
         var fold = required.Fold(
             (Held: Seq<ServerExtension>(), Receipts: readiness, Absent: Seq<ServerExtension>()),
             (acc, e) => created.Contains(e.Key)
@@ -317,17 +362,36 @@ public static class ClusterProvision {
     // `Verify` fold already read (no second catalog probe), so the gate costs nothing beyond a set membership test.
     public static IO<Fin<Unit>> Admit(IDocumentSession session, ServerExtension extension, IReadOnlySet<string> preloaded, IReadOnlySet<string> created) =>
         !extension.Admission.Admissible(preloaded, created)
-            ? IO.pure(Fin<Unit>.Fail(Error.New(8379, $"<provision-ungated:{extension.Key}>")))
+            ? IO.pure(Fin<Unit>.Fail(new ServerFault.Ungated(extension.Key)))
             : (IO.liftAsync(async () => {
                 session.QueueSqlCommand(extension.CreateSql);
                 await session.SaveChangesAsync().ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }) | @catch<IO, Fin<Unit>>(static _ => true, e => IO.pure(Fin<Unit>.Fail(Error.New(8380, $"<provision-admit:{e.Message}>"))))).As();
+            }) | @catch<IO, Fin<Unit>>(static _ => true, e => IO.pure(Fin<Unit>.Fail(new ServerFault.AdmitRefused(e.Message))))).As();
 
     // Deployment completes when live processes re-resolve the wire types a freshly-admitted enum/composite/extension
     // introduced — `ReloadTypesAsync` on the owning source — not when the DDL commits (`#SERVER_EXTENSIONS` deploy law).
     public static IO<Unit> Reload(NpgsqlDataSource source) =>
         IO.liftAsync(async () => { await source.ReloadTypesAsync().ConfigureAwait(false); return unit; });
+
+    // The Server row's data-source build ([05] Npgsql.NetTopologySuite): the ADO spatial codec composes ONCE on
+    // the owning NpgsqlDataSourceBuilder from the `SpatialWire` policy row, so every raw lane (cypher pgrouting
+    // decode, verification probes, QueueSqlCommand spatial writes) reads/writes NTS geometry — the EF plugin
+    // never places the codec on raw connections, so this row is the wire's one admission site.
+    public static NpgsqlDataSource Source(string dsn, SpatialWire wire) {
+        var builder = new NpgsqlDataSourceBuilder(dsn);
+        builder.UseNetTopologySuite(handleOrdinates: wire.HandleOrdinates, geographyAsDefault: wire.GeographyAsDefault);
+        return builder.Build();
+    }
+
+    // The pg_jsonschema dual-residence fence ([05] JsonSchema.Net): ONE schema text serves both residences —
+    // the held `validation` lane checks server-side (`json_matches_schema` in a CHECK/predicate), and a folded-out
+    // lane degrades to the in-process `Json.Schema.JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` boolean
+    // parity gate, so absence of the server extension narrows residence, never capability.
+    public static bool SchemaCheck(FrozenSet<string> heldLanes, string schema, JsonElement instance, Func<string, JsonElement, bool> serverCheck) =>
+        heldLanes.Contains("validation")
+            ? serverCheck(schema, instance)
+            : Json.Schema.JsonSchema.FromText(schema).Evaluate(instance, new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid;
 
     static async Task<FrozenSet<string>> Drain(NpgsqlDataReader reader, Func<NpgsqlDataReader, string> read) {
         var rows = new HashSet<string>(StringComparer.Ordinal);
@@ -364,6 +428,11 @@ public static class ClusterProvision {
 |  [08]   | drift visibility    | stamped `VerificationEpoch`            | a re-verify advance is an observable health-probe event   |
 |  [09]   | deploy completion   | `ReloadTypesAsync`                     | types re-resolve before the deploy is done               |
 |  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3` | one cell id at ingest and in SQL                       |
+|  [11]   | spatial wire        | `SpatialWire` policy row on `Source`   | ADO codec composed once; call-site literals deleted      |
+|  [12]   | EF provider bind    | `StoreProfile.Ef` row data             | one identity DbContext, two providers; hand ADO mapping deleted |
+|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation` | subscribed at the AppHost composition root, never in-fence |
+|  [14]   | schema validation   | `SchemaCheck` dual residence           | server `json_matches_schema` when held; in-process `Evaluate` fallback |
+|  [15]   | fault typing        | 838x `ServerFault` whole decade        | absence/readiness/admission receipts are registry-derived cases |
 
 ## [03]-[EMBEDDED_FLOOR]
 
@@ -430,14 +499,14 @@ public static class EmbeddedStore {
             store.Open();
             var handle = store.Handle ?? throw new InvalidOperationException("<no-handle>");
             var identity = Scalar(store, "PRAGMA application_id");
-            if (identity != ritual.Identity && identity != 0L) { return Refused(store, 7701, $"<foreign-store:{identity:x8}>"); }
+            if (identity != ritual.Identity && identity != 0L) { return Refused(store, $"<foreign-store:{identity:x8}>"); }
             var facts = ritual.ConnectionRows.Map(row => new RitualFact(row.Row, Execute(store, row.Sql)));
             _ = raw.sqlite3_extended_result_codes(handle, 1);
             facts += ritual.DbConfig.Map(row => new RitualFact(row.Row, raw.sqlite3_db_config(handle, row.Op, row.Value, out var applied) == raw.SQLITE_OK ? applied : -1L));
             facts += ritual.Capabilities.Map(row => (fun(() => row.Grant(store))(), new RitualFact(row.Row, 1L)).Item2);
             using var gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
             var held = Scalar(store, "PRAGMA user_version");
-            if (held > ritual.CompiledEpoch) { return Refused(store, 7702, $"<epoch-ahead:{held}>"); }
+            if (held > ritual.CompiledEpoch) { return Refused(store, $"<epoch-ahead:{held}>"); }
             if (held < ritual.CompiledEpoch) {
                 migrate(store, gate, held);
                 _ = Execute(store, $"PRAGMA application_id={ritual.Identity}");
@@ -452,8 +521,10 @@ public static class EmbeddedStore {
         }
     }
 
-    static Fin<Seq<RitualFact>> Refused(SqliteConnection store, int code, string detail) =>
-        (fun(store.Dispose)(), Fin.Fail<Seq<RitualFact>>(Error.New(code, detail))).Item2;
+    // The refusal arms are TYPED — a foreign `application_id` and an epoch-ahead register both rail
+    // `EmbeddedFault.Refused` (7714, in-band 771x); the loose `Error.New(7701/7702)` integers are the deleted form.
+    static Fin<Seq<RitualFact>> Refused(SqliteConnection store, string detail) =>
+        (fun(store.Dispose)(), Fin.Fail<Seq<RitualFact>>(new EmbeddedFault.Refused(detail))).Item2;
 
     static long Execute(SqliteConnection store, string sql) { using var c = store.CreateCommand(); c.CommandText = sql; return c.ExecuteNonQuery(); }
     static long Scalar(SqliteConnection store, string sql) { using var c = store.CreateCommand(); c.CommandText = sql; return Convert.ToInt64(c.ExecuteScalar(), CultureInfo.InvariantCulture); }
@@ -563,11 +634,13 @@ public static class EngineOps {
     // schedule re-drives (an overlapping reader blocked the truncate — steady-state, not a fault), and every other status
     // lifts through `EmbeddedFault.FromStatus` (a `SQLITE_CORRUPT` routes to recovery) — a bare `throw` of a provider
     // `SqliteException` escaping unconverted is the deleted form the sibling ops already reject.
-    public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, CheckpointMode mode, ClockPolicy clocks) {
+    // The observation instant rides the injected `Element/graph#STORE_RAIL` ProjectionContext frame ([A.1]) —
+    // a `ClockPolicy` parameter on any signature here is the named strata inversion.
+    public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, CheckpointMode mode, ProjectionContext frame) {
         try {
             var status = raw.sqlite3_wal_checkpoint_v2(Handle(store), "main", mode.Key, out var logFrames, out var checkpointed);
             return status is raw.SQLITE_OK or raw.SQLITE_BUSY
-                ? Fin.Succ(new EmbeddedFact(status == raw.SQLITE_BUSY ? "checkpoint-busy" : "checkpoint", logFrames, checkpointed, clocks.Now))
+                ? Fin.Succ(new EmbeddedFact(status == raw.SQLITE_BUSY ? "checkpoint-busy" : "checkpoint", logFrames, checkpointed, frame.Now()))
                 : Fin.Fail<EmbeddedFact>(EmbeddedFault.FromStatus(status, raw.sqlite3_errstr(status).utf8_to_string()));
         }
         catch (Exception ex) { return Fin.Fail<EmbeddedFact>(EmbeddedFault.Lift(ex)); }
@@ -588,7 +661,7 @@ public static class EngineOps {
         finally { raw.sqlite3_snapshot_free(snapshot); }
     }
 
-    public static IO<EmbeddedFact> Backup(SqliteConnection source, string destinationPath, int pageStep, ClockPolicy clocks) =>
+    public static IO<EmbeddedFact> Backup(SqliteConnection source, string destinationPath, int pageStep, ProjectionContext frame) =>
         IO.lift(() => {
             using var destination = EmbeddedStore.Dialed(destinationPath);
             destination.Open();
@@ -598,7 +671,7 @@ public static class EngineOps {
                 do { step = raw.sqlite3_backup_step(backup, pageStep); }                                 // Exemption: the paged native backup step loop is the platform-forced statement seam
                 while (step is raw.SQLITE_OK or raw.SQLITE_BUSY or raw.SQLITE_LOCKED);
                 return step is raw.SQLITE_DONE
-                    ? new EmbeddedFact("backup", raw.sqlite3_backup_pagecount(backup), raw.sqlite3_backup_remaining(backup), clocks.Now)
+                    ? new EmbeddedFact("backup", raw.sqlite3_backup_pagecount(backup), raw.sqlite3_backup_remaining(backup), frame.Now())
                     : throw EmbeddedFault.FromStatus(step, raw.sqlite3_errstr(step).utf8_to_string()).ToException();
             }
             finally { _ = raw.sqlite3_backup_finish(backup); }
@@ -628,3 +701,21 @@ public static class EngineOps {
 |  [04]   | backup              | paged `sqlite3_backup_*` session       | subsumes whole-file `BackupDatabase`; `quick_check` proof |
 |  [05]   | large payload       | `SqliteBlob` over `zeroblob(N)`        | streamed; whole-`byte[]` materialization deleted          |
 |  [06]   | fault discrimination| `EmbeddedFault` over the status int    | `Busy` transient; `Corrupt` terminal to recovery          |
+
+## [05]-[STORE_AXIS_MAP]
+
+The store perimeter is PARAMETERIZED — eleven axes, every provider row deployment/policy DATA on one axis surface. A future app selects providers by POLICY VALUES (profile rows, grant minters, sink rows, index-residency rows) — never a central-manifest edit, never a new entry point, never a parallel rail. Each kept scale-out row carries the PROVEN ceiling the in-PG/in-process owner cannot reach; every provider row carries its provisioning/health/recovery posture through the `#SERVER_EXTENSIONS` verification-first fold, and the scylla/redis rows gain DEPLOYMENT-CONDITIONAL AppHost probe rows only where the axis row is composed (the Npgsql-only probe stays the default). The relational SoR spine is SINGULAR and sealed — ONE event store, ONE materializer, ONE identity, ONE changefeed — so a perimeter-axis engine row carrying unreachable capability is a legal axis admission, never a second SoR.
+
+| [INDEX] | [AXIS]                     | [OWNING_PAGE]                                      | [PROVIDER_ROWS] (seed DATA)                                              | [SELECTION]                        | [CEILING / CHARTER PROOF]                                                                 |
+| :-----: | :------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | relational SoR spine       | `Store/provisioning` + `Element/graph`              | postgres-18 (SINGULAR)                                                    | SEALED                             | the one event store · materializer · identity · changefeed — unchallengeable               |
+|  [02]   | object store               | `Store/blobstore`                                   | s3 · azure-blob · gcs · minio · presigned-grant (`GrantMinter`)           | `ObjectStore` `[SmartEnum]`        | the presigned row reaches domain-cloud planes no credentialed row can                       |
+|  [03]   | egress sink                | `Version/egress`                                    | webhook · nats · kafka · rabbitmq · pulsar · wire-native · redis-stream   | `EgressSink` `[Union]`             | consumer-group ack + `Acknowledged` trim — the zero-broker-install stream row               |
+|  [04]   | read-lane/analytic engine  | `Query/columnar`                                    | duckdb-in-process · pg_duckdb-in-PG · clickhouse-scaleout                 | `ColumnarEngine` axis              | distributed merge-tree MPP at cluster scale; never a second SoR                             |
+|  [05]   | lakehouse interchange      | `Query/columnar`                                    | ducklake (extension, forward) · delta                                     | format row                         | the Delta transaction-log wire for external-warehouse interop; a format, not an engine     |
+|  [06]   | vector search              | `Query/retrieval`                                   | pgvector-in-PG · pgvectorscale-diskann · pq-adc-in-process · qdrant-scaleout | `VectorBackend` axis            | billion-scale sharded ANN over the in-PG ceiling; `CqlVector` embedding-next-to-row only    |
+|  [07]   | embedded/KV floor          | `Store/provisioning`                                | sqlite (raw-ADO `EngineOps`) · rocksdb-lsm · lmdb                         | `EngineOps`-tier row               | write-optimized LSM + read-optimized memory-mapped MVCC over the single-writer WAL floor    |
+|  [08]   | embedded relational        | `Element/identity` + `Store/provisioning`           | npgsql-ef · sqlite-ef                                                     | `StoreProfile.Ef` on ONE DbContext | one generated mapping, two providers; a hand ADO mapping beside the rail is deleted (ARCH)  |
+|  [09]   | wide-column content-index  | `Query/cache`                                       | marten-pg (default) · scylla-widecolumn                                   | index-residency row                | LWT `AppliedInfo` claim-gate + shard-routed point reads at federation scale                 |
+|  [10]   | cache backplane            | `Query/cache`                                       | none (single-node default) · redis-pubsub                                 | `CacheLane.Store`-gated row        | cross-process L1 invalidation the `IDistributedCache` contract cannot express              |
+|  [11]   | spatial store plane        | `Element/identity` · `Store/provisioning` · `Element/codec` · `Ingest/geospatial` | postgis-column (EF-NTS) · ado-codec (`SpatialWire`) · geojson-stj · geopackage · wkb/wkt · h3-cell (pocketken) | profile policy rows (`geographyAsDefault`, SRID, precision) | the provisioned postgis/pgrouting/h3-pg tier gains its wire, column, codec, and file-ingress counterparts — closed end-to-end |

@@ -6,8 +6,11 @@
 
 [PACKAGE_SURFACE]: `FluentModbus`
 - package: `FluentModbus`
+- version: `5.3.2`
+- license: `MIT`
 - assembly: `FluentModbus`
 - namespace: `FluentModbus`
+- target: `netstandard2.1`; the `net10.0` consumer binds it
 - asset: runtime library
 - rail: live-wire
 
@@ -54,24 +57,26 @@
 
 | [INDEX] | [MEMBER]                                                                                   | [KIND]     | [RETURN]      |
 | :-----: | :----------------------------------------------------------------------------------------- | :--------- | :------------ |
-|  [01]   | `ModbusClient.ReadHoldingRegisters<T>(int unitId, int startingAddress, int count)`         | read       | `Span<T>`     |
-|  [02]   | `ModbusClient.ReadInputRegisters<T>(int unitId, int startingAddress, int count)`           | read       | `Span<T>`     |
-|  [03]   | `ModbusClient.WriteSingleRegister(int unitId, int registerAddress, short value)`           | write      | `void`        |
-|  [04]   | `ModbusClient.WriteMultipleRegisters<T>(int unitId, int startingAddress, ReadOnlySpan<T>)` | write      | `void`        |
-|  [05]   | `ModbusClient.ReadWriteMultipleRegisters<TRead,TWrite>(...)`                               | read+write | `Span<TRead>` |
-|  [06]   | `ModbusClient.ReadCoils(int unitId, int startingAddress, int count)`                       | read       | `Span<byte>`  |
-|  [07]   | `ModbusClient.ReadDiscreteInputs(int unitId, int startingAddress, int count)`              | read       | `Span<byte>`  |
-|  [08]   | `ModbusClient.WriteSingleCoil(int unitId, int registerAddress, bool value)`                | write      | `void`        |
-|  [09]   | `ModbusClient.WriteMultipleCoils(int unitId, int startingAddress, bool[] values)`          | write      | `void`        |
+|  [01]   | `ModbusClient.ReadHoldingRegisters<T>(int unitIdentifier, int startingAddress, int count) where T : unmanaged` | read       | `Span<T>`     |
+|  [02]   | `ModbusClient.ReadInputRegisters<T>(int unitIdentifier, int startingAddress, int count) where T : unmanaged` | read       | `Span<T>`     |
+|  [03]   | `ModbusClient.WriteSingleRegister(int unitIdentifier, int registerAddress, short value)` (+ `ushort`/`byte[]` overloads) | write      | `void`        |
+|  [04]   | `ModbusClient.WriteMultipleRegisters<T>(int unitIdentifier, int startingAddress, T[] dataset) where T : unmanaged` | write      | `void`        |
+|  [05]   | `ModbusClient.ReadWriteMultipleRegisters<TRead,TWrite>(int unitIdentifier, int readStartingAddress, int readCount, int writeStartingAddress, TWrite[] dataset) where TRead,TWrite : unmanaged` | read+write | `Span<TRead>` |
+|  [06]   | `ModbusClient.ReadCoils(int unitIdentifier, int startingAddress, int quantity)`            | read       | `Span<byte>`  |
+|  [07]   | `ModbusClient.ReadDiscreteInputs(int unitIdentifier, int startingAddress, int quantity)`   | read       | `Span<byte>`  |
+|  [08]   | `ModbusClient.WriteSingleCoil(int unitIdentifier, int registerAddress, bool value)`        | write      | `void`        |
+|  [09]   | `ModbusClient.WriteMultipleCoils(int unitIdentifier, int startingAddress, bool[] values)`  | write      | `void`        |
+|  [10]   | `ModbusClient.ReadHoldingRegisters(byte unitIdentifier, ushort startingAddress, ushort quantity)` | read | `Span<byte>` (raw non-generic) |
 
 [ENTRYPOINT_SCOPE]: async operations
 - rail: live-wire
 
 | [INDEX] | [MEMBER]                                                                                                       | [KIND] | [RETURN]          |
 | :-----: | :------------------------------------------------------------------------------------------------------------- | :----- | :---------------- |
-|  [01]   | `ModbusClient.ReadHoldingRegistersAsync<T>(int unitId, int startingAddress, int count, CancellationToken)`     | read   | `Task<Memory<T>>` |
-|  [02]   | `ModbusClient.WriteMultipleRegistersAsync<T>(int unitId, int startingAddress, T[] dataset, CancellationToken)` | write  | `Task`            |
-|  [03]   | `ModbusClient.ReadInputRegistersAsync<T>(int unitId, int startingAddress, int count, CancellationToken)`       | read   | `Task<Memory<T>>` |
+|  [01]   | `ModbusClient.ReadHoldingRegistersAsync<T>(int unitIdentifier, int startingAddress, int count, CancellationToken = default) where T : unmanaged` | read | `Task<Memory<T>>` |
+|  [02]   | `ModbusClient.WriteMultipleRegistersAsync<T>(int unitIdentifier, int startingAddress, T[] dataset, CancellationToken = default) where T : unmanaged` | write | `Task` |
+|  [03]   | `ModbusClient.ReadInputRegistersAsync<T>(int unitIdentifier, int startingAddress, int count, CancellationToken = default) where T : unmanaged` | read | `Task<Memory<T>>` |
+|  [04]   | `ModbusClient.ReadWriteMultipleRegistersAsync<TRead,TWrite>(...)`                                               | read+write | `Task<Memory<TRead>>` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -79,7 +84,7 @@
 - rail: live-wire
 
 - `ModbusEndianness` is set at `Connect` and governs the byte order of every multi-byte register `T`; the AppHost binding carries it as a `TransportRow`/binding-spec policy column, never a per-read flag.
-- the typed `ReadHoldingRegisters<T>` overload reinterprets the register window as `Span<T>` (`short`/`ushort`/`int`/`float`/`double`), so a register block decodes to one `ExternalValue` without manual byte juggling.
+- the typed `ReadHoldingRegisters<T>` overload (`where T : unmanaged`) reinterprets the register window as `Span<T>` (`short`/`ushort`/`int`/`float`/`double`), so a register block decodes to one `ExternalValue` without manual byte juggling; the async mirror returns `Task<Memory<T>>` (the sync path is `Span<T>`, the async path `Memory<T>` because a span cannot cross an await). `WriteMultipleRegisters<T>` takes a `T[] dataset`, and the raw non-generic `byte`/`ushort` overloads carry the untyped register window.
 - `unitId` is the Modbus slave address; `startingAddress`/`count` define the register window the binding spec carries.
 - a protocol exception surfaces as `ModbusException` carrying a `ModbusExceptionCode`; the AppHost binding projects it to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating the exception into the interior.
 - `ModbusRtuClient` binds over a serial port (the `System.IO.Ports` owner at `api-serialport.md`) for RTU/ASCII fieldbus, sharing the one register-operation surface with the TCP client.
@@ -90,6 +95,7 @@
 - the live-wire `modbus` transport row binds `ModbusTcpClient`/`ModbusRtuClient` behind the one `TransportRow.Read`/`Write` adapter; the register window read projects one `ExternalValue` (raw register value, declared unit, good flag, source instant) riding the row's `OutboundHop`.
 - a register map (start address, count, endianness, unit id) is binding-spec policy data, never a parallel Modbus poller; the per-row retry is the `OutboundHop` breaker, never a FluentModbus retry loop.
 
-## [05]-[RESEARCH]
-
-- [GENERIC_SPAN_ARITY]: the exact generic arity and `Span<T>`-versus-`Memory<T>` return shape of `ReadHoldingRegisters<T>`/`WriteMultipleRegisters<T>`/`ReadWriteMultipleRegisters<TRead,TWrite>` and the async `*Async<T>` overloads confirm against the pinned `FluentModbus` assembly at admission through the assay binder; the synchronous reads return `Span<T>` and the async reads return `Task<Memory<T>>` per the package surface, the precise overload set the catalogue settles when the manifest row lands.
+[STACK]:
+- transport axis: the `modbus` transport row is one `ExternalTransport` `[SmartEnum<string>]` case (`Wire/livewire#TRANSPORT_AXIS`) with `ReadShape.Poll`/`Writable: true`; `ModbusTcpClient` binds an `OutboundHop.ServerStream`/direct-TCP hop, `ModbusRtuClient` an `OutboundHop.CompanionSpawn` over the serial owner (`api-serialport.md`).
+- value projection: a typed `Span<T>` register read decodes to one `ExternalValue` (raw value, declared unit, good flag, source instant) at the boundary; the boxed register never enters the interior.
+- fault seam: a `ModbusException`/`ModbusExceptionCode` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, folded through the live-wire registry band, never propagating into the interior.

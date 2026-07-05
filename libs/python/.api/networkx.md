@@ -9,7 +9,7 @@
 - version: `3.6.1`
 - license: BSD-3-Clause
 - import: `import networkx as nx`
-- owner: `data`
+- owner: `data` (codec/egress), `geometry` (`graph/features` analysis)
 - rail: graph
 - capability: graph payload classes, conversion bridges, file-format codecs, algorithm families over directed/undirected/multi-edge graphs, a community-detection namespace (`nx.community`), and a pluggable backend-dispatch layer (`nx.config`) that routes any `@_dispatchable` algorithm to an alternate engine
 

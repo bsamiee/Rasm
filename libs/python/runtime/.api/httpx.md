@@ -42,16 +42,14 @@
 | :-----: | :------------------- | :------------ | :----------------------------------------------------------- |
 |  [01]   | `Auth`               | auth base     | generator-based request-signing flow (`auth_flow`)           |
 |  [02]   | `BasicAuth`          | auth          | HTTP basic auth                                              |
-|  [03]   | `DigestAuth`         | auth          | HTTP digest auth (challenge-response, two-leg flow)          |
-|  [04]   | `NetRCAuth`          | auth          | `.netrc`-file credential auth                                |
-|  [05]   | `AsyncBaseTransport` | transport     | async transport ABC (`handle_async_request`)                 |
-|  [06]   | `BaseTransport`      | transport     | sync transport ABC (`handle_request`)                        |
-|  [07]   | `AsyncHTTPTransport` | transport     | default httpcore-backed async transport (retries, proxy, h2) |
-|  [08]   | `HTTPTransport`      | transport     | default httpcore-backed sync transport                       |
-|  [09]   | `ASGITransport`      | transport     | in-process ASGI app transport (server-side checks)           |
-|  [10]   | `WSGITransport`      | transport     | in-process WSGI app transport                                |
-|  [11]   | `MockTransport`      | transport     | handler-driven test transport                                |
-|  [12]   | `AsyncByteStream` / `SyncByteStream` / `ByteStream` | stream | request/response body stream protocol (custom-transport authoring) |
+|  [03]   | `AsyncBaseTransport` | transport     | async transport ABC (`handle_async_request`)                 |
+|  [04]   | `BaseTransport`      | transport     | sync transport ABC (`handle_request`)                        |
+|  [05]   | `AsyncHTTPTransport` | transport     | default httpcore-backed async transport (retries, proxy, h2) |
+|  [06]   | `HTTPTransport`      | transport     | default httpcore-backed sync transport                       |
+|  [07]   | `ASGITransport`      | transport     | in-process ASGI app transport (server-side checks)           |
+|  [08]   | `WSGITransport`      | transport     | in-process WSGI app transport                                |
+|  [09]   | `MockTransport`      | transport     | handler-driven test transport                                |
+|  [10]   | `AsyncByteStream` / `SyncByteStream` / `ByteStream` | stream | request/response body stream protocol (custom-transport authoring) |
 
 [PUBLIC_TYPE_SCOPE]: fault family (full taxonomy)
 - rail: transport
@@ -120,7 +118,7 @@
 - client law: one long-lived `AsyncClient` per outbound endpoint group is constructed with explicit `Timeout`, `Limits`, `Auth`, and `base_url`, then reused; module-level `httpx.get`/`request` and per-request client construction are deleted from service code.
 - protocol law: `http2=True` is set when the upstream negotiates HTTP/2 (h2 multiplexing collapses the pool); `Response.http_version` confirms the negotiated protocol.
 - timeout law: every client carries an explicit `Timeout(connect=, read=, write=, pool=)`; a bare float is rejected in favor of the per-phase shape, and the anyio deadline scope wraps the call so cancellation propagates into `httpcore`.
-- auth law: credentials flow through an `Auth` subclass (`BasicAuth`/`DigestAuth`/`NetRCAuth` or a custom `auth_flow` generator) bound at client construction from the `pydantic-settings` model; `DigestAuth`'s two-leg challenge is owned by the flow, never hand-rolled. `USE_CLIENT_DEFAULT` is the per-call deferral sentinel — never `None` to mean "client default".
+- auth law: credentials flow through an `Auth` subclass (`BasicAuth` or a custom `auth_flow` generator — the realized `_BearerAuth`) bound at client construction from the `pydantic-settings` model; challenge legs are owned by the flow, never hand-rolled. `USE_CLIENT_DEFAULT` is the per-call deferral sentinel — never `None` to mean "client default".
 - streaming law: large bodies use `AsyncClient.stream` + `aiter_bytes`/`aiter_lines`; `aiter_raw` reads undecoded for content-encoding passthrough. Full-body `aread`/`json` is reserved for small payloads.
 - decode law: `Response.json()` is the handoff seam — its `dict`/`list` feeds the `msgspec.convert`/pydantic discriminated-union decoder, never re-parsed; the wire model owner converts, this owner transports.
 - event-hook law: cross-cutting request/response observation wires `event_hooks={"request": [...], "response": [...]}` at construction; this is the seam where `raise_for_status` and span enrichment hang, not a per-call wrapper.
@@ -136,10 +134,10 @@
 [STACK_LAW]:
 - `httpx.AsyncClient` -> `Response.json()` -> `msgspec.convert`/pydantic discriminated union -> typed domain model: one rail, no intermediate dict re-parse.
 - `stamina.retry_context` wraps `AsyncClient.send` for transient `TransportError`/`TimeoutException`; the OTel span and the retry attempt count share the same context, never separate try/except ladders.
-- `Auth` flow + `pydantic-settings` credential source: the settings model mints the `BasicAuth`/`DigestAuth` instance once at client construction; secrets never appear inline.
+- `Auth` flow + `pydantic-settings` credential source: the settings model mints the `BasicAuth`/`_BearerAuth` instance once at client construction; secrets never appear inline.
 
 [RAIL_LAW]:
 - Package: `httpx`
 - Owns: async/sync HTTP/1.1+HTTP/2 transport, connection pooling, the `Auth` flow protocol, streaming bodies, per-phase timeouts and pool limits, event hooks, transport/proxy injection, the `codes` status enum, and the full error taxonomy
 - Accept: one reused `AsyncClient`, explicit `Timeout`/`Limits`/`Auth`/`base_url`, `http2` where negotiated, `stream`+`aiter_*` for large bodies, `event_hooks`, injected `MockTransport`/`ASGITransport`/`mounts`, `stamina`-retried transient faults, `Response.json()` handed to the wire-model decoder, settled OTel httpx spans
-- Reject: per-request or module-level (`httpx.get`) client construction in service code, bare-float/implicit timeouts, full-body reads of large payloads, transport monkeypatching, hand-rolled digest challenge or retry ladders, re-parsing `json()` output, a second HTTP client, stdlib `http.client`/`urllib`/`requests`/`urllib3`
+- Reject: per-request or module-level (`httpx.get`) client construction in service code, bare-float/implicit timeouts, full-body reads of large payloads, transport monkeypatching, hand-rolled auth-challenge flows or retry ladders, re-parsing `json()` output, a second HTTP client, stdlib `http.client`/`urllib`/`requests`/`urllib3`

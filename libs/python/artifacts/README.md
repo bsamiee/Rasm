@@ -192,15 +192,13 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `ziamath` - math-to-SVG rendering for annotation math.
 - `schemdraw` - native-SVG schematic diagrams.
 - `drawpyo` - draw.io / diagrams.net export.
+- `pvlib` - NREL SPA solar-position ephemeris (`solarposition`: apparent azimuth/altitude, sunrise/transit, Earth-Sun distance) for the `visualization/diagram/solar` sun-path furniture generator.
 
 [Provenance]:
 - `c2pa-python` - C2PA content-credential manifest sign/verify keyed by the content key, feeding `provenance/credential`
 
 [Metadata]:
-- `pyexiftool` - cross-format descriptive-metadata read/write over the exiftool binary; the `exchange/metadata` owner, replaces `exif`.
-- `pyexiv2` - in-process EXIF/IPTC/XMP read/write (gated `python_version<'3.15'`; wheels-only, no cp315 wheel yet).
-- `iptcinfo3` - superseded on the raster carrier by `pyexiftool`/`pyexiv2`; flagged for final `pyproject` reconciliation.
-- `python-xmp-toolkit` - superseded by the `pyexiftool`/`pyexiv2` pass, `pikepdf` owning PDF/XMP; flagged for final `pyproject` reconciliation.
+- `pyexiftool` - cross-format descriptive-metadata read/write over the exiftool binary; the sole `exchange/metadata` carrier arm. `pyexiv2` (in-process GPL-3.0), `iptcinfo3`, and `python-xmp-toolkit` are removed from the manifest — their surfaces are subsets of this out-of-process arm, `pikepdf` owning PDF/XMP.
 
 [Compression]:
 - `zstandard`
@@ -225,7 +223,7 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `uniseg` + `pyphen` — `typography/layout` Unicode line-break segmentation plus language-aware hyphenation feeding the paragraph-fit owner.
 - `simpleidml` — `export/indesign` IDML package mutation over template, layer, spread, page, XML, and imported asset operations.
 - `psdtags` + `tifffile` — `export/layered` Photoshop-compatible layered TIFF output and TIFF extratag authoring.
-- `pyexiftool` + `pyexiv2` — `exchange/metadata` raster carrier, `pikepdf` the `PDF` and `av` the `MEDIA` carrier; `iptcinfo3`/`python-xmp-toolkit` superseded.
+- `pyexiftool` — `exchange/metadata` raster carrier, `pikepdf` the `PDF` and `av` the `MEDIA` carrier; `pyexiv2`/`iptcinfo3`/`python-xmp-toolkit` removed from the manifest, superseded by this arm.
 - `pdfimpose` — `composition/imposition` saddle/wire/card/cut/fold/signature page-order computation normalized into local placement facts.
 - `polars` + `rustworkx` + `zlib-ng` — overlays for table/diagram/package owners; `rustworkx` also owns the detail `PyDAG` and `core/plan` producer graph.
 

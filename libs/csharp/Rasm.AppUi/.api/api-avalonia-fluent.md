@@ -101,6 +101,9 @@
 - Accept: the page `ResolvedTheme` resolves and overrides through `ColorPaletteResources` and `FluentTheme.Palettes`; `Accent` carries the derive-shades contract
 - Reject: a parallel theme framework, a second control-theme dictionary, or hand-rolled accent-shade math when `Accent` already derives them
 
+[RETAINED_FLOOR]: the charter is LIVE — one composition-level wiring
+- `FluentTheme` is the RETAINED control-theme floor BENEATH Semi (`api-semi.md`): `SemiTheme` restyles the admitted roster to the `Wacton.Unicolour` token system, but the Fluent `Styles` floor stays composed first so the Fluent-templated controls Semi does not skin (`bodong.PropertyGrid`, `DialogHost`) keep a valid control theme — a single App-level `Styles` order (`FluentTheme` then `SemiTheme`), never a second theme framework. The floor is NOT dead: `ResolvedTheme.Resolve` writes its `ColorPaletteResources`/`Palettes` surface every variant flip, and the un-skinned controls resolve their templates from it.
+
 [DENSITY_LAW]:
 - Package: `Avalonia.Themes.Fluent`
 - Owns: the `DensityStyle { Normal, Compact }` vocabulary and the `Compact.xaml` runtime overlay behind `DensityStyleProperty`

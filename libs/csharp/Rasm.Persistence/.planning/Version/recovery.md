@@ -74,7 +74,8 @@ public sealed partial class RecoveryPoint {
 // `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500), the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
 // (2600), and the Persistence-sibling `Element/codec#SNAPSHOT_SPINE` `CodecFault` (83xx) realize — NOT
 // `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no `Category` to override)
-// is the deleted form. Band membership is a per-case `Code => 829x` override and `Message`/`Category` project through the
+// is the deleted form. Band membership derives `Code => FaultBand.Recovery + n` through the registry row
+// (`Element/graph#FAULT_TABLES` — a bare integer literal is the deleted form) and `Message`/`Category` project through the
 // generated `Switch`, so the typed case lifts BARE onto `Fin<T>`/`IO<T>` with no `.ToError()` hop and a recovery reads
 // `error.IsType<RecoveryFault.TimelineDivergence>()` / `error.HasCode(8295)` / `error.Category()`, never a message
 // substring. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in, so the band carries no
@@ -90,13 +91,13 @@ public abstract partial record RecoveryFault : Expected, IValidationError<Recove
     public sealed record TimelineDivergence(string Route, uint Captured, uint Archive) : RecoveryFault;
     public sealed record ReplicationLag(string Route, Duration Measured, Duration Rpo) : RecoveryFault;
 
-    public override int Code => Switch(
-        backupFailed:       static _ => 8291,
-        restoreFailed:      static _ => 8292,
-        objectiveBreach:    static _ => 8293,
-        verifyFailed:       static _ => 8294,
-        timelineDivergence: static _ => 8295,
-        replicationLag:     static _ => 8296);
+    public override int Code => FaultBand.Recovery + Switch(
+        backupFailed:       static _ => 1,
+        restoreFailed:      static _ => 2,
+        objectiveBreach:    static _ => 3,
+        verifyFailed:       static _ => 4,
+        timelineDivergence: static _ => 5,
+        replicationLag:     static _ => 6);
 
     public override string Message => Switch(
         backupFailed:       static c => $"<recovery-backup:{c.Route}:{c.Cause}>",
@@ -129,9 +130,16 @@ public readonly record struct RecoveryContext(
     Option<ModelId> Model, ObjectStore BlobStore, ObjectClient BlobClient, Seq<(ContentAddress Key, Instant SealedAt)> ReplicaManifest,
     Seq<SnapshotCatalogRow> Checkpoints, ulong SchemaFingerprint, ulong Epoch);
 
+// The recovery receipt on the kernel validity floor ([C]): `IsValid` is ONE `ValidityClaim.All` fold —
+// non-negative measured lags plus the objective bit — never a hand-rolled `&&` chain.
 public readonly record struct RecoveryFact(
     RecoveryRoute Route, RecoveryPoint Point, Duration MeasuredRpo, Duration MeasuredRto,
-    bool MeetsObjective, Instant At, Guid Correlation);
+    bool MeetsObjective, Instant At, Guid Correlation) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(MeasuredRpo >= Duration.Zero),
+        ValidityClaim.Of(MeasuredRto >= Duration.Zero),
+        ValidityClaim.Of(MeetsObjective));
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -149,12 +157,12 @@ public static class RecoveryRoutes {
             objectReplica: static s => ObjectReplica(s.ctx, s.frame),
             snapshotArchive: static s => SnapshotFloor(s.ctx, s.frame))
         let rto = frame.Elapsed(mark)
-        let fact = new RecoveryFact(route, leg.Point, leg.Rpo, rto, leg.Rpo <= objective.Rpo && rto <= objective.Rto, frame.Now(), frame.Correlation)
+        let fact = new RecoveryFact(route, leg.Point, leg.Rpo, rto, (leg.Rpo <= objective.Rpo) && (rto <= objective.Rto), frame.Now(), frame.Correlation)
         // A CONTINUOUS route's RPO breach is an actionable live-lag fault (`ReplicationLag` on a replica leg, the
         // measured WAL/replication gap); a DISCRETE route's breach is the expected checkpoint-age the next seal
         // closes, so it records `MeetsObjective: false` in the fact without faulting. The RTO over objective faults
         // every route alike because a slow backup is never expected.
-        from gauged in route.Continuous && leg.Rpo > objective.Rpo
+        from gauged in route.Continuous && (leg.Rpo > objective.Rpo)
             ? IO.fail<RecoveryFact>(new RecoveryFault.ReplicationLag(route.Key, leg.Rpo, objective.Rpo))
             : rto > objective.Rto
                 ? IO.fail<RecoveryFact>(new RecoveryFault.ObjectiveBreach(route.Key, rto, objective.Rto))
@@ -171,14 +179,14 @@ public static class RecoveryRoutes {
     // not continue is the restore-time guard.
     static IO<(RecoveryPoint Point, Duration Rpo)> PgPitr(RecoveryContext ctx, ProjectionContext frame) =>
         IO.liftAsync<(RecoveryPoint, Duration)>(async () => {
-            await using var replication = new LogicalReplicationConnection(ctx.Dsn);
+            await using LogicalReplicationConnection replication = new(ctx.Dsn);
             await replication.Open().ConfigureAwait(false);
-            var system = await replication.IdentifySystem().ConfigureAwait(false);
-            await using var store = DocumentStore.For(o => o.Connection(ctx.Dsn));
+            ReplicationSystemIdentification system = await replication.IdentifySystem().ConfigureAwait(false);
+            await using DocumentStore store = DocumentStore.For(o => o.Connection(ctx.Dsn));
             Option<long> head = None;
             if (ctx.Model.Case is ModelId model) {
-                await using var query = store.QuerySession();
-                var state = await query.Events.FetchStreamStateAsync(model.Value).ConfigureAwait(false);
+                await using IQuerySession query = store.QuerySession();
+                StreamState? state = await query.Events.FetchStreamStateAsync(model.Value).ConfigureAwait(false);
                 head = Optional(state?.Version);
             }
             ulong lagBytes = system.XLogPos >= ctx.ArchiveFlushed ? (ulong)system.XLogPos - (ulong)ctx.ArchiveFlushed : 0UL;
@@ -258,8 +266,13 @@ public sealed partial class RestoreStep {
 
 public readonly record struct StepFact(RestoreStep Step, string Evidence, Instant At);
 
-public readonly record struct RestoreLedger(Seq<StepFact> Steps) {
+// The restore ledger on the kernel validity floor ([C]): completeness IS the claim fold — every ranked
+// `RestoreStep` row landed exactly once.
+public readonly record struct RestoreLedger(Seq<StepFact> Steps) : IValidityEvidence {
     public bool Complete => Steps.Count == RestoreStep.Items.Count;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountExactly(Steps.Count, RestoreStep.Items.Count),
+        ValidityClaim.CountExactly(Steps.Map(static s => s.Step).Distinct().Count, RestoreStep.Items.Count));
     public RestoreLedger With(StepFact fact) => new(Steps.Add(fact));
 }
 
@@ -336,12 +349,12 @@ public static class PointInTimeRestore {
         IO.liftAsync<Fin<string>>(async () => {
             try {
                 await restore.Store.Advanced.RebuildSingleStreamAsync<GraphProjection>(restore.Model.Value).ConfigureAwait(false);
-                await using var daemon = await restore.Store.BuildProjectionDaemonAsync().ConfigureAwait(false);
+                await using IProjectionDaemon daemon = await restore.Store.BuildProjectionDaemonAsync().ConfigureAwait(false);
                 await daemon.StartAllAsync().ConfigureAwait(false);
                 // The catch-up deadline IS the settled DR window — a rebuild slower than the RTO is already a failed
                 // restore, so the objective row bounds the wait and no second deadline literal exists to drift.
                 await daemon.WaitForNonStaleData(restore.Objective.Rto.ToTimeSpan()).ConfigureAwait(false);
-                var stats = await restore.Store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
+                EventStoreStatistics stats = await restore.Store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
                 return Fin<string>.Succ($"<projections-rebuilt:head{stats.EventSequenceNumber}>");
             } catch (Exception ex) when (ex is not OperationCanceledException) {
                 return Fin<string>.Fail(new RecoveryFault.RestoreFailed("rebuild-projections", ex.Message));
@@ -359,15 +372,15 @@ public static class PointInTimeRestore {
         from outcome in verdict is AttestVerdict.Authentic or AttestVerdict.Unsigned
             ? IO.liftAsync<Fin<string>>(async () => {
                 try {
-                    await using var query = restore.Store.QuerySession();
+                    await using IQuerySession query = restore.Store.QuerySession();
                     // Prefer the EXACT Marten stream version the recovery coordinate carries (`AggregateStreamAsync(version:)`
                     // is precise) over the approximate `timestamp:` fold; `RecoveryPoint.StreamVersion` is the PER-STREAM
                     // head `FetchStreamStateAsync` captured at backup for this model — the same version axis this fold
                     // consumes — so the AS-OF reconstruct lands on the same event the LSN replay reached.
-                    var rebuilt = await restore.Target.StreamVersion.Match(
+                    GraphProjection? rebuilt = await restore.Target.StreamVersion.Match(
                         Some: version => query.Events.AggregateStreamAsync<GraphProjection>(restore.Model.Value, version: version),
                         None: () => query.Events.AggregateStreamAsync<GraphProjection>(restore.Model.Value, timestamp: restore.Target.At.ToDateTimeOffset())).ConfigureAwait(false);
-                    var reached = rebuilt is { } projection ? ContentAddress.OfGraph(projection.Graph) : ContentAddress.Of(UInt128.Zero);
+                    ContentAddress reached = rebuilt is { } projection ? ContentAddress.OfGraph(projection.Graph) : ContentAddress.Of(UInt128.Zero);
                     return reached == restore.TargetAddress
                         ? Fin<string>.Succ($"<chain-re-attested:{verdict.GetType().Name}:{reached.Value:x32}>")
                         : Fin<string>.Fail(new RecoveryFault.VerifyFailed("re-attest", restore.TargetAddress, reached));

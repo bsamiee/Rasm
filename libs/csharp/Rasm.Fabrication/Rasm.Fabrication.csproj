@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Portable fabrication — exact hidden-line projection, CAM toolpath motion with DH/IK kinematics, and 2D true-shape nesting, composed atop the Rasm geometry kernel.</Description>
+        <Description>Portable production fabrication — subtractive CAM (3-axis surface finishing, 5-axis rotary and serial-chain robot-cell kinematics), additive slicing/implicit/3MF, in-process verification and metrology, GD&T specs and process capability, 2D true-shape nesting, exact hidden-line projection, and multi-dialect cut-program posting, composed atop the Rasm geometry kernel.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
@@ -15,15 +15,25 @@
         <PackageReference Include="Clipper2" />
         <PackageReference Include="DSTV.Net" />
         <PackageReference Include="geometry3Sharp" />
+        <PackageReference Include="lib3mf" />
         <PackageReference Include="MTConnect.NET-Common" />
         <PackageReference Include="OcctNet.Wrapper" />
+        <PackageReference Include="OpenCAMLib" />
         <PackageReference Include="PicoGK" />
         <PackageReference Include="RectangleBinPack.CSharp" />
-        <PackageReference Include="RectpackSharp" />
         <PackageReference Include="Robots" />
         <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Substrate">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

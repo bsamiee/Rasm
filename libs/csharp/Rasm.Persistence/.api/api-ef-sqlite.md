@@ -169,7 +169,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 - connection shape: `SqliteConnectionStringBuilder` (in `Microsoft.Data.Sqlite.Core`) sets `Pooling=true`, `Mode = SqliteOpenMode.{ReadWriteCreate | ReadOnly | Memory}`, `Cache = SqliteCacheMode.Shared` for the memory profile
 - model root: EF relational model plus SQLite annotations (`UseAutoincrement`, `HasSrid`, `UseSqlReturningClause`)
 - migration root: `SqliteMigrationsSqlGenerator` (provider-internal) emits the table-rebuild dance for unsupported `ALTER`; the migration lock outcome reads from migration receipts, never from `Internal`-namespace types
-- query root: SQLite method/member/aggregate translation including `SqliteRegexMethodTranslator` so `Regex.IsMatch` projects to the `REGEXP` operator instead of client evaluation (`Query/lane#FUSION_AND_CACHE`)
+- query root: SQLite method/member/aggregate translation including `SqliteRegexMethodTranslator` so `Regex.IsMatch` projects to the `REGEXP` operator instead of client evaluation (`Query/retrieval#FUSION_AND_REUSE`)
 
 [LOCAL_ADMISSION]:
 - SQLite enters through the unified store-profile algebra — `UseSqlite` is called once inside `StoreRows.SqliteOptions`, never scattered, and the provider-specific knobs stay `StoreProfile` row data and never become public service families.

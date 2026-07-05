@@ -8,7 +8,7 @@
 - package: `Google.OrTools` (meta-package, version 9.15.6755, direct pin)
 - license: Apache-2.0 (`google/or-tools`)
 - assembly: `Google.OrTools` → the `net10.0` consumer binds `lib/net8.0/Google.OrTools.dll` (the package also ships `lib/net462`; only `net8.0` is the bound asset)
-- namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Util`, `Google.OrTools.OperationsResearch`
+- namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Graph`, `Google.OrTools.Util`, `Google.OrTools.OperationsResearch`
 - asset: managed SWIG/protobuf wrapper plus per-RID native solver libraries (`Google.OrTools.runtime.{osx-arm64,osx-x64,linux-arm64,linux-x64,win-x64}`; `osx-arm64` verified) — a solve with no matching RID payload faults at native load
 - transitive: bundles `Google.Protobuf` 3.33.1 transitively for the proto carriers; the central 3.35.1 pin (`api-protobuf`) wins resolution and is binary-compatible
 - rail: solver
@@ -68,6 +68,18 @@
 |  [12]   | `MPSolverParameters`              | parameter handle   | double/integer solver parameters    |
 |  [13]   | `MPSolverParameters.DoubleParam`  | parameter enum     | tolerance and gap parameter keys    |
 |  [14]   | `MPSolverParameters.IntegerParam` | parameter enum     | presolve/scaling/algorithm keys     |
+
+[PUBLIC_TYPE_SCOPE]: Graph network-flow contracts
+- rail: solver#GRAPH
+- note: `Google.OrTools.Graph` — the specialized min-cut/max-flow/assignment engines (bound-assembly-verified in `lib/net8.0`); each is `IDisposable` over a native graph and takes `int` node/arc indices with `long` capacities/costs. The `[V12]` circulation exit-capacity solver, outranking a managed Edmonds-Karp minted for the same concern.
+
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [RAIL]                              |
+| :-----: | :--------------------- | :----------------- | :---------------------------------- |
+|  [01]   | `MaxFlow`              | max-flow engine    | push-relabel max-flow / min-cut     |
+|  [02]   | `MaxFlow.Status`       | status enum        | `OPTIMAL`/`POSSIBLE_OVERFLOW`/`BAD_INPUT`/`BAD_RESULT` |
+|  [03]   | `MinCostFlow`          | min-cost-flow engine | `: MinCostFlowBase` — min-cost flow / max-flow-at-min-cost |
+|  [04]   | `MinCostFlowBase`      | flow base          | shared node/arc accessors + `Status` enum |
+|  [05]   | `LinearSumAssignment`  | assignment engine  | optimal bipartite min-cost assignment |
 
 [PUBLIC_TYPE_SCOPE]: ConstraintSolver routing contracts
 - rail: solver#ROUTING
@@ -240,6 +252,24 @@
 |  [16]   | `SetVisitType` / `AddHardTypeIncompatibility(int type1, int type2)`                                           | constraint add   | visit-type regulations         |
 |  [17]   | `AddResourceGroup()`                                                                                          | constraint add   | shared-resource group          |
 
+[ENTRYPOINT_SCOPE]: Graph max-flow / min-cost-flow / assignment
+- rail: solver#GRAPH
+- note: build the arc set imperatively (each `Add*` returns the arc index), `Solve` returns the `Status`, then read the optimal value and per-arc flow. The `[V12]` exit-capacity solve maps occupant-load supplies onto space nodes and door/corridor capacities onto arcs of the concrete `ElementGraph` space-adjacency subgraph.
+
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]   | [RAIL]                                          |
+| :-----: | :--------------------------------------------------------------- | :--------------- | :---------------------------------------------- |
+|  [01]   | `MaxFlow.AddArcWithCapacity(int tail, int head, long capacity)`  | arc build        | adds one capacitated arc, returns its index     |
+|  [02]   | `MaxFlow.SetArcCapacity(int arc, long capacity)`                 | arc mutate       | reset an arc capacity for an incremental re-solve |
+|  [03]   | `MaxFlow.Solve(int source, int sink)`                           | solve call       | runs push-relabel, returns `MaxFlow.Status`     |
+|  [04]   | `MaxFlow.OptimalFlow()` / `Flow(int arc)`                       | result read      | the max-flow value / per-arc flow (the min-cut is read via `Flow == Capacity` saturated arcs) |
+|  [05]   | `MinCostFlow(int reserveNodes[, int reserveArcs])`             | ctor             | pre-sized min-cost-flow engine                  |
+|  [06]   | `MinCostFlow.AddArcWithCapacityAndUnitCost(tail, head, cap, unitCost)` | arc build  | adds one capacitated, priced arc                |
+|  [07]   | `MinCostFlow.SetNodeSupply(int node, long supply)`             | node build       | sets a node's supply (+) / demand (−)           |
+|  [08]   | `MinCostFlow.Solve()` / `SolveMaxFlowWithMinCost()`           | solve call       | min-cost flow / max-flow-at-min-cost, returns `Status` |
+|  [09]   | `MinCostFlow.OptimalCost()` / `MaximumFlow()` / `Flow(int arc)` | result read     | optimal cost / total flow / per-arc flow        |
+|  [10]   | `LinearSumAssignment.AddArcWithCost(left, right, long cost)`   | arc build        | adds one left→right assignment arc              |
+|  [11]   | `LinearSumAssignment.Solve()` / `OptimalCost()` / `RightMate(int left)` / `AssignmentCost(int left)` | solve + read | optimal assignment, total cost, per-left-node mate + cost |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SOLVER_TOPOLOGY]:
@@ -261,6 +291,7 @@
 - backend policy: `Solver.OptimizationProblemType`, a `solver_id` string, the `SatParameters` proto-text (`CpSolver.StringParameters`), and `SetSolverSpecificParametersAsString` are policy DATA carried on the row, never branched inside a solve helper.
 - time budget: `CpModel`/`Solver` time limits accept the deadline the `Runtime/scheduling` budget folds (NodaTime `Duration` → ms via `Solver.SetTimeLimit(long)` / the `max_time_in_seconds` `SatParameters` key); the solve elapsed (`WallTime()`) stamps the typed receipt.
 - streaming callbacks: `CpSolver.SetLogCallback`/`SetBestBoundCallback` and a `SolutionCallback` subclass stream search progress to the `Stats`/`Runtime/progress` sink; `StopSearch()`/`InterruptSolve()` honor cooperative cancellation from the channel deadline.
+- graph-flow circulation (`[V12]`): the `Analysis/circulation` egress runner composes `Google.OrTools.Graph.MaxFlow` for exit-capacity — occupant-load supplies map onto space nodes, door/corridor widths onto arc capacities of the concrete `ElementGraph` space-adjacency subgraph, and `Solve(source, sink)` returns the evacuation throughput while saturated arcs (`Flow == Capacity`) name the min-cut bottleneck; `MinCostFlow` distributes occupant load at least travel cost. The path/topology algebra (Dijkstra/A*/betweenness) is `QuikGraph`'s, the planar side (isovist, medial-axis) is `NetTopologySuite`/`Clipper2`'s — the flow concern alone is this Graph module's, zero new central pins.
 
 [LOCAL_ADMISSION]:
 - The `OptimizerKind` rows select the rail: CP-SAT through `CpModel`/`CpSolver`, MIP/LP through `Solver`, and routing through `RoutingModel`; one canonical solve operation discriminates on optimizer kind rather than parallel solver entrypoints.
@@ -270,6 +301,6 @@
 
 [RAIL_LAW]:
 - Package: `Google.OrTools` (9.15.6755, Apache-2.0, managed net8.0 + per-RID native)
-- Owns: CP-SAT constraint programming (with reification + structural-family builders + `Domain` algebra), MIP/LP exact optimization across pluggable backends, and vehicle-routing search; the proto carriers are `api-protobuf` messages
+- Owns: CP-SAT constraint programming (with reification + structural-family builders + `Domain` algebra), MIP/LP exact optimization across pluggable backends, vehicle-routing search, and the `Google.OrTools.Graph` specialized network-flow engines (max-flow/min-cut, min-cost-flow, linear-sum-assignment); the proto carriers are `api-protobuf` messages
 - Accept: declared decision variables, typed constraints reified through `OnlyEnforceIf`, admissible sets expressed as `Domain` algebra, and an objective solved to a classified status — stacked onto the `OptimizerKind` row, the proto wire, and the NodaTime deadline budget
 - Reject: hand-rolled branch-and-bound, simplex, or routing search; float-equality feasibility checks outside the solver; per-backend solve entrypoints where one `Solve` discriminates on `OptimizerKind`; a managed solve DTO beside the proto carriers; the SWIG `SWIGTYPE_p_*`/`*PINVOKE` interop types leaking into canonical owners; a solve with no matching native RID payload

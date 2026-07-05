@@ -363,7 +363,9 @@ using Expected = Rasm.Domain.Expected;            // the federation fault-band b
 // The commit/wire fault band (8260): a closed [Union] over the KERNEL `Rasm.Domain.Expected` — the SAME
 // parameterless-base-ctor + per-case Code/Message/Category Switch template SyncFault (8250) and RecoveryFault
 // (8290) realize; no [GenerateUnionOps]. The Expected derivation makes a bare case an Error directly so it
-// lifts onto Fin<T>/Validation with no .ToError() hop; a bare Error.New integer is the deleted form.
+// lifts onto Fin<T>/Validation with no .ToError() hop; band membership derives `Code => FaultBand.Commit + n`
+// through the registry row (`Element/graph#FAULT_TABLES`) — a bare Error.New integer OR a bare literal in the
+// Switch is the deleted form.
 [Union]
 public abstract partial record CommitFault : Expected, IValidationError<CommitFault> {
     private CommitFault() : base() { }
@@ -371,10 +373,10 @@ public abstract partial record CommitFault : Expected, IValidationError<CommitFa
     public sealed record ParityDrift(string Slot, string Producer) : CommitFault;
     public sealed record OwnerMinted(string Slot) : CommitFault;
 
-    public override int Code => Switch(
-        decodeDrift: static _ => 8261,
-        parityDrift: static _ => 8263,
-        ownerMinted: static _ => 8264);
+    public override int Code => FaultBand.Commit + Switch(
+        decodeDrift: static _ => 1,
+        parityDrift: static _ => 3,
+        ownerMinted: static _ => 4);
 
     public override string Message => Switch(
         decodeDrift: static c => $"<crdt-decode-drift:{c.Cause}>",

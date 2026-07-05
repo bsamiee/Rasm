@@ -266,7 +266,8 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
     (RetryClass.OBJECT_STORE, Policy(attempts=4, timeout=30.0, target=_named("obstore.exceptions.BaseError", "TimeoutError"))),
     (RetryClass.HTTP, Policy(attempts=3, timeout=20.0, target=_retry_after(TimeoutError, ConnectionError))),
     (RetryClass.SSH, Policy(attempts=3, timeout=30.0, target=(ConnectionError, TimeoutError))),
-    # the serve outbound leg's `guarded(RetryClass.WIRE, ...)` retries the transient status trio.
+    # the serve outbound leg retries the transient status trio through the cached `guard(RetryClass.WIRE)`
+    # caller; its trailer fence owns the terminal `AioRpcError` lift so the typed detail survives.
     (RetryClass.WIRE, Policy(attempts=5, timeout=15.0, target=_wire_transient(ConnectionError))),
     (RetryClass.SCAN, Policy(attempts=2, timeout=60.0, target=(OSError,), wait_max=30.0)),
     (RetryClass.SECRET, Policy(attempts=3, timeout=10.0, target=(KeyringLocked, OSError))),

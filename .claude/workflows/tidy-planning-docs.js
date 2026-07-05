@@ -1,10 +1,10 @@
 export const meta = {
   name: 'tidy-planning-docs',
   whenToUse: 'Surgical comment and prose hygiene pass over a .planning design corpus, after a rebuild lands.',
-  description: 'Surgical comment + prose HYGIENE pass over every .planning design corpus under a libs/ scope. NOT a rebuild: it changes ONLY fenced-code comments and page prose, never a code fence design, signature, type, case, field, body, or design decision. One agent per .planning-owning package folder (the whole folder corpus to one agent), pooled at CAP=10, each folder run through a 3-step ADVERSARIAL pipeline: tidy -> critique -> redteam. Every comment is treated as agent-facing framing that exists ONLY to help a future rebuild-* agent understand the why/intent/invariant: noise/restatement/process comments are deleted, every kept comment is refined to 1-2 (max 3) high-signal lines, and prose is trimmed of stale/wrong/noise content toward a ~20-25% reduction WHERE possible without losing any load-bearing context. Edits are scoped to .planning markdown; governing docs (ARCHITECTURE/README/IDEAS/TASKLOG/.api), docs/standards/style-guide.md, and CLAUDE.md [08] divider grammar are read for context only. args = optional libs scope (e.g. libs/csharp, libs/python, libs/typescript); empty = all of libs.',
+  description: 'Surgical comment + prose HYGIENE pass over every .planning design corpus under a libs/ scope. NOT a rebuild: it changes ONLY fenced-code comments and page prose, never a code fence design, signature, type, case, field, body, or design decision. One agent per .planning-owning package folder (the whole folder corpus to one agent), all folders concurrent under one flat pool (CAP=10), each folder run through a true 3-step ADVERSARIAL pipeline: tidy -> critique -> redteam (each stage consumes the prior stage\'s product). Every comment is treated as agent-facing framing that exists ONLY to help a future rebuild-* agent understand the why/intent/invariant: noise/restatement/process comments are deleted, every kept comment is refined to 1-2 (max 3) high-signal lines, and prose is trimmed of stale/wrong/noise content toward a ~20-25% reduction WHERE possible without losing any load-bearing context. Self-enclosing: a same-kind defect a pipeline exposes in ANOTHER folder\'s .planning page is fixed there in the same pass under the current-state law, never handed to a later run. Edits are scoped to .planning markdown; governing docs (ARCHITECTURE/README/IDEAS/TASKLOG/.api), docs/standards/style-guide.md, and CLAUDE.md [08] divider grammar are read for context only. args = optional libs scope (e.g. libs/csharp, libs/python, libs/typescript); empty = all of libs.',
   phases: [
-    { title: 'Discover', detail: 'list every .planning-owning package folder under the scope, plus any language/branch-level .planning tier' },
-    { title: 'Tidy', detail: 'per folder (1 agent/folder, whole corpus): tidy(max) -> critique(xhigh) -> redteam, every stage ADVERSARIAL, comments + prose only, pooled at CAP=10' },
+    { title: 'Discover', detail: 'list every .planning-owning package folder under the scope, plus any language/branch-level .planning tier', model: 'sonnet' },
+    { title: 'Tidy', detail: 'per folder (1 agent/folder, whole corpus): tidy(max) -> critique(xhigh) -> redteam, every stage ADVERSARIAL, comments + prose only, all folders concurrent at CAP=10' },
   ],
 }
 
@@ -25,16 +25,17 @@ const HYGIENE_LOG_SCHEMA = { type: 'object', additionalProperties: false, requir
 const LAW = [
   'SCOPE: this is a SURGICAL HYGIENE pass over ONE planning FOLDER`s design corpus — fenced-code COMMENTS and page PROSE ONLY. It is NOT a rebuild ' +
     'and NOT a design pass: do NOT change any code fence`s design, signatures, types, members, cases, fields, bodies, structure, ordering, or the ' +
-    'design decisions a page makes; do NOT add, remove, or reorder design content, cards, signature fences, or tables. EDIT ONLY the markdown ' +
-    'design pages under this folder`s .planning/ tree.',
+    'design decisions a page makes; do NOT add, remove, or reorder design content, cards, signature fences, or tables. Every edit lands in .planning markdown — this folder`s tree is your primary surface.',
   'READ (never edit) the folder`s governing docs for CONTEXT — `ARCHITECTURE.md`, `README.md`, `IDEAS.md`, `TASKLOG.md` — so every trim is ' +
     'informed by what the folder owns and where it integrates. Enumerate BOTH `.api` tiers with a REAL disk listing, never from memory: the ' +
     '`.api/` catalogs at the folder`s context root AND the language-root catalogs at `libs/<lang>/.api/`. The code fences plus both tiers are ' +
     'the VERIFICATION GROUND for every prose/comment claim about a member, type, package, or capability: a claim neither ground verifies is a ' +
     'PHANTOM the pass corrects from the catalogs or deletes, never leaves standing, and never verifies from memory.',
   'READ `docs/standards/style-guide.md` IN FULL and apply it to all prose. READ `CLAUDE.md` section [08]-[FILE_ORGANIZATION] for the OFFICIAL ' +
-    'canonical section-divider labels and the divider grammar. Every edit is scoped to files under the folder`s `.planning/`; editing anything ' +
-    'outside it is forbidden.',
+    'canonical section-divider labels and the divider grammar. Governing docs and `.api` catalogs stay read-only context — this pass never edits them.',
+  'RIPPLE + CURRENT STATE: a comments-and-prose defect your verification exposes in ANOTHER folder`s .planning page — the far end of a broken ' +
+    'cross-reference, the same phantom claim or noise family — is YOURS in the same pass under the identical comments-and-prose-only law; never a ' +
+    'note for a later run. Sibling pipelines run concurrently: before editing any page outside your tree, re-read its CURRENT on-disk state, compose landed sibling edits as found, and resolve a conflict to the stronger form, never a revert.',
 ].join('\n')
 const DIVIDERS = [
   'DIVIDER GRAMMAR (CLAUDE.md [08]): a CANONICAL top-level section divider is the comment marker + space + `---` + a bracketed UPPERCASE_SNAKE ' +
@@ -92,7 +93,17 @@ const STYLE = 'PROSE QUALITY — apply docs/standards/style-guide.md: lead each 
 const DOCTRINE = [LAW, '', DIVIDERS, '', COMMENTS, '', PROSE, '', PRESERVE, '', STYLE].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
-const ctx = (u) => '\nFOLDER: ' + u.folder + '\nPLANNING TREE (edit only design pages under here): ' + u.planning + '\nCONTEXT ROOT (read-only ' +
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
+const pool = async (items, cap, worker) => {
+  const out = new Array(items.length)
+  let next = 0
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
+  return out
+}
+const ctx = (u) => '\nFOLDER: ' + u.folder + '\nPLANNING TREE (your primary surface): ' + u.planning + '\nCONTEXT ROOT (read-only ' +
   'governing docs + .api): ' + u.context_root
 const tidyPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: SURGICAL HYGIENE PASS over EVERY design page under this folder`s .planning tree. ' +
   'First read the context-root governing docs + BOTH .api tiers + the style-guide + CLAUDE.md [08] divider grammar, then process EVERY ' +
@@ -120,19 +131,19 @@ const redteamPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL 
   'too deep — restore it, refined, from the context-root docs; (LONG-TAIL) attack where prior passes fade — deep sections, long pages, ' +
   'bottom-half fences, table cells, the last pages of the tree: the subtle surviving noise, the still-bloated line item, the stale or ' +
   'contradicted fact, the comment that does not earn its place; (PHANTOMS) any prose/comment claim or cross-reference that the fence, both .api ' +
-  'tiers, and the sibling pages do not verify -> correct or delete it; (FAMILY) every defect found is a family swept corpus-wide, never a ' +
-  'spot-fix — both naivety axes attacked; (COMPLETENESS) every page under the tree is attacked, none skipped. Confirm: every comment is ' +
-  'high-signal agent-facing framing at 1-2 (max 3) lines; every divider is correct; the prose reduction held (~20-25%, or correctly less for an ' +
-  'already-tight folder) WITHOUT losing signal; and NO code fence design/signature/structure was touched anywhere. The folder must end ' +
-  'objectively higher-signal, leaner, and fully load-bearing. Fix every defect in place; a page already at the bar is proven by an attack that ' +
-  'finds nothing, never conceded — never invent churn. The report is the fix-log of edits made: folder, pages, reduction_pct, summary; verdict ' +
-  '`clean` ONLY when the full cold attack found nothing.' + ctx(u)].join('\n')
+  'tiers, and the sibling pages do not verify -> correct or delete it — a defective far end in another folder`s page is fixed there per RIPPLE ' +
+  '+ CURRENT STATE; (FAMILY) every defect found is a family swept corpus-wide, never a spot-fix — both naivety axes attacked; (COMPLETENESS) ' +
+  'every page under the tree is attacked, none skipped. Confirm: every comment is high-signal agent-facing framing at 1-2 (max 3) lines; every ' +
+  'divider is correct; the prose reduction held (~20-25%, or correctly less for an already-tight folder) WITHOUT losing signal; and NO code ' +
+  'fence design/signature/structure was touched anywhere. The folder must end objectively higher-signal, leaner, and fully load-bearing. Fix ' +
+  'every defect in place; a page already at the bar is proven by an attack that finds nothing, never conceded — never invent churn. The report ' +
+  'is the fix-log of edits made: folder, pages, reduction_pct, summary; verdict `clean` ONLY when the full cold attack found nothing.' + ctx(u)].join('\n')
 const STAGES = [
   { key: 'tidy', build: tidyPrompt, effort: 'max' },
   { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
   { key: 'redteam', build: redteamPrompt, effort: 'xhigh' },
 ]
-const processFolder = async (u) => {
+const processFolder = async (u) => { // true per-item pipeline: each stage consumes the prior stage's on-disk product; a dead stage ends its folder's chain
   const logs = {}
   for (const st of STAGES) {
     const r = await agent(st.build(u), { label: st.key + ':' + u.folder, phase: 'Tidy', schema: HYGIENE_LOG_SCHEMA, effort: st.effort, stallMs: STALL })
@@ -143,17 +154,6 @@ const processFolder = async (u) => {
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
-
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
-const pool = async (items, cap, worker) => {
-  const out = new Array(items.length)
-  let next = 0
-  let gate = Promise.resolve()
-  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
-  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
-  return out
-}
 
 phase('Discover')
 const inv = await agent('List every PACKAGE FOLDER under ' + SCOPE + ' that owns design pages in a `.planning/` tree. For each, return {folder ' +

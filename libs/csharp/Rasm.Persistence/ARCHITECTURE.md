@@ -14,7 +14,7 @@ Rasm.Persistence/
 │   ├── Identity.cs       # ElementIdentity relational tier (the one txn owner as a Marten doc), IdentityPolicy key axis, ConverterRail/IdentityContext generated EF rail, PostGIS Bounds plane, KmsProvider/SigningKeyring/SignedAuthorship + EnvelopeKeyring DEK envelope (#KMS_CUSTODY, Custody/CustodyVerdict), IdentityDdl migration owner, SchemaVerdict boot fold
 │   └── Authority.cs      # Grant/GrantSet/AclScope/AclEntry/ObjectAcl + Authority.Admit deny-over-allow object-ACL algebra (SPLIT from Identity.cs; Band NONE, composes IdentityFault 8340)
 ├── Version/              # The version-control engine projecting FROM Marten events
-│   ├── Ledger.cs         # OpLogEntry changefeed projection of Marten events, HLC, ColumnFamily merge-stance, Adjudicate + CRDT dispatch, the sync transports, presence/awareness
+│   ├── Ledger.cs         # OpLogEntry changefeed projection of Marten events, HLC, ColumnFamily merge-stance, Adjudicate + CRDT dispatch, the sync transports, presence/awareness, ReplayWindow windowed read (AppUi edit-intent / AppHost determinism / egress durable-ops CDC drain source)
 │   ├── Commits.cs        # Content-addressed commit-DAG, the convergent op/delta-state CRDT algebra, CrdtOpWire, the ContentParityCorpus
 │   ├── TimeTravel.cs     # AS-OF reconstruct/diff/blame/scrub/bisect/branch over the changefeed prefix + the periodic Marten snapshot (Snapshot<T>(SnapshotLifecycle.Inline)) checkpoints, one Crdt.Apply materializer
 │   ├── Merge.cs          # StructuralMerge: ElementGraph forest projection, Merkle-pruned base-relative three-way merge, typed conflict classes, RFC 6902 patch egress
@@ -46,16 +46,20 @@ Version/commits      →  typescript:core/interchange/format # [WIRE]: CrdtOpWir
 Version/commits      ⇄  python:runtime/transport           # [WIRE]: CrdtOp None-companion bytes + the one XxHash128 seed parity corpus
 Version/commits      →  typescript:core/state/causal + typescript:core/state/commit # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
 Version/merge        →  typescript:core/interchange/format # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
+Version/merge        ←  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: reconciliation-bridge GeometryHash over the kernel-frozen EncodeForm layouts; GraphNode.GeometryHash the consumer, (form lane, digest) pairs, never re-mints
 Version/ledger       ⇄  python:runtime/transport           # [WIRE]: OpLogEntry Payload CRDT delta over the one wire vocabulary
 Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceSlot trace-id slot
+Version/ledger       ←  csharp:Rasm.AppUi/Collab/Editing + csharp:Rasm.AppHost/Runtime/determinism # [READ]: ONE ReplayWindow windowed changefeed read — origin/entity/window-parameterized, one case for both consumers
+Version/ledger       ←  csharp:Rasm.AppHost/Wire/companion # [PRESENCE]: PeerRoster beats over the lossy DrainSurface awareness lane, never the durable changefeed
+Version/ledger       →  typescript:core/interchange/codec  # [WIRE]: OpLogEntry envelope — Codec Family-derived, TraceSlot top-level
 Version/timetravel   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed
 Version/provenance   ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding; the attested-ledger authenticity authority
+Version/provenance   ←  PollinationSDK sidecar             # [CONTENT_KEY]: completed cloud run as W3C-PROV Activity — CloudRunFact VALUES (service principal via Configuration.AccessToken/TokenRepo, recipe owner/name:tag + PackageVersion.Digest hadPlan, Used/Generated asset content keys) folded by CausalDag.Derive; SDK fork closure never loads in-fence
 Version/retention    ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in the blob retention class
 Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: TenantId RLS + KMS SigningKeyring/EnvelopeKeyring KMS-unwrap handle (#KMS_CUSTODY, ONE_IDENTITY_STORE; SecretLease handle only)
 Element/authority    ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store (frozen vocabulary, subject-keyed, string-keyed Grant wire)
 Element/authority    →  Version/commits                    # [GATE]: BranchRef movement gated by Authority.Admit — the same GrantSet narrowed under AclScope.Branch, never a parallel branch enum
 Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: StoreActor/ProjectionContext/ResolvedProfile port-input VALUES AppHost fills at the boundary — Persistence-defined shapes, no AppHost type crosses down
-Query/topology       ←  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
 Query/columnar       ←  csharp:Rasm.Bim/Model              # [PROJECTION]: BIM-typed BimOpenSchema FlatTableProjection (Bim-implemented seam)
 Query/lane           ⇄  python:data/tabular/query          # [WIRE]: ElementSet receipt currency + Substrait portable plan
 Query/cache          ←  csharp:Rasm.Compute                # [INDEX]: ArtifactIndexRow blob index + ModelResultIndex recency horizon + BenchmarkRow claim gate, read by reference (no Compute type crosses down)

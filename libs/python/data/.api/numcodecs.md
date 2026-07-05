@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `numcodecs`
 - package: `numcodecs`
 - import: `import numcodecs`
-- owner: `data`
 - rail: array (chunk-codec supplier for the chunked-array rail)
 - version: `0.16.5`
 - entry points: codec plugins register through the `numcodecs.codecs` entry-point group (`run_entrypoints()` ingests them into `codec_registry`); the optional `zfpy`/`pcodec` extras add the `ZFPY`/`PCodec` codecs

@@ -9,7 +9,7 @@
 - version: `0.3.10`
 - license: MIT
 - import: `upath`
-- owner: `runtime`
+- owner: `runtime` (resources), `compute` (`experiments/model` `UPath` model-asset resolution)
 - rail: resources
 - depends-on: `fsspec` (filesystem surface), `pathlib_abc` (`JoinablePath`/`ReadablePath`/`WritablePath` protocol stack); `pydantic`/`pydantic_core` are optional (schema hook is import-deferred), `s3fs`/`gcsfs`/`adlfs`/`paramiko`/`smbprotocol` are per-protocol extras pulled by the backend filesystem, not by `upath`.
 - namespaces: `upath`, `upath.registry`, `upath.extensions`, `upath.types`, `upath.implementations`

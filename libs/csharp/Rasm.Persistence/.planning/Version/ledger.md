@@ -264,7 +264,8 @@ using Expected = Rasm.Domain.Expected;            // the federation fault-band b
 // ctor (no `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is
 // strictly opt-in, so the band carries no per-case `SelfOp` while the `[Union]`-generated `Switch`/`Map` is
 // untouched, the `Expected` derivation making a bare case an `Error` directly so it lifts onto `Fin<T>`/`Validation`
-// with no `.ToError()` hop; band membership is a per-case `Code => 825x` override, `Message` projects the case
+// with no `.ToError()` hop; band membership derives `Code => FaultBand.Sync + n` through the registry row
+// (`Element/graph#FAULT_TABLES` — a bare integer literal is the deleted form), `Message` projects the case
 // detail, and `Category` the telemetry label, so a recovery reads `error.IsType<SyncFault.Forked>()` /
 // `error.HasCode(8256)` / `error.Category()`, never a message substring. (`using Expected = Rasm.Domain.Expected;`
 // aliases the bare `Expected` to the kernel base across the page.)
@@ -278,13 +279,13 @@ public abstract partial record SyncFault : Expected, IValidationError<SyncFault>
     public sealed record Unconserved(long Batch, long Settled) : SyncFault;
     public sealed record Forked(ConflictReceipt Receipt, UInt128 Held, UInt128 Incoming) : SyncFault;
 
-    public override int Code => Switch(
-        schemaMismatch:     static _ => 8251,
-        replicationFaulted: static _ => 8252,
-        speckleMarshal:     static _ => 8253,
-        transferDecode:     static _ => 8254,
-        unconserved:        static _ => 8255,
-        forked:             static _ => 8256);
+    public override int Code => FaultBand.Sync + Switch(
+        schemaMismatch:     static _ => 1,
+        replicationFaulted: static _ => 2,
+        speckleMarshal:     static _ => 3,
+        transferDecode:     static _ => 4,
+        unconserved:        static _ => 5,
+        forked:             static _ => 6);
 
     public override string Message => Switch(
         schemaMismatch:     static c => $"{c.Local}:{c.Remote}",

@@ -1,22 +1,21 @@
 export const meta = {
   name: 'implement-cs',
   whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the C# target folders (default: AppHost, Compute, AppUi, Persistence).',
-  description: 'Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp 11/10 bar, resolve all ripples, and truthfully close the cards. One discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (per folder, all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop out-of-scope C# ripple counterparts, and applies the single central package-pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Durable, C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
+  description: 'Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. One discovery agent maps cards + ripple classes + blockers; each target folder then runs ONE implement -> critique -> redteam pipeline, ALL folders concurrent under one pooled cap. Every stage WRITES and repairs the cross-file ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder\'s terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. The single permitted handoff is the central Directory.Packages.props pin: folder agents report exact rows, one terminal writer applies them serially. C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
   phases: [
     { title: 'Discover', detail: 'one agent: real-listing enumeration of both .api tiers + the doctrine inventory, full reads of the card files, every page the open cards name, and the folder at large; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_csharp / cross_lang), record in-scope gates, malformed ripples, and a per-page capability map downstream stages treat as a pointer never a ceiling' },
-    { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(adversarial + charter-completeness) -> redteam(adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
-    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop oos counterpart / apply central pin / defer cross-lang) -> WRITING verify(xhigh): re-derive necessity, prove on disk, repair weak fixes to the root, then classify' },
-    { title: 'Closeout', detail: 'per folder: verify each card vs full charter, FINAL-remediate weak cards in place, close genuinely-complete (move to [02]-[CLOSED], collapse, update ARCHITECTURE [02]-[SEAMS]), honestly re-open the rest; strength-demotion makes closed mechanically truthful' },
+    { title: 'Realize', detail: 'all folder pipelines concurrent under one pooled cap: implement(max) -> critique(xhigh) -> redteam(max, terminal close); every stage writes, re-reads current disk before editing, repairs its own ripples in-pass, and the redteam closes only cards verified strong on disk' },
+    { title: 'Pins', detail: 'one terminal writer applies every reported central Directory.Packages.props pin row serially at the symbol anchor; runs only when pins were reported' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10 // in-flight ceiling for every pooled stage; with the launch gate, real work fans to CAP while a fast-fail cascade never exceeds 1 launch / STAGGER_MS
-// The gate spaces EVERY agent start >= STAGGER_MS apart for the pool's whole life, so a
-// synchronized batch of fast failures (a rate-limit cascade) cannot free every worker at once and
-// re-fire a thundering-herd of launches. Real (slow) work still fans out to CAP since each worker
-// runs far longer than STAGGER; a fast-fail cascade self-throttles to <= 1 launch / STAGGER_MS.
+const CAP = 10 // in-flight ceiling for the one pooled scheduler
+// The launch gate spaces EVERY agent start >= STAGGER_MS apart for the pool's whole life: real
+// (slow) work fans to CAP while a fast-fail cascade self-throttles to <= 1 launch / STAGGER_MS.
 const STAGGER_MS = 1500
+const STALL = 300000
+const CENTRAL = 'Directory.Packages.props'
 const DEFAULT_TARGETS = ['libs/csharp/Rasm.AppHost', 'libs/csharp/Rasm.Compute', 'libs/csharp/Rasm.AppUi', 'libs/csharp/Rasm.Persistence']
 
 // --- [INPUTS] ----------------------------------------------------------------------------
@@ -25,7 +24,6 @@ const TARGETS = Array.isArray(args) ? args.filter(Boolean).map(norm)
   : (args && typeof args === 'object' && Array.isArray(args.targets)) ? args.targets.filter(Boolean).map(norm)
   : (typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL') ? [norm(args)]
   : DEFAULT_TARGETS
-const TARGET_SET = new Set(TARGETS)
 const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ')
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -41,28 +39,35 @@ const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required
   } } },
   malformed_ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'raw'], properties: { from_slug: { type: 'string' }, raw: { type: 'string' } } } },
 } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: {
+// Required-but-possibly-empty `ripples`/`pins` are attestations: ripple repair ran in-pass and
+// the central pin is the run's ONE handoff — an empty array attests none arose, never a skip.
+const RIPPLES = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['counterpart', 'action'], properties: { counterpart: { type: 'string' }, action: { type: 'string' } } } }
+const PINS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'row'], properties: { package: { type: 'string' }, row: { type: 'string' } } } }
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'ripples', 'pins', 'summary'], properties: {
   folder: { type: 'string' },
   verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
   realized: { type: 'array', items: { type: 'string' } },
   deferred: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'reason'], properties: { slug: { type: 'string' }, reason: { type: 'string' } } } },
   collapsed: { type: 'string' },
-  residual_ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, pkg: { type: 'string' }, slug: { type: 'string' }, mirror_slug: { type: 'string' }, claim: { type: 'string' } } } },
+  ripples: RIPPLES,
+  pins: PINS,
   summary: { type: 'string' },
 } }
-const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: {
-  files: { type: 'array', items: { type: 'string' } },
-  verdict: { type: 'string', enum: ['fixed', 'clean'] },
-  pairs: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['pkg', 'slug', 'mirror_slug', 'seam_landed'], properties: { pkg: { type: 'string' }, slug: { type: 'string' }, mirror_slug: { type: 'string' }, seam_landed: { type: 'boolean' } } } },
-  admitted: { type: 'array', items: { type: 'string' } },
-  deferred_legs: { type: 'array', items: { type: 'string' } },
-  summary: { type: 'string' },
-} }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
-const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'summary'], properties: {
+const REDTEAM_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'ripples', 'pins', 'closed', 'reopened', 'summary'], properties: {
   folder: { type: 'string' },
+  verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
+  realized: { type: 'array', items: { type: 'string' } },
+  deferred: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'reason'], properties: { slug: { type: 'string' }, reason: { type: 'string' } } } },
+  collapsed: { type: 'string' },
+  ripples: RIPPLES,
+  pins: PINS,
   closed: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'disposition', 'strength'], properties: { slug: { type: 'string' }, disposition: { type: 'string', enum: ['complete', 'dropped'] }, strength: { type: 'string', enum: ['strong', 'partial', 'weak'] } } } },
   reopened: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'reason'], properties: { slug: { type: 'string' }, reason: { type: 'string' } } } },
+  summary: { type: 'string' },
+} }
+const PIN_SCHEMA = { type: 'object', additionalProperties: false, required: ['applied', 'rejected', 'summary'], properties: {
+  applied: { type: 'array', items: { type: 'string' } },
+  rejected: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'reason'], properties: { package: { type: 'string' }, reason: { type: 'string' } } } },
   summary: { type: 'string' },
 } }
 
@@ -75,7 +80,8 @@ const LAW = [
     'is the host-neutral runtime spine `Compute`/`Persistence`/`AppUi` adapt to. Each target holds `IDEAS.md` + `TASKLOG.md` + ' +
     '`ARCHITECTURE.md` + `README.md` + `<pkg>.csproj` at the package ROOT, a deep `.api/api-*.md` capability catalog, and design pages at ' +
     '`<pkg>/.planning/<subdomain>/*.md`. Read the package-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`), `README.md` (admitted-package ' +
-    'roster), and `.api/` as the governing context and capability tier for that target. Never trample a sibling package owner.',
+    'roster), and `.api/` as the governing context and capability tier for that target. Cross-folder repair lands at seams, counterpart cards, and ' +
+    'consumer sites — never by rebuilding a sibling owner interior.',
   'MANDATORY STANDARDS — docs/stacks/csharp/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/csharp/ (README, language, shapes, ' +
     'surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis) AND the specialized docs/stacks/csharp/domain/ shard(s) ' +
     'relevant to the page concern (compute, concurrency, data-interchange, diagnostics, durability, interaction, persistence, postgres, ' +
@@ -88,9 +94,12 @@ const LAW = [
     'target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the ' +
     'card charter (Capability/Shape/Unlocks/Anchors), mining every admitted package to full capability and crushing surface sprawl into fewer ' +
     'richer owners with zero functionality loss.',
-  'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
-    'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FOLDER ' +
-    'items (report those in residual_ripples). If after real investigation a fence is already correct, say so — never invent edits to look busy.',
+  'WRITE-FULLY + FIX-IT-NOW: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
+    'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge. A cross-file ripple your edit exposes is YOURS in the ' +
+    'same pass, wherever it lives: the seam counterpart on both ends, the consumer site, the stale sibling page, the 1-hop counterpart card fence ' +
+    'in another libs/csharp package — repaired now and recorded in `ripples` (an empty `ripples` attests your pass exposed none, never that repair ' +
+    'was skipped). The ONE handoff this run permits is the central `' + CENTRAL + '` pin: report the exact row in `pins` for the run\'s single ' +
+    'manifest writer. If after real investigation a fence is already correct, say so — never invent edits to look busy.',
 ].join('\n')
 const CARD = [
   'CARD SCHEMA: open cards live in `<pkg>/IDEAS.md` (ideas — larger conceptual capability) and `<pkg>/TASKLOG.md` (tasks — concrete targeted ' +
@@ -100,9 +109,13 @@ const CARD = [
     'non-actionable). Closed: `COMPLETE` (finished) or `DROPPED` (abandoned). ALWAYS read the FULL card body (every bullet) from disk — the thesis ' +
     'alone is never enough to realize the charter.',
   'RIPPLE: `Ripple: <lang>:<pkg> [SLUG]` (or `<pkg> [SLUG]`) is a BIDIRECTIONAL cross-folder link — the counterpart card in the named pkg carries ' +
-    'the mirror slug, and ripples are PART of scope. Three classes: IN-SCOPE (counterpart is another session target — each target realizes its OWN ' +
-    'half, the seam aligns in reconcile), OUT-OF-SCOPE C# (counterpart in a non-target libs/csharp package — reconcile realizes the 1-hop ' +
-    'counterpart), CROSS-LANGUAGE / LIB-WIDE (`libs/.planning`, `libs/typescript`, `libs/python` — a deferred leg, NOT realized this C#-only run).',
+    'the mirror slug, and ripples are PART of scope, repaired in the pass that exposes them, never handed to a later stage. Three classes: ' +
+    'IN-SCOPE (counterpart is another session target — its own pipeline realizes its card; you align your half of the seam to the counterpart ' +
+    'page as it NOW stands on disk, and the later-landing side owns the final alignment), OUT-OF-SCOPE C# (counterpart in a non-target ' +
+    'libs/csharp package — YOU realize the 1-hop counterpart card fence and align the seam on both ends in the same pass; the ripple\'s scope is ' +
+    'that counterpart card and its seam, not the foreign folder\'s other cards), CROSS-LANGUAGE / LIB-WIDE (`libs/.planning`, `libs/typescript`, ' +
+    '`libs/python` — outside this C#-only run\'s language rail; land your half stating the wire contract, and the card stays open unless it is ' +
+    'complete on your half alone).',
   'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
     'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to confirm any member or ' +
     'signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; `uv run python -m tools.assay ' +
@@ -111,14 +124,16 @@ const CARD = [
     'Context7/exa/tavily for the official surface — and a blocker provable ONLY through downed assay is a legitimate out-of-run blocker, never a ' +
     'faked resolution. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope; a blocker ' +
     'is genuinely legitimate ONLY when it depends on work outside this run.',
-  'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): pin the version in the ONE central repo-root ' +
-    '`Directory.Packages.props` (a SHARED file — the reconcile pass owns it; you MUST NOT edit it from a folder agent), add `<PackageReference ' +
-    'Include="..."/>` WITHOUT a version to `<pkg>/<pkg>.csproj` (folder-local), add the package to the correct group in `<pkg>/README.md` ' +
-    '(folder-local), and author `<pkg>/.api/api-<pkg>.md` from `uv run python -m tools.assay api`' + FB + ' (folder-local). Never a per-folder version ' +
-    'manifest; never re-pin a version outside `Directory.Packages.props`.',
-  'CLOSEOUT (the closeout pass ONLY): a genuinely-complete card moves to its file `[02]-[CLOSED]` section as a collapsed one-liner ' +
-    '`[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); update the owning `<pkg>/ARCHITECTURE.md` ' +
-    '`[02]-[SEAMS]` section ONLY when a real cross-folder seam landed. Realize/critique/redteam passes NEVER change card status.',
+  'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): do the folder-local parts NOW — add `<PackageReference ' +
+    'Include="..."/>` WITHOUT a version to `<pkg>/<pkg>.csproj`, add the package to the correct group in `<pkg>/README.md`, and author ' +
+    '`<pkg>/.api/api-<pkg>.md` from `uv run python -m tools.assay api`' + FB + '. The central repo-root `' + CENTRAL + '` has exactly ONE in-run ' +
+    'writer: report the exact `<PackageVersion Include="..." Version="..."/>` row in `pins` and never edit that file yourself. Never a per-folder ' +
+    'version manifest; never re-pin a version outside `' + CENTRAL + '`.',
+  'CARD CLOSURE (the folder red-team ONLY — implement and critique NEVER change card status): a genuinely-complete card moves to its file ' +
+    '`[02]-[CLOSED]` section as a collapsed one-liner `[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); ' +
+    'update the owning `<pkg>/ARCHITECTURE.md` `[02]-[SEAMS]` ONLY when a real cross-folder seam landed (for a shared entry the owning-stratum ' +
+    'folder writes it — `Rasm.Persistence` owns durable-store seams, `Rasm.AppHost` owns host-neutral contract seams). A ripple-carrying card ' +
+    'closes COMPLETE only when its seam is verified landed on BOTH ends on current disk; close only `strong` cards and honestly re-open the rest.',
 ].join('\n')
 const BARHUNT = [
   'BAR — a high-value IMPLEMENT leaves every owner capturing the FULL capability of every package it admits, every sprawl collapsed into one ' +
@@ -131,8 +146,8 @@ const BARHUNT = [
     '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family/`Fold` algebra/frozen table) with no ' +
     'functionality removed. RAIL UNIFICATION — one entrypoint family per rail, one closed `Expected` fault family per package, total generated ' +
     '`Switch`. OPTIMIZATION — correctness first, then allocation/span/SoA layout/dispatch shape/algorithmic complexity, not only line-count. NEW ' +
-    'WORK SURFACED — api gaps, stronger packages, and tasks the implementation exposes are realized or recorded the same turn (extend the ' +
-    'canonical owner first, never a parallel surface).',
+    'WORK SURFACED — api gaps, stronger packages, and tasks the implementation exposes are realized the same turn (extend the canonical owner ' +
+    'first, never a parallel surface).',
   'NAIVETY (two axes, both intolerable): COVERAGE — the owner models a thin slice of its concept (the obvious three fields where the domain ' +
     'carries fifteen; a two-case family for a twenty-case domain); APPROACH — enumerated hardcoded instances where a parameterized, algorithmic ' +
     'owner should generate the space (a fixed roster of styles/patterns/variants is seed DATA feeding one generator over named parameters, NEVER ' +
@@ -198,10 +213,14 @@ const PATLAW = [
     '`Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` names; ONE_HOP_RESOLUTION (no alias chains, forwarding helpers, or util shells).',
 ].join('\n')
 const BOUNDARIES = 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with one ' +
-  'owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner while ' +
-  'densifying; never introduce a downward dependency or leak a host type into a host-neutral owner. Each target realizes ONLY its OWN cards into ' +
-  'its OWN pages; a concern owned twice across a runtime, a folder mixing unrelated concerns, or coupling to a sibling owner INTERIOR (vs its ' +
-  'seam/wire) is a defect.'
+  'owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; never introduce a downward dependency or leak ' +
+  'a host type into a host-neutral owner. Cross-folder repair is seam-shaped: align counterparts, consumer sites, and counterpart cards — a ' +
+  'concern owned twice across a runtime, a folder mixing unrelated concerns, or coupling to a sibling owner INTERIOR (vs its seam/wire) is a defect.'
+const CURRENT = 'CURRENT STATE — sibling folder pipelines land work concurrently with yours. Before ANY edit, re-read the CURRENT on-disk state ' +
+  'of your pages AND every sibling page your pages compose or ripple into; landed sibling work is composed as found, never assumed from the ' +
+  'discovery map. A seam counterpart a sibling pipeline landed is COMPOSED, not re-derived; a conflict between your design and a landed sibling ' +
+  'resolves to the STRONGER form, never a revert. Edit any potentially shared page with surgical anchored Edits only — re-read and re-apply on an ' +
+  'edit conflict, never a whole-file rewrite.'
 const PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the controlling ' +
     'rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, freshness ' +
@@ -216,11 +235,10 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for 
   'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
   'task/process/session/history/proof/review comments, no XML-doc bloat. Densify names and types so comments are rarely needed; cut every ' +
   'low-value comment.'
-const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
+const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', CURRENT, '', PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p
-const pkgPath = (toPkg) => { let p = String(toPkg || '').trim().replace(/^csharp:/, ''); return p.indexOf('libs/') === 0 ? p : 'libs/csharp/' + p }
 const discoverPrompt = (targets) => [LAW, '', CARD, '',
   'TASK: DISCOVER + SEQUENCE + MAP the open work across these C# session targets: ' + JSON.stringify(targets) + '. DISCOVERY is the reconnaissance ' +
     'every downstream stage stands on, and read-only is its ONLY concession — full reads, never skims, never memory. FIRST enumerate from the ' +
@@ -249,32 +267,30 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the ULTRA bar. The sequenced worklist (slugs + ' +
     'ripple map + discovery capability map; read each FULL card body from `' + folder + '/IDEAS.md` + ' +
     '`' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
-    'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to; the package-root ' +
-    '`ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card concern; BOTH `.api` tiers in full — ' +
-    '`libs/csharp/.api/` + `' + folder + '/.api/api-*.md`, enumerated by real listing, never memory — plus the admitted packages; and verify any ' +
-    'novel host/NuGet member via `uv run python -m tools.assay api`' + FB + '. Realize EVERY card in `order` (all ' +
-    'tasks incl. Atomic, then the ideas) into deep fences IN `' + folder + '` PAGES ONLY, in LIFECYCLE order (admit raw ONCE through a generated ' +
-    'factory + validation partial -> lift into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting concern as ' +
-    'a definition-time source-generated aspect or composition-time effect transformer over a thin pure core -> compose through ONE unified ' +
-    '`Fin`/`Validation`/`Option`/`Eff` rail with total generated `Switch` -> project + egress, BOTH ingress and egress parameterized). Collapse ' +
-    'parallel shapes into one `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family in the SAME ' +
-    'file; drive cases with a `Fold` algebra or a frozen table; one polymorphic entrypoint per modality. Resolve any [BLOCKED] card inline (probe ' +
-    'via `assay api`' + FB + ' / Forge band / Rhino WIP). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW ' +
-    '— add `<PackageReference Include="..."/>` (no version) to `' + folder + '/' + folderName(folder) + '.csproj`, add the package to the correct ' +
-    'group in `' + folder + '/README.md`, and author `' + folder + '/.api/api-<pkg>.md` from `assay api`' + FB + ' — and LOG the central ' +
-    '`Directory.Packages.props` version pin as a residual_ripple with files including `Directory.Packages.props` (a single reconcile agent owns ' +
-    'that shared file; you MUST NOT edit it). RIPPLES: realize ONLY `' + folder + '`\'s OWN half of every seam; NEVER edit another folder page. ' +
-    'For each ripple your cards carry, log a residual_ripple {files:[your_page, counterpart_page], pkg, slug, mirror_slug, claim} stating the ' +
-    'contract your half exposes (reconcile aligns both halves). Do NOT close any card — the closeout pass owns card status. Modern C# 14 / net10 ' +
-    'to the metal, high-signal prose all-backticked, comment hygiene, fix-in-place (read-then-extend, preserve capability). Return verdict + ' +
-    'realized slugs + deferred (any card you could not realize, with reason) + collapsed (before->after counts) + residual_ripples + summary.'].join('\n')
+    'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to, at their CURRENT ' +
+    'on-disk state; the package-root `ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card ' +
+    'concern; BOTH `.api` tiers in full — `libs/csharp/.api/` + `' + folder + '/.api/api-*.md`, enumerated by real listing, never memory — plus ' +
+    'the admitted packages; and verify any novel host/NuGet member via `uv run python -m tools.assay api`' + FB + '. Realize EVERY card in `order` ' +
+    '(all tasks incl. Atomic, then the ideas) into deep fences in the `' + folder + '` design pages, in LIFECYCLE order (admit raw ONCE through a ' +
+    'generated factory + validation partial -> lift into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting ' +
+    'concern as a definition-time source-generated aspect or composition-time effect transformer over a thin pure core -> compose through ONE ' +
+    'unified `Fin`/`Validation`/`Option`/`Eff` rail with total generated `Switch` -> project + egress, BOTH ingress and egress parameterized). ' +
+    'Collapse parallel shapes into one `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family in the ' +
+    'SAME file; drive cases with a `Fold` algebra or a frozen table; one polymorphic entrypoint per modality. Resolve any [BLOCKED] card inline ' +
+    '(probe via `assay api`' + FB + ' / Forge band / Rhino WIP). RIPPLES ARE YOURS: repair every ripple your cards carry in this same pass per the ' +
+    'RIPPLE law — align each in-scope seam to the counterpart page as it NOW stands on disk, realize each 1-hop out-of-scope C# counterpart card ' +
+    'fence and align both ends, land your half of each cross-language seam stating the wire contract — and record each repair in `ripples`. ' +
+    'PACKAGE ADMISSION per the card law: folder-local parts NOW, the central `' + CENTRAL + '` row reported in `pins`, never edited. Do NOT close ' +
+    'any card — the folder red-team owns card status. Modern C# 14 / net10 to the metal, high-signal prose all-backticked, comment hygiene, ' +
+    'fix-in-place (read-then-extend, preserve capability). Return verdict + realized slugs + deferred (any card you could not realize, with ' +
+    'reason) + collapsed (before->after counts) + ripples + pins + summary.'].join('\n')
 const critiquePrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' + folder + '`. You are an ULTRA-HARSH, UNAGREEABLE auditor: ' +
     'assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized this turn (read each ' +
-    'FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages, the sibling pages, ' +
-    'docs/stacks/csharp/ core + the relevant domain/ shard(s), and BOTH `.api` tiers by real listing — `libs/csharp/.api/` substrate + ' +
-    '`' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line as a FLOOR you hunt ' +
-    'past, never the complete audit, and REPAIR every hit in place (a fix, never a ledger note):',
+    'FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages, the sibling pages at their ' +
+    'CURRENT on-disk state, docs/stacks/csharp/ core + the relevant domain/ shard(s), and BOTH `.api` tiers by real listing — `libs/csharp/.api/` ' +
+    'substrate + `' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line as a ' +
+    'FLOOR you hunt past, never the complete audit, and REPAIR every hit in place (a fix, never a ledger note):',
   '(1) COLLAPSE_SCAN — apply the move for any signal (shapes sharing an identity regime, an admission path, a payload timing, or a consumer ' +
     'collapse into ONE owner; a shape survives only on a genuinely distinct discriminant): sibling prefix/suffix names -> one modality-polymorphic ' +
     'entrypoint; same return rail differing only by arity -> input-shape discrimination; functions differing only by a literal -> parameterize the ' +
@@ -300,8 +316,8 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'GENERATION in the fixed generator order; composition-time concerns attach as effect transformers in author order — retry as `Schedule`-driven ' +
     '`IO<T>.Retry(Schedule)`/`Prelude.retry`, recovery as named catch combinators (`@catch`/`catchOf`/`CatchM` composed via `|`), resource ' +
     'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. Co-occurring wrappers ' +
-    'sharing an admission path collapse into ONE aspect; an aspect NEVER raises into domain flow; deterministic stacking order verified. Inline-repeated concerns and ' +
-    'sibling helper methods are defects.',
+    'sharing an admission path collapse into ONE aspect; an aspect NEVER raises into domain flow; deterministic stacking order verified. ' +
+    'Inline-repeated concerns and sibling helper methods are defects.',
   '(5) RAILS — RAIL_CHOOSER, the narrowest carrier chosen ONCE at admission: `Option<T>` absence, `Fin<T>` synchronous fallibility, ' +
     '`Validation<Error,T>` independent accumulated faults, `Eff<RT,T>` runtime capability, `IO<T>` deferred boundary work, `Schedule` retry ' +
     'policy, `Seq<T>`/`Arr<T>`/`HashMap<K,V>` immutable traversal/lookup; the fault type is a CLOSED `[Union]` family deriving from `Expected` (a ' +
@@ -322,16 +338,19 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'BOTH naivety axes per card: COVERAGE — fences modeling a thin slice of the domain the charter names — widen to the full concept; APPROACH — ' +
     'an enumerated roster of hardcoded instances where ONE parameterized generator should own the space — demote the roster to seed data feeding ' +
     'that generator.',
+  '(8) SEAMS — check every cross-page and cross-folder symbol these cards compose against the counterpart as it NOW stands on disk: a signature ' +
+    'mismatch corrects at the weaker end, a conflict resolves to the stronger form, never a revert; a seam counterpart or consumer site your fix ' +
+    'exposes is repaired in this same pass wherever it lives, recorded in `ripples`.',
   'Also enforce the docs/stacks/csharp file-organization + section-order law, cross-package convention consistency, and prose + comment hygiene. ' +
-    'EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` pages and OVERRIDE any earlier residual you can now resolve; ' +
-    'log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, mirror_slug, claim}. Return verdict + realized + deferred + ' +
-    'collapsed + residual_ripples + summary.'].join('\n')
+    'FIX every hit NOW wherever it lives per WRITE-FULLY; report any central `' + CENTRAL + '` row in `pins`. Return verdict + realized + deferred ' +
+    '+ collapsed + ripples + pins + summary.'].join('\n')
 const redteamPrompt = (folder, seq) => [DOCTRINE, '',
-  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE across `' + folder + '`. You are the LAST and MOST AGGRESSIVE pass: assume the author and ' +
-    'critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE DESIGN. The cards ' +
-    'realized this turn (read each FULL body):\n' + seq + '\nREAD BOTH `.api` tiers by real listing — `libs/csharp/.api/` substrate + ' +
-    '`' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails, the sibling pages, docs/stacks/csharp/ + the relevant domain/ ' +
-    'shard. Attack from every direction and REPAIR every defect in place — no soft-pedalling, no could/should, a fix never a ledger.',
+  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE + TERMINAL CLOSE across `' + folder + '`. You are the LAST and MOST AGGRESSIVE pass: ' +
+    'assume the author and critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE ' +
+    'DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nREAD BOTH `.api` tiers by real listing — `libs/csharp/.api/` ' +
+    'substrate + `' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails, the sibling pages at their CURRENT on-disk state, ' +
+    'docs/stacks/csharp/ + the relevant domain/ shard. Attack from every direction and REPAIR every defect in place — no soft-pedalling, no ' +
+    'could/should, a fix never a ledger.',
   'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core choice — is the owner, the algebra (`Fold`/generated ' +
     '`Switch`/data table), and the dispatch form categorically the strongest the doctrine admits, or does a denser owner ' +
     '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated family), a data table, or a DEEPER admitted-package ' +
@@ -347,64 +366,39 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     'BOUNDARY-INTEGRITY — a downward dependency, a host-type leak into a host-neutral owner, a concern owned twice in a runtime, a folder mixing ' +
     'concerns, geometry/mesh/IFC not meeting at ONE wire owner per runtime, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a sibling ' +
     'planning page left STALE by this folder change even when no ripple card names it (ports/boundaries/wires/seams drift) is a defect: fix it ' +
-    'within `' + folder + '`, or record it as a residual_ripple. (E) SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal ' +
-    'rails expose capability the fence re-derives by hand, flat code below the operator depth the packages reach, a phantom `.api`/host member, or ' +
-    'a thin wrapper: collapse to package depth, verify every cited member (via `assay api`' + FB + '), and DELETE or correct every phantom.',
+    'NOW wherever it lives — the stale sibling page, the seam counterpart, the consumer site — and record the repair in `ripples`. (E) ' +
+    'SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal rails expose capability the fence re-derives by hand, flat code ' +
+    'below the operator depth the packages reach, a phantom `.api`/host member, or a thin wrapper: collapse to package depth, verify every cited ' +
+    'member (via `assay api`' + FB + '), and DELETE or correct every phantom.',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh ' +
     'hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the ' +
     'two-weave ASPECT taxonomy, rail + closed-`Expected`-fault discipline, charter-completeness per card, strata correctness, modern-C# 14 typing, ' +
     'docs/stacks/csharp + domain-shard conformance, `.api` + Thinktecture/LanguageExt maximization, the `tools/cs-analyzer` doctrine-gate, and ' +
     'prose/comment hygiene — and fix every defect. Even absent a structural rebuild, the fences must end objectively denser, more correct, and ' +
     'more powerful than the critique left them; if the strongest form is genuinely already present, prove it by finding nothing — never invent ' +
-    'churn. Realize ONLY `' + folder + '` pages; log cross-FOLDER items as residual_ripples. Return verdict + realized + deferred + collapsed + ' +
-    'residual_ripples + summary.'].join('\n')
-const reconcileFixPrompt = (cl) => [DOCTRINE, '',
-  'TASK: RECONCILE this cluster of cross-FOLDER residuals the per-folder passes deferred. There is NO severity — treat EVERY residual as ' +
-    'must-address. Read EVERY listed file. Handle each residual by KIND: (a) IN-SCOPE SEAM (both halves already realized by their own target ' +
-    'folders) — read both pages, ALIGN them to ONE shared contract, fix any mismatch, set `seam_landed` true; (b) OUT-OF-SCOPE C# COUNTERPART (the ' +
-    'counterpart card lives in a non-target libs/csharp package) — realize that ONE counterpart card fence (its half only, NEVER the folder other ' +
-    'cards) at the same ULTRA bar and align the seam; (c) CENTRAL PIN — apply every `Directory.Packages.props` version pin in this cluster (you ' +
-    'are the ONLY agent that edits that shared file; apply them all serially, keeping alphabetical/group order) and list them in `admitted`; (d) ' +
-    'CROSS-LANGUAGE / LIB-WIDE LEG — record it in `deferred_legs` and do NOT realize it (out of this C#-only run). Preserve all capability, ' +
-    'regress no file, never trample a sibling owner interior. For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, ' +
-    'seam_landed}. If a residual is FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real ' +
-    'one. ' +
-  'A concurrent sibling may share a page with your cluster (oversized components shard file-atomically): edit any potentially shared page with ' +
-  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
-  'Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-const reconcileVerifyPrompt = (cl, fix) => [DOCTRINE, '',
-  'TASK: ADVERSARIAL WRITING VERIFY of the reconcile fixes — never a friendly confirmation, never read-only. Hold every fixer claim naive or ' +
-    'illusory until it survives your attack. For EVERY claim: (1) RE-DERIVE necessity — was the claimed fix needed at all, and is the claim itself ' +
-    'factually right? (2) PROVE ON DISK — read every named file IN FULL and prove the fix genuinely landed (seam aligned on BOTH pages to ONE ' +
-    'shared contract / counterpart fence realized at the ULTRA bar / central pin applied), never trusting the fixer report. (3) REPAIR TO THE ROOT ' +
-    '— a loose, weak, or token fix is a defect YOU repair NOW via Edit/Write in the same files: a single-point patch where a root-level dense ' +
-    'reconstruction of the same files is available is itself a defect this verify fixes; leave the files objectively stronger, never merely ' +
-    'confirmed (a `Directory.Packages.props` repair is in scope ONLY when this cluster\'s claims name that file). THEN classify each claim: status ' +
-    '"fixed" (genuinely resolved on disk — including because YOU repaired it; cite the evidence), "invalid" (the claim is factually wrong / not a ' +
-    'real defect — cite the disproof), "open" (a real defect genuinely unreachable from the files at hand — an out-of-run dependency — NEVER a ' +
-    'punt on a fix you could strengthen yourself). Default a real-looking defect you cannot repair to "open"; mark "invalid" ONLY when you can ' +
-    'show the claim is wrong. List every file you edited in repaired_files. Claims:\n' + JSON.stringify(cl, null, 1) +
-    '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
-const closeoutPrompt = (folder, seamJson) => [DOCTRINE, '',
-  'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + folder + '`. This is the SOLE owner of card status. For EVERY card that was in scope this ' +
-    'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +
-    'then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior pass verdict a rejected self-assessment — that the ' +
-    'fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
-    '`uv run python -m tools.assay api`' + FB + '). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
-    'implement->critique->redteam this turn; deepen the fences to genuinely complete the charter), then re-verify. Assign each card a strength: ' +
-    '`strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` (most delivered, a clause ' +
-    'still thin), `weak` (charter not met). CLOSE only genuinely-complete cards: move them to the `[02]-[CLOSED]` section of their owning file as ' +
-    'a collapsed one-liner `[ID]-[COMPLETE]: <disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`), and update `' + folder + '/ARCHITECTURE.md` ' +
-    '`[02]-[SEAMS]` ONLY when a real cross-folder seam landed. RIPPLE PAIRS: a card carrying a `Ripple:` closes COMPLETE only if its seam landed — ' +
-    'this map gives seam_landed per slug (`false` = seam did NOT land, keep the card OPEN; `true`/absent = judge on your own half): ' + seamJson + '. ' +
-    'For a shared `[02]-[SEAMS]` entry, only the owning-stratum folder writes it (`Rasm.Persistence` owns durable-store seams; `Rasm.AppHost` owns ' +
-    'host-neutral contract seams). Honestly RE-OPEN any card you cannot bring to `strong` this run, with a one-line reason (a real out-of-run ' +
-    'dependency). The orchestrator will DEMOTE any card you mark complete whose strength is not `strong`, so never inflate. Return closed [{slug, ' +
-    'disposition, strength}] + reopened [{slug, reason}] + summary.'].join('\n')
+    'churn.',
+  'TERMINAL CLOSE — you are `' + folder + '`\'s LAST stage and the SOLE owner of its card status. For EVERY card in scope this run, re-read its ' +
+    'FULL body and the realized fences on CURRENT disk, then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior ' +
+    'pass verdict a rejected self-assessment — that they genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the verified `.api` ' +
+    '(verify novel members via `uv run python -m tools.assay api`' + FB + '). FINAL-remediate any weak or partial realization in place NOW, then ' +
+    'assign each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` ' +
+    '(most delivered, a clause still thin), `weak` (charter not met). CLOSE only `strong` cards per the CARD CLOSURE law; a ripple card whose ' +
+    'seam you cannot verify landed on BOTH ends on current disk stays OPEN with that reason; honestly RE-OPEN every card you cannot bring to ' +
+    '`strong`, with a one-line reason (a real out-of-run or cross-language dependency). The orchestrator DEMOTES any card closed below `strong`, ' +
+    'so never inflate. Return verdict + realized + deferred + collapsed + ripples + pins + closed [{slug, disposition, strength}] + reopened ' +
+    '[{slug, reason}] + summary.'].join('\n')
+const pinPrompt = (pins) => [LAW, '', PROSE, '',
+  'TASK: CENTRAL PIN APPLY — you are the run\'s SOLE writer for the repo-root `' + CENTRAL + '` and its LAST agent. Apply each reported row below ' +
+    'exactly once: hand-edit the grouped manifest at the SYMBOL anchor (never a line number), preserving label-group and alphabetical order, ' +
+    'deduping semantically identical rows. Verify each package + version via the `nuget` MCP or `uv run python -m tools.assay api`' + FB + ' ' +
+    'before applying. Confirm the owning `<pkg>.csproj` carries the versionless `<PackageReference/>` and the folder README/.api rows landed; ' +
+    'repair a missing folder-local part in place. Reject an unverifiable or malformed pin with its reason — never apply it silently. PINS:\n' +
+    JSON.stringify(pins, null, 1)].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
+// The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
@@ -416,111 +410,55 @@ const pool = async (items, cap, worker) => {
 }
 
 phase('Discover')
-const disc = (await agent(discoverPrompt(TARGETS), { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, effort: 'medium', stallMs: 300000 })) || { targets: [], malformed_ripples: [] }
+const disc = (await agent(discoverPrompt(TARGETS), { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, effort: 'medium', stallMs: STALL })) || { targets: [], malformed_ripples: [] }
 const withCards = (disc.targets || []).filter((t) => (t.tasks && t.tasks.length) || (t.ideas && t.ideas.length))
+const crossLang = (disc.targets || []).flatMap((t) => (t.ripples || []).filter((rp) => rp.klass === 'cross_lang')
+  .map((rp) => folderName(t.folder) + ' [' + rp.from_slug + '] -> ' + rp.to_pkg + ' [' + rp.to_slug + ']'))
 log('Discover: ' + TARGETS.length + ' targets; ' + withCards.length + ' with open cards; pooling at CAP=' + CAP)
 
-// --- [REALIZE]
 phase('Realize')
-const realizeFolder = async (t) => {
+const runFolder = async (t) => {
   const seq = JSON.stringify({ order: t.order, tasks: t.tasks, ideas: t.ideas, ripples: t.ripples, gates: t.gates || [], map: t.map || [] }, null, 1)
   const tag = folderName(t.folder)
-  const impl = await agent(implementPrompt(t.folder, seq), { label: 'implement:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 })
-  if (!impl) return { folder: t.folder, failed: true, logs: [] }
-  const crit = await agent(critiquePrompt(t.folder, seq), { label: 'critique:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-  const red = await agent(redteamPrompt(t.folder, seq), { label: 'redteam:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-  return { folder: t.folder, failed: false, logs: [impl, crit, red].filter(Boolean) }
+  const impl = await agent(implementPrompt(t.folder, seq), { label: 'implement:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+  if (!impl) return { folder: t.folder, failed: true, logs: [], red: null } // failure isolation: a dead implement skips its reviews
+  const crit = await agent(critiquePrompt(t.folder, seq), { label: 'critique:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
+  const red = await agent(redteamPrompt(t.folder, seq), { label: 'redteam:' + tag, phase: 'Realize', schema: REDTEAM_SCHEMA, effort: 'max', stallMs: STALL })
+  return { folder: t.folder, failed: false, logs: [impl, crit, red].filter(Boolean), red }
 }
-const realized = (await pool(withCards, CAP, realizeFolder)).filter(Boolean)
-const failedFolders = new Set(realized.filter((r) => r.failed).map((r) => r.folder))
-const deferredCards = realized.flatMap((r) => r.logs.flatMap((l) => (l.deferred || []).map((d) => ({ folder: r.folder, slug: d.slug, reason: d.reason }))))
-
-const crossLang = []
-for (const t of (disc.targets || [])) for (const rp of (t.ripples || [])) if (rp.klass === 'cross_lang') crossLang.push(t.folder + ' [' + rp.from_slug + '] ' +
-  '-> ' + rp.to_pkg + ' [' + rp.to_slug + ']')
-const allRes = []
-for (const r of realized) if (!r.failed) for (const l of r.logs) for (const x of (l.residual_ripples || [])) allRes.push({ files: (x.files && x.files.length ? x.files : [r.folder]), pkg: x.pkg, slug: x.slug, mirror_slug: x.mirror_slug, claim: x.claim || '' })
-for (const t of (disc.targets || [])) for (const rp of (t.ripples || [])) if (rp.klass !== 'cross_lang') allRes.push({ files: [t.folder, pkgPath(rp.to_pkg)], pkg: rp.to_pkg, slug: rp.from_slug, mirror_slug: rp.to_slug, claim: 'ripple ' +
-  '' + rp.klass + ': ' + folderName(t.folder) + ' [' + rp.from_slug + '] <-> ' + rp.to_pkg + ' [' + rp.to_slug + ']' })
-const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-const clusters = (() => {
-  const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
-  for (const r of uniq) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
-  const by = new Map()
-  for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
-  return [...by.values()]
-})()
-// Heaviest cluster first: a fixer's load is dominated by distinct files read + reconciled; under CAP the long pole must never launch last.
-// Atomicity is BUDGETED at the fair share (totalWork/CAP): an over-budget component sub-shards by lead file (same-lead-file rows never split —
-// the edit-collision floor); verify owns the deliberate cross-shard seams.
-const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
-const shardOversized = (cs) => {
-  const cap = Math.max(1, Math.ceil(cs.reduce((w, c) => w + clusterWork(c), 0) / CAP))
-  return cs.flatMap((c) => {
-    if (clusterWork(c) <= cap) return [c]
-    const byFile = new Map()
-    for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
-    const shards = []
-    for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
-      const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
-      if (t) t.push(...g); else shards.push([...g])
-    }
-    return shards
-  })
-}
-const sharded = shardOversized(clusters); clusters.length = 0; clusters.push(...sharded)
-clusters.sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
-log('Realize: ' + realized.filter((r) => !r.failed).length + '/' + withCards.length + ' folders; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' ' +
-  'clusters; work [' + clusters.map(clusterWork).join(', ') + '] (2*files+claims)' + (failedFolders.size ? '; ' + failedFolders.size + ' folder(s) failed' : ''))
-let reconciled = []
-if (clusters.length) {
-  phase('Reconcile')
-  reconciled = (await pool(clusters, CAP, async (cl, i) => {
-    const fix = await agent(reconcileFixPrompt(cl), { label: 'reconcile-fix:' + i, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: 300000 })
-    if (!fix) return null
-    const verify = await agent(reconcileVerifyPrompt(cl, fix), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-    return { cluster: cl, fix, verify }
-  })).filter(Boolean)
-}
-const seamLanded = {}
-for (const r of reconciled) for (const p of ((r.fix && r.fix.pairs) || [])) { seamLanded[p.slug] = p.seam_landed; seamLanded[p.mirror_slug] = p.seam_landed }
-const oosFolders = new Set()
-for (const r of reconciled) for (const p of ((r.fix && r.fix.pairs) || [])) { const fp = pkgPath(p.pkg); if (!TARGET_SET.has(fp) && fp.indexOf('libs/csharp/') === 0) oosFolders.add(fp) }
-const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
-const hard_open = claimsAll.filter((c) => c.status === 'open').map((c) => c.claim)
-const dropped_invalid = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
-const admitted = [...new Set(reconciled.flatMap((r) => (r.fix && r.fix.admitted) || []))]
-const deferred_legs = [...new Set([...crossLang, ...reconciled.flatMap((r) => (r.fix && r.fix.deferred_legs) || [])])]
-
-// --- [CLOSEOUT]
-phase('Closeout')
-const closeoutFolders = [...withCards.map((t) => t.folder).filter((f) => !failedFolders.has(f)), ...oosFolders]
-const seamJson = JSON.stringify(seamLanded, null, 1)
-const closeouts = (await pool(closeoutFolders, CAP, (f) => agent(closeoutPrompt(f, seamJson), { label: 'closeout:' + folderName(f), phase: 'Closeout', schema: CLOSEOUT_SCHEMA, effort: 'xhigh', stallMs: 300000 }))).filter(Boolean)
+const done = (await pool(withCards, CAP, runFolder)).filter(Boolean)
+const failed = done.filter((r) => r.failed).map((r) => r.folder)
+const deferred = done.flatMap((r) => r.logs.flatMap((l) => (l.deferred || []).map((d) => ({ folder: r.folder, slug: d.slug, reason: d.reason }))))
+const ripplesRepaired = done.flatMap((r) => r.logs.flatMap((l) => l.ripples || []))
+const pinsReported = [...new Map(done.flatMap((r) => r.logs.flatMap((l) => l.pins || [])).map((p) => [p.package + '|' + p.row, p])).values()]
 let closed_count = 0
 const reopened = []
-for (const c of closeouts) {
-  for (const cc of (c.closed || [])) {
-    if (cc.disposition === 'complete' && cc.strength !== 'strong') reopened.push({ folder: c.folder, slug: cc.slug, reason: 'demoted: strength=' + cc.strength })
+for (const r of done) {
+  for (const c of ((r.red && r.red.closed) || [])) {
+    if (c.disposition === 'complete' && c.strength !== 'strong') reopened.push({ folder: r.folder, slug: c.slug, reason: 'demoted: strength=' + c.strength })
     else closed_count++
   }
-  for (const ro of (c.reopened || [])) reopened.push({ folder: c.folder, slug: ro.slug, reason: ro.reason })
+  for (const ro of ((r.red && r.red.reopened) || [])) reopened.push({ folder: r.folder, slug: ro.slug, reason: ro.reason })
 }
-log('Closeout: ' + closed_count + ' cards closed, ' + reopened.length + ' re-open/demoted across ' + closeoutFolders.length + ' folders')
+log('Realize: ' + (done.length - failed.length) + '/' + withCards.length + ' folders; ' + closed_count + ' cards closed, ' + reopened.length +
+  ' re-open/demoted; ' + ripplesRepaired.length + ' ripple repair(s); ' + pinsReported.length + ' pin(s) reported' +
+  (failed.length ? '; failed: ' + failed.join(', ') : ''))
+
+let pinlog = null
+if (pinsReported.length) {
+  phase('Pins')
+  pinlog = await agent(pinPrompt(pinsReported), { label: 'pins', phase: 'Pins', schema: PIN_SCHEMA, effort: 'medium', stallMs: STALL })
+}
 
 return {
   targets: TARGETS,
-  realized_folders: realized.filter((r) => !r.failed).map((r) => r.folder),
-  realize_failed: [...failedFolders],
-  deferred: deferredCards,
-  reconciled_clusters: clusters.length,
-  seams_landed: Object.keys(seamLanded).filter((k) => seamLanded[k]).length,
-  oos_counterparts_realized: [...oosFolders],
-  admitted,
+  realized_folders: done.filter((r) => !r.failed).map((r) => r.folder),
+  realize_failed: failed,
+  deferred,
+  ripples_repaired: ripplesRepaired.length,
   closed_count,
   reopened,
-  hard_open,
-  dropped_invalid,
-  cross_language_legs: deferred_legs,
+  pins: { reported: pinsReported.length, applied: (pinlog && pinlog.applied) || [], rejected: (pinlog && pinlog.rejected) || [] },
+  cross_language: crossLang,
   malformed_ripples: disc.malformed_ripples || [],
 }

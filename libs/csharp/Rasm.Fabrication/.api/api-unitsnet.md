@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_UNITSNET]
 
-`UnitsNet` is a pure-managed AnyCPU IL-only quantity library providing strongly-typed physical quantities (`Speed`, `Length`, `RotationalSpeed`, `Pressure`, and the rest of the SI/imperial catalogue) with culture-aware text parsing and unit-converting accessors; the fabrication folder consumes only the parse-and-canonicalize surface to admit unit-bearing cutting-data text into the raw SI doubles the `Process/physics#CUT_PARAMETER` interior operates on. The primary entry points are the static `<Quantity>.Parse(str, provider)` / `TryParse(str, provider, out result)` text-ingress facades and the unit-named SI accessor properties (`Speed.MetersPerSecond`, `Length.Meters`, `RotationalSpeed.RevolutionsPerMinute`, `Pressure.Pascals`) that emit the canonical raw `double`. A quantity is constructed from a scalar through the `From<Unit>(QuantityValue)` static factories (`QuantityValue` carries an implicit conversion from `double`), so a feed in `mm/min`, a surface speed in `m/min`, a spindle in `rpm`, a depth in `mm`, and an assist pressure in `bar` admit once at the cut-parameter boundary and leave as raw SI doubles. No native asset and no RID burden — the package is managed IL (`lib/net9.0/UnitsNet.dll` plus localized satellite resource assemblies), ALC-safe, with no native runtime dependency.
+`UnitsNet` is a pure-managed AnyCPU IL-only quantity library providing strongly-typed physical quantities with culture-aware text parsing and unit-converting accessors; the fabrication folder consumes only the parse-and-canonicalize surface to admit unit-bearing text into the raw SI doubles the interiors operate on. The consumed slice is a THIN OVERLAY of the SI catalogue: the cut-parameter quartet `Speed`/`Length`/`RotationalSpeed`/`Pressure` (`Process/physics#CUT_PARAMETER`), EXTENDED with `Force`/`Power`/`Temperature`/`Angle`/`Torque` for the cutting-force/spindle-power/thermal/orientation/tightening-torque boundary and the `Spec/tolerance` dimensioned rows. The primary entry points are the static `<Quantity>.Parse(str, provider)` / `TryParse(str, provider, out result)` text-ingress facades and the unit-named SI accessor properties (`Speed.MetersPerSecond`, `Length.Meters`, `RotationalSpeed.RevolutionsPerMinute`, `Pressure.Pascals`, `Force.Newtons`, `Power.Watts`, `Temperature.DegreesCelsius`, `Angle.Degrees`, `Torque.NewtonMeters`) that emit the canonical raw `double`. A quantity is constructed from a scalar through the `From<Unit>(QuantityValue)` static factories (`QuantityValue` carries an implicit conversion from `double`), so a feed in `mm/min`, a surface speed in `m/min`, a spindle in `rpm`, a depth in `mm`, an assist pressure in `bar`, a cutting force in `N`, a spindle power in `W`, a temperature in `°C`, an orientation angle in `deg`, and a clamp torque in `N·m` admit once at their boundary and leave as raw SI doubles. No native asset and no RID burden — the package is managed IL (`lib/net9.0/UnitsNet.dll` plus localized satellite resource assemblies), ALC-safe, with no native runtime dependency.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -24,7 +24,12 @@
 |  [02]   | `Length`          | quantity struct  | depth and offset text — `mm`, `m` ingress                         |
 |  [03]   | `RotationalSpeed` | quantity struct  | spindle text — `rpm`, `rad/s` ingress                             |
 |  [04]   | `Pressure`        | quantity struct  | assist-gas/jet pressure text — `bar`, `Pa` ingress               |
-|  [05]   | `QuantityValue`   | scalar carrier   | the factory argument carrying an implicit conversion from `double` |
+|  [05]   | `Force`           | quantity struct  | cutting-force text — `N`, `lbf` ingress (Kienzle `kc`·chip area) |
+|  [06]   | `Power`           | quantity struct  | spindle-power text — `W`, `kW` ingress                          |
+|  [07]   | `Temperature`     | quantity struct  | cut/interface temperature text — `°C`, `K` ingress             |
+|  [08]   | `Angle`           | quantity struct  | orientation/lead/taper angle text — `deg`, `rad` ingress       |
+|  [09]   | `Torque`          | quantity struct  | clamp/tightening torque text — `N·m`, `lbf·ft` ingress         |
+|  [10]   | `QuantityValue`   | scalar carrier   | the factory argument carrying an implicit conversion from `double` |
 
 [PUBLIC_TYPE_SCOPE]: unit-enum axes selecting the parsed and emitted unit
 - rail: fabrication
@@ -35,6 +40,11 @@
 |  [02]   | `LengthUnit`          | unit enum     | `Meter`/`Millimeter`                                        |
 |  [03]   | `RotationalSpeedUnit` | unit enum     | `RevolutionPerMinute`/`RadianPerSecond`                    |
 |  [04]   | `PressureUnit`        | unit enum     | `Bar`/`Pascal`                                             |
+|  [05]   | `ForceUnit`           | unit enum     | `Newton`/`PoundForce`                                      |
+|  [06]   | `PowerUnit`           | unit enum     | `Watt`/`Kilowatt`                                          |
+|  [07]   | `TemperatureUnit`     | unit enum     | `DegreeCelsius`/`Kelvin`                                   |
+|  [08]   | `AngleUnit`           | unit enum     | `Degree`/`Radian`                                          |
+|  [09]   | `TorqueUnit`          | unit enum     | `NewtonMeter`/`PoundForceFoot`                             |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -59,6 +69,11 @@
 |  [03]   | `Length.FromMillimeters(QuantityValue)` / `FromMeters`   | static factory  | mint a length from a `mm`/`m` scalar          |
 |  [04]   | `RotationalSpeed.FromRevolutionsPerMinute(QuantityValue)`| static factory  | mint a spindle speed from an `rpm` scalar     |
 |  [05]   | `Pressure.FromBars(QuantityValue)` / `FromPascals`       | static factory  | mint a pressure from a `bar`/`Pa` scalar      |
+|  [06]   | `Force.FromNewtons(QuantityValue)`                       | static factory  | mint a cutting force from an `N` scalar        |
+|  [07]   | `Power.FromWatts(QuantityValue)` / `FromKilowatts`       | static factory  | mint a spindle power from a `W`/`kW` scalar    |
+|  [08]   | `Temperature.FromDegreesCelsius(QuantityValue)` / `FromKelvins` | static factory | mint a temperature from a `°C`/`K` scalar  |
+|  [09]   | `Angle.FromDegrees(QuantityValue)` / `FromRadians`       | static factory  | mint an angle from a `deg`/`rad` scalar        |
+|  [10]   | `Torque.FromNewtonMeters(QuantityValue)`                 | static factory  | mint a torque from an `N·m` scalar             |
 
 [ENTRYPOINT_SCOPE]: SI canonicalization — unit-named accessor properties emitting the raw `double`
 - rail: fabrication
@@ -71,6 +86,11 @@
 |  [04]   | `Length.Meters` / `Length.Millimeters` | accessor → `double` | the SI length scalar / the `mm` scalar                 |
 |  [05]   | `RotationalSpeed.RevolutionsPerMinute` | accessor → `double` | the spindle scalar in `rpm`                            |
 |  [06]   | `Pressure.Bars` / `Pressure.Pascals`   | accessor → `double` | the pressure scalar in `bar` / the SI `Pa` scalar      |
+|  [07]   | `Force.Newtons`                        | accessor → `double` | the SI cutting-force scalar in `N`                     |
+|  [08]   | `Power.Watts` / `Power.Kilowatts`      | accessor → `double` | the spindle-power scalar in `W` / `kW`                 |
+|  [09]   | `Temperature.DegreesCelsius` / `Kelvins` | accessor → `double` | the temperature scalar in `°C` / the SI `K` scalar   |
+|  [10]   | `Angle.Degrees` / `Angle.Radians`      | accessor → `double` | the angle scalar in `deg` / the SI `rad` scalar        |
+|  [11]   | `Torque.NewtonMeters`                  | accessor → `double` | the SI torque scalar in `N·m`                          |
 
 ## [04]-[RATIFIED]
 
@@ -79,6 +99,6 @@
 
 [RAIL_LAW]:
 - Package: `UnitsNet`
-- Owns: culture-aware quantity-text parsing and the unit-converting SI-scalar canonicalization the `Process/physics#CUT_PARAMETER` `RemovalParameter.Admit` boundary reads to ingress feed/speed/depth/spindle/pressure text into raw doubles
-- Accept: a `"<value> <unit>"` string and an invariant `IFormatProvider` at the cut-parameter boundary, the `From<Unit>(QuantityValue)` scalar factories, and the unit-named SI accessor properties emitting the canonical `double`
-- Reject: a `Speed`/`Length`/`RotationalSpeed`/`Pressure` quantity type escaping the boundary into a `Cam`/`StraightSkeleton`/`RemovalParameter` generator signature (the unit-bearing quantity crosses to a raw `double` at the one boundary, never travels the interior), a hand-rolled unit-conversion factor where the package owns the `As(<Unit>)` accessor, the throwing `Parse` facade at admission where `TryParse` lowers a `false` to `GeometryFault.DegenerateInput`, and a culture-default parse where the boundary fixes an invariant provider
+- Owns: culture-aware quantity-text parsing and the unit-converting SI-scalar canonicalization the `Process/physics#CUT_PARAMETER` `RemovalParameter.Admit` boundary reads to ingress feed/speed/depth/spindle/pressure text into raw doubles, EXTENDED with the `Force`/`Power`/`Temperature`/`Angle`/`Torque` quantities the cutting-force/power/thermal/orientation/torque boundary and the `Spec/tolerance` dimensioned rows read
+- Accept: a `"<value> <unit>"` string and an invariant `IFormatProvider` at the boundary, the `From<Unit>(QuantityValue)` scalar factories, and the unit-named SI accessor properties emitting the canonical `double`, across the nine consumed quantities
+- Reject: any consumed quantity type escaping the boundary into a `Cam`/`RemovalParameter`/`Spec` generator signature (the unit-bearing quantity crosses to a raw `double` at the one boundary, never travels the interior), a hand-rolled unit-conversion factor where the package owns the `As(<Unit>)` accessor, the throwing `Parse` facade at admission where `TryParse` lowers a `false` to `GeometryFault.DegenerateInput`, a culture-default parse where the boundary fixes an invariant provider, and re-documenting the full UnitsNet SI catalogue beyond the nine consumed quantities

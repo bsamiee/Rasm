@@ -92,8 +92,13 @@
 - NodaTime converters own `Instant`, `LocalDate`, `LocalDateTime`, `LocalTime`, `AnnualDate`, `YearMonth`, `DateInterval`, `Offset`, `DateTimeZone`, `Duration`, `Period`, `OffsetDateTime`, `OffsetDate`, `OffsetTime`, `ZonedDateTime`, `Interval` — the converter list wins for each; the source-gen `JsonTypeInfo` for those types is never reached.
 - Thinktecture factory owns all value-objects, smart-enums, and keyed-unions; NodaTime converters own the semantic-time types. The two factories partition the type space — no collision is possible.
 
+[STACK]:
+- wire merge: `Runtime/ports#WIRE_LAW` `SuiteContracts.Wire` is the one `JsonSerializerOptions` merge per app root; `ConfigureForNodaTime` appends the NodaTime per-type converters AFTER the `ThinktectureJsonConverterFactory` (position 0), and the merged options carry every `[JsonSerializable]` context — a standalone options owner (the `[V8]` `LiveWireOptions.Json` fold target) is the deleted form.
+- clock seam: the semantic-time types NodaTime owns (`Instant`/`Duration`/`ZonedDateTime`) are the `Runtime/time#CLOCK_POLICY` currency; every deadline/schedule crosses the wire through these converters, never a raw `DateTime`/`TimeSpan` — `ClockPolicy` produces the `Instant`, this catalog serializes it.
+- type partition: the Thinktecture factory owns value-objects/smart-enums/keyed-unions and NodaTime owns the semantic-time types; the two factories partition the type space in the one merge, so no third converter list is minted.
+
 [RAIL_LAW]:
 - Package: `NodaTime.Serialization.SystemTextJson`
 - Owns: STJ converter registration for NodaTime semantic-time types
 - Accept: `ConfigureForNodaTime` as the sole registration call; position after `TypeInfoResolver` binding in `Wire` is the precedence law
-- Reject: manual converter list construction, hand-rolled NodaTime converters, duplicate registration alongside `ConfigureForNodaTime`
+- Reject: manual converter list construction, hand-rolled NodaTime converters, duplicate registration alongside `ConfigureForNodaTime`, or a standalone options owner outside the `Wire` merge

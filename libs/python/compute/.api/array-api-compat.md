@@ -9,6 +9,7 @@
 - version: `1.15.0`
 - license: MIT
 - module: `array_api_compat`
+- owner: `compute`
 - asset: runtime library
 - rail: array-api
 

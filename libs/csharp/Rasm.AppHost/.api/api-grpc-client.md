@@ -1,8 +1,14 @@
 # [RASM_APPHOST_API_GRPC_CLIENT]
 
 `Grpc.Net.Client` supplies gRPC channels, HTTP-backed call invocation, service
-configuration, retry, hedging, resolver, and load-balancer surfaces for remote
-execution clients.
+configuration, retry, and hedging for the AppHost outbound clients: the
+`Wire/outbound#DISCOVERY_ATTACH` UDS channel to a companion server
+(`GrpcChannel.ForAddress` + a `SocketsHttpHandler.ConnectCallback` dialing the
+Unix socket) and the `Wire/coordination` resolver-driven cluster channel. The
+custom `Resolver`/`LoadBalancer`/`Subchannel` extensibility surface is owned by
+`Microsoft.Extensions.ServiceDiscovery` (`api-service-discovery.md`), documented
+here as inventory only — AppHost composes it through the service-discovery
+integration, never by subclassing these types directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -30,8 +36,10 @@ execution clients.
 |  [08]   | `HedgingPolicy`         | hedging policy   | controls parallel calls |
 |  [09]   | `RetryThrottlingPolicy` | retry policy     | throttles retries       |
 
-[PUBLIC_TYPE_SCOPE]: resolver and balancer contracts
+[PUBLIC_TYPE_SCOPE]: resolver and balancer contracts (ServiceDiscovery-owned — inventory)
 - rail: remote-client
+
+These types are the custom-extensibility surface `Microsoft.Extensions.ServiceDiscovery` (`api-service-discovery.md`) owns; AppHost composes balancing through the service-discovery integration and the `dns`/`static` factory config, never by subclassing `Resolver`/`LoadBalancer`/`Subchannel` directly. Documented for completeness, not as an AppHost implementation surface.
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]     | [CAPABILITY]             |
 | :-----: | :---------------------- | :----------------- | :----------------------- |
@@ -328,13 +336,18 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 - service config: method policy stays data-driven and does not enter generated clients
 
 [LOCAL_ADMISSION]:
-- Compute remote calls enter through client-side channels only.
-- Server-side gRPC packages remain outside the Compute package graph.
-- Resolver and balancer surfaces are admitted only through remote execution policy.
-- Generated clients are typed edge adapters over Compute request and receipt algebra.
+- AppHost outbound calls enter through client-side `GrpcChannel` only; the two consumers are `Wire/outbound#DISCOVERY_ATTACH` (UDS channel to the companion server) and `Wire/coordination` (the resolver-driven cluster channel). Server hosting is `Grpc.AspNetCore` (`api-grpc-aspnetcore.md`), never this package.
+- the UDS attach binds `GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions { HttpHandler = new SocketsHttpHandler { ConnectCallback = ... } })` where the callback dials the companion's Unix domain socket — the channel address is nominal, the socket path is binding-spec policy.
+- the `Resolver`/`ResolverFactory`/`LoadBalancer`/`Subchannel`/`SubchannelPicker` custom-extensibility surface is `Microsoft.Extensions.ServiceDiscovery`'s to own; AppHost admits balancing through the service-discovery `AddServiceDiscovery` integration and the `dns`/`static` factory config, never a hand-subclassed resolver or balancer.
+- retry/hedging (`RetryPolicy`/`HedgingPolicy`) is data-driven service config, not a second resilience path — the `Wire/outbound` `Polly.Core` hop owns cross-cutting resilience; gRPC service config carries only the wire-native retry the channel applies.
+
+[STACK]:
+- discovery attach: `Wire/outbound#DISCOVERY_ATTACH` composes `GrpcChannel.ForAddress` + `SocketsHttpHandler.ConnectCallback` for the companion UDS server (`api-grpc-aspnetcore.md` hosts the other end); the channel is one `LiveClient`/hop, never a re-minted transport.
+- coordination channel: `Wire/coordination` dials the cluster election/lock endpoint through a resolver-driven channel, the resolver supplied by `Microsoft.Extensions.ServiceDiscovery` (`api-service-discovery.md`).
+- health projection: the channel's target reachability rides the standard gRPC health service (`Grpc.AspNetCore.HealthChecks`), reaching `Wire/companion#WIRE_HEALTH` — never a bespoke channel-liveness probe.
 
 [RAIL_LAW]:
 - Package: `Grpc.Net.Client`
-- Owns: client channels, call invocation, client policy
-- Accept: measured remote execution calls
-- Reject: server hosting surface
+- Owns: outbound `GrpcChannel` construction, call invocation, and wire-native service config for the discovery-attach and coordination consumers
+- Accept: a UDS-`ConnectCallback` channel or a service-discovery-resolved cluster channel, with retry/hedging as data-driven service config
+- Reject: a server hosting surface, a hand-subclassed `Resolver`/`LoadBalancer` (ServiceDiscovery owns it), or a second resilience path duplicating the `Polly.Core` hop

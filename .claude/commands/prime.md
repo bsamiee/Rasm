@@ -17,8 +17,8 @@ Run all four in one parallel block:
 
 1. `tree -L 3 libs` — the full branch/package map with per-file size, modified-age, and git-modified columns: package rosters, index docs, thinness/staleness and uncommitted-pass signals in one view.
 2. `fd -H -t d -d 3 '^\.(planning|api)$' libs` — the scaffold census: which folders carry a `.planning/` (the lifecycle signal) and which carry an `.api/` catalog tier (a planning folder without one is a gap signal).
-3. `fd -d 1 -t f .` — root files, names only. `RASM-*` briefs/DECISIONs/SPECs are the standing campaign state; a brief is read IN FULL only when the objective names its campaign. Every other root file — central manifests, lockfiles, workspace/solution files, tool config — is an owner to know exists and never read at prime.
-4. `ls .claude/workflows/` — the durable engine roster; a file beyond the durable roster is an ephemeral mid-campaign workflow, a live-campaign signal paired with its root brief. Read the session-start git status for uncommitted `.planning`/doc concentrations — a landed-but-uncommitted pass.
+3. `fd -d 1 -t f .` — root files, names only. Root file — central manifests, lockfiles, workspace/solution files, tool config — is an owner to know exists and never read at prime.
+4. `ls .claude/workflows/` — the workflow roster, self-describing: each file's `meta` block states its own contract; a one-off mid-campaign workflow is a live-campaign signal paired with its root brief. Read the session-start git status for uncommitted `.planning`/doc concentrations — a landed-but-uncommitted pass.
 
 ## [02]-[PLANNING_LAW]
 
@@ -48,17 +48,17 @@ fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE)\.md$' 
 The session shapes and their entry rails — selected when the objective arrives, never before:
 
 | [SHAPE]                            | [ENTRY]                                                                                                            |
-| :--------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-| Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> root DECISION brief -> `rebuild` `{brief, leg}` legs against it   |
+| :--------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+| Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> root DECISION brief -> `realize` executes it; `cold-verify` gates |
 | Campaign brief authoring           | `brief` with `{targets, upstream, deep, mandate, review, gold}` — one brief or a dependency-ordered waterfall      |
-| Targeted rebuild / quality pass    | `rebuild` with `{targets, brief?, leg?}` (no brief = every targeted page hostile-rebuild)                          |
+| Targeted rebuild / quality pass    | `rebuild` with a target path, an array of paths, or `{targets}` — every targeted page hostile-rebuilt              |
 | Align / clean / hygiene            | `align-cards`, `hygiene-sweep`, `tidy-planning-docs`                                                               |
 | Idea/task pool + realization       | `ideate` (pool generation), `implement-cs`/`implement-py`/`implement-ts` (cards -> fences)                         |
 | Doctrine refining (`docs/stacks/`) | `stack-cs`/`stack-py`/`stack-ts`                                                                                   |
-| Package roster / catalog work      | `survey-packages`, `survey-gaps`, `rebuild-api`                                                                    |
-| Finalization / corrections pass    | `finalize` with a package root or folder subset (split-brain, phantoms, flow, collapse — post-build closure)      |
+| Package roster / catalog work      | `survey` (research -> admit -> catalog -> integrate, per folder), `rebuild-api`                                    |
+| Finalization / corrections pass    | `finalize` with a package root or folder subset (split-brain, phantoms, flow, collapse — post-build closure)       |
 
-A shape with no fitting durable gets an ephemeral workflow authored via `.claude/skills/workflow-creator` and deleted after landing. Legs re-run across sessions against the same brief until cold passes find nothing.
+A shape with no fitting workflow gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing. Passes re-run across sessions until cold passes find nothing.
 
 ## [05]-[CLOSE]
 

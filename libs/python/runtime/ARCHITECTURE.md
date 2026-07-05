@@ -10,23 +10,24 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 runtime/
 ├── observability/     # Local evidence production: receipts, contributor port, signals, OTLP gate
 │   ├── receipts.py    # Receipt union, DrainOutcome/DRAIN_COLUMNS/DrainReceipt[T] drain taxonomy, ReceiptContributor port, and structlog/OTel/psutil signals
-│   ├── metrics.py     # Async-observable durations/drain-counters/process-gauges over MeterProvider
-│   └── telemetry.py   # One OTLP install owner minting Resource + provider trio, profile-gated
+│   ├── metrics.py     # Async-observable durations/drain-counters/process-gauges over MeterProvider; one polymorphic Metrics.record mapping arm over INSTRUMENTS domain rows — a new domain distribution is one row + one SyncInstruments field
+│   └── telemetry.py   # One OTLP install owner minting Resource + provider trio, profile-gated; MeterProvider carries exemplar_filter=TraceBasedExemplarFilter(), the install seam arming metrics' context= exemplar correlation
 ├── reliability/       # One fault family and resilience policy every sibling returns through
 │   ├── faults.py      # BoundaryFault tagged union, latched one-shot aspect, Scope/SCOPES tracer-meter vocabulary, and one exception-to-fault boundary
 │   └── resilience.py  # Retry stamina-backed policy table, one row per retryable class
-├── transport/         # Filesystem/object-store roots, remote-AEC transports, companion server, and wire codec
+├── transport/         # Filesystem/object-store roots, remote-AEC transports, companion server, wire vocabulary, and wire codec
 │   ├── roots.py       # ResourceRoot/ResourceRef over fsspec/upath/obstore and HTTP/SSH TransportResource
-│   ├── serve.py       # ServerHost grpc.aio lifecycle, decoded Credential axis, descriptor-driven CapabilityInvoke, and cyclopts Entrypoint
-│   └── wire.py        # WireProtoCodec protobuf seam and CrdtOp union with DecompressFn-injected CrdtOpDecode
+│   ├── serve.py       # ServerHost grpc.aio lifecycle + health servicer, Route registration roster, decoded CredentialPolicy axis, per-descriptor CapabilityInvoke with FaultDetail trailer round-trip, and the cyclopts Entrypoint daemon composition root (install -> admit -> serve -> ordered receipted drain, telemetry LAST)
+│   ├── shapes.py      # PROTO_VOCABULARY wire vocabulary — sixteen service Structs (nine-field FaultDetail among them) + tessellation pair + GeometryPayload envelope family — WireU64 decimal-string decode floor, aligned() descriptor-pool drift gate, grpcio-tools _pb2 codegen contract
+│   └── wire.py        # WireProtoCodec protobuf transcode + length-prefixed frame legs and CrdtOp union with DecompressFn-injected CrdtOpDecode
 ├── execution/         # Caller-owned admission of host facts, bounded structured concurrency, and local recipe execution
-│   ├── admission.py   # RuntimeContext policy table, causal frames, and SettingsAdmission secret boundary
+│   ├── admission.py   # RuntimeContext policy table, causal frames, and SettingsAdmission SECRET_LADDER — SecretTier.cloud realized over google-cloud-secret-manager (Feature.SECRET_MANAGER + gcp_project_id gate, guarded(RetryClass.SECRET), NotFound -> Nothing miss), BasicCredential local credential cell
 │   ├── lanes.py       # LanePolicy anyio task groups and StagePlan DAG
-│   └── recipe.py      # RecipeExecution: queenbee-schema recipe runs via lbt-recipes over the lane, engine-gated, content-keyed, luigi-evidence verdicts
+│   └── recipe.py      # RecipeExecution: queenbee-schema recipe runs via lbt-recipes over the lane THREAD modality, engine-gated, content-keyed, luigi-evidence verdicts carrying parsed error_summary, contract-derived readback roster
 ├── evidence/          # Content-addressing, cross-runtime seed-parity corpus, and external-surface/structural-parsing evidence
 │   ├── identity.py    # ContentIdentity/ContentKey reproducing C# XxHash128 seed bit-identically
 │   ├── reproduction.py # SeedReproduction/CorpusFixture/ParityRow/ParityReceipt nine-row ONE_WIRE_FIXTURE_CORPUS parity fold — traversed(ACCUMULATE), 4-aspect KeyView coverage, DESIGN-PIN planned obligations, ReceiptContributor port
-│   └── evidence.py    # ApiPackage/ApiMember reflection and Structural tree-sitter queries
+│   └── evidence.py    # Evidence union — ApiCatalogue member-level distribution reflection (MemberFact rows) and GrammarRegistry tree-sitter structural scan/drift
 └── clock/             # Logical/causal time: the host-minted HLC stamp and content-stable element id
     └── clock.py       # Hlc two-half NodaTime-parity stamp, ElementId, Tenant, and CausalFrame.of
 ```
@@ -37,18 +38,18 @@ runtime/
 evidence/reproduction    ⇄  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: XxHash128 digest endianness + seed parity (CANONICAL_BYTE_IDENTITY)
 evidence/reproduction    ⇄  csharp:Rasm.Element/Projection     # [CONTENT_KEY]: MATERIAL_LAYER_GOLDEN float-bearing IfcMaterialLayer parity ([H7]) — decode the producer reference, never re-mint
 clock/clock              ←  csharp:Rasm.AppHost/Runtime        # [PORT_RECORDS]: Hlc two-half NodaTime stamp single mint
-transport/wire           ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: WireProtoCodec PROTO_VOCABULARY transcode
+transport/shapes         ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: PROTO_VOCABULARY 16-shape vocabulary + descriptor_pool drift gate (single-mint decode)
+transport/wire           ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: WireProtoCodec transcode + length-prefixed frame legs
 transport/wire           ⇄  csharp:Rasm.Persistence/Version    # [WIRE]: CrdtOp MessagePack union decode (DecompressFn seam)
-execution/admission      ←  csharp:Rasm.AppHost/Runtime        # [WIRE]: CredentialPem
+transport/wire           ⇄  csharp:Rasm.Persistence/Sync       # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
+transport/serve          ←  csharp:Rasm.AppHost/Runtime        # [WIRE]: CredentialPolicy five-row axis decode (UDS loopback admit)
 transport/serve          →  csharp:Rasm.AppHost/Observability  # [WIRE]: W3C trace-context inbound extraction
-transport/serve          ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: PROTO_VOCABULARY
 transport/serve          ⇄  csharp:Rasm.AppHost/Agent          # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
 transport/serve          ⇄  csharp:Rasm.AppHost/Runtime        # [WIRE]: HLC two-half stamp + Tenant partition
-transport/serve          ⇄  csharp:Rasm.Persistence/Version    # [WIRE]: CrdtOpWire MessagePack union decode
-transport/serve          ⇄  csharp:Rasm.Persistence/Sync       # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
 observability/telemetry  ⇄  csharp:Rasm.AppHost/Observability  # [TRANSPORT]: trace-context + OTLP egress
 transport/roots          ⇄  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
-transport/serve          ←  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: gRPC ServerHost / CRDT MessagePack
+transport/serve          ←  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: gRPC ServerHost
+transport/shapes         ←  python:geometry/mesh               # [WIRE]: TessellationRequest/TessellationReceipt registry rows bound by symbol (mesh/serve servicer)
 evidence                 ←  python:geometry/mesh               # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes with policy seed
 evidence/identity        →  python:data/tabular                # [CONTENT_KEY]: ContentIdentity content-key
 observability            ←  python:artifacts/receipt           # [RECEIPT]: ArtifactReceipt receipt-facts contribution

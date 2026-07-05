@@ -131,7 +131,7 @@ Row-oriented and self-describing ingress/egress codecs the columnar set lacked.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `Speckle.Sdk`
 - `Speckle.Objects`
-- `PollinationSDK`
+- `PollinationSDK` (cloud-run transport, sidecar-only — the durable half lands as `Version/provenance#CAUSAL_DAG` `CloudRunFact` W3C-PROV attribution rows via `CausalDag.Derive`; artifact bytes ride `Store/blobstore`; the vendored RestSharp/Newtonsoft fork closure never loads in-Rhino)
 
 [STREAMING_EGRESS]:
 - `Confluent.Kafka`

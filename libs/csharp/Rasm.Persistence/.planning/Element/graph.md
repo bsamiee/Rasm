@@ -94,7 +94,9 @@ public static class ElementSchema {
         opts.UseSystemTextJsonForSerialization(ElementJson.Options, EnumStorage.AsString, Casing.CamelCase);
         opts.RegisterValueType<ModelId>();
         opts.RegisterValueType<NodeId>();
-        opts.Schema.For<NameLineage>().Index(static l => l.Model);
+        // Composite computed index: the prior-generation read is `(Model, max Version)`, so a Model-only
+        // index would force a per-model scan+sort — the multi-member overload serves it index-only.
+        opts.Schema.For<NameLineage>().Index([static l => l.Model, static l => l.Version]);
         // ONE registration: `GraphProjection` is the self-aggregating inline snapshot — its `Create`/`Apply`
         // convention methods fold the stream into the document written in the SAME append transaction, so a
         // read-your-writes interactive query (`Query/lane#READ_ROUTING`) reads the head with no daemon lag.
@@ -230,7 +232,7 @@ public readonly record struct GraphReceipt(string Slot, ModelId Model, long Vers
 // `TopoName` pairing as STRING pairs co-committed with the delta — a durable projection, never the kernel
 // interior types crossing a wire. Distinct from the merge-consumed per-node `NamingHash` CONTENT receipt.
 // `Id` is the Marten document identity (v7, insert-local); the prior-generation read keys `(Model, max
-// Version)` through the `Configure` computed index.
+// Version)` through the `Configure` composite `(Model, Version)` computed index, index-served end to end.
 public sealed record NameLineage(ModelId Model, long Version, HashMap<string, string> Track) {
     public Guid Id { get; init; } = Guid.CreateVersion7();
 }
@@ -373,7 +375,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand RemoteStore  = new(5400, "Store/blobstore#RemoteStoreFault");
     public static readonly FaultBand Embedded     = new(7710, "Store/provisioning#EmbeddedFault (absorbs the loose 7701/7702)");
     public static readonly FaultBand Sync         = new(8250, "Version/ledger#SyncFault");
-    public static readonly FaultBand Commit       = new(8260, "Version/commits#CommitFault + CrdtWireFault (minted)");
+    public static readonly FaultBand Commit       = new(8260, "Version/commits#CommitFault (minted; the wire-decode arm is DecodeDrift/Category=Wire — no second union)");
     public static readonly FaultBand Egress       = new(8270, "Version/egress#EgressFault");
     public static readonly FaultBand Retention    = new(8280, "Version/retention#RetentionFault");
     public static readonly FaultBand Recovery     = new(8290, "Version/recovery#RecoveryFault");

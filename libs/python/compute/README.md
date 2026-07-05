@@ -47,6 +47,9 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `optimistix`
 - `diffrax`
 - `equinox`
+- `findiff`
+- `quadax`
+- `interpax`
 
 [INVERSE_DESIGN]:
 - `optimistix`
@@ -105,10 +108,12 @@ Cross-cutting Python substrate libraries this folder consumes; canonical registr
 - `expression`
 - `msgspec`
 - `beartype`
-- `pydantic`
-
-[CONCURRENCY]:
-- `anyio`
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
+
+[FIELD_DATA]:
+- `xarray`
+
+[RESOURCES]:
+- `universal-pathlib`

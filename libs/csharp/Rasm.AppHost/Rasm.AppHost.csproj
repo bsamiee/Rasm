@@ -4,8 +4,13 @@
         <CspScope>Composition</CspScope>
     </PropertyGroup>
 
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+    </ItemGroup>
+
     <ItemGroup Label="Runtime Spine">
         <PackageReference Include="AspNetCore.HealthChecks.Kafka" />
+        <PackageReference Include="AspNetCore.HealthChecks.Nats" />
         <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
         <PackageReference Include="AspNetCore.HealthChecks.Redis" />
         <PackageReference Include="AspNetCore.HealthChecks.System" />
@@ -14,6 +19,8 @@
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
         <PackageReference Include="Microsoft.AspNetCore.Authorization" />
+        <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
+        <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="Microsoft.Extensions.Configuration" />
@@ -92,8 +99,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Sandbox Live Wire">
+        <PackageReference Include="BACnet" />
         <PackageReference Include="FluentModbus" />
         <PackageReference Include="MQTTnet" />
+        <PackageReference Include="MTConnect.NET-Common" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" />
         <PackageReference Include="System.IO.Ports" />

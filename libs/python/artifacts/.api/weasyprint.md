@@ -141,6 +141,21 @@ These keywords are the variant/forms/tagging/optimization policy. Archival profi
 |  [18]   | `output_intent`         | ICC output-intent profile for color-managed PDF/A                  |
 |  [19]   | `cache`                 | shared image/render cache dict across documents                    |
 
+[ENTRYPOINT_SCOPE]: CSS Paged Media running-content surface
+- rail: pdf — WeasyPrint honors CSS Paged Media Level 3 + GCPM; these are CSS declarations in a `CSS(string=...)`/`stylesheets=` sheet the render consumes, not Python calls. This is the surface the `document/emit#EMIT` V12 rebuild composes for running heads/feet, section-aware headers, and cross-reference page numbers — the static one-string `onPage` furniture dies here.
+
+| [INDEX] | [SURFACE]                                          | [CSS_SHAPE]                                                                                       | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `@page` rule + page selectors                      | `@page { size: A4; margin: 2cm } @page :first {…} @page :left/:right/:blank {…}`                  | per-page geometry and spread-aware margins; `:first`/`:left`/`:right`/`:blank` select the page class |
+|  [02]   | named pages                                        | `.chapter { page: chapter } @page chapter { … }`                                                  | assign an element run to a named `@page` block — per-section page masters, never a forked writer |
+|  [03]   | `@page` margin boxes                               | `@page { @top-center { content: … } @bottom-right { content: … } }` (the 16 boxes: 4 corners + `@top/bottom-left/center/right` + `@left/right-top/middle/bottom`) | running header/footer content anchored to any margin slot — the running-content furniture |
+|  [04]   | `string-set` + `string()`                          | `h1 { string-set: chaptitle content() } @page { @top-left { content: string(chaptitle, first) } }` | capture running text off a heading and echo it in a margin box — section-aware running heads (`first`/`start`/`last`/`first-except` picks the value valid for the page) |
+|  [05]   | `target-counter()` / `target-text()`               | `a::after { content: target-counter(attr(href url), page) }` / `content: target-text(attr(href url))` | resolve a cross-reference to its target's page number or text — live "see page N" / table-of-contents page references |
+|  [06]   | page counters                                      | `content: counter(page)` / `counter(pages)` / `counter(page, lower-roman)`                        | current page number and total page count in a margin box, any list-style numbering |
+|  [07]   | `leader()`                                         | `content: target-text(...) leader('.') target-counter(...)`                                       | dotted-leader fill between a TOC label and its page number |
+|  [08]   | CSS counters + `@counter-style`                    | `counter-reset` / `counter-increment` / `counters(name, sep)`; `@counter-style` (or the `CounterStyle` registry) | figure/section auto-numbering and custom marker styles |
+|  [09]   | `bookmark-label`/`bookmark-level`/`bookmark-state` | `h1 { bookmark-level: 1; bookmark-label: content() }`                                             | drive the PDF outline tree from CSS, the declarative peer of `Document.make_bookmark_tree` |
+
 [ENTRYPOINT_SCOPE]: font, counter, and resource resolution
 - rail: pdf — `weasyprint.text.fonts`, `weasyprint.urls`
 
@@ -163,8 +178,10 @@ These keywords are the variant/forms/tagging/optimization policy. Archival profi
 - variant axis: archival/accessible output is a `**options` policy — `pdf_variant` selects PDF/A (`pdf/a-1b`..`pdf/a-4`) or PDF/UA (`pdf/ua-1`), `pdf_tags` emits the structure tree, `pdf_forms` emits AcroForm fields, `output_intent` supplies the ICC profile PDF/A requires; never a parallel writer per profile
 - pydyf backend: WeasyPrint 69 generates PDF directly through `pydyf` — there is no cairo dependency. The `finisher=` callback receives `(document, pydyf.PDF)` for post-layout object/stream mutation (custom annotations, page-piece metadata)
 - native surface: text layout/shaping uses `pango`/`harfbuzz`/`fontconfig` and `pillow` for raster decode, loaded via cffi at render time; PDF assembly itself is pure Python
+- paged-media surface: running heads/feet, section-aware headers, and cross-reference page numbers are CSS Paged Media (`@page` margin boxes) + GCPM (`string-set`/`string()`, `target-counter()`/`target-text()`, `leader()`) declarations in the supplied stylesheet — WeasyPrint resolves them at layout. The `document/emit#EMIT` running-content furniture is authored as CSS in a `CSS(string=...)` sheet threaded through `stylesheets=`, never a per-page Python `onPage` callback or a hand-drawn header string; a section-aware header is `h1 { string-set: … content() }` echoed by `@top-center { content: string(…) }`, and a "see page N" reference is `target-counter(attr(href url), page)`
 
 [LOCAL_ADMISSION]:
+- Author running heads/feet, TOC page references, and section-aware headers as CSS Paged Media (`@page` margin boxes, `string-set`/`string()`, `target-counter()`/`leader()`) in a supplemental `CSS` sheet — never a per-page `finisher`/`onPage` callback drawing header text, and never a static one-string header baked at build time.
 - Build with one source argument and an explicit `base_url`; never concatenate relative paths into the HTML string.
 - Use `write_pdf(target=None)` to obtain PDF `bytes` for an in-memory pipeline; pass a path or file object only for direct file output.
 - Share one `FontConfiguration` per render and register `@font-face` rules through it; do not mutate global font state.

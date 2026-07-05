@@ -66,11 +66,14 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
+- `Microsoft.Diagnostics.NETCore.Client` — process-dump + EventPipe capture for the support-bundle `[DUMP_ADMISSION]` fan.
+- `Microsoft.Diagnostics.Tracing.TraceEvent` — the EventPipe/ETW event-stream decoder consuming the diagnostics-client session.
 - `AspNetCore.HealthChecks.NpgSql`
 - `AspNetCore.HealthChecks.Redis`
 - `AspNetCore.HealthChecks.System`
 - `AspNetCore.HealthChecks.Uris`
 - `AspNetCore.HealthChecks.Kafka`
+- `AspNetCore.HealthChecks.Nats` — the `[V6]` NATS broker-anchor probe row binding the pooled `NATS.Net` connection.
 - `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry`
@@ -130,6 +133,8 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `OPCFoundation.NetStandard.Opc.Ua.PubSub`
 - `MQTTnet`
 - `FluentModbus`
+- `BACnet` — building-automation transport (ela-compil `System.IO.BACnet`); one `bacnet` `ExternalTransport` row feeding the twin-calibration lane.
+- `MTConnect.NET-Common` — machine-tool connectivity model slice (TrakHound); one `mtconnect` `ExternalTransport` row feeding Fabrication tool-life/probing.
 - `System.IO.Ports`
 
 ## [03]-[SUBSTRATE_PACKAGES]

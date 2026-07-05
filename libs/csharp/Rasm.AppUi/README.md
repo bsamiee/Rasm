@@ -55,7 +55,6 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Avalonia.Controls.ColorPicker`
 - `Avalonia.AvaloniaEdit`
 - `AvaloniaEdit.TextMate`
-- `Avalonia.Markup.Xaml.Loader`
 
 [REACTIVE]:
 - `ReactiveUI`
@@ -104,7 +103,6 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `AsyncImageLoader.Avalonia`
 - `FluentIcons.Avalonia`
 - `FluentIcons.Common`
-- `HotAvalonia`
 - `Markdig`
 - `PanAndZoom`
 - `Wacton.Unicolour`
@@ -124,7 +122,6 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 
 [DRAFTING_EXPORT]:
 - `ACadSharp`
-- `netDxf`
 - `DocumentFormat.OpenXml`
 - `PDFsharp`
 - `PDFsharp-MigraDoc`
@@ -148,6 +145,14 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 [COLLABORATION_LOCALE]:
 - `LoroCs`
 - `MessageFormat`
+
+[DEV_LOOP]:
+- `ProDiagnostics`
+- `HotAvalonia`
+- `Avalonia.Markup.Xaml.Loader`
+
+> [!NOTE]
+> The Dev Loop family binds `Debug`-only with `PrivateAssets="all"` — none flows transitively to a downstream consumer. `ProDiagnostics` (MIT, wieslawsoltes) is the maintained Avalonia-12 fork of `Avalonia.Diagnostics` (the first-party `Avalonia.Diagnostics` line is feed-dead at 11.3.x with no Avalonia-12 asset): `DevToolsExtensions.AttachDevTools` mounts the runtime visual/logical-tree, live property/style, routed-event, and layout/renderer-overlay inspector `Diagnostics/devloop.md` composes (`.api/api-prodiagnostics.md`). `HotAvalonia` is the XAML hot-reload agent and `Avalonia.Markup.Xaml.Loader` its runtime-inflation substrate, both dev-loop-scoped.
 
 > [!NOTE]
 > The `Semi.Avalonia` design-token theme is the active layer over the retained `Avalonia.Themes.Fluent` floor — its base `SemiTheme` plus the `DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit` skins restyle the admitted control roster to one token system the `Wacton.Unicolour` OKLCH pipeline materializes into the `ControlIntent` + `Theme/tokens` vocabulary, never displacing the Fluent-templated `bodong.PropertyGrid`/`DialogHost`. `Irihi.Ursa` adds the extended-control families the curated set lacks — `NavMenu`, `Timeline`, `Toast`/`Notification`, `Loading`/`Skeleton`, `Banner`, `Form`, `Drawer` — themed by `Irihi.Ursa.Themes.Semi` and bridged to the admitted ReactiveUI MVVM rail through `Irihi.Ursa.ReactiveUIExtension`. `NodeEditorAvalonia` owns the node/pin/connector graph-editing canvas inside a `PanAndZoom` `ZoomBorder` for the `Shell/Editing` parametric and dependency-graph surfaces (ReactiveUI view-models over the framework-agnostic `INode`/`IConnector` model). `Mapsui.Avalonia12` is the interactive slippy-map / basemap viewport rendering through the admitted `SkiaSharp` + `Avalonia.Skia` and binding the Bim-owned `NetTopologySuite` so GDAL/OGR features draw as overlays beside the `Wgpu` 3D viewport. `LoroCs` is the Eg-walker/Fugue sequence+map+text+movable-list+tree CRDT engine backing the notebook/annotation/table collaboration op-log and presence (`runtimes/osx-arm64/native/loro.dylib`), retiring the bespoke `NotebookCrdt` LWW algebra; `MessageFormat` is the managed ICU MessageFormat engine (CLDR cardinal+ordinal `plural`/`selectordinal`/`select`) materializing `ResolvedLocale.Plural` over the resx pattern vocabulary. `PDFsharp` + `PDFsharp-MigraDoc` add the structured vector-PDF page model and the auto-paginated flow-report DOM the OOXML/DXF/raster export set lacked.

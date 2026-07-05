@@ -30,14 +30,13 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `Clipper2`
 
 [CAD_IMPORT]:
-- `ACadSharp` — DWG/DXF read at the `Rasm.Bim`-owned interchange seam, referenced directly for 2D profile ingress; write is the AppUi `netDxf` leg.
+- `ACadSharp` — DWG/DXF read at the `Rasm.Bim`-owned interchange seam, referenced directly for 2D profile ingress; DXF/DWG WRITE is the AppUi two-format ACadSharp drafting leg, never a Fabrication arm.
 
 [STEEL_FABRICATION_EXCHANGE]:
 - `DSTV.Net` — DSTV/NC1 steel fabrication exchange for profile-cut programs, saw/drill/punch data, and shop-machine handoff beside the neutral G-code AST.
 
 [RECT_PACKING]:
-- `RectpackSharp`
-- `RectangleBinPack.CSharp` — axis-aligned cutting-stock suite behind `StockNest.Pack`: the YIELD concern, disjoint from the `RectpackSharp` fast path.
+- `RectangleBinPack.CSharp` — axis-aligned cutting-stock suite behind `Nesting/stock` `StockNest.Pack` (the five packers max-rects/skyline/guillotine/shelf/mass-cut plus the heuristic sweep); ALSO owns the `Nesting/nfp` rectangle fast-path via `MaxRectsBinPack`, absorbing the retired `RectpackSharp` try-every-heuristic sweep as one `MaxRectsBinPack.Insert` fold.
 
 [ARC_FIT]:
 - `geometry3Sharp` — the SOLE biarc/curve-fit owner, scoped to `g3.BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d`; the mesh-boolean half stays firewalled.
@@ -51,8 +50,14 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 [VORONOI_TESSELLATION]:
 - `SharpVoronoiLib` — 2D Fortune Voronoi: clipping, border closure, Lloyd relaxation, Delaunay dual; point-site only — medial axis stays `Toolpath/skeleton`.
 
+[SURFACE_ENGINE]:
+- `OpenCAMLib` — analytic 3-axis cutter-location engine behind `Toolpath/surface`: drop-cutter Z-sampling, push-cutter fibers, waterline Z-level loops over arbitrary `MillingCutter` forms; consumed through an `extern "C"` C-shim over the SHARED `libocl` (LGPL-2.1 dynamic-link), path layout stays kernel on-mesh.
+
 [IMPLICIT_VOXEL]:
 - `PicoGK` — LEAP71 implicit/SDF/voxel kernel: TPMS/lattice infill, SLA/DLP layer rasterization, SDF Booleans, `OpenVdbFile`; companion-only, never in-Rhino.
+
+[ADDITIVE_3MF]:
+- `lib3mf` — 3MF Consortium reference reader/WRITER behind `Additive/production`: core/production/beam-lattice/slice egress; the PicoGK `Lattice` beam/node set maps directly onto `CBeamLattice`. Vendored ACT-generated binding + RID-keyed native (BSD-2), no NuGet.
 
 [TOOL_DATA_MODEL]:
 - `MTConnect.NET-Common` — TrakHound ISO-13399 cutting-tool model behind the `Magazine`/`ToolAssembly` catalogue; feeds/speeds data stays a recorded gap.
@@ -61,8 +66,9 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `OcctNet.Wrapper` — managed STEP/IGES B-rep ingress to `OcctShape`/`OcctMesh`; single-shape import only, no TKHLR/TKXCAF — HLR stays `Posting/projection`.
 
 [REJECTED]:
-- `netDxf` — an `Rasm.AppUi` DXF-write dependency, not a Fabrication rail; rejected as a second reader — DXF-only, no `Spline`/bulge parity with `ACadSharp`.
-- `MaxRect`, `BinPack.NET` — rejected rectangle packers: AABB-only, no true-shape NFP feasibility; superseded by `RectpackSharp` as the fast-path arm.
+- `netDxf` — an `Rasm.AppUi` DXF-write dependency, not a Fabrication rail; rejected as a second reader (DXF-only, no `Spline`/bulge parity with `ACadSharp`) and purged repo-wide — the drafting WRITE leg is the AppUi two-format ACadSharp leg.
+- `RectpackSharp` — removed as redundant: a strict subset of `RectangleBinPack.CSharp` (`PackingHints.FindBest` = the try-every-heuristic sweep over one `MaxRectsBinPack.Insert` fold); the `Nesting/nfp` fast-path re-homes to `RectangleBinPack.CSharp` `MaxRectsBinPack`.
+- `MaxRect`, `BinPack.NET` — rejected rectangle packers: AABB-only, no true-shape NFP feasibility; superseded by the `RectangleBinPack.CSharp` `MaxRectsBinPack` fast-path arm.
 - `geometry4Sharp` — rejected second mesh/curve fork: the pinned `geometry3Sharp` carries the identical `g3` biarc surface; the rail composes the pin.
 
 ## [03]-[SUBSTRATE_PACKAGES]
@@ -75,10 +81,22 @@ Substrate cards this folder consumes from the registry. Full substrate law and p
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:
-- `System.IO.Hashing`
+- `System.IO.Hashing` — reached ONLY through the kernel `ContentHash.Of` single mint; every egress content key seeds there.
+- `NodaTime` — `Instant` stamps on traveler documents, probing receipts, tool-life schedules, and SPC control points.
 
 [NUMERIC_SUBSTRATE]:
-- `UnitsNet`
+- `UnitsNet` — cut-parameter boundary + `Spec/tolerance` quantities (Speed/Length/RotationalSpeed/Pressure + Force/Power/Temperature/Angle/Torque overlay).
+- `MathNet.Numerics` — `Spec/capability` distribution-fit + Monte-Carlo tolerance-stackup (first Fabrication consumer; the streaming-moment half stays kernel `Domain/stats`).
+
+[SIMD_SPANS]:
+- `System.Numerics.Tensors` — SIMD-lower the hot sampling folds (engagement, scallop, NFP-sweep, capability-batch) across `Toolpath/surface`+`motion`, `Nesting/nfp`, `Spec/capability`.
+- `CommunityToolkit.HighPerformance` — `Span2D`/`Memory2D` 2D grids for grayscale/uncut/engagement rasters across `Additive/implicit`, `Verify/removal`, `Toolpath/surface`.
+
+[MAPPING]:
+- `Riok.Mapperly` — zero-reflection source-generated projections: DSTV-record→`Loop`, MTConnect asset rows, and the `extern alias R3` Rhino3dm boundary seam (`Kinematics/cell`, `Tooling/magazine`, `Verify/probing`, `Ingress/steel`).
+
+[GRAPH]:
+- `QuikGraph` — the `Fixturing/setups` operation-precedence + datum-lineage graph (the magazine-eviction greedy stays hand-rolled).
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.core`

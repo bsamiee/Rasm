@@ -1,21 +1,14 @@
 # [RASM_APPUI_API_DRAFTING_EXPORT]
 
-`ACadSharp`, `netDxf`, and `DocumentFormat.OpenXml` supply the drafting and sheet export rail: DWG/DXF round-trip through `CadDocument`/`DxfDocument` with typed entity, table, and IO surfaces, and OOXML document creation and editing through `WordprocessingDocument`, `SpreadsheetDocument`, and `PresentationDocument`.
+`ACadSharp` (WRITE-scoped) and `DocumentFormat.OpenXml` supply the drafting + document export rail: DWG/DXF/SVG emit through ONE `CadDocument` typed-entity fold (`DwgWriter`/`DxfWriter`/`SvgWriter`), and OOXML docx/xlsx/pptx authoring through `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument`. `ACadSharp` is AppUi's WRITE authority only — `Render/drafting.md` composes the two-format write leg (DWG + DXF over one document); its READ surface (`DwgReader`/`DxfReader` and the reader configurations) is Bim-owned (`Rasm.Bim` is the CAD READ authority) and its rows live in the Bim catalog, not here. `DocumentFormat.OpenXml`'s part-graph writers are the OOXML arm of `Document/export.md`. `netDxf` is REMOVED — archived upstream (haplokuon/netDxf, feed-latest `2023.11.10`, a `net6.0` asset under the net10 consumer; `netDxf.netstandard` a distinct abandoned `3.0.1` id): the DXF concern lands on the stronger admitted owner's `DxfWriter`, and the DXF round-trip fidelity probe (dimensions/hatches/leaders/blocks against the drafting entity set) confirms the removal — a failed entity class re-pins `netDxf` as a recorded exception, so capability never deletes.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `ACadSharp`
-- package: `ACadSharp` (3.6.35, MIT)
+[PACKAGE_SURFACE]: `ACadSharp` (write-scoped)
+- package: `ACadSharp` (3.6.35, MIT) — shared central pin (`[BIM]` group); Bim owns READ, AppUi owns WRITE
 - assembly: `ACadSharp`
-- namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO`, `ACadSharp.IO.SVG`
+- namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO` (`DwgWriter`/`DxfWriter`), `ACadSharp.IO.SVG` (`SvgWriter`)
 - asset: managed runtime library (`lib/net9.0` binds the `net10.0` consumer — highest available TFM); geometry points are `CSMath.XYZ`/`XY` (depends `CSMath`, `CSUtilities`)
-- rail: drafting
-
-[PACKAGE_SURFACE]: `netDxf`
-- package: `netDxf` (2023.11.10, MIT) — the maintained `netDxf.netstandard`/Reloaded fork on the `netDxf` id
-- assembly: `netDxf`
-- namespace: `netDxf`, `netDxf.Entities`, `netDxf.Tables`, `netDxf.IO`
-- asset: managed runtime library (`lib/net6.0` binds the `net10.0` consumer — highest available TFM; `netstandard2.0` fallback); geometry points are `netDxf.Vector2`/`Vector3`
 - rail: drafting
 
 [PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
@@ -23,7 +16,7 @@
 - assembly: `DocumentFormat.OpenXml`
 - namespace: `DocumentFormat.OpenXml.Packaging`, `.Wordprocessing`, `.Spreadsheet`, `.Presentation`
 - asset: managed runtime library (`lib/net10.0` binds the consumer directly)
-- rail: drafting
+- rail: document-export
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -36,14 +29,13 @@
 |  [02]   | `CadObject`         | object base        | graph node              |
 |  [03]   | `CadSummaryInfo`    | metadata record    | document metadata       |
 |  [04]   | `CadSystemVariable` | system variable    | drawing header variable |
-|  [05]   | `ACadVersion`       | version enum       | DWG format selector     |
+|  [05]   | `ACadVersion`       | version enum       | DWG format selector (version-policy row) |
 |  [06]   | `Color`             | color value        | ACI and true-color      |
 |  [07]   | `Transparency`      | transparency value | alpha channel           |
 |  [08]   | `LineWeightType`    | lineweight enum    | pen weight vocabulary   |
 |  [09]   | `ObjectType`        | object type enum   | entity discriminant     |
-|  [10]   | `DwgPreview`        | preview image      | DWG thumbnail           |
 
-[PUBLIC_TYPE_SCOPE]: ACadSharp entity family
+[PUBLIC_TYPE_SCOPE]: ACadSharp entity family (the write-fold content)
 - rail: drafting
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [RAIL]                |
@@ -63,7 +55,7 @@
 |  [13]   | `Mesh`       | mesh entity       | 3D mesh               |
 |  [14]   | `Viewport`   | viewport entity   | paper-space viewport  |
 
-[PUBLIC_TYPE_SCOPE]: ACadSharp table and IO family
+[PUBLIC_TYPE_SCOPE]: ACadSharp table and WRITE-IO family
 - rail: drafting
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                |
@@ -73,52 +65,14 @@
 |  [03]   | `TextStyle`              | table entry   | text style definition |
 |  [04]   | `DimensionStyle`         | table entry   | dimension style       |
 |  [05]   | `BlockRecord`            | table entry   | block registry        |
-|  [06]   | `DwgReader`              | IO reader     | DWG parse entry       |
-|  [07]   | `DwgWriter`              | IO writer     | DWG emit entry        |
-|  [08]   | `DxfReader`              | IO reader     | DXF parse entry       |
-|  [09]   | `DxfWriter`              | IO writer     | DXF emit entry        |
-|  [10]   | `SvgWriter`              | IO writer     | SVG emit entry        |
-|  [11]   | `CadFileFormat`          | format enum   | file format selector  |
-|  [12]   | `CadReaderConfiguration` | reader config | read options          |
-|  [13]   | `DwgReaderConfiguration` | reader config | DWG read options      |
-|  [14]   | `DxfWriterConfiguration` | writer config | DXF write options     |
-
-[PUBLIC_TYPE_SCOPE]: netDxf document and entity family
-- rail: drafting
-
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]      | [RAIL]                |
-| :-----: | :------------- | :----------------- | :-------------------- |
-|  [01]   | `DxfDocument`  | document root      | DXF drawing container |
-|  [02]   | `DxfObject`    | object base        | graph node            |
-|  [03]   | `AciColor`     | color value        | ACI palette entry     |
-|  [04]   | `Lineweight`   | lineweight value   | pen weight            |
-|  [05]   | `Transparency` | transparency value | alpha channel         |
-|  [06]   | `XData`        | extended data      | custom object data    |
-|  [07]   | `Matrix2`      | 2D matrix value    | transform             |
-|  [08]   | `Matrix4`      | 4D matrix value    | transform             |
-|  [09]   | `Vector3`      | 3D vector value    | coordinate            |
-
-[PUBLIC_TYPE_SCOPE]: netDxf entity and failure family
-- rail: drafting
-
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]     | [RAIL]               |
-| :-----: | :-------------------------------- | :---------------- | :------------------- |
-|  [01]   | `EntityObject`                    | entity base       | entity root          |
-|  [02]   | `Line`                            | geometry entity   | line segment         |
-|  [03]   | `Arc`                             | geometry entity   | arc segment          |
-|  [04]   | `Circle`                          | geometry entity   | circle               |
-|  [05]   | `Spline`                          | geometry entity   | NURBS spline         |
-|  [06]   | `Polyline`                        | geometry entity   | polyline family      |
-|  [07]   | `Hatch`                           | geometry entity   | hatch fill           |
-|  [08]   | `MText`                           | text entity       | multi-line text      |
-|  [09]   | `Insert`                          | block entity      | block reference      |
-|  [10]   | `Mesh`                            | mesh entity       | 3D mesh              |
-|  [11]   | `Dimension`                       | annotation entity | dimension base       |
-|  [12]   | `Viewport`                        | viewport entity   | paper-space viewport |
-|  [13]   | `DxfVersionNotSupportedException` | read failure      | unsupported version  |
+|  [06]   | `DwgWriter`              | IO writer     | DWG emit entry        |
+|  [07]   | `DxfWriter`              | IO writer     | DXF emit entry        |
+|  [08]   | `SvgWriter`              | IO writer     | SVG emit entry        |
+|  [09]   | `DxfWriterConfiguration` | writer config | DXF write options     |
+|  [10]   | `CadFileFormat`          | format enum   | file format selector  |
 
 [PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml document packages
-- rail: drafting
+- rail: document-export
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [RAIL]            |
 | :-----: | :--------------------------- | :------------- | :---------------- |
@@ -131,7 +85,7 @@
 |  [07]   | `OpenXmlPackage`             | package base   | package root base |
 
 [PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml part and content-element family
-- rail: drafting
+- rail: document-export
 - namespace: `DocumentFormat.OpenXml.Packaging` (parts), `DocumentFormat.OpenXml.Spreadsheet`, `DocumentFormat.OpenXml.Wordprocessing`
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]          | [RAIL]                                 |
@@ -151,55 +105,32 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: ACadSharp read and write operations
+[ENTRYPOINT_SCOPE]: ACadSharp WRITE operations — one `CadDocument` fold, three format writers
 - rail: drafting
 
 | [INDEX] | [SURFACE]                                          | [SURFACE_ROOT] | [RAIL]              |
 | :-----: | :------------------------------------------------- | :------------- | :------------------ |
-|  [01]   | `DwgReader(string\|Stream, NotificationEventHandler?)` + `.Configuration` (`DwgReaderConfiguration`) | `DwgReader` | DWG open (config is a property) |
-|  [02]   | `Read()` / static `DwgReader.Read(string\|Stream, DwgReaderConfiguration, NotificationEventHandler?)` | `DwgReader` | DWG document parse |
-|  [03]   | `DxfReader(string\|Stream, NotificationEventHandler?)` + `.Configuration` (`DxfReaderConfiguration`) | `DxfReader` | DXF open (config is a property) |
-|  [04]   | `Read()` / static `DxfReader.Read(string\|Stream, DxfReaderConfiguration, NotificationEventHandler?)` | `DxfReader` | DXF document parse |
-|  [05]   | static `DwgWriter.Write(string\|Stream, CadDocument, DwgWriterConfiguration?, NotificationEventHandler?)` | `DwgWriter` | one-call DWG emit |
-|  [06]   | static `DxfWriter.Write(string\|Stream, CadDocument, bool binary, DxfWriterConfiguration?, NotificationEventHandler?)` | `DxfWriter` | one-call DXF emit |
-|  [07]   | `new DwgWriter(string\|Stream, CadDocument)` + `.Configuration` + `Write()` | `DwgWriter` | instance DWG emit (reusable config) |
-|  [08]   | `new DxfWriter(string\|Stream, CadDocument, bool binary = false)` + `.Configuration` + `Write()` | `DxfWriter` | instance DXF emit (binary at ctor) |
-|  [09]   | `new SvgWriter(string\|Stream, CadDocument)` + `.Configuration` (`SvgConfiguration`) + `Write()` | `SvgWriter` | SVG emit (`SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`) |
-
-[ENTRYPOINT_SCOPE]: netDxf document round-trip operations
-- rail: drafting
-
-| [INDEX] | [SURFACE]                          | [SURFACE_ROOT] | [RAIL]              |
-| :-----: | :--------------------------------- | :------------- | :------------------ |
-|  [01]   | `DxfDocument.Load(string)`         | `DxfDocument`  | file load           |
-|  [02]   | `DxfDocument.Load(Stream)`         | `DxfDocument`  | stream load         |
-|  [03]   | `Save(string)`                     | `DxfDocument`  | text file emit      |
-|  [04]   | `Save(string, isBinary)`           | `DxfDocument`  | binary/text emit    |
-|  [05]   | `Save(Stream)`                     | `DxfDocument`  | stream emit         |
-|  [06]   | `DxfDocument(DxfVersion)`          | `DxfDocument`  | versioned construct |
-|  [07]   | `Entities.*` collections           | `DxfDocument`  | entity access       |
-|  [08]   | `Layers` / `TextStyles` / `Blocks` | `DxfDocument`  | table access        |
+|  [01]   | static `DwgWriter.Write(string\|Stream, CadDocument, DwgWriterConfiguration?, NotificationEventHandler?)` | `DwgWriter` | one-call DWG emit |
+|  [02]   | static `DxfWriter.Write(string\|Stream, CadDocument, bool binary, DxfWriterConfiguration?, NotificationEventHandler?)` | `DxfWriter` | one-call DXF emit (binary/text) |
+|  [03]   | `new DwgWriter(string\|Stream, CadDocument)` + `.Configuration` + `Write()` | `DwgWriter` | instance DWG emit (reusable config) |
+|  [04]   | `new DxfWriter(string\|Stream, CadDocument, bool binary = false)` + `.Configuration` + `Write()` | `DxfWriter` | instance DXF emit (binary at ctor) |
+|  [05]   | `new SvgWriter(string\|Stream, CadDocument)` + `.Configuration` (`SvgConfiguration`) + `Write()` | `SvgWriter` | SVG emit (`SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`) |
 
 [ENTRYPOINT_SCOPE]: DocumentFormat.OpenXml package factory operations
-- rail: drafting
+- rail: document-export
 
 | [INDEX] | [SURFACE]                                    | [SURFACE_ROOT]           | [RAIL]           |
 | :-----: | :------------------------------------------- | :----------------------- | :--------------- |
 |  [01]   | `Create(string, WordprocessingDocumentType)` | `WordprocessingDocument` | create docx      |
 |  [02]   | `Create(Stream, WordprocessingDocumentType)` | `WordprocessingDocument` | stream create    |
 |  [03]   | `Open(string, isEditable)`                   | `WordprocessingDocument` | open docx        |
-|  [04]   | `Open(Stream, isEditable)`                   | `WordprocessingDocument` | stream open      |
-|  [05]   | `CreateFromTemplate(string)`                 | `WordprocessingDocument` | template create  |
-|  [06]   | `Create(string, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | create xlsx      |
-|  [07]   | `Create(Stream, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | stream create    |
-|  [08]   | `Open(string, isEditable)`                   | `SpreadsheetDocument`    | open xlsx        |
-|  [09]   | `Open(Stream, isEditable)`                   | `SpreadsheetDocument`    | stream open      |
-|  [10]   | `Create(string, PresentationDocumentType)`   | `PresentationDocument`   | create pptx      |
-|  [11]   | `Open(string, isEditable)`                   | `PresentationDocument`   | open pptx        |
-|  [12]   | `Save` / `Dispose`                           | `OpenXmlPackage`         | commit and close |
+|  [04]   | `Create(string, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | create xlsx      |
+|  [05]   | `Create(Stream, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | stream create    |
+|  [06]   | `Create(string, PresentationDocumentType)`   | `PresentationDocument`   | create pptx      |
+|  [07]   | `Save` / `Dispose`                           | `OpenXmlPackage`         | commit and close |
 
 [ENTRYPOINT_SCOPE]: OpenXml part-add and content-build operations
-- rail: drafting
+- rail: document-export
 
 | [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]                 | [RAIL]                |
 | :-----: | :--------------------------------------------------- | :----------------------------- | :-------------------- |
@@ -213,22 +144,20 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DRAFTING_TOPOLOGY]:
-- `ACadSharp` (3.6.35, `lib/net9.0` bound): `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths through `CadReaderBase<T>`/`CadWriterBase<T>` (settable `.Configuration`, `Read()`/`Write()`, plus static one-call `Read`/`Write` overloads); a `NotificationEventHandler` is the optional warning/error sink threaded through every reader/writer ctor and static call; `SvgWriter` (in `ACadSharp.IO.SVG`) emits SVG with `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries
-- `netDxf`: 365 types across 10 namespaces; `DxfDocument` is the document root with static `Load` factory and instance `Save`; read/write is self-contained through `DxfDocument.Load`/`Save`; `DxfDocument(Header.DxfVersion)` selects the output version, geometry points are `netDxf.Vector2`/`Vector3`, `netDxf.Entities.Line`/`MText` are the line and text entities, and `netDxf.Tables.Layer`/`Linetype` (with the `Linetype.Continuous`/`Dashed` singletons) carry the layer structure
-- `ACadSharp` geometry points are `CSMath.XYZ`, entity layers attach through the entity `Layer` property bound to a `Layer` table entry (`LineType.Continuous`/`Dashed` linetype singletons), `MText` carries `Value`/`InsertPoint`/`Height`, and the document `Entities`/`Layers` collections take typed entities through `Add`
-- `DocumentFormat.OpenXml`: 5210 types across 140 namespaces; `Packaging` owns the three document roots; `Wordprocessing`, `Spreadsheet`, and `Presentation` namespaces supply the open content element trees
+[DRAFTING_WRITE_TOPOLOGY]:
+- `ACadSharp` (3.6.35, `lib/net9.0` bound) is AppUi's WRITE authority: `CadDocument` is the ONE document root the drafting leg builds, and `ACadSharp.IO` emits it three ways through `CadWriterBase<T>` — `DwgWriter` (DWG), `DxfWriter` (DXF binary/text), and `ACadSharp.IO.SVG.SvgWriter` (SVG, `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`); each exposes a settable `.Configuration` (default-constructed) and a static one-call `Write` overload with an optional trailing `NotificationEventHandler` warning/error sink.
+- `ACadSharp.Entities` is the geometry roster the fold populates (`Line`/`Arc`/`Circle`/`Spline`/`Polyline`/`LwPolyline`/`Hatch`/`MText`/`Dimension`/`Insert`); `ACadSharp.Tables` carries the `Layer`/`LineType`/`TextStyle`/`DimensionStyle`/`BlockRecord` entries entities bind. Geometry points are `CSMath.XYZ`; entity layers attach through the entity `Layer` property bound to a `Layer` table entry; the document `Entities`/`Layers` collections take typed entities through `Add`.
+- The output DWG/DXF version is a POLICY ROW over `ACadVersion` (never a hardcoded `AutoCad2018` literal); the two-format write leg (DWG + DXF) is two rows on one `DraftEmit` axis over the single `CadDocument`, not two document models.
+- `DocumentFormat.OpenXml`: `Packaging` owns the three document roots; `Wordprocessing`/`Spreadsheet`/`Presentation` supply the open content-element trees. The OOXML part-graph is `Document/export.md`'s arm.
 
 [LOCAL_ADMISSION]:
-- `ACadSharp` owns DWG authorship and round-trip; `netDxf` owns DXF authorship and round-trip; they are not interchangeable — `CadDocument` and `DxfDocument` are independent models.
-- `DocumentFormat.OpenXml` package documents are disposable; every open or create path pairs with `Save`/`Dispose` or a `using` scope.
+- `ACadSharp` owns CAD WRITE (DWG/DXF/SVG) over `CadDocument`; its READ surface (`DwgReader`/`DxfReader`, `CadReaderConfiguration`/`DwgReaderConfiguration`) is Bim-owned and lives in the Bim catalog — AppUi never opens a CAD file, only emits one.
+- `netDxf` is not admitted — the DXF concern is `ACadSharp.DxfWriter`; a re-pin is a recorded exception only when the fidelity probe fails a specific entity class, never a silent restore.
+- `DocumentFormat.OpenXml` package documents are disposable; every create path pairs with `Save`/`Dispose` or a `using` scope. OOXML part-graph construction flows root-first: `Create(Stream, type)` mints the package, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, the part's root element is assigned, child parts attach under it, content elements append through `Append`/`AppendChild`, `GetIdOfPart` supplies the relationship id a `Sheet` entry binds, and `Save` + `using`-dispose commits the byte stream — never a hand-written `rId` or raw ZIP/XML manipulation.
 - Entity construction flows through the entity type constructor, then collection `Add`; never bypass typed entity APIs with raw group-code writes.
-- Configuration objects scope read/write posture two ways: the instance `Reader`/`Writer` exposes a settable `.Configuration` property (`CadReaderBase<T>`/`CadWriterBase<T>`, default-constructed), and the static `Read`/`Write` overloads take the config as an optional trailing argument alongside an optional `NotificationEventHandler` (the warning/error sink). The reader ctor's second argument is the `NotificationEventHandler`, never the config — set `reader.Configuration` after construction.
-- OOXML part-graph construction flows root-first: `Create(Stream, type)` mints the package, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, the part's root element (`Workbook`/`Document`) is assigned, child parts (`WorksheetPart` via `AddNewPart`, `FontTablePart` for embedded faces) attach under it, content elements (`Sheets`/`Sheet`/`SheetData`/`Row`/`Cell`, `Body`/`Paragraph`/`Run`/`Text`) append through `Append`/`AppendChild`, and `Save` on the root element plus the `using` package dispose commits the byte stream; `GetIdOfPart` supplies the relationship id a `Sheet` registry entry binds, never a hand-written `rId`.
 
 [RAIL_LAW]:
-- Package: `ACadSharp` — owns DWG/DXF CAD format read/write
-- Package: `netDxf` — owns DXF-only CAD format read/write with a simpler API surface
+- Package: `ACadSharp` — owns DWG/DXF/SVG CAD WRITE over one `CadDocument` (READ is Bim's)
 - Package: `DocumentFormat.OpenXml` — owns OOXML (docx/xlsx/pptx) package authoring
-- Accept: all drafting export flows through typed document roots and their IO entry points
-- Reject: hand-rolled binary DWG/DXF writers or raw ZIP/XML manipulation of OOXML packages
+- Accept: `Render/drafting.md` composes the ACadSharp two-format write leg; `Document/export.md` composes the OOXML part-graph arm; all export flows through typed document roots and their WRITE entry points
+- Reject: hand-rolled binary DWG/DXF writers; a `netDxf` DXF path where `DxfWriter` owns it; a second CAD document model beside `CadDocument`; raw ZIP/XML manipulation of OOXML packages; an AppUi-side CAD reader where Bim owns READ

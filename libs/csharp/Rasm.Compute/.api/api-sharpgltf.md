@@ -1,8 +1,13 @@
 # [RASM_COMPUTE_API_SHARPGLTF]
 
 `SharpGLTF` supplies glTF 2.0 schema read/write (`SharpGLTF.Core`), high-level
-scene/mesh/material builders (`SharpGLTF.Toolkit`), and runtime decode/instancing
-for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packages.
+scene/mesh/material builders (`SharpGLTF.Toolkit`), and the 3D-Tiles per-tile
+metadata/feature extension surface (`SharpGLTF.Ext.3DTiles`) Compute directly
+consumes as the live tileset emitter. `SharpGLTF.Runtime` (runtime scene
+decode/instancing) is transitive-only and Bim-owned — catalogued here for
+completeness, never a Compute consumer. `SharpGLTF.Ext.3DTiles` IS Compute's per
+`[V15]`: `Runtime/codecs#TILE_PARTITION` is the live tileset emitter, so this
+catalog documents its `SharpGLTF.Schema2.Tiles3D` surface at depth.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -37,7 +42,16 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 - namespace: `SharpGLTF`
 - asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0 (consumer binds `net10.0`)
 - rail: geometry
-- consumer: transitive-only — pulled by `SharpGLTF.Toolkit` (`packages.lock.json` Toolkit→Runtime 1.0.6), explicitly version-pinned in the central manifest for central control, catalogued here for completeness, and registered by NO Compute README row and consumed by NO Compute design page. The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instancing surface (this catalogue's Runtime scope: scene template + `*Instance` types + the `IMeshDecoder`/`IMeshPrimitiveDecoder` decode contracts) is the `Rasm.Bim` glTF-import owner reached at `Runtime/codecs#TESSELLATION_BRIDGE` — the two-hop IFC-to-geometry re-import decodes the companion GLB through the Bim glTF import rail, so a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. Only `SharpGLTF.Core` (the raw glTF-extension write surface `Runtime/codecs.md` composes) and `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path) are direct Compute consumers.
+- consumer: transitive-only — pulled by `SharpGLTF.Toolkit` (`packages.lock.json` Toolkit→Runtime 1.0.6), explicitly version-pinned in the central manifest for central control, catalogued here for completeness, and registered by NO Compute README row and consumed by NO Compute design page. The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instancing surface is the `Rasm.Bim` glTF-import owner reached at `Runtime/codecs#TESSELLATION_BRIDGE` — the two-hop IFC-to-geometry re-import decodes the companion GLB through the Bim glTF import rail, so a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. Only `SharpGLTF.Core` (the raw glTF-extension write surface `Runtime/codecs.md` composes), `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path), and `SharpGLTF.Ext.3DTiles` (below — the Compute-owned tileset emitter) are direct Compute consumers.
+
+[PACKAGE_SURFACE]: `SharpGLTF.Ext.3DTiles`
+- package: `SharpGLTF.Ext.3DTiles` (`1.0.6`)
+- assembly: `SharpGLTF.Ext.3DTiles`
+- license: MIT
+- namespace: `SharpGLTF.Schema2.Tiles3D`
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0 (consumer binds `net10.0`)
+- rail: geometry
+- consumer: DIRECT Compute — csproj `PackageReference` + README `[INTERCHANGE]` row; the `Runtime/codecs#TILE_PARTITION` tileset emitter composes the `EXT_structural_metadata` + `EXT_mesh_features` extension schema this package owns (`[V15]` rules 3DTiles IS Compute's, NOT Bim's). It layers ONTO `SharpGLTF.Core`'s `ExtensionsFactory` — `Tiles3DExtensions.RegisterExtensions()` admits the per-tile metadata/feature extension types before any read/write.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -261,33 +275,33 @@ The KHR material extension classes (`MaterialClearCoat`, `MaterialSheen`, `Mater
 |  [09]   | `CameraBuilder`       | perspective or orthographic camera; `ZNear`, `ZFar`, `VerticalFOV`    |
 |  [10]   | `LightBuilder`        | directional, point, or spot light with `Color`, `Intensity`, `Range`  |
 
-[PUBLIC_TYPE_SCOPE]: Runtime — scene template and instancing
+[PUBLIC_TYPE_SCOPE]: Runtime — DEMOTED (Bim-owned, pointer)
 - package: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
 - rail: geometry
 
-The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate`, and `MaterialTemplate` are `internal`; the public runtime surface is `SceneTemplate` plus the `*Instance` mutable-state types and `RuntimeOptions`.
+The runtime scene-decode-plus-instancing surface (`SceneTemplate`/`CreateInstance` → `SceneInstance`/`ArmatureInstance`/`NodeInstance`/`DrawableInstance`/`RuntimeOptions`, and the `IMeshDecoder`/`IMeshPrimitiveDecoder` decode contracts) is the `Rasm.Bim` glTF-import owner — see `Rasm.Bim/.api/api-sharpgltf.md` for its full depth. Compute never re-derives it; a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. The ONE Runtime member Compute composes is the bounding-volume kernel `MeshDecoder.EvaluateBoundingSphere(scene)`/`EvaluateBoundingBox(scene)` that `Runtime/codecs#TILE_PARTITION` reads for the octree bound (retained in `[RUNTIME_DECODE]` below), never the scene-instancing surface.
 
-| [INDEX] | [SYMBOL]           | [CAPABILITY]                                                                            |
-| :-----: | :----------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `SceneTemplate`    | templatized scene from a `Schema2.Scene`; `CreateInstance` makes `SceneInstance` copies |
-|  [02]   | `SceneInstance`    | independent mutable state of a `SceneTemplate`; owns `ArmatureInstance`                 |
-|  [03]   | `ArmatureInstance` | per-instance bone transform state; `SetAnimationFrame`, `SetPoseTransforms`             |
-|  [04]   | `NodeInstance`     | per-instance node transform state; `LocalMatrix`, `ModelMatrix`                         |
-|  [05]   | `DrawableInstance` | struct: `Template` (what) + `Transform` (where) + `InstanceCount`                       |
-|  [06]   | `RuntimeOptions`   | `IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`                         |
-
-[PUBLIC_TYPE_SCOPE]: Runtime — mesh decode contracts
-- package: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
+[PUBLIC_TYPE_SCOPE]: Ext.3DTiles — structural-metadata and mesh-features (Compute-owned)
+- package: `SharpGLTF.Ext.3DTiles`
+- namespace: `SharpGLTF.Schema2.Tiles3D`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                           |
-| :-----: | :---------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `IMeshDecoder<TMat>`          | mesh decode interface; name, extras, logical index, primitives         |
-|  [02]   | `IMeshPrimitiveDecoder`       | primitive decode interface; positions, normals, UVs, colors, skin      |
-|  [03]   | `IMeshPrimitiveDecoder<TMat>` | typed variant carrying material reference                              |
-|  [04]   | `MeshDecoder`                 | static utility; `Decode()` extension on `Mesh` / `IReadOnlyList<Mesh>` |
+The `EXT_structural_metadata` + `EXT_mesh_features` glTF extension schema the `Runtime/codecs#TILE_PARTITION` tileset emitter writes; all `assay api`-verified against the restored `SharpGLTF.Ext.3DTiles` assembly.
+
+| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                                                          |
+| :-----: | :-------------------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `EXTStructuralMetadataRoot`       | the model-level `EXT_structural_metadata` root; owns the schema + property tables (`modelRoot.UseStructuralMetadata()`) |
+|  [02]   | `StructuralMetadataSchema`        | the metadata schema; holds `StructuralMetadataClass` + `StructuralMetadataEnum` definitions |
+|  [03]   | `StructuralMetadataClass` / `StructuralMetadataClassProperty` | a metadata class and its typed properties (the semantic schema of a tile) |
+|  [04]   | `StructuralMetadataEnum` / `StructuralMetadataEnumValue` | enumerated metadata value domains |
+|  [05]   | `PropertyTable` / `PropertyTableProperty` | per-feature columnar metadata store (feature-id-indexed rows) |
+|  [06]   | `PropertyTexture` / `PropertyTextureProperty` | per-texel metadata encoded in a texture channel |
+|  [07]   | `PropertyAttribute` / `PropertyAttributeProperty` | per-vertex metadata encoded in a vertex attribute |
+|  [08]   | `MeshExtMeshFeatures` / `MeshExtMeshFeatureID` / `MeshExtMeshFeatureIDTexture` | `EXT_mesh_features` per-primitive feature-id sets (from a vertex attribute or a texture) |
+|  [09]   | `MeshExtInstanceFeatures` / `MeshExtInstanceFeatureID` | per-instance (GPU-instancing) feature ids |
+|  [10]   | `IMeshFeatureIDInfo` / `FeatureIDBuilder` | the feature-id descriptor contract + builder the `Add*FeatureIds` entrypoints take |
+|  [11]   | `CesiumPrimitiveOutline` / `ExtStructuralMetadataMeshPrimitive` | the Cesium outline extension + the per-primitive metadata binding |
+|  [12]   | `DataType` / `ElementType` / `IntegerType` / `ArrayOffsetType` | the property-component-type enums a `StructuralMetadataClassProperty` declares |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -434,6 +448,21 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 |  [17]   | `MeshDecoder.EvaluateBoundingBox`       | ext on `Scene`/`SceneInstance`            | `(Vector3 Min, Vector3 Max)` AABB                  |
 |  [18]   | `MeshDecoder.GetWorldVertices`          | ext `(IMeshDecoder<T>, IGeometryTransform)` | world-space vertex stream for a decoded mesh       |
 
+[ENTRYPOINT_SCOPE]: Ext.3DTiles — tileset metadata/feature emit
+- package: `SharpGLTF.Ext.3DTiles`
+- namespace: `SharpGLTF.Schema2.Tiles3D`
+- rail: geometry
+- composition law: `Tiles3DExtensions.RegisterExtensions()` admits the extension types at the `ExtensionsFactory` before any `ModelRoot` write; the `TILE_PARTITION` emitter then builds the schema on the model root and binds feature ids per primitive.
+
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                 | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `Tiles3DExtensions.RegisterExtensions`  | `()` (static)                                                               | registers the `EXT_structural_metadata`/`EXT_mesh_features`/Cesium extension types globally |
+|  [02]   | `modelRoot.UseStructuralMetadata`       | `(this ModelRoot)` → `EXTStructuralMetadataRoot`                            | creates/returns the model-level metadata root to attach the schema + property tables |
+|  [03]   | `primitive.AddMeshFeatureIds`           | `(this MeshPrimitive, params IMeshFeatureIDInfo[])` → `MeshExtMeshFeatureID[]` | binds per-primitive feature-id sets                |
+|  [04]   | `node.AddInstanceFeatureIds`            | `(this Node, params IMeshFeatureIDInfo[])` → `MeshExtInstanceFeatureID[]`    | binds per-instance (GPU-instancing) feature ids    |
+|  [05]   | `primitive.AddPropertyTexture` / `AddPropertyAttribute` | `(this MeshPrimitive, PropertyTexture / PropertyAttribute)`  | attaches per-texel / per-vertex metadata           |
+|  [06]   | `primitive.SetCesiumOutline`            | `(this MeshPrimitive, IReadOnlyList<uint> outlines, string accessorName = …)` / `(Accessor)` | writes the Cesium primitive outline extension      |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GLTF_IO]:
@@ -484,8 +513,8 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 - extension admission must register at `ExtensionsFactory` before any read or write that uses that extension.
 
 [RAIL_LAW]:
-- Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Runtime` (all `1.0.6`, MIT)
-- Owns: glTF 2.0 read/write, typed mesh building, runtime scene instancing
-- Accept: geometry exchange, asset authoring, runtime mesh evaluation
-- Reject: rendering pipeline, GPU resource management, image decode
-- Compute stacking: only `SharpGLTF.Core` (the raw `ExtensionsFactory.RegisterExtension<TParent, TExt>` write surface the `Runtime/codecs#TILE_PARTITION` `EXT_structural_metadata`/`EXT_mesh_features` schema and buffer-view columns emit through a `JsonSerializable`-derived extension) and `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path, the `MeshDecoder.EvaluateBoundingSphere` octree-bound kernel) are direct Compute consumers; `SharpGLTF.Runtime` is transitive (pulled by Toolkit) — its `SceneTemplate.CreateInstance` runtime decode is owned by the `Rasm.Bim` glTF-import rail at `Runtime/codecs#TWO_HOP_TESSELLATION`, never re-derived Compute-side. The 3D-Tiles per-tile types (`SharpGLTF.Schema2.Tiles3D`) ship in the separate `SharpGLTF.Ext.3DTiles` package (Bim-owned), NOT `SharpGLTF.Core`.
+- Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Ext.3DTiles` (direct Compute), `SharpGLTF.Runtime` (transitive, Bim-owned) — all `1.0.6`, MIT
+- Owns: glTF 2.0 read/write, typed mesh building, and the 3D-Tiles per-tile `EXT_structural_metadata`/`EXT_mesh_features` metadata/feature emit
+- Accept: geometry exchange, asset authoring, and tileset metadata/feature authoring (the `TILE_PARTITION` emitter)
+- Reject: rendering pipeline, GPU resource management, image decode, and the runtime scene-instancing surface (Bim-owned)
+- Compute stacking: `SharpGLTF.Core` (the raw `ExtensionsFactory.RegisterExtension<TParent, TExt>` write surface `Runtime/codecs#TILE_PARTITION` emits through), `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path + the `MeshDecoder.EvaluateBoundingSphere` octree-bound kernel), and `SharpGLTF.Ext.3DTiles` (the `SharpGLTF.Schema2.Tiles3D` `EXT_structural_metadata`/`EXT_mesh_features` schema the tileset emitter writes) are the direct Compute consumers. `SharpGLTF.Ext.3DTiles` IS Compute's per `[V15]` — csproj-direct + README `[INTERCHANGE]` row, NOT Bim-owned. `SharpGLTF.Runtime` is transitive (pulled by Toolkit) — its `SceneTemplate.CreateInstance` runtime decode is the `Rasm.Bim` glTF-import rail's, never re-derived Compute-side.

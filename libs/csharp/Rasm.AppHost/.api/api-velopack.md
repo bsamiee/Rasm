@@ -48,130 +48,70 @@ contract into the runtime provisioning and self-update rail.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: startup gate
+[ENTRYPOINT_SCOPE]: startup gate (`VelopackApp`, `Velopack`; `VelopackHook` = `void (SemanticVersion version)`)
 - rail: runtime provisioning and update
 
-```csharp
-namespace Velopack;
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]    | [RAIL]                                              |
+| :-----: | :----------------------------------------------- | :---------------- | :-------------------------------------------------- |
+|  [01]   | `VelopackApp.Build()`                            | builder factory   | opens the fluent hook gate                           |
+|  [02]   | `SetArgs(string[] args)`                         | builder option    | startup-argument override                            |
+|  [03]   | `SetAutoApplyOnStartup(bool autoApply)`          | builder option    | pending-update auto-apply toggle (default on)        |
+|  [04]   | `SetAppUserModelId(string aumid)`                | builder option    | Windows AUMID identity                               |
+|  [05]   | `SetLocator(IVelopackLocator locator)`           | builder option    | locator override                                     |
+|  [06]   | `SetLogger(IVelopackLogger logger)`              | builder option    | hook-process logging                                 |
+|  [07]   | `OnFirstRun(VelopackHook hook)`                  | hook registration | first-run callback                                   |
+|  [08]   | `OnRestarted(VelopackHook hook)`                 | hook registration | post-restart callback                                |
+|  [09]   | `OnAfterInstallFastCallback(VelopackHook hook)`  | hook registration | post-install fast hook                               |
+|  [10]   | `OnAfterUpdateFastCallback(VelopackHook hook)`   | hook registration | post-update fast hook                                |
+|  [11]   | `OnBeforeUpdateFastCallback(VelopackHook hook)`  | hook registration | pre-update fast hook                                 |
+|  [12]   | `OnBeforeUninstallFastCallback(VelopackHook hook)` | hook registration | pre-uninstall fast hook                            |
+|  [13]   | `Run()`                                          | gate dispatch     | `--veloapp-*` dispatch; once at earliest startup     |
 
-public delegate void VelopackHook(SemanticVersion version);
-
-public sealed class VelopackApp
-{
-    public static VelopackApp Build();
-    public VelopackApp SetArgs(string[] args);
-    public VelopackApp SetAutoApplyOnStartup(bool autoApply);
-    public VelopackApp SetAppUserModelId(string aumid);
-    public VelopackApp SetLocator(IVelopackLocator locator);
-    public VelopackApp SetLogger(IVelopackLogger logger);
-    public VelopackApp OnFirstRun(VelopackHook hook);
-    public VelopackApp OnRestarted(VelopackHook hook);
-    public VelopackApp OnAfterInstallFastCallback(VelopackHook hook);
-    public VelopackApp OnAfterUpdateFastCallback(VelopackHook hook);
-    public VelopackApp OnBeforeUpdateFastCallback(VelopackHook hook);
-    public VelopackApp OnBeforeUninstallFastCallback(VelopackHook hook);
-    public void Run();
-}
-```
-
-[ENTRYPOINT_SCOPE]: update manager
+[ENTRYPOINT_SCOPE]: update manager (`UpdateManager`, `Velopack`)
 - rail: runtime provisioning and update
 
-```csharp
-namespace Velopack;
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                                                        |
+| :-----: | :-------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `new UpdateManager(string urlOrPath, UpdateOptions? = null, IVelopackLocator? = null)` | ctor  | feed URL/path binding                                          |
+|  [02]   | `new UpdateManager(IUpdateSource source, UpdateOptions? = null, IVelopackLocator? = null)` | ctor | custom `IUpdateSource` binding                              |
+|  [03]   | `AppId` / `CurrentVersion`                                                   | state read     | installed identity (`string?` / `SemanticVersion?`)            |
+|  [04]   | `IsInstalled` / `IsPortable`                                                 | state read     | install-mode flags                                             |
+|  [05]   | `IsUpdatePendingRestart` / `UpdatePendingRestart`                            | state read     | staged asset awaiting restart (`bool` / `VelopackAsset?`)      |
+|  [06]   | `CheckForUpdates()` / `CheckForUpdatesAsync()`                               | feed check     | `UpdateInfo?`; null = no newer release on the resolved channel |
+|  [07]   | `DownloadUpdates(UpdateInfo, Action<int>? progress)` / `DownloadUpdatesAsync(UpdateInfo, Action<int>?, CancellationToken)` | download | materializes the target with progress + cancellation |
+|  [08]   | `ApplyUpdatesAndRestart(VelopackAsset? toApply, string[]? restartArgs)`      | apply          | bootstrapper handoff + relaunch                                |
+|  [09]   | `ApplyUpdatesAndExit(VelopackAsset? toApply)`                                | apply          | headless apply, then exit                                      |
+|  [10]   | `WaitExitThenApplyUpdates(VelopackAsset? toApply, bool silent, bool restart, string[]? restartArgs)` | apply | deferred apply on process exit                 |
 
-public class UpdateManager
-{
-    public UpdateManager(string urlOrPath, UpdateOptions? options = null, IVelopackLocator? locator = null);
-    public UpdateManager(IUpdateSource source, UpdateOptions? options = null, IVelopackLocator? locator = null);
-
-    public virtual string? AppId { get; }
-    public virtual bool IsInstalled { get; }
-    public virtual bool IsPortable { get; }
-    public virtual bool IsUpdatePendingRestart { get; }
-    public virtual VelopackAsset? UpdatePendingRestart { get; }
-    public virtual SemanticVersion? CurrentVersion { get; }
-
-    public UpdateInfo? CheckForUpdates();
-    public virtual Task<UpdateInfo?> CheckForUpdatesAsync();
-    public void DownloadUpdates(UpdateInfo updates, Action<int>? progress = null);
-    public virtual Task DownloadUpdatesAsync(UpdateInfo updates, Action<int>? progress = null, CancellationToken cancelToken = default);
-    public void ApplyUpdatesAndRestart(VelopackAsset? toApply, string[]? restartArgs = null);
-    public void ApplyUpdatesAndExit(VelopackAsset? toApply);
-    public void WaitExitThenApplyUpdates(VelopackAsset? toApply, bool silent = false, bool restart = true, string[]? restartArgs = null);
-}
-```
-
-[ENTRYPOINT_SCOPE]: feed values and options
+[ENTRYPOINT_SCOPE]: feed values and options (`UpdateInfo`/`VelopackAsset`/`VelopackAssetType`/`UpdateOptions`, `Velopack`)
 - rail: runtime provisioning and update
 
-```csharp
-namespace Velopack;
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]  | [RAIL]                                                         |
+| :-----: | :----------------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
+|  [01]   | `UpdateInfo.TargetFullRelease`                          | feed result     | target full-release asset                                        |
+|  [02]   | `UpdateInfo.BaseRelease` / `DeltasToTarget`             | feed result     | delta chain (`VelopackAsset?` / `VelopackAsset[]`)               |
+|  [03]   | `UpdateInfo.IsDowngrade`                                | feed result     | downgrade flag                                                   |
+|  [04]   | `UpdateInfo` implicit `VelopackAsset` conversion        | conversion      | coerces to `TargetFullRelease`                                   |
+|  [05]   | `VelopackAsset.PackageId`/`Version`/`Type`/`FileName`   | release record  | release identity fields                                          |
+|  [06]   | `VelopackAsset.SHA1`/`SHA256`/`Size`                    | release evidence| integrity hashes + byte size                                     |
+|  [07]   | `VelopackAsset.NotesMarkdown`/`NotesHTML`               | release record  | release notes                                                    |
+|  [08]   | `VelopackAssetType`                                     | asset kind enum | `Full=1`/`Delta=2`/`Portable=3`/`Installer=4`/`Msi=5`            |
+|  [09]   | `UpdateOptions.AllowVersionDowngrade`                   | option value    | older-target admission                                           |
+|  [10]   | `UpdateOptions.ExplicitChannel`                         | option value    | non-default channel selection (`string?`)                        |
+|  [11]   | `UpdateOptions.MaximumDeltasBeforeFallback`             | option value    | delta-chain cap before full-package fallback (`int?`)            |
 
-public class UpdateInfo
-{
-    public VelopackAsset TargetFullRelease { get; }
-    public bool IsDowngrade { get; }
-    public VelopackAsset? BaseRelease { get; }
-    public VelopackAsset[] DeltasToTarget { get; }
-    public static implicit operator VelopackAsset(UpdateInfo updateInfo);
-}
-
-public record VelopackAsset
-{
-    public string PackageId { get; set; }
-    public SemanticVersion Version { get; set; }
-    public VelopackAssetType Type { get; set; }
-    public string FileName { get; set; }
-    public string SHA1 { get; set; }
-    public string SHA256 { get; set; }
-    public long Size { get; set; }
-    public string NotesMarkdown { get; set; }
-    public string NotesHTML { get; set; }
-}
-
-public enum VelopackAssetType
-{
-    Full = 1,
-    Delta = 2,
-    Portable = 3,
-    Installer = 4,
-    Msi = 5
-}
-
-public class UpdateOptions
-{
-    public bool AllowVersionDowngrade { get; set; }
-    public string? ExplicitChannel { get; set; }
-    public int? MaximumDeltasBeforeFallback { get; set; }
-}
-```
-
-[ENTRYPOINT_SCOPE]: locator contract
+[ENTRYPOINT_SCOPE]: locator contract (`IVelopackLocator`, `Velopack.Locators`)
 - rail: runtime provisioning and update
 
-```csharp
-namespace Velopack.Locators;
-
-public interface IVelopackLocator
-{
-    string? AppId { get; }
-    string? RootAppDir { get; }
-    string? PackagesDir { get; }
-    string? AppContentDir { get; }
-    string? AppTempDir { get; }
-    string? UpdateExePath { get; }
-    SemanticVersion? CurrentlyInstalledVersion { get; }
-    string? ThisExeRelativePath { get; }
-    string? Channel { get; }
-    string? AppUserModelId { get; }
-    bool IsPortable { get; }
-    void AddLogger(IVelopackLogger logger);
-    List<VelopackAsset> GetLocalPackages();
-    VelopackAsset? GetLatestLocalFullPackage();
-    Guid? GetOrCreateStagedUserId();
-}
-```
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `AppId` / `Channel` / `AppUserModelId`                                               | locator read   | install identity (`string?` each)               |
+|  [02]   | `RootAppDir`/`PackagesDir`/`AppContentDir`/`AppTempDir`/`UpdateExePath`/`ThisExeRelativePath` | locator read | install paths (`string?` each)          |
+|  [03]   | `CurrentlyInstalledVersion`                                                          | locator read   | `SemanticVersion?`                              |
+|  [04]   | `IsPortable`                                                                         | locator read   | portable-mode flag                              |
+|  [05]   | `AddLogger(IVelopackLogger logger)`                                                  | locator op     | logger attachment                               |
+|  [06]   | `GetLocalPackages()` / `GetLatestLocalFullPackage()`                                 | locator op     | local release inventory (`List<VelopackAsset>` / `VelopackAsset?`) |
+|  [07]   | `GetOrCreateStagedUserId()`                                                          | locator op     | staged-rollout identity (`Guid?`)               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
