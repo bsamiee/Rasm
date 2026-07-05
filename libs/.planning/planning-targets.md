@@ -16,7 +16,7 @@
 - Branch API catalogues: `libs/typescript/.api`
 - Routing: `libs/typescript/.planning/README.md`
 - Language-wide docs: `libs/typescript/.planning/ARCHITECTURE.md`, `libs/typescript/.planning/IDEAS.md`, `libs/typescript/.planning/TASKLOG.md`
-- Planning Folders: `libs/typescript/kernel`, `libs/typescript/state`, `libs/typescript/host`, `libs/typescript/security`, `libs/typescript/telemetry`, `libs/typescript/wire`, `libs/typescript/work`, `libs/typescript/store`, `libs/typescript/ai`, `libs/typescript/edge`, `libs/typescript/browser`, `libs/typescript/ui`, `libs/typescript/iac`
+- Planning Folders: `libs/typescript/core`, `libs/typescript/security`, `libs/typescript/data`, `libs/typescript/runtime`, `libs/typescript/ui`, `libs/typescript/iac`
 
 [PYTHON]:
 - Core dir: `libs/python/.planning`

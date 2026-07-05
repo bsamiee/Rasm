@@ -97,7 +97,7 @@ const _tone = {
   coercing: { tone: "accent", motion: Option.none<string>() },
   refused: { tone: "danger", motion: Option.some("pulse") },
   detached: { tone: "neutral", motion: Option.none<string>() },
-} as const satisfies Record<Panel.Phase, { readonly tone: string; readonly motion: Option.Option<string> }>
+} as const satisfies Record<Panel.Phase, { readonly tone: "neutral" | "accent" | "success" | "danger"; readonly motion: Option.Option<string> }>
 ```
 
 ## [4]-[CONTROL_SINKS]

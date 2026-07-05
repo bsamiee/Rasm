@@ -4,9 +4,7 @@ Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, 
 
 Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. The three branches couple only at the wire. The canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow — is owned by `libs/.planning/architecture.md`.
 
-All content within `libs/` is meant to power hundreds, if not thousands of future apps of various kinds, in-host on Rhino 9/WIP, gh2, or totally standalone, remote, web, etc. The `libs/` folder is meant to provide all of the core logic, functionality, and features in such a way that it works in Rhino/gh2 as well as agnostic standalone instances. The functionality provided should also allow for the creation of complex, advanced, and extremely feature/capability rich apps with minimal code, no boilerplate, ceremony, or agent overhead. All functionality must be made with agent first considerations, such that an agent should not need to know hundreds of custom API's/function calls, but instead, the `libs/` code internalized/integrated it, fully capturing the rhino/gh2 + external packaging API/capabilities, and created higher order abstractions, allowing for flexible/powerful app creation through parameterization, and polymorphism.
-
-NOTE: It is crucial that EACH folder within `libs/` is made with immense focus on entry points, and usage pattern, envisioning downstream/future apps and how they will use the functionality, we do NOT want knob/ceremony spam, instead, internalizing, automating/integrating features and capabilities with intelligence to be multi-modal, faceted and automatic so agents have far less opportunity to handroll or incorrectly use capabilities we made within `libs/`.
+All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it agent-first: host, GH2, and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around its entry points and envisioned downstream usage — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic so consumers have minimal room to hand-roll or misuse `libs/` capability.
 
 ## [01]-[TARGET]
 
@@ -24,17 +22,16 @@ NOTE: It is crucial that EACH folder within `libs/` is made with immense focus o
 |  [01]   | `libs/csharp`        | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                    |
 |  [02]   | `libs/python`        | Python library suite      | Host-free science, compute, data, geometry/IFC, and artifact companion packages.      |
 |  [03]   | `libs/typescript`    | TypeScript library suite  | Host-free web/edge platform: wire interchange, projection, UI, platform, services.    |
-|  [04]   | `tests/csharp`       | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                      |
-|  [05]   | `tests/python`       | Python tool proof surface | Assay and repo-tool behavior tests.                                                   |
-|  [06]   | `tools/assay`        | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
-|  [07]   | `tools/rhino-bridge` | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
-|  [08]   | `tools/cs-analyzer`  | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
-|  [09]   | `tools/yak`          | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
-|  [10]   | `docs`               | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
+|  [04]   | `tests`              | Polyglot proof surface    | C#, Python, and TypeScript suites plus generated contract fixtures.                   |
+|  [05]   | `tools/assay`        | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
+|  [06]   | `tools/rhino-bridge` | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
+|  [07]   | `tools/cs-analyzer`  | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
+|  [08]   | `tools/yak`          | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
+|  [09]   | `docs`               | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
 
 ## [03]-[LIBRARY_OWNERS]
 
-The C# library suite is organized into strict strata — the `Rasm` geometry/numeric kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries. The package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule are owned by `libs/.planning/architecture.md`. The polyglot branch roles — C# as the Rhino9(WIP)/GH2-aware producer, Python as the host-free science/compute/data/geometry/IFC companion, and TypeScript as the host-free web/edge platform — and the planning corpus are introduced in `libs/.planning/README.md`.
+The package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule are owned by `libs/.planning/architecture.md`; the branch roles and the planning corpus are introduced in `libs/.planning/README.md`.
 
 ## [04]-[HOST_RUNTIME]
 

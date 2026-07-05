@@ -34,8 +34,9 @@ The one motion-and-interaction owner: `react-aria` owns every DISCRETE accessibl
 import { mergeProps, useFocusRing, useHover, useKeyboard, usePress } from "react-aria"
 
 const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle => {
-  const press = usePress({ isDisabled: options.disabled, onPress: (event) => options.onPress?.(event.pointerType) })
-  const hover = useHover({ isDisabled: options.disabled, onHoverChange: options.onHoverChange })
+  const disabled = options.disabled ?? false
+  const press = usePress({ isDisabled: disabled, onPress: (event) => options.onPress?.(event.pointerType) })
+  const hover = useHover({ isDisabled: disabled, onHoverChange: (hovering) => options.onHoverChange?.(hovering) })
   const keyboard = useKeyboard({ onKeyDown: (event) => options.onKey?.(event.key) })
   const ring = useFocusRing()
   return {
@@ -55,6 +56,7 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
 - Entry: one `Gesture.useCanvas` per interactive surface — a new gesture on that surface is a handler key or sub-config on the same call, never a second hook on the element.
 - Law: start state rides `memo`, origin rides `from` — the handler captures the origin on `first`, applies `movement` against it, and returns the memo; `from: () => read(camera)` binds the offset origin to the live atom so consecutive gestures accumulate; an external mutable ref for gesture accumulation is the named defect.
 - Law: the handler stays in domain coordinates — `transform` maps the raw screen `Vector2` into world/canvas space before the handler sees `movement`/`offset`; `bounds` + `rubberband` clamp with elastic overflow; `axis: "lock"` locks the dominant axis past `threshold`.
+- Law: one bounds policy clamps every zoom write path — the pinch engine clamps through `scaleBounds`, the wheel arm clamps against the SAME policy row before the write; a zoom path escaping the bounds is the named defect.
 - Law: high-frequency writes commit non-urgently — the camera atom write wraps in `startTransition` so the pointer stream stays responsive while the non-urgent camera commit deprioritizes; the write itself is `useAtomSet(camera)` with `"value"` mode.
 - Boundary: the camera state shape and its per-backend adapters are the viewer projection plane's; `Gesture.useCanvas` only recognizes and writes intents.
 - Growth: a new recognizer class (a two-finger rotate row, a keyboard-displacement drag) is one handler key plus its sub-config; a new surface is one `Gesture.useCanvas` call.
@@ -64,6 +66,8 @@ import { createUseGesture, dragAction, pinchAction, wheelAction } from "@use-ges
 import type { Vector2 } from "@use-gesture/react"
 import { startTransition } from "react"
 import type { RefObject } from "react"
+
+const _ZOOM = { min: 0.1, max: 64 } as const
 
 const _useCanvasGesture = createUseGesture([dragAction, pinchAction, wheelAction])
 
@@ -91,6 +95,7 @@ const Gesture: {
 } = {
   useDiscrete: _useDiscrete,
   useCanvas: (options) => {
+    const bounds = options.zoomBounds ?? _ZOOM
     _useCanvasGesture(
       {
         onDrag: ({ offset: [x, y] }) =>
@@ -98,18 +103,18 @@ const Gesture: {
         onPinch: ({ offset: [scale, angle] }) =>
           startTransition(() => options.write({ ...options.read(), zoom: scale, bearing: angle })),
         onWheel: ({ offset: [, y] }) =>
-          startTransition(() => options.write({ ...options.read(), zoom: options.read().zoom - y / 500 })),
+          startTransition(() =>
+            options.write({
+              ...options.read(),
+              zoom: Math.min(bounds.max, Math.max(bounds.min, options.read().zoom - y / 500)),
+            })),
       },
       {
         target: options.target,
         eventOptions: { passive: false },
-        transform: options.transform,
+        ...(options.transform !== undefined && { transform: options.transform }),
         drag: { from: () => options.read().center, preventDefault: true, filterTaps: true },
-        pinch: {
-          from: () => [options.read().zoom, options.read().bearing],
-          scaleBounds: options.zoomBounds ?? { min: 0.1, max: 64 },
-          pinchOnWheel: true,
-        },
+        pinch: { from: () => [options.read().zoom, options.read().bearing], scaleBounds: bounds, pinchOnWheel: true },
         wheel: { preventDefault: true },
       },
     )

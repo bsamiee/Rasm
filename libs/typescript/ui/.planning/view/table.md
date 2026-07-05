@@ -130,7 +130,7 @@ import { defaultRangeExtractor, type Range } from "@tanstack/react-virtual"
 import { Array, Order } from "effect"
 
 const _range = (pinned: ReadonlyArray<number>) =>
-  (range: Range): Array<number> =>
+  (range: Range): number[] =>
     Array.sort(Array.dedupe([...pinned, ...defaultRangeExtractor(range)]), Order.number)
 
 const Grid: {

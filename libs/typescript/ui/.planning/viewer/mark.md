@@ -218,7 +218,7 @@ const _tone = {
   "in-progress": { icon: CircleAlert, tone: "accent" },
   resolved: { icon: CircleCheck, tone: "success" },
   closed: { icon: CircleSlash, tone: "neutral" },
-} as const satisfies Record<BcfTopic["status"], { readonly icon: LucideIcon; readonly tone: string }>
+} as const satisfies Record<BcfTopic["status"], { readonly icon: LucideIcon; readonly tone: "neutral" | "accent" | "success" | "danger" }>
 
 const Mark: {
   readonly pin: typeof _pin

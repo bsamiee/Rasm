@@ -28,7 +28,7 @@ READ 100%, one batch (`==> path <==` headers delimit files):
 fd -H -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning -X tail -n +1
 ```
 
-This is the complete Tier-0 + branch law: `campaign-method.md` (the loop, the bar, the agent-role law, the two naivety axes, collapse-floor freedom), `architecture.md` (strata, dependency direction, wire seams), `README.md` (the authoring standard), `planning-targets.md` (the target index), each branch router + `ARCHITECTURE.md`, and the branch system pages (`component-system.md`, `composition-system.md`, `dataflow-system.md`). `IDEAS.md`/`TASKLOG.md` never open at prime — card pools enter context only when a dispatched rail works them. Cross-check `planning-targets.md` rows against the [01] scaffold census; a row disk contradicts is a finding for the readiness report.
+This is the complete Tier-0 + branch law: `campaign-method.md` (the loop, the bar, the agent-role law, the two naivety axes, collapse-floor freedom), `architecture.md` (strata, dependency direction, wire seams), `README.md` (the authoring standard), `planning-targets.md` (the target index), each branch router + `ARCHITECTURE.md`, and whatever branch system pages sit on disk. `IDEAS.md`/`TASKLOG.md` never open at prime — card pools enter context only when a dispatched rail works them. Cross-check `planning-targets.md` rows against the [01] scaffold census; a row disk contradicts is a finding for the readiness report.
 
 ## [03]-[TARGET_DEEPENING]
 
@@ -49,9 +49,9 @@ The session shapes and their entry rails — selected when the objective arrives
 
 | [SHAPE]                            | [ENTRY]                                                                                                            |
 | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-| Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> root DECISION brief -> `rebuild` legs against the brief, per-leg  |
-| Campaign brief authoring           | `brief` with `{targets, upstream, deep, mandate}` — one brief or a dependency-ordered waterfall                    |
-| Targeted rebuild / quality pass    | `rebuild` with `{targets, brief?}` (no brief = every targeted page hostile-rebuild)                                |
+| Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> root DECISION brief -> `rebuild` `{brief, leg}` legs against it   |
+| Campaign brief authoring           | `brief` with `{targets, upstream, deep, mandate, review, gold}` — one brief or a dependency-ordered waterfall      |
+| Targeted rebuild / quality pass    | `rebuild` with `{targets, brief?, leg?}` (no brief = every targeted page hostile-rebuild)                          |
 | Align / clean / hygiene            | `align-cards`, `hygiene-sweep`, `tidy-planning-docs`                                                               |
 | Idea/task pool + realization       | `ideate` (pool generation), `implement-cs`/`implement-py`/`implement-ts` (cards -> fences)                         |
 | Doctrine refining (`docs/stacks/`) | `stack-cs`/`stack-py`/`stack-ts`                                                                                   |

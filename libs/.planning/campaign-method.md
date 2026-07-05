@@ -32,7 +32,7 @@ These are lib-grade foundations, not app scaffolding. The bar for every package,
 
 ## [04]-[WORKFLOW_ORCHESTRATION]
 
-NOTE: Workflow may be altered by prompt based on scope of `<TARGET>`, IF the target is the full `libs/`, or language specific, like `libs/csharp/`, then proceed with proper multi-tiered workflow instead of scoped/specific workflow.
+Scope selects the workflow shape: a full `libs/` or whole-branch target runs the multi-tiered workflow; a folder-scoped target runs the scoped workflow.
 
 Every substantive pass runs as workflows, never one-off agents, fanned out across three altitudes and refined at each:
 

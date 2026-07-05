@@ -21,25 +21,25 @@ libs/csharp/
 └── Rasm.Grasshopper/  # HOST-BOUNDARY — GH2 host APIs; references only Rasm
 ```
 
-The nine planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are durable host-bound source with no `.planning/`; their open work the future app root composes rides this branch `TASKLOG.md`.
+The planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are durable host-bound source with no `.planning/`; their open work the future app root composes rides this branch `TASKLOG.md`.
 
 ## [02]-[SEAMS]
 
 ```text seams
-Rasm.AppHost      →  typescript:wire  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
-Rasm.Compute      →  typescript:wire  # [WIRE]: proto suite wire + FaultDetail
-Rasm.Persistence  →  typescript:wire  # [WIRE]: OpLog/Snapshot CRDT wire
-Rasm              →  python:runtime   # [CONTENT_KEY]: XxHash128 content-identity seed parity
-Rasm.Element      ⇄  python:geometry  # [WIRE]: ElementGraph content-key (one XxHash128 seed) + vocabulary the companion decodes, never re-mints
-Rasm.Element      ⇄  typescript:wire  # [WIRE]: ElementGraph/Node/Relationship content-keyed wire the TypeScript peer decodes
-Rasm.Bim          ⇄  python:geometry  # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
-Rasm.AppHost      ⇄  python:runtime   # [WIRE]: gRPC companion server + capability invoke
-Rasm.Compute      ←  python:compute   # [GRADUATION]: graduation evidence HandoffAxis
+Rasm.AppHost      →  typescript:core/interchange  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
+Rasm.Compute      →  typescript:core/interchange  # [WIRE]: proto suite wire + FaultDetail
+Rasm.Persistence  →  typescript:core/interchange  # [WIRE]: OpLog/Snapshot CRDT wire
+Rasm              →  python:runtime               # [CONTENT_KEY]: XxHash128 content-identity seed parity
+Rasm.Element      ⇄  python:geometry              # [WIRE]: ElementGraph content-key (one XxHash128 seed) + vocabulary the companion decodes, never re-mints
+Rasm.Element      ⇄  typescript:core/interchange  # [WIRE]: ElementGraph/Node/Relationship content-keyed wire the TypeScript peer decodes
+Rasm.Bim          ⇄  python:geometry              # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
+Rasm.AppHost      ⇄  python:runtime               # [WIRE]: gRPC companion server + capability invoke
+Rasm.Compute      ←  python:compute               # [GRADUATION]: graduation evidence HandoffAxis
 ```
 
 ## [03]-[DEPENDENCY_DIRECTION]
 
-Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base, `Rasm.AppHost` as the app-platform root, and the app shells at the future leaf. This is the project-reference graph the nine folders consume as settled vocabulary.
+Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base, `Rasm.AppHost` as the app-platform root, and the app shells at the future leaf. This is the project-reference graph the planning-scoped folders consume as settled vocabulary.
 
 - `Rasm` references no sibling and is referenced by every C# stratum above it.
 - `Rasm.Element` (the lowest-AEC element seam) references only `Rasm` and names no IFC or provider package; it is referenced as the shared lower stratum by the AEC peers and by `Rasm.Persistence`/`Rasm.Compute`.
