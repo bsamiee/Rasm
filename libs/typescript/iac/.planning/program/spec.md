@@ -23,9 +23,9 @@ The program shapes of the deploy plane in one page: `StackSpec` is the decoded v
 
 [SPEC_OWNER]:
 - Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), `backend` (`self-managed` gates the local drift sweep and ephemeral bracket; `cloud` gates the `operate/cloud.md` control plane and the `RemoteWorkspace` execution row), the coordinate options (`region` for prepared clouds, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
-- Law: coordinates, never material — `Connection` carries host/user/port and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
+- Law: coordinates, never material — `Connection` carries host/user/port plus the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
-- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the prepared-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the direct-DNS-versus-tunnel traffic row, `data` carries instance count, storage, backup cron, and retention, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
+- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the prepared-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, and retention, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
 - Law: tenancy is data, never code paths — `tenancy.mode` selects the isolation tier (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant soft isolation; `vcluster` = virtual-control-plane-per-tenant hard isolation), `tenancy.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant), and `tenancy.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; a tenancy escalation is a spec delta interpreted by the owning tiers, never a second program body.
 - Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a prepared arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
 - Entry: `StackSpec.make(...)` at the app seam; `Schema.decodeUnknown(StackSpec)` where the value arrives as data.
@@ -48,10 +48,16 @@ const _tiers = {
 
 const _Name = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,39}$/), Schema.brand("StackName"))
 
-class Connection extends Schema.Class<Connection>("Connection")({
+const _Bastion = Schema.Struct({
   host: Schema.NonEmptyString,
   user: Schema.optionalWith(Schema.NonEmptyString, { default: () => "root" }),
   port: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 65535)), { default: () => 22 }),
+})
+
+class Connection extends Schema.Class<Connection>("Connection")({
+  ..._Bastion.fields,
+  hostKey: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  bastion: Schema.optionalWith(_Bastion, { as: "Option" }),
 }) {
   get ssh(): string {
     return `ssh://${this.user}@${this.host}:${this.port}`
@@ -86,7 +92,7 @@ const _Profile = Schema.Struct({
   compute: Schema.optionalWith(Schema.Literal("serverless", "cluster"), { default: () => "serverless" as const }),
   extensions: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
   objectEngine: Schema.optionalWith(Schema.Literal("minio", "ceph"), { default: () => "minio" as const }),
-  exposure: Schema.optionalWith(Schema.Literal("direct", "tunnel"), { default: () => "direct" as const }),
+  exposure: Schema.optionalWith(Schema.Literal("direct", "tunnel", "internal"), { default: () => "direct" as const }),
   data: Schema.optionalWith(_Data, { default: () => _Data.make({}) }),
   fanout: Schema.optionalWith(_Fanout, { default: () => _Fanout.make({}) }),
   tenancy: Schema.optionalWith(_Tenancy, { default: () => _Tenancy.make({}) }),
@@ -142,7 +148,7 @@ declare namespace StackSpec {
 - Law: options are algebra, not assembly — `child()` is the only way a child receives options: `parent` rides the fold, an explicit `provider`/`providers` set at tier construction flows down the chain, `dependsOn` states only genuine extra-graph edges (an `Output` reference already is one), `protect: true` marks tiers owning irreplaceable state, `aliases` accompany a rename so state survives it, `ignoreChanges` quarantines fields an operator mutates out-of-band, and a `ResourceHook`/`ErrorHook` binding is one more `child()` override row when a tier earns lifecycle interception — the fold is the single channel every option class travels.
 - Law: `seal` closes every constructor — an unsealed tier reports no outputs and its dependents race construction; the sealed record is the tier's public evidence and mirrors the readonly fields the class exposes.
 - Law: adoption is not composition — a `ComponentResource` has no `static get`; a pre-existing cloud object adopts through its own resource class `get` or `opts.import` inside the owning tier, and the tier remains the sole author thereafter.
-- Law: the tier tree is closed and page-owned — `Bootstrap` (`provider.md`), `Secrets`/`Certs` (`operate/secret.md`), `ObjectStore`/`Nats`/`Postgres` (`kube/data.md`), `Workload` (`kube/workload.md`), `Traffic` (`kube/traffic.md`), `Tenants` (`kube/tenant.md`), `Lgtm`/`Boards` (`operate/observe.md`), `CloudPlane` (`operate/cloud.md`), `Source` (`program/source.md`) — each a subclass whose declaration and invariants live on its owning page; a concern with no tier row composes inside an existing tier before a new subclass is minted, and a rename travels as an `aliases` row, never a silent replacement.
+- Law: the tier tree is closed and page-owned — `Bootstrap` (`provider.md`), `Source` (`program/source.md`), `Secrets`/`Certs` (`operate/secret.md`), `ObjectStore`/`Nats`/`Postgres` (`kube/data.md`), `Workload` (`kube/workload.md`), `Traffic` (`kube/traffic.md`), `Tenants` (`kube/tenant.md`), `Lgtm`/`Boards` (`operate/observe.md`), `Reconcile` (`operate/policy.md`), `CloudPlane` (`operate/cloud.md`) — each a subclass whose declaration and invariants live on its owning page; a concern with no tier row composes inside an existing tier before a new subclass is minted, and a rename travels as an `aliases` row, never a silent replacement.
 - Growth: a new tier is one subclass row on its owning page plus its roster mention here; the base never grows knobs.
 - Packages: `@pulumi/pulumi` (`ComponentResource`, `ComponentResourceOptions`, `CustomResourceOptions`, `mergeOptions`, `Inputs`).
 
@@ -208,9 +214,10 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
   static readonly read = (stack: Stack, name: string): Effect.Effect<StackOutputs, DeployFault> =>
     Effect.tryPromise({ try: () => stack.outputs(), catch: DeployFault.triaged(name) }).pipe(
       Effect.flatMap((outputs) => {
-        const leaked = Object.entries(outputs).filter(([, entry]) => entry.secret === true).map(([key]) => key)
+        const entries = Object.entries(outputs)
+        const leaked = entries.filter(([, entry]) => entry.secret === true).map(([key]) => key)
         return leaked.length === 0
-          ? Effect.succeed(Object.fromEntries(Object.entries(outputs).map(([key, entry]) => [key, entry.value])))
+          ? Effect.succeed(Object.fromEntries(entries.map(([key, entry]) => [key, entry.value])))
           : Effect.fail(new DeployFault({ reason: "input", stack: name, detail: leaked.join(",") }))
       }),
       Effect.flatMap((record) =>
@@ -220,15 +227,14 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
         )),
     )
   get pairs(): ReadonlyArray<StackOutputs.Pair> {
-    const planes: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string | number>> =
-      Record.getSomes(Record.map(StackOutputs.fields, (_, plane) => this[plane as StackOutputs.Plane]))
-    return StackOutputs.pairsOf(planes, String)
+    const held: Record.ReadonlyRecord<string, Option.Option<Record.ReadonlyRecord<string, string | number>>> =
+      Record.map(StackOutputs.fields, (_, plane) => this[plane])
+    return StackOutputs.pairsOf(Record.getSomes(held), String)
   }
 }
 
 declare namespace StackOutputs {
   type Pair = readonly [channel: string, value: string]
-  type Plane = keyof typeof StackOutputs.fields & keyof StackOutputs
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

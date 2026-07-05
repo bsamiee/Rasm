@@ -1,6 +1,6 @@
 # [RUNTIME_SCHEDULE]
 
-Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cron expression with intrinsic timezone, anchor policy, misfire window, catch-up posture, service class, shard group — and one registration fold mints the whole table into `ClusterCron` singletons that fire exactly once per cluster tick. The page owns the three decisions a cron engine leaves open and every hand-rolled scheduler re-invents: what a tick's successor is anchored to (wall clock versus previous completion — `calculateNextRunFromPrevious` as a row column), what happens to a tick that fired while no runner lived (the misfire window — `skipIfOlderThan` bounds how stale a tick still executes), and what happens to the ticks beyond that window (the catch-up posture — skip them, run one representative, or replay all, computed from the `Cron.sequence` between the last recorded run and now with each replayed tick an idempotent step keyed by its instant). Durable pauses arrive settled from `flow#SIGNAL_GATE` — this page composes `Gate.pause` and mints no timer. The same row table drives the host fallback: a single-node process or a scope whose in-database cron grant is refused runs identical rows on the in-process `Schedule.cron`, so degradation is an engine swap, never a second table. The module ships on the `./server` exports subpath as `runtime/src/work/schedule.ts`.
+Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cron expression with intrinsic timezone, anchor policy, misfire window, catch-up posture, service class, shard group — and one registration fold mints the whole table into `ClusterCron` singletons that fire exactly once per cluster tick. The page owns the three decisions a cron engine leaves open and every hand-rolled scheduler re-invents: what a tick's successor is anchored to (wall clock versus previous completion — `calculateNextRunFromPrevious` as a row column), what happens to a tick that fired while no runner lived (the misfire window — `skipIfOlderThan` bounds how stale a tick still executes), and what happens to the ticks beyond that window (the catch-up posture — skip them, run one representative, or replay all, computed from the `Cron.sequence` between the last recorded run and now with each replayed tick an idempotent step keyed by its instant). Durable pauses arrive settled from `flow#SIGNAL_GATE` — this page composes `Signal.pause` and mints no timer. The same row table drives the host fallback: a single-node process or a scope whose in-database cron grant is refused runs identical rows on the in-process `Schedule.cron`, so degradation is an engine swap, never a second table. The module ships on the `./server` exports subpath as `runtime/src/work/schedule.ts`.
 
 ## [1]-[CLUSTERS]
 
@@ -21,7 +21,7 @@ Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cr
 
 ```typescript
 import { ClusterCron } from "@effect/cluster"
-import { Array, Cron, DateTime, Duration, Effect, Iterable, Layer, Option, Schedule } from "effect"
+import { Array, Cron, DateTime, Duration, Effect, Iterable, Layer, Option, Schedule, Schema } from "effect"
 import { Fact } from "@rasm/ts/data"
 import { WorkClass } from "./entity.ts"
 import { Step } from "./flow.ts"
@@ -55,9 +55,12 @@ declare namespace Cadence {
 ```typescript
 const _missed = (row: Cadence.Row, lastRun: DateTime.Utc, now: DateTime.Utc): ReadonlyArray<Date> => {
   const horizon = DateTime.toDate(DateTime.subtractDuration(now, row.misfire))
-  const ticks = Array.fromIterable(
-    Iterable.takeWhile(Cron.sequence(row.cron, DateTime.toDate(lastRun)), (tick) => tick < DateTime.toDate(now)),
-  ).filter((tick) => tick < horizon)
+  const ticks = Array.filter(
+    Array.fromIterable(
+      Iterable.takeWhile(Cron.sequence(row.cron, DateTime.toDate(lastRun)), (tick) => tick < DateTime.toDate(now)),
+    ),
+    (tick) => tick < horizon,
+  )
   return row.catchUp === "skip" ? [] : row.catchUp === "once" ? Array.takeRight(ticks, 1) : ticks
 }
 
@@ -78,7 +81,16 @@ const _cluster = <R, R2>(
           const now = yield* DateTime.now
           const last = yield* marks(row.name)
           const backlog = _missed(row, Option.getOrElse(last, () => now), now)
-          yield* Effect.forEach(backlog, (tick) => Step.run(`${row.name}@${tick.toISOString()}`, row.clazz, run(row, tick)), { discard: true })
+          yield* Effect.forEach(
+            backlog,
+            (tick) =>
+              Step.run(`${row.name}@${tick.toISOString()}`, row.clazz, {
+                success: Schema.Void,
+                error: Schema.Never,
+                execute: run(row, tick),
+              }),
+            { discard: true },
+          )
           yield* Effect.when(
             Fact.record({
               action: "cadence.backfilled",
@@ -89,7 +101,11 @@ const _cluster = <R, R2>(
             }),
             () => backlog.length > 0,
           )
-          yield* Step.run(`${row.name}@${DateTime.formatIso(now)}`, row.clazz, run(row, DateTime.toDate(now)))
+          yield* Step.run(`${row.name}@${DateTime.formatIso(now)}`, row.clazz, {
+            success: Schema.Void,
+            error: Schema.Never,
+            execute: run(row, DateTime.toDate(now)),
+          })
         }),
       })),
   )

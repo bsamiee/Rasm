@@ -114,7 +114,7 @@ const _wireLiteral: Schema.Literal<Wire.Families> = Schema.Literal(..._families)
 - Packages: `effect` (`Schema`, `Effect`, `Mailbox`, `Ref`, `HashMap`, `DateTime`, `Schedule`, `Order`, `Array`, `Either`, `Function`, `Option`).
 
 ```typescript
-import { DateTime, Effect, Either, Function, HashMap, Mailbox, Option, Order, Predicate, Ref, Schedule } from "effect"
+import { Chunk, DateTime, Effect, Either, Function, HashMap, Mailbox, Option, Order, Predicate, Ref, Schedule } from "effect"
 
 const _causes = ["malformed", "truncated", "overrun", "sequence", "parity", "drift", "stale", "conflict"] as const
 
@@ -189,14 +189,15 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
         delivered: (value: A) => Effect.Effect<void, never, R>,
         retired: (frame: PoisonFrame) => Effect.Effect<void, never, R>,
       ): Effect.Effect<void, never, R> =>
-        Effect.flatMap(box.takeAll, ([frames]) =>
-          Effect.forEach(frames, (frame) =>
-            frame.replayable
-              ? decode(frame.family, frame.octets).pipe(Effect.matchEffect({
-                  onFailure: () => Effect.asVoid(admit(new PoisonFrame({ ...frame, attempts: frame.attempts + 1 }))),
-                  onSuccess: (value) => Effect.andThen(delivered(value), settled(frame)),
-                }))
-              : Effect.andThen(retired(frame), settled(frame)), { concurrency: 1, discard: true })).pipe(Effect.repeat(_REPLAY), Effect.asVoid),
+        Effect.flatMap(Effect.orDie(box.take), (first) =>
+          Effect.flatMap(box.takeAll, ([rest]) =>
+            Effect.forEach(Chunk.prepend(rest, first), (frame) =>
+              frame.replayable
+                ? decode(frame.family, frame.octets).pipe(Effect.matchEffect({
+                    onFailure: () => Effect.asVoid(admit(new PoisonFrame({ ...frame, attempts: frame.attempts + 1 }))),
+                    onSuccess: (value) => Effect.andThen(delivered(value), settled(frame)),
+                  }))
+                : Effect.andThen(retired(frame), settled(frame)), { concurrency: 1, discard: true }))).pipe(Effect.repeat(_REPLAY), Effect.asVoid),
     }
   }),
   accessors: true,
@@ -994,7 +995,7 @@ const Wire: Wire.Shape = {
 - Packages: `effect` (`Stream`, `Equivalence`, `HashMap`, `Chunk`, `Option`).
 
 ```typescript
-import { Chunk, type Duration } from "effect"
+import type { Duration } from "effect"
 
 const _feedKeys = ["ProgressMarkWire", "FlagVerdictWire"] as const
 

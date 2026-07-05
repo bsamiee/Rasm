@@ -332,7 +332,7 @@ const PgLanes = {
                     (statement, params) =>
                         Effect.map(
                             _guarded('pg', () => db.query(statement, params === undefined ? undefined : [...params])),
-                            (result) => result.rows as ReadonlyArray<unknown>,
+                            (result) => result.rows,
                         ),
                     _pgliteListen(db),
                 );

@@ -145,7 +145,7 @@ class Nats extends Tier {
 - Law: preload derives from the matrix flag — `_preload` filters the granted rows on the `preload` flag and stamps the cluster's `shared_preload_libraries` list, so the next preload-demanding extension lands as a data-matrix flag with zero code edit here; `pgaudit` is CNPG-managed — the operator injects its preload automatically — so no hand list exists and an unloaded preload cannot pass the startup probe.
 - Law: the pooler is the published bind — one `Pooler` CR (`type: "rw"`, PgBouncer `poolMode: "transaction"`, two instances) fronts the write service, `postgres.host` publishes the pooler service DNS so every app connection multiplexes through it, and the operator-maintained `-rw` service stays the interior host the ensure job's DDL binds directly — pooled for the many, direct for the DDL.
 - Law: the credentials are ours, not the operator's — two `kubernetes.io/basic-auth` secrets carry the Doppler-generated `admin` and `app` entries: the cluster's `superuserSecret`/`enableSuperuserAccess` rows point at the first (the ensure job connects with it), and the `managed.roles` row's `passwordSecret` points at the second, so no operator-minted credential exists outside the rotation epoch; the admin and app credentials are two distinct Doppler entries by construction — one leaked app role never opens the cluster.
-- Law: dependent-CR cluster references are create-only — `Database`, `ScheduledBackup`, and `Pooler` `cluster.name` references are CEL-validated immutable on the operator's CRDs; the generators treat them as create-time constants, and re-pointing one is a new resource by construction.
+- Law: dependent-CR cluster references are create-only and explicitly named — `Database`, `ScheduledBackup`, and `Pooler` `cluster.name` references are CEL-validated immutable on the operator's CRDs, the generators treat them as create-time constants, and re-pointing one is a new resource by construction; the `Cluster` CR states its `metadata.name` because a nameless metadata autonames under the provider, every literal `cluster.name` reference then dangles, and the cluster name is the `-rw` service-DNS root — referenced CRs and autonaming never mix.
 - Entry: interior to `Postgres`; consumers read `postgres.host`, `postgres.port`, `postgres.database`, `postgres.role`.
 - Growth: a new operator fact (a replica cluster, an `ImageCatalog` row) is one typed CR row on this tier; the logical-replication seam is `[5]`'s static pair.
 - Boundary: the operator chart's values and the CR field dialect drift with the pinned versions — the pins are args; the object-store row is `[2]`'s; the fanout row is `[3]`'s.
@@ -248,7 +248,7 @@ class Postgres extends Tier {
       stringData: { username: this.role, password: args.auth.app },
     }, this.child())
     const cluster = new cnpg.postgresql.v1.Cluster(name, {
-      metadata: { namespace: args.namespace },
+      metadata: { name, namespace: args.namespace },
       spec: {
         instances: args.spec.profile.data.instances,
         imageName: args.image,
@@ -294,7 +294,7 @@ class Postgres extends Tier {
     }, this.child({ dependsOn: [cluster] }))
     const direct = pulumi.all([cluster.metadata, args.namespace]).apply(([meta, namespace]) => `${meta.name}-rw.${namespace}.svc`)
     this.host = pulumi.all([pool.metadata, args.namespace]).apply(([meta, namespace]) => `${meta.name}.${namespace}.svc`)
-    _finalized({ owner: this, cluster: name, args, granted, admin, direct, child: this.child({ dependsOn: [cluster] }) })
+    _finalized({ owner: this, cluster: name, args, granted, admin, app, direct, child: this.child({ dependsOn: [cluster] }) })
     this.seal({ host: this.host, port: this.port, database: this.database, role: this.role })
   }
 }
@@ -339,6 +339,7 @@ type _Finalize = {
   readonly args: Postgres.Args
   readonly granted: ReadonlyArray<(typeof Pg.rows)[number]>
   readonly admin: k8s.core.v1.Secret
+  readonly app: k8s.core.v1.Secret
   readonly direct: pulumi.Output<string>
   readonly child: pulumi.CustomResourceOptions
 }
@@ -367,16 +368,34 @@ const _TENANCY: { readonly [K in StackSpec.Tenancy["pgTier"]]: (ctx: _Finalize) 
   "cluster-per-tenant": (ctx) =>
     void Array.map(ctx.args.spec.tenants, (tenant) => {
       const dedicated = new cnpg.postgresql.v1.Cluster(`${ctx.cluster}-${tenant}`, {
-        metadata: { namespace: ctx.args.namespace },
+        metadata: { name: `${ctx.cluster}-${tenant}`, namespace: ctx.args.namespace },
         spec: {
           instances: ctx.args.spec.profile.data.instances,
           imageName: ctx.args.image,
           storage: { size: ctx.args.spec.profile.data.storage },
           superuserSecret: { name: ctx.admin.metadata.name },
-          managed: { roles: [{ name: ctx.owner.role, ensure: "present", login: true, superuser: false }] },
+          managed: {
+            roles: [{
+              name: ctx.owner.role,
+              ensure: "present",
+              login: true,
+              superuser: false,
+              passwordSecret: { name: ctx.app.metadata.name },
+            }],
+          },
         },
       }, { ...ctx.child, protect: true })
-      return _database(`${ctx.owner.database}-${tenant}`, ctx.owner.database, ctx, `${ctx.cluster}-${tenant}`)
+      return new cnpg.postgresql.v1.Database(`${ctx.owner.database}-${tenant}`, {
+        metadata: { namespace: ctx.args.namespace },
+        spec: {
+          cluster: { name: `${ctx.cluster}-${tenant}` },
+          name: ctx.owner.database,
+          owner: ctx.owner.role,
+          template: "template0",
+          encoding: "UTF8",
+          extensions: [..._extensions(ctx.granted)],
+        },
+      }, { ...ctx.child, dependsOn: [dedicated] })
     }),
 }
 

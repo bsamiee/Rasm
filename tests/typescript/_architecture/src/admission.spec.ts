@@ -52,8 +52,10 @@ const _REVIEW_ONLY = [
     'semantic-naming',
 ] as const;
 
-// Every promoted rule binds the domain estate and exempts the spec dialects.
-const _PLUGIN_SCOPE = ['libs/typescript/**', '!**/*.spec.ts', '!**/*.test.ts', '!**/*.bench.ts'] as const;
+// Every promoted rule binds the domain estate and exempts the spec dialects. Plugin includes match
+// the full file path, so the estate glob leads with `**/` — the bare `libs/typescript/**` form never
+// matches and silently disarms the whole promotion layer.
+const _PLUGIN_SCOPE = ['**/libs/typescript/**', '!**/*.spec.ts', '!**/*.test.ts', '!**/*.bench.ts'] as const;
 
 // The type-aware, import-graph, and test domains stay armed at recommended.
 const _DOMAINS = ['project', 'test', 'types'] as const;

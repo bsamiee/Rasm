@@ -373,7 +373,7 @@ const critLogs = (await pool(ordered, CAP, (page) =>
 log('Critique wave: ' + critLogs.length + '/' + ordered.length + ' files audited (corpus-aware)')
 phase('Redteam')
 const redLogs = (await pool(ordered, CAP, (page) =>
-  agent(redteamPrompt(page), { label: 'redteam:' + nameOf(page), phase: 'Redteam', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+  agent(redteamPrompt(page), { label: 'redteam:' + nameOf(page), phase: 'Redteam', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
     .then((r) => r ? { page, log: r } : null))).filter(Boolean)
 log('Redteam wave: ' + redLogs.length + '/' + ordered.length + ' files attacked (corpus-aware)')
 

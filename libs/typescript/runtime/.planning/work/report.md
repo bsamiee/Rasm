@@ -19,25 +19,38 @@ Document egress as one folded spec: a report is a `Report.Spec` value — column
 - Law: rows arrive decoded — the caller's Schema owns row typing and the render fold receives typed values; no arm re-validates, and the CSV arm's refusal of engine-side typing is this law's engine-level echo.
 - Law: bytes are identity material — the artifact's content key is the kernel mint over the produced bytes, so reproducibility (pinned instants, fixed compression, stable column order) is a correctness requirement, not a preference; a defaulted creation date in any arm is the named defect.
 - Law: a render is a durable step — the relay and the job families run `Report.render` inside `Step.run(name, "bulk", …)`, so deadline geometry, replay memoization, and evidence arrive from the flow mint and this page owns none of them.
+- Law: the off-thread ceiling is wired, not aspirational — a `pdf` fold whose projected cell set exceeds `_OFFLOAD.rows` routes through `proc/worker`'s `Render` request: the data-only plan (columns, furniture, projected cells) encodes to bytes, crosses zero-copy, and the produced bytes cross back; a protected document renders in-process regardless, because a sealed password never crosses the thread seam — the one exemption to the ceiling.
 - Receipt: `{ bytes, rows, format, span }` — size, row count, format row, wall span — the evidence the meter fact and the artifact index consume.
 - Growth: a new format is one arm behind the same dispatch; a new visual concern is a spec field every arm interprets or ignores by declaration.
-- Packages: `effect` (`Effect`, `Stream`, `Match`, `Duration`); `@rasm/ts/core` (the content-key mint at the artifact seam).
+- Packages: `effect` (`Effect`, `Stream`, `Match`, `Duration`); `@rasm/ts/core` (the content-key mint at the artifact seam); `../proc/worker.ts` (`Bench`, `Render` — the off-thread ceiling).
 
 ```typescript
 import ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
 import JSZip from "jszip"
 import Papa from "papaparse"
+import { Buffer } from "node:buffer"
+import path from "node:path"
 import { PassThrough } from "node:stream"
-import { Chunk, Data, Duration, Effect, Match, Option, Redacted, Stream } from "effect"
+import { Array, Chunk, Data, Duration, Effect, Match, Option, Redacted, Stream } from "effect"
 import { FaultClass } from "@rasm/ts/core"
+import { Bench, Render } from "../proc/worker.ts"
+
+const _reasons = {
+  engine: "defect",
+  sink: "unavailable",
+  archive: "defect",
+  slip: "malformed",
+} as const satisfies Record<string, FaultClass.Kind>
 
 class RenderFault extends Data.TaggedError("RenderFault")<{
-  readonly reason: "engine" | "sink" | "archive" | "slip"
+  readonly reason: keyof typeof _reasons
   readonly arm: "csv" | "xlsx" | "pdf" | "zip"
   readonly detail: string
 }> {
-  readonly class: FaultClass.Kind = "defect"
+  get class(): FaultClass.Kind {
+    return _reasons[this.reason]
+  }
 }
 
 declare namespace Report {
@@ -75,10 +88,12 @@ declare namespace Report {
   }
 }
 
+const _OFFLOAD = { rows: 50_000 } as const
+
 const _render = <A, R>(
   spec: Report.Spec<A>,
   rows: Stream.Stream<A, never, R>,
-): Effect.Effect<Report.Artifact, RenderFault, R> =>
+): Effect.Effect<Report.Artifact, RenderFault, R | Bench> =>
   Match.value(spec.format).pipe(
     Match.when("xlsx", () => _xlsx(spec, rows)),
     Match.when("pdf", () => _pdf(spec, rows)),
@@ -94,6 +109,7 @@ const _render = <A, R>(
 - Law: the nine-arm `ConditionalFormattingRule` union, the `DataValidation` operator space, and the `Style` composite are the parameterization vocabulary — a report that needs a data bar, an icon set, or a dropdown names a rule row; an imperative per-report formatting branch is unspellable.
 - Law: amend-load ingress rides the symmetric reader — `new ExcelJS.stream.xlsx.WorkbookReader(input, options)` async-iterates worksheets and rows out of a stored artifact for append-and-re-emit jobs, lifted through `Stream.fromAsyncIterable`; the in-memory `workbook.xlsx.load` is reserved for small template loads.
 - Law: `.csv` on the workbook facade defers to the CSV arm — `exceljs.csv` exists only to re-project an already-built `Worksheet`.
+- Exemption: the `PassThrough` byte collection is the platform-forced sink seam — the writer mutates a node stream outside the rail, and the chunk fold behind it is the one sanctioned event-accumulation site in this module.
 - Growth: a new formatting capability is a spec field mapped to its vocabulary row in this one fold.
 - Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model).
 
@@ -107,12 +123,14 @@ const _xlsx = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
       new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useStyles: true, useSharedStrings: false })
     )
     const sheet = writer.addWorksheet(spec.furniture.title)
-    sheet.columns = spec.columns.map((column) => ({
-      header: column.header,
-      key: column.key,
-      width: column.width,
-      style: column.style === undefined ? {} : spec.style[column.style],
-    }))
+    sheet.columns = [
+      ...Array.map(spec.columns, (column) => ({
+        header: column.header,
+        key: column.key,
+        width: column.width,
+        style: column.style === undefined ? {} : (spec.style[column.style] ?? {}),
+      })),
+    ]
     yield* Effect.forEach(
       spec.rules,
       (row) => Effect.sync(() => sheet.addConditionalFormatting({ ref: row.range, rules: [row.rule] })),
@@ -142,15 +160,33 @@ const _xlsx = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
 - Owner: the measured-paging PDF arm — one `new jsPDF({ unit: "pt", compress: true, encryption })` built and emitted inside one synchronous fold: `setDocumentProperties` stamps title and creator from the spec, `setCreationDate(new Date(0))` pins the instant so equal rows produce identical bytes, the brand band lands once through `addImage` with an `alias` so a repeated logo embeds one object, the column contract renders through the native `doc.table(x, y, data, headers, config)` structured-table primitive with `printHeaders` — never a hand-rolled `splitTextToSize`/`addPage` cursor loop for tabular content — and free-text sections page through the measured fold (`getTextDimensions` against `internal.pageSize.getHeight()`). `doc.outline.add` builds the section bookmark tree, and `output("arraybuffer")` is the single boundary crossing.
 - Law: encryption is a spec row — `userPassword`/`ownerPassword` from `Redacted`, `userPermissions` the bounded set — and the browser egress arms (`save`, `blob`, `html`) are unspellable in this node lane.
 - Law: repeated furniture registers once — a branded header band or signature block is a `jsPDF.API` plugin registration at module scope, invoked per page; re-drawing shared furniture imperatively per call site is the rejected form.
-- Law: rendering is CPU-bound pure JS — an oversized document render offloads through the worker protocol at the composition root; the arm itself stays synchronous.
+- Law: rendering is CPU-bound pure JS — the arm's synchronous fold is `_drawn`, and the `_OFFLOAD.rows` ceiling routes an oversized unprotected document through the `Render` worker request at the `SPEC_FOLD` dispatch, so the request path never blocks on a large draw.
 - Growth: a new document element (watermark, TOC) is a furniture field folded here; interactive AcroForm surfaces are a spec extension row, admitted when a consumer names them.
 - Packages: `jspdf` (`jsPDF`, `GState`, the table/outline/AcroForm/metadata surface).
 
 ```typescript
-const _pdf = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
-  Stream.runCollect(rows).pipe(
-    Effect.timed,
-    Effect.map(([span, collected]) => {
+const _planned = <A>(spec: Report.Spec<A>, cells: ReadonlyArray<ReadonlyArray<Report.Cell>>): Uint8Array =>
+  new TextEncoder().encode(JSON.stringify({
+    columns: spec.columns,
+    format: spec.format,
+    furniture: {
+      title: spec.furniture.title,
+      footer: spec.furniture.footer,
+      brand: Option.match(spec.furniture.brand, {
+        onNone: () => null,
+        onSome: (bytes) => Buffer.from(bytes).toString("base64"),
+      }),
+    },
+    cells,
+  }))
+
+const _drawn = <A>(
+  spec: Report.Spec<A>,
+  cells: ReadonlyArray<ReadonlyArray<Report.Cell>>,
+  span: Duration.Duration,
+): Effect.Effect<Report.Artifact, RenderFault> =>
+  Effect.try({
+    try: () => {
       const doc = new jsPDF({
         unit: "pt",
         compress: true,
@@ -163,16 +199,33 @@ const _pdf = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
       })
       doc.setDocumentProperties({ title: spec.furniture.title, creator: "rasm" })
       doc.setCreationDate(new Date(0))
-      const data = Chunk.toReadonlyArray(collected).map((row) =>
-        Object.fromEntries(spec.columns.map((column, index) => [column.key, String(spec.project(row)[index] ?? "")]))
-      )
-      doc.table(40, 60, data, spec.columns.map((column) => column.header), { printHeaders: true })
+      const data = Array.map(cells, (row) =>
+        Object.fromEntries(Array.map(spec.columns, (column, index) => [column.key, String(row[index] ?? "")])))
+      doc.table(40, 60, data, Array.map(spec.columns, (column) => column.header), { printHeaders: true })
       doc.outline.add(null, spec.furniture.title, { pageNumber: 1 })
-      const bytes = new Uint8Array(doc.output("arraybuffer"))
-      return { bytes, rows: data.length, format: "pdf" as const, span } satisfies Report.Artifact
-    }),
-    Effect.mapError((cause) => new RenderFault({ reason: "engine", arm: "pdf", detail: String(cause) })),
-  )
+      return {
+        bytes: new Uint8Array(doc.output("arraybuffer")),
+        rows: cells.length,
+        format: "pdf" as const,
+        span,
+      } satisfies Report.Artifact
+    },
+    catch: (cause) => new RenderFault({ reason: "engine", arm: "pdf", detail: String(cause) }),
+  })
+
+const _pdf = <A, R>(
+  spec: Report.Spec<A>,
+  rows: Stream.Stream<A, never, R>,
+): Effect.Effect<Report.Artifact, RenderFault, R | Bench> =>
+  Effect.flatMap(Effect.timed(Stream.runCollect(rows)), ([span, collected]) => {
+    const cells = Array.map(Chunk.toReadonlyArray(collected), (row) => spec.project(row))
+    return cells.length > _OFFLOAD.rows && Option.isNone(spec.protect)
+      ? Render.rendered("pdf", _planned(spec, cells)).pipe(
+          Effect.map((bytes): Report.Artifact => ({ bytes, rows: cells.length, format: "pdf", span })),
+          Effect.mapError((fault) => new RenderFault({ reason: "sink", arm: "pdf", detail: fault._tag })),
+        )
+      : _drawn(spec, cells, span)
+  })
 ```
 
 ## [5]-[CSV_ARM]
@@ -189,9 +242,9 @@ const _csv = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
   Stream.runCollect(rows).pipe(
     Effect.timed,
     Effect.map(([span, collected]) => {
-      const data = Chunk.toReadonlyArray(collected).map((row) => spec.project(row))
+      const data = Array.map(Chunk.toReadonlyArray(collected), (row) => [...spec.project(row)])
       const text = Papa.unparse(
-        { fields: spec.columns.map((column) => column.header), data: data as Array<Array<unknown>> },
+        { fields: Array.map(spec.columns, (column) => column.header), data },
         { escapeFormulae: true, newline: "\n" },
       )
       return {
@@ -205,9 +258,11 @@ const _csv = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
   )
 
 const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
-  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-  const joined = new Uint8Array(total)
-  chunks.reduce((offset, chunk) => (joined.set(chunk, offset), offset + chunk.length), 0)
+  const joined = new Uint8Array(Array.reduce(chunks, 0, (sum, chunk) => sum + chunk.length))
+  Array.reduce(chunks, 0, (offset, chunk) => {
+    joined.set(chunk, offset)
+    return offset + chunk.length
+  })
   return joined
 }
 ```
@@ -216,8 +271,8 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 
 [BUNDLE]:
 - Owner: the archive container — `Report.bundle(entries)` folds named artifacts into one `JSZip` tree with per-entry compression policy (`STORE` for already-compressed formats, `DEFLATE` level 6 for text), fixed entry dates for byte stability, and STREAMING egress: `generateInternalStream({ type: "uint8array", streamFiles: true })` bridged through `Stream.async` on its `data`/`end`/`error` events, so an open-ended bundle never buffers — the `onUpdate` metadata (`percent`, `currentFile`) folds into a progress gauge as it flows. The bounded convenience form is `generateAsync` behind the same entry, selected by the caller's size knowledge, never a second surface.
-- Law: inbound archives are untrusted — `loadAsync(data, { checkCRC32: true })` gates integrity, and every entry's `unsafeOriginalName` resolves against a fixed extraction root before any byte lands; a `..` escape folds to the `slip`-reasoned fault.
-- Law: DEFLATE is CPU-bound pure JS — a large bundle runs off the request path as a `bulk`-class step, identical to the render arms.
+- Law: inbound archives are untrusted — `loadAsync(data, { checkCRC32: true })` gates integrity, and every entry's `unsafeOriginalName` resolves under the extraction anchor before any byte lands; the fold admits only targets that keep the anchor as their path prefix, and an escaping resolution folds to the `slip`-reasoned fault.
+- Law: DEFLATE is CPU-bound pure JS — a large bundle runs off the request path as a `bulk`-class step, and a byte ceiling routes the fold through the same worker `Render` row (the `"bundle"` kind) the pdf arm dials.
 - Growth: a container policy axis (per-tenant naming, manifest entry) is a fold parameter; a second archive format is a new arm at the spec dispatch, never a fork of this one.
 - Packages: `jszip` (`JSZip`, `generateInternalStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
 
@@ -244,15 +299,18 @@ const _unbundle = (bytes: Uint8Array, root: string) =>
     try: () => JSZip.loadAsync(bytes, { checkCRC32: true }),
     catch: (cause) => new RenderFault({ reason: "archive", arm: "zip", detail: String(cause) }),
   }).pipe(
-    Effect.flatMap((zip) =>
-      Effect.forEach(Object.values(zip.files), (entry) =>
-        entry.unsafeOriginalName?.includes("..") === true
-          ? Effect.fail(new RenderFault({ reason: "slip", arm: "zip", detail: entry.name }))
-          : Effect.tryPromise({
+    Effect.flatMap((zip) => {
+      const anchor = path.resolve(root)
+      return Effect.forEach(Object.values(zip.files), (entry) => {
+        const target = path.resolve(anchor, entry.unsafeOriginalName)
+        return target === anchor || target.startsWith(`${anchor}${path.sep}`)
+          ? Effect.tryPromise({
             try: () => entry.async("uint8array"),
             catch: (cause) => new RenderFault({ reason: "archive", arm: "zip", detail: String(cause) }),
-          }).pipe(Effect.map((body) => ({ name: `${root}/${entry.name}`, body }))))
-    ),
+          }).pipe(Effect.map((body) => ({ name: target, body })))
+          : Effect.fail(new RenderFault({ reason: "slip", arm: "zip", detail: entry.name }))
+      })
+    }),
   )
 
 const Report = {

@@ -184,7 +184,7 @@ class GrammarRegistry:
             # is a hang guard rather than a routine outcome the rail decides on.
             visited = tree.root_node.descendant_count
             if visited >= budget:
-                fault = BoundaryFault(deadline=(f"{probe}:{lang}", float(budget)))
+                fault = BoundaryFault(deadline=(f"{probe}:{lang}", float(budget), "descendant-count"))
                 scope.set_status(Status(StatusCode.ERROR, fault.tag))
                 return Error(fault)
             captures = cursor.captures(tree.root_node, progress_callback=lambda step: step < budget)

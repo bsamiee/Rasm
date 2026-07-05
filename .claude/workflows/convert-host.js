@@ -328,7 +328,7 @@ const results = (await pool(ACTIVE, CAP, async (folder) => {
       label: 'crit:' + folder.key + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'xhigh', schema: FIXLOG, stallMs: STALL,
     })
     const rt = await agent(redteamPrompt(folder, unit, crit), {
-      label: 'rt:' + folder.key + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'max', schema: FIXLOG, stallMs: STALL,
+      label: 'rt:' + folder.key + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'xhigh', schema: FIXLOG, stallMs: STALL,
     })
     unitReports.push({ unit: unit.key, pages: unit.pages.length, verdict: (rt && rt.verdict) || (crit && crit.verdict) || fix.verdict })
   }

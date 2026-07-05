@@ -11,7 +11,8 @@ Rasm.Persistence/
 ├── Element/              # The ElementGraph store-load roundtrip over Marten
 │   ├── Graph.cs          # ElementStore: stream-per-model, GraphDelta event bodies, inline SingleStreamProjection (read-your-writes), AggregateStreamAsync AS-OF, the GraphStoreOp rail with co-txn identity commit
 │   ├── Codec.cs          # SnapshotCodec axis, ContentAddress over the kernel seed-zero XxHash128, canonical CBOR, the sealed-header trust boundary + tier ladder, FastCDC content-defined chunker
-│   └── Identity.cs       # ElementIdentity relational tier (the one txn owner as a Marten doc), IdentityPolicy key axis, Grant/GrantSet/ObjectAcl/Authority object-ACL, KmsProvider/SigningKeyring/SignedAuthorship signing + EnvelopeKeyring DEK envelope (#KEY_ENVELOPE), the SchemaVerdict boot fold
+│   ├── Identity.cs       # ElementIdentity relational tier (the one txn owner as a Marten doc), IdentityPolicy key axis, ConverterRail/IdentityContext generated EF rail, PostGIS Bounds plane, KmsProvider/SigningKeyring/SignedAuthorship + EnvelopeKeyring DEK envelope (#KMS_CUSTODY, Custody/CustodyVerdict), IdentityDdl migration owner, SchemaVerdict boot fold
+│   └── Authority.cs      # Grant/GrantSet/AclScope/AclEntry/ObjectAcl + Authority.Admit deny-over-allow object-ACL algebra (SPLIT from Identity.cs; Band NONE, composes IdentityFault 8340)
 ├── Version/              # The version-control engine projecting FROM Marten events
 │   ├── Ledger.cs         # OpLogEntry changefeed projection of Marten events, HLC, ColumnFamily merge-stance, Adjudicate + CRDT dispatch, the sync transports, presence/awareness
 │   ├── Commits.cs        # Content-addressed commit-DAG, the convergent op/delta-state CRDT algebra, CrdtOpWire, the ContentParityCorpus
@@ -50,8 +51,10 @@ Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-h
 Version/timetravel   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed
 Version/provenance   ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding; the attested-ledger authenticity authority
 Version/retention    ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in the blob retention class
-Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS, KMS SigningKeyring + EnvelopeKeyring KMS-unwrap handle (#KEY_ENVELOPE, ONE_IDENTITY_STORE)
-Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ClockPolicy/CorrelationId/TenantContext ProjectionContext ingredients
+Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: TenantId RLS + KMS SigningKeyring/EnvelopeKeyring KMS-unwrap handle (#KMS_CUSTODY, ONE_IDENTITY_STORE; SecretLease handle only)
+Element/authority    ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store (frozen vocabulary, subject-keyed, string-keyed Grant wire)
+Element/authority    →  Version/commits                    # [GATE]: BranchRef movement gated by Authority.Admit — the same GrantSet narrowed under AclScope.Branch, never a parallel branch enum
+Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: StoreActor/ProjectionContext/ResolvedProfile port-input VALUES AppHost fills at the boundary — Persistence-defined shapes, no AppHost type crosses down
 Query/topology       ←  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
 Query/columnar       ←  csharp:Rasm.Bim/Model              # [PROJECTION]: BIM-typed BimOpenSchema FlatTableProjection (Bim-implemented seam)
 Query/lane           ⇄  python:data/tabular/query          # [WIRE]: ElementSet receipt currency + Substrait portable plan
@@ -61,7 +64,7 @@ Store/blobstore      ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: im
 Ingest/tabular       →  csharp:Rasm.Element                # [WIRE]: row shape only; the per-app composition root maps tabular→ElementGraph node
 Query/columnar       ⇄  python:data/tabular                # [WIRE]: Arrow record batch over the ADBC driver manager
 Store/provisioning   ←  csharp:Rasm.AppHost/Observability  # [HEALTH_PROBE]: Npgsql driver reachability + the ProvisionVerdict folded into a HealthContributorRow
-Version/recovery     ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ResolvedProfile RPO/RTO objective inputs
+Version/recovery     ←  csharp:Rasm.AppHost/Runtime        # [PORT]: RecoveryObjective RPO/RTO values on the Persistence-defined ResolvedProfile (Element/graph#STORE_RAIL)
 ```
 
 ## [03]-[SPINE]

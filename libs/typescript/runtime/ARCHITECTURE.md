@@ -32,7 +32,7 @@ runtime/
     │   └── cli.ts             # Command-value verb families folded by the APP into one root via withSubcommands
     ├── work/                  # Durable work: actors, workflows, queues, schedules, delivery, documents
     │   ├── entity.ts          # The durable-actor plane: WorkClass service-class table, mailbox tiers, Snowflake, ClusterError bridge
-    │   ├── flow.ts            # Workflow suspend-and-replay: Step mint, two-tier deadlines, Gate.pause durable timer
+    │   ├── flow.ts            # Workflow suspend-and-replay: Step mint, two-tier deadlines, Signal.pause durable timer
     │   ├── queue.ts           # DurableQueue families, DurableRateLimiter throttles, the pg lane policy + LaneVerdict DLQ fold
     │   ├── schedule.ts        # Cadence rows minted into ClusterCron with misfire/catch-up postures
     │   ├── deliver.ts         # ONE channel table for mail/webhook egress: one receipt, one fault family, one suppression fold

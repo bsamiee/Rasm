@@ -17,7 +17,7 @@ The terminal entry family under the one front-door assembly law: a verb family i
 [ASSEMBLY_LAW]:
 - Owner: `Verb.main` — the run rail the lib genuinely adds: `ValidationError.isHelpRequested` folds to a clean exit (help and version are outcomes, not faults), every other `ValidationError` propagates for the boot edge to report. The FOLD itself is app code by law — `Command.make(name).pipe(Command.withSubcommands([familyA, familyB, Ops.family(sources)]), Command.run({ name, version }))` — because the package's own combinators ARE the assembly surface and a lib member re-wrapping them is the one-hop forward this corpus deletes; an app's CLI entry is `row.main(Verb.main(built)(argv))` under `exec#ROOT_SELECT`'s one-`main` law, and `Command.run` demands the platform `Environment` the runtime row's `context` satisfies — one runtime choice covers server and CLI.
 - Law: the bridge rows are the boundary decode — `Options.withFallbackConfig(config)` unifies a flag with its `config#SETTING_OWNER` provider value in one declaration (flag wins, config fills, so an env var and a flag are never two sources), `Options.withSchema(schema)` decodes a flag into a core-branded value at parse time, `Args.fileSchema(schema)` admits a file's content through a schema, and `Options.withFallbackPrompt(prompt)` prompts exactly when the flag is absent on an interactive terminal — the terminal boundary decodes once, a handler never re-validates its inputs, and `ConfigFile.layer(name)` mounts file-resolved flags into the same provider chain at the root.
-- Law: completion is a derivation row — `Verb.completions(root)` is one verb whose handler folds the shell literal through the `_shells` table (`getBashCompletions` | `getFishCompletions` | `getZshCompletions` over the built root) and prints the lines; `Command.wizard` rides the same root for the interactive arg-builder — both derive from the one assembled value, so a completion script can never drift from the parse tree.
+- Law: completion and wizard are derivation rows — `Verb.completions(root)` folds the shell literal through the `_shells` table (`getBashCompletions` | `getFishCompletions` | `getZshCompletions` over the built root) and prints the lines; `Verb.wizard(root)` surfaces `Command.wizard`, walking the parse tree interactively and printing the assembled invocation — both derive from the one assembled value, so neither can drift from the parse tree.
 - Law: subtree capability is scoped provision — `Command.provide(family, layer)` scopes a Layer to one verb family so the ops family carries its exec runtime without leaking it to app verbs; parser policy is one root `CliConfig.layer` value.
 - Growth: a new app verb family is contributed data (zero lib edits); a new bridge axis is one `Options` combinator row.
 - Packages: `@effect/cli` (`Command`, `Options`, `Args`, `Prompt`, `ValidationError`, `CliConfig`, `ConfigFile`); `effect` (`Effect`, `Config`).
@@ -25,9 +25,9 @@ The terminal entry family under the one front-door assembly law: a verb family i
 ```typescript
 import { Args, Command, Options, Prompt, ValidationError } from "@effect/cli"
 import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
-import { Doc } from "@effect/printer"
+import { Doc, Optimize } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
-import { Array, Config, Context, Data, Effect, Number, Option, Pretty, Schema, Struct } from "effect"
+import { Array, Config, Context, Data, Effect, Number, Option, Pretty, Record, Schema, Struct } from "effect"
 import { Envelope, Fanout } from "../net/pubsub.ts"
 import { Life } from "../proc/life.ts"
 
@@ -56,7 +56,11 @@ const _completions = <Name extends string, R, E, A>(root: Command.Command<Name, 
       yield* _out(Doc.vsep(Array.map(lines, Doc.string)))
     }))
 
-const Verb = { completions: _completions, main: _main } as const
+const _wizard = <Name extends string, R, E, A>(root: Command.Command<Name, R, E, A>) =>
+  Command.make("wizard", {}, () =>
+    Effect.flatMap(Command.wizard(root), (line) => _out(Doc.vsep(Array.map(line, Doc.string)))))
+
+const Verb = { completions: _completions, main: _main, wizard: _wizard } as const
 ```
 
 ## [3]-[OPS_FAMILY]
@@ -64,7 +68,7 @@ const Verb = { completions: _completions, main: _main } as const
 [OPS_FAMILY]:
 - Owner: `Ops.family(sources)` — the lib runbook family built over app-supplied capability sources so the verbs stay composition-free: `doctor` folds the health anchor and the app's check rows, `replay` re-publishes a captured fanout envelope, `inspect` emits the canonical spec artifact — one record, three verbs, every handler rendering through the role and structure rows.
 - Law: `doctor` accumulates, never aborts — the shipped floor probes are the `life#PROBE_ROUTES` report per kind plus the app's `checks` rows (each a named `Effect` verdict — config resolution, engine reachability, dependency versions through `Proc.run`), folded with `Effect.partition` so every probe runs and the rendered table shows the whole verdict surface in one pass; the exit is non-zero when any probe failed, which is what makes it a CI gate and not a narration.
-- Law: `replay` re-drives a captured delivery — `Args.fileSchema(Schema.parseJson(Envelope))` admits the capture file through the `Envelope` schema at the argv boundary and the handler publishes straight through `Fanout.publish`, the receipt's `duplicate` flag rendered as the idempotent-noop evidence; a missing topic prompts through the fallback-prompt bridge instead of failing an interactive operator.
+- Law: `replay` re-drives a captured delivery — `Args.fileSchema(Schema.parseJson(Envelope))` admits the capture file through the `Envelope` schema at the argv boundary and the handler publishes straight through `Fanout.publish`, the receipt's `duplicate` flag rendered as the idempotent-noop evidence; a missing topic prompts through `Prompt.select` over the app's declared topic roster, and the mutation gates on `Prompt.confirm` through the same fallback bridge — a `--yes`/`-y` flag pre-answers both for CI, so interactive safety costs scripts nothing.
 - Law: `inspect` emits derivations — the `api#EMIT` artifact to a path or stdout — so the served contract's canonical bytes are one verb away for diffing; the `--out` flag falls back to the `INSPECT_OUT` config row through the bridge, this page's own demonstration of the flag-config law.
 - Law: runbooks are code — a new runbook is one `Command` row in this family with its probe or effect, never a document; the family is `Command.provide`-scoped with its exec Layer by the app when it needs elevated capability.
 - Boundary: process execution mechanics are `exec#COMMAND_SPEC`'s; fanout semantics are `pubsub#PORT_SHAPE`'s; what checks exist beyond the shipped floor is app data through `sources.checks`.
@@ -82,17 +86,29 @@ declare namespace Ops {
   type Sources = {
     readonly artifact: Effect.Effect<string>
     readonly checks: ReadonlyArray<Check>
+    readonly topics: ReadonlyArray<string>
   }
 }
 
-const _out2 = Options.text("out").pipe(
+const _target = Options.text("out").pipe(
   Options.withAlias("o"),
   Options.withFallbackConfig(Config.string("INSPECT_OUT")),
   Options.optional,
 )
 
-const _topicFlag = Options.text("topic").pipe(
-  Options.withFallbackPrompt(Prompt.text({ message: "fanout topic to replay onto" })),
+const _topicFlag = (topics: ReadonlyArray<string>) =>
+  Options.text("topic").pipe(
+    Options.withFallbackPrompt(
+      Prompt.select({
+        message: "fanout topic to replay onto",
+        choices: Array.map(topics, (topic) => ({ title: topic, value: topic })),
+      }),
+    ),
+  )
+
+const _confirmFlag = Options.boolean("yes").pipe(
+  Options.withAlias("y"),
+  Options.withFallbackPrompt(Prompt.confirm({ message: "re-publish the captured envelope?" })),
 )
 
 const _doctor = (sources: Ops.Sources) =>
@@ -119,19 +135,27 @@ const _doctor = (sources: Ops.Sources) =>
       )
     }))
 
-const _replay = Command.make(
-  "replay",
-  { capture: Args.fileSchema(Schema.parseJson(Envelope), { name: "capture" }), topic: _topicFlag },
-  ({ capture, topic }) =>
-    Effect.gen(function* () {
-      const fanout = yield* Fanout
-      const receipt = yield* fanout.publish(topic, capture)
-      yield* _out(_kv([["seq", String(receipt.seq)], ["duplicate", String(receipt.duplicate)]]))
-    }),
-)
+const _replay = (sources: Ops.Sources) =>
+  Command.make(
+    "replay",
+    {
+      capture: Args.fileSchema(Schema.parseJson(Envelope), { name: "capture" }),
+      topic: _topicFlag(sources.topics),
+      yes: _confirmFlag,
+    },
+    ({ capture, topic, yes }) =>
+      Effect.gen(function* () {
+        const fanout = yield* Fanout
+        const receipt = yield* Effect.when(fanout.publish(topic, capture), () => yes)
+        yield* Option.match(receipt, {
+          onNone: () => _out(_prose("replay declined")),
+          onSome: (ack) => _out(_kv([["seq", String(ack.seq)], ["duplicate", String(ack.duplicate)]])),
+        })
+      }),
+  )
 
 const _inspect = (sources: Ops.Sources) =>
-  Command.make("inspect", { out: _out2 }, ({ out }) =>
+  Command.make("inspect", { out: _target }, ({ out }) =>
     Effect.gen(function* () {
       const artifact = yield* sources.artifact
       const fs = yield* FileSystem.FileSystem
@@ -144,7 +168,7 @@ const _inspect = (sources: Ops.Sources) =>
 const _family = (sources: Ops.Sources) =>
   Command.make("ops").pipe(
     Command.withDescription("lib runbooks: doctor | replay | inspect"),
-    Command.withSubcommands([_doctor(sources), _replay, _inspect(sources)]),
+    Command.withSubcommands([_doctor(sources), _replay(sources), _inspect(sources)]),
   )
 
 const Ops = { family: _family } as const
@@ -174,7 +198,7 @@ const _themed = (palette: Partial<Record<keyof typeof _roles, Ansi.Ansi>>) =>
   (doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc =>
     Doc.reAnnotate(doc, (held) => {
       const entry = Array.findFirst(
-        Object.entries(_roles) as ReadonlyArray<readonly [keyof typeof _roles, Ansi.Ansi]>,
+        Record.toEntries(_roles),
         ([, ansi]) => ansi === held,
       )
       return Option.match(entry, {
@@ -187,7 +211,7 @@ const _themed = (palette: Partial<Record<keyof typeof _roles, Ansi.Ansi>>) =>
 ## [5]-[STRUCTURE_ROWS]
 
 [STRUCTURE_ROWS]:
-- Owner: the composition rows, each a fold over the printer's own algebra — `kv(pairs)` aligns a label column by `Doc.fill` to the widest label and stacks with `Doc.vsep`; `table(head, rows)` fills every column to its measured width, marks the head `emph`, and stacks — layout by combinator, zero column arithmetic in consumers; `verdicts({ passed, failed })` renders the doctor shape; `banner(title)` is the `emph` section head; `prose(text)` wraps through `Doc.reflow`; `raw(text)` admits pre-formed text as a newline-splitting `Doc.string`; `pretty(schema)` derives a value renderer from a Schema — `Pretty.make(schema)` prints any decoded domain value canonically, so a verb showing a decoded receipt composes the derivation instead of hand-formatting fields.
+- Owner: the composition rows, each a fold over the printer's own algebra — `kv(pairs)` aligns a label column by `Doc.fill` to the widest label and stacks with `Doc.vsep`; `table(head, rows)` fills every column to its measured width, marks the head `emph`, and stacks — layout by combinator, zero column arithmetic in consumers; `seq(items, shape)` renders a delimited collection through the `Doc.list`/`Doc.tupled` rows of the `Doc.encloseSep` owner; `verdicts({ passed, failed })` renders the doctor shape; `banner(title)` is the `emph` section head; `prose(text)` wraps through `Doc.reflow`; `raw(text)` admits pre-formed text as a newline-splitting `Doc.string`; `pretty(schema)` derives a value renderer from a Schema — `Pretty.make(schema)` prints any decoded domain value canonically, so a verb showing a decoded receipt composes the derivation instead of hand-formatting fields.
 - Law: rows return `AnsiDoc` values, never strings — composition stays open (a verb nests a `table` under a `banner` with `Doc.vsep`) and the fold to text happens once at the seam; a string-returning row re-closes the algebra per call site and is the rejected form.
 - Law: width is measured, not guessed — column widths fold from the rows' own content, so a wide value grows its column and truncation is never silent.
 - Growth: a new output shape is one row composing the existing algebra; a shape needing a new layout primitive reaches for the printer's own (`align`, `hang`, `encloseSep`) before any local invention.
@@ -221,6 +245,9 @@ const _verdicts = (report: {
       Doc.hsep([_role("fault", Doc.text("fail")), Doc.text(name), Doc.text(detail)])),
   ])
 
+const _seq = (items: ReadonlyArray<string>, shape: "list" | "tuple" = "list"): AnsiDoc.AnsiDoc =>
+  (shape === "list" ? Doc.list : Doc.tupled)(Array.map(items, Doc.text))
+
 const _banner = (title: string): AnsiDoc.AnsiDoc => _role("emph", Doc.text(title))
 
 const _prose = (text: string): AnsiDoc.AnsiDoc => Doc.reflow(text)
@@ -239,7 +266,7 @@ const _pretty = <A, I, R>(schema: Schema.Schema<A, I, R>): ((value: A) => AnsiDo
 - Owner: the one fold from document to terminal — `Render.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission) the app root or a global flag overrides once; `Render.text(doc, mode)` is the pure fold — `tty` renders escape codes through `AnsiDoc.render({ style: "pretty" })`, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form; `Render.out(doc)` reads the ambient mode and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.
 - Law: mode is ambient, never a parameter — verbs call `Render.out(doc)` with zero knowledge of the egress form, `--no-color` is one root-level `Effect.provideService(Render.Mode, "plain")`, and CI inherits `plain` by the same provision; a per-call mode argument smuggles the knob back into every verb and is the rejected form.
 - Law: live redraw is a directive row over the same seam — `Render.sweep(rows)` writes `Ansi.stringify(Ansi.eraseLines(rows))` through the terminal before the next `out`, so a progress loop is erase-then-render with zero cursor arithmetic in verbs, and the directive short-circuits to a plain newline outside `tty` mode so piped output stays append-only.
-- Law: deeply nested structures render `smart` — a document past the pretty algorithm's look-ahead (a nested spec tree, a recursive verdict) selects `{ style: "smart" }` at the row that composes it; the width policy stays the printer's 80-column default, stated here so a change is one edit.
+- Law: deeply nested structures render through `Render.deep` — `Optimize.optimize(doc, FusionDepth.Deep)` fuses associativity before the `smart` layout commits its look-ahead, so a nested spec tree or recursive verdict lays out once over a fused tree; the width policy stays the printer's 80-column default, stated here so a change is one edit.
 - Boundary: `@effect/cli`'s own `HelpDoc` lowers onto this same `AnsiDoc` rail, so parse-error help and verb output share one render seam; the `Terminal` binding is the runtime row's.
 - Packages: `@effect/printer-ansi` (`AnsiDoc`, `Ansi`); `@effect/printer` (`Doc`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`).
 
@@ -271,6 +298,9 @@ const _sweep = (rows: number): Effect.Effect<void, PlatformError.PlatformError, 
     yield* terminal.display(mode === "tty" ? Ansi.stringify(Ansi.eraseLines(rows)) : "\n")
   })
 
+const _deep = (doc: AnsiDoc.AnsiDoc): string =>
+  AnsiDoc.render(Optimize.optimize(doc, Optimize.FusionDepth.Deep), { style: "smart" })
+
 const Render = {
   Mode: _Mode,
   modes: _MODES,
@@ -279,12 +309,14 @@ const Render = {
   themed: _themed,
   kv: _kv,
   table: _table,
+  seq: _seq,
   verdicts: _verdicts,
   banner: _banner,
   prose: _prose,
   raw: _raw,
   pretty: _pretty,
   text: _text,
+  deep: _deep,
   out: _out,
   sweep: _sweep,
 } as const

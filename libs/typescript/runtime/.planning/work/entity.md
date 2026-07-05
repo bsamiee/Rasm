@@ -23,9 +23,9 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 - Packages: `effect` (`Duration`, `Schema`); `@rasm/ts/core` (`Budget`).
 
 ```typescript
-import { ClusterError, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, MessageStorage, RunnerHealth, Sharding, ShardingConfig, Singleton, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
+import { ClusterError, ClusterSchema, Entity, EntityProxy, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
 import type { RpcGroup } from "@effect/rpc"
-import { Duration, Effect, Layer, Schema, type Types } from "effect"
+import { Duration, Effect, Layer, Schema, Stream, type Types } from "effect"
 import { Budget, FaultClass, type TenantContext } from "@rasm/ts/core"
 import { Setting } from "../proc/config.ts"
 
@@ -73,7 +73,11 @@ const WorkClass: WorkClass.Shape = {
 - Law: the protocol IS the contract — payload, success, and error `Schema`s on each `Rpc` are the message wire, the handler signature, and the client return at once; a message shape declared beside the group is unspellable. An agent session, a delivery drain, and a projection worker are all instances of this one mint.
 - Law: single-writer is an entity fact — messages to one id serialize on one live instance cluster-wide, so per-key ordering needs no lock, version, or queue beside the actor; concurrency inside the row bounds parallel messages across ids, never within one.
 - Law: an ephemeral message family is an annotation exemption, not a second mint — `spec.ephemeral` names the Rpc tags whose `Persisted` annotation stays off, so a heartbeat or a poll rides the same protocol without a storage write.
-- Law: `Actor.expose(entity)` projects the entity as a `Contribution` pairing — `EntityProxy.toRpcGroup` for the RPC family, `EntityProxy.toHttpApiGroup` for the HTTP family — so the serving plane mounts an actor exactly like any other group and the typed client derives for free; the mailbox-draining `toLayerMailbox` form is the streaming-batch escape hatch and carries the same bounds.
+- Law: interrupt and trace posture are annotation rows on the same mint — `spec.interrupt` annotates `ClusterSchema.Uninterruptible` (`boolean | "client" | "server"`) so a must-settle message survives client disconnect by declaration, and `ClusterSchema.ClientTracingEnabled` turns the client span off for a chatty poll family as one row; neither is a handler-interior branch.
+- Law: delayed delivery is native — a message whose payload carries the `DeliverAt.DeliverAt` `toMillis` interface delivers at its instant on the actor plane, so a one-shot deferred job is a scheduled message, never a timer or a poll beside the mailbox; `schedule`'s one-shot deferral rides this row.
+- Law: the mailbox-drain reply seam is `Entity.Replier` — a `toLayerMailbox` handler answers out-of-band through `succeed`/`fail`/`failCause`/`complete(Exit)` on the handed replier, so a streaming-batch drain settles each message exactly once without occupying the serialized lane.
+- Law: locality is span evidence — `Entity.CurrentAddress` and `Entity.CurrentRunnerAddress` are in-handler context Tags whose `EntityAddress`/`RunnerAddress` stamp the message span, so which shard and which runner handled a message reads off every trace, not just the registration census.
+- Law: `Actor.expose(entity)` projects the entity as a `Contribution` pairing — `EntityProxy.toRpcGroup` for the RPC family, `EntityProxy.toHttpApiGroup` for the HTTP family, `EntityProxyServer` binding the served handler set where the proxied group serves locally — so the serving plane mounts an actor exactly like any other group and the typed client derives for free; the mailbox-draining `toLayerMailbox` form is the streaming-batch escape hatch and carries the same bounds.
 - Law: a per-actor external handle rides `EntityResource.make({ acquire, idleTimeToLive })` — acquired once, surviving shard-move restarts, released on idle expiry — and the K8s pod form is `EntityResource.makeK8sPod`; a handle opened inside a handler body leaks across replays and is the rejected form.
 - Entry: `Actor.make` at the owning page; `Entity.makeTestClient(entity, layer)` binds the kit-driven spec client with no runner.
 - Growth: a new actor family is one `Spec` value; a new message is one `Rpc` row on its group; a new modality (streaming reply) is `toLayerMailbox` on the same spec.
@@ -87,6 +91,7 @@ declare namespace Actor {
     readonly clazz: WorkClass.Kind
     readonly tenant: (entityId: string) => TenantContext.Key
     readonly ephemeral: ReadonlyArray<string>
+    readonly interrupt: boolean | "client" | "server"
   }
 }
 
@@ -95,6 +100,7 @@ const _make = <Type extends string, Rpcs extends RpcGroup.Any>(spec: Actor.Spec<
   const entity = Entity.fromRpcGroup(spec.name, spec.protocol).pipe(
     (e) => e.annotateRpcs(ClusterSchema.Persisted, true),
     (e) => e.annotateRpcs(ClusterSchema.ShardGroup, (entityId: string) => spec.tenant(entityId)),
+    (e) => e.annotateRpcs(ClusterSchema.Uninterruptible, spec.interrupt),
   )
   const registered = (handlers: Parameters<typeof entity.toLayer>[0]) =>
     entity.toLayer(handlers, {
@@ -120,7 +126,7 @@ const Actor = { make: _make, expose: _expose }
 - Owner: `Mailbox` — the durable-message port composition and its fault fold. `SqlMessageStorage.layer` persists every `Persisted` message on the `SqlClient` Tag the app root satisfies from the data wave's `Stores` scopes; `Snowflake.layerGenerator` mints the monotonic message identity dedup keys on; `MessageStorage.layerMemory` is the single-node/spec tier and `layerNoop` the ephemeral tier — three tier rows behind one Tag, selected at the root.
 - Law: delivery is at-least-once folded to exactly-once effect — `SaveResult.Duplicate`, keyed on `Snowflake` plus the Rpc primary key, re-subscribes a replayed send to the prior result and never re-executes the handler; the sender needs no idempotency wrapper because dedup is the storage contract.
 - Law: the fault bridge is one governed record — every `ClusterError` tag maps to its `FaultClass` kind (`MailboxFull → exhausted`, `AlreadyProcessingMessage → conflicted`, `PersistenceError → unavailable`, `MalformedMessage → malformed`, `EntityNotAssignedToRunner → unavailable`, `RunnerNotRegistered → unavailable`, `RunnerUnavailable → unavailable`) — so cluster faults enter the branch rail with rank, blame, and the retryable column already decided, and `Mailbox.classify` is total over the family. Re-drive reads `FaultClass.retryable` through the caller's `Budget` row; no cluster-specific retry predicate exists.
-- Law: drain liveness is supervised — the storage read loop is watched by a `Life` drain-adjacent probe that meters the unprocessed-message scan and grades a stalled `last_read` advance as `lagging`, so a runner-transition stall surfaces as evidence instead of silent queue growth; the supervision is a meter row, never a second read loop.
+- Law: drain liveness is supervised off the cluster's own instruments — `ClusterMetrics` carries the mailbox-depth and message-rate surface, a `Life` probe row reads it and grades a stalled drain as `lagging`, so a runner-transition stall surfaces as evidence instead of silent queue growth; the supervision is a probe over the standard metric source, never a bespoke meter or a second read loop.
 - Boundary: the journal, outbox, and idempotency-ledger relations belong to the data wave; this port persists cluster envelopes in cluster-owned relations on the same scope, and atomicity with a domain aggregate is the data journal's transaction, reached by enqueuing from inside it — never by threading this storage into a domain write.
 - Growth: a new durability tier is one row on the tier record; a new cluster fault tag is one bridge row the governed record demands at compile time.
 - Packages: `@effect/cluster` (`SqlMessageStorage`, `MessageStorage`, `Snowflake`, `ClusterError`); `effect` (`Layer`); `@rasm/ts/core` (`FaultClass`).
@@ -158,12 +164,12 @@ const Mailbox = {
 ## [5]-[GRID]
 
 [GRID]:
-- Owner: `Grid` — the topology assembly: `ShardingConfig.layerFromEnv` reads runner address, weight, shard groups, and lock intervals from the environment the deploy plane stamps (the `iac` StackOutputs → `ShardingConfig` shape seam, resolved through `Setting` rows, never a bare env read); `SqlRunnerStorage.layer` is the leaderless rebalancing substrate — runners acquire, refresh, and release shard advisory locks against storage under `shardLockRefreshInterval`/`shardLockExpiration`, so no manager, election, or coordinator exists; `RunnerHealth` is a kind row (`k8s` pod discovery over `K8sHttpClient`, `ping` for flat topologies, `noop` for single-node); and the runner entry is a `Runtime`-row selection — `NodeClusterHttp.layer`/`NodeClusterSocket.layer` with the Bun peers `BunClusterHttp.layer`/`BunClusterSocket.layer`, one options record (`transport`, `serialization: "msgpack"`, `storage: "sql"`, `runnerHealth`) — composed by the boot module beside the row's platform context, single-node degrading to the local-storage entry with `Mailbox.tier("memory")`.
+- Owner: `Grid` — the topology assembly: `ShardingConfig.layerFromEnv` reads runner address, weight, shard groups, and lock intervals from the environment the deploy plane stamps (the `iac` StackOutputs → `ShardingConfig` shape seam, resolved through `Setting` rows, never a bare env read); `SqlRunnerStorage.layer` is the leaderless rebalancing substrate — runners acquire, refresh, and release shard advisory locks against storage under `shardLockRefreshInterval`/`shardLockExpiration`, so no manager, election, or coordinator exists; `RunnerHealth` is a kind row (`k8s` pod discovery over `K8sHttpClient`, `ping` for flat topologies, `noop` for single-node); and the runner entry is a `Runtime`-row selection — `NodeClusterHttp.layer`/`NodeClusterSocket.layer` with the Bun peers `BunClusterHttp.layer`/`BunClusterSocket.layer` are `@effect/platform-node`/`-bun` binding-tier modules (the frozen `@effect/cluster-node` family stays unadmitted), one options record (`transport`, `serialization: "msgpack"`, `storage: "sql"`, `runnerHealth`) — composed by the boot module beside the row's platform context, single-node degrading to the local-storage entry with `Mailbox.tier("memory")`.
 - Law: `K8sHttpClient` is discovery only — it reads pod state through the service-account mount; provisioning, scaling, and image facts belong to the deploy plane, and a write-shaped call against it is unspellable here.
-- Law: `Grid.singleton(name, run)` is the one cluster-wide-instance form — the relay drain, a maintenance sweep, a horizon groom each run as a `Singleton.make` that migrates on rebalance; a leader flag, a lock table, or a "primary" config row beside it is the rejected form.
-- Law: `Grid.engine` is the workflow bridge — `ClusterWorkflowEngine.layer` satisfies the `WorkflowEngine` Tag over `Sharding` plus `MessageStorage`, so every `flow` definition runs durable and sharded by the same Layer selection that boots the grid; the spec engine swap happens at the root, never in a definition.
-- Receipt: `Sharding.getRegistrationEvents` streams `EntityRegistered`/`SingletonRegistered` — folded into startup evidence beside the capability report so the booted actor census is observable per process.
-- Growth: a new runner transport is one entry row; a new health mode is one kind row; a topology axis change is a `ShardingConfig` field the environment stamps.
+- Law: `Singleton.make(name, run)` is the one cluster-wide-instance form, reached directly at the package surface — the relay drain, a maintenance sweep, a horizon groom each run as a singleton that migrates on rebalance; a leader flag, a lock table, a "primary" config row, or a local rename of the package member is the rejected form.
+- Law: the workflow bridge is `ClusterWorkflowEngine.layer` at the package surface — it satisfies the `WorkflowEngine` Tag over `Sharding` plus `MessageStorage`, so every `flow` definition runs durable and sharded by the same Layer selection that boots the grid; the spec engine swap happens at the root, never in a definition.
+- Receipt: `Grid.census` folds `Sharding.getRegistrationEvents` through `ShardingRegistrationEvent.match` into typed rows — entity type or singleton name per registration — so the booted actor census lands beside the capability report as shaped startup evidence, never raw events.
+- Growth: a new runner transport is one entry row — the websocket runner is `HttpRunner.layerWebsocket`, the served-with-clients form `RunnerServer.layerWithClients`; a new health mode is one kind row; a topology axis change is a `ShardingConfig` field the environment stamps.
 - Packages: `@effect/cluster` (`Sharding`, `ShardingConfig`, `SqlRunnerStorage`, `RunnerHealth`, `K8sHttpClient`, `Singleton`, `ClusterWorkflowEngine`); `../proc/config.ts` (`Setting`); `../proc/exec.ts` (`Runtime` rows at the boot module).
 
 ```typescript
@@ -192,11 +198,14 @@ const _grid = (health: Grid.Health) =>
     Layer.provideMerge(_topology),
   )
 
+const _rostered = ShardingRegistrationEvent.match({
+  onEntityRegistered: (event) => ({ kind: "entity" as const, name: event.entity.type }),
+  onSingletonRegistered: (event) => ({ kind: "singleton" as const, name: event.name }),
+})
+
 const Grid = {
   layer: _grid,
-  singleton: Singleton.make,
-  engine: ClusterWorkflowEngine.layer,
-  census: Sharding.Sharding.pipe(Effect.map((sharding) => sharding.getRegistrationEvents)),
+  census: Effect.map(Sharding.Sharding, (sharding) => Stream.map(sharding.getRegistrationEvents, _rostered)),
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
@@ -215,5 +224,5 @@ flowchart LR
   M --> Q[(SqlClient — data Stores scope)]
   H[RunnerHealth row] --> S
   E[ShardingConfig from Setting] --> S
-  S --> W[Grid.engine → WorkflowEngine]
+  S --> W[ClusterWorkflowEngine.layer → WorkflowEngine]
 ```

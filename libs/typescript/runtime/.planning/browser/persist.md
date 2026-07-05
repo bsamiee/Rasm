@@ -172,28 +172,32 @@ const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
   }
 }
 
-const _service = (lanes: { readonly [D in Kv.Domain]: Kv.Lane<D> }) => ({
-  read: (<D extends Kv.Domain>(domain: D, input: string | ReadonlyArray<string>) =>
-    lanes[domain].read(input as string)) as {
-    <D extends Kv.Domain>(domain: D, key: string): Effect.Effect<Option.Option<Kv.Value<D>>, KvFault>
-    <D extends Kv.Domain>(domain: D, keys: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<Option.Option<Kv.Value<D>>>, KvFault>
-  },
-  write: (<D extends Kv.Domain>(domain: D, input: string | Kv.Entries<D>, value?: Kv.Value<D>) =>
-    Predicate.isString(input) ? lanes[domain].write(input, value as Kv.Value<D>) : lanes[domain].write(input)) as {
-    <D extends Kv.Domain>(domain: D, key: string, value: Kv.Value<D>): Effect.Effect<void, KvFault>
-    <D extends Kv.Domain>(domain: D, entries: Kv.Entries<D>): Effect.Effect<void, KvFault>
-  },
-  mutate: <D extends Kv.Domain>(
-    domain: D,
-    key: string,
-    step: (held: Option.Option<Kv.Value<D>>) => Kv.Value<D>,
-  ): Effect.Effect<void, KvFault> => lanes[domain].mutate(key, step),
-  drop: (domain: Kv.Domain, keys: string | ReadonlyArray<string>): Effect.Effect<void, KvFault> =>
-    lanes[domain].drop(keys),
-  drain: <D extends Kv.Domain>(domain: D): Effect.Effect<ReadonlyArray<readonly [string, Kv.Value<D>]>, KvFault> =>
-    lanes[domain].drain,
-  wipe: (domain: Kv.Domain): Effect.Effect<void, KvFault> => lanes[domain].wipe,
-})
+const _service = (lanes: { readonly [D in Kv.Domain]: Kv.Lane<D> }) => {
+  function read<D extends Kv.Domain>(domain: D, key: string): Effect.Effect<Option.Option<Kv.Value<D>>, KvFault>
+  function read<D extends Kv.Domain>(domain: D, keys: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<Option.Option<Kv.Value<D>>>, KvFault>
+  function read<D extends Kv.Domain>(domain: D, input: string | ReadonlyArray<string>) {
+    return lanes[domain].read(input as string)
+  }
+  function write<D extends Kv.Domain>(domain: D, key: string, value: Kv.Value<D>): Effect.Effect<void, KvFault>
+  function write<D extends Kv.Domain>(domain: D, entries: Kv.Entries<D>): Effect.Effect<void, KvFault>
+  function write<D extends Kv.Domain>(domain: D, input: string | Kv.Entries<D>, value?: Kv.Value<D>) {
+    return Predicate.isString(input) ? lanes[domain].write(input, value as Kv.Value<D>) : lanes[domain].write(input)
+  }
+  return {
+    read,
+    write,
+    mutate: <D extends Kv.Domain>(
+      domain: D,
+      key: string,
+      step: (held: Option.Option<Kv.Value<D>>) => Kv.Value<D>,
+    ): Effect.Effect<void, KvFault> => lanes[domain].mutate(key, step),
+    drop: (domain: Kv.Domain, keys: string | ReadonlyArray<string>): Effect.Effect<void, KvFault> =>
+      lanes[domain].drop(keys),
+    drain: <D extends Kv.Domain>(domain: D): Effect.Effect<ReadonlyArray<readonly [string, Kv.Value<D>]>, KvFault> =>
+      lanes[domain].drain,
+    wipe: (domain: Kv.Domain): Effect.Effect<void, KvFault> => lanes[domain].wipe,
+  }
+}
 
 class Kv extends Effect.Service<Kv>()("runtime/browser/Kv", {
   sync: () =>

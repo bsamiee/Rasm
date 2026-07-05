@@ -237,10 +237,15 @@ const _selected = <Id extends string, S extends string, V extends string, X>(
     Array.sort(config.active, facts.byOrder),
     Array.filterMap((leaf) => Array.head(Array.filterMap([leaf, ...facts.ancestors(leaf)], matched))),
     Array.dedupe,
-    Array.reduce([] as ReadonlyArray<Transition.Row<Id, S, V, X>>, (kept, row) =>
-      Array.some(kept, (winner) => Array.intersection(exitSet(winner), exitSet(row)).length > 0)
-        ? kept
-        : Array.append(kept, row)),
+    Array.map((row) => [row, exitSet(row)] as const),
+    Array.reduce(
+      [] as ReadonlyArray<readonly [Transition.Row<Id, S, V, X>, ReadonlyArray<Id>]>,
+      (kept, pair) =>
+        Array.some(kept, ([, claimed]) => Array.intersection(claimed, pair[1]).length > 0)
+          ? kept
+          : Array.append(kept, pair),
+    ),
+    Array.map(([row]) => row),
   )
 }
 
@@ -291,10 +296,8 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
       const arrived = Array.flatMap(targets, (target) => facts.leaves(target, recorded))
       const survivors = Array.filter(held.active, (leaf) => !Array.contains(exited, leaf))
       const active = Array.sort(Array.dedupe([...survivors, ...arrived]), facts.byOrder)
-      const entered = Array.filter(
-        facts.closure(active),
-        (id) => !Array.contains(facts.closure(survivors), id),
-      )
+      const settled = facts.closure(survivors)
+      const entered = Array.filter(facts.closure(active), (id) => !Array.contains(settled, id))
       for (const id of exited) program.push(..._face(spec.nodes[id], "exit"))
       program.push(...(row.emit ?? []))
       for (const id of entered) program.push(..._face(spec.nodes[id], "entry"))

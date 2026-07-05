@@ -53,7 +53,7 @@ const _summarize = (
   Effect.map(_tiered(leaves, fanout, []), (tiers) => _Merkle.make({ fanout, tiers }))
 
 const _diverges = (self: typeof _Merkle.Type, that: typeof _Merkle.Type): ReadonlyArray<number> => {
-  if (self.fanout !== that.fanout) return self.tiers[self.tiers.length - 1]!.map((_digest, at) => at)
+  if (self.fanout !== that.fanout) return Array.map(Array.lastNonEmpty(self.tiers), (_digest, at) => at)
   const tiers = Math.max(self.tiers.length, that.tiers.length)
   let candidates: ReadonlyArray<number> = [0]
   for (let tier = 0; tier < tiers; tier += 1) {

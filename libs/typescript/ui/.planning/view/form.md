@@ -113,10 +113,14 @@ const _useField = <K extends keyof typeof _seed>(key: K): AtomRef.AtomRef<(typeo
 
 const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "title"))
 
-const Form: {
-  readonly standard: typeof _standard
-  readonly errors: typeof _errors
-} = {
+declare namespace Form {
+  type Shape = {
+    readonly standard: typeof _standard
+    readonly errors: typeof _errors
+  }
+}
+
+const Form: Form.Shape = {
   standard: _standard,
   errors: _errors,
 }

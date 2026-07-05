@@ -78,7 +78,6 @@ declare namespace Realtime {
 - Law: `_SSE` is the policy row — `retry` (the client reconnect hint), `beat` (heartbeat cadence), `lag` (the buffer bound between the fold and a slow consumer, `"sliding"` so a stalled client sheds oldest frames instead of backpressuring the fold) — one value tuned per app, threaded nowhere.
 - Law: the encode seam is the codec's own — frames lower to response bytes through `Sse.encoder`, the heartbeat is a named `ping` event clients ignore by name, and a tokenless item writes no `id` so the browser attests only coordinates the source honors.
 - Law: a source's own `LiveFault` passes the seam intact; any foreign source fault normalizes to `closed` at the one `Stream.mapError` seam — the same one-seam fold the socket row runs.
-- RESEARCH: the `Sse.encoder` emit-member spelling (the per-frame `write` projection the byte fold maps) and the exact `Sse.Event` construction form are unverified until the branch catalogue rows them; the encoder-owns-the-dialect law and the frame family are settled, the member spellings are the research items.
 - Boundary: which feeds exist and who attaches is `[06]`'s admission; the inbound SSE parser is `channel#FEED_SEAM`'s — this endpoint only emits.
 - Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Schedule`, `Duration`).
 

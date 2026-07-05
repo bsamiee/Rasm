@@ -19,7 +19,8 @@ The content-addressed object plane: the object key IS the core `ContentKey` — 
 - Growth: a new operation is a command value; a new provider is a `Config` change validated against the conformance table; a new engine is one table row with its conditional verdict filled.
 - Law: the abort bridge is mandatory — `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: _folded(key) })` — fiber interruption aborts the in-flight request; an un-abortable send leaks past interruption.
 - Law: the fault family is `ObjectFault` with reasons `missing` (404), `integrity` (identity or checksum disagreement), `io` (everything else) and a policy row per reason; 412 is NOT a fault — the fold returns the `_Replay` receipt before the family engages, and there is no `PreconditionFailed` class to catch (the status rides `$metadata.httpStatusCode` on the base exception).
-- Law: resilience is owner-internal and the policy table is load-bearing — `_shielded` brackets every operation with the op timeout, the bulkhead semaphore, and the jittered bounded retry whose `Schedule.whileInput` reads `fault.policy.retry`, so `io` retries while `missing`/`integrity` fail fast and a consumer composes capability, never plumbing; the AWS client's `maxAttempts` covers transport-level retry beneath it, and the circuit-breaker tier rides the core fault owner's degradation budget when that upstream row lands.
+- Law: resilience is owner-internal and the policy table is load-bearing — `_shielded` brackets every bounded operation with the op timeout, the bulkhead semaphore, and the jittered bounded retry whose `Schedule.whileInput` reads `fault.policy.retry`, so `io` retries while `missing`/`integrity` fail fast and a consumer composes capability, never plumbing; the AWS client's `maxAttempts` covers transport-level retry beneath it, and the circuit-breaker tier rides the core fault owner's degradation budget when that upstream row lands.
+- Boundary: four members stand outside the bracket by construction — `putKeyed` (a one-shot streaming body cannot replay into a retry and outlives the op budget; its resilience is `Upload`'s part-level retry plus the abort bridge), `settled` (the waiter owns its own `maxWaitTime` budget), `sweep` (a walking fold whose per-key faults settle inside its own accumulation), and the SQL verbs `refer`/`release` (the relational rail owns their retry posture); every other member rides `_shielded`.
 - Law: checksums are transport integrity, `ContentKey` is identity — `requestChecksumCalculation`/`responseChecksumValidation` pin `"WHEN_SUPPORTED"` against AWS-grade engines and `"WHEN_REQUIRED"` against S3-compatibles that predate default checksums, a `Config` fact per provider; identity verification is the core mint re-run at read, and the two never substitute.
 - Law: the conformance table is the admission gate — an engine hosts this plane only with `conditional: "yes"`: the managed rows (S3, R2, Tigris) and the self-host rows (Ceph RGW, the maintained MinIO continuation) conform; the CRDT-metadata engine and the B2 row cannot CAS and are refused rows, kept as data so the argument is never re-had; the pending row waits on its concurrency fix.
 
@@ -120,9 +121,9 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault => {
 
 - Owner: the conditional-put algebra and the read family — `conditional` (the ONE conditional command mint the server put, the presign grant, and the stream rail's finalize all share), `put` discriminating plain versus multipart versus streaming on the body shape and size, `get` with identity verification, `head` settling presence and descriptor evidence, and the consistency waiters; the ranged streaming read is `object/stream.md`'s `Rail.range` — one owner per read geometry, never both pages.
 - Packages: `@aws-sdk/client-s3` (`PutObjectCommand`, `GetObjectCommand`, `HeadObjectCommand`, `GetObjectAttributesCommand`, `CopyObjectCommand`, `CreateMultipartUploadCommand`, `UploadPartCommand`, `CompleteMultipartUploadCommand`, `AbortMultipartUploadCommand`, `waitUntilObjectExists`); `@aws-sdk/lib-storage` (`Upload` — the streaming leg); `effect` (`Array`, `Stream`, `Exit`, `Option`); `@rasm/ts/core` (`ContentKey`, `Digest` — the delegating mint).
-- Entry: `store.put(body, options?)` mints the key from the bytes through the core digest and writes conditionally — the caller never supplies a key because identity is derived, not asserted; a streaming body whose key is already proven (the stream rail's finalize) enters through `store.putKeyed(key, body)` on the same conditional legs.
+- Entry: `store.put(bytes)` mints the key from the bytes through the core digest and writes conditionally — the caller never supplies a key because identity is derived, not asserted; a streaming body whose key is already proven (the stream rail's finalize) enters through `store.putKeyed(key, body)` on the same conditional legs.
 - Receipt: `ObjectStore.Receipt` — `{ key, bytes, written }` — `written: false` is the 412 idempotent noop, a success by law; the multipart and streaming legs land the same receipt because the conditional evaluates atomically at completion.
-- Growth: a write posture (storage class, SSE) is a field on the options row flowing into the command value; a read shape (range, part, attributes) is a command field, never a sibling get.
+- Growth: a write posture (storage class, SSE) is a field threaded into the command mints, arriving as one policy row on the service construction; a read shape (range, part, attributes) is a command field, never a sibling get.
 - Law: the conditional rides every leg — `IfNoneMatch: "*"` on the plain put, on the hand-composed `CompleteMultipartUpload`, and on the `Upload` params whose spread carries it onto both its paths; first-writer-wins lands at the moment the object materializes, and a 409 concurrent race retries into the 412 noop under the `io` policy row.
 - Law: body shape selects the leg — bounded bytes below the threshold ride the plain put, bounded bytes above it ride the hand-composed part fold under `Effect.acquireRelease` with `AbortMultipartUpload` on failure, and a streaming or unknown-length body rides `Upload` with the abort bridged to fiber interruption; the caller sees one `put`.
 - Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Presence`/`Descriptor` request families through one `HeadObjectCommand` send, so the batch engine's HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
@@ -286,7 +287,13 @@ const _headed = (client: S3Client, bucket: string, key: ContentKey) =>
       try: (signal) => client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }),
       catch: _folded(key),
     }),
-    (reply) => ({ key, bytes: reply.ContentLength ?? 0, etag: reply.ETag ?? "", contentType: reply.ContentType ?? "" }),
+    (reply) => ({
+      key,
+      bytes: reply.ContentLength ?? 0,
+      etag: reply.ETag ?? "",
+      contentType: reply.ContentType ?? "",
+      modified: reply.LastModified?.toISOString() ?? "",
+    }),
   )
 
 const _settled = (client: S3Client, bucket: string, key: ContentKey, maxWaitTime: number) =>
@@ -393,7 +400,7 @@ const _sweep = (client: S3Client, bucket: string) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) => {
     const live = SqlSchema.single({
       Request: Schema.String,
-      Result: Schema.Struct({ live: Schema.Number }),
+      Result: Schema.Struct({ live: Journal.Version }),
       execute: (key) => sql`SELECT count(*) AS live FROM object_ref WHERE key = ${key} AND released_at IS NULL`,
     })
     return Stream.runFoldEffect(

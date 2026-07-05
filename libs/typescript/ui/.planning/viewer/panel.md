@@ -15,7 +15,7 @@ The one wire-materializer of the shell plane: three C#-minted vocabularies — t
 
 [EVENT_FOLD]:
 - Owner: `Panel.fold` — the keyed accumulator: the event feed (a `Stream` of the decoded triple the app wires from its transport, entering the view plane through the atom bridge) folds into a `HashMap<binding, Panel.Row>` where each event's arm updates exactly its slots — `BindingStatus` advances `phase` (clearing the optimistic slot on `refused`/`detached`), `CoercedValue` records the offered→landed pair with its path, `WriteReceipt` lands the value and `Hlc` stamp and clears the optimistic slot; the fold is total over the union by `Match.valueTags` — the one-shot record dispatch over the held event.
-- Packages: `@rasm/ts/core` (`BindingStatus`, `CoercedValue`, `WriteReceipt`, `Hlc`); `effect` (`HashMap`, `Match`, `Option`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
+- Packages: `@rasm/ts/core` (`BindingStatus`, `CoercedValue`, `WriteReceipt`, `Hlc`); `effect` (`Chunk`, `HashMap`, `Match`, `Option`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
 - Law: the row is the panel's whole truth — `phase`, `landed`, `optimistic`, `coercion`, `stamp`; a panel component reads one row through an `Atom.family` keyed by binding name and re-renders only on its own row's change.
 - Law: writes are optimistic against the feed — a panel edit writes the intent through the app-wired write port AND stamps the row's optimistic slot; the display shows `optimistic` over `landed` while present, the reconciling `WriteReceipt` clears it, and a `refused` status clears it with the refusal surfaced through the `view/form` field-error seam. The round trip is receipt-driven, never awaited-then-assumed — the feed is the truth channel, the write port's acknowledgement only gates re-submission, and display state always derives from the fold.
 - Law: this board is the wire-receipt optimistic plane — `system/atom`'s `Atom.optimistic` reconciles against an effect's own `Result` and never appears here; the two optimism laws share a name, never a mechanism, and the board rides the one store like any other atom.
@@ -27,7 +27,7 @@ The one wire-materializer of the shell plane: three C#-minted vocabularies — t
 
 ```typescript
 import type { BindingStatus, CoercedValue, Hlc, WriteReceipt } from "@rasm/ts/core"
-import { Chunk, Duration, HashMap, Match, Option, Stream } from "effect"
+import { Chunk, Duration, Effect, HashMap, Match, Option, Stream } from "effect"
 
 type PanelEvent = BindingStatus | CoercedValue | WriteReceipt
 
@@ -87,10 +87,10 @@ const _optimistic = (board: Panel.Board, binding: string, value: unknown, since:
 const _drain = (
   events: Stream.Stream<PanelEvent>,
   commit: (fold: (board: Panel.Board) => Panel.Board) => void,
-): Stream.Stream<void> =>
-  Stream.map(
+): Effect.Effect<void> =>
+  Stream.runForEach(
     Stream.groupedWithin(events, 128, Duration.millis(16)),
-    (window) => commit((board) => Chunk.reduce(window, board, _fold)),
+    (window) => Effect.sync(() => commit((board) => Chunk.reduce(window, board, _fold))),
   )
 ```
 
@@ -140,8 +140,8 @@ const _route = (sinks: Panel.Sinks): ((intent: ControlIntent) => void) =>
 
 [LAYOUT_SOLVE]:
 - Owner: `Panel.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression`, map the closed `relation` vocabulary onto `Operator` and the closed `strength` vocabulary onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.
-- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver`); `@rasm/ts/core` (`LayoutProgram`); `effect` (`Data`, `Effect`, `HashMap`, `Iterable`).
-- Fault: `Panel.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint rank — a program-construction defect surfaced as operator evidence, never retried. `maxIterations` stays at kiwi's default — a pathological program fails loud through the iteration cap; tuning it to make a bad program pass hides the upstream defect.
+- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver`); `@rasm/ts/core` (`LayoutProgram`); `effect` (`Data`, `Effect`, `HashMap`, `Iterable`, `SynchronizedRef`).
+- Fault: `Panel.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint's zero-based rank (`-1` when the refusal lands past the constraint walk — edit registration, the initial solve, or a live `suggest`) — a program-construction defect surfaced as operator evidence, never retried. `maxIterations` stays at kiwi's default — a pathological program fails loud through the iteration cap; tuning it to make a bad program pass hides the upstream defect.
 - Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the drift defect this cluster's existence guards against. Drag is suggestion, never structure — a pointer drag feeds `suggest(edit, value)` per frame (the gesture source is `system/act#CONTINUOUS_OWNER`), the frozen program re-optimizes incrementally, and only wire-enumerated edits are suggestible — a suggestion against a non-edit variable is a construction error kiwi rejects, surfaced through the same fault.
 - Law: the four determinism axes are fixed by construction — identical constraint SET, identical insertion ORDER, identical STRENGTHS, identical EDIT sequence — so the TS tableau converges to the C# tableau; equal-strength competition resolves identically because insertion order is preserved. Drift is evidence, not tolerance — a position mismatch against a C#-provided expectation reports with the variable name and both values (`probe` consumes it); a fuzzy-match re-solve loop is the named defect.
 - Law: positions flow to render as one atom write per settle — the returned map replaces the positions atom (`Atom.batch` coalesces multi-panel updates), and panel components read their own cell through a selector so a 60fps drag never re-renders the board.
@@ -182,26 +182,31 @@ const _read = (draft: _Draft): Panel.Positions =>
   HashMap.fromIterable(Iterable.map(draft.cells, ([name, cell]) => [name, cell.value()] as const))
 
 const _build = (program: LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
-  Effect.try({
-    try: () => {
-      // BOUNDARY ADAPTER
-      const solver = new Solver()
-      const cells = new Map<string, Variable>()
-      const named = (name: string): Variable => {
-        const held = cells.get(name) ?? new Variable(name)
-        cells.set(name, held)
-        return held
-      }
-      program.constraints.forEach((row) => {
-        const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
-        const lhs = new Expression(...terms, row.constant)
-        solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
-      })
-      program.edits.forEach((edit) => solver.addEditVariable(named(edit), Strength.strong))
-      solver.updateVariables()
-      return { solver, cells }
-    },
-    catch: (defect) => new SolveFault({ surface: program.surface, rank: program.constraints.length, detail: String(defect) }),
+  Effect.suspend(() => {
+    // BOUNDARY ADAPTER
+    const cursor = { rank: -1 }
+    return Effect.try({
+      try: () => {
+        const solver = new Solver()
+        const cells = new Map<string, Variable>()
+        const named = (name: string): Variable => {
+          const held = cells.get(name) ?? new Variable(name)
+          cells.set(name, held)
+          return held
+        }
+        program.constraints.forEach((row, at) => {
+          cursor.rank = at
+          const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
+          const lhs = new Expression(...terms, row.constant)
+          solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
+        })
+        cursor.rank = -1
+        program.edits.forEach((edit) => solver.addEditVariable(named(edit), Strength.strong))
+        solver.updateVariables()
+        return { solver, cells }
+      },
+      catch: (defect) => new SolveFault({ surface: program.surface, rank: cursor.rank, detail: String(defect) }),
+    })
   })
 
 const _solve = (program: LayoutProgram): Effect.Effect<Panel.Solved, SolveFault> =>
@@ -223,7 +228,7 @@ const _solve = (program: LayoutProgram): Effect.Effect<Panel.Solved, SolveFault>
               live.solver.updateVariables()
               return [_read(live), live] as const
             },
-            catch: (defect) => new SolveFault({ surface: program.surface, rank: 0, detail: String(defect) }),
+            catch: (defect) => new SolveFault({ surface: program.surface, rank: -1, detail: String(defect) }),
           })),
     }
   })

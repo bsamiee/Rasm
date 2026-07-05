@@ -154,6 +154,7 @@ sequenceDiagram
 
 ```typescript
 import { BigInt, Cause, Either, Layer, Ref, Schedule, Stream } from "effect"
+import { Reactivity } from "@effect/experimental"
 import { PgClient } from "@effect/sql-pg"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { AppIdentity } from "@rasm/ts/core"
@@ -287,7 +288,7 @@ const _replay = (name: string, sequence: bigint) =>
     sql`UPDATE projection_quarantine SET replayed_at = ${Journal.now(sql)}
         WHERE lane = ${name} AND sequence = ${sequence} AND replayed_at IS NULL`)
 
-const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, app: AppIdentity.Key): Layer.Layer<never, never, SqlClient.SqlClient> =>
+const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, app: AppIdentity.Key): Layer.Layer<never, never, SqlClient.SqlClient | Reactivity.Reactivity> =>
   Layer.scopedDiscard(
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
@@ -327,6 +328,10 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 - Law: the rebuild is singleton by session lock — the lock statement executes ON the reserved connection (`held.executeUnprepared`) because a pooled statement could land on a different session and hold nothing; the paired `pg_advisory_unlock` runs on the same connection as the bracket's release, because a pooled connection returns to the pool holding its session state and an unreleased session lock would poison every later lease of that connection — so the lock spans the multi-transaction replay (a transaction lock cannot) and the sqlite profiles serialize on the single writer; the swap is one transaction of renames so readers see old rows or new rows, never a mix.
 
 ```typescript
+import type { ParseResult } from "effect"
+import type { SqlError } from "@effect/sql"
+import { Retain } from "../journal/retain.ts"
+
 const _days = (window: Duration.Duration): number => Math.trunc(Duration.toDays(window))
 
 const _jobs = (policy: typeof Retain.Policy): ReadonlyArray<{ readonly name: string; readonly spec: string; readonly statement: string }> => [

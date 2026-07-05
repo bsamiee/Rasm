@@ -142,8 +142,8 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
-- Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`) into one `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
-- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions, the extension-image ref, the cloudflared connector image, the install script and its first-boot parts, the host-fact probe commands, the managed-capacity and managed-data rows for the prepared arms, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
+- Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`; `internal` demands nothing and stages the app edgeless, so a worker-only workload deploys with no domain coordinate at all) into one `Option`-carried `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
+- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions including the external-dns pin, the extension-image ref, the machine container images the docker cells run — `objectImage`, `natsImage` — the optional `registry` push row (address plus user; the password is the `REGISTRY_PASSWORD` fan-in read), the cloudflared connector image, the install script and its first-boot parts, the host-fact probe commands, the managed-capacity and managed-data rows for the prepared arms, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite, and the optional `acme` row — directory email plus DNS-01 challenge — that arms the trusted-cert lane); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
@@ -155,13 +155,14 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 import type { PulumiFn } from "@pulumi/pulumi/automation"
 import { Config, Effect, Option, Redacted } from "effect"
 import type { Alert, DashboardModel, Slo } from "@rasm/ts/core"
+import { Traffic } from "../kube/traffic.ts"
 import { DeployFault } from "./automation.ts"
 import type { StackSpec } from "./spec.ts"
 
 declare namespace Dispatch {
   type Material = { readonly sshKey: Option.Option<Redacted.Redacted<string>> }
   type Arm = (spec: StackSpec, material: Material, pins: Pins) => Effect.Effect<PulumiFn, DeployFault>
-  type App = { readonly image: string; readonly edge: Traffic.Edge }
+  type App = { readonly image: string; readonly edge: Option.Option<Traffic.Edge> }
   type Pins = {
     readonly install: string
     readonly firstBoot: ReadonlyArray<{ readonly content: string; readonly contentType?: string; readonly filename?: string; readonly mergeType?: string }>
@@ -170,14 +171,22 @@ declare namespace Dispatch {
     readonly operator: string
     readonly barman: string
     readonly object: string
+    readonly objectImage: string
     readonly nats: string
+    readonly natsImage: string
     readonly lgtm: string
     readonly collector: string
+    readonly dns: string
     readonly cloudflared: string
     readonly capsule: string
     readonly vcluster: string
+    readonly acme?: {
+      readonly email: string
+      readonly challenge: { readonly provider: string; readonly config: Record<string, string> }
+    }
     readonly port: number
     readonly context: string
+    readonly registry?: { readonly address: string; readonly user: string }
     readonly nodes: { readonly instanceType: string; readonly min: number; readonly max: number }
     readonly managedData: { readonly engine: string; readonly tier: string }
     readonly ensures: ReadonlyArray<string>
@@ -210,16 +219,28 @@ const _staged = (spec: StackSpec): Effect.Effect<Option.Option<Dispatch.App>, De
   Option.match(spec.image, {
     onNone: () => Effect.succeedNone,
     onSome: (image) =>
-      Effect.all([_coord(spec, spec.domain, "domain"), _coord(spec, spec.zone, "zone")]).pipe(
-        Effect.flatMap(([domain, zone]) =>
-          spec.profile.exposure === "direct"
-            ? Effect.map(_coord(spec, spec.connection, "connection"), (connection) =>
-                Traffic.Edge.Direct({ domain, zone, address: connection.host }))
-            : Effect.map(_coord(spec, spec.account, "account"), (account) =>
-                Traffic.Edge.Tunnel({ domain, zone, account }))),
-        Effect.map((edge) => Option.some({ image, edge })),
-      ),
+      spec.profile.exposure === "internal"
+        ? Effect.succeed(Option.some({ image, edge: Option.none() }))
+        : Effect.all([_coord(spec, spec.domain, "domain"), _coord(spec, spec.zone, "zone")]).pipe(
+            Effect.flatMap(([domain, zone]) =>
+              spec.profile.exposure === "direct"
+                ? Effect.map(_coord(spec, spec.connection, "connection"), (connection) =>
+                    Traffic.Edge.Direct({ domain, zone, address: connection.host }))
+                : Effect.map(_coord(spec, spec.account, "account"), (account) =>
+                    Traffic.Edge.Tunnel({ domain, zone, account }))),
+            Effect.map((edge) => Option.some({ image, edge: Option.some(edge) })),
+          ),
   })
+
+const _edged = (spec: StackSpec): Effect.Effect<Option.Option<{ readonly domain: string; readonly zone: string }>, DeployFault> =>
+  spec.profile.exposure === "internal"
+    ? Effect.succeedNone
+    : spec.profile.exposure === "tunnel"
+      ? Effect.fail(_input(spec, "<unrealized-exposure:tunnel>"))
+      : Option.match(spec.domain, {
+          onNone: () => Effect.succeedNone,
+          onSome: (domain) => Effect.map(_coord(spec, spec.zone, "zone"), (zone) => Option.some({ domain, zone })),
+        })
 ```
 
 ## [4]-[CLUSTER_BOOTSTRAP]
@@ -227,7 +248,7 @@ const _staged = (spec: StackSpec): Effect.Effect<Option.Option<Dispatch.App>, De
 [CLUSTER_BOOTSTRAP]:
 - Owner: `Bootstrap`, the tier that turns owned metal into a cluster — `Bootstrap.firstBoot(parts, encoding?)` renders the multi-part MIME user-data a host-provisioning resource consumes as its pre-SSH product, staged assets ride `remote.CopyToRemote` (rendered install artifacts as `Asset`/`Archive` values, never checked-in paths), the control plane installs through one `remote.Command` whose CRUD slots own install (`create`) and teardown (`delete`), and `kubeconfig` egresses as the secret-tracked stdout the `@pulumi/kubernetes` `Provider` binds.
 - Law: cloud-init owns first boot, `command` owns steady state — `firstBoot` composes `cloudinit.getConfigOutput` over ordered typed parts (one `text/cloud-config` declarative part plus `text/x-shellscript` steps, `mergeType` on composed cloud-config parts), the rendered body lays the SSH surface (users, keys, packages, daemon) the `Connection` coordinates then reach, and part content carries coordinates and installers only — user-data is metadata-endpoint-readable, so credential material inside a part is the named defect; a first-boot step re-run over SSH, or an SSH step folded into user-data, is the same defect in two directions.
-- Law: the connection is coordinates plus injected material, hardened — `StackSpec.Connection` supplies host/user/port, the PEM key arrives as a `pulumi.Input<string>` already secret-tracked from `Dispatch.material`, `hostKey` pins the host's public key so a MITM re-key fails the dial instead of silently trusting, `proxy` is the bastion hop as one `ProxyConnectionArgs` row on the same connection, `perDialTimeout`/`dialErrorLimit` bound the dial budget as data, and `logging: "none"` gates every credential-bearing step so captured output never echoes key material.
+- Law: the connection is coordinates plus injected material, hardened — `StackSpec.Connection` supplies host/user/port, the PEM key arrives as a `pulumi.Input<string>` already secret-tracked from `Dispatch.material`, `hostKey` pins the host's public key so a MITM re-key fails the dial instead of silently trusting, `proxy` is the bastion hop as one `ProxyConnectionArgs` row on the same connection inheriting the injected key unless the row carries its own (a bastion coordinate with no dial credential is an unreachable hop, not a hardening), `perDialTimeout`/`dialErrorLimit` bound the dial budget as data, and `logging: "none"` gates every credential-bearing step so captured output never echoes key material.
 - Law: re-run is trigger-driven and fact-aware — the `triggers` list carries the spec `epoch`, the staged-asset references, and the `local.runOutput` host facts (`facts` rows: kernel version, an existing k3s token, a daemon fingerprint — each an unconditional deploy-host read threading the graph), so a bootstrap re-runs exactly when its real inputs change and never by blind epoch-only replacement.
 - Law: the takeover boundary is absolute — after the kubeconfig exists, every workload is a typed `@pulumi/kubernetes` resource; a shell command that duplicates a typed provider resource is the named defect, and `command` survives only for bare-metal mutation no typed provider owns; an unconditional host fact is `local.runOutput` when it threads the graph, `local.run` for an eager read inside the program body.
 - Entry: `new Bootstrap("plane", { connection, key, epoch, install, facts, hostKey, proxy }, opts)` inside the selfhosted arms; `bootstrap.kubeconfig` feeds `new k8s.Provider(...)`; `Bootstrap.firstBoot(pins.firstBoot)` wherever a host-provisioning resource takes user-data.
@@ -286,7 +307,7 @@ class Bootstrap extends Tier {
       perDialTimeout: args.dial?.perDialTimeout ?? 15,
       dialErrorLimit: args.dial?.dialErrorLimit ?? 10,
       ...(args.hostKey !== undefined && { hostKey: args.hostKey }),
-      ...(args.proxy !== undefined && { proxy: args.proxy }),
+      ...(args.proxy !== undefined && { proxy: { privateKey: args.key, ...args.proxy } }),
     }
     const facts = (args.facts ?? []).map((probe, rank) =>
       command.local.runOutput({ command: probe }).stdout.apply((fact) => `${rank}:${fact}`))
@@ -313,11 +334,11 @@ class Bootstrap extends Tier {
 ## [5]-[ARM_PROGRAMS]
 
 [ARM_PROGRAMS]:
-- Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
-- Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, and by-value `secrets` bind Doppler outputs so no build credential touches disk. The fastcdc wasm artifact is a build-stage product of this same image — a rust stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg — so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm is bootstrap-plus-build-plus-runtime — the daemon `Bootstrap` realizes the column's bootstrap cell, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection (the `Connection` class getter — no hand-built URL) with `dependsOn` the daemon so the first `up` cannot race the install, and the app `docker.Container` pins the built digest with the runtime fully wired at the catalogued nested spellings: `ports` rows, `networksAdvanced` binding the `docker.Network` by its `name` output, `volumes` binding the `docker.Volume` by `volumeName`/`containerPath`; the arm publishes no output plane it does not realize.
+- Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
+- Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates plus the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. The fastcdc wasm artifact is a build-stage product of this same image — a rust stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg — so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
+- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` (`Role`/`Database`/`Extension` rows from the profile's extension subset — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting only `DOPPLER_TOKEN` so the baked `doppler run` entrypoint resolves config at start, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unrealized tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `deploy`, and `ingress` under a proven edge.
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
-- Law: the gcp arm realizes its finalization contract — the provider binds `credentials` from the `GCP_CREDENTIALS` fan-in read, the GKE anchor stands, the object cell is `gcp.storage.Bucket` (uniform bucket-level access), and the data cell is `gcp.sql.DatabaseInstance` + `Database` + `User` with the engine tag and machine tier arriving as `pins.managedData`; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell against the proven `account` and the dns cell against the proven `zone`; each returns exactly the planes it realizes.
+- Law: the gcp arm realizes its finalization contract — the provider binds `credentials` from the `GCP_CREDENTIALS` fan-in read, the GKE anchor stands, the object cell is `gcp.storage.Bucket` (uniform bucket-level access), and the data cell is `gcp.sql.DatabaseInstance` + `Database` + `User` with the engine tag and machine tier arriving as `pins.managedData`; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell and the `PagesProject` static origin against the proven `account`, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain against the proven `zone` — the record targets a project the arm minted, never a dangling coordinate; each returns exactly the planes it realizes.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
 - Growth: promoting a prepared arm is one realizer body or one `_AWS`-style posture row; a new cloud is one record row plus one map column.
 - Boundary: tier mechanics live on the tier pages; the declared realizers' argument catalogues are the standing research items on the provider `.api` files.
@@ -332,6 +353,7 @@ import * as dockerBuild from "@pulumi/docker-build"
 import * as eks from "@pulumi/eks"
 import * as gcp from "@pulumi/gcp"
 import * as k8s from "@pulumi/kubernetes"
+import * as postgresql from "@pulumi/postgresql"
 import * as random from "@pulumi/random"
 import { Nats, ObjectStore, Postgres } from "../kube/data.ts"
 import { Tenants } from "../kube/tenant.ts"
@@ -340,6 +362,22 @@ import { Workload } from "../kube/workload.ts"
 import { Boards, Lgtm } from "../operate/observe.ts"
 import { Certs, Secrets } from "../operate/secret.ts"
 import { StackOutputs } from "./spec.ts"
+
+const _grounded = (
+  name: string,
+  spec: StackSpec,
+  proven: { readonly connection: StackSpec.Connection; readonly key: Redacted.Redacted<string> },
+  pins: Dispatch.Pins,
+): Bootstrap =>
+  new Bootstrap(name, {
+    connection: proven.connection,
+    key: pulumi.secret(Redacted.value(proven.key)),
+    epoch: spec.epoch,
+    install: pins.install,
+    facts: pins.facts,
+    ...Option.match(proven.connection.hostKey, { onNone: () => ({}), onSome: (hostKey) => ({ hostKey }) }),
+    ...Option.match(proven.connection.bastion, { onNone: () => ({}), onSome: (proxy) => ({ proxy }) }),
+  })
 
 const _estate = (
   spec: StackSpec,
@@ -382,7 +420,7 @@ const _estate = (
     versions: { lgtm: pins.lgtm, collector: pins.collector },
     auth: secrets.read("GRAFANA_PASSWORD"),
   }, bound)
-  new Boards("boards", {
+  const boards = new Boards("boards", {
     spec,
     lgtm,
     auth: secrets.read("GRAFANA_PASSWORD"),
@@ -391,6 +429,7 @@ const _estate = (
     objectives: pins.objectives,
     contacts: pins.contacts,
   })
+  secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
   if (spec.profile.tenancy.mode !== "single") {
     new Tenants("tenants", { spec, versions: { capsule: pins.capsule, vcluster: pins.vcluster } }, bound)
   }
@@ -414,18 +453,25 @@ const _estate = (
         port: pins.port,
         env: Workload.rows(token.metadata.name, StackOutputs.pairsOf(outputs, (value) => pulumi.output(value).apply(String))),
       }, bound)
-      const ca = Certs.root("mesh-ca")
-      const traffic = new Traffic("traffic", {
-        spec,
-        namespace: ns.metadata.name,
-        service: workload.service.metadata.name,
-        port: pins.port,
-        connector: pins.cloudflared,
-        issue: (hostname) => Certs.issue("edge", { ca, hostname }),
-        apiToken: secrets.read("CLOUDFLARE_API_TOKEN"),
-        edge,
-      }, bound)
-      return { ...outputs, ingress: { hostname: traffic.hostname } }
+      return Option.match(edge, {
+        onNone: () => outputs,
+        onSome: (proven) => {
+          const ca = Certs.root("mesh-ca")
+          secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)
+          const traffic = new Traffic("traffic", {
+            spec,
+            namespace: ns.metadata.name,
+            service: workload.service.metadata.name,
+            port: pins.port,
+            connector: pins.cloudflared,
+            dnsVersion: pins.dns,
+            issue: (hostname) => Certs.issue("edge", { ca, hostname }),
+            apiToken: secrets.read("CLOUDFLARE_API_TOKEN"),
+            edge: proven,
+          }, bound)
+          return { ...outputs, ingress: { hostname: traffic.hostname } }
+        },
+      })
     },
   })
 }
@@ -438,7 +484,7 @@ const _AWS: {
     opts: { readonly provider: aws.Provider },
   ) => Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, pulumi.Input<string | number>>>
 } = {
-  serverless: (spec, pins, _app, opts) => {
+  serverless: (_spec, pins, _app, opts) => {
     const vpc = new awsx.ec2.Vpc("net", { numberOfAvailabilityZones: 2, natGateways: { strategy: "Single" } }, opts)
     const repo = new awsx.ecr.Repository("registry", { forceDelete: false }, opts)
     const image = new awsx.ecr.Image("app", { repositoryUrl: repo.url, context: pins.context }, opts)
@@ -482,33 +528,27 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
     Effect.map(
       Effect.all({ proven: _proven(spec, material), app: _staged(spec) }),
       ({ proven, app }) => async () => {
-        const bootstrap = new Bootstrap("plane", {
-          connection: proven.connection,
-          key: pulumi.secret(Redacted.value(proven.key)),
-          epoch: spec.epoch,
-          install: pins.install,
-          facts: pins.facts,
-        })
+        const bootstrap = _grounded("plane", spec, proven, pins)
         const provider = new k8s.Provider("k8s", { kubeconfig: bootstrap.kubeconfig, enableServerSideApply: true })
         return _estate(spec, pins, provider, app)
       },
     ),
   "selfhosted-docker": (spec, material, pins) =>
     Effect.map(
-      Effect.zipWith(
-        _proven(spec, material),
-        Effect.mapError(spec.image, () => _input(spec, "<missing-image>")),
-        (proven, ref) => ({ proven, ref }),
-      ),
-      ({ proven, ref }) => async () => {
-        const daemon = new Bootstrap("daemon", {
-          connection: proven.connection,
-          key: pulumi.secret(Redacted.value(proven.key)),
-          epoch: spec.epoch,
-          install: pins.install,
-          facts: pins.facts,
-        })
+      Effect.all({ proven: _proven(spec, material), ref: _coord(spec, spec.image, "image"), edge: _edged(spec) }),
+      ({ proven, ref, edge }) => async () => {
+        const daemon = _grounded("daemon", spec, proven, pins)
         const provider = new docker.Provider("engine", { host: proven.connection.ssh }, { dependsOn: [daemon] })
+        const machine = { provider }
+        const secrets = new Secrets("secrets", {
+          spec,
+          entries: {
+            DB_ADMIN_PASSWORD: { generate: {} },
+            DB_PASSWORD: { generate: {} },
+            OBJECT_USER: { generate: { special: false, length: 20 } },
+            OBJECT_PASSWORD: { generate: {} },
+          },
+        })
         const image = new dockerBuild.Image("app", {
           push: true,
           tags: [ref],
@@ -516,17 +556,104 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           platforms: ["linux/amd64", "linux/arm64"],
           cacheFrom: [{ registry: { ref: `${ref}-cache` } }],
           cacheTo: [{ registry: { ref: `${ref}-cache` } }],
+          ...(pins.registry !== undefined && {
+            registries: [{
+              address: pins.registry.address,
+              username: pins.registry.user,
+              password: secrets.read("REGISTRY_PASSWORD"),
+            }],
+          }),
         })
-        const fence = new docker.Network("fence", { driver: "bridge", internal: false }, { provider })
-        const state = new docker.Volume("state", { driver: "local" }, { provider })
+        const fence = new docker.Network("fence", { driver: "bridge", internal: false }, machine)
+        const store = Record.map(
+          { data: "/var/lib/postgresql/data", object: "/data", fanout: "/data", app: "/var/lib/rasm" } as const,
+          (path, name) => ({ path, volume: new docker.Volume(name, { driver: "local" }, machine) }),
+        )
+        const bucket = `${spec.app}-artifacts`
+        const data = new docker.Container("data", {
+          image: pins.pgImage,
+          restart: "unless-stopped",
+          envs: [pulumi.interpolate`POSTGRES_PASSWORD=${secrets.read("DB_ADMIN_PASSWORD")}`, `POSTGRES_DB=${spec.app}`],
+          ports: [{ internal: 5432, external: 5432 }],
+          networksAdvanced: [{ name: fence.name }],
+          volumes: [{ volumeName: store.data.volume.name, containerPath: store.data.path }],
+        }, machine)
+        new docker.Container("object", {
+          image: pins.objectImage,
+          restart: "unless-stopped",
+          command: ["sh", "-c", `mkdir -p /data/${bucket} && exec minio server /data --console-address :9001`],
+          envs: [
+            pulumi.interpolate`MINIO_ROOT_USER=${secrets.read("OBJECT_USER")}`,
+            pulumi.interpolate`MINIO_ROOT_PASSWORD=${secrets.read("OBJECT_PASSWORD")}`,
+          ],
+          ports: [{ internal: 9000, external: 9000 }],
+          networksAdvanced: [{ name: fence.name }],
+          volumes: [{ volumeName: store.object.volume.name, containerPath: store.object.path }],
+        }, machine)
+        new docker.Container("fanout", {
+          image: pins.natsImage,
+          restart: "unless-stopped",
+          command: ["-c", "/etc/nats/nats.conf"],
+          uploads: [{
+            file: "/etc/nats/nats.conf",
+            content: `jetstream { store_dir: "/data", sync_interval: always }\nwebsocket { port: 8080, no_tls: true }`,
+          }],
+          ports: [{ internal: 4222, external: 4222 }, { internal: 8080, external: 8080 }],
+          networksAdvanced: [{ name: fence.name }],
+          volumes: [{ volumeName: store.fanout.volume.name, containerPath: store.fanout.path }],
+        }, machine)
+        const sql = new postgresql.Provider("sql", {
+          host: proven.connection.host,
+          port: 5432,
+          username: "postgres",
+          password: secrets.read("DB_ADMIN_PASSWORD"),
+          sslmode: "disable",
+        }, { dependsOn: [data] })
+        const role = new postgresql.Role("app-role", {
+          name: `${spec.app}_app`,
+          login: true,
+          password: secrets.read("DB_PASSWORD"),
+        }, { provider: sql })
+        const database = new postgresql.Database("app", { name: spec.app, owner: role.name }, { provider: sql })
+        Array.map(spec.profile.extensions, (extension) =>
+          new postgresql.Extension(extension, { name: extension, database: database.name }, { provider: sql }))
         new docker.Container("app", {
           image: image.ref,
           restart: "unless-stopped",
+          envs: [pulumi.interpolate`DOPPLER_TOKEN=${secrets.token}`],
           ports: [{ internal: pins.port, external: pins.port }],
           networksAdvanced: [{ name: fence.name }],
-          volumes: [{ volumeName: state.name, containerPath: "/var/lib/rasm" }],
-        }, { provider })
-        return {}
+          volumes: [{ volumeName: store.app.volume.name, containerPath: store.app.path }],
+        }, { ...machine, dependsOn: [data] })
+        const identity = new random.RandomUuid7("deploy-id", { keepers: { epoch: spec.epoch } })
+        return {
+          data: { host: proven.connection.host, port: 5432, database: spec.app, role: `${spec.app}_app` },
+          object: { endpoint: `http://${proven.connection.host}:9000`, bucket },
+          fanout: { origin: `ws://${proven.connection.host}:8080` },
+          deploy: { id: identity.result },
+          ...Option.match(edge, {
+            onNone: () => ({}),
+            onSome: ({ domain, zone }) => {
+              const hostname = `${spec.app}.${domain}`
+              const cf = new cloudflare.Provider("cf", { apiToken: secrets.read("CLOUDFLARE_API_TOKEN") })
+              new cloudflare.DnsRecord("edge", {
+                zoneId: zone,
+                type: "A",
+                name: hostname,
+                content: proven.connection.host,
+                proxied: false,
+                ttl: 1,
+              }, { provider: cf })
+              if (pins.acme !== undefined) {
+                const registration = Certs.register("edge", { email: pins.acme.email })
+                const trusted = Certs.trusted("edge", { registration, hostname, challenge: pins.acme.challenge })
+                secrets.store("EDGE_TLS_KEY", trusted.key)
+                secrets.store("EDGE_TLS_CERT", trusted.cert)
+              }
+              return { ingress: { hostname } }
+            },
+          }),
+        }
       },
     ),
   aws: (spec, _material, pins) =>
@@ -539,10 +666,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
     ),
   gcp: (spec, _material, pins) =>
     Effect.map(
-      Effect.all([
-        Effect.mapError(spec.region, () => _input(spec, "<missing-region>")),
-        Effect.mapError(spec.project, () => _input(spec, "<missing-project>")),
-      ]),
+      Effect.all([_coord(spec, spec.region, "region"), _coord(spec, spec.project, "project")]),
       ([region, project]) => async () => {
         const secrets = new Secrets("secrets", { spec, entries: { DB_PASSWORD: { generate: {} } } })
         const provider = new gcp.Provider("gcp", { project, region, credentials: secrets.read("GCP_CREDENTIALS") })
@@ -565,19 +689,24 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
   cloudflare: (spec, _material, _pins) =>
     Effect.map(
       Effect.all([
-        Effect.mapError(spec.domain, () => _input(spec, "<missing-domain>")),
-        Effect.mapError(spec.zone, () => _input(spec, "<missing-zone>")),
-        Effect.mapError(spec.account, () => _input(spec, "<missing-account>")),
+        _coord(spec, spec.domain, "domain"),
+        _coord(spec, spec.zone, "zone"),
+        _coord(spec, spec.account, "account"),
       ]),
       ([domain, zone, account]) => async () => {
         const secrets = new Secrets("secrets", { spec, entries: {} })
         const provider = new cloudflare.Provider("cf", { apiToken: secrets.read("CLOUDFLARE_API_TOKEN") })
         const store = new cloudflare.R2Bucket("objects", { accountId: account, name: `${spec.app}-artifacts` }, { provider })
+        const site = new cloudflare.PagesProject("site", {
+          accountId: account,
+          name: spec.app,
+          productionBranch: "main",
+        }, { provider })
         new cloudflare.DnsRecord("apex", {
           zoneId: zone,
           type: "CNAME",
           name: `${spec.app}.${domain}`,
-          content: `${spec.app}.pages.dev`,
+          content: pulumi.interpolate`${site.name}.pages.dev`,
           proxied: true,
           ttl: 1,
         }, { provider })

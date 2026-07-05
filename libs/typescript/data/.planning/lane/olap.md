@@ -64,7 +64,7 @@ declare namespace Olap {
 ## [3]-[EMBEDDED]
 
 - Owner: the two scoped engine wraps — `Olap.node(path, config?)` acquiring a `DuckDBInstance` and leasing sessions under `Scope`, and `Olap.wasm(bundles)` instantiating the worker-resident `AsyncDuckDB` — plus `Olap.query`, the one statement entry over a leased session whose modality is the read geometry: `rows` materializes bounded results, `drain` streams a large-but-bounded result through streaming-mode execution, `window` serves the bounded first window; every geometry rides the `_governed` resilience bracket. RESEARCH: the reader-continuation pair (`readUntil`/`done` on `DuckDBResultReader`) stays uncatalogued — the truly unbounded incremental fence settles on it; until then unbounded egress pages by keyset predicate or rides Arrow batch streaming.
-- Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.connect`, `connection.runAndReadAll`, `connection.streamAndReadAll`, `connection.streamAndReadUntil`, `connection.prepare`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`, `Schedule`, `Duration`).
+- Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.closeSync`, `instance.connect`, `connection.disconnectSync`, `connection.runAndReadAll`, `connection.streamAndReadAll`, `connection.streamAndReadUntil`, `connection.prepare`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`, `Schedule`, `Duration`).
 - Entry: a service composes `Olap.node` once per database coordinate and leases sessions per analytical unit of work; the browser shell composes `Olap.wasm` over self-hosted bundles at boot and hands connections to the viewer's query surfaces.
 - Receipt: node reads land as reader projections (`getRows`/`getColumns`); wasm queries land as Arrow Tables — the wire cluster's value, zero-copy into the viewer.
 - Growth: a new engine knob (`threads`, extension roster) is a config field on the acquire; a new ingestion source is a registered file or an `ATTACH` statement, never a new API; a resilience posture is a `_GOVERNOR` field override, never a consumer wrap.
@@ -114,11 +114,14 @@ const _governed = (gate: Effect.Semaphore) =>
 const _node = (path: string, config?: Record<string, string>) =>
   Effect.acquireRelease(
     _try("duckdbNode", "acquire", () => DuckDBInstance.create(path, config)),
-    () => Effect.void,
+    (instance) => Effect.sync(() => instance.closeSync()),
   )
 
 const _session = (instance: DuckDBInstance) =>
-  _try("duckdbNode", "acquire", () => instance.connect())
+  Effect.acquireRelease(
+    _try("duckdbNode", "acquire", () => instance.connect()),
+    (held) => Effect.sync(() => held.disconnectSync()),
+  )
 
 const _wasm = (bundles: wasm.DuckDBBundles): Effect.Effect<wasm.AsyncDuckDB, OlapFault, Scope.Scope> =>
   Effect.acquireRelease(
@@ -195,7 +198,7 @@ const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
 - Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `Olap.ingest`, and dashboards read the cluster, never the OLTP spine.
 - Growth: a new ingestion stream is one `ingest` call site over the same layer; a new settings posture is a `withClickhouseSettings` scope; a quota posture is an `_INGEST_QUOTA` override keyed per app, never a consumer wrap.
 - Law: the driver extends the neutral `SqlClient`, so analytical reads ride the same `sql` DSL and typed decode as every lane — `clickhouse` is an `onDialect` arm-KEY; only ingestion and command routing reach the concrete Tag.
-- Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and the store-backed limiter form holds across replicas.
+- Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and the store-backed limiter form holds across replicas; `makeWithRateLimiter` is an accessor over the `RateLimiter` service, so the quota transformer resolves the limiter from the requirement channel and the store backing composes at the root.
 - Law: the cluster is correctness-adjacent — facts replicate IN, and a lost analytical row is a re-replication, never a billing defect; the journal remains the sole truth.
 
 ```typescript
@@ -215,7 +218,8 @@ const _INGEST_QUOTA = { algorithm: "token-bucket", onExceeded: "delay", window: 
 
 const _ingest = (app: AppIdentity.Key) =>
   <A, E, R>(work: Effect.Effect<A, E, R>) =>
-    RateLimiter.makeWithRateLimiter({ ..._INGEST_QUOTA, key: `olap:ingest:${app}` })(work)
+    Effect.flatMap(RateLimiter.makeWithRateLimiter, (limit) =>
+      limit({ ..._INGEST_QUOTA, key: `olap:ingest:${app}` })(work))
 ```
 
 ## [6]-[ARROW_WIRE]

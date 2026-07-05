@@ -13,7 +13,7 @@ Four shapes carry the concern:
 
 `SLOTS` pairs each slot's inbound gRPC-metadata header name with its outbound attribute key, so the slot spelling and the `(tenant, hlc)` attribute map derive from one table rather than scattered literals.
 
-These four shapes collapse here from `transport/serve` and `execution/admission`, where `Hlc`/`ElementId`/`CausalFrame`/`Tenant` formerly mis-lived. `CausalFrame.decode` is the canonical inbound carrier reader `transport/serve#SERVE` `ServerHost.inbound` folds with `.map`; `CausalFrame.attributes` the canonical projection `execution/admission#CONTEXT` `RuntimeContext.attribute` and the serve enricher compose. Both consumers read this owner and re-spell nothing: `ServerHost.inbound` composes `CausalFrame.decode(carrier)` for the sole `SLOTS`-keyed `convert`-validated decode inside the one `boundary("wire", ...)` fence and imports no `boundary`, and admission folds `attributes("packed")` into its parent-id and span-attribute projections. No second `SLOTS`-reading decode, no re-spelled `rasm-hlc-physical`/`rasm-hlc-logical`/`rasm-tenant` literal, and no per-consumer attribute map exist beside this owner.
+These four shapes collapse here from `transport/serve` and `execution/admission`, where `Hlc`/`ElementId`/`CausalFrame`/`Tenant` formerly mis-lived. `CausalFrame.decode` is the canonical inbound carrier reader `transport/serve#SERVE` `ServerHost.inbound` folds with `.map`; `CausalFrame.attributes` the canonical projection `execution/admission#CONTEXT` `RuntimeContext.attribute` and the serve enricher compose. Both consumers read this owner and re-spell nothing: `ServerHost.inbound` composes `CausalFrame.decode(carrier)` for the sole `SLOTS`-keyed `convert`-validated decode inside the one `boundary("wire", ...)` fence and imports no `boundary`, and admission folds `attributes("packed")` into its parent-id and span-attribute projections.
 
 ## [01]-[INDEX]
 
@@ -37,12 +37,12 @@ These four shapes collapse here from `transport/serve` and `execution/admission`
   - `Hlc.tick(observed)` is the receive-event successor — the larger of the local cell and an observed cell with the logical half advanced by one — the HLC algebra a companion materializing the op-log prefix uses to mint a derived presence beat strictly after every cause seen, distinct from the host physical mint it never performs.
   - `Hlc.packed` renders the single 128-bit value (`physical_ticks << 64 | logical`) the C# `Hlc.ToPacked` UInt128 layout holds and `Hlc.of_packed` splits it back, so a packed stamp crosses the wire and reconstructs without a field-order guess.
 - Auto:
-  - The `order=True` struct synthesizes the tuple comparison over the declared field order (`physical_ticks` then `logical`), so `<`/`==`/`max` ARE the physical-dominant lexicographic order and `compare`/`merge`/`tick` share that one synthesized order rather than re-deriving a comparison — `merge` a join-semilattice (commutative, associative, idempotent), `tick` a strictly-monotonic successor. `physical_ticks` is the `NodaTime.Instant.ToUnixTimeTicks()` 100-ns count in the high 64-bit half, `logical` the per-node counter in the low half, both the `U64` wire domain; the value-level pack/unpack the `evidence/identity#SEED_REPRODUCTION` `HLC_TWO_HALF` corpus row [6] pins (DESIGN-PIN), distinct from a byte serialization.
+  - The `order=True` struct synthesizes the tuple comparison over the declared field order (`physical_ticks` then `logical`), so `<`/`==`/`max` ARE the physical-dominant lexicographic order and `compare`/`merge`/`tick` share that one synthesized order rather than re-deriving a comparison — `merge` a join-semilattice (commutative, associative, idempotent), `tick` a strictly-monotonic successor. `physical_ticks` is the `NodaTime.Instant.ToUnixTimeTicks()` 100-ns count in the high 64-bit half, `logical` the per-node counter in the low half, both the `U64` wire domain; the value-level pack/unpack the `evidence/reproduction#SEED_REPRODUCTION` `HLC_TWO_HALF` corpus row [6] pins (DESIGN-PIN), distinct from a byte serialization.
   - `Ordering` carries the comparison sign as its payload rather than a meaningless per-case `bool`, so `compare` lowers the struct's synthesized `==`/`<` reads to the verdict (the prior `(self > other) - (self < other)` arithmetic-on-bools form is deleted), `of_sign` is the one constructor `compare` and any sign-to-verdict reconstruction share, and `fold` the one case-fold every behavior consumer reuses.
   - `ElementId.origin` is the peer-local node identity (the C# `OpLog` origin guid bytes) and `ElementId.logical` the HLC-stable logical position the RGA and OR-set address by, never a positional index; the `order=True` synthesis orders the `(origin, logical)` tag set so an element survives a re-order by identity and the OR-set tag comparison is the same synthesized order, never a hand sort.
   - `Tenant` is the one partition newtype — the raw `transport/serve#CAPABILITY_INVOKE` `CommandArguments.tenant: str` and the inbound `rasm-tenant` slot both absorb into it, never a parallel spelling.
-  - The `attributes` dual shape resolves the prior cross-page split where `execution/admission#CONTEXT` emitted the packed `rasm.hlc` hex while this owner had no projection; the `packed` arm is exactly the `format(packed, "032x")` rendering admission's `RuntimeContext.attribute` collapses into, keyed on the `SLOTS["packed"]` row both pages read.
-- Packages: `msgspec` (`Struct` frozen records, `order=True` on `Hlc`/`ElementId` for the synthesized total order, `gc=False` on the leaf cells holding no container field so the collector never traces them, `Annotated[int, Meta(ge=0, lt=2**64)]`/`Meta(ge=0, lt=2**128)` the `U64`/`U128` constraint, and `convert(mapping, CausalFrame, strict=False)` the one decode that coerces the carrier strings to `int` AND enforces the `U64` bound in the C core — the same `Meta` bound the `evidence/identity#IDENTITY` page declares for its `U64`/`U128` aliases, one cross-page numeric domain, and the one msgspec member that closes the `Hlc(...)` `__init__`-bypasses-`Meta` gap, so an out-of-domain half is a typed `ValidationError` at every ingress), `expression` (`tagged_union`/`case`/`tag` for the `Ordering` verdict — `fold[T]` the one `tag`-keyed dispatch surface, `sign`/`reverse` folds over it that re-narrow to `Literal[-1|0|1]`/the reversed verdict rather than a second match, so the owner carries exactly one `match` — and the `Option[CausalFrame]` carry the admission context threads), `opentelemetry-api` (the `dict[str, str | int]` attribute-map shape `Span.set_attributes` PUBLIC_TYPES accepts — the projection target, API-only, the one attribute surface the branch enrichers feed; no SDK import), `reliability/faults#FAULT` (`boundary`/`RuntimeRail` — the one wire fence `CausalFrame.decode` folds the `convert` decode through so a malformed inbound stamp rides the rail as the `CLASSIFY` `msgspec`-row `boundary`-tagged fault rather than panicking).
+  - `CausalFrame.attributes` is the one projection `execution/admission#CONTEXT` `RuntimeContext.attribute` folds — `Correlation.seed` un-hexes `attributes("packed")["rasm.hlc"]` to the 16-byte parent id — and the serve enricher folds admission's projection; `observability/metrics#METRIC` keys instruments by `rpc.method`/`DrainOutcome` and is not a consumer.
+- Packages: `msgspec` (`Struct` frozen records, `order=True` on `Hlc`/`ElementId` for the synthesized total order, `gc=False` on the leaf cells holding no container field so the collector never traces them — `CausalFrame` stays GC-tracked because it holds the `Hlc` struct reference, and `Ordering` is a comparison-site verdict carrying no `gc` directive and no `order=True`, a verdict being dispatched, never sorted — `Annotated[int, Meta(ge=0, lt=2**64)]`/`Meta(ge=0, lt=2**128)` the `U64`/`U128` constraint, and `convert(mapping, CausalFrame, strict=False)` the one decode that coerces the carrier strings to `int` AND enforces the `U64` bound in the C core — the same `Meta` bound the `evidence/identity#IDENTITY` page declares for its `U64`/`U128` aliases, one cross-page numeric domain, and the one msgspec member that closes the `Hlc(...)` `__init__`-bypasses-`Meta` gap, so an out-of-domain half is a typed `ValidationError` at every ingress), `expression` (`tagged_union`/`case`/`tag` for the `Ordering` verdict — `fold[T]` the one `tag`-keyed dispatch surface, `sign`/`reverse` folds over it that re-narrow to `Literal[-1|0|1]`/the reversed verdict rather than a second match, so the owner carries exactly one `match` — `Map`/`Map.of_seq` the `SLOTS` row table on the corpus Map rail, and the `Option[CausalFrame]` carry the admission context threads), `opentelemetry-api` (the `dict[str, str | int]` attribute-map shape `Span.set_attributes` PUBLIC_TYPES accepts — the projection target, API-only, the one attribute surface the branch enrichers feed; no SDK import), `reliability/faults#FAULT` (`boundary`/`RuntimeRail` — the one wire fence `CausalFrame.decode` folds the `convert` decode through so a malformed inbound stamp rides the rail as the `CLASSIFY` `msgspec`-row `boundary`-tagged fault rather than panicking).
 - Growth: every dimension is one field, row, or arm on an existing owner — zero new surface, no parallel stamp record.
   - a new clock dimension (a wall-clock skew bound, a causal-stability watermark) is one field on `Hlc` the `order=True` synthesis folds into the existing `compare`/`merge`/`tick` plus one key on `attributes`;
   - a new identity axis is one field on `ElementId` the `order=True` synthesis sorts;
@@ -65,6 +65,7 @@ from collections.abc import Callable
 from typing import Annotated, Final, Literal, NewType, Self, assert_never
 
 from expression import case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Meta, Struct, convert
 
 from rasm.runtime.faults import RuntimeRail, boundary
@@ -104,12 +105,13 @@ class Ordering:
 
     @property
     def sign(self) -> Literal[-1, 0, 1]:
-        # the carried payload IS the C# `CompareTo` sign, read back through the one `fold` — never a
-        # second `tag`-keyed match drifting from this owner's dispatch. The thunks return the narrow
-        # `Literal`s so `fold[Literal[-1, 0, 1]]` infers the literal union, no widening to `int`, no cast.
-        return self.fold[Literal[-1, 0, 1]](before=lambda: -1, equal=lambda: 0, after=lambda: 1)
+        # the payload IS the C# `CompareTo` sign, read back through the one `fold`; the declared return
+        # type is the inference context solving `T` to the literal union — an explicit `fold[...]`
+        # specialization is a runtime `TypeError` (a function object is not subscriptable).
+        return self.fold(before=lambda: -1, equal=lambda: 0, after=lambda: 1)
 
-    def reverse(self) -> Self:
+    def reverse(self) -> Ordering:
+        # `Ordering`, not `Self`: the `before`/`after` arms construct the sealed union directly.
         return self.fold(before=lambda: Ordering(after=1), equal=lambda: self, after=lambda: Ordering(before=-1))
 
 
@@ -152,22 +154,6 @@ class ElementId(Struct, frozen=True, order=True, gc=False):
     logical: U64
 
 
-# --- [TABLES] ---------------------------------------------------------------------------
-
-# the one carrier-slot vocabulary: the inbound gRPC-metadata header name and the outbound
-# OTel attribute key for each slot live in this single table, so `decode` and `attributes`
-# read one spelling and no consumer (serve#SERVE inbound decode, admission#CONTEXT attribute) re-spells it.
-# the `packed` row is the dotted parent the two half-keys nest under; it owns the `rasm.hlc`
-# attribute key (and the packed-hex carrier header) as a TABLE ROW, never a runtime `rsplit`
-# derivation off the physical key's dotted shape — the packed key is data, not a string-coupling.
-SLOTS: Final[dict[Slot, tuple[str, str]]] = {
-    "physical": ("rasm-hlc-physical", "rasm.hlc.physical"),
-    "logical": ("rasm-hlc-logical", "rasm.hlc.logical"),
-    "tenant": ("rasm-tenant", "rasm.tenant"),
-    "packed": ("rasm-hlc", "rasm.hlc"),
-}
-
-
 class CausalFrame(Struct, frozen=True):
     hlc: Hlc
     tenant: Tenant
@@ -194,13 +180,8 @@ class CausalFrame(Struct, frozen=True):
         )
 
     def attributes(self, shape: AttrShape = "halves") -> dict[str, str | int]:
-        # one projection axis owns BOTH attribute shapes, every key read off the one `SLOTS`
-        # table: `halves` emits the two native-int halves `Span.set_attributes` reads without
-        # re-parse (each a NodaTime-tick/counter int inside the OTLP signed-int64 attribute bound);
-        # `packed` emits the single 128-bit value as the fixed-width `032x` hex STRING the
-        # correlation/parent-id path threads — NOT a raw 128-bit `int`, which overflows the OTLP
-        # signed-int64 attribute domain at export. The packed key is the `SLOTS["packed"]` row, the
-        # dotted parent the two half-keys nest under, read as data — never an `rsplit` off a half-key.
+        # the one dual-shape projection: `halves` emits native ints (inside the OTLP signed-int64
+        # bound), `packed` the `032x` hex STRING — a raw 128-bit int overflows that bound at export.
         tenant = {SLOTS["tenant"][1]: self.tenant}
         match shape:
             case "halves":
@@ -209,10 +190,17 @@ class CausalFrame(Struct, frozen=True):
                 return tenant | {SLOTS["packed"][1]: format(self.hlc.packed, "032x")}
             case _ as unreachable:
                 assert_never(unreachable)
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# the one carrier-slot vocabulary on the corpus Map rail: `decode` and `attributes` read one
+# spelling per slot, no consumer re-spells it, and the `packed` row IS data — never an `rsplit`
+# derivation off the physical key's dotted shape.
+SLOTS: Final[Map[Slot, tuple[str, str]]] = Map.of_seq([
+    ("physical", ("rasm-hlc-physical", "rasm.hlc.physical")),
+    ("logical", ("rasm-hlc-logical", "rasm.hlc.logical")),
+    ("tenant", ("rasm-tenant", "rasm.tenant")),
+    ("packed", ("rasm-hlc", "rasm.hlc")),
+])
 ```
-
-## [03]-[RESEARCH]
-
-- [ORDERING_VERDICT]: [COMPLETE] — the comparison result is the closed `expression` `@tagged_union` `Ordering` (`before`/`equal`/`after`) rather than a raw `-1`/`0`/`1` sentinel a caller re-interprets, so `Hlc.compare` returns a typed verdict resolved with `fold`/`match` and the bounded outcome set is the canonical-union owner the branch fault/credential/op unions also use. Each case payload pins the comparison SIGN at the type level (`before: Literal[-1]` · `equal: Literal[0]` · `after: Literal[1]`), not a placeholder `bool`, so the verdict reproduces the C# `Hlc.CompareTo` return and `of_sign` is the one total constructor `compare` lowers its synthesized reads to and any sign-to-verdict reconstruction reuses; `fold[T]` is the case-fold-on-the-owner the surfaces-and-dispatch closed-family law (FORM_CHOOSER row 03) mandates and the SOLE `tag`-keyed match on the union, closing on `assert_never` so a fourth tag is a typed build failure; `sign` (the narrow-`Literal` re-narrow) and `reverse` (the causal symmetry `a.compare(b) == b.compare(a).reverse()`) are folds over that one surface, never parallel matches, so the totality gate lives in one place rather than per derived method. The union carries no `order=True` because a verdict is dispatched, not sorted, and an alphabetical tag order would contradict the causal disposition — the sortable order lives on `Hlc`. The `compare` body lowers the struct's synthesized reads (`==` then at most one `<`) to `of_sign`, deleting the prior four-comparison `(self > other) - (self < other)` arithmetic-on-bools form; `merge`/`tick` bypass `compare` and read `max` directly, `compare`/`fold` serving the consumer that needs the explicit three-way dispatch.
-- [GC_FALSE_LEAVES]: [COMPLETE] — `Hlc`/`ElementId` carry only `U64`/`bytes` leaf fields (the `Annotated[int, Meta(...)]` bound is decode-time validation metadata, not a container reference — the field is a plain `int` at runtime) and no container reference, so `gc=False` removes them from the cyclic collector's reachable set without a leak risk on the high-volume op-log decode that allocates a cell per arm; the `order=True` synthesis on BOTH (`Hlc` for the physical-then-logical causal order, `ElementId` for the `(origin, logical)` OR-set/RGA tag sort) adds the comparison dunders without adding a traced field, so each leaf stays GC-free. `CausalFrame` holds the `Hlc` struct reference and the `Tenant` newtype so it stays GC-tracked, the `gc=False` applied only to the leaf cells; `Ordering` is a frozen `@tagged_union` per-case verdict allocated at comparison sites carrying one `int` sign payload, not a per-arm op-log leaf, so it carries no `gc` directive.
-- [ATTRIBUTE_PROJECTION]: [COMPLETE] — reflection-confirmed against `libs/python/.api/opentelemetry-api.md`: the OTel attribute contract admits `str | bool | int | float | Sequence[...]` values (IMPLEMENTATION_LAW attributes row) and `Span.set_attributes` (trace ENTRYPOINTS [12]) accepts a mapping in one call, so `CausalFrame.attributes(shape)` returns `dict[str, str | int]` with every key derived from the one `SLOTS` table. The value type resolves BY SHAPE because the two layouts have different width domains: `shape="halves"` emits `rasm.hlc.physical`/`rasm.hlc.logical` as native `int` (each inside the OTLP signed-int64 attribute bound an exporter serializes the `int_value` field to, read as a number with no re-parse); `shape="packed"` emits the single 128-bit value as the fixed-width `032x` hex STRING — a raw 128-bit `int` would OVERFLOW that signed-int64 domain at export, so the packed value crosses as the width-safe hex symmetric with `Correlation.trace_id.hex()`, never a native packed int and never a `f"{physical_ticks}.{logical}"` dotted decimal. The packed key is its OWN `SLOTS["packed"]` row (`rasm.hlc`) read as data, the dotted parent the two half-keys nest under — never a runtime `SLOTS["physical"][1].rsplit(".", 1)[0]` derivation coupling the packed spelling to the physical key's dotted shape, so the table carries the lineage and the packed key stays a row rather than a string-coupling off a sibling key. The match closes on `assert_never`, so a third `AttrShape` arm is a typed build failure. This is the canonical projector the `execution/admission#CONTEXT` `RuntimeContext.attribute` reads with byte-identical output: admission folds `causal.map(lambda frame: base | frame.attributes("packed")).default_value(base)` and `Correlation.seed` un-hexes `attributes("packed")["rasm.hlc"]` to the 16-byte parent id, the prior inline `format(frame.hlc.packed, "032x")` admission spelling deleted on that page. `observability/metrics#METRIC` is NOT a consumer — it keys instruments by `rpc.method`/`DrainOutcome` and reads no causal-frame attribute — so the consumers are admission and the serve enricher folding admission.

@@ -16,15 +16,16 @@ Outbound delivery as ONE owner: mail and webhook egress are channel rows of one 
 
 [CHANNEL_FAMILY]:
 - Owner: `Deliver` — the channel dispatch table and the two shapes every channel speaks. `Deliver.Receipt` is the settlement evidence: channel kind, transmission identity (the SMTP `messageId`, the webhook delivery id), per-recipient acceptance splits, the wire instant, and the transport's timing band — one `Schema.Class` whose fields serve both channels because settlement IS the same concept. `DeliverFault` is the one fault family: a reason row (`dial | refused | bounced | timeout | schema`) carrying its `FaultClass` kind, so the lane's judge fold reads retryability off the class table and a channel never declares a private fault rail.
-- Law: a channel is a row keyed by its kind — `{ payload, transmit }` where the payload `Schema` admits the claim body and `transmit` carries the decoded payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the table is `satisfies`-checked against the `Receipt` channel vocabulary, the relay dispatches on the claim's channel kind through it, and a new channel (push, SMS, chat) is one row, never a sibling drain.
+- Law: a channel is a row keyed by its kind — `{ payload, transmit }` where the payload `Schema` admits the claim body and `transmit` carries the decoded payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the table is `satisfies`-checked against the full channel shape (payload schema plus transmit signature, never a bare key check), the relay dispatches on the claim's channel kind through the `_senders` handler record — keyed lookup, zero `Match` arms — and a new channel (push, SMS, chat) is one table row plus one sender row, never a sibling drain.
 - Law: partial acceptance is a receipt, not a fault — a send where some recipients accept and some reject settles as a `Receipt` whose rejected band is non-empty; the suppression fold consumes the rejected band, and only a transmission that produced no acceptance at all folds to `DeliverFault`.
 - Law: the payload is decoded once at the channel seam — each channel declares its payload `Schema` and the relay's claim body decodes against it before `transmit`; a decode failure is a `schema`-reasoned fault whose `invalid` class parks immediately through the lane's poison short-circuit.
 - Growth: a new channel is one table row plus its payload schema; a new settlement dimension is one `Receipt` field both channels populate.
-- Packages: `effect` (`Schema`, `Data`, `DateTime`, `Duration`, `Match`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Schema`, `Data`, `DateTime`, `Duration`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { Array, Config, Data, DateTime, Duration, Effect, Match, Option, Redacted, Schema, Stream, Struct } from "effect"
+import { Array, Data, DateTime, Duration, Effect, Option, Redacted, Schema, Stream, Struct } from "effect"
 import { HttpBody, HttpClientRequest } from "@effect/platform"
+import { Singleton } from "@effect/cluster"
 import { SqlClient } from "@effect/sql"
 import { createTransport, type SentMessageInfo, type Transporter } from "nodemailer"
 import { Fact, Journal } from "@rasm/ts/data"
@@ -32,7 +33,7 @@ import { Crypto } from "@rasm/ts/security"
 import { type AppIdentity, Budget, FaultClass } from "@rasm/ts/core"
 import { Client } from "../net/client.ts"
 import { Setting } from "../proc/config.ts"
-import { Grid, WorkClass } from "./entity.ts"
+import { WorkClass } from "./entity.ts"
 import { Lane, LaneVerdict, Throttle } from "./queue.ts"
 
 class Receipt extends Schema.Class<Receipt>("DeliverReceipt")({
@@ -73,7 +74,7 @@ declare namespace Deliver {
 ## [3]-[MAIL_ROW]
 
 [MAIL_ROW]:
-- Owner: `Mailer` — the scoped mail-egress service. Construction is one polymorphic `createTransport` whose option shape is the environment's transport policy row resolved from `Setting` — pooled SMTP (`pool: true` with `maxConnections`/`maxMessages`/`rateLimit`), a provider name through `wellKnown`, or the `streamTransport`/`jsonTransport` inspect sinks for kit-driven specs and dry runs — built inside `Layer.scoped` with `verify()` proving the credential at construction and `close()` as the finalizer draining pool sockets. Authentication is the discriminated union as data: `LOGIN` credentials, `OAUTH2` riding the built-in `XOAuth2` refresh flow with the `token` event bridged into a `Redacted` ref, every secret (`pass`, `clientSecret`, `refreshToken`, the DKIM `privateKey`) arriving as `Config.redacted` and unwrapped only at the transport call.
+- Owner: `Mailer` — the scoped mail-egress service. Construction is one polymorphic `createTransport` whose option shape is the environment's transport policy row resolved from `Setting` — pooled SMTP (`pool: true` with `maxConnections`/`maxMessages`/`rateLimit`), a provider name through `wellKnown`, or the `streamTransport`/`jsonTransport` inspect sinks for kit-driven specs and dry runs — built inside `Layer.scoped` with `verify()` proving the credential at construction and `close()` as the finalizer draining pool sockets. Authentication is the discriminated union as data: `LOGIN` credentials, `OAUTH2` riding the built-in `XOAuth2` refresh flow with the `token` event bridged into a `Redacted` ref, every secret (`Setting.mail.pass`, the DKIM `Setting.mail.key`, a provider `clientSecret`/`refreshToken`) arriving sealed on the one `Setting` contract and unwrapped only at the transport call — a `Config` read beside `Setting` is the split-brain defect the config owner names.
 - Law: the message is one Schema — addresses, subject, body alternatives, attachments (the `report` page's bytes as `{ content, contentType }`), the `list` block building `List-Unsubscribe`, the `dkim` block, and `dsn` delivery-status requests are fields of the channel payload decoded once; an untyped message object assembled at a call site is unspellable.
 - Law: DKIM is native and mandatory on production rows — `domainName`/`keySelector`/`privateKey` ride the transport options so every message signs RFC-6376 in-transport; the security wave's HMAC domain never touches mail.
 - Law: transport faults classify through the code table — `EAUTH` folds `refused` (terminal), a 4xx `responseCode` folds `dial` (transient — the lane's lease redelivers), a 5xx recipient failure folds `bounced` (the suppression fold consumes it); string-matching an error message is unspellable beside the table.
@@ -86,8 +87,6 @@ declare namespace Deliver {
 class Mailer extends Effect.Service<Mailer>()("runtime/Mailer", {
   scoped: Effect.gen(function* () {
     const setting = yield* Setting
-    const pass = yield* Config.redacted("SMTP_PASS")
-    const dkim = yield* Config.redacted("DKIM_KEY")
     const transporter: Transporter = yield* Effect.acquireRelease(
       Effect.sync(() =>
         createTransport({
@@ -97,8 +96,8 @@ class Mailer extends Effect.Service<Mailer>()("runtime/Mailer", {
           secure: true,
           maxConnections: WorkClass.bulk.concurrency,
           rateLimit: setting.mail.rate,
-          auth: { user: setting.mail.user, pass: Redacted.value(pass) },
-          dkim: { domainName: setting.mail.domain, keySelector: setting.mail.selector, privateKey: Redacted.value(dkim) },
+          auth: { user: setting.mail.user, pass: Redacted.value(setting.mail.pass) },
+          dkim: { domainName: setting.mail.domain, keySelector: setting.mail.selector, privateKey: Redacted.value(setting.mail.key) },
         })
       ),
       (built) => Effect.sync(() => built.close()),
@@ -131,8 +130,8 @@ const _mailReceipt = (info: SentMessageInfo, at: DateTime.Utc): Receipt =>
   new Receipt({
     channel: "mail",
     transmission: info.messageId,
-    accepted: info.accepted.map(String),
-    rejected: (info.rejectedErrors ?? []).map((err) => ({ recipient: String(err.recipient ?? ""), note: err.response ?? "" })),
+    accepted: Array.map(info.accepted, String),
+    rejected: Array.map(info.rejectedErrors ?? [], (err) => ({ recipient: String(err.recipient ?? ""), note: err.response ?? "" })),
     at,
     wire: Duration.millis(info.envelopeTime ?? 0),
   })
@@ -224,13 +223,13 @@ const _settled = (receipt: Receipt) =>
 ## [6]-[RELAY]
 
 [RELAY]:
-- Owner: `Relay` — the one outbox drain: a `Grid.singleton` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, decodes each claim against its channel's payload schema, spends `Throttle.tenantEgress` per claim, dispatches through the channel table, and folds every outcome through `Lane.settle` — settle, defer, park with evidence — so the drain body is dispatch plus composition and contains zero retry, backoff, or dead-letter machinery of its own.
+- Owner: `Relay` — the one outbox drain: a `Singleton.make` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, decodes each claim against its channel's payload schema, spends `Throttle.tenantEgress` per claim, dispatches through the channel table, and folds every outcome through `Lane.settle` — settle, defer, park with evidence — so the drain body is dispatch plus composition and contains zero retry, backoff, or dead-letter machinery of its own.
 - Law: quota precedes transmission — an `exhausted` throttle verdict defers the claim (the lease redelivers after the window turns) without touching the wire, so a tenant's burst never converts into provider-side rejections.
 - Law: pacing composes the mail pool — a mail-channel claim defers while `Mailer.idle` reports no pool capacity and the lease redelivers it, so mail never queues inside the transport and webhook claims drain regardless of pool state.
 - Law: the wake source is data-owned — the drain subscribes the journal's wake stream through the scope port; a poll loop or a second LISTEN binding here is unspellable.
 - Receipt: each drained batch emits one meter fact (claims, settled, deferred, parked) — the relay's health is queryable history beside the lane evidence.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
-- Packages: `@effect/cluster` via `./entity.ts` (`Grid.singleton`); `@rasm/ts/data` (`Journal`); `./queue.ts` (`Lane`, `Throttle`).
+- Packages: `@effect/cluster` (`Singleton`); `@rasm/ts/data` (`Journal`); `./queue.ts` (`Lane`, `Throttle`).
 
 ```typescript
 const MailPayload = Schema.Struct({
@@ -251,7 +250,10 @@ const _channels = {
     payload: HookPayload,
     transmit: _hook,
   },
-} as const satisfies Record<Receipt["channel"], unknown>
+} as const satisfies Record<Receipt["channel"], {
+  readonly payload: Schema.Schema.All
+  readonly transmit: (message: never) => Effect.Effect<Receipt, DeliverFault, unknown>
+}>
 
 const _routed = (stream: string): Option.Option<Receipt["channel"]> =>
   Array.findFirst(Struct.keys(_channels), (kind) => stream.startsWith(`${kind}:`))
@@ -262,15 +264,15 @@ const _transmitted = <A, I, R>(kind: Receipt["channel"], row: Deliver.Channel<A,
     Effect.flatMap(row.transmit),
   )
 
+const _senders = {
+  mail: (claim: Lane.Claim) => _transmitted("mail", _channels.mail, claim),
+  webhook: (claim: Lane.Claim) => _transmitted("webhook", _channels.webhook, claim),
+} as const satisfies Record<Receipt["channel"], (claim: Lane.Claim) => Effect.Effect<Receipt, DeliverFault, unknown>>
+
 const _dispatch = (claim: Lane.Claim) =>
   Option.match(_routed(claim.stream), {
     onNone: () => Effect.fail(new DeliverFault({ reason: "schema", channel: "webhook", detail: `<unrouted:${claim.stream}>` })),
-    onSome: (kind) =>
-      Match.value(kind).pipe(
-        Match.when("mail", (k) => _transmitted(k, _channels.mail, claim)),
-        Match.when("webhook", (k) => _transmitted(k, _channels.webhook, claim)),
-        Match.exhaustive,
-      ),
+    onSome: (kind) => _senders[kind](claim),
   })
 
 const _drain = (app: AppIdentity["app"]) =>
@@ -292,7 +294,7 @@ const _drain = (app: AppIdentity["app"]) =>
   })
 
 const Relay = <R>(app: AppIdentity["app"], wake: Stream.Stream<unknown, never, R>) =>
-  Grid.singleton(
+  Singleton.make(
     "deliver-relay",
     Stream.merge(wake, Stream.tick(Budget.bulk.attempt)).pipe(Stream.runForEach(() => _drain(app))),
   )

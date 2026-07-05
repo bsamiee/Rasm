@@ -94,7 +94,7 @@ const _Column: Schema.Schema<unknown> = Schema.transformOrFail(Schema.Unknown, S
 
 const Upcast = {
   Column: _Column,
-  json: <A, I>(shape: Schema.Schema<A, I>): Schema.Schema<A> =>
+  json: <A, I>(shape: Schema.Schema<A, I>): Schema.Schema<A, unknown> =>
     Schema.compose(_Column, shape, { strict: false }),
   plan: <A, I>(family: Schema.Schema<A, I>, roster: Upcast.Roster): Upcast.Plan<A> => {
     const chains = Record.map(roster, (chain, tag) => _sized(tag, chain))
@@ -185,7 +185,7 @@ const _save = <S, I>(spec: Snapshot.Spec<S, I>) =>
     })
 
 const _SnapshotRow = Schema.Struct({
-  version: Schema.Number,
+  version: Journal.Version,
   snapshot_schema_version: Schema.Number,
   body: Upcast.Column,
 })

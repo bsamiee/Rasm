@@ -97,7 +97,7 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
     WebAuthnTrust,
     Effect.gen(function* () {
       const attestationType = yield* Config.literal("none", "direct", "enterprise")("WEBAUTHN_ATTESTATION").pipe(Config.withDefault("none" as const))
-      const roots = yield* Config.array(Config.string(), "WEBAUTHN_ROOT_CERTS").pipe(Config.withDefault([] as ReadonlyArray<string>))
+      const roots = yield* Config.array(Config.string(), "WEBAUTHN_ROOT_CERTS").pipe(Config.withDefault([]))
       const mode = yield* Config.literal("strict", "permissive")("WEBAUTHN_MDS_MODE").pipe(Config.withDefault("permissive" as const))
       const residentKey = yield* Config.literal("required", "preferred", "discouraged")("WEBAUTHN_RESIDENT_KEY").pipe(Config.withDefault("required" as const))
       const userVerification = yield* Config.literal("required", "preferred", "discouraged")("WEBAUTHN_USER_VERIFICATION").pipe(Config.withDefault("required" as const))

@@ -4,7 +4,7 @@ export const meta = {
   description: 'Surgical comment + prose HYGIENE pass over every .planning design corpus under a libs/ scope. NOT a rebuild: it changes ONLY fenced-code comments and page prose, never a code fence design, signature, type, case, field, body, or design decision. One agent per .planning-owning package folder (the whole folder corpus to one agent), pooled at CAP=10, each folder run through a 3-step ADVERSARIAL pipeline: tidy -> critique -> redteam. Every comment is treated as agent-facing framing that exists ONLY to help a future rebuild-* agent understand the why/intent/invariant: noise/restatement/process comments are deleted, every kept comment is refined to 1-2 (max 3) high-signal lines, and prose is trimmed of stale/wrong/noise content toward a ~20-25% reduction WHERE possible without losing any load-bearing context. Edits are scoped to .planning markdown; governing docs (ARCHITECTURE/README/IDEAS/TASKLOG/.api), docs/standards/style-guide.md, and CLAUDE.md [08] divider grammar are read for context only. args = optional libs scope (e.g. libs/csharp, libs/python, libs/typescript); empty = all of libs.',
   phases: [
     { title: 'Discover', detail: 'list every .planning-owning package folder under the scope, plus any language/branch-level .planning tier' },
-    { title: 'Tidy', detail: 'per folder (1 agent/folder, whole corpus): tidy(max) -> critique(xhigh) -> redteam(max), every stage ADVERSARIAL, comments + prose only, pooled at CAP=10' },
+    { title: 'Tidy', detail: 'per folder (1 agent/folder, whole corpus): tidy(max) -> critique(xhigh) -> redteam, every stage ADVERSARIAL, comments + prose only, pooled at CAP=10' },
   ],
 }
 
@@ -130,7 +130,7 @@ const redteamPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL 
 const STAGES = [
   { key: 'tidy', build: tidyPrompt, effort: 'max' },
   { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: redteamPrompt, effort: 'max' },
+  { key: 'redteam', build: redteamPrompt, effort: 'xhigh' },
 ]
 const processFolder = async (u) => {
   const logs = {}

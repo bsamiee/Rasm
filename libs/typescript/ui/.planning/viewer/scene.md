@@ -107,7 +107,11 @@ const _Backend = Schema.Literal(..._backends)
 
 const _TONE = { aces: ACESFilmicToneMapping, agx: AgXToneMapping, neutral: NeutralToneMapping } as const
 
-const _OUTPUT = { colorSpace: SRGBColorSpace, tone: "agx" as keyof typeof _TONE, exposure: 1 } as const
+const _OUTPUT = { colorSpace: SRGBColorSpace, tone: "agx", exposure: 1 } as const satisfies {
+  colorSpace: typeof SRGBColorSpace
+  tone: keyof typeof _TONE
+  exposure: number
+}
 
 const _RIG = {
   ambient: { color: 0xffffff, intensity: 0.3 },
@@ -171,13 +175,14 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 - Packages: `three` (`Scene`, `Mesh`, `AnimationMixer`, `Clock`, `LoadingManager`, `LoopRepeat`); `three/addons` (`GLTFLoader`); `effect` (`Effect`, `HashMap`, `Option`, `Ref`, `Stream`, `Scope`); `@rasm/ts/core` (`ContentKey`).
 - Law: codec injection is capability wiring — the loader constructs over one `LoadingManager` whose `onProgress`/`onError` fold per-graft dependency progress into the residency telemetry tap; `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
 - Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases its geometry, every texture slot its materials hold, then the materials themselves, because `material.dispose()` frees the program and never its textures; three's `traverse` callback is the kernel's platform-forced statement seam, marked on its first line, and no reference escapes it.
+- Law: the graft lane outlives any refusal — a per-arrival `GlbFault` (`decode-refused`, `codec-absent`) folds into the bounded refusal channel (`PubSub.bounded` → `Glb.Loop.refusals`) and the lane keeps consuming; an arrival stream that dies on one bad mesh is the named defect, the policy table's `evict` column governs the ledger consequence, and the telemetry/probe taps subscribe `refusals` beside the surplus lane.
 - Law: `preload`/`preinit` hints warm decoder wasm and imminent GLB fetches ahead of first frame (`react-dom` hint family), issued from the ledger's `pending` census, never per-mesh at draw time.
 - Exemption: the frame-loop tick is the platform-forced synchronous seam — `advance` reads the ledger through `Effect.runSync(Ref.get(held))` inside the marked kernel (a pure sync read, total by construction) and only immutable snapshots leave the fold.
 - Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint; a new arrival consumer is one more broadcast lane, never a second port subscription.
 
 ```typescript
 import type { ContentKey } from "@rasm/ts/core"
-import { Context, Effect, HashMap, Option, Ref, Scope, Stream } from "effect"
+import { Context, Effect, HashMap, Option, PubSub, Ref, Scope, Stream } from "effect"
 import { AnimationMixer, Clock, LoadingManager, LoopRepeat, Mesh, Scene, Texture } from "three"
 import type { Object3D, PerspectiveCamera } from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
@@ -189,6 +194,7 @@ declare namespace Glb {
   type Loop = {
     readonly advance: (delta: number) => void
     readonly arrivals: Stream.Stream<GlbViewport.Arrival, GlbFault>
+    readonly refusals: Stream.Stream<GlbFault>
   }
 }
 
@@ -213,6 +219,7 @@ const _graft = (
 ): Effect.Effect<Glb.Loop, GlbFault, Scope.Scope> =>
   Effect.gen(function* () {
     const held = yield* Ref.make(HashMap.empty<ContentKey, Glb.Graft>())
+    const refused = yield* PubSub.bounded<GlbFault>(16)
     const [grafting, surplus] = yield* Stream.broadcast(port.arrivals, 2, 16)
     const insert = Stream.runForEach(grafting, (arrival) =>
       Effect.gen(function* () {
@@ -231,7 +238,7 @@ const _graft = (
             )
         yield* Effect.sync(() => root.add(gltf.scene))
         yield* Ref.update(held, HashMap.set(arrival.key, { node: gltf.scene, mixer }))
-      }))
+      }).pipe(Effect.catchAll((fault) => PubSub.publish(refused, fault))))
     const evict = Stream.runForEach(port.ledger.changes, (rows) =>
       Effect.gen(function* () {
         const grafts = yield* Ref.get(held)
@@ -261,6 +268,7 @@ const _graft = (
           Option.map(graft.mixer, (live) => live.update(delta)))
       },
       arrivals: surplus,
+      refusals: Stream.fromPubSub(refused),
     }
   })
 

@@ -20,6 +20,7 @@ The typed CRUD engine of the read side: every row that leaves a relation enters 
 - Law: column origin is a field family — `Model.Generated` for engine-minted columns (identity sequences, `uuidv7()` defaults from the spine row) absent from insert, `Model.GeneratedByApp` for app-minted identity present in every database variant; a generated column hand-listed on an insert schema is the drift the family deletes.
 - Law: exposure is structural — `Model.Sensitive` rides database variants and is stripped from every JSON variant, so a sealed payload or internal coordinate cannot reach the wire through any derived JSON shape; egress scrubbing at call sites is the rejected spelling.
 - Law: temporal stamps are family rows — `Model.DateTimeInsert`/`Model.DateTimeUpdate` mint on the rail at write, serialized per column type; a hand-stamped `now` beside a model restates the family.
+- Law: field names ARE column names — the folder's clients compose no name transforms, so every model field, `Result` struct key, and insert-row key carries the physical snake-case spelling; a camelCase field over a snake column is the silent-mismatch defect, and renaming for the wire is `Model.fieldFromKey` at the JSON variant, never a client transform.
 - Law: embedded JSON is `Model.JsonFromString` — TEXT in database variants, native object in JSON variants — so the jsonb-versus-TEXT dialect difference lives in the model and no consumer parses a payload column; the journal's event row already states this law and this cluster generalizes it to every read-model payload.
 - Law: absence is `Model.FieldOption` — nullable in database variants, missing-key `Option` in JSON — one field, all variants optionalized; the sqlite boolean crossing is `Model.BooleanFromNumber`, dialect difference as a field fact.
 - Law: the JSON variants are the edge's material — `Row.json`/`jsonCreate`/`jsonUpdate` are the wire shapes a serving surface encodes and admits; a hand-declared DTO beside a model is the parallel-shape defect the variant system exists to kill.
@@ -40,8 +41,8 @@ class Board extends Model.Class<Board>("Board")({
   pinned: Model.BooleanFromNumber,
   secret: Model.Sensitive(Schema.String),
   note: Model.FieldOption(Schema.NonEmptyString),
-  createdAt: Model.DateTimeInsert,
-  revisedAt: Model.DateTimeUpdate,
+  created_at: Model.DateTimeInsert,
+  revised_at: Model.DateTimeUpdate,
 }) {}
 ```
 
@@ -57,7 +58,7 @@ class Board extends Model.Class<Board>("Board")({
 - Law: the request schema carries the domain brand — a read keyed by `StreamKey` fields, `ContentKey`, or a tenant brand admits through the owning schema, so an unbranded string cannot address a keyed relation.
 
 ```typescript
-import { Option, Schema, pipe } from "effect"
+import { Schema } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 
 const _Window = Schema.Struct({
@@ -125,7 +126,7 @@ const _resolvers = (sql: SqlClient.SqlClient) => ({
   }),
   heads: SqlResolver.findById("StreamHead", {
     Id: Schema.String,
-    Result: Schema.Struct({ id: Schema.String, head: Schema.Number }),
+    Result: Schema.Struct({ id: Schema.String, head: Journal.Version }),
     ResultId: (row) => row.id,
     execute: (ids) =>
       sql`SELECT app || ':' || tenant || ':' || aggregate AS id, coalesce(max(version), 0) AS head
@@ -147,7 +148,7 @@ const _resolvers = (sql: SqlClient.SqlClient) => ({
 - Law: one binding per relation per scope — the binding constructs inside the tenancy scope's Layer (`lane/tenant.md`'s `Stores` family), so resolver identity, loader windows, and span prefixes are scope-local and cross-tenant batching is unrepresentable.
 
 ```typescript
-import { Duration, Effect, type Scope } from "effect"
+import { Duration, Effect } from "effect"
 import type { Capability } from "../lane/capability.ts"
 
 declare namespace Query {

@@ -1,12 +1,12 @@
 # [PERSISTENCE_ELEMENT_CODEC]
 
-Rasm.Persistence encodes every durable `ElementGraph`, `GraphDelta`, and geometry blob through one `SnapshotCodec` axis paired with the `CompressionPolicy` and `HashPolicy` axes, derives the one `ContentAddress` by composing the kernel seed-zero `XxHash128` over canonical bytes (no second hasher), seals every file-resident artifact under one fixed-offset `SnapshotHeader` that is the artifact's entire trust boundary, verifies every read through one ordered `RejectTier` ladder that rejects before any decoder with attack surface runs, and splits opaque payload bytes into FastCDC content-defined chunks for cross-snapshot dedup. Codec, compression, and hash variance are delegate rows on string-keyed smart enums; the canonical CBOR row's deterministic map-key order makes the encoded bytes content-stable for the `ContentAddress` a schemaless MessagePack body cannot guarantee; the MessagePack row is the Marten-event and cache wire; JSON-STJ is the inspector/web wire; file-raw is the geometry-blob passthrough. The header records what WAS done — observed compression, both plain and stored length, the content hash over stored bytes, the schema fingerprint, the retention epoch, and its own checksum — never what was requested, so a torn or foreign artifact self-rejects by offset before the codec machinery binds. `ContentAddress` (the seam `Projection/address#CONTENT_ADDRESS` `[ValueObject<UInt128>]` hasher over the `Projection/address#CANONICAL_WRITER` codec), `ElementGraph`, `GraphDelta`, and `Node` arrive settled from `Rasm.Element`; `ClockPolicy`, `ReceiptSinkPort`, `DataClassification`, and `CorrelationId` arrive from `Rasm.AppHost`.
+Rasm.Persistence encodes every durable `ElementGraph`, `GraphDelta`, and geometry blob through one `SnapshotCodec` axis paired with the `CompressionPolicy` and `HashPolicy` axes, derives the one `ContentAddress` by composing the kernel `Rasm.Domain` `ContentHash.Of` seed-zero entry over canonical bytes (no second hasher, no direct `XxHash128` call site), seals every file-resident artifact under one fixed-offset `SnapshotHeader` that is the artifact's entire trust boundary, verifies every read through one ordered `RejectTier` ladder that rejects before any decoder with attack surface runs, and splits opaque payload bytes into FastCDC content-defined chunks for cross-snapshot dedup. Codec, compression, and hash variance are delegate rows on string-keyed smart enums; the canonical CBOR row's deterministic map-key order makes the encoded bytes content-stable for the `ContentAddress` a schemaless MessagePack body cannot guarantee; the MessagePack row is the Marten-event and cache wire; JSON-STJ is the inspector/web wire; file-raw is the geometry-blob passthrough. The header records what WAS done — observed compression, both plain and stored length, the content hash over stored bytes, the schema fingerprint, the retention epoch, and its own checksum — never what was requested, so a torn or foreign artifact self-rejects by offset before the codec machinery binds. `ContentAddress` (the seam `Projection/address#CONTENT_ADDRESS` `[ValueObject<UInt128>]` hasher over the `Projection/address#CANONICAL_WRITER` codec), `ElementGraph`, `GraphDelta`, and `Node` arrive settled from `Rasm.Element`; `ContentHash.Of` arrives from the `Rasm` kernel; the clock/correlation/tenant slots ride the Persistence-owned `Element/graph#STORE_RAIL` `ProjectionContext` frame the composition root fills; `ReceiptSinkPort` and `DataClassification` stay port and wire inputs at the seam.
 
 ## [01]-[INDEX]
 
-- [02]-[CODEC_AXIS]: four codec rows, the package wire context, generated converter admission, and the AOT resolver landmark.
-- [03]-[CONTENT_ADDRESS]: the kernel-composed `XxHash128` content address composed from the seam `ContentAddress`, the canonical-byte projection, and the precomputed-digest wrap.
-- [04]-[COMPRESSION_HASHING]: compression rows, hash rows, framing routes, and identity values.
+- [02]-[CODEC_AXIS]: four codec rows, the package wire context, generated converter admission, the `GeoJsonProjection` dual service, and the AOT resolver landmark.
+- [03]-[CONTENT_ADDRESS]: the kernel-composed content address, the canonical-byte projection, the precomputed-digest wrap, and the incremental/streaming consumer contracts.
+- [04]-[COMPRESSION_HASHING]: compression rows, the two-row hash axis, framing routes, and identity values.
 - [05]-[SNAPSHOT_SPINE]: fixed-offset header trust boundary, the tier rejection ladder, the single-pass atomic write fold, and the orphan sweep.
 - [06]-[CONTENT_CHUNKING]: FastCDC content-defined chunk boundaries and per-chunk content-key dedup.
 
@@ -18,7 +18,7 @@ Rasm.Persistence encodes every durable `ElementGraph`, `GraphDelta`, and geometr
 - Auto: registering `ThinktectureJsonConverterFactory` and `ThinktectureMessageFormatterResolver.Instance` once derives every `[ValueObject]`/`[SmartEnum]`/`[Union]` converter and formatter, so a `NodeId`/`ContentAddress`/`Discipline` crosses both the Marten-event STJ wire and the MessagePack cache wire as its bare key with zero hand-written codec; `GeoJsonProjection` admits one `GeoJsonConverterFactory` deriving the GeoJSON projection of every `NetTopologySuite` geometry, feature, and attribute table the `Coverage`/`GeoReference` nodes carry; `Marten.UseSystemTextJsonForSerialization(ElementJson.Options)` binds the `json-stj` row's options as the event-store serializer so a stored `GraphEvent` and an inspector projection share one converter set.
 - Receipt: codec negotiation rides `store.codec.negotiate` carrying the surface and the resolved codec; the AOT resolver swap rides no receipt (it is a build-time selection).
 - Packages: MessagePack, MessagePackAnalyzer, System.Formats.Cbor, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions.MessagePack, NetTopologySuite.IO.GeoJSON4STJ, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
-- Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `ElementJson` plus one MessagePack union tag when polymorphic; the AOT landmark swaps the runtime resolver LIST — `[ThinktectureMessageFormatterResolver, GeneratedMessagePackResolver, StandardResolver]` — for the single source-generated `PersistenceResolver` (which composes the Thinktecture + generated sets and drops the reflection-based `StandardResolver` AOT cannot trim), the custom `InstantFormatter` staying the prepended formatter head in BOTH chains because a `[CompositeResolver]` composes resolver TYPES and cannot carry a standalone `IMessagePackFormatter<Instant>` instance — so the swap is one resolver-list selection that never drops the `Instant` formatter, never a second codec; zero new surface.
+- Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `ElementJson` plus one MessagePack union tag when polymorphic; a new GeoJSON consumer composes the SAME `GeoJsonProjection` factory — `Ingest/geospatial` reifies feature `properties` through `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` under THIS converter graph, so feature-property reification is one factory value handed down, never a second GeoJSON options set; the AOT landmark swaps the runtime resolver LIST — `[ThinktectureMessageFormatterResolver, GeneratedMessagePackResolver, StandardResolver]` — for the single source-generated `PersistenceResolver` (which composes the Thinktecture + generated sets and drops the reflection-based `StandardResolver` AOT cannot trim), the custom `InstantFormatter` staying the prepended formatter head in BOTH chains because a `[CompositeResolver]` composes resolver TYPES and cannot carry a standalone `IMessagePackFormatter<Instant>` instance — so the swap is one resolver-list selection that never drops the `Instant` formatter, never a second codec; zero new surface.
 - Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; the SEAM graph types (`GraphDelta`/`Header`/`Node`/`Relationship` carrying LanguageExt `Seq`/`Option` and the Thinktecture `[Union]`/`[SmartEnum]`/`[ValueObject]` members, with NO `[MessagePackObject]` attribute because the seam stays library-neutral) ride the `json-stj` row ONLY — they are source-gen-registered on `ElementJson` (`GraphEvent`/`GraphProjection`/`GraphDelta` roots, the rest reachable transitively) and the STJ converter set handles `Seq`/`Option`/`[Union]`/NodaTime, whereas the `messagepack` row's `GeneratedMessagePackResolver` finds only `[MessagePackObject]` owners and its `StandardResolver` rejects an attribute-free `Seq<Node>`, so MessagePack on the seam graph (e.g. a `Version/ledger#CHANGEFEED` `OpLog.Project` `GraphDelta` payload) is the deleted phantom and the `messagepack` row covers ONLY the `[MessagePackObject]`/`[MessagePack.Union]`-attributed Persistence-owned wire types (`Version/commits#CRDT_WIRE` `CrdtOpWire`, and any future MessagePack-attributed row); the `messagepack` row is the Marten cache/sync wire and pairs with the `none` compression row because `Lz4BlockArray` owns compression in-codec (double framing is the deleted pattern); the `cbor` row is the self-describing IETF blob codec whose `CborConformanceMode.Canonical` deterministic map-key order makes the bytes content-stable for the `ContentAddress` (the guarantee a schemaless MessagePack body cannot give across insertion order) and whose `Strict` reader over a FIXED `ReadOnlyMemory` is the untrusted-egress guard — the buffer length bounds an over-declared byte-string (a `CborContentException` on a length bomb, never an over-read) and the trailing-bytes check rejects a smuggled suffix, so a structured self-describing blob routes through `Cbor` while an evolving typed record stays `messagepack`; the `json-stj` row is the inspector/web wire and the Marten event-store serializer; the `file-raw` row is the geometry-blob passthrough that never re-frames; the snapshot `messagepack` decode runs ONLY after the `#SNAPSHOT_SPINE` `Snapshots.Verify` ladder gated the bytes (the header IS the trust boundary), so it reads under the trusted `Binary` — the untrusted decode of an un-`Verify`'d wire payload (a CRDT sync delta) is the wire owner's `MessagePackSecurity.UntrustedData` guard sized to its own payload envelope (`Version/commits#CRDT_WIRE`), never this snapshot lane's concern; MemoryPack and protobuf snapshot encodings stay rejected — proto owns RPC payloads only.
 
 ```csharp signature
@@ -44,6 +44,7 @@ public sealed partial class WireSurface {
 [JsonSerializable(typeof(GraphProjection))]
 [JsonSerializable(typeof(GraphDelta))]
 [JsonSerializable(typeof(SnapshotCatalogRow))]
+[JsonSerializable(typeof(SnapshotHeader))]
 [JsonSerializable(typeof(ElementIdentity))]
 public partial class ElementJson : JsonSerializerContext {
     public static readonly JsonSerializerOptions Options =
@@ -82,11 +83,11 @@ public sealed partial class SnapshotCodec {
     public FrozenSet<WireSurface> Membership { get; }
 
     public static bool Known(int headerId) => Items.Any(c => c.HeaderId == headerId);
-    public static Option<SnapshotCodec> ByHeaderId(int headerId) => Items.Find(c => c.HeaderId == headerId).ToOption();
+    public static Option<SnapshotCodec> ByHeaderId(int headerId) => toSeq(Items).Find(c => c.HeaderId == headerId);
     public bool Serves(WireSurface surface) => Membership.Contains(surface);
 
     public static Fin<SnapshotCodec> Negotiate(WireSurface surface, Seq<string> accepted) =>
-        Items.Filter(c => c.Serves(surface)).OrderByDescending(static c => c.NegotiationRank).ToSeq()
+        toSeq(Items).Filter(c => c.Serves(surface)).OrderByDescending(static c => c.NegotiationRank).ToSeq()
             .Find(c => accepted.Contains(c.Key))
             .Match(Some: Fin.Succ, None: () => Fin.Fail<SnapshotCodec>(new CodecFault.NoMutualCodec(surface.Key)));
 
@@ -131,6 +132,9 @@ public static class CborBlob {
     }
 }
 
+// The ONE GeoJSON converter graph — serves the codec's own STJ options AND the `Ingest/geospatial` feature
+// reification (`IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` runs under THIS factory),
+// so feature-property typing and the `Coverage`/`GeoReference` node projection never fork into two options sets.
 public sealed record GeoJsonProjection(GeometryFactory Geometry, bool WriteBoundingBox = true, string IdProperty = GeoJsonConverterFactory.DefaultIdPropertyName, bool AllowModifyingAttributes = false) {
     public static readonly GeoJsonProjection Default = new(GeometryFactory.Default);
     public GeoJsonConverterFactory Factory => new(Geometry, WriteBoundingBox, IdProperty, RingOrientationOption.EnforceRfc9746, AllowModifyingAttributes);
@@ -149,32 +153,36 @@ public sealed record GeoJsonProjection(GeometryFactory Geometry, bool WriteBound
 ## [03]-[CONTENT_ADDRESS]
 
 - Owner: `ContentAddress` the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `[ValueObject<UInt128>]` content key every snapshot identity, dedup probe, diff, and AS-OF cut reads, COMPOSED here directly — Persistence mints NO node/graph hash owner of its own: the node content key is the seam `ContentAddress.Of(node.ToCanonicalBytes(tolerance).Span)` a `Version/merge#STRUCTURAL_DIFF` `GraphNode` composes inline, the graph address the seam `ContentAddress.OfGraph(graph)` a `Query/topology` memo key reads inline, and a precomputed framing/chunk/snapshot digest the seam `ContentAddress.Of(UInt128)` wraps without re-hashing — so a Persistence-local `NodeHash`/`GraphHash` forwarding owner over those one-hop seam entries is the deleted form (the ONE byte projection and the ONE order-independent fold already live on the seam, never re-spelled).
-- Cases: a graph content address IS the seam `Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` (the semantic header folded first, then sorted node addresses, then sorted edge canonical bytes); a node content address is the seam `ContentAddress.Of` over the node's `Projection/address#CANONICAL_WRITER` `ToCanonicalBytes()` projection (fixed IEEE-754 LE bits with `-0.0→0.0` and `NaN→canonical`, measure quantization to the header tolerance, explicit attribute-order canon); a precomputed framing/chunk/snapshot `XxHash128` digest wraps through the seam `ContentAddress.Of(UInt128)` carrier (no re-hash); delta keying rides the `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey`, never a second delta hasher.
-- Entry: the seam owns every minting entry — `ContentAddress.Of(ReadOnlySpan<byte>)` hashes the framing/chunk preimage, `ContentAddress.Of(UInt128)` wraps a precomputed snapshot/chunk digest, `ContentAddress.Of(Node, tolerance)` is the id-INCLUSIVE graph-dedup key, `ContentAddress.OfGraph(ElementGraph)` the order-independent snapshot identity, and `ContentAddress.Verify(...)` the re-hash gate; this page composes those entries at the snapshot catalog (`Snapshots.Write` wraps the sealed `SnapshotHeader.ContentHash` `UInt128` through `Of(UInt128)` into the `SnapshotCatalogRow`) and the chunk fold (`ContentChunker.Chunk` wraps the whole-payload `XxHash128` through `Of(UInt128)`), never a Persistence-local re-derivation.
-- Auto: the content address is the kernel's ONE algorithm — `System.IO.Hashing.XxHash128` seeded zero, the same digest the seam's `Projection/address#CONTENT_ADDRESS` `ContentAddress` value-object wraps and the `Rasm` kernel mints for geometry by content-hash — so a snapshot, a chunk, a diff, and a federation key all read one 128-bit address and a second hasher is the deleted form; this page raw-hashes ONLY the opaque framing and chunk preimages (the sealed-bytes `XxHash128` in `SnapshotHeader.Seal`, the per-chunk and whole-payload `XxHash128` in `ContentChunker`) and wraps every result through the seam `ContentAddress.Of(UInt128)` carrier, while the node/graph content keys compose the seam's `ToCanonicalBytes`-backed entries verbatim so the float-bearing parity corpus (`Version/commits#CRDT_WIRE`) pins the layout cross-runtime; measure quantization to `Header.Tolerance` happens once inside the seam `CanonicalWriter` before hashing so two geometrically-equal nodes within tolerance share one address.
+- Cases: a graph content address IS the seam `Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` (the semantic header folded first, then sorted node addresses, then sorted edge canonical bytes); a node content address is the seam `ContentAddress.Of` over the node's `Projection/address#CANONICAL_WRITER` `ToCanonicalBytes()` projection (fixed IEEE-754 LE bits with `-0.0→0.0` and `NaN→canonical`, measure quantization to the header tolerance, explicit attribute-order canon); a precomputed framing/chunk/snapshot digest wraps through the seam `ContentAddress.Of(UInt128)` carrier (no re-hash); delta keying rides the `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey`, never a second delta hasher.
+- Entry: the seam owns every minting entry — `ContentAddress.Of(ReadOnlySpan<byte>)` hashes the framing/chunk preimage, `ContentAddress.Of(UInt128)` wraps a precomputed snapshot/chunk digest, `ContentAddress.Of(Node, tolerance)` is the id-INCLUSIVE graph-dedup key, `ContentAddress.OfGraph(ElementGraph)` the order-independent snapshot identity, and `ContentAddress.Verify(...)` the re-hash gate; this page composes those entries at the snapshot catalog (`Snapshots.Write` wraps the sealed `SnapshotHeader.ContentHash` `UInt128` through `Of(UInt128)` into the `SnapshotCatalogRow`) and the chunk fold (`ContentChunker.Chunk` wraps the whole-payload digest through `Of(UInt128)`), never a Persistence-local re-derivation.
+- Auto: the content address is the kernel's ONE algorithm — the `Rasm.Domain` `ContentHash.Of` seed-zero `XxHash128` entry, the same digest the seam's `ContentAddress` value-object wraps and the `Rasm` kernel mints for geometry by content-hash — so a snapshot, a chunk, a diff, and a federation key all read one 128-bit address and a second hasher is the deleted form; this page's opaque framing and chunk preimages (the sealed-bytes digest in `SnapshotHeader.Seal`, the per-chunk and whole-payload digests in `ContentChunker`) compose `ContentHash.Of` DIRECTLY — a per-call-site `XxHash128.HashToUInt128` invocation is the deleted spelling (value-identical, so the re-anchor is pure call-path collapse, never an identity migration) — and wrap every result through the seam `ContentAddress.Of(UInt128)` carrier, while the node/graph content keys compose the seam's `ToCanonicalBytes`-backed entries verbatim so the float-bearing parity corpus (`Version/commits#CRDT_WIRE`) pins the layout cross-runtime; measure quantization to `Header.Tolerance` happens once inside the seam `CanonicalWriter` before hashing so two geometrically-equal nodes within tolerance share one address.
 - Receipt: content addressing rides no standalone receipt (it folds into the snapshot/diff/dedup receipts that carry the address).
-- Packages: System.IO.Hashing (`XxHash128.HashToUInt128` — the opaque framing/chunk hashes only; the node/graph content address composes the seam `ContentAddress`, never a raw hasher), Rasm.Element (`Projection/address#CONTENT_ADDRESS` `ContentAddress.Of`/`ContentAddress.OfGraph`/`ContentAddress.Verify` + `Projection/address#CANONICAL_WRITER` `Node.ToCanonicalBytes` + `ElementGraph`), BCL inbox.
-- Growth: a wider content address is one `HashPolicy` row plus an epoch-gated identity migration; a new canonical-byte rule is one clause on the seam `Projection/address#CANONICAL_WRITER` `Node.ToCanonicalBytes()` (seam-owned, this page composes); zero new surface — a second hasher, a `GetHashCode`-based address, a Persistence-local `NodeHash`/`GraphHash` forwarding owner, or a per-surface key respelling is the deleted form because the kernel owns the one seed-zero `XxHash128` and every durable identity composes the seam `ContentAddress` in one hop.
-- Boundary: the `ContentAddress` is non-cryptographic identity — a tamper or security claim on it is the named defect (the `Version/provenance#ATTESTED_LEDGER` `AttestedEntry` owns tamper-evidence); the canonical byte projection is the ONE seam `Projection/address#CANONICAL_WRITER` codec shared between the `NodeId` content hash and the diff `ContentBytes` so a node that did not change is byte-identical and the structural diff prunes it; the kernel seed convention (`SeedOrigin = Guid.Empty`, seed-zero content) is ground truth and the literal digest values stamp on the host-validation pass, never an un-run asserted value; the graph address IS the seam `Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` order-independent fold, composed once so the topology memo key (`Query/topology`) and the snapshot graph identity never fork into two Persistence-local orderings, and the snapshot/chunk identities wrap their precomputed `XxHash128` digest through `ContentAddress.Of(UInt128)` rather than the bare Thinktecture `Create`, so the seam's wrap verb is the one Persistence reads.
+- Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the ONE hasher entry every digest mint composes), Rasm.Element (`Projection/address#CONTENT_ADDRESS` `ContentAddress.Of`/`ContentAddress.OfGraph`/`ContentAddress.Verify` + `Projection/address#CANONICAL_WRITER` `Node.ToCanonicalBytes` + `ElementGraph`), BCL inbox.
+- Growth: TWO consumer contracts are recorded on this section, both provided by the seam owner on landing. INCREMENTAL `OfGraph(prior, delta)` — the delta-composable graph address (`Version/timetravel` `Scrub`/`Bisect` re-shape onto it) is `Rasm.Element/Projection/address`'s member; until it lands the documented interim is the whole-graph `OfGraph` recompute, and the parametric-form digest is a COMPONENT of `ToCanonicalBytes(tolerance)` (the `ParametricStream` clause), NEVER a standalone `Of(UInt128)` sibling key — a sibling key would leave `OfGraph` blind to a parametric-body edit. STREAMING identity — the kernel `ContentHash` Growth row's incremental lifecycle (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero) lands as one kernel member when a consumer demands it, and Persistence IS that demanding consumer for the blobstore multipart and chunk folds whose payloads outgrow a one-shot span; until it lands the documented interim is the one-shot `ContentHash.Of` over the in-memory payload plus the `ContentAddress.Of(UInt128)` wrap of a precomputed digest. A wider content address is one `HashPolicy` row plus an epoch-gated identity migration; a new canonical-byte rule is one clause on the seam `CanonicalWriter`; zero new surface — a second hasher, a `GetHashCode`-based address, a Persistence-local `NodeHash`/`GraphHash` forwarding owner, or a per-surface key respelling is the deleted form.
+- Boundary: the `ContentAddress` is non-cryptographic identity — a tamper or security claim on it is the named defect (the `Version/provenance#ATTESTED_LEDGER` `AttestedEntry` owns tamper-evidence); the canonical byte projection is the ONE seam `Projection/address#CANONICAL_WRITER` codec shared between the `NodeId` content hash and the diff `ContentBytes` so a node that did not change is byte-identical and the structural diff prunes it; the kernel seed convention (seed-zero content, `ContentHash.Of` the verbatim contract) is ground truth and the literal digest values stamp on the host-validation pass, never an un-run asserted value; the graph address IS the seam `ContentAddress.OfGraph` order-independent fold, composed once so the topology memo key (`Query/topology`) and the snapshot graph identity never fork into two Persistence-local orderings, and the snapshot/chunk identities wrap their precomputed digest through `ContentAddress.Of(UInt128)` rather than the bare Thinktecture `Create`, so the seam's wrap verb is the one Persistence reads.
 
 | [INDEX] | [POLICY]              | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :-------------------- | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | content algorithm     | kernel seed-zero `XxHash128`           | one hasher; snapshot/chunk/diff/federation share it       |
+| :-----: | :-------------------- | :------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | content algorithm     | kernel `ContentHash.Of` (seed-zero)    | one hasher entry; a direct `XxHash128` call site is deleted |
 |  [02]   | node/graph key        | seam `ContentAddress.Of`/`OfGraph`     | composed in one hop; no Persistence-local hash owner      |
 |  [03]   | precomputed wrap      | seam `ContentAddress.Of(UInt128)`      | snapshot/chunk digest wrapped, never raw `Create`         |
-|  [04]   | measure quantization  | `Header.Tolerance` inside `CanonicalWriter`| two within-tolerance nodes share one address          |
-|  [05]   | identity claim        | non-cryptographic                      | tamper-evidence is `Version/provenance#ATTESTED_LEDGER`   |
+|  [04]   | incremental address   | `OfGraph(prior, delta)` seam contract  | whole-graph recompute is the documented interim           |
+|  [05]   | streaming identity    | kernel `Append`/`GetCurrentHashAsUInt128` contract | one-shot `ContentHash.Of` is the documented interim |
+|  [06]   | identity claim        | non-cryptographic                      | tamper-evidence is `Version/provenance#ATTESTED_LEDGER`   |
 
 ## [04]-[COMPRESSION_HASHING]
 
 - Owner: `CompressionPolicy` and `HashPolicy` `[SmartEnum<string>]` row families under the `ComparerAccessors.StringOrdinal` accessor.
-- Cases: 5 compression rows — `none`, `lz4-fast`, `lz4-high`, `zstd`, `zstd-high`; 5 hash rows — `Content` (`XxHash3`), `Identity` (`XxHash128`), `Frame` (`Crc32`), `Wide` (`XxHash64`), `FrameWide` (`Crc64`).
+- Cases: 5 compression rows — `none`, `lz4-fast`, `lz4-high`, `zstd`, `zstd-high`; 2 hash rows — `Identity` (the kernel `ContentHash.Of` 128-bit content address) and `Content` (the `XxHash3` 64-bit short tag).
 - Entry: `public partial byte[] Pack(ReadOnlyMemory<byte> payload)` is the pure byte transform; `public partial UInt128 Compute(ReadOnlyMemory<byte> payload)` is the row's hash.
-- Packages: K4os.Compression.LZ4, ZstdSharp.Port, System.IO.Hashing, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: one compression level or hash algorithm is one row carrying its own `HeaderId` so every prior archive stays readable across the swap; a trained-dictionary row carries its dict blob, never a per-call branch; zero new surface.
-- Boundary: every hash row is non-cryptographic identity — a security claim on any row is the named defect; `Identity` pins `XxHash128` as the one `ContentAddress` algorithm every snapshot identity, chunk key, and diff reads, so a 64-bit hash standing in for the content address is the deleted form; `Content` is the `XxHash3` 64-bit short tag stamped on every chunk as a bloom/sketch pre-filter ahead of the authoritative 128-bit compare; the `messagepack` codec pairs with `none` because `Lz4BlockArray` owns in-codec compression (double framing is the deleted pattern), and a `Cbor`/`JsonStj` blob whose body already rode Arrow-IPC `Zstd` block compression likewise pairs with `none`; `ZstdSharp.Port`'s self-describing frame (`contentSizeFlag`/`checksumFlag`, long-distance matching, `btultra2`) is the higher-ratio path and `LZ4Pickler` the lowest-latency self-describing frame, the policy row selecting one so a payload frames exactly once and the frame checksum complements the snapshot rail's own `XxHash128` rather than replacing it; the header `HashDomain` byte records `Identity.DomainId` so the content-hash algorithm self-describes and `Verify` resolves it through `ByDomainId`, a future wider address being one row plus an epoch-gated migration, never a second ladder arm.
+- Packages: K4os.Compression.LZ4, ZstdSharp.Port, System.IO.Hashing (`XxHash3` short tag + the `Crc32` frame checksum — direct structural calls, never policy rows), Rasm (`ContentHash.Of`), Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: one compression level is one row carrying its own `HeaderId` so every prior archive stays readable across the swap; a trained-dictionary row carries its dict blob, never a per-call branch; a WIDER content address is one `HashPolicy` row with a fresh `DomainId` plus an epoch-gated identity migration — the `HashDomain` header byte is the forward-compatibility law that makes the row addition non-breaking; zero new surface.
+- Boundary: both hash rows are non-cryptographic identity — a security claim on either is the named defect; `Identity` pins the kernel `ContentHash.Of` as the one `ContentAddress` algorithm every snapshot identity, chunk key, and diff reads, so a 64-bit hash standing in for the content address is the deleted form; `Content` is the `XxHash3` 64-bit short tag stamped on every chunk as a bloom/sketch pre-filter ahead of the authoritative 128-bit compare — a chunk-fold datum, never a header hash domain; frame checksums are STRUCTURAL frame facts, not policy rows — the `SnapshotHeader` checksum is a direct `Crc32.HashToUInt32` over the header prefix and a compression frame's own integrity word (`ZstdSharp` `checksumFlag`) belongs to its frame, so the former five-row ladder (`Frame`/`Wide`/`FrameWide`) is the deleted enumeration of call-site facts as vocabulary; the `HashDomain` law: the header byte records `Identity.DomainId`, `Verify` hard-rejects any other domain as `RejectTier.HashDomainGap` TODAY, and a future wider address lands as one row whose new `DomainId` the ladder resolves through `ByDomainId` under its epoch gate — never a second ladder arm and never a per-artifact algorithm negotiation; the `messagepack` codec pairs with `none` because `Lz4BlockArray` owns in-codec compression (double framing is the deleted pattern), and a `Cbor`/`JsonStj` blob whose body already rode Arrow-IPC `Zstd` block compression likewise pairs with `none`; `ZstdSharp.Port`'s self-describing frame (`contentSizeFlag`/`checksumFlag`, long-distance matching, `btultra2`) is the higher-ratio path and `LZ4Pickler` the lowest-latency self-describing frame, the policy row selecting one so a payload frames exactly once and the frame checksum complements the snapshot rail's own content hash rather than replacing it.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;                                 // ContentHash — the ONE kernel digest entry
+
 // --- [TYPES] ------------------------------------------------------------------------------
 // Two sibling policy vocabularies — `CompressionPolicy` and `HashPolicy` — with `ZstdFrame` co-located as
 // `CompressionPolicy`'s frame pack/unpack helper (referenced only by its `zstd`/`zstd-high` rows).
@@ -190,7 +198,7 @@ public sealed partial class CompressionPolicy {
 
     public int HeaderId { get; }
     public static bool Known(int headerId) => Items.Any(r => r.HeaderId == headerId);
-    public static Option<CompressionPolicy> ByHeaderId(int headerId) => Items.Find(r => r.HeaderId == headerId).ToOption();
+    public static Option<CompressionPolicy> ByHeaderId(int headerId) => toSeq(Items).Find(r => r.HeaderId == headerId);
     [UseDelegateFromConstructor] public partial byte[] Pack(ReadOnlyMemory<byte> payload);
     [UseDelegateFromConstructor] public partial byte[] Unpack(ReadOnlyMemory<byte> framed);
 }
@@ -209,39 +217,41 @@ public static class ZstdFrame {
     public static byte[] Unpack(ReadOnlySpan<byte> framed) { using var d = new Decompressor(); return d.Unwrap(framed).ToArray(); }
 }
 
+// The two-row hash axis: `Identity` IS the kernel content address (the header `HashDomain` byte records its
+// `DomainId`); `Content` is the chunk short-tag pre-filter. Frame checksums (header `Crc32`, zstd frame word)
+// are direct structural calls at their frames, never rows — the deleted `Frame`/`Wide`/`FrameWide` rows
+// enumerated call-site facts as vocabulary. A wider address is one new row + `DomainId` under an epoch gate.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HashPolicy {
+    public static readonly HashPolicy Identity = new("xxhash128", domainId: 2, bits: 128, hexFormat: "x32", compute: static p => ContentHash.Of(p.Span));
     public static readonly HashPolicy Content = new("xxhash3", domainId: 1, bits: 64, hexFormat: "x16", compute: static p => XxHash3.HashToUInt64(p.Span));
-    public static readonly HashPolicy Identity = new("xxhash128", domainId: 2, bits: 128, hexFormat: "x32", compute: static p => XxHash128.HashToUInt128(p.Span));
-    public static readonly HashPolicy Frame = new("crc32", domainId: 3, bits: 32, hexFormat: "x8", compute: static p => Crc32.HashToUInt32(p.Span));
-    public static readonly HashPolicy Wide = new("xxhash64", domainId: 4, bits: 64, hexFormat: "x16", compute: static p => XxHash64.HashToUInt64(p.Span));
-    public static readonly HashPolicy FrameWide = new("crc64", domainId: 5, bits: 64, hexFormat: "x16", compute: static p => Crc64.HashToUInt64(p.Span));
 
     public byte DomainId { get; }
     public int Bits { get; }
     public string HexFormat { get; }
     [UseDelegateFromConstructor] public partial UInt128 Compute(ReadOnlyMemory<byte> payload);
-    public static Option<HashPolicy> ByDomainId(byte domainId) => Items.Find(r => r.DomainId == domainId).ToOption();
+    public static Option<HashPolicy> ByDomainId(byte domainId) => toSeq(Items).Find(r => r.DomainId == domainId);
 }
 ```
 
 ## [05]-[SNAPSHOT_SPINE]
 
-- Owner: `SnapshotHeader` the fixed-72-byte little-endian prologue that is the artifact's entire trust boundary; `RejectTier` the ordered rejection-ladder rank carrying its evidence shape; `CodecFault` the closed `[Union]` codec fault band (83xx) deriving from the kernel `Rasm.Domain.Expected` that the codec-negotiation miss, the eight `RejectTier` rejections, and the chunk-reassembly drift all rail through (a bare `Error.New` is the deleted form); `SnapshotCatalogRow` the content-lineage catalog edition; `Snapshots` the static surface owning the single-pass seal, the tier ladder, and the orphan sweep.
-- Entry: `public static IO<SnapshotCatalogRow> Write<T>(ReceiptSinkPort sink, CorrelationId correlation, string directory, string kind, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, DataClassification classification, string retentionClass, Option<ContentAddress> lineage, T value, Func<SnapshotCatalogRow, IO<Unit>> persist)` encodes, packs, hashes, seals, stamps, and persists one artifact; `public static Fin<SnapshotHeader> Verify(ReadOnlySpan<byte> artifact, ulong schemaFingerprint, ulong epoch)` is the pure tier ladder on raw bytes with zero decoding.
-- Auto: the write fold derives the codec/compression ids, the schema fingerprint, the retention epoch, both lengths, the `XxHash128` content hash over the stored bytes, the `Crc32` header checksum, the HLC stamp, the classification, and the content-lineage rank into the catalog row; the sealed `Hash` IS the `ContentAddress` every secondary surface derives from, so a snapshot is catalog-addressable on the artifact-blob index without a parallel key and `Lineage` chains the prior edition's content address so the newest-`Count`-editions retention bound (`Version/retention`) prunes by lineage depth off the catalog row.
+- Owner: `SnapshotHeader` the fixed-72-byte little-endian prologue that is the artifact's entire trust boundary; `RejectTier` the ordered rejection-ladder rank carrying its evidence shape; `CodecFault` the closed `[Union]` codec fault band deriving `Code => FaultBand.Codec + n` (the `Element/graph#FAULT_TABLES` registry row — the legal 831x-833x stride) that the codec-negotiation miss, the eight `RejectTier` rejections, and the chunk-reassembly drift all rail through (a bare `Error.New` is the deleted form); `SnapshotCatalogRow` the content-lineage catalog edition; `Snapshots` the static surface owning the single-pass seal, the tier ladder, and the orphan sweep.
+- Entry: `public static IO<SnapshotCatalogRow> Write<T>(ReceiptSinkPort sink, ProjectionContext frame, string directory, string kind, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, DataClassification classification, string retentionClass, Option<ContentAddress> lineage, T value, Func<SnapshotCatalogRow, IO<Unit>> persist)` encodes, packs, hashes, seals, stamps, and persists one artifact — the correlation and tenant slots ride the frame, never loose AppHost-typed parameters; `public static Fin<SnapshotHeader> Verify(ReadOnlySpan<byte> artifact, ulong schemaFingerprint, ulong epoch)` is the pure tier ladder on raw bytes with zero decoding.
+- Auto: the write fold derives the codec/compression ids, the schema fingerprint, the retention epoch, both lengths, the kernel `ContentHash.Of` content hash over the stored bytes, the `Crc32` header checksum, the HLC stamp, the classification, and the content-lineage rank into the catalog row; the sealed `Hash` IS the `ContentAddress` every secondary surface derives from, so a snapshot is catalog-addressable on the artifact-blob index without a parallel key and `Lineage` chains the prior edition's content address so the newest-`Count`-editions retention bound (`Version/retention`) prunes by lineage depth off the catalog row.
 - Receipt: `SnapshotCatalogRow` is the durable evidence; `StoredLength`/`PlainLength` are the artifact's own sealed length fields the retention sweep reads, never a later filesystem stat.
-- Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Packages: Rasm (`ContentHash.Of`), System.IO.Hashing (`Crc32` — the structural header checksum), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new header capability is one flag-bit row; a new rejection cause is one `RejectTier` row breaking every ladder arm (it rails through the SAME `CodecFault.SnapshotRejected` band — the band wraps the tier, never grows a parallel case per rank); a new codec-fault class is one `CodecFault` case; one artifact kind is one catalog row value; zero new surface.
-- Boundary: the single-pass seal `Clear`s the stack-allocated prefix buffer before both writes so the placeholder header is genuinely zeroed (terminally invalid magic) and no uninitialized padding byte ever persists into the reserved-gap offsets — the CRC is then computed over the same zeroed-gap layout it verifies against, deterministic across runtimes — and the full 128-bit `XxHash128` flows un-truncated through the seal tuple to the catalog `ContentAddress` (a 64-bit truncation is the deleted form that would collide distinct contents); the seal writes the zeroed placeholder header, the stored bytes, then seeks to zero and writes the final header, `Flush(flushToDisk: true)` before `File.Move` does the atomic rename, so a crash leaves the temp swept rather than a torn final; the header is the artifact's ENTIRE trust boundary and `Verify` runs the ordered ladder on raw bytes — magic/identity, layout-version ratchet, header checksum, hash-domain capability, stored-length truncation, content hash over stored bytes through the resolved `HashPolicy.Compute`, codec/compression capability, then the epoch-then-fingerprint ratchet — each tier verifying before the next so corrupted or foreign input rejects before any decoder with attack surface binds, and layout-version/epoch/fingerprint are one-way ratchets so a future-layout artifact is deployment evidence rejected by one process and restored by a newer sibling; temp residue and catalog-orphaned payloads leave only through the age-gated `Sweep` (a final artifact lands on disk before its catalog `persist` `Bind` commits, so the sweep reaps only residue older than the grace window) and the swept count is the crash-loop signal.
+- Boundary: the single-pass seal `Clear`s the stack-allocated prefix buffer before both writes so the placeholder header is genuinely zeroed (terminally invalid magic) and no uninitialized padding byte ever persists into the reserved-gap offsets — the CRC is then computed over the same zeroed-gap layout it verifies against, deterministic across runtimes — and the full 128-bit content hash flows un-truncated through the seal tuple to the catalog `ContentAddress` (a 64-bit truncation is the deleted form that would collide distinct contents); the seal writes the zeroed placeholder header, the stored bytes, then seeks to zero and writes the final header, `Flush(flushToDisk: true)` before `File.Move` does the atomic rename, so a crash leaves the temp swept rather than a torn final; the header is the artifact's ENTIRE trust boundary and `Verify` runs the ordered ladder on raw bytes — magic/identity, layout-version ratchet, header checksum, hash-domain capability (the `HashDomain` byte must equal `HashPolicy.Identity.DomainId` — any other value is `RejectTier.HashDomainGap` until a future row's epoch gate admits it through `ByDomainId`), stored-length truncation, content hash over stored bytes through the kernel entry, codec/compression capability, then the epoch-then-fingerprint ratchet — each tier verifying before the next so corrupted or foreign input rejects before any decoder with attack surface binds, and layout-version/epoch/fingerprint are one-way ratchets so a future-layout artifact is deployment evidence rejected by one process and restored by a newer sibling; temp residue and catalog-orphaned payloads leave only through the age-gated `Sweep` (a final artifact lands on disk before its catalog `persist` `Bind` commits, so the sweep reaps only residue older than the grace window) and the swept count is the crash-loop signal.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 // The fault band derives from the KERNEL Expected (the federation base), aliased so the bare `Expected`
 // names `Rasm.Domain.Expected` and never the `LanguageExt.Common.Expected` whose `(string,int,Option)`
-// ctor is the deleted form.
+// ctor is the deleted form. `ContentHash` is the kernel digest entry — no direct `XxHash128` call site.
+using Rasm.Domain;
 using Expected = Rasm.Domain.Expected;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -259,23 +269,19 @@ public sealed partial class RejectTier {
 
     public int Rank { get; }
     // The tier rejects through the typed CodecFault.SnapshotRejected band carrying THIS tier, not a bare Error.New —
-    // a recovery reads error.IsType<CodecFault.SnapshotRejectedCase>() and the tier off the case, never a code substring.
+    // a recovery reads error.IsType<CodecFault.SnapshotRejected>() and the tier off the case, never a code substring.
     public CodecFault Reject(string evidence) => new CodecFault.SnapshotRejected(this, evidence);
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
-// The codec fault band (83xx): a closed [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless protected ctor;
-// `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the seam
-// `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
-// (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no
-// `Category` to override) is the deleted form. Band membership is a per-case `Code` override — `SnapshotRejected`
-// projects `8320 + Tier.Rank` off the carried `RejectTier`, so the ordered ladder vocabulary stays one owner (the band
-// WRAPS the tier, never re-enumerates the 8 ranks as 8 union cases) — `Message`/`Category` projecting through the
-// generated `Switch`, so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no `.ToError()` hop and a
-// recovery reads `error.IsType<CodecFault.SnapshotRejected>()` / `error.HasCode(8326)` / `error.Category()`, never the
-// bare `Error.New(8310/8330)` a codec/reassembly miss would otherwise spell. No `[GenerateUnionOps]` — the kernel
-// union-ops generator is strictly opt-in, so the band carries no generated per-case `SelfOp`; the `[Union]`-generated
-// `Switch`/`Map` is untouched.
+// The codec fault band: a closed [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless protected ctor;
+// `Category` virtual; `Code`/`Message` inherited from `Error`). Band membership derives through the
+// `Element/graph#FAULT_TABLES` registry row — `Code => FaultBand.Codec + n`, `SnapshotRejected` projecting
+// `+10 + Tier.Rank` off the carried `RejectTier` (the band WRAPS the tier, never re-enumerates the 8 ranks as
+// 8 union cases) — so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no `.ToError()` hop
+// and a recovery reads `error.IsType<CodecFault.SnapshotRejected>()` / `error.HasCode(8326)` /
+// `error.Category()`, never the bare `Error.New(8310/8330)` a codec/reassembly miss would otherwise spell.
+// No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in.
 [Union]
 public abstract partial record CodecFault : Expected, IValidationError<CodecFault> {
     private CodecFault() : base() { }
@@ -283,10 +289,10 @@ public abstract partial record CodecFault : Expected, IValidationError<CodecFaul
     public sealed record SnapshotRejected(RejectTier Tier, string Evidence) : CodecFault;
     public sealed record ReassemblyDrift(UInt128 Expected, UInt128 Actual) : CodecFault;
 
-    public override int Code => Switch(
-        noMutualCodec:    static _ => 8310,
-        snapshotRejected: static c => 8320 + c.Tier.Rank,
-        reassemblyDrift:  static _ => 8330);
+    public override int Code => FaultBand.Codec + Switch(
+        noMutualCodec:    static _ => 0,
+        snapshotRejected: static c => 10 + c.Tier.Rank,
+        reassemblyDrift:  static _ => 20);
 
     public override string Message => Switch(
         noMutualCodec:    static c => $"<codec-no-mutual:{c.Surface}>",
@@ -315,7 +321,7 @@ public readonly record struct SnapshotHeader(
         Span<byte> prefix = stackalloc byte[Size];
         prefix.Clear();
         var draft = new SnapshotHeader(MagicValue, LayoutVersion, HashPolicy.Identity.DomainId, codec.HeaderId, compression.HeaderId,
-            schemaFingerprint, epoch, plainLength, stored.Length, XxHash128.HashToUInt128(stored), Checksum: 0u);
+            schemaFingerprint, epoch, plainLength, stored.Length, Rasm.Domain.ContentHash.Of(stored), Checksum: 0u);
         draft.WriteFields(prefix);
         return draft with { Checksum = Crc32.HashToUInt32(prefix[..ChecksumOffset]) };
     }
@@ -338,7 +344,7 @@ public readonly record struct SnapshotHeader(
 public sealed record SnapshotCatalogRow(
     Guid Id, string Kind, SnapshotCodec Codec, CompressionPolicy Compression, ContentAddress Hash,
     long PlainLength, long StoredLength, ulong SchemaFingerprint, ulong Epoch, Option<ContentAddress> Lineage,
-    string RetentionClass, DataClassification Classification, Instant HlcPhysical, ulong HlcLogical, CorrelationId Correlation) {
+    string RetentionClass, DataClassification Classification, Instant HlcPhysical, ulong HlcLogical, Guid Correlation) {
     public Instant WrittenAt => HlcPhysical;
 }
 
@@ -353,24 +359,26 @@ public static class Snapshots {
         : BinaryPrimitives.ReadUInt32LittleEndian(artifact[SnapshotHeader.ChecksumOffset..]) != Crc32.HashToUInt32(artifact[..SnapshotHeader.ChecksumOffset]) ? RejectTier.HeaderCorrupt.Reject("crc")
         : artifact[5] != HashPolicy.Identity.DomainId ? RejectTier.HashDomainGap.Reject($"domain:{artifact[5]}")
         : BinaryPrimitives.ReadInt64LittleEndian(artifact[44..]) != artifact.Length - SnapshotHeader.Size ? RejectTier.Truncated.Reject($"{artifact.Length - SnapshotHeader.Size}")
-        : XxHash128.HashToUInt128(artifact[SnapshotHeader.Size..]) != BinaryPrimitives.ReadUInt128LittleEndian(artifact[SnapshotHeader.HashOffset..SnapshotHeader.ChecksumOffset]) ? RejectTier.PayloadCorrupt.Reject("xxhash128")
+        : Rasm.Domain.ContentHash.Of(artifact[SnapshotHeader.Size..]) != BinaryPrimitives.ReadUInt128LittleEndian(artifact[SnapshotHeader.HashOffset..SnapshotHeader.ChecksumOffset]) ? RejectTier.PayloadCorrupt.Reject("content-hash")
         : !SnapshotCodec.Known(BinaryPrimitives.ReadInt32LittleEndian(artifact[8..])) || !CompressionPolicy.Known(BinaryPrimitives.ReadInt32LittleEndian(artifact[12..])) ? RejectTier.CapabilityGap.Reject("codec")
         : BinaryPrimitives.ReadUInt64LittleEndian(artifact[28..]) > epoch ? RejectTier.VersionAhead.Reject($"epoch:{BinaryPrimitives.ReadUInt64LittleEndian(artifact[28..])}")
         : BinaryPrimitives.ReadUInt64LittleEndian(artifact[20..]) != schemaFingerprint ? RejectTier.VersionAhead.Reject("fingerprint")
         : Fin.Succ(Read(artifact));
 
-    public static IO<SnapshotCatalogRow> Write<T>(ReceiptSinkPort sink, CorrelationId correlation, string directory, string kind, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, DataClassification classification, string retentionClass, Option<ContentAddress> lineage, T value, Func<SnapshotCatalogRow, IO<Unit>> persist) =>
+    // The sink payload is the sealed TYPED `SnapshotHeader` (source-gen-registered on `ElementJson`) —
+    // a bare tuple cannot cross the strict source-gen resolver, so the header IS the seal evidence wire shape.
+    public static IO<SnapshotCatalogRow> Write<T>(ReceiptSinkPort sink, ProjectionContext frame, string directory, string kind, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, DataClassification classification, string retentionClass, Option<ContentAddress> lineage, T value, Func<SnapshotCatalogRow, IO<Unit>> persist) =>
         IO.lift(() => Seal(directory, Guid.CreateVersion7(), codec, compression, schemaFingerprint, epoch, codec.Serialize(typeof(T), value)))
-            .Bind(file => sink.Send(correlation, TenantContext.Current, "Rasm.Persistence", kind, JsonSerializer.SerializeToElement(file, ElementJson.Options))
-                .Map(envelope => new SnapshotCatalogRow(file.Id, kind, codec, compression, ContentAddress.Of(file.ContentHash), file.PlainLength, file.StoredLength, schemaFingerprint, epoch, lineage, retentionClass, classification, envelope.Physical, envelope.Logical, correlation)))
+            .Bind(file => sink.Send(frame.Correlation, frame.Tenant, "Rasm.Persistence", kind, JsonSerializer.SerializeToElement(file.Header, ElementJson.Options))
+                .Map(envelope => new SnapshotCatalogRow(file.Id, kind, codec, compression, ContentAddress.Of(file.Header.ContentHash), file.Header.PlainLength, file.Header.StoredLength, schemaFingerprint, epoch, lineage, retentionClass, classification, envelope.Physical, envelope.Logical, frame.Correlation)))
             .Bind(row => persist(row).Map(_ => row));
 
-    public static IO<Seq<string>> Sweep(ClockPolicy clocks, Duration grace, string directory, Seq<SnapshotCatalogRow> catalog) =>
-        IO.lift(() => (Now: clocks.Now, Files: toSeq(Directory.EnumerateFiles(directory))))
+    public static IO<Seq<string>> Sweep(ProjectionContext frame, Duration grace, string directory, Seq<SnapshotCatalogRow> catalog) =>
+        IO.lift(() => (Now: frame.Now(), Files: toSeq(Directory.EnumerateFiles(directory))))
             .Map(scan => scan.Files.Filter(file => !catalog.Exists(row => string.Equals(Path.GetFileName(file), $"{row.Id}{Suffix}", StringComparison.Ordinal)) && scan.Now - Instant.FromDateTimeUtc(File.GetLastWriteTimeUtc(file)) >= grace))
             .Bind(static orphans => orphans.TraverseM(static file => IO.lift(() => { File.Delete(file); return file; })).As());
 
-    static (Guid Id, UInt128 ContentHash, long PlainLength, long StoredLength) Seal(string directory, Guid id, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, byte[] encoded) {
+    static (Guid Id, SnapshotHeader Header) Seal(string directory, Guid id, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, byte[] encoded) {
         var packed = compression.Pack(encoded);
         var header = SnapshotHeader.Seal(codec, compression, schemaFingerprint, epoch, encoded.LongLength, packed);
         Span<byte> prefix = stackalloc byte[SnapshotHeader.Size];
@@ -386,7 +394,7 @@ public static class Snapshots {
             stream.Flush(flushToDisk: true);
         }
         File.Move(temp, final, overwrite: false);
-        return (id, header.ContentHash, encoded.LongLength, packed.LongLength);
+        return (id, header);
     }
 
     static SnapshotHeader Read(ReadOnlySpan<byte> a) =>
@@ -398,15 +406,18 @@ public static class Snapshots {
 
 ## [06]-[CONTENT_CHUNKING]
 
-- Owner: `ChunkPolicy` the FastCDC min/avg/max size axis; `ContentChunk` the content-keyed chunk record carrying its `XxHash128` address, source offset, length, and the `XxHash3` short tag; `ChunkManifest` the per-payload ordered chunk-key sequence; `ContentChunker` the static surface owning the FastCDC cut, the per-chunk content-key derivation, the manifest fold, and the cross-payload dedup projection.
-- Entry: `public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlyMemory<byte> payload)` cuts the payload into content-defined chunks through `FastCdc.GetChunks`, keys each by `XxHash128`, and stamps each with the 64-bit `XxHash3` short tag; `public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<ulong, bool> mayHold, Func<UInt128, bool> holds)` projects the chunks a peer or the artifact-blob index lacks, probing the cheap 64-bit tag before the authoritative 128-bit compare; `public static Fin<ReadOnlyMemory<byte>> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch)` rebuilds and verifies against the manifest's whole-artifact content hash, railing `#SNAPSHOT_SPINE` `CodecFault.ReassemblyDrift` (8330) carrying the expected/actual hashes on a torn or reordered manifest.
-- Auto: the content-defined boundary is the FastCDC normalized gear-hash cut so an insertion that shifts every fixed-window boundary leaves the content-defined boundaries stable past the edit and a small change to a large geometry blob re-stores only the changed chunks; each chunk's content key is `XxHash128` (the `HashPolicy.Identity` row) so an identical chunk across two snapshots or two peers dedups; the short tag is `HashPolicy.Content` (`XxHash3`) so `Novel` probes `mayHold(ShortTag)` before `holds(ContentKey)` on a hot re-store path.
+- Owner: `ChunkPolicy` the FastCDC min/avg/max size axis; `ContentChunk` the content-keyed chunk record carrying its 128-bit content address, source offset, length, and the `XxHash3` short tag; `ChunkManifest` the per-payload ordered chunk-key sequence; `ContentChunker` the static surface owning the FastCDC cut, the per-chunk content-key derivation, the manifest fold, and the cross-payload dedup projection.
+- Entry: `public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlyMemory<byte> payload)` cuts the payload into content-defined chunks through `FastCdc.GetChunks`, keys each by the kernel `ContentHash.Of`, and stamps each with the 64-bit `XxHash3` short tag; `public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<ulong, bool> mayHold, Func<UInt128, bool> holds)` projects the chunks a peer or the artifact-blob index lacks, probing the cheap 64-bit tag before the authoritative 128-bit compare; `public static Fin<ReadOnlyMemory<byte>> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch)` rebuilds and verifies against the manifest's whole-artifact content hash, railing `#SNAPSHOT_SPINE` `CodecFault.ReassemblyDrift` carrying the expected/actual hashes on a torn or reordered manifest.
+- Auto: the content-defined boundary is the FastCDC normalized gear-hash cut so an insertion that shifts every fixed-window boundary leaves the content-defined boundaries stable past the edit and a small change to a large geometry blob re-stores only the changed chunks; each chunk's content key is the kernel `ContentHash.Of` (the `HashPolicy.Identity` row) so an identical chunk across two snapshots or two peers dedups; the short tag is `HashPolicy.Content` (`XxHash3`) so `Novel` probes `mayHold(ShortTag)` before `holds(ContentKey)` on a hot re-store path.
 - Receipt: a chunked store rides `store.chunk.split` carrying chunk and novel-chunk counts; a dedup hit rides `store.chunk.dedup` carrying reused-chunk and reused-byte counts.
-- Packages: FastCDC.Net, System.IO.Hashing, LanguageExt.Core, BCL inbox.
-- Growth: a new chunk-size profile is one `ChunkPolicy` row; zero new surface — a fixed-window framing, a per-edit full re-store, or a second content-defined chunker is the deleted form.
-- Boundary: this owner is the opaque-byte chunker for snapshot frames and the geometry-blob multipart window (`Store/blobstore#MULTIPART_TRANSFER`); the chunk content key is `XxHash128`, never the FastCDC gear-hash cut value (a boundary marker, not an identity); the chunker is one-shot over an in-memory `byte[]` so a payload above the 4-GiB `uint`-offset window partitions upstream; the `Snapshots.Seal` fold chunks the packed payload so a sealed snapshot's chunks dedup against the artifact-blob index, and the blob multipart window consumes whole content-defined chunks rather than a fixed slice so a re-uploaded artifact skips the chunks the index already holds.
+- Packages: FastCDC.Net, Rasm (`ContentHash.Of`), System.IO.Hashing (`XxHash3` short tag), LanguageExt.Core, BCL inbox.
+- Growth: a new chunk-size profile is one `ChunkPolicy` row; a payload that outgrows the one-shot in-memory span composes the kernel streaming-identity member (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero — the `#CONTENT_ADDRESS` consumer contract) the moment it lands, replacing only the whole-payload digest line; zero new surface — a fixed-window framing, a per-edit full re-store, or a second content-defined chunker is the deleted form.
+- Boundary: this owner is the opaque-byte chunker for snapshot frames and the geometry-blob multipart window (`Store/blobstore#MULTIPART_TRANSFER`); the chunk content key is the kernel content hash, never the FastCDC gear-hash cut value (a boundary marker, not an identity); the chunker is one-shot over an in-memory `byte[]` so a payload above the 4-GiB `uint`-offset window partitions upstream (the streaming-identity contract covers the whole-payload digest for the partitioned folds); the `Snapshots.Seal` fold chunks the packed payload so a sealed snapshot's chunks dedup against the artifact-blob index, and the blob multipart window consumes whole content-defined chunks rather than a fixed slice so a re-uploaded artifact skips the chunks the index already holds.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;                                 // ContentHash — the ONE kernel digest entry
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -434,9 +445,9 @@ public static class ContentChunker {
         var chunks = toSeq(new FastCdc(source, policy.Min, policy.Avg, policy.Max, eof: true).GetChunks()
             .Select(cut => {
                 var span = source.AsSpan((int)cut.Offset, (int)cut.Length);
-                return new ContentChunk(XxHash128.HashToUInt128(span), XxHash3.HashToUInt64(span), cut.Offset, (int)cut.Length);
+                return new ContentChunk(ContentHash.Of(span), XxHash3.HashToUInt64(span), cut.Offset, (int)cut.Length);
             }));
-        return new ChunkManifest(ContentAddress.Of(XxHash128.HashToUInt128(source)), source.LongLength, chunks);
+        return new ChunkManifest(ContentAddress.Of(ContentHash.Of(source)), source.LongLength, chunks);
     }
 
     public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<ulong, bool> mayHold, Func<UInt128, bool> holds) =>
@@ -445,7 +456,7 @@ public static class ContentChunker {
     public static Fin<ReadOnlyMemory<byte>> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch) {
         var buffer = new ArrayBufferWriter<byte>((int)manifest.Length);
         foreach (var chunk in manifest.Chunks) buffer.Write(fetch(chunk.ContentKey).Span);
-        var actual = XxHash128.HashToUInt128(buffer.WrittenSpan);
+        var actual = ContentHash.Of(buffer.WrittenSpan);
         return actual == manifest.WholeArtifact.Value
             ? Fin.Succ((ReadOnlyMemory<byte>)buffer.WrittenMemory)
             : Fin.Fail<ReadOnlyMemory<byte>>(new CodecFault.ReassemblyDrift(manifest.WholeArtifact.Value, actual));
@@ -454,8 +465,8 @@ public static class ContentChunker {
 ```
 
 | [INDEX] | [POLICY]            | [VALUE]                              | [BINDING]                                                  |
-| :-----: | :------------------ | :----------------------------------- | :-------------------------------------------------------- |
+| :-----: | :------------------ | :----------------------------------- | :--------------------------------------------------------- |
 |  [01]   | chunk boundary      | FastCDC normalized gear-hash cut     | insertion-stable; small change re-stores only changed chunks |
-|  [02]   | chunk identity      | `XxHash128` content key              | dedup across snapshots/peers; never the gear-hash cut     |
+|  [02]   | chunk identity      | kernel `ContentHash.Of` content key  | dedup across snapshots/peers; never the gear-hash cut     |
 |  [03]   | dedup pre-filter    | `XxHash3` 64-bit short tag           | `Novel` probes `mayHold` before `holds`                   |
-|  [04]   | reassembly guard    | whole-artifact `XxHash128`           | torn/reordered manifest faults, never silent wrong bytes  |
+|  [04]   | reassembly guard    | whole-artifact content hash          | torn/reordered manifest faults, never silent wrong bytes  |

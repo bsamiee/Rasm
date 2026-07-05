@@ -26,6 +26,7 @@ import {
   type Cookies, FileSystem, type HttpApi, type HttpApiGroup, HttpApiScalar, type HttpApp, HttpLayerRouter, HttpMultiplex,
   HttpServerRequest, HttpServerResponse, Path,
 } from "@effect/platform"
+import { type RpcGroup, RpcServer } from "@effect/rpc"
 import { DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Cookie, type MacKey, OAuth, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
 import { Rail } from "@rasm/ts/data"
@@ -69,7 +70,7 @@ const Seam = { guard: _guard, shield: _SHIELD } as const
 ## [3]-[LAYER_ROUTES]
 
 [LAYER_ROUTES]:
-- Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` with `HttpApiScalar.layerHttpLayerRouter` beside it so the derived document and the reference UI ride the same router; `Router.health` mounts the probe trio from `life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts the provided foreign-protocol app at its prefix — presence-as-data, an unwired port serves nothing and never crashes.
+- Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` with `HttpApiScalar.layerHttpLayerRouter` beside it so the derived document and the reference UI ride the same router; `Router.rpc(group, prefix)` mounts a contributed RPC group beside the raw routes through `RpcServer.toHttpApp(group)` — the `HttpApp` value form, so one router serves api, RPC, and raw rows without a second server; `Router.health` mounts the probe trio from `life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts the provided foreign-protocol app at its prefix — presence-as-data, an unwired port serves nothing and never crashes.
 - Law: the tus rail mounts as dispatchers, never re-frames — `Router.rail(spec)` builds the data rail (`Rail.of(spec)`) and routes every method under the spec's route prefix into the rail's own dispatchers: the node engine drives `rail.node(req, res)` through the binding's raw adapters (`NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`), the fetch engine drives `rail.web(request)` through `BunHttpServerRequest.toRequest` or the web-handler assembly where the request is already fetch-shaped — the raw lift is the runtime row's own adapter, composed where the boot module mounts the rail, so this module still names no binding; offset semantics, staging custody, and the finalize fold stay the data rail's, and the maintenance cadence schedules `rail.groom` beside the mount.
 - Law: `Intake` is the held-octet webhook row — the raw body is read ONCE as bytes and held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases the enqueue through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and enqueue is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
 - RESEARCH: the raw-octet body member on `HttpServerRequest` (the `HttpIncomingMessage` byte accessor the `_octets` lift reads) is unverified until the branch catalogue rows its spelling; the held-octet fold and the `Verify` seam are settled, the accessor member is the research item. The catch-all method literal on `HttpLayerRouter.add` the mount and rail rows pass is the second research item — the per-method row set is the settled fallback.
@@ -220,7 +221,7 @@ const Ceremony = { of: _ceremony, cookied: _cookied } as const
 [ASSET_ROWS]:
 - Owner: `Router.assets` — the SPA/static row as one request fold: resolve the request path under the asset root through the `Path` capability, serve the file when it exists, fall back to the SPA entry for every path-shaped miss (client-rendered routes hydrate from one entry), and stamp the cache row the fingerprint predicate selects.
 - Law: `_CACHE` is the cache-header table and `_FINGERPRINT` the predicate — a content-hashed filename is immutable for a year because its identity IS its content, the entry document and every un-fingerprinted path are `no-cache` because they are the mutable pointers INTO immutable content — two rows, total over every asset, with the `Etag.Generator` the runtime server Layer already carries revalidating the mutable row for free.
-- Law: traversal is structurally refused — the fold rejects any `..` segment before resolution and refusal serves the SPA entry, never a distinct error that maps the filesystem for a probe.
+- Law: traversal is structurally refused — the request path resolves under the root and the fold asserts the resolved target still carries the root as its prefix, so an encoded, normalized, or absolute escape lands outside the prefix and serves the SPA entry, never a distinct error that maps the filesystem for a probe.
 - Boundary: what the assets ARE (app shell, prerender output, the self-hosted wasm bundles the ui wave serves beside the shell) is the ui wave's; this row owns only serving them byte-identical.
 - Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
 
@@ -242,7 +243,9 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
     const path = yield* Path.Path
     const fs = yield* FileSystem.FileSystem
     const clean = request.url.split("?")[0] ?? "/"
-    const target = clean.includes("..") ? options.entry : path.join(options.root, clean)
+    const anchor = path.resolve(options.root)
+    const resolved = path.resolve(options.root, clean.replace(/^\/+/, ""))
+    const target = resolved === anchor || resolved.startsWith(`${anchor}/`) ? resolved : path.resolve(anchor, options.entry)
     const held = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false))
     const chosen = held && clean !== "/" ? target : path.join(options.root, options.entry)
     const cache = _FINGERPRINT.test(chosen) ? _CACHE.immutable : _CACHE.entry
@@ -291,6 +294,10 @@ const Router = {
   hosts: _hosts,
   mounts: _mounts,
   rail: _rail,
+  rpc: <G extends RpcGroup.RpcGroup.Any>(group: G, prefix: `/${string}`) =>
+    Layer.unwrapEffect(
+      Effect.map(RpcServer.toHttpApp(group), (app) => HttpLayerRouter.add("POST", prefix, () => app)),
+    ),
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

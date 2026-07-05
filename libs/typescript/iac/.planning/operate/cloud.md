@@ -165,13 +165,16 @@ const Environments = {
     Effect.flatMap(
       _call(env, (api) => api.checkEnvironment(org, definition)),
       (checked) =>
-        Option.match(Option.flatMapNullable(checked, (verdict) => verdict.diagnostics), {
-          onNone: () => Effect.asVoid(_call(env, (api) => api.updateEnvironment(org, project, env, definition))),
-          onSome: (diagnostics) =>
-            diagnostics.length === 0
-              ? Effect.asVoid(_call(env, (api) => api.updateEnvironment(org, project, env, definition)))
-              : Effect.fail(new DeployFault({ reason: "input", stack: env, detail: JSON.stringify(diagnostics) })),
-        }),
+        Option.match(
+          Option.filter(
+            Option.flatMapNullable(checked, (verdict) => verdict.diagnostics),
+            (diagnostics) => diagnostics.length > 0,
+          ),
+          {
+            onNone: () => Effect.asVoid(_call(env, (api) => api.updateEnvironment(org, project, env, definition))),
+            onSome: (diagnostics) => Effect.fail(new DeployFault({ reason: "input", stack: env, detail: JSON.stringify(diagnostics) })),
+          },
+        ),
     ),
   pin: (org: string, project: string, env: string, tag: string, revision: number): Effect.Effect<void, DeployFault> =>
     Effect.asVoid(_call(env, (api) => api.createEnvironmentRevisionTag(org, project, env, tag, revision))),

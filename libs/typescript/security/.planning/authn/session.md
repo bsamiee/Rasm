@@ -257,7 +257,7 @@ const CookieSpec = {
   access: { name: "__Host-access", options: { httpOnly: true, secure: true, sameSite: "strict", path: "/" } },
   refresh: { name: "__Secure-refresh", options: { httpOnly: true, secure: true, sameSite: "strict", path: "/auth/refresh" } },
   csrf: { name: "__Host-csrf", options: { httpOnly: false, secure: true, sameSite: "strict", path: "/" } },
-} as const satisfies Record<string, { readonly name: string; readonly options: Cookies.Cookie["options"] }>
+} as const
 
 const _CSRF_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
@@ -270,6 +270,7 @@ const _csrfFaults = { absent: { class: "denied" }, mismatch: { class: "denied" }
 
 declare namespace CookieSpec {
   type Role = keyof typeof CookieSpec
+  type _Rows<T extends Record<string, { readonly name: string; readonly options: Cookies.Cookie["options"] }> = typeof CookieSpec> = T
 }
 
 declare namespace CsrfFault {

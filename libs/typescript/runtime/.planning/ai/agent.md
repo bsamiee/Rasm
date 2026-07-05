@@ -14,18 +14,18 @@ The agent altitude, ruled and sealed: an agent session's interaction state is a 
 ## [2]-[SESSION]
 
 [SESSION]:
-- Owner: `Session` — durable conversational memory on the shipped substrate: `Chat.layerPersisted` provides the persistence Tag over `@effect/experimental` `Persistence.BackingPersistence` (satisfied at the app root from a data-wave key-value scope), `Session.open(key)` restores-or-creates the chat whose `history` is the substrate's own `Ref<Prompt>`, and `export`/`fromExport` are the snapshot pair — a hand-assembled history record beside `Chat` is the killed lane, and no key-value session schema exists on this page.
+- Owner: `Session` — durable conversational memory on the shipped substrate: `Chat.layerPersisted` provides the persistence Tag over `@effect/experimental` `Persistence.BackingPersistence` (satisfied at the app root from a data-wave key-value scope), `Session.open(key)` restores-or-creates the chat whose `history` is the substrate's own `Ref<Prompt>`, and the snapshot rides the substrate's own twins — `export`/`fromExport` for structured hops, `exportJson`/`fromJson` for the string form the KV and wire persistence paths store — a hand-assembled history record beside `Chat` is the killed lane, and no key-value session schema exists on this page.
 - Law: the session key is branded and tenant-scoped — one session per `(tenant, conversation)` identity, the same key the entity id carries when the session escalates to the durable row, so in-process and sharded sessions share identity by construction.
 - Law: compaction is two lanes under one trigger — when the gauged history exceeds its budget share, `trim` truncates through the model page's fit enforcement (the tokenizer owns the cut), and `digest` folds the trimmed prefix into one summary block through a gated call with `Toolkit.empty` (no tools reachable from a summarization) prepended as system context; the lane is a policy value on the session row.
 - Law: retirement is a lifecycle fact — a session past its idle window exports, records its final digest as evidence, and releases; an unbounded session set is the named leak.
 - Growth: a memory concern (pinned facts, user preferences) is a system block the digest lane preserves, never a second store.
-- Packages: `@effect/ai` (`Chat`); `@effect/experimental` (`Persistence`); `effect` (`Layer`, `Effect`, `Schema`); `./model.ts` (`Tokens`, `Gate`).
+- Packages: `@effect/ai` (`Chat`); `@effect/experimental` (`Persistence`); `effect` (`Layer`, `Effect`, `Schema`); `./model.ts` (`Tokens`, `Guardrail`).
 
 ```typescript
 import { Chat, Prompt, Tool, Toolkit } from "@effect/ai"
-import { Effect, Match, Ref, Schedule, Schema } from "effect"
+import { Array, Effect, Match, Ref, Schedule, Schema } from "effect"
 import { type FaultClass, Transition } from "@rasm/ts/core"
-import { Gate, Tokens } from "./model.ts"
+import { Guardrail, Tokens } from "./model.ts"
 import type { Safety } from "./tool.ts"
 
 const SessionKey = Schema.NonEmptyString.pipe(Schema.brand("SessionKey"))
@@ -43,13 +43,13 @@ declare namespace Session {
 const _open = (row: Session.Row) =>
   Effect.gen(function* () {
     const chat = yield* Chat.empty
-    const compact = (policy: Parameters<typeof Gate.text>[0]) =>
+    const compact = (policy: Parameters<typeof Guardrail.text>[0]) =>
       Effect.gen(function* () {
         const history = yield* Ref.get(chat.history)
         yield* Match.value(row.compaction).pipe(
           Match.when("trim", () => Tokens.fit(history, row.budget).pipe(Effect.flatMap((fitted) => Ref.set(chat.history, fitted)))),
           Match.when("digest", () =>
-            Gate.text(policy)({ prompt: history, toolkit: Toolkit.empty }).pipe(
+            Guardrail.text(policy)({ prompt: history, toolkit: Toolkit.empty }).pipe(
               Effect.flatMap((summary) => Ref.set(chat.history, Prompt.make(`memory: ${summary.text}`))),
             )),
           Match.exhaustive,
@@ -66,9 +66,10 @@ const Session = { key: SessionKey, open: _open, persisted: Chat.layerPersisted }
 [TURN]:
 - Owner: `Agent` and the request triple. `Act` is the inbound tagged request — session key, utterance, app-passed retrieval passages, the safety mode — with `Turn` as its success (the reply text, the held-call evidence band, the spend receipt, the settled phase) and `AgentFault` as its failure (reason-discriminated, class-carrying); `Schema.TaggedRequest` declares payload, success, and failure in one class, and that single declaration is the entity Rpc, the `Tool.fromTaggedRequest` row, and the wire contract.
 - Law: the turn is one fold, budget-bounded — recall (`Session.open`), weave (`Tokens.weave` over the passages — retrieval arrives as values, the data wave is never imported), screen once (the gate screens the woven prompt, not each iteration), then the tool-loop: at most `steps` gated generations where each iteration's `toolChoice` and `disableToolCallResolution` compile from the safety partition, resolved tool results append through the chat so the model sees its own evidence, and the loop exits on a toolless reply, a held call, or the step ceiling — the ceiling folding to an `exhausted`-classed fault, never a silent truncation.
-- Law: every turn settles with evidence — spend from the gate's receipt, phase from the machine, held calls as data; a turn's receipt is what supervision, billing, and the approval surface read, so the loop returns `Turn`, never bare text.
+- Law: every turn settles with evidence — spend from the gate's receipt, phase from the machine, held calls as data, and provenance as data: the response's `DocumentSourcePart`/`UrlSourcePart` citation parts project into the `Turn.sources` band, so a grounded reply carries its own citations; a turn's receipt is what supervision, billing, and the approval surface read, so the loop returns `Turn`, never bare text.
+- Law: the tool loop reconstructs prompts through the package — `Prompt.fromResponseParts` rebuilds the next iteration's prompt from the prior response's parts, so multi-turn tool evidence is the package's own reconstruction, never a hand-spliced history; replay parity rides a deterministic `IdGenerator` Layer at the durable root so re-driven turns mint identical tool-call ids.
 - Growth: a loop concern (reflection pass, plan-then-act) is a phase row plus a fold arm, never a second loop.
-- Packages: `@effect/ai` (`Prompt`, `Tool`, `Toolkit`); `effect` (`Effect`, `Schema`); `./model.ts` (`Gate`, `Tokens`); `./tool.ts` (`Safety`).
+- Packages: `@effect/ai` (`Prompt`, `Tool`, `Toolkit`); `effect` (`Effect`, `Schema`); `./model.ts` (`Guardrail`, `Tokens`); `./tool.ts` (`Safety`).
 
 ```typescript
 class AgentFault extends Schema.TaggedError<AgentFault>()("AgentFault", {
@@ -83,6 +84,7 @@ class AgentFault extends Schema.TaggedError<AgentFault>()("AgentFault", {
 class Turn extends Schema.Class<Turn>("Turn")({
   reply: Schema.String,
   held: Schema.Array(Schema.Struct({ tool: Schema.String, params: Schema.String })),
+  sources: Schema.Array(Schema.Struct({ kind: Schema.Literal("document", "url"), ref: Schema.String })),
   spend: Schema.BigDecimal,
   phase: Schema.Literal("idle", "thinking", "awaiting", "compacting"),
 }) {}
@@ -150,7 +152,7 @@ const _boot = _spec.boot
 - Law: a held call never executes speculatively — the handler runs only after release, with the released parameters byte-equal to the held evidence; an "execute then ask" ordering is unspellable because resolution was disabled at the gate.
 - Law: approval is an audited action — release and expiry each append a fact row (who, which tool, which session) through the data wave's fact rail at the approving surface; this page holds evidence and phases, the serving plane owns the approval endpoint.
 - Growth: an approval policy axis (auto-release below a spend ceiling, four-eyes for `destroy`) is a predicate over the held band composed at release, never a second hold mechanism.
-- Packages: `./model.ts` (`Gate`); `../work/flow.ts` (`Gate` — the durable deferred); `@rasm/ts/core` (`Transition`).
+- Packages: `./model.ts` (`Guardrail`); `../work/flow.ts` (`Signal` — the durable deferred); `@rasm/ts/core` (`Transition`).
 
 ```typescript
 const _held = (turn: Turn) => turn.held.length > 0
@@ -165,13 +167,11 @@ const _release = (
   approved: ReadonlyArray<{ readonly tool: string; readonly params: string }>,
   held: ReadonlyArray<{ readonly tool: string; readonly params: string }>,
 ) =>
-  approved.every((call) => held.some((h) => h.tool === call.tool && h.params === call.params))
+  Array.every(approved, (call) => Array.some(held, (kept) => kept.tool === call.tool && kept.params === call.params))
     ? actor.feed("release")
     : Effect.fail(new AgentFault({ reason: "tool", detail: "release differs from held evidence" }))
 
 const Agent = {
-  act: Act,
-  turn: Turn,
   tool: _asTool,
   spec: _spec,
   boot: _boot,

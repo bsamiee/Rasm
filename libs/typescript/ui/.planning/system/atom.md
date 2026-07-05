@@ -99,7 +99,7 @@ const _enroll = Api.mutation("crew", "enroll", { reactivityKeys: ["crew"] })
 
 ```typescript
 import { AtomRef } from "@effect-atom/atom-react"
-import { ContentKey } from "@rasm/ts/core"
+import type { ContentKey } from "@rasm/ts/core"
 import { Array, Duration, Number } from "effect"
 
 declare const _rows: Atom.Atom<ReadonlyArray<{ readonly key: ContentKey; readonly rank: number }>>

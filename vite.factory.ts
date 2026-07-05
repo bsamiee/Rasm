@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
-import { Effect, Option, pipe, Schema as S } from 'effect';
+import { DateTime, Effect, Match, Option, pipe, Schema as S } from 'effect';
 import { visualizer } from 'rollup-plugin-visualizer';
 import type { Plugin, UserConfig, ViteBuilder } from 'vite';
 import viteCompression from 'vite-plugin-compression';
@@ -400,19 +400,23 @@ const config: {
 };
 
 const createConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =>
-    pipe(
-        Effect.try(() => S.decodeUnknownSync(CfgSchema)(input)),
-        Effect.orDie,
-        Effect.flatMap((c) =>
-            pipe(
-                Effect.all({
-                    p: Effect.sync(() => _ENV.NODE_ENV === 'production'),
-                    t: Effect.sync(() => new Date().toISOString()),
-                    v: Effect.sync(() => _ENV.npm_package_version ?? '0.0.0'),
+    Effect.map(
+        Effect.all({
+            c: Effect.orDie(S.decodeUnknown(CfgSchema)(input)),
+            env: Effect.map(DateTime.now, (now) => ({
+                prod: _ENV.NODE_ENV === 'production',
+                time: DateTime.formatIso(now),
+                ver: _ENV.npm_package_version ?? '0.0.0',
+            })),
+        }),
+        ({ c, env }) =>
+            Match.value(c).pipe(
+                Match.discriminatorsExhaustive('mode')({
+                    app: (cfg) => config.app(cfg, env),
+                    library: (cfg) => config.library(cfg, env),
+                    server: (cfg) => config.server(cfg, env),
                 }),
-                Effect.map(({ p, t, v }) => config[c.mode](c as never, { prod: p, time: t, ver: v })),
             ),
-        ),
     );
 
 // --- [EXPORTS] ---------------------------------------------------------------

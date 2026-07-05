@@ -21,6 +21,7 @@ type RuntimeEnv = NodeJS.ProcessEnv & {
 
 const Dirname = path.dirname(fileURLToPath(import.meta.url));
 const _ENV: RuntimeEnv = process.env;
+const _CI = _ENV.CI === 'true';
 const _ARTIFACTS = {
     bench: path.resolve(Dirname, '.artifacts/typescript/bench'),
     coverage: path.resolve(Dirname, '.artifacts/typescript/coverage'),
@@ -45,7 +46,9 @@ const _CONFIG = {
         },
     },
     patterns: {
+        benchExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**', '**/*.browser.bench.{ts,tsx}'],
         benchInclude: ['**/*.bench.{ts,tsx}'],
+        browserBenchInclude: ['tests/typescript/**/*.browser.bench.{ts,tsx}', 'libs/typescript/**/*.browser.bench.{ts,tsx}'],
         browserInclude: ['tests/typescript/**/*.browser.{test,spec}.{ts,tsx}', 'libs/typescript/**/*.browser.{test,spec}.{ts,tsx}'],
         coverageExclude: [
             '**/*.config.*',
@@ -63,7 +66,7 @@ const _CONFIG = {
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
-        test: (_ENV.CI ? ['dot', 'json', 'junit', 'github-actions', 'blob'] : ['tree']) as readonly string[],
+        test: _CI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree'] as const),
     },
     setupFiles: ['tests/typescript/_testkit/src/setup.ts'],
     snapshot: { format: { printBasicPrototype: false } },
@@ -77,7 +80,7 @@ const config: ViteUserConfig = defineConfig({
     cacheDir: _CONFIG.cacheDir,
     optimizeDeps: { include: [..._CONFIG.optimizeDeps] },
     test: {
-        allowOnly: _ENV.CI !== 'true',
+        allowOnly: !_CI,
         chaiConfig: { ..._CONFIG.output.chaiConfig },
         coverage: {
             clean: true,
@@ -104,11 +107,12 @@ const config: ViteUserConfig = defineConfig({
         fileParallelism: true,
         forceRerunTriggers: ['**/package.json/**', '**/vitest.config.*/**', '**/tsconfig*.json'],
         globals: true,
-        hideSkippedTests: _ENV.CI === 'true',
+        hideSkippedTests: _CI,
         hookTimeout: _CONFIG.timeouts.hook,
         isolate: true,
         maxWorkers: _CONFIG.workers.max,
-        onConsoleLog: (log, type) => !log.includes('Download the React DevTools') && type !== 'stderr',
+        // stderr passes through: a failing lane's diagnostics are evidence, never noise to blanket-drop.
+        onConsoleLog: (log) => !log.includes('Download the React DevTools'),
         outputFile: { ..._CONFIG.output.outputFile },
         passWithNoTests: false,
         pool: 'threads',
@@ -118,7 +122,7 @@ const config: ViteUserConfig = defineConfig({
                 extends: true,
                 test: {
                     benchmark: {
-                        exclude: [..._CONFIG.patterns.testExclude],
+                        exclude: [..._CONFIG.patterns.benchExclude],
                         include: [..._CONFIG.patterns.benchInclude],
                         outputJson: path.resolve(_ARTIFACTS.bench, 'latest.json'), // autosave: every bench run feeds the sustained-regression ledger
                     },
@@ -132,6 +136,9 @@ const config: ViteUserConfig = defineConfig({
             {
                 extends: true,
                 test: {
+                    // The browser bench include pins the lane to its own dialect: without it, bench mode
+                    // falls back to the default glob and sweeps node-only benches into chromium.
+                    benchmark: { include: [..._CONFIG.patterns.browserBenchInclude] },
                     browser: {
                         enabled: true,
                         headless: true,
@@ -146,8 +153,8 @@ const config: ViteUserConfig = defineConfig({
         ],
         reporters: [..._CONFIG.reporters.test],
         restoreMocks: true,
-        retry: _ENV.CI ? 2 : 0,
-        sequence: { concurrent: false, hooks: 'stack', shuffle: _ENV.CI === 'true' },
+        retry: _CI ? 2 : 0,
+        sequence: { concurrent: false, hooks: 'stack', shuffle: _CI },
         silent: 'passed-only',
         slowTestThreshold: _CONFIG.timeouts.slow,
         snapshotFormat: { ..._CONFIG.snapshot.format },

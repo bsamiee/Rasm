@@ -1,6 +1,6 @@
 # [TS_DATA]
 
-`libs/typescript/data` is the durable-data wave of the branch: the append-only journal (write owner, evolution, fact rail, retention), the guarantee-lane matrix (postgres spine, five-profile sqlite, analytical OLAP, latency cache, fail-closed capability probes, tenancy enforcement), the content-addressed object plane (store, resumable stream, filesystem), and the read side (typed CRUD, batching, projections, reactive reads, five-lane retrieval). The journal is the record of truth; every other lane is a semantic guarantee with engines as rows. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/typescript/data` is the durable-data wave of the branch: the append-only journal (write owner, evolution, fact rail, retention), the guarantee-lane matrix (postgres spine, five-profile sqlite, analytical OLAP, latency cache, fail-closed capability probes, tenancy enforcement), the content-addressed object plane (store, resumable stream, local filesystem, remote-origin filesystem), and the read side (typed CRUD, batching, projections, reactive reads, five-lane retrieval). The journal is the record of truth; every other lane is a semantic guarantee with engines as rows. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [01]-[ROUTER]
 
@@ -17,11 +17,12 @@
 - [11]-[STORE](.planning/object/store.md)
 - [12]-[STREAM](.planning/object/stream.md)
 - [13]-[FILE](.planning/object/file.md)
-- [14]-[QUERY](.planning/read/query.md)
-- [15]-[BATCH](.planning/read/batch.md)
-- [16]-[FOLD](.planning/read/fold.md)
-- [17]-[LIVE](.planning/read/live.md)
-- [18]-[SEARCH](.planning/read/search.md)
+- [14]-[REMOTE](.planning/object/remote.md)
+- [15]-[QUERY](.planning/read/query.md)
+- [16]-[BATCH](.planning/read/batch.md)
+- [17]-[FOLD](.planning/read/fold.md)
+- [18]-[LIVE](.planning/read/live.md)
+- [19]-[SEARCH](.planning/read/search.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

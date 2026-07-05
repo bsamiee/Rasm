@@ -37,17 +37,29 @@
     },
     "plugins": [
         { "path": "./tools/biome/no-arity-sibling.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
-        { "path": "./tools/biome/no-barrel-reexport.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
+        {
+            "path": "./tools/biome/no-barrel-reexport.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
+        },
         { "path": "./tools/biome/no-domain-throw.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
         {
             "path": "./tools/biome/no-mutable-accumulation.grit",
             "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
         },
-        { "path": "./tools/biome/no-nullable-return.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
+        {
+            "path": "./tools/biome/no-nullable-return.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
+        },
         { "path": "./tools/biome/no-rename-wrapper.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
         { "path": "./tools/biome/no-run-in-domain.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
-        { "path": "./tools/biome/no-standalone-brand.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] },
-        { "path": "./tools/biome/no-stdlib-in-domain.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"] }
+        {
+            "path": "./tools/biome/no-standalone-brand.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
+        },
+        {
+            "path": "./tools/biome/no-stdlib-in-domain.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.ts", "!**/*.test.ts", "!**/*.bench.ts"]
+        }
     ],
     "formatter": {
         "enabled": true,

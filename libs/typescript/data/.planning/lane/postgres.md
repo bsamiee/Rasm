@@ -79,7 +79,7 @@ const _primitives = {
 declare namespace Pg {
   type Primitive = keyof typeof _primitives
   type _PrimitiveRows<
-    T extends Record<Primitive, { readonly upholds: string; readonly denies: string }> = typeof _primitives,
+    T extends { readonly [P in Primitive]: { readonly upholds: string; readonly denies: string } } = typeof _primitives,
   > = T
 }
 ```
@@ -132,14 +132,14 @@ declare namespace Pg {
   type Grant = Row["capabilities"][number] | Core
   type Flag = "tsl" | "excludesSharding" | "requiresCron"
   type Image = ReadonlyArray<{ readonly extension: string; readonly floor: string; readonly flags: ReadonlyArray<Flag> }>
-  type _Rows<T extends Record<Kind, {
+  type _Rows<T extends { readonly [P in Kind]: {
     readonly extension: string
     readonly floor: string
     readonly probeSql?: string
     readonly capabilities: ReadonlyArray<string>
     readonly layer: "image" | "core"
     readonly flags: ReadonlyArray<Flag>
-  }> = typeof _rows> = T
+  } } = typeof _rows> = T
 }
 ```
 

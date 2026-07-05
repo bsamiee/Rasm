@@ -253,7 +253,7 @@ const crit = (await agent(critiquePrompt(ORDER, ROOT), critOpts)) || (await agen
 
 // --- [REDTEAM]
 phase('Redteam')
-const redOpts = { label: 'redteam (corpus)', phase: 'Redteam', model: 'fable', effort: 'max', schema: SWEEP_SCHEMA, stallMs: STALL }
+const redOpts = { label: 'redteam (corpus)', phase: 'Redteam', model: 'fable', effort: 'xhigh', schema: SWEEP_SCHEMA, stallMs: STALL }
 const red = (await agent(redteamPrompt(ORDER, ROOT, crit), redOpts)) || (await agent(redteamPrompt(ORDER, ROOT, crit), { ...redOpts, label: redOpts.label + ':retry' }))
 
 log('finalize[' + LANG_KEY + ']: ' + processed.length + '/' + ORDER.length + ' folder(s); ' + leftovers.length + ' leftover residual(s)' +

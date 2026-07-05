@@ -12,7 +12,7 @@ Tenant isolation on the `selfhosted-k8s` arm as one tier over one dispatch: `Ten
 ## [2]-[ISOLATION_MODES]
 
 [ISOLATION_MODES]:
-- Owner: `Tenants` — the `_MODES` record keyed by the escalated tenancy modes (`single` never reaches this tier; the arm gates construction), exhaustive by mapped annotation so a new mode literal in the spec fails compilation here until its row lands; the `namespace` row installs the Capsule chart once (`skipCrds: false`) and folds one `Tenant` CR per slug — owner binding to the tenant's group identity, a namespace quota, and Capsule's propagated `NetworkPolicy`/`ResourceQuota` governance riding the CR's typed spec; the `vcluster` row realizes one `helm.v4.Chart` per tenant in its own namespace, each a full virtual control plane whose kubeconfig egresses through the chart's own secret convention.
+- Owner: `Tenants` — the `_MODES` record keyed by the escalated tenancy modes (`single` never reaches this tier; the arm gates construction), exhaustive by mapped annotation so a new mode literal in the spec fails compilation here until its row lands; the `namespace` row installs the Capsule chart once (`skipCrds: false`) and folds one `Tenant` CR per slug — owner binding to the tenant's group identity, a namespace quota, and Capsule's propagated `NetworkPolicy`/`ResourceQuota` governance riding the CR's typed spec; the `vcluster` row mints one namespace per tenant and realizes one `helm.v4.Chart` inside it, each a full virtual control plane whose kubeconfig egresses through the chart's own secret convention; both rows receive the tier's option fold as a scope callback, so ownership threads without a public option surface.
 - Law: tenancy is policy rows, never bespoke paths — a tenant is a slug in `spec.profile.tenancy.tenants`; everything realized for it (Tenant CR, vcluster release, database, secret access, organization, vanity hostname) derives from that one vocabulary, and per-tenant special-casing in any tier is the split this owner exists to forbid.
 - Law: the isolation ladder is deliberate — `namespace` (Capsule) is the default escalation: highest density, one API server, policy-enforced boundaries; `vcluster` is the hard row for the tenant whose workloads are untrusted, need their own CRD estate, or must version-skew from the host plane; choosing per-tenant rather than per-estate isolation mixes is a spec-shape growth this record absorbs as a row parameter, not a new owner.
 - Law: the tenant's blast radius is closed from both sides — Capsule governs what the tenant's namespaces may express, the `kube/traffic.md` fence governs what reaches them, `operate/policy.md`'s rows judge what they ship, and the PKO loop (`operate/policy.md` `Reconcile`) executes tenant-submitted desired state inside the same envelope, so self-service provisioning never widens the boundary.
@@ -33,18 +33,19 @@ declare namespace Tenants {
     readonly spec: StackSpec
     readonly versions: { readonly capsule: pulumi.Input<string>; readonly vcluster: pulumi.Input<string> }
   }
+  type Scope = (overrides?: pulumi.CustomResourceOptions) => pulumi.CustomResourceOptions
 }
 
 const _MODES: {
-  readonly [K in Exclude<StackSpec.Tenancy["mode"], "single">]: (owner: Tenants, args: Tenants.Args) => void
+  readonly [K in Exclude<StackSpec.Tenancy["mode"], "single">]: (args: Tenants.Args, scope: Tenants.Scope) => void
 } = {
-  namespace: (owner, args) => {
+  namespace: (args, scope) => {
     const governor = new k8s.helm.v4.Chart("capsule", {
       chart: "capsule",
       repositoryOpts: { repo: "https://projectcapsule.dev/charts" },
       version: args.versions.capsule,
       skipCrds: false,
-    }, owner.scoped())
+    }, scope())
     Array.map(args.spec.tenants, (tenant) =>
       new capsule.v1beta2.Tenant(tenant, {
         metadata: { name: tenant },
@@ -59,19 +60,21 @@ const _MODES: {
             }],
           },
         },
-      }, owner.scoped({ dependsOn: [governor] })))
+      }, scope({ dependsOn: [governor] })))
   },
-  vcluster: (owner, args) =>
-    void Array.map(args.spec.tenants, (tenant) =>
-      new k8s.helm.v4.Chart(`${tenant}-plane`, {
+  vcluster: (args, scope) =>
+    void Array.map(args.spec.tenants, (tenant) => {
+      const home = new k8s.core.v1.Namespace(tenant, { metadata: { name: tenant } }, scope())
+      return new k8s.helm.v4.Chart(`${tenant}-plane`, {
         chart: "vcluster",
         repositoryOpts: { repo: "https://charts.loft.sh" },
         version: args.versions.vcluster,
-        namespace: tenant,
+        namespace: home.metadata.name,
         values: {
           sync: { toHost: { ingresses: { enabled: true } } },
         },
-      }, owner.scoped())),
+      }, scope())
+    }),
 }
 
 class Tenants extends Tier {
@@ -82,12 +85,9 @@ class Tenants extends Tier {
     super("Tenants", name, opts)
     const mode = args.spec.profile.tenancy.mode
     if (mode !== "single") {
-      _MODES[mode](this, args)
+      _MODES[mode](args, (overrides) => this.child(overrides))
     }
     this.seal({ tenants: [...args.spec.tenants] })
-  }
-  scoped(overrides?: pulumi.CustomResourceOptions): pulumi.CustomResourceOptions {
-    return this.child(overrides)
   }
 }
 ```
@@ -112,7 +112,9 @@ const _platform = (qualified: string): {
 } => {
   const reference = new pulumi.StackReference(qualified)
   return {
-    output: (channel) => reference.getOutput(channel).apply((value) => Option.fromNullable(value as string | undefined)),
+    output: (channel) =>
+      reference.getOutput(channel).apply((value: unknown) =>
+        typeof value === "string" ? Option.some(value) : Option.none()),
     require: (channel) => reference.requireOutput(channel).apply(String),
   }
 }

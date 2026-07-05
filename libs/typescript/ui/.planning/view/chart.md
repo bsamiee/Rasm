@@ -15,7 +15,7 @@ The one analytic-visualization owner: three rendering regimes behind one `Chart`
 
 [REGIME_LAW]:
 - Owner: `Chart` — one owner whose members are the three regime brackets plus the columnar bus fold; regime selection is a decision row, never a component fork: DECLARED (the chart states a statistical claim — distribution, regression, facet, small multiple) renders through `[3]`; STREAMING (a telemetry/sensor/simulation series where point count breaks SVG) renders through `[4]`'s canvas; PIVOT (the USER drives group/split/aggregate/filter over a live feed) renders through `[5]`'s engine.
-- Law: Arrow is the inter-engine bus — `Chart.columns(table, x, series)` projects an `apache-arrow` `Table` into uplot's aligned columns through `getChild(...).toArray()` (the zero-copy typed-array view), Plot marks take the `Table` directly with column-name channels, and perspective ingests the SAME frame's IPC bytes with `format: "arrow"`; a JSON re-materialization between Arrow-capable engines is the named defect.
+- Law: Arrow is the inter-engine bus — `Chart.columns(table, x, series)` projects an `apache-arrow` `Table` into uplot's aligned columns through `getChild(...).toArray()` (the zero-copy typed-array view), Plot marks take the `Table` directly with column-name channels, and perspective ingests the SAME frame's IPC bytes with `format: "arrow"`; a JSON re-materialization between Arrow-capable engines is the named defect. A named column absent from the table folds the whole projection to `Option.none` — the consumer renders no chart; a fabricated flat series standing in for a missing column is the named defect.
 - Law: color obeys the token split — series strokes, categorical palettes, and axis inks resolve from `Theme.ramp`/`Theme` rows (canvas engines take resolved values rebuilt on theme flip; SVG takes classes through `cn`); `d3-scale-chromatic` colormaps appear ONLY where the color IS the datum's value (`scaleSequential(interpolateViridis)` density/heat), and a `scheme*` categorical array standing in for the token palette is the split-brain defect.
 - Law: `d3` is substrate, never surface — `rollup`/`bin`/`extent` folds prepare data beside a spec, scale/curve/format vocabularies pass through, and the DOM-coupled modules (`d3-selection`/`d3-zoom`/`d3-axis`) never appear; React owns chart DOM, `system/act` owns gesture.
 - Law: measurement flows one way — a panel measures ONCE through `useParentSize` (`debounceTime` as policy) and fans `{ width, height }` to every resident chart: Plot receives them in its options, uplot through `setSize`, visx through scale ranges; a chart measuring itself mid-render is the named defect.
@@ -24,21 +24,21 @@ The one analytic-visualization owner: three rendering regimes behind one `Chart`
 
 ```typescript
 import type { Table } from "apache-arrow"
-import { Array } from "effect"
+import { Array, Option } from "effect"
 import type uPlot from "uplot"
 
 declare namespace Chart {
   type Aligned = uPlot.AlignedData
 }
 
-const _columns = (table: Table, x: string, series: ReadonlyArray<string>): Chart.Aligned => {
-  // BOUNDARY ADAPTER
-  const column = (name: string) => {
-    const held = table.getChild(name)
-    return held === null ? new Float64Array(table.numRows) : (held.toArray() as Float64Array)
-  }
-  return [column(x), ...Array.map(series, column)]
-}
+const _columns = (table: Table, x: string, series: ReadonlyArray<string>): Option.Option<Chart.Aligned> =>
+  Option.map(
+    Option.all(Array.map([x, ...series], (name) => Option.fromNullable(table.getChild(name)))),
+    (children) => {
+      // BOUNDARY ADAPTER
+      return Array.map(children, (child) => child.toArray() as Float64Array)
+    },
+  )
 ```
 
 ## [3]-[DECLARED_SURFACE]
@@ -118,7 +118,7 @@ const _telemetry = (width: number, height: number, strokes: ReadonlyArray<string
 ## [5]-[PIVOT_SURFACE]
 
 [PIVOT_SURFACE]:
-- Owner: `Chart.pivot(element, frame, options)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread (or `websocket(url)` + `open_table(name)` attaches to a host-published feed — where the data lives is wiring, not an API fork), `client.table(frame, { format: "arrow", index })` ingests the bus frame (`index` makes updates upserts, `limit` ring-buffers a stream — the two table modes every feed chooses between), the `<perspective-viewer>` element `load`s the table, and release runs `element.delete()` then `table.delete()` — every handle is a scoped resource.
+- Owner: `Chart.pivot(element, frame, options)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread (or `websocket(url)` + `open_table(name)` attaches to a host-published feed — where the data lives is wiring, not an API fork), `client.table(frame, { format: "arrow", index })` ingests the bus frame (`index` makes updates upserts, `limit` ring-buffers a stream — the two table modes every feed chooses between), the `<perspective-viewer>` element (`HTMLPerspectiveViewerElement`, the package's own exported type) `load`s the table, and release runs `element.delete()`, `table.delete()`, then `client.terminate()` — every handle INCLUDING the worker engine is a scoped resource, and a bracket that frees the table while the worker thread lives on is the named leak.
 - Packages: `@perspective-dev/client` (`worker`, `websocket`, `Client.table`/`open_table`/`join`, `Table.update`/`view`, `View.to_arrow`/`on_update`); `@perspective-dev/viewer` + `@perspective-dev/viewer-datagrid` + `@perspective-dev/viewer-charts` (registration-by-import — the import IS the API; the plugin pair is closed, `viewer-d3fc`/`viewer-openlayers` rejected); `system/token` (the `./themes/*.css` roster imports once through the token stylesheet).
 - Law: the `ViewerConfig` is the ONE state value — `save()` emits it, `restore(update)` applies any subset, the config atom rides `Atom.kvs` with its schema, a `perspective-config-update` listener writes user-driven changes back through the atom, and atom-driven changes apply via `restore` — the same fold-echo law `Grid` follows for TanStack state; an attribute poke or DOM scrape beside the config value is the named defect.
 - Law: deltas stream, never poll — engine updates land through `table.update(arrowBuffer)` and repaint every dependent view incrementally; `View.on_update({ mode: "row" })` deltas ARE Arrow buffers feeding derived consumers, and a hand-maintained aggregate copy beside a live `View`/`join` is the named defect.
@@ -131,11 +131,13 @@ import perspective from "@perspective-dev/client"
 import "@perspective-dev/viewer"
 import "@perspective-dev/viewer-datagrid"
 import "@perspective-dev/viewer-charts"
+import type { HTMLPerspectiveViewerElement } from "@perspective-dev/viewer"
 import { Effect } from "effect"
 
 declare namespace Chart {
   type PivotOptions = { readonly name?: string; readonly index?: string; readonly limit?: number }
   type Pivot = {
+    readonly client: Awaited<ReturnType<typeof perspective.worker>>
     readonly table: Awaited<ReturnType<Awaited<ReturnType<typeof perspective.worker>>["table"]>>
     readonly append: (delta: ArrayBuffer) => Effect.Effect<void>
   }
@@ -148,7 +150,7 @@ declare namespace Chart {
   }
 }
 
-const _pivot = (element: HTMLElement & { load(table: unknown): Promise<void>; delete(): Promise<void> }, frame: ArrayBuffer, options: Chart.PivotOptions) =>
+const _pivot = (element: HTMLPerspectiveViewerElement, frame: ArrayBuffer, options: Chart.PivotOptions) =>
   Effect.acquireRelease(
     Effect.gen(function* () {
       const client = yield* Effect.promise(() => perspective.worker())
@@ -161,6 +163,7 @@ const _pivot = (element: HTMLElement & { load(table: unknown): Promise<void>; de
         }))
       yield* Effect.promise(() => element.load(table))
       return {
+        client,
         table,
         append: (delta: ArrayBuffer) => Effect.promise(() => table.update(delta)),
       } satisfies Chart.Pivot
@@ -169,6 +172,7 @@ const _pivot = (element: HTMLElement & { load(table: unknown): Promise<void>; de
       Effect.promise(async () => {
         await element.delete()
         await pivot.table.delete()
+        pivot.client.terminate()
       }),
   )
 

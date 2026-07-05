@@ -75,11 +75,12 @@ const SessionCoordinate = {
     guc: "app.current_subject",
     read: (principal: Principal): Option.Option<string> => principal.subject,
   },
-} as const satisfies Record<string, { readonly guc: string; readonly read: (principal: Principal) => Option.Option<string> }>
+} as const
 
 declare namespace SessionCoordinate {
   type Kind = keyof typeof SessionCoordinate
   type Row = (typeof SessionCoordinate)[Kind]
+  type _Rows<T extends Record<string, { readonly guc: string; readonly read: (principal: Principal) => Option.Option<string> }> = typeof SessionCoordinate> = T
 }
 
 const TENANT_GUC: typeof SessionCoordinate.tenant.guc = SessionCoordinate.tenant.guc

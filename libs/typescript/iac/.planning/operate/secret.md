@@ -18,7 +18,8 @@ The material owner of the deploy plane — Doppler provisioning and TLS issuance
 - Law: the char-class policy is one Schema shape — `length`, class toggles, per-class minimums, `overrideSpecial` — decoded once and shared by every generated row; `RandomString` never mints a credential, and the `bcryptHash` projection serves a consumer that stores a digest instead of the value.
 - Law: the token is the only egress fact — `ServiceToken` with `access: "read"` scoped to the one config; `read/write` tokens exist only for provisioners and never leave the graph; the `key` output is sensitive by construction and crosses solely into the workload env assembly.
 - Law: a missing read key aborts cleanly — `read(key)` resolves the whole-config map once and a key the config does not carry throws `pulumi.RunError` inside the apply, failing the run with the key named, never forging an empty string.
-- Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.token` into `Workload.token`.
+- Law: `store(key, value)` is the late-landing write — a value minted AFTER the tier constructs (a `Certs` CA key, a Grafana automation token, an ACME-issued edge pair) lands as one more `Secret` row under the same tier through the same parent chain, so construction-time `entries` and graph-late material share one canonical store and no second write surface exists.
+- Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`.
 - Law: access is the `_ACCESS` handler record — `machine` mints the durable `ServiceAccount`/`ServiceAccountToken` identity (the workplace-RBAC upgrade over the config-scoped token), `group` binds a workplace group onto the project at a role with optional environment scoping, `member` binds a service account the same way; tenant secret isolation is rows of this record against the one store, never a second store per tenant.
 - Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row.
 - Boundary: runtime consumption (`doppler run`, the security plane's leased-secret read path) is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`.
@@ -123,11 +124,19 @@ class Secrets extends Tier {
       name: `${name}-runtime`,
       access: "read",
     }, this.child()).key
-    this.seal({ project: this.project.name, config: this.config.name })
+    this.seal({ project: this.project.name, config: this.config.name, token: this.token })
   }
   read(key: string): pulumi.Output<string> {
     return doppler.getSecretsOutput({ project: this.project.name, config: this.config.name }, { parent: this })
       .apply((result) => _required(result.map, key))
+  }
+  store(key: string, value: pulumi.Input<string>): doppler.Secret {
+    return new doppler.Secret(key, {
+      project: this.project.name,
+      config: this.config.name,
+      name: key,
+      value,
+    }, this.child())
   }
 }
 ```

@@ -35,7 +35,7 @@ import type { Retain } from "../journal/retain.ts"
 
 declare namespace Disk {
   type Intake = { readonly key: ContentKey; readonly bytes: number; readonly written: boolean; readonly path: string }
-  type Matcher = string | RegExp | ((path: string) => boolean)
+  type Matcher = RegExp | ((path: string) => boolean)
 }
 
 const _WATCH = {
@@ -207,7 +207,8 @@ const _encodeBuffer = (decoded: Sharp, spec: Derive.Spec, sourceKey: ContentKey)
 const _encodeTile = (decoded: Sharp, spec: Derive.Spec & { readonly terminal: { readonly tile: TileOptions } }, sourceKey: ContentKey) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const staged = yield* fs.makeTempFileScoped({ suffix: ".zip" })
+    const path = yield* Path.Path
+    const staged = path.join(yield* fs.makeTempDirectoryScoped(), "pyramid.zip")
     const info = yield* Effect.tryPromise({
       try: () => _chain(decoded, spec).toFormat(spec.format, spec.options).tile(spec.terminal.tile).toFile(staged),
       catch: (defect) => new DeriveFault({ stage: "encode", key: sourceKey, detail: String(defect) }),

@@ -20,7 +20,7 @@ The one render-evidence owner: benchmark and receipt are two lanes of a single d
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: windows are policy rows — sample count and projection kind live in one `as const` record; a per-metric bespoke window is the named defect.
 - Law: the trace renders as a live series, never table rows — `Probe.aligned(trace)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData` (the metric board is a chart cohort synced by one key), and the summary rows feed the claim board; a metric timeline rendered through `view/table` is the named defect.
-- Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s surplus arrival lane feeds an arrival-rate row into the same trace shape, one broadcast lane, no second port subscription.
+- Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s surplus arrival lane feeds an arrival-rate row and `Glb.Loop.refusals` feeds the refusal-rate row beside it, both in the same trace shape — broadcast taps, never a second port subscription.
 - Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree render cost is app-plane telemetry, not this probe.
 
 ```typescript

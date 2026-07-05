@@ -260,7 +260,11 @@ const CryptoCost = {
   login: { memoryCost: 19456, timeCost: 2, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
   apiKey: { memoryCost: 12288, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
   kek: { memoryCost: 65536, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
-} as const satisfies Record<string, Omit<Options, "secret" | "salt">>
+} as const
+
+declare namespace CryptoCost {
+  type _Rows<T extends Record<string, Omit<Options, "secret" | "salt">> = typeof CryptoCost> = T
+}
 
 const _HASHES = { sha1: SHA1, sha256: SHA256, sha512: SHA512 } as const
 
@@ -270,7 +274,9 @@ const Probe = Data.taggedEnum<Probe>()
 
 const _argonMs = Metric.timerWithBoundaries("security_argon2_ms", [10, 25, 50, 100, 250, 500, 1000, 2500])
 
-const _bytes = (text: string): Uint8Array => new TextEncoder().encode(text)
+const _enc = new TextEncoder()
+
+const _bytes = (text: string): Uint8Array => _enc.encode(text)
 
 const _sameBytes = (left: Uint8Array, right: Uint8Array): boolean =>
   left.byteLength === right.byteLength && constantTimeEqual(left, right)

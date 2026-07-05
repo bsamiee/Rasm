@@ -17,6 +17,7 @@ The embedding corpus pipeline and the retrieval port's satisfying side: determin
 - Law: normalization happens exactly once and only here — a consumer that re-normalizes or re-trims shifts spans and silently forks identity; the piece's `span` indexes the normalized text, and the normalized text is the byte source the store fingerprint hashes.
 - Law: the lane is a value on the corpus row, never a caller decision per call — one corpus chunks one way for its lifetime, and a lane change is a re-embedding event by construction (new pieces, new cache keys).
 - Law: the token estimate is a heuristic column for packing, never a budget claim — real metering is the model page's `Tokens` concern.
+- Exemption: `_packed` is the measured packing kernel — the single-pass ledger mutation is the sanctioned statement seam, because an immutable rebuild re-copies the packed prefix on every span.
 - Growth: a new cut lane (code-aware, table-aware) is one handler row; an overlap or ceiling change is a lane field.
 - Packages: `effect` (`Array`, `Schema`, `Option`); the `Intl.Segmenter` platform seam (universal runtime intrinsic).
 
@@ -25,15 +26,18 @@ import { EmbeddingModel, type LanguageModel } from "@effect/ai"
 import { OpenAiEmbeddingModel } from "@effect/ai-openai"
 import { Array, Duration, Effect, Layer, Schema } from "effect"
 import { Embedder, EmbedFault, Reranker, Search } from "@rasm/ts/data"
-import { Gate } from "./model.ts"
+import { Guardrail } from "./model.ts"
 
 const _packed = (spans: ReadonlyArray<{ readonly start: number; readonly body: string }>, ceiling: number) =>
-  spans.reduce<Array<{ start: number; body: string }>>((packed, span) => {
+  Array.reduce(spans, Array.empty<{ start: number; body: string }>(), (packed, span) => {
     const last = packed[packed.length - 1]
-    return last !== undefined && last.body.length + span.body.length <= ceiling
-      ? [...packed.slice(0, -1), { start: last.start, body: last.body + span.body }]
-      : [...packed, { start: span.start, body: span.body }]
-  }, [])
+    if (last !== undefined && last.body.length + span.body.length <= ceiling) {
+      packed[packed.length - 1] = { start: last.start, body: last.body + span.body }
+      return packed
+    }
+    packed.push({ start: span.start, body: span.body })
+    return packed
+  })
 
 class Piece extends Schema.Class<Piece>("Piece")({
   seq: Schema.Int,
@@ -58,7 +62,7 @@ const _lanes = {
       return { start, body: text.slice(start, start + lane.span) }
     }),
   sentence: (text: string, lane: Extract<Cut.Lane, { kind: "sentence" }>) =>
-    _packed(Array.fromIterable(new Intl.Segmenter(lane.locale, { granularity: "sentence" }).segment(text)).map((seg) => ({ start: seg.index, body: seg.segment })), lane.span),
+    _packed(Array.map(Array.fromIterable(new Intl.Segmenter(lane.locale, { granularity: "sentence" }).segment(text)), (seg) => ({ start: seg.index, body: seg.segment })), lane.span),
   markdown: (text: string, lane: Extract<Cut.Lane, { kind: "markdown" }>) =>
     _packed(
       Array.mapAccum(text.split(/(?=^#{1,6} )/m), 0, (start, body) => [start + body.length, { start, body }] as const)[1],
@@ -69,16 +73,16 @@ const _lanes = {
 const _pieces = (raw: string, lane: Cut.Lane): ReadonlyArray<Piece> => {
   const text = _scrubbed(raw)
   const spans = lane.kind === "fixed" ? _lanes.fixed(text, lane) : lane.kind === "sentence" ? _lanes.sentence(text, lane) : _lanes.markdown(text, lane)
-  return spans
-    .filter((span) => span.body.length > 0)
-    .map((span, seq) =>
+  return Array.map(
+    Array.filter(spans, (span) => span.body.length > 0),
+    (span, seq) =>
       new Piece({
         seq,
         span: { start: span.start, length: span.body.length },
         body: span.body,
         estimate: Math.ceil(span.body.length / 4),
-      })
-    )
+      }),
+  )
 }
 
 const Cut = { pieces: _pieces, scrub: _scrubbed }
@@ -138,18 +142,24 @@ const _rows = {
 [PORT]:
 - Owner: the port satisfaction — `Embedding.embedder(row)` builds the Layer that satisfies the data wave's `Embedder` Tag at app composition: `fingerprint` publishes `<model>:<dims>:<revision>` (the brand the vector table's primary key carries, so a model migration is a new fingerprint and old vectors stay queryable under theirs), `embed` delegates to the `EmbeddingModel` Tag the row's layer provides, and every provider fault folds into the port's own family — a token-ceiling rejection to `budget`, a transport or provider failure to `provider`, a dimension mismatch to `shape` — so retrieval's lane-exclusion fold reads one vocabulary.
 - Law: batching identity is the resolver value — the port's provider side coalesces through the data wave's request-batching engine law: one resolver minted at Layer construction, identity stable, windows grouping across the whole scope; a resolver minted per call defeats the window and is the structural defect that law exists to kill.
-- Law: `Embedding.reranker(policy)` satisfies the optional `Reranker` Tag — one gated structured-output call (`Gate.object` with `Toolkit`-free options and a `Schema`-typed score array) over the fusion window's `{ cell, body }` pairs, answering re-ordered cell keys; rerank presence is `Effect.serviceOption` on the retrieval side, so shipping without a reranker is a composition choice, never a knob.
+- Law: `Embedding.reranker(policy)` satisfies the optional `Reranker` Tag — one gated structured-output call (`Guardrail.object` with `Toolkit`-free options and a `Schema`-typed score array) over the fusion window's `{ cell, body }` pairs, answering re-ordered cell keys; rerank presence is `Effect.serviceOption` on the retrieval side, so shipping without a reranker is a composition choice, never a knob.
 - Law: the two Tags are the whole seam — this page imports the port types and nothing else data-owned; retrieval results flow back as app-passed values through the model page's `Tokens.weave`, never through an import edge.
 - Growth: a scope-selected second model is a second `embedder(row)` Layer against the same Tag at the root; a cross-encoder reranker is a `Reranker` implementation swap.
-- Packages: `@rasm/ts/data` (`Embedder`, `EmbedFault`, `Reranker`, `Search`); `effect` (`Layer`, `Effect`, `Array`, `Schema`); `./model.ts` (`Gate`).
+- Packages: `@rasm/ts/data` (`Embedder`, `EmbedFault`, `Reranker`, `Search`); `effect` (`Layer`, `Effect`, `Array`, `Schema`); `./model.ts` (`Guardrail`).
 
 ```typescript
 const _fingerprint = <R>(row: Embedding.Row<R>): Search.Fingerprint =>
-  `${row.model}:${row.dims}:${row.revision}` as Search.Fingerprint
+  Search.fingerprint(row.model, row.dims, row.revision)
+
+const _bridge: { readonly [tag: string]: "shape" | "provider" | "budget" } = {
+  MalformedInput: "shape",
+  MalformedOutput: "shape",
+  HttpResponseError: "provider",
+}
 
 const _folded = (fault: { readonly _tag: string; readonly description?: string }): EmbedFault =>
   new EmbedFault({
-    reason: fault._tag === "MalformedInput" || fault._tag === "MalformedOutput" ? "shape" : fault._tag === "HttpResponseError" ? "provider" : "budget",
+    reason: _bridge[fault._tag] ?? "budget",
     detail: fault.description ?? fault._tag,
   })
 
@@ -165,7 +175,7 @@ const _embedder = <R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R> =>
             Effect.mapError(_folded),
             Effect.filterOrFail(
               (vectors): vectors is Array.NonEmptyArray<ReadonlyArray<number>> =>
-                Array.isNonEmptyArray(vectors) && vectors.every((vector) => vector.length === row.dims),
+                Array.isNonEmptyArray(vectors) && Array.every(vectors, (vector) => vector.length === row.dims),
               () => new EmbedFault({ reason: "shape", detail: `dims!=${row.dims}` }),
             ),
           ),
@@ -175,11 +185,11 @@ const _embedder = <R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R> =>
 
 const _Scores = Schema.Struct({ order: Schema.NonEmptyArray(Schema.String) })
 
-const _reranker = (policy: Parameters<typeof Gate.object>[0]): Layer.Layer<Reranker, never, LanguageModel.LanguageModel> =>
+const _reranker = (policy: Parameters<typeof Guardrail.object>[0]): Layer.Layer<Reranker, never, LanguageModel.LanguageModel> =>
   Layer.succeed(Reranker, {
     rerank: (query, hits) =>
-      Gate.object(policy)({
-        prompt: `rank cells for: ${query}\n${hits.map((hit) => `${hit.cell}: ${hit.body}`).join("\n")}`,
+      Guardrail.object(policy)({
+        prompt: `rank cells for: ${query}\n${Array.join(Array.map(hits, (hit) => `${hit.cell}: ${hit.body}`), "\n")}`,
         schema: _Scores,
       }).pipe(
         Effect.map((response) => response.value.order),

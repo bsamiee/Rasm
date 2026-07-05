@@ -248,7 +248,7 @@ if (produced.length && !REVIEW_OFF) {
   const REVIEW_LABELS = ['initial', 'critique', 'redteam']
   const passes = []
   for (let i = 0; i < 3; i++) {
-    const p = await agent(reviewPrompts(scope)[i], { label: 'review:' + REVIEW_LABELS[i], phase: 'review', effort: i === 0 ? 'xhigh' : 'max', schema: REVIEW_SCHEMA, stallMs: STALL })
+    const p = await agent(reviewPrompts(scope)[i], { label: 'review:' + REVIEW_LABELS[i], phase: 'review', effort: 'xhigh', schema: REVIEW_SCHEMA, stallMs: STALL })
     passes.push(p)
     log('review ' + (i + 1) + '/3 (' + REVIEW_LABELS[i] + '): ' + (p ? (p.edits || []).length + ' edit(s), ' + (p.opportunities || []).length + ' opportunit(ies), ' + (p.alignments || []).length + ' alignment(s)' : 'NO RESULT — rerun via resume'))
   }

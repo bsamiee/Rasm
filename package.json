@@ -4,7 +4,9 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "bench": "vitest bench --run",
         "check": "biome check .",
+        "coverage": "vitest run --coverage",
         "e2e": "playwright test",
         "mutation": "stryker run",
         "test": "vitest run",

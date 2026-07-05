@@ -33,13 +33,14 @@ const Role = {
   admin: { rank: 3, inherits: ["member"] },
   member: { rank: 2, inherits: ["viewer"] },
   viewer: { rank: 1, inherits: [] },
-} as const satisfies Record<(typeof _roles)[number], { readonly rank: number; readonly inherits: ReadonlyArray<(typeof _roles)[number]> }>
+} as const
 
 const _claimReasons = ["store"] as const
 const _claimFaults = { store: { class: "unavailable" } } as const
 
 declare namespace Role {
   type Kind = keyof typeof Role
+  type _Rows<T extends Record<(typeof _roles)[number], { readonly rank: number; readonly inherits: ReadonlyArray<(typeof _roles)[number]> }> = typeof Role> = T
   type _Keys<K extends Kind = (typeof _roles)[number]> = K
   type _Kinds<K extends (typeof _roles)[number] = Kind> = K
 }

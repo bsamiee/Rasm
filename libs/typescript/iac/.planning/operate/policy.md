@@ -291,11 +291,11 @@ const Drift = {
 ## [6]-[RECONCILE_LOOP]
 
 [RECONCILE_LOOP]:
-- Owner: `Reconcile`, the in-cluster continuous-reconciliation tier — the Pulumi Kubernetes Operator installs as one `helm.v4.Chart` row, and each reconciled estate is one typed `Stack` CR (committed `crd2pulumi` classes from `../crds/pko`): `spec.stack` names the target, `spec.projectRepo`/`branch` bind the Git source of the desired-state program, `spec.refresh: true` re-reads provider state each cycle, `spec.continueResyncOnCommitMatch` + `spec.resyncFrequencySeconds` make the loop continuous rather than commit-edge-triggered, and `spec.envRefs` bind the workspace facts from in-cluster secrets — the same facts `_host` reads on the deploy host, one vocabulary, two execution planes.
+- Owner: `Reconcile`, the in-cluster continuous-reconciliation tier — the Pulumi Kubernetes Operator installs as one `helm.v4.Chart` row, and each reconciled estate is one typed `Stack` CR (committed `crd2pulumi` classes from `../crds/pko`): `spec.stack` names the target, `spec.projectRepo`/`branch` bind the Git source of the desired-state program, `spec.refresh: true` re-reads provider state each cycle, `spec.continueResyncOnCommitMatch` + `spec.resyncFrequencySeconds` make the loop continuous rather than commit-edge-triggered, and `spec.envRefs` bind the workspace facts from the ONE workspace `Secret` this tier mints from its `workspace` args — the same facts `_host` reads on the deploy host, one vocabulary, two execution planes, and a CR referencing a secret nothing minted is the phantom this owner closes.
 - Law: two clocks never watch one stack — the deploy-host `Drift.sweep` and an in-cluster `Stack` CR are alternative reconcilers; an estate under PKO drops out of the local fleet roster, so evidence has one producer per stack and remediation posture stays deliberate on both paths.
 - Law: tenant-triggered provisioning rides the operator — a tenant-submitted CR (the `Program` CR carrying an inline desired-state program, or a `Stack` CR referencing a tenant repo) is reconciled by PKO inside the tenant's own RBAC envelope, so multi-tenant self-service provisioning needs no deploy-host actor and the Capsule/vcluster boundary from `kube/tenant.md` scopes what the tenant's CR may reach.
 - Law: the operator is scoped, not cluster-wide by default — the chart installs into the estate namespace with its workload identity bound through the same `ServiceAccount`/`Role` cell `kube/workload.md` realizes; widening to cluster scope is a deliberate values row.
-- Entry: `new Reconcile("reconcile", { spec, namespace, version, source, frequencySeconds }, opts)` inside the k8s arm when the estate earns the in-cluster loop.
+- Entry: `new Reconcile("reconcile", { spec, namespace, version, source, frequencySeconds, workspace }, opts)` inside the k8s arm when the estate earns the in-cluster loop, `workspace` carrying the backend URL and the passphrase read the composing arm resolves.
 - Growth: a second reconciled estate is one more `Stack` CR row; an inline-program subject is one `Program` CR row.
 - Boundary: the operator chart's values drift with its pin; the generated `crds/pko` module regenerates on operator bumps; hosted drift schedules are `operate/cloud.md`'s twin, subject to the same one-clock law.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`); `../crds/pko` (`v1.Stack`, `v1.Program` — crd2pulumi); `../program/spec.ts` (`StackSpec`, `Tier`).
@@ -312,6 +312,7 @@ declare namespace Reconcile {
     readonly version: pulumi.Input<string>
     readonly source: { readonly repo: string; readonly branch: string; readonly dir?: string }
     readonly frequencySeconds: number
+    readonly workspace: { readonly backend: pulumi.Input<string>; readonly passphrase: pulumi.Input<string> }
   }
 }
 
@@ -325,6 +326,13 @@ class Reconcile extends Tier {
       namespace: args.namespace,
       skipCrds: false,
     }, this.child())
+    const workspace = new k8s.core.v1.Secret(`${name}-workspace`, {
+      metadata: { namespace: args.namespace },
+      stringData: {
+        PULUMI_BACKEND_URL: args.workspace.backend,
+        PULUMI_CONFIG_PASSPHRASE: args.workspace.passphrase,
+      },
+    }, this.child())
     new pko.v1.Stack(args.spec.name, {
       metadata: { namespace: args.namespace },
       spec: {
@@ -336,8 +344,8 @@ class Reconcile extends Tier {
         continueResyncOnCommitMatch: true,
         resyncFrequencySeconds: args.frequencySeconds,
         envRefs: {
-          PULUMI_BACKEND_URL: { type: "Secret", secret: { name: `${name}-workspace`, key: "PULUMI_BACKEND_URL" } },
-          PULUMI_CONFIG_PASSPHRASE: { type: "Secret", secret: { name: `${name}-workspace`, key: "PULUMI_CONFIG_PASSPHRASE" } },
+          PULUMI_BACKEND_URL: { type: "Secret", secret: { name: workspace.metadata.name, key: "PULUMI_BACKEND_URL" } },
+          PULUMI_CONFIG_PASSPHRASE: { type: "Secret", secret: { name: workspace.metadata.name, key: "PULUMI_CONFIG_PASSPHRASE" } },
         },
       },
     }, this.child({ dependsOn: [operator] }))

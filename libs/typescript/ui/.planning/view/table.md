@@ -38,7 +38,7 @@ import type {
   VisibilityState,
 } from "@tanstack/react-table"
 import { createColumnHelper, functionalUpdate } from "@tanstack/react-table"
-import { Feed } from "@rasm/ts/core"
+import type { Feed } from "@rasm/ts/core"
 import { Array, Option, Schema } from "effect"
 
 declare namespace Grid {

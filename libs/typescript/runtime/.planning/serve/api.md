@@ -25,9 +25,9 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 ```typescript
 import {
   HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiMiddleware, HttpApiScalar, HttpApiSecurity,
-  HttpApiSwagger, type HttpClient, HttpTraceContext, type KeyValueStore, OpenApi,
+  HttpApiSwagger, type HttpClient, HttpTraceContext, OpenApi,
 } from "@effect/platform"
-import { PersistedCache, RateLimiter as Fleet } from "@effect/experimental"
+import { PersistedCache, type Persistence, RateLimiter as Fleet } from "@effect/experimental"
 import { RpcClient, type RpcGroup, RpcSerialization, RpcServer } from "@effect/rpc"
 import {
   Array, Context, Data, DateTime, Deferred, Duration, Effect, HashMap, Layer, Number, Option, Order, Predicate,
@@ -203,7 +203,7 @@ const Current: {
 - Law: credential verification delegates the security wave — the bearer arm verifies through `Jwt.verify` into `AccessClaims`, the apiKey arm resolves through `ApiKey.resolve` into an `ApiKeyRecord`, both lift into the one `Principal` shape; verification failure folds to `unauthorized` with generic detail (the evidence rides telemetry, never the 401 body), and attachment is `.middleware(Gate.Authn)` on the contributed group so an unprotected group never pays the decode.
 - Law: pressure rows bound two distinct axes — `Gate.shed` brackets a section under an in-flight cap whose refusal is immediate (`withPermitsIfAvailable` settling `Option.none` under saturation folds to `shed` with the declared grace: the queue-depth 503 lever), `Gate.window` prices calls against a scoped in-process `RateLimiter.make` row (the 429 lever) — conflating concurrency and throughput is the named selection error; both stamp `retryAfter` from their own measured window, and policy is one `Gate.Pressure` value row, never threaded knobs.
 - Law: the distributed quota row is port-shaped by Layer — `Gate.fenced` composes the experimental `RateLimiter.makeWithRateLimiter` transformer against the `RateLimiter.RateLimiter` Tag, the app root satisfies it with `layerStoreMemory` on one node or a store-backed Layer on a fleet, `RateLimitExceeded` re-spells as `rate` carrying the row's window, and `RateLimitStoreError` dies as a defect because a broken quota backend is never a caller 429.
-- Law: `Idempotency` is a port with two teeth tiers — `claim(key, digest)` settles `Fresh` exactly once per key and parks every duplicate on the first execution's `Deferred`, the claim as one `Data.taggedEnum` a caller `$match`es; `Idempotency.memory(retention)` is the single-node Layer sweeping expired cells inside the same atomic claim, and a replayed key whose payload digest differs refuses as `conflict`. The key admits through the `Gate.IdempotencyKey` brand at the header seam; a GET carrying the header is ignored, never refused.
+- Law: `Idempotency` is a port with two teeth tiers — `claim(key, digest, outcome)` settles `Fresh` exactly once per key and parks every duplicate on the first execution's `Deferred`, the claim as one `Data.taggedEnum` a caller `$match`es; the `outcome` schema is the replay's type evidence — the parked value re-admits through `Schema.validate` so the fast lane carries the same schema proof the fleet tier's `Schema.TaggedRequest` carries, a rejected park refusing as `conflict` beside the digest mismatch; `Idempotency.memory(retention)` is the single-node Layer sweeping expired cells inside the same atomic claim, and a replayed key whose payload digest differs refuses as `conflict`. The key admits through the `Gate.IdempotencyKey` brand at the header seam; a GET carrying the header is ignored, never refused.
 - Law: the fleet tier is `Idempotency.persisted` — `PersistedCache.make({ storeId, lookup, timeToLive })` over the store-owned `Persistence.layerResultKeyValueStore`, keyed by a `Schema.TaggedRequest` whose `PrimaryKey` fuses idempotency key and payload digest, so the first execution's exit persists for the retention window, every fleet duplicate replays the stored exit typed through the request's own success/failure schemas, and a divergent payload is a different key that executes fresh; the strict 409 divergence posture stays the memory gate composed in front, so both tiers ride one root and zero handler change.
 - Boundary: session and API-key semantics are the security wave's (`Jwt`, `ApiKey`); this cluster owns only the HTTP presentation lift and the middleware Tag; response-shield headers and the serving seam are `route#SEAM_ROWS`'s.
 - Growth: a third credential scheme is one `security` record entry plus its handler arm; a fleet quota engine is a Layer swap on the `Idempotency` or limiter Tag at the root.
@@ -283,7 +283,7 @@ type _Cell = { readonly digest: string; readonly slot: Deferred.Deferred<unknown
 
 type _Claim<A> = Data.TaggedEnum<{
   Fresh: { readonly settle: (outcome: A) => Effect.Effect<void> }
-  Replay: { readonly outcome: Effect.Effect<A> }
+  Replay: { readonly outcome: Effect.Effect<A, GateFault> }
 }>
 
 interface _ClaimDef extends Data.TaggedEnum.WithGenerics<1> {
@@ -293,14 +293,14 @@ interface _ClaimDef extends Data.TaggedEnum.WithGenerics<1> {
 const _Claim = Data.taggedEnum<_ClaimDef>()
 
 class Idempotency extends Context.Tag("runtime/serve/Idempotency")<Idempotency, {
-  readonly claim: <A>(key: typeof _IdempotencyKey.Type, digest: string) => Effect.Effect<Idempotency.Claim<A>, GateFault>
+  readonly claim: <A, I>(key: typeof _IdempotencyKey.Type, digest: string, outcome: Schema.Schema<A, I, never>) => Effect.Effect<Idempotency.Claim<A>, GateFault>
 }>() {
   static readonly Claim = _Claim
   static readonly memory = (retention: Duration.Duration): Layer.Layer<Idempotency> =>
     Layer.effect(
       Idempotency,
       Effect.map(Ref.make(HashMap.empty<string, _Cell>()), (cells) => ({
-        claim: <A>(key: typeof _IdempotencyKey.Type, digest: string) =>
+        claim: <A, I>(key: typeof _IdempotencyKey.Type, digest: string, outcome: Schema.Schema<A, I, never>) =>
           Effect.gen(function* () {
             const slot = yield* Deferred.make<unknown>()
             const now = yield* DateTime.now
@@ -314,12 +314,15 @@ class Idempotency extends Context.Tag("runtime/serve/Idempotency")<Idempotency, 
             return yield* Option.match(held, {
               onNone: () =>
                 Effect.succeed<Idempotency.Claim<A>>(_Claim.Fresh({
-                  settle: (outcome: A) => Deferred.succeed(slot, outcome).pipe(Effect.asVoid),
+                  settle: (value: A) => Deferred.succeed(slot, value).pipe(Effect.asVoid),
                 })),
               onSome: (cell) =>
                 cell.digest === digest
                   ? Effect.succeed<Idempotency.Claim<A>>(_Claim.Replay({
-                      outcome: Deferred.await(cell.slot).pipe(Effect.map((outcome) => outcome as A)),
+                      outcome: Deferred.await(cell.slot).pipe(
+                        Effect.flatMap(Schema.validate(outcome)),
+                        Effect.mapError(() => new GateFault({ reason: "conflict", detail: "idempotency-key outcome divergence", retryAfter: Option.none() })),
+                      ),
                     }))
                   : Effect.fail(new GateFault({ reason: "conflict", detail: "idempotency-key payload mismatch", retryAfter: Option.none() })),
             })
@@ -330,7 +333,14 @@ class Idempotency extends Context.Tag("runtime/serve/Idempotency")<Idempotency, 
     readonly storeId: string
     readonly retention: Duration.Duration
     readonly execute: (request: Req) => Effect.Effect<Schema.WithResult.Success<Req>, Schema.WithResult.Failure<Req>>
-  }) =>
+  }): Effect.Effect<
+    (request: Req) => Effect.Effect<
+      Schema.WithResult.Success<Req>,
+      Schema.WithResult.Failure<Req> | Persistence.PersistenceError
+    >,
+    never,
+    Persistence.ResultPersistence | Scope.Scope
+  > =>
     Effect.map(
       PersistedCache.make({
         storeId: options.storeId,

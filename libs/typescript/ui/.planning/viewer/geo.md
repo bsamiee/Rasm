@@ -1,12 +1,12 @@
 # [UI_GEO]
 
-The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; and camera authority is this page's `Camera` vocabulary — one `Camera.State` across every render backend, a closed intent family as the only write path, pure screen↔world math for derived anchors. GeoArrow layers stream `apache-arrow` columns zero-copy from the explicit IPC decode seam, tile streaming rides one engine with vector/terrain/3D-tile payload rows, the discrete-global-grid cell family is one scheme-keyed table, the extension pack is an eight-capability roster on any layer, 3D relief/sky/globe are scene-config rows on the map, and `@turf/turf` runs planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON — WKB decode stays behind `core/interchange/codec`'s `WkbParser` port, and this module never parses a geometry byte. The module is `ui/viewer/src/geo.ts`.
+The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; and camera authority is this page's `Camera` vocabulary — one `Camera.State` across every render backend, a closed intent family as the only write path, pure screen↔world math for derived anchors. GeoArrow layers stream `apache-arrow` columns zero-copy from the explicit IPC decode seam — the decoded `Table` doubling as the multi-surface bus the chart owner consumes — tile streaming rides one engine with vector/terrain/3D-tile payload rows behind a resilient TTL cache, the discrete-global-grid cell family is one scheme-keyed table, the extension pack is an eight-capability roster on any layer, 3D relief/sky/globe are scene-config rows on the map, position capability enters through the folder-declared `Position`/`Grant` ports, and `@turf/turf` runs planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON — WKB decode stays behind `core/interchange/codec`'s `WkbParser` port, and this module never parses a geometry byte. The module is `ui/viewer/src/geo.ts`.
 
 ## [1]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                            | [PUBLIC]  |
 | :-----: | :--------------- | :------------------------------------------------------------------------------------ | :-------- |
-|  [01]   | `SURFACE`        | scoped map + interleaved overlay, relief/sky/globe rows, control and glyph rails       | `Geo`     |
+|  [01]   | `SURFACE`        | scoped map + interleaved overlay, relief/sky/globe rows, control/glyph rails, position ports | `Geo`     |
 |  [02]   | `CAMERA`         | the `Camera.State` vocabulary, the closed intent family, backend adapter rows          | `Camera`  |
 |  [03]   | `PROJECT`        | pure screen↔world math — anchors, mercator crossings, geometry-to-intent folds         | `Camera`  |
 |  [04]   | `LAYER_ROWS`     | the atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, cells, trips, WMS       | `Geo`     |
@@ -197,7 +197,7 @@ const Camera: Camera.Shape = {
 - Law: columnar geometry rides the GeoArrow fan — `data` per GeoArrow layer is ONE `RecordBatch`, so a chunked `Table` fans through `Table.batches` into per-batch layers; `initEarcutPool` hoists ONE pool shared by every polygon layer via `earcutWorkerPool`; picking returns the zero-copy row proxy `mark` resolves to `GlobalId`. Decoded GeoJSON features render through `GeoJsonLayer` — `pointType` and the fill/stroke/3D accessor sub-groups fan one feature stream to the whole mark vocabulary.
 - Law: the decoded `Table` is a multi-surface bus — the SAME frame `Geo.decoded` mints feeds the GeoArrow layers here, the pivot engine, and the aligned-series projection at `view/chart#REGIME_LAW`; a second IPC decode of one frame is the named defect.
 - Law: tile streaming is one engine with payload rows — `TileLayer.getTileData({ index, signal })` speaks the wire `GeoFeature.Tile` coordinate, the fetch rides the app's authed transport honoring the abort signal, and `renderSubLayers` projects each tile into ordinary rows bounded by the tile header's `boundingBox` (a proven `[[west,south],[east,north]]` pair — the marked adapter asserts the tuple); `MVTLayer` is the vector specialization (`binary: true`, cross-tile highlight by `uniqueIdProperty`), `TerrainLayer` reconstructs relief from an `elevationDecoder` row, `Tile3DLayer` streams 3D-tile hierarchies rendering mesh content through `scene#INSTANCED_ROWS`' pair, and `_WMSLayer` binds OGC image services — payload rows on one engine, never a second tiling machine; cache and throttle (`maxCacheByteSize`, `maxRequests`, `refinementStrategy`) are policy values.
-- Law: tile fetches ride a resilient TTL cache above deck's byte cache — `Cache.make({ capacity, timeToLive, lookup })` fronts the authed transport so a pan-return re-renders from the decoded cache instead of re-fetching, retry/backoff policy composes on the lookup rail as one `Schedule` value, and deck's `maxCacheByteSize` remains the GPU-side budget — two caches, two altitudes, one lookup path.
+- Law: tile fetches ride a resilient TTL cache above deck's byte cache — `Cache.make({ capacity, timeToLive, lookup })` fronts the authed transport so a pan-return re-renders from the decoded cache instead of re-fetching, retry/backoff policy composes on the lookup rail as one `Schedule` value, and deck's `maxCacheByteSize` remains the GPU-side budget — two caches, two altitudes, one lookup path; cache keys cross as `Data.struct` values so lookup identity is structural — a plain tile literal hashes referentially and turns the cache into a permanent miss.
 - Law: the DGGS cell family is ONE scheme-keyed table — `S2Layer.getS2Token`, `QuadkeyLayer.getQuadkey`, `GeohashLayer.getGeohash`, `A5Layer.getPentagon`, `H3ClusterLayer.getHexagons` specialize one `GeoCellLayer` pattern by index accessor, with `H3HexagonLayer` the high-precision GPU sibling; a new grid is one table row, and the GeoArrow cell mirrors take over when the index column is an Arrow batch.
 - Law: motion is an animated row — `TripsLayer` binds `getTimestamps` against a `currentTime` driven by the one rAF-fed atom clock with `_animate` set on the overlay; `trailLength`/`fadeTrail` are the decay policy, and `scene#INSTANCED_ROWS`' `_animations` rides the same clock — one animation clock across the surface.
 - Law: layer assembly admits by `Crs` row — a `geographic` feature feeds a layer directly, a `projected` row crosses `toWgs84` exactly once at the assembly boundary, and an SRID `GeoFeature.Crs.of` cannot resolve renders nothing and surfaces as evidence; per-feature projection inside an accessor is the named defect.
@@ -213,7 +213,7 @@ import { BitmapLayer, GeoJsonLayer } from "@deck.gl/layers"
 import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geoarrow"
 import type { GeoFeature } from "@rasm/ts/core"
 import { tableFromIPC, type RecordBatch, type Table } from "apache-arrow"
-import { Array, Cache, Data, Duration, Effect, type Schedule } from "effect"
+import { Array, Cache, Data, type Duration, Effect, type Schedule } from "effect"
 import type { FeatureCollection } from "geojson"
 
 class GeoFault extends Data.TaggedError("GeoFault")<{
@@ -229,6 +229,10 @@ const _decoded = (frame: Uint8Array): Effect.Effect<Table, GeoFault> =>
     catch: (defect) => new GeoFault({ reason: "frame-refused", detail: String(defect) }),
   })
 
+const _POINT = { radius: 4, units: "pixels" } as const
+
+const _DECAY = { trail: 300, fade: true } as const
+
 const _features = (id: string, collection: FeatureCollection): GeoJsonLayer =>
   new GeoJsonLayer({
     id,
@@ -237,8 +241,8 @@ const _features = (id: string, collection: FeatureCollection): GeoJsonLayer =>
     stroked: true,
     filled: true,
     pointType: "circle",
-    getPointRadius: 4,
-    pointRadiusUnits: "pixels",
+    getPointRadius: _POINT.radius,
+    pointRadiusUnits: _POINT.units,
   })
 
 const _arrowFan = (id: string, table: Table, pool: _EarcutPool): LayersList =>
@@ -271,7 +275,7 @@ const _rasterTiles = (
 ): TileLayer<ImageBitmap> =>
   new TileLayer<ImageBitmap>({
     id,
-    getTileData: ({ index }) => run(cache.get({ zoom: index.z, x: index.x, y: index.y })),
+    getTileData: ({ index }) => run(cache.get(Data.struct({ zoom: index.z, x: index.x, y: index.y }))),
     renderSubLayers: (props) => {
       // BOUNDARY ADAPTER
       const box = props.tile.boundingBox as [[number, number], [number, number]]
@@ -309,11 +313,11 @@ const _trips = (
   new TripsLayer({
     id,
     data: paths,
-    getPath: (row) => row.path.map((point) => [point[0], point[1]] as [number, number]),
+    getPath: (row) => row.path.map((point): [number, number] => [point[0], point[1]]),
     getTimestamps: (row) => [...row.stamps],
     currentTime: now,
-    trailLength: 300,
-    fadeTrail: true,
+    trailLength: _DECAY.trail,
+    fadeTrail: _DECAY.fade,
   })
 
 const _imagery = (id: string, endpoint: string, layers: ReadonlyArray<string>): _WMSLayer =>

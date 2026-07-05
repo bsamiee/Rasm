@@ -152,7 +152,7 @@ const _erase = (subject: Retain.Subject) =>
         execute: (who) =>
           sql`UPDATE subject_key SET wrapped = NULL, destroyed_at = ${Journal.now(sql)}
               WHERE subject = ${who} AND destroyed_at IS NULL
-              RETURNING subject, destroyed_at`,
+              RETURNING subject, CAST(destroyed_at AS TEXT) AS destroyed_at`,
       })(subject),
       Option.map((row) => ({ subject: row.subject, destroyedAt: row.destroyed_at }) satisfies Retain.Tombstone),
     ))
@@ -213,7 +213,7 @@ const _dsar = (subject: Retain.Subject): Retain.Export => ({
   subject,
   events: Stream.unwrap(
     Effect.map(SqlClient.SqlClient, (sql) =>
-      sql`SELECT e.tag, e.event_version, e.payload, e.recorded_at FROM journal_event e
+      sql`SELECT e.tag, e.event_version, e.payload, CAST(e.recorded_at AS TEXT) AS recorded_at FROM journal_event e
           JOIN subject_journal s ON s.sequence = e.sequence
           WHERE s.subject = ${subject} ORDER BY e.sequence`.stream.pipe(
         Stream.mapEffect((raw) =>

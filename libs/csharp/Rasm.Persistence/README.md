@@ -1,27 +1,28 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that persists the `Rasm.Element` `ElementGraph` as its system of record. It depends UP on the `Rasm.Element` seam (the `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`Header`/`ContentAddress` contracts) and the `Rasm` kernel content-hash, and it consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) as settled vocabulary — it never references a sibling AEC-domain peer. Marten is the APPEND SUBSTRATE: each model is one event stream whose `GraphDelta` event bodies fold into the whole `ElementGraph` through an inline projection (read-your-writes) and `AggregateStreamAsync` AS-OF, while the preserved op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from those events. The package owns the ElementGraph store-load roundtrip (`Element/`), the version-control engine over Marten — commit-DAG, convergent CRDT, AS-OF time-travel, three-way structural merge, W3C-PROV provenance, classification/retention with full-history reachability GC, and verified backup/PITR recovery (`Version/`) — the read lanes (synchronous in-process QuikGraph topology, async DuckDB/BimOpenSchema columnar, optional Apache AGE openCypher, and the compute-result reuse index — artifact-blob index, model-result recency horizon, benchmark-claim gate; `Query/`), the tabular ingest codec (`Ingest/`), and the content-keyed geometry object store plus the self-provisioned PostgreSQL server tier and embedded-SQLite floor (`Store/`). The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that persists the `Rasm.Element` `ElementGraph` as its system of record. It depends UP on the `Rasm.Element` seam (the `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`Header`/`ContentAddress` contracts) and the `Rasm` kernel content-hash, and it consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) as settled vocabulary — it never references a sibling AEC-domain peer. Marten is the APPEND SUBSTRATE: each model is one event stream whose `GraphDelta` event bodies fold into the whole `ElementGraph` through an inline projection (read-your-writes) and `AggregateStreamAsync` AS-OF, while the preserved op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from those events. The package owns the ElementGraph store-load roundtrip plus the `Authority.Admit` deny-over-allow object-ACL authorization set-algebra — `authority.md`, split from `identity.md`, owns no fault band and composes `IdentityFault` 8340 — with `graph.md` hosting the `[FAULT_TABLES]` `FaultBand` band registry (`Element/`), the version-control engine over Marten — commit-DAG, convergent CRDT, AS-OF time-travel, three-way structural merge, W3C-PROV provenance, classification/retention with full-history reachability GC, and verified backup/PITR recovery (`Version/`) — the read lanes (synchronous in-process QuikGraph topology, async DuckDB/BimOpenSchema columnar, optional Apache AGE openCypher, and the compute-result reuse index — artifact-blob index, model-result recency horizon, benchmark-claim gate; `Query/`), the tabular ingest codec (`Ingest/`), and the content-keyed geometry object store plus the self-provisioned PostgreSQL server tier and embedded-SQLite floor (`Store/`). The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
 - [01]-[ELEMENT_GRAPH](.planning/Element/graph.md)
 - [02]-[ELEMENT_CODEC](.planning/Element/codec.md)
 - [03]-[ELEMENT_IDENTITY](.planning/Element/identity.md)
-- [04]-[VERSION_LEDGER](.planning/Version/ledger.md)
-- [05]-[VERSION_COMMITS](.planning/Version/commits.md)
-- [06]-[VERSION_TIMETRAVEL](.planning/Version/timetravel.md)
-- [07]-[VERSION_MERGE](.planning/Version/merge.md)
-- [08]-[VERSION_PROVENANCE](.planning/Version/provenance.md)
-- [09]-[VERSION_RETENTION](.planning/Version/retention.md)
-- [10]-[VERSION_RECOVERY](.planning/Version/recovery.md)
-- [11]-[QUERY_LANE](.planning/Query/lane.md)
-- [12]-[QUERY_TOPOLOGY](.planning/Query/topology.md)
-- [13]-[QUERY_COLUMNAR](.planning/Query/columnar.md)
-- [14]-[QUERY_CYPHER](.planning/Query/cypher.md)
-- [15]-[QUERY_CACHE](.planning/Query/cache.md)
-- [16]-[INGEST_TABULAR](.planning/Ingest/tabular.md)
-- [17]-[STORE_BLOBSTORE](.planning/Store/blobstore.md)
-- [18]-[STORE_PROVISIONING](.planning/Store/provisioning.md)
+- [04]-[ELEMENT_AUTHORITY](.planning/Element/authority.md)
+- [05]-[VERSION_LEDGER](.planning/Version/ledger.md)
+- [06]-[VERSION_COMMITS](.planning/Version/commits.md)
+- [07]-[VERSION_TIMETRAVEL](.planning/Version/timetravel.md)
+- [08]-[VERSION_MERGE](.planning/Version/merge.md)
+- [09]-[VERSION_PROVENANCE](.planning/Version/provenance.md)
+- [10]-[VERSION_RETENTION](.planning/Version/retention.md)
+- [11]-[VERSION_RECOVERY](.planning/Version/recovery.md)
+- [12]-[QUERY_LANE](.planning/Query/lane.md)
+- [13]-[QUERY_TOPOLOGY](.planning/Query/topology.md)
+- [14]-[QUERY_COLUMNAR](.planning/Query/columnar.md)
+- [15]-[QUERY_CYPHER](.planning/Query/cypher.md)
+- [16]-[QUERY_CACHE](.planning/Query/cache.md)
+- [17]-[INGEST_TABULAR](.planning/Ingest/tabular.md)
+- [18]-[STORE_BLOBSTORE](.planning/Store/blobstore.md)
+- [19]-[STORE_PROVISIONING](.planning/Store/provisioning.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

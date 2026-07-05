@@ -9,18 +9,21 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ```text codemap
 iac/
 └── src/
-    ├── program/          # The program shapes, the arm dispatch, and the Automation-API driver
-    │   ├── spec.ts       # StackSpec: Closed arm union with promotion tiers, capability profile, project/account coordinates, and StackOutputs
-    │   ├── provider.ts   # The _map equivalence table + the _ARMS handler record, both keyed on StackSpec.Arm; the Bootstrap tier
-    │   └── automation.ts # LocalWorkspace.createOrSelectStack inline programs, the run ledger + RunReceipt fold, Automation.reconcile drift leg
-    ├── operate/          # Secrets, observability realization, policy
-    │   ├── secret.ts     # Doppler hierarchy provisioning + ACME TLS issuance — the two mints other rows only reference
-    │   ├── observe.ts    # Lgtm (LGTM distribution + OTel collector charts) → Boards (grafana provider, dashboards, alert rows)
-    │   └── policy.ts     # Guard policies-as-data pre-apply + the DriftReport projection and sweep
-    └── kube/             # The selfhosted-k8s arm tiers
-        ├── workload.ts   # spec row → ServiceAccount/Deployment/Service, the env seam (_KEYS, doppler-run entrypoint), the _LIFE anchor
-        ├── traffic.ts    # Traffic — TLS secret sink, Ingress, default-deny NetworkPolicy, the shared _connector projection and tunnel row
-        └── data.ts       # ObjectStore (conforming engines: pgsty/minio continuation, Ceph RGW), Nats JetStream server row, the CNPG Postgres row + app finalization
+    ├── program/          # The program shapes, the arm dispatch, the Automation-API driver, and the bootstrap-axis legs
+    │   ├── spec.ts       # StackSpec: Closed arm union with promotion tiers, capability profile (tenancy + compute axes), backend selector, Connection owner, StackOutputs + pairsOf
+    │   ├── provider.ts   # The _map equivalence table + the _ARMS handler record; the _estate shared k8s composition (Bootstrap kubeconfig | eks.Cluster kubeconfigJson) and the docker machine estate; the hardened Bootstrap tier with cloud-init first boot
+    │   ├── automation.ts # LocalWorkspace inline programs, the Stream-bridged run ledger + RunReceipt fold, internalized retry/budget, fleet verbs (adopt/attach/history/tags), reconcile drift leg
+    │   └── source.ts     # Source — github repo/branch-law/environment gates/deploy keys/webhook + the synced-folder distribution dialect record
+    ├── operate/          # Secrets, observability realization, policy, the hosted control plane
+    │   ├── secret.ts     # Doppler hierarchy + _MIRRORS fan-out + _ACCESS RBAC rows; Certs three-lane pipeline (self-signed mesh, ACME trusted, foreign pin)
+    │   ├── observe.ts    # Lgtm (LGTM distribution + OTel collector charts) → Boards (grafana provider, dashboards, alert/SLO compile, tenant orgs, machine identity)
+    │   ├── policy.ts     # Guard policies-as-data pre-apply, the DriftReport projection + fault-isolated sweep + conform read-back, the PKO Reconcile loop
+    │   └── cloud.ts      # CloudPlane (pulumiservice schedules/settings/webhooks/RBAC/environments) + the EscApi Environments rail, gated on backend: cloud
+    └── kube/             # The k8s estate tiers (either plane source)
+        ├── workload.ts   # spec row → ServiceAccount/Role/RoleBinding + Deployment (spread, zone affinity) + PDB/HPA + Service, the env seam, the _LIFE anchor
+        ├── traffic.ts    # Traffic — TLS sink, Gateway API edge (crd2pulumi) with Ingress fallback row, external-dns, Edge tagged family, tunnel/WAF/vanity rows
+        ├── data.ts       # ObjectStore + Nats rows; typed CNPG cluster (crd2pulumi), plugin-barman-cloud archive, Pooler, _TENANCY pg escalation, replication statics
+        └── tenant.ts     # Tenants — Capsule Tenant CRs | vcluster planes via _MODES, the StackReference platform seam
 ```
 
 ## [02]-[SEAMS]
@@ -32,12 +35,13 @@ kube/data       ←  typescript:data/lane        # [BOUNDARY]: Tenancy.rls ensur
 kube/data       ←  typescript:runtime/net      # [BOUNDARY]: JetStream server posture (websocket, fsync-per-write, quorum) the Setting.fanout.origin dial reaches
 kube/workload   ←  typescript:runtime/proc     # [SHAPE]: Setting.life.drain + probe routes mirrored as the _LIFE anchor
 kube/workload   ←  typescript:security/crypt   # [BOUNDARY]: doppler-run leased env injection at the entrypoint wrap
-operate/observe ←  typescript:core/observe     # [PROJECTION]: DashboardModel.Encoded + Alert.Spec realized as grafana rows
+operate/observe ←  typescript:core/observe     # [PROJECTION]: DashboardModel.Encoded + Alert.Spec + Slo.Objective realized as grafana rows
+kube/tenant     ←  typescript:data/lane        # [SHAPE]: Tenancy locus vocabulary the pgTier escalation and RLS ensure rows read
 ```
 
 ## [03]-[ORGANIZATION]
 
-`program` owns the shapes and the drive: `spec` is the one decoded value an app supplies (arm, tiers, profile, coordinates, Doppler ref, rotation epoch) and the typed outputs plane; `provider` keeps the capability-by-arm data and the arm realizer on one page so they cannot drift — prepared arms (Cloud SQL, GCS, R2, Workers) stay `_map` rows an app's `StackSpec` instantiates, with no declared code standing for them; `automation` is the only executor, every workspace fact an Effect `Config` read, drift reconciliation the ledger's read-only fifth op. `operate` mints and realizes: `secret` is the material owner both other tiers reference, `observe` produces exactly what its own second tier consumes, `policy` judges before apply and projects drift after. `kube` realizes the self-hosted arm: `workload` turns one spec row into the full typed resource set, `traffic` fences the namespace and carries the tunnel row through the shared `_connector` projection, `data` lands the whole data seam — extension matrix into the CNPG image, ensure-DDL at provision, the JetStream and object-store rows.
+`program` owns the shapes, the drive, and the bootstrap-axis legs: `spec` is the one decoded value an app supplies (arm, tiers, profile with tenancy and compute axes, backend, coordinates, Doppler ref, rotation epoch) and the typed outputs plane with the one `pairsOf` channel-flatten; `provider` keeps the capability-by-arm data and the arm realizer on one page, proves every spec coordinate on the `DeployFault` rail before any `PulumiFn`, and holds `_estate` — the single k8s-estate composition both the metal bootstrap and the EKS escalation feed — beside the docker machine estate that realizes the realized arm's full column at container depth; `automation` is the only executor with resilience internalized (stream-bridged events, jittered retry on state locks, per-run budgets) plus the fleet verbs; `source` provisions the source-control shells the Doppler mirror fills and the static-distribution leg. `operate` mints, realizes, and governs: `secret` is the material owner with the mirror fan-out, access RBAC rows, and the three-lane cert axis; `observe` compiles the core suite's boards, alerts, and SLOs onto Grafana; `policy` judges before apply, projects drift after, and runs the in-cluster PKO reconcile loop; `cloud` is the hosted twin set gated on `backend: cloud`. `kube` realizes the estate on either plane: `workload` turns one spec row into the full typed set including its RBAC, budget, and autoscale rows; `traffic` fronts through the Gateway API with external-dns automation and the tunnel/WAF/vanity rows; `data` lands the typed CNPG plane — plugin-archived backups, pooler bind, tenancy escalation, replication seam; `tenant` realizes the isolation modes and the cross-stack platform seam.
 
 ## [04]-[BOUNDARIES]
 

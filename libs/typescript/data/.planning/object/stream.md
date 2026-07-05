@@ -19,16 +19,20 @@ The ONE resumable content-addressed rail: large payloads move in bounded chunks,
 - Entry: every byte source in the unit enters here — a fetch body, a staged tus read lifted from its `Readable` through the platform interop, a filesystem stream from `object/file.md` — and leaves as one `Stream<Uint8Array>` the chunk stage consumes; no consumer meets a raw reader.
 - Growth: a new byte source is one lift call; the allocation size and the form bounds are policy values, never per-site literals.
 - Law: ingress is pull — the BYOB reader drives `pull()` by `desiredSize`, the Effect stream carries the backpressure plus the typed error channel and `Scope` release, and an eager materialization of a body is the memory defect this rail exists to delete.
-- Law: form-data ingest is typed AND bounded before any byte materializes — `Multipart.schemaPersisted(schema)` proves the whole form as one decoded struct and `Multipart.withLimits` composes the bounds as a value at the seam (never ambient fiber-ref mutation at call sites); file parts hand into this same lift.
+- Law: form-data ingest is typed AND bounded before any byte materializes — `Multipart.schemaPersisted(schema)` proves the whole form as one decoded struct and `Multipart.withLimitsStream` composes the bounds onto the part stream as a value at the seam (never ambient fiber-ref mutation at call sites); `maxParts` and `maxFileSize` are `Option`-shaped by the fiber-ref contract, so an unbounded axis is a spelled `Option.none()`, never an omission; file parts hand into this same lift.
 
 ```typescript
-import { Effect, Schema, Stream } from "effect"
+import { Effect, Option, Schema, Stream } from "effect"
 import { Multipart } from "@effect/platform"
 import { ObjectFault } from "./store.ts"
 
 const _INGRESS = { allocBytes: 256 * 1024 } as const
 
-const _FORM = { maxFileSize: 512 * 1024 * 1024, maxParts: 32, maxFieldSize: 64 * 1024 } as const
+const _FORM = {
+  maxFileSize: Option.some(512 * 1024 * 1024),
+  maxParts: Option.some(32),
+  maxFieldSize: 64 * 1024,
+} satisfies Multipart.withLimits.Options
 
 const _bytes = (body: ReadableStream<Uint8Array>): Stream.Stream<Uint8Array, ObjectFault> =>
   Stream.fromReadableStreamByob(
@@ -40,7 +44,7 @@ const _bytes = (body: ReadableStream<Uint8Array>): Stream.Stream<Uint8Array, Obj
 const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A, I>) =>
   (parts: Stream.Stream<Multipart.Part, Multipart.MultipartError>) =>
     Effect.flatMap(
-      Multipart.toPersisted(Multipart.withLimits(parts, _FORM)),
+      Multipart.toPersisted(Multipart.withLimitsStream(parts, _FORM)),
       Multipart.schemaPersisted(shape),
     )
 ```
@@ -125,6 +129,7 @@ const _identity = (flow: Stream.Stream<{ readonly chunk: Uint8Array; readonly ma
 - Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row, remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay and the staging removal is the only destructive step, ordered last.
 - Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade.
 - Law: the groom never sleeps — `cleanUpExpiredUploads` plus the store's `deleteExpired` ride the maintenance cadence, and an abandoned upload costs staging bytes for exactly the expiration window.
+- Boundary: the tus construction is the page's platform-forced kernel — the `Server`/`S3Store` mints, the `onUploadFinish` async callback bridged through `Runtime.runPromise`, the `Readable.toWeb` node-web interop whose element type the node declarations erase (the `as ReadableStream<Uint8Array>` re-pin), and the `crypto.randomUUID` staging-id mint all live inside this one seam; above it the rail is typed end to end.
 - RESEARCH: crash-durable digest-session resume — the `{ offset, session }` checkpoint promotes to a serializable durable actor (`Machine.makeSerializable`, `boot`, `snapshot`, `restore` are catalogued; the actor's `Subscribable` state feeds a UI progress atom) once the Machine procedure-declaration spelling is catalogued; until then the digest snapshot persists in the staging band's metadata under the custody law of `[4]`.
 
 ```mermaid
@@ -226,6 +231,7 @@ const _rail = (spec: Rail.Spec) =>
 - Growth: part-aligned reads (`PartNumber`) land as a span variant when a consumer aligns to upload parts; a verified-streaming read (chunk proofs against the Merkle row) follows the `[3]` RESEARCH row.
 - Law: content-band resume is structurally stale-proof — the key is the bytes, mutation is unrepresentable, so a resumed range needs no conditional and mid-transfer object change is impossible by identity; the staleness-guard conditional (`IfMatch` on the probed ETag) rides only staging-band reads, where bytes move under a stable id.
 - Law: a range read is a stream, never a buffer — the response body lifts through the same `[2]` geometry, and a consumer that needs the whole object states no range and folds the stream.
+- Boundary: `transformToWebStream` is the one SDK interop seam — the reply body's erased element type re-pins to `Uint8Array` at the lift and nowhere else.
 
 ```typescript
 import { GetObjectCommand } from "@aws-sdk/client-s3"
@@ -252,6 +258,7 @@ const _range = (key: ContentKey, span?: { readonly from: number; readonly to?: n
 const Rail = {
   cut: _CUT,
   bytes: _bytes,
+  form: _form,
   chunked: _chunked,
   identity: _identity,
   of: _rail,

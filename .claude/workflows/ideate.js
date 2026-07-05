@@ -113,7 +113,7 @@ const ideateFolder = async (folder) => {
   if (authored === null) return { folder, logs: {}, ok: false }
   const crit = await agent(critiquePrompt(folder), { label: 'crit:' + nameOf(folder), phase: 'Critique', schema: CARDLOG_SCHEMA, effort: 'xhigh' })
   if (crit === null) return { folder, logs: { ideate: authored }, ok: false }
-  const rt = await agent(redteamPrompt(folder), { label: 'redteam:' + nameOf(folder), phase: 'Redteam', schema: CARDLOG_SCHEMA, effort: 'max' })
+  const rt = await agent(redteamPrompt(folder), { label: 'redteam:' + nameOf(folder), phase: 'Redteam', schema: CARDLOG_SCHEMA, effort: 'xhigh' })
   return { folder, logs: { ideate: authored, crit, redteam: rt }, ok: rt !== null }
 }
 const cardFiles = (folder) => [folder + '/IDEAS.md', folder + '/TASKLOG.md']

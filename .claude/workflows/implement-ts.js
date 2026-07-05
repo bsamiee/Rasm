@@ -5,7 +5,7 @@ export const meta = {
     'work, store, ai, edge, browser, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for all platform folders. The language-wide libs/typescript/.planning is out of scope.',
   phases: [
     { title: 'Discover', detail: 'one agent: resolve scope against a real disk listing, full-read each target IDEAS/TASKLOG (cards only; design pages are downstream scope); extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang) with every counterpart confirmed on disk, record in-scope gates and malformed ripples' },
-    { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
+    { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(adversarial + charter-completeness) -> redteam(adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
     { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central package.json pin / defer cross-lang) -> adversarial WRITING verify(xhigh: proves fixes on disk, repairs weak fixes to root, then classifies)' },
     { title: 'Closeout', detail: 'per folder: verify each card vs full charter, FINAL-remediate weak cards in place, close genuinely-complete (move to [02]-[CLOSED], collapse, update ARCHITECTURE [02]-[SEAMS]), honestly re-open the rest; strength-demotion makes closed mechanically truthful' },
   ],
@@ -398,8 +398,8 @@ const realizeFolder = async (t) => {
   const tag = folderName(t.folder)
   const impl = await agent(implementPrompt(t.folder, seq), { label: 'implement:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 })
   if (!impl) return { folder: t.folder, failed: true, logs: [] }
-  const crit = await agent(critiquePrompt(t.folder, seq), { label: 'critique:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 })
-  const red = await agent(redteamPrompt(t.folder, seq), { label: 'redteam:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 })
+  const crit = await agent(critiquePrompt(t.folder, seq), { label: 'critique:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
+  const red = await agent(redteamPrompt(t.folder, seq), { label: 'redteam:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
   return { folder: t.folder, failed: false, logs: [impl, crit, red].filter(Boolean) }
 }
 const realized = (await pool(withCards, CAP, realizeFolder)).filter(Boolean)

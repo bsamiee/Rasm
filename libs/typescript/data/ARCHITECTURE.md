@@ -24,7 +24,8 @@ data/
     ├── object/           # The content-addressed object plane over the one ContentKey
     │   ├── store.ts      # The S3-conditional object store: command union, engine conformance table, reference-CAS GC, presign grants
     │   ├── stream.ts     # The resumable rail: BYOB ingress, checkpointed identity fold, tus server over the S3 staging store
-    │   └── file.ts       # The filesystem plane: gated content-addressed intake, watch admission, the sharp derivative codec
+    │   ├── file.ts       # The filesystem plane: gated content-addressed intake, settle-guarded watch admission, the sharp derivative codec
+    │   └── remote.ts     # The remote-origin plane: scheme-dispatched SFTP/FTP/DAV/S3 rows, capability-flag degrade, transfer/sync/watch/exec engines
     └── read/             # The read side: typed queries, batching, projections, reactivity, retrieval
         ├── query.ts      # SqlSchema/SqlResolver typed CRUD — arity as combinator, Model codec pairs
         ├── batch.ts      # The request-batching engine: structural dedup, windowed resolvers, request caching
@@ -52,11 +53,11 @@ lane/tenant    →  typescript:iac/kube         # [BOUNDARY]: Tenancy.rls ensure
 
 ## [03]-[ORGANIZATION]
 
-`lane` prices what each engine guarantees: `postgres` is the spine whose extension matrix is ruled data, `sqlite` degrades one relational contract across five profiles, `olap` and `cache` are guarantee tiers distinct from durability, `capability` refuses to boot against an engine that cannot prove its rows, and `tenant` is the single write path that pins the tenancy GUC. `journal` is the record of truth: `append` is the one atomic write owner (journal, outbox, idempotency in the same commit), `evolve` lifts old payloads at read time so the log is never rewritten, `fact` carries audit and metering as one family, and `retain` ages data lawfully without rewriting. `object` binds every byte plane to the core content identity — `store` conditional-puts against the conformance table, `stream` resumes at verified offsets, `file` gates filesystem intake through the same identity fold. `read` composes the lanes into consumption: `query` proves shapes, `batch` collapses N lookups structurally, `fold` binds the core fold algebra durably, `live` makes read-your-writes a coordinate, and `search` fuses five retrieval lanes in one round trip.
+`lane` prices what each engine guarantees: `postgres` is the spine whose extension matrix is ruled data, `sqlite` degrades one relational contract across five profiles, `olap` and `cache` are guarantee tiers distinct from durability, `capability` refuses to boot against an engine that cannot prove its rows, and `tenant` is the single write path that pins the tenancy GUC. `journal` is the record of truth: `append` is the one atomic write owner (journal, outbox, idempotency in the same commit), `evolve` lifts old payloads at read time so the log is never rewritten, `fact` carries audit and metering as one family, and `retain` ages data lawfully without rewriting. `object` binds every byte plane to the core content identity — `store` conditional-puts against the conformance table, `stream` resumes at verified offsets, `file` gates filesystem intake through the same identity fold, and `remote` addresses every non-local origin through one scheme-dispatched surface whose reads land through that identical fold. `read` composes the lanes into consumption: `query` proves shapes, `batch` collapses N lookups structurally, `fold` binds the core fold algebra durably, `live` makes read-your-writes a coordinate, and `search` fuses five retrieval lanes in one round trip.
 
 ## [04]-[BOUNDARIES]
 
-- DDL is declarative additive ensure with the split as law: iac applies at provision, this folder verifies at startup through the capability rail, the runtime never mutates schema.
+- DDL is declarative additive ensure with the split as law: iac applies at provision, this folder verifies at startup through the capability rail, the runtime never mutates schema; the one declared carve-out is the operator rebuild verb (`read/fold`'s session-locked shadow swap), never scheduled and never reachable from a request path.
 - The folder holds no keys and makes no authorization decisions; it enforces the security-declared tenancy contract and stores only wrapped key material.
 - Engine names never leak upward: consumers bind guarantee lanes; a new engine is a row on the owning lane page.
 - The object plane's conformance table refuses engines that cannot honor `If-None-Match: *` conditional put; the refused rows are recorded so the argument is never re-had.

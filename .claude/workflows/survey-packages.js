@@ -278,7 +278,7 @@ if (!changes.length) return { target: norm, language: lang, surveyed: worklist.l
 phase('Verify-Proposals')
 const reviewed = (await pipeline(
   changes,
-  (c) => agent(critiquePrompt(c), { label: 'critique:' + c.id, phase: 'Verify-Proposals', schema: VERDICT_SCHEMA, effort: 'high', stallMs: 300000 }),
+  (c) => agent(critiquePrompt(c), { label: 'critique:' + c.id, phase: 'Verify-Proposals', schema: VERDICT_SCHEMA, effort: 'xhigh', stallMs: 300000 }),
   (crit, c) => agent(redteamPrompt(c, crit), { label: 'redteam:' + c.id, phase: 'Verify-Proposals', schema: VERDICT_SCHEMA, effort: 'xhigh', stallMs: 300000 }).then((rt) => ({ change: c, critique: crit, redteam: rt })),
 )).filter(Boolean)
 const approved = reviewed.filter((r) => r.critique && r.critique.approved && r.redteam && r.redteam.approved).map((r) => r.change)

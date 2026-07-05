@@ -1,6 +1,6 @@
 export const meta = {
   name: 'rebuild-ts-continue',
-  description: 'Continuation of the rebuild-ts campaign entering at the improve stage: census + research dossiers already landed on disk under .claude/scratch/rebuild-ts/, so each lane runs improve -> critique -> red-team directly against them, then the terminal fable align and the WRITING verify close. Same mandate, same prompts, zero cache dependence.',
+  description: 'Continuation of the rebuild-ts campaign entering at the improve stage: census + research dossiers already landed on disk under .claude/scratch/rebuild-ts/, so each lane runs improve -> critique -> red-team directly against them, then a two-track 3-pass WRITING close (the libs/typescript corpus, and the whole TS estate outside libs including tools/biome and the central manifests - each initial -> critique -> red-team), then one terminal durable-docs refinement agent over every non-campaign doc. Same mandate, zero cache dependence.',
   whenToUse: 'Dispatch only when all census-*.md, stack-*.md, and audit-*.md dossiers exist in .claude/scratch/rebuild-ts/. Ephemeral - delete after the campaign lands.',
   phases: [
     { title: 'Lanes' },
@@ -40,11 +40,8 @@ const FIXLOG = { type: 'object', additionalProperties: false, required: ['files'
   collapsed: { type: 'string' }, extended: { type: 'string' },
   packageAsks: { type: 'array', items: { type: 'string' } },
   residuals: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const ALIGN_OUT = { type: 'object', additionalProperties: false, required: ['fixes', 'summary'], properties: {
+const DOCS_OUT = { type: 'object', additionalProperties: false, required: ['fixes', 'summary'], properties: {
   fixes: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const ACCEPT_OUT = { type: 'object', additionalProperties: false, required: ['fixes', 'unresolved', 'summary'], properties: {
-  fixes: { type: 'array', items: { type: 'string' } },
-  unresolved: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 
@@ -237,38 +234,113 @@ const redteamPrompt = (key, crit) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, 
   JSON.stringify(crit || {}) + ' Return the fix-log.',
 ].join('\n\n')
 
-const alignPrompt = (laneResults) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, WRITE_FULLY,
-  'TASK: TERMINAL ALIGN - ONE pass over ALL of ' + ROOT + ' with whole-repository write authority; you are also ' +
-  'the serialized writer for pnpm-workspace.yaml and the branch .planning docs. Read every folder in full. FIX: ' +
-  'broken cross-folder chains, partially implemented functionality, naive residue the lanes missed, incorrect or ' +
-  'bloated exports blocks, duplicated concerns owned twice, seam mismatches (both ends, wire-canonical names ' +
-  'frozen). ALIGN: folders stacked and integrated - internally automatic capability, aligned never coupled, ' +
-  'surgical extension where a chain is incomplete; the tooling estate (root configs + tests gauges) verified ' +
-  'consistent with the improved corpus - a gauge or config a lane changed that now contradicts a sibling is fixed ' +
-  'here. APPLY: every packageAsk below you judge justified lands in pnpm-workspace.yaml once at its named verified ' +
-  'version (the lanes already wired catalog + README + fences in-lane - author any piece a lane missed); then run ' +
-  'pnpm install and spot-verify each new catalog against the installed node_modules surface; rejected asks get ' +
-  'one-line rulings in your summary and their in-lane wiring is unwound. Then true up the branch .planning docs ' +
-  '(README router, ARCHITECTURE codemap/seams/edge table, dataflow-system) against the improved corpus. ' +
-  'LANE RESULTS: ' + laneResults + ' Return {fixes, summary}.',
-].join('\n\n')
+const BODY_LAW = 'FENCE-BODY LAW - the interior of every fence is judged at the same bar as its shapes; a correct ' +
+  'shape carrying a naive body is a defect. NAMED DEFECTS, rebuilt on sight: nested combinator pyramids ' +
+  '(Effect.flatMap(Effect.flatMap(...)) and pipe-inside-pipe towers - a multi-bind sequence is Effect.gen or ' +
+  'Do/bind, a linear transform is ONE flat pipe, never a hybrid pyramid); naive combinator selection (flatMap where ' +
+  'map serves, manual fold/partition plumbing where zipWith/all/validate/partition compose the join directly, ' +
+  'run-and-discard where tap/tapError/tapBoth belongs, sequential awaits where zip/all with concurrency expresses ' +
+  'the parallel join); blanket error swallows (catchAll(() => Effect.void) burying a typed failure the rail should ' +
+  'carry - recovery is typed catchTag/catchTags, or an explicit ignoreLogged/ruled ignore whose reason the ' +
+  'surrounding contract states); loose module-level const/type spam orbiting a fence - a helper const, one-off ' +
+  'alias, option-bag, or free-floating function hoisted beside an owner integrates INTO the owning class family as ' +
+  'a static, field, derived projection, private method, or vocabulary row. The optimal body is dense, flat, ' +
+  'expression-shaped, and reads as one algebra - the full native combinator surface (map/flatMap/tap/zip/zipWith/' +
+  'all/andThen/filterOrFail/matchEffect/raceAll/validate/forEach/reduce, Match, Schedule algebra) is the material, ' +
+  'never hand-rolled control flow.'
 
-const acceptPrompt = () => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, WRITE_FULLY,
-  'TASK: VERIFY CLOSE - your role law is libs/.planning/campaign-method.md [04] VERIFY, read at source and held to ' +
-  'the letter: adversarial and WRITING, never a friendly confirmation - every problem you find you FIX in place ' +
-  'NOW, and where a single-point patch competes with a root-level dense reconstruction of the same fence, the root ' +
-  'form wins. Over the whole improved ' + ROOT + ': ' +
-  '(1) cross-page symbol sweep - every cross-page symbol a fence composes resolves on a sibling owner with a ' +
-  'matching signature; a mismatch is repaired at the correct end, both ends recorded; ' +
-  '(2) catalog truth audit - sample 5 catalogs per tier against node_modules declarations; a lying member is fixed ' +
-  'in the catalog and in every fence that composed it; ' +
-  '(3) manifest audit - every pnpm-workspace.yaml TS package has exactly one .api catalog and at least one ' +
-  'composing page; an orphan either direction is closed (author the catalog, land the composition, or record the ' +
-  'explicit kill ruling); ' +
-  '(4) doctrine cold-grade - sample 2 pages per folder against the sixteen laws and repair every violation found; ' +
-  'a violated pattern found in a sample is then hunted across its siblings, never left as a one-page fix. ' +
-  'unresolved carries ONLY what is genuinely unreachable from the files at hand - never a punt on a strengthenable ' +
-  'fix. Return {fixes, unresolved, summary}.',
+const CLOSE_WRITE = 'WRITE FULLY - every fix you identify you make NOW; the fix-log reports edits already made. A ' +
+  'cross-file ripple your edit causes is YOURS in the same pass: repair the seam counterpart surgically at the symbol ' +
+  'anchor, wire-canonical names frozen. WRITE PARTITION (close law): the libs track is the ONE writer for everything ' +
+  'under ' + ROOT + ' including the branch .planning docs; the estate track is the ONE writer for the tooling estate, ' +
+  'tools/biome/, pnpm-workspace.yaml, and the TS rows of root package.json; neither touches the other track\'s ' +
+  'surface - a cross-track need routes through packageAsks/residuals. Prose per docs/standards/style-guide.md - ' +
+  'declarative present-tense fact, every symbol backticked, zero meta framing, never count-based prose. Fences carry ' +
+  'zero comments beyond canonical section dividers.'
+
+const CLOSE_TRACKS = {
+  libs: {
+    scope: 'ALL of ' + ROOT + ' - every folder, every design page - plus the branch .planning docs (README router, ' +
+      'ARCHITECTURE codemap/seams/edge table, dataflow-system)',
+    initial: (payload) => 'FIX + IMPROVE with full read/write: broken cross-folder chains, partially implemented ' +
+      'functionality, naive residue the lanes missed, incorrect or bloated exports blocks, duplicated concerns owned ' +
+      'twice, seam mismatches (both ends, wire-canonical names frozen); every fence below the MANDATE bar is collapsed ' +
+      'and extended in place as you pass - loose type/const spam, shallow structs, deep naive nesting, switch ladders ' +
+      'where Match/dispatch belongs, thin wrappers; folders stacked and integrated - internally automatic capability, ' +
+      'aligned never coupled; every lane residual below is closed; then the branch .planning docs are trued against ' +
+      'the improved corpus. LANE RESULTS (residuals are yours): ' + payload,
+    redteam: '(G) LIBS SWEEP: cross-page symbol sweep - every cross-page symbol a fence composes resolves on a sibling ' +
+      'owner with a matching signature, a mismatch repaired at the correct end, both ends recorded; catalog truth - ' +
+      'sample 5 catalogs per tier against node_modules declarations, a lying member fixed in the catalog AND every ' +
+      'composing fence; manifest orphans - every pnpm-workspace.yaml TS package has exactly one .api catalog and a ' +
+      'composing page, an orphan closed in-scope or routed to the estate track when the pin itself must move; doctrine ' +
+      'cold-grade at the MANDATE bar with every violated pattern hunted across its siblings, never a one-page fix.',
+  },
+  estate: {
+    scope: TOOLING + '; PLUS tools/biome/ (every GritQL plugin rule); PLUS the TS rows of pnpm-workspace.yaml and root ' +
+      'package.json',
+    initial: (payload) => 'EACH FILE IN ISOLATION gets a ground-up adversarial rebuild/extension in place: the ' +
+      'bleeding-edge current-major config shape verified at source against the version actually pinned (never memory), ' +
+      'stale/deprecated keys killed, every capability the tool ships that the estate ignores weighed and landed where ' +
+      'it serves the corpus; the duplicate stryker pair ruled to ONE; nx tags/affected truth for the six-folder + ' +
+      'tests estate; vite/vitest/playwright at full verified capability; the tests/typescript estate (_testkit law ' +
+      'combinators, _architecture gauges, e2e, the .api dev tier) improved under its own established law and extended ' +
+      'to gauge the improved corpus; tests/contracts aligned. TOOLS/BIOME: every GritQL rule proven REAL and FIRING - ' +
+      'exercise each against firing and non-firing spans - then strengthened; a NEW rule is authored wherever a ' +
+      'doctrine law still lacks a mechanical gate. MANIFESTS: every justified packageAsk below lands in ' +
+      'pnpm-workspace.yaml once at its named verified version, pnpm install runs to green, rejected asks get one-line ' +
+      'rulings and their in-lane wiring unwound. Alignment runs BOTH ways: a config or gauge contradicting the ' +
+      'improved libs corpus is fixed here; a libs gap a tool exposes is reported in residuals. PACKAGE ASKS: ' + payload,
+    redteam: '(G) ESTATE PROOF: execute what is executable - the GritQL rules against real spans, biome check, ' +
+      'tsc/tsgo config parses, nx graph sanity, vitest/stryker config loads; a config that cannot survive its own ' +
+      'tool at the pinned version is a defect fixed now; counterfactual every config one last time against the ' +
+      'current-major documentation.',
+  },
+}
+
+const closeInitialPrompt = (t, payload) => [CONTEXT, MANDATE, READ_FIRST, t === 'libs' ? PAGE_CRAFT : '', BODY_LAW, CLOSE_WRITE,
+  'TASK: CLOSE ' + t.toUpperCase() + ' - INITIAL: one full read/write improvement pass over ' + CLOSE_TRACKS[t].scope +
+  '. ' + CLOSE_TRACKS[t].initial(payload) + ' Return the fix-log with collapsed and extended stated concretely.',
+].filter(Boolean).join('\n\n')
+
+const closeCritiquePrompt = (t, prev) => [CONTEXT, MANDATE, READ_FIRST, t === 'libs' ? PAGE_CRAFT : '', STANCE, BODY_LAW, CLOSE_WRITE,
+  'TASK: CLOSE ' + t.toUpperCase() + ' - CRITIQUE - your role law is libs/.planning/campaign-method.md [04] CRITIQUE, ' +
+  'read at source and held to the letter: the mechanical line-by-line conformance and capability-completeness audit ' +
+  'of ' + CLOSE_TRACKS[t].scope + ', every hit a fix made now, checklists as a FLOOR. Every file in scope is held to ' +
+  'the full mandate bar in its own right - the initial fix-log is a floor, never a scope limit - and each file you ' +
+  'touch leaves with capability ADDED, never merely defects removed. INITIAL RESULT (verify on disk, never trust): ' +
+  JSON.stringify(prev || {}) + ' Return the fix-log.',
+].filter(Boolean).join('\n\n')
+
+const closeRedteamPrompt = (t, prev) => [CONTEXT, MANDATE, READ_FIRST, t === 'libs' ? PAGE_CRAFT : '', STANCE, BODY_LAW, CLOSE_WRITE,
+  'TASK: CLOSE ' + t.toUpperCase() + ' - RED-TEAM - your role law is libs/.planning/campaign-method.md [04] RED-TEAM, ' +
+  'read at source and held to the letter: the terminal, most aggressive pass over ' + CLOSE_TRACKS[t].scope + '; ' +
+  'every defect repaired in place; the scope ends objectively DENSER and MORE CAPABLE than the critique left it; the ' +
+  'critique fix-log bounds nothing. (A) COUNTERFACTUAL on every core owner: does a denser tagged family, a Schema ' +
+  'class family with derived variants, a vocabulary table, a parameterized generator, or a deeper primitive collapse ' +
+  'the whole surface? Build the stronger form. (B) ANTICIPATORY_COLLAPSE: the diff of the next feature - next engine ' +
+  'row, provider, topology, tenant model, deployment target, tool version - lands as ONE row with consumers untouched ' +
+  'or loudly broken. (C) LONG-TAIL: empty/singular/plural/batch/stream/malformed/concurrent/cancelled/partial-failure/' +
+  'version-skew; backpressure, interruption, breaker states. (D) BOUNDARY: seams both ends, entry surfaces few and ' +
+  'deep, per-app isolation under thousands of consuming apps. (E) SPRAWL + PHANTOMS: flat code below operator depth, ' +
+  'hand-re-derived package capability, any/as/! anywhere, thin wrappers. (F) FULL COLD RE-REVIEW of every critique ' +
+  'dimension by name, then verify on disk that the critique fix-log landed. ' + CLOSE_TRACKS[t].redteam +
+  ' CRITIQUE RESULT: ' + JSON.stringify(prev || {}) + ' Return the fix-log.',
+].filter(Boolean).join('\n\n')
+
+const docsPrompt = (closeSummary) => [CONTEXT,
+  'TASK: DURABLE-DOCS REFINEMENT - the run\'s last agent, full read/write over every durable non-campaign doc in the ' +
+  'repository (everything except RASM-* briefs/DECISIONs and .archive/): root README.md, CLAUDE.md, AGENTS.md where ' +
+  'present, every prose-law surface under .claude/ this repo owns (commands, workflows, agents, skills), ' +
+  'libs/.planning/ (campaign-method, architecture, README, planning-targets), every language branch .planning index ' +
+  'doc, and any docs/ page naming TypeScript. DUTY: TypeScript is FIRST-CLASS everywhere - the rebuilt six-folder ' +
+  'corpus, the tooling estate, and the tests plane reflected truthfully; every stale claim, dead path, retired-page ' +
+  'citation, anchoring residue, and context-poisoning leftover corrected or deleted; count-based enumeration ("N ' +
+  'folders", folder rosters restated in prose) replaced with durable framing; docs/standards/style-guide.md applied ' +
+  'to every touched page - declarative present-tense fact, zero meta framing, zero fragile prose. Additions are ' +
+  'JUSTIFIED and placed with foresight: the root README carries only what belongs in a project README, deep detail ' +
+  'routes to its owner, and this is refinement, never spam - fewer, stronger lines. CLOSE RESULTS (context): ' +
+  closeSummary + ' Return {fixes, summary}.',
 ].join('\n\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -300,13 +372,23 @@ const lanes = (await pool(LANE_KEYS, CAP, async (folder) => {
 // --- [CLOSE]
 
 phase('Close')
-const align = await agent(alignPrompt(JSON.stringify(lanes)), {
-  label: 'align', phase: 'Close', model: 'fable', effort: 'high', schema: ALIGN_OUT, stallMs: STALL })
-const accept = await agent(acceptPrompt(), {
-  label: 'verify', phase: 'Close', model: 'fable', effort: 'high', schema: ACCEPT_OUT, stallMs: STALL })
-
-return {
-  folders: lanes,
-  align: align ? align.summary : 'dropped',
-  acceptance: accept ? { unresolved: accept.unresolved, summary: accept.summary } : 'dropped',
+const closeChain = async (t, payload) => {
+  const initial = await agent(closeInitialPrompt(t, payload), {
+    label: 'initial:' + t, phase: 'Close', model: 'fable', effort: 'xhigh', schema: FIXLOG, stallMs: STALL })
+  const crit = await agent(closeCritiquePrompt(t, initial), {
+    label: 'crit:' + t, phase: 'Close', model: 'fable', effort: 'xhigh', schema: FIXLOG, stallMs: STALL })
+  const rt = await agent(closeRedteamPrompt(t, crit), {
+    label: 'rt:' + t, phase: 'Close', model: 'fable', effort: 'xhigh', schema: FIXLOG, stallMs: STALL })
+  return { track: t,
+    initial: initial ? initial.verdict : 'dropped',
+    critFixes: crit ? crit.files.length : 0, rtFixes: rt ? rt.files.length : 0,
+    residuals: [].concat((initial && initial.residuals) || [], (crit && crit.residuals) || [], (rt && rt.residuals) || []) }
 }
+const closeTracks = (await parallel([
+  () => closeChain('libs', JSON.stringify(lanes)),
+  () => closeChain('estate', JSON.stringify(lanes.flatMap((l) => l.packageAsks || []))),
+])).filter(Boolean)
+const docs = await agent(docsPrompt(JSON.stringify(closeTracks)), {
+  label: 'docs', phase: 'Close', model: 'fable', effort: 'xhigh', schema: DOCS_OUT, stallMs: STALL })
+
+return { folders: lanes, close: closeTracks, docs: docs ? docs.summary : 'dropped' }

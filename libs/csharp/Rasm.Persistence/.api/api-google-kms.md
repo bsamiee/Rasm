@@ -5,11 +5,11 @@
 `RawDecrypt` entrypoints, the asymmetric `AsymmetricSign`/`GetPublicKey` signing surface, the
 `EncryptRequest`/`DecryptRequest`/`AsymmetricSignRequest` protobuf messages with CRC32C
 integrity fields, and the strongly typed `CryptoKeyName`/`CryptoKeyVersionName`/`KeyRingName`
-resource-name builders. It serves TWO disjoint Persistence concerns behind the `Element/identity#AUTHORITY`
-`KmsProvider.Gcp` arm (the `KmsProvider` axis is owned by `Element/identity#AUTHORITY`, NOT a
+resource-name builders. It serves TWO disjoint Persistence concerns behind the `Element/identity#KMS_CUSTODY`
+`KmsProvider.Gcp` arm (the `KmsProvider` axis is owned by `Element/identity#KMS_CUSTODY`, NOT a
 `Store/encryption` page — that page does not exist): the ENVELOPE arm (envelope encryption of column and
 blob payloads over a pure-managed `Grpc.Net.Client` transport, the DEK wrapped by a remote `CryptoKey`)
-and the SIGNING arm (the `Element/identity#AUTHORITY` `SigningKeyring` — `AsymmetricSign` over a
+and the SIGNING arm (the `Element/identity#KMS_CUSTODY` `SigningKeyring` — `AsymmetricSign` over a
 `ASYMMETRIC_SIGN`-purpose key version, verification CLIENT-side through `GetPublicKey` since Cloud KMS
 exposes no server-side asymmetric verify). The 3.24.0 package also bundles the
 `Autokey`, `AutokeyAdmin`, `EkmService`, and `HsmManagement` clients in the same assembly; the
@@ -28,7 +28,7 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 - namespace: `Google.Cloud.Kms.V1`
 - asset: pure-managed library over `Grpc.Net.Client` + `Google.Protobuf` (no native gRPC binary required)
 - abi: all payload fields are `Google.Protobuf.ByteString`; messages are protobuf `IMessage` types
-- rail: encryption (the DEK envelope arm), signing (the `Element/identity#AUTHORITY` `SigningKeyring` arm)
+- rail: encryption (the DEK envelope arm), signing (the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -115,7 +115,7 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 |  [11]   | `MacSign(...)` / `MacVerify(...)`                       | mac             | HMAC over a `Mac`-purpose key (integrity, not envelope) |
 |  [12]   | `AsymmetricDecrypt(...)`                                | asym decrypt    | decrypt under an `AsymmetricDecrypt` version         |
 
-[ENTRYPOINT_SCOPE]: signing operations (the `Element/identity#AUTHORITY` `SigningKeyring` arm)
+[ENTRYPOINT_SCOPE]: signing operations (the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm)
 - rail: signing
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                              |
@@ -166,7 +166,7 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 - `ProtectionLevel` selects the backend: `Software`, `Hsm`, `External`, `ExternalVpc`, or `HsmSingleTenant` (`Unspecified` is the proto-default); the value is fixed by the `CryptoKey` version template and echoed on every response.
 
 [STACK_INTEGRATION]:
-- this client is the GCP arm (the `KmsProvider.Gcp` row, `NativeWrap: false`, encrypt-as-wrap) of the `Element/identity#AUTHORITY` `KmsProvider` `[SmartEnum<string>]` axis (owned there, not a `Store/encryption` page): the envelope `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` delegate quartet binds `Mint`→(`GenerateRandomBytesAsync`-or-local DEK then `EncryptAsync(CryptoKeyName, plaintext)`), `Unwrap`→`DecryptAsync(CryptoKeyName, ciphertext)`, `Rewrap`→`UpdateCryptoKeyPrimaryVersionAsync` (Cloud KMS rotation repoints the primary, so existing ciphertext still decrypts via the embedded version and stored blobs are never rewritten — the GCP arm's `Rewrap` is a primary repoint, not a `ReEncrypt`, unlike the AWS arm in `api-aws-kms`), `Probe`→`GetCryptoKeyVersionAsync` `CryptoKeyVersionState`; the signing `Element/identity#AUTHORITY` `SigningKeyring` `Sign`/`Verify` pair binds `Sign`→`AsymmetricSignAsync(CryptoKeyVersionName, Digest)` over the precomputed `OpDigest` wrapped in a `Digest` message and `Verify`→a CLIENT-side check over the `GetPublicKey` `PublicKey` PEM (Cloud KMS has no server-side asymmetric verify), the `SignatureAlgorithm.WireName` mapping to the `ASYMMETRIC_SIGN` key version's algorithm template.
+- this client is the GCP arm (the `KmsProvider.Gcp` row, `NativeWrap: false`, encrypt-as-wrap) of the `Element/identity#KMS_CUSTODY` `KmsProvider` `[SmartEnum<string>]` axis (owned there, not a `Store/encryption` page): the envelope `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` delegate quartet binds `Mint`→(`GenerateRandomBytesAsync`-or-local DEK then `EncryptAsync(CryptoKeyName, plaintext)`), `Unwrap`→`DecryptAsync(CryptoKeyName, ciphertext)`, `Rewrap`→`UpdateCryptoKeyPrimaryVersionAsync` (Cloud KMS rotation repoints the primary, so existing ciphertext still decrypts via the embedded version and stored blobs are never rewritten — the GCP arm's `Rewrap` is a primary repoint, not a `ReEncrypt`, unlike the AWS arm in `api-aws-kms`), `Probe`→`GetCryptoKeyVersionAsync` `CryptoKeyVersionState`; the signing `Element/identity#KMS_CUSTODY` `SigningKeyring` `Sign`/`Verify` pair binds `Sign`→`AsymmetricSignAsync(CryptoKeyVersionName, Digest)` over the precomputed `OpDigest` wrapped in a `Digest` message and `Verify`→a CLIENT-side check over the `GetPublicKey` `PublicKey` PEM (Cloud KMS has no server-side asymmetric verify), the `SignatureAlgorithm.WireName` mapping to the `ASYMMETRIC_SIGN` key version's algorithm template.
 - the CRC32C fields are the load-bearing integrity stack: every `EncryptRequest` sets `PlaintextCrc32C` and every `Encrypt`/`Decrypt` response CRC32C (`CiphertextCrc32C`, `VerifiedPlaintextCrc32C`, `PlaintextCrc32C`) is verified before the payload crosses the persistence boundary; a checksum mismatch fails the operation onto the typed `EnvelopeFact.demand-breach`/fault rail (System.IO.Hashing `Crc32` computes the local check), never a trusted partial.
 - the `KmsProvider` holds one `KeyManagementServiceClient` singleton resolved from DI and consumes the per-open CMK access through the AppHost `Runtime/config#SECRET_LEASE` seam; key identity persists as the typed `CryptoKeyName` string, rebuilt through `CryptoKeyName.FromProjectLocationKeyRingCryptoKey` at composition rather than as loose path fragments.
 
@@ -176,10 +176,10 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 - key identity persists as the typed `CryptoKeyName` string; the provider rebuilds it through `CryptoKeyName.FromProjectLocationKeyRingCryptoKey` at composition rather than storing loose path fragments.
 - every `EncryptRequest` sets `PlaintextCrc32C` and every `DecryptResponse`/`EncryptResponse` CRC32C is verified before the payload crosses the persistence boundary; a checksum mismatch fails the operation onto the typed error rail.
 - rotation repoints encryption through `UpdateCryptoKeyPrimaryVersion`; existing ciphertext still decrypts because `Decrypt` resolves the embedded version, so rotation never rewrites stored blobs.
-- the signing arm binds the `Element/identity#AUTHORITY` `SigningKeyring`: `Sign`→`AsymmetricSignAsync(CryptoKeyVersionName, Digest)` over the precomputed `OpDigest`, and `Verify`→a CLIENT-side check over the `GetPublicKey` `PublicKey.Pem` (no server-side asymmetric verify); the `ASYMMETRIC_SIGN`-purpose key version is distinct from the `EncryptDecrypt` envelope key, both leased through the same per-open `SecretLease` handle.
+- the signing arm binds the `Element/identity#KMS_CUSTODY` `SigningKeyring`: `Sign`→`AsymmetricSignAsync(CryptoKeyVersionName, Digest)` over the precomputed `OpDigest`, and `Verify`→a CLIENT-side check over the `GetPublicKey` `PublicKey.Pem` (no server-side asymmetric verify); the `ASYMMETRIC_SIGN`-purpose key version is distinct from the `EncryptDecrypt` envelope key, both leased through the same per-open `SecretLease` handle.
 
 [RAIL_LAW]:
 - Package: `Google.Cloud.Kms.V1`
-- Owns: remote envelope encryption/decryption of persistence payloads AND asymmetric Sign of the seam `OpDigest` (with CLIENT-side verify) via Cloud KMS — two disjoint surfaces behind the one `Element/identity#AUTHORITY` `KmsProvider.Gcp` arm
+- Owns: remote envelope encryption/decryption of persistence payloads AND asymmetric Sign of the seam `OpDigest` (with CLIENT-side verify) via Cloud KMS — two disjoint surfaces behind the one `Element/identity#KMS_CUSTODY` `KmsProvider.Gcp` arm
 - Accept: a DI-resolved `KeyManagementServiceClient` singleton, typed `CryptoKeyName`/`CryptoKeyVersionName`, `ByteString` payloads, CRC32C-verified responses, `AsymmetricSign` over a `Digest`-wrapped `OpDigest` + `GetPublicKey` for the client-side verify
 - Reject: per-operation client construction, hand-built resource path strings, unchecked CRC32C payloads crossing the persistence boundary, signing over the symmetric `EncryptDecrypt` key, or assuming a server-side asymmetric verify Cloud KMS does not expose

@@ -16,7 +16,7 @@ The durable-work intake: restart-surviving job families on the native `DurableQu
 [JOB_FAMILY]:
 - Owner: `Job` — the persisted job family law: `DurableQueue.make({ name, payload, idempotencyKey, success, error })` declares the family with Schema-typed payload and a pure dedup projection, `DurableQueue.process(queue, payload, { retrySchedule })` enqueues and suspends the caller until a worker settles the item, and `DurableQueue.worker(queue, handle, { concurrency })` is the consuming Layer whose parallelism and retry geometry are the `WorkClass` row's columns — `concurrency` from the class, `retrySchedule` from `Budget.schedule(row.budget)` — so a job family is priced by naming a class, never by carrying knobs.
 - Law: dedup identity is the payload projection — `idempotencyKey` derives from payload content exactly as `flow#FLOW_LAW`'s `executionId` does, so a re-enqueued equal payload joins the in-flight item instead of duplicating work; a caller-minted job id is the rejected form.
-- Law: a job body is `Step.run` material — the worker's handle composes the flow mint for its deadline geometry, so queue workers and workflow activities carry identical budget shapes and evidence.
+- Law: a job body is `Step.run` material — the worker's handle composes the flow mint for its deadline geometry, so queue workers and workflow activities carry identical budget shapes and evidence; the family's declared `error` unions the spec's fault schema with `StepFault` so a budget trip persists beside domain failure under one wire family.
 - Law: fire-and-forget is a modality of the same family — a caller that needs no result races `process` with `Effect.forkDaemon` at its own seam; a second "unawaited" queue declaration is unspellable.
 - Growth: a new job kind is one `DurableQueue.make` value plus one worker Layer row at the composition root; a family outgrowing single-item settlement into multi-step orchestration promotes to a `flow` definition, re-homing the payload schema unchanged.
 - Boundary: the queue's persistence rides the engine's `MessageStorage` from `entity#MAILBOX`; no queue table, poll loop, or storage row exists on this page.
@@ -29,29 +29,42 @@ import { Data, Duration, Effect, Match, Schema, Stream } from "effect"
 import { type AuditFact, Fact, Journal } from "@rasm/ts/data"
 import { Budget, FaultClass } from "@rasm/ts/core"
 import { WorkClass } from "./entity.ts"
-import { Step } from "./flow.ts"
+import { Step, StepFault } from "./flow.ts"
 
 declare namespace Job {
-  type Spec<Name extends string, A, I> = {
+  type Spec<Name extends string, A, I, E extends { readonly class: FaultClass.Kind }, EI> = {
     readonly name: Name
     readonly payload: Schema.Schema<A, I>
+    readonly error: Schema.Schema<E, EI>
     readonly clazz: WorkClass.Kind
     readonly key: (payload: A) => string
   }
 }
 
-const _job = <Name extends string, A, I>(spec: Job.Spec<Name, A, I>) => {
+const _job = <Name extends string, A, I, E extends { readonly class: FaultClass.Kind }, EI>(
+  spec: Job.Spec<Name, A, I, E, EI>,
+) => {
   const row = WorkClass[spec.clazz]
-  const queue = DurableQueue.make({ name: spec.name, payload: spec.payload, idempotencyKey: spec.key })
+  const queue = DurableQueue.make({
+    name: spec.name,
+    payload: spec.payload,
+    idempotencyKey: spec.key,
+    error: Schema.Union(spec.error, StepFault),
+  })
   return {
     queue,
     submit: (payload: A) => DurableQueue.process(queue, payload, { retrySchedule: Budget.schedule(row.budget) }),
-    worker: <E extends { readonly class: FaultClass.Kind }, R>(
-      handle: (payload: A) => Effect.Effect<unknown, E, R>,
-    ) =>
-      DurableQueue.worker(queue, (payload: A) => Step.run(spec.name, spec.clazz, handle(payload)), {
-        concurrency: row.concurrency,
-      }),
+    worker: <R>(handle: (payload: A) => Effect.Effect<unknown, E, R>) =>
+      DurableQueue.worker(
+        queue,
+        (payload: A) =>
+          Step.run(spec.name, spec.clazz, {
+            success: Schema.Void,
+            error: spec.error,
+            execute: Effect.asVoid(handle(payload)),
+          }),
+        { concurrency: row.concurrency },
+      ),
   } as const
 }
 

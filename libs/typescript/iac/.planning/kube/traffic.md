@@ -18,7 +18,7 @@ The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issue
 - Law: material crosses as the triple only — `args.issue(hostname)` yields `Certs.Issued` with `key` and `cert` as state-encrypted `Output`s and `renewal` as the rotation boolean; the tier never sees a private-key PEM outside the sink write, and a second consumer of the same material is a second sink row, never a second issuance.
 - Law: the cert lanes stay split — the injected `Certs.issue` is the mesh/self-signed lane this sink consumes; browser-trusted certs outside a cluster are `operate/secret.md`'s acme lane; in-cluster ACME lands as `crd2pulumi`-generated cert-manager `Certificate`/`ClusterIssuer` rows with the `gatewayHTTPRoute` solver when an estate finalizes it, replacing the sink's input, never this tier's shape.
 - Law: the connector identity is the `_connector` projection — the fence's same-namespace admission row and the tunnel Deployment's labels and selector read one spelling, so a fence that blocks its own connector is unspellable and a connector rename lands in one edit.
-- Entry: `new Traffic("traffic", { spec, namespace, service, port, connector, issue, apiToken, edge }, opts)`; `traffic.hostname` feeds `StackOutputs.ingress`, `traffic.renewal` feeds the drift watch.
+- Entry: `new Traffic("traffic", { spec, namespace, service, port, connector, dnsVersion, issue, apiToken, edge }, opts)`; `traffic.hostname` feeds `StackOutputs.ingress`, `traffic.renewal` feeds the drift watch.
 - Growth: a second hostname is a second issue-and-sink pass on the same CA; a stricter fence (egress allowlist) is one `NetworkPolicy` spec row; an identity-gated posture is one `includes` row on the access policy (`ZeroTrustAccessGroup` when a group earns it).
 - Boundary: issuance mechanics, the usage vocabulary, and the renewal window are `operate/secret.md`'s; the workload service is `kube/workload.md`'s; the cloud-LB ingress cells are the prepared arms'; the generated `crds/gateway` module is committed `crd2pulumi` output regenerated on Gateway API bumps, never an npm pin.
 - Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `networking.v1.Ingress`, `networking.v1.NetworkPolicy`, `helm.v4.Chart`, `apps.v1.Deployment`); `../crds/gateway` (`v1.Gateway`, `v1.HTTPRoute` — crd2pulumi); `@pulumi/cloudflare`; `@pulumi/random` (`RandomBytes`); `effect` (`Array`, `Data`); `../program/spec.ts` (`StackSpec`, `Tier`); `../operate/secret.ts` (`Certs`).
@@ -44,9 +44,11 @@ declare namespace Traffic {
     readonly service: pulumi.Input<string>
     readonly port: number
     readonly connector: pulumi.Input<string>
+    readonly dnsVersion: pulumi.Input<string>
     readonly issue: (hostname: string) => Certs.Issued
     readonly apiToken: pulumi.Input<string>
     readonly edge: Traffic.Edge
+    readonly api?: keyof typeof _EDGES
     readonly waf?: ReadonlyArray<{ readonly expression: string; readonly action: "block" | "challenge" | "skip" }>
     readonly vanity?: ReadonlyArray<string>
   }
@@ -73,7 +75,7 @@ const _fenced = (
       policyTypes: ["Ingress"],
       ingress: [{
         from: [
-          { namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": _EDGES.gateway.namespace } } },
+          { namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": _EDGES[args.api ?? "gateway"].namespace } } },
           { podSelector: { matchLabels: _connector(name) } },
         ],
         ports: [{ port: args.port, protocol: "TCP" }],
@@ -86,7 +88,7 @@ const _fenced = (
 
 [EDGE_REALIZE]:
 - Law: the gateway is the typed edge — one `gateway.v1.Gateway` under the `_EDGES.gateway.class` GatewayClass carries an HTTPS listener terminating TLS on the sink secret, one `gateway.v1.HTTPRoute` binds the hostname to the workload service backend, and every rendered object is a committed `crd2pulumi` class under full Pulumi diff and CrossGuard visibility; the `ingress` fallback row constructs the same hostname/secret/service triple through `networking/v1.Ingress` and nothing else differs.
-- Law: DNS is automated from route state — the external-dns chart row installs with the gateway sources (`gateway-httproute`) and the Cloudflare provider bound to the same fan-in token, so a hostname on an `HTTPRoute` becomes its record with no per-hostname authoring; under `Direct` the route carries the `external-dns.alpha.kubernetes.io/target` annotation pinning the metal address, and under `Tunnel` the CNAME onto `<tunnelId>.cfargotunnel.com` stays the one explicitly authored record because its target is tunnel state, not route state.
+- Law: DNS is automated from route state — the external-dns chart row installs at its pinned version with the gateway sources (`gateway-httproute`) and the Cloudflare token riding a namespace `Secret` reference, never a plaintext chart value, so a hostname on an `HTTPRoute` becomes its record with no per-hostname authoring; under `Direct` the route carries the `external-dns.alpha.kubernetes.io/target` annotation pinning the metal address, and under `Tunnel` the CNAME onto `<tunnelId>.cfargotunnel.com` stays the one explicitly authored record because its target is tunnel state, not route state.
 - Law: `Tunnel` is the no-public-address row, settled whole — an epoch-keyed `RandomBytes` mints the tunnel secret, `ZeroTrustTunnelCloudflared` names the tunnel, its `…Config` `ingresses` rows route the hostname to the in-cluster service and close on the `http_status:404` catch-all, `getZeroTrustTunnelCloudflaredTokenOutput` feeds the secret-wrapped `TUNNEL_TOKEN` of the in-cluster `cloudflared` connector `Deployment`, and a `ZeroTrustAccessPolicy`/`…Application` pair fronts the edge.
 - Law: one provider per arm — the Cloudflare provider constructs once here from the fan-in token and threads `{ provider }` to every record; a per-record provider is the named defect.
 - Law: rules and vanity are data rows — `waf` rows compile onto one `cloudflare.Ruleset` (`phase: "http_request_firewall_custom"`, one rule per row) on the same provider, and `vanity` rows compile onto per-tenant `cloudflare.CustomHostname` rows against the proven zone, so a SaaS estate's custom domains and its WAF posture grow by rows the exposure dispatch never widens for.
@@ -164,6 +166,64 @@ const _tunneled = (
 
 const Edge = Data.taggedEnum<Traffic.Edge>()
 
+const _EDGED: {
+  readonly [K in keyof typeof _EDGES]: (
+    name: string,
+    args: Traffic.Args,
+    hostname: string,
+    sink: pulumi.Output<string>,
+    child: pulumi.CustomResourceOptions,
+  ) => void
+} = {
+  gateway: (name, args, hostname, sink, child) => {
+    const plane = new gateway.v1.Gateway(name, {
+      metadata: { namespace: args.namespace },
+      spec: {
+        gatewayClassName: _EDGES.gateway.class,
+        listeners: [{
+          name: "https",
+          protocol: "HTTPS",
+          port: 443,
+          hostname,
+          tls: { mode: "Terminate", certificateRefs: [{ name: sink }] },
+        }],
+      },
+    }, child)
+    new gateway.v1.HTTPRoute(name, {
+      metadata: {
+        namespace: args.namespace,
+        annotations: Edge.$match(args.edge, {
+          Direct: ({ address }) => ({ "external-dns.alpha.kubernetes.io/target": address }),
+          Tunnel: () => ({}),
+        }),
+      },
+      spec: {
+        parentRefs: [{ name: plane.metadata.name }],
+        hostnames: [hostname],
+        rules: [{ backendRefs: [{ name: args.service, port: args.port }] }],
+      },
+    }, child)
+  },
+  ingress: (name, args, hostname, sink, child) =>
+    void new k8s.networking.v1.Ingress(name, {
+      metadata: { namespace: args.namespace },
+      spec: {
+        ingressClassName: _EDGES.ingress.class,
+        tls: [{ hosts: [hostname], secretName: sink }],
+        rules: [{
+          host: hostname,
+          http: {
+            paths: [{
+              path: "/",
+              pathType: "Prefix",
+              backend: { service: { name: args.service, port: { number: args.port } } },
+            }],
+          },
+        }],
+      },
+    }, child),
+}
+
 class Traffic extends Tier {
   static readonly Edge = Edge
   readonly hostname: string
@@ -178,43 +238,25 @@ class Traffic extends Tier {
       type: "kubernetes.io/tls",
       stringData: { "tls.crt": issued.cert, "tls.key": issued.key },
     }, this.child())
-    const plane = new gateway.v1.Gateway(name, {
-      metadata: { namespace: args.namespace },
-      spec: {
-        gatewayClassName: _EDGES.gateway.class,
-        listeners: [{
-          name: "https",
-          protocol: "HTTPS",
-          port: 443,
-          hostname: this.hostname,
-          tls: { mode: "Terminate", certificateRefs: [{ name: sink.metadata.name }] },
-        }],
-      },
-    }, this.child())
-    new gateway.v1.HTTPRoute(name, {
-      metadata: {
-        namespace: args.namespace,
-        annotations: Edge.$match(args.edge, {
-          Direct: ({ address }) => ({ "external-dns.alpha.kubernetes.io/target": address }),
-          Tunnel: () => ({}),
-        }),
-      },
-      spec: {
-        parentRefs: [{ name: plane.metadata.name }],
-        hostnames: [this.hostname],
-        rules: [{ backendRefs: [{ name: args.service, port: args.port }] }],
-      },
-    }, this.child())
+    _EDGED[args.api ?? "gateway"](name, args, this.hostname, sink.metadata.name, this.child())
     _fenced(name, args, this.child())
     const provider = new cloudflare.Provider(`${name}-cf`, { apiToken: args.apiToken }, { parent: this })
+    const dnsToken = new k8s.core.v1.Secret(`${name}-dns-token`, {
+      metadata: { namespace: args.namespace },
+      stringData: { CF_API_TOKEN: args.apiToken },
+    }, this.child())
     new k8s.helm.v4.Chart(`${name}-dns`, {
       chart: "external-dns",
       repositoryOpts: { repo: "https://kubernetes-sigs.github.io/external-dns/" },
+      version: args.dnsVersion,
       namespace: args.namespace,
       values: {
         sources: ["gateway-httproute"],
         provider: { name: "cloudflare" },
-        env: [{ name: "CF_API_TOKEN", value: args.apiToken }],
+        env: [{
+          name: "CF_API_TOKEN",
+          valueFrom: { secretKeyRef: { name: dnsToken.metadata.name, key: "CF_API_TOKEN" } },
+        }],
         domainFilters: [args.edge.domain],
       },
     }, this.child())

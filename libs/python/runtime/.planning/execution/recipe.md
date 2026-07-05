@@ -33,8 +33,8 @@ from opentelemetry import trace
 
 from rasm.runtime.faults import SCOPES, BoundaryFault, RuntimeRail, Scope, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.lanes import Admit, DrainReceipt, LanePolicy, Modality
-from rasm.runtime.receipts import OPEN, Receipt, receipted
+from rasm.runtime.lanes import Admit, LanePolicy, Modality
+from rasm.runtime.receipts import OPEN, DrainReceipt, Receipt, receipted
 from rasm.runtime.resilience import RetryClass, guarded_sync
 from rasm.runtime.roots import ReadModality, ResourceRoot
 

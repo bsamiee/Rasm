@@ -17,7 +17,7 @@ The bootstrap-axis legs the estate stands on before and after a deploy: `Source`
 - Law: material splits by kind — secret values arrive ONLY through the Doppler mirror into the shells; `ActionsVariable` carries non-secret configuration; a credential authored through an Actions secret beside the mirror is the second-source defect, and the deploy key's `key` field accepts only the public half.
 - Law: one branch-law owner per repo — `RepositoryRuleset` for this estate; `BranchProtection` survives only when adopting a classic-protected repo, never beside the ruleset.
 - Law: rate posture is provider data — retries, delays, and parallelism ride the `Provider` knobs, never per-resource retry wrappers.
-- Entry: `new Source("source", { spec, owner, repository, environments, deployKey, webhook, variables }, opts)` from the composing root; `RepositoryEnvironment` names feed the `_MIRRORS` githubActions rows.
+- Entry: `new Source("source", { spec, owner, token, repository, environments, webhook, variables }, opts)` from the composing root, `token` the `GITHUB_TOKEN` fan-in read; `source.deployKey.privateKeyOpenssh` stays graph-interior; `RepositoryEnvironment` names feed the `_MIRRORS` githubActions rows.
 - Growth: a new gated environment is one `environments` row; a new org-level posture (`Team`, `TeamRepository`, `OrganizationRuleset`) is one row when the estate grows an org.
 - Boundary: the mirror mechanics are `operate/secret.md`'s; the CI workflows that run inside the shells are app repo material, never lib code; `appAuth` (GitHub-App identity) supersedes the PAT when the estate earns a durable machine identity.
 - Packages: `@pulumi/github` (`Provider`, `Repository`, `RepositoryRuleset`, `RepositoryEnvironment`, `RepositoryEnvironmentDeploymentPolicy`, `RepositoryDeployKey`, `RepositoryWebhook`, `ActionsVariable`); `@pulumi/tls` (`PrivateKey`); `effect` (`Array`, `Record`); `../program/spec.ts` (`StackSpec`, `Tier`).
@@ -47,7 +47,7 @@ declare namespace Source {
 
 class Source extends Tier {
   static distribute(name: string, args: Source.Distribution, opts?: pulumi.ComponentResourceOptions): pulumi.ComponentResource {
-    return _distribute(name, args, opts)
+    return _FOLDERS[args.arm](name, args, opts)
   }
   readonly deployKey: tls.PrivateKey
   constructor(name: string, args: Source.Args, opts?: pulumi.ComponentResourceOptions) {
@@ -144,9 +144,6 @@ const _FOLDERS = {
       managedObjects: args.managed ?? true,
     }, opts),
 } as const
-
-const _distribute = (name: string, args: Source.Distribution, opts?: pulumi.ComponentResourceOptions): pulumi.ComponentResource =>
-  _FOLDERS[args.arm](name, args, opts)
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -21,7 +21,7 @@ The ONE write owner of the record of truth: journal, outbox, and idempotency led
 - Law: events are app-authored closed `Schema.TaggedClass` families — the journal stores their encoded form plus the `(tag, eventVersion)` coordinate and never interprets payloads, so a family evolves without touching this page.
 - Law: the payload column is `Model.JsonFromString` — TEXT in the database variants, native object in the JSON variants — so the object-versus-text dialect difference is the model's, and no page hand-parses a payload column.
 - Law: `sequence` is the global total order (identity column), `version` the per-stream order (the OCC coordinate); both are engine-generated or engine-checked, never computed in process.
-- Law: `sequence` is bigint-safe end to end — every process-side read decodes through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; per-stream `version` stays `Number` only because aggregate cardinality is provably bounded.
+- Law: `sequence` is bigint-safe end to end — every process-side read decodes through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; per-stream `version` stays number-valued because aggregate cardinality is provably bounded, and it decodes through `Journal.Version` — the number-or-string codec — because a BIGINT column crosses the wire as text on the spine driver and as number on the sqlite profiles.
 - Law: `recordedAt` is write time minted by `Model.DateTimeInsert` — domain time lives inside event payloads, and conflating the two is the named defect.
 - Boundary: the tenant column is what `Tenancy.rls("journal_event")` predicates over; `Model.makeRepository` is banned on this table — the journal never UPDATEs or DELETEs events, and erasure is `journal/retain.md`'s key destruction.
 
@@ -47,9 +47,9 @@ class _Row extends Model.Class<_Row>("JournalEvent")({
   aggregate: StreamKey.fields.aggregate,
   version: Schema.Number,
   tag: Schema.NonEmptyString,
-  eventVersion: Schema.Int,
+  event_version: Schema.Int,
   payload: Model.JsonFromString(Schema.Unknown),
-  recordedAt: Model.DateTimeInsert,
+  recorded_at: Model.DateTimeInsert,
 }) {}
 
 const _journalDdl: Capability.Ensure = {
@@ -101,6 +101,8 @@ class VersionConflict extends Data.TaggedError("VersionConflict")<{
 
 const _Sequence = Schema.Union(Schema.BigIntFromSelf, Schema.BigInt, Schema.BigIntFromNumber)
 
+const _Version = Schema.Union(Schema.Number, Schema.NumberFromString)
+
 declare namespace Journal {
   type Occ = Data.TaggedEnum<{
     Exact: { readonly version: number }
@@ -124,12 +126,12 @@ declare namespace Journal {
 
 const _Occ = Data.taggedEnum<Journal.Occ>()
 
-const _Landed = Schema.Struct({ sequence: _Sequence, version: Schema.Number })
+const _Landed = Schema.Struct({ sequence: _Sequence, version: _Version })
 
 const _head = (sql: SqlClient.SqlClient, stream: StreamKey) =>
   SqlSchema.single({
     Request: StreamKey,
-    Result: Schema.Struct({ head: Schema.Number }),
+    Result: Schema.Struct({ head: _Version }),
     execute: (key) =>
       sql`SELECT coalesce(max(version), 0) AS head FROM journal_event
           WHERE app = ${key.app} AND tenant = ${key.tenant} AND aggregate = ${key.aggregate}`,
@@ -166,7 +168,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
               aggregate: stream.aggregate,
               version: held + 1 + index,
               tag: event._tag,
-              eventVersion,
+              event_version: eventVersion,
               payload,
             })))
           const landed = yield* Effect.flatMap(
@@ -390,7 +392,7 @@ const _EventRow = Schema.Struct({
   tag: Schema.String,
   event_version: Schema.Number,
   payload: Upcast.Column,
-  version: Schema.Number,
+  version: _Version,
 })
 
 const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
@@ -420,6 +422,8 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: the overlay backings are adopted only while their table bootstrap is verifiably ensure-shaped — idempotent, additive, provision-runnable; otherwise their DDL is owned locally beside these rows and the layers still bind.
 
 ```typescript
+import { SqlEventJournal, SqlEventLogServer } from "@effect/sql"
+
 class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   id: Model.Generated(Schema.Number),
   app: AppIdentity.fields.app,
@@ -429,8 +433,8 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   tag: Schema.NonEmptyString,
   payload: Model.JsonFromString(Schema.Unknown),
   attempts: Schema.Int,
-  createdAt: Model.DateTimeInsert,
-  deliveredAt: Model.FieldOption(Schema.DateTimeUtc),
+  created_at: Model.DateTimeInsert,
+  delivered_at: Model.FieldOption(Schema.DateTimeUtc),
 }) {}
 
 const _outboxDdl: Capability.Ensure = {
@@ -497,6 +501,7 @@ const Journal = {
   Occ: _Occ,
   Key: _IdempotencyKey,
   Sequence: _Sequence,
+  Version: _Version,
   Conflict: VersionConflict,
 } as const
 

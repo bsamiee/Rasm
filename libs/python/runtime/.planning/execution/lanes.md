@@ -10,7 +10,7 @@ Bounded structured-concurrency lanes and stage orchestration. `LanePolicy.drain`
 
 ## [02]-[LANE]
 
-- Owner: `LanePolicy` — the one bounded `anyio`-task-group drain with capacity and a cancellation scope, its `limiter` property resolving the `functools.cache`-memoised `_limiter(self)` so one `CapacityLimiter` is minted per frozen-hashable lane identity and shared across the lane's `drain` and `offload` rather than re-minted per call; `Admit[T]` the closed `@tagged_union` admission shape with `bare`/`keyed`/`retried` cases so one drain discriminates a plain coroutine, a `(ContentKey, Work[T])` cache unit, and a `(RetryClass, Work[T])` resilience-guarded unit by case rather than three parallel methods; `ADMIT_TABLE` the `Map[AdmitTag, AdmitRow[object]]` of one behavior row per `Admit` tag keyed on the closed `AdmitTag` literal (not a bare `str`) — each row a `key` projection (the `Option[ContentKey]` the drain probes the session cache with, `Nothing` for the un-keyed `bare`/`retried` cases) and a `make` projection (the `Work[T]` coroutine, raw for `bare`/`keyed` and `guard(cls)`-wrapped for `retried`) — so a new admission modality is one row, not a new method; `DrainReceipt[T]` the one parameterized outcome carrying `values: Block[T]`, `cache: Map[ContentKey, T]`, the typed `faults: Block[BoundaryFault]`, and the `accepted`/`completed`/`cancelled`/`rejected`/`hit` counts — never a bare scalar tally and never a count-only return that drops the computed values; `DrainOutcome`/`DRAIN_COLUMNS` the one canonical five-column outcome taxonomy this page owns — the `DrainOutcome` literal is the bounded vocabulary and `DRAIN_COLUMNS` derives from it through `get_args` so the column set is one typed fact, and the sibling `observability/metrics#METRIC` `lane.drained` counter and `observability/receipts#RECEIPT` drained emit import this taxonomy rather than redeclaring it, so the counter outcome dimension and the receipt column set can never drift; `StagePlan` the multi-stage DAG (stage edges, per-stage `RetryClass`, partial re-run) over the same drain; `LaneSource` the closed `@tagged_union` `scheduled`/`watched` feeder union, not a separate scheduler.
+- Owner: `LanePolicy` — the one bounded `anyio`-task-group drain with capacity and a cancellation scope, its `limiter` property resolving the `functools.cache`-memoised `_limiter(self)` so one `CapacityLimiter` is minted per frozen-hashable lane identity and shared across the lane's `drain` and `offload` rather than re-minted per call; `Admit[T]` the closed `@tagged_union` admission shape with `bare`/`keyed`/`retried` cases so one drain discriminates a plain coroutine, a `(ContentKey, Work[T])` cache unit, and a `(RetryClass, Work[T])` resilience-guarded unit by case rather than three parallel methods; `ADMIT_TABLE` the `Map[AdmitTag, AdmitRow[object]]` of one behavior row per `Admit` tag keyed on the closed `AdmitTag` literal (not a bare `str`) — each row a `key` projection (the `Option[ContentKey]` the drain probes the session cache with, `Nothing` for the un-keyed `bare`/`retried` cases) and a `make` projection (the `Work[T]` coroutine, raw for `bare`/`keyed` and `guard(cls)`-wrapped for `retried`) — so a new admission modality is one row, not a new method; `DrainReceipt[T]` the one parameterized outcome carrying `values: Block[T]`, `cache: Map[ContentKey, T]`, the typed `faults: Block[BoundaryFault]`, and the `accepted`/`completed`/`cancelled`/`rejected`/`hit` counts — never a bare scalar tally and never a count-only return that drops the computed values; `DrainReceipt[T]`/`DrainOutcome`/`DRAIN_COLUMNS` the one canonical drain taxonomy imported from its `observability/receipts#RECEIPT` owner (a drain receipt IS local evidence, so the vocabulary, the `get_args`-derived column tuple, and the `DrainReceipt.of` fold live one tier down and this page, the `observability/metrics#METRIC` counter, and the receipts drained emit all read the one owner, so the counter outcome dimension and the receipt column set can never drift); `StagePlan` the multi-stage DAG (stage edges, per-stage `RetryClass`, partial re-run) over the same drain; `LaneSource` the closed `@tagged_union` `scheduled`/`watched` feeder union, not a separate scheduler.
 - Entry: `LanePolicy.drain` is the one polymorphic bounded drain over `Block[Admit[T]]` — it opens one `anyio.create_task_group` under one `CapacityLimiter` and the `move_on_after(self.deadline.default_value(float("inf")))` scope reading the one `LanePolicy.deadline: Option[float]` budget a caller projects from the `execution/admission#CONTEXT` `Deadline` value object at lane construction, folds each `Admit` case through its `ADMIT_TABLE` row (a `keyed` unit whose `ContentKey` already carries an `Ok` in the threaded session cache short-circuits without invoking the coroutine and increments `hit`; a `retried` unit binds `reliability/resilience#RESILIENCE` `guard(cls)` around the coroutine so transient faults retry under the typed policy row before the rail resolves; a `bare` unit runs directly), sends each resolved `RuntimeRail[T]` over one memory-object stream, and returns one `DrainReceipt[T]`; `LanePolicy.offload` routes a caller-supplied CPU kernel into per-subinterpreter execution through `anyio.to_interpreter.run_sync` under the one shared per-lane `CapacityLimiter` and a `move_on_after` scope reading the same `self.deadline` budget `drain` bounds with, never importing the kernel, injecting the active OTel context into a carrier the module-level `traced_kernel` shim extracts-and-attaches so the offloaded span seeds from the calling span, accepting an optional keyword-only `retry: RetryClass | None` that wraps the raw `interpreter_run_sync` leg in `reliability/resilience#RESILIENCE` `guard(cls)` so a transient `BrokenWorkerInterpreter`/`BrokenWorkerProcess` cold-start crash retries under one stamina policy row BEFORE the conversion (the retry riding the offload leg as a lane aspect — the resilience "consumer that owns its own coroutine" path — so a content-keyed source stays `keyed` for the cache yet still retries a transient hop by passing `retry=RetryClass.OCCT`, never a per-caller retry loop), then lifting a budget-exhausted-retry `BrokenWorkerInterpreter`/deadline `TimeoutError` through the one `reliability/faults#FAULT` `async_boundary`; `StagePlan.execute` drives the stage DAG through `graphlib.TopologicalSorter` in active `prepare`/`get_ready`/`done` mode so each dependency-level front runs concurrently under one `LanePolicy.drain` over the front's flattened `Admit` units, threading each stage's `RetryClass` into the admission so the units enter as `retried` cases and threading each front's `DrainReceipt.cache` forward into the next front's drain so a `keyed` unit re-tessellated by a downstream stage replays the upstream `Ok` rather than recomputing, one `DrainReceipt` per front; `feed` threads one `@drained`-observed `policy.drain` over the `_events(source)` projector so a fed lane is observed by composition rather than yielding a bare `DrainReceipt` the caller re-threads — `_events` runs the union's source by `match` with an `assert_never` tail, a `scheduled` source registering its `Trigger` on the one `AsyncIOScheduler` whose `EVENT_JOB_EXECUTED|EVENT_JOB_ERROR|EVENT_JOB_MISSED` listener is the single fire seam pushing each `JobExecutionEvent` over a memory stream and a `watched` source iterating the `PythonFilter`-narrowed `awatch` stream, both projecting the source event through the case's `build` callable into one `Block[Admit[T]]` the shared `feed` tail drains and observes per batch, never a per-case `yield await policy.drain(build(...))` tail duplicated across the arms.
 - Auto: cancellation rides the `move_on_after` scope; capacity rides one `CapacityLimiter` minted once per lane identity and shared across every `drain` and `offload` — the `LanePolicy.limiter` property reads the `functools.cache`-memoised `_limiter(self)` keyed on the frozen-hashable policy, so two policies with identical `capacity`/`deadline` share one bound and a single lane caps both its concurrent `drain` units and its `offload` subinterpreter hops on one slot allocator rather than a fresh per-call limiter that bounds nothing across the lane's lifetime; a tripped deadline is contained — the task-group drain runs inside `move_on_after` (not a bare `fail_after` that escapes as a raw `TimeoutError`/`BaseExceptionGroup`), so a deadline trip cancels the in-flight units and the receipt reports them as `cancelled = accepted - hit - len(resolved)` (the went-live cardinality minus the cardinality that reached the stream) with the partial `values`/`faults` intact, never an exception escaping a bounded lane without a receipt; the `feed` source discrimination is one `match` with an `assert_never` tail so the arm set is total over the closed `LaneSource` union; a `scheduled` fire resolves cron, interval, and one-off through the `apscheduler` `Trigger` union on the one `AsyncIOScheduler`, cron owned solely by `apscheduler` `CronTrigger`/`from_crontab` — no `croniter`, no `aiocron`, no hand-rolled `anyio.sleep` cron loop.
 - Auto: each lane unit sends its full `RuntimeRail[T]` outcome over the memory-object stream rather than a pre-collapsed bool, so the typed `BoundaryFault` the `reliability/faults#FAULT` rail mints survives into the receipt — `DrainReceipt.of` splits the resolved rails with `Block.choose(rail.swap().to_option())` into the `faults` `Block[BoundaryFault]` and recovers the `Ok` values with `Block.choose(rail.to_option())` into the `values` `Block[T]`, mirroring the `faults#traversed` accumulate fold so a drained lane surfaces both which units failed and the values that succeeded; `rejected` is the cardinality of that typed `Block`, never a fault-erasing count, and `completed` is the cardinality of the recovered values, so the receipt is lossless in both directions.
@@ -29,7 +29,7 @@ from contextlib import suppress
 from functools import cache, wraps
 from graphlib import TopologicalSorter
 from os import PathLike, process_cpu_count
-from typing import Final, Literal, assert_never, get_args
+from typing import Final, Literal, assert_never
 
 import anyio
 from anyio import CapacityLimiter, WouldBlock, move_on_after
@@ -40,16 +40,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from expression import Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression import Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import context, propagate
 from watchfiles import BaseFilter, Change, PythonFilter, awatch
 
-from rasm.runtime.content_identity import ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.identity import ContentKey
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt, Redaction, Signals
+from rasm.runtime.receipts import DrainReceipt, Receipt, Redaction, Signals
 from rasm.runtime.resilience import RetryClass, guard
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -57,7 +57,6 @@ from rasm.runtime.resilience import RetryClass, guard
 type Work[T] = Callable[[], Awaitable[RuntimeRail[T]]]
 type Trigger = CronTrigger | IntervalTrigger | DateTrigger
 type AdmitTag = Literal["bare", "keyed", "retried"]
-type DrainOutcome = Literal["accepted", "completed", "cancelled", "rejected", "hit"]
 
 
 @tagged_union(frozen=True)
@@ -77,7 +76,6 @@ class LaneSource[T]:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-DRAIN_COLUMNS: Final[tuple[DrainOutcome, ...]] = get_args(DrainOutcome.__value__)
 FIRE_MASK: Final[int] = EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED
 FIRE_BUFFER: Final[int] = 64
 
@@ -90,42 +88,6 @@ FIRE_BUFFER: Final[int] = 64
 WORKER_BAND: Final[CapacityLimiter] = CapacityLimiter(process_cpu_count() or 4)
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class DrainReceipt[T](Struct, frozen=True):
-    accepted: int
-    completed: int
-    cancelled: int
-    rejected: int
-    values: Block[T] = Block.empty()
-    cache: Map[ContentKey, T] = Map.empty()
-    faults: Block[BoundaryFault] = Block.empty()
-    hit: int = 0
-
-    @staticmethod
-    def of[U](
-        accepted: int,
-        hit: int,
-        resolved: Block[tuple[Option[ContentKey], RuntimeRail[U]]],
-        replayed: Block[tuple[ContentKey, U]],
-        cache: Map[ContentKey, U],
-    ) -> "DrainReceipt[U]":
-        merged = resolved.append(replayed.map(lambda pair: (Some(pair[0]), Ok(pair[1]))))
-        completed = resolved.choose(lambda pair: pair[1].to_option())
-        faults = resolved.choose(lambda pair: pair[1].swap().to_option())
-        threaded = merged.fold(
-            lambda acc, pair: pair[0].bind(lambda key: pair[1].to_option().map(lambda v: acc.add(key, v))).default_value(acc), cache
-        )
-        return DrainReceipt(
-            accepted=accepted,
-            completed=len(completed),
-            cancelled=accepted - hit - len(resolved),
-            rejected=len(faults),
-            values=merged.choose(lambda pair: pair[1].to_option()),
-            cache=threaded,
-            faults=faults,
-            hit=hit,
-        )
 
 
 class AdmitRow[T](Struct, frozen=True):

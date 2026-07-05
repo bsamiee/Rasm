@@ -16,6 +16,7 @@ Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier tur
 [SIZING_ROWS]:
 - Owner: the interior `_scale` table keyed by the profile's `dev | standard | fleet` literal — each row carries `replicas`, `requests`, and `limits` as the `core/v1` resource-quantity strings the generated shapes consume, plus the resilience columns the row's posture earns: `disruptionBudget` realizes a `policy/v1.PodDisruptionBudget` and `autoscale` realizes an `autoscaling/v2.HorizontalPodAutoscaler` at construction, so capacity, availability floor, and elasticity retune by editing one row, never a manifest.
 - Law: the scale key is `StackSpec`'s vocabulary — this table interprets it for the k8s arm and no second interpretation exists; the guard pair anchors on the spec's own scale union, so a spec tier with no row and an excess row both fail at the declaration, and a per-arm sizing divergence is a second table in that arm's owner, never a widened key.
+- Law: an autoscale row owns the replica count — the deployment omits `replicas` on any row carrying `autoscale` so the autoscaler's live verdict survives every `up` instead of resetting to the row's floor; `minReplicas` is the floor's one spelling on such a row.
 - Growth: a new tier is one row; a new sizing axis (a GPU request, an ephemeral-storage bound) is one column every row states.
 - Boundary: what the quantities mean to the scheduler is cluster fact; `StackSpec.profile.scale` selection is the app's.
 
@@ -245,9 +246,9 @@ class Workload extends Tier {
       ? undefined
       : new random.RandomShuffle(`${name}-zones`, { inputs: [...args.zones], seed: name }, this.child())
     new k8s.apps.v1.Deployment(name, {
-      metadata: { namespace: args.namespace, labels },
+      metadata: { name, namespace: args.namespace, labels },
       spec: {
-        replicas: row.replicas,
+        ...("autoscale" in row ? {} : { replicas: row.replicas }),
         selector: { matchLabels: labels },
         template: {
           metadata: { labels },

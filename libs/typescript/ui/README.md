@@ -97,6 +97,7 @@ Every folder-specific external library, planned or implemented. Versions are cen
 - `@lume/kiwi`
 - `typegpu`
 - `@webgpu/types`
+- `@types/geojson`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -109,4 +110,5 @@ Cross-cutting TypeScript substrate this folder consumes; canonical registry and 
 - `@effect/experimental`
 
 [PLATFORM]:
+- `@effect/platform`
 - `@effect/platform-browser`

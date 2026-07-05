@@ -25,8 +25,8 @@
 
 | [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                          |
 | :-----: | :------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `DuckDBInstance.create(path, config?)` (`":memory:"` or a file path; config e.g. `{ threads }`) | engine acquire | the lane's `acquireRelease` acquire arm     |
-|  [02]   | `instance.connect()` → `DuckDBConnection`                                                   | session lease  | scoped connection per analytical unit of work   |
+|  [01]   | `DuckDBInstance.create(path, config?)` (`":memory:"` or a file path; config e.g. `{ threads }`) | engine acquire | the lane's `acquireRelease` acquire arm; `instance.closeSync()` is the release arm |
+|  [02]   | `instance.connect()` → `DuckDBConnection`                                                   | session lease  | scoped connection per analytical unit of work; `connection.disconnectSync()` (alias `closeSync()`) is the release arm |
 |  [03]   | `connection.run(sql, values?, types?)`                                                      | execute        | DDL/DML to completion                            |
 |  [04]   | `connection.runAndReadAll(sql, values?, types?)` → reader → `getRows()`/`getColumns()`      | materialize    | bounded result sets                              |
 |  [05]   | `connection.streamAndReadUntil(sql, targetRowCount)` / `streamAndReadAll` / `runAndReadUntil` | stream read  | incremental readers for large results — the lane's `Stream` lift |

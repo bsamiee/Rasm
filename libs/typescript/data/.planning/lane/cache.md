@@ -99,17 +99,18 @@ const _scoped = (prefix: string): Layer.Layer<KeyValueStore.KeyValueStore, never
 - Owner: the resource rows — `RcRef.make` for one shared scoped resource and `RcMap.make` for keyed single-instance families, both consumed at the package surface directly (a rename-forward alias is refused) — plus `CacheLane.origins`, the ONE bounded keyed-pool mint: min/max-sized, TTL-expiring connection reuse keyed by a structural origin coordinate, the row every remote-origin transfer lane (`object/remote.md`'s SFTP/FTP/DAV clients) rides.
 - Packages: `effect` (`RcRef.make`, `RcMap.make`, `RcMap.get`, `RcMap.invalidate`, `KeyedPool.makeWithTTL`, `KeyedPool.get`, `Duration`, `Scope`, `Data`).
 - Entry: the OLAP lane's engine instance and the per-scope warm surfaces ride `RcRef`/`RcMap` (`RcMap.get(map, key)` acquires-or-shares under the caller's `Scope`, `RcMap.invalidate(map, key)` evicts on rotation or poison); the remote-origin lane mints `origins(acquire, policy?)` keyed by the `Data`-classed `OriginKey` so structural equality pools connections and `KeyedPool.get` leases a live client per transfer under the caller's `Scope`.
-- Growth: a pool sizing posture is a policy-row override; a keyed family with complex identity keys by a `Data`-classed value, structural equality carried by construction.
+- Growth: a pool sizing posture is a policy-row override; a keyed family with complex identity keys by a `Data`-classed value, structural equality carried by construction; `OriginKey` carries the scheme beside the wire coordinate so one pool arbitrates every protocol's sessions and the remote plane's acquire dispatches on the key alone.
 - Law: `RcMap` and `KeyedPool` divide by cardinality — `RcMap` shares ONE live instance per key among concurrent holders, `KeyedPool` holds up to N instances per key for exclusive leases; a protocol whose control connection carries one transfer at a time (the FTP law) is exactly why the origin row is the pool, never the map.
 - Law: lifetime is reference-counted or pool-owned, never manual — the resource releases when the last scope closes plus the idle window, so a leak is unspellable and a hot handle survives bursts without churn.
 - Law: this row pools RESOURCES, the `Stores` map pools LAYERS — the tenancy store map stays the scope-family owner, and this lane's maps hold engine sessions and warm clients beneath it; the echo is deliberate, the owners distinct.
 
 ```typescript
-import { Data, KeyedPool, RcMap, RcRef, type Scope } from "effect"
+import { Data, KeyedPool, type Scope } from "effect"
 
 const _ORIGIN_POOL = { min: 0, max: 4, ttl: Duration.minutes(5) } as const
 
 class OriginKey extends Data.Class<{
+  readonly scheme: string
   readonly host: string
   readonly port: number
   readonly username: string
@@ -121,8 +122,8 @@ const _origins = <A, E, R>(
 ) =>
   KeyedPool.makeWithTTL({
     acquire,
-    minSize: policy?.min ?? _ORIGIN_POOL.min,
-    maxSize: policy?.max ?? _ORIGIN_POOL.max,
+    min: () => policy?.min ?? _ORIGIN_POOL.min,
+    max: () => policy?.max ?? _ORIGIN_POOL.max,
     timeToLive: policy?.ttl ?? _ORIGIN_POOL.ttl,
   })
 

@@ -57,7 +57,7 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
 - Packages: `@use-gesture/react` (`createUseGesture`, `dragAction`/`pinchAction`/`wheelAction`, the config/state algebra); `react` (`startTransition`, `useEffectEvent`).
 - Entry: one `Gesture.useCanvas` per interactive surface — a new gesture on that surface is a handler key or sub-config on the same call, never a second hook on the element.
 - Law: start state rides `memo`, origin rides `from` — the handler captures the origin on `first`, applies `movement` against it, and returns the memo; `from: () => read(camera)` binds the offset origin to the live atom so consecutive gestures accumulate; an external mutable ref for gesture accumulation is the named defect.
-- Law: the wheel arm integrates per-event `delta` — wheel `offset` accumulates for the surface lifetime with no `from`-bound origin, so offset math against the live atom double-integrates every event; `delta` applies each tick exactly once against one read of the current state.
+- Law: the wheel arm integrates per-event `delta` — wheel `offset` accumulates for the surface lifetime with no `from`-bound origin, so offset math against the live atom double-integrates every event; `delta` applies each tick exactly once against one read of the current state, scaled by the `_CANVAS.wheel` policy value — never an inline sensitivity literal.
 - Law: the handler stays in domain coordinates — `transform` maps the raw screen `Vector2` into world/canvas space before the handler sees `movement`/`offset`; `bounds` + `rubberband` clamp with elastic overflow; `axis: "lock"` locks the dominant axis past `threshold`.
 - Law: one bounds row clamps every zoom write path structurally — the pinch engine clamps through `scaleBounds: bounds` and the wheel arm clamps through `_clamp(bounds, …)` against the SAME row; a zoom path escaping the row is the named defect.
 - Law: high-frequency writes commit non-urgently and stably — the camera atom write wraps in `startTransition`, and the write callback rides `useEffectEvent` so a changing callback identity never re-binds the recognizer; the write itself is `useAtomSet(camera)` with `"value"` mode.
@@ -71,7 +71,7 @@ import type { Types } from "effect"
 import { startTransition, useEffectEvent } from "react"
 import type { RefObject } from "react"
 
-const _ZOOM = { min: 0.1, max: 64 } as const
+const _CANVAS = { zoom: { min: 0.1, max: 64 }, wheel: 500 } as const
 
 const _clamp = (bounds: { readonly min: number; readonly max: number }, zoom: number): number =>
   Math.min(bounds.max, Math.max(bounds.min, zoom))
@@ -103,7 +103,7 @@ declare namespace Gesture {
 const Gesture: Gesture.Shape = {
   useDiscrete: _useDiscrete,
   useCanvas: (options) => {
-    const bounds = options.zoomBounds ?? _ZOOM
+    const bounds = options.zoomBounds ?? _CANVAS.zoom
     const write = useEffectEvent(options.write)
     _useCanvasGesture(
       {
@@ -113,7 +113,7 @@ const Gesture: Gesture.Shape = {
           startTransition(() => write({ ...options.read(), zoom: scale, bearing: angle })),
         onWheel: ({ delta: [, dy] }) => {
           const held = options.read()
-          startTransition(() => write({ ...held, zoom: _clamp(bounds, held.zoom - dy / 500) }))
+          startTransition(() => write({ ...held, zoom: _clamp(bounds, held.zoom - dy / _CANVAS.wheel) }))
         },
       },
       {
@@ -187,7 +187,7 @@ const _rows = {
 - Growth: a new spring temperament is one `springs` row; a new scroll-linked derivation is one `useTransform` fold over the same `useScroll` progress — never a second engine.
 
 ```typescript
-import { AnimatePresence, LayoutGroup, MotionConfig, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, useVelocity } from "motion/react"
+import { useMotionValueEvent, useScroll, useSpring, useTransform } from "motion/react"
 import type { MotionValue, SpringOptions } from "motion/react"
 import { useEffect } from "react"
 
@@ -262,15 +262,16 @@ declare namespace Transition {
     readonly force?: boolean
     readonly spring?: { readonly interrupt: "wait" | "immediate" }
   }
+  type Shape = {
+    readonly run: (commit: () => void, options?: Transition.Options) => Effect.Effect<void>
+  }
 }
 
 const _eligible = (force: boolean): boolean =>
   typeof globalThis.document.startViewTransition === "function"
   && (force || !globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches)
 
-const Transition: {
-  readonly run: (commit: () => void, options?: Transition.Options) => Effect.Effect<void>
-} = {
+const Transition: Transition.Shape = {
   run: (commit, options) =>
     _eligible(options?.force ?? false)
       ? options?.spring === undefined

@@ -20,7 +20,7 @@ The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>
 - Law: the fold is `combineMap`-shaped — an op projects into a contribution and contributions merge under the lawful instance — so insert (`none -> lift`) and update (`some -> combine`) are two arms of one `HashMap.modifyAt` fold and no `get`-then-`set` pair exists.
 - Law: `Fold.Delta<A>` — signed `[value, multiplicity]` rows — is the module-wide delta currency: handles push it, `diff` returns it, and negative rows are retraction vocabulary only the engine lanes honor, because un-merging demands the versioned trace only the engines retain; the pure altitude consumes bare ops and never a delta.
 - Law: `Fold.Change<K, S>` reifies a fold advance — the touched key and its post-state, `Option.none` when the key retracted — the one row shape live views, the feed, and durable projections consume, so every altitude emits identical change vocabulary; the emitted change reads the post-write table exactly once, so the trace and the table cannot disagree.
-- Law: `Fold.run` is one entrypoint over both bounded modalities, discriminated on the input value — an admitted `ReadonlyArray` folds pure to the table, a `Stream` folds on the rail with the same `_absorb` — and `Fold.run(plan)` partially applied is the run argument `merge#LAW_SURFACE`'s `Converge.commutes` consumes, so the replay proof exercises exactly this fold. Unbounded live maintenance is never a `run` modality: it is a `Replay` handle bound to the same plan.
+- Law: `Fold.run` is one entrypoint over both bounded modalities, discriminated on the input value — an admitted `ReadonlyArray` folds pure to the table, a `Stream` folds on the rail with the same `_absorb` — and `(ops) => Fold.run(plan, ops)` is the run argument `merge#LAW_SURFACE`'s `Converge.commutes` consumes, so the replay proof exercises exactly this fold. Unbounded live maintenance is never a `run` modality: it is a `Replay` handle bound to the same plan.
 - Growth: a new fold is one `Fold.plan` row binding an existing or new merge instance; a new consumer altitude binds the plan, never re-declares the fold.
 - Boundary: the durable altitude is the data branch binding these plans over the engine's persistent trace; serving handles over sockets and binding them into view atoms are runtime- and ui-branch concerns.
 - Packages: `@electric-sql/d2mini`, `@electric-sql/d2ts`; `effect` (`Array`, `Chunk`, `Data`, `Duration`, `Effect`, `Either`, `Equal`, `HashMap`, `HashSet`, `Option`, `Order`, `Predicate`, `Record`, `Ref`, `Schema`, `SortedMap`, `Stream`, `Subscribable`, `SubscriptionRef`); `../value/clock.ts` (`Hlc`, `Uncertainty`); `../value/schema.ts` (`Refined`); `./causal.ts` (`Causal`, `Vector`); `./merge.ts` (`Merge`).
@@ -286,7 +286,7 @@ const _memory = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Effect.Effect<Replay.Memo
           (drained) =>
             Effect.zipRight(
               Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
-              Ref.set(wave, Chunk.fromIterable(drained)),
+              Effect.when(Ref.set(wave, Chunk.fromIterable(drained)), () => Array.isNonEmptyReadonlyArray(drained)),
             ),
         ),
       state,

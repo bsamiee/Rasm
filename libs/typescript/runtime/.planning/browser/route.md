@@ -268,7 +268,7 @@ const Router: {
 - Law: passkey ceremonies stay out of this plane — `security/authn/webauthn`'s `Passkeys` owns the `navigator.credentials` invocation and the ui wave owns the option/response POST-back legs; this plane owns only the phase cell those legs drive through the transitions.
 - Receipt: `land` yields the flow's `returnTo` beside the established session so the traversal owner restores the interrupted destination; `csrf` yields the ready `[name, value]` header pair.
 - Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one `FlowFault` reason row.
-- Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials.
+- Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials. Cross-tab MUTUAL EXCLUSION is not this channel's concern — a tab needing an exclusive claim (one refresher elected structurally, one exporter per origin) composes `net/coordinate`'s Web-Locks row; the session channel carries facts, never locks.
 - Packages: `@rasm/ts/security` (`CookieSpec`); `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Encoding`, `FiberHandle`, `Option`, `Order`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `./persist.ts` (`Kv`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript

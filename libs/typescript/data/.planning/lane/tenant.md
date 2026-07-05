@@ -49,9 +49,9 @@ const _locus = (app: AppIdentity.Key, tenancy: Tenancy): _Locus =>
 - Packages: `@effect/sql` (`SqlClient`, `sql.withTransaction`, `sql.onDialectOrElse`); `effect` (`Effect`, `Option`); `@rasm/ts/security` (`TenantScope`, `TENANT_GUC`); `@rasm/ts/core` (`TenantContext`).
 - Entry: every tenant-scoped unit of work composes `within` — the journal's atomic publish, the projection transactions, the fact drain; a statement touching tenant rows outside it reads zero rows under RLS, fail-closed by the policy predicate itself.
 - Growth: a new session coordinate (a shard key, a search-path override) is one `set_config` term inside the transformer — schema pin and tenant already ride the same seam.
-- Law: the ambient form is the default road — the edge binds the request principal once through `TenantScope.bind`, this transformer reads the reference and pins the projected tenant; an unauthenticated principal pins nothing and RLS answers zero rows, so fail-closed needs no branch.
+- Law: the ambient form is the default road — the edge binds the request principal once through `TenantScope.bind`, this transformer reads the reference and pins the projected tenant; an unauthenticated principal pins nothing and RLS answers zero rows because the policy predicate reads `current_setting(name, true)` — the `missing_ok` arm folds an unset GUC to NULL instead of raising, so fail-closed needs no branch and no error path.
 - Law: transaction-local settings are the whole mechanism — `set_config(name, value, true)` because bare `SET LOCAL` cannot bind parameters; the setting dies at transaction end, nested `withTransaction` folds to savepoints beneath it, and no connection-level state survives to poison the shared pool.
-- Law: the GUC name is the imported `TENANT_GUC` anchor — the policy predicate, the transformer, and the security claim projection read one spelling, so a rename lands once at the declaring owner.
+- Law: the GUC name is the imported `TENANT_GUC` anchor — the policy predicate, the transformer, and the security claim projection read one spelling, so a rename lands once at the declaring owner; the relation name `rls` interpolates is page-authored ensure vocabulary collected at Layer construction, so caller input never reaches the DDL text.
 - Law: `within` is dialect-honest — the pg arm pins GUC and search path; the sqlite arm degrades to the bare transaction because file-per-app already isolates, selected through `onDialectOrElse`, never a fork.
 - Boundary: who mints `TenantContext` and how a request carries it is security/edge material arriving through the reference; this page owns the transaction seam and the policy rows.
 
@@ -99,7 +99,7 @@ const _rlsEnsure = (relation: string): string =>
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '${relation}' AND policyname = 'tenant_isolation') THEN
     CREATE POLICY tenant_isolation ON ${relation}
-      USING (tenant = current_setting('${TENANT_GUC}'));
+      USING (tenant = current_setting('${TENANT_GUC}', true));
   END IF;
 END $$;`
 
@@ -123,13 +123,13 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
 - Receipt: the scope's `Capability.Report` is readable through the provided service — startup verification evidence per scope, never a global assumption.
 - Growth: a new tenancy arm is one `$match` arm in `_lookup`; a new verified surface merges its ensure rows into the roster the app root passes; the sqlite profiles publish their own layer rows and never enter this lookup.
 - Law: the shared spine is one adopted pool — `Rls` and `SchemaPerApp` scopes share ONE `pooled` arm body by declaration (their store construction is identical; the tenancy difference is the search-path pin inside `Tenancy.within`), so a diamond of N apps on one database costs one pool; `DatabasePerApp` builds a dedicated `Pg.client` whose database is the scope's locus.
-- Law: verification is construction — `Layer.effectDiscard` runs probing and relation verification inside the lookup, so a Layer returned from `Stores.get` IS the proof the scope is provisioned; `idleTimeToLive` retires an unreferenced scope's resources without touching hot scopes.
+- Law: verification is construction — the `Capability.Default` construction runs probing and relation verification inside the lookup, so a Layer returned from `Stores.get` IS the proof the scope is provisioned; `idleTimeToLive` retires an unreferenced scope's resources without touching hot scopes.
 - Law: the key is the whole coordinate — anything changing which physical subgraph serves the scope is a `ScopeKey` field; anything varying per request (the tenant of a call) stays out and rides `Tenancy.within`.
 - Law: the roster arrives ambiently — `Wiring` is a `Context.Reference` carrying the shared-pool Layer and the collected ensure rows; the app root overrides it once with `Layer.succeed(Wiring, { shared, ensures })`, the lookup reads it through `Layer.unwrapEffect`, and an unwired root builds against the default (dedicated clients, empty roster) instead of failing on a phantom import.
 
 ```typescript
 import { Context, Duration, Layer, LayerMap } from "effect"
-import type { ConfigError } from "effect"
+import type { ConfigError, ParseResult } from "effect"
 import { Capability } from "./capability.ts"
 import { Pg } from "./postgres.ts"
 
@@ -149,12 +149,12 @@ declare namespace Stores {
   type Provided = SqlClient.SqlClient | Capability
 }
 
-const _verified = (ensures: ReadonlyArray<Capability.Ensure>): Layer.Layer<Capability, SqlError.SqlError | Capability.Fault, SqlClient.SqlClient> =>
+const _verified = (ensures: ReadonlyArray<Capability.Ensure>): Layer.Layer<Capability, SqlError.SqlError | ParseResult.ParseError | Capability.Fault, SqlClient.SqlClient> =>
   Capability.Default(Pg.rows, ensures, Pg.core.pg)
 
 const _lookup = (
   scope: ScopeKey,
-): Layer.Layer<Stores.Provided, ConfigError.ConfigError | SqlError.SqlError | Capability.Fault> =>
+): Layer.Layer<Stores.Provided, ConfigError.ConfigError | SqlError.SqlError | ParseResult.ParseError | Capability.Fault> =>
   Layer.unwrapEffect(
     Effect.map(Wiring, (wiring) => {
       const pooled = () => _verified(wiring.ensures).pipe(Layer.provideMerge(wiring.shared))
@@ -175,7 +175,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
     scope: ScopeKey,
     tag: Context.Tag<Self, Shape>,
     build: Effect.Effect<Shape, SqlError.SqlError | Capability.Fault, Stores.Provided>,
-  ): Layer.Layer<Self, ConfigError.ConfigError | SqlError.SqlError | Capability.Fault, Stores> =>
+  ): Layer.Layer<Self, ConfigError.ConfigError | SqlError.SqlError | ParseResult.ParseError | Capability.Fault, Stores> =>
     Layer.effect(tag, build).pipe(Layer.provide(Stores.get(scope)))
 }
 ```
@@ -186,7 +186,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 - Packages: `effect` (`Layer`); the port Tags arrive from `@rasm/ts/security` at the composition root, never imported by the neutral rows.
 - Entry: the app root composes `Stores.port(scope, Tag, build)` per port; the builds are ordinary statement folds over the scope's `SqlClient`, their tables published as ensure rows in the roster.
 - Growth: a new security port is one table ensure plus one `port` composition at the root — the map, the verification, and the isolation dispatch are already settled.
-- Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and ceremonies), `OAuthStateStore` (redirect state), `PublicKeyStore`/`JwksLedger` (verification keys); each is a Tag the security folder declares and a Layer this folder's scopes back.
+- Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and the `SingleUse` ceremony phase), `OAuthStateStore` (the `SingleUse` redirect snapshot), `PublicKeyStore`/`JwksLedger` (verification keys), and the `@effect/experimental` `RateLimiter.RateLimiterStore` (the credential-verify throttle budgets); each is a Tag the security folder declares — the `SingleUse` ports as TTL single-consume contracts a `Cache`/`PersistedCache` row satisfies — and a Layer this folder's scopes back.
 - Law: the per-subject `WrappedKey` persistence that drives crypto-shredding rides `journal/retain.md`'s subject ledger — the security `Shredder` mints and wraps, this folder stores and destroys; destruction is the erasure verb.
 - Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`TENANT_GUC`/`Shredder` values only.
 
