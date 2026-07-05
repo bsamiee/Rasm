@@ -146,7 +146,7 @@ The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `
 |  [04]   | `GetAllSubjectsAsync()`                         | inventory      | every registered subject name                   |
 |  [05]   | `GetSubjectVersionsAsync(subject)`              | inventory      | version list for a subject                      |
 |  [06]   | `ClearCaches()` / `ClearLatestCaches()`         | cache control  | drop the in-process schema / latest-version caches on the long-lived shared client without disposing it |
-|  [07]   | `CreateAssociationAsync(request)` / `GetAssociationsByResourceNameAsync(...)` / `DeleteAssociationsAsync(...)` | governance | the 2.14 resource-association (data-governance lineage) surface, distinct from schema register/lookup |
+|  [07]   | `CreateAssociationAsync(request)` / `GetAssociationsByResourceNameAsync(...)` / `DeleteAssociationsAsync(...)` | governance | the resource-association (data-governance lineage) surface, distinct from schema register/lookup |
 
 [ENTRYPOINT_SCOPE]: schema, id, and rule construction
 - rail: schema-registry control-plane

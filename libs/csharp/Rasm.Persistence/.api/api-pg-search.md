@@ -4,9 +4,8 @@
 a Tantivy-backed BM25 full-text engine providing high-power lexical relevance over a PostgreSQL
 table beside the always-present native `tsvector`/`ts_rank` baseline. It carries no managed assembly:
 every surface is server-side SQL the `Store/server#SEARCH_PROVISIONING` `Bm25Predicate`/`IndexSpec.Bm25`
-fold emits and the `Query/lane#FUSION_AND_CACHE` `FusionRank.Fuse` BM25 branch matches through. The
-0.24.0 line is the v2 `pdb.*` API: it removed the legacy `paradedb.*` namespace — only `pdb.*` builders
-and the bare column operators are emitted, and `paradedb.*` is asserted absent. The extension is
+fold emits and the `Query/lane#FUSION_AND_CACHE` `FusionRank.Fuse` BM25 branch matches through. Only
+the `pdb.*` builders and the bare column operators are emitted; `paradedb.*` is absent. The extension is
 preload-gated (it rides the `ClusterConfig` `shared_preload_libraries` row), runs in-process inside the
 PG18 server tier under its AGPL boundary at the DB deployment, and is never linked into managed code.
 

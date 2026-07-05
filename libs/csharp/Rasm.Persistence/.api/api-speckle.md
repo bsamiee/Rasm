@@ -106,7 +106,7 @@ The in-Rhino plugin assembly never references `Speckle.Sdk` or `Speckle.Objects`
 |  [09]   | `ArcgisObject : DataObject, IGisObject`                                           | host-object      | ArcGIS-sourced data object                           |
 |  [10]   | `NavisworksObject` / `MicrostationObject` / `TsdObject`                           | host-object      | Navisworks / MicroStation / TSD-sourced data objects |
 
-The Speckle 2026.6 model replaces the v2 `Objects.BuiltElements` typed roster (`Wall`/`Beam`/`Column`/`Duct`/`Level`) with the unified `Speckle.Objects.Data` family; no `BuiltElements` namespace and no typed built-element classes exist in 2026.6.0. Built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`); `IDisplayValue<out T>` is the generic display-value contract.
+The model exposes no `BuiltElements` namespace and no typed built-element classes; the unified `Speckle.Objects.Data` family is the sole host-object roster. Built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`); `IDisplayValue<out T>` is the generic display-value contract.
 
 ## [03]-[ENTRYPOINTS]
 

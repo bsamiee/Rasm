@@ -10,9 +10,8 @@ one-shot codec over `ReadOnlySpan<byte>`/`byte[]`/`ArraySegment<byte>` (with `Tr
 strategy, window/hash/chain logs, content-size/checksum/dictID frame flags), trained-
 dictionary support (`LoadDictionary` + `DictBuilder.TrainFromBuffer`/`TrainFromBufferFastCover`),
 and `SetPledgedSrcSize` for known-length single-frame embedding. It is the first-class
-standalone Zstandard snapshot/blob codec — promoted from the Arrow-IPC transitive floor —
-sitting beside `K4os.Compression.LZ4`'s self-describing-frame codec on the `CompressionPolicy`
-axis; distinct from the in-codec compression that `MessagePackCompression.Lz4BlockArray` and
+standalone Zstandard snapshot/blob codec sitting beside `K4os.Compression.LZ4`'s
+self-describing-frame codec on the `CompressionPolicy` axis; distinct from the in-codec compression that `MessagePackCompression.Lz4BlockArray` and
 the Arrow `ICompressionCodecFactory` own, never double-framing them.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -50,8 +49,7 @@ and a `preserveCompressor` knob and supply the async mirror.
 - rail: snapshot-codec
 
 The full advanced tuning surface — not just a level int. `SetParameter(ZSTD_cParameter, int)`
-is the canonical knob; the experimental params (`>=500`) are intentionally omitted from the
-catalog (unstable ABI).
+is the canonical knob; the experimental params (`>=500`) are excluded (unstable ABI).
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]      | [CAPABILITY]                                                                       |
 | :-----: | :---------------- | :------------------ | :--------------------------------------------------------------------------------- |

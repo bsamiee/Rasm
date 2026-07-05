@@ -74,7 +74,7 @@ set per-session or per-transaction, never a build option.
 
 These GUCs are a SEARCH-LANE concern, never a build option — they are `SET LOCAL` per session/
 transaction by the `Query/lane#FUSION_AND_CACHE` binder, distinct from the `WITH (...)` build map the
-the `ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail) owns. A build-time `query_*` knob is the rejected spelling.
+`ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail) owns. A build-time `query_*` knob is the rejected spelling.
 
 ## [05]-[IMPLEMENTATION_LAW]
 
@@ -86,7 +86,7 @@ the `ServerExtension` `CreateSql` (the diskann index DDL through the EF `Migrati
 
 [SEARCH_LANE_STACK]:
 - Transparent route: a `vector(N)` distance query ordered by the catalogued pgvector distance function (`CosineDistance`/`L2Distance`/`MaxInnerProduct`, `api-pgvector-ef.md`) is planner-routed through the diskann index with no query rewrite — the `VectorMetric.Order` `Switch` projects the `ORDER BY` distance `Expression` and the planner picks diskann over the exact scan.
-- Route observability: the `search.vector.route` fact discriminates exact-scan vs HNSW vs IVFFlat vs diskann; the always-present exact-scan brute-force scan stays the correctness baseline so a route degradation is observable. diskann complements, never replaces, RAM-resident HNSW — it scales disk-backed ANN beyond memory.
+- Route observability: the `search.vector.route` fact discriminates exact-scan vs HNSW vs IVFFlat vs diskann; the always-present exact brute-force scan stays the correctness baseline so a route degradation is observable. diskann complements, never replaces, RAM-resident HNSW — it scales disk-backed ANN beyond memory.
 - Hybrid fusion: `FusionRank.Fuse` (`Query/lane#FUSION_AND_CACHE`) composes the diskann vector branch and the `pg_search` BM25 branch (`api-pg-search.md`) in one reciprocal-rank-fusion CTE — `SUM(1.0 / (rrfConstant + rank))` with `rrfConstant=60` — projecting identities (not re-materializing both payloads) and needing no learned reranker. The dense embedding the vector branch probes is generated upstream at `Compute/models#INFERENCE_MODES`.
 
 [RAIL_LAW]:

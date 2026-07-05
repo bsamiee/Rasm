@@ -14,7 +14,7 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 - namespace: `Silk.NET.WebGPU`
 - asset: ships `net5.0`/`netcoreapp3.1`/`netstandard2.0`/`netstandard2.1`; the `net10.0` consumer binds the `net5.0` asset (the public surface is code-generated and TFM-invariant across these, so the decompile is authoritative regardless of which fallback resolves) + native wgpu binaries
 - rail: compute
-- roster: 184 types across 4 namespaces
+- roster: generated surface across 4 namespaces
 - abi: every entrypoint is an `unsafe` instance method on the `WebGPU : NativeAPI` function table; native handles (`Device`/`Queue`/`Buffer`/...) are pointer-wrapped structs released through `XxxRelease`/`XxxDestroy`, never `IDisposable`
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
@@ -24,7 +24,7 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 - namespace: `Silk.NET.WebGPU.Extensions.WGPU`
 - asset: ships `net5.0`/`netcoreapp3.1`/`netstandard2.0`/`netstandard2.1` (consumer binds `net5.0`, surface TFM-invariant); wgpu-native function extensions over the base binding
 - rail: compute
-- roster: 37 types across 3 namespaces
+- roster: wgpu-native extension surface across 3 namespaces
 - root: `Wgpu` — the wgpu-native function table acquired through `GetApi()` over the same shared device; carries the device-tick, submission-index, pipeline-statistics, push-constant, and synchronous-adapter-enumeration entrypoints absent from `webgpu.h`
 
 ## [02]-[PUBLIC_TYPES]

@@ -81,8 +81,8 @@ with `edge = -1` on the last node of each path; MULTI-PATH = PATH `+ path_id int
 
 ## [04]-[DISTANCE_TSP_FLOW]
 
-Driving-distance is a spanning-tree fold; TSP is metric-only and undirected (4.0 dropped the
-simulated-annealing knobs — only `start_id`/`end_id` remain); the flow family routes over
+Driving-distance is a spanning-tree fold; TSP is metric-only and undirected (the signature carries
+only `start_id`/`end_id`, no simulated-annealing knobs); the flow family routes over
 `capacity`/`reverse_capacity` and has no `directed` arg (the graph is directed by construction).
 
 | [INDEX] | [FUNCTION]              | [SIGNATURE]                                                                                  | [OUTPUT]                          |
@@ -102,9 +102,9 @@ simulated-annealing knobs — only `start_id`/`end_id` remain); the flow family 
 ## [05]-[COMPONENTS_TOPOLOGY]
 
 Component/connectivity analysis takes a single basic Edges SQL. The graph/topology builder is
-`pgr_extractVertices` — the 4.0 vertices-table derivation. The pre-4.0 `pgr_createTopology`/
-`pgr_createVerticesTable`/`pgr_analyzeGraph`/`pgr_analyzeOneWay`/`pgr_nodeNetwork` family is the removed
-phantom spelling (deleted in 4.0.0); `pgr_extractVertices` is the replacement.
+`pgr_extractVertices`. The `pgr_createTopology`/`pgr_createVerticesTable`/`pgr_analyzeGraph`/
+`pgr_analyzeOneWay`/`pgr_nodeNetwork` family is a removed phantom spelling; `pgr_extractVertices` is
+the replacement.
 
 | [INDEX] | [FUNCTION]                  | [SIGNATURE]                                       | [OUTPUT]                                     |
 | :-----: | :-------------------------- | :----------------------------------------------- | :------------------------------------------ |

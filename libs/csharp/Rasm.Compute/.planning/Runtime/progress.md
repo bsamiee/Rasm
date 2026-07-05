@@ -2,7 +2,7 @@
 
 Rasm.Compute observation is one monotonic `ProgressPhase` family, one Atom-backed `ProgressCell` capsule committing zero-alloc `ProgressMark` structs under a CAS rank guard, one `SubscriptionPolicy` cadence axis gating observer delivery on interval, fraction, and segment thresholds, and one seam fold projecting the identical family onto AppUi presentation, the wire, and an aggregate parent cell that rolls a child set into one monotonic mark.
 The page owns the phase vocabulary with its rank, terminal, and bottleneck-resolve columns, the subscription gate with observer-declared coalescing, the read-side throughput and ETA derivations, the aggregate roll-up fold, the observation seams, and the progress wire shape.
-Correlation identity, cancellation provenance, the clock pair, the scheduler marshal delegate, and the `PhaseSubscription` LIFO detacher composite arrive settled from the AppHost spine; the shipped `ComparerAccessors.StringOrdinal` accessor and the `AdmittedIntent` progress option arrive settled from `Runtime/admission`; all compose as given.
+Correlation identity, cancellation provenance, the clock pair, the scheduler marshal delegate, and the `PhaseSubscription` LIFO detacher composite arrive settled from the AppHost spine; the `ComparerAccessors.StringOrdinal` accessor and the `AdmittedIntent` progress option arrive settled from `Runtime/admission`; all compose as given.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ Correlation identity, cancellation provenance, the clock pair, the scheduler mar
 
 ## [02]-[PHASE_FAMILY]
 
-- Owner: `ProgressPhase` `[SmartEnum<string>]` nine rows under the shipped `ComparerAccessors.StringOrdinal` accessor, carrying the monotonic rank column, the terminal column, the terminal-precedence `Dominance` column, and the `Resolve` bottleneck fold the aggregate cell reads.
+- Owner: `ProgressPhase` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor, carrying the monotonic rank column, the terminal column, the terminal-precedence `Dominance` column, and the `Resolve` bottleneck fold the aggregate cell reads.
 - Cases: queued, selected, staged, running, streaming, finalizing, completed, faulted, cancelled.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one phase row with its rank and terminal column values; zero new surface.

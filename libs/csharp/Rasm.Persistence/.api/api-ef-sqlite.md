@@ -77,7 +77,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 |  [04]   | `ISaveChangesInterceptor` / `SaveChangesInterceptor` | `…Diagnostics` (core) | save-pipeline interceptor contract + base class (`SavingChanges(Async)`/`SavedChanges(Async)`) |
 |  [05]   | `IDbCommandInterceptor` / `DbCommandInterceptor` | `…Diagnostics` (relational) | command interceptor contract + base class (`ReaderExecuting(Async)`/`NonQueryExecuted` etc.) |
 |  [06]   | `IDbConnectionInterceptor` / `DbConnectionInterceptor` | `…Diagnostics` (relational) | connection interceptor contract + base class |
-|  [07]   | `IDbTransactionInterceptor` / `DbTransactionInterceptor` | `…Diagnostics` (relational) | transaction interceptor contract + base class (one capsule may implement all four) |
+|  [07]   | `IDbTransactionInterceptor` / `DbTransactionInterceptor` | `…Diagnostics` (relational) | transaction interceptor contract + base class (one capsule can implement all four) |
 |  [08]   | `ModelConfigurationBuilder`       | `Microsoft.EntityFrameworkCore`                | the `ConfigureConventions` surface; `Conventions`, `Properties<T>`, `DefaultTypeMapping<T>`, `IgnoreAny<T>` |
 |  [09]   | `IMigrator`                       | `…Migrations`                                   | migration driver; `GenerateScript`, `MigrateAsync` |
 |  [10]   | `MigrationBuilder`                | `…Migrations`                                   | imperative op builder; `Sql(string, suppressTransaction)`, `ActiveProvider` |

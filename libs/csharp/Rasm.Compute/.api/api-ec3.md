@@ -54,7 +54,7 @@ documented for completeness and never called from Compute.
 
 [ENDPOINT_SCOPE]: publisher write surface (NOT consumed by Compute — documented for completeness)
 - rail: embodied-carbon
-- note: these require READ WRITE token scope and EPD-Creator permission. Rasm is a carbon consumer, never a declaration publisher, so the client exposes none of these; listing them prevents a future agent re-deriving the surface.
+- note: these require READ WRITE token scope and EPD-Creator permission. Rasm is a carbon consumer, never a declaration publisher, so the client exposes none of these.
 
 | [INDEX] | [METHOD + PATH]                          | [BODY]            | [NOTE]                                                          |
 | :-----: | :--------------------------------------- | :---------------- | :------------------------------------------------------------- |

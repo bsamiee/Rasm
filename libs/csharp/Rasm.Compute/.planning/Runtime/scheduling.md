@@ -12,7 +12,7 @@ Rasm.Compute schedules every admitted intent through five bounded `WorkLane` cha
 
 ## [02]-[LANE_AXIS]
 
-- Owner: `WorkLane` `[SmartEnum<string>]` five rows under the `ComparerAccessors.StringOrdinal` accessor; `LaneHandle` readback handle; `WorkItem` channel element.
+- Owner: `WorkLane` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `LaneHandle` readback handle; `WorkItem` channel element.
 - Cases: interactive, background, bulk, benchmark, capture-ingest.
 - Entry: `public BoundedChannelOptions Options(CpuBudget budget)` — pure row projection; capacity, full-mode, and reader fan-out are row data, never call-site arguments.
 - Auto: cadence-driven work (compute-model-warmup, scheduled equivalence sweeps) enters as `ScheduleEntry` rows whose `Work` delegate enqueues onto its declared lane — the schedule port owns when, lanes own throughput; receipted-loss rows construct their channel with the drop delegate so every drop lands as a `Backpressure` receipt carrying the dropped item's correlation, never a silent loss; the queue-depth slot reads `ChannelReader<WorkItem>.Count` on the lane's reader at stamp time, never a hand-tracked counter.

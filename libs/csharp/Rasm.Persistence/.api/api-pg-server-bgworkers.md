@@ -14,8 +14,7 @@ PRELOAD SPLIT (verified against `ClusterConfig.Rows`): the `shared_preload_libra
 and verify through the `Store/profiles#PROVISIONING_ROWS` `PreloadProbe`; only `pg_jsonschema` is
 NOT preloaded — it registers its `json_matches_schema`/`jsonb_matches_schema` functions via
 `CREATE EXTENSION` and carries a `Json.Schema.JsonSchema.Evaluate` (JsonSchema.Net) in-process
-fallback when the deploy image lacks the pgrx-compiled extension. The note that "pg_jsonschema and
-pgaudit register through type/preload" is wrong: pgaudit is preloaded, not function-registered. The
+fallback when the deploy image lacks the pgrx-compiled extension. The
 rostered `pg_net` is preload-gated too — its `libcurl` worker is statically `RegisterBackgroundWorker`'d
 in `_PG_init`, so it rides the same `shared_preload_libraries` value (hard-erroring on `CREATE EXTENSION`
 without it); its full SQL surface is catalogued in `api-pg-net.md`, not here.
@@ -99,7 +98,7 @@ Server-side JSON Schema validation. NOT preloaded — `CREATE EXTENSION pg_jsons
 |  [02]   | `json_matches_schema`     | `json_matches_schema('<schema>'::json, doc)`  | validate a `json` document; → `bool` for `CHECK`  |
 |  [03]   | `jsonschema_is_valid`     | `jsonschema_is_valid('<schema>'::json)`       | validate that the schema itself is well-formed |
 
-Consumer + fallback stack: the document lane declares one `ServerExtension` `CreateSql` over (Table, Column,
+Consumer + fallback stack: the document lane declares one `ServerExtension` `CreateSql` over `(Table, Column,
 Constraint, Schema)` (`Store/provisioning#SERVER_EXTENSIONS`) whose `Sql` emits `ALTER TABLE … ADD CONSTRAINT …
 CHECK (jsonb_matches_schema('<schema>', <column>))`, so a declared-shape document is rejected at
 WRITE (`Query/lanes#DOCUMENT_LANE`). Because this is the one non-preloaded companion, the
@@ -148,11 +147,11 @@ runtime only verifies the GUC.
 
 [BGWORKER_TOPOLOGY]:
 - Five extensions, two registration modes: four preload-gated (`pg_cron`, `pg_partman_bgw`, `pg_squeeze`, `pgaudit` — verified via `ClusterConfig`/`PreloadProbe`) and one function-registered (`pg_jsonschema` — `CREATE EXTENSION`, with the JsonSchema.Net in-process fallback).
-- None carries a managed assembly or a first-party EF translator: every surface lands through `MigrationBuilder.Sql` (the `ServerExtension` `CreateSql` install SQL (committed through the EF `MigrationBuilder.Sql` rail), raw GUC SET for pgaudit) or a `cron`/`squeeze` registry `INSERT`. `CreatePostgresExtensionOperation` is the deleted phantom spelling; preload-gated `CREATE EXTENSION` rides the EF `MigrationBuilder.Sql` rail because `HasPostgresExtension` cannot encode the `shared_preload_libraries` prerequisite.
+- None carries a managed assembly or a first-party EF translator: every surface lands through the EF `MigrationBuilder.Sql` rail (the `ServerExtension` `CreateSql` install SQL, raw GUC SET for pgaudit) or a `cron`/`squeeze` registry `INSERT`. `CreatePostgresExtensionOperation` is a phantom spelling; preload-gated `CREATE EXTENSION` rides the EF `MigrationBuilder.Sql` rail because `HasPostgresExtension` cannot encode the `shared_preload_libraries` prerequisite.
 - Cadence ownership is partitioned and non-overlapping: TimescaleDB native `add_*_policy` bgworkers own continuous-aggregate/retention/columnstore cadence; `pg_partman_bgw` owns partition rotation; `pg_squeeze` owns bloat-reclaim cadence via its `squeeze.tables.schedule` column; `pg_cron` owns only server-local jobs the AppHost schedule port must not own. The process-side `persistence-maintenance` schedule owns `ANALYZE`/`REINDEX`. No two own the same job.
 
 [RAIL_LAW]:
 - Packages: `pg_cron` / `pg_partman` / `pg_squeeze` / `pg_jsonschema` / `pgaudit` (server-side, in the deploy-image PG18)
 - Owns: server-tier scheduled maintenance, declarative partitioning, online bloat reclaim, server-side document validation, and audit logging — all as server-side SQL the managed code verifies/emits, never links
 - Accept: `cron.schedule_in_database` for server-local cadence, `partman.create_parent`/`part_config` for partition lifecycle, `squeeze.tables` registry rows for scheduled reclaim, `jsonb_matches_schema` inside a `ServerExtension` `CreateSql` (with JsonSchema.Net fallback), `pgaudit.log` GUC bound per the audit-binding classification table
-- Reject: a hand-rolled partition-rotation or bloat-reclaim job, an out-of-DB `pg_repack`/audit-pipeline client, a runtime `ALTER SYSTEM` to set a preload (preloads are deploy-time `postgresql.conf`, verified not executed), the wrong claim that pgaudit is function-registered (it is preloaded), a second document validator beside `pg_jsonschema`+JsonSchema.Net
+- Reject: a hand-rolled partition-rotation or bloat-reclaim job, an out-of-DB `pg_repack`/audit-pipeline client, a runtime `ALTER SYSTEM` to set a preload (preloads are deploy-time `postgresql.conf`, verified not executed), treating `pgaudit` as function-registered rather than preloaded, a second document validator beside `pg_jsonschema`+JsonSchema.Net

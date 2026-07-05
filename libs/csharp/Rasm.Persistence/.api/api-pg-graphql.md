@@ -76,7 +76,7 @@ payload commonly contains quotes.
 | :-----: | :-------------------- | :--------------------------------- | :-------------------------------------------------------------------- |
 |  [01]   | `inflect_names`       | schema                             | `comment on schema s is e'@graphql({"inflect_names": true})'`         |
 |  [02]   | `max_rows`            | schema / table / view              | `e'@graphql({"max_rows": 100})'` (default 30; cascades to parent)      |
-|  [03]   | `introspection`       | schema                             | `e'@graphql({"introspection": true})'` (default off since 1.6.0)      |
+|  [03]   | `introspection`       | schema                             | `e'@graphql({"introspection": true})'` (default off)                 |
 |  [04]   | `name`                | table / column / function          | `e'@graphql({"name": "AccountHolder"})'` — rename the type/field      |
 |  [05]   | `description`         | table / column / function          | `e'@graphql({"description": "..."})'`                                  |
 |  [06]   | `totalCount`          | table                              | `e'@graphql({"totalCount": {"enabled": true}})'`                       |

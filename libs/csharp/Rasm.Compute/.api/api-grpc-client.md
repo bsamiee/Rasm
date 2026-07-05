@@ -360,7 +360,7 @@ All config types are `sealed class : ConfigObject` (a JSON-shaped `IDictionary<s
 - rail: remote-client#BALANCER (advanced — see admission)
 - consumer: `remote-lane#CALL_SPINE`
 
-This is the custom name-resolution / client-side load-balancing extension surface. The Compute remote-lane to a known AppHost endpoint deliberately bypasses it: it dials one warm `GrpcChannel` per endpoint, sets `DisableResolverServiceConfig = true`, and never sets `ServiceConfig` (the AppHost keyed pipeline owns hop retry). `StaticResolverFactory` is the only row a fixed-endpoint client would realistically inject (DNS-free static address set); the custom `LoadBalancer`/`SubchannelPicker` path is full-surface completeness, not a Compute hot path.
+This is the custom name-resolution / client-side load-balancing extension surface. The Compute remote-lane to a known AppHost endpoint deliberately bypasses it: it dials one warm `GrpcChannel` per endpoint, sets `DisableResolverServiceConfig = true`, and never sets `ServiceConfig` (the AppHost keyed pipeline owns hop retry). `StaticResolverFactory` is the only row a fixed-endpoint client injects (DNS-free static address set); the custom `LoadBalancer`/`SubchannelPicker` path is full-surface completeness, not a Compute hot path.
 
 | [INDEX] | [MEMBER]                          | [SIGNATURE]                                                                              |
 | :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------- |

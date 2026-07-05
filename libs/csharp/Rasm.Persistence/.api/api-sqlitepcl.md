@@ -107,7 +107,7 @@ int sqlite3_enable_load_extension(sqlite3 db, int onoff)
 int sqlite3_load_extension(sqlite3 db, utf8z file, utf8z proc, out utf8z errmsg)
 ```
 
-[RAW_CONSTANTS]: decompile-verified `SQLitePCL.raw` integer constants (`SQLitePCLRaw.core` carries 242 `SQLITE_*` consts)
+[RAW_CONSTANTS]: decompile-verified `SQLitePCL.raw` integer constants (the load-bearing subset of the `SQLitePCLRaw.core` `SQLITE_*` set)
 - rail: store-provider
 
 | [INDEX] | [CONSTANT]                              | [VALUE] | [CAPABILITY]                |

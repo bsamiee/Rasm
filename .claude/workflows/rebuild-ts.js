@@ -98,7 +98,8 @@ const MANDATE = 'CAMPAIGN LAW - THE ULTRA REBUILD. Every fence in libs/typescrip
   'origins - a complex cloud project needs zero new plumbing. ' +
   '(9) UI READY FOR THE MOST ADVANCED, BEAUTIFUL WEB APPS - the system/view/viewer owners internalize interaction, ' +
   'motion, intl, data-grid, forms, overlays, spatial rendering at full depth with the atom bridge as the one ' +
-  'graph seam. ' +
+  'graph seam; the React CANARY channel is admitted - bleeding-edge capability (View Transitions included) ' +
+  'integrates on merit, never rejected for channel alone. ' +
   '(10) IAC AS A WORLD-CLASS PRODUCT OF ITS OWN - two-to-three-times the depth of a full app: bootstrap, ' +
   'single-tenant, multi-tenant, K8s and non-K8s, provisioning, secrets, observability stacks, policy, drift - ' +
   'deployment of anything becomes a breeze, intelligent and resilient. ' +
@@ -123,6 +124,18 @@ const READ_FIRST = 'READ FIRST, IN ORDER, AT SOURCE, BEFORE ANY EDIT. (1) DOCTRI
   'unverifiable against the catalogs or node_modules declarations is a phantom to delete. ' +
   '(3) AUTHORING LAW - libs/.planning/README.md (page grammar, card law, banned hedges) and docs/standards/' +
   'style-guide.md.'
+
+const PAGE_CRAFT = 'PAGE CRAFT - design pages are DESIGN DOCUMENTS under libs/.planning/README.md [03], never ' +
+  'doctrine shards; the gold structural exemplar is the libs/csharp/Rasm page corpus - read two of its pages cold ' +
+  'before editing any page and match that altitude. A page is one declarative lead, a cluster index, per-cluster ' +
+  'cards whose lines are EARNED (owner, packages, growth, boundary - only where each decides something), and then ' +
+  'ONE dominant transcription-complete fence per cluster carrying FULL implementation-ready code: real bodies, ' +
+  'complete logic, copy-ready - never signatures alone, never logic broken across mini fences, never a fence ' +
+  'minted for a wrapper or a low-value type. BANNED ON SIGHT and smashed where found: doctrine-style ' +
+  'Law:/Use:/Accept:/Reject: line spam mirroring the docs/stacks prose construction (that grammar belongs to the ' +
+  'doctrine corpus, not to design pages), template card fields filled with nothing to decide, prose restating what ' +
+  'the fence already states, and fence fragmentation that turns one owner into snippet confetti. The fence mass ' +
+  'dominates the page; the prose is short, structural, and load-bearing.'
 
 const STANCE = 'STANCE - every pass is hostile. Hold every fence naive, shallow, or illusory until it survives a ' +
   'real attack; most confident-looking code is naive JavaScript-in-TypeScript dressed in the right vocabulary. ' +
@@ -269,7 +282,7 @@ const toolImprovePrompt = () => [CONTEXT, MANDATE, READ_FIRST, WRITE_FULLY,
   'the fix-log with collapsed and extended stated concretely.',
 ].join('\n\n')
 
-const improvePrompt = (folder) => [CONTEXT, MANDATE, READ_FIRST, WRITE_FULLY,
+const improvePrompt = (folder) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, WRITE_FULLY,
   'TASK: ULTRA-AGGRESSIVE IMPROVE of ' + ROOT + '/' + folder + ' IN PLACE - the whole folder, every page. Your two ' +
   'evidence dossiers are ' + SCRATCH + '/stack-' + folder + '.md (execute its per-page integration map) and ' +
   SCRATCH + '/audit-' + folder + '.md (close every finding); both are FLOORS you hunt past, never ceilings. ' +
@@ -285,20 +298,22 @@ const improvePrompt = (folder) => [CONTEXT, MANDATE, READ_FIRST, WRITE_FULLY,
 
 const scopeOf = (key) => key === 'tooling' ? TOOLING : ROOT + '/' + key
 
-const critiquePrompt = (key, improve) => [CONTEXT, MANDATE, READ_FIRST, STANCE, WRITE_FULLY,
+const critiquePrompt = (key, improve) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, STANCE, WRITE_FULLY,
   'TASK: CRITIQUE - your role law is libs/.planning/campaign-method.md [04] CRITIQUE, read at source and held to ' +
   'the letter: the mechanical line-by-line doctrinal-conformance and capability-completeness audit of ' +
   scopeOf(key) + ', every hit a fix made now, checklists as a FLOOR. Dimensions: COLLAPSE_SCAN (README [03] table); ' +
   'OWNER_CHOOSER shape re-derivation with loose type/const spam as the prime target under the one-fifth shape ' +
   'budget; KNOB_TEST + MODAL_ARITY (one entrypoint per modality, Function.dual, overload sets); INJECTION ' +
   '(capability only through Tag/Service/Layer/Reference); RAILS + ASPECTS at their owning pages; STRINGY/FRAGILE ' +
-  '(zero any/as/!, vocabulary-derived literals, branded fields); EXTENSION-IN-PLACE - the audit is not code polish ' +
+  '(zero any/as/!, vocabulary-derived literals, branded fields); PAGE_CRAFT - the design-doc structure law above is ' +
+  'an audit dimension: doctrine-mirroring Law-line spam, signature-only fences, and fence fragmentation are smashed ' +
+  'into the Rasm-exemplar shape with full-bodied dominant fences; EXTENSION-IN-PLACE - the audit is not code polish ' +
   'alone: where the improver under-extended a mandate emphasis (machines, pubsub, streaming, resilience, SQL depth, ' +
   'filesystem/cloud, telemetry hooks, UI, IaC), you extend it now; CAPABILITY + ILLUSION with the five-times-demand ' +
   'test. IMPROVER RESULT (verify on disk, never trust): ' + JSON.stringify(improve || {}) + ' Return the fix-log.',
 ].join('\n\n')
 
-const redteamPrompt = (key, crit) => [CONTEXT, MANDATE, READ_FIRST, STANCE, WRITE_FULLY,
+const redteamPrompt = (key, crit) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, STANCE, WRITE_FULLY,
   'TASK: RED-TEAM - your role law is libs/.planning/campaign-method.md [04] RED-TEAM, read at source and held to ' +
   'the letter: the terminal, most aggressive pass over ' + scopeOf(key) + '; every defect repaired in ' +
   'place; the scope ends objectively DENSER and MORE CAPABLE than the critique left it. ' +
@@ -314,7 +329,7 @@ const redteamPrompt = (key, crit) => [CONTEXT, MANDATE, READ_FIRST, STANCE, WRIT
   JSON.stringify(crit || {}) + ' Return the fix-log.',
 ].join('\n\n')
 
-const alignPrompt = (laneResults) => [CONTEXT, MANDATE, READ_FIRST, WRITE_FULLY,
+const alignPrompt = (laneResults) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, WRITE_FULLY,
   'TASK: TERMINAL ALIGN - ONE pass over ALL of ' + ROOT + ' with whole-repository write authority; you are also ' +
   'the serialized writer for pnpm-workspace.yaml and the branch .planning docs. Read every folder in full. FIX: ' +
   'broken cross-folder chains, partially implemented functionality, naive residue the lanes missed, incorrect or ' +

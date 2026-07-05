@@ -55,7 +55,7 @@ distributed caching over the same multiplexer.
 |  [21]   | `ChannelMessage`         | message value        | one `(Channel, Message)` queue item         |
 |  [22]   | `StreamEntry`            | stream entry         | one `(Id, NameValueEntry[])` log record     |
 |  [23]   | `StreamPosition`         | stream cursor        | `(Key, Position)` multi-stream read cursor; static `Beginning` (`0-0`) / `NewMessages` (`$`) sentinels seed `StreamReadGroup`/`StreamCreateConsumerGroup` |
-|  [24]   | `StreamIdempotentId`     | idempotent id        | 3.x dedup id for at-most-once `StreamAdd`   |
+|  [24]   | `StreamIdempotentId`     | idempotent id        | dedup id for at-most-once `StreamAdd`       |
 |  [25]   | `StreamTrimMode`         | trim policy enum     | `KeepReferences`/`DeleteReferences`/`Acknowledged` |
 |  [26]   | `NameValueEntry`         | stream field pair    | field-value pair for stream records         |
 |  [27]   | `BacklogPolicy`          | backlog policy       | command-backlog behavior while disconnected |
@@ -120,7 +120,7 @@ The Redis Stream is the at-least-once durable log that COMPLEMENTS the best-effo
 | [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]   | [CAPABILITY]                                                            |
 | :-----: | :--------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------- |
 |  [01]   | `StreamAdd(key, pairs, messageId?, maxLength?, …, trimMode, flags?)`   | stream write     | XADD with `StreamTrimMode` capped trim; returns the assigned entry id  |
-|  [02]   | `StreamAdd(key, field, value, StreamIdempotentId, …)`                  | idempotent write | 3.x at-most-once XADD keyed on `StreamIdempotentId`                     |
+|  [02]   | `StreamAdd(key, field, value, StreamIdempotentId, …)`                  | idempotent write | at-most-once XADD keyed on `StreamIdempotentId`                         |
 |  [03]   | `StreamRead(StreamPosition[], countPerStream?, flags?)`               | fan-in read      | multi-stream XREAD from explicit `(key, position)` cursors             |
 |  [04]   | `StreamReadGroup(key, group, consumer, position?, count?, noAck?, claimMinIdleTime?, flags?)` | group drain | XREADGROUP cursor-replay with idle-claim takeover                      |
 |  [05]   | `StreamAcknowledge(key, group, messageIds, flags?)`                   | commit           | XACK the processed entries so the group cursor advances                |
@@ -169,7 +169,7 @@ The Redis Stream is the at-least-once durable log that COMPLEMENTS the best-effo
 |  [02]   | `IServer.ConfigGet("notify-keyspace-events")`                          | config read     | reads the active notification flag set                                                                                                                  |
 |  [03]   | `RedisChannel.KeySpacePattern(key, database?)`                         | typed factory   | builds the `__keyspace@<db>__:<key>` notification channel — the typed replacement for a hand-built `RedisChannel.Pattern("__keyspace@*__:*")` string     |
 |  [04]   | `RedisChannel.KeySpacePrefix(prefix, database?)`                       | typed factory   | the prefix form (`appendStar`) for `__keyspace@<db>__:<prefix>*` fan-in                                                                                  |
-|  [05]   | `RedisChannel.Pattern("__keyevent@*__:*")`                             | pattern factory | the keyEVENT channel has no dedicated typed factory in 3.0.0 — it rides `RedisChannel.Pattern`/`Literal`                                                  |
+|  [05]   | `RedisChannel.Pattern("__keyevent@*__:*")`                             | pattern factory | the keyEVENT channel has no dedicated typed factory — it rides `RedisChannel.Pattern`/`Literal`                                                          |
 |  [06]   | `ISubscriber.SubscribeAsync(channel)`                                  | async subscribe | returns the `ChannelMessageQueue` of the subscribed keyspace/keyevent channel                                                                            |
 |  [07]   | `ChannelMessageQueue : IAsyncEnumerable<ChannelMessage>`               | async enumerate | the queue IS the async stream — `await foreach (var m in queue.WithCancellation(token))`; also `ReadAsync(token)`/`TryRead(out m)`/`OnMessage(handler)`/`Completion` |
 
@@ -199,7 +199,7 @@ The Redis Stream is the at-least-once durable log that COMPLEMENTS the best-effo
 - `When` enum: `Always`, `Exists`, `NotExists` for conditional SET; `ExpireWhen` (`GreaterThanCurrentExpiry`/`LessThanCurrentExpiry`/`HasExpiry`/`HasNoExpiry`) gates conditional TTL (GT/LT/NX/XX); `SortedSetWhen` (`GreaterThan`/`LessThan`/`Exists`/`NotExists`, `[Flags]`) gates conditional ZADD
 - `CommandFlags.FireAndForget` skips response waiting; `CommandFlags.PreferReplica` routes reads to replicas; `ScriptEvaluateReadOnly`/`FCALL_RO` are the read-only eval forms eligible for that replica routing
 - `RedisValue` is a stack-allocated struct covering `null`, `int64`, `uint64`, `double`, `string`, `byte[]`, and `ReadOnlyMemory<byte>`
-- 3.x `ConfigurationOptions`: `Protocol` (`RedisProtocol?`, RESP2/RESP3), `HighIntegrity` (per-command integrity checksums), `HeartbeatConsistencyChecks`, `BacklogPolicy` (queued-command behavior while disconnected), `ReconnectRetryPolicy` (`IReconnectRetryPolicy` backoff), `LoggerFactory` (`ILoggerFactory?` — routes multiplexer diagnostics into the AppHost `telemetry` logging spine), `ChannelPrefix`, `SslProtocols`, `SslClientAuthenticationOptions`, `DefaultDatabase`, `ClientName`
+- `ConfigurationOptions`: `Protocol` (`RedisProtocol?`, RESP2/RESP3), `HighIntegrity` (per-command integrity checksums), `HeartbeatConsistencyChecks`, `BacklogPolicy` (queued-command behavior while disconnected), `ReconnectRetryPolicy` (`IReconnectRetryPolicy` backoff), `LoggerFactory` (`ILoggerFactory?` — routes multiplexer diagnostics into the AppHost `telemetry` logging spine), `ChannelPrefix`, `SslProtocols`, `SslClientAuthenticationOptions`, `DefaultDatabase`, `ClientName`
 
 [RESP3_CLIENT_SIDE_CACHING]:
 - `ConfigurationOptions.Protocol = RedisProtocol.Resp3` negotiates RESP3 at `HELLO`; the negotiated value reads back per-server on `IServer.Protocol` (`ConnectionMultiplexer` carries no `Protocol` member — obtain a server via `GetServer` to read the active protocol).
@@ -208,7 +208,7 @@ The Redis Stream is the at-least-once durable log that COMPLEMENTS the best-effo
 
 [KEYSPACE_NOTIFICATION]:
 - `notify-keyspace-events` is OFF by default; `IServer.ConfigSet("notify-keyspace-events", "KEA")` arms keyspace (`K`), keyevent (`E`), and all classes (`A`); the flag is connection-instance runtime state, never persisted by a Rasm process.
-- `__keyevent@<db>__:<event>` carries the affected key as the message and `__keyspace@<db>__:<key>` carries the event name; build the KEYSPACE channel with the TYPED `RedisChannel.KeySpacePattern(key, db)` / `RedisChannel.KeySpacePrefix(prefix, db)` factories (not a hand-spelled `RedisChannel.Pattern("__keyspace@*__:*")` string), while the KEYEVENT channel still rides `RedisChannel.Pattern("__keyevent@*__:*")` (no dedicated typed factory in 3.0.0); subscribe through `ISubscriber.SubscribeAsync` and drain the returned `ChannelMessageQueue` — the queue IS `IAsyncEnumerable<ChannelMessage>`, so `await foreach (var m in queue.WithCancellation(token))` is the backpressure-safe drain, never a non-existent `ReadAllAsync` member.
+- `__keyevent@<db>__:<event>` carries the affected key as the message and `__keyspace@<db>__:<key>` carries the event name; build the KEYSPACE channel with the TYPED `RedisChannel.KeySpacePattern(key, db)` / `RedisChannel.KeySpacePrefix(prefix, db)` factories (not a hand-spelled `RedisChannel.Pattern("__keyspace@*__:*")` string), while the KEYEVENT channel still rides `RedisChannel.Pattern("__keyevent@*__:*")` (no dedicated typed factory); subscribe through `ISubscriber.SubscribeAsync` and drain the returned `ChannelMessageQueue` — the queue IS `IAsyncEnumerable<ChannelMessage>`, so `await foreach (var m in queue.WithCancellation(token))` is the backpressure-safe drain, never a non-existent `ReadAllAsync` member.
 - Keyspace notifications are best-effort fire-and-forget — a disconnected subscriber misses events, so the push path REFINES (feeds a low-latency hint to) the Redis Stream consumer-group replay (`StreamReadGroup` + `StreamAcknowledge`), which is the at-least-once cursor of record; the notification never replaces the stream cursor.
 
 [LUA_AND_FUNCTIONS]:

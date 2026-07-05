@@ -72,7 +72,7 @@ Render/pipeline   ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION
 Render            ←  csharp:Rasm/Drawing/view                    # [PROJECTION]: DrawingProjection / drafting-sheet layout
 Render            ←  csharp:Rasm/Processing/flatten              # [PROJECTION]: ChartAtlas / texture UV channel
 Render/reality    ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: SplatPayload / PointPayload decode
-Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam BSP visibility solver
+Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam over the kernel DrawingProjection analytic HLR
 Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
 Render/pathtrace  ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
 Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain

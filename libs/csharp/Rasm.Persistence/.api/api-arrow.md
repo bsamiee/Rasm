@@ -13,7 +13,7 @@ over gRPC. `Apache.Arrow.Compression` supplies the concrete `Apache.Arrow.Ipc.IC
 
 ABI floor (consumer `net10.0`, `Directory.Packages.props`): `Apache.Arrow`, `Apache.Arrow.Flight`,
 and `Apache.Arrow.Compression` all ride the same `23.0.0` line; `Apache.Arrow.Adbc` is on its own `0.23.0`
-line, so the ADBC surface is a pre-1.0 contract whose abstract-method set may break across minor
+line, so the ADBC surface is a pre-1.0 contract whose abstract-method set can break across minor
 bumps. The bound asset is `lib/net8.0` (no `net10.0` asset ships; net8.0 is the highest TFM and
 the consumed surface). All four packages are Apache-2.0. The `Apache.Arrow.Compression` closure is
 pure-managed AnyCPU with no native RID asset: its transitives `K4os.Compression.LZ4.Streams` `1.3.8`

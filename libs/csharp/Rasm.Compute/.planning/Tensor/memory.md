@@ -4,13 +4,13 @@ Every payload that crosses Rasm.Compute between intent admission and the IO edge
 
 ## [01]-[INDEX]
 
-- [01]-[ALLOCATION_AXIS]: six-row staging axis (incl. device-wgpu GPU buffer); `Admits` predicate; `Grant` rail with the typed allocation fault; `StagingEventKind` evidence taxonomy; `AllocationEvidence` slot/kind fact; bit-mask/grow/tokenize views.
+- [01]-[ALLOCATION_AXIS]: staging axis (incl. device-wgpu GPU buffer); `Admits` predicate; `Grant` rail with the typed allocation fault; `StagingEventKind` evidence taxonomy; `AllocationEvidence` slot/kind fact; bit-mask/grow/tokenize views.
 - [02]-[PLANE_VIEWS]: bare plane projections; row/axis kernels; contiguity probe; reinterpretation law; layout split.
 - [03]-[STREAM_POOL]: one pooled stream manager; policy record; eleven-event evidence fold; zero-copy contiguous and segment handoff.
 
 ## [02]-[ALLOCATION_AXIS]
 
-- Owner: `AllocationClass` `[SmartEnum<string>]` six rows under the `ComparerAccessors.StringOrdinal` accessor; `StagingEventKind` `[SmartEnum<string>]` the twelve-row evidence taxonomy with the `Diagnostic` column; `AllocationEvidence` the slot/kind fact record every grant and every pool event stamps.
+- Owner: `AllocationClass` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `StagingEventKind` `[SmartEnum<string>]` the evidence taxonomy with the `Diagnostic` column; `AllocationEvidence` the slot/kind fact record every grant and every pool event stamps.
 - Cases: `SpanStack`, `PooledMemory`, `RecyclableStream`, `NativeOrt`, `EdgeCopy`, `DeviceWgpu` (the `Tensor/dispatch#DEVICE_KERNELS` GPU storage/staging buffer over the shared `ONE_WGPU_DEVICE`, `copyReceipted` because a device readback crosses the host boundary).
 - Entry: `Fin<AllocationEvidence> Grant(CorrelationId correlation, long requestedBytes, long payloadBound, bool async = false, Option<string> copyReason = default, Option<string> nativeAllocator = default, Option<long> nativeReservedBytes = default)` — `Grant` evaluates `Admits` once and either stamps the `StagingEventKind.Grant` evidence or folds the typed `ComputeFault.AllocationOverClass` carrying the precise rejection (`over-bound` | `sync-only-in-async-lane` | `copy-reason-missing`); `bool Admits(long requestedBytes, long payloadBound, bool async = false, Option<string> copyReason = default)` is the pure structural predicate the entry composes and a caller may pre-check.
 - Auto: intent admission calls `Grant` once against the intent-declared payload bound; every grant materializes one `AllocationEvidence` value under the intent correlation with zero call-site accounting, and the eleven manager events fold to the same record through the `[03]-[STREAM_POOL]` `PoolEvidence` projection.

@@ -220,3 +220,7 @@ Re-verify at implementation time (pattern-inferred or version-volatile):
 - `@pulumi/esc-sdk` environment-call arity (org+env vs org+project+env) varies with project scoping.
 - cert-manager 1.21 due 2026-07-08; Gateway API `v1alpha2` `TCPRoute`/`UDPRoute` deprecated post-1.6 GA.
 - Crossplane MRAP has no GA date — any MRAP-adjacent mined pattern is unstable.
+
+## [OPERATOR_OVERRIDE] — canary channel admitted
+
+The canary-only rejection of React `<ViewTransition>` is OVERRULED: the branch runs bleeding-edge and the React canary channel is admitted. The ui lane integrates `<ViewTransition>` (and any canary capability that wins on merit) alongside `motion` — the two compose by strength per surface, never as rivals; the manifest agent pins the canary dist-tag deliberately and records the channel choice in the catalog.
