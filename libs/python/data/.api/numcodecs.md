@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `numcodecs`
 - package: `numcodecs`
+- owner: `data`
 - import: `import numcodecs`
 - rail: array (chunk-codec supplier for the chunked-array rail)
 - version: `0.16.5`

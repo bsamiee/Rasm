@@ -102,21 +102,13 @@
 
     <ItemGroup Label="Compute">
         <PackageVersion Include="AngouriMath"                          Version="1.4.0" />
-        <PackageVersion Include="BriefFiniteElement.Net"               Version="2.1.2" />
-        <PackageVersion Include="BriefFiniteElementNet.CustomElements" Version="2.1.2" />
-        <PackageVersion Include="FEALiTE2D"                            Version="1.2.0" />
-        <PackageVersion Include="FEALiTE2D.Plotting"                   Version="1.2.0" />
-        <PackageVersion Include="FParsec"                              Version="2.0.0-beta2" />
         <PackageVersion Include="GeneticSharp"                         Version="3.1.4" />
         <PackageVersion Include="Google.OrTools"                       Version="9.15.6755" />
         <PackageVersion Include="HyperJet"                             Version="0.2.0" />
         <PackageVersion Include="libtorch-cpu"                         Version="2.10.0" />
-        <PackageVersion Include="MathNet.Symbolics"                    Version="0.25.0" />
         <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream"  Version="3.0.1" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntime"             Version="1.27.0" />
-        <PackageVersion Include="Microsoft.ML.OnnxRuntime.DirectML"    Version="1.24.4" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntime.Extensions"  Version="0.14.0" />
-        <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu"         Version="1.27.0" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI"        Version="0.14.1" />
         <PackageVersion Include="Microsoft.Z3"                         Version="4.12.2" />
         <PackageVersion Include="Silk.NET.WebGPU"                      Version="2.23.0" />
@@ -423,7 +415,6 @@
 
     <ItemGroup Label="Transitive Floors">
         <!-- Compiler, restore, and framework closure. -->
-        <PackageVersion Include="FSharp.Core"                                           Version="11.0.100" />
         <PackageVersion Include="Humanizer.Core"                                        Version="3.0.10" />
         <PackageVersion Include="Microsoft.Bcl.Memory"                                  Version="10.0.9" />
         <PackageVersion Include="Microsoft.Build.Framework"                             Version="18.7.1" />
@@ -477,9 +468,6 @@
 
         <!-- Compute, interchange, and BIM closure. -->
         <PackageVersion Include="Ara3D.SDK"                    Version="1.4.2" />
-        <PackageVersion Include="BriefFiniteElementNet.Common" Version="2.1.2" />
-        <PackageVersion Include="MathNet.Numerics.FSharp"      Version="6.0.0-beta2" />
-        <PackageVersion Include="netDxf.netstandard"           Version="3.0.1" />
         <PackageVersion Include="OneOf"                        Version="3.0.271" />
         <PackageVersion Include="Parquet.Net"                  Version="6.0.3" />
         <PackageVersion Include="Rhino3dm"                     Version="8.17.0" />

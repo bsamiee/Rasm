@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `pandas`
 - package: `pandas`
+- owner: `data`
 - module: `pandas`
 - license: BSD-3-Clause
 - rail: labeled tabular

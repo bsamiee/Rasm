@@ -21,8 +21,14 @@ THE MULTI-PLY ASSEMBLY-AGGREGATION ENGINE — relocated from `Rasm.Materials` to
 // The element geometric takeoff the GWP/cost folds distribute per ply: a layer scales by its own
 // thickness × Area, a constituent by its fraction × Volume, a single/profile material by Volume.
 // The composition root reads it once from the element's baked Qto_*BaseQuantities.
-public readonly record struct ElementQuantity(double AreaM2, double VolumeM3) {
+// WasteAreaM2 is the Rasm.Fabrication Nesting/stock -> Compute decode-side ingress row: the seam
+// NestYield.WasteAreaMm2 (decoded at the lifecycle lane, SI-coerced) joins the element's material basis so
+// off-cut waste rolls into the SAME per-ply GWP/cost accumulation — a data column on the existing folds,
+// never a new discipline and never a parallel waste fold. Effective area = AreaM2 + WasteAreaM2.
+public readonly record struct ElementQuantity(double AreaM2, double VolumeM3, double WasteAreaM2 = 0.0) {
     public static readonly ElementQuantity Zero = new(0.0, 0.0);
+
+    public double EffectiveAreaM2 => AreaM2 + WasteAreaM2;
 }
 
 // The optional exact per-material quantity (an IFC Qto_*BaseQuantities takeoff) overriding the idealized

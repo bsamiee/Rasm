@@ -9,187 +9,21 @@ signal lane marshals and windows, and the in-assembly probability
 `Distributions` and descriptive `Statistics` surfaces the uncertainty,
 estimator, and hypothesis-test lanes sample, reduce, and read CDFs from;
 `CSparse` supplies direct sparse Cholesky, LU, and QR factorizations beside the
-MathNet iterative solvers for the numeric lane.
+MathNet iterative solvers for the numeric lane. The substrate
+canonical member catalog is `libs/csharp/.api/api-mathnet-providers.md` (provider
+selection, dense algebra + factorization, sparse ingestion + iterative solve) with
+`libs/csharp/.api/api-mathnet-numerics.md` (distributions, quadrature, roots,
+interpolation, special functions) and `libs/csharp/.api/api-csparse.md` beside it;
+this overlay carries only the Compute delta — the signal-transform, distribution,
+and statistics scopes the Tensor/Stats/Solver lanes compose, and the lane law.
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[SUBSTRATE_CANONICAL]
 
-[PACKAGE_SURFACE]: `MathNet.Numerics`
-- package: `MathNet.Numerics`
-- version: `6.0.0-beta2`
-- assembly: `MathNet.Numerics`
-- license: MIT/X11
-- bound asset: `lib/net8.0/MathNet.Numerics.dll` (ships `net48`/`net6.0`/`net8.0`/`netstandard2.0`; no `net10.0` asset, so consumer `net10.0` binds `net8.0`)
-- namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `MathNet.Numerics.LinearAlgebra.Double`, `MathNet.Numerics.LinearAlgebra.Storage`, `MathNet.Numerics.LinearAlgebra.Factorization`, `MathNet.Numerics.Providers.LinearAlgebra`, `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics.Distributions`, `MathNet.Numerics.Statistics`
-- asset: runtime library (managed; native providers ride sibling asset packages)
+[SUBSTRATE_CANONICAL]: `libs/csharp/.api/api-mathnet-providers.md`
+- the provider-selection, dense-algebra, sparse-algebra, and iterative-solver type rosters and their call-shape tables (including the `Svd`/`Evd`/`Cholesky`/`LU` factorization members, the concrete `IIterationStopCriterion<T>` rows, and `DiagonalPreconditioner`) live on the substrate catalogs — this overlay never re-states them
 - rail: numeric
 
-[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
-- package: `MathNet.Numerics.Providers.MKL`
-- version: `6.0.0-beta2`
-- assembly: `MathNet.Numerics.Providers.MKL`
-- license: MIT/X11 (managed adapter; the native MKL binary carries the Intel Simplified Software License)
-- namespace: `MathNet.Numerics.Providers.MKL.LinearAlgebra`
-- asset: managed provider adapter (native binaries ship in `MathNet.Numerics.MKL.Win-x64` / `MathNet.Numerics.MKL.Linux-x64`; no osx-arm64 asset)
-- rail: numeric
-
-[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
-- package: `MathNet.Numerics.Providers.OpenBLAS`
-- version: `6.0.0-beta2`
-- assembly: `MathNet.Numerics.Providers.OpenBLAS`
-- license: MIT/X11 (managed adapter; the native OpenBLAS binary carries the BSD-3-Clause license)
-- namespace: `MathNet.Numerics.Providers.OpenBLAS.LinearAlgebra`
-- asset: managed provider adapter (native binaries ship in platform OpenBLAS asset packages; no osx-arm64 asset)
-- rail: numeric
-
-[PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse`
-- version: `4.4.0`
-- assembly: `CSparse`
-- license: LGPL-2.1-or-later
-- namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
-- asset: runtime library (pure managed direct sparse solvers)
-- rail: numeric
-
-## [02]-[PUBLIC_TYPES]
-
-[PUBLIC_TYPE_SCOPE]: provider selection
-- rail: numeric
-
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                         |
-| :-----: | :----------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `Control`                      | static façade  | selects + probes the active provider |
-|  [02]   | `LinearAlgebraControl`         | static façade  | provider-level direct selection API  |
-|  [03]   | `ILinearAlgebraProvider`       | provider seam  | the active provider handle           |
-|  [04]   | `MklLinearAlgebraControl`      | provider type  | MKL native adapter control           |
-|  [05]   | `OpenBlasLinearAlgebraControl` | provider type  | OpenBLAS native adapter control      |
-
-[PUBLIC_TYPE_SCOPE]: dense algebra
-- rail: numeric
-
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]                   |
-| :-----: | :--------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `Matrix<T>`                        | dense matrix   | dense matrix value carrier     |
-|  [02]   | `Vector<T>`                        | dense vector   | dense vector value carrier     |
-|  [03]   | `Matrix<double>` (`Double.Matrix`) | dense matrix   | the numeric-lane dense carrier |
-|  [04]   | `LU<T>`                            | factorization  | LU decomposition + solve       |
-|  [05]   | `QR<T>`                            | factorization  | QR decomposition + solve       |
-|  [06]   | `Cholesky<T>`                      | factorization  | Cholesky decomposition + solve |
-|  [07]   | `Svd<T>`                           | factorization  | singular value decomposition   |
-|  [08]   | `Evd<T>`                           | factorization  | eigenvalue decomposition       |
-|  [09]   | `DenseColumnMajorMatrixStorage<T>` | dense storage  | column-major dense backing     |
-|  [10]   | `DenseVectorStorage<T>`            | dense storage  | dense vector backing           |
-
-[PUBLIC_TYPE_SCOPE]: sparse algebra
-- rail: numeric
-
-| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE] | [CAPABILITY]                          |
-| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `SparseCompressedRowMatrixStorage<T>`                        | sparse storage | CSR matrix backing (only native form) |
-|  [02]   | `SparseVectorStorage<T>`                                     | sparse storage | COO-style sparse vector backing       |
-|  [03]   | `CSparse.Storage.CompressedColumnStorage<T>`                 | csc storage    | CSparse CSC matrix backing            |
-|  [04]   | `CSparse.Double.SparseMatrix`                                | sparse matrix  | CSparse double CSC matrix             |
-|  [05]   | `CSparse.Double.Factorization.SparseCholesky`                | factorization  | direct sparse Cholesky                |
-|  [06]   | `CSparse.Double.Factorization.SparseLU`                      | factorization  | direct sparse LU                      |
-|  [07]   | `CSparse.Double.Factorization.SparseQR`                      | factorization  | direct sparse QR                      |
-|  [08]   | `CSparse.ColumnOrdering`                                     | ordering enum  | fill-reducing ordering selector       |
-|  [09]   | `MathNet.Numerics.LinearAlgebra.Solvers.IIterativeSolver<T>` | solver seam    | iterative-solve seam                  |
-|  [10]   | `MathNet.Numerics.LinearAlgebra.Double.SparseMatrix`         | sparse matrix  | MathNet CSR-backed sparse matrix (derives `Matrix<double>`, so the `Multiply`/`Transpose`/`Add`/`KroneckerProduct` ops apply); distinct from the CSparse CSC `SparseMatrix` |
-|  [11]   | `CSparse.Ordering.AMD`                                       | ordering kernel | approximate-minimum-degree fill-reducing permutation generator over a CSC matrix |
-
-[PUBLIC_TYPE_SCOPE]: iterative solvers
-- rail: numeric
-
-| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE] | [CAPABILITY]                    |
-| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab`    | solver         | biconjugate gradient stabilized |
-|  [02]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.GpBiCg`      | solver         | generalized product BiCG        |
-|  [03]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.TFQMR`       | solver         | transpose-free QMR              |
-|  [04]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.MlkBiCgStab` | solver         | multiple-Lanczos BiCGStab       |
-|  [05]   | `MathNet.Numerics.LinearAlgebra.Solvers.Iterator<T>`        | control        | iteration stop criteria         |
-
-[PUBLIC_TYPE_SCOPE]: signal transform + window
-- rail: numeric
-
-The `IntegralTransforms.Fourier` static surface owns the in-place DFT over `Complex[]`/`Complex32[]`, the real-packed `ForwardReal`/`InverseReal`, the 2-D and N-D transforms, and `FrequencyScale`; `Window` is the static taper family the signal lane reads by `WindowKind` row. MathNet ships no wavelet (`dwt`) or analog-prototype IIR design surface — those ground in-fence at the signal-lane design gate.
-
-| [INDEX] | [SYMBOL]                                             | [PACKAGE_ROLE] | [CAPABILITY]                                   |
-| :-----: | :--------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `MathNet.Numerics.IntegralTransforms.Fourier`        | static DFT     | in-place forward/inverse FFT family            |
-|  [02]   | `MathNet.Numerics.IntegralTransforms.FourierOptions` | scaling enum   | symmetric/asymmetric/no-scaling convention     |
-|  [03]   | `MathNet.Numerics.Window`                            | static tapers  | window function family (Hann/Hamming/Blackman) |
-|  [04]   | `System.Numerics.Complex` / `Complex32`              | sample carrier | the in-place transform value type              |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: provider selection
-- rail: numeric
-
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]    | [CAPABILITY]                                              |
-| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `Control.UseManaged`                            | static `void`   | selects the pure-managed provider                        |
-|  [02]   | `Control.UseNativeMKL` / `TryUseNativeMKL`      | static `void`/`bool` | selects MKL; `Try*` returns `false` on load failure |
-|  [03]   | `Control.UseNativeOpenBLAS` / `TryUseNativeOpenBLAS` | static `void`/`bool` | selects OpenBLAS; `Try*` returns `false` on load failure |
-|  [04]   | `Control.UseNativeCUDA` / `TryUseNativeCUDA`    | static `void`/`bool` | selects CUDA (no `osx-arm64`/`linux`/`win` asset admitted) |
-|  [05]   | `Control.TryUseNative`                          | static `bool`   | tries the best available native; `false` if none load    |
-|  [06]   | `Control.UseBestProviders`                      | static `void`   | tries MKL→CUDA→OpenBLAS→managed                           |
-|  [07]   | `Control.NativeProviderPath`                    | static `string` | hint path for native binaries; setter cascades `InitializeVerify` on every provider control |
-|  [08]   | `Control.UseSingleThread` / `UseMultiThreading` | static `void`   | forces serial vs parallel managed evaluation             |
-|  [09]   | `Control.Describe`                              | static `string` | one-line active-provider/threading diagnostic for a receipt |
-|  [10]   | `LinearAlgebraControl.Provider`                 | static prop     | gets/sets the active `ILinearAlgebraProvider` handle     |
-|  [11]   | `LinearAlgebraControl.TryUse(ILinearAlgebraProvider)` | static `bool` | activates a provided handle, no-throw                    |
-|  [12]   | `LinearAlgebraControl.HintPath`                 | static `string` | the LA-provider-specific native hint path                |
-|  [13]   | `LinearAlgebraControl.FreeResources`            | static `void`   | releases native provider resources                       |
-|  [14]   | `Control.MaxDegreeOfParallelism`                | static `int`    | the managed parallelism cap (read into the `DeterminismTag`/`SolveProvenance` receipt; pairs with `UseSingleThread`/`UseMultiThreading`) |
-
-[ENTRYPOINT_SCOPE]: dense factorization
-- rail: numeric
-
-Dense builders and tile methods keep exact overload shape outside the table; `Solve` admits both matrix and vector right-hand sides through `ISolver<T>`.
-
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]       | [CAPABILITY]                       |
-| :-----: | :---------------------------------------------- | :----------------- | :--------------------------------- |
-|  [01]   | `Matrix<T>.Multiply`                            | matrix call        | provider-routed dense GEMM         |
-|  [02]   | `Matrix<T>.LU`                                  | matrix call        | builds `LU<T>`                     |
-|  [03]   | `Matrix<T>.QR`                                  | matrix call        | builds `QR<T>`                     |
-|  [04]   | `Matrix<T>.Cholesky`                            | matrix call        | builds `Cholesky<T>`               |
-|  [05]   | `Matrix<T>.Svd`                                 | matrix call        | builds `Svd<T>`                    |
-|  [06]   | `Matrix<T>.Evd`                                 | matrix call        | builds `Evd<T>`                    |
-|  [07]   | `LU<T>.Solve`                                   | factorization call | solves right-hand sides            |
-|  [08]   | `Cholesky<T>.Solve`                             | factorization call | solves SPD systems                 |
-|  [09]   | `QR<T>.Solve` / `Svd<T>.Solve` / `Evd<T>.Solve` | factorization call | solves through `ISolver<T>`        |
-|  [10]   | `Matrix<double>.Build.DenseOfArray`             | factory call       | builds dense matrix from array     |
-|  [11]   | `Matrix<double>.Build.Dense`                    | factory call       | builds dense matrix by shape/value |
-|  [12]   | `Matrix<T>.SubMatrix`                           | matrix call        | extracts a tile                    |
-|  [13]   | `Matrix<T>.SetSubMatrix`                        | matrix call        | writes a tile in place             |
-|  [14]   | `Matrix<T>.Build` / `Vector<T>.Build`           | builder accessor   | static `MatrixBuilder<T>` / `VectorBuilder<T>` — the factory root the `DenseOf*`/`OfStorage` family hangs off (`Matrix<Complex>`/`Vector<Complex>` instantiate the same generic) |
-|  [15]   | `Matrix<double>.Build.OfStorage`                | factory call       | wraps an existing `MatrixStorage<T>` (dense or `SparseCompressedRowMatrixStorage<double>`) into the concrete matrix without copy — the storage→matrix bridge (no `SparseMatrix.OfStorage` static exists) |
-|  [16]   | `Matrix<double>.Build.DenseOfColumnMajor`       | factory call       | dense matrix from a column-major `IEnumerable<T>` |
-|  [17]   | `Matrix<double>.Build.DenseOfColumns` / `DenseOfColumnVectors` | factory call | dense matrix from per-column sequences / `Vector<T>` columns |
-|  [18]   | `Matrix<double>.Build.DenseOfDiagonalVector` / `DiagonalOfDiagonalVector` | factory call | dense (or diagonal-storage) matrix from a diagonal `Vector<T>` |
-|  [19]   | `Vector<double>.Build.Dense` / `DenseOfArray`   | factory call       | dense vector by size/value/init or from an array |
-|  [20]   | `Matrix<T>.KroneckerProduct`                    | matrix call        | Kronecker (tensor) product `A ⊗ B` |
-|  [21]   | `Matrix<T>.Transpose`                           | matrix call        | matrix transpose (`ConjugateTranspose` is the Hermitian form) |
-|  [22]   | `Matrix<T>.Add`                                 | matrix call        | matrix/scalar addition (`Add(Matrix<T>)` / `Add(T)`) |
-
-[ENTRYPOINT_SCOPE]: sparse ingestion + solve
-- rail: numeric
-
-Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC storage from indexed entries.
-
-| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]       | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------------------------- | :----------------- | :------------------------------ |
-|  [01]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseRowFormat`    | static factory     | direct CSR import               |
-|  [02]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseColumnFormat` | static factory     | CSC import to CSR               |
-|  [03]   | `SparseCompressedRowMatrixStorage<T>.OfCoordinateFormat`             | static factory     | COO import to CSR               |
-|  [04]   | `SparseCompressedRowMatrixStorage<T>.OfIndexedEnumerable`            | static factory     | indexed import to CSR           |
-|  [05]   | `CSparse.Storage.CompressedColumnStorage<T>.OfIndexed`               | static factory     | CSparse CSC import              |
-|  [06]   | `SparseCholesky.Create`                                              | static factory     | factors a CSparse CSC matrix    |
-|  [07]   | `SparseLU.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
-|  [08]   | `SparseQR.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
-|  [09]   | `ISparseFactorization<T>.Solve`                                      | factorization call | solves `Ax=b` in place          |
-|  [10]   | `IIterativeSolver<T>.Solve`                                          | solver call        | iterative solve with `Iterator` |
-|  [11]   | `new SparseMatrix(SparseCompressedRowMatrixStorage<double>)`         | ctor               | wraps CSR storage into the MathNet sparse matrix without copy (the direct twin of `Matrix<double>.Build.OfStorage`) |
-|  [12]   | `CSparse.Ordering.AMD.Generate`                                      | static factory     | `int[] Generate<T>(CompressedColumnStorage<T>, ColumnOrdering)` / `Generate(SymbolicColumnStorage, ColumnOrdering)` — fill-reducing permutation before a direct factorization |
+## [02]-[COMPUTE_SCOPES]
 
 [ENTRYPOINT_SCOPE]: discrete Fourier transform + window
 - rail: numeric
@@ -237,7 +71,8 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 |  [17]   | `Gamma(shape, rate)` `.CDF`/`.Density`                             | `MathNet.Numerics.Distributions` | Gamma CDF/PDF (GLM-Gamma deviance + `glm-gamma` IRLS variance)   |
 |  [18]   | `Poisson(lambda)` `.CumulativeDistribution`/`.Probability`         | `MathNet.Numerics.Distributions` | discrete Poisson CDF/PMF (GLM-Poisson + `naive-bayes` per-class) |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
+
 
 [PROVIDER_SELECTION]:
 - namespace: `MathNet.Numerics`, `MathNet.Numerics.Providers.LinearAlgebra`

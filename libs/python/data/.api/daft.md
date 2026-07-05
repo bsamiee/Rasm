@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `daft`
 - package: `daft`
+- owner: `data`
 - import: `daft`
 - rail: distributed dataframe
 - installed: `0.7.16`

@@ -1,62 +1,158 @@
 # [PY_DATA_VIRTUAL]
 
-The icechunk native virtual-chunk addressing owner over byte-range chunk manifests. `VirtualReference` registers archival HDF5/NetCDF/GeoTIFF/Zarr/DMRPP/FITS/kerchunk byte ranges as external virtual chunks inside one transactional versioned `icechunk` `Repository` through the native `IcechunkStore.set_virtual_refs` chunk-addressing surface, never copying a byte and never re-deriving the `virtualizarr` manifest the `gridded/field#VIRTUAL` owner already constructs. The concurrent-write modality rides the native `Session.commit(rebase_with=ConflictSolver)` auto-rebase rather than a serialized retry loop, the snapshot-reclaim modality folds `expire_snapshots` and `garbage_collect` onto one `Reclaim` sub-axis, and the time-travel read folds `snapshot_id`/`tag`/`as_of`-datetime onto one `ReadAt` sub-axis over the single `readonly_session` call. The manifest leg composes `FieldVirtual` — its 8-row `VirtualParser` suffix-recovered parser axis and its `open_virtual_mfdataset` multi-source aggregation are consumed as the upstream chunk-reference source, never duplicated here. `ManifestWrite` is the one closed write-path axis collapsing the icechunk/virtualizarr overlap onto two registration modalities of the same store: the `virtualizarr` `VirtualiZarrDatasetAccessor.to_icechunk` accessor path that lowers a `ManifestArray`-backed `xarray.Dataset` onto the session store in one call, and the native `IcechunkStore.set_virtual_refs(array_path, chunks)` `VirtualChunkSpec` path that registers each external chunk byte-range directly when no labelled cube exists — both landing virtual `ChunkType.virtual` chunks in the same `icechunk` session, the path recovered from whether a manifest cube or a raw byte-range slab tuple is supplied. `IceStorage` is the one closed storage-backend axis collapsing the eight `icechunk` storage factories onto one suffix/scheme-recovered row. The committed snapshot's branch/tag/ancestry identity and the `set_virtual_ref` content-key are consumed at the wire by `csharp:Rasm.Persistence/Version/Snapshots` as the durable version-control content-addressing concern — the snapshot identity is a Persistence wire concern reproduced from the C#-owned `XxHash128` seed, never a data lineage or version page here.
+The SOLE manifest-cube owner: virtualizarr byte-range manifest construction AND icechunk native virtual-chunk addressing on one page, the double charter dead. `FieldVirtual` aggregates archival HDF5/NetCDF/Zarr/DMRPP/FITS/kerchunk/icechunk chunk byte ranges into one zero-copy virtual `xarray.Dataset` through `virtualizarr` `ManifestArray`/`ChunkManifest` manifest construction (chunk-reference dicts of `path`/`offset`/`length`, the actual bytes staying in the source files), the one closed `VirtualParser` `@tagged_union` parser seam carrying each `virtualizarr.parsers` constructor payload, the `h5py` `File.build_virtual_dataset` HDF5-native composition, and the `CFDtype` special-dtype seam. `VirtualReference` registers those external byte ranges as virtual chunks inside one transactional versioned `icechunk` `Repository` through the native `IcechunkStore.set_virtual_refs` chunk-addressing surface, never copying a byte. `ManifestWrite` is the ONE export/registration axis — the former field-side `ManifestExport` export targets (`kerchunk`/`icechunk`) and the former registration modalities (`cube`/`native`) collapsed onto one four-case union with two direction folds (`write` the export direction, `register` the session-registration direction) — so one manifest vocabulary spans the reference-document export, the session-store lowering, and the raw-slab registration. The concurrent-write modality rides the native `Session.commit(rebase_with=ConflictSolver)` auto-rebase rather than a serialized retry loop, the snapshot-reclaim modality folds `expire_snapshots` and `garbage_collect` onto one `Reclaim` sub-axis, and the time-travel read folds `snapshot_id`/`tag`/`as_of`-datetime onto one `ReadAt` sub-axis over the single `readonly_session` call. `IceStorage` is the one closed storage-backend axis collapsing the eight `icechunk` storage factories onto one suffix/scheme-recovered row. Every content key is CANONICAL bytes — the per-variable chunk-reference rows serialized deterministically (sorted `path`/`offset`/`length` lines), `snapshot.encode()`, and the joined-refs stream — a `repr()`/`str()` byte source the folder-law deleted form. The committed snapshot's branch/tag/ancestry identity and the `set_virtual_ref` content-key are consumed at the wire by `csharp:Rasm.Persistence/Version/Snapshots` as the durable version-control content-addressing concern; the cross-runtime snapshot-seed reproduction records against the LANDED runtime `evidence/reproduction` `ParityReceipt` rail — data reproduces from the C#-pinned `XxHash128` seed and the parity grade folds on the runtime rail, never hand-proven here.
 
 ## [01]-[INDEX]
 
-- [01]-[VIRTUAL]: the `VirtualReference` icechunk native virtual-chunk addressing owner — the `VersionOp` request axis collapsing registration and version control (`aggregate`/`stamp`/`diff`/`reclaim`/`checkout`) onto one `apply` total dispatch, the nested `Reclaim` (`expire_snapshots`/`garbage_collect`) and `ReadAt` (`snapshot`/`label`/`as_of`) read/maintenance sub-axes, the `IceStorage` storage-backend axis with its `_STORAGE` `frozendict` scheme table, the nested `ManifestWrite` accessor-versus-native registration sub-axis collapsing the icechunk/virtualizarr overlap, the composed `gridded/field#VIRTUAL` `FieldVirtual` manifest leg (8-parser `VirtualParser` + `open_virtual_mfdataset`, never duplicated), the `ConflictSolver` auto-rebase commit, the branch-head/tag/diff/ancestry version surface, and the `VirtualReceipt` keyed off the real chunk manifest and the icechunk snapshot the Persistence wire reproduces through one Merkle `ContentIdentity.of`.
+- [01]-[MANIFEST]: the absorbed `FieldVirtual` byte-range virtual-datacube owner — the `virtualizarr` `open_virtual_dataset`/`open_virtual_mfdataset`/`open_virtual_datatree` manifest path over the one closed `VirtualParser` `@tagged_union` (HDF/NetCDF3/Zarr/DMRPP/FITS/kerchunk-json/kerchunk-parquet/icechunk), the `h5py` `File.build_virtual_dataset` HDF5-native path, multi-source arity, the `CFDtype` special-dtype seam, and the canonical per-variable manifest wire keying the `FieldReceipt`.
+- [02]-[VIRTUAL]: the `VirtualReference` icechunk native virtual-chunk addressing owner — the `VersionOp` request axis (`aggregate`/`stamp`/`diff`/`reclaim`/`checkout`) on one `apply` total dispatch, the nested `Reclaim`/`ReadAt` sub-axes, the `IceStorage` storage axis with its `_STORAGE` `Map` scheme table, the ONE `ManifestWrite` export/registration axis, the `ConflictSolver` auto-rebase commit, and the `VirtualReceipt` Merkle-keyed off the snapshot identity plus the registered-location census.
 
-## [02]-[VIRTUAL]
+## [02]-[MANIFEST]
 
-- Owner: `VirtualReference` — one frozen virtual-reference owner carrying the source URL tuple, the destination `ResourceRef`, the target branch, and the optional `containers` virtual-chunk credential map; the destination `IceStorage` backend is recovered per call from the `ResourceRef` scheme rather than stored, the credential threads through `IceStorage.repository(containers)` into the `open_or_create(authorize_virtual_chunk_access=)` lifecycle keyword, and the version modality rides the `VersionOp` case the `apply` entrypoint takes rather than a stored write field. The manifest leg is the composed `gridded/field#VIRTUAL` `FieldVirtual` whose `VirtualParser` suffix-recovered 8-row parser axis (`hdf`/`netcdf3`/`zarr`/`dmrpp`/`fits`/`kerchunk_json`/`kerchunk_parquet`/`icechunk`) and `open_virtual_mfdataset` multi-source aggregation produce the `ManifestArray`-backed `xarray.Dataset` of chunk-reference dicts (`path`/`offset`/`length`, the actual bytes staying in the source files), never a data-copying ingest and never a second parser axis re-declared on this page. `VersionOp` is the one closed `@tagged_union` request axis collapsing the registration and version-control modalities — `aggregate`/`stamp`/`diff`/`reclaim`/`checkout` — onto one `run` total dispatch, never a sibling-method family; the nested `Reclaim` sub-axis folds the `expire_snapshots` snapshot-mark and the `garbage_collect` object-reclaim onto one `run` over the two `icechunk` maintenance members, and the nested `ReadAt` sub-axis folds the `snapshot_id`/`tag`/`as_of`-datetime time-travel triple onto one `readonly_session` call, never a parallel `checkout_snapshot`/`checkout_tag`/`as_of` reader family. `IceStorage` is the one closed `@tagged_union` storage-backend axis collapsing the eight `icechunk` storage factories — `local`/`s3`/`gcs`/`azure`/`r2`/`tigris`/`http`/`memory` — onto one `build` fold and one immutable `_STORAGE` `frozendict` scheme table feeding `for_ref`, never eight parallel construction call sites and never a nine-arm `match`. `ManifestWrite` is the one closed `@tagged_union` registration sub-axis over the two paths to the same icechunk session store. `VirtualChunkSlab` carries one external chunk byte-range descriptor (`array_path`/`coordinates`/`location`/`offset`/`length`/`checksum`) the native registration routes — `spec` lowering the batch `VirtualChunkSpec` and `key` lowering the single-chunk Zarr-v3 chunk key.
-- Cases: `VersionOp` collapses the registration and version-control surface onto one transactional repository, the modality recovered from the case, never a sibling-method family — `aggregate(ManifestWrite, CommitMeta, ConflictSolver | None)` registers and commits one snapshot through the `rebase_with=` auto-rebase under the supplied solver, `stamp(name, snapshot)` stamps an immutable `create_tag` reference, `diff(base, head)` walks the snapshot changeset, `reclaim(Reclaim)` runs the `expire_snapshots` snapshot-mark or the `garbage_collect` object-reclaim recovered from the `Reclaim` case, and `checkout(ReadAt)` time-travels to a read-only cube at the `snapshot_id`/`tag`/`as_of`-datetime the `ReadAt` case recovers. The nested `ManifestWrite` collapses the icechunk/virtualizarr overlap onto two registration modalities of one session, the path recovered from the supplied source, never a second virtual owner — the `accessor` case (the composed `FieldVirtual`-built `ManifestArray`-backed `xarray.Dataset` lowered onto `session.store` through `cube.virtualize.to_icechunk(store, group=, append_dim=, region=, validate_containers=, last_updated_at=)`, the headline path when a labelled manifest cube exists, reusing the upstream `VirtualParser`/`open_virtual_mfdataset` aggregation verbatim) and the `native` case (each `VirtualChunkSlab` external byte-range registered directly through `IcechunkStore.set_virtual_refs(array_path, chunks, validate_containers=)` over a `VirtualChunkSpec` tuple — or `set_virtual_ref(key, location, offset=, length=, checksum=, validate_container=)` for the single-chunk arity — the path when raw archival byte-ranges register without a `virtualizarr` cube, the native surface `virtualizarr` itself drives under the hood). Both paths land `ChunkType.virtual` chunks in the same `icechunk` session and commit one snapshot; the modality is the `ManifestWrite` case the supplied source recovers, never a parallel accessor-only or native-only owner. `IceStorage` cases map one-to-one onto the eight `icechunk` storage factories, the row recovered from the `ResourceRef` scheme through the `_STORAGE` table backing `for_ref`.
-- Entry: `VirtualReference.apply` is the one entrypoint over the `VersionOp` request `@tagged_union`, recovering the `IceStorage` backend from the destination `ResourceRef`, opening one `icechunk` `Repository` through `IceStorage.repository(self.containers)` (`Repository.open_or_create(..., authorize_virtual_chunk_access=)`), and driving the supplied `VersionOp` case through one `op.run(repo, self)` total dispatch closed with `assert_never`; `run` itself returns a `RuntimeRail[VirtualOutcome]` (the `aggregate` arm threading its content-key rails through `railed`, the eager `stamp`/`diff`/`reclaim`/`checkout` arms `Ok`-lifting), so `apply` fences the raising `icechunk` calls in one `boundary(f"virtual.{op.tag}")` and `.bind`s away the doubled rail — never an `aggregate`/`stamp`/`as_of` sibling-method family sharing a boundary prefix and never a per-op free function. `VersionOp` cases own every modality: `aggregate` opens a `writable_session(branch)`, drives the supplied `ManifestWrite` case against `session.store` (the `accessor` case composing `FieldVirtual.aggregate`'s manifest cube through `virtualize.to_icechunk`, the `native` case routing a one-slab payload through `set_virtual_ref(checksum=)` and a many-slab payload through `set_virtual_refs` by the slab count), commits one snapshot through `session.commit("virtual-reference", metadata=, rebase_with=)` under the supplied `ConflictSolver` so a concurrent branch write auto-rebases rather than failing the transaction, and folds one `VirtualReceipt` over the real manifest chunk count, the reference byte span, the committed snapshot, the `lookup_branch` head, and the `ancestry` depth; `stamp` stamps a durable `Repository.create_tag(name, snapshot_id)` immutable reference; `diff` walks `Repository.diff(from_snapshot_id=, to_snapshot_id=)` into one `Diff` changeset; `reclaim` runs the nested `Reclaim.run` over `Repository.expire_snapshots(older_than)` or `Repository.garbage_collect(older_than)` returning the reclaimed snapshot-id `set[str]` or the `GCSummary` census; `checkout` opens the `ReadAt`-selected `readonly_session(snapshot_id=)`/`readonly_session(tag=)`/`readonly_session(as_of=)` time-travel read for an as-of virtual-cube query. The per-case return is a named closed `VirtualOutcome = VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset` union alias, the five version-control verbs producing genuinely irreducible outcomes — a registration `VirtualReceipt`, a stamped name `str`, a `Diff` changeset, a reclaimed `set[str]`/`GCSummary` census, a time-travel `xr.Dataset` — that no fold collapses to one shape, so the `RuntimeRail[VirtualOutcome]` names the union the caller `match`es rather than a bare `object` erasure or a forced single-shape fold over distinct verbs. One `apply`/`VersionOp` entrypoint family owns the single-source, multi-source, accessor, native, stamp, diff, reclaim, and checkout modalities by the `VersionOp` case, the `ManifestWrite`/`Reclaim`/`ReadAt` sub-case, and the source-URL-tuple arity, never a per-source-count, per-op, or per-path reader family.
-- Auto: `IceStorage.repository(containers)` is the idempotent lifecycle entry — `Repository.open_or_create(self.build(), authorize_virtual_chunk_access=)` over an `IceStorage`-built `Storage`, the optional per-virtual-container credential map the `VirtualReference.containers` owner field threads through and lowers via `containers_credentials(dict(containers))` so a credentialed archival source authorizes its external byte-range reads at the lifecycle keyword rather than a per-`set_virtual_ref` argument — folding the deleted single-call `_repository` helper onto the storage owner that already holds `build`, every write flowing through `writable_session(branch)` and reaching the Zarr-compatible `IcechunkStore` only through `session.store`, the one handle that crosses into chunk registration, the commit landing through `session.commit("virtual-reference", metadata=, rebase_with=)` so the optional `ConflictSolver` auto-rebases a concurrent branch write at commit time rather than out-of-band, matching the `icechunk` `rebase_with`-at-commit law; the native registration is one arity-discriminated `register` arm carrying the per-chunk integrity checksum on both paths — a one-slab `native` payload routes `set_virtual_ref(slab.key(), location, offset=, length=, checksum=, validate_container=True)` threading `slab.checksum` into the single-chunk `checksum=` slot, a many-slab payload routes `set_virtual_refs(array_path, chunks, validate_containers=True)` over the `VirtualChunkSpec` tuple whose `spec()` projection threads the same `slab.checksum` into the batch `VirtualChunkSpec(etag_checksum=)` integrity slot — the single-versus-batch disposition recovered from the slab count alone, never an integrity asymmetry where the batch path silently drops the checksum the single-chunk path preserves, mirroring the `gridded/store#STORE` `write_region`/`write_many` arity collapse, both gated by the `authorize_virtual_chunk_access` credential `IceStorage.repository` threads; the accessor path reuses the composed `FieldVirtual` aggregation through one `msgspec.structs.asdict` field-for-field rebind that strips the `export` key before the splat and re-supplies the icechunk `ManifestExport` so the destination store overrides only that slot — the corpus rebind idiom rather than a hand-listed field copy, and never a double-`export` splat — then `.map`s the `FieldVirtual.aggregate()` `RuntimeRail[FieldReceipt]` into the `(dims, "virtual", bytes_stored)` triple — the registration-path discriminant the provable `"virtual"` `VirtualEngine` literal (the `field.md#EGRESS` `_receipt` arm that mints the rail invariantly stamps `engine="virtual"`, so the accessor path asserts the precise `Literal["virtual"]` rather than laundering the wider `FieldEngine | EgressTag` slot through the receipt) — rather than calling the rail as a thunk, so the `virtualizarr` `to_icechunk` accessor and the native `set_virtual_refs` are the two registration paths of the same store rather than two owners; the `for_ref` scheme dispatch rides the immutable `_STORAGE` `frozendict` callable table rather than a nine-arm `match`, so a new scheme is one row; `icechunk` is the native Rust pyo3 extension with CPython floor `<3.15`, so its `Repository`/`Storage`/`Session`/`IcechunkStore` arm binds function-local under `# noqa: PLC0415`, never a module-top import on this page; `field.md` `FieldVirtual` is the composed in-package manifest owner imported function-local at the accessor case (its `xarray` touch is banned-module-level); the content key binds the committed-snapshot `snapshot_key` and the registered-location `refs_key` component `ContentIdentity.of` rails through the `railed` `effect.result` builder's `yield from`, then folds the two resolved `ContentKey` values into one Merkle `tuple[ContentKey, ...]` source — the `tabular/columnar#SCAN` `tuple(b.content_key for b in bundles)` and `tabular/contract#COLLECTION` `tuple(m.content_key for m in op.members)` materialized-component idiom — never a nested `tuple[RuntimeRail[ContentKey], ...]` of un-bound `of` calls the merkle arm cannot key, never a `RuntimeRail[ContentKey]` smuggled into the `content_key` `ContentKey` slot, never a faked `chunks=()`/`codec="manifest"` placeholder, and never a path-string source.
-- Receipt: the `VirtualReceipt` keys off the real registration — the registered-chunk census read uniformly off the materialized `tuple(Session.all_virtual_chunk_locations())` for both arms (the same tuple feeding the count and the referenced-location content key, never a double walk of the lazy iterator), the reference byte span and CF dims read off the composed `FieldVirtual.aggregate` `FieldReceipt` (`bytes_stored`/`dims`, themselves folded off `VirtualiZarrDatasetAccessor.nbytes` and the `ManifestArray` manifest at the `field.md` owner) under the provable `"virtual"` `VirtualEngine` registration tag for the accessor case, or the summed `VirtualChunkSlab` lengths under the `"native"` tag for the native case, the committed snapshot id off `session.commit`, the branch head off `Repository.lookup_branch`, and the ancestry depth off `Repository.ancestry` — never the faked placeholder the deleted hand-loop emitted; the content key binds the committed-snapshot-identity rail and the registered-location rail through the `railed` builder, then Merkle-folds the two resolved keys through the one `ContentIdentity.of` `tuple[ContentKey, ...]` source so the resolved `ContentKey` lands in the `content_key` slot rather than a smuggled `RuntimeRail`, and a snapshot rewrite that preserves the registered locations and a relocation that preserves the snapshot id are distinct keys, the icechunk branch/head/tag/ancestry carried to the wire as the `csharp:Rasm.Persistence/Version/Snapshots` content-key concern reproduced from the `XxHash128` seed. `VirtualReceipt.contribute` `yield`s one emitted-phase `Receipt.of("virtual", ("emitted", self.engine, facts))` — the two-argument `Receipt.of(owner, evidence)` factory routing the `(phase, subject, facts)` triple the receipts owner's `of` match decomposes, the `VirtualEngine` `Literal["virtual", "native"]` registration-path discriminant riding the `str` subject slot directly (the `field.md#EGRESS` `str(self.engine)` `StrEnum`-render counterpart, no `str()` coerce since the literal already IS the subject `str`) so the accessor-versus-native path survives onto the log line rather than a constant `"icechunk"` store-kind that drops it, never the four-positional `Receipt.of(phase, owner, subject, facts)` shape the owner does not expose, the native `sources`/`chunk_refs`/`bytes_referenced`/`ancestry_depth` ints riding the `dict[str, object]` facts without a `str()` coerce because the receipts `Encoder(enc_hook=repr)` serializes scalars natively, and the `Iterable[Receipt]` stream the `ReceiptContributor` Protocol's `contribute` returns rather than one forced fact. The `stamp`/`diff`/`reclaim`/`checkout` cases emit no `VirtualReceipt` — `stamp` returns the stamped name, `diff` the `Diff` changeset, `reclaim` the reclaimed snapshot-id `set[str]` or the `GCSummary` census, and `checkout` the time-travel `xarray.Dataset` — so the typed receipt fold stays the `aggregate` case alone, never a generic per-op receipt rail.
-- Packages: `icechunk` (`Repository.{open_or_create,writable_session,readonly_session,create_tag,lookup_branch,ancestry,diff,expire_snapshots,garbage_collect}`/`local_filesystem_storage`/`in_memory_storage`/`s3_storage`/`gcs_storage`/`azure_storage`/`r2_storage`/`tigris_storage`/`http_storage`/`Session.{store,commit,all_virtual_chunk_locations}`/`IcechunkStore.{set_virtual_ref,set_virtual_refs}`/`containers_credentials`/`ConflictSolver`/`BasicConflictSolver`/`ConflictDetector`/`VirtualChunkSpec`/`Diff`/`GCSummary`/`ChunkType.virtual` — the native virtual-chunk addressing and version-control surface owning its own multi-cloud `Storage` construction through the eight storage factories, `<3.15` gated, function-local), `gridded/field#VIRTUAL` `FieldVirtual` (the composed manifest leg — `FieldReceipt`/`VirtualParser`/`open_virtual_mfdataset`/`ManifestArray`/`VirtualiZarrDatasetAccessor.{to_icechunk,nbytes}`, the in-package owner of `virtualizarr` manifest construction, never re-declared here), `expression` (`railed` the `effect.result` `yield from`-bind builder threading the `write.register` rail and the two component + merkle `ContentIdentity.of` rails into the one `aggregate` receipt, `Ok` the eager-arm lift), runtime (`ResourceRef`/`ContentIdentity`/`ContentKey`/`RuntimeRail`/`boundary`/`railed`/`Receipt`/`ReceiptContributor`).
-- Growth: a new storage backend is one `IceStorage` case plus one `build` row and one `_STORAGE` scheme entry mapping the `ResourceRef` scheme onto the matching `icechunk` factory, never a parallel store class; a new registration path is one `ManifestWrite` case on the existing sub-axis; a new source format is the existing `FieldVirtual` `VirtualParser` case upstream, never a parser re-declared here; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`) is one `VersionOp` case on the existing `apply` entrypoint composing the matching `Repository` member, never a sibling method; a new reclaim modality is one `Reclaim` case, a new time-travel anchor one `ReadAt` case; a new virtual-chunk credential is one `(container, credential)` entry on the `VirtualReference.containers` owner field that `repository` lowers through `containers_credentials`, never a per-`IceStorage`-case credential field; zero new surface.
-- Boundary: composes the `gridded/field#VIRTUAL` `FieldVirtual` manifest owner rather than re-deriving the `virtualizarr` parser/manifest surface, and the runtime `boundary`/`ContentIdentity`/`ResourceRef`, never a second manifest or fault owner; no compute-package numeric trio, no production tensor session, no durable product store; `data` emits a portable content-addressed virtual-reference manifest registered in a versioned icechunk store, not a runtime compute graph. The icechunk version-control snapshot identity (`set_virtual_ref` content-key, branch/tag/ancestry) is the `csharp:Rasm.Persistence/Version/Snapshots` wire concern consumed at the boundary, never a data lineage or durable version-control ledger owned here; the `VersionOp.diff`/`reclaim` cases expose only `icechunk`'s native changeset-read and snapshot-reclaim surface (`Repository.diff`, `expire_snapshots`, `garbage_collect`) over this page's own virtual store, and the `ConflictSolver` threaded into `commit` is the native commit-time auto-rebase, never the branch-merge/rebase/conflict-resolution *engine* — the `BasicConflictSolver`/`ConflictDetector` are passed as a commit-time policy value, while the durable `reset_branch`/`rewrite_manifests` retention engine and cross-runtime content-key reproduction stay the C# Persistence concern. A data-copying ingest where virtual reference applies, a hand-rolled kerchunk reference builder, a re-declared `VirtualParser`/`open_virtual_dataset` manifest surface the `field.md` owner already owns, a module-top `icechunk` import on this gated page, an `aggregate`/`stamp`/`as_of` sibling-method family or per-op `_aggregate`/`_stamp` free function where the `VersionOp` request union and one `apply` dispatch own the modality, a serialized commit-retry loop where `commit(rebase_with=)` auto-rebases, a parallel `expire`/`gc` op-family where the `Reclaim` sub-axis discriminates, a snapshot-id-only `checkout` where the `ReadAt` sub-axis carries the `tag`/`as_of` time-travel triple, a single-call `_repository` helper where `IceStorage.repository` already holds the lifecycle, a `set_virtual_refs`-only native fold that drops the catalogue-confirmed single-chunk `set_virtual_ref(checksum=)` integrity arity where the slab count discriminates, a batch `VirtualChunkSpec` that omits the `etag_checksum=` slot and so silently drops the per-chunk integrity checksum the one-slab `set_virtual_ref(checksum=)` path preserves, a per-`set_virtual_ref` credential argument or an `open_or_create` with no `authorize_virtual_chunk_access=` where the `containers` map threads the credential at the lifecycle keyword, a nine-arm `for_ref` `match` where the `_STORAGE` table dispatches, a module-level mutable `dict` `_STORAGE` dispatch table where the sibling `gridded/store#STORE` `_COMPRESSOR`/`_FILTER`/`_CREATE` `Final[frozendict[...]]` convention owns the immutable scheme rows, an `r.root` aliased onto two distinct identity slots (the `azure` `account`/`container` or the `r2` `account_id`/`bucket`) where the `ResourceRef`-absent secondary identity resolves from the environment under `from_env=True`, a hand-listed `FieldVirtual` field copy where `asdict` rebinds, a bare-`str` `register`/`VirtualReceipt` `engine` slot where the `VirtualEngine` `Literal["virtual", "native"]` registration-path discriminant proves the accessor-versus-native vocabulary closed (the `field.md#EGRESS` `FieldEngine | EgressTag` closed-engine-slot counterpart, never a bare `str`), an accessor arm laundering the wider `FieldEngine | EgressTag` `r.engine` slot into the receipt where the `FieldVirtual.aggregate` `_receipt` invariant yields the provable `"virtual"` literal, a `tag_`-suffix-mangled `ReadAt` case where the `label` semantic case name avoids the `expression.tag()` reserved discriminant without a trailing-underscore drift, a constant `"icechunk"` store-kind `contribute` subject that drops the registration-path discriminant where `self.engine` carries the `VirtualEngine` tag onto the log line (the `field.md#EGRESS` `str(self.engine)` subject counterpart), a bare-`object` erased dispatch return where `VirtualOutcome` names the union, a faked `chunks=()`/`codec="manifest"` receipt arm, a snapshot-id-only content key where the Merkle `ContentIdentity.of` folds the snapshot identity and the registered-location census, a nested `tuple[RuntimeRail[ContentKey], ...]` of un-bound component `of` calls where the merkle source takes materialized `tuple[ContentKey, ...]` keys, a path-string `ContentIdentity.of` key, and a `git`-like branch-merge/rebase/conflict-solver/durable-ledger version-control engine realized in `data` rather than consumed from C# Persistence at the wire are the deleted forms.
+- Owner: `FieldVirtual` — the byte-range virtual-datacube owner, absorbed here so ONE page owns the manifest cube (the CF read/select/egress plane stays `gridded/field`, which this module imports strictly downward for the `FieldReceipt` family it mints); `FieldVirtual.aggregate` aggregates archival chunk byte ranges into one zero-copy virtual `xarray.Dataset` through `virtualizarr` manifest construction and the `h5py` `VirtualLayout` native composition, the arm consuming the frozen owner's own `sources`/`target`/`concat_dim`/`combine`/`parallel`/`export`/`store_config` fields rather than a staticmethod arg list. `VirtualParser` is the one closed `@tagged_union` `virtualizarr` parser axis carrying every parser's own full constructor payload (`hdf(group, drop_variables, reader_factory)` · `netcdf3(group, skip_variables, reader_options)` · `zarr(group, skip_variables)` · `dmrpp(group, skip_variables)` · `fits(group, skip_variables, reader_options)` · `kerchunk_json(group, fs_root, skip_variables)` · `kerchunk_parquet(group, fs_root, skip_variables, reader_options)` · `icechunk(branch, tag, snapshot_id, group, skip_variables, batch_size)`) whose `for_source` recovers the row from the source suffix and whose `build` fold returns the `virtualizarr.parsers` constructor that row owns one-to-one with the catalogue arity — the `HDFParser` `reader_factory` and the `NetCDF3Parser`/`FITSParser`/`KerchunkParquetParser` `reader_options` threaded so the per-parser read-tuning capability is captured rather than dropped — the format dimension a case not a parallel reader; the legacy kerchunk JSON/Parquet references read through the `KerchunkJSONParser`/`KerchunkParquetParser` rows, so no `kerchunk` admission enters the manifest. `CFDtype` is the one closed `@tagged_union` HDF5 type-metadata axis (`plain`/`string`/`vlen`/`enum`/`opaque`/`ref`) whose `resolve` fold returns the `h5py` `string_dtype`/`vlen_dtype`/`enum_dtype`/`opaque_dtype`/`ref_dtype` the raw NumPy dtype cannot describe and whose `inspect` static is the total inverse of `resolve` over all six cases through the `check_enum_dtype`/`check_string_dtype`/`check_vlen_dtype`/`check_opaque_dtype`/`check_ref_dtype` predicate ladder, so an opaque or reference dtype round-trips to its own case rather than collapsing to `plain`. Every `open_virtual_*` call carries an `ObjectStoreRegistry` mapping the source URL prefix to an `obstore` `from_url(url, config, client_options, retry_config)` backend threaded with the owner's `store_config` — the registry is the mandatory positional, never an optional knob, and the import is the canonical `obspec_utils.registry`, never the deprecation-flagged `virtualizarr` re-export.
+- Cases: `FieldVirtual` aggregates over two manifest-construction paths recovered from the source kind, never a second virtual owner — the `virtualizarr` manifest path (one `open_virtual_dataset(url, registry=, parser=, drop_variables=, loadable_variables=, decode_times=)` for the single-source arity, one `open_virtual_mfdataset(urls, registry=, parser=, concat_dim=, combine=, parallel=, compat=, join=)` over the URL tuple for the multi-source arity, `combine="by_coords"` the default and `parallel` the `MfParallel` literal `False`/`"dask"`/`"lithops"`, both landing `ManifestArray`-backed datasets) and the `h5py` native path (a single virtual HDF5 file composed from constituent byte-range `VirtualSource` slabs assigned by slice into a `VirtualLayout(shape, dtype, maxshape)`, materialized through the context-managed `File.build_virtual_dataset(name, shape, dtype, maxshape, fillvalue)` builder, the HDF5-native virtual file feeding the manifest path as one source; each `Slab` is the self-describing `(path, name, source_shape, region)` four-tuple so every `VirtualSource` carries its own concrete `source_shape`, the `CFDtype`-resolved special dtype threads onto both the layout and every source, the `maxshape` resizable axis rides the layout sink alone, and the `fillvalue` rides the `create_virtual_dataset` materializer). Both paths land in the same `ManifestArray` chunk manifest; the parser is the `VirtualParser` case, the source-variable type the `CFDtype` case, the export target the `ManifestWrite` case, never a per-format owner, a per-special-type constructor family, or a per-accessor export branch.
+- Entry: `FieldVirtual.aggregate` builds one `ObjectStoreRegistry` over the owner's source URLs threaded with `store_config`, opens the single source through `open_virtual_dataset` or the source tuple through `open_virtual_mfdataset` with the `VirtualParser`-selected parser and the registry, exports the assembled manifest through the `ManifestWrite.write` export fold, and folds one `FieldReceipt` over the real manifest chunk-reference census and reference byte span returned in a `RuntimeRail`; `FieldVirtual.tree` opens the hierarchical multi-group archive through `open_virtual_datatree` into one `xarray.DataTree` of `ManifestArray`-backed nodes — the `VirtualiZarrDataTreeAccessor` exposes no `to_kerchunk`, so a kerchunk export on a tree sink flattens through `DataTree.to_dataset` while the icechunk export drives the tree accessor's `write_inherited_coords` keyword set so the group hierarchy survives the snapshot, the nested-group modality a `sources`-arity-and-`group` discriminant on the same entrypoint, never a parallel tree reader; `FieldVirtual.from_native` composes the h5py native file then aggregates it as one source. One entrypoint family owns the single-source, multi-source, HDF5-native, and data-tree modalities by source-URL-tuple arity and suffix, never a per-source-count or per-format reader family.
+- Receipt: the manifest fold keys off EVERY `ManifestArray`-backed variable's real manifest — the chunk-reference census folded across all `data_vars` carrying `ManifestArray.manifest.dict()` (the `hasattr(var.data, "manifest")` guard skipping any eagerly-materialized `loadable_variables` slot whose `.data` is a plain NumPy/dask array, never a first-variable-only read that undercounts a multi-variable cube), the reference byte span read off the `virtualize.nbytes` accessor, the dims off the combined `cube.sizes` — folded into the same `engine`/`dims`/`variables`/`bytes_stored`/`content_key` `FieldReceipt` the `gridded/field#EGRESS` owner declares (imported downward, the one labelled-plane receipt family), the `engine="virtual"` stamp the invariant this fold mints so the icechunk registration path asserts the provable `Literal["virtual"]`; the content key derives from the CANONICAL per-variable manifest wire — `_manifest_wire` serializing each variable's chunk-reference rows deterministically as sorted `key path offset length` lines — keyed through the `Iterable[bytes]` `stream` modality of the one railed `ContentIdentity.of`, the `.map(lambda key: FieldReceipt(...))` thread the sibling egress paths share; a `repr(dict)` byte source and a faked `chunks=()`/`codec="manifest"` placeholder are the deleted forms the folder key-law names.
+- Packages: `virtualizarr` (`open_virtual_dataset(url, registry, parser, drop_variables, loadable_variables, decode_times)`/`open_virtual_mfdataset(urls, registry, parser, concat_dim, compat, preprocess, combine, parallel, join)`/`open_virtual_datatree(url, registry, parser, loadable_variables, decode_times)`/`parsers.{HDFParser,NetCDF3Parser,ZarrParser,DMRPPParser,FITSParser,KerchunkJSONParser,KerchunkParquetParser,IcechunkParser}`/`manifests.{ManifestArray,ChunkManifest}` with `ManifestArray.manifest` the `ChunkManifest` property and `ChunkManifest.dict()` the chunk-reference map/`VirtualiZarrDatasetAccessor.{to_kerchunk(filepath, format=, record_size=, categorical_threshold=), to_icechunk(store, *, group=, append_dim=, region=, validate_containers=, last_updated_at=), nbytes}` (`nbytes` a `property -> int`)/`VirtualiZarrDataTreeAccessor.to_icechunk(store, *, write_inherited_coords=, validate_containers=, last_updated_at=)` the hierarchical tree export, UNGATED module-top), `h5py` (`File.build_virtual_dataset(name, shape, dtype, maxshape=, fillvalue=)`/`VirtualLayout(shape, dtype, maxshape, filename)`/`VirtualSource(path_or_dataset, name, shape, dtype, maxshape)`/`Group.create_virtual_dataset(name, layout, fillvalue)`/`Dataset.virtual_sources`/`string_dtype(encoding, length)`/`vlen_dtype(basetype)`/`enum_dtype(values_dict, basetype)` (`numpy.uint8` the default base the `inspect` inverse re-supplies as `"u1"` since `check_enum_dtype` returns only the values map)/`opaque_dtype(np_dtype)`/`ref_dtype`/`check_string_dtype` (returning `string_info` with `.length`)/`check_vlen_dtype`/`check_enum_dtype`/`check_opaque_dtype`/`check_ref_dtype`, UNGATED Forge source build), `xarray` (the combine seam and `DataTree`, banned-module-level, function-local where touched), `obstore` (`store.from_url(url, config, client_options, retry_config)` backing the registry entries, function-local at the registry build), `obspec-utils` (`registry.ObjectStoreRegistry` the canonical import home), `gridded/field` (`FieldReceipt` the one labelled-plane receipt family, imported strictly downward), `beartype` (`@beartype(conf=FAULT_CONF)` on the `aggregate`/`tree`/`from_native` public entries), runtime (`ResourceRef`/`ContentIdentity`/`ContentKey`/`RuntimeRail`/`boundary`/`FAULT_CONF`).
+- Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new manifest-export target is one `ManifestWrite` case threading its accessor keyword set; a new multi-source combine policy is the `open_virtual_mfdataset` `combine`/`concat_dim`/`parallel` field; a new CF special type is one `CFDtype` case; a new object-store backend is one `store_config` `TypedDict` threaded through `from_url`; zero new surface.
+- Boundary: this page is the ONE virtualizarr home — a `FieldVirtual`/`VirtualParser`/`ManifestExport` declaration surviving on `gridded/field` is the dead double charter; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `data:gridded/store#STORE` Zarr egress, never re-minting either. A data-copying ingest where virtual reference applies · a hand-rolled kerchunk reference builder · a `registry`-less `open_virtual_dataset` call · a parallel per-format virtual-store class · a per-accessor export branch beside the `ManifestWrite` fold · a `repr(var.data.manifest.dict())` content-key byte source where `_manifest_wire` serializes the sorted rows deterministically · a first-variable-only manifest census undercounting a multi-variable cube · a dead `VirtualSource` shape no path consumes · a faked `chunks=()`/`codec="manifest"` receipt arm · an undecorated public factory — each is a deleted form.
 
 ```python signature
-from typing import TYPE_CHECKING, Final, Literal, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
-from builtins import frozendict
+import virtualizarr as vz
+from beartype import beartype
 from expression import Ok, case, tag, tagged_union
-from msgspec import Struct
-from msgspec.structs import asdict
+from icechunk import VirtualChunkSpec
+from msgspec import Struct, structs
 
-from rasm.data.gridded.field import FieldVirtual, ManifestExport
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary, railed
-from rasm.runtime.receipts import Receipt
+from rasm.data.gridded.field import FieldReceipt
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.roots import ResourceRef
+from virtualizarr.parsers import (
+    DMRPPParser,
+    FITSParser,
+    HDFParser,
+    IcechunkParser,
+    KerchunkJSONParser,
+    KerchunkParquetParser,
+    NetCDF3Parser,
+    ZarrParser,
+)
 
 if TYPE_CHECKING:
-    import datetime as dt
-    from collections.abc import Callable, Iterable
+    from collections.abc import Sequence
 
     import xarray as xr
-    from icechunk import AnyCredential, ConflictSolver, Diff, GCSummary, Repository, Session, Storage, VirtualChunkSpec
+    from icechunk import Session
 
 
-type Coordinates = tuple[int, ...]
-type CommitMeta = dict[str, str]
-type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
-type VirtualEngine = Literal["virtual", "native"]
-type VirtualOutcome = "VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset"
+type Combine = Literal["by_coords", "nested"]
+type KerchunkFormat = Literal["dict", "json", "parquet"]
+type MfParallel = Literal[False, "dask", "lithops"]
+type MaxShape = tuple[int | None, ...]
+type StoreConfig = dict[str, object]
+type Slab = tuple[str, str, tuple[int, ...], tuple[slice, ...]]
 
-_STORAGE: "Final[frozendict[str, Callable[[ResourceRef], IceStorage]]]" = frozendict({
-    "s3": lambda r: IceStorage(s3=(r.root, r.relative, None)),
-    "gs": lambda r: IceStorage(gcs=(r.root, r.relative)),
-    "gcs": lambda r: IceStorage(gcs=(r.root, r.relative)),
-    "az": lambda r: IceStorage(azure=(r.root, r.relative, None)),
-    "abfs": lambda r: IceStorage(azure=(r.root, r.relative, None)),
-    "r2": lambda r: IceStorage(r2=(r.root, r.relative, None)),
-    "tigris": lambda r: IceStorage(tigris=(r.root, r.relative)),
-    "http": lambda r: IceStorage(http=r.root),
-    "https": lambda r: IceStorage(http=r.root),
-    "memory": lambda r: IceStorage(memory=None),
-})
+
+@tagged_union(frozen=True)
+class CFDtype:
+    tag: Literal["plain", "string", "vlen", "enum", "opaque", "ref"] = tag()
+    plain: str = case()
+    string: int | None = case()
+    vlen: str = case()
+    enum: tuple[dict[str, int], str] = case()
+    opaque: str = case()
+    ref: bool = case()
+
+    def resolve(self) -> object:
+        import h5py  # noqa: PLC0415
+        import numpy as np  # noqa: PLC0415
+
+        match self:
+            case CFDtype(tag="plain", plain=name):
+                return name
+            case CFDtype(tag="string", string=length):
+                return h5py.string_dtype(encoding="utf-8", length=length)
+            case CFDtype(tag="vlen", vlen=base):
+                return h5py.vlen_dtype(base)
+            case CFDtype(tag="enum", enum=(values, base)):
+                return h5py.enum_dtype(values, basetype=base)
+            case CFDtype(tag="opaque", opaque=descr):
+                return h5py.opaque_dtype(np.dtype(descr))
+            case CFDtype(tag="ref", ref=_):
+                return h5py.ref_dtype
+            case unreachable:
+                assert_never(unreachable)
+
+    @staticmethod
+    def inspect(dtype: object) -> "CFDtype":
+        import h5py  # noqa: PLC0415
+
+        if (enum := h5py.check_enum_dtype(dtype)) is not None:
+            return CFDtype(enum=(enum, "u1"))
+        if (info := h5py.check_string_dtype(dtype)) is not None:
+            return CFDtype(string=info.length)
+        if (base := h5py.check_vlen_dtype(dtype)) is not None:
+            return CFDtype(vlen=str(base))
+        if (opaque := h5py.check_opaque_dtype(dtype)) is not None and opaque:
+            return CFDtype(opaque=str(dtype))
+        if h5py.check_ref_dtype(dtype) is not None:
+            return CFDtype(ref=True)
+        return CFDtype(plain=str(dtype))
+
+
+@tagged_union(frozen=True)
+class VirtualParser:
+    tag: Literal["hdf", "netcdf3", "zarr", "dmrpp", "fits", "kerchunk_json", "kerchunk_parquet", "icechunk"] = tag()
+    hdf: tuple[str | None, tuple[str, ...], object | None] = case()
+    netcdf3: tuple[str | None, tuple[str, ...], dict[str, object] | None] = case()
+    zarr: tuple[str | None, tuple[str, ...]] = case()
+    dmrpp: tuple[str | None, tuple[str, ...]] = case()
+    fits: tuple[str | None, tuple[str, ...], dict[str, object] | None] = case()
+    kerchunk_json: tuple[str | None, str | None, tuple[str, ...]] = case()
+    kerchunk_parquet: tuple[str | None, str | None, tuple[str, ...], dict[str, object] | None] = case()
+    icechunk: tuple[str | None, str | None, str | None, str | None, tuple[str, ...], int | None] = case()
+
+    @staticmethod
+    def for_source(url: str) -> "VirtualParser":
+        match url.rsplit(".", 1)[-1].lower():
+            case "zarr":
+                return VirtualParser(zarr=(None, ()))
+            case "nc3" | "cdl":
+                return VirtualParser(netcdf3=(None, (), None))
+            case "dmrpp":
+                return VirtualParser(dmrpp=(None, ()))
+            case "fits":
+                return VirtualParser(fits=(None, (), None))
+            case "json":
+                return VirtualParser(kerchunk_json=(None, None, ()))
+            case "parq" | "parquet":
+                return VirtualParser(kerchunk_parquet=(None, None, (), None))
+            case _:
+                return VirtualParser(hdf=(None, (), None))
+
+    def build(self) -> object:
+        match self:
+            case VirtualParser(tag="hdf", hdf=(group, drop, reader_factory)):
+                return HDFParser(group=group, drop_variables=list(drop), reader_factory=reader_factory)
+            case VirtualParser(tag="netcdf3", netcdf3=(group, skip, reader_options)):
+                return NetCDF3Parser(group=group, skip_variables=list(skip), reader_options=reader_options)
+            case VirtualParser(tag="zarr", zarr=(group, skip)):
+                return ZarrParser(group=group, skip_variables=list(skip))
+            case VirtualParser(tag="dmrpp", dmrpp=(group, skip)):
+                return DMRPPParser(group=group, skip_variables=list(skip))
+            case VirtualParser(tag="fits", fits=(group, skip, reader_options)):
+                return FITSParser(group=group, skip_variables=list(skip), reader_options=reader_options)
+            case VirtualParser(tag="kerchunk_json", kerchunk_json=(group, fs_root, skip)):
+                return KerchunkJSONParser(group=group, fs_root=fs_root, skip_variables=list(skip))
+            case VirtualParser(tag="kerchunk_parquet", kerchunk_parquet=(group, fs_root, skip, reader_options)):
+                return KerchunkParquetParser(group=group, fs_root=fs_root, skip_variables=list(skip), reader_options=reader_options)
+            case VirtualParser(tag="icechunk", icechunk=(branch, tag_, snapshot, group, skip, batch)):
+                return IcechunkParser(branch=branch, tag=tag_, snapshot_id=snapshot, group=group, skip_variables=list(skip), batch_size=batch)
+            case unreachable:
+                assert_never(unreachable)
 
 
 class VirtualChunkSlab(Struct, frozen=True):
@@ -67,15 +163,226 @@ class VirtualChunkSlab(Struct, frozen=True):
     length: int
     checksum: str | None = None
 
-    def spec(self) -> "VirtualChunkSpec":
-        from icechunk import VirtualChunkSpec  # noqa: PLC0415
-
+    def spec(self) -> VirtualChunkSpec:
         return VirtualChunkSpec(
             index=list(self.coordinates), location=self.location, offset=self.offset, length=self.length, etag_checksum=self.checksum
         )
 
     def key(self) -> str:
         return "/".join((self.array_path, "c", *(str(c) for c in self.coordinates)))
+
+
+@tagged_union(frozen=True)
+class ManifestWrite:
+    # the ONE export/registration axis: `kerchunk`/`icechunk` the EXPORT direction (the `write`
+    # fold over the virtualize accessors), `cube`/`native` the REGISTRATION direction (the
+    # `register` fold onto the icechunk session store) — one manifest vocabulary, two folds.
+    tag: Literal["kerchunk", "icechunk", "cube", "native"] = tag()
+    kerchunk: tuple[KerchunkFormat, int | None, int | None] = case()
+    icechunk: tuple[object, str | None, str | None, tuple[object, ...] | None, bool, str | None, bool] = case()
+    cube: "FieldVirtual" = case()
+    native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
+
+    def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> None:
+        from xarray import DataTree  # noqa: PLC0415
+
+        is_tree = isinstance(cube, DataTree)
+        match self:
+            # the `VirtualiZarrDataTreeAccessor` exposes no `to_kerchunk`, so a tree sink flattens
+            # to one `Dataset` for the kerchunk reference document; only `to_icechunk` survives the
+            # group hierarchy, its tree-accessor keyword `write_inherited_coords`, never the
+            # dataset accessor's `append_dim`/`region`.
+            case ManifestWrite(tag="kerchunk", kerchunk=(fmt, record_size, threshold)):
+                flat = cube.to_dataset() if is_tree else cube
+                flat.virtualize.to_kerchunk(str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold)
+            case ManifestWrite(tag="icechunk", icechunk=(store, _, _, _, validate, updated_at, inherited)) if is_tree:
+                cube.virtualize.to_icechunk(store, write_inherited_coords=inherited, validate_containers=validate, last_updated_at=updated_at)
+            case ManifestWrite(tag="icechunk", icechunk=(store, group, append_dim, region, validate, updated_at, _)):
+                cube.virtualize.to_icechunk(
+                    store, group=group, append_dim=append_dim, region=region, validate_containers=validate, last_updated_at=updated_at
+                )
+            case ManifestWrite(tag="cube" | "native"):
+                raise ValueError(f"{self.tag} is a registration case; export targets are kerchunk|icechunk")
+            case unreachable:
+                assert_never(unreachable)
+
+    def register(self, session: "Session") -> "RuntimeRail[tuple[tuple[str, ...], VirtualEngine, int]]":
+        match self:
+            case ManifestWrite(tag="cube", cube=spec):
+                # the asdict strip-and-rebind: only the `export` slot overrides (to the icechunk
+                # case over THIS session's store); every other field rides through unchanged.
+                fields = {key: value for key, value in structs.asdict(spec).items() if key != "export"}
+                lowered = FieldVirtual(**fields, export=ManifestWrite(icechunk=(session.store, None, None, None, True, None, False))).aggregate()
+                return lowered.map(lambda r: (tuple(r.dims), "virtual", r.bytes_stored))
+            case ManifestWrite(tag="native", native=(array_path, (slab,))):
+                session.store.set_virtual_ref(
+                    slab.key(), slab.location, offset=slab.offset, length=slab.length, checksum=slab.checksum, validate_container=True
+                )
+                return Ok(((array_path,), "native", slab.length))
+            case ManifestWrite(tag="native", native=(array_path, slabs)):
+                session.store.set_virtual_refs(array_path, [slab.spec() for slab in slabs], validate_containers=True)
+                return Ok(((array_path,), "native", sum(slab.length for slab in slabs)))
+            case ManifestWrite(tag="kerchunk" | "icechunk"):
+                raise ValueError(f"{self.tag} is an export target; registration cases are cube|native")
+            case unreachable:
+                assert_never(unreachable)
+
+    @staticmethod
+    def nbytes(cube: "xr.Dataset") -> int:
+        return int(cube.virtualize.nbytes)
+
+
+class FieldVirtual(Struct, frozen=True):
+    sources: tuple[str, ...]
+    target: ResourceRef
+    concat_dim: str = "time"
+    combine: Combine = "by_coords"
+    parallel: MfParallel = False
+    export: ManifestWrite = ManifestWrite(kerchunk=("parquet", None, None))
+    store_config: StoreConfig | None = None
+
+    @beartype(conf=FAULT_CONF)
+    def aggregate(self) -> "RuntimeRail[FieldReceipt]":
+        return boundary("virtual.manifest", lambda: _aggregate(self)).bind(lambda railed: railed)
+
+    @beartype(conf=FAULT_CONF)
+    def tree(self, group: str | None = None) -> "RuntimeRail[FieldReceipt]":
+        return boundary("virtual.manifest.tree", lambda: _tree(self, group)).bind(lambda railed: railed)
+
+    @staticmethod
+    @beartype(conf=FAULT_CONF)
+    def from_native(
+        slabs: "tuple[Slab, ...]",
+        shape: tuple[int, ...],
+        dtype: CFDtype,
+        target: ResourceRef,
+        *,
+        maxshape: MaxShape | None = None,
+        fillvalue: object | None = None,
+        export: ManifestWrite = ManifestWrite(kerchunk=("parquet", None, None)),
+    ) -> "RuntimeRail[FieldReceipt]":
+        return boundary(
+            "virtual.manifest.native",
+            lambda: _aggregate(FieldVirtual(sources=(_native_file(slabs, shape, dtype, target, maxshape, fillvalue),), target=target, export=export)),
+        ).bind(lambda railed: railed)
+
+
+def _registry(sources: "Sequence[str]", config: StoreConfig | None) -> object:
+    from obspec_utils.registry import ObjectStoreRegistry  # noqa: PLC0415
+    from obstore.store import from_url  # noqa: PLC0415
+
+    return ObjectStoreRegistry({url: from_url(url, config=config) for url in sources})
+
+
+def _open_virtual(spec: FieldVirtual) -> "xr.Dataset":
+    registry, parser = _registry(spec.sources, spec.store_config), VirtualParser.for_source(spec.sources[0]).build()
+    if len(spec.sources) > 1:
+        return vz.open_virtual_mfdataset(
+            list(spec.sources), registry=registry, parser=parser, concat_dim=spec.concat_dim, combine=spec.combine, parallel=spec.parallel
+        )
+    return vz.open_virtual_dataset(spec.sources[0], registry=registry, parser=parser)
+
+
+def _manifest_wire(name: str, manifest: dict[str, dict[str, object]]) -> bytes:
+    # the CANONICAL per-variable manifest bytes: sorted chunk-key rows of `path offset length`,
+    # one line each — a deterministic wire the `stream` identity modality folds; `repr(dict)` is
+    # the deleted byte source (non-canonical ordering and quoting), the folder key-law.
+    rows = (f"{name}/{key} {entry['path']} {entry['offset']} {entry['length']}" for key, entry in sorted(manifest.items()))
+    return "\n".join(rows).encode()
+
+
+def _receipt(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: "ManifestWrite", target: ResourceRef) -> "RuntimeRail[FieldReceipt]":
+    export.write(sink, target)
+    manifests = [
+        _manifest_wire(str(name), var.data.manifest.dict()) for name, var in stats.data_vars.items() if hasattr(var.data, "manifest")
+    ]
+    return ContentIdentity.of("virtual.manifest", manifests).map(
+        lambda key: FieldReceipt(
+            engine="virtual", dims=tuple(stats.sizes), variables=len(stats.data_vars), bytes_stored=ManifestWrite.nbytes(stats), content_key=key
+        )
+    )
+
+
+def _aggregate(spec: FieldVirtual) -> "RuntimeRail[FieldReceipt]":
+    cube = _open_virtual(spec)
+    return _receipt(cube, cube, spec.export, spec.target)
+
+
+def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeRail[FieldReceipt]":
+    registry, parser = _registry(spec.sources, spec.store_config), VirtualParser.for_source(spec.sources[0]).build()
+    tree = vz.open_virtual_datatree(spec.sources[0], registry=registry, parser=parser)
+    if group is not None:
+        node = tree[group].dataset
+        return _receipt(node, node, spec.export, spec.target)
+    return _receipt(tree, tree.to_dataset(), spec.export, spec.target)
+
+
+def _native_file(
+    slabs: "Sequence[Slab]", shape: tuple[int, ...], dtype: CFDtype, target: ResourceRef, maxshape: MaxShape | None, fillvalue: object | None
+) -> str:
+    import h5py  # noqa: PLC0415
+
+    resolved = dtype.resolve()
+    with (
+        h5py.File(str(target.path), "w") as sink,
+        sink.build_virtual_dataset(name="data", shape=shape, dtype=resolved, maxshape=maxshape, fillvalue=fillvalue) as layout,
+    ):
+        for path, name, source_shape, region in slabs:
+            layout[region] = h5py.VirtualSource(path, name=name, shape=source_shape, dtype=resolved)
+    return str(target.path)
+```
+
+## [03]-[VIRTUAL]
+
+- Owner: `VirtualReference` — one frozen virtual-reference owner carrying the source URL tuple, the destination `ResourceRef`, the target branch, and the optional `containers` virtual-chunk credential map; the destination `IceStorage` backend is recovered per call from the `ResourceRef` scheme rather than stored, the credential threads through `IceStorage.repository(containers)` into the `open_or_create(authorize_virtual_chunk_access=)` lifecycle keyword, and the version modality rides the `VersionOp` case the `apply` entrypoint takes rather than a stored write field. `VersionOp` is the one closed `@tagged_union` request axis collapsing the registration and version-control modalities — `aggregate`/`stamp`/`diff`/`reclaim`/`checkout` — onto one `run` total dispatch, never a sibling-method family; the nested `Reclaim` sub-axis folds the `expire_snapshots` snapshot-mark and the `garbage_collect` object-reclaim onto one `run` over the two `icechunk` maintenance members, and the nested `ReadAt` sub-axis folds the `snapshot_id`/`tag`/`as_of`-datetime time-travel triple onto one `readonly_session` call, never a parallel `checkout_snapshot`/`checkout_tag`/`as_of` reader family. `IceStorage` is the one closed `@tagged_union` storage-backend axis collapsing the eight `icechunk` storage factories — `local`/`s3`/`gcs`/`azure`/`r2`/`tigris`/`http`/`memory` — onto one `build` fold and one immutable `_STORAGE` `Map` scheme table feeding `for_ref`, never eight parallel construction call sites and never a nine-arm `match`. `ManifestWrite` is the ONE export/registration axis of the whole manifest plane: the `kerchunk`/`icechunk` EXPORT cases (the former field-side `ManifestExport`, driven by the `write` fold over the virtualize accessors) and the `cube`/`native` REGISTRATION cases (driven by the `register` fold onto the icechunk session store) on one four-case union — the `cube` case composing the co-located `FieldVirtual` with its `export` rebound to the `icechunk` case over `session.store` through the `msgspec.structs.asdict` strip-and-rebind idiom, the `native` case routing raw `VirtualChunkSlab` byte-range descriptors by slab count. `VirtualChunkSlab` carries one external chunk byte-range descriptor (`array_path`/`coordinates`/`location`/`offset`/`length`/`checksum`) the native registration routes — `spec` lowering the batch `VirtualChunkSpec(index=, location=, offset=, length=, etag_checksum=)` and `key` lowering the single-chunk Zarr-v3 `<array>/c/<coord>/...` chunk key.
+- Cases: `VersionOp` collapses the registration and version-control surface onto one transactional repository, the modality recovered from the case, never a sibling-method family — `aggregate(ManifestWrite, CommitMeta, ConflictSolver | None)` registers and commits one snapshot through the `rebase_with=` auto-rebase under the supplied solver (an export-target `kerchunk`/`icechunk` case handed to `aggregate` is a typed reject — an export target is not a registration source), `stamp(name, snapshot)` stamps an immutable `create_tag` reference, `diff(base, head)` walks the snapshot changeset, `reclaim(Reclaim)` runs the `expire_snapshots` snapshot-mark or the `garbage_collect` object-reclaim recovered from the `Reclaim` case, and `checkout(ReadAt)` time-travels to a read-only cube at the `snapshot_id`/`tag`/`as_of`-datetime the `ReadAt` case recovers. Both registration paths land `ChunkType.virtual` chunks in the same `icechunk` session and commit one snapshot; the modality is the `ManifestWrite` case the supplied source recovers, never a parallel accessor-only or native-only owner. `IceStorage` cases map one-to-one onto the eight `icechunk` storage factories, the row recovered from the `ResourceRef` scheme through the `_STORAGE` table backing `for_ref`.
+- Entry: `VirtualReference.apply` is the one entrypoint over the `VersionOp` request `@tagged_union`, recovering the `IceStorage` backend from the destination `ResourceRef`, opening one `icechunk` `Repository` through `IceStorage.repository(self.containers)` (`Repository.open_or_create(..., authorize_virtual_chunk_access=)`), and driving the supplied `VersionOp` case through one `op.run(repo, self)` total dispatch closed with `assert_never`; `run` itself returns a `RuntimeRail[VirtualOutcome]` (the `aggregate` arm threading its content-key rails through `railed`, the eager `stamp`/`diff`/`reclaim`/`checkout` arms `Ok`-lifting), so `apply` fences the raising `icechunk` calls in one `boundary(f"virtual.{op.tag}")` and `.bind`s away the doubled rail — never an `aggregate`/`stamp`/`as_of` sibling-method family sharing a boundary prefix and never a per-op free function. `VersionOp` cases own every modality: `aggregate` opens a `writable_session(branch)`, drives the supplied `ManifestWrite` registration case against `session.store` (the `cube` case composing `FieldVirtual.aggregate` through `virtualize.to_icechunk`, the `native` case routing a one-slab payload through `set_virtual_ref(checksum=)` and a many-slab payload through `set_virtual_refs` by the slab count), commits one snapshot through `session.commit("virtual-reference", metadata=, rebase_with=)` under the supplied `ConflictSolver` so a concurrent branch write auto-rebases rather than failing the transaction, and folds one `VirtualReceipt` over the real manifest chunk count, the reference byte span, the committed snapshot, the `lookup_branch` head, and the `ancestry` depth; `stamp` stamps a durable `Repository.create_tag(name, snapshot_id)` immutable reference; `diff` walks `Repository.diff(from_snapshot_id=, to_snapshot_id=)` into one `Diff` changeset; `reclaim` runs the nested `Reclaim.run` over `Repository.expire_snapshots(older_than)` or `Repository.garbage_collect(older_than)` returning the reclaimed snapshot-id `set[str]` or the `GCSummary` census; `checkout` opens the `ReadAt`-selected `readonly_session(snapshot_id=)`/`readonly_session(tag=)`/`readonly_session(as_of=)` time-travel read for an as-of virtual-cube query. The per-case return is a named closed `VirtualOutcome = VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset` union alias, the five verbs producing genuinely irreducible outcomes no fold collapses to one shape, so the `RuntimeRail[VirtualOutcome]` names the union the caller `match`es rather than a bare `object` erasure. One `apply`/`VersionOp` entrypoint family owns the single-source, multi-source, cube, native, stamp, diff, reclaim, and checkout modalities by the `VersionOp` case, the `ManifestWrite`/`Reclaim`/`ReadAt` sub-case, and the source-URL-tuple arity, never a per-source-count, per-op, or per-path reader family.
+- Auto: `IceStorage.repository(containers)` is the idempotent lifecycle entry — `Repository.open_or_create(self.build(), authorize_virtual_chunk_access=)` over an `IceStorage`-built `Storage`, the optional per-virtual-container credential map the `VirtualReference.containers` owner field threads and lowers via `containers_credentials(dict(containers))` (the value type the `AnyCredential` factory-return union, never a raw token tuple) so a credentialed archival source authorizes its external byte-range reads at the lifecycle keyword rather than a per-`set_virtual_ref` argument; every write flows through `writable_session(branch)` and reaches the Zarr-compatible `IcechunkStore` only through `session.store`, the commit landing through `session.commit("virtual-reference", metadata=, rebase_with=)` so the optional `ConflictSolver` auto-rebases a concurrent branch write at commit time, matching the `icechunk` `rebase_with`-at-commit law; the native registration is one arity-discriminated `register` arm carrying the per-chunk integrity checksum on both paths — a one-slab payload routes `set_virtual_ref(slab.key(), location, offset=, length=, checksum=, validate_container=True)`, a many-slab payload routes `set_virtual_refs(array_path, chunks, validate_containers=True)` over the `VirtualChunkSpec` tuple whose `spec()` projection threads the same `slab.checksum` into the batch `etag_checksum=` integrity slot — the single-versus-batch disposition recovered from the slab count alone, never an integrity asymmetry where the batch path silently drops the checksum, mirroring the `gridded/store#STORE` `write_region`/`write_many` arity collapse; the `cube` path reuses the co-located `FieldVirtual` aggregation through one `msgspec.structs.asdict` field-for-field rebind that strips the `export` key before the splat and re-supplies the `icechunk` export case so the destination store overrides only that slot — the corpus rebind idiom, never a double-`export` splat and never a hand-listed field copy — then `.map`s the `FieldVirtual.aggregate()` `RuntimeRail[FieldReceipt]` into the `(dims, "virtual", bytes_stored)` triple, the registration-path discriminant the provable `Literal["virtual"]` the manifest `_receipt` invariantly stamps; the `for_ref` scheme dispatch rides the immutable `_STORAGE` `Map` callable table, so a new scheme is one row; `icechunk` is the native Rust pyo3 extension shipping cp312-abi3 stable-ABI wheels, so the former `<3.15` band is NARROWED on wheel evidence and the import lifts to module-top — the function-local gate posture is the deleted form; the content key binds the committed-snapshot `snapshot_key` and the registered-location `refs_key` component `ContentIdentity.of` rails through the `railed` `effect.result` builder's `yield from`, then folds the two resolved `ContentKey` values into one Merkle `tuple[ContentKey, ...]` source — the materialized-component idiom the `tabular/materialize#MATERIALIZE` `snapshot_key` and `tabular/contract#COLLECTION` covenant fold share — never a nested `tuple[RuntimeRail[ContentKey], ...]` the merkle arm cannot key, never a smuggled rail in a `ContentKey` slot, and never a path-string source.
+- Receipt: the `VirtualReceipt` keys off the real registration — the registered-chunk census read uniformly off the materialized `tuple(Session.all_virtual_chunk_locations())` for both arms (the same tuple feeding the count and the referenced-location content key, never a double walk of the lazy iterator), the reference byte span and CF dims read off the composed manifest `FieldReceipt` (`bytes_stored`/`dims`) under the provable `"virtual"` engine tag for the cube case or the summed `VirtualChunkSlab` lengths under the `"native"` tag, the committed snapshot id off `session.commit`, the branch head off `Repository.lookup_branch`, and the ancestry depth off `Repository.ancestry`; the content key Merkle-folds the snapshot-identity key (`snapshot.encode()`, canonical bytes) and the registered-location key (`"\n".join(refs).encode()`, the sorted-join discipline) through the one `ContentIdentity.of` `tuple[ContentKey, ...]` source, so a snapshot rewrite that preserves the registered locations and a relocation that preserves the snapshot id are distinct keys. `VirtualReceipt.contribute` `yield`s one emitted-phase `Receipt.of("virtual", ("emitted", self.engine, facts))` — the two-argument `(owner, evidence)` factory, the `VirtualEngine` `Literal["virtual", "native"]` registration-path discriminant riding the subject slot so the cube-versus-native path survives onto the log line, the native ints riding the facts map uncoerced, the `Iterable[Receipt]` stream the Protocol declares. The `stamp`/`diff`/`reclaim`/`checkout` cases emit no `VirtualReceipt` — `stamp` returns the stamped name, `diff` the `Diff` changeset, `reclaim` the reclaimed `set[str]`/`GCSummary`, `checkout` the time-travel `xarray.Dataset` — so the typed receipt fold stays the `aggregate` case alone. The cross-runtime PARITY obligation is recorded against the landed rail: the icechunk as-of snapshot identity reproduces from the C#-pinned `XxHash128` seed and the reproduction grade folds through the runtime `evidence/reproduction` `ParityReceipt` rail — the consumer seam this page composes, never a hand-proven equality here.
+- Packages: `icechunk` (`Repository.{open_or_create(storage, config=, authorize_virtual_chunk_access=),writable_session,readonly_session(branch=, *, tag=, snapshot_id=, as_of=),create_tag,lookup_branch,ancestry,diff(*, from_snapshot_id=, to_snapshot_id=),expire_snapshots(older_than) -> set[str],garbage_collect(older_than) -> GCSummary}`/`Session.{store,commit(message, metadata=, *, rebase_with=, rebase_tries=),all_virtual_chunk_locations()}`/`IcechunkStore.{set_virtual_ref(key, location, *, offset, length, checksum=, validate_container=),set_virtual_refs(array_path, chunks, *, validate_containers=)}`/the eight storage factories `local_filesystem_storage`/`in_memory_storage`/`s3_storage`/`gcs_storage`/`azure_storage`/`r2_storage`/`tigris_storage`/`http_storage` (the S3-family rows carrying `from_env=` credential resolution — the `azure` `account` and `r2` `account_id` secondary identities resolve from the environment under `from_env=True`, never an `r.root` aliased twice)/`containers_credentials`/`ConflictSolver`/`BasicConflictSolver`/`ConflictDetector`/`VirtualChunkSpec(index, location, offset, length, etag_checksum=, last_updated_at_checksum=)`/`Diff`/`GCSummary`/`ChunkType.virtual` — cp312-abi3 stable-ABI, module-top; the former `<3.15` gate narrowed on wheel evidence), the co-located `[02]-[MANIFEST]` `FieldVirtual` owner (same module, zero import), `gridded/field` (`FieldReceipt` the downward vocabulary import), `expression` (`railed` the `effect.result` `yield from`-bind builder, `Ok` the eager-arm lift, `Map`/`Map.of_seq` the `_STORAGE` scheme table), runtime (`ResourceRef`/`ContentIdentity`/`ContentKey`/`RuntimeRail`/`boundary`/`railed`/`Receipt`/`ReceiptContributor`; `evidence/reproduction` `ParityReceipt` the parity-grade rail the snapshot-seed reproduction folds through).
+- Growth: a new storage backend is one `IceStorage` case plus one `build` row and one `_STORAGE` scheme entry; a new export or registration path is one `ManifestWrite` case on the one axis; a new source format is one `VirtualParser` case on the co-located manifest owner; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests(commit_method=)` under a `CompressionAlgorithm` row, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member, never a sibling method; a new reclaim modality is one `Reclaim` case, a new time-travel anchor one `ReadAt` case; a new virtual-chunk credential is one `(container, credential)` entry on the owner field; zero new surface.
+- Boundary: composes the co-located manifest owner and the runtime `boundary`/`ContentIdentity`/`ResourceRef`, never a second manifest or fault owner; no compute-package numeric trio, no production tensor session, no durable product store; the icechunk version-control snapshot identity (branch/tag/ancestry, the `set_virtual_ref` content-key) is the `csharp:Rasm.Persistence/Version/Snapshots` wire concern consumed at the boundary — the durable git-like version-control ENGINE (branch-merge policy, `reset_branch`/`rewrite_manifests` retention orchestration, the durable reuse ledger) stays C# Persistence, this page emitting only the snapshot identity as receipt key and consuming icechunk's native diff/reclaim/rebase-at-commit; the `ConflictSolver` threaded into `commit` is a commit-time policy value, never a merge engine. Deleted forms, one clause each: a data-copying ingest where virtual reference applies · a module-top `icechunk` import on this gated page · an `aggregate`/`stamp`/`as_of` sibling-method family or per-op free function where the `VersionOp` union and one `apply` dispatch own the modality · a serialized commit-retry loop where `commit(rebase_with=)` auto-rebases · a parallel `expire`/`gc` op-family where the `Reclaim` sub-axis discriminates · a snapshot-id-only `checkout` where the `ReadAt` sub-axis carries the triple · a `set_virtual_refs`-only native fold dropping the single-chunk `set_virtual_ref(checksum=)` arity where the slab count discriminates · a batch `VirtualChunkSpec` omitting `etag_checksum=` where the one-slab path preserves the checksum · a per-`set_virtual_ref` credential argument where `containers` threads at the lifecycle keyword · a nine-arm `for_ref` `match` or a frozendict-typed `_STORAGE` table where the one `Map` scheme table dispatches · an `r.root` aliased onto two distinct identity slots where the secondary identity resolves under `from_env=True` · a hand-listed `FieldVirtual` field copy where `asdict` rebinds · a bare-`str` `engine` slot where the `VirtualEngine` literal proves the vocabulary closed · a `tag_`-suffix-mangled `ReadAt` case where the `label` semantic name avoids the `expression.tag()` reserved discriminant · a constant `"icechunk"` `contribute` subject dropping the registration-path discriminant · a bare-`object` dispatch return where `VirtualOutcome` names the union · a snapshot-id-only content key where the Merkle fold spans snapshot identity AND registered-location census · a nested `tuple[RuntimeRail[ContentKey], ...]` merkle source where the components materialize first · a path-string key · a hand-proven cross-runtime seed equality where the runtime `ParityReceipt` rail owns the grade · a `git`-like merge/rebase/durable-ledger engine realized in `data` rather than consumed from C# Persistence at the wire.
+
+```python signature
+from typing import TYPE_CHECKING, Final, Literal, assert_never
+
+import icechunk as ic
+from expression import Ok, case, tag, tagged_union
+from expression.collections import Map
+from icechunk import VirtualChunkSpec
+from msgspec import Struct
+
+from rasm.runtime.faults import RuntimeRail, boundary, railed
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.receipts import Receipt
+from rasm.runtime.roots import ResourceRef
+
+if TYPE_CHECKING:
+    import datetime as dt
+    from collections.abc import Callable, Iterable
+
+    import xarray as xr
+    from icechunk import AnyCredential, ConflictSolver, Diff, GCSummary, Repository, Session, Storage
+
+
+type Coordinates = tuple[int, ...]
+type CommitMeta = dict[str, str]
+type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
+type VirtualEngine = Literal["virtual", "native"]
+type VirtualOutcome = "VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset"
+
+_STORAGE: "Final[Map[str, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
+    ("s3", lambda r: IceStorage(s3=(r.root, r.relative, None))),
+    ("gs", lambda r: IceStorage(gcs=(r.root, r.relative))),
+    ("gcs", lambda r: IceStorage(gcs=(r.root, r.relative))),
+    ("az", lambda r: IceStorage(azure=(r.root, r.relative, None))),
+    ("abfs", lambda r: IceStorage(azure=(r.root, r.relative, None))),
+    ("r2", lambda r: IceStorage(r2=(r.root, r.relative, None))),
+    ("tigris", lambda r: IceStorage(tigris=(r.root, r.relative))),
+    ("http", lambda r: IceStorage(http=r.root)),
+    ("https", lambda r: IceStorage(http=r.root)),
+    ("memory", lambda r: IceStorage(memory=None)),
+])
 
 
 @tagged_union(frozen=True)
@@ -92,11 +399,9 @@ class IceStorage:
 
     @staticmethod
     def for_ref(ref: ResourceRef) -> "IceStorage":
-        return _STORAGE.get(ref.scheme, lambda r: IceStorage(local=str(r.path)))(ref)
+        return _STORAGE.try_find(ref.scheme).default_value(lambda r: IceStorage(local=str(r.path)))(ref)
 
     def build(self) -> "Storage":
-        import icechunk as ic  # noqa: PLC0415
-
         match self:
             case IceStorage(tag="local", local=path):
                 return ic.local_filesystem_storage(path)
@@ -118,34 +423,8 @@ class IceStorage:
                 assert_never(unreachable)
 
     def repository(self, containers: ContainerAuth = ()) -> "Repository":
-        import icechunk as ic  # noqa: PLC0415
-
         access = ic.containers_credentials(dict(containers)) if containers else None
         return ic.Repository.open_or_create(self.build(), authorize_virtual_chunk_access=access)
-
-
-@tagged_union(frozen=True)
-class ManifestWrite:
-    tag: Literal["accessor", "native"] = tag()
-    accessor: "FieldVirtual" = case()
-    native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
-
-    def register(self, session: "Session") -> "RuntimeRail[tuple[tuple[str, ...], VirtualEngine, int]]":
-        match self:
-            case ManifestWrite(tag="accessor", accessor=spec):
-                fields = {key: value for key, value in asdict(spec).items() if key != "export"}
-                lowered = FieldVirtual(**fields, export=ManifestExport(icechunk=(session.store, None, None, None, True, None))).aggregate()
-                return lowered.map(lambda r: (tuple(r.dims), "virtual", r.bytes_stored))
-            case ManifestWrite(tag="native", native=(array_path, (slab,))):
-                session.store.set_virtual_ref(
-                    slab.key(), slab.location, offset=slab.offset, length=slab.length, checksum=slab.checksum, validate_container=True
-                )
-                return Ok(((array_path,), "native", slab.length))
-            case ManifestWrite(tag="native", native=(array_path, slabs)):
-                session.store.set_virtual_refs(array_path, [slab.spec() for slab in slabs], validate_containers=True)
-                return Ok(((array_path,), "native", sum(slab.length for slab in slabs)))
-            case unreachable:
-                assert_never(unreachable)
 
 
 @tagged_union(frozen=True)
@@ -276,23 +555,18 @@ class VirtualReference(Struct, frozen=True):
 
 ```mermaid
 flowchart LR
-    Apply["VirtualReference.apply(VersionOp)"] --> Repo["IceStorage.for_ref(_STORAGE) -> repository(): open_or_create"]
-    Repo -->|aggregate| Session["writable_session(branch)"]
-    Sources["HDF5/NetCDF/GeoTIFF/Zarr/DMRPP URLs"] --> Field["gridded/field#VIRTUAL FieldVirtual: VirtualParser + open_virtual_mfdataset"]
-    Field --> Write["ManifestWrite.register"]
-    Write -->|accessor| Acc["cube.virtualize.to_icechunk(session.store)"]
-    Write -->|native| Nat["IcechunkStore.set_virtual_refs(array_path, VirtualChunkSpec[])"]
-    Acc --> Session
+    Sources["HDF5/NetCDF3/Zarr/DMRPP/FITS/kerchunk URLs"] --> Registry["ObjectStoreRegistry over obstore.from_url(store_config)"]
+    Native["h5py File.build_virtual_dataset + CFDtype.resolve special dtype"] --> Registry
+    Registry --> Open["open_virtual_dataset / open_virtual_mfdataset / open_virtual_datatree + VirtualParser case"]
+    Open --> Manifest["ManifestArray + ChunkManifest chunk manifest"]
+    Manifest --> Export["ManifestWrite.write: kerchunk | icechunk export"]
+    Export --> FReceipt["FieldReceipt keyed by canonical _manifest_wire stream"]
+    Manifest --> Cube["ManifestWrite.register cube: asdict rebind onto session.store"]
+    Slabs["VirtualChunkSlab byte ranges"] --> Nat["ManifestWrite.register native: set_virtual_ref(s)"]
+    Cube --> Session["writable_session(branch)"]
     Nat --> Session
-    Session --> Commit["session.commit -> snapshot_id"]
-    Commit --> Receipt["VirtualReceipt: chunk manifest + snapshot/head/ancestry"]
-    Receipt --> Wire["csharp:Rasm.Persistence content-key (XxHash128 seed)"]
-    Repo -->|stamp/diff/reclaim/checkout| Version["create_tag | diff | expire_snapshots/garbage_collect | readonly_session(snapshot/tag/as_of)"]
+    Session --> Commit["session.commit(rebase_with=solver) -> snapshot_id"]
+    Commit --> VReceipt["VirtualReceipt: merkle(snapshot_key, refs_key)"]
+    VReceipt --> Wire["csharp:Rasm.Persistence/Version/Snapshots (XxHash128 seed; runtime ParityReceipt rail)"]
+    Repo["IceStorage.for_ref(_STORAGE) -> repository()"] -->|stamp/diff/reclaim/checkout| Version["create_tag | diff | expire_snapshots/garbage_collect | readonly_session(snapshot/tag/as_of)"]
 ```
-
-## [03]-[RESEARCH]
-
-- [ICECHUNK_VIRTUAL_NATIVE]: the `icechunk` native virtual-chunk addressing and version-control surface — `Repository.open_or_create(storage, config=, authorize_virtual_chunk_access=)`/`writable_session(branch)`/`readonly_session(branch=, *, tag=, snapshot_id=, as_of=)`/`create_tag(tag, snapshot_id)`/`lookup_branch(branch)`/`ancestry(*, branch=, tag=, snapshot_id=)`/`diff(*, from_snapshot_id=, to_snapshot_id=)`/`expire_snapshots(older_than, *, delete_expired_branches=, delete_expired_tags=)`/`garbage_collect(delete_object_older_than, *, dry_run=)`, `Session.{store,commit(message, metadata=, *, rebase_with=, rebase_tries=),all_virtual_chunk_locations()}`, `IcechunkStore.set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)`/`set_virtual_refs(array_path, chunks, *, validate_containers=True)`, the eight storage factories `local_filesystem_storage(path)`/`in_memory_storage()`/`s3_storage(*, bucket, prefix, region, from_env, ...)`/`gcs_storage(*, bucket, prefix, from_env, ...)`/`azure_storage(*, account, container, prefix, from_env, ...)`/`r2_storage(*, bucket, prefix, account_id, ...)`/`tigris_storage(*, bucket, prefix, ...)`/`http_storage(base_url, opts)`, and `ConflictSolver`/`BasicConflictSolver`/`ConflictDetector`/`Diff`/`GCSummary`/`ChunkType.virtual` — is catalogue-confirmed against the folder `icechunk` `.api` (`open_or_create` L82, `writable_session` L87, `readonly_session(branch=, *, tag=, snapshot_id=, as_of=)` L88, `create_tag` L86, `lookup_branch` L85, `ancestry` L91, `diff` L92, `expire_snapshots(older_than, *, delete_expired_branches=False, delete_expired_tags=False) -> set[str]` L93, `garbage_collect(delete_object_older_than, *, dry_run=False, ...) -> GCSummary` L94, `Session.commit(message, metadata=None, *, rebase_with=None, rebase_tries=1000)` L102, `Session.store` L107, `all_virtual_chunk_locations` L113, `set_virtual_ref` L111, `set_virtual_refs` L112, the storage factories L63-69, `BasicConflictSolver`/`ConflictDetector` as `ConflictSolver` implementations L38, the `rebase_with` commit-time auto-rebase law L122/L129, `Diff` L34, `GCSummary` L36, `ChunkType.virtual` L49, `VirtualChunkContainer`/`VirtualChunkSpec` L40, IMPLEMENTATION_LAW virtual-chunk law L124); `icechunk` is the native Rust pyo3 extension with CPython floor `<3.15` (PACKAGE_SURFACE asset row), so the whole arm binds function-local under `# noqa: PLC0415`, never a module-top import on this page. The `readonly_session` keyword set (`branch=`, `tag=`, `snapshot_id=`, `as_of=`), the `expire_snapshots`/`garbage_collect` first-positional datetime, and the `commit(rebase_with=)` solver slot are catalogue-settled at L88/L93/L94/L102. The `_STORAGE` scheme rows carry only the `ResourceRef` `scheme`/`root`/`relative` triad, so the `azure` secondary `account` and the `r2` secondary `account_id` — distinct from the `r.root` container/bucket and absent from the three-field `ResourceRef` — default `None` on the case tuple and resolve from the environment under `from_env=True`, the same credential-resolution convention the `s3`/`gcs`/`azure`/`tigris` rows already ride, never an `r.root` aliased twice onto two distinct identity slots; `r2_storage(*, bucket=None, prefix=None, account_id=None, endpoint_url=None, region=None, ..., from_env=None, ...)` is verified against the live `icechunk` `2.0.6` distribution to accept the `from_env=` keyword (the same `from_env`/`get_credentials` S3-family credential surface `s3_storage`/`tigris_storage` expose), so the `r2` build arm's `from_env=True` env-credential resolution is settled. The `Repository.diff` keyword spelling is verified against the live `icechunk` `2.0.6` distribution as `diff(*, from_branch=None, from_tag=None, from_snapshot_id=None, to_branch=None, to_tag=None, to_snapshot_id=None) -> Diff`, so the `VersionOp.diff` arm's `repo.diff(from_snapshot_id=base, to_snapshot_id=head)` is settled, and `readonly_session(*, branch=None, tag=None, snapshot_id=None, as_of=None) -> Session` carries `as_of` as a keyword decoupled from `branch`, so the `ReadAt.as_of` arm's `readonly_session(branch=None, as_of=moment)` is settled. The `VirtualChunkSpec` constructor field arity is verified as `VirtualChunkSpec(index: list[int], location: str, offset: int, length: int, etag_checksum: str | None = None, last_updated_at_checksum: datetime | None = None)`, so the `VirtualChunkSlab.spec` arm's `VirtualChunkSpec(index=list(self.coordinates), location=, offset=, length=, etag_checksum=self.checksum)` is settled — the chunk index IS `index=` taking a coordinate list, and the slab's `checksum` threads into the `etag_checksum=` integrity slot so the batch arm preserves the same per-chunk checksum the single-chunk `set_virtual_ref(checksum=)` arm carries, with the `last_updated_at_checksum` slot available for a last-updated integrity stamp; `set_virtual_refs(array_path, chunks: list[VirtualChunkSpec], *, validate_containers=True) -> list[tuple[int, ...]] | None` takes a plain `list[VirtualChunkSpec]` (not a `VirtualChunkContainer`-wrapped batch) and the single-chunk `set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)` takes the fully-qualified Zarr key `<array>/c/<coord>/<coord>/...` the docstring names, so the `VirtualChunkSlab.key` `"/".join((array_path, "c", *coords))` v3 chunk-prefix form is settled. The `set_virtual_ref`/`set_virtual_refs` registration is gated by `authorize_virtual_chunk_access` credentials (IMPLEMENTATION_LAW L124); the `VirtualReference.containers` `(container, credential)` owner field lowers through the catalogue-confirmed `containers_credentials(m)` (L103) into the `Repository.open_or_create(storage, config=, authorize_virtual_chunk_access=)` lifecycle keyword (L82), so the one-slab `set_virtual_ref(slab.key(), location, *, offset, length, checksum=, validate_container=True)` arm (L111) and the many-slab `set_virtual_refs` arm (L112) both register under the storage-level credential rather than a per-call argument — the arity-discriminated native fold and the credential threading are catalogue-settled; the `containers_credentials(m: Mapping[str, AnyS3Credential | AnyGcsCredential | AnyAzureCredential | None]) -> dict[str, AnyCredential | None]` map element type is verified against the live `icechunk` `2.0.6` distribution as a `*_credentials()` factory return (`s3_credentials`/`gcs_credentials`/`azure_credentials`), not a raw token tuple, so the `ContainerAuth` value type is the `AnyCredential` factory-return union rather than the erased `object` — the `(container, credential)` owner field carries a real credential factory return; the cross-runtime credential-seed reproduction stays the `csharp:Rasm.Persistence/Version/Snapshots` wire concern.
-- [ICECHUNK_VIRTUALIZARR_OVERLAP]: the `ManifestWrite.accessor` path lowers a `gridded/field#VIRTUAL` `FieldVirtual`-built `ManifestArray`-backed `xarray.Dataset` onto `session.store` through `VirtualiZarrDatasetAccessor.to_icechunk(store, *, group, append_dim, region, validate_containers, last_updated_at)` (catalogue-confirmed against the folder `virtualizarr` `.api` `to_icechunk` accessor L66), and the `ManifestWrite.native` path registers the same external byte-ranges directly through `IcechunkStore.set_virtual_refs` — the two are the two registration paths of the same icechunk session store, the `virtualizarr` accessor driving the native `set_virtual_refs` surface under the hood, so the page owns the native path and composes the accessor path rather than declaring a second manifest owner. The accessor surface is verified against the live `virtualizarr` `2.6.2` distribution: `VirtualiZarrDatasetAccessor.nbytes` is a `property` returning `int` (the reference byte span the `FieldReceipt.bytes_stored` reads), `VirtualiZarrDatasetAccessor.to_icechunk(store, *, group=None, append_dim=None, region=None, validate_containers=True, last_updated_at=None) -> None` lowers the cube onto `session.store`, `ManifestArray.manifest` is a `property` returning `ChunkManifest`, and `ChunkManifest.dict() -> ChunkDict` is the chunk-reference map the count folds over — the composed `field.md#VIRTUAL` owner's settled accessors (`virtualizarr` `.api` L66/L69/L43/L58), the byte-span and count accessors verified at the owner and re-stated as fact here, never a `ManifestStore.to_virtual_dataset` read-side lift smuggled onto the export path (the lift is the input axis, the `virtualize` accessor the output axis).
-- [FIELD_VIRTUAL_COMPOSITION]: the composed manifest leg is the in-package `gridded/field#VIRTUAL` `FieldVirtual` owner — its 8-row `VirtualParser` `@tagged_union` (`hdf`/`netcdf3`/`zarr`/`dmrpp`/`fits`/`kerchunk_json`/`kerchunk_parquet`/`icechunk`, suffix-recovered through `VirtualParser.for_source`), its `_open` driving `open_virtual_dataset` for single-source and `open_virtual_mfdataset(urls, registry=, parser=, concat_dim=, combine=, parallel=)` for multi-source arity, its `ObjectStoreRegistry` over `obstore` `from_url`, and its `ManifestExport` accessor axis — all owned and catalogue-confirmed at `field.md#VIRTUAL` against the folder `virtualizarr` `.api` (the 8 parsers L29-36, `open_virtual_mfdataset` L59); the `accessor` case composes the public `FieldVirtual.aggregate` after rebinding the owner's `export` to `ManifestExport(icechunk=(session.store, ...))` — the same `ManifestExport.icechunk` case `field.md` already drives — so the cube-open, the parser dispatch, and the `to_icechunk` lowering stay the `field.md` owner's, never re-declared here and never reached through a private `_open`. The kerchunk-supersession rationale — `virtualizarr` reads legacy kerchunk JSON/Parquet references through its `KerchunkJSONParser`/`KerchunkParquetParser` parser rows without admitting `kerchunk` as a dependency, so no `kerchunk` admission enters the manifest — is the `field.md#VIRTUAL` `VirtualParser` law, stated once there. The `FieldVirtual` frozen-`Struct` field-for-field rebind strips the `export` key off `asdict(spec)` before the splat and re-supplies the icechunk `ManifestExport` so only that slot overrides while `target`/`concat_dim`/`combine`/`parallel`/`store_config` ride through — the `msgspec.structs.asdict` strip idiom rather than a double-`export` splat or a hand-listed copy — and the `FieldReceipt` slot spellings the accessor receipt reads (`dims: tuple[str, ...]`, `bytes_stored: int`) are the settled `field.md#EGRESS` `FieldReceipt` fields, while the receipt's own `engine: FieldEngine | EgressTag` slot is not laundered into the `VirtualReceipt` — the accessor path's registration engine is the provable `"virtual"` `VirtualEngine` literal the `field.md#EGRESS` `_receipt` arm invariantly stamps, narrower than the read-back `FieldEngine | EgressTag`. `FieldVirtual.aggregate() -> RuntimeRail[FieldReceipt]` is the settled `field.md#VIRTUAL` owner signature (not an `engine.open(...)`-style `Callable` thunk), so the accessor arm `.map`s that rail into the `(dims, "virtual", bytes_stored)` triple and the `aggregate` op binds it through `railed` `yield from` inside the parent `virtual.aggregate` boundary — never the `()()` thunk-call shape, which would `TypeError` on the non-callable `Result`.
-- [PERSISTENCE_VERSION_WIRE]: the committed `Session.commit` snapshot id, the `Repository.lookup_branch` branch head, the `Repository.create_tag` immutable reference, and the `Repository.ancestry` snapshot DAG depth are the `csharp:Rasm.Persistence/Version/Snapshots` durable version-control content-addressing concern consumed at the wire and reproduced from the C#-owned `XxHash128` content-key seed (the `gridded/virtual -> Rasm.Persistence [CONTENT_KEY]` seam, the `ICECHUNK_ASOF_CONTENT_KEY` counterpart task on `Rasm.Persistence/Version/Snapshots`); the durable `git`-like version-control *engine* — branch-merge policy, rebase orchestration, cross-runtime content-key reproduction, and the retention/provenance ledger — is realized in C# Persistence, never in `data`, so this page emits the snapshot identity as the receipt content key and owns no branch-merge or durable-ledger surface; the `BasicConflictSolver`/`ConflictDetector` threaded into `commit(rebase_with=)` is the native `icechunk` commit-time auto-rebase policy value the data-side write consumes, not a merge engine, while `Repository.rebase`/`merge`/`reset_branch` orchestration stays the Persistence concern. The `VersionOp.diff`/`reclaim` cases expose only `icechunk`'s native read-and-maintenance surface (`Repository.diff` changeset read, `expire_snapshots`/`garbage_collect` reclaim) over this page's own virtual store, the data-side query the Persistence engine consumes rather than re-derives. The `XxHash128` seed reproduction of the icechunk snapshot content-key bit-identically across the C#/Python runtimes confirms against the `Rasm.Persistence/Version/Snapshots` owner before the Merkle `ContentIdentity.of("virtual", (snapshot_key, refs_key))` key derivation settles its seed against the C# owner — RESEARCH item.

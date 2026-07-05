@@ -4,127 +4,25 @@
 a coordinate (triplet) assembly front-end, AMD fill-reducing ordering, and direct factorization
 solvers — LU with partial pivoting, LDL' and Cholesky for symmetric matrices (Cholesky with
 rank-1 update/downdate), and QR for least-squares — over `double` and `Complex` scalars, plus a
-Dulmage-Mendelsohn / strongly-connected-component graph layer and Matrix Market I/O.
+Dulmage-Mendelsohn / strongly-connected-component graph layer and Matrix Market I/O. The substrate
+canonical member catalog is `libs/csharp/.api/api-csparse.md`; this overlay carries only the
+Compute delta — the assembly intake, factorization lifecycle, and solver-rail stacking the
+`Solver`/`Tensor` pages compose.
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[SUBSTRATE_CANONICAL]
 
-[PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse` `4.4.0`
-- assembly: `CSparse` (consumer-bound `lib/net10.0`; multi-targets `net8.0`, `netstandard2.0`)
-- namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Complex`,
-  `CSparse.Complex.Factorization`, `CSparse.Storage`, `CSparse.Factorization`, `CSparse.Ordering`,
-  `CSparse.IO`
-- license: LGPL-2.1-only (copyleft — dynamic-linking obligation; keep CSparse a referenced assembly,
-  never IL-merge or statically embed, and do not vendor its source into a Rasm assembly)
-- asset: pure-managed runtime library (no native dependency)
+[SUBSTRATE_CANONICAL]: `libs/csharp/.api/api-csparse.md`
+- the storage/factorization/ordering type roster and the assembly, arithmetic, factorization, and utility call-shape tables live on the substrate catalog — this overlay never re-states them
 - rail: numeric
 
-## [02]-[PUBLIC_TYPES]
+## [02]-[COMPUTE_BINDINGS]
 
-[PUBLIC_TYPE_SCOPE]: storage, assembly, and operator family
-- rail: numeric
+[COMPUTE_BINDINGS]:
+- `ColumnOrdering` law: `MinimumDegreeAtPlusA` (AMD on A+Aᵀ) is the ONLY valid mode for `SparseCholesky`/`SparseLDL`; `MinimumDegreeStS`/`MinimumDegreeAtA` serve the QR/least-squares path; `Natural` disables permutation.
+- license: LGPL-2.1-only (copyleft — dynamic-linking obligation; keep CSparse a referenced assembly, never IL-merge or statically embed, and do not vendor its source into a Rasm assembly).
+- `Tensor/factor` `SparseOps.ToCsc`/`SparseOps.Diagonal` are the canonical `CoordinateStorage<double>` → `CompressedColumnStorage<double>` finalization owners; every assembled operator (stiffness, mass, geometric, Laplacian) reaches a factorization through them, never through page-local `Converter` calls.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                            |
-| :-----: | :----------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `Matrix<T>`                    | abstract root      | shared base of dense + sparse storage            |
-|  [02]   | `CompressedColumnStorage<T>`   | abstract CCS owner | `ColumnPointers`/`RowIndices`/`Values` matrix    |
-|  [03]   | `CoordinateStorage<T>`         | COO triplet owner  | canonical assembly front-end (`At` accumulation) |
-|  [04]   | `SparseMatrix`                 | concrete CCS       | `double` compressed-column matrix                |
-|  [05]   | `DenseMatrix` / `DenseColumnMajorStorage<T>` | dense        | dense interop + factorization fallback           |
-|  [06]   | `Converter`                    | static converter   | COO ↔ CCS, dense/jagged/enumerable ingest        |
-|  [07]   | `Vector`                       | static utility     | dense vector axpy/dot/norm helpers               |
-|  [08]   | `ILinearOperator<T>`           | operator contract  | matrix-free matrix-vector product seam           |
-|  [09]   | `ISolver<T>` / `ISparseFactorization<T>` | factorization contracts | unified `Solve` / `NonZerosCount` seam   |
-|  [10]   | `ColumnOrdering`               | ordering enum      | AMD ordering mode selection                      |
-
-[PUBLIC_TYPE_SCOPE]: factorization family (`CSparse.Double.Factorization`)
-- rail: numeric
-
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]      | [RAIL]                                       |
-| :-----: | :--------------- | :----------------- | :------------------------------------------- |
-|  [01]   | `SparseLU`       | LU factorization   | general square systems (partial pivoting)    |
-|  [02]   | `SparseCholesky` | Cholesky           | symmetric positive-definite; `Update`/`Downdate` |
-|  [03]   | `SparseLDL`      | LDL' factorization | symmetric (indefinite-tolerant) systems      |
-|  [04]   | `SparseQR`       | QR factorization   | least-squares and underdetermined            |
-
-[PUBLIC_TYPE_SCOPE]: ordering, graph, and I/O family
-- rail: numeric
-
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [RAIL]                                       |
-| :-----: | :---------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `Helper`                                  | static utility | storage validation, sort, trim, prefix sum   |
-|  [02]   | `Permutation`                             | static utility | permutation apply / invert / random         |
-|  [03]   | `AMD` (`CSparse.Ordering`)                | static utility | approximate-minimum-degree ordering vectors  |
-|  [04]   | `DulmageMendelsohn` / `MaximumMatching` / `StronglyConnectedComponents` | static graph | block-triangular decomposition + matching |
-|  [05]   | `MatrixMarketReader` / `MatrixMarketWriter` (`CSparse.IO`) | static I/O   | `.mtx` round-trip                            |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: assembly and conversion (the canonical intake path)
-- rail: numeric
-
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new CoordinateStorage<T>(rowCount, columnCount, nzmax)`                                    | constructor    | empty triplet builder                        |
-|  [02]   | `CoordinateStorage<T>.At(int i, int j, T value)`                                            | accumulate     | append/accumulate a triplet (duplicates sum) |
-|  [03]   | `Converter.ToCompressedColumnStorage<T>(CoordinateStorage<T>, cleanup=true, inplace=false)` | finalize       | COO → CCS, summing + sorting duplicates      |
-|  [04]   | `CompressedColumnStorage<T>.OfIndexed(CoordinateStorage<T>, inplace=false)`                  | finalize       | COO → CCS storage-side factory (wraps `Converter.ToCompressedColumnStorage` with cleanup on); inherited by `SparseMatrix` |
-|  [05]   | `Converter.FromEnumerable<T>(IEnumerable<(int,int,T)>, rows, cols)`                         | ingest         | sparse triple stream → COO                    |
-|  [06]   | `Converter.FromDenseArray<T>(T[,])` / `FromJaggedArray<T>(T[][])`                            | ingest         | dense → COO (drops structural zeros)         |
-|  [07]   | `Converter.FromColumnMajorArray<T>` / `FromRowMajorArray<T>(T[], rows, cols)`                | ingest         | flat dense buffer → COO                       |
-|  [08]   | `CoordinateStorage<T>.Transpose(alloc=false)` / `Keep(Func<int,int,T,bool>)` / `Clear()`    | reshape        | triplet transpose / structural filter / reset |
-
-[ENTRYPOINT_SCOPE]: CCS arithmetic, matvec, and norms (`SparseMatrix`)
-- rail: numeric
-
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]   | [RAIL]                            |
-| :-----: | :----------------------------------------------------------------------------------- | :--------------- | :-------------------------------- |
-|  [01]   | `new SparseMatrix(rows, cols)` / `(rows, cols, valueCount)`                           | constructor      | empty / pre-allocated CCS         |
-|  [02]   | `new SparseMatrix(rows, cols, double[] values, int[] rowIndices, int[] columnPointers)` | constructor   | adopt existing CCS arrays         |
-|  [03]   | `void Multiply(ReadOnlySpan<double> x, Span<double> y)`                               | matrix-vector    | y = A·x                           |
-|  [04]   | `void Multiply(double alpha, ReadOnlySpan<double> x, double beta, Span<double> y)`    | scaled matvec    | y = α·A·x + β·y                   |
-|  [05]   | `void TransposeMultiply(ReadOnlySpan<double> x, Span<double> y)` / `(α, x, β, y)`     | matrix-vector    | y = Aᵀ·x (plain + scaled)         |
-|  [06]   | `void Multiply(CompressedColumnStorage<double> other, CompressedColumnStorage<double> result)` | matrix-matrix | A·B into result                 |
-|  [07]   | `CompressedColumnStorage<double> ParallelMultiply(other, ParallelOptions=null)`      | parallel product | parallel A·B (serial fallback)    |
-|  [08]   | `void Add(double alpha, double beta, other, result)`                                  | matrix add       | α·A + β·B into result             |
-|  [09]   | `int Keep(Func<int,int,double,bool>)` / `int DropZeros(tolerance=0.0)`                | filter           | structural drop by predicate / ε  |
-|  [10]   | `double L1Norm()` / `InfinityNorm()` / `FrobeniusNorm()`                              | norm             | sparse matrix norms               |
-|  [11]   | `int RowCount` / `int ColumnCount` (`Matrix<T>`) · `int NonZerosCount` · `CompressedColumnStorage<T> Clone(bool values=true)` | storage props | dimensions, structural nnz, and a pattern+value copy (`Clone(values:false)` clones the pattern only) |
-
-[ENTRYPOINT_SCOPE]: factorization create and solve
-- rail: numeric
-
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY]    | [RAIL]                                  |
-| :-----: | :------------------------------------------------------------------------------ | :---------------- | :-------------------------------------- |
-|  [01]   | `SparseLU.Create(A, ColumnOrdering, double tol)` / `(A, int[] permutation, tol)` | factory call    | LU; AMD or explicit ordering + pivot tol |
-|  [02]   | `SparseLU.Refactorize(A, tol)`                                                   | numeric re-factor | reuse symbolic; same pattern only       |
-|  [03]   | `SparseLU.Solve(ReadOnlySpan<double>, Span<double>)` / `SolveTranspose(...)`     | solve             | A·x=b / Aᵀ·x=b                          |
-|  [04]   | `SparseCholesky.Create(A, ColumnOrdering[, IProgress<double>])` / `(A, int[] p[, progress])` | factory call | Cholesky for SPD; progress 0→1   |
-|  [05]   | `SparseCholesky.Update(CompressedColumnStorage<double> w)` / `Downdate(w)`       | rank-1 modify     | L·Lᵀ ± w·wᵀ without full re-factor       |
-|  [06]   | `SparseCholesky.Refactorize(A)` / `Solve(ReadOnlySpan, Span)`                    | re-factor / solve | reuse symbolic / solve SPD              |
-|  [07]   | `SparseLDL.Create(A, ColumnOrdering[, progress])` / `(A, int[] p[, progress])`   | factory call      | LDL'; `NonZerosCount = L` nnz           |
-|  [08]   | `SparseLDL.Refactorize(A)` / `Solve(ReadOnlySpan, Span)`                         | re-factor / solve | reuse symbolic / solve symmetric        |
-|  [09]   | `SparseQR.Create(A, ColumnOrdering[, progress])`                                 | factory call      | QR; no `Refactorize` (always symbolic)  |
-|  [10]   | `SparseQR.Solve(ReadOnlySpan, Span)` / `SolveTranspose(...)`                     | solve             | least-squares (m≥n) / min-norm (m<n)    |
-
-[ENTRYPOINT_SCOPE]: storage utilities, ordering, and graph decomposition
-- rail: numeric
-
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `Helper.ValidateStorage<T>(CompressedColumnStorage<T>, bool strict=false)`           | validation     | CCS structure validity (T : struct)     |
-|  [02]   | `Helper.SortIndices<T>(storage)` / `TrimStorage<T>(storage)`                          | normalize      | sort rows in column / trim to nnz       |
-|  [03]   | `Helper.CumulativeSum(int[] sum, int[] counts, int size)`                             | accumulate     | prefix sum for column pointers          |
-|  [04]   | `Permutation.Apply` / `Invert` / `Create` (`int[]`)                                   | permute        | apply / invert permutation vectors      |
-|  [05]   | `AMD.Generate<T>(CompressedColumnStorage<T>, ColumnOrdering)`                         | order          | AMD permutation vector for a pattern    |
-|  [06]   | `DulmageMendelsohn.Generate<T>(...)` / `MaximumMatching` / `StronglyConnectedComponents` | graph     | block-triangular form + matching        |
-|  [07]   | `MatrixMarketReader.ReadMatrix<T>(...)` / `MatrixMarketWriter.WriteMatrix<T>(...)`    | I/O            | `.mtx` round-trip                       |
-
-`ColumnOrdering`: `Natural` (no permutation), `MinimumDegreeAtPlusA` (AMD on A+Aᵀ; the only valid
-mode for `SparseCholesky`/`SparseLDL`), `MinimumDegreeStS` (AMD on AᵀA, dense rows dropped),
-`MinimumDegreeAtA` (AMD on AᵀA).
-
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [MATRIX_TOPOLOGY]:
 - namespaces: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Storage`,
@@ -149,10 +47,10 @@ mode for `SparseCholesky`/`SparseLDL`), `MinimumDegreeStS` (AMD on AᵀA, dense 
   implement `ISparseFactorization<double>` exposing `NonZerosCount`, so a Compute owner can hold the
   active factorization behind the `ISolver<double>` seam and swap LU↔LDL↔Cholesky by problem class.
 
-[STACKING] — single dense numeric rail with sibling Compute libs:
+[STACKING] — single sparse numeric rail with sibling Compute owners:
 - assemble through `CoordinateStorage<T>.At` (NOT raw CCS array surgery): it accumulates duplicate
   `(i,j)` contributions, exactly the FEM/graph-Laplacian element-assembly pattern, then
-  `Converter.ToCompressedColumnStorage` finalizes once. Direct `ColumnPointers`/`RowIndices`/`Values`
+  `SparseOps.ToCsc` finalizes once. Direct `ColumnPointers`/`RowIndices`/`Values`
   adoption is reserved for buffers that are already sorted and deduplicated.
 - `Multiply(ReadOnlySpan<double>, Span<double>)` consumes RHS/solution vectors that
   `System.Numerics.Tensors` (`TensorPrimitives`) and `CommunityToolkit.HighPerformance`
@@ -160,37 +58,22 @@ mode for `SparseCholesky`/`SparseLDL`), `MinimumDegreeStS` (AMD on AᵀA, dense 
 - pair with `MathNet.Numerics`: CSparse owns the sparse direct factorizations MathNet lacks, while
   MathNet (+ the MKL/OpenBLAS providers) owns dense BLAS/LAPACK and iterative solvers; route a
   problem to CSparse for sparse LU/LDL/Cholesky/QR and to MathNet for dense or Krylov work.
-- downstream structural-frame FE solvers factor their assembled stiffness through THIS owner — the 3D
-  `BriefFiniteElement.Net` (`api-brief-finite-element`) and the 2D `FEALiTE2D` (`api-fealite2d`) both
-  hold the reduced global stiffness as a CSparse `SparseMatrix`/`CompressedColumnStorage<double>` and
-  solve it through these factorizations, never a second linear-algebra rail: `FEALiTE2D`'s
-  `StructuralStiffnessMatrix` is a `CSparse.Double.SparseMatrix` driven into `SparseCholesky.Create`/
-  `SparseQR.Create`; BFE's `CholeskySolver`/`LuSolver`/`QRSolver`/iterative `PCG` (each its own
-  `ISolver`) `Create` a CSparse factorization over a `CompressedColumnStorage<double>` (e.g.
-  `CholeskySolver` → `SparseCholesky.Create(A, ColumnOrdering.MinimumDegreeAtPlusA)`), and BFE's
-  `StaticLinearAnalysisResult.Solvers_New` caches them in a `Dictionary<SparseMatrix, ISolver>` keyed
-  by the CSparse matrix. BFE 2.1.2 binding seam — BFE floors `CSparse` at the nuspec minimum `>= 3.5.0`
-  (the workspace unifies it to this `4.4.0` pin) and `BriefFiniteElementNet.Common` embeds a private
-  `CSparse.Double.Factorization.DenseLU : ISolver<double>` implementing only `Solve(double[], double[])`;
-  the 4.x `ISolver<T>` adds an abstract `Solve(ReadOnlySpan<double>, Span<double>)` (no default interface
-  method), so `DenseLU` — driving BFE's dense `DenseColumnMajorStorage<double>`
-  `Determinant()`/`Inverse()`/`Solve(double[])` extensions on the isoparametric Jacobian path of its 2D/3D
-  elements — throws `TypeLoadException` under 4.4.0; only BFE's SPARSE path above is binary-clean, so BFE
-  confines to the sparse-factored frame solve and continuum problems route to the Compute `SolveLane`. The
-  `>= 3.5.0` floor alone is benign — `FEALiTE2D` carries the same floor yet binds only CSparse's own
-  `SparseCholesky`/`SparseQR`/`ISparseFactorization<double>` (no embedded CSparse interface), so it stays
-  binary-clean under 4.4.0; the break is specific to BFE's embedded `DenseLU`.
-  BFE's `Solve(ISolverFactory)` is the injection seam — route its
-  `ISolverFactory` through a Rasm-owned CSparse-backed solver so the structural-frame and continuum
-  lanes share ONE `ISparseFactorization<double>` owner instead of BFE standing up a parallel
-  sparse-factor stack.
+- the OWNED frame spine (`Solver/discretization` `ShapeFamily.Frame` / `Beam2Euler` / `Beam2Timoshenko`
+  local kernels in `Topology`) assembles its reduced global stiffness through `CoordinateStorage<double>.At`
+  and factors it through THIS owner behind the one `Solver/contract` `SolveLane` — there is no external
+  frame-FE package holding a parallel sparse-factor stack; continuum and frame problems share the same
+  `ISparseFactorization<double>` seam.
+- the NATIVE tier (`api-csparse-interop`): the `Tensor/factor` `FactorKind` cholmod/superlu/umfpack rows
+  and the `SolveMethod.ArpackShiftInvert` eigensolve consume the SAME assembled
+  `CompressedColumnStorage<double>` this owner finalizes — the managed factorizations here are the
+  routing terminal chosen BEFORE a `NativeClaim`, never a silent post-claim fallback.
 - expose a matrix-free seam via `ILinearOperator<T>` when the operator is implicit (a stencil or
   Schur complement) and only the matvec is needed by a downstream iterative driver.
 - `.mtx` exchange (`MatrixMarketReader/Writer`) is the interchange format for fixtures and external
   solver hand-off; gate large reads through `Microsoft.IO.RecyclableMemoryStream`.
 
 [LOCAL_ADMISSION]:
-- Compute owns COO assembly, factorization, and solve. Treat `CoordinateStorage<T>` + `Converter` as
+- Compute owns COO assembly, factorization, and solve. Treat `CoordinateStorage<T>` + `SparseOps.ToCsc` as
   the canonical intake; reach for raw `ColumnPointers`/`RowIndices`/`Values` only for pre-sorted,
   pre-deduplicated external buffers, and validate them with `Helper.ValidateStorage(strict:true)`.
 - permutations enter as `int[]` through `Permutation` / `AMD`; never re-derive ordering from matrix
@@ -204,4 +87,5 @@ mode for `SparseCholesky`/`SparseLDL`), `MinimumDegreeStS` (AMD on AᵀA, dense 
   (LU, Cholesky with update/downdate, LDL', QR), and Dulmage-Mendelsohn graph decomposition
 - Accept: square solves via LU/LDL'/Cholesky, least-squares via QR, incremental SPD via update/downdate
 - Reject: iterative/Krylov solvers, dense BLAS, eigensolvers, and general-purpose linear-algebra
-  primitives — those route to `MathNet.Numerics` and its native providers
+  primitives — those route to `MathNet.Numerics` and its native providers; a second frame-FE package
+  standing up a parallel sparse-factor stack beside the owned spine

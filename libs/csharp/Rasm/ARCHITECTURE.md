@@ -103,7 +103,7 @@ Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath           # [WIR
 Processing/Remesh.cs      →  csharp:Rasm.Compute                        # [SHAPE]: Isotropic volumetric boundary-conditioning, no Compute-side remesher
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Posting/projection # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    →  csharp:Rasm.Fabrication/Posting            # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
-Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization  # [SHAPE]: CDTet gates — Predicate.Orient3D/InSphere verdicts, no Compute-side mint
+Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization  # [SHAPE]: Coordinate-level Predicate.Orient3D/InSphere cores, no Compute-side mint
 Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting            # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Drawing/View.cs           →  csharp:Rasm.AppUi/Render                   # [PROJECTION]: DrawingProjection / drafting-sheet layout
 Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant

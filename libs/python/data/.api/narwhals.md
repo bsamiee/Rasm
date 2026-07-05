@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `narwhals`
 - package: `narwhals`
+- owner: `data`
 - module: `narwhals`
 - version: `2.22.1`
 - license: MIT

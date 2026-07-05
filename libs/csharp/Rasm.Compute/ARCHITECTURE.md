@@ -19,9 +19,9 @@ Rasm.Compute/
 │   ├── Quadrature.cs      # Accuracy-routed quadrature with adaptive control and spectral operator
 │   └── Sampling.cs        # Owned Sobol/Halton sampler and radial-basis scatter reconstruction
 ├── Symbolic/              # Closed symbolic-expression CAS and unit boundary
-│   ├── Expression.cs      # SymbolicExpr F# Expression algebra and differentiate/simplify/compile family
-│   ├── Dimensional.cs     # DimensionMonomial SI base-dimension proof over a parsed expression
-│   ├── Lowering.cs        # Content-keyed CompiledExpr cache and analytic-Jacobian arm
+│   ├── Expression.cs      # SymbolicExpr AngouriMath Entity algebra: differentiate/integrate/limit/solve/simplify/compile family
+│   ├── Dimensional.cs     # DimensionMonomial ℚ⁷ SI base-dimension proof over the Entity node walk
+│   ├── Lowering.cs        # Content-keyed CompiledExpr cache (typed Compile<> IL + FastExpression) and analytic-Jacobian arm
 │   └── Units.cs           # UnitsNet boundary admitting unit-bearing input with dual unit evidence
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
 │   ├── Identity.cs        # Checksum identity, acquisition union, and schema snapshot
@@ -31,13 +31,15 @@ Rasm.Compute/
 │   ├── Embedding.cs       # VectorEncoding/VectorScore embedding-and-retrieval owner
 │   ├── Generative.cs      # ORT-GenAI token-streaming owner with EOS oracle and tool-call arm
 │   └── Extension.cs       # Custom-op registration with bidirectional string-tensor boundary
-├── Solver/                # Discretize→solve→optimize→sweep/clash solve spine
-│   ├── Discretization.cs  # Volumetric MeshKernel with adaptive h/p/hp refinement
-│   ├── Contract.cs        # Physics×BC×element solve fold with adaptive-recovery ladder
-│   ├── Optimizer.cs       # Design-space search axis with ROM/GP/RBF surrogate duality
+├── Solver/                # Discretize→solve→optimize→sweep/clash/satisfy solve spine
+│   ├── Discretization.cs  # Volumetric MeshKernel with adaptive h/p/hp refinement; exact-predicate Delaunay gates; frame ElementClass rows
+│   ├── Contract.cs        # Physics×BC×element solve fold with adaptive-recovery ladder; ARPACK sparse eigen; frame assembly arm
+│   ├── Constitutive.cs    # Per-Gauss-point ConstitutiveModel stress-update axis and frictional-contact enforcement
+│   ├── Optimizer.cs       # Design-space search axis with ROM/GP/RBF surrogate duality; slsqp constrained-NLP row
 │   ├── Sweep.cs           # N-dim DOE sweep grid with Morris/Sobol sensitivity
-│   ├── Clash.cs           # Acceleration-structure collision compute and ROM digital-twin loop
-│   └── Uncertainty.cs     # Forward-UQ/reliability owner over same evaluate oracle
+│   ├── Clash.cs           # Acceleration-structure collision compute, occlusion ray entry, and ROM digital-twin loop
+│   ├── Satisfy.cs         # Z3 SMT rule satisfaction: SymbolicExpr-lowered assertions, SAT witness / unsat-core explanation
+│   └── Uncertainty.cs     # Forward-UQ/reliability owner over same evaluate oracle; exact-AD FORM/SORM limit-state row
 ├── Stats/                 # Classical statistics, statistical learning, and DSP
 │   ├── Estimator.cs       # One Estimator Fit/Predict axis: regression/GLM/PCA/clustering/classification/hypothesis/time-series
 │   └── Signal.cs          # SpectralTransform FFT/STFT/PSD/wavelet axis and FIR/IIR FilterDesign over MathNet IntegralTransforms
@@ -46,16 +48,19 @@ Rasm.Compute/
 │   ├── Scheduling.cs      # Five bounded work-lanes with dependency job-graph scheduler
 │   ├── Progress.cs        # Monotonic phase family with an Atom-backed progress capsule
 │   ├── Receipts.cs        # One ComputeReceipt fact union (incl. Assessment) and benchmark-claim table
-│   ├── Channels.cs        # Suite wire vocabulary of five proto services with contract-evolution law
+│   ├── Wire.cs            # Suite wire CONTRACT: proto vocabulary, contract evolution, band-complete fault projection, TS posture
+│   ├── Transport.cs       # Channel MECHANICS: transport rows, channel tuning, call policy, artifact frame law
 │   ├── Codecs.cs          # Field/result/geometry-delta codecs and tessellation bridge
-│   └── Payload.cs         # ResidencyKind meshlet/quantized/splat PAYLOAD codec
+│   └── Payload.cs         # ResidencyKind meshlet/quantized/splat PAYLOAD codec with the cluster-LOD chain
 └── Analysis/              # C#-first discipline-assessment rail over the Rasm.Element ElementGraph
-    ├── Assessment.cs      # AssessmentRequest/Result fact-stream spine, route dispatch, content-keyed Node.Assessment write-back
-    ├── Aggregator.cs      # Relocated multi-ply AssemblyAggregator (ISO 6946 U / ISO 12354 STC / rule-of-mixtures / GWP / cost)
-    ├── Structural.cs      # BFE/FEALiTE2D FrameBackend + hand-rolled DesignCode×LimitState capacity table
+    ├── Assessment.cs      # Lifecycle-aware spine: route dispatch, Failed write-back, bounded Transient retry, Sweep-over-JobGraph reconciler, AssessmentSink egress
+    ├── Aggregator.cs      # Relocated multi-ply AssemblyAggregator (ISO 6946 U / ISO 12354 STC / rule-of-mixtures / GWP / cost + NestYield waste ingress)
+    ├── Structural.cs      # Owned-spine frame solve + hand-rolled DesignCode×LimitState capacity table + seismic response-spectrum route
     ├── Physics.cs         # Closed-form ISO/EN thermal (6946/13788) + acoustic (12354) + fire (1993/1992-1-2) folds
-    ├── Energy.cs          # EnergyRoute axis: OpenStudio model + EnergyPlus subprocess via EnergyToolchain discovery, PollinationSDK cloud, one SqlFile fold
-    └── Lifecycle.cs       # EN 15978 embodied carbon + EC3/openEPD REST boundary + supply/install cost rollup
+    ├── Energy.cs          # EnergyRoute axis: OpenStudio model + EnergyPlus subprocess via EnergyToolchain discovery, PollinationSDK cloud, one SqlFile fold + sqlite tabular reader
+    ├── Lifecycle.cs       # EN 15978 embodied carbon + EC3/openEPD REST boundary + supply/install cost rollup
+    ├── Circulation.cs     # Egress/life-safety runner: QuikGraph travel distance, OrTools max-flow exit capacity, NTS/Clipper2 planar side
+    └── Daylight.cs        # Owned NREL-SPA solar kernel (AppUi-consumable), Perez sky rows over the EPW ingress, clash-BVH shadow rays
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Expected` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence. The `ComputeFault` union projects through `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant`/`Duration`, and AppHost `ClockPolicy` owns both clocks.
@@ -64,16 +69,15 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 ```text seams
 Runtime               ⇄  python:geometry/mesh                    # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
-Runtime/channels      →  typescript:core/interchange/codec       # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
-Runtime/channels      →  typescript:core/interchange/contract    # [WIRE]: FileDescriptorSet ContractDrift verdict
-Runtime/channels      →  typescript:core/interchange/frame       # [WIRE]: ArtifactFrameWire reassembly
-Runtime/channels      →  typescript:core/interchange/frame       # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
-Runtime/channels      ⇄  python:runtime/transport                # [WIRE]: PROTO_VOCABULARY service contracts
-Runtime/channels      ⇄  python:geometry/mesh                    # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
+Runtime/wire          →  typescript:core/interchange/codec       # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
+Runtime/wire          →  typescript:core/interchange/contract    # [WIRE]: FileDescriptorSet ContractDrift verdict
+Runtime/transport     →  typescript:core/interchange/frame       # [WIRE]: ArtifactFrameWire reassembly
+Runtime/transport     →  typescript:core/interchange/frame       # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
+Runtime/wire          ⇄  python:runtime/transport                # [WIRE]: PROTO_VOCABULARY service contracts
+Runtime/wire          ⇄  python:geometry/mesh                    # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 Runtime/progress      →  typescript:core/state/evidence          # [WIRE]: ProgressMarkWire
 Runtime               ←  python:geometry/mesh                    # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
 Runtime/codecs        ←  python:geometry/mesh                    # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
-Runtime/progress      →  typescript:core/interchange/codec       # [WIRE]: ProgressStore stream proto
 Runtime               ←  python:geometry                         # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
 Runtime/payload       →  csharp:Rasm.AppUi/Render/pipeline       # [PROJECTION]: ResidencyPayload blob+layout → AppUi ResidencyManifest.Mint meshopt bufferView
 Analysis              ←  csharp:Rasm.Element/Graph               # [SHAPE]: ElementGraph above seam; geometry one-hop via GeometrySource by key
@@ -96,14 +100,14 @@ Analysis/energy       ←  csharp:Rasm.Bim/Projection              # [PROJECTION
 Analysis/lifecycle    ←  csharp:Rasm.Bim/Semantics               # [PROJECTION]: QuantitySet bakes Qto base-quantity bags TakeoffOf reads for per-ply GWP/cost
 Analysis/lifecycle    ←  csharp:Rasm.Element/Composition         # [SHAPE]: Environmental case (MeasurementBasis+per-stage StageGwp) ingress enriches via delta
 Runtime               ←  csharp:Rasm.Bim/Semantics               # [PROJECTION]: IFC/glTF semantic metadata layer
-Runtime/channels      →  csharp:Rasm.Bim/Semantics               # [TRANSPORT]: BsddPort bSDD GET (IncludeClassProperties mandatory) → BsddClassResponse degrade
+Runtime/transport     →  csharp:Rasm.Bim/Semantics               # [TRANSPORT]: BsddPort bSDD GET (IncludeClassProperties mandatory) → BsddClassResponse degrade
 Runtime/codecs        ⇄  csharp:Rasm.Element/Graph               # [CONTENT_KEY]: Shares the kernel seed-zero XxHash128; InterchangeIdentity DISTINCT
 Runtime/codecs        ←  csharp:Rasm.Bim/Exchange                # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
 Runtime/codecs        ←  csharp:Rasm.Bim/Review                  # [TRANSPORT]: IdsAuditRequest ifctester two-hop rpc; verdict Bim-owned
 Symbolic              ⇄  python:compute + typescript:core/value/quantity # [WIRE]: QuantityFamily SI canonicalization over the wire to host-free peers
 Symbolic/dimensional  ⇄  csharp:Rasm.Element/Properties          # [SHAPE]: DimensionMonomial ℚ⁷ proof ↔ seam Dimension ℤ⁷ measure
 Symbolic/lowering     →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: compiled symbolic/cost/QTO formula reused by SymbolicExpr
-Model/embedding       ⇄  csharp:Rasm.Persistence/Query/lane      # [CONTENT_KEY]: EmbeddingVector.ContentKey ↔ VectorRow.ContentKey
+Model/embedding       ⇄  csharp:Rasm.Persistence/Query/retrieval # [CONTENT_KEY]: EmbeddingVector.ContentKey ↔ VectorRow.ContentKey
 Model/identity        ←  csharp:Rasm/Domain                      # [CONTENT_KEY]: Checksum composes the kernel seed-zero ContentHash.Of; XxHash3 DISTINCT
 Model/sessions        →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ArtifactIndexRow blob keyed by checksum/FleetContextKey
 Model/inference       →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ModelResultKey → ModelResultIndex reuse read by reference (never re-minted)
@@ -111,24 +115,28 @@ Tensor/factor         →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KE
 Runtime               ⇄  csharp:Rasm.Persistence/Version/commits # [GRADUATION]: HandoffAxis graduation evidence
 Runtime               →  csharp:Rasm.Persistence                 # [CONTENT_KEY]: content-keyed blob
 Runtime/scheduling    →  csharp:Rasm.Persistence                 # [SPILL]: JobGraph CheckpointPort persist/resume the JobCheckpoint over blob; memory-spill
-Runtime/channels      →  csharp:Rasm.Persistence/Version/ledger  # [WIRE]: GraphDiff/SubtreeFetch content-key set-difference wire; ledger dials algebra
+Runtime/wire          →  csharp:Rasm.Persistence/Version/ledger  # [WIRE]: GraphDiff/SubtreeFetch content-key set-difference wire; ledger dials algebra
 Runtime/codecs        ⇄  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
 Runtime/receipts      →  csharp:Rasm.Persistence/Query/cache     # [PROJECTION]: BenchmarkClaim.Persist → BenchmarkRow gate; reads the ModelResultIndex
 Runtime/codecs        →  python:runtime/evidence/identity + typescript:core/value/contentKey # [WIRE]: XxHash128 seed-zero two-half
-Runtime               ←  csharp:Rasm.Persistence/Sync            # [PROJECTION]: content-key delta via FastCDC
+Runtime               ←  csharp:Rasm.Persistence/Version/timetravel # [PROJECTION]: content-key delta via the snapshot-frame FastCDC + blobstore multipart window
 Tensor/dispatch       ⇄  csharp:Rasm.AppUi/Render                # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
 Runtime/admission     ←  csharp:Rasm.AppHost                     # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
 Runtime/scheduling    →  csharp:Rasm.AppHost/Runtime/lifecycle   # [PORT]: LaneDrain DrainParticipantPort per lane (band-200) into the conductor
-Runtime/codecs        ⇄  csharp:Rasm.Persistence/Query/pipeline  # [PORT]: parse-to-canonical-bytes (Extract)
-Compute               →  csharp:Rasm.Persistence/Store/quality   # [SHAPE]: geometry-derived anomaly rule source
+Runtime/codecs        ⇄  csharp:Rasm.Persistence/Query/columnar  # [PORT]: parse-to-canonical-bytes (Extract)
 Runtime/codecs        ⇄  csharp:Rasm.Bim                         # [SHAPE]: SharpGLTF/meshopt leg split — Compute encodes residency/transport
 Model                 ←  csharp:Rasm.AppHost                     # [PORT]: IEmbeddingGenerator/IChatClient governed/priced by the AppHost middleware
-Runtime/channels      →  csharp:Rasm.Persistence/Sync            # [WIRE]: Wire the Confluent.SchemaRegistry.Serdes.Protobuf leg composes for Kafka
+Runtime/wire          →  csharp:Rasm.Persistence/Version/egress  # [WIRE]: the Protobuf frame the CloudEvents/NATS pump composes (broker serdes resolve against the landed Persistence rows)
 Solver/clash          ←  csharp:Rasm/Spatial/index               # [WIRE]: Decodes via ClashScale.NodeLinkPairs
-Solver/discretization ←  csharp:Rasm/Numerics/predicates         # [SHAPE]: Kernel Predicate.Orient3D/InSphere verdicts satisfy by shape, no mint
+Solver/discretization ←  csharp:Rasm/Numerics/predicates         # [SHAPE]: coordinate-level Predicate.Orient3D/InSphere exact cores (raw double tuples), no mint
 Solver/clash          →  csharp:Rasm.AppHost/Wire/livewire       # [RECEIPT]: DigitalTwin suggestion committed as a receipted ExternalValue
-Analysis              ←  csharp:Rasm/Meshing/slice               # [WIRE]: Kernel Slicing.Apply emits, Compute decodes
-Solver/contract       ←  csharp:Rasm.Element/Composition         # [SHAPE]: MaterialPropertySet elastic-D + inelastic read at Gauss via MechanicalOf
+Analysis              ←  csharp:Rasm/Meshing/slice               # [WIRE]: Kernel Slicing.Apply emits, Compute decodes (circulation floor plates)
+Analysis/circulation  ←  csharp:Rasm.Element/Classification      # [SHAPE]: the Circulation Discipline row (sixteen-row roster) this runner dispatches on
+Analysis/daylight     →  csharp:Rasm.AppUi/Render                # [SHAPE]: SolarPosition.At/SunPath package-boundary export — the viewport sun-light's one kernel
+Analysis/daylight     ←  python:compute/graduation               # [GRADUATION]: CBDM/glare annual simulation decoded by content key; C# owns geometry-derived facts
+Analysis/assessment   →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: AssessmentSink → ArtifactIndexRow.Admit under ArtifactKind.Assessment
+Solver/satisfy        →  csharp:Rasm.Element/Assessment          # [SHAPE]: a persisting compliance verdict lands as its own content-keyed Node.Assessment the Sweep dispatches
+Solver/contract       ←  csharp:Rasm.Element/Composition         # [SHAPE]: MaterialPropertySet elastic-D + inelastic read at Gauss via graph.PropertiesOf(id).Mechanical
 Tensor/dispatch       ⇄  csharp:Rasm/Numerics/spectral           # [SHAPE]: TensorOpKind.Geometry rows bind OperatorRow; routes Apply JVP/Adjoint VJP
 Tensor/residency      ←  csharp:Rasm/Drawing/pack                # [CONTENT_KEY]: EncodedGeometry as EncodedTensor — residency never a re-pack
 Tensor/residency      ⇄  csharp:Rasm.AppHost/Sandbox/solver      # [SHAPE]: EncodingKind rows align onto the PackKind axis; Field/Toolpath land as PackKind rows
@@ -197,10 +205,10 @@ The authoritative prohibition set on the package spine that every new owner row 
 | :-----: | ------------- | ----------------- | ------ |
 | [01] | No package-local tensor wrapper / `TensorService` beside `System.Numerics.Tensors` `Tensor<T>`; no `DeviceTensor`/`GpuTensor` parallel type (device-ness is the `OrtResidency.DeviceResident` discriminant); no second `OrtIoBinding` steady-state capsule beside `Tensor/residency` `BoundFlow`, which `Model/inference` composes for its run-mode fold and which `TensorBridge` is the sole `OrtValue` C-data factory for. | `Tensor<T>` + span views; `OrtResidency`/`BoundFlow`/`TensorBridge` | `Tensor/vocabulary`, `Tensor/residency` |
 | [02] | No hand-rolled BLAS/factorization beside the MathNet `LinearProvider` stack and CSparse direct factors; no `RasmMatrix`/`DenseMatrix` wrapper; no hand-rolled FFT/SVD/normal-equations/LM loop. | `LinearProvider`/`DenseOps`/`LevenbergMarquardt`; `SparseOps`/`SparseTensorOps` | `Tensor/blas`, `Tensor/factor` |
-| [03] | Symbolic/device/learning/constitutive faults extend the `ComputeFault` 2200 band at the next-free code (the Symbolic lane owns 2213..2216, the analysis lane 2217..2219, and the scheduling lane 2220, so a new fault enters at 2221+), never a parallel fault union or a status-code-plus-string terminal — every fault crosses the wire through the one `FaultDetail` family. | `ComputeFault` (`Runtime/admission`) | `Runtime/admission`, `Runtime/channels` |
+| [03] | Symbolic/device/learning/constitutive faults extend the `ComputeFault` 2200 band at the next-free code (the Symbolic lane owns 2213..2216, the analysis lane 2217..2219, and the scheduling lane 2220, so a new fault enters at 2221+), never a parallel fault union or a status-code-plus-string terminal — every fault crosses the wire through the one `FaultDetail` family. | `ComputeFault` (`Runtime/admission`) | `Runtime/admission`, `Runtime/wire` |
 | [04] | No string-eval in the solver/optimizer/UQ/constitutive `evaluate` oracle — the `Func<DesignPoint, Fin<Seq<double>>>` contract is the only coupling point; an OR-Tools `CpModel` builds through the typed model-builder API, never a string-parsed model. | `evaluate` oracle (`Solver/optimizer`, `Solver/uncertainty`) | `Solver/optimizer`, `Solver/uncertainty`, `Solver/contract` |
 | [05] | One `HybridCache` per lane, no per-call cache instance; one shared session per model identity. | lane custody (`Runtime/scheduling`) | `Runtime/scheduling`, `Model/sessions` |
 | [06] | Every new accelerator/sparse/AD/estimator/optimizer/UQ capability is a row or case on an existing owner (a `Substrate` row, a `SparseTensorOpFamily` row, a `DifferentiableOp`+`Forward` pair, an `EstimatorKind` row, an `OptimizerKind` row, an `UncertaintyMethod` row, a `ConstitutiveModel` case), never a sibling owner or a second admission spine. | the budgeted owner blocks | all `.planning/**` |
-| [07] | The assessment outcome is one `ComputeReceipt.Assessment` case (declared as a `partial` on the `Runtime/receipts` owner, registered there as the `[JsonDerivedType]` row + wire projection) and the discipline faults extend the one `ComputeFault` 2200 band at `2217+` (`AssessmentInputMissing` 2217 / `ToolchainUnresolved` 2218 / `AnalysisRunFailed` 2219, above the Symbolic lane's 2213..2216), never a parallel assessment receipt or fault union; every discipline runner reads the concrete `ElementGraph` and returns the ONE uniform `AssessmentResult` fact stream, never a parallel per-discipline result family; design codes are a `DesignCode`×`LimitState` capacity table, never imperative per-code arms. | `Analysis` rail (`Assessment`) | `Analysis/**` |
+| [07] | The assessment outcome is one `ComputeReceipt.Assessment` case (declared as a `partial` on the `Runtime/receipts` owner, registered there as the `[JsonDerivedType]` row + wire projection) and the discipline faults extend the one `ComputeFault` 2200 band at `2217+` (`AssessmentInputMissing` 2217 / `ToolchainUnresolved` 2218 / `AnalysisFailed` 2219, above the Symbolic lane's 2213..2216), never a parallel assessment receipt or fault union; every discipline runner reads the concrete `ElementGraph` and returns the ONE uniform `AssessmentResult` fact stream, never a parallel per-discipline result family; design codes are a `DesignCode`×`LimitState` capacity table, never imperative per-code arms. | `Analysis` rail (`Assessment`) | `Analysis/**` |
 
-The `ComputeFault` 2200 band is custodied by the `Runtime/admission` owner and runs in four lanes declared as partials on that one owner: the core `Text` 2200 .. `CacheCorrupt` 2212 (`Runtime/admission`), the Symbolic lane 2213 .. 2216 (`Symbolic/expression`'s `SymbolicFault` — `ParseRejected` 2213 / `SymbolUndefined` 2214 / `NonDifferentiable` 2215 — plus `Symbolic/dimensional`'s `DimensionMismatch` 2216), and the analysis lane `AssessmentInputMissing` 2217 / `ToolchainUnresolved` 2218 / `AnalysisRunFailed` 2219 (`Analysis/assessment`), and the scheduling lane `GraphCyclic` 2220 (`Runtime/scheduling`), so the next-free code is 2221 — a symbolic/device/learning/constitutive/assessment fault row enters at 2221+ and never collides with an existing code; the EC3 boundary reuses `EndpointUnreachable` 2208 rather than minting a new carbon-band code; the `HybridCache`-per-lane clause aligns with the `Runtime/scheduling` lane custody and the no-parallel-fault clause aligns with the `Runtime/channels` `FaultDetail` projection so device/symbolic/assessment faults still cross the wire through the one family, and the `Analysis` assessment outcome rides the one `ComputeReceipt.Assessment` case the `Runtime/receipts` union owns (registered there as the `[JsonDerivedType]` row + wire projection, declared there as a partial by `Analysis/assessment`).
+The `ComputeFault` 2200 band is custodied by the `Runtime/admission` owner and runs in four lanes declared as partials on that one owner: the core `Text` 2200 .. `CacheCorrupt` 2212 (`Runtime/admission`), the Symbolic lane 2213 .. 2216 (`Symbolic/expression`'s `SymbolicFault` — `ParseRejected` 2213 / `SymbolUndefined` 2214 / `NonDifferentiable` 2215 — plus `Symbolic/dimensional`'s `DimensionMismatch` 2216), and the analysis lane `AssessmentInputMissing` 2217 / `ToolchainUnresolved` 2218 / `AnalysisFailed` 2219 — the typed `(SolvePhase, FailureKind, Detail, Option<int> Code)` case (`Analysis/assessment`), and the scheduling lane `GraphCyclic` 2220 (`Runtime/scheduling`), so the next-free code is 2221 — a symbolic/device/learning/constitutive/assessment fault row enters at 2221+ and never collides with an existing code; the EC3 boundary reuses `EndpointUnreachable` 2208 rather than minting a new carbon-band code; the `HybridCache`-per-lane clause aligns with the `Runtime/scheduling` lane custody and the no-parallel-fault clause aligns with the `Runtime/wire` `FaultDetail` projection (the band-complete `FaultWire` rail whose `Bands` registry mirrors the custody map, plus Compute's SECOND custody — the Remote `WireFault` 4520..4532 sub-band pinned reciprocally in the AppHost/AppUi/Persistence registries) so device/symbolic/assessment faults still cross the wire through the one family, and the `Analysis` assessment outcome rides the one `ComputeReceipt.Assessment` case the `Runtime/receipts` union owns (registered there as the `[JsonDerivedType]` row + wire projection, declared there as a partial by `Analysis/assessment`).

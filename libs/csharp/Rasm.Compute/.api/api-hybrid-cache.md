@@ -6,89 +6,26 @@ tag-grouped invalidation, and a payload-codec seam (`IHybridCacheSerializer<T>`)
 that stacks onto the `CommunityToolkit.HighPerformance` `IBufferWriter<byte>` writers
 and the `StackExchange.Redis` L2 backing. One `HybridCache` is registered at the
 app root over the `CacheLane` descriptors; the model and lowering lanes compose it —
-they never register or instantiate a second cache.
+they never register or instantiate a second cache. The substrate
+canonical member catalog is `libs/csharp/.api/api-hybrid-cache.md`; this overlay
+carries only the Compute delta — the lane bindings and per-call policy law the
+model and lowering pages compose.
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[SUBSTRATE_CANONICAL]
 
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
-- package: `Microsoft.Extensions.Caching.Hybrid`
-- version: `10.7.0`
-- assembly: `Microsoft.Extensions.Caching.Hybrid` (the `HybridCache` abstract contract, `HybridCacheEntryOptions`/`Flags`, and `IHybridCacheSerializer<T>` live in the `Microsoft.Extensions.Caching.Abstractions 10.0.9` companion; the implementation, options, and DI extensions live here)
-- license: MIT (.NET Foundation)
-- bound asset: `lib/net10.0/Microsoft.Extensions.Caching.Hybrid.dll` (consumer-exact; XML docs shipped)
-- namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`
-- L2 backing: any registered `IDistributedCache` (e.g. `Microsoft.Extensions.Caching.StackExchangeRedis 10.0.9` over `StackExchange.Redis 3.0.7` via `AddStackExchangeRedisCache`); absent an L2, the cache runs L1-only
-- asset: runtime library
+[SUBSTRATE_CANONICAL]: `libs/csharp/.api/api-hybrid-cache.md`
+- the contract/options/serializer type roster, the operation and registration call-shape tables, and the package/asset facts live on the substrate catalog — this overlay never re-states them
 - rail: runtime cache
 
-## [02]-[PUBLIC_TYPES]
+## [02]-[COMPUTE_BINDINGS]
 
-[PUBLIC_TYPE_SCOPE]: cache contract and entry options
-- rail: runtime cache
-
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                                                        |
-| :-----: | :------------------------------ | :------------------ | :----------------------------------------------------------- |
-|  [01]   | `HybridCache`                   | cache contract      | abstract; stampede-collapsing `GetOrCreateAsync`, `SetAsync`, `RemoveAsync`, `RemoveByTagAsync` |
-|  [02]   | `HybridCacheEntryOptions`       | entry policy value  | sealed; `init`-only `Expiration` / `LocalCacheExpiration` / `Flags` (record-`with` per call) |
-|  [03]   | `HybridCacheEntryFlags`         | entry flag value    | `[Flags]`: per-call local/distributed read+write disable, `DisableUnderlyingData`, `DisableCompression` |
-|  [04]   | `IHybridCacheSerializer<T>`     | serializer contract | `Serialize(T, IBufferWriter<byte>)` / `Deserialize(ReadOnlySequence<byte>) → T` |
-|  [05]   | `IHybridCacheSerializerFactory` | serializer factory  | `TryCreateSerializer<T>(out IHybridCacheSerializer<T>?)` open-generic discovery |
-
-[PUBLIC_TYPE_SCOPE]: registration and implementation options
-- rail: runtime cache
-
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                                        |
-| :-----: | :----------------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `HybridCacheOptions`           | cache option value | `DefaultEntryOptions`, `MaximumPayloadBytes` (1 MiB), `MaximumKeyLength` (1024), `DisableCompression`, `ReportTagMetrics`, `DistributedCacheServiceKey` |
-|  [02]   | `IHybridCacheBuilder`          | builder contract   | `AddHybridCache` return; carries `Services` for serializer admission |
-|  [03]   | `HybridCacheServiceExtensions` | service extension  | `AddHybridCache` / `AddKeyedHybridCache` registration         |
-|  [04]   | `HybridCacheBuilderExtensions` | builder extension  | `AddSerializer` / `AddSerializerFactory` admission            |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: cache operations
-- rail: runtime cache
+[COMPUTE_BINDINGS]:
 - Every read/write carries `HybridCacheEntryOptions? options = null`, `IEnumerable<string>? tags = null`, and `CancellationToken cancellationToken = default`. The `TState` `GetOrCreateAsync` overload is the dense form the model and lowering lanes compose — passing captured state explicitly lets the `factory` delegate stay static (cached, no per-call closure allocation). The `ReadOnlySpan<char>` and `ref DefaultInterpolatedStringHandler` key overloads avoid a key-string allocation on the population path.
+- `HybridCacheEntryOptions` is a sealed `init`-only CLASS, not a record — `with` does not compile; per-call variation constructs a fresh options object seeded from the lane default (`new HybridCacheEntryOptions { Expiration = precision.NegativeTtl.ToTimeSpan(), LocalCacheExpiration = lane.Entry.LocalCacheExpiration, Flags = lane.Entry.Flags }`).
+- `HybridCacheEntryFlags` is the per-call tier-bypass — a non-serializable value (a compiled `Delegate` from `Symbolic/lowering#COMPILED_EXPR`) rides `DisableDistributedCache` (full L2 bypass, both read and write) and lives in L1 by reference through an `[ImmutableObject(true)]` carrier, never `DisableDistributedCacheWrite` alone (which leaves every miss probing a permanently-empty L2).
+- One `HybridCache` registers at the app root over the `CacheLane` descriptors (`Rasm.Persistence/Query/cache`); the model and lowering lanes compose it — they never register or instantiate a second cache.
 
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY]   | [RAIL]                                                       |
-| :-----: | :----------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------- |
-|  [01]   | `GetOrCreateAsync<TState, T>(string key, TState state, Func<TState, CT, ValueTask<T>> factory, …)` | cache read/write | stampede-collapsed population; static factory, zero closure |
-|  [02]   | `GetOrCreateAsync<T>(string key, Func<CT, ValueTask<T>> factory, …)`                        | cache read/write | closure-factory form (state captured in the lambda)         |
-|  [03]   | `GetOrCreateAsync<…>(ReadOnlySpan<char> key, …)`                                            | cache read/write | span-key population; no key-string allocation               |
-|  [04]   | `GetOrCreateAsync<…>(ref DefaultInterpolatedStringHandler key, …)`                          | cache read/write | interpolated-handler key; zero-alloc composed key           |
-|  [05]   | `SetAsync<T>(string key, T value, HybridCacheEntryOptions?, IEnumerable<string>? tags, CT)` | cache write      | explicit store with optional tags for grouped invalidation  |
-|  [06]   | `RemoveAsync(string key, CT)` / `RemoveAsync(IEnumerable<string> keys, CT)`                 | key invalidation | single or batch key eviction                                |
-|  [07]   | `RemoveByTagAsync(string tag, CT)` / `RemoveByTagAsync(IEnumerable<string> tags, CT)`       | tag invalidation | single or batch grouped eviction                            |
-
-[ENTRYPOINT_SCOPE]: registration and serializer admission
-- rail: runtime cache
-- `AddHybridCache` returns `IHybridCacheBuilder`; chaining `.AddSerializer*` admits payload codecs. `AddKeyedHybridCache` registers a named cache profile under a DI `serviceKey` (the admitted multi-profile route, never an ad-hoc service lookup). `AddSerializer<T, TImpl>` and `AddSerializerFactory<TImpl>` are the open-generic DI-constructed admission forms.
-
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]       | [RAIL]                                           |
-| :-----: | :------------------------------------------------------------------------- | :------------------- | :----------------------------------------------- |
-|  [01]   | `AddHybridCache(this IServiceCollection [, Action<HybridCacheOptions>])`    | service registration | default cache service + builder                  |
-|  [02]   | `AddKeyedHybridCache(this IServiceCollection, object? serviceKey [, string optionsName] [, Action<HybridCacheOptions>])` | service registration | keyed cache profile (4 overloads)                |
-|  [03]   | `AddSerializer<T>(this IHybridCacheBuilder, IHybridCacheSerializer<T>)`     | builder extension     | concrete serializer instance admission           |
-|  [04]   | `AddSerializer<T, TImpl>(this IHybridCacheBuilder) where TImpl : class, IHybridCacheSerializer<T>` | builder extension | DI-constructed typed serializer admission        |
-|  [05]   | `AddSerializerFactory(this IHybridCacheBuilder, IHybridCacheSerializerFactory)` / `AddSerializerFactory<TImpl>()` | builder extension | serializer-factory admission (instance + open-generic) |
-
-[ENTRYPOINT_SCOPE]: per-call entry policy values
-- rail: runtime cache
-- `HybridCacheEntryOptions` is `init`-only; per-call variation is a record-`with` over a lane default (`CacheLane.ModelResult.Entry with { Expiration = precision.NegativeTtl.ToTimeSpan() }`). `HybridCacheEntryFlags` is the per-call tier-bypass — a non-serializable value (a compiled `Delegate`) rides `DisableDistributedCache` (full L2 bypass, both read and write) and lives in L1 by reference through an `[ImmutableObject(true)]` carrier, never `DisableDistributedCacheWrite` alone (which leaves every miss probing a permanently-empty L2).
-
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]     | [RAIL]                                                  |
-| :-----: | :-------------------------------------------------------------- | :----------------- | :----------------------------------------------------- |
-|  [01]   | `HybridCacheEntryOptions.Expiration` / `.LocalCacheExpiration`  | entry policy (init)| total TTL / L1-only TTL                                |
-|  [02]   | `HybridCacheEntryOptions.Flags`                                 | entry policy (init)| per-call `HybridCacheEntryFlags` bypass set            |
-|  [03]   | `HybridCacheEntryFlags.{DisableLocalCacheRead, …Write, …Cache}` | flag value         | bypass the L1 in-process tier (read/write/both)        |
-|  [04]   | `HybridCacheEntryFlags.{DisableDistributedCacheRead, …Write, …Cache}` | flag value   | bypass the L2 distributed tier (read/write/both)       |
-|  [05]   | `HybridCacheEntryFlags.DisableUnderlyingData`                   | flag value         | cache-only read; never invoke the factory/data store   |
-|  [06]   | `HybridCacheEntryFlags.DisableCompression`                      | flag value         | per-call payload-compression bypass                    |
-|  [07]   | `HybridCacheOptions.{MaximumPayloadBytes, MaximumKeyLength}`    | global option      | payload (1 MiB default) and key (1024 default) guards   |
-|  [08]   | `HybridCacheOptions.{DisableCompression, ReportTagMetrics}`     | global option      | global compression-off / per-tag eviction metrics      |
-|  [09]   | `HybridCacheOptions.DistributedCacheServiceKey`                 | global option      | selects a keyed `IDistributedCache` as the L2 backing  |
-
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [CACHE_TOPOLOGY]:
 - namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`

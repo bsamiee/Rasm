@@ -83,7 +83,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [QUERY_IR_SQLGATE]:
-- import: `import sqlglot` at boundary scope only; module-level import is banned by the manifest import policy.
+- import: `import sqlglot` at module scope; the pure-Python parse/transpile plane is a module-top substrate corpus-wide.
 - parse axis: one `parse_one` owns single-statement IR construction and `parse` owns multi-statement; `read`/`dialect` is a `DialectType` argument row, never a per-dialect parser type; `maybe_parse` accepts an already-built `Expr` without re-parsing; `tokenize` is the lexeme-level row.
 - build axis: new SQL is constructed through the typed builder DSL (`select`/`from_`/`column`/`func`/`cast`/`condition`/`insert`/`delete`/`merge`/`union`) returning an `Expr`, never f-string concatenation; `Expr.transform`/`replace` rewrite an existing tree in place.
 - generate axis: `Expr.sql(dialect=...)` is the single generation surface; cross-dialect output is a `dialect` argument, not a parallel generator wrapper; `transpile` is the parse-then-generate composite row keyed by `read`/`write`.

@@ -48,7 +48,11 @@ const HUNT = 'HUNT CLASSES: missing (a ruled motion, page, owner, case, band, se
   'the fence body omits, a receipt without the edit, a re-anchor to a dead target), naive (landed thin — a slice of the ' +
   'ruled capability, an underutilized admitted package, a ceiling-read of a floor ruling), drift (two landed surfaces ' +
   'disagreeing — page vs index doc vs manifest vs .api), phantom (a cited member, page, or anchor that does not exist). ' +
-  'Every finding carries a file anchor and, where the fix is derivable, the exact fix. Verify cited external members ' +
+  'Every finding carries a file anchor and, where the fix is derivable, the exact fix AT ROOT FORM: locate the ' +
+  'canonical owner (the owning axis, dimension family, row roster, registry, or seam vocabulary) and derive the fix ' +
+  'as a row/member/case on it, verifying the derived member is dimensionally and semantically correct for the fact it ' +
+  'carries — never merely name-plausible. A suggested fix that mints a local shape, an ad-hoc value, or a wrong-unit ' +
+  'member where a canonical owner row belongs is itself a defect to name instead. Verify cited external members ' +
   'against the .api catalogs; never trust page prose about itself.'
 const SELF_CHECK = 'MANDATORY SELF-VERIFY (second pass, before returning): attack your OWN findings — re-open every ' +
   'cited anchor and try to REFUTE each finding from disk; a finding that fails re-confirmation is deleted, one that ' +
@@ -80,15 +84,20 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     'endpoints), central manifest rows, and .api anchors agree with the landed page set — a disagreement between any ' +
     'two surfaces is a drift finding. Return typed anchored findings.',
     { label: 'verify:' + tag + ':gov', phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
-  verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY CROSS-LIBS ' +
-    'RIPPLE VERIFY. Read ' + c.doc + ' IN FULL, then hunt every cross-folder touchpoint the campaign touches OUTSIDE ' +
-    c.root + ', across all of libs/ (real grep/listing, never memory): sibling ARCHITECTURE seam ledgers naming this ' +
-    'package (mirrored glyphs and [KIND] tags, anchors into pages the campaign split, renamed, re-pointed, or ' +
-    'deleted), consumer pages citing target anchors, every counterpart obligation the doc records (each recorded at ' +
-    'its named home, or landed where the doc rules an edit), shared manifest rows and .api tiers, frozen wire names ' +
-    'held byte-identical on both ends. A stale sibling anchor, a one-sided seam edit, an unrecorded counterpart, or a ' +
-    'sibling interior edited past the doc ruling is a finding. Return typed anchored findings.',
-    { label: 'verify:' + tag + ':ripple', phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
+  const BRANCHES = ['libs/csharp', 'libs/python', 'libs/typescript']
+  BRANCHES.forEach((branch) => verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: ' +
+    'HOSTILE READ-ONLY CROSS-LIBS RIPPLE VERIFY over ' + branch + ' (its branch .planning core, its .api tier, and ' +
+    'every package folder inside it EXCEPT ' + c.root + '). Read ' + c.doc + ' IN FULL, then hunt every cross-folder ' +
+    'touchpoint the campaign touches inside your scope (real grep/listing, never memory): sibling ARCHITECTURE seam ' +
+    'ledgers naming this package (mirrored glyphs and [KIND] tags, anchors into pages the campaign split, renamed, ' +
+    're-pointed, or deleted), consumer pages citing target anchors, every counterpart obligation or authorized 1-hop ' +
+    'edit the doc records (each landed at its named home exactly as sealed, or recorded where the doc rules ' +
+    'recorded-only), shared manifest rows and .api tiers, frozen wire names held byte-identical on both ends. A stale ' +
+    'sibling anchor, a one-sided seam edit, a missing authorized edit, an unrecorded counterpart, or a sibling ' +
+    'interior edited past the doc ruling is a finding. Zero touchpoints in your scope is a valid empty result. ' +
+    'Return typed anchored findings.',
+    { label: 'verify:' + tag + ':ripple:' + branch.split('/').pop(), phase: 'Verify', model: 'opus', effort: 'high',
+      schema: FINDINGS, stallMs: STALL })))
   const found = (await parallel(verifyTasks)).filter(Boolean)
   const all = found.flatMap((f) => f.findings || [])
   log(tag + ': ' + all.length + ' finding(s) from ' + found.length + ' verifier(s)')

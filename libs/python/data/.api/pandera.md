@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `pandera`
 - package: `pandera`
+- owner: `data`
 - module: `pandera`
 - license: MIT
 - rail: dataframe contract validation

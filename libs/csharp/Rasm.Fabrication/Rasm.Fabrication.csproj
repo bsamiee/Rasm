@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Portable production fabrication — subtractive CAM (3-axis surface finishing, 5-axis rotary and serial-chain robot-cell kinematics), additive slicing/implicit/3MF, in-process verification and metrology, GD&T specs and process capability, 2D true-shape nesting, exact hidden-line projection, and multi-dialect cut-program posting, composed atop the Rasm geometry kernel.</Description>
+        <Description>Portable production fabrication — subtractive CAM (3-axis surface finishing, 5-axis rotary and serial-chain robot-cell kinematics), additive slicing/implicit/3MF, in-process verification and metrology, GD&amp;T specs and process capability, 2D true-shape nesting, exact hidden-line projection, and multi-dialect cut-program posting, composed atop the Rasm geometry kernel.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 

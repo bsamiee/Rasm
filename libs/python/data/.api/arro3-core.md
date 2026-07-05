@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `arro3-core`
 - package: `arro3-core`
+- owner: `data`
 - version: `0.8.1`
 - module: `arro3.core`
 - asset: native extension (Rust/PyO3) over `arrow-rs`

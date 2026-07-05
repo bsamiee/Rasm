@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `h5netcdf`
 - package: `h5netcdf`
+- owner: `data`
 - import: `import h5netcdf` (native) / `import h5netcdf.legacyapi as netCDF4` (`netCDF4`-compatible shim)
 - rail: field-dataset (the h5py-native `FieldEngine.H5NETCDF` backend)
 - version: `1.8.1`

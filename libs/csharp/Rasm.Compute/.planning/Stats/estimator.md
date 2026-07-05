@@ -14,7 +14,7 @@ Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uni
 - Entry: `public static Fin<FittedModel> Fit(Estimator estimator, Matrix<double> features, Option<Vector<double>> targets, EstimatorPolicy policy, CorrelationId correlation, ClockPolicy clocks)` is the one fit fold — an in-package Stats-lane fold (the shape of the sibling `Stats/signal#SIGNAL_LANE` `Apply`, not a `ComputeIntent` admission case) whose outcome lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` receipt case at the sink edge — `Fin<T>` aborts on a rank-deficient design, a missing supervised target, a degenerate group count, or a non-converged iteration; `public static Fin<Prediction> Predict(FittedModel model, Matrix<double> features)` is the one predict fold projecting/assigning/responding through the `EstimatorModel` total `Switch`; the hypothesis `Test` entry lives on the `[2.1]` `Hypothesis` surface.
 - Auto: `Fit` dispatches by the `Estimator` case — `Regression` routes OLS/ridge through the `Tensor/blas#DENSE_ALGEBRA` `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR over the intercept-augmented design (ridge stacking the un-penalized-intercept `√λ·I` Tikhonov block), and routes lasso/GLM through `IterativeEngine.Minimize` under the row's `Driver` (lasso the soft-thresholded least-squares objective under `Adam`, the GLM rows the canonical-link family `Deviance` under `LBFGS`, each differentiated by `backward()` inside one `torch.NewDisposeScope()`), folding the effective link `r.Link.IfNone(r.Kind.Link)` onto the carrier; `Reduction` routes PCA through `DenseOps.Decompose(centered, FactorizationKind.Svd)` truncated by `EnergyFraction`, kernel-PCA through the centered-RBF-kernel `DenseOps.Decompose(..., Evd)`, and NMF through the Lee–Seung multiplicative-update kernel; `Cluster` routes k-means through Lloyd, GMM through EM (Gaussian responsibilities via the blas `Admission.Definite` Cholesky log-density), DBSCAN through density reachability, and hierarchical through agglomerative average linkage; `Classify` routes LS-SVM through the regularized Gram `DenseRoute.Solve(FactorRoute.SquarePivoting)`, kNN through a labelled-design store, and naive-Bayes through per-class `Statistics.MeanVariance` moments; `Temporal` splits on the `TimeSeriesModel.Iterative` column — pure-AR (closed-form) through the lag-design thin-QR, and the iterative ARMA, Holt exponential-smoothing, and local-linear-trend Kalman state-space rows each through their OWN distinct conditional recurrence minimized by the one `LevenbergMarquardt` owner; `Predict` answers a `Response` (regression mean through the link, temporal forecast), a `Projection` (reduction scores, NMF encoding), or an `Assignment` (nearest-centroid cluster, posterior-argmax classifier, decision-sign margin) through the `EstimatorModel` total `Switch`.
 - Receipt: the estimator fit emits the dedicated `Fit` `ComputeReceipt` case the `Runtime/receipts#RECEIPT_UNION` owner declares for this lane — the one new case row the union's one-case-per-measured-concern Growth law admits, exactly as the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` case and the optimizer/sweep/clash/twin/uncertainty solver-lane cases each own a dedicated row rather than overloading a sibling — carrying the family, the estimator key (`method`), the carrier parameter count, the fit iteration count, the fit residual, the converged flag, the interpretable fit-quality value under its named metric (R²/explained-energy/inertia/log-likelihood/reconstruction-error/accuracy by family), and the retained reduction rank; a closed-form fit ALSO emits the blas `Factorization` receipt under the same `CorrelationId` (two facts, one correlation); the fit-quality value and retained rank the `FittedModel` carrier surfaces now read back operator-visibly through the receipt stream (and a stalled fit through `ReceiptFolds.Nonconverged`) instead of dying write-only on the carrier; a fit through the dense factorization rides the same provider/determinism evidence the blas lane stamps so a regression fit is reproducible.
-- Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
+- Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (the temporal-fit exact-Jacobian scalar-AD leg — recursions authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
 - Growth: a new estimator is one `EstimatorKind` row (its `factorized`/`supervised`/`torchLoss`/`driver`/`link` columns) plus one branch arm (a closed-form row reuses the dense factorization, a torch-loss row supplies a `Tensor` loss closure to `IterativeEngine.Minimize`, a specialized row a genuine kernel) and one `EstimatorModel` case if its fit-result shape is new; a new optimizer is one `OptimDriver` row binding its `torch.optim` factory; a new GLM family is one `EstimatorKind` GLM row carrying its `Link` and `Deviance`; a new link is one `LinkFunction` row; a new time-series model is one `TimeSeriesModel` row; a new prediction shape is one `Prediction` case; a new hypothesis test is one `StatisticalTest` row binding its statistic kernel and p-value tail; zero new surface — an `OlsEstimator`/`PcaEstimator`/`KMeansEstimator` class family is the rejected form collapsed onto the one `EstimatorFold`, a `RegressionModel`/`ClusterModel`/`ReductionModel` result trio is collapsed onto the one `EstimatorModel` union, a hand-rolled `CoordinateDescent`/`Irls`/`Em` loop beside `IterativeEngine` for a row that is genuinely a torch loss is the deleted form, and a `Lloyd`/`EmFit` torch-loss masquerade for a row that is genuinely a specialized iteration is the equal-and-opposite deleted form.
 - Boundary: the lane is contract-uniform — every estimator answers the one Fit/Predict contract and the solution mechanism is a row property, so a forced SVD route for k-means is wrong (k-means is density/iterative; the shared contract is Fit/Predict, not a shared factorization) and the symmetric forced-torch-loss route for k-means or EM is equally wrong (Lloyd and EM are not gradient problems — folding them to a `torch.optim` loss is the deleted masquerade); every closed-form estimator factors through the `Tensor/blas#DENSE_ALGEBRA` surface — OLS/ridge through `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR, PCA through `DenseOps.Decompose(FactorizationKind.Svd)`, kernel-PCA through the centered-kernel `Evd`, LS-SVM through the regularized-Gram `DenseRoute.Solve(FactorRoute.SquarePivoting)`, the GMM responsibility log-density through the gated `Admission.Definite` Cholesky `DeterminantLn`/`Solve` — never a hand-rolled normal-equations solve, FFT, or matrix inverse, so the regression fit shares the dense-algebra provider and determinism tag and the same intra-package owner the blas lane custodies (estimator.md and blas.md are one assembly, so this is composition, not a project edge); the OLS/ridge design prepends a ones intercept column so the fitted intercept is real and never a hardcoded `0.0`, and the ridge Tikhonov block zeroes the intercept's penalty row so the bias is un-regularized; lasso has no closed form so the L1 row folds to the `IterativeEngine` `torch` loss under `Adam` while the L2/OLS rows ride the factorization — one Fit fold, two mechanisms by row; the GLM rows fold the canonical-link family `Deviance` carried on the `EstimatorKind` row (the `softplus(η)−y·η` Bernoulli / `exp(η)−y·η` Poisson / `η+y·exp(−η)` log-link Gamma terms, reverse-mode-differentiated by `backward()`) to a `torch` loss minimized under `LBFGS` rather than a hand-rolled IRLS loop, and the GLM `Predict` applies the row's `Link.Mean` so a logistic fit egresses probabilities, not the bare linear predictor — a GLM that predicts the linear predictor without the inverse link, or a `LinkFunction` enum no fit or predict reads, is the deleted decorative form, and the `Identity` link's `Variance(μ)=1` is the Gaussian constant, never the Bernoulli `μ(1−μ)` the row must NOT carry; the `naive-bayes` row fits per-class `Statistics.MeanVariance` moments through the admitted assembly rather than a hand-rolled Gaussian, the `kmeans`/`gmm`/`nmf`/`dbscan`/`hierarchical` rows bind their genuine Lloyd/EM/multiplicative-update/density/linkage kernels (the in-place Lloyd assignment, EM responsibility, NMF update, DBSCAN region-query, and agglomerative-merge loops are this page's statement exemption), and `knn` stores the labelled design for a lazy vote — the shared contract is Fit/Predict, not a shared solution mechanism; every `IterativeEngine` fit runs inside one `torch.NewDisposeScope()` so no native ATen tensor leaks to the GC, the verified `AnomalyMode(enabled: true, check_nan: true)` `IDisposable` traps a NaN/inf fit to a typed `ComputeFault` instead of a silently-diverged coefficient, `set_default_dtype(Float64)` floors the math at double, and only the egressed `Vector<double>` coefficient projection crosses the lane boundary — a `Tensor` escaping onto the wire or a reliance on finalization for native reclamation is the deleted form, the `DisposeScopeManager.Statistics` `ThreadDisposeScopeStatistics` memory evidence riding the fit; the descriptive moments fold `Statistics.Mean`/`Variance`/`MeanVariance` and the quantiles read `Statistics.Quantile`, never a hand-rolled accumulator, and the regression quality reads `GoodnessOfFit.CoefficientOfDetermination` rather than a hand-derived R²; the `Predict` egress is the typed `Prediction` union switched through the `EstimatorModel` total generated `Switch` — the prior `model.Carrier switch { … _ => Fin.Fail }` non-total C# switch with a runtime-silent `_` arm over a union is the deleted form, because a union dispatch must be compile-time exhaustive and a reduction's projection matrix or a cluster's label assignment must not be flattened into a `Vector<double>`; the fit-quality and retained rank ride the `FittedModel` carrier AND the dedicated `Fit` `ComputeReceipt` case the `Runtime/receipts#RECEIPT_UNION` owner declares for this lane — a new measured concern is one case row on the union per its Growth law, exactly the dedicated-case discipline the FEA `Solve` and the optimizer/sweep/clash/twin/uncertainty solver lanes hold, never a semantic overload of the FEA `Solve` case whose `physics`/`dofs` slots a regression family and a carrier parameter count never truly were, so a stalled k-means/GLM/EM fit lands as a `Fit` fact `ReceiptFolds.Nonconverged` reads back apart from the FEA-solver `Diverged` view rather than polluting it; the time-series and classification rows CONSUME the `Stats/signal#SIGNAL_LANE` `Transform` spectral features (the signal lane is the producer, the estimator the consumer — the bidirectional record the signal page states), the hypothesis tests can validate the `Solver/uncertainty#UNCERTAINTY_LANE` response samples, and offline deep-training models cross the `ONE_GRADUATION_EVIDENCE` seam from Python by content key (C# owns inference plus classical fit, Python owns deep training — an in-proc deep-training loop is the rejected form because the training role belongs to the Python branch); the optimizer's `Surrogate` (GP/RBF/POD) and the digital-twin baseline are the `Solver/optimizer#OPTIMIZER_LANE`'s OWN owners fitted in its acquisition loop — this lane does not own or feed them, so a claim that the optimizer and the stats lane share one regression fold is the deleted illusory seam.
 
@@ -570,18 +570,18 @@ public static class EstimatorFold {
     }
 
     // ARMA: the MA term is nonlinear in the parameters, so the conditional sum-of-squares is a nonlinear least
-    // squares minimized through the dense lane's damped Gauss-Newton LevenbergMarquardt owner over the
-    // conditional residual recursion with a finite-difference Jacobian (the autodiff-tape-absent fall the
-    // optimizer/UQ lanes take for a generic recurrence) — never a torch loss whose graph the in-place residual
-    // write and the CPU-scalar read would sever. Exponential-smoothing and state-space ride the SAME LM owner
-    // but over their OWN distinct recurrences (Holt errors, Kalman innovations), never this ARMA residual.
+    // squares minimized through the dense lane's LevenbergMarquardt HYPERDUAL arm — the residual recursion is
+    // authored ONCE over the HyperJet DDScalar, so the LM Jacobian is EXACT row-by-row through GetGradient()
+    // (the finite-difference fall is deleted; FD survives only on genuine black-box oracles) — never a torch
+    // loss whose graph the in-place residual write and the CPU-scalar read would sever. Exponential-smoothing
+    // and state-space ride the SAME LM arm but over their OWN distinct recurrences (Holt errors, Kalman
+    // innovations), never this ARMA residual.
     static Fin<FittedModel> FitArma(Estimator.Temporal t, Vector<double> series, EstimatorPolicy policy, ClockPolicy clocks) {
         int p = Math.Max(1, t.Lags), q = p, n = series.Count;
         if (n <= p + q) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<arma-short-series:{n}>")); }
-        Func<Vector<double>, Vector<double>> residual = theta => ArmaResiduals(series, p, q, theta);
-        return LevenbergMarquardt.Minimize(residual, theta => FiniteJacobian(residual, theta, 1e-6), Vector<double>.Build.Dense(p + q), LmPolicy.Canonical)
+        return LevenbergMarquardt.Minimize(theta => ArmaResiduals(series, p, q, theta), Vector<double>.Build.Dense(p + q), LmPolicy.Canonical)
             .Map(lm => {
-                Vector<double> resid = ArmaResiduals(series, p, q, lm.Parameters);
+                Vector<double> resid = Primal(ArmaResiduals(series, p, q, Constants(lm.Parameters)));
                 // Tail packs the last p observations (AR feed) THEN the last q conditional residuals (MA feed),
                 // most-recent first, so the forecast carries the fitted MA term instead of collapsing to a pure-AR
                 // roll that drops the ψ coefficients it just fit; the residual slots zero-fill past the warmup.
@@ -600,8 +600,7 @@ public static class EstimatorFold {
     static Fin<FittedModel> FitHolt(Estimator.Temporal t, Vector<double> series, ClockPolicy clocks) {
         int n = series.Count;
         if (n < 3) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<holt-short-series:{n}>")); }
-        Func<Vector<double>, Vector<double>> residual = theta => HoltErrors(series, theta);
-        return LevenbergMarquardt.Minimize(residual, theta => FiniteJacobian(residual, theta, 1e-6), Vector<double>.Build.DenseOfArray([0.0, -2.0]), LmPolicy.Canonical)
+        return LevenbergMarquardt.Minimize(theta => HoltFilter(series, theta).Errors, Vector<double>.Build.DenseOfArray([0.0, -2.0]), LmPolicy.Canonical)
             .Map(lm => {
                 (double alpha, double beta, double level, double trend) = HoltState(series, lm.Parameters);
                 double variance = lm.Residual * lm.Residual / Math.Max(1, n - 2);
@@ -617,8 +616,7 @@ public static class EstimatorFold {
     static Fin<FittedModel> FitStateSpace(Estimator.Temporal t, Vector<double> series, ClockPolicy clocks) {
         int n = series.Count;
         if (n < 4) { return Fin.Fail<FittedModel>(ComputeFault.Create($"<state-space-short-series:{n}>")); }
-        Func<Vector<double>, Vector<double>> residual = theta => StateSpaceInnovations(series, theta);
-        return LevenbergMarquardt.Minimize(residual, theta => FiniteJacobian(residual, theta, 1e-6), Vector<double>.Build.DenseOfArray([0.0, -3.0]), LmPolicy.Canonical)
+        return LevenbergMarquardt.Minimize(theta => StateSpaceFilter(series, theta).Innovations, Vector<double>.Build.DenseOfArray([0.0, -3.0]), LmPolicy.Canonical)
             .Map(lm => {
                 (double level, double slope, double variance) = StateSpaceState(series, lm.Parameters);
                 return new FittedModel(t, new EstimatorModel.Lag(Vector<double>.Build.DenseOfArray([Math.Exp(lm.Parameters[0]), Math.Exp(lm.Parameters[1])]), Vector<double>.Build.Dense(0), variance, Vector<double>.Build.DenseOfArray([level, slope]), TimeSeriesModel.StateSpace), -variance, Math.Sqrt(variance), lm.Iterations, lm.Converged, clocks.Now);
@@ -770,57 +768,54 @@ public static class EstimatorFold {
 
     // Holt one-step error e[t] = y[t] − (ℓ[t−1]+b[t−1]); ℓ[t] = ℓ[t−1]+b[t−1]+α·e[t], b[t] = b[t−1]+α·β·e[t].
     // (α, β) arrive logistic-mapped from the unconstrained LM iterate so the live rates stay in (0,1).
-    static Vector<double> HoltErrors(Vector<double> series, Vector<double> theta) {
-        double alpha = Logistic(theta[0]), beta = Logistic(theta[1]);
+    // Authored ONCE over the HyperJet DDScalar: the LM hyperdual arm reads the EXACT Jacobian through
+    // GetGradient(), and the post-fit state read is the same recursion seeded with constants — one
+    // authoring, two instantiations, zero finite differences and zero duplicated double body.
+    static (DDScalar[] Errors, DDScalar Level, DDScalar Trend) HoltFilter(Vector<double> series, DDScalar[] theta) {
+        DDScalar alpha = Logistic(theta[0]), beta = Logistic(theta[1]);
         int n = series.Count;
-        double level = series[0], trend = series[1] - series[0];
-        var errors = new double[n - 1];
+        DDScalar level = theta[0] * 0.0 + series[0], trend = theta[0] * 0.0 + (series[1] - series[0]);
+        var errors = new DDScalar[n - 1];
         for (int i = 1; i < n; i++) {
-            double fitted = level + trend, e = series[i] - fitted;
+            DDScalar fitted = level + trend, e = series[i] - fitted;
             errors[i - 1] = e;
             level = fitted + alpha * e;
             trend += alpha * beta * e;
         }
-        return Vector<double>.Build.DenseOfArray(errors);
+        return (errors, level, trend);
     }
 
     static (double Alpha, double Beta, double Level, double Trend) HoltState(Vector<double> series, Vector<double> theta) {
-        double alpha = Logistic(theta[0]), beta = Logistic(theta[1]);
-        int n = series.Count;
-        double level = series[0], trend = series[1] - series[0];
-        for (int i = 1; i < n; i++) {
-            double fitted = level + trend, e = series[i] - fitted;
-            level = fitted + alpha * e;
-            trend += alpha * beta * e;
-        }
-        return (alpha, beta, level, trend);
+        var run = HoltFilter(series, Constants(theta));
+        return (Logistic(Constants(theta)[0]).Value, Logistic(Constants(theta)[1]).Value, run.Level.Value, run.Trend.Value);
     }
 
-    static Vector<double> StateSpaceInnovations(Vector<double> series, Vector<double> theta) =>
-        Vector<double>.Build.DenseOfArray(StateSpaceFilter(series, theta).Innovations);
-
     static (double Level, double Slope, double Variance) StateSpaceState(Vector<double> series, Vector<double> theta) {
-        (double[] innovations, double level, double slope) = StateSpaceFilter(series, theta);
+        var run = StateSpaceFilter(series, Constants(theta));
+        double[] innovations = [.. run.Innovations.Select(static v => v.Value)];
         double variance = innovations.Length > 0 ? innovations.Sum(static v => v * v) / innovations.Length : 0.0;
-        return (level, slope, variance);
+        return (run.Level.Value, run.Slope.Value, variance);
     }
 
     // The 2-state (level, slope) local-linear-trend Kalman filter: transition T=[[1,1],[0,1]], observation
     // H=[1,0] with unit measurement variance, diffuse covariance start, and process variances (qLevel, qSlope).
     // P⁻ = T·P·Tᵀ + Q expands to the three symmetric entries; the optimal gain K = P⁻Hᵀ/F updates the state and
     // the Joseph-equivalent (I−KH)P⁻ posterior. The raw innovation v feeds the LM prediction-error fit.
-    static (double[] Innovations, double Level, double Slope) StateSpaceFilter(Vector<double> series, Vector<double> theta) {
-        double qLevel = Math.Exp(theta[0]), qSlope = Math.Exp(theta[1]);
+    // Authored ONCE over the DDScalar so the innovation Jacobian is exact THROUGH the filter recursion —
+    // the covariance/gain arithmetic differentiates too, the algorithmic-derivative posture the FD probe
+    // could only approximate.
+    static (DDScalar[] Innovations, DDScalar Level, DDScalar Slope) StateSpaceFilter(Vector<double> series, DDScalar[] theta) {
+        DDScalar qLevel = HyperJetMath.Exp(theta[0]), qSlope = HyperJetMath.Exp(theta[1]);
         int n = series.Count;
-        double a0 = series[0], a1 = series[1] - series[0];
-        double p00 = 1e3, p01 = 0.0, p11 = 1e3;
-        var innov = new double[n - 1];
+        DDScalar a0 = theta[0] * 0.0 + series[0], a1 = theta[0] * 0.0 + (series[1] - series[0]);
+        DDScalar p00 = theta[0] * 0.0 + 1e3, p01 = theta[0] * 0.0, p11 = theta[0] * 0.0 + 1e3;
+        var innov = new DDScalar[n - 1];
         for (int t = 1; t < n; t++) {
-            double pred = a0 + a1;
-            double m00 = p00 + 2.0 * p01 + p11 + qLevel, m01 = p01 + p11, m11 = p11 + qSlope;
-            double f = m00 + 1.0, v = series[t] - pred;
+            DDScalar pred = a0 + a1;
+            DDScalar m00 = p00 + 2.0 * p01 + p11 + qLevel, m01 = p01 + p11, m11 = p11 + qSlope;
+            DDScalar f = m00 + 1.0, v = series[t] - pred;
             innov[t - 1] = v;
-            double k0 = m00 / f, k1 = m01 / f;
+            DDScalar k0 = m00 / f, k1 = m01 / f;
             a0 = pred + k0 * v;
             a1 += k1 * v;
             p00 = m00 - k0 * m00;
@@ -830,31 +825,30 @@ public static class EstimatorFold {
         return (innov, a0, a1);
     }
 
-    static double Logistic(double z) => 1.0 / (1.0 + Math.Exp(-z));
+    static DDScalar Logistic(DDScalar z) => 1.0 / (1.0 + HyperJetMath.Exp(-z));
 
     // Conditional residual recursion r[t] = y[t] − (Σφₖ·y[t−1−k] + Σψₖ·r[t−1−k]); residuals before the
-    // max(p,q) warmup are zero, the standard conditional-sum-of-squares start. Pure double arithmetic — the
-    // LevenbergMarquardt owner differentiates it by finite differences.
-    static Vector<double> ArmaResiduals(Vector<double> series, int p, int q, Vector<double> theta) {
+    // max(p,q) warmup are zero, the standard conditional-sum-of-squares start. Authored ONCE over
+    // DDScalar so the LM gradient is machine-exact — no finite-difference probe exists on this rail.
+    static DDScalar[] ArmaResiduals(Vector<double> series, int p, int q, DDScalar[] theta) {
         int n = series.Count, warmup = Math.Max(p, q);
-        var residuals = new double[n];
+        DDScalar zero = theta[0] * 0.0;
+        var residuals = new DDScalar[n];
+        for (int t = 0; t < warmup; t++) { residuals[t] = zero; }
         for (int t = warmup; t < n; t++) {
-            double predicted = 0.0;
+            DDScalar predicted = zero;
             for (int k = 0; k < p; k++) { predicted += theta[k] * series[t - 1 - k]; }
             for (int k = 0; k < q; k++) { predicted += theta[p + k] * residuals[t - 1 - k]; }
             residuals[t] = series[t] - predicted;
         }
-        return Vector<double>.Build.DenseOfArray(residuals[warmup..]);
+        return residuals[warmup..];
     }
 
-    static Matrix<double> FiniteJacobian(Func<Vector<double>, Vector<double>> residual, Vector<double> theta, double step) {
-        Vector<double> baseline = residual(theta);
-        return Matrix<double>.Build.DenseOfColumnVectors([.. Enumerable.Range(0, theta.Count).Select(j => {
-            Vector<double> bumped = theta.Clone();
-            bumped[j] += step;
-            return (residual(bumped) - baseline) / step;
-        })]);
-    }
+    // The constant seeding for post-fit reads (gradient-free, order-1-compatible) and the primal projection
+    // back onto the MathNet vector the model carriers store.
+    static DDScalar[] Constants(Vector<double> theta) => [.. theta.Select(static v => DDScalar.Constant(v, 0, order: 1))];
+
+    static Vector<double> Primal(DDScalar[] values) => Vector<double>.Build.Dense([.. values.Select(static v => v.Value)]);
 }
 ```
 

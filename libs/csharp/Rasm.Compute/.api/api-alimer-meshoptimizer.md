@@ -208,6 +208,10 @@ status code (0 = ok). Stride/size are byte quantities. Pin managed arrays (`fixe
   `Microsoft.Extensions.Caching.Hybrid` LOD cache key, so identical source meshes reuse encoded output.
 - `CommunityToolkit.HighPerformance` `Span2D<T>`/`MemoryOwner<T>` and `System.Numerics.Tensors`
   back the managed position/attribute/remap arrays whose handles pin into these pointers.
+- `Runtime/payload#RESIDENCY` cluster-LOD chain: `LodChain`/`ClusterLevel` builds each coarser level
+  through `Simplify` (error-bounded, `SimplifyScale`-normalized) then re-meshlets it with
+  `BuildMeshlets`, threading `Level`/`Parent`/`Error`/`ParentError` onto `ResidencyMeshlet` rows so
+  the viewer's screen-space-error cut is monotonic — parent error never below the child's.
 
 [LOCAL_ADMISSION]:
 - every entry point is `unsafe extern`; pin via `fixed`, a pinned `Span<T>`, or `MemoryHandle` — a

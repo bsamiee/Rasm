@@ -14,8 +14,8 @@ Under the family sit `Expansion`, the sign-exact nonoverlapping floating-point e
 ## [02]-[ROBUST_PREDICATES]
 
 - Owner: `Sign` `[SmartEnum<int>]` the closed ternary verdict (`Negative`/`Zero`/`Positive`, key `-1`/`0`/`+1`) every predicate returns, with the `Flip`/`Times` verdict algebra the homogeneous denominator flips ride; `Axis` `[SmartEnum<int>]` the closed coordinate vocabulary (`X`/`Y`/`Z`, key = coordinate ordinal) carrying the projected-plane ordinal columns `U`/`V` (the plane NORMAL to the axis: `X → (y,z)`, `Y → (z,x)`, `Z → (x,y)`) — the ONE generator over which every axis-projected member spans its three planes, never three enumerated member names per plane; `Implicit` the closed `[Union<Point3d, Ssi, Lpi, Tpi>]` ad-hoc point carrier — `Explicit` (an ordinary coordinate point), `Ssi` (segment-segment crossing, FOUR defining points + the construction plane), `Lpi` (line-plane crossing, FIVE defining points), `Tpi` (three-plane crossing, NINE defining points) — implicit conversions make every `Point3d` call site lift without ceremony, and the carrier stores DEFINING POINTS ONLY: the exact homogeneous coordinates (`X`/`Y`/`Z` numerators + `Lambda` denominator) derive on demand through `Homogeneous<T>()` in whichever `IExact<T>` carrier the tier needs, so no rounded coordinate and no rounded denominator ever sits inside the carrier; `Predicate` the ONE static surface owning the direct ladders and the implicit folds.
-- Cases: `Sign` rows 3; `Axis` rows 3; `Implicit` cases 4; `Predicate` members — `Orient2D(Point3d,Point3d,Point3d)` · `Orient3D(×4)` · `InCircle(×4)` · `InSphere(×5)` direct (4, each one inline allocation-free `ErrorBound`-gated `PrecisionTier` escalation, never a sibling fast/exact pair) · `Orient2D(in Implicit, in Implicit, in Implicit, Axis)` — ONE member spanning every explicit/implicit combination {EEE, IEE, IIE, III} × {xy, yz, zx} by the carrier's case shape and the axis row (the all-explicit shape routes the direct filtered ladder on swizzled coordinates; any implicit shape routes interval-filter → exact) · `Compare(in Implicit, in Implicit, Axis)` — the exact per-coordinate three-way order key spanning {EE, IE, II} × {X, Y, Z} (the honest sort key replacing every exact-point-over-rounded-coordinate ordering) · `InCircle(Point3d, Point3d, Point3d, in Implicit, Axis)` and `InSphere(Point3d, Point3d, Point3d, Point3d, in Implicit)` — the in-circum implicit-query members (explicit query routes the direct ladder; a constructed query runs the homogeneous lifted determinant with the `lambda^2`-cleared lifts, the verdict composing the exact `lambda` sign at the polynomial's structural parity — the in-circle degree-4 EVEN power Zero-gates without flipping, the in-sphere degree-5 ODD power flips — adjudicated by `RationalOracle.InCircum`) (8 public members spanning the ~21-member mandated capability lattice). The multi-implicit in-circum combinations ({IIEE..IIII}) and the 3D multi-implicit `Orient3D`/`InSphere` family are RECORDED GROWTH gated on a CDTet consumer — one further case arm per member on the same folds, never new surfaces.
-- Entry: `public static Sign Orient2D(Point3d a, Point3d b, Point3d c)` the exact sign of the `(b-a)×(c-a)` 2D cross-product determinant — positive for a counter-clockwise turn; `public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d)` the exact sign of the `3×3` determinant placing `d` relative to the oriented plane `abc`; `public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d)` the exact sign of the `4×4` lifted determinant testing `d` inside the circumcircle of `abc`; `public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e)` the exact `5×5` lifted in-sphere determinant; `public static Sign Orient2D(in Implicit a, in Implicit b, in Implicit c, Axis axis)` the exact orientation of three possibly-constructed points projected on the axis plane; `public static Sign Compare(in Implicit a, in Implicit b, Axis axis)` the exact three-way comparison of one coordinate (`Negative` = `a < b`); `public static Sign InCircle(Point3d a, Point3d b, Point3d c, in Implicit d, Axis axis)` / `public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, in Implicit e)` the exact in-circum verdicts for a constructed query point — every member total, pure, exact, no rail; a degenerate construction (`lambda = 0`: parallel segments, a line parallel to its plane, near-parallel plane triples) yields `Sign.Zero` through the `Times` flip algebra, the degeneracy witness the consumer's recovery reads.
+- Cases: `Sign` rows 3; `Axis` rows 3; `Implicit` cases 4; `Predicate` members — `Orient2D`/`Orient3D`/`InCircle`/`InSphere` each a raw-coordinate CORE (`double` tuples — the entry the cross-package consumers bind, since the Rasm.Compute lane law bars host value types on interior signatures) plus a thin `Point3d` seam adapter (4 cores + 4 adapters, each core one inline allocation-free `ErrorBound`-gated `PrecisionTier` escalation, never a sibling fast/exact pair) · `Orient2D(in Implicit, in Implicit, in Implicit, Axis)` — ONE member spanning every explicit/implicit combination {EEE, IEE, IIE, III} × {xy, yz, zx} by the carrier's case shape and the axis row (the all-explicit shape routes the direct filtered ladder on swizzled coordinates; any implicit shape routes interval-filter → exact) · `Compare(in Implicit, in Implicit, Axis)` — the exact per-coordinate three-way order key spanning {EE, IE, II} × {X, Y, Z} (the honest sort key replacing every exact-point-over-rounded-coordinate ordering) · `InCircle(Point3d, Point3d, Point3d, in Implicit, Axis)` and `InSphere(Point3d, Point3d, Point3d, Point3d, in Implicit)` — the in-circum implicit-query members (explicit query routes the direct ladder; a constructed query runs the homogeneous lifted determinant with the `lambda^2`-cleared lifts, the verdict composing the exact `lambda` sign at the polynomial's structural parity — the in-circle degree-4 EVEN power Zero-gates without flipping, the in-sphere degree-5 ODD power flips — adjudicated by `RationalOracle.InCircum`) (8 public members spanning the ~21-member mandated capability lattice). The multi-implicit in-circum combinations ({IIEE..IIII}) and the 3D multi-implicit `Orient3D`/`InSphere` family are RECORDED GROWTH gated on a CDTet consumer — one further case arm per member on the same folds, never new surfaces.
+- Entry: `public static Sign Orient2D(double ax, double ay, double bx, double by, double cx, double cy)` (with the `Point3d` adapter over it) the exact sign of the `(b-a)×(c-a)` 2D cross-product determinant — positive for a counter-clockwise turn; `public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d)` the exact sign of the `3×3` determinant placing `d` relative to the oriented plane `abc`; `public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d)` the exact sign of the `4×4` lifted determinant testing `d` inside the circumcircle of `abc`; `public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e)` the exact `5×5` lifted in-sphere determinant; `public static Sign Orient2D(in Implicit a, in Implicit b, in Implicit c, Axis axis)` the exact orientation of three possibly-constructed points projected on the axis plane; `public static Sign Compare(in Implicit a, in Implicit b, Axis axis)` the exact three-way comparison of one coordinate (`Negative` = `a < b`); `public static Sign InCircle(Point3d a, Point3d b, Point3d c, in Implicit d, Axis axis)` / `public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, in Implicit e)` the exact in-circum verdicts for a constructed query point — every member total, pure, exact, no rail; a degenerate construction (`lambda = 0`: parallel segments, a line parallel to its plane, near-parallel plane triples) yields `Sign.Zero` through the `Times` flip algebra, the degeneracy witness the consumer's recovery reads.
 - Auto: each direct predicate computes the approximate determinant and its permanence magnitude in one `double` expression each, then walks the `PrecisionTier` ladder INLINE as one `??`-chain over the uniform `Sign?`-or-escalate verdict protocol — `ErrorBound.<Kind>.Of(det, permanent) ?? Refine<Kind>(…) ?? <Kind>Exact(…)` — allocation-free with no captured-closure thunk. `PrecisionTier.Double` proves `|det|` clears the permanence-scaled `ErrorBound.Coefficient` threshold (the common fast path); on a straddle the `Refine<Kind>` recompute evaluates the determinant in `ddouble` (the multilinear orient recomputes align per-vertex difference vectors to one binary exponent through `ddouble.AdjustScale`; the lifted in-circum recomputes run raw — a per-row scale does not commute with the quadratic lift) and reads `ErrorBound.Refine`; only the still-indeterminate residue falls through to the `Expansion` fold. Each IMPLICIT member instead runs the `PrecisionTier.Interval` filter first — the SAME polynomial instantiated at `IExact<Interval>` (53-bit `EFloat` endpoints under `ERounding.Floor`/`Ceiling` contexts) whose `Verdict` resolves whenever the numerator bracket excludes zero AND every `Lambda` bracket resolves its sign (the even-power denominator must still prove itself nonzero for the zero-gate) — and only the indeterminate residue re-instantiates the polynomial at `IExact<Expansion>`, reading `Expansion.SignOf` with `Sign.Times` denominator flips; the in-circum members escalate the exact determinant to `RationalOracle.InCircum` — the `Fraction` `BigInteger` verdict via `Expansion.ToFraction`, the denominator sign read exactly from `lambda.ToFraction().Sign` (never a `double` estimate that can mis-sign near zero) and composed at the polynomial's structural `lambda` parity through `Sign.Times`, so a zero denominator always yields `Zero` and an odd power alone flips. A per-member rounded-coordinate `double` filter remains impossible for constructed points (it would materialize the coordinate the homogeneous form exists to avoid) — the interval filter is the honest fast tier that replaces it. Every tier is monotone and sign-consistent, so the verdict is always the true sign of the real-arithmetic determinant.
 - Receipt: none — a predicate returns a `Sign` verdict, the most refined receipt a total exact test admits; a sign carries no residual. The ONE emission-side materialization is `Implicit.Round()` — the rounded `Point3d` a consumer emits AT ITS OWN emission seam (a `Polyline` vertex, a tessellation output), never a value any predicate reads back.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[Union<T1,...>]` ad-hoc), RhinoCommon (`Point3d` vocabulary), TYoshimura.DoubleDouble (`ddouble.Sign`/`Abs`/`AdjustScale` — the 106-bit middle tier), ExtendedNumerics.BigRational (`Fraction.Sign`/`Subtract`/`Multiply`, `(Fraction)double` lossless IEEE decomposition — the exact-rational oracle), PeterO.Numbers (`EFloat.FromDouble`/`Add`/`Subtract`/`Multiply` under `EContext.ForPrecisionAndRounding` + `ERounding.Floor`/`Ceiling` — the directed-rounding interval-filter tier; `EContext.Unlimited`/`WithBlankFlags`/`FlagInexact` + `ERational` — the independent exact adjudicators), BCL inbox (`System.Math.FusedMultiplyAdd`, `System.Runtime.Intrinsics` capability probes, `System.Numerics.BigInteger` under `Fraction`).
@@ -167,20 +167,33 @@ public static class Predicate {
     // delegates per call on the kernel's hottest path. The middle and exact tiers share the `TwoProduct`/`TwoSum`
     // rounding model, so they never disagree on a sign both resolve.
 
+    // --- [COORDINATE_CORE]
+    // The raw-coordinate entries are the CORE the cross-package consumers bind (the Rasm.Compute
+    // discretization lane law bars host value types on interior signatures): each owns the tier-1
+    // forward-error filter inline on raw doubles — the hot, allocation-free path — and lifts into the
+    // shared kernel-interior Refine/Exact tiers only at the rare escalation boundary. The Point3d
+    // entries below are thin seam adapters over these cores.
+
     // --- [ORIENT_2D]
-    public static Sign Orient2D(Point3d a, Point3d b, Point3d c) {
-        double acx = a.X - c.X, bcx = b.X - c.X, acy = a.Y - c.Y, bcy = b.Y - c.Y;
+    public static Sign Orient2D(Point3d a, Point3d b, Point3d c) => Orient2D(a.X, a.Y, b.X, b.Y, c.X, c.Y);
+
+    public static Sign Orient2D(double ax, double ay, double bx, double by, double cx, double cy) {
+        double acx = ax - cx, bcx = bx - cx, acy = ay - cy, bcy = by - cy;
         double detLeft = acx * bcy, detRight = acy * bcx;
         double det = detLeft - detRight;
         double detsum = Math.Abs(detLeft) + Math.Abs(detRight);
-        return ErrorBound.Orient2D.Of(det, detsum) ?? RefineOrient2D(a, b, c) ?? Orient2DExact(a, b, c);
+        return ErrorBound.Orient2D.Of(det, detsum)
+            ?? RefineOrient2D(new Point3d(ax, ay, 0.0), new Point3d(bx, by, 0.0), new Point3d(cx, cy, 0.0))
+            ?? Orient2DExact(new Point3d(ax, ay, 0.0), new Point3d(bx, by, 0.0), new Point3d(cx, cy, 0.0));
     }
 
     // --- [ORIENT_3D]
-    public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d) {
-        double adx = a.X - d.X, bdx = b.X - d.X, cdx = c.X - d.X;
-        double ady = a.Y - d.Y, bdy = b.Y - d.Y, cdy = c.Y - d.Y;
-        double adz = a.Z - d.Z, bdz = b.Z - d.Z, cdz = c.Z - d.Z;
+    public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d) => Orient3D(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z);
+
+    public static Sign Orient3D(double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz, double dx, double dy, double dz) {
+        double adx = ax - dx, bdx = bx - dx, cdx = cx - dx;
+        double ady = ay - dy, bdy = by - dy, cdy = cy - dy;
+        double adz = az - dz, bdz = bz - dz, cdz = cz - dz;
         double bdxcdy = bdx * cdy, cdxbdy = cdx * bdy;
         double cdxady = cdx * ady, adxcdy = adx * cdy;
         double adxbdy = adx * bdy, bdxady = bdx * ady;
@@ -189,13 +202,17 @@ public static class Predicate {
             (Math.Abs(bdxcdy) + Math.Abs(cdxbdy)) * Math.Abs(adz)
             + (Math.Abs(cdxady) + Math.Abs(adxcdy)) * Math.Abs(bdz)
             + (Math.Abs(adxbdy) + Math.Abs(bdxady)) * Math.Abs(cdz);
-        return ErrorBound.Orient3D.Of(det, permanent) ?? RefineOrient3D(a, b, c, d) ?? Orient3DExact(a, b, c, d);
+        return ErrorBound.Orient3D.Of(det, permanent)
+            ?? RefineOrient3D(new Point3d(ax, ay, az), new Point3d(bx, by, bz), new Point3d(cx, cy, cz), new Point3d(dx, dy, dz))
+            ?? Orient3DExact(new Point3d(ax, ay, az), new Point3d(bx, by, bz), new Point3d(cx, cy, cz), new Point3d(dx, dy, dz));
     }
 
     // --- [IN_CIRCLE]
-    public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d) {
-        double adx = a.X - d.X, bdx = b.X - d.X, cdx = c.X - d.X;
-        double ady = a.Y - d.Y, bdy = b.Y - d.Y, cdy = c.Y - d.Y;
+    public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d) => InCircle(a.X, a.Y, b.X, b.Y, c.X, c.Y, d.X, d.Y);
+
+    public static Sign InCircle(double ax, double ay, double bx, double by, double cx, double cy, double dx, double dy) {
+        double adx = ax - dx, bdx = bx - dx, cdx = cx - dx;
+        double ady = ay - dy, bdy = by - dy, cdy = cy - dy;
         double bdxcdy = bdx * cdy, cdxbdy = cdx * bdy, alift = adx * adx + ady * ady;
         double cdxady = cdx * ady, adxcdy = adx * cdy, blift = bdx * bdx + bdy * bdy;
         double adxbdy = adx * bdy, bdxady = bdx * ady, clift = cdx * cdx + cdy * cdy;
@@ -204,14 +221,19 @@ public static class Predicate {
             (Math.Abs(bdxcdy) + Math.Abs(cdxbdy)) * alift
             + (Math.Abs(cdxady) + Math.Abs(adxcdy)) * blift
             + (Math.Abs(adxbdy) + Math.Abs(bdxady)) * clift;
-        return ErrorBound.InCircle.Of(det, permanent) ?? RefineInCircle(a, b, c, d) ?? InCircleExact(a, b, c, d);
+        return ErrorBound.InCircle.Of(det, permanent)
+            ?? RefineInCircle(new Point3d(ax, ay, 0.0), new Point3d(bx, by, 0.0), new Point3d(cx, cy, 0.0), new Point3d(dx, dy, 0.0))
+            ?? InCircleExact(new Point3d(ax, ay, 0.0), new Point3d(bx, by, 0.0), new Point3d(cx, cy, 0.0), new Point3d(dx, dy, 0.0));
     }
 
     // --- [IN_SPHERE]
-    public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e) {
-        double aex = a.X - e.X, bex = b.X - e.X, cex = c.X - e.X, dex = d.X - e.X;
-        double aey = a.Y - e.Y, bey = b.Y - e.Y, cey = c.Y - e.Y, dey = d.Y - e.Y;
-        double aez = a.Z - e.Z, bez = b.Z - e.Z, cez = c.Z - e.Z, dez = d.Z - e.Z;
+    public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e) =>
+        InSphere(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z, e.X, e.Y, e.Z);
+
+    public static Sign InSphere(double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz, double dx, double dy, double dz, double ex, double ey, double ez) {
+        double aex = ax - ex, bex = bx - ex, cex = cx - ex, dex = dx - ex;
+        double aey = ay - ey, bey = by - ey, cey = cy - ey, dey = dy - ey;
+        double aez = az - ez, bez = bz - ez, cez = cz - ez, dez = dz - ez;
         double ab = aex * bey - bex * aey, bc = bex * cey - cex * bey, cd = cex * dey - dex * cey;
         double da = dex * aey - aex * dey, ac = aex * cey - cex * aey, bd = bex * dey - dex * bey;
         double abc = aez * bc - bez * ac + cez * ab;
@@ -231,7 +253,9 @@ public static class Predicate {
         double cdaAbs = cezAbs * daAbs + dezAbs * acAbs + aezAbs * cdAbs;
         double dabAbs = dezAbs * abAbs + aezAbs * bdAbs + bezAbs * daAbs;
         double permanent = (dlift * abcAbs + clift * dabAbs) + (blift * cdaAbs + alift * bcdAbs);
-        return ErrorBound.InSphere.Of(det, permanent) ?? RefineInSphere(a, b, c, d, e) ?? InSphereExact(a, b, c, d, e);
+        return ErrorBound.InSphere.Of(det, permanent)
+            ?? RefineInSphere(new Point3d(ax, ay, az), new Point3d(bx, by, bz), new Point3d(cx, cy, cz), new Point3d(dx, dy, dz), new Point3d(ex, ey, ez))
+            ?? InSphereExact(new Point3d(ax, ay, az), new Point3d(bx, by, bz), new Point3d(cx, cy, cz), new Point3d(dx, dy, dz), new Point3d(ex, ey, ez));
     }
 
     // --- [IMPLICIT_ORIENT]

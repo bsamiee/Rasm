@@ -82,7 +82,7 @@ Semantics/properties      ←  csharp:Rasm.Materials/Projection         # [SHAPE
 Model                     →  python:geometry/mesh                     # [SHAPE]: IFC GLB tessellation reference for scan-deviation analysis
 Exchange/wire             →  python:geometry/energy                   # [SHAPE]: IFC SPF source bytes for the geometry-side BIM-to-BEM derivation modality
 Semantics                 →  csharp:Rasm.Compute/Runtime              # [PROJECTION]: IFC/glTF semantic metadata layer
-Semantics/classification  ←  csharp:Rasm.Compute/Runtime/channels     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
+Semantics/classification  ←  csharp:Rasm.Compute/Runtime/transport     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
 Semantics/geospatial      →  python:geometry/ifc                      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
 Semantics/geospatial      →  typescript:core/interchange/codec        # [WIRE]: GeoFeature WKB decode; turf NTS-equivalent planar peer in ui/viewer [R6]
 Semantics/geospatial      →  csharp:Rasm.AppUi/Charts                 # [SHAPE]: NTS Feature geometry as Mapsui basemap overlays beside the Wgpu viewport

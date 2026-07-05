@@ -313,7 +313,7 @@ and carries no TS_PROJECTION.
 
 [STAGING_INTEGRATION]:
 - Token/tensor byte buffers stage through the `api-recyclable-stream` pool, not ad hoc arrays; `Tensor.GetData<T>()` and `GetSequence(ulong)` return native-backed `ReadOnlySpan<T>` views that copy into a rented stream only at the edge.
-- A structured generative artifact crossing the wire is a `Runtime/channels#PROTO_VOCABULARY` `api-protobuf` message, not a managed DTO; the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary.
+- A structured generative artifact crossing the wire is a `Runtime/wire#PROTO_VOCABULARY` `api-protobuf` message, not a managed DTO; the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary.
 
 [LOCAL_ADMISSION]:
 - Token-streaming is a run mode on the owned model lane; a `GenerativeService`, `ChatClient`, `Conversation`, or `PromptService` wrapper is the rejected form.

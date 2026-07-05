@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `polars`
 - package: `polars`
+- owner: `data`
 - module: `polars`
 - version: `1.42.0`
 - license: MIT

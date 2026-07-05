@@ -1,6 +1,6 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, inference, embedding retrieval, the generative token-streaming run, and custom-op extension. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Stats folder owns the classical-statistics/statistical-learning estimator axis and the DSP signal axis. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, wire channels, and the field/result/geometry-delta codecs with the GPU-ready residency payload. The Analysis folder owns the C#-first discipline-assessment rail: one `AssessmentRequest` routed over the seam `Discipline` to a structural, physics, energy, or lifecycle runner. `Rasm.Compute` consumes the `Rasm` geometry kernel, the `Rasm.Element` element seam (the shared lower stratum it reads upward, never the AEC-domain peers `Rasm.Materials`/`Rasm.Bim`), AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, inference, embedding retrieval, the generative token-streaming run, and custom-op extension. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Stats folder owns the classical-statistics/statistical-learning estimator axis and the DSP signal axis. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, the wire CONTRACT (proto vocabulary, contract evolution, fault projection) and the TRANSPORT mechanics (channels, call policy, artifact frames) as two pages, and the field/result/geometry-delta codecs with the GPU-ready residency payload. The Solver folder additionally owns the per-Gauss-point constitutive axis and the Z3 rule-satisfaction owner. The Analysis folder owns the C#-first discipline-assessment rail: one `AssessmentRequest` routed over the seam `Discipline` to a structural, physics, energy, lifecycle, circulation, or daylight runner, reconciled by the lifecycle-aware `Sweep` over the `JobGraph`. `Rasm.Compute` consumes the `Rasm` geometry kernel, the `Rasm.Element` element seam (the shared lower stratum it reads upward, never the AEC-domain peers `Rasm.Materials`/`Rasm.Bim`), AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
@@ -26,25 +26,30 @@
 - [20]-[EXTENSION](.planning/Model/extension.md)
 - [21]-[DISCRETIZATION](.planning/Solver/discretization.md)
 - [22]-[CONTRACT](.planning/Solver/contract.md)
-- [23]-[OPTIMIZER](.planning/Solver/optimizer.md)
-- [24]-[SWEEP](.planning/Solver/sweep.md)
-- [25]-[CLASH](.planning/Solver/clash.md)
-- [26]-[UNCERTAINTY](.planning/Solver/uncertainty.md)
-- [27]-[ESTIMATOR](.planning/Stats/estimator.md)
-- [28]-[SIGNAL](.planning/Stats/signal.md)
-- [29]-[ADMISSION](.planning/Runtime/admission.md)
-- [30]-[SCHEDULING](.planning/Runtime/scheduling.md)
-- [31]-[PROGRESS](.planning/Runtime/progress.md)
-- [32]-[RECEIPTS](.planning/Runtime/receipts.md)
-- [33]-[CHANNELS](.planning/Runtime/channels.md)
-- [34]-[CODECS](.planning/Runtime/codecs.md)
-- [35]-[PAYLOAD](.planning/Runtime/payload.md)
-- [36]-[ASSESSMENT](.planning/Analysis/assessment.md)
-- [37]-[AGGREGATOR](.planning/Analysis/aggregator.md)
-- [38]-[STRUCTURAL](.planning/Analysis/structural.md)
-- [39]-[PHYSICS](.planning/Analysis/physics.md)
-- [40]-[ENERGY](.planning/Analysis/energy.md)
-- [41]-[LIFECYCLE](.planning/Analysis/lifecycle.md)
+- [23]-[CONSTITUTIVE](.planning/Solver/constitutive.md)
+- [24]-[OPTIMIZER](.planning/Solver/optimizer.md)
+- [25]-[SWEEP](.planning/Solver/sweep.md)
+- [26]-[CLASH](.planning/Solver/clash.md)
+- [27]-[UNCERTAINTY](.planning/Solver/uncertainty.md)
+- [28]-[SATISFY](.planning/Solver/satisfy.md)
+- [29]-[ESTIMATOR](.planning/Stats/estimator.md)
+- [30]-[SIGNAL](.planning/Stats/signal.md)
+- [31]-[ADMISSION](.planning/Runtime/admission.md)
+- [32]-[SCHEDULING](.planning/Runtime/scheduling.md)
+- [33]-[PROGRESS](.planning/Runtime/progress.md)
+- [34]-[RECEIPTS](.planning/Runtime/receipts.md)
+- [35]-[WIRE](.planning/Runtime/wire.md)
+- [36]-[TRANSPORT](.planning/Runtime/transport.md)
+- [37]-[CODECS](.planning/Runtime/codecs.md)
+- [38]-[PAYLOAD](.planning/Runtime/payload.md)
+- [39]-[ASSESSMENT](.planning/Analysis/assessment.md)
+- [40]-[AGGREGATOR](.planning/Analysis/aggregator.md)
+- [41]-[STRUCTURAL](.planning/Analysis/structural.md)
+- [42]-[PHYSICS](.planning/Analysis/physics.md)
+- [43]-[ENERGY](.planning/Analysis/energy.md)
+- [44]-[LIFECYCLE](.planning/Analysis/lifecycle.md)
+- [45]-[CIRCULATION](.planning/Analysis/circulation.md)
+- [46]-[DAYLIGHT](.planning/Analysis/daylight.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -57,25 +62,25 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `CSparse`
 
 [SYMBOLIC]:
-- `MathNet.Symbolics`
+- `AngouriMath` — the categorical-best managed CAS: `Entity` parse/simplify/solve/integrate/differentiate/limit/LaTeX/`Compile<>` in one owner; replaced the four-dependency MathNet.Symbolics F# stack.
+- `PeterO.Numbers` — the exact-rational `ERational` carrier the `Symbolic/dimensional` Q⁷ exponent vector stores (the AngouriMath number tower's own arithmetic).
 
 [OPTIMIZATION]:
 - `Google.OrTools`
 - `GeneticSharp`
 
 [AUTODIFF]:
-- `HyperJet` — source-generated hyper-dual scalar-AD backing `Sensitivity`/`Chain` exact gradient/Hessian for estimator MLE, FORM/SORM, Levenberg-Marquardt
+- `HyperJet` — the hyper-dual scalar-AD THIRD leg of the one `Sensitivity` family: exact gradient/Hessian for the estimator temporal fits, FORM/SORM, the Levenberg-Marquardt canonical Jacobian arm, and the slsqp `Smooth` objective — the finite-difference fall is deleted.
 
 [SATISFACTION]:
 - `Microsoft.Z3` — SMT rule-satisfaction: `SymbolicExpr` lowered to NRA/NIA assertions returning SAT/UNSAT + unsat-core; verifies where CP-SAT optimizes
 
 [STRUCTURAL_SOLVERS]:
-- `FEALiTE2D` — 2D frame/beam/truss solver backend: the `Analysis/structural` planar `FrameBackend` and its structural receipts.
-- `FEALiTE2D.Plotting` — DXF export for FEALiTE2D internal-force, shear-force, bending-moment, and displacement diagrams as solver evidence artifacts.
-- `BriefFiniteElement.Net` — 3D `FrameBackend`, sparse `BarElement` path; shared CSparse `ISolverFactory` solve; design codes hand-rolled, sections via M7.
-- `BriefFiniteElementNet.CustomElements`
+- `csparse-interop` — SOURCE-VENDORED (wo80, BSD-3; not on NuGet): the ARPACK shift-invert sparse eigensolver (`fea-modal`/`fea-buckling`/seismic at building DOF) and the native CHOLMOD/SuperLU/UMFPACK direct rows beside the managed CSparse terminals; natives Forge-provisioned, fault-at-init. The BFE/FEALiTE frame backends are RETIRED — the owned beam/frame `ElementClass` rows on the `Solver/contract` spine replaced them.
+- `cslsqp` — SOURCE-VENDORED (oberbichler, ISC; feed-verified absent from NuGet): the span-based SLSQP the `OptimizerKind.slsqp` smooth constrained-NLP row binds.
 
 [ENERGY_SIMULATION]:
+- `Microsoft.Data.Sqlite` — the read-only eplusout.sql TABULAR reader (the SystemSummary setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for).
 - `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK: `ElementGraph` → OSM → IDF, reads `SqlFile`; EnergyPlus runs as the `EnergyToolchain` subprocess.
 - `PollinationSDK` — `EnergyRoute.Cloud` transport, `Wrapper` orchestration onto the same `SqlFile` fold; sidecar-isolated, durable half Persistence-owned.
 
@@ -126,6 +131,15 @@ Cross-cutting C# substrate libraries Compute consumes; package charters live in 
 - `CommunityToolkit.HighPerformance`
 - `System.Numerics.Tensors`
 - `UnitsNet`
+
+[GRAPH_AND_PLANAR]:
+- `QuikGraph` — the `Analysis/circulation` path/topology algebra (Dijkstra/A*, SCC) over the per-request space-adjacency view.
+- `NetTopologySuite` — isovist/visibility polygons and occupant areas at the circulation planar boundary (float production-plane, never a second exact rail).
+- `Clipper2` — the corridor-clearance offset algebra (`InflatePaths` collapse test) at the same boundary.
+
+[BOUNDARY_GENERATORS]:
+- `Riok.Mapperly` — the per-case proto↔domain field transcription at the `Runtime/wire` oneof boundary.
+- `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape surrenders record-root equality.
 
 [WIRE_CODEGEN]:
 - `Google.Protobuf`

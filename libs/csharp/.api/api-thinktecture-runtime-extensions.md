@@ -53,14 +53,16 @@
 |  [01]   | `SerializationFrameworks`                     | codec selector       | `SystemTextJson`, `NewtonsoftJson`, `MessagePack`, and `All` selector values |
 |  [02]   | `SerializationFrameworksExtensions`           | codec selector       | selector helpers consumed by codec metadata       |
 |  [03]   | `ComparerAccessors`                           | comparer policy      | generated comparer accessor catalog               |
-|  [04]   | `KeyMemberComparerAttribute`                  | comparer attribute   | comparison policy for key members                 |
-|  [05]   | `KeyMemberEqualityComparerAttribute`          | comparer attribute   | equality policy for key members                   |
-|  [06]   | `MemberEqualityComparerAttribute`             | comparer attribute   | equality policy for non-key members               |
-|  [07]   | `OperatorsGeneration`                         | generator policy     | generated operator policy                         |
-|  [08]   | `ConversionOperatorsGeneration`               | generator policy     | generated conversion-operator policy              |
-|  [09]   | `FactoryMethodGeneration`                     | generator policy     | generated factory-method policy                   |
-|  [10]   | `SwitchMapMethodsGeneration`                  | generator policy     | generated `Switch`/`Map` method policy            |
-|  [11]   | `NestedUnionParameterNameGeneration`          | generator policy     | nested-union generated parameter naming policy    |
+|  [04]   | `IComparerAccessor<T>`                        | comparer contract    | static-abstract `Comparer` provider a custom comparer accessor implements |
+|  [05]   | `IEqualityComparerAccessor<T>`                | comparer contract    | static-abstract `EqualityComparer` provider — an owner-local accessor (a constant always-equal comparer holds a stored member equality-inert without `[IgnoreMember]`'s factory erasure) plugs member equality here |
+|  [06]   | `KeyMemberComparerAttribute`                  | comparer attribute   | comparison policy for key members                 |
+|  [07]   | `KeyMemberEqualityComparerAttribute`          | comparer attribute   | equality policy for key members                   |
+|  [08]   | `MemberEqualityComparerAttribute<T, TMember>` | comparer attribute   | equality policy for an INCLUDED non-key member — it sets the member's comparer, never excludes the member (`IgnoreMemberAttribute` is the exclusion form, and it also erases the member from the generated factory) |
+|  [09]   | `OperatorsGeneration`                         | generator policy     | generated operator policy                         |
+|  [10]   | `ConversionOperatorsGeneration`               | generator policy     | generated conversion-operator policy              |
+|  [11]   | `FactoryMethodGeneration`                     | generator policy     | generated factory-method policy                   |
+|  [12]   | `SwitchMapMethodsGeneration`                  | generator policy     | generated `Switch`/`Map` method policy            |
+|  [13]   | `NestedUnionParameterNameGeneration`          | generator policy     | nested-union generated parameter naming policy    |
 
 [PUBLIC_TYPE_SCOPE]: metadata consumed by companion packages
 - rail: generated-domain-owners

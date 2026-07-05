@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `meshio`
 - package: `meshio`
+- owner: `data`
 - module: `meshio`
 - version: `5.3.5`
 - license: MIT

@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `adbc_driver_manager`
 - package: `adbc-driver-manager`
+- owner: `data`
 - version: `1.11.0`
 - module: `adbc_driver_manager`
 - license: `Apache-2.0`

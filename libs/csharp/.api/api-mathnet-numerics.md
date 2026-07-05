@@ -93,6 +93,11 @@ selection, and sparse solve are `api-mathnet-providers` / `api-csparse`. ABI: Ma
 |  [07]   | `IDiscreteDistribution.Probability(k)` / `ProbabilityLn(k)` | instance | PMF / log-PMF at k                                  |
 |  [08]   | `IDiscreteDistribution.Sample()`                    | instance      | single integer sample                                |
 |  [09]   | `Normal.RandomSource`                               | instance prop | gets or sets the RNG (replaces with default on null) |
+|  [10]   | `Normal.CDF(mean, stdDev, x)` / `StudentT.CDF(location, scale, freedom, x)` / per-type static twins | static `double` | parameterized CDF without an instance — the hypothesis-test p-value form |
+|  [11]   | `Normal.InvCDF(mean, stdDev, p)` / `StudentT.InvCDF(location, scale, freedom, p)` / per-type static twins | static `double` | parameterized quantile without an instance (β = `Normal.InvCDF(0, 1, 1 - pf)`) |
+|  [12]   | `Generate.LinearRange(start, step, stop)` / `LinearSpaced(length, start, stop)` | static `double[]` | arithmetic-progression / evenly-spaced axis generation |
+|  [13]   | `Generate.LinearRangeMap(start, step, stop, Func<double,double>)` / `LinearSpacedMap(length, start, stop, map)` | static `T[]` | fused axis-generate-and-map — one pass, no intermediate axis array |
+|  [14]   | `Generate.Map(double[], Func<double,T>)` / `Map2(a, b, Func<double,double,T>)` | static `T[]` | element / pairwise projection over existing arrays |
 
 [ENTRYPOINT_SCOPE]: integration (`Integrate` class)
 - rail: numeric

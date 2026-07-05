@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `nanoarrow`
 - package: `nanoarrow`
+- owner: `data`
 - module: `nanoarrow`
 - version: `0.8.0`
 - license: Apache-2.0
@@ -37,7 +38,7 @@ The C-level holders are NOT top-level `nanoarrow` names; they live in the Cython
 |  [03]   | `CSchema`      | `nanoarrow._schema`    | C schema holder | low-level `ArrowSchema` C struct wrapper        |
 |  [04]   | `CBuffer`      | `nanoarrow._buffer`    | C buffer holder | typed buffer from Arrow buffer accessor         |
 |  [05]   | `CArrayBuilder` / `CArrayView` | `nanoarrow._array` | C builder/view | incremental build and zero-copy view of `CArray` |
-|  [06]   | `CDeviceArray` / `DeviceType` | `nanoarrow._array` | device holder | device-array struct and `DEVICE_CPU` device kind |
+|  [06]   | `CDeviceArray` / `DeviceType` | `nanoarrow.device` | device holder | the C Device Data Interface submodule — `c_device_array(obj, schema=None)`, `Device`, `DeviceType`, `DEVICE_CPU`, `cpu`, `resolve`; the Cython holder lives in `_array` but the IMPORT home is `nanoarrow.device`, and no device-array-STREAM constructor exists (device rows are array-level) |
 
 ## [03]-[ENTRYPOINTS]
 

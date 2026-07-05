@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_ORTOOLS]
 
-`Google.OrTools` supplies the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP exact-optimization wrapper across pluggable backends, and the ConstraintSolver routing engine, with per-RID native solver libraries resolved transitively for the Compute solver/optimizer rails behind the `OptimizerKind` rows. The wire-level model/response carriers (`CpModelProto`, `CpSolverResponse`, `MPModelProto`) are `api-protobuf` messages, so the proto vocabulary stacks directly onto the `Runtime/channels` remote lane; the solve fault lifts to `ComputeFault` at the boundary.
+`Google.OrTools` supplies the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP exact-optimization wrapper across pluggable backends, and the ConstraintSolver routing engine, with per-RID native solver libraries resolved transitively for the Compute solver/optimizer rails behind the `OptimizerKind` rows. The wire-level model/response carriers (`CpModelProto`, `CpSolverResponse`, `MPModelProto`) are `api-protobuf` messages, so the proto vocabulary stacks directly onto the `Runtime/wire` remote lane; the solve fault lifts to `ComputeFault` at the boundary.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -71,7 +71,7 @@
 
 [PUBLIC_TYPE_SCOPE]: Graph network-flow contracts
 - rail: solver#GRAPH
-- note: `Google.OrTools.Graph` — the specialized min-cut/max-flow/assignment engines (bound-assembly-verified in `lib/net8.0`); each is `IDisposable` over a native graph and takes `int` node/arc indices with `long` capacities/costs. The `[V12]` circulation exit-capacity solver, outranking a managed Edmonds-Karp minted for the same concern.
+- note: `Google.OrTools.Graph` — the specialized min-cut/max-flow/assignment engines (bound-assembly-verified in `lib/net8.0`); each is `IDisposable` over a native graph and takes `int` node/arc indices with `long` capacities/costs. The `Analysis/circulation` exit-capacity solver, outranking a managed Edmonds-Karp minted for the same concern.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [RAIL]                              |
 | :-----: | :--------------------- | :----------------- | :---------------------------------- |
@@ -254,7 +254,7 @@
 
 [ENTRYPOINT_SCOPE]: Graph max-flow / min-cost-flow / assignment
 - rail: solver#GRAPH
-- note: build the arc set imperatively (each `Add*` returns the arc index), `Solve` returns the `Status`, then read the optimal value and per-arc flow. The `[V12]` exit-capacity solve maps occupant-load supplies onto space nodes and door/corridor capacities onto arcs of the concrete `ElementGraph` space-adjacency subgraph.
+- note: build the arc set imperatively (each `Add*` returns the arc index), `Solve` returns the `Status`, then read the optimal value and per-arc flow. The `Analysis/circulation` exit-capacity solve maps occupant-load supplies onto space nodes and door/corridor capacities onto arcs of the concrete `ElementGraph` space-adjacency subgraph.
 
 | [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]   | [RAIL]                                          |
 | :-----: | :--------------------------------------------------------------- | :--------------- | :---------------------------------------------- |
@@ -286,12 +286,12 @@
 - proto carriers: `CpModel.Model` (`CpModelProto`), `CpSolver.Response` (`CpSolverResponse`), `Constraint.Proto` (`ConstraintProto`), and `MPModelProto`/`MPModelRequest` in `Google.OrTools.OperationsResearch` are `api-protobuf` messages — the wire-level model and response carriers
 
 [INTEGRATION_STACK]:
-- proto wire: the `CpModelProto`/`CpSolverResponse`/`MPModelProto` carriers are `Google.Protobuf` messages, so a solve request/response crosses the `Runtime/channels#PROTO_VOCABULARY` lane on the `api-protobuf` codec and stages its serialized bytes through the `api-recyclable-stream` pool — no managed solve DTO beside the proto.
+- proto wire: the `CpModelProto`/`CpSolverResponse`/`MPModelProto` carriers are `Google.Protobuf` messages, so a solve request/response crosses the `Runtime/wire#PROTO_VOCABULARY` lane on the `api-protobuf` codec and stages its serialized bytes through the `api-recyclable-stream` pool — no managed solve DTO beside the proto.
 - optimizer rows: the `Solver/optimizer#OPTIMIZER_LANE` `OptimizerKind` axis carries `cp-sat`/`milp` rows that lower the typed `DesignProblem` to a `CpModel`/`Solver` through the typed model-builder API (`NewIntVar`/`MakeIntVar`/`MakeNumVar` over the `DesignVariable` cases, never a string-parsed model); one `Optimize` fold discriminates on the row, so a per-backend solver owner is the collapsed form.
 - backend policy: `Solver.OptimizationProblemType`, a `solver_id` string, the `SatParameters` proto-text (`CpSolver.StringParameters`), and `SetSolverSpecificParametersAsString` are policy DATA carried on the row, never branched inside a solve helper.
 - time budget: `CpModel`/`Solver` time limits accept the deadline the `Runtime/scheduling` budget folds (NodaTime `Duration` → ms via `Solver.SetTimeLimit(long)` / the `max_time_in_seconds` `SatParameters` key); the solve elapsed (`WallTime()`) stamps the typed receipt.
 - streaming callbacks: `CpSolver.SetLogCallback`/`SetBestBoundCallback` and a `SolutionCallback` subclass stream search progress to the `Stats`/`Runtime/progress` sink; `StopSearch()`/`InterruptSolve()` honor cooperative cancellation from the channel deadline.
-- graph-flow circulation (`[V12]`): the `Analysis/circulation` egress runner composes `Google.OrTools.Graph.MaxFlow` for exit-capacity — occupant-load supplies map onto space nodes, door/corridor widths onto arc capacities of the concrete `ElementGraph` space-adjacency subgraph, and `Solve(source, sink)` returns the evacuation throughput while saturated arcs (`Flow == Capacity`) name the min-cut bottleneck; `MinCostFlow` distributes occupant load at least travel cost. The path/topology algebra (Dijkstra/A*/betweenness) is `QuikGraph`'s, the planar side (isovist, medial-axis) is `NetTopologySuite`/`Clipper2`'s — the flow concern alone is this Graph module's, zero new central pins.
+- graph-flow circulation: the `Analysis/circulation` egress runner composes `Google.OrTools.Graph.MaxFlow` for exit-capacity — occupant-load supplies map onto space nodes, door/corridor widths onto arc capacities of the concrete `ElementGraph` space-adjacency subgraph, and `Solve(source, sink)` returns the evacuation throughput while saturated arcs (`Flow == Capacity`) name the min-cut bottleneck; `MinCostFlow` distributes occupant load at least travel cost. The path/topology algebra (Dijkstra/A*/betweenness) is `QuikGraph`'s, the planar side (isovist, medial-axis) is `NetTopologySuite`/`Clipper2`'s — the flow concern alone is this Graph module's, zero new central pins.
 
 [LOCAL_ADMISSION]:
 - The `OptimizerKind` rows select the rail: CP-SAT through `CpModel`/`CpSolver`, MIP/LP through `Solver`, and routing through `RoutingModel`; one canonical solve operation discriminates on optimizer kind rather than parallel solver entrypoints.

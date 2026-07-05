@@ -146,9 +146,11 @@ Factorization builders carry parameters (`QR(QRMethod = Thin)`, `Svd(bool comput
 |  [14]   | `DenseVector.OfArray(double[])` / `Create(length, value)` / `Create(length, Func<int,double>)` | static factory | concrete dense-vector construction |
 |  [15]   | `Matrix<T>.Transpose()`                          | matrix call        | materialized transpose (distinct from the fused `Transpose*Multiply`) |
 |  [16]   | `Matrix<T>.RowCount` / `ColumnCount` / `[i, j]`; `Vector<T>[i]` | property / indexer | dimensions + element get/set          |
-|  [17]   | `Svd<T>.U` / `VT` / `S` / `W`                    | factorization prop | left/right singular vectors, singular-value vector `S`, diagonal-matrix `W` |
-|  [18]   | `Vector<T>.L2Norm()` / `L1Norm()` / `InfinityNorm()` | vector call    | vector norms (residual / step magnitude) |
-|  [19]   | `Matrix<T>`/`Vector<T>` `+` / `-` (binary + unary) / scalar `*` / `Matrix·Matrix` / `Matrix·Vector` | operator | value algebra: add / subtract / negate / scalar-scale; `·` products alias `Multiply` |
+|  [17]   | `Svd<T>.U` / `VT` / `S` / `W` / `Rank` / `ConditionNumber` | factorization prop | left/right singular vectors, singular-value vector `S`, diagonal-matrix `W`, numeric rank, 2-norm condition |
+|  [18]   | `Evd<T>.EigenValues` / `EigenVectors` / `D` / `IsSymmetric` | factorization prop | complex eigenvalue vector, eigenvector matrix, block-diagonal `D`, symmetry verdict |
+|  [19]   | `Cholesky<T>.Factor` / `Determinant` / `DeterminantLn`; `LU<T>.L` / `U` / `P` / `Determinant` | factorization prop | lower-triangular factor + determinant reads; LU triangular factors + row permutation |
+|  [20]   | `Vector<T>.L2Norm()` / `L1Norm()` / `InfinityNorm()` | vector call    | vector norms (residual / step magnitude) |
+|  [21]   | `Matrix<T>`/`Vector<T>` `+` / `-` (binary + unary) / scalar `*` / `Matrix·Matrix` / `Matrix·Vector` | operator | value algebra: add / subtract / negate / scalar-scale; `·` products alias `Multiply` |
 
 [ENTRYPOINT_SCOPE]: sparse ingestion + iterative solve
 - rail: numeric
@@ -164,8 +166,10 @@ MathNet sparse imports normalize to CSR via the `Of*` family; the direct sparse 
 |  [05]   | `IIterativeSolver<double>.Solve(matrix, input, result, Iterator, IPreconditioner)` | solver call | iterative solve with stop criteria + preconditioner |
 |  [06]   | `new Iterator<double>(params IIterationStopCriterion<double>[])`    | constructor    | compose residual/iteration/divergence stop criteria; `Status` reads the terminal `IterationStatus` |
 |  [07]   | `Iterator<double>.DetermineStatus(...)` / `Cancel()` / `Reset()`    | instance       | drive / cancel the iteration; `IterationStatus` |
-|  [08]   | `Matrix<T>.SolveIterative(Vector<T> input, IIterativeSolver<T> solver, Iterator<T> iterator = null, IPreconditioner<T> preconditioner = null)` | matrix call | convenience iterative solve returning `Vector<T>`; the `Matrix<T> input → Matrix<T>` twin and `(input, solver, preconditioner, params IIterationStopCriterion<T>[])` / `(input, solver, params IIterationStopCriterion<T>[])` overloads mirror it |
-|  [09]   | `Matrix<T>.TrySolveIterative(input, result, solver, iterator = null, preconditioner = null)` | matrix call | no-alloc twin writing into caller-owned `result`, returning `IterationStatus`; `Vector<T>`/`Matrix<T>` right-hand sides + the same `params` stop-criteria overloads |
+|  [08]   | `IterationCountStopCriterion<T>(maxIterations)` / `ResidualStopCriterion<T>(tolerance)` / `DivergenceStopCriterion<T>()` / `FailureStopCriterion<T>()` | constructor | concrete `IIterationStopCriterion<T>` implementations composed by `Iterator<T>` |
+|  [09]   | `new DiagonalPreconditioner()` / `UnitPreconditioner<T>()`          | constructor    | Jacobi (diagonal) / identity `IPreconditioner<T>` for the iterative `Solve` seam |
+|  [10]   | `Matrix<T>.SolveIterative(Vector<T> input, IIterativeSolver<T> solver, Iterator<T> iterator = null, IPreconditioner<T> preconditioner = null)` | matrix call | convenience iterative solve returning `Vector<T>`; the `Matrix<T> input → Matrix<T>` twin and `(input, solver, preconditioner, params IIterationStopCriterion<T>[])` / `(input, solver, params IIterationStopCriterion<T>[])` overloads mirror it |
+|  [11]   | `Matrix<T>.TrySolveIterative(input, result, solver, iterator = null, preconditioner = null)` | matrix call | no-alloc twin writing into caller-owned `result`, returning `IterationStatus`; `Vector<T>`/`Matrix<T>` right-hand sides + the same `params` stop-criteria overloads |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

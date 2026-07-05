@@ -7,8 +7,8 @@ lane projects: `IMessage<T>` message contracts, the `MessageParser<T>` /
 `FieldCodec<T>` per-payload encoding primitive, the reflection descriptor graph,
 the well-known type family (`Any`, `Timestamp`, `Duration`, `FieldMask`, `Struct`),
 and JSON projection at the edge. It is the wire codec under the
-`Runtime/channels#PROTO_VOCABULARY` five-service gRPC vocabulary and the
-`Runtime/channels#ARTIFACT_SYNC` `FrameEdge` fold; the `IBufferMessage` fast path
+`Runtime/wire#PROTO_VOCABULARY` five-service gRPC vocabulary and the
+`Runtime/transport#ARTIFACT_FRAMES` `FrameEdge` fold; the `IBufferMessage` fast path
 writes into a `Microsoft.IO.RecyclableMemoryStream` `IBufferWriter<byte>` face
 (`api-recyclable-stream`) and the same buffer is content-keyed by the suite
 `XxHash128` law (`api-hashing` / `Runtime/codecs#CONTENT_ADDRESSING`). This page is
@@ -178,7 +178,7 @@ own `protobufjs`/`@bufbuild` decode at the `Rasm.AppUi` seam.
 
 [ENTRYPOINT_SCOPE]: reflection descriptor graph
 - rail: remote-contracts#CONTRACT_EVOLUTION
-- note: the descriptor surface the `Runtime/channels` descriptor-diff contract-evolution law walks to fold its `XxHash128` projection-checksum.
+- note: the descriptor surface the `Runtime/wire` descriptor-diff contract-evolution law walks to fold its `XxHash128` projection-checksum.
 - note: every descriptor (`File`/`Message`/`Field`/`Enum`/`EnumValue`/`Oneof`/`Service`/`Method`) exposes `Name` and `FullName` (`DescriptorBase`); the surface-fold keys read these.
 
 | [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                            | [CAPABILITY]                                       |
@@ -244,14 +244,14 @@ own `protobufjs`/`@bufbuild` decode at the `Rasm.AppUi` seam.
 [REFLECTION_CONTRACTS]:
 - namespace: `Google.Protobuf.Reflection`; the file/message/field/enum/method/service descriptor graph drives contract inspection.
 - generated metadata: `GeneratedClrTypeInfo` binds generated CLR types, parsers, and oneof/property names to descriptors; `OriginalNameAttribute` preserves protocol names where C# names diverge.
-- contract evolution: `FileDescriptor.BuildFromByteStrings` reconstructs a serialized `FileDescriptorSet`, and the `MessageDescriptor.Fields` / `FieldDescriptor.{FieldNumber,FieldType,IsRepeated,IsMap,IsPacked}` / `ServiceDescriptor.Methods` walk feeds the `Runtime/channels#CONTRACT_EVOLUTION` descriptor-diff `XxHash128` projection-checksum.
+- contract evolution: `FileDescriptor.BuildFromByteStrings` reconstructs a serialized `FileDescriptorSet`, and the `MessageDescriptor.Fields` / `FieldDescriptor.{FieldNumber,FieldType,IsRepeated,IsMap,IsPacked}` / `ServiceDescriptor.Methods` walk feeds the `Runtime/wire#CONTRACT_EVOLUTION` descriptor-diff `XxHash128` projection-checksum.
 
 [INTEGRATION_STACK]:
-- artifact-sync frame: `IMessage.CalculateSize` sizes the `Runtime/channels#ARTIFACT_SYNC` 64 KiB `FrameEdge`; `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` writes the frame body into a `Microsoft.IO.RecyclableMemoryStream` `IBufferWriter<byte>` sink (`api-recyclable-stream`); the per-frame integrity is `Crc32.HashToUInt32(ReadOnlySpan<byte>)` over the contiguous `ByteString`/segment span and the whole-artifact identity is `XxHash128` over the pooled `GetReadOnlySequence()` view (`HashToUInt128(ReadOnlySpan<byte>, long seed)` for a single segment, else incremental `Append`+`GetCurrentHashAsUInt128`) — both ride `System.IO.Hashing` (`api-hashing`) over the same pooled bytes; protobuf owns the message body, never the frame envelope or the hash.
+- artifact-sync frame: `IMessage.CalculateSize` sizes the `Runtime/transport#ARTIFACT_FRAMES` 64 KiB `FrameEdge`; `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` writes the frame body into a `Microsoft.IO.RecyclableMemoryStream` `IBufferWriter<byte>` sink (`api-recyclable-stream`); the per-frame integrity is `Crc32.HashToUInt32(ReadOnlySpan<byte>)` over the contiguous `ByteString`/segment span and the whole-artifact identity is `XxHash128` over the pooled `GetReadOnlySequence()` view (`HashToUInt128(ReadOnlySpan<byte>, long seed)` for a single segment, else incremental `Append`+`GetCurrentHashAsUInt128`) — both ride `System.IO.Hashing` (`api-hashing`) over the same pooled bytes; protobuf owns the message body, never the frame envelope or the hash.
 - decode mirror: a received frame's `RecyclableMemoryStream.GetReadOnlySequence()` feeds `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)` so a fragmented pooled payload decodes without a contiguous copy; `IBufferMessage.InternalMergeFrom` is the generated zero-alloc leg.
-- transport: the five `Runtime/channels#PROTO_VOCABULARY` services are `Google.Protobuf` message contracts carried by `Grpc.Net.Client` (`api-grpc-client`); the typed `FaultDetail`/`Status` rail and the `Any`-wrapped in-band conflict payload decode through `Any.TryUnpack<T>`/`Unpack(TypeRegistry)`.
-- partial update: a `FieldMask` `Paths` set drives the `Runtime/channels` partial-update APPLY leg — `FieldMask.IsValid(descriptor, ...)` gates the paths against the target `MessageDescriptor` and `Normalize` dedups before the field-level merge over the descriptor `Accessor`.
-- clock seam: `Timestamp`/`Duration` cross to NodaTime through `NodaTime.Serialization.Protobuf` (`api-nodatime-protobuf`) — `Instant.ToTimestamp()` / `Duration.ToProtobufDuration()` outward and `Timestamp.ToInstant()` / `Duration.ToNodaDuration()` inward (the `Runtime/channels` `FrameEdge.Transaction` realized form writes `hlc.ToTimestamp()` onto the `TransactionRequest` HLC field); calendar-bearing fields cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` ↔ `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek`. A hand-rolled `DateTime`↔`Timestamp` bridge beside that adapter is the rejected form.
+- transport: the five `Runtime/wire#PROTO_VOCABULARY` services are `Google.Protobuf` message contracts carried by `Grpc.Net.Client` (`api-grpc-client`); the typed `FaultDetail`/`Status` rail and the `Any`-wrapped in-band conflict payload decode through `Any.TryUnpack<T>`/`Unpack(TypeRegistry)`.
+- partial update: a `FieldMask` `Paths` set drives the `Runtime/transport` partial-update APPLY leg — `FieldMask.IsValid(descriptor, ...)` gates the paths against the target `MessageDescriptor` and `Normalize` dedups before the field-level merge over the descriptor `Accessor`.
+- clock seam: `Timestamp`/`Duration` cross to NodaTime through `NodaTime.Serialization.Protobuf` (`api-nodatime-protobuf`) — `Instant.ToTimestamp()` / `Duration.ToProtobufDuration()` outward and `Timestamp.ToInstant()` / `Duration.ToNodaDuration()` inward (the `Runtime/wire` `FrameEdge.Transaction` realized form writes `hlc.ToTimestamp()` onto the `TransactionRequest` HLC field); calendar-bearing fields cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` ↔ `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek`. A hand-rolled `DateTime`↔`Timestamp` bridge beside that adapter is the rejected form.
 
 [LOCAL_ADMISSION]:
 - Remote Compute contracts enter source through generated `IMessage<T>` surfaces; binary payloads use the protobuf codec stack and never handwritten byte DTOs.

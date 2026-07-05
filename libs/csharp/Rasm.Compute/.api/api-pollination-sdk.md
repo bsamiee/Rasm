@@ -29,7 +29,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [DISPATCH_BOUNDARY]:
-- Compute owns the recipe-run dispatch POLICY (which recipe, which inputs, when to route `EnergyRoute.Cloud` vs the local `EnergyToolchain` subprocess); the transport surface (auth, REST, artifact upload) is the Persistence catalog's. A cloud-route failure surfaces as the typed `(Solve, Foreign)` / `(Admission, Timeout)` `ComputeFault.AnalysisFailed` row with the HTTP status riding `Diagnostic.Code`, per the energy runner's `[V2]` classification — never a stringly interpolated cloud arm.
+- Compute owns the recipe-run dispatch POLICY (which recipe, which inputs, when to route `EnergyRoute.Cloud` vs the local `EnergyToolchain` subprocess); the transport surface (auth, REST, artifact upload) is the Persistence catalog's. A cloud-route failure surfaces as the typed `(Solve, Foreign)` / `(Admission, Timeout)` `ComputeFault.AnalysisFailed` row with the HTTP status riding `Diagnostic.Code`, per the energy runner's typed-failure classification — never a stringly interpolated cloud arm.
 - The pulled `SqlFile` folds through the identical eplusout.sql extraction the subprocess route drives (`Microsoft.Data.Sqlite` read-only over the bracketed scratch artifact); the durable result lands content-keyed through the Persistence `Store/blobstore` + `Version/provenance` + `Query/cache#ArtifactKind.CloudRun` owners.
 
 [RAIL_LAW]:

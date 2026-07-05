@@ -143,9 +143,12 @@ public readonly partial struct Diagnostic {
 // (Duration.Zero is the request-time empty span until a solve lands), Window the optional wall-clock start→end
 // Interval (staging + solve + extraction — distinct from Elapsed, which excludes queue/IO), Correlation the
 // Projection/projection#PROJECTION_CONTRACT ProjectionContext.CorrelationId the write-back projection ran under.
+// Attempt is the additive retry-audit ordinal the Rasm.Compute bounded Transient gate reads and increments —
+// content-key-inert BY CONSTRUCTION because the CanonicalBytes projection folds only the (Discipline, Route,
+// InputKey) triple and excludes the whole Provenance record.
 public readonly record struct Provenance(
  string Author, string Tool, string Version, Instant At,
- Duration Elapsed = default, Option<Interval> Window = default, Option<Guid> Correlation = default);
+ Duration Elapsed = default, Option<Interval> Window = default, Option<Guid> Correlation = default, int Attempt = default);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // [Equatable] is LOAD-BEARING ([STRUCTURAL_EQUALITY]): the diff drills into a node member only when the member is

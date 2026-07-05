@@ -692,7 +692,12 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports =        "all"
-banned-module-level-imports = []
+banned-module-level-imports = [
+  "adbc_driver_flightsql", "daft", "dataframely", "datafusion", "fastexcel",
+  "geoarrow.rust.compute", "h3ronpy", "igraph", "laszip", "lazrs",
+  "odc.stac", "planetary_computer", "pointblank", "polars_st",
+  "pystac", "pystac_client", "stac_geoparquet", "tensorstore", "xarray", "xrspatial",
+]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "concurrent.futures.ProcessPoolExecutor".msg = "Use anyio.to_process.run_sync() — structured concurrency with cancellation support."

@@ -6,7 +6,7 @@ owning small-block and large-buffer pools, a `RecyclableMemoryStream` that is BO
 `MemoryStream` and an `IBufferWriter<byte>` (so it is a zero-copy serialization sink
 and a zero-copy `ReadOnlySequence<byte>` source), an `Options` capacity/telemetry
 policy, and a full lifecycle event + ETW counter surface. It is the buffer face the
-`Runtime/channels#ARTIFACT_SYNC` `FrameEdge` fold writes into and the
+`Runtime/transport#ARTIFACT_FRAMES` `FrameEdge` fold writes into and the
 `api-protobuf` `MessageExtensions.WriteTo(IBufferWriter<byte>)` / `ParseFrom(ReadOnlySequence<byte>)`
 fast path composes against; its pool events fold to the staging-evidence sink and the
 staged bytes are content-keyed by the suite `XxHash128` law (`api-hashing`). This page
@@ -176,9 +176,9 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 - `GenerateCallStacks` is a debug-only option that captures allocation/dispose stacks for leak attribution — NEVER enable in production.
 
 [INTEGRATION_STACK]:
-- serialize sink: `api-protobuf` `MessageExtensions.WriteTo(IBufferWriter<byte>)` / `WriteLengthPrefixedTo(IBufferWriter<byte>)` writes a message body directly into a rented `RecyclableMemoryStream` with no intermediate array; the `Runtime/channels#ARTIFACT_SYNC` 64 KiB `FrameEdge` fold sizes the frame via `IMessage.CalculateSize` and stages it here.
+- serialize sink: `api-protobuf` `MessageExtensions.WriteTo(IBufferWriter<byte>)` / `WriteLengthPrefixedTo(IBufferWriter<byte>)` writes a message body directly into a rented `RecyclableMemoryStream` with no intermediate array; the `Runtime/transport#ARTIFACT_FRAMES` 64 KiB `FrameEdge` fold sizes the frame via `IMessage.CalculateSize` and stages it here.
 - parse source: a received frame's `GetReadOnlySequence()` feeds `api-protobuf` `MessageParser.ParseFrom(ReadOnlySequence<byte>)` / `MergeFrom(ReadOnlySequence<byte>)`, so a fragmented pooled payload decodes without a contiguous copy.
-- content key: the staged bytes are hashed by `api-hashing` (`System.IO.Hashing`) over the `GetReadOnlySequence()` view to mint the `Runtime/codecs#CONTENT_ADDRESSING` artifact identity and the per-frame integrity checksum, reading the pool in place — never a `ToArray` copy. The whole-artifact identity over a MULTI-SEGMENT sequence drains incrementally (`foreach (var seg in GetReadOnlySequence()) hasher.Append(seg.Span);` then `XxHash128.GetCurrentHashAsUInt128()`), since the static `XxHash128.HashToUInt128(ReadOnlySpan<byte>, long seed = 0)` one-shot is span-only; a single-segment view (`IsSingleSegment`) takes the `HashToUInt128(seq.FirstSpan)` fast path. Per-frame integrity is the contiguous form — `Crc32.HashToUInt32(ReadOnlySpan<byte>)` over the `ByteString`/segment span (`Crc32` carries no seed; the `Runtime/channels#ARTIFACT_FRAMES` `FrameEdge` realized call).
+- content key: the staged bytes are hashed by `api-hashing` (`System.IO.Hashing`) over the `GetReadOnlySequence()` view to mint the `Runtime/codecs#CONTENT_ADDRESSING` artifact identity and the per-frame integrity checksum, reading the pool in place — never a `ToArray` copy. The whole-artifact identity over a MULTI-SEGMENT sequence drains incrementally (`foreach (var seg in GetReadOnlySequence()) hasher.Append(seg.Span);` then `XxHash128.GetCurrentHashAsUInt128()`), since the static `XxHash128.HashToUInt128(ReadOnlySpan<byte>, long seed = 0)` one-shot is span-only; a single-segment view (`IsSingleSegment`) takes the `HashToUInt128(seq.FirstSpan)` fast path. Per-frame integrity is the contiguous form — `Crc32.HashToUInt32(ReadOnlySpan<byte>)` over the `ByteString`/segment span (`Crc32` carries no seed; the `Runtime/transport#ARTIFACT_FRAMES` `FrameEdge` realized call).
 - evidence: the manager's `UsageReport`/`StreamDoubleDisposed`/`StreamOverCapacity`/`BufferDiscarded` events fold to the `Runtime/receipts` / `Stats` staging-evidence sink, so pool pressure and leaks become execution evidence rather than silent allocations.
 - model lane: the `Model` inference/embedding lanes stage tensor and token byte buffers through the same manager, so generative-payload staging shares one pool and one telemetry stream with the remote lane.
 

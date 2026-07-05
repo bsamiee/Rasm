@@ -6,6 +6,7 @@
 
 [PACKAGE_SURFACE]: `ibis-framework`
 - package: `ibis-framework`
+- owner: `data`
 - module: `ibis`
 - version: `12.0.0`
 - asset: pure Python; SQL compilation via `sqlglot`; per-backend extras (`ibis-framework[duckdb]`, `[polars]`, `[postgres]`, ...) pull the driver

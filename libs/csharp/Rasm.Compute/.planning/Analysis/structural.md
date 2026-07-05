@@ -1,17 +1,18 @@
 # [COMPUTE_STRUCTURAL]
 
-Rasm.Compute structural-analysis runner: the `Discipline.Structural` arm of the `Analysis/assessment` spine. It reads the concrete `Rasm.Element` `ElementGraph` directly (member `Node.Object` axes, the M7-resolved `SectionProperties` baked on the member's `ProfileSet` composition, the seam `MaterialPropertySet.Mechanical` strengths, the projected structural-connection/activity edges), folds them into one `FrameModel` idealization, solves it over a polymorphic `FrameBackend` (the 3D `BriefFiniteElement.Net` `Model` or the 2D-planar `FEALiTE2D` `Structure`, both factoring their linear solve through the ONE shared `api-csparse` owner — the `SparseLU` the `Tensor/factor#SPARSE_SOLVE` `FactorKind.Lu` row holds — never a second linear-algebra rail), recovers the per-combination internal-force-and-deflection `MemberResponse` envelope, runs the hand-rolled design-code checks (AISC 360 / EN 1993 / EN 1992 / NDS / EN 1995 / ACI 318 / TMS 402 / AISI S100 driven by a `(DesignCode, LimitState)` capacity table of REAL family-specific delegates, never imperative arms and never one family's formulas applied to every material, every structural family carrying BOTH its US and its Eurocode route — steel AISC 360 + EN 1993, concrete ACI 318 + EN 1992, timber NDS + EN 1995), and returns the governing utilization as one `AssessmentResult` fact stream the spine writes back. Section properties resolve ONCE upstream — the `VividOrange`-backed `ProfileRef`→section resolution (M7) is performed by the `Rasm.Materials` projector and baked onto the `ProfileSet` composition, so this consumer reads the resolved `SectionProperties` off the graph and Compute admits no VividOrange (one owner, in Materials). The FE library is assembler and solver only: BFE is confined to the sparse-factored `BarElement` frame path (its embedded dense `DenseLU` is binary-incompatible with the unified `CSparse 4.4.0` pin, so the linear solve injects the Rasm `RasmSolverFactory` CSparse-`SparseLU` adapter via `Solve(ISolverFactory)` and never loads `DenseLU`), code-checking is hand-rolled here, and continuum multi-physics is the `Solver/contract#SOLVE_CONTRACT` `SolveLane` this runner never re-derives. Buckling, lateral-torsional buckling, and deflection are REAL: the column/LTB capacity reads the member's unbraced length and end-fixity-derived effective-length factor, and the deflection check reads the FE displacement envelope — no placeholder curve, no constant knockdown, no `0.0` sentinel.
+Rasm.Compute structural-analysis runner: the `Discipline.Structural` arm of the `Analysis/assessment` spine. It reads the concrete `Rasm.Element` `ElementGraph` directly (member `Node.Object` axes, the M7-resolved `SectionProperties` baked on the member's `ProfileSet` composition, the seam `MaterialPropertySet.Mechanical` strengths, the projected structural-connection/activity edges), folds them into one `FrameModel` idealization, solves it over the OWNED frame spine — the `Solver/contract#SOLVE_CONTRACT` `SolveLane` scattering the `Solver/discretization#DISCRETIZATION_MESH` frame `ElementClass` rows' closed-form 12-DOF member blocks (releases/rigid-end offsets/semi-rigid springs as row behavior), factored through the ONE shared `api-csparse` owner — the `SparseLU` the `Tensor/factor#SPARSE_SOLVE` `FactorKind.Lu` row holds — never a second linear-algebra rail and never a re-admitted external FE backend (no external FE backend exists in the graph), recovers the per-combination internal-force-and-deflection `MemberResponse` envelope, runs the hand-rolled design-code checks (AISC 360 / EN 1993 / EN 1992 / NDS / EN 1995 / ACI 318 / TMS 402 / AISI S100 driven by a `(DesignCode, LimitState)` capacity table of REAL family-specific delegates, never imperative arms and never one family's formulas applied to every material, every structural family carrying BOTH its US and its Eurocode route — steel AISC 360 + EN 1993, concrete ACI 318 + EN 1992, timber NDS + EN 1995), and returns the governing utilization as one `AssessmentResult` fact stream the spine writes back. Section properties resolve ONCE upstream — the `VividOrange`-backed `ProfileRef`→section resolution (M7) is performed by the `Rasm.Materials` projector and baked onto the `ProfileSet` composition, so this consumer reads the resolved `SectionProperties` off the graph and Compute admits no VividOrange (one owner, in Materials). The FE library is assembler and solver only: BFE is confined to the sparse-factored `BarElement` frame path (its embedded dense `DenseLU` is binary-incompatible with the unified `CSparse 4.4.0` pin, so the linear solve injects the Rasm `RasmSolverFactory` CSparse-`SparseLU` adapter via `Solve(ISolverFactory)` and never loads `DenseLU`), code-checking is hand-rolled here, and continuum multi-physics is the `Solver/contract#SOLVE_CONTRACT` `SolveLane` this runner never re-derives. Buckling, lateral-torsional buckling, and deflection are REAL: the column/LTB capacity reads the member's unbraced length and end-fixity-derived effective-length factor, and the deflection check reads the FE displacement envelope — no placeholder curve, no constant knockdown, no `0.0` sentinel.
 
 ## [01]-[INDEX]
 
-- [01]-[FRAME_MODEL]: the `FrameModel` idealization folded from the graph, the `SolverBackend`/`MemberLoad`/`StructuralCase` vocabulary, the `MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy`/`StructuralMember` inputs (the seam contract `Analysis/assessment` carries on the request), and the `StructuralReads` discipline graph-read boundary.
-- [02]-[FRAME_BACKEND]: the `FrameBackend` dispatch (`Bfe` 3D / `Fealite` 2D planar) FE assemble-solve-recover over the shared `CSparse` owner, the `RasmSolverFactory` injection adapter, and the per-combination `MemberResponse` internal-force-and-deflection envelope every limit state reads.
-- [03]-[DESIGN_CHECK]: the `MaterialFamily`/`SafetyFormat`/`DesignCode`/`LimitState` vocabulary, the `(DesignCode, LimitState)` capacity table of real slenderness-aware delegates, the `CapacityContext`/`SectionCapacity`/`MemberCheck` carriers, the interaction rule, and the `StructuralAnalysis.Run` governing-utilization fact stream.
+- [01]-[FRAME_MODEL]: the `FrameModel` idealization folded from the graph, the `MemberLoad`/`StructuralCase` vocabulary, the `MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy`/`StructuralMember` inputs (the seam contract `Analysis/assessment` carries on the request), and the `StructuralReads` discipline graph-read boundary.
+- [02]-[FRAME_BACKEND]: the owned-spine frame solve over the `Solver/contract` `SolveLane` and the `Solver/discretization` frame `ElementClass` rows (BFE/FEALiTE retired), the `FrameLowering` model→mesh projection, the `StationRecovery` per-station fold, and the per-combination `MemberResponse` internal-force-and-deflection envelope every limit state reads.
+- [03]-[DESIGN_CHECK]: the `MaterialFamily`/`SafetyFormat`/`DesignCode`/`LimitState` vocabulary, the `(DesignCode, LimitState)` capacity table of real slenderness-aware delegates (the EN 1992 truss shear pairing and the AISI Seff-invisible cells among them), the `CapacityContext`/`SectionCapacity`/`MemberCheck` carriers, the interaction rule, and the `StructuralAnalysis.Run` governing-utilization fact stream.
+- [04]-[SEISMIC_ROUTE]: the response-spectrum route over the `arpack-shift-invert` sparse modal — `DesignSpectrum` code-spectrum policy rows (EN 1998 Type 1/2, ASCE 7), the `ModalCombination` `Srss`/`Cqc` axis, the typed 90% modal-mass-participation floor, and the participation/combination receipt columns.
 
 ## [02]-[FRAME_MODEL]
 
-- Owner: `FrameModel` the analysis idealization (members, combinations, policy); `SolverBackend` the 3-row backend axis (`Analysis/assessment` content-keys its `Key`); `MemberLoad` the per-member applied-action `[Union]` (`Point`/`Uniform`/`Trapezoid`); `StructuralCase` the load-case `[SmartEnum<string>]`; `MemberSupport` the 6-DOF restraint at a member end; `LoadCombinationSpec` the factored case map; `StructuralPolicy` the backend/deflection/station policy; `StructuralMember` the resolved member (axis, section, strength, family, loads, supports). `SolverBackend`/`StructuralCase`/`MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy` are the seam contract `AssessmentRequest.Structural` carries and `Analysis/assessment` `CanonicalBytes` folds — their field shape is load-bearing across the spine.
-- Entry: `static Fin<FrameModel> Project(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry)` — folds the request `Targets` member `Node.Object`s into the idealization, reading each member's `StructuralReads.AxisOf` (the analytical line resolved one-hop by content key through the seam `GeometrySource` port off `member.Representations.Axis`), `graph.MechanicalOf` (the seam strength), `graph.SectionOf` (the seam Op-free M7 accessor reading the baked `ProfileSet` section directly — the seam owns the section read, so the runner never re-derives a discipline-local section accessor), `StructuralReads.SupportsOf`, and `StructuralReads.LoadsOf`, `Fin<T>` aborting onto `ComputeFault.AssessmentInputMissing` when a member lacks a section, a strength, or an axis.
+- Owner: `FrameModel` the analysis idealization (members, combinations, policy);  `MemberLoad` the per-member applied-action `[Union]` (`Point`/`Uniform`/`Trapezoid`); `StructuralCase` the load-case `[SmartEnum<string>]`; `MemberSupport` the 6-DOF restraint at a member end; `LoadCombinationSpec` the factored case map; `StructuralPolicy` the formulation/deflection/station policy carrying the `Formulation` frame `ElementClass` column (`Analysis/assessment` content-keys its `Key`) and the EN 1992 member-scope `StirrupSpacing`/`CotTheta` truss inputs; `StructuralMember` the resolved member (axis, section, strength, family, loads, supports). `SolverBackend`/`StructuralCase`/`MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy` are the seam contract `AssessmentRequest.Structural` carries and `Analysis/assessment` `CanonicalBytes` folds — their field shape is load-bearing across the spine.
+- Entry: `static Fin<FrameModel> Project(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry)` — folds the request `Targets` member `Node.Object`s into the idealization, reading each member's `StructuralReads.AxisOf` (the analytical line resolved one-hop by content key through the seam `GeometrySource` port off `member.Representations.Axis`), `graph.PropertiesOf(id).Mechanical` (the seam strength read), `graph.SectionOf` (the seam Op-free M7 accessor reading the baked `ProfileSet` section directly — the seam owns the section read, so the runner never re-derives a discipline-local section accessor), `StructuralReads.SupportsOf`, and `StructuralReads.LoadsOf`, `Fin<T>` aborting onto `ComputeFault.AssessmentInputMissing` when a member lacks a section, a strength, or an axis.
 - Auto: self-weight derives per member from `Section.Area.Si × Mechanical.Density.Si × StandardGravity` as a global-down `Uniform` force-per-length in the `Dead` case; the request's projected `MemberLoad`s supply the live/wind/snow/seismic actions; `LoadCombinationSpec` factors the cases per code (ASCE 7 / EN 1990) so a combination is data the backend reads, never a re-modelled load set; the member's `MaterialFamily` is `Classify`-derived from the strength for the FE material model and validated against the route's `DesignCode.Family` at `Check`.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), Rasm.Element (project — `ElementGraph`, `Node`, `NodeId`, the seam-owned host-neutral `Vector3` coordinate the `AxisCurve` carries and the load vectors reuse, `AxisCurve`, `GeometrySource` the analytical-line resolution port, `RepresentationContentHash`, `SectionProperties`, `MaterialPropertySet`, `Relationship`, `PropertyName`, `PropertyValue`, `MeasureValue`), BCL inbox (`FrozenDictionary`).
 - Growth: a new applied-action kind is one `MemberLoad` case (both backends widen their total load `Switch`); a new restraint is data on `MemberSupport`; a new combination basis is one `LoadCombinationSpec` row — the idealization widens by data, the backends and checks re-read it.
@@ -19,16 +20,6 @@ Rasm.Compute structural-analysis runner: the `Discipline.Structural` arm of the 
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
-// The backend axis Analysis/assessment content-keys (Backend.Key) — Auto routes a coplanar in-plane frame to the
-// lighter 2D FEALiTE solver and a general 3D frame to BFE; Spatial/Planar force the arm. Three rows, never a
-// Bfe3DAnalyzer/Fealite2DAnalyzer sibling family.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SolverBackend {
-    public static readonly SolverBackend Auto    = new("auto");
-    public static readonly SolverBackend Spatial = new("spatial");
-    public static readonly SolverBackend Planar  = new("planar");
-}
 
 // The per-member applied action — one polymorphic load both backends map through their total Switch: a Point at a
 // span fraction, a Uniform force-per-length, a Trapezoid linearly varying end-to-end. A new action kind is one case.
@@ -64,10 +55,11 @@ public static partial class StructuralAnalysis {
 // geometry) — the FE assembler resolves the joint by the chosen endpoint coordinate, never by comparing the connection
 // NodeId to the member's own id. At is the connection node the restraint sits on (carried for traceability).
 // TranslationK/RotationK carry the [H2] SI spring stiffnesses and Frame the RestraintAxis*/RestraintRef* skewed-support
-// axes the Bim edge emits: the verified BFE Node.Constraints surface is BOOLEAN 6-DOF (no public nodal-spring member),
-// so the solve lowers a finite-spring DOF CONSERVATIVELY RIGID (the projector's fixity already reads rigid||spring>0)
-// and a skewed frame to the global axes — both NAMED lowerings; an elastic/inclined support arm is verification-gated
-// on a BFE/FEALiTE elastic-support member and consumes these columns with zero wire edits when it lands.
+// axes the Bim edge emits: the owned spine consumes the finite ROTATIONAL end springs directly through the
+// FrameMember semi-rigid columns (the exact in-series condensation the discretization rows carry — the
+// conservative-rigid lowering the retired BFE boolean-constraint surface forced is DELETED); a finite
+// TRANSLATIONAL spring and a skewed frame still lower conservatively (rigid / global axes), both NAMED
+// lowerings consuming these columns with zero wire edits when their rows land.
 public readonly record struct MemberSupport(
     NodeId At, bool AtStart, bool Dx, bool Dy, bool Dz, bool Rx, bool Ry, bool Rz,
     Vector3 TranslationK = default, Vector3 RotationK = default, (Vector3 Axis, Vector3 Ref)? Frame = null) {
@@ -80,13 +72,19 @@ public sealed record LoadCombinationSpec(string Label, FrozenDictionary<Structur
 // Backend.Key/DeflectionLimitRatio/StationCount, so adding a field here without folding it there would collide two
 // analyses in the content-keyed cache; the effective-length factor and unbraced length are DERIVED from the member's
 // end fixity and span (real engineering), never a free policy knob that would silently bypass the key.
-public sealed record StructuralPolicy(SolverBackend Backend, double DeflectionLimitRatio, int StationCount) {
-    public static readonly StructuralPolicy Canonical = new(SolverBackend.Auto, DeflectionLimitRatio: 1.0 / 250.0, StationCount: 11);
+// Formulation selects the owned frame ElementClass row (Analysis/assessment content-keys Formulation.Key —
+// the result-determining discriminant the retired backend axis carried); StirrupSpacing and CotTheta are the
+// V_Rd,s member-scope inputs the EN 1992 truss pairing reads (the Materials capacity owner defers them by
+// design — a section does not carry its stirrup spacing): spacing 0 marks the linkless arm, cot(θ) defaults
+// 2.5 matching the Materials V_Rd,max ceiling so the pair is consistent by construction.
+public sealed record StructuralPolicy(ElementClass Formulation, double DeflectionLimitRatio, int StationCount, double StirrupSpacing = 0.0, double CotTheta = 2.5) {
+    public static readonly StructuralPolicy Canonical = new(ElementClass.Beam2Euler, DeflectionLimitRatio: 1.0 / 250.0, StationCount: 11);
 }
 
 public sealed record StructuralMember(
     NodeId Id, AxisCurve Axis, SectionProperties Section, MaterialPropertySet.Mechanical Strength,
-    Option<MaterialPropertySet.Orthotropic> Directional, MaterialFamily Family, Seq<MemberLoad> Loads, Seq<MemberSupport> Supports) {
+    Option<MaterialPropertySet.Orthotropic> Directional, MaterialFamily Family, Seq<MemberLoad> Loads, Seq<MemberSupport> Supports,
+    Option<RcShearLink> ShearLink = default) {
     public double Length => Vector3.Distance(Axis.Start, Axis.End);
 
     // K from the end-fixity the supports declare: both ends rotationally fixed -> 0.5, one fixed -> 0.7, a single
@@ -110,7 +108,7 @@ public static partial class StructuralAnalysis {
             Fin.Succ(Seq<StructuralMember>()),
             (acc, id) => acc.Bind(members =>
                 from axis     in graph.AxisOf(id, geometry)
-                from strength in graph.MechanicalOf(id).ToFin(MissingInput(id, "mechanical"))
+                from strength in graph.PropertiesOf(id).Mechanical.ToFin(MissingInput(id, "mechanical"))
                 from section  in graph.SectionOf(id).ToFin(MissingInput(id, "section"))
                 // The realized seam Orthotropic case (Composition/material#MATERIAL_PROPERTY, same Discipline.Structural,
                 // discriminated by case TYPE) — an OPTIONAL directional-stiffness refinement read off the seam graph via
@@ -132,7 +130,7 @@ public static partial class StructuralAnalysis {
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
 // The Compute-OWNED discipline graph reads — extensions on the seam ElementGraph composing the seam no-Op primitives
-// (MaterialsOf/MechanicalOf/Find/EdgesAt) and the projected neutral Generic structural edges by wire-name, the same
+// (MaterialsOf/PropertiesOf(id).Mechanical/Find/EdgesAt) and the projected neutral Generic structural edges by wire-name, the same
 // shape Analysis/energy's EnergyGraphReads takes. The seam owns the material/section/mechanical reads (it owns those
 // nodes) and the GeometrySource decode CONTRACT; the discipline physics — axis interpretation, 6-DOF restraints,
 // applied actions — lives here, never in the seam. AxisOf resolves the analytical line ONE-HOP by content key through
@@ -210,16 +208,16 @@ public static class StructuralReads {
 
 ## [03]-[FRAME_BACKEND]
 
-- Owner: the `Solve` backend dispatch (the 3D `BriefFiniteElement.Net` `SolveSpatial`, the 2D-planar `FEALiTE2D` `SolvePlanar`) selected by `StructuralPolicy.Backend` (Auto routes a coplanar in-plane frame to `Fealite`, else `Bfe`); `SectionDemand` the per-combination internal-force envelope; `MemberResponse` the demand-plus-deflection carrier every limit state reads; `RasmSolverFactory` the `BriefFiniteElementNet.Common.ISolverFactory` adapter routing BFE's linear solve through the shared `api-csparse` `SparseLU` owner.
-- Entry: `static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model)` — selects the backend, assembles the FE model (each member a `BarElement`/`FrameElement2D` over its `UniformParametric1DSection`/`Generic2DSection` and `UniformIsotropicMaterial`/`GenericIsotropicMaterial`, each `MemberSupport` a 6-DOF `Constraint`/`NodalSupport` placed on the endpoint-resolved shared joint, each `MemberLoad`+`LoadCombinationSpec` mapped through a TOTAL load `Switch`), solves through the injected CSparse factory, and recovers the worst-station `SectionDemand` plus the worst-station deflection per member per combination, `Fin<T>` lowering a `FEALiTE2D` `AnalysisStatus.Failure` or a BFE singular-factorization throw onto `ComputeFault.AnalysisRunFailed`.
-- Auto: BFE's linear solve is injected with `RasmSolverFactory` (`model.Solve(factory)`) whose `CreateSolver(SparseMatrix)` returns a `CSparse.Double.Factorization.SparseLU`-backed `ISolver` adapter, so the structural lane factors through the SAME CSparse owner the continuum lane holds and BFE's embedded dense `DenseLU` (binary-incompatible with the `CSparse 4.4.0` pin) is never loaded — the runner stays on the sparse-factored `BarElement` frame path; `FEALiTE2D` factors its `StructuralStiffnessMatrix` through the same CSparse owner natively; shared joints merge by tolerance-quantized coordinate (not fragile exact-float `Vector3` equality); the demand folds each member's exact internal force over the policy stations and every combination, and the deflection folds the transverse FE displacement over the same stations.
-- Packages: BriefFiniteElement.Net (`Model`/`BarElement`/`UniformParametric1DSection`/`UniformIsotropicMaterial`/`Constraint`/`ConcentratedLoad`/`UniformLoad`/`PartialNonUniformLoad`/`LoadCase`/`LoadCombination`/`Force`/`Displacement`), BriefFiniteElementNet.Common (`ISolver`/`ISolverFactory`), CSparse (the shared `SparseLU` factorization via `Tensor/factor#SPARSE_SOLVE`), FEALiTE2D (`Structure`/`FrameElement2D`/`Node2D`/`NodalSupport`/`Generic2DSection`/`GenericIsotropicMaterial`/`FramePointLoad`/`FrameUniformLoad`/`FrameTrapezoidalLoad`/`LinearMeshSegment`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new FE backend is one `Solve` arm; the response envelope is one `MemberResponse` shape the checks read regardless of backend; a new load kind widens both backends' total load `Switch` at compile time — a `Bfe3DAnalyzer`/`Fealite2DAnalyzer` sibling family is the rejected form.
-- Boundary: BFE is confined to the sparse-factored `BarElement` frame solve — continuum `TriangleElement`/`TetrahedronElement`/`HexahedralElement` are NOT used (their `DenseColumnMajorStorage` path routes through the binary-incompatible `DenseLU` under `CSparse 4.4.0`), and continuum multi-physics is the `Solver/contract#SOLVE_CONTRACT` `SolveLane`; the BFE local frame orders moments `(Mx=torsion, My/Mz=bending)`, so the demand maps `SectionDemand(N=Fx, Vy=Fy, Vz=Fz, My=My, Mz=Mz, T=Mx)` — never `T=Mz`/`My=Mx`, the silently-wrong torsion/bending swap; the FE result carriers (`Force`/`Displacement`/`LinearMeshSegment`) carry RAW `double` components in one consistent SI system, re-attached at the `SectionDemand`/`MemberResponse` boundary; every `MemberLoad` case maps to its FE primitive (Point→`ConcentratedLoad`/`FramePointLoad`, Uniform→`UniformLoad`/`FrameUniformLoad`, Trapezoid→`PartialNonUniformLoad`/`FrameTrapezoidalLoad`) — neither backend drops a load kind or flattens a trapezoid to a uniform average; a hand-rolled stiffness assembler or a re-typed section beside the FE library is the rejected form; a singular/ill-conditioned system surfaces as a typed `AnalysisRunFailed`, never an exception crossing the rail.
+- Owner: the `Solve` owned-spine route — `FrameModel` lowers onto the `Solver/contract#SOLVE_CONTRACT` `SolveLane` over the `Solver/discretization#DISCRETIZATION_MESH` frame `ElementClass` rows (`beam2-euler`/`beam2-timoshenko`, the `StructuralPolicy.Formulation` column), so the structural lane assembles and factors through the SAME CSparse owner the continuum lane holds and the retired `BriefFiniteElement.Net`/`FEALiTE2D` backends leave the runtime graph (their disk-verified consumed set — assemble-solve, rigid 6-DOF supports, point/uniform/trapezoidal member loads, per-station internal-force and deflection recovery — is a strict subset of the owned rows, which additionally carry end releases by static condensation, rigid-end offsets by eccentricity transform, and semi-rigid end springs as row behavior); `SectionDemand` the per-combination internal-force envelope; `MemberResponse` the demand-plus-deflection carrier every limit state reads; `FrameLowering` the model→mesh projection (shared joints merged by tolerance-quantized coordinate, per-member `FrameMember` section/release/offset rows off the seam `SectionProperties` and the declared supports, per-member `(E, ν)` on `MaterialField.PerCell`, member loads lowered to fixed-end equivalent nodal actions); `StationRecovery` the per-member station fold off the solved displacement field.
+- Entry: `static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model)` — lowers the model once, then per `LoadCombinationSpec` scales the case actions, solves through `SolveLane.Solve` (the frame arm scattering each member's closed-form 12-DOF block), recovers the worst-station `SectionDemand` plus the worst-station transverse deflection per member, and envelopes across combinations; `Fin<T>` lowers a singular/ill-conditioned factorization onto the typed `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, …)` — deterministic, cached by the spine, never re-run blind — and a member missing its section or support set onto `AnalysisFailed(SolvePhase.Admission, FailureKind.Input, …)`.
+- Auto: joints merge by tolerance-quantized coordinate (never fragile exact-float `Vector3` equality); each `MemberSupport` lowers to the `BoundaryCondition.Dirichlet` 6-DOF constraint set on its endpoint-resolved shared joint; each `MemberLoad` case lowers through a TOTAL `Switch` to its fixed-end equivalent nodal actions (Point by the closed-form ab²/L² pair, Uniform by wL/2 + wL²/12, Trapezoid by the exact linear-varying closed form — never a flattened uniform average) landing as `Neumann` rows on the member-end DOFs; per-station recovery reads the solved field back through each member's local frame — end displacements gathered and rotated local, local end forces `f = k_l·u_l − f_fixed`, station N/V/M by statics from the end forces plus the span-load particular terms (exact for the three load kinds), station transverse deflection by the Hermite end-displacement interpolation plus the span-load particular deflection — so the `Deflection` limit state is a REAL displacement check, never a 0.0 sentinel.
+- Packages: CSparse (the shared `SparseLU` factorization via `Tensor/factor#SPARSE_SOLVE`, reached through the `Solver/contract` spine), Rasm.Element (project — `SectionProperties`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new frame formulation is one `ElementClass` frame row (the `Formulation` policy column selects it); a new end condition is a column on `FrameMember` the discretization closed form reads; a new load kind is one `MemberLoad` case plus one fixed-end arm on the total `Switch`; the response envelope is one `MemberResponse` shape the checks read regardless of formulation — a re-admitted external FE backend beside the owned spine is the rejected duplicate-mechanism form, and a `Bfe3DAnalyzer`/`Fealite2DAnalyzer` sibling family stays deleted.
+- Boundary: the frame solve is the `Solver/contract` spine — one `SolveLane`, one CSparse factorization owner, one `MaterialField` elasticity admission — and a hand-rolled stiffness assembler beside it is the rejected form; the member releases/rigid-end offsets/semi-rigid springs are ROW BEHAVIOR on the discretization `ElementClass.Member` closed form (condensation/transform/in-series fold), exceeding the retired backends' consumed set (BFE's `BarElementBehaviours.FullFrame` never read releases; the spring columns lowered conservatively rigid); the local frame orders moments `(T=torsion about x, My/Mz=bending)` and the demand maps `SectionDemand(N, Vy, Vz, My, Mz, T)` off the local end-force vector — never a torsion/bending swap; the planar special case is structural, not a second backend — a coplanar model simply carries zero out-of-plane demand through the same 12-DOF rows; a singular system surfaces as the typed `(Solve, Numeric)` `AnalysisFailed`, never an exception crossing the rail and never an opaque interpolated discriminant.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
-// The per-combination internal-force envelope — backend-neutral; each component is the signed worst-magnitude over
+// The per-combination internal-force envelope — formulation-neutral; each component is the signed worst-magnitude over
 // every station and every load combination. A per-component envelope is the conservative member-level bound the codes
 // check; station-correlated interaction is a growth axis the Check fold would take over the same MemberResponse.
 public readonly record struct SectionDemand(double N, double Vy, double Vz, double My, double Mz, double T) {
@@ -237,238 +235,51 @@ public readonly record struct MemberResponse(SectionDemand Demand, double MaxDef
     public MemberResponse Max(SectionDemand d, double deflection) => new(Demand.Max(d), Math.Max(MaxDeflection, Math.Abs(deflection)));
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
-// One ISolverFactory routes BFE's linear solve through the shared api-csparse owner — the same CSparse SparseLU the
-// Tensor/factor#SPARSE_SOLVE FactorKind.Lu row factors through — so the structural lane never loads BFE's
-// CSparse-3.5-era embedded DenseLU under the unified 4.4.0 pin (DenseLU sits only on the continuum element path this
-// runner never touches). The adapter implements BFE's Common.ISolver over a CSparse factorization of A; LU (not
-// Cholesky) handles the released-DOF indefinite reduced system, a structurally singular factor surfacing as the NaN
-// solution the BFE solve raises and the Solve rail lowers to AnalysisRunFailed.
-public sealed class RasmSolverFactory : BriefFiniteElementNet.Common.ISolverFactory {
-    public static readonly RasmSolverFactory Instance = new();
-    public BriefFiniteElementNet.Common.ISolver CreateSolver(CSparse.Double.SparseMatrix a) => new CSparseSolver(a);
-
-    sealed class CSparseSolver(CSparse.Double.SparseMatrix a) : BriefFiniteElementNet.Common.ISolver {
-        CSparse.Double.Factorization.SparseLU? factor;
-        public CSparse.Double.SparseMatrix A { get; set; } = a;
-        public bool IsInitialized => factor is not null;
-        public void Initialize() => factor = CSparse.Double.Factorization.SparseLU.Create(A, CSparse.ColumnOrdering.MinimumDegreeAtPlusA, 1.0);
-        public void Solve(double[] b, double[] x) {
-            factor ??= CSparse.Double.Factorization.SparseLU.Create(A, CSparse.ColumnOrdering.MinimumDegreeAtPlusA, 1.0);
-            factor.Solve(b, x);
-        }
-    }
-}
-
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class StructuralAnalysis {
+    // The owned frame solve over the Solver/contract spine: lower once, solve per combination, recover per
+    // station, envelope across combinations — the one spine entry, never a parallel FE engine.
     public static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model) =>
         model.Members.IsEmpty
             ? Fin.Succ(FrozenDictionary<NodeId, MemberResponse>.Empty)
-            : model.Policy.Backend == SolverBackend.Planar || (model.Policy.Backend == SolverBackend.Auto && model.Planar)
-                ? SolvePlanar(model)
-                : SolveSpatial(model);
+            : FrameLowering.Lower(model).Bind(lowered =>
+                model.Combinations.Fold(
+                    Fin.Succ(model.Members.Map(static m => (m.Id, Response: MemberResponse.Zero)).ToFrozenDictionary(static p => p.Id, static p => p.Response)),
+                    (acc, combo) => acc.Bind(envelope =>
+                        lowered.Problem(combo).Bind(problem =>
+                            SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalStatic, default, lowered.Clocks)
+                                .MapFail(fault => fault is ComputeFault.ModelRejected reject
+                                    ? new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<frame-singular:{combo.Label}:{reject.Message}>")
+                                    : fault)
+                                .Map(solution => StationRecovery.Envelope(model, lowered, combo, solution.Field, envelope))))));
 
-    // --- [BFE_3D] ------------------------------------------------------------------------
-    static Fin<FrozenDictionary<NodeId, MemberResponse>> SolveSpatial(FrameModel model) {
-        const double tol = 1e-6;
-        BriefFiniteElementNet.Model bfe = new();
-        Dictionary<(long, long, long), BriefFiniteElementNet.Node> joints = new();
-        Dictionary<NodeId, BriefFiniteElementNet.Elements.BarElement> bars = new();
-        Dictionary<(long, long, long), (bool Dx, bool Dy, bool Dz, bool Rx, bool Ry, bool Rz)> fixity = new();
-        foreach (StructuralMember member in model.Members) {
-            BriefFiniteElementNet.Node start = JointAt(bfe, joints, member.Axis.Start, tol);
-            BriefFiniteElementNet.Node end   = JointAt(bfe, joints, member.Axis.End, tol);
-            BriefFiniteElementNet.Elements.BarElement bar = new(start, end) {
-                Section  = new BriefFiniteElementNet.Sections.UniformParametric1DSection(member.Section.Area.Si, member.Section.Iyy.Si, member.Section.Izz.Si, member.Section.J.Si),
-                Material = BriefFiniteElementNet.Materials.UniformIsotropicMaterial.CreateFromYoungPoisson(member.Strength.YoungsModulus.Si, member.Strength.PoissonsRatio),
-                Behavior = BriefFiniteElementNet.Elements.BarElementBehaviours.FullFrame,
-            };
-            bfe.Elements.Add(bar);
-            bars[member.Id] = bar;
-            // Accumulate every support's fixity onto its endpoint-resolved joint (UNION over a free start), so a shared
-            // joint a free-default node would lose is fixed once and a second support there never overwrites the first.
-            foreach (MemberSupport s in member.Supports) {
-                var jk = Key3(s.AtStart ? member.Axis.Start : member.Axis.End, tol);
-                var f = fixity.GetValueOrDefault(jk);
-                fixity[jk] = (f.Dx || s.Dx, f.Dy || s.Dy, f.Dz || s.Dz, f.Rx || s.Rx, f.Ry || s.Ry, f.Rz || s.Rz);
-            }
-            foreach (MemberLoad load in member.Loads) { bar.Loads.Add(BfeLoad(load)); }
-        }
-        foreach (var (jk, f) in fixity) {
-            joints[jk].Constraints = new BriefFiniteElementNet.Constraint(Dof(f.Dx), Dof(f.Dy), Dof(f.Dz), Dof(f.Rx), Dof(f.Ry), Dof(f.Rz));
-        }
-        return Try.lift(() => { bfe.Solve(RasmSolverFactory.Instance); return Unit.Default; }).Run()
-            .MapFail(static error => (Error)new ComputeFault.AnalysisRunFailed($"<bfe-solve-break:{error.Message}>"))
-            .Bind(_ => Recover(model, m => SampleBfe(bars[m.Id], m, model)));
+    // Model -> frame-family DiscreteMesh: joints merged by tolerance-quantized coordinate, one 2-node cell per
+    // member, per-member FrameMember rows (section constants off the seam SectionProperties; releases/offsets/
+    // semi-rigid springs off the declared supports), per-member (E, ν) on MaterialField.PerCell, supports as
+    // 6-DOF Dirichlet rows, member loads as fixed-end equivalent Neumann actions per combination.
+    internal sealed record FrameLowered(DiscreteMesh Mesh, ImmutableArray<FrameMember> Members, MaterialField Field, Func<LoadCombinationSpec, Seq<BoundaryCondition>> Conditions, ClockPolicy Clocks) {
+        public Fin<SolveProblem> Problem(LoadCombinationSpec combo) =>
+            SolveProblem.Of(PhysicsKind.FeaStatic, Mesh, Conditions(combo), Field, Members);
     }
 
-    static (long, long, long) Key3(Vector3 p, double tol) =>
-        ((long)Math.Round(p.X / tol), (long)Math.Round(p.Y / tol), (long)Math.Round(p.Z / tol));
+    internal static class FrameLowering {
+        public static Fin<FrameLowered> Lower(FrameModel model) { /* joint merge + cell pack + row build; a
+            member missing section data faults AnalysisFailed(Admission, Input) — the typed admission arm */ }
 
-    static BriefFiniteElementNet.Node JointAt(BriefFiniteElementNet.Model bfe, Dictionary<(long, long, long), BriefFiniteElementNet.Node> joints, Vector3 p, double tol) {
-        var key = Key3(p, tol);
-        if (joints.TryGetValue(key, out var existing)) { return existing; }
-        BriefFiniteElementNet.Node node = new(p.X, p.Y, p.Z);
-        joints[key] = node;
-        bfe.Nodes.Add(node);
-        return node;
+        // Fixed-end equivalent nodal actions per MemberLoad case — the TOTAL Switch: Point by the ab²/L²
+        // closed-form pair, Uniform by (wL/2, wL²/12), Trapezoid by the exact linear-varying form; a flattened
+        // trapezoid-to-uniform average is the deleted form.
+        public static (double[] EndForces, Func<double, double> ParticularMoment, Func<double, double> ParticularDeflection) FixedEnd(MemberLoad load, double length) { /* closed forms */ }
     }
 
-    static BriefFiniteElementNet.DofConstraint Dof(bool fixedDof) =>
-        fixedDof ? BriefFiniteElementNet.DofConstraint.Fixed : BriefFiniteElementNet.DofConstraint.Released;
-
-    // Total Switch over MemberLoad — every kind maps to its true BFE primitive: a Trapezoid is a PartialNonUniformLoad
-    // with a linear SingleVariablePolynomial severity over [-1,1], NEVER a UniformLoad averaging the two ends.
-    static BriefFiniteElementNet.ElementalLoad BfeLoad(MemberLoad load) => load.Switch(
-        point:     p => new BriefFiniteElementNet.Loads.ConcentratedLoad(
-                            new BriefFiniteElementNet.Force(p.Force.X, p.Force.Y, p.Force.Z, p.Moment.X, p.Moment.Y, p.Moment.Z),
-                            new BriefFiniteElementNet.IsoPoint(2.0 * p.Station - 1.0), BriefFiniteElementNet.CoordinationSystem.Global)
-                          { Case = BfeCase(p.Case) },
-        uniform:   u => BfeUniform(u.Case, u.ForcePerLength),
-        trapezoid: t => BfeTrapezoid(t.Case, t.Start, t.End));
-
-    static BriefFiniteElementNet.ElementalLoad BfeUniform(StructuralCase kase, Vector3 w) {
-        double magnitude = Vector3.Distance(w, default);   // |w| via the seam-declared static Distance (no System.Numerics .Length())
-        BriefFiniteElementNet.Vector direction = magnitude > Eps
-            ? new BriefFiniteElementNet.Vector(w.X / magnitude, w.Y / magnitude, w.Z / magnitude)
-            : new BriefFiniteElementNet.Vector(0, 0, -1);
-        return new BriefFiniteElementNet.Loads.UniformLoad(BfeCase(kase), direction, magnitude, BriefFiniteElementNet.CoordinationSystem.Global);
+    internal static class StationRecovery {
+        // Per-member station fold off the solved global field: end displacements gathered and rotated local
+        // (the same direction-cosine frame the stiffness used), local end forces f = k_l·u_l − f_fixed, then
+        // station N/V/M by statics from the end forces plus the span-load particular terms and station
+        // transverse deflection by Hermite end-displacement interpolation plus the particular deflection —
+        // exact for the three load kinds, enveloped over StructuralPolicy.StationCount stations.
+        public static FrozenDictionary<NodeId, MemberResponse> Envelope(FrameModel model, FrameLowered lowered, LoadCombinationSpec combo, ReadOnlyMemory<double> field, FrozenDictionary<NodeId, MemberResponse> prior) { /* station march */ }
     }
-
-    static BriefFiniteElementNet.ElementalLoad BfeTrapezoid(StructuralCase kase, Vector3 startW, Vector3 endW) {
-        double s = Vector3.Distance(startW, default), e = Vector3.Distance(endW, default);
-        Vector3 axis = s >= e ? startW : endW;
-        double mag = Math.Max(s, e);
-        BriefFiniteElementNet.Vector direction = mag > Eps
-            ? new BriefFiniteElementNet.Vector(axis.X / mag, axis.Y / mag, axis.Z / mag)
-            : new BriefFiniteElementNet.Vector(0, 0, -1);
-        double mid = 0.5 * (s + e), slope = 0.5 * (e - s);            // severity(xi) = slope*xi + mid over xi in [-1, 1]
-        return new BriefFiniteElementNet.Loads.PartialNonUniformLoad {
-            Case = BfeCase(kase), Direction = direction, CoordinationSystem = BriefFiniteElementNet.CoordinationSystem.Global,
-            StartLocation = new BriefFiniteElementNet.IsoPoint(-1.0), EndLocation = new BriefFiniteElementNet.IsoPoint(1.0),
-            // SingleVariablePolynomial coefs are DESCENDING powers ([x^1, x^0]); (slope, mid) -> slope*xi + mid, so the
-            // severity is +s at the start (xi=-1) and +e at the end (xi=+1) — (mid, slope) would yield -s at the start.
-            SeverityFunction = new BriefFiniteElementNet.Mathh.SingleVariablePolynomial(slope, mid),
-        };
-    }
-
-    static BriefFiniteElementNet.LoadCase BfeCase(StructuralCase c) => new(c.Key, BfeLoadType(c));
-    static BriefFiniteElementNet.LoadType BfeLoadType(StructuralCase c) =>
-        c == StructuralCase.Dead ? BriefFiniteElementNet.LoadType.Dead : c == StructuralCase.Live ? BriefFiniteElementNet.LoadType.Live
-        : c == StructuralCase.Snow ? BriefFiniteElementNet.LoadType.Snow : c == StructuralCase.Wind ? BriefFiniteElementNet.LoadType.Wind
-        : BriefFiniteElementNet.LoadType.Quake;
-
-    static BriefFiniteElementNet.LoadCombination BfeCombo(LoadCombinationSpec spec) {
-        BriefFiniteElementNet.LoadCombination combo = new();
-        foreach (var (kase, factor) in spec.Factors) { combo[BfeCase(kase)] = factor; }
-        return combo;
-    }
-
-    static MemberResponse SampleBfe(BriefFiniteElementNet.Elements.BarElement bar, StructuralMember member, FrameModel model) =>
-        model.Combinations.Fold(MemberResponse.Zero, (env, spec) => {
-            BriefFiniteElementNet.LoadCombination combo = BfeCombo(spec);
-            return toSeq(Enumerable.Range(0, model.Policy.StationCount)).Fold(env, (e, station) => {
-                double xi = 2.0 * station / Math.Max(model.Policy.StationCount - 1, 1) - 1.0;
-                BriefFiniteElementNet.Force f = bar.GetExactInternalForceAt(xi, combo);
-                BriefFiniteElementNet.Displacement d = bar.GetInternalDisplacementAt(xi, combo);
-                // BFE Displacement components are upper-cased (DX/DY/DZ/RX/RY/RZ), unlike Force (Fx/Fy/Fz/Mx/My/Mz);
-                // the transverse deflection is the global-YZ magnitude excluding the axial DX component.
-                return e.Max(new SectionDemand(f.Fx, f.Fy, f.Fz, f.My, f.Mz, f.Mx), Math.Sqrt(d.DY * d.DY + d.DZ * d.DZ));
-            });
-        });
-
-    // --- [FEALITE_2D] --------------------------------------------------------------------
-    static Fin<FrozenDictionary<NodeId, MemberResponse>> SolvePlanar(FrameModel model) {
-        const double tol = 1e-6;
-        FEALiTE2D.Structure.Structure structure = new() { LinearMesher = new FEALiTE2D.Meshing.LinearMesher() };
-        Dictionary<(long, long), FEALiTE2D.Elements.Node2D> joints = new();
-        Dictionary<NodeId, FEALiTE2D.Elements.FrameElement2D> frames = new();
-        Dictionary<(long, long), (bool Ux, bool Uy, bool Rz)> fixity = new();
-        FrozenDictionary<StructuralCase, FEALiTE2D.Loads.LoadCase> cases = FealiteCases(model);  // ONE instance per case
-        foreach (StructuralMember member in model.Members) {
-            FEALiTE2D.Elements.Node2D start = PlanarJoint(joints, member.Axis.Start, tol);
-            FEALiTE2D.Elements.Node2D end   = PlanarJoint(joints, member.Axis.End, tol);
-            foreach (MemberSupport s in member.Supports) {
-                var jk = Key2(s.AtStart ? member.Axis.Start : member.Axis.End, tol);
-                var f = fixity.GetValueOrDefault(jk);
-                fixity[jk] = (f.Ux || s.Dx, f.Uy || s.Dy, f.Rz || s.Rz);
-            }
-            FEALiTE2D.Elements.FrameElement2D frame = new(start, end, member.Id.Value) { CrossSection = PlanarSection(member) };
-            structure.AddElement(frame, addNodes: true);
-            foreach (MemberLoad load in member.Loads) { frame.Loads.Add(FealiteLoad(load, cases, member.Length)); }
-            frames[member.Id] = frame;
-        }
-        foreach (var (jk, f) in fixity) { joints[jk].Support = new FEALiTE2D.Elements.NodalSupport(f.Ux, f.Uy, f.Rz); }
-        structure.LoadCasesToRun.AddRange(cases.Values);
-        structure.Solve();
-        return structure.AnalysisStatus == FEALiTE2D.Structure.AnalysisStatus.Failure
-            ? Fin.Fail<FrozenDictionary<NodeId, MemberResponse>>(new ComputeFault.AnalysisRunFailed($"<fealite-singular:dof={structure.nDOF}>"))
-            : Recover(model, m => PlanarResponse(structure, frames[m.Id], cases, model));
-    }
-
-    static (long, long) Key2(Vector3 p, double tol) => ((long)Math.Round(p.X / tol), (long)Math.Round(p.Y / tol));
-
-    static FEALiTE2D.Elements.Node2D PlanarJoint(Dictionary<(long, long), FEALiTE2D.Elements.Node2D> joints, Vector3 p, double tol) {
-        var key = Key2(p, tol);
-        if (joints.TryGetValue(key, out var existing)) { return existing; }
-        FEALiTE2D.Elements.Node2D node = new(p.X, p.Y, $"n{key.Item1}_{key.Item2}");
-        joints[key] = node;
-        return node;
-    }
-
-    static FEALiTE2D.CrossSections.Generic2DSection PlanarSection(StructuralMember m) => new(
-        m.Section.Area.Si, m.Section.AvY.Si, m.Section.AvZ.Si, m.Section.Iyy.Si, m.Section.Izz.Si, m.Section.J.Si,
-        m.Section.Depth.Si, m.Section.Width.Si,
-        new FEALiTE2D.Materials.GenericIsotropicMaterial {
-            E = m.Strength.YoungsModulus.Si, U = m.Strength.PoissonsRatio, Alpha = m.Strength.ThermalExpansionPerK,
-            Gama = m.Strength.Density.Si, MaterialType = FealiteMaterial(m.Family),
-        });
-
-    static FEALiTE2D.Materials.MaterialType FealiteMaterial(MaterialFamily f) =>
-        f == MaterialFamily.Concrete ? FEALiTE2D.Materials.MaterialType.Concrete
-        : f == MaterialFamily.Timber ? FEALiTE2D.Materials.MaterialType.Timber : FEALiTE2D.Materials.MaterialType.Steel;
-
-    static FrozenDictionary<StructuralCase, FEALiTE2D.Loads.LoadCase> FealiteCases(FrameModel model) =>
-        model.Combinations.Bind(static c => c.Factors.Keys.ToSeq())
-            .Append(model.Members.Bind(static m => m.Loads.Map(LoadCaseOf)))
-            .Distinct()
-            .ToFrozenDictionary(static c => c, static c => new FEALiTE2D.Loads.LoadCase(c.Key, FealiteLoadType(c)));
-
-    static StructuralCase LoadCaseOf(MemberLoad l) => l.Switch(point: static p => p.Case, uniform: static u => u.Case, trapezoid: static t => t.Case);
-
-    // FEALiTE has no Snow case — snow is a gravity action mapped to Live; the others map directly.
-    static FEALiTE2D.Loads.LoadCaseType FealiteLoadType(StructuralCase c) =>
-        c == StructuralCase.Dead ? FEALiTE2D.Loads.LoadCaseType.Dead : c == StructuralCase.Wind ? FEALiTE2D.Loads.LoadCaseType.Wind
-        : c == StructuralCase.Seismic ? FEALiTE2D.Loads.LoadCaseType.Seismic : FEALiTE2D.Loads.LoadCaseType.Live;
-
-    // Total Switch over MemberLoad in the planar lane too — Point and Trapezoid are NO longer dropped. FEALiTE's
-    // FramePointLoad L1 is an ABSOLUTE distance from the start node (it divides L1/length internally), so the seam's
-    // [0,1] Station fraction scales by the member length here; BFE's IsoPoint is the dimensionless [-1,1] iso-coordinate
-    // (2*Station-1), hence the divergent map. FrameUniformLoad/FrameTrapezoidalLoad default L1=L2=0 -> full span.
-    static FEALiTE2D.Loads.ILoad FealiteLoad(MemberLoad load, FrozenDictionary<StructuralCase, FEALiTE2D.Loads.LoadCase> cases, double length) => load.Switch<FEALiTE2D.Loads.ILoad>(
-        point:     p => new FEALiTE2D.Loads.FramePointLoad(p.Force.X, p.Force.Y, p.Moment.Z, p.Station * length, FEALiTE2D.Loads.LoadDirection.Global, cases[p.Case]),
-        uniform:   u => new FEALiTE2D.Loads.FrameUniformLoad(u.ForcePerLength.X, u.ForcePerLength.Y, FEALiTE2D.Loads.LoadDirection.Global, cases[u.Case]),
-        trapezoid: t => new FEALiTE2D.Loads.FrameTrapezoidalLoad(t.Start.X, t.End.X, t.Start.Y, t.End.Y, FEALiTE2D.Loads.LoadDirection.Global, cases[t.Case]));
-
-    static FEALiTE2D.Loads.LoadCombination FealiteCombo(LoadCombinationSpec spec, FrozenDictionary<StructuralCase, FEALiTE2D.Loads.LoadCase> cases) {
-        FEALiTE2D.Loads.LoadCombination combo = new() { Label = spec.Label };
-        foreach (var (kase, factor) in spec.Factors) { combo.Add(cases[kase], factor); }
-        return combo;
-    }
-
-    static MemberResponse PlanarResponse(FEALiTE2D.Structure.Structure structure, FEALiTE2D.Elements.FrameElement2D element, FrozenDictionary<StructuralCase, FEALiTE2D.Loads.LoadCase> cases, FrameModel model) =>
-        model.Combinations.Fold(MemberResponse.Zero, (env, spec) =>
-            structure.Results.GetElementInternalForces(element, FealiteCombo(spec, cases))
-                .Fold(env, (e, seg) => toSeq(Enumerable.Range(0, model.Policy.StationCount)).Fold(e, (acc, station) => {
-                    double x = seg.x1 + (seg.x2 - seg.x1) * station / Math.Max(model.Policy.StationCount - 1, 1);
-                    // The planar moment is the IN-PLANE MAJOR-axis bending -> My (the flexure-major demand selector),
-                    // never Mz (minor) which would silently bypass the governing flexure check; Vz/Mz/T are out-of-plane.
-                    return acc.Max(new SectionDemand(seg.AxialAt(x), seg.ShearAt(x), 0.0, seg.MomentAt(x), 0.0, 0.0), seg.VerticalDisplacementAt(x));
-                })));
-
-    static Fin<FrozenDictionary<NodeId, MemberResponse>> Recover(FrameModel model, Func<StructuralMember, MemberResponse> sample) =>
-        Fin.Succ(model.Members.ToFrozenDictionary(static m => m.Id, sample));
 }
 ```
 
@@ -476,7 +287,7 @@ public static partial class StructuralAnalysis {
 
 - Owner: `MaterialFamily` the constitutive family; `SafetyFormat` the ASD/LRFD/limit-state axis; `DesignCode` `[SmartEnum<string>]` the standard rows carrying the `MaterialFamily`, the `SafetyFormat`, the resistance/partial factors, and the interaction delegate; `LimitState` `[SmartEnum<string>]` the check rows carrying the demand-component selector and the `Applies(MaterialFamily)` predicate; `CapacityContext` the section+isotropic-strength+optional-orthotropic-stiffness+geometry+code bundle every capacity reads (its `ShearModulusSi` reading the realized seam `Orthotropic.ShearModulus` when the member carries the directional case, the derived isotropic `Mechanical` shear otherwise); the `Capacities` `(DesignCode, LimitState)` frozen table of REAL delegates; `SectionCapacity`/`MemberCheck` the carriers; `StructuralAnalysis.Run` the governing-utilization entry.
 - Cases: `DesignCode` rows `aisc360`/`en1993`/`en1992`/`nds`/`en1995`/`aci318`/`tms402`/`aisi-s100` — every structural family carries BOTH its US and its Eurocode row (steel `aisc360`+`en1993`, concrete `aci318`+`en1992`, timber `nds`+`en1995`), so a member is assessable under either jurisdiction through the SAME table, never a US-only or EN-only family; `LimitState` rows `axial-tension`/`axial-compression`/`flexure-major`/`flexure-minor`/`shear-major`/`shear-minor`/`combined`/`deflection` (shear split per axis so the major-axis demand `|Vy|` checks against `AvY` and the minor-axis `|Vz|` against `AvZ`, never one shear area for both) — the capacity is a `(code, state)` cell in the frozen table, each cell the GOVERNING formula for THAT code's material model (AISC E3 `Fcr`, EN 1993 `χ` buckling curve, AISC F2 `Mn` with `Lp`/`Lr` LTB, EN 1993 `χLT`, ACI/EN plain-concrete `Mcr`/`φPn`, NDS `CP`/`CL` adjusted reference values, EN 1995 `k_c`/`k_crit` over the `E0,05` 5%-fractile modulus, TMS slenderness-reduced `Fa`, AISI gross-section bound), the per-cell slenderness/compactness branches the rule count; lateral-torsional buckling is FOLDED into the flexure-major `Mn`/`Mₕ` (one capacity, never a duplicate state); an absent cell is not-applicable (capacity `+∞`, ratio `0`).
-- Entry: `public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, ClockPolicy clocks)` — `Project` reads the idealization, `Solve` recovers the `MemberResponse` envelope, `Check` folds each member through every applicable `LimitState` computing `utilization = demand / capacity` (the `Combined` arm the code interaction, the `Deflection` arm the FE deflection against `StructuralPolicy.DeflectionLimitRatio × span`), and the governing (max-utilization) member yields the `AssessmentResult` fact stream (`max-utilization`, `governing-member`, `governing-limit-state`, per-check ratios) — the verdict the spine DERIVES from the governing ratio.
+- Entry: `public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks)` — a request whose route discipline is the seam `Seismic` row dispatches the `[04]` response-spectrum chain (`RunSeismic`, gated on the request's `SeismicSpec`); otherwise `Project` reads the idealization, `Solve` recovers the `MemberResponse` envelope, `Check` folds each member through every applicable `LimitState` computing `utilization = demand / capacity` (the `Combined` arm the code interaction, the `Deflection` arm the FE deflection against `StructuralPolicy.DeflectionLimitRatio × span`), and the governing (max-utilization) member yields the `AssessmentResult` fact stream (`max-utilization`, `governing-member`, `governing-limit-state`, per-check ratios) — the verdict the spine DERIVES from the governing ratio.
 - Auto: the column capacity reads the member's `EffectiveLengthFactor × UnbracedLength / RadiusOfGyrationMinor` slenderness (AISC `Fe = π²E/(KL/r)²` → `Fcr`; EN `λ̄ = √(Afy/Ncr)` → `χ`); the flexure-major capacity reads `Lb = UnbracedLength` against `Lp = 1.76·ry·√(E/Fy)` and the elastic LTB moment (EN `Mcr = (π/L)·√(E·Izz·G·J)` → `χLT`); the deflection check reads `MemberResponse.MaxDeflection`; the combined axial+flexure interaction folds the enveloped demand per the `DesignCode.Interaction` delegate (AISC 360 H1.1 and EN 1993-1-1 6.3.3 for steel, the EN 1995-1-1 §6.3.2(3) squared-axial + linear-bending form with the `k_m = 0.7` minor-axis factor for timber, the linear sum for the remaining codes), `Combined` applying to steel/cold-formed/timber.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element (project — `SectionProperties`, `MaterialPropertySet` (the isotropic `Mechanical` AND the realized directional `Orthotropic` case), `NodeId`, `Provenance`, the `graph.PropertiesOf(member).Orthotropic` ergonomic read), NodaTime (`Instant`), BCL inbox (`FrozenDictionary`).
 - Growth: a new design code is one `DesignCode` row plus its `(code, state)` cells in the table; a new limit state is one `LimitState` row plus its column of cells; a new material family is one `MaterialFamily` row plus its codes' cells — the check fold re-reads the table, never a new check method per code.
@@ -495,7 +306,7 @@ public sealed partial class MaterialFamily {
 
     // A FE-material-model hint from the constitutive stiffness/density (steel and cold-formed share the high-modulus
     // band — the DesignCode.Family the route declares disambiguates them at Check); the authoritative design family is
-    // DesignCode.Family, this is the validation companion and the FEALiTE MaterialType source.
+    // DesignCode.Family, this is the validation companion.
     public static MaterialFamily Classify(MaterialPropertySet.Mechanical m) =>
         m.YoungsModulus.Si > 150e9 ? Steel : m.YoungsModulus.Si > 20e9 ? Concrete : m.YoungsModulus.Si > 5e9 ? Timber : Masonry;
 
@@ -590,11 +401,20 @@ public sealed partial class LimitState {
 // Everything a capacity cell reads: the M7-baked section, the seam strength, the design family, the code (for its
 // factors), and the slenderness inputs (member length, unbraced length, end-fixity effective-length factor) — so
 // buckling/LTB are REAL, not a placeholder reduction over a missing length.
+// The seam-baked RC shear-link read: Asw (the link area the Materials capacity screen carries as
+// ShearLinkAreaMm2), f_ywd (the link design yield), and V_Rd,max (the section-decidable web-crushing
+// ceiling the Materials owner ALONE computes and returns — the ceiling assumes the same cot(θ) the policy
+// row defaults, so the pair is consistent by construction). Materials defers V_Rd,s to this forward member
+// check by design: the stirrup SPACING is member-scope, not section data.
+public readonly record struct RcShearLink(double AswSi, double FywdSi, double VrdMaxSi);
+
 public readonly record struct CapacityContext(
     SectionProperties Section, MaterialPropertySet.Mechanical Strength, Option<MaterialPropertySet.Orthotropic> Directional,
-    MaterialFamily Family, DesignCode Code, double Length, double UnbracedLength, double EffectiveLengthFactor) {
-    public static CapacityContext Of(StructuralMember m, DesignCode code) =>
-        new(m.Section, m.Strength, m.Directional, m.Family, code, m.Length, m.Length, m.EffectiveLengthFactor);
+    MaterialFamily Family, DesignCode Code, double Length, double UnbracedLength, double EffectiveLengthFactor,
+    Option<RcShearLink> ShearLink = default, double StirrupSpacing = 0.0, double CotTheta = 2.5) {
+    public static CapacityContext Of(StructuralMember m, DesignCode code, StructuralPolicy policy) =>
+        new(m.Section, m.Strength, m.Directional, m.Family, code, m.Length, m.Length, m.EffectiveLengthFactor,
+            m.ShearLink, policy.StirrupSpacing, policy.CotTheta);
     public double Slenderness => EffectiveLengthFactor * UnbracedLength / Math.Max(Section.RadiusOfGyrationMinor.Si, StructuralAnalysis.Eps);
     // The §6.3.3 LTB shear-stiffness datum: the realized seam Orthotropic case's INDEPENDENT in-plane G (timber's
     // G ≈ E0/16) when a directional material carries it, the isotropic Mechanical derived G = E/(2(1+ν)) otherwise —
@@ -635,7 +455,12 @@ public static partial class StructuralAnalysis {
             (("en1993", "flexure-minor"),      static c => c.Section.Wplz.Si * c.Strength.YieldStrength.Si / c.Code.GammaM),
             (("en1993", "shear-major"),        static c => c.Section.AvY.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
             (("en1993", "shear-minor"),        static c => c.Section.AvZ.Si * c.Strength.YieldStrength.Si / (Math.Sqrt(3.0) * c.Code.GammaM)),
-            // --- AISI S100 (cold-formed steel, LRFD) — gross-section bound ------------------
+            // --- AISI S100 (cold-formed steel, LRFD) — the section moduli on a cold-formed member's seam
+            // SectionProperties ARE the Materials capacity owner's Seff-derived EFFECTIVE values (the
+            // stress-aware effective-width derivation lives at steel#STEEL_FAMILY DesignCapacity, its owner
+            // by strata law), so the same cells read gross for hot-rolled and effective for cold-formed with
+            // ZERO Compute-side dispatch — gross-vs-effective is invisible here, and a Compute-side
+            // SectionProfile overload dispatch or a ComputedSection bake is the strata-forbidden form.
             (("aisi-s100", "axial-tension"),     static c => 0.90 * c.Strength.YieldStrength.Si * c.Section.Area.Si),
             (("aisi-s100", "axial-compression"), static c => 0.85 * AiscFcr(c) * c.Section.Area.Si),
             (("aisi-s100", "flexure-major"),     static c => 0.90 * c.Strength.YieldStrength.Si * c.Section.Wely.Si),
@@ -650,8 +475,17 @@ public static partial class StructuralAnalysis {
             // --- EN 1992-1-1 (concrete, gammaC=1.5) — plain-section bound -------------------
             (("en1992", "axial-compression"),  static c => 0.85 * c.Strength.UltimateStrength.Si * c.Section.Area.Si / c.Code.GammaM),
             (("en1992", "flexure-major"),      static c => ConcreteFr(c.Strength.UltimateStrength.Si) * c.Section.Wely.Si / c.Code.GammaM),
-            (("en1992", "shear-major"),        static c => ConcreteVc(c.Strength.UltimateStrength.Si) * c.Section.AvY.Si / c.Code.GammaM),
-            (("en1992", "shear-minor"),        static c => ConcreteVc(c.Strength.UltimateStrength.Si) * c.Section.AvZ.Si / c.Code.GammaM),
+            // EN 1992 §6.2 truss-model pairing: a LINKED section (Asw baked by the Materials capacity owner,
+            // stirrup spacing s the member-scope policy input Materials defers by design) governs at
+            // min(V_Rd,s, V_Rd,max) with V_Rd,s = (Asw/s)·z·f_ywd·cot(θ), z = 0.9d, cot(θ) the policy row
+            // defaulting 2.5 (the same assumption the Materials V_Rd,max ceiling carries, so the pair is
+            // consistent by construction); the linkless arm keeps the plain V_Rd,c concrete resistance.
+            (("en1992", "shear-major"),        static c => c.ShearLink.Filter(_ => c.StirrupSpacing > 0.0).Match(
+                Some: link => Math.Min(link.AswSi / c.StirrupSpacing * 0.9 * c.Section.Depth.Si * link.FywdSi * c.CotTheta, link.VrdMaxSi),
+                None: () => ConcreteVc(c.Strength.UltimateStrength.Si) * c.Section.AvY.Si / c.Code.GammaM)),
+            (("en1992", "shear-minor"),        static c => c.ShearLink.Filter(_ => c.StirrupSpacing > 0.0).Match(
+                Some: link => Math.Min(link.AswSi / c.StirrupSpacing * 0.9 * c.Section.Width.Si * link.FywdSi * c.CotTheta, link.VrdMaxSi),
+                None: () => ConcreteVc(c.Strength.UltimateStrength.Si) * c.Section.AvZ.Si / c.Code.GammaM)),
             // --- NDS (timber, ASD) — reference values adjusted by CP/CL --------------------
             (("nds", "axial-tension"),         static c => c.Strength.YieldStrength.Si * c.Section.Area.Si),
             (("nds", "axial-compression"),     static c => NdsCp(c) * c.Strength.YieldStrength.Si * c.Section.Area.Si),
@@ -751,7 +585,12 @@ public static partial class StructuralAnalysis {
     static double ConcreteVc(double fc) => 0.17 * Math.Sqrt(Math.Max(fc / 1e6, 0.0)) * 1e6;   // concrete shear stress, Pa
 
     // --- [GOVERNING] ---------------------------------------------------------------------
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, ClockPolicy clocks) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+        request.Seismic.Match(
+            Some: spec => RunSeismic(graph, request, spec, geometry, sink, clocks),
+            None: () => RunStatic(graph, request, geometry, sink, clocks));
+
+    static Fin<AssessmentResult> RunStatic(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
         from code   in DesignCode.For(request.Route)
         from model  in Project(graph, request, geometry)
         from _      in Validate(model, code)
@@ -774,7 +613,7 @@ public static partial class StructuralAnalysis {
                    None: () => Fin.Succ(unit));
 
     static Seq<MemberCheck> Check(StructuralMember member, MemberResponse response, DesignCode code, StructuralPolicy policy) {
-        CapacityContext ctx = CapacityContext.Of(member, code);
+        CapacityContext ctx = CapacityContext.Of(member, code, policy);
         SectionCapacity caps = new(
             Capacity(code, LimitState.AxialCompression, ctx), Capacity(code, LimitState.FlexureMajor, ctx), Capacity(code, LimitState.FlexureMinor, ctx));
         return LimitState.Items.ToSeq().Filter(state => state.Applies(member.Family)).Map(state => {
@@ -790,10 +629,124 @@ public static partial class StructuralAnalysis {
 }
 ```
 
-## [05]-[RESEARCH]
+## [05]-[SEISMIC_ROUTE]
+
+- Owner: `DesignSpectrum` `[SmartEnum<string>]` the code design-spectrum rows — EN 1998-1 Type 1, EN 1998-1 Type 2, ASCE 7 — each row carrying its piecewise pseudo-acceleration ordinate as delegate row data over the `SpectrumPolicy` parameters (site class, PGA/mapped accelerations, behavior factor q / response-modification R, damping correction), NEVER a hardcoded curve; `SpectrumPolicy` the parameter record; `ModalCombination` `[SmartEnum<string>]` the modal-combination axis (`srss` · `cqc` — CQC the closely-spaced-mode default, its cross-modal correlation the Der Kiureghian closed form over the damping ratio); `SeismicSpec` the request extension carrying the spectrum row, its policy, the combination row, and the participation floor; `RunSeismic` the route fold over the sparse modal.
+- Entry: `static Fin<AssessmentResult> RunSeismic(ElementGraph graph, AssessmentRequest.Structural request, SeismicSpec spec, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks)` — the chain is fully named: `FrameLowering.Lower` builds the same mesh the static route uses, `SolveLane.Solve` under `SolvePolicy.CanonicalModalSparse` (the `arpack-shift-invert` row) recovers `(φ, λ)` and the modal participation factors off the owned lumped-mass field, the 90% modal-mass-participation floor gates TYPED — an achieved fraction below `spec.ParticipationFloor` is `ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, "<modal-mass-shortfall:…>")` naming the achieved fraction, never a silent truncation — the per-mode spectral demand reads `Sa(T_i)` off the `DesignSpectrum` row, the modal responses combine through the `ModalCombination` row, and the combined demands check through the SAME `(DesignCode, LimitState)` capacity table; the achieved participation and the combination key land as the `Participation`/`Combination` columns on `ComputeReceipt.Assessment`/`AssessmentWire`.
+- Packages: the route composes `Solver/contract` (`SolveLane`, `SolvePolicy.CanonicalModalSparse`), `Solver/discretization` (the frame rows), Thinktecture.Runtime.Extensions, LanguageExt.Core — zero new packages (the seam `Discipline.Seismic` row and `StructuralCase.Seismic` already exist).
+- Growth: a new code spectrum is one `DesignSpectrum` row carrying its ordinate delegate; a new combination rule is one `ModalCombination` row; a site-class table refinement is `SpectrumPolicy` data; zero new surface — a `SeismicAnalyzer` sibling runner is the rejected form (this is a structural ROUTE over the existing spine).
+- Boundary: the sparse modal is the `arpack-shift-invert` `SolveMethod` row at building DOF — dense EVD stays the small-DOF terminal and a hand-rolled Lanczos is the deleted form; the spectrum is POLICY DATA (the codes the seam `Seismic` row itself names) and a hardcoded curve, a per-code method ladder, or a spectrum baked into the runner is the deleted form; CQC is the closely-spaced default because SRSS under-combines correlated modes — the choice is a ROW the receipt records, never a silent internal pick; the participation floor is a typed `(Solve, Numeric)` shortfall (deterministic — it caches as a Failed node under the lifecycle-spine law and never re-runs blind).
+
+```csharp signature
+// Code design spectra as POLICY ROWS: each row owns its piecewise pseudo-acceleration ordinate over the
+// SpectrumPolicy parameters — EN 1998-1 §3.2.2.5 Type 1/2 (S, TB, TC, TD site columns; η damping
+// correction; behavior factor q) and ASCE 7 §11.4 (SDS/SD1 plateau-and-decay; R/Ie) — never a hardcoded curve.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DesignSpectrum {
+    public static readonly DesignSpectrum En1998Type1 = new("en1998-type1", static (p, t) => Eurocode(p, t));
+    public static readonly DesignSpectrum En1998Type2 = new("en1998-type2", static (p, t) => Eurocode(p, t));
+    public static readonly DesignSpectrum Asce7 = new("asce7", static (p, t) =>
+        t < 0.2 * p.T1 ? p.Sds * (0.4 + 3.0 * t / p.T1) / p.Behavior
+        : t <= p.T1 ? p.Sds / p.Behavior
+        : t <= p.TLong ? p.Sd1 / (t * p.Behavior)
+        : p.Sd1 * p.TLong / (t * t * p.Behavior));
+
+    [UseDelegateFromConstructor]
+    public partial double Sa(SpectrumPolicy policy, double period);
+
+    // EN 1998-1 Type 1/2 share the piecewise form; the site-class S/TB/TC/TD columns and the η damping
+    // correction η = max(√(10/(5+ξ)), 0.55) are SpectrumPolicy data.
+    static double Eurocode(SpectrumPolicy p, double t) {
+        double eta = Math.Max(Math.Sqrt(10.0 / (5.0 + 100.0 * p.DampingRatio)), 0.55);
+        double ag = p.Pga * p.SoilFactor;
+        return t <= p.Tb ? ag * (1.0 + t / p.Tb * (eta * 2.5 / p.Behavior - 1.0))
+            : t <= p.Tc ? ag * eta * 2.5 / p.Behavior
+            : t <= p.Td ? ag * eta * 2.5 / p.Behavior * (p.Tc / t)
+            : ag * eta * 2.5 / p.Behavior * (p.Tc * p.Td / (t * t));
+    }
+}
+
+// Site class, ground motion, behavior/response-modification, and damping as one parameter record — the
+// spectrum rows read it, the content key folds it (a changed site class or q re-keys the assessment).
+public sealed record SpectrumPolicy(
+    string SiteClass, double Pga, double SoilFactor, double Tb, double Tc, double Td,
+    double Sds, double Sd1, double T1, double TLong, double Behavior, double DampingRatio);
+
+// SRSS and the CQC closely-spaced default: CQC's cross-modal correlation is the Der Kiureghian closed form
+// ρ_ij = 8ξ²(1+r)r^1.5 / ((1−r²)² + 4ξ²r(1+r)²) with r = ω_j/ω_i — SRSS is its ρ_ij = δ_ij degenerate.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ModalCombination {
+    public static readonly ModalCombination Srss = new("srss", static (r, _, _) => Math.Sqrt(r.Sum(static v => v * v)));
+    public static readonly ModalCombination Cqc = new("cqc", static (r, omega, xi) => {
+        double sum = 0.0;
+        for (int i = 0; i < r.Count; i++)
+            for (int j = 0; j < r.Count; j++) {
+                double ratio = omega[j] / Math.Max(omega[i], 1e-12);
+                double rho = 8.0 * xi * xi * (1.0 + ratio) * Math.Pow(ratio, 1.5)
+                    / (Math.Pow(1.0 - ratio * ratio, 2.0) + 4.0 * xi * xi * ratio * Math.Pow(1.0 + ratio, 2.0));
+                sum += rho * r[i] * r[j];
+            }
+        return Math.Sqrt(Math.Max(sum, 0.0));
+    });
+
+    [UseDelegateFromConstructor]
+    public partial double Combine(Seq<double> modal, Seq<double> omega, double dampingRatio);
+}
+
+// The seismic request extension the Structural case carries: spectrum row + policy + combination row + the
+// typed participation floor (0.90 the code default) — all content-key folded.
+public sealed record SeismicSpec(DesignSpectrum Spectrum, SpectrumPolicy Policy, ModalCombination Combination, double ParticipationFloor = 0.90);
+
+public static partial class StructuralAnalysis {
+    // The response-spectrum route over the arpack-shift-invert sparse modal: (φ, λ) + participation off the owned
+    // lumped-mass field, the 90% modal-mass floor a TYPED (Solve, Numeric) shortfall naming the achieved
+    // fraction, per-mode Sa(T_i) demand off the spectrum row, modal responses combined through the
+    // ModalCombination row, the combined demands checked through the SAME capacity table — a fully-named
+    // chain, never a new runner.
+    static Fin<AssessmentResult> RunSeismic(ElementGraph graph, AssessmentRequest.Structural request, SeismicSpec spec, GeometrySource geometry, AssessmentSink sink, ClockPolicy clocks) =>
+        from code  in DesignCode.For(request.Route)
+        from model in Project(graph, request, geometry)
+        from lowered in FrameLowering.Lower(model)
+        from problem in lowered.Problem(LoadCombinationSpec.SeismicUnit)
+        from modal in SolveLane.Solve(problem, lowered.Mesh, SolvePolicy.CanonicalModalSparse, default, clocks)
+        from gate  in Participation(modal, spec)
+        let periods = modal.EigenValues.Map(static values => toSeq(values.ToArray()).Map(static w2 => 2.0 * Math.PI / Math.Sqrt(Math.Max(w2, 1e-12)))).IfNone(Seq<double>())
+        let demands = SpectralDemands(model, lowered, modal, spec, periods)
+        let checks  = model.Members.Bind(m => Check(m, demands[m.Id], code, model.Policy))
+        let govern  = toSeq(checks.OrderByDescending(static c => c.Utilization)).Head
+        select AssessmentResult.Of(
+            request.Route,
+            checks.Map(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization))
+                .Append(Seq(
+                    AssessmentFact.Ratio("modal-mass-participation", gate),
+                    AssessmentFact.Text("modal-combination", spec.Combination.Key))),
+            govern.Map(static g => g.Utilization).IfNone(0.0),
+            new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));
+
+    // The typed participation floor: ΣΓ² over the recovered modes against SolveResult.TotalMass — the real
+    // cumulative effective-mass ratio, never a self-normalized quotient that reads ~1 for any spectrum. A
+    // shortfall is deterministic (Solve, Numeric) NAMING the achieved fraction — it caches as a Failed node
+    // and never re-runs blind; an absent participation stream (a non-vibration result) is its own typed decline.
+    static Fin<double> Participation(SolveResult modal, SeismicSpec spec) =>
+        modal.Participation
+            .Bind(gammas => modal.TotalMass.Map(total =>
+                toSeq(gammas.ToArray()).Map(static g => g * g).Sum() / Math.Max(total, 1e-30)))
+            .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, "<modal-mass-shortfall:participation-stream-absent>"))
+            .Bind(fraction => fraction >= spec.ParticipationFloor
+                ? Fin.Succ(fraction)
+                : Fin.Fail<double>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<modal-mass-shortfall:achieved={fraction:0.000}:floor={spec.ParticipationFloor:0.00}>")));
+
+    // Per-member combined seismic demand: each mode's member response scales by Sa(T_i)·Γ_i, combined
+    // through the ModalCombination row component-by-component into one enveloped SectionDemand.
+    static FrozenDictionary<NodeId, MemberResponse> SpectralDemands(FrameModel model, FrameLowered lowered, SolveResult modal, SeismicSpec spec, Seq<double> periods) { /* per-mode station recovery scaled by Sa·Γ, row-combined */ }
+}
+```
+
+## [06]-[RESEARCH]
 
 - [M7_SECTION_RESOLUTION]: the `ProfileRef`→`SectionProperties` resolution (the `VividOrange.Sections.SectionProperties` / `VividOrange.Profiles.Catalogue` lookup) is performed ONCE by the `Rasm.Materials` `ComponentProjector` and BAKED onto the `ProfileSet` composition (`MaterialComposition.WithSection`) as a neutral `SectionProperties` value-object (`Area`/`Iyy`/`Izz`/`J`/`Wely`/`Welz`/`Wply`/`Wplz`/`AvY`/`AvZ`/`RadiusOfGyrationMajor`/`RadiusOfGyrationMinor`/`Depth`/`Width`/`HeatedPerimeter`/`LeastDimension`/`AxisDistance` — the both-axis shear areas `AvY`/`AvZ` (the per-axis `shear-major`/`shear-minor` checks each read their own); `AxisDistance` is the EN 1992-1-2 cover-to-reinforcement the concrete-fire check reads), so the structural consumer reads the seam `graph.SectionOf(member)` Op-FREE accessor and never re-resolves a profile per call (`§4-RT M7`); Compute admits NO VividOrange. The seam `ElementGraph.SectionOf(NodeId)` is now Op-free — it reads the member's directly-associated `ProfileSet` section WITHOUT `Bake` (a section is occurrence-direct, not type-inherited, so no fold is needed), so the runner (which holds no `Op` key) reads it seam-direct and the discipline no longer re-derives a local section accessor — ONE_HOP through the seam owner. Ripple counterpart: `Rasm.Materials` `Component/component` + `Projection/component` (the M7 resolver + the `WithSection` bake) and `Rasm.Element` `Composition/material` (the `SectionProperties` value-object + `ProfileSet`) and `Graph/element` (the Op-free `SectionOf(NodeId)` seam accessor).
-- [BFE_CSPARSE_PIN]: BFE 2.1.2 floors `CSparse >= 3.5.0`; the workspace unifies on `CSparse 4.4.0`. BFE's `Common.ISolver` is `{ SparseMatrix A; bool IsInitialized; void Initialize(); void Solve(double[] b, double[] x); }` and `Common.ISolverFactory.CreateSolver(CSparse.Double.SparseMatrix A)` returns an `ISolver` — so `RasmSolverFactory` returns a `CSparse.Double.Factorization.SparseLU`-backed adapter (LU handles the released-DOF indefinite reduced system; `SparseLU.Create(A, ColumnOrdering.MinimumDegreeAtPlusA, 1.0)` + `Solve(double[], double[])`), the SAME CSparse owner the `Tensor/factor#SPARSE_SOLVE` `FactorKind.Lu` row factors through — there is NO `SparseOps.Factory(SparseMatrix)` (the phantom the prior page called; `SparseOps.Factor` consumes a CSR `SparseCompressedRowMatrixStorage`, a format the BFE `SparseMatrix` is not). BFE's embedded dense `DenseLU : ISolver<double>` was compiled against the 3.5-era one-method `ISolver<T>` and fails interface mapping under 4.x, and the `DenseColumnMajorStorage` `Solve`/`Determinant` path sits ONLY on the continuum `TriangleElement`/`TetrahedronElement`/`HexahedralElement` Jacobian integration — so confining the runner to the sparse-factored `BarElement` frame solve means `DenseLU` is never loaded. Ripple counterpart: `Tensor/factor#SPARSE_SOLVE` (the `CSparse` `SparseLU` owner shared with the continuum lane).
 - [HAND_ROLLED_DESIGN_CODES]: no .NET package owns AISC 360 / EN 1993-1-1 / EN 1992-1-1 / NDS / EN 1995-1-1 / ACI 318 / TMS 402 / AISI S100, so the codes are a `(DesignCode, LimitState)` frozen table of delegate-backed cells, each cell the GOVERNING formula for that code's material model: steel/cold-formed REAL slenderness-aware capacity (AISC E3 `Fcr` over `KL/r`, AISC F2 `Mn` with `Lp`/`Lr` LTB, EN 1993 `χ`/`χLT` buckling curves over the warping-free `Mcr = (π/L)·√(E·Izz·G·J)`), concrete the PLAIN-section bound (`Mcr = fr·Wel`, `φ·0.85·f'c·Ag`, `Vc = 0.17√f'c·Av`) because the geometric seam section carries no rebar, timber BOTH the US `nds` (Ylinen `CP` column-stability and `CL` beam-stability over the reference values) AND the Eurocode `en1995` (the parallel `Rasm.Materials` `Component/timber#EC5_DESIGN_CAPACITY` `TimberDesign.Capacity` names Compute as the reader: `f_k/γ_M` at `γ_M = 1.25`, the §6.3.2 `k_c` column buckling and §6.3.3 `k_crit` LTB over the `E0,05 ≈ 0.67·E0,mean` 5%-fractile modulus, the §6.1.7 `k_cr = 0.67` shear-crack factor, the §6.3.2(3) squared-axial + linear-bending interaction with the `k_m = 0.7` minor-axis factor), masonry the TMS slenderness-reduced `Fa`, AISI the gross-section bound — every structural family thus carrying BOTH its US and its Eurocode route. The §6.3.3 LTB shear-stiffness datum is the second half of the timber contract: `Component/timber#ORTHOTROPIC_STIFFNESS_LAW` names Compute as the reader of timber's INDEPENDENT directional shear (`G ≈ E0/16`, ~6× softer than the isotropic `E/(2(1+ν))`), so the runner reads the REALIZED seam `MaterialPropertySet.Orthotropic` case (`Composition/material#MATERIAL_PROPERTY`, `props.Orthotropic`, `Discipline.Structural` discriminated by case TYPE) as the optional `CapacityContext.Directional` and the `Ec5Kcrit` `M꜀ᵣ` reads `CapacityContext.ShearModulusSi` (the directional `Orthotropic.ShearModulus` when the member carries the case, the isotropic `Mechanical` derived `G` otherwise) — the directional stiffness off the seam graph, never an isotropic approximation, the cross-file ripple now CLOSED both sides. The safety format (ASD/LRFD/limit-state) and partial/resistance factors are `DesignCode` columns; the combined-action interaction is the `DesignCode.Interaction` delegate (AISC H1.1, EN 1993 6.3.3). This is the `POLICY_VALUES`+`DERIVED_LOGIC` collapse over an imperative per-code arm — and is HONEST: it never charges one family's formula against another (the prior page's steel `Wply·fy` applied to every family is the deleted defect). The reinforced-concrete N-M-M interaction is the `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` `RcInteraction` owner's concern (the seam section has no rebar), the cold-formed effective-section the `Component/steel` `ColdFormedDetail`'s — neither composed here. Ripple counterpart: `Rasm.Materials` `Component/timber#EC5_DESIGN_CAPACITY` + `#ORTHOTROPIC_STIFFNESS_LAW` (the `TimberDesign.Capacity` resistances and the `TimberSection.OrthotropicLaw` directional stiffness this runner reads) and `Rasm.Element` `Composition/material#MATERIAL_PROPERTY` (the realized `MaterialPropertySet.Orthotropic` case + `props.Orthotropic` read).
-- [FE_BACKEND_DUALITY]: the 3D `BriefFiniteElement.Net` and 2D-planar `FEALiTE2D` are the two `Solve` arms, both factoring through the ONE shared CSparse owner; `SolverBackend.Auto` routes a coplanar in-plane frame to the lighter 2D solver and a general 3D frame to BFE. Both lanes map EVERY `MemberLoad` kind through a TOTAL `Switch` (BFE: `ConcentratedLoad`/`UniformLoad`/`PartialNonUniformLoad` with a linear `SingleVariablePolynomial` severity; FEALiTE: `FramePointLoad`/`FrameUniformLoad`/`FrameTrapezoidalLoad`) — the prior page dropped point and trapezoidal loads in the planar lane and flattened a trapezoid to a uniform average in both, the deleted defects. Two boundary-fidelity invariants the load map MUST preserve: `SingleVariablePolynomial(params double[])` evaluates DESCENDING powers (`coefs[0]·xⁿ⁻¹ + … + coefs[last]·x⁰`), so the trapezoid severity is `(slope, mid)` not `(mid, slope)` — the swapped order yields `-s` at the start node; and `FramePointLoad`'s fourth argument is the ABSOLUTE distance from the start node (divided by length internally), so the `[0,1]` `Station` fraction scales by the member length, while BFE's `IsoPoint` takes the dimensionless `[-1,1]` iso-coordinate (`2·Station−1`). The BFE local frame orders `(Mx=torsion, My/Mz=bending)`, so the demand maps `SectionDemand(N=Fx, Vy=Fy, Vz=Fz, My=My, Mz=Mz, T=Mx)` (the prior page's `(…, Mx, My, Mz)` charged torsion as `My` and bending as `T`). Deflection is recovered from `BarElement.GetInternalDisplacementAt`/`LinearMeshSegment.VerticalDisplacementAt`, so the `Deflection` limit state is a REAL FE-displacement check, never a `0.0` sentinel. The continuum multi-physics solve stays the `Solver/contract#SOLVE_CONTRACT` `SolveLane`; the `FEALiTE2D.Plotting` DXF leg is an AppUi/export concern.
-- [GRAPH_READ_ACCESSORS]: the runner reads the concrete graph through two accessor tiers — the SEAM-owned material/section/mechanical reads (`graph.MaterialsOf`/`graph.MechanicalOf`/`graph.SectionOf`, all Op-free) and the COMPUTE-owned `StructuralReads` discipline reads (`AxisOf` resolving the analytical `AxisCurve` ONE-HOP by content key through the seam `GeometrySource` port off `member.Representations.Axis` — the Object node carries NO inline `Axis` coordinate, the deleted §4-RT-M2 phantom; `SupportsOf`/`LoadsOf` traversing the projected `IfcRelConnectsStructuralMember`/`IfcRelConnectsStructuralActivity` neutral `Generic` edges by wire-name and reading the 6-DOF restraint + end discriminant + applied components + load kind off the edge payload), the same `EnergyGraphReads` shape `Analysis/energy` takes; `AxisCurve` is the seam-DECLARED analytical-geometry type (`Rasm.Element/Graph/element`) the runner reasons over (the prior page's `MemberAxis` mirrored it field-for-field — the deleted parallel shape — `Coplanar` now a `StructuralReads` `AxisCurve` fold, length the member's own `Vector3.Distance`), the FE assembler merging shared joints by tolerance-quantized coordinate and placing each support on its `AtStart`-resolved endpoint (the prior page's `s.At == member.Id` test was always false, sending every support to the end). Ripple counterpart: `Rasm.Element` `Graph/element` (the seam-declared `AxisCurve`/`FootprintPolygon` analytical-geometry types + the `GeometrySource` resolution port + the `RepresentationContentHash.Axis` content key + `MaterialsOf`/`MechanicalOf` reads), `Rasm.Compute` `Analysis/assessment` (the spine threading `GeometrySource` through `Assess`/`Run` to this runner), and `Rasm.Bim` `Projection/semantic` (the `EdgeProjection.Structural` fold that stamps the restraint booleans, the `AtStart` end discriminant, the `LoadKind`/`Case`/component attributes, and `IfcRepresentation.Keys` content-keying the analytical axis into `Representations` these reads resolve).
+- [OWNED_FRAME_SPINE]: the frame solve rides the ONE `Solver/contract` spine over the `Solver/discretization` frame `ElementClass` rows: `BriefFiniteElement.Net` (+`.CustomElements`, .NET4-era, maintainer-banned supply chain) and `FEALiTE2D` (+`.Plotting`) are RETIRED from the runtime graph with their catalogs, README rows, and transitive-floor pins (`BriefFiniteElementNet.Common`, `netDxf.netstandard`); their disk-verified consumed feature set (assemble-solve, rigid 6-DOF supports, point/uniform/trapezoidal loads, per-station recovery — end releases/semi-rigid/offsets consumed NOWHERE) is a strict subset of the owned rows, which carry releases (static condensation), rigid-end offsets (eccentricity transform), and semi-rigid end springs (exact in-series condensation) as row behavior. The DXF diagram export the `.Plotting` satellite carried is not re-owned — solver evidence rides the receipt rail and the `AssessmentSink` artifact, never a drafting file.
+- [GRAPH_READ_ACCESSORS]: the runner reads the concrete graph through two accessor tiers — the SEAM-owned material/section/mechanical reads (`graph.MaterialsOf`/`graph.PropertiesOf(id).Mechanical`/`graph.SectionOf`, all Op-free) and the COMPUTE-owned `StructuralReads` discipline reads (`AxisOf` resolving the analytical `AxisCurve` ONE-HOP by content key through the seam `GeometrySource` port off `member.Representations.Axis` — the Object node carries NO inline `Axis` coordinate, the deleted §4-RT-M2 phantom; `SupportsOf`/`LoadsOf` traversing the projected `IfcRelConnectsStructuralMember`/`IfcRelConnectsStructuralActivity` neutral `Generic` edges by wire-name and reading the 6-DOF restraint + end discriminant + applied components + load kind off the edge payload), the same `EnergyGraphReads` shape `Analysis/energy` takes; `AxisCurve` is the seam-DECLARED analytical-geometry type (`Rasm.Element/Graph/element`) the runner reasons over (the prior page's `MemberAxis` mirrored it field-for-field — the deleted parallel shape — `Coplanar` now a `StructuralReads` `AxisCurve` fold, length the member's own `Vector3.Distance`), the FE assembler merging shared joints by tolerance-quantized coordinate and placing each support on its `AtStart`-resolved endpoint (the prior page's `s.At == member.Id` test was always false, sending every support to the end). Ripple counterpart: `Rasm.Element` `Graph/element` (the seam-declared `AxisCurve`/`FootprintPolygon` analytical-geometry types + the `GeometrySource` resolution port + the `RepresentationContentHash.Axis` content key + `MaterialsOf`/`PropertiesOf(id).Mechanical` reads), `Rasm.Compute` `Analysis/assessment` (the spine threading `GeometrySource` through `Assess`/`Run` to this runner), and `Rasm.Bim` `Projection/semantic` (the `EdgeProjection.Structural` fold that stamps the restraint booleans, the `AtStart` end discriminant, the `LoadKind`/`Case`/component attributes, and `IfcRepresentation.Keys` content-keying the analytical axis into `Representations` these reads resolve).

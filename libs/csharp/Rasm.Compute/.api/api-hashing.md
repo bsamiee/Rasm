@@ -5,69 +5,26 @@
 for per-frame integrity. Every snapshot key, cache key, receipt fingerprint, and
 content-address seed routes through this one owner — a second value-digest helper
 (`CommunityToolkit.HighPerformance` `HashCode<T>.Combine`) is rejected at the
-staging catalog so the content-address identity never fragments.
+staging catalog so the content-address identity never fragments. The substrate
+canonical member catalog is `libs/csharp/.api/api-hashing.md`; this overlay carries
+only the Compute delta — the seeded-identity, streaming, and content-key law the
+Compute pages compose.
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[SUBSTRATE_CANONICAL]
 
-[PACKAGE_SURFACE]: `System.IO.Hashing`
-- package: `System.IO.Hashing`
-- version: `10.0.9`
-- assembly: `System.IO.Hashing`
-- namespace: `System.IO.Hashing`
-- license: MIT (.NET Foundation)
-- bound asset: `lib/net10.0/System.IO.Hashing.dll` (multi-target; consumer `net10.0` binds the `net10.0` lib, XML docs shipped)
-- asset: runtime library
+[SUBSTRATE_CANONICAL]: `libs/csharp/.api/api-hashing.md`
+- the full 7-type roster, the one-shot/incremental/streaming call-shape tables, and the package/asset facts live on the substrate catalog — this overlay never re-states them
 - rail: snapshot-identity
 
-## [02]-[PUBLIC_TYPES]
+## [02]-[COMPUTE_BINDINGS]
 
-[PUBLIC_TYPE_SCOPE]: hashing surfaces
-- rail: snapshot-identity
-- The public roster is exactly these 7 types; the nested `XxHash128.Hash128` carrier is `private` (consume the digest as `UInt128` via `HashToUInt128`), and `XxHashShared`/`VectorHelper`/per-type `State` are package-internal and never enter Compute vocabulary.
+[COMPUTE_BINDINGS]:
+- The public roster is exactly 7 types; the nested `XxHash128.Hash128` carrier is `private` (consume the digest as `UInt128` via `HashToUInt128`), and `XxHashShared`/`VectorHelper`/per-type `State` are package-internal and never enter Compute vocabulary.
+- The XxHash `seed` is an XxHash-only partition knob (`int` on `XxHash32`, `long` on `XxHash3`/`XxHash64`/`XxHash128`); the `Crc32`/`Crc64` one-shots are seedless (unkeyed integrity). The seed is the cross-machine identity knob the `Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key`/`Seed` rail composes — a re-tessellation at a different deflection keys distinctly because the seed mixes the canonical policy scalars.
+- The `ReadOnlySpan<byte>` overloads are the zero-copy path off `GetReadOnlySequence`/`MemoryOwner<byte>` slices — never a `ToArray` flatten before hashing.
+- `Solver/contract` `SolveProblem.Key(...)` and `Solver/discretization` canonical folds hash canonical little-endian bytes staged through `ArrayBufferWriter<byte>` + `BinaryPrimitives` (`ContentHash.Of(sink.WrittenSpan)`) — never a culture-bearing string render.
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                   |
-| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------ |
-|  [01]   | `NonCryptographicHashAlgorithm` | algorithm base     | incremental `Append`/`GetCurrentHash`/`Reset` lifecycle root  |
-|  [02]   | `XxHash3`                       | hash algorithm     | fastest 64-bit digest (`HashToUInt64`); seedable; the suite default value-digest |
-|  [03]   | `XxHash128`                     | hash algorithm     | 128-bit content-address digest (`HashToUInt128` → `UInt128`); seedable |
-|  [04]   | `XxHash64`                      | hash algorithm     | legacy 64-bit digest (`HashToUInt64`)                         |
-|  [05]   | `XxHash32`                      | hash algorithm     | 32-bit digest (`HashToUInt32`); `int` seed                    |
-|  [06]   | `Crc32`                         | checksum algorithm | 32-bit frame integrity checksum (`HashToUInt32`)              |
-|  [07]   | `Crc64`                         | checksum algorithm | 64-bit frame integrity checksum (`HashToUInt64`)              |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: one-shot static hash (the content-address rail)
-- rail: snapshot-identity
-- Each concrete type carries the static one-shot family; the `seed` is an XxHash-only partition knob (`int` on `XxHash32`, `long` on `XxHash3`/`XxHash64`/`XxHash128`) while the `Crc32`/`Crc64` one-shots are seedless (unkeyed integrity, no `seed` parameter). The XxHash seed is the cross-machine identity knob the `Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key`/`Seed` rail composes (a re-tessellation at a different deflection keys distinctly because the seed mixes the canonical policy scalars). The `ReadOnlySpan<byte>` overloads are the zero-copy path off `GetReadOnlySequence`/`MemoryOwner<byte>` slices — never a `ToArray` flatten before hashing.
-
-| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]    | [CAPABILITY]                                                       |
-| :-----: | :----------------------------------------------------------- | :-------------- | :----------------------------------------------------------------- |
-|  [01]   | `Hash(byte[])` / `Hash(byte[], long seed)`                   | static `byte[]` | allocating digest from an array; seed overload on XxHash types     |
-|  [02]   | `Hash(ReadOnlySpan<byte>, long seed = 0)`                    | static `byte[]` | allocating digest from a span; zero-copy source, seedable          |
-|  [03]   | `Hash(ReadOnlySpan<byte> source, Span<byte> dest, long seed = 0)` | static `int` | allocation-free digest into a caller buffer; returns bytes written |
-|  [04]   | `TryHash(ReadOnlySpan<byte>, Span<byte>, out int, long seed = 0)` | static `bool` | non-throwing span sink; `false` when `dest` too short              |
-|  [05]   | `XxHash32.HashToUInt32(…, int seed = 0)` / `Crc32.HashToUInt32(…)` | static `uint`   | direct `uint`; XxHash32 seeded (`int`), Crc32 seedless; no `byte[]` allocation |
-|  [06]   | `XxHash3`/`XxHash64.HashToUInt64(…, long seed = 0)` / `Crc64.HashToUInt64(…)` | static `ulong`  | direct `ulong`; XxHash3/64 seeded (`long`), Crc64 seedless — the suite value-key form |
-|  [07]   | `HashToUInt128(ReadOnlySpan<byte>, long seed = 0)`           | static `UInt128`| direct 128-bit primitive (XxHash128); the content-key form         |
-
-[ENTRYPOINT_SCOPE]: incremental + streaming hash (the framed/chunked rail)
-- rail: snapshot-identity
-- The `NonCryptographicHashAlgorithm` base drives streaming and chunked accumulation (`Append`/`GetCurrentHash`/`GetHashAndReset`/`Reset` are base members); `AppendAsync` is the async mirror for IO-bound sources. Each concrete type adds a typed `Clone()` that returns its own type and forks accumulated state (a shared prefix hashed once, then forked per branch), plus a `GetCurrentHashAs*` primitive reader without a `byte[]` round-trip.
-
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]   | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Append(ReadOnlySpan<byte>)` / `Append(byte[])`    | instance call  | feeds a chunk into the running computation                   |
-|  [02]   | `Append(Stream)` / `AppendAsync(Stream, CancellationToken)` | instance | drains a stream synchronously / async into the computation   |
-|  [03]   | `GetCurrentHash()` / `GetCurrentHash(Span<byte>)`  | instance call  | reads the digest without resetting; span overload allocation-free |
-|  [04]   | `TryGetCurrentHash(Span<byte>, out int)`           | instance call  | non-throwing current-hash read into a caller buffer          |
-|  [05]   | `GetCurrentHashAsUInt32/64/128()`                  | instance call  | reads the primitive directly (per concrete type's width)     |
-|  [06]   | `GetHashAndReset()` / `GetHashAndReset(Span<byte>)`| instance call  | finalizes and resets in one call; span overload allocation-free |
-|  [07]   | `TryGetHashAndReset(Span<byte>, out int)`          | instance call  | non-throwing finalize-and-reset into a caller buffer         |
-|  [08]   | `Reset()` (base) / `Clone()` (per concrete type)   | instance call  | clears state for reuse / forks running state into a new typed instance (shared-prefix-then-branch) |
-|  [09]   | `HashLengthInBytes`                                | instance prop  | digest width (4/8/16) for sizing a destination span          |
-
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [IDENTITY_PROFILE]:
 - namespace: `System.IO.Hashing`
@@ -85,7 +42,7 @@ staging catalog so the content-address identity never fragments.
 - A chunked artifact accumulates through `Append(ReadOnlySpan<byte>)` over each `GetReadOnlySequence` segment; the per-chunk identity is a one-shot `XxHash128.HashToUInt128(slice)` and the whole-artifact identity is the running accumulation — never two hashing passes over the same bytes.
 - `Clone()` forks a shared-prefix accumulation so a base mesh hashed once branches per delta target without re-feeding the prefix.
 - `AppendAsync(Stream, CancellationToken)` is the IO-edge async mirror; a synchronous `Append(Stream)` is the in-memory form.
-- CONTIGUOUS vs FRAGMENTED grounding (the protobuf/RMS content-key seam — `api-protobuf` / `api-recyclable-stream`): the verified static one-shots are span-only — `Crc32.HashToUInt32(ReadOnlySpan<byte> source)` (no seed) and `XxHash128.HashToUInt128(ReadOnlySpan<byte> source, long seed = 0)`. A per-frame `Crc32` keys directly off a contiguous payload (`Crc32.HashToUInt32(frame.Payload.Span)` over the `ByteString`/segment span — the `Runtime/channels#ARTIFACT_FRAMES` `FrameEdge` realized form). A whole-artifact `XxHash128` over a MULTI-SEGMENT `RecyclableMemoryStream.GetReadOnlySequence()` view does NOT fit the one-shot span overload: drain it incrementally — `foreach (var seg in seq) hasher.Append(seg.Span);` then `hasher.GetCurrentHashAsUInt128()` — and reserve `XxHash128.HashToUInt128(seq.FirstSpan)` for the single-segment (`seq.IsSingleSegment`) fast case. The hash reads the pooled sequence in place; a `ToArray()` flatten before hashing is the rejected drift.
+- CONTIGUOUS vs FRAGMENTED grounding (the protobuf/RMS content-key seam — `api-protobuf` / `api-recyclable-stream`): the verified static one-shots are span-only — `Crc32.HashToUInt32(ReadOnlySpan<byte> source)` (no seed) and `XxHash128.HashToUInt128(ReadOnlySpan<byte> source, long seed = 0)`. A per-frame `Crc32` keys directly off a contiguous payload (`Crc32.HashToUInt32(frame.Payload.Span)` over the `ByteString`/segment span — the `Runtime/transport#ARTIFACT_FRAMES` `FrameEdge` realized form). A whole-artifact `XxHash128` over a MULTI-SEGMENT `RecyclableMemoryStream.GetReadOnlySequence()` view does NOT fit the one-shot span overload: drain it incrementally — `foreach (var seg in seq) hasher.Append(seg.Span);` then `hasher.GetCurrentHashAsUInt128()` — and reserve `XxHash128.HashToUInt128(seq.FirstSpan)` for the single-segment (`seq.IsSingleSegment`) fast case. The hash reads the pooled sequence in place; a `ToArray()` flatten before hashing is the rejected drift.
 
 [LOCAL_ADMISSION]:
 - Hashing mints non-cryptographic identity, cache, and correlation values only; redaction, security, and tamper evidence use separate declared rails — a non-cryptographic digest never carries a security claim.
@@ -96,5 +53,5 @@ staging catalog so the content-address identity never fragments.
 [RAIL_LAW]:
 - Package: `System.IO.Hashing`
 - Owns: non-cryptographic snapshot identity, content-address keys, frame-integrity checksums
-- Accept: seeded `XxHash128`/`XxHash3` content keys, `Crc32`/`Crc64` frame integrity, incremental + streaming + forked accumulation, the `UInt128`/`ulong`/`uint` primitive sinks; the wire content-key seam — a `Crc32.HashToUInt32` per-frame integrity over a contiguous `ByteString`/segment span and a `XxHash128` whole-artifact identity over the pooled `RecyclableMemoryStream.GetReadOnlySequence()` view (`api-recyclable-stream`), keying the same bytes the `api-protobuf` `IBufferMessage` fast path stages (`Runtime/codecs#CONTENT_ADDRESSING` / `Runtime/channels#ARTIFACT_FRAMES`)
+- Accept: seeded `XxHash128`/`XxHash3` content keys, `Crc32`/`Crc64` frame integrity, incremental + streaming + forked accumulation, the `UInt128`/`ulong`/`uint` primitive sinks; the wire content-key seam — a `Crc32.HashToUInt32` per-frame integrity over a contiguous `ByteString`/segment span and a `XxHash128` whole-artifact identity over the pooled `RecyclableMemoryStream.GetReadOnlySequence()` view (`api-recyclable-stream`), keying the same bytes the `api-protobuf` `IBufferMessage` fast path stages (`Runtime/codecs#CONTENT_ADDRESSING` / `Runtime/transport#ARTIFACT_FRAMES`)
 - Reject: security claims from non-cryptographic hashes; a second value-digest owner (`HashCode<T>.Combine` stays out at the staging catalog); a raw interpolated-string seed beside the canonical-scalar seed digest; a hash-algorithm instance used as a dictionary key (`GetHashCode` throws)

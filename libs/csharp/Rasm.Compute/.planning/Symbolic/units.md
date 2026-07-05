@@ -16,8 +16,8 @@ The AEC-domain folders own their unit admission IN-FOLDER. The strata graph is a
 
 - Owner: `QuantityFamily` `[SmartEnum<string>]` rows, keyed ordinal-ignore-case through the shipped `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `UnitMetadata` the metadata-sourcing owner over `QuantityInfo.BaseUnitInfo`/`UnitInfos`/`UnitType`.
 - Cases: length, area, volume, mass, duration, speed, acceleration, force, pressure, energy, power, temperature, angle, torque, ratio, density, area-moment-of-inertia, heat-transfer-coefficient, thermal-resistance, illuminance, rotational-speed — each row carries `QuantityInfo` metadata, a `BaseUnitInfo.Value`-sourced canonical unit, an explicit display unit defaulting to canonical, and a tolerance column the `Equivalent` proof reads; the `Speed`, `RotationalSpeed`, and `Length` (depth) rows are the cut-parameter ingress vocabulary the `CutParameterIngress` contract canonicalizes for the Fabrication consumer.
-- Entry: `Admit(IQuantity quantity, UnitPolicy policy, Guid correlation)` — `Fin<UnitEvidence>` aborts; the typed-quantity, text, value-plus-unit, and value-plus-abbreviation arities discriminate on payload shape and converge on the same rail. `Equivalent(IQuantity, IQuantity)` is the tolerance-keyed equivalence over the row's canonical scale.
-- Packages: UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Entry: `Admit(IQuantity quantity, UnitPolicy policy, CorrelationId correlation)` — `Fin<UnitEvidence>` aborts; the typed-quantity, text, value-plus-unit, and value-plus-abbreviation arities discriminate on payload shape and converge on the same rail. The correlation is the corpus-wide typed `CorrelationId` the admission spine threads (`AdmittedIntent.Correlation`), never a bare `Guid` — `UnitProject` intents enter `Admit` carrying the identity the `Runtime/admission` rail already minted. `Equivalent(IQuantity, IQuantity)` is the tolerance-keyed equivalence over the row's canonical scale.
+- Packages: UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project — the typed `CorrelationId`)
 - Growth: one table row on `QuantityFamily` per further AEC quantity, admitted only when a consumer exists — its canonical column sourcing from `QuantityInfo.BaseUnitInfo.Value` and its display column an explicit per-row `Enum`; the rows close the families the current symbolic, solver, and cut-parameter consumers admit, so a speculative row with no consumer is the rejected addition; zero new surface.
 - Boundary: conversion runs exactly once at admission and interior numerics are raw doubles owned by Rasm core — a quantity type in an interior signature is the seam violation this table deletes. Unit-admission failures mint `ComputeFault` through the dual-tier `Create` text route on the 2200 code band, the units-boundary contribution to the intent-and-selection fault union. `UnitsNetSetup.Default` is the single setup root composed once at the composition root, with `UnitConverter` riding it and a second setup instance rejected. NodaTime owns interior time, so the duration row exists only to canonicalize boundary text to seconds before rail time takes over. `UnitProject` intents enter `Admit` and the `Pipeline` intent case composes it; the `CutParameterIngress` contract canonicalizes feed/surface-speed/depth/spindle text to an SI raw double for the same in-process and host-free-peer callers, never an AEC project over a reference.
 - Metadata sourcing: the canonical `Enum` column reads `QuantityInfo.BaseUnitInfo.Value` once per row at static construction — the metadata is the column, so the hand-passed canonical arg is deleted, and UnitsNet emits no `DefaultUnitAttribute`/`DisplayAsUnitAttribute` on the generated types so attribute reflection over them resolves to nothing. The display column is the explicit presentation `Enum` defaulting to canonical. `Probe()` is the composition-time coherence guard: a row whose display `Enum` does not belong to its `QuantityInfo.UnitType` (a cross-family display typo such as a `PressureUnit` on the `Length` row) drifts as a `ComputeFault` at composition rather than failing the first `Render`; the canonical column needs no such guard because it is read FROM `BaseUnitInfo.Value` and so is type-correct by construction.
@@ -78,22 +78,22 @@ public sealed partial class QuantityFamily {
         Tolerance = tolerance;
     }
 
-    public Fin<UnitEvidence> Admit(IQuantity quantity, UnitPolicy policy, Guid correlation) =>
+    public Fin<UnitEvidence> Admit(IQuantity quantity, UnitPolicy policy, CorrelationId correlation) =>
         quantity.QuantityInfo.Name == Info.Name && quantity.Dimensions.Equals(Info.BaseDimensions)
             ? (Fin<UnitEvidence>)UnitEvidence.From(quantity, this, correlation)
             : ComputeFault.Create($"unit-admission {Key}: {quantity.QuantityInfo.Name} out of family");
 
-    public Fin<UnitEvidence> Admit(string text, UnitPolicy policy, Guid correlation) =>
+    public Fin<UnitEvidence> Admit(string text, UnitPolicy policy, CorrelationId correlation) =>
         Quantity.TryParse(policy.Culture, Info.ValueType, text, out var parsed)
             ? Admit(parsed, policy, correlation)
             : ComputeFault.Create($"unit-admission {Key}: '{text}' outside {Info.Name}");
 
-    public Fin<UnitEvidence> Admit(double value, Enum unit, UnitPolicy policy, Guid correlation) =>
+    public Fin<UnitEvidence> Admit(double value, Enum unit, UnitPolicy policy, CorrelationId correlation) =>
         Quantity.TryFrom(value, unit, out var typed)
             ? Admit(typed, policy, correlation)
             : ComputeFault.Create($"unit-admission {Key}: {unit} outside {Info.Name}");
 
-    public Fin<UnitEvidence> Admit(double value, string unit, UnitPolicy policy, Guid correlation) =>
+    public Fin<UnitEvidence> Admit(double value, string unit, UnitPolicy policy, CorrelationId correlation) =>
         Resolve(unit, policy) is { IsSome: true, Case: Enum resolved }
             ? Admit(value, resolved, policy, correlation)
             : ComputeFault.Create($"unit-admission {Key}: '{unit}' outside {Info.Name}");
@@ -126,7 +126,7 @@ public static class CutParameterIngress {
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     // The consumer never sees an IQuantity, only the raw SI double the slot's family canonicalizes to.
-    public static Fin<double> Canonicalize(string slot, string text, UnitPolicy policy, Guid correlation) =>
+    public static Fin<double> Canonicalize(string slot, string text, UnitPolicy policy, CorrelationId correlation) =>
         Slots.TryGetValue(slot, out var family)
             ? family.Admit(text, policy, correlation).Map(static evidence => evidence.CanonicalValue)
             : ComputeFault.Create($"cut-parameter-ingress: unknown slot '{slot}'");
@@ -206,9 +206,9 @@ public sealed record UnitEvidence(
     double OriginalValue,
     string CanonicalUnit,
     double CanonicalValue,
-    Guid CorrelationId) {
+    CorrelationId CorrelationId) {
 
-    public static UnitEvidence From(IQuantity quantity, QuantityFamily row, Guid correlation) =>
+    public static UnitEvidence From(IQuantity quantity, QuantityFamily row, CorrelationId correlation) =>
         new(
             Family: row.Key,
             OriginalUnit: quantity.Unit.ToString(),

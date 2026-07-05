@@ -4,7 +4,7 @@ The `ComputeReceipt` union is the package's only fact vocabulary for measured ex
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT_UNION]: fact union (inline cases + the `Analysis/assessment` `Assessment` partial); one wire context; sink-port emission.
+- [01]-[RECEIPT_UNION]: fact union (inline cases + the `Analysis/assessment` `Assessment` partial — its failure columns `Phase`/`FailureKind`/`Transient`/`Attempt` beside the verdict, and the seismic-route `Participation`/`Combination` columns, all declared on that partial while THIS index keeps the `[JsonDerivedType]` registration and the widened `AssessmentWire` projection single-sited); one wire context; sink-port emission.
 - [02]-[FOLD_PROJECTIONS]: operational views derive as folds over the fact stream.
 - [03]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
 - [04]-[BENCHMARK_CLAIMS]: fingerprint-gated claim rows decide performance routes.
@@ -413,7 +413,7 @@ interface UncertaintyWire extends ComputeReceiptSpineWire { kind: "uncertainty";
 
 interface FitWire extends ComputeReceiptSpineWire { kind: "fit"; family: string; method: string; parameters: number; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number; }
 
-interface AssessmentWire extends ComputeReceiptSpineWire { kind: "assessment"; discipline: string; route: string; key: string; verdict: string; governingRatio: number; admitted: boolean; }
+interface AssessmentWire extends ComputeReceiptSpineWire { kind: "assessment"; discipline: string; route: string; key: string; verdict: string; governingRatio: number; admitted: boolean; phase: string | null; failureKind: string | null; transient: boolean; attempt: number; participation: number | null; combination: string | null; }
 
 type ComputeReceiptWire =
   | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire

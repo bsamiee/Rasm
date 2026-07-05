@@ -100,7 +100,6 @@ The engine reads as high-order domains. `document` owns one `DocumentNode` tree 
 *                            →  python:runtime                          # [RECEIPT]: ArtifactReceipt contribution
 document/model               →  python:data/tabular                     # [WIRE]: to_corpus_row flat record
 document/model               →  python:artifacts/document/tagged        # [SHAPE]: StructureNode/StructEltKind structure tree + FigureNode.alt
-graphic/color/derive         →  python:data/tabular                     # [WIRE]: color palette arrays / appearance correlates
 graphic/color/derive         →  python:artifacts/visualization          # [PROJECTION]: ColorReceipt.coords palette to chart/table/diagram
 graphic/color/derive         →  python:artifacts/scene                  # [PROJECTION]: palette to scene colormap
 graphic/color/derive         →  python:artifacts/graphic/color/managed  # [PROJECTION]: tone-curve / space provenance to the managed egress

@@ -116,7 +116,7 @@ Method rows operate on a `Trimesh`; boolean rows accept a second mesh or a seque
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MESH_AEC]:
-- import: `import trimesh` at boundary scope only; module-level import is banned by the manifest import policy.
+- import: `import trimesh` at module scope; the mesh exchange owner binds it as a core `_BACKEND` engine row beside `meshio`/`rhino3dm`.
 - load axis: `trimesh.load` is the polymorphic intake; the return kind (`Trimesh`, `Scene`, `Path3D`) discriminates on source content, not a parallel reader family. `load_mesh`/`load_scene` force the return kind; `file_type` forces a format only when extension is absent.
 - mesh axis: one `Trimesh` owns geometry, topology, mass properties, repair, and export; cached derived properties (`edges_unique`, `edges_face`, `face_adjacency`, `facets`, `facets_boundary`) recompute on `process()`. Open-edge / boundary work reads `edges_face`/`facets_boundary` directly, never a hand-rolled edge-incidence scan. Vertex/face edits route through `update_vertices`/`update_faces`/`merge_vertices`, never raw array mutation.
 - boolean axis: `union`/`difference`/`intersection` (method and `trimesh.boolean` module forms over a sequence) default to the in-process `manifold` engine (`engine=None`); the only optional external engine is `blender` — `trimesh.boolean.engines_available == {None, 'blender'}` (`manifold` is always present as the default and is not enumerated). `boolean_manifold(meshes, operation, ...)` is the kernel; the operation is the function name, never a separate boolean class.

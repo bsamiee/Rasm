@@ -26,23 +26,24 @@
     </ItemGroup>
 
     <ItemGroup Label="Symbolic">
-        <PackageReference Include="MathNet.Symbolics" />
+        <PackageReference Include="AngouriMath" />
+        <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
     <ItemGroup Label="Constraint Solving">
         <PackageReference Include="Microsoft.Z3" />
     </ItemGroup>
 
-    <ItemGroup Label="Structural Solvers">
-        <PackageReference Include="BriefFiniteElement.Net" />
-        <PackageReference Include="BriefFiniteElementNet.CustomElements" />
-        <PackageReference Include="FEALiTE2D" />
-        <PackageReference Include="FEALiTE2D.Plotting" />
-    </ItemGroup>
-
     <ItemGroup Label="Energy Simulation">
+        <PackageReference Include="Microsoft.Data.Sqlite" />
         <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
         <PackageReference Include="PollinationSDK" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analysis Circulation">
+        <PackageReference Include="Clipper2" />
+        <PackageReference Include="NetTopologySuite" />
+        <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
     <ItemGroup Label="Models">
@@ -59,12 +60,14 @@
     </ItemGroup>
 
     <ItemGroup Label="Remote Wire">
+        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Grpc.Net.Client.Web" />
         <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
+        <PackageReference Include="Riok.Mapperly" />
     </ItemGroup>
 
     <ItemGroup Label="Interchange Staging">
