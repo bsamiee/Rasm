@@ -1,6 +1,6 @@
 export const meta = {
   name: 'rebuild-ts',
-  description: 'Focused ultra-rebuild of the whole libs/typescript corpus in place: sonnet census fan, then per-folder parallel lanes (api-stacking researcher + line-by-line doctrine auditor feeding one fable improver, then critique, then red-team), one terminal fable align over the whole branch, read-only acceptance. Pure rebuilding - package admission and .api authoring happened before dispatch. Collapse and extend in place to the 13/10 bar: fewer denser owners, single entry points, internalized capability, research-grade machines, world-class pubsub/streaming/resilience/PG-18.4/filesystem-cloud/IaC.',
+  description: 'Focused ultra-rebuild of the whole libs/typescript corpus in place: sonnet census fan, then per-folder parallel lanes (api-stacking researcher + line-by-line doctrine auditor feeding one fable improver, then critique, then red-team), one terminal fable align over the whole branch, then a WRITING verify close that fixes everything it finds. Pure rebuilding - package admission and .api authoring happened before dispatch. Collapse and extend in place to the 13/10 bar: fewer denser owners, single entry points, internalized capability, research-grade machines, world-class pubsub/streaming/resilience/PG-18.4/filesystem-cloud/IaC.',
   whenToUse: 'Dispatch once build-ts has landed, the admissions plan is applied, and the output is committed. Ephemeral - delete after the campaign lands.',
   phases: [
     { title: 'Census', model: 'sonnet' },
@@ -45,7 +45,8 @@ const FIXLOG = { type: 'object', additionalProperties: false, required: ['files'
   residuals: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 const ALIGN_OUT = { type: 'object', additionalProperties: false, required: ['fixes', 'summary'], properties: {
   fixes: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const ACCEPT_OUT = { type: 'object', additionalProperties: false, required: ['unresolved', 'summary'], properties: {
+const ACCEPT_OUT = { type: 'object', additionalProperties: false, required: ['fixes', 'unresolved', 'summary'], properties: {
+  fixes: { type: 'array', items: { type: 'string' } },
   unresolved: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
@@ -321,13 +322,22 @@ const alignPrompt = (laneResults) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, 
   'LANE RESULTS: ' + laneResults + ' Return {fixes, summary}.',
 ].join('\n\n')
 
-const acceptPrompt = () => [CONTEXT,
-  'TASK: READ-ONLY ACCEPTANCE - investigate, never edit, never block. Over the whole improved ' + ROOT + ': ' +
+const acceptPrompt = () => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, WRITE_FULLY,
+  'TASK: VERIFY CLOSE - your role law is libs/.planning/campaign-method.md [04] VERIFY, read at source and held to ' +
+  'the letter: adversarial and WRITING, never a friendly confirmation - every problem you find you FIX in place ' +
+  'NOW, and where a single-point patch competes with a root-level dense reconstruction of the same fence, the root ' +
+  'form wins. Over the whole improved ' + ROOT + ': ' +
   '(1) cross-page symbol sweep - every cross-page symbol a fence composes resolves on a sibling owner with a ' +
-  'matching signature; (2) catalog truth spot-audit - sample 5 catalogs per tier and verify members against ' +
-  'node_modules; (3) manifest audit - every pnpm-workspace.yaml TS package has exactly one .api catalog and at ' +
-  'least one composing page, no orphans either direction; (4) doctrine spot-grade - sample 2 pages per folder cold ' +
-  'against the sixteen laws. Report each miss as unresolved with file evidence. Return {unresolved, summary}.',
+  'matching signature; a mismatch is repaired at the correct end, both ends recorded; ' +
+  '(2) catalog truth audit - sample 5 catalogs per tier against node_modules declarations; a lying member is fixed ' +
+  'in the catalog and in every fence that composed it; ' +
+  '(3) manifest audit - every pnpm-workspace.yaml TS package has exactly one .api catalog and at least one ' +
+  'composing page; an orphan either direction is closed (author the catalog, land the composition, or record the ' +
+  'explicit kill ruling); ' +
+  '(4) doctrine cold-grade - sample 2 pages per folder against the sixteen laws and repair every violation found; ' +
+  'a violated pattern found in a sample is then hunted across its siblings, never left as a one-page fix. ' +
+  'unresolved carries ONLY what is genuinely unreachable from the files at hand - never a punt on a strengthenable ' +
+  'fix. Return {fixes, unresolved, summary}.',
 ].join('\n\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -378,7 +388,7 @@ phase('Close')
 const align = await agent(alignPrompt(JSON.stringify(lanes)), {
   label: 'align', phase: 'Close', model: 'fable', effort: 'high', schema: ALIGN_OUT, stallMs: STALL })
 const accept = await agent(acceptPrompt(), {
-  label: 'acceptance', phase: 'Close', model: 'opus', effort: 'high', schema: ACCEPT_OUT, stallMs: STALL })
+  label: 'verify', phase: 'Close', model: 'fable', effort: 'high', schema: ACCEPT_OUT, stallMs: STALL })
 
 return {
   folders: lanes,
