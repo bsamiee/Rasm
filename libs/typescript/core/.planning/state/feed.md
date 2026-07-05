@@ -16,14 +16,14 @@ The evidence timeline aggregator: one process-local `Entry` family wrapping the 
 [DOCUMENT_REF]:
 - Owner: `DocumentRef` — the content-keyed result-document evidence: `key` (the artifact coordinate — the one identity any runtime's mint agrees on), `media` (the consumer-routing row), `label`, `extent`, `origin` (the producing operation or command key, optional), `columns` (the optional column band), `stamp`, `tenant`; reached as `Feed.Document`, so one import carries the feed and the shape a document view binds.
 - Law: the reference is producer-opaque by construction — its fields are the content key, the media row, and the self-description band; no producer discriminant exists on the shape, so a C#-minted and a Python-minted result artifact carry through identical values and zero consumer branches on origin runtime.
-- Law: the column band is the binding contract, not validation — a `tabular` document's payload is self-describing and the band states what a view binds: `name`, `kind` (the closed logical axis), `dimension` (the `value/quantity` SI vector, carried so a magnitude column renders as a projection over the SI value, never a `{value, unit}` re-decode), `nullable`; a band/payload disagreement surfaces as consumer evidence, never a re-validation here.
+- Law: the column band is the binding contract, not validation — a `tabular` document's payload is self-describing and the band states what a view binds: `name`, `kind` (the closed logical axis), `role` (the binding axis a grid or chart consumes — `key` identifies rows, `measure` aggregates, `category` groups and facets, `detail` renders inert), `dimension` (the `value/quantity` SI vector, carried so a magnitude column renders as a projection over the SI value, never a `{value, unit}` re-decode), `precision` (the optional fraction-digit render hint), `rank` (the optional display order — an absent rank defers to band order), `nullable`; a band/payload disagreement surfaces as consumer evidence, never a re-validation here.
 - Law: references fold from receipt evidence — an `Applied` receipt's `touched` keys name the produced artifacts, so app composition mints `DocumentRef` values from evidence already on the feed; this page owns the vocabulary and the fold, never a fetch.
-- Growth: a new media kind is one literal row; a new column axis (a precision hint, a display rank) is one `_Column` field.
-- Packages: `@effect/typeclass` (`Semigroup.make`); `effect` (`Chunk`, `Data`, `Equal`, `HashMap`, `Option`, `Order`, `Schema`, `SortedMap`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/contentKey.ts` (`ContentKey`); `../value/quantity.ts` (`Dimension`); `./evidence.ts` (`Availability`, `ProgressMark`, `ReceiptEnvelope`); `./merge.ts` (`Merge`); `./fold.ts` (`Fold`).
+- Growth: a new media kind is one literal row; a new column axis (a sort collation, a format mask) is one `_Column` field; a new binding role is one `role` literal every band-driven view absorbs as a dispatch arm.
+- Packages: `@effect/typeclass` (`Semigroup.make`); `effect` (`Chunk`, `Data`, `Equal`, `Equivalence`, `HashMap`, `Option`, `Order`, `Schema`, `SortedMap`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/contentKey.ts` (`ContentKey`); `../value/quantity.ts` (`Dimension`); `./evidence.ts` (`Availability`, `ProgressMark`, `ReceiptEnvelope`); `./merge.ts` (`Merge`); `./fold.ts` (`Fold`).
 
 ```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
-import { Chunk, Data, Equal, HashMap, Option, Order, Schema, SortedMap } from "effect"
+import { Chunk, Data, Equal, Equivalence, HashMap, Option, Order, Schema, SortedMap } from "effect"
 import { Hlc } from "../value/clock.ts"
 import { ContentKey } from "../value/contentKey.ts"
 import { TenantContext } from "../value/identity.ts"
@@ -35,7 +35,10 @@ import { Merge } from "./merge.ts"
 const _Column = Schema.Struct({
   name: Schema.NonEmptyString,
   kind: Schema.Literal("bool", "int", "real", "text", "stamp"),
+  role: Schema.Literal("key", "measure", "category", "detail"),
   dimension: Schema.optionalWith(Dimension, { as: "Option" }),
+  precision: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { as: "Option" }),
+  rank: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { as: "Option" }),
   nullable: Schema.Boolean,
 })
 
@@ -102,7 +105,7 @@ const _subject: (entry: Feed.Entry) => string = _Entry.$match({
 - Law: the row key order composes event stamp, then subject, then tag — total over distinct entries — so concurrent same-stamp evidence from different subjects interleaves deterministically and the feed order is reproducible from any replay: REPLAY_LAW at feed altitude.
 - Law: the policy row is data — `cap` bounds the census with a single head eviction per insert (the census grows by at most one, so eviction is one `SortedMap.remove` of `headOption`, never a sweep), `coalesce` toggles replacement of the previous same-subject same-kind row.
 - Law: coalescing keeps the greatest key per slot — an arrival whose key does not outrank the live pointer is superseded evidence the absorb drops — so absorb order cannot bury newer evidence and the coalescing lane stays commutative; a distinct-entry tie on one composed key is a stamp collision the HLC-monotone mint excludes.
-- Law: the feed merges as an instance — union of rows re-absorbed under the same policy — commutative and idempotent because row identity is the composed key and eviction always drops the global minimum, so lane-partitioned feeds fuse under `Merge.fold` like every other lattice, and `Feed.plan` partitions by tenant lane so every altitude runs the identical fold; `alike` compares rank-paired entries key-inclusively, so state equality never leans on the key-derives-from-entry invariant.
+- Law: the feed merges as an instance — union of rows re-absorbed under the same policy — commutative and idempotent because row identity is the composed key and eviction always drops the global minimum, so lane-partitioned feeds fuse under `Merge.fold` like every other lattice, and `Feed.plan` partitions by tenant lane so every altitude runs the identical fold; `alike` derives — `Equal.equivalence` mapped onto the rows `SortedMap`, whose structural equality is the ordered, key-inclusive pairwise entry comparison the container itself carries — so state equality composes the collection's own proof and never leans on the key-derives-from-entry invariant.
 - Boundary: a serving edge frames the fold's live view; the durable feed projection is the data branch binding `Feed.plan`; AppUi rendering consumes served rows and never re-sorts.
 
 ```typescript
@@ -196,12 +199,10 @@ const Feed: Feed.Shape = {
       combine: Semigroup.make((self: Feed.State, that: Feed.State) =>
         SortedMap.reduce(that.rows, self, (acc, entry) => _absorb(policy)(acc, entry))),
       posture: { commutative: true, idempotent: true },
-      alike: (self, that) =>
-        SortedMap.size(self.rows) === SortedMap.size(that.rows)
-        && Chunk.every(
-          Chunk.zip(Chunk.fromIterable(self.rows), Chunk.fromIterable(that.rows)),
-          ([left, right]) => Equal.equals(left[0], right[0]) && Equal.equals(left[1], right[1]),
-        ),
+      alike: Equivalence.mapInput(
+        Equal.equivalence<SortedMap.SortedMap<Feed.Key, Feed.Entry>>(),
+        (state: Feed.State) => state.rows,
+      ),
       empty: Option.some(_empty),
     }),
   plan: (policy) =>

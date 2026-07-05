@@ -5,7 +5,7 @@
 - module: ESM only (`type: module`, no CJS mirror); `.` barrel plus two peer-gated subpaths — `./sqlite` (durable operator state) and `./electric` (live-replication binding).
 - asset: `dist/index.d.ts` (barrel over `d2` / `order` / `multiset` / `version-index` / `operators` / `types`); the `.` core bundles `fractional-indexing` + `murmurhash-js` and has NO peer requirement.
 - runtime: pure-TS in-process dataflow; runs in node / bun / browser / worker. The `.` core is browser-safe; `./sqlite` requires the `better-sqlite3` peer (node durable altitude) and `./electric` the `@electric-sql/client` peer (Postgres replication) — neither peer crosses into `state`'s transport-free import surface.
-- ABI: synchronous fixpoint scheduler — `graph.run()` / `graph.step()` drain the operator queue on the calling thread; `topKWithFractionalIndexBTree`'s d2mini sibling is async-loaded, but every d2ts operator here is sync.
+- ABI: synchronous fixpoint scheduler — `graph.run()` / `graph.step()` drain the operator queue on the calling thread; every barrel-reachable operator is sync.
 - plane: `plane:runtime` (W1); folder-local to `state`, catalogued here.
 - rail: incremental-dataflow / fold-maintenance.
 

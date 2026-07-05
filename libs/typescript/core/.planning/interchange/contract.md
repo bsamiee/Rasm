@@ -1,6 +1,6 @@
 # [CORE_CONTRACT]
 
-The schema-drift authority of the interchange plane: pure reflection over two `FileDescriptorSet` generations — the build-pinned generation embedded in the generated proto suite and the live generation the C# runtime ships — folded into one graded `ContractDrift` verdict per proto census family at boot, so schema drift is a value the operator reads and a decode gate consumes, never a runtime decode failure. The diff walk pairs fields by number and compares the full wire signature — kind, leaf identity, and the delimited/packed wire facts — walks enum value rosters, and emits typed `DriftChange` rows; the severity table grades each change, the rank lattice folds a family's change set to its dominant verdict, and `admitted`/`alarm` are policy projections a `breaking` family refuses decode through as a `drift`-reasoned `WireFault`. The gate is proto-altitude only — the msgpack, cbor, and jsonpatch arms drift-check through their own vocabulary closures, and an out-of-vocabulary RFC 6902 op surfaces through this same verdict family. The module is `core/src/interchange/contract.ts`; a new detectable drift axis is one change case plus one grade row plus one comparison line, and a new verdict policy axis is one severity column.
+The schema-drift authority of the interchange plane: pure reflection over two `FileDescriptorSet` generations — the build-pinned generation embedded in the generated proto suite and the live generation the C# runtime ships — folded into one graded `ContractDrift` verdict per proto census family at boot, so schema drift is a value the operator reads and a decode gate consumes, never a runtime decode failure. The diff walk pairs fields by number, gates on leaf identity, then folds the ordered lane table — wire facts, oneof membership, serialized field options, enum rosters, and recursive nested-message descent — while the RPC walk pairs the pinned `DescService` roster's methods by name and compares `methodKind`, `idempotency`, and the input/output signature; every disagreement is a typed `DriftChange` row. The severity table grades each change, the rank lattice folds a family's change set to its dominant verdict, and `admitted`/`alarm` are policy projections a `breaking` family refuses decode through as a `drift`-reasoned `WireFault`. The gate is proto-altitude only — the msgpack, cbor, and jsonpatch arms drift-check through their own vocabulary closures, an out-of-vocabulary RFC 6902 op and the msgpack `Alien` ext land through this same verdict vocabulary at their registry rows, and live-message unknown-field residue is `codec`'s `Wire.residue` read, the runtime complement of this boot-time grade. The module is `core/src/interchange/contract.ts`; a new detectable drift axis is one change case plus one grade row plus one lane row, and a new verdict policy axis is one severity column.
 
 ## [1]-[CLUSTERS]
 
@@ -17,14 +17,17 @@ The schema-drift authority of the interchange plane: pure reflection over two `F
 - Law: verdict admission is data — `identical` and `additive` admit decode, `breaking` refuses it; the refusal surfaces as a `WireFault` with reason `drift` at the consuming registry row, never a `ParseError` mid-decode.
 - Law: severity folds by the lattice — one `breaking` change makes the family `breaking` regardless of additive siblings, `identical` is exactly the empty change set, and `dominant` is a grade lookup per change plus `Array.max` over the rank order.
 - Law: the change union carries the two enum-roster verdicts as first-class detected rows — `EnumValueAdded` grades `additive`, `EnumValueRemoved` grades `breaking` — and `WireTypeChanged` carries the delimited/packed wire-fact signatures both sides; every change kind the vocabulary declares is minted by the `[03]` walk, so no verdict row is dead vocabulary.
+- Law: the union spans every reflectable axis — `OneofChanged` (presence semantics moved, `breaking`), `OptionChanged` (the serialized `FieldOptions` disagree — deprecation, field behavior, edition features — advisory `additive`), and the method triple `MethodAdded`/`MethodRemoved`/`MethodChanged` grading the RPC plane; nested-message drift needs no case of its own because the descent mints rows at the nested coordinates.
 - Law: the verdict family is `Schema`-declared — verdicts serialize into CI artifacts and cross the reporting boundary; a process-local re-model is the parallel-shape defect.
 - Growth: a new change kind is one union case plus one `_grade` row — the grade record's mapped contract breaks until the row lands; a new policy axis is one `_severity` column.
-- Boundary: computing changes from descriptor generations is `[03]`'s walk; the `codec` registry consumes `admitted` through the gate service; the jsonpatch alien-op surfacing composes this vocabulary at its registry row.
+- Boundary: computing changes from descriptor generations is `[03]`'s walk; the `codec` registry consumes `admitted` through the gate service; the jsonpatch alien-op and msgpack `Alien` ext surfacings compose this vocabulary at their registry rows; live-message unknown-field residue is `codec`'s `Wire.residue` read.
 - Packages: `effect` (`Schema`, `Array`, `Order`); `./codec.ts` (`Wire`).
 
 ```typescript
-import { Array, Effect, HashMap, Match, Option, Order, type ParseResult, Schema } from "effect"
+import { Array, Effect, HashMap, HashSet, Match, Option, Order, type ParseResult, Schema } from "effect"
 import { Wire, WireFault } from "./codec.ts"
+
+const _verdicts = ["identical", "additive", "breaking"] as const
 
 const _severity = {
   identical: { rank: 0, admitted: true, alarm: false },
@@ -35,8 +38,13 @@ const _severity = {
 const _grade = {
   FieldAdded: "additive",
   EnumValueAdded: "additive",
+  MethodAdded: "additive",
+  OptionChanged: "additive",
   EnumValueRemoved: "breaking",
   FieldRemoved: "breaking",
+  MethodRemoved: "breaking",
+  MethodChanged: "breaking",
+  OneofChanged: "breaking",
   TypeChanged: "breaking",
   WireTypeChanged: "breaking",
   NumberReused: "breaking",
@@ -55,11 +63,25 @@ const _EnumCoord = Schema.Struct({
   number: Schema.Int,
 })
 
+const _MethodCoord = Schema.Struct({
+  service: Schema.NonEmptyString,
+  method: Schema.NonEmptyString,
+})
+
 const _Change = Schema.Union(
   Schema.TaggedStruct("FieldAdded", { at: _FieldCoord }),
   Schema.TaggedStruct("EnumValueAdded", { at: _EnumCoord }),
+  Schema.TaggedStruct("MethodAdded", { at: _MethodCoord }),
+  Schema.TaggedStruct("OptionChanged", { at: _FieldCoord }),
   Schema.TaggedStruct("EnumValueRemoved", { at: _EnumCoord }),
   Schema.TaggedStruct("FieldRemoved", { at: _FieldCoord }),
+  Schema.TaggedStruct("MethodRemoved", { at: _MethodCoord }),
+  Schema.TaggedStruct("MethodChanged", { at: _MethodCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
+  Schema.TaggedStruct("OneofChanged", {
+    at: _FieldCoord,
+    from: Schema.Option(Schema.NonEmptyString),
+    to: Schema.Option(Schema.NonEmptyString),
+  }),
   Schema.TaggedStruct("TypeChanged", { at: _FieldCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
   Schema.TaggedStruct("WireTypeChanged", { at: _FieldCoord, from: Schema.NonEmptyString, to: Schema.NonEmptyString }),
   Schema.TaggedStruct("NumberReused", { at: _FieldCoord, retired: Schema.NonEmptyString }),
@@ -68,7 +90,7 @@ const _Change = Schema.Union(
 
 class ContractDrift extends Schema.Class<ContractDrift>("ContractDrift")({
   family: Wire.wire,
-  verdict: Schema.Literal("identical", "additive", "breaking"),
+  verdict: Schema.Literal(..._verdicts),
   pinned: Schema.NonEmptyString,
   live: Schema.NonEmptyString,
   changes: Schema.Array(_Change),
@@ -95,20 +117,26 @@ class ContractDrift extends Schema.Class<ContractDrift>("ContractDrift")({
 declare namespace ContractDrift {
   type Verdict = keyof typeof _severity
   type Change = Schema.Schema.Type<typeof _Change>
+  type _Rows<T extends Record<(typeof _verdicts)[number], { readonly rank: number; readonly admitted: boolean; readonly alarm: boolean }> = typeof _severity> = T
   type _Grades<T extends Record<Change["_tag"], Verdict> = typeof _grade> = T
+  type _Keys<K extends (typeof _verdicts)[number] = Verdict> = K
+  type _GradeKeys<K extends Change["_tag"] = keyof typeof _grade> = K
 }
 ```
 
 ## [3]-[GENERATION_DIFF]
 
 [GENERATION_DIFF]:
-- Owner: the interior walk — `_leaf` classifies a `DescField` to its type signature through the `fieldKind` record dispatch, `_wireFacts` renders the delimited/packed encoding posture, `_enumChanges` pairs enum value rosters by number, and `_diffed` walks one pinned `DescMessage` against its live counterpart by field number, folding every disagreement into `DriftChange` rows.
+- Owner: the interior walk — `_leaf` classifies a `DescField` to its type signature through the `fieldKind` record dispatch, `_wireFacts` renders the delimited/packed encoding posture, `_signature` renders a `DescMethod` to its RPC signature, `_enumOf`/`_messageOf` project the roster-carrying descriptor off any field kind, `_lanes` is the ordered comparison-lane table every shared field pair folds through, and `_paired` is the one keyed roster fold — `added`, `removed`, `shared` arms over two generations — that `_enumChanges` instantiates by value number, `_serviced` by method name, and `_diffed` by field number, the field walk recursing over message-typed leaves under a visited-set guard; every disagreement folds into `DriftChange` rows.
 - Law: fields pair by number, never by name — the wire is number-addressed, so a renamed field with a stable number and signature is `identical`, a re-numbered field is a remove-plus-add pair, and a reused number whose signature changed is `NumberReused`, the severest field-level lie.
-- Law: `_leaf` is type equality and `_wireFacts` is encoding equality, compared separately — a field whose leaf identity holds but whose `delimitedEncoding` or `packed` posture flipped emits `WireTypeChanged` carrying both fact signatures, because the bytes on the wire change while the type story claims stability; presentation facts (json name, comments) never enter either signature.
-- Law: enum rosters walk on every shared enum-carrying field — singular, list, and map-valued enum kinds all reach the roster through one `_enumOf` projection; a live value number absent from the pinned roster emits `EnumValueAdded`, a pinned number absent live emits `EnumValueRemoved`, and the walk keys by value number, so a renamed enum value with a stable number is `identical`.
-- Law: both directions run in one fold over the deduped union of field numbers — pinned-only numbers emit `FieldRemoved`, live-only numbers emit `FieldAdded`, shared numbers compare leaf signature (a leaf change under a stable name is `TypeChanged`, under a new name `NumberReused`), then wire facts, then enum rosters; a stable-number rename with equal signatures is `identical`.
-- Growth: an option-level change or reserved-range violation is one change case plus one comparison line here; the walk shape never changes.
-- Packages: `@bufbuild/protobuf` (`DescEnum`, `DescField`, `DescMessage`, `ScalarType`, `qualifiedName`); `effect` (`Array`, `HashMap`, `Match`, `Option`).
+- Law: leaf identity gates, lanes accumulate — a leaf disagreement is exclusive (`TypeChanged` under a stable name, `NumberReused` under a new one — deeper comparison across changed types is noise), and an agreeing leaf folds the whole `_lanes` table so one field pair can carry wire-fact, oneof, option, roster, and nested rows together; a ternary ladder that reports only the first disagreement is the rejected shape.
+- Law: `_wireFacts` is encoding equality separate from type equality — a flipped `delimitedEncoding` or `packed` posture emits `WireTypeChanged` carrying both fact signatures, because the bytes change while the type story claims stability; presentation facts (json name, comments) never enter any signature.
+- Law: option drift compares the serialized options message — `equals(FieldOptionsSchema, was.proto.options, is.proto.options)` disagreeing (or presence flipping) emits `OptionChanged`, so deprecation, field-behavior, and edition-feature drift grade without enumerating option fields; a oneof-membership move compares `oneof?.name` both sides and emits `OneofChanged` with both memberships as `Option` evidence.
+- Law: enum rosters walk on every shared enum-carrying field — singular, list, and map-valued kinds reach the roster through the one `_enumOf` projection; a live value number absent pinned emits `EnumValueAdded`, a pinned number absent live emits `EnumValueRemoved`, keyed by value number so a renamed value with a stable number is `identical`.
+- Law: nested descent is the same fold — `_messageOf` mirrors `_enumOf`, an agreeing message-typed leaf recurses `_diffed` into the nested pair at its own coordinates, and the visited set keyed by pinned `qualifiedName` breaks recursive message cycles; a nested drift is therefore never invisible behind a stable qualified name.
+- Law: methods pair by name — the RPC path is name-addressed, unlike fields — and `_signature` compares `methodKind`, the input/output qualified names, and `idempotency` as one rendered string; a missing live service is every pinned method removed, evidence-precise without a service-level case.
+- Growth: a new drift axis is one change case plus one `_grade` row plus one `_lanes` row; the fold shape never changes.
+- Packages: `@bufbuild/protobuf` (`DescEnum`, `DescField`, `DescMessage`, `DescMethod`, `DescService`, `ScalarType`, `equals`, `qualifiedName`), `@bufbuild/protobuf/wkt` (`FieldOptionsSchema`); `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`).
 
 ```typescript
 import {
@@ -116,11 +144,15 @@ import {
   type DescEnum,
   type DescField,
   type DescMessage,
+  type DescMethod,
+  type DescService,
+  equals,
   isMessage,
   type MessageShape,
   qualifiedName,
   ScalarType,
 } from "@bufbuild/protobuf"
+import { FieldOptionsSchema } from "@bufbuild/protobuf/wkt"
 
 const _leaf = (field: DescField): string =>
   Match.value(field).pipe(
@@ -146,6 +178,9 @@ const _leaf = (field: DescField): string =>
 const _wireFacts = (field: DescField): string =>
   `delimited:${field.delimitedEncoding === true}|packed:${field.packed === true}`
 
+const _signature = (method: DescMethod): string =>
+  `${method.methodKind}:${qualifiedName(method.input)}->${qualifiedName(method.output)}|idempotency:${method.idempotency}`
+
 const _coord = (message: DescMessage, field: DescField): typeof _FieldCoord.Type =>
   _FieldCoord.make({ message: qualifiedName(message), field: field.name, number: field.number })
 
@@ -155,74 +190,134 @@ const _enumOf = (field: DescField): Option.Option<DescEnum> =>
     ? Option.some(field.enum)
     : Option.none()
 
-const _enumChanges = (pinned: DescEnum, live: DescEnum): ReadonlyArray<ContractDrift.Change> => {
-  const before = HashMap.fromIterable(Array.map(pinned.values, (value) => [value.number, value] as const))
-  const after = HashMap.fromIterable(Array.map(live.values, (value) => [value.number, value] as const))
-  const numbers = Array.dedupe([
-    ...Array.map(pinned.values, (value) => value.number),
-    ...Array.map(live.values, (value) => value.number),
-  ])
-  return Array.filterMap(numbers, (number): Option.Option<ContractDrift.Change> =>
-    Option.match(HashMap.get(before, number), {
-      onNone: () =>
-        Option.map(HashMap.get(after, number), (added) => ({
-          _tag: "EnumValueAdded" as const,
-          at: _EnumCoord.make({ enum: qualifiedName(live), value: added.name, number }),
-        })),
-      onSome: (was) =>
-        Option.isNone(HashMap.get(after, number))
-          ? Option.some({
-              _tag: "EnumValueRemoved" as const,
-              at: _EnumCoord.make({ enum: qualifiedName(pinned), value: was.name, number }),
-            })
-          : Option.none(),
-    }))
+const _messageOf = (field: DescField): Option.Option<DescMessage> =>
+  field.fieldKind === "message" || (field.fieldKind === "list" && field.listKind === "message")
+    || (field.fieldKind === "map" && field.mapKind === "message")
+    ? Option.some(field.message)
+    : Option.none()
+
+const _optionsAlike = (was: DescField, is: DescField): boolean =>
+  was.proto.options === undefined || is.proto.options === undefined
+    ? was.proto.options === is.proto.options
+    : equals(FieldOptionsSchema, was.proto.options, is.proto.options)
+
+const _paired = <A>(
+  before: ReadonlyArray<A>,
+  after: ReadonlyArray<A>,
+  key: (row: A) => string | number,
+  arms: {
+    readonly added: (row: A) => ReadonlyArray<ContractDrift.Change>
+    readonly removed: (row: A) => ReadonlyArray<ContractDrift.Change>
+    readonly shared: (was: A, is: A) => ReadonlyArray<ContractDrift.Change>
+  },
+): ReadonlyArray<ContractDrift.Change> => {
+  const held = HashMap.fromIterable(Array.map(before, (row) => [key(row), row] as const))
+  const landed = HashMap.fromIterable(Array.map(after, (row) => [key(row), row] as const))
+  return Array.flatMap(
+    Array.dedupe([...Array.map(before, key), ...Array.map(after, key)]),
+    (at): ReadonlyArray<ContractDrift.Change> =>
+      Option.match(HashMap.get(held, at), {
+        onNone: () => Option.match(HashMap.get(landed, at), { onNone: () => [], onSome: arms.added }),
+        onSome: (was) =>
+          Option.match(HashMap.get(landed, at), { onNone: () => arms.removed(was), onSome: (is) => arms.shared(was, is) }),
+      }),
+  )
 }
 
-const _diffed = (pinned: DescMessage, live: DescMessage): ReadonlyArray<ContractDrift.Change> => {
-  const before = HashMap.fromIterable(Array.map(pinned.fields, (field) => [field.number, field] as const))
-  const after = HashMap.fromIterable(Array.map(live.fields, (field) => [field.number, field] as const))
-  const numbers = Array.dedupe([
-    ...Array.map(pinned.fields, (field) => field.number),
-    ...Array.map(live.fields, (field) => field.number),
-  ])
-  return Array.flatMap(numbers, (number): ReadonlyArray<ContractDrift.Change> =>
-    Option.match(HashMap.get(before, number), {
-      onNone: () =>
-        Option.match(HashMap.get(after, number), {
-          onNone: () => [],
-          onSome: (added) => [{ _tag: "FieldAdded" as const, at: _coord(live, added) }],
-        }),
-      onSome: (was) =>
-        Option.match(HashMap.get(after, number), {
-          onNone: () => [{ _tag: "FieldRemoved" as const, at: _coord(pinned, was) }],
-          onSome: (is) =>
-            _leaf(was) !== _leaf(is)
-              ? was.name === is.name
-                ? [{ _tag: "TypeChanged" as const, at: _coord(live, is), from: _leaf(was), to: _leaf(is) }]
-                : [{ _tag: "NumberReused" as const, at: _coord(live, is), retired: was.name }]
-              : _wireFacts(was) !== _wireFacts(is)
-                ? [{ _tag: "WireTypeChanged" as const, at: _coord(live, is), from: _wireFacts(was), to: _wireFacts(is) }]
-                : Option.match(Option.all([_enumOf(was), _enumOf(is)]), {
-                    onNone: (): ReadonlyArray<ContractDrift.Change> => [],
-                    onSome: ([pinnedEnum, liveEnum]) => _enumChanges(pinnedEnum, liveEnum),
-                  }),
-        }),
-    }))
+const _enumChanges = (pinned: DescEnum, live: DescEnum): ReadonlyArray<ContractDrift.Change> =>
+  _paired(pinned.values, live.values, (value) => value.number, {
+    added: (value) => [{
+      _tag: "EnumValueAdded" as const,
+      at: _EnumCoord.make({ enum: qualifiedName(live), value: value.name, number: value.number }),
+    }],
+    removed: (value) => [{
+      _tag: "EnumValueRemoved" as const,
+      at: _EnumCoord.make({ enum: qualifiedName(pinned), value: value.name, number: value.number }),
+    }],
+    shared: () => [],
+  })
+
+type _Lane = (
+  pair: readonly [DescField, DescField],
+  at: typeof _FieldCoord.Type,
+  descend: (pinned: DescMessage, live: DescMessage) => ReadonlyArray<ContractDrift.Change>,
+) => ReadonlyArray<ContractDrift.Change>
+
+const _lanes: ReadonlyArray<_Lane> = [
+  ([was, is], at) =>
+    _wireFacts(was) === _wireFacts(is)
+      ? []
+      : [{ _tag: "WireTypeChanged" as const, at, from: _wireFacts(was), to: _wireFacts(is) }],
+  ([was, is], at) =>
+    was.oneof?.name === is.oneof?.name
+      ? []
+      : [{
+          _tag: "OneofChanged" as const,
+          at,
+          from: Option.map(Option.fromNullable(was.oneof), (group) => group.name),
+          to: Option.map(Option.fromNullable(is.oneof), (group) => group.name),
+        }],
+  ([was, is], at) => (_optionsAlike(was, is) ? [] : [{ _tag: "OptionChanged" as const, at }]),
+  ([was, is]) =>
+    Option.match(Option.all([_enumOf(was), _enumOf(is)]), {
+      onNone: (): ReadonlyArray<ContractDrift.Change> => [],
+      onSome: ([pinnedEnum, liveEnum]) => _enumChanges(pinnedEnum, liveEnum),
+    }),
+  ([was, is], _at, descend) =>
+    Option.match(Option.all([_messageOf(was), _messageOf(is)]), {
+      onNone: (): ReadonlyArray<ContractDrift.Change> => [],
+      onSome: ([pinnedNested, liveNested]) => descend(pinnedNested, liveNested),
+    }),
+]
+
+const _diffed = (
+  pinned: DescMessage,
+  live: DescMessage,
+  visited: HashSet.HashSet<string> = HashSet.empty(),
+): ReadonlyArray<ContractDrift.Change> => {
+  const seen = HashSet.add(visited, qualifiedName(pinned))
+  const descend = (pinnedNested: DescMessage, liveNested: DescMessage): ReadonlyArray<ContractDrift.Change> =>
+    HashSet.has(seen, qualifiedName(pinnedNested)) ? [] : _diffed(pinnedNested, liveNested, seen)
+  return _paired(pinned.fields, live.fields, (field) => field.number, {
+    added: (field) => [{ _tag: "FieldAdded" as const, at: _coord(live, field) }],
+    removed: (field) => [{ _tag: "FieldRemoved" as const, at: _coord(pinned, field) }],
+    shared: (was, is) =>
+      _leaf(was) !== _leaf(is)
+        ? [
+            was.name === is.name
+              ? { _tag: "TypeChanged" as const, at: _coord(live, is), from: _leaf(was), to: _leaf(is) }
+              : { _tag: "NumberReused" as const, at: _coord(live, is), retired: was.name },
+          ]
+        : Array.flatMap(_lanes, (lane) => lane([was, is], _coord(live, is), descend)),
+  })
+}
+
+const _serviced = (pinned: DescService, live: DescService | undefined): ReadonlyArray<ContractDrift.Change> => {
+  const coordOf = (method: DescMethod): typeof _MethodCoord.Type =>
+    _MethodCoord.make({ service: qualifiedName(pinned), method: method.name })
+  return _paired(pinned.methods, live?.methods ?? [], (method) => method.name, {
+    added: (method) => [{ _tag: "MethodAdded" as const, at: coordOf(method) }],
+    removed: (method) => [{ _tag: "MethodRemoved" as const, at: coordOf(method) }],
+    shared: (was, is) =>
+      _signature(was) === _signature(is)
+        ? []
+        : [{ _tag: "MethodChanged" as const, at: coordOf(was), from: _signature(was), to: _signature(is) }],
+  })
 }
 ```
 
 ## [4]-[GATE_SERVICE]
 
 [GATE_SERVICE]:
-- Owner: `DescriptorGate`, the boot-time gate — one `Effect.Service` whose Layer factory takes the live descriptor-set octets plus the generation label, decodes through the proto engine and the shipped `./wkt` schema, builds the `FileRegistry`, and folds one verdict per suite family at construction; the verdict census is immutable for the service's life, and `verdict`/`census`/`admitted` are reads over it.
-- Law: coverage is the suite key tuple — `Proto.names` is census-guarded at `format#PROTO_ENGINE`, so iterating it IS iterating every gated proto family; a suite family unresolved by `qualifiedName` in the live registry folds to a `FamilyMissing` breaking verdict, so silence cannot pass for compatibility. `FileDescriptorSetWire` never enters the verdict census — it is the gate's own transport.
+- Owner: `DescriptorGate`, the boot-time gate — one `Effect.Service` whose Layer factory takes the live descriptor-set octets, the generation label, and the pinned `DescService` roster, decodes through the proto engine and the shipped `./wkt` schema, builds the `FileRegistry`, and folds one verdict per suite family at construction; the verdict census is immutable for the service's life, and `verdict`/`census`/`admitted` are reads over it.
+- Law: coverage is the suite key tuple plus the supplied RPC roster — `Proto.names` is census-guarded at `format#PROTO_ENGINE`, so iterating it IS iterating every gated proto family; a suite family unresolved by `qualifiedName` in the live registry folds to a `FamilyMissing` breaking verdict, so silence cannot pass for compatibility. `FileDescriptorSetWire` never enters the verdict census — it is the gate's own transport.
+- Law: the RPC census is the pinned roster the composition root supplies — the same emitted `DescService` consts it hands the invoke `Dial`; `registry.getService` resolves each live counterpart, `_serviced` mints the method rows, and they fold into the `CapabilityDescriptorWire` verdict — the capability plane's one family — so the composition root sequences `admitted("CapabilityDescriptorWire")` ahead of the invoke `Capability.bind` with zero new gate surface, and an empty roster degrades the RPC axis to no coverage, never a false `identical` claim about services it was not given.
 - Law: the pinned side is the generated suite itself — each `GenMessage` is a `DescMessage`, so the build artifact is the baseline and no second pinned descriptor file exists to drift from the code that decodes with it.
 - Law: the gate decodes its own ingress through the one admission rail — `Proto.frame(FileDescriptorSetSchema)` with the message identity narrowed by `isMessage`; a non-set payload at this seam is a wiring defect and dies, never a typed fault.
 - Law: `admitted(family)` is the decode gate the registry's gated rows yield before decoding — a `breaking` family refuses with reason `drift` carrying the change count; the boot log, the CI artifact, and the refusal detail are projections of one verdict value.
 - Growth: a second gated consumer composes `admitted` in its decode pipeline — one yield, zero gate edits; a new generation source (a registry endpoint over shipped bytes) is a new Layer factory shape at the app root, never a second gate.
-- Boundary: the `codec` registry's `admittedGraph` entry takes this gate's `admitted` as its gate argument; the runtime wave's boot sequence provides the Layer with the runtime-shipped set.
-- Packages: `@bufbuild/protobuf` (`createFileRegistry`, `isMessage`, `qualifiedName`, `MessageShape`), `@bufbuild/protobuf/wkt` (`FileDescriptorSetSchema`); `effect` (`Effect`, `HashMap`, `Option`, `Schema`); `./format.ts` (`Proto`); `./codec.ts` (`Wire`, `WireFault`).
+- Boundary: the `codec` registry's `admittedGraph` entry takes this gate's `admitted` as its gate argument; the invoke page's `Capability.bind` composes `admitted("CapabilityDescriptorWire")` before binding; the runtime wave's boot sequence provides the Layer with the runtime-shipped set and the pinned service consts.
+- Packages: `@bufbuild/protobuf` (`createFileRegistry`, `isMessage`, `qualifiedName`, `DescService`, `MessageShape`), `@bufbuild/protobuf/wkt` (`FileDescriptorSetSchema`); `effect` (`Effect`, `Array`, `HashMap`, `Option`, `Schema`, `ParseResult`); `./format.ts` (`Proto`); `./codec.ts` (`Wire`, `WireFault`).
 
 ```typescript
 import { FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt"
@@ -239,18 +334,20 @@ const _decodeSet = (octets: Uint8Array): Effect.Effect<MessageShape<typeof FileD
   )
 
 class DescriptorGate extends Effect.Service<DescriptorGate>()("@rasm/ts/core/DescriptorGate", {
-  effect: (live: Uint8Array, generation: string) =>
+  effect: (live: Uint8Array, generation: string, rpc: ReadonlyArray<DescService> = []) =>
     Effect.gen(function* () {
       const registry = createFileRegistry(yield* _decodeSet(live))
+      const methodRows = Array.flatMap(rpc, (service) => _serviced(service, registry.getService(qualifiedName(service))))
       const verdicts = Array.reduce(
         Proto.names,
         HashMap.empty<Wire.Family, ContractDrift>(),
         (acc, family) => {
           const pinned = Proto.suite[family]
-          const changes = Option.match(Option.fromNullable(registry.getMessage(qualifiedName(pinned))), {
+          const diffed = Option.match(Option.fromNullable(registry.getMessage(qualifiedName(pinned))), {
             onNone: (): ReadonlyArray<ContractDrift.Change> => [{ _tag: "FamilyMissing", family }],
             onSome: (current) => _diffed(pinned, current),
           })
+          const changes = family === "CapabilityDescriptorWire" ? [...diffed, ...methodRows] : diffed
           return HashMap.set(
             acc,
             family,

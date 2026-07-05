@@ -1,6 +1,6 @@
 # [CORE_CLOCK]
 
-The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Schema.Class` of two branded non-negative bigint halves, `physical` then `logical`, whose compose order is byte-identical to the C# port law (physical half first, logical half second, both little-endian), asserted bit-level by the `tests/contracts` `HLC_TWO_HALF` parity vectors — and `Uncertainty` is the honest wall-clock window on the same physical axis, carrying the sync-posture grade ladder that prices how wide an unproven clock must claim. Stamp algebra (order, tick, receive, the sixteen-byte layout twin, the single epoch unit-site) and window algebra (precedence verdicts, hull, containment) are two clusters of one module because they share one branded axis: `state/causal` orders stamps through `Hlc.Order` and folds happened-before verdicts over windows, and a definite order is claimed only when the windows prove it. The module is `core/src/value/clock.ts`; a new clock fold is one static, a new sync posture is one grade row.
+The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Schema.Class` of two branded non-negative bigint halves, `physical` then `logical`, whose compose order is byte-identical to the C# port law (physical half first, logical half second, both little-endian), asserted bit-level by the `tests/contracts` `HLC_TWO_HALF` parity vectors — and `Uncertainty` is the honest wall-clock window on the same physical axis, carrying the sync-posture grade ladder that prices how wide an unproven clock must claim. Stamp algebra (order, tick, receive, the sixteen-byte layout twin, the single epoch unit-site) and window algebra (the join semilattice, precedence verdicts, meet, containment) are two clusters of one module because they share one branded axis: `state/causal` orders stamps through `Hlc.Order` and folds happened-before verdicts over windows, and a definite order is claimed only when the windows prove it. The module is `core/src/value/clock.ts`; a new clock fold is one static, a new sync posture is one grade row.
 
 ## [1]-[CLUSTERS]
 
@@ -9,7 +9,7 @@ The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Sc
 |  [01]   | `STAMP_OWNER`     | the two-half value, its order, the tick/receive folds, the unit site  | `Hlc`           |
 |  [02]   | `TWO_HALF_LAYOUT` | the sixteen-byte little-endian twin and its overflow seam             | `Hlc.FromBytes` |
 |  [03]   | `GRADE_LADDER`    | the sync-posture vocabulary and its conservative bounds               | `Uncertainty.grades` |
-|  [04]   | `WINDOW_ALGEBRA`  | the interval value, precedence verdicts, hull and containment         | `Uncertainty`   |
+|  [04]   | `WINDOW_ALGEBRA`  | the interval value, its join semilattice, precedence, meet, containment | `Uncertainty`   |
 
 ## [2]-[STAMP_OWNER]
 
@@ -37,7 +37,8 @@ The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Sc
 - Packages: the `DataView` platform surface inside the marked kernels.
 
 ```typescript
-import { DateTime, Duration, Order, ParseResult, Schema, type Types } from "effect"
+import * as Semigroup from "@effect/typeclass/Semigroup"
+import { DateTime, Duration, Option, Order, ParseResult, Schema, type Types } from "effect"
 
 const _Physical = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("HlcPhysical"))
 const _Logical = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("HlcLogical"))
@@ -120,12 +121,13 @@ declare namespace Hlc {
 [WINDOW_ALGEBRA]:
 - Owner: `Uncertainty`, a `Schema.Class` of `earliest`/`latest` bounds composed from `Hlc.fields.physical` — the brand reaches this cluster only through the owning class's field record, so window and stamp are the same axis by construction and no second physical notion exists.
 - Law: `around(at, bound)` is the one constructor and its `bound` is modality-polymorphic — a grade kind selects the ladder row, any `Duration.DurationInput` carries a measured bound — discriminated by the derived grade guard on the value itself, never a flag; the window is `[at - delta, at + delta]` with the lower edge clamped at zero.
-- Law: `precedes(left, right)` is the three-verdict fold — `"before"` when `left.latest < right.earliest`, `"after"` when `right.latest < left.earliest`, `"indeterminate"` on overlap — and the verdict union is a pure type anchor (`Uncertainty.Precedence`) because only the type plane reads it; `state/causal` dispatches on the literal and a definite order is claimed only when the windows prove it.
-- Law: `hull(left, right)` is the associative window join — least earliest, greatest latest — the aggregation fold a batch of readings collapses under; `contains(self, at)` answers point membership for watermark and frontier reads.
+- Law: the window join is a lawful instance, never an ad-hoc function — `Semigroup.struct` composes `Semigroup.min`/`Semigroup.max` over the one physical `Order` (`Order.bigint` typed to the brand), `Semigroup.imap` carries the bounds product across the class constructor, and the instance rides the owner as `Uncertainty.Semigroup` so `state/merge` composes it as a field row in record CRDTs with zero re-derivation.
+- Law: `hull(head, ...rest)` is the instance's `combineMany` projection — the join is identity-free (no lawful empty window exists), so the witnessed head is the first parameter and plurality is the variadic tail: one arity serves the binary join and the batch aggregation fold, and a forged sentinel window is unspellable; `meet(left, right)` is the dual bounds product (`max` earliest, `min` latest) folded to `Option` because disjoint windows share no instant — the agreement window `state/causal` narrows definite claims through.
+- Law: `precedes(left, right)` is the three-verdict fold — `"before"`, `"after"`, `"indeterminate"` on overlap — and `contains(self, at)` answers point membership for watermark and frontier reads; both project the one composed physical `Order` through `Order.lessThan`/`Order.between`, so no comparison policy is restated inline, and the verdict union is a pure type anchor (`Uncertainty.Precedence`) because only the type plane reads it — `state/causal` dispatches on the literal and a definite order is claimed only when the windows prove it.
 - Law: construction rides `around`/`spanning` and the interior mint proves its own inputs — clamped subtraction and checked addition stay non-negative — while the class carries `earliest <= latest` as its own filter, so decode, `new`, and `make` all prove the window, an inverted wire window fails admission as a `ParseError`, and `width` is total on every channel.
-- Growth: a new verdict consumer is a `state` fold over `Precedence`; a new window operation (meet, widen-by-grade) is one static composing the existing bounds.
+- Growth: a new verdict consumer is a `state` fold over `Precedence`; a new window operation (widen-by-grade) is one static composing the existing bounds or projecting the instance.
 - Boundary: happened-before over stamps (physical+logical) is `Hlc.Order`'s total comparison; windows answer the honest wall-clock question only, and `state/causal` decides when each applies.
-- Packages: `effect` (`Schema`, `Duration`).
+- Packages: `effect` (`Schema`, `Duration`, `Order`, `Option`); `@effect/typeclass` (`Semigroup`).
 
 ```typescript
 const _kinds = ["disciplined", "drifting", "isolated"] as const
@@ -143,6 +145,11 @@ const _mint = Schema.decodeSync(Hlc.fields.physical)
 const _floored = (at: Hlc.Physical, spread: Hlc.Physical): Hlc.Physical =>
   at > spread ? _mint(at - spread) : _mint(0n)
 
+const _axis: Order.Order<Hlc.Physical> = Order.bigint     // the one physical comparison policy: every window operator projects it
+const _past = Order.lessThan(_axis)
+const _within = Order.between(_axis)
+const _Overlap = Semigroup.struct({ earliest: Semigroup.max(_axis), latest: Semigroup.min(_axis) }) // the meet dual: bounds cross, validity folds to Option below
+
 class Uncertainty extends Schema.Class<Uncertainty>("Uncertainty")(
   Schema.Struct({
     earliest: Hlc.fields.physical,
@@ -150,19 +157,26 @@ class Uncertainty extends Schema.Class<Uncertainty>("Uncertainty")(
   }).pipe(Schema.filter((window) => window.earliest <= window.latest)),
 ) {
   static readonly grades: Uncertainty.Grades = { ..._grades, kinds: _kinds }
+  static readonly Semigroup: Semigroup.Semigroup<Uncertainty> = Semigroup.imap(
+    Semigroup.struct({ earliest: Semigroup.min(_axis), latest: Semigroup.max(_axis) }), // the join semilattice: field rows are shipped extremum atoms over the one Order
+    (bounds) => new Uncertainty(bounds),
+    (window) => ({ earliest: window.earliest, latest: window.latest }),
+  )
   static readonly around = (at: Hlc.Physical, bound: Duration.DurationInput | Uncertainty.Grade): Uncertainty =>
     Uncertainty.spanning(at, Hlc.delta(_isGrade(bound) ? _grades[bound].bound : bound))
   static readonly spanning = (at: Hlc.Physical, spread: Hlc.Physical): Uncertainty =>
     new Uncertainty({ earliest: _floored(at, spread), latest: _mint(at + spread) })
   static readonly precedes = (left: Uncertainty, right: Uncertainty): Uncertainty.Precedence =>
-    left.latest < right.earliest ? "before" : right.latest < left.earliest ? "after" : "indeterminate"
-  static readonly hull = (left: Uncertainty, right: Uncertainty): Uncertainty =>
-    new Uncertainty({
-      earliest: left.earliest < right.earliest ? left.earliest : right.earliest,
-      latest: left.latest > right.latest ? left.latest : right.latest,
-    })
+    _past(left.latest, right.earliest) ? "before" : _past(right.latest, left.earliest) ? "after" : "indeterminate"
+  static readonly hull = (head: Uncertainty, ...rest: ReadonlyArray<Uncertainty>): Uncertainty =>
+    Uncertainty.Semigroup.combineMany(head, rest)          // identity-free join: the witnessed head is the arity, binary and batch are one fold
+  static readonly meet = (left: Uncertainty, right: Uncertainty): Option.Option<Uncertainty> =>
+    Option.map(
+      Option.liftPredicate(_Overlap.combine(left, right), (bounds) => bounds.earliest <= bounds.latest),
+      (bounds) => new Uncertainty(bounds),
+    )
   static readonly contains = (self: Uncertainty, at: Hlc.Physical): boolean =>
-    self.earliest <= at && at <= self.latest
+    _within(at, { minimum: self.earliest, maximum: self.latest })
   get width(): Hlc.Physical {
     return _mint(this.latest - this.earliest)
   }

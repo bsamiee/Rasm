@@ -136,7 +136,7 @@ const _urls = (release: string, namespace: pulumi.Input<string>): Lgtm.Urls => (
 
 [BOARD_APPLY]:
 - Owner: `Boards` — the tier-constructed `grafana.Provider` (`url` from `Lgtm.urls.grafana`, `auth` as the `user:password` form woven from the Doppler read, the transient-fault posture as data — `retries`, `retryStatusCodes`, `retryWait` — and `storeDashboardSha256: true` so dashboard drift diffs by hash instead of full JSON) and the apply fold: one `oss.Folder` roots the app's boards (uid slugged from the spec's app key), `_SOURCES` maps backend rows onto `oss.DataSource` constructions from the `Lgtm` query URLs, each encoded `DashboardModel` becomes one `oss.Dashboard` under the folder, `_alerted` compiles the `Alert.Spec` rows into one `alerting.RuleGroup` plus severity-routed delivery, `_slos` compiles the suite's objectives into `slo.Slo` rows, tenant organizations realize per `spec.tenants` slug, and the machine identity mints once.
-- Law: the alert compile is total over the spec — `_expr` is the one `Sli.$match` fold from SLI case to PromQL (the `Ratio` case compiles `error-rate > factor × budget` once per window and joins the short and long verdicts with `and`, the multiwindow guard that keeps a burst and a slow burn both honest; the `Latency` case compiles `histogram_quantile` over the metric's bucket series against the ceiling), each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `annotations`/`slug` ride the rule verbatim — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
+- Law: the alert compile is total over the spec — `_expr` is the one `Sli.$match` fold from SLI case to PromQL, every arm a breach-rate `> factor × budget` verdict joined over the short and long windows with `and` through the `_burned` seam, the multiwindow guard that keeps a burst and a slow burn both honest: the `Ratio` case compiles the good-ratio complement, the `Latency` case the `le`-share complement at the spec's own `ceiling` over the bucket/count series, and the `Saturation`/`Freshness` cases the bool-comparison time shares — each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `annotations`/`slug` ride the rule verbatim — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
 - Law: delivery routes by severity as data — the `contacts` record carries one receiver row per severity kind (`page`, `ticket`); each present row realizes one `alerting.ContactPoint` and one `NotificationPolicy` matcher route on the `severity` label, so paging posture is data the spec's severity row keys, and `alerting.MuteTiming`/`MessageTemplate` land beside these rows when a paging calendar earns them.
 - Law: SLOs compile from objectives, never from alerts — `_slos` maps the suite's own `Slo.Objective` values (name, target, window, SLI) onto `slo.Slo` rows with the plain error-ratio query, so the alert fold and the SLO fold read one upstream vocabulary and cannot disagree.
 - Law: tenancy is organizations — one `oss.Organization` per `spec.tenants` slug, so a tenant's boards, sources, and permissions scope to its org; the per-tenant folder-and-source apply inside each org is the finalization the tenancy escalation drives.
@@ -175,22 +175,31 @@ const _SOURCES = {
 
 const _window = (input: Duration.DurationInput): string => `${Duration.toSeconds(Duration.decode(input))}s`
 
+const _burned = (spec: Alert.Spec, breach: (window: Duration.DurationInput) => string): string =>
+  Array.join(
+    Array.map([spec.windows.short, spec.windows.long], (window) => `${breach(window)} > ${spec.factor * (1 - spec.target)}`),
+    " and ",
+  )
+
 const _expr = (spec: Alert.Spec): string =>
   Sli.$match(spec.sli, {
+    Freshness: ({ horizon, metric }) =>
+      _burned(spec, (window) => `avg_over_time((${metric} > bool ${Duration.toSeconds(horizon)})[${_window(window)}:])`),
+    Latency: ({ ceiling, metric }) =>
+      _burned(spec, (window) =>
+        `(1 - (sum(rate(${metric}_bucket{le="${Duration.toSeconds(ceiling)}"}[${_window(window)}])) / sum(rate(${metric}_count[${_window(window)}]))))`),
     Ratio: ({ good, total }) =>
-      Array.join(
-        Array.map([spec.windows.short, spec.windows.long], (window) =>
-          `(1 - (sum(rate(${good}[${_window(window)}])) / sum(rate(${total}[${_window(window)}])))) > ${spec.factor * (1 - spec.target)}`),
-        " and ",
-      ),
-    Latency: ({ ceiling, metric, quantile }) =>
-      `histogram_quantile(${quantile}, sum by (le) (rate(${metric}_bucket[${_window(spec.windows.long)}]))) > ${Duration.toSeconds(ceiling)}`,
+      _burned(spec, (window) => `(1 - (sum(rate(${good}[${_window(window)}])) / sum(rate(${total}[${_window(window)}]))))`),
+    Saturation: ({ ceiling, metric }) =>
+      _burned(spec, (window) => `avg_over_time((${metric} > bool ${ceiling})[${_window(window)}:])`),
   })
 
 const _query = (sli: Sli): string =>
   Sli.$match(sli, {
-    Ratio: ({ good, total }) => `sum(rate(${good}[$__rate_interval])) / sum(rate(${total}[$__rate_interval]))`,
+    Freshness: ({ horizon, metric }) => `avg_over_time((${metric} > bool ${Duration.toSeconds(horizon)})[$__rate_interval:])`,
     Latency: ({ metric, quantile }) => `histogram_quantile(${quantile}, sum by (le) (rate(${metric}_bucket[$__rate_interval])))`,
+    Ratio: ({ good, total }) => `sum(rate(${good}[$__rate_interval])) / sum(rate(${total}[$__rate_interval]))`,
+    Saturation: ({ ceiling, metric }) => `avg_over_time((${metric} > bool ${ceiling})[$__rate_interval:])`,
   })
 
 const _alerted = (

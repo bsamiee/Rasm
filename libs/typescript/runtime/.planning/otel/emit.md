@@ -16,7 +16,7 @@ The one OTLP wire owner: egress and ingress of the telemetry plane in one module
 ## [2]-[POLICY]
 
 [POLICY]:
-- Owner: `Export.Policy` — one typed row carrying every export decision: the `AppIdentity`, the deployment environment, the collector endpoint and sealed headers, the lane and serialization, per-signal cadence as `Duration` rows, the head-sampling ratio, batch tuning, metric temporality, the tenant-cardinality budget, the span structural limits, and the redaction rules; the policy arrives as a value from the app root's `Config.unwrap` owner (`config#ADMISSION_ROWS`' family form), and no export decision exists outside it.
+- Owner: `Export.Policy` — one typed row carrying every export decision: the `AppIdentity` (whose settled dimensions — instance, namespace, environment — the `Convention.identity` projection stamps on the `Resource`, so no export field re-mints an identity fact), the collector endpoint and sealed headers, the lane and serialization, per-signal cadence as `Duration` rows, the head-sampling ratio, batch tuning, metric temporality, the tenant-cardinality budget, the span structural limits, and the redaction rules; the policy arrives as a value from the app root's `Config.unwrap` owner (`config#ADMISSION_ROWS`' family form), and no export decision exists outside it.
 - Law: the collector secret rides `Redacted` end-to-end — the policy's `headers` values are `Redacted<string>` sealed at config admission and unwrapped exactly once inside the lane construction, so an exporter credential can never print.
 - Law: cadence, batch width, sampling ratio, temporality, and the span limits are policy values with stated defaults — a lane never hardcodes an interval, and tuning a fleet is a config edit; the OTLP signal paths derive from one base URL by the interior `_signal` projection, so a collector move is one field.
 - Growth: a new export decision is one policy field consumed by the lane rows; a new backend is a `baseUrl`/`headers` value, never a lane.
@@ -31,7 +31,6 @@ declare namespace Export {
   type Lane = keyof typeof _lanes
   type Policy = {
     readonly identity: AppIdentity
-    readonly environment: string
     readonly collector: {
       readonly baseUrl: string
       readonly headers: Readonly<Record<string, Redacted.Redacted<string>>>
@@ -55,11 +54,6 @@ declare namespace Export {
 
 const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): string =>
   `${policy.collector.baseUrl}/v1/${signal}`
-
-const _attributes = (policy: Export.Policy): Convention.Attributes => ({
-  ...Convention.identity(policy.identity),
-  [Convention.attr.deploymentEnvironment]: policy.environment,
-})
 ```
 
 ## [3]-[REDACTION]
@@ -244,7 +238,7 @@ const _resource = (policy: Export.Policy, detectors: ReadonlyArray<ResourceDetec
   readonly serviceVersion: string
 } => ({
   attributes: detectResources({ detectors: [..._DETECTORS, ...detectors] })
-    .merge(resourceFromAttributes(_attributes(policy)))
+    .merge(resourceFromAttributes(Convention.identity(policy.identity)))
     .attributes as Convention.Attributes,
   serviceName: policy.identity.app,
   serviceVersion: policy.identity.build.version,

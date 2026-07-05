@@ -5,11 +5,11 @@
 - module: ESM only (`type: module`); single `.` barrel — no subpaths, no durable/replication bindings.
 - asset: `dist/index.d.ts` (barrel over `d2` / `multiset` / `operators` / `types`); bundles `fractional-indexing` + `murmurhash-js` + `sorted-btree`.
 - runtime: pure-TS in-process dataflow; runs in node / bun / browser / worker. ZERO peer dependencies — the whole engine is self-contained, so it is browser-safe by construction and the natural in-memory lane for `state`.
-- ABI: synchronous scheduler (`graph.run()`/`graph.step()`); the sole async entry is `loadBTree()`, which dynamically imports `sorted-btree` before the `*BTree` ordered operators are usable.
+- ABI: fully synchronous scheduler (`graph.run()`/`graph.step()`); the `sorted-btree` `*BTree` ordered files ship in `dist/operators/` but are NOT re-exported by the `.`-only barrel, so no async entry is reachable.
 - plane: `plane:runtime` (W1); folder-local to `state`, catalogued here.
 - rail: incremental-dataflow / fold-maintenance.
 
-`@electric-sql/d2mini` is the browser altitude of the two-altitude fold: the SAME operator algebra as `d2ts.md`, stripped of partial-order time (no `Version`/`Antichain`/`Frontier`, no `Message` frontier signal, no versioned `Index.reconstructAt`). A collection is a signed `MultiSet` pushed with `sendData(collection)` — no version coordinate — so the graph maintains the live fold in memory with the least possible surface. It is the lane `state/fold` binds when the runtime is a browser app folding wire-decoded events in memory: no durability, no time-travel, no peer runtime. Its distinctive edge over the d2ts core is the `sorted-btree`-backed ordered lane (`orderByWithFractionalIndexBTree`/`topKWithFractionalIndexBTree`) — O(log n) incremental order maintenance that replaces the array re-sort the design names as the defect. When a fold needs versioned time-travel, durable trace, or replication, that is a d2ts-altitude fold by definition; d2mini is the in-memory minimum.
+`@electric-sql/d2mini` is the browser altitude of the two-altitude fold: the SAME operator algebra as `d2ts.md`, stripped of partial-order time (no `Version`/`Antichain`/`Frontier`, no `Message` frontier signal, no versioned `Index.reconstructAt`). A collection is a signed `MultiSet` pushed with `sendData(collection)` — no version coordinate — so the graph maintains the live fold in memory with the least possible surface. It is the lane `state/fold` binds when the runtime is a browser app folding wire-decoded events in memory: no durability, no time-travel, no peer runtime. Its reachable ordered lane is the fractional-index family (`topKWithFractionalIndex`/`orderByWithFractionalIndex`) — incremental order maintenance that replaces the array re-sort the design names as the defect; the `sorted-btree` twins (`orderByWithFractionalIndexBTree`/`topKWithFractionalIndexBTree`/`loadBTree`) exist in package source but the 0.1.8 `exports` map is `.`-only and the operators barrel omits their files, so they are unreachable and never composed. When a fold needs versioned time-travel, durable trace, or replication, that is a d2ts-altitude fold by definition; d2mini is the in-memory minimum.
 
 ## [01]-[GRAPH_AND_DELTA]
 
@@ -62,7 +62,7 @@ The operator library is the SAME ONE-shape `PipedOperator<I, O>` composed by `pi
 |  [02]   | keying        | `keyBy(fn)` `unkey()` `rekey(fn)` `filterBy(other)`                            | `T ⇄ KeyValue<K, T>`; `filterBy` semijoins against a key stream |
 |  [03]   | keyed fold    | `join`(+`inner`/`left`/`right`/`full`/`anti`, `JoinType`) `reduce` `count` `distinct` `groupBy`(+`sum`/`count`/`avg`/`min`/`max`/`median`/`mode`) | `KeyValue<K, V>` in — the incremental Semigroup fold per key |
 |  [04]   | ordered       | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`) | fractional-index maintenance; NO full re-sort                  |
-|  [05]   | ordered/BTree | `topKWithFractionalIndexBTree` `orderByWithFractionalIndexBTree` (`loadBTree()`) | `sorted-btree`-backed O(log n) order — async-loaded before use |
+|  [05]   | ordered/BTree | `topKWithFractionalIndexBTree` `orderByWithFractionalIndexBTree` (`loadBTree()`) | SEALED — files unreferenced by the 0.1.8 barrel; not importable |
 
 ```ts contract
 // Same pipe/join/reduce/groupBy algebra as d2ts — the reducer is a @effect/typeclass Semigroup applied per key.
@@ -75,10 +75,9 @@ declare function filterBy<K, V1, T>(other: IStreamBuilder<KeyValue<K, unknown>>)
 ```
 
 ```ts contract
-// The BTree ordered lane is the array-re-sort defect deletion at its sharpest: sorted-btree gives O(log n) insert, fractional string index gives a stable position without renumbering. loadBTree() must resolve first (dynamic import of sorted-btree).
-declare function loadBTree(): Promise<void>
-declare function topKWithFractionalIndexBTree<K, V1, T>(cmp: (a: V1, b: V1) => number, opts?: { limit?; offset? }): PipedOperator<T, KeyValue<K, [V1, string]>>
-declare function orderByWithFractionalIndexBTree<T, Ve>(valueExtractor: (v: V) => Ve, opts?: { comparator?; limit?; offset? }): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, [V, string]>>
+// The reachable ordered lane: fractional string indices give a stable position without renumbering, so an insert moves one key, never a re-sort. The *BTree twins are defined in dist/operators/orderByBTree.js and topKWithFractionalIndexBTree.js but neither file is re-exported by dist/operators/index.js and no subpath exists — sealed until upstream re-exports them.
+declare function topKWithFractionalIndex<K, V1, T>(cmp: (a: V1, b: V1) => number, opts?: { limit?; offset? }): PipedOperator<T, KeyValue<K, [V1, string]>>
+declare function orderByWithFractionalIndex<T, Ve>(valueExtractor: (v: V) => Ve, opts?: { comparator?; limit?; offset? }): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, [V, string]>>
 ```
 
 ## [03]-[INTEGRATION]
@@ -89,11 +88,11 @@ declare function orderByWithFractionalIndexBTree<T, Ve>(valueExtractor: (v: V) =
 
 [STACK: two altitudes — d2mini core, `d2ts.md` durable] — `state/fold` binds ONE algebra; the browser runtime folds through d2mini (in-memory, `sendData(collection)`, no time), the node runtime folds through d2ts (durable, `sendData(version, collection)`, `Index.reconstructAt`, `./sqlite`). d2mini has no `Version`, so it carries no AsOf time-travel and no retention frontier — a fold that needs either is a d2ts fold. Never a second fold implementation; the two are one algebra at two surfaces.
 
-[STACK: presence + `state/fold` (`.api/effect.md` `Subscribable`)] — the in-memory fold is what `state/fold` exposes as an `effect` `Subscribable`: an `output(fn)` sink drives a `SubscriptionRef`, so the browser presence view is the d2mini fold re-fired on each `run()`. `edge/live` serves that presence semantics; the `orderBy*BTree` lane keeps the live-list ordering incremental as rows churn.
+[STACK: presence + `state/fold` (`.api/effect.md` `Subscribable`)] — the in-memory fold is what `state/fold` exposes as an `effect` `Subscribable`: an `output(fn)` sink drives a `SubscriptionRef`, so the browser presence view is the d2mini fold re-fired on each `run()`. `edge/live` serves that presence semantics; the `orderByWithFractionalIndex` lane keeps the live-list ordering incremental as rows churn.
 
 ## [04]-[RAIL_LAW]
 
-- Owns: minimal, time-free incremental dataflow — a graph of `PipedOperator`s over signed `MultiSet` deltas with no version, the keyed folds (`join`/`reduce`/`count`/`distinct`/`groupBy`), the fractional-index and `sorted-btree` ordered lanes, and the in-memory `Index` join. Zero peer dependencies — the browser-safe in-memory altitude of the `state/fold`.
-- Accept: `sendData(delta)` with signed multisets; `pipe(...)` composition of the operator roster; `reduce`/`groupBy` as the incremental application of a `@effect/typeclass` Semigroup; `output(fn)` driving a `Subscribable` for `state/fold`; `loadBTree()` before the `*BTree` ordered operators; d2mini for every browser/in-memory fold path.
-- Reject: reaching for a `Version`, `Antichain`, frontier, `reconstructAt`, or durable trace here (that is the d2ts altitude); a full-collection re-sort where `topKWithFractionalIndex`/`*BTree` maintains order; a `*BTree` operator before `loadBTree()` resolves; a second in-memory fold implementation beside this one.
-- Boundary: no time coordinate means no time-travel, no retention frontier, no replication — those are d2ts capabilities. `min`/`max` exist only as `groupBy` aggregates (not bare operators, unlike d2ts's `MultiSet.min`/`max`); `distinct` and those aggregates reject negative multiplicity, so retraction folds run through `reduce`/`consolidate`. The `*BTree` lane is the only async surface; everything else drains synchronously.
+- Owns: minimal, time-free incremental dataflow — a graph of `PipedOperator`s over signed `MultiSet` deltas with no version, the keyed folds (`join`/`reduce`/`count`/`distinct`/`groupBy`), the fractional-index ordered lane, and the in-memory `Index` join. Zero peer dependencies — the browser-safe in-memory altitude of the `state/fold`.
+- Accept: `sendData(delta)` with signed multisets; `pipe(...)` composition of the operator roster; `reduce`/`groupBy` as the incremental application of a `@effect/typeclass` Semigroup; `output(fn)` driving a `Subscribable` for `state/fold`; `topKWithFractionalIndex`/`orderByWithFractionalIndex` for ordered views; d2mini for every browser/in-memory fold path.
+- Reject: reaching for a `Version`, `Antichain`, frontier, `reconstructAt`, or durable trace here (that is the d2ts altitude); a full-collection re-sort where `topKWithFractionalIndex` maintains order; citing `loadBTree`/`*BTree` operators as importable — the 0.1.8 barrel omits their files and no subpath exists; a second in-memory fold implementation beside this one.
+- Boundary: no time coordinate means no time-travel, no retention frontier, no replication — those are d2ts capabilities. `min`/`max` exist only as `groupBy` aggregates (not bare operators, unlike d2ts's `MultiSet.min`/`max`); `distinct` and those aggregates reject negative multiplicity, so retraction folds run through `reduce`/`consolidate`. Every reachable surface drains synchronously.

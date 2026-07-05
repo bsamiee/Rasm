@@ -1,12 +1,12 @@
 # [CORE_SLO]
 
-SLO is algebra, not config, and alerting is its total derivation: an `Objective` is a typed policy value — an SLI over `Convention` metric rows, a target ratio, a compliance window — the multi-window multi-burn-rate discipline is one closed `_BURN` table whose four rows carry severity, long/short window pair, burn factor, and budget share, and `Alert.of` derives one compilation-ready spec per burn row with zero re-decided thresholds. Every downstream artifact is a projection over these values: `Slo.evaluate` folds window readings into a fired/quiet verdict, `Slo.budget` computes the error-budget arithmetic, `board#PACKS` renders the same rows as panels and firing annotations, and `iac` compiles the specs into provider alert rules — so a threshold change is one row edit that moves the runtime verdict, the alerts, and the dashboards in a single diff. Evaluation is pure and source-agnostic: readings arrive as sampled error rates, and who sampled them (a board query, a rule engine, a runtime probe over metric snapshots) is the caller's seam. Delivery is out of scope by law — a spec says WHAT fires and HOW urgent, and the notification transport is the deploy plane's routing concern. The module is `core/src/observe/slo.ts`; a hand-authored alert rule beside this derivation is the drift defect the total function exists to kill.
+SLO is algebra, not config, and alerting is its total derivation: an `Objective` is a typed policy value — an SLI over `Convention` metric rows, a target ratio, a compliance window — the multi-window multi-burn-rate discipline is one closed `_BURN` table whose four rows carry severity, long/short window pair, burn factor, and budget share, and `Alert.of` derives one compilation-ready spec per burn row with zero re-decided thresholds. The `Sli` family covers the four-kind SRE taxonomy — event ratio, latency threshold, saturation share, freshness age — and every case states its own breach predicate as data, so the one sampled shape (`breaching` over `total`) feeds one error-rate fold regardless of kind. Every downstream artifact is a projection over these values: `Slo.evaluate` folds window readings into a fired/quiet verdict, `Slo.budget` computes the error-budget arithmetic, `board#PACKS` renders the same rows as breach-rate panels and firing annotations, and `iac` compiles the specs into provider alert rules — so a threshold change is one row edit that moves the runtime verdict, the alerts, and the dashboards in a single diff. Evaluation is pure and source-agnostic: readings arrive as sampled error rates, and who sampled them (a board query, a rule engine, a runtime probe over metric snapshots) is the caller's seam. Delivery is out of scope by law — a spec says WHAT fires and HOW urgent, and the notification transport is the deploy plane's routing concern. The module is `core/src/observe/slo.ts`; a hand-authored alert rule beside this derivation is the drift defect the total function exists to kill.
 
 ## [1]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                    |
 | :-----: | :------------ | :--------------------------------------------------------------------------- |
-|  [01]   | `OBJECTIVE`   | the `Objective` policy value and the closed `Sli` family                     |
+|  [01]   | `OBJECTIVE`   | the `Objective` policy value, the four-kind `Sli` family, the sample fold    |
 |  [02]   | `BURN_ROWS`   | the multi-window multi-burn-rate table and its derivations                   |
 |  [03]   | `ALGEBRA`     | burn/budget arithmetic and the windowed verdict fold                         |
 |  [04]   | `ALERT_SPECS` | the severity routing rows and the `Objective -> specs` total derivation      |
@@ -14,24 +14,35 @@ SLO is algebra, not config, and alerting is its total derivation: an `Objective`
 ## [2]-[OBJECTIVE]
 
 [OBJECTIVE]:
-- Owner: the `Sli` closed family and the `Objective` row — `Sli` is a process-local `Data.taggedEnum` with two cases: `Ratio` (good-events metric over total-events metric) and `Latency` (a duration metric against a ceiling at a quantile); `Objective` binds one `Sli` to a `target` ratio and a compliance `window`.
+- Owner: the `Sli` closed family and the `Objective` row — `Sli` is a process-local `Data.taggedEnum` with four cases: `Ratio` (good-events metric over total-events metric), `Latency` (a duration metric against a ceiling, with the display quantile the panels headline), `Saturation` (a utilization metric against a share ceiling), and `Freshness` (an age metric against a staleness horizon); `Objective` binds one `Sli` to a `target` ratio and a compliance `window`.
 - Law: an SLI names its series through `Convention.MetricName` rows only — `Convention.metric.httpServerDuration` for the standing latency objective, `Convention.metric.meterUsage`-derived ratios for usage objectives — so an objective cannot reference a series the plane does not emit, and a metric rename breaks every objective at compile time.
-- Law: `target` is the good-ratio (`0 < target < 1`) and the error budget is its complement — `1 - target` — fixed at the objective, never recomputed differently per consumer; `window` is the compliance horizon the budget amortizes over (the 28-day standing default).
-- Law: the family is process-local by design (`Data.taggedEnum`, not a Schema union) — objectives are lib-authored policy values composed at build time; a wire-carried objective store is an app concern that promotes the family to Schema case owners in one declaration edit.
-- Entry: objectives are plain values — `{ name, sli: Sli.Ratio({ good, total }), target: 0.999, window }` — composed where the app declares its reliability policy.
-- Growth: a new SLI shape (saturation, freshness) is one `Sli` case plus its arm in the two folds below.
+- Law: every case defines its breach predicate as its own fields, and the sampled shape is uniform — `Slo.Sample` is `{ breaching, total }` where `breaching` counts the case's own breach events: requests over `ceiling` for `Latency`, bad events (`total - good`) for `Ratio`, samples above the utilization `ceiling` for `Saturation`, samples older than `horizon` for `Freshness` — and `Sli.rate(sample)` is the one error-rate fold, `Option`-returning because an empty window has no rate and the absence folds at the caller, never as `NaN` downstream. The `Latency` `ceiling` is therefore load-bearing on both sides: it defines which requests count as breaching at the sampler, and `board#PACKS` compiles it into the le-share breach expression — the `quantile` is display vocabulary only and never enters the burn arithmetic.
+- Law: `target` is the good-ratio (`0 < target < 1`) and the error budget is its complement — `1 - target` — fixed at the objective, never recomputed differently per consumer; `window` is the compliance horizon the budget amortizes over (the 28-day standing default). The degenerate `target = 1` objective has no budget, and every arithmetic member below carries that absence as `Option` rather than a division guard per consumer.
+- Law: the family is process-local by design (`Data.taggedEnum`, not a Schema union) — objectives are lib-authored policy values composed at build time, and `Objective` stays the bare policy `type` for the same reason; a wire-carried objective store is an app concern that promotes the family to Schema case owners in one declaration edit, and that promotion is where the `target` bound becomes a `Schema.between` refinement.
+- Entry: objectives are plain values — `{ name, sli: Sli.Ratio({ good, total }), target: 0.999, window }` — composed where the app declares its reliability policy; `Sli.rate(sample)` at every sampling seam.
+- Growth: a fifth SLI shape is one `Sli` case plus its breach-expression arm in `board#PACKS` `_breach` — the sample fold and the burn algebra are already kind-agnostic.
 
 ```typescript
-import { Array, Data, Duration, Option, Record, Struct } from "effect"
+import { Array, Data, Duration, Number, Option, Order, Record, Struct } from "effect"
 import { Convention } from "./convention.ts"
 
 type Sli = Data.TaggedEnum<{
+  Freshness: { readonly horizon: Duration.Duration; readonly metric: Convention.MetricName }
   Latency: { readonly ceiling: Duration.Duration; readonly metric: Convention.MetricName; readonly quantile: number }
   Ratio: { readonly good: Convention.MetricName; readonly total: Convention.MetricName }
+  Saturation: { readonly ceiling: number; readonly metric: Convention.MetricName }
 }>
-const Sli: Data.TaggedEnum.Constructor<Sli> = Data.taggedEnum<Sli>()
+const _Sli = Data.taggedEnum<Sli>()
+
+const Sli: Data.TaggedEnum.Constructor<Sli> & {
+  readonly rate: (sample: Slo.Sample) => Option.Option<number>
+} = {
+  ..._Sli,
+  rate: ({ breaching, total }) => Number.divide(breaching, total),
+}
 
 declare namespace Slo {
+  type Sample = { readonly breaching: number; readonly total: number }
   type Objective = {
     readonly name: string
     readonly sli: Sli
@@ -45,7 +56,7 @@ declare namespace Slo {
 
 [BURN_ROWS]:
 - Owner: the `_BURN` table — the standing multi-window multi-burn-rate discipline as four rows: two paging pairs (2% of budget in 1h at 14.4x burn over 5m/1h windows; 5% in 6h at 6x over 30m/6h) and two ticketing pairs (10% in 1d at 3x over 2h/1d; 10% in 3d at 1x over 6h/3d); each row carries `severity`, `long`, `short`, `factor`, and `spend`.
-- Law: the two-window trip is the false-positive/reset discipline — the long window proves sustained burn, the short window proves it is still burning now, and a verdict fires only when BOTH exceed the row's factor; the short window is what lets a resolved incident reset quickly instead of paging for the tail of its own long window.
+- Law: the two-window trip is the false-positive/reset discipline — the long window proves sustained burn, the short window proves it is still burning now, and a verdict fires only when BOTH exceed the row's factor; the short window is what lets a resolved incident reset quickly instead of paging for the tail of its own long window. Every consumer honors both halves — the runtime probe samples both windows, and `board#PACKS` renders both burn expressions per row, never the long half alone.
 - Law: the row set derives — `keyof typeof _BURN` is the burn-kind union, the severity axis projects from rows, and the guard pair closes the table — so `[04]` derives one spec per row and `board#PACKS` one threshold pair per row with zero re-listing.
 - Law: `factor` and `spend` are redundant by construction (`spend = factor * long / window` at the standing 28-day window) and both are carried anyway — `factor` drives evaluation, `spend` states the human budget meaning an alert annotation prints — with the consistency provable from the row itself.
 - Growth: a tuned discipline (a fifth row, a different factor) is a table edit; consumers re-derive.
@@ -77,7 +88,7 @@ declare namespace Slo {
 [ALGEBRA]:
 - Owner: the assembled `Slo` export — the burn table spread in, the arithmetic members, and the verdict fold under one name with companion types on the merged hub.
 - Law: burn rate is `errorRate / (1 - target)` — the multiple of budget-consumption speed — and `Slo.burn` is that one division, `Option`-returning because a degenerate `target = 1` objective has no budget to divide by and the absence folds at the caller, never as `Infinity` downstream.
-- Law: `Slo.evaluate(objective, readings)` is total over its readings — `Slo.Readings`, one sampled long/short error-rate pair per burn row — and returns the verdict per row (`fired` exactly when both windows' burn meets the row factor) plus the fired severity ceiling; sampling the readings is the caller's seam, so the same fold serves a runtime probe, a spec fixture, and a rule compiler.
+- Law: `Slo.evaluate(objective, readings)` is total over its readings — `Slo.Readings`, one sampled long/short error-rate pair per burn row, each rate the output of `Sli.rate` over the case's own breach sample — and returns the verdict per row (`fired` exactly when both windows' burn meets the row factor) plus the fired severity ceiling, the dominant fired severity folded through the one `_bySeverity` `Order`; sampling the readings is the caller's seam, so the same fold serves a runtime probe, a spec fixture, and a rule compiler.
 - Law: budget arithmetic is closed at the objective — `Slo.budget(objective)` yields the error budget ratio, and `Slo.spent(objective, errorRate, elapsed)` the budget fraction consumed by a measured rate over an elapsed span, the number an incident review reads.
 - Receipt: `Verdict` — per-row fired flags with their burn readings plus the dominant severity as `Option` — data a caller routes on, never a side effect; emission belongs to `[05]` specs and runtime consumers.
 - Entry: `Slo.evaluate(objective, readings)`; `Slo.burn(objective, errorRate)`; `Slo.budget(objective)`; `Slo.spent(objective, errorRate, elapsed)`; `Slo.rows` for derivers.
@@ -101,6 +112,8 @@ const _burnOf = (objective: Slo.Objective, errorRate: number): Option.Option<num
   return budget > 0 ? Option.some(errorRate / budget) : Option.none()
 }
 
+const _bySeverity: Order.Order<Slo.BurnRow["severity"]> = Order.mapInput(Order.boolean, (severity) => severity === "page")
+
 const _evaluate = (objective: Slo.Objective, readings: Slo.Readings): Slo.Verdict => {
   const rows = Record.map(_BURN, (row, kind): Slo.RowVerdict => {
     const reading = readings[kind]
@@ -114,11 +127,10 @@ const _evaluate = (objective: Slo.Objective, readings: Slo.Readings): Slo.Verdic
   const fired = Array.filter(Record.values(rows), (verdict) => verdict.fired)
   return {
     rows,
-    severity: Array.some(fired, (verdict) => verdict.row.severity === "page")
-      ? Option.some("page")
-      : Array.isNonEmptyReadonlyArray(fired)
-        ? Option.some("ticket")
-        : Option.none(),
+    severity: Array.match(fired, {                             // the ceiling is one Order policy value: the dominant fired severity, never a branch ladder
+      onEmpty: Option.none,
+      onNonEmpty: (verdicts) => Option.some(Array.max(Array.map(verdicts, (verdict) => verdict.row.severity), _bySeverity)),
+    }),
   }
 }
 
@@ -146,10 +158,10 @@ const Slo: {
 ## [5]-[ALERT_SPECS]
 
 [ALERT_SPECS]:
-- Owner: the `_severity` routing table and the assembled `Alert` export — one severity row per posture (`urgency`: page interrupts a human now, ticket enters the queue; `hold`: how long the condition holds before the spec counts as firing — page rows fire immediately because the short window already debounces, ticket rows hold to suppress flappy toil; `tone`: the annotation tone dashboards render) and `Alert.of` as the one derivation: one spec per burn row, total by construction because the burn table is closed, so every objective yields exactly the four-row discipline.
+- Owner: the `_severity` routing table and the assembled `Alert` export — one severity row per posture (`urgency`: page interrupts a human now, ticket enters the queue; `hold`: how long the condition holds before the spec counts as firing — page rows fire immediately because the short window already debounces, ticket rows hold to suppress flappy toil; `tone`: the one severity-to-tone correspondence, riding annotations and threshold steps alike so no dashboard re-declares it) and `Alert.of` as the one derivation: one spec per burn row, total by construction because the burn table is closed, so every objective yields exactly the four-row discipline.
 - Law: the severity axis is exactly `[03]`'s row projection — the union derives from the burn rows' `severity` column, so a severity this table carries but no burn row produces is dead vocabulary the guard rejects, and the two clusters cannot drift.
-- Law: the spec is compilation-ready data — `slug` (the deterministic `${objective.name}:${burn}` key both consumers use as the provider-side identity, so a re-apply updates in place), the `sli` carried whole (the consumer compiles it to its own query dialect), `target`, the row's `windows`/`factor`, the severity row inline, and the annotation record under `Convention.rasm.sloObjective`/`sloSeverity`/`sloBurn` keys — everything a rule compiler or a panel builder needs, nothing it must look up elsewhere.
-- Law: consumers compile, never re-derive — `board#PACKS` folds specs into threshold panels and firing annotations, `iac` folds the same specs into provider rule resources; a consumer computing its own burn thresholds from the objective has forked the discipline and is the named defect.
+- Law: the spec is compilation-ready data — `slug` (the deterministic `${objective.name}:${burn}` key both consumers use as the provider-side identity, so a re-apply updates in place), the `sli` carried whole (the consumer compiles the case's breach predicate — ceiling, horizon, good/total — into its own query dialect), `target`, the row's `windows`/`factor`, the severity row inline, and the annotation record under `Convention.rasm.sloObjective`/`sloSeverity`/`sloBurn` keys — everything a rule compiler or a panel builder needs, nothing it must look up elsewhere.
+- Law: consumers compile, never re-derive — `board#PACKS` folds specs into two-window burn panels and firing annotations, `iac` folds the same specs into provider rule resources; a consumer computing its own burn thresholds from the objective has forked the discipline and is the named defect.
 - Law: delivery routing is not spec data — receivers, schedules, and escalation chains are deploy-plane configuration keyed by the spec's severity row; the spec's `urgency` is the routing INPUT, the route itself lives where the notifier lives.
 - Receipt: `Alert.Spec` — plain policy data; no effect, no fault channel, no emission.
 - Entry: `Alert.of(objective)`; `Alert.severity` for posture lookups.

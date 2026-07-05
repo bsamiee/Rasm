@@ -24,14 +24,14 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 ## [3]-[DIGEST_TABLE]
 
 [DIGEST_TABLE]:
-- Owner: `Digest`, the assembled hasher vocabulary — the interior row table carries one factory per width row, the interior brand anchors carry one key schema per row, and the exported owner assembles the binary twin, the mint, the session algebra, and the keyed mint under a stated annotation; the roster is seed data on one parameterized pattern, so a new digest width is a row plus its brand anchor, never a new surface.
+- Owner: `Digest`, the assembled hasher vocabulary — the interior row table carries each width row's factory and key brand as two columns of one row, so `Digest.Key<K>` derives by indexed access over the row's `key` column and the factory-to-brand correspondence has exactly one edit site; the exported owner assembles the binary twin, the mint, the session algebra, and the keyed mint under a stated annotation, and the roster is seed data on one parameterized pattern — a new digest width is one row carrying both columns, never a new surface.
 - Law: three rows ride the table — `content` (`createXXHash128(0, 0)`, 32 hex, the cross-language ContentKey), `trace` (`createXXHash64(0, 0)`, 16 hex, the short correlation address log and sampling keys carry), `check` (`createCRC32()`, 8 hex, the wire checksum frame rails verify) — and the seed is zero on every seeded row; a non-zero seed on any content-address path is out of contract.
 - Law: each row's factory promise is memoized through `GlobalValue.globalValue` under a row-keyed scope, so the WASM compile happens once per runtime per row across bundler-duplicated module instances, `init()` resets state between mints without recompiling, and an untouched row never compiles.
 - Law: `mint` is modality-polymorphic — one annotated arrow whose payload discriminates on the value shape: a whole `Uint8Array` or an `Iterable<Uint8Array>` chunk sequence, both landing on one digest walk; a `mode` flag, a `mintMany` twin, or a string input (encoding ambiguity) is the rejected surface, and text hashes only after the caller's own explicit encode to bytes. The iterable modality IS the streaming verify — a multi-band reassembly proves its declared key over held bands with zero joined re-hash, and the interchange `Parity` combinator delegates exactly this walk, so no streaming-verify sibling exists anywhere.
 - Law: the mint cannot fail — `Effect.promise` carries the compile (rejection is a defect), the returned hex is proven by construction against the row's brand, and the per-row decode record is the mapped handler contract that keeps the generic indexed dispatch cast-free; `Effect.orDie` states that a decode fault here is a defect, never a channel member.
 - Law: the digest walk is synchronous and JS-thread-atomic — every await sits before `init`, so concurrent mints on a shared hasher cannot interleave and the shared state machine needs no lock.
 - Exemption: `_walk` is a marked kernel — the `IHasher` state machine forces the statement loop across the chunk walk, only the immutable hex string leaves, and the implementer carries the `// BOUNDARY ADAPTER` mark on its first line.
-- Growth: a wider or keyed-content row (`createBLAKE3` variable `bits`, `createXXHash3`) is one table row plus one brand anchor; a KDF surface (`argon2id`, `bcrypt`, `scrypt`) stays out of this floor — secret derivation is the security branch's concern.
+- Growth: a wider or keyed-content row (`createBLAKE3` variable `bits`, `createXXHash3`) is one table row carrying its factory and brand columns; a KDF surface (`argon2id`, `bcrypt`, `scrypt`) stays out of this floor — secret derivation is the security branch's concern.
 - Boundary: delegates import `Digest` and compare; they never import `hash-wasm`, never re-hash for parity claims (byte-level corpus equality only), and their mismatch faults are their own folder rails.
 - Packages: `hash-wasm` (`createXXHash128`, `createXXHash64`, `createCRC32`, `createBLAKE3`, `IHasher`); `effect` (`Effect`, `GlobalValue`, `Predicate`, `Redacted`, `Schema`).
 
@@ -71,18 +71,14 @@ const _Seal = Schema.String.pipe(Schema.pattern(_hex(64)), Schema.brand("Seal"))
 const _Bytes = Schema.Uint8ArrayFromSelf.pipe(Schema.filter((bytes) => bytes.length === 16))
 
 const _rows = {
-  check: { make: () => createCRC32() },
-  content: { make: () => createXXHash128(0, 0) },
-  trace: { make: () => createXXHash64(0, 0) },
+  check: { key: _Check, make: () => createCRC32() },
+  content: { key: ContentKey, make: () => createXXHash128(0, 0) },
+  trace: { key: _Trace, make: () => createXXHash64(0, 0) },
 } as const
 
 declare namespace Digest {
   type Kind = keyof typeof _rows
-  type Key<K extends Kind = Kind> = {
-    readonly check: typeof _Check.Type
-    readonly content: ContentKey
-    readonly trace: typeof _Trace.Type
-  }[K]
+  type Key<K extends Kind = Kind> = Schema.Schema.Type<(typeof _rows)[K]["key"]> // derives from the row's key column: no hand mapping restates the correspondence
   type Payload = Uint8Array | Iterable<Uint8Array>
   type Seal = typeof _Seal.Type
   type Session<K extends Kind = Kind> = { readonly kind: K; readonly state: Uint8Array }
@@ -95,13 +91,13 @@ declare namespace Digest {
     readonly mint: <K extends Kind>(kind: K, payload: Payload) => Effect.Effect<Key<K>>
     readonly session: <K extends Kind>(kind: K, saved?: Uint8Array) => Effect.Effect<Session<K>>
   }
-  type _Rows<T extends Record<Kind, { readonly make: () => Promise<IHasher> }> = typeof _rows> = T
+  type _Rows<T extends Record<Kind, { readonly key: Schema.Schema.Any; readonly make: () => Promise<IHasher> }> = typeof _rows> = T
 }
 
 const _minted: { readonly [K in Digest.Kind]: (hex: string) => Effect.Effect<Digest.Key<K>> } = {
-  check: (hex) => Effect.orDie(Schema.decode(_Check)(hex)),
-  content: (hex) => Effect.orDie(Schema.decode(ContentKey)(hex)),
-  trace: (hex) => Effect.orDie(Schema.decode(_Trace)(hex)),
+  check: (hex) => Effect.orDie(Schema.decode(_rows.check.key)(hex)),
+  content: (hex) => Effect.orDie(Schema.decode(_rows.content.key)(hex)),
+  trace: (hex) => Effect.orDie(Schema.decode(_rows.trace.key)(hex)),
 }
 
 const _compiled = <K extends Digest.Kind>(kind: K): Effect.Effect<IHasher> =>

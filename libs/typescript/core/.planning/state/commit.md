@@ -16,11 +16,12 @@ The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class
 - Law: tier digests are `ContentKey` — every parent digest mints through `Digest.mint("content", ...)` over its child bucket's canonical bytes, the one `XxHash128` seed-zero identity, so a locally built summary and a C#-decoded summary compare bucket-for-bucket with no normalize step (invariant: one mint, delegating sites only).
 - Law: fanout is summary identity — two summaries compare only at equal fanout, and a mismatched pair answers every leaf bucket of `self`, the full-sync verdict, because bucket coordinates under different fanouts name different ranges; construction and descent read the same fanout field, so build and compare cannot disagree.
 - Law: tiers order root-first — `tiers[0]` is the root row and the last tier is the leaf census — and construction folds leaf-to-root with each pass prepending, so the stored order is the descent order and no reader reverses.
-- Exemption: `_encoded` is a marked kernel — the module-singleton `TextEncoder` byte crossing is the platform-forced seam turning a bucket's joined hex into digest input, and only the immutable byte array leaves; the `_diverges` tier descent is a measured statement kernel — candidate narrowing mutates only the local frontier arrays and the accumulator dies at the return. The implementer carries the `// BOUNDARY ADAPTER` mark on each kernel's first line.
-- Packages: `effect` (`Schema`, `Array`, `Effect`, `Order`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/clock.ts` (`Hlc`); `./causal.ts` (`Vector`).
+- Law: the divergence descent is one `Array.reduce` fold over the tier range — the candidate frontier is the accumulator, each tier expands parents into their child buckets through `Array.flatMap` and keeps diverging coordinates through `Array.filterMap`; a probe past either tier's width reads absent on both sides and drops as equal, and an emptied frontier propagates through the remaining tiers as empty expansions, so equal roots answer with zero further comparisons and no statement kernel exists in this module's domain flow.
+- Exemption: `_encoded` is a marked kernel — the module-singleton `TextEncoder` byte crossing is the platform-forced seam turning a bucket's joined hex into digest input, and only the immutable byte array leaves. The implementer carries the `// BOUNDARY ADAPTER` mark on the kernel's first line.
+- Packages: `effect` (`Schema`, `Array`, `Effect`, `Number`, `Option`, `Order`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/clock.ts` (`Hlc`); `./causal.ts` (`Vector`).
 
 ```typescript
-import { Array, Effect, Order, Schema } from "effect"
+import { Array, Effect, Number, Option, Order, pipe, Schema } from "effect"
 import { Hlc } from "../value/clock.ts"
 import { ContentKey, Digest } from "../value/contentKey.ts"
 import { Vector } from "./causal.ts"
@@ -52,27 +53,20 @@ const _summarize = (
 ): Effect.Effect<typeof _Merkle.Type> =>
   Effect.map(_tiered(leaves, fanout, []), (tiers) => _Merkle.make({ fanout, tiers }))
 
-const _diverges = (self: typeof _Merkle.Type, that: typeof _Merkle.Type): ReadonlyArray<number> => {
-  if (self.fanout !== that.fanout) return Array.map(Array.lastNonEmpty(self.tiers), (_digest, at) => at)
-  const tiers = Math.max(self.tiers.length, that.tiers.length)
-  let candidates: ReadonlyArray<number> = [0]
-  for (let tier = 0; tier < tiers; tier += 1) {
-    const left = self.tiers[tier] ?? []
-    const right = that.tiers[tier] ?? []
-    const width = Math.max(left.length, right.length)
-    candidates = candidates.flatMap((parent) => {
-      const from = tier === 0 ? parent : parent * self.fanout
-      const until = tier === 0 ? parent + 1 : from + self.fanout
-      const spread: Array<number> = []
-      for (let at = from; at < until && at < width; at += 1) {
-        if (left[at] !== right[at]) spread.push(at)
-      }
-      return spread
-    })
-    if (candidates.length === 0) return []
-  }
-  return candidates
-}
+const _diverges = (self: typeof _Merkle.Type, that: typeof _Merkle.Type): ReadonlyArray<number> =>
+  self.fanout !== that.fanout
+    ? Array.map(Array.lastNonEmpty(self.tiers), (_digest, at) => at)
+    : Array.reduce(
+        Array.range(0, Number.max(self.tiers.length, that.tiers.length) - 1),
+        [0] as ReadonlyArray<number>,
+        (candidates, tier) =>
+          pipe([self.tiers[tier] ?? [], that.tiers[tier] ?? []] as const, ([left, right]) =>
+            Array.flatMap(candidates, (parent) =>
+              Array.filterMap(
+                tier === 0 ? Array.of(parent) : Array.makeBy(self.fanout, (step) => parent * self.fanout + step),
+                (at) => (left[at] === right[at] ? Option.none() : Option.some(at)),
+              ))),
+      )
 ```
 
 ## [3]-[COMMIT_OWNER]

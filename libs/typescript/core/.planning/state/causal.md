@@ -1,6 +1,6 @@
 # [CORE_CAUSAL]
 
-The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `value/clock` uncertainty window, the causal hold-and-drain buffer, the stability frontier (the GLB meet of per-replica acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance, ack merge, and frontier reads are single STM transactions with `STM.check` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
+The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `value/clock` uncertainty window, the causal hold-and-drain buffer, the stability frontier (the GLB meet of per-replica acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance is one `TRef` transaction and whose ack table is a `Merge.cell` over the `Vector.join` lattice — batch-atomic ack absorb, committed-snapshot frontier reads, whole-table `settled` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
 
 ## [1]-[CLUSTERS]
 
@@ -186,11 +186,11 @@ const _admit = <A>(
 ## [5]-[FRONTIER_TRACKER]
 
 [FRONTIER_TRACKER]:
-- Owner: the stability frontier and its consequences — `Causal.frontier` folds per-replica acknowledged vectors through `Vector.meet` (the GLB), `Causal.finality`/`Causal.finalize` seal what the frontier covers, `Causal.retention` mints the handoff value, and `Causal.tracker` holds the live cells: the delivery buffer and the ack table as `TRef`s whose every advance is one STM transaction.
+- Owner: the stability frontier and its consequences — `Causal.frontier` folds per-replica acknowledged vectors through `Vector.meet` (the GLB), `Causal.finality`/`Causal.finalize` seal what the frontier covers, `Causal.retention` mints the handoff value, and `Causal.tracker` holds the live cells: the delivery buffer as a `TRef` Mealy cell and the ack table as `merge#MERGE_CELLS`'s `Merge.cell(Vector.join)` — every advance one STM transaction.
 - Law: the frontier is `Option` — meet over zero replicas has no lawful identity (the meet instance declares `empty: none`), so an unacked topology yields `Option.none` and no consumer compacts against a fabricated floor.
 - Law: an envelope is `"final"` exactly when the frontier covers its vector — every replica has observed it, so no concurrent sibling can still arrive; finalize is the partition of a batch by that predicate, and finality is monotone because the frontier only ascends the lattice.
-- Law: tracker advances are transactions, never a permit around a cell — `admit` reads the buffer, drains, and writes back in one commit so two concurrent admits re-run instead of tearing the held set; `ack` merges the replica's vector by `Vector.join` inside the same cell discipline, so a regressed ack is absorbed by the lattice before any frontier read sees it.
-- Law: `stable(target)` suspends through `STM.check` until the meet of the ack table covers the target — wait-until-stable with zero polling: the transaction re-runs when the ack cell changes and the predicate closes over the vectors read in the same transaction, so the wake condition and the evidence are one atomic read.
+- Law: tracker advances are transactions, never a permit around a cell — `admit` reads the buffer, drains, and writes back in one commit so two concurrent admits re-run instead of tearing the held set; `ack` is one `Merge.cell` batch absorb — the keyed insert-or-combine through `Vector.join` is the cell's own fold, so a regressed ack is absorbed by the lattice before any frontier read sees it and no hand `HashMap.modifyAt` merge exists beside the roster.
+- Law: `stable(target)` composes the cell's whole-table `settled` wait — suspends until the meet of the committed ack table covers the target, with zero polling: the transaction re-runs when any ack cell changes and the predicate closes over the same-transaction table snapshot, so the wake condition and the evidence are one atomic read; `frontier` and `retention` read the same committed snapshot through `acks.table`, never a raw cell walk.
 - Law: `Causal.Retention` is the one compaction coordinate — `floor` (the stable vector) plus the `Hlc` stamp at which it was computed; the durable journal compacts below it and `fold#VERSIONED_LANE` compacts its trace below the same value, so retention decisions have exactly one source, and the tracker's `retention(stamp)` mints it from the live frontier in one transaction.
 - Boundary: the durable retain lane and journal positions are the data branch's; trace compaction is `fold#VERSIONED_LANE`'s `compact`; both consume `Causal.Retention` and neither recomputes a frontier.
 
@@ -198,17 +198,10 @@ const _admit = <A>(
 const _frontier = (acks: HashMap.HashMap<Vector.Replica, Vector>): Option.Option<Vector> =>
   Merge.fold(Vector.meet, Array.fromIterable(HashMap.values(acks)))
 
-const _merged = (acks: HashMap.HashMap<Vector.Replica, Vector>, replica: Vector.Replica, vector: Vector): HashMap.HashMap<Vector.Replica, Vector> =>
-  HashMap.modifyAt(acks, replica, (slot) =>
-    Option.some(Option.match(slot, {
-      onNone: () => vector,
-      onSome: (held) => Vector.join.combine.combine(held, vector),
-    })))
-
 const _tracker = <A>(): Effect.Effect<Causal.Tracker<A>> =>
   Effect.gen(function* () {
     const cellBuffer = yield* STM.commit(TRef.make<Causal.Buffer<A>>({ seen: Vector.zero, held: Chunk.empty() }))
-    const cellAcks = yield* STM.commit(TRef.make(HashMap.empty<Vector.Replica, Vector>()))
+    const acks = yield* Merge.cell<Vector.Replica, Vector>(Vector.join)
     return {
       admit: (envelope) =>
         STM.commit(
@@ -219,24 +212,17 @@ const _tracker = <A>(): Effect.Effect<Causal.Tracker<A>> =>
             return drained
           }),
         ),
-      ack: (replica, vector) =>
-        STM.commit(TRef.update(cellAcks, (acks) => _merged(acks, replica, vector))),
+      ack: (replica, vector) => acks.absorb([[replica, vector] as const]),
       seen: Effect.map(STM.commit(TRef.get(cellBuffer)), (buffer) => buffer.seen),
-      frontier: Effect.map(STM.commit(TRef.get(cellAcks)), _frontier),
+      frontier: Effect.map(acks.table, _frontier),
       stable: (target) =>
-        STM.commit(
-          STM.gen(function* () {
-            const acks = yield* TRef.get(cellAcks)
-            yield* STM.check(() =>
-              Option.match(_frontier(acks), {
-                onNone: () => false,
-                onSome: (floor) => Vector.covers(floor, target),
-              }))
-          }),
-        ),
+        acks.settled((table) =>
+          Option.match(_frontier(table), {
+            onNone: () => false,
+            onSome: (floor) => Vector.covers(floor, target),
+          })),
       retention: (stamp) =>
-        Effect.map(STM.commit(TRef.get(cellAcks)), (acks) =>
-          Option.map(_frontier(acks), (floor) => ({ floor, stamp }))),
+        Effect.map(acks.table, (table) => Option.map(_frontier(table), (floor) => ({ floor, stamp }))),
     }
   })
 

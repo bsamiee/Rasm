@@ -1,6 +1,6 @@
 # [CORE_FOLD]
 
-The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>` names the key projection, the state lift, and the lawful `merge` instance — one value that is simultaneously the pure snapshot fold, the Mealy step a stream lifts unchanged, and the graph specification the incremental engines execute. `AsOf` is the ONE read time — the two `Hlc` halves plus the journal ordinal — every push, seal, time-travel read, watermark, and compaction coordinate speaks; no second engine-time notion exists. `Replay` maintains every fold incrementally through the differential engines under REPLAY_LAW — a fold rebuilt from any event prefix and advanced by the remaining deltas is equivalent, under the plan instance's `alike`, to the live fold of the whole history; the algebraic half is `merge#LAW_SURFACE`'s `Converge.commutes`, this module supplies the operational half — and the versioned lane retains history in the engine's own `Index` trace: `reconstructAt` IS the AsOf materialization, `compact` IS the retention handoff, so no owned slice log shadows the engine. The dataflow verbs — keyed join, grouped aggregation, `iterate` fixpoint closure — are handle rows on the same algebra, and `Window` closes event time: the watermark meet, the honest lateness verdict, and pane folds that compose any plan under a composite pane key. The module is `core/src/state/fold.ts`; a new fold is a plan row, a new dataflow verb is a handle row, a new window shape is a policy case.
+The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>` names the key projection, the state lift, and the lawful `merge` instance — one value that is simultaneously the pure snapshot fold, the Mealy step a stream lifts unchanged, and the graph specification the incremental engines execute. `AsOf` is the ONE read time — the two `Hlc` halves plus the journal ordinal — every push, seal, time-travel read, watermark, and compaction coordinate speaks; no second engine-time notion exists. `Replay` maintains every fold incrementally through the differential engines under REPLAY_LAW — a fold rebuilt from any event prefix and advanced by the remaining deltas is equivalent, under the plan instance's `alike`, to the live fold of the whole history; the algebraic half is `merge#LAW_SURFACE`'s `Converge.commutes`, this module supplies the operational half — and the versioned lane retains history in the engine's own `Index` trace: `reconstructAt` IS the AsOf materialization, `compact` IS the retention handoff, so no owned slice log shadows the engine. The dataflow verbs — the keyed join in every engine kind, the `filterBy` semijoin, grouped aggregation over the engine's whole seven-combinator roster, `iterate` fixpoint closure — are handle rows on the same algebra, and `Window` closes event time: the watermark meet, the honest lateness verdict, and pane folds that compose any plan under a composite pane key. The module is `core/src/state/fold.ts`; a new fold is a plan row, a new dataflow verb is a handle row, a new window shape is a policy case.
 
 ## [1]-[CLUSTERS]
 
@@ -9,7 +9,7 @@ The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>
 |  [01]   | `PLAN_CONTRACT`    | the plan shape, delta currency, change row, and the pure/stream folds         | `Fold`                                                 |
 |  [02]   | `TIME_COORDINATE`  | the one three-coordinate read time and its engine projection                  | `AsOf`                                                 |
 |  [03]   | `MEMORY_LANE`      | the in-memory and ordered handles plus the lens reads over every handle       | `Replay.memory/.ordered/.view/.feed`                   |
-|  [04]   | `DATAFLOW_VERBS`   | the correlated, aggregated, and fixpoint handles                              | `Replay.joined/.grouped/.closure`                      |
+|  [04]   | `DATAFLOW_VERBS`   | the correlated, matched, aggregated, and fixpoint handles                     | `Replay.joined/.matched/.grouped/.closure`             |
 |  [05]   | `VERSIONED_LANE`   | the Index-traced versioned handle: seal, AsOf read, diff, compaction          | `Replay.versioned`                                     |
 |  [06]   | `WATERMARK_PANES`  | event-time completeness, the lateness verdict, and window policy folds        | `Window`                                               |
 
@@ -134,12 +134,12 @@ declare namespace AsOf {
 ## [4]-[MEMORY_LANE]
 
 [MEMORY_LANE]:
-- Owner: `Replay.memory` — the browser in-memory altitude: one d2mini graph per plan (`map` to the keyed lift, `reduce` under the instance reducer, `consolidate`, `output`), a `SubscriptionRef` table advanced by the drained change wave, and a synchronous `push` that sends the signed delta and drains the scheduler to quiescence inside one `Effect.sync`; `Replay.ordered` is the array-re-sort deletion at its sharpest — `orderByWithFractionalIndexBTree` maintains rank as a fractional string index in O(log n) per change and `ranks` projects the ordered chunk.
+- Owner: `Replay.memory` — the browser in-memory altitude: one d2mini graph per plan (`map` to the keyed lift, `reduce` under the instance reducer, `consolidate`, `output`), a `SubscriptionRef` table advanced by the drained change wave, and a synchronous `push` that sends the signed delta and drains the scheduler to quiescence inside one `Effect.sync`; `Replay.ordered` is the array-re-sort deletion — `orderByWithFractionalIndex` maintains rank as a fractional string index so a change moves one key and never re-sorts the collection, and `ranks` projects the ordered chunk. The engine's `sorted-btree` ordered twins are sealed out of the installed barrel — the package `exports` map is `.`-only and the operators barrel omits them — so the fractional-index operator is the whole reachable ordered surface and the lane stays synchronous end to end.
 - Owner: `Replay.view` — one lens entry over the handle modalities, discriminated on the input shape: a table handle alone yields the table view, a handle with a key yields the row view (`Option`-carried absence), an ordered handle yields the board view — overload signatures on one declaration, no `viewAll`/`viewByKey` siblings; `Replay.feed` flattens a handle's change wave into a per-row `Stream`, the delivery feed a serving edge frames onto its sockets.
 - Law: the reducer the engines run is the elementwise projection of `Merge.combineMany` — `_reduced` expands positive multiplicities, folds the survivors, and emits one `[state, 1]` row; the engine recomputes retraction by re-folding the surviving contribution set, so retraction is lawful for every instance without group inverses, and negative net rows are upstream corruption the reducer treats as absent.
 - Law: `_engine` is the one graph scaffold — one interior owner holds the pending sink, `finalize`, the one-permit drain, and the publish continuation for every lane on both engines, so a lane declares only its inputs, its pipeline stages, and its publish fold, and a new dataflow verb is one `_engine` wire, never a re-rolled scaffold; the permit brackets `sendData`/`run`/publish because the engine drain is a non-STM statement seam no transaction owns, the published cells stay `SubscriptionRef`s because views need the change stream, and transactional state lives where the cells are pure: `causal#FRONTIER_TRACKER` and `merge#MERGE_CELLS`.
 - Law: every lens is `Subscribable.map` over the handle's state — get and changes stay coherent because they derive from one projection; a lens that re-runs the fold, caches its own copy, or subscribes twice is the re-derivation defect; `consolidate` and `distinct` are structural over the decoded op values, so idempotent delivery costs nothing beyond the value equality the op family already carries.
-- Exemption: the `output` callback and the `pending` buffer it fills are the platform-forced statement seam — the engine's sink is a `void` callback; the buffer drains inside the same synchronous `run` and no mutable reference escapes the constructor closure. `loadBTree` resolution escalates to a defect because a missing dynamic import is a platform fault, never a domain outcome.
+- Exemption: the `output` callback and the `pending` buffer it fills are the platform-forced statement seam — the engine's sink is a `void` callback; the buffer drains inside the same synchronous `run` and no mutable reference escapes the constructor closure.
 - Boundary: which folds run in memory versus durably is the composition root's altitude selection; a serving edge consumes `view`/`feed` projections and never reaches the graph or the plan.
 - Growth: a new lens modality is one overload line plus one projection arm.
 
@@ -154,13 +154,18 @@ declare namespace Replay {
     readonly push: (delta: Fold.Delta<Op>) => Effect.Effect<void>
     readonly ranks: Subscribable.Subscribable<Chunk.Chunk<readonly [K, S]>>
   }
-  type Joined<OpL, OpR, K, SL, SR> = {
+  type JoinKind = "inner" | "left" | "right" | "full" | "anti"
+  type Joined<OpL, OpR, K, P> = {
     readonly push: (delta: Fold.Delta<Either.Either<OpR, OpL>>) => Effect.Effect<void>
-    readonly state: Subscribable.Subscribable<Fold.Table<K, readonly [SL, SR]>>
+    readonly state: Subscribable.Subscribable<Fold.Table<K, P>>
+  }
+  type Matched<Op, K, S> = {
+    readonly push: (delta: Fold.Delta<Either.Either<K, Op>>) => Effect.Effect<void>
+    readonly state: Subscribable.Subscribable<Fold.Table<K, S>>
   }
   type Agg<Op> =
     | { readonly kind: "count" }
-    | { readonly kind: "avg" | "max" | "min" | "sum"; readonly of: (op: Op) => number }
+    | { readonly kind: "avg" | "max" | "median" | "min" | "mode" | "sum"; readonly of: (op: Op) => number }
   type Rollup<Aggs> = { readonly [Column in keyof Aggs]: number }
   type Grouped<Op, Aggs> = {
     readonly push: (delta: Fold.Delta<Op>) => Effect.Effect<void>
@@ -189,10 +194,18 @@ declare namespace Replay {
       rank: Order.Order<S>,
       lens: { readonly limit?: number; readonly offset?: number },
     ) => Effect.Effect<Ordered<Op, K, S>>
-    readonly joined: <OpL, OpR, K, SL, SR>(
-      left: Fold.Plan<OpL, K, SL>,
-      right: Fold.Plan<OpR, K, SR>,
-    ) => Effect.Effect<Joined<OpL, OpR, K, SL, SR>>
+    readonly joined: {
+      <OpL, OpR, K, SL, SR>(
+        left: Fold.Plan<OpL, K, SL>,
+        right: Fold.Plan<OpR, K, SR>,
+      ): Effect.Effect<Joined<OpL, OpR, K, readonly [SL, SR]>>
+      <OpL, OpR, K, SL, SR>(
+        left: Fold.Plan<OpL, K, SL>,
+        right: Fold.Plan<OpR, K, SR>,
+        kind: JoinKind,
+      ): Effect.Effect<Joined<OpL, OpR, K, readonly [Option.Option<SL>, Option.Option<SR>]>>
+    }
+    readonly matched: <Op, K, S>(plan: Fold.Plan<Op, K, S>) => Effect.Effect<Matched<Op, K, S>>
     readonly grouped: <Op, By extends Readonly<Record<string, unknown>>, Aggs extends Readonly<Record<string, Agg<Op>>>>(spec: {
       readonly name: string
       readonly by: (op: Op) => By
@@ -303,12 +316,11 @@ const _ordered = <Op, K, S>(
   lens: { readonly limit?: number; readonly offset?: number },
 ): Effect.Effect<Replay.Ordered<Op, K, S>> =>
   Effect.gen(function* () {
-    yield* Effect.orDie(Effect.tryPromise(() => Mini.loadBTree()))
     const graph = new Mini.D2()
     const keyed = _keyed(graph, plan)
     const engine = yield* _engine<readonly [Mini.KeyValue<K, readonly [S, string]>, number]>(graph, (emit) =>
       keyed.staged.pipe(
-        Mini.orderByWithFractionalIndexBTree((state: S) => state, { comparator: rank, ...lens }),
+        Mini.orderByWithFractionalIndex((state: S) => state, { comparator: rank, ...lens }),
         Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, readonly [S, string]>>) => {
           delta.getInner().forEach(emit)
         }),
@@ -353,36 +365,56 @@ const _feed = <Op, K, S>(
 ## [5]-[DATAFLOW_VERBS]
 
 [DATAFLOW_VERBS]:
-- Owner: the verb handles — `Replay.joined` correlates two plans by key through the engine's incremental `innerJoin`, so evidence correlated by operation or command key is one maintained table, never a hand walk over two folded tables; `Replay.grouped` aggregates through the engine's `groupBy` rows (`sum`/`count`/`avg`/`min`/`max`), the incremental rollup a hand recursion over a folded table restates; `Replay.closure` runs the `iterate` fixpoint — transitive reachability over a keyed edge feed, the lane commit-graph ancestor closure and causal happened-before closure ride.
-- Law: `joined` takes one push whose rows discriminate by `Either` — `Either.left` routes the left plan's op, `Either.right` the right's — so the correlated handle keeps one write surface and no `pushLeft`/`pushRight` twin exists; both sides fold under their own plan instance before the join, so the correlation is between merged states, never raw ops.
-- Law: `grouped` aggregates are a closed vocabulary row — `kind` plus the numeric projection — mapped onto the engine's own aggregate combinators at construction; the engine's aggregate identifier never reaches a consumer, and a new aggregate kind is one union arm plus one dispatch row.
+- Owner: the verb handles — `Replay.joined` correlates two plans by key through the engine's ONE `join` operator parameterized by `JoinKind` (`inner`/`left`/`right`/`full`/`anti` are rows on it, never five handles), so evidence correlated by operation or command key is one maintained table, never a hand walk over two folded tables; `Replay.matched` is the `filterBy` semijoin — a plan's folded table restricted to keys a signed probe feed currently holds, the live-key gate a hand table intersection restates; `Replay.grouped` aggregates through the engine's whole `groupByOperators` roster (`sum`/`count`/`avg`/`min`/`max`/`median`/`mode`), the incremental rollup a hand recursion over a folded table restates; `Replay.closure` runs the `iterate` fixpoint — transitive reachability over a keyed edge feed, the lane commit-graph ancestor closure and causal happened-before closure ride.
+- Law: `joined` takes one push whose rows discriminate by `Either` — `Either.left` routes the left plan's op, `Either.right` the right's — so the correlated handle keeps one write surface and no `pushLeft`/`pushRight` twin exists; both sides fold under their own plan instance before the join, so the correlation is between merged states, never raw ops. `matched` rides the identical discriminated push — `Either.left` the plan's op, `Either.right` a probe key whose signed multiplicity enrolls or retires it — so semijoin membership is retractable data, never a rebuilt filter.
+- Law: the join kind follows the input shape — the two-argument call is the inner join and its pair is total, the kind-bearing call returns `Option`-carried absence per side because the engine's outer arms speak `null`, and that `null` respells into `Option` inside the sink boundary so the interior never meets it; the anti kind is the left-only census whose right side is `Option.none` by construction.
+- Law: `grouped` aggregates are a closed vocabulary row — `kind` plus the numeric projection — mapped onto the engine's own aggregate combinators at construction; the engine's aggregate identifier never reaches a consumer, and a new aggregate kind is one union arm plus one dispatch row; `median` and `mode` are roster rows like any other, so distributional rollups never re-materialize a group.
 - Law: the rollup row is typed by derivation — the aggregate record parameter drives the mapped `Rollup<Aggs>` result (`{ [Column in keyof Aggs]: number }`), so a consumer reads named numeric columns the compiler proves against the agg spec while the group coordinate stays the engine's serialized key; an erased `Record<string, unknown>` rollup is the deleted surface, and the engine's own output typing is the one cast-bounded seam confined to the sink annotation.
 - Law: `closure` grows by self-join per pass — reach extended with reach-composed-with-reach, `concat` of the base, `distinct` closing the pass — converging to the transitive closure inside the engine's fixpoint scope; `distinct` is legal because reachability is grow-only within a version, and edge retraction arrives as a signed push the next fixpoint absorbs.
 - Exemption: the verb sinks share the memory lane's platform-forced callback seam and its permit discipline.
-- Growth: a new dataflow verb (semijoin via `filterBy`, anti-join, top-k board over a group) is a new handle row on this family — the handle shapes and the plan contract never widen per verb.
-- Boundary: `joined`/`grouped` ride the time-free engine; `closure` is versioned by nature (the fixpoint needs the frontier) and takes `AsOf` pushes like the versioned lane.
+- Growth: a new dataflow verb (a top-k board over a group, the versioned engine's `buffer` staging) is a new handle row on this family — the handle shapes and the plan contract never widen per verb.
+- Boundary: `joined`/`matched`/`grouped` ride the time-free engine; `closure` is versioned by nature (the fixpoint needs the frontier) and takes `AsOf` pushes like the versioned lane.
 
 ```typescript
 const _agg = <Op>(row: Replay.Agg<Op>) =>
   row.kind === "count" ? Mini.groupByOperators.count() : Mini.groupByOperators[row.kind]((op: Op) => row.of(op))
 
-const _joined = <OpL, OpR, K, SL, SR>(
+function _joined<OpL, OpR, K, SL, SR>(
   left: Fold.Plan<OpL, K, SL>,
   right: Fold.Plan<OpR, K, SR>,
-): Effect.Effect<Replay.Joined<OpL, OpR, K, SL, SR>> =>
-  Effect.gen(function* () {
+): Effect.Effect<Replay.Joined<OpL, OpR, K, readonly [SL, SR]>>
+function _joined<OpL, OpR, K, SL, SR>(
+  left: Fold.Plan<OpL, K, SL>,
+  right: Fold.Plan<OpR, K, SR>,
+  kind: Replay.JoinKind,
+): Effect.Effect<Replay.Joined<OpL, OpR, K, readonly [Option.Option<SL>, Option.Option<SR>]>>
+function _joined<OpL, OpR, K, SL, SR>(
+  left: Fold.Plan<OpL, K, SL>,
+  right: Fold.Plan<OpR, K, SR>,
+  kind?: Replay.JoinKind,
+): Effect.Effect<Replay.Joined<OpL, OpR, K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>> {
+  return Effect.gen(function* () {
     const graph = new Mini.D2()
     const lhs = _keyed(graph, left)
     const rhs = _keyed(graph, right)
-    const engine = yield* _engine<Fold.Change<K, readonly [SL, SR]>>(graph, (emit) =>
-      lhs.staged.pipe(
-        Mini.innerJoin(rhs.staged),
+    const paired = kind === undefined
+      ? lhs.staged.pipe(Mini.innerJoin(rhs.staged))
+      : lhs.staged.pipe(
+          Mini.join(rhs.staged, kind),
+          Mini.map(([key, [sl, sr]]: Mini.KeyValue<K, [SL | null, SR | null]>): Mini.KeyValue<K, readonly [Option.Option<SL>, Option.Option<SR>]> =>
+            [key, [Option.fromNullable(sl), Option.fromNullable(sr)] as const]), // the engine's outer arms speak null; the respell into Option happens here and never past the sink
+        )
+    const engine = yield* _engine<Fold.Change<K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>>(graph, (emit) =>
+      paired.pipe(
         Mini.consolidate(),
-        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, [SL, SR]>>) => _changes(delta.getInner()).forEach(emit)),
+        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>>) =>
+          _changes(delta.getInner()).forEach(emit)),
       ))
-    const state = yield* SubscriptionRef.make(HashMap.empty<K, readonly [SL, SR]>())
+    const state = yield* SubscriptionRef.make(
+      HashMap.empty<K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>(),
+    )
     return {
-      push: (delta) =>
+      push: (delta: Fold.Delta<Either.Either<OpR, OpL>>) =>
         pipe(
           Array.partitionMap(delta, ([op, count]) =>
             Either.match(op, {
@@ -395,6 +427,41 @@ const _joined = <OpL, OpR, K, SL, SR>(
               () => {
                 lhs.input.sendData(new Mini.MultiSet(_rows(lows)))
                 rhs.input.sendData(new Mini.MultiSet(_rows(rows)))
+              },
+              (drained) => Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
+            ),
+        ),
+      state,
+    }
+  })
+}
+
+const _matched = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Effect.Effect<Replay.Matched<Op, K, S>> =>
+  Effect.gen(function* () {
+    const graph = new Mini.D2()
+    const keyed = _keyed(graph, plan)
+    const probe = graph.newInput<Mini.KeyValue<K, boolean>>()
+    const engine = yield* _engine<Fold.Change<K, S>>(graph, (emit) =>
+      keyed.staged.pipe(
+        Mini.filterBy(probe),
+        Mini.consolidate(),
+        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, S>>) => _changes(delta.getInner()).forEach(emit)),
+      ))
+    const state = yield* SubscriptionRef.make(HashMap.empty<K, S>())
+    return {
+      push: (delta) =>
+        pipe(
+          Array.partitionMap(delta, ([row, count]) =>
+            Either.match(row, {
+              onLeft: (op): Either.Either<readonly [Mini.KeyValue<K, boolean>, number], readonly [Op, number]> =>
+                Either.left([op, count] as const),
+              onRight: (key) => Either.right([[key, true], count] as const), // a signed probe row enrolls or retires the key; membership is retractable data
+            })),
+          ([ops, keys]) =>
+            engine.drive(
+              () => {
+                keyed.input.sendData(new Mini.MultiSet(_rows(ops)))
+                probe.sendData(new Mini.MultiSet(_rows(keys)))
               },
               (drained) => Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
             ),
@@ -573,6 +640,7 @@ const Replay: Replay.Shape = {
   memory: _memory,
   ordered: _ordered,
   joined: _joined,
+  matched: _matched,
   grouped: _grouped,
   closure: _closure,
   versioned: _versioned,

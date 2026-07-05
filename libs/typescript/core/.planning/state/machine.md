@@ -1,6 +1,6 @@
 # [CORE_MACHINE]
 
-The statechart owner: a closed transition system is data — one `Transition.Spec` whose `nodes` table declares the state tree (atomic, compound, parallel, final, history — declaration order IS document order and document order is the determinism law) and whose `rows` carry guarded, internally-or-externally-domained, ordered-emit transitions — and one compile at `Transition.spec` precomputes the tree algebra (ancestor chains, entry completion, LCCA, the final-state census), derives the configuration schema from the node vocabulary, and mints the serializable `@effect/experimental` `Machine` exactly once, so `boot` and `restore` only run the actor and never recompile. The same compiled value drives three altitudes: the pure macrostep fold (`step` drains eventless and raised internal signals to stability under a bounded-microstep fuel row), the batch and stream drivers (`drive` through `Array.mapAccum`, `trace` through `Stream.mapAccum`), and the booted actor — one state on one fiber, phase-keyed watchdogs and node-scoped invoke fibers armed by the entered/exited wave, history carried inside machine state so `snapshot`/`restore` transports it durably for free, the actor's own `Subscribable` state binding view atoms, and a derived fact stream as the inspection hook a consumer taps without the machine forking anything. The flat Mealy table is the degenerate case — a depth-one tree with a singleton configuration. THE ALTITUDE RULING: `Machine` is the in-process serializable actor; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the spec, never re-shapes it. The module is `core/src/state/machine.ts`; a new state is a node row, a new transition is a table row, a new deadline is a watch row, a new child activity is an invoke row.
+The statechart owner: a closed transition system is data — one `Transition.Spec` whose `nodes` table declares the state tree (atomic, compound, parallel, final, history — declaration order IS document order and document order is the determinism law) and whose `rows` carry guarded, internally-or-externally-domained, ordered-emit transitions — and one compile at `Transition.spec` precomputes the tree algebra (ancestor chains, entry completion, LCCA, the final-state census), derives the configuration schema from the node vocabulary, and mints the serializable `@effect/experimental` `Machine` exactly once, so `boot` and `restore` only run the actor and never recompile. The same compiled value drives three altitudes: the pure macrostep fold (`step` drains eventless and raised internal signals to stability under a bounded-microstep fuel row), the batch and stream drivers (`drive` through `Array.mapAccum`, `trace` through `Stream.mapAccum`), and the booted actor — one state on one fiber, phase-keyed watchdogs and node-scoped invoke fibers armed by the entered/exited wave with completions folded through the node's `finalize` row before the done signal fires, history carried inside machine state so `snapshot`/`restore` transports it durably for free, the actor's own `Subscribable` state binding view atoms, and a derived fact stream as the inspection hook a consumer taps without the machine forking anything. The flat Mealy table is the degenerate case — a depth-one tree with a singleton configuration. THE ALTITUDE RULING: `Machine` is the in-process serializable actor, and serializability is forced rather than asserted — `snapshot`/`restore` and the `sendUnknown` wire admission exist only on the schema-carried `Machine.serializable` list, so the schemaless `Machine.procedures` altitude would forfeit exactly the durability these laws demand; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the spec, never re-shapes it. The module is `core/src/state/machine.ts`; a new state is a node row, a new transition is a table row, a new deadline is a watch row, a new child activity is an invoke row.
 
 ## [1]-[CLUSTERS]
 
@@ -15,11 +15,11 @@ The statechart owner: a closed transition system is data — one `Transition.Spe
 [STATECHART_TABLE]:
 - Owner: `Transition.Spec<Id, S, V, X>` — the machine as one value: `name`, `nodes` (the kind-discriminated state tree; declaration order is SCXML document order), `rows` (the transition matrix in document order), the `signal`/`verdict` literal schemas, the `extended` schema plus `seed` (guard-readable extended state, snapshot-serializable), `fuel` (the bounded-microstep row that makes every macrostep terminate), `traced` (actor span emission as a definition fact), `recover` (the defect re-initialization `Schedule`). `Transition.spec` compiles it once into `Transition.Compiled` — static tree facts, the derived configuration schema, the origin configuration, the pure `step`, and the pre-minted machine with its request classes — so booting then restoring one spec never re-mints request-class identities.
 - Law: `nodes` is a closed tagged family — `compound` demands `initial`, `history` demands `depth` and `fallback`, `final` demands `parent` — so an ill-formed tree is a compile error at the spec value, never a runtime walk; the configuration is the active atomic-leaf set plus the recorded `history` values plus the extended state, and its schema derives from the node vocabulary (`Schema.Literal` over the id roster), so a wire-carried or snapshot-carried configuration decodes against exactly the declared tree.
-- Law: guards are pure reads of extended state — `when: (extended) => boolean`, SCXML side-effect-free `cond` — preserving the Mealy character and snapshot determinism; `assign` is the only extended-state writer and it is a pure function on the row.
+- Law: guards are pure reads of extended state — `when: (extended) => boolean`, SCXML side-effect-free `cond` — preserving the Mealy character and snapshot determinism; `assign` and the invoke row's `finalize` are the only extended-state writers, each a pure function on its owning row.
 - Law: internal signals derive from the id vocabulary — `done.state.${Id}` and `done.invoke.${Id}` are `Schema.TemplateLiteral` members of the signal plane, minted by the fold and the invoke completion, matchable by any row's `on`; a hand-written done-signal literal beside the template is the drift defect.
 - Law: the internal-versus-external distinction is one row flag — `internal: true` shrinks the transition domain from the LCCA to the source (SCXML `type="internal"`), the whole semantic difference; external is the default posture.
-- Law: `Machine.serializable.add` is the pipeable dual — data-last `(schema, handler) => (self) => self` — and `Machine.procedures.add` is a differently-shaped curried type application; the two namespaces never substitute.
-- Growth: a new state, transition, deadline, or child activity is one row in the owning table; a new machine is one spec value; dynamic child registries beyond node-scoped invoke ride the context's id-addressed `forkOne` under the same arming law.
+- Law: `Machine.serializable.add` is the pipeable dual — data-last `(schema, handler) => (self) => self` — with `Machine.serializable.addPrivate` its interior twin whose request never reaches `sendUnknown`; `Machine.procedures.add` is a differently-shaped curried type application, and the two namespaces never substitute.
+- Growth: a new state, transition, deadline, or child activity is one row in the owning table; a new machine is one spec value; dynamic child registries beyond node-scoped invoke ride the context's id-addressed `forkOne` — or its state-returning `forkOneWith` twin when the registration itself must advance state — under the same arming law.
 - Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `HashSet`, `Option`, `Order`, `ParseResult`, `Schedule`, `Schema`, `Scope`, `Stream`, `Struct`, `Subscribable`).
 
 ```typescript
@@ -41,6 +41,7 @@ declare namespace Transition {
   type Service<Id extends string, S extends string, X> = {
     readonly watch?: Watch<Id, S>
     readonly invoke?: (extended: X) => Effect.Effect<unknown>
+    readonly finalize?: (extended: X, result: unknown) => X
   }
   type Node<Id extends string, S extends string, V extends string, X> =
     | (Face<V> & Service<Id, S, X> & { readonly kind: "atomic"; readonly parent?: Id })
@@ -87,7 +88,7 @@ declare namespace Transition {
   }
   type Actor<Id extends string, S extends string, V extends string, X> = {
     readonly feed: (signal: Signal<Id, S>) => Effect.Effect<ReadonlyArray<V>>
-    readonly feedUnknown: (frame: unknown) => Effect.Effect<unknown, ParseResult.ParseError>
+    readonly feedUnknown: (frame: unknown) => Effect.Effect<Schema.ExitEncoded<unknown, unknown, unknown>, ParseResult.ParseError>
     readonly config: Effect.Effect<Config<Id, X>>
     readonly state: Subscribable.Subscribable<Config<Id, X>>
     readonly facts: Stream.Stream<Fact<Id, X>>
@@ -332,11 +333,12 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
 ## [4]-[ACTOR]
 
 [ACTOR]:
-- Owner: the compiled `boot`/`restore` — `Machine.makeSerializable({ state, input }, initialize)` over the derived configuration schema, one `Feed` request carrying a signal-plane member and one `Poll` request reading the configuration, minted ONCE inside `Transition.spec`; the actor surface exposes `feed` (typed), `feedUnknown` (the wire-arriving lane — a socket-decoded frame admits through the machine's own schemas via `sendUnknown` and a forged request fails as `ParseError`), `config` (the rail-side read), `state` (the actor IS a `Subscribable` of configuration — view atoms bind it directly), `facts` (the inspection stream), and `freeze`.
-- Law: the entered/exited wave is the arming law — every macrostep disarms the watch and invoke fibers of exited nodes and arms entered nodes: a watch row `forkReplace`s a keyed delayed self-`Feed` (at most one watcher per node, stacked signals cannot stack timers), an invoke row `forkReplace`s the child activity whose completion `unsafeSend`s `done.invoke.${id}` back onto the request plane — entry-start, exit-stop, exactly the SCXML invoke lifecycle on fiber primitives, with `Schedule`/`TestClock` beating hand timers on testability.
+- Owner: the compiled `boot`/`restore` — `Machine.makeSerializable({ state, input }, initialize)` over the derived configuration schema, one `Feed` request carrying a signal-plane member, one `Poll` request reading the configuration, and one private `Finalize` request `Machine.serializable.addPrivate` seals off the wire — three procedures minted ONCE inside `Transition.spec`; the actor surface exposes `feed` (typed), `feedUnknown` (the wire-arriving lane — a socket-decoded frame admits through the machine's own schemas via `sendUnknown`, answers the schema-encoded `Schema.ExitEncoded` outcome a socket forwards verbatim, and a forged request fails as `ParseError`), `config` (the rail-side read), `state` (the actor IS a `Subscribable` of configuration — view atoms bind it directly), `facts` (the inspection stream), and `freeze`.
+- Law: the entered/exited wave is the arming law — every macrostep disarms the watch and invoke fibers of exited nodes and arms entered nodes: a watch row `forkReplace`s a keyed delayed self-`Feed` (at most one watcher per node, stacked signals cannot stack timers), an invoke row `forkReplace`s the child activity whose completion `unsafeSend`s the private `Finalize` then `done.invoke.${id}` back onto the request plane — entry-start, exit-stop, exactly the SCXML invoke lifecycle on fiber primitives, with `Schedule`/`TestClock` beating hand timers on testability.
+- Law: `finalize` is SCXML `<finalize>` on the request plane — the child result rides the private `Finalize` request, its handler folds the node's `finalize` row into extended state, and because one fiber serializes the queue the fold lands BEFORE `done.invoke.${id}` is processed, so a done row's guard and `assign` read the already-folded result; the signal plane stays a literal vocabulary and never carries payloads, and a node without a `finalize` row discards the result by construction.
 - Law: the fact stream is a derived hook, never a fork — `Stream.zipWithPrevious` over the actor's own subscribable changes yields configuration, entered, and exited per macrostep; a consumer taps it for inspection, metrics, or replay capture and the machine runs zero telemetry fibers of its own; actor span tracing is the `traced` policy row applied through `Machine.withTracingEnabled` at boot.
 - Law: recovery and durability are definition facts — `Machine.retry(spec.recover)` re-initializes through the initialize slot carrying the last live configuration (`previous ?? origin`), `freeze` is `Machine.snapshot` (the schema-encoded pair carried opaque, history values inside), and `restore` re-admits through the machine's own schemas so a forged snapshot fails as `ParseError`, never a corrupted boot; the origin configuration enters silently — entry programs are observable only through macrosteps.
-- Law: the request surface is closed at feed/poll — signals ARE the protocol; a request demanding its own payload and reply contract is evidence the concern outgrew the transition altitude and belongs to the runtime branch's workflow plane.
+- Law: the PUBLIC request surface is closed at feed/poll — signals ARE the wire protocol, and `sendUnknown` admits only the public list, so the private `Finalize` lane is unreachable from any frame; a public request demanding its own payload and reply contract is evidence the concern outgrew the transition altitude and belongs to the runtime branch's workflow plane.
 - Boundary: the `Persistence`-backed snapshot store, durable-execution replay, and cluster sharding are runtime-branch concerns; this owner fixes the in-process actor and its vocabulary.
 - Growth: a phase-entry side effect beyond emit vocabulary is a consumer tap on the verdict program or the fact stream, never a fourth handler concern.
 
@@ -376,6 +378,11 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
     success: Config,
     payload: {},
   }) {}
+  class Finalize extends Schema.TaggedRequest<Finalize>()("Finalize", {
+    failure: Schema.Never,
+    success: Schema.Void,
+    payload: { id: Id, result: Schema.Unknown },
+  }) {}
   const machine = Machine.makeSerializable({ state: Config, input: Config }, (boot, previous) =>
     Machine.serializable.make(previous ?? boot).pipe(
       Machine.serializable.add(Feed, ({ forkReplace, request, send, state, unsafeSend }) =>
@@ -401,10 +408,11 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
                   service.invoke === undefined
                     ? Effect.void
                     : forkReplace(
-                        Effect.zipRight(
-                          service.invoke(next.extended),
-                          unsafeSend(new Feed({ signal: `done.invoke.${id}` })),
-                        ),
+                        Effect.flatMap(service.invoke(next.extended), (result) =>
+                          Effect.zipRight(
+                            unsafeSend(new Finalize({ id, result })),      // the result folds first: one fiber serializes the queue, so finalize lands before the done row selects
+                            unsafeSend(new Feed({ signal: `done.invoke.${id}` })),
+                          )),
                         `invoke:${id}`,
                       ),
                 ),
@@ -412,6 +420,20 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
           return [macro.program, next] as const
         })),
       Machine.serializable.add(Poll, ({ state }) => Effect.succeed([state, state] as const)),
+      Machine.serializable.addPrivate(Finalize, ({ request, state }) =>
+        Effect.succeed([
+          void 0,
+          {
+            ...state,
+            extended: Option.match(
+              Option.flatMap(_service(spec.nodes[request.id]), (service) => Option.fromNullable(service.finalize)),
+              {
+                onNone: () => state.extended,
+                onSome: (finalize) => finalize(state.extended, request.result),
+              },
+            ),
+          },
+        ] as const)),
     )).pipe(Machine.retry(spec.recover))
   const surfaced = (actor: Machine.SerializableActor<typeof machine>): Transition.Actor<Id, S, V, X> => ({
     feed: (signal) => actor.send(new Feed({ signal })),

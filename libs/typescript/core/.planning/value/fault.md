@@ -25,7 +25,13 @@ The one fault-policy owner of the branch: `FaultClass` is the severity-ordered t
 - Packages: `effect` (`Schema`, `Order`, `Array`, `Predicate`).
 
 ```typescript
-import { Array, Context, Duration, Effect, Layer, Option, Order, Predicate, Record, Schedule, Schema, type Types } from "effect"
+import * as Monoid from "@effect/typeclass/Monoid"
+import * as Semigroup from "@effect/typeclass/Semigroup"
+import * as RecordInstances from "@effect/typeclass/data/Record"
+import {
+  ATTR_ERROR_TYPE, ATTR_EXCEPTION_ESCAPED, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, EVENT_EXCEPTION,
+} from "@opentelemetry/semantic-conventions"
+import { Array, Context, Duration, Effect, Layer, Option, Order, Predicate, Schedule, Schema, type Types } from "effect"
 import { Refined } from "./schema.ts"
 
 const _kinds = [
@@ -95,16 +101,31 @@ const FaultClass: FaultClass.Shape = {
 ## [3]-[ENRICHER_CONTRACT]
 
 [ENRICHER_CONTRACT]:
-- Owner: `FaultCapture`, the floor-shaped crash-evidence model — class, fault tag, owning surface, detail, optional `Refined.Guid` correlation, capture instant, and an open string attribute band — the value the runtime crash owner constructs from a folded `Cause` and every enrichment round-trips; `policy` projects the class row so severity and blame are recoverable from any capture, and `enriched` is the successor constructor merging attribute bands last-write-wins.
+- Owner: `FaultCapture`, the floor-shaped crash-evidence model — class, fault tag, owning surface, detail, optional `Refined.Guid` correlation, capture instant, and an open string attribute band — the value the runtime crash owner constructs from a folded `Cause` and every enrichment round-trips; `policy` projects the class row so severity and blame are recoverable from any capture, `enriched` is the successor constructor merging attribute bands, and `forensic` is the exception-evidence successor writing the well-known crash rows through the typed key vocabulary.
 - Owner: `FaultEnricher`, the enrichment port — one `Context.Tag` whose service is a single endo-arrow `enrich: (capture) => Effect<FaultCapture>` — the interchange codec provides the Layer that reconstructs wire-grade forensics into the attribute band, the runtime crash owner yields the Tag, and the app root wires them; the interchange-owned reconstruction names never appear in this contract, keeping the adopted-verbatim vocabulary on its owning side.
 - Law: enrichment is total by signature — the error channel is `never`, so a failing enricher implementation resolves its own faults internally (degrade to the unenriched capture) and crash capture can never be broken by its own forensics.
 - Law: `FaultEnricher.identity` is the shipped no-wire Layer — pass-through enrichment for the archetypes that select no interchange — so every composition root wires the port and absence of an implementation is a selection, never a crash.
 - Law: the attribute band is string-to-string data — identifier-grade context rides it per-occurrence; bounded dimensions for metrics derive from `class` and `blame` columns, never from band values.
-- Growth: a new evidence field is one `FaultCapture` field; a second enrichment stage is a Layer composing the same Tag, never a second port.
-- Boundary: which captures reach the enricher, redaction-at-capture, and OTLP egress encoding are the runtime telemetry owners' policies; reconstruction internals are the interchange codec's; this floor declares the shapes and the seam.
-- Packages: `effect` (`Schema`, `Context`, `Effect`, `Layer`, `Record`); `schema#REFINED_FLOOR` (`Refined.Guid`).
+- Law: the well-known crash rows are typed constants, never free strings — `FaultCapture.Forensic` anchors `ATTR_EXCEPTION_TYPE`/`ATTR_EXCEPTION_MESSAGE`/`ATTR_EXCEPTION_STACKTRACE`/`ATTR_EXCEPTION_ESCAPED`/`ATTR_ERROR_TYPE` and `FaultCapture.event` anchors `EVENT_EXCEPTION`, so the enricher writes the exact keys the crash event emits under and a misspelled forensic key is a compile error; the band stays open for context beyond the vocabulary, and `observe/convention` still owns attribute-space naming for its own projections.
+- Law: band merging is one instance, never a per-site combine — `getSemigroupUnion(Semigroup.last())` declares the last-write-wins keyed merge once, `Monoid.fromSemigroup` names the empty band as its lawful identity, and `enriched` and `forensic` both project the one instance so enrichment stages fold with no emptiness guard.
+- Growth: a new evidence field is one `FaultCapture` field; a new well-known key is one `Forensic` row; a second enrichment stage is a Layer composing the same Tag, never a second port.
+- Boundary: which captures reach the enricher, redaction-at-capture, and OTLP egress encoding are the runtime telemetry owners' policies; reconstruction internals are the interchange codec's; this floor declares the shapes, the key vocabulary, and the seam.
+- Packages: `effect` (`Schema`, `Context`, `Effect`, `Layer`); `@effect/typeclass` (`Monoid`, `Semigroup`, `data/Record`); `@opentelemetry/semantic-conventions` (`ATTR_EXCEPTION_*`, `ATTR_ERROR_TYPE`, `EVENT_EXCEPTION`); `schema#REFINED_FLOOR` (`Refined.Guid`).
 
 ```typescript
+const _FORENSIC = {
+  errorType: ATTR_ERROR_TYPE,
+  escaped: ATTR_EXCEPTION_ESCAPED,
+  message: ATTR_EXCEPTION_MESSAGE,
+  stacktrace: ATTR_EXCEPTION_STACKTRACE,
+  type: ATTR_EXCEPTION_TYPE,
+} as const
+
+const _Band: Monoid.Monoid<{ readonly [key: string]: string }> = Monoid.fromSemigroup(
+  RecordInstances.getSemigroupUnion(Semigroup.last<string>()), // one keyed merge law: keys union, collisions last-write-wins
+  {},                                                          // the empty band is the lawful identity, named explicitly — last() alone admits none
+)
+
 class FaultCapture extends Schema.Class<FaultCapture>("FaultCapture")({
   class: _Kind,
   tag: Schema.NonEmptyString,
@@ -114,12 +135,28 @@ class FaultCapture extends Schema.Class<FaultCapture>("FaultCapture")({
   at: Schema.DateTimeUtcFromSelf,
   attributes: Schema.Record({ key: Schema.String, value: Schema.String }),
 }) {
+  static readonly Forensic: typeof _FORENSIC = _FORENSIC
+  static readonly event: typeof EVENT_EXCEPTION = EVENT_EXCEPTION
   get policy(): FaultClass.Row {
     return _rows[this.class]
   }
   enriched(added: { readonly [key: string]: string }): FaultCapture {
-    return new FaultCapture({ ...this, attributes: Record.union(this.attributes, added, (_, next) => next) })
+    return new FaultCapture({ ...this, attributes: _Band.combine(this.attributes, added) })
   }
+  forensic(evidence: FaultCapture.Evidence): FaultCapture {
+    return this.enriched({
+      [_FORENSIC.errorType]: evidence.type,
+      [_FORENSIC.escaped]: String(evidence.escaped),
+      [_FORENSIC.message]: evidence.message,
+      [_FORENSIC.type]: evidence.type,
+      ...(evidence.stacktrace !== undefined && { [_FORENSIC.stacktrace]: evidence.stacktrace }),
+    })
+  }
+}
+
+declare namespace FaultCapture {
+  type Evidence = { readonly type: string; readonly message: string; readonly escaped: boolean; readonly stacktrace?: string }
+  type Forensic = (typeof _FORENSIC)[keyof typeof _FORENSIC]
 }
 
 class FaultEnricher extends Context.Tag("@rasm/ts/core/FaultEnricher")<FaultEnricher, {
