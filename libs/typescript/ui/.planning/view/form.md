@@ -56,17 +56,19 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 - Owner: the submit round-trip riding `Form` — the action writes through `useAtomSet(mutation, { mode: "promise" })` inside `startTransition`; pending state reads `useFormStatus` (the row's submit affordance disables and spins from it, never from a local flag); a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
 - Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `react` (`startTransition`); `effect` (`Exit`); `@effect-atom/atom-react` (write modality, `system/atom` law).
 - Law: submit awaits the store — the mutation's `Result` is the completion evidence; polling an atom to detect completion marks a missing write mode, and a `try`/`catch` around the awaited promise restates the boundary rail.
+- Law: the refusal fold reads the Cause tree through `Cause.failureOption` — the tagged `DraftRefused` arm projects its path-keyed errors, and a `Die`/`Interrupt`/composite cause preserves its evidence through `Cause.pretty` on the form-level row instead of collapsing to a blind sentinel; probing `cause._tag` by hand is the named defect.
 - Law: a blocking submit failure lands in the form's error rows; a non-blocking outcome (a saved draft, a queued write) lands as a `Primitive.toasts` note — the two sinks never swap.
-- Boundary: the fence below is the app-side action shape this page legislates — the `promiseExit` write and the form element arrive from the consuming row; the refusal arm folds the fault into `Form.Errors` through the same path-keyed shape `[2]` owns.
+- Boundary: the `await` inside the transition body is the React-19 form-action platform seam (`useFormStatus`/`requestFormReset` are Promise-shaped); the fence below is the app-side action shape this page legislates — the `promiseExit` write and the form element arrive from the consuming row.
 
 ```typescript
-import { Exit } from "effect"
+import { Cause, Exit, Option } from "effect"
 import { startTransition } from "react"
 import { requestFormReset } from "react-dom"
 
 declare namespace Submit {
   type Draft = Readonly<Record<string, unknown>>
-  type Write = (draft: Draft) => Promise<Exit.Exit<void, { readonly _tag: "DraftRefused"; readonly errors: Form.Errors }>>
+  type Refusal = { readonly _tag: "DraftRefused"; readonly errors: Form.Errors }
+  type Write = (draft: Draft) => Promise<Exit.Exit<void, Submit.Refusal>>
 }
 
 const _submit = (write: Submit.Write, form: HTMLFormElement, sink: (errors: Form.Errors) => void) =>
@@ -80,9 +82,10 @@ const _submit = (write: Submit.Write, form: HTMLFormElement, sink: (errors: Form
         },
         onFailure: (cause) =>
           sink(
-            cause._tag === "Fail" && cause.error._tag === "DraftRefused"
-              ? cause.error.errors
-              : { "": ["<submit-failed>"] },
+            Option.match(Cause.failureOption(cause), {
+              onSome: (refusal) => refusal.errors,
+              onNone: () => ({ "": [Cause.pretty(cause)] }),
+            }),
           ),
       })
     })
@@ -91,11 +94,25 @@ const _submit = (write: Submit.Write, form: HTMLFormElement, sink: (errors: Form
 ## [5]-[DRAFT_CURSORS]
 
 [DRAFT_CURSORS]:
-- Law: a large form draft is one atom, each field a cursor — `useAtomRefProp(ref, key)` scopes each field's subscription to its own property so an edited field re-renders alone; a per-field atom family for one draft, or a whole-draft subscription per field, restates the cursor law.
+- Law: a large form draft is one `AtomRef` root, each field a cursor — `AtomRef.make(seed)` mints the draft, `useAtomRefProp(ref, key)` derives the per-field child so an edited field re-renders alone, and `useAtomRefPropValue(ref, key)` is the read-only projection for summary rows; a per-field atom family for one draft, or a whole-draft subscription per field, restates the cursor law (`system/atom#SELECTOR_RAIL` owns the cursor primitive).
+- Law: a search-driving draft field defers — the field's committed value feeds heavy consumers (a filtered collection) through `useDeferredValue(value)` so typing stays responsive while the derived view lags one beat; `Atom.debounce` shapes the store-side rate, `useDeferredValue` shapes the render-side lag, and the two compose without a hand-rolled timer.
 - Law: draft persistence is one `Atom.kvs` row over the draft schema — an abandoned session restores the decoded draft or the default, never a raw JSON parse.
 - Law: dirty-navigation guarding reads the draft — the route guard's dirty predicate is a derived atom comparing draft to committed (`Equal.equals`), consumed by the browser navigation plane through the atom bridge; a `beforeunload` listener beside it is the named defect.
+- Boundary: a multi-step wizard whose stage graph answers requests and survives remounts is a `Machine` actor bound through `system/atom#LIVE_BRIDGE` — the draft cursors ride inside each stage, and the stage machine never mirrors field state.
 
 ```typescript
+import { AtomRef, useAtomRefProp, useAtomRefPropValue } from "@effect-atom/atom-react"
+import { useDeferredValue } from "react"
+
+declare const _seed: { readonly title: string; readonly quantity: number; readonly note: string }
+
+const _draft = AtomRef.make(_seed)
+
+const _useField = <K extends keyof typeof _seed>(key: K): AtomRef.AtomRef<(typeof _seed)[K]> =>
+  useAtomRefProp(_draft, key)
+
+const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "title"))
+
 const Form: {
   readonly standard: typeof _standard
   readonly errors: typeof _errors

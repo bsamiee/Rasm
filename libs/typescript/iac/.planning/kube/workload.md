@@ -1,6 +1,6 @@
 # [IAC_WORKLOAD]
 
-Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier turns one spec row — a digest-pinned image, a port, the assembled env rows, the profile's scale — into the complete typed resource set: `ServiceAccount`, `Deployment`, and `Service`, with derived labels threading selector, template, and service as one correspondence. The page owns the whole runtime-injection seam the old corpus split into its own file: the channel-to-variable key map that is the folder's single env-spelling authority, the one Kubernetes `Secret` holding `DOPPLER_TOKEN`, the container `EnvVar` assembly, and the `doppler run --` entrypoint wrap — a deployed process reads secrets from its environment and nothing else. The runtime lifecycle contract mirrors here structurally: the `_LIFE` anchor carries the drain budget and the probe-route trio the runtime's `Life` owner anchors (`/startupz`, `/readyz`, `/livez`), `terminationGracePeriodSeconds` derives from the drain budget plus a fixed margin, and the same anchor stamps the `RUNTIME_LIFE_DRAIN` env row — one anchor, two projections, so the pod's grace period and the process's drain budget cannot drift. Sizing is a vocabulary table keyed by `StackSpec.profile.scale`; capacity retunes by editing a row, never a manifest. The module is `iac/src/kube/workload.ts`; a new injected fact is one key-map row, a new workload axis is one args field, a batch verb is one `CronJob` member on the same tier.
+Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier turns one spec row — a digest-pinned image, a port, the assembled env rows, the profile's scale — into the complete typed resource set: the `ServiceAccount`/`Role`/`RoleBinding` identity cell, the `Deployment` with topology spread and seed-stable zone affinity, the scale row's `PodDisruptionBudget` and `HorizontalPodAutoscaler`, and the `Service`, with derived labels threading selector, template, and service as one correspondence. The page owns the whole runtime-injection seam the old corpus split into its own file: the channel-to-variable key map that is the folder's single env-spelling authority, the one Kubernetes `Secret` holding `DOPPLER_TOKEN`, the container `EnvVar` assembly, and the `doppler run --` entrypoint wrap — a deployed process reads secrets from its environment and nothing else. The runtime lifecycle contract mirrors here structurally: the `_LIFE` anchor carries the drain budget and the probe-route trio the runtime's `Life` owner anchors (`/startupz`, `/readyz`, `/livez`), `terminationGracePeriodSeconds` derives from the drain budget plus a fixed margin, and the same anchor stamps the `RUNTIME_LIFE_DRAIN` env row — one anchor, two projections, so the pod's grace period and the process's drain budget cannot drift. Sizing is a vocabulary table keyed by `StackSpec.profile.scale`; capacity retunes by editing a row, never a manifest. The module is `iac/src/kube/workload.ts`; a new injected fact is one key-map row, a new workload axis is one args field, a batch verb is one `CronJob` member on the same tier.
 
 ## [1]-[CLUSTERS]
 
@@ -14,7 +14,7 @@ Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier tur
 ## [2]-[SIZING_ROWS]
 
 [SIZING_ROWS]:
-- Owner: the interior `_scale` table keyed by the profile's `dev | standard | fleet` literal — each row carries `replicas`, `requests`, and `limits` as the `core/v1` resource-quantity strings the generated shapes consume, plus the probe cadence column; the row is read once at construction and stamps the container's `resources` block.
+- Owner: the interior `_scale` table keyed by the profile's `dev | standard | fleet` literal — each row carries `replicas`, `requests`, and `limits` as the `core/v1` resource-quantity strings the generated shapes consume, plus the resilience columns the row's posture earns: `disruptionBudget` realizes a `policy/v1.PodDisruptionBudget` and `autoscale` realizes an `autoscaling/v2.HorizontalPodAutoscaler` at construction, so capacity, availability floor, and elasticity retune by editing one row, never a manifest.
 - Law: the scale key is `StackSpec`'s vocabulary — this table interprets it for the k8s arm and no second interpretation exists; the guard pair anchors on the spec's own scale union, so a spec tier with no row and an excess row both fail at the declaration, and a per-arm sizing divergence is a second table in that arm's owner, never a widened key.
 - Growth: a new tier is one row; a new sizing axis (a GPU request, an ephemeral-storage bound) is one column every row states.
 - Boundary: what the quantities mean to the scheduler is cluster fact; `StackSpec.profile.scale` selection is the app's.
@@ -77,6 +77,7 @@ const _KEYS = {
   "grafana.url": "IAC_GRAFANA_URL",
   "sharding.host": "IAC_SHARDING_HOST",
   "sharding.port": "IAC_SHARDING_PORT",
+  "deploy.id": "IAC_DEPLOY_ID",
 } as const
 
 const _POLICY = {
@@ -121,18 +122,19 @@ const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => [
 ## [5]-[WORKLOAD_TIER]
 
 [WORKLOAD_TIER]:
-- Owner: `Workload` — one constructor builds the `ServiceAccount` (the identity row RBAC binds against), the `Deployment` (selector and template labels derived from one `_labels` projection; the container carrying image, port, env rows, the three `_LIFE` probe blocks, and the scale row's resources; the pod carrying the derived `terminationGracePeriodSeconds`), and the `Service` (the same label selector, port-to-port); the service rides the tier as a readonly field so consumers wire `workload.service.metadata.name` onward, and the assembly members (`token`, `rows`, `entrypoint`, `cron`) ride the class as statics so one import carries the tier and its env seam.
+- Owner: `Workload` — one constructor builds the full identity cell (`ServiceAccount` always; `rbac/v1.Role` + `RoleBinding` compiled from the `rbac` rule rows when the workload reaches the API, so identity is three typed resources from data, never a bare account), the `Deployment` (selector and template labels derived from one `_labels` projection; the container carrying image, port, env rows, the three `_LIFE` probe blocks, and the scale row's resources; the pod carrying the derived `terminationGracePeriodSeconds`, a hostname `topologySpreadConstraints` row, and — when `zones` arrive — a `RandomShuffle` seed-stable preferred-zone affinity whose ordering survives every `up`), the scale row's `PodDisruptionBudget`/`HorizontalPodAutoscaler` realizations, and the `Service` (the same label selector, port-to-port); the service rides the tier as a readonly field so consumers wire `workload.service.metadata.name` onward, and the assembly members (`token`, `rows`, `entrypoint`, `cron`) ride the class as statics so one import carries the tier and its env seam.
 - Law: the image is a digest ref — `Workload.Args.image` receives a `docker-build.Image` `ref`/`digest` value or an app-supplied `...@sha256:...` string; a mutable tag is admitted nowhere on this tier, and the compile-time gate is `operate/policy.md`'s digest policy over exactly this resource class.
 - Law: labels are one derivation — `_labels(name)` stamps `app.kubernetes.io/name` and `app.kubernetes.io/managed-by`, and selector, template, and service all read the same value; a hand-written selector beside the derived labels is the drift this collapse deletes.
 - Law: env is assembled on this page and appended nowhere else — the rows arrive from `Workload.rows` (token reference, policy rows, output pairs); a literal env row at a call site is a value that bypassed Doppler or the outputs seam.
 - Law: namespace is a parameter — the arm constructs one `core/v1.Namespace` and threads `metadata.name` here; the tier never mints its own namespace, so every arm resource shares one blast-radius scope.
 - Law: the cron verb is the host-schedule surface — `Workload.cron(name, args)` is one `batch/v1.CronJob` member reading the same labels, env assembly, and entrypoint wrap; it exists for schedules a database grant refusal pushes out of `pg_cron` and for deploy-plane maintenance verbs, and its schedule string is the caller's cron dialect fact.
 - Entry: `new Workload("app", { spec, namespace, image, port, env }, opts)` inside the k8s arm, `opts` carrying the arm provider.
-- Growth: an HPA is one `autoscaling` row when a profile earns it; a second exposed port is one field consumed at the one construction site.
-- Boundary: ingress to the service is `kube/traffic.md`'s; RBAC rows beyond the account are the arm's identity cell; probe grading and drain choreography are the runtime plane's.
+- Growth: a new elasticity or availability posture is one `_scale` row column; an API grant is one `rbac` rule row; a second exposed port is one field consumed at the one construction site.
+- Boundary: ingress to the service is `kube/traffic.md`'s; probe grading and drain choreography are the runtime plane's; cluster-scoped RBAC (`ClusterRole`) stays an arm decision, never a tier default.
 - Packages: `@pulumi/kubernetes` (`core.v1`, `apps.v1`, `batch.v1`); `@pulumi/pulumi` (`Input`, `Output`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
+import * as random from "@pulumi/random"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 const _scale = {
@@ -145,11 +147,14 @@ const _scale = {
     replicas: 2,
     requests: { cpu: "250m", memory: "512Mi" },
     limits: { cpu: "1", memory: "1Gi" },
+    disruptionBudget: { minAvailable: 1 },
   },
   fleet: {
     replicas: 4,
     requests: { cpu: "500m", memory: "1Gi" },
     limits: { cpu: "2", memory: "2Gi" },
+    disruptionBudget: { minAvailable: 2 },
+    autoscale: { min: 4, max: 12, cpuPercent: 70 },
   },
 } as const
 
@@ -167,6 +172,7 @@ const _probe = (kind: _LIFE.Kind, port: number): k8s.types.input.core.v1.Probe =
 declare namespace Workload {
   type Scale = StackSpec.Profile["scale"]
   type Row = (typeof _scale)[Scale]
+  type Rule = { readonly apiGroups: ReadonlyArray<string>; readonly resources: ReadonlyArray<string>; readonly verbs: ReadonlyArray<string> }
   type Args = {
     readonly spec: StackSpec
     readonly namespace: pulumi.Input<string>
@@ -174,6 +180,8 @@ declare namespace Workload {
     readonly port: number
     readonly env: ReadonlyArray<Workload.EnvRow>
     readonly command?: ReadonlyArray<string>
+    readonly rbac?: ReadonlyArray<Rule>
+    readonly zones?: ReadonlyArray<string>
   }
   type CronArgs = {
     readonly namespace: pulumi.Input<string>
@@ -186,6 +194,8 @@ declare namespace Workload {
     readonly replicas: number
     readonly requests: { readonly cpu: string; readonly memory: string }
     readonly limits: { readonly cpu: string; readonly memory: string }
+    readonly disruptionBudget?: { readonly minAvailable: number }
+    readonly autoscale?: { readonly min: number; readonly max: number; readonly cpuPercent: number }
   }> = typeof _scale> = T
   type _Keys<K extends Scale = keyof typeof _scale> = K
 }
@@ -219,6 +229,21 @@ class Workload extends Tier {
     const account = new k8s.core.v1.ServiceAccount(name, {
       metadata: { namespace: args.namespace, labels },
     }, this.child())
+    const rules = args.rbac ?? []
+    if (rules.length > 0) {
+      const role = new k8s.rbac.v1.Role(name, {
+        metadata: { namespace: args.namespace, labels },
+        rules: rules.map((rule) => ({ apiGroups: [...rule.apiGroups], resources: [...rule.resources], verbs: [...rule.verbs] })),
+      }, this.child())
+      new k8s.rbac.v1.RoleBinding(name, {
+        metadata: { namespace: args.namespace, labels },
+        roleRef: { apiGroup: "rbac.authorization.k8s.io", kind: "Role", name: role.metadata.name },
+        subjects: [{ kind: "ServiceAccount", name: account.metadata.name, namespace: args.namespace }],
+      }, this.child())
+    }
+    const spread = args.zones === undefined
+      ? undefined
+      : new random.RandomShuffle(`${name}-zones`, { inputs: [...args.zones], seed: name }, this.child())
     new k8s.apps.v1.Deployment(name, {
       metadata: { namespace: args.namespace, labels },
       spec: {
@@ -229,6 +254,23 @@ class Workload extends Tier {
           spec: {
             serviceAccountName: account.metadata.name,
             terminationGracePeriodSeconds: _LIFE.drainSeconds + _LIFE.margin,
+            topologySpreadConstraints: [{
+              maxSkew: 1,
+              topologyKey: "kubernetes.io/hostname",
+              whenUnsatisfiable: "ScheduleAnyway",
+              labelSelector: { matchLabels: labels },
+            }],
+            ...(spread !== undefined && {
+              affinity: {
+                nodeAffinity: {
+                  preferredDuringSchedulingIgnoredDuringExecution: spread.results.apply((zones) =>
+                    zones.map((zone, rank) => ({
+                      weight: 100 - rank * 10,
+                      preference: { matchExpressions: [{ key: "topology.kubernetes.io/zone", operator: "In", values: [zone] }] },
+                    }))),
+                },
+              },
+            }),
             containers: [{
               name,
               image: args.image,
@@ -244,6 +286,26 @@ class Workload extends Tier {
         },
       },
     }, this.child())
+    if ("disruptionBudget" in row) {
+      new k8s.policy.v1.PodDisruptionBudget(name, {
+        metadata: { namespace: args.namespace, labels },
+        spec: { minAvailable: row.disruptionBudget.minAvailable, selector: { matchLabels: labels } },
+      }, this.child())
+    }
+    if ("autoscale" in row) {
+      new k8s.autoscaling.v2.HorizontalPodAutoscaler(name, {
+        metadata: { namespace: args.namespace, labels },
+        spec: {
+          scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name },
+          minReplicas: row.autoscale.min,
+          maxReplicas: row.autoscale.max,
+          metrics: [{
+            type: "Resource",
+            resource: { name: "cpu", target: { type: "Utilization", averageUtilization: row.autoscale.cpuPercent } },
+          }],
+        },
+      }, this.child())
+    }
     this.service = new k8s.core.v1.Service(name, {
       metadata: { namespace: args.namespace, labels },
       spec: {

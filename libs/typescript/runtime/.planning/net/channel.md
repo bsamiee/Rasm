@@ -64,7 +64,7 @@ const Duplex = { framed: _framed } as const
 - Law: the reattach cursor is a fold, not a cell convention — every `Sse.Event` carrying an `id` advances the cursor, and a reconnect stamps it as the `last-event-id` request header, so an outage backfills by event id; the cursor lives in the session's own `Ref`, invisible to consumers.
 - Law: the server drives its own reconnect cadence — a `Sse.Retry` frame settles into the session's cadence cell and the next re-dial sleeps the held hint ahead of the pulse delay, so reconnection is one fold over two evidence sources: the `feed` budget row's compiled pulse (`core/value/fault#RETRY_BUDGET`) owns the backoff envelope, the Retry hint composes ahead of it as the server's stated floor, and exhaustion mints `FeedFault` with the origin as evidence — the one fault consumers see, classed `unavailable` so the ledger gate re-drives a composing consumer.
 - Law: silence is laddered, never polled — `Feed.cadence` folds an observed quiet span through `Degrade.level` to the rung's probe cadence a long-lived consumer schedules; the ladder folds the span it is handed, the consumer owns the measurement.
-- RESEARCH: the `Sse.Retry` millisecond payload member the `_hinted` projection reads is unverified until the branch catalogue rows it; the frame class and the hint fold are settled, the field spelling is the research item.
+- Law: the `Sse.Retry` frame is two evidence fields — `duration` (already a `Duration.Duration`, read directly into the cadence cell) and `lastEventId` (a server-stamped cursor that advances reattach exactly as an event `id` does), so a `retry:` frame carrying a last-id both floors the next delay and moves the resume point.
 - Law: the feed is transport only — it emits decoded `Sse.Event` frames and owns no payload vocabulary; the consumer's own Schema decodes `event.data` at its seam, so one feed serves every event dialect.
 - Boundary: the serving mirror — `Sse.encoder` framing an outbound event stream over an HTTP response — is the edge wave's mount; this page owns the codec direction law so the dialect has one owner.
 - Entry: `yield* Feed` then `feed.open(origin)`; `Feed.live` is the shipped Layer over the client lane.
@@ -106,8 +106,6 @@ const _reattached = (origin: URL, cursor: Feed.Cursor): HttpClientRequest.HttpCl
       }),
   )
 
-declare const _hinted: (frame: Sse.Retry) => Duration.Duration
-
 const _pulled = (
   origin: URL,
   request: HttpClientRequest.HttpClientRequest,
@@ -138,7 +136,10 @@ const _session = (origin: URL): Stream.Stream<Sse.Event, FeedFault, HttpClient.H
       ).pipe(
         Stream.tap((frame) =>
           frame._tag === "Retry"
-            ? Ref.set(hint, Option.some(_hinted(frame)))
+            ? Effect.zipRight(
+              Ref.set(hint, Option.some(frame.duration)),
+              Ref.update(cursor, (held) => Option.orElse(Option.fromNullable(frame.lastEventId), () => held)),
+            )
             : Ref.update(cursor, (held) => Option.orElse(Option.fromNullable(frame.id), () => held))),
         Stream.filter((frame): frame is Sse.Event => frame._tag === "Event"),
       )

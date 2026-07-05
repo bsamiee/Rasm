@@ -286,8 +286,8 @@ declare namespace Verdict {
 
 ```typescript
 import {
-  type EvaluationContext, type Hook, type JsonValue, OpenFeature, OpenFeatureEventEmitter, type Provider,
-  ProviderEvents, type ResolutionDetails,
+  type Client, type EvaluationContext, type EvaluationDetails, type Hook, type JsonValue, OpenFeature,
+  OpenFeatureEventEmitter, type Provider, ProviderEvents, type ResolutionDetails,
 } from "@openfeature/server-sdk"
 import { Cache, Data, Effect, Exit, HashMap, Layer, Predicate, Record, Runtime, Schedule, Stream, SubscriptionRef } from "effect"
 import { FlagGate } from "@rasm/ts/security"
@@ -297,6 +297,34 @@ import { Feed } from "../net/channel.ts"
 const _shifted = Schema.decodeUnknown(Schema.parseJson(_Shift))
 
 const _MEMO = { capacity: 4096 } as const
+
+type _Probe = {
+  readonly flag: string
+  readonly key: string
+  readonly axes: Readonly<Record<string, string>>
+  readonly kind: Verdict.Kind
+  readonly fallback: Verdict.Json
+}
+
+const _isReason = Schema.is(Schema.Literal(...Rollout.reasons))
+const _isCode = Schema.is(Schema.Literal(...Verdict.codes))
+
+const _kindOf = (value: Verdict.Json): Verdict.Kind =>
+  Predicate.isBoolean(value) ? "boolean" : Predicate.isString(value) ? "string" : Predicate.isNumber(value) ? "number" : "object"
+
+const _getters = {
+  boolean: (client: Client, probe: _Probe, context: EvaluationContext) =>
+    client.getBooleanDetails(probe.flag, _guards.boolean(probe.fallback) ? probe.fallback : false, context),
+  string: (client: Client, probe: _Probe, context: EvaluationContext) =>
+    client.getStringDetails(probe.flag, _guards.string(probe.fallback) ? probe.fallback : "", context),
+  number: (client: Client, probe: _Probe, context: EvaluationContext) =>
+    client.getNumberDetails(probe.flag, _guards.number(probe.fallback) ? probe.fallback : 0, context),
+  object: (client: Client, probe: _Probe, context: EvaluationContext) =>
+    client.getObjectDetails(probe.flag, probe.fallback, context),
+} as const satisfies Record<
+  Verdict.Kind,
+  (client: Client, probe: _Probe, context: EvaluationContext) => Promise<EvaluationDetails<Verdict.Json>>
+>
 
 const _patched = (held: Ruleset, shift: Verdict.Shift): readonly [Ruleset, ReadonlyArray<string>] =>
   Match.valueTags(shift, {
@@ -412,19 +440,11 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
       const client = OpenFeature.getClient()
       client.addHooks(traced)
 
-      const fetched = (probe: { readonly flag: string; readonly key: string; readonly axes: Readonly<Record<string, string>>; readonly kind: Verdict.Kind; readonly fallback: Verdict.Json }) => {
-        const context: EvaluationContext = { targetingKey: probe.key, ...probe.axes }
-        return Match.value(probe.kind).pipe(
-          Match.when("boolean", () => Effect.promise(() => client.getBooleanDetails(probe.flag, _guards.boolean(probe.fallback) ? probe.fallback : false, context))),
-          Match.when("string", () => Effect.promise(() => client.getStringDetails(probe.flag, _guards.string(probe.fallback) ? probe.fallback : "", context))),
-          Match.when("number", () => Effect.promise(() => client.getNumberDetails(probe.flag, _guards.number(probe.fallback) ? probe.fallback : 0, context))),
-          Match.when("object", () => Effect.promise(() => client.getObjectDetails(probe.flag, probe.fallback, context))),
-          Match.exhaustive,
-        )
-      }
+      const fetched = (probe: _Probe): Effect.Effect<EvaluationDetails<Verdict.Json>> =>
+        Effect.promise(() => _getters[probe.kind](client, probe, { targetingKey: probe.key, ...probe.axes }))
       const memo = yield* Cache.makeWith({
         capacity: _MEMO.capacity,
-        lookup: (probe: { readonly flag: string; readonly key: string; readonly axes: Readonly<Record<string, string>>; readonly kind: Verdict.Kind; readonly fallback: Verdict.Json }) =>
+        lookup: (probe: _Probe) =>
           Effect.gen(function* () {
             const at = yield* DateTime.now
             const details = yield* fetched(probe).pipe(
@@ -436,8 +456,8 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
               kind: probe.kind,
               value: details.value,
               variant: Option.fromNullable(details.variant),
-              reason: Array.contains<string>(Rollout.reasons, details.reason) ? (details.reason as Rollout.Reason) : "UNKNOWN",
-              code: Option.fromNullable(details.errorCode as Verdict.Code | undefined),
+              reason: _isReason(details.reason) ? details.reason : "UNKNOWN",
+              code: Option.filter(Option.fromNullable(details.errorCode), _isCode),
               at,
             })
           }),
@@ -455,7 +475,7 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
             flag,
             key: subject.key,
             axes: Data.struct(subject.axes),
-            kind: Predicate.isBoolean(fallback) ? "boolean" as const : Predicate.isString(fallback) ? "string" as const : Predicate.isNumber(fallback) ? "number" as const : "object" as const,
+            kind: _kindOf(fallback),
             fallback,
           })),
         changes: cell.changes,

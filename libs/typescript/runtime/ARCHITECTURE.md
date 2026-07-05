@@ -18,7 +18,8 @@ runtime/
     ├── net/                   # Outbound transport and the fanout/replay port
     │   ├── client.ts          # The outbound HTTP lane table — status admission, retry pulses compiled from core Budget rows
     │   ├── channel.ts         # Framed long-lived byte channels: socket duplex under a closed frame vocabulary + SSE feeds
-    │   └── pubsub.ts          # Fanout — engine-blind broadcast/replay port; in-process PubSub row + the NATS JetStream row
+    │   ├── pubsub.ts          # Fanout — engine-blind broadcast/replay/blob port; local, cross-tab, and NATS JetStream rows over one Wire
+    │   └── coordinate.ts      # Accord — engine-blind lease/elect/CAS port; NATS KV revision row + browser Web Locks row
     ├── otel/                  # The OTLP wire: export/ingest, crash capture, browser RUM
     │   ├── emit.ts            # Export.live(policy) — the one OTLP egress Layer + collector ingress, with the Redaction scrub
     │   ├── crash.ts           # The total Cause→fatal-emission fold through Convention rows and the core fault enrichers
@@ -57,6 +58,7 @@ net/client     ←  typescript:core/value        # [SHAPE]: Budget ledger rows c
 otel/emit      ←  typescript:core/observe      # [SHAPE]: Convention rows stamped at every emission
 otel/emit      ←  csharp:Rasm.AppHost          # [TRANSPORT]: OTLP export alignment at the shared collector
 serve/route    ←  typescript:security/crypt    # [BOUNDARY]: Intake held-octets verify seam
+serve/route    ←  typescript:security/authn    # [PORT]: BearerGuard/ApiKeyGuard HttpApiMiddleware Tags mounted on api routes
 serve/route    ←  typescript:data/object       # [BOUNDARY]: tus dispatcher mount rows
 serve/route    →  typescript:ui/viewer         # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
 serve/live     ←  typescript:data/read         # [SHAPE]: reactivity-keyed feeds under the resume-token law
@@ -73,7 +75,7 @@ net/pubsub     →  typescript:iac/kube          # [BOUNDARY]: Setting.fanout.or
 
 ## [03]-[ORGANIZATION]
 
-`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port. `otel` is the wire half of observability; the vocabulary lives in core. `serve` enforces the one front-door law: libraries export route/verb/group DATA, the app assembles exactly one HttpApi, one CLI root, one serve fold; faults leave only as self-rendering Problems. `work` prices every durable surface against one WorkClass table so entities, queues, cron, and relay pacing share a single service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane, one byte transport delegating identity to the core mint.
+`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every cross-process agreement the coordination port over the same wire. `otel` is the wire half of observability; the vocabulary lives in core. `serve` enforces the one front-door law: libraries export route/verb/group DATA, the app assembles exactly one HttpApi, one CLI root, one serve fold; faults leave only as self-rendering Problems. `work` prices every durable surface against one WorkClass table so entities, queues, cron, and relay pacing share a single service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane, one byte transport delegating identity to the core mint.
 
 ## [04]-[BOUNDARIES]
 

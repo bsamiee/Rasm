@@ -91,7 +91,7 @@ for measured staging payloads.
 
 [ENTRYPOINT_SCOPE]: projections and transforms
 - rail: staging
-- `AsBytes`/`Cast` carry a `where T : unmanaged` (and `Cast` a `TFrom/TTo : unmanaged`) constraint — only blittable element types reinterpret, and a reinterpreted payload never crosses a process boundary uncoded. `AsMemory2D`/`AsSpan2D` over a 2D array have whole-array and windowed `(row, column, height, width)` forms; over `Memory<T>` they take `(height, width)` or the padded `(offset, height, width, pitch)` stride form; a 3D array has a `(depth)` slice form. `AsStream` is `Memory<byte>`-only (and owner-backed via the `.Streams` family).
+- `AsBytes`/`Cast` carry a `where T : unmanaged` (and `Cast` a `TFrom/TTo : unmanaged`) constraint — only blittable element types reinterpret, and a reinterpreted payload never crosses a process boundary uncoded. `AsMemory2D`/`AsSpan2D` over a 2D array have whole-array and windowed `(row, column, height, width)` forms; over `Memory<T>` they take `(height, width)` or the padded `(offset, height, width, pitch)` stride form; a 3D array has a `(depth)` slice form. `AsStream` covers FIVE `byte`-payload receivers (see the `AsStream` byte bridge scope below), never `Memory<byte>` alone; the `.Streams` implementation types are package-internal, only the extension surface is public.
 
 | [INDEX] | [SURFACE]                                                      | [CALL_SHAPE]   | [CAPABILITY]                                              |
 | :-----: | :------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
@@ -104,7 +104,19 @@ for measured staging payloads.
 |  [07]   | `Cast<TFrom, TTo>(…) where TFrom, TTo : unmanaged`             | extension call | reinterprets a blittable `Span`/`Memory` to another width |
 |  [08]   | `Tokenize`                                                     | extension call | splits a span on a separator into a `SpanTokenizer<T>`   |
 |  [09]   | `Enumerate`                                                    | extension call | exposes ref enumeration over a span                      |
-|  [10]   | `AsStream(this Memory<byte>)`                                  | extension call | projects a `byte` payload as a `Stream` at an IO edge    |
+
+[ENTRYPOINT_SCOPE]: `AsStream` byte bridge (zero-copy IO edge)
+- rail: staging-and-streams#STREAM_POOL
+- Five extension classes each project one already-materialized `byte` payload as a `System.IO.Stream` with NO intermediate `byte[]`, so a codec drain or a transport body wraps the existing buffer at the IO edge. The `IMemoryOwner<byte>` form disposes the owner with the stream.
+
+| [INDEX] | [SURFACE]                                                | [CALL_SHAPE]   | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `MemoryExtensions.AsStream(this Memory<byte>)`           | extension call | a writable rented buffer as a read/write `Stream`        |
+|  [02]   | `ReadOnlyMemoryExtensions.AsStream(this ReadOnlyMemory<byte>)` | extension call | a read-only window as a read `Stream`               |
+|  [03]   | `ReadOnlySequenceExtensions.AsStream(this ReadOnlySequence<byte>)` | extension call | a multi-segment payload as one read `Stream`, no flatten |
+|  [04]   | `IMemoryOwnerExtensions.AsStream(this IMemoryOwner<byte>)` | extension call | a pooled owner rental as a `Stream` (disposes the owner) |
+|  [05]   | `IBufferWriterExtensions.AsStream(this IBufferWriter<byte>)` | extension call | a codec drain target as a write `Stream`               |
+|  [06]   | `IBufferWriterExtensions.Write<T>(this IBufferWriter<byte>, ReadOnlySpan<T>) where T : unmanaged` | extension call | blit a primitive/struct span into the writer (codec sink) |
 
 [ENTRYPOINT_SCOPE]: parallel partition operations
 - rail: staging

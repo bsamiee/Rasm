@@ -3,9 +3,5 @@
     "name": "viewer",
     "projectType": "library",
     "sourceRoot": "libs/typescript/ui/viewer/src",
-    "tags": [
-        "scope:viewer",
-        "runtime:browser",
-        "plane:runtime"
-    ]
+    "tags": ["scope:viewer", "runtime:browser", "plane:runtime"]
 }

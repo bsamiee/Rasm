@@ -92,15 +92,27 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 ## [4]-[SETTING_OWNER]
 
 [SETTING_OWNER]:
-- Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
+- Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`, `SERVE`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
 - Law: consumers depend on `Setting`, never on `Config` — the built service is a plain resolved struct, so the `flag`, `life`, and `pubsub` owners read fields with no `ConfigError` in their own channels and no second resolve anywhere in the process.
 - Law: the form is the family — an app or sibling-folder contract is declared exactly as `Setting` is (service class, `Config.unwrap` record, described rows, nested groups) under its own namespace; a second config-reading pattern beside this form is the fork this page exists to prevent, and two services never read one variable.
 - Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`.
 - Entry: `Setting.Default` at the composition root; `yield* Setting` everywhere else.
-- Packages: `effect` (`Config`, `Effect`, `Duration`).
+- Packages: `effect` (`Config`, `Duration`, `Effect`, `Schema`, `Struct`).
 
 ```typescript
-import { Config, Duration, Effect } from "effect"
+import { Config, Duration, Effect, Schema, Struct } from "effect"
+
+const _tiers = {
+  dev: { verbose: true },
+  prod: { verbose: false },
+} as const
+
+declare namespace _tiers {
+  type Kind = keyof typeof _tiers
+  type _Rows<T extends Record<Kind, { readonly verbose: boolean }> = typeof _tiers> = T
+}
+
+const _Extent = Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 64), Schema.brand("Extent"))
 
 const _flag = Config.nested(
   Config.unwrap({
@@ -146,6 +158,10 @@ const _fanout = Config.nested(
       Config.withDefault(Duration.minutes(2)),
       Config.withDescription("stream duplicate-detection window the msgID dedup rides"),
     ),
+    chunk: Config.integer("CHUNK").pipe(
+      Config.withDefault(131_072),
+      Config.withDescription("object-row max chunk size the blob lane's chunked put rides"),
+    ),
   }),
   "FANOUT",
 )
@@ -169,8 +185,10 @@ const _mail = Config.nested(
     host: Config.string("HOST").pipe(Config.withDescription("SMTP host the pooled transporter dials")),
     port: Config.port("PORT").pipe(Config.withDefault(465), Config.withDescription("SMTP port")),
     user: Config.string("USER").pipe(Config.withDescription("SMTP credential user")),
+    pass: Config.redacted("PASS").pipe(Config.withDescription("SMTP credential; sealed Redacted to the transport seam")),
     domain: Config.string("DOMAIN").pipe(Config.withDescription("DKIM signing domain")),
     selector: Config.string("SELECTOR").pipe(Config.withDescription("DKIM key selector")),
+    key: Config.redacted("KEY").pipe(Config.withDescription("DKIM signing key; sealed Redacted to the transport seam")),
     rate: Config.integer("RATE").pipe(
       Config.withDefault(60),
       Config.withDescription("pooled-transport messages-per-window ceiling"),
@@ -179,8 +197,28 @@ const _mail = Config.nested(
   "MAIL",
 )
 
+const _serve = Config.nested(
+  Config.unwrap({
+    tier: Config.literal(...Struct.keys(_tiers))("TIER").pipe(
+      Config.withDefault("prod"),
+      Config.withDescription("deployment tier selecting the verbosity row"),
+    ),
+    extent: Schema.Config("EXTENT", _Extent).pipe(
+      Config.withDescription("bounded worker-pool extent; arrives branded, never re-proven"),
+    ),
+    bind: Config.port("PORT").pipe(
+      Config.withDefault(8080),
+      Config.withDescription("listen port the serve row binds"),
+    ),
+  }),
+  "SERVE",
+)
+
 class Setting extends Effect.Service<Setting>()("runtime/Setting", {
-  effect: Config.nested(Config.unwrap({ cluster: _cluster, fanout: _fanout, flag: _flag, life: _life, mail: _mail }), "RUNTIME"),
+  effect: Config.nested(
+    Config.unwrap({ cluster: _cluster, fanout: _fanout, flag: _flag, life: _life, mail: _mail, serve: _serve }),
+    "RUNTIME",
+  ),
 }) {}
 ```
 
@@ -191,46 +229,10 @@ class Setting extends Effect.Service<Setting>()("runtime/Setting", {
 - Law: `Config.withDescription` rides every row — a missing or malformed variable reports its meaning, never a bare key name; the description is the row's operator contract with whoever sets the environment.
 - Law: `Config.withDefault` states ownership of the fallback — default at the row when the owner fixes the value and no consumer distinguishes absent from defaulted; no default when an unset variable must fail the boot; a fallback repeated at read sites marks a default that belonged on the row.
 - Law: shaped rows keep validation at the seam — a `Schema.Config` row arrives branded and bounded, so no regex check, range guard, or parse survives past the resolve; the branded scalar the row admits is the same refinement the owning Schema field carries — one refinement, two admission sites, zero drift; `Config.string` survives only for a genuinely free-form value.
-- Law: the fence instantiates the family form — a sibling contract declared exactly as `Setting` is, under its own namespace, its rows drawn from this vocabulary — so the row law and the family law are proven by one module.
-- Packages: `effect` (`Config`, `Effect`, `Schema`, `Struct`).
+- Law: the family form is proven by `Setting` itself — the `SERVE` group carries the vocabulary's every member (literal spread from the `_tiers` anchor, `Schema.Config` branded scalar, defaulted structural port) and the `MAIL` group carries the sealed-secret rows; a sibling contract instantiates the identical form under its own namespace, and a second demonstration service beside the real owner is the duplication this page deletes.
 
 ```typescript
-import { Config, Effect, Schema, Struct } from "effect"
-
-const _tiers = {
-  dev: { verbose: true },
-  prod: { verbose: false },
-} as const
-
-declare namespace _tiers {
-  type Kind = keyof typeof _tiers
-  type _Rows<T extends Record<Kind, { readonly verbose: boolean }> = typeof _tiers> = T
-}
-
-const _Extent = Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 64), Schema.brand("Extent"))
-
-const _shaped = Config.unwrap({
-  tier: Config.literal(...Struct.keys(_tiers))("TIER").pipe(
-    Config.withDefault("prod"),
-    Config.withDescription("deployment tier selecting the verbosity row"),
-  ),
-  extent: Schema.Config("EXTENT", _Extent).pipe(
-    Config.withDescription("bounded worker extent; arrives branded, never re-proven"),
-  ),
-  token: Config.redacted("TOKEN").pipe(
-    Config.withDescription("provider credential; sealed Redacted end to end"),
-  ),
-  bind: Config.port("PORT").pipe(
-    Config.withDefault(8080),
-    Config.withDescription("listen port the serve row binds"),
-  ),
-})
-
-class Serve extends Effect.Service<Serve>()("app/Serve", {
-  effect: Config.nested(_shaped, "SERVE"),
-}) {}
-
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Provider, Serve, Setting }
+export { Provider, Setting }
 ```

@@ -97,7 +97,7 @@ const _reads = (sql: SqlClient.SqlClient) => ({
 - Entry: `resolver.execute(input)` is the one call surface — every caller in a flow shares the bound resolver, so concurrent keyed reads collapse into one statement window; `Effect.withRequestCaching(true)` composed at the flow boundary deduplicates repeated keys across the whole graph, and the request-cache Layer is `lane/cache.md`'s `dedup` row.
 - Receipt: `cachePopulate(id, result)` seeds the resolver cache from a write's own returning row and `cacheInvalidate(id)` evicts on mutation — write-through coherence as resolver verbs, never a parallel cache map.
 - Growth: a new keyed lookup is one resolver row; a one-to-many axis is `grouped`'s key pair, never a per-parent loop.
-- Law: row selection is the relation's answer shape — `ordered` for strict 1:1 position-matched batches (`ResultLengthMismatch` guards the integrity), `grouped` for 1:N regrouped by extracted key, `findById` for id-keyed `Option` lookups, `void` for batched writes; choosing `ordered` where the statement drops misses is the integrity fault the guard exists to surface.
+- Law: row selection is the relation's answer shape — `ordered` for strict 1:1 position-matched batches (`ResultLengthMismatch` guards the integrity), `grouped` for 1:N regrouped by extracted key, `findById` for id-keyed `Option` lookups, `void` for batched writes; choosing `ordered` where the statement drops misses is the integrity fault the guard exists to surface — the `StreamHead` row rides `findById` for exactly this reason, because a stream with zero events is a lawful `Option.none` the caller folds to head zero, never a length mismatch.
 - Law: resolvers bind once at the owning service construction — batch windows group by resolver identity, so a resolver minted per call defeats the window structurally; the same law governs the fused accessors of `[3]`.
 - Law: the batch statement is one set-shaped query — `sql.in` over the window's keys, `GROUP BY`/window functions where the group row demands — never a per-request statement inside the resolver body.
 
@@ -122,6 +122,15 @@ const _resolvers = (sql: SqlClient.SqlClient) => ({
   touch: SqlResolver.void("TouchBoard", {
     Request: Schema.NonEmptyString,
     execute: (cells) => sql`UPDATE board SET revised_at = ${Journal.now(sql)} WHERE ${sql.in("cell", cells)}`,
+  }),
+  heads: SqlResolver.findById("StreamHead", {
+    Id: Schema.String,
+    Result: Schema.Struct({ id: Schema.String, head: Schema.Number }),
+    ResultId: (row) => row.id,
+    execute: (ids) =>
+      sql`SELECT app || ':' || tenant || ':' || aggregate AS id, coalesce(max(version), 0) AS head
+          FROM journal_event WHERE (app || ':' || tenant || ':' || aggregate) IN ${sql.in(ids)}
+          GROUP BY app, tenant, aggregate`,
   }),
 })
 ```

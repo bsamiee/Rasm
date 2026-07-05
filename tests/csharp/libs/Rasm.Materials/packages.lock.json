@@ -16,9 +16,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.115, )",
-        "resolved": "3.0.115",
-        "contentHash": "HXp8maNxVdqsZWHjZmpoDdvecmxgEkY1juAFPyKI4edN+PhLBinnCov7UkVmYFgdlGRo8BDmY6ZzE4RkJee19A=="
+        "requested": "[3.0.121, )",
+        "resolved": "3.0.121",
+        "contentHash": "PKNTmwMdzM0YJ7tAvwzWmlgWhtm8ZOma2eNUqchkbmvWwqC8QXoOzNPKwNHZBtPJpehYb7qu9q/182qg4Fmclw=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -39,8 +39,8 @@
       },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "EGTPKjTvZPizf2gC9pfsW1k2VEqNSjD7M52Hw7i0a5cRzWP4IWvu6LKv4e0yKmTjDqBPtG9QwTtsy+6zFq41vw==",
+        "resolved": "4.0.1",
+        "contentHash": "Rowhau6JchkFbw0WHOR1UlQ0G564+pj1PEInpUm5OviWMC8ZiOfrvNTzOrZv+4G1ei+dOXVMNUDsJx/tPArzPw==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
         }
@@ -170,7 +170,7 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
-          "Generator.Equals": "[4.0.0, )",
+          "Generator.Equals": "[4.0.1, )",
           "Google.Protobuf": "[3.35.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -209,8 +209,8 @@
           "VividOrange.Standards": "[0.1.0, )",
           "VividOrange.Uncertainties": "[0.2.0, )",
           "VividOrange.Uncertainties.Quantities": "[0.2.0, )",
-          "Wacton.Unicolour": "[7.0.0, )",
-          "Wacton.Unicolour.Datasets": "[4.0.0, )"
+          "Wacton.Unicolour": "[8.0.0, )",
+          "Wacton.Unicolour.Datasets": "[5.0.0, )"
         }
       },
       "CommunityToolkit.HighPerformance": {
@@ -233,11 +233,11 @@
       },
       "Generator.Equals": {
         "type": "CentralTransitive",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "JrcUskhhgKaoUtRnTODx/W5itfcEQ0gwYm2J1YtsCzbejXHNa13Z/6DvkYkmrDUASOCxovGi9Q1j+Y7MhPwrug==",
+        "requested": "[4.0.1, )",
+        "resolved": "4.0.1",
+        "contentHash": "LDQmP7rApxCXz0ddTvVy9AdP+SfnzqfWzxno7yQL2kSWItadY7Do82KALRJNfiNNZrWumDEuih7bbDcRbLrkGQ==",
         "dependencies": {
-          "Generator.Equals.Runtime": "4.0.0"
+          "Generator.Equals.Runtime": "4.0.1"
         }
       },
       "Google.Protobuf": {
@@ -610,17 +610,17 @@
       },
       "Wacton.Unicolour": {
         "type": "CentralTransitive",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "5otnmBDAIugnZpJrcS/NB8B5yfl6/OuII3/hvlZCgLzbpxJb0+UnMkwZ/bMp54Qkjpoo7Rzl+x6EFsnpjTE6XQ=="
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
       },
       "Wacton.Unicolour.Datasets": {
         "type": "CentralTransitive",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "Vk3NbKe9U7F4AwaBfqEecfMvmD1PC3M9CH8ei51aGWfqzc1mPaClQPCbhnLbvWpaP0oj0VWfsOgK4G76VfQr3A==",
+        "requested": "[5.0.0, )",
+        "resolved": "5.0.0",
+        "contentHash": "as/MNZG8GXeU14Jbm6YQ4Z6mA0K6V6TYFJ2ZE/j7J6OqAGYdGpiQVNWyaQSRb9+vmArLtuP4Oj5ysADrVLhqvA==",
         "dependencies": {
-          "Wacton.Unicolour": "7.0.0"
+          "Wacton.Unicolour": "8.0.0"
         }
       }
     }

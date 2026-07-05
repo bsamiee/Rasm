@@ -1,168 +1,457 @@
 # [CORE_MACHINE]
 
-The state-machine owner: a closed transition system is a vocabulary table — one `Transition.Table` keyed by phase whose rows carry `(next, emit)` per signal, with the mapped contract demanding the full matrix so a new phase or signal is a row, never a branch — and the same table drives three altitudes from one declaration: the pure Mealy `step`, the `drive` fold over a signal batch, and the serializable actor booted from the `@effect/experimental` `Machine` — one state, tagged requests serialized on one fiber, phase-keyed watchdog timers as policy rows, defect recovery as a `Schedule` value, and `snapshot`/`restore` carrying the machine across process restarts. THE ALTITUDE RULING: `Machine` is the in-process serializable actor — live state, request-serialized mutation, snapshot-grade durability; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the table, never re-shapes it — the two altitudes share this vocabulary and nothing else. The module is `core/src/state/machine.ts`; a new machine is a spec value, a new deadline is a watch row, a new request beyond feed/poll is a workflow-altitude signal.
+The statechart owner: a closed transition system is data — one `Transition.Spec` whose `nodes` table declares the state tree (atomic, compound, parallel, final, history — declaration order IS document order and document order is the determinism law) and whose `rows` carry guarded, internally-or-externally-domained, ordered-emit transitions — and one compile at `Transition.spec` precomputes the tree algebra (ancestor chains, entry completion, LCCA, the final-state census), derives the configuration schema from the node vocabulary, and mints the serializable `@effect/experimental` `Machine` exactly once, so `boot` and `restore` only run the actor and never recompile. The same compiled value drives three altitudes: the pure macrostep fold (`step` drains eventless and raised internal signals to stability under a bounded-microstep fuel row), the batch and stream drivers (`drive` through `Array.mapAccum`, `trace` through `Stream.mapAccum`), and the booted actor — one state on one fiber, phase-keyed watchdogs and node-scoped invoke fibers armed by the entered/exited wave, history carried inside machine state so `snapshot`/`restore` transports it durably for free, the actor's own `Subscribable` state binding view atoms, and a derived fact stream as the inspection hook a consumer taps without the machine forking anything. The flat Mealy table is the degenerate case — a depth-one tree with a singleton configuration. THE ALTITUDE RULING: `Machine` is the in-process serializable actor; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the spec, never re-shapes it. The module is `core/src/state/machine.ts`; a new state is a node row, a new transition is a table row, a new deadline is a watch row, a new child activity is an invoke row.
 
 ## [1]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                             | [PUBLIC]                                     |
-| :-----: | :------------------ | :---------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `TRANSITION_TABLE`  | the phase/signal/verdict vocabulary contract and the watch policy rows | `Transition.Table`, `Transition.Watch`, `Transition.Spec` |
-|  [02]   | `STEP_DRIVE`        | the pure Mealy step and the batch drive fold                            | `Transition.step`, `Transition.drive`             |
-|  [03]   | `ACTOR`             | the serializable actor: boot, feed, poll, freeze, restore, recovery     | `Transition.boot`, `Transition.restore`           |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                          | [PUBLIC]                          |
+| :-----: | :----------------- | :------------------------------------------------------------------------------ | :-------------------------------- |
+|  [01]   | `STATECHART_TABLE` | the node/row/config vocabulary and the one-shot compile with static tree facts   | `Transition.Spec`, `Transition.spec` |
+|  [02]   | `MACROSTEP_FOLD`   | selection, conflict removal, exit/entry algebra, the fuel-bounded macrostep      | `Transition.drive`, `Transition.trace` |
+|  [03]   | `ACTOR`            | boot, restore, wire admission, arming, the subscribable state and fact stream    | compiled `boot`/`restore`          |
 
-## [2]-[TRANSITION_TABLE]
+## [2]-[STATECHART_TABLE]
 
-[TRANSITION_TABLE]:
-- Owner: `Transition.Spec<P, S, V>` — the machine as one value: `name` (the actor identity telemetry keys on), the three literal schemas (`phase`, `signal`, `verdict` — the same anchors that decode a wire-carried phase and encode the snapshot), `rows` (the transition matrix), `watch` (the phase-keyed deadline rows), `recover` (the defect re-initialization `Schedule`).
-- Law: the table is the mapped contract `{ [Phase in P]: { [Signal in S]: Row<P, V> } }` — every phase covers every signal with a typed row, so a missing arm is a compile error at the spec value and dispatch is table lookup, never a `switch` advancing a mutable phase.
-- Law: `watch` rows are deadline policy as data — a phase row arms a delayed self-signal (`after`, `signal`) when entered, and a phase without a row disarms the incumbent — so timeout transitions are vocabulary, recoverable from the spec, never a timer fiber hand-managed beside the machine.
-- Law: the schemas and the rows anchor one vocabulary — the literal tuples that feed `Schema.Literal` derive the phase/signal/verdict unions the table is typed over, so the wire arm, the type plane, and the matrix cannot drift.
-- Growth: a new phase or signal is one row the mapped contract demands everywhere at once; a new deadline is one watch row; a new machine is one spec value binding existing vocabulary.
-- Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `Option`, `ParseResult`, `Schedule`, `Schema`, `Scope`).
+[STATECHART_TABLE]:
+- Owner: `Transition.Spec<Id, S, V, X>` — the machine as one value: `name`, `nodes` (the kind-discriminated state tree; declaration order is SCXML document order), `rows` (the transition matrix in document order), the `signal`/`verdict` literal schemas, the `extended` schema plus `seed` (guard-readable extended state, snapshot-serializable), `fuel` (the bounded-microstep row that makes every macrostep terminate), `traced` (actor span emission as a definition fact), `recover` (the defect re-initialization `Schedule`). `Transition.spec` compiles it once into `Transition.Compiled` — static tree facts, the derived configuration schema, the origin configuration, the pure `step`, and the pre-minted machine with its request classes — so booting then restoring one spec never re-mints request-class identities.
+- Law: `nodes` is a closed tagged family — `compound` demands `initial`, `history` demands `depth` and `fallback`, `final` demands `parent` — so an ill-formed tree is a compile error at the spec value, never a runtime walk; the configuration is the active atomic-leaf set plus the recorded `history` values plus the extended state, and its schema derives from the node vocabulary (`Schema.Literal` over the id roster), so a wire-carried or snapshot-carried configuration decodes against exactly the declared tree.
+- Law: guards are pure reads of extended state — `when: (extended) => boolean`, SCXML side-effect-free `cond` — preserving the Mealy character and snapshot determinism; `assign` is the only extended-state writer and it is a pure function on the row.
+- Law: internal signals derive from the id vocabulary — `done.state.${Id}` and `done.invoke.${Id}` are `Schema.TemplateLiteral` members of the signal plane, minted by the fold and the invoke completion, matchable by any row's `on`; a hand-written done-signal literal beside the template is the drift defect.
+- Law: the internal-versus-external distinction is one row flag — `internal: true` shrinks the transition domain from the LCCA to the source (SCXML `type="internal"`), the whole semantic difference; external is the default posture.
+- Law: `Machine.serializable.add` is the pipeable dual — data-last `(schema, handler) => (self) => self` — and `Machine.procedures.add` is a differently-shaped curried type application; the two namespaces never substitute.
+- Growth: a new state, transition, deadline, or child activity is one row in the owning table; a new machine is one spec value; dynamic child registries beyond node-scoped invoke ride the context's id-addressed `forkOne` under the same arming law.
+- Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `HashSet`, `Option`, `Order`, `ParseResult`, `Schedule`, `Schema`, `Scope`, `Stream`, `Struct`, `Subscribable`).
 
 ```typescript
 import { Machine } from "@effect/experimental"
-import { Array, type Duration, Effect, Option, type ParseResult, pipe, type Schedule, Schema, type Scope } from "effect"
+import {
+  Array, type Duration, Effect, HashSet, Option, Order, type ParseResult, pipe, type Schedule, Schema, type Scope,
+  Stream, Struct, Subscribable,
+} from "effect"
 
 declare namespace Transition {
-  type Row<P extends string, V extends string> = { readonly next: P; readonly emit: V }
-  type Table<P extends string, S extends string, V extends string> = {
-    readonly [Phase in P]: { readonly [Signal in S]: Row<P, V> }
+  type Depth = "shallow" | "deep"
+  type Internal<Id extends string> = `done.state.${Id}` | `done.invoke.${Id}`
+  type Signal<Id extends string, S extends string> = S | Internal<Id>
+  type Watch<Id extends string, S extends string> = {
+    readonly after: Duration.DurationInput
+    readonly signal: Signal<Id, S>
   }
-  type Watch<P extends string, S extends string> = {
-    readonly [Phase in P]?: { readonly after: Duration.DurationInput; readonly signal: S }
+  type Face<V extends string> = { readonly entry?: ReadonlyArray<V>; readonly exit?: ReadonlyArray<V> }
+  type Service<Id extends string, S extends string, X> = {
+    readonly watch?: Watch<Id, S>
+    readonly invoke?: (extended: X) => Effect.Effect<unknown>
   }
-  type Spec<P extends string, S extends string, V extends string> = {
+  type Node<Id extends string, S extends string, V extends string, X> =
+    | (Face<V> & Service<Id, S, X> & { readonly kind: "atomic"; readonly parent?: Id })
+    | (Face<V> & Service<Id, S, X> & { readonly kind: "compound"; readonly parent?: Id; readonly initial: Id })
+    | (Face<V> & Service<Id, S, X> & { readonly kind: "parallel"; readonly parent?: Id })
+    | (Face<V> & { readonly kind: "final"; readonly parent: Id })
+    | { readonly kind: "history"; readonly parent: Id; readonly depth: Depth; readonly fallback: Id }
+  type Row<Id extends string, S extends string, V extends string, X> = {
+    readonly source: Id
+    readonly on?: Signal<Id, S>
+    readonly when?: (extended: X) => boolean
+    readonly to?: Array.NonEmptyReadonlyArray<Id>
+    readonly internal?: boolean
+    readonly emit?: ReadonlyArray<V>
+    readonly assign?: (extended: X, signal: Signal<Id, S>) => X
+  }
+  type Config<Id extends string, X> = {
+    readonly active: ReadonlyArray<Id>
+    readonly history: Readonly<Record<string, ReadonlyArray<Id>>>
+    readonly extended: X
+  }
+  type Macro<Id extends string, V extends string> = {
+    readonly program: ReadonlyArray<V>
+    readonly entered: ReadonlyArray<Id>
+    readonly exited: ReadonlyArray<Id>
+  }
+  type Spec<Id extends string, S extends string, V extends string, X> = {
     readonly name: string
-    readonly phase: Schema.Schema<P, P>
+    readonly nodes: Readonly<Record<Id, Node<Id, S, V, X>>>
+    readonly rows: ReadonlyArray<Row<Id, S, V, X>>
     readonly signal: Schema.Schema<S, S>
     readonly verdict: Schema.Schema<V, V>
-    readonly rows: Table<P, S, V>
-    readonly watch: Watch<P, S>
+    readonly extended: Schema.Schema<X>
+    readonly seed: X
+    readonly fuel: number
+    readonly traced: boolean
     readonly recover: Schedule.Schedule<unknown>
   }
-  type Step<P extends string, S extends string, V extends string> = (phase: P, signal: S) => readonly [P, V]
   type Frozen = readonly [unknown, unknown]
-  type Actor<P extends string, S extends string, V extends string> = {
-    readonly feed: (signal: S) => Effect.Effect<V>
-    readonly phase: Effect.Effect<P>
+  type Fact<Id extends string, X> = {
+    readonly config: Config<Id, X>
+    readonly entered: ReadonlyArray<Id>
+    readonly exited: ReadonlyArray<Id>
+  }
+  type Actor<Id extends string, S extends string, V extends string, X> = {
+    readonly feed: (signal: Signal<Id, S>) => Effect.Effect<ReadonlyArray<V>>
+    readonly feedUnknown: (frame: unknown) => Effect.Effect<unknown, ParseResult.ParseError>
+    readonly config: Effect.Effect<Config<Id, X>>
+    readonly state: Subscribable.Subscribable<Config<Id, X>>
+    readonly facts: Stream.Stream<Fact<Id, X>>
     readonly freeze: Effect.Effect<Frozen, ParseResult.ParseError>
   }
+  type Compiled<Id extends string, S extends string, V extends string, X> = Spec<Id, S, V, X> & {
+    readonly origin: Config<Id, X>
+    readonly step: (config: Config<Id, X>, signal: Signal<Id, S>) => readonly [Config<Id, X>, Macro<Id, V>]
+    readonly boot: Effect.Effect<Actor<Id, S, V, X>, ParseResult.ParseError, Scope.Scope>
+    readonly restore: (frozen: Frozen) => Effect.Effect<Actor<Id, S, V, X>, ParseResult.ParseError, Scope.Scope>
+  }
   type Shape = {
-    readonly spec: <P extends string, S extends string, V extends string>(spec: Spec<P, S, V>) => Spec<P, S, V>
-    readonly step: <P extends string, S extends string, V extends string>(rows: Table<P, S, V>) => Step<P, S, V>
-    readonly drive: <P extends string, S extends string, V extends string>(
-      rows: Table<P, S, V>,
-    ) => (origin: P, signals: ReadonlyArray<S>) => [P, ReadonlyArray<V>]
-    readonly boot: <P extends string, S extends string, V extends string>(
-      spec: Spec<P, S, V>,
-      origin: P,
-    ) => Effect.Effect<Actor<P, S, V>, ParseResult.ParseError, Scope.Scope>
-    readonly restore: <P extends string, S extends string, V extends string>(
-      spec: Spec<P, S, V>,
-      frozen: Frozen,
-    ) => Effect.Effect<Actor<P, S, V>, ParseResult.ParseError, Scope.Scope>
+    readonly spec: <Id extends string, S extends string, V extends string, X>(
+      spec: Spec<Id, S, V, X>,
+    ) => Compiled<Id, S, V, X>
+    readonly drive: <Id extends string, S extends string, V extends string, X>(
+      compiled: Compiled<Id, S, V, X>,
+    ) => (
+      origin: Config<Id, X>,
+      signals: ReadonlyArray<Signal<Id, S>>,
+    ) => [Config<Id, X>, ReadonlyArray<Macro<Id, V>>]
+    readonly trace: <Id extends string, S extends string, V extends string, X>(
+      compiled: Compiled<Id, S, V, X>,
+    ) => <E, R>(signals: Stream.Stream<Signal<Id, S>, E, R>) => Stream.Stream<Macro<Id, V>, E, R>
+  }
+  type _Facts<Id extends string> = {
+    readonly ids: ReadonlyArray<Id>
+    readonly byOrder: Order.Order<Id>
+    readonly ancestors: (id: Id) => ReadonlyArray<Id>
+    readonly children: (id: Id) => ReadonlyArray<Id>
+    readonly leaves: (id: Id, history: Readonly<Record<string, ReadonlyArray<Id>>>) => ReadonlyArray<Id>
+    readonly closure: (active: ReadonlyArray<Id>) => ReadonlyArray<Id>
+    readonly lcca: (members: Array.NonEmptyReadonlyArray<Id>) => Option.Option<Id>
+    readonly finalized: (id: Id, active: ReadonlyArray<Id>) => boolean
+  }
+}
+
+const _service = <Id extends string, S extends string, V extends string, X>(
+  node: Transition.Node<Id, S, V, X>,
+): Option.Option<Transition.Service<Id, S, X>> =>
+  node.kind === "final" || node.kind === "history" ? Option.none() : Option.some(node)
+
+const _face = <Id extends string, S extends string, V extends string, X>(
+  node: Transition.Node<Id, S, V, X>,
+  side: keyof Transition.Face<V>,
+): ReadonlyArray<V> => (node.kind === "history" ? [] : node[side] ?? [])
+
+const _facts = <Id extends string, S extends string, V extends string, X>(
+  nodes: Readonly<Record<Id, Transition.Node<Id, S, V, X>>>,
+): Transition._Facts<Id> => {
+  const ids = Struct.keys(nodes)
+  const byOrder = Order.mapInput(Order.number, (id: Id) => ids.indexOf(id))
+  const ancestors = (id: Id): ReadonlyArray<Id> =>
+    Option.match(Option.fromNullable(nodes[id].parent), {
+      onNone: (): ReadonlyArray<Id> => [],
+      onSome: (held) => [held, ...ancestors(held)],
+    })
+  const children = (id: Id): ReadonlyArray<Id> => Array.filter(ids, (child) => nodes[child].parent === id)
+  const leaves = (id: Id, history: Readonly<Record<string, ReadonlyArray<Id>>>): ReadonlyArray<Id> => {
+    const node = nodes[id]
+    return node.kind === "compound"
+      ? leaves(node.initial, history)
+      : node.kind === "parallel"
+        ? Array.flatMap(children(id), (child) => leaves(child, history))
+        : node.kind === "history"
+          ? Option.match(Option.fromNullable(history[id]), {
+              onNone: () => leaves(node.fallback, history),
+              onSome: (stored) => Array.flatMap(stored, (held) => leaves(held, history)),
+            })
+          : [id]
+  }
+  const finalized = (id: Id, active: ReadonlyArray<Id>): boolean => {
+    const node = nodes[id]
+    return node.kind === "parallel"
+      ? Array.every(children(id), (child) => finalized(child, active))
+      : node.kind === "compound"
+        ? Array.some(children(id), (child) => nodes[child].kind === "final" && Array.contains(active, child))
+        : node.kind === "final" && Array.contains(active, id)
+  }
+  return {
+    ids,
+    byOrder,
+    ancestors,
+    children,
+    leaves,
+    finalized,
+    closure: (active) =>
+      pipe(
+        HashSet.fromIterable(Array.flatMap(active, (id) => [id, ...ancestors(id)])),
+        HashSet.toValues,
+        Array.sort(byOrder),
+      ),
+    lcca: (members) =>
+      Array.findFirst(
+        Array.filter(ancestors(Array.headNonEmpty(members)), (candidate) => nodes[candidate].kind === "compound"),
+        (candidate) => Array.every(members, (member) => Array.contains(ancestors(member), candidate)),
+      ),
   }
 }
 ```
 
-## [3]-[STEP_DRIVE]
+## [3]-[MACROSTEP_FOLD]
 
-[STEP_DRIVE]:
-- Owner: `Transition.step` — the Mealy shape `(phase, signal) => [next, verdict]` read straight off the table, the exact step a stream lifts unchanged through `Stream.mapAccum`; `Transition.drive` threads a signal batch through `Array.mapAccum`, one traversal emitting a verdict per signal.
-- Law: carried state decouples from emitted verdict — the step returns both and never mutates; a `let` advancing a phase beside a map, or a reply table declared beside the `(next, emit)` rows it duplicates, is the rejected form.
-- Law: the pure fold and the actor run the same rows — the actor's handler reads `rows[state][signal]` identically, so a machine proven at the pure altitude behaves identically booted, and the proof harness exercises `drive` without an actor.
-- Growth: a new pure read (reachability census over the rows, terminal-phase detection) is one member composing the same table.
+[MACROSTEP_FOLD]:
+- Owner: the macrostep algebra — selection walks each active leaf in document order through itself then its ancestors and takes the first row whose `on` and guard match (inner-first preemption, document-order priority); conflict removal keeps the earlier-selected transition when exit sets intersect (SCXML optimal transition set); the exit-set domain is one `_exits` computation selection and the microstep both read; the microstep exits innermost-first, records history before exit actions run, applies `assign`, emits the transition program, and enters outermost-first with compound defaults, parallel expansion, and history dereference; entering a `final` node raises `done.state.${parent}` onto the internal queue, and when that completion puts every region of a parallel grandparent into a final state — the `finalized` tree fact, SCXML `isInFinalState` — `done.state.${parallel}` follows in the same microstep.
+- Law: one external signal is one macrostep — the fold drains eventless rows first, then the raised internal queue, to stability or fuel exhaustion, so `raise`-style cascades and completion events resolve inside the step and a consumer never observes a half-drained configuration; the fuel row is the termination guarantee SCXML leaves informative. `assign` reads the signal that selected its row — the dequeued internal signal on an internal microstep, the external signal otherwise — so an extended-state writer never observes a trigger its row did not match.
+- Law: the emit channel is an ordered action program — exit emits in reverse document order, transition emits, entry emits in document order — pure Mealy output the Effect interpreter at the consumer executes; the fold performs no effect.
+- Law: history is pure data — the exit fold records the deep atomic-descendant set or the shallow child set into `config.history` keyed by the history node, so `Machine.snapshot`/`restore` carries re-entry targets across process restarts with zero extra machinery.
+- Law: `drive` and `trace` are the same step lifted — `Array.mapAccum` over a batch, `Stream.mapAccum` over a signal stream seeded at the compiled origin — and the actor's handler runs the identical `step`, so a machine proven at the pure altitude behaves identically booted.
+- Exemption: `_macro` is the page's one measured statement kernel — the run-to-completion drain mutates only its local queue, fuel counter, and accumulators, all dying at the return; the implementer carries the `// BOUNDARY ADAPTER` mark on its first line.
+- Growth: a pure read over the compiled tree (reachability census, terminal-configuration detection) is one member composing the same facts.
 
 ```typescript
-const _step = <P extends string, S extends string, V extends string>(
-  rows: Transition.Table<P, S, V>,
-): Transition.Step<P, S, V> =>
-(phase, signal) => pipe(rows[phase][signal], (row) => [row.next, row.emit] as const)
+const _exits = <Id extends string, S extends string, V extends string, X>(
+  spec: Transition.Spec<Id, S, V, X>,
+  facts: Transition._Facts<Id>,
+) =>
+(active: ReadonlyArray<Id>, row: Transition.Row<Id, S, V, X>): ReadonlyArray<Id> =>
+  row.to === undefined
+    ? []
+    : pipe(
+        row.internal === true && spec.nodes[row.source].kind === "compound"
+          && Array.every(row.to, (target) => Array.contains(facts.ancestors(target), row.source))
+          ? Option.some(row.source)
+          : facts.lcca([row.source, ...row.to]),
+        (domain) =>
+          Array.filter(facts.closure(active), (id) =>
+            Option.match(domain, {
+              onNone: () => true,
+              onSome: (root) => Array.contains(facts.ancestors(id), root),
+            })),
+      )
 
-const _drive = <P extends string, S extends string, V extends string>(rows: Transition.Table<P, S, V>) =>
-(origin: P, signals: ReadonlyArray<S>): [P, ReadonlyArray<V>] =>
-  Array.mapAccum(signals, origin, _step(rows))
+const _selected = <Id extends string, S extends string, V extends string, X>(
+  spec: Transition.Spec<Id, S, V, X>,
+  facts: Transition._Facts<Id>,
+  config: Transition.Config<Id, X>,
+  signal: Option.Option<Transition.Signal<Id, S>>,
+): ReadonlyArray<Transition.Row<Id, S, V, X>> => {
+  const matched = (source: Id): Option.Option<Transition.Row<Id, S, V, X>> =>
+    Array.findFirst(spec.rows, (row) =>
+      row.source === source
+      && Option.match(signal, { onNone: () => row.on === undefined, onSome: (held) => row.on === held })
+      && (row.when === undefined || row.when(config.extended)))
+  const exitSet = (row: Transition.Row<Id, S, V, X>): ReadonlyArray<Id> => _exits(spec, facts)(config.active, row)
+  return pipe(
+    Array.sort(config.active, facts.byOrder),
+    Array.filterMap((leaf) => Array.head(Array.filterMap([leaf, ...facts.ancestors(leaf)], matched))),
+    Array.dedupe,
+    Array.reduce([] as ReadonlyArray<Transition.Row<Id, S, V, X>>, (kept, row) =>
+      Array.some(kept, (winner) => Array.intersection(exitSet(winner), exitSet(row)).length > 0)
+        ? kept
+        : Array.append(kept, row)),
+  )
+}
+
+const _macro = <Id extends string, S extends string, V extends string, X>(
+  spec: Transition.Spec<Id, S, V, X>,
+  facts: Transition._Facts<Id>,
+) =>
+(
+  config: Transition.Config<Id, X>,
+  signal: Transition.Signal<Id, S>,
+): readonly [Transition.Config<Id, X>, Transition.Macro<Id, V>] => {
+  let held = config
+  let fuel = spec.fuel
+  const queue: Array<Transition.Signal<Id, S>> = [signal]
+  const program: Array<V> = []
+  const enteredAll: Array<Id> = []
+  const exitedAll: Array<Id> = []
+  while (fuel > 0) {
+    const eventless = _selected(spec, facts, held, Option.none())
+    const dequeued = eventless.length > 0 ? Option.none<Transition.Signal<Id, S>>() : Option.fromNullable(queue.shift())
+    const chosen = eventless.length > 0
+      ? eventless
+      : Option.match(dequeued, {
+          onNone: (): ReadonlyArray<Transition.Row<Id, S, V, X>> => [],
+          onSome: (next) => _selected(spec, facts, held, Option.some(next)),
+        })
+    if (eventless.length === 0 && Option.isNone(dequeued)) break
+    const driving = Option.getOrElse(dequeued, () => signal)
+    for (const row of chosen) {
+      const exited = Array.sort(_exits(spec, facts)(held.active, row), Order.reverse(facts.byOrder))
+      const recorded = Array.reduce(exited, held.history, (acc, id) =>
+        Array.reduce(
+          Array.filter(facts.ids, (child) => {
+            const node = spec.nodes[child]
+            return node.kind === "history" && node.parent === id
+          }),
+          acc,
+          (inner, slot) => {
+            const node = spec.nodes[slot]
+            const stored = node.kind === "history" && node.depth === "deep"
+              ? Array.filter(held.active, (leaf) => Array.contains(facts.ancestors(leaf), id))
+              : Array.filter(facts.children(id), (child) =>
+                  Array.some(held.active, (leaf) => leaf === child || Array.contains(facts.ancestors(leaf), child)))
+            return { ...inner, [slot]: stored }
+          },
+        ))
+      const targets = row.to ?? []
+      const arrived = Array.flatMap(targets, (target) => facts.leaves(target, recorded))
+      const survivors = Array.filter(held.active, (leaf) => !Array.contains(exited, leaf))
+      const active = Array.sort(Array.dedupe([...survivors, ...arrived]), facts.byOrder)
+      const entered = Array.filter(
+        facts.closure(active),
+        (id) => !Array.contains(facts.closure(survivors), id),
+      )
+      for (const id of exited) program.push(..._face(spec.nodes[id], "exit"))
+      program.push(...(row.emit ?? []))
+      for (const id of entered) program.push(..._face(spec.nodes[id], "entry"))
+      for (const id of entered) {
+        const node = spec.nodes[id]
+        if (node.kind === "final") {
+          queue.push(`done.state.${node.parent}`)
+          const grand = spec.nodes[node.parent].parent
+          if (
+            grand !== undefined && spec.nodes[grand].kind === "parallel"
+            && Array.every(facts.children(grand), (region) => facts.finalized(region, active))
+          ) queue.push(`done.state.${grand}`)
+        }
+      }
+      exitedAll.push(...exited)
+      enteredAll.push(...entered)
+      held = {
+        active,
+        history: recorded,
+        extended: Option.match(Option.fromNullable(row.assign), {
+          onNone: () => held.extended,
+          onSome: (assign) => assign(held.extended, driving),
+        }),
+      }
+    }
+    fuel -= 1
+  }
+  return [held, { program, entered: enteredAll, exited: exitedAll }] as const
+}
 ```
 
 ## [4]-[ACTOR]
 
 [ACTOR]:
-- Owner: `Transition.boot` — the serializable actor: `Machine.makeSerializable({ state, input }, initialize)` over the spec's phase schema, one `Feed` request carrying a signal and one `Poll` request reading the phase, each handler `({ request, state })` returning `[reply, state]` on the rail, booted scoped so the actor and its keyed watchers die with the region; `Transition.restore` boots a successor from a frozen snapshot, resuming exactly where the first life stopped.
-- Law: every transition re-arms or disarms the deadline — the handler reads the entered phase's watch row and `forkReplace`s the keyed watcher with a delayed self-`Feed`, or replaces it with `Effect.void` when the phase carries no row — so at most one watcher lives per actor, stacked signals cannot stack timers, and the watchdog is recoverable from the spec.
-- Law: recovery and durability are definition facts — `Machine.retry(spec.recover)` re-initializes through the same initialize slot carrying the last live state (`previous ?? origin`), and `freeze` is `Machine.snapshot` — the schema-encoded `[input, state]` pair carried opaque; `restore` re-admits it through the machine's own schemas, so a forged snapshot fails as a `ParseError`, never a corrupted boot.
-- Law: the request surface is closed at feed/poll — signals ARE the protocol, so a machine never grows verb-shaped procedures; a request that demands its own payload and reply contract is evidence the concern outgrew the transition altitude and belongs to the runtime branch's workflow plane.
-- Law: the booted actor serializes every request against one state on one fiber — concurrent feeds queue, never interleave — and the live phase binds to view atoms through the actor's subscribable state at the ui altitude; `Poll` is the rail-side read.
-- Boundary: the `Persistence`-backed snapshot store, the workflow altitude (durable-execution replay, activities, compensation), and cluster sharding are runtime-branch concerns; this owner fixes the in-process actor and its vocabulary.
-- Growth: a phase-entry side effect (a notification, a metric) is a tap composed at the consumer on the verdict stream, never a fourth handler concern.
+- Owner: the compiled `boot`/`restore` — `Machine.makeSerializable({ state, input }, initialize)` over the derived configuration schema, one `Feed` request carrying a signal-plane member and one `Poll` request reading the configuration, minted ONCE inside `Transition.spec`; the actor surface exposes `feed` (typed), `feedUnknown` (the wire-arriving lane — a socket-decoded frame admits through the machine's own schemas via `sendUnknown` and a forged request fails as `ParseError`), `config` (the rail-side read), `state` (the actor IS a `Subscribable` of configuration — view atoms bind it directly), `facts` (the inspection stream), and `freeze`.
+- Law: the entered/exited wave is the arming law — every macrostep disarms the watch and invoke fibers of exited nodes and arms entered nodes: a watch row `forkReplace`s a keyed delayed self-`Feed` (at most one watcher per node, stacked signals cannot stack timers), an invoke row `forkReplace`s the child activity whose completion `unsafeSend`s `done.invoke.${id}` back onto the request plane — entry-start, exit-stop, exactly the SCXML invoke lifecycle on fiber primitives, with `Schedule`/`TestClock` beating hand timers on testability.
+- Law: the fact stream is a derived hook, never a fork — `Stream.zipWithPrevious` over the actor's own subscribable changes yields configuration, entered, and exited per macrostep; a consumer taps it for inspection, metrics, or replay capture and the machine runs zero telemetry fibers of its own; actor span tracing is the `traced` policy row applied through `Machine.withTracingEnabled` at boot.
+- Law: recovery and durability are definition facts — `Machine.retry(spec.recover)` re-initializes through the initialize slot carrying the last live configuration (`previous ?? origin`), `freeze` is `Machine.snapshot` (the schema-encoded pair carried opaque, history values inside), and `restore` re-admits through the machine's own schemas so a forged snapshot fails as `ParseError`, never a corrupted boot; the origin configuration enters silently — entry programs are observable only through macrosteps.
+- Law: the request surface is closed at feed/poll — signals ARE the protocol; a request demanding its own payload and reply contract is evidence the concern outgrew the transition altitude and belongs to the runtime branch's workflow plane.
+- Boundary: the `Persistence`-backed snapshot store, durable-execution replay, and cluster sharding are runtime-branch concerns; this owner fixes the in-process actor and its vocabulary.
+- Growth: a phase-entry side effect beyond emit vocabulary is a consumer tap on the verdict program or the fact stream, never a fourth handler concern.
 
 ```typescript
-const _compiled = <P extends string, S extends string, V extends string>(spec: Transition.Spec<P, S, V>) => {
+const _compile = <Id extends string, S extends string, V extends string, X>(
+  spec: Transition.Spec<Id, S, V, X>,
+): Transition.Compiled<Id, S, V, X> => {
+  const facts = _facts(spec.nodes)
+  const step = _macro(spec, facts)
+  const roots = Array.filter(facts.ids, (id) => spec.nodes[id].parent === undefined)
+  const origin: Transition.Config<Id, X> = {
+    active: Option.match(Array.head(roots), {
+      onNone: (): ReadonlyArray<Id> => [],
+      onSome: (root) => facts.leaves(root, {}),
+    }),
+    history: {},
+    extended: spec.seed,
+  }
+  const Id = Schema.Literal(...facts.ids)
+  const Plane = Schema.Union(
+    spec.signal,
+    Schema.TemplateLiteral("done.state.", Id),
+    Schema.TemplateLiteral("done.invoke.", Id),
+  )
+  const Config = Schema.Struct({
+    active: Schema.Array(Id),
+    history: Schema.Record({ key: Schema.String, value: Schema.Array(Id) }),
+    extended: spec.extended,
+  })
   class Feed extends Schema.TaggedRequest<Feed>()("Feed", {
     failure: Schema.Never,
-    success: spec.verdict,
-    payload: { signal: spec.signal },
+    success: Schema.Array(spec.verdict),
+    payload: { signal: Plane },
   }) {}
   class Poll extends Schema.TaggedRequest<Poll>()("Poll", {
     failure: Schema.Never,
-    success: spec.phase,
+    success: Config,
     payload: {},
   }) {}
-  const machine = Machine.makeSerializable({ state: spec.phase, input: spec.phase }, (origin, previous) =>
-    Machine.serializable.make(previous ?? origin).pipe(
-      Machine.serializable.add(Feed, ({ forkReplace, request, send, state }) =>
+  const machine = Machine.makeSerializable({ state: Config, input: Config }, (boot, previous) =>
+    Machine.serializable.make(previous ?? boot).pipe(
+      Machine.serializable.add(Feed, ({ forkReplace, request, send, state, unsafeSend }) =>
         Effect.gen(function* () {
-          const row = spec.rows[state][request.signal]
-          yield* forkReplace(
-            Option.match(Option.fromNullable(spec.watch[row.next]), {
+          const [next, macro] = step(state, request.signal)
+          yield* Effect.forEach(macro.exited, (id) =>
+            Option.match(_service(spec.nodes[id]), {
               onNone: () => Effect.void,
-              onSome: (armed) => Effect.delay(send(new Feed({ signal: armed.signal })), armed.after),
-            }),
-            "watch",
-          )
-          return [row.emit, row.next] as const
+              onSome: () =>
+                Effect.zipRight(forkReplace(Effect.void, `arm:${id}`), forkReplace(Effect.void, `invoke:${id}`)),
+            }), { discard: true })
+          yield* Effect.forEach(macro.entered, (id) =>
+            Option.match(_service(spec.nodes[id]), {
+              onNone: () => Effect.void,
+              onSome: (service) =>
+                Effect.zipRight(
+                  service.watch === undefined
+                    ? Effect.void
+                    : forkReplace(
+                        Effect.delay(send(new Feed({ signal: service.watch.signal })), service.watch.after),
+                        `arm:${id}`,
+                      ),
+                  service.invoke === undefined
+                    ? Effect.void
+                    : forkReplace(
+                        Effect.zipRight(
+                          service.invoke(next.extended),
+                          unsafeSend(new Feed({ signal: `done.invoke.${id}` })),
+                        ),
+                        `invoke:${id}`,
+                      ),
+                ),
+            }), { discard: true })
+          return [macro.program, next] as const
         })),
       Machine.serializable.add(Poll, ({ state }) => Effect.succeed([state, state] as const)),
+    )).pipe(Machine.retry(spec.recover))
+  const surfaced = (actor: Machine.SerializableActor<typeof machine>): Transition.Actor<Id, S, V, X> => ({
+    feed: (signal) => actor.send(new Feed({ signal })),
+    feedUnknown: (frame) => actor.sendUnknown(frame),
+    config: actor.get,
+    state: actor,
+    facts: pipe(
+      actor.changes,
+      Stream.zipWithPrevious,
+      Stream.map(([previous, next]) => ({
+        config: next,
+        entered: Option.match(previous, {
+          onNone: () => next.active,
+          onSome: (prior) => Array.difference(next.active, prior.active),
+        }),
+        exited: Option.match(previous, {
+          onNone: (): ReadonlyArray<Id> => [],
+          onSome: (prior) => Array.difference(prior.active, next.active),
+        }),
+      })),
     ),
-  ).pipe(Machine.retry(spec.recover))
-  return { machine, Feed, Poll }
+    freeze: Machine.snapshot(actor),
+  })
+  return {
+    ...spec,
+    origin,
+    step,
+    boot: Effect.map(
+      Machine.boot(machine, origin).pipe(Machine.withTracingEnabled(spec.traced)),
+      surfaced,
+    ),
+    restore: (frozen) =>
+      Effect.map(
+        Machine.restore(machine, frozen).pipe(Machine.withTracingEnabled(spec.traced)),
+        surfaced,
+      ),
+  }
 }
 
-const _surfaced = <P extends string, S extends string, V extends string>(
-  compiled: ReturnType<typeof _compiled<P, S, V>>,
-  actor: Machine.SerializableActor<ReturnType<typeof _compiled<P, S, V>>["machine"]>,
-): Transition.Actor<P, S, V> => ({
-  feed: (signal) => actor.send(new compiled.Feed({ signal })),
-  phase: actor.send(new compiled.Poll()),
-  freeze: Machine.snapshot(actor),
-})
-
-const _boot = <P extends string, S extends string, V extends string>(
-  spec: Transition.Spec<P, S, V>,
-  origin: P,
-): Effect.Effect<Transition.Actor<P, S, V>, ParseResult.ParseError, Scope.Scope> =>
-  Effect.gen(function* () {
-    const compiled = _compiled(spec)
-    const actor = yield* Machine.boot(compiled.machine, origin)
-    return _surfaced(compiled, actor)
-  })
-
-const _restore = <P extends string, S extends string, V extends string>(
-  spec: Transition.Spec<P, S, V>,
-  frozen: Transition.Frozen,
-): Effect.Effect<Transition.Actor<P, S, V>, ParseResult.ParseError, Scope.Scope> =>
-  Effect.gen(function* () {
-    const compiled = _compiled(spec)
-    const actor = yield* Machine.restore(compiled.machine, frozen)
-    return _surfaced(compiled, actor)
-  })
-
 const Transition: Transition.Shape = {
-  spec: (spec) => spec,
-  step: _step,
-  drive: _drive,
-  boot: _boot,
-  restore: _restore,
+  spec: _compile,
+  drive: (compiled) => (origin, signals) => Array.mapAccum(signals, origin, compiled.step),
+  trace: (compiled) => (signals) => Stream.mapAccum(signals, compiled.origin, compiled.step),
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

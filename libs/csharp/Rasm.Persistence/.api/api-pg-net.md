@@ -6,7 +6,7 @@ worker drives the I/O off the calling backend, and the response lands in `net._h
 that id. It carries no managed assembly: every surface is server-side SQL the
 `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_net")` row installs and a server-local
 webhook/HTTP egress consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery`, so an in-DB outbound
-call beside the process-side `Sync/egress#EGRESS_SINK` sinks fires without blocking the transaction.
+call beside the process-side `Version/egress#EGRESS_SINK` sinks fires without blocking the transaction.
 The extension IS preload-gated — its worker is registered statically in `_PG_init`, so it REQUIRES
 `pg_net` on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row and hard-errors on
 `CREATE EXTENSION` otherwise.
@@ -18,7 +18,7 @@ The extension IS preload-gated — its worker is registered statically in `_PG_i
 - namespace: SQL `net` schema (the request functions, the `_http_response` table, the response composite types, the worker-control functions)
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
 - registration: preload-gated — the worker is `RegisterBackgroundWorker`'d in `_PG_init` at postmaster start, so `pg_net` MUST be on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row; the `ServerExtension("pg_net", PreloadGated: true)` row emits its `CreateSql` through `Migrate` (preload prereq cannot ride `HasPostgresExtension`)
-- consumed by: a server-local webhook/HTTP egress beside `Sync/egress#EGRESS_SINK`/`#EGRESS_PUMP`, driven through raw `Npgsql`
+- consumed by: a server-local webhook/HTTP egress beside `Version/egress#EGRESS_SINK`/`#EGRESS_PUMP`, driven through raw `Npgsql`
 - dependency: `libcurl >= 7.83.0`; one worker per cluster, bound to one database via `pg_net.database_name`
 - rail: http-provisioning, http-egress
 
@@ -88,7 +88,7 @@ by request-id once it lands. The id is the only join key between the call and it
 |  [04]   | `SELECT * FROM net._http_response WHERE status_code >= 500`                               | scan retriable server (`5xx`) responses  |
 |  [05]   | `SELECT id, error_msg FROM net._http_response WHERE status_code IS NULL`                  | scan transport failures (DNS/connect) — `status_code` is NULL, the cause lands in `error_msg`, distinct from `timed_out` |
 
-Failure discriminant: the response failure axis is the `Sync/egress#EGRESS_PUMP` `EgressDeadLetter`
+Failure discriminant: the response failure axis is the `Version/egress#EGRESS_PUMP` `EgressDeadLetter`
 `Retriable`/`Advances` split read directly off three columns — a `5xx` `status_code`, a
 `status_code IS NULL` transport failure (DNS/connection, cause in `error_msg`), and `timed_out = true`
 (the `timeout_milliseconds` cancellation) are the retriable rows the pump re-enqueues through the

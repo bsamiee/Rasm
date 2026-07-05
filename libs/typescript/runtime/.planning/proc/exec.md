@@ -14,8 +14,8 @@ The process substrate: a runtime is a row, a bun swap is a Layer selection in th
 
 [RUNTIME_ROWS]:
 - Owner: `Runtime` — one bare `as const` row table keyed `node | bun`, companion types riding its merged hub; each row carries `main` (the `RunMain` boot edge — `NodeRuntime.runMain` / `BunRuntime.runMain`, one shared shape derived as `typeof NodeRuntime.runMain`), `context` (the aggregate binding: `NodeContext.layer` / `BunContext.layer` satisfying `CommandExecutor | FileSystem | Path | Terminal | WorkerManager` in one Layer), `client` (`NodeHttpClient.layerUndici` with connection pooling / `FetchHttpClient.layer` on bun), `serve` (a bind-parameterized `HttpServer` Layer over `node:http` `createServer` / `Bun.serve`), `worker` (the spawn-factory pool binding `NodeWorker.layer` / `BunWorker.layer`), `runner` (the worker-side `PlatformRunner`: `NodeWorkerRunner.layer` / `BunWorkerRunner.layer`), and `kv` (`NodeKeyValueStore.layerFileSystem` / `BunKeyValueStore.layerFileSystem`); the row is the only site that names a binding package, and every consumer yields the abstract Tag.
-- Law: the row guard closes the member set — `_Rows` proves every row carries the full `Core` complement, so a new runtime missing a member is a compile error at this declaration; row-specific extras (dispatcher tuning, serve options) stay precisely typed by inference because the guard constrains presence, never the binding's exact output union, and the table itself is the kind set — no parallel contract restates it.
-- Law: cluster runners ride the same rows at the same altitude — `NodeClusterHttp.layer` / `NodeClusterSocket.layer` (with `layerDispatcherK8s` and the discovery-only `layerK8sHttpClient`) and the `BunClusterHttp.layer` / `BunClusterSocket.layer` peers are selected off the binding tier at the app root beside the row; the work owners type against the `MessageStorage`/`Sharding` Tags and never import a binding, so runner transport is root data.
+- Law: the row guard closes the member set at the contract's own Layer bounds — `_Rows` proves every row carries the full `Core` complement and that `context` provides the aggregate platform Tags, `client` an `HttpClient`, `serve` an `HttpServer`, `runner` a `PlatformRunner`, and `kv` a `KeyValueStore`, so a new runtime missing a member and a mis-wired binding are both compile errors at this declaration; row-specific extras (dispatcher tuning, serve options) stay precisely typed by inference because consumers index the table, never the guard, and the table itself is the kind set — no parallel contract restates it.
+- Law: cluster runners ride the same rows at the same altitude — `NodeClusterHttp.layer` / `NodeClusterSocket.layer` (with `layerDispatcherK8s` and the discovery-only `layerK8sHttpClient`) and the `BunClusterHttp.layer` / `BunClusterSocket.layer` peers are `@effect/platform-node` / `@effect/platform-bun` binding-tier modules selected at the app root beside the row — the frozen `@effect/cluster-node` family stays unadmitted; the work owners type against the `MessageStorage`/`Sharding` Tags and never import a binding, so runner transport is root data.
 - Law: undici dispatcher tuning is row-interior — connection ceilings, proxy posture, and TLS pin through `NodeHttpClient.dispatcherLayer`/`dispatcherLayerGlobal`/`makeDispatcher` beneath the node row's `client`; the egress policy composed over any client is `client#LANE_ROWS`'s and never forks per runtime.
 - Boundary: this module imports `node:http` for the serve row — the sanctioned FFI seam; a `node:*` or binding-package import anywhere else in the branch outside a row module is the defect the architecture audit catches.
 - Entry: `Runtime.node` / `Runtime.bun`, read by the boot module only.
@@ -23,12 +23,16 @@ The process substrate: a runtime is a row, a bun swap is a Layer selection in th
 
 ```typescript
 import { FetchHttpClient } from "@effect/platform"
+import type {
+  CommandExecutor, FileSystem, HttpClient, HttpServer, KeyValueStore, Path, PlatformError, Terminal, Worker, WorkerRunner,
+} from "@effect/platform"
 import {
   NodeContext, NodeHttpClient, NodeHttpServer, NodeKeyValueStore, NodeRuntime, NodeWorker, NodeWorkerRunner,
 } from "@effect/platform-node"
 import {
   BunContext, BunHttpServer, BunKeyValueStore, BunRuntime, BunWorker, BunWorkerRunner,
 } from "@effect/platform-bun"
+import type { Layer } from "effect"
 import { createServer } from "node:http"
 
 const Runtime = {
@@ -58,12 +62,14 @@ declare namespace Runtime {
   type Main = typeof NodeRuntime.runMain
   type Core = {
     readonly main: Main
-    readonly context: unknown
-    readonly client: unknown
-    readonly serve: (bind: Bind) => unknown
-    readonly worker: unknown
-    readonly runner: unknown
-    readonly kv: (directory: string) => unknown
+    readonly context: Layer.Layer<
+      CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path | Terminal.Terminal | Worker.WorkerManager
+    >
+    readonly client: Layer.Layer<HttpClient.HttpClient>
+    readonly serve: (bind: Bind) => Layer.Layer<HttpServer.HttpServer, unknown>
+    readonly worker: (spawn: never) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>
+    readonly runner: Layer.Layer<WorkerRunner.PlatformRunner>
+    readonly kv: (directory: string) => Layer.Layer<KeyValueStore.KeyValueStore, PlatformError.PlatformError>
   }
   type Row<K extends Kind = Kind> = (typeof Runtime)[K]
   type _Rows<T extends Record<Kind, Core> = typeof Runtime> = T
@@ -123,6 +129,7 @@ declare namespace Proc {
   type Spec = {
     readonly command: string
     readonly args?: ReadonlyArray<string>
+    readonly capture?: Capture
     readonly env?: Record<string, string>
     readonly feed?: ReadonlyArray<readonly [command: string, args: ReadonlyArray<string>]>
     readonly budget?: Duration.DurationInput
@@ -163,7 +170,7 @@ const _settled = (spec: Proc.Spec): Effect.Effect<Proc.Receipt, Proc.Faults, Com
 function run(spec: Proc.Spec & { readonly capture: "text" }): Effect.Effect<string, Proc.Faults, CommandExecutor.CommandExecutor>
 function run(spec: Proc.Spec & { readonly capture: "stream" }): Stream.Stream<Uint8Array, PlatformError.PlatformError, CommandExecutor.CommandExecutor>
 function run(spec: Proc.Spec): Effect.Effect<Proc.Receipt, Proc.Faults, CommandExecutor.CommandExecutor>
-function run(spec: Proc.Spec & { readonly capture?: Proc.Capture }) {
+function run(spec: Proc.Spec) {
   return spec.capture === "stream"
     ? _staged(spec).pipe(Command.stream)
     : spec.capture === "text"

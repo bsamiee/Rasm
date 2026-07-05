@@ -164,7 +164,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STORE_PROFILE]:
-- profile: SQLite is the `sqlite-embedded` and `sqlite-memory` arms of the `Store/profiles#PROFILE_AXIS` `StoreProfile` `[SmartEnum<string>]`
+- profile: SQLite is the `sqlite-embedded` and `sqlite-memory` arms of the `Store/provisioning#PROFILE_AXIS` `StoreProfile` `[SmartEnum<string>]`
 - admission root: `StoreRows.SqliteOptions` calls `options.UseSqlite(SqliteText(placement))`; `StoreRows.Sqlite` opens a raw `SqliteConnection` for the open-ceremony bracket
 - connection shape: `SqliteConnectionStringBuilder` (in `Microsoft.Data.Sqlite.Core`) sets `Pooling=true`, `Mode = SqliteOpenMode.{ReadWriteCreate | ReadOnly | Memory}`, `Cache = SqliteCacheMode.Shared` for the memory profile
 - model root: EF relational model plus SQLite annotations (`UseAutoincrement`, `HasSrid`, `UseSqlReturningClause`)
@@ -176,7 +176,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 - The ADO-level open ceremony (Batteries_V2 init, `PRAGMA` ladder, writer-lease, `MigrateAsync`, fingerprint, `quick_check`) runs on a raw `SqliteConnection` from `Microsoft.Data.Sqlite` (`api-sqlite.md`), NOT through this EF package — this package owns only the EF provider admission and the LINQ→SQL translation that the `DbContext` lanes ride.
 - Migration, model, query, and update behavior share the one provider rail; `SqliteValueGenerationStrategy.Autoincrement` and `UseSqlReturningClause` are the two SQLite-specific model knobs the schema layer sets.
 - `SqliteEventId` is the real diagnostic surface (e.g. `TableRebuildPendingWarning`, `CompositeKeyWithValueGeneration`, `ConflictingValueGenerationStrategiesWarning`) that the EF interception/logging path raises; the cross-cutting `SavingChangesAsync`/`ReaderExecutedAsync`/`ConnectionOpenedAsync` interception hooks are members of the base-assembly interceptor base classes (`SaveChangesInterceptor`/`DbCommandInterceptor`/`DbConnectionInterceptor` in `Microsoft.EntityFrameworkCore.Diagnostics`), registered once on the `DbContextOptionsBuilder` and shared across every provider — they are not `Sqlite*` types and are owned at the interception seam, not here.
-- The seed delegate enters EF through the `UseSeeding`/`UseAsyncSeeding` option hooks at pooled-factory build (`Store/profiles` `StoreRows.SeedOnCreate`).
+- The seed delegate enters EF through the `UseSeeding`/`UseAsyncSeeding` option hooks at pooled-factory build (`Store/provisioning` `StoreRows.SeedOnCreate`).
 - SQLite cannot define Persistence vocabulary by itself; it is one engine row whose capability columns (`vector:false`, `fullText:true`, `migrations:true`) gate which lanes a profile admits.
 
 [RAIL_LAW]:

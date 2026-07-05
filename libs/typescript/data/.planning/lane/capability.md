@@ -36,10 +36,10 @@ declare namespace Capability {
     readonly sqlite: string
   }
   type Reason = "absent" | "floor" | "schema"
-  type Fault = _Fault
+  type Fault = CapabilityFault
 }
 
-class _Fault extends Data.TaggedError("CapabilityFault")<{
+class CapabilityFault extends Data.TaggedError("CapabilityFault")<{
   readonly reason: Capability.Reason
   readonly subject: string
   readonly detail: string
@@ -56,41 +56,45 @@ const _meets = (installed: string, floor: string): boolean =>
 
 ## [3]-[BATCHED_PROBE]
 
-- Owner: the `_Probe` request class and `_probeResolver` — one `RequestResolver.makeBatched` that folds every extension lookup queued in a construction pass into a single `pg_extension` scan keyed by `sql.in`, resolving each request to the installed version as `Option`.
-- Packages: `effect` (`Effect`, `Option`, `Request`, `RequestResolver`); `@effect/sql` (`SqlClient`, `sql.in`).
+- Owner: the `_Probe` request class and `_probeResolver` — one `RequestResolver.makeBatched` that folds every extension lookup queued in a construction pass into a single decoded `pg_extension` scan keyed by `sql.in`, resolving each request to the installed version as `Option`.
+- Packages: `effect` (`Effect`, `Option`, `Request`, `RequestResolver`); `@effect/sql` (`SqlClient`, `SqlSchema`, `sql.in`).
 - Entry: `[4]`'s construction issues `Effect.request(new _Probe({...}), resolver)` per matrix row under `{ batching: true }`, so the whole roster costs one round trip; a per-row `probeSql` override routes through `sql.unsafe` only when the row declares an exotic probe.
 - Growth: a new probed catalog (a settings scan, a schema census) is a second request class over the same resolver pattern — the batching law is settled here once.
 - Law: the batch statement is `SELECT extname, extversion FROM pg_extension WHERE extname IN (…)` — absent names simply return no row, and the resolver completes those requests with `Option.none`; refusal semantics live in the fold, never in the statement.
 - Law: a statement failure is NOT absence — the window settles every request with the `SqlError` itself, so a broken connection fails Layer construction typed instead of silently shrinking the granted set; fail-closed refuses capabilities on evidence, never on transport accident.
-- Law: `sql.unsafe` never meets the batch — the batched form is fully parameterized through `sql.in`; the unsafe escape exists only for sealed per-row overrides, and the override text is a row of the sealed matrix, never caller input.
+- Law: `sql.unsafe` never meets the batch — the batched form is fully parameterized through `sql.in` and decodes through the one `SqlSchema` scan (the folder's typed-read law holds even on catalog tables); the unsafe escape exists only for sealed per-row overrides, and the override text is a row of the sealed matrix, never caller input.
 
 ```typescript
-import { Effect, HashMap, Option, Request, RequestResolver } from "effect"
-import { SqlClient, type SqlError } from "@effect/sql"
+import { Effect, HashMap, Option, Request, RequestResolver, Schema } from "effect"
+import type { ParseResult } from "effect"
+import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 
-class _Probe extends Request.Class<Option.Option<string>, SqlError.SqlError, {
+class _Probe extends Request.Class<Option.Option<string>, SqlError.SqlError | ParseResult.ParseError, {
   readonly extension: string
 }> {}
 
-const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolver<_Probe> =>
-  RequestResolver.makeBatched((requests: ReadonlyArray<_Probe>) =>
-    Effect.matchEffect(
-      sql`SELECT extname, extversion FROM pg_extension WHERE ${sql.in("extname", requests.map((request) => request.extension))}`,
-      {
-        onFailure: (fault) =>
-          Effect.forEach(requests, (request) => Request.fail(request, fault), { discard: true }),
-        onSuccess: (rows) => {
-          const found = HashMap.fromIterable(
-            rows.map((row) => [globalThis.String(row["extname"]), globalThis.String(row["extversion"])] as const),
-          )
-          return Effect.forEach(
-            requests,
-            (request) => Request.succeed(request, HashMap.get(found, request.extension)),
-            { discard: true },
-          )
-        },
+const _Installed = Schema.Struct({ extname: Schema.String, extversion: Schema.String })
+
+const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolver<_Probe> => {
+  const scan = SqlSchema.findAll({
+    Request: Schema.Array(Schema.String),
+    Result: _Installed,
+    execute: (names) => sql`SELECT extname, extversion FROM pg_extension WHERE ${sql.in("extname", names)}`,
+  })
+  return RequestResolver.makeBatched((requests: ReadonlyArray<_Probe>) =>
+    Effect.matchEffect(scan(requests.map((request) => request.extension)), {
+      onFailure: (fault) =>
+        Effect.forEach(requests, (request) => Request.fail(request, fault), { discard: true }),
+      onSuccess: (rows) => {
+        const found = HashMap.fromIterable(rows.map((row) => [row.extname, row.extversion] as const))
+        return Effect.forEach(
+          requests,
+          (request) => Request.succeed(request, HashMap.get(found, request.extension)),
+          { discard: true },
+        )
       },
-    ))
+    }))
+}
 ```
 
 ## [4]-[PROBE_SERVICE]
@@ -106,7 +110,7 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 - Boundary: which rows exist is `lane/postgres.md`'s; where the Layer composes and which ensures collect is `lane/tenant.md`'s; the image that makes `"image"` rows probe true is the deployment plane's.
 
 ```typescript
-import { HashSet } from "effect"
+import { Array, Either, HashSet } from "effect"
 
 class Capability extends Effect.Service<Capability>()("data/Capability", {
   effect: (rows: ReadonlyArray<Capability.Row>, ensures: ReadonlyArray<Capability.Ensure>, core: ReadonlyArray<string>) =>
@@ -132,36 +136,32 @@ class Capability extends Effect.Service<Capability>()("data/Capability", {
             pg: () => sql`SELECT 1 FROM information_schema.tables WHERE table_name = ${ensure.relation}`,
           }).values,
           (cells) => cells.length > 0,
-          () => new _Fault({ reason: "schema", subject: ensure.relation, detail: ensure.pg }),
+          () => new CapabilityFault({ reason: "schema", subject: ensure.relation, detail: ensure.pg }),
         ), { discard: true })
-      const report: Capability.Report = probed.reduce<Capability.Report>(
-        (held, [row, version]) =>
-          Option.match(version, {
-            onNone: () => ({
-              ...held,
-              refused: [...held.refused, new _Fault({ reason: "absent", subject: row.extension, detail: row.floor })],
-            }),
-            onSome: (installed) =>
-              _meets(installed, row.floor)
-                ? {
-                    granted: row.capabilities.reduce((set, key) => HashSet.add(set, key), held.granted),
-                    versions: HashMap.set(held.versions, row.extension, installed),
-                    refused: held.refused,
-                  }
-                : {
-                    ...held,
-                    refused: [...held.refused, new _Fault({ reason: "floor", subject: row.extension, detail: installed })],
-                  },
-          }),
-        { granted: HashSet.fromIterable(core), versions: HashMap.empty(), refused: [] },
-      )
+      const [refused, held] = Array.partitionMap(probed, ([row, version]) =>
+        Option.match(version, {
+          onNone: () =>
+            Either.left(new CapabilityFault({ reason: "absent", subject: row.extension, detail: row.floor })),
+          onSome: (installed) =>
+            _meets(installed, row.floor)
+              ? Either.right([row, installed] as const)
+              : Either.left(new CapabilityFault({ reason: "floor", subject: row.extension, detail: installed })),
+        }))
+      const report: Capability.Report = {
+        granted: HashSet.union(
+          HashSet.fromIterable(core),
+          HashSet.fromIterable(Array.flatMap(held, ([row]) => row.capabilities)),
+        ),
+        versions: HashMap.fromIterable(Array.map(held, ([row, installed]) => [row.extension, installed] as const)),
+        refused,
+      }
       return {
         report,
         granted: report.granted,
-        require: (key: string): Effect.Effect<void, _Fault> =>
+        require: (key: string): Effect.Effect<void, CapabilityFault> =>
           HashSet.has(report.granted, key)
             ? Effect.void
-            : Effect.fail(new _Fault({ reason: "absent", subject: key, detail: "<ungranted>" })),
+            : Effect.fail(new CapabilityFault({ reason: "absent", subject: key, detail: "<ungranted>" })),
         when: <A, E, R>(key: string, effect: Effect.Effect<A, E, R>): Effect.Effect<Option.Option<A>, E, R> =>
           Effect.when(effect, () => HashSet.has(report.granted, key)),
       }
@@ -172,11 +172,11 @@ declare namespace Capability {
   type Report = {
     readonly granted: HashSet.HashSet<string>
     readonly versions: HashMap.HashMap<string, string>
-    readonly refused: ReadonlyArray<_Fault>
+    readonly refused: ReadonlyArray<CapabilityFault>
   }
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Capability }
+export { Capability, CapabilityFault }
 ```

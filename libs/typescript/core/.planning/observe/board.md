@@ -19,6 +19,7 @@ Dashboards are data derived from identity, and the pack library is the same owne
 - Law: windows are `Duration` values rendered by the interior `_span` projection — a dialect window string is never authored.
 - Law: the rendered dialect is Prometheus UTF-8 — every selector emits the quoted `{"metric.name","label.key"="value"}` form and every grouping key quotes, because dotted OTel names are not legacy-PromQL identifiers; the quantile arm aggregates the windowed rate `by (le)` before `histogram_quantile`, the histogram-series contract the backend demands.
 - Law: one dialect fold — a second backend dialect is a second render fold over the SAME family, never a second family; the expression data is dialect-free by construction.
+- Law: the render fold IS the dialect's codegen output — PromQL is a single-line dialect whose rendered string is byte-load-bearing (quoted UTF-8 selector identity), so a document-assembly layer (`@effect/printer` `Doc`/`encloseSep`) is rejected: layout grouping and reflow forge selector spelling, and the closed family already owns every arm.
 - Entry: constructors ride the family (`Query.Rate({ metric, window, labels })`), `Query.render(query)` at pack-build time.
 - Growth: a new expression shape is one case plus one render arm — the compiler enforces the arm at the fold.
 - Packages: `effect` (`Data`, `Duration`, `Record`); `convention#RASM_ROWS` (`Convention` rows).

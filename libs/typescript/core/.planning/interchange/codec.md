@@ -230,8 +230,9 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
 ## [4]-[PARITY_VERIFY]
 
 [PARITY_VERIFY]:
-- Owner: `Parity`, the one verify combinator family — `key(octets)` the delegated content mint, `verified(family, expected, octets)` the mint-and-compare gate every content-addressed row shares, `matched(family, actual, expected)` the pure key-pair gate for pre-minted comparisons, `roundtrip(family, schema, octets)` the golden-byte decode-encode-compare proof generic over any byte schema, and `cells(gen, fields)` the reflection walk extracting content-key byte cells off a decoded proto message for field-level parity.
-- Law: the mint is delegated, never local — `Digest.mint("content", octets)` is the branch's one `XxHash128` seed-zero fold with the canonical `:x32` spelling, branded keys compare by bare `===`, and a second mint or normalize step anywhere on a verify path is the cross-language drift defect.
+- Owner: `Parity`, the one verify combinator family — `key(payload)` the delegated content mint, `verified(family, expected, payload)` the mint-and-compare gate every content-addressed row shares, `matched(family, actual, expected)` the pure key-pair gate for pre-minted comparisons, `roundtrip(family, schema, octets)` the golden-byte decode-encode-compare proof generic over any byte schema, and `cells(gen, fields)` the reflection walk extracting content-key byte cells off a decoded proto message for field-level parity.
+- Law: the mint is delegated, never local — `Digest.mint("content", payload)` is the branch's one `XxHash128` seed-zero fold with the canonical `:x32` spelling, branded keys compare by bare `===`, and a second mint or normalize step anywhere on a verify path is the cross-language drift defect.
+- Law: the payload is `Digest.Payload` — a whole buffer or a band iterable riding the mint's own chunk-walk modality — so a multi-frame artifact verifies over its held bands with no joined re-hash and a parity miss refuses before any summed allocation exists; the streaming lane is the same single delegation site, never a second verify.
 - Law: a parity miss is evidence, not a crash — the fault holds both keys (or both extents for the byte proof) so the operator report and the quarantine row read the disagreement as data.
 - Law: the reflection walk resolves fields once at composition — `buildPath` addresses each named key cell against the `GenMessage`, `reflect` reads by descriptor with no generated type, and only `Uint8Array` cells survive the filter; verification of the extracted cells is `verified` on the same combinator, so extraction and proof never fork.
 - Growth: a second content-keyed proto family composes `cells` with its own field roster — one call, zero new walks.
@@ -247,9 +248,9 @@ const _mismatch = (family: Wire.Family, actual: unknown, expected: unknown, deta
   new WireFault({ family, reason: "parity", detail, evidence: Option.some({ actual, expected }) })
 
 const Parity: {
-  readonly key: (octets: Uint8Array) => Effect.Effect<ContentKey>
+  readonly key: (payload: Digest.Payload) => Effect.Effect<ContentKey>
   readonly matched: (family: Wire.Family, actual: ContentKey, expected: ContentKey) => Effect.Effect<void, WireFault>
-  readonly verified: (family: Wire.Family, expected: ContentKey, octets: Uint8Array) => Effect.Effect<void, WireFault>
+  readonly verified: (family: Wire.Family, expected: ContentKey, payload: Digest.Payload) => Effect.Effect<void, WireFault>
   readonly roundtrip: <A>(
     family: Wire.Family,
     schema: Schema.Schema<A, Uint8Array>,
@@ -260,11 +261,11 @@ const Parity: {
     readonly read: (octets: Uint8Array) => Either.Either<ReadonlyArray<Uint8Array>, ParseResult.ParseError>
   }
 } = {
-  key: (octets) => Digest.mint("content", octets),
+  key: (payload) => Digest.mint("content", payload),
   matched: (family, actual, expected) =>
     actual === expected ? Effect.void : Effect.fail(_mismatch(family, actual, expected, "<key-mismatch>")),
-  verified: (family, expected, octets) =>
-    Effect.flatMap(Digest.mint("content", octets), (minted) => Parity.matched(family, minted, expected)),
+  verified: (family, expected, payload) =>
+    Effect.flatMap(Digest.mint("content", payload), (minted) => Parity.matched(family, minted, expected)),
   roundtrip: (family, schema, octets) =>
     Effect.gen(function* () {
       const decoded = yield* Schema.decodeUnknown(schema)(octets)
@@ -354,7 +355,8 @@ type CrdtOp = typeof CrdtOp.Type
 [LANDING_WIRE]:
 - Owner: the wire-owned decoded shapes — decode-boundary vocabulary for consumers in later waves, adopted verbatim from the C# mints and declared exactly once. The evidence plane: `RenderReceipt` (the frame-hash proof; `matched` is C#-computed and never re-hashed), `FaultDetail` over the `Hops` sixteen-row vocabulary with the `FaultEnricher` Layer, `FlagVerdict` (the OpenFeature evaluation projection the runtime flag service consumes). The shell plane: `BindingStatus`/`CoercedValue`/`WriteReceipt` live-binding triple, the six-kind `ControlIntent` union gaining its `_tag` at the declaration, `LayoutProgram` (order-preserving Cassowary constraint program, decode-only, never solved here). The BIM plane: `BcfTopic`/`BcfViewpoint` over the one `_GlobalId` brand, `BimModel`/`BimDiff`/`IdsAudit`. The appearance plane: `Material`/`PbrGroups`/`AppearanceSummary` mirroring the OpenPBR projection field-for-field. The geo plane: `GeoFeature` with the opaque WKB band, the seven-kind geometry union, the CRS rows, the tile quadkey algebra, and the `WkbParser` port. The identity plane: `SnapshotHeader` (canonical-CBOR, segment roster), `Claim`/`HostFingerprint` with the boot-identity admission gate, `Credential` (the sealed PEM carrier — secret sealed AT the decode transform, fingerprint-only audit identity, sealed rotation compare).
 - Law: `_GlobalId` is one anchor — the twenty-two-character IFC base64 identity brands once and both the BCF and BIM planes compose it; a per-plane re-declaration is the split-brain defect this collapse killed. `BcfViewpoint.GlobalId` is the exported decode surface: the ui selection plane resolves raw pick material through `Schema.decodeUnknownOption(BcfViewpoint.GlobalId)`, so a locally-minted brand beside it is unspellable.
-- Law: the wire ships tagged families untagged — `Schema.tag` demands `_tag` on decode input, so every tagged landing decodes through its `FromWire` twin, `_stamp` minting the discriminant at the seam exactly as `ControlIntent` attaches its own; the stamp overwrites nothing a tagged wire already carries, encode passes through, and the twin rides the owner as a static so one import serves class and wire.
+- Law: the wire ships tagged families untagged — `Schema.tag` demands `_tag` on decode input, so every tagged landing decodes through its `FromWire` twin, `_stamp` minting the discriminant at the seam exactly as `ControlIntent` attaches its own; the stamp overwrites nothing a tagged wire already carries, encode passes through, and the twin rides the owner as a static so one import serves class and wire. Discriminant-attach has exactly these two spellings by structural necessity — `Schema.attachPropertySignature` where the input is a `Struct`, `_stamp` where the landing is a `Schema.Class` the combinator cannot prepend to — one concept, never drift, and a third spelling is the defect.
+- Law: the landing-class roster is a ratified co-located owner family — the census demands every wire-owned decoded shape in this one module, each class is an independent decode owner a later wave consumes directly, and collapsing the roster onto `Wire.*` statics would trade one-hop resolution for a cosmetic export count; the charter accepts the wide export tail and the census guard keeps it closed.
 - Law: `Hops` carries four columns — gRPC `code`, `retryable`, `terminal`, and `class`, the `value/fault` classification each hop reason projects — so `FaultDetail` satisfies the branch classification convention structurally and every compiled `Budget` schedule gates it with zero adapter; the code-to-reason projection generates from the table's own `code` column and cannot drift.
 - Law: `FaultDetail` is wire-only altitude — constructed at exactly two sites: the `FaultDetailWire` decode row and the invoke page's transport fold; a third construction site in the branch is the defect the architecture suite audits. `EnricherLive` satisfies the `value/fault` `FaultEnricher` endo-arrow — a capture whose `tag` is not `FaultDetail` passes through untouched, so enrichment degrades to identity and never breaks crash capture.
 - Law: `Credential.material` is `Schema.Redacted` — the secret never exists raw past the decode transform, rotation compares sealed through the derived equivalence, and `fingerprint` is the only audit identity a log meets.

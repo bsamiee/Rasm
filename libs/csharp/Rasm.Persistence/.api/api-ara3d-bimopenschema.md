@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_ARA3D_BIMOPENSCHEMA]
 
-`Ara3D.BimOpenSchema` supplies the columnar struct-of-arrays BIM analytics schema — a string-interned, typed-index entity/parameter/relation graph (`BimData`) authored through one interning `BimDataBuilder`, projected to a generic columnar `Ara3D.DataTable` `IDataSet` (eleven named tables) and to the denormalized `ExpandedBIMData` join view. `Ara3D.BimOpenSchema.IO` supplies the codec leg: read/write the `BimData` to a Parquet-zip (`Parquet.Net`, one `.parquet` per table, Brotli), a DuckDB file (`DuckDB.NET.Data.Full`, bulk-appended tables), an Excel workbook (`ClosedXML`, one sheet per table), and a gzipped JSON (`System.Text.Json`). The eleven columnar tables ARE the tabular BIM analytics frames the Persistence analytics owner exposes: the folder's own `DuckDB.NET.Data.Full` (`api-duckdb.md`) opens the written `.duckdb` and SQL-joins the entity/parameter/relation tables, `ParquetSharp` (`api-parquetsharp.md`) + `Apache.Arrow` (`api-arrow.md`) read the same standard-format `.parquet` files into Arrow record batches, and `MiniExcel` (`api-miniexcel.md`) streams the `.xlsx` back into `IDataReader` rows via `GetReader` — the managed Parquet.Net writer and the native ParquetSharp reader interoperate at the file format, not the assembly.
+`Ara3D.BimOpenSchema` supplies the columnar struct-of-arrays BIM analytics schema — a string-interned, typed-index entity/parameter/relation graph (`BimData`) authored through one interning `BimDataBuilder`, projected to a generic columnar `Ara3D.DataTable` `IDataSet` (eleven named tables) and to the denormalized `ExpandedBIMData` join view. `Ara3D.BimOpenSchema.IO` supplies the codec leg: read/write the `BimData` to a Parquet-zip (`Parquet.Net`, one `.parquet` per table, Brotli), a DuckDB file (`DuckDB.NET.Data.Full`, bulk-appended tables), an Excel workbook (`ClosedXML`, one sheet per table), and a gzipped JSON (`System.Text.Json`). The eleven columnar tables ARE the tabular BIM analytics frames the `Query/columnar` lane exposes: the folder's own `DuckDB.NET.Data.Full` (`api-duckdb.md`) opens the written `.duckdb` and SQL-joins the entity/parameter/relation tables, `ParquetSharp` (`api-parquetsharp.md`) + `Apache.Arrow` (`api-arrow.md`) read the same standard-format `.parquet` files into Arrow record batches, and `MiniExcel` (`api-miniexcel.md`) streams the `.xlsx` back into `IDataReader` rows via `GetReader` — the managed Parquet.Net writer and the native ParquetSharp reader interoperate at the file format, not the assembly.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,7 +14,7 @@
 - target frameworks: `net8.0`
 - asset: runtime library, pure-managed AnyCPU, NO native RID asset. The `net10.0` consumer binds `lib/net8.0`.
 - rail: analytics-exchange (BIM)
-- ABI floor: the published `1.0.1` assembly is a DEBUG build (`AssemblyConfiguration("Debug")`, `DisableOptimizations | EnableEditAndContinue`) — JIT optimizations are disabled in the shipped IL, so a hot ingest loop pays the un-optimized penalty; the schema/model surface is otherwise stable.
+- ABI floor: the bound `1.0.1` assembly is a DEBUG build (`AssemblyConfiguration("Debug")`, `DisableOptimizations | EnableEditAndContinue`) — JIT optimizations are disabled in the shipped IL, so a hot ingest loop pays the un-optimized penalty; the schema/model surface is otherwise stable. The `1.6.1` feed release rebuilt both assemblies `AssemblyConfiguration("Release")` (DEBUG-IL retired there), but `Ara3D.BimOpenSchema.IO` `1.6.1` regressed its asset TFM to `net8.0-windows7.0` (Windows-only), incompatible with the `net10.0` osx-arm64 target, so the central pin is held at `1.0.1` and the DEBUG-IL penalty is LOCKED until upstream ships a Release-built cross-platform IO.
 
 [PACKAGE_SURFACE]: `Ara3D.BimOpenSchema.IO`
 - package: `Ara3D.BimOpenSchema.IO`
@@ -129,7 +129,7 @@
 - duckdb seam: `data.WriteDuckDB(fp)` writes a DuckDB database the folder's OWN `DuckDB.NET.Data.Full` (`api-duckdb.md`) opens — a Persistence analytics query SQL-joins `Entities`/`DoubleParameters`/`Relations` in-process (`SELECT … FROM Entities_4 e JOIN DoubleParameters_6 p ON p."Entity" = …`), reusing the one centrally pinned `DuckDB.NET.Data.Full` `1.5.3` and its osx-arm64 dylib. No second DuckDB runtime.
 - parquet seam: `data.WriteToParquetZip(fp)` writes standard-format `.parquet` files (managed `Parquet.Net` `6.0.3`); the folder's native `ParquetSharp` (`api-parquetsharp.md`) and `Apache.Arrow`/`Apache.Arrow.Adbc` (`api-arrow.md`) read the SAME files into Arrow record batches for the columnar query rail — writer and reader meet at the Parquet file format, so the BIM frames flow into the Arrow/ADBC analytics pipeline without re-encoding.
 - excel seam: `data.WriteToExcel(fp)` writes an `.xlsx` (`ClosedXML`); the folder's streaming `MiniExcel` (`api-miniexcel.md`) reads it back as `IDataReader` rows via `GetReader` — the spreadsheet egress the BIM model needs, distinct codec from the columnar lane.
-- analytics-owner seam: the eleven columns are the tabular BIM frames the Persistence analytics owner exposes; the typed-index star schema maps onto the folder's columnar/ADBC query surface, and `ExpandedBIMData` is the join view a report/QTO consumer reads directly.
+- analytics-owner seam: the eleven columns are the tabular BIM frames the `Query/columnar` lane exposes; the typed-index star schema maps onto that lane's columnar/ADBC query surface, and `ExpandedBIMData` is the join view a report/QTO consumer reads directly.
 
 [RAIL_LAW]:
 - Packages: `Ara3D.BimOpenSchema` + `Ara3D.BimOpenSchema.IO` `1.0.1` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, DEBUG-built IL)
@@ -140,7 +140,7 @@
 ## [05]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
-- This page carries `Ara3D.BimOpenSchema[.IO]` API facts only; the Persistence analytics-owner case algebra, the content-key projection, and the columnar query rail are owned by the design pages.
+- This page carries `Ara3D.BimOpenSchema[.IO]` API facts only; the `Query/columnar` case algebra, the content-key projection, and the columnar query rail are owned by the design pages.
 - Parquet lane separation: BimOpenSchema.IO uses MANAGED `Parquet.Net` (`6.0.3`) for its own read/write; the folder's `ParquetSharp` (native libparquet-cpp) is a DISTINCT engine that reads the same files. The two never substitute at the API — they meet only at the `.parquet` file format.
 - Excel lane separation: BimOpenSchema.IO writes via `ClosedXML`; the folder's `MiniExcel` is the streaming READER. Distinct codecs, one file boundary.
 - DuckDB shared: the writer and the folder's query rail use the ONE centrally pinned `DuckDB.NET.Data.Full`; the suffixed table-name convention (`<Name>_<n>`, projection order in [DATASET_BRIDGE]) is a serializer fact a direct SQL consumer honors.

@@ -1,11 +1,14 @@
 /// <reference types="vitest/config" />
 /**
- * Root Vitest skeleton. The TS test estate is currently EMPTY: every former inline project matched
- * zero files and was deleted; per-package projects return with the TS buildout. Artifacts route to .artifacts/typescript.
+ * Root Vitest authority: two lanes over one shared option spine. The `unit` lane runs the node
+ * estate — kit falsification, architecture gauges, and colocated libs specs; the `browser` lane
+ * arms real-engine browser-mode suites (*.browser.spec) through the playwright provider and
+ * activates the day the first browser spec lands. Artifacts route to .artifacts/typescript.
  */
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { playwright } from '@vitest/browser-playwright';
 import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] -----------------------------------------------------------------
@@ -43,6 +46,7 @@ const _CONFIG = {
     },
     patterns: {
         benchInclude: ['**/*.bench.{ts,tsx}'],
+        browserInclude: ['tests/typescript/**/*.browser.{test,spec}.{ts,tsx}', 'libs/typescript/**/*.browser.{test,spec}.{ts,tsx}'],
         coverageExclude: [
             '**/*.config.*',
             '**/*.d.ts',
@@ -54,7 +58,7 @@ const _CONFIG = {
             '**/tests/**',
         ],
         coverageInclude: ['libs/typescript/**/src/**/*.{ts,tsx,mts,cts}'],
-        testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
+        testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**', '**/*.browser.{test,spec}.{ts,tsx}'],
         testInclude: ['tests/typescript/**/*.{test,spec}.{ts,tsx,mts,cts}', 'libs/typescript/**/*.{test,spec}.{ts,tsx,mts,cts}'],
     },
     reporters: {
@@ -74,11 +78,6 @@ const config: ViteUserConfig = defineConfig({
     optimizeDeps: { include: [..._CONFIG.optimizeDeps] },
     test: {
         allowOnly: _ENV.CI !== 'true',
-        benchmark: {
-            exclude: [..._CONFIG.patterns.testExclude],
-            include: [..._CONFIG.patterns.benchInclude],
-            outputJson: path.resolve(_ARTIFACTS.bench, 'latest.json'), // autosave: every bench run feeds the sustained-regression ledger
-        },
         chaiConfig: { ..._CONFIG.output.chaiConfig },
         coverage: {
             clean: true,
@@ -95,20 +94,18 @@ const config: ViteUserConfig = defineConfig({
                 branches: 95,
                 functions: 95,
                 lines: 95,
-                perFile: false,
+                perFile: true,
                 statements: 95,
             },
         },
         deps: { ..._CONFIG.deps },
         diff: { ..._CONFIG.output.diff },
-        exclude: [..._CONFIG.patterns.testExclude],
         fakeTimers: { ..._CONFIG.fakeTimers, toFake: [..._CONFIG.fakeTimers.toFake] },
         fileParallelism: true,
         forceRerunTriggers: ['**/package.json/**', '**/vitest.config.*/**', '**/tsconfig*.json'],
         globals: true,
         hideSkippedTests: _ENV.CI === 'true',
         hookTimeout: _CONFIG.timeouts.hook,
-        include: [..._CONFIG.patterns.testInclude],
         isolate: true,
         maxWorkers: _CONFIG.workers.max,
         onConsoleLog: (log, type) => !log.includes('Download the React DevTools') && type !== 'stderr',
@@ -116,11 +113,41 @@ const config: ViteUserConfig = defineConfig({
         passWithNoTests: false,
         pool: 'threads',
         printConsoleTrace: false,
+        projects: [
+            {
+                extends: true,
+                test: {
+                    benchmark: {
+                        exclude: [..._CONFIG.patterns.testExclude],
+                        include: [..._CONFIG.patterns.benchInclude],
+                        outputJson: path.resolve(_ARTIFACTS.bench, 'latest.json'), // autosave: every bench run feeds the sustained-regression ledger
+                    },
+                    environment: 'node',
+                    exclude: [..._CONFIG.patterns.testExclude],
+                    include: [..._CONFIG.patterns.testInclude],
+                    name: 'unit',
+                    setupFiles: [..._CONFIG.setupFiles],
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    browser: {
+                        enabled: true,
+                        headless: true,
+                        instances: [{ browser: 'chromium' }],
+                        provider: playwright(),
+                    },
+                    // The lane is armed, not red: it activates the day the first *.browser.spec lands.
+                    include: [..._CONFIG.patterns.browserInclude],
+                    name: 'browser',
+                },
+            },
+        ],
         reporters: [..._CONFIG.reporters.test],
         restoreMocks: true,
         retry: _ENV.CI ? 2 : 0,
         sequence: { concurrent: false, hooks: 'stack', shuffle: _ENV.CI === 'true' },
-        setupFiles: [..._CONFIG.setupFiles],
         silent: 'passed-only',
         slowTestThreshold: _CONFIG.timeouts.slow,
         snapshotFormat: { ..._CONFIG.snapshot.format },

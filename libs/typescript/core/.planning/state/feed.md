@@ -102,7 +102,7 @@ const _subject: (entry: Feed.Entry) => string = _Entry.$match({
 - Law: the row key order composes event stamp, then subject, then tag — total over distinct entries — so concurrent same-stamp evidence from different subjects interleaves deterministically and the feed order is reproducible from any replay: REPLAY_LAW at feed altitude.
 - Law: the policy row is data — `cap` bounds the census with a single head eviction per insert (the census grows by at most one, so eviction is one `SortedMap.remove` of `headOption`, never a sweep), `coalesce` toggles replacement of the previous same-subject same-kind row.
 - Law: coalescing keeps the greatest key per slot — an arrival whose key does not outrank the live pointer is superseded evidence the absorb drops — so absorb order cannot bury newer evidence and the coalescing lane stays commutative; a distinct-entry tie on one composed key is a stamp collision the HLC-monotone mint excludes.
-- Law: the feed merges as an instance — union of rows re-absorbed under the same policy — commutative and idempotent because row identity is the composed key and eviction always drops the global minimum, so lane-partitioned feeds fuse under `Merge.fold` like every other lattice, and `Feed.plan` partitions by tenant lane so every altitude runs the identical fold.
+- Law: the feed merges as an instance — union of rows re-absorbed under the same policy — commutative and idempotent because row identity is the composed key and eviction always drops the global minimum, so lane-partitioned feeds fuse under `Merge.fold` like every other lattice, and `Feed.plan` partitions by tenant lane so every altitude runs the identical fold; `alike` compares rank-paired entries key-inclusively, so state equality never leans on the key-derives-from-entry invariant.
 - Boundary: a serving edge frames the fold's live view; the durable feed projection is the data branch binding `Feed.plan`; AppUi rendering consumes served rows and never re-sorts.
 
 ```typescript
@@ -199,11 +199,8 @@ const Feed: Feed.Shape = {
       alike: (self, that) =>
         SortedMap.size(self.rows) === SortedMap.size(that.rows)
         && Chunk.every(
-          Chunk.zip(
-            Chunk.fromIterable(SortedMap.values(self.rows)),
-            Chunk.fromIterable(SortedMap.values(that.rows)),
-          ),
-          ([left, right]) => Equal.equals(left, right),
+          Chunk.zip(Chunk.fromIterable(self.rows), Chunk.fromIterable(that.rows)),
+          ([left, right]) => Equal.equals(left[0], right[0]) && Equal.equals(left[1], right[1]),
         ),
       empty: Option.some(_empty),
     }),

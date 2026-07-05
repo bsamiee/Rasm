@@ -175,7 +175,7 @@ profile policy expressed as SQL.
 - snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner crosses into a DuckDB column through one rail — the `api-thinktecture-serialization` `ThinktectureJsonConverterFactory`/`ThinktectureMessageFormatterResolver` projects the owner to its key, and the appender's typed `AppendValue` (or the data-chunk `WriteValue<T>`) writes that key; the inverse decodes the column value back through the same factory. No hand-rolled column mapping.
 - store-profile receipts: the appender batch and the data-chunk vector throughput land as the `Store/profiles` typed receipt, alongside the `GetQueryProgress()` `DuckDBQueryProgress` percentage stream consumed by the AppHost `telemetry`/`drain` ports — the percentage/rows-processed values feed a progress span, not a bespoke logger.
 - fault rail: `DuckDBException` lifts at the provider edge discriminated on `DuckDBErrorType`, joining the store-profile failure rail rather than surfacing as a raw ADO exception.
-- columnar interchange: the analytical extract path (DuckDB result -> Arrow record batch) bridges through `api-arrow` plus the `Apache.Arrow.Adbc` driver manager, NOT a managed DuckDB Arrow member — see `ARROW_BOUNDARY`.
+- columnar interchange: the `Query/columnar` analytical extract path (DuckDB result -> Arrow record batch) bridges through `api-arrow` plus the `Apache.Arrow.Adbc` driver manager, NOT a managed DuckDB Arrow member — see `ARROW_BOUNDARY`.
 - BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`api-ara3d-bimopenschema`) is the BIM analytics-frame producer this provider reads — its `WriteDuckDB` / `DuckDbUtils.WriteToDuckDB` bulk-appends the eleven columnar BIM tables (each suffixed `<Name>_<n>`, e.g. `Entities_4` / `DoubleParameters_6`) through a `DuckDBAppender`, and a Persistence analytics query opens that `.duckdb` over this same `DuckDBConnection` and SQL-joins the suffixed entity/parameter/relation tables; both sides share the one centrally pinned `DuckDB.NET.Data.Full` `1.5.3` runtime, never a second engine.
 
 [ARROW_BOUNDARY]:
@@ -213,7 +213,7 @@ profile policy expressed as SQL.
 |  [09]   | `SET autoinstall_known_extensions = true;` / `SET autoload_known_extensions = true;` | auto-`INSTALL`/`LOAD` a known extension on first reference (e.g. `read_parquet`, `ST_Read`) — default-on in the bundled build |
 |  [10]   | `SELECT * FROM duckdb_extensions();`               | metadata table: `extension_name`, `loaded`, `installed`, `install_path`, `description`, `aliases`, `extension_version`, `installed_from` |
 
-[EXTENSION_ROSTER]: core extensions admitted by the Rasm analytical lanes
+[EXTENSION_ROSTER]: core + community extensions admitted by the Rasm analytical lanes
 - rail: store-provider
 
 | [INDEX] | [EXTENSION]        | [ALIAS]            | [CAPABILITY / KEY SQL]                                                        | [RASM_LANE]                          |
@@ -236,6 +236,7 @@ profile policy expressed as SQL.
 |  [16]   | `inet`             | —                  | `INET` type + CIDR/host operators                                            | network-typed columns                 |
 |  [17]   | `icu`              | —                  | time-zone + collation support (built-in)                                     | temporal/locale correctness           |
 |  [18]   | `ducklake`         | —                  | `ATTACH '⟨catalog⟩' (TYPE ducklake)` — DuckLake SQL lakehouse catalog        | catalog-managed lakehouse lane        |
+|  [19]   | `substrait`        | `community`        | `get_substrait('⟨sql⟩')`/`get_substrait_json` → binary/JSON Substrait plan; `from_substrait(⟨blob⟩)`/`from_substrait_json` execute a foreign plan (COMMUNITY repo: `INSTALL substrait FROM community`) | cross-engine plan interchange (`Query/columnar`) |
 
 [SECRET_AND_ATTACH]:
 - rail: store-provider
@@ -261,6 +262,7 @@ profile policy expressed as SQL.
 - live PG join: `postgres` (`ATTACH … TYPE postgres`) reads the same database `api-npgsql`/`api-npgsql-ef` write through; the analytical lane joins columnar DuckDB against live PG without an ETL hop, but authoritative read-your-writes topology stays on the synchronous Marten/Npgsql path (plan C2) — DuckDB ATTACH is an analytical lane with a staleness watermark, never the consistency owner.
 - object store: `httpfs` + `aws`/`azure` secrets read/write Parquet directly against the same object store `api-objectstore`/`api-minio` front — DuckDB streams `s3://` Parquet for analytical scans while the content-keyed geometry-blob store owns durable artifacts.
 - BIM frames: the `Ara3D.BimOpenSchema` `.duckdb` (§[STACKING]) is read with only the built-in `parquet`/`json` surface; `spatial`/`vss`/`fts` extend it for geometry/ANN/text analytics over the same eleven suffixed BIM tables, all on the one pinned runtime.
+- substrait plan interchange: the `substrait` COMMUNITY extension (`INSTALL substrait FROM community; LOAD substrait;`) serializes a DuckDB query to a portable binary Substrait plan (`get_substrait`) and executes a foreign plan (`from_substrait(blob)`), the `Query/columnar` `ColumnarExtension.Substrait` enum member the analytical profile loads — the plan bridge to `Apache.Arrow.Adbc`'s Substrait surface (`api-arrow`). It is COMMUNITY-signed, NOT a core-repo extension, so the profile is FAIL-CLOSED: bootstrap probes `duckdb_extensions()` and REJECTS the profile if `substrait` is absent or unloaded rather than silently degrading. A build IS published for the bundled DuckDB core `v1.5.3` (`community-extensions.duckdb.org`, the version-pinned community roster) — a future runtime bump past a lagging community build drops the extension, which the fail-closed probe surfaces as a profile fault, never an implicit skip.
 
 [EXTENSION_RAIL_LAW]:
 - Package: `DuckDB INSTALL/LOAD pattern` (doc — over `DuckDB.NET.Data.Full`)

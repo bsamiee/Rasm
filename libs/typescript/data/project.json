@@ -3,9 +3,5 @@
     "name": "data",
     "projectType": "library",
     "sourceRoot": "libs/typescript/data/src",
-    "tags": [
-        "scope:data",
-        "runtime:neutral",
-        "plane:runtime"
-    ]
+    "tags": ["scope:data", "runtime:neutral", "plane:runtime"]
 }

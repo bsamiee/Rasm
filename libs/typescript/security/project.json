@@ -3,9 +3,5 @@
     "name": "security",
     "projectType": "library",
     "sourceRoot": "libs/typescript/security/src",
-    "tags": [
-        "scope:security",
-        "runtime:neutral",
-        "plane:runtime"
-    ]
+    "tags": ["scope:security", "runtime:neutral", "plane:runtime"]
 }

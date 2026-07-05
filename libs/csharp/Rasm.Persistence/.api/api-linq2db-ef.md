@@ -83,8 +83,8 @@ options that produced it).
 `ToLinqToDB` lifts an EF `IQueryable<T>` onto the LINQ To DB translator (optionally onto an
 explicit `IDataContext`); `ToLinqToDBTable` lifts a `DbSet<T>` to an `ITable<T>`; `Into`
 starts a LINQ To DB value-insert against a lifted table. `GetMappingSchema`/
-`GetMetadataReader` extract the EF model's mapping for reuse by the `Schema/converters` and
-`Schema/identity` rails.
+`GetMetadataReader` extract the EF model's mapping for reuse by the `Element/identity` converter and
+identity rails.
 
 | [INDEX] | [SURFACE]                                                  | [RETURNS]            | [CAPABILITY]                              |
 | :-----: | :--------------------------------------------------------- | :------------------- | :---------------------------------------- |
@@ -184,7 +184,7 @@ tracker.
 - Sep ingress: `SepReaderExtensions.Enumerate(RowFunc<T>)`/`EnumerateAsync` (`api-sep`)
   produce the `IEnumerable<T>`/`IAsyncEnumerable<T>` source for `BulkCopy`/`BulkCopyAsync`,
   streaming a CSV file straight into PostgreSQL COPY.
-- Query lanes: `ToLinqToDB` is the seam where `Query/lanes` selects the LINQ To DB engine
+- Query lanes: `ToLinqToDB` is the seam where `Query/lane` selects the LINQ To DB engine
   for a window-function/CTE/bulk-update query EF cannot translate, then re-materializes via
   `ToListAsyncLinqToDB`; `*AsyncEF` keeps the EF engine for change-tracked reads.
 - Telemetry: bridged `DataConnection` activity flows through the core `linq2db`

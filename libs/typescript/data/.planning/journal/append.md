@@ -21,6 +21,7 @@ The ONE write owner of the record of truth: journal, outbox, and idempotency led
 - Law: events are app-authored closed `Schema.TaggedClass` families — the journal stores their encoded form plus the `(tag, eventVersion)` coordinate and never interprets payloads, so a family evolves without touching this page.
 - Law: the payload column is `Model.JsonFromString` — TEXT in the database variants, native object in the JSON variants — so the object-versus-text dialect difference is the model's, and no page hand-parses a payload column.
 - Law: `sequence` is the global total order (identity column), `version` the per-stream order (the OCC coordinate); both are engine-generated or engine-checked, never computed in process.
+- Law: `sequence` is bigint-safe end to end — every process-side read decodes through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; per-stream `version` stays `Number` only because aggregate cardinality is provably bounded.
 - Law: `recordedAt` is write time minted by `Model.DateTimeInsert` — domain time lives inside event payloads, and conflating the two is the named defect.
 - Boundary: the tenant column is what `Tenancy.rls("journal_event")` predicates over; `Model.makeRepository` is banned on this table — the journal never UPDATEs or DELETEs events, and erasure is `journal/retain.md`'s key destruction.
 
@@ -75,10 +76,10 @@ const _journalDdl: Capability.Ensure = {
 
 ## [3]-[APPEND_SURFACE]
 
-- Owner: `Occ` — the tagged concurrency expectation; `VersionConflict` — the one domain fault of the write path; `_append` — the locked OCC insert every write funnels through.
-- Packages: `effect` (`Effect`, `Array`, `Data`, `Schema`); `@effect/sql` (`SqlClient`, `sql.insert`, `sql.onDialectOrElse`, `sql.reserve`, `SqlError`).
+- Owner: `Occ` — the tagged concurrency expectation; `VersionConflict` — the one domain fault of the write path; `Journal.Sequence` — the bigint sequence codec; `_append` — the locked OCC insert every write funnels through, whose `RETURNING` carries the landed global sequences into the receipt.
+- Packages: `effect` (`Effect`, `Array`, `Data`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema`, `sql.insert`, `sql.onDialectOrElse`, `sql.reserve`, `SqlError`).
 - Entry: `bound.append(stream, events, occ)` — ONE entry whose plural modality is the input shape (`A | NonEmptyReadonlyArray<A>`), never an `appendMany` sibling; standalone it owns its commit, inside `publish` it folds to a savepoint.
-- Receipt: `Journal.Receipt` — `{ stream, version, count, first, rows }` — the new head, the appended count, the first written version, and the encoded rows the outbox re-projects; the ledger stores it for replay.
+- Receipt: `Journal.Receipt` — `{ stream, version, count, first, rows }` — the new head, the appended count, the first written version, and the encoded rows the outbox re-projects, each carrying its landed global `sequence`; the ledger stores it for replay and the publish wake announces the last sequence so drains skip empty cycles.
 - Growth: a new write-side invariant is a guard inside `_append`, never a second append; a new event tag costs this page nothing — the plan stamps its `eventVersion` and the union admits it.
 - Law: concurrency is `Occ` — `Exact` fails as `VersionConflict` when the locked head disagrees, `None` demands version zero, `Any` serializes under the lock and appends at head; the advisory lock is `pg_advisory_xact_lock(hashtextextended(...))` on the spine and degrades to the single writer through `onDialectOrElse` — the unique constraint remains the structural backstop on every profile.
 - Law: the conflict carries evidence — `expected` and `actual` — so recovery is reload-fold-retry as data, and retrying rides a `Schedule` gated on the tag, never a loop.
@@ -88,8 +89,8 @@ const _journalDdl: Capability.Ensure = {
 - Boundary: encode faults are `ParseError` on the admission rail; the atomic composition is `[5]`'s.
 
 ```typescript
-import { Array, Data, Effect, type ParseResult } from "effect"
-import { SqlClient, type SqlError } from "@effect/sql"
+import { Array, Data, Effect, HashMap, Option, type ParseResult } from "effect"
+import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import { Upcast } from "./evolve.ts"
 
 class VersionConflict extends Data.TaggedError("VersionConflict")<{
@@ -97,6 +98,8 @@ class VersionConflict extends Data.TaggedError("VersionConflict")<{
   readonly expected: number
   readonly actual: number
 }> {}
+
+const _Sequence = Schema.Union(Schema.BigIntFromSelf, Schema.BigInt, Schema.BigIntFromNumber)
 
 declare namespace Journal {
   type Occ = Data.TaggedEnum<{
@@ -115,18 +118,22 @@ declare namespace Journal {
     readonly version: number
     readonly count: number
     readonly first: number
-    readonly rows: ReadonlyArray<{ readonly version: number; readonly tag: string; readonly payload: string }>
+    readonly rows: ReadonlyArray<{ readonly sequence: bigint; readonly version: number; readonly tag: string; readonly payload: string }>
   }
 }
 
 const _Occ = Data.taggedEnum<Journal.Occ>()
 
-const _head = (sql: SqlClient.SqlClient, stream: StreamKey): Effect.Effect<number, SqlError.SqlError> =>
-  Effect.map(
-    sql`SELECT coalesce(max(version), 0) AS head FROM journal_event
-        WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}`.values,
-    (cells) => Number(cells[0]?.[0] ?? 0),
-  )
+const _Landed = Schema.Struct({ sequence: _Sequence, version: Schema.Number })
+
+const _head = (sql: SqlClient.SqlClient, stream: StreamKey) =>
+  SqlSchema.single({
+    Request: StreamKey,
+    Result: Schema.Struct({ head: Schema.Number }),
+    execute: (key) =>
+      sql`SELECT coalesce(max(version), 0) AS head FROM journal_event
+          WHERE app = ${key.app} AND tenant = ${key.tenant} AND aggregate = ${key.aggregate}`,
+  })(stream).pipe(Effect.map((row) => row.head))
 
 const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
   (stream: StreamKey, events: A | Array.NonEmptyReadonlyArray<A>, occ: Journal.Occ) =>
@@ -162,13 +169,22 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
               eventVersion,
               payload,
             })))
-          yield* sql`INSERT INTO journal_event ${sql.insert(rows)}`
+          const landed = yield* Effect.flatMap(
+            sql`INSERT INTO journal_event ${sql.insert(rows)} RETURNING sequence, version`,
+            Schema.decodeUnknown(Schema.Array(_Landed)),
+          )
+          const bySequence = HashMap.fromIterable(Array.map(landed, (row) => [row.version, row.sequence] as const))
           return {
             stream,
             version: held + batch.length,
             count: batch.length,
             first: held + 1,
-            rows: rows.map((row) => ({ version: row.version, tag: row.tag, payload: row.payload })),
+            rows: Array.map(rows, (row) => ({
+              sequence: Option.getOrElse(HashMap.get(bySequence, row.version), () => 0n),
+              version: row.version,
+              tag: row.tag,
+              payload: row.payload,
+            })),
           } satisfies Journal.Receipt
         }),
       ))
@@ -178,7 +194,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 
 - Owner: the `idempotency_ledger` ensure row, the `IdempotencyKey` brand, and `_claim` — the one statement that inserts-or-touches and reports first-writer truth plus the stored receipt in a single round trip; `_settle` writes the receipt after the append succeeds.
 - Packages: `@effect/sql` (`sql.insert`, `sql.onDialectOrElse`); `effect` (`Option`, `Schema`).
-- Receipt: `Journal.Claim` — `{ key, first, held }` — `first` from `(xmax = 0)` on the spine and the `claimed_at = touched_at` stamp equality on the sqlite arm (both defaults evaluate in the inserting statement, so only the conflict update separates them); a replay is served entirely from this row.
+- Receipt: `Journal.Claim` — `{ key, first, held }` — `first` from `(xmax = 0)` on the spine and the `claimed_at = touched_at` stamp equality on the sqlite arm (both defaults evaluate in the inserting statement, so only the conflict update separates them); a replay is served entirely from this row, and the whole claim decodes through one `SqlSchema.single` — the `inserted` flag through the dialect-honest `_Flag` codec, the stored receipt through `Upcast.json(_Receipt)` — so no ledger cell is ever hand-coerced.
 - Growth: a new ledger dimension (scope column, expiry class) is a column pair plus a field on the claim row — the statement shape never changes.
 - Law: the claim is one statement — `INSERT … ON CONFLICT (key) DO UPDATE SET touched_at = … RETURNING (xmax = 0) AS inserted, receipt` — the spine's `conflictClaim` primitive row realized; a SELECT-then-INSERT pair is the torn spelling.
 - Law: the ledger stores the receipt after the append succeeds, so a replayed key returns the ORIGINAL receipt — idempotency means the duplicate caller cannot distinguish itself from the first writer.
@@ -192,7 +208,7 @@ const _Receipt = Schema.Struct({
   version: Schema.Number,
   count: Schema.Number,
   first: Schema.Number,
-  rows: Schema.Array(Schema.Struct({ version: Schema.Number, tag: Schema.String, payload: Schema.String })),
+  rows: Schema.Array(Schema.Struct({ sequence: Schema.BigInt, version: Schema.Number, tag: Schema.String, payload: Schema.String })),
 })
 
 declare namespace Journal {
@@ -204,25 +220,34 @@ declare namespace Journal {
   }
 }
 
+const _Flag = Schema.transform(Schema.Union(Schema.Boolean, Schema.Number), Schema.Boolean, {
+  strict: true,
+  decode: (raw) => raw === true || raw === 1,
+  encode: (flag) => flag,
+})
+
+const _Claimed = Schema.Struct({
+  inserted: _Flag,
+  receipt: Schema.OptionFromNullOr(Upcast.json(_Receipt)),
+})
+
 const _claim = (sql: SqlClient.SqlClient, stream: StreamKey, key: Journal.Key) =>
-  Effect.flatMap(
-    sql.onDialectOrElse({
-      orElse: () =>
-        sql`INSERT INTO idempotency_ledger ${sql.insert([{ key, app: stream.app, tenant: stream.tenant }])}
-            ON CONFLICT (key) DO UPDATE SET touched_at = ${_now(sql)}
-            RETURNING (claimed_at = touched_at) AS inserted, receipt`,
-      pg: () =>
-        sql`INSERT INTO idempotency_ledger ${sql.insert([{ key, app: stream.app, tenant: stream.tenant }])}
-            ON CONFLICT (key) DO UPDATE SET touched_at = ${_now(sql)}
-            RETURNING (xmax = 0) AS inserted, receipt`,
-    }),
-    (rows) =>
-      Effect.map(
-        Effect.transposeOption(
-          Option.map(Option.fromNullable(rows[0]?.["receipt"]), (held) =>
-            Schema.decodeUnknown(_Receipt)(Upcast.body(held)))),
-        (held): Journal.Claim => ({ key, first: Boolean(rows[0]?.["inserted"]), held }),
-      ),
+  SqlSchema.single({
+    Request: Schema.Struct({ key: _IdempotencyKey, app: StreamKey.fields.app, tenant: StreamKey.fields.tenant }),
+    Result: _Claimed,
+    execute: (row) =>
+      sql.onDialectOrElse({
+        orElse: () =>
+          sql`INSERT INTO idempotency_ledger ${sql.insert([row])}
+              ON CONFLICT (key) DO UPDATE SET touched_at = ${_now(sql)}
+              RETURNING (claimed_at = touched_at) AS inserted, receipt`,
+        pg: () =>
+          sql`INSERT INTO idempotency_ledger ${sql.insert([row])}
+              ON CONFLICT (key) DO UPDATE SET touched_at = ${_now(sql)}
+              RETURNING (xmax = 0) AS inserted, receipt`,
+      }),
+  })({ key, app: stream.app, tenant: stream.tenant }).pipe(
+    Effect.map((row): Journal.Claim => ({ key, first: row.inserted, held: row.receipt })),
   )
 
 const _settle = (sql: SqlClient.SqlClient, key: Journal.Key, receipt: Journal.Receipt) =>
@@ -256,6 +281,7 @@ const _ledgerDdl: Capability.Ensure = {
 - Receipt: `Journal.Published` — `{ journal, key, replay }` — the append receipt, the claiming key when present, and `replay: true` when the ledger served a duplicate.
 - Growth: a new atomic participant is one step inside the transaction fold, never a second publish; a new wake consumer subscribes the channel — the name derives from the app key, parameterized ingress.
 - Law: ordering inside the transaction is load-bearing — claim first (a replay short-circuits before any write), append second, outbox third, slots fourth, settle last; NOTIFY issues inside the transaction because the spine delivers it at commit, so a rolled-back publish wakes nobody.
+- Law: the NOTIFY payload is the last landed global `sequence` — a drain daemon compares it against its checkpoint and skips the claim transaction when no work exists, so a high-fanout deployment pays zero empty wake cycles; the payload is an accelerator only, and a garbled payload costs one probing cycle, never correctness.
 - Law: publish is total over its faults — `VersionConflict`, `SqlError`, `ParseError`; nothing else escapes, and a defect inside a slot dies rather than half-committing because the transaction rolls back whole.
 - Law: the reactivity invalidation keys collect from the slots and stamp exactly once per commit — read-your-writes is the slot contract's, restated nowhere.
 
@@ -338,7 +364,10 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
                 yield* Effect.transposeOption(Option.map(intent.key, (key) => _settle(sql, key, journal)))
                 yield* Effect.transposeOption(
                   Option.map(yield* Effect.serviceOption(PgClient.PgClient), (pg) =>
-                    pg.notify(_channel(intent.stream.app), String(journal.version))))
+                    pg.notify(
+                      _channel(intent.stream.app),
+                      String(Option.match(Array.last(journal.rows), { onNone: () => 0n, onSome: (row) => row.sequence })),
+                    )))
                 return { journal, key: intent.key, replay: false } satisfies Journal.Published
               }),
           })
@@ -352,10 +381,17 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Packages: `effect` (`Stream`); `@effect/sql` (`Statement.stream` over the backpressured cursor).
 - Entry: `bound.read(stream, window?)` — the one replay road; projection lanes, `journal/retain.md`'s DSAR fold, and snapshot-plus-tail hydration compose it with a `from` window instead of minting their own SELECT.
 - Growth: a new read shape (by tag, by time) is a window field, never a sibling read.
-- Law: rows leave the statement as `Upcast.Raw` and exist as nothing else — the decoded family value is the only shape past this seam, so a malformed historical payload surfaces as `ParseError` exactly once, at the lift.
+- Law: rows leave the statement as the decoded `_EventRow` (payload through `Upcast.Column`) projected into `Upcast.Raw` and exist as nothing else — the decoded family value is the only shape past this seam, so a malformed historical payload surfaces as `ParseError` exactly once, at the lift, and no cursor cell is hand-coerced.
 
 ```typescript
 import { Stream } from "effect"
+
+const _EventRow = Schema.Struct({
+  tag: Schema.String,
+  event_version: Schema.Number,
+  payload: Upcast.Column,
+  version: Schema.Number,
+})
 
 const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
   (stream: StreamKey, window?: { readonly from?: number; readonly to?: number }) =>
@@ -365,12 +401,9 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
             WHERE app = ${stream.app} AND tenant = ${stream.tenant} AND aggregate = ${stream.aggregate}
               AND version >= ${window?.from ?? 1} AND version <= ${window?.to ?? Number.MAX_SAFE_INTEGER}
             ORDER BY version`.stream.pipe(
-          Stream.mapEffect((row) =>
-            spec.plan.decode({
-              tag: String(row["tag"]),
-              version: Number(row["event_version"]),
-              payload: Upcast.body(row["payload"]),
-            })),
+          Stream.mapEffect((raw) =>
+            Effect.flatMap(Schema.decodeUnknown(_EventRow)(raw), (row) =>
+              spec.plan.decode({ tag: row.tag, version: row.event_version, payload: row.payload }))),
         )),
     )
 ```
@@ -383,6 +416,7 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Growth: a new deliverable dimension (priority, deliver-at) is a column plus a `claimBatch` ORDER BY term — the drain contract never widens.
 - Law: `claimBatch` is the competing-consumer claim realizing the `skipLocked` primitive row — attempts increment on every claim so poison rows surface as data, and the visibility-timeout redelivery idiom is the `claimed_at` lease predicate: a claimed row is invisible for `leaseSeconds`, so a crashed claimant's rows redeliver only after the lease lapses and a live claimant is never raced; the sqlite arm serializes on the single writer and drops the lock clause while keeping the lease predicate.
 - Law: the overlay bindings are overlay ONLY — the EventLog journal and sync-server storage persist onto this owning `SqlClient`, accelerate local-first reads, and are never the record of truth; a record whose loss corrupts state lives in THIS journal and projects outward, never the reverse.
+- Law: `layerStorageSubtle` is the default overlay posture — zero-knowledge storage for the untrusted multi-tenant deployment, where the server persists ciphertext it cannot read; the plain `layerStorage` row is the explicit single-tenant opt-in, selected at the composition root.
 - Law: the overlay backings are adopted only while their table bootstrap is verifiably ensure-shaped — idempotent, additive, provision-runnable; otherwise their DDL is owned locally beside these rows and the layers still bind.
 
 ```typescript
@@ -462,6 +496,7 @@ const Journal = {
   overlay: _overlay,
   Occ: _Occ,
   Key: _IdempotencyKey,
+  Sequence: _Sequence,
   Conflict: VersionConflict,
 } as const
 

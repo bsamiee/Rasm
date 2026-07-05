@@ -1,0 +1,25 @@
+language js(typescript, jsx)
+
+// LIBRARY_DEPTH promotion. Trigger: a stdlib collection, promise, clock, or entropy primitive in
+// domain code. Predicate: construction or ambient-capability call of the named globals — the Effect
+// substrate owns each (HashMap/HashSet, Effect, Clock, Random, Effect.sleep/Schedule). Exemption:
+// none in-pattern; the FFI seam rides the plugin's negated include globs.
+// FIRES: const seen = new Map<string, number>(); const at = Date.now(); const dice = Math.random();
+// CLEAN: const seen = HashMap.empty<string, number>(); const at = yield* Clock.currentTimeMillis; const dice = yield* Random.next;
+or {
+    `new Map($_)`,
+    `new Map<$_>($_)`,
+    `new Set($_)`,
+    `new Set<$_>($_)`,
+    `new WeakMap($_)`,
+    `new WeakSet($_)`,
+    `new Promise($_)`,
+    `new Promise<$_>($_)`,
+    `new Date($_)`,
+    `Date.now()`,
+    `Math.random()`,
+    `setTimeout($_)`,
+    `setInterval($_)`
+} as $hit where {
+    register_diagnostic(span=$hit, message="Stdlib primitive in domain code. The Effect substrate owns this concern: HashMap/HashSet for collections, Effect for async, Clock for time, Random for entropy, Effect.sleep/Schedule for timers.", severity="error")
+}

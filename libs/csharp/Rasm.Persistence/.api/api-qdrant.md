@@ -158,18 +158,18 @@
 - every façade method is `Task`-returning and `CancellationToken`-aware; there is no sync mirror — the client is async-only.
 
 [LOCAL_ADMISSION]:
-- the in-Postgres vector tier (`pgvector`/`pgvectorscale`) is the default residence; Qdrant enters behind the same `Store/profiles` vector-store vocabulary only for the scale-out case (cardinality/recall/quantization beyond a `pgvector` HNSW index).
-- a write enters through `UpsertAsync` with `wait` set per the durability profile; the `UpdateResult.Status` (`UpdateStatus`) is the write receipt that advances the `Store/profiles` ingest ledger, never a fire-and-forget.
+- the in-Postgres vector tier (`pgvector`/`pgvectorscale`) is the default residence; Qdrant enters behind the same `Query/retrieval` `VectorBackend` vocabulary only for the scale-out case (cardinality/recall/quantization beyond a `pgvector` HNSW index).
+- a write enters through `UpsertAsync` with `wait` set per the durability profile; the `UpdateResult.Status` (`UpdateStatus`) is the write receipt that advances the `Query/retrieval` ingest ledger, never a fire-and-forget.
 - retrieval enters through `QueryAsync` (the universal API), not the legacy `SearchAsync`, so hybrid prefetch + fusion + formula reranking are expressible in one round-trip; `SearchAsync`/`RecommendAsync` are admitted only for the single-stage dense case.
 - payload `Filter` is the server-side push-down: the filter is built from the canonical query vocabulary and runs on the Qdrant node, never re-filtered client-side after a full fetch.
-- multitenancy is `ShardKey`-based: a tenant's points carry a shard key and queries pass a `ShardKeySelector`, binding the collection to the `Store/tenancy` row.
+- multitenancy is `ShardKey`-based: a tenant's points carry a shard key and queries pass a `ShardKeySelector`, binding the collection to the `Element/identity` tenancy row.
 
 [STACKING]:
-- vector-tier discrimination: the `Store/profiles` vector-store row discriminates `pgvector`/`pgvectorscale` (in-PG, default) from Qdrant (scale-out) on cardinality/recall; the canonical vector value object and `Distance` metric are shared, so the same embedding crosses both tiers — `api-pgvector-ef`/`api-pgvectorscale` own the in-PG leg, this catalog owns the scale-out leg.
-- embedding ingest: a `[ValueObject]` embedding owner projects to a `Vector`/`SparseVector` through the implicit conversion; the payload map is the `Store/profiles` fact projected to a protobuf `Value` map. Server-side inference (`Document`) is the seam where Qdrant computes the embedding from raw text, bypassing a client-side embedding model.
+- vector-tier discrimination: the `Query/retrieval` `VectorBackend` row discriminates `pgvector`/`pgvectorscale` (in-PG, default) from Qdrant (scale-out) on cardinality/recall; the canonical vector value object and `Distance` metric are shared, so the same embedding crosses both tiers — `api-pgvector-ef`/`api-pgvectorscale` own the in-PG leg, this catalog owns the scale-out leg.
+- embedding ingest: a `[ValueObject]` embedding owner projects to a `Vector`/`SparseVector` through the implicit conversion; the payload map is the `Element/graph` element fact projected to a protobuf `Value` map. Server-side inference (`Document`) is the seam where Qdrant computes the embedding from raw text, bypassing a client-side embedding model.
 - telemetry: the `QdrantClient(loggerFactory)` ctor wires `Microsoft.Extensions.Logging`; the gRPC channel's `Activity` spans feed the AppHost `telemetry` port through the admitted OpenTelemetry gRPC instrumentation — the query latency/recall is a span, not a bespoke logger. A `QdrantException` lifts at the façade edge onto the store-profile failure rail.
 - retry/deadline: the gRPC `ClientConfiguration` carries the `grpcTimeout` deadline; transient gRPC status codes are retried by the channel's service config, aligning Qdrant's resilience with the `Polly`/`stamina`-shaped engine retry the other transports use rather than a hand-rolled retry loop.
-- snapshot residence: `CreateSnapshotAsync` produces a Qdrant-native snapshot; its bytes land in the same object-store residence (`api-objectstore`/`Minio`) as the Parquet/Delta extracts, so the vector store's backup shares the `Store/remote` lane.
+- snapshot residence: `CreateSnapshotAsync` produces a Qdrant-native snapshot; its bytes land in the same object-store residence (`api-objectstore`/`Minio`) as the Parquet/Delta extracts, so the vector store's backup shares the `Store/blobstore` lane.
 
 [RAIL_LAW]:
 - Package: `Qdrant.Client`

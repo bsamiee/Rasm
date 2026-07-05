@@ -1,0 +1,10 @@
+language js(typescript, jsx)
+
+// DEEP_SURFACES promotion. Trigger: a star re-export. Predicate: any `export * from` — a barrel
+// surface that flattens interior modules the exports map deliberately hides. Exemption: none; a
+// package entrypoint names its one or two deep owners explicitly.
+// FIRES: export * from './interior.ts';
+// CLEAN: export { Journal } from './journal.ts';
+`export * from $source` where {
+    register_diagnostic(span=$source, message="Star re-export is a barrel. Name the one or two deep owners the entrypoint exposes; the interior stays unresolvable.", severity="error")
+}

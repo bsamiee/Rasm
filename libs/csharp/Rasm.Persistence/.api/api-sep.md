@@ -7,8 +7,8 @@ row/col projections that never escape the read scope, an `IAsyncEnumerator` mirr
 the synchronous enumerator, parallel row enumeration with a degree-of-parallelism
 knob, interpolated-string column formatting, and a pluggable per-column string-pool
 family. It is the column-codec for Persistence tabular interchange — schedule/cost
-import-export (`Sync/schedule`, `Catalog/cost`), Arrow/DuckDB CSV bridge edges, and the
-`Query/lanes` row-projection seam — feeding parsed spans straight into the
+import-export (`Ingest/schedule`, `Ingest/tabular`), Arrow/DuckDB CSV bridge edges, and the
+`Query/lane` row-projection seam — feeding parsed spans straight into the
 NodaTime/Thinktecture wire converters and the EF/linq2db bulk rails.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -171,7 +171,7 @@ returns `T?`. `Cols.Parse<T>(Span<T>)` parses a whole column set into a caller b
 
 Each projector has a `RowFunc<T>` (project) and a `RowTryFunc<T>` (project-or-skip)
 overload; `ParallelEnumerate` adds a `degreeOfParallelism` overload. These are the
-canonical seam into `Query/lanes` — `Enumerate` yields `IEnumerable<T>` of materialized
+canonical seam into `Query/lane` — `Enumerate` yields `IEnumerable<T>` of materialized
 records out of ref-struct rows.
 
 | [INDEX] | [SURFACE]                                        | [RETURNS]                 | [CAPABILITY]                              |

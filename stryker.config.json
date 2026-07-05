@@ -4,7 +4,11 @@
     "vitest": {
         "configFile": "vitest.config.ts"
     },
-    "mutate": ["libs/typescript/**/src/**/*.{ts,tsx}", "!**/*.{test,spec}.{ts,tsx}", "!**/*.d.ts"],
+    "checkers": ["typescript"],
+    "tsconfigFile": "tsconfig.base.json",
+    "mutate": ["libs/typescript/**/src/**/*.{ts,tsx}", "!**/*.{test,spec}.{ts,tsx}", "!**/*.browser.{test,spec}.{ts,tsx}", "!**/*.d.ts"],
+    "coverageAnalysis": "perTest",
+    "ignoreStatic": true,
     "concurrency": 4,
     "dryRunTimeoutMinutes": 5,
     "timeoutMS": 5000,
@@ -12,7 +16,7 @@
     "tempDirName": ".cache/stryker/tmp",
     "incremental": true,
     "incrementalFile": ".cache/stryker/incremental.json",
-    "reporters": ["html", "json"],
+    "reporters": ["html", "json", "progress"],
     "htmlReporter": {
         "fileName": ".artifacts/typescript/stryker/mutation-report.html"
     },

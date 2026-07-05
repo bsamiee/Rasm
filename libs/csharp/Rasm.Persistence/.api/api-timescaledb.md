@@ -7,7 +7,7 @@ assembly and no first-party EF translator: every surface is server-side SQL the
 `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows fold — as the `Hypertable`/`ContinuousAggregate`/
 `RetentionPolicy`/`ColumnstorePolicy` cases whose `ProvisionSql` `Fin<string>` projection rides
 `MigrationBuilder.Sql` through the one `ServerExtension` `CreateSql` install (`Store/provisioning#SERVER_EXTENSIONS`) —
-and the rollups feed `Query/lanes#ANALYTICAL_LANE` and the dashboard tiles. The extension is
+and the rollups feed `Query/columnar#COLUMNAR_LANE` and the dashboard tiles. The extension is
 preload-gated (it rides the `Store/provisioning#SERVER_EXTENSIONS` `Preload` `shared_preload_libraries`
 row), never a self-provisioned `CREATE EXTENSION` annotation.
 
@@ -22,7 +22,7 @@ row), never a self-provisioned `CREATE EXTENSION` annotation.
 - rail: timescale-provisioning, analytical-lane
 
 The time column is the HLC `Physical` instant on the rollup table; the rollup mirrors the `OpLogEntry`
-columns the `DuckDBOpLogMap` projects on `Query/lanes#ANALYTICAL_LANE`. One time dimension is the
+columns the `DuckDBOpLogMap` projects on `Query/columnar#COLUMNAR_LANE`. One time dimension is the
 partition key; secondary `by_hash` dimensions are held under a provisioning probe, not catalogued.
 
 ## [02]-[HYPERTABLE]
@@ -94,7 +94,7 @@ scheduled policy without dropping it.
 [PROVISIONING_LAW]:
 - preload: `timescaledb` leads the `Store/provisioning#SERVER_EXTENSIONS` `Preload` row's `shared_preload_libraries` value (`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net`); the bgworker scheduler launcher requires it, so the extension is NOT index-AM-registered like `pgvectorscale` and is correctly absent from a self-provisioned `CREATE EXTENSION` annotation — the server tier preloads it before the migration runs, and the `ClusterConfig` probe verifies the value read-only against `pg_settings` after boot.
 - bgworker ownership: refresh, retention, and columnstore jobs run on TimescaleDB's own bgworker scheduler, so the AppHost schedule port (`ScheduleEntry`) never schedules a database-internal maintenance job — the `timescaledb_information.job_stats` view is the receipt the provisioning verification fold reads for refresh-lag/drop-count/compression-ratio proof rows, and a non-firing job surfaces as a stale `last_successful_finish` the receipt flags.
-- analytical residence: the rollup hypertable feeds `Query/lanes#ANALYTICAL_LANE` where DuckDB reads the columnstore-compressed chunks; the continuous aggregate is the pre-bucketed tile source the dashboard reads without re-scanning raw chunks.
+- analytical residence: the rollup hypertable feeds `Query/columnar#COLUMNAR_LANE` where DuckDB reads the columnstore-compressed chunks; the continuous aggregate is the pre-bucketed tile source the dashboard reads without re-scanning raw chunks.
 
 [RAIL_LAW]:
 - Package: `timescaledb`

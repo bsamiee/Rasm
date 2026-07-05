@@ -8,6 +8,8 @@ query translation, type mapping, value generation, and scaffolding.
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - package: `Npgsql.EntityFrameworkCore.PostgreSQL`
+- version: `10.0.2`
+- license: `PostgreSQL`
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - namespace: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - plugin package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
@@ -280,6 +282,11 @@ The compact rows below preserve these operator and range member sets:
 - `WebSearchToTsQuery` is the only query parser admitted for user-provided text; `ToTsQuery` throws on malformed input.
 - Query translation facts live here and do not become public Persistence service families.
 - The base EF Core runtime surface (`DbContext` save/strategy/transaction, `IDbContextTransaction` savepoints, the interceptor family, `IMigrator.GenerateScript`, `ModelConfigurationBuilder`, the relational builder/facade extensions, `EntityFrameworkQueryableExtensions`) is documented here as the folder's base-EF home — there is no standalone base-EF catalog and the sibling `api-ef-sqlite` shares the identical surface. These members are provider-agnostic; the savepoint API lives on the `IDbContextTransaction` handle, never on `DatabaseFacade`, and interceptors register once on the `DbContextOptionsBuilder` and span every provider.
+
+[STACKING]:
+- identity owner: this provider is the relational spine of `Element/identity` — the `ElementIdentity` row (PK/TenantId/GlobalId/H3/pgvector + ACL + classification) is EF-mapped through `UseNpgsql`, and Marten (`api-marten`) commits it atomically with the event by storing it in the same `IDocumentSession` over the one `NpgsqlDataSource`.
+- provisioning owner: `Store/provisioning` selects this as one provider row of the store-profile algebra — `SetPostgresVersion`, the `IMigrator`/`NpgsqlMigrationBuilderExtensions` migration API, and the `NpgsqlIndexBuilderExtensions` (`HasMethod`/`HasOperators`/`AreNullsDistinct`) index design are the provisioning declarations, never hand DDL.
+- plugin composition: the temporal (`api-npgsql-ef-nodatime`), spatial (`api-nts-ef`), and vector (`api-pgvector-ef`) mappings stack onto this base provider through one options builder; the ADO codec below is `api-npgsql`, so identity columns, query translation, and migrations share one provider surface.
 
 [RAIL_LAW]:
 - Package: `Npgsql.EntityFrameworkCore.PostgreSQL`

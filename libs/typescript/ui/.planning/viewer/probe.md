@@ -19,6 +19,8 @@ The one render-evidence owner: benchmark and receipt are two lanes of a single d
 - Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay); `@rasm/ts/core` (`Claim` — the metric row shape IS its vocabulary); `effect` (`Chunk`, `Number`, `pipe`).
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: windows are policy rows — sample count and projection kind live in one `as const` record; a per-metric bespoke window is the named defect.
+- Law: the trace renders as a live series, never table rows — `Probe.aligned(trace)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData` (the metric board is a chart cohort synced by one key), and the summary rows feed the claim board; a metric timeline rendered through `view/table` is the named defect.
+- Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s surplus arrival lane feeds an arrival-rate row into the same trace shape, one broadcast lane, no second port subscription.
 - Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree render cost is app-plane telemetry, not this probe.
 
 ```typescript
@@ -57,6 +59,14 @@ const _rows = (trace: Probe.Trace): ReadonlyArray<Metric> =>
       { label: "cpu-time", value: sums.cpu / over, unit: "ms" },
       { label: "pick-time", value: sums.pick / over, unit: "ms" },
     ]))
+
+const _aligned = (trace: Probe.Trace): readonly [Float64Array, Float64Array, Float64Array, Float64Array] =>
+  pipe(Chunk.toReadonlyArray(trace), (samples) => [
+    Float64Array.from(samples, (_, rank) => rank),
+    Float64Array.from(samples, (sample) => sample.fps),
+    Float64Array.from(samples, (sample) => sample.gpuTime),
+    Float64Array.from(samples, (sample) => sample.cpuTime),
+  ] as const)
 ```
 
 ## [3]-[HOST_MIRROR]
@@ -65,7 +75,7 @@ const _rows = (trace: Probe.Trace): ReadonlyArray<Metric> =>
 - Owner: `Probe.host` — the local fingerprint mirroring the wire's `HostFingerprint` fields: `print` is the app's own identity host value handed in as a parameter — the probe never mints identity; `cores` reads `navigator.hardwareConcurrency`; `runtime` reads the user-agent brand; `machine`/`arch` read the WebGPU adapter info (`vendor`/`architecture` — the adapter probe already ran at `scene`'s backend selection, so the info arrives as an `Option` parameter from the renderer row, never a second `requestAdapter`); absent WebGPU, `Option.none` folds to the declared `"<unavailable>"` literal rather than fabricated values.
 - Packages: `@rasm/ts/core` (`Claim` — `Claim.Host` IS `HostFingerprint`); `effect` (`Option`, `pipe`); `@webgpu/types` (ambient adapter-info shape).
 - Law: the local fingerprint NEVER gates — the identity gate lives at the codec (`Claim.admit` against `AppIdentity`); this probe exists to display divergence context (different GPU, fewer cores) beside metric deltas.
-- Law: fingerprint capture is once-per-session — the value is stable for the process lifetime and rides a `keepAlive` atom.
+- Law: fingerprint capture is once-per-session — the value is stable for the process lifetime and its atom pins through `Atom.keepAlive`, so the registry's idle TTL never re-runs the capture.
 
 ```typescript
 import { Claim } from "@rasm/ts/core"
@@ -136,7 +146,8 @@ const _board = (claim: Claim, local: ReadonlyArray<Metric>): ReadonlyArray<Probe
 - Packages: `three` (the render-target family, the async readback — members verified against the shipped runtime); `@rasm/ts/core` (`ContentKey`, `RenderReceipt`); `effect` (`DateTime`, `Effect`, `Equal`).
 - Law: capture parameters are a policy row — extent, target format, and the settle predicate live in one `as const` record; a capture with ad-hoc parameters produces an incomparable hash and is the named defect.
 - Law: the comparison is structural — the local key and the receipt's key compare through `Equal.equals` on the brand; the verdict is `{ view, expected, actual, matched, at }` — a plain data row beside the wire receipt's own C#-computed `matched`/`at`, so the operator reads both proofs.
-- Law: the MRT/post chain feeding a G-buffer capture is the same fold with a different target row — `three/tsl`'s `mrt` names the targets, and no second capture fold exists.
+- Law: the MRT/post chain feeding a G-buffer capture is the same fold with a different target row — the WebGPU arm's `PostProcessing` pipeline with `three/tsl`'s `mrt({ … })` names the targets, and no second capture fold exists.
+- Growth: hashing graduates to the GPU when readback dominates — a `typegpu` reduction kernel over the capture buffer on the scene-published device (`tgpu.initFromDevice`, `scene#BACKEND_SELECT`'s seam) feeds the same mint delegate; the delegate signature never changes, so the ladder is invisible to consumers.
 - Boundary: the wire receipt's decode is the codec's; renderer and scene arrive as parameters from `scene`; verdict transport to any journal is app egress.
 
 ```typescript
@@ -182,7 +193,8 @@ const _capture = (
 - Owner: `Probe.tone` — the verdict and delta presentation vocabulary: matched renders on the success tone, mismatched on the danger tone WITH both keys shown (the `:x32` spelling the kernel brand carries); delta rows tone by sign; the wire receipt's own fields render beside the local verdict; stamps format through `Format.instant`.
 - Law: a mismatch is never a fault — no channel carries it, no retry fires; the verdict row IS the deliverable, and escalation is an operator decision outside this plane. The layout drift reports `panel#LAYOUT_SOLVE` emits land on this same board as evidence rows under the same law.
 - Law: verdict history is a bounded fold — the last N verdicts per view ride a `Chunk`-backed atom (append, take-right, the `[2]` window policy shape); evidence accumulates without unbounded memory.
-- Boundary: badge and row primitives are `system/primitive` recipes; board rendering rides `view/table` when rows exceed the inline shape.
+- Law: evidence copies through the port — the copy-evidence affordance serializes the verdict/board row and writes it through the `Clipboard` Tag (`system/primitive#CLIPBOARD_PORT`); `navigator.clipboard` in an evidence row is the named defect.
+- Boundary: badge and row primitives are `system/primitive` recipes; the claim board renders `view/table` rows while metric timelines render `view/chart` series — evidence picks its surface by shape.
 
 ```typescript
 const _tone = {
@@ -193,20 +205,26 @@ const _tone = {
   incomparable: { tone: "neutral" },
 } as const
 
-const Probe: {
-  readonly window: typeof _WINDOW
-  readonly extent: typeof _CAPTURE
-  readonly observe: typeof _observe
-  readonly rows: typeof _rows
-  readonly host: typeof _host
-  readonly board: typeof _board
-  readonly capture: typeof _capture
-  readonly tone: typeof _tone
-} = {
+declare namespace Probe {
+  type Shape = {
+    readonly window: typeof _WINDOW
+    readonly extent: typeof _CAPTURE
+    readonly observe: typeof _observe
+    readonly rows: typeof _rows
+    readonly aligned: typeof _aligned
+    readonly host: typeof _host
+    readonly board: typeof _board
+    readonly capture: typeof _capture
+    readonly tone: typeof _tone
+  }
+}
+
+const Probe: Probe.Shape = {
   window: _WINDOW,
   extent: _CAPTURE,
   observe: _observe,
   rows: _rows,
+  aligned: _aligned,
   host: _host,
   board: _board,
   capture: _capture,

@@ -35,7 +35,9 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Marten`
-- package: `Marten` (9.11.0, MIT, © Jeremy D. Miller + JasperFx contributors)
+- package: `Marten`
+- version: `9.12.0`
+- license: MIT (© Jeremy D. Miller + JasperFx contributors)
 - assembly: `Marten`
 - transitive surface: `JasperFx.Events` 2.16.0 (database-agnostic event store), `JasperFx` 2.16.0 (`TenancyStyle`, `AutoCreate`, `DaemonMode`), `Weasel.Postgresql`/`Weasel.Core` 9.3.0 (DDL/schema diff)
 - namespace: `Marten`, `Marten.Events`, `Marten.Events.Aggregation`, `Marten.Events.Projections`, `Marten.Events.Projections.Flattened`, `Marten.Events.Daemon`, `Microsoft.Extensions.DependencyInjection`; transitive `JasperFx.Events`, `JasperFx.Events.Projections`, `JasperFx.Events.Daemon`, `JasperFx.Events.Aggregation`, `JasperFx.MultiTenancy`

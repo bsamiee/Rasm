@@ -7,7 +7,7 @@ typed attribute algebra, the `CloudEventsSpecVersion` schema, and the abstract
 `CloudNative.CloudEvents.Kafka` adds the Kafka protocol binding (`KafkaExtensions`) over a
 `Confluent.Kafka` `Message<string?, byte[]>`, and `CloudNative.CloudEvents.SystemTextJson`
 adds the `JsonEventFormatter`/`JsonEventFormatter<T>` System.Text.Json codec. The trio is the
-single wire vocabulary the Persistence `Sync/egress` rail projects the redacted op-log
+single wire vocabulary the Persistence `Version/egress` rail projects the redacted op-log
 changefeed onto — one `CdcEnvelope` becomes one CloudEvent encoded structured-or-binary,
 bound to Kafka headers, partitioned by entity key, and decoded identically by external brokers
 and the Python `runtime/transport` leg. The whole surface is pure-managed; only the Kafka
@@ -18,7 +18,7 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents`
 - package: `CloudNative.CloudEvents`
-- version: `2.8.0`
+- version: `2.9.0`
 - license: `Apache-2.0`
 - assembly: `CloudNative.CloudEvents` (`lib/net8.0` binds for the `net10.0` consumer; `netstandard2.0`/`netstandard2.1` are fallback assets)
 - namespace: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.Extensions`, `CloudNative.CloudEvents.Core`, `CloudNative.CloudEvents.Http`
@@ -27,7 +27,7 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.Kafka`
 - package: `CloudNative.CloudEvents.Kafka`
-- version: `2.8.0`
+- version: `3.9.0`
 - license: `Apache-2.0`
 - assembly: `CloudNative.CloudEvents.Kafka` (`lib/net8.0` binds for the `net10.0` consumer)
 - namespace: `CloudNative.CloudEvents.Kafka`
@@ -36,7 +36,7 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.SystemTextJson`
 - package: `CloudNative.CloudEvents.SystemTextJson`
-- version: `2.8.0`
+- version: `2.9.0`
 - license: `Apache-2.0`
 - assembly: `CloudNative.CloudEvents.SystemTextJson` (`lib/net8.0` binds for the `net10.0` consumer)
 - namespace: `CloudNative.CloudEvents.SystemTextJson`
@@ -160,8 +160,8 @@ asset documented by `api-kafka`, never in these three assemblies.
 - the standard extensions are real `CloudEventAttribute`s, not free strings: `Partitioning.PartitionKeyAttribute` (`partitionkey`, String) feeds the Kafka message key; `Sampling.SampledRateAttribute` (`sampledrate`, Integer, positive-validated); `Sequence.SequenceAttribute`/`SequenceTypeAttribute` (String). `SetPartitionKey`/`SetSampledRate`/`SetSequence` are extension methods on `CloudEvent`, callable as `Partitioning.SetPartitionKey(ce, key)` or `ce.SetPartitionKey(key)`.
 - `KafkaExtensions` reads/writes the `ce_`-prefixed headers and the `content-type` header on `Message<string?, byte[]>`; `ToKafkaMessage` selects placement by `ContentMode` and projects the `partitionkey` extension onto `Message.Key`. The four members (`ToKafkaMessage`, two `ToCloudEvent`, `IsCloudEvent`) are the whole binding.
 
-[STACK_INTEGRATION]:
-- the changefeed wire is a single rail: `CdcEnvelope` (settled `Version/provenance#LINEAGE_CDC`) → `CloudEvent` via the `Sync/egress` `Egress.Envelope` projector → `Confluent.Kafka` `Message<string?, byte[]>` via `ToKafkaMessage(ContentMode.Binary, formatter)` → awaited `ProduceAsync` whose `DeliveryResult.Status == Persisted` (see `api-kafka`) advances the durable `SyncCursor`. One shared `JsonEventFormatter` instance encodes every event; `JsonEventFormatter<T>` is selected only when `Data` is a typed change record. There is no second envelope shape and no hand-built `ce_` header.
+[STACKING]:
+- the changefeed wire is a single rail: `CdcEnvelope` (settled `Version/provenance#LINEAGE_CDC`) → `CloudEvent` via the `Version/egress` `Egress.Envelope` projector → `Confluent.Kafka` `Message<string?, byte[]>` via `ToKafkaMessage(ContentMode.Binary, formatter)` → awaited `ProduceAsync` whose `DeliveryResult.Status == Persisted` (see `api-kafka`) advances the durable `SyncCursor`. One shared `JsonEventFormatter` instance encodes every event; `JsonEventFormatter<T>` is selected only when `Data` is a typed change record. There is no second envelope shape and no hand-built `ce_` header.
 - `Binary` content mode is the load-bearing choice for the stack: it keeps the CloudEvents attributes in Kafka headers, so a broker or consumer filters and routes on `ce_type`/`ce_source`/`partitionkey` without deserialising the op payload, and `Partitioning.SetPartitionKey` from the entity key preserves per-key ordering on one partition through `librdkafka`'s default partitioner.
 - distributed-trace continuity stacks through a CloudEvents extension attribute, not a side channel: the egress sets `traceparent` (and `redacted`) as extension attributes on the event, so the Python `runtime/transport` ingress `ToCloudEvent` decode recovers the W3C trace context and extract-and-continues the originating span — the one envelope carries the masking flag and the trace, so an out-of-authority payload crosses masked and traced rather than raw.
 - the three keyed AppHost `OutboundHop` consumers of the `[ONE_OUTBOX_EGRESS_SPINE]` (this Persistence egress, the AppHost outbox relay, the durable-orchestration dispatch) all drain the same `CdcEnvelopeWire` CloudEvents projection as the hop payload; the CloudEvents envelope is the single cross-consumer, cross-language vocabulary, so a per-consumer re-pack is the drift defect.

@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Tooling">
-        <PackageVersion Include="Meziantou.Analyzer"                         Version="3.0.115" />
+        <PackageVersion Include="Meziantou.Analyzer"                         Version="3.0.121" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"           Version="5.3.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Common"              Version="5.3.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"              Version="5.3.0" />
@@ -24,7 +24,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Foundational Core">
-        <PackageVersion Include="Generator.Equals"                            Version="4.0.0" />
+        <PackageVersion Include="Generator.Equals"                            Version="4.0.1" />
         <PackageVersion Include="JetBrains.Annotations"                       Version="2026.2.0" />
         <PackageVersion Include="LanguageExt.Core"                            Version="5.0.0-beta-77" />
         <PackageVersion Include="Riok.Mapperly"                               Version="4.3.1" />
@@ -82,7 +82,7 @@
         <PackageVersion Include="OcctNet.Wrapper"      Version="0.1.1" />
         <PackageVersion Include="PicoGK"               Version="2.2.0" />
         <PackageVersion Include="RectpackSharp"        Version="1.2.0" />
-        <PackageVersion Include="Robots"               Version="2.1.2" />
+        <PackageVersion Include="Robots"               Version="2.2.2" />
         <PackageVersion Include="SharpVoronoiLib"      Version="1.2.0" />
     </ItemGroup>
 
@@ -99,8 +99,8 @@
     <ItemGroup Label="Compute">
         <PackageVersion Include="BriefFiniteElement.Net"               Version="2.1.2" />
         <PackageVersion Include="BriefFiniteElementNet.CustomElements" Version="2.1.2" />
-        <PackageVersion Include="FEALiTE2D"                            Version="1.1.2" />
-        <PackageVersion Include="FEALiTE2D.Plotting"                   Version="1.1.2" />
+        <PackageVersion Include="FEALiTE2D"                            Version="1.2.0" />
+        <PackageVersion Include="FEALiTE2D.Plotting"                   Version="1.2.0" />
         <PackageVersion Include="FParsec"                              Version="2.0.0-beta2" />
         <PackageVersion Include="GeneticSharp"                         Version="3.1.4" />
         <PackageVersion Include="Google.OrTools"                       Version="9.15.6755" />
@@ -172,8 +172,8 @@
         <PackageVersion Include="VividOrange.Standards"                  Version="0.1.0" />
         <PackageVersion Include="VividOrange.Uncertainties"              Version="0.2.0" />
         <PackageVersion Include="VividOrange.Uncertainties.Quantities"   Version="0.2.0" />
-        <PackageVersion Include="Wacton.Unicolour"                       Version="7.0.0" />
-        <PackageVersion Include="Wacton.Unicolour.Datasets"              Version="4.0.0" />
+        <PackageVersion Include="Wacton.Unicolour"                       Version="8.0.0" />
+        <PackageVersion Include="Wacton.Unicolour.Datasets"              Version="5.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="App Host">
@@ -220,7 +220,7 @@
         <PackageVersion Include="ModelContextProtocol"                                    Version="1.4.0" />
         <PackageVersion Include="ModelContextProtocol.AspNetCore"                         Version="1.4.0" />
         <PackageVersion Include="ModelContextProtocol.Core"                               Version="1.4.0" />
-        <PackageVersion Include="MQTTnet"                                                 Version="5.1.0.1559" />
+        <PackageVersion Include="MQTTnet"                                                 Version="5.2.0.1603" />
         <PackageVersion Include="NuGet.Versioning"                                        Version="7.6.0" />
         <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua"                        Version="1.5.378.152" />
         <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.PubSub"                 Version="1.5.378.152" />
@@ -234,7 +234,7 @@
         <PackageVersion Include="Polly.Core"                                              Version="8.7.0" />
         <PackageVersion Include="Polly.Extensions"                                        Version="8.7.0" />
         <PackageVersion Include="Polly.RateLimiting"                                      Version="8.7.0" />
-        <PackageVersion Include="Pyroscope.OpenTelemetry"                                 Version="0.5.0" />
+        <PackageVersion Include="Pyroscope.OpenTelemetry"                                 Version="0.5.1" />
         <PackageVersion Include="Scrutor"                                                 Version="7.0.0" />
         <PackageVersion Include="Serilog"                                                 Version="4.3.1" />
         <PackageVersion Include="Serilog.Extensions.Hosting"                              Version="10.0.0" />
@@ -254,19 +254,20 @@
         <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery"                     Version="0.23.0" />
         <PackageVersion Include="Apache.Arrow.Compression"                               Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Flight"                                    Version="23.0.0" />
+        <!-- Held at 1.0.1: BimOpenSchema.IO 1.6.1 regressed its TFM to net8.0-windows7.0, incompatible with the net10.0 targets. -->
         <PackageVersion Include="Ara3D.BimOpenSchema"                                    Version="1.0.1" />
         <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                 Version="1.0.1" />
-        <PackageVersion Include="AWSSDK.KeyManagementService"                            Version="4.0.12.9" />
-        <PackageVersion Include="AWSSDK.S3"                                              Version="4.0.25.3" />
+        <PackageVersion Include="AWSSDK.KeyManagementService"                            Version="4.0.100.2" />
+        <PackageVersion Include="AWSSDK.S3"                                              Version="4.0.100.2" />
         <PackageVersion Include="Azure.Security.KeyVault.Keys"                           Version="4.10.0" />
         <PackageVersion Include="Azure.Storage.Blobs"                                    Version="12.29.1" />
         <PackageVersion Include="Chr.Avro"                                               Version="10.13.1" />
         <PackageVersion Include="Chr.Avro.Binary"                                        Version="10.13.1" />
         <PackageVersion Include="Chr.Avro.Confluent"                                     Version="10.13.1" />
-        <PackageVersion Include="ClickHouse.Driver"                                      Version="1.2.0" />
-        <PackageVersion Include="CloudNative.CloudEvents"                                Version="2.8.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.Kafka"                          Version="2.8.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                 Version="2.8.0" />
+        <PackageVersion Include="ClickHouse.Driver"                                      Version="1.3.0" />
+        <PackageVersion Include="CloudNative.CloudEvents"                                Version="2.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Kafka"                          Version="3.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                 Version="2.9.0" />
         <PackageVersion Include="Confluent.Kafka"                                        Version="2.14.2" />
         <PackageVersion Include="Confluent.SchemaRegistry"                               Version="2.14.2" />
         <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Avro"                   Version="2.14.2" />
@@ -280,10 +281,11 @@
         <PackageVersion Include="FlowtideDotNet.Substrait"                               Version="0.15.0" />
         <PackageVersion Include="Google.Cloud.Kms.V1"                                    Version="3.24.0" />
         <PackageVersion Include="Google.Cloud.Storage.V1"                                Version="4.15.0" />
+        <PackageVersion Include="JsonSchema.Net"                                         Version="9.2.2" />
         <PackageVersion Include="K4os.Compression.LZ4"                                   Version="1.3.8" />
-        <PackageVersion Include="LightningDB"                                            Version="0.21.0" />
+        <PackageVersion Include="LightningDB"                                            Version="0.22.0" />
         <PackageVersion Include="linq2db.EntityFrameworkCore"                            Version="10.4.0" />
-        <PackageVersion Include="Marten"                                                 Version="9.11.0" />
+        <PackageVersion Include="Marten"                                                 Version="9.12.0" />
         <PackageVersion Include="MessagePack"                                            Version="3.1.7" />
         <PackageVersion Include="MessagePackAnalyzer"                                    Version="3.1.7" />
         <PackageVersion Include="Microsoft.Data.Sqlite"                                  Version="10.0.9" />
@@ -300,14 +302,14 @@
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime"         Version="10.0.2" />
         <PackageVersion Include="Npgsql.NetTopologySuite"                                Version="10.0.3" />
         <PackageVersion Include="Npgsql.OpenTelemetry"                                   Version="10.0.3" />
-        <PackageVersion Include="ParquetSharp"                                           Version="23.0.0.2" />
+        <PackageVersion Include="ParquetSharp"                                           Version="24.0.0" />
         <PackageVersion Include="Pgvector"                                               Version="0.3.2" />
         <PackageVersion Include="Pgvector.EntityFrameworkCore"                           Version="0.3.0" />
         <PackageVersion Include="PollinationSDK"                                         Version="1.10.0" />
         <PackageVersion Include="Qdrant.Client"                                          Version="1.18.1" />
         <PackageVersion Include="RabbitMQ.Client"                                        Version="7.2.1" />
         <PackageVersion Include="rocksdb"                                                Version="10.10.1.1747" />
-        <PackageVersion Include="ScyllaDBCSharpDriver"                                   Version="3.22.0.3" />
+        <PackageVersion Include="ScyllaDBCSharpDriver"                                   Version="3.22.0.4" />
         <PackageVersion Include="Sep"                                                    Version="0.15.0" />
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3"                          Version="3.0.3" />
         <PackageVersion Include="StackExchange.Redis"                                    Version="3.0.7" />
@@ -337,17 +339,17 @@
         <PackageVersion Include="Dock.Model.ReactiveUI"                 Version="12.0.0.2" />
         <PackageVersion Include="Dock.Serializer.SystemTextJson"        Version="12.0.0.2" />
         <PackageVersion Include="DocumentFormat.OpenXml"                Version="3.5.1" />
-        <PackageVersion Include="DynamicData"                           Version="9.4.31" />
+        <PackageVersion Include="DynamicData"                           Version="9.4.33" />
         <PackageVersion Include="FluentIcons.Avalonia"                  Version="2.1.331" />
         <PackageVersion Include="FluentIcons.Common"                    Version="2.1.331" />
         <PackageVersion Include="HanumanInstitute.LibMpv"               Version="0.10.1" />
         <PackageVersion Include="HanumanInstitute.LibMpv.Avalonia"      Version="0.10.1" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS"      Version="8.3.1.5" />
         <PackageVersion Include="HidSharp"                              Version="2.6.4" />
-        <PackageVersion Include="HotAvalonia"                           Version="3.1.2" />
-        <PackageVersion Include="Irihi.Ursa"                            Version="2.0.1" />
+        <PackageVersion Include="HotAvalonia"                           Version="3.1.3" />
+        <PackageVersion Include="Irihi.Ursa"                            Version="2.1.0" />
         <PackageVersion Include="Irihi.Ursa.ReactiveUIExtension"        Version="2.0.0" />
-        <PackageVersion Include="Irihi.Ursa.Themes.Semi"                Version="2.0.1" />
+        <PackageVersion Include="Irihi.Ursa.Themes.Semi"                Version="2.1.0" />
         <PackageVersion Include="Kiwi"                                  Version="3.0.0" />
         <PackageVersion Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.5" />
         <PackageVersion Include="LoroCs"                                Version="1.13.6" />
@@ -381,7 +383,7 @@
         <PackageVersion Include="Svg.Controls.Skia.Avalonia"            Version="12.0.0.13" />
         <PackageVersion Include="Svg.Skia"                              Version="5.1.1" />
         <PackageVersion Include="System.Reactive"                       Version="6.1.0" />
-        <PackageVersion Include="Xaml.Behaviors.Avalonia"               Version="12.0.0.1" />
+        <PackageVersion Include="Xaml.Behaviors.Avalonia"               Version="12.0.5" />
     </ItemGroup>
 
     <ItemGroup Label="Bridge Runtime">

@@ -219,9 +219,11 @@ the load-bearing surface, not a 3-method sketch.
   binary, but the same `Geometry` serializes to GeoJSON for the web/egress boundary through
   the GeoJSON4STJ STJ converters, reusing the configured `JsonSerializerOptions` that also
   carries NodaTime and Thinktecture converters.
-- pgvector / spatial index: a geometry column is GiST-indexed for `DistanceKnn` (`<->`) and
-  `IsWithinDistance` (`ST_DWithin`) predicate pushdown; the KNN order-by is the spatial
-  sibling of the pgvector ANN order-by, both index-ordered nearest-neighbour seams.
+- spatial index at the identity tier: the geometry/geography column the `Element/identity`
+  spatial tier carries beside its `Cell`/`Embedding` locators is GiST-indexed for `DistanceKnn`
+  (`<->`) and `IsWithinDistance` (`ST_DWithin`) predicate pushdown; the KNN order-by is the
+  `Query/lane#FUSION_AND_CACHE` `RetrievalBranch` spatial sibling of the pgvector ANN order-by,
+  both index-ordered nearest-neighbour seams the fusion fold ranks.
 - linq2db bulk: geometry columns survive `BulkCopy` with `BulkCopyType.ProviderSpecific`
   (`api-linq2db-ef`) because the bridge reuses the EF model's geometry mapping; the Npgsql
   binary COPY writer emits the geometry codec's wire form.

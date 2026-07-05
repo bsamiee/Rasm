@@ -25,12 +25,12 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 ```typescript
 import {
   HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiMiddleware, HttpApiScalar, HttpApiSecurity,
-  type HttpClient, OpenApi,
+  HttpApiSwagger, type HttpClient, HttpTraceContext, type KeyValueStore, OpenApi,
 } from "@effect/platform"
-import { RateLimiter as Fleet } from "@effect/experimental"
+import { PersistedCache, RateLimiter as Fleet } from "@effect/experimental"
 import { RpcClient, type RpcGroup, RpcSerialization, RpcServer } from "@effect/rpc"
 import {
-  Array, Context, DateTime, Deferred, Duration, Effect, HashMap, Layer, Number, Option, Order, Predicate,
+  Array, Context, Data, DateTime, Deferred, Duration, Effect, HashMap, Layer, Number, Option, Order, Predicate,
   RateLimiter, Record, Redacted, Ref, Schema, type Scope, pipe,
 } from "effect"
 import { type FaultClass, Refined } from "@rasm/ts/core"
@@ -203,7 +203,8 @@ const Current: {
 - Law: credential verification delegates the security wave — the bearer arm verifies through `Jwt.verify` into `AccessClaims`, the apiKey arm resolves through `ApiKey.resolve` into an `ApiKeyRecord`, both lift into the one `Principal` shape; verification failure folds to `unauthorized` with generic detail (the evidence rides telemetry, never the 401 body), and attachment is `.middleware(Gate.Authn)` on the contributed group so an unprotected group never pays the decode.
 - Law: pressure rows bound two distinct axes — `Gate.shed` brackets a section under an in-flight cap whose refusal is immediate (`withPermitsIfAvailable` settling `Option.none` under saturation folds to `shed` with the declared grace: the queue-depth 503 lever), `Gate.window` prices calls against a scoped in-process `RateLimiter.make` row (the 429 lever) — conflating concurrency and throughput is the named selection error; both stamp `retryAfter` from their own measured window, and policy is one `Gate.Pressure` value row, never threaded knobs.
 - Law: the distributed quota row is port-shaped by Layer — `Gate.fenced` composes the experimental `RateLimiter.makeWithRateLimiter` transformer against the `RateLimiter.RateLimiter` Tag, the app root satisfies it with `layerStoreMemory` on one node or a store-backed Layer on a fleet, `RateLimitExceeded` re-spells as `rate` carrying the row's window, and `RateLimitStoreError` dies as a defect because a broken quota backend is never a caller 429.
-- Law: `Idempotency` is a port with in-process teeth — `claim(key, digest)` settles `Fresh` exactly once per key and parks every duplicate on the first execution's `Deferred`; `Idempotency.memory(retention)` is the single-node Layer sweeping expired cells inside the same atomic claim, a store-backed Layer replaces it at the app root for a fleet, and a replayed key whose payload digest differs refuses as `conflict`. The key admits through the `Gate.IdempotencyKey` brand at the header seam; a GET carrying the header is ignored, never refused.
+- Law: `Idempotency` is a port with two teeth tiers — `claim(key, digest)` settles `Fresh` exactly once per key and parks every duplicate on the first execution's `Deferred`, the claim as one `Data.taggedEnum` a caller `$match`es; `Idempotency.memory(retention)` is the single-node Layer sweeping expired cells inside the same atomic claim, and a replayed key whose payload digest differs refuses as `conflict`. The key admits through the `Gate.IdempotencyKey` brand at the header seam; a GET carrying the header is ignored, never refused.
+- Law: the fleet tier is `Idempotency.persisted` — `PersistedCache.make({ storeId, lookup, timeToLive })` over the store-owned `Persistence.layerResultKeyValueStore`, keyed by a `Schema.TaggedRequest` whose `PrimaryKey` fuses idempotency key and payload digest, so the first execution's exit persists for the retention window, every fleet duplicate replays the stored exit typed through the request's own success/failure schemas, and a divergent payload is a different key that executes fresh; the strict 409 divergence posture stays the memory gate composed in front, so both tiers ride one root and zero handler change.
 - Boundary: session and API-key semantics are the security wave's (`Jwt`, `ApiKey`); this cluster owns only the HTTP presentation lift and the middleware Tag; response-shield headers and the serving seam are `route#SEAM_ROWS`'s.
 - Growth: a third credential scheme is one `security` record entry plus its handler arm; a fleet quota engine is a Layer swap on the `Idempotency` or limiter Tag at the root.
 - Packages: `effect` (`RateLimiter`, `Deferred`, `HashMap`, `Ref`, `Redacted`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `@effect/experimental` (`RateLimiter` — the distributed row); `@rasm/ts/security` (`Jwt`, `ApiKey`).
@@ -280,9 +281,21 @@ const _IdempotencyKey = Schema.NonEmptyString.pipe(
 
 type _Cell = { readonly digest: string; readonly slot: Deferred.Deferred<unknown>; readonly at: DateTime.Utc }
 
+type _Claim<A> = Data.TaggedEnum<{
+  Fresh: { readonly settle: (outcome: A) => Effect.Effect<void> }
+  Replay: { readonly outcome: Effect.Effect<A> }
+}>
+
+interface _ClaimDef extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: _Claim<this["A"]>
+}
+
+const _Claim = Data.taggedEnum<_ClaimDef>()
+
 class Idempotency extends Context.Tag("runtime/serve/Idempotency")<Idempotency, {
   readonly claim: <A>(key: typeof _IdempotencyKey.Type, digest: string) => Effect.Effect<Idempotency.Claim<A>, GateFault>
 }>() {
+  static readonly Claim = _Claim
   static readonly memory = (retention: Duration.Duration): Layer.Layer<Idempotency> =>
     Layer.effect(
       Idempotency,
@@ -300,27 +313,36 @@ class Idempotency extends Context.Tag("runtime/serve/Idempotency")<Idempotency, 
             })
             return yield* Option.match(held, {
               onNone: () =>
-                Effect.succeed<Idempotency.Claim<A>>({
-                  _tag: "Fresh",
-                  settle: (outcome) => Deferred.succeed(slot, outcome).pipe(Effect.asVoid),
-                }),
+                Effect.succeed<Idempotency.Claim<A>>(_Claim.Fresh({
+                  settle: (outcome: A) => Deferred.succeed(slot, outcome).pipe(Effect.asVoid),
+                })),
               onSome: (cell) =>
                 cell.digest === digest
-                  ? Effect.succeed<Idempotency.Claim<A>>({
-                      _tag: "Replay",
+                  ? Effect.succeed<Idempotency.Claim<A>>(_Claim.Replay({
                       outcome: Deferred.await(cell.slot).pipe(Effect.map((outcome) => outcome as A)),
-                    })
+                    }))
                   : Effect.fail(new GateFault({ reason: "conflict", detail: "idempotency-key payload mismatch", retryAfter: Option.none() })),
             })
           }),
       })),
     )
+  static readonly persisted = <Req extends Schema.TaggedRequest.Any>(options: {
+    readonly storeId: string
+    readonly retention: Duration.Duration
+    readonly execute: (request: Req) => Effect.Effect<Schema.WithResult.Success<Req>, Schema.WithResult.Failure<Req>>
+  }) =>
+    Effect.map(
+      PersistedCache.make({
+        storeId: options.storeId,
+        lookup: options.execute,
+        timeToLive: () => options.retention,
+      }),
+      (cache) => (request: Req) => cache.get(request),
+    )
 }
 
 declare namespace Idempotency {
-  type Claim<A> =
-    | { readonly _tag: "Fresh"; readonly settle: (outcome: A) => Effect.Effect<void> }
-    | { readonly _tag: "Replay"; readonly outcome: Effect.Effect<A> }
+  type Claim<A> = _Claim<A>
 }
 
 declare namespace Gate {
@@ -379,10 +401,11 @@ const Gate = {
 [CONTRIBUTION]:
 - Owner: `Contribution` — the pairing law as two constructors: `Contribution.http(group, handlers)` pairs an `HttpApiGroup` with its handler builder — a function OF the assembled api, because `HttpApiBuilder.group(api, name, build)` demands the api value only the app holds, the mechanical fact that makes the god-contract impossible; `Contribution.rpc(group, handlers)` pairs an `RpcGroup` with the handler Layer its `toLayer` already built, because RPC handlers bind to the group alone.
 - Law: the app assembly is three chained folds stated here as law — `HttpApi.make(id).add(a.group).add(b.group)` builds the one api value; each http row's `handlers(api)` Layer merges under `Layer.provide` into `HttpApiBuilder.api(api)`; each rpc row's group merges through `group.merge(other)` into one served group — and the assembled values exist only in the app's composition root, with `route#SERVE_FOLD` consuming the resulting Layer.
-- Law: `Contribution.protocols` crossed with `Contribution.codecs` is the RPC serve roster — protocol rows `http` and `websocket` as path-parameterized factories, `worker` as the runner row, `stdio` as the child-process/MCP transport over its stdin Stream and stdout Sink — crossed with serialization rows (`json`, `ndjson`, `msgpack`) selected once at the app root; a transport or codec choice inside a handler, or a procedure re-declared per transport, is the named defect.
+- Law: `Contribution.protocols` crossed with `Contribution.codecs` is the RPC serve roster — protocol rows `http` and `websocket` as path-parameterized factories, `socket` as the raw-socket-server row, `worker` as the runner row whose typed boot handshake is `RpcWorker.layerInitialMessage(schema, build)`, `stdio` as the child-process/MCP transport over its stdin Stream and stdout Sink — crossed with serialization rows (`json`, `ndjson`, `msgpack`) selected once at the app root; a transport or codec choice inside a handler, or a procedure re-declared per transport, is the named defect.
+- Law: procedure rows carry their own semantics as `Rpc.make` options and wrappers — `primaryKey` states the request-dedup identity where a procedure is idempotent by value, `Rpc.fork` marks a fire-and-forget handler that answers without occupying the mailbox, `Rpc.uninterruptible` marks a settle that must not be torn by client disconnect — each a declaration on the contributed row, never a handler-interior branch.
 - Law: the RPC arm carries its own principal-providing admission — `RpcMiddleware.Tag` with `failure`/`provides` defines the auth middleware once for both ends, `RpcGroup`'s `.middleware` scopes it to the contributed procedures, and `RpcMiddleware.layerClient` supplies the client arm where `requiredForClient` demands it — so the HTTP `Authn` and the RPC admission provide the same `Principal` and neither arm ships unauthenticated by omission.
 - Law: streaming procedures declare `stream: true` on `Rpc.make` and nothing else — the protocol row frames chunks and exit; hand-framing a stream over a unary procedure is rejected on sight.
-- Law: upload endpoints are declared modality — `HttpApiSchema.Multipart(schema)` on the endpoint payload types the parts, `Multipart.withLimits` bounds bytes and part count as fiber-ref policy at the seam, and file parts hand into the data rail's byte lift; an untyped `request.multipart` read in a handler is the deleted spelling.
+- Law: upload endpoints are declared modality — `HttpApiSchema.Multipart(schema)` on the endpoint payload types the parts, `Multipart.withLimits` bounds bytes and part count as fiber-ref policy at the seam, and file parts decode through `Multipart.toPersisted` / `Multipart.schemaPersisted(schema)` so a persisted file part hands into the data rail's byte lift as a scoped filesystem fact; an untyped `request.multipart` read in a handler is the deleted spelling.
 - Boundary: group-exercising specs ride `RpcTest.makeClient(group)` — the transport-free in-memory client — so a contributed group proves its handlers with zero protocol Layers; serve-row selection and mounting are `route`'s; derived surfaces are `[07]`'s.
 - Growth: a new entry family (a queue consumer surface, a cron surface) is one new pairing constructor on this owner under the same shape — group as data, handlers as Layer or reader — never a new assembly law.
 - Packages: `@effect/platform` (`HttpApi`, `HttpApiBuilder`); `@effect/rpc` (`Rpc`, `RpcGroup`, `RpcServer`, `RpcSerialization`, `RpcMiddleware`); `effect` (`Layer`).
@@ -406,6 +429,7 @@ declare namespace Contribution {
 const _protocols = {
   http: (path: `/${string}`) => RpcServer.layerProtocolHttp({ path }),
   websocket: (path: `/${string}`) => RpcServer.layerProtocolWebsocket({ path }),
+  socket: () => RpcServer.layerProtocolSocketServer,
   worker: () => RpcServer.layerProtocolWorkerRunner,
   stdio: (options: Parameters<typeof RpcServer.layerProtocolStdio>[0]) => RpcServer.layerProtocolStdio(options),
 } as const
@@ -432,9 +456,10 @@ const Contribution: {
 ## [7]-[EMIT]
 
 [EMIT]:
-- Owner: `Emit` — the derivation surface over the app-assembled value, parameterized on it, never importing it. `Emit.artifact` is the canonical spec artifact: `OpenApi.fromApi(api)` serialized with sorted keys and fixed indentation so two emissions of one contract are byte-identical and the contract gate diffs bytes, never re-parses; the `cli` inspect verb and the drift check consume this one member. `Emit.docs` is the served documentation stack — `HttpApiBuilder.middlewareOpenApi()` (the document route derived from the served api) merged with `HttpApiScalar.layer()` (the reference UI over that same route) — one Layer the app root selects; `HttpApiScalar.layerHttpLayerRouter` is the same row route-natively when the api mounts under `route#LAYER_ROUTES`.
+- Owner: `Emit` — the derivation surface over the app-assembled value, parameterized on it, never importing it. `Emit.artifact` is the canonical spec artifact: `OpenApi.fromApi(api)` serialized with sorted keys and fixed indentation so two emissions of one contract are byte-identical and the contract gate diffs bytes, never re-parses; the `cli` inspect verb and the drift check consume this one member. `Emit.docs(ui)` is the served documentation stack — `HttpApiBuilder.middlewareOpenApi()` (the document route derived from the served api) merged with the reference UI the `ui` row selects (`scalar` → `HttpApiScalar.layer()`, `swagger` → `HttpApiSwagger.layer()`) — one Layer the app root selects; `HttpApiScalar.layerHttpLayerRouter` is the same row route-natively when the api mounts under `route#LAYER_ROUTES`.
 - Law: the security requirements in the emitted document are the declared schemes — `Authn`'s `security` record flows into the spec through the api value, so the published contract states bearer and API-key admission from the same declaration that enforces it; a hand-authored securitySchemes block restates what the declaration already emits.
 - Law: `Emit.client` derives the typed HTTP SDK through `HttpApiClient.make(api, { baseUrl, transformClient })` with the transform slot carrying the shared egress posture (`client#DIAL_SEAM`'s tempering), so a derived consumer inherits the same resilience as every other outbound call; `Emit.caller` is the RPC peer — `RpcClient.make(group)` under one `RpcClient.layerProtocolHttp({ url })` row — so in-repo service-to-service callers derive from the same contributed group and a hand-written fetch client beside a contract is unspellable. The client faults are the declared faults: each endpoint's `addError` family plus transport and decode, one error vocabulary spanning the wire.
+- Law: RPC egress is trace-continuous — `Emit.traced(call)` stamps the live span's W3C headers onto the call through `RpcClient.withHeaders` (the `RpcClient.currentHeaders` FiberRef beneath it), so a derived RPC call carries `traceparent` exactly as `HttpClient.withTracerPropagation` does for HTTP and a distributed hop never drops causality.
 - Law: the web-handler edge form is the platform surface composed at the app root — `HttpApiBuilder.toWebHandler(api, options)` yields the `Request => Response` arrow for fetch-shaped runtimes over the same assembled value, and no `Emit` member renames it because a forwarding member is the one-hop wrapper this corpus deletes; the full-server form (api beside raw routes) is `route#SERVE_FOLD`'s `HttpLayerRouter.toWebHandler`.
 - Law: derivation is call-time and parameterized — nothing here caches, names, or holds an api instance, keeping the assembled value's no-lib-side-existence law intact; contract documentation is annotation material on the api value (`HttpApi.make(id).annotate`, endpoint schema annotations) flowing into the document through the derivation.
 - Growth: a new documentation surface (a JSON-schema bundle per owner, a second reference UI) is one derivation member over the same api parameter.
@@ -461,10 +486,13 @@ const _artifact = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.A
   api: HttpApi.HttpApi<Id, Groups, E, R>,
 ): string => JSON.stringify(_stable(OpenApi.fromApi(api)), null, 2)
 
-const _docs: Layer.Layer<never, never, HttpApi.Api> = Layer.mergeAll(
-  HttpApiBuilder.middlewareOpenApi(),
-  HttpApiScalar.layer(),
-)
+const _uis = {
+  scalar: () => HttpApiScalar.layer(),
+  swagger: () => HttpApiSwagger.layer(),
+} as const
+
+const _docs = (ui: keyof typeof _uis = "scalar"): Layer.Layer<never, never, HttpApi.Api> =>
+  Layer.mergeAll(HttpApiBuilder.middlewareOpenApi(), _uis[ui]())
 
 const _client = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.Any, E, R>(
   api: HttpApi.HttpApi<Id, Groups, E, R>,
@@ -477,11 +505,20 @@ const _client = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.Any
 const _caller = <G extends RpcGroup.RpcGroup.Any>(group: G, origin: { readonly url: string }) =>
   Effect.provide(RpcClient.make(group), RpcClient.layerProtocolHttp({ url: origin.url }))
 
+const _traced = <A, E, R>(call: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  Effect.optionFromOptional(Effect.currentSpan).pipe(
+    Effect.flatMap(Option.match({
+      onNone: () => call,
+      onSome: (span) => RpcClient.withHeaders(call, HttpTraceContext.toHeaders(span)),
+    })),
+  )
+
 const Emit = {
   artifact: _artifact,
   caller: _caller,
   client: _client,
   docs: _docs,
+  traced: _traced,
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

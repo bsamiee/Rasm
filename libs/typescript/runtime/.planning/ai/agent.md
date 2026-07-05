@@ -104,29 +104,43 @@ const _asTool = Tool.fromTaggedRequest(Act)
 ## [4]-[ACTOR]
 
 [ACTOR]:
-- Owner: the phase machine — one `Transition.spec`: phases `idle | thinking | awaiting | compacting`, signals `act | settle | hold | release | compact | done`, verdicts naming what the driver does next; the table is the whole interaction protocol, the `awaiting` watch row arms the approval deadline as a delayed self-signal, and `recover` re-initializes a defecting actor under a `pulse`-budget schedule. `Agent.boot(row)` boots the machine scoped beside the session so phase and history live and die together; `freeze`/`restore` carry an interactive session across a page or process hop.
+- Owner: the phase machine — one `Transition.spec`: a depth-one statechart (`session` compound over four atomic phases), signals `act | settle | hold | release | compact | done`, verdict programs naming what the driver does next; the rows are the whole interaction protocol — an unmatched signal is an empty program, never a hand branch — the `awaiting` node's watch row arms the approval deadline as a delayed self-signal, and `recover` re-initializes a defecting actor under a `pulse`-budget schedule. The compiled spec's `boot` runs the machine scoped beside the session so phase and history live and die together; `freeze`/`restore` carry an interactive session across a page or process hop.
 - Law: the altitude ruling is enforced by construction — the in-process actor serves the interactive lane (live phase, request-serialized turns, snapshot durability); the durable multi-process lane is `Actor.make({ name: "agent", protocol, clazz: "interactive", tenant })` over the SAME `Act` protocol, where per-session single-writer ordering, mailbox fencing, and message durability are entity facts — the machine table travels unchanged, and no third session runtime exists between them.
 - Law: the turn drives the machine, never the reverse — `act` enters `thinking`, a toolless settle emits `settle` back to `idle`, a held call emits `hold` into `awaiting`, the compaction trigger emits `compact`; a phase mutated outside a signal is unspellable because the table is the only transition author.
-- Growth: a new interaction posture (streaming turn, background reflection) is a phase row plus its watch row; the entity escalation inherits it by sharing the table.
+- Growth: a new interaction posture (streaming turn, background reflection) is a node row plus its transition rows; the entity escalation inherits it by sharing the spec.
 - Packages: `@rasm/ts/core` (`Transition`); `../work/entity.ts` (`Actor` — the escalation mint); `effect` (`Schedule`).
 
 ```typescript
 const _spec = Transition.spec({
   name: "agent",
-  phase: Schema.Literal("idle", "thinking", "awaiting", "compacting"),
-  signal: Schema.Literal("act", "settle", "hold", "release", "compact", "done"),
-  verdict: Schema.Literal("generate", "reply", "escalate", "resume", "fold", "none"),
-  rows: {
-    idle: { act: { next: "thinking", emit: "generate" }, settle: { next: "idle", emit: "none" }, hold: { next: "idle", emit: "none" }, release: { next: "idle", emit: "none" }, compact: { next: "compacting", emit: "fold" }, done: { next: "idle", emit: "none" } },
-    thinking: { act: { next: "thinking", emit: "none" }, settle: { next: "idle", emit: "reply" }, hold: { next: "awaiting", emit: "escalate" }, release: { next: "thinking", emit: "none" }, compact: { next: "compacting", emit: "fold" }, done: { next: "idle", emit: "reply" } },
-    awaiting: { act: { next: "awaiting", emit: "none" }, settle: { next: "awaiting", emit: "none" }, hold: { next: "awaiting", emit: "none" }, release: { next: "thinking", emit: "resume" }, compact: { next: "awaiting", emit: "none" }, done: { next: "idle", emit: "none" } },
-    compacting: { act: { next: "compacting", emit: "none" }, settle: { next: "compacting", emit: "none" }, hold: { next: "compacting", emit: "none" }, release: { next: "compacting", emit: "none" }, compact: { next: "compacting", emit: "none" }, done: { next: "idle", emit: "none" } },
+  nodes: {
+    session: { kind: "compound", initial: "idle" },
+    idle: { kind: "atomic", parent: "session" },
+    thinking: { kind: "atomic", parent: "session" },
+    awaiting: { kind: "atomic", parent: "session", watch: { after: "15 minutes", signal: "done" } },
+    compacting: { kind: "atomic", parent: "session" },
   },
-  watch: { awaiting: { after: "15 minutes", signal: "done" } },
+  rows: [
+    { source: "idle", on: "act", to: ["thinking"], emit: ["generate"] },
+    { source: "idle", on: "compact", to: ["compacting"], emit: ["fold"] },
+    { source: "thinking", on: "settle", to: ["idle"], emit: ["reply"] },
+    { source: "thinking", on: "hold", to: ["awaiting"], emit: ["escalate"] },
+    { source: "thinking", on: "compact", to: ["compacting"], emit: ["fold"] },
+    { source: "thinking", on: "done", to: ["idle"], emit: ["reply"] },
+    { source: "awaiting", on: "release", to: ["thinking"], emit: ["resume"] },
+    { source: "awaiting", on: "done", to: ["idle"] },
+    { source: "compacting", on: "done", to: ["idle"] },
+  ],
+  signal: Schema.Literal("act", "settle", "hold", "release", "compact", "done"),
+  verdict: Schema.Literal("generate", "reply", "escalate", "resume", "fold"),
+  extended: Schema.Null,
+  seed: null,
+  fuel: 4,
+  traced: true,
   recover: Schedule.exponential("250 millis"),
 })
 
-const _boot = Transition.boot(_spec, "idle")
+const _boot = _spec.boot
 ```
 
 ## [5]-[APPROVAL]
@@ -142,7 +156,12 @@ const _boot = Transition.boot(_spec, "idle")
 const _held = (turn: Turn) => turn.held.length > 0
 
 const _release = (
-  actor: Transition.Actor<"idle" | "thinking" | "awaiting" | "compacting", "act" | "settle" | "hold" | "release" | "compact" | "done", string>,
+  actor: Transition.Actor<
+    "session" | "idle" | "thinking" | "awaiting" | "compacting",
+    "act" | "settle" | "hold" | "release" | "compact" | "done",
+    "generate" | "reply" | "escalate" | "resume" | "fold",
+    null
+  >,
   approved: ReadonlyArray<{ readonly tool: string; readonly params: string }>,
   held: ReadonlyArray<{ readonly tool: string; readonly params: string }>,
 ) =>

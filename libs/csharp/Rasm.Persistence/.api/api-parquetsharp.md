@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `ParquetSharp`
 - package: `ParquetSharp`
-- version: `23.0.0.2`
+- version: `24.0.0`
 - license: Apache-2.0
 - assembly: `ParquetSharp`
 - namespace: `ParquetSharp`, `ParquetSharp.Schema`, `ParquetSharp.Arrow`, `ParquetSharp.RowOriented`, `ParquetSharp.Encryption`, `ParquetSharp.IO`
@@ -174,7 +174,7 @@ The row-oriented layer maps a `TTuple` (a `ValueTuple`, or a POCO whose columns 
 - this is the symmetric counterpart to `api-duckdb`'s `ARROW_BOUNDARY`: DuckDB's managed surface exposes no Arrow type, so the DuckDB→Arrow path is a native ADBC bridge; ParquetSharp.Arrow exposes the Arrow type directly, so Parquet↔Arrow is a first-class managed call. A Parquet file is the durable form of an Arrow `RecordBatch`; DuckDB queries it; ParquetSharp writes/reads it.
 
 [LOCAL_ADMISSION]:
-- Parquet file write enters behind the `Store/profiles` columnar-extract receipt: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through the snapshot codec, and the typed `LogicalColumnWriter<TValue>.WriteBatch` (or the Arrow `WriteRecordBatch`) writes the column — never a hand-rolled cell loop.
+- Parquet file write enters behind the `Query/columnar#ARTIFACT_EGRESS` columnar-extract receipt: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through the snapshot codec, and the typed `LogicalColumnWriter<TValue>.WriteBatch` (or the Arrow `WriteRecordBatch`) writes the column — never a hand-rolled cell loop.
 - the managed `Stream` ctor is the only admitted sink/source for object-store residence: a Parquet extract is written into an S3/MinIO upload stream and read from a download stream with `leaveOpen` so the store owns the stream lifecycle.
 - the row-oriented `ParquetRowWriter<TTuple>` is the admitted path for fact-record extracts whose shape is a fixed tuple/POCO; the low-level `LogicalColumnWriter<TValue>` path is admitted where the column type is computed at runtime through the visitor.
 - PME is the admitted at-rest encryption for sensitive Parquet extracts: `CryptoFactory` wraps DEKs with a tenant KEK from an `IKmsClient` adapter — see `[STACKING]`.
@@ -182,7 +182,7 @@ The row-oriented layer maps a `TTuple` (a `ValueTuple`, or a POCO whose columns 
 [STACKING]:
 - Arrow columnar model: Parquet ↔ `Apache.Arrow` `RecordBatch` is the load-bearing stack with `api-arrow`. The analytical lane reads a Parquet file as an `IArrowArrayStream`, feeds it to a DuckDB query or an ADBC consumer (`Apache.Arrow.Adbc`), and writes the result back through `Arrow.FileWriter` — one Arrow batch type crosses all three codecs.
 - snapshot codec: the per-column CLR→physical mapping for a `[ValueObject]`/`[SmartEnum]` owner reuses the `api-thinktecture-serialization` key projection; the projected key is written through `LogicalColumnWriter<TValue>.WriteBatch`, and a custom `LogicalWriteConverterFactory`/`LogicalReadConverterFactory` is the seam where the owner needs a non-default physical encoding.
-- KMS encryption: `CryptoFactory(KmsClientFactory)` binds an `IKmsClient` whose `WrapKey`/`UnwrapKey` delegate to the admitted KMS clients — AWS KMS (`api-aws-kms`), Azure Key Vault (`api-azure-keyvault`), or Google Cloud KMS (`api-google-kms`). `KmsConnectionConfig.RefreshKeyAccessToken` rotates the access token in place, mirroring the credential-rotation seam the Kafka/RabbitMQ transports use; the tenant KEK id binds the file to the `Store/tenancy` row.
+- KMS encryption: `CryptoFactory(KmsClientFactory)` binds an `IKmsClient` whose `WrapKey`/`UnwrapKey` delegate to the admitted KMS clients — AWS KMS (`api-aws-kms`), Azure Key Vault (`api-azure-keyvault`), or Google Cloud KMS (`api-google-kms`). `KmsConnectionConfig.RefreshKeyAccessToken` rotates the access token in place, mirroring the credential-rotation seam the Kafka/RabbitMQ transports use; the tenant KEK id binds the file to the tenant `Element/identity#KEY_ENVELOPE` row.
 - compression alignment: ParquetSharp's `Compression.Zstd`/`Lz4` are the C++-core codecs; the standalone `ZstdSharp.Port`/`K4os.Compression.LZ4` snapshot codecs are orthogonal (blob compression, not Parquet-internal), so a Parquet extract never double-compresses — the file is Zstd-compressed once by the writer.
 - statistics/page-index push-down: `EnableWritePageIndex` + `SortingColumns` write the column/offset index that lets the DuckDB/Arrow read path skip row groups by predicate — the Parquet extract is written to be predicate-pushdown-friendly for the federation lane, not as an opaque blob.
 - BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`api-ara3d-bimopenschema`) is the BIM analytics-frame producer whose MANAGED `Parquet.Net` `6.0.3` writer (`WriteToParquetZip`) emits one Brotli-compressed `.parquet` per BIM table inside a zip; this native `ParquetSharp` reader consumes those standard-format files at the file-format boundary (managed writer / native libparquet-cpp reader interoperate at the format, never the assembly) and streams them as `Apache.Arrow` `RecordBatch`es through `Arrow.FileReader` into the columnar query rail.

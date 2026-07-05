@@ -17,6 +17,7 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 - Law: zero-copy crossings are declared at the schema — `Transferable.Uint8Array` for byte payloads, `Transferable.MessagePort` for channel handoff, `Transferable.schema(shape, project)` for a composite whose transfer list projects from its own fields — so the marshal plan is recoverable from the message declaration and no call site carries a transferable list.
 - Law: failure crosses as the request's failure schema — the caller receives the same tagged class the handler failed with, its `class: FaultClass.Kind` field intact, so budget gates and routing dispatch on the reconstructed value; a stringified error crossing the seam destroys the discriminant and is the named defect.
 - Law: request statics carry the call surface — each class owns its `executed`/`streamed` static composing the pool Tag, so a consumer imports the request and reaches the whole seam; the stated union on the static is the marshal truth: domain fault, wire decode, worker transport.
+- Law: `Render` is the CPU-bound document offload row — an encoded render plan crosses zero-copy, the produced bytes cross back zero-copy, and `report#SPEC_FOLD` dials `Render.rendered` above its off-thread ceiling; the plan codec is the report owner's, so this row carries octets and a `kind` discriminant, never a document shape.
 - Growth: a new off-thread capability is one request class plus one union row plus one handler row — every consumer stays untouched, the missing handler breaks loudly.
 - Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`, `Stream`), `@rasm/ts/core` (`FaultClass`).
 
@@ -63,29 +64,43 @@ class Drop extends Schema.TaggedRequest<Drop>()("Drop", {
     Effect.asVoid(Effect.flatMap(Bench, (pool) => pool.broadcast(new Drop({ epoch }))))
 }
 
-const _Protocol = Schema.Union(Grade, Sweep, Drop)
+class Render extends Schema.TaggedRequest<Render>()("Render", {
+  payload: { kind: Schema.Literal("pdf", "bundle"), plan: Transferable.Uint8Array },
+  success: Transferable.Uint8Array,
+  failure: PoolFault,
+}) {
+  static readonly rendered = (
+    kind: "pdf" | "bundle",
+    plan: Uint8Array,
+  ): Effect.Effect<Uint8Array, PoolFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+    Effect.flatMap(Bench, (pool) => pool.executeEffect(new Render({ kind, plan })))
+}
+
+const _Protocol = Schema.Union(Grade, Sweep, Drop, Render)
 ```
 
 ## [3]-[POOL_ROWS]
 
 [POOL_ROWS]:
 - Owner: the pool form — `Worker.makePoolSerializedLayer(Tag, sizing)` against one `Context.Tag` holding the `SerializedWorkerPool` of the union; execution modalities ride the pool surface (`executeEffect` one-shot, `execute` streaming, `broadcast` fan-out) and the request's declared nature discriminates, never a parallel pool.
-- Law: sizing is one policy row — `fixed` (`{ size, concurrency, targetUtilization }`: a standing pool whose member count is capacity planning and whose `targetUtilization` sets the load fraction that spreads work toward idle members) or `elastic` (`{ minSize, maxSize, timeToLive, concurrency }`: growth to `maxSize` under demand, members retired after `timeToLive` idle) — chosen at the pool layer; a second pool per load profile restates what the row already carries.
+- Law: sizing is one policy row — `fixed` (`{ size, concurrency, targetUtilization }`: a standing pool whose member count is capacity planning and whose `targetUtilization` sets the load fraction that spreads work toward idle members) or `elastic` (`{ minSize, maxSize, timeToLive, concurrency }`: growth to `maxSize` under demand, members retired after `timeToLive` idle) — `BenchLive(profile)` indexes the row at the root, so both profiles are one mint and a second pool per load profile restates what the row already carries.
 - Law: backpressure is the platform's — `concurrency` bounds in-flight requests per member, a saturated pool suspends the caller on the pool's own queue, and cancellation is fiber interruption crossing the seam (an interrupted caller interrupts the in-flight worker request); a depth gauge, shed flag, or hand queue beside the pool re-derives what the option row states.
 - Law: the pool Tag is the consumer surface — callers hold the Tag through request statics; the spawner and manager (`Worker.Spawner | Worker.WorkerManager`) ride the Layer's `R` tail to the boot edge, so the requirement annotation names the runtime rows only the root satisfies.
-- Entry: `BenchLive` merged at the root; consumers compose `Grade.executed` / `Sweep.streamed` / `Drop.announced`.
+- Entry: `BenchLive(profile)` merged at the root; consumers compose `Grade.executed` / `Sweep.streamed` / `Drop.announced` / `Render.rendered`.
 - Packages: `@effect/platform` (`Worker`), `effect` (`Context`, `Layer`).
 
 ```typescript
-class Bench extends Context.Tag("runtime/Bench")<Bench, Worker.SerializedWorkerPool<Grade | Sweep | Drop>>() {}
+class Bench extends Context.Tag("runtime/Bench")<Bench, Worker.SerializedWorkerPool<Grade | Sweep | Drop | Render>>() {}
 
 const _SIZING = {
   fixed: { size: 4, concurrency: 2, targetUtilization: 0.8 },
   elastic: { minSize: 1, maxSize: 8, timeToLive: "60 seconds", concurrency: 2 },
 } as const
 
-const BenchLive: Layer.Layer<Bench, WorkerError.WorkerError, Worker.Spawner | Worker.WorkerManager> =
-  Worker.makePoolSerializedLayer(Bench, _SIZING.fixed)
+const BenchLive = (
+  profile: keyof typeof _SIZING = "fixed",
+): Layer.Layer<Bench, WorkerError.WorkerError, Worker.Spawner | Worker.WorkerManager> =>
+  Worker.makePoolSerializedLayer(Bench, _SIZING[profile])
 ```
 
 ## [4]-[RUNNER_BOOT]
@@ -103,9 +118,10 @@ const RunnerLive: Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.Platf
     Grade: ({ octets }) => Effect.succeed({ key: "<value-a>", extent: octets.byteLength }),
     Sweep: ({ keys }) => Stream.fromIterable(keys),
     Drop: () => Effect.void,
+    Render: ({ plan }) => Effect.succeed(plan),
   })
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Bench, BenchLive, Drop, Grade, PoolFault, RunnerLive, Sweep }
+export { Bench, BenchLive, Drop, Grade, PoolFault, Render, RunnerLive, Sweep }
 ```

@@ -80,11 +80,6 @@ const _B = {
     assets: ['bin', 'exr', 'fbx', 'glb', 'gltf', 'hdr', 'mtl', 'obj', 'wasm'],
     builder: { sharedConfigBuild: true, sharedPlugins: true },
     cache: { api: 300, cdn: 604800, max: 50 },
-    chunks: [
-        { n: 'vendor-react', p: 'react(?:-dom)?', w: 3 },
-        { n: 'vendor-effect', p: '@effect', w: 2 },
-        { n: 'vendor', p: 'node_modules', w: 1 },
-    ],
     comp: { f: /\.(js|mjs|json|css|html|svg)$/i as RegExp, t: 10240 },
     csp: {
         'connect-src': ["'self'", 'https:', 'wss:', 'ws:'],
@@ -105,6 +100,16 @@ const _B = {
         name: 'Workspace',
         short: 'Workspace',
         theme: '#000000',
+    },
+    // Declarative Rolldown code-splitting rows: priority replaces the retired weight-sort walk, and
+    // every test embeds node_modules so app modules never leak into a vendor chunk.
+    split: {
+        groups: [
+            { name: 'vendor-react', priority: 3, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?react(?:-dom)?\// as RegExp },
+            { name: 'vendor-effect', priority: 2, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:@effect|effect)\// as RegExp },
+            { name: 'vendor', priority: 1, test: /node_modules/ as RegExp },
+        ],
+        minSize: 10240,
     },
     ssr: {
         ext: ['react', 'react-dom', 'react/jsx-runtime', 'react/compiler-runtime'],
@@ -132,15 +137,6 @@ const B: Readonly<typeof _B> = Object.freeze(_B);
 
 // --- [OPERATIONS] ------------------------------------------------------------
 
-const chunk = (id: string) =>
-    id.includes('node_modules')
-        ? pipe(
-              [...B.chunks].sort((a, b) => b.w - a.w).find(({ p }) => new RegExp(p).test(id)),
-              Option.fromNullable,
-              Option.map(({ n }) => n),
-              Option.getOrUndefined,
-          )
-        : undefined;
 const css = (dev = false) => ({
     devSourcemap: dev,
     transformer: 'lightningcss' as const,
@@ -278,7 +274,7 @@ const config: {
             outDir: 'dist',
             reportCompressedSize: false,
             rolldownOptions: {
-                output: { ...output(), manualChunks: chunk },
+                output: { ...output(), codeSplitting: { groups: [...B.split.groups], minSize: B.split.minSize } },
                 treeshake: B.treeshake,
             },
             sourcemap: true,

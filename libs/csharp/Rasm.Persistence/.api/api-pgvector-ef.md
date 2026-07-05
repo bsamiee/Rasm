@@ -133,7 +133,7 @@ EF plugin (the EF plugin invokes it automatically through `VectorDataSourceConfi
 `NpgsqlDataSourceBuilder` is `sealed` and implements `INpgsqlTypeMapper` (`.api/api-npgsql.md`), so
 `builder.UseVector()` returns the **erased** `INpgsqlTypeMapper`, not the concrete builder — unlike
 the builder-preserving `UseNodaTime`/`UseNetTopologySuite` generic extensions. The
-`Store/profiles#PROVISIONING` connect ceremony therefore binds vector via tuple-capture
+`Store/provisioning#PROVISIONING` connect ceremony therefore binds vector via tuple-capture
 (`(builder.UseVector(), builder).Item2`) so the concrete builder type survives the chain. Internally
 it forwards to `AddTypeInfoResolverFactory(new VectorTypeInfoResolverFactory())` (`.api/api-npgsql.md`).
 

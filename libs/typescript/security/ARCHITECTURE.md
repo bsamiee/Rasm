@@ -31,6 +31,8 @@ authn/session   ←  typescript:data/lane       # [PORT]: SessionStore/IdentityJ
 access/claim    ←  typescript:data/lane       # [PORT]: ClaimStore/RelationStore satisfied by scope-built Layers
 crypt/sign      →  typescript:data/journal    # [SHAPE]: Shredder five-verb envelope, WrappedKey per-subject ledger
 crypt/verify    →  typescript:runtime/serve   # [BOUNDARY]: Intake held-octets verify seam on the ingress route
+authn/session   →  typescript:runtime/serve   # [PORT]: BearerGuard/ApiKeyGuard HttpApiMiddleware Tags mounted on api routes
+authn/session   ←  typescript:data/lane       # [PORT]: RateLimiterStore backing the credential-verify throttle budgets
 authn/session   ⇄  typescript:runtime/browser # [SHAPE]: CookieSpec.csrf double-submit read at the session plane
 authn/oauth     ⇄  typescript:runtime/browser # [BOUNDARY]: redirect-ceremony continuity (depart/land) at the route plane
 crypt/secret    →  typescript:iac/kube        # [BOUNDARY]: doppler-run leased env injection at the workload entrypoint

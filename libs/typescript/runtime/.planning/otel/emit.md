@@ -1,6 +1,6 @@
 # [RUNTIME_EMIT]
 
-The one OTLP wire owner: egress and ingress of the telemetry plane in one module. Egress is one policy value and one Layer — `Export.live(policy)` composes the whole trace/metric/log export plane as a `Layer<never>` registration node the app root merges once, the lane (native `Otlp` over the shared `HttpClient`, `NodeSdk`, `WebSdk`) selected by one policy row, every lane consuming one identity: the OTLP `Resource` derives from `Convention.identity(policy.identity)` folded with the platform's own resource detectors so the incubating host/pod/pid rows the convention declares have a producer. Ingress is the W3C continuation — `traceparent`/`tracestate`/`baggage` decode from any string-keyed carrier into an `Option`-carried parent, and one total transformer continues it, so extract-and-continue can never be half-applied. `Redaction` is the one shared scrub owner: export-boundary span scrub here, capture-time rules consumed by `crash`, structurally distinct laws over one rule shape. The `@opentelemetry` sdk/exporter block behind the SDK lanes is the `[R3]` pin block — it collapses as one unit when native `Otlp` parity (including the span-scrub hook) closes, and only the propagation codecs, `resources`, and `semantic-conventions` survive. The `plane:dev` DevTools row ships as its own `./dev` subpath module. The module is `runtime/src/otel/emit.ts`.
+The one OTLP wire owner: egress and ingress of the telemetry plane in one module. Egress is one policy value and one Layer — `Export.live(policy)` composes the whole trace/metric/log export plane as a `Layer<never>` registration node the app root merges once, the lane (native `Otlp` over the shared `HttpClient`, `NodeSdk`, `WebSdk`) selected by one policy row, every lane consuming one identity: the OTLP `Resource` derives from `Convention.identity(policy.identity)` folded with the platform's own resource detectors so the incubating host/pod/pid rows the convention declares have a producer. Ingress is the W3C continuation — `traceparent`/`tracestate`/`baggage` decode from any string-keyed carrier into an `Option`-carried parent, and one total transformer continues it, so extract-and-continue can never be half-applied. `Redaction` is the one shared scrub owner: export-boundary span scrub here, capture-time rules consumed by `crash`, structurally distinct laws over one rule shape. `Hooks` is the consumer hook plane — taps, processors, exporters, views, detectors, and redaction points contribute through append-only registry rows one SDK drain collects, so a thousand apps extend the pipeline without forking it. The `@opentelemetry` sdk/exporter block behind the SDK lanes is the `[R3]` pin block — it collapses as one unit when native `Otlp` parity (including the span-scrub hook) closes, and only the propagation codecs, `resources`, and `semantic-conventions` survive. The `plane:dev` DevTools row ships as its own `./dev` subpath module. The module is `runtime/src/otel/emit.ts`.
 
 ## [1]-[CLUSTERS]
 
@@ -8,9 +8,10 @@ The one OTLP wire owner: egress and ingress of the telemetry plane in one module
 | :-----: | :------------- | :--------------------------------------------------------------------------------- | :------------ |
 |  [01]   | `POLICY`       | the one `Export.Policy` row: identity, collector, lane, cadence, sampling, limits   | `Export`      |
 |  [02]   | `REDACTION`    | the shared scrub rules + the per-signal structural-safety ledger                   | `Redaction`   |
-|  [03]   | `LANES`        | the native `Otlp` row, the `NodeSdk`/`WebSdk` rows, detectors, the roster dispatch | `Export`      |
-|  [04]   | `CONTINUATION` | carrier decode + the ingress transformer + the egress stamp                        | `Propagation` |
-|  [05]   | `DEV`          | the `plane:dev`-fenced `./dev` DevTools module                                     | `dev`         |
+|  [03]   | `HOOKS`        | the contribute-then-collect pipeline registry: taps, processors, readers, views    | `Hooks`       |
+|  [04]   | `LANES`        | the native `Otlp` row, the `NodeSdk`/`WebSdk` rows, detectors, the roster dispatch | `Export`      |
+|  [05]   | `CONTINUATION` | carrier decode + the ingress transformer + the egress stamp                        | `Propagation` |
+|  [06]   | `DEV`          | the `plane:dev`-fenced `./dev` DevTools module                                     | `dev`         |
 
 ## [2]-[POLICY]
 
@@ -22,9 +23,8 @@ The one OTLP wire owner: egress and ingress of the telemetry plane in one module
 - Packages: `effect` (`Duration`, `Redacted`), `@rasm/ts/core` (`AppIdentity`, `Convention`).
 
 ```typescript
-import type { Duration, Redacted } from "effect"
+import type { Duration, Layer, Redacted } from "effect"
 import type { HttpClient } from "@effect/platform"
-import type { Layer } from "effect"
 import { type AppIdentity, Convention } from "@rasm/ts/core"
 
 declare namespace Export {
@@ -50,7 +50,7 @@ declare namespace Export {
     readonly cardinality: { readonly tenant: number }
     readonly redaction: Redaction.Rules
   }
-  type Live = Layer.Layer<never, never, HttpClient.HttpClient>
+  type Live = Layer.Layer<never, never, HttpClient.HttpClient | Hooks>
 }
 
 const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): string =>
@@ -71,6 +71,7 @@ const _attributes = (policy: Export.Policy): Convention.Attributes => ({
 - Law: the native `Otlp` lane exposes no span-attribute hook — export-boundary span scrub is therefore an `[R3]` parity criterion: a deployment whose compliance posture mandates boundary scrub selects an SDK lane until the native lane grows the hook, a selection pressure recorded on the lane card, never worked around with a fork.
 - Law: `defaults` seals the identifier-grade semconv keys — `client.address`, `user_agent.original`, `url.full` — and the pattern rows mask bearer tokens and email shapes inside surviving string values; app policies extend by row composition, never by a second scrub.
 - Exemption: the `SpanProcessor` hooks are the OTel SDK's own callback contract — the platform-forced statement seam where `setAttribute` writes cross back into the span before it freezes.
+- Law: `onEnding` is the correct hook and a pin-watch fact — it hands a mutable `Span` where `onEnd` hands only a `ReadableSpan`; the member carries the SDK's experimental flag, so it rides the `[R3]` pin block's watch list, never a design change.
 - Growth: a new PII class is one `sealed` key row or one `patterns` row.
 - Packages: `effect` (`Array`, `Record`), `@opentelemetry/sdk-trace-base` (`SpanProcessor`).
 
@@ -123,17 +124,82 @@ const Redaction: {
 }
 ```
 
-## [4]-[LANES]
+## [4]-[HOOKS]
+
+[HOOKS]:
+- Owner: `Hooks` — the consumer hook plane of the telemetry pipeline: one accumulating registry of `SpanProcessor` taps, `IMetricReader` rows, `LogRecordProcessor` sinks, `ViewOptions` reshaping rows, and `ResourceDetector` enrichers. A feature, app, or tenant plane contributes through `Hooks.contribute` — a `Layer.effectDiscard` that appends its rows — and exactly one drain exists: the SDK lanes build their `Configuration` inside `NodeSdk.layer(Effect<Configuration>)` / `WebSdk.layer(Effect<Configuration>)`, folding the collected rows behind the policy's own, so a thousand apps plug processors, exporters, sampling taps, and redaction points into one plane without forking it.
+- Law: contributions are order-independent appends with zero global effects — no `register()`, no global provider, no module side effect; the registry is a service, a proof overrides it wholesale, and an append after the drain is construction-order misuse the root's Layer ordering makes unspellable (`Export.live` composes after every contributor).
+- Law: tenant isolation rides the plane — a baggage-to-`tenant.id` span-attribute bridge is one contributed `onStart` processor row, and a per-tenant metric stream is one contributed reader; identity scopes every stream, so multi-app deployments never tangle.
+- Law: view rows govern cardinality — `ViewOptions` carries the allow-list primary (`attributesProcessors: [createAllowListAttributesProcessor(keys)]`) with `aggregationCardinalityLimit` as the circuit-breaker above it, and the per-reader `cardinalityLimits` ceiling sits above every per-view max; the facade `Configuration` exposes no `views` slot, so the collected view rows drain into the hand-built `MeterProvider({ views, readers })` bridged through `Metrics.makeProducer` — the recorded `[R3]` fork pressure, landed the moment a deployment's cardinality posture demands reshaping.
+- Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one registry slot consumed by the same drain.
+- Packages: `effect` (`Chunk`, `Effect`, `Layer`, `Ref`), `@opentelemetry/sdk-trace-base` (`SpanProcessor`), `@opentelemetry/sdk-metrics` (`IMetricReader`, `ViewOptions`), `@opentelemetry/sdk-logs` (`LogRecordProcessor`), `@opentelemetry/resources` (`ResourceDetector`).
+
+```typescript
+import { Chunk, Effect, Layer, Ref } from "effect"
+import type { LogRecordProcessor } from "@opentelemetry/sdk-logs"
+import type { IMetricReader, ViewOptions } from "@opentelemetry/sdk-metrics"
+import type { ResourceDetector } from "@opentelemetry/resources"
+
+declare namespace Hooks {
+  type Drained = {
+    readonly detectors: ReadonlyArray<ResourceDetector>
+    readonly logs: ReadonlyArray<LogRecordProcessor>
+    readonly readers: ReadonlyArray<IMetricReader>
+    readonly spans: ReadonlyArray<SpanProcessor>
+    readonly views: ReadonlyArray<ViewOptions>
+  }
+}
+
+class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
+  effect: Effect.gen(function* () {
+    const cells = {
+      detectors: yield* Ref.make(Chunk.empty<ResourceDetector>()),
+      logs: yield* Ref.make(Chunk.empty<LogRecordProcessor>()),
+      readers: yield* Ref.make(Chunk.empty<IMetricReader>()),
+      spans: yield* Ref.make(Chunk.empty<SpanProcessor>()),
+      views: yield* Ref.make(Chunk.empty<ViewOptions>()),
+    }
+    return {
+      detector: (row: ResourceDetector): Effect.Effect<void> => Ref.update(cells.detectors, Chunk.append(row)),
+      log: (row: LogRecordProcessor): Effect.Effect<void> => Ref.update(cells.logs, Chunk.append(row)),
+      reader: (row: IMetricReader): Effect.Effect<void> => Ref.update(cells.readers, Chunk.append(row)),
+      span: (row: SpanProcessor): Effect.Effect<void> => Ref.update(cells.spans, Chunk.append(row)),
+      view: (row: ViewOptions): Effect.Effect<void> => Ref.update(cells.views, Chunk.append(row)),
+      drained: Effect.map(
+        Effect.all({
+          detectors: Ref.get(cells.detectors),
+          logs: Ref.get(cells.logs),
+          readers: Ref.get(cells.readers),
+          spans: Ref.get(cells.spans),
+          views: Ref.get(cells.views),
+        }),
+        (held): Hooks.Drained => ({
+          detectors: Chunk.toReadonlyArray(held.detectors),
+          logs: Chunk.toReadonlyArray(held.logs),
+          readers: Chunk.toReadonlyArray(held.readers),
+          spans: Chunk.toReadonlyArray(held.spans),
+          views: Chunk.toReadonlyArray(held.views),
+        }),
+      ),
+    }
+  }),
+}) {
+  static readonly contribute = (tap: (hooks: Hooks) => Effect.Effect<void>): Layer.Layer<never, never, Hooks> =>
+    Layer.effectDiscard(Effect.flatMap(Hooks, tap))
+}
+```
+
+## [5]-[LANES]
 
 [LANES]:
 - Owner: the interior `_lanes` roster — `as const satisfies Record<string, (policy) => Layer>` — with `Export.live(policy)` as the one entrypoint dispatching `_lanes[policy.lane](policy)`; the lane union derives as `keyof typeof _lanes`, so config admission, the policy type, and the dispatch read one anchor, and a new lane is one row.
 - Law: the native `otlp` row is the default — Effect's own `Tracer`/`Metric`/`Logger` serialize straight to the collector over the `HttpClient.HttpClient` requirement the root satisfies with `client#LANE_ROWS`'s policy client (node/bun) or the browser client, so OTLP egress inherits the branch timeout/retry posture; serialization selects `Otlp.layerJson` versus `Otlp.layerProtobuf`.
 - Law: identity is detected, then projected — the node row folds `detectResources` over the platform detector roster (`envDetector`, `hostDetector`, `osDetector`, `processDetector`, `serviceInstanceIdDetector`) and merges the result beneath the `Convention.identity` base, so the incubating `host.name`/`k8s.pod.name`/`process.pid` rows the convention declares are populated by the platform, the identity projection always wins on collision, and a raw `@opentelemetry/resources` value never leaves this module; the native and web rows carry the projection alone — browser detection is the RUM toolkit's concern.
-- Law: the SDK rows exist for SDK-only capability — the boundary span scrub, explicit temporality, structural span limits — and each is one facade `Configuration`: the `node` row wires `Redaction.processor` before a `BatchSpanProcessor(new OTLPTraceExporter({ compression: gzip, keepAlive }))`, a `PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ temporalityPreference }) })`, a `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` tracer config carrying the policy's `spanLimits` — the structural attribute caps that complement the scrub; the `web` row is the same shape over `WebSdk` with pagehide auto-flush ON so RUM spans drain before navigation; neither row calls `register()` — the facade owns context wiring through the fiber-backed tracer.
-- Law: SDK-lane log egress does not exist — no OTLP log exporter is admitted, so the log signal is native-lane-only and a parallel log sink beside the replaced process logger is the named defect.
+- Law: the SDK rows exist for SDK-only capability — the boundary span scrub, explicit temporality, structural span limits, the hook plane — and each is one facade `Configuration` built as an `Effect` that drains `Hooks` behind the policy's own rows: the `node` row wires `Redaction.processor` before a `BatchSpanProcessor(new OTLPTraceExporter({ compression: gzip, keepAlive }))` with contributed span taps between, a `PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ temporalityPreference }) })` beside contributed readers, a `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` tracer config carrying the policy's `spanLimits` — the structural attribute caps that complement the scrub; the `web` row is the same shape over `WebSdk` with pagehide auto-flush ON so RUM spans drain before navigation; neither row calls `register()` — the facade owns context wiring through the fiber-backed tracer.
+- Law: the SDK rows carry the full three-signal egress — the log leg is `new BatchLogRecordProcessor(new OTLPLogExporter({ url, headers }))` on `Configuration.logRecordProcessor` beside contributed log sinks, so an SDK-lane deployment exports logs to the same collector under the same batch discipline, and a parallel log sink beside the replaced process logger is the named defect; the offline/air-gapped tier is `PlatformLogger.toFile(path, { batchWindow })` added beside the wire logger at the root — an additive `Logger` row, never a fork.
 - Law: metric temporality is the policy row mapped to `AggregationTemporalityPreference` — `delta` the fact-stream default, `cumulative` the monotonic-totals alternative — and the tenant-cardinality budget rides the reader's `cardinalityLimits`, the governed ceiling the data fact journal's tenant tag operates under.
 - Law: `Export.live` returns a registration node — `Layer<never>` semantics with the native lane's `HttpClient` requirement in `R` — merged once at the composition root; construction observability attaches at the Layer value (`Layer.annotateLogs`), and a boot-time collector outage is Layer construction policy, never a runtime branch.
-- Entry: `Export.live(policy)`.
+- Entry: `Export.live(policy)` merged beneath `Hooks.Default` and after every `Hooks.contribute` node, so the drain observes the full contribution set.
 - Growth: a new lane (OTLP/gRPC, a vendor exporter) is one `_lanes` row plus any policy field it reads.
 - Packages: `@effect/opentelemetry` (`Otlp`, `NodeSdk`, `WebSdk`), `@opentelemetry/resources` (`detectResources`, the detector roster), the `[R3]` SDK block (`sdk-trace-base`, `sdk-metrics`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http`).
 
@@ -152,28 +218,34 @@ flowchart LR
 ```
 
 ```typescript
-import { Duration, Layer, Record, Redacted } from "effect"
+import { Duration, Effect, Layer, Record, Redacted } from "effect"
 import { NodeSdk, Otlp, WebSdk } from "@effect/opentelemetry"
-import { detectResources, envDetector, hostDetector, osDetector, processDetector, serviceInstanceIdDetector } from "@opentelemetry/resources"
+import {
+  detectResources, envDetector, hostDetector, osDetector, processDetector, resourceFromAttributes, type ResourceDetector,
+  serviceInstanceIdDetector,
+} from "@opentelemetry/resources"
 import { AggregationTemporalityPreference, OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
 import { CompressionAlgorithm, OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http"
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs"
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
 import { BatchSpanProcessor, ParentBasedSampler, TraceIdRatioBasedSampler } from "@opentelemetry/sdk-trace-base"
 
 const _headers = (policy: Export.Policy): Record<string, string> =>
   Record.map(policy.collector.headers, Redacted.value)
 
-const _resource = (policy: Export.Policy): {
+const _DETECTORS: ReadonlyArray<ResourceDetector> = [
+  envDetector, hostDetector, osDetector, processDetector, serviceInstanceIdDetector,
+]
+
+const _resource = (policy: Export.Policy, detectors: ReadonlyArray<ResourceDetector> = []): {
   readonly attributes: Convention.Attributes
   readonly serviceName: string
   readonly serviceVersion: string
 } => ({
-  attributes: {
-    ...(detectResources({
-      detectors: [envDetector, hostDetector, osDetector, processDetector, serviceInstanceIdDetector],
-    }).attributes as Convention.Attributes),
-    ..._attributes(policy),
-  },
+  attributes: detectResources({ detectors: [..._DETECTORS, ...detectors] })
+    .merge(resourceFromAttributes(_attributes(policy)))
+    .attributes as Convention.Attributes,
   serviceName: policy.identity.app,
   serviceVersion: policy.identity.build.version,
 })
@@ -183,19 +255,29 @@ const _temporality = {
   delta: AggregationTemporalityPreference.DELTA,
 } as const
 
-const _sdk = (policy: Export.Policy) => ({
-  metricReader: new PeriodicExportingMetricReader({
-    exportIntervalMillis: Duration.toMillis(policy.cadence.metrics),
-    exporter: new OTLPMetricExporter({
-      headers: _headers(policy),
-      temporalityPreference: _temporality[policy.temporality],
-      url: _signal(policy, "metrics"),
+const _sdk = (policy: Export.Policy, adds: Hooks.Drained) => ({
+  logRecordProcessor: [
+    new BatchLogRecordProcessor(
+      new OTLPLogExporter({ headers: _headers(policy), url: _signal(policy, "logs") }),
+    ),
+    ...adds.logs,
+  ],
+  metricReader: [
+    new PeriodicExportingMetricReader({
+      exportIntervalMillis: Duration.toMillis(policy.cadence.metrics),
+      exporter: new OTLPMetricExporter({
+        headers: _headers(policy),
+        temporalityPreference: _temporality[policy.temporality],
+        url: _signal(policy, "metrics"),
+      }),
+      cardinalityLimits: { default: policy.cardinality.tenant },
     }),
-    cardinalityLimits: { default: policy.cardinality.tenant },
-  }),
-  resource: _resource(policy),
+    ...adds.readers,
+  ],
+  resource: _resource(policy, adds.detectors),
   spanProcessor: [
     Redaction.processor(policy.redaction),
+    ...adds.spans,
     new BatchSpanProcessor(
       new OTLPTraceExporter({
         compression: CompressionAlgorithm.GZIP,
@@ -212,8 +294,10 @@ const _sdk = (policy: Export.Policy) => ({
   },
 })
 
+const _drained = Effect.flatMap(Hooks, (hooks) => hooks.drained)
+
 const _lanes = {
-  node: (policy: Export.Policy): Export.Live => NodeSdk.layer(() => _sdk(policy)),
+  node: (policy: Export.Policy): Export.Live => NodeSdk.layer(Effect.map(_drained, (adds) => _sdk(policy, adds))),
   otlp: (policy: Export.Policy): Export.Live =>
     (policy.serialization === "protobuf" ? Otlp.layerProtobuf : Otlp.layerJson)({
       baseUrl: policy.collector.baseUrl,
@@ -224,7 +308,7 @@ const _lanes = {
       resource: _resource(policy),
       tracerExportInterval: policy.cadence.traces,
     }),
-  web: (policy: Export.Policy): Export.Live => WebSdk.layer(() => _sdk(policy)),
+  web: (policy: Export.Policy): Export.Live => WebSdk.layer(Effect.map(_drained, (adds) => _sdk(policy, adds))),
 } as const satisfies Record<string, (policy: Export.Policy) => Export.Live>
 
 const Export: {
@@ -234,7 +318,7 @@ const Export: {
 }
 ```
 
-## [5]-[CONTINUATION]
+## [6]-[CONTINUATION]
 
 [CONTINUATION]:
 - Owner: `Propagation` — causal identity crossing every ingress: the interior codec kernel decodes `traceparent` through `parseTraceParent` into an OTel `SpanContext`, lifts `tracestate` through `new TraceState(raw)`, decodes `baggage` through `parseKeyPairsIntoRecord`, header names read from the core constants; the assembled owner carries the extraction members plus the one ingress transformer and the egress stamp, `Function.dual` so the transformer follows a live pipe subject at every entry seam.
@@ -317,7 +401,7 @@ const Propagation: {
 }
 ```
 
-## [6]-[DEV]
+## [7]-[DEV]
 
 [DEV]:
 - Owner: the sibling `otel/dev` module the `./dev` exports-map subpath alone resolves — one `DevTools.layer` row wired to the local DevTools WebSocket, `plane:dev` by tag so the architecture gauge fails any runtime import; the physical module split is what makes the fence structural rather than disciplinary.
@@ -333,5 +417,5 @@ const dev: Layer.Layer<never> = DevTools.layer()
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Export, Propagation, Redaction, dev }
+export { Export, Hooks, Propagation, Redaction, dev }
 ```

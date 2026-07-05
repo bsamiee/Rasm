@@ -1,0 +1,20 @@
+language js(typescript, jsx)
+
+// ONE_HOP_RESOLUTION promotion. Trigger: a module-level export aliasing a bare identifier. Predicate:
+// the initializer is a lone symbol — a rename hop that adds no semantics between the consumer and the
+// owner. Exemption: literal keywords are not aliases; a wrapper that adds behavior has a body.
+// FIRES: const _fold = (rows: Rows) => collapse(rows); export const fold = _fold;
+// CLEAN: export const fold = (rows: Rows) => collapse(rows);
+`export const $alias = $target` where {
+    $target <: r"^[A-Za-z_$][A-Za-z0-9_$]*$",
+    $target <: not or {
+        `undefined`,
+        `null`,
+        `true`,
+        `false`,
+        `NaN`,
+        `Infinity`,
+        `globalThis`
+    },
+    register_diagnostic(span=$alias, message="Rename wrapper: this export forwards a bare symbol. Export the owner under its one canonical name; resolution is one hop to semantics.", severity="error")
+}

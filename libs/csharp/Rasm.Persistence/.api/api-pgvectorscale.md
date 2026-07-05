@@ -27,7 +27,7 @@ its `vector` (pgvector) dependency in one step.
 
 The `diskann` index builds over a `vector(N)` column under one ops class. The column stays the
 `EmbeddingArity.Dense` `vector` store type — `halfvec`/`sparsevec` over diskann are not catalogued
-(held under `Query/lanes#SEARCH_PROVISIONING_PROBE`). One BM25-style restriction does not apply; a
+(held under `Query/retrieval#SEARCH_PROVISIONING_PROBE`). One BM25-style restriction does not apply; a
 table may carry multiple diskann indexes over distinct vector columns. The ops-class row IS the
 `Store/provisioning#SERVER_EXTENSIONS` `DiskAnnOps` `[SmartEnum<string>]`: `DiskAnnOps.Cosine`/`L2`/`InnerProduct`
 each carry the `Key` (ops-class) and the `Operator`, and the EF query path reuses the catalogued

@@ -4,7 +4,7 @@
 bidirectional, driving-distance, K-shortest-path, TSP, max-flow, component/topology analysis) over the
 one Edges-SQL inner-query contract (`id`/`source`/`target`/`cost`/`reverse_cost`). It carries no managed
 assembly: every surface is server-side SQL the `Store/provisioning#SERVER_EXTENSIONS`
-`ServerExtension("pgrouting", Cascade: true)` row installs and the `Query/lanes#GEO_LANES` routing
+`ServerExtension("pgrouting", Cascade: true)` row installs and the `Query/lane#GEO_LANES` routing
 consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery` against the `SETOF record` result, so an
 in-database shortest-path/driving-distance/clash-graph query runs beside the PostGIS spatial lane
 without a managed graph engine. The extension is preload-free — it is a pure FUNCTION extension (Boost
@@ -21,7 +21,7 @@ row — and installs `CASCADE` (`CREATE EXTENSION IF NOT EXISTS pgrouting CASCAD
 - depends: `requires = 'plpgsql,postgis'` (runtime PostGIS >= 3.0) — pulled by `CREATE EXTENSION pgrouting CASCADE`
 - license: GPL-2.0-or-later — the in-DB deployment is the license boundary, no managed linkage
 - registration: function extension, preload-free — no index access method, no `shared_preload_libraries` row; the `ServerExtension("pgrouting", Cascade: true, PreloadGated: false)` row emits `CREATE EXTENSION IF NOT EXISTS pgrouting CASCADE` through `Store/provisioning#SERVER_EXTENSIONS` `Migrate`
-- consumed by: `Query/lanes#GEO_LANES` routing over the federated entity graph (`Query/federation#ENTITY_GRAPH`), driven through raw `Npgsql` against the `SETOF record` result with the mandatory column-definition list
+- consumed by: `Query/lane#GEO_LANES` routing over the federated entity graph (`Query/federation#ENTITY_GRAPH`), driven through raw `Npgsql` against the `SETOF record` result with the mandatory column-definition list
 - rail: routing-provisioning, geo-lanes
 
 Every `pgr_*` routing function is a SELECT function returning `SETOF record` via inline `OUT` params; the
@@ -123,7 +123,7 @@ the replacement.
 - Edge contract is the one graph definition: a one-way edge is a positive `cost` with a negative `reverse_cost` (a negative weight means the directed edge is ABSENT, never a zero/negative-weight traversable edge), and `directed BOOLEAN DEFAULT true` selects directed vs undirected interpretation of the same Edges SQL — a parallel reversed-edge table or a per-direction Edges SQL is the rejected form.
 
 [GEO_LANE_STACK]:
-- In-residence routing: `pgrouting` lives inside the one `PostgresServer` residence beside the PostGIS spatial lane, so the `Query/lanes#GEO_LANES` routing capability is a within-PG `pgr_dijkstra`/`pgr_drivingDistance`/`pgr_aStar` query over the federated entity graph (`Query/federation#ENTITY_GRAPH`), never a managed graph engine or a cross-store fan-out.
+- In-residence routing: `pgrouting` lives inside the one `PostgresServer` residence beside the PostGIS spatial lane, so the `Query/lane#GEO_LANES` routing capability is a within-PG `pgr_dijkstra`/`pgr_drivingDistance`/`pgr_aStar` query over the federated entity graph (`Query/federation#ENTITY_GRAPH`), never a managed graph engine or a cross-store fan-out.
 - H3 node-space seam: the managed `pocketken.H3` `GridPathCells`/`GridDistance` (`api-h3.md`) and the in-database `pgr_dijkstra` share the H3-cell id node space — an H3-cell-keyed graph routes in-process or in-database against the same `id`/`source`/`target` cell ids, so the in-process path and the in-database route agree on node identity.
 
 [RAIL_LAW]:

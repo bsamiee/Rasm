@@ -4,11 +4,11 @@
     "net10.0": {
       "Generator.Equals": {
         "type": "Direct",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "JrcUskhhgKaoUtRnTODx/W5itfcEQ0gwYm2J1YtsCzbejXHNa13Z/6DvkYkmrDUASOCxovGi9Q1j+Y7MhPwrug==",
+        "requested": "[4.0.1, )",
+        "resolved": "4.0.1",
+        "contentHash": "LDQmP7rApxCXz0ddTvVy9AdP+SfnzqfWzxno7yQL2kSWItadY7Do82KALRJNfiNNZrWumDEuih7bbDcRbLrkGQ==",
         "dependencies": {
-          "Generator.Equals.Runtime": "4.0.0"
+          "Generator.Equals.Runtime": "4.0.1"
         }
       },
       "Google.Protobuf": {
@@ -37,9 +37,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.115, )",
-        "resolved": "3.0.115",
-        "contentHash": "HXp8maNxVdqsZWHjZmpoDdvecmxgEkY1juAFPyKI4edN+PhLBinnCov7UkVmYFgdlGRo8BDmY6ZzE4RkJee19A=="
+        "requested": "[3.0.121, )",
+        "resolved": "3.0.121",
+        "contentHash": "PKNTmwMdzM0YJ7tAvwzWmlgWhtm8ZOma2eNUqchkbmvWwqC8QXoOzNPKwNHZBtPJpehYb7qu9q/182qg4Fmclw=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -109,8 +109,8 @@
       },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "EGTPKjTvZPizf2gC9pfsW1k2VEqNSjD7M52Hw7i0a5cRzWP4IWvu6LKv4e0yKmTjDqBPtG9QwTtsy+6zFq41vw==",
+        "resolved": "4.0.1",
+        "contentHash": "Rowhau6JchkFbw0WHOR1UlQ0G564+pj1PEInpUm5OviWMC8ZiOfrvNTzOrZv+4G1ei+dOXVMNUDsJx/tPArzPw==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
         }

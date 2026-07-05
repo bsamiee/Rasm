@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_HTTPX]
 
-`httpx` supplies the async/sync HTTP client surface: pooled `AsyncClient`/`Client` with HTTP/1.1+HTTP/2 negotiation, an `Auth` flow protocol, request/response streaming, per-phase `Timeout` and pool `Limits`, `event_hooks`, transport/proxy `mounts` injection, an `httpx.codes` status enum, and a full request/transport error taxonomy. It is the runtime owner for outbound HTTP transport and inbound-server credential probes over the companion seam, and the only admitted HTTP client (stdlib `http.client`/`urllib`/`requests`/`urllib3` are banned at the import boundary).
+`httpx` supplies the async/sync HTTP client surface: pooled `AsyncClient`/`Client` with HTTP/1.1+HTTP/2 negotiation, an `Auth` flow protocol, request/response streaming, per-phase `Timeout` and pool `Limits`, `event_hooks`, transport/proxy `mounts` injection, an `httpx.codes` status enum, and a full request/transport error taxonomy. It is the runtime owner for outbound HTTP transport and its credential auth lane — the custom bearer `auth_flow` (the realized `_BearerAuth`, since httpx ships no bearer `Auth`) plus the `BasicAuth` forward `CREDENTIAL`-shape row seamed at `SecretBoundary.resolve`, the unconsumed `NetRCAuth`/`DigestAuth` family outside the runtime slice — and the only admitted HTTP client (stdlib `http.client`/`urllib`/`requests`/`urllib3` are banned at the import boundary).
 
 ## [01]-[PACKAGE_SURFACE]
 

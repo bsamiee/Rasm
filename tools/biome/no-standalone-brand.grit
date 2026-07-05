@@ -1,0 +1,12 @@
+language js(typescript, jsx)
+
+// SHAPE_BUDGET promotion. Trigger: a module-level const export whose initializer carries a
+// Schema.brand call. Predicate: the brand rides a standalone export instead of a field refinement
+// inside its owning Schema class family. Exemption: `export class` owners are untouched — a branded
+// field inside a Schema.Class/TaggedClass declaration is the sanctioned home.
+// FIRES: export const DocumentId = Schema.String.pipe(Schema.brand('DocumentId'));
+// CLEAN: export class Document extends Schema.Class<Document>('Document')({ id: Schema.String.pipe(Schema.brand('DocumentId')) }) {}
+`export const $name = $init` where {
+    or { $init <: contains `Schema.brand($_)`, $init <: contains `S.brand($_)` },
+    register_diagnostic(span=$name, message="Standalone brand export. The brand is a field refinement inside its owning Schema class family; consumers reach it as an owner projection, never a loose module symbol.", severity="error")
+}

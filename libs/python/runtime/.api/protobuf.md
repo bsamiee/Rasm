@@ -1,159 +1,23 @@
 # [PY_RUNTIME_API_PROTOBUF]
 
-`protobuf` supplies the Google Protocol Buffers Python message runtime: the descriptor / descriptor-pool reflection layer, a message factory that builds message classes from descriptors, the JSON and text wire codecs, the well-known wrapper types (`Any`, `Timestamp`, `Duration`, `Struct`, `Value`, `ListValue`, `Empty`), the symbol database, and the runtime-version guard. It is the runtime owner the wire `WireProtoCodec` composes to encode/decode the `CrdtOp*` union frames; it never hand-rolls varint framing or message reflection the C++/upb core already owns.
+`protobuf` supplies the Protocol Buffers message runtime — descriptor-pool reflection, the `proto.*` functional codec façade, `json_format`/`text_format`, and the well-known wrapper types. Integration overlay over the canonical branch catalog `libs/python/.api/protobuf.md`, which owns the full `Message`/descriptor/`proto`/`json_format`/well-known/`FieldDescriptor` surface and the generic OTLP/boundary/streaming law. This overlay carries only the runtime-specific delta: the `WireProtoCodec` `CrdtOp*` composition, the `descriptor_pool` drift-gate, and the msgspec-envelope seam.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `protobuf`
-- package: `protobuf`
-- import: `from google import protobuf`
-- owner: `runtime`
-- rail: wire
-- namespaces: `google.protobuf`, `google.protobuf.proto`, `google.protobuf.descriptor`, `google.protobuf.descriptor_pool`, `google.protobuf.message_factory`, `google.protobuf.json_format`, `google.protobuf.proto_json`, `google.protobuf.text_format`, `google.protobuf.proto_text`, `google.protobuf.symbol_database`, `google.protobuf.runtime_version`
-- installed: `6.33.6`
-- capability: a high-level `google.protobuf.proto` functional codec façade, message descriptor reflection, descriptor-pool registration, message-class factory, binary/length-prefixed/JSON/dict/text wire codecs, well-known wrapper types with their datetime/timedelta/pack-unpack/struct-mutation helper methods, symbol database, runtime-version guard
-
-## [02]-[PUBLIC_TYPES]
-
-[PUBLIC_TYPE_SCOPE]: message runtime and reflection
-- rail: wire
-
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [RAIL]                                        |
-| :-----: | :------------------------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `message.Message`                | message base  | base class of all generated message types     |
-|  [02]   | `descriptor.Descriptor`          | descriptor    | message-type descriptor (fields, options)     |
-|  [03]   | `descriptor.FieldDescriptor`     | descriptor    | single-field descriptor (type, label, number) |
-|  [04]   | `descriptor.EnumDescriptor`      | descriptor    | enum-type descriptor                          |
-|  [05]   | `descriptor.FileDescriptor`      | descriptor    | `.proto` file descriptor                      |
-|  [06]   | `descriptor_pool.DescriptorPool` | pool          | descriptor registry / resolver                |
-|  [07]   | `symbol_database.SymbolDatabase` | database      | descriptor-to-message-class index             |
-
-[PUBLIC_TYPE_SCOPE]: well-known wrapper types
-- rail: wire
-- namespace `google.protobuf.<name>_pb2`; the runtime ships the compiled `*_pb2` modules for the well-known set.
-
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                                |
-| :-----: | :------------------------ | :------------ | :------------------------------------ |
-|  [01]   | `any_pb2.Any`             | wrapper       | type-URL-tagged packed message        |
-|  [02]   | `timestamp_pb2.Timestamp` | wrapper       | RFC-3339 instant (`seconds`, `nanos`) |
-|  [03]   | `duration_pb2.Duration`   | wrapper       | signed span (`seconds`, `nanos`)      |
-|  [04]   | `struct_pb2.Struct`       | wrapper       | string-keyed dynamic map of `Value`   |
-|  [05]   | `struct_pb2.Value`        | wrapper       | dynamic JSON scalar/struct/list union |
-|  [06]   | `struct_pb2.ListValue`    | wrapper       | ordered list of `Value`               |
-|  [07]   | `empty_pb2.Empty`         | wrapper       | zero-field unit message               |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: functional codec façade (`google.protobuf.proto`)
-- rail: wire
-- the modern message-agnostic free-function codec; prefer these over bound `Message` methods so the codec is one polymorphic call surface keyed by message class, not a method scattered across every generated type.
-
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]  | [RAIL]                                                  |
-| :-----: | :----------------------------------------------------------------------- | :-------------- | :----------------------------------------------------- |
-|  [01]   | `proto.serialize(message, deterministic=None) -> bytes`                  | encode          | deterministic binary wire bytes (map-key ordering)     |
-|  [02]   | `proto.parse(message_class, payload) -> Message`                         | decode          | construct + populate a message from binary bytes       |
-|  [03]   | `proto.serialize_length_prefixed(message, output: io.BytesIO) -> None`   | stream encode   | varint-size-prefixed frame into a buffered stream      |
-|  [04]   | `proto.parse_length_prefixed(message_class, input_bytes: io.BytesIO)`    | stream decode   | one length-prefixed message; `None` at EOF             |
-|  [05]   | `proto.byte_size(message) -> int`                                        | size            | serialized byte length                                 |
-|  [06]   | `proto.clear_message(message) -> None`                                   | reset           | reset all fields to default                            |
-|  [07]   | `proto.clear_field(message, field_name) -> None`                         | reset field     | reset one named field                                  |
-|  [08]   | `proto_json.serialize(message, **opts)` / `proto_json.parse(message_class, js, **opts)` | json codec | message-agnostic proto-JSON mirror of `json_format`    |
-|  [09]   | `proto_text.serialize(message, **opts)` / `proto_text.parse(message_class, text, **opts)` | text codec | message-agnostic text-format mirror of `text_format`   |
-
-[ENTRYPOINT_SCOPE]: message factory and registries
-- rail: wire
-
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]   | [RAIL]                                         |
-| :-----: | :------------------------------------------------ | :--------------- | :--------------------------------------------- |
-|  [01]   | `message_factory.GetMessageClass(descriptor)`     | factory          | message class for a `Descriptor`               |
-|  [02]   | `descriptor_pool.Default()`                       | pool             | the process-default `DescriptorPool`           |
-|  [03]   | `DescriptorPool.Add(file_descriptor_proto)`       | pool register    | register a `FileDescriptorProto`               |
-|  [04]   | `DescriptorPool.FindMessageTypeByName(full_name)` | pool resolve     | resolve a `Descriptor` by fully-qualified name |
-|  [05]   | `symbol_database.Default()`                       | database         | the process-default `SymbolDatabase`           |
-|  [06]   | `SymbolDatabase.GetSymbol(full_name)`             | database resolve | message class by fully-qualified name          |
-
-[ENTRYPOINT_SCOPE]: message instance operations
-- rail: wire
-- defined on `message.Message`; the wire codec encodes/decodes through these on every generated message.
-
-| [INDEX] | [SURFACE]                | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :----------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `SerializeToString()`    | encode         | deterministic binary wire bytes          |
-|  [02]   | `ParseFromString(data)`  | decode         | populate from binary wire bytes          |
-|  [03]   | `MergeFrom(other)`       | merge          | merge another message into this one      |
-|  [04]   | `CopyFrom(other)`        | copy           | overwrite with another message           |
-|  [05]   | `Clear()`                | reset          | reset all fields to default              |
-|  [06]   | `ByteSize()`             | size           | serialized byte length                   |
-|  [07]   | `WhichOneof(oneof_name)` | oneof read     | name of the set field in a `oneof` group |
-|  [08]   | `DESCRIPTOR`             | descriptor     | the message's `Descriptor`               |
-
-[ENTRYPOINT_SCOPE]: JSON / dict codec
-- rail: wire
-
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :------------------------------------------------ | :------------- | :------------------------------------- |
-|  [01]   | `json_format.MessageToJson(message, **opts)`      | encode         | message to canonical proto-JSON string |
-|  [02]   | `json_format.MessageToDict(message, **opts)`      | encode         | message to JSON-shaped `dict`          |
-|  [03]   | `json_format.Parse(text, message, **opts)`        | decode         | proto-JSON string into a message       |
-|  [04]   | `json_format.ParseDict(js_dict, message, **opts)` | decode         | JSON-shaped `dict` into a message      |
-
-[ENTRYPOINT_SCOPE]: text-format codec
-- rail: wire
-
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :--------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `text_format.MessageToString(message, **opts)` | encode         | message to text-format string     |
-|  [02]   | `text_format.Parse(text, message, **opts)`     | decode         | text-format string into a message |
-
-[ENTRYPOINT_SCOPE]: well-known wrapper helper methods
-- rail: wire
-- the wrappers carry typed conversion/mutation methods (mixed in from `internal.well_known_types`); these are the canonical bridge between native Python time/dynamic values and the wire, never a hand-rolled `seconds`/`nanos` arithmetic.
-
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `Any.Pack(msg, type_url_prefix='type.googleapis.com/')`      | any pack       | embed a message and set its type URL               |
-|  [02]   | `Any.Unpack(msg) -> bool`                                    | any unpack     | populate `msg` if the type URL matches             |
-|  [03]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`       | any inspect    | type-URL discrimination before unpack              |
-|  [04]   | `Timestamp.ToDatetime(tzinfo=None)` / `FromDatetime(dt)`     | time convert   | `datetime` <-> `Timestamp` bridge                  |
-|  [05]   | `Timestamp.GetCurrentTime()`                                 | time set       | set to now                                         |
-|  [06]   | `Timestamp.ToJsonString()` / `FromJsonString(value)`         | time RFC-3339  | RFC-3339 string round-trip                         |
-|  [07]   | `Timestamp.ToNanoseconds()` / `FromNanoseconds(nanos)`       | time integer   | epoch-nanos round-trip                             |
-|  [08]   | `Duration.ToTimedelta() -> timedelta` / `FromTimedelta(td)`  | span convert   | `timedelta` <-> `Duration` bridge                  |
-|  [09]   | `Duration.ToJsonString()` / `FromJsonString(value)` / `ToNanoseconds()` / `FromNanoseconds(nanos)` | span codec | proto-JSON / nanos span round-trip |
-|  [10]   | `Struct.update(dict)` / `keys()` / `values()` / `items()`    | struct map     | dict-like dynamic-map mutation/read                |
-|  [11]   | `Struct.get_or_create_struct(key)` / `get_or_create_list(key)` | struct nest  | nested `Struct`/`ListValue` accessor               |
-|  [12]   | `ListValue.append(value)` / `add_struct()` / `add_list()` / `items()` | list build | dynamic-list construction                  |
-
-[ENTRYPOINT_SCOPE]: runtime-version guard
-- rail: wire
-
-| [INDEX] | [SURFACE]                                                                                                           | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------- |
-|  [01]   | `runtime_version.ValidateProtobufRuntimeVersion(gen_domain, gen_major, gen_minor, gen_patch, gen_suffix, location)` | guard          | assert gencode/runtime version compatibility   |
-|  [02]   | `runtime_version.Domain`                                                                                            | enum           | `PUBLIC` / `GOOGLE_INTERNAL` validation domain |
-
-## [04]-[IMPLEMENTATION_LAW]
-
-[WIRE_TOPOLOGY]:
-- message law: every wire frame is a `message.Message` subclass resolved from its `Descriptor`; generated `*_pb2` classes are the canonical message owners, and dynamic classes come from `message_factory.GetMessageClass(descriptor)`, never a hand-built class shim.
-- descriptor law: descriptors live in one `descriptor_pool.Default()` pool indexed by `symbol_database.Default()`; a new message type is one `FileDescriptorProto` added to the pool plus one `GetMessageClass`, never a parallel registry.
-- binary law: the canonical wire is the message-agnostic `proto.serialize(message, deterministic=True)` / `proto.parse(message_class, payload)` façade (bound `SerializeToString()`/`ParseFromString(data)` are the underlying methods it delegates to); the `WireProtoCodec` encode/decode path frames the `CrdtOp*` union through one `proto.*` call surface keyed by message class, and varint/tag framing is never re-implemented locally. A stream of frames over one buffered channel uses `proto.serialize_length_prefixed`/`proto.parse_length_prefixed`, never a hand-rolled size header.
-- codec law: `json_format` is the boundary codec for proto-JSON I/O and `text_format` for human-readable diagnostics; both round-trip through the same message instance, so neither is a second message model.
-- well-known law: time and dynamic-structure fields use the well-known wrappers — `Timestamp`/`Duration` for instants and spans, `Struct`/`Value`/`ListValue` for dynamic JSON payloads, `Any` for type-URL-tagged embedded messages, `Empty` for unit replies; a parallel local time or dynamic-value struct is deleted.
-- version law: gencode/runtime skew is caught by `runtime_version.ValidateProtobufRuntimeVersion` at import of generated modules; the guard is the contract, never a silent version assumption.
+## [01]-[LOCAL_ADMISSION]
 
 [LOCAL_ADMISSION]:
-- the runtime transport admits `protobuf` as the message reflection and wire layer behind `WireProtoCodec`; the codec composes `SerializeToString`/`ParseFromString` for the `CrdtOp*` frames and `GetMessageClass` for descriptor-driven dispatch.
-- the internal builder path (`google.protobuf.internal.builder`) is implementation detail consumed only by generated `*_pb2` modules; runtime owners compose the public `message_factory` / `descriptor_pool` surface, never the internal builder directly.
+- The `transport/wire` surface admits `protobuf` as the message reflection and inner-op wire layer behind `WireProtoCodec`; the runtime owns no second message reflection path.
+- Generated `rasm.runtime._pb2` modules are the only concrete message-class source; runtime owners compose the public `message_factory`/`descriptor_pool` surface. The `google.protobuf.internal.builder` path is banned outside the generated modules.
+- `runtime_version.ValidateProtobufRuntimeVersion` at generated-module import is the gencode/runtime skew gate — never a silent version assumption.
+
+## [02]-[RUNTIME_DELTA]
+
+[DELTA_SCOPE]: `CrdtOp*` frame codec (`transport/wire#WireProtoCodec`)
+- The codec frames the `CrdtOp*` union through one `proto.serialize(message, deterministic=True)`/`proto.parse(message_class, payload)` call surface keyed by message class; `message_factory.GetMessageClass(descriptor)` supplies descriptor-driven dispatch, and `proto.serialize_length_prefixed`/`parse_length_prefixed` frame a stream of ops over one buffered channel.
+
+[DELTA_SCOPE]: descriptor-pool drift-gate
+- The generated `rasm.runtime._pb2` package registers into `descriptor_pool.Default()`; the offline-wire drift gate resolves `DescriptorPool.FindMessageTypeByName(full_name)` and asserts descriptor parity against the C#-minted `EvidenceBundle` golden fixture (the compute-campaign codegen drift proof) — a schema-drift assertion, never a runtime encode path.
 
 [INTEGRATION_STACK]:
-- msgspec leg: the `CrdtOp*` frame's payload bytes cross the boundary as a single `bytes` field; `.api/msgspec.md` `Struct` carriers hold the envelope (op id, actor, lamport) and the protobuf frame is the opaque `bytes` value `proto.serialize`/`proto.parse` produce/consume, so msgspec owns the envelope schema and protobuf owns the inner op wire — never two parallel message schemas for one op.
-- grpcio leg: protobuf message classes are the request/response types of the `grpc`/`grpc.aio` stubs from `.api/grpcio.md`; the serializer/deserializer the channel uses is `proto.serialize`/`proto.parse`, and the `opentelemetry-instrumentation-grpc` interceptor's `request_hook(span, request)`/`response_hook(span, payload)` receive these message instances for span enrichment.
-- well-known time leg: `Timestamp.FromDatetime`/`ToDatetime` and `Duration.FromTimedelta`/`ToTimedelta` bridge the wire to the host clock from `.api/opentelemetry-api.md` span timing; a wire `Any.Pack(op)` carries a polymorphic embedded op resolved by `Any.Is(descriptor)`/`Any.Unpack`, never a stringly type tag.
-- single rail: one `proto.parse(CrdtOpClass, frame_bytes)` decode feeds the union dispatch, the well-known wrappers bridge time/dynamic fields, and the descriptor lives in the one `descriptor_pool.Default()` — the dense form is one codec façade, one pool, one symbol database, never a per-message-type encode helper.
-
-[RAIL_LAW]:
-- Package: `protobuf`
-- Owns: Protocol Buffers message reflection, descriptor-pool registration, the `proto.*` functional codec façade over binary/length-prefixed/JSON/text wire, well-known wrapper types with their datetime/timedelta/pack helpers, and the runtime-version guard for the wire transport
-- Accept: `proto.serialize`/`proto.parse` (and `*_length_prefixed`) binary framing of the `CrdtOp*` union, `message_factory.GetMessageClass` descriptor dispatch, one `descriptor_pool.Default()` + `symbol_database.Default()` registry, `json_format`/`proto_json`/`text_format` boundary codecs, the well-known wrappers and their helper methods, `ValidateProtobufRuntimeVersion` at gencode import
-- Reject: hand-rolled varint/tag/length framing, a per-message-type encode helper beside the `proto.*` façade, a parallel message-class registry beside the default pool, a local time/dynamic-value struct duplicating the well-known wrappers, direct use of `internal.builder` outside generated modules, silent gencode/runtime version skew
+- msgspec seam: the msgspec `Struct` envelope holds the op id/actor/lamport and the protobuf frame is the opaque `bytes` value `proto.serialize`/`proto.parse` produce and consume — msgspec owns the envelope schema, protobuf owns the inner op wire, never two parallel schemas for one op.
+- grpc seam: protobuf message classes are the request/response types of the `grpc.aio` stubs, with `proto.serialize`/`proto.parse` the channel serializer/deserializer; the `opentelemetry-instrumentation-grpc` interceptor's `request_hook`/`response_hook` receive these message instances for span enrichment.
+- well-known time seam: `Timestamp.FromDatetime`/`ToDatetime` and `Duration.FromTimedelta`/`ToTimedelta` bridge the wire to the host clock, and `Any.Pack`/`Any.Is`/`Any.Unpack` carry a polymorphic embedded op resolved by descriptor, never a stringly type tag.

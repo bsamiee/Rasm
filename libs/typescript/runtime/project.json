@@ -3,9 +3,5 @@
     "name": "runtime",
     "projectType": "library",
     "sourceRoot": "libs/typescript/runtime/src",
-    "tags": [
-        "scope:runtime",
-        "runtime:neutral",
-        "plane:runtime"
-    ]
+    "tags": ["scope:runtime", "runtime:neutral", "plane:runtime"]
 }

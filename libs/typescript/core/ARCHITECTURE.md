@@ -21,7 +21,7 @@ core/
     │   ├── fold.ts            # Fold.Plan keyed-fold owner, the AsOf time coordinate, the Replay versioned memory lane
     │   ├── causal.ts          # Vector version-vector lattice, causal delivery buffer, stability frontier
     │   ├── commit.ts          # Commit content-keyed graph + branch heads + Merkle summaries
-    │   ├── machine.ts         # Transition.Table closed transition system — phase × signal matrix as data
+    │   ├── machine.ts         # Transition statechart — node tree + guarded rows as data, macrostep fold, serializable actor
     │   ├── evidence.ts        # Receipt/ReceiptEnvelope, ProgressMark, availability — the decoded outcome family
     │   ├── feed.ts            # Feed — the Hlc-ordered evidence timeline + the Feed.Document column band
     │   └── presence.ts        # Actor-presence CRDT over Merge.struct proven rows
@@ -61,7 +61,7 @@ observe/board        →  typescript:iac/operate     # [PROJECTION]: DashboardMo
 
 ## [03]-[ORGANIZATION]
 
-`value` is the floor: every brand decodes once at the boundary and travels settled — `contentKey` owns the one digest mint (delegating sites are `interchange/frame`, the runtime browser decode worker, and the data object store), `clock` owns the one time vocabulary, `fault` owns the one severity/retry policy every rail inherits. `state` is pure algebra over those values: `merge` proves the lattice laws `causal`, `presence`, and `fold` compose; `fold` carries the single `AsOf` time coordinate so no second replay vocabulary exists. `interchange` is the decode boundary: `format` admits bytes, `codec` is the ONE registry where every C#-minted family lands — a new wire family is one census row plus one landing row, never a page — `contract` grades descriptor drift before decode ever fails at runtime, and `invoke` carries the capability contract both directions. `observe` owns vocabulary and derivation only; the OTLP wire lives in the runtime folder, and the grafana realization lives in iac.
+`value` is the floor: every brand decodes once at the boundary and travels settled — `contentKey` owns the one digest mint (delegating sites are `interchange/frame`, the runtime browser decode worker, and the data object store), `clock` owns the one time vocabulary, `fault` owns the one severity/retry policy every rail inherits. `state` is pure algebra over those values: `merge` proves the lattice laws `causal`, `presence`, and `fold` compose; `fold` carries the single `AsOf` time coordinate so no second replay vocabulary exists; `machine` compiles the node-tree statechart once at `Transition.spec` — the pure macrostep fold, the batch and stream drivers, and the serializable actor all run one compiled value. `interchange` is the decode boundary: `format` admits bytes, `codec` is the ONE registry where every C#-minted family lands — a new wire family is one census row plus one landing row, never a page — `contract` grades descriptor drift before decode ever fails at runtime, and `invoke` carries the capability contract both directions. `observe` owns vocabulary and derivation only; the OTLP wire lives in the runtime folder, and the grafana realization lives in iac.
 
 ## [04]-[BOUNDARIES]
 

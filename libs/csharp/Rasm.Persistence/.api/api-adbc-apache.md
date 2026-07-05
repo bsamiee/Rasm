@@ -113,9 +113,9 @@ members; consumers compose them through the `api-arrow.md` contract.
 - Result `RecordBatch` streams are consumed through the base-package `IArrowArrayStream`, then projected to the
   canonical Arrow owner — the driver is a SOURCE adapter, not a data model.
 
-[STACK]:
+[STACKING]:
 - base-abstraction seam: the driver IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction in
-  `api-arrow.md`. The Persistence Query federation rail selects the driver by protocol (`SparkDriver` for
+  `api-arrow.md`. The Persistence `Query/federation#FEDERATED_PLAN` rail selects the driver by protocol (`SparkDriver` for
   Databricks/Spark Thrift, `HiveServer2Driver` for Hive, `ImpalaDriver` for Impala), opens it with a parameter
   map, and reads the result through the base `QueryResult.Stream` `IArrowArrayStream` — one egress shape across
   every warehouse backend, distinct from the in-process DuckDB SQL path (`api-duckdb.md`).

@@ -107,9 +107,9 @@ through `api-arrow.md`, not redefined here.
 - Result `RecordBatch` streams are consumed through the base-package `IArrowArrayStream` and projected to the
   canonical Arrow owner — the driver is a SOURCE adapter, not a data model.
 
-[STACK]:
+[STACKING]:
 - base-abstraction seam: the driver IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction in
-  `api-arrow.md`. The Query-federation rail selects `BigQueryDriver` by backend, opens it with a parameter map,
+  `api-arrow.md`. The `Query/federation#FEDERATED_PLAN` rail selects `BigQueryDriver` by backend, opens it with a parameter map,
   and reads results through the base `QueryResult.Stream` `IArrowArrayStream` — the SAME egress shape as the
   Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from the in-process DuckDB path (`api-duckdb.md`).
 - arrow-result seam: BigQuery results arrive as Arrow `RecordBatch`es over the Storage Read API, so a warehouse

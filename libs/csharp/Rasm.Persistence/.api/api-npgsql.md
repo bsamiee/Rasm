@@ -8,8 +8,10 @@ replication surfaces for provider store profiles.
 
 [PACKAGE_SURFACE]: `Npgsql`
 - package: `Npgsql`
+- version: `10.0.3`
 - assembly: `Npgsql`
-- namespace: `Npgsql`
+- namespace: `Npgsql`, `Npgsql.Replication`, `Npgsql.Replication.PgOutput`
+- target framework: `net10.0` asset on the `net10.0` floor (package also ships `net8.0`)
 - asset: runtime library
 - rail: store-provider
 
@@ -49,6 +51,8 @@ The compact rows below preserve these member groups:
 |  [14]   | `PostgresErrorCodes`            | SQLSTATE constants  | names SQLSTATE values               |
 |  [15]   | `NpgsqlMetricsOptions`          | meter options       | shapes instrumentation meter stream |
 |  [16]   | `NpgsqlTracingOptionsBuilder`   | tracing options     | configures data-source tracing      |
+|  [17]   | `NpgsqlNotificationEventArgs`   | notification event  | carries `PID`/`Channel`/`Payload` of a delivered `NOTIFY` |
+|  [18]   | `NotificationEventHandler`      | notification handler | the `NpgsqlConnection.Notification` event delegate |
 
 [TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
 - rail: store-provider
@@ -182,6 +186,33 @@ Replication detail rows preserve these members:
 |  [15]   | `NpgsqlBinaryExporter.IsNull`            | exporter property | true when current column is null                                       |
 |  [16]   | `NpgsqlConnection.ReloadTypes`/`Async`   | connection call   | reloads type registry on the connection                                |
 
+[ENTRYPOINT_SCOPE]: advisory locks (session and transaction mutual exclusion)
+- rail: store-provider
+
+PostgreSQL advisory locks have NO typed `Npgsql` member — they are server functions composed as SQL through `NpgsqlCommand`/`NpgsqlBatch`; the `_xact_` family auto-releases at transaction end (no explicit unlock), the session family requires an explicit unlock. This is the fenced-lease substrate the coordination owner composes, never a distributed-lock sidecar.
+
+| [INDEX] | [SURFACE]                                                        | [CALL_SHAPE]     | [CAPABILITY]                                                           |
+| :-----: | :--------------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------- |
+|  [01]   | `SELECT pg_advisory_xact_lock(@key)` via `NpgsqlCommand`         | SQL over command | transaction-scoped exclusive lock; auto-released at COMMIT/ROLLBACK   |
+|  [02]   | `SELECT pg_try_advisory_xact_lock(@key)` via `NpgsqlCommand`     | SQL over command | non-blocking try; returns `bool` acquired, transaction-scoped         |
+|  [03]   | `SELECT pg_advisory_xact_lock_shared(@key)` via `NpgsqlCommand`  | SQL over command | transaction-scoped SHARED lock (readers coexist, writers exclude)     |
+|  [04]   | `SELECT pg_advisory_lock(@key)` / `pg_advisory_unlock(@key)`     | SQL over command | session-scoped lock requiring explicit unlock (or `pg_advisory_unlock_all()`) |
+|  [05]   | `NpgsqlBatch` of `pg_advisory_xact_lock` + guarded `UPDATE … RETURNING` | SQL over batch | one round-trip lock-then-fenced-CAS: the lock and the guarded write share the transaction |
+
+[ENTRYPOINT_SCOPE]: LISTEN/NOTIFY (asynchronous change notification)
+- rail: store-provider
+
+`LISTEN`/`NOTIFY`/`UNLISTEN` are SQL composed through `NpgsqlCommand`; delivered notifications raise the `NpgsqlConnection.Notification` event and are pumped by `Wait`/`WaitAsync` on an otherwise-idle connection. A `NpgsqlNotificationEventArgs` carries `PID`/`Channel`/`Payload`.
+
+| [INDEX] | [SURFACE]                                                        | [CALL_SHAPE]     | [CAPABILITY]                                                           |
+| :-----: | :--------------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------- |
+|  [01]   | `NpgsqlConnection.Notification` (`event NotificationEventHandler`) | event          | raised per delivered `NOTIFY`; args carry `PID`/`Channel`/`Payload`   |
+|  [02]   | `SELECT` / `LISTEN <channel>` via `NpgsqlCommand`                | SQL over command | subscribes the connection to a channel                                |
+|  [03]   | `SELECT pg_notify(@channel, @payload)` via `NpgsqlCommand`       | SQL over command | parameterized publish (the `NOTIFY` form that takes a runtime payload) |
+|  [04]   | `NpgsqlConnection.WaitAsync(CancellationToken)`                  | async pump       | awaits the next notification on an idle connection                     |
+|  [05]   | `NpgsqlConnection.WaitAsync(TimeSpan / int timeout, CancellationToken)` | async pump | bounded wait; returns `bool` (true if a notification arrived)          |
+|  [06]   | `NpgsqlConnection.Wait()` / `Wait(TimeSpan / int timeout)`       | sync pump        | synchronous block for a notification (the blocking twin)              |
+
 [ENTRYPOINT_SCOPE]: replication
 - rail: store-provider
 
@@ -207,6 +238,13 @@ Replication detail rows preserve these members:
 - type root: provider type mapper, name translator, and PostgreSQL metadata
 - tracing root: `NpgsqlTracingOptionsBuilder` via `ConfigureTracing`
 
+[COORDINATION_PRIMITIVES]:
+- Advisory locks are server functions, not typed members: `pg_advisory_xact_lock`/`pg_try_advisory_xact_lock`/`pg_advisory_xact_lock_shared` (transaction-scoped, auto-released at COMMIT/ROLLBACK) and `pg_advisory_lock`/`pg_advisory_unlock`/`pg_advisory_unlock_all` (session-scoped, explicit unlock) compose as SQL through `NpgsqlCommand`/`NpgsqlBatch` — the `_xact_` family is the preferred form because release is transactional, never leaked by a dropped connection.
+- LISTEN/NOTIFY is asynchronous change signalling: `LISTEN <channel>` subscribes and `pg_notify(channel, payload)` publishes (both SQL over `NpgsqlCommand`), delivery raises `NpgsqlConnection.Notification` (`NpgsqlNotificationEventArgs.PID`/`Channel`/`Payload`), and an idle connection is pumped by `WaitAsync(CancellationToken)`; a notification is best-effort while the listener is disconnected — it is a low-latency WAKE, never an at-least-once cursor.
+
+[REPLICATION_UNCONSUMED]:
+- `Npgsql.Replication`/`Npgsql.Replication.PgOutput` (`LogicalReplicationConnection`, pgoutput slot + message family, `ReplicationTuple`) is RECORDED-UNCONSUMED: the changefeed is Marten's async daemon over the event stream, not raw-WAL logical decoding. Logical replication is the NAMED escalation path — admitted only if a raw-WAL CDC consumer ever lands beside the daemon; until then it is documented surface, not a composed rail.
+
 [LOCAL_ADMISSION]:
 - PostgreSQL enters through the unified store-profile algebra.
 - Provider type mapping stays profile configuration, not public service vocabulary.
@@ -217,8 +255,13 @@ Replication detail rows preserve these members:
 - `NoResetOnClose` disqualifies when a `UsePhysicalConnectionInitializer` establishes session state.
 - `NpgsqlTracingOptionsBuilder.ConfigureCopyOperationFilter` / `EnableFirstResponseEvent` / `EnablePhysicalOpenTracing` are profile-level tracing policy rows; per-call-site tracing is the rejected form.
 
+[STACKING]:
+- provisioning (`Store/provisioning#SERVER_EXTENSIONS`): `Npgsql` is the transport the verification-first provisioning fold rides — ONE `NpgsqlBatch`/`CreateBatch` over the catalog reads (`pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots`) folds the `ProvisionVerdict`, and `NpgsqlDataSource.ReloadTypesAsync` completes a deploy by re-resolving wire types a freshly-admitted enum/composite introduced; a catalog read denied by privilege folds `ServerFault.CatalogDenied` (`PostgresErrorCodes.InsufficientPrivilege`) and a transport fault routes through `NpgsqlException.IsTransient` so a retry re-drives only the transient class.
+- coordination (`Store/coordination#OUTBOX_CURSOR`): the fenced-lease store composes Marten `FetchForWriting`/`QueueSqlCommand` + Npgsql `pg_advisory_xact_lock` + LISTEN/NOTIFY — the advisory lock guards the fenced compare-and-decrement (`Coordinate.Run` `BudgetDebit`/`StepStateCas`/`LeaseAcquire`), the lock and the guarded `UPDATE … RETURNING` sharing one transaction so a stale token is a typed `LeaseFenced`, never a lost update.
+- egress (`Version/egress#EGRESS_SINK`): `NpgsqlConnection.Notification` + `WaitAsync` is the low-latency WAKE the egress pump (`EgressPump.Drain`) listens on — a committed outbox row emits a `pg_notify` beat so the pump drains the `#OUTBOX_CURSOR` promptly instead of polling; the beat is a hint, the cursor is the at-least-once record, so a missed notification degrades to poll-latency, never a dropped delivery.
+
 [RAIL_LAW]:
 - Package: `Npgsql`
-- Owns: PostgreSQL transport API
-- Accept: PostgreSQL store profile
-- Reject: provider-specific public service families
+- Owns: PostgreSQL transport API — data source/connection/command/batch/COPY, the advisory-lock and LISTEN/NOTIFY primitives (as composed SQL), and the recorded-unconsumed logical-replication surface
+- Accept: PostgreSQL store profile, advisory locks and LISTEN/NOTIFY composed through `NpgsqlCommand`/`NpgsqlBatch` for the coordination/egress owners
+- Reject: provider-specific public service families, a distributed-lock sidecar beside the advisory-lock primitive, treating LISTEN/NOTIFY as an at-least-once cursor, and composing `Npgsql.Replication` before a raw-WAL CDC consumer is admitted

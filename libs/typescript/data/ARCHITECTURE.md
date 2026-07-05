@@ -40,6 +40,7 @@ read/fold      ←  typescript:core/state       # [SHAPE]: Fold.Plan (key/lift/m
 object/store   ⇄  typescript:core/value       # [CONTENT_KEY]: ObjectKey IS ContentKey — a delegating mint site, never a second hash
 lane/tenant    ←  typescript:security/access  # [BOUNDARY]: app.current_tenant RLS + ambient TenantScope read
 lane/tenant    →  typescript:security/authn   # [PORT]: SessionStore/IdentityJournal/ClaimStore/RelationStore Layers
+lane/tenant    →  typescript:security/authn   # [PORT]: RateLimiterStore Layer backing the credential-verify throttle budgets
 journal/retain ←  typescript:security/crypt   # [SHAPE]: Shredder five-verb envelope, WrappedKey per-subject ledger
 journal/append ⇄  typescript:runtime/work     # [BOUNDARY]: outbox claim-lease/urgency/park statements composed by the queue lane
 read/live      →  typescript:runtime/serve    # [SHAPE]: reactivity-keyed feeds served under the resume-token law

@@ -1,0 +1,14 @@
+language js(typescript, jsx)
+
+// EXPRESSION_SPINE promotion. Trigger: an in-place array mutation mid-flow. Predicate: any
+// push/unshift/splice call — domain transforms are immutable folds, Array combinators, or Ref
+// updates. Exemption: none in-pattern; FFI seam files ride the plugin's negated include globs.
+// FIRES: const out: Array<string> = []; for (const x of xs) { out.push(x); }
+// CLEAN: const out = Array.map(xs, transform);
+or {
+    `$collection.push($items)`,
+    `$collection.unshift($items)`,
+    `$collection.splice($items)`
+} as $hit where {
+    register_diagnostic(span=$hit, message="Mutable accumulation in domain flow. Collapse the loop into an immutable fold or Array combinator; concurrent accumulation rides Ref.", severity="error")
+}

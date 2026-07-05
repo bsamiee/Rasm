@@ -5,13 +5,13 @@ PostgreSQL profile — `pg_cron` (database-local cron), `pg_partman` (declarativ
 maintenance), `pg_squeeze` (lock-light bloat reclamation), `pg_jsonschema` (server-side JSON Schema
 CHECK validation), and `pgaudit` (session/object audit logging). They carry no managed assembly:
 every surface is server-side SQL the `Store/provisioning#SERVER_EXTENSIONS` `ClusterConfig` verifies,
-the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` `CreateSql` install SQL provides, and the `Query/lanes#DOCUMENT_LANE`,
+the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` `CreateSql` install SQL provides, and the `Query/lane#DOCUMENT_LANE`,
 `Version/retention#AUDIT_BINDING`, and maintenance-schedule rows consume.
 
 PRELOAD SPLIT (verified against `ClusterConfig.Rows`): the `shared_preload_libraries` value is
 `timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net` — so `pg_cron`, `pg_partman`
 (as its `pg_partman_bgw` background-worker library), `pg_squeeze`, and `pgaudit` ARE preload-gated
-and verify through the `Store/profiles#PROVISIONING_ROWS` `PreloadProbe`; only `pg_jsonschema` is
+and verify through the `Store/provisioning#PROVISIONING_ROWS` `PreloadProbe`; only `pg_jsonschema` is
 NOT preloaded — it registers its `json_matches_schema`/`jsonb_matches_schema` functions via
 `CREATE EXTENSION` and carries a `Json.Schema.JsonSchema.Evaluate` (JsonSchema.Net) in-process
 fallback when the deploy image lacks the pgrx-compiled extension. The
@@ -27,7 +27,7 @@ without it); its full SQL surface is catalogued in `api-pg-net.md`, not here.
 - preload (in `shared_preload_libraries`): `pg_cron`, `pg_partman_bgw`, `pg_squeeze`, `pgaudit` — verified read-only via `ClusterConfig.Verify` after boot
 - type/function-registered (NOT preloaded): `pg_jsonschema` — `CREATE EXTENSION`, `Fallback: "Json.Schema.JsonSchema.Evaluate"` on its `ServerExtension` row
 - license: `pg_cron`/`pg_partman`/`pgaudit` PostgreSQL/MIT-class; `pg_squeeze` BSD; `pg_jsonschema` Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- consumed by: `ExtensionRequirement.OperatorProvisioned` rows (`Store/profiles`), `ServerExtension` `CreateSql`/`Extension` (`Store/provisioning#SERVER_EXTENSIONS`), `Version/retention#AUDIT_BINDING`, the AppHost persistence-maintenance schedule
+- consumed by: `ExtensionRequirement.OperatorProvisioned` rows (`Store/provisioning`), `ServerExtension` `CreateSql`/`Extension` (`Store/provisioning#SERVER_EXTENSIONS`), `Version/retention#AUDIT_BINDING`, the AppHost persistence-maintenance schedule
 - rail: cluster-config, document-lane, audit-binding, schedule
 
 ## [02]-[PG_CRON]
@@ -73,7 +73,7 @@ honors. A hand-rolled partition-rotation job is the rejected form.
 
 Lock-light table-bloat reclamation — rewrites a bloated table with only a brief `ACCESS EXCLUSIVE`
 lock at swap, the in-DB online alternative to `VACUUM FULL` and to an out-of-DB `pg_repack` client.
-Preloaded as `pg_squeeze`; consumed at `Store/profiles#PROVISIONING_ROWS` where a scheduled reclaim
+Preloaded as `pg_squeeze`; consumed at `Store/provisioning#PROVISIONING_ROWS` where a scheduled reclaim
 runs as a pure in-DB bgworker registered through `squeeze.tables`, never an external binary.
 
 | [INDEX] | [SURFACE]                | [SIGNATURE]                                              | [SEMANTICS]                         |
@@ -101,7 +101,7 @@ Server-side JSON Schema validation. NOT preloaded — `CREATE EXTENSION pg_jsons
 Consumer + fallback stack: the document lane declares one `ServerExtension` `CreateSql` over `(Table, Column,
 Constraint, Schema)` (`Store/provisioning#SERVER_EXTENSIONS`) whose `Sql` emits `ALTER TABLE … ADD CONSTRAINT …
 CHECK (jsonb_matches_schema('<schema>', <column>))`, so a declared-shape document is rejected at
-WRITE (`Query/lanes#DOCUMENT_LANE`). Because this is the one non-preloaded companion, the
+WRITE (`Query/lane#DOCUMENT_LANE`). Because this is the one non-preloaded companion, the
 `ServerExtension("pg_jsonschema", Fallback: "Json.Schema.JsonSchema.Evaluate")` row degrades the
 SAME validation to in-process `JsonSchema.Net` evaluation when the deploy image lacks the
 pgrx-compiled extension — the `Validate` fold moves the check application-side rather than silently

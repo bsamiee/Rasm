@@ -13,17 +13,18 @@ The content-addressed object plane: the object key IS the core `ContentKey` — 
 
 ## [2]-[CLIENT_SEAM]
 
-- Owner: the `ObjectStore` service construction — `Effect.acquireRelease` around the client with `destroy` on release, the abort-bridged send idiom every operation repeats verbatim, the `_folded` fault fold with its read-shaped `_foldedRead` projection, one `_Setting` config owner — and the `_engines` conformance table that rules which providers host the plane.
-- Packages: `@aws-sdk/client-s3` (`S3Client`, `S3ServiceException`); `effect` (`Config`, `Redacted`, `Match`, `Data`, `Duration`).
+- Owner: the `ObjectStore` service construction — `Effect.acquireRelease` around the client with `destroy` on release, the abort-bridged send idiom every operation repeats verbatim, the `_folded` fault fold with its read-shaped `_foldedRead` projection, one `_Setting` config owner, the `_shielded` resilience bracket every operation rides — and the `_engines` conformance table that rules which providers host the plane.
+- Packages: `@aws-sdk/client-s3` (`S3Client`, `S3ServiceException`); `effect` (`Config`, `Redacted`, `Match`, `Data`, `Duration`, `Schedule`).
 - Entry: every S3 operation in the unit is one abort-bridged `client.send(command)` — commands are values discriminating the operation; a per-verb method family and the flat client are the rejected forms; `read/batch.md`'s `presence` lane settles its HEAD windows through the `head` member.
 - Growth: a new operation is a command value; a new provider is a `Config` change validated against the conformance table; a new engine is one table row with its conditional verdict filled.
 - Law: the abort bridge is mandatory — `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: _folded(key) })` — fiber interruption aborts the in-flight request; an un-abortable send leaks past interruption.
 - Law: the fault family is `ObjectFault` with reasons `missing` (404), `integrity` (identity or checksum disagreement), `io` (everything else) and a policy row per reason; 412 is NOT a fault — the fold returns the `_Replay` receipt before the family engages, and there is no `PreconditionFailed` class to catch (the status rides `$metadata.httpStatusCode` on the base exception).
+- Law: resilience is owner-internal and the policy table is load-bearing — `_shielded` brackets every operation with the op timeout, the bulkhead semaphore, and the jittered bounded retry whose `Schedule.whileInput` reads `fault.policy.retry`, so `io` retries while `missing`/`integrity` fail fast and a consumer composes capability, never plumbing; the AWS client's `maxAttempts` covers transport-level retry beneath it, and the circuit-breaker tier rides the core fault owner's degradation budget when that upstream row lands.
 - Law: checksums are transport integrity, `ContentKey` is identity — `requestChecksumCalculation`/`responseChecksumValidation` pin `"WHEN_SUPPORTED"` against AWS-grade engines and `"WHEN_REQUIRED"` against S3-compatibles that predate default checksums, a `Config` fact per provider; identity verification is the core mint re-run at read, and the two never substitute.
 - Law: the conformance table is the admission gate — an engine hosts this plane only with `conditional: "yes"`: the managed rows (S3, R2, Tigris) and the self-host rows (Ceph RGW, the maintained MinIO continuation) conform; the CRDT-metadata engine and the B2 row cannot CAS and are refused rows, kept as data so the argument is never re-had; the pending row waits on its concurrency fix.
 
 ```typescript
-import { Config, Data, Duration, Effect, Match, Redacted } from "effect"
+import { Config, Data, Duration, Effect, Match, Redacted, Schedule } from "effect"
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3"
 import { ContentKey } from "@rasm/ts/core"
 
@@ -73,8 +74,30 @@ const _Setting = Config.unwrap({
   maxAttempts: Config.integer("OBJECT_MAX_ATTEMPTS").pipe(Config.withDefault(3)),
   multipartThreshold: Config.integer("OBJECT_MULTIPART_BYTES").pipe(Config.withDefault(64 * 1024 * 1024)),
   partBytes: Config.integer("OBJECT_PART_BYTES").pipe(Config.withDefault(8 * 1024 * 1024)),
+  partFlight: Config.integer("OBJECT_PART_FLIGHT").pipe(Config.withDefault(4)),
+  opFlight: Config.integer("OBJECT_OP_FLIGHT").pipe(Config.withDefault(16)),
+  opBudget: Config.duration("OBJECT_OP_BUDGET").pipe(Config.withDefault(Duration.seconds(30))),
   presignTtl: Config.duration("OBJECT_PRESIGN_TTL").pipe(Config.withDefault(Duration.minutes(15))),
 })
+
+const _RETRY = Schedule.exponential("100 millis").pipe(
+  Schedule.jittered,
+  Schedule.intersect(Schedule.recurs(3)),
+  Schedule.whileInput((fault: ObjectFault | _Replay) => fault._tag === "ObjectFault" && fault.policy.retry),
+)
+
+const _shielded = (gate: Effect.Semaphore, budget: Duration.Duration) =>
+  (key: string) =>
+    <A, E extends ObjectFault | _Replay>(op: Effect.Effect<A, E>): Effect.Effect<A, E | ObjectFault> =>
+      gate.withPermits(1)(
+        op.pipe(
+          Effect.timeoutFail({
+            duration: budget,
+            onTimeout: () => new ObjectFault({ reason: "io", key, detail: "<budget>" }),
+          }),
+          Effect.retry(_RETRY),
+        ),
+      )
 
 const _folded = (key: string) => (caught: unknown): ObjectFault | _Replay =>
   Match.value(caught).pipe(
@@ -102,14 +125,17 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault => {
 - Growth: a write posture (storage class, SSE) is a field on the options row flowing into the command value; a read shape (range, part, attributes) is a command field, never a sibling get.
 - Law: the conditional rides every leg — `IfNoneMatch: "*"` on the plain put, on the hand-composed `CompleteMultipartUpload`, and on the `Upload` params whose spread carries it onto both its paths; first-writer-wins lands at the moment the object materializes, and a 409 concurrent race retries into the 412 noop under the `io` policy row.
 - Law: body shape selects the leg — bounded bytes below the threshold ride the plain put, bounded bytes above it ride the hand-composed part fold under `Effect.acquireRelease` with `AbortMultipartUpload` on failure, and a streaming or unknown-length body rides `Upload` with the abort bridged to fiber interruption; the caller sees one `put`.
-- Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Presence`/`Descriptor` request families through one `HeadObjectCommand` send, so the batch engine's HEAD windows and a singular probe share one member.
+- Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Presence`/`Descriptor` request families through one `HeadObjectCommand` send, so the batch engine's HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
+- Law: the streaming receipt is honest — `putKeyed` takes the proven span from the caller's identity fold (the stream rail and the disk intake both hold it), so `bytes` is the verified count on every leg and a zero-guess receipt is unspellable; `rekey` is the server-side content-key copy (`CopySourceIfMatch` against the probed ETag, zero byte transfer) the promotion path composes instead of re-uploading bytes it already holds.
+- Boundary: `_putStreaming` is the one lib-storage seam — the `Upload` construction and the abort-signal listener are statement flow inside the `tryPromise` lambda, and fiber interruption reaches the in-flight multipart through `upload.abort()`.
 - Law: consistency after a sweep race is a waiter, never a sleep — `settled(key, maxWaitTime)` runs `waitUntilObjectExists({ client, maxWaitTime, abortSignal }, { Bucket, Key })` to close the write-then-serve window where an engine's read-after-write posture demands it, a provider fact from the conformance row.
 
 ```typescript
 import { Array, Exit, Option, Stream } from "effect"
 import {
-  AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CreateMultipartUploadCommand,
-  GetObjectCommand, HeadObjectCommand, PutObjectCommand, UploadPartCommand, waitUntilObjectExists,
+  AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CopyObjectCommand, CreateMultipartUploadCommand,
+  GetObjectAttributesCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, UploadPartCommand,
+  waitUntilObjectExists,
 } from "@aws-sdk/client-s3"
 import { Upload } from "@aws-sdk/lib-storage"
 import { Digest } from "@rasm/ts/core"
@@ -136,7 +162,7 @@ const _putPlain = (client: S3Client, bucket: string, key: ContentKey, bytes: Uin
     },
   )
 
-const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes: Uint8Array, partBytes: number) =>
+const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes: Uint8Array, partBytes: number, partFlight: number) =>
   Effect.scoped(
     Effect.gen(function* () {
       const opened = yield* Effect.acquireRelease(
@@ -166,7 +192,7 @@ const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes:
             catch: _folded(key),
           }),
           (reply) => ({ ETag: reply.ETag, PartNumber: index + 1 }),
-        ), { concurrency: 4 })
+        ), { concurrency: partFlight })
       yield* Effect.tryPromise({
         try: (signal) =>
           client.send(new CompleteMultipartUploadCommand({
@@ -183,27 +209,57 @@ const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes:
       Effect.succeed<ObjectStore.Receipt>({ key, bytes: bytes.byteLength, written: false })),
   )
 
-const _putStreaming = (client: S3Client, bucket: string, key: ContentKey, body: ReadableStream<Uint8Array>, partBytes: number) =>
+const _putStreaming = (client: S3Client, bucket: string, key: ContentKey, body: ReadableStream<Uint8Array>, partBytes: number, partFlight: number, span: number) =>
   Effect.matchEffect(
-    Effect.async<ObjectStore.Receipt, ObjectFault | _Replay>((resume) => {
-      const upload = new Upload({
-        client,
-        params: { Bucket: bucket, Key: key, Body: body, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" },
-        partSize: partBytes,
-        queueSize: 4,
-      })
-      upload.done().then(
-        () => resume(Effect.succeed<ObjectStore.Receipt>({ key, bytes: 0, written: true })),
-        (caught) => resume(Effect.fail(_folded(key)(caught))),
-      )
-      return Effect.promise(() => upload.abort())
+    Effect.tryPromise({
+      try: (signal) => {
+        const upload = new Upload({
+          client,
+          params: { Bucket: bucket, Key: key, Body: body, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" },
+          partSize: partBytes,
+          queueSize: partFlight,
+        })
+        signal.addEventListener("abort", () => { void upload.abort() }, { once: true })
+        return upload.done()
+      },
+      catch: _folded(key),
     }),
     {
       onFailure: (fault) =>
         fault._tag === "ObjectReplay"
-          ? Effect.succeed<ObjectStore.Receipt>({ key, bytes: 0, written: false })
+          ? Effect.succeed<ObjectStore.Receipt>({ key, bytes: span, written: false })
           : Effect.fail(fault),
-      onSuccess: Effect.succeed,
+      onSuccess: () => Effect.succeed<ObjectStore.Receipt>({ key, bytes: span, written: true }),
+    },
+  )
+
+const _attributes = (client: S3Client, bucket: string, key: ContentKey) =>
+  Effect.tryPromise({
+    try: (signal) =>
+      client.send(new GetObjectAttributesCommand({
+        Bucket: bucket, Key: key,
+        ObjectAttributes: ["ETag", "Checksum", "ObjectParts", "ObjectSize", "StorageClass"],
+      }), { abortSignal: signal }),
+    catch: _foldedRead(key),
+  })
+
+const _rekey = (client: S3Client, bucket: string, source: ContentKey, sourceEtag: string, target: ContentKey) =>
+  Effect.matchEffect(
+    Effect.tryPromise({
+      try: (signal) =>
+        client.send(new CopyObjectCommand({
+          Bucket: bucket, Key: target,
+          CopySource: `${bucket}/${source}`,
+          CopySourceIfMatch: sourceEtag,
+        }), { abortSignal: signal }),
+      catch: _folded(target),
+    }),
+    {
+      onFailure: (fault) =>
+        fault._tag === "ObjectReplay"
+          ? Effect.succeed<ObjectStore.Receipt>({ key: target, bytes: 0, written: false })
+          : Effect.fail(fault),
+      onSuccess: () => Effect.succeed<ObjectStore.Receipt>({ key: target, bytes: 0, written: true }),
     },
   )
 
@@ -242,21 +298,26 @@ const _settled = (client: S3Client, bucket: string, key: ContentKey, maxWaitTime
 
 ## [4]-[REFERENCE_GC]
 
-- Owner: the `object_ref` ensure row, the reference verbs, and the sweep — orphan detection walks the bucket through the shipped paginator, joins each entry against the ledger, and every delete is a per-key `If-Match`-guarded CAS against the ETag the listing just carried; `DeleteObjectsCommand` is the refused spelling here because the 1000-key batch cannot carry a per-key conditional, and the CAS law outranks the round-trip saving; bucket lifecycle rules land as data.
-- Packages: `@aws-sdk/client-s3` (`DeleteObjectCommand`, `paginateListObjectsV2`, `PutBucketLifecycleConfigurationCommand`); `@effect/sql` (`sql.insert`, `sql.in`); `journal/retain.md` (`Retain.Class` — the one retention vocabulary, and the shredded-subject law arriving as data).
-- Entry: every producer that lands an object records `{ key, owner, retention }` in the ledger inside its own unit of work; `store.release(key, owner)` drops a reference; the sweep runs on the maintenance cadence (`read/fold.md`'s cron row where granted, the host schedule otherwise).
+- Owner: the `object_ref` ensure row, the reference verbs, the sweep, and the two-layer native GC — orphan detection walks the bucket through the shipped paginator, joins each entry against the ledger, and every delete is a per-key `If-Match`-guarded CAS against the ETag the listing just carried; `DeleteObjectsCommand` is the refused spelling here because the 1000-key batch cannot carry a per-key conditional, and the CAS law outranks the round-trip saving; `lifecycle` pushes the retention-class windows as native bucket rules and `classify` stamps the retention tag on the object itself.
+- Packages: `@aws-sdk/client-s3` (`DeleteObjectCommand`, `paginateListObjectsV2`, `PutBucketLifecycleConfigurationCommand`, `PutObjectTaggingCommand`, `waitUntilObjectNotExists`); `@effect/sql` (`SqlSchema`, `sql.insert`, `sql.in`); `journal/retain.md` (`Retain.Class`, `Retain.Policy` — the one retention vocabulary, and the shredded-subject law arriving as data).
+- Entry: every producer that lands an object records `{ key, owner, retention }` in the ledger inside its own unit of work and stamps the class through `classify`; `store.release(key, owner)` drops a reference; the sweep runs on the maintenance cadence (`read/fold.md`'s cron row where granted, the host schedule otherwise); `lifecycle` applies once at provision and on any `Retain.Policy` change.
 - Receipt: the sweep's mark — `{ probed, swept, retained }` — rides the span and the fact stream; a swept key names its retention class so evidence and billing reconcile.
-- Growth: a new owner kind is a ledger row value; a new retention posture is a `Retain.Class` row arriving from the one vocabulary; a lifecycle rule is a data row in the configuration command.
-- Law: the sweep is CAS end to end — probe the candidate's ETag, re-check the ledger inside the same pass, delete with `IfMatch: etag` — so a re-mint racing the sweep wins structurally: the re-put lands 412-noop against the still-present object or recreates it after the delete, and the guarded delete refuses when bytes changed under the probe.
+- Growth: a new owner kind is a ledger row value; a new retention posture is a `Retain.Class` row arriving from the one vocabulary — the lifecycle rule set regenerates from the table, zero edits here.
+- Law: GC is two-layer — the CAS reference sweep owns referential correctness (an object is reclaimable only when its last ledger reference released), and the S3-native lifecycle rules own time-windowed expiry by retention tag, the belt-and-suspenders arm that survives total SQL-ledger loss; `permanent` emits no rule, and the rules generate from `Retain.Policy` so no window literal exists here.
+- Law: the sweep is CAS end to end — probe the candidate's ETag, re-check the ledger inside the same pass, delete with `IfMatch: etag`, then settle the delete through `waitUntilObjectNotExists` so an eventually-consistent engine cannot re-list a half-dead key into the next pass — a re-mint racing the sweep wins structurally: the re-put lands 412-noop against the still-present object or recreates it after the delete, and the guarded delete refuses when bytes changed under the probe.
 - Law: derivative references are owned rows — a derivative's ledger row names its source key as `owner`, so sweeping a source cascades through ordinary reference release, never a prefix guess.
 - Law: retention classes gate the sweep — a `permanent` reference never sweeps, windowed classes sweep past `Retain.Policy[class].window`, and subject-sealed payload objects fall to crypto-shredding upstream (key destruction makes the bytes unreadable; the sweep merely reclaims them).
 
 ```typescript
-import { DeleteObjectCommand, paginateListObjectsV2 } from "@aws-sdk/client-s3"
-import { SqlClient } from "@effect/sql"
+import {
+  DeleteObjectCommand, paginateListObjectsV2, PutBucketLifecycleConfigurationCommand, PutObjectTaggingCommand,
+  waitUntilObjectNotExists,
+} from "@aws-sdk/client-s3"
+import { SqlClient, SqlSchema } from "@effect/sql"
+import { Schema } from "effect"
 import type { Capability } from "../lane/capability.ts"
 import { Journal } from "../journal/append.ts"
-import type { Retain } from "../journal/retain.ts"
+import { Retain } from "../journal/retain.ts"
 
 const _refDdl: Capability.Ensure = {
   relation: "object_ref",
@@ -275,11 +336,49 @@ const _refDdl: Capability.Ensure = {
 }
 
 const _sweepDelete = (client: S3Client, bucket: string, key: string, etag: string) =>
-  Effect.tryPromise({
+  Effect.zipRight(
+    Effect.tryPromise({
+      try: (signal) =>
+        client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key, IfMatch: etag }), { abortSignal: signal }),
+      catch: _folded(key),
+    }),
+    Effect.asVoid(Effect.tryPromise({
+      try: (signal) =>
+        waitUntilObjectNotExists({ client, maxWaitTime: 30, abortSignal: signal }, { Bucket: bucket, Key: key }),
+      catch: _foldedRead(key),
+    })),
+  )
+
+const _classify = (client: S3Client, bucket: string) =>
+  (key: ContentKey, retention: Retain.Class) =>
+    Effect.asVoid(Effect.tryPromise({
+      try: (signal) =>
+        client.send(new PutObjectTaggingCommand({
+          Bucket: bucket, Key: key,
+          Tagging: { TagSet: [{ Key: "retention", Value: retention }] },
+        }), { abortSignal: signal }),
+      catch: _folded(key),
+    }))
+
+const _lifecycle = (client: S3Client, bucket: string, policy: typeof Retain.Policy) =>
+  Effect.asVoid(Effect.tryPromise({
     try: (signal) =>
-      client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key, IfMatch: etag }), { abortSignal: signal }),
-    catch: _folded(key),
-  })
+      client.send(new PutBucketLifecycleConfigurationCommand({
+        Bucket: bucket,
+        LifecycleConfiguration: {
+          Rules: Object.entries(policy).flatMap(([clazz, row]) =>
+            Duration.isFinite(row.window)
+              ? [{
+                  ID: `retain-${clazz}`,
+                  Status: "Enabled" as const,
+                  Filter: { Tag: { Key: "retention", Value: clazz } },
+                  Expiration: { Days: Math.max(1, Math.trunc(Duration.toDays(row.window))) },
+                }]
+              : []),
+        },
+      }), { abortSignal: signal }),
+    catch: _folded(bucket),
+  }))
 
 const _refer = (key: ContentKey, owner: string, retention: Retain.Class) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
@@ -291,8 +390,13 @@ const _release = (key: ContentKey, owner: string) =>
     sql`UPDATE object_ref SET released_at = ${Journal.now(sql)} WHERE key = ${key} AND owner = ${owner}`)
 
 const _sweep = (client: S3Client, bucket: string) =>
-  Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    Stream.runFoldEffect(
+  Effect.flatMap(SqlClient.SqlClient, (sql) => {
+    const live = SqlSchema.single({
+      Request: Schema.String,
+      Result: Schema.Struct({ live: Schema.Number }),
+      execute: (key) => sql`SELECT count(*) AS live FROM object_ref WHERE key = ${key} AND released_at IS NULL`,
+    })
+    return Stream.runFoldEffect(
       Stream.fromAsyncIterable(
         paginateListObjectsV2({ client }, { Bucket: bucket }),
         (cause) => new ObjectFault({ reason: "io", key: bucket, detail: String(cause) }),
@@ -301,9 +405,9 @@ const _sweep = (client: S3Client, bucket: string) =>
       (mark, page) =>
         Effect.reduce(page.Contents ?? [], mark, (held, entry) =>
           Effect.flatMap(
-            sql`SELECT count(*) AS live FROM object_ref WHERE key = ${entry.Key ?? ""} AND released_at IS NULL`.values,
-            (cells) =>
-              Number(cells[0]?.[0] ?? 0) > 0 || entry.Key === undefined || entry.ETag === undefined
+            live(entry.Key ?? ""),
+            (count) =>
+              count.live > 0 || entry.Key === undefined || entry.ETag === undefined
                 ? Effect.succeed({ probed: held.probed + 1, swept: held.swept, retained: held.retained + 1 })
                 : _sweepDelete(client, bucket, entry.Key, entry.ETag).pipe(
                     Effect.as({ probed: held.probed + 1, swept: held.swept + 1, retained: held.retained }),
@@ -311,7 +415,8 @@ const _sweep = (client: S3Client, bucket: string) =>
                       Effect.succeed({ probed: held.probed + 1, swept: held.swept, retained: held.retained + 1 })),
                   ),
           )),
-    ).pipe(Effect.withSpan("data.sweep", { attributes: { bucket } })))
+    ).pipe(Effect.withSpan("data.sweep", { attributes: { bucket } }))
+  })
 ```
 
 ## [5]-[GRANT_MINT]
@@ -323,6 +428,7 @@ const _sweep = (client: S3Client, bucket: string) =>
 - Growth: a new presigned operation is a command value through the same entry; a signing posture (SSE-C pinning) is a `signableHeaders` policy row, never a second mint.
 - Law: config is inherited, never re-declared — the presigner reads the live client's resolved credentials, region, endpoint, and path style, so grants against any conforming engine are the same call and no second client exists; the published `provider` record carries its credential fields SEALED as `Redacted` values, and the one sanctioned unwrap is the staging store's own construction seam in `object/stream.md`.
 - Law: `expiresIn` derives from `Duration.min(ttl, setting.presignTtl)` — a grant narrows policy and an unbounded or widened grant is unrepresentable at this surface.
+- Law: the mint rides the `_shielded` bracket like every operation — bounded flight, budget, policy-gated retry; caller-keyed grant QUOTA composes the store-backed `RateLimiter` at the serving seam, because per-principal identity exists there and this page mints capability, never authorization.
 
 ```typescript
 import { DateTime } from "effect"
@@ -365,6 +471,8 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
         })),
       (held) => Effect.sync(() => held.destroy()),
     )
+    const gate = yield* Effect.makeSemaphore(setting.opFlight)
+    const shield = _shielded(gate, setting.opBudget)
     return {
       client,
       bucket: setting.bucket,
@@ -382,16 +490,24 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
         new PutObjectCommand({ Bucket: setting.bucket, Key: key, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" }),
       put: (bytes: Uint8Array) =>
         Effect.flatMap(Digest.mint("content", bytes), (key) =>
-          bytes.byteLength <= setting.multipartThreshold
-            ? _putPlain(client, setting.bucket, key, bytes)
-            : _putMultipart(client, setting.bucket, key, bytes, setting.partBytes)),
-      putKeyed: (key: ContentKey, body: ReadableStream<Uint8Array>) =>
-        _putStreaming(client, setting.bucket, key, body, setting.partBytes),
-      get: (key: ContentKey) => _got(client, setting.bucket, key),
-      head: (key: ContentKey) => _headed(client, setting.bucket, key),
+          shield(key)(
+            bytes.byteLength <= setting.multipartThreshold
+              ? _putPlain(client, setting.bucket, key, bytes)
+              : _putMultipart(client, setting.bucket, key, bytes, setting.partBytes, setting.partFlight),
+          )),
+      putKeyed: (key: ContentKey, body: ReadableStream<Uint8Array>, span: number) =>
+        _putStreaming(client, setting.bucket, key, body, setting.partBytes, setting.partFlight, span),
+      get: (key: ContentKey) => shield(key)(_got(client, setting.bucket, key)),
+      head: (key: ContentKey) => shield(key)(_headed(client, setting.bucket, key)),
+      attributes: (key: ContentKey) => shield(key)(_attributes(client, setting.bucket, key)),
+      rekey: (source: ContentKey, sourceEtag: string, target: ContentKey) =>
+        shield(target)(_rekey(client, setting.bucket, source, sourceEtag, target)),
       settled: (key: ContentKey, maxWaitTime: number) => _settled(client, setting.bucket, key, maxWaitTime),
       sweep: _sweep(client, setting.bucket),
-      grant: _grant(client, setting.presignTtl),
+      grant: (key: ContentKey, command: ObjectStore.Command, ttl?: Duration.Duration) =>
+        shield(key)(_grant(client, setting.presignTtl)(key, command, ttl)),
+      classify: _classify(client, setting.bucket),
+      lifecycle: _lifecycle(client, setting.bucket, Retain.Policy),
       refer: _refer,
       release: _release,
     }

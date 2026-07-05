@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_H3]
 
-`pocketken.H3` is the managed Uber-H3 v4 hexagonal hierarchical geospatial indexer — the in-process counterpart to the `h3-pg` server extension (`api-pg-search` cluster sibling) so the same 64-bit cell id is computed identically at ingest in `Schema/identity` and inside PostgreSQL via `h3_latlng_to_cell`. The whole surface composes `NetTopologySuite` (the admitted `NetTopologySuite.IO.GeoJSON4STJ`/`GeoPackage` geo stack): `H3Index.FromPoint`/`ToPoint`, `Polyfill.Fill(Geometry)`, and `H3GeometryExtensions.GetCellBoundary` cross at the NTS `Point`/`Polygon`/`Geometry` boundary, so a PostGIS `geometry` column and an H3 cell column are two projections of one coordinate, and the `H3Index` ulong is the durable content-key dimension a spatial `StoreOp` keysets on.
+`pocketken.H3` is the managed Uber-H3 v4 hexagonal hierarchical geospatial indexer — the in-process counterpart to the `h3-pg` server extension (`api-pg-search` cluster sibling) so the same 64-bit cell id is computed identically at `Ingest/geospatial` and inside PostgreSQL via `h3_latlng_to_cell`, and the `H3Index` ulong is the durable content-key dimension `Element/identity` keysets on. The whole surface composes the transitive core `NetTopologySuite` (`Point`/`Polygon`/`MultiPolygon`/`Geometry`/`LineString`/`Coordinate` — H3's SOLE package dependency): `H3Index.FromPoint`/`ToPoint`, `Polyfill.Fill(Geometry)`, and `H3GeometryExtensions.GetCellBoundary` cross at that NTS boundary, so a PostGIS `geometry` column and an H3 cell column are two projections of one coordinate. The admitted `NetTopologySuite.IO.GeoJSON4STJ`/`GeoPackage` writers are SEPARATE NTS-IO packages that serialize those NTS `Point`/`Polygon` results at the wire — never a dependency `pocketken.H3` pulls.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -130,7 +130,7 @@
 - `GetCellBoundaries` returns one `MultiPolygon` for a cell set — the GeoJSON `FeatureCollection` egress shape the `NetTopologySuite.IO.GeoJSON4STJ` writer serializes, so a cell-set boundary crosses the wire as one NTS-native GeoJSON document.
 
 [CELL_AS_CONTENT_KEY]:
-- The `H3Index` ulong (`(ulong)index`) is the stable, resolution-tagged spatial bucket the `Schema/identity` Key axis carries and the `Query/rail` `StoreOp` keysets on — a spatial range query lowers to `GridDiskDistances`/`Fill` → a `FrozenSet<ulong>` cell set → an `IN (…)`/`= ANY` predicate, never a per-row `ST_DWithin` scan.
+- The `H3Index` ulong (`(ulong)index`) is the stable, resolution-tagged spatial bucket the `Element/identity` Key axis carries and the `Query/lane` `StoreOp` keysets on — a spatial range query lowers to `GridDiskDistances`/`Fill` → a `FrozenSet<ulong>` cell set → an `IN (…)`/`= ANY` predicate, never a per-row `ST_DWithin` scan.
 - `H3Index.Invalid` (the zero ulong) is the only sentinel; an out-of-range coordinate or an invalid decode yields it, and it projects to `Option<H3Index>.None` at the boundary per the `NEVER propagate sentinels` law — never a stored `0` cell.
 
 ## [05]-[STACKING_AND_RAIL]

@@ -9,13 +9,14 @@ log, trace, support-bundle, and HTTP route-parameter exporter seam.
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
 - package: `Microsoft.Extensions.Compliance.Redaction`
+- version: `10.7.0`
 - assembly: `Microsoft.Extensions.Compliance.Redaction`
-- contract assembly: `Microsoft.Extensions.Compliance.Abstractions`
+- contract assembly: `Microsoft.Extensions.Compliance.Abstractions` (`Redactor`, `IRedactionBuilder`, `IRedactorProvider`, `NullRedactor`, `DataClassification*`)
 - namespace: `Microsoft.Extensions.Compliance.Redaction`
 - namespace classification: `Microsoft.Extensions.Compliance.Classification`
 - asset: runtime library
 - rail: redaction
-- experimental gate: `EXTEXP0002` on `IRedactionBuilder.SetHmacRedactor` HMAC configuration
+- experimental gate: `EXTEXP0002` on `RedactionExtensions.SetHmacRedactor` HMAC configuration
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -30,8 +31,10 @@ log, trace, support-bundle, and HTTP route-parameter exporter seam.
 |  [04]   | `ErasingRedactor`     | redactor          | erases sensitive values       |
 |  [05]   | `HmacRedactor`        | redactor          | hashes sensitive values       |
 |  [06]   | `HmacRedactorOptions` | redactor options  | HMAC key id and discriminator |
-|  [07]   | `NullRedactor`        | redactor          | passes values unchanged       |
-|  [08]   | `RedactionExtensions` | builder extension | HMAC builder registration     |
+|  [07]   | `NullRedactor`        | redactor          | passes values unchanged; `Instance` singleton |
+|  [08]   | `RedactionExtensions` | builder extension | `SetHmacRedactor` registration |
+
+`Redactor` (abstract, contract assembly) — overrides supply `Redact(ReadOnlySpan<char>, Span<char>) → int` and `GetRedactedLength(ReadOnlySpan<char>) → int`; the base provides `string Redact(ReadOnlySpan<char>)`, `string Redact(string?)`, `int Redact(string?, Span<char>)`, the generic `string Redact<T>(T value, string? format = null, IFormatProvider? provider = null)`, `int Redact<T>(T value, Span<char> destination, string? format, IFormatProvider?)`, `bool TryRedact<T>(T value, Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider?)`, and `int GetRedactedLength(string?)`. A typed classified value redacts at its value (not stringified first) on the span path. `ErasingRedactor`/`NullRedactor` are the two settled terminal redactors reachable as static `Instance` outside DI.
 
 [CLASSIFICATION_TYPES]: classification keys (contract assembly)
 - rail: redaction
@@ -43,6 +46,8 @@ log, trace, support-bundle, and HTTP route-parameter exporter seam.
 |  [03]   | `DataClassificationAttribute` | annotation base    | annotates classified members  |
 |  [04]   | `NoDataClassification`        | classification key | absence-of-classification key |
 |  [05]   | `UnknownDataClassification`   | classification key | unmapped-classification key   |
+
+`DataClassificationSet` constructs from a single `DataClassification`, an `IEnumerable<DataClassification>`, or `params DataClassification[]`; `implicit operator DataClassificationSet(DataClassification)` lifts a bare key, and `Union(DataClassificationSet)` composes sets — so a multi-class field keys one redactor lookup.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -59,10 +64,12 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 |  [04]   | `SetHmacRedactor`        | options mapping    | maps HMAC redactor by action  |
 |  [05]   | `SetHmacRedactor`        | section mapping    | maps HMAC redactor by section |
 |  [06]   | `SetFallbackRedactor<T>` | builder fallback   | fail-closed default redactor  |
-|  [07]   | `GetRedactor`            | provider lookup    | resolves redactor by set      |
-|  [08]   | `Redact`                 | span redaction     | redacts value into buffer     |
-|  [09]   | `GetRedactedLength`      | span measurement   | measures redacted output      |
-|  [10]   | redactor singletons      | static accessor    | settled pass / erase redactor |
+|  [07]   | `GetRedactor`            | `(DataClassificationSet) → Redactor` | resolves redactor by set  |
+|  [08]   | `Redact<T>`              | `(T value, string? format, IFormatProvider?)` | redacts a typed value at its value |
+|  [09]   | `TryRedact<T>`           | `(T value, Span<char> dest, out int, format, provider)` | zero-alloc typed-value redaction |
+|  [10]   | `Redact`                 | `(ReadOnlySpan<char>, Span<char>) → int` | redacts a span into a buffer |
+|  [11]   | `GetRedactedLength`      | `(ReadOnlySpan<char>) → int` | sizes the buffer before `Redact` |
+|  [12]   | `ErasingRedactor.Instance` / `NullRedactor.Instance` | static accessor | settled erase / pass-through redactor |
 
 [ENTRYPOINT_SCOPE]: HMAC options
 - rail: redaction
@@ -78,9 +85,9 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 [REDACTION_POLICY]:
 - namespace: `Microsoft.Extensions.Compliance.Redaction`
 - provider root: `IRedactorProvider` resolves the redactor for a `DataClassificationSet`
-- builder root: `IRedactionBuilder` maps each classification set to its redactor
+- builder root: `IRedactionBuilder` maps each classification set to its redactor via `SetRedactor<T>`; `SetHmacRedactor` rides `RedactionExtensions`
 - class root: `DataClassificationAttribute` subclasses annotate classified members at definition time
-- redactor root: erasing, HMAC, and null redactors with a fail-closed fallback
+- redactor root: erasing, HMAC, and null redactors with a fail-closed fallback; `GetRedactedLength` sizes the buffer, then `Redact`/`TryRedact` writes the redacted span
 
 [LOCAL_ADMISSION]:
 - The `DataClassification` axis at Observability/telemetry#REDACTION_TAXONOMY drives redactor selection through its `RedactorKind` column; `RedactionRegistration.Bind` folds each row to `SetRedactor`/`SetHmacRedactor`.

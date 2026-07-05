@@ -1,0 +1,12 @@
+language js(typescript, jsx)
+
+// EXPRESSION_SPINE promotion. Trigger: a `throw` statement in domain flow. Predicate: the thrown
+// expression sits outside an Effect.try/Effect.tryPromise admission callback. Exemption: throws
+// inside those callbacks are the sanctioned FFI seam the typed rail decodes.
+// FIRES: const parse = (raw: string) => { throw new Error(raw); };
+// CLEAN: const parse = (raw: string) => Effect.try({ try: () => JSON.parse(raw), catch: (e) => new ParseFault({ cause: e }) });
+`throw $err` where {
+    $err <: not within `Effect.try($_)` ,
+    $err <: not within `Effect.tryPromise($_)` ,
+    register_diagnostic(span=$err, message="Raw throw in domain flow. Fail through the typed rail: Effect.fail with a tagged error, or admit the throwing seam via Effect.try/Effect.tryPromise.", severity="error")
+}

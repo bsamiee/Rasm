@@ -122,7 +122,7 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
 - Entry: `Stores.get(scope)` yields the keyed Layer to provide around any data effect; `Stores.invalidate(scope)` evicts on revocation, credential rotation, or a poisoned pool — the next acquisition rebuilds while every other scope keeps its instance.
 - Receipt: the scope's `Capability.Report` is readable through the provided service — startup verification evidence per scope, never a global assumption.
 - Growth: a new tenancy arm is one `$match` arm in `_lookup`; a new verified surface merges its ensure rows into the roster the app root passes; the sqlite profiles publish their own layer rows and never enter this lookup.
-- Law: the shared spine is one adopted pool — `Rls` and `SchemaPerApp` scopes compose `Pg.fromPool` over the one app-owned acquire, so a diamond of N apps on one database costs one pool; `DatabasePerApp` builds a dedicated `Pg.client` whose database is the scope's locus.
+- Law: the shared spine is one adopted pool — `Rls` and `SchemaPerApp` scopes share ONE `pooled` arm body by declaration (their store construction is identical; the tenancy difference is the search-path pin inside `Tenancy.within`), so a diamond of N apps on one database costs one pool; `DatabasePerApp` builds a dedicated `Pg.client` whose database is the scope's locus.
 - Law: verification is construction — `Layer.effectDiscard` runs probing and relation verification inside the lookup, so a Layer returned from `Stores.get` IS the proof the scope is provisioned; `idleTimeToLive` retires an unreferenced scope's resources without touching hot scopes.
 - Law: the key is the whole coordinate — anything changing which physical subgraph serves the scope is a `ScopeKey` field; anything varying per request (the tenant of a call) stays out and rides `Tenancy.within`.
 - Law: the roster arrives ambiently — `Wiring` is a `Context.Reference` carrying the shared-pool Layer and the collected ensure rows; the app root overrides it once with `Layer.succeed(Wiring, { shared, ensures })`, the lookup reads it through `Layer.unwrapEffect`, and an unwired root builds against the default (dedicated clients, empty roster) instead of failing on a phantom import.
@@ -156,13 +156,15 @@ const _lookup = (
   scope: ScopeKey,
 ): Layer.Layer<Stores.Provided, ConfigError.ConfigError | SqlError.SqlError | Capability.Fault> =>
   Layer.unwrapEffect(
-    Effect.map(Wiring, (wiring) =>
-      Tenancy.$match(scope.tenancy, {
-        Rls: () => _verified(wiring.ensures).pipe(Layer.provideMerge(wiring.shared)),
-        SchemaPerApp: () => _verified(wiring.ensures).pipe(Layer.provideMerge(wiring.shared)),
+    Effect.map(Wiring, (wiring) => {
+      const pooled = () => _verified(wiring.ensures).pipe(Layer.provideMerge(wiring.shared))
+      return Tenancy.$match(scope.tenancy, {
+        Rls: pooled,
+        SchemaPerApp: pooled,
         DatabasePerApp: () =>
           _verified(wiring.ensures).pipe(Layer.provideMerge(Pg.client(Tenancy.locus(scope.app, scope.tenancy).database))),
-      })),
+      })
+    }),
   )
 
 class Stores extends LayerMap.Service<Stores>()("data/Stores", {

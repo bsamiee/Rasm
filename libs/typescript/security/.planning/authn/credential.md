@@ -1,14 +1,14 @@
 # [SECURITY_CREDENTIAL]
 
-The one digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, store its argon2 digest keyed by a public index, resolve a presented secret by index-scoped candidate scan then constant-time verify. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index — so the `findFirst` candidate scan and the `Crypto.digest`/`Crypto.verify` pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option — the caller's stored floor rejects a valid-within-window replay inside the library — and `Accepted.timeStep` is what the caller persists as the next floor; `createGuardrails` bounds secret bytes, period, counter, and window per policy. Every secret — enrollment secret, provisioning URI, recovery code, API key — is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws.
+The one digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, store its argon2 digest keyed by a public index, resolve a presented secret by index-scoped candidate scan then constant-time verify. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index decoded through one `Schema.TemplateLiteralParser` owner — so the `findFirst` candidate scan and the `Crypto.digest`/`Crypto.verify` pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option, `Accepted.timeStep` is the next floor the caller persists, `remaining` projects the seconds left in the current window for the ui prompt, and an `OTPHooks` value threads through enroll and verify so a Steam-Guard-style alphabet is a value, never a fork. Every credential-verify surface is a brute-force target and every one is throttled: `Otp.verify`/`Otp.redeem` run under a per-subject budget and `ApiKey.resolve` under a per-prefix budget on the store-backed `RateLimiter`, an exhausted budget is the `throttled` fault (class `exhausted`), and every reject increments `security_credential_reject` tagged by surface. Record ids mint through the `Crypto` entropy port; every secret is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws — the guard pair closes its table in both directions. `ApiKeyGuard` is the declarative api-key scheme seam the runtime serve wave mounts.
 
 ## [1]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                              | [PUBLIC]                                       |
 | :-----: | :------------------ | :------------------------------------------------------------------ | :--------------------------------------------- |
 |  [01]   | `DIGEST_IDIOM`      | the shared mint + candidate-resolve fold, the folder fault          | `Digest`, `CredentialFault`                    |
-|  [02]   | `SECOND_FACTOR`     | TOTP/HOTP enroll/verify, the replay floor, recovery codes           | `Otp`, `OtpVerdict`, `RecoverySet`             |
-|  [03]   | `MACHINE_KEY`       | mint / prefix-resolve / rotate / revoke over `Digest`               | `ApiKey`, `ApiKeyRecord`, `MintReceipt`, `ApiKeyStore` |
+|  [02]   | `SECOND_FACTOR`     | TOTP/HOTP enroll/verify, the replay floor, window projection, recovery codes | `Otp`, `OtpVerdict`, `RecoverySet`      |
+|  [03]   | `MACHINE_KEY`       | mint / prefix-resolve / rotate / revoke over `Digest`, the api-key scheme seam | `ApiKey`, `ApiKeyRecord`, `MintReceipt`, `ApiKeyStore`, `ApiKeyGuard`, `CurrentApiKey` |
 
 ## [2]-[DIGEST_IDIOM]
 
@@ -21,12 +21,14 @@ The one digest-at-rest credential owner: second-factor OTP, recovery codes, and 
 - Packages: `crypt/sign` (`Crypto.token`/`.digest`/`.verify`); `effect` (`Array`, `Effect`, `Option`, `Redacted`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { createGuardrails, generateSecret, generateURI, verify, type OTPGuardrails, type OTPVerifyFunctionalOptions } from "otplib"
+import * as RateLimiter from "@effect/experimental/RateLimiter"
+import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
+import { createGuardrails, generateSecret, generateURI, verify, type OTPGuardrails, type OTPHooks, type OTPVerifyFunctionalOptions } from "otplib"
 import { FaultClass } from "@rasm/ts/core"
-import { Array, Context, Data, DateTime, type Duration, Effect, Option, Redacted, Schema } from "effect"
+import { Array, Clock, Config, Context, Data, DateTime, Duration, Effect, Layer, Metric, Option, Redacted, Schema } from "effect"
 import { Crypto } from "../crypt/sign.ts"
 
-const _reasons = ["mint", "verify", "malformed", "notFound", "revoked", "expired"] as const
+const _reasons = ["mint", "verify", "malformed", "notFound", "revoked", "expired", "throttled"] as const
 
 const _faults = {
   mint: { class: "defect" },
@@ -35,11 +37,13 @@ const _faults = {
   notFound: { class: "denied" },
   revoked: { class: "denied" },
   expired: { class: "expired" },
+  throttled: { class: "exhausted" },
 } as const
 
 declare namespace CredentialFault {
-  type Reason = keyof typeof _faults
+  type Reason = (typeof _reasons)[number]
   type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _faults> = T
+  type _Closed<K extends Reason = keyof typeof _faults> = K
 }
 
 class CredentialFault extends Schema.TaggedError<CredentialFault>()("CredentialFault", {
@@ -53,6 +57,8 @@ class CredentialFault extends Schema.TaggedError<CredentialFault>()("CredentialF
     return `<credential:${this.reason}> ${this.detail}`
   }
 }
+
+const _rejected = Metric.counter("security_credential_reject")
 
 const _digest = (cipher: Context.Tag.Service<Crypto>) => ({
   mint: (alphabet: string, length: number): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly digest: Redacted.Redacted<string> }, CredentialFault> =>
@@ -74,14 +80,15 @@ const _digest = (cipher: Context.Tag.Service<Crypto>) => ({
 ## [3]-[SECOND_FACTOR]
 
 [SECOND_FACTOR]:
-- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI, `Otp.verify` checks a presented token, `Otp.mintRecovery` issues N single-use codes over `Digest`, `Otp.redeem` finds the matching unspent code. `OtpVerdict` is the second-factor result — `Accepted({ delta, timeStep })` or `Rejected` — and `RecoverySet` carries the codes and their digests. The otplib `crypto`/`base32` ports bind to `Crypto.plugin`/`Crypto.base32`, and `createGuardrails` bounds secret bytes, period, counter, and window per policy.
+- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI, `Otp.verify` checks a presented token under the per-subject budget, `Otp.mintRecovery` issues N single-use codes over `Digest`, `Otp.redeem` finds the matching unspent code under the same budget, `Otp.remaining` projects the seconds left in the current TOTP window for the ui prompt. `OtpVerdict` is the second-factor result — `Accepted({ delta, timeStep })` or `Rejected` — and `RecoverySet` carries the codes and their digests. The otplib `crypto`/`base32` ports bind to `Crypto.plugin`/`Crypto.base32`, `createGuardrails` bounds secret bytes, period, counter, and window per policy, and the optional `OTPHooks` value threads through enroll and verify so a non-numeric token variant is one hooks row.
 - Law: verification is result-typed and constant-time inside otplib — a wrong code is `Rejected`, never a throw; TOTP verifies past-only under `_EPOCH_TOLERANCE`, HOTP look-ahead under `_COUNTER_TOLERANCE` when the caller passes a `Some` counter; a valid HOTP match persists `counter + delta + 1` — the `Accepted.delta` resync signal.
 - Law: the TOTP replay floor is library-enforced — the caller's stored floor passes as otplib's `afterTimeStep` option, so a token whose matched `timeStep` is not strictly greater lands `{ valid: false }` inside the constant-time verify; `Accepted.timeStep` carries the RFC-6238 step number the caller persists as the next floor, and HOTP carries no `timeStep` (its counter is the floor).
+- Law: `verify` and `redeem` are keyed brute-force targets — both run under the subject-keyed token-bucket budget, `RateLimitExceeded` folds to `throttled`, and a `Rejected` verdict increments `security_credential_reject` tagged `otp`/`recovery`, so a guessing campaign is visible and bounded across every app sharing the store-backed limiter.
 - Law: recovery codes are `Digest` material, not an otplib feature — `mintRecovery` composes `Digest.mint` per code and `redeem` composes `Digest.resolve` over the digests, returning the matched index so the store marks exactly that code spent.
 - Receipt: `OtpVerdict` on verify, `Option<number>` on redeem (the spent index), `RecoverySet` on mint — never a raw boolean.
-- Growth: a Steam-Guard-style alphabet is one otplib `hooks` value; HOTP is the same call with a `Some` counter — the input value is the strategy discriminant, never a name fork.
-- Boundary: the edge renders the `otpauth://` URI to a QR (the one secret egress); `Digest` owns the recovery mint/resolve; `crypt/sign` owns the HMAC and the digest.
-- Packages: `otplib` (`verify`/`generateSecret`/`generateURI`, `createGuardrails`, `OTPGuardrails`, `afterTimeStep`); `Digest` (recovery); `Crypto` (ports).
+- Growth: a Steam-Guard-style alphabet is one `OTPHooks` value through the threaded option; HOTP is the same call with a `Some` counter — the input value is the strategy discriminant, never a name fork.
+- Boundary: the edge renders the `otpauth://` URI to a QR (the one secret egress) and the `remaining` countdown beside the prompt; `Digest` owns the recovery mint/resolve; `crypt/sign` owns the HMAC and the digest; the `RateLimiter` store is data-wave-satisfied.
+- Packages: `otplib` (`verify`/`generateSecret`/`generateURI`, `createGuardrails`, `OTPGuardrails`, `OTPHooks`, `afterTimeStep`); `@effect/experimental` (`RateLimiter`); `Digest` (recovery); `Crypto` (ports).
 
 ```typescript
 type OtpVerdict = Data.TaggedEnum<{
@@ -96,6 +103,7 @@ class RecoverySet extends Schema.Class<RecoverySet>("RecoverySet")({
 
 const _EPOCH_TOLERANCE: readonly [number, number] = [30, 0]
 const _COUNTER_TOLERANCE: readonly [number, number] = [0, 2]
+const _PERIOD = 30
 const _RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 const _OtpVerdict = Data.taggedEnum<OtpVerdict>()
 
@@ -103,39 +111,65 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
   effect: Effect.gen(function* () {
     const cipher = yield* Crypto
     const digest = _digest(cipher)
+    const limit = yield* RateLimiter.makeWithRateLimiter
+    const window = yield* Config.duration("OTP_RATE_WINDOW").pipe(Config.withDefault(Duration.minutes(5)))
+    const budget = yield* Config.integer("OTP_RATE_LIMIT").pipe(Config.withDefault(5))
     const _ports = { crypto: cipher.plugin, base32: cipher.base32 } as const
-    const _rails: OTPGuardrails = createGuardrails({ MIN_SECRET_BYTES: 16, MIN_PERIOD: 30, MAX_WINDOW: 2 })
-    const enroll = (issuer: string, label: string): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly uri: Redacted.Redacted<string> }, CredentialFault> =>
+    const _rails: OTPGuardrails = createGuardrails({ MIN_SECRET_BYTES: 16, MIN_PERIOD: _PERIOD, MAX_WINDOW: 2 })
+    const _throttled = (subject: string, surface: string) => <A>(body: Effect.Effect<A, CredentialFault>): Effect.Effect<A, CredentialFault> =>
+      limit({ algorithm: "token-bucket", onExceeded: "fail", window, limit: budget, key: `${surface}:${subject}` })(body).pipe(
+        Effect.catchTags({
+          RateLimitExceeded: () => Effect.fail(new CredentialFault({ reason: "throttled", detail: subject })),
+          RateLimitStoreError: (error) => Effect.fail(new CredentialFault({ reason: "throttled", detail: String(error) })),
+        }))
+    const enroll = (issuer: string, label: string, hooks: Option.Option<OTPHooks> = Option.none()): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly uri: Redacted.Redacted<string> }, CredentialFault> =>
       Effect.try({
         try: () => {
-          const secret = generateSecret({ ..._ports })
+          const secret = generateSecret({ ..._ports, ...(Option.isSome(hooks) && { hooks: hooks.value }) })
           return { secret: Redacted.make(secret), uri: Redacted.make(generateURI({ strategy: "totp", issuer, label, secret })) }
         },
         catch: (cause) => new CredentialFault({ reason: "mint", detail: String(cause) }),
       })
-    const verify_ = (secret: Redacted.Redacted<string>, token: string, floor: Option.Option<number> = Option.none(), counter: Option.Option<number> = Option.none()): Effect.Effect<OtpVerdict, CredentialFault> =>
-      Effect.tryPromise({
-        try: () =>
-          Option.match(counter, {
-            onNone: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, epochTolerance: _EPOCH_TOLERANCE, ...(Option.isSome(floor) && { afterTimeStep: floor.value }), guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
-            onSome: (at) => verify({ strategy: "hotp", secret: Redacted.value(secret), token, counter: at, counterTolerance: _COUNTER_TOLERANCE, guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
-          }),
-        catch: (cause) => new CredentialFault({ reason: "verify", detail: String(cause) }),
-      }).pipe(Effect.map((result) =>
-        result.valid
-          ? _OtpVerdict.Accepted({ delta: result.delta, timeStep: "timeStep" in result ? Option.some(result.timeStep) : Option.none<number>() })
-          : _OtpVerdict.Rejected()))
+    const verify_ = (
+      subject: string,
+      secret: Redacted.Redacted<string>,
+      token: string,
+      floor: Option.Option<number> = Option.none(),
+      counter: Option.Option<number> = Option.none(),
+      hooks: Option.Option<OTPHooks> = Option.none(),
+    ): Effect.Effect<OtpVerdict, CredentialFault> =>
+      _throttled(subject, "otp")(
+        Effect.tryPromise({
+          try: () =>
+            Option.match(counter, {
+              onNone: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, epochTolerance: _EPOCH_TOLERANCE, ...(Option.isSome(floor) && { afterTimeStep: floor.value }), ...(Option.isSome(hooks) && { hooks: hooks.value }), guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
+              onSome: (at) => verify({ strategy: "hotp", secret: Redacted.value(secret), token, counter: at, counterTolerance: _COUNTER_TOLERANCE, ...(Option.isSome(hooks) && { hooks: hooks.value }), guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
+            }),
+          catch: (cause) => new CredentialFault({ reason: "verify", detail: String(cause) }),
+        }).pipe(
+          Effect.map((result) =>
+            result.valid
+              ? _OtpVerdict.Accepted({ delta: result.delta, timeStep: "timeStep" in result ? Option.some(result.timeStep) : Option.none<number>() })
+              : _OtpVerdict.Rejected()),
+          Effect.tap((verdict) =>
+            verdict._tag === "Rejected" ? Metric.increment(_rejected.pipe(Metric.tagged("surface", "otp"))) : Effect.void),
+        ),
+      ).pipe(Effect.withSpan("security.otp.verify"))
+    const remaining = (): Effect.Effect<number> =>
+      Effect.map(Clock.currentTimeMillis, (millis) => _PERIOD - (Math.floor(millis / 1000) % _PERIOD))
     const mintRecovery = (count: number): Effect.Effect<RecoverySet, CredentialFault> =>
       Effect.map(
         Effect.forEach(Array.range(1, count), () => digest.mint(_RECOVERY_ALPHABET, 10)),
         (pairs) => new RecoverySet({ codes: Array.map(pairs, (pair) => pair.secret), digests: Array.map(pairs, (pair) => pair.digest) }),
       )
-    const redeem = (presented: Redacted.Redacted<string>, digests: ReadonlyArray<Redacted.Redacted<string>>): Effect.Effect<Option.Option<number>, CredentialFault> =>
-      Effect.map(
-        digest.resolve(presented, Array.map(digests, (held, index) => ({ held, index })), (row) => row.held),
-        Option.map((row) => row.index),
+    const redeem = (subject: string, presented: Redacted.Redacted<string>, digests: ReadonlyArray<Redacted.Redacted<string>>): Effect.Effect<Option.Option<number>, CredentialFault> =>
+      _throttled(subject, "recovery")(
+        Effect.map(
+          digest.resolve(presented, Array.map(digests, (held, index) => ({ held, index })), (row) => row.held),
+          Option.map((row) => row.index),
+        ).pipe(Effect.tap((hit) => Option.isNone(hit) ? Metric.increment(_rejected.pipe(Metric.tagged("surface", "recovery"))) : Effect.void)),
       )
-    return { enroll, verify: verify_, mintRecovery, redeem } as const
+    return { enroll, verify: verify_, remaining, mintRecovery, redeem } as const
   }),
   dependencies: [Crypto.Default],
   accessors: true,
@@ -145,16 +179,18 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
 ## [4]-[MACHINE_KEY]
 
 [MACHINE_KEY]:
-- Owner: `ApiKey.mint` issues `rk_<prefix>.<secret>` and stores its digest through `Digest.mint`; `ApiKey.resolve` splits the prefix, loads the prefix-indexed candidates, resolves through `Digest.resolve`, checks lifecycle, and touches `lastUsedAt`; `ApiKey.rotate` revokes and re-mints for the same subject; `ApiKey.revoke` timestamps. `ApiKeyRecord` is the stored credential, `MintReceipt` the one-time plaintext, `ApiKeyStore` the prefix-indexed port. One polymorphic `resolve` dispatches on the presented value, never a `getByKey`/`verifyKey` twin.
+- Owner: `ApiKey.mint` issues `rk_<prefix>.<secret>` and stores its digest through `Digest.mint`; `ApiKey.resolve` decodes the wire frame through the `_KeyWire` parser, loads the prefix-indexed candidates under the per-prefix budget, resolves through `Digest.resolve`, gates lifecycle through `filterOrFail`, and touches `lastUsedAt`; `ApiKey.rotate` revokes and re-mints for the same subject; `ApiKey.revoke` timestamps. `ApiKeyRecord` is the stored credential, `MintReceipt` the one-time plaintext, `ApiKeyStore` the prefix-indexed port. `CurrentApiKey`/`ApiKeyGuard` are the declarative scheme seam — the middleware Tag carries `HttpApiSecurity.apiKey` on the `x-api-key` header, its implementation folds `resolve`, and the runtime serve wave mounts it so a machine-keyed endpoint receives the resolved record through the requirement channel. One polymorphic `resolve` dispatches on the presented value, never a `getByKey`/`verifyKey` twin.
 - Law: the plaintext leaves only through `MintReceipt`; the digest is the PHC the `apiKey` cost row governs; a revoked or expired record is a typed fault, never a silent accept; the resolve reuses `Digest.resolve` so the candidate scan is the shared idiom, not a re-implementation.
-- Law: `resolve` amortizes over the public prefix — a full-table scan is the rejected naive form, and the prefix index bounds the candidate set the constant-time verify walks.
+- Law: `resolve` amortizes over the public prefix and is throttled by it — the prefix-keyed token-bucket budget bounds a stolen-prefix guessing campaign, `RateLimitExceeded` folds to `throttled`, and a scan miss increments `security_credential_reject` tagged `apikey`.
 - Receipt: `MintReceipt` on mint/rotate (the subject and scopes the edge lifts into a principal), `ApiKeyRecord` on resolve — never a bare boolean.
 - Growth: a new credential facet (a description, an IP allowlist) is one `ApiKeyRecord` field; a new failure mode is one `CredentialFault` reason.
-- Boundary: the data wave satisfies `ApiKeyStore`; the edge lifts the resolved record's subject and scopes into a request principal; `Digest`/`crypt/sign` own the mint and verify; this page authenticates a machine and hands the subject on — it mints no session.
-- Packages: `Digest` (mint/resolve); `effect` (`DateTime`, `Duration`, `Effect`, `Option`, `Redacted`, `Schema`).
+- Boundary: the data wave satisfies `ApiKeyStore` and the limiter store; the edge lifts the resolved record's subject and scopes into a request principal; `Digest`/`crypt/sign` own the mint and verify; this page authenticates a machine and hands the subject on — it mints no session.
+- Packages: `Digest` (mint/resolve); `@effect/experimental` (`RateLimiter`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`DateTime`, `Duration`, `Effect`, `Metric`, `Option`, `Redacted`, `Schema`).
 
 ```typescript
 const _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+const _KeyWire = Schema.TemplateLiteralParser("rk_", Schema.String, ".", Schema.String)
 
 class ApiKeyRecord extends Schema.Class<ApiKeyRecord>("ApiKeyRecord")({
   id: Schema.UUID,
@@ -181,24 +217,25 @@ class ApiKeyStore extends Context.Tag("security/authn/ApiKeyStore")<ApiKeyStore,
   readonly revoke: (id: string, at: DateTime.Utc) => Effect.Effect<void, CredentialFault>
 }>() {}
 
-const _prefixOf = (presented: string): Option.Option<string> => {
-  const dot = presented.indexOf(".")
-  return dot > 0 ? Option.some(presented.slice(0, dot)) : Option.none()
-}
+class CurrentApiKey extends Context.Tag("security/authn/CurrentApiKey")<CurrentApiKey, ApiKeyRecord>() {}
 
 class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
   effect: Effect.gen(function* () {
     const cipher = yield* Crypto
     const store = yield* ApiKeyStore
     const digest = _digest(cipher)
+    const limit = yield* RateLimiter.makeWithRateLimiter
+    const window = yield* Config.duration("APIKEY_RATE_WINDOW").pipe(Config.withDefault(Duration.minutes(1)))
+    const budget = yield* Config.integer("APIKEY_RATE_LIMIT").pipe(Config.withDefault(30))
     const mint = (subject: string, name: string, scopes: ReadonlyArray<string>, ttl: Option.Option<Duration.DurationInput>): Effect.Effect<MintReceipt, CredentialFault> =>
       Effect.gen(function* () {
         const now = yield* DateTime.now
+        const id = yield* cipher.uuid().pipe(Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })))
         const prefixBody = yield* cipher.token(_ALPHABET, 8).pipe(Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })))
         const prefix = `rk_${Redacted.value(prefixBody)}`
         const minted = yield* digest.mint(_ALPHABET, 40)
         const record = new ApiKeyRecord({
-          id: crypto.randomUUID(), prefix, subject, digest: minted.digest, name, scopes, createdAt: now,
+          id, prefix, subject, digest: minted.digest, name, scopes, createdAt: now,
           expiresAt: Option.map(ttl, (input) => DateTime.addDuration(now, input)), revokedAt: Option.none(), lastUsedAt: Option.none(),
         })
         yield* store.insert(record)
@@ -206,22 +243,35 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
       })
     const resolve = (presented: Redacted.Redacted<string>): Effect.Effect<ApiKeyRecord, CredentialFault> =>
       Effect.gen(function* () {
-        const raw = Redacted.value(presented)
-        const prefix = yield* Option.match(_prefixOf(raw), { onNone: () => Effect.fail(new CredentialFault({ reason: "malformed", detail: "no prefix" })), onSome: Effect.succeed })
-        const secret = Redacted.make(raw.slice(prefix.length + 1))
-        const candidates = yield* store.byPrefix(prefix)
-        const record = yield* Effect.flatMap(
-          digest.resolve(secret, candidates, (candidate) => candidate.digest),
-          Option.match({ onNone: () => Effect.fail(new CredentialFault({ reason: "notFound", detail: prefix })), onSome: Effect.succeed }),
-        )
-        yield* Option.isSome(record.revokedAt) ? Effect.fail(new CredentialFault({ reason: "revoked", detail: record.id })) : Effect.void
-        const now = yield* DateTime.now
-        yield* Option.match(record.expiresAt, { onNone: () => false, onSome: (exp) => DateTime.greaterThan(now, exp) })
-          ? Effect.fail(new CredentialFault({ reason: "expired", detail: record.id }))
-          : Effect.void
-        yield* store.touch(record.id, now)
-        return record
-      })
+        const [, prefixBody, , secret] = yield* Schema.decode(_KeyWire)(Redacted.value(presented)).pipe(
+          Effect.mapError(() => new CredentialFault({ reason: "malformed", detail: "malformed key frame" })))
+        const prefix = `rk_${prefixBody}`
+        return yield* limit({ algorithm: "token-bucket", onExceeded: "fail", window, limit: budget, key: `apikey:${prefix}` })(
+          Effect.gen(function* () {
+            const candidates = yield* store.byPrefix(prefix)
+            const record = yield* Effect.flatMap(
+              digest.resolve(Redacted.make(secret), candidates, (candidate) => candidate.digest),
+              Option.match({
+                onNone: () =>
+                  Effect.zipRight(
+                    Metric.increment(_rejected.pipe(Metric.tagged("surface", "apikey"))),
+                    Effect.fail(new CredentialFault({ reason: "notFound", detail: prefix }))),
+                onSome: Effect.succeed,
+              }),
+            )
+            const now = yield* DateTime.now
+            yield* Effect.succeed(record).pipe(
+              Effect.filterOrFail((held) => Option.isNone(held.revokedAt), () => new CredentialFault({ reason: "revoked", detail: record.id })),
+              Effect.filterOrFail((held) => !Option.exists(held.expiresAt, (exp) => DateTime.greaterThan(now, exp)), () => new CredentialFault({ reason: "expired", detail: record.id })),
+            )
+            yield* store.touch(record.id, now)
+            return record
+          }),
+        ).pipe(Effect.catchTags({
+          RateLimitExceeded: () => Effect.fail(new CredentialFault({ reason: "throttled", detail: prefix })),
+          RateLimitStoreError: (error) => Effect.fail(new CredentialFault({ reason: "throttled", detail: String(error) })),
+        }))
+      }).pipe(Effect.withSpan("security.apikey.resolve"))
     const rotate = (id: string, subject: string, name: string, scopes: ReadonlyArray<string>, ttl: Option.Option<Duration.DurationInput>): Effect.Effect<MintReceipt, CredentialFault> =>
       Effect.flatMap(DateTime.now, (now) => Effect.zipRight(store.revoke(id, now), mint(subject, name, scopes, ttl)))
     const revoke = (id: string): Effect.Effect<void, CredentialFault> => Effect.flatMap(DateTime.now, (now) => store.revoke(id, now))
@@ -231,8 +281,19 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
   accessors: true,
 }) {}
 
+class ApiKeyGuard extends HttpApiMiddleware.Tag<ApiKeyGuard>()("security/authn/ApiKeyGuard", {
+  provides: CurrentApiKey,
+  failure: CredentialFault,
+  security: { apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }) },
+}) {
+  static readonly Live: Layer.Layer<ApiKeyGuard, never, ApiKey> = Layer.effect(
+    ApiKeyGuard,
+    Effect.map(ApiKey, (keys) => ({ apiKey: (presented: Redacted.Redacted<string>) => keys.resolve(presented) })),
+  )
+}
+
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { ApiKey, ApiKeyRecord, ApiKeyStore, CredentialFault, MintReceipt, Otp, RecoverySet }
+export { ApiKey, ApiKeyGuard, ApiKeyRecord, ApiKeyStore, CredentialFault, CurrentApiKey, MintReceipt, Otp, RecoverySet }
 export type { OtpVerdict }
 ```

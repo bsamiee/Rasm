@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
-import { Array, Effect, Option, Record, Schema } from 'effect';
+import { Array, Effect, Option, Order, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
@@ -26,6 +26,46 @@ const _FACTS = [
 // A counterfeit manifest missing every fact: each pattern must refuse it, or the fact row is a tautology.
 const _COUNTERFEIT = "catalogMode: loose\npackages:\n- 'apps/*'\npeerDependencyRules:\nallowedVersions:\n";
 
+// The [04] promotion layer: every doctrine anti-pattern no compiler flag or shipped Biome rule
+// rejects is one GritQL rule at error under tools/biome/ — this roster is the law biome.json realizes.
+const _PROMOTED = [
+    'no-arity-sibling',
+    'no-barrel-reexport',
+    'no-domain-throw',
+    'no-mutable-accumulation',
+    'no-nullable-return',
+    'no-rename-wrapper',
+    'no-run-in-domain',
+    'no-standalone-brand',
+    'no-stdlib-in-domain',
+] as const;
+
+// Laws a single-pattern rule cannot express (cross-declaration shape comparison, naming judgment,
+// composition review): review-owned by declaration, so a missing rule is a ruling, never an oversight.
+const _REVIEW_ONLY = [
+    'anticipatory-collapse',
+    'composed-implementation',
+    'const-type-restatement',
+    'inline-composition',
+    'parallel-schema-beside-owner',
+    'parallel-union-vs-vocabulary',
+    'semantic-naming',
+] as const;
+
+// Every promoted rule binds the domain estate and exempts the spec dialects.
+const _PLUGIN_SCOPE = ['libs/typescript/**', '!**/*.spec.ts', '!**/*.test.ts', '!**/*.bench.ts'] as const;
+
+// The type-aware, import-graph, and test domains stay armed at recommended.
+const _DOMAINS = ['project', 'test', 'types'] as const;
+
+// A rule file is armed only when it registers an error diagnostic and carries both proof spans.
+const _ARMED = [
+    { mark: 'registers a diagnostic', want: /register_diagnostic\(/ },
+    { mark: 'promotes at error', want: /severity\s*=\s*"error"/ },
+    { mark: 'carries its firing span', want: /\/\/ FIRES:/ },
+    { mark: 'carries its non-firing span', want: /\/\/ CLEAN:/ },
+] as const;
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
 const _Pins = Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { default: () => ({}) });
@@ -36,9 +76,46 @@ const _Manifest = Schema.Struct({
     peerDependencies: _Pins,
 });
 
+const _Biome = Schema.Struct({
+    plugins: Schema.Array(Schema.Struct({ path: Schema.String, includes: Schema.Array(Schema.String) })),
+    linter: Schema.Struct({
+        domains: Schema.Record({ key: Schema.String, value: Schema.String }),
+        rules: Schema.Struct({
+            preset: Schema.String,
+            suspicious: Schema.Struct({ noExplicitAny: Schema.String }),
+        }),
+    }),
+});
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const _decode = Schema.decodeUnknown(Schema.parseJson(_Manifest));
+
+const _decodeBiome = Schema.decodeUnknown(Schema.parseJson(_Biome));
+
+// The lint-legislature predicate: one violation list over the decoded config, falsifiable in isolation.
+const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
+    Array.flatten([
+        config.linter.rules.preset === 'recommended' ? [] : ['linter.rules.preset must hold the recommended preset'],
+        config.linter.rules.suspicious.noExplicitAny === 'error' ? [] : ['suspicious.noExplicitAny must be legislated at error, never inherited'],
+        Array.filterMap(_DOMAINS, (domain) =>
+            config.linter.domains[domain] === 'recommended' ? Option.none() : Option.some(`linter.domains.${domain} must be recommended`),
+        ),
+        Array.filterMap(_PROMOTED, (rule) =>
+            Array.some(config.plugins, (plugin) => plugin.path === `./tools/biome/${rule}.grit`)
+                ? Option.none()
+                : Option.some(`promoted rule ${rule} is missing from plugins`),
+        ),
+        Array.filterMap(config.plugins, (plugin) =>
+            Array.every(_PLUGIN_SCOPE, (glob) => Array.some(plugin.includes, (own) => own === glob))
+                ? Option.none()
+                : Option.some(`${plugin.path} must scope [${_PLUGIN_SCOPE.join(', ')}]`),
+        ),
+    ]);
+
+// The armed-rule predicate over one .grit text.
+const _disarmed = (rule: string, text: string): ReadonlyArray<string> =>
+    Array.filterMap(_ARMED, (row) => (row.want.test(text) ? Option.none() : Option.some(`${rule} never ${row.mark}`)));
 
 // Version facts live only in pnpm-workspace.yaml: a spec-estate dependency resolves through the catalog or the workspace graph.
 const _admitted = (pin: string): boolean => pin === 'catalog:' || pin.startsWith('workspace:');
@@ -120,6 +197,27 @@ layer(NodeContext.layer)('workspace admission', (it) => {
         }),
     );
 
+    it.effect('the promotion layer is legislated: config law holds, the rule roster matches disk, every rule is armed', () =>
+        Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const config = yield* Effect.orDie(_decodeBiome(yield* fs.readFileString(path.join(_ROOT, 'biome.json'))));
+            expect(_legislated(config)).toEqual([]);
+            const home = path.join(_ROOT, 'tools/biome');
+            const onDisk = Array.sort(
+                Array.filterMap(yield* fs.readDirectory(home), (name) =>
+                    name.endsWith('.grit') ? Option.some(name.slice(0, -'.grit'.length)) : Option.none(),
+                ),
+                Order.string,
+            );
+            expect(onDisk).toEqual([..._PROMOTED]);
+            const dead = yield* Effect.forEach(_PROMOTED, (rule) =>
+                Effect.map(fs.readFileString(path.join(home, `${rule}.grit`)), (text) => _disarmed(rule, text)),
+            );
+            expect(Array.flatten(dead)).toEqual([]);
+        }),
+    );
+
     it.effect('a package holds one canonical catalog; every extra copy is a declared overlay naming it', () =>
         Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
@@ -159,8 +257,48 @@ describe('admission predicates', () => {
         expect(undead).toEqual([]);
     });
 
+    it('the legislature predicate refuses a downgraded config on every axis', () => {
+        const lawful = {
+            plugins: Array.map(_PROMOTED, (rule) => ({ path: `./tools/biome/${rule}.grit`, includes: [..._PLUGIN_SCOPE] })),
+            linter: {
+                domains: { project: 'recommended', test: 'recommended', types: 'recommended' },
+                rules: { preset: 'recommended', suspicious: { noExplicitAny: 'error' } },
+            },
+        };
+        expect(_legislated(lawful)).toEqual([]);
+        expect(_legislated({ ...lawful, plugins: Array.drop(lawful.plugins, 1) })).not.toEqual([]);
+        expect(_legislated({ ...lawful, plugins: Array.map(lawful.plugins, (row) => ({ ...row, includes: ['libs/typescript/**'] })) })).not.toEqual(
+            [],
+        );
+        expect(
+            _legislated({ ...lawful, linter: { ...lawful.linter, rules: { preset: 'all', suspicious: { noExplicitAny: 'error' } } } }),
+        ).not.toEqual([]);
+        expect(
+            _legislated({ ...lawful, linter: { ...lawful.linter, rules: { preset: 'recommended', suspicious: { noExplicitAny: 'warn' } } } }),
+        ).not.toEqual([]);
+        expect(_legislated({ ...lawful, linter: { ...lawful.linter, domains: { project: 'recommended', test: 'recommended' } } })).not.toEqual([]);
+    });
+
+    it('the armed predicate refuses a rule with no error severity or missing proof spans', () => {
+        const armed =
+            'language js(typescript, jsx)\n// FIRES: throw new Error(x)\n// CLEAN: Effect.fail(new Fault())\n`throw $e` where {\n register_diagnostic(span=$e, message="m", severity="error")\n}';
+        expect(_disarmed('specimen', armed)).toEqual([]);
+        expect(_disarmed('specimen', armed.replace('severity="error"', 'severity="warn"'))).not.toEqual([]);
+        expect(_disarmed('specimen', armed.replace('// FIRES:', '//'))).not.toEqual([]);
+        expect(_disarmed('specimen', armed.replace('// CLEAN:', '//'))).not.toEqual([]);
+        expect(_disarmed('specimen', 'language js(typescript, jsx)\n`throw $e`')).not.toEqual([]);
+    });
+
+    it('the promoted and review-only rosters split the law set with no overlap', () => {
+        const promoted: ReadonlyArray<string> = _PROMOTED;
+        const doubled = Array.filter(_REVIEW_ONLY, (law) => Array.some(promoted, (rule) => rule === law));
+        expect(doubled).toEqual([]);
+    });
+
     it('the overlay mark separates a declared overlay from a second canonical', () => {
-        expect(_overlay('apache-arrow.md').test('the branch catalogue is the ui folder (`libs/typescript/ui/.api/apache-arrow.md`); seam facts only')).toBe(true);
+        expect(
+            _overlay('apache-arrow.md').test('the branch catalogue is the ui folder (`libs/typescript/ui/.api/apache-arrow.md`); seam facts only'),
+        ).toBe(true);
         expect(_overlay('apache-arrow.md').test('# [apache-arrow] — the one columnar wire of the data plane')).toBe(false);
     });
 });

@@ -1,0 +1,17 @@
+language js(typescript, jsx)
+
+// CAPABILITY_CHANNEL promotion. Trigger: an Effect run call inside library code. Predicate: any
+// runSync/runPromise/runFork family call — a library composes effects and Layers; only an app entry
+// or a config anchor executes them. Exemption: spec and bench files ride the plugin's negated
+// include globs; config anchors sit outside the plugin scope.
+// FIRES: export const live = Effect.runSync(Journal.open(path));
+// CLEAN: export const JournalLive = Layer.scoped(Journal, open(path));
+or {
+    `Effect.runSync($_)`,
+    `Effect.runSyncExit($_)`,
+    `Effect.runPromise($_)`,
+    `Effect.runPromiseExit($_)`,
+    `Effect.runFork($_)`
+} as $hit where {
+    register_diagnostic(span=$hit, message="Effect executed inside library code. A library returns effects and Layers on the R channel; the app entry owns the one run call.", severity="error")
+}

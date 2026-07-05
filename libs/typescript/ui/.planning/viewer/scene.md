@@ -1,6 +1,6 @@
 # [UI_SCENE]
 
-The GLB scene owner: content-key-keyed mesh residency rendered through one of two backends behind one `Schema.Literal` discriminant — the imperative `three` scene (custom materials, instancing, animation, compute, receipts) or the declarative `<model-viewer>` embed (zero GL handle) — with every mesh byte arriving through the `GlbViewport` port this module declares and the app composition satisfies by forwarding `runtime/browser/fetch#DEPOT_SCHEDULER`'s `Depot.haul` arrivals and ledger. The graft fold keeps GLB animation alive (one mixer per animated subtree under one `Clock`), collapses draw calls through merge/instanced/batched rows, and binds the C#-owned OpenPBR algebra field-for-field onto `MeshPhysicalMaterial` lobes with color crossing the linear seam through the one `system/token` authority. Georeferenced element instancing rides the `@deck.gl/mesh-layers` pair as layer values `geo` sinks. GPU resources are `Scope`-bracketed without exception, the frame loop parks under `system/act#DOCUMENT_RAIL`'s hidden `<Activity>` row, faults ride one `GlbFault` family over a closed reason vocabulary, and meshopt decode stays gated `[R23]`. The module is `ui/viewer/src/scene.ts`.
+The GLB scene owner: content-key-keyed mesh residency rendered through one of two backends behind one `Schema.Literal` discriminant — the imperative `three` scene (custom materials, instancing, animation, compute, receipts) or the declarative `<model-viewer>` embed (zero GL handle) — with every mesh byte arriving through the `GlbViewport` port this module declares and the app composition satisfies by forwarding `runtime/browser/fetch#DEPOT_SCHEDULER`'s `Depot.haul` arrivals and ledger. The renderer acquisition owns the ONE `GPUDevice` and publishes it for every compute adopter — `three/tsl` scene-resident kernels and `typegpu` standalone kernels share it, split by scene residency. The graft fold keeps GLB animation alive (one mixer per animated subtree under one `Clock`, derived from the one `Ref` ledger), broadcasts the arrival feed to graft, census, and telemetry lanes, collapses draw calls through merge/instanced/batched rows, and binds the C#-owned OpenPBR algebra field-for-field onto `MeshPhysicalMaterial` lobes with color crossing the linear seam through the one `system/token` authority. Georeferenced element instancing rides the `@deck.gl/mesh-layers` pair as layer values `geo` sinks. GPU resources are `Scope`-bracketed without exception, the frame loop parks under `system/act#DOCUMENT_RAIL`'s hidden `<Activity>` row, the backend lifecycle is a `Machine` statechart bound through the atom bridge, faults ride one `GlbFault` family over a closed reason vocabulary, and meshopt decode stays gated `[R23]`. The module is `ui/viewer/src/scene.ts`.
 
 ## [1]-[CLUSTERS]
 
@@ -81,19 +81,22 @@ class GlbFault extends Data.TaggedError("GlbFault")<{
 ## [4]-[BACKEND_SELECT]
 
 [BACKEND_SELECT]:
-- Owner: the closed backend vocabulary (`three` | `model-viewer`) spread from one `as const` tuple into `Schema.Literal`, and the `three` arm's renderer acquisition under `Effect.acquireRelease`: probe `navigator.gpu`, construct `WebGPURenderer` and await `init()` when present (feature-gating through `renderer.hasFeature` post-init), else `WebGLRenderer` — a refused `init()` on a present-but-broken adapter degrades to the same WebGL floor at the acquisition, so `backend-lost` stays reserved for a lost LIVE device and the probe never faults the channel; the output policy row (`outputColorSpace`, `toneMapping`, `toneMappingExposure`) stamps at construction; release disposes — three has no GPU garbage collection, so the finalizer IS memory correctness.
-- Packages: `three` (`WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMapping`, the light classes); `three/webgpu` (`WebGPURenderer`); `effect` (`Effect`, `Schema`); `@webgpu/types` (ambient, a viewer-tsconfig `types` entry, never an import).
-- Law: one usage contract over both renderer backends — scene, camera, and loop code are backend-agnostic after construction; the WebGPU upgrade is a construction-site swap, never a scene rewrite.
-- Law: lighting is a rig of rows — the analytic light vocabulary (`ambient`, `hemisphere`, `directional`) is one `as const` table materialized by one fold beside the IBL bake (`PMREMGenerator.fromScene(RoomEnvironment())` serving `scene.environment` once); a hand-placed light outside the rig table, or per-frame IBL work, is the named defect.
+- Owner: the closed backend vocabulary (`three` | `model-viewer`) spread from one `as const` tuple into `Schema.Literal`, and the `three` arm's renderer acquisition under `Effect.acquireRelease`: probe `navigator.gpu`, acquire the ONE `GPUDevice` (`requestAdapter` → `requestDevice`), construct `WebGPURenderer({ canvas, device })` and await `init()` (feature-gating through `renderer.hasFeature` post-init), else `WebGLRenderer` — a refused acquisition on a present-but-broken adapter degrades to the same WebGL floor, so `backend-lost` stays reserved for a lost LIVE device and the probe never faults the channel; the acquisition returns `{ renderer, device }` with the device as an `Option` — the published seam the compute lane, the probe hash kernel, and any `tgpu.initFromDevice` adopter share, one device, one memory space, zero readback round-trips; the output policy row (`outputColorSpace`, tone map selected from the `_TONE` vocabulary, `toneMappingExposure`) stamps at construction; release disposes — three has no GPU garbage collection, so the finalizer IS memory correctness.
+- Packages: `three` (`WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMapping`/`AgXToneMapping`/`NeutralToneMapping`, the light classes incl. `RectAreaLight`/`LightProbe`); `three/webgpu` (`WebGPURenderer`); `effect` (`Effect`, `Option`, `Schema`); `@webgpu/types` (ambient, a viewer-tsconfig `types` entry, never an import).
+- Law: one usage contract over both renderer backends — scene, camera, and loop code are backend-agnostic after construction; the WebGPU upgrade is a construction-site swap, never a scene rewrite; the `scope:viewer` tier itself is `lazy(() => import(…))` behind `Suspense` so the non-spatial majority never downloads three.
+- Law: tone mapping is a vocabulary row, never a constant — `_TONE` carries `aces`/`agx`/`neutral`, the output policy names one, and a per-scene override is one policy value; hardcoding a tone-map enum at a construction site is the named defect.
+- Law: lighting is a rig of rows — the analytic light vocabulary (`ambient`, `hemisphere`, `directional`, `rect`, `probe`) is one `as const` table materialized by one fold beside the IBL bake (`PMREMGenerator.fromScene(RoomEnvironment())` serving `scene.environment` once); `rect` is the analytic area source for interior shots, `probe` the baked irradiance anchor; a hand-placed light outside the rig table, or per-frame IBL work, is the named defect.
 - Law: texture upload is eager — `renderer.initTexture(texture)` runs at graft time for every decoded texture so the first frame that samples it never hitches; lazy first-use upload is the named defect on large residency sets.
-- Law: the compute lane is WebGPU-gated — per-instance culling and skinning land as `computeAsync` passes over `StorageBufferNode` buffers when the selected backend carries the feature, authored through `three/tsl` node graphs; the WebGL arm renders the same scene without the pass, and a compute result feeding appearance is `[6]`'s debug-view boundary, never OpenPBR algebra.
+- Law: the compute lane is WebGPU-gated and altitude-split — scene-resident kernels (per-instance culling, skinning) are `three/tsl` node graphs over `StorageBufferNode`/`instancedArray` dispatched through `computeAsync`, driving `[6]`'s `setVisibleAt` rows; compute WITHOUT a scene consumer (probe hashing, mark lasso folds) adopts the published device through `tgpu.initFromDevice({ device })` with `root.unwrap(buffer)` at the seam — two altitudes of one concern split by scene residency, never two engines on one kernel; the WebGL arm renders the same scene without the pass, and a compute result feeding appearance is `[7]`'s debug-view boundary, never OpenPBR algebra.
+- Law: the backend lifecycle is a statechart, not scattered arms — boot → ready → degraded (WebGL floor) → backend-lost → re-init is a serializable `Machine` whose actor state binds through `system/atom#LIVE_BRIDGE`'s `Atom.subscribable` row and snapshots across remounts; the `GlbFault` policy table supplies the transition guards, and residency state survives re-init because the graft ledger is renderer-independent.
 - Law: the loop parks under `<Activity>` hidden — `setAnimationLoop(null)` on hide, re-arm on visible (`system/act#DOCUMENT_RAIL` consumed as settled); a loop burning under a hidden viewport is the named defect.
 - Boundary: camera drive is `geo`'s; receipt readback and `compileAsync` settle discipline are `probe`'s; the `<canvas>` element arrives as a parameter from the app shell.
 
 ```typescript
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 import {
-  ACESFilmicToneMapping, AmbientLight, DirectionalLight, HemisphereLight, SRGBColorSpace, WebGLRenderer,
+  ACESFilmicToneMapping, AgXToneMapping, AmbientLight, DirectionalLight, HemisphereLight, LightProbe,
+  NeutralToneMapping, RectAreaLight, SRGBColorSpace, WebGLRenderer,
 } from "three"
 import type { Light, Scene } from "three"
 import { WebGPURenderer } from "three/webgpu"
@@ -102,21 +105,28 @@ const _backends = ["three", "model-viewer"] as const
 
 const _Backend = Schema.Literal(..._backends)
 
-const _OUTPUT = { colorSpace: SRGBColorSpace, toneMapping: ACESFilmicToneMapping, exposure: 1 } as const
+const _TONE = { aces: ACESFilmicToneMapping, agx: AgXToneMapping, neutral: NeutralToneMapping } as const
+
+const _OUTPUT = { colorSpace: SRGBColorSpace, tone: "agx" as keyof typeof _TONE, exposure: 1 } as const
 
 const _RIG = {
   ambient: { color: 0xffffff, intensity: 0.3 },
   hemisphere: { sky: 0xffffff, ground: 0x444444, intensity: 0.6 },
   directional: { color: 0xffffff, intensity: 1.2, position: [4, 8, 4] },
+  rect: { color: 0xffffff, intensity: 2.4, width: 4, height: 2 },
+  probe: { intensity: 1 },
 } as const
 
 const _lit = (root: Scene): Scene => {
+  // BOUNDARY ADAPTER
   const sun = new DirectionalLight(_RIG.directional.color, _RIG.directional.intensity)
   sun.position.set(_RIG.directional.position[0], _RIG.directional.position[1], _RIG.directional.position[2])
   const rows: ReadonlyArray<Light> = [
     new AmbientLight(_RIG.ambient.color, _RIG.ambient.intensity),
     new HemisphereLight(_RIG.hemisphere.sky, _RIG.hemisphere.ground, _RIG.hemisphere.intensity),
     sun,
+    new RectAreaLight(_RIG.rect.color, _RIG.rect.intensity, _RIG.rect.width, _RIG.rect.height),
+    new LightProbe(undefined, _RIG.probe.intensity),
   ]
   return rows.reduce((held, light) => held.add(light), root)
 }
@@ -124,40 +134,51 @@ const _lit = (root: Scene): Scene => {
 const _renderer = (canvas: HTMLCanvasElement) =>
   Effect.acquireRelease(
     Effect.gen(function* () {
-      const built = globalThis.navigator.gpu === undefined
-        ? new WebGLRenderer({ canvas, antialias: true })
+      const acquired = globalThis.navigator.gpu === undefined
+        ? Option.none<GPUDevice>()
         : yield* Effect.tryPromise({
             try: async () => {
-              const gpu = new WebGPURenderer({ canvas, antialias: true })
+              const adapter = await globalThis.navigator.gpu.requestAdapter()
+              return adapter === null ? Option.none<GPUDevice>() : Option.some(await adapter.requestDevice())
+            },
+            catch: () => new GlbFault({ reason: "backend-lost", mesh: "<boot>", detail: "<device-refused>" }),
+          }).pipe(Effect.orElseSucceed(() => Option.none<GPUDevice>()))
+      const built = yield* Option.match(acquired, {
+        onNone: () => Effect.succeed(new WebGLRenderer({ canvas, antialias: true })),
+        onSome: (device) =>
+          Effect.tryPromise({
+            try: async () => {
+              const gpu = new WebGPURenderer({ canvas, antialias: true, device })
               await gpu.init()
               return gpu
             },
             catch: () => new GlbFault({ reason: "backend-lost", mesh: "<boot>", detail: "<webgpu-init>" }),
-          }).pipe(Effect.orElseSucceed(() => new WebGLRenderer({ canvas, antialias: true })))
+          }).pipe(Effect.orElseSucceed(() => new WebGLRenderer({ canvas, antialias: true }))),
+      })
       built.outputColorSpace = _OUTPUT.colorSpace
-      built.toneMapping = _OUTPUT.toneMapping
+      built.toneMapping = _TONE[_OUTPUT.tone]
       built.toneMappingExposure = _OUTPUT.exposure
-      return built
+      return { renderer: built, device: built instanceof WebGLRenderer ? Option.none<GPUDevice>() : acquired }
     }),
-    (renderer) => Effect.sync(() => renderer.dispose()),
+    ({ renderer }) => Effect.sync(() => renderer.dispose()),
   )
 ```
 
 ## [5]-[RESIDENCY_GRAFT]
 
 [RESIDENCY_GRAFT]:
-- Owner: `Glb.graft` — the residency fold over the port: one `Scene` roots the graph, an interior ledger (`HashMap<ContentKey, Glb.Graft>`) tracks grafted subtrees, and two arms drive it concurrently — the arrival arm parses verified octets through the ONE codec-injected `GLTFLoader` (`parseAsync` over the whole buffer), mints the animation half (a per-subtree `AnimationMixer` whose every `gltf.animations` clip binds through `clipAction(...).setLoop(LoopRepeat, Infinity).play()` — the loader result's animation array is retained, never discarded), grafts `gltf.scene` under the root, and registers the mixer on the loop roster; the eviction arm diffs the port ledger's `evicted` rows against held grafts, removes the subtree, tears the mixer down (`stopAllAction` then `uncacheRoot`) and walks it through the disposal kernel before the interior ledger drops the key. The returned `Glb.Loop.advance(delta)` is the one tick the frame loop calls — every live mixer advances under one `Clock` delta.
-- Packages: `three` (`Scene`, `Mesh`, `AnimationMixer`, `Clock`, `LoopRepeat`); `three/addons` (`GLTFLoader`); `effect` (`Effect`, `HashMap`, `Option`, `Ref`, `Stream`, `Scope`); `@rasm/ts/core` (`ContentKey`).
-- Law: codec injection is capability wiring — `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
-- Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases its geometry, every texture slot its materials hold, then the materials themselves, because `material.dispose()` frees the program and never its textures; three's `traverse` callback is the kernel's platform-forced statement seam and no reference escapes it.
+- Owner: `Glb.graft` — the residency fold over the port: one `Scene` roots the graph, ONE `Ref`-held ledger (`HashMap<ContentKey, Glb.Graft>`) is the single truth for grafted subtrees AND their mixers, and the port's arrival stream broadcasts into lanes — the graft lane parses verified octets through the ONE codec-injected `GLTFLoader` (`parseAsync` over the whole buffer), mints the animation half (a per-subtree `AnimationMixer` whose every `gltf.animations` clip binds through `clipAction(...).setLoop(LoopRepeat, Infinity).play()` — the loader result's animation array is retained, never discarded), grafts `gltf.scene` under the root, and commits the ledger atomically; the surplus lane returns on `Glb.Loop.arrivals` for the probe residency census and telemetry taps, so one source feeds many consumers without a second subscription protocol. The eviction arm diffs the port ledger's `evicted` rows against held grafts, removes the subtree, tears the mixer down (`stopAllAction` then `uncacheRoot`) and walks it through the disposal kernel before the ledger drops the key — both arms mutate ONLY the `Ref`, so the fold is race-free by construction. `Glb.Loop.advance(delta)` derives live mixers from the same ledger inside the marked frame-loop kernel — no second roster exists.
+- Packages: `three` (`Scene`, `Mesh`, `AnimationMixer`, `Clock`, `LoadingManager`, `LoopRepeat`); `three/addons` (`GLTFLoader`); `effect` (`Effect`, `HashMap`, `Option`, `Ref`, `Stream`, `Scope`); `@rasm/ts/core` (`ContentKey`).
+- Law: codec injection is capability wiring — the loader constructs over one `LoadingManager` whose `onProgress`/`onError` fold per-graft dependency progress into the residency telemetry tap; `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
+- Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases its geometry, every texture slot its materials hold, then the materials themselves, because `material.dispose()` frees the program and never its textures; three's `traverse` callback is the kernel's platform-forced statement seam, marked on its first line, and no reference escapes it.
 - Law: `preload`/`preinit` hints warm decoder wasm and imminent GLB fetches ahead of first frame (`react-dom` hint family), issued from the ledger's `pending` census, never per-mesh at draw time.
-- Exemption: the graft kernel's mixer roster is operation-local mutable state read synchronously by the frame loop — the loop callback is the platform-forced statement seam, and only the immutable ledger snapshot leaves the fold.
-- Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint.
+- Exemption: the frame-loop tick is the platform-forced synchronous seam — `advance` reads the ledger through `Effect.runSync(Ref.get(held))` inside the marked kernel (a pure sync read, total by construction) and only immutable snapshots leave the fold.
+- Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint; a new arrival consumer is one more broadcast lane, never a second port subscription.
 
 ```typescript
 import type { ContentKey } from "@rasm/ts/core"
 import { Context, Effect, HashMap, Option, Ref, Scope, Stream } from "effect"
-import { AnimationMixer, Clock, LoopRepeat, Mesh, Scene, Texture } from "three"
+import { AnimationMixer, Clock, LoadingManager, LoopRepeat, Mesh, Scene, Texture } from "three"
 import type { Object3D, PerspectiveCamera } from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 
@@ -165,10 +186,14 @@ declare namespace Glb {
   type Backend = typeof _Backend.Type
   type Graft = { readonly node: Object3D; readonly mixer: Option.Option<AnimationMixer> }
   type Ledger = HashMap.HashMap<ContentKey, Glb.Graft>
-  type Loop = { readonly advance: (delta: number) => void }
+  type Loop = {
+    readonly advance: (delta: number) => void
+    readonly arrivals: Stream.Stream<GlbViewport.Arrival, GlbFault>
+  }
 }
 
 const _dispose = (node: Object3D): void => {
+  // BOUNDARY ADAPTER
   node.traverse((child) => {
     if (child instanceof Mesh) {
       child.geometry.dispose()
@@ -188,8 +213,8 @@ const _graft = (
 ): Effect.Effect<Glb.Loop, GlbFault, Scope.Scope> =>
   Effect.gen(function* () {
     const held = yield* Ref.make(HashMap.empty<ContentKey, Glb.Graft>())
-    const roster: Array<AnimationMixer> = []
-    const insert = Stream.runForEach(port.arrivals, (arrival) =>
+    const [grafting, surplus] = yield* Stream.broadcast(port.arrivals, 2, 16)
+    const insert = Stream.runForEach(grafting, (arrival) =>
       Effect.gen(function* () {
         const gltf = yield* Effect.tryPromise({
           try: () => loader.parseAsync(arrival.octets.buffer, ""),
@@ -204,10 +229,7 @@ const _graft = (
                 return bound
               }, new AnimationMixer(gltf.scene)),
             )
-        yield* Effect.sync(() => {
-          root.add(gltf.scene)
-          Option.map(mixer, (live) => roster.push(live))
-        })
+        yield* Effect.sync(() => root.add(gltf.scene))
         yield* Ref.update(held, HashMap.set(arrival.key, { node: gltf.scene, mixer }))
       }))
     const evict = Stream.runForEach(port.ledger.changes, (rows) =>
@@ -220,21 +242,34 @@ const _graft = (
           }))
         yield* Effect.forEach(gone, ([key, graft]) =>
           Effect.zipRight(
+            Ref.update(held, HashMap.remove(key)),
             Effect.sync(() => {
               Option.map(graft.mixer, (live) => {
                 live.stopAllAction()
                 live.uncacheRoot(graft.node)
-                roster.splice(roster.indexOf(live), 1)
               })
               root.remove(graft.node)
               _dispose(graft.node)
             }),
-            Ref.update(held, HashMap.remove(key)),
           ))
       }))
     yield* Effect.forkScoped(Effect.all([insert, evict], { concurrency: 2, discard: true }))
-    return { advance: (delta) => roster.forEach((mixer) => mixer.update(delta)) }
+    return {
+      advance: (delta) => {
+        // BOUNDARY ADAPTER
+        HashMap.forEach(Effect.runSync(Ref.get(held)), (graft) =>
+          Option.map(graft.mixer, (live) => live.update(delta)))
+      },
+      arrivals: surplus,
+    }
   })
+
+const _codecs = (progress: (url: string, loaded: number, total: number) => void): GLTFLoader => {
+  // BOUNDARY ADAPTER
+  const manager = new LoadingManager()
+  manager.onProgress = progress
+  return new GLTFLoader(manager)
+}
 
 const _loop = (
   renderer: WebGLRenderer | WebGPURenderer,
@@ -306,6 +341,11 @@ import { DoubleSide, FrontSide, LinearSRGBColorSpace, type Color, type MeshPhysi
 declare namespace Pbr {
   type Bound = { readonly material: MaterialRow; readonly groups: PbrGroups }
   type Index = HashMap.HashMap<ContentKey, PbrGroups>
+  type Shape = {
+    readonly bind: typeof _bind
+    readonly index: typeof _index
+    readonly resolve: typeof _resolve
+  }
 }
 
 const _tint = (target: Color, triple: readonly [number, number, number]): Color =>
@@ -337,11 +377,7 @@ const _index = (groups: ReadonlyArray<PbrGroups>): Pbr.Index =>
 const _resolve = (index: Pbr.Index, material: MaterialRow): Option.Option<Pbr.Bound> =>
   Option.map(HashMap.get(index, material.groups), (groups) => ({ material, groups }))
 
-const Pbr: {
-  readonly bind: typeof _bind
-  readonly index: typeof _index
-  readonly resolve: typeof _resolve
-} = { bind: _bind, index: _index, resolve: _resolve }
+const Pbr: Pbr.Shape = { bind: _bind, index: _index, resolve: _resolve }
 ```
 
 ## [8]-[INSTANCED_ROWS]
@@ -366,6 +402,10 @@ declare namespace Instanced {
     readonly yaw: number
     readonly scale: readonly [number, number, number]
     readonly tint: Color
+  }
+  type Shape = {
+    readonly mesh: typeof _mesh
+    readonly scene: typeof _scene
   }
 }
 
@@ -394,10 +434,7 @@ const _scene = (id: string, scenegraph: string, anchors: ReadonlyArray<Instanced
     sizeScale: 1,
   })
 
-const Instanced: {
-  readonly mesh: typeof _mesh
-  readonly scene: typeof _scene
-} = { mesh: _mesh, scene: _scene }
+const Instanced: Instanced.Shape = { mesh: _mesh, scene: _scene }
 ```
 
 ## [9]-[EMBED_ROW]
@@ -428,27 +465,35 @@ const _embed = (element: ModelViewerElement, octets: Uint8Array) =>
     (url) => Effect.sync(() => URL.revokeObjectURL(url)),
   )
 
-const Glb: {
-  readonly Backend: typeof _Backend
-  readonly backends: typeof _backends
-  readonly output: typeof _OUTPUT
-  readonly rig: typeof _RIG
-  readonly lit: typeof _lit
-  readonly renderer: typeof _renderer
-  readonly graft: typeof _graft
-  readonly loop: typeof _loop
-  readonly instanced: typeof _instanced
-  readonly batched: typeof _batched
-  readonly merged: typeof _merged
-  readonly pinned: typeof _pinned
-  readonly embed: typeof _embed
-} = {
+declare namespace Glb {
+  type Shape = {
+    readonly Backend: typeof _Backend
+    readonly backends: typeof _backends
+    readonly tone: typeof _TONE
+    readonly output: typeof _OUTPUT
+    readonly rig: typeof _RIG
+    readonly lit: typeof _lit
+    readonly renderer: typeof _renderer
+    readonly codecs: typeof _codecs
+    readonly graft: typeof _graft
+    readonly loop: typeof _loop
+    readonly instanced: typeof _instanced
+    readonly batched: typeof _batched
+    readonly merged: typeof _merged
+    readonly pinned: typeof _pinned
+    readonly embed: typeof _embed
+  }
+}
+
+const Glb: Glb.Shape = {
   Backend: _Backend,
   backends: _backends,
+  tone: _TONE,
   output: _OUTPUT,
   rig: _RIG,
   lit: _lit,
   renderer: _renderer,
+  codecs: _codecs,
   graft: _graft,
   loop: _loop,
   instanced: _instanced,

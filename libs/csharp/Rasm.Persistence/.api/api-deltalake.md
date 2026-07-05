@@ -1,4 +1,3 @@
-<!-- catalog:DeltaLake.Net@0.32.0 -->
 # [RASM_PERSISTENCE_API_DELTALAKE]
 
 `DeltaLake.Net` supplies a managed Delta Lake read/write client over the Rust `delta-rs` + `delta-kernel` FFI bridge: the disposable `DeltaEngine`/`IEngine` factory (create/load a table) and the `DeltaTable`/`ITable` owner that exposes the full Delta protocol — Arrow-native reads (`QueryAsync` streaming `RecordBatch` via embedded DataFusion SQL, `ReadAsArrowTableAsync`, `ReadAsDataFrameAsync`), writes (`InsertAsync` of `RecordBatch`/`IArrowArrayStream` with `SaveMode`, MERGE/UPDATE/DELETE over SQL predicates), time-travel (`LoadVersionAsync`/`LoadDateTimeAsync`/`HistoryAsync`/`RestoreAsync`), maintenance (`OptimizeAsync` BinPack/Z-Order, `VacuumAsync`, `CheckpointAsync`, `AddConstraintsAsync`), and a metadata-only commit rail (`CreateWriteTransactionAsync` registering externally-written Parquet `AddAction`s with idempotent `AppId`/`TransactionVersion` txn markers). It is external Delta-warehouse interop beside the self-hosted DuckLake catalog and the `Apache.Arrow.Adbc` warehouse lane (`api-adbc-bigquery`); it composes the admitted `Apache.Arrow` `RecordBatch`/`Schema`/`Table`/`IArrowArrayStream` model (`api-arrow`) as its wire shape, registers Parquet files produced by `ParquetSharp` (`api-parquetsharp`) into the Delta log, and ships its own osx-arm64 native kernel.
@@ -141,8 +140,8 @@ The options form a record hierarchy rooted at `TableStorageOptions` (URI + `Stor
 - idempotency: `CommitOptions.AppId` + `TransactionVersion` write a Delta `txn` action. The kernel does NOT enforce uniqueness — duplicate appId/version pairs are accepted and the latest version wins on reconciliation. Exactly-once requires the caller to check `GetLatestTransactionVersionAsync` and skip when the returned version >= the batch version.
 
 [LOCAL_ADMISSION]:
-- DeltaLake enters behind the `Store/profiles` store-profile vocabulary as a distinct external-warehouse backend class, orthogonal to the self-hosted DuckLake catalog and the `Apache.Arrow.Adbc` warehouse drivers (`api-adbc-bigquery`).
-- the engine/table lifecycle is profile-owned ceremony (`Store/lifecycle`): the native runtime and table handle are bracketed resources, not ambient singletons.
+- DeltaLake enters behind the `Store/provisioning` store-profile vocabulary as a distinct external-warehouse backend class, orthogonal to the self-hosted DuckLake catalog and the `Apache.Arrow.Adbc` warehouse drivers (`api-adbc-bigquery`).
+- the engine/table lifecycle is profile-owned ceremony (`Store/provisioning`): the native runtime and table handle are bracketed resources, not ambient singletons.
 - writes are profile policy: `SaveMode`, partition columns, `OptimizeType`, and retention windows are declared on the profile, not chosen per-call.
 
 [STACKING]:

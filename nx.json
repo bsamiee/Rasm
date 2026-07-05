@@ -11,9 +11,13 @@
         "sharedGlobals": [
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/package.json",
+            "{workspaceRoot}/playwright.config.ts",
             "{workspaceRoot}/pnpm-lock.yaml",
             "{workspaceRoot}/pnpm-workspace.yaml",
+            "{workspaceRoot}/stryker.config.json",
+            "{workspaceRoot}/tools/biome/*.grit",
             "{workspaceRoot}/tsconfig.base.json",
+            "{workspaceRoot}/tsconfig.json",
             "{workspaceRoot}/vite.config.ts",
             "{workspaceRoot}/vite.factory.ts",
             "{workspaceRoot}/vitest.config.ts"

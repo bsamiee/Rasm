@@ -1,6 +1,6 @@
 # [UI_TOKEN]
 
-The design-token authority: OKLCH color computed in `colorjs.io` — perceptually-even ramps, gamut-fit, APCA contrast-gated at decode — the dimension vocabulary (one `--spacing` multiplier, a modular type scale with paired line-heights, radius/easing/breakpoint rows), and the folder's one `cn` class rail (`extendTailwindMerge` taught every custom group, over the `clsx` fold), all emitted as Tailwind v4 `@theme` namespace rows through one CSS fold. Theme selection is a `data-theme` attribute the `@custom-variant` selectors read; no component branches on theme in JS, hardcodes a color, writes a raw pixel, or imports `clsx`/`twMerge` beside the one rail. The decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Motion class-row vocabulary lives at `system/act#MOTION_ROWS`; this page teaches the motion class GROUPS to the one merge table as data so those rows resolve conflicts deterministically. The module is `ui/src/system/token.ts`.
+The design-token authority as TWO exports: `Theme` — OKLCH color computed in `colorjs.io` (perceptually-even ramps, gamut-fit, APCA contrast-gated at decode), the dimension vocabulary as its `Scale` sub-plane (one `--spacing` multiplier, a modular type scale with paired line-heights, radius/easing/shadow/z/breakpoint rows), and the theme stamp seam — plus `cn`, the folder's one class rail (`extendTailwindMerge` taught every custom group, over the `clsx` fold). Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold. Theme selection is a `data-theme` attribute the `@custom-variant` selectors read; no component branches on theme in JS, hardcodes a color, writes a raw pixel, or imports `clsx`/`twMerge` beside the one rail. The decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Motion class-row vocabulary lives at `system/act#MOTION_ROWS`; this page teaches the motion class GROUPS to the one merge table as data so those rows resolve conflicts deterministically. The module is `ui/src/system/token.ts`.
 
 ## [1]-[CLUSTERS]
 
@@ -8,7 +8,7 @@ The design-token authority: OKLCH color computed in `colorjs.io` — perceptuall
 | :-----: | :---------------- | :-------------------------------------------------------------------------------- | :------------ |
 |  [01]   | `COLOR_AUTHORITY` | the `Theme.Color` decode brand, ramp/contrast algebra, and the `@theme` CSS fold   | `Theme`       |
 |  [02]   | `CLASS_RAIL`      | the one `cn` composer — `extendTailwindMerge` over `clsx`, group table as data     | `cn`          |
-|  [03]   | `SCALE_TABLES`    | the spacing multiplier, text/radius/easing/breakpoint rows, and their emission     | `Scale`       |
+|  [03]   | `SCALE_TABLES`    | `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission     | `Theme`       |
 |  [04]   | `THEME_SWITCH`    | the theme vocabulary, the `data-theme` stamp seam, and the persisted-theme law     | `Theme`       |
 
 ## [2]-[COLOR_AUTHORITY]
@@ -16,16 +16,16 @@ The design-token authority: OKLCH color computed in `colorjs.io` — perceptuall
 [COLOR_AUTHORITY]:
 - Owner: `Theme` — one assembled owner: the `Color` transform (CSS color string ⇄ `PlainColorObject`, non-throwing via `tryColor`, `ParseError` on a malformed token), the `pair` refinement factory (foreground/background pairs APCA-gated at decode, floor a policy row), the `ramp` fold (`steps` in OKLCH, ΔE-bounded, gamut-fit through `toGamutCSS`), the `linear` projection (the render-space triple the viewer material plane ingests), and the `css` emission fold turning any token row table into `@theme` declaration text.
 - Packages: `colorjs.io/fn` + `colorjs.io/spaces` (browser lane — `sRGB`/`sRGB_Linear`/`P3`/`OKLCH`/`OKLab` registered explicitly, never the full registry); `effect` (`Schema`, `ParseResult`, `Array`, `Option`, `Record`); `tailwindcss` is the emission sink — one `@theme` line per token, each generating its variable and utility family.
-- Entry: `Theme.ramp(base, target, count)` is the one palette generator — a hand-listed hex table is the named defect; `Theme.css(namespace, rows)` is the one emission fold every token plane reuses (`Scale.css` folds through it; a viewer probe table emits through it).
+- Entry: `Theme.ramp(base, target, count)` is the one palette generator — a hand-listed hex table is the named defect; `Theme.css(namespace, rows)` is the one emission fold every token plane reuses (`Theme.Scale.css` folds through it; a viewer probe table emits through it).
 - Law: contrast is structural, never disciplinary — a `Theme.pair` that fails its APCA floor rejects at decode carrying the floor in the refusal; no component re-checks contrast at render.
 - Law: the decoded interior is `PlainColorObject`, the encoded wire shape the `oklch(...)` string; `serialize` emits `inGamut: true`, and gamut fit is `toGamutCSS` (CSS Color 4 OKLCH chroma reduction) selected once here.
-- Boundary: the `to("srgb-linear")` conversion feeding three `ColorManagement` leaves through `Theme.linear`; the `@import "tailwindcss"` entry stylesheet and `@custom-variant` declarations are app stylesheet data, not module code.
+- Boundary: the `to("srgb-linear")` conversion feeding three `ColorManagement` leaves through `Theme.linear` — srgb-linear coords are a fixed 3-tuple, so the marked adapter asserts the bound rather than fabricating a fallback coordinate; the `@import "tailwindcss"` entry stylesheet and `@custom-variant` declarations are app stylesheet data, not module code.
 - Growth: a new hue is one `ramp` call emitting one namespace row set; a new contrast tier is one `_APCA` row — never a second color engine or a per-component color literal.
 
 ```typescript
 import { ColorSpace, contrastAPCA, type PlainColorObject, serialize, steps, to, toGamutCSS, tryColor } from "colorjs.io/fn"
 import { OKLCH, OKLab, P3, sRGB, sRGB_Linear } from "colorjs.io/spaces"
-import { Array, Option, ParseResult, Record, Schema } from "effect"
+import { Array, Option, ParseResult, Record, Schema, type Types } from "effect"
 
 ColorSpace.register(sRGB)
 ColorSpace.register(sRGB_Linear)
@@ -68,8 +68,9 @@ const _ramp = (base: string, target: string, count: number): Option.Option<Reado
   )
 
 const _linear = (color: Schema.Schema.Type<typeof _Color>): readonly [number, number, number] => {
-  const converted = to(color, "srgb-linear")
-  return [converted.coords[0] ?? 0, converted.coords[1] ?? 0, converted.coords[2] ?? 0] as const
+  // BOUNDARY ADAPTER
+  const coords = to(color, "srgb-linear").coords as [number, number, number]
+  return [coords[0], coords[1], coords[2]] as const
 }
 
 const _css = (namespace: string, rows: Record.ReadonlyRecord<string, string>): string =>
@@ -124,13 +125,14 @@ const cn = (...inputs: ReadonlyArray<ClassValue>): string => _merge(clsx(inputs)
 ## [4]-[SCALE_TABLES]
 
 [SCALE_TABLES]:
-- Owner: `Scale` — one assembled owner over five interior anchors: `_spacing` (the single multiplier — a density change is this one token, never a scale rewrite), `_text` (step → `{ size, leading }` pairs, each emitting the `--text-*` + `--text-*--line-height` twin), `_radius`, `_ease` (easing curves as cubic-bezier rows — `system/act` motion and the overlay `useTransitionStyles` phases consume them), and `_breakpoint`; `Scale.css()` folds all of them through `Theme.css` into the `@theme` declarations the build stylesheet inlines.
-- Packages: `tailwindcss` v4 namespaces are the sink (`--spacing`, `--text-*`, `--radius-*`, `--ease-*`, `--breakpoint-*` — one namespace row generates the variable and its utility family); `effect` (`Array`, `Record`) folds the emission.
+- Owner: `Theme.Scale` — the dimension sub-plane of the one token authority, seven interior anchors: `_spacing` (the single multiplier — a density change is this one token, never a scale rewrite), `_text` (step → `{ size, leading }` pairs, each emitting the `--text-*` + `--text-*--line-height` twin), `_radius`, `_ease` (easing curves as cubic-bezier rows — `system/act` motion and the overlay `useTransitionStyles` phases consume them), `_shadow` (the elevation ramp), `_z` (the stacking ladder — overlay, sheet, palette, toast, cursor ranks as data), and `_breakpoint`; `Theme.Scale.css()` folds all of them through the one `_css` emission into the `@theme` declarations the build stylesheet inlines.
+- Packages: `tailwindcss` v4 namespaces are the sink (`--spacing`, `--text-*`, `--radius-*`, `--ease-*`, `--shadow-*`, `--z-*`, `--breakpoint-*` — one namespace row generates the variable and its utility family); `effect` (`Array`, `Record`) folds the emission.
 - Law: the type scale is paired data — a text step without its line-height is half a token; the emission writes both variables from one row so `text-<step>` always carries its leading.
 - Law: scale values are derivation, not enumeration — the text ladder derives from a ratio fold over the base size (a modular scale), so retuning typography is two numbers, never twelve edits.
-- Law: no JS reads these values at runtime — the tables exist to emit CSS; a component consumes `p-4`/`text-lg`/`rounded-md` utilities through `cn`, and a runtime pixel computation over `_spacing` marks logic that belongs in CSS.
-- Boundary: container-query and aspect namespaces join as rows here when a consumer earns them; the Vite integration (`@tailwindcss/vite`) is app build wiring.
-- Growth: a new axis (a z-index ladder, a shadow ramp) is one interior anchor plus one line in `Scale.css` — never a hand-written utility or a component-local constant.
+- Law: the z ladder is the only stacking authority — overlay classes consume `z-overlay`/`z-toast` utilities generated from `_z`, so stacking order across floats, sheets, palettes, toasts, and presence cursors is one table, never per-component integers.
+- Law: no JS reads these values at runtime — the tables exist to emit CSS; a component consumes `p-4`/`text-lg`/`rounded-md` utilities through `cn`, and a runtime pixel computation over `_spacing` marks logic that belongs in CSS. Container-query responsiveness is Tailwind v4 core `@container` variants — styling adapts in CSS while chart geometry measures through its own owner.
+- Boundary: aspect namespaces join as rows here when a consumer earns them; the Vite integration (`@tailwindcss/vite`) is app build wiring.
+- Growth: a new axis is one interior anchor plus one line in `Theme.Scale.css` — never a hand-written utility or a component-local constant.
 
 ```typescript
 const _spacing = "0.25rem"
@@ -155,33 +157,41 @@ const _ease = {
   spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const
 
+const _shadow = {
+  low: "0 1px 2px 0 oklch(0% 0 0 / 0.06)",
+  mid: "0 4px 12px -2px oklch(0% 0 0 / 0.12)",
+  high: "0 12px 32px -4px oklch(0% 0 0 / 0.18)",
+} as const
+
+const _z = { panel: "10", overlay: "40", sheet: "50", palette: "60", toast: "70", cursor: "80" } as const
+
 const _breakpoint = { sm: "40rem", md: "48rem", lg: "64rem", xl: "80rem" } as const
 
-declare namespace Scale {
-  type Step = (typeof _steps)[number]
-  type Radius = keyof typeof _radius
-  type Ease = keyof typeof _ease
-}
-
-const Scale: {
+const _Scale: {
   readonly steps: typeof _steps
   readonly radius: typeof _radius
   readonly ease: typeof _ease
+  readonly shadow: typeof _shadow
+  readonly z: typeof _z
   readonly breakpoint: typeof _breakpoint
   readonly css: () => string
 } = {
   steps: _steps,
   radius: _radius,
   ease: _ease,
+  shadow: _shadow,
+  z: _z,
   breakpoint: _breakpoint,
   css: () =>
     [
-      Theme.css("spacing", { "": _spacing }),
-      Theme.css("text", Record.map(_text, (row) => row.size)),
-      Theme.css("text", Record.fromEntries(Record.collect(_text, (step, row) => [`${step}--line-height`, row.leading] as const))),
-      Theme.css("radius", _radius),
-      Theme.css("ease", _ease),
-      Theme.css("breakpoint", _breakpoint),
+      _css("spacing", { "": _spacing }),
+      _css("text", Record.map(_text, (row) => row.size)),
+      _css("text", Record.fromEntries(Record.collect(_text, (step, row) => [`${step}--line-height`, row.leading] as const))),
+      _css("radius", _radius),
+      _css("ease", _ease),
+      _css("shadow", _shadow),
+      _css("z", _z),
+      _css("breakpoint", _breakpoint),
     ].join("\n"),
 }
 ```
@@ -214,18 +224,26 @@ declare namespace Theme {
   type Pair = { readonly fg: Color; readonly bg: Color }
   type Rows = Record.ReadonlyRecord<string, string>
   type Kind = (typeof _kinds)[number]
+  type Step = (typeof _steps)[number]
+  type Radius = keyof typeof _radius
+  type Ease = keyof typeof _ease
+  type Shadow = keyof typeof _shadow
+  type Layer = keyof typeof _z
+  type Shape = Types.Simplify<{
+    readonly Color: typeof _Color
+    readonly Scale: typeof _Scale
+    readonly kinds: typeof _kinds
+    readonly pair: typeof _pair
+    readonly ramp: typeof _ramp
+    readonly linear: typeof _linear
+    readonly css: typeof _css
+    readonly stamp: typeof _stamp
+  }>
 }
 
-const Theme: {
-  readonly Color: typeof _Color
-  readonly kinds: typeof _kinds
-  readonly pair: typeof _pair
-  readonly ramp: typeof _ramp
-  readonly linear: typeof _linear
-  readonly css: typeof _css
-  readonly stamp: typeof _stamp
-} = {
+const Theme: Theme.Shape = {
   Color: _Color,
+  Scale: _Scale,
   kinds: _kinds,
   pair: _pair,
   ramp: _ramp,
@@ -236,5 +254,5 @@ const Theme: {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { cn, Scale, Theme }
+export { cn, Theme }
 ```

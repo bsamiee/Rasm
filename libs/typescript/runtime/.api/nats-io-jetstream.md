@@ -26,7 +26,9 @@
 |  [05]   | `PubAck` (`stream`, `seq`, `duplicate`)                                 | receipt       | `Fanout.Receipt` projection — `duplicate` is idempotency evidence |
 |  [06]   | `JsMsg` (`subject`, `seq`, `data`, `headers?`, `ack()`, `ackAck()`, `nak(millis?)`, `term(reason?)`) | message | the ack algebra the consume lane folds |
 |  [07]   | `ConsumerMessages` (async iterable, `close()`)                          | delivery      | lifted through `Stream.fromAsyncIterable` under a scoped bracket  |
-|  [08]   | `DeliverPolicy` (`All`, `Last`, `New`, `StartSequence`, `StartTime`)    | anchor rows   | the `Fanout.Anchor` compilation target                            |
+|  [08]   | `DeliverPolicy` (`All`, `Last`, `New`, `LastPerSubject`, `StartSequence`, `StartTime`) | anchor rows | the `Fanout.Anchor` compilation target                |
+|  [09]   | `AckPolicy` (`None`, `All`, `Explicit`)                                 | ack rows      | `Explicit` on the durable consume lane; ordered consumers are fixed to `None` |
+|  [10]   | `ReplayPolicy` (`Instant`, `Original`)                                  | replay pacing | original-timing replay is a growth row on the ordered lane        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -38,10 +40,11 @@
 |  [01]   | `jetstream(nc)` / `jetstreamManager(nc)`                                             | mint           | engine Layer build over the core connection                    |
 |  [02]   | `js.publish(subject, payload?, { msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, streamName } })` | publish | dedup-windowed exactly-once publish; `expect` rows are the OCC arms |
 |  [03]   | `jsm.streams.add(config)`                                                            | ensure         | idempotent stream provisioning per topic row                   |
-|  [04]   | `js.consumers.get(stream, nameOrOptions?)`                                           | consumer       | ordered consumer (nameless) with start-anchor options; durable by name |
-|  [05]   | `consumer.consume(opts?)` (`{ max_messages? }`)                                      | delivery       | the long-lived pull loop the engine lifts to a `Stream`        |
-|  [06]   | `consumer.fetch(opts)` / `consumer.next(opts?)`                                      | delivery       | bounded-batch and single-shot pulls — growth rows              |
-|  [07]   | `msg.ack()` / `msg.ackAck()` / `msg.nak(millis?)` / `msg.term(reason?)`              | ack algebra    | ack-after-success, double-ack confirmation, redelivery, poison |
+|  [04]   | `jsm.consumers.add(stream, config)`                                                  | ensure         | durable consumer declaration — `durable_name`, `ack_policy`, `ack_wait`, `max_deliver`, start anchor |
+|  [05]   | `js.consumers.get(stream, nameOrOptions?)`                                           | consumer       | ordered consumer (nameless) with start-anchor options; durable bind by name |
+|  [06]   | `consumer.consume(opts?)` (`{ max_messages? }`)                                      | delivery       | the long-lived pull loop the engine lifts to a `Stream`        |
+|  [07]   | `consumer.fetch(opts)` / `consumer.next(opts?)`                                      | delivery       | bounded-batch and single-shot pulls — growth rows              |
+|  [08]   | `msg.ack()` / `msg.ackAck()` / `msg.nak(millis?)` / `msg.working()` / `msg.term(reason?)` | ack algebra | ack-after-success, double-ack, redelivery, ack-wait heartbeat, poison |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -54,7 +57,8 @@
 [LOCAL_ADMISSION]:
 - Ensure streams at engine Layer build from the topic rows; stream shape never lives beside a call site.
 - Publish always carries `msgID`; a keyless publish forfeits the dedup guarantee row silently and is rejected.
-- Ack after handler success only; a pre-ack consume lane converts at-least-once into at-most-once and is the named defect; `nak` on handler failure, `term` only for poison the handler proves unprocessable.
+- Ack after handler success only; a pre-ack consume lane converts at-least-once into at-most-once and is the named defect; `nak` on handler failure, `working()` heartbeats a handler outliving half its `ack_wait`, `term` only for poison the handler proves unprocessable.
+- Ordered consumers cannot ack — a nameless `consumers.get(stream, options)` mint is fixed to `AckPolicy.None`, so every ack member on its messages is a no-op; at-least-once consumption declares a durable through `jsm.consumers.add` with `AckPolicy.Explicit` and binds it by name — the two lanes never share a mint.
 - Anchored replay validates against retention — an anchor beyond `max_age` answers the typed horizon fault, never an empty stream read as success.
 
 [RAIL_LAW]:

@@ -95,7 +95,7 @@ Per-schema-shape codec cases (each `: <Shape>SerializerBuilderCase, IBinarySeria
 - Multi-record framing reads through one `BinaryReader` over a buffer: after each `deserializer(ref reader)` the `reader.Index` advances, so a batched Avro body (e.g. an object-store blob, `api-objectstore`) decodes as a loop over one span without re-allocating the reader — the `ref struct` keeps it stack-resident across the loop.
 
 [LOCAL_ADMISSION]:
-- The compiled `BinarySerializer<T>`/`BinaryDeserializer<T>` delegates are profile-cached codec internals, not public Persistence vocabulary; the schema and the cached delegate are profile data.
+- The compiled `BinarySerializer<T>`/`BinaryDeserializer<T>` delegates are profile-cached `Element/codec` internals, not public Persistence vocabulary; the schema and the cached delegate are profile data.
 - The codec is built from a `SchemaBuilder`-derived `Schema`, never against a hand-authored schema in Persistence code.
 - `BinaryReader` must stay stack-resident — a deserializer that captures the reader into a closure or crosses an `async` await is a rejected form; decode the whole record synchronously before yielding.
 - Raw Avro binary carries no schema id; a body that must self-identify its schema routes through the registry serde (`api-chr-avro-confluent`), never a hand-prefixed magic byte here.

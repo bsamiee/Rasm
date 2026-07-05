@@ -26,14 +26,10 @@
 |  [04]   | `NodaConverterBase<T>`                    | converter base       | nullity, `CanConvert`, and property-name behavior |
 |  [05]   | `NodaPatternConverter<T>`                 | pattern converter    | `IPattern<T>` parse/format with optional validator |
 |  [06]   | `DelegatingConverterBase<T>`              | delegation base      | property-level attribute dispatch through another converter |
-|  [07]   | `NodaNullableConverter<T>`                | nullable wrapper     | nullable struct bridge                            |
-|  [08]   | `NodaDateTimeZoneConverter`               | zone converter       | `DateTimeZone` lookup through an `IDateTimeZoneProvider` |
-|  [09]   | `NodaIntervalConverter`                   | interval converter   | `Interval` as `{ start, end }` object             |
-|  [10]   | `NodaIsoIntervalConverter`                | interval converter   | `Interval` as ISO interval string                 |
-|  [11]   | `NodaDateIntervalConverter`               | date interval        | `DateInterval` object converter                   |
-|  [12]   | `NodaIsoDateIntervalConverter`            | date interval        | `DateInterval` as ISO date-interval string        |
-|  [13]   | `NodaTimeDefaultJsonConverterAttribute`   | attribute            | default converter attachment for a NodaTime property or type |
-|  [14]   | `NodaTimeDefaultJsonConverterFactory`     | converter factory    | converter factory behind the default converter attribute |
+|  [07]   | `NodaTimeDefaultJsonConverterAttribute`   | attribute            | default converter attachment for a NodaTime property or type |
+|  [08]   | `NodaTimeDefaultJsonConverterFactory`     | converter factory    | one-entry factory for every NodaTime type + nullable mirror, Tzdb-locked |
+
+The concrete per-type converters (`NodaNullableConverter<T>`, `NodaDateTimeZoneConverter`, `NodaIntervalConverter`, `NodaIsoIntervalConverter`, `NodaDateIntervalConverter`, `NodaIsoDateIntervalConverter`) are `internal sealed` and reached ONLY through the `NodaConverters` singletons and provider-bound factories below — none is a public registration handle.
 
 ## [03]-[ENTRYPOINTS]
 

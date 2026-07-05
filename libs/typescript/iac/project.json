@@ -3,9 +3,5 @@
     "name": "iac",
     "projectType": "library",
     "sourceRoot": "libs/typescript/iac/src",
-    "tags": [
-        "scope:iac",
-        "runtime:node",
-        "plane:deploy"
-    ]
+    "tags": ["scope:iac", "runtime:node", "plane:deploy"]
 }

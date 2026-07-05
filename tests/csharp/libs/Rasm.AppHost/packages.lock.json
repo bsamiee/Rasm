@@ -16,9 +16,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.115, )",
-        "resolved": "3.0.115",
-        "contentHash": "HXp8maNxVdqsZWHjZmpoDdvecmxgEkY1juAFPyKI4edN+PhLBinnCov7UkVmYFgdlGRo8BDmY6ZzE4RkJee19A=="
+        "requested": "[3.0.121, )",
+        "resolved": "3.0.121",
+        "contentHash": "PKNTmwMdzM0YJ7tAvwzWmlgWhtm8ZOma2eNUqchkbmvWwqC8QXoOzNPKwNHZBtPJpehYb7qu9q/182qg4Fmclw=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -452,8 +452,8 @@
       },
       "Pyroscope": {
         "type": "Transitive",
-        "resolved": "1.0.0",
-        "contentHash": "a+nwslnEERaD6aPzkkMuZl//cf2McOfhDUUn4TWKYipX3vZLdkS2o9Ns0R/y60n6sCbJZLWftcQqhex+ev0ckQ=="
+        "resolved": "1.3.0",
+        "contentHash": "v1/n2DSGTO1KOK5OozJKVYZhZlj0IiiUuTzvfDq5rORfiAO3VC5GKU/dAeVgA4rQYp2fV7+j+Koh/R4Zd8WARA=="
       },
       "RESPite": {
         "type": "Transitive",
@@ -656,7 +656,7 @@
           "Grpc.Net.Client": "[2.80.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "MQTTnet": "[5.1.0.1559, )",
+          "MQTTnet": "[5.2.0.1603, )",
           "Microsoft.AspNetCore.Authorization": "[10.0.9, )",
           "Microsoft.AspNetCore.JsonPatch.SystemTextJson": "[10.0.9, )",
           "Microsoft.Extensions.AI": "[10.7.0, )",
@@ -706,7 +706,7 @@
           "Polly.Core": "[8.7.0, )",
           "Polly.Extensions": "[8.7.0, )",
           "Polly.RateLimiting": "[8.7.0, )",
-          "Pyroscope.OpenTelemetry": "[0.5.0, )",
+          "Pyroscope.OpenTelemetry": "[0.5.1, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.3.1, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
@@ -1333,9 +1333,9 @@
       },
       "MQTTnet": {
         "type": "CentralTransitive",
-        "requested": "[5.1.0.1559, )",
-        "resolved": "5.1.0.1559",
-        "contentHash": "9mkk0H+76CToIzp9ru5Uj5BuC3P5hQdkhvXM+CLmmTDdZWqajjICCHuUMbDd1yVBt9BWL77Rvzt0A+/PA4WMCA=="
+        "requested": "[5.2.0.1603, )",
+        "resolved": "5.2.0.1603",
+        "contentHash": "iNuWVo/568aRo2ExEN2qkC4J5b07ckKqt+9Uok2kIbbK7PMBsXvYiKVENPHmOBWFB5ExhlNQb/qQ8M9/IYRTdQ=="
       },
       "Newtonsoft.Json": {
         "type": "CentralTransitive",
@@ -1499,12 +1499,12 @@
       },
       "Pyroscope.OpenTelemetry": {
         "type": "CentralTransitive",
-        "requested": "[0.5.0, )",
-        "resolved": "0.5.0",
-        "contentHash": "eGICQiM3dLARJ9Vcdm2mv7CFYX2IffKYLf4TZL34wDphTbnQPX4nCWbsjrDcAAWd69XoCL6LHJh0R5KQFs6mgw==",
+        "requested": "[0.5.1, )",
+        "resolved": "0.5.1",
+        "contentHash": "AweflG2i4IuaKKJyshKtYLrTH4AszieDouo8dpzAkBSxH5FFQuNjP2Khyvu5FSqu0xeIkmm6+dnBWGFU4GdW/Q==",
         "dependencies": {
-          "OpenTelemetry": "1.8.0",
-          "Pyroscope": "1.0.0"
+          "OpenTelemetry": "1.16.0",
+          "Pyroscope": "1.3.0"
         }
       },
       "Scrutor": {

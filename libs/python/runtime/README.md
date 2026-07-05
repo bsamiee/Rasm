@@ -26,6 +26,7 @@ Every domain library this folder owns directly, planned or implemented. Versions
 [SETTINGS_SECRETS]:
 - `pydantic-settings`
 - `keyring`
+- `google-cloud-secret-manager`
 
 [TRANSPORT]:
 - `httpx`
@@ -33,7 +34,10 @@ Every domain library this folder owns directly, planned or implemented. Versions
 - `watchfiles`
 - `stamina`
 - `opentelemetry-instrumentation-grpc`
+- `grpcio-health-checking`
 - `obstore`
+- `fsspec`
+- `universal-pathlib`
 
 [SCHEDULING]:
 - `apscheduler`
@@ -48,12 +52,6 @@ Every domain library this folder owns directly, planned or implemented. Versions
 - `tree-sitter`
 - `tree-sitter-python`
 - `tree-sitter-typescript`
-
-[STORAGE_ROOTS]:
-- `fsspec`
-- `s3fs`
-- `gcsfs`
-- `universal-pathlib`
 
 [COMPRESSION]:
 - `lz4`

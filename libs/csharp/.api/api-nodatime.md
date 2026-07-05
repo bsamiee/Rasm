@@ -8,9 +8,11 @@ health snapshots, support windows, and persisted clock facts.
 
 [PACKAGE_SURFACE]: `NodaTime`
 - package: `NodaTime`
-- assembly: `NodaTime`
-- namespace: `NodaTime`
-- asset: runtime library
+- version: `3.3.2`
+- assembly: `NodaTime` (binds `lib/net8.0`; multi-targets `net8.0`/`netstandard2.0`, the `net10.0` consumer takes `net8.0` — the asset carrying the generic-math operator interfaces)
+- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Calendars`, `NodaTime.Extensions`, `NodaTime.Xml`
+- license: Apache-2.0
+- asset: runtime library (embeds TZDB)
 - rail: time
 
 ## [02]-[PUBLIC_TYPES]
@@ -37,6 +39,8 @@ health snapshots, support windows, and persisted clock facts.
 |  [15]   | `Interval`       | instant interval   | receipt window        |
 |  [16]   | `DateInterval`   | calendar interval  | date window           |
 
+`Instant` and `Duration` implement the `System.Numerics` generic-math operator interfaces — `IAdditionOperators<Instant,Duration,Instant>`, `ISubtractionOperators` (instant−instant→duration), `IComparisonOperators`, `IEqualityOperators`, and `IMinMaxValue` — so an `Instant`/`Duration` slots into a generic-constrained numeric algorithm and into `MinValue`/`MaxValue` saturation directly.
+
 [PUBLIC_TYPE_SCOPE]: zone calendar and clock family
 - rail: time
 
@@ -54,17 +58,20 @@ health snapshots, support windows, and persisted clock facts.
 |  [10]   | `TzdbDateTimeZoneSource` | TZDB source       | zone data source         |
 |  [11]   | `ZoneInterval`           | zone interval     | offset transition span   |
 |  [12]   | `ZoneLocalMapping`       | local mapping     | ambiguous/skipped result |
-|  [13]   | `Resolvers`              | mapping resolver  | local-time resolution    |
-|  [14]   | `AmbiguousTimeException` | mapping exception | duplicate local time     |
-|  [15]   | `SkippedTimeException`   | mapping exception | skipped local time       |
+|  [13]   | `Resolvers`              | resolver holder   | predefined resolver set  |
+|  [14]   | `ZoneLocalMappingResolver` | resolver delegate | local→zoned strategy   |
+|  [15]   | `AmbiguousTimeResolver`  | resolver delegate | duplicate-time strategy  |
+|  [16]   | `SkippedTimeResolver`    | resolver delegate | gap-time strategy        |
+|  [17]   | `AmbiguousTimeException` | mapping exception | duplicate local time     |
+|  [18]   | `SkippedTimeException`   | mapping exception | skipped local time       |
 
-[PUBLIC_TYPE_SCOPE]: text interop and high-performance family
+[PUBLIC_TYPE_SCOPE]: text + BCL-interop family (`.Text`, `.Extensions`, `.Xml`)
 - rail: time
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [RAIL]                    |
 | :-----: | :------------------------- | :---------------- | :------------------------ |
 |  [01]   | `IPattern<T>`              | pattern contract  | parse/format abstraction  |
-|  [02]   | `ParseResult<T>`           | parse result      | parse success/failure     |
+|  [02]   | `ParseResult<T>`           | parse result      | `Success`/`Value`/`Exception` rail |
 |  [03]   | `InstantPattern`           | instant pattern   | persisted instant text    |
 |  [04]   | `LocalDatePattern`         | date pattern      | calendar text             |
 |  [05]   | `LocalDateTimePattern`     | timestamp pattern | local timestamp text      |
@@ -72,10 +79,19 @@ health snapshots, support windows, and persisted clock facts.
 |  [07]   | `ZonedDateTimePattern`     | zone pattern      | zoned timestamp text      |
 |  [08]   | `DurationPattern`          | duration pattern  | elapsed span text         |
 |  [09]   | `PeriodPattern`            | period pattern    | calendar span text        |
-|  [10]   | `TypeConverterSettings`    | converter policy  | type-converter admission  |
-|  [11]   | `XmlSerializationSettings` | XML policy        | XML projection admission  |
-|  [12]   | `Instant64`                | compact instant   | high-performance instant  |
-|  [13]   | `Duration64`               | compact duration  | high-performance duration |
+|  [10]   | `OffsetPattern`            | offset pattern    | offset-only text (`IPattern<Offset>`) |
+|  [11]   | `AnnualDatePattern`        | annual-date pattern | recurring month-day text (`IPattern<AnnualDate>`) |
+|  [12]   | `YearMonthPattern`         | year-month pattern | calendar-month text (`IPattern<YearMonth>`) |
+|  [13]   | `LocalTimePattern`         | local-time pattern | time-only text (`IPattern<LocalTime>`) |
+|  [14]   | `OffsetDatePattern`        | offset-date pattern | date+offset text (`IPattern<OffsetDate>`) |
+|  [15]   | `OffsetTimePattern`        | offset-time pattern | time+offset text (`IPattern<OffsetTime>`) |
+|  [16]   | `DateTimeOffsetExtensions` | BCL bridge        | `ToInstant`/`ToOffsetDateTime`/`ToZonedDateTime` |
+|  [17]   | `TimeSpanExtensions`       | BCL bridge        | `ToDuration`/`ToOffset`   |
+|  [18]   | `DurationExtensions`       | BCL bridge        | `ToTimeSpan`              |
+|  [19]   | `ClockExtensions`          | clock bridge      | `InZone`/`InUtc`/`InTzdbSystemDefaultZone` → `ZonedClock` |
+|  [20]   | `XmlSerializationSettings` | XML policy        | `NodaTime.Xml` projection admission |
+
+`NodaTime.Text.TypeConverterSettings` admits a `DateTimeZoneProvider` for the `TypeConverter` projection. There is no `Instant64`/`Duration64` type in this package — the compact-instant surface is the single nanosecond-resolution `Instant`/`Duration`; do not catalog phantom 64-bit variants.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -124,9 +140,10 @@ health snapshots, support windows, and persisted clock facts.
 |  [13]   | `Resolvers.ReturnEarlier`             | ambiguous resolver     | earlier duplicate time     |
 |  [14]   | `Resolvers.ReturnLater`               | ambiguous resolver     | later duplicate time       |
 |  [15]   | `Resolvers.ThrowWhenAmbiguous`        | ambiguous resolver     | rejects duplicate time     |
-|  [16]   | `Resolvers.ReturnForwardShifted`      | skipped resolver       | shifts skipped time        |
+|  [16]   | `Resolvers.{ReturnStartOfIntervalAfter,ReturnEndOfIntervalBefore,ReturnForwardShifted,ThrowWhenSkipped}` | skipped resolver | gap-time strategy |
 |  [17]   | `Resolvers.StrictResolver`            | mapping resolver       | rejects non-unique time    |
 |  [18]   | `Resolvers.LenientResolver`           | mapping resolver       | resolves non-unique time   |
+|  [19]   | `Resolvers.CreateMappingResolver(ambiguous, skipped)` | composite resolver | compose a `ZoneLocalMappingResolver` from the two delegates |
 
 [ENTRYPOINT_SCOPE]: text and interop operations
 - rail: time
@@ -136,7 +153,8 @@ health snapshots, support windows, and persisted clock facts.
 |  [01]   | `InstantPattern.ExtendedIso`    | pattern singleton       | persisted instant format   |
 |  [02]   | `OffsetDateTimePattern.Rfc3339` | pattern singleton       | external timestamp format  |
 |  [03]   | `PeriodPattern.Roundtrip`       | pattern singleton       | persisted period format    |
-|  [03a]  | `DurationPattern.Roundtrip`     | pattern singleton       | persisted duration format  |
+|  [03a]  | `DurationPattern.{Roundtrip,JsonRoundtrip}` | pattern singleton | persisted duration format  |
+|  [03b]  | `OffsetPattern.{GeneralInvariant,GeneralInvariantWithZ}` / `AnnualDatePattern.Iso` / `YearMonthPattern.Iso` / `LocalTimePattern.ExtendedIso` / `OffsetDatePattern.GeneralIso` / `OffsetTimePattern.{GeneralIso,ExtendedIso}` | pattern singleton | per-value-type pattern singletons the temporal codecs bind |
 |  [04]   | `CreateWithInvariantCulture`    | pattern factory         | invariant text parsing     |
 |  [05]   | `CreateWithCurrentCulture`      | pattern factory         | culture-bound text parsing |
 |  [06]   | `Parse`                         | pattern operation       | typed parse result         |
@@ -155,16 +173,15 @@ health snapshots, support windows, and persisted clock facts.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TIME_TOPOLOGY]:
-- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`
-- instant types: `Instant`, `OffsetDateTime`, `ZonedDateTime`
-- local types: `LocalDate`, `LocalTime`, `LocalDateTime`, `AnnualDate`
-- calendar types: `CalendarSystem`, `YearMonth`, `IsoDayOfWeek`, calendar eras
+- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Calendars`, `NodaTime.Extensions`, `NodaTime.Xml`
+- instant types: `Instant`, `OffsetDateTime`, `ZonedDateTime` (all generic-math operator-bearing)
+- local types: `LocalDate`, `LocalTime`, `LocalDateTime`, `AnnualDate`, `YearMonth`
+- calendar types: `CalendarSystem`, `IsoDayOfWeek`, calendar eras
 - duration types: `Duration`, `Period`, `PeriodBuilder`, `DateInterval`, `Interval`
-- zone providers: `DateTimeZoneProviders.Tzdb`, `DateTimeZoneProviders.Bcl`
-- zone mapping: strict, lenient, explicit resolver, ambiguous mapping, skipped mapping
-- text patterns: `InstantPattern`, local-date patterns, zoned-date-time patterns
-- interop surfaces: BCL conversion extensions, XML settings, type converter settings
-- compact surfaces: `Instant64`, `Duration64`
+- zone providers: `DateTimeZoneProviders.Tzdb` (default, embedded TZDB), `.Bcl`, `.Serialization`
+- zone mapping: `MapLocal`/`ResolveLocal` returning `ZoneLocalMapping`; `AtStrictly`/`AtLeniently`; the three resolver delegate types (`ZoneLocalMappingResolver`/`AmbiguousTimeResolver`/`SkippedTimeResolver`) composed by `Resolvers.CreateMappingResolver`
+- text patterns: per-type `IPattern<T>` singletons + `Create*` factories returning a `ParseResult<T>` rail (never an exception on `Parse`)
+- interop surfaces: `Extensions` BCL bridges, `XmlSerializationSettings`, `Text.TypeConverterSettings`
 
 [LOCAL_ADMISSION]:
 - Receipts store semantic instants, not local wall-clock values.

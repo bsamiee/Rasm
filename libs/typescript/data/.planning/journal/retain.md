@@ -77,7 +77,7 @@ const _frontierDdl: Capability.Ensure = {
 
 ```typescript
 import { Effect, Option } from "effect"
-import { SqlClient, type SqlError } from "@effect/sql"
+import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import { SealedEnvelope, Shredder, WrappedKey } from "@rasm/ts/security"
 import { Journal } from "./append.ts"
 
@@ -87,6 +87,8 @@ declare namespace Retain {
     readonly destroyedAt: string
   }
 }
+
+const _WrappedRow = Schema.Struct({ wrapped: Schema.NullOr(Schema.Uint8ArrayFromSelf) })
 
 const _subjectDdl: Capability.Ensure = {
   relation: "subject_key",
@@ -102,18 +104,19 @@ const _subjectDdl: Capability.Ensure = {
     destroyed_at TEXT);`,
 }
 
-const _wrappedOf = (row: unknown) =>
-  Schema.decodeUnknown(Schema.Uint8ArrayFromSelf)(row).pipe(
-    Effect.map((bytes) => new WrappedKey({ wrapped: bytes })),
-  )
-
 const _dataKey = (shredder: Shredder, subject: Retain.Subject) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`SELECT wrapped FROM subject_key WHERE subject = ${subject} AND destroyed_at IS NULL`
+    const found = SqlSchema.findOne({
+      Request: _Subject,
+      Result: _WrappedRow,
+      execute: (who) => sql`SELECT wrapped FROM subject_key WHERE subject = ${who} AND destroyed_at IS NULL`,
+    })
     return yield* Effect.transposeOption(
-      Option.map(Option.fromNullable(rows[0]), (row) =>
-        Effect.flatMap(_wrappedOf(row["wrapped"]), (wrapped) => shredder.unwrap(wrapped))))
+      Option.map(
+        Option.flatMapNullable(yield* found(subject), (row) => row.wrapped),
+        (wrapped) => shredder.unwrap(new WrappedKey({ wrapped })),
+      ))
   })
 
 const _seal = (shredder: Shredder, subject: Retain.Subject, bytes: Uint8Array) =>
@@ -121,12 +124,18 @@ const _seal = (shredder: Shredder, subject: Retain.Subject, bytes: Uint8Array) =
     const sql = yield* SqlClient.SqlClient
     const minted = yield* shredder.mint()
     const wrapped = yield* shredder.wrap(minted)
-    const rows = yield* sql`INSERT INTO subject_key ${sql.insert([{ subject, wrapped: wrapped.wrapped }])}
-      ON CONFLICT (subject) DO UPDATE
-      SET wrapped = coalesce(subject_key.wrapped, excluded.wrapped),
-          destroyed_at = CASE WHEN subject_key.wrapped IS NULL THEN NULL ELSE subject_key.destroyed_at END
-      RETURNING wrapped`
-    const dataKey = yield* shredder.unwrap(yield* _wrappedOf(rows[0]?.["wrapped"]))
+    const sealed = SqlSchema.single({
+      Request: Schema.Struct({ subject: _Subject, wrapped: Schema.Uint8ArrayFromSelf }),
+      Result: Schema.Struct({ wrapped: Schema.Uint8ArrayFromSelf }),
+      execute: (row) =>
+        sql`INSERT INTO subject_key ${sql.insert([row])}
+            ON CONFLICT (subject) DO UPDATE
+            SET wrapped = coalesce(subject_key.wrapped, excluded.wrapped),
+                destroyed_at = CASE WHEN subject_key.wrapped IS NULL THEN NULL ELSE subject_key.destroyed_at END
+            RETURNING wrapped`,
+    })
+    const held = yield* sealed({ subject, wrapped: wrapped.wrapped })
+    const dataKey = yield* shredder.unwrap(new WrappedKey({ wrapped: held.wrapped }))
     return yield* shredder.seal(dataKey, bytes)
   })
 
@@ -137,12 +146,15 @@ const _open = (shredder: Shredder, subject: Retain.Subject, envelope: SealedEnve
 const _erase = (subject: Retain.Subject) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.map(
-      sql`UPDATE subject_key SET wrapped = NULL, destroyed_at = ${Journal.now(sql)}
-          WHERE subject = ${subject} AND destroyed_at IS NULL
-          RETURNING subject, destroyed_at`.values,
-      (cells) =>
-        Option.map(Option.fromNullable(cells[0]), (cell) =>
-          ({ subject, destroyedAt: String(cell[1]) }) satisfies Retain.Tombstone),
+      SqlSchema.findOne({
+        Request: _Subject,
+        Result: Schema.Struct({ subject: _Subject, destroyed_at: Schema.String }),
+        execute: (who) =>
+          sql`UPDATE subject_key SET wrapped = NULL, destroyed_at = ${Journal.now(sql)}
+              WHERE subject = ${who} AND destroyed_at IS NULL
+              RETURNING subject, destroyed_at`,
+      })(subject),
+      Option.map((row) => ({ subject: row.subject, destroyedAt: row.destroyed_at }) satisfies Retain.Tombstone),
     ))
 ```
 
@@ -153,7 +165,7 @@ const _erase = (subject: Retain.Subject) =>
 - Entry: the subject index is written at publish time — a `Journal.Slot` provided by this page stamps `(subject, sequence)` rows for subject-bearing events, so the DSAR read is an index scan, never a full-log crawl.
 - Growth: a new export surface (object bytes bundled, format variants) is a projection of the same fold — the subject spine never changes.
 - Law: the export and the erasure share one spine — the same `subject_journal` index that finds events to export finds nothing to rewrite on erasure, proving the two rights compose: export reads what remains readable, erasure makes fields unreadable, and both leave the log bytes untouched.
-- Law: the fold is streaming — journal rows and object references emit incrementally to the egress sink, so a large subject exports in bounded memory.
+- Law: the fold is streaming and decoded — journal rows and object references emit incrementally to the egress sink through `Result` schemas (`payload` through `Upcast.Column`), so a large subject exports in bounded memory, a malformed row quarantines as `ParseError`, and no export cell is hand-coerced; the `subject_journal.sequence` join runs engine-side against the BIGINT column, so no sequence value crosses the process untyped.
 - Law: sensitive projection columns never enter the export — the `Model.Sensitive` field class strips them from every JSON variant by construction; sealed payload fields export opened only where the consuming exporter composes `Retain.open` against a live key, and an erased subject's fields export as the redaction marker the `Option.none` fold names.
 
 ```typescript
@@ -169,7 +181,7 @@ declare namespace Retain {
   }
   type Export = {
     readonly subject: Subject
-    readonly events: Stream.Stream<Entry, SqlError.SqlError, SqlClient.SqlClient>
+    readonly events: Stream.Stream<Entry, SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>
     readonly objects: Effect.Effect<
       ReadonlyArray<{ readonly key: string; readonly retention: Class }>,
       SqlError.SqlError | ParseResult.ParseError,
@@ -188,6 +200,15 @@ const _subjectIndexDdl: Capability.Ensure = {
     PRIMARY KEY (subject, sequence));`,
 }
 
+const _EntryRow = Schema.Struct({
+  tag: Schema.String,
+  event_version: Schema.Number,
+  payload: Upcast.Column,
+  recorded_at: Schema.String,
+})
+
+const _RefRow = Schema.Struct({ key: Schema.String, retention: _Class })
+
 const _dsar = (subject: Retain.Subject): Retain.Export => ({
   subject,
   events: Stream.unwrap(
@@ -195,20 +216,21 @@ const _dsar = (subject: Retain.Subject): Retain.Export => ({
       sql`SELECT e.tag, e.event_version, e.payload, e.recorded_at FROM journal_event e
           JOIN subject_journal s ON s.sequence = e.sequence
           WHERE s.subject = ${subject} ORDER BY e.sequence`.stream.pipe(
-        Stream.map((row): Retain.Entry => ({
-          tag: String(row["tag"]),
-          version: Number(row["event_version"]),
-          payload: Upcast.body(row["payload"]),
-          recordedAt: String(row["recorded_at"]),
-        })),
+        Stream.mapEffect((raw) =>
+          Effect.map(Schema.decodeUnknown(_EntryRow)(raw), (row): Retain.Entry => ({
+            tag: row.tag,
+            version: row.event_version,
+            payload: row.payload,
+            recordedAt: row.recorded_at,
+          }))),
       )),
   ),
   objects: Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    Effect.flatMap(
-      sql`SELECT key, retention FROM object_ref WHERE owner = ${subject} AND released_at IS NULL`,
-      Effect.forEach((row) =>
-        Effect.map(Schema.decodeUnknown(_Class)(row["retention"]), (retention) => ({ key: String(row["key"]), retention }))),
-    )),
+    SqlSchema.findAll({
+      Request: _Subject,
+      Result: _RefRow,
+      execute: (who) => sql`SELECT key, retention FROM object_ref WHERE owner = ${who} AND released_at IS NULL`,
+    })(subject)),
 })
 
 const Retain = {

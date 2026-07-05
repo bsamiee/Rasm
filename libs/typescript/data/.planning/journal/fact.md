@@ -149,11 +149,13 @@ const _append = (facts: Array.NonEmptyReadonlyArray<Fact.Value>) =>
 - Entry: `Fact.record(draft)` for evidence, `Fact.record(charge)` for usage, `Fact.record(batch)` for either in bulk; wiring is `Fact.Default(identity)` provided a scope's `SqlClient` at the root.
 - Growth: a new stamped dimension is one line in the stamp; a new drain posture is one `_FLOW` field; a new fact stream extends the union and the discriminant fold, nothing else.
 - Law: the service stamps what the caller must not control — `app` from the identity, `at` from the clock on the rail, tenancy resolved pinned-first so a single-tenant process overrides the draft's key; construction runs the schema filters, so a malformed draft fails the writer, never the drain.
+- Law: drafts are derived schema projections, never hand-declared patches — `Fact.AuditDraft`/`Fact.Charge` re-anchor on the owning field records through `omit`, so a field added to a fact class flows into its draft with zero second declaration; the draft-kind probe is `Schema.is(_Charge)`, a schema discriminant, and an edge-arriving draft decodes through the same projection before it reaches `record`.
+- Law: the drain never load-sheds — evidence and billing truth suspend under backpressure and retry unbounded; egress quota belongs to the correctness-adjacent replication seams (`lane/olap.md`'s `ingest`), never to this rail.
 - Law: the drain is one pipeline — `Stream.fromQueue` over the intake, `Stream.groupedWithin(width, patience)` so a quiet surface still flushes on latency, the batch appended under an unbounded jittered retry whose delay caps through `Schedule.union` (evidence is never dropped: a dead database suspends the drain, the bounded intake suspends writers, and pressure propagates instead of silently losing billing truth), each deferral logged, the drained count and per-resource usage emitted through the convention counters in the same pass.
 - Law: every audit fact also emits one structured log annotated with the convention's audit rows — observability beside durability; the meter's metric egress is deliberately lossy and bounded — resource tag always, tenant tag only where the resource row's posture admits it — and the journal remains the sole truth for both streams.
 
 ```typescript
-import { Chunk, DateTime, Metric, Option, Predicate, Queue, Schedule, Stream } from "effect"
+import { Chunk, DateTime, Metric, Option, Queue, Schedule, Stream } from "effect"
 import { Convention } from "@rasm/ts/core"
 
 const _FLOW = { intake: 512, patience: "2 seconds", width: 128 } as const
@@ -193,6 +195,16 @@ const _emitted = (fact: Fact.Value): Effect.Effect<void> =>
       )
     : _metered(fact)
 
+const _AuditDraft = Schema.Struct({
+  ...Schema.Struct(AuditFact.fields).omit("_tag", "app", "at", "tenant").fields,
+  tenant: Schema.optional(TenantContext.fields.tenant),
+})
+
+const _Charge = Schema.Struct({
+  ...Schema.Struct(MeterFact.fields).omit("_tag", "app", "at", "tenant").fields,
+  tenant: Schema.optional(TenantContext.fields.tenant),
+})
+
 class Fact extends Effect.Service<Fact>()("data/Fact", {
   scoped: (identity: AppIdentity) =>
     Effect.gen(function* () {
@@ -218,29 +230,29 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
         Effect.gen(function* () {
           const at = yield* DateTime.now
           const tenant = Option.orElse(identity.tenant, () => Option.fromNullable(draft.tenant))
-          const fact: Fact.Value = Predicate.hasProperty(draft, "resource")
+          const fact: Fact.Value = Schema.is(_Charge)(draft)
             ? new MeterFact({ ...draft, app: identity.app, at, tenant })
             : new AuditFact({ ...draft, app: identity.app, at, tenant })
           yield* Queue.offer(intake, fact)
         })
       return {
         record: (input: Fact.Draft | Array.NonEmptyReadonlyArray<Fact.Draft>): Effect.Effect<void> =>
-          Array.isArray(input)
-            ? Effect.forEach(input, stamped, { discard: true })
-            : stamped(input),
+          Effect.forEach(Array.ensure(input), stamped, { discard: true }),
       }
     }),
   accessors: true,
 }) {
   static readonly rollup = (facts: ReadonlyArray<MeterFact>): HashMap.HashMap<Fact.Key, Fact.Aggregate> => _rollup(facts)
   static readonly rate = (rolled: HashMap.HashMap<Fact.Key, Fact.Aggregate>, rating: Fact.Rating): HashMap.HashMap<Fact.Key, Fact.Cost> => _rate(rolled, rating)
+  static readonly AuditDraft = _AuditDraft
+  static readonly Charge = _Charge
   static readonly resources = _resources
   static readonly ddl = [_factDdl]
 }
 
 declare namespace Fact {
-  type AuditDraft = Omit<typeof AuditFact.Type, "_tag" | "app" | "at" | "tenant"> & { readonly tenant?: TenantContext.Key }
-  type Charge = Omit<typeof MeterFact.Type, "_tag" | "app" | "at" | "tenant"> & { readonly tenant?: TenantContext.Key }
+  type AuditDraft = typeof _AuditDraft.Type
+  type Charge = typeof _Charge.Type
   type Draft = AuditDraft | Charge
 }
 ```

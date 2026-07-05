@@ -1,6 +1,6 @@
 # [TS_RUNTIME]
 
-`libs/typescript/runtime` is the wave-3 execution package of the branch: the process substrate (runtime rows, config chain, flags, lifecycle, workers), outbound and framed transport with the fanout/replay port, the OTLP telemetry wire, the one public front door (HttpApi assembly, serving, realtime, problem law, CLI), durable work (entities, workflows, queues, schedules, delivery, reports), the intelligence spine (models, embeddings, tools, agents, MCP), and the browser runtime (boot, PWA shell, persistence, routing, byte transport). One arity owns each modality; engines, providers, and channels are rows. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/typescript/runtime` is the wave-3 execution package of the branch: the process substrate (runtime rows, config chain, flags, lifecycle, workers), outbound and framed transport with the fanout/replay port and the coordination port, the OTLP telemetry wire, the one public front door (HttpApi assembly, serving, realtime, problem law, CLI), durable work (entities, workflows, queues, schedules, delivery, reports), the intelligence spine (models, embeddings, tools, agents, MCP), and the browser runtime (boot, PWA shell, persistence, routing, byte transport). One arity owns each modality; engines, providers, and channels are rows. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [01]-[ROUTER]
 
@@ -12,29 +12,30 @@
 - [06]-[CLIENT](.planning/net/client.md)
 - [07]-[CHANNEL](.planning/net/channel.md)
 - [08]-[PUBSUB](.planning/net/pubsub.md)
-- [09]-[EMIT](.planning/otel/emit.md)
-- [10]-[CRASH](.planning/otel/crash.md)
-- [11]-[VITAL](.planning/otel/vital.md)
-- [12]-[API](.planning/serve/api.md)
-- [13]-[ROUTE](.planning/serve/route.md)
-- [14]-[LIVE](.planning/serve/live.md)
-- [15]-[PROBLEM](.planning/serve/problem.md)
-- [16]-[CLI](.planning/serve/cli.md)
-- [17]-[ENTITY](.planning/work/entity.md)
-- [18]-[FLOW](.planning/work/flow.md)
-- [19]-[QUEUE](.planning/work/queue.md)
-- [20]-[SCHEDULE](.planning/work/schedule.md)
-- [21]-[DELIVER](.planning/work/deliver.md)
-- [22]-[REPORT](.planning/work/report.md)
-- [23]-[MODEL](.planning/ai/model.md)
-- [24]-[EMBED](.planning/ai/embed.md)
-- [25]-[TOOL](.planning/ai/tool.md)
-- [26]-[AGENT](.planning/ai/agent.md)
-- [27]-[BOOT](.planning/browser/boot.md)
-- [28]-[SHELL](.planning/browser/shell.md)
-- [29]-[PERSIST](.planning/browser/persist.md)
-- [30]-[ROUTE_BROWSER](.planning/browser/route.md)
-- [31]-[FETCH](.planning/browser/fetch.md)
+- [09]-[COORDINATE](.planning/net/coordinate.md)
+- [10]-[EMIT](.planning/otel/emit.md)
+- [11]-[CRASH](.planning/otel/crash.md)
+- [12]-[VITAL](.planning/otel/vital.md)
+- [13]-[API](.planning/serve/api.md)
+- [14]-[ROUTE](.planning/serve/route.md)
+- [15]-[LIVE](.planning/serve/live.md)
+- [16]-[PROBLEM](.planning/serve/problem.md)
+- [17]-[CLI](.planning/serve/cli.md)
+- [18]-[ENTITY](.planning/work/entity.md)
+- [19]-[FLOW](.planning/work/flow.md)
+- [20]-[QUEUE](.planning/work/queue.md)
+- [21]-[SCHEDULE](.planning/work/schedule.md)
+- [22]-[DELIVER](.planning/work/deliver.md)
+- [23]-[REPORT](.planning/work/report.md)
+- [24]-[MODEL](.planning/ai/model.md)
+- [25]-[EMBED](.planning/ai/embed.md)
+- [26]-[TOOL](.planning/ai/tool.md)
+- [27]-[AGENT](.planning/ai/agent.md)
+- [28]-[BOOT](.planning/browser/boot.md)
+- [29]-[SHELL](.planning/browser/shell.md)
+- [30]-[PERSIST](.planning/browser/persist.md)
+- [31]-[ROUTE_BROWSER](.planning/browser/route.md)
+- [32]-[FETCH](.planning/browser/fetch.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

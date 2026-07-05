@@ -16,7 +16,7 @@ The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class
 - Law: tier digests are `ContentKey` — every parent digest mints through `Digest.mint("content", ...)` over its child bucket's canonical bytes, the one `XxHash128` seed-zero identity, so a locally built summary and a C#-decoded summary compare bucket-for-bucket with no normalize step (invariant: one mint, delegating sites only).
 - Law: fanout is summary identity — two summaries compare only at equal fanout, and a mismatched pair answers every leaf bucket of `self`, the full-sync verdict, because bucket coordinates under different fanouts name different ranges; construction and descent read the same fanout field, so build and compare cannot disagree.
 - Law: tiers order root-first — `tiers[0]` is the root row and the last tier is the leaf census — and construction folds leaf-to-root with each pass prepending, so the stored order is the descent order and no reader reverses.
-- Exemption: `_encoded` is a marked kernel — the `TextEncoder` byte crossing is the platform-forced seam turning a bucket's joined hex into digest input, and only the immutable byte array leaves; the `_diverges` tier descent is a measured statement kernel — candidate narrowing mutates only the local frontier arrays and the accumulator dies at the return. The implementer carries the `// BOUNDARY ADAPTER` mark on each kernel's first line.
+- Exemption: `_encoded` is a marked kernel — the module-singleton `TextEncoder` byte crossing is the platform-forced seam turning a bucket's joined hex into digest input, and only the immutable byte array leaves; the `_diverges` tier descent is a measured statement kernel — candidate narrowing mutates only the local frontier arrays and the accumulator dies at the return. The implementer carries the `// BOUNDARY ADAPTER` mark on each kernel's first line.
 - Packages: `effect` (`Schema`, `Array`, `Effect`, `Order`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/clock.ts` (`Hlc`); `./causal.ts` (`Vector`).
 
 ```typescript
@@ -30,9 +30,9 @@ const _Merkle = Schema.Struct({
   tiers: Schema.NonEmptyArray(Schema.Array(ContentKey)),
 })
 
-const _encoded = (bucket: ReadonlyArray<ContentKey>): Uint8Array => {
-  return new TextEncoder().encode(bucket.join(""))
-}
+const _utf8 = new TextEncoder()
+
+const _encoded = (bucket: ReadonlyArray<ContentKey>): Uint8Array => _utf8.encode(bucket.join(""))
 
 const _lifted = (tier: ReadonlyArray<ContentKey>, fanout: number): Effect.Effect<ReadonlyArray<ContentKey>> =>
   Effect.forEach(Array.chunksOf(tier, fanout), (bucket) => Digest.mint("content", _encoded(bucket)))

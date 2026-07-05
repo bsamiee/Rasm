@@ -172,7 +172,7 @@ The curiosity-ai fork ships additional non-canonical RocksDB types — `RaftClus
 - consistency primitives are `Snapshot` (in-memory read view, cheap), `Checkpoint` (durable hard-linked clone, the backup form), and `GetUpdatesSince`→`TransactionLogIterator` (the WAL changefeed for CDC).
 
 [LOCAL_ADMISSION]:
-- RocksDB enters behind the same `Store/profiles` store-backend vocabulary as every backend, as the embedded write-optimized log/KV class; the relational floor stays SQLite (`api-sqlite`) and the read-optimized MVCC engine stays LMDB (`LightningDB`). The three are distinct backend rows, never collapsed.
+- RocksDB enters behind the same `Store/provisioning` store-backend vocabulary as every backend, as the embedded write-optimized log/KV class; the relational floor stays SQLite (`api-sqlite`) and the read-optimized MVCC engine stays LMDB (`LightningDB`). The three are distinct backend rows, never collapsed.
 - a `[ValueObject]`/`[SmartEnum]` owner crosses into a RocksDB cell through the snapshot codec key projection and the span `Put`; the read decodes through `Get<T>(key, ISpanDeserializer<T>)` — no per-cell boxing, no hand-rolled byte framing.
 - multi-entity layouts use column families (one family per logical stream/index), opened together via `ColumnFamilies`; the family handle is the operation target, never a key-prefix hack where a family is the right tool.
 - atomic multi-key state transitions use `WriteBatch` (or `WriteBatchWithIndex` where read-your-writes is needed) under one `Write` — never a sequence of single `Put`s on the durable path.
@@ -183,7 +183,7 @@ The curiosity-ai fork ships additional non-canonical RocksDB types — `RaftClus
 - compression alignment: `Compression.Zstd`/`Lz4` are the native-core block codecs applied per level via `SetCompressionPerLevel`/`SetMinLevelToCompress`; the standalone `ZstdSharp.Port`/`K4os.Compression.LZ4` codecs are orthogonal (snapshot/blob compression), so a RocksDB value is block-compressed once by the engine.
 - merge-operator CRDT: a CRDT counter/register/set (the `Version` CRDT lane) installs a custom `MergeOperator` via `MergeOperators.Create` whose `FullMergeFunc`/`PartialMergeFunc` fold operands over a `ReadOnlySpan<byte>` — the merge resolution is native at compaction, the canonical form for high-write-rate counters rather than a read-modify-write loop.
 - WAL→egress: `GetUpdatesSince` taps the WAL as a sequence-numbered changefeed; each batch is framed by the redaction codec (`api-redaction`) and published to the Kafka/RabbitMQ egress (`api-kafka`/`api-rabbitmq`) — the embedded store's CDC reuses the same egress lane as the relational tier, keyed by the WAL sequence number.
-- backup residence: `Checkpoint.Save` produces a hard-linked consistent clone whose files (or a `SstFileWriter` export) land in the object-store residence (`api-objectstore`/`Minio`) via the `Store/remote` lane; `IngestExternalFiles` is the symmetric bulk-restore/bulk-load path.
+- backup residence: `Checkpoint.Save` produces a hard-linked consistent clone whose files (or a `SstFileWriter` export) land in the object-store residence (`api-objectstore`/`Minio`) via the `Store/blobstore` lane; `IngestExternalFiles` is the symmetric bulk-restore/bulk-load path.
 - telemetry: `EnableStatistics()` + `GetProperty(name)` expose engine counters (memtable/compaction/cache stats) that feed the AppHost `telemetry` port as a metric stream, and `SetInfoLogLevel(InfoLogLevel)` routes native logs — not a bespoke logger.
 
 [RAIL_LAW]:

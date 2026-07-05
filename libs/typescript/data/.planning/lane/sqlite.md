@@ -131,30 +131,39 @@ const _d1 = (db: D1Database): Layer.Layer<D1Client.D1Client | SqlClient.SqlClien
 
 ## [4]-[SNAPSHOT_IO]
 
-- Owner: the lane-native byte operations — `snapshot` (whole-database export content-addressed into the object plane), `backup` (node-only non-blocking online backup with page-progress metadata), `seed`/`dump` (wasm import/export with zero-copy transfer), and `extend` (runtime extension load, the server profiles' capability-admission write half).
+- Owner: `Sqlite.bytes(io)` — ONE byte-operation entry whose modality is the `Sqlite.Io` case value: `Snapshot` (whole-database export content-addressed into the object plane), `Backup` (node-only non-blocking online backup with page-progress metadata), `Seed`/`Dump` (wasm import/export with zero-copy transfer), and `Extend` (runtime extension load, the server profiles' capability-admission write half); the profile Tag each case reaches is the case's own knowledge, never the caller's.
 - Packages: `@effect/sql-sqlite-node` (`client.export`, `client.backup`, `client.loadExtension`, `BackupMetadata`); `@effect/sql-sqlite-bun` (`client.export`); `@effect/sql-sqlite-wasm` (`client.import`, `client.export`, `SqliteClient.withTransferables`); the object plane's put entry consumes the exported bytes at the composition seam.
 - Entry: server snapshots feed the content-addressed object plane — the key IS the bytes, so a re-put is idempotent; the browser seeds a first-run database from a server-minted snapshot fetched by content key, and the memory profile persists by dump-then-seed through its own storage row.
 - Receipt: `backup` yields `BackupMetadata` — total and remaining pages — so a live backup is observable progress, not a blocking export; `dump` yields the raw bytes because the browser cannot mint into the object plane directly.
-- Growth: a new seed source (server snapshot, replay, fixture) is a caller decision — the surface takes bytes and nothing else; the libSQL row never composes these members because replica sync IS its durability transport.
+- Growth: a new byte operation is one `Sqlite.Io` case plus its `$match` arm — every consumer breaks loudly until the arm exists; a new seed source (server snapshot, replay, fixture) is a caller decision — the surface takes bytes and nothing else; the libSQL row never composes these cases because replica sync IS its durability transport.
 - Law: `export` snapshots block the writer for the copy and suit specs and small files; `backup` is the production posture on the node profile — page-incremental, non-blocking, poll-observable.
 - Law: blobs transfer, never copy — `withTransferables([bytes.buffer])` wraps every wasm import/export crossing; a structured-clone copy of a multi-megabyte database is the named waste.
 - Law: seed-then-verify — after `import`, the lane's ensure relations probe exactly like server startup, so a truncated or foreign blob fails closed at seed time, never at first query.
 - Law: `loadExtension` is the degradation table's `loadExtension` verdict realized — a load failure refuses the grant through the capability rail, never crashes the lane.
 
 ```typescript
-const _snapshot = Effect.flatMap(NodeSqlite.SqliteClient.SqliteClient, (client) => client.export)
+import { Data } from "effect"
 
-const _backup = (destination: string) =>
-  Effect.flatMap(NodeSqlite.SqliteClient.SqliteClient, (client) => client.backup(destination))
+type SqliteIo = Data.TaggedEnum<{
+  Snapshot: {}
+  Backup: { readonly destination: string }
+  Extend: { readonly path: string }
+  Seed: { readonly bytes: Uint8Array }
+  Dump: {}
+}>
 
-const _extend = (path: string) =>
-  Effect.flatMap(NodeSqlite.SqliteClient.SqliteClient, (client) => client.loadExtension(path))
+const _Io = Data.taggedEnum<SqliteIo>()
 
-const _seed = (bytes: Uint8Array) =>
-  Effect.flatMap(WasmSqlite.SqliteClient.SqliteClient, (client) =>
-    WasmSqlite.SqliteClient.withTransferables([bytes.buffer])(client.import(bytes)))
-
-const _dump = Effect.flatMap(WasmSqlite.SqliteClient.SqliteClient, (client) => client.export)
+const _bytes = (io: SqliteIo) =>
+  _Io.$match(io, {
+    Snapshot: () => Effect.flatMap(NodeSqlite.SqliteClient.SqliteClient, (client) => client.export),
+    Backup: ({ destination }) => Effect.flatMap(NodeSqlite.SqliteClient.SqliteClient, (client) => client.backup(destination)),
+    Extend: ({ path }) => Effect.flatMap(NodeSqlite.SqliteClient.SqliteClient, (client) => client.loadExtension(path)),
+    Seed: ({ bytes }) =>
+      Effect.flatMap(WasmSqlite.SqliteClient.SqliteClient, (client) =>
+        WasmSqlite.SqliteClient.withTransferables([bytes.buffer])(client.import(bytes))),
+    Dump: () => Effect.flatMap(WasmSqlite.SqliteClient.SqliteClient, (client) => client.export),
+  })
 
 const Sqlite = {
   degrades: _degrades,
@@ -166,11 +175,8 @@ const Sqlite = {
   worker: _worker,
   libsql: _libsql,
   d1: _d1,
-  snapshot: _snapshot,
-  backup: _backup,
-  extend: _extend,
-  seed: _seed,
-  dump: _dump,
+  Io: _Io,
+  bytes: _bytes,
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

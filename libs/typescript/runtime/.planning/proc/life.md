@@ -31,13 +31,27 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 - Packages: `effect` (`Clock`, `Duration`, `Effect`, `Exit`, `Option`).
 
 ```typescript
-import { Array, Chunk, Clock, DateTime, Deferred, Duration, Effect, Exit, Option, Order, Record, Ref, type Subscribable, SubscriptionRef, pipe } from "effect"
+import { Array, Chunk, Clock, DateTime, Deferred, Duration, Effect, Exit, Option, Order, Record, Ref, Schema, Struct, type Subscribable, SubscriptionRef, pipe } from "effect"
 import { Setting } from "./config.ts"
 
 const _PHASES = ["booting", "running", "draining", "halted"] as const
 const _BANDS = { intake: 0, domain: 10, report: 90 } as const
 const _GRADES = { pass: { rank: 0 }, warn: { rank: 1 }, fail: { rank: 2 } } as const
 const _KINDS = { started: { route: "/startupz" }, ready: { route: "/readyz" }, live: { route: "/livez" } } as const
+
+class _Graded extends Schema.Class<_Graded>("Life/Graded")({
+  label: Schema.NonEmptyString,
+  grade: Schema.Literal(...Struct.keys(_GRADES)),
+  elapsed: Schema.DurationFromMillis,
+  detail: Schema.optionalWith(Schema.String, { as: "Option" }),
+}) {}
+
+class _Report extends Schema.Class<_Report>("Life/Report")({
+  kind: Schema.Literal(...Struct.keys(_KINDS)),
+  overall: Schema.Literal(...Struct.keys(_GRADES)),
+  rows: Schema.Array(_Graded),
+  at: Schema.DateTimeUtc,
+}) {}
 
 declare namespace Life {
   type Phase = (typeof _PHASES)[number]
@@ -52,14 +66,9 @@ declare namespace Life {
   }
   type Probe = { readonly label: string; readonly kind: Kind; readonly run: Effect.Effect<Grade> }
   type Row = { readonly label: string; readonly rank: number; readonly verdict: Verdict; readonly elapsed: Duration.Duration }
-  type Graded = {
-    readonly label: string
-    readonly grade: Grade
-    readonly elapsed: Duration.Duration
-    readonly detail: Option.Option<string>
-  }
+  type Graded = _Graded
   type Receipt = { readonly at: DateTime.Utc; readonly rows: ReadonlyArray<Row>; readonly landed: Phase }
-  type Report = { readonly kind: Kind; readonly overall: Grade; readonly rows: ReadonlyArray<Graded>; readonly at: DateTime.Utc }
+  type Report = _Report
   type _Kinds<T extends Record<Kind, { readonly route: string }> = typeof _KINDS> = T
   type _Grades<T extends Record<Grade, { readonly rank: number }> = typeof _GRADES> = T
 }
@@ -115,7 +124,7 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
 - Law: the ready fold gates on the phase first — outside `running` the report is `fail` with the phase as detail before any probe runs; liveness never reads the phase.
 - Law: the sweep is memoized per kind and the memo record derives from the anchor — `Record.map` over `_KINDS` under `Effect.all` mints one `Effect.cachedWithTTL(swept(kind), Setting.life.report)` per row, so a probe storm collapses into one execution per window and a new kind is one anchor row with zero memo edits.
 - Law: routes are data — `Life.route(kind)` projects the row; the serving edge mounts the three routes from this anchor and encodes the report (`pass/warn → 200`, `fail → 503`), `iac` writes the same three paths into workload manifests, so the path never exists twice.
-- Receipt: `Life.Report` — kind, overall grade, per-row grade with elapsed and detail, instant; telemetry consumes the same rows and no second health shape exists.
+- Receipt: `Life.Report` — one `Schema.Class` (kind, overall grade, `Life.Graded` rows with millis-encoded elapsed and `Option` detail, instant) riding the owner as a static, so the serving edge encodes the derived wire twin (`pass/warn → 200`, `fail → 503`), telemetry consumes the same rows, and no hand-serialized health body or second health shape exists.
 
 ```typescript
 class Life extends Effect.Service<Life>()("runtime/Life", {
@@ -152,7 +161,7 @@ class Life extends Effect.Service<Life>()("runtime/Life", {
 
     const proven = (probe: Life.Probe): Effect.Effect<Life.Graded> =>
       Effect.map(_bounded(probe.run, Option.some(setting.life.probe)), ({ elapsed, outcome }) =>
-        pipe(_probeGrade(outcome), ([grade, detail]) => ({ label: probe.label, grade, elapsed, detail })))
+        pipe(_probeGrade(outcome), ([grade, detail]) => new _Graded({ label: probe.label, grade, elapsed, detail })))
 
     const swept = (kind: Life.Kind): Effect.Effect<Life.Report> =>
       Effect.gen(function* () {
@@ -161,13 +170,13 @@ class Life extends Effect.Service<Life>()("runtime/Life", {
         const gated = kind === "ready" && held !== "running"
         const registered = Array.filter(Chunk.toReadonlyArray(yield* Ref.get(probes)), (probe) => probe.kind === kind)
         const rows = gated
-          ? [{ label: "life", grade: "fail" as const, elapsed: Duration.zero, detail: Option.some(held) }]
+          ? [new _Graded({ label: "life", grade: "fail", elapsed: Duration.zero, detail: Option.some(held) })]
           : yield* Effect.forEach(registered, proven, { concurrency: "unbounded" })
         const overall = pipe(
           Array.map(rows, (row) => row.grade),
           (graded) => (Array.isNonEmptyReadonlyArray(graded) ? Array.max(graded, _byGrade) : "pass"),
         )
-        return { kind, overall, rows, at }
+        return new _Report({ kind, overall, rows, at })
       })
 
     const memo = yield* Effect.all(Record.map(_KINDS, (_, kind) => Effect.cachedWithTTL(swept(kind), setting.life.report)))
@@ -187,7 +196,10 @@ class Life extends Effect.Service<Life>()("runtime/Life", {
   }),
   dependencies: [Setting.Default],
   accessors: true,
-}) {}
+}) {
+  static readonly Graded = _Graded
+  static readonly Report = _Report
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

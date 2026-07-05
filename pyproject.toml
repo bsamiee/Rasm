@@ -7,6 +7,7 @@ dependencies = [
     "anyio",
     "protobuf",                                      # [RUNTIME]: transport wire codec
     "grpcio",                                        # [RUNTIME]: gRPC transport for ServerHost serve paths
+    "grpcio-health-checking",                        # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle
     "findiff",                                       # [COMPUTE]: finite-difference operators for solvers and sensitivity
     "beartype",
     "cyclopts",
@@ -21,22 +22,21 @@ dependencies = [
     "stamina",
     "structlog",
     "psutil",
-    "fsspec",
-    "s3fs",                                          # [DATA]: S3 fsspec backend for shared-pull artifact reads
-    "gcsfs",                                         # [DATA]: GCS fsspec backend for shared-pull artifact reads
     "obstore",                                       # [DATA]: object-store backend
     "obspec-utils",                                  # [DATA]: multi-store ObjectStoreRegistry companion to obstore
+    "fsspec",                                        # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
+    "universal-pathlib",                             # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry
     "httpx",                                         # [TRANSPORT]: approved HTTP client surface for typed adapters
     "watchfiles",
     "apscheduler",                                   # [RUNTIME]: cron, interval, and date triggers
-    "universal-pathlib",                             # [DATA]: UPath storage_options/protocol resolution for the fsspec artifact store
     "asyncssh",
     "tree-sitter",
     "tree-sitter-python",
     "tree-sitter-typescript",
     "keyring",                                       # [RUNTIME]: OS keychain credential boundary
+    "google-cloud-secret-manager",                   # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
     "zstandard",                                     # [TOOLING]: zstd compression for tools.assay logging and cache payloads
-    "trio",                                          # [RUNTIME]: structured-concurrency backend anyio runs on
+    "trio",                                          # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
     "zlib-ng",                                       # [DATA]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
     "csvkit",                                        # [DATA]: CSV CLI suite for the tabular subprocess boundary
     # --- [SCIENTIFIC]
@@ -394,7 +394,7 @@ warn_unreachable =        false
 disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*", "s3fs"]  # backend imports lack py.typed coverage
+module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*"]  # backend imports lack py.typed coverage
 ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------

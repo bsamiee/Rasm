@@ -1,18 +1,20 @@
 # [RASM_API_HASHING]
 
-`System.IO.Hashing` supplies non-cryptographic hashing over the
-`NonCryptographicHashAlgorithm` `Stream`-derived incremental base — XxHash3/64/32/128
+`System.IO.Hashing` supplies non-cryptographic hashing over the abstract
+`NonCryptographicHashAlgorithm` accumulator base — XxHash3/64/32/128
 and CRC-32/64 — for snapshot identity, cache keys, receipt fingerprints, benchmark
 indexes, and support-bundle correlation. Every concrete algorithm exposes three
 discriminated call shapes: a static one-shot (`Hash`/`HashToUIntNN`/`TryHash`), an
 allocation-free incremental loop (`Append` + `GetCurrentHashAsUIntNN`/`TryGetHashAndReset`),
-and the inherited `Stream.Write`/`AppendAsync(Stream)` sink that hashes a payload in
-flight. ABI: net10.0 BCL inbox-shaped NuGet (10.0.9), MIT, no native dependency.
+and the `Append(Stream)`/`AppendAsync(Stream)` sink that drains a payload in flight through
+an internal write-only bridge. The base is NOT a `Stream`; there is no public `Write`/`WriteAsync`
+member. ABI: net10.0 BCL inbox-shaped NuGet (10.0.9), MIT, no native dependency.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.IO.Hashing`
 - package: `System.IO.Hashing`
+- version: `10.0.9`
 - assembly: `System.IO.Hashing`
 - namespace: `System.IO.Hashing`
 - asset: runtime library (managed, no native dependency; license MIT)
@@ -26,7 +28,7 @@ flight. ABI: net10.0 BCL inbox-shaped NuGet (10.0.9), MIT, no native dependency.
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                        |
 | :-----: | :------------------------------ | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `NonCryptographicHashAlgorithm` | `Stream` base      | incremental lifecycle; write-only `Stream` sink; `Try*`/span reads |
+|  [01]   | `NonCryptographicHashAlgorithm` | accumulator base   | abstract incremental lifecycle; `Append`/`AppendAsync` ingest; `Try*`/span reads (NOT a `Stream`) |
 |  [02]   | `XxHash3`                       | hash algorithm     | 64-bit; default fast root; seeded ctor + `GetCurrentHashAsUInt64`  |
 |  [03]   | `XxHash64`                      | hash algorithm     | 64-bit; `long` seed; `GetCurrentHashAsUInt64`                      |
 |  [04]   | `XxHash32`                      | hash algorithm     | 32-bit; `int` seed; `GetCurrentHashAsUInt32`                       |
@@ -67,13 +69,12 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 |  [07]   | `GetHashAndReset()` / `TryGetHashAndReset(Span<byte>, out)`| instance       | finalize, emit digest, reset for reuse          |
 |  [08]   | `Reset()`                                                  | instance `void`| clear state for a fresh accumulation            |
 |  [09]   | `Clone()`                                                  | instance self  | fork independent algorithm at current state     |
-|  [10]   | `Write(ReadOnlySpan<byte>)` / `WriteAsync(ReadOnlyMemory)`| `Stream` sink  | use the hash directly as a write-only `Stream`  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IDENTITY_PROFILE]:
 - namespace: `System.IO.Hashing`
-- base root: `NonCryptographicHashAlgorithm` is a `Stream` (`CanWrite=true`, read/seek throw) — a hash is a write-only sink, so a payload streams straight in via `Write`/`CopyToAsync(hash)` without staging bytes
+- base root: `NonCryptographicHashAlgorithm` is an abstract accumulator (NOT a `Stream`, no public `Write`/`WriteAsync`) — a large payload drains in via `Append(Stream)`/`AppendAsync(Stream)`, which internally copy through a private write-only bridge, so no bytes stage
 - call-shape discriminant: ONE algorithm owns three modes — static one-shot for a buffer in hand, incremental `Append`+`GetCurrentHashAsUIntNN` for a chunked or streamed payload, and `AppendAsync(Stream)` for an async source; selection is the input shape, never a parallel algorithm
 - width root: each concrete type exposes exactly its native width's `HashToUIntNN` static and `GetCurrentHashAsUIntNN` instance read; a generic base-level `HashToUIntNN` does not exist
 - snapshot root: `Clone()` forks a running accumulation so a shared prefix is hashed once and continued into divergent suffixes (per-variant snapshot identity over a common header)
@@ -82,7 +83,7 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 - The content-identity rail composes `XxHash128.HashToUInt128` at SEED ZERO as the federation's one `ContentHash.Of(ReadOnlySpan<byte>) → UInt128` entry (`Rasm.Domain.ContentHash`); every consumer — the kernel geometry hashes, the `Rasm.Element` seam `NodeId`/`ContentAddress`, the Persistence snapshot spine, the Python/TypeScript wire peers — composes this ONE entry (one algorithm, one seed, no second hasher), and the `UInt128` flows into the content-key value objects with no intermediate byte allocation; `XxHash3.HashToUInt64` is at most a fast-root example for process-local non-identity fingerprints, NEVER the `ContentHash` seed
 - An incremental digest over a structured value stacks under a `Span`/buffer-writer pipeline: serialize each field into a pooled buffer, `Append` the span, finalize with `GetHashAndReset` — the hash never owns a result store, the caller's buffer is the only allocation
 - A no-throw fingerprint stacks onto a LanguageExt `Fin`/`Option` rail through `TryGetHashAndReset(buffer, out written)`: the `bool` maps to `Fin.Succ`/`Fin.Fail` (or `Option`) at the boundary, so a destination-too-short is a typed failure row, never an exception in the receipt path
-- A hashed `Stream` payload (snapshot blob, support bundle) stacks the algorithm as the sink of `payloadStream.CopyToAsync(hashAsStream, ct)` or `AppendAsync(payloadStream, ct)`, threading the same `CancellationToken` the surrounding anyio/Task scope carries
+- A hashed `Stream` payload (snapshot blob, support bundle) stacks the algorithm as the sink of `hash.AppendAsync(payloadStream, ct)`, threading the same `CancellationToken` the surrounding anyio/Task scope carries
 
 [LOCAL_ADMISSION]:
 - Hashing creates non-cryptographic identity, cache, and correlation values only; redaction, security, and tamper evidence use separate declared rails

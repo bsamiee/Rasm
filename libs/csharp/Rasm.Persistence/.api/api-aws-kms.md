@@ -19,7 +19,7 @@ delegate pair. The whole surface is async-only on the v4 line and pure-managed.
 
 [PACKAGE_SURFACE]: `AWSSDK.KeyManagementService`
 - package: `AWSSDK.KeyManagementService`
-- version: `4.0.12.9`
+- version: `4.0.100.2`
 - license: `Apache-2.0`
 - assembly: `AWSSDK.KeyManagementService` (`lib/net8.0` binds for the `net10.0` consumer; `netcoreapp3.1`/`netstandard2.0`/`net472` are fallback assets)
 - namespace: `Amazon.KeyManagementService`, `Amazon.KeyManagementService.Model`

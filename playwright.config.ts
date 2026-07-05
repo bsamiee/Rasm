@@ -18,11 +18,7 @@ const _CI = process.env['CI'] === 'true';
 
 // Software-rendering rows for the gpu lane, keyed by host platform: linux CI pins the WebGPU
 // adapter to swiftshader so the acquisition gauge stays deterministic off real hardware.
-const _GPU = [
-    '--enable-unsafe-swiftshader',
-    '--enable-unsafe-webgpu',
-    ...(process.platform === 'linux' ? ['--use-webgpu-adapter=swiftshader'] : []),
-];
+const _GPU = ['--enable-unsafe-swiftshader', '--enable-unsafe-webgpu', ...(process.platform === 'linux' ? ['--use-webgpu-adapter=swiftshader'] : [])];
 
 // The engine roster is config data: a new engine is one row here plus its out-of-band
 // `playwright install <engine>`; firefox's row lands when a served product flow demands
@@ -46,7 +42,13 @@ const _LANES = {
 
 const config: PlaywrightTestConfig = defineConfig({
     captureGitInfo: { commit: true, diff: false },
-    expect: { timeout: 5_000, toHaveScreenshot: { maxDiffPixelRatio: 0.02 } },
+    expect: {
+        timeout: 5_000,
+        toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
+        // Aria goldens are engine-invariant — one golden per test across browsers, so the template
+        // deliberately omits {projectName}/{platform}, unlike the pixel goldens below.
+        toMatchAriaSnapshot: { pathTemplate: '{testDir}/goldens/aria/{testFilePath}/{arg}{ext}' },
+    },
     failOnFlakyTests: _CI,
     forbidOnly: _CI,
     fullyParallel: true,

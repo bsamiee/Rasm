@@ -1,6 +1,6 @@
 # [CORE_FRAME]
 
-The reassembly rail of the interchange plane: multi-part payloads from the compute runtime arrive as content-keyed, ordinal-positioned frames; reassembly is one keyed Mealy fold over the frame stream under the `value` ingress budget — frame count by `Stream.take`, assembled bytes by a running per-artifact ceiling — the assembled octets join in a single allocation and re-verify through the one `Parity` combinator before any consumer sees them, and the verified receipt travels beside its bytes. Three planes ride the rail: `ArtifactFrame`, the format-agnostic reassembly-and-verify fold; `GeometryFrame`, the GLB control plane — payload envelope, encoding vocabulary, tensor rows, and the zero-copy typed-array windows over verified octets; `Residency`, the manifest-replace/delta-evolve protocol whose polymorphic ledger fold IS the fetch plan the runtime transport schedules against. Every coordinate is a verbatim `ContentKey`, so the ledger, the artifact receipts, and the viewer scene keys speak one identity. The module is `core/src/interchange/frame.ts`; a frame envelope axis is one field mirroring the C# emit, a new encoding or residency state is one literal row, and a new tensor dtype is one vocabulary row.
+The reassembly rail of the interchange plane: multi-part payloads from the compute runtime arrive as content-keyed, ordinal-positioned frames; reassembly is one keyed Mealy fold over the frame stream under the `value` ingress budget — frame count by `Stream.take`, assembled bytes by a running per-artifact ceiling — the held bands stream-verify through the one `Parity` combinator before the join allocates, the proven octets join in a single allocation, and the verified receipt travels beside its bytes. Three planes ride the rail: `ArtifactFrame`, the format-agnostic reassembly-and-verify fold; `GeometryFrame`, the GLB control plane — payload envelope, encoding vocabulary, tensor rows, and the zero-copy typed-array windows over verified octets; `Residency`, the manifest-replace/delta-evolve protocol whose polymorphic ledger fold IS the fetch plan the runtime transport schedules against. Every coordinate is a verbatim `ContentKey`, so the ledger, the artifact receipts, and the viewer scene keys speak one identity. The module is `core/src/interchange/frame.ts`; a frame envelope axis is one field mirroring the C# emit, a new encoding or residency state is one literal row, and a new tensor dtype is one vocabulary row.
 
 ## [1]-[CLUSTERS]
 
@@ -90,8 +90,8 @@ const _gathered = (budget: Ingress.Shape) => (state: _State, frame: Frame): read
 
 [KEY_VERIFY]:
 - Owner: `ArtifactFrame`, the assembled owner — the marked-kernel byte join, the delegated verify, and `reassembled`, the one stream surface turning a budgeted frame feed into verified artifacts; `Artifact` is the receipt class carrying key, extent, and frame count beside the assembled octets.
-- Law: the verify is the plane's shared combinator — the joined octets prove against the declared key through `Parity.verified`, so this rail is the interchange's one content-mint delegation site and a per-consumer re-verify is the second-mint defect; a parity miss carries both keys as evidence.
-- Law: verify is per-artifact, not per-frame — frames carry no per-frame hash; the artifact's declared key proves the whole, so a corrupted band surfaces exactly once at the join.
+- Law: the verify is the plane's shared combinator — the held bands prove against the declared key through `Parity.verified` on its band-iterable payload modality, so this rail is the interchange's one content-mint delegation site and a per-consumer re-verify is the second-mint defect; a parity miss carries both keys as evidence and refuses BEFORE the summed buffer allocates, so a corrupted multi-frame artifact never costs its own join.
+- Law: verify is per-artifact, not per-frame — frames carry no per-frame hash; the artifact's declared key proves the whole over one streaming digest walk, so a corrupted band surfaces exactly once and the joined buffer is never re-hashed.
 - Exemption: `_joined` is a marked kernel — one allocation at the summed extent, bands copied in ordinal order, the draft detaching immutably at the return; the implementer carries the `// BOUNDARY ADAPTER` mark on its first line.
 - Growth: a second verified consumer composes `reassembled` — fold, join, and verify are one spelling.
 - Boundary: the receipt and octets travel to the runtime wave's fetch worker and the data wave's object store, both of which compare keys and never re-mint; parity-refused artifacts quarantine at the consumer holding the octets.
@@ -118,12 +118,12 @@ const _verifiedArtifact = (
   key: ContentKey,
   bands: Chunk.Chunk<Uint8Array>,
 ): Effect.Effect<readonly [Artifact, Uint8Array], WireFault> =>
-  Effect.suspend(() => {
-    const octets = _joined(bands)
-    return Parity.verified("ArtifactFrameWire", key, octets).pipe(
-      Effect.as([new Artifact({ key, extent: octets.length, frames: Chunk.size(bands) }), octets] as const),
-    )
-  })
+  Parity.verified("ArtifactFrameWire", key, bands).pipe(
+    Effect.map(() => {
+      const octets = _joined(bands)
+      return [new Artifact({ key, extent: octets.length, frames: Chunk.size(bands) }), octets] as const
+    }),
+  )
 
 const ArtifactFrame: {
   readonly Frame: typeof Frame
@@ -162,7 +162,7 @@ const ArtifactFrame: {
 - Law: bounds prove before construction — offset plus extent fitting the buffer is the caller's evidence pair; an envelope overrunning its octets is `parity`-grade evidence minted by the holder of both extents, never a repair.
 - Exemption: the typed-array window construction is the platform-forced seam; only the aliasing view leaves and the transfer list is the consumer's marshal declaration.
 - Growth: a new encoding or tensor semantic is one literal row; a new dtype is one `_views` row — constructor and width land as data, and consumers never switch on dtype.
-- Boundary: draco/meshopt decoder admission, GPU upload, and worker marshal are ui- and runtime-wave concerns over these values.
+- Boundary: draco/meshopt decoder admission, GPU upload, and worker marshal are ui- and runtime-wave concerns over these values; the zero-copy worker crossing is the consumer's `Transferable.schema` declaration at its own marshal boundary, deliberately not a core surface.
 
 ```typescript
 const _encodings = ["glb", "draco", "meshopt"] as const

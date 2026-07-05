@@ -14,18 +14,21 @@ The ONE resumable content-addressed rail: large payloads move in bounded chunks,
 
 ## [2]-[BYTE_INGRESS]
 
-- Owner: the ingress lifts — `Rail.bytes` over any `ReadableStream<Uint8Array>` through the BYOB reader, and the bounded multipart form seam for direct HTTP ingest — one pull geometry whose demand propagates upstream so a fast producer throttles to the slow consumer with order and completeness preserved.
-- Packages: `effect` (`Stream.fromReadableStreamByob`, `Stream.fromReadableStream`); `@effect/platform` (`Multipart` — `toPersisted`, the `MaxFileSize`/`MaxParts` fiber-ref bounds, `HttpApiSchema.Multipart` typed endpoints).
+- Owner: the ingress lifts — `Rail.bytes` over any `ReadableStream<Uint8Array>` through the BYOB reader, and `Rail.form(schema)` — the typed and bounded multipart seam for direct HTTP ingest — one pull geometry whose demand propagates upstream so a fast producer throttles to the slow consumer with order and completeness preserved.
+- Packages: `effect` (`Stream.fromReadableStreamByob`, `Stream.fromReadableStream`); `@effect/platform` (`Multipart` — `schemaPersisted`, `withLimits`, `toPersisted`, `HttpApiSchema.Multipart` typed endpoints).
 - Entry: every byte source in the unit enters here — a fetch body, a staged tus read lifted from its `Readable` through the platform interop, a filesystem stream from `object/file.md` — and leaves as one `Stream<Uint8Array>` the chunk stage consumes; no consumer meets a raw reader.
-- Growth: a new byte source is one lift call; the allocation size is a policy value on the BYOB lift, never a per-site literal.
+- Growth: a new byte source is one lift call; the allocation size and the form bounds are policy values, never per-site literals.
 - Law: ingress is pull — the BYOB reader drives `pull()` by `desiredSize`, the Effect stream carries the backpressure plus the typed error channel and `Scope` release, and an eager materialization of a body is the memory defect this rail exists to delete.
-- Law: form-data ingest is bounded before any byte materializes — the platform multipart bounds (`MaxFileSize`, `MaxFieldSize`, `MaxParts`) are fiber-ref policy at the seam, and file parts hand into this same lift.
+- Law: form-data ingest is typed AND bounded before any byte materializes — `Multipart.schemaPersisted(schema)` proves the whole form as one decoded struct and `Multipart.withLimits` composes the bounds as a value at the seam (never ambient fiber-ref mutation at call sites); file parts hand into this same lift.
 
 ```typescript
-import { Effect, Stream } from "effect"
+import { Effect, Schema, Stream } from "effect"
+import { Multipart } from "@effect/platform"
 import { ObjectFault } from "./store.ts"
 
 const _INGRESS = { allocBytes: 256 * 1024 } as const
+
+const _FORM = { maxFileSize: 512 * 1024 * 1024, maxParts: 32, maxFieldSize: 64 * 1024 } as const
 
 const _bytes = (body: ReadableStream<Uint8Array>): Stream.Stream<Uint8Array, ObjectFault> =>
   Stream.fromReadableStreamByob(
@@ -33,6 +36,13 @@ const _bytes = (body: ReadableStream<Uint8Array>): Stream.Stream<Uint8Array, Obj
     (caught) => new ObjectFault({ reason: "io", key: "<ingress>", detail: String(caught) }),
     _INGRESS.allocBytes,
   )
+
+const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A, I>) =>
+  (parts: Stream.Stream<Multipart.Part, Multipart.MultipartError>) =>
+    Effect.flatMap(
+      Multipart.toPersisted(Multipart.withLimits(parts, _FORM)),
+      Multipart.schemaPersisted(shape),
+    )
 ```
 
 ## [3]-[CHUNK_STAGE]
@@ -112,8 +122,10 @@ const _identity = (flow: Stream.Stream<{ readonly chunk: Uint8Array; readonly ma
 - Receipt: `onUploadFinish` returns the finalize receipt onto the reply — `{ key, bytes, written }` — so the client learns its content key in the completing response; the 412 case reads `written: false`, the dedup success.
 - Growth: a per-caller quota is the `maxSize` function reading the caller's admission; a second staging band (media versus artifact) is a second `Rail.of` with its own cut policy; RUFH lands as the protocol row swap.
 - Law: staging and content never share keys — tus ids are random staging identity, `namingFunction` prefixes the staging band, and identity exists only after the finalize fold; a staging key leaking as a content coordinate is the named defect.
-- Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed`), record the reference row, remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay and the staging removal is the only destructive step, ordered last.
+- Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row, remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay and the staging removal is the only destructive step, ordered last.
+- Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade.
 - Law: the groom never sleeps — `cleanUpExpiredUploads` plus the store's `deleteExpired` ride the maintenance cadence, and an abandoned upload costs staging bytes for exactly the expiration window.
+- RESEARCH: crash-durable digest-session resume — the `{ offset, session }` checkpoint promotes to a serializable durable actor (`Machine.makeSerializable`, `boot`, `snapshot`, `restore` are catalogued; the actor's `Subscribable` state feeds a UI progress atom) once the Machine procedure-declaration spelling is catalogued; until then the digest snapshot persists in the staging band's metadata under the custody law of `[4]`.
 
 ```mermaid
 sequenceDiagram
@@ -183,7 +195,11 @@ const _rail = (spec: Rail.Spec) =>
             const staged = yield* Effect.promise(() => staging.read(upload.id))
             const flow = _chunked(_bytes(Readable.toWeb(staged) as ReadableStream<Uint8Array>), spec.cut)
             const identity = yield* _identity(flow)
-            const landed = yield* store.putKeyed(identity.key, Readable.toWeb(yield* Effect.promise(() => staging.read(upload.id))) as ReadableStream<Uint8Array>)
+            const landed = yield* store.putKeyed(
+              identity.key,
+              Readable.toWeb(yield* Effect.promise(() => staging.read(upload.id))) as ReadableStream<Uint8Array>,
+              identity.bytes,
+            )
             yield* Effect.promise(() => staging.remove(upload.id))
             return { ...identity, written: landed.written }
           }),

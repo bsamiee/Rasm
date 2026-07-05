@@ -129,6 +129,11 @@ usable only inside an EF query tree; `Sum`/`Average` return nullable (`Period?`/
 - `Distance` overloads return `int` for all four NodaTime types (`Instant`/`ZonedDateTime`/`LocalDateTime`/`LocalDate`) — the PostgreSQL `<->` operator difference, never a `TimeSpan` or `Duration`; a consumer that expects a duration-typed distance from a NodaTime store contract is the named defect
 - all four `RangeIntersectAgg` overloads are decompile-verified: scalar `Interval`/`DateInterval` (returns the scalar) and multirange `Interval[]`/`DateInterval[]` (returns the array)
 
+[STACKING]:
+- owning provider: this plugin stacks onto `Npgsql.EntityFrameworkCore.PostgreSQL` (`api-npgsql-ef`) through the single `UseNodaTime()` call alongside `UseNetTopologySuite()` (`api-nts-ef`) and the Pgvector resolver (`api-pgvector-ef`) on one `NpgsqlDbContextOptionsBuilder`, so `Store/provisioning` admits all temporal/spatial/vector mappings in one provider declaration.
+- identity temporal columns: the `Instant → timestamptz`/`Interval → tstzrange` mappings are the `Element/identity` validity and audit columns; the NodaTime CLR vocabulary is the same one `api-nodatime`/`api-nodatime-stj` carry through the receipt and wire seams, so a persisted instant round-trips one canonical clock from C# domain to PostgreSQL and back.
+- version-query algebra: the `DbFunctions` `RangeAgg`/`RangeIntersectAgg` over `Interval`/`DateInterval` build the validity-window set algebra `Version/timetravel` AS-OF and `Version/retention` window aggregates read entirely inside EF query trees, never client-evaluated.
+
 [RAIL_LAW]:
 - Package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - Owns: NodaTime mapping for the PostgreSQL EF provider

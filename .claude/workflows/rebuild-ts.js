@@ -285,15 +285,18 @@ const critiquePrompt = (key, improve) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRA
   'into the Rasm-exemplar shape with full-bodied dominant fences; WIRING-COMPLETENESS - a packageAsk the improver ' +
   'raised without its in-lane catalog, README registry row, and consuming fences is an incomplete wiring you finish ' +
   'now; EXTENSION-IN-PLACE - the audit is not code polish ' +
-  'alone: where the improver under-extended a mandate emphasis (machines, pubsub, streaming, resilience, SQL depth, ' +
-  'filesystem/cloud, telemetry hooks, UI, IaC), you extend it now; CAPABILITY + ILLUSION with the five-times-demand ' +
+  'alone: EVERY page in scope is held to the full mandate bar in its own right - the dossiers and the improver ' +
+  'fix-log are floors, never scope limits - and each page you touch leaves with capability ADDED at operator depth ' +
+  '(machines, pubsub, streaming, resilience, SQL depth, filesystem/cloud, telemetry hooks, UI, IaC - whichever the ' +
+  'folder owns), never merely defects removed; CAPABILITY + ILLUSION with the five-times-demand ' +
   'test. IMPROVER RESULT (verify on disk, never trust): ' + JSON.stringify(improve || {}) + ' Return the fix-log.',
 ].join('\n\n')
 
 const redteamPrompt = (key, crit) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, STANCE, WRITE_FULLY,
   'TASK: RED-TEAM - your role law is libs/.planning/campaign-method.md [04] RED-TEAM, read at source and held to ' +
   'the letter: the terminal, most aggressive pass over ' + scopeOf(key) + '; every defect repaired in ' +
-  'place; the scope ends objectively DENSER and MORE CAPABLE than the critique left it. ' +
+  'place; the scope ends objectively DENSER and MORE CAPABLE than the critique left it. Every page in scope is ' +
+  're-attacked in isolation and in composition at the full mandate bar - the critique fix-log bounds nothing. ' +
   '(A) COUNTERFACTUAL on every core owner: does a denser tagged family, a Schema class family with derived ' +
   'variants, a vocabulary table, a parameterized generator, or a deeper Effect primitive collapse the whole fence? ' +
   'Build the stronger design. (B) ANTICIPATORY_COLLAPSE: the diff of the next feature - next engine row, provider, ' +

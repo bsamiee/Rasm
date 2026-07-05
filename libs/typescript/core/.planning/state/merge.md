@@ -7,7 +7,7 @@ The one lawful merge owner of the branch and its law surface in one module: ever
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                        | [PUBLIC]                                                  |
 | :-----: | :------------------ | :----------------------------------------------------------------------------- | :--------------------------------------------------------- |
 |  [01]   | `INSTANCE_CONTRACT` | the `Merge.Instance<A>` shape, posture vocabulary, order-derived equivalence   | `Merge.Posture`, `Merge.Instance`, `Merge.instance`         |
-|  [02]   | `INSTANCE_ROSTER`   | scalar, bounded, keyed, optional, and product instance constructors            | `Merge.max/min/lattice/first/counter/flag/union/optional/struct` |
+|  [02]   | `INSTANCE_ROSTER`   | scalar, bounded, keyed, optional, and product instance constructors            | `Merge.max/min/lattice/first/counter/flag/union/hashMap/optional/struct` |
 |  [03]   | `FOLD_ENTRY`        | the absence-honest fold, the lawful `Monoid` projection, the convergence read  | `Merge.fold`, `Merge.monoid`, `Merge.convergent`            |
 |  [04]   | `LAW_SURFACE`       | obligation selection, per-law witnesses, replay commutation, fixture rows      | `Converge`, `Breach`                                        |
 |  [05]   | `MERGE_CELLS`       | the keyed transactional merge table with batch-atomic absorb and settle waits  | `Merge.cell`                                                |
@@ -57,6 +57,7 @@ declare namespace Merge {
     readonly counter: Instance<number>
     readonly flag: Instance<boolean>
     readonly union: <V>(row: Instance<V>) => Instance<Record.ReadonlyRecord<string, V>>
+    readonly hashMap: <K, V>(row: Instance<V>) => Instance<HashMap.HashMap<K, V>>
     readonly optional: <A>(row: Instance<A>) => Instance<Option.Option<A>>
     readonly struct: <S extends object>(fields: Fields<S>) => Instance<Types.Simplify<S>>
     readonly fold: <A>(instance: Instance<A>, rows: ReadonlyArray<A>) => Option.Option<A>
@@ -81,6 +82,7 @@ const _fromOrder = <A>(order: Order.Order<A>): Equivalence.Equivalence<A> =>
 - Law: `Merge.max`/`Merge.min` over an `Order` are the convergence-legal semilattices — join and meet — identity-free because an unbounded scale has no lawful `empty`; `Merge.lattice(bounds)` is the bounded pair whose `join` carries `Some(minBound)` and whose `meet` carries `Some(maxBound)`, so a scale with real bounds folds zero rows to its own floor or ceiling instead of forcing every consumer through the absence fold.
 - Law: `Merge.counter` (`SemigroupSum`) is commutative, not idempotent — its convergence argument is op-multiset uniqueness at the fold, the posture row that makes the law surface demand a dedup witness instead of an idempotence proof.
 - Law: `Merge.union` merges keyed partial records grow-only — keys present in one side keep, collisions combine through the row instance — and `Merge.optional` lifts an identity-free row to lawful with `Option.none()` as the empty, so absent fields pad folds without forged sentinels.
+- Law: `Merge.hashMap` is the keyed-map CRDT on the branch's own keyed-state currency — the `HashMap` twin of `union`: present-in-one keeps, present-in-both combines through the row instance, `empty` is the empty map, posture inherits the row's — so a keyed evidence field composes `Merge.struct({ commands: Merge.hashMap(row) })` and a hand-rolled `HashMap.reduce` combine beside the roster is the deleted spelling; its `alike` is the law surface's own keyed-table comparison, so table proofs and instance proofs share one equality.
 - Law: `Merge.struct` is the record CRDT — one instance per field, posture the conjunction of field postures, equivalence and empty composed from the same rows — a record merge is exactly as lawful as its weakest field and the whole matrix reads from one declaration.
 - Exemption: `_mapped` and `_struct` are the reverse-mapped projection kernel — the checker cannot correlate per-key `Instance<S[K]>` rows through `Record.map`, so the scoped assertions live in these two interior functions and nowhere else in the folder.
 - Growth: a new CRDT type is one constructor row here plus its law row at the law surface; the wire op family binds instances per op case at the interchange decode seam, never by forking this algebra.
@@ -300,6 +302,18 @@ const Merge: Merge.Shape = {
     posture: row.posture,
     alike: Record.getEquivalence(row.alike),
     empty: Option.some(Record.empty()),
+  }),
+  hashMap: <K, V>(row: Merge.Instance<V>): Merge.Instance<HashMap.HashMap<K, V>> => ({
+    combine: Semigroup.make((self, that) =>
+      HashMap.reduce(that, self, (acc, value, key) =>
+        HashMap.modifyAt(acc, key, (slot) =>
+          Option.some(Option.match(slot, {
+            onNone: () => value,
+            onSome: (held) => row.combine.combine(held, value),
+          }))))),
+    posture: row.posture,
+    alike: Equivalence.make(_tables<K, V>(row.alike)),
+    empty: Option.some(HashMap.empty()),
   }),
   optional: (row) => ({
     combine: OptionInstances.getOptionalMonoid(row.combine),

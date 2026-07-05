@@ -6,6 +6,8 @@
 
 [PACKAGE_SURFACE]: `Npgsql.NetTopologySuite`
 - package: `Npgsql.NetTopologySuite`
+- version: `10.0.3`
+- license: `PostgreSQL`
 - assembly: `Npgsql.NetTopologySuite`
 - namespace: `Npgsql`
 - ADO provider: `Npgsql`
@@ -41,7 +43,9 @@ Both overload families accept `CoordinateSequenceFactory?`, `PrecisionModel?`, `
 - `geographyAsDefault`, precision, coordinate-sequence, and ordinate handling are profile policy values, not call-site literals.
 - The EF provider plugin and ADO data-source codec are declared together for store profiles using spatial columns.
 
-[STACKING_LAW]:
+[STACKING]:
+- owning page: `Store/provisioning` is the tier that admits this ADO codec on the `NpgsqlDataSourceBuilder` when a store profile carries PostGIS columns — the codec is a provisioning-time data-source registration, not a query-path call.
+- identity spatial columns: the `NetTopologySuite.Geometries.Geometry` values this codec wires are the `Element/identity` geometry/geography attributes (footprint, boundary, H3-adjacent envelope); the codec owns the binary wire round-trip, `Element/identity` owns the column.
 - `Npgsql.NetTopologySuite` owns the binary wire codec.
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` owns EF column mapping, conventions, and SQL translators.
 - `NetTopologySuite` owns the geometry object model and topology algebra.

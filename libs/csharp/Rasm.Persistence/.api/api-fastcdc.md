@@ -74,9 +74,9 @@ captures the `source` reference for the instance lifetime.
 - the chunker is in-process and synchronous; it surfaces no async mirror — the snapshot fold runs it inside the codec write under the Persistence `IO`/`Fin` rail
 
 [INTEGRATION_STACK]:
-- `Version/snapshots#CONTENT_CHUNKING` is the sole consumer: `ChunkPolicy.Over(byte[]) => new FastCdc(source, MinSize, AvgSize, MaxSize, eof: true)`, then `toSeq(policy.Over(source).GetChunks())` folds the cut sequence into a `ChunkManifest`
+- `Element/codec#CONTENT_CHUNKING` is the sole consumer: `ChunkPolicy.Over(byte[]) => new FastCdc(source, MinSize, AvgSize, MaxSize, eof: true)`, then `toSeq(policy.Over(source).GetChunks())` folds the cut sequence into a `ChunkManifest`
 - each `Chunk` is keyed by `XxHash128.HashToUInt128(chunkBytes)` (`api-hashing` `HashPolicy.Identity`) for the dedup content address, and stamped with a `XxHash3.HashToUInt64` 64-bit `ShortTag` (`HashPolicy.Content`) — `Novel` probes the cheap `ShortTag` bloom/sketch pre-filter before the authoritative 128-bit `holds` compare, so a tag-miss proves a chunk novel without the full lookup and a `ShortTag` false positive only costs one fall-through compare
-- the manifest content keys dedup against `Query/cache#ARTIFACT_BLOB_INDEX`; the `Store/remote#MULTIPART_TRANSFER` window spans a whole number of content-defined chunks rather than a fixed `PartSize` slice, so a re-uploaded artifact skips the chunks the index already holds
+- the manifest content keys dedup against `Query/cache#ARTIFACT_BLOB_INDEX`; the `Store/blobstore#MULTIPART_TRANSFER` window spans a whole number of content-defined chunks rather than a fixed `PartSize` slice, so a re-uploaded artifact skips the chunks the index already holds
 - this owner aligns with `Compute/interchange#GEOMETRY_DELTA` `DeltaCodec` at the rolling-hash technique level only — Compute owns the geometry-aware structural delta over geometry columns, this owns the opaque-byte content-defined chunk; the two meet at the technique, never at the code
 
 [LOCAL_ADMISSION]:

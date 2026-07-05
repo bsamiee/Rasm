@@ -17,6 +17,7 @@ The general request-batching engine: N identical lookups anywhere in a flow are 
 - Packages: `effect` (`Request`, `Schema`, `PrimaryKey`).
 - Growth: a new lookup kind in an existing family is one more tagged class sharing the family resolver through `RequestResolver.fromEffectTagged`; a new family is one class plus one resolver value.
 - Law: the fields are exactly the identity — structural `Equal` over them is what collapses two requests for one key, so a field that varies without changing the answer (a caller label, a trace id) rides span annotation, never the request; success and failure types declare once at the family and no call site restates them.
+- Law: `Request.TaggedClass` is the family form and `Request.Class` is the admitted single-tag degenerate — a process-local family with exactly one member and no tagged-resolver fan (`lane/capability.md`'s `_Probe`) carries no `_tag` because nothing dispatches on it; the moment a second member or a `fromEffectTagged` handler arrives, the declaration upgrades to the tagged form.
 - Law: the persisted upgrade is a declaration swap — a family whose results must survive restart is `Schema.TaggedRequest` (payload, success, and failure schemas in one declaration) satisfying `PrimaryKey`, so hits and misses both encode through the family's own schemas and a persisted failure replays typed; the in-memory family stays `Request.TaggedClass` at zero codec cost, and promotion rewrites only the declaration.
 - Law: the request's fault is the family's — a provider fault fans out to every request in the window as the same tagged class, so a batched miss and a singular miss are indistinguishable to recovery, which is the point.
 - Boundary: `Schema.TaggedRequest` declaration mechanics are the core shape law arriving settled; `lane/capability.md`'s `_Probe` is a realized instance of this family law and stays where it is.
@@ -41,7 +42,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 
 ## [3]-[RESOLVER_ENGINE]
 
-- Owner: `Batch.of(settle)` — the one resolver mint over `RequestResolver.makeBatched` with the settlement law enforced in its shape — plus the combinator tail every resolver composes: `batchN` width caps, the `aroundRequests` timing bracket, and `contextFromServices` identity baking.
+- Owner: `Batch.of(settle)` — the one resolver mint over `RequestResolver.makeBatched` with the settlement law enforced in its shape — plus the combinator tail every resolver composes: `batchN` width caps and the `aroundRequests` timing bracket; identity baking is `RequestResolver.contextFromServices` consumed at the package surface directly, because a forwarding wrapper adds no domain value and cannot state the variadic tag contract more honestly than the package signature.
 - Packages: `effect` (`RequestResolver` — `makeBatched`, `fromEffectTagged`, `batchN`, `aroundRequests`, `contextFromServices`; `Request` — `completeEffect`, `succeed`, `fail`; `Clock`).
 - Entry: the owning service mints its resolver once at construction and publishes `execute`-shaped members that close over it; a capability-consuming resolver bakes its services through `contextFromServices(...tags)` at the same construction, yielding the context-free, identity-stable value the window groups on.
 - Receipt: the timing bracket's evidence pair — `aroundRequests`' `before` receives the window and its result feeds `after` — carries window size and wall span onto the span, so batch efficiency is observable per window with zero body wiring.
@@ -51,7 +52,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 - Law: the tagged-family resolver answers positionally — `fromEffectTagged` hands each handler its tag's whole window and index `i` resolves request `i`, so family growth is a handler row.
 
 ```typescript
-import { Array, Clock, type Context, Effect, RequestResolver } from "effect"
+import { Array, Clock, Effect, RequestResolver } from "effect"
 
 declare namespace Batch {
   type Settle<Req extends Request.Request<unknown, unknown>, R> = (
@@ -71,11 +72,6 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
         Effect.flatMap(Clock.currentTimeMillis, (closed) => Effect.annotateCurrentSpan("batch.millis", closed - opened)),
     ),
   )
-
-const _baked = <Req extends Request.Request<unknown, unknown>, R>(
-  resolver: RequestResolver.RequestResolver<Req, R>,
-  ...tags: ReadonlyArray<Context.Tag<R, R>>
-) => RequestResolver.contextFromServices(...tags)(resolver)
 ```
 
 ## [4]-[WINDOW_ROWS]
@@ -86,6 +82,7 @@ const _baked = <Req extends Request.Request<unknown, unknown>, R>(
 - Growth: a lane moves between rows by swapping the wrapping combinator — the request family, the settle fold, and every call site hold.
 - Law: geometry selection is collapse scope — `makeBatched` alone collapses one traversal; `dataLoader({ window, maxBatchSize })` trades that for a wall-clock window batching across unrelated fibers, a scoped acquisition over a context-free resolver; `persisted({ storeId, timeToLive })` adds the durable result band keyed by the request's schema identity, with `timeToLive` folding request and `Exit` so hits and misses age separately.
 - Law: the durable band demands the persistable family — `persisted` composes only over `Schema.TaggedRequest` rows, and its `Persistence` backing is a Layer row from the cache lane's escalation table, memory in specs and the store-backed row where restart-survival is the requirement.
+- Law: the durable band is tenant-partitioned by construction — a scope-owning composition interposes `CacheLane.scoped(scopeKey)` between the `Persistence` backing and its `KeyValueStore`, so two apps sharing one physical store cannot collide persisted results; an unprefixed shared band under a multi-app deployment is the named cross-tenant leak.
 - Law: per-flow dedup is a transformer, never a map — `Effect.withRequestCaching(true)` scoped at the flow boundary deduplicates repeated keys across the graph, and the cache it consults is the `CacheLane.dedup` Layer composed once at the root; a hand `Map` of in-flight lookups beside a resolver is the reinvention this row deletes.
 
 ```typescript
@@ -115,14 +112,14 @@ const _durable = <Req extends Schema.TaggedRequest.All>(
 - Growth: a sibling branch batching a keyed provider call (an embedding window, a key-material fetch) declares its own family against this engine and appears in its own folder — the engine travels as these values, never as an import of provider surfaces.
 - Law: `probe` is realized — `lane/capability.md`'s `_Probe` family folds the whole extension roster into one `pg_extension` scan under `{ batching: true }`; this table records it as the engine's in-folder proof, and the probe page stays the owner.
 - Law: `presence` serves the object plane — `object/store.md` completes each `Presence` request from one windowed sweep of `HeadObjectCommand` sends under bounded concurrency, so a fan of existence probes against one bucket costs one window of HEADs with per-key settlement, and repeated keys inside a flow cost one.
-- Law: `head` serves stream-position reads — a fan of per-stream `Journal.head` probes folds into one `GROUP BY` statement through the SQL specialization (`read/query.md`'s `ordered` row), because where the provider is the database the fused resolver wins over the general engine.
+- Law: `head` serves stream-position reads — a fan of per-stream `Journal.head` probes folds into one `GROUP BY` statement through the SQL specialization (`read/query.md`'s `StreamHead` `findById` row, where an eventless stream is a lawful `Option.none`), because where the provider is the database the fused resolver wins over the general engine.
 
 ```typescript
 const _lanes = {
   probe: { family: "CapabilityProbe", window: "traversal", owner: "lane/capability" },
   presence: { family: "Presence", window: "dataLoader", owner: "object/store" },
   descriptor: { family: "Descriptor", window: "persisted", owner: "object/store" },
-  head: { family: "StreamHead", window: "sqlOrdered", owner: "read/query" },
+  head: { family: "StreamHead", window: "sqlFindById", owner: "read/query" },
 } as const
 
 declare namespace Batch {
@@ -133,7 +130,6 @@ declare namespace Batch {
 const Batch = {
   lanes: _lanes,
   of: _of,
-  baked: _baked,
   tagged: RequestResolver.fromEffectTagged,
   windowed: _windowed,
   durable: _durable,

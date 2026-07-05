@@ -26,7 +26,7 @@ The localization plane with zero i18n package: one locale spine (react-aria's `I
 [NATIVE_CACHE]:
 - Owner: `_native(kind, locale)` — the ONE per-locale instance cache behind every formatter this page constructs itself: a constructor row table (`plural` → `Intl.PluralRules`, `relative` → `Intl.RelativeTimeFormat`) and one interior `Map` keyed `kind:locale`; the plural fold and the relative-time fold both read through it, so the folder holds exactly one platform-formatter cache — the split per-concern caches are the collapsed defect.
 - Law: the cache is the module's platform-formatter FFI seam — a JS `Map` holding `Intl` instances only, never domain values; its two-line mutation is the seam's sanctioned statement, and the cache is invisible to consumers.
-- Law: the correlated return is the seam's marked cast — the heterogeneous instance map erases the per-kind type, and the `as` re-assertion is exactly the row the constructor table proves; this card carries the exemption, and the assertion is legal nowhere else in the module.
+- Law: the correlated return is the seam's marked cast — the heterogeneous instance map erases the per-kind type, and the `as` re-assertion is exactly the row the constructor table proves; the kernel carries the boundary mark on its first line, and the assertion is legal nowhere else in the module.
 - Growth: a new hook-less formatter family (`Intl.Segmenter`, `Intl.DisplayNames`) is one constructor row — never a second cache.
 
 ```typescript
@@ -43,6 +43,7 @@ const _NATIVE = {
 const _held = new Map<string, Intl.PluralRules | Intl.RelativeTimeFormat>()
 
 const _native = <K extends keyof typeof _NATIVE>(kind: K, locale: string): ReturnType<(typeof _NATIVE)[K]> => {
+  // BOUNDARY ADAPTER
   const key = `${kind}:${locale}`
   const instance = _held.get(key) ?? _NATIVE[kind](locale)
   _held.set(key, instance)
@@ -106,17 +107,18 @@ declare namespace Format {
   type NumberRow = keyof typeof _number
   type ListRow = keyof typeof _list
   type Span = readonly [value: number, unit: Intl.RelativeTimeFormatUnit]
+  type Shape = {
+    readonly date: typeof _date
+    readonly number: typeof _number
+    readonly list: typeof _list
+    readonly collate: typeof _collate
+    readonly instant: (utc: DateTime.Utc) => Date
+    readonly span: (delta: Duration.Duration) => Format.Span
+    readonly relative: (locale: Locale, delta: Duration.Duration) => string
+  }
 }
 
-const Format: {
-  readonly date: typeof _date
-  readonly number: typeof _number
-  readonly list: typeof _list
-  readonly collate: typeof _collate
-  readonly instant: (utc: DateTime.Utc) => Date
-  readonly span: (delta: Duration.Duration) => Format.Span
-  readonly relative: (locale: Locale, delta: Duration.Duration) => string
-} = {
+const Format: Format.Shape = {
   date: _date,
   number: _number,
   list: _list,
@@ -181,6 +183,12 @@ declare namespace Message {
   type Category = (typeof _categories)[number]
   type Args = Readonly<Record<string, string | number>>
   type Book = HashMap.HashMap<Locale, Catalog>
+  type Shape = {
+    readonly Catalog: typeof _Catalog
+    readonly Spec: typeof _Spec
+    readonly categories: typeof _categories
+    readonly format: (book: Message.Book, locale: Locale, fallback: Locale, key: string, args?: Message.Args) => string
+  }
 }
 ```
 
@@ -232,12 +240,7 @@ const _resolve = (book: Message.Book, locale: Locale, fallback: Locale, key: str
       Option.flatMap(HashMap.get(book, hop), (catalog) => Option.fromNullable(catalog[key]))),
   )
 
-const Message: {
-  readonly Catalog: typeof _Catalog
-  readonly Spec: typeof _Spec
-  readonly categories: typeof _categories
-  readonly format: (book: Message.Book, locale: Locale, fallback: Locale, key: string, args?: Message.Args) => string
-} = {
+const Message: Message.Shape = {
   Catalog: _Catalog,
   Spec: _Spec,
   categories: _categories,

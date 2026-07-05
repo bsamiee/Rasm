@@ -11,7 +11,7 @@ with `PrivateAssets="all"` and never flows as a runtime dependency. Most of its 
 surface is shipped under `*.Internal` namespaces and carries `[EntityFrameworkInternal]`, so a
 design page that drives it programmatically (rather than through the `dotnet ef` CLI) takes an
 explicit dependency on EF Core's unstable internal API and must pin the EF minor version. The
-Persistence `Schema/migration` rail consumes it for one purpose: generate migrations, compiled
+Persistence `Element/identity` rail consumes it for one purpose: generate migrations, compiled
 models, and idempotent SQL scripts as reviewed artifacts — never to reverse-engineer a store
 into the model, which is the inverted, rejected direction.
 
@@ -117,11 +117,11 @@ into the model, which is the inverted, rejected direction.
 - output role: `ScaffoldedMigration`/`ScaffoldedModel`/`ScaffoldedFile` are reviewed as generated shape before they enter source; generation is provider-aware (one model emits per-provider SQL) and vocabulary-neutral.
 - direction: the model is the source of truth. `ReverseEngineerScaffolder`/`ScaffoldContext`/`ModelReverseEngineerOptions`/`CSharp*GeneratorBase` invert the flow (store → model) and are the rejected direction — a reverse-engineered context is the named defect.
 
-[STACK_INTEGRATION]:
-- the `Schema/migration` `MigrationLaw` rail composes this package as the migration emission and gating substrate: the design-time `Optimize` (`DbContextOperations.Optimize`, CLI `dbcontext optimize`), `ScriptMigration`, `MigrationsBundle.Execute`, and `GetMigrations` own emission and packaging, so hand-authored migration code and custom `MigrationOperation` subclasses are deleted patterns.
+[STACKING]:
+- the `Element/identity` `MigrationLaw` rail composes this package as the migration emission and gating substrate: the design-time `Optimize` (`DbContextOperations.Optimize`, CLI `dbcontext optimize`), `ScriptMigration`, `MigrationsBundle.Execute`, and `GetMigrations` own emission and packaging, so hand-authored migration code and custom `MigrationOperation` subclasses are deleted patterns.
 - compiled-model adoption stacks settled with the converter rail: `Optimize` freezes the model into a generated compiled model that `ConverterRail.Compose(options, compiled)` mounts through `UseModel`; the snake-case naming rewrites survive the freeze, so a compiled model and a fresh model emit identical column names and migration SQL. `CompiledModelCodeGenerationOptions` is the compiled-output policy.
 - `MigrationsCodeGeneratorSelector` (`IMigrationsCodeGeneratorSelector`) is the one seam that swaps emission language/generator without a hand-written generator class; `CSharpMigrationsGenerator`/`CSharpMigrationOperationGenerator`/`CSharpSnapshotGenerator` are the default C# arm. `ScriptMigration(..., MigrationsSqlGenerationOptions, ...)` with the idempotent option produces the deploy-time SQL the service profile applies; `MigrationsBundle.Execute` produces the self-contained `efbundle` migrator the deploy can run without the SDK.
-- the `Schema/migration` `Classify` fold runs at generation time over the `MigrationOperation` rows the C# generators emit (`AddColumnOperation`, `RenameColumnOperation`, `AlterColumnOperation`, `DropColumnOperation`, …), splitting every change into expand and contract waves; this package supplies the operation vocabulary, the migration assembly, and the per-provider SQL generators, while the wave classification, lock-light `NOT VALID`/`NOT ENFORCED` emission, and destructive-approval gating stay the Persistence owner's.
+- the `Element/identity` `Classify` fold runs at generation time over the `MigrationOperation` rows the C# generators emit (`AddColumnOperation`, `RenameColumnOperation`, `AlterColumnOperation`, `DropColumnOperation`, …), splitting every change into expand and contract waves; this package supplies the operation vocabulary, the migration assembly, and the per-provider SQL generators, while the wave classification, lock-light `NOT VALID`/`NOT ENFORCED` emission, and destructive-approval gating stay the Persistence owner's.
 
 [LOCAL_ADMISSION]:
 - design-time services support store-profile schema work and never become runtime dependencies.

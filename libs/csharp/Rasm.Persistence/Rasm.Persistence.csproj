@@ -7,7 +7,6 @@
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
-        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Element Seam And Graph">
@@ -103,6 +102,7 @@
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
+        <PackageReference Include="JsonSchema.Net" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="MiniExcel" />

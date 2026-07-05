@@ -1,12 +1,12 @@
 # [RASM_PERSISTENCE_API_LIGHTNINGDB]
 
-`LightningDB` is the managed binding over LMDB — the embedded memory-mapped B+tree read-optimized MVCC engine: a single-writer/multi-reader ACID store with zero-copy reads straight out of the mmap, named sub-databases, cursors with dupsort multi-value keys, and a fixed-cost commit. It is the read-optimized half of the `[EMBEDDED_KV]` pair the `[STORE_BACKENDS]` cluster admits beside `rocksdb` (the write-optimized LSM half): LightningDB owns the point-lookup / range-scan / index lane where `rocksdb` owns the write-amplified ingest/log lane. The `MDBValue` `ReadOnlySpan<byte>` zero-copy read is the snapshot-codec boundary — the bytes a `Version/snapshots` content-addressed payload or a `Query/cache` L-tier entry deserializes from the mmap with no managed copy, under one read transaction that is a stable point-in-time MVCC snapshot.
+`LightningDB` is the managed binding over LMDB — the embedded memory-mapped B+tree read-optimized MVCC engine: a single-writer/multi-reader ACID store with zero-copy reads straight out of the mmap, named sub-databases, cursors with dupsort multi-value keys, and a fixed-cost commit. It is the read-optimized half of the `[EMBEDDED_KV]` pair the `[STORE_BACKENDS]` cluster admits beside `rocksdb` (the write-optimized LSM half): LightningDB owns the point-lookup / range-scan / index lane where `rocksdb` owns the write-amplified ingest/log lane. The `MDBValue` `ReadOnlySpan<byte>` zero-copy read is the snapshot-codec boundary — the bytes a `Element/codec` content-addressed payload or a `Query/cache` L-tier entry deserializes from the mmap with no managed copy, under one read transaction that is a stable point-in-time MVCC snapshot.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LightningDB`
 - package: `LightningDB`
-- version: `0.21.0`
+- version: `0.22.0`
 - assembly: `LightningDB`
 - namespace: `LightningDB`, `LightningDB.Native`, `LightningDB.Comparers`
 - license: MIT (`<license type="file">LICENSE</license>`)
@@ -106,15 +106,15 @@
 [MVCC_SNAPSHOT]:
 - LMDB is single-writer / multi-reader: at most one write transaction is live at a time (writers serialize), while read transactions are unbounded and each is a stable copy-on-write snapshot of the B+tree as of its start — a long read never blocks a write and never sees a later commit. This IS the `Version/timetravel` AS-OF primitive at the embedded tier: a read txn is a consistent point-in-time view, held open exactly as long as the reconstruction needs and no longer (a stale read txn pins old pages and grows the file).
 - `Reset()` parks a read transaction (releasing its reader-table slot while keeping the handle) and `Renew()` re-arms it against the latest snapshot, so a read-heavy lane amortizes the snapshot-handle cost across many gets instead of begin/commit per read (the LMDB `mdb_txn_reset`/`mdb_txn_renew` reader-slot reuse, surfaced here as the `Reset`/`Renew` pair). `Abort()` is the explicit non-committing close (a bare `Dispose` aborts too).
-- `MaxReaders` caps concurrent read slots; exceeding it returns `MDBResultCode.ReadersFull`, and a crashed reader leaves a stale slot until `LightningEnvironment` clears it — the reader table is engine state the `Store/quality` rule set probes via `EnvironmentInfo`/`Stats`.
+- `MaxReaders` caps concurrent read slots; exceeding it returns `MDBResultCode.ReadersFull`, and a crashed reader leaves a stale slot until `LightningEnvironment` clears it — the reader table is engine state the `Store/provisioning` rule set probes via `EnvironmentInfo`/`Stats`.
 
 [ZERO_COPY_AND_MAP]:
 - `MDBValue` is a `ReadOnlySpan<byte>` directly over the mmap page — valid ONLY for the lifetime of its transaction. A value read in a read txn must be deserialized (the snapshot codec) or copied before the txn ends; escaping a `MDBValue` past `Commit`/`Abort`/`Dispose` is a use-after-free. The zero-copy read is the whole performance argument and the whole discipline.
 - `MapSize` is the maximum file size set before `Open`; a write that exceeds it returns `MDBResultCode.MapFull`. Growth is an explicit `MapSize` increase (or `MapResized` re-open after another process grew it) — never an automatic realloc. Size the map at provisioning, not at write time.
-- `WriteMap` + `MapAsync` trade durability for write throughput (the page cache is written async); `NoSync`/`NoMetaSync` skip the fsync entirely. The durable default omits all three so a `Commit` is fsync-durable — the durability posture is an `EnvironmentOpenFlags` row on the `Store/profiles` engine axis, never a per-write decision.
+- `WriteMap` + `MapAsync` trade durability for write throughput (the page cache is written async); `NoSync`/`NoMetaSync` skip the fsync entirely. The durable default omits all three so a `Commit` is fsync-durable — the durability posture is an `EnvironmentOpenFlags` row on the `Store/provisioning` engine axis, never a per-write decision.
 
 [NAMED_DATABASES]:
-- `MaxDatabases` (set before `Open`) caps the number of named sub-DBs; `OpenDatabase(name, …)` with `DatabaseOpenFlags.Create` opens one B+tree, and `OpenDatabase(null, …)` opens the unnamed root DB. Each named DB is an independent keyspace within the one environment/file — the multi-keyspace layout a `Store/profiles` embedded-KV row partitions by concern, never one DB per file.
+- `MaxDatabases` (set before `Open`) caps the number of named sub-DBs; `OpenDatabase(name, …)` with `DatabaseOpenFlags.Create` opens one B+tree, and `OpenDatabase(null, …)` opens the unnamed root DB. Each named DB is an independent keyspace within the one environment/file — the multi-keyspace layout a `Store/provisioning` embedded-KV row partitions by concern, never one DB per file.
 - `IntegerKey` + `(Un)SignedIntegerComparer` gives native-endian integer key order (dense numeric ids); `DuplicatesSort` + `FindDuplicatesWith` makes a key carry a sorted multi-value set — the secondary-index shape (one indexed value → many primary keys) without a second table.
 
 [FAULT_RAIL]:
@@ -123,14 +123,14 @@
 ## [05]-[STACKING_AND_RAIL]
 
 [STACKING]:
-- the read-optimized half of `[EMBEDDED_KV]`: `LightningDB` (LMDB B+tree, point-lookup & range-scan & MVCC-snapshot read) and `rocksdb` (LSM, write-amplified ingest/log/merge) are two engine rows on the `Store/profiles` axis, not a choice — a profile selects LMDB for the read-heavy index/lookup lane and RocksDB for the write-heavy ingest/changefeed lane, and a public `StoreOp` never names either package.
-- snapshot codec at the mmap boundary: a `Version/snapshots` content-addressed payload or a `Query/cache` entry is the `MessagePack`/`api-thinktecture-serialization`/`System.Formats.Cbor` bytes written as a `MDBValue` and deserialized zero-copy from the read-txn span — LMDB stores the bytes, the codec owns the shape, the content key (`XxHash128` via `System.IO.Hashing`) is the LMDB key.
-- keyset pagination at the cursor: a `Query/rail` keyset page lowers to `cursor.SetRange(afterKey)` + `Next()` over the B+tree order the `IComparer<MDBValue>` fixed — the engine-native ordered scan, never an offset skip; the dupsort cursor walk is the embedded secondary-index lookup.
+- the read-optimized half of `[EMBEDDED_KV]`: `LightningDB` (LMDB B+tree, point-lookup & range-scan & MVCC-snapshot read) and `rocksdb` (LSM, write-amplified ingest/log/merge) are two engine rows on the `Store/provisioning` axis, not a choice — a profile selects LMDB for the read-heavy index/lookup lane and RocksDB for the write-heavy ingest/changefeed lane, and a public `StoreOp` never names either package.
+- snapshot codec at the mmap boundary: a `Element/codec` content-addressed payload or a `Query/cache` entry is the `MessagePack`/`api-thinktecture-serialization`/`System.Formats.Cbor` bytes written as a `MDBValue` and deserialized zero-copy from the read-txn span — LMDB stores the bytes, the codec owns the shape, the content key (`XxHash128` via `System.IO.Hashing`) is the LMDB key.
+- keyset pagination at the cursor: a `Query/columnar` keyset page lowers to `cursor.SetRange(afterKey)` + `Next()` over the B+tree order the `IComparer<MDBValue>` fixed — the engine-native ordered scan, never an offset skip; the dupsort cursor walk is the embedded secondary-index lookup.
 - AS-OF read at the embedded tier: a read transaction is the `Version/timetravel` point-in-time snapshot for an embedded store — held for the reconstruction, released immediately after, so the MVCC reader table stays shallow.
 - hot backup into recovery: `CopyTo(path, compact: true)` (or `CopyToStream(stream, compact: true)`) is the consistent online backup the `Version/recovery` per-engine backup leg invokes, producing a compacted point-in-time copy without stopping writers, folded into the `RecoveryFact` stream proving RPO.
 
 [RAIL_LAW]:
 - Packages: `LightningDB` (in-package native LMDB)
 - Owns: the embedded read-optimized MVCC B+tree KV/index engine — environment/db/txn/cursor lifecycle, zero-copy reads, dupsort secondary indexes, named keyspaces, online compacting backup
-- Accept: one long-lived `LightningEnvironment` per store path, the `MDBResultCode` rail, `MDBValue` spans bounded by their transaction, the `IComparer<MDBValue>` as the fixed durable key order, `MapSize`/durability flags as `Store/profiles` rows
+- Accept: one long-lived `LightningEnvironment` per store path, the `MDBResultCode` rail, `MDBValue` spans bounded by their transaction, the `IComparer<MDBValue>` as the fixed durable key order, `MapSize`/durability flags as `Store/provisioning` rows
 - Reject: a `MDBValue` escaping its transaction (use-after-free), a throwing extension overload in domain logic, an automatic map regrow at write time, one named DB per file, a second snapshot/content-key vocabulary beside the settled codec/`XxHash128` owners, choosing LMDB where the lane is write-amplified (that is the `rocksdb` row)

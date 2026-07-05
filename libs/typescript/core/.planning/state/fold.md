@@ -134,7 +134,7 @@ declare namespace AsOf {
 - Owner: `Replay.memory` — the browser in-memory altitude: one d2mini graph per plan (`map` to the keyed lift, `reduce` under the instance reducer, `consolidate`, `output`), a `SubscriptionRef` table advanced by the drained change wave, and a synchronous `push` that sends the signed delta and drains the scheduler to quiescence inside one `Effect.sync`; `Replay.ordered` is the array-re-sort deletion at its sharpest — `orderByWithFractionalIndexBTree` maintains rank as a fractional string index in O(log n) per change and `ranks` projects the ordered chunk.
 - Owner: `Replay.view` — one lens entry over the handle modalities, discriminated on the input shape: a table handle alone yields the table view, a handle with a key yields the row view (`Option`-carried absence), an ordered handle yields the board view — overload signatures on one declaration, no `viewAll`/`viewByKey` siblings; `Replay.feed` flattens a handle's change wave into a per-row `Stream`, the delivery feed a serving edge frames onto its sockets.
 - Law: the reducer the engines run is the elementwise projection of `Merge.combineMany` — `_reduced` expands positive multiplicities, folds the survivors, and emits one `[state, 1]` row; the engine recomputes retraction by re-folding the surviving contribution set, so retraction is lawful for every instance without group inverses, and negative net rows are upstream corruption the reducer treats as absent.
-- Law: handle writes serialize under a one-permit semaphore because the engine drain is a non-STM statement seam no transaction owns — the permit brackets `sendData`/`run`, the published cells stay `SubscriptionRef`s because views need the change stream; transactional state lives where the cells are pure: `causal#FRONTIER_TRACKER` and `merge#MERGE_CELLS`.
+- Law: `_engine` is the one graph scaffold — one interior owner holds the pending sink, `finalize`, the one-permit drain, and the publish continuation for every lane on both engines, so a lane declares only its inputs, its pipeline stages, and its publish fold, and a new dataflow verb is one `_engine` wire, never a re-rolled scaffold; the permit brackets `sendData`/`run`/publish because the engine drain is a non-STM statement seam no transaction owns, the published cells stay `SubscriptionRef`s because views need the change stream, and transactional state lives where the cells are pure: `causal#FRONTIER_TRACKER` and `merge#MERGE_CELLS`.
 - Law: every lens is `Subscribable.map` over the handle's state — get and changes stay coherent because they derive from one projection; a lens that re-runs the fold, caches its own copy, or subscribes twice is the re-derivation defect; `consolidate` and `distinct` are structural over the decoded op values, so idempotent delivery costs nothing beyond the value equality the op family already carries.
 - Exemption: the `output` callback and the `pending` buffer it fills are the platform-forced statement seam — the engine's sink is a `void` callback; the buffer drains inside the same synchronous `run` and no mutable reference escapes the constructor closure. `loadBTree` resolution escalates to a defect because a missing dynamic import is a platform fault, never a domain outcome.
 - Boundary: which folds run in memory versus durably is the composition root's altitude selection; a serving edge consumes `view`/`feed` projections and never reaches the graph or the plan.
@@ -158,9 +158,10 @@ declare namespace Replay {
   type Agg<Op> =
     | { readonly kind: "count" }
     | { readonly kind: "avg" | "max" | "min" | "sum"; readonly of: (op: Op) => number }
-  type Grouped<Op> = {
+  type Rollup<Aggs> = { readonly [Column in keyof Aggs]: number }
+  type Grouped<Op, Aggs> = {
     readonly push: (delta: Fold.Delta<Op>) => Effect.Effect<void>
-    readonly state: Subscribable.Subscribable<Fold.Table<string, Readonly<Record<string, unknown>>>>
+    readonly state: Subscribable.Subscribable<Fold.Table<string, Rollup<Aggs>>>
   }
   type Closure<K> = {
     readonly push: (at: AsOf, edges: Fold.Delta<readonly [K, K]>) => Effect.Effect<void>
@@ -189,11 +190,11 @@ declare namespace Replay {
       left: Fold.Plan<OpL, K, SL>,
       right: Fold.Plan<OpR, K, SR>,
     ) => Effect.Effect<Joined<OpL, OpR, K, SL, SR>>
-    readonly grouped: <Op>(spec: {
+    readonly grouped: <Op, By extends Readonly<Record<string, unknown>>, Aggs extends Readonly<Record<string, Agg<Op>>>>(spec: {
       readonly name: string
-      readonly by: (op: Op) => Readonly<Record<string, unknown>>
-      readonly aggs: Readonly<Record<string, Agg<Op>>>
-    }) => Effect.Effect<Grouped<Op>>
+      readonly by: (op: Op) => By
+      readonly aggs: Aggs
+    }) => Effect.Effect<Grouped<Op, Aggs>>
     readonly closure: <K>(origin: AsOf) => Effect.Effect<Closure<K>>
     readonly versioned: <Op, K, S>(plan: Fold.Plan<Op, K, S>, origin: AsOf) => Effect.Effect<Versioned<Op, K, S>>
     readonly view: {
@@ -231,34 +232,63 @@ const _changes = <K, S>(rows: ReadonlyArray<readonly [readonly [K, S], number]>)
   ]
 }
 
-const _memory = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Effect.Effect<Replay.Memory<Op, K, S>> =>
-  Effect.gen(function* () {
-    const gate = yield* Effect.makeSemaphore(1)
-    const graph = new Mini.D2()
-    const input = graph.newInput<Op>()
-    const pending: Array<Fold.Change<K, S>> = []
-    input.pipe(
+const _rows = <A>(delta: Fold.Delta<A>): Array<[A, number]> => delta.map(([value, count]) => [value, count])
+
+const _engine = <Row>(
+  graph: { readonly finalize: () => void; readonly run: () => void },
+  wire: (emit: (row: Row) => void) => void,
+): Effect.Effect<{
+  readonly drive: <A>(send: () => void, publish: (rows: ReadonlyArray<Row>) => Effect.Effect<A>) => Effect.Effect<A>
+}> =>
+  Effect.map(Effect.makeSemaphore(1), (gate) => {
+    const pending: Array<Row> = []
+    wire((row) => pending.push(row))
+    graph.finalize()
+    return {
+      drive: (send, publish) =>
+        gate.withPermits(1)(Effect.flatMap(
+          Effect.sync(() => {
+            send()
+            graph.run()
+            return pending.splice(0, pending.length)
+          }),
+          publish,
+        )),
+    }
+  })
+
+const _keyed = <Op, K, S>(graph: Mini.D2, plan: Fold.Plan<Op, K, S>) => {
+  const input = graph.newInput<Op>()
+  return {
+    input,
+    staged: input.pipe(
       Mini.map((op: Op): Mini.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
       Mini.reduce(_reduced(plan.merge)),
-      Mini.consolidate(),
-      Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, S>>) => {
-        for (const change of _changes(delta.getInner())) pending.push(change)
-      }),
-    )
-    graph.finalize()
+    ),
+  }
+}
+
+const _memory = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Effect.Effect<Replay.Memory<Op, K, S>> =>
+  Effect.gen(function* () {
+    const graph = new Mini.D2()
+    const keyed = _keyed(graph, plan)
+    const engine = yield* _engine<Fold.Change<K, S>>(graph, (emit) =>
+      keyed.staged.pipe(
+        Mini.consolidate(),
+        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, S>>) => _changes(delta.getInner()).forEach(emit)),
+      ))
     const state = yield* SubscriptionRef.make(HashMap.empty<K, S>())
     const wave = yield* SubscriptionRef.make(Chunk.empty<Fold.Change<K, S>>())
     return {
       push: (delta) =>
-        gate.withPermits(1)(Effect.gen(function* () {
-          const drained = yield* Effect.sync(() => {
-            input.sendData(new Mini.MultiSet(delta.map(([op, count]) => [op, count] as [Op, number])))
-            graph.run()
-            return Chunk.fromIterable(pending.splice(0, pending.length))
-          })
-          yield* Ref.update(state, (table) => Chunk.reduce(drained, table, _patch))
-          yield* Ref.set(wave, drained)
-        })),
+        engine.drive(
+          () => keyed.input.sendData(new Mini.MultiSet(_rows(delta))),
+          (drained) =>
+            Effect.zipRight(
+              Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
+              Ref.set(wave, Chunk.fromIterable(drained)),
+            ),
+        ),
       state,
       wave,
     }
@@ -271,32 +301,25 @@ const _ordered = <Op, K, S>(
 ): Effect.Effect<Replay.Ordered<Op, K, S>> =>
   Effect.gen(function* () {
     yield* Effect.orDie(Effect.tryPromise(() => Mini.loadBTree()))
-    const gate = yield* Effect.makeSemaphore(1)
     const graph = new Mini.D2()
-    const input = graph.newInput<Op>()
-    const pending: Array<readonly [Mini.KeyValue<K, readonly [S, string]>, number]> = []
-    input.pipe(
-      Mini.map((op: Op): Mini.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
-      Mini.reduce(_reduced(plan.merge)),
-      Mini.orderByWithFractionalIndexBTree((state: S) => state, { comparator: rank, ...lens }),
-      Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, readonly [S, string]>>) => {
-        for (const row of delta.getInner()) pending.push(row)
-      }),
-    )
-    graph.finalize()
+    const keyed = _keyed(graph, plan)
+    const engine = yield* _engine<readonly [Mini.KeyValue<K, readonly [S, string]>, number]>(graph, (emit) =>
+      keyed.staged.pipe(
+        Mini.orderByWithFractionalIndexBTree((state: S) => state, { comparator: rank, ...lens }),
+        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, readonly [S, string]>>) => {
+          delta.getInner().forEach(emit)
+        }),
+      ))
     const board = yield* SubscriptionRef.make(SortedMap.empty<string, readonly [K, S]>(Order.string))
     return {
       push: (delta) =>
-        gate.withPermits(1)(Effect.gen(function* () {
-          const rows = yield* Effect.sync(() => {
-            input.sendData(new Mini.MultiSet(delta.map(([op, count]) => [op, count] as [Op, number])))
-            graph.run()
-            return pending.splice(0, pending.length)
-          })
-          yield* Ref.update(board, (held) =>
-            Array.reduce(rows, held, (acc, [[key, [state, index]], count]) =>
-              count > 0 ? SortedMap.set(acc, index, [key, state] as const) : SortedMap.remove(acc, index)))
-        })),
+        engine.drive(
+          () => keyed.input.sendData(new Mini.MultiSet(_rows(delta))),
+          (drained) =>
+            Ref.update(board, (held) =>
+              Array.reduce(drained, held, (acc, [[key, [state, index]], count]) =>
+                count > 0 ? SortedMap.set(acc, index, [key, state] as const) : SortedMap.remove(acc, index))),
+        ),
       ranks: Subscribable.map(board, (held) => Chunk.fromIterable(SortedMap.values(held))),
     }
   })
@@ -330,6 +353,7 @@ const _feed = <Op, K, S>(
 - Owner: the verb handles — `Replay.joined` correlates two plans by key through the engine's incremental `innerJoin`, so evidence correlated by operation or command key is one maintained table, never a hand walk over two folded tables; `Replay.grouped` aggregates through the engine's `groupBy` rows (`sum`/`count`/`avg`/`min`/`max`), the incremental rollup a hand recursion over a folded table restates; `Replay.closure` runs the `iterate` fixpoint — transitive reachability over a keyed edge feed, the lane commit-graph ancestor closure and causal happened-before closure ride.
 - Law: `joined` takes one push whose rows discriminate by `Either` — `Either.left` routes the left plan's op, `Either.right` the right's — so the correlated handle keeps one write surface and no `pushLeft`/`pushRight` twin exists; both sides fold under their own plan instance before the join, so the correlation is between merged states, never raw ops.
 - Law: `grouped` aggregates are a closed vocabulary row — `kind` plus the numeric projection — mapped onto the engine's own aggregate combinators at construction; the engine's aggregate identifier never reaches a consumer, and a new aggregate kind is one union arm plus one dispatch row.
+- Law: the rollup row is typed by derivation — the aggregate record parameter drives the mapped `Rollup<Aggs>` result (`{ [Column in keyof Aggs]: number }`), so a consumer reads named numeric columns the compiler proves against the agg spec while the group coordinate stays the engine's serialized key; an erased `Record<string, unknown>` rollup is the deleted surface, and the engine's own output typing is the one cast-bounded seam confined to the sink annotation.
 - Law: `closure` grows by self-join per pass — reach extended with reach-composed-with-reach, `concat` of the base, `distinct` closing the pass — converging to the transitive closure inside the engine's fixpoint scope; `distinct` is legal because reachability is grow-only within a version, and edge retraction arrives as a signed push the next fixpoint absorbs.
 - Exemption: the verb sinks share the memory lane's platform-forced callback seam and its permit discipline.
 - Growth: a new dataflow verb (semijoin via `filterBy`, anti-join, top-k board over a group) is a new handle row on this family — the handle shapes and the plan contract never widen per verb.
@@ -344,100 +368,81 @@ const _joined = <OpL, OpR, K, SL, SR>(
   right: Fold.Plan<OpR, K, SR>,
 ): Effect.Effect<Replay.Joined<OpL, OpR, K, SL, SR>> =>
   Effect.gen(function* () {
-    const gate = yield* Effect.makeSemaphore(1)
     const graph = new Mini.D2()
-    const lhs = graph.newInput<OpL>()
-    const rhs = graph.newInput<OpR>()
-    const pending: Array<Fold.Change<K, readonly [SL, SR]>> = []
-    lhs.pipe(
-      Mini.map((op: OpL): Mini.KeyValue<K, SL> => [left.key(op), left.lift(op)]),
-      Mini.reduce(_reduced(left.merge)),
-      Mini.innerJoin(rhs.pipe(
-        Mini.map((op: OpR): Mini.KeyValue<K, SR> => [right.key(op), right.lift(op)]),
-        Mini.reduce(_reduced(right.merge)),
-      )),
-      Mini.consolidate(),
-      Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, [SL, SR]>>) => {
-        for (const change of _changes(delta.getInner())) pending.push(change)
-      }),
-    )
-    graph.finalize()
+    const lhs = _keyed(graph, left)
+    const rhs = _keyed(graph, right)
+    const engine = yield* _engine<Fold.Change<K, readonly [SL, SR]>>(graph, (emit) =>
+      lhs.staged.pipe(
+        Mini.innerJoin(rhs.staged),
+        Mini.consolidate(),
+        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, [SL, SR]>>) => _changes(delta.getInner()).forEach(emit)),
+      ))
     const state = yield* SubscriptionRef.make(HashMap.empty<K, readonly [SL, SR]>())
     return {
       push: (delta) =>
-        gate.withPermits(1)(Effect.gen(function* () {
-          const [lows, rows] = Array.partitionMap(delta, ([op, count]) =>
+        pipe(
+          Array.partitionMap(delta, ([op, count]) =>
             Either.match(op, {
               onLeft: (held): Either.Either<readonly [OpR, number], readonly [OpL, number]> =>
                 Either.left([held, count] as const),
               onRight: (held) => Either.right([held, count] as const),
-            }))
-          const drained = yield* Effect.sync(() => {
-            lhs.sendData(new Mini.MultiSet(lows.map(([op, count]) => [op, count] as [OpL, number])))
-            rhs.sendData(new Mini.MultiSet(rows.map(([op, count]) => [op, count] as [OpR, number])))
-            graph.run()
-            return pending.splice(0, pending.length)
-          })
-          yield* Ref.update(state, (table) => Array.reduce(drained, table, _patch))
-        })),
+            })),
+          ([lows, rows]) =>
+            engine.drive(
+              () => {
+                lhs.input.sendData(new Mini.MultiSet(_rows(lows)))
+                rhs.input.sendData(new Mini.MultiSet(_rows(rows)))
+              },
+              (drained) => Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
+            ),
+        ),
       state,
     }
   })
 
-const _grouped = <Op>(spec: {
+const _grouped = <Op, By extends Readonly<Record<string, unknown>>, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(spec: {
   readonly name: string
-  readonly by: (op: Op) => Readonly<Record<string, unknown>>
-  readonly aggs: Readonly<Record<string, Replay.Agg<Op>>>
-}): Effect.Effect<Replay.Grouped<Op>> =>
+  readonly by: (op: Op) => By
+  readonly aggs: Aggs
+}): Effect.Effect<Replay.Grouped<Op, Aggs>> =>
   Effect.gen(function* () {
-    const gate = yield* Effect.makeSemaphore(1)
     const graph = new Mini.D2()
     const input = graph.newInput<Op>()
-    const pending: Array<Fold.Change<string, Readonly<Record<string, unknown>>>> = []
-    input.pipe(
-      Mini.groupBy(spec.by, Record.map(spec.aggs, _agg)),
-      Mini.output((delta: Mini.MultiSet<Mini.KeyValue<string, Readonly<Record<string, unknown>>>>) => {
-        for (const change of _changes(delta.getInner())) pending.push(change)
-      }),
-    )
-    graph.finalize()
-    const state = yield* SubscriptionRef.make(HashMap.empty<string, Readonly<Record<string, unknown>>>())
+    const engine = yield* _engine<Fold.Change<string, Replay.Rollup<Aggs>>>(graph, (emit) =>
+      input.pipe(
+        Mini.groupBy(spec.by, Record.map(spec.aggs, _agg)),
+        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<string, Replay.Rollup<Aggs>>>) =>
+          _changes(delta.getInner()).forEach(emit)),
+      ))
+    const state = yield* SubscriptionRef.make(HashMap.empty<string, Replay.Rollup<Aggs>>())
     return {
       push: (delta) =>
-        gate.withPermits(1)(Effect.gen(function* () {
-          const drained = yield* Effect.sync(() => {
-            input.sendData(new Mini.MultiSet(delta.map(([op, count]) => [op, count] as [Op, number])))
-            graph.run()
-            return pending.splice(0, pending.length)
-          })
-          yield* Ref.update(state, (table) => Array.reduce(drained, table, _patch))
-        })),
+        engine.drive(
+          () => input.sendData(new Mini.MultiSet(_rows(delta))),
+          (drained) => Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
+        ),
       state,
     }
   })
 
 const _closure = <K>(origin: AsOf): Effect.Effect<Replay.Closure<K>> =>
   Effect.gen(function* () {
-    const gate = yield* Effect.makeSemaphore(1)
     const graph = new Diff.D2({ initialFrontier: [...AsOf.time(origin)] })
     const input = graph.newInput<Diff.KeyValue<K, K>>()
-    const pending: Array<readonly [Diff.KeyValue<K, K>, number]> = []
-    input.pipe(
-      Diff.iterate((paths) =>
-        paths.pipe(
-          Diff.map(([from, to]): Diff.KeyValue<K, K> => [to, from]),
-          Diff.innerJoin(paths),
-          Diff.map(([, [tail, next]]): Diff.KeyValue<K, K> => [tail, next]),
-          Diff.concat(paths),
-          Diff.distinct(),
-        )),
-      Diff.output((message: Diff.Message<Diff.KeyValue<K, K>>) => {
-        if (message.type === Diff.MessageType.DATA) {
-          for (const row of message.data.collection.getInner()) pending.push(row)
-        }
-      }),
-    )
-    graph.finalize()
+    const engine = yield* _engine<readonly [Diff.KeyValue<K, K>, number]>(graph, (emit) =>
+      input.pipe(
+        Diff.iterate((paths) =>
+          paths.pipe(
+            Diff.map(([from, to]): Diff.KeyValue<K, K> => [to, from]),
+            Diff.innerJoin(paths),
+            Diff.map(([, [tail, next]]): Diff.KeyValue<K, K> => [tail, next]),
+            Diff.concat(paths),
+            Diff.distinct(),
+          )),
+        Diff.output((message: Diff.Message<Diff.KeyValue<K, K>>) => {
+          if (message.type === Diff.MessageType.DATA) message.data.collection.getInner().forEach(emit)
+        }),
+      ))
     const reach = yield* SubscriptionRef.make(HashMap.empty<K, HashSet.HashSet<K>>())
     const drained = (rows: ReadonlyArray<readonly [Diff.KeyValue<K, K>, number]>) =>
       (table: Fold.Table<K, HashSet.HashSet<K>>): Fold.Table<K, HashSet.HashSet<K>> =>
@@ -448,23 +453,21 @@ const _closure = <K>(origin: AsOf): Effect.Effect<Replay.Closure<K>> =>
               (held) => (count > 0 ? HashSet.add(held, to) : HashSet.remove(held, to)),
               (next) => (HashSet.size(next) === 0 ? Option.none() : Option.some(next)),
             )))
-    const settle = (send: () => void) =>
-      gate.withPermits(1)(Effect.gen(function* () {
-        const rows = yield* Effect.sync(() => {
-          send()
-          graph.run()
-          return pending.splice(0, pending.length)
-        })
-        yield* Ref.update(reach, drained(rows))
-      }))
     return {
       push: (at, edges) =>
-        settle(() =>
-          input.sendData(
-            Diff.v([...AsOf.time(at)]),
-            new Diff.MultiSet(edges.map(([[from, to], count]) => [[from, to], count] as [Diff.KeyValue<K, K>, number])),
-          )),
-      seal: (frontier) => settle(() => input.sendFrontier(Diff.v([...AsOf.time(frontier)]))),
+        engine.drive(
+          () =>
+            input.sendData(
+              Diff.v([...AsOf.time(at)]),
+              new Diff.MultiSet(edges.map(([[from, to], count]) => [[from, to], count] as [Diff.KeyValue<K, K>, number])),
+            ),
+          (rows) => Ref.update(reach, drained(rows)),
+        ),
+      seal: (frontier) =>
+        engine.drive(
+          () => input.sendFrontier(Diff.v([...AsOf.time(frontier)])),
+          (rows) => Ref.update(reach, drained(rows)),
+        ),
       reach,
     }
   })
@@ -488,24 +491,22 @@ const _versioned = <Op, K, S>(
   origin: AsOf,
 ): Effect.Effect<Replay.Versioned<Op, K, S>> =>
   Effect.gen(function* () {
-    const gate = yield* Effect.makeSemaphore(1)
     const graph = new Diff.D2({ initialFrontier: [...AsOf.time(origin)] })
     const input = graph.newInput<Op>()
     const trace = new Diff.Index<K, S>()
-    const pending: Array<Fold.Change<K, S>> = []
-    input.pipe(
-      Diff.map((op: Op): Diff.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
-      Diff.reduce(_reduced(plan.merge)),
-      Diff.consolidate(),
-      Diff.output((message: Diff.Message<Diff.KeyValue<K, S>>) => {
-        if (message.type === Diff.MessageType.DATA) {
-          const rows = message.data.collection.getInner()
-          for (const [[key, held], count] of rows) trace.addValue(key, message.data.version, [held, count])
-          for (const change of _changes(rows)) pending.push(change)
-        }
-      }),
-    )
-    graph.finalize()
+    const engine = yield* _engine<Fold.Change<K, S>>(graph, (emit) =>
+      input.pipe(
+        Diff.map((op: Op): Diff.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
+        Diff.reduce(_reduced(plan.merge)),
+        Diff.consolidate(),
+        Diff.output((message: Diff.Message<Diff.KeyValue<K, S>>) => {
+          if (message.type === Diff.MessageType.DATA) {
+            const rows = message.data.collection.getInner()
+            for (const [[key, held], count] of rows) trace.addValue(key, message.data.version, [held, count])
+            _changes(rows).forEach(emit)
+          }
+        }),
+      ))
     const state = yield* SubscriptionRef.make(HashMap.empty<K, S>())
     const wave = yield* SubscriptionRef.make(Chunk.empty<Fold.Change<K, S>>())
     const sealed = yield* SubscriptionRef.make(Option.none<AsOf>())
@@ -515,29 +516,26 @@ const _versioned = <Op, K, S>(
         Array.filterMap(([held, count]) => (count > 0 ? Option.some(held) : Option.none())),
         Array.head,
       )
-    const settle = (send: () => void): Effect.Effect<Chunk.Chunk<Fold.Change<K, S>>> =>
-      Effect.gen(function* () {
-        const drained = yield* Effect.sync(() => {
-          send()
-          graph.run()
-          return Chunk.fromIterable(pending.splice(0, pending.length))
-        })
-        yield* Ref.update(state, (table) => Chunk.reduce(drained, table, _patch))
-        yield* Effect.when(Ref.set(wave, drained), () => Chunk.isNonEmpty(drained))
-        return drained
-      })
+    const published = (drained: ReadonlyArray<Fold.Change<K, S>>): Effect.Effect<void> =>
+      Effect.zipRight(
+        Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
+        Effect.when(Ref.set(wave, Chunk.fromIterable(drained)), () => Array.isNonEmptyReadonlyArray(drained)),
+      )
     return {
       push: (at, delta) =>
-        gate.withPermits(1)(Effect.asVoid(settle(() =>
-          input.sendData(
-            Diff.v([...AsOf.time(at)]),
-            new Diff.MultiSet(delta.map(([op, count]) => [op, count] as [Op, number])),
-          )))),
+        engine.drive(
+          () =>
+            input.sendData(
+              Diff.v([...AsOf.time(at)]),
+              new Diff.MultiSet(_rows(delta)),
+            ),
+          published,
+        ),
       seal: (frontier) =>
-        gate.withPermits(1)(Effect.gen(function* () {
-          yield* settle(() => input.sendFrontier(Diff.v([...AsOf.time(frontier)])))
-          yield* Ref.set(sealed, Option.some(frontier))
-        })),
+        engine.drive(
+          () => input.sendFrontier(Diff.v([...AsOf.time(frontier)])),
+          (drained) => Effect.zipRight(published(drained), Ref.set(sealed, Option.some(frontier))),
+        ),
       state,
       wave,
       frontier: sealed,
@@ -560,7 +558,10 @@ const _versioned = <Op, K, S>(
               Array.map(([held, count]) => [[key, held] as const, count] as const),
             ))),
       compact: (upTo) =>
-        gate.withPermits(1)(Effect.sync(() => trace.compact(new Diff.Antichain([Diff.v([...AsOf.time(upTo)])])))),
+        engine.drive(
+          () => trace.compact(new Diff.Antichain([Diff.v([...AsOf.time(upTo)])])),
+          () => Effect.void,
+        ),
     }
   })
 

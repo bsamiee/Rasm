@@ -19,14 +19,14 @@ is the consumer's), only the parse/serialize round-trip.
 
 [PACKAGE_SURFACE]: `MPXJ.Net`
 - package: `MPXJ.Net`
-- version: `16.4.1`
+- version: `16.5.0`
 - license: `LGPL-2.1-or-later` (weak copyleft — dynamic-link `PackageReference`, separate assembly, no source contamination)
 - assembly: `MPXJ.Net` (multi-target `net6.0` + `net472`; the `lib/net6.0/MPXJ.Net.dll` is the asset the `net10.0` consumer binds — `net472` is the legacy fallback)
 - namespace: `MPXJ.Net` (IKVM-proxied over the Java `net.sf.mpxj.*`)
 - deps: `IKVM.Maven.Sdk` (build-time Java→IL translation of the MPXJ jar over osx-arm64), `Portable.System.DateTimeOnly` (the `DateOnly`/`TimeOnly` facade — a net10 in-box no-op, floor-pinned `9.0.1`)
 - runtime: pure-managed AFTER the IKVM IL translation; the Java runtime is statically translated, NOT a JVM dependency at run time — osx-arm64-clean
 - owner: `libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj`
-- rail: schedule-file interchange (`Sync/schedule`)
+- rail: schedule-file interchange (`Ingest/schedule`)
 
 ## [02]-[OBJECT_GRAPH]
 
@@ -100,7 +100,7 @@ round-trip and `MSPDI`/`MPX` for MS Project, plus the neutral `JSON`).
 - LGPL-2.1 is satisfied by dynamic-link `PackageReference` (separate assembly): the codec is consumed, never statically fused into a Rasm assembly, and never re-published — the same posture as the other weak-copyleft floors
 
 [INTEGRATION_STACK]:
-- `Sync/schedule#SCHEDULE_INGRESS` is the consumer: `UniversalProjectReader.Read(bytes/path)` → `ProjectFile`, folded into the canonical schedule model; the parse runs inside the codec read under the Persistence `IO`/`Fin` rail, a malformed/unsupported file surfacing as a typed parse rejection
+- `Ingest/schedule#SCHEDULE_INGRESS` is the consumer: `UniversalProjectReader.Read(bytes/path)` → `ProjectFile`, folded into the canonical schedule model; the parse runs inside the codec read under the Persistence `IO`/`Fin` rail, a malformed/unsupported file surfacing as a typed parse rejection
 - the parsed `Task`/`Relation` network projects to Bim's 4D `ConstructionTask` (`Rasm.Bim` `Planning/schedule.md`) — the activity-on-node graph + `RelationType`/`Lag` edges feed the 4D sequencing, the dependency edges being exactly the `SequenceRel` DAG `Rasm.Bim`'s `QuikGraph` (`api-quikgraph`) runs `SourceFirstTopologicalSort` over for the CPM activity order (MPXJ supplies the edges, QuikGraph the order, the `WorkCalendar` fold the float/calendar arithmetic) — and the resource/cost loading (`ResourceAssignment.Cost`/`.BudgetCost`/`.Units`/`.Work` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`, all raw `double?`/`Rate` off the parse) projects to the 5D `CostItem` network where each foreign `double` is lifted into a `Money` at the boundary by `Rasm.Bim`'s `NodaMoney` (`api-nodamoney`, peer to its IFC `IfcCostValue` cost-graph lift) and the dimensioned quantity by `UnitsNet` (`Money * (decimal)quantity` for cost × quantity)
 - this is the schedule-FILE peer of the other Persistence interchange codecs: it sits in `[WIRE_SERIALIZATION]` beside `MessagePack`/`Sep` and complements the row-oriented (`Sep`/`MiniExcel`) and columnar (Arrow/Parquet) lanes — those cannot parse a binary MPP or a P6 XER, MPXJ owns exactly that schedule-tool format space
 - durations/dates meet `NodaTime` (the clock seam) and `UnitsNet` (the quantity substrate) at the boundary through `Duration.Units`; the schedule graph meets `QuikGraph` for the CPM topological order

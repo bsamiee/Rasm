@@ -58,15 +58,27 @@ const _step = (set: Selection.Set, op: Selection.Op): Selection.Set =>
 [PICK_PIPES]:
 - Law: every pipe resolves to `GlobalId` at its own seam through the one `_decode` — deck: `pickObjectsAsync({ x, y, width, height, maxObjects })` (the WebGPU-safe async pair; the deprecated sync mirrors never appear) yields `PickingInfo` whose `object` is a GeoArrow row proxy or a feature, and the pipe reads the id member and decodes; three: `Raycaster.setFromCamera` + `intersectObjects` over the residency graph, resolving hit nodes through `scene`'s graft ledger to content keys, then key → `GlobalId` through the element index the app composes from the decoded `ElementGraph`; maplibre: `queryRenderedFeatures(pointOrBox)` reading the feature's id property — one resolution law, three seams.
 - Law: an unresolvable hit is absence, not a fault — a pick over empty space or a feature without the id member folds to `Option.none` and the op simply carries fewer ids; picking never mints faults.
-- Law: lasso is planar compute — a freehand polygon hit-tests through `booleanPointInPolygon` against feature centroids with a `geojsonRbush` index making many-feature scenes sub-linear (`search(bbox)` prunes before the exact test); the index builds once per feature-set change, held in a derived atom.
-- Packages: `@deck.gl/core` (`Deck`, `PickingInfo`); `three` (`Raycaster`); `maplibre-gl` (`queryRenderedFeatures`); `@turf/turf` (`booleanPointInPolygon`, `geojsonRbush`); `effect`.
+- Law: the three-arm's key→`GlobalId` resolution batches — a marquee over a dense residency yields hundreds of content keys, so the element-index lookup rides one `Request.Class` request family under `RequestResolver.makeBatched` — N hits, one index traversal, de-duplicated by construction; a per-hit lookup loop is the named defect.
+- Law: lasso is planar compute with a scale ladder — a freehand polygon hit-tests through `booleanPointInPolygon` against feature centroids with a `geojsonRbush` index making many-feature scenes sub-linear (`search(bbox)` prunes before the exact test); the index builds once per feature-set change, held in a derived atom.
+- Packages: `@deck.gl/core` (`Deck`, `PickingInfo`); `three` (`Raycaster`); `maplibre-gl` (`queryRenderedFeatures`); `@turf/turf` (`booleanPointInPolygon`, `geojsonRbush`); `effect` (`Request`, `RequestResolver`).
 - Boundary: the gesture drawing the marquee/lasso is `system/act#CONTINUOUS_OWNER`'s; pixel→world math is `geo#PROJECT`'s; which surfaces are pickable is the owning layer row's toggle.
+- Growth: a million-feature lasso graduates to the GPU fold — a `typegpu` centroid-in-polygon kernel over a `d.arrayOf` centroid buffer adopting the scene-published device (`scene#BACKEND_SELECT`'s compute seam); the CPU rbush ladder stays the floor, and the kernel is one growth row, never a second lasso vocabulary.
 
 ```typescript
 import type { Deck, PickingInfo } from "@deck.gl/core"
-import { Array, Effect, Predicate } from "effect"
+import { Array, Effect, Predicate, Request, RequestResolver } from "effect"
 
 const _MARQUEE = { cap: 4096 } as const
+
+class _ResolveId extends Request.Class<Option.Option<GlobalId>, never, { readonly key: string }> {}
+
+const _resolveIds = (index: (keys: ReadonlyArray<string>) => ReadonlyArray<Option.Option<GlobalId>>) =>
+  RequestResolver.makeBatched((requests: Array.NonEmptyArray<_ResolveId>) =>
+    Effect.forEach(
+      Array.zip(requests, index(Array.map(requests, (request) => request.key))),
+      ([request, resolved]) => Request.succeed(request, resolved),
+      { discard: true },
+    ))
 
 const _fromInfo = (info: PickingInfo): Option.Option<GlobalId> =>
   Option.fromNullable(info.object).pipe(
@@ -90,9 +102,12 @@ const _marquee = (
 - Law: echoes are projections, never stores — deck layers read the set through a `DataFilterExtension` category or a color accessor keyed by membership (with `updateTriggers` naming the set's version); the batched scene arm flips `setVisibleAt`/tint rows through `scene#DRAW_COLLAPSE`; maplibre echoes through `setFeatureState(feature, { selected })` diffed against the previous set (enter/leave computed by `HashSet.difference` both ways); the grid's row selection (`view/table`) derives keyed by the same `GlobalId` strings and writes back through the same ops — one fold, many mirrors.
 - Law: reveal is a camera intent — selecting from the grid emits `Camera.Intent.FitBounds`/`EaseTo` over the selected features' bbox; reveal never reaches into a map instance directly.
 - Law: the selection count and id list surface through `system/primitive` rows — status text via `Message` plural forms, `announce` as polite SR feedback on large marquee results.
+- Law: non-view echo consumers subscribe through one bounded channel — `Selection.echoes` is a `PubSub.bounded<Selection.Op>` every applied op publishes into, so a wire egress, a probe evidence tap, or a sibling app's mirror consumes the op stream under backpressure without touching the atom registry; a second subscription protocol beside it is the named defect, and per-app soundness holds because each app scopes its own channel.
 
 ```typescript
-import { HashSet } from "effect"
+import { Effect, HashSet, PubSub } from "effect"
+
+const _echoes: Effect.Effect<PubSub.PubSub<Selection.Op>> = PubSub.bounded<Selection.Op>(64)
 
 const _diff = (previous: Selection.Set, next: Selection.Set): {
   readonly entered: ReadonlyArray<GlobalId>
@@ -102,18 +117,26 @@ const _diff = (previous: Selection.Set, next: Selection.Set): {
   left: [...HashSet.difference(previous, next)],
 })
 
-const Selection: {
-  readonly Op: typeof _Op
-  readonly decode: typeof _decode
-  readonly step: typeof _step
-  readonly diff: typeof _diff
-  readonly fromInfo: typeof _fromInfo
-  readonly marquee: typeof _marquee
-} = {
+declare namespace Selection {
+  type Shape = {
+    readonly Op: typeof _Op
+    readonly decode: typeof _decode
+    readonly step: typeof _step
+    readonly diff: typeof _diff
+    readonly echoes: typeof _echoes
+    readonly resolveIds: typeof _resolveIds
+    readonly fromInfo: typeof _fromInfo
+    readonly marquee: typeof _marquee
+  }
+}
+
+const Selection: Selection.Shape = {
   Op: _Op,
   decode: _decode,
   step: _step,
   diff: _diff,
+  echoes: _echoes,
+  resolveIds: _resolveIds,
   fromInfo: _fromInfo,
   marquee: _marquee,
 }
@@ -141,6 +164,12 @@ declare namespace Mark {
   }
 }
 
+const _target = (camera: BcfViewpoint["camera"]): readonly [number, number, number] => [
+  camera.position[0] + camera.direction[0],
+  camera.position[1] + camera.direction[1],
+  camera.position[2] + camera.direction[2],
+]
+
 const _pin = (
   topic: BcfTopic,
   viewpoint: Option.Option<BcfViewpoint>,
@@ -148,11 +177,7 @@ const _pin = (
 ): Option.Option<Mark.Pin> =>
   Option.map(viewpoint, (held) => ({
     guid: topic.guid,
-    anchor: project([
-      held.camera.position[0] + held.camera.direction[0],
-      held.camera.position[1] + held.camera.direction[1],
-      held.camera.position[2] + held.camera.direction[2],
-    ]),
+    anchor: project(_target(held.camera)),
     status: topic.status,
   }))
 ```
@@ -187,11 +212,7 @@ const _restore = (
     ([missing, resolved]) => ({
       intent: Camera.Intent.LookAt({
         eye: viewpoint.camera.position,
-        target: [
-          viewpoint.camera.position[0] + viewpoint.camera.direction[0],
-          viewpoint.camera.position[1] + viewpoint.camera.direction[1],
-          viewpoint.camera.position[2] + viewpoint.camera.direction[2],
-        ],
+        target: _target(viewpoint.camera),
         millis,
       }),
       select: resolved,
@@ -220,13 +241,19 @@ const _tone = {
   closed: { icon: CircleSlash, tone: "neutral" },
 } as const satisfies Record<BcfTopic["status"], { readonly icon: LucideIcon; readonly tone: "neutral" | "accent" | "success" | "danger" }>
 
-const Mark: {
-  readonly pin: typeof _pin
-  readonly restore: typeof _restore
-  readonly tone: typeof _tone
-} = {
+declare namespace Mark {
+  type Shape = {
+    readonly pin: typeof _pin
+    readonly restore: typeof _restore
+    readonly target: typeof _target
+    readonly tone: typeof _tone
+  }
+}
+
+const Mark: Mark.Shape = {
   pin: _pin,
   restore: _restore,
+  target: _target,
   tone: _tone,
 }
 

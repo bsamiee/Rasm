@@ -1,13 +1,12 @@
-<!-- catalog:ClickHouse.Driver@1.2.0 -->
 # [RASM_PERSISTENCE_API_CLICKHOUSE]
 
-`ClickHouse.Driver` supplies the official high-ingest distributed columnar OLAP client over the ClickHouse HTTP interface: the thread-safe primary `ClickHouseClient` (reusable, connection-pooled, the recommended entry), the full ADO.NET mirror (`ClickHouseConnection`/`ClickHouseCommand`/`ClickHouseDataReader`/`ClickHouseDataSource`/`ClickHouseConnectionFactory`), the parallel RowBinary bulk-ingest rail (`InsertBinaryAsync` over `object[]` rows or attributed POCOs, plus `InsertRawStreamAsync`/`PostStreamAsync` for pre-framed streams), strongly-typed connection settings, the `QueryStats` ingest receipt, and a first-class `System.Diagnostics.ActivitySource` diagnostics surface emitting OpenTelemetry `db.*`/`db.clickhouse.*` semantic-convention tags. This is the scale-out billion-row aggregation store-backend beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor (`api-duckdb`); it composes the `Store/profiles` store-profile algebra as a distinct backend class, reuses the admitted `NodaTime` transitive for temporal columns, and folds its `ActivitySource` into the AppHost `telemetry` port rather than carrying a bespoke logger.
+`ClickHouse.Driver` supplies the official high-ingest distributed columnar OLAP client over the ClickHouse HTTP interface: the thread-safe primary `ClickHouseClient` (reusable, connection-pooled, the recommended entry), the full ADO.NET mirror (`ClickHouseConnection`/`ClickHouseCommand`/`ClickHouseDataReader`/`ClickHouseDataSource`/`ClickHouseConnectionFactory`), the parallel RowBinary bulk-ingest rail (`InsertBinaryAsync` over `object[]` rows or attributed POCOs, plus `InsertRawStreamAsync`/`PostStreamAsync` for pre-framed streams), strongly-typed connection settings, the `QueryStats` ingest receipt, and a first-class `System.Diagnostics.ActivitySource` diagnostics surface emitting OpenTelemetry `db.*`/`db.clickhouse.*` semantic-convention tags. This is the scale-out billion-row aggregation store-backend beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor (`api-duckdb`); it composes the `Store/provisioning` store-profile algebra as a distinct backend class, reuses the admitted `NodaTime` transitive for temporal columns, and folds its `ActivitySource` into the AppHost `telemetry` port rather than carrying a bespoke logger.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ClickHouse.Driver`
 - package: `ClickHouse.Driver`
-- version: `1.2.0`
+- version: `1.3.0`
 - license: MIT
 - assembly: `ClickHouse.Driver`
 - namespace: `ClickHouse.Driver` (`ClickHouseClient`, the POCO/JSON attributes), `ClickHouse.Driver.ADO` (`ClickHouseClientSettings`, `QueryStats`, the connection/command/reader/data-source/conn-string-builder), `ClickHouse.Driver.ADO.Adapters`, `ClickHouse.Driver.ADO.Parameters`, `ClickHouse.Driver.ADO.Readers`, `ClickHouse.Driver.Copy` (`RowBinaryFormat`, the `[Obsolete]` `ClickHouseBulkCopy`), `ClickHouse.Driver.Diagnostic` (`ClickHouseDiagnosticsOptions`), `ClickHouse.Driver.Json` (`ClickHouseJsonPathAttribute`/`ClickHouseJsonIgnoreAttribute`/`ClickHouseJsonSerializationException`), `ClickHouse.Driver.Numerics` (the public `ClickHouseDecimal` value type); `ClickHouse.Driver.Types`/`ClickHouse.Driver.Utility` are internal engine machinery
@@ -125,7 +124,7 @@ The full `System.Data.Common` surface for tools and ORMs that bind `DbProviderFa
 [CLICKHOUSE_TOPOLOGY]:
 - transport: HTTP interface only (`HttpClient`); the client owns either a default pooled `IHttpClientFactory` (`DefaultPoolHttpClientFactory`), an injected `IHttpClientFactory`, or a caller-supplied `HttpClient` — `HttpClient` and `HttpClientFactory` are mutually exclusive at `Validate()`.
 - threading: `ClickHouseClient` is thread-safe and reusable; one instance per cluster, shared. The ADO `ClickHouseConnection` is the per-scope handle minted from it.
-- no transactions: `ClickHouseConnection.BeginDbTransaction` throws `NotSupportedException` — ClickHouse has no client-side transaction; durability is per-insert-block. The store-profile transaction rail (`Query/transaction`) treats this backend as a non-transactional sink.
+- no transactions: `ClickHouseConnection.BeginDbTransaction` throws `NotSupportedException` — ClickHouse has no client-side transaction; durability is per-insert-block. The store-profile transaction rail (`Element/graph`) treats this backend as a non-transactional sink.
 - sessions: `UseSession=true` mints a `SessionId` (GUID) and serializes to one concurrent query — `InsertOptions.MaxDegreeOfParallelism` must be 1 under a session or the insert throws.
 - compression: `UseCompression` (default true) sets gzip request/response encoding; the reader rejects compressed bytes the `HttpClient` did not auto-decompress (set `AutomaticDecompression`).
 - bulk codec: `RowBinaryFormat.RowBinary` is the dense binary insert format; `RowBinaryWithDefaults` lets the server fill column defaults for omitted values.
@@ -133,10 +132,10 @@ The full `System.Data.Common` surface for tools and ORMs that bind `DbProviderFa
 
 [INGEST_RECEIPT]:
 - `QueryStats` is the canonical columnar-throughput receipt, parsed from the `X-ClickHouse-Summary` response header: `ReadRows`/`ReadBytes`/`WrittenRows`/`WrittenBytes`/`TotalRowsToRead`/`ResultRows`/`ResultBytes`/`ElapsedNs`. After any `ClickHouseCommand` execution it lands on `Command.QueryStats` alongside `QueryId` and `ServerTimezone`; the `ClickHouseClient` query path threads it through the diagnostics span.
-- this is the `Store/profiles` profile receipt for the ClickHouse backend — the rows/bytes counts feed a throughput gauge, never a bespoke counter.
+- this is the `Store/provisioning` profile receipt for the ClickHouse backend — the rows/bytes counts feed a throughput gauge, never a bespoke counter.
 
 [LOCAL_ADMISSION]:
-- ClickHouse enters behind the same store-profile vocabulary as every backend (`Store/profiles`); it is a distinct backend class (scale-out columnar OLAP), orthogonal to in-PG TimescaleDB and embedded DuckDB.
+- ClickHouse enters behind the same store-profile vocabulary as every backend (`Store/provisioning`); it is a distinct backend class (scale-out columnar OLAP), orthogonal to in-PG TimescaleDB and embedded DuckDB.
 - the bulk-ingest rail is `ClickHouseClient.InsertBinaryAsync` (POCO or `object[]`), never the `[Obsolete]` `ClickHouseBulkCopy`; batch size and parallelism are profile policy, not per-call magic numbers.
 - a non-transactional backend: the store profile records ClickHouse inserts as idempotent append blocks keyed by `InsertOptions.QueryId`, not under a transaction scope.
 - the column type-system (`ClickHouse.Driver.Types.*`) is internal — the profile declares column types in DDL or `[ClickHouseColumn(Type=...)]`, never a CLR type instance.

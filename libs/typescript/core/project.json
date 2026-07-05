@@ -3,9 +3,5 @@
     "name": "core",
     "projectType": "library",
     "sourceRoot": "libs/typescript/core/src",
-    "tags": [
-        "scope:core",
-        "runtime:neutral",
-        "plane:runtime"
-    ]
+    "tags": ["scope:core", "runtime:neutral", "plane:runtime"]
 }

@@ -18,7 +18,8 @@ ui/
 │   └── view/                  # The view plane over the system owners
 │       ├── form.ts            # Schema-driven forms: one kernel Schema owning wire decode AND live field validity via standardSchemaV1
 │       ├── table.ts           # The data grid: TanStack models + Virtual windows + RAC grid semantics under ONE TableState atom
-│       └── overlay.ts         # The overlay owner: floating-ui anchoring, vaul sheets, cmdk palette over Overlay.Command, presence cohort
+│       ├── overlay.ts         # The overlay owner: floating-ui anchoring, vaul sheets, cmdk palette over Overlay.Command, presence cohort
+│       └── chart.ts           # The analytic chart owner: Plot/visx declared charts, uplot streaming series, perspective live pivot over one Arrow bus
 └── viewer/
     └── src/                   # The spatial tier (second Nx project)
         ├── scene.ts           # The GLB scene: content-key mesh residency behind the GlbViewport port; three | model-viewer backend rows
@@ -33,6 +34,8 @@ ui/
 ```text seams
 view/table    ←  typescript:core/state      # [SHAPE]: Feed.Document column band (name/kind/dimension/nullable, Option-carried columns)
 system/atom   ⇄  typescript:runtime/browser # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
+system/primitive ← typescript:runtime/browser # [PORT]: ui-declared Clipboard Tag satisfied from the platform clipboard layer
+viewer/geo    ←  typescript:runtime/browser # [PORT]: ui-declared Position/Grant Tags satisfied from the platform geolocation/permissions layers
 system/token  →  typescript:ui/viewer       # [PROJECTION]: Theme.linear srgb-linear ingestion into the scene appearance leaves
 viewer/scene  ←  typescript:runtime/browser # [PORT]: GlbViewport satisfied from Depot.haul verified arrivals + the residency ledger
 viewer/scene  ←  typescript:runtime/serve   # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
@@ -45,7 +48,7 @@ viewer/probe  ←  csharp:Rasm.AppUi          # [RECEIPT]: RenderReceipt claims 
 
 ## [03]-[ORGANIZATION]
 
-`system` is the capability floor the views instantiate: `token` computes color and dimension as decode-gated data, `act` splits interaction by kind (discrete accessible events vs continuous gestures) and owns the motion vocabulary, `atom` is the ONE state binding standing the app's Layer graph behind the registry, `intl` rides native `Intl` behind one cache, and `primitive` makes react-aria-components the single headless pattern. `view` composes those owners into the three dense view surfaces — form, grid, overlay — each a single owner where variation is rows (columns, commands, field kinds), never sibling components. `viewer` is the spatial tier as a separate Nx project: `scene` renders content-keyed GLB residency behind a port the browser composition root satisfies, `geo` shares one WebGL context between maplibre and deck.gl, `mark` holds the one selection atom every pick pipeline and echo consumer projects (the grid `RowSelectionState` and the `scrollToIndex` echo are projections of this atom, never a second selection), `panel` materializes the C#-minted control vocabularies, and `probe` renders evidence without gating.
+`system` is the capability floor the views instantiate: `token` computes color and dimension as decode-gated data, `act` splits interaction by kind (discrete accessible events vs continuous gestures) and owns both motion planes (class rows and the physical spring/scroll/morph engine) plus the document-transition ladder, `atom` is the ONE state binding standing the app's Layer graph behind the registry, `intl` rides native `Intl` behind one cache, and `primitive` makes react-aria-components the single headless pattern and declares the clipboard port. `view` composes those owners into the four dense view surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components. `viewer` is the spatial tier as a separate Nx project: `scene` renders content-keyed GLB residency behind a port the browser composition root satisfies, `geo` shares one WebGL context between maplibre and deck.gl, `mark` holds the one selection atom every pick pipeline and echo consumer projects (the grid `RowSelectionState` and the `scrollToIndex` echo are projections of this atom, never a second selection), `panel` materializes the C#-minted control vocabularies, and `probe` renders evidence without gating.
 
 ## [04]-[BOUNDARIES]
 

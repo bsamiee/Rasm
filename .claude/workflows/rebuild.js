@@ -504,7 +504,9 @@ const acceptancePrompt = (traces, pages) => [CONTEXT, readFirst(pkgOf(pages[0].p
   'finding you can close surgically you close NOW via Edit, never merely report. (1) For each trace, confirm every ' +
   '`needs` entry resolves on landed disk — the page exists, the named entry/owner carries the expected signature, the ' +
   'seam anchor is present: ' + JSON.stringify(traces) + '. (2) GENERIC SWEEP: over the pages landed this run — ' +
-  JSON.stringify(pages.map((p) => p.page)) + ' — every cross-page symbol a landed fence composes resolves on a sibling ' +
+  JSON.stringify(pages.map((p) => p.page)) + ' spanning packages ' +
+  JSON.stringify([...new Set(pages.map((p) => pkgOf(p.page)))]) + ' (`ls` EACH package\'s `.api/` folder tier before ' +
+  'judging resolution, never only the first) — every cross-page symbol a landed fence composes resolves on a sibling ' +
   'owner with a matching signature. (3) FIX every miss at its root: a missing entry/receipt/seam row grows on its ' +
   'OWNING page at that page\'s bar; a mismatched signature corrects at the CONSUMER when the owner is right, at the ' +
   'OWNER when the consumers agree and the owner drifted — disk evidence decides, never preference; a naming drift ' +

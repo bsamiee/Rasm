@@ -44,16 +44,7 @@
 |  [04]   | `Utf8JsonReaderHelper`                      | `Thinktecture.Internal`                | `ValidateFromUtf8` span parse plus generated validation dispatch |
 |  [05]   | `JsonSerializerOptionsExtensions`           | `Thinktecture.Internal`                | `GetCustomMemberConverter` lookup for key-type converters |
 
-[PUBLIC_TYPE_SCOPE]: per-numeric-type key converter family
-- rail: wire-json
-
-| [INDEX] | [SYMBOL]                                              | [PACKAGE_ROLE] | [CAPABILITY]                                      |
-| :-----: | :---------------------------------------------------- | :------------- | :------------------------------------------------ |
-|  [01]   | `ByteKeyConverter` / `SByteKeyConverter`              | key converter  | byte/sbyte dictionary-key codec honoring `JsonNumberHandling` |
-|  [02]   | `ShortKeyConverter` / `UShortKeyConverter`            | key converter  | 16-bit key codec                                  |
-|  [03]   | `IntKeyConverter` / `UIntKeyConverter`                | key converter  | 32-bit key codec                                  |
-|  [04]   | `LongKeyConverter` / `ULongKeyConverter`              | key converter  | 64-bit key codec                                  |
-|  [05]   | `SingleKeyConverter` / `DoubleKeyConverter` / `DecimalKeyConverter` | key converter | floating-point and decimal key codecs             |
+The per-numeric-type key converters (`ByteKeyConverter`/`SByteKeyConverter`/`ShortKeyConverter`/`UShortKeyConverter`/`IntKeyConverter`/`UIntKeyConverter`/`LongKeyConverter`/`ULongKeyConverter`/`SingleKeyConverter`/`DoubleKeyConverter`/`DecimalKeyConverter`) are `internal sealed` singletons in `Thinktecture.Internal`, reached only through `Utf8JsonReaderExtensions` (the `JsonNumberHandling`-aware read/write) and `JsonSerializerOptionsExtensions.GetCustomMemberConverter` — they are NOT a public consumption surface and are never constructed directly.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -89,8 +80,9 @@
 - The non-generic `ThinktectureJsonConverterFactory` is the options-level route. Generated owners may also carry a typed `[JsonConverter]` factory attribute. Both paths terminate in the same converter family.
 
 [VALIDATION_RAIL]:
-- Deserialization decodes the JSON key and calls the generated static validation/factory rail. A non-null validation error surfaces at the serializer edge as a JSON failure rather than bypassing the generated owner invariant.
-- Span-parsable owners use the UTF-8 span converter path so hot wire reads avoid an intermediate `string`.
+- Deserialization decodes the JSON key and calls the generated static `Validate` rail. A non-null validation error surfaces at the serializer edge as `JsonException` rather than bypassing the generated owner invariant.
+- Span-parsable owners use the UTF-8 span converter path so hot wire reads avoid an intermediate `string`; a string-keyed owner opts out via `DisableSpanBasedJsonConversion`, and the factory's `Func<Type, bool>?` callback opts out per type.
+- `IDisallowDefaultValue` owners reject null and null-key payloads during read. The metadata factory declines `Nullable<T>` and defers to the framework's nullable wrapper.
 
 [STACKING]:
 - `api-thinktecture-runtime-extensions.md` owns the core source-generator contracts and generated owner surface.

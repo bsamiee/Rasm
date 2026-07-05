@@ -79,6 +79,7 @@ registration apply the policy without a cast. Applying a convention adds (or ame
 - schema role: relational table, column, key, index, and constraint names
 
 [STACKING]:
+- Owning pages: relational naming is a schema-identity fact on `Element/identity`, applied uniformly across the provider store profiles (`Store/provisioning`) from one `Use*` call rather than a per-provider patch.
 - The naming convention applies ON TOP of the relational provider mapping: it rewrites the names EF Core emits for tables/columns/keys/indexes after the provider (`Npgsql.EntityFrameworkCore.PostgreSQL`) and the store-profile mapping decide the model, so snake_case lands uniformly across the Postgres and SQLite profiles from one `Use*` call rather than per-provider naming patches.
 - A custom `INameRewriter` (e.g. a domain prefix scheme) composes through the same `NamingConventionSetPlugin` seam as a built-in rewriter, so an additional naming policy is one convention registration, not a hand-written `IEntityTypeAddedConvention`.
 - Because the convention rewrites at model-build time, the generated EF migrations (`Microsoft.EntityFrameworkCore.Design`) carry the rewritten names as schema facts, so the migration DDL and the runtime model agree without a second naming pass.

@@ -1,6 +1,6 @@
 # [SECURITY_CLAIM]
 
-The one authorization owner: the entitlement vocabulary a verified token resolves into and the RBAC-union-ReBAC fold that evaluates it into a decision. Claims are data — the subject's granted roles and scopes plus the active tenant — resolved once per request from the `crypt/sign` `AccessClaims`, enriched by the `ClaimStore` port the app root satisfies with the data wave; the tenancy key pairs with the boot `AppIdentity` into the core `TenantContext` the `access/tenant` reference carries, so `store` binds RLS with no parameter threading. `Policy.check` folds three sources into one `PolicyDecision`: RBAC grants derive from the `RolePermission` table over the inherited-role closure, ReBAC grants from a `RelationTuple` the `RelationStore` port checks, and a feature-flag gate delegates verdict evaluation to the runtime wave through the `FlagGate` consumer port — the `security → runtime` edge the ledger licenses. One `check` folds all three: a permission is granted when RBAC or ReBAC allows it and the flag gate is open, so the next action, role, or relation is a table row, never a new branch. The decision is a tagged verdict carrying its denial reason, never a bare boolean; `ClaimFault`/`PolicyFault` instantiate the folder fault shape and fire only when a store or verdict is unreachable — a denial is a decision and an empty role set is a valid unprivileged subject.
+The one authorization owner: the entitlement vocabulary a verified token resolves into and the RBAC-union-ReBAC fold that evaluates it into a decision. Claims are data — the subject's granted roles and scopes plus the active tenant — resolved once per request from the `crypt/sign` `AccessClaims`, enriched by the `ClaimStore` port the app root satisfies with the data wave; the tenancy key pairs with the boot `AppIdentity` into the core `TenantContext` the `access/tenant` reference carries, so `store` binds RLS with no parameter threading. The role-inheritance closure is compile-time-constant data and it is computed exactly once — `RoleGrant` derives each role's transitive permission set at module load through a cycle-guarded fold over the static `Role` table, so `_granted` is one `HashSet` membership read per held role and a cyclic `inherits` edit can never stack-overflow a request. `Policy.check` folds three sources into one `PolicyDecision`: RBAC grants derive from `RoleGrant`, ReBAC grants from a `RelationTuple` the `RelationStore` port checks, and a feature-flag gate delegates verdict evaluation to the runtime wave through the `FlagGate` consumer port — the `security → runtime` edge the ledger licenses. One `check` folds all three: a permission is granted when RBAC or ReBAC allows it and the flag gate is open, so the next action, role, or relation is a table row, never a new branch. The decision is a tagged verdict carrying its denial reason, never a bare boolean, and every `Deny` increments `security_policy_deny` tagged by reason — the access-denial dashboard is structural; `ClaimFault`/`PolicyFault` instantiate the folder fault shape with the guard pair closed in both directions and fire only when a store or verdict is unreachable — a denial is a decision and an empty role set is a valid unprivileged subject.
 
 ## [1]-[CLUSTERS]
 
@@ -9,21 +9,21 @@ The one authorization owner: the entitlement vocabulary a verified token resolve
 |  [01]   | `CLAIM_VOCABULARY`  | the `Role` table, `ClaimSet`, the `ClaimStore` port, the fault      | `Role`, `ClaimSet`, `ClaimFault`          |
 |  [02]   | `CLAIM_RESOLUTION`  | `Claim.resolve` token→claims, `Claim.principal` tenancy binding     | `Claim`                                   |
 |  [03]   | `POLICY_VOCABULARY` | permission/relation tables, `PolicyDecision`, relation + flag ports | `PolicyDecision`, `RelationStore`, `FlagGate` |
-|  [04]   | `POLICY_EVALUATION` | the RBAC ∪ ReBAC fold under the flag gate                           | `Policy`, `PolicyFault`                    |
+|  [04]   | `POLICY_EVALUATION` | the derived role-grant closure, the RBAC ∪ ReBAC fold under the flag gate | `Policy`, `PolicyFault`               |
 
 ## [2]-[CLAIM_VOCABULARY]
 
 [CLAIM_VOCABULARY]:
 - Owner: `Role` is the bounded role table — each row carries `rank` and inherited roles for the closure fold, the discriminant derives through `keyof typeof`; `ClaimSet` is the resolved claim shape (subject, tenant key, roles, scopes); `ClaimStore` is the durable-role port; `ClaimFault` is the folder fault shape at the store boundary. The tenant is the core `TenantContext.Key` brand — never a security-local re-declaration.
 - Law: roles decode into a `HashSet` so the policy fold reads membership structurally; an empty role set is a valid unprivileged subject, and only a store failure is a `ClaimFault` (class `unavailable`, the branch `Budget` retries it).
-- Law: the `_roles` tuple anchors the key set — `ClaimSet.roles` and `RolePermission`'s keys both derive from it, so a role without its table row (or the converse) fails at the declaration.
+- Law: the `_roles` tuple anchors the key set in both directions — `ClaimSet.roles`, `RolePermission`'s keys, and `RoleGrant`'s keys all derive from it, and the `_Keys`/`_Kinds` guard pair fails a tuple/table divergence at the declaration.
 - Growth: a new role is one `_roles` entry plus its `Role` row and `RolePermission` cells; a new claim facet is one `ClaimSet` field the store persists.
 - Boundary: `crypt/sign` owns the `AccessClaims` the edge's verify hands in; `access/tenant` owns the `TenantScope` reference the tenancy binds; `ClaimStore` is a data-wave-satisfied port; the policy fold below consumes the `ClaimSet`.
 - Packages: `effect` (`Schema`, `Context`, `HashSet`); `@rasm/ts/core` (`TenantContext`, `FaultClass`); `crypt/sign` (`AccessClaims`); `access/tenant` (`TenantScope`, `Principal`).
 
 ```typescript
 import { AppIdentity, FaultClass, TenantContext } from "@rasm/ts/core"
-import { Array, Config, Context, Data, Effect, HashSet, Option, Schema } from "effect"
+import { Array, Config, Context, Data, Effect, HashMap, HashSet, Metric, Option, Schema } from "effect"
 import { AccessClaims } from "../crypt/sign.ts"
 import { type Principal, TenantScope } from "./tenant.ts"
 
@@ -41,11 +41,13 @@ const _claimFaults = { store: { class: "unavailable" } } as const
 declare namespace Role {
   type Kind = keyof typeof Role
   type _Keys<K extends Kind = (typeof _roles)[number]> = K
+  type _Kinds<K extends (typeof _roles)[number] = Kind> = K
 }
 
 declare namespace ClaimFault {
-  type Reason = keyof typeof _claimFaults
+  type Reason = (typeof _claimReasons)[number]
   type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _claimFaults> = T
+  type _Closed<K extends Reason = keyof typeof _claimFaults> = K
 }
 
 class ClaimSet extends Schema.Class<ClaimSet>("ClaimSet")({
@@ -100,7 +102,7 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
         const tenant = yield* _tenantOf(claims)
         const roles = yield* store.rolesOf(claims.sub, tenant)
         return new ClaimSet({ subject: claims.sub, tenant, roles, scopes: HashSet.fromIterable(claims.scope) })
-      })
+      }).pipe(Effect.withSpan("security.claim.resolve"))
     const principal = (identity: AppIdentity, claims: ClaimSet): Principal =>
       ({ context: Option.map(claims.tenant, (tenant) => identity.scoped(tenant)), subject: Option.some(claims.subject) })
     const bind = <A, E, R>(identity: AppIdentity, claims: ClaimSet, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
@@ -148,8 +150,9 @@ declare namespace Relation {
 }
 
 declare namespace PolicyFault {
-  type Reason = keyof typeof _policyFaults
+  type Reason = (typeof _policyReasons)[number]
   type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _policyFaults> = T
+  type _Closed<K extends Reason = keyof typeof _policyFaults> = K
 }
 
 class RelationTuple extends Schema.Class<RelationTuple>("RelationTuple")({
@@ -191,20 +194,28 @@ class FlagGate extends Context.Tag("security/access/FlagGate")<FlagGate, {
 ## [5]-[POLICY_EVALUATION]
 
 [POLICY_EVALUATION]:
-- Owner: `Policy.check` folds RBAC and ReBAC into a decision under the flag gate; `Policy.grant`/`Policy.revoke` write relation tuples. The RBAC arm expands each held role's inherited closure through the `Role` table before probing `RolePermission`, so inheritance is data, not a branch.
-- Law: a permission is granted when RBAC or ReBAC allows it and the flag gate is open — the gate can only subtract, never grant; a missing relation defaults to no ReBAC grant; only an unreachable store or verdict is a `PolicyFault`, a denial is a `PolicyDecision`.
+- Owner: `Policy.check` folds RBAC and ReBAC into a decision under the flag gate; `Policy.grant`/`Policy.revoke` write relation tuples. `RoleGrant` is the derived closure — one module-load fold expands each role's transitive inheritance through the cycle-guarded `_closure` and flattens it into a permission `HashSet` per role — so inheritance is derived data, `_granted` is O(held roles) membership, and the recursion, its re-expansion cost, and its cycle risk exist nowhere at request time.
+- Law: a permission is granted when RBAC or ReBAC allows it and the flag gate is open — the gate can only subtract, never grant; a missing relation defaults to no ReBAC grant; only an unreachable store or verdict is a `PolicyFault`, a denial is a `PolicyDecision`; every `Deny` increments `security_policy_deny` tagged by its reason.
 - Receipt: `PolicyDecision` — `Allow` or `Deny({ reason })`, the reason distinguishing an ungranted action from a closed flag so the edge renders a 403 with cause.
-- Growth: a new grant source (an attribute condition) is one fold arm; the receipt never changes.
+- Growth: a new grant source (an attribute condition) is one fold arm; a new role's grants land in `RoleGrant` at module load with zero fold edits; the receipt never changes.
 - Boundary: `RelationStore` carries ReBAC, `FlagGate` carries the runtime verdict; `access/claim`'s `Role`/`ClaimSet` supply the RBAC input; the edge maps the decision to a status.
-- Packages: `effect` (`Array`, `Effect`, `HashSet`, `Option`).
+- Packages: `effect` (`Array`, `Effect`, `HashMap`, `HashSet`, `Metric`, `Option`).
 
 ```typescript
 const _PolicyDecision = Data.taggedEnum<PolicyDecision>()
 
-const _expand = (role: Role.Kind): ReadonlyArray<Role.Kind> => [role, ...Array.flatMap(Role[role].inherits, _expand)]
+const _deny = Metric.counter("security_policy_deny")
+
+const _closure = (role: Role.Kind, seen: HashSet.HashSet<Role.Kind>): HashSet.HashSet<Role.Kind> =>
+  HashSet.has(seen, role)
+    ? seen
+    : Array.reduce(Role[role].inherits, HashSet.add(seen, role), (acc, next) => _closure(next, acc))
+
+const RoleGrant: HashMap.HashMap<Role.Kind, HashSet.HashSet<Permission.Kind>> = HashMap.fromIterable(
+  Array.map(_roles, (role) => [role, HashSet.flatMap(_closure(role, HashSet.empty()), (held) => HashSet.fromIterable(RolePermission[held]))] as const))
 
 const _granted = (roles: HashSet.HashSet<Role.Kind>, action: Permission.Kind): boolean =>
-  HashSet.some(roles, (role) => Array.some(_expand(role), (inherited) => Array.contains(RolePermission[inherited], action)))
+  HashSet.some(roles, (role) => Option.exists(HashMap.get(RoleGrant, role), (grants) => HashSet.has(grants, action)))
 
 class Policy extends Effect.Service<Policy>()("security/access/Policy", {
   effect: Effect.gen(function* () {
@@ -222,7 +233,11 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
           : _granted(claims.roles, request.action) || rebac
             ? _PolicyDecision.Allow()
             : _PolicyDecision.Deny({ reason: "no-grant" })
-      })
+      }).pipe(
+        Effect.tap((decision) =>
+          decision._tag === "Deny" ? Metric.increment(_deny.pipe(Metric.tagged("reason", decision.reason))) : Effect.void),
+        Effect.withSpan("security.policy.check"),
+      )
     const grant = (tuple: RelationTuple): Effect.Effect<void, PolicyFault> => relations.write(tuple)
     const revoke = (tuple: RelationTuple): Effect.Effect<void, PolicyFault> => relations.delete(tuple)
     return { check, grant, revoke } as const
@@ -232,6 +247,6 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Claim, ClaimFault, ClaimSet, ClaimStore, FlagGate, Policy, PolicyFault, PolicyRequest, RelationStore, RelationTuple, Role }
+export { Claim, ClaimFault, ClaimSet, ClaimStore, FlagGate, Policy, PolicyFault, PolicyRequest, RelationStore, RelationTuple, Role, RoleGrant }
 export type { Permission, PolicyDecision, Relation }
 ```

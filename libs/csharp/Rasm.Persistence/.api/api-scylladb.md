@@ -20,11 +20,11 @@ the columnar ClickHouse OLAP lane, or the `pgvector` ANN tier.
 
 [PACKAGE_SURFACE]: `ScyllaDBCSharpDriver`
 - package: `ScyllaDBCSharpDriver`
-- version: `3.22.0.3`
+- version: `3.22.0.4`
 - license: Apache-2.0 (DataStax and ScyllaDB) — `github.com/scylladb/csharp-driver`
 - assembly: `ScyllaDB` (note: assembly name `ScyllaDB.dll` differs from the package id `ScyllaDBCSharpDriver`)
 - namespace: `Cassandra` (the public surface is the `Cassandra.*` namespace, NOT `ScyllaDB.*` — the fork preserves the DataStax type names); `Cassandra.Mapping`, `Cassandra.Data.Linq`, `Cassandra.Mapping.Attributes`, `Cassandra.ExecutionProfiles`, `Cassandra.Metrics.Abstractions`
-- target: SINGLE-target `netstandard2.0` only (no `net*` lib in 3.22.0.3); the `net10.0` consumer binds `lib/netstandard2.0` — there is no higher TFM to prefer
+- target: SINGLE-target `netstandard2.0` only (no `net*` lib in 3.22.0.4); the `net10.0` consumer binds `lib/netstandard2.0` — there is no higher TFM to prefer
 - asset: pure-managed runtime library, AnyCPU, no native runtime
 - abi: netstandard2.0 ABI — no `Span`/`ref struct` row API; rows are `Row`/`RowSet` reference types, async is `Task`-based (no `IAsyncEnumerable` row stream — paging is `IPage<T>` + `byte[] pagingState`)
 - transitive boundary: pulls `K4os.Compression.LZ4` 1.3.8 (the SAME pin Persistence admits for the LZ4 snapshot codec — the driver uses it for `CompressionType.LZ4` wire compression), `Newtonsoft.Json` 13.0.4 (driver-internal; the workspace JSON rail stays STJ and never routes through it), `Microsoft.Extensions.Logging[.Abstractions]`, `System.Collections.Immutable`, `System.Threading.Tasks.Dataflow`, `System.Management`

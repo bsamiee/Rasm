@@ -151,6 +151,7 @@ Full-featured production messaging-protocol clients backing the egress sink rows
 [WIRE_SERIALIZATION]:
 - `MessagePack`
 - `MessagePackAnalyzer`
+- `JsonSchema.Net` (JSON Schema 2020-12 evaluator — the in-process `Json.Schema.JsonSchema.Evaluate` fallback the `Store/provisioning#SERVER_EXTENSIONS` `pg_jsonschema` row degrades to when the server extension is absent, validating document bodies against the same schema off the wire)
 - `K4os.Compression.LZ4`
 - `MPXJ.Net` (binary MS-Project .mpp / Primavera P6 XER/PMXML / Asta / Phoenix schedule-file codec via IKVM Java->IL bridge — the schedule-ingress lane the row-oriented `Sep`/`MiniExcel` codecs lack)
 - `Sep`

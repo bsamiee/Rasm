@@ -1,11 +1,12 @@
 # [RASM_PERSISTENCE_API_OBJECTSTORE]
 
-Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low-level multipart plus `TransferUtility`, `Azure.Storage.Blobs` staged-block plus parallel upload, and `Google.Cloud.Storage.V1` resumable chunked upload with conditional-write concurrency. Each SDK supplies the chunked/resumable transfer members, the content-hash/ETag descriptor evidence, the conditional-write optimistic-concurrency edge, the server-side-encryption (SSE-KMS / SSE-C) request stance, and the WORM object-lock retention members the `ObjectStore` placement rows consume (the `ObjectEncryption` and `ObjectLock` write stances SET on the wire). The self-hosted / S3-compatible FOURTH provider on the same `ObjectClient` union — `Minio` (MinIO, R2, B2, Wasabi, Ceph) — is catalogued at `api-minio`; its `*Args` builder legs map onto the same `BlobRemote` placement contract and the same `#WRITE_ONCE_SEAL` law as these three cloud SDKs.
+Cloud object-store SDK surfaces for the `Store/blobstore#OBJECT_STORE` cluster: `AWSSDK.S3` low-level multipart plus `TransferUtility`, `Azure.Storage.Blobs` staged-block plus parallel upload, and `Google.Cloud.Storage.V1` resumable chunked upload with conditional-write concurrency. Each SDK supplies the chunked/resumable transfer members, the content-hash/ETag descriptor evidence, the conditional-write optimistic-concurrency edge, the server-side-encryption (SSE-KMS / SSE-C) request stance, and the WORM object-lock retention members the `ObjectStore` placement rows consume (the `ObjectEncryption` and `ObjectLock` write stances SET on the wire). The self-hosted / S3-compatible FOURTH provider on the same `ObjectClient` union — `Minio` (MinIO, R2, B2, Wasabi, Ceph) — is catalogued at `api-minio`; its `*Args` builder legs map onto the same `BlobRemote` placement contract and the same `#WRITE_ONCE_SEAL` law as these three cloud SDKs.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AWSSDK.S3`
 - package: `AWSSDK.S3`
+- version: `4.0.100.2`
 - assembly: `AWSSDK.S3`
 - companion: `AWSSDK.Core` (transitive; no separate pin)
 - namespace: `Amazon.S3`
@@ -15,6 +16,7 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 
 [PACKAGE_SURFACE]: `Azure.Storage.Blobs`
 - package: `Azure.Storage.Blobs`
+- version: `12.29.1`
 - assembly: `Azure.Storage.Blobs`
 - namespace: `Azure.Storage.Blobs`, `Azure.Storage.Blobs.Specialized`, `Azure.Storage.Blobs.Models`
 - asset: runtime library
@@ -22,6 +24,7 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 
 [PACKAGE_SURFACE]: `Google.Cloud.Storage.V1`
 - package: `Google.Cloud.Storage.V1`
+- version: `4.15.0`
 - assembly: `Google.Cloud.Storage.V1`
 - auth companion: `Google.Apis.Auth` (transitive; `GoogleCredential` factory, not a fence member)
 - namespace: `Google.Cloud.Storage.V1`
@@ -179,10 +182,16 @@ Conditional-write conflict surfaces: S3 `PreconditionFailed`/`412`, Azure `Condi
 - Minio (`api-minio`): the inherited `ObjectConditionalQueryArgs<T>.WithMatchETag`/`WithNotMatchETag` and `CopyConditions.SetMatchETag`/`SetMatchETagNone` are the same `If-None-Match: *` edge; a racing second writer to the same content-key `412`s (`PreconditionFailedException`).
 - This is why the content-address store needs no read-before-write — the seal itself is the concurrency primitive, and a `412` on any of the four providers is a benign no-op (the content is already durably present, identical by hash), folded to `RemoteStoreFault.Conflict` and treated as success by the write-once placement.
 
-## [05]-[CATALOGUE_LAW]
+## [05]-[STACKING_AND_LAW]
+
+[STACKING]:
+- placement rows: the three cloud SDKs are provider rows on the one `Store/blobstore#OBJECT_STORE` `BlobRemote` placement contract — each supplies the four legs (multipart/staged-block/resumable put, `Stat` head, `List`, `Delete`) plus range-read the `ObjectClient` union dispatches, so a content-keyed blob lands on S3/Azure/GCS by one placement row, never a parallel client surface, with `Minio` (`api-minio`) the fourth self-hosted row.
+- content-key object name: the object name IS the `Element/codec#CONTENT_ADDRESS` `XxHash128` identity the kernel mints, supplied AS the whole-object checksum (`ChecksumAlgorithm.XXHASH128` + `ChecksumType.FULL_OBJECT` on S3, precalculated CRC64 on Azure/GCS) so the store needs no server-side re-hash — the settled `#ARTIFACT_FRAMES` frame law owns framing.
+- write-once seal: the `#WRITE_ONCE_SEAL` optimistic-concurrency edge (`IfNoneMatch: *`, GCS `IfGenerationMatch = 0`) is the concurrency primitive that lets `Store/blobstore#MULTIPART_TRANSFER` skip a read-before-write — a racing second writer `412`s, folded to `RemoteStoreFault.Conflict` and treated as success since the content is identical by hash.
+- SSE + WORM at the tier: the `Store/blobstore#OBJECT_STORE` `ObjectEncryption` (SSE-KMS/SSE-C) and `ObjectLock` (WORM `Governance`/`Compliance`) write stances SET on the INITIATE/upload request, the SSE-KMS KEK reference riding the tenant `Element/identity#KEY_ENVELOPE` DEK envelope, never a fence-member credential.
 
 [PACKAGE_SCOPE]:
-- Package pages carry external package API facts; the `ObjectStore` placement rows and the multipart transfer algebra are owned at `remote-stores`.
+- Package pages carry external package API facts; the `ObjectStore` placement rows and the multipart transfer algebra are owned at `Store/blobstore#OBJECT_STORE`.
 - The frame-law constants (64-KiB frame, Crc32-per-frame, XxHash128 whole-artifact identity) are owned at `#ARTIFACT_FRAMES` and consumed as settled vocabulary.
 - Auth credential acquisition (`GoogleCredential`, AWS credential providers, Azure `TokenCredential`, Minio `IClientProvider`/access-secret keys) is connection input handed over by app roots, not a Persistence fence member.
 - The `ObjectClient` union is a four-provider set: the three cloud SDKs catalogued here (`AWSSDK.S3`, `Azure.Storage.Blobs`, `Google.Cloud.Storage.V1`) plus the self-hosted / S3-compatible row `Minio` catalogued at `api-minio`. `api-minio` owns the Minio `*Args`/`IMinioClient` member facts and cross-references `#WRITE_ONCE_SEAL`; this page enumerates Minio only as the fourth union-dispatch row, so the two object-store catalogs cross-reference symmetrically.

@@ -21,11 +21,13 @@ The one wire-materializer of the shell plane: three C#-minted vocabularies — t
 - Law: this board is the wire-receipt optimistic plane — `system/atom`'s `Atom.optimistic` reconciles against an effect's own `Result` and never appears here; the two optimism laws share a name, never a mechanism, and the board rides the one store like any other atom.
 - Law: stale optimism ages out — an optimistic slot older than the patience window (`_PATIENCE`, a `Duration` policy row) degrades to the in-flight affordance without reverting, keeping slow transports honest without fabricating failure.
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row, never assuming shape.
-- Boundary: the feed's transport and decode are `core`/app composition; the write path is C#-owned and this module emits intents only.
+- Law: bursts coalesce before the store — `Panel.drain` shapes the feed with `Stream.groupedWithin(events, 128, "16 millis")`, folds each chunk through the SAME `_fold`, and lands one atom write per window inside `Atom.batch`, so a livewire storm costs one notification pass per frame; `Stream.throttle` composes on the same rail where a transport demands rate-shaping, and a per-event atom write is the named defect.
+- Law: imperative drivers read atomically — a non-React consumer (the solve seam, a test harness) reads and advances the board through `registry.modify(atom, f)`, value plus next state in one step, never a get-then-set pair.
+- Boundary: the feed's transport and decode are `core`/app composition; the write path is C#-owned and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
 
 ```typescript
 import type { BindingStatus, CoercedValue, Hlc, WriteReceipt } from "@rasm/ts/core"
-import { Duration, HashMap, Match, Option } from "effect"
+import { Chunk, Duration, HashMap, Match, Option, Stream } from "effect"
 
 type PanelEvent = BindingStatus | CoercedValue | WriteReceipt
 
@@ -81,6 +83,15 @@ const _optimistic = (board: Panel.Board, binding: string, value: unknown, since:
       ...Option.getOrElse(slot, () => _EMPTY),
       optimistic: Option.some({ value, since }),
     }))
+
+const _drain = (
+  events: Stream.Stream<PanelEvent>,
+  commit: (fold: (board: Panel.Board) => Panel.Board) => void,
+): Stream.Stream<void> =>
+  Stream.map(
+    Stream.groupedWithin(events, 128, Duration.millis(16)),
+    (window) => commit((board) => Chunk.reduce(window, board, _fold)),
+  )
 ```
 
 ## [3]-[PHASE_RENDER]
@@ -134,13 +145,13 @@ const _route = (sinks: Panel.Sinks): ((intent: ControlIntent) => void) =>
 - Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the drift defect this cluster's existence guards against. Drag is suggestion, never structure — a pointer drag feeds `suggest(edit, value)` per frame (the gesture source is `system/act#CONTINUOUS_OWNER`), the frozen program re-optimizes incrementally, and only wire-enumerated edits are suggestible — a suggestion against a non-edit variable is a construction error kiwi rejects, surfaced through the same fault.
 - Law: the four determinism axes are fixed by construction — identical constraint SET, identical insertion ORDER, identical STRENGTHS, identical EDIT sequence — so the TS tableau converges to the C# tableau; equal-strength competition resolves identically because insertion order is preserved. Drift is evidence, not tolerance — a position mismatch against a C#-provided expectation reports with the variable name and both values (`probe` consumes it); a fuzzy-match re-solve loop is the named defect.
 - Law: positions flow to render as one atom write per settle — the returned map replaces the positions atom (`Atom.batch` coalesces multi-panel updates), and panel components read their own cell through a selector so a 60fps drag never re-renders the board.
-- Exemption: the solver is the imperative foreign resource — the fold's statements (the name ledger, the ordered walk) live inside its `Effect.try` seam, the interior `Map` is the kernel's draft holding kiwi cells only, and the sole escape is the immutable positions read.
+- Law: the live solver is a RESOURCE, not a kernel — kiwi's incremental `suggestValue` requires the solver and its variable ledger to persist for the `Solved` lifetime, so the draft lives inside one `SynchronizedRef` and every `suggest` routes through `SynchronizedRef.modifyEffect`: concurrent suggestions serialize by construction, no mutable reference escapes, and the sole egress is the immutable positions map; the construction walk is the marked boundary seam.
 - Growth: a new constraint kind, variable class, or strength tier is a C# solver change mirrored at the codec — the fold's vocabulary maps grow a row each, nothing else moves.
 
 ```typescript
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
 import type { LayoutProgram } from "@rasm/ts/core"
-import { Data, Effect, HashMap, Iterable } from "effect"
+import { Data, Effect, HashMap, Iterable, SynchronizedRef } from "effect"
 
 const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const
 
@@ -165,61 +176,81 @@ declare namespace Panel {
   }
 }
 
+type _Draft = { readonly solver: Solver; readonly cells: ReadonlyMap<string, Variable> }
+
+const _read = (draft: _Draft): Panel.Positions =>
+  HashMap.fromIterable(Iterable.map(draft.cells, ([name, cell]) => [name, cell.value()] as const))
+
+const _build = (program: LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
+  Effect.try({
+    try: () => {
+      // BOUNDARY ADAPTER
+      const solver = new Solver()
+      const cells = new Map<string, Variable>()
+      const named = (name: string): Variable => {
+        const held = cells.get(name) ?? new Variable(name)
+        cells.set(name, held)
+        return held
+      }
+      program.constraints.forEach((row) => {
+        const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
+        const lhs = new Expression(...terms, row.constant)
+        solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
+      })
+      program.edits.forEach((edit) => solver.addEditVariable(named(edit), Strength.strong))
+      solver.updateVariables()
+      return { solver, cells }
+    },
+    catch: (defect) => new SolveFault({ surface: program.surface, rank: program.constraints.length, detail: String(defect) }),
+  })
+
 const _solve = (program: LayoutProgram): Effect.Effect<Panel.Solved, SolveFault> =>
   Effect.gen(function* () {
-    const solver = new Solver()
-    const cells = new Map<string, Variable>()
-    const named = (name: string): Variable => {
-      const held = cells.get(name) ?? new Variable(name)
-      cells.set(name, held)
-      return held
-    }
-    yield* Effect.try({
-      try: () => {
-        program.constraints.forEach((row) => {
-          const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
-          const lhs = new Expression(...terms, row.constant)
-          solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
-        })
-        program.edits.forEach((edit) => solver.addEditVariable(named(edit), Strength.strong))
-        solver.updateVariables()
-      },
-      catch: (defect) =>
-        new SolveFault({ surface: program.surface, rank: solver.getConstraints().length, detail: String(defect) }),
-    })
-    const read = (): Panel.Positions =>
-      HashMap.fromIterable(Iterable.map(cells, ([name, cell]) => [name, cell.value()] as const))
+    const draft = yield* _build(program)
+    const held = yield* SynchronizedRef.make(draft)
     return {
-      positions: read(),
+      positions: _read(draft),
       suggest: (edit, value) =>
-        Effect.try({
-          try: () => {
-            solver.suggestValue(named(edit), value)
-            solver.updateVariables()
-            return read()
-          },
-          catch: (defect) => new SolveFault({ surface: program.surface, rank: 0, detail: String(defect) }),
-        }),
+        SynchronizedRef.modifyEffect(held, (live) =>
+          Effect.try({
+            try: () => {
+              // BOUNDARY ADAPTER
+              const cell = live.cells.get(edit)
+              if (cell === undefined) {
+                throw new Error(edit)
+              }
+              live.solver.suggestValue(cell, value)
+              live.solver.updateVariables()
+              return [_read(live), live] as const
+            },
+            catch: (defect) => new SolveFault({ surface: program.surface, rank: 0, detail: String(defect) }),
+          })),
     }
   })
 
-const Panel: {
-  readonly Fault: typeof SolveFault
-  readonly empty: Panel.Row
-  readonly patience: typeof _PATIENCE
-  readonly fold: typeof _fold
-  readonly optimistic: typeof _optimistic
-  readonly tone: typeof _tone
-  readonly route: typeof _route
-  readonly relations: typeof _relations
-  readonly strengths: typeof _strengths
-  readonly solve: typeof _solve
-} = {
+declare namespace Panel {
+  type Shape = {
+    readonly Fault: typeof SolveFault
+    readonly empty: Panel.Row
+    readonly patience: typeof _PATIENCE
+    readonly fold: typeof _fold
+    readonly optimistic: typeof _optimistic
+    readonly drain: typeof _drain
+    readonly tone: typeof _tone
+    readonly route: typeof _route
+    readonly relations: typeof _relations
+    readonly strengths: typeof _strengths
+    readonly solve: typeof _solve
+  }
+}
+
+const Panel: Panel.Shape = {
   Fault: SolveFault,
   empty: _EMPTY,
   patience: _PATIENCE,
   fold: _fold,
   optimistic: _optimistic,
+  drain: _drain,
   tone: _tone,
   route: _route,
   relations: _relations,

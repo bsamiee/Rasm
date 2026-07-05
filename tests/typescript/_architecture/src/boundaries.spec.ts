@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
 import { Audit, Imports } from '@rasm/ts-testkit/gauges';
-import { Array, Effect, HashSet, Number, Option, pipe, Schema } from 'effect';
+import { Array, Effect, HashSet, Number, Option, pipe, Record, Schema } from 'effect';
 
 // --- [TYPES] -----------------------------------------------------------------------------
 
@@ -44,13 +44,24 @@ const _CRYPTO = [
     { family: 'ext:webauthn', pattern: /^@simplewebauthn\//, zones: ['security/authn'] },
 ] as const;
 
-// The runtime-direction law: an importing runtime may only reach the runtimes on its row.
+// The runtime-direction law: an importing runtime may only reach the runtimes on its row. The keys
+// are the one canonical runtime vocabulary — the tag axis; the exports-map conditions project onto
+// it through _CONDITION_FILE below (server->node lane, browser->browser lane, wasm/default->neutral).
 const _RUNTIME_MAY = {
     browser: ['browser', 'neutral'],
-    bun: ['bun', 'neutral'],
     neutral: ['neutral'],
     node: ['node', 'neutral'],
 } as const;
+
+// The boundary gate's other half: per-runtime subpath purity over the branch exports map. A neutral
+// folder carries the full condition split in this exact order (condition matching is order-sensitive,
+// `default` closes the list); a single-runtime folder is one unconditioned entrypoint, so a foreign
+// runtime's source is physically unresolvable from its resolution.
+const _CONDITIONS = ['server', 'browser', 'wasm', 'default'] as const;
+const _CONDITION_FILE = { browser: 'browser.ts', default: 'index.ts', server: 'server.ts', wasm: 'wasm.ts' } as const;
+
+// Depth subpaths are declared rows, never discovered: an undeclared interior subpath is a boundary breach.
+const _DEPTH_SUBPATHS = [{ owner: 'ui', runtime: 'browser', subpath: './ui/viewer' }] as const;
 
 const _PLANES = ['runtime', 'deploy', 'dev'] as const;
 
@@ -58,9 +69,16 @@ const _PLANES = ['runtime', 'deploy', 'dev'] as const;
 
 const _Project = Schema.Struct({ name: Schema.NonEmptyString, tags: Schema.Array(Schema.NonEmptyString) });
 
+const _Branch = Schema.Struct({
+    name: Schema.NonEmptyString,
+    exports: Schema.Record({ key: Schema.String, value: Schema.Union(Schema.String, Schema.Record({ key: Schema.String, value: Schema.String })) }),
+});
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const _decodeProject = Schema.decodeUnknown(Schema.parseJson(_Project));
+
+const _decodeBranch = Schema.decodeUnknown(Schema.parseJson(_Branch));
 
 const _segments = (path: string): ReadonlyArray<string> => Array.filter(path.split('/'), (part) => part.length > 0 && part !== '.');
 
@@ -190,6 +208,31 @@ const _triples = (rows: ReadonlyArray<LedgerRow>) =>
         );
     });
 
+// One subpath's purity verdict: a neutral folder carries the exact ordered condition split with each
+// condition bound to its canonical file; a single-runtime folder is one unconditioned index entrypoint;
+// a subpath whose runtime resolves to nothing on the tag axis has no exports law and is refused.
+const _purity = (subpath: string, runtime: string, entry: string | Readonly<Record<string, string>>): ReadonlyArray<string> =>
+    runtime === 'neutral'
+        ? typeof entry === 'string'
+            ? [`${subpath}: a neutral folder carries the ${_CONDITIONS.join('/')} condition split`]
+            : Array.appendAll(
+                  Array.every(_CONDITIONS, (cond, at) => Record.keys(entry)[at] === cond) && Record.keys(entry).length === _CONDITIONS.length
+                      ? []
+                      : [`${subpath}: conditions must be exactly [${_CONDITIONS.join(', ')}] in matching order`],
+                  Array.filterMap(_CONDITIONS, (cond) =>
+                      entry[cond] === `${subpath}/src/${_CONDITION_FILE[cond]}`
+                          ? Option.none()
+                          : Option.some(`${subpath}.${cond} -> ${entry[cond] ?? '(absent)'} (law: ${subpath}/src/${_CONDITION_FILE[cond]})`),
+                  ),
+              )
+        : runtime === 'browser' || runtime === 'node'
+          ? typeof entry === 'string'
+              ? entry === `${subpath}/src/index.ts`
+                  ? []
+                  : [`${subpath} -> ${entry} (law: ${subpath}/src/index.ts)`]
+              : [`${subpath}: a single-runtime folder is one unconditioned entrypoint`]
+          : [`${subpath}: runtime '${runtime}' carries no exports law`];
+
 const _tagged = (folder: string, tags: ReadonlyArray<string>): Option.Option<TagTriple> =>
     Option.all({
         folder: Option.some(folder),
@@ -274,6 +317,42 @@ layer(NodeContext.layer)('edge ledger', (it) => {
         }),
     );
 
+    it.effect('the branch exports map holds per-runtime subpath purity against the live tag triples', () =>
+        Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const rows = yield* _ledger;
+            const projects = yield* _triples(rows);
+            const triples = Array.getSomes(
+                Array.map(projects, ([folder, project]) => Option.flatMap(project, (found) => _tagged(folder, found.tags))),
+            );
+            const manifest = yield* Effect.orDie(_decodeBranch(yield* fs.readFileString(path.join(_ROOT, 'libs/typescript/package.json'))));
+            const entries = Record.toEntries(manifest.exports);
+            const lawful = Array.appendAll(
+                Array.map(rows, (row) => `./${row.folder}`),
+                Array.map(_DEPTH_SUBPATHS, (row) => row.subpath),
+            );
+            expect(Array.filter(entries, ([subpath]) => !Array.some(lawful, (own) => own === subpath)).map(([subpath]) => subpath)).toEqual([]);
+            expect(Array.filter(lawful, (own) => !Array.some(entries, ([subpath]) => subpath === own))).toEqual([]);
+            const runtimeOf = (subpath: string): string =>
+                Option.getOrElse(
+                    Option.orElse(
+                        Option.map(
+                            Array.findFirst(_DEPTH_SUBPATHS, (row) => row.subpath === subpath),
+                            (row) => row.runtime,
+                        ),
+                        () =>
+                            Option.map(
+                                Array.findFirst(triples, (triple) => `./${triple.folder}` === subpath),
+                                (triple) => triple.runtime.slice('runtime:'.length),
+                            ),
+                    ),
+                    () => 'unresolved',
+                );
+            expect(Array.flatMap(entries, ([subpath, entry]) => _purity(subpath, runtimeOf(subpath), entry))).toEqual([]);
+        }),
+    );
+
     it.effect('the branch source audit runs the real table and stays honest while no source ships', () =>
         Effect.gen(function* () {
             const rows = yield* _ledger;
@@ -288,7 +367,7 @@ layer(NodeContext.layer)('edge ledger', (it) => {
 describe('gauge falsification', () => {
     const rows = _parsedLedger(
         [
-            'Dependency flows downward — `core`, `security`, `data`.',
+            'Dependency flows downward — W0 `core`, W1 `security`, W2 `data`.',
             '| [01] | `core` | (nothing) | law |',
             '| [02] | `security` | `core` | law |',
             '| [03] | `data` | `core`, `security` | law |',
@@ -331,6 +410,27 @@ describe('gauge falsification', () => {
     it('a relative reach-around resolves to its folder zone and is audited', () => {
         const scanned = Imports.scan([{ path: 'security/src/fold.ts', text: 'import { key } from "../../data/src/journal.ts";' }]);
         expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['security/src/fold.ts -[edge]-> ../../data/src/journal.ts']);
+    });
+
+    it('the purity gauge refuses every counterfeit exports shape and passes the lawful ones', () => {
+        const lawful = {
+            server: './core/src/server.ts',
+            browser: './core/src/browser.ts',
+            wasm: './core/src/wasm.ts',
+            default: './core/src/index.ts',
+        };
+        expect(_purity('./core', 'neutral', lawful)).toEqual([]);
+        expect(_purity('./core', 'neutral', { ...lawful, server: './core/src/browser.ts' })).not.toEqual([]);
+        expect(_purity('./core', 'neutral', { server: lawful.server, browser: lawful.browser, default: lawful.default })).not.toEqual([]);
+        expect(
+            _purity('./core', 'neutral', { default: lawful.default, browser: lawful.browser, server: lawful.server, wasm: lawful.wasm }),
+        ).not.toEqual([]);
+        expect(_purity('./core', 'neutral', './core/src/index.ts')).not.toEqual([]);
+        expect(_purity('./ui', 'browser', './ui/src/index.ts')).toEqual([]);
+        expect(_purity('./ui/viewer', 'browser', './ui/viewer/src/index.ts')).toEqual([]);
+        expect(_purity('./iac', 'node', './iac/src/journal.ts')).not.toEqual([]);
+        expect(_purity('./ui', 'browser', lawful)).not.toEqual([]);
+        expect(_purity('./core', 'unresolved', './core/src/index.ts')).not.toEqual([]);
     });
 
     it('a crypto admission outside its sub-folder is a violation', () => {

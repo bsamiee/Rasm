@@ -1,6 +1,6 @@
 # [TS_UI]
 
-`libs/typescript/ui` is the wave-4 interface package: the component system (design tokens, motion and interaction, atom state binding, localization, headless primitives) and the view plane (Schema-driven forms, the data grid, overlays), with `viewer` as a second Nx project carrying the spatial tier — GLB scene, geospatial surface, GlobalId marks, wire-materialized panels, render evidence. One atom binding, one styling recipe, one overlay owner, one grid owner; the viewer consumes decoded wire vocabularies and renders, never re-owning semantics. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/typescript/ui` is the wave-4 interface package: the component system (design tokens, motion and interaction, atom state binding, localization, headless primitives) and the view plane (Schema-driven forms, the data grid, overlays, the analytic chart owner), with `viewer` as a second Nx project carrying the spatial tier — GLB scene, geospatial surface, GlobalId marks, wire-materialized panels, render evidence. One atom binding, one styling recipe, one overlay owner, one grid owner, one chart owner; the viewer consumes decoded wire vocabularies and renders, never re-owning semantics. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [01]-[ROUTER]
 
@@ -12,11 +12,12 @@
 - [06]-[FORM](.planning/view/form.md)
 - [07]-[TABLE](.planning/view/table.md)
 - [08]-[OVERLAY](.planning/view/overlay.md)
-- [09]-[SCENE](.planning/viewer/scene.md)
-- [10]-[GEO](.planning/viewer/geo.md)
-- [11]-[MARK](.planning/viewer/mark.md)
-- [12]-[PANEL](.planning/viewer/panel.md)
-- [13]-[PROBE](.planning/viewer/probe.md)
+- [09]-[CHART](.planning/view/chart.md)
+- [10]-[SCENE](.planning/viewer/scene.md)
+- [11]-[GEO](.planning/viewer/geo.md)
+- [12]-[MARK](.planning/viewer/mark.md)
+- [13]-[PANEL](.planning/viewer/panel.md)
+- [14]-[PROBE](.planning/viewer/probe.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -103,6 +104,9 @@ Cross-cutting TypeScript substrate this folder consumes; canonical registry and 
 
 [TYPING_RAILS]:
 - `effect`
+
+[OVERLAY_LANE]:
+- `@effect/experimental`
 
 [PLATFORM]:
 - `@effect/platform-browser`

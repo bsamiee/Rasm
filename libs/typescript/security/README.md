@@ -46,3 +46,6 @@ Cross-cutting TypeScript substrate this folder consumes; canonical registry and 
 
 [PLATFORM]:
 - `@effect/platform`
+
+[RESILIENCE_OVERLAYS]:
+- `@effect/experimental`

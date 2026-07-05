@@ -75,22 +75,21 @@ import { Array, Effect, HashMap, Option } from "effect"
 import { Live } from "./live.ts"
 
 const _held = <S, I>(sql: SqlClient.SqlClient, table: string, state: Schema.Schema<S, I>, cells: ReadonlyArray<string>) =>
-  Effect.flatMap(
-    sql.onDialectOrElse({
-      orElse: () => sql`SELECT cell, state FROM ${sql(table)} WHERE ${sql.in("cell", cells)}`,
-      pg: () => sql`SELECT cell, state FROM ${sql(table)} WHERE ${sql.in("cell", cells)} FOR UPDATE`,
-    }),
-    (rows) =>
-      Effect.map(
-        Effect.forEach(rows, (row) =>
-          Effect.map(Schema.decodeUnknown(state)(Upcast.body(row["state"])), (held) =>
-            [String(row["cell"]), held] as const)),
-        HashMap.fromIterable,
-      ),
+  Effect.map(
+    SqlSchema.findAll({
+      Request: Schema.Array(Schema.String),
+      Result: Schema.Struct({ cell: Schema.String, state: Upcast.json(state) }),
+      execute: (keys) =>
+        sql.onDialectOrElse({
+          orElse: () => sql`SELECT cell, state FROM ${sql(table)} WHERE ${sql.in("cell", keys)}`,
+          pg: () => sql`SELECT cell, state FROM ${sql(table)} WHERE ${sql.in("cell", keys)} FOR UPDATE`,
+        }),
+    })(cells),
+    (rows) => HashMap.fromIterable(rows.map((row) => [row.cell, row.state] as const)),
   )
 
 const _apply = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
-  (events: ReadonlyArray<A>, version: number) =>
+  (events: ReadonlyArray<A>, version: number | bigint) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const touched = Array.dedupe(Array.map(events, (event) => spec.cell(spec.plan.key(event))))
@@ -123,14 +122,16 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>):
 ## [4]-[DRAIN_DAEMON]
 
 - Owner: the checkpoint and quarantine ensure rows, the SKIP-LOCKED claim, the wake merge, the bounded drain cycle, `Lane.daemon(spec)` as a `Layer<never>` registration node, and `Lane.replay(name, sequence)` as the quarantine re-entry.
-- Packages: `effect` (`Effect`, `Stream`, `Schedule`, `Layer`, `Either`, `Option`, `Chunk`); `@effect/sql` (`SqlSchema` — the decoded checkpoint and page reads); `@effect/sql-pg` (`PgClient.listen` — read as an optional service); `journal/append.md` (`Journal.channel`), `journal/evolve.md` (`Snapshot.due`/`Snapshot.hydrate` — the cadence the lane composes after applies).
+- Packages: `effect` (`Effect`, `Stream`, `Schedule`, `Layer`, `Either`, `Option`, `Ref`, `BigInt`); `@effect/sql` (`SqlSchema` — the decoded checkpoint and page reads; `SqlClient.SafeIntegers` — the per-fiber bigint toggle the cycle provides so drivers that carry it return BIGINT columns unlossily); `@effect/sql-pg` (`PgClient.listen` — read as an optional service); `journal/append.md` (`Journal.channel`, `Journal.Sequence`), `journal/evolve.md` (`Snapshot.due`/`Snapshot.hydrate` — the cadence the lane composes after applies).
 - Entry: the app composes `Lane.daemon(spec)` into its root — lifetime is the Layer's, the scope closing is stop; the drain applies through `Lane.inline`'s same upsert shape outside the publish transaction, wrapped in `Live.mutation` so drained folds wake readers.
 - Receipt: `Option<Lane.Mark>` — `{ lane, checkpoint, drained }` per won cycle, `none` when the claim was held by a sibling replica (the skip is a value, never a sentinel coordinate); lag is `journal head − checkpoint`, both decoded reads, metered by the observability plane.
 - Growth: a new wake source is one more stream merged into the wake; a batch axis is a `spec.batch` field; a second replica of a lane is deployment, not declaration — the claim already arbitrates.
 - Law: the claim is the coordination — one checkpoint row per lane, `FOR UPDATE SKIP LOCKED` inside the drain transaction; a replica that misses the claim skips the cycle instead of blocking, the sqlite profiles serialize on the single writer through the dialect arm, and checkpoint advance commits atomically with the batch's upserts so a crash replays from the checkpoint into idempotent upserts.
 - Law: the wake merges LISTEN with a spaced poll under the both-halt strategy — the pg arm streams `Journal.channel` notifications through the optional `PgClient` read, the profiles without a channel ride the poll alone, and a lost notification costs one patience window, never correctness; a dropped LISTEN connection re-registers through `Stream.retry` on the lane's cadence.
-- Law: per-event apply is the quarantine boundary — a `ParseError` (decode or state-schema failure) diverts THAT sequence as `{ lane, sequence, envelope, fault }` through `catchTag` and the cycle continues; a `SqlError` propagates whole and retries the cycle under the jittered bounded schedule, because infrastructure faults are transient where poison is not — routing infra faults into quarantine would bury a dead database as fake poison; `replay` clears `replayed_at` rows back through the same apply after repair.
-- Law: checkpoint reads decode — the claim, the page, and the head probe are `SqlSchema` accessors, so the daemon holds no untyped row anywhere on its hot path.
+- Law: per-event apply is the quarantine boundary — a `ParseError` (column parse, decode, or state-schema failure) diverts THAT sequence as `{ lane, sequence, envelope, fault }` through `catchTag` and the cycle continues; the page `Result` schema deliberately keeps `payload` raw so a poison payload fails inside the per-event effect, never the whole page read — a poison row that failed the page decode would wedge the lane the quarantine exists to protect; a `SqlError` propagates whole and retries the cycle under the jittered bounded schedule, because infrastructure faults are transient where poison is not; `replay` clears `replayed_at` rows back through the same apply after repair.
+- Law: checkpoint reads decode AND the cursor is bigint — the claim, the page, and the head probe are `SqlSchema` accessors whose `sequence`/`checkpoint` fields ride `Journal.Sequence`, because the checkpoint is a GLOBAL-sequence cursor that outgrows 2^53 and a `Number()` coercion would silently stall or double-drain the lane; the daemon holds no untyped row anywhere on its hot path.
+- Law: the wake short-circuits on the notify payload — the publish transaction announces the last landed sequence, the daemon compares it against its held checkpoint and skips the claim transaction when `payload <= checkpoint`, so empty wake cycles cost zero round trips under high fan-out; a poll tick or a garbled payload carries no hint and probes normally.
+- RESEARCH: the daemon's statechart (idle → claiming → draining → caught-up → backing-off, quarantine as a divert arm) is the serializable-actor candidate — `Machine.makeSerializable`/`boot`/`snapshot`/`restore` are catalogued and the `Actor` is a `Subscribable` for lag dashboards; the recast lands when the Machine procedure-declaration spelling is catalogued, and the hand-rolled `forkScoped` drain below is the settled interim form.
 
 ```mermaid
 sequenceDiagram
@@ -152,14 +153,14 @@ sequenceDiagram
 ```
 
 ```typescript
-import { Cause, Either, Layer, Number, Schedule, Stream } from "effect"
+import { BigInt, Cause, Either, Layer, Ref, Schedule, Stream } from "effect"
 import { PgClient } from "@effect/sql-pg"
-import { SqlSchema } from "@effect/sql"
+import { SqlClient, SqlSchema } from "@effect/sql"
 import { AppIdentity } from "@rasm/ts/core"
 import { Upcast } from "../journal/evolve.ts"
 
 declare namespace Lane {
-  type Mark = { readonly lane: string; readonly checkpoint: number; readonly drained: number }
+  type Mark = { readonly lane: string; readonly checkpoint: bigint; readonly drained: number }
 }
 
 const _checkpointDdl: Capability.Ensure = {
@@ -192,7 +193,14 @@ const _quarantineDdl: Capability.Ensure = {
 
 const _RETRY = Schedule.exponential("200 millis").pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(6)))
 
-const _Checkpoint = Schema.Struct({ checkpoint: Schema.Number })
+const _Checkpoint = Schema.Struct({ checkpoint: Journal.Sequence })
+
+const _Page = Schema.Struct({
+  sequence: Journal.Sequence,
+  tag: Schema.String,
+  event_version: Schema.Number,
+  payload: Schema.Unknown,
+})
 
 const _claim = (sql: SqlClient.SqlClient) =>
   SqlSchema.findOne({
@@ -205,6 +213,9 @@ const _claim = (sql: SqlClient.SqlClient) =>
       }),
   })
 
+const _envelope = (payload: unknown) =>
+  typeof payload === "string" ? Effect.succeed(payload) : Schema.encode(Schema.parseJson(Schema.Unknown))(payload)
+
 const _cycle = <A extends Journal.Event, K, S, I>(
   sql: SqlClient.SqlClient,
   claim: ReturnType<typeof _claim>,
@@ -216,53 +227,62 @@ const _cycle = <A extends Journal.Event, K, S, I>(
       yield* sql`INSERT INTO projection_checkpoint ${sql.insert([{ lane: spec.name, checkpoint: 0 }])}
         ON CONFLICT (lane) DO NOTHING`
       const held = yield* claim(spec.name)
+      const page = SqlSchema.findAll({
+        Request: Schema.Struct({ floor: Journal.Sequence, take: Schema.Number }),
+        Result: _Page,
+        execute: (window) =>
+          sql`SELECT sequence, tag, event_version, payload FROM journal_event
+              WHERE app = ${app} AND sequence > ${window.floor}
+              ORDER BY sequence LIMIT ${window.take}`,
+      })
       return yield* Effect.transposeOption(Option.map(held, ({ checkpoint }) =>
         Effect.gen(function* () {
-          const page = yield* sql`SELECT sequence, tag, event_version, payload FROM journal_event
-            WHERE app = ${app} AND sequence > ${checkpoint}
-            ORDER BY sequence LIMIT ${spec.batch.size}`
-          const applied = yield* Effect.forEach(page, (row) =>
-            spec.decode.decode({
-              tag: String(row["tag"]),
-              version: globalThis.Number(row["event_version"]),
-              payload: Upcast.body(row["payload"]),
-            }).pipe(
+          const rows = yield* page({ floor: checkpoint, take: spec.batch.size })
+          const applied = yield* Effect.forEach(rows, (row) =>
+            Effect.flatMap(Schema.decodeUnknown(Upcast.Column)(row.payload), (payload) =>
+              spec.decode.decode({ tag: row.tag, version: row.event_version, payload })).pipe(
               Effect.flatMap((event) =>
                 Live.mutation(
                   Live.cells(spec.name, [spec.cell(spec.plan.key(event))]),
-                  _apply(spec)([event], globalThis.Number(row["sequence"])),
+                  _apply(spec)([event], row.sequence),
                 )),
-              Effect.as(Either.right(globalThis.Number(row["sequence"]))),
+              Effect.as(Either.right(row.sequence)),
               Effect.catchTag("ParseError", (fault) =>
-                Effect.as(
+                Effect.flatMap(_envelope(row.payload), (envelope) =>
                   sql`INSERT INTO projection_quarantine ${sql.insert([{
                     lane: spec.name,
-                    sequence: globalThis.Number(row["sequence"]),
-                    envelope: typeof row["payload"] === "string" ? row["payload"] : JSON.stringify(row["payload"]),
+                    sequence: row.sequence,
+                    envelope,
                     fault: String(fault),
-                  }])} ON CONFLICT (lane, sequence) DO NOTHING`,
-                  Either.left(globalThis.Number(row["sequence"])),
-                )),
+                  }])} ON CONFLICT (lane, sequence) DO NOTHING`).pipe(
+                  Effect.as(Either.left(row.sequence)))),
             ))
-          const last = Array.reduce(applied, checkpoint, (top, verdict) => Number.max(top, Either.merge(verdict)))
+          const last = Array.reduce(applied, checkpoint, (top, verdict) => BigInt.max(top, Either.merge(verdict)))
           yield* sql`UPDATE projection_checkpoint SET checkpoint = ${last}, claimed_at = ${Journal.now(sql)} WHERE lane = ${spec.name}`
           return { lane: spec.name, checkpoint: last, drained: applied.length } satisfies Lane.Mark
         })))
     }))
 
-const _wake = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, app: AppIdentity.Key) =>
+const _seqOf = (payload: string): Option.Option<bigint> =>
+  Option.liftThrowable((raw: string) => globalThis.BigInt(raw))(payload)
+
+const _wake = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, app: AppIdentity.Key): Stream.Stream<Option.Option<bigint>, never, never> =>
   Stream.merge(
     Stream.unwrap(
       Effect.map(Effect.serviceOption(PgClient.PgClient), Option.match({
         onNone: () => Stream.empty,
-        onSome: (pg) => Stream.retry(pg.listen(Journal.channel(app)), Schedule.spaced(spec.batch.patience)),
+        onSome: (pg) =>
+          Stream.retry(pg.listen(Journal.channel(app)), Schedule.spaced(spec.batch.patience)).pipe(
+            Stream.map(_seqOf),
+            Stream.orDie,
+          ),
       })),
     ),
-    Stream.repeatEffectWithSchedule(Effect.succeed("<poll>"), Schedule.spaced(spec.batch.patience)),
+    Stream.repeatEffectWithSchedule(Effect.succeedNone, Schedule.spaced(spec.batch.patience)),
     { haltStrategy: "both" },
   )
 
-const _replay = (name: string, sequence: number) =>
+const _replay = (name: string, sequence: bigint) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql`UPDATE projection_quarantine SET replayed_at = ${Journal.now(sql)}
         WHERE lane = ${name} AND sequence = ${sequence} AND replayed_at IS NULL`)
@@ -272,28 +292,36 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const claim = _claim(sql)
-      yield* Effect.forkScoped(
-        Stream.runForEach(_wake(spec, app), () =>
-          _cycle(sql, claim, spec, app).pipe(
-            Effect.retry(_RETRY),
-            Effect.repeat({
-              until: (mark: Option.Option<Lane.Mark>) =>
-                Option.match(mark, { onNone: () => true, onSome: (held) => held.drained < spec.batch.size }),
-            }),
-            Effect.catchAllCause((cause) =>
-              Effect.logError("lane cycle refused").pipe(Effect.annotateLogs({ lane: spec.name, cause: Cause.pretty(cause) }))),
-          )))
+      const seen = yield* Ref.make(0n)
+      const drained = (hint: Option.Option<bigint>) =>
+        Effect.flatMap(Ref.get(seen), (floor) =>
+          Option.match(hint, { onNone: () => false, onSome: (head) => head <= floor && floor > 0n })
+            ? Effect.void
+            : _cycle(sql, claim, spec, app).pipe(
+                Effect.provideService(SqlClient.SafeIntegers, true),
+                Effect.tap((mark) =>
+                  Option.match(mark, { onNone: () => Effect.void, onSome: (won) => Ref.set(seen, won.checkpoint) })),
+                Effect.retry(_RETRY),
+                Effect.repeat({
+                  until: (mark: Option.Option<Lane.Mark>) =>
+                    Option.match(mark, { onNone: () => true, onSome: (won) => won.drained < spec.batch.size }),
+                }),
+                Effect.catchAllCause((cause) =>
+                  Effect.logError("lane cycle refused").pipe(Effect.annotateLogs({ lane: spec.name, cause: Cause.pretty(cause) }))),
+                Effect.asVoid,
+              ))
+      yield* Effect.forkScoped(Stream.runForEach(_wake(spec, app), drained))
     }),
   ).pipe(Layer.withSpan("data.lane", { attributes: { lane: spec.name } }))
 ```
 
 ## [5]-[MAINTENANCE]
 
-- Owner: the in-database maintenance rows — cron jobs, IVM views, incremental pipelines — each grant-gated through the capability rail, plus `Lane.rebuild` — the shadow-table replay with atomic swap under a session advisory lock.
+- Owner: the in-database maintenance rows — cron jobs, IVM views, incremental pipelines — each grant-gated through the capability rail, plus `Lane.rebuild` — the shadow-table replay with atomic swap under a session advisory lock, the folder's ONE declared carve-out from the DDL-split boundary: an operator verb, session-locked, never scheduled, never reachable from a request path.
 - Packages: `lane/capability.md` (`Capability.require`/`when`); `journal/retain.md` (`Retain.Policy` — every grooming window); `@effect/sql` (`sql.reserve`, `sql.unsafe` over closed-vocabulary literals).
 - Entry: `Lane.schedule(jobs)` and `Lane.immv(views)` run at scope construction where their grants hold; `Lane.rebuild(spec)` is the operator verb after an evolve-chain fix or a quarantine drain, followed by `Live.invalidate(Live.band(spec.name))` so every reader re-runs against the swapped table.
 - Growth: a maintenance job is one row whose statement is the job; an incremental pipeline is one row where the fold is SQL-expressible; degradation is automatic — a refused grant leaves the app-side daemon owning the fold, selected by the same grant read.
-- Law: grooming windows are `Retain.Policy` projections — ledger, outbox, quarantine, and checkpoint grooming read the one retention vocabulary, never literals in cron text; a refused `cron` grant routes the job to the host scheduler through the runtime branch's port.
+- Law: grooming windows are `Retain.Policy` projections — ledger, outbox, quarantine, and checkpoint grooming read the one retention vocabulary, never literals in cron text; the job rows are PROVISION material — the provision plane registers them through `cron.schedule` and this page only derives their text from sealed policy values, so the interpolated day counts never meet caller input; a refused `cron` grant routes the job to the host scheduler through the runtime branch's port.
 - Law: IVM is an accelerator, never truth — an `immv` derives from journal rows, registers presence-checked where the `ivm` grant holds, and is always droppable; nothing writes to it.
 - Law: the `incremental` grant aligns the exactly-once batch fold — where it holds, an SQL-expressible checkpointed fold rides the extension's same-transaction progress bookkeeping instead of the `[4]` daemon, under the extension's own hard `cron` requirement (the matrix row's `requiresCron` flag); the daemon remains the general lane for folds SQL cannot express. RESEARCH: the pipeline-registration statement spelling (the extension's create-pipeline function signature) is catalogued before this row's fence settles; until then the row registers through the same grant-gated `sql.unsafe` road as the cron jobs.
 - Law: the rebuild is singleton by session lock — the lock statement executes ON the reserved connection (`held.executeUnprepared`) because a pooled statement could land on a different session and hold nothing; the paired `pg_advisory_unlock` runs on the same connection as the bracket's release, because a pooled connection returns to the pool holding its session state and an unreleased session lock would poison every later lease of that connection — so the lock spans the multi-transaction replay (a transaction lock cannot) and the sqlite profiles serialize on the single writer; the swap is one transaction of renames so readers see old rows or new rows, never a mix.

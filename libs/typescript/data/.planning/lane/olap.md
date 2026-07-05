@@ -63,41 +63,66 @@ declare namespace Olap {
 
 ## [3]-[EMBEDDED]
 
-- Owner: the two scoped engine wraps — `Olap.node(path, config?)` acquiring a `DuckDBInstance` and leasing sessions under `Scope`, and `Olap.wasm(bundles)` instantiating the worker-resident `AsyncDuckDB` — plus `Olap.query`, the one statement entry over a leased session whose modality is the projection: materialized rows, a bounded streamed window, or prepared binds. RESEARCH: the reader-continuation members (`readUntil`/`done` on the streaming result reader) are catalogued before the unbounded incremental-stream fence settles; until then `window` serves the bounded first window and unbounded egress rides Arrow batch streaming.
-- Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.connect`, `connection.run`, `connection.runAndReadAll`, `connection.streamAndReadUntil`, `connection.prepare`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`).
+- Owner: the two scoped engine wraps — `Olap.node(path, config?)` acquiring a `DuckDBInstance` and leasing sessions under `Scope`, and `Olap.wasm(bundles)` instantiating the worker-resident `AsyncDuckDB` — plus `Olap.query`, the one statement entry over a leased session whose modality is the read geometry: `rows` materializes bounded results, `drain` streams a large-but-bounded result through streaming-mode execution, `window` serves the bounded first window; every geometry rides the `_governed` resilience bracket. RESEARCH: the reader-continuation pair (`readUntil`/`done` on `DuckDBResultReader`) stays uncatalogued — the truly unbounded incremental fence settles on it; until then unbounded egress pages by keyset predicate or rides Arrow batch streaming.
+- Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.connect`, `connection.runAndReadAll`, `connection.streamAndReadAll`, `connection.streamAndReadUntil`, `connection.prepare`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`, `Schedule`, `Duration`).
 - Entry: a service composes `Olap.node` once per database coordinate and leases sessions per analytical unit of work; the browser shell composes `Olap.wasm` over self-hosted bundles at boot and hands connections to the viewer's query surfaces.
 - Receipt: node reads land as reader projections (`getRows`/`getColumns`); wasm queries land as Arrow Tables — the wire cluster's value, zero-copy into the viewer.
-- Growth: a new engine knob (`threads`, extension roster) is a config field on the acquire; a new ingestion source is a registered file or an `ATTACH` statement, never a new API.
+- Growth: a new engine knob (`threads`, extension roster) is a config field on the acquire; a new ingestion source is a registered file or an `ATTACH` statement, never a new API; a resilience posture is a `_GOVERNOR` field override, never a consumer wrap.
 - Law: lifecycle is `acquireRelease` under `Scope` — instance, worker, and every connection release deterministically; an unscoped engine handle is unspellable because the constructors return scoped effects.
-- Law: every promise lifts through `Effect.tryPromise` into the one `OlapFault` — the boundary kernel is the only place the language-owned async escape exists, and above it the lane is rails end to end.
-- Law: extension admission is a statement — `INSTALL`/`LOAD` for `httpfs`, `ducklake`, `iceberg`, `delta`, `spatial`, `vss`, `fts` run through `Olap.query`; a load failure refuses the capability as a typed fault, never crashes the lane.
+- Law: every promise lifts through the one boundary kernel `_try` into the reason-discriminated `OlapFault` — `acquire | query | extension | bundle | wire` routes recovery as a fold, never a `detail` string match; extension-load refusal is `extension`, bundle selection is `bundle`, and above the kernel the lane is rails end to end.
+- Law: resilience is owner-internal — `_governed` brackets every statement with the timeout budget, the jittered bounded retry gated to `query`-reason faults, and the session bulkhead semaphore, so a consumer composes capability and never plumbing; the governor values are one policy row.
+- Law: extension admission is a statement — `INSTALL`/`LOAD` for `httpfs`, `ducklake`, `iceberg`, `delta`, `spatial`, `vss`, `fts` run through `Olap.query`; a load failure refuses the capability as a typed `extension` fault, never crashes the lane.
 - Law: bundles self-host beside the app shell — `selectBundle` over owned artifact coordinates; a CDN bundle load is rejected by the deployment's content policy.
+- Boundary: `_try` and `_wasm` are the marked promise kernels — the `as never` bind cast and the ambient `Worker` construction live only inside them; `_wasm`'s thrown missing-worker guard is caught by its own `tryPromise` and folds to the `bundle` reason.
 
 ```typescript
-import { Chunk, Data, Effect, type Scope, Stream } from "effect"
+import { Chunk, Data, Duration, Effect, Schedule, type Scope, Stream } from "effect"
 import { DuckDBInstance } from "@duckdb/node-api"
 import * as wasm from "@duckdb/duckdb-wasm"
 
 class OlapFault extends Data.TaggedError("OlapFault")<{
   readonly engine: Olap.Engine
+  readonly reason: "acquire" | "query" | "extension" | "bundle" | "wire"
   readonly detail: string
 }> {}
 
-const _try = <A>(engine: Olap.Engine, run: () => Promise<A>): Effect.Effect<A, OlapFault> =>
-  Effect.tryPromise({ try: run, catch: (cause) => new OlapFault({ engine, detail: String(cause) }) })
+const _GOVERNOR = {
+  budget: Duration.seconds(30),
+  retry: Schedule.exponential("100 millis").pipe(
+    Schedule.jittered,
+    Schedule.intersect(Schedule.recurs(3)),
+    Schedule.whileInput((fault: OlapFault) => fault.reason === "query"),
+  ),
+  sessions: 8,
+} as const
+
+const _try = <A>(engine: Olap.Engine, reason: OlapFault["reason"], run: () => Promise<A>): Effect.Effect<A, OlapFault> =>
+  Effect.tryPromise({ try: run, catch: (cause) => new OlapFault({ engine, reason, detail: String(cause) }) })
+
+const _governed = (gate: Effect.Semaphore) =>
+  <A>(work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> =>
+    gate.withPermits(1)(
+      work.pipe(
+        Effect.timeoutFail({
+          duration: _GOVERNOR.budget,
+          onTimeout: () => new OlapFault({ engine: "duckdbNode", reason: "query", detail: "<budget>" }),
+        }),
+        Effect.retry(_GOVERNOR.retry),
+      ),
+    )
 
 const _node = (path: string, config?: Record<string, string>) =>
   Effect.acquireRelease(
-    _try("duckdbNode", () => DuckDBInstance.create(path, config)),
+    _try("duckdbNode", "acquire", () => DuckDBInstance.create(path, config)),
     () => Effect.void,
   )
 
 const _session = (instance: DuckDBInstance) =>
-  _try("duckdbNode", () => instance.connect())
+  _try("duckdbNode", "acquire", () => instance.connect())
 
 const _wasm = (bundles: wasm.DuckDBBundles): Effect.Effect<wasm.AsyncDuckDB, OlapFault, Scope.Scope> =>
   Effect.acquireRelease(
-    _try("duckdbWasm", async () => {
+    _try("duckdbWasm", "bundle", async () => {
       const bundle = await wasm.selectBundle(bundles)
       if (bundle.mainWorker === null) throw new Error("<bundle:no-worker>")
       const worker = new Worker(bundle.mainWorker)
@@ -108,19 +133,26 @@ const _wasm = (bundles: wasm.DuckDBBundles): Effect.Effect<wasm.AsyncDuckDB, Ola
     (db) => Effect.promise(() => db.terminate()),
   )
 
-const _query = (connection: Awaited<ReturnType<DuckDBInstance["connect"]>>) => ({
-  run: (sql: string, values?: ReadonlyArray<unknown>) =>
-    _try("duckdbNode", () => connection.run(sql, values as never)),
-  rows: (sql: string, values?: ReadonlyArray<unknown>) =>
-    _try("duckdbNode", () => connection.runAndReadAll(sql, values as never)).pipe(
-      Effect.map((reader) => reader.getRows()),
-    ),
-  window: (sql: string, take: number) =>
-    Stream.unwrap(
-      _try("duckdbNode", () => connection.streamAndReadUntil(sql, take)).pipe(
-        Effect.map((reader) => Stream.fromChunk(Chunk.fromIterable(reader.getRows()))),
-      )),
-})
+const _query = (connection: Awaited<ReturnType<DuckDBInstance["connect"]>>, gate: Effect.Semaphore) => {
+  const governed = _governed(gate)
+  return {
+    rows: (sql: string, values?: ReadonlyArray<unknown>) =>
+      governed(
+        _try("duckdbNode", "query", () => connection.runAndReadAll(sql, values as never)).pipe(
+          Effect.map((reader) => reader.getRows()),
+        )),
+    drain: (sql: string, values?: ReadonlyArray<unknown>) =>
+      Stream.unwrap(
+        governed(_try("duckdbNode", "query", () => connection.streamAndReadAll(sql, values as never))).pipe(
+          Effect.map((reader) => Stream.fromIterable(reader.getRows())),
+        )),
+    window: (sql: string, take: number) =>
+      Stream.unwrap(
+        governed(_try("duckdbNode", "query", () => connection.streamAndReadUntil(sql, take))).pipe(
+          Effect.map((reader) => Stream.fromChunk(Chunk.fromIterable(reader.getRows()))),
+        )),
+  }
+}
 ```
 
 ## [4]-[LAKE_ROWS]
@@ -131,9 +163,13 @@ const _query = (connection: Awaited<ReturnType<DuckDBInstance["connect"]>>) => (
 - Growth: a new lake format is one attach row; a new offload source is one `ATTACH` mint.
 - Law: `attachPg` is read-offload only — the embedded engine reads the spine's tables without a second wire format, and no write path exists from the lane back into the OLTP transaction.
 - Law: the lake is ACID over object storage with a SQL catalog — multi-table transactions, time travel, and schema evolution ride the catalog database; the object plane holds immutable Parquet, exactly the content-addressed posture the folder's object rows already enforce.
-- Law: range-read Parquet is the browser's only remote source — the wasm row registers presigned URLs through `registerFileURL(name, url, DuckDBDataProtocol.HTTP, false)` and the object plane's grant machinery bounds access; no service proxy re-streams rows.
+- Law: range-read Parquet is the browser's only remote source — `Olap.lakeSource` mints the presigned grant through `ObjectStore.grant` and registers it via `registerFileURL(name, url, DuckDBDataProtocol.HTTP, false)`, so the browser-analytics loop is one wired seam bounded by the grant's TTL; no service proxy re-streams rows.
 
 ```typescript
+import { GetObjectCommand } from "@aws-sdk/client-s3"
+import { ContentKey } from "@rasm/ts/core"
+import { ObjectStore } from "../object/store.ts"
+
 const _attach = {
   pg: (dsn: string) => `ATTACH '${dsn}' AS spine (TYPE postgres, READ_ONLY)`,
   sqlite: (path: string) => `ATTACH '${path}' AS lane (TYPE sqlite)`,
@@ -141,27 +177,45 @@ const _attach = {
     `ATTACH 'ducklake:${catalog}' AS lake (DATA_PATH '${dataPath}')`,
   httpfs: "INSTALL httpfs; LOAD httpfs;",
 } as const
+
+const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
+  Effect.flatMap(ObjectStore, (store) =>
+    Effect.flatMap(
+      store.grant(key, new GetObjectCommand({ Bucket: store.bucket, Key: key })),
+      (grant) =>
+        _try("duckdbWasm", "wire", () =>
+          db.registerFileURL(name, grant.url, wasm.DuckDBDataProtocol.HTTP, false)),
+    ))
 ```
 
 ## [5]-[CLICKHOUSE]
 
-- Owner: the at-scale driver row — the `ClickhouseClient` Layer mints and the three members the ingestion path composes: streamed `insertQuery`, command-mode `asCommand`, typed `param` fragments; per-query settings scope through the fiber.
-- Packages: `@effect/sql-clickhouse` (`ClickhouseClient.layer`, `ClickhouseClient.layerConfig`, `insertQuery`, `asCommand`, `param`, `withClickhouseSettings`); `effect` (`Config`, `Redacted`).
-- Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `insertQuery`, and dashboards read the cluster, never the OLTP spine.
-- Growth: a new ingestion stream is one `insertQuery` call site over the same layer; a new settings posture is a `withClickhouseSettings` scope.
+- Owner: the at-scale driver row — the `ClickhouseClient` Layer mints, the three members the ingestion path composes (streamed `insertQuery`, command-mode `asCommand`, typed `param` fragments), and `Olap.ingest` — the quota-governed ingestion seam every replication stream rides; per-query settings scope through the fiber.
+- Packages: `@effect/sql-clickhouse` (`ClickhouseClient.layer`, `ClickhouseClient.layerConfig`, `insertQuery`, `asCommand`, `param`, `withClickhouseSettings`); `@effect/experimental` (`RateLimiter.makeWithRateLimiter`, `RateLimiter.layerStoreMemory` — the store-backed distributed limiter surviving multi-replica ingestion); `effect` (`Config`, `Redacted`).
+- Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `Olap.ingest`, and dashboards read the cluster, never the OLTP spine.
+- Growth: a new ingestion stream is one `ingest` call site over the same layer; a new settings posture is a `withClickhouseSettings` scope; a quota posture is an `_INGEST_QUOTA` override keyed per app, never a consumer wrap.
 - Law: the driver extends the neutral `SqlClient`, so analytical reads ride the same `sql` DSL and typed decode as every lane — `clickhouse` is an `onDialect` arm-KEY; only ingestion and command routing reach the concrete Tag.
+- Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and the store-backed limiter form holds across replicas.
 - Law: the cluster is correctness-adjacent — facts replicate IN, and a lost analytical row is a re-replication, never a billing defect; the journal remains the sole truth.
 
 ```typescript
 import { Config, type ConfigError, type Layer } from "effect"
 import { ClickhouseClient } from "@effect/sql-clickhouse"
+import { RateLimiter } from "@effect/experimental"
 import type { SqlClient, SqlError } from "@effect/sql"
+import type { AppIdentity } from "@rasm/ts/core"
 
 const _clickhouse: Layer.Layer<ClickhouseClient.ClickhouseClient | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =
   ClickhouseClient.layerConfig({
     url: Config.string("DATA_CLICKHOUSE_URL"),
     password: Config.redacted("DATA_CLICKHOUSE_PASSWORD"),
   })
+
+const _INGEST_QUOTA = { algorithm: "token-bucket", onExceeded: "delay", window: "1 second", limit: 50 } as const
+
+const _ingest = (app: AppIdentity.Key) =>
+  <A, E, R>(work: Effect.Effect<A, E, R>) =>
+    RateLimiter.makeWithRateLimiter({ ..._INGEST_QUOTA, key: `olap:ingest:${app}` })(work)
 ```
 
 ## [6]-[ARROW_WIRE]
@@ -181,9 +235,9 @@ const _wire = {
   encode: (table: Table): Uint8Array => tableToIPC(table),
   batches: (engine: Olap.Engine, source: AsyncIterable<Uint8Array>) =>
     Stream.unwrap(
-      _try(engine, () => RecordBatchReader.from(source)).pipe(
+      _try(engine, "wire", () => RecordBatchReader.from(source)).pipe(
         Effect.map((reader) => Stream.fromAsyncIterable(reader, (cause) =>
-          new OlapFault({ engine, detail: String(cause) }))),
+          new OlapFault({ engine, reason: "wire", detail: String(cause) }))),
       )),
 } as const
 
@@ -194,7 +248,9 @@ const Olap = {
   wasm: _wasm,
   query: _query,
   attach: _attach,
+  lakeSource: _lakeSource,
   clickhouse: _clickhouse,
+  ingest: _ingest,
   wire: _wire,
   Fault: OlapFault,
 } as const
