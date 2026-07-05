@@ -115,6 +115,7 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 |  [05]   | `Add(A)` / `Concat(Seq<A> \| IEnumerable<A> \| ReadOnlySpan<A> \| Lst \| Set \| HashSet \| Stck)` | instance | append and cross-collection concatenation                          |
 |  [06]   | `Head` / `Last` (`Option<A>`) / `Tail` / `Init` / `this[Index]` / `Count` / `IsEmpty` | instance | structural reads; `Head`/`Last` are `Option`-safe                  |
 |  [07]   | `Bind<B>` / `Filter(Func<A, bool>)` / `Fold` / `ForAll` / `Exists` / `Distinct` / `Traverse` | instance | monadic and predicate combinators                                  |
+|  [08]   | `FoldM<M, S>(S initialState, Func<S, A, K<M, S>> f) where M : Monad<M>` (curried twin `Func<A, Func<S, K<M, S>>>`) | foldable extension | the MONADIC state fold — each step yields `K<M, S>` (an `IO<S>` step chain short-circuits on the first failure); the effectful-accumulator law for verify/restore choreographies (`AttestedLedger.Verify`, `PointInTimeRestore.Run`) |
 
 [ENTRYPOINT_SCOPE]: `Arr`, `HashMap`, `Atom`, `Iterable`, prelude gates, and the applicative fan-in
 - rail: functional substrate

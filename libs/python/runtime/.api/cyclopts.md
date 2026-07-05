@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_CYCLOPTS]
 
-`cyclopts` is the type-annotation-driven CLI framework backing runtime's `Entrypoint` owner (`serve.md:328`): `companion_app` returns one `cyclopts.App` whose `@app.command` methods bind arguments from type hints, `Parameter(env_var=...)` threads env binding, and `result_action` folds the railed command outcome to the process exit. That entry-grammar slice — App, command registration, `Parameter` env binding, result-action exit mapping, and the single `NonNegativeFloat` constrained grace — is the runtime consume. The layered `config` sources, the `validators` cross-argument family, the deep `cyclopts.types` constrained-type library, `App.meta` middleware, completion, docs, and the interactive shell are the Assay public-command owner's to mine (`tools/assay`); runtime holds no public CLI surface.
+`cyclopts` is the type-annotation-driven CLI framework backing runtime's `Entrypoint` owner (`serve.md` `[04]-[ENTRY]`, `companion_app`): `companion_app` returns one `cyclopts.App` whose `@app.command` methods bind arguments from type hints, `Parameter(env_var=...)` threads env binding, and `result_action` folds the railed command outcome to the process exit. That entry-grammar slice — App, command registration, `Parameter` env binding, result-action exit mapping, and the single `NonNegativeFloat` constrained grace — is the runtime consume. The layered `config` sources, the `validators` cross-argument family, the deep `cyclopts.types` constrained-type library, `App.meta` middleware, completion, docs, and the interactive shell are the Assay public-command owner's to mine (`tools/assay`); runtime holds no public CLI surface.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -60,11 +60,11 @@
 - scope law: the layered `cyclopts.config` source chain, the `cyclopts.validators` group family, the full `cyclopts.types` library beyond `NonNegativeFloat`, `App.meta`/`Dispatcher` middleware, `install_completion`/`generate_completion`, `generate_docs`, and `interactive_shell` are the Assay public-command owner's slice — a runtime fence consumes none of them, so this catalog never carries them.
 
 [LOCAL_ADMISSION]:
-- The `Entrypoint` owner composes one private `App`; the runtime owns no second argument parser (no argparse/click/typer) and no public CLI surface — public commands are reserved to the suite Assay command surface (`serve.md:334`).
+- The `Entrypoint` owner composes one private `App`; the runtime owns no second argument parser (no argparse/click/typer) and no public CLI surface — public commands are reserved to the suite Assay command surface (`serve.md` `Entrypoint` boundary).
 - CLI configuration is not layered in runtime: the companion reads its settings through the `pydantic-settings` `SettingsAdmission` spine, not a `cyclopts.config` chain — the config-source surface belongs to the Assay owner where a public command wants file/env layering.
 
 [STACK_LAW]:
-- `App(name, help, result_action="return_int_as_exit_code_else_zero")` with `@app.command async def serve(bind, *, grace: Annotated[NonNegativeFloat, Parameter(env_var="RASM_COMPANION_GRACE")])` -> the railed `ServerHost.serve` outcome folds `Ok`->`0`/`Error`->`1` through the result action (`serve.md:331`): one entry rail, no manual argv parsing, no `sys.exit` scattering, the traceback never escaping the boundary.
+- `App(name, help, result_action="return_int_as_exit_code_else_zero")` with `@app.command async def serve(bind, *, grace: Annotated[NonNegativeFloat, Parameter(env_var="RASM_COMPANION_GRACE")])` -> the railed `ServerHost.serve` outcome folds `Ok`->`0`/`Error`->`1` through the result action (`serve.md` `companion_app`): one entry rail, no manual argv parsing, no `sys.exit` scattering, the traceback never escaping the boundary.
 
 [RAIL_LAW]:
 - Package: `cyclopts`

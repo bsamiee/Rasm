@@ -26,26 +26,28 @@ data/
 │   ├── ragged.py         # Ragged N-D store owner over awkward, with from_arrow/to_arrow zero-copy bridge to the interop Arrow carrier
 │   └── field.py          # FieldDataset owner over netcdf4/HDF5/Zarr CF engines, flox grouped/resampled reductions, virtualizarr/h5py virtual leg
 ├── graph/                # Rustworkx graph payloads with networkx compat, typed result receipts
-│   └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt
+│   └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt; GraphResult.frame left-joins tabular/columnar by `node`
 └── impact/               # Material environmental-impact: EPD declaration ingest + LCA compute, normalized to one EN 15804 carrier
-    └── impact.py         # MaterialImpact owner over an ImpactSource axis (OpenEPD/ILCD+EPD/Brightway/openLCA/premise) folding to one indicator × stage matrix with unit-row + Spread evidence, bw2analyzer contribution depth, keyed by ContentIdentity
+    └── impact.py         # MaterialImpact owner folding the ImpactSource axis into one canonical EN 15804 indicator × stage matrix, keyed by ContentIdentity
 ```
 
 ## [02]-[SEAMS]
 
 ```text seams
-tabular/columnar    →   csharp:Rasm.Compute/Runtime               # [SHAPE]: DOE dataset / labelled-array study input
-spatial/mesh        →   python:runtime/observability              # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
-tabular/egress      →   python:runtime/observability              # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
+tabular             →   csharp:Rasm.Compute/Runtime               # [SHAPE]: DOE dataset / labelled-array study input
+spatial/mesh        →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
+tabular/egress      →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
 tabular/*           ←   python:runtime                            # [PORT]: TransportResource remote connection
-tabular/columnar    ←   graph/graph                               # [WIRE]: GraphResult.frame node-index-keyed pa.Table left-joined by `node`
 tabular             ←   python:artifacts/documents                # [WIRE]: to_corpus_row flat record
+tabular             ←   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity content-key
+spatial/geospatial  ←   python:artifacts/export                   # [WIRE]: addons.geo GeoProxy GeoJSON georeferenced wire; CRS authority stays here
 tabular             ←   python:artifacts/figures                  # [WIRE]: color palette arrays / appearance correlates
 tabular/columnar    ←   python:runtime/transport                  # [TRANSPORT]: ResourceRef path resolution through fsspec
 *                   →   python:runtime                            # [RECEIPT]: Receipt contribution
 spatial/mesh        ←   python:geometry/scan                      # [SHAPE]: Arrow point-record columnar bridge x/y/z
+spatial/mesh        ←   python:geometry/mesh                      # [BOUNDARY]: mesh-file decode/encode + GLB preview here; repair returns in-memory Trimesh
 spatial/mesh        →   python:geometry/mesh                      # [SHAPE]: MeshPayload cell-block topology
-tabular             →   python:compute/experiments                # [SHAPE]: DOE dataset / labelled-array study input
+tabular             →   python:compute/experiments/study          # [SHAPE]: DOE dataset / labelled-array study input
 tabular/*           →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: C#-seed ContentKey stamped on outputs, federated as durable reuse ledger
 tabular/query       ⇄   csharp:Rasm.Persistence/Query/federation  # [WIRE]: Substrait binary plan + ibis-to_sql portable SQL plan interchange
 tabular/query       →   python:runtime/observability              # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage contribution
@@ -55,8 +57,6 @@ spatial/geospatial  →   csharp:Rasm.Compute                       # [SHAPE]: n
 spatial/mesh        →   python:geometry/scan/ingestion            # [SHAPE]: data COPC arm decode leaving the pdal filter-graph owner unchanged
 impact              ←   python:runtime                            # [PORT]: TransportResource for the EC3 + openLCA server endpoints
 impact              →   python:runtime/observability              # [RECEIPT]: ImpactReceipt contribution keyed by ContentIdentity
-impact              →   tabular/contract                          # [SHAPE]: EN 15804 indicator × stage matrix as a pydantic/pandera-gated frame
-impact              →   tabular/profile                           # [WIRE]: flattened method × indicator × stage frame for the data-quality plane
-impact              →   csharp:Rasm.Materials                     # [WIRE]: EN 15804 set as the seam Discipline.Environmental Assessment / MaterialPropertySet.Environmental, content-keyed (one XxHash128 seed); Rasm.Compute the assessment runner (EC3 sibling) — decode the seam vocabulary, never re-mint
+impact              →   csharp:Rasm.Materials                     # [WIRE]: EN 15804 set as Discipline.Environmental / MaterialPropertySet.Environmental
 impact              ⇄   csharp:Rasm.Persistence                   # [CONTENT_KEY]: EPD/LCA identity deduped in the durable reuse ledger
 ```

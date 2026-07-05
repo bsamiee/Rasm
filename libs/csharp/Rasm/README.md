@@ -107,11 +107,11 @@ The NURBS engine is VENDORED AND OWNED in-kernel at `Parametric/nurbs` — the w
 [COMPUTATIONAL_GEOMETRY]:
 
 The one computational-geometry leaf library the kernel composes; pure-managed AnyCPU on osx-arm64. The float-domain polygon boolean/offset/Voronoi/fill packages (`Clipper2`, `CavalierContours`, `SharpVoronoiLib`, `LibTessDotNet`) are NOT admitted here — the corpus owns those concerns exactly: `Meshing/arrangement` `PlanarOverlay` is the exact 2D polygon boolean and messy-winding fill (GWN cell classification over the CDT), `Meshing/offset` is the exact wavefront offset/skeleton, `Meshing/delaunay` owns the constrained Voronoi dual, and `Meshing/mesh` owns the restricted power diagram; the `Clipper2`/`CavalierContours`/`SharpVoronoiLib` float lanes live in `Rasm.Fabrication`, never in the robust core, and `LibTessDotNet` is retired outright — `Meshing/delaunay` subsumes its polygon-fill concern.
-- `MIConvexHull` — 2D/3D incremental convex hull + Delaunay complex; realizes the `Spatial/cloud` convex/concave-outline/alpha-shape hull rail over `Triangulation.CreateDelaunay`
-- `manifoldc` (in-house P/Invoke over `elalish/manifold`, Apache-2.0 — NO NuGet pin; the `Manifold` NuGet ID is an unrelated homonym) — the tier-3 guaranteed-manifold boolean SCALE companion behind `ArrangementPolicy.ScaleCeiling`, gated on RID-asset resolution + the golden-boolean fixture; the managed exact arrangement stays the ONE correctness rail
+- `MIConvexHull` — 2D/3D incremental convex hull + Delaunay complex realizing the `Spatial/cloud` convex/concave/alpha hull rail
+- `manifoldc` — in-house P/Invoke over `elalish/manifold`, Apache-2.0; tier-3 guaranteed-manifold SCALE companion behind `ArrangementPolicy.ScaleCeiling`
 
 [PROJECTS]:
-- `Rhino.Geometry` / `RhinoCommon` — the host compile surface; the kernel reads value structs and Mesh/Curve/Brep reference geometry, never `RhinoDoc`/`RhinoApp`/UI
+- `Rhino.Geometry` / `RhinoCommon` — the host compile surface; the kernel reads value structs + Mesh/Curve/Brep geometry, never `RhinoDoc`/`RhinoApp`/UI
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -130,7 +130,7 @@ The C# substrate registry cards this folder consumes; full registry and substrat
 - `CommunityToolkit.HighPerformance` — `Span2D`/`MemoryOwner<T>`/`ParallelHelper` on the SoA build arenas, frozen or partition-disjoint spans only
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — the `Spatial/neighbors` Prim-MST normal-orientation lane (`MinimumSpanningTreePrim` over the kNN graph), the `Solving/solver` constraint-graph decomposition (`ConnectedComponents` islands + `MaximumBipartiteMatchingAlgorithm` König structural rank behind the `DofReport`), and the robust-core in-computation lanes under the bounded-lane law — `Meshing/slice` nesting DAG + transitive-reduction forest, `Meshing/skeleton` Kruskal tree/branch extraction, `Processing/remesh` patch labelling, `Parametric/develop` strip layout MST, `Parametric/panelize` panel adjacency — every graph RESULT leaving as a kernel-owned SoA wire, never a stored graph field; the `Processing/segment` normalized cut is spectral through the `Numerics/matrix` owner, not a combinatorial cut
+- `QuikGraph` — the bounded-lane graph-algorithm owner: MST normals, König-matching constraint islands; every graph RESULT leaves as a kernel-owned SoA wire
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*`

@@ -72,7 +72,7 @@
 | :-----: | :----------------------- | :------------- | :----------------------------------------------------------- |
 |  [00]   | `inspect.Type`           | type node base | abstract base of all type nodes                              |
 |  [01]   | `inspect.StructType`     | type node      | struct type descriptor                                       |
-|  [02]   | `inspect.Field`          | field node     | struct field descriptor                                      |
+|  [02]   | `inspect.Field`          | field node     | struct field descriptor — `name`/`encode_name`/`type`/`required`/`default`/`default_factory` |
 |  [03]   | `inspect.Metadata`       | meta node      | annotated metadata descriptor                                |
 |  [04]   | `inspect.UnionType`      | type node      | union descriptor; `tagged`/`tag_field` discriminant metadata |
 |  [05]   | `inspect.ListType`       | type node      | list type descriptor                                         |
@@ -83,6 +83,8 @@
 |  [10]   | `inspect.NamedTupleType` | type node      | `NamedTuple` schema descriptor                               |
 |  [11]   | `inspect.DateTimeType`   | type node      | datetime descriptor with `tz` constraint flag                |
 |  [12]   | `inspect.RawType`        | type node      | `Raw` deferred-payload descriptor                            |
+|  [13]   | `inspect.IntType`        | scalar node    | int descriptor; `gt`/`ge`/`lt`/`le`/`multiple_of` constraint attributes |
+|  [14]   | `inspect.FloatType` / `inspect.StrType` / `inspect.BytesType` / `inspect.BoolType` / `inspect.NoneType` | scalar node | scalar descriptors; float carries the numeric constraint attributes, str `min_length`/`max_length`/`pattern`, bytes `min_length`/`max_length` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -145,6 +147,7 @@
 - `Struct` is a C-extension class; field types are resolved at class creation time, not at decode time
 - `Struct` subclass keywords configure the record: `frozen`, `tag`/`tag_field` (tagged-union discriminant), `array_like`, `omit_defaults`, `rename`, `forbid_unknown_fields`, and `gc` — `gc=False` opts a leaf struct holding only non-container fields out of the cyclic garbage collector's tracked set, removing per-instance GC overhead on high-allocation paths; each keyword surfaces on the per-class `structs.StructConfig`
 - `Meta` carries constraint metadata used inside `Annotated[T, Meta(...)]` and validated during decode; numeric (`gt`/`ge`/`lt`/`le`/`multiple_of`) and non-numeric (`pattern`/`min_length`/`max_length`/`tz`) constraint families cannot mix on one `Meta`, and `title`/`description`/`examples`/`extra_json_schema` feed `json.schema` output
+- integer `Meta` bounds must fit in int64: a `gt`/`ge`/`lt`/`le` value past `2**63 - 1` (e.g. `lt=2**64`) raises `ValueError` at codec/`convert` constraint build — a full-`uint64` wire slot carries the `ge=0` floor alone, its ceiling enforced by the producer domain or an explicit post-decode check
 - `UNSET` is the `UnsetType` singleton meaning "the client omitted this field" (round-trips as absent under `omit_defaults`); `NODEFAULT` is a *distinct* singleton meaning "this field declares no default" — the two are not identical (`UNSET is NODEFAULT` is `False`), so a field typed `int | UnsetType = UNSET` models tri-state presence while `NODEFAULT` only surfaces in `FieldInfo.default`
 - `json.Encoder`/`json.Decoder` instances are reusable; prefer them over per-call `encode`/`decode` in hot paths, and `Encoder.encode_into(obj, buffer, offset)` writes directly into a reused `bytearray` for zero intermediate allocation, while `Decoder.decode_lines` decodes an NDJSON frame stream in one C pass
 - `defstruct` creates a `Struct` subclass at runtime; field names and types are provided as a sequence of tuples

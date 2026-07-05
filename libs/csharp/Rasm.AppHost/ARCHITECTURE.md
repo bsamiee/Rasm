@@ -50,10 +50,8 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 ```text seams
 Agent/Capability.cs         →  typescript:core/interchange/invoke          # [CONTENT_KEY]: CapabilityDescriptor command-shape
-Runtime/Ports.cs            →  typescript:core/value/clock                 # [CONTENT_KEY]: HLC two-half bigint round-trip parity
-Runtime/Ports.cs            ⇄  python:runtime/execution                    # [PORT]: CausalFrame Hlc two-half + Tenant
+Runtime/Ports.cs            →  typescript:core/value/clock                 # [WIRE]: Hlc two-half bigint compose-order parity
 *                           →  typescript:core/interchange/codec           # [WIRE]: CredentialPemWire redacted carrier
-*                           →  typescript:runtime/serve                    # [WIRE]: support-capture verb
 Agent/Capability.cs         ⇄  python:runtime/transport                    # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
 Observability/Health.cs     →  typescript:core/state/evidence              # [WIRE]: DegradationLevel / CommandAvailabilityWire
 Observability/Telemetry.cs  ←  python:runtime/observability                # [WIRE]: W3C trace-context inbound extraction
@@ -61,9 +59,9 @@ Observability/Telemetry.cs  →  typescript:core/interchange/codec           # [
 Runtime/Config.cs           →  python:runtime/execution                    # [WIRE]: CredentialPem
 Runtime/Ports.cs            ⇄  python:runtime/transport                    # [WIRE]: HLC two-half stamp + Tenant partition
 Runtime/Ports.cs            →  typescript:core/state/evidence              # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
-Runtime/Ports.cs            →  python:runtime/clock + typescript:core/value/clock # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
+Runtime/Ports.cs            →  python:runtime/clock                        # [PORT]: Hlc two-half NodaTime stamp single mint + Tenant
 Wire/Livewire.cs            →  typescript:core/interchange/codec           # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
-Wire/Livewire.cs            →  typescript:ui/viewer                        # [WIRE]: livewire triple BindingStatus/CoercedValue/WriteReceipt materialized at the panel plane
+Wire/Livewire.cs            →  typescript:ui/viewer                        # [WIRE]: BindingStatus/CoercedValue/WriteReceipt triple at the viewer panel plane
 Observability/Telemetry.cs  →  typescript:runtime/otel                     # [TRANSPORT]: OtelExport OTLP egress aligned at the shared collector
 Runtime                     ←  csharp:Rasm/Drawing/pack                    # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
 Runtime                     →  csharp:Rasm.AppUi/Editing/notebook          # [PORT]: DeterminismContext / CapabilityPin environment identity
@@ -78,13 +76,16 @@ Agent/capability            ⇄  csharp:Rasm.Persistence                     # [
 Runtime/orchestration       ⇄  csharp:Rasm.Persistence                     # [PORT]: workflow step-state CAS (ONE_FENCED_LEASE_STORE)
 Wire/outbox                 ⇄  csharp:Rasm.Persistence                     # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
 Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence                     # [PORT]: CAS + fenced-lease + membership backing store (ONE_FENCED_LEASE_STORE)
-Wire/Coordination.cs        →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [PORT]: MembershipView.Serving roster + RoleElection conductor lease
-Runtime/Features.cs         →  csharp:Rasm.AppHost/Agent/Reasoning.cs      # [SHAPE]: FlagVerdict -> ModelRoute.From model-routing select
-Runtime/Features.cs         →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [SHAPE]: FlagVerdict -> RollStrategy progressive-rollout select
-Runtime/Features.cs         →  typescript:core/interchange/codec           # [WIRE]: FlagVerdictWire over the shared OpenFeature evaluation contract, consumed at runtime/proc flag
+Runtime/Features.cs         →  typescript:core/interchange/codec           # [WIRE]: FlagVerdictWire over the OpenFeature contract at runtime/proc flag
 Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission       # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
-Observability/Health.cs     →  csharp:Rasm.Persistence/Store               # [HEALTH_PROBE]: HealthContributorRow fold over Npgsql/Redis/Kafka driver
+Observability/Health.cs     →  csharp:Rasm.Persistence/Store               # [PORT]: HealthContributorRow fold over shared pooled Npgsql/Redis/Kafka driver
 Model/agent                 →  csharp:Rasm.Compute/Model                   # [PORT]: Microsoft.Extensions.AI middleware governing/pricing
+Runtime/lifecycle           ←  csharp:Rasm.Compute/Runtime                 # [PORT]: LaneDrain DrainParticipantPort per lane (DrainBand.Compute band-200)
+Wire/livewire               ←  csharp:Rasm.Compute/Solver                  # [RECEIPT]: DigitalTwin clash suggestion as receipted ExternalValue (HopReceipt ack)
+Sandbox/solver              ⇄  csharp:Rasm.Compute/Tensor/residency        # [SHAPE]: EncodingKind rows align onto the PackKind axis
+Observability/Telemetry.cs  ⇄  python:runtime/observability                # [TRANSPORT]: trace-context + OTLP egress aligned at the shared collector
+Runtime                     ⇄  python:runtime/transport                    # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
+Runtime                     →  python:runtime/transport                    # [TRANSPORT]: gRPC ServerHost
 Runtime                     →  csharp:Rasm.Element/Projection              # [PORT]: ProjectionContext neutral primitives
 ```
 

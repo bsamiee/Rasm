@@ -297,9 +297,13 @@ public static class SetLowering {
 public sealed class PredicateLowering : ExpressionVisitor<SetPredicate?, Unit> {
     public override SetPredicate? VisitScalarFunction(ScalarFunction function, Unit state) =>
         (function.ExtensionUri, function.ExtensionName, function.Arguments) switch {
+            // `JsonComparison.Eq`, never `Equals` — the lane vocabulary avoids a static `Equals` item (CS0102
+            // against the generated `Equals(object?)`/`Equals(JsonComparison?)`); `.Equals` binds a method group.
             (FunctionsComparison.Uri, FunctionsComparison.Equal, [DirectFieldReference field, StringLiteral literal]) =>
-                new SetPredicate.Jsonpath(SetPath(field), JsonComparison.Equals, Some(literal.Value)),
-            (FunctionsComparison.Uri, FunctionsComparison.IsNotNull, [DirectFieldReference field]) =>
+                new SetPredicate.Jsonpath(SetPath(field), JsonComparison.Eq, Some(literal.Value)),
+            // Substrait spells not-null as not(is_null(x)) — `IsNull` is the catalog constant (`IsNotNull` does
+            // not exist); the boolean-not wrapper over an is_null leaf lowers to the Exists predicate.
+            (FunctionsBoolean.Uri, FunctionsBoolean.Not, [ScalarFunction { ExtensionUri: FunctionsComparison.Uri, ExtensionName: FunctionsComparison.IsNull, Arguments: [DirectFieldReference field] }]) =>
                 new SetPredicate.Exists(SetPath(field)),
             _ => null,
         };
@@ -379,11 +383,11 @@ public sealed record FederatedResult(
             var preimage = new ArrayBufferWriter<byte>();
             BinaryPrimitives.WriteUInt128BigEndian(preimage.GetSpan(16), PlanDigest);
             preimage.Advance(16);
-            int kind = Encoding.UTF8.GetByteCount(Cut.Kind.Key);
+            int kind = Encoding.UTF8.GetByteCount(Cut.Source.Key);
             BinaryPrimitives.WriteInt32LittleEndian(preimage.GetSpan(4), kind);
             preimage.Advance(4);
-            preimage.Advance(Encoding.UTF8.GetBytes(Cut.Kind.Key, preimage.GetSpan(kind)));
-            BinaryPrimitives.WriteInt64LittleEndian(preimage.GetSpan(8), Cut.Ceiling.Instant.ToUnixTimeTicks());
+            preimage.Advance(Encoding.UTF8.GetBytes(Cut.Source.Key, preimage.GetSpan(kind)));
+            BinaryPrimitives.WriteInt64LittleEndian(preimage.GetSpan(8), Cut.At.ToUnixTimeTicks());
             preimage.Advance(8);
             BinaryPrimitives.WriteInt64LittleEndian(preimage.GetSpan(8), Watermark.HeadSequence);
             preimage.Advance(8);

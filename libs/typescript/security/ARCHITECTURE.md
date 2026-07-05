@@ -14,7 +14,7 @@ security/
     │   ├── verify.ts          # The inbound-signature dialect table + one constant-time verify fold over HELD request octets
     │   └── secret.ts          # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
     ├── authn/                 # Authentication: session spine, digest credentials, OAuth, passkeys
-    │   ├── session.ts         # Subject/Session/CredentialRef/TokenPair vocabulary, rotation with reuse detection, SessionStore/IdentityJournal ports, CookieSpec + CSRF double-submit egress
+    │   ├── session.ts         # Subject/Session/CredentialRef/TokenPair spine, reuse-detecting rotation, SessionStore/IdentityJournal ports, CSRF egress
     │   ├── credential.ts      # Digest — the one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
     │   ├── oauth.ts           # Issuer-row OAuth authorization-code ceremony over arctic — url/exchange/refresh/revoke legs per row
     │   └── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)

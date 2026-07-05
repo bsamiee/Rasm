@@ -528,7 +528,7 @@ def _cookie(
         cookie.setparam(
             getattr(magic, param.value), value
         )  # tuned once per cooked config; the cookie (and its loaded database) is cached across detections in the worker
-    if no_check:  # the MAGIC_NO_CHECK_* test-class narrowing is raw-bit-only, so the disabled classes OR into the applied flags through the C `magic_setflags` binding
+    if no_check:  # MAGIC_NO_CHECK_* narrowing is raw-bit-only; disabled classes OR into the applied flags through the C `magic_setflags` binding
         magic.magic_setflags(cookie.cookie, cookie.flags | reduce(or_, (getattr(magic, klass.value) for klass in no_check), 0))
     return cookie
 

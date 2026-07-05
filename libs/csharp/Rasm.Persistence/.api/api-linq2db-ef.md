@@ -66,7 +66,7 @@ bridge installs (distinct from the `LinqToDBContextOptionsBuilder` fluent surfac
 
 Three arities — explicit `BulkCopyOptions`, `int maxBatchSize` shorthand, and plain. The
 async form mirrors both `IEnumerable<T>` and `IAsyncEnumerable<T>` sources, returning
-`Task<BulkCopyRowsCopied>`. `BulkCopyRowsCopied` is the typed receipt (rows copied + the
+`Task<BulkCopyRowsCopied>`. The option shapes are CORE-linq2db members riding the bridge transitively — `BulkCopyOptions` (with `BulkCopyType`/`KeepIdentity`/`MaxBatchSize` slots) and the `BulkCopyType` enum (`Default`/`RowByRow`/`MultipleRows`/`ProviderSpecific` — `ProviderSpecific` lowers to PG binary COPY; verified against the restored linq2db assembly). `BulkCopyRowsCopied` is the typed receipt (rows copied + the
 options that produced it).
 
 | [INDEX] | [SURFACE]                                                       | [RETURNS]                  | [CAPABILITY]                          |

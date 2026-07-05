@@ -40,7 +40,8 @@ data/
 read/fold      ←  typescript:core/state       # [SHAPE]: Fold.Plan (key/lift/merge) bound at three staleness budgets
 object/store   ⇄  typescript:core/value       # [CONTENT_KEY]: ObjectKey IS ContentKey — a delegating mint site, never a second hash
 lane/tenant    ←  typescript:security/access  # [BOUNDARY]: app.current_tenant RLS + ambient TenantScope read
-lane/tenant    →  typescript:security/authn   # [PORT]: SessionStore/IdentityJournal/ClaimStore/RelationStore Layers
+lane/tenant    →  typescript:security/authn   # [PORT]: SessionStore/IdentityJournal scope-built Layers
+lane/tenant    →  typescript:security/access  # [PORT]: ClaimStore/RelationStore scope-built Layers
 lane/tenant    →  typescript:security/authn   # [PORT]: RateLimiterStore Layer backing the credential-verify throttle budgets
 journal/retain ←  typescript:security/crypt   # [SHAPE]: Shredder five-verb envelope, WrappedKey per-subject ledger
 journal/append ⇄  typescript:runtime/work     # [BOUNDARY]: outbox claim-lease/urgency/park statements composed by the queue lane
@@ -48,6 +49,7 @@ read/live      →  typescript:runtime/serve    # [SHAPE]: reactivity-keyed feed
 object/stream  →  typescript:runtime/serve    # [BOUNDARY]: tus dispatchers mounted at the serving route
 read/search    ←  typescript:runtime/ai       # [PORT]: Embedder/Reranker satisfied by the embedding plane
 lane/postgres  →  typescript:iac/kube         # [SHAPE]: Pg.image/Pg.rows extension roster the CNPG image realizes
+lane/tenant    →  typescript:iac/kube         # [SHAPE]: Tenancy locus vocabulary the pgTier escalation and RLS ensure rows read
 lane/tenant    →  typescript:iac/kube         # [BOUNDARY]: Tenancy.rls ensure roster applied by the in-cluster provision job
 ```
 

@@ -124,6 +124,18 @@
 [DATASET_BRIDGE]:
 - `ToDataSet()` is the single projection from the domain-specific `BimData` to the generic `Ara3D.DataTable` `IDataSet`. The eleven `IDataTable`s are emitted in a FIXED order that IS the DuckDB ordinal suffix — `Points`(0)/`Strings`(1)/`Descriptors`(2)/`Documents`(3)/`Entities`(4)/`Relations`(5)/`DoubleParameters`(6)/`IntegerParameters`(7)/`StringParameters`(8)/`EntityParameters`(9)/`PointParameters`(10). Every IO codec consumes the `IDataSet`, NOT the `BimData` directly — so JSON is the only codec that reads `BimData` structurally; Parquet/DuckDB/Excel are generic columnar codecs over the `IDataSet`.
 - The DuckDB writer suffixes each table name with that projection ordinal (`Points_0`, `Strings_1`, `Descriptors_2`, …, `Entities_4`, `DoubleParameters_6`, …, `PointParameters_10`) and round-trips by `GetTableNames` -> `ReadTable`; a consumer querying the `.duckdb` directly must reference the suffixed names by this exact order.
+- Consumed generic traversal surface (`Ara3D.DataTable`, decompile-verified on the restored assembly — the in-corpus DEBUG-IL absorption made these the load-bearing members `Query/columnar#WriteFrames` binds to synthesize the eleven `CREATE OR REPLACE TABLE` + `DuckDBAppender` writes):
+
+| [INDEX] | [MEMBER]                             | [SHAPE]                                        | [CONSUMER BINDING]                                          |
+| :-----: | :----------------------------------- | :--------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `IDataSet.Tables`                    | `IReadOnlyList<IDataTable>`                     | the fixed-ordinal table walk (`Select((held, index) => …)`)   |
+|  [02]   | `IDataTable.Name`                    | `string`                                        | the `<Name>_<n>` trust-gated table identifier                 |
+|  [03]   | `IDataTable.Rows`                    | `IReadOnlyList<IDataRow>`                       | `Rows.Count` bounds the appender row loop                     |
+|  [04]   | `IDataTable.Columns`                 | `IReadOnlyList<IDataColumn>`                    | the CREATE-TABLE column fold + per-row cell walk              |
+|  [05]   | `IDataTable.this[int column, int row]` | `object`                                      | the cell read the typed `Cell` dispatch consumes              |
+|  [06]   | `IDataColumn.ColumnIndex`            | `int`                                           | the indexer's column ordinal                                  |
+|  [07]   | `IDataColumn.Descriptor`             | `IDataDescriptor`                               | the column's typing authority                                 |
+|  [08]   | `IDataDescriptor.Name` / `Type`      | `string` / `System.Type`                        | column name (trust-gated) + the `DuckType` CLR→DuckDB map     |
 
 [STACK]:
 - duckdb seam: `data.WriteDuckDB(fp)` writes a DuckDB database the folder's OWN `DuckDB.NET.Data.Full` (`api-duckdb.md`) opens — a Persistence analytics query SQL-joins `Entities`/`DoubleParameters`/`Relations` in-process (`SELECT … FROM Entities_4 e JOIN DoubleParameters_6 p ON p."Entity" = …`), reusing the one centrally pinned `DuckDB.NET.Data.Full` `1.5.3` and its osx-arm64 dylib. No second DuckDB runtime.

@@ -81,18 +81,16 @@
 
 [ENTRYPOINT_SCOPE]: object operations (sync and async)
 - rail: object-storage
-- Each operation has a matching `_async` variant (`get_async`, `copy_async`, `delete_async`, `head_async`, `rename_async`, `get_range_async`, `get_ranges_async`, `sign_async`); signatures are identical.
+- Each operation has a matching `_async` variant (`get_async`, `head_async`, `get_range_async`, `get_ranges_async`, `sign_async`); signatures are identical.
+- The mutation surface (`put`/conditional-write/`PutMode`, `delete`, `copy`, `rename`, and their `_async` mates) is the data folder's to catalog — this runtime slice is read-only.
 
 | [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]   | [RAIL]                                          |
 | :-----: | :----------------------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------- |
 |  [01]   | `get(store, path, *, options=None) -> GetResult`                                                             | object read      | fetch object; `options` carries conditional get |
 |  [02]   | `head(store, path) -> ObjectMeta`                                                                            | metadata read    | fetch object metadata dict                      |
-|  [03]   | `delete(store, paths) -> None`                                                                               | object delete    | delete one path or a sequence of paths          |
-|  [04]   | `copy(store, from_, to, *, overwrite=True) -> None`                                                          | object copy      | server-side copy                                |
-|  [05]   | `rename(store, from_, to, *, overwrite=True) -> None`                                                        | object move      | server-side rename/move                         |
-|  [06]   | `get_range(store, path, *, start, end=None, length=None) -> Bytes`                                           | partial read     | read a byte range from an object                |
-|  [07]   | `get_ranges(store, path, *, starts, ends=None, lengths=None) -> list[Bytes]`                                 | multi-range read | coalesced concurrent multi-range read           |
-|  [08]   | `sign(store, method, paths, expires_in: timedelta) -> str \| list[str]`                                       | presign          | presigned URL(s); `store` is restricted to `SignCapableStore` (`S3Store \| GCSStore \| AzureStore`), `method` is `HTTP_METHOD` (`GET`/`PUT`/`POST`/`DELETE`/`HEAD`...), `expires_in` is a `timedelta`; a single path returns `str`, a sequence returns `list[str]` |
+|  [03]   | `get_range(store, path, *, start, end=None, length=None) -> Bytes`                                           | partial read     | read a byte range from an object                |
+|  [04]   | `get_ranges(store, path, *, starts, ends=None, lengths=None) -> list[Bytes]`                                 | multi-range read | coalesced concurrent multi-range read           |
+|  [05]   | `sign(store, method, paths, expires_in: timedelta) -> str \| list[str]`                                       | presign          | presigned URL(s); `store` is restricted to `SignCapableStore` (`S3Store \| GCSStore \| AzureStore`), `method` is `HTTP_METHOD` (`GET`/`PUT`/`POST`/`DELETE`/`HEAD`...), `expires_in` is a `timedelta`; a single path returns `str`, a sequence returns `list[str]` |
 
 [ENTRYPOINT_SCOPE]: listing operations
 - rail: object-storage
@@ -125,7 +123,7 @@
 
 [ENTRYPOINT_SCOPE]: pluggable credential providers and fsspec adapter
 - rail: object-storage
-- `auth.*` providers are sync/async callables matching the per-store `*CredentialProvider` shape; `obstore.fsspec` bridges a store into the `fsspec` filesystem ecosystem the sibling `fsspec.md`/`s3fs.md`/`gcsfs.md` catalogs own.
+- `auth.*` providers are sync/async callables matching the per-store `*CredentialProvider` shape; `obstore.fsspec` bridges a store into the `fsspec` filesystem ecosystem the sibling `fsspec.md` catalog owns — object-store schemes route through obstore itself per the `roots.md` `OBJECT_STORE_SCHEMES` table, never a per-provider fsspec backend.
 
 | [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                                          |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
@@ -143,7 +141,7 @@
 - byte-range law: `get_range`/`get_ranges` and `GetOptions.range` accept `(start, end)` tuples, `OffsetRange` (`{offset}`, from N to end), or `SuffixRange` (`{suffix}`, last N bytes); `get_ranges` coalesces nearby ranges into concurrent fetches.
 - streaming law: `GetResult.bytes()` materializes the full body; `GetResult.stream(min_chunk_size)` returns a `BytesStream` async iterator; `open_reader` owns large-object seekable streaming, `get` owns single-buffer transfers.
 - retry/credential law: transient faults (5xx, connection drops, timeouts on read-only requests) are governed by `RetryConfig` + `BackoffConfig` passed at construction, and rotating credentials by a `*CredentialProvider` — either a bare sync/async callable or an `obstore.auth` provider (`Boto3CredentialProvider`/`StsCredentialProvider` for S3, `Google[Async]CredentialProvider` for GCS, `Azure[Async]CredentialProvider` for Azure) the Rust core re-invokes on expiry; retry scheduling for storage faults lives in the store config, never a hand-rolled loop, and credential refresh lives in the provider, never a hand-rolled refresh thread.
-- fsspec-bridge law: `obstore.fsspec.register(...)` installs an `fsspec` `AsyncFileSystem` so Arrow/pandas/zarr/parquet readers that speak `fsspec` consume an obstore-backed URL directly; this is the single bridge into the `fsspec` ecosystem (see `fsspec.md`/`s3fs.md`/`gcsfs.md`), not a parallel filesystem shim.
+- fsspec-bridge law: `obstore.fsspec.register(...)` installs an `fsspec` `AsyncFileSystem` so Arrow/pandas/zarr/parquet readers that speak `fsspec` consume an obstore-backed URL directly; this is the single bridge into the `fsspec` ecosystem (see `fsspec.md`; object-store schemes route through obstore per `roots.md` `OBJECT_STORE_SCHEMES`), not a parallel filesystem shim.
 - listing law: `list()` returns a `ListStream`; `return_arrow=True` yields Arrow `RecordBatch` for zero-copy bulk metadata into the Arrow/data tier instead of `Sequence[ObjectMeta]`.
 - defaults: `list` `chunk_size` defaults to 50.
 

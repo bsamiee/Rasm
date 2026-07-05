@@ -46,7 +46,7 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 - `GeometryGymIFC_Core`
 
 [STRUCTURAL_ANALYSIS_EXCHANGE]:
-- `StructuralAnalysisFormat` — SAF/XLSX exchange over the seam structural payloads onto `ExcelModel`; an `Exchange/format` candidate row, never a second model.
+- `StructuralAnalysisFormat` — SAF/XLSX exchange over seam structural payloads onto `ExcelModel`; an `Exchange/format` candidate row, never a second model.
 
 [LIGHTWEIGHT_BIM_EXCHANGE]:
 - `dotbim` — lightweight `.bim` mesh+metadata interchange for preview, portable issue payloads, and low-friction external model exchange beside IFC/glTF/USD.
@@ -89,7 +89,7 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 - `Xbim.Properties`
 
 [CLASSIFICATION_DICTIONARY]:
-- bSDD `Dictionaries API` — the live buildingSMART Data Dictionary REST service (`https://api.bsdd.buildingsmart.org/`, MIT); a hand-thin read-only HTTP client over the Compute transport resolving standard classification systems and their class-to-property mappings, with no manifest pin and no managed assembly.
+- `bSDD Dictionaries API` — live buildingSMART Data Dictionary REST resolving classification systems over the Compute transport; no manifest pin, no assembly.
 
 [COBIE_EXCHANGE]:
 - `Xbim.CobieExpress`
@@ -108,7 +108,7 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 [ENERGY_MODEL_EXCHANGE]:
 - `HoneybeeSchema` — HBJSON object graph the `Energy/projector` raise and `Energy/derive` lower compose to operator depth.
 - `DragonflySchema` — DFJSON `Building`/`Story`/`Room2D` massing layer composing honeybee by identifier; the `Energy/projector` massing arm.
-- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store + translators behind the `Energy/projector` raise and `Energy/derive` `Translate`; SIMULATION is Compute's half.
+- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store + translators behind `Energy/projector` raise and `Energy/derive` `Translate`; SIMULATION is Compute's half.
 
 [STRUCTURAL_TAXONOMY]:
 - `VividOrange.Loads`

@@ -4,11 +4,12 @@
 engine inside PostgreSQL — labelled vertices and edges stored in per-graph backing relations under the
 `ag_catalog` schema, queried through the one `cypher(graph, $$ ... $$)` set-returning function whose
 rows are the `agtype` graph value type. It carries no managed assembly: every surface is server-side
-SQL the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("age")` row installs and the `Query/federation`
-graph-traversal consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery` against the `agtype` result,
-so an in-PG openCypher path query over the `#CROSS_DOC_LINKS` adjacency and the `#ENTITY_GRAPH` keys is
-an alternative to the managed `LinkStore.Impact` BFS fold without leaving the one `PostgresServer`
-residence. The extension is NOT preload-gated — it installs through `CREATE EXTENSION age` and requires
+SQL the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("age")` row installs and the `Query/cypher`
+graph lane drives through raw `Npgsql` against the `agtype` result — `GraphSession` owns the enablement
+gate, DDL lifecycle, and `agtype` decode, and the `GraphQuery` `[Union]` (`Match`/`Mutate`/`Reach`) is
+the ONE verb surface an in-PG openCypher query enters through, all inside the one `PostgresServer`
+residence (the in-process QuikGraph `Query/topology` view is the default sibling; this lane is the
+optional self-hosted escalation). The extension is NOT preload-gated — it installs through `CREATE EXTENSION age` and requires
 a per-session `LOAD 'age'` plus a `search_path` set, never a `shared_preload_libraries` row.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -18,8 +19,8 @@ a per-session `LOAD 'age'` plus a `search_path` set, never a `shared_preload_lib
 - namespace: SQL `ag_catalog` schema (functions, catalog tables, the `agtype` type and its operator/cast set)
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
 - registration: `CREATE EXTENSION age`, preload-free — absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row by design; the `ServerExtension("age", PreloadGated: false)` row carries its install, the per-session `LOAD 'age'`/`search_path` is a connection-init concern (`[06]`)
-- consumed by: `Query/federation#CROSS_DOC_LINKS` / `#FEDERATED_PLAN` graph traversal over the `#ENTITY_GRAPH` keys, driven through raw `Npgsql` against the `agtype` result type
-- rail: graph-provisioning, federation-traversal
+- consumed by: `Query/cypher#GRAPH_SESSION` (enablement gate, `GraphDdl` lifecycle, `agtype` decode) + `Query/cypher#GRAPH_QUERY` (the `GraphQuery.Match`/`Mutate`/`Reach` openCypher cases), driven through raw `Npgsql` against the `agtype` result type
+- rail: graph-provisioning, graph-lane
 
 ## [02]-[SESSION_SETUP]
 
@@ -86,9 +87,9 @@ column-definition list — there is no anonymous-record default. Every projected
 
 A clause that mutates AND returns in one Cypher statement is rejected by AGE (split `CREATE`/`SET` from
 the trailing `MATCH ... RETURN`); the `$$ ... $$` dollar-quote isolates the Cypher body from SQL
-string escaping. The `Query/federation` consumer binds graph name, query body, and the `params agtype`
-through `Npgsql` parameters and maps the `agtype` columns with `FromSql`/`SqlQuery`, never an
-EF-translated member.
+string escaping. The `Query/cypher` `GraphSession` binds graph name, query body, and the `params agtype`
+through `Npgsql` parameters (server-side `format('%L')` composition) and decodes the `agtype` columns
+itself, never an EF-translated member.
 
 ## [06]-[AGTYPE]
 
@@ -117,8 +118,9 @@ Bulk loaders, the complete-graph generator, and the variable-length-edge engine 
 `ag_catalog`, returning `agtype` rows or `void`. `age` exposes NO `age_shortest_path`/
 `age_all_shortest_paths` SQL functions: variable-length traversal is the `age_vle` engine behind
 Cypher's `*` range patterns, and any shortest-path need is written as a bounded `*`-range Cypher `MATCH`,
-never a dedicated SQL routine — for weighted/large-fan path work the managed `LinkStore.Impact` BFS fold
-(`Query/federation#CROSS_DOC_LINKS`) is the in-residence counterpart.
+never a dedicated SQL routine — weighted/large-fan path work is the `pgrouting` half of the SAME
+`Query/cypher#GRAPH_QUERY` union (`Path`/`Via`/`Kth`/…), and the in-process QuikGraph `Query/topology`
+view is the default synchronous counterpart.
 
 | [INDEX] | [FUNCTION]                                | [SIGNATURE]                                                              | [SEMANTICS]                              |
 | :-----: | :---------------------------------------- | :---------------------------------------------------------------------- | :--------------------------------------- |
@@ -135,7 +137,7 @@ never a dedicated SQL routine — for weighted/large-fan path work the managed `
 - Install ownership guard (`age` 1.7.0): `CREATE EXTENSION age` refuses to install into a pre-existing `ag_catalog` schema owned by a different role (ownership is compared directly, exact even for a superuser) — a provisioning profile that re-creates the extension must own `ag_catalog` or drop it first, so the install row is idempotent only against an `ag_catalog` the installing role owns.
 - VLE cache coherence: `age` installs the `age_invalidate_graph_cache()` trigger on each label's backing relation, so an SQL-level `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` against a label table (bypassing Cypher, e.g. a bulk loader) bumps the graph version and invalidates the `age_vle` caches — direct backing-relation writes stay coherent with subsequent `*`-range traversals.
 - No managed assembly, no EF translator: every Cypher statement rides raw `Npgsql`/`FromSql`/`SqlQuery` mapping `agtype` columns, and the mandatory `AS (col agtype, ...)` column-definition list is required by PostgreSQL's `RETURNS SETOF record` contract, never optional — an anonymous-record call without the list is the faulted spelling. The `agtype` columns are extracted to typed scalars through the registered SQL-level casts (`::int`/`::text`/`::jsonb`), never a hand-parsed text decode.
-- In-residence graph engine: `age` lives inside the one `PostgresServer` residence, so it fits the `Query/federation#FEDERATED_PLAN` single-source-per-residence posture — it is a within-PG openCypher path-query capability over the `#ENTITY_GRAPH` keys and the `#CROSS_DOC_LINKS` adjacency, an alternative to the managed `LinkStore.Impact` BFS fold, never a cross-store query federator. Graph name, Cypher body, and `params agtype` arrive bound through `Npgsql` parameters from the federation consumer, never a runtime-concatenated Cypher string.
+- In-residence graph engine: `age` lives inside the one `PostgresServer` residence — a within-PG openCypher capability the OPTIONAL self-hosted `Query/cypher` lane gates behind `CypherEnablement`, demoted beneath the default in-process QuikGraph `Query/topology` view, never a cross-store query federator. Graph name, Cypher body, and `params agtype` arrive bound through the `GraphSession` `format('%L')` server-side composition, never a runtime-concatenated Cypher string.
 
 [RAIL_LAW]:
 - Package: `apache-age` / extension `age` (server-side, in the deploy-image PG18)

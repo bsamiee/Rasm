@@ -6,7 +6,7 @@
 
 [LOCAL_ADMISSION]:
 - The transport/serve surface composes `grpcio` for HTTP/2 RPC; the runtime owns no second RPC transport and no parallel channel type per security mode.
-- The `Credential` admission owner is the single mint point for the TLS, local-loopback, and per-call credential families; TLS material comes from the caller-owned settings model, never inline literals.
+- `transport/serve#SERVE`'s `CredentialPolicy` decode — the Python half of the C#-minted axis of the same name — is the single mint point for the TLS, local-loopback, and per-call credential families; TLS material comes from the caller-owned settings model, never inline literals.
 - Tracing interceptors come settled from `.api/opentelemetry-instrumentation-grpc.md` (`aio_server_interceptor`), never hand-rolled here.
 
 ## [02]-[RUNTIME_DELTA]
@@ -17,7 +17,7 @@
 [DELTA_SCOPE]: `grpc.aio.ServicerContext` per-RPC surface
 - The branch tier declares `ServicerContext` abstract; the serve handlers compose its methods directly: `abort(code, details)`/`set_code`/`set_details` for status egress, `invocation_metadata()`/`send_initial_metadata`/`set_trailing_metadata` for the metadata seam, `read()`/`write(msg)` for the streaming pump, and `auth_context()`/`peer_identities()`/`peer()`/`time_remaining()` for verified peer identity and the inbound deadline budget — never a self-asserted metadata claim.
 
-[DELTA_SCOPE]: UDS locality credential (`Credential#local`)
+[DELTA_SCOPE]: UDS locality credential (`CredentialPolicy.loopback`)
 - The in-host sidecar leg authenticates by socket locality through the `local_server_credentials(grpc.LocalConnectionType.UDS)`/`local_channel_credentials` pair, the kernel-reported peer credential standing in for a PEM bundle.
 
 [INTEGRATION_STACK]:

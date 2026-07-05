@@ -1,6 +1,6 @@
 # [TS_RUNTIME_ARCHITECTURE]
 
-The domain map of `runtime` — the wave-3 execution package spanning both process planes. Seven sub-domains (`proc`, `net`, `otel`, `serve`, `work`, `ai`, `browser`) meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law; the browser sub-domain is the same package's browser condition, never a sibling package.
+The domain map of `runtime` — the wave-3 execution package spanning both process planes. The sub-domains `proc`, `net`, `otel`, `serve`, `work`, `ai`, and `browser` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law; the browser sub-domain is the same package's browser condition, never a sibling package.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, camelCase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -67,9 +67,11 @@ work/entity    ←  typescript:iac/program       # [PORT]: StackOutputs.sharding
 ai/embed       →  typescript:data/read         # [PORT]: Embedder fingerprint Layer + the gated Reranker fold
 browser/route  ⇄  typescript:security/authn    # [SHAPE]: Vault session residency + CookieSpec.csrf double-submit read
 browser/route  ⇄  typescript:security/authn    # [BOUNDARY]: OAuth redirect-ceremony continuity (depart/land)
-browser/fetch  ⇄  typescript:core/value        # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site, never a second hash
+browser/fetch  ⇄  typescript:core/value        # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site
 browser/fetch  →  typescript:ui/viewer         # [PORT]: Depot.haul verified arrivals + residency ledger into GlbViewport
 browser/*      ⇄  typescript:ui/system         # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
+browser/boot   →  typescript:ui/system         # [PORT]: Capability roster satisfies the ui-declared Clipboard Tag
+browser/boot   →  typescript:ui/viewer         # [PORT]: Capability roster satisfies ui-declared Position/Grant Tags from geolocation/permissions
 proc/life      →  typescript:iac/kube          # [SHAPE]: Setting.life.drain + probe routes mirrored as the workload _LIFE anchor
 net/pubsub     →  typescript:iac/kube          # [BOUNDARY]: Setting.fanout.origin dial against the JetStream server posture (fsync, quorum)
 ```

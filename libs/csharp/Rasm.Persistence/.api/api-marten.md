@@ -105,7 +105,7 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 |  [07]   | `SnapshotLifecycle`               | enum               | `Inline`/`Async` — the snapshot variant of lifecycle              |
 |  [08]   | `IProjectionDaemon`               | interface          | the async-projection runner: `StartAllAsync`, `RebuildProjectionAsync`, `WaitForNonStaleData`, agent/shard control |
 |  [09]   | `DaemonMode`                      | enum (`JasperFx`)  | `Disabled`/`Solo`/`HotCold` — daemon hosting topology             |
-|  [10]   | `ShardState` / `ShardName`        | record/struct      | per-shard projection progress + the projection-shard identity     |
+|  [10]   | `ShardState` / `ShardName`        | class              | per-shard progress: `ShardState.Sequence` (`long` high-water) / `.Timestamp` (`DateTimeOffset` recording stamp) / `.ShardName` (`string`); `ShardName.Identity` the shard identity string (decompile-verified, `JasperFx.Events.Projections`) |
 |  [11]   | `EventStoreStatistics`            | class              | `FetchEventStoreStatistics` result (event/stream counts, sequence + projection high-water marks) |
 |  [12]   | `IEventUpcaster` / `JsonTransformation` | interface     | schema-evolution upcast of old event JSON to a new event type     |
 
@@ -214,6 +214,7 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 |  [01]   | `services.AddMarten(Action<StoreOptions>)` / `AddMarten(Func<IServiceProvider,StoreOptions>)` / `AddMarten(string connectionString)` | register the store + sessions in DI |
 |  [02]   | `.AddAsyncDaemon(DaemonMode mode)` / `.UseLightweightSessions()` / `.UseIdentitySessions()` / `.UseDirtyTrackedSessions()` | host the daemon / pick the default session tracking |
 |  [03]   | `.ApplyAllDatabaseChangesOnStartup()` / `.AssertDatabaseMatchesConfigurationOnStartup()` | migrate / assert schema at host startup    |
+|  [07]   | `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync()` (via `store.Storage`) | the runtime single-writer schema apply — the `Element/identity#SCHEMA_VERDICT` `AdmitMarten` leg (decompile-verified) |
 |  [04]   | `.AddProjectionWithServices<TProjection>(ProjectionLifecycle, ServiceLifetime, [Action<ProjectionBase>?])` | register a DI-injected projection           |
 |  [05]   | `services.AddMartenStore<T>(Action<StoreOptions>) where T : IDocumentStore` / `ConfigureMarten(...)` | register a separate ancillary store / extend config |
 |  [06]   | `host.WaitForNonStaleProjectionDataAsync(TimeSpan)` / `store.WaitForNonStaleProjectionDataAsync([tenantIdOrDatabaseName], TimeSpan)` (`Marten.Events`) | block until async projections are caught up |

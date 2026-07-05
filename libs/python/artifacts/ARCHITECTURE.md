@@ -22,22 +22,22 @@ artifacts/
 │   │   └── transform.py    # VegaTransform vegafusion data pre-pass (passthrough / inline self-contained spec / chart-state)
 │   ├── table.py            # great-tables publication-table owner exporting HTML/LaTeX/PDF
 │   └── diagram/
-│       ├── layout.py       # 5-engine coordinate assignment (rustworkx/fast-sugiyama/pyelk/kiwisolver/grandalf) over Force/Radial(circular|shell)/Layered/Projected/Constrained, emitting all 10 DiagramKind (AEC sun-path/circulation/stacking/program/site + general node-link/flowchart/entity-relation/sankey/section-callout), threading NodeShape/Port/weight
-│       ├── draw.py         # drawsvg named-layer SVG (ziafont/ziamath <path> label/formula outlining) + drawpyo editable .drawio, over the DrawTarget egress selector
-│       └── glyphset.py     # bounded data-driven diagram-primitive vocabulary (node/edge/swimlane/annotation/marker marks + NodeShape/Port/weight topology + TextAnchor), general/technical + AEC
-├── drawing/                # AEC drawing-production plane: owned ISO/NCS drafting vocabularies + ISO 129-1 dimensions + drawing symbols + detail cross-references + schedules
+│       ├── layout.py       # diagram coordinate assignment over the 5-engine Force/Radial/Layered/Projected/Constrained policy, emitting all 10 DiagramKind
+│       ├── draw.py         # drawsvg named-layer SVG + drawpyo editable .drawio over the DrawTarget selector (ziafont/ziamath <path> outlining)
+│       └── glyphset.py     # bounded diagram-primitive vocabulary: node/edge/swimlane/annotation/marker marks + NodeShape/Port/weight topology
+├── drawing/                # AEC drawing-production plane: owned ISO/NCS drafting vocabularies, ISO 129-1 dimensions, symbols, detail xrefs, schedules
 │   ├── standard.py         # ISO 128/129-1/3098/5455/13567 + NCS/AIA owned-vocabulary substrate lowered onto ezdxf symbol tables
-│   ├── dimension.py        # ISO 129-1 dimensioning producer (linear/aligned/angular/radial/diameter/ordinate/arc/chain/baseline + tolerance) lowered onto ezdxf add_*_dim + a layered decomposition
+│   ├── dimension.py        # ISO 129-1 dimensioning producer over the closed DimOp family, lowered onto ezdxf add_*_dim() or a layered decomposition
 │   ├── symbol.py           # AEC drawing-symbol vocabulary (section/elevation/detail/grid/north/scale/revision) dual-lowered to drawsvg + ezdxf blocks
-│   ├── annotate.py         # ISO 128-2 leaders/keynotes/flag-notes + Knuth-Plass general notes + ziamath formula notes + revision clouds, dual-lowered to drawsvg + ezdxf multileaders
+│   ├── annotate.py         # ISO 128-2 leaders/keynotes/flag-notes + Knuth-Plass general notes + revision clouds, dual-lowered to drawsvg + ezdxf multileaders
 │   ├── detail.py           # detail callouts + content-keyed ezdxf detail-library block store + rustworkx sheet cross-reference DAG
-│   └── schedule.py         # AEC schedule templates (door/window/room-finish/equipment/panel/structural + BIM QTO takeoff) + ISO legends lowered into visualization/table
+│   └── schedule.py         # AEC schedule templates + BIM QTO takeoff + ISO legends lowered into visualization/table over the closed ScheduleContent family
 ├── specification/          # CSI construction-specification plane: SectionFormat 3-part sections + MasterFormat/UniFormat/OmniClass classification
-│   ├── section.py          # CSI SectionFormat 3-part (General/Products/Execution) + PageFormat numbering producer, authored INTO the DocumentNode tree; contributes ArtifactReceipt.Spec
-│   └── classify.py         # MasterFormat/UniFormat/OmniClass owned classification vocabularies + crosswalk + drawing<->spec ReferenceIndex resolver (pure substrate, no receipt)
+│   ├── section.py          # CSI SectionFormat 3-part + PageFormat numbering producer authored INTO the DocumentNode tree; contributes ArtifactReceipt.Spec
+│   └── classify.py         # MasterFormat/UniFormat/OmniClass vocabularies + crosswalk + drawing<->spec ReferenceIndex resolver; pure substrate, no receipt
 ├── delivery/               # ISO 19650 delivery plane: information-container register + issue-for-construction transmittal
-│   ├── register.py         # ISO 19650 drawing-register/sheet-index/container-metadata owner (S0-S7/A-B/P-C owned vocabularies) over great-tables/xlsxwriter/openpyxl/lxml/polars; contributes ArtifactReceipt.Register
-│   └── transmittal.py      # ISO 19650 transmittal/issue-for-construction orchestrator composing imposition + archive + credential + conformance + register; contributes ArtifactReceipt.Transmittal
+│   ├── register.py         # ISO 19650 drawing-register/sheet-index/container-metadata owner over the NA Table NA.1 vocabularies; ArtifactReceipt.Register
+│   └── transmittal.py      # ISO 19650 issue-for-construction orchestrator over imposition + archive + credential + conformance; ArtifactReceipt.Transmittal
 ├── graphic/                # 2D graphic-primitive toolkit every visual + document plane composes
 │   ├── raster/
 │   │   ├── io.py           # pillow/pyvips IO/convert/thumbnail/montage working surface
@@ -56,19 +56,19 @@ artifacts/
 │   └── layout.py           # line-break (uniseg UAX#14) + hyphenation (pyphen) + Knuth-Plass paragraph layout
 ├── composition/            # assembling artifacts into pages/sheets
 │   ├── compose.py          # post-render figure/section placement (scale-fit/n-up/crop/rotate/overlay) over svgelements/resvg/pillow
-│   ├── sheet.py            # architectural single-sheet title-block/frame/field owner (exact ISO 5457 zones + ISO 7200 audit + ISO 5455 Viewport scale) + SheetSet multi-sheet numbering/register/drawing-list projection
+│   ├── sheet.py            # single-sheet title-block/frame/field owner (ISO 5457/7200/5455) + SheetSet multi-sheet numbering/register
 │   └── imposition.py       # n-up / booklet / signature imposition over pymupdf show_pdf_page / pdfimpose
 ├── export/                 # editable layered hand-off for Illustrator/InDesign + DXF CAD exchange
-│   ├── layered.py          # drawsvg named-layer SVG + pymupdf/pikepdf PDF OCG optional-content groups + psd-tools/PhotoshopAPI native PSD/PSB channel-stack + psdtags/tifffile layered TIFF + pyvips/lxml/stream-zip ORA
+│   ├── layered.py          # named-layer SVG + PDF OCG groups + psd-tools/PhotoshopAPI PSD/PSB + psdtags/tifffile layered TIFF + pyvips/lxml/stream-zip ORA
 │   ├── indesign.py         # SimpleIDML IDML template-mutation hand-off
-│   └── dxf.py              # ezdxf DXF New/Read/Recover/Render/Query/Bridge CAD-exchange owner (7-backend render lowering into composition/sheet + graphic/vector, DXF<->SVG<->GeoJSON<->glyph bridge), contributes ArtifactReceipt.Cad
+│   └── dxf.py              # ezdxf DXF CAD-exchange owner over the DxfOp family (7-backend render, DXF<->SVG<->GeoJSON<->glyph bridge); ArtifactReceipt.Cad
 ├── exchange/               # metadata / provenance / format identification at the boundary
-│   ├── metadata.py         # EXIF/IPTC/XMP/ICC descriptive metadata read/write over the MetaCarrier axis — pyexiftool (standing) + pyexiv2 (optional cp-gated) raster, pikepdf PDF, av MEDIA (iptcinfo3/libxmp superseded)
+│   ├── metadata.py         # EXIF/IPTC/XMP/ICC descriptive-metadata read/write over the MetaCarrier axis — pyexiftool raster, pikepdf PDF, av MEDIA
 │   ├── credential.py       # c2pa-python content-credential Sign/Read/ReadFragment/Embed binding keyed by the content key
-│   ├── conformance.py      # pyhanko PAdES sign/stamp/augment/reserve/audit close (signer-free /DocTimeStamp stamp, LTV augment, seed-value reserve, visible drawing-sheet seal) folding ConformanceVerdict
+│   ├── conformance.py      # pyhanko PAdES sign/stamp/augment/reserve/audit close folding ConformanceVerdict (signer-free stamp, LTV augment, sheet seal)
 │   └── detect.py           # dual-engine format identification: puremagic in-process default + python-magic worker-band libmagic fallback
 ├── media/                  # temporal media: the 7-page container/codec/filter/timeline/subtitle/analysis/synthesis plane
-│   ├── container.py        # av container spine: mux/demux capsule, video encode/mux, transcode/remux, HDR/color, HLS/DASH via io_open (absorbs the former video.py)
+│   ├── container.py        # av container spine: mux/demux capsule, encode/mux, transcode/remux, HDR/color, HLS/DASH via io_open (absorbs former video.py)
 │   ├── filtergraph.py      # closed FilterNode owner + capability-detection native-vs-substitute routing over av.filter.filters_available
 │   ├── audio.py            # av audio stream encode/mux/resample/master composing container + filtergraph
 │   ├── timeline.py         # Trim/Concat/Segment/xfade non-linear editing over the container/filtergraph spine
@@ -76,12 +76,12 @@ artifacts/
 │   ├── analysis.py         # waveform/spectrogram/loudness(ebur128)/silence/scene-detect/thumbnail, capability-routed native-vs-numpy/measure
 │   └── synthesis.py        # numpy oscillator/noise/FM/AM/sweep/ADSR generation -> media/audio encode
 ├── scene/                  # 3D / spatial visualization
-│   ├── render.py           # pyvista/vtk offscreen render + FieldFilter clip/slice/threshold/contour/warp pipeline + two-operand boolean CSG on the scene worker lane
+│   ├── render.py           # pyvista/vtk offscreen render + FieldFilter clip/slice/threshold/contour/warp pipeline + two-operand boolean CSG on the worker lane
 │   ├── export.py           # glTF/VRML/OBJ/HTML scene-file export + orbit rgb24 frame seam
 │   └── stage.py            # usd-core USD/USDZ stage authoring and composition
 ├── core/                   # production spine
 │   ├── plan.py             # ArtifactPipeline content-keyed sub-graph-elision plan over the runtime session lane
-│   ├── format.py           # TemplatePipeline one-context-many-format binding over docxtpl/typst/jinja2/python-pptx/odfpy/openpyxl/xlsxwriter (owns no engine, delegates to emit/report)
+│   ├── format.py           # TemplatePipeline one-context-many-format binding delegating to emit/report; owns no engine
 │   └── receipt.py          # shared kind-discriminated ArtifactReceipt family across every production mode
 └── package/                # content-addressed compression / archive / delta
     ├── codec.py            # zstandard/lz4/brotli content-addressed compression
@@ -96,7 +96,8 @@ The engine reads as high-order domains. `document` owns one `DocumentNode` tree 
 ## [02]-[SEAMS]
 
 ```text seams
-*                            ←  python:runtime                          # [CONTENT_KEY]: ContentKey — ContentIdentity.of over a whole/merkle byte source is infallible, so every producer binds the projected ContentKey directly; the RuntimeRail rails only the canonical Struct-encode path, never a byte/merkle derivation
+*                            ←  python:runtime                          # [CONTENT_KEY]: infallible ContentIdentity.of; producers bind the projected ContentKey
+*                            →  python:runtime                          # [RECEIPT]: ArtifactReceipt contribution
 document/model               →  python:data/tabular                     # [WIRE]: to_corpus_row flat record
 document/model               →  python:artifacts/document/tagged        # [SHAPE]: StructureNode/StructEltKind structure tree + FigureNode.alt
 graphic/color/derive         →  python:data/tabular                     # [WIRE]: color palette arrays / appearance correlates
@@ -105,7 +106,6 @@ graphic/color/derive         →  python:artifacts/scene                  # [PRO
 graphic/color/derive         →  python:artifacts/graphic/color/managed  # [PROJECTION]: tone-curve / space provenance to the managed egress
 graphic/color/managed        →  python:artifacts/graphic/raster         # [PROJECTION]: color-managed raster consumed by the process arms
 graphic/color/managed        →  python:artifacts/document               # [PROJECTION]: ICC-profiled raster consumed by document/PDF output
-*                            →  python:runtime                          # [RECEIPT]: ArtifactReceipt contribution
 core/receipt                 ←  python:runtime/execution                # [RECEIPT]: reuse-fabric elision ContentKey hit/miss
 core/receipt                 ←  python:runtime/observability            # [RECEIPT]: MeterProvider signal stream
 core/receipt                 ←  python:artifacts/core/plan              # [RECEIPT]: per-artifact contribute folds walked into the elision plan
@@ -119,11 +119,11 @@ drawing/standard             →  python:artifacts/composition            # [SHA
 drawing/standard             →  python:artifacts/graphic/color/derive   # [PROJECTION]: discipline ACI-resolved sRGB routed to the color engine
 drawing/dimension            ←  python:artifacts/drawing/standard       # [SHAPE]: Standard.dimstyle DIM-variable override + seed scaled by the ISO 5455 factor
 drawing/dimension            →  python:artifacts/composition            # [PROJECTION]: dimensioned SVG/PDF bytes feed the sheet FigurePlacement drawing region
-drawing/dimension            ←  python:artifacts/graphic/vector         # [SHAPE]: VectorOp.Outline / outline() tapered-terminator stroke-to-outline composed for a non-default tapered terminator (base terminator self-contained, the landed outline the refinement)
-drawing/dimension            →  python:artifacts/export                 # [PROJECTION]: named dimension-line/terminator/text/tolerance layers bound as OCG/SVG layers
+drawing/dimension            ←  python:artifacts/graphic/vector         # [SHAPE]: VectorOp.Outline stroke-to-outline for a non-default tapered terminator
+drawing/dimension            →  python:artifacts/export                 # [PROJECTION]: dimension-line/terminator/text/tolerance layers bound as OCG/SVG
 drawing/dimension            →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Drawing dimension/dimstyle/extent/byte facts
 drawing/symbol               →  python:artifacts/composition            # [PROJECTION]: single-mark PNG feeds the sheet NorthArrow.glyph/KeyPlan.figure cells
-drawing/symbol               ←  python:artifacts/graphic/vector         # [SHAPE]: resvg rasterize SVG->PNG for the sheet-cell seam (skia-pathops boolean/offset growth axis)
+drawing/symbol               ←  python:artifacts/graphic/vector         # [SHAPE]: resvg rasterize SVG->PNG for the sheet-cell seam (skia-pathops offset growth)
 drawing/symbol               →  python:artifacts/export                 # [PROJECTION]: named-layer symbol groups bound as OCG/SVG layers
 drawing/symbol               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Drawing kind/entity/extent/byte facts
 drawing/detail               ←  python:artifacts/drawing/symbol         # [SHAPE]: SymbolKind bubble vocabulary + SymbolStyle mark-style the callout projects
@@ -143,31 +143,31 @@ drawing/schedule             ←  python:artifacts/drawing/standard       # [SHA
 drawing/schedule             →  python:artifacts/visualization/table    # [PROJECTION]: AEC schedule/legend frame+ops lowered into the TablePlan.build render
 drawing/schedule             →  python:artifacts/composition            # [PROJECTION]: rendered schedule/legend table bytes placed on the sheet
 drawing/schedule             →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Schedule kind/rows/columns/byte facts
-specification/section        →  python:artifacts/document/model         # [PROJECTION]: Spec.to_document lowers the SectionFormat 3-part tree into the DocumentNode SectionNode/BlockNode/RunNode tree
-specification/section        →  python:artifacts/specification/classify # [SHAPE]: ClassCode MasterFormat section-number identity + division admitted through classify, never re-parsed
-specification/section        →  python:artifacts/visualization/table    # [PROJECTION]: QTO/schedule citation frame from csharp:Rasm.Bim rendered by the table owner, never re-authored here
+specification/section        →  python:artifacts/document/model         # [PROJECTION]: Spec.to_document lowers the SectionFormat 3-part tree into DocumentNode
+specification/section        →  python:artifacts/specification/classify # [SHAPE]: ClassCode MasterFormat section-number + division admitted through classify
+specification/section        →  python:artifacts/visualization/table    # [PROJECTION]: QTO/schedule citation frame from csharp:Rasm.Bim rendered by table
 specification/section        →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Spec section/division/part/article/byte facts
-specification/classify       ←  python:artifacts/drawing/standard       # [SHAPE]: ISO 13567/NCS Discipline vocabulary on the ReferenceIndex SheetRef, composed never re-declared
+specification/classify       ←  python:artifacts/drawing/standard       # [SHAPE]: ISO 13567/NCS Discipline vocabulary on the ReferenceIndex SheetRef, composed
 typography/font              →  python:artifacts/document               # [PROJECTION]: subsetted/instanced font bytes for FONT_EMBED
 typography/font              →  python:artifacts/typography/shape       # [SHAPE]: face/variation location + embed-audit precondition
 typography/shape             →  python:artifacts/document               # [PROJECTION]: PositionedGlyphRun text placement
 typography/shape             →  python:artifacts/composition            # [PROJECTION]: PositionedGlyphRun annotation
-typography/shape             →  python:artifacts/graphic/vector         # [SHAPE]: PositionedGlyphRun.on_path() per-glyph outlines threaded along a baseline by vector.text_path (text-on-path, no pathops import in shape)
-typography/layout            →  python:artifacts/document               # [SHAPE]: line-broken paragraph runs for emission (LineLayout.broken() LineBrokenRun projection driven from a shaped run, beside the lay() content-key rail)
+typography/shape             →  python:artifacts/graphic/vector         # [SHAPE]: PositionedGlyphRun.on_path() per-glyph outlines via vector.text_path
+typography/layout            →  python:artifacts/document               # [SHAPE]: LineLayout.broken() LineBrokenRun from a shaped run, beside the lay() rail
 composition/compose          →  python:artifacts/export                 # [PROJECTION]: placed multi-source layout handed to named-layer egress
-composition/sheet            ←  python:artifacts/drawing/standard       # [SHAPE]: ScaleRatio + SheetId sheet-number assembly + Viewport ISO 5455 scale read by the sheet owner
-composition/sheet            →  python:artifacts/visualization/table    # [PROJECTION]: TitleBlock.revised + SheetSet.scheduled revision/drawing-list TablePlan lowered into the great-tables render
-composition/sheet            →  python:artifacts/delivery/register      # [PROJECTION]: SheetSet.registered (container, TitleBlock, suitability, revision) tuples the register builds into its OWN SheetEntry (from_title_block + externally-supplied ISO 13567 naming context) then of_sheets aggregates — not a direct of_sheets(SheetEntry) input
+composition/sheet            ←  python:artifacts/drawing/standard       # [SHAPE]: ScaleRatio + SheetId sheet-number + Viewport ISO 5455 scale read by sheet
+composition/sheet            →  python:artifacts/visualization/table    # [PROJECTION]: TitleBlock.revised + SheetSet.scheduled revision/drawing-list TablePlan
+composition/sheet            →  python:artifacts/delivery/register      # [PROJECTION]: SheetSet.registered tuples build the SheetEntry via from_title_block
 composition/sheet            →  python:artifacts/export                 # [PROJECTION]: frame + placed figures projected as named Layer rows
 composition/imposition       →  python:artifacts/document               # [PROJECTION]: n-up/booklet sheet handed to the PDF assembler
 export/layered               ←  python:artifacts/composition            # [PROJECTION]: placed multi-source layout + named-layer source graphics
-export/layered               →  python:artifacts/core/receipt           # [RECEIPT]: LayeredExport.emit ArtifactReceipt.Preview/Egress named-layer evidence (the ArtifactWork.work the ArtifactPipeline schedules, no module-level batch entry)
+export/layered               →  python:artifacts/core/receipt           # [RECEIPT]: LayeredExport.emit ArtifactReceipt.Preview/Egress named-layer evidence
 export/indesign              ←  python:artifacts/composition            # [PROJECTION]: placed layout bound into the IDML template
-export/indesign              →  python:artifacts/core/receipt           # [RECEIPT]: Idml.emit ArtifactReceipt.Office IDML-package evidence (the ArtifactWork.work the ArtifactPipeline schedules, no module-level batch entry)
+export/indesign              →  python:artifacts/core/receipt           # [RECEIPT]: Idml.emit ArtifactReceipt.Office IDML-package evidence
 export/dxf                   →  python:artifacts/composition/sheet      # [PROJECTION]: PyMuPdfBackend one-page PDF placed via show_pdf_page
-export/dxf                   ⇄  python:artifacts/graphic/vector         # [SHAPE]: make_path/flattening OUT ↔ from_vertices/render_lines IN + SVGBackend SVG lowering at the vertex/d-string wire
-export/dxf                   →  python:geospatial                       # [WIRE]: addons.geo GeoProxy GeoJSON georeferenced wire (aligned; CRS authority stays the geospatial owner)
-export/dxf                   →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Cad dxfversion/units/counts/layers/blocks/errors/fixes/byte facts
+export/dxf                   ⇄  python:artifacts/graphic/vector         # [SHAPE]: make_path OUT / from_vertices/render_lines IN + SVGBackend, vertex/d wire
+export/dxf                   →  python:data/spatial/geospatial          # [WIRE]: addons.geo GeoProxy GeoJSON georeferenced wire; CRS authority stays with data
+export/dxf                   →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Cad dxfversion/units/counts/layers/blocks/errors/byte facts
 exchange/metadata            →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt descriptive-metadata facts
 exchange/credential          ←  python:runtime                          # [CONTENT_KEY]: ContentKey
 exchange/credential          →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Credential content-credential facts
@@ -180,18 +180,18 @@ document/tagged              →  python:artifacts/exchange               # [REC
 document/tagged              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Egress/Pdf structural evidence
 scene/render                 →  python:artifacts/media                  # [SHAPE]: rgb24 frame sequence via VideoFrame.from_ndarray, ContentKey-keyed
 scene/export                 ⇄  python:geometry/mesh                    # [BOUNDARY]: visualization-scene export vs mesh-file codec, no shared owner
-media/container              ←  python:artifacts/scene                  # [SHAPE]: rgb24 frame sequence ingested via VideoFrame.from_ndarray (the renamed video owner)
-media/container              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media container/codec encode facts + per-page av/pysubs2 evidence band
-media/container              ←  python:artifacts/media/filtergraph      # [SHAPE]: Transcode composes build_graph — native/substitute-routed av.filter.Graph + numpy composite passes
-media/filtergraph            →  python:artifacts/core/receipt           # [RECEIPT]: filter-node count in the composing producer's ArtifactReceipt.Media band (mints no receipt itself)
-media/audio                  →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media audio encode facts (EBU R128 LUFS/true-peak/LRA in the band)
-media/timeline               ←  python:artifacts/media/container        # [SHAPE]: _seek/_decode_window/_decode_video/_encode_video/_open_sink capsule composed, opens no container
+media/container              ←  python:artifacts/scene                  # [SHAPE]: rgb24 frames ingested via VideoFrame.from_ndarray, renamed video owner
+media/container              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media container/codec encode + av/pysubs2 evidence band
+media/container              ←  python:artifacts/media/filtergraph      # [SHAPE]: Transcode build_graph — native/substitute av.filter.Graph + numpy passes
+media/filtergraph            →  python:artifacts/core/receipt           # [RECEIPT]: filter-node count in the composing producer's Media band; mints no receipt
+media/audio                  →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media audio encode facts (EBU R128 LUFS/true-peak/LRA)
+media/timeline               ←  python:artifacts/media/container        # [SHAPE]: _seek/_decode_window/_encode_video/_open_sink capsule, opens no container
 media/timeline               ←  python:artifacts/media/filtergraph      # [SHAPE]: cross_dissolve xfade substitute + link_clips concat/amix
 media/timeline               ←  python:artifacts/media/audio            # [SHAPE]: _decode_audio for the xfade acrossfade audio leg
-media/timeline               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media clip/segment counts + lossless-vs-reencode strategy facts
+media/timeline               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media clip/segment counts + lossless-vs-reencode facts
 media/subtitle               ←  python:artifacts/media/container        # [SHAPE]: MediaProfile/MediaFault/_encode_video for passthrough-mux + burn-in encode
-media/subtitle               ←  python:artifacts/media/filtergraph      # [SHAPE]: filters_available probe selects overlay/soft-sub native vs numpy alpha-composite/burn-in
-media/subtitle               ←  python:artifacts/typography/shape       # [SHAPE]: styled-fragment -> RGBA raster (uharfbuzz+python-bidi RTL, not un-bundled Pillow RAQM)
+media/subtitle               ←  python:artifacts/media/filtergraph      # [SHAPE]: filters_available selects overlay/soft-sub native vs numpy composite/burn-in
+media/subtitle               ←  python:artifacts/typography/shape       # [SHAPE]: styled-fragment -> RGBA raster (uharfbuzz+python-bidi RTL, not Pillow RAQM)
 media/subtitle               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media subtitle event/style counts in the facts band
 media/analysis               ←  python:artifacts/media/container        # [SHAPE]: av.open read capsule + MediaFault/_media_fault/_deployment
 media/analysis               ←  python:artifacts/media/audio            # [SHAPE]: _decode_audio Pcm-block ingest
@@ -204,19 +204,18 @@ media/analysis               →  python:artifacts/core/receipt           # [REC
 media/synthesis              →  python:artifacts/media/audio            # [SHAPE]: _encode_audio numpy buffer -> container/mux (Pcm/_INGEST/Master reuse)
 media/synthesis              →  python:compute/analysis/signal          # [SHAPE]: SignalOp.Filter/Resample band-limit + transform spectral QA (cross-branch)
 media/synthesis              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media synthesis fundamental_hz/waveform/duration facts band
-delivery/register            ←  python:artifacts/composition/sheet      # [PROJECTION]: SheetSet.registered TitleBlock/suitability/revision tuples the register builds into its SheetEntry via from_title_block (+ externally-supplied naming context) then of_sheets aggregates
-delivery/register            →  python:artifacts/visualization/table    # [PROJECTION]: RegisterOp.Index lowers Register.frame into the great-tables sheet-index publication table
-delivery/register            →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Register kind/container/suitability/revision/classification/byte facts
+delivery/register            ←  python:artifacts/composition/sheet      # [PROJECTION]: SheetSet.registered tuples build the SheetEntry via from_title_block
+delivery/register            →  python:artifacts/visualization/table    # [PROJECTION]: RegisterOp.Index lowers Register.frame into the great-tables sheet-index
+delivery/register            →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Register kind/container/suitability/revision/byte facts
 delivery/transmittal         →  python:artifacts/composition/imposition # [PROJECTION]: constituent sheets laid into the press-form plan-set
-delivery/transmittal         →  python:artifacts/package/archive        # [PROJECTION]: collated plan-set + register/receipts sealed into one content-addressed transmittal container
+delivery/transmittal         →  python:artifacts/package/archive        # [PROJECTION]: plan-set + register/receipts sealed into a content-addressed container
 delivery/transmittal         →  python:artifacts/exchange/conformance   # [PROJECTION]: PAdES-LTA legal issue-for-construction signature over the plan-set PDF
-delivery/transmittal         →  python:artifacts/exchange/credential    # [PROJECTION]: C2PA sheet-lineage provenance over the cover asset (each sheet an Ingredient)
+delivery/transmittal         →  python:artifacts/exchange/credential    # [PROJECTION]: C2PA sheet-lineage provenance over the cover, sheets as Ingredients
 delivery/transmittal         ←  python:artifacts/delivery/register      # [PROJECTION]: the issued index emit() + audited() composed as the transmittal manifest
-delivery/transmittal         →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Transmittal issue/sheet/suitability/container/signed-verdict facts
-core/plan                    ←  python:runtime/execution                # [KEYED]: Keyed (ContentKey, Work) session-lane elision
-core/format                  →  python:artifacts/document               # [PROJECTION]: bound context lowering the DOCX_TEMPLATE/PDF_TYPST document + ODS/XLSX spreadsheet-schedule + XML/YAML/TOML arms
+delivery/transmittal         →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Transmittal issue/sheet/suitability/container/verdict facts
+core/plan                    ←  python:runtime/execution                # [CONTENT_KEY]: (ContentKey, Work) session-lane elision keyed on the Admit.keyed unit
+core/format                  →  python:artifacts/document               # [PROJECTION]: bound lowering DOCX_TEMPLATE/PDF_TYPST + ODS/XLSX/XML/YAML/TOML arms
 core/format                  →  python:artifacts/document/report        # [PROJECTION]: HTML via the report TEMPLATE-kind jinja ReportLoader rendered entry
 package/codec                ←  python:runtime                          # [CONTENT_KEY]: ContentKey including the DELTA parent-key from-image
 package/delta                ←  python:runtime                          # [CONTENT_KEY]: DELTA parent-key from-image
-*                            ←  python:runtime                          # [BOUNDARY]: boundary sync
 ```

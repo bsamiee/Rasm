@@ -207,13 +207,13 @@ def _topology_kernel(mesh: trimesh.Trimesh) -> ExactTopology:
     import manifold3d
 
     verts, faces = np.asarray(mesh.vertices), np.asarray(mesh.faces)
-    if len(verts) > np.iinfo(np.uint32).max:  # past ~4.29B verts the 32-bit Mesh truncates indices; Mesh64 is the f64 carrier (.api type row [04]), so its positions are f64 too
+    if len(verts) > np.iinfo(np.uint32).max:  # past 2^32 verts 32-bit Mesh truncates indices; Mesh64 is the f64 carrier (.api type row [04]), positions are f64
         solid = manifold3d.Manifold(manifold3d.Mesh64(vert_properties=verts.astype(np.float64), tri_verts=faces.astype(np.uint64)))
     else:
         solid = manifold3d.Manifold(manifold3d.Mesh(vert_properties=verts.astype(np.float32), tri_verts=faces.astype(np.uint32)))
     if solid.status() != manifold3d.Error.NoError:  # gate the ingest verdict; a non-2-manifold soup rails rather than yielding a phantom genus/mass
         raise QualityFault(rejected=solid.status().name)
-    genus = sum(int(c.genus()) for c in solid.decompose())  # genus() is defined per connected component (.api topology row [04] "call decompose first"); sum over the disconnected bodies
+    genus = sum(int(c.genus()) for c in solid.decompose())  # genus() is per connected component (.api row [04] "decompose first"); sum over disconnected bodies
     return ExactTopology(genus, solid.num_vert(), solid.num_edge(), solid.num_tri(), float(solid.volume()), float(solid.surface_area()))
 
 
@@ -232,7 +232,7 @@ class MeshQuality(ReceiptContributor):
         self._lane = lane  # the per-subinterpreter offload seam the quadric-collapse / exact-topology kernels ride; the lane never imports the kernel
         self._backend = backend or QualityBackend.resolve()
         self._last: MeshQualityReceipt | None = None
-        self._exact: ExactTopology | None = None  # the picklable ExactTopology VALUE cached across metric passes; a live Manifold cannot cross the no-pickle boundary, so the capsule reuses the result, never the solid
+        self._exact: ExactTopology | None = None  # picklable ExactTopology value cached across passes; a live Manifold cannot cross the no-pickle boundary
 
     @overload
     async def apply(self, op: MeshQualityOp) -> "RuntimeRail[MeshQualityResult]": ...
@@ -247,7 +247,7 @@ class MeshQuality(ReceiptContributor):
                 return await self._route(one)
             case batch:
                 rails = Block.of_seq([await self._route(one) for one in batch])
-                return traversed(rails, by=Disposition.ABORT)  # a conditioning batch aborts on the first faulted op; the runtime owns the strategy row, never a boolean accumulate flag
+                return traversed(rails, by=Disposition.ABORT)  # the batch aborts on the first faulted op; the runtime owns the strategy row, not a boolean flag
 
     async def _route(self, op: MeshQualityOp) -> "RuntimeRail[MeshQualityResult]":
         # the one tier-aware fence: the CPU-bound quadric collapse offloads its kernel onto the lane subinterpreter, the
@@ -256,8 +256,9 @@ class MeshQuality(ReceiptContributor):
         match op:
             case MeshQualityOp(tag="decimate", decimate=target_faces):
                 before = len(self._mesh.faces)
-                offloaded = await self._lane.offload(_decimate_kernel, self._mesh, target_faces)  # the lane converts a BrokenWorkerInterpreter/TimeoutError through its own async_boundary onto the rail
-                return offloaded.map(lambda out: self._arm(op, Outcome(MeshQualityResult.Decimate(out), before, len(out.faces), bool(out.is_watertight), 0.0, 0.0, 0)))
+                offloaded = await self._lane.offload(_decimate_kernel, self._mesh, target_faces)  # async_boundary rails BrokenWorkerInterpreter/TimeoutError
+                return offloaded.map(
+                    lambda out: self._arm(op, Outcome(MeshQualityResult.Decimate(out), before, len(out.faces), bool(out.is_watertight), 0.0, 0.0, 0)))
             case MeshQualityOp(tag="metrics"):
                 # the exact-topology kernel rides the offload fence (its own async_boundary); the CPU-bound numpy
                 # half-edge/cell-shape fold around it ALWAYS runs under `boundary` on both tiers, so a degenerate-mesh
@@ -277,14 +278,14 @@ class MeshQuality(ReceiptContributor):
         self._exact = exact
         return exact
 
-    def _arm(self, op: MeshQualityOp, out: Outcome) -> MeshQualityResult:  # the cross-cut receipt fold both the offloaded `.map` and the synchronous `boundary` thunk feed; a new arm writes only the geometry body producing an Outcome
+    def _arm(self, op: MeshQualityOp, out: Outcome) -> MeshQualityResult:  # receipt fold the `.map`+`boundary` feed; a new arm writes only the Outcome body
         self._last = MeshQualityReceipt(
             op.tag, self._backend, out.faces_before, out.faces_after,
             out.watertight, out.worst_aspect_ratio, out.worst_skewness, out.genus,
         )
         return out.result
 
-    def contribute(self) -> Iterable[Receipt]:  # the ReceiptContributor port YIELDS the stream the @receipted aspect's _stream normalizes; never a bare Receipt return
+    def contribute(self) -> Iterable[Receipt]:  # the ReceiptContributor port YIELDS the stream @receipted's _stream normalizes; never a bare Receipt return
         r = self._last or MeshQualityReceipt("metrics", self._backend, 0, 0, True, 0.0, 0.0, 0)
         phase: Phase = "emitted" if r.watertight else "admitted"
         facts: dict[str, object] = {  # native scalars; the receipts owner's enc_hook=repr renderer serializes without a str() coerce
@@ -302,7 +303,7 @@ class MeshQuality(ReceiptContributor):
                 verts, faces = self._mesh.vertices, self._mesh.faces
                 for _ in range(iterations):
                     verts, faces = trimesh.remesh.subdivide_to_size(verts, faces, max_edge)
-                out = trimesh.Trimesh(vertices=verts, faces=faces, process=True)  # merge the edge-split vertices so is_watertight reads meaningfully, parity with mesh/repair
+                out = trimesh.Trimesh(vertices=verts, faces=faces, process=True)  # merge edge-split vertices so is_watertight reads true, parity mesh/repair
                 return Outcome(MeshQualityResult.Subdivide(out), before, len(out.faces), bool(out.is_watertight), 0.0, 0.0, 0)
             case MeshQualityOp(tag="smooth", smooth=(kind, iterations, factor)):
                 self._smooth(kind, iterations, factor)
@@ -335,10 +336,10 @@ class MeshQuality(ReceiptContributor):
         half_edges = np.sort(  # the three directed half-edges per face, endpoint-sorted so an edge and its reverse group together
             np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]]), axis=1
         )
-        unique_edges, counts = np.unique(half_edges, axis=0, return_counts=True)  # exact per-unique-edge incidence; no positional edges_unique/face_adjacency alignment
+        unique_edges, counts = np.unique(half_edges, axis=0, return_counts=True)  # exact per-unique-edge incidence; no positional edges_unique/face_adjacency
         boundary_edges = int(np.sum(counts == 1))      # incidence 1 → boundary
         nonmanifold_edges = int(np.sum(counts >= 3))   # incidence ≥3 → non-manifold
-        spine = (len(mesh.vertices), len(unique_edges), len(mesh.faces))  # E is the unique-edge fold's own count, one source of truth, never a redundant edges_unique read
+        spine = (len(mesh.vertices), len(unique_edges), len(mesh.faces))  # E is the unique-edge fold's own count, one truth, no redundant edges_unique read
         v, e, f = (exact.vertex_count, exact.edge_count, exact.face_count) if exact else spine
         genus = exact.genus if exact else max(0, (2 - (spine[0] - spine[1] + spine[2])) // 2)  # exact override, else Euler V−E+F = 2−2g
 area = exact.area if exact else float(mesh.area)  # the worker tier's kernel mass supersedes the cached trimesh measure

@@ -70,6 +70,8 @@ the Java handle into canonical code.
 |  [07]   | `FileFormat`                                                                          | enum           | the writable target set: `JSON` / `MPX` / `MSPDI` / `PLANNER` / `PMXML` / `XER` / `SDEF` |
 |  [08]   | `Relation.Builder(ProjectFile).PredecessorTask(t).SuccessorTask(t).Type(rt).Lag(d).Build()` | mutate         | construct a dependency edge when SYNTHESIZING a schedule to write out     |
 |  [09]   | `Duration.GetInstance(double\|int magnitude, TimeUnit type)`                          | mutate         | mint a unit-tagged `Duration` (e.g. `GetInstance(lag.Days, TimeUnit.Days)`) for a lag/duration when writing a `ProjectFile` out |
+|  [10]   | `ProjectFile.AddTask()` / `AddResource()` / `AddCalendar()` / `GetTaskByUniqueID(int)`  | mutate         | the synthesis members the write leg composes — mint container children, resolve a task by durable unique id; settable `Task.UniqueID`/`Name`/`PercentageComplete`, `Resource.UniqueID`/`Name`, `ProjectCalendar.Name` complete the round-trip |
+|  [11]   | `Task.TotalSlack` / `FreeSlack` / `Critical` / `ConstraintType` / `ConstraintDate` / `ActualStart` / `ActualFinish`; `ProjectProperties.FileType`/`FileApplication`/`ProjectTitle`/`ScheduleFrom` | read | the CPM/actuals/constraint read accessors the durable rows project |
 
 `UniversalProjectReader.Read` is the lane's normal ingress — it auto-detects ANY supported
 format, so the consumer never branches on file extension. The write side is asymmetric: MPXJ

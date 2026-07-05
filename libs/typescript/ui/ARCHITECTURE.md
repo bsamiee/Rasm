@@ -22,7 +22,7 @@ ui/
 │       └── chart.ts           # The analytic chart owner: Plot/visx declared charts, uplot streaming series, perspective live pivot over one Arrow bus
 └── viewer/
     └── src/                   # The spatial tier (second Nx project)
-        ├── scene.ts           # The GLB scene: content-key mesh residency behind the GlbViewport port; three | model-viewer backend rows; Theme.linear appearance ingestion
+        ├── scene.ts           # content-keyed GLB residency behind the GlbViewport port; three | model-viewer backend rows; Theme.linear appearance ingest
         ├── geo.ts             # The geospatial surface: one maplibre Map + MapboxOverlay-interleaved deck.gl layers as a pure value tree
         ├── mark.ts            # The GlobalId mark plane: one HashSet selection atom, a closed op vocabulary, every pick pipeline folding into it
         ├── panel.ts           # The wire materializer: livewire triple, ControlIntent union, LayoutProgram rendered through the system owners
@@ -32,17 +32,17 @@ ui/
 ## [02]-[SEAMS]
 
 ```text seams
-view/table    ←  typescript:core/state      # [SHAPE]: Feed.Document column band (name/kind/dimension/nullable, Option-carried columns)
-system/atom   ⇄  typescript:runtime/browser # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
-system/primitive ← typescript:runtime/browser # [PORT]: ui-declared Clipboard Tag satisfied from the platform clipboard layer
-viewer/geo    ←  typescript:runtime/browser # [PORT]: ui-declared Position/Grant Tags satisfied from the platform geolocation/permissions layers
-viewer/scene  ←  typescript:runtime/browser # [PORT]: GlbViewport satisfied from Depot.haul verified arrivals + the residency ledger
-viewer/scene  ←  typescript:runtime/serve   # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
-viewer/scene  ←  csharp:Rasm.Materials      # [WIRE]: PbrGroups appearance decode
-viewer/panel  ←  csharp:Rasm.AppHost        # [WIRE]: livewire triple BindingStatus/CoercedValue/WriteReceipt
-viewer/panel  ←  csharp:Rasm.AppUi          # [WIRE]: ControlIntent six-kind union + the ordered LayoutProgram
-viewer/mark   ←  csharp:Rasm.Bim            # [WIRE]: BcfTopic/BcfViewpoint marks + GlobalId selection sets
-viewer/probe  ←  csharp:Rasm.AppUi          # [RECEIPT]: RenderReceipt claims paired with local render evidence
+view/table       ←  typescript:core/state      # [SHAPE]: Feed.Document column band (name/kind/dimension/nullable, Option-carried columns)
+system/atom      ⇄  typescript:runtime/browser # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
+system/primitive ←  typescript:runtime/browser # [PORT]: ui-declared Clipboard Tag satisfied from the platform clipboard layer
+viewer/geo       ←  typescript:runtime/browser # [PORT]: ui-declared Position/Grant Tags satisfied from the platform geolocation/permissions layers
+viewer/scene     ←  typescript:runtime/browser # [PORT]: GlbViewport satisfied from Depot.haul verified arrivals + the residency ledger
+viewer/scene     ←  typescript:runtime/serve   # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
+viewer/scene     ←  csharp:Rasm.Materials      # [WIRE]: PbrGroups appearance decode
+viewer/panel     ←  csharp:Rasm.AppHost        # [WIRE]: livewire triple BindingStatus/CoercedValue/WriteReceipt
+viewer/panel     ←  csharp:Rasm.AppUi          # [WIRE]: ControlIntent six-kind union + the ordered LayoutProgram
+viewer/mark      ←  csharp:Rasm.Bim            # [WIRE]: BcfTopic/BcfViewpoint marks + GlobalId selection sets
+viewer/probe     ←  csharp:Rasm.AppUi          # [RECEIPT]: RenderReceipt claims paired with local render evidence
 ```
 
 ## [03]-[ORGANIZATION]

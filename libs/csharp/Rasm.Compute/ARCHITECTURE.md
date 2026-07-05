@@ -54,7 +54,7 @@ Rasm.Compute/
     ├── Aggregator.cs      # Relocated multi-ply AssemblyAggregator (ISO 6946 U / ISO 12354 STC / rule-of-mixtures / GWP / cost)
     ├── Structural.cs      # BFE/FEALiTE2D FrameBackend + hand-rolled DesignCode×LimitState capacity table
     ├── Physics.cs         # Closed-form ISO/EN thermal (6946/13788) + acoustic (12354) + fire (1993/1992-1-2) folds
-    ├── Energy.cs          # EnergyRoute provider axis: OpenStudio in-process model + EnergyPlus subprocess (parameterized EnergyToolchain discovery) · PollinationSDK cloud run — one entry, one SqlFile result fold
+    ├── Energy.cs          # EnergyRoute axis: OpenStudio model + EnergyPlus subprocess via EnergyToolchain discovery, PollinationSDK cloud, one SqlFile fold
     └── Lifecycle.cs       # EN 15978 embodied carbon + EC3/openEPD REST boundary + supply/install cost rollup
 ```
 
@@ -63,75 +63,80 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Runtime           ⇄  python:geometry/mesh                  # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
-Runtime/channels  →  typescript:core/interchange/codec     # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
-Runtime/channels  →  typescript:core/interchange/contract  # [WIRE]: FileDescriptorSet ContractDrift verdict
-Runtime/channels  →  typescript:core/interchange/frame     # [WIRE]: ArtifactFrameWire reassembly
-Runtime/channels  →  typescript:core/interchange/frame     # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
-Runtime/channels  ⇄  python:runtime/transport              # [WIRE]: PROTO_VOCABULARY service contracts
-Runtime/channels  ⇄  python:geometry/mesh                  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
-Runtime/progress  →  typescript:core/state/evidence  # [WIRE]: ProgressMarkWire
-Runtime           ←  python:geometry/mesh                  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
-Runtime/codecs    ←  python:geometry/mesh                  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
-Runtime/progress  →  typescript:core/interchange/codec     # [PROJECTION]: ProgressStore stream proto
-Runtime           ←  python:geometry                       # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
-Runtime/payload   →  csharp:Rasm.AppUi/Render/pipeline      # [PROJECTION]: ResidencyPayload (blob + StreamSpan layout) 1:1 → ResidencyManifest.Mint EXT_meshopt_compression bufferView (TS_PROJECTION WEB_GEOMETRY_RESIDENCY_WIRE; payload owns the blob, AppUi owns the manifest mint)
-Analysis          ←  csharp:Rasm.Element/Graph             # [SHAPE]: ElementGraph concrete above the seam (no IElementProjection); seam-owned Find/ObjectNodes/Material/MaterialsOf/CompositionOf/MechanicalOf/SectionOf reads + the seam GeometrySource port (content key → AxisCurve/FootprintPolygon, app-wired over the Persistence blob store) + Compute-owned AxisOf/SpacesOf/BoundingSurfacesOf/OpeningsOf discipline extensions composing them (AxisOf/BuildSurface resolve the analytical Axis/FootPrint one-hop by content key through GeometrySource, never a phantom node field)
-Analysis          →  csharp:Rasm.Element/Assessment        # [SHAPE]: Node.Assessment GraphDelta content-keyed on (input subgraph, route, policy), attached via the neutral Assign edge (AssignKind.Assessment, C5) — never an IFC-named AssignsToAssessment
-Analysis/aggregator ←  csharp:Rasm.Element/Composition     # [SHAPE]: MaterialComposition/MaterialPropertySet + the seam RatingContour.Stc.Fit contour kernel (single-material acoustic folds seam-owned)
-Analysis/aggregator →  csharp:Rasm.Materials/Properties    # [SHAPE]: the multi-ply AssemblyAggregator relocated FROM Materials (Materials retires its aggregator half; keeps single-material authoring lowered onto the seam)
-Analysis/structural ←  csharp:Rasm.Materials/Profiles      # [CONTENT_KEY]: M7 ProfileRef→SectionProperties resolved once (VividOrange) and baked onto the seam graph (incl. the EN 1992-1-2 AxisDistance cover the Analysis/physics fire runner ALSO reads via SectionOf); Compute reads, never re-resolves, admits no VividOrange
-Analysis/energy   ⇄  csharp:Rasm.Bim/Energy/exchange       # [SHAPE]: OpenStudio admitted for SIMULATION (Compute, both routes) distinct from the energy-model EXCHANGE (Bim EnergyExchange); the EnergyRoute.Cloud job descriptor consumes the Bim-lowered content-keyed HBJSON EnergyArtifact over the object plane — aligned by the seam graph and the artifact key, never a reference (per-folder api-openstudio catalogs on both sides)
-Analysis/energy   ⇄  csharp:Rasm.Bim/Energy/projector      # [SHAPE]: the EnergyProjector raise lands the IfcRelSpaceBoundary/BoundaryLevel/Host-attributed-opening/FootPrint/Qto_SpaceBaseQuantities shape the Compute-owned EnergyGraphReads (SpacesOf/BoundingSurfacesOf/OpeningsOf) consumes — the mirror of the Bim Energy/projector ⇄ Analysis row, aligned by the seam graph never coupled
-Analysis/energy   →  csharp:Rasm.Persistence               # [CONTENT_KEY]: EnergyPlus SqlFile results keyed on (input subgraph, route, policy); 412-noop on the object store
-Analysis/energy   →  csharp:Rasm.Persistence/Store/blobstore # [CONTENT_KEY]: Pollination cloud-run assets land content-keyed via the presigned-grant object row; ArtifactKind.CloudRun reuse index + PROV run attribution are the Persistence owners' rows — the SDK's LocalDatabase/CheckCached path-existence reuse is NOT composed
-Analysis          →  csharp:Rasm.Persistence/Version/retention # [CONTENT_KEY]: content-keyed AssessmentPayload blob registered in the RETENTION_CLASSES blob class (content-keyed, full-history-reachable, GC-protected); 412-noop dedup
-Analysis/lifecycle ⇄  csharp:Rasm.Bim/Planning            # [SHAPE]: embodied material-cost takeoff (Compute) vs construction schedule/4D MPXJ (Bim), aligned by the seam graph never coupled
-Analysis/energy   ←  csharp:Rasm.Bim/Projection           # [PROJECTION]: SemanticProjector bakes the IfcRelSpaceBoundary neutral Generic edges (BoundaryLevel "1st"/"2nd" payload), content-keys the analytical surface into the Object Representations.FootPrint (resolved one-hop through the seam GeometrySource, never an inline Node field — the deleted §4-RT-M2 phantom), the Qto_SpaceBaseQuantities NetFloorArea, and Pset_SpaceCommon.IsExternal that the Compute-owned EnergyGraphReads SpacesOf/BoundingSurfacesOf/OpeningsOf/ConditionedFloorArea/IsConditioned read (2nd-level preferred when both levels exist) — the wire-name/Qto-name/Pset-name contract is load-bearing
-Analysis/lifecycle ←  csharp:Rasm.Bim/Semantics           # [PROJECTION]: QuantitySet.Derive bakes the element Qto_*BaseQuantities (NetVolume/GrossVolume/NetSideArea/NetArea/GrossSideArea) base-quantity bags the Compute-owned LifecycleGraphReads.TakeoffOf reads to distribute per-ply GWP/cost (net preferred over gross); an absent base quantity rails AssessmentInputMissing, never a silent zero takeoff
-Analysis/lifecycle ←  csharp:Rasm.Element/Composition     # [SHAPE]: the seam Environmental case (MeasurementBasis + per-LifecycleStage StageGwp band + OfEnvironmental admission) the EC3 ingress reads-and-enriches via a GraphDelta onto the Material node before the pure RunCarbon — Materials authors curated PerM3, the EC3 ingress tags the EPD native declared_unit basis, both fold under the one basis-aware DeclaredQuantity scale
-Runtime           ←  csharp:Rasm.Bim/Semantics             # [PROJECTION]: IFC/glTF semantic metadata layer
-Runtime/channels  →  csharp:Rasm.Bim/Semantics             # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1?Uri=&IncludeClassProperties=true (mandatory flag — omitting it omits classProperties) → BsddClassResponse, LocalShape degrade
-Runtime/codecs    ⇄  csharp:Rasm.Element/Graph             # [CONTENT_KEY]: RepresentationContentHash keyed map shares the kernel seed-zero XxHash128 GeometryHash geometry-content space; the policy-seeded InterchangeIdentity cache key is DISTINCT, never conflated
-Runtime/codecs    ←  csharp:Rasm.Bim/Exchange              # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
-Runtime/codecs    ←  csharp:Rasm.Bim/Review                # [TRANSPORT]: IdsAuditRequest ifctester two-hop rpc; Compute owns the transport/verdict-wire relay only (references no Bim type, meeting Bim at the companion-rpc wire as the tessellation GLB does), the IdsVerdict row + the IdsAudit.Reconcile that composes it from that wire are Bim-owned (never re-declared Compute-side), joined on (GlobalId, FacetKey)
-Symbolic          ⇄  python:compute + typescript:core/value/quantity # [WIRE]: QuantityFamily SI canonicalization consumed by host-free peers over the wire (AEC-domain admits UnitsNet in-folder, never a downward reference)
-Symbolic/dimensional ⇄  csharp:Rasm.Element/Properties        # [SHAPE]: DimensionMonomial ℚ⁷ proof discriminator ↔ seam Dimension ℤ⁷ measure discriminator, both project from UnitsNet BaseDimensions and align at the 7-vector, never coupled (no reference either way); the symbolic side alone resolves onward to the Compute-internal QuantityFamily, the seam resolves via UnitsNet directly
-Symbolic/lowering    →  csharp:Rasm.Persistence/Query/cache      # [CONTENT_KEY]: compiled symbolic-formula / cost-catalog / QTO-formula reused by the SymbolicExpr canonical-NF XxHash128 ContentKey (its OWN content identity, NEVER a fabricated ModelResultKey — MODEL_RESULT_INDEX holds the counterpart); the LoweringCache CompiledKey is the L1-local cache-partition over it, never crossing a process
-Model/embedding   ⇄  csharp:Rasm.Persistence/Query/lane     # [CONTENT_KEY]: EmbeddingVector.ContentKey (modelKey×encoding×codebook Id×encoded bytes) XxHash128 ↔ VectorRow.ContentKey; ProductCodebook trained in Persistence #VECTOR_CODEBOOK, coarse→fine resolve (no Compute-side fit)
-Model/identity    →  csharp:Rasm/Domain                      # [CONTENT_KEY]: ModelIdentity.Checksum composes the kernel seed-zero XxHash128 ContentHash.Of entry (the ONE federation hasher) — feeds ModelResultKey.ModelChecksum + the ArtifactIndexRow content-addressing; never a per-call-site System.IO.Hashing.XxHash128 invocation (ModelFingerprint's XxHash3 options digest is a DISTINCT fingerprint, not a content key)
-Model/sessions    →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ArtifactIndexRow.Admit(ArtifactKind.EpContext/OnnxProfile) warm-start/fleet-compile blob, cache-class, keyed by checksum/FleetContextKey + ContentAddress over bytes
-Model/inference   →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ModelResultKey(ModelChecksum,InputDigest,ResultKey) → ModelResultIndex result-reuse/dedup horizon read by reference (RESULT_CACHE; the ONE cross-process horizon owner, never minted Compute-side); inference Profile admits ArtifactKind.OnnxProfile via ArtifactIndexRow.Admit
-Tensor/factor     →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ShardPlan.Blocked sub-block solve reuse — ModelResultIndex.Lookup resolves the SolveDedupKey-salted ModelResultRow RESIDENCE (never the payload), the object-store port yields the SolveResponse bytes at that residence, Publish records the row; reads the ONE horizon owner by reference, never a second result store (an orphan-swept blob misses to a re-dial)
-Runtime           ⇄  csharp:Rasm.Persistence/Version/commits # [GRADUATION]: HandoffAxis graduation evidence
-Runtime           →  csharp:Rasm.Persistence               # [CONTENT_KEY]: content-keyed blob
-Runtime/scheduling →  csharp:Rasm.Persistence               # [SPILL]: JobGraph CheckpointPort persist/resume the runner-produced JobCheckpoint (NodeId+ContentKey) over the blob lane — cooperative memory-spill resumed in a later wave, never a scheduler-side checkpoint of in-flight work
-Runtime/channels  →  csharp:Rasm.Persistence/Version/ledger # [WIRE]: GraphDiff/SubtreeFetch content-key set-difference wire leg; Compute owns the proto frame, ledger#CHANGEFEED TransferSet/Closure dials the algebra
-Runtime/codecs    ⇄  csharp:Rasm.Persistence/Query/cache   # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
-Runtime/receipts  →  csharp:Rasm.Persistence/Query/cache   # [INDEX]: BenchmarkClaim.Persist → BenchmarkRow#BENCHMARK_INDEX claim gate; Claim reads the ModelResultIndex recency horizon by reference, no second horizon minted Compute-side
-Runtime/codecs    →  python:runtime/evidence/identity + typescript:core/value/contentKey # [WIRE]: XxHash128 seed-zero two-half [gated: hash-wasm / xxhash cp315]
-Runtime           ←  csharp:Rasm.Persistence/Sync          # [PROJECTION]: content-key delta via FastCDC
-Tensor/dispatch   ⇄  csharp:Rasm.AppUi/Render              # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
-Runtime/admission ←  csharp:Rasm.AppHost                   # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
-Runtime/scheduling →  csharp:Rasm.AppHost/Runtime/lifecycle # [PORT]: LaneDrain DrainParticipantPort per WorkLane row (DrainBand.Compute band-200, rank-ordered) registered into the AppHost drain conductor; idempotent re-fence so band order never races the gate
-Runtime/codecs    ⇄  csharp:Rasm.Persistence/Query/pipeline # [PORT]: parse-to-canonical-bytes (Extract)
-Compute           →  csharp:Rasm.Persistence/Store/quality # [SHAPE]: geometry-derived anomaly rule source
-Runtime/codecs    ⇄  csharp:Rasm.Bim                       # [SHAPE]: SharpGLTF/meshopt leg split — Compute composes residency/transport meshopt-encode, Bim authors per-tile EXT_structural_metadata/EXT_mesh_features glTF encode at Runtime/codecs#ln
-Model             →  csharp:Rasm.AppHost                   # [PORT]: Compute IEmbeddingGenerator/IChatClient draw governed/priced by the AppHost Microsoft.Extensions.AI middleware (Microsoft.Extensions.AI.Abstractions contract)
-Runtime/channels  →  csharp:Rasm.Persistence/Sync          # [WIRE]: Google.Protobuf wire format the Persistence Confluent.SchemaRegistry.Serdes.Protobuf leg composes for registry-governed Protobuf Kafka topics
-Solver/clash      ←  csharp:Rasm/Spatial/index             # [WIRE]: kernel Spatial.Apply Wire case emits the Fin<(float[] Bounds, long[] Nodes)> node-link wire via NodeLinkProjection; Compute decodes through ClashScale.NodeLinkPairs (the BvhPairs/OctreePairs collapse) and never Build/Refit/persists (Spatial.Apply is the seam owner); CLASH_GOLDEN 160-byte fixture byte-identical on both sides once the harness-gated reproof re-derives the stream under the kernel outward-rounding law
-Solver/discretization ←  csharp:Rasm/Numerics/predicates   # [SHAPE]: CDTet exact gates — the kernel public Predicate.Orient3D/InSphere verdicts satisfy by shape, never a Compute-side predicate mint
-Solver/clash      →  csharp:Rasm.AppHost/Wire/livewire     # [RECEIPT]: DigitalTwin control suggestion committed as a receipted ExternalValue (HopReceipt ack, rollback on rejection)
-Analysis          ←  csharp:Rasm/Meshing/slice             # [WIRE]: AtElevations story-elevation contours through the SliceStack wire — the circulation decoder; kernel Slicing.Apply emits the wire, Compute decodes it, never a Compute-side slicer
-Solver/contract   ←  csharp:Rasm.Element/Composition       # [SHAPE]: constitutive MaterialPropertySet.Mechanical elastic-D (YoungsModulus/PoissonsRatio) + inelastic calibration (yield/hardening/Prony/damage columns) read once at the Gauss point via ElementGraph.MechanicalOf(NodeId), keyed by the seam NodeId, concrete above the seam (no IElementProjection), never re-minted
-Tensor/dispatch   ⇄  csharp:Rasm/Numerics/spectral         # [SHAPE]: TensorOpKind.Geometry rows bind the Compute-owned OperatorRow table; Sensitivity.Operator routes OperatorRow.Apply (forward JVP) / OperatorRow.Adjoint (reverse VJP) over the recorded MeshAdjointSnapshot — kernel owns IntrinsicMesh/DiscreteCalculus/MeshAdjointSnapshot, Compute names only MeshAdjointSnapshot plus its own OperatorRow composing DiscreteCalculus, never a re-assembled DEC matrix
-Tensor/residency  ←  csharp:Rasm/Drawing/pack              # [CONTENT_KEY]: EncodedGeometry (Descriptors/Payload/Count/RoundTripWitness) wrapped as EncodedTensor — residency, never a re-pack; the witness content hash is the kernel CANONICAL_BYTE_IDENTITY seed-zero XxHash128 composed (Spatial/reconciliation#CANONICAL_BYTE_IDENTITY), no second key minted, no host geometry type named
-Tensor/residency  ⇄  csharp:Rasm.AppHost/Sandbox/solver    # [SHAPE]: AppHost EncodingKind rows align onto the PackKind case axis EncodedTensor wraps (PointCloud/MeshPatch/VoxelGrid/BrepPatch); Field/Toolpath land as kernel PackKind rows + a residency Wire row, never a residency-side GeometryEncoding owner (the deleted-form name), aligned not coupled
-Runtime           ⇄  python:compute/graduation             # [GRADUATION]: HandoffAxis graduation evidence
-Runtime           →  python:compute/graduation             # [WIRE]: EvidenceBundle graduation-evidence wire
-Runtime           ←  python:compute/solvers                # [PROJECTION]: SolverReceipt convergence verdict
-Runtime           ←  python:data/tabular                   # [SHAPE]: DOE dataset / labelled-array study input
-Runtime           ←  python:data/spatial/geospatial        # [SHAPE]: GeoArrow buffers share GLB tessellation wire layout
+Runtime               ⇄  python:geometry/mesh                    # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
+Runtime/channels      →  typescript:core/interchange/codec       # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
+Runtime/channels      →  typescript:core/interchange/contract    # [WIRE]: FileDescriptorSet ContractDrift verdict
+Runtime/channels      →  typescript:core/interchange/frame       # [WIRE]: ArtifactFrameWire reassembly
+Runtime/channels      →  typescript:core/interchange/frame       # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
+Runtime/channels      ⇄  python:runtime/transport                # [WIRE]: PROTO_VOCABULARY service contracts
+Runtime/channels      ⇄  python:geometry/mesh                    # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
+Runtime/progress      →  typescript:core/state/evidence          # [WIRE]: ProgressMarkWire
+Runtime               ←  python:geometry/mesh                    # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
+Runtime/codecs        ←  python:geometry/mesh                    # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
+Runtime/progress      →  typescript:core/interchange/codec       # [WIRE]: ProgressStore stream proto
+Runtime               ←  python:geometry                         # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
+Runtime/payload       →  csharp:Rasm.AppUi/Render/pipeline       # [PROJECTION]: ResidencyPayload blob+layout → AppUi ResidencyManifest.Mint meshopt bufferView
+Analysis              ←  csharp:Rasm.Element/Graph               # [SHAPE]: ElementGraph above seam; geometry one-hop via GeometrySource by key
+Analysis              →  csharp:Rasm.Element/Assessment          # [SHAPE]: Node.Assessment GraphDelta on neutral Assign edge, never IFC-named
+Analysis/aggregator   ←  csharp:Rasm.Element/Composition         # [SHAPE]: MaterialPropertySet + seam RatingContour.Stc.Fit; single-material acoustic folds
+Analysis/aggregator   →  csharp:Rasm.Materials/Properties        # [SHAPE]: multi-ply AssemblyAggregator; single-material authoring stays in Materials
+Analysis/structural   ←  csharp:Rasm.Bim/Model                   # [SHAPE]: StructuralReads Supports/Loads on Generic edges; axis by Representations.Axis
+Analysis/structural   ←  csharp:Rasm.Materials/Component         # [WIRE]: section capacity feeds the structural Assessment route
+Analysis              ←  csharp:Rasm.Materials/Properties        # [WIRE]: the Discipline-keyed MaterialPropertySet read off the Material node
+Analysis/lifecycle    ←  csharp:Rasm.Materials/Properties        # [WIRE]: lifecycle AggregateEnvironmental/AggregateCost folds + carbon/cost rollup
+Analysis/lifecycle    ←  csharp:Rasm.Fabrication/Nesting         # [PROJECTION]: NestYield.WasteAreaMm2 feeds the AggregateCost/Environmental rollup
+Runtime/codecs        ←  csharp:Rasm.Bim/Model                   # [CONTENT_KEY]: IfcRepresentation.Keys representation content-keys off the kernel seed-zero
+Analysis/energy       ⇄  csharp:Rasm.Bim/Energy/exchange         # [SHAPE]: OpenStudio SIMULATION distinct from Bim energy EXCHANGE
+Analysis/energy       ⇄  csharp:Rasm.Bim/Energy/projector        # [SHAPE]: Raises the boundary/opening/FootPrint/Qto shape EnergyGraphReads consumes
+Analysis/energy       →  csharp:Rasm.Persistence                 # [CONTENT_KEY]: EnergyPlus SqlFile results; 412-noop on the object store
+Analysis/energy       →  csharp:Rasm.Persistence/Store/blobstore # [CONTENT_KEY]: Pollination assets content-keyed via presigned row
+Analysis              →  csharp:Rasm.Persistence/Version/retention # [CONTENT_KEY]: content-keyed AssessmentPayload blob in RETENTION_CLASSES; 412-noop dedup
+Analysis/lifecycle    ⇄  csharp:Rasm.Bim/Planning                # [SHAPE]: embodied material-cost takeoff vs construction schedule, aligned never coupled
+Analysis/energy       ←  csharp:Rasm.Bim/Projection              # [PROJECTION]: SemanticProjector bakes boundary edges, FootPrint, Qto for EnergyGraphReads
+Analysis/lifecycle    ←  csharp:Rasm.Bim/Semantics               # [PROJECTION]: QuantitySet bakes Qto base-quantity bags TakeoffOf reads for per-ply GWP/cost
+Analysis/lifecycle    ←  csharp:Rasm.Element/Composition         # [SHAPE]: Environmental case (MeasurementBasis+per-stage StageGwp) ingress enriches via delta
+Runtime               ←  csharp:Rasm.Bim/Semantics               # [PROJECTION]: IFC/glTF semantic metadata layer
+Runtime/channels      →  csharp:Rasm.Bim/Semantics               # [TRANSPORT]: BsddPort bSDD GET (IncludeClassProperties mandatory) → BsddClassResponse degrade
+Runtime/codecs        ⇄  csharp:Rasm.Element/Graph               # [CONTENT_KEY]: Shares the kernel seed-zero XxHash128; InterchangeIdentity DISTINCT
+Runtime/codecs        ←  csharp:Rasm.Bim/Exchange                # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
+Runtime/codecs        ←  csharp:Rasm.Bim/Review                  # [TRANSPORT]: IdsAuditRequest ifctester two-hop rpc; verdict Bim-owned
+Symbolic              ⇄  python:compute + typescript:core/value/quantity # [WIRE]: QuantityFamily SI canonicalization over the wire to host-free peers
+Symbolic/dimensional  ⇄  csharp:Rasm.Element/Properties          # [SHAPE]: DimensionMonomial ℚ⁷ proof ↔ seam Dimension ℤ⁷ measure
+Symbolic/lowering     →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: compiled symbolic/cost/QTO formula reused by SymbolicExpr
+Model/embedding       ⇄  csharp:Rasm.Persistence/Query/lane      # [CONTENT_KEY]: EmbeddingVector.ContentKey ↔ VectorRow.ContentKey
+Model/identity        ←  csharp:Rasm/Domain                      # [CONTENT_KEY]: Checksum composes the kernel seed-zero ContentHash.Of; XxHash3 DISTINCT
+Model/sessions        →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ArtifactIndexRow blob keyed by checksum/FleetContextKey
+Model/inference       →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ModelResultKey → ModelResultIndex reuse read by reference (never re-minted)
+Tensor/factor         →  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ShardPlan.Blocked reuse; ModelResultIndex.Lookup resolves the salted RESIDENCE
+Runtime               ⇄  csharp:Rasm.Persistence/Version/commits # [GRADUATION]: HandoffAxis graduation evidence
+Runtime               →  csharp:Rasm.Persistence                 # [CONTENT_KEY]: content-keyed blob
+Runtime/scheduling    →  csharp:Rasm.Persistence                 # [SPILL]: JobGraph CheckpointPort persist/resume the JobCheckpoint over blob; memory-spill
+Runtime/channels      →  csharp:Rasm.Persistence/Version/ledger  # [WIRE]: GraphDiff/SubtreeFetch content-key set-difference wire; ledger dials algebra
+Runtime/codecs        ⇄  csharp:Rasm.Persistence/Query/cache     # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
+Runtime/receipts      →  csharp:Rasm.Persistence/Query/cache     # [PROJECTION]: BenchmarkClaim.Persist → BenchmarkRow gate; reads the ModelResultIndex
+Runtime/codecs        →  python:runtime/evidence/identity + typescript:core/value/contentKey # [WIRE]: XxHash128 seed-zero two-half
+Runtime               ←  csharp:Rasm.Persistence/Sync            # [PROJECTION]: content-key delta via FastCDC
+Tensor/dispatch       ⇄  csharp:Rasm.AppUi/Render                # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
+Runtime/admission     ←  csharp:Rasm.AppHost                     # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
+Runtime/scheduling    →  csharp:Rasm.AppHost/Runtime/lifecycle   # [PORT]: LaneDrain DrainParticipantPort per lane (band-200) into the conductor
+Runtime/codecs        ⇄  csharp:Rasm.Persistence/Query/pipeline  # [PORT]: parse-to-canonical-bytes (Extract)
+Compute               →  csharp:Rasm.Persistence/Store/quality   # [SHAPE]: geometry-derived anomaly rule source
+Runtime/codecs        ⇄  csharp:Rasm.Bim                         # [SHAPE]: SharpGLTF/meshopt leg split — Compute encodes residency/transport
+Model                 ←  csharp:Rasm.AppHost                     # [PORT]: IEmbeddingGenerator/IChatClient governed/priced by the AppHost middleware
+Runtime/channels      →  csharp:Rasm.Persistence/Sync            # [WIRE]: Wire the Confluent.SchemaRegistry.Serdes.Protobuf leg composes for Kafka
+Solver/clash          ←  csharp:Rasm/Spatial/index               # [WIRE]: Decodes via ClashScale.NodeLinkPairs
+Solver/discretization ←  csharp:Rasm/Numerics/predicates         # [SHAPE]: Kernel Predicate.Orient3D/InSphere verdicts satisfy by shape, no mint
+Solver/clash          →  csharp:Rasm.AppHost/Wire/livewire       # [RECEIPT]: DigitalTwin suggestion committed as a receipted ExternalValue
+Analysis              ←  csharp:Rasm/Meshing/slice               # [WIRE]: Kernel Slicing.Apply emits, Compute decodes
+Solver/contract       ←  csharp:Rasm.Element/Composition         # [SHAPE]: MaterialPropertySet elastic-D + inelastic read at Gauss via MechanicalOf
+Tensor/dispatch       ⇄  csharp:Rasm/Numerics/spectral           # [SHAPE]: TensorOpKind.Geometry rows bind OperatorRow; routes Apply JVP/Adjoint VJP
+Tensor/residency      ←  csharp:Rasm/Drawing/pack                # [CONTENT_KEY]: EncodedGeometry as EncodedTensor — residency never a re-pack
+Tensor/residency      ⇄  csharp:Rasm.AppHost/Sandbox/solver      # [SHAPE]: EncodingKind rows align onto the PackKind axis; Field/Toolpath land as PackKind rows
+Runtime               ⇄  python:compute/graduation               # [GRADUATION]: HandoffAxis graduation evidence
+Runtime               →  python:compute/graduation               # [WIRE]: EvidenceBundle graduation-evidence wire
+Runtime               ←  python:compute/solvers                  # [PROJECTION]: SolverReceipt convergence verdict
+Runtime               ←  python:data/tabular                     # [SHAPE]: DOE dataset / labelled-array study input
+Runtime               ←  python:data/spatial/geospatial          # [SHAPE]: GeoArrow buffers share GLB tessellation wire layout
 ```
 
 ## [03]-[SPINE]

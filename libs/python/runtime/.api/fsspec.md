@@ -65,12 +65,12 @@
 - scope law: writes, `with fs.transaction`, `cat_ranges` batched multi-range reads, named block-cache strategies, compression codecs, `FSMap`/`get_mapper` key-value views, `GenericFileSystem`/`rsync`, and instance serialization are the data folder's slice (`libs/python/data`) — a runtime fence never consumes them, so this catalog never carries them.
 
 [LOCAL_ADMISSION]:
-- `universal-pathlib` `UPath` is the path-object face over the same fsspec filesystem: that page owns the path surface, this page owns the filesystem-resolution + read surface, and the two share one resolved `AbstractFileSystem` via the registry cache (`roots.md:68`).
-- Object-store roots do NOT route through fsspec cloud backends: `obstore` is the runtime object-store transport (`roots.md:207,248`), and `UPath`+fsspec covers file/memory/local resolution — there is no `s3fs`/`gcsfs` backend admission in runtime.
+- `universal-pathlib` `UPath` is the path-object face over the same fsspec filesystem: that page owns the path surface, this page owns the filesystem-resolution + read surface, and the two share one resolved `AbstractFileSystem` via the registry cache (`roots.md` `ResourceRef.path`).
+- Object-store roots do NOT route through fsspec cloud backends: `obstore` is the runtime object-store transport (`roots.md` `OBJECT_STORE_SCHEMES` + the `_object_store` dispatch), and `UPath`+fsspec covers file/memory/local resolution — there is no `s3fs`/`gcsfs` backend admission in runtime.
 - `storage_options` originate in the `pydantic-settings` settings model, never inline literals; secrets never appear in a resolution call.
 
 [STACK_LAW]:
-- `url_to_fs(root_url, **storage_options)` -> the resolved `AbstractFileSystem` backs `UPath(root, protocol=scheme)` (`roots.md:68`) -> roots' `Transfer` reads through `fs.cat_file`/`_cat_file` under the anyio thread band (`roots.md:124-125`): one resolution, one shared filesystem, no per-scheme client branching.
+- `url_to_fs(root_url, **storage_options)` -> the resolved `AbstractFileSystem` backs `UPath(root, protocol=scheme)` (`roots.md` `ResourceRef.path`) -> roots' `Transfer` reads through the blocking-read offload under the anyio thread band (`roots.md` `_file_chunks`): one resolution, one shared filesystem, no per-scheme client branching.
 - consumers: roots' `Transfer` read leg (runtime) and compute's `UPath` model-asset resolution (`experiments/model.md`, compute campaign) both consume this shared resolution — the re-scope holds the read slice for both and drops nothing either needs.
 
 [RAIL_LAW]:

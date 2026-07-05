@@ -429,6 +429,10 @@ public sealed partial class ChunkPolicy {
     public uint Avg { get; }
     public uint Max { get; }
     private ChunkPolicy(string key, uint min, uint avg, uint max) : this(key) => (Min, Avg, Max) = (min, avg, max);
+
+    // The one chunker mint: a FastCdc instance is stateful one-shot, so every (re-)chunk mints fresh HERE —
+    // the policy row owns the ctor spelling and a call-site `new FastCdc(...)` is the deleted scatter.
+    public FastCdc Over(byte[] source) => new(source, Min, Avg, Max, eof: true);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -442,7 +446,7 @@ public static class ContentChunker {
         var source = payload.ToArray();
         // FastCdc `Chunk` exposes `Offset`/`Length` as `uint`; the span slice and the `int`-shaped `ContentChunk.Length`
         // take the explicit `int` cast (a >2-GiB payload partitions upstream, so the narrowing never truncates a live chunk).
-        var chunks = toSeq(new FastCdc(source, policy.Min, policy.Avg, policy.Max, eof: true).GetChunks()
+        var chunks = toSeq(policy.Over(source).GetChunks()
             .Select(cut => {
                 var span = source.AsSpan((int)cut.Offset, (int)cut.Length);
                 return new ContentChunk(ContentHash.Of(span), XxHash3.HashToUInt64(span), cut.Offset, (int)cut.Length);

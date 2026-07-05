@@ -97,12 +97,12 @@
 
 [INTEGRATION_STACK]:
 - grpcio leg: `aio_server_interceptor(tracer_provider, filter_)` threads into the `grpc.aio.server(interceptors=[...])` built from `.api/grpcio.md`; `aio_client_interceptors(...)` is the four-element list passed to `grpc.aio.insecure_channel(target, interceptors=[...])`. The sync legs use `grpc.server(interceptors=[server_interceptor(...)])` and `grpcext.intercept_channel(grpc.insecure_channel(target), client_interceptor(...))`. One interceptor object per channel/server, never per-call.
-- provider leg: `tracer_provider` and the `request_hook`/`response_hook` span objects are the `Tracer`/`Span` from `.api/opentelemetry-api.md`; the interceptor sets `rpc.system`/`rpc.service`/`rpc.method`/`rpc.grpc.status_code` semantic-convention attributes and propagates context across the wire automatically. The SDK provider install (`TracerProvider`, span processors, OTLP exporter) is the composition-root concern, never inside this row.
+- provider leg: `tracer_provider` and the `request_hook`/`response_hook` span objects are the `Tracer`/`Span` from the branch-tier `libs/python/.api/opentelemetry-api.md`; the interceptor sets `rpc.system`/`rpc.service`/`rpc.method`/`rpc.grpc.status_code` semantic-convention attributes and propagates context across the wire automatically. The SDK provider install (`TracerProvider`, span processors, OTLP exporter) is the composition-root concern, never inside this row.
 - single rail: the dense form is one filter predicate (`negate(any_of(health_check(), service_prefix("grpc.reflection")))`) shared by the matched client and server interceptors wired into the `grpcio` serve and dial legs under one OTel `tracer_provider`, with a `response_hook` recording the unary status detail as a span attribute — never a hand-rolled `grpc.aio.ServerInterceptor` subclass duplicating span emission.
 
 [LOCAL_ADMISSION]:
 - the serve leg admits `aio_server_interceptor` on its `grpc.aio` server; `GrpcAioInstrumentorServer` is the global fallback when the server is constructed outside runtime control.
-- spans, attributes, and propagation arrive settled from `.api/opentelemetry-api.md`; this page owns only the gRPC interceptor and filter surface.
+- spans, attributes, and propagation arrive settled from the branch-tier `libs/python/.api/opentelemetry-api.md`; this page owns only the gRPC interceptor and filter surface.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-instrumentation-grpc`

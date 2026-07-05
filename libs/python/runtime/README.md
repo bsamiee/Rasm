@@ -29,6 +29,7 @@ Every domain library this folder owns directly, planned or implemented. Versions
 - `pydantic-settings`
 - `keyring`
 - `google-cloud-secret-manager` — consumed live by the `execution/admission` `[03]-[SETTINGS]` `_probe` cloud arm
+- `google-crc32c` — `SecretPayload.data_crc32c` transport-integrity digest consumed by the `execution/admission` `[03]-[SETTINGS]` `cloud_read` fence
 
 [TRANSPORT]:
 - `httpx`

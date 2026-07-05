@@ -14,14 +14,9 @@ const SLICES = 4
 const STALL = 300000
 
 // --- [INPUTS] ---
-// Campaign row: {doc, root, pages?, governance?}. `pages` scopes the lane to an explicit landed
-// subset (in-flight sibling pages, index docs, .api, manifests, and the root doc become a WRITE
-// FENCE — findings there are recorded residuals, never edits) and skips the plan agent.
-// `governance: false` skips the governance verifier (in-flight tails own those surfaces).
 const argsIn = (typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args
 const CAMPS = (Array.isArray(argsIn) ? argsIn : [argsIn]).filter((c) => c && c.doc && c.root)
 if (!CAMPS.length) { log('No campaigns — pass {doc, root} or an array of pairs.'); return { campaigns: 0 } }
-const chunk = (a, n) => { const o = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o }
 
 // --- [MODELS] ---
 const PLAN = { type: 'object', additionalProperties: false, required: ['slices', 'governance'], properties: {
@@ -59,21 +54,13 @@ const HUNT = 'HUNT CLASSES: missing (a ruled motion, page, owner, case, band, se
 // --- [COMPOSITION] ---
 const lanes = await parallel(CAMPS.map((c) => async () => {
   const tag = c.root.split('/').pop()
-  const scoped = Array.isArray(c.pages) && c.pages.length > 0
-  const plan = scoped ? null : await agent(CTX(c) + '\n\nTASK: thin enumerate (read-only). List every design page under ' +
-    c.root + '/.planning/ (real ls/find, never memory) and partition them into ' + SLICES + ' balanced slices grouped by ' +
+  const plan = await agent(CTX(c) + '\n\nTASK: thin enumerate (read-only). List every design page under ' + c.root +
+    '/.planning/ (real ls/find, never memory) and partition them into ' + SLICES + ' balanced slices grouped by ' +
     'sub-folder in dependency order. Return `governance` as the campaign governance surface: the package README.md and ' +
     'ARCHITECTURE.md, the .csproj or language manifest rows for this package, the .api folder path, and ' + c.doc + '.',
     { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN, stallMs: STALL })
-  const slices = scoped ? chunk(c.pages, Math.ceil(c.pages.length / SLICES))
-    : ((plan && plan.slices) || []).filter((s) => s && s.length)
-  const gov = scoped ? [] : ((plan && plan.governance) || [])
-  const FENCE = scoped ? 'WRITE FENCE — the campaign is still IN FLIGHT: write ONLY within the scoped pages ' +
-    JSON.stringify(c.pages) + '. Index docs, .api catalogs, central manifests, the root doc, and every sibling page ' +
-    'outside the scope are FENCED — a validated finding or ripple landing there is RECORDED in `rejected` with reason ' +
-    '`fenced` (target + exact fix), never edited; the post-completion pass executes it. A scoped page that reads a ' +
-    'doc-frozen vocabulary owned by an in-flight page verifies against the doc\'s frozen contract, never the in-flight ' +
-    'page. ' : ''
+  const slices = ((plan && plan.slices) || []).filter((s) => s && s.length)
+  const gov = (plan && plan.governance) || []
   const verifyTasks = slices.map((pages, i) => () => agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: HOSTILE READ-ONLY VERIFY, ' +
     'slice ' + i + '. Read ' + c.doc + ' IN FULL — every ruling, page row, band, seam, rider, and acceptance trace that ' +
     'touches your pages. Then read each of these pages IN FULL plus every .api catalog its fences cite: ' +
@@ -81,7 +68,7 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     'ruled band/signature/charter, frozen names byte-identical — and attack past the ruling: the floor law means a ' +
     'page that merely met its disposition without depth is a naive finding. Return typed anchored findings.',
     { label: 'verify:' + tag + ':s' + i, phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
-  if (c.governance !== false && !scoped) verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' + c.doc +
+  verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' + c.doc +
     ' IN FULL, then audit the governance surface end to end: ' + JSON.stringify(gov) + '. Every acceptance trace ' +
     'resolves on disk (page exists, entry carries the ruled signature, seam anchor present); every rider has its landed ' +
     'receipt; the README router/package groups, ARCHITECTURE codemap + seams ledger (canonical [KIND] tags, mirrored ' +
@@ -91,9 +78,8 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
   const found = (await parallel(verifyTasks)).filter(Boolean)
   const all = found.flatMap((f) => f.findings || [])
   log(tag + ': ' + all.length + ' finding(s) from ' + found.length + ' verifier(s)')
-  const fix = await agent(CTX(c) + '\n\n' + HUNT + '\n\n' + FENCE + 'TASK: TERMINAL FINALIZE (WRITER — ' +
-    (scoped ? 'write authority scoped by the fence above' : 'full authority over ' + c.root +
-    ', its manifest rows, and ' + c.doc + ' where a finding proves the doc itself wrong') + '; you are the run\'s LAST agent, ' +
+  const fix = await agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: TERMINAL FINALIZE (WRITER — full authority over ' + c.root +
+    ', its manifest rows, and ' + c.doc + ' where a finding proves the doc itself wrong; you are the run\'s LAST agent, ' +
     'no phase follows you). Read ' + c.doc + ' IN FULL first. The verifier findings below are SIGNALS, not law: do not ' +
     're-litigate a correct finding — re-verify each on disk, then implement the STRONGEST resolution, which is the ' +
     'suggested fix only when that fix is already the root-level form; where a suggestion is weak, short-sighted, or a ' +
@@ -101,9 +87,8 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     'is rejected with reason). Then hunt PAST the signal list on your own authority — the hunt classes above over the ' +
     'corpus and governance surface as you work it — and fix what the verifiers missed; `beyond` enumerates those fixes, ' +
     'and an empty `beyond` attests your own hunt found nothing, never that it did not run. Every ripple an edit exposes ' +
-    'is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, manifest rows, .api anchors — ' +
-    'within your write authority; a ripple landing on a fenced surface is recorded with its exact fix, never silently ' +
-    'dropped. The run ends finalized. The floor law governs every page you touch: exceed the ruling with ' +
+    'is YOURS in the same pass: seam counterparts both ends, consumer sites, index docs, manifest rows, .api anchors — ' +
+    'the run ends finalized, nothing deferred. The floor law governs every page you touch: exceed the ruling with ' +
     'denser, deeper, more capable form. Frozen signatures and wire names stay byte-identical. ' +
     'FINDINGS: ' + JSON.stringify(all),
     { label: 'resolve:' + tag, phase: 'Resolve', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: STALL })

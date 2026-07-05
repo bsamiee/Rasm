@@ -18,12 +18,15 @@ libs/python/
 ## [02]-[SEAMS]
 
 ```text seams
-runtime   ←  csharp:Rasm              # [CONTENT_KEY]: XxHash128 content-identity seed decode parity
-runtime   ⇄  csharp:Rasm.AppHost      # [WIRE]: gRPC ServerHost + capability invoke + trace/OTLP egress
-runtime   ←  csharp:Rasm.Persistence  # [WIRE]: CRDT MessagePack op-log decode
-geometry  ⇄  csharp:Rasm.Bim          # [TESSELLATION]: GLB/IFC tessellation companion
-geometry  ⇄  csharp:Rasm.Compute      # [WIRE]: ComputeService/ArtifactSync GLB rail
-compute   →  csharp:Rasm.Compute      # [GRADUATION]: graduation evidence HandoffAxis
+runtime    ⇄  csharp:Rasm              # [CONTENT_KEY]: XxHash128 seed parity — both peers reproduce the one Domain/Identity seed
+runtime    ⇄  csharp:Rasm.AppHost      # [WIRE]: gRPC ServerHost + capability invoke + W3C trace / OTLP egress
+runtime    ⇄  csharp:Rasm.Persistence  # [WIRE]: CrdtOp / OpLogEntry MessagePack CRDT-delta op-log over the one wire vocabulary
+compute    ⇄  csharp:Rasm.Compute      # [GRADUATION]: HandoffAxis graduation evidence
+data       ⇄  csharp:Rasm.Persistence  # [WIRE]: Substrait portable plan + Arrow record-batch query interchange
+data       →  csharp:Rasm.Compute      # [SHAPE]: DOE dataset / labelled-array + GeoArrow study inputs
+geometry   ⇄  csharp:Rasm.Bim          # [TESSELLATION]: GLB/IFC tessellation companion
+geometry   ⇄  csharp:Rasm.Compute      # [WIRE]: ComputeService/ArtifactSync GLB rail
+artifacts  →  csharp:Rasm.Persistence  # [CONTENT_KEY]: signed-artifact content-key binding into the attested reuse ledger
 ```
 
 ## [03]-[DEPENDENCY_DIRECTION]
@@ -32,7 +35,7 @@ The direction is stated once, here. `runtime` is the foundation: it mints `Conte
 
 Two consumer-to-consumer compositions exist and are named here so neither is read as an interior import: `compute` composes `data` dataset and labelled-array shapes as study inputs, and `compute` accepts `geometry` evidence through the graduation `HandoffAxis` geometry case. Both are boundary compositions of a published shape, not interior coupling — `compute` re-catalogues neither, and `geometry` evidence crosses only on the single graduation rail. Every other cross-folder fact rides a folder task, never a per-folder seam ledger.
 
-The cross-language wire — the companion gRPC contract the geometry daemon serves, the content-identity seed parity with C#, the two-hop IFC/STEP tessellation rail, and the graduation-evidence seam — couples Python to C# only at the wire and lives on the owning folder tasks and the cross-`libs/` ledger, never on a Python-branch surface.
+The cross-language wire — the companion gRPC contract the geometry daemon serves, the content-identity seed parity with C#, the two-hop IFC/STEP tessellation rail, the Substrait/Arrow query interchange, and the graduation-evidence seam — couples Python to C# only at the wire. `[2]-[SEAMS]` records the package-level aggregate; the file-level detail lives on the owning folder `ARCHITECTURE.md`, its tasks, and the cross-`libs/` ledger.
 
 ## [04]-[ADMISSION_POLICY]
 

@@ -13,20 +13,20 @@ Rasm.Fabrication/
 │   ├── Family.cs       # Process/machine removal-modality discriminant; PostDialect override resolves independently of the Process-bound default
 │   ├── Physics.cs      # Removal-physics table projecting modality-discriminated RemovalBudget plus the (Material, Tool, Operation) cutting-data table
 │   ├── Magazine.cs     # Tool-magazine carousel/turret/manual slot map, ToolAssembly holder geometry, and minimal-swap tool-change schedule
-│   └── Faults.cs       # FabricationFault band-2500 composing kernel band-2400
+│   └── Faults.cs       # FabricationFault band-2700 composing kernel band-2400
 ├── Polygon/            # 2D polygon-algebra substrate over Clipper2 and profile-ingress boundary
 │   ├── Clipper.cs      # 2D polygon algebra over Clipper2: offset, Boolean clip, Minkowski sum/diff, variable-delta offset
 │   └── Import.cs       # DXF/DWG profile ingress tessellated into Loop through ACadSharp
 ├── Toolpath/           # CAM motion plus kinematic, safety, metrology, and additive author-kernels
 │   ├── Motion.cs       # CutStrategy × RemovalModality CAM move family over Geometry2D offset
-│   ├── Skeleton.cs     # Trochoidal toolpath primitive over the kernel clearance family — Offsetting.Apply medial/clearance-radius + Skeletonize.Apply 3D curve-skeleton with the Clearance(probe) query; the in-folder wavefront/medial solver dies
+│   ├── Skeleton.cs     # Trochoidal fold over the kernel clearance family: Offsetting.Apply Medial + Skeletonize.Apply CurveSkeleton; medial solver dies
 │   ├── Slicing.cs      # FFF/DED infill + deposition planner over the kernel Slicing.Apply SliceStack wire; the in-folder planar-section author-kernel dies
 │   ├── Kinematics.cs   # Robots-cell serial-chain solver (FK/IK, reach/limit/singularity validation, cell-dialect post)
 │   ├── Guard.cs        # Swept tool-plus-holder collision/gouge guard and collision-aware lift retract
-│   └── Probing.cs      # QUEUED (IDEAS): touch-probe cycle vocabulary, work-offset/tool-length metrology, measured-feature receipt — anchors live in Faults/Magazine/Posting
+│   └── Probing.cs      # QUEUED (IDEAS): touch-probe cycles, work-offset/tool-length metrology, measured-feature receipt; anchors in Faults/Magazine/Posting
 ├── Nesting/            # 2D true-shape nesting, the rectangular cutting-stock yield engine, plus multi-setup workholding keep-out
 │   ├── Nfp.cs          # NFP-feasibility true-shape nesting over a Seq<Stock> inventory with bottom-left/genetic placement
-│   ├── Stock.cs        # One StockNest.Pack cutting-stock fold over the NestStrategy [Union] collapsing the five RectangleBinPack packers into the NestPlan/NestYield sheet-yield engine
+│   ├── Stock.cs        # StockNest.Pack fold over the NestStrategy [Union] collapsing five RectangleBinPack packers into NestPlan/NestYield engine
 │   └── WorkHolding.cs  # Workholder keep-out family plus multi-fixture-setup scheduler conditioning toolpath and cut sequence
 └── Posting/            # Host-neutral downstream emission: cut-program and hidden-line projection
     ├── Program.cs      # Dialect-neutral G-code AST and PostDialect cut-conditioning family
@@ -38,24 +38,25 @@ The `Process` owner and the `Polygon` substrate are read by every kernel, the `P
 ## [02]-[SEAMS]
 
 ```text seams
-*                   →  csharp:Rasm.Element/Projection            # [PROJECTION]: depends up on {Rasm, Rasm.Element}; a future FabricationProjector:IElementProjection lowers fabrication output onto the seam ElementGraph as one registration row — AEC peers align via the seam, never each other [§4A]
-Posting/projection  ←  csharp:Rasm/Numerics/predicates           # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
-Posting/projection  ←  csharp:Rasm/Meshing/arrangement           # [WIRE]: Arrangement Apply/ToMesh kept-cell watertight outline for the BooleanSolid silhouette arm
-Posting/projection  ←  csharp:Rasm/Meshing/arrangement           # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries
-Posting/projection  ←  csharp:Rasm/Spatial/index                 # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
-Posting/projection  ←  csharp:Rasm/Drawing/view                  # [PROJECTION]: DrawingProjection exact analytic QI visible/hidden segments — the ONE visibility solve; the in-folder BSP solver dies
-Posting/projection  →  csharp:Rasm.AppUi/Render                  # [RECEIPT]: HiddenLineResult Viewport2D edge sets — a thin projection of the kernel DrawingProjection, superseding the AppUi painter sort
-Toolpath/slicing    ←  csharp:Rasm/Meshing/slice                 # [WIRE]: Slicing.Apply SliceStack five-channel wire (layers · contours · nesting forest · open chains · elevations) — the promised re-route REALIZED; the in-folder planar section dies
-Process/physics     ←  csharp:Rasm.Materials/Properties          # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars admitted as raw doubles at the AEC-peer boundary (NOT a reference — the acyclic strata forbids the peer crossing)
-Nesting/stock       →  Nesting/nfp                               # [SHAPE]: the resolved StockNest.Pack NestPlan rides FabricationInput.Plan and the Nest.Honor fold maps each NestPlacement straight to a PartTransform rather than re-packing — stock owns the rectangular cutting-stock YIELD, nfp the true-shape irregular NEST, the deleted CuttingPlan/PlannedPlacement wire mirror superseded by the in-package seam
-Nesting/stock       →  csharp:Rasm.Compute                       # [PROJECTION]: NestYield.WasteAreaMm2 feeds the AggregateEnvironmental/AggregateCost rollup through the seam Material node's Environmental/Cost cases — the recorded next-campaign Compute counterpart
-Polygon/import      ←  csharp:Rasm.Bim/Exchange                  # [SHAPE]: ACadSharp managed DWG/DXF DxfDocument/CadDocument read codec — Bim is the AEC-DOMAIN host-neutral CAD-interchange owner of the read surface; Fabrication consumes the read seam for 2D profile ingress over the same central ACadSharp pin (netDxf in AppUi owns the distinct WRITE leg). Mirrors the Bim-side Exchange/format ⇄ Rasm.Fabrication row (NOT a reference — the acyclic strata forbids the AEC peer crossing)
-Posting/program     →  csharp:Rasm.Persistence/Schema            # [WIRE]: CutProgram AST content-addressed durable-row projection
-Nesting/nfp         →  csharp:Rasm.Persistence/Schema            # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
-Nesting/nfp         ←  csharp:Rasm/Processing/flatten            # [PROJECTION]: ChartAtlas unrolled UV islands + DistortionReceipt as true-shape part input
-Toolpath/guard      ←  csharp:Rasm/Spatial/index                 # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
-Toolpath/probing    →  csharp:Rasm.Fabrication/Posting           # [WIRE]: QUEUED — ProbeCycle G38/G10 GWord rows + measured WorkOffset (the probing page is the IDEAS-queued sub-domain)
-*                   →  csharp:Rasm                               # [SHAPE]: Matrix / Point3d / Vector3d
+*                   →  csharp:Rasm.Element/Projection    # [PROJECTION]: FabricationProjector:IElementProjection lowers onto the seam ElementGraph [§4A]
+Posting/projection  ←  csharp:Rasm/Numerics/predicates   # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
+Posting/projection  ←  csharp:Rasm/Meshing/arrangement   # [WIRE]: Arrangement Apply/ToMesh kept-cell watertight outline, BooleanSolid arm
+Posting/projection  ←  csharp:Rasm/Meshing/arrangement   # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries
+Posting/projection  ←  csharp:Rasm/Spatial/index         # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
+Posting/projection  ←  csharp:Rasm/Drawing/view          # [PROJECTION]: DrawingProjection exact QI visible/hidden segments — the ONE visibility solve
+Posting/projection  →  csharp:Rasm.AppUi/Render          # [RECEIPT]: HiddenLineResult Viewport2D edge sets; supersedes the AppUi painter sort
+Posting/projection  →  csharp:Rasm.AppUi/Render/drafting # [BOUNDARY]: HiddenLineSeam over the kernel DrawingProjection analytic HLR
+Toolpath/slicing    ←  csharp:Rasm/Meshing/slice         # [WIRE]: Slicing.Apply SliceStack five-channel wire; in-folder planar section dies
+Toolpath/skeleton   ⇄  csharp:Rasm/Meshing/offset        # [SHAPE]: ONE 2D/3D clearance family — Offsetting.Apply Medial + Clearance(probe) radius
+Toolpath/skeleton   ←  csharp:Rasm/Meshing/skeleton      # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — 3D half of clearance family
+Process/physics     ←  csharp:Rasm.Materials/Properties  # [WIRE]: Conductivity/SpecificHeat/Density as raw doubles — AEC-peer boundary, NOT reference
+Polygon/import      ←  csharp:Rasm.Bim/Exchange          # [SHAPE]: ACadSharp DWG/DXF read codec — Bim owns read surface, Fab consumes 2D ingress
+Posting/program     →  csharp:Rasm.Persistence/Schema    # [WIRE]: CutProgram AST content-addressed durable-row projection
+Nesting/nfp         →  csharp:Rasm.Persistence/Schema    # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
+Nesting/nfp         ←  csharp:Rasm/Processing/flatten    # [PROJECTION]: ChartAtlas unrolled UV islands + DistortionReceipt as true-shape part input
+Nesting/stock       →  csharp:Rasm.Compute               # [PROJECTION]: NestYield.WasteAreaMm2 feeds Compute AggregateCost/Environmental rollup
+Toolpath/guard      ←  csharp:Rasm/Spatial/index         # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
+*                   →  csharp:Rasm                       # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 
 ## [03]-[PLANNED_DEPTH]

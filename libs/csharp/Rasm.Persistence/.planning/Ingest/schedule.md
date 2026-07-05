@@ -262,15 +262,20 @@ public static class ProjectRows {
 }
 
 // The write-leg synthesis fold — the members that make the egress row REAL rather than chartered prose:
-// `AddTask` keyed activities (parents re-looked-up through `GetTaskByUniqueID`), `Relation.Builder` per DAG
-// edge with the unit-tagged lag re-minted through `Duration.GetInstance`, `AddCalendar`/`AddResource` rows.
-// Assignment synthesis is one more fold row over the same builder seam when a consumer round-trips loading.
+// WBS children minted THROUGH their parent (`Task.AddTask()` — the `ChildTasks` hierarchy reconstructs from
+// the flat `Parent` options, so parentage round-trips), `Relation.Builder` per DAG edge with the unit-tagged
+// lag re-minted through `Duration.GetInstance`, `AddCalendar` + `AddCalendarException` windows (a `Working`
+// override re-opens the standard shift — the durable row carries the window, not per-exception hours), and
+// `Task.AddResourceAssignment(Resource)` loading rows — every durable row family the ingest captures re-emits.
 public static class Synthesis {
+    // A Working exception re-opens this shift: the durable `CalendarException` persists the window and the
+    // working flag, so the re-emitted day carries the standard span, never a silently-non-working override.
+    static readonly TimeOnlyRange DefaultShift = new(new TimeOnly(8, 0), new TimeOnly(17, 0));
+
     public static ProjectFile Fold(ScheduleProject project) {
         ProjectFile file = new();
-        foreach (ScheduleActivity activity in project.Activities) {                       // Exemption: the IKVM builder seam is imperative by contract — the proxy graph mutates in place
-            Task task = file.AddTask();
-            (task.UniqueID, task.Name, task.PercentageComplete) = (activity.Key, activity.Name, activity.Percent);
+        foreach (ScheduleActivity root in project.Activities.Filter(static a => a.Parent.IsNone)) {      // Exemption: the IKVM builder seam is imperative by contract — the proxy graph mutates in place
+            Grow(file.AddTask(), root, project);
         }
         foreach (TaskRelation edge in project.Relations) {
             _ = new Relation.Builder(file)
@@ -280,13 +285,34 @@ public static class Synthesis {
                 .Lag(edge.Lag.Wire)
                 .Build();
         }
-        foreach (WorkCalendarRow calendar in project.Calendars) { file.AddCalendar().Name = calendar.Name; }
+        foreach (WorkCalendarRow calendar in project.Calendars) {
+            ProjectCalendar made = file.AddCalendar();
+            made.Name = calendar.Name;
+            calendar.Exceptions.Iter(e => {
+                ProjectCalendarException window = made.AddCalendarException(Day(e.From), Day(e.To));
+                if (e.Working) { window.Add(DefaultShift); }                                             // no ranges = non-working (MPXJ's own discriminant)
+            });
+        }
         foreach (ResourceRow resource in project.Resources) {
             Resource row = file.AddResource();
             (row.UniqueID, row.Name) = (resource.Key, resource.Name);
         }
+        foreach (AssignmentRow loading in project.Assignments) {
+            ResourceAssignment made = file.GetTaskByUniqueID(loading.Activity).AddResourceAssignment(file.GetResourceByUniqueID(loading.Resource));
+            (made.Units, made.Work, made.Cost) = (loading.Units, loading.Work.Wire, loading.Cost);
+        }
         return file;
     }
+
+    // Depth-first re-parenting over the flat Parent map: a child task is minted through its parent so the
+    // proxy hierarchy matches the durable rows exactly — relations and assignments then resolve by UniqueID.
+    static void Grow(Task task, ScheduleActivity activity, ScheduleProject project) {
+        (task.UniqueID, task.Name, task.PercentageComplete) = (activity.Key, activity.Name, activity.Percent);
+        project.Activities.Filter(a => a.Parent == Some(activity.Key)).Iter(child => Grow(task.AddTask(), child, project));
+    }
+
+    static DateOnly Day(Option<Instant> at) =>
+        at.Map(static i => DateOnly.FromDateTime(i.ToDateTimeUtc())).IfNone(DateOnly.MinValue);
 }
 ```
 
@@ -309,7 +335,7 @@ public static class Synthesis {
 - Owner: the durable-row family `[02]` declares — `ScheduleProject` the per-project aggregate, `ScheduleActivity` the WBS-threaded activity row, `TaskRelation` the CPM edge row, `WorkCalendarRow`/`CalendarException` the working-time record, `ResourceRow`/`AssignmentRow` the loading record, `ScheduleAnchor` the project header — persisted through the store rail as the app's element projection dictates; this section owns the PROJECTION LAW, not a second type set.
 - Cases: an activity's WBS parentage is the `Parent` option threaded from `ChildTasks` reachability (the flat `Tasks` container plus one parent map — never a recursive durable tree, so the row set is depth-free and bulk-lane-shaped); a dependency edge lands ONCE from the predecessor side of MPXJ's symmetric `Predecessors`/`Successors` pair; a calendar exception window is `(From, To, Working)` so holiday and worked-weekend overrides are one row shape; an assignment is `(Activity, Resource, Units, Work, Cost)` — the 5D loading row `Rasm.Bim`'s cost network lifts (each raw `double` becomes `Money`/`UnitsNet` at ITS boundary, never here).
 - Entry: NONE — the rows are values the `[02]` ops yield and accept; the store-rail write is the app's (`Element/graph#STORE_RAIL`), the columnar/bulk landing is `Ingest/tabular#BULK_LANE`'s three-row boundary law applied to these typed rows.
-- Auto: round-trip fidelity is structural — `ProjectRows.Of` then `Synthesis.Fold` reconstructs the activity set, the full relation DAG with kinds and unit-tagged lags, calendars, and resources, so a P6 XER ingested and re-serialized as XER preserves the network byte-meaningfully (field-level fidelity beyond the durable row set — baselines, activity codes, custom fields — widens as rows on `ScheduleActivity`, never as a retained `ProjectFile`); slack rows (`TotalSlack`/`FreeSlack`) persist as PARSED evidence of the source tool's last CPM pass, never recomputed here.
+- Auto: round-trip fidelity is structural — `ProjectRows.Of` then `Synthesis.Fold` reconstructs the WBS-parented activity hierarchy (children minted through `Task.AddTask()` off the flat `Parent` options), the full relation DAG with kinds and unit-tagged lags, the calendars WITH their exception windows, the resources, and the resource-assignment loading rows, so a P6 XER ingested and re-serialized as XER preserves the network byte-meaningfully (per-exception hour ranges re-open as the standard shift — the one durable-row narrowing; field-level fidelity beyond the durable row set — baselines, activity codes, custom fields — widens as rows on `ScheduleActivity`, never as a retained `ProjectFile`); slack rows (`TotalSlack`/`FreeSlack`) persist as PARSED evidence of the source tool's last CPM pass, never recomputed here.
 - Receipt: none of its own — the rows ride `[02]`'s facts.
 - Packages: covered by `[02]`.
 - Growth: a baseline set is one `Seq<BaselineRow>` field on `ScheduleActivity`; an activity-code assignment is one `HashMap<string,string>` row; a constraint vocabulary hardening is `ConstraintKind` graduating from string evidence to a `[SmartEnum<string>]` when a consumer dispatches on it; zero new surface — a durable `ProjectFile` blob, a per-dialect row family, or a recomputed-slack column is the deleted form because the neutral row set IS the durable record and the source tool's arithmetic is evidence, not authority.

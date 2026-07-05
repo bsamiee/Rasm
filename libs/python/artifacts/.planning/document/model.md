@@ -320,7 +320,7 @@ class FormulaNode(Struct, frozen=True, tag=NodeKind.FORMULA.value, tag_field="ki
     # the tree-resident equation the `FORMULA` `StructEltKind` role lowers, so a formula is source-addressable
     # (journal manuscript egress + AEC `ziamath` SVG) rather than only a pre-rendered `FigureNode`.
     meta: NodeMeta
-    tex: str  # LaTeX math source — the interchange notation `to_latex`/`to_markdown` emit verbatim and the `ziamath` renderer lowers to SVG; a TRUSTED authored math island, never markup-escaped
+    tex: str  # LaTeX math source `to_latex`/`to_markdown` emit verbatim, `ziamath` lowers to SVG; a TRUSTED authored math island, never markup-escaped
     display: bool = False  # block/display math (`\[..\]`, `$$..$$`, Typst `#mitex`) vs inline (`$..$`, Typst `#mi`)
     alt: AltText = ""  # the ISO 14289 `Formula` structure-element `/Alt` text equivalent the `folder:document/tagged#ACCESS` AUDIT verifies
 
@@ -692,7 +692,7 @@ def _typst_body(node: DocumentNode) -> str:
             x, y = point if point else (0.0, 0.0)
             return f"#link((page: {page + 1}, x: {x}pt, y: {y}pt))[{_typst(text, TypstScope.MARKUP)}]"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Xref() as xref):
-            # the cross-sheet citation is a destination string the `composition/imposition` sheet-set assembly resolves — never a `label()` this single compilation must carry
+            # the cross-sheet citation is a destination string `composition/imposition` sheet-set assembly resolves — never a `label()` this compilation carries
             return f'#link("{_typst(xref.cite(), TypstScope.STRING)}")[{_typst(text, TypstScope.MARKUP)}]'
         case FieldNode() | AnnotationNode():
             return ""

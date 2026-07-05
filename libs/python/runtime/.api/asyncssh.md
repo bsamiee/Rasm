@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_ASYNCSSH]
 
-`asyncssh` is the pure-Python asyncio SSHv2/SFTP client over the `cryptography` backend; runtime consumes one narrow slice of it. Roots' `_sftp_session` chain (`roots.md:31,63`) opens `connect` -> `start_sftp_client` -> `SFTPClient.open` for whole-fetch and streamed reads, configured by one `SSHClientConnectionOptions` (password + verified `known_hosts`), and admission's `SecretBoundary.known_hosts` loads the host-key database via `read_known_hosts` (`admission.md:371`). That SFTP-read + known-hosts + connection-options slice is the consume. Server sessions, the forwarding family, remote process execution, SCP, key/certificate mint-export, and the ssh-agent are unconsumed and out of runtime scope.
+`asyncssh` is the pure-Python asyncio SSHv2/SFTP client over the `cryptography` backend; runtime consumes one narrow slice of it. Roots' `_sftp_session` chain (`roots.md` `_sftp_session`/`_sftp_read`/`_sftp_chunks`) opens `connect` -> `start_sftp_client` -> `SFTPClient.open` for whole-fetch and streamed reads, configured by one `SSHClientConnectionOptions` (password + verified `known_hosts`), and admission's `SecretBoundary.known_hosts` loads the host-key database via `read_known_hosts`. That SFTP-read + known-hosts + connection-options slice is the consume. Server sessions, the forwarding family, remote process execution, SCP, key/certificate mint-export, and the ssh-agent are unconsumed and out of runtime scope.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -43,7 +43,7 @@
 
 [ENTRYPOINT_SCOPE]: connection and SFTP-read chain
 - rail: transport
-- `connect` takes `options=SSHClientConnectionOptions`; the connection and SFTP client are async context managers registered on one `AsyncExitStack` (`roots.md:316`).
+- `connect` takes `options=SSHClientConnectionOptions`; the connection and SFTP client are async context managers registered on one `AsyncExitStack` (`roots.md` `_sftp_session`).
 
 | [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
@@ -54,7 +54,7 @@
 
 [ENTRYPOINT_SCOPE]: connection-options and host-key verification
 - rail: transport
-- `SSHClientConnectionOptions` is built once from the settings model (`roots.md:309`); `read_known_hosts` loads the trust database at admission (`admission.md:371`, ENTRYPOINTS [02]).
+- `SSHClientConnectionOptions` is built once from the settings model (`roots.md` `_ssh_options`); `read_known_hosts` loads the trust database at admission (`admission.md` `SecretBoundary.known_hosts`, ENTRYPOINTS [02]).
 
 | [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
@@ -64,10 +64,10 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TRANSPORT_TOPOLOGY]:
-- connection law: SFTP reads run `async with connect(..., options=...)` -> `start_sftp_client()` under the anyio lane, both contexts on one `AsyncExitStack` so the connection and SFTP client close deterministically on exit, never leaked across the event loop (`roots.md:316,342`).
+- connection law: SFTP reads run `async with connect(..., options=...)` -> `start_sftp_client()` under the anyio lane, both contexts on one `AsyncExitStack` so the connection and SFTP client close deterministically on exit, never leaked across the event loop (`roots.md` `_sftp_session`).
 - options law: connection configuration is one `SSHClientConnectionOptions` built from the settings-model password and the admission-supplied `known_hosts`, never scattered `connect(host, port=, password=, known_hosts=)` keyword soup duplicated per call.
-- verification law: host keys verify against the `SSHKnownHosts` database `read_known_hosts` loads at admission; disabled verification (`known_hosts=None`) is never used. The `password.get_secret_value()` un-mask happens only inside `_ssh_options` (`roots.md:311-313`).
-- read law: file movement is SFTP read only — `SFTPClient.open(...).read()` for whole fetch and an offset-driven loop for streamed chunks (`roots.md:324,329`); there is no `subprocess` shell-pipe, no SCP, no write leg.
+- verification law: host keys verify against the `SSHKnownHosts` database `read_known_hosts` loads at admission; disabled verification (`known_hosts=None`) is never used. The `password.get_secret_value()` un-mask happens only inside `_ssh_options`.
+- read law: file movement is SFTP read only — `SFTPClient.open(...).read()` for whole fetch and an offset-driven loop for streamed chunks (`roots.md` `_sftp_read`/`_sftp_chunks`); there is no `subprocess` shell-pipe, no SCP, no write leg.
 - resilience law: transient connection faults (`ConnectionLost`, `DisconnectError`) retry through the `stamina` owner keyed by the `TransferPlan.retry_class`; `HostKeyNotVerifiable`/`PermissionDenied` and the `SFTPNoSuchFile`/`SFTPPermissionDenied` read faults are terminal, lifted to a `BoundaryFault` immediately.
 - scope law: server sessions (`listen`/`SSHServer`), the local/remote/SOCKS/UNIX forwarding family, remote process execution (`run`/`create_process`), native `scp()`, key/certificate import-generate-export, and the ssh-agent client are UNCONSUMED in runtime — this catalog carries none of them; any future need is a live fence, not a speculative re-catalog.
 
@@ -77,7 +77,7 @@
 - The dual EPL-2.0/GPL-2.0-or-later license constrains redistribution: asyncssh is consumed as an unmodified library dependency over its public API — never vendored, statically embedded, or modified in-tree.
 
 [STACK_LAW]:
-- `SSHClientConnectionOptions(password=<settings SecretStr>, known_hosts=<admission SSHKnownHosts>)` (`roots.md:309`) -> `async with connect(host, port=port, options=options)` -> `start_sftp_client()` -> `SFTPClient.open(relative).read()` (`roots.md:316-326`): one options object, one exit stack, configuration flowing from the `pydantic-settings` settings model and the admission host-key loader.
+- `SSHClientConnectionOptions(password=<settings SecretStr>, known_hosts=<admission SSHKnownHosts>)` (`roots.md` `_ssh_options`) -> `async with connect(host, port=port, options=options)` -> `start_sftp_client()` -> `SFTPClient.open(relative).read()` (`roots.md` `_sftp_session`/`_sftp_read`): one options object, one exit stack, configuration flowing from the `pydantic-settings` settings model and the admission host-key loader.
 
 [RAIL_LAW]:
 - Package: `asyncssh`

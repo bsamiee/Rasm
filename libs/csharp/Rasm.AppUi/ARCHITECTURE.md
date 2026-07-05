@@ -12,10 +12,10 @@ Rasm.AppUi/
 │   ├── Navigation.cs     # Routing spine with deep-link grammar over Dock-driven dockable layouts
 │   ├── Screens.cs        # Screen catalog, ref-counted activation, OAPH-paced state, control-intent stream body
 │   ├── Hosts.cs          # Host-neutral SurfaceHost mounting with seam delegate columns
-│   ├── Commands.cs       # One CommandIntent vocabulary with availability algebra and total receipts
-│   ├── Controls.cs       # One ControlIntent [Union] materialized through ControlFactory over BehaviorRail.Intent
+│   ├── Commands.cs       # CommandIntent vocabulary with availability algebra and total receipts
+│   ├── Controls.cs       # ControlIntent [Union] materialized through ControlFactory over BehaviorRail.Intent
 │   ├── Solver.cs         # LayoutConstraint Kiwi algebra solved by one LayoutSolver custom Avalonia panel
-│   ├── Virtualization.cs # One VirtualWindow owner over DynamicData change-sets every windowed surface consumes
+│   ├── Virtualization.cs # VirtualWindow owner over DynamicData change-sets every windowed surface consumes
 │   ├── Dialogs.cs        # Typed-Fin dialog intents with dismissal-as-value and host-agnostic pickers
 │   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, InputFabric device drivers
 │   └── Accessibility.cs  # Automation identity, tab-order/trap law, one WCAG luminance gate
@@ -36,6 +36,7 @@ Rasm.AppUi/
 │   ├── Inspector.cs      # Typed PropertyGrid inspection with ranked editor-factory rows and conflict resolution
 │   ├── Tables.cs         # Tabular/hierarchical projection with column-metadata family routed through VirtualWindow
 │   ├── Notebook.cs       # Reproducible computational document with CapabilityPin cells and CRDT co-editing
+│   ├── Collab.cs         # LoroDoc-backed CollabDoc merge authority every co-edited surface composes; op-log sync, presence, Frontiers time-travel
 │   ├── LiveData.cs       # Reactive data spine over closed DataSource cases and DynamicData operators
 │   ├── Forms.cs          # FormSchema+wizard through ControlFactory, selection batch-edit folding one CommandReceipt
 │   ├── History.cs        # RevertibleOp inverse algebra over CancelableCommandRecorder + durable op-log
@@ -51,24 +52,24 @@ Rasm.AppUi/
     └── Locale.cs         # Resx/ICU/NodaTime locale rows with pseudo-locale conformance and RTL mirroring
 ```
 
-`Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, control, layout, virtualization, dialog, input, and accessibility pages ride the same spine — `controls` materializes the one `ControlIntent` family through `ControlFactory`, `solver` solves the `LayoutConstraint` algebra in one `LayoutSolver` panel, and `virtualization` owns the one `VirtualWindow` every windowed surface consumes. `Theme` is the vocabulary tier every literal traces to. `Render` is the GPU render surface — `pipeline` drives the frame pass-DAG and draws the `meshlets` cluster-LOD and the `pathtrace` integrator, `drafting`, `reality`, and `evidence` resolve over the receipt spine, the `capture` codec, and the GPU render-target factory, and `shading` and `immersive` deepen it (the GPU shader-asset cache feeding the `LayeredBsdf` shade, the OpenXR stereo surface) without minting a parallel scene model or a second GPU device. `Charts` and `Editing` project over the same receipt spine; `forms` and `history` deliver declarative forms, batch editing, and the one revertible-op inverse algebra over `PropertyModels`, `media` renders markdown inlines and mounts codec rows on the one `SurfaceSeam`, `Editing/issues` composes the viewport, notebook, and chart owners as a pure board PROJECTION over the `Rasm.Bim`-owned BCF topic contract, and `Editing/tour` rides the animation playhead.
+`Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, control, layout, virtualization, dialog, input, and accessibility pages ride the same spine — `controls` materializes the one `ControlIntent` family through `ControlFactory`, `solver` solves the `LayoutConstraint` algebra in one `LayoutSolver` panel, and `virtualization` owns the one `VirtualWindow` every windowed surface consumes. `Theme` is the vocabulary tier every literal traces to. `Render` is the GPU render surface — `pipeline` drives the frame pass-DAG and draws the `meshlets` cluster-LOD and the `pathtrace` integrator, `drafting`, `reality`, and `evidence` resolve over the receipt spine, the `capture` codec, and the GPU render-target factory, and `shading` and `immersive` deepen it (the GPU shader-asset cache feeding the `LayeredBsdf` shade, the OpenXR stereo surface) without minting a parallel scene model or a second GPU device. `Charts` and `Editing` project over the same receipt spine; `forms` and `history` deliver declarative forms, batch editing, and the one revertible-op inverse algebra over `PropertyModels`, `media` renders markdown inlines and mounts codec rows on the one `SurfaceSeam`, `Editing/issues` composes the viewport, notebook, and chart owners as a pure board PROJECTION over the `Rasm.Bim`-owned BCF topic contract, and `Editing/tour` rides the animation playhead. `Editing/collab` is the one `CollabDoc` `LoroDoc`-backed CRDT merge authority the notebook, issue-board, table, and live-data annotation surfaces compose — no per-surface last-writer-wins register or fractional-index algebra survives beside it, its op-log delta projects onto the `Rasm.Persistence` op-log and its content-keyed snapshot crosses the blob lane.
 
 ## [02]-[SEAMS]
 
 ```text seams
 Shell/commands    →  typescript:core/interchange/codec           # [WIRE]: CommandPayloadWire + AvailabilityStore gate
-Render/capture    →  typescript:core/interchange/codec           # [PROJECTION]: RenderReceiptWire frame-hash proof
+Render/capture    →  typescript:core/interchange/codec           # [WIRE]: RenderReceiptWire frame-hash proof
 Render/capture    →  typescript:ui/viewer                        # [RECEIPT]: RenderReceipt claims paired with local render evidence at the probe plane
-Render/evidence   →  typescript:core/state/feed                  # [PROJECTION]: EvidenceFeed / EvidenceTimeline
-Render/pipeline   →  typescript:core/interchange/codec           # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
+Render/evidence   →  typescript:core/state/feed                  # [WIRE]: EvidenceFeed / EvidenceTimeline
+Render/pipeline   →  typescript:core/interchange/codec           # [WIRE]: GeometryResidencyWire ResidencyManifest content-key
 Render/glb        →  typescript:ui/viewer                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
 Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation
 Editing/notebook  ←  csharp:Rasm.AppHost/Runtime                 # [PORT]: DeterminismContext / CapabilityPin environment identity
 Render/query      ←  csharp:Rasm.Bim/Model                       # [PORT]: ElementSet query algebra via capability descriptor
 Charts            ←  csharp:Rasm.Bim/Semantics/geospatial        # [SHAPE]: Basemap draws Bim-owned NetTopologySuite as map overlays beside the Wgpu viewport
 Charts            ←  csharp:Rasm.Bim/Planning                    # [RECEIPT]: ScheduleNetwork CPM/4D/CostSchedule/etc Render as Charts/dashboards projections
-Editing           ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: annotation collaboration op-log
-Editing/notebook  ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: NotebookOp op-log
+Editing/collab    →  csharp:Rasm.Persistence/Store               # [CONTENT_KEY]: CollabSnapshot XxHash128 op-log-snapshot accelerator blob
+Editing/collab    →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: CollabDoc op-log delta durably projected as OpLogEntry
 Render/pipeline   ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: ResidencyManifest.Mint web geometry residency
 Render            ←  csharp:Rasm/Drawing/view                    # [PROJECTION]: DrawingProjection / drafting-sheet layout
 Render            ←  csharp:Rasm/Processing/flatten              # [PROJECTION]: ChartAtlas / texture UV channel
@@ -84,7 +85,6 @@ Shell/controls    →  typescript:core/interchange/codec           # [WIRE]: Con
 Shell/controls    →  typescript:ui/viewer                        # [WIRE]: ControlIntent six-kind union materialized at the panel plane
 Shell/solver      →  typescript:core/interchange/codec           # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
 Shell/solver      →  typescript:ui/viewer                        # [WIRE]: ordered LayoutProgram re-solved at the panel plane
-Editing/tables    ←  csharp:Rasm.AppUi/Shell/virtualization      # [PORT]: VirtualWindow viewport-range realized-item window
 ```
 
 ## [05]-[PROHIBITIONS]

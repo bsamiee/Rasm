@@ -130,6 +130,9 @@
 |  [08]   | `Result.swap()` / `Result.merge()`                                                   | inversion      | flip ok/error branches / collapse to one type |
 |  [09]   | `is_ok(result)` / `is_error(result)` / `Result.is_ok()` / `Result.is_error()`        | type guard     | narrow Ok / Error branch                      |
 |  [10]   | `Result.or_else(other)` / `Result.or_else_with(fn)`                                  | fallback       | substitute on error                           |
+|  [11]   | `extra.result.traverse(fn, lst)`                                                     | ROP sequencing | `(T -> Result[R, E]) × Block[T] -> Result[Block[R], E]`; short-circuits on the first `Error` — the admitted gate fold over a row set (runtime `execution/recipe#RECIPE` `_staged` engine gate the live consuming fence) |
+|  [12]   | `extra.result.sequence(lst)`                                                         | ROP sequencing | `Block[Result[T, E]] -> Result[Block[T], E]`; the identity-`fn` `traverse` |
+|  [13]   | `extra.result.pipeline(*fns)` / `extra.result.catch(exception)`                      | ROP composition | Kleisli composition of `T -> Result` fns / decorator trapping one exception class into `Error` |
 
 [ENTRYPOINT_SCOPE]: persistent collection operations
 - rail: functional-core
@@ -161,7 +164,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [EXPRESSION_TOPOLOGY]:
-- modules: `expression.core` (monads, combinators, builders, mailbox — re-exported at top level), `expression.collections` (`Block`/`Map`/`Seq`/`TypedArray` + matching module-level callables), `expression.effect`, `expression.extra`, `expression.system`.
+- modules: `expression.core` (monads, combinators, builders, mailbox — re-exported at top level), `expression.collections` (`Block`/`Map`/`Seq`/`TypedArray` + matching module-level callables), `expression.effect`, `expression.extra` (`extra.result`: the `traverse`/`sequence`/`pipeline`/`catch` Result-sequencing combinators — never hand-roll a short-circuiting fold over a `Block` of `Result`s), `expression.system`.
 - `Result[T, E]` and `Option[T]` are `@tagged_union` classes; build with `Ok(v)`/`Error(e)`/`Some(v)`/`Nothing`, decompose with structural `match` on the case, and chain with the `map`/`bind`/`map2`/`filter` instance methods or the curried `expression.result`/`expression.option` module callables (designed for `pipe`).
 - `@tagged_union` plus `tag()`/`case()` declares an exhaustively-matchable discriminated union; `frozen=True` makes instances hashable, `order=True` derives comparison. This is the canonical owner for any bounded variant set — never parallel boolean flags.
 - `pipe(value, *fns)` threads a value through unary callables; the module-level collection/monad callables are curried so `pipe(xs, block.map(f), block.filter(p), block.fold(g, 0))` reads as a point-free pipeline. `compose(*fns)` builds the reusable callable; `flip`/`curry_flip` reorder arguments to fit pipeline position.

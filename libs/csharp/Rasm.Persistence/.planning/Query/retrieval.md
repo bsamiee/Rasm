@@ -495,8 +495,8 @@ public abstract partial record RetrievalResult {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FusionRank {
-    // The canonical reciprocal-rank constant (api-pgvectorscale: `SUM(1.0 / (rrfConstant + rank))` with
-    // rrfConstant=60) — named ONCE as the default; a per-call literal re-deciding it is the deleted form.
+    // The canonical reciprocal-rank constant k=60 — the standard RRF damping policy value, named ONCE as
+    // the default; a per-call literal re-deciding it is the deleted form.
     public const int RrfConstant = 60;
 
     // Weighted n-ary reciprocal-rank fusion `Score(e) = Σ_b branch.Weight / (k + rank_b(e))` over the TYPED

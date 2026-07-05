@@ -6,7 +6,7 @@ document to `jsonb` through the one `graphql.resolve(...)` function, with no out
 gateway. It carries no managed assembly: every surface is server-side SQL the
 `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_graphql")` row installs and a read-API egress
 consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery` against the `jsonb` result, so the
-`Query/federation#ENTITY_GRAPH` tables a GraphQL client reads are reflected once from the live schema
+`Element/identity#ELEMENT_IDENTITY` relational tables (`element_identity`/`node_cell`) a GraphQL client reads are reflected once from the live schema
 rather than hand-mapped. The extension is NOT preload-gated — it is a `pgrx` (Rust) extension exposing
 SQL functions plus DDL event triggers, installed through `CREATE EXTENSION pg_graphql`, never a
 `shared_preload_libraries` row.
@@ -18,7 +18,7 @@ SQL functions plus DDL event triggers, installed through `CREATE EXTENSION pg_gr
 - namespace: SQL `graphql` schema (the `resolve` resolver plus private reflection/config objects); `relocatable = false` — the `graphql` schema name is fixed, never relocated
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
 - registration: `CREATE EXTENSION pg_graphql`, preload-free — absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row by design; the `ServerExtension("pg_graphql", PreloadGated: false)` row carries its install. The control file declares `superuser = true`, so the `CREATE EXTENSION` step runs under a superuser/owner role at provision time (a non-superuser session still resolves queries through `graphql.resolve` once installed)
-- consumed by: a read-API egress over the `Query/federation#ENTITY_GRAPH` reflected tables, driven through raw `Npgsql` against the `jsonb` resolver result
+- consumed by: a read-API egress over the reflected `Element/identity#ELEMENT_IDENTITY` relational tables, driven through raw `Npgsql` against the `jsonb` resolver result
 - reflection: tables → object types, columns → fields, foreign keys → relationship/connection fields, comments → `@graphql` directives — recomputed lazily and auto-invalidated by DDL event triggers
 - rail: graphql-provisioning, read-api-egress
 

@@ -546,7 +546,7 @@ public static class EmbeddedStore {
 
 - Owner: `HandleBridge` the capsule projecting the `SqliteConnection.Handle` (`SQLitePCL.sqlite3`) live native crossing into typed `Fin` results so a raw call never escapes with a flattened provider token; `CheckpointMode`/`SnapshotPin` the WAL-operation vocabularies; `EmbeddedFact` the typed receipt the raw operations emit; `EmbeddedFault` the closed embedded-boundary fault `[Union]` over `Expected`; `EngineOps` the static surface owning the WAL checkpoint, the consistent-read snapshot pin, the paged backup, the large-payload blob lane, and the integrity ladder — the raw operations the managed ADO surface omits (`api-sqlitepcl#INTEGRATION_STACK`).
 - Cases: `CheckpointMode` is `Passive`/`Full`/`Restart`/`Truncate` (the `raw.SQLITE_CHECKPOINT_*` modes — `Truncate` the scheduled WAL-bound reset); `EmbeddedFault` is `Busy` (a `SQLITE_BUSY`/`SQLITE_LOCKED` retry signal, the only transient case), `Corrupt` (`SQLITE_CORRUPT`/`SQLITE_NOTADB`, terminal — routes to `Version/recovery`), `Io` (`SQLITE_IOERR`/`SQLITE_FULL`), and `Refused` (a foreign store / epoch-ahead / pin regression) so a status `int` discriminates structurally rather than collapsing to one token; the integrity ladder orders boot `quick_check`, cycle `integrity_check` plus `foreign_key_check`, a deeper-tier failure routing to restore, never retry.
-- Entry: `public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, CheckpointMode mode)` runs `raw.sqlite3_wal_checkpoint_v2(Handle, "main", mode, out logFrames, out checkpointed)` so the fact carries the log-frame and checkpointed-frame counts, a `SQLITE_BUSY` return receipts a retry on the rail (never throws), and every other status lifts to a closed `EmbeddedFault`; `public static Fin<T> WithSnapshot<T>(SqliteConnection store, Func<SqliteConnection, T> read)` brackets a consistent multi-statement WAL read view (`sqlite3_snapshot_get` → one `sqlite3_snapshot_recover` retry on a refused pin → a `sqlite3_snapshot_cmp` monotonic-floor guard → `sqlite3_snapshot_open` → the read → `sqlite3_snapshot_free` of only a held handle); `public static IO<EmbeddedFact> Backup(SqliteConnection source, string destinationPath, int pageStep)` runs the paged `sqlite3_backup_*` session over `Handle` (subsuming the whole-file `BackupDatabase` by adding `_remaining`/`_pagecount` progress facts), every backup admitted only after a `quick_check` on the copy plus content identity; `public static IO<long> WriteBlob(SqliteConnection store, string table, string column, long rowid, ReadOnlyMemory<byte> payload)` streams a large payload through a constructed `SqliteBlob` over a `zeroblob(N)` preallocation (whole-payload `byte[]` materialization being the deleted pattern); `public static Fin<long> DataVersion(SqliteConnection store)` reads the polling-free cross-process change register.
+- Entry: `public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, CheckpointMode mode)` runs `raw.sqlite3_wal_checkpoint_v2(Handle, "main", mode, out logFrames, out checkpointed)` so the fact carries the log-frame and checkpointed-frame counts, a `SQLITE_BUSY` return receipts a retry on the rail (never throws), and every other status lifts to a closed `EmbeddedFault`; `public static Fin<T> WithSnapshot<T>(SqliteConnection store, Func<SqliteConnection, T> read)` brackets a consistent multi-statement WAL read view (`sqlite3_snapshot_get` inside a deferred pin transaction → one `sqlite3_snapshot_recover` retry with a fresh re-GET on a refused pin → `sqlite3_snapshot_open` upgrading an unread deferred read transaction → the `sqlite3_snapshot_cmp` monotonic-floor guard → the read → `sqlite3_snapshot_free` of only an unpromoted handle, the floor holding the promoted one); `public static IO<EmbeddedFact> Backup(SqliteConnection source, string destinationPath, int pageStep)` runs the paged `sqlite3_backup_*` session over `Handle` (subsuming the whole-file `BackupDatabase` by adding `_remaining`/`_pagecount` progress facts), every backup admitted only after a `quick_check` on the copy plus content identity; `public static IO<long> WriteBlob(SqliteConnection store, string table, string column, long rowid, ReadOnlyMemory<byte> payload)` streams a large payload through a constructed `SqliteBlob` over a `zeroblob(N)` preallocation (whole-payload `byte[]` materialization being the deleted pattern); `public static Fin<long> DataVersion(SqliteConnection store)` reads the polling-free cross-process change register.
 - Auto: the checkpoint runs the out-param `sqlite3_wal_checkpoint_v2` form so the typed `EmbeddedFact` carries frame counts and a `SQLITE_BUSY` refusal the schedule retries rather than escalates (continuously overlapping readers starve checkpoints and the WAL grows unbounded, the countermeasure being the scheduled `Truncate` row plus short read transactions by construction); the snapshot pin brackets a consistent read view across statements, the `sqlite3_snapshot_cmp` monotonic-floor guard refusing a reader regression across brackets and the `sqlite3_snapshot_free` releasing only a held handle on every exit; the paged backup steps `pageStep` pages per `sqlite3_backup_step` so the copy yields bounded latency and progress receipts, restarting under other-connection writes (a hot store backs up on the writing connection) and admitting the copy only after `quick_check` plus content identity because the verb succeeding is never the proof; the blob lane preallocates `zeroblob(N)` then streams through the `SqliteBlob` write stream and the `GetStream` read path (the handle aborting when any writer mutates the row); every raw crossing's status `int` matches the `[RAW_CONSTANTS]` codes through `EmbeddedFault.Lift` so `SQLITE_BUSY`/`SQLITE_LOCKED` is a retry receipt and `SQLITE_CORRUPT`/`SQLITE_NOTADB` is terminal routing to restore.
 - Receipt: a checkpoint rides `store.embedded.checkpoint` carrying the mode and frame counts; a snapshot read rides `store.embedded.snapshot`; a backup rides `store.embedded.backup` carrying the page progress; a blob write rides `store.embedded.blob` carrying the byte count.
 - Packages: Microsoft.Data.Sqlite (`SqliteConnection.Handle`, `SqliteBlob(connection, table, column, rowid, readOnly)`, `BackupDatabase`), SQLitePCLRaw.bundle_e_sqlite3 (`raw.sqlite3_wal_checkpoint_v2`, `raw.sqlite3_snapshot_get`/`_open`/`_cmp`/`_recover`/`_free`, `raw.sqlite3_backup_init`/`_step`/`_remaining`/`_pagecount`/`_finish`, `raw.sqlite3_extended_errcode`, `raw.sqlite3_errstr`, the `SQLITE_CHECKPOINT_*`/`SQLITE_BUSY`/`SQLITE_CORRUPT`/`SQLITE_DONE` constants), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
@@ -639,6 +639,7 @@ public static class EngineOps {
     public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, CheckpointMode mode, ProjectionContext frame) {
         try {
             var status = raw.sqlite3_wal_checkpoint_v2(Handle(store), "main", mode.Key, out var logFrames, out var checkpointed);
+            if (status == raw.SQLITE_OK && mode == CheckpointMode.Truncate) { FloorReset(); }            // a truncated WAL ends the `_cmp` comparability epoch — the pin/truncate adversary law
             return status is raw.SQLITE_OK or raw.SQLITE_BUSY
                 ? Fin.Succ(new EmbeddedFact(status == raw.SQLITE_BUSY ? "checkpoint-busy" : "checkpoint", logFrames, checkpointed, frame.Now()))
                 : Fin.Fail<EmbeddedFact>(EmbeddedFault.FromStatus(status, raw.sqlite3_errstr(status).utf8_to_string()));
@@ -646,19 +647,43 @@ public static class EngineOps {
         catch (Exception ex) { return Fin.Fail<EmbeddedFact>(EmbeddedFault.Lift(ex)); }
     }
 
-    public static Fin<T> WithSnapshot<T>(SqliteConnection store, Func<SqliteConnection, T> read) {       // Exemption: the native pin/free bracket is the platform-forced statement seam
+    // The reader monotonic floor: the newest snapshot any bracket on this process has served. `_cmp` is defined
+    // only within one WAL comparability epoch, so the `Truncate` checkpoint clears the floor; the floor HOLDS
+    // its promoted native handle (freed only on supersession or reset), the bracket frees only unpromoted pins.
+    static sqlite3_snapshot? floor;
+    static readonly Lock FloorGate = new();
+
+    static void FloorReset() { lock (FloorGate) { if (floor is { } held) { raw.sqlite3_snapshot_free(held); } floor = null; } }
+
+    public static Fin<T> WithSnapshot<T>(SqliteConnection store, Func<SqliteConnection, T> read) {       // Exemption: the native pin/open/free bracket is the platform-forced statement seam
         if (store.Handle is not { } handle) { return Fin.Fail<T>(new EmbeddedFault.Refused("<no-handle>")); }
-        var got = raw.sqlite3_snapshot_get(handle, "main", out var snapshot);
-        if (got != raw.SQLITE_OK && raw.sqlite3_snapshot_recover(handle, "main") is var recovered && recovered != raw.SQLITE_OK) {
-            return Fin.Fail<T>(EmbeddedFault.FromStatus(got, "<snapshot-unavailable>"));
+        int got;
+        sqlite3_snapshot snapshot;
+        using (var pin = store.BeginTransaction(IsolationLevel.Serializable, deferred: true)) {          // `snapshot_get` needs an open transaction; this bracket only records the pin
+            got = raw.sqlite3_snapshot_get(handle, "main", out snapshot);
+            if (got != raw.SQLITE_OK
+                && (raw.sqlite3_snapshot_recover(handle, "main") != raw.SQLITE_OK
+                    || raw.sqlite3_snapshot_get(handle, "main", out snapshot) != raw.SQLITE_OK)) {       // re-GET after recover — the failed get's null handle is never opened
+                return Fin.Fail<T>(EmbeddedFault.FromStatus(got, "<snapshot-unavailable>"));
+            }
         }
+        bool promoted = false;
+        using var view = store.BeginTransaction(IsolationLevel.Serializable, deferred: true);            // `snapshot_open` upgrades an UNREAD deferred read transaction — opened before any read
         try {
-            return raw.sqlite3_snapshot_open(handle, "main", snapshot) is var opened && opened == raw.SQLITE_OK
-                ? Fin.Succ(read(store))
-                : Fin.Fail<T>(EmbeddedFault.FromStatus(opened, "<snapshot-open>"));
+            if (raw.sqlite3_snapshot_open(handle, "main", snapshot) is var opened && opened != raw.SQLITE_OK) {
+                return Fin.Fail<T>(EmbeddedFault.FromStatus(opened, "<snapshot-open>"));
+            }
+            lock (FloorGate) {
+                if (floor is { } held && raw.sqlite3_snapshot_cmp(snapshot, held) < 0) {                 // a pin older than the floor is a reader regression — refused, never served
+                    return Fin.Fail<T>(new EmbeddedFault.Refused("<snapshot-regression>"));
+                }
+                if (floor is { } prior) { raw.sqlite3_snapshot_free(prior); }
+                (floor, promoted) = (snapshot, true);
+            }
+            return Fin.Succ(read(store));
         }
         catch (Exception ex) { return Fin.Fail<T>(EmbeddedFault.Lift(ex)); }
-        finally { raw.sqlite3_snapshot_free(snapshot); }
+        finally { if (!promoted) { raw.sqlite3_snapshot_free(snapshot); } }
     }
 
     public static IO<EmbeddedFact> Backup(SqliteConnection source, string destinationPath, int pageStep, ProjectionContext frame) =>

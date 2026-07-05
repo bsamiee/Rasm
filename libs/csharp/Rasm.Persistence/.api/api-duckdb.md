@@ -3,7 +3,7 @@
 `DuckDB.NET.Data.Full` supplies the ADO.NET DuckDB provider, bulk appenders,
 data-chunk vector readers and writers, scalar and table function registration,
 and schema metadata collections. It is the analytical store provider behind the
-`Store/profiles` store-profile algebra; its appender and data-chunk throughput
+`Query/columnar` `ColumnarProfile` algebra; its appender and data-chunk throughput
 are profile receipts, and the snapshot codecs (`api-thinktecture-serialization`,
 `api-messagepack`) project `[ValueObject]`/`[SmartEnum]` owners into the columns
 this provider writes through the typed `AppendValue`/`WriteValue` rails.
@@ -173,7 +173,7 @@ profile policy expressed as SQL.
 
 [STACKING]:
 - snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner crosses into a DuckDB column through one rail — the `api-thinktecture-serialization` `ThinktectureJsonConverterFactory`/`ThinktectureMessageFormatterResolver` projects the owner to its key, and the appender's typed `AppendValue` (or the data-chunk `WriteValue<T>`) writes that key; the inverse decodes the column value back through the same factory. No hand-rolled column mapping.
-- store-profile receipts: the appender batch and the data-chunk vector throughput land as the `Store/profiles` typed receipt, alongside the `GetQueryProgress()` `DuckDBQueryProgress` percentage stream consumed by the AppHost `telemetry`/`drain` ports — the percentage/rows-processed values feed a progress span, not a bespoke logger.
+- store-profile receipts: the appender batch and the data-chunk vector throughput land as the `Query/columnar` typed receipt, alongside the `GetQueryProgress()` `DuckDBQueryProgress` percentage stream consumed by the AppHost `telemetry`/`drain` ports — the percentage/rows-processed values feed a progress span, not a bespoke logger.
 - fault rail: `DuckDBException` lifts at the provider edge discriminated on `DuckDBErrorType`, joining the store-profile failure rail rather than surfacing as a raw ADO exception.
 - columnar interchange: the `Query/columnar` analytical extract path (DuckDB result -> Arrow record batch) bridges through `api-arrow` plus the `Apache.Arrow.Adbc` driver manager, NOT a managed DuckDB Arrow member — see `ARROW_BOUNDARY`.
 - BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`api-ara3d-bimopenschema`) is the BIM analytics-frame producer this provider reads — its `WriteDuckDB` / `DuckDbUtils.WriteToDuckDB` bulk-appends the eleven columnar BIM tables (each suffixed `<Name>_<n>`, e.g. `Entities_4` / `DoubleParameters_6`) through a `DuckDBAppender`, and a Persistence analytics query opens that `.duckdb` over this same `DuckDBConnection` and SQL-joins the suffixed entity/parameter/relation tables; both sides share the one centrally pinned `DuckDB.NET.Data.Full` `1.5.3` runtime, never a second engine.
@@ -251,7 +251,7 @@ profile policy expressed as SQL.
 |  [06]   | `SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE installed;` | profile receipt of the loaded extension set |
 
 [LOAD_PROTOCOL]:
-- An analytical store profile declares its required extension set once; profile bootstrap runs the ordered `INSTALL <ext>; LOAD <ext>;` pairs through `DuckDBConnection.CreateCommand().ExecuteNonQuery()` immediately after `Open`, before any analytical query. The loaded set lands as a `Store/profiles` receipt, queried back via `duckdb_extensions()`.
+- An analytical store profile declares its required extension set once; profile bootstrap runs the ordered `INSTALL <ext>; LOAD <ext>;` pairs through `DuckDBConnection.CreateCommand().ExecuteNonQuery()` immediately after `Open`, before any analytical query. The loaded set lands as a `Query/columnar` profile receipt, queried back via `duckdb_extensions()`.
 - Statically-linked extensions (`parquet`, `json`, `icu`) need no `INSTALL` and resolve without network access; `INSTALL`-on-demand extensions (`spatial`, `httpfs`, `iceberg`, `delta`, `postgres`, `vss`, `fts`, `excel`, `avro`, cloud secrets) require one-time repository download — gate the profile on a deterministic `extension_directory` so a sealed/offline run pre-warms the cache rather than reaching the network at query time.
 - `autoinstall_known_extensions`/`autoload_known_extensions` (default-on) make a bare `read_parquet`/`ST_Read`/`iceberg_scan` reference self-install its extension; an explicit profile-bootstrap `INSTALL`/`LOAD` is still preferred so the required set is a declared receipt, not an implicit query-time side effect.
 - Credentials are `CREATE SECRET` objects (never inline keys in a path or `SET`); a secret persisted `IN postgres_⟨db⟩` survives reconnect, an in-memory secret is profile-scoped. `httpfs` is the prerequisite for every `s3://`/`http(s)://` path; `aws`/`azure` only resolve the credential, not the transport.

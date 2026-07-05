@@ -1,6 +1,6 @@
 # [PY_COMPUTE]
 
-`libs/python/compute` is the host-free numeric and scientific library of the monorepo. It owns array admission, one route-discriminated solver surface, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference. The graduation rail hands offline results across the wire into the C# managed owner system. `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/python/compute` is the host-free numeric and scientific library of the monorepo. It owns array admission, JIT kernel acceleration, one route-discriminated solver surface, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference. The graduation rail hands offline results across the wire into the C# managed owner system. `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [01]-[ROUTER]
 
@@ -11,23 +11,25 @@
 - [05]-[DIFFERENTIAL](.planning/solvers/differential.md)
 - [06]-[SENSITIVITY](.planning/solvers/sensitivity.md)
 - [07]-[MESH](.planning/solvers/mesh.md)
-- [08]-[DESIGN](.planning/optimization/design.md)
-- [09]-[PROGRAM](.planning/optimization/program.md)
-- [10]-[CONVEX](.planning/optimization/convex.md)
-- [11]-[STUDY](.planning/experiments/study.md)
-- [12]-[HISTORY](.planning/experiments/history.md)
-- [13]-[INFERENCE](.planning/experiments/inference.md)
-- [14]-[MODEL](.planning/experiments/model.md)
-- [15]-[ARRAY](.planning/numerics/array.md)
-- [16]-[INTERVAL](.planning/numerics/interval.md)
-- [17]-[QUANTITY](.planning/numerics/quantity.md)
-- [18]-[STATISTICS](.planning/numerics/statistics.md)
-- [19]-[SIGNAL](.planning/analysis/signal.md)
-- [20]-[TRANSFORM](.planning/analysis/transform.md)
-- [21]-[SYMBOLIC](.planning/analysis/symbolic.md)
-- [22]-[SPATIAL](.planning/analysis/spatial.md)
-- [23]-[HANDOFF](.planning/graduation/handoff.md)
-- [24]-[CODEGEN](.planning/graduation/codegen.md)
+- [08]-[FIELD](.planning/solvers/field.md)
+- [09]-[DESIGN](.planning/optimization/design.md)
+- [10]-[PROGRAM](.planning/optimization/program.md)
+- [11]-[CONVEX](.planning/optimization/convex.md)
+- [12]-[STUDY](.planning/experiments/study.md)
+- [13]-[HISTORY](.planning/experiments/history.md)
+- [14]-[INFERENCE](.planning/experiments/inference.md)
+- [15]-[MODEL](.planning/experiments/model.md)
+- [16]-[ARRAY](.planning/numerics/array.md)
+- [17]-[JIT](.planning/numerics/jit.md)
+- [18]-[INTERVAL](.planning/numerics/interval.md)
+- [19]-[QUANTITY](.planning/numerics/quantity.md)
+- [20]-[STATISTICS](.planning/numerics/statistics.md)
+- [21]-[SIGNAL](.planning/analysis/signal.md)
+- [22]-[TRANSFORM](.planning/analysis/transform.md)
+- [23]-[SYMBOLIC](.planning/analysis/symbolic.md)
+- [24]-[SPATIAL](.planning/analysis/spatial.md)
+- [25]-[HANDOFF](.planning/graduation/handoff.md)
+- [26]-[CODEGEN](.planning/graduation/codegen.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

@@ -264,7 +264,7 @@ public sealed class GeoRefusal(GeoIngestFault fault) : Exception(fault.Message) 
 - Owner: `GeoFeatureRow` the one feature currency (`Shape` + canonical `Wkb` + `Content` key + `Cells` + `Properties`); `GeoProperties` the closed deferred-properties family with its one `Bind<T>` reify; `GeoWire` the GeoJSON text seam over `ElementJson.Options`; `GeoContainer` the GeoPackage container seam over the admitted `Microsoft.Data.Sqlite` — the three-table metadata spine (`gpkg_contents`/`gpkg_geometry_columns`) binding each feature table to exactly one geometry column and SRID.
 - Cases: `GeoProperties.Deferred` holds the GeoJSON element-backed table — reified typed ONLY through `TryDeserializeJsonObject<T>(ElementJson.Options, out …)` so a feature's geometry and its typed properties resolve under ONE converter graph (a false return is absence, never a throw); `GeoProperties.Columns` holds the GeoPackage attribute-column bag — bound through the same STJ wire round-trip tabular cells mint through; `GeoProperties.Bare` is the Wkb/Wkt geometry-only row.
 - Entry: `public Option<T> Bind<T>(this GeoFeatureRow row)` — ONE reify member dispatching the properties union; walking the loose `IAttributesTable` in domain code is the rejected form (the shard law: properties stay element-backed until projected).
-- Auto: the container read gates cheapest-first — spine presence (`gpkg_geometry_columns` join `gpkg_contents WHERE data_type = 'features'`), per-layer `srs_id` against `CrsPolicy` (railed through the typed `GeoRefusal` so the deep gate surfaces `CrsUnsupported`, never a flattened message), then per-row GPB blob decode through the policy-frozen reader with every non-geometry column landing in the row bag; the layer selector (`spec.Layer`) narrows the spine sweep to one feature table, `None` reading every layer; the egress writes GPB blobs through the policy-frozen writer — the container spine row, the R-tree maintenance, and the contents-extent update ride ONE transaction per layer write (embedded-store law: a stale denormalized extent misleads every discovery consumer).
+- Auto: the container read gates cheapest-first — spine presence (`gpkg_geometry_columns` join `gpkg_contents WHERE data_type = 'features'`), per-layer `srs_id` against `CrsPolicy` (railed through the typed `GeoRefusal` so the deep gate surfaces `CrsUnsupported`, never a flattened message), then per-row GPB blob decode through the policy-frozen reader with every non-geometry column landing in the row bag; the layer selector (`spec.Layer`) narrows the spine sweep to one feature table, `None` reading every layer; the egress writes GPB blobs through the policy-frozen writer — the feature rows, the `rtree_{layer}_geom` maintenance, and the `gpkg_contents` extent expansion ride ONE transaction per layer write onto an already-registered layer (embedded-store law: a stale denormalized extent misleads every discovery consumer; the extent only ever EXPANDS at write, a shrink is a re-registration concern).
 - Receipt: rides `[02]`'s facts — the container read contributes its per-layer feature counts to the one `ingest` fact.
 - Packages: covered by `[02]`.
 - Growth: a new properties source is one `GeoProperties` case plus one `Bind<T>` arm (compile-broken); a new spine gate is one probe row in the cheapest-first ladder; zero new surface — a second reify path beside `Bind<T>`, a per-format row type, or a raw-WKB read of a GPB column is the deleted form.
@@ -364,21 +364,52 @@ public static class GeoContainer {
         return selected.Match(Some: name => toSeq(layers).Filter(l => l.Name == name), None: () => toSeq(layers));
     }
 
-    // A layer write is ONE transaction over feature rows + spine row + contents extent — a stale extent
-    // misleads every discovery consumer, so the write maintains it in the same commit.
+    // A layer write is ONE transaction over feature rows + R-tree rows + contents extent — a stale extent
+    // misleads every discovery consumer, so the write maintains ALL THREE in the same commit: each insert
+    // RETURNs its rowid and mirrors into `rtree_{layer}_geom` (idempotent beside the spec trigger set — an
+    // OR-REPLACE on the same id), and the `gpkg_contents` envelope EXPANDS with the written union, never shrinks.
     public static Unit Write(GeoSpec spec, Seq<GeoPayload> features, GeoAdmission admission) =>
         spec.Source.Read(path: p => {
             using SqliteConnection container = new($"Data Source={p};Mode=ReadWriteCreate");
             container.Open();
             using SqliteTransaction commit = container.BeginTransaction();
             string layer = spec.Layer.IfNone("features");
+            Envelope written = new();
             features.Iter(f => {
                 using SqliteCommand insert = container.CreateCommand();
                 insert.Transaction = commit;
-                insert.CommandText = $"INSERT INTO \"{layer}\" (geom) VALUES ($blob)";
+                insert.CommandText = $"INSERT INTO \"{layer}\" (geom) VALUES ($blob) RETURNING rowid";
                 _ = insert.Parameters.AddWithValue("$blob", admission.GpkgOut.Write(f.Shape));
-                _ = insert.ExecuteNonQuery();
+                long rowid = (long)insert.ExecuteScalar()!;
+                Envelope bound = f.Shape.EnvelopeInternal;
+                written.ExpandToInclude(bound);
+                using SqliteCommand index = container.CreateCommand();
+                index.Transaction = commit;
+                index.CommandText = $"INSERT OR REPLACE INTO \"rtree_{layer}_geom\" (id, minx, maxx, miny, maxy) VALUES ($id, $minx, $maxx, $miny, $maxy)";
+                _ = index.Parameters.AddWithValue("$id", rowid);
+                _ = index.Parameters.AddWithValue("$minx", bound.MinX);
+                _ = index.Parameters.AddWithValue("$maxx", bound.MaxX);
+                _ = index.Parameters.AddWithValue("$miny", bound.MinY);
+                _ = index.Parameters.AddWithValue("$maxy", bound.MaxY);
+                _ = index.ExecuteNonQuery();
             });
+            if (!written.IsNull) {                                                                       // an empty payload never shrinks or nulls the stored extent
+                using SqliteCommand extent = container.CreateCommand();
+                extent.Transaction = commit;
+                extent.CommandText = """
+                    UPDATE gpkg_contents SET
+                        min_x = MIN(COALESCE(min_x, $minx), $minx), min_y = MIN(COALESCE(min_y, $miny), $miny),
+                        max_x = MAX(COALESCE(max_x, $maxx), $maxx), max_y = MAX(COALESCE(max_y, $maxy), $maxy),
+                        last_change = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    WHERE table_name = $layer
+                    """;
+                _ = extent.Parameters.AddWithValue("$minx", written.MinX);
+                _ = extent.Parameters.AddWithValue("$miny", written.MinY);
+                _ = extent.Parameters.AddWithValue("$maxx", written.MaxX);
+                _ = extent.Parameters.AddWithValue("$maxy", written.MaxY);
+                _ = extent.Parameters.AddWithValue("$layer", layer);
+                _ = extent.ExecuteNonQuery();
+            }
             commit.Commit();
             return unit;
         }, stream: _ => throw new GeoRefusal(new GeoIngestFault.CodecReject("gpkg", "<container-needs-a-path>")));
@@ -392,4 +423,4 @@ public static class GeoContainer {
 |  [03]   | spine authority     | `gpkg_geometry_columns` + `gpkg_contents`    | one geometry column + SRID per layer; header is the SRID authority   |
 |  [04]   | deep-gate faults    | `GeoRefusal` typed carrier                   | a spine CRS refusal surfaces typed, never a flattened message        |
 |  [05]   | container mechanics | read-only `Microsoft.Data.Sqlite` mount      | embedded-floor law composed, never a second engine                   |
-|  [06]   | layer write         | one transaction: rows + spine + extent       | a stale extent misleads discovery; maintained in the same commit     |
+|  [06]   | layer write         | one transaction: rows + rtree + extent       | a stale extent misleads discovery; maintained in the same commit     |

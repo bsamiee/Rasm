@@ -10,19 +10,19 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 iac/
 └── src/
     ├── program/          # The program shapes, the arm dispatch, the Automation-API driver, and the bootstrap-axis legs
-    │   ├── spec.ts       # StackSpec: Closed arm union with promotion tiers, capability profile (tenancy + compute axes), backend selector, Connection owner, StackOutputs + pairsOf
-    │   ├── provider.ts   # The _map equivalence table + the _ARMS handler record; the _estate shared k8s composition (Bootstrap kubeconfig | eks.Cluster kubeconfigJson) and the docker machine estate; the hardened Bootstrap tier with cloud-init first boot
-    │   ├── automation.ts # LocalWorkspace inline programs, the Stream-bridged run ledger + RunReceipt fold, internalized retry/budget, fleet verbs (adopt/attach/history/tags), reconcile drift leg
+    │   ├── spec.ts       # StackSpec: the one decoded value — arm union, promotion tiers, capability profile, backend selector, typed StackOutputs plane
+    │   ├── provider.ts   # Capability-by-arm _map + _ARMS realizer; _estate shared k8s composition (metal Bootstrap | EKS) beside the docker machine estate
+    │   ├── automation.ts # Sole executor: LocalWorkspace programs, Stream-bridged ledger + RunReceipt, internalized retry/budget, fleet verbs, drift reconcile
     │   └── source.ts     # Source — github repo/branch-law/environment gates/deploy keys/webhook + the synced-folder distribution dialect record
     ├── operate/          # Secrets, observability realization, policy, the hosted control plane
     │   ├── secret.ts     # Doppler hierarchy + _MIRRORS fan-out + _ACCESS RBAC rows; Certs three-lane pipeline (self-signed mesh, ACME trusted, foreign pin)
-    │   ├── observe.ts    # Lgtm (LGTM distribution + OTel collector charts) → Boards (grafana provider, dashboards, alert/SLO compile, tenant orgs, machine identity)
+    │   ├── observe.ts    # Lgtm (LGTM distribution + OTel collector) → Boards: grafana dashboards, alert/SLO compile, tenant orgs, machine identity
     │   ├── policy.ts     # Guard policies-as-data pre-apply, the DriftReport projection + fault-isolated sweep + conform read-back, the PKO Reconcile loop
     │   └── cloud.ts      # CloudPlane (pulumiservice schedules/settings/webhooks/RBAC/environments) + the EscApi Environments rail, gated on backend: cloud
     └── kube/             # The k8s estate tiers (either plane source)
         ├── workload.ts   # spec row → ServiceAccount/Role/RoleBinding + Deployment (spread, zone affinity) + PDB/HPA + Service, the env seam, the _LIFE anchor
-        ├── traffic.ts    # Traffic — TLS sink, Gateway API edge (crd2pulumi) with Ingress fallback row, external-dns, Edge tagged family, tunnel/WAF/vanity rows
-        ├── data.ts       # ObjectStore + Nats rows; typed CNPG cluster (crd2pulumi), plugin-barman-cloud archive, Pooler, _TENANCY pg escalation, replication statics
+        ├── traffic.ts    # Traffic — TLS sink, Gateway API edge (crd2pulumi) with Ingress fallback, external-dns, Edge tagged family, tunnel/WAF/vanity rows
+        ├── data.ts       # ObjectStore + Nats rows; typed CNPG cluster (crd2pulumi), barman-cloud archive, Pooler, _TENANCY pg escalation, replication statics
         └── tenant.ts     # Tenants — Capsule Tenant CRs | vcluster planes via _MODES, the StackReference platform seam
 ```
 
@@ -32,7 +32,7 @@ iac/
 program/spec    →  typescript:runtime/work     # [PORT]: StackOutputs.sharding → ShardingConfig.layerFromEnv
 kube/data       ←  typescript:data/lane        # [SHAPE]: Pg.image/Pg.rows extension roster priced into the CNPG image
 kube/data       ←  typescript:data/lane        # [BOUNDARY]: Tenancy.rls ensure roster applied by the in-cluster provision job
-kube/data       ←  typescript:runtime/net      # [BOUNDARY]: JetStream server posture (websocket, fsync-per-write, quorum) the Setting.fanout.origin dial reaches
+kube/data       ←  typescript:runtime/net      # [BOUNDARY]: JetStream server posture (websocket, fsync-per-write, quorum) Setting.fanout.origin dial reaches
 kube/workload   ←  typescript:runtime/proc     # [SHAPE]: Setting.life.drain + probe routes mirrored as the _LIFE anchor
 kube/workload   ←  typescript:security/crypt   # [BOUNDARY]: doppler-run leased env injection at the entrypoint wrap
 operate/observe ←  typescript:core/observe     # [PROJECTION]: DashboardModel.Encoded + Alert.Spec + Slo.Objective realized as grafana rows

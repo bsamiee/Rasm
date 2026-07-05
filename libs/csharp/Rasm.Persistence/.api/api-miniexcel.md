@@ -107,6 +107,8 @@ is the runtime (no-recompile) form supplied through `Configuration.DynamicColumn
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]    | [CAPABILITY]                                                                  |
 | :-----: | :-------------------------------- | :---------------- | :--------------------------------------------------------------------------- |
 |  [01]   | `ExcelColumnNotFoundException`    | missing column    | `: KeyNotFoundException`; `ColumnName`/`ColumnAliases`/`ColumnIndex`/`RowIndex`/`Headers`/`RowValues` — a `Query<T>` member with no matching header |
+|  [02]   | `ExcelInvalidCastException`       | cell cast failure | `ColumnName` / `Row` / `InvalidCastType` members (decompile-verified) — the `TabularFault.CellCast` lift source |
+|  [03]   | `MiniExcelNotSerializableException` | egress reject    | `Member` names the unserializable member (decompile-verified) — the `TabularFault.NotSerializable` lift source |
 |  [02]   | `ExcelInvalidCastException`       | cell cast fault   | `: InvalidCastException`; `ColumnName`/`Row`/`Value`/`InvalidCastType` — a cell that cannot coerce to the typed member |
 |  [03]   | `MiniExcelNotSerializableException`| non-serializable | `: InvalidOperationException`; `Member` (`MemberInfo`) — a write value member that cannot serialize |
 

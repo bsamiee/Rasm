@@ -47,7 +47,7 @@ classifier — `Outer` strips surrounding whitespace, `AfterUnescape` trims post
 |  [05]   | `SepWriterOptions`   | writer options    | `readonly record struct`; emit policy bag         |
 |  [06]   | `SepTrim`            | trim classifier   | `[Flags] enum byte` `None`/`Outer`/`AfterUnescape`/`All` |
 |  [07]   | `SepColNotSetOption` | unset classifier  | `enum byte` `Throw`/`Empty`/`Skip` (writer only)  |
-|  [08]   | `SepToString`        | string-pool root  | abstract pool; `Direct` + 4 pool factories        |
+|  [08]   | `SepToString`        | string-pool root  | abstract pool; `Direct` + the 4 pool factories `PoolPerCol(maxLength, capacity)` / `PoolPerColThreadSafe` / `PoolPerColThreadSafeFixedCapacity(maxLength, capacity)` / `Pool` (decompile-verified member names) |
 |  [09]   | `SepCreateToString`  | pool delegate     | `(header,colCount) -> SepToString` factory         |
 
 [READER_TYPES]: read surfaces

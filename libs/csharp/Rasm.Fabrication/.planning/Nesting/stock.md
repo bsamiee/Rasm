@@ -274,7 +274,7 @@ public static class StockNest {
                 packer = open(); sheetIndex++; sheetStart = placements.Count;
                 placed = insert(packer, w, h);
             }
-            if (placed.Height == 0) { continue; }   // unfittable on a fresh sheet → counted unplaced by the Drive return
+            if (placed.Height == 0) { continue; }   // unfittable on a fresh sheet, counted unplaced by the Drive return
             // Robust rotation: a 90° flip iff the placed width equals the rotated footprint AND differs from the
             // un-rotated one; a square footprint (w == h) reports no rotation rather than a meaningless flip.
             bool rotated = rotate && w != h && placed.Width == h;

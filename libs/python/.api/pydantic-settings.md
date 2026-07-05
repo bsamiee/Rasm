@@ -114,8 +114,8 @@
 
 [INTEGRATION_STACK]:
 - pydantic leg: a `BaseSettings` subclass is a `pydantic.BaseModel`, so its fields use `pydantic` `Field`/validators/`SecretStr` and `Annotated[...]` types; the `NoDecode`/`ForceDecode` markers compose with pydantic `Annotated` metadata on a single field, and validation faults are pydantic `ValidationError`.
-- secrets-mount leg: an S3/cloud-mounted secrets tree from `.api/s3fs.md` or a K8s secret volume is read by `NestedSecretsSettingsSource(secrets_dir=...)`; the cloud secret-manager sources (`AWSSecretsManagerSettingsSource` etc.) are the credential-store origin whose values then flow into the same merged model.
-- credential-handoff leg: the validated settings model is the caller-owned carrier of `storage_options` (key/secret/token/endpoint) that the `.api/s3fs.md` / `.api/fsspec.md` dispatch consumes and of the `tracer_provider` config the observability rail reads — one validated model, never per-consumer env reads.
+- secrets-mount leg: a cloud-mounted secrets tree (an object-store mount via the folder-tier `fsspec` catalogs) or a K8s secret volume is read by `NestedSecretsSettingsSource(secrets_dir=...)`; the cloud secret-manager sources (`AWSSecretsManagerSettingsSource` etc.) are the credential-store origin whose values then flow into the same merged model.
+- credential-handoff leg: the validated settings model is the caller-owned carrier of `storage_options` (key/secret/token/endpoint) that the folder-tier `fsspec`/`obstore` dispatch consumes (`libs/python/data/.api/fsspec.md`, `libs/python/runtime/.api/obstore.md`) and of the `tracer_provider` config the observability rail reads — one validated model, never per-consumer env reads.
 - single rail: one `BaseSettings` model declares the full source tuple (init > CLI > env > dotenv > nested secrets > cloud secret manager) in `settings_customise_sources`, `CliApp.run` is the binary entry, and the resulting immutable model is threaded into every downstream resource/observability owner — never a second config object.
 
 [RAIL_LAW]:

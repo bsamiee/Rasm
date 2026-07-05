@@ -1,6 +1,6 @@
 # [RASM_BIM_ARCHITECTURE]
 
-The domain map of `Rasm.Bim` — the host-neutral AEC-DOMAIN BIM/IFC owner and the IFC arm of the `Rasm.Element` seam, depending UP on `{Rasm, Rasm.Element}` and projecting GeometryGym into the canonical `ElementGraph` rather than re-storing a parallel element record. The `Model`, `Semantics`, `Planning`, `Exchange`, `Review`, and `Projection` sub-domains, each lowering onto the one `BimFault` band; the `Projection` sub-domain hosts the one `SemanticProjector : IElementProjection` (GeometryGym `DatabaseIfc` → seam `GraphDelta` ingress; the Bim-internal `Emit` IFC re-author) and the `IfcLegality : IGraphConstraint` IFC-semantic legality. The retired `BimElement`/`BimModel` element record and the stringly `PropertyBinding`/`QuantityBinding` triples are GONE — the consumer-facing element is the seam `Bake(objectNode)` fold over the `ElementGraph`. Bim stays the SOLE GeometryGym/IFC owner and references no AEC peer; alignment with `Rasm.Materials`/`Rasm.Fabrication` travels through the shared seam graph and the content-keyed wire, never sibling coupling.
+The domain map of `Rasm.Bim` — the host-neutral AEC-DOMAIN BIM/IFC owner and the IFC arm of the `Rasm.Element` seam, depending UP on `{Rasm, Rasm.Element}` and projecting GeometryGym into the canonical `ElementGraph` rather than re-storing a parallel element record. The `Model`, `Semantics`, `Planning`, `Exchange`, `Energy`, `Review`, and `Projection` sub-domains, each lowering onto the one `BimFault` band; the `Projection` sub-domain hosts the one `SemanticProjector : IElementProjection` (GeometryGym `DatabaseIfc` → seam `GraphDelta` ingress; the Bim-internal `Emit` IFC re-author) and the `IfcLegality : IGraphConstraint` IFC-semantic legality. The retired `BimElement`/`BimModel` element record and the stringly `PropertyBinding`/`QuantityBinding` triples are GONE — the consumer-facing element is the seam `Bake(objectNode)` fold over the `ElementGraph`. Bim stays the SOLE GeometryGym/IFC owner and references no AEC peer; alignment with `Rasm.Materials`/`Rasm.Fabrication` travels through the shared seam graph and the content-keyed wire, never sibling coupling.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -20,7 +20,7 @@ Rasm.Bim/
 │   ├── Properties.cs      # PropertyKey Pset/Qto TEMPLATE authority, bSDD DataType resolution, Property classifier, etc...
 │   ├── Classification.cs  # bSDD-bound Classification axis with BsddResolution live dictionary
 │   ├── Composition.cs     # MaterialProjection bidirectional GeometryGym↔seam material projector (Project ingress / AuthorComposition+AuthorUsage egress)
-│   ├── Appearance.cs      # AppearanceProjection lowering IfcSurfaceStyle onto the seam AppearanceSummary Node.Appearance, reconciled with Rasm.Materials at content-key seam
+│   ├── Appearance.cs      # AppearanceProjection lowers IfcSurfaceStyle onto seam AppearanceSummary Node.Appearance, Materials-reconciled at content key
 │   ├── Connection.cs      # ConnectionProjection reader lowering the GeometryGym realizing-element surface onto seam DetailSchema.Realization bags
 │   ├── GeoReference.cs    # GeoReferenceProjector lowering IfcMapConversion/IfcProjectedCRS into the seam GeoReference
 │   └── Geospatial.cs      # GeoFeature/GeoModel NTS Simple-Features algebra + GDAL/OGR universal vector+raster ingest, shapefile/CityJSON codecs, etc...
@@ -36,7 +36,7 @@ Rasm.Bim/
 │   └── Wire.cs            # Host-free IfcWire IFC interchange artifact the Python and TypeScript peers decode
 ├── Energy/                # Building-energy-model exchange
 │   ├── Exchange.cs        # EnergyExchange.Apply over the closed EnergyOp [Union] — EnergyDoc/EnergyArtifact content-keyed carriers, EnergyScope/EnergyReceipt
-│   ├── Projector.cs       # EnergyProjector HBJSON/DFJSON/OSM/gbXML/IDF raise + EnergyClassRows onto the Compute-readable seam shape (openings + glazing evidence on every arm)
+│   ├── Projector.cs       # EnergyProjector HBJSON/DFJSON/OSM/gbXML/IDF raise + EnergyClassRows onto Compute-readable seam (openings+glazing evidence per arm)
 │   └── Derive.cs          # EnergyDerive BIM-to-BEM lower (honeybee envelope + opaque/glazing library, dragonfly massing) + EnergyTranslate OSM matrix
 ├── Review/                # Model-checking and coordination
 │   ├── Validation.cs      # IDS v1.0 owner folding six IdsFacet arms over the seam ElementGraph
@@ -55,64 +55,67 @@ Every sub-domain projects onto or reads the one seam `ElementGraph` (the `Projec
 ## [02]-[SEAMS]
 
 ```text seams
-Projection/semantic       →  csharp:Rasm.Element/Graph                # [PROJECTION]: SemanticProjector:IElementProjection lowers DatabaseIfc → GraphDelta the Assemble fold merges; the Bim-internal Emit re-authors ElementGraph → IFC bytes, never a seam member
-Projection/semantic       →  csharp:Rasm.Element/Projection           # [PORT]: IfcLegality:IGraphConstraint IFC-semantic legality (containment-spatial + CanContain rank / Void-Fill subtraction / type-no-aggregate-occurrence / the two roster vocabulary arms) composed after the seam structural law [M3]
-Projection/semantic       ←  csharp:Rasm.Element/Graph                # [SHAPE]: Node/Relationship/GraphDelta/NodeId/ProjectionContext/Assemble — GeometryGym captured internally, never crossing the IElementProjection signature
-Model/elements            →  csharp:Rasm.Element/Graph                # [PROJECTION]: generic Classification("ifc",code) + seam PredefinedType token stamped on the Object node (IfcClass is the IFC validation authority, never a seam field) [C6]
-Semantics/composition     ⇄  csharp:Rasm.Element/Composition          # [PROJECTION]: IFC material/profile sets lower to neutral MaterialComposition/ProfileRef; egress rehydrates profiles through IIfcProfileStore
-Semantics/properties      →  csharp:Rasm.Element/Properties           # [PROJECTION]: PropertyKey template threads the seam PropertyValue/MeasureValue; PropertyInheritance stamps InheritanceMode on seam bag nodes [H1] (the value half seam-owned, not re-authored)
-Semantics/connection      ⇄  csharp:Rasm.Element/Properties           # [SHAPE]: Bim egresses the seam's ONE neutral DetailSchema + canonical PropertyName vocabulary (JointType/FastenerType/AccessoryType/BarType/NominalDiameter/etc.) the Component projection authors — ConnectionProjection reads the GeometryGym realizing surface into the DetailSchema.Realization bag and Emit re-authors it to the IFC Pset; the Rasm_ConnectionRealization Pset name + the egress mapping + the GlobalId assignment stay Bim-only (never on the seam), any cross-peer realizing invariant (fastener diameter vs member, weld throat vs leg) a Bim-implemented IGraphConstraint, never an IFC column on the seam
-Semantics/properties      ←  csharp:Rasm                              # [CONTENT_KEY]: kernel GeometryMeasures(Option<double> Length/Area/Volume) value-object resolved from the Object RepresentationContentHash geometry and injected into QuantityDerivation.Derive — Bim consumes the measure (never re-tessellates); the kernel/Compute supply it, the same kernel owner the Dimension value-object rides
-Semantics/georeference    →  csharp:Rasm.Element/Geospatial           # [PROJECTION]: GeoReferenceProjector lands Header.GeoReference [M1]; GeoTransform.Reproject the ProjNET leg over the seam value
-Semantics/geospatial      →  csharp:Rasm.Element/Graph                # [PROJECTION]: GeoFeature.ToObject/GeoRaster.ToCoverage land seam Object/Coverage nodes through a GraphDelta
+Projection/semantic       →  csharp:Rasm.Element/Graph                # [PROJECTION]: SemanticProjector: DatabaseIfc→GraphDelta via Assemble; Emit is internal
+Projection/semantic       →  csharp:Rasm.Element/Projection           # [PORT]: IfcLegality:IGraphConstraint IFC legality after the seam structural law [M3]
+Projection/semantic       ←  csharp:Rasm.Element/Graph                # [SHAPE]: Node/Relationship/GraphDelta/NodeId/ProjectionContext/Assemble — GG internal
+Model/elements            →  csharp:Rasm.Element/Graph                # [PROJECTION]: Classification(ifc,code)+PredefinedType on Object; IfcClass validates [C6]
+Semantics/composition     ⇄  csharp:Rasm.Element/Composition          # [PROJECTION]: material sets→MaterialComposition/ProfileRef; profiles→IIfcProfileStore
+Semantics/composition     ←  csharp:Rasm.Element/Composition          # [SHAPE]: Cost per-unit doubles + ISO-4217 into the NodaMoney algebra at the 5D join
+Semantics/properties      →  csharp:Rasm.Element/Properties           # [PROJECTION]: PropertyKey→PropertyValue/MeasureValue; InheritanceMode on bag nodes [H1]
+Semantics/connection      ⇄  csharp:Rasm.Element/Properties           # [SHAPE]: seam DetailSchema + PropertyName; ConnectionProjection reads→Realization bag
+Semantics/properties      ←  csharp:Rasm                              # [CONTENT_KEY]: GeometryMeasures→QuantityDerivation.Derive; Bim never re-tessellates
+Semantics/georeference    →  csharp:Rasm.Element/Geospatial           # [PROJECTION]: GeoReferenceProjector→Header.GeoReference; Reproject ProjNET leg [M1]
+Semantics/geospatial      →  csharp:Rasm.Element/Graph                # [PROJECTION]: GeoFeature.ToObject/GeoRaster.ToCoverage→Object/Coverage via GraphDelta
 Exchange/tessellation     ⇄  python:geometry/mesh                     # [TESSELLATION]: GLB tessellation rail / TessellationRequest
-*                         →  typescript:core/interchange/codec # [WIRE]: BcfTopicWire / BcfViewpointWire
+*                         →  typescript:core/interchange/codec        # [WIRE]: BcfTopicWire / BcfViewpointWire
 Review/issues             →  typescript:ui/viewer                     # [WIRE]: BcfTopicWire / BcfViewpointWire
 Exchange/import           →  python:geometry/ifc                      # [PROJECTION]: IFC semantic graph ingest via GeometryGym
-Exchange/wire             →  python:geometry/ifc                      # [WIRE]: IfcWire IFC bytes — the ifcopenshell peer decodes the same STEP/ifcXML/ifcJSON Bim emits; parity is the seam ContentAddress.OfGraph (Agrees), never bytes
-Model/elements            →  typescript:ui/viewer                     # [SHAPE]: GlobalId element selection set
+Exchange/wire             →  python:geometry/ifc                      # [WIRE]: IfcWire bytes; ifcopenshell parity via ContentAddress.OfGraph, not byte-equality
+Model/elements            →  typescript:ui/viewer                     # [WIRE]: GlobalId element selection set
 Review/validation         ←  python:geometry/ifc                      # [BOUNDARY]: IDS validation evidence via ifctester
-Model                     →  csharp:Rasm.Persistence/Query/columnar   # [PROJECTION]: Persistence owns the co-transactional BimOpenSchemaProjection:FlatTableProjection (Marten) and the EAV-generic structural map; the BIM-typed columns it materializes read the Bim-stamped typed seam nodes (Classification/PredefinedType/PropertyValue/MeasureValue from Projection/semantic) — Bim owns the typing as the wire seam, never a Marten FlatTableProjection in Bim, never a sibling reference [M4]
-Model/structural          →  csharp:Rasm.Compute/Solver               # [SHAPE]: StructuralReads Supports/Loads off the neutral Generic edge payloads; the analytical axis resolves one-hop by the member's Representations.Axis content key
-Semantics/appearance      ⇄  csharp:Rasm.Element/Composition          # [CONTENT_KEY]: the AppearanceProjection-minted seam AppearanceSummary Node.Appearance reconciled with the Materials-projected seam Appearance node at the content key, never a direct Rasm.Materials reference
+Model                     →  csharp:Rasm.Persistence/Query/columnar   # [PROJECTION]: Persistence FlatTableProjection reads Bim-typed nodes; owns typing [M4]
+Model/structural          →  csharp:Rasm.Compute/Analysis             # [SHAPE]: StructuralReads Supports/Loads on Generic edges; axis by Representations.Axis
+Semantics/appearance      ⇄  csharp:Rasm.Element/Composition          # [CONTENT_KEY]: AppearanceSummary ↔ Materials Appearance at content key, no direct ref
 Model/query               →  csharp:Rasm.AppUi/Render                 # [PORT]: ElementSet query algebra via capability descriptor
-Model                     ←  csharp:Rasm.Materials/Component          # [WIRE]: Component Type Object identity joins through IIfcTypeReconciler; canonical Materials components are reused only when the resolver returns Canonical, otherwise IFC types remain imported/ad-hoc with preserved material/profile data
+Model                     ←  csharp:Rasm.Materials/Component          # [WIRE]: IIfcTypeReconciler Type Object identity; Canonical reuses Materials, else ad-hoc
+Semantics/properties      ←  csharp:Rasm.Materials/Projection         # [SHAPE]: round-trips the IDENTICAL DetailSchema realization bag at IFC ingress/Emit
+Model                     →  python:geometry/mesh                     # [SHAPE]: IFC GLB tessellation reference for scan-deviation analysis
+Exchange/wire             →  python:geometry/energy                   # [SHAPE]: IFC SPF source bytes for the geometry-side BIM-to-BEM derivation modality
 Semantics                 →  csharp:Rasm.Compute/Runtime              # [PROJECTION]: IFC/glTF semantic metadata layer
 Semantics/classification  ←  csharp:Rasm.Compute/Runtime/channels     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
 Semantics/geospatial      →  python:geometry/ifc                      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
-Semantics/geospatial      →  typescript:core/interchange/codec # [WIRE]: GeoFeature WKB decode (WKB parser [R6]; turf NTS-equivalent planar peer in ui/viewer)
-Semantics/geospatial      →  csharp:Rasm.AppUi/Charts                 # [SHAPE]: GeoFeature/GeoModel NetTopologySuite Feature geometry drawn as Mapsui.Avalonia12 basemap overlays beside the Wgpu viewport — AppUi's Mapsui transitively binds this Bim-owned NTS 2.6.0 pin and consumes the Feature shape, never referencing NTS directly
-Semantics/geospatial      ←  csharp:Rasm.Persistence/Store            # [TRANSPORT]: GDAL /vsimem fsspec dataset open + OGR Arrow C-stream GeoParquet/FlatGeobuf columnar ingest
-Semantics/geospatial      ⇄  Semantics/georeference                   # [PROJECTION]: GeoFeature.Reproject composes the ProjNET GEODETIC_TRANSFORM leg (OSR escalation for exotic datum-grids)
-Model                     →  csharp:Rasm.Compute/Runtime/codecs       # [CONTENT_KEY]
-Planning/schedule         →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: ScheduleNetwork CPM/CriticalPath/calendar/4D report rendered as a Charts/dashboards projection over the Bim-owned schedule network (AppUi has no Schedule page; the 4D/5D report is a Charts projection)
-Planning/cost             →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CostSchedule EarnedValue/ChangeOrder report rendered as a Charts/dashboards projection over the Bim-owned cost network
-Exchange/tessellation     →  csharp:Rasm.Compute/Runtime/codecs       # [TESSELLATION]: TessellationOutcome two-hop GLB, TessellationOrigin by ArtifactKey (dual SourceKey/ContentKey)
+Semantics/geospatial      →  typescript:core/interchange/codec        # [WIRE]: GeoFeature WKB decode; turf NTS-equivalent planar peer in ui/viewer [R6]
+Semantics/geospatial      →  csharp:Rasm.AppUi/Charts                 # [SHAPE]: NTS Feature geometry as Mapsui basemap overlays beside the Wgpu viewport
+Semantics/geospatial      ←  csharp:Rasm.Persistence/Store            # [TRANSPORT]: GDAL /vsimem open + OGR Arrow C-stream GeoParquet/FlatGeobuf ingest
+Semantics/geospatial      ⇄  Semantics/georeference                   # [PROJECTION]: GeoFeature.Reproject ProjNET GEODETIC_TRANSFORM; OSR for datum-grids
+Model                     →  csharp:Rasm.Compute/Runtime/codecs       # [CONTENT_KEY]: IfcRepresentation.Keys [M2] off the kernel seed-zero; codecs join by key
+Planning/schedule         →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: ScheduleNetwork CPM/CriticalPath/4D report as a Charts/dashboards projection
+Planning/cost             →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CostSchedule EarnedValue/ChangeOrder report as a Charts/dashboards projection
+Exchange/tessellation     →  csharp:Rasm.Compute/Runtime/codecs       # [TESSELLATION]: TessellationOutcome GLB; Origin by ArtifactKey SourceKey/ContentKey
 Exchange/tessellation     →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: TessellationOutcome ArtifactKey cache-hit lookup
 Exchange/import           →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: Reimport prior seam ElementGraph snapshot content-key delta join
 Exchange/import           ←  csharp:Rasm.Rhino/Exchange               # [BOUNDARY]: [^1]
-Exchange/wire             →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: IfcWire ContentAddress.OfGraph semantic identity — the ArtifactIndexRow join key one graph shares across STEP/ifcXML/ifcJSON emits
+Exchange/wire             →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: IfcWire ContentAddress.OfGraph; ArtifactIndexRow join across emits
 Review/diff               →  csharp:Rasm.Persistence/Query/federation # [CONTENT_KEY]: AuditEntry chained ElementChange mutation log
-Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [CONTENT_KEY]: BimCommit content-addressed commit-DAG durably stored as CommitNode by the wire CommitKey
-Exchange/wire             ←  csharp:Rasm.Persistence/Element/codec    # [BOUNDARY]: the seam-graph snapshot/op-log wire (json-stj/cbor/messagepack + change stream) is Persistence's SnapshotCodec — the retired BimWire/OpLogWire consolidation in Bim was the strata leak; Bim's wire is IFC bytes ONLY
+Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [CONTENT_KEY]: BimCommit commit-DAG stored as CommitNode by the wire CommitKey
+Exchange/wire             ←  csharp:Rasm.Persistence/Element/codec    # [BOUNDARY]: snapshot/op-log wire = Persistence SnapshotCodec; Bim wire is IFC bytes only
 Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [SHAPE]: BimCommit DAG common-ancestor merge substrate (CommitGraph.MergeBase)
 Model                     →  csharp:Rasm.Persistence/Store/quality    # [SHAPE]: IFC validation rules into QualityRule rows
 Review/validation         →  csharp:Rasm.Compute/Runtime/codecs       # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
-Review/validation         →  python:geometry/ifc-companion            # [BOUNDARY]: ifctester IDS-XML conformance oracle verdict
-Exchange/format           →  csharp:Rasm.Fabrication/Polygon          # [SHAPE]: ACadSharp managed DWG/DXF DxfDocument/CadDocument read codec — Bim owns the host-neutral CAD-interchange read surface, Fabrication consumes it for 2D profile ingress over the same central pin (mirror of the Fabrication-side Polygon/import ← Rasm.Bim/Exchange row)
-Exchange/wire             →  typescript:core/interchange/codec # [WIRE]: IfcWire WireParity — the web peer decodes the IFC bytes and reproduces the seam ContentAddress (Agrees; cross-runtime byte-equality is the deleted form); DiffWire/IdsAudit ride their own review seams
+Exchange/format           →  csharp:Rasm.Fabrication/Polygon          # [SHAPE]: ACadSharp DWG/DXF read codec; Bim owns it, Fabrication consumes for 2D profiles
+Exchange/wire             →  typescript:core/interchange/codec        # [WIRE]: IfcWire WireParity — web peer decodes bytes, reproduces ContentAddress (Agrees)
 Exchange/wire             →  typescript:ui/viewer                     # [WIRE]: BcfWire/DiffWire GlobalId anchor decode
 coordination              ⇄  csharp:Rasm.Persistence/Sync/annotation  # [WIRE]: durable annotation + CDE op-log
 schedule                  ⇄  csharp:Rasm.Persistence/Sync/schedule    # [WIRE]: P6/MS-Project + 4D construction domain
 coordination              →  csharp:Rasm.AppUi/Editing/issues         # [PORT]: BCF issue-board projection
-Exchange/import           ⇄  csharp:Rasm.Persistence/Sync             # [TRANSPORT]: Speckle Base object-graph -> seam ElementGraph import over the Persistence-owned Speckle.Sdk SyncTransport.SpeckleLikeDiff
-Exchange/tessellation     ⇄  csharp:Rasm.Compute                      # [SHAPE]: SharpGLTF/meshopt leg split — Bim authors per-tile EXT_structural_metadata/EXT_mesh_features glTF encode, Compute composes residency/transport meshopt-encode at interchange/codecs#TILE_PARTITION
-Energy/projector          ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: OpenStudio energy SIMULATION (Compute) distinct from the energy-model EXCHANGE (Bim EnergyExchange) — the raise lands the IfcRelSpaceBoundary/BoundaryLevel/Host/FootPrint/Qto shape EnergyGraphReads consumes, aligned by the seam graph never coupled
-Projection/semantic       →  csharp:Rasm.Compute/Analysis             # [PROJECTION]: the IFC ingest bakes the same energy contract — IfcRelSpaceBoundary neutral Generic edges (three-valued BoundaryLevel payload), the content-keyed analytical FootPrint, Qto_SpaceBaseQuantities NetFloorArea, Pset_SpaceCommon.IsExternal — the Compute EnergyGraphReads consume (mirror of the Compute Analysis/energy ← Rasm.Bim/Projection row)
-Energy/exchange           →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: EnergyArtifact bytes land content-keyed on the object plane ({ContentKey:x32}:<form>, write-blob-first), the Graph pedigree ContentAddress.OfGraph joining the artifact index to its source graph
-Energy/exchange           ⇄  python:geometry/energy                   # [WIRE]: HBJSON/DFJSON document bytes under the one seed-zero XxHash128 identity — the py honeybee/dragonfly stack decodes the same documents; honeybee-openstudio HBJSON→OSM translation is the python plane's leg, never a shared client
-Planning                  ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: construction schedule/4D MPXJ (Bim) vs embodied material-cost takeoff (Compute), aligned by the seam graph never coupled
-Exchange                  →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: imported IFC/BREP geometry by IfcRepHash; IfcConvert GLB content-keyed wire, write-blob-first
+Exchange/import           ⇄  csharp:Rasm.Persistence/Sync             # [TRANSPORT]: Speckle Base→ElementGraph via Persistence SyncTransport.SpeckleLikeDiff
+Exchange/tessellation     ⇄  csharp:Rasm.Compute                      # [SHAPE]: Bim EXT_structural_metadata/EXT_mesh_features glTF; Compute meshopt encode
+Energy/projector          ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: OpenStudio SIMULATION (Compute) vs Bim EXCHANGE; seam-aligned not coupled
+Projection/semantic       →  csharp:Rasm.Compute/Analysis             # [PROJECTION]: IfcRelSpaceBoundary/FootPrint/Qto/IsExternal shape EnergyGraphReads reads
+Energy/exchange           →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: EnergyArtifact content-keyed, write-blob-first; Graph pedigree join
+Energy/exchange           ⇄  python:geometry/energy                   # [WIRE]: HBJSON/DFJSON bytes, XxHash128 identity; py honeybee/dragonfly decodes same
+Planning                  ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: schedule/4D MPXJ (Bim) vs material-cost takeoff (Compute); seam-aligned
+Exchange                  →  csharp:Rasm.Persistence/Store/blobstore  # [CONTENT_KEY]: imported IFC/BREP by IfcRepHash; IfcConvert GLB, write-blob-first
 ```
 - [^1] App-root RhinoDoc import projected to host-neutral mesh + GlobalId; Rhino owns the Rhino-side production + projection adapter, Bim owns the wire payload — the two reader engines (Rhino FileIO vs the managed PlyReader/ThreeMfReader/StepReader + SharpGLTF/geometry3Sharp arms) can disagree on the same OBJ/STL/PLY/3MF/glTF/STEP bytes, so the app path declares which reader is authoritative
 

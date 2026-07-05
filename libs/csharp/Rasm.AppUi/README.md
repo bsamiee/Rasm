@@ -28,18 +28,19 @@
 - [22]-[INSPECTOR](.planning/Editing/inspector.md)
 - [23]-[TABLES](.planning/Editing/tables.md)
 - [24]-[NOTEBOOK](.planning/Editing/notebook.md)
-- [25]-[LIVEDATA](.planning/Editing/livedata.md)
-- [26]-[FORMS](.planning/Editing/forms.md)
-- [27]-[HISTORY](.planning/Editing/history.md)
-- [28]-[MEDIA](.planning/Editing/media.md)
-- [29]-[ISSUES](.planning/Editing/issues.md)
-- [30]-[TOUR](.planning/Editing/tour.md)
-- [31]-[TOKENS](.planning/Theme/tokens.md)
-- [32]-[TYPOGRAPHY](.planning/Theme/typography.md)
-- [33]-[MOTION](.planning/Theme/motion.md)
-- [34]-[ANIMATION](.planning/Theme/animation.md)
-- [35]-[ASSETS](.planning/Theme/assets.md)
-- [36]-[LOCALE](.planning/Theme/locale.md)
+- [25]-[COLLAB](.planning/Editing/collab.md)
+- [26]-[LIVEDATA](.planning/Editing/livedata.md)
+- [27]-[FORMS](.planning/Editing/forms.md)
+- [28]-[HISTORY](.planning/Editing/history.md)
+- [29]-[MEDIA](.planning/Editing/media.md)
+- [30]-[ISSUES](.planning/Editing/issues.md)
+- [31]-[TOUR](.planning/Editing/tour.md)
+- [32]-[TOKENS](.planning/Theme/tokens.md)
+- [33]-[TYPOGRAPHY](.planning/Theme/typography.md)
+- [34]-[MOTION](.planning/Theme/motion.md)
+- [35]-[ANIMATION](.planning/Theme/animation.md)
+- [36]-[ASSETS](.planning/Theme/assets.md)
+- [37]-[LOCALE](.planning/Theme/locale.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -152,7 +153,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Avalonia.Markup.Xaml.Loader`
 
 > [!NOTE]
-> The Dev Loop family binds `Debug`-only with `PrivateAssets="all"` — none flows transitively to a downstream consumer. `ProDiagnostics` (MIT, wieslawsoltes) is the maintained Avalonia-12 fork of `Avalonia.Diagnostics` (the first-party `Avalonia.Diagnostics` line is feed-dead at 11.3.x with no Avalonia-12 asset): `DevToolsExtensions.AttachDevTools` mounts the runtime visual/logical-tree, live property/style, routed-event, and layout/renderer-overlay inspector `Diagnostics/devloop.md` composes (`.api/api-prodiagnostics.md`). `HotAvalonia` is the XAML hot-reload agent and `Avalonia.Markup.Xaml.Loader` its runtime-inflation substrate, both dev-loop-scoped.
+> The Dev Loop family binds `Debug`-only with `PrivateAssets="all"` — none flows transitively to a downstream consumer. `ProDiagnostics` (MIT, wieslawsoltes) is the maintained Avalonia-12 fork of `Avalonia.Diagnostics` (the first-party `Avalonia.Diagnostics` line is feed-dead at 11.3.x with no Avalonia-12 asset): `DevToolsExtensions.AttachDevTools` mounts the runtime visual/logical-tree, live property/style, routed-event, and layout/renderer-overlay inspector, Debug-only behind the `HotAvalonia` closure (`.api/api-prodiagnostics.md`). `HotAvalonia` is the XAML hot-reload agent and `Avalonia.Markup.Xaml.Loader` its runtime-inflation substrate, both dev-loop-scoped.
 
 > [!NOTE]
 > The `Semi.Avalonia` design-token theme is the active layer over the retained `Avalonia.Themes.Fluent` floor — its base `SemiTheme` plus the `DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit` skins restyle the admitted control roster to one token system the `Wacton.Unicolour` OKLCH pipeline materializes into the `ControlIntent` + `Theme/tokens` vocabulary, never displacing the Fluent-templated `bodong.PropertyGrid`/`DialogHost`. `Irihi.Ursa` adds the extended-control families the curated set lacks — `NavMenu`, `Timeline`, `Toast`/`Notification`, `Loading`/`Skeleton`, `Banner`, `Form`, `Drawer` — themed by `Irihi.Ursa.Themes.Semi` and bridged to the admitted ReactiveUI MVVM rail through `Irihi.Ursa.ReactiveUIExtension`. `NodeEditorAvalonia` owns the node/pin/connector graph-editing canvas inside a `PanAndZoom` `ZoomBorder` for the `Shell/Editing` parametric and dependency-graph surfaces (ReactiveUI view-models over the framework-agnostic `INode`/`IConnector` model). `Mapsui.Avalonia12` is the interactive slippy-map / basemap viewport rendering through the admitted `SkiaSharp` + `Avalonia.Skia` and binding the Bim-owned `NetTopologySuite` so GDAL/OGR features draw as overlays beside the `Wgpu` 3D viewport. `LoroCs` is the Eg-walker/Fugue sequence+map+text+movable-list+tree CRDT engine backing the notebook/annotation/table collaboration op-log and presence (`runtimes/osx-arm64/native/loro.dylib`), retiring the bespoke `NotebookCrdt` LWW algebra; `MessageFormat` is the managed ICU MessageFormat engine (CLDR cardinal+ordinal `plural`/`selectordinal`/`select`) materializing `ResolvedLocale.Plural` over the resx pattern vocabulary. `PDFsharp` + `PDFsharp-MigraDoc` add the structured vector-PDF page model and the auto-paginated flow-report DOM the OOXML/DXF/raster export set lacked.

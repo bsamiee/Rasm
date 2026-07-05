@@ -135,6 +135,7 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 |  [17]   | `MessagePackStreamReader.ReadAsync`      | segment read    | next length-delimited frame                 |
 |  [18]   | `MessagePackStreamReader.ReadArrayAsync` | enumerable read | streamed array elements                     |
 |  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile |
+|  [20]   | `MessagePackSecurity.WithMaximumDecompressedSize` | security mutator | tighten the default-`int.MaxValue` decompressed-size cap per profile (the `Version/commits#CRDT_WIRE` untrusted-decode `1<<20` bound) |
 |  [20]   | `MessagePackSerializerOptions.LoadType`  | typeless gate   | resolve a typeless type header (override seam) |
 |  [21]   | `ThrowIfDeserializingTypeIsDisallowed`   | typeless gate   | type-allowlist override for untrusted typeless |
 
@@ -152,8 +153,8 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 
 [INTEGRATION_LAW]:
 - One `MessagePackSerializerOptions` stacks the three policy axes into a single profile value: `.WithResolver(CompositeResolver.Create(...))` composes the profile's source-generated formatters over a contract resolver; `.WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(n))` bounds an untrusted-snapshot read; `.WithCompression(MessagePackCompression.Lz4BlockArray)` enables the chunked LZ4 native frame. The profile carries this one options value, never a per-call assembly of flags.
-- Content identity stacks downstream of the codec: `MessagePackSerializer.Serialize<T>(value, options)` produces the snapshot bytes, and `XxHash128.HashToUInt128` over those bytes (`api-hashing`) is the `Schema/identity#IDENTITY_LADDER` `ContentKey` — the codec owns the bytes, the hasher keys them, and `LZ4` compression is applied before hashing so the content key is over the stored (compressed) representation.
-- Untrusted-snapshot ingestion (a snapshot received from a peer over `Sync/egress`) reads under `UntrustedData` (collision-resistant hashing) plus a bounded `MaximumDecompressedSize` so a compression-bomb LZ4 frame faults instead of exhausting memory; a typeless snapshot additionally overrides `LoadType`/`ThrowIfDeserializingTypeIsDisallowed` to a profile-local type allowlist so the type header cannot instantiate an arbitrary CLR type.
+- Content identity stacks downstream of the codec: `MessagePackSerializer.Serialize<T>(value, options)` produces the snapshot bytes, and `XxHash128.HashToUInt128` over those bytes (`api-hashing`) is the `Element/codec#CONTENT_ADDRESS` content key (minted through the kernel `ContentHash.Of` seed-zero entry, never a local `XxHash128` beside it) — the codec owns the bytes, the hasher keys them, and `LZ4` compression is applied before hashing so the content key is over the stored (compressed) representation.
+- Untrusted-snapshot ingestion (a snapshot received from a peer over the `Version/egress` CDC lane) reads under `UntrustedData` (collision-resistant hashing) plus a bounded `MaximumDecompressedSize` so a compression-bomb LZ4 frame faults instead of exhausting memory; a typeless snapshot additionally overrides `LoadType`/`ThrowIfDeserializingTypeIsDisallowed` to a profile-local type allowlist so the type header cannot instantiate an arbitrary CLR type.
 - `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam for a length-delimited multi-snapshot stream (`api-objectstore` blob bodies), yielding one `ReadOnlySequence<byte>` per element under the same `SequencePool` as the codec.
 
 [LOCAL_ADMISSION]:

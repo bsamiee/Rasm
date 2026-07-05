@@ -64,10 +64,10 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `GeneticSharp`
 
 [AUTODIFF]:
-- `HyperJet` — the source-generated `DDScalar1..15`/dynamic `DDScalar` hyper-dual scalar-AD leg of the one `Sensitivity`/`Chain` family: exact `GetGradient()`/`GetHessian()` for the `Stats/estimator` MLE Jacobians, the `Solver/uncertainty` FORM/SORM limit-state gradient, and the `Tensor/blas` Levenberg-Marquardt provider — the finite-difference fall it deletes.
+- `HyperJet` — source-generated hyper-dual scalar-AD backing `Sensitivity`/`Chain` exact gradient/Hessian for estimator MLE, FORM/SORM, Levenberg-Marquardt
 
 [SATISFACTION]:
-- `Microsoft.Z3` — the SMT rule-satisfaction owner (`Solver/satisfy`): a typed rule set lowered from `SymbolicExpr` to `Context`/`Solver` NRA/NIA assertions returning SAT/UNSAT + model/unsat-core; the arm64 `libz3` native is Forge-provisioned, the managed wrapper carries the surface. Z3 VERIFIES-and-EXPLAINS where CP-SAT OPTIMIZES.
+- `Microsoft.Z3` — SMT rule-satisfaction: `SymbolicExpr` lowered to NRA/NIA assertions returning SAT/UNSAT + unsat-core; verifies where CP-SAT optimizes
 
 [STRUCTURAL_SOLVERS]:
 - `FEALiTE2D` — 2D frame/beam/truss solver backend: the `Analysis/structural` planar `FrameBackend` and its structural receipts.

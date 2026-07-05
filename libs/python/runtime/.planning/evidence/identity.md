@@ -41,8 +41,11 @@ from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type U128 = Annotated[int, Meta(ge=0, lt=2**128)]
-type U64 = Annotated[int, Meta(ge=0, lt=2**64)]
+# msgspec admits no integer bound past int64 (a `lt=2**64`/`lt=2**128` spelling raises ValueError
+# at any codec/convert build), so the `ge=0` floor alone rides `Meta`; the ceilings are the digest
+# algebra's — `xxh3_128_intdigest` yields <2**128 by construction, seeds are the 64-bit xxhash domain.
+type U128 = Annotated[int, Meta(ge=0)]
+type U64 = Annotated[int, Meta(ge=0)]
 type Tolerance = Annotated[float, Meta(gt=0.0)]
 type KeyView = Literal["value", "hex", "memory", "digest"]
 type KeyRender = ContentKey | str | bytes | int

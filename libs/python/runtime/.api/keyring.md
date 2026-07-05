@@ -109,7 +109,7 @@
 - `errors.NoKeyringError` is the expected failure in headless/container environments with no native keystore; the secret-admission rail lifts it to a typed boundary fault and falls back to the explicitly-configured source (env/config), never a silent plaintext default.
 
 [STACK_LAW]:
-- `get_credential(service, None)` -> `Credential` (`username`/`password`) -> minted once into an `httpx.BasicAuth`/`DigestAuth` (the `.api/httpx.md` `Auth` flow) at client construction: the secret crosses into the HTTP transport once, never re-read per request, never inlined.
+- `get_credential(service, None)` -> `Credential` (`username`/`password`) -> lifted to the admission `BasicCredential` and minted once into `httpx.BasicAuth` (the `.api/httpx.md` `Auth` flow) at client construction: the secret crosses into the HTTP transport once, never re-read per request, never inlined.
 - `pydantic-settings` reads the keyring-sourced secret into a `SecretStr` field through a custom settings source backed by `get_password`; the settings model is the single admission point, keyring is the secret store behind it.
 - `EnvironCredential` is the explicit env-var fallback when `NoKeyringError` fires in a headless lane — a declared source, not an ad-hoc `os.environ` read scattered through domain code.
 

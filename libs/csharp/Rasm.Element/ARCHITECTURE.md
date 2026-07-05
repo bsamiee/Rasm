@@ -7,31 +7,31 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Element/ # refs ../Rasm ONLY; no GeometryGym; no host geometry (geometry by content hash)
-├── Graph/ # The authoritative property graph and its mutation algebra
-│ ├── Element.cs # NodeId identity (ObjectKind Occurrence/Type — occurrence Guid-v7, Type deterministic-rooted from the Component canonical bytes with Representations excluded, non-rooted XxHash128 content) + Node [Union] + Header + frozen ElementGraph + built-once incidence index + memoized Bake type→occurrence inheritance fold (TypeId + BakedMaterial)
-│ ├── Delta.cs # GraphMutation [Union] + total Switch + HAMT WorkingGraph + structural edge law + GraphDelta monoid event body + ReplayOnto persistence fold
-│ ├── Wire.cs # ElementWire Fin-railed Encode/DecodeGraph/DecodeDelta boundary + WireCodec Mapperly transcription family + WireLimits decode-budget policy + the generated rasm.element.v1 message home
-│ └── element.proto # the language-neutral rasm.element.v1 oneof contract — Grpc.Tools compiles it here (GrpcServices=None); buf/protoc-gen-es and grpcio-tools compile the SAME file for the TypeScript/Python peers
-├── Relations/ # The neutral objectified-edge algebra
-│ └── Relation.cs # Relationship [Union] (Compose/Assign/Associate/Connect/Void + Generic passthrough) + neutral sub-kinds + MaterialUsage occurrence payload
-├── Classification/ # The neutral cross-cutting axes
-│ └── Classification.cs # generic Classification [ComplexValueObject] system+code + the one Discipline [SmartEnum] analysis axis
-├── Properties/ # The typed property/quantity value vocabulary
-│ ├── Property.cs # PropertyValue [Union] IFC-value family + PropertyName key + PropertyBag/QuantityBag + PropertySource source rank + InheritanceMode type→occurrence merge + DetailSchema.Realization and DetailSchema.Product over canonical PropertyName vocabulary
-│ └── Quantity.cs # Dimension [ComplexValueObject] 7-SI-exponent discriminator + MeasureValue UnitsNet SI coercion + MeasureBand neutral uncertainty bounds plus distribution metadata + QTO accessors
-├── Composition/ # The material composition and intrinsic acoustic folds
-│ ├── Material.cs # MaterialId + MaterialComposition [Union] (+ ProfileRef) + PropertyEvidence + MaterialPropertySet [Union] keyed to Discipline
-│ └── Acoustic.cs # AcousticBand one-third-octave + banded Acoustic carrier + Nrc/Saa/StcWeighted/Rw pure folds + shared RatingContour.Fit kernel
-├── Assessment/ # The generic analysis receipt
-│ └── Assessment.cs # generic AssessmentPayload (Discipline+AnalysisRoute+InputKey) + AssessmentOutcome column-driven lifecycle (Usable/Terminal/Dispatchable + Next flip adjacency) + typed Results bag + typed failure Diagnostic (SolvePhase/FailureKind) + Provenance (elapsed/window/correlation) + content-keyed ResultBlob
-├── Geospatial/ # The georeferenced coverage and CRS
-│ ├── Coverage.cs # CoverageGrid by-ref raster/field + CoverageBand schema + affine GridDescriptor
-│ └── Reference.cs # GeoReference map-conversion-and-CRS record + three-state ProjectedCrs [ComplexValueObject] (Name/Epsg/Wkt/MapProjection·MapZone) + CrsResolution column + fault-on-fully-unresolvable Admit
-└── Projection/ # The cross-stratum contracts, the content codec, and the fault band
- ├── Projection.cs # IElementProjection projector floor + IGraphConstraint legality floor + ProjectionContext + Assemble capability
- ├── Address.cs # CanonicalWriter one canonical codec + ContentAddress [ValueObject<UInt128>] over the kernel seed-zero XxHash128
- └── Fault.cs # FaultBand [SmartEnum<int>] cross-federation band-allocation registry (peer bands rebind Code to a row) + ElementFault [Union] band-2500 every entrypoint lowers onto
+Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry (geometry by content hash)
+├── Graph/                # The authoritative property graph and its mutation algebra
+│   ├── Element.cs        # The property-graph spine — dual-seeded NodeId (Occurrence Guid-v7 / rooted Type, geometry excluded), the Node [Union], the Bake fold
+│   ├── Delta.cs          # The mutation algebra — GraphMutation [Union] + total Switch over the HAMT WorkingGraph, structural edge law, persistable GraphDelta
+│   ├── Wire.cs           # The content-key-preserving crossing — Fin-railed Encode/Decode under decode-budget gate, Mapperly WireCodec family; keys verbatim
+│   └── element.proto     # The language-neutral rasm.element.v1 oneof contract — Grpc.Tools compiles it (GrpcServices=None); TS/Python compile the SAME proto
+├── Relations/            # The neutral objectified-edge algebra
+│   └── Relation.cs       # The neutral edge algebra — Relationship [Union] (Compose/Assign/Associate/Connect/Void + Generic), never the seventeen IfcRel* cases
+├── Classification/       # The neutral cross-cutting axes
+│   └── Classification.cs # The cross-cutting axes — the generic Classification [ComplexValueObject] system+code, the one Discipline [SmartEnum] analysis axis
+├── Properties/           # The typed property/quantity value vocabulary
+│   ├── Property.cs       # The typed value vocabulary — PropertyValue [Union] IFC-value family over PropertyName, PropertySource rank, InheritanceMode merge
+│   └── Quantity.cs       # The physical-quantity carrier — the 7-SI-exponent Dimension, MeasureValue SI coercion over UnitsNet, and MeasureBand bounds
+├── Composition/          # The material composition and intrinsic acoustic folds
+│   ├── Material.cs       # The material composition — MaterialId, MaterialComposition [Union] (+ProfileRef), PropertyEvidence, MaterialPropertySet [Union]
+│   └── Acoustic.cs       # The intrinsic acoustic folds — the one-third-octave Acoustic carrier, the Nrc/Saa/StcWeighted/Rw folds, the shared RatingContour.Fit
+├── Assessment/           # The generic analysis receipt
+│   └── Assessment.cs     # The generic analysis receipt — AssessmentPayload keyed by Discipline+AnalysisRoute+InputKey, AssessmentOutcome lifecycle, Results
+├── Geospatial/           # The georeferenced coverage and CRS
+│   ├── Coverage.cs       # The georeferenced coverage — the by-ref CoverageGrid raster/field, the CoverageBand schema, the affine GridDescriptor; bytes by key
+│   └── Reference.cs      # The map-conversion-and-CRS record — the three-state ProjectedCrs [ComplexValueObject] over EPSG/WKT/projection, CrsResolution, Admit
+└── Projection/           # The cross-stratum contracts, the content codec, and the fault band
+    ├── Projection.cs     # The cross-stratum contracts — IElementProjection projector floor, IGraphConstraint legality floor, ProjectionContext, Assemble
+    ├── Address.cs        # The content codec — the CanonicalWriter byte projection and ContentAddress [ValueObject<UInt128>] over kernel seed-zero XxHash128
+    └── Fault.cs          # The fault band — the FaultBand [SmartEnum<int>] allocation registry and ElementFault [Union] band 2500 every entrypoint lowers onto
 ```
 
 The `Graph` sub-domain is the spine: `Element.cs` declares the `Node`/`NodeId`/`Header`/`ElementGraph` and the `Bake` fold; `Delta.cs` the mutation algebra and the persistable `GraphDelta`; `Wire.cs` + `element.proto` the one content-key-preserving crossing every peer runtime decodes, keys verbatim and admission through the seam gates. Every other sub-domain owns a `Node` case payload or a cross-cutting value the spine composes — `Relations` the edges, `Classification`/`Properties`/`Composition`/`Assessment`/`Geospatial` the typed payloads, `Projection` the contracts, the content codec, and the fault band. The `Composition/Material` page composes `Properties/Quantity` (the `MeasureValue` columns) and `Composition/Acoustic` (the banded carrier); the `Graph/Element` `Bake` composes every payload owner and applies both the named type→occurrence inheritance (single fields occurrence-overrides-type, `Seq` fields union + dedup-by-key) and the `Properties/Property` `InheritanceMode` bag merge; the `Projection/Address` codec is the one canonical projection the `NodeId.Content` mint, the `ContentAddress` diff, and the `Generator.Equals` content comparison all share. The seam re-mints nothing the kernel owns: the content-identity seed is the kernel `XxHash128` seed-zero entry, the op-key the kernel `Op`, the fault base the kernel `Expected`.
@@ -39,34 +39,43 @@ The `Graph` sub-domain is the spine: `Element.cs` declares the `Node`/`NodeId`/`
 ## [02]-[SEAMS]
 
 ```text seams
-Graph/element ← csharp:Rasm.Bim/Projection # [PROJECTION]: SemanticProjector:IElementProjection lowers GeometryGym → GraphDelta; Emit Bim-internal, never a seam member
-Graph/element ← csharp:Rasm.Materials/Projection # [PROJECTION]: ComponentProjector mints the deterministic-rooted Type Object (ObjectKind.Type, NodeId from Component canonical bytes EXCLUDING Representations), stamps Classification/PredefinedType, bakes the section + authors the neutral detail bag, binds occurrences via Assign.TypeDefinition; also authors the content-keyed Material/Appearance subgraph
-Graph/element ← csharp:Rasm.Fabrication/Projection # [PROJECTION]: a future third IElementProjection, one registration row
-Graph/element ⇄ csharp:Rasm.Materials/Component # [SHAPE]: the owner-mints-its-identity law + the named Bake type→occurrence inheritance (single fields occurrence-overrides-type, Seq fields union+dedup-by-key) + TypeId on the baked Element + the BakedMaterial/TypeBinding rename
-Projection ← csharp:Rasm.Bim # [PORT]: IGraphConstraint IFC-semantic legality (containment/void/type-aggregation), composed after the seam structural law
-Graph/element → csharp:Rasm.Compute # [SHAPE]: reads the concrete ElementGraph directly (above the seam, no interface); resolves the analytical AxisCurve/FootprintPolygon one-hop by content key through the seam GeometrySource port (app-wired over the Persistence blob store, never a phantom node field); writes Assessment.Result nodes content-keyed on (InputKey, Route)
-Composition/acoustic → csharp:Rasm.Compute # [SHAPE]: RatingContour.Fit (the seam contour-fit kernel, Stc/Rw rows by data alone) shared for the ISO 12354 layered-STC; the multi-ply AssemblyAggregator folds MaterialComposition plies in Compute
-Assessment/assessment → csharp:Rasm.Compute # [SHAPE]: Compute reads the concrete graph, runs the discipline route, writes a Computed Node.Assessment back via the neutral Assign/AssignKind.Assessment edge content-keyed on (Discipline,Route,InputKey); the AnalysisRoute roster + the solver-tool/version re-key are Compute's, the seam carries only the opaque AnalysisRoute token
-Composition/material → csharp:Rasm.Compute # [SHAPE]: the MaterialComposition/MaterialPropertySet plies feed the relocated AssemblyAggregator (series-U / mass-law-STC / rule-of-mixtures / EN 15978 GWP / cost); the baked SectionProperties feed the design-code routes via graph.SectionOf
-Composition/material → csharp:Rasm.Materials/Component # [PROJECTION]: ProfileRef resolved one-hop to the Component-owned ComputedSection (the M7 one-hop, VividOrange-grounded section catalog)
-Composition/material → csharp:Rasm.Bim # [SHAPE]: the Cost case's neutral per-unit doubles + opaque Currency ISO-4217 token meet the Bim NodaMoney money algebra at the 5D quantity×rate join; the MaterialComposition serializes to the IFC 4.3 material-definition family at Emit
-Geospatial/reference ← csharp:Rasm.Bim/Semantics # [PROJECTION]: GeoReferenceProjector folds IfcMapConversion(Scaled)/IfcProjectedCRS (or the IfcSite WGS84 fallback) onto the seam GeoReference map-conversion-and-CRS record on Header/Coverage, composing the IfcProjectedCRS.MapUnit SIFactor() metre-normalization onto the per-axis scale at ingest and supplying GeoReference.Admit the three-state ProjectedCrs carriers (Name + inline Wkt + MapProjection/MapZone); the ProjNET/OSR datum reprojection consumes it (the EPSG-vs-WKT build path selected off CrsResolution); the seam owns GeoReference.Admit + the EPSG parse + fault-on-fully-unresolvable, Bim the IFC fill + the kernel-transform build
-Geospatial/coverage ← csharp:Rasm.Bim/Semantics # [PROJECTION]: GeoModel.Project lowers a vector feature onto an Object node and GeoRaster.ToCoverage a raster onto a Coverage node via a GraphDelta; NTS/STRtree/GDAL-OGR + the vector/raster codecs live in Bim; raster bytes to the content-keyed blob store, only grid metadata + band schema on the seam
-Properties/property ← csharp:Rasm.Bim/Semantics # [PROJECTION]: the Pset_* template roster, bSDD resolution, base-quantity derivation, and the IfcRelDefinesByProperties round-trip stay in Bim; Bim fills the seam PropertySet/QuantitySet bags with typed PropertyValue, the seam owning the value shape + the InheritanceMode merge
-Properties/property ⇄ csharp:Rasm.Materials/Component # [SHAPE]: DetailSchema.Realization owns discrete realizing rows (Bolted/Welded/Bonded/Bearing/Cast) plus the masonry EN 771 size-envelope rows (SizeTolerance/SizeRange/SpecialShape); DetailSchema.Product owns panel/deck/membrane product rows (EdgeProfile/PanelThickness/FieldSpacing/EdgeSpacing/RibDepth/RibPitch/MembraneSeam) plus the IGU build rows (PaneBuild/CavityBuild/SpacerType/EdgeSeal/MuntinGrid/FireResistanceEi); the ComponentProjector authors conforming PropertyBags through DetailSchema.Bag()/Joint over PropertyValue.Of, never a Pset_* literal on the seam
-Properties/property ⇄ csharp:Rasm.Bim/Semantics # [SHAPE]: the ONE neutral DetailSchema + canonical PropertyName vocabulary the Component projection authors and Bim egresses to the IFC Pset (Rasm_ConnectionRealization stays Bim-only)
-Properties/property ⇄ csharp:Rasm.Bim/Semantics # [SHAPE]: PropertySource ranks catalogue/import/derived/user value bags after InheritanceMode has selected type-vs-occurrence values; Bim stamps Import, Materials stamps Catalogue, Bim-derived base quantities stamp Derived, host overrides stamp User
-Properties/quantity → csharp:Rasm.Bim/Semantics # [SHAPE]: MeasureValue is the carrier the Bim QuantityDerivation.Derive base-quantity fold composes (Qto_*BaseQuantities, derived-wins, MeasureValue.OfSi/Sum), each Pset_* measure admitting with its real QuantityType/Dimension/unit and optional neutral MeasureBand bounds
-Composition/material ⇄ csharp:Rasm.Materials/Properties # [SHAPE]: PropertyEvidence travels with each MaterialPropertySet row; Materials may compute with provider uncertainty libraries, but lowers only MeasureValue/MeasureBand/evidence to the seam
-Graph/delta ⇄ csharp:Rasm.Persistence/Element # [CONTENT_KEY]: GraphDelta is the GraphEvent body; the inline GraphProjection folds GraphDelta → ElementGraph via ReplayOnto; the periodic Marten snapshot (Snapshot<T>(SnapshotLifecycle.Inline)) bounds replay; the Version/ledger op-log/CRDT engine projects FROM the committed delta events
-Graph/element ⇄ csharp:Rasm.Persistence/Element # [CONTENT_KEY]: ElementGraph store-load roundtrip (GraphStore); the Generator.Equals Inequalities member diff feeds the Version/merge 3-way StructuralMerge
-Projection/address ⇄ csharp:Rasm # [CONTENT_KEY]: composes the kernel seed-zero XxHash128 content-hash entry; the ONE hasher, no second hasher
-Projection/address → csharp:Rasm.Persistence # [CONTENT_KEY]: the ContentAddress + the Object RepresentationContentHash representation content hashes the Store/blobstore keys geometry/raster blobs on; Persistence composes the seam ContentAddress.Of/OfGraph directly (no Element/codec NodeHash owner) — the one canonical-byte projection lives on the seam Projection/address#CANONICAL_WRITER CanonicalWriter, shared by the NodeId hash, the diff, and the snapshot/chunk content keys
-Projection ← csharp:Rasm.AppHost # [PORT]: ProjectionContext neutral primitives (clock instant / CorrelationId / TenantId), supplied at the app composition root, never an AppHost type on the seam
-Graph/element ⇄ python:geometry/mesh # [WIRE]: the imported-IFC GLB seed-zero XxHash128 == the Object RepresentationContentHash entry; the companion decodes the seam representation key, never re-mints
-Projection/address ⇄ python:runtime/evidence # [WIRE]: the one XxHash128 seed-zero ContentAddress parity — the MATERIAL_LAYER_GOLDEN IfcMaterialLayer golden vector pins byte-for-byte agreement over the Measure canon (the QuantityType discriminator token + the IEEE-754-LE SI magnitude quantized to Header.Tolerance + the 7 Dimension exponents the CanonicalWriter.Measure writes), so a MeasureValue/layer-thickness float-canon drift surfaces as a single corpus mismatch; the companion REPRODUCES the seam content key over those canonical bytes, never re-mints a digest and never re-decodes a quantity VALUE — the typed Material/Property/Quantity/Assessment/Classification vocabulary itself rides the SI-coerced numeric fields INSIDE the Graph/wire rasm.element.v1 graph proto payloads (the python:geometry/ifc + typescript:core/interchange/codec graph-wire rows), SI-coerced ONCE at the C# admission so the wire carries SI magnitude + dimension, never a {value, unit:string} shape the companion re-mints through a unit-abbreviation lookup (that abbreviation decode is the C# Bim ingress convenience on Properties/quantity, not a cross-runtime Python surface)
-Graph/wire ⇄ typescript:core/interchange/codec # [WIRE]: the rasm.element.v1 ElementGraphWire/NodeWire/RelationshipWire proto the codec graph row decodes under the core/interchange/contract ContractDrift gate (Identical/Additive/Breaking) — the element.proto this folder owns is the descriptor source that gate diffs
-Graph/wire ⇄ python:geometry/ifc # [WIRE]: the SAME rasm.element.v1 contract the companion decodes by content key through grpcio-tools/protobuf codegen — keys verbatim, never re-minted; the PY_WIRE_ALIGNMENT canonical-writer mirror builds against the counted-bag layout this wire carries
+Graph/element         ← csharp:Rasm.Bim/Projection         # [PROJECTION]: SemanticProjector lowers GeometryGym → GraphDelta; Emit stays Bim-internal
+Graph/element         ← csharp:Rasm.Materials/Projection   # [PROJECTION]: mints the deterministic-rooted Type Object, binds occurrences, authors the subgraph
+Graph/element         ← csharp:Rasm.Fabrication/Projection # [PROJECTION]: a future third IElementProjection, one registration row
+Graph/element         ⇄ csharp:Rasm.Materials/Component    # [SHAPE]: owner-mints-its-identity law + named Bake type→occurrence inheritance + TypeId on Element
+Projection            ← csharp:Rasm.Bim                    # [PORT]: IGraphConstraint IFC legality (containment/void/type-aggregation), after the structural law
+Graph/element         → csharp:Rasm.Compute                # [SHAPE]: reads the concrete graph; geometry one-hop via GeometrySource; writes Assessment.Result
+Composition/acoustic  → csharp:Rasm.Compute                # [SHAPE]: RatingContour.Fit shared for ISO 12354 layered-STC; the AssemblyAggregator runs in Compute
+Assessment/assessment ← csharp:Rasm.Compute                # [SHAPE]: Compute runs the route, writes Computed Node.Assessment keyed (Discipline,Route,InputKey)
+Composition/material  → csharp:Rasm.Compute                # [SHAPE]: composition plies feed the AssemblyAggregator; SectionProperties feed design-code routes
+Composition/material  → csharp:Rasm.Materials/Component    # [PROJECTION]: ProfileRef one-hop to the Component-owned ComputedSection (VividOrange catalog)
+Composition/material  → csharp:Rasm.Bim                    # [SHAPE]: Cost per-unit doubles + ISO-4217 Currency meet the Bim NodaMoney algebra at the 5D join
+Geospatial/reference  ← csharp:Rasm.Bim/Semantics          # [PROJECTION]: GeoReferenceProjector folds IFC CRS → GeoReference; seam owns Admit+fault, Bim fills
+Geospatial/coverage   ← csharp:Rasm.Bim/Semantics          # [PROJECTION]: GeoModel lowers vector/raster → Object/Coverage; NTS/GDAL in Bim, metadata on seam
+Properties/property   ← csharp:Rasm.Bim/Semantics          # [PROJECTION]: Pset roster + bSDD + IFC round-trip in Bim; seam owns value shape + InheritanceMode
+Properties/property   ⇄ csharp:Rasm.Materials/Component    # [SHAPE]: DetailSchema.Realization/.Product rows the ComponentProjector authors, no Pset_* literal
+Properties/property   ⇄ csharp:Rasm.Bim/Semantics          # [SHAPE]: the ONE neutral DetailSchema + PropertyName Materials authors, Bim egresses to Pset
+Properties/property   ⇄ csharp:Rasm.Bim/Semantics          # [SHAPE]: PropertySource ranks the value bags after InheritanceMode selects type-vs-occurrence
+Properties/quantity   → csharp:Rasm.Bim/Semantics          # [SHAPE]: MeasureValue carries the Bim QuantityDerivation.Derive base-quantity yield (derived-wins)
+Composition/material  ⇄ csharp:Rasm.Materials/Properties   # [SHAPE]: PropertyEvidence rides each MaterialPropertySet row; only MeasureValue/MeasureBand cross
+Composition/material  ⇄ csharp:Rasm.Bim/Semantics          # [PROJECTION]: IFC material sets ↔ MaterialComposition/ProfileRef; profiles → IIfcProfileStore
+Composition/material  ⇄ csharp:Rasm.Bim/Semantics          # [CONTENT_KEY]: AppearanceSummary ↔ Materials Appearance at content key, no direct reference
+Composition/material  → csharp:Rasm.Materials/Projection   # [SHAPE]: seam MaterialComposition/MaterialUsage cases — the absorbed CompositionAuthor
+Graph/element         ← csharp:Rasm.Materials/Appearance   # [CONTENT_KEY]: a library row lowered to the content-keyed AppearanceSummary at full precision
+Graph/element         ⇄ csharp:Rasm.Compute/Runtime        # [CONTENT_KEY]: RepresentationContentHash shares the kernel seed-zero; InterchangeIdentity DISTINCT
+Properties/property   ⇄ csharp:Rasm.Compute/Symbolic       # [SHAPE]: seam Dimension ℤ⁷ measure ↔ DimensionMonomial ℚ⁷ proof, both from UnitsNet BaseDimensions
+Projection            → csharp:Rasm.Materials/Projection   # [SHAPE]: IElementProjection contract set + IGraphConstraint validate gate the projector composes
+Graph/delta           ⇄ csharp:Rasm.Persistence/Element    # [SHAPE]: GraphDelta is GraphEvent body; GraphProjection replays → ElementGraph, snapshot-bounded
+Graph/element         ⇄ csharp:Rasm.Persistence/Element    # [SHAPE]: ElementGraph store-load roundtrip; Generator.Equals diff feeds the 3-way StructuralMerge
+Projection/address    ⇄ csharp:Rasm                        # [CONTENT_KEY]: composes the kernel seed-zero XxHash128 entry; the ONE hasher, no second hasher
+Projection/address    → csharp:Rasm.Persistence            # [CONTENT_KEY]: ContentAddress keys geometry/raster blobs; Persistence composes seam CanonicalWriter
+Projection            ← csharp:Rasm.AppHost                # [PORT]: ProjectionContext neutral primitives (clock/CorrelationId/TenantId) at app composition root
+Graph/element         ⇄ python:geometry/mesh               # [WIRE]: imported-IFC GLB seed-zero XxHash128 == RepresentationContentHash; companion never re-mints
+Graph/element         ← csharp:Rasm.Persistence/Ingest     # [WIRE]: tabular row shape only; the per-app composition root maps rows onto ElementGraph nodes
+Graph/element         ← csharp:Rasm.Persistence/Ingest     # [WIRE]: geospatial feature row shape, mirroring the tabular law; app root owns the geo→element map
+Projection/address    ⇄ python:runtime/evidence            # [CONTENT_KEY]: seed-zero ContentAddress parity — MATERIAL_LAYER_GOLDEN pins CanonicalWriter.Measure
+Graph/wire            ⇄ typescript:core/interchange/codec  # [WIRE]: rasm.element.v1 proto the codec decodes under core/interchange/contract ContractDrift gate
+Graph/wire            ⇄ python:geometry/ifc                # [WIRE]: the SAME rasm.element.v1 contract the companion decodes via grpcio-tools; keys verbatim
 ```
 
 The `[PROJECTION]` rows are the INVERSION OF CONTROL: GeometryGym, VividOrange, and every provider stay in the AEC peers, which implement `IElementProjection` and lower their foreign source onto a `GraphDelta` — no provider edge points down into the seam, no second IFC or section-property stack. Each provider OWNS its concept and MINTS its own `Object` identity (the owner-mints-its-identity law): the `Rasm.Materials` `Component` projection mints the deterministic-rooted Type `Object` AND stamps its `Classification`/`PredefinedType`, a model author mints Occurrence `Object`s, and `Rasm.Bim` ingests `IfcElementType`→the SAME Type `Object` and `IfcElement`→Occurrence, so a minter never stamps a foreign projector's egress and the one type representation is authored and ingested unified. The acyclic strata is preserved: every AEC peer references `{Rasm, Rasm.Element}` (a shared LOWER stratum, the same shape as depending on the kernel), and peers never reference each other; the live element assembly (registering the `Seq<IElementProjection>`, binding the tessellation adapter, running `Assemble` against a live source) is an APP / HOST-BOUNDARY composition-root concern, the seam owning the `Assemble` capability and the apps the wiring.

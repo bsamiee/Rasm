@@ -8,34 +8,34 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 Rasm.Materials/
-├── Component/            # One polymorphic Component over the closed ten-family ComponentFamily axis (the Profiles+Connection merge + the panel/sheet-goods tenth), discriminated by the ComponentClass {Primary,Panel,Minor} axis; one SectionSolver over the closed SectionProfile algebra; the canonical ComputedSection receipt; one SectionCapacity surface owner
-│   ├── Component.cs      # Component polymorphic owner + ComponentClass {Primary,Panel,Minor} (Primary one-piece IfcBuiltElement, Panel many-pieces IfcBuiltElement sheet-goods, Minor many-pieces IfcElementComponent) + ComponentFamily ten-row POLICY axis (class/lane + [UseDelegateFromConstructor] admits/crossNominal/rows delegates) + ComponentId 'family.designation' key + SubstanceId/AppearanceId independent MaterialId slots + ComponentFault [Union] (Code => FaultBand.Component) + DetailLane bag law + IfcBinding stored row pair + the closed SectionProfile [Union] cross-section algebra (VoidCell fill-state cells, Ply, railed per-arm Of factories) + relocated Coring/CoringClass void-class owner + ComponentUnit + ComponentAuthority/ComponentStandard + the twenty-field ComputedSection receipt + the ONE SectionSolver (Curves typed VividOrange.IProfiles contracts for exact fillet/curved-part integration, Forms closed-form supplements carrying the relocated steel open-thin-walled algebra, the RC ProfileOf entry) + ComponentRow + the fail-loud one-pass ComponentCatalogue.Of/Lookup + QuantityRow typed-mint table + ComponentDetail bag constructors + the [M7] one-hop ComponentResolution (ResolvedComponent/Build/Resolve)
-│   ├── Masonry.cs        # Masonry ComponentFamily (Minor, IfcElementComponent) — frog/perforation void geometry, EN 771-1 work-vs-actual tolerance, the generative Bond algebra (BondKind template/generated + the delegate-bearing BondGeometry descriptor whose [UseDelegateFromConstructor] Course delegate derives the CourseTemplate/UnitPlacement per-unit transform, the BondName catalogue — never a central interpreter), ASTM C270 MortarProfile/MortarType/MortarJoint + MortarSystem cementitious-system rows + the TMS 402 Table 9.1.9.2 RuptureModulus modulus-of-rupture table (the URM flexural-tension feed), composing the relocated Coring
-│   ├── Steel.cs          # Steel ComponentFamily (Primary, IfcBuiltElement) over the VividOrange AISC v16.0 + EN 10365 published catalogue — SteelSeed.Rows + the SteelShape published-identity payload of SectionProfile.Catalogued (its open-thin-walled stiffness algebra RELOCATED to Component.cs SectionSolver.Forms), the CompactnessClass verdict, the DesignCapacity LRFD projection, the Composite + ColdFormed arms
-│   ├── Cmu.cs            # Cmu ComponentFamily seed (Minor, DetailLane.None) — CmuSeed.Rows over the ASTM C90 table onto SectionProfile.CellularRectangle (bed-plane profile, min-corner VoidCell fill-state lattice, EndWeb/CrossWeb split, open-end drop), the six kept SmartEnums (CmuGrade/CmuStrength/CmuDensity/CmuAggregate/CmuSpecialUnit/CmuFinish), the CmuPhysics fire/thermal/self-weight/equivalent-thickness receipt, the CmuSeed.Module coursing projection
-│   ├── Timber.cs         # Timber ComponentFamily (Primary) over sawn/glulam/CLT lamella records, the EC5 TimberCapacity + gamma-method EffectiveStiffness + ResidualSection charring
-│   ├── Glazing.cs        # Glazing ComponentFamily (Minor) over EN 1279 pane/spacer/cavity IGU records
-│   ├── Reinforcement.cs  # Reinforcement ComponentFamily (Minor) over the ASTM A615/A706 bar rib/bend record + the family-agnostic RcSection VividOrange ConcreteSection assembler + the RebarLayout [Union] + the EnGrade boundary
-│   ├── Fastener.cs       # Fastener ComponentFamily (Minor) over the ISO 898 thread record + the bolt+nut+washer assembly + the FastenerKind arm (anchor folded in, never a separate family)
-│   ├── Connector.cs      # Connector ComponentFamily (Minor) over the carried-member/capacity hardware record (the hanger→connector rename), the IfcDiscreteAccessory the connector IS + the separate attaching IfcMechanicalFastener
-│   ├── Joint.cs          # Joint ComponentFamily (Minor) over the AWS D1.1 weld/adhesive/stud continuous-connection record, the StudClass.SteelShearKn shear interface
-│   ├── Panel.cs          # Panel ComponentFamily (Panel, IfcBuiltElement) — the PANEL/SHEET/MEMBRANE buildable-goods family whose board geometry rides SectionProfile.Layered and deck geometry SectionProfile.Corrugated (no vendor producer owns sheet-goods dimension tables — AUTHORED tier under SEED_ROW_LAW): the PanelKind [SmartEnum] carrying IfcEntity/IfcPredefinedType/Structural per kind {gypsum-board/gypsum-sheathing/cement-board → IfcCovering CLADDING, rigid-board-insulation → IfcCovering INSULATION, membrane-epdm/membrane-pvc/membrane-tpo → IfcCovering ROOFING, plywood-sheathing/osb-sheathing → IfcPlate SHEET, steel-deck → IfcPlate SHEET (roof/form) | IfcSlab FLOOR (composite)}, the EdgeProfile/PanelLayerRole/PanelOrientation/DeckForm/CoreType/BondClass/FoamType/Facer/FastenerType smart-enums, the Ply/FastenPattern value-objects, the frozen DeckProfileRow/SpanRow standards row tables (DeckProfile/SpanRating converted off the SmartEnum form per SEED_ROW_LAW, the RValue projection subsumed by FoamType.RValueSi), PanelSeed.Rows folding the ASTM C1396/APA PRP-108/ASTM C1325/ANSI-SDI/ASTM C578-C1289 row table plus membrane rows, the structural steel-deck rows Sectioned so SectionSolver fills their rib ComputedSection (the buildable BOARD/SHEET/MEMBRANE is the Component, the substance a Properties row — gypsum.board/cement.board/wood.plywood/wood.osb/insulation.eps/xps/pir/membrane.epdm/membrane.pvc/membrane.tpo)
-│   └── Capacity.cs       # SectionCapacity [Union] 5-case (RC N-M-M VividOrange.InteractionDiagram hull, RC elastic transformed-section, steel LRFD, timber, masonry TMS 402 compression-unity + §9.2.2 flexural-tension screen) folded against one Demand/Utilisation/GoverningAction rail
-├── Appearance/           # Measured appearance engine
-│   ├── Bsdf.cs           # Closed seven-lobe BsdfLobe family and frame-local microfacet kernel
-│   ├── Graph.cs          # Node-DAG MaterialGraph program and MaterialLibrary row table
-│   ├── Surface.cs        # SpectralUpsample/ToneMap/ConductorMetal/SlabStack OpenPBR color-science lowering
-│   ├── Texture.cs        # TextureUv sampling fold over closed TextureSource union
-│   ├── Photometric.cs    # Light-unit admission fold over PhotometricQuantity band (the in-folder UnitsNet boundary)
-│   ├── Weathering.cs     # Weathering aging fold over closed WeatheringEffect union
-│   ├── Acquisition.cs    # Acquisition import fold over closed CaptureSource union (the MathNet.Numerics thin-QR GGX fit)
-│   ├── Finish.cs         # FinishMix Kubelka-Munk pigment-reflectance engine
-│   └── Interchange.cs    # MaterialWire and MaterialX .mtlx interchange projection (C# the sole producer)
-├── Properties/           # Typed engineering-property source, lowered into the seam
-│   ├── Properties.cs     # Intrinsic engineering measurements with VividOrange uncertainty lowered to Element MeasureBand; mechanical/thermal/acoustic/fire MaterialPropertySet inputs only
-│   └── Sustainability.cs # Lifecycle impact, unit cost basis, and classification rows lowered into seam Environmental/Cost sets; project cost schedules/resources/rollups stay in Bim/Compute
-└── Projection/           # The IElementProjection onto the Rasm.Element seam
-    └── Component.cs       # ComponentProjector:IElementProjection (the MaterialProjector+ConnectionProjector merge) — the Project fold discriminating Substance(MaterialSpec) from Type(ComponentSpec), minting the deterministic-rooted Type Object + stamping the IfcBinding Classification/PredefinedType + the M7 SeamSection bake via QuantityRow + the seed-built Component.Detail bag read + the H12 Associate / Assign.TypeDefinition edges; the absorbed CompositionAuthor (Single/LayerSet/ProfileSet(ProfileRef)/ConstituentSet + C7 UsageOf); ComponentSubgraph.Capture/CaptureComponent with the Sectioned/Layered/Single composition law; ProjectionFault (Code => FaultBand.Projection)
+├── Component/            # One polymorphic Component over the closed ten-family axis, class-discriminated; sections by SectionSolver, capacity SectionCapacity
+│   ├── Component.cs      # The Component owner + its class/family axes, the SectionProfile algebra, the one SectionSolver, the ComputedSection receipt
+│   ├── Masonry.cs        # Masonry family (Minor) — the generative Bond algebra, EN 771-1 void/tolerance geometry, ASTM C270 mortar, the TMS 402 rupture feed
+│   ├── Steel.cs          # Steel family (Primary) over the VividOrange AISC v16.0 + EN 10365 catalogue — published seed, compactness verdict, LRFD capacity
+│   ├── Cmu.cs            # Cmu family (Minor) — the ASTM C90 cellular-rectangle seed with fill-state void lattice, grade/density vocabularies, fire physics
+│   ├── Timber.cs         # Timber family (Primary) over sawn/glulam/CLT lamellae — the EC5 capacity, gamma-method stiffness, the charring residual-section
+│   ├── Glazing.cs        # Glazing family (Minor) over EN 1279 insulated-glass pane/spacer/cavity records
+│   ├── Reinforcement.cs  # Reinforcement family (Minor) — the ASTM A615/A706 bar record, the family-agnostic RcSection assembler, the RebarLayout algebra
+│   ├── Fastener.cs       # Fastener family (Minor) over the ISO 898 thread record + bolt/nut/washer assembly; anchor folds as a FastenerKind arm, not a family
+│   ├── Connector.cs      # Connector family (Minor) — the fabricated framing-hardware record (the hanger rename): the IfcDiscreteAccessory + attaching fastener
+│   ├── Joint.cs          # Joint family (Minor) over the AWS D1.1 weld/adhesive/stud continuous-connection record and the steel shear-stud interface
+│   ├── Panel.cs          # Panel family (Panel, IfcBuiltElement) — sheet-goods boards riding SectionProfile.Layered/Corrugated; substance is a Properties row
+│   └── Capacity.cs       # The one SectionCapacity [Union] — RC N-M-M hull, RC transformed-section, steel LRFD, timber, masonry — one Demand/Utilisation rail
+├── Appearance/           # The measured appearance engine — node graph, closed seven-lobe BSDF, OpenPBR color-science, and the C#-sole material wire
+│   ├── Bsdf.cs           # The closed seven-lobe BsdfLobe family and the frame-local microfacet kernel
+│   ├── Graph.cs          # The node-DAG MaterialGraph program and the MaterialLibrary row table
+│   ├── Surface.cs        # OpenPBR color-science lowering — spectral upsample, tone-map, conductor metal, and the layered slab stack
+│   ├── Texture.cs        # The TextureUv sampling fold over the closed TextureSource union
+│   ├── Photometric.cs    # The light-unit admission fold over the PhotometricQuantity band — the in-folder UnitsNet boundary
+│   ├── Weathering.cs     # The aging fold over the closed WeatheringEffect union
+│   ├── Acquisition.cs    # The import fold over the closed CaptureSource union — the MathNet.Numerics thin-QR GGX fit
+│   ├── Finish.cs         # The FinishMix Kubelka-Munk pigment-reflectance engine
+│   └── Interchange.cs    # The MaterialWire and MaterialX .mtlx interchange projection — C# the sole producer
+├── Properties/           # The typed engineering-property source, lowered into the seam MaterialPropertySet cases
+│   ├── Properties.cs     # Intrinsic mechanical/thermal/acoustic/fire measurements, VividOrange uncertainty lowered to the seam MeasureBand; the source only
+│   └── Sustainability.cs # Lifecycle impact, unit-cost basis, and classification rows lowered into the seam Environmental/Cost sets; rollups in Bim/Compute
+└── Projection/           # The one IElementProjection onto the Rasm.Element seam
+    └── Component.cs      # ComponentProjector:IElementProjection (the MaterialProjector+ConnectionProjector merge) — Project splits substance from Type-mint
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new cross-section is a `ComponentFamily` row over one `Component` (a steel section one `American`/`European` identity in the `VividOrange.Profiles.Catalogue` published database `CatalogueFactory.CreateAmerican`/`CreateEuropean` admits and the one `SectionSolver.Solve` computes from through `VividOrange.Sections.SectionProperties`, never a hand-keyed literal), a new material a `MaterialLibrary` row, a new lobe a `BsdfLobe` `[Union]` case, a new standardized part a `ComponentFamily` row in its family vocabulary, a new rebar arrangement a `RebarLayout` `[Union]` case the one `RcSection.Of` fold dispatches over the `VividOrange.Sections` `ConcreteSection`, a new section-capacity kind a `SectionCapacity` `[Union]` case the one `SectionCapacity.Resolve`/`Check` rail discriminates (the RC N-M-M `VividOrange.InteractionDiagram` hull, the RC `ConcreteSectionProperties` elastic transformed-section, the steel LRFD receipt, the timber/masonry cases), a new engineering property a seam `MaterialPropertySet` case the `MaterialPropertyCatalogue` lowers into, a new projected node a seam `Node` case the one `ComponentProjector.Project` fold authors — never a new surface. The rail is named in the return type: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes — `ComponentFault` (the prior `ProfileFault` and `ConnectionFault` merged into the one owner band), `MaterialFault`, and `ProjectionFault`, each reading its band off the `Rasm.Element` `FaultBand` registry (`Component`/`Material`/`Projection`; band 2350 is registry-reserved for `Rasm.Generation`, the retired `ConstructionFault`'s charter), disjointness type-enforced against the kernel `GeometryFault` and seam `ElementFault` rows; the projector returns the seam `Fin<GraphDelta>` and the seam `Assemble` fold merges every projector's delta. C# is the sole producer of the material wire: `Appearance/Interchange` `MaterialWire` and `MtlxDocument` mint the OpenPBR-vector and MaterialX `.mtlx` interchange once, and the TypeScript and Python peers decode both — a peer re-mint of the OpenPBR algebra, the `ConductorMetal` rows, or the MaterialX schema is the named cross-language drift defect.
@@ -43,34 +43,35 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Projection/component       ←  csharp:Rasm.Element/Projection    # [SHAPE]: IElementProjection / ProjectionContext / GraphDelta / Node / NodeId / ObjectKind / Classification / PredefinedType / Relationship / AssignKind / MaterialUsage / DetailSchema / ContentAddress / Assemble + the IGraphConstraint.Validate gate (Rasm.Bim-implemented) composed after the seam structural law
-Projection/component       →  csharp:Rasm.Element/Graph         # [PROJECTION]: ComponentProjector mints the deterministic-rooted Type Object (ObjectKind.Type, NodeId from Component canonical bytes EXCLUDING Representations), stamps Classification/PredefinedType, bakes the section + authors the neutral detail bag, binds occurrences via Assign.TypeDefinition; also authors the content-keyed Material/Appearance subgraph
-Projection/component       →  csharp:Rasm.Element/Relations     # [H12]: element→material Associate edge (Subject=element, Resource=material) + C7 MaterialUsage + the Type→occurrence Assign.TypeDefinition bind, authored only when ctx.Owns vouches the element/occurrence NodeId
-Projection/component       ←  csharp:Rasm.Element/Properties    # [SHAPE]: DetailSchema.Realization for discrete realizing rows and DetailSchema.Product for panel/deck/membrane rows + canonical PropertyName vocabulary the ComponentProjector authors onto (the IFC Pset names stay Bim-only)
-Projection/component       →  csharp:Rasm.Bim/Semantics         # [SHAPE]: Rasm.Bim reads/round-trips the IDENTICAL neutral DetailSchema realization bag at IFC ingress+Emit (mapped to the Rasm_ConnectionRealization Pset, Bim-only); a connection's material binding rides the Associate edge, the joint topology the Bim Connect(Realizing) edge
-Component/component        ⇄  csharp:Rasm.Element/Graph         # [SHAPE]: the owner-mints-its-identity law + the named Bake type→occurrence inheritance (single fields occurrence-overrides-type, Seq fields union+dedup-by-key) + TypeId on the baked Element + the BakedMaterial/TypeBinding rename
-Component/component        ←  csharp:Rasm.Element/Composition   # [SHAPE]: ProfileRef / ProfileSet / SectionProperties — the seam ProfileSet case's section handle + neutral receipt (seam-canonical; the semantic rename STOPS at the Materials boundary, Component composes them unchanged)
-Component/component        ←  csharp:Rasm.Element/Composition   # [M7]: ComponentResolution resolves the seam ProfileRef → ResolvedComponent(Component, Option<ComputedSection>) one-hop, the Component-owned twenty-field ComputedSection lifting onto the seam SectionProperties so a structural consumer reads graph.SectionOf without re-resolving per call
-Component/capacity         →  csharp:Rasm.Compute              # [WIRE]: section capacity feeds the structural Assessment route
-Properties/properties      ←  csharp:Rasm.Element/Composition   # [SHAPE]: MaterialPropertySet cases + MeasureBand uncertainty/evidence lowering + the intrinsic acoustic folds (Nrc/Saa/StcWeighted over the shared RatingContour.Fit kernel), referenced not re-authored
-Properties/properties      →  csharp:Rasm.Compute              # [WIRE]: the per-material Discipline-keyed MaterialPropertySet set IS the analysis input Compute reads off the Material node DIRECTLY (no Materials-authored Assessment-input node) + the relocated multi-ply AssemblyAggregator + discipline solvers + Assessment.Result writeback
-Properties/sustainability  →  csharp:Rasm.Compute              # [WIRE]: the lifecycle AggregateEnvironmental / AggregateCost folds + embodied-carbon/cost rollup (RELOCATED)
-Properties                 →  csharp:Rasm.Fabrication/Process  # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
-Projection/component       ←  csharp:Rasm.Element/Composition   # [SHAPE]: MaterialComposition (Single/LayerSet/ProfileSet(ProfileRef)/ConstituentSet) + MaterialUsage (None/LayerSet/ProfileSet) — the absorbed CompositionAuthor coerce-and-delegate builders + the C7 UsageOf derivation
-Appearance/interchange     →  csharp:Rasm.Element/Graph         # [CONTENT_KEY]: MaterialWire.Summary lowers a library row to the content-keyed seam AppearanceSummary (the AppearanceKey via the seam AppearanceSummary.Of, tolerance 0.0 so the PBR scalars hash at full IEEE precision — the SAME no-quantization Rasm.Bim AppearanceProjection passes, the dedup invariant); the full MaterialWire/MtlxDocument are the payload behind that key
-Appearance/interchange     →  typescript:core/interchange/codec # [WIRE]: decode-only MaterialWire/OpenPbrGroupsWire/AppearanceSummary mirroring the C# projection field-for-field; a peer re-mint of the OpenPBR algebra is the CROSS_LANGUAGE_WIRE drift defect
-Appearance/interchange     →  typescript:ui/viewer              # [WIRE]: PbrGroups appearance decode at the scene appearance leaves
-Appearance/interchange     →  python:data/decode               # [WIRE]: decode-only MaterialWire/AppearanceSummary dataclass (from_wire) over the SAME JSON/MessagePack shape; C# is the sole producer, the Python companion decodes, never re-mints the OpenPBR vector or conductor table
-Appearance/bsdf            →  csharp:Rasm.AppUi/Render/pathtrace  # [BOUNDARY]: LayeredBsdf.Sample/Evaluate/Pdf + SlabStack.ToLayered at PATH_TRACE seam
-Appearance/bsdf            →  csharp:Rasm.AppUi/Render/shading    # [BOUNDARY]: LayeredBsdf lobe-weight uniforms at SURFACE_SHADE seam
-Appearance/graph           →  csharp:Rasm.AppUi/Render/pathtrace  # [BOUNDARY]: MaterialGraph.Evaluate SurfaceShade sink to integrator + GPU shading pass
-Appearance/acquisition     ←  host-free-peer / host-edge wire  # [WIRE]: the EPFL RGL .bsdf goniophotometer + neural-SVBRDF .exr binary decode the Rasm.Bim/app root owns, feeding the decoded Seq<BrdfSample>/Seq<MaterialParameters> the import fold consumes — this owner never binds the binary file format
-Appearance/acquisition     →  csharp:Rasm.Compute/blas          # [SHAPE]: the DENSE_ALGEBRA thin-QR overdetermined route shape SolveGgx follows; MathNet.Numerics is the DIRECT in-folder Materials pin, NOT a Compute project edge (the acyclic strata forbids the AEC->app-platform reference) — citation only, no edge lands
-Component/steel            ←  VividOrange.Profiles.Catalogue   # [BOUNDARY]
-Component/capacity         ←  VividOrange.InteractionDiagram   # [BOUNDARY]
-Component/capacity         ←  VividOrange.Sections.SectionProperties  # [BOUNDARY]
-Component/reinforcement    ←  VividOrange.Sections             # [BOUNDARY]
-Component/reinforcement    ←  VividOrange.Materials            # [BOUNDARY]
+Projection/component       ←  csharp:Rasm.Element/Projection         # [SHAPE]: IElementProjection contract set + Rasm.Bim IGraphConstraint validate gate
+Projection/component       →  csharp:Rasm.Element/Graph              # [PROJECTION]: mints deterministic-rooted Type Object + content-keyed Material subgraph
+Projection/component       →  csharp:Rasm.Element/Relations          # [PROJECTION]: Associate edge + the Assign.TypeDefinition bind, gated on ctx.Owns
+Projection/component       ⇄  csharp:Rasm.Element/Properties         # [SHAPE]: DetailSchema realization/product bags + the canonical PropertyName vocabulary
+Projection/component       →  csharp:Rasm.Bim/Semantics              # [SHAPE]: BIM Round-trips the IDENTICAL DetailSchema realization bag at IFC ingress/Emit
+Component/component        ⇄  csharp:Rasm.Element/Graph              # [SHAPE]: the owner-mints-its-identity law + the named Bake type→occurrence inheritance
+Component/component        ←  csharp:Rasm.Element/Composition        # [SHAPE]: the seam ProfileRef/ProfileSet section handle + receipt, composed unchanged
+Component/component        ←  csharp:Rasm.Element/Composition        # [PROJECTION]: ProfileRef→ResolvedComponent lifting ComputedSection onto SectionProperties
+Component/capacity         →  csharp:Rasm.Compute                    # [WIRE]: section capacity feeds the structural Assessment route
+Properties/properties      ⇄  csharp:Rasm.Element/Composition        # [SHAPE]: MaterialPropertySet cases + MeasureBand uncertainty, referenced not re-authored
+Properties/properties      →  csharp:Rasm.Compute                    # [WIRE]: Discipline-keyed MaterialPropertySet Compute reads off Material node directly
+Properties/sustainability  →  csharp:Rasm.Compute                    # [WIRE]: lifecycle AggregateEnvironmental/AggregateCost folds + carbon/cost rollup
+Properties/sustainability  ←  python:data/impact                     # [WIRE]: EN 15804 set as Discipline.Environmental / MaterialPropertySet.Environmental
+Properties/properties      ←  csharp:Rasm.Compute/Analysis           # [SHAPE]
+Component/component        →  csharp:Rasm.Bim/Model                  # [WIRE]: IIfcTypeReconciler Type Object identity — Canonical reuses Materials, else ad-hoc
+Properties                 →  csharp:Rasm.Fabrication/Process        # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
+Projection/component       ←  csharp:Rasm.Element/Composition        # [SHAPE]: MaterialComposition/MaterialUsage cases — the absorbed CompositionAuthor
+Appearance/interchange     →  csharp:Rasm.Element/Graph              # [CONTENT_KEY]: lowers a row to the content-keyed AppearanceSummary at full precision
+Appearance/interchange     →  typescript:core/interchange/codec      # [WIRE]: decode-only mirror of C# projection; a peer OpenPBR re-mint is the drift defect
+Appearance/interchange     →  typescript:ui/viewer                   # [WIRE]: PbrGroups appearance decode at the scene appearance leaves
+Appearance/bsdf            →  csharp:Rasm.AppUi/Render/pathtrace     # [BOUNDARY]: LayeredBsdf.Sample/Evaluate/Pdf + SlabStack.ToLayered at the PATH_TRACE seam
+Appearance/bsdf            →  csharp:Rasm.AppUi/Render/shading       # [BOUNDARY]: LayeredBsdf lobe-weight uniforms at the SURFACE_SHADE seam
+Appearance/graph           →  csharp:Rasm.AppUi/Render/pathtrace     # [BOUNDARY]: MaterialGraph.Evaluate SurfaceShade sink to the integrator + GPU shading pass
+Appearance/acquisition     ←  host-free-peer / host-edge wire        # [WIRE]: app-root .bsdf/.exr decode feeds import fold; owner never binds the format
+Component/steel            ←  VividOrange.Profiles.Catalogue         # [BOUNDARY]
+Component/capacity         ←  VividOrange.InteractionDiagram         # [BOUNDARY]
+Component/capacity         ←  VividOrange.Sections.SectionProperties # [BOUNDARY]
+Component/reinforcement    ←  VividOrange.Sections                   # [BOUNDARY]
+Component/reinforcement    ←  VividOrange.Materials                  # [BOUNDARY]
 ```
 
 ## [03]-[DOMAIN_LAW]

@@ -35,6 +35,7 @@ dependencies = [
     "tree-sitter-typescript",
     "keyring",                                       # [RUNTIME]: OS keychain credential boundary
     "google-cloud-secret-manager",                   # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
+    "google-crc32c",                                 # [RUNTIME]: SecretPayload.data_crc32c integrity digest for the admission cloud arm
     "zstandard",                                     # [TOOLING]: zstd compression for tools.assay logging and cache payloads
     "trio",                                          # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
     "zlib-ng",                                       # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli

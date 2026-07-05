@@ -84,7 +84,9 @@ are the wire contract — there is no strongly-typed options object.
 
 The result-execution path is the base `Apache.Arrow.Adbc` surface, NOT redefined here: `AdbcDatabase.Connect`
 -> `AdbcConnection`; `AdbcConnection.CreateStatement` -> `AdbcStatement`; `AdbcStatement.SqlQuery` set +
-`ExecuteQuery()` -> `QueryResult.Stream` (`IArrowArrayStream`); `AdbcConnection.GetObjects` /
+`ExecuteQuery()` / `ExecuteQueryAsync()` (`ValueTask<QueryResult>`, decompile-verified at 0.23.0) ->
+`QueryResult.Stream` (`IArrowArrayStream`); `AdbcStatement.Bind(RecordBatch, Schema)` / `BindStream(IArrowArrayStream)`
+bind parameter batches ahead of execution (both real base virtuals at 0.23.0); `AdbcConnection.GetObjects` /
 `GetTableSchema` / `GetInfo` / `GetTableTypes` for catalog metadata. The driver overrides those abstract
 members; consumers compose them through the `api-arrow.md` contract.
 

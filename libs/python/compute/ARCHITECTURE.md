@@ -8,14 +8,15 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 compute/
-├── solvers/                   # Unified solve (4 routes + receipt) plus autodiff sensitivity and weak-form mesh/field assembly
+├── solvers/                   # Unified solve (4 routes + receipt) plus autodiff sensitivity, weak-form mesh assembly, and DiscreteField/grid readout
 │   ├── receipt.py             # SolverReceipt — method-discriminated solve receipt over every route
 │   ├── linear.py              # LinearIntent — dense/sparse/eigen over scipy + Lineax autodiff operator tier
 │   ├── nonlinear.py           # NonlinearIntent — root/minimise/fixed-point/least-squares over Optimistix + numba row
 │   ├── quadrature.py          # QuadratureIntent — 1-D quadrature, spline interpolation, weak-form FEM fold
 │   ├── differential.py        # DifferentialIntent — ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves
 │   ├── sensitivity.py         # Differentiation — reverse-mode adjoint + implicit-adjoint solver loop + finite-difference floor
-│   └── mesh.py                # MeshField — mesh topology, per-node/per-cell fields, skfem assemble fold, meshio interchange
+│   ├── mesh.py                # MeshField — mesh topology, per-node/per-cell fields, skfem assemble fold, meshio interchange
+│   └── field.py               # FieldQuery — interpolate/project/resample readout over skfem DiscreteField + interpax grid folding FieldReceipt
 ├── optimization/              # By problem structure — differentiable design, constrained/discrete programs, certified convex programs
 │   ├── design.py              # DesignProblem — Optimistix minimise/least-squares over an Equinox-parameterized objective reading implicit-adjoint gradient
 │   ├── program.py             # ProgramIntent — linear/integer/global/constrained/assignment programs over scipy.optimize folding one OptimizeResult receipt
@@ -25,8 +26,9 @@ compute/
 │   ├── history.py             # RunHistory — content-key-keyed run persistence, partial-cell resume, run comparison
 │   ├── inference.py           # Inference — sampler-backend axis (pymc/numpyro/nutpie), arviz rhat-and-ess diagnostics
 │   └── model.py               # ModelAsset — ONNX graph validation, io-binding, smoke inference, sklearn-to-ONNX export
-├── numerics/                  # Numeric substrate: Array-API admission, certified intervals, unit-bearing quantities, in-memory statistics
+├── numerics/                  # Numeric substrate: Array-API admission, JIT acceleration, certified intervals, unit-bearing quantities, in-memory statistics
 │   ├── array.py               # ArrayPayload — namespace-dispatched dtype/shape/named-axes/finite/identity admission
+│   ├── jit.py                 # JitBackend — numba LLVM / jax XLA compile routes over one _JIT_ROUTES capture table folding JitEvidence lowered-IR
 │   ├── interval.py            # IntervalNumerics — Arb ball / mpmath interval / numpy outward-rounding floor ladder
 │   ├── quantity.py            # UncertainQuantity — correlated first-order uncertainty through pint unit algebra
 │   └── statistics.py          # Statistics — in-memory scipy.stats hypothesis tests + MLE distribution fit folding one StatReport
@@ -49,9 +51,9 @@ solvers/receipt     →  csharp:Rasm.Compute       # [PROJECTION]: SolverReceipt
 graduation          ←  python:geometry/ifc       # [GRADUATION]: geometry HandoffAxis case IDS/clash/BCF
 graduation/handoff  ⇄  python:geometry/graph     # [GRADUATION]: HandoffAxis geometry case
 numerics/array      ⇄  python:runtime/transport  # [WIRE]: ContentIdentity array backend dispatch
-analysis/spatial    →  python:geometry/scan      # [PROJECTION]: reconstructed-mesh alpha-shape boundary evidence
+numerics/quantity   ⇄  csharp:Rasm.Compute       # [WIRE]: QuantityFamily SI canonicalization over the wire to host-free peers
 experiments/study   ←  python:data/tabular       # [SHAPE]: DOE dataset / labelled-array study input
-numerics/array      ←  python:data/tabular       # [SHAPE]: ArrayPayload from xarray/dask labelled-array
+analysis            ←  python:artifacts/media    # [SHAPE]: SignalOp spectral/filter/resample + analytic-signal centroid/envelope substitutes
 ```
 
 ## [03]-[ORGANIZATION]
