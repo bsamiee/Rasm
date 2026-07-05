@@ -47,7 +47,7 @@ public sealed class AssemblyBoundaryLaws {
         ("libs/csharp/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
         ("libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
         ("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj", []),
-        ("libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj"]),
+        ("libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
         ("libs/csharp/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
         ("libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
         ("libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj", ["../Rasm/Rasm.csproj"]),
