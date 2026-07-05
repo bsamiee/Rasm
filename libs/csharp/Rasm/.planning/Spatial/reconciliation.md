@@ -148,12 +148,12 @@ public sealed record CanonicalTopology(
 
     // Self = the entity's own index; incidence and histograms are TRUE degrees from immutable folds.
     static Seq<RebuiltEntity> Entities(int vertices, Arr<(int Min, int Max)> edges, Arr<int[]> faces) {
-        var neighbors = toSeq(edges).Fold(HashMap<int, Set<int>>.Empty, static (map, edge) => map
+        HashMap<int, Set<int>> neighbors = toSeq(edges).Fold(HashMap<int, Set<int>>.Empty, static (map, edge) => map
             .AddOrUpdate(edge.Min, ring => ring.Add(edge.Max), Set(edge.Max))
             .AddOrUpdate(edge.Max, ring => ring.Add(edge.Min), Set(edge.Min)));
-        var faceDegree = toSeq(faces).Fold(HashMap<int, int>.Empty, static (map, cycle) =>
+        HashMap<int, int> faceDegree = toSeq(faces).Fold(HashMap<int, int>.Empty, static (map, cycle) =>
             cycle.Distinct().Aggregate(map, static (fold, vertex) => fold.AddOrUpdate(vertex, static n => n + 1, 1)));
-        var edgeFaces = toSeq(faces).Fold(HashMap<(int Min, int Max), int>.Empty, static (map, cycle) =>
+        HashMap<(int Min, int Max), int> edgeFaces = toSeq(faces).Fold(HashMap<(int Min, int Max), int>.Empty, static (map, cycle) =>
             Enumerable.Range(0, cycle.Length).Aggregate(map, (fold, i) =>
                 fold.AddOrUpdate(Sorted(cycle[i], cycle[(i + 1) % cycle.Length]), static n => n + 1, 1)));
         Set<int> Ring(int vertex) => neighbors.Find(vertex).IfNone(Set<int>.Empty);
@@ -176,7 +176,7 @@ public sealed record CanonicalTopology(
     static (int Min, int Max) Sorted(int a, int b) => a <= b ? (a, b) : (b, a);
 
     static byte[] Bytes(params ReadOnlySpan<int> values) {
-        var stream = new ArrayBufferWriter<byte>(values.Length * 4);
+        ArrayBufferWriter<byte> stream = new(values.Length * 4);
         foreach (int value in values) stream.Word(value);       // Exemption: byte-emitter kernel
         return stream.WrittenSpan.ToArray();
     }
@@ -251,7 +251,7 @@ public static class Reconciliation {
 
     // FROZEN layout — byte-identical to the CANONICAL_BYTE_IDENTITY fixture; field order never changes.
     static ArrayBufferWriter<byte> MeshStream(CanonicalTopology topology) {
-        var stream = new ArrayBufferWriter<byte>(12 + (topology.Edges.Count * 8) + topology.Faces.Sum(static cycle => 4 + (cycle.Length * 4)));
+        ArrayBufferWriter<byte> stream = new(12 + (topology.Edges.Count * 8) + topology.Faces.Sum(static cycle => 4 + (cycle.Length * 4)));
         stream.Word(topology.VertexCount);
         stream.Word(topology.Edges.Count);
         foreach ((int min, int max) in topology.Edges) { stream.Word(min); stream.Word(max); }
@@ -267,7 +267,7 @@ public static class Reconciliation {
             clusterCase: static cluster => cluster.Mass.Match(
                 Some: mass => Weighted(cluster.Vertices, mass),
                 None: () => (0, Lexicographic(cluster.Vertices), Seq<double>.Empty)));
-        var stream = new ArrayBufferWriter<byte>(12 + (canonical.Points.Count * 24) + (canonical.Mass.Count * 8));
+        ArrayBufferWriter<byte> stream = new(12 + (canonical.Points.Count * 24) + (canonical.Mass.Count * 8));
         stream.Word(canonical.Kind);
         stream.Word(canonical.Points.Count);
         foreach (Point3d point in canonical.Points) stream.Coordinate(point);
@@ -287,7 +287,7 @@ public static class Reconciliation {
     }
 
     static ArrayBufferWriter<byte> ParametricStream(EncodeForm.Parametric form) {
-        var stream = new ArrayBufferWriter<byte>(
+        ArrayBufferWriter<byte> stream = new(
             12 + form.Directions.Sum(static d => 8 + (d.Knots.Count * 8)) + (form.Weights.Count * 8) + (form.ControlNet.Count * 24));
         stream.Word(form.Directions.Count);
         foreach (EncodeForm.Direction direction in form.Directions) {

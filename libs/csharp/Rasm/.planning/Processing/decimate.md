@@ -2,7 +2,7 @@
 
 The predicate-guarded mesh decimation / LOD owner — ONE `SimplifyOp` `[Union]` (`QuadricCollapse`/`ProgressiveMesh`/`VoxelRemesh`/`FeaturePreserve`) that reduces a triangle mesh to a budgeted face count by a Garland-Heckbert quadric-error-metric edge-collapse priority queue whose every collapse is admitted ONLY when each incident face keeps the exact `Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient3D` sign AGAINST ITS ORIGINAL SUPPORTING PLANE under the moved survivor — the moved triangle is tested against the pre-collapse plane's reference point, so a fold that flips a face relative to where it was is refused by an exact sign, never by a float area band — and the manifold link condition holds on BOTH edge classes: an interior edge collapses when the endpoints' vertex links share exactly the two opposite corners, a boundary edge (one incident face) when they share exactly the one, so open meshes decimate instead of freezing at their rims. The collapse mutates the `Meshing/edit.md` arena in place (`SetPosition` the survivor re-seat, `SetFace` the fan re-point, `KillFace` the vanishing pair — face indices stable under mutation, exactly the corner-rewrite contract the arena declares), and the decimation state is `QuadricStore`, a decimate-LOCAL pooled-plane SoA over the arena: the 106-bit `ddouble` error-quadric plane, the version/valid planes the lazy queue reads, and the vertex→one-ring plus vertex→incident-face indexes that answer fan, link, and edge-incidence queries in O(degree) — the O(F²) full-face-table scans this index retires are the deleted form.
 
-The owner composes `Rhino.Geometry` `Point3d`/`Vector3d` and `Rasm.Meshing` `MeshSpace` carriers, the arena's own budgeted `Parallel` verb for the two-pass quadric accumulation (parallel per-FACE plane pass into disjoint face slots, then parallel per-VERTEX `ddouble` sums over the incidence index — a per-face scatter into shared vertex slots is the racing form this partition forbids), the `VectorCloudMetric.PrincipalCurvature` per-vertex curvature signal (the `ProgressiveMesh` quadric-weight modulation, composed at its `VectorCloud.Cluster` handle, rail-bound — a swallowed curvature failure silently degrading to uniform weights is the deleted form), the `VectorIntent.Features`/`FeatureReceipt`/`FeatureEdge` dihedral crease/boundary classification (`FeaturePreserve` pins a crease rather than smoothing it away), and the `Meshing/reconstruct.md` static `IsoSurface.Detailed(field, bounds, resolution, IsoSurfacePolicy, context, key)` marching-cubes extraction over a `ScalarField.SignedDistanceFromMeshCase` field (the `VoxelRemesh` resample — the SAME SDF/iso lane the field substrate owns, never a domain-local marcher, and never the dead `field.IsoSurfaceDetailed` instance spelling). The one-sided Hausdorff bound rides the `Spatial/index.md` ONE `Spatial.Apply` entry — `SpatialOp.Build` over the source faces once, `SpatialOp.Query(SpatialQuery.Nearest)` per stratified sample, every answer matched on the `SpatialAnswer` union through `Fin` (the hard `(QueryResult.Nearest)` cast is dead) — with per-sample distances filled in parallel into a pooled plane and reduced by ONE `TensorPrimitives.Max` vectorized pass. Every reachable failure routes the band-2400 `GeometryFault` union (`DecimationFault(FaceBudget, Achieved)` 2440 when the topology-preservation gate stalls before the budget; `DegenerateInput(Kind, int, string)` 2400 for a faceless input); the result records ARE the hash-friendly immutable carriers the `Spatial/reconciliation#NAMING_HASH` `Encode` content-addresses through the `MeshSpace` seam — this owner computes no hash and mints no second identity. The mature `Mesh.Reduce` quick-reduce stays the host's fast face-count reduce; this owner produces what the host produces neither of — the exact-plane collapse gate, the directed Hausdorff budget, and the reversible vsplit stream — so it never thins the host reduce.
+The owner composes `Rhino.Geometry` `Point3d`/`Vector3d` and `Rasm.Meshing` `MeshSpace` carriers, the arena's own budgeted `Parallel` verb for the two-pass quadric accumulation (parallel per-FACE plane pass into disjoint face slots, then parallel per-VERTEX `ddouble` sums over the incidence index — a per-face scatter into shared vertex slots is the racing form this partition forbids), the `VectorCloudMetric.PrincipalCurvature` per-vertex curvature signal (the `ProgressiveMesh` quadric-weight modulation, composed at its `VectorCloud.Cluster` handle, rail-bound — a swallowed curvature failure silently degrading to uniform weights is the deleted form), the `VectorIntent.Features`/`FeatureReceipt`/`FeatureEdge` dihedral crease/boundary classification (`FeaturePreserve` pins a crease rather than smoothing it away), and the `Meshing/reconstruct.md` static `IsoSurface.Detailed(field, bounds, resolution, IsoSurfacePolicy, context, key)` marching-cubes extraction over a `ScalarField.SignedDistanceFromMeshCase` field (the `VoxelRemesh` resample — the SAME SDF/iso lane the field substrate owns, never a domain-local marcher, and never the dead `field.IsoSurfaceDetailed` instance spelling). The one-sided Hausdorff bound rides the `Spatial/index.md` ONE `Spatial.Apply` entry — `SpatialOp.Build` over the source faces once, `SpatialOp.Query(SpatialQuery.Nearest)` per stratified sample, every answer matched on the `SpatialAnswer` union through `Fin` (the hard `(QueryResult.Nearest)` cast is dead) — with per-sample distances filled in parallel into a pooled plane and reduced by ONE `TensorPrimitives.Max` vectorized pass. Every reachable failure routes the band-2400 `GeometryFault` union (`DecimationFault(FaceBudget, Achieved)` 2440 when the topology-preservation gate stalls before the budget; `DegenerateInput(Kind, int, string)` 2400 for a faceless input); the result records ARE the hash-friendly immutable carriers the `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` content-addresses through the `MeshSpace` seam — this owner computes no hash and mints no second identity. The mature `Mesh.Reduce` quick-reduce stays the host's fast face-count reduce; this owner produces what the host produces neither of — the exact-plane collapse gate, the directed Hausdorff budget, and the reversible vsplit stream — so it never thins the host reduce.
 
 ## [01]-[INDEX]
 
@@ -153,13 +153,13 @@ public sealed class QuadricStore : IDisposable {
     }
 
     public static QuadricStore Seed(MeshEdit edit) {
-        var store = new QuadricStore(edit.VertexCount, edit.FaceCount);
+        QuadricStore store = new(edit.VertexCount, edit.FaceCount);
         for (int v = 0; v < edit.VertexCount; v++) {
             store.valid.Span[v] = true;
             store.Ring[v] = [];
             store.Incident[v] = [];
         }
-        var fan = new Dictionary<long, (int Count, int Face)>(3 * edit.FaceCount);
+        Dictionary<long, (int Count, int Face)> fan = new(3 * edit.FaceCount);
         for (int f = 0; f < edit.FaceCount; f++) {
             if (!edit.Alive(f)) continue;
             store.Live++;
@@ -452,8 +452,8 @@ public static class Simplify {
             .Bind(chol => chol.SolveDetailed(new Arr<double>([(double)(-q.A03), (double)(-q.A13), (double)(-q.A23)])))
             .Map(static receipt => receipt.Solution);
         return solve.Match(
-            Succ: x => { var p = new Point3d(x[0], x[1], x[2]); return (p, q.Evaluate(p)); },
-            Fail: _ => { var p = new Point3d(0.5 * (u.X + v.X), 0.5 * (u.Y + v.Y), 0.5 * (u.Z + v.Z)); return (p, q.Evaluate(p)); });
+            Succ: x => { Point3d p = new(x[0], x[1], x[2]); return (p, q.Evaluate(p)); },
+            Fail: _ => { Point3d p = new(0.5 * (u.X + v.X), 0.5 * (u.Y + v.Y), 0.5 * (u.Z + v.Z)); return (p, q.Evaluate(p)); });
     }
 
     // --- [WEIGHTS]
@@ -534,7 +534,7 @@ public static class Simplify {
     static Fin<double> Hausdorff(MeshEdit lod, MeshSpace source, SimplifyPolicy policy, Op key) {
         MeshEdit src = MeshEdit.Of(source);
         try {
-            var boxes = new BoundingBox[src.FaceCount];                       // owned by the index — it retains primitives
+            BoundingBox[] boxes = new BoundingBox[src.FaceCount];                       // owned by the index — it retains primitives
             for (int f = 0; f < src.FaceCount; f++) boxes[f] = src.Bounds(f);
             return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
                 .Bind(answer => answer is SpatialAnswer.Index built ? Fin.Succ(built.Value) : Fin.Fail<SpatialIndex>(key.InvalidResult()))
@@ -543,7 +543,7 @@ public static class Simplify {
                     using MemoryOwner<Point3d> samples = MemoryOwner<Point3d>.Allocate(count, AllocationMode.Clear);
                     int filled = SamplePoints(lod, policy.HausdorffSamplesPerFace, policy.Seed, samples.Span);
                     using MemoryOwner<double> distances = MemoryOwner<double>.Allocate(Math.Max(1, filled), AllocationMode.Clear);
-                    var misses = new int[1];
+                    int[] misses = new int[1];
                     src.Parallel(filled, new DirectedDistance(index, src, samples.Memory, distances.Memory, misses, key));
                     return misses[0] > 0
                         ? Fin.Fail<double>(key.InvalidResult($"hausdorff: {misses[0]} nearest-query misses"))
@@ -567,7 +567,7 @@ public static class Simplify {
     }
 
     static int SamplePoints(MeshEdit edit, int perFace, int seed, Span<Point3d> sink) {
-        var rng = new Random(seed);
+        Random rng = new(seed);
         int at = 0;
         for (int f = 0; f < edit.FaceCount; f++) {
             if (!edit.Alive(f)) continue;

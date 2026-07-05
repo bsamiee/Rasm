@@ -1,6 +1,6 @@
 # [RUNTIME_REPORT]
 
-Document egress as one folded spec: a report is a `Report.Spec` value — column contract, style rows, furniture, format policy — rendered by one entry that dispatches on the format row into three engine arms over the SAME decoded rows: `xlsx` on the exceljs constant-memory streaming writer, `pdf` on the jsPDF measured-paging fold, `csv` on the papaparse serializer with its streaming duplex — and one `bundle` container fold on jszip for multi-artifact archives. The engines are mutation-heavy and Promise-or-sync; the boundary law is fixed once: builds run inside one `Effect` fold, the mutable document never crosses the rail, every Promise terminal lifts through `Effect.tryPromise` onto the one `RenderFault` family, and an unbounded row source streams through every arm — the writer commits rows, the CSV duplex pipes, the pager folds — so memory is constant regardless of row count. Bytes are reproducible by construction (pinned creation instants, fixed compression) so an artifact's content key is stable, a re-render under an equal spec dedupes against the artifact index, and a report activity replay regenerates identical bytes. Variation is vocabulary, never code: a new report is a spec value, a new look is a style row, a new output is a format-row arm. The module is node-lane egress on the `./server` exports subpath as `runtime/src/work/report.ts`.
+Document egress as one folded spec: a report is a `Report.Spec` value — column contract, style rows, furniture, format policy — rendered by one entry that dispatches on the format row into three engine arms over the SAME decoded rows: `xlsx` on the exceljs constant-memory streaming writer, `pdf` on the jsPDF measured-paging fold, `csv` on the papaparse serializer with its streaming duplex — and one `bundle` container fold on jszip for multi-artifact archives. The engines are mutation-heavy and Promise-or-sync; the boundary law is fixed once: builds run inside one `Effect` fold, the mutable document never crosses the rail, every Promise terminal lifts through `Effect.tryPromise` onto the one `RenderFault` family, and the unbounded arms stream — the xlsx writer commits rows, the CSV duplex pipes — so their memory is constant regardless of row count, while the pdf arm is a bounded-set fold by the engine's own in-memory document model and an oversized pdf routes to the worker offload. Bytes are reproducible by construction (pinned creation instants, fixed compression) so an artifact's content key is stable, a re-render under an equal spec dedupes against the artifact index, and a report activity replay regenerates identical bytes. Variation is vocabulary, never code: a new report is a spec value, a new look is a style row, a new output is a format-row arm. The module is node-lane egress on the `./server` exports subpath as `runtime/src/work/report.ts`.
 
 ## [1]-[CLUSTERS]
 
@@ -103,11 +103,8 @@ const _xlsx = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
     const sink = new PassThrough()
     const chunks: Array<Uint8Array> = []
     sink.on("data", (chunk: Uint8Array) => chunks.push(chunk))
-    const writer = yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useStyles: true, useSharedStrings: false })
-      ),
-      (workbook) => Effect.promise(() => workbook.commit()),
+    const writer = yield* Effect.sync(() =>
+      new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useStyles: true, useSharedStrings: false })
     )
     const sheet = writer.addWorksheet(spec.furniture.title)
     sheet.columns = spec.columns.map((column) => ({
@@ -130,11 +127,11 @@ const _xlsx = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
       Stream.runCount,
     )
     yield* Effect.sync(() => sheet.commit())
+    yield* Effect.promise(() => writer.commit())
     return { bytes: _joined(chunks), rows: count, format: "xlsx" as const, span: Duration.zero }
   }).pipe(
     Effect.timed,
     Effect.map(([span, artifact]) => ({ ...artifact, span }) satisfies Report.Artifact),
-    Effect.scoped,
     Effect.mapError((cause) => new RenderFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
   )
 ```

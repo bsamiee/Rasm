@@ -24,6 +24,8 @@ Everything mesh-BOUND departs: operator assembly (d0 incidence, d1 curl, star ma
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics.Tensors;
+using Rasm.Domain;
+using Rasm.Meshing;
 
 namespace Rasm.Numerics;
 

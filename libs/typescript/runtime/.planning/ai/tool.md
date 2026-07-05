@@ -29,7 +29,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js"
 import { AnthropicTool } from "@effect/ai-anthropic"
 import { OpenAiTool } from "@effect/ai-openai"
-import { Data, Effect, Layer, Option, Record, Schema, Stream } from "effect"
+import { Data, Effect, Layer, Option, Record, Schema, Sink, Stream } from "effect"
 import { FaultClass } from "@rasm/ts/core"
 
 class ToolFault extends Data.TaggedError("ToolFault")<{
@@ -137,7 +137,7 @@ declare namespace Host {
     readonly toolkit: Toolkit.Toolkit<Tools>
     readonly resources: ReadonlyArray<Layer.Layer<never>>
     readonly prompts: ReadonlyArray<Layer.Layer<never>>
-    readonly transport: { readonly kind: "stdio"; readonly stdin: Stream.Stream<Uint8Array>; readonly stdout: unknown } | { readonly kind: "http"; readonly path: `/${string}` }
+    readonly transport: { readonly kind: "stdio"; readonly stdin: Stream.Stream<Uint8Array>; readonly stdout: Sink.Sink<unknown, Uint8Array> } | { readonly kind: "http"; readonly path: `/${string}` }
   }
 }
 
@@ -158,7 +158,7 @@ const _serve = <Tools extends Record<string, Tool.Any>>(spec: Host.Spec<Tools>) 
     Layer.provide(
       spec.transport.kind === "http"
         ? McpServer.layerHttp({ name: spec.name, version: spec.version, path: spec.transport.path })
-        : McpServer.layerStdio({ name: spec.name, version: spec.version, stdin: spec.transport.stdin, stdout: spec.transport.stdout as never }),
+        : McpServer.layerStdio({ name: spec.name, version: spec.version, stdin: spec.transport.stdin, stdout: spec.transport.stdout }),
     ),
   )
 

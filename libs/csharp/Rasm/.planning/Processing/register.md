@@ -22,6 +22,7 @@ The page owns the stop vocabularies (`AlignmentStopKind`, `AlignmentOptimizerSto
 ```csharp
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
 

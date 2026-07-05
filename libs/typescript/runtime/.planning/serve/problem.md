@@ -129,7 +129,7 @@ const _statused = (fault: unknown): Option.Option<number> =>
 
 const _graced = (fault: unknown): Option.Option<Duration.Duration> =>
   Predicate.hasProperty(fault, "retryAfter") && Option.isOption(fault.retryAfter)
-    ? (fault.retryAfter as Option.Option<Duration.Duration>)
+    ? Option.filter(fault.retryAfter, Duration.isDuration)
     : Option.none()
 
 const _extensions = (kind: FaultClass.Kind, fault: unknown): { readonly [key: string]: string } =>

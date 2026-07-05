@@ -22,6 +22,9 @@ Covariance is computed exactly once in the corpus: `CloudKernel.CovarianceOf` co
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Numerics;
+
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------

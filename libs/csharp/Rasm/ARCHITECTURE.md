@@ -99,14 +99,14 @@ Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Posting              # [W
 Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Toolpath             # [WIRE]: SliceStack five-channel forest wire (layers · contours · nesting parent/child · open chains · elevations) — the FAB:48 re-route realized; the in-folder planar section dies
 Meshing/Slice.cs          →  csharp:Rasm.Compute                          # [WIRE]: AtElevations story-elevation contours through the SliceStack wire — the circulation decoder (RASM-CS-COMPUTE [V12]a)
 Meshing/Offset.cs         ⇄  csharp:Rasm.Fabrication/Toolpath             # [SHAPE]: the ONE 2D/3D clearance family — Medial + Clearance(probe) radius payload; Toolpath/Skeleton.cs dies for Offsetting.Apply
-Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath             # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — the 3D half of the same clearance family, composed from offset.md's rows
+Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath             # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — the 3D half of the same clearance family, composed from Offset.cs rows
 Processing/Remesh.cs      →  csharp:Rasm.Compute                          # [SHAPE]: Isotropic the named volumetric boundary-conditioning pre-step, decoded through the wire, never a Compute-side remesher (RASM-CS-COMPUTE [V7] recorded growth)
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Posting/projection   # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    ←  csharp:Rasm.Fabrication/Posting              # [WIRE]: Predicate.Orient2D/Orient3D exact verdict
 Numerics/Predicates.cs    ←  csharp:Rasm.Compute/Solver/discretization    # [SHAPE]: CDTet exact gates — the public Predicate.Orient3D/InSphere verdicts satisfy by shape, never a Compute-side predicate mint
 Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting              # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Drawing/View.cs           →  csharp:Rasm.AppUi/Render                     # [PROJECTION]: DrawingProjection / drafting-sheet layout
-Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                  # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
+Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                  # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant
 Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency         # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
 Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp          # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
 Processing/Flatten.cs     →  csharp:Rasm.AppUi/Render                     # [PROJECTION]: ChartAtlas / texture UV channel

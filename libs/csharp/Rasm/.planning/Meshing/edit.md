@@ -69,7 +69,7 @@ public sealed class MeshEdit : IDisposable {
     // --- [ADMISSION] — one polymorphic Of; the argument type is the modality. Total: no rail.
     public static MeshEdit Of(MeshSpace space, ArenaPolicy? policy = null) {
         Mesh native = space.DuplicateNative();
-        var edit = new MeshEdit(policy ?? ArenaPolicy.Canonical);
+        MeshEdit edit = new(policy ?? ArenaPolicy.Canonical);
         for (int v = 0; v < native.Vertices.Count; v++) {
             Point3f p = native.Vertices[v];
             edit.AddVertex(new Point3d(p.X, p.Y, p.Z));
@@ -90,7 +90,7 @@ public sealed class MeshEdit : IDisposable {
     }
 
     public static MeshEdit Of(ReadOnlySpan<Point3d> vertices, ReadOnlySpan<(int A, int B, int C)> faces, ArenaPolicy? policy = null) {
-        var edit = new MeshEdit(policy ?? ArenaPolicy.Canonical);
+        MeshEdit edit = new(policy ?? ArenaPolicy.Canonical);
         foreach (Point3d p in vertices) edit.AddVertex(p);
         foreach ((int a, int b, int c) in faces) edit.AddFace(a, b, c);
         return edit;
@@ -234,7 +234,7 @@ public static class Kernels {
         Span<int> parent = parentOwner.Span;
         for (int v = 0; v < n; v++) parent[v] = v;
 
-        var grid = new Dictionary<(long, long, long), List<int>>();
+        Dictionary<(long, long, long), List<int>> grid = new();
         for (int v = 0; v < n; v++) {
             (long cx, long cy, long cz) = Cell(edit, v, tolerance);
             for (long dx = -1; dx <= 1; dx++) for (long dy = -1; dy <= 1; dy++) for (long dz = -1; dz <= 1; dz++) {

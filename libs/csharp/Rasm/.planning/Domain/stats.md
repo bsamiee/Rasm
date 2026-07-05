@@ -27,7 +27,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
-using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Thinktecture;

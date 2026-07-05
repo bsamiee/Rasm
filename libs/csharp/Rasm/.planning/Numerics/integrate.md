@@ -24,6 +24,7 @@ The one `Combine(coefficients, deltas)` linear-combination fold lives on the mod
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using DoubleDouble;
+using Rasm.Domain;
 
 namespace Rasm.Numerics;
 

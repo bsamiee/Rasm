@@ -22,6 +22,8 @@ The page composes the `Domain` floor as settled vocabulary: `evaluation.md` owns
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------

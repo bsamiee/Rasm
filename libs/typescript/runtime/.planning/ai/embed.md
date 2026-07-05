@@ -60,10 +60,10 @@ const _lanes = {
   sentence: (text: string, lane: Extract<Cut.Lane, { kind: "sentence" }>) =>
     _packed(Array.fromIterable(new Intl.Segmenter(lane.locale, { granularity: "sentence" }).segment(text)).map((seg) => ({ start: seg.index, body: seg.segment })), lane.span),
   markdown: (text: string, lane: Extract<Cut.Lane, { kind: "markdown" }>) =>
-    _packed(text.split(/(?=^#{1,6} )/m).reduce<Array<{ start: number; body: string }>>((sections, body) => {
-      const start = sections.length === 0 ? 0 : sections[sections.length - 1]!.start + sections[sections.length - 1]!.body.length
-      return [...sections, { start, body }]
-    }, []), lane.span),
+    _packed(
+      Array.mapAccum(text.split(/(?=^#{1,6} )/m), 0, (start, body) => [start + body.length, { start, body }] as const)[1],
+      lane.span,
+    ),
 } as const
 
 const _pieces = (raw: string, lane: Cut.Lane): ReadonlyArray<Piece> => {
@@ -96,39 +96,39 @@ const Cut = { pieces: _pieces, scrub: _scrubbed }
 
 ```typescript
 declare namespace Embedding {
-  type Row = {
+  type Row<R = never> = {
     readonly model: string
     readonly dims: number
     readonly revision: string
-    readonly layer: Layer.Layer<EmbeddingModel.EmbeddingModel, never, never>
+    readonly layer: Layer.Layer<EmbeddingModel.EmbeddingModel, never, R>
   }
 }
 
 const _rows = {
-  batched: (model: string, dims: number): Embedding.Row => ({
+  batched: (model: string, dims: number) => ({
     model,
     dims,
     revision: "1",
     layer: OpenAiEmbeddingModel.layerBatched({
       model,
       config: { maxBatchSize: 64, cache: { capacity: 4096, timeToLive: Duration.minutes(30) } },
-    }) as never,
+    }),
   }),
-  windowed: (model: string, dims: number): Embedding.Row => ({
+  windowed: (model: string, dims: number) => ({
     model,
     dims,
     revision: "1",
     layer: OpenAiEmbeddingModel.layerDataLoader({
       model,
       config: { window: Duration.millis(80), maxBatchSize: 256 },
-    }) as never,
+    }),
   }),
   custom: (
     row: { readonly model: string; readonly dims: number; readonly revision: string },
-    embedMany: (input: ReadonlyArray<string>) => Effect.Effect<Array<{ readonly index: number; readonly embeddings: Array<number> }>, never>,
+    embedMany: Parameters<typeof EmbeddingModel.make>[0]["embedMany"],
   ): Embedding.Row => ({
     ...row,
-    layer: Layer.effect(EmbeddingModel.EmbeddingModel, EmbeddingModel.make({ embedMany: embedMany as never, maxBatchSize: 64 })),
+    layer: Layer.effect(EmbeddingModel.EmbeddingModel, EmbeddingModel.make({ embedMany, maxBatchSize: 64 })),
   }),
 } as const
 ```
@@ -144,7 +144,7 @@ const _rows = {
 - Packages: `@rasm/ts/data` (`Embedder`, `EmbedFault`, `Reranker`, `Search`); `effect` (`Layer`, `Effect`, `Array`, `Schema`); `./model.ts` (`Gate`).
 
 ```typescript
-const _fingerprint = (row: Embedding.Row): Search.Fingerprint =>
+const _fingerprint = <R>(row: Embedding.Row<R>): Search.Fingerprint =>
   `${row.model}:${row.dims}:${row.revision}` as Search.Fingerprint
 
 const _folded = (fault: { readonly _tag: string; readonly description?: string }): EmbedFault =>
@@ -153,7 +153,7 @@ const _folded = (fault: { readonly _tag: string; readonly description?: string }
     detail: fault.description ?? fault._tag,
   })
 
-const _embedder = (row: Embedding.Row): Layer.Layer<Embedder> =>
+const _embedder = <R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R> =>
   Layer.effect(
     Embedder,
     Effect.gen(function* () {
@@ -182,7 +182,7 @@ const _reranker = (policy: Parameters<typeof Gate.object>[0]): Layer.Layer<Reran
         prompt: `rank cells for: ${query}\n${hits.map((hit) => `${hit.cell}: ${hit.body}`).join("\n")}`,
         schema: _Scores,
       }).pipe(
-        Effect.map((response) => response.value.order as Array.NonEmptyArray<string>),
+        Effect.map((response) => response.value.order),
         Effect.mapError((fault) => new EmbedFault({ reason: "provider", detail: fault._tag })),
       ),
   })

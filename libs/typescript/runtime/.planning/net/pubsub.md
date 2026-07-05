@@ -21,9 +21,9 @@ Fanout and replay are one port with engines as rows: `Fanout` is the broadcast p
 - Packages: `effect` (`Schema`, `Duration`), `../proc/config.ts` (`Setting`).
 
 ```typescript
-import { Context, Data, Duration, Effect, Layer, Option, PubSub, Record, Schema, Stream } from "effect"
+import { Context, Data, DateTime, Duration, Effect, Layer, Option, PubSub, Record, Schema, Stream } from "effect"
 import { type NatsConnection, wsconnect } from "@nats-io/nats-core"
-import { type JsMsg, jetstream, jetstreamManager } from "@nats-io/jetstream"
+import { DeliverPolicy, type JsMsg, jetstream, jetstreamManager } from "@nats-io/jetstream"
 import type { FaultClass } from "@rasm/ts/core"
 import { Setting } from "../proc/config.ts"
 
@@ -44,7 +44,7 @@ declare namespace Fanout {
   type Anchor = Data.TaggedEnum<{
     Window: {}
     Sequence: { readonly seq: number }
-    Instant: { readonly at: Date }
+    Instant: { readonly at: DateTime.Utc }
   }>
   type Receipt = { readonly seq: number; readonly duplicate: boolean }
 }
@@ -141,11 +141,11 @@ const _local = (topics: Fanout.Topics): Layer.Layer<Fanout> =>
 ```typescript
 const _nanos = (span: Duration.Duration): number => Duration.toMillis(span) * 1_000_000
 
-const _start = (anchor: Fanout.Anchor): { readonly deliver_policy?: string; readonly opt_start_seq?: number; readonly opt_start_time?: string } =>
+const _start = (anchor: Fanout.Anchor): { readonly deliver_policy?: DeliverPolicy; readonly opt_start_seq?: number; readonly opt_start_time?: string } =>
   _Anchor.$match(anchor, {
     Window: () => ({}),
-    Sequence: ({ seq }) => ({ deliver_policy: "by_start_sequence", opt_start_seq: seq }),
-    Instant: ({ at }) => ({ deliver_policy: "by_start_time", opt_start_time: at.toISOString() }),
+    Sequence: ({ seq }) => ({ deliver_policy: DeliverPolicy.StartSequence, opt_start_seq: seq }),
+    Instant: ({ at }) => ({ deliver_policy: DeliverPolicy.StartTime, opt_start_time: DateTime.formatIso(at) }),
   })
 
 const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting> =>

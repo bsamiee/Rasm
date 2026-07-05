@@ -22,6 +22,10 @@ This page ABSORBS the retired analysis spatial family — `SpatialIndex` (Points
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Numerics;
+using SuperClusterKDTree;
+
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------

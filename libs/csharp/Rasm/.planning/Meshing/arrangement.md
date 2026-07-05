@@ -26,7 +26,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
@@ -124,7 +123,7 @@ public sealed class PatchStore {
 
     public Point3d Interior(int row, double offset) {
         (Point3d a, Point3d b, Point3d c) = patches[row];
-        var centroid = new Point3d((a.X + b.X + c.X) / 3.0, (a.Y + b.Y + c.Y) / 3.0, (a.Z + b.Z + c.Z) / 3.0);
+        Point3d centroid = new((a.X + b.X + c.X) / 3.0, (a.Y + b.Y + c.Y) / 3.0, (a.Z + b.Z + c.Z) / 3.0);
         Vector3d n = Vector3d.CrossProduct(b - a, c - a);
         return n.IsTiny() ? centroid : centroid + (offset * (n / n.Length));
     }
@@ -162,12 +161,11 @@ public abstract partial record ArrangementResult {
 
 public static class Arrangement {
     public static Fin<ArrangementResult> Apply(ArrangementOp op, Op? key = null) =>
-        op switch {
-            ArrangementOp.MeshBoolean m   => Volumetric(m.A, m.B, Some(m.Op), m.Policy, key),
-            ArrangementOp.CellComplex c   => Volumetric(c.A, c.B, None, c.Policy, key),
-            ArrangementOp.PlanarOverlay p => Overlay(p, key),
-            _                             => Fin.Fail<ArrangementResult>(new GeometryFault.DegenerateArrangement(0, "unmatched arrangement op").ToError()),
-        };
+        op.Switch(
+            state: key,
+            meshBoolean:   static (key, m) => Volumetric(m.A, m.B, Some(m.Op), m.Policy, key),
+            planarOverlay: static (key, p) => Overlay(p, key),
+            cellComplex:   static (key, c) => Volumetric(c.A, c.B, None, c.Policy, key));
 
     // ONE soup admission per operand for the whole volumetric fold: gate, subdivide, classify,
     // native raise, and emit share the same two arenas — the boolean keeps-and-welds, the cell
@@ -202,7 +200,7 @@ public static class Arrangement {
     // Lattice from intersect; per-face constrained substrate builds with Implicit rows and
     // Constraint.Crossing foreign-plane carriage; batched GWN classification per operand.
     static Fin<PatchStore> Arrange(MeshSpace a, MeshSpace b, MeshEdit ea, MeshEdit eb, ArrangementPolicy policy, Op? key) {
-        var store = new PatchStore(int.Max(ea.FaceCount + eb.FaceCount, 16));
+        PatchStore store = new(int.Max(ea.FaceCount + eb.FaceCount, 16));
         return Intersection.Apply(new IntersectOp.MeshMesh(a, b, policy.Narrow), key)
             .Bind(result => result is IntersectResult.Chains chains
                 ? Fin.Succ(chains.Lattice)
@@ -215,8 +213,8 @@ public static class Arrangement {
     static Fin<Unit> Subdivided(PatchStore store, MeshEdit soup, CrossLattice lattice, bool sideA, MeshEdit other, ArrangementPolicy policy, Op? key) {
         int side = sideA ? 0 : 1;
         for (int f = 0; f < soup.FaceCount; f++) {
-            var cuts = lattice.OnFace(side, f).ToArray();
-            var flush = lattice.CoplanarOnFace(side, f).ToArray();
+            (int A, int B, int FaceA, int FaceB)[] cuts = lattice.OnFace(side, f).ToArray();
+            (int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)[] flush = lattice.CoplanarOnFace(side, f).ToArray();
             (int v0, int v1, int v2) = soup.Face(f);
             (Point3d ca, Point3d cb, Point3d cc) = (soup.Position(v0), soup.Position(v1), soup.Position(v2));
             if (cuts.Length == 0 && flush.Length == 0) {
@@ -237,8 +235,8 @@ public static class Arrangement {
     // substrate's Support witness = this face's corners — recovery splits re-anchor exactly,
     // depth-1 sealed.
     static Fin<Unit> FaceBuild(PatchStore store, CrossLattice lattice, (int A, int B, int FaceA, int FaceB)[] cuts, (int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)[] flush, bool sideA, (Point3d A, Point3d B, Point3d C) face, int faceId, MeshEdit soup, MeshEdit other, ArrangementPolicy policy, Op? key) {
-        var rows = new List<Implicit> { new(face.A), new(face.B), new(face.C) };
-        var slotOf = new Dictionary<CrossKey, int>();
+        List<Implicit> rows = new() { new(face.A), new(face.B), new(face.C) };
+        Dictionary<CrossKey, int> slotOf = new();
         int Intern(int latticeRow) {
             Crossing crossing = lattice.Rows[latticeRow];
             if (slotOf.TryGetValue(crossing.Key, out int at)) { return at; }
@@ -247,7 +245,7 @@ public static class Arrangement {
         }
         Axis plane = DominantAxis(face.A, face.B, face.C);
         Vector3d lift = plane.Key == 0 ? new Vector3d(1.0, 0.0, 0.0) : plane.Key == 1 ? new Vector3d(0.0, 1.0, 0.0) : new Vector3d(0.0, 0.0, 1.0);
-        var constraints = new List<Constraint>(cuts.Length + flush.Length);
+        List<Constraint> constraints = new(cuts.Length + flush.Length);
         foreach ((int A, int B, int FaceA, int FaceB) cut in cuts) {
             (int o0, int o1, int o2) = other.Face(sideA ? cut.FaceB : cut.FaceA);
             constraints.Add(new Constraint.Crossing(Intern(cut.A), Intern(cut.B), other.Position(o0), other.Position(o1), other.Position(o2)));
@@ -269,7 +267,7 @@ public static class Arrangement {
 
     // ONE batched Winding query per operand over every patch probe — never a per-patch loop.
     static Fin<PatchStore> Classify(PatchStore store, MeshEdit ea, MeshEdit eb, ArrangementPolicy policy, Op? key) {
-        var probes = new Point3d[store.Count];
+        Point3d[] probes = new Point3d[store.Count];
         for (int p = 0; p < store.Count; p++) { probes[p] = store.Interior(p, policy.InteriorOffset); }
         return (Winding(probes, ea, policy, key), Winding(probes, eb, policy, key)).Apply((wa, wb) => (wa, wb)).As()
             .Map(t => {
@@ -279,8 +277,8 @@ public static class Arrangement {
     }
 
     static Fin<double[]> Winding(Point3d[] probes, MeshEdit soup, ArrangementPolicy policy, Op? key) {
-        var triangles = new Point3d[3 * soup.FaceCount];
-        var boxes = new BoundingBox[soup.FaceCount];
+        Point3d[] triangles = new Point3d[3 * soup.FaceCount];
+        BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) {
             (int a, int b, int c) = soup.Face(f);
             (triangles[3 * f], triangles[(3 * f) + 1], triangles[(3 * f) + 2]) = (soup.Position(a), soup.Position(b), soup.Position(c));
@@ -299,8 +297,8 @@ public static class Arrangement {
     // Keep = region flip; Flip = region on the front side — both derived off the ONE row column.
     // Weld through the edit arena; the freeze publishes the hash-eligible MeshSpace.
     static Fin<ArrangementResult> KeepAndWeld(PatchStore store, BooleanOp op, Context tolerance, ArrangementPolicy policy, Op? key) {
-        var vertices = new List<Point3d>(3 * store.Count);
-        var faces = new List<(int, int, int)>(store.Count);
+        List<Point3d> vertices = new(3 * store.Count);
+        List<(int, int, int)> faces = new(store.Count);
         int kept = 0;
         for (int p = 0; p < store.Count; p++) {
             if (!op.Keep(store.FromA(p), store.InsideOther(p))) { continue; }
@@ -322,8 +320,8 @@ public static class Arrangement {
     // (recovery mints exact Ssi Steiner rows at constraint crossings); triangles classify by exact
     // ray parity per operand; the region keeps directly; kept-region boundary chains oriented.
     static Fin<ArrangementResult> Overlay(ArrangementOp.PlanarOverlay op, Op? key) {
-        var rows = new List<Implicit>();
-        var constraints = new List<Constraint>();
+        List<Implicit> rows = new();
+        List<Constraint> constraints = new();
         int ordinal = 0;
         foreach (Polyline ring in op.A.Concat(op.B)) {
             if (ring.Count < 4 || !ring.IsClosed) {
@@ -340,10 +338,10 @@ public static class Arrangement {
         return Tessellation.Build(new TessellationOp.Points(TessellationKind.Triangulation, [.. rows], toSeq(constraints), op.Policy.Substrate, op.Plane), key)
             .Bind(t => t.Triangles(key))
             .Map(tris => {
-                var region = new bool[tris.Length];
+                bool[] region = new bool[tris.Length];
                 for (int i = 0; i < tris.Length; i++) {
                     (Point3d a, Point3d b, Point3d c) = tris[i];
-                    var probe = new Point3d((a.X + b.X + c.X) / 3.0, (a.Y + b.Y + c.Y) / 3.0, (a.Z + b.Z + c.Z) / 3.0);
+                    Point3d probe = new((a.X + b.X + c.X) / 3.0, (a.Y + b.Y + c.Y) / 3.0, (a.Z + b.Z + c.Z) / 3.0);
                     region[i] = op.Op.Region(Winding(probe, op.A, op.Plane), Winding(probe, op.B, op.Plane));
                 }
                 Seq<Chain> loops = BoundaryLoops(tris, region);
@@ -380,15 +378,15 @@ public static class Arrangement {
     // stacked start the walk drains one loop at a time, never a tolerance weld. Seeds drain in
     // first-seen order — emission is a deterministic function of the input.
     static Seq<Chain> BoundaryLoops((Point3d A, Point3d B, Point3d C)[] tris, bool[] region) {
-        var boundary = new Dictionary<(Point3d, Point3d), (Point3d From, Point3d To)>();
+        Dictionary<(Point3d, Point3d), (Point3d From, Point3d To)> boundary = new();
         for (int i = 0; i < tris.Length; i++) {
             if (!region[i]) { continue; }
             foreach ((Point3d p, Point3d q) in (ReadOnlySpan<(Point3d, Point3d)>)[(tris[i].A, tris[i].B), (tris[i].B, tris[i].C), (tris[i].C, tris[i].A)]) {
                 if (!boundary.Remove((q, p))) { boundary[(p, q)] = (p, q); }
             }
         }
-        var byStart = new Dictionary<Point3d, Stack<Point3d>>();
-        var order = new List<Point3d>();
+        Dictionary<Point3d, Stack<Point3d>> byStart = new();
+        List<Point3d> order = new();
         for (int i = 0; i < tris.Length; i++) {
             if (!region[i]) { continue; }
             foreach ((Point3d p, Point3d q) in (ReadOnlySpan<(Point3d, Point3d)>)[(tris[i].A, tris[i].B), (tris[i].B, tris[i].C), (tris[i].C, tris[i].A)]) {
@@ -400,10 +398,10 @@ public static class Arrangement {
                 tos.Push(edge.To);
             }
         }
-        var loops = new List<Chain>();
+        List<Chain> loops = new();
         foreach (Point3d seed in order) {
             while (byStart.ContainsKey(seed)) {
-                var loop = new Polyline { seed };
+                Polyline loop = new() { seed };
                 Point3d cur = seed;
                 while (byStart.TryGetValue(cur, out Stack<Point3d>? outgoing)) {
                     Point3d next = outgoing.Pop();
@@ -474,9 +472,9 @@ file static partial class ManifoldGate {
     // Raise: the ALREADY-ADMITTED arena's double columns feed manifold_meshgl64 (positions-only,
     // n_props = 3); manifold_of_meshgl64 never aborts — the status read above is the typed rejection.
     static nint Raise(MeshEdit soup) {
-        var props = new double[3 * soup.VertexCount];
+        double[] props = new double[3 * soup.VertexCount];
         for (int v = 0; v < soup.VertexCount; v++) { (props[3 * v], props[(3 * v) + 1], props[(3 * v) + 2]) = (soup.X[v], soup.Y[v], soup.Z[v]); }
-        var tris = new ulong[3 * soup.FaceCount];
+        ulong[] tris = new ulong[3 * soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) {
             (int a, int b, int c) = soup.Face(f);
             (tris[3 * f], tris[(3 * f) + 1], tris[(3 * f) + 2]) = ((ulong)a, (ulong)b, (ulong)c);
@@ -493,13 +491,13 @@ file static partial class ManifoldGate {
         try {
             int nv = (int)manifold_meshgl64_num_vert(mesh);
             int nt = (int)manifold_meshgl64_num_tri(mesh);
-            var props = new double[3 * nv];
-            var tris = new ulong[3 * nt];
+            double[] props = new double[3 * nv];
+            ulong[] tris = new ulong[3 * nt];
             _ = manifold_meshgl64_vert_properties(props, mesh);
             _ = manifold_meshgl64_tri_verts(tris, mesh);
-            var vertices = new Point3d[nv];
+            Point3d[] vertices = new Point3d[nv];
             for (int v = 0; v < nv; v++) { vertices[v] = new Point3d(props[3 * v], props[(3 * v) + 1], props[(3 * v) + 2]); }
-            var faces = new (int, int, int)[nt];
+            (int, int, int)[] faces = new (int, int, int)[nt];
             for (int f = 0; f < nt; f++) { faces[f] = ((int)tris[3 * f], (int)tris[(3 * f) + 1], (int)tris[(3 * f) + 2]); }
             using MeshEdit edit = MeshEdit.Of(vertices, faces, policy.Arena);
             int before = edit.VertexCount;

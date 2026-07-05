@@ -90,7 +90,7 @@ public static class Lm {
 
     public static Fin<LmResult> Minimize(ILmModel model, SolvePolicy policy, Op? key = null) {
         Op op = key.OrDefault();
-        var seed = (double[])model.Seed.Clone();
+        double[] seed = (double[])model.Seed.Clone();
         return Iterate(model, policy, new LmState(seed, model.Norm(seed), policy.InitialLambda), 0, op);
     }
 
@@ -150,7 +150,7 @@ public static class Lm {
     }
 
     static double[] Advance(double[] parameters, Arr<double> delta) {
-        var next = (double[])parameters.Clone();
+        double[] next = (double[])parameters.Clone();
         for (int i = 0; i < next.Length; i++) next[i] += delta[i];
         return next;
     }
@@ -170,13 +170,24 @@ public static class Lm {
 
 ```csharp
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics.Tensors;
+using DoubleDouble;
+using LanguageExt;
+using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.MaximumFlow;
+using Rasm.Domain;
+using Rasm.Numerics;
 using Rhino.Geometry;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Solving;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
@@ -461,19 +472,19 @@ public sealed record ConstraintSystem(
     public static Fin<ConstraintSystem> Build(
         Seq<(SketchEntityKind Kind, double[] Initial)> entities, Seq<Constraint> constraints, Op? key = null) {
         // Eager placement pass: a lazy Map over a mutable offset capture reads offset before it advances.
-        var placedList = new List<Entity>(entities.Count);
+        List<Entity> placedList = new(entities.Count);
         int offset = 0;
-        foreach (var e in entities) { placedList.Add(new Entity(e.Kind, offset)); offset += e.Kind.Arity; }
-        var placed = toSeq(placedList);
-        var seed = new double[offset];
+        foreach ((SketchEntityKind Kind, double[] Initial) e in entities) { placedList.Add(new Entity(e.Kind, offset)); offset += e.Kind.Arity; }
+        Seq<Entity> placed = toSeq(placedList);
+        double[] seed = new double[offset];
         int cursor = 0;
-        foreach (var e in entities) {
+        foreach ((SketchEntityKind Kind, double[] Initial) e in entities) {
             if (e.Initial.Length == e.Kind.Arity) e.Initial.CopyTo(seed, cursor);
             cursor += e.Kind.Arity;
         }
         // Membership on the FULL Entity value (Kind + Offset): an offset-only probe admits a
         // mis-kinded reference whose own Kind satisfies WellFormed yet reads a foreign slice.
-        var placedSet = toHashSet(placed);
+        LanguageExt.HashSet<Entity> placedSet = toHashSet(placed);
         Seq<Validation<Error, Unit>> probes =
             (entities.IsEmpty
                 ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, -1, "empty-system").ToError())
@@ -501,17 +512,17 @@ public sealed record ConstraintSystem(
     // DR-planner decomposition: entity ordinals 0..E-1, constraint ordinals E..E+C-1, one transient
     // incidence graph; each weak component solves on its own small normal matrix. Total post-Build.
     internal Seq<ConstraintIsland> Islands() {
-        var byOffset = Entities.Map(static (entity, ordinal) => (entity.Offset, Ordinal: ordinal))
+        FrozenDictionary<int, int> byOffset = Entities.Map(static (entity, ordinal) => (entity.Offset, Ordinal: ordinal))
             .ToDictionary(static row => row.Offset, static row => row.Ordinal)
             .ToFrozenDictionary();
-        var graph = new UndirectedGraph<int, SEdge<int>>(allowParallelEdges: false);
+        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, Entities.Count + Constraints.Count));
         Constraints.Map(static (constraint, ordinal) => (Constraint: constraint, Ordinal: ordinal))
             .Iter(row => row.Constraint.Touches.Iter(entity =>
                 graph.AddEdge(new SEdge<int>(byOffset[entity.Offset], Entities.Count + row.Ordinal))));
-        var component = new Dictionary<int, int>();
+        Dictionary<int, int> component = new();
         int count = graph.ConnectedComponents(component);
-        var self = this;
+        ConstraintSystem self = this;
         return toSeq(Enumerable.Range(0, count)).Map(island => new ConstraintIsland(
             Entities: toSeq(Enumerable.Range(0, self.Entities.Count).Where(e => component[e] == island)),
             Constraints: toSeq(Enumerable.Range(0, self.Constraints.Count).Where(c => component[self.Entities.Count + c] == island))));
@@ -613,21 +624,21 @@ public static class ConstraintSolver {
     // Per-island König structural rank: matching deficiency localizes over-constraint, column surplus
     // localizes under-constraint — the locality a global row count averages away.
     public static DofReport StructuralAnalyze(ConstraintSystem system) {
-        var islands = system.Islands().Map((island, ordinal) => {
-            var rowColumns = island.Constraints
+        Seq<(int Island, DofAnalysis Verdict, int FreeDof, int Deficiency, int Rank)> islands = system.Islands().Map((island, ordinal) => {
+            Seq<Seq<int>> rowColumns = island.Constraints
                 .Bind(ci => system.Constraints[ci].Residual(system.Seed))
                 .Map(static row => toSeq(row.Partials.Map(static partial => partial.Column).Distinct()));
-            var columns = toSeq(rowColumns.Bind(identity).Distinct());
-            var local = columns.Map(static (column, index) => (Column: column, Index: index))
+            Seq<int> columns = toSeq(rowColumns.Bind(identity).Distinct());
+            FrozenDictionary<int, int> local = columns.Map(static (column, index) => (Column: column, Index: index))
                 .ToDictionary(static row => row.Column, static row => row.Index)
                 .ToFrozenDictionary();
             int rows = rowColumns.Count, parameters = columns.Count;
-            var graph = new AdjacencyGraph<int, SEdge<int>>();
+            AdjacencyGraph<int, SEdge<int>> graph = new();
             graph.AddVertexRange(Enumerable.Range(0, rows + parameters));
             rowColumns.Map(static (touched, row) => (Touched: touched, Row: row))
                 .Iter(entry => entry.Touched.Iter(column => graph.AddEdge(new SEdge<int>(entry.Row, rows + local[column]))));
             int next = rows + parameters;
-            var matching = new MaximumBipartiteMatchingAlgorithm<int, SEdge<int>>(
+            MaximumBipartiteMatchingAlgorithm<int, SEdge<int>> matching = new(
                 graph,
                 sourceToVertices: Enumerable.Range(0, rows),
                 verticesToSink: Enumerable.Range(rows, parameters),
@@ -713,7 +724,7 @@ public static class ConstraintSolver {
     }
 
     static double[] Scatter(double[] parameters, ConstraintSystem system, ConstraintIsland island, double[] local) {
-        var next = (double[])parameters.Clone();
+        double[] next = (double[])parameters.Clone();
         int cursor = 0;
         foreach (int ordinal in island.Entities) {
             Entity entity = system.Entities[ordinal];
@@ -731,7 +742,7 @@ public static class ConstraintSolver {
         double[] j = new double[allRows.Count * n];
         for (int row = 0; row < allRows.Count; row++) {
             r[row] = allRows[row].Value;
-            foreach (var (column, partial) in allRows[row].Partials) j[(row * n) + column] += partial;
+            foreach ((int column, double partial) in allRows[row].Partials) j[(row * n) + column] += partial;
         }
         return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(n), new Arr<double>(j), key));
     }

@@ -2,7 +2,7 @@
 
 The host-neutral curve op rail of `Rasm.Parametric` — ONE static `Parametric` surface folding the `ParametricOp` `[Union]` (`Evaluate` · `Measure` · `Divide` · `Stations` · `Split` · `Reconstruct` · `Offset` · `Intersect2D`) over the vendored `NurbsForm.Curve` carrier through `Fin<ParametricResult> Parametric.Apply(ParametricOp, Op? key = null)`. The engine members — De Boor evaluation, the Bezier-decomposed Gauss-Legendre arc-length table, `ParameterAtLength`, `PerpendicularFrames` RMF, `SubCurve`/`SplitAt`/`Refine`, the Piegl-Tiller fits — live on `nurbs.md`'s carriers; this page owns the OP ALGEBRA over them: the `Stations` case is the `(station, frame)` SoA producer the Generation SpineRef `[T0,T1]` window consumes (`PathRow`/`Placement` seam), `Offset` is the promoted first-class case running the fit SEED + deviation-refinement loop + self-intersection trim through the `[V4]` crossing lattice, `Reconstruct` is the curve REBUILD (sample-and-refit with a deviation witness — raw-point ingress is `Nurbs.Of`'s, never re-minted here), and `Intersect2D` is the planar crossing rail whose candidates are exact `Intersection.Apply` segment verdicts and whose coordinates are Newton-refined parametric roots. The `Fill` projection delegates closed-loop region emission to `Arrangement.Apply(PlanarOverlay)` — the trim-fill law kept, never re-filled here.
 
-Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, witness)` 2448 — `Evaluation` for domain and projection refusals, `Station` for division and inversion refusals, `Offset` for an unconverged deviation loop — and no exception crosses the public surface. The rail is `double`-domain geometry: a result feeding a degeneracy-sensitive verdict (a near-tangent crossing classification, a grazing section) escalates to the `Numerics/predicates` exact ladder — evaluation is the geometry, never the adjudication. Reciprocal boundaries are runtime splits, never capability splits: `projections.md` owns the SAME parameter-addressed evaluation for the Rhino runtime, `locate.md` the SAME division/closest-point/arc-length location algebra at Rhino-analysis altitude (never a second location algebra — the two meet at the wire), and `relations.md` owns the HOST-DEFERRED intersection TRIPLE (surface-surface, surface-plane, curve-surface) — this rail's `Intersect2D` stops at planar curve crossings and curve sections by disposition. Every emitted `NurbsForm.Curve` carries `ToEncodeForm()` — the reconciliation `EncodeOp.Parametric` identity projection — so offset, refit, and split results content-key through the ONE chain; this owner computes no hash and mints no second identity.
+Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, witness)` 2448 — `Evaluation` for domain and projection refusals, `Station` for division and inversion refusals, `Offset` for an unconverged deviation loop — and no exception crosses the public surface. The rail is `double`-domain geometry: a result feeding a degeneracy-sensitive verdict (a near-tangent crossing classification, a grazing section) escalates to the `Numerics/predicates` exact ladder — evaluation is the geometry, never the adjudication. Reciprocal boundaries are runtime splits, never capability splits: `projections.md` owns the SAME parameter-addressed evaluation for the Rhino runtime, `locate.md` the SAME division/closest-point/arc-length location algebra at Rhino-analysis altitude (never a second location algebra — the two meet at the wire), and `relations.md` owns the HOST-DEFERRED intersection TRIPLE (surface-surface, surface-plane, curve-surface) — this rail's `Intersect2D` stops at planar curve crossings and curve sections by disposition. Every emitted `NurbsForm.Curve` carries `ToEncodeForm()` — the reconciliation `EncodeForm.Parametric` identity projection — so offset, refit, and split results content-key through the ONE chain; this owner computes no hash and mints no second identity.
 
 ## [01]-[INDEX]
 
@@ -194,8 +194,8 @@ public static class Parametric {
             : op.Curve.SubCurve(op.Plan.T0, op.Plan.T1)
                 .Bind(window => Stationize(window, op.Plan.Rule, op.Plan.TableFloor))
                 .Bind(rows => rows.Curve.PerpendicularFrames([.. rows.Parameters]).Map(frames => {
-                    var parent = new Arr<double>([.. rows.Parameters.Select(t => op.Plan.T0 + (t * (op.Plan.T1 - op.Plan.T0)))]);
-                    var points = new Arr<Point3d>([.. frames.Select(static f => f.Origin)]);
+                    Arr<double> parent = new([.. rows.Parameters.Select(t => op.Plan.T0 + (t * (op.Plan.T1 - op.Plan.T0)))]);
+                    Arr<Point3d> points = new([.. frames.Select(static f => f.Origin)]);
                     double defect = frames.Max(static f => Math.Abs(f.XAxis * f.YAxis));
                     return (ParametricResult)new ParametricResult.StationField(rows.Arcs, parent, points, new Arr<Plane>(frames), defect);
                 }));
@@ -280,7 +280,7 @@ flowchart LR
     Op -->|"Intersect2D"| Lattice
     Lattice -->|"Broyden / Brent refine"| Crossings
     Parametric -->|"Fill: rings → PlanarOverlay"| Arrangement["arrangement.md exact overlay"]
-    Engine -->|"ToEncodeForm — normalized bytes"| Identity["reconciliation EncodeOp.Parametric"]
+    Engine -->|"ToEncodeForm — normalized bytes"| Identity["reconciliation EncodeForm.Parametric"]
     Op -.->|"2448 Evaluation / Station / Offset"| GeometryFault
 ```
 

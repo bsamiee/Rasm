@@ -76,10 +76,10 @@ public readonly partial struct Generation {
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TopoSignature {
     public static TopoSignature Of(EntityKind kind, ReadOnlySpan<TopoName> incidentNames, ReadOnlySpan<int> kindHistogram) {
-        var buffer = new ArrayBufferWriter<byte>((incidentNames.Length + kindHistogram.Length + 1) * 16);
+        ArrayBufferWriter<byte> buffer = new((incidentNames.Length + kindHistogram.Length + 1) * 16);
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], kind.Key); buffer.Advance(4);
-        var sorted = incidentNames.ToArray(); Array.Sort(sorted, static (a, b) => a.Value.CompareTo(b.Value));
-        foreach (var name in sorted) { BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], name.Value); buffer.Advance(16); }
+        TopoName[] sorted = incidentNames.ToArray(); Array.Sort(sorted, static (a, b) => a.Value.CompareTo(b.Value));
+        foreach (TopoName name in sorted) { BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], name.Value); buffer.Advance(16); }
         foreach (int count in kindHistogram) { BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], count); buffer.Advance(4); }
         return Create(ContentHash.Of(buffer.WrittenSpan));
     }
@@ -89,7 +89,7 @@ public readonly partial struct TopoSignature {
     // policy-thresholded migration predicate — the strict-subset Subsumes test is the deleted form.
     public static double Overlap(ReadOnlySpan<TopoName> prior, ReadOnlySpan<TopoName> rebuilt) {
         if (prior.IsEmpty || rebuilt.IsEmpty) return 0.0;
-        var a = prior.ToArray(); var b = rebuilt.ToArray();
+        TopoName[] a = prior.ToArray(); TopoName[] b = rebuilt.ToArray();
         Array.Sort(a, static (x, y) => x.Value.CompareTo(y.Value));
         Array.Sort(b, static (x, y) => x.Value.CompareTo(y.Value));
         int shared = 0, i = 0, j = 0;
@@ -107,7 +107,7 @@ public readonly partial struct TopoSignature {
 public readonly partial struct TopoName {
     // born folds into the digest: a fresh mint can never collide with a prior-generation name.
     public static TopoName Mint(EntityKind kind, ReadOnlySpan<byte> canonicalBytes, Generation born) {
-        var buffer = new ArrayBufferWriter<byte>(canonicalBytes.Length + 8);
+        ArrayBufferWriter<byte> buffer = new(canonicalBytes.Length + 8);
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], kind.Key); buffer.Advance(4);
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], born.Value); buffer.Advance(4);
         buffer.Write(canonicalBytes);
@@ -158,13 +158,13 @@ public sealed record NameTable(
     // VertexNames keys by the entity's OWN Self index — IncidentVertices[0] was the star-minimum mis-key.
     // Bucket and posting inserts are idempotent per name, so the vertex refine re-With never double-registers.
     public NameTable With(NameEntry entry, int self) {
-        var perKind = SignatureIndex.Find(entry.Kind).IfNone(HashMap<TopoSignature, Seq<TopoName>>.Empty);
-        var bucket = perKind.Find(entry.Signature).IfNone(Seq<TopoName>());
-        var index = perKind.AddOrUpdate(entry.Signature,
+        HashMap<TopoSignature, Seq<TopoName>> perKind = SignatureIndex.Find(entry.Kind).IfNone(HashMap<TopoSignature, Seq<TopoName>>.Empty);
+        Seq<TopoName> bucket = perKind.Find(entry.Signature).IfNone(Seq<TopoName>());
+        HashMap<TopoSignature, Seq<TopoName>> index = perKind.AddOrUpdate(entry.Signature,
             bucket.Contains(entry.Name) ? bucket : toSeq(bucket.Add(entry.Name).OrderBy(static n => n.Value)));
-        var postings = toSeq(entry.Boundary.Distinct()).Fold(BoundaryIndex, (posted, name) => posted.AddOrUpdate(
+        HashMap<TopoName, Seq<TopoName>> postings = toSeq(entry.Boundary.Distinct()).Fold(BoundaryIndex, (posted, name) => posted.AddOrUpdate(
             name, owners => owners.Contains(entry.Name) ? owners : owners.Add(entry.Name), Seq(entry.Name)));
-        var vertices = entry.Kind == EntityKind.Vertex ? VertexNames.AddOrUpdate(self, entry.Name) : VertexNames;
+        HashMap<int, TopoName> vertices = entry.Kind == EntityKind.Vertex ? VertexNames.AddOrUpdate(self, entry.Name) : VertexNames;
         return this with {
             Entries = Entries.AddOrUpdate(entry.Name, entry), SignatureIndex = SignatureIndex.AddOrUpdate(entry.Kind, index),
             BoundaryIndex = postings, VertexNames = vertices,
@@ -187,7 +187,7 @@ public static class Naming {
     static Fin<NameTable> Anchor(NameTable prior, CanonicalTopology rebuilt, Generation next, NamingPolicy policy, Op key) {
         HashMap<int, int[]> stars = toHashMap(rebuilt.Entities
             .Filter(static e => e.Kind == EntityKind.Vertex).Map(static e => (e.Self, e.KindHistogram)));
-        var folded = toSeq(rebuilt.Entities.OrderBy(static e => e.Kind.Key))
+        (NameTable Table, Set<TopoName> Claimed, Seq<Error> Collisions) folded = toSeq(rebuilt.Entities.OrderBy(static e => e.Kind.Key))
             .Fold((Table: NameTable.Empty with { Generation = next }, Claimed: Set<TopoName>.Empty, Collisions: Seq<Error>()),
                 (state, entity) => Step(prior, entity, stars, next, policy, state));
         return folded.Collisions.IsEmpty
@@ -255,7 +255,7 @@ public static class Naming {
     // Posting-list candidate gather: only a prior entity SHARING a boundary name can clear a >0
     // overlap floor, so the full-registry cross-scan per miss is the deleted form.
     static Option<TopoName> OverlapParent(NameTable prior, EntityKind kind, Seq<TopoName> boundary, NamingPolicy policy) {
-        var rebuilt = boundary.ToArray();
+        TopoName[] rebuilt = boundary.ToArray();
         return toSeq(
                 toSeq(toSeq(boundary.Distinct())
                     .Map(name => prior.BoundaryIndex.Find(name).IfNone(Seq<TopoName>()))

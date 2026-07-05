@@ -2,7 +2,7 @@
 
 The host-neutral surface op rail of `Rasm.Parametric` — ONE static `Surfaces` surface folding the `SurfaceOp` `[Union]` (`Tessellate` · `Isolines` · `Geodesics` · `NormalOffset` · `CurvatureSample` · `Pullback`) over the vendored `NurbsForm.Surface` carrier through `Fin<SurfaceResult> Surfaces.Apply(SurfaceOp, Op? key = null)`. The page is the UV-PROVENANCE ORIGIN of the Parametric tier: `Tessellate` emits `UvTessellation` — the frozen `MeshSpace` WITH a per-vertex `(u, v)` column and the live `NurbsForm.Surface` binding — and that carrier is the ONLY admissible surface input to `develop.md`, `panelize.md`, and `patternmap.md` (a world-space mesh or polyline with no surface binding cannot feed them, by construction, because the input TYPE demands the binding). `Isolines` extracts exact `IsoCurve` families per direction (even, at-knot, and explicit-parameter rows), `Geodesics` composes the landed heat and MMP-exact distance machinery on the tessellation and returns polylines to the PARAMETRIC domain through the tessellation's own UV column, `NormalOffset` emits a REAL NURBS offset surface (Greville-sampled normal displacement + the G5 Piegl-Tiller refit + the shared deviation-refinement loop), `CurvatureSample` fields the G3 fundamental-form projections with the `Integrate.OnRectangle` surface-area evidence, and `Pullback` is the foreign-point projection — the G7-parameterized engine Newton for a sparse probe set, the kd-tree-seeded batch for a dense one.
 
-Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, witness)` 2448 — `Construction` for refit refusals, `Evaluation` for domain, degenerate-normal, and projection refusals, `Encode` for identity refusals — and no exception crosses the public surface. Host-authored surfaces INGRESS through `Nurbs.Of`'s public arbitrary-knot construction (G1 closed — SpineRef surface resolution lives), and every emitted `NurbsForm.Surface` carries `ToEncodeForm()` (two `Direction` rows, U then V) into the reconciliation `EncodeOp.Parametric` identity chain — this owner computes no hash. The G3 fundamental-forms lane is the HOST-NEUTRAL runtime counterpart of `projections.md`'s Rhino `SurfaceProjection.ShapeOperator`/`Metric`/`AreaScale` rows — a RUNTIME split, never a double owner: that page's second-assembly clause is scoped within the Rhino runtime, and the two meet only at the wire. The host-deferred intersection TRIPLE (surface-surface, surface-plane, curve-surface) stays `relations.md`'s altitude — no `SurfaceOp` case attempts it.
+Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, witness)` 2448 — `Construction` for refit refusals, `Evaluation` for domain, degenerate-normal, and projection refusals, `Encode` for identity refusals — and no exception crosses the public surface. Host-authored surfaces INGRESS through `Nurbs.Of`'s public arbitrary-knot construction (G1 closed — SpineRef surface resolution lives), and every emitted `NurbsForm.Surface` carries `ToEncodeForm()` (two `Direction` rows, U then V) into the reconciliation `EncodeForm.Parametric` identity chain — this owner computes no hash. The G3 fundamental-forms lane is the HOST-NEUTRAL runtime counterpart of `projections.md`'s Rhino `SurfaceProjection.ShapeOperator`/`Metric`/`AreaScale` rows — a RUNTIME split, never a double owner: that page's second-assembly clause is scoped within the Rhino runtime, and the two meet only at the wire. The host-deferred intersection TRIPLE (surface-surface, surface-plane, curve-surface) stays `relations.md`'s altitude — no `SurfaceOp` case attempts it.
 
 ## [01]-[INDEX]
 
@@ -28,6 +28,7 @@ using MathNet.Numerics;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
+using Rasm.Processing;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using SuperClusterKDTree;
@@ -134,8 +135,8 @@ public static class Surfaces {
     // kills no arena faces, so ToSpace preserves vertex order: Uv[i] parameterizes vertex i, always.
     static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op, Op? key) =>
         Lattice(op.Surface, op.Rule).Bind(grid => {
-            var uv = new Arr<Point2d>([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]);
-            var points = new Point3d[uv.Count];
+            Arr<Point2d> uv = new([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]);
+            Point3d[] points = new Point3d[uv.Count];
             for (int i = 0; i < uv.Count; i++) { points[i] = op.Surface.PointAt(uv[i].X, uv[i].Y); }
             using MeshEdit arena = MeshEdit.Of(points, CellTriangles(grid.U.Length, grid.V.Length, points));
             return arena.ToSpace(op.Tolerance, key).Map(space =>
@@ -193,8 +194,9 @@ public static class Surfaces {
     // total over the domain, so quadrature never sees a rail; pole nodes count into the receipt.
     static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op, Op? key) {
         double area = Integrate.OnRectangle(
-            (u, v) => op.Surface.RationalDerivatives(u, v, 1) switch {
-                var skl => Vector3d.CrossProduct(skl[1][0], skl[0][1]).Length,
+            (u, v) => {
+                Vector3d[][] skl = op.Surface.RationalDerivatives(u, v, 1);
+                return Vector3d.CrossProduct(skl[1][0], skl[0][1]).Length;
             },
             0.0, 1.0, 0.0, 1.0, (op.Policy ?? NurbsPolicy.Canonical).GaussOrder);
         return SweepCurvature(op, area);
@@ -215,7 +217,7 @@ public static class Surfaces {
 
     static Fin<SurfaceResult> DensePullback(SurfaceOp.Pullback op, Op? key) {
         (Point3d[] seeds, Point2d[] seedUv) = SeedGrid(op.Surface, op.Policy);
-        var tree = KDTree.Create(
+        KDTree<double, double, Point2d> tree = KDTree.Create(
             [.. seeds.Select(static p => (IReadOnlyList<double>)[p.X, p.Y, p.Z])],
             seedUv, DistanceMetrics.EuclideanDistance);
         return op.Probes.TraverseM(probe =>
@@ -242,7 +244,7 @@ flowchart LR
     Engine -->|"Greville + NormalAt → SurfaceThrough G5 refit"| Offsets["Offsets — REAL NURBS + RefineReceipt"]
     Engine -->|"CurvatureAt sweep + OnRectangle area"| Field["CurvatureField SoA"]
     Engine -->|"kd-tree seed → seeded ClosestParameter"| Pulled
-    Engine -->|"ToEncodeForm — 2 Directions U/V"| Identity["reconciliation EncodeOp.Parametric"]
+    Engine -->|"ToEncodeForm — 2 Directions U/V"| Identity["reconciliation EncodeForm.Parametric"]
     Op -.->|"2448 Construction / Evaluation"| GeometryFault
 ```
 

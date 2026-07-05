@@ -19,6 +19,9 @@ The kernel is numerically owned end to end: every scaling update runs in log spa
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Numerics;
+
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------

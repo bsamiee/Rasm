@@ -82,8 +82,10 @@ public sealed record CurveSkeleton(
 
     // Arbitrary-probe clearance, the SAME distance-to-boundary semantics as offset's ring probe:
     // the exact scan finds the nearest arc foot; Radius = r(foot) − |probe − foot| (the medial
-    // transform's boundary-distance estimate), NearestEdge = the arc ordinal witness.
+    // transform's boundary-distance estimate), NearestEdge = the arc ordinal witness. A zero-arc
+    // skeleton (an all-merged blob) answers from its single node — never a −∞ radius.
     public ClearanceNode Clearance(Point3d probe) {
+        if (ArcCount == 0) { return new ClearanceNode(probe, Radius[0] - probe.DistanceTo(NodeAt(0)), -1); }
         (double best, int arc, double radiusAtFoot) = (double.PositiveInfinity, -1, 0.0);
         for (int a = 0; a < ArcCount; a++) {
             (Point3d p, Point3d q) = (NodeAt(ArcFrom[a]), NodeAt(ArcTo[a]));
@@ -138,15 +140,15 @@ public static class Skeletonize {
 
     static Fin<ContractState> Contract(MeshEdit arena, SkeletonOp op, Op? key) {
         int n = arena.VertexCount;
-        var original = new Point3d[n];
+        Point3d[] original = new Point3d[n];
         for (int v = 0; v < n; v++) { original[v] = arena.Position(v); }
-        var faces = new (int, int, int)[arena.FaceCount];
+        (int, int, int)[] faces = new (int, int, int)[arena.FaceCount];
         for (int f = 0; f < arena.FaceCount; f++) { faces[f] = arena.Face(f); }
         double[] ringArea = RingAreas(arena);
         double[] ringSeed = (double[])ringArea.Clone();
         double totalSeed = ringArea.Sum();
         double meanFace = totalSeed / double.Max(arena.FaceCount, 1);
-        var wh = new double[n];
+        double[] wh = new double[n];
         Array.Fill(wh, op.Policy.Attraction);
         double wl = op.Policy.LaplaceSeed * Math.Sqrt(meanFace);
         double priorRatio = 1.0;
@@ -178,7 +180,7 @@ public static class Skeletonize {
     // The substrate Laplacian rows quality-gate exactly the degenerate regime contraction inhabits,
     // so the assembly loop is skeleton's own; the cotangent ARITHMETIC is the one composed primitive.
     static Fin<SparseMatrix> Assemble(MeshEdit arena, double wl, double[] wh, double ceiling, Op? key) {
-        var triplets = new List<(int Row, int Col, double Value)>();
+        List<(int Row, int Col, double Value)> triplets = [];
         for (int f = 0; f < arena.FaceCount; f++) {
             if (!arena.Alive(f)) { continue; }
             (int a, int b, int c) = arena.Face(f);
@@ -219,7 +221,7 @@ public static class Skeletonize {
     }
 
     static double[] RingAreas(MeshEdit arena) {
-        var ring = new double[arena.VertexCount];
+        double[] ring = new double[arena.VertexCount];
         for (int f = 0; f < arena.FaceCount; f++) {
             if (!arena.Alive(f)) { continue; }
             (int a, int b, int c) = arena.Face(f);
@@ -249,8 +251,8 @@ public static class Skeletonize {
     // queue rows drop by adjacency containment; merges route the union-find parents.
     static Fin<ContractState> Surgery(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
-        var adjacency = new Dictionary<int, HashSet<int>>();
-        var facesOf = new Dictionary<int, HashSet<int>>();
+        Dictionary<int, HashSet<int>> adjacency = [];
+        Dictionary<int, HashSet<int>> facesOf = [];
         void Link(int u, int v) {
             (adjacency.TryGetValue(u, out HashSet<int>? su) ? su : adjacency[u] = []).Add(v);
             (adjacency.TryGetValue(v, out HashSet<int>? sv) ? sv : adjacency[v] = []).Add(u);
@@ -265,7 +267,7 @@ public static class Skeletonize {
                 (facesOf.TryGetValue(v, out HashSet<int>? fs) ? fs : facesOf[v] = []).Add(f);
             }
         }
-        var queue = new PriorityQueue<(int U, int V), double>();
+        PriorityQueue<(int U, int V), double> queue = new();
         foreach ((int u, HashSet<int> around) in adjacency) {
             foreach (int v in around) { if (u < v) { queue.Enqueue((u, v), Cost(arena, adjacency, u, v, policy.SamplingWeight)); } }
         }
@@ -323,10 +325,10 @@ public static class Skeletonize {
     static CurveSkeleton Extract(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
         int[] survivors = [.. Enumerable.Range(0, state.Merged.Length).Where(o => Home(state.Merged, o) == o).Order()];
-        var dense = survivors.Index().ToDictionary(static row => row.Item, static row => row.Index);
-        var graph = new UndirectedGraph<int, SEdge<int>>(allowParallelEdges: false);
+        Dictionary<int, int> dense = survivors.Index().ToDictionary(static row => row.Item, static row => row.Index);
+        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, survivors.Length));
-        var seen = new HashSet<(int, int)>();
+        HashSet<(int, int)> seen = [];
         foreach ((int a, int b, int c) in state.OriginalFaces) {
             foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
                 (int hu, int hv) = (dense[Home(state.Merged, u)], dense[Home(state.Merged, v)]);
@@ -335,12 +337,13 @@ public static class Skeletonize {
         }
         SEdge<int>[] tree = [.. graph.MinimumSpanningTreeKruskal(e =>
             arena.Position(survivors[e.Source]).DistanceTo(arena.Position(survivors[e.Target])))];
-        var components = new Dictionary<int, int>();
+        Dictionary<int, int> components = [];
         graph.ConnectedComponents(components);
 
         int nodes = survivors.Length;
-        var (nx, ny, nz, radius, witness) = (new double[nodes], new double[nodes], new double[nodes], new double[nodes], new int[nodes]);
-        var (count, seed, best) = (new int[nodes], new int[nodes], new double[nodes]);
+        (double[] nx, double[] ny, double[] nz, double[] radius, int[] witness) =
+            (new double[nodes], new double[nodes], new double[nodes], new double[nodes], new int[nodes]);
+        (int[] count, int[] seed, double[] best) = (new int[nodes], new int[nodes], new double[nodes]);
         Array.Fill(seed, int.MaxValue);
         Array.Fill(best, double.PositiveInfinity);
         for (int nId = 0; nId < nodes; nId++) {
@@ -357,26 +360,27 @@ public static class Skeletonize {
         }
         for (int nId = 0; nId < nodes; nId++) { radius[nId] /= double.Max(count[nId], 1); }
 
-        var (arcFrom, arcTo, arcOrigin, arcComponent) = (new int[tree.Length], new int[tree.Length], new int[tree.Length], new int[tree.Length]);
+        (int[] arcFrom, int[] arcTo, int[] arcOrigin, int[] arcComponent) =
+            (new int[tree.Length], new int[tree.Length], new int[tree.Length], new int[tree.Length]);
         for (int a = 0; a < tree.Length; a++) {
             (arcFrom[a], arcTo[a]) = (tree[a].Source, tree[a].Target);
             arcOrigin[a] = seed[tree[a].Source];
             arcComponent[a] = components[tree[a].Source];
         }
-        var skeleton = new CurveSkeleton(nx, ny, nz, radius, witness, arcFrom, arcTo, arcOrigin, arcComponent);
+        CurveSkeleton skeleton = new(nx, ny, nz, radius, witness, arcFrom, arcTo, arcOrigin, arcComponent);
         return policy.SmoothBranches ? Smooth(skeleton) : skeleton;
     }
 
     // One IInterpolation pass per maximal degree-2 chain: chord-length parameterized robust cubic
     // per coordinate, interior nodes re-sampled, junctions/endpoints pinned, radii untouched.
     static CurveSkeleton Smooth(CurveSkeleton skeleton) {
-        var degree = new int[skeleton.NodeCount];
+        int[] degree = new int[skeleton.NodeCount];
         foreach (int end in skeleton.ArcFrom) { degree[end]++; }
         foreach (int end in skeleton.ArcTo) { degree[end]++; }
-        var (nx, ny, nz) = ((double[])skeleton.NodeX.Clone(), (double[])skeleton.NodeY.Clone(), (double[])skeleton.NodeZ.Clone());
+        (double[] nx, double[] ny, double[] nz) = ((double[])skeleton.NodeX.Clone(), (double[])skeleton.NodeY.Clone(), (double[])skeleton.NodeZ.Clone());
         foreach (int[] chain in Branches(skeleton, degree)) {
             if (chain.Length < 4) { continue; }
-            var t = new double[chain.Length];
+            double[] t = new double[chain.Length];
             for (int i = 1; i < chain.Length; i++) { t[i] = t[i - 1] + skeleton.NodeAt(chain[i - 1]).DistanceTo(skeleton.NodeAt(chain[i])); }
             IInterpolation sx = Interpolate.CubicSplineRobust(t, [.. chain.Select(n => skeleton.NodeX[n])]);
             IInterpolation sy = Interpolate.CubicSplineRobust(t, [.. chain.Select(n => skeleton.NodeY[n])]);
@@ -389,16 +393,16 @@ public static class Skeletonize {
     }
 
     static IEnumerable<int[]> Branches(CurveSkeleton skeleton, int[] degree) {
-        var next = new Dictionary<int, List<int>>();
+        Dictionary<int, List<int>> next = [];
         for (int a = 0; a < skeleton.ArcCount; a++) {
             (next.TryGetValue(skeleton.ArcFrom[a], out List<int>? f) ? f : next[skeleton.ArcFrom[a]] = []).Add(skeleton.ArcTo[a]);
             (next.TryGetValue(skeleton.ArcTo[a], out List<int>? t) ? t : next[skeleton.ArcTo[a]] = []).Add(skeleton.ArcFrom[a]);
         }
-        var visited = new HashSet<(int, int)>();
+        HashSet<(int, int)> visited = [];
         foreach (int anchor in Enumerable.Range(0, skeleton.NodeCount).Where(n => degree[n] != 2)) {
             foreach (int start in next.TryGetValue(anchor, out List<int>? around) ? around : []) {
                 if (!visited.Add((anchor, start))) { continue; }
-                var chain = new List<int> { anchor, start };
+                List<int> chain = [anchor, start];
                 (int prior, int at) = (anchor, start);
                 while (degree[at] == 2) {
                     int forward = next[at].First(w => w != prior);

@@ -99,7 +99,7 @@ The one consumed rail. `value/contentKey` calls `xxhash128(bytes)` with both see
 
 [STACK: compile-once lifecycle] — every entry is async because the WASM compiles on first await. The floor memoizes the `createXXHash128(0, 0)` promise as a module singleton so the compile happens once per runtime, not per mint; `hasher.init()` between mints resets state without recompiling. A per-call `xxhash128` is correct for one-off small payloads but recompiles-and-runs each call — reserve it for the single-mint case.
 
-[STACK: delegate law] — `interchange/frame`, `runtime/browser/fetch`, and `data/object/store` never import `hash-wasm`; they import `value/contentKey`. This catalog documents the substrate the floor internalizes; downstream folders compose the `ContentKey` VALUE, never the hasher. The C# parity seam (`Rasm/Geometry` mints, `Rasm.Compute/Runtime` two-half digest vectors) is asserted read-only through the `tests/contracts` corpus parity drivers.
+[STACK: delegate law] — `interchange/frame`, `runtime/browser/fetch`, and `data/object/store` never import `hash-wasm`; they import `value/contentKey`. This catalog documents the substrate the floor internalizes; downstream folders compose the `ContentKey` VALUE, never the hasher. The C# parity seam (`Rasm/Spatial/reconciliation` mints, `Rasm.Compute/Runtime` two-half digest vectors) is asserted read-only through the `tests/contracts` corpus parity drivers.
 
 ## [06]-[RAIL_LAW]
 

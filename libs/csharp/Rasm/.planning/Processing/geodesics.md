@@ -23,6 +23,7 @@ The page owns the trace policies (`GeodesicTracePolicy`, `WindowPropagationPolic
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
 using IntrinsicEdge = Rasm.Meshing.MeshKernel.IntrinsicEdge;

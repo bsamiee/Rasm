@@ -183,7 +183,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
-using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Thinktecture;

@@ -27,6 +27,7 @@ using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;
+using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -167,7 +168,8 @@ public static class Patterning {
     static Fin<InstanceStream.Planar> OrbitOf(PatternPlan plan, Op? key) {
         if (!plan.IsValid) { return Fault<InstanceStream.Planar>(unit: 0, witness: plan.Extent); }
         Arr<PatternSeat> seats = plan.Group.Seats();
-        var (site, spin, mirrored, anchor, seat) = (new List<Point2d>(), new List<double>(), new List<bool>(), new List<int>(), new List<int>());
+        (List<Point2d> site, List<double> spin, List<bool> mirrored, List<int> anchor, List<int> seat) =
+            (new List<Point2d>(), new List<double>(), new List<bool>(), new List<int>(), new List<int>());
         foreach ((int i, int j) in CellWindow(plan)) {
             for (int s = 0; s < seats.Count; s++) {
                 for (int a = 0; a < plan.Anchors.Count; a++) {

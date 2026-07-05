@@ -81,7 +81,7 @@ public sealed partial class FitKind {
             .Bind(lhs => lhs.SolveDetailed(new Arr<double>([0.5 * (Sq(b) - Sq(a)), 0.5 * (Sq(c) - Sq(a)), 0.5 * (Sq(d) - Sq(a))]), key))
             .MapFail(_ => new GeometryFault.DegenerateInput(Kind.Sphere, draw[0], "coplanar-sample").ToError())
             .Map(receipt => {
-                var origin = new Point3d(receipt.Solution[0], receipt.Solution[1], receipt.Solution[2]);
+                Point3d origin = new(receipt.Solution[0], receipt.Solution[1], receipt.Solution[2]);
                 return (FitPrimitive)new FitPrimitive.Sphere(new Rhino.Geometry.Sphere(origin, origin.DistanceTo(a)));
             });
     }
@@ -223,7 +223,7 @@ public sealed partial class FitKind {
     static (double Major, double Minor) TorusRadii(Point3d[] cloud, int[] draw, Point3d center, Vector3d axis) {
         Vector3d unit = Unit(axis);
         double majorSum = 0.0;
-        var radial = new double[draw.Length];
+        double[] radial = new double[draw.Length];
         for (int i = 0; i < draw.Length; i++) {
             Vector3d rel = cloud[draw[i]] - center;
             radial[i] = (rel - (rel * unit) * unit).Length;
@@ -241,7 +241,7 @@ public sealed partial class FitKind {
     }
 
     static Point3d Centroid(Point3d[] cloud, int[] draw) {
-        var sum = Vector3d.Zero;
+        Vector3d sum = Vector3d.Zero;
         foreach (int i in draw) sum += cloud[i] - Point3d.Origin;
         return Point3d.Origin + (1.0 / draw.Length) * sum;
     }
@@ -250,7 +250,7 @@ public sealed partial class FitKind {
     // Charts invert FitPrimitive.Pack: plane = Hesse foot vector; line = foot-of-perpendicular (a,b)
     // in the direction-orthogonal (u,v) frame + azimuth/polar — non-degenerate for every orientation.
     static FitPrimitive UnpackPlane(double[] p) {
-        var foot = new Vector3d(p[0], p[1], p[2]);
+        Vector3d foot = new(p[0], p[1], p[2]);
         Vector3d unit = foot.IsTiny() ? Vector3d.ZAxis : Unit(foot);
         return new FitPrimitive.Plane(new Rhino.Geometry.Plane(Point3d.Origin + foot, unit));
     }
@@ -413,7 +413,7 @@ public abstract partial record FitPrimitive {
 
     // --- [GRADIENT_ARMS]
     static PartialRow PlaneGradient(Point3d query, Plane pl) {
-        var row = new PartialRow();
+        PartialRow row = new();
         Vector3d f = pl.Surface.Origin - Point3d.Origin;
         double rho = Math.Max(f.Length, EpsilonPolicy.ZeroTolerance);
         Vector3d u = (1.0 / rho) * f;
@@ -426,7 +426,7 @@ public abstract partial record FitPrimitive {
     }
 
     static PartialRow SphereGradient(Point3d query, Sphere s) {
-        var row = new PartialRow();
+        PartialRow row = new();
         Vector3d e = query - s.Surface.Center;
         double rho = Math.Max(e.Length, EpsilonPolicy.ZeroTolerance);
         row[0] = -e.X / rho;
@@ -437,7 +437,7 @@ public abstract partial record FitPrimitive {
     }
 
     static PartialRow CylinderGradient(Point3d query, Cylinder c) {
-        var row = new PartialRow();
+        PartialRow row = new();
         Vector3d axis = FitKind.Unit(c.Surface.Axis);
         (double along, double radial, Vector3d dir, Vector3d rel) = AxisFrame(c.Surface.Center, axis, query);
         double rg = Math.Max(radial, EpsilonPolicy.ZeroTolerance);
@@ -452,7 +452,7 @@ public abstract partial record FitPrimitive {
     }
 
     static PartialRow ConeGradient(Point3d query, Cone k) {
-        var row = new PartialRow();
+        PartialRow row = new();
         Vector3d axis = FitKind.Unit(k.Axis);
         (double along, double radial, Vector3d dir, Vector3d rel) = AxisFrame(k.Apex, axis, query);
         double rg = Math.Max(radial, EpsilonPolicy.ZeroTolerance);
@@ -469,7 +469,7 @@ public abstract partial record FitPrimitive {
     }
 
     static PartialRow TorusGradient(Point3d query, Torus t) {
-        var row = new PartialRow();
+        PartialRow row = new();
         Vector3d axis = FitKind.Unit(t.Axis);
         (double along, double radial, Vector3d dir, Vector3d rel) = AxisFrame(t.Center, axis, query);
         double inPlane = radial - t.Major;
@@ -490,7 +490,7 @@ public abstract partial record FitPrimitive {
     // Foot chart p = [a, b, azimuth, polar]: anchor = a·u + b·v with (u, v) ⊥ n; total derivatives
     // carry the anchor's frame motion, so the chart is regular everywhere off the polar poles.
     static PartialRow LineGradient(Point3d query, Line ln) {
-        var row = new PartialRow();
+        PartialRow row = new();
         double[] p = PackLine(ln.Axis);
         Vector3d n = FitKind.AxisFrom(p[2], p[3]);
         Vector3d u = FitKind.AzimuthTangent(p[2]);
@@ -499,7 +499,7 @@ public abstract partial record FitPrimitive {
         (double along, double radial, Vector3d dir, Vector3d rel) = AxisFrame(anchor, n, query);
         double rg = Math.Max(radial, EpsilonPolicy.ZeroTolerance);
         double sinPolar = Math.Sin(p[3]), cosPolar = Math.Cos(p[3]);
-        var w = new Vector3d(Math.Cos(p[2]), Math.Sin(p[2]), 0.0);
+        Vector3d w = new(Math.Cos(p[2]), Math.Sin(p[2]), 0.0);
         row[0] = -(dir * u);
         row[1] = -(dir * v);
         row[2] = dir * (p[0] * w - p[1] * cosPolar * u) - along * sinPolar * (rel * u) / rg;
@@ -685,7 +685,7 @@ public static class Fit {
     // Total per-kind lane: a degenerate draw or minimal solve burns its trial; a kind whose every
     // trial burns reports None and the cross-kind fold proceeds — never an aborting rail.
     static Option<Candidate> Draw(Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] order, FitKind kind, FitPolicy policy, Context tolerance, Op key) {
-        var rng = new Random(policy.Seed);
+        Random rng = new(policy.Seed);
         double threshold = policy.Threshold(tolerance.Absolute.Value);
         double t2 = threshold * threshold;
         Option<Candidate> best = None;
@@ -713,7 +713,7 @@ public static class Fit {
     // Two-gate inlier law (Schnabel): |d| ≤ t AND Agreement ≥ NormalBand when a normal field rides
     // the op; a normal-inconsistent point charges the saturated t², identical in shell and full form.
     static (double Cost, BitArray Inliers, int Count) FullScore(FitPrimitive primitive, Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, double t2, double threshold) {
-        var inliers = new BitArray(cloud.Length);
+        BitArray inliers = new(cloud.Length);
         double cost = 0.0;
         int count = 0;
         Vector3d[]? field = normals.Case as Vector3d[];
@@ -727,7 +727,7 @@ public static class Fit {
     }
 
     static (double Cost, BitArray Inliers, int Count) ShellScore(FitPrimitive primitive, Point3d[] cloud, int[] shell, Option<Vector3d[]> normals, FitPolicy policy, double t2, double threshold) {
-        var inliers = new BitArray(cloud.Length);
+        BitArray inliers = new(cloud.Length);
         double cost = t2 * (cloud.Length - shell.Length);
         int count = 0;
         Vector3d[]? field = normals.Case as Vector3d[];
@@ -753,7 +753,7 @@ public static class Fit {
     // inverse residual against the global principal frame off the ONE CloudKernel covariance fold.
     static Fin<int[]> Order(Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, Context tolerance, Op key) {
         int[] indices = Enumerable.Range(0, cloud.Length).ToArray();
-        var rng = new Random(policy.Seed);
+        Random rng = new(policy.Seed);
         return policy.Order == DrawOrder.QualityFront
             ? Quality(cloud, normals, tolerance, key).Map(quality => {
                 Array.Sort(indices, (a, b) => quality[b].CompareTo(quality[a]));
@@ -774,19 +774,19 @@ public static class Fit {
     // Dominant-mode prior over the oriented-normal field: |n̂·n̄̂| ranks the dominant structure's
     // points into the PROSAC front — unit normals carry no length signal, so length is never read.
     static double[] ModePrior(Vector3d[] field) {
-        var mean = Vector3d.Zero;
+        Vector3d mean = Vector3d.Zero;
         foreach (Vector3d n in field) mean += n;
         Vector3d mode = FitKind.Unit(mean);
-        var quality = new double[field.Length];
+        double[] quality = new double[field.Length];
         for (int i = 0; i < field.Length; i++) quality[i] = Math.Abs(field[i] * mode);
         return quality;
     }
 
     // Eigen pairs sort |λ|-descending (owner law): [2] is the least axis — the global normal estimate.
     static double[] PlanarityPrior(Point3d[] cloud, Vector3d mean, Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Context tolerance) {
-        var axis = new Vector3d(eigen[2].Eigenvector[0], eigen[2].Eigenvector[1], eigen[2].Eigenvector[2]);
+        Vector3d axis = new(eigen[2].Eigenvector[0], eigen[2].Eigenvector[1], eigen[2].Eigenvector[2]);
         double floor = Math.Max(Math.Sqrt(Math.Abs(eigen[2].Eigenvalue)), tolerance.Absolute.Value);
-        var quality = new double[cloud.Length];
+        double[] quality = new double[cloud.Length];
         for (int i = 0; i < cloud.Length; i++) {
             Vector3d rel = cloud[i] - (Point3d.Origin + mean);
             quality[i] = 1.0 / (1.0 + Math.Abs(rel * axis) / floor);
@@ -802,7 +802,7 @@ public static class Fit {
                 // PROSAC growth draw: the newest front point enters every sample, the remainder
                 // draws DISTINCT from the preceding window — trial 0 is exactly the top-m set.
                 int window = Math.Min(s.Order.Length, s.Kind.MinimalSamples + s.Trial);
-                var sample = new int[s.Kind.MinimalSamples];
+                int[] sample = new int[s.Kind.MinimalSamples];
                 sample[0] = s.Order[window - 1];
                 for (int i = 1; i < sample.Length; i++) {
                     int pick;
@@ -825,7 +825,7 @@ public static class Fit {
     // Distinct minimal draw: a with-replacement duplicate degenerates every minimal solver, so
     // membership rejection guarantees distinctness (admission pins order.Length >= count).
     static int[] UniformDraw(int[] order, int count, Random rng) {
-        var sample = new int[count];
+        int[] sample = new int[count];
         for (int i = 0; i < count; i++) {
             int pick;
             do { pick = order[rng.Next(order.Length)]; } while (Array.IndexOf(sample, pick, 0, i) >= 0);
@@ -835,7 +835,7 @@ public static class Fit {
     }
 
     static int[] NeighborhoodDraw(int seed, int[] pool, int count, Random rng) {
-        var sample = new int[count];
+        int[] sample = new int[count];
         sample[0] = seed;
         for (int i = 1; i < count; i++) {
             int pick = rng.Next(pool.Length - (i - 1));
@@ -879,7 +879,7 @@ public static class Fit {
             : (double)ddouble.Sqrt(inliers.Select(i => { double d = shape.Distance(cloud[i]); return (ddouble)d * d; }).Sum()) / Math.Sqrt(inliers.Length);
 
     static int[] InlierIndices(BitArray mask) {
-        var indices = new List<int>(mask.Count);
+        List<int> indices = new(mask.Count);
         for (int i = 0; i < mask.Count; i++) { if (mask[i]) indices.Add(i); }
         return [.. indices];
     }

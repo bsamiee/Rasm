@@ -16,14 +16,14 @@ Outbound delivery as ONE owner: mail and webhook egress are channel rows of one 
 
 [CHANNEL_FAMILY]:
 - Owner: `Deliver` — the channel dispatch table and the two shapes every channel speaks. `Deliver.Receipt` is the settlement evidence: channel kind, transmission identity (the SMTP `messageId`, the webhook delivery id), per-recipient acceptance splits, the wire instant, and the transport's timing band — one `Schema.Class` whose fields serve both channels because settlement IS the same concept. `DeliverFault` is the one fault family: a reason row (`dial | refused | bounced | timeout | schema`) carrying its `FaultClass` kind, so the lane's judge fold reads retryability off the class table and a channel never declares a private fault rail.
-- Law: a channel is a row — `{ kind, transmit, settle }` where `transmit` turns a decoded payload into wire evidence and `settle` folds that evidence into `Receipt | DeliverFault`; the relay dispatches on the deliverable's channel kind through this table and a new channel (push, SMS, chat) is one row, never a sibling drain.
+- Law: a channel is a row keyed by its kind — `{ payload, transmit }` where the payload `Schema` admits the claim body and `transmit` carries the decoded payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the table is `satisfies`-checked against the `Receipt` channel vocabulary, the relay dispatches on the claim's channel kind through it, and a new channel (push, SMS, chat) is one row, never a sibling drain.
 - Law: partial acceptance is a receipt, not a fault — a send where some recipients accept and some reject settles as a `Receipt` whose rejected band is non-empty; the suppression fold consumes the rejected band, and only a transmission that produced no acceptance at all folds to `DeliverFault`.
 - Law: the payload is decoded once at the channel seam — each channel declares its payload `Schema` and the relay's claim body decodes against it before `transmit`; a decode failure is a `schema`-reasoned fault whose `invalid` class parks immediately through the lane's poison short-circuit.
 - Growth: a new channel is one table row plus its payload schema; a new settlement dimension is one `Receipt` field both channels populate.
 - Packages: `effect` (`Schema`, `Data`, `DateTime`, `Duration`, `Match`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { Config, Data, DateTime, Duration, Effect, Redacted, Schedule, Schema } from "effect"
+import { Array, Config, Data, DateTime, Duration, Effect, Match, Option, Redacted, Schema, Stream, Struct } from "effect"
 import { HttpBody, HttpClientRequest } from "@effect/platform"
 import { SqlClient } from "@effect/sql"
 import { createTransport, type SentMessageInfo, type Transporter } from "nodemailer"
@@ -64,7 +64,6 @@ class DeliverFault extends Data.TaggedError("DeliverFault")<{
 
 declare namespace Deliver {
   type Channel<A, I, R> = {
-    readonly kind: Receipt["channel"]
     readonly payload: Schema.Schema<A, I>
     readonly transmit: (payload: A) => Effect.Effect<Receipt, DeliverFault, R>
   }
@@ -112,7 +111,7 @@ class Mailer extends Effect.Service<Mailer>()("runtime/Mailer", {
       Effect.tryPromise({
         try: () => transporter.sendMail(message),
         catch: (cause) => _classified(cause),
-      }).pipe(Effect.map(_mailReceipt))
+      }).pipe(Effect.flatMap((info) => Effect.map(DateTime.now, (at) => _mailReceipt(info, at))))
     const idle = Effect.sync(() => transporter.isIdle())
     return { send, idle } as const
   }),
@@ -128,13 +127,13 @@ const _classified = (cause: unknown): DeliverFault => {
   })
 }
 
-const _mailReceipt = (info: SentMessageInfo): Receipt =>
+const _mailReceipt = (info: SentMessageInfo, at: DateTime.Utc): Receipt =>
   new Receipt({
     channel: "mail",
     transmission: info.messageId,
     accepted: info.accepted.map(String),
     rejected: (info.rejectedErrors ?? []).map((err) => ({ recipient: String(err.recipient ?? ""), note: err.response ?? "" })),
-    at: DateTime.unsafeNow(),
+    at,
     wire: Duration.millis(info.envelopeTime ?? 0),
   })
 ```
@@ -168,11 +167,11 @@ const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
 const _hook = (payload: typeof HookPayload.Type) =>
   Effect.gen(function* () {
     const crypto = yield* Crypto
-    const client = yield* Client
     const at = yield* DateTime.now
     const stamp = String(Math.trunc(DateTime.toEpochMillis(at) / 1000))
     const signed = yield* crypto.sign(Redacted.make(payload.key), _signable(payload.deliverable, stamp, payload.body))
-    const response = yield* client.request(
+    return yield* Client.dial(
+      "batch",
       HttpClientRequest.post(payload.destination.toString()).pipe(
         HttpClientRequest.setHeaders({
           "webhook-id": payload.deliverable,
@@ -181,14 +180,19 @@ const _hook = (payload: typeof HookPayload.Type) =>
         }),
         HttpClientRequest.setBody(HttpBody.uint8Array(payload.body, "application/json")),
       ),
+    ).pipe(
+      Effect.scoped,
+      Effect.as(new Receipt({ channel: "webhook", transmission: payload.deliverable, accepted: [payload.destination.toString()], rejected: [], at, wire: Duration.zero })),
+      Effect.catchTags({
+        ResponseError: (fault) => _hookSettle(fault.response.status),
+        RequestError: () => Effect.fail(new DeliverFault({ reason: "dial", channel: "webhook", detail: "<transport>" })),
+        Lapse: () => Effect.fail(new DeliverFault({ reason: "timeout", channel: "webhook", detail: "<budget>" })),
+      }),
     )
-    return yield* _hookSettle(payload, response.status, at)
   })
 
-const _hookSettle = (payload: typeof HookPayload.Type, status: number, at: DateTime.Utc) =>
-  status < 300
-    ? Effect.succeed(new Receipt({ channel: "webhook", transmission: payload.deliverable, accepted: [payload.destination.toString()], rejected: [], at, wire: Duration.zero }))
-    : Effect.fail(new DeliverFault({ reason: status === 410 ? "bounced" : "dial", channel: "webhook", detail: String(status) }))
+const _hookSettle = (status: number): Effect.Effect<never, DeliverFault> =>
+  Effect.fail(new DeliverFault({ reason: status === 410 ? "bounced" : "dial", channel: "webhook", detail: String(status) }))
 ```
 
 ## [5]-[SUPPRESSION]
@@ -220,9 +224,9 @@ const _settled = (receipt: Receipt) =>
 ## [6]-[RELAY]
 
 [RELAY]:
-- Owner: `Relay` — the one outbox drain: a `Grid.singleton` (exactly one live instance cluster-wide, migrating on rebalance) that races the journal's NOTIFY wake against the lease-width tick, claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, decodes each claim against its channel's payload schema, spends `Throttle.tenantEgress` per claim, dispatches through the channel table, and folds every outcome through `Lane.settle` — settle, defer, park with evidence — so the drain body is dispatch plus composition and contains zero retry, backoff, or dead-letter machinery of its own.
+- Owner: `Relay` — the one outbox drain: a `Grid.singleton` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, decodes each claim against its channel's payload schema, spends `Throttle.tenantEgress` per claim, dispatches through the channel table, and folds every outcome through `Lane.settle` — settle, defer, park with evidence — so the drain body is dispatch plus composition and contains zero retry, backoff, or dead-letter machinery of its own.
 - Law: quota precedes transmission — an `exhausted` throttle verdict defers the claim (the lease redelivers after the window turns) without touching the wire, so a tenant's burst never converts into provider-side rejections.
-- Law: pacing composes the mail pool — the claim step gates on `Mailer.idle` for mail-channel batches, deferring claim rather than queueing inside the transport.
+- Law: pacing composes the mail pool — a mail-channel claim defers while `Mailer.idle` reports no pool capacity and the lease redelivers it, so mail never queues inside the transport and webhook claims drain regardless of pool state.
 - Law: the wake source is data-owned — the drain subscribes the journal's wake stream through the scope port; a poll loop or a second LISTEN binding here is unspellable.
 - Receipt: each drained batch emits one meter fact (claims, settled, deferred, parked) — the relay's health is queryable history beside the lane evidence.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
@@ -238,40 +242,71 @@ const MailPayload = Schema.Struct({
   list: Schema.optionalWith(Schema.Struct({ unsubscribe: Schema.String }), { as: "Option" }),
 })
 
+const _channels = {
+  mail: {
+    payload: MailPayload,
+    transmit: (message: typeof MailPayload.Type) => Effect.flatMap(Mailer, (mailer) => mailer.send(message)),
+  },
+  webhook: {
+    payload: HookPayload,
+    transmit: _hook,
+  },
+} as const satisfies Record<Receipt["channel"], unknown>
+
+const _routed = (stream: string): Option.Option<Receipt["channel"]> =>
+  Array.findFirst(Struct.keys(_channels), (kind) => stream.startsWith(`${kind}:`))
+
+const _transmitted = <A, I, R>(kind: Receipt["channel"], row: Deliver.Channel<A, I, R>, claim: Lane.Claim) =>
+  Schema.decodeUnknown(row.payload)(claim.body).pipe(
+    Effect.mapError(() => new DeliverFault({ reason: "schema", channel: kind, detail: claim.stream })),
+    Effect.flatMap(row.transmit),
+  )
+
 const _dispatch = (claim: Lane.Claim) =>
-  claim.stream.startsWith("mail")
-    ? Schema.decodeUnknown(MailPayload)(claim.body).pipe(
-      Effect.mapError(() => new DeliverFault({ reason: "schema", channel: "mail", detail: claim.stream })),
-      Effect.flatMap((message) => Mailer.pipe(Effect.flatMap((mailer) => mailer.send(message)))),
-    )
-    : Schema.decodeUnknown(HookPayload)(claim.body).pipe(
-      Effect.mapError(() => new DeliverFault({ reason: "schema", channel: "webhook", detail: claim.stream })),
-      Effect.flatMap(_hook),
-    )
+  Option.match(_routed(claim.stream), {
+    onNone: () => Effect.fail(new DeliverFault({ reason: "schema", channel: "webhook", detail: `<unrouted:${claim.stream}>` })),
+    onSome: (kind) =>
+      Match.value(kind).pipe(
+        Match.when("mail", (k) => _transmitted(k, _channels.mail, claim)),
+        Match.when("webhook", (k) => _transmitted(k, _channels.webhook, claim)),
+        Match.exhaustive,
+      ),
+  })
 
 const _drain = (app: AppIdentity["app"]) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const mailer = yield* Mailer
     const idle = yield* mailer.idle
-    const claims = idle
-      ? yield* Journal.claimBatch(sql, app, WorkClass.bulk.concurrency * 4, Duration.toSeconds(Budget.bulk.attempt))
-      : []
+    const claims = yield* Journal.claimBatch(sql, app, WorkClass.bulk.concurrency * 4, Duration.toSeconds(Budget.bulk.attempt))
     yield* Lane.settle(sql, "bulk", (claim) =>
-      Throttle.spend(Throttle.tenantEgress, claim.stream).pipe(
-        Effect.zipRight(_dispatch(claim)),
-        Effect.tap(_settled),
-        Effect.as(LaneVerdict.Settled()),
-        Effect.catchTag("DeliverFault", (fault) => Effect.succeed(Lane.judge(claim, { class: fault.class, detail: fault.detail }))),
-        Effect.catchAll(() => Effect.succeed(LaneVerdict.Deferred({ class: "exhausted" }))),
-      ), Lane.park)(claims)
+      Option.contains(_routed(claim.stream), "mail") && !idle
+        ? Effect.succeed(LaneVerdict.Deferred({ class: "exhausted" }))
+        : Throttle.spend(Throttle.tenantEgress, claim.stream).pipe(
+            Effect.zipRight(_dispatch(claim)),
+            Effect.tap(_settled),
+            Effect.as(LaneVerdict.Settled()),
+            Effect.catchTag("DeliverFault", (fault) => Effect.succeed(Lane.judge(claim, { class: fault.class, detail: fault.detail }))),
+            Effect.catchAll(() => Effect.succeed(LaneVerdict.Deferred({ class: "exhausted" }))),
+          ), Lane.park)(claims)
   })
 
-const Relay = (app: AppIdentity["app"]) =>
-  Grid.singleton("deliver-relay", _drain(app).pipe(Effect.repeat(Schedule.spaced(Budget.bulk.base))))
+const Relay = <R>(app: AppIdentity["app"], wake: Stream.Stream<unknown, never, R>) =>
+  Grid.singleton(
+    "deliver-relay",
+    Stream.merge(wake, Stream.tick(Budget.bulk.attempt)).pipe(Stream.runForEach(() => _drain(app))),
+  )
+
+const _admissible = <R>(suppressed: (target: string) => Effect.Effect<boolean, never, R>) =>
+  (channel: Receipt["channel"], target: string): Effect.Effect<void, DeliverFault, R> =>
+    Effect.flatMap(suppressed(target), (held) =>
+      held
+        ? Effect.fail(new DeliverFault({ reason: "refused", channel, detail: `<suppressed:${target}>` }))
+        : Effect.void)
 
 const Deliver = {
-  channels: { mail: "mail", webhook: "webhook" },
+  channels: _channels,
+  admissible: _admissible,
   suppress: _suppress,
   settled: _settled,
 }

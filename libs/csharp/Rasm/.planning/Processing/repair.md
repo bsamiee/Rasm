@@ -2,7 +2,7 @@
 
 The predicate-gated heal fold: `Heal.Repair(HealPlan, Op? key = null)` takes a defective `MeshSpace`, opens ONE `MeshEdit` arena, folds a closed `HealOp` order over it — duplicate weld, degenerate collapse, gap close, manifold split, normal orientation, self-intersection re-mesh, boolean merge — and publishes a healed `MeshSpace` plus the typed `RebuildReceipt` chain. The page owns `HealStage` (the ONE heal-modality `[SmartEnum<string>]` — the vocabulary the `GeometryFault.UnrepairableMesh(HealStage, int, int)` 2408 payload names, the receipts discriminate on, and the `Standard` order derives from), the `HealOp` `[Union]` whose six author-kernel cases are stateless rows over the plan policy and whose `Boolean` case delegates the managed exact `Meshing/arrangement#ARRANGEMENT` companion, the validated `RepairPolicy` row composing the sibling policy owners (`ArenaPolicy` · `IntersectPolicy` · `TessellationPolicy` · `ArrangementPolicy`), and the `HealPlan` request carrier the one entrypoint discriminates on.
 
-The rail is TOTAL over its own input class: the topology snapshot rides the Genus-tolerant `mesh.md` `TopologyReceipt` projection `(Euler, BoundaryComponents, IsManifold, IsOriented, NonManifoldEdges, Option<int> Genus)` — un-gated, so a non-manifold, boundaried, or odd-Euler mesh (exactly the input the heal exists for) projects instead of failing, and `NonManifoldEdges` is the actionable defect count the manifold kernel targets. Topology threads forward through the fold (`before[n] = after[n-1]`; the last per-op freeze IS the published healed mesh — no recompute, no terminal re-freeze). Every kernel operates ON the arena (`SetFace`/`AddFace`/`KillFace`/`AddVertex` mutation, dirty bitsets, `ToSpace` freeze); the crossing, broad-phase, CDT, and boolean work all route the sibling owners (`Intersection.Apply`, `Tessellation.Build`, `Arrangement.Apply`, the `neighbors.md` proximity lane) — this page re-implements none of them. Failures route the band-2400 `GeometryFault` union; the healed `MeshSpace` and receipt chain cross only the in-process seam to the `Spatial/reconciliation#NAMING_HASH` `Encode` fence and the naming `Track` fold; no hash is minted here.
+The rail is TOTAL over its own input class: the topology snapshot rides the Genus-tolerant `mesh.md` `TopologyReceipt` projection `(Euler, BoundaryComponents, IsManifold, IsOriented, NonManifoldEdges, Option<int> Genus)` — un-gated, so a non-manifold, boundaried, or odd-Euler mesh (exactly the input the heal exists for) projects instead of failing, and `NonManifoldEdges` is the actionable defect count the manifold kernel targets. Topology threads forward through the fold (`before[n] = after[n-1]`; the last per-op freeze IS the published healed mesh — no recompute, no terminal re-freeze). Every kernel operates ON the arena (`SetFace`/`AddFace`/`KillFace`/`AddVertex` mutation, dirty bitsets, `ToSpace` freeze); the crossing, broad-phase, CDT, and boolean work all route the sibling owners (`Intersection.Apply`, `Tessellation.Build`, `Arrangement.Apply`, the `neighbors.md` proximity lane) — this page re-implements none of them. Failures route the band-2400 `GeometryFault` union; the healed `MeshSpace` and receipt chain cross only the in-process seam to the `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` fence and the naming `Track` fold; no hash is minted here.
 
 ## [01]-[INDEX]
 
@@ -156,7 +156,7 @@ internal readonly struct Incidence {
     Incidence(Dictionary<(int U, int V), List<int>> edges) => Edges = edges;
 
     internal static Incidence Of(MeshEdit edit) {
-        var edges = new Dictionary<(int U, int V), List<int>>(3 * edit.FaceCount);
+        Dictionary<(int U, int V), List<int>> edges = new(3 * edit.FaceCount);
         for (int f = 0; f < edit.FaceCount; f++) {
             if (!edit.Alive(f)) continue;
             (int a, int b, int c) = edit.Face(f);
@@ -186,7 +186,7 @@ internal readonly struct Incidence {
     // Face-dual: both arcs per interior 2-manifold edge, tagged with the undirected vertex pair.
     // >2-incident fans propagate no orientation (Manifold precedes Orient in the Standard order).
     internal AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> Dual(MeshEdit edit) {
-        var dual = new AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>>(allowParallelEdges: true);
+        AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> dual = new(allowParallelEdges: true);
         dual.AddVertexRange(Enumerable.Range(0, edit.FaceCount).Where(edit.Alive));
         foreach (((int U, int V) edge, List<int> faces) in Edges.Where(static row => row.Value.Count == 2)) {
             dual.AddEdge(new TaggedEdge<int, (int U, int V)>(faces[0], faces[1], edge));
@@ -243,7 +243,7 @@ public static class Heal {
     // die outright; a sliver is flagged by the EXACT Orient2D sign in the face's dominant-axis plane,
     // the float area floor a secondary gate behind an exact-keep only.
     internal static Fin<HealStep> Collapse(MeshEdit edit, RepairPolicy policy) {
-        var seen = new HashSet<(int, int, int)>();
+        HashSet<(int, int, int)> seen = new();
         for (int f = 0; f < edit.FaceCount; f++) {
             if (!edit.Alive(f)) continue;
             (int a, int b, int c) = edit.Face(f);
@@ -276,7 +276,7 @@ public static class Heal {
     }
 
     static HealStep Bridge(MeshEdit edit, Arr<(int Tail, int Head, int Face)> rim, int[][] candidates, double span, Incidence incidence) {
-        var pairs = new List<(int I, int J, double Gap)>();
+        List<(int I, int J, double Gap)> pairs = new();
         for (int i = 0; i < rim.Count; i++) {
             foreach (int j in candidates[i]) {
                 if (j == i) continue;
@@ -286,7 +286,7 @@ public static class Heal {
             }
         }
         pairs.Sort(static (l, r) => l.Gap.CompareTo(r.Gap));
-        var used = new HashSet<int>();
+        HashSet<int> used = new();
         foreach ((int i, int j, _) in pairs) {
             if (used.Contains(i) || used.Contains(j)) continue;
             ((int a, int b), (int c, int d)) = ((rim[i].Tail, rim[i].Head), (rim[j].Tail, rim[j].Head));
@@ -339,16 +339,16 @@ public static class Heal {
     internal static Fin<HealStep> Orient(MeshEdit edit, Option<Incidence> carry) {
         Incidence incidence = carry.IfNone(() => Incidence.Of(edit));
         AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> dual = incidence.Dual(edit);
-        var shell = new Dictionary<int, int>(edit.FaceCount);
+        Dictionary<int, int> shell = new(edit.FaceCount);
         dual.WeaklyConnectedComponents(shell);
         // Seed = the lowest live face id per shell: its input winding wins deterministically — the
         // healed mesh is content-addressed downstream, so dictionary-order seeding would fork hashes.
-        var seeds = new Dictionary<int, int>();
+        Dictionary<int, int> seeds = new();
         for (int f = 0; f < edit.FaceCount; f++) {
             if (edit.Alive(f) && shell.TryGetValue(f, out int component)) seeds.TryAdd(component, f);
         }
         foreach (int seed in seeds.Values) {
-            var walk = new BreadthFirstSearchAlgorithm<int, TaggedEdge<int, (int U, int V)>>(dual);
+            BreadthFirstSearchAlgorithm<int, TaggedEdge<int, (int U, int V)>> walk = new(dual);
             walk.TreeEdge += arc => {
                 if (SameTraversal(edit.Face(arc.Source), edit.Face(arc.Target), arc.Tag)) {
                     (int a, int b, int c) = edit.Face(arc.Target);
@@ -383,7 +383,7 @@ public static class Heal {
         // ONE Round() per interned slot: every patch that sees a crossing reads the SAME double
         // triplet — the seam is topologically welded by construction. Point-touches carry no constraint.
         Point3d[] mark = [.. lattice.Rows.Select(static row => row.Point.Round())];
-        var patches = new Dictionary<int, List<(int A, int B, int FaceA, int FaceB)>>();
+        Dictionary<int, List<(int A, int B, int FaceA, int FaceB)>> patches = new();
         // Coplanar rows project down to the segment shape — the carrier columns serve the lattice's
         // own chain merge, not the per-face constraint carriage.
         foreach ((int a, int b, int fa, int fb) in lattice.Segments.Concat(
@@ -394,8 +394,8 @@ public static class Heal {
         if (patches.Count == 0) return Fin.Succ(HealStep.Same(edit));
         // Corner seed: an exactly-coincident crossing resolves to the corner id; a sub-ulp near-miss
         // mints a sliver the next Standard weld/degenerate pass collapses.
-        var minted = new Dictionary<Point3d, int>();
-        var triple = new Dictionary<(int, int, int), Point3d>();
+        Dictionary<Point3d, int> minted = new();
+        Dictionary<(int, int, int), Point3d> triple = new();
         foreach (int face in patches.Keys.OrderBy(static id => id)) {
             (int a, int b, int c) = edit.Face(face);
             minted.TryAdd(edit.Position(a), a); minted.TryAdd(edit.Position(b), b); minted.TryAdd(edit.Position(c), c);
@@ -422,7 +422,7 @@ public static class Heal {
         bool mirrored = (axis == Axis.X ? normal.X : axis == Axis.Y ? normal.Y : normal.Z) < 0.0;
         return Crossed(segments, mark, triple, axis, policy, key).Bind(rows => {
             List<Point3d> sites = [pa, pb, pc];
-            var slot = new Dictionary<Point3d, int> { [pa] = 0, [pb] = 1, [pc] = 2 };
+            Dictionary<Point3d, int> slot = new() { [pa] = 0, [pb] = 1, [pc] = 2 };
             Seq<Constraint> interior = toSeq(rows.Select(row => (Constraint)new Constraint.Segment(Site(row.From), Site(row.To)))).Strict();
             Seq<Constraint> boundary = Rim(sites, axis);   // sites is complete once interior is strict
             Implicit[] vertices = [.. sites.Select(static p => new Implicit(p))];
@@ -442,7 +442,7 @@ public static class Heal {
     // and every patch reuses that point; a two-face (coplanar) pair recomputes from slot-shared
     // endpoints — bit-identical inputs, bit-identical split.
     static Fin<Seq<(Point3d From, Point3d To)>> Crossed(List<(int A, int B, int FaceA, int FaceB)> segments, Point3d[] mark, Dictionary<(int, int, int), Point3d> triple, Axis axis, RepairPolicy policy, Op key) {
-        var splits = new List<Point3d>[segments.Count];
+        List<Point3d>[] splits = new List<Point3d>[segments.Count];
         for (int i = 0; i < segments.Count; i++) splits[i] = [];
         Seq<(int I, int J)> pairs = toSeq(
             from i in Enumerable.Range(0, segments.Count)

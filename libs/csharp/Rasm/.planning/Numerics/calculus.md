@@ -23,6 +23,8 @@ The sample-anywhere analytic math floor of `Rasm.Numerics` — differential oper
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+
 namespace Rasm.Numerics;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

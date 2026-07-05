@@ -30,6 +30,7 @@ using System.Numerics.Tensors;
 using DoubleDouble;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Storage;
+using Rasm.Domain;
 using ComplexVector = MathNet.Numerics.LinearAlgebra.Vector<System.Numerics.Complex>;
 using DenseMatrixC = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix;
 using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;

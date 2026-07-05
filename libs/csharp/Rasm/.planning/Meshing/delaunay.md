@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -230,25 +229,23 @@ public abstract partial record Tessellation : IValidityEvidence {
     // super rows sit at the tail [SuperBase, SuperBase + arity). Morton order permutes only the
     // insertion SEQUENCE, never the ids.
     public static Fin<Tessellation> Build(TessellationOp op, Op? key = null) =>
-        op switch {
-            TessellationOp.Points p  => Admit(p).Bind(static admitted => Seeded(admitted)
+        op.Switch(
+            points: static p => Admit(p).Bind(static admitted => Seeded(admitted)
                 .Bind(seed => Delaunay.InsertionOrder(admitted.Vertices).Fold(
                     Fin.Succ(seed), (acc, v) => acc.Bind(t => t.InsertRow(v).Map(_ => t))))
                 .Bind(filled => admitted.Constraints.Map(static (c, i) => (Index: i, Row: c))
                     .Fold(Fin.Succ(filled), (acc, c) => acc.Bind(t => t.RecoverOne(c.Row, c.Index))))
                 .Bind(static done => done.Restore())
                 .Bind(static done => done.Stripped())),
-            TessellationOp.Insert i  => i.Into.AdmitRow(i.Vertex)
+            insert: static i => i.Into.AdmitRow(i.Vertex)
                 .Bind(row => i.Into.InsertRow(i.Into.Store.AddVertex(in row)))
                 .Map(_ => i.Into),
-            TessellationOp.Recover r => r.Constraints.Map(static (c, i) => (Index: i, Row: c))
-                .Fold(r.Into.AdmitIds(r.Constraints), (acc, c) => acc.Bind(t => t.RecoverOne(c.Row, c.Index))),
-            _                        => Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "unmatched tessellation op").ToError()),
-        };
+            recover: static r => r.Constraints.Map(static (c, i) => (Index: i, Row: c))
+                .Fold(r.Into.AdmitIds(r.Constraints), (acc, c) => acc.Bind(t => t.RecoverOne(c.Row, c.Index))));
 
     static Fin<TessellationOp.Points> Admit(TessellationOp.Points p) {
         if (p.Vertices.Length == 0) { return Reject(0, "empty vertex set"); }
-        var seen = new Dictionary<Point3d, int>(p.Vertices.Length);
+        Dictionary<Point3d, int> seen = new(p.Vertices.Length);
         for (int i = 0; i < p.Vertices.Length; i++) {
             if (!p.Vertices[i].IsExplicit) { continue; }
             Point3d at = p.Vertices[i].AsExplicit;
@@ -267,18 +264,18 @@ public abstract partial record Tessellation : IValidityEvidence {
             : Fin.Succ(p);
 
         static Fin<TessellationOp.Points> Reject(int index, string witness) =>
-            Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Kind.Point, index, witness).ToError());
+            Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, index, witness).ToError());
     }
 
     // Insert-modality admission: the one-row mirror of Admit — every entry arm admits once, the
     // interior never re-validates (the tetrahedral walk reads AsExplicit unconditionally).
     Fin<Implicit> AdmitRow(Implicit vertex) =>
         vertex.IsExplicit && !ValidityClaim.Finite(point: vertex.AsExplicit)
-            ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Kind.Point, Store.VertexCount, "non-finite explicit row").ToError())
+            ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, Store.VertexCount, "non-finite explicit row").ToError())
             : !vertex.IsExplicit && Policy.Mode == TessellationMode.Delaunay
-                ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Kind.Point, Store.VertexCount, "implicit rows demand constrained mode").ToError())
+                ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, Store.VertexCount, "implicit rows demand constrained mode").ToError())
                 : !vertex.IsExplicit && Kind == TessellationKind.Tetrahedralization
-                    ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Kind.Point, Store.VertexCount, "3D implicit rows are CDTet-gated growth").ToError())
+                    ? Fin.Fail<Implicit>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, Store.VertexCount, "3D implicit rows are CDTet-gated growth").ToError())
                     : Fin.Succ(vertex);
 
     // Recover-modality admission: constraint ids must address the live vertex table.
@@ -287,7 +284,7 @@ public abstract partial record Tessellation : IValidityEvidence {
             (int a, int b) = row.Ends;
             bool broken = a == b || a < 0 || b < 0 || a >= Store.VertexCount || b >= Store.VertexCount
                 || (row is Constraint.Facet facet && facet.Boundary.Any(v => v < 0 || v >= Store.VertexCount));
-            if (broken) { return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Point, index, "constraint id outside the vertex table").ToError()); }
+            if (broken) { return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, index, "constraint id outside the vertex table").ToError()); }
         }
         return Fin.Succ(this);
     }
@@ -347,8 +344,8 @@ public abstract partial record Tessellation : IValidityEvidence {
     // enter the star spuriously and cone into the cavity interior.
     Fin<int> CavityInsert(int seed, int query) {
         HashSet<int> cavity = [seed];
-        var star = new List<(int Simplex, int Face)>();
-        var stack = new Stack<int>();
+        List<(int Simplex, int Face)> star = new();
+        Stack<int> stack = new();
         stack.Push(seed);
         Implicit q = Store.Row(query);
         while (stack.Count > 0) {
@@ -379,7 +376,7 @@ public abstract partial record Tessellation : IValidityEvidence {
     // patched through LinkBack, sibling links resolved by the shared-subface dictionary.
     int Cone(HashSet<int> cavity, List<(int Simplex, int Face)> star, int query) {
         int arity = Kind.SimplexArity;
-        var bySubface = new Dictionary<(int, int, int), (int Simplex, int Face)>();
+        Dictionary<(int, int, int), (int Simplex, int Face)> bySubface = new();
         Span<int> verts = stackalloc int[arity];
         Span<int> nbrs = stackalloc int[arity];
         int seeded = -1;
@@ -425,8 +422,8 @@ public abstract partial record Tessellation : IValidityEvidence {
         for (int f = 0; f < Kind.SimplexArity && Kind.SimplexArity == 3; f++) {
             if (Predicate.Orient2D(Store.Row(vs[(f + 1) % 3]), Store.Row(vs[(f + 2) % 3]), q, Projection) == Sign.Zero) { onFace = f; break; }
         }
-        var star = new List<(int Simplex, int Face)>();
-        var cavity = new HashSet<int> { at };
+        List<(int Simplex, int Face)> star = new();
+        HashSet<int> cavity = new() { at };
         if (onFace >= 0 && Store.Neighbour(at, onFace) is int twin and >= 0) { cavity.Add(twin); }
         foreach (int s in cavity) {
             for (int f = 0; f < Kind.SimplexArity; f++) {
@@ -445,7 +442,7 @@ public abstract partial record Tessellation : IValidityEvidence {
     Fin<Tessellation> RecoverOne(Constraint constraint, int index) {
         if (constraint is Constraint.Facet facet) { return RecoverFacet(facet, index); }
         if (Kind == TessellationKind.Tetrahedralization) { return RecoverEdge3D(constraint, index); }  // 2D diagonal flips corrupt a tet store
-        var queue = new Queue<Constraint>();
+        Queue<Constraint> queue = new();
         queue.Enqueue(constraint);
         int budget = Policy.MaxRecoverySteiner;
         while (queue.Count > 0) {
@@ -524,7 +521,7 @@ public abstract partial record Tessellation : IValidityEvidence {
     // at the tail from SuperBase = n.
     static Fin<Tessellation> Seeded(TessellationOp.Points p) {
         int arity = p.Kind.SimplexArity;
-        var store = new SimplexStore(arity, int.Max(2 * p.Vertices.Length + arity, 16));
+        SimplexStore store = new(arity, int.Max(2 * p.Vertices.Length + arity, 16));
         foreach (Implicit row in p.Vertices) { store.AddVertex(in row); }
         BoundingBox box = new(p.Vertices.Select(static v => v.Round()));
         double r = p.Policy.SuperSimplexScale * double.Max(box.Diagonal.Length, 1.0);
@@ -563,8 +560,8 @@ public abstract partial record Tessellation : IValidityEvidence {
     IEnumerable<int> Star(int vertex) {
         int seed = Store.Anchor(vertex);
         if (seed < 0) { yield break; }
-        var seen = new HashSet<int> { seed };
-        var stack = new Stack<int>();
+        HashSet<int> seen = new() { seed };
+        Stack<int> stack = new();
         stack.Push(seed);
         while (stack.Count > 0) {
             int s = stack.Pop();
@@ -658,7 +655,7 @@ public abstract partial record Tessellation : IValidityEvidence {
             }
         }
         return Store.LiveCount == 0
-            ? Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Point, 0, "fully degenerate set: no simplex survives the super strip").ToError())
+            ? Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, 0, "fully degenerate set: no simplex survives the super strip").ToError())
             : Fin.Succ(this);
     }
 
@@ -667,8 +664,8 @@ public abstract partial record Tessellation : IValidityEvidence {
     // Tetra boundary faces wind OUTWARD by the exact apex sign (the cyclic triple alone flips
     // parity with the face index — a fixed winding is inward on half the faces).
     public Fin<MeshSpace> ToMesh(Context context, Op? key = null) {
-        using var edit = MeshEdit.Of([], []);
-        var slot = new Dictionary<int, int>();
+        using MeshEdit edit = MeshEdit.Of([], []);
+        Dictionary<int, int> slot = new();
         int Emit(int v) => slot.TryGetValue(v, out int at) ? at : slot[v] = edit.AddVertex(Store.Row(v).Round());
         int arity = Kind.SimplexArity;
         for (int s = 0; s < Store.SimplexCount; s++) {
@@ -694,7 +691,7 @@ public abstract partial record Tessellation : IValidityEvidence {
     // is THE index law: Triangles()[i] and VoronoiDual node i name the same live triangle.
     public Fin<(Point3d A, Point3d B, Point3d C)[]> Triangles(Op? key = null) {
         if (Kind != TessellationKind.Triangulation) { return Fin.Fail<(Point3d, Point3d, Point3d)[]>(new GeometryFault.DegenerateTessellation(0, "triangle projection on a tetrahedralization").ToError()); }
-        var tris = new List<(Point3d, Point3d, Point3d)>();
+        List<(Point3d, Point3d, Point3d)> tris = new();
         for (int s = 0; s < Store.SimplexCount; s++) {
             if (!Store.Alive(s)) { continue; }
             ReadOnlySpan<int> vs = Store.SimplexVertices(s);
@@ -708,19 +705,22 @@ public abstract partial record Tessellation : IValidityEvidence {
     // the dual is the recorded growth row). Node order = the Triangles() live order.
     public Fin<DualGraph> VoronoiDual(Op? key = null) {
         if (Kind != TessellationKind.Triangulation) { return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(0, "dual is a triangulation projection").ToError()); }
-        var live = Enumerable.Range(0, Store.SimplexCount).Where(Store.Alive).ToArray();
-        var dualOf = live.Index().ToDictionary(static r => r.Item, static r => r.Index);
-        var centers = new Point3d[live.Length];
-        var radius = new double[live.Length];
+        int[] live = Enumerable.Range(0, Store.SimplexCount).Where(Store.Alive).ToArray();
+        Dictionary<int, int> dualOf = live.Index().ToDictionary(static r => r.Item, static r => r.Index);
+        Point3d[] centers = new Point3d[live.Length];
+        double[] radius = new double[live.Length];
         for (int i = 0; i < live.Length; i++) {
             ReadOnlySpan<int> vs = Store.SimplexVertices(live[i]);
             if (!Store.Row(vs[0]).IsExplicit || !Store.Row(vs[1]).IsExplicit || !Store.Row(vs[2]).IsExplicit) {
                 return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(live[i], "implicit-bearing dual").ToError());
             }
             (centers[i], radius[i]) = Circumcircle(Store.Row(vs[0]).AsExplicit, Store.Row(vs[1]).AsExplicit, Store.Row(vs[2]).AsExplicit, Projection);
+            if (!ValidityClaim.Finite(point: centers[i])) {  // a collinear live triangle has no circumcircle — a NaN centre would poison the medial
+                return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(live[i], "degenerate circumcircle").ToError());
+            }
         }
-        var edges = new List<(int A, int B)>();
-        var across = new List<(int U, int V)>();
+        List<(int A, int B)> edges = new();
+        List<(int U, int V)> across = new();
         foreach (int s in live) {
             ReadOnlySpan<int> vs = Store.SimplexVertices(s);
             for (int f = 0; f < 3; f++) {
@@ -742,8 +742,8 @@ public abstract partial record Tessellation : IValidityEvidence {
         if (Kind != TessellationKind.Tetrahedralization) {
             return Fin.Fail<MeshSpace>(new GeometryFault.DegenerateTessellation(0, "hull facets are a tetrahedralization projection").ToError());
         }
-        using var edit = MeshEdit.Of([], []);
-        var slot = new Dictionary<int, int>();
+        using MeshEdit edit = MeshEdit.Of([], []);
+        Dictionary<int, int> slot = new();
         int Emit(int v) => slot.TryGetValue(v, out int at) ? at : slot[v] = edit.AddVertex(Store.Row(v).Round());
         for (int s = 0; s < Store.SimplexCount; s++) {
             if (!Store.Alive(s)) { continue; }
@@ -892,12 +892,12 @@ public abstract partial record Tessellation : IValidityEvidence {
     // 3-2 bistellar move: the edge (p,q) shared by EXACTLY three tets dies for the face (x,y,z) of
     // their off-edge vertices — legal exactly when (p,q) pierces that face.
     bool Flip32(int p, int q) {
-        var around = new List<int>(4);
+        List<int> around = new(4);
         foreach (int s in Star(p)) {
             if (Store.SimplexVertices(s).Contains(q)) { around.Add(s); }
         }
         if (around.Count != 3) { return false; }
-        var off = new List<int>(3);
+        List<int> off = new(3);
         foreach (int s in around) {
             foreach (int v in Store.SimplexVertices(s)) {
                 if (v != p && v != q && !off.Contains(v)) { off.Add(v); }
@@ -953,7 +953,7 @@ public abstract partial record Tessellation : IValidityEvidence {
         if (Kind != TessellationKind.Tetrahedralization) { return Fin.Succ(this); }
         Option<(Point3d A, Point3d B, Point3d C)> witness = PlaneWitness(facet.Boundary);
         if (witness.Case is not ((Point3d wa, Point3d wb, Point3d wc))) {
-            return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Kind.Point, index, "collinear facet boundary").ToError());
+            return Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, index, "collinear facet boundary").ToError());
         }
         Axis plane = DominantOf(Vector3d.CrossProduct(wb - wa, wc - wa));
         for (int pass = 0; pass < Policy.MaxFlipPasses; pass++) {
@@ -1031,7 +1031,7 @@ public abstract partial record Tessellation : IValidityEvidence {
                                   ((bx * ((cx * cx) + (cy * cy))) - (cx * ((bx * bx) + (by * by)))) / d);
         Span<double> at = [0.0, 0.0, 0.0];
         (at[u], at[v], at[plane.Key]) = (ax + px, ay + py, (Axis.Coord(a, plane.Key) + Axis.Coord(b, plane.Key) + Axis.Coord(c, plane.Key)) / 3.0);
-        var center = new Point3d(at[0], at[1], at[2]);
+        Point3d center = new(at[0], at[1], at[2]);
         return (center, center.DistanceTo(a));
     }
 }

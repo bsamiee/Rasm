@@ -203,20 +203,18 @@ const Sticky: Sticky.Shape = {
 - Law: the contract is shared, not owned twice — `Rasm.AppHost` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics; the interchange codec decodes it into this class (admitted as `CACHED` evidence), this page owns evaluation, and a second verdict shape anywhere in the branch is the named defect.
 - Law: the document row is a flag definition — `FlagDef` carries `kind`, the targeting `rule`, and the per-variant value map whose values ride `_Json`, so an object-valued flag is one definition row and value resolution is a variant lookup; the definition's `kind` gates type agreement at resolution, a mismatch minting `TYPE_MISMATCH` evidence.
 - Law: deltas are epoch-guarded — `Reset` replaces the document only at an equal-or-newer epoch, `Set`/`Clear` patch single flags in place; a stale delta is a no-op by fold, never a race.
-- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`).
+- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
 
 ```typescript
 const _CODES = ["PROVIDER_NOT_READY", "FLAG_NOT_FOUND", "PARSE_ERROR", "TYPE_MISMATCH", "TARGETING_KEY_MISSING", "INVALID_CONTEXT", "GENERAL"] as const
 
-type _JsonValue = boolean | number | string | null | ReadonlyArray<_JsonValue> | { readonly [key: string]: _JsonValue }
-
-const _Json: Schema.Schema<_JsonValue> = Schema.Union(
+const _Json: Schema.Schema<JsonValue> = Schema.Union(
   Schema.Boolean,
   Schema.Number,
   Schema.String,
   Schema.Null,
-  Schema.Array(Schema.suspend((): Schema.Schema<_JsonValue> => _Json)),
-  Schema.Record({ key: Schema.String, value: Schema.suspend((): Schema.Schema<_JsonValue> => _Json) }),
+  Schema.mutable(Schema.Array(Schema.suspend((): Schema.Schema<JsonValue> => _Json))),
+  Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.suspend((): Schema.Schema<JsonValue> => _Json) })),
 )
 
 const _KINDS = ["boolean", "string", "number", "object"] as const
@@ -257,7 +255,7 @@ class Verdict extends Schema.Class<Verdict>("Verdict")({
 declare namespace Verdict {
   type Code = (typeof _CODES)[number]
   type Kind = (typeof _KINDS)[number]
-  type Json = _JsonValue
+  type Json = JsonValue
   type Shift = typeof _Shift.Type
   type Document = Ruleset
   type Wire = typeof Verdict.Encoded
@@ -314,7 +312,8 @@ const _guards = {
   boolean: Predicate.isBoolean,
   string: Predicate.isString,
   number: Predicate.isNumber,
-  object: (value: Verdict.Json): value is Verdict.Json => true,
+  object: (value: Verdict.Json): value is Exclude<Verdict.Json, boolean | number | string> =>
+    !(Predicate.isBoolean(value) || Predicate.isNumber(value) || Predicate.isString(value)),
 } as const
 
 const _resolved = (
@@ -338,7 +337,7 @@ const _resolved = (
         const outcome = Rollout.decide(def.rule, { subject: { key, axes }, at, bucket })
         const variant = Option.getOrElse(outcome.variant, () => (outcome.on ? def.fallback : ""))
         const value = Option.fromNullable(def.variants[variant]).pipe(
-          Option.orElse(() => (def.kind === "boolean" ? Option.some(outcome.on as Verdict.Json) : Option.none())),
+          Option.orElse(() => (def.kind === "boolean" ? Option.some<Verdict.Json>(outcome.on) : Option.none())),
         )
         return Option.match(value, {
           onNone: () => ({ value: fallback, reason: outcome.reason, variant }),
@@ -390,7 +389,7 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
         resolveNumberEvaluation: (flag, fallback, context) =>
           Runtime.runPromise(runtime)(resolve("number", flag, fallback, context)),
         resolveObjectEvaluation: <T extends JsonValue>(flag: string, fallback: T, context: EvaluationContext) =>
-          Runtime.runPromise(runtime)(resolve("object", flag, fallback as Verdict.Json, context) as Effect.Effect<ResolutionDetails<T>>),
+          Runtime.runPromise(runtime)(resolve("object", flag, fallback, context)),
       }
 
       const traced: Hook = {
@@ -413,21 +412,31 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
       const client = OpenFeature.getClient()
       client.addHooks(traced)
 
+      const fetched = (probe: { readonly flag: string; readonly key: string; readonly axes: Readonly<Record<string, string>>; readonly kind: Verdict.Kind; readonly fallback: Verdict.Json }) => {
+        const context: EvaluationContext = { targetingKey: probe.key, ...probe.axes }
+        return Match.value(probe.kind).pipe(
+          Match.when("boolean", () => Effect.promise(() => client.getBooleanDetails(probe.flag, _guards.boolean(probe.fallback) ? probe.fallback : false, context))),
+          Match.when("string", () => Effect.promise(() => client.getStringDetails(probe.flag, _guards.string(probe.fallback) ? probe.fallback : "", context))),
+          Match.when("number", () => Effect.promise(() => client.getNumberDetails(probe.flag, _guards.number(probe.fallback) ? probe.fallback : 0, context))),
+          Match.when("object", () => Effect.promise(() => client.getObjectDetails(probe.flag, probe.fallback, context))),
+          Match.exhaustive,
+        )
+      }
       const memo = yield* Cache.makeWith({
         capacity: _MEMO.capacity,
-        lookup: (probe: { readonly flag: string; readonly key: string; readonly axes: Readonly<Record<string, string>>; readonly fallback: boolean }) =>
+        lookup: (probe: { readonly flag: string; readonly key: string; readonly axes: Readonly<Record<string, string>>; readonly kind: Verdict.Kind; readonly fallback: Verdict.Json }) =>
           Effect.gen(function* () {
             const at = yield* DateTime.now
-            const details = yield* Effect.tryPromise({
-              try: () => client.getBooleanDetails(probe.flag, probe.fallback, { targetingKey: probe.key, ...probe.axes }),
-              catch: () => ({ flagKey: probe.flag, value: probe.fallback, reason: "ERROR", errorCode: "GENERAL" } as const),
-            }).pipe(Effect.merge)
+            const details = yield* fetched(probe).pipe(
+              Effect.catchAllDefect(() =>
+                Effect.succeed({ flagKey: probe.flag, value: probe.fallback, reason: "ERROR", errorCode: "GENERAL" } as const)),
+            )
             return new Verdict({
               flag: probe.flag,
-              kind: "boolean",
+              kind: probe.kind,
               value: details.value,
               variant: Option.fromNullable(details.variant),
-              reason: Array.contains(Rollout.reasons, details.reason as Rollout.Reason) ? (details.reason as Rollout.Reason) : "UNKNOWN",
+              reason: Array.contains<string>(Rollout.reasons, details.reason) ? (details.reason as Rollout.Reason) : "UNKNOWN",
               code: Option.fromNullable(details.errorCode as Verdict.Code | undefined),
               at,
             })
@@ -441,8 +450,14 @@ class Flags extends Effect.Service<Flags>()("runtime/Flags", {
       client.addHandler(ProviderEvents.ConfigurationChanged, () => void Runtime.runPromise(runtime)(memo.invalidateAll))
 
       return {
-        evaluate: (flag: string, subject: Rollout.Subject, fallback: boolean = false): Effect.Effect<Verdict> =>
-          memo.get(Data.struct({ flag, key: subject.key, axes: Data.struct(subject.axes), fallback })),
+        evaluate: (flag: string, subject: Rollout.Subject, fallback: Verdict.Json = false): Effect.Effect<Verdict> =>
+          memo.get(Data.struct({
+            flag,
+            key: subject.key,
+            axes: Data.struct(subject.axes),
+            kind: Predicate.isBoolean(fallback) ? "boolean" as const : Predicate.isString(fallback) ? "string" as const : Predicate.isNumber(fallback) ? "number" as const : "object" as const,
+            fallback,
+          })),
         changes: cell.changes,
       }
     }),

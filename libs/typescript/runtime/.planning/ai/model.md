@@ -28,7 +28,7 @@ import { AmazonBedrockClient, AmazonBedrockLanguageModel } from "@effect/ai-amaz
 import { GoogleClient, GoogleLanguageModel } from "@effect/ai-google"
 import { OpenAiClient, OpenAiLanguageModel, OpenAiTokenizer } from "@effect/ai-openai"
 import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter"
-import { Array, BigDecimal, Config, Data, Effect, type ExecutionPlan, Layer, Option, Order, Stream } from "effect"
+import { Array, BigDecimal, Config, Data, Effect, type ExecutionPlan, Layer, Option, Order, Stream, Struct } from "effect"
 import { Budget, FaultClass } from "@rasm/ts/core"
 import { Safety } from "./tool.ts"
 
@@ -68,7 +68,7 @@ declare namespace Providers {
   type Row = (typeof _providers)[Name]
 }
 
-const Providers = { ..._providers, names: Object.keys(_providers) as ReadonlyArray<Providers.Name> }
+const Providers = { ..._providers, names: Struct.keys(_providers) }
 ```
 
 ## [3]-[LADDER]
@@ -94,7 +94,7 @@ declare namespace Ladder {
   type Table = readonly [Tier, ...Array<Tier>]
 }
 
-const _yields = (fault: unknown): boolean => FaultClass.retryable(fault)
+const _yields = (fault: unknown): boolean => FaultClass[FaultClass.of(fault)].retryable
 
 declare const _plan: (table: Ladder.Table) => ExecutionPlan.ExecutionPlan<{ provides: LanguageModel.LanguageModel; input: unknown }>
 
@@ -150,10 +150,11 @@ const _screened = (policy: Gate.Policy, prompt: Prompt.Prompt) =>
     onSome: (rule) => Effect.fail(new GateFault({ refusal: Refusal.Screened({ rule }) })),
   })
 
-const _sweepStream = (policy: Gate.Policy) => <E, R>(parts: Stream.Stream<Response.StreamPart<any>, E, R>) =>
+const _sweepStream = (policy: Gate.Policy) =>
+<Part extends { readonly type: string; readonly delta?: string }, E, R>(parts: Stream.Stream<Part, E, R>) =>
   parts.pipe(
     Stream.mapAccumEffect("", (window, part) =>
-      part.type === "text-delta"
+      part.type === "text-delta" && part.delta !== undefined
         ? Option.match(policy.sweep(window + part.delta), {
           onNone: () => Effect.succeed([(window + part.delta).slice(-policy.window), Option.some(part)] as const),
           onSome: (span) => Effect.fail(new GateFault({ refusal: Refusal.Swept({ span }) })),

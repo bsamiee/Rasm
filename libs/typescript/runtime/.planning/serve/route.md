@@ -149,6 +149,14 @@ declare const _asserted: Effect.Effect<
   HttpServerRequest.HttpServerRequest
 >
 
+declare const _enrolled: Effect.Effect<
+  { readonly subject: Parameters<WebAuthn["enrollFinish"]>[0]; readonly response: Parameters<WebAuthn["enrollFinish"]>[1] },
+  Problem,
+  HttpServerRequest.HttpServerRequest
+>
+
+declare const _cleared: Effect.Effect<ReadonlyArray<FramedCookie>, Problem, Token | Cookie>
+
 const _ceremony = (base: `/${string}`) =>
   Layer.mergeAll(
     HttpLayerRouter.add("GET", `${base}/authorize/:provider`, () =>
@@ -170,6 +178,15 @@ const _ceremony = (base: `/${string}`) =>
         const csrf = yield* cookie.csrf()
         return yield* _cookied(HttpServerResponse.empty({ status: 302 }).pipe(HttpServerResponse.setHeader("location", "/")), [...framed, csrf])
       })),
+    HttpLayerRouter.add("POST", `${base}/webauthn/enroll`, () =>
+      Effect.gen(function* () {
+        const webauthn = yield* WebAuthn
+        const cookie = yield* Cookie
+        const { subject, response } = yield* _enrolled
+        const pair = yield* webauthn.enrollFinish(subject, response)
+        const framed = yield* cookie.frame(pair)
+        return yield* _cookied(HttpServerResponse.empty({ status: 204 }), framed)
+      })),
     HttpLayerRouter.add("POST", `${base}/webauthn/assert`, () =>
       Effect.gen(function* () {
         const webauthn = yield* WebAuthn
@@ -179,6 +196,8 @@ const _ceremony = (base: `/${string}`) =>
         const framed = yield* cookie.frame(pair)
         return yield* _cookied(HttpServerResponse.empty({ status: 204 }), framed)
       })),
+    HttpLayerRouter.add("POST", `${base}/logout`, () =>
+      Effect.flatMap(_cleared, (framed) => _cookied(HttpServerResponse.empty({ status: 204 }), framed))),
     HttpLayerRouter.add("POST", `${base}/refresh`, () =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest

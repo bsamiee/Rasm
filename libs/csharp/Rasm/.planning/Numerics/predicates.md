@@ -245,11 +245,11 @@ public static class Predicate {
         if (a.IsExplicit && b.IsExplicit && c.IsExplicit) {
             return Orient2D(Swizzled(a.AsExplicit, axis), Swizzled(b.AsExplicit, axis), Swizzled(c.AsExplicit, axis));
         }
-        var f = OrientNumerator<Interval>(in a, in b, in c, axis);
+        (Interval N, Interval La, Interval Lb, Interval Lc) f = OrientNumerator<Interval>(in a, in b, in c, axis);
         if (f.N.Verdict is { } filtered && f.La.Verdict is { } fa && f.Lb.Verdict is { } fb && f.Lc.Verdict is { } fc) {
             return filtered.Times(fa).Times(fb).Times(fc).Times(fc);
         }
-        var e = OrientNumerator<Expansion>(in a, in b, in c, axis);
+        (Expansion N, Expansion La, Expansion Lb, Expansion Lc) e = OrientNumerator<Expansion>(in a, in b, in c, axis);
         (Sign ea, Sign eb, Sign ec) = (Expansion.SignOf(e.La), Expansion.SignOf(e.Lb), Expansion.SignOf(e.Lc));
         return Expansion.SignOf(e.N).Times(ea).Times(eb).Times(ec).Times(ec);
     }
@@ -261,11 +261,11 @@ public static class Predicate {
         if (a.IsExplicit && b.IsExplicit) {
             return Sign.Of(Axis.Coord(a.AsExplicit, axis.Key).CompareTo(Axis.Coord(b.AsExplicit, axis.Key)));
         }
-        var f = CompareNumerator<Interval>(in a, in b, axis);
+        (Interval N, Interval La, Interval Lb) f = CompareNumerator<Interval>(in a, in b, axis);
         if (f.N.Verdict is { } filtered && f.La.Verdict is { } fa && f.Lb.Verdict is { } fb) {
             return filtered.Times(fa).Times(fb);
         }
-        var e = CompareNumerator<Expansion>(in a, in b, axis);
+        (Expansion N, Expansion La, Expansion Lb) e = CompareNumerator<Expansion>(in a, in b, axis);
         return Expansion.SignOf(e.N).Times(Expansion.SignOf(e.La)).Times(Expansion.SignOf(e.Lb));
     }
 
@@ -279,17 +279,17 @@ public static class Predicate {
         if (d.IsExplicit) {
             return InCircle(Swizzled(a, axis), Swizzled(b, axis), Swizzled(c, axis), Swizzled(d.AsExplicit, axis));
         }
-        var f = InCircleNumerator<Interval>(a, b, c, in d, axis);
+        (Interval Det, Interval Lambda) f = InCircleNumerator<Interval>(a, b, c, in d, axis);
         if (f.Det.Verdict is { } filtered && f.Lambda.Verdict is { } fl) return filtered.Times(fl).Times(fl);
-        var e = InCircleNumerator<Expansion>(a, b, c, in d, axis);
+        (Expansion Det, Expansion Lambda) e = InCircleNumerator<Expansion>(a, b, c, in d, axis);
         return RationalOracle.InCircum(e.Det, e.Lambda, lambdaDegree: 4);
     }
 
     public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, in Implicit e) {
         if (e.IsExplicit) return InSphere(a, b, c, d, e.AsExplicit);
-        var f = InSphereNumerator<Interval>(a, b, c, d, in e);
+        (Interval Det, Interval Lambda) f = InSphereNumerator<Interval>(a, b, c, d, in e);
         if (f.Det.Verdict is { } filtered && f.Lambda.Verdict is { } fl) return filtered.Times(fl);
-        var x = InSphereNumerator<Expansion>(a, b, c, d, in e);
+        (Expansion Det, Expansion Lambda) x = InSphereNumerator<Expansion>(a, b, c, d, in e);
         return RationalOracle.InCircum(x.Det, x.Lambda, lambdaDegree: 5);
     }
 
@@ -299,9 +299,9 @@ public static class Predicate {
     // one the exact branch decides.
     static (T N, T La, T Lb, T Lc) OrientNumerator<T>(in Implicit a, in Implicit b, in Implicit c, Axis axis)
         where T : struct, IExact<T> {
-        var ha = a.Homogeneous<T>();
-        var hb = b.Homogeneous<T>();
-        var hc = c.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) ha = a.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) hb = b.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) hc = c.Homogeneous<T>();
         (T ua, T va, T la) = (Pick(ha, axis.U), Pick(ha, axis.V), ha.Lambda);
         (T ub, T vb, T lb) = (Pick(hb, axis.U), Pick(hb, axis.V), hb.Lambda);
         (T uc, T vc, T lc) = (Pick(hc, axis.U), Pick(hc, axis.V), hc.Lambda);
@@ -312,14 +312,14 @@ public static class Predicate {
 
     static (T N, T La, T Lb) CompareNumerator<T>(in Implicit a, in Implicit b, Axis axis)
         where T : struct, IExact<T> {
-        var ha = a.Homogeneous<T>();
-        var hb = b.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) ha = a.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) hb = b.Homogeneous<T>();
         return (Pick(ha, axis.Key).Mul(hb.Lambda).Sub(Pick(hb, axis.Key).Mul(ha.Lambda)), ha.Lambda, hb.Lambda);
     }
 
     static (T Det, T Lambda) InCircleNumerator<T>(Point3d a, Point3d b, Point3d c, in Implicit d, Axis axis)
         where T : struct, IExact<T> {
-        var h = d.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) h = d.Homogeneous<T>();
         (int u, int v) = (axis.U, axis.V);
         T l = h.Lambda;
         T eu = Pick(h, u).Sub(l.Scale(Axis.Coord(a, u)));
@@ -341,7 +341,7 @@ public static class Predicate {
 
     static (T Det, T Lambda) InSphereNumerator<T>(Point3d a, Point3d b, Point3d c, Point3d d, in Implicit e)
         where T : struct, IExact<T> {
-        var h = e.Homogeneous<T>();
+        (T X, T Y, T Z, T Lambda) h = e.Homogeneous<T>();
         T l = h.Lambda;
         (T ex, T ey, T ez) = (h.X.Sub(l.Scale(a.X)), h.Y.Sub(l.Scale(a.Y)), h.Z.Sub(l.Scale(a.Z)));
         (T, T, T) bp = Row(b, a, l);
@@ -527,7 +527,7 @@ public static class RationalOracle {
             Fraction px = (Fraction)p.X - (Fraction)e.X, py = (Fraction)p.Y - (Fraction)e.Y, pz = (Fraction)p.Z - (Fraction)e.Z;
             return (px, py, pz, px * px + py * py + pz * pz);
         }
-        var (ra, rb, rc, rd) = (Row(a), Row(b), Row(c), Row(d));
+        ((Fraction x, Fraction y, Fraction z, Fraction lift) ra, (Fraction x, Fraction y, Fraction z, Fraction lift) rb, (Fraction x, Fraction y, Fraction z, Fraction lift) rc, (Fraction x, Fraction y, Fraction z, Fraction lift) rd) = (Row(a), Row(b), Row(c), Row(d));
         Fraction Det3((Fraction x, Fraction y, Fraction z, Fraction lift) u, (Fraction x, Fraction y, Fraction z, Fraction lift) v, (Fraction x, Fraction y, Fraction z, Fraction lift) w) =>
             u.x * (v.y * w.z - v.z * w.y) - u.y * (v.x * w.z - v.z * w.x) + u.z * (v.x * w.y - v.y * w.x);
         Fraction det = rd.lift * Det3(ra, rb, rc) - rc.lift * Det3(ra, rb, rd) + rb.lift * Det3(ra, rc, rd) - ra.lift * Det3(rb, rc, rd);
@@ -660,7 +660,7 @@ public readonly struct Expansion : IExact<Expansion> {
     // each nonzero low word. The carry/low split reads TwoSumCore directly — routing through the
     // Pair-compressed TwoSum would double-count the high word on every exact step.
     public static Expansion Sum(Expansion left, Expansion right) {
-        var merged = new double[left.length + right.length + 1];
+        double[] merged = new double[left.length + right.length + 1];
         int li = 0, ri = 0, written = 0;
         double carry = 0.0;
         while (li < left.length || ri < right.length) {
@@ -683,7 +683,7 @@ public readonly struct Expansion : IExact<Expansion> {
     // carry threading forward — never a quadratic Sum-per-component accumulate.
     public static Expansion Scale(Expansion e, double scalar) {
         if (e.length == 0 || scalar == 0.0) return Single(0.0);
-        var scaled = new double[2 * e.length];
+        double[] scaled = new double[2 * e.length];
         int written = 0;
         (double q, double h) = TwoProductCore(e.components[0], scalar);
         if (h != 0.0) scaled[written++] = h;
@@ -707,7 +707,7 @@ public readonly struct Expansion : IExact<Expansion> {
     }
 
     public static Expansion Negate(Expansion e) {
-        var flipped = new double[e.length];
+        double[] flipped = new double[e.length];
         for (int i = 0; i < e.length; i++) flipped[i] = -e.components[i];
         return new Expansion(flipped, e.length);
     }

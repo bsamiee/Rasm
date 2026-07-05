@@ -65,8 +65,8 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
             (lo, hi) = (double.Min(lo, e), double.Max(hi, e));
         }
         double span = double.Max(hi - lo, double.Epsilon);
-        var slope = new double[policy.FrameBins];
-        var overhang = new List<(double Start, double Cos)>();
+        double[] slope = new double[policy.FrameBins];
+        List<(double Start, double Cos)> overhang = [];
         int Bin(double e) => int.Clamp((int)((e - lo) / span * policy.FrameBins), 0, policy.FrameBins - 1);
         for (int f = 0; f < soup.FaceCount; f++) {
             (int a, int b, int c) = soup.Face(f);
@@ -146,7 +146,7 @@ public abstract partial record LayerPlan {
     // The ONE integrator: first plane one step above the tangent extreme, march while inside the
     // extent, MaxLayers-gated against a runaway law.
     static Fin<Arr<double>> March(SliceFrame frame, SlicePolicy policy, Func<double, double> height) {
-        var rows = new List<double>();
+        List<double> rows = [];
         for (double z = frame.Lo + height(frame.Lo); z < frame.Hi; z += height(z)) {
             if (rows.Count >= policy.MaxLayers) {
                 return Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(Kind.Plane, rows.Count, "layer plan exceeds MaxLayers").ToError());
@@ -181,7 +181,7 @@ public sealed record SliceStack(
 
     public Chain ContourAt(int contour) {
         bool closed = !IsOpen(contour);
-        var polyline = new Polyline();
+        Polyline polyline = new();
         for (int v = ContourPtr[contour]; v < ContourPtr[contour + 1]; v++) { polyline.Add(new Point3d(X[v], Y[v], Z[v])); }
         if (closed && polyline.Count > 0) { polyline.Add(polyline[0]); }
         return new Chain(polyline, closed);
@@ -221,7 +221,7 @@ public static class Slicing {
     readonly struct SectionAction(MeshSpace mesh, Plane datum, ReadOnlyMemory<double> elevations, IntersectPolicy policy, Memory<Fin<IntersectResult>> slots, Op? key) : IAction {
         public void Invoke(int i) {
             double e = elevations.Span[i];
-            var cut = new Plane(datum.Origin + (e * datum.Normal), datum.XAxis, datum.YAxis);
+            Plane cut = new(datum.Origin + (e * datum.Normal), datum.XAxis, datum.YAxis);
             slots.Span[i] = Intersection.Apply(new IntersectOp.PlaneMesh(cut, mesh, policy), key);
         }
     }
@@ -232,10 +232,10 @@ public static class Slicing {
         double[] family = [.. elevations];
         ParallelHelper.For(0, layers, new SectionAction(op.Mesh, op.Datum, family, op.Policy.Intersect, slots.Memory, key), op.Policy.ParallelFloor);
 
-        using var x = new ArrayPoolBufferWriter<double>();
-        using var y = new ArrayPoolBufferWriter<double>();
-        using var z = new ArrayPoolBufferWriter<double>();
-        var (layerPtr, contourPtr, parent, open) = (new List<int> { 0 }, new List<int> { 0 }, new List<int>(), new List<int>());
+        using ArrayPoolBufferWriter<double> x = new();
+        using ArrayPoolBufferWriter<double> y = new();
+        using ArrayPoolBufferWriter<double> z = new();
+        (List<int> layerPtr, List<int> contourPtr, List<int> parent, List<int> open) = ([0], [0], [], []);
 
         // Sequential assembly kernel over the drained slots — the freeze-tier statement exemption;
         // the rail re-enters per layer and the channels materialize once at the tail.
@@ -270,11 +270,11 @@ public static class Slicing {
             .Fold(Fin.Succ(unit), (state, k) => state.Bind(_ => Layer(k)))
             .Map(_ => {
                 int contours = contourPtr.Count - 1;
-                var childPtr = new int[contours + 1];
+                int[] childPtr = new int[contours + 1];
                 foreach (int p in parent) { if (p >= 0) { childPtr[p + 1]++; } }
                 for (int c = 0; c < contours; c++) { childPtr[c + 1] += childPtr[c]; }
-                var children = new int[parent.Count(static p => p >= 0)];
-                var cursor = (int[])childPtr.Clone();
+                int[] children = new int[parent.Count(static p => p >= 0)];
+                int[] cursor = (int[])childPtr.Clone();
                 for (int c = 0; c < contours; c++) { if (parent[c] >= 0) { children[cursor[parent[c]]++] = c; } }
                 open.Sort();
                 return new SliceStack(
@@ -295,12 +295,12 @@ public static class Slicing {
         int n = closed.Count;
         if (n <= 1) { return Fin.Succ(unit); }
         Axis v = Axis.Get(frame.Vertical.V);
-        var boxes = new (double LoU, double HiU, double LoV, double HiV)[n];
-        var anchors = new Point3d[n];
+        (double LoU, double HiU, double LoV, double HiV)[] boxes = new (double LoU, double HiU, double LoV, double HiV)[n];
+        Point3d[] anchors = new Point3d[n];
         for (int i = 0; i < n; i++) {
             (boxes[i], anchors[i]) = Extremes(closed[i].Points, frame.Vertical);
         }
-        var graph = new BidirectionalGraph<int, SEdge<int>>(allowParallelEdges: false);
+        BidirectionalGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, n));
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {

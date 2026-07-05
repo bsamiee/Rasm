@@ -23,6 +23,8 @@ Rhino geometry value structs (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+
 namespace Rasm.Numerics;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------------

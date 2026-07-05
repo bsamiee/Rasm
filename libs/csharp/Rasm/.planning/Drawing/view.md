@@ -15,7 +15,7 @@ The owner composes landed entries exactly as declared: `MeshEdit.Of` is the ONE 
 - Entry: `public static Fin<DrawingProjection> View.Apply(ViewOp op, Op? key = null)` — the ONE projection entrypoint discriminating by op case. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind.Mesh, index, witness)` 2400 on an empty or non-finite mesh (the cross-cutting admission case any namespace routes), `key.InvalidInput()` on a degenerate camera direction (a malformed op parameter is the `Op` admission channel, never a geometry fault), `GeometryFault.ProjectionFault(EdgeKind.Silhouette, -1)` 2436 on an empty silhouette locus (a closed front-only or back-only view has no defined drawing), and `GeometryFault.ProjectionFault(EdgeKind.Intersection, -1)` 2436 on a non-chain section answer; a composed failure (`IntersectionFault` 2424, a spatial `KindMismatch` 2402) surfaces unchanged — the fold never re-labels a sibling's typed fault. The fold lowers each case: `Silhouette` extracts the exact locus and emits it whole; `Outline`/`HiddenLine` run the QI solve and project the visible or the visible+hidden slice per the `EmitsHidden` column; `Section` lowers to ONE `Intersection.Apply(IntersectOp.PlaneMesh(cut, mesh, policy.Narrow))` and projects the resulting closed and open chains. No `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling entrypoints.
 - Auto: `Admit` materializes the soup ONCE through `MeshEdit.Of` (the arena's exact quad-diagonal split — the ONE adapter; the retired private `Soup` copy and the hand-built native `Mesh` round-trip are dead) and gates emptiness/finiteness/camera. `Silhouettes` walks the edge-incidence fold once: a boundary edge (one incident face) is always a silhouette; a two-face edge is a silhouette exactly where `FacesOppose` reads opposite nonzero `camera.SideOf` signs (SALVAGED VERBATIM — the exact sign-change locus); a non-silhouette two-face edge above the dihedral threshold lifts `EdgeKind.Crease` from the `FeatureReceipt` classification (`MeshFeaturePolicy.Of` → `VectorIntent.Features` → `Project<FeatureReceipt>` — a crease-lift failure PROPAGATES, never degrades to an empty crease set). The QI solve is `Resolve`: (1) candidate edges label into connected components by shared mesh vertices (one union-find pass); (2) the crossing lattice — candidate and silhouette screen segments each build a `Spatial.Apply` BVH over screen boxes, ONE tandem `SpatialQuery.Overlap` emits the surviving pairs, and each pair runs the exact `IntersectOp.SegmentSegment(a, b, Axis.Z, policy.Narrow)` (signs exact; the crossing coordinate is the lattice's canonical emission point) into per-edge crossing rows `(T, Delta)`; (3) each crossing's `Delta` is an exact sign pair — the candidate sub-segment beyond the crossing lies in the occluded wedge iff its endpoint's `Orient3D` against the eye–silhouette plane matches the occluding front face's own apex sign, and enter-versus-leave is the `Orient2D` of the two screen directions on `Axis.Z`; (4) seeding is two-stage per component — ONE batched `SpatialQuery.Winding` over every component seed probe (the seed vertex nudged eye-ward by the model tolerance) classifies seeds buried inside closed occluder material (`round(w) ≥ 1` with zero screen crossings ⇒ the whole component is hidden at that shell depth, no battery), and every unresolved seed runs the exact stab battery — `SpatialQuery.Range` over the seed→eye segment box prunes, the front-facing filter reads the cached `SideOf` signs, and each surviving face answers ONE exact `IntersectOp.SegmentTriangle` crossing verdict, the count the absolute QI; (5) `Emit` splits each edge at its sorted crossing parameters, threads the running count seed→`+Delta`, rounds coordinates ONCE at emission, links same-visibility successors through shared vertices (`Next`), and drops hidden runs only where the op row's `EmitsHidden` column says so — the `HiddenLine` result retains BOTH sets. `Section` partitions the intersect chains closed/open and emits both as `EdgeKind.Intersection` runs — an open chain from a non-watertight section is a typed row, never silently closed, never dropped.
 - Receipt: none on a dedicated rail — `DrawingProjection` (visible `Seq<ProjectedSegment>` · hidden `Seq<ProjectedSegment>` · `EdgeHistogram`) IS the typed result; each segment carries its exact-sign-derived `Invisibility` and `EdgeKind`, so a downstream dashed-hidden render reads the full set from one carrier. The record is the hash-friendly immutable form the reconciliation `Encode` content-addresses through the `Polyline`/`Line` projection — this owner mints no second identity.
-- Packages: `Rasm.Meshing` (`MeshSpace`), `Rasm.Processing` (the `FeatureReceipt`/`MeshFeatureKind` dihedral vocabulary through `VectorIntent.Features` — composed), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Line`/`Plane`/`Polyline`), `Rasm.Meshing` (`MeshEdit.Of` — the ONE soup adapter), `Rasm.Numerics` (`Predicate.Orient3D`/`Orient2D`, `Sign`, `Axis` — the exact floor, composed never re-minted), `Rasm.Spatial` (`Spatial.Apply` — `Build`/`Overlap`/`Range`/`Winding` over the ONE entry; the retired `SpatialIndex.Build` static and the `(QueryResult.RayHit)` hard cast are dead), `Rasm.Meshing` (`Intersection.Apply` — `PlaneMesh`/`SegmentSegment`/`SegmentTriangle`, composed never re-founded), `Rasm.Meshing` (`Arrangement.Apply`/`ArrangementOp.PlanarOverlay`/`BooleanOp` — the fill seam), `Rasm.Numerics` (`GeometryFault` band 2400), `Rasm.Domain` (`Op` key rail, `Kind`, `Context`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`Dictionary<TKey,TValue>`, `HashSet<T>`, `List<T>`).
+- Packages: `Rasm.Meshing` (`MeshSpace`; `MeshEdit.Of` — the ONE soup adapter; `Intersection.Apply` — `PlaneMesh`/`SegmentSegment`/`SegmentTriangle`, composed never re-founded; `Arrangement.Apply`/`ArrangementOp.PlanarOverlay`/`BooleanOp` — the fill seam), `Rasm.Processing` (the `FeatureReceipt`/`MeshFeatureKind` dihedral vocabulary through `VectorIntent.Features` — composed), `Rasm.Spatial` (`Spatial.Apply` — `Build`/`Overlap`/`Range`/`Winding` over the ONE entry; the retired `SpatialIndex.Build` static and the `(QueryResult.RayHit)` hard cast are dead), `Rasm.Numerics` (`Predicate.Orient3D`/`Orient2D`, `Sign`, `Axis` — the exact floor, composed never re-minted; `GeometryFault` band 2400), `Rasm.Domain` (`Op` key rail, `Kind`, `Context`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Line`/`Plane`/`Polyline`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`Dictionary<TKey,TValue>`, `HashSet<T>`, `List<T>`).
 - Growth: a new view modality (wireframe-with-depth-cue, cavalier/cabinet oblique, two-point perspective) is one `ViewKind` row plus one `ViewOp` case reading the SAME walk and the SAME solve — the `outline` row IS this leaf's executed precedent; a new edge classification is one `EdgeKind` row plus one `Silhouettes` arm reading the `FeatureReceipt` lift; a new camera projection is one column on `Camera`; a per-segment depth-cue column is one field on `ProjectedSegment` when its row lands; a fifth view kind is admitted only by charter amendment; zero new surface.
 - Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect collapsed onto one union folded by one `Apply`; visibility is EXACT ANALYTIC — the dead forms are enumerated and stay dead: the `BspNode` SoA partition with its `Spawn`/`Kill`/free-list, the Newell-Newell-Sancha recursive split (rounded constructed vertices beside an exact lattice), the `PaintBackToFront` painter prose, the uniform `SampleStep` marcher whose misses scale with the step, the per-sample `OccludedAt` ray with its `OcclusionBias` epsilon, and the never-consulted `NeedsBsp`/`Clipped` columns; the silhouette locus composes `Predicate.Orient3D` and an epsilon-tolerant float dot test is the named non-determinism defect; every crossing, delta, and seed verdict is an exact sign through the intersect/predicate owners and a view-local crossing kernel is the deleted fourth copy; the `Section` cut composes `IntersectOp.PlaneMesh` and an inline plane-mesh test or a host `Make2D` round-trip is the deleted form; the crease classification composes the `FeatureReceipt` dihedral and a local re-derivation is the deleted double owner; region fill composes `ArrangementOp.PlanarOverlay` and a local polygon filler or ear-clipper is the deleted form; `ToPolylines` walks successor links per visibility set and the `GroupBy(kind)` concat that merged visible with hidden is the deleted lie; the soup is `MeshEdit.Of` and a page-local `Soup`/`BuildNative` pair is the deleted third carrier; `Apply` is total over the `Fin` rail — a thrown exception on a degenerate camera or an empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride band 2400, neither family absorbing the other; screen coordinates and depths operate on raw `double` only inside the projection kernels (a coordinate is the domain's native scalar) and a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line` is the seam violation; the solve preserves capability — a hidden run is classified and RETAINED under `EmitsHidden`, never discarded to satisfy a budget.
 
@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
@@ -81,9 +80,8 @@ public sealed record ViewPolicy(double CreaseDihedralRadians, double BetaSquared
 public sealed record Camera(Point3d Eye, Vector3d Direction, Plane Screen, bool Perspective, Context Tolerance) {
     public Point3d Project(Point3d world) {
         Screen.ClosestParameter(world, out double u, out double v);
-        return Perspective
-            ? new Point3d(u / Depth(world), v / Depth(world), 0.0)
-            : new Point3d(u, v, 0.0);
+        double depth = Perspective ? Depth(world) : 1.0;
+        return new Point3d(u / depth, v / depth, 0.0);
     }
 
     public double Depth(Point3d world) {
@@ -128,15 +126,29 @@ public sealed record DrawingProjection(Seq<ProjectedSegment> Visible, Seq<Projec
         Arrangement.Apply(new ArrangementOp.PlanarOverlay(
             A: Chains(Visible).Filter(static loop => loop.IsClosed), B: Seq<Polyline>(), Op: op, Plane: Axis.Z, Policy: policy), key);
 
+    // Open chains start at unlinked heads; the leftover linked-only segments are closed RINGS
+    // (a section ring links terminal → head) — walked once each, visited-guarded, never dropped.
     static Seq<Polyline> Chains(Seq<ProjectedSegment> set) {
         Set<int> linked = toSet(set.Map(static s => s.Next).Filter(static n => n >= 0));
-        return set.Map(static (s, index) => (Segment: s, Index: index))
-            .Filter(row => !linked.Contains(row.Index))
-            .Map(head => {
-                var loop = new Polyline { head.Segment.ScreenA, head.Segment.ScreenB };
-                for (int next = head.Segment.Next; next >= 0; next = set[next].Next) loop.Add(set[next].ScreenB);
-                return loop;
-            }).ToSeq();
+        bool[] visited = new bool[set.Count];
+        List<Polyline> loops = [];
+        for (int head = 0; head < set.Count; head++) {
+            if (!visited[head] && !linked.Contains(head)) loops.Add(Walk(set, head, visited));
+        }
+        for (int head = 0; head < set.Count; head++) {
+            if (!visited[head]) loops.Add(Walk(set, head, visited));
+        }
+        return toSeq(loops);
+    }
+
+    static Polyline Walk(Seq<ProjectedSegment> set, int head, bool[] visited) {
+        Polyline loop = [set[head].ScreenA, set[head].ScreenB];
+        visited[head] = true;
+        for (int next = set[head].Next; next >= 0 && !visited[next]; next = set[next].Next) {
+            loop.Add(set[next].ScreenB);
+            visited[next] = true;
+        }
+        return loop;
     }
 }
 
@@ -170,14 +182,15 @@ public abstract partial record ViewOp {
 public static class View {
     public static Fin<DrawingProjection> Apply(ViewOp op, Op? key = null) {
         Op k = key.OrDefault();
-        if (op.Camera.Direction.IsTiny()) return Fin.Fail<DrawingProjection>(k.InvalidInput());
-        return op is ViewOp.Section section
-            ? Cut(section.Mesh, section.Cut, section.Camera, section.Policy, k)
-            : Admit(op.Mesh, k).Bind(soup =>
+        return op switch {
+            _ when op.Camera.Direction.IsTiny() => Fin.Fail<DrawingProjection>(k.InvalidInput()),
+            ViewOp.Section section => Cut(section.Mesh, section.Cut, section.Camera, section.Policy, k),
+            _ => Admit(op.Mesh, k).Bind(soup =>
                 Silhouettes(op.Mesh, soup, op.Camera, op.Policy, k).Bind(locus =>
                     op.Kind.ResolvesVisibility
                         ? Resolve(soup, locus, op.Camera, op.Policy, op.Kind.EmitsHidden, k)
-                        : Fin.Succ(Emit(soup, locus.Edges, EmptyLattice(locus.Edges.Count), new int[locus.Edges.Count], op.Camera, emitHidden: false))));
+                        : Fin.Succ(Emit(soup, locus.Edges, EmptyLattice(locus.Edges.Count), new int[locus.Edges.Count], op.Camera, emitHidden: false)))),
+        };
     }
 
     // --- [ADMISSION]
@@ -187,13 +200,13 @@ public static class View {
         using MeshEdit edit = MeshEdit.Of(mesh);
         if (edit.VertexCount == 0 || edit.FaceCount == 0)
             return Fin.Fail<(Point3d[], (int, int, int)[])>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "empty").ToError());
-        var vertices = new Point3d[edit.VertexCount];
+        Point3d[] vertices = new Point3d[edit.VertexCount];
         for (int v = 0; v < vertices.Length; v++) {
             vertices[v] = edit.Position(v);
             if (!vertices[v].IsValid)
                 return Fin.Fail<(Point3d[], (int, int, int)[])>(new GeometryFault.DegenerateInput(Kind.Mesh, v, "non-finite vertex").ToError());
         }
-        var faces = new (int A, int B, int C)[edit.FaceCount];
+        (int A, int B, int C)[] faces = new (int A, int B, int C)[edit.FaceCount];
         for (int f = 0; f < faces.Length; f++) faces[f] = edit.Face(f);
         return Fin.Succ((vertices, faces));
     }
@@ -203,14 +216,14 @@ public static class View {
 
     static Fin<Locus> Silhouettes(MeshSpace mesh, (Point3d[] V, (int A, int B, int C)[] F) soup, Camera camera, ViewPolicy policy, Op key) =>
         CreaseEdges(mesh, camera, policy, key).Bind(creases => {
-            var side = new Sign[soup.F.Length];
+            Sign[] side = new Sign[soup.F.Length];
             for (int f = 0; f < soup.F.Length; f++) side[f] = camera.SideOf(soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
-            var incident = new Dictionary<(int, int), List<int>>();
+            Dictionary<(int, int), List<int>> incident = [];
             for (int f = 0; f < soup.F.Length; f++) {
                 (int a, int b, int c) = soup.F[f];
                 Register(incident, a, b, f); Register(incident, b, c, f); Register(incident, c, a, f);
             }
-            var edges = new List<(int A, int B, EdgeKind Kind)>();
+            List<(int A, int B, EdgeKind Kind)> edges = [];
             foreach (((int u, int v) edge, List<int> faces) in incident) {
                 if (faces.Count == 1) { edges.Add((edge.u, edge.v, EdgeKind.Boundary)); continue; }
                 if (faces.Count != 2) continue;
@@ -282,22 +295,20 @@ public static class View {
     // cull — a buried component with zero screen crossings is hidden at round(w) shells), then the
     // exact stab battery for every unresolved seed.
     static Fin<int[]> Seeds((Point3d[] V, (int A, int B, int C)[] F) soup, Locus locus, int[] component, Camera camera, SpatialIndex world, Point3d[] triangles, ViewPolicy policy, Op key) {
-        (int[] owner, Point3d[] seed) = ComponentSeeds(locus.Edges, component, soup.V);
+        Point3d[] seed = ComponentSeeds(locus.Edges, component, soup.V);
         Point3d[] probes = new Point3d[seed.Length];
         for (int i = 0; i < seed.Length; i++) {
             Vector3d toEye = camera.Eye - seed[i];
             toEye.Unitize();
             probes[i] = seed[i] + camera.Tolerance.Absolute * toEye;
         }
-        return WindingField(world, probes, triangles, policy, key).Bind(field => {
-            var counts = new int[seed.Length];
-            return toSeq(Enumerable.Range(0, seed.Length))
-                .TraverseM(i => (int)Math.Round(field[i]) >= 1
-                    ? Fin.Succ(counts[i] = (int)Math.Round(field[i]))
-                    : StabCount(soup, locus.Side, seed[i], camera, world, policy, key).Map(stabbed => counts[i] = stabbed))
+        return WindingField(world, probes, triangles, policy, key).Bind(field =>
+            toSeq(Enumerable.Range(0, seed.Length))
+                .TraverseM(i => (int)Math.Round(field[i]) is int shells && shells >= 1
+                    ? Fin.Succ(shells)
+                    : StabCount(soup, locus.Side, seed[i], camera, world, policy, key))
                 .As()
-                .Map(_ => counts);
-        });
+                .Map(static counts => counts.ToArray()));
     }
 
     // The exact absolute seed: Range prune over the seed→eye box, front-facing filter on the cached
@@ -329,13 +340,13 @@ public static class View {
         });
 
     static DrawingProjection SectionDrawing(Seq<Chain> chains, Camera camera) {
-        var visible = new List<ProjectedSegment>();
+        List<ProjectedSegment> visible = [];
         EdgeHistogram histogram = EdgeHistogram.Empty;
         foreach (Chain chain in chains) {
             int first = visible.Count;
             for (int i = 0; i + 1 < chain.Points.Count; i++) {
                 bool last = i + 2 >= chain.Points.Count;
-                var segment = new ProjectedSegment(
+                ProjectedSegment segment = new(
                     camera.Project(chain.Points[i]), camera.Project(chain.Points[i + 1]), EdgeKind.Intersection,
                     Invisibility: 0, Next: last ? (chain.Closed ? first : -1) : visible.Count + 1, SourceA: -1, SourceB: -1);
                 visible.Add(segment);
@@ -366,18 +377,19 @@ public static class View {
         Array.ConvertAll(soup.F, f => new BoundingBox([soup.V[f.A], soup.V[f.B], soup.V[f.C]]));
 
     static Point3d[] Triangles((Point3d[] V, (int A, int B, int C)[] F) soup) {
-        var triangles = new Point3d[3 * soup.F.Length];
+        Point3d[] triangles = new Point3d[3 * soup.F.Length];
         for (int f = 0; f < soup.F.Length; f++)
             (triangles[3 * f], triangles[3 * f + 1], triangles[3 * f + 2]) = (soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
         return triangles;
     }
 
     // Union-find over shared mesh vertices labels candidate edges into connected components;
-    // ComponentSeeds picks each component's screen-extremal endpoint; PropagateSeeds assigns each
-    // edge its component's absolute count; ScreenSegments/SegmentBounds/ParameterAt/Bucket are the
+    // ComponentSeeds picks each component's screen-extremal endpoint (indexed BY component id, so
+    // the Seeds counts array is component-addressed); PropagateSeeds assigns each edge its
+    // component's absolute count; ScreenSegments/SegmentBounds/ParameterAt/Bucket are the
     // screen-lattice staging kernels; EmptyLattice is the silhouette-slice zero table.
     static int[] Components(Seq<(int A, int B, EdgeKind Kind)> edges, int vertexCount);
-    static (int[] Owner, Point3d[] Seed) ComponentSeeds(Seq<(int A, int B, EdgeKind Kind)> edges, int[] component, Point3d[] vertices);
+    static Point3d[] ComponentSeeds(Seq<(int A, int B, EdgeKind Kind)> edges, int[] component, Point3d[] vertices);
     static int[] PropagateSeeds(int[] component, Seq<(int A, int B, EdgeKind Kind)> edges, int[] seeds);
     static (Line[] Candidate, Line[] Occluder, int[] OccluderEdge) ScreenSegments(Seq<(int A, int B, EdgeKind Kind)> edges, Point3d[] vertices, Camera camera);
     static BoundingBox[] SegmentBounds(Line[] segments);

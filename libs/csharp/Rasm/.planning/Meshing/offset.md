@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -224,19 +223,18 @@ public abstract partial record OffsetOp {
 
 public static class Offsetting {
     public static Fin<OffsetResult> Apply(OffsetOp op, Op? key = null) =>
-        op switch {
-            OffsetOp.Skeleton s  => AdmitRing(s.Ring, key).Bind(ring => Propagate(ring, s.Policy, Arr<double>.Empty)).Map(static t => (OffsetResult)new OffsetResult.Graph(t.Graph)),
-            OffsetOp.Weighted w  => AdmitRing(w.Ring, key)
+        op.Switch(
+            state: key,
+            skeleton:  static (key, s) => AdmitRing(s.Ring, key).Bind(ring => Propagate(ring, s.Policy, Arr<double>.Empty)).Map(static t => (OffsetResult)new OffsetResult.Graph(t.Graph)),
+            weighted:  static (key, w) => AdmitRing(w.Ring, key)
                 .Bind(ring => w.Policy.EdgeSpeed.Count == ring.Count - 1
-                    ? Propagate(ring, w.Policy, w.Policy.EdgeSpeed)
+                    ? Propagate(ring, w.Policy, SignedArea(w.Ring) < 0.0 ? ReversedSpeeds(w.Policy.EdgeSpeed) : w.Policy.EdgeSpeed)
                     : Fin.Fail<Trace>(new GeometryFault.DegenerateOffset(w.Policy.EdgeSpeed.Count, 0.0).ToError()))
                 .Map(static t => (OffsetResult)new OffsetResult.Graph(t.Graph)),
-            OffsetOp.Offset o    => Snapshot(o, key),
-            OffsetOp.Medial m    => AdmitRing(m.Ring, key).Bind(ring => MedialOf(ring, key)).Map(static axis => (OffsetResult)new OffsetResult.Axis(axis)),
-            OffsetOp.Minkowski k => AdmitRing(k.Ring, key).Bind(ring => Convolve(ring, k.Element, key)).Map(static loops => (OffsetResult)new OffsetResult.Curves(loops)),
-            OffsetOp.Clearance c => AdmitRing(c.Ring, key).Map(ring => (OffsetResult)new OffsetResult.Probe(ClearanceAt(ring, c.Probe))),
-            _                    => Fin.Fail<OffsetResult>(new GeometryFault.DegenerateOffset(0, 0.0).ToError()),
-        };
+            offset:    static (key, o) => Snapshot(o, key),
+            medial:    static (key, m) => AdmitRing(m.Ring, key).Bind(ring => MedialOf(ring, key)).Map(static axis => (OffsetResult)new OffsetResult.Axis(axis)),
+            minkowski: static (key, k) => AdmitRing(k.Ring, key).Bind(ring => Convolve(ring, k.Element, key)).Map(static loops => (OffsetResult)new OffsetResult.Curves(loops)),
+            clearance: static (key, c) => AdmitRing(c.Ring, key).Map(ring => (OffsetResult)new OffsetResult.Probe(ClearanceAt(ring, c.Probe))));
 
     // Admission once: finite, closed, non-zero-area, CCW-oriented, SIMPLE — simplicity routes the
     // ONE crossing owner per non-adjacent pair, never a local straddle copy. The owner evaluates
@@ -282,10 +280,10 @@ public static class Offsetting {
     // ids uniformly; a non-empty speed table IS the weighted lane.
     static Fin<Trace> Propagate(Polyline ring, OffsetPolicy policy, Arr<double> speeds, double until = double.PositiveInfinity) {
         WavefrontStore store = Seed(ring, speeds);
-        var queue = new PriorityQueue<OffsetEvent, double>();
+        PriorityQueue<OffsetEvent, double> queue = new();
         int n = ring.Count - 1;
-        var nodes = new List<ClearanceNode>(Enumerable.Range(0, n).Select(i => new ClearanceNode(ring[i], 0.0, i)));
-        var arcs = new List<SkeletonArc>();
+        List<ClearanceNode> nodes = new(Enumerable.Range(0, n).Select(i => new ClearanceNode(ring[i], 0.0, i)));
+        List<SkeletonArc> arcs = new();
         for (int v = 0; v < store.Count; v++) { EnqueueAt(store, queue, v, 0.0, policy, speeds); }
         (int fired, double lastTime, int sameTime) = (0, -1.0, 0);
         while (queue.Count > 0 && queue.Peek().Time <= until) {
@@ -311,7 +309,7 @@ public static class Offsetting {
 
     static WavefrontStore Seed(Polyline ring, Arr<double> speeds) {
         int n = ring.Count - 1;
-        var store = new WavefrontStore(int.Max(2 * n, 16), ring[0].Z);
+        WavefrontStore store = new(int.Max(2 * n, 16), ring[0].Z);
         for (int i = 0; i < n; i++) {
             int inEdge = (i - 1 + n) % n;
             store.Spawn(ring[i], Bisector(ring[inEdge], ring[i], ring[(i + 1) % n], Speed(speeds, inEdge), Speed(speeds, i)), 0.0, fromNode: i, outEdge: i);
@@ -321,6 +319,15 @@ public static class Offsetting {
     }
 
     static double Speed(Arr<double> speeds, int edge) => speeds.Count > 0 ? speeds[edge] : 1.0;
+
+    // A CW input re-orients CCW at admission; reversed-ring edge k is caller edge n-1-k, so the
+    // per-ORIGINAL-edge table re-indexes with the ring — a silently mis-keyed weighted front is
+    // the deleted wrongness.
+    static Arr<double> ReversedSpeeds(Arr<double> speeds) {
+        double[] flipped = new double[speeds.Count];
+        for (int e = 0; e < flipped.Length; e++) { flipped[e] = speeds[speeds.Count - 1 - e]; }
+        return Arr.create<double>(flipped);
+    }
 
     // INWARD bisector velocity: the CCW ring's interior sits LEFT of each edge, so the inward
     // normal of (a -> b) is (a.Y - b.Y, b.X - a.X) — the (dy, -dx) spelling is OUTWARD and grows
@@ -439,11 +446,11 @@ public static class Offsetting {
         .Map(chains => (OffsetResult)new OffsetResult.Curves(new OffsetCurves(chains, op.Distance)));
 
     static Seq<int[]> Rings(WavefrontStore store) {
-        var seen = new HashSet<int>();
-        var loops = new List<int[]>();
+        HashSet<int> seen = new();
+        List<int[]> loops = new();
         for (int v = 0; v < store.Count; v++) {
             if (!store.Alive(v) || seen.Contains(v)) { continue; }
-            var loop = new List<int>();
+            List<int> loop = new();
             int cur = v;
             do {
                 seen.Add(cur);
@@ -463,7 +470,7 @@ public static class Offsetting {
     // ARE the exact offset and pass through untouched.
     static Polyline Dressed(Trace trace, int[] loop, OffsetOp.Offset op) {
         WavefrontStore store = trace.Store;
-        var dressed = new Polyline();
+        Polyline dressed = new();
         int n = loop.Length;
         for (int k = 0; k < n; k++) {
             int v = loop[k];
@@ -490,7 +497,7 @@ public static class Offsetting {
         bool closed = path.IsClosed;
         int n = path.Count - (closed ? 1 : 0);
         double d = Math.Abs(op.Distance);
-        var cycle = new Polyline();
+        Polyline cycle = new();
         Emit(cycle, path, n, closed, d, op);
         if (!closed) {
             foreach (Point3d cap in op.End.Cap(path[n - 1], Unit(path[n - 1] - path[n - 2]), d, op.Policy)) { cycle.Add(cap); }
@@ -514,7 +521,7 @@ public static class Offsetting {
         }
 
         static Polyline Reversed(Polyline path) {
-            var back = new Polyline(path);
+            Polyline back = new(path);
             back.Reverse();
             return back;
         }
@@ -554,8 +561,8 @@ public static class Offsetting {
             .Bind(pair => pair.Tess.Triangles(key).Map(tris => (pair.Dual, Tris: tris)))
             .Map(x => {
                 bool[] interior = [.. x.Tris.Select(tri => Inside(Centroid(tri), ring))];
-                var keep = new Dictionary<int, int>();
-                var nodes = new List<ClearanceNode>();
+                Dictionary<int, int> keep = new();
+                List<ClearanceNode> nodes = new();
                 for (int i = 0; i < x.Dual.Circumcenters.Length; i++) {
                     if (i < interior.Length && interior[i]) {
                         keep[i] = nodes.Count;
@@ -563,7 +570,7 @@ public static class Offsetting {
                         nodes.Add(new ClearanceNode(x.Dual.Circumcenters[i], double.Min(radius, x.Dual.Radius[i]), edge));
                     }
                 }
-                var arcs = new List<SkeletonArc>();
+                List<SkeletonArc> arcs = new();
                 for (int e = 0; e < x.Dual.Edges.Length; e++) {
                     (int a, int b) = x.Dual.Edges[e];
                     if (keep.TryGetValue(a, out int ka) && keep.TryGetValue(b, out int kb)) { arcs.Add(new SkeletonArc(ka, kb, x.Dual.Across[e].U)); }
@@ -602,7 +609,7 @@ public static class Offsetting {
         }
         Span<int> support = new int[rn];
         for (int i = 0; i < rn; i++) { support[i] = Support(Normal(ring[i], ring[(i + 1) % rn])); }
-        var cycle = new Polyline();
+        Polyline cycle = new();
         for (int i = 0; i < rn; i++) {
             int from = support[(i - 1 + rn) % rn], to = support[i];
             bool convex = Predicate.Orient2D(ring[(i - 1 + rn) % rn], ring[i], ring[(i + 1) % rn]) != Sign.Negative;
@@ -649,7 +656,7 @@ public static class Offsetting {
 
     static Polyline Oriented(Polyline ring) {
         if (SignedArea(ring) >= 0.0) { return ring; }
-        var reversed = new Polyline(ring);
+        Polyline reversed = new(ring);
         reversed.Reverse();
         return reversed;
     }

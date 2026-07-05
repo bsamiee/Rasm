@@ -14,7 +14,7 @@ The ruling-R1 gap set closes here, each as a member of the owning carrier, never
 - Cases: `NurbsWire` cases `Curve(Degree, Knots, Points, Weights, Origin)` · `Surface(DegreeU, DegreeV, KnotsU, KnotsV, CountU, Grid, Weights, Origin)` (grid flattened V-inner: `index = u·CountV + v` — the ONE flattening law the identity projection shares) · `CurveThrough(Samples, Policy)` · `SurfaceThrough(CountU, Samples, Policy)` (4 — explicit nets and sample sets are both raw ingress; fitting modality is `FitPolicy` DATA, so interpolate-vs-approximate never mints an entry, and the `KnotForm` origin row rides the explicit wires); `NurbsForm` cases `Curve` · `Surface` (2 — evaluation members live on the cases, shared projections on the union base).
 - Entry: `public static Fin<NurbsForm> Of(NurbsWire wire, Op? key = null)` — the ONE polymorphic admission folding the four wire shapes through one generated `Switch`: explicit wires validate (finite control points, strictly positive weights — the rational convex-hull precondition the identity seam also demands — knot admissibility through `KnotVector.Of`, grid extent agreement) and freeze into homogeneous SoA columns; fitting wires parameterize (chord-length or centripetal per `FitPolicy.Centripetal`), derive averaged knots, and solve — interpolation the banded `N·P = Q` system per coordinate through `SparseMatrix.FromTriplets` + `Solve`, approximation the `NᵀN·P = NᵀQ` normal system through `CholeskySparse` (SPD by construction), the surface lane running the Piegl-Tiller two-pass (curve fits across rows, then across the intermediate columns). Every failure routes `GeometryFault.ParametricFault(ParametricStage.Construction, carrier, witness)` 2448. No `OfCurve`/`OfSurface`/`Interpolate`/`Approximate` sibling factories — the wire shape discriminates (`MODAL_ARITY`).
 - Auto: evaluation is the NURBS-Book kernel set over the SoA columns — `BasisFunctions` (A2.2) and `DersBasisFunctions` (A2.3) span-local, `PointAt` the homogeneous De Boor combination dehomogenized at the return, `RationalDerivatives` the Leibniz binomial correction (A4.2 curve / A4.4 surface with the #234-fixed `[k][l]` convention); the arc-length engine decomposes to Bezier segments ONCE (`DecomposeIntoBeziers`, A5.6 repeated insertion to full multiplicity, cached on the carrier), integrates `|C′(t)|` per segment through `Integrate.GaussLegendre(speed, a, b, policy.GaussOrder)` into a cumulative table, answers `Length`/`LengthAt` off the table, and inverts `ParameterAtLength`/`PointAtLength` by bracketing the containing segment then `Brent.TryFindRoot` at `LengthTolerance` — the no-throw `bool` mapping straight to the rail — with `ParameterAtChordLength` the same Brent form over the monotone-along-curve chord function (the `DivideByChordLength`-class rails in `curve.md` compose it); `ClosestParameter` seeds from the sampled polygon and runs `RobustNewtonRaphson.FindRoot` on `g(t) = (C−P)·C′` with `g′ = |C′|² + (C−P)·C″` under the G7 knobs, `Try`-trapped to the rail (the surface projection iterates the 2-var Newton over the derivative grid with the same knobs); `PerpendicularFrames` is Wang-2008 double reflection — reflect the prior frame through the chord bisector then through the tangent bisector — with the coincident-sample guard (a step under the scale floor carries the prior frame forward, the NaN guard) and, for a closed curve under `FrameClosure`, the #373 correction: the terminal angular defect distributes as `−φ·sᵢ/s_total` twists about the local tangents so the frame field closes; `FundamentalForms` projects `(E, F, G, L, M, N)` off `RationalDerivatives(u, v, 2)` with the degenerate-normal gate, and `CurvatureAt` solves the 2×2 shape operator in closed form (principal values/directions, `K`, `H`); `IsoCurve` contracts the basis row at the fixed parameter into a curve-form control net; `SplitAt`/`SubCurve`/`Refine`/`ElevateDegree` are the Boehm/Oslo insertion and A5.9 elevation kernels re-emitting normalized clamped forms.
-- Receipt: none on a dedicated rail — the `NurbsForm` carrier IS the admitted artifact; its `ToEncodeForm()` projection is the identity seam: degree+knot `Direction` rows, positive weights, dehomogenized control net in the V-inner flattening, handed to the reconciliation `EncodeOp` chain (`EncodeForm.Of` re-proves the normalized-clamped gate, so one curve yields one content key across every ingress spelling — the G6/G10 law made structural).
+- Receipt: none on a dedicated rail — the `NurbsForm` carrier IS the admitted artifact; its `ToEncodeForm()` projection is the identity seam: degree+knot `Direction` rows, positive weights, dehomogenized control net in the V-inner flattening, handed to the reconciliation `EncodeForm` chain (`EncodeForm.Of` re-proves the normalized-clamped gate, so one curve yields one content key across every ingress spelling — the G6/G10 law made structural).
 - Packages: MathNet.Numerics (`Integrate.GaussLegendre` — the quadrature owner per the `algorithms.md` route; `Brent.TryFindRoot` — the no-throw length inversion; `RobustNewtonRaphson.FindRoot` — the bisection-guarded Newton projection, `Try`-trapped), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane` the native carriers), `Rasm.Numerics` (`SparseMatrix.FromTriplets`/`Solve` + `CholeskySparse.Of`/`Solve` — the G5 fitting solves; `Dimension` atoms), `Rasm.Spatial` (`EncodeForm`/`EncodeForm.Direction` — the identity projection target), `Rasm.Numerics` (`Predicate`/`Sign` — the exact escalation seam for degeneracy-sensitive consumers), `Rasm.Numerics` (`GeometryFault.ParametricFault` + `ParametricStage`), `Rasm.Domain` (`Op`, `ValidityClaim`/`IValidityEvidence`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Try`/`Arr`/`Seq`/`Option`), BCL inbox.
 - Growth: a new evaluation member (torsion, higher-order frames) is one projection over the existing derivative kernels; a new fitting scheme (tangent-constrained surface fit, local interpolation) is one `FitKind` row plus one solve arm on the SAME wire cases; a constructive wire (ruled between two curve wires, revolved about an axis — the packaged `From*` construction class, consumer-gated) is one further `NurbsWire` case folded by the SAME `Of`, every consumer untouched; a true unclamped-periodic storage form is the recorded G6 growth row — one `KnotForm` row plus a periodic-aware span/basis arm, the vocabulary already carrying the axis; degree REDUCTION (tolerance-gated A5.11) is one member beside `ElevateDegree`; zero new entry surfaces, zero new carriers.
 - Boundary: this page is the ONE NURBS engine — a package pin beside the vendored source, a second evaluation path, or a re-minted basis/De Boor/insertion kernel anywhere else in the kernel is the deleted form (the no-re-mint clause now guards the VENDORED owner); evaluation members live on `NurbsForm` and op rails (`Stations`/`Divide`/`Offset`/`Tessellate`/`Isolines`) live in `curve.md`/`surface.md` — an op union here or an evaluation re-derivation there is the altitude violation; the engine speaks `Point3d`/`Vector3d`/`Plane` natively and a private point/vector vocabulary or a marshal layer is the deleted package-era form; parameters are the NORMALIZED domain `[0,1]`/`[0,1]²` everywhere (the raw-knot-domain evaluation of the package era is dead — G10) and knots STORE clamped-normalized with `KnotForm` recording the admitted origin; weights are strictly positive at admission — the identity seam's own gate — and a zero/negative weight is a Construction fault, never a NaN downstream; quadrature and root-finding COMPOSE MathNet (`LIBRARY_DEPTH`: a re-transcribed Gauss-Legendre node table or a hand-rolled Newton loop with local knobs is the deleted form) while the NURBS-specific Bezier decomposition and speed integrand stay local — exactly that split; the fitting solves COMPOSE the landed `matrix.md` owners and a local banded solver is the deleted form; every vendored throw site is wrapped — `Fin` + 2448 with the stage row naming the failing concern (`Construction`/`Evaluation`/`Station`) — and an exception crossing the public surface is forbidden; the engine is `double`-only and a result feeding an orientation/in-circle verdict escalates to the exact ladder at the CONSUMER's seam; host wires meet at control points + knots + weights (RhinoCommon owns the Rhino-host parametric surface; this engine owns the host-neutral one — the split is runtime, never capability) and the Rhino-trimmed knot spelling extends at the wire, one admission law for both spellings.
@@ -100,7 +100,7 @@ public readonly record struct KnotVector(int Degree, Arr<double> Knots) {
         if (degree < 1 || raw.Length < 2 * degree) { return Fail("degree under 1 or knot vector under the trimmed floor"); }
         (double lo, double hi) = (raw[0], raw[^1]);
         if (!double.IsFinite(lo) || !double.IsFinite(hi) || hi <= lo) { return Fail("degenerate knot extent"); }
-        var knots = new double[raw.Length];
+        double[] knots = new double[raw.Length];
         for (int i = 0; i < raw.Length; i++) {
             double k = (raw[i] - lo) / (hi - lo);  // affine normalization to [0,1]
             if (!double.IsFinite(k) || (i > 0 && k < knots[i - 1])) { return Fail($"non-monotone or non-finite knot at {i}"); }
@@ -317,7 +317,7 @@ public static class Nurbs {
 
     static NurbsForm.Curve Freeze(KnotVector knots, Arr<Point3d> points, Arr<double> weights, KnotForm origin) {
         int n = points.Count;
-        var (wx, wy, wz, w) = (new double[n], new double[n], new double[n], new double[n]);
+        (double[] wx, double[] wy, double[] wz, double[] w) = (new double[n], new double[n], new double[n], new double[n]);
         for (int i = 0; i < n; i++) {
             (wx[i], wy[i], wz[i], w[i]) = (weights[i] * points[i].X, weights[i] * points[i].Y, weights[i] * points[i].Z, weights[i]);
         }
@@ -326,7 +326,7 @@ public static class Nurbs {
 
     static NurbsForm.Surface FreezeSurface(KnotVector u, KnotVector v, Arr<Point3d> grid, Arr<double> weights, KnotForm origin) {
         int n = grid.Count;
-        var (wx, wy, wz, w) = (new double[n], new double[n], new double[n], new double[n]);
+        (double[] wx, double[] wy, double[] wz, double[] w) = (new double[n], new double[n], new double[n], new double[n]);
         for (int i = 0; i < n; i++) {
             (wx[i], wy[i], wz[i], w[i]) = (weights[i] * grid[i].X, weights[i] * grid[i].Y, weights[i] * grid[i].Z, weights[i]);
         }
@@ -366,7 +366,7 @@ internal static class NurbsKernel {
     // cumulative table; Brent inversion off the bracketing segment.
     internal static double[] CumulativeLengths(NurbsForm.Curve curve, NurbsPolicy policy) {
         NurbsForm.Curve[] segments = BezierSegments(curve);
-        var cumulative = new double[segments.Length + 1];
+        double[] cumulative = new double[segments.Length + 1];
         for (int s = 0; s < segments.Length; s++) {
             NurbsForm.Curve segment = segments[s];
             cumulative[s + 1] = cumulative[s] + Integrate.GaussLegendre(
@@ -376,8 +376,8 @@ internal static class NurbsKernel {
     }
 
     internal static Fin<double> InvertLength(NurbsForm.Curve curve, double[] cumulative, double target, NurbsPolicy policy) {
-        int segment = Array.BinarySearch(cumulative, target) is int at && at >= 0 ? at : ~at - 1;
-        (double lo, double hi) = SegmentDomain(curve, int.Clamp(segment, 0, cumulative.Length - 2));
+        int at = Array.BinarySearch(cumulative, target);
+        (double lo, double hi) = SegmentDomain(curve, int.Clamp(at >= 0 ? at : ~at - 1, 0, cumulative.Length - 2));
         return Brent.TryFindRoot(
                 t => LengthTo(curve, cumulative, t, policy) - target, lo, hi,
                 policy.LengthTolerance, policy.ProjectIterations, out double root)
@@ -411,7 +411,7 @@ flowchart LR
     NurbsKernel -->|"monotone length inversion"| Brent["Brent.TryFindRoot"]
     NurbsKernel -->|"Newton projection, Try-trapped"| Newton["RobustNewtonRaphson.FindRoot"]
     NurbsForm -->|"RationalDerivatives #234-fixed"| Forms["fundamental forms · curvature"]
-    NurbsForm -->|"ToEncodeForm — normalized bytes"| EncodeForm["reconciliation EncodeOp.Parametric"]
+    NurbsForm -->|"ToEncodeForm — normalized bytes"| EncodeForm["reconciliation EncodeForm.Parametric"]
     NurbsForm -->|"evaluation members"| Consumers["curve.md · surface.md · develop.md rails"]
     Wire -.->|"2448 Construction / Evaluation / Station"| GeometryFault
 ```

@@ -25,7 +25,6 @@ using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -175,8 +174,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
     // --- [BUILD]
     internal static SpatialIndex BuildBvh(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
-        using var arena = Arena.Rent(boxes.Length);
-        var order = Enumerable.Range(0, boxes.Length).ToArray();
+        using Arena arena = Arena.Rent(boxes.Length);
+        int[] order = Enumerable.Range(0, boxes.Length).ToArray();
         int next = 1;
         void Partition(int node, int lo, int hi, int depth) {
             BoundingBox bound = Union(boxes, order, lo, hi);
@@ -209,7 +208,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     internal static SpatialIndex BuildOctree(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         BoundingBox root = Union(boxes);
         (uint[] codes, int[] order) = MortonOrder(boxes.Length, centroids, root);
-        using var arena = Arena.Rent(boxes.Length);
+        using Arena arena = Arena.Rent(boxes.Length);
         int next = 1;
         void Cell(int node, int lo, int hi, int depth, BoundingBox bound) {
             int count = hi - lo;
@@ -218,7 +217,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
                 return;
             }
             int shift = 3 * (MortonDepth - 1 - depth);
-            var runs = new List<(int Lo, int Hi)>(8);
+            List<(int Lo, int Hi)> runs = new(8);
             int runStart = lo;
             for (int i = lo + 1; i <= hi; i++) {
                 bool boundary = i == hi || ((codes[i] >> shift) & 0x7) != ((codes[runStart] >> shift) & 0x7);
@@ -242,12 +241,12 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         BoundingBox rootBound = Union(boxes);
         (_, int[] order) = MortonOrder(n, centroids, rootBound);
         int capacity = Math.Max(1, 2 * n - 1);
-        var childA = new int[capacity];
-        var childB = new int[capacity];
-        var bound = new BoundingBox[capacity];
-        var leafSlot = new int[capacity];
+        int[] childA = new int[capacity];
+        int[] childB = new int[capacity];
+        BoundingBox[] bound = new BoundingBox[capacity];
+        int[] leafSlot = new int[capacity];
         for (int i = 0; i < n; i++) { bound[i] = boxes[order[i]]; leafSlot[i] = i; }
-        var live = new List<(int Node, BoundingBox Bound)>(n);
+        List<(int Node, BoundingBox Bound)> live = new(n);
         for (int i = 0; i < n; i++) live.Add((i, bound[i]));
         int next = n;
         int Nearest(int i) {
@@ -279,8 +278,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // BFS compaction: visit order assigns each internal node's children CONSECUTIVE new slots,
     // so the frozen store satisfies the contiguous child-range and parent-before-child laws.
     static NodeStore Compact(int root, int total, int[] childA, int[] childB, BoundingBox[] bound, int[] leafSlot, int[] order) {
-        var visit = new int[total];
-        var map = new int[total];
+        int[] visit = new int[total];
+        int[] map = new int[total];
         int count = 0;
         visit[count] = root; map[root] = count++;
         for (int head = 0; head < count; head++) {
@@ -289,7 +288,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             (map[childA[old]], visit[count]) = (count, childA[old]); count++;
             (map[childB[old]], visit[count]) = (count, childB[old]); count++;
         }
-        using var arena = new Arena(count);
+        using Arena arena = new(count);
         for (int node = 0; node < count; node++) {
             int old = visit[node];
             if (leafSlot[old] >= 0) arena.Write(node, bound[old], 0, 0, leafSlot[old], 1);
@@ -302,7 +301,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         Vector3d span = root.Max - root.Min;
         uint[] codes = Array.ConvertAll(centroids, c => Morton(
             Normalize(c.X, root.Min.X, span.X), Normalize(c.Y, root.Min.Y, span.Y), Normalize(c.Z, root.Min.Z, span.Z)));
-        var order = Enumerable.Range(0, count).ToArray();
+        int[] order = Enumerable.Range(0, count).ToArray();
         Array.Sort(codes, order);
         return (codes, order);
     }
@@ -311,9 +310,9 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // root-normalized; internal nodes weight the 0.125 traversal constant, leaves the count.
     static double SahCost(NodeStore store) {
         int count = store.Count;
-        using var extent = SpanOwner<float>.Allocate(3 * count);
-        using var area = SpanOwner<float>.Allocate(count);
-        using var weight = SpanOwner<float>.Allocate(count);
+        using SpanOwner<float> extent = SpanOwner<float>.Allocate(3 * count);
+        using SpanOwner<float> area = SpanOwner<float>.Allocate(count);
+        using SpanOwner<float> weight = SpanOwner<float>.Allocate(count);
         TensorPrimitives.Subtract<float>(store.BoundsMax.AsSpan(0, 3 * count), store.BoundsMin.AsSpan(0, 3 * count), extent.Span);
         Span<float> d = extent.Span, sa = area.Span, w = weight.Span;
         for (int node = 0; node < count; node++) {
@@ -328,8 +327,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         toSeq(Enumerable.Range(0, 3)).Fold((Axis: 0, Cost: double.MaxValue, Bucket: 0), (best, axis) => {
             double extent = Axis(centroidBound.Max, axis) - Axis(centroidBound.Min, axis);
             if (extent <= double.Epsilon) return best;
-            var counts = new int[buckets];
-            var bins = new BoundingBox[buckets];
+            int[] counts = new int[buckets];
+            BoundingBox[] bins = new BoundingBox[buckets];
             for (int b = 0; b < buckets; b++) bins[b] = BoundingBox.Empty;
             for (int i = lo; i < hi; i++) {
                 int bucket = Math.Min(buckets - 1, (int)(buckets * (Axis(centroids[order[i]], axis) - Axis(centroidBound.Min, axis)) / extent));
@@ -345,7 +344,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         });
 
     static (BoundingBox Box, int Count) Accumulate(BoundingBox[] bins, int[] counts, int from, int to) {
-        var box = BoundingBox.Empty;
+        BoundingBox box = BoundingBox.Empty;
         int count = 0;
         for (int b = from; b < to; b++) { box.Union(bins[b]); count += counts[b]; }
         return (box, count);
@@ -387,9 +386,9 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     static (Vector3d[] Dipole, Point3d[] Weighted, double[] Area) Moments(NodeStore store, Point3d[] triangles) {
-        var dipole = new Vector3d[store.Count];
-        var weighted = new Point3d[store.Count];
-        var area = new double[store.Count];
+        Vector3d[] dipole = new Vector3d[store.Count];
+        Point3d[] weighted = new Point3d[store.Count];
+        double[] area = new double[store.Count];
         for (int node = store.Count - 1; node >= 0; node--)
             if (store.LeafCount[node] > 0)
                 for (int s = 0; s < store.LeafCount[node]; s++) {
@@ -414,7 +413,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     static double WindingAt(NodeStore store, SpatialQuery.Winding query, Vector3d[] dipole, Point3d[] weighted, double[] area, Point3d point) {
         const double FourPiInverse = 0.079577471545947667884441881686257;
         double total = 0.0;
-        var stack = new Stack<int>();
+        Stack<int> stack = new();
         stack.Push(0);
         while (stack.Count > 0) {
             int node = stack.Pop();
@@ -452,8 +451,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     static Seq<int> RangeHits(NodeStore store, BoundingBox[] primitives, SpatialQuery.Range range) {
-        var hits = Seq<int>();
-        var stack = new Stack<int>();
+        Seq<int> hits = [];
+        Stack<int> stack = new();
         stack.Push(0);
         while (stack.Count > 0) {
             int node = stack.Pop();
@@ -472,7 +471,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     static QueryResult.RayHit RayNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Ray ray) {
-        var stack = new Stack<int>();
+        Stack<int> stack = new();
         stack.Push(0);
         double best = ray.MaxT;
         int hit = -1;
@@ -494,8 +493,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // Leaf distance = exact DOUBLE primitive-box distance (0 inside), so the k-NN verdict obeys
     // the leaves-re-test-the-double-boxes law; a centroid metric bounds nothing and is deleted.
     static Seq<int> KNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Nearest knn) {
-        var heap = new PriorityQueue<int, double>();
-        var stack = new Stack<int>();
+        PriorityQueue<int, double> heap = new();
+        Stack<int> stack = new();
         stack.Push(0);
         double Worst() => heap.TryPeek(out _, out double p) ? -p : double.MaxValue;
         while (stack.Count > 0) {
@@ -522,8 +521,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         (NodeStore ls, BoundingBox[] lp) = (left.Store, left.Primitives);
         (NodeStore rs, BoundingBox[] rp) = (right.Store, right.Primitives);
         bool self = ReferenceEquals(ls, rs);
-        var pairs = Seq<(int, int)>();
-        var stack = new Stack<(int L, int R)>();
+        Seq<(int, int)> pairs = [];
+        Stack<(int L, int R)> stack = new();
         stack.Push((0, 0));
         while (stack.Count > 0) {
             (int l, int r) = stack.Pop();
@@ -556,8 +555,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
     SpatialIndex Rebound(BoundingBox[] updated) {
         NodeStore store = Store;
-        var (min, max) = (new float[3 * store.Count], new float[3 * store.Count]);
-        var leaves = new LeafRefit(store, updated, min, max);
+        (float[] min, float[] max) = (new float[3 * store.Count], new float[3 * store.Count]);
+        LeafRefit leaves = new(store, updated, min, max);
         ParallelHelper.For(0, store.Count, in leaves, Policy.ParallelFloor);
         for (int node = store.Count - 1; node >= 0; node--) {
             if (store.LeafCount[node] > 0) continue;
@@ -593,8 +592,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // ZERO-BASED tail offset, then the Order-permuted primitive-id tail.
     internal static (float[] Bounds, long[] Nodes) NodeLinkProjection(NodeStore store) {
         int count = store.Count;
-        var bounds = new float[6 * count];
-        var nodes = new long[count + store.Order.Length];
+        float[] bounds = new float[6 * count];
+        long[] nodes = new long[count + store.Order.Length];
         int tail = count;
         for (int node = 0; node < count; node++) {
             store.BoundsMin.AsSpan(3 * node, 3).CopyTo(bounds.AsSpan(6 * node, 3));
@@ -660,25 +659,25 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     static BoundingBox Union(BoundingBox[] boxes, int[] order, int lo, int hi) {
-        var box = BoundingBox.Empty;
+        BoundingBox box = BoundingBox.Empty;
         for (int i = lo; i < hi; i++) box.Union(boxes[order[i]]);
         return box;
     }
 
     static BoundingBox Union(ReadOnlySpan<BoundingBox> boxes) {
-        var box = BoundingBox.Empty;
-        foreach (var b in boxes) box.Union(b);
+        BoundingBox box = BoundingBox.Empty;
+        foreach (BoundingBox b in boxes) box.Union(b);
         return box;
     }
 
     static BoundingBox CentroidBound(Point3d[] centroids, int[] order, int lo, int hi) {
-        var box = BoundingBox.Empty;
+        BoundingBox box = BoundingBox.Empty;
         for (int i = lo; i < hi; i++) box.Union(centroids[order[i]]);
         return box;
     }
 
     static BoundingBox LeafBound(NodeStore store, BoundingBox[] boxes, int node) {
-        var box = BoundingBox.Empty;
+        BoundingBox box = BoundingBox.Empty;
         for (int s = 0; s < store.LeafCount[node]; s++) box.Union(boxes[store.Order[store.LeafStart[node] + s]]);
         return box;
     }
@@ -739,7 +738,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
     static int StablePartition(int[] order, int lo, int hi, Func<int, bool> onLeft) {
         int write = lo;
-        var buffer = new int[hi - lo];
+        int[] buffer = new int[hi - lo];
         int b = 0;
         for (int i = lo; i < hi; i++) if (onLeft(order[i])) order[write++] = order[i]; else buffer[b++] = order[i];
         Array.Copy(buffer, 0, order, write, b);

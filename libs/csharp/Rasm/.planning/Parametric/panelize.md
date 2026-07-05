@@ -140,10 +140,10 @@ public static class Panelization {
     static Fin<PanelResult> Assemble(
         SurfaceResult.UvTessellation source, PanelBuild build, Option<int> fieldSymmetry, PanelPolicy policy, Op? key) {
         int panels = build.CornerOffsets.Count - 1;
-        var graph = new UndirectedGraph<int, SEdge<int>>(allowParallelEdges: false);
+        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, panels));
         foreach ((int a, int b) in SharedWalls(build)) { graph.AddEdge(new SEdge<int>(a, b)); }
-        var componentOf = new Dictionary<int, int>();
+        Dictionary<int, int> componentOf = new();
         int components = graph.ConnectedComponents(componentOf);
         (Arr<int> offsets, Arr<int> adjacent) = AdjacencyColumns(graph, panels);
         return Frames(source, build, fieldSymmetry, key).Map(frames => {

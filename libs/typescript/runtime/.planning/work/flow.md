@@ -81,11 +81,10 @@ type FlowVerdict<A> = Data.TaggedEnum<{
   Failed: { readonly class: FaultClass.Kind }
 }>
 
-const _Verdict = Data.taggedEnum<FlowVerdict<never>>() as unknown as {
-  readonly Settled: <A>(input: { readonly value: A }) => FlowVerdict<A>
-  readonly Suspended: <A>(input: { readonly executionId: string }) => FlowVerdict<A>
-  readonly Failed: <A>(input: { readonly class: FaultClass.Kind }) => FlowVerdict<A>
+interface FlowVerdictDefinition extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: FlowVerdict<this["A"]>
 }
+const _Verdict = Data.taggedEnum<FlowVerdictDefinition>()
 
 const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E>): FlowVerdict<A> =>
   Match.value(result).pipe(

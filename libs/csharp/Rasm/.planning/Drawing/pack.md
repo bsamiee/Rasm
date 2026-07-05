@@ -2,7 +2,7 @@
 
 The residency-encoding owner of `Rasm.Drawing` (fault cluster `encoding` 2444-2447) — ONE `PackOp` `[Union]` (`PointCloud`/`MeshPatch`/`VoxelGrid`/`BrepPatch`/`Field`/`Toolpath`) folded by ONE `Fin<EncodedGeometry> Encode.Apply(PackOp, Op? key = null)` that materializes a geometric primitive into a dtype-STRIDED `byte[]` struct-of-arrays payload over the eight-row `EncodingChannel` feature lattice (`position`/`normal`/`color-rgba`/`curvature`/`geodesic`/`intensity`/`occupancy`/`weight`). Every channel is read from the live kernel mesh/cloud/field/SDF surface and never approximated; every channel writes through its `ChannelDtype` row's bulk span arms — `Float32` a raw-bit copy, `Float16` the SIMD `TensorPrimitives.ConvertToHalf` narrow that HALVES residency for real (the widened-back `(float)(Half)` pack that stored 4 bytes per half-precision scalar is dead), `Unorm8` the byte quantization — so `EncodedStore.Payload` holds each channel at its own byte stride behind an `EncodingChannelDescriptor` header, and the always-`float[]` store is dead with it. The round-trip witness is keyed by the reconciliation content digest: `Reconciliation.Apply(new ReconcileOp.Encode(EncodeForm.Of(source)), key)` answers `ReconcileAnswer.Digest` carrying the `GeometryHash` `[ValueObject<UInt128>]`, so a silent quantization with no round-trip proof is a routed fault and this owner computes no hash and mints no second identity — the cloud's canonical byte order, the mesh's canonical adjacency stream, and the digest law are all `Spatial/reconciliation`'s, composed through its ONE entry, never a local second encoder.
 
-The page is the kernel-side producer of the representation vocabulary the `cs/Rasm.Compute` tensor lane wraps as an `EncodedTensor` (residency view, never a re-pack — `ReadOnlyTensorSpan<float>`/`ReadOnlyTensorSpan<Half>` selected on the descriptor `Dtype` row) and the `cs/Rasm.AppHost` `GeometryPacking` sandbox capsule reads as the channel discriminant, with `EncodingKind.Field`/`EncodingKind.Toolpath` signature-locked on the `field`/`toolpath` `PackKind` rows this rebuild lands. It composes the `Spatial/cloud#CLOUD_METRICS` `VectorCloudMetric.OrientedNormals` metric row — the cloud-facing name of the landed `Spatial/neighbors` `NeighborKernel.OrientNormals` MST orientation fold — through the `VectorIntent.Cloud` public rail for the point-cloud normal/intensity channels, the `ScalarField.Geodesic` heat-geodesic and `ScalarField.MeanCurvatureFlow` cotangent-Laplacian fields per vertex through the public `ScalarField.SampleDetailed` tagged rail for the mesh-patch geodesic/curvature channels, and the `ScalarField.SignedDistanceFromMesh` mesh SDF through `SampleSdfDetailed` for the voxel-grid occupancy channel. Every reachable failure routes the band-2400 `GeometryFault` union in its locked payload forms — `EncodingFault(EncodingChannel, ChannelDtype, string)` 2444 and `DegenerateInput(Kind, int, string)` 2400 — and the `EncodedGeometry` registers `IValidityEvidence`, gated at the `Op` acceptance oracle like every kernel receipt.
+The page is the kernel-side producer of the representation vocabulary the `cs/Rasm.Compute` tensor lane wraps as an `EncodedTensor` (residency view, never a re-pack — `ReadOnlyTensorSpan<float>`/`ReadOnlyTensorSpan<Half>` selected on the descriptor `Dtype` row) and the `cs/Rasm.AppHost` `GeometryPacking` sandbox capsule reads as the channel discriminant, with `EncodingKind.Field`/`EncodingKind.Toolpath` signature-locked on the `field`/`toolpath` `PackKind` rows this rebuild lands. It composes the `Spatial/cloud#CLOUD_METRICS` `VectorCloudMetric.OrientedNormals` metric row — the cloud-facing name of the landed `Spatial/neighbors` `NeighborKernel.OrientNormals` MST orientation fold — through the `VectorIntent.Cloud` public rail for the point-cloud normal/intensity channels, the `ScalarField.Geodesic` heat-geodesic and `ScalarField.MeanCurvatureFlow` cotangent-Laplacian fields per vertex through the public `ScalarField.SampleDetailed` tagged rail for the mesh-patch geodesic/curvature channels, and the mesh SDF — the admitted-payload `ScalarField.SignedDistanceFromMeshCase` constructed directly per the fields ingress law — through `SampleSdfDetailed` for the voxel-grid occupancy channel. Every reachable failure routes the band-2400 `GeometryFault` union in its locked payload forms — `EncodingFault(EncodingChannel, ChannelDtype, string)` 2444 and `DegenerateInput(Kind, int, string)` 2400 — and the `EncodedGeometry` registers `IValidityEvidence`, gated at the `Op` acceptance oracle like every kernel receipt.
 
 ## [01]-[INDEX]
 
@@ -13,9 +13,9 @@ The page is the kernel-side producer of the representation vocabulary the `cs/Ra
 - Owner: `PackKind` `[SmartEnum<string>]` the representation-modality discriminant binding the shipped `ComparerAccessors.StringOrdinal` as its string-key comparer (`point-cloud`/`mesh-patch`/`voxel-grid`/`brep-patch`/`field`/`toolpath` — the six keys the AppHost `EncodingKind` rows signature-lock one-to-one) carrying the per-kind `Channels` column (the frozen `EncodingChannel` set each kind activates — a point cloud packs `position`/`normal`/`color-rgba`/`intensity`, a mesh patch packs `position`/`normal`/`curvature`/`geodesic`/`weight`, a voxel grid packs `position`/`occupancy`/`weight`, a brep patch packs `position`/`normal`/`curvature`, a field packs `geodesic`/`weight` — the scalar lane rides the mesh the content digest already binds, so positions are never duplicated into a field pack — and a toolpath packs `position`/`weight`), so the active-channel set is a kind column, never a per-call flag bag; `EncodingChannel` `[SmartEnum<string>]` the eight-row feature lattice carrying the per-channel `Arity` (3 position, 3 normal, 4 color-rgba, 1 for each scalar row) and `Dtype` columns; `ChannelDtype` `[SmartEnum<int>]` the quantization vocabulary (`Float32`/`Float16`/`Unorm8`) carrying `Width` (the byte stride per scalar — 4/2/1, the residency fact), `Tolerance` (the round-trip bound), and the two bulk span arms `Pack(ReadOnlySpan<float>, Span<byte>)`/`Unpack(ReadOnlySpan<byte>, Span<float>)`; `EncodingChannelDescriptor` the per-active-channel header (`Channel` · element `Count` · `ByteOffset` into the arena · `Dtype`) with derived `Floats`/`Bytes` extents; `EncodedStore` the dtype-strided flat pack arena — one contiguous `byte[]` tiling every active channel at its descriptor byte offset; `PackedChannels` the intermediate carrier pairing the store with the per-channel raw `float[]` the witness compares against; `PackOp` the request `[Union]` (cases below); `EncodedGeometry` the typed evidence (`IValidityEvidence` — descriptor tiling is a claim set, not a convention) carrying `Descriptors` · the `ReadOnlyMemory<byte>` `Payload` · `Count` · `Witness`, with the `Channel` byte-slice accessor and the descriptor-dispatched `View<T>` typed tensor view; `RoundTripWitness` the lossless proof (`GeometryHash` content digest · per-channel max error map · `Lossless` verdict); `Encode` the static surface owning the ONE `Apply`.
 - Cases: `PackKind` rows 6; `EncodingChannel` rows 8; `ChannelDtype` rows 3; `PackOp` cases `PointCloud(VectorCloud.ClusterCase, PackPolicy)` · `MeshPatch(MeshSpace, PackPolicy)` · `VoxelGrid(MeshSpace, PackGrid, PackPolicy)` · `BrepPatch(MeshSpace, PackPolicy)` · `Field(MeshSpace, ScalarField, PackPolicy)` · `Toolpath(VectorCloud.PolylineCase, PackPolicy)` (6 — the `field`/`toolpath` growth rows are REAL: `Field` carries its own admitted `ScalarField` and binds it to the `geodesic` lattice row — the row is the per-vertex scalar LANE, the case supplies the field — and `Toolpath` carries the directed `PolylineCase` whose stored order IS content under the reconciliation cloud law). The six kinds share ONE `Apply` fold, ONE `Readers` data table, and ONE `Witness` proof — each kind contributes one active-channel column and one source carrier, never six packer classes; the eight-row lattice spans the union of every kind's active set, so a channel is named once and every kind that admits it reads the SAME row.
 - Entry: `public static Fin<EncodedGeometry> Encode.Apply(PackOp op, Op? key = null)` — the ONE encoding entrypoint discriminating by `PackOp` case; the model `Context` rides `PackPolicy.Tolerance` (its `Absolute` band sets the voxel-grid SDF iso-band and the field-sampling floor — never a domain-local epsilon literal), so the signature carries exactly the request and the key. `Fin<T>` routes `GeometryFault.EncodingFault(channel, channel.Dtype, detail)` 2444 when a channel's reader cannot bind the kind, when a packed extent disagrees with the lattice arity, or when the unpack breaches the channel's `Dtype.Tolerance` (a quantization whose unpack does not recover the packed float within its bound is a defect, never a tolerated loss), and `GeometryFault.DegenerateInput(kind, index, witness)` 2400 when the source is empty or under the modality floor; a non-digest reconcile answer routes the `Op` admission channel (`key.InvalidResult()` — the two-family seam). The fold reads each active channel from its live kernel reader, packs it through the dtype span arm into the byte arena at its descriptor offset, digests the source through `Reconciliation.Apply(new ReconcileOp.Encode(EncodeForm.Of(source)), key)`, proves the per-channel round trip, and gates the typed `EncodedGeometry` through `key.AcceptValue`. No `PackPointCloud`/`PackMesh`/`PackVoxels` sibling entrypoints — one polymorphic `Apply` discriminates by kind.
-- Auto: `Apply` reads the `Readers` `FrozenDictionary` keyed by `EncodingChannel` so channel materialization is a data-table row, never a `channel switch` cascade — every row lowers a live kernel reader to a raw `float[]`, and the kind selection reads the `PackKind.Channels` column to drive the active set. `PackChannels` (1) reserves the arena at the active channels' summed BYTE extent (`count · arity · dtype.Width` per channel — the residency arithmetic is the descriptor's, never a caller guess), (2) reads each active row against the source — `position` from cloud points, toolpath vertices, grid cell centres, or mesh vertices; `normal` from `VectorIntent.Cloud(cloud, VectorCloudMetric.OrientedNormals, policy, key)` projected `Seq<Vector3d>` or the mesh vertex normals; `color-rgba` from the cloud's per-point color (opaque white where the cluster carries none); `curvature` from `ScalarField.MeanCurvatureFlow` per vertex through `SampleDetailed`; `geodesic` from `ScalarField.Geodesic` against the policy's source vertices (mesh patch) or the op-carried field (field pack), the same per-vertex evaluator; `intensity` from the oriented-normal axis consistency (the scan-return proxy); `occupancy` from the `ScalarField.SignedDistanceFromMesh` sign through `SampleSdfDetailed` at each cell centre; `weight` from the mesh per-vertex triangle-area share, the toolpath per-vertex chord-length share, or the uniform unit cell weight — (3) bulk-writes each raw block through `Dtype.Pack` (the `Float16` arm is ONE `TensorPrimitives.ConvertToHalf` span call — the SIMD narrow, not a per-element cast) and records the descriptor plus the raw block for the witness. `Witness` digests the source once through the reconciliation entry — `EncodeForm.Of(MeshSpace)` for every mesh-backed kind (a brep patch encodes through its meshed patch, the reconciliation growth law), `EncodeForm.Of(VectorCloud)` for the cluster and the polyline (the per-case canonical order and the frozen little-endian layout are reconciliation's sole-owner law) — then per channel unpacks the STORED bytes through `Dtype.Unpack` into pooled staging and reduces the max element error in three `TensorPrimitives` calls (`Subtract` · `Abs` · `MaxMagnitude`), routing `EncodingFault` with the first breaching channel and its achieved error. Scalar normalization composes `MaxMagnitude` + `Divide` (the lattice has no `Normalize` operator — the composition is the spelling). The six kinds share ONE `PackChannels` fold and ONE `Witness` proof — only the source-reader binding and the active-channel column vary per kind.
+- Auto: `Apply` reads the `Readers` `FrozenDictionary` keyed by `EncodingChannel` so channel materialization is a data-table row, never a `channel switch` cascade — every row lowers a live kernel reader to a raw `float[]`, and the kind selection reads the `PackKind.Channels` column to drive the active set. `PackChannels` (1) reserves the arena at the active channels' summed BYTE extent (`count · arity · dtype.Width` per channel — the residency arithmetic is the descriptor's, never a caller guess), (2) reads each active row against the source — `position` from cloud points, toolpath vertices, grid cell centres, or mesh vertices; `normal` from `VectorIntent.Cloud(cloud, VectorCloudMetric.OrientedNormals, policy, key)` projected `Seq<Vector3d>` or the mesh vertex normals; `color-rgba` opaque white today — the `ClusterCase` carries no color column yet, so the row is the reserved lane a cluster color column fills when it lands; `curvature` from `ScalarField.MeanCurvatureFlow` per vertex through `SampleDetailed`; `geodesic` from `ScalarField.Geodesic` against the policy's source vertices (mesh patch) or the op-carried field (field pack), the same per-vertex evaluator; `intensity` from the oriented-normal axis consistency (the scan-return proxy); `occupancy` from the directly-constructed `ScalarField.SignedDistanceFromMeshCase` sign through `SampleSdfDetailed` at each cell centre; `weight` from the mesh per-vertex triangle-area share, the toolpath per-vertex chord-length share, or the uniform unit cell weight — (3) bulk-writes each raw block through `Dtype.Pack` (the `Float16` arm is ONE `TensorPrimitives.ConvertToHalf` span call — the SIMD narrow, not a per-element cast) and records the descriptor plus the raw block for the witness. `Witness` digests the source once through the reconciliation entry — `EncodeForm.Of(MeshSpace)` for every mesh-backed kind (a brep patch encodes through its meshed patch, the reconciliation growth law), `EncodeForm.Of(VectorCloud)` for the cluster and the polyline (the per-case canonical order and the frozen little-endian layout are reconciliation's sole-owner law) — then per channel unpacks the STORED bytes through `Dtype.Unpack` into pooled staging and reduces the max element error in three `TensorPrimitives` calls (`Subtract` · `Abs` · `MaxMagnitude`), routing `EncodingFault` with the first breaching channel and its achieved error. Scalar normalization composes `MaxMagnitude` + `Divide` (the lattice has no `Normalize` operator — the composition is the spelling). The six kinds share ONE `PackChannels` fold and ONE `Witness` proof — only the source-reader binding and the active-channel column vary per kind.
 - Receipt: `EncodedGeometry`, `IValidityEvidence` — `Descriptors` (one header per packed channel), `Payload` (the contiguous dtype-strided `ReadOnlyMemory<byte>` arena), `Count`, and `Witness` (`GeometryHash` digest + per-channel max error + `Lossless`); the claim set proves the descriptors tile the arena contiguously with no gap or overlap and the witness errors are finite — a hand-assembled carrier with overlapping slices fails the acceptance oracle, never a consumer. The `cs/Rasm.Compute` tensor lane reads `Payload`+`Descriptors` to wrap an `EncodedTensor` — a `[Count × Arity]` `ReadOnlyTensorSpan<float>` or `ReadOnlyTensorSpan<Half>` view sliced at the descriptor byte offset per the `Dtype` row, residency, never a re-pack — and the `cs/Rasm.AppHost` `GeometryPacking` capsule marshals the descriptor set plus the payload across the sandbox boundary, its `EncodingKind` rows aligned onto the `PackKind` case axis.
-- Packages: `Rasm.Meshing` (`MeshSpace`), `Rasm.Spatial` (`VectorCloud.ClusterCase`/`VectorCloud.PolylineCase`; `ScalarField.Geodesic`/`MeanCurvatureFlow`/`SignedDistanceFromMesh` + `SampleDetailed`/`SampleSdfDetailed` the public field rails), `Rasm.Processing` (`VectorIntent.Cloud` + `Project<Seq<Vector3d>>` the public cloud-metric rail), `Rhino.Geometry` (`Point3d`/`Vector3d` carriers) — composed for every channel payload, never re-minted, `Rasm.Spatial` (`Reconciliation.Apply`/`ReconcileOp.Encode`/`EncodeForm.Of`/`ReconcileAnswer.Digest`/`GeometryHash` — the ONE content-digest chain the witness keys), `Rasm.Numerics` (`GeometryFault` band 2400), `Rasm.Domain` (`Op` key rail, `Kind` taxonomy, `ValidityClaim`/`IValidityEvidence`), System.Numerics.Tensors (`TensorPrimitives.ConvertToHalf`/`ConvertToSingle`/`Subtract`/`Abs`/`MaxMagnitude`/`Divide` — the bulk dtype and error lanes; `ReadOnlyTensorSpan<T>`/`TensorMarshal.CreateReadOnlyTensorSpan` — the typed residency view), CommunityToolkit.HighPerformance (`SpanOwner<T>` pooled witness staging), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Seq`/`Option`/`HashMap`), BCL inbox (`FrozenDictionary`, `System.Half`, `MemoryMarshal`).
+- Packages: `Rasm.Meshing` (`MeshSpace`), `Rasm.Spatial` (`VectorCloud.ClusterCase`/`VectorCloud.PolylineCase`; `ScalarField.Geodesic`/`MeanCurvatureFlow` factories + the admitted-payload `SignedDistanceFromMeshCase` + `SampleDetailed`/`SampleSdfDetailed` the public field rails; `Reconciliation.Apply`/`ReconcileOp.Encode`/`EncodeForm.Of`/`ReconcileAnswer.Digest`/`GeometryHash` — the ONE content-digest chain the witness keys), `Rasm.Processing` (`VectorIntent.Cloud` + `Project<Seq<Vector3d>>` the public cloud-metric rail), `Rhino.Geometry` (`Point3d`/`Vector3d` carriers) — composed for every channel payload, never re-minted, `Rasm.Numerics` (`GeometryFault` band 2400), `Rasm.Domain` (`Op` key rail, `Kind` taxonomy, `ValidityClaim`/`IValidityEvidence`), System.Numerics.Tensors (`TensorPrimitives.ConvertToHalf`/`ConvertToSingle`/`Subtract`/`Abs`/`MaxMagnitude`/`Divide` — the bulk dtype and error lanes; `ReadOnlyTensorSpan<T>`/`TensorMarshal.CreateReadOnlyTensorSpan` — the typed residency view), CommunityToolkit.HighPerformance (`SpanOwner<T>` pooled witness staging), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Seq`/`Option`/`HashMap`), BCL inbox (`FrozenDictionary`, `System.Half`, `MemoryMarshal`).
 - Growth: a new representation modality is one `PackKind` row carrying its active-channel column plus one `PackOp` case carrying its kernel source — the `field`/`toolpath` rows are the executed precedent, landed exactly this way; a new feature channel (a `texcoord` UV channel from `Processing/flatten#PARAMETERIZATION`, a `segment-label` channel, a `velocity` channel) is one `EncodingChannel` row plus one `Readers` row; a new quantization (a `Bfloat16`, a block-compressed color codec) is one `ChannelDtype` row carrying its width/tolerance/span arms over the SAME witness; a per-instance or per-layer block descriptor is one column on `EncodingChannelDescriptor`, decoders re-binding loudly; zero new surface.
 - Boundary: the encoding owner is the ONE polymorphic `PackOp` `[Union]` and a per-kind encoder-class family is the named density defect collapsed onto one union folded by one `Apply`; the `Readers` `FrozenDictionary` is the single channel-materialization table and a `channel switch` cascade is the deleted form; every channel composes its live kernel reader and a domain-local curvature/geodesic/normal re-implementation beside the kernel owner is the deleted double-owner form; the content digest is the reconciliation chain and a local digest — the retired canonical-point cloud encoder included — is the deleted form: cloud, mesh, and (growth) parametric byte layouts have ONE owner and this page binds `(form, digest)` pairs, never raw bytes; a silently lossy pack is rejected — the witness proves every channel against its `Dtype.Tolerance` or routes the typed 2444; the payload is ONE contiguous dtype-strided byte arena and both prior forms are dead — the per-channel `float[][]` jagged arena (re-pack tax) and the uniform `float[]` arena (the false-`Half` store whose "quantized" channels still spent 4 bytes per scalar); the typed view is descriptor-DISPATCHED — the `Dtype` row names the one legal element type and `View<T>` answers the empty view for an absent channel or a width-mismatched `T`, the descriptor set being the truth a consumer reads first; `Apply` is total over the `Fin` rail and a thrown exception on a degenerate source or an unmaterializable channel is forbidden; the pack loop operates on raw `float`/`byte` because a packed feature scalar is the residency lane's native element, and a raw scalar buffer crossing a public signature outside the `Payload`/descriptor pair is the seam violation.
 
@@ -227,25 +227,23 @@ public static class Encode {
     // --- [PACK]
     static Fin<PackedChannels> PackChannels(PackOp op, PackKind kind, int count, Op key) {
         EncodedStore store = EncodedStore.Reserve(count, kind.Channels);
-        var raws = new List<(EncodingChannel Channel, float[] Raw)>(kind.Channels.Count);
+        List<(EncodingChannel Channel, float[] Raw)> raws = new(kind.Channels.Count);
         return kind.Channels.Fold(Fin.Succ((slot: 0, offset: 0)), (state, channel) =>
                 state.Bind(s => Readers[channel](op, key).Bind(raw =>
                     raw.Length == count * channel.Arity
                         ? Fin.Succ(WriteChannel(store, s.slot, s.offset, channel, count, raw, raws))
-                        : Fault(channel, $"arity {raw.Length} != {count * channel.Arity}"))))
+                        : Fin.Fail<(int, int)>(new GeometryFault.EncodingFault(
+                            channel, channel.Dtype, $"arity {raw.Length} != {count * channel.Arity}").ToError()))))
             .Map(_ => new PackedChannels(store, raws.ToArray()));
     }
 
     static (int Slot, int Offset) WriteChannel(EncodedStore store, int slot, int offset, EncodingChannel channel, int count, float[] raw, List<(EncodingChannel, float[])> raws) {
-        var descriptor = new EncodingChannelDescriptor(channel, count, offset, channel.Dtype);
+        EncodingChannelDescriptor descriptor = new(channel, count, offset, channel.Dtype);
         channel.Dtype.Pack(raw, store.Payload.AsSpan(offset, descriptor.Bytes));
         store.Descriptors[slot] = descriptor;
         raws.Add((channel, raw));
         return (slot + 1, offset + descriptor.Bytes);
     }
-
-    static Fin<(int, int)> Fault(EncodingChannel channel, string detail) =>
-        Fin.Fail<(int, int)>(new GeometryFault.EncodingFault(channel, channel.Dtype, detail).ToError());
 
     // --- [WITNESS]
     // ONE digest chain: EncodeForm.Of(source) → Reconciliation.Apply(Encode) → ReconcileAnswer.Digest.
@@ -253,11 +251,10 @@ public static class Encode {
     // sole-owner law — no local encoder, no second hash. Error reduce = Subtract·Abs·MaxMagnitude.
     static Fin<RoundTripWitness> Witness(PackOp op, PackedChannels packed, Op key) =>
         SourceDigest(op, key).Bind(digest => {
-            Seq<(EncodingChannel Channel, double Error)> errors = Seq<(EncodingChannel, double)>();
-            foreach ((EncodingChannel channel, float[] raw) in packed.Raws) {
-                EncodingChannelDescriptor descriptor = System.Array.Find(packed.Store.Descriptors, d => d.Channel == channel)!;
-                errors = errors.Add((channel, ChannelError(raw, packed.Store.Payload.AsSpan(descriptor.ByteOffset, descriptor.Bytes), channel.Dtype)));
-            }
+            Seq<(EncodingChannel Channel, double Error)> errors = toSeq(packed.Raws).Map(row => {
+                EncodingChannelDescriptor descriptor = System.Array.Find(packed.Store.Descriptors, d => d.Channel == row.Channel)!;
+                return (row.Channel, ChannelError(row.Raw, packed.Store.Payload.AsSpan(descriptor.ByteOffset, descriptor.Bytes), row.Channel.Dtype));
+            });
             return errors.Find(e => e.Error > e.Channel.Dtype.Tolerance).Match(
                 Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
                     breach.Channel, breach.Channel.Dtype, $"round-trip {breach.Error:e3} > {breach.Channel.Dtype.Tolerance:e3}").ToError()),
@@ -301,7 +298,7 @@ public static class Encode {
             ? Fin.Succ(count)
             : Fin.Fail<int>(new GeometryFault.DegenerateInput(kind, -1, $"under {floor} elements").ToError());
 
-    static Fin<int> MeshVertexCount(MeshSpace space) => Elements(space.DuplicateNative().Vertices.Count, 1, Kind.Mesh);
+    static Fin<int> MeshVertexCount(MeshSpace space) => Elements(space.Native.Vertices.Count, 1, Kind.Mesh);
 
     static Fin<float[]> ReadPosition(PackOp op) =>
         op switch {
@@ -345,9 +342,11 @@ public static class Encode {
             ? OrientedNormals(c.Source, c.Policy, key).Map(NormalConsistency)
             : NoReader(EncodingChannel.Intensity, op);
 
+    // SignedDistanceFromMeshCase carries only admitted payloads — direct case construction per the
+    // fields.md ingress law; raw-ingress siblings (MeanCurvatureFlow) go through their Fin factory.
     static Fin<float[]> ReadOccupancy(PackOp op, Op key) =>
         op is PackOp.VoxelGrid v
-            ? ScalarField.SignedDistanceFromMesh(v.Source, v.Policy.Sdf, key).Bind(field => GridOccupancy(field, v.Grid, v.Policy.Tolerance, key))
+            ? GridOccupancy(new ScalarField.SignedDistanceFromMeshCase(Space: v.Source, Policy: v.Policy.Sdf), v.Grid, v.Policy.Tolerance, key)
             : NoReader(EncodingChannel.Occupancy, op);
 
     static Fin<float[]> ReadWeight(PackOp op) =>
@@ -370,8 +369,8 @@ public static class Encode {
 
     static Fin<float[]> MeshScalarField(Fin<ScalarField> built, MeshSpace space, Context tolerance, Op key) =>
         built.Bind(field => {
-            Mesh native = space.DuplicateNative();
-            var values = new float[native.Vertices.Count];
+            Mesh native = space.Native;
+            float[] values = new float[native.Vertices.Count];
             for (int i = 0; i < values.Length; i++) {
                 Fin<FieldSample> sample = field.SampleDetailed(native.Vertices.Point3dAt(i), tolerance, key);
                 if (sample.IsFail) return sample.Map(static _ => System.Array.Empty<float>());
@@ -381,7 +380,7 @@ public static class Encode {
         });
 
     static Fin<float[]> GridOccupancy(ScalarField field, PackGrid grid, Context tolerance, Op key) {
-        var values = new float[grid.CellCount];
+        float[] values = new float[grid.CellCount];
         for (int i = 0; i < values.Length; i++) {
             Fin<SdfSample> sample = field.SampleSdfDetailed(grid.CellCenter(i), tolerance, key);
             if (sample.IsFail) return sample.Map(static _ => System.Array.Empty<float>());
@@ -391,14 +390,14 @@ public static class Encode {
     }
 
     static float[] NormalConsistency(Vector3d[] normals) {
-        var values = new float[normals.Length];
+        float[] values = new float[normals.Length];
         for (int i = 0; i < normals.Length; i++) values[i] = (float)Math.Abs(normals[i].Z);
         return values;
     }
 
     static float[] VertexAreaWeight(MeshSpace space) {
-        Mesh native = space.DuplicateNative();
-        var weight = new float[native.Vertices.Count];
+        Mesh native = space.Native;
+        float[] weight = new float[native.Vertices.Count];
         for (int face = 0; face < native.Faces.Count; face++) {
             MeshFace mf = native.Faces[face];
             Point3d a = native.Vertices.Point3dAt(mf.A), b = native.Vertices.Point3dAt(mf.B), c = native.Vertices.Point3dAt(mf.C);
@@ -409,7 +408,7 @@ public static class Encode {
     }
 
     static float[] ChordWeight(Seq<Point3d> chain) {
-        var weight = new float[chain.Count];
+        float[] weight = new float[chain.Count];
         for (int i = 0; i + 1 < chain.Count; i++) {
             float half = (float)(0.5 * chain[i].DistanceTo(chain[i + 1]));
             weight[i] += half; weight[i + 1] += half;
@@ -421,22 +420,24 @@ public static class Encode {
     static float[] Normalize(float[] values) {
         float max = TensorPrimitives.MaxMagnitude<float>(values);
         if (!(max > 0f)) return values;
-        var scaled = new float[values.Length];
+        float[] scaled = new float[values.Length];
         TensorPrimitives.Divide<float>(values, max, scaled);
         return scaled;
     }
 
     // SoA interleave writers: AoS→SoA transposition has no TensorPrimitives form — span kernels.
     static float[] PackPoints(Seq<Point3d> points) {
-        var buffer = new float[points.Count * 3];
+        float[] buffer = new float[points.Count * 3];
         int i = 0;
         foreach (Point3d p in points) { buffer[i++] = (float)p.X; buffer[i++] = (float)p.Y; buffer[i++] = (float)p.Z; }
         return buffer;
     }
 
+    // Read-only channel reads ride space.Native; ONLY PackNormals duplicates — ComputeNormals
+    // mutates and the defensive snapshot never mutates in place.
     static float[] PackVertices(MeshSpace space) {
-        Mesh native = space.DuplicateNative();
-        var buffer = new float[native.Vertices.Count * 3];
+        Mesh native = space.Native;
+        float[] buffer = new float[native.Vertices.Count * 3];
         for (int i = 0; i < native.Vertices.Count; i++) {
             Point3f v = native.Vertices[i];
             (buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]) = (v.X, v.Y, v.Z);
@@ -447,7 +448,7 @@ public static class Encode {
     static float[] PackNormals(MeshSpace space) {
         Mesh native = space.DuplicateNative();
         if (native.Normals.Count != native.Vertices.Count) native.Normals.ComputeNormals();
-        var buffer = new float[native.Vertices.Count * 3];
+        float[] buffer = new float[native.Vertices.Count * 3];
         for (int i = 0; i < native.Normals.Count; i++) {
             Vector3f n = native.Normals[i];
             (buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]) = (n.X, n.Y, n.Z);
@@ -456,7 +457,7 @@ public static class Encode {
     }
 
     static float[] PackCells(PackGrid grid) {
-        var buffer = new float[grid.CellCount * 3];
+        float[] buffer = new float[grid.CellCount * 3];
         for (int i = 0; i < grid.CellCount; i++) {
             Point3d c = grid.CellCenter(i);
             (buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]) = ((float)c.X, (float)c.Y, (float)c.Z);
@@ -465,13 +466,13 @@ public static class Encode {
     }
 
     static float[] PackColors(VectorCloud.ClusterCase cloud) {
-        var buffer = new float[cloud.Vertices.Count * 4];
+        float[] buffer = new float[cloud.Vertices.Count * 4];
         System.Array.Fill(buffer, 1f);
         return buffer;
     }
 
     static float[] PackVectors(Vector3d[] vectors) {
-        var buffer = new float[vectors.Length * 3];
+        float[] buffer = new float[vectors.Length * 3];
         for (int i = 0; i < vectors.Length; i++) {
             (buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]) = ((float)vectors[i].X, (float)vectors[i].Y, (float)vectors[i].Z);
         }
@@ -479,7 +480,7 @@ public static class Encode {
     }
 
     static float[] Fill(int count, float value) {
-        var buffer = new float[count];
+        float[] buffer = new float[count];
         System.Array.Fill(buffer, value);
         return buffer;
     }
@@ -491,7 +492,7 @@ flowchart LR
     PackOp["PackOp (PointCloud / MeshPatch / VoxelGrid / BrepPatch / Field / Toolpath)"] -->|PackKind.Channels active set| PackChannels
     PackChannels -->|position / normal / curvature| Kernel["Rasm.Meshing MeshSpace / Rasm.Spatial VectorCloudMetric.OrientedNormals"]
     PackChannels -->|geodesic scalar lane| Fields["ScalarField.SampleDetailed"]
-    PackChannels -->|occupancy SDF sign| Sdf["ScalarField.SignedDistanceFromMesh / SampleSdfDetailed"]
+    PackChannels -->|occupancy SDF sign| Sdf["ScalarField.SignedDistanceFromMeshCase / SampleSdfDetailed"]
     PackChannels -->|"Dtype.Pack — ConvertToHalf / raw bits / unorm8"| Payload["dtype-strided byte[] arena"]
     Payload -->|"Dtype.Unpack → Subtract·Abs·MaxMagnitude"| Witness["per-channel round-trip error"]
     PackOp -->|"EncodeForm.Of(source)"| Reconcile["Reconciliation.Apply(ReconcileOp.Encode)"]
@@ -519,6 +520,6 @@ The `Apply` fold, the `[PACK]` cluster (`PackChannels` the per-channel byte fold
 
 ## [04]-[RESEARCH]
 
-- [CHANNEL_LATTICE] — the `EncodingChannel` eight-row feature lattice is the SINGLE representation vocabulary the kernel produces and the `cs/Rasm.Compute` tensor lane and `cs/Rasm.AppHost` sandbox capsule consume: each row carries its `Arity` and its `Dtype`, so a channel is a lattice row, never a per-kind packed-struct field. The `PackKind.Channels` column is the per-modality active set across all SIX kinds, and the `field`/`toolpath` rows land exactly as the growth law promised — one `PackKind` row plus one `PackOp` case each, the `Field` case binding its op-carried `ScalarField` to the `geodesic` scalar lane (the row is the lane, the case supplies the field; the pack omits positions because the witness digest already binds the source mesh — a field pack is HALF the bytes of a mesh patch by construction) and the `Toolpath` case carrying the directed `PolylineCase` whose stored order is content. Every channel materializes from its live kernel reader and is never approximated: `normal`/`intensity` read the `VectorCloudMetric.OrientedNormals` metric row — the cloud-facing name of the landed `Spatial/neighbors` `NeighborKernel.OrientNormals` MST orientation — through the `VectorIntent.Cloud` public rail, `curvature` reads `ScalarField.MeanCurvatureFlow` per vertex through the tagged `SampleDetailed` rail, `geodesic` reads `ScalarField.Geodesic` the same way, `occupancy` reads the `ScalarField.SignedDistanceFromMesh` sign through `SampleSdfDetailed`. The tier-2 law-matrix (`EncodingLaws`, a CsCheck property suite under `testing-cs`) packs a synthetic source of each `PackKind` and asserts (1) every descriptor's `Floats`/`Bytes` extents match the lattice arity and dtype width and the byte offsets tile the payload contiguously with no gap or overlap — the same claims the carrier's `IsValid` fold enforces at the acceptance oracle, (2) `Channel(channel)` recovers the byte-identical region the descriptor names, and (3) the active set equals the `PackKind.Channels` column. No live-host probe beyond the stable `MeshSpace`/`VectorCloud` readers.
+- [CHANNEL_LATTICE] — the `EncodingChannel` eight-row feature lattice is the SINGLE representation vocabulary the kernel produces and the `cs/Rasm.Compute` tensor lane and `cs/Rasm.AppHost` sandbox capsule consume: each row carries its `Arity` and its `Dtype`, so a channel is a lattice row, never a per-kind packed-struct field. The `PackKind.Channels` column is the per-modality active set across all SIX kinds, and the `field`/`toolpath` rows land exactly as the growth law promised — one `PackKind` row plus one `PackOp` case each, the `Field` case binding its op-carried `ScalarField` to the `geodesic` scalar lane (the row is the lane, the case supplies the field; the pack omits positions because the witness digest already binds the source mesh — a field pack is HALF the bytes of a mesh patch by construction) and the `Toolpath` case carrying the directed `PolylineCase` whose stored order is content. Every channel materializes from its live kernel reader and is never approximated: `normal`/`intensity` read the `VectorCloudMetric.OrientedNormals` metric row — the cloud-facing name of the landed `Spatial/neighbors` `NeighborKernel.OrientNormals` MST orientation — through the `VectorIntent.Cloud` public rail, `curvature` reads `ScalarField.MeanCurvatureFlow` per vertex through the tagged `SampleDetailed` rail, `geodesic` reads `ScalarField.Geodesic` the same way, `occupancy` reads the `ScalarField.SignedDistanceFromMeshCase` sign through `SampleSdfDetailed`. The tier-2 law-matrix (`EncodingLaws`, a CsCheck property suite under `testing-cs`) packs a synthetic source of each `PackKind` and asserts (1) every descriptor's `Floats`/`Bytes` extents match the lattice arity and dtype width and the byte offsets tile the payload contiguously with no gap or overlap — the same claims the carrier's `IsValid` fold enforces at the acceptance oracle, (2) `Channel(channel)` recovers the byte-identical region the descriptor names, and (3) the active set equals the `PackKind.Channels` column. No live-host probe beyond the stable `MeshSpace`/`VectorCloud` readers.
 - [ROUND_TRIP_WITNESS] — the `RoundTripWitness` is the lossless-round-trip proof keyed by the reconciliation content digest: `SourceDigest` projects the source into the ONE encode-modality family — `EncodeForm.Of(MeshSpace)` for the mesh-backed kinds (the brep patch encodes through its meshed patch, the reconciliation growth law), `EncodeForm.Of(VectorCloud)` for the cluster and the polyline — and `Reconciliation.Apply(new ReconcileOp.Encode(form), key)` answers `ReconcileAnswer.Digest` carrying the `GeometryHash`; the canonical byte layouts, the cluster's lexicographic sort, the polyline's stored-order law, and the seed-zero `XxHash128` are all `Spatial/reconciliation#CANONICAL_BYTE_IDENTITY`'s sole-owner facts — the retired page-local cloud digest is dead, and every consumer seam carries the `(form, digest)` pair per the reconciliation boundary law. The witness then unpacks each channel's STORED bytes through its `Dtype.Unpack` span arm — `Float16` the SIMD `TensorPrimitives.ConvertToSingle` widen mirroring the `ConvertToHalf` pack — and reduces the max element error against the original raw block in three `TensorPrimitives` calls; a `Float32` channel must round-trip exactly (`Tolerance = 0` — the raw-bit copy guarantees it), a `Float16` channel within the half-precision ulp bound, a `Unorm8` channel within the byte step, and any breach routes `EncodingFault(channel, dtype, detail)` 2444 rather than reporting `Lossless = true`. The `EncodingLaws` matrix asserts (1) a `Float32`-only pack round-trips bit-identically, (2) a `Float16` channel's stored extent is EXACTLY half its raw extent (the residency fact — the retired uniform-`float[]` store failed this by construction) with its max error within `Float16.Tolerance`, (3) two byte-identical sources produce the identical `GeometryHash` and a topology-preserving morph re-digests identically at the mesh level, and (4) a corrupted unpack arm routes the typed 2444 carrying the corrupted channel.
 - [TENSOR_RESIDENCY_SEAM] — `EncodedGeometry.Payload` is one contiguous dtype-strided byte arena and the typed view is descriptor-DISPATCHED: `View<T>` gates `T` against the descriptor's `Dtype.Width` and wraps the channel slice as a `[Count × Arity]` `ReadOnlyTensorSpan<T>` through `TensorMarshal.CreateReadOnlyTensorSpan` — `View<float>` on a `Float32` row, `View<Half>` on a `Float16` row, zero copy either way — so the `cs/Rasm.Compute` `EncodedTensor` wrap is a pure residency view and the `Half` channels occupy half the bytes end to end, from arena through wire to tensor. Compute reads `Payload`+`Descriptors`+`Witness` (the content hash IS the kernel `CANONICAL_BYTE_IDENTITY` digest — no second key minted, no host geometry type named, per the settled `Rasm.Compute` residency ledger row) and never reaches the `EncodedStore` interior or the channel readers; the `cs/Rasm.AppHost` `GeometryPacking` capsule serializes the descriptor set plus the payload across the sandbox boundary, its six `EncodingKind` rows — `point-cloud`/`mesh-patch`/`voxel-grid`/`brep-patch`/`field`/`toolpath` — signature-locked one-to-one on the `PackKind` keys, so the `Field`/`Toolpath` contracts bind kernel rows, never a residency-side encoding owner. The alignment is a wire on the consuming task, never a coupling edit into this page; the contiguous-tiling claim the consumers rely on is enforced by the carrier's own `IsValid` fold at the acceptance oracle, not by decoder convention.

@@ -19,6 +19,10 @@ Ownership seams are explicit. `Numerics/calculus.md` owns the sample-anywhere ma
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Meshing;
+using Rasm.Numerics;
+
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------
