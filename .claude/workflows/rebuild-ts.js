@@ -37,7 +37,7 @@ const LANE_KEYS = ACTIVE.concat(
 
 const DOSSIER = { type: 'object', additionalProperties: false, required: ['path', 'summary'], properties: {
   path: { type: 'string' }, summary: { type: 'string' } } }
-const FIXLOG ={ type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: {
+const FIXLOG = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } },
   verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] },
   collapsed: { type: 'string' }, extended: { type: 'string' },
@@ -63,7 +63,12 @@ const MANDATE = 'CAMPAIGN LAW - THE ULTRA REBUILD. Every fence in libs/typescrip
   'unions + exhaustive Match), aspect-oriented composition at the definition seam, total parameterization - zero ' +
   'hardcoded values, zero stringy/fragile plumbing (vocabulary tables, TemplateLiteralParser, keyof-typeof proven ' +
   'keys). Functionality injects INTO owners - overloads, Function.dual twins, class statics, derived projections - ' +
-  'never beside them. ' +
+  'never beside them. CLASS-FIRST: a module-level type alias, interface, or bare Struct standing where a ' +
+  'Schema.Class/TaggedClass/TaggedError family could carry invariants, statics, derived projections, and behavior ' +
+  'is a defect; an embedded concept with its own invariants is its OWN class composed as a field at full depth; ' +
+  'Schema.Struct survives ONLY as an anonymous single-consumer field block; Data.taggedEnum owns process-local case ' +
+  'families; machines and statecharts are data-carried owners, never switch ladders. Weak structs, option-bag ' +
+  'interfaces, and loose module-level type/const exports collapse into their owning families. ' +
   '(2) SINGLE ENTRY POINTS - each folder exposes a small set of deep owners whose internally integrated intelligence ' +
   'is automatic: retries, breakers, telemetry, caching, batching, validation ride the owner so a future consumer ' +
   'composes capability, never plumbing. Imagine the MOST COMPLEX POSSIBLE apps and serve them easily. ' +
@@ -100,6 +105,10 @@ const MANDATE = 'CAMPAIGN LAW - THE ULTRA REBUILD. Every fence in libs/typescrip
   'structural boundary gate, and the tests/typescript gauges owning what resolution cannot express - a doctrine law ' +
   'with no mechanical gate gets a plugin rule or a gauge; the mutation/coverage/e2e estate held to the tests plane ' +
   'own established law. ' +
+  'CHANNEL LAW - canary, beta, and pre-release channels are admissible wherever the bleeding edge genuinely adds ' +
+  'capability: nothing is rejected for channel alone; a channel candidate is judged on capability delta, ' +
+  'maintenance signal, and integration merit, pinned at an exact version with the channel choice and its typing ' +
+  'posture recorded in the catalog. ' +
   'NEW FILES are allowed in existing folders when a genuine new owner is earned (a real concern with no home) - ' +
   'never to scatter an existing concern. Buildout over removal: capability is dropped only as an explicit ruled ' +
   'kill; phantoms are the sole silent deletion.'
@@ -176,11 +185,14 @@ const stackResearchPrompt = (folder) => [CONTEXT, MANDATE,
   'members per catalog with their exact spellings and the owning page each should land in; (b) never-used admitted ' +
   'capability the folder concept demands; (c) cross-stacking plays (package x package composition the corpus never ' +
   'attempts); (d) gap capabilities with the package + integration shape that closes each (candidates for the ' +
-  'improver to weigh); (e) the per-page integration map the improver executes. PRE-STAGED RESEARCH: ' + SCRATCH +
-  '/prefetch-remote.md, prefetch-machines-pubsub.md, and prefetch-ui-iac.md carry verified package-landscape ' +
-  'research (remote/cloud-fs, machines/pubsub/streaming/telemetry-hooks, UI/IaC depth) - read the ones touching ' +
-  'your folder, consume their verdicts and member spellings, and never re-research the ground they close. Verified ' +
-  'spellings only - a phantom in your dossier is your defect. Write to ' + SCRATCH + '/stack-' + folder +
+  'improver to weigh); (e) the per-page integration map the improver executes. PRE-STAGED RESEARCH, REALIZED: the ' +
+  'admissions in ' + SCRATCH + '/admissions.md are APPLIED - pinned in pnpm-workspace.yaml with source-verified ' +
+  'catalogs on disk at their tiers - so the catalogs are your primary surface; the prefetch dossiers (' + SCRATCH +
+  '/prefetch-remote.md, prefetch-machines-pubsub.md, prefetch-ui-iac.md) remain the RULING layer no catalog fully ' +
+  'carries: the JetStream AckPolicy.Explicit durable-consumer fix, the rclone capability-flag RemoteFs model, the ' +
+  'OTel contribute-then-collect hook pattern with Views/detector fork-pressure, the multi-tenant provisioning ' +
+  'ladder, the React canary override - read the ones touching your folder and never re-research closed ground. ' +
+  'Verified spellings only - a phantom in your dossier is your defect. Write to ' + SCRATCH + '/stack-' + folder +
   '.md; return {path, summary}.',
 ].join('\n\n')
 
@@ -246,9 +258,16 @@ const improvePrompt = (folder) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, WRI
   'reduce surface and LOC through density, never through capability loss. EXTEND: weave the stacking dossier ' +
   'capability into the owning pages root-up as if always carried; close the mandate emphases for this folder ' +
   '(machines, pubsub, streaming, resilience, SQL/PG depth, filesystem/cloud, telemetry hooks, UI depth, IaC depth - ' +
-  'whichever your folder owns); anticipate the most complex apps and the five-times demand. A genuine new owner ' +
-  'earns a new page in an existing sub-domain; report central-manifest needs in packageAsks, never edit ' +
-  'pnpm-workspace.yaml. Return the fix-log with collapsed and extended stated concretely.',
+  'whichever your folder owns); anticipate the most complex apps and the five-times demand. NEW ADMISSIONS ARE ' +
+  'DEBT: every just-admitted package in ' + SCRATCH + '/admissions.md that your folder owns currently has ZERO ' +
+  'consuming fences - each lands in its owning page(s) at operator depth in THIS pass or your disposition is ' +
+  'incomplete; the stacking dossier maps each to its page. A genuine new owner earns a new page in an existing ' +
+  'sub-domain. A MID-LANE PACKAGE DISCOVERY is wired FULLY in-lane: verify the surface at source (registry + ' +
+  'published types), author the folder .api catalog in the house form, add the folder README domain-package ' +
+  'registry row, compose the fences at operator depth - ONLY the central pnpm-workspace.yaml pin defers to the ' +
+  'align agent (one-writer law) as a packageAsk naming pkg@verified-version + tier + the catalog and pages already ' +
+  'landed; a bare ask with no in-lane wiring is an incomplete disposition. Return the fix-log with collapsed and ' +
+  'extended stated concretely.',
 ].join('\n\n')
 
 const scopeOf = (key) => key === 'tooling' ? TOOLING : ROOT + '/' + key
@@ -262,7 +281,9 @@ const critiquePrompt = (key, improve) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRA
   '(capability only through Tag/Service/Layer/Reference); RAILS + ASPECTS at their owning pages; STRINGY/FRAGILE ' +
   '(zero any/as/!, vocabulary-derived literals, branded fields); PAGE_CRAFT - the design-doc structure law above is ' +
   'an audit dimension: doctrine-mirroring Law-line spam, signature-only fences, and fence fragmentation are smashed ' +
-  'into the Rasm-exemplar shape with full-bodied dominant fences; EXTENSION-IN-PLACE - the audit is not code polish ' +
+  'into the Rasm-exemplar shape with full-bodied dominant fences; WIRING-COMPLETENESS - a packageAsk the improver ' +
+  'raised without its in-lane catalog, README registry row, and consuming fences is an incomplete wiring you finish ' +
+  'now; EXTENSION-IN-PLACE - the audit is not code polish ' +
   'alone: where the improver under-extended a mandate emphasis (machines, pubsub, streaming, resilience, SQL depth, ' +
   'filesystem/cloud, telemetry hooks, UI, IaC), you extend it now; CAPABILITY + ILLUSION with the five-times-demand ' +
   'test. IMPROVER RESULT (verify on disk, never trust): ' + JSON.stringify(improve || {}) + ' Return the fix-log.',
@@ -292,10 +313,12 @@ const alignPrompt = (laneResults) => [CONTEXT, MANDATE, READ_FIRST, PAGE_CRAFT, 
   'frozen). ALIGN: folders stacked and integrated - internally automatic capability, aligned never coupled, ' +
   'surgical extension where a chain is incomplete; the tooling estate (root configs + tests gauges) verified ' +
   'consistent with the improved corpus - a gauge or config a lane changed that now contradicts a sibling is fixed ' +
-  'here. APPLY: every packageAsk below you judge justified lands in ' +
-  'pnpm-workspace.yaml once with its .api catalog authored at the right tier; rejected asks get one-line rulings ' +
-  'in your summary. Then true up the branch .planning docs (README router, ARCHITECTURE codemap/seams/edge table, ' +
-  'dataflow-system) against the improved corpus. LANE RESULTS: ' + laneResults + ' Return {fixes, summary}.',
+  'here. APPLY: every packageAsk below you judge justified lands in pnpm-workspace.yaml once at its named verified ' +
+  'version (the lanes already wired catalog + README + fences in-lane - author any piece a lane missed); then run ' +
+  'pnpm install and spot-verify each new catalog against the installed node_modules surface; rejected asks get ' +
+  'one-line rulings in your summary and their in-lane wiring is unwound. Then true up the branch .planning docs ' +
+  '(README router, ARCHITECTURE codemap/seams/edge table, dataflow-system) against the improved corpus. ' +
+  'LANE RESULTS: ' + laneResults + ' Return {fixes, summary}.',
 ].join('\n\n')
 
 const acceptPrompt = () => [CONTEXT,

@@ -17,17 +17,17 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 
 ## [02]-[TOPOLOGY]
 
-| [INDEX] | [SURFACE]            | [OWNER]                   | [ROLE]                                                                                |
-| :-----: | :------------------- | :------------------------ | :------------------------------------------------------------------------------------ |
-|  [01]   | `libs/csharp`        | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                    |
-|  [02]   | `libs/python`        | Python library suite      | Host-free science, compute, data, geometry/IFC, and artifact companion packages.      |
-|  [03]   | `libs/typescript`    | TypeScript library suite  | Host-free web/edge platform: wire interchange, projection, UI, platform, services.    |
-|  [04]   | `tests`              | Polyglot proof surface    | C#, Python, and TypeScript suites plus generated contract fixtures.                   |
-|  [05]   | `tools/assay`        | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
-|  [06]   | `tools/rhino-bridge` | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
-|  [07]   | `tools/cs-analyzer`  | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
-|  [08]   | `tools/yak`          | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
-|  [09]   | `docs`               | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
+| [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                        |
+| :-----: | :------------------- | :----------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `libs/csharp`        | C# library suite         | Foundational packages for AEC app development (Rhino 9/wip, gh2)              |
+|  [02]   | `libs/python`        | Python library suite     | Host-free companion packages.                                                 |
+|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web/edge platform.                                                  |
+|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus generated contract fixtures.           |
+|  [05]   | `tools/assay`        | Typed operator           | Static, test, bridge, package, code, docs, provision, and API evidence rails. |
+|  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.     |
+|  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                      |
+|  [08]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                            |
+|  [09]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.   |
 
 ## [03]-[LIBRARY_OWNERS]
 

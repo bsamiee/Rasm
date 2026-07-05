@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/typescript` — thirteen folders in five dependency waves, acyclic with `kernel` at the base and the publication folders at the leaves. Wire decode is a boundary concern inside `wire`, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph, and dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never in the branch. The permitted-edge ledger, tag law, and port registry are `composition-system.md`; the data spine is `dataflow-system.md`.
+The branch domain map of `libs/typescript` — six capability domains in five dependency waves, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph; dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never in the branch. The data spine is `dataflow-system.md`; folder sub-domain maps and mirrored seam rows live in each folder `ARCHITECTURE.md`.
 
 Each node is a folder root; the `.planning/` scaffold is authoring substrate, never part of the map.
 
@@ -8,51 +8,51 @@ Each node is a folder root; the `.planning/` scaffold is authoring substrate, ne
 
 ```text codemap
 libs/typescript/
-├── kernel/     # W0 runtime — cross-language identity, clock, schema-brand, quantity, fault values
-├── state/      # W1 runtime — host-free fold algebra: folds, CRDT merge, causality, evidence, live queries
-├── host/       # W1 runtime — process runtime: exec rows, config chain, flags, net policy, lifecycle
-├── security/   # W1 runtime — authn, authz, sessions, secrets, signing over stateless primitives
-├── telemetry/  # W1 runtime — OTLP, conventions, RUM, audit/meter streams, SLO algebra, boards
-├── wire/       # W2 runtime — all C#-minted wire decode: codecs, frames, gateway, contract, fault
-├── work/       # W2 runtime — durable execution: entities, workflows, queues, schedules, egress
-├── store/      # W3 runtime — event-sourced persistence: journal, projections, capability, objects
-├── ai/         # W3 runtime — model providers, embeddings, tools, durable agents, MCP hosting
-├── edge/       # W4 runtime — the one public front door: HttpApi, realtime, webhooks, CLI, problem
-├── browser/    # W4 runtime — browser runtime: boot, PWA shell, persistence, transport, routing
-├── ui/         # W4 runtime — component capability + the viewer spatial project (second Nx project)
-└── iac/        # W4 deploy  — Pulumi typed programs, provider dispatch, K8s, secrets, observe, policy
+├── core/       # runtime — branch law: value floor, state algebra, the keyed-decode interchange plane, observe vocabulary
+├── security/   # runtime — identity and custody: authn, authz, crypto authority, leased secrets, stateless over ports
+├── data/       # runtime — durable persistence: journal, guarantee lanes, object plane, typed read side
+├── runtime/    # runtime — execution: proc substrate, net, OTLP wire, front door, durable work, ai, browser condition
+├── ui/         # runtime — interface: component system + view plane, with viewer as the spatial second Nx project
+└── iac/        # deploy  — Pulumi typed programs: StackSpec arm dispatch, k8s tiers, secrets, observe realization, policy
 ```
 
 ## [02]-[SEAMS]
 
 ```text seams
-kernel     ⇄  csharp:Rasm              # [CONTENT_KEY]: XxHash128 seed-zero content-identity parity
-kernel     ←  csharp:Rasm.AppHost      # [WIRE]: HLC two-half compose-order parity
-kernel     ⇄  csharp:Rasm.Compute      # [WIRE]: QuantityFamily SI-scalar decode + XxHash128 seed-zero two-half parity
-state      ←  csharp:Rasm.AppHost      # [WIRE]: ReceiptEnvelope/HlcStamp/TenantContext + DegradationLevel/CommandAvailability evidence
-state      ←  csharp:Rasm.Compute      # [WIRE]: ProgressMarkWire evidence folds
-state      ←  csharp:Rasm.Persistence  # [SHAPE]: commit/branch/version-vector/Merkle shapes
-state      ←  csharp:Rasm.AppUi        # [PROJECTION]: EvidenceFeed / EvidenceTimeline
-host       ←  csharp:Rasm.AppHost      # [WIRE]: FlagVerdictWire over the shared OpenFeature contract
-telemetry  ←  csharp:Rasm.AppHost      # [TRANSPORT]: OtelExport OTLP egress
-wire       ←  csharp:Rasm.AppHost      # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK + CredentialPem/claim/livewire codecs + support-capture gateway verb
-wire       ←  csharp:Rasm.Compute      # [WIRE]: proto suite wire + FaultDetail + descriptor drift gate
-wire       ←  csharp:Rasm.Persistence  # [WIRE]: OpLog/Snapshot CRDT wire + JsonPatch egress
-wire       ⇄  csharp:Rasm.Element      # [WIRE]: ElementGraph content-keyed wire under the descriptor gate
-wire       ←  csharp:Rasm.Materials    # [WIRE]: MaterialWire/OpenPbrGroupsWire appearance decode
-wire       ←  csharp:Rasm.Bim          # [WIRE]: BcfTopicWire/BcfViewpointWire + BimWire/DiffWire/OpLogWire/IdsAudit golden-byte parity + GeoFeature WKB
-wire       ←  csharp:Rasm.AppUi        # [WIRE]: CommandPayloadWire + RenderReceiptWire + GeometryResidencyWire + ControlIntent/LayoutConstraint wire
-ui         ←  csharp:Rasm.AppUi        # [RECEIPT]: ResidencyManifest content-key mesh residency
-ui         ←  csharp:Rasm.Bim          # [WIRE]: BCF marks + GlobalId selection sets
+core     ⇄  csharp:Rasm              # [CONTENT_KEY]: XxHash128 seed-zero :x32 content-identity parity
+core     ←  csharp:Rasm.AppHost      # [WIRE]: Hlc two-half parity + ReceiptEnvelope/TenantContext/livewire triple/FlagVerdict/CredentialPem + capability SDK
+core     ⇄  csharp:Rasm.Compute      # [WIRE]: proto suite + FaultDetail + ProgressMark frames + QuantityWire + the descriptor drift gate
+core     ←  csharp:Rasm.Persistence  # [WIRE]: OpLog/Snapshot CRDT wire + JsonPatch egress
+core     ⇄  csharp:Rasm.Element      # [WIRE]: ElementGraph content-keyed wire under the drift gate
+core     ←  csharp:Rasm.Bim          # [WIRE]: BcfTopic/BcfViewpoint + BimWire/DiffWire/OpLogWire/IdsAudit golden-byte parity + GeoFeature WKB
+core     ←  csharp:Rasm.Materials    # [WIRE]: MaterialWire/PbrGroups appearance decode
+core     ←  csharp:Rasm.AppUi        # [WIRE]: CommandPayload + RenderReceipt + GeometryResidency + ControlIntent/LayoutProgram
+runtime  ←  csharp:Rasm.AppHost      # [TRANSPORT]: OTLP export alignment at the shared collector
+ui       ←  csharp:Rasm.AppHost      # [WIRE]: livewire triple materialized at the viewer panel
+ui       ←  csharp:Rasm.AppUi        # [WIRE]: ControlIntent/LayoutProgram materialized + RenderReceipt evidence pairing
+ui       ←  csharp:Rasm.Bim          # [WIRE]: BCF marks + GlobalId selection sets
+ui       ←  csharp:Rasm.Materials    # [WIRE]: PbrGroups appearance into the scene
 ```
 
-TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python seam exists. Folder-level seam rows live in each folder `ARCHITECTURE.md` `[02]-[SEAMS]` and mirror the csharp endpoint files verbatim.
+Every C#-minted family decodes exactly once through the core interchange codec registry; the ui rows above name where the decoded landings materialize. TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python seam exists. Folder-level seam rows live in each folder `ARCHITECTURE.md` `[02]-[SEAMS]` and mirror the csharp endpoint files verbatim.
 
 ## [03]-[DEPENDENCY_DIRECTION]
 
-Dependency flows strictly downward through five waves — W0 `kernel`, W1 `state`/`host`/`security`/`telemetry`, W2 `wire`/`work`, W3 `store`/`ai`, W4 `edge`/`browser`/`ui`/`iac` — with the full permitted-edge table, its forced resolutions, and the port registry owned by `composition-system.md`. The direction facts the map fixes:
+Dependency flows strictly downward through five waves — W0 `core`, W1 `security`, W2 `data`, W3 `runtime`, W4 `ui`/`iac`. The permitted-edge table is the whole import law:
 
-- `kernel` imports nothing and is imported by every runtime folder; the dev plane (`tests/`) imports anything and is imported by nothing.
-- Only `browser` and `ui` carry a `wire` edge — `ui` through the `#vocab` subpath only; every other runtime folder excludes it.
-- `work` and `security` never import `store`: they compose port Tags the app root satisfies with `store` Layers. `store → security` is a direct edge, not a port: `store/journal` imports the `security/sign` AES-GCM envelope as its crypto-shredding `Shredder`.
-- `iac` is depended on by nothing at runtime; its ledger edges point downward (`store` capability vocabulary, `telemetry` board functions), and the one value crossing back into the runtime graph is typed StackOutputs → `ShardingConfig` (the `work` seam).
+| [INDEX] | [FROM]     | [MAY_IMPORT]              | [NOTES]                                                                                             |
+| :-----: | :--------- | :------------------------ | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `core`     | (nothing)                 | Runs identically under node, bun, and the browser; imported by every runtime folder                  |
+|  [02]   | `security` | `core`                    | State lives behind port Tags; the folder never imports `data`                                        |
+|  [03]   | `data`     | `core`, `security`        | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
+|  [04]   | `runtime`  | `core`, `security`, `data`| Both process planes; the browser condition is the same package, never a sibling                      |
+|  [05]   | `ui`       | `core`, `runtime`         | `viewer` is a second Nx project inside the folder with the same edge set                             |
+|  [06]   | `iac`      | `core`, `data`            | Type/value reads only (`DashboardModel`, `Alert`, `Pg`); depended on by nothing at runtime           |
+
+Port satisfaction happens at app composition, never as an upward import:
+
+- Security's `SessionStore`/`IdentityJournal`/`ClaimStore`/`RelationStore` Tags are satisfied by `data` scope-built Layers.
+- Data's `Embedder`/`Reranker` Tags are satisfied by the `runtime` ai plane.
+- The `ui` viewer `GlbViewport` Tag is satisfied by the browser composition root from `runtime` Depot verified-arrival pairs (ContentKey + whole-buffer GLB octets, byteOffset zero) and the Depot residency ledger cell.
+- The `ui` atom `LIVE_BRIDGE` rows bind the `runtime` browser host planes — Router location/pending, Install stance/fresh, Guard.dirty, Vault.status — through `Atom.subscribable`/`Atom.subscriptionRef` at app composition; the wiring is the composition root's own code.
+- The one value crossing back from `iac` is typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.

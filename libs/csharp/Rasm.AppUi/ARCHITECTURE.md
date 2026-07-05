@@ -56,10 +56,11 @@ Rasm.AppUi/
 ## [02]-[SEAMS]
 
 ```text seams
-Shell/commands    →  typescript:wire/gateway            # [WIRE]: CommandPayloadWire + AvailabilityStore gate
-Render/capture    →  typescript:wire                # [PROJECTION]: RenderReceiptWire frame-hash proof
-Render/evidence   →  typescript:core/state/feed    # [PROJECTION]: EvidenceFeed / EvidenceTimeline
-Render/pipeline   →  typescript:wire/frame               # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
+Shell/commands    →  typescript:core/interchange/codec           # [WIRE]: CommandPayloadWire + AvailabilityStore gate
+Render/capture    →  typescript:core/interchange/codec           # [PROJECTION]: RenderReceiptWire frame-hash proof
+Render/capture    →  typescript:ui/viewer                        # [RECEIPT]: RenderReceipt claims paired with local render evidence at the probe plane
+Render/evidence   →  typescript:core/state/feed                  # [PROJECTION]: EvidenceFeed / EvidenceTimeline
+Render/pipeline   →  typescript:core/interchange/codec           # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
 Render/glb        →  typescript:ui/viewer                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
 Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation
 Editing/notebook  ←  csharp:Rasm.AppHost/Runtime                 # [PORT]: DeterminismContext / CapabilityPin environment identity
@@ -79,8 +80,10 @@ Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF
 Editing           ←  csharp:Rasm.Bim/coordination                # [DOMAIN]: BcfTopic/BcfComment/BcfViewpoint annotation domain
 Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: Forward/inverse delta replays as SyncOpKind durable inverse stream
 Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
-Shell/controls    →  typescript:wire            # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
-Shell/solver      →  typescript:wire                        # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
+Shell/controls    →  typescript:core/interchange/codec           # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
+Shell/controls    →  typescript:ui/viewer                        # [WIRE]: ControlIntent six-kind union materialized at the panel plane
+Shell/solver      →  typescript:core/interchange/codec           # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
+Shell/solver      →  typescript:ui/viewer                        # [WIRE]: ordered LayoutProgram re-solved at the panel plane
 Editing/tables    ←  csharp:Rasm.AppUi/Shell/virtualization      # [PORT]: VirtualWindow viewport-range realized-item window
 ```
 

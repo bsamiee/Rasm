@@ -46,6 +46,9 @@ const _admitted = (pin: string): boolean => pin === 'catalog:' || pin.startsWith
 const _entries = (manifest: typeof _Manifest.Type): ReadonlyArray<readonly [block: string, name: string, pin: string]> =>
     Array.flatMap(_BLOCKS, (block) => Array.map(Record.toEntries(manifest[block]), ([name, pin]) => [block, name, pin] as const));
 
+// An overlay copy names its canonical twin at another tier by full catalog path; a canonical copy carries no such pointer.
+const _overlay = (name: string): RegExp => new RegExp(`\`(libs|tests)/typescript(/[a-z]+)?/\\.api/${name.replaceAll('.', '\\.')}\``);
+
 const _manifests = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -57,8 +60,8 @@ const _manifests = Effect.gen(function* () {
     return Array.getSomes(decoded);
 });
 
-// The catalog tiers: the two fixed tiers plus every folder tier discovered on disk — a package is
-// catalogued at exactly one tier, so a shared basename across tiers is the dual-tier defect.
+// The catalog tiers: the two fixed tiers plus every folder tier discovered on disk — a package holds
+// exactly one canonical catalog; a shared basename is legal only as a declared overlay naming it.
 const _tiers = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -117,18 +120,28 @@ layer(NodeContext.layer)('workspace admission', (it) => {
         }),
     );
 
-    it.effect('a package is catalogued at exactly one tier', () =>
+    it.effect('a package holds one canonical catalog; every extra copy is a declared overlay naming it', () =>
         Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
             const tiers = yield* _tiers;
             const homes = Array.reduce(tiers, Record.empty<string, ReadonlyArray<string>>(), (acc, [tier, names]) =>
                 Array.reduce(names, acc, (held, name) =>
                     Record.modifyOption(held, name, Array.append(tier)).pipe(Option.getOrElse(() => Record.set(held, name, Array.of(tier)))),
                 ),
             );
-            const doubled = Array.filterMap(Record.toEntries(homes), ([name, where]) =>
-                where.length > 1 ? Option.some(`${name} -> ${where.join(' + ')}`) : Option.none(),
+            const rogue = yield* Effect.forEach(
+                Array.filter(Record.toEntries(homes), ([, where]) => where.length > 1),
+                ([name, where]) =>
+                    Effect.map(
+                        Effect.forEach(where, (tier) => fs.readFileString(path.join(tier, name))),
+                        (texts) =>
+                            Array.filter(texts, (text) => !_overlay(name).test(text)).length === 1
+                                ? Option.none<string>()
+                                : Option.some(`${name} -> ${where.join(' + ')}`),
+                    ),
             );
-            expect(doubled).toEqual([]);
+            expect(Array.getSomes(rogue)).toEqual([]);
         }),
     );
 });
@@ -144,5 +157,10 @@ describe('admission predicates', () => {
     it('every workspace-fact pattern refuses the counterfeit manifest', () => {
         const undead = Array.filterMap(_FACTS, (row) => (row.pattern.test(_COUNTERFEIT) ? Option.some(row.fact) : Option.none()));
         expect(undead).toEqual([]);
+    });
+
+    it('the overlay mark separates a declared overlay from a second canonical', () => {
+        expect(_overlay('apache-arrow.md').test('the branch catalogue is the ui folder (`libs/typescript/ui/.api/apache-arrow.md`); seam facts only')).toBe(true);
+        expect(_overlay('apache-arrow.md').test('# [apache-arrow] — the one columnar wire of the data plane')).toBe(false);
     });
 });

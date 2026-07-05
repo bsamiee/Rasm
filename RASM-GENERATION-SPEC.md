@@ -176,7 +176,7 @@ public readonly record struct Placement(
     double NormalOffsetMm = 0.0, double LateralOffsetMm = 0.0);
 ```
 
-KERNEL GATE (sequencing law): stand-up is GATED on the `Rasm` kernel (Vectors + the greenfield Geometry robust-core) carrying the curve/surface/field operations this engine composes — arc-length stations and frames on arbitrary curves, surface isolines/geodesics/offsets, region tessellation and subdivision, developable/panelization operations, and pattern-to-surface mapping. Where those operations are missing, a Vectors/Geometry rebuild campaign PRECEDES Generation stand-up; this spec never re-implements kernel geometry, and no Generation surface may compensate for a kernel gap with a local geometry kernel.
+KERNEL GATE (verify-against-disk law): the `Rasm` kernel operations this engine composes are LANDED — stand-up VERIFIES each against the landed pages, never awaits a campaign: arc-length stations and frames on arbitrary curves (`Parametric/curve.md` `ParametricOp.Stations` → `StationField`; `Parametric/locate.md`), surface isolines/geodesics/offsets (`Parametric/surface.md` `SurfaceOp` + `Processing/geodesics.md` + `Meshing/offset.md`), region tessellation and subdivision (`Meshing/delaunay.md` `Tessellation.Build` + `Parametric/subdivide.md` `Subdivision.Apply`), developable/panelization operations (`Parametric/develop.md` `Development.Apply` + `Parametric/panelize.md` `Panelization.Apply`), pattern-to-surface mapping (`Parametric/patternmap.md` `Patterning.Apply` → `InstanceStream`), and the exact predicate floor (`Numerics/predicates.md`). A verify that finds a missing member is a demand row on the owning kernel page, never license for a local geometry kernel; this spec never re-implements kernel geometry.
 
 ## [05]-[LAYOUT_PROBLEM]
 
@@ -223,7 +223,7 @@ Every surface below is landed and frozen by the Component-Paradigm campaign; the
 | `IfcClass` + `IfcLegality` | `Rasm.Bim` | the generated IFC vocabulary validating every Generation-minted `IfcBinding` stamp at `Assemble` |
 | `NestPlan` + `StockNest.Pack` | `Rasm.Fabrication` | rectangular cutting-stock realization of generated cut lists |
 | `Placement` + `SpineRef` | this spec | the one host-neutral emission record + the kernel-geometry spine reference; HOST-BOUNDARY materializes |
-| curve/surface/field operations | `Rasm` (Vectors + Geometry) | stations/frames, isolines/geodesics/offsets, tessellation/subdivision, panelization, pattern-to-surface mapping — the `[04]` KERNEL GATE |
+| curve/surface/field operations | `Rasm` (landed: `Parametric/{curve,surface,subdivide,develop,panelize,patternmap}.md`, `Meshing/{offset,delaunay}.md`, `Processing/geodesics.md`, `Numerics/predicates.md`) | stations/frames, isolines/geodesics/offsets, tessellation/subdivision, panelization, pattern-to-surface mapping — the `[04]` KERNEL GATE, verified against disk |
 
 ## [07]-[FAULT_RESERVATION]
 

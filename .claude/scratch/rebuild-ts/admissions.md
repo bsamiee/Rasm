@@ -13,7 +13,8 @@ Catalog files carry NO versions (central-manifest law); this file is the one ver
 - `@opentelemetry/api-logs` | 0.220.0 | # runtime | `libs/typescript/runtime/.api/opentelemetry-api-logs.md`
 - `@opentelemetry/exporter-logs-otlp-http` | 0.220.0 | # runtime | `libs/typescript/runtime/.api/opentelemetry-exporter-logs-otlp-http.md`
 - `motion` | 12.42.2 | # ui | `libs/typescript/ui/.api/motion.md`
-- `@visx/*` | resolve exact subpackages from prefetch-ui-iac.md (umbrella `visx` is NOT on npm) | # ui | one catalog per admitted subpackage
+- `@visx/scale` + `@visx/shape` + `@visx/axis` + `@visx/group` + `@visx/responsive` | 4.0.0 each | # ui | catalogs landed (`visx-scale.md` … `visx-responsive.md`); `@visx/curve`/`point`/`text`/`vendor` arrive transitively, NOT admitted — curve values route through the `d3` substrate
+- `@perspective-dev/viewer-datagrid` + `@perspective-dev/viewer-charts` | 4.5.1 each | # ui | the admitted plugin pair (documented inside `perspective-dev-viewer.md`; `viewer-d3fc`/`-openlayers` rejected — trail at 4.4.1)
 - `@observablehq/plot` | 0.6.17 | # ui | `libs/typescript/ui/.api/observablehq-plot.md`
 - `uplot` | 1.6.32 | # ui | `libs/typescript/ui/.api/uplot.md`
 - `d3` | 7.9.0 | # ui | `libs/typescript/ui/.api/d3.md`

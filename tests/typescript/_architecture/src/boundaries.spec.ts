@@ -13,8 +13,8 @@ type TagTriple = { readonly folder: string; readonly scope: string; readonly run
 
 const _ROOT = new URL('../../../..', import.meta.url).pathname;
 
-// Legacy _tmp material and the authoring corpora never join a source verdict.
-const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git|_tmp|\.planning|\.api)(\/|$)/;
+// Authoring corpora and tool trees never join a source verdict.
+const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git|\.planning|\.api)(\/|$)/;
 
 // The branch-wide migrator ban: DDL is idempotent declarative ensure, and PgMigrator has no legal importer.
 const _BANNED = [/^@effect\/sql\/Migrator/, /^@effect\/sql-pg\/PgMigrator/] as const;
@@ -22,17 +22,24 @@ const _BANNED = [/^@effect\/sql\/Migrator/, /^@effect\/sql-pg\/PgMigrator/] as c
 // Folder-scoped external admissions: each family is a zone, and the permitted [folder, family] pairs
 // below are the only legal crossings; an unlisted external package is substrate and stays unaudited.
 const _ADMISSIONS = [
-    { family: 'ext:pulumi', pattern: /^@pulumi\//, zones: ['iac'] },
-    { family: 'ext:sql-driver', pattern: /^@effect\/sql-(pg|sqlite)/, zones: ['store'] },
     { family: 'ext:jose', pattern: /^jose($|\/)/, zones: ['security'] },
     { family: 'ext:arctic', pattern: /^arctic($|\/)/, zones: ['security'] },
     { family: 'ext:webauthn', pattern: /^@simplewebauthn\//, zones: ['security'] },
-    { family: 'ext:react', pattern: /^react($|-|\/)/, zones: ['ui', 'browser'] },
+    { family: 'ext:oslo', pattern: /^@oslojs\//, zones: ['security'] },
+    { family: 'ext:sql', pattern: /^@effect\/sql($|-|\/)/, zones: ['data'] },
+    { family: 'ext:duckdb', pattern: /^@duckdb\//, zones: ['data'] },
+    { family: 'ext:tus', pattern: /^(@tus\/|tus-js-client($|\/))/, zones: ['data'] },
+    { family: 'ext:cluster', pattern: /^@effect\/(cluster|workflow|ai)($|-|\/)/, zones: ['runtime'] },
+    { family: 'ext:nats', pattern: /^@nats-io\//, zones: ['runtime'] },
+    { family: 'ext:openfeature', pattern: /^@openfeature\//, zones: ['runtime'] },
+    { family: 'ext:react', pattern: /^react($|-|\/)/, zones: ['ui'] },
+    { family: 'ext:pulumi', pattern: /^@pulumi(verse)?\//, zones: ['iac'] },
 ] as const;
 
 // The security sub-folder admissions ride the same engine at depth-2 zones.
 const _CRYPTO = [
-    { family: 'ext:jose', pattern: /^jose($|\/)/, zones: ['security/sign'] },
+    { family: 'ext:jose', pattern: /^jose($|\/)/, zones: ['security/crypt'] },
+    { family: 'ext:oslo', pattern: /^@oslojs\//, zones: ['security/crypt'] },
     { family: 'ext:arctic', pattern: /^arctic($|\/)/, zones: ['security/authn'] },
     { family: 'ext:webauthn', pattern: /^@simplewebauthn\//, zones: ['security/authn'] },
 ] as const;
@@ -65,25 +72,45 @@ const _resolved = (from: string, specifier: string): ReadonlyArray<string> =>
 const _ticked = (cell: string): ReadonlyArray<string> =>
     Array.filterMap(Array.fromIterable(cell.matchAll(/`([^`]+)`/g)), (hit) => Option.fromNullable(hit[1]));
 
-// The permitted-edge table parses live from its owning page: a reshaped or vanished table yields zero
-// rows and fails the gauge loudly — the page is the law's single source, never a transcribed copy.
+// The wave marks parse from the dependency-direction prose: each `W<n>` names its ticked folder run.
+const _waveMarks = (page: string): ReadonlyArray<readonly [folder: string, wave: number]> =>
+    Array.flatMap(Array.fromIterable(page.matchAll(/\bW(\d)((?:\s*`[a-z]+`\/?)+)/g)), (mark) =>
+        Option.match(Option.flatMap(Option.fromNullable(mark[1]), Number.parse), {
+            onNone: (): ReadonlyArray<readonly [string, number]> => [],
+            onSome: (wave) => Array.map(_ticked(mark[2] ?? ''), (folder) => [folder, wave] as const),
+        }),
+    );
+
+// The permitted-edge table parses live from its owning page: the [FROM]/[MAY_IMPORT] rows join the
+// prose wave marks, and a row missing its mark voids the whole parse — a reshaped or vanished table
+// fails the gauge loudly, because the page is the law's single source, never a transcribed copy.
 const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
     pipe(
-        Array.filterMap(Array.fromIterable(page.matchAll(/^\|\s*`([a-z]+)`\s*\|([^|]*)\|\s*W(\d)\s*\|/gm)), (row) =>
-            Option.all({
-                folder: Option.fromNullable(row[1]),
-                tokens: Option.some(_ticked(row[2] ?? '')),
-                wave: Option.flatMap(Option.fromNullable(row[3]), Number.parse),
-            }),
-        ),
-        (raw) =>
-            pipe(HashSet.fromIterable(Array.map(raw, (row) => row.folder)), (folders) =>
-                Array.map(raw, (row) => ({
-                    folder: row.folder,
-                    edges: Array.filter(row.tokens, (token) => HashSet.has(folders, token) && token !== row.folder),
-                    wave: row.wave,
-                })),
+        _waveMarks(page),
+        (marks) =>
+            Option.all(
+                Array.map(
+                    Array.filterMap(Array.fromIterable(page.matchAll(/^\|\s*\[\d+\]\s*\|\s*`([a-z]+)`\s*\|([^|]*)\|/gm)), (row) =>
+                        Option.map(Option.fromNullable(row[1]), (folder) => ({ folder, tokens: _ticked(row[2] ?? '') })),
+                    ),
+                    (row) =>
+                        Option.map(
+                            Array.findFirst(marks, ([folder]) => folder === row.folder),
+                            ([, wave]) => ({ ...row, wave }),
+                        ),
+                ),
             ),
+        Option.match({
+            onNone: (): ReadonlyArray<LedgerRow> => [],
+            onSome: (raw) =>
+                pipe(HashSet.fromIterable(Array.map(raw, (row) => row.folder)), (folders) =>
+                    Array.map(raw, (row) => ({
+                        folder: row.folder,
+                        edges: Array.filter(row.tokens, (token) => HashSet.has(folders, token) && token !== row.folder),
+                        wave: row.wave,
+                    })),
+                ),
+        }),
     );
 
 // Acyclicity by expression fixpoint: peel nodes whose every edge points outside the live set; a
@@ -144,7 +171,7 @@ const _drawn = (verdict: ReturnType<typeof Imports.verdict>): ReadonlyArray<stri
 const _ledger = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    return _parsedLedger(yield* fs.readFileString(path.join(_ROOT, 'libs/typescript/.planning/composition-system.md')));
+    return _parsedLedger(yield* fs.readFileString(path.join(_ROOT, 'libs/typescript/.planning/ARCHITECTURE.md')));
 });
 
 const _triples = (rows: ReadonlyArray<LedgerRow>) =>
@@ -259,50 +286,58 @@ layer(NodeContext.layer)('edge ledger', (it) => {
 });
 
 describe('gauge falsification', () => {
-    const rows = _parsedLedger(['| `kernel` | — | W0 |', '| `state` | `kernel` | W1 |', '| `store` | `kernel`, `state` | W3 |'].join('\n'));
+    const rows = _parsedLedger(
+        [
+            'Dependency flows downward — `core`, `security`, `data`.',
+            '| [01] | `core` | (nothing) | law |',
+            '| [02] | `security` | `core` | law |',
+            '| [03] | `data` | `core`, `security` | law |',
+        ].join('\n'),
+    );
 
     it('the ledger parser reads rows and refuses malformed tables', () => {
         expect(rows).toEqual([
-            { folder: 'kernel', edges: [], wave: 0 },
-            { folder: 'state', edges: ['kernel'], wave: 1 },
-            { folder: 'store', edges: ['kernel', 'state'], wave: 3 },
+            { folder: 'core', edges: [], wave: 0 },
+            { folder: 'security', edges: ['core'], wave: 1 },
+            { folder: 'data', edges: ['core', 'security'], wave: 2 },
         ]);
-        expect(_parsedLedger('| folder | edges | wave |')).toEqual([]);
+        expect(_parsedLedger('| [FROM] | [MAY_IMPORT] | [NOTES] |')).toEqual([]);
+        expect(_parsedLedger('| [01] | `core` | (nothing) | law |')).toEqual([]);
     });
 
     it('the acyclicity gauge refutes a cyclic table', () => {
         expect(_acyclic(rows)).toBe(true);
         expect(
             _acyclic([
-                { folder: 'host', edges: ['security'], wave: 1 },
-                { folder: 'security', edges: ['host'], wave: 1 },
+                { folder: 'runtime', edges: ['security'], wave: 3 },
+                { folder: 'security', edges: ['runtime'], wave: 1 },
             ]),
         ).toBe(false);
     });
 
     it('a banned module import is a violation the engine names', () => {
-        const scanned = Imports.scan([{ path: 'store/src/journal.ts', text: 'import { PgMigrator } from "@effect/sql-pg/PgMigrator";' }]);
-        expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['store/src/journal.ts -[banned]-> @effect/sql-pg/PgMigrator']);
+        const scanned = Imports.scan([{ path: 'data/src/journal.ts', text: 'import { PgMigrator } from "@effect/sql-pg/PgMigrator";' }]);
+        expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['data/src/journal.ts -[banned]-> @effect/sql-pg/PgMigrator']);
     });
 
     it('an edge outside the table is a violation, a permitted edge is not', () => {
         const scanned = Imports.scan([
-            { path: 'kernel/src/identity.ts', text: 'import { fold } from "@rasm/ts/state";' },
-            { path: 'store/src/journal.ts', text: 'import { brand } from "@rasm/ts/kernel";\nimport { PgClient } from "@effect/sql-pg";' },
+            { path: 'core/src/identity.ts', text: 'import { fold } from "@rasm/ts/security";' },
+            { path: 'data/src/journal.ts', text: 'import { brand } from "@rasm/ts/core";\nimport { PgClient } from "@effect/sql-pg";' },
         ]);
-        expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['kernel/src/identity.ts -[edge]-> @rasm/ts/state']);
+        expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['core/src/identity.ts -[edge]-> @rasm/ts/security']);
     });
 
     it('a relative reach-around resolves to its folder zone and is audited', () => {
-        const scanned = Imports.scan([{ path: 'state/src/fold.ts', text: 'import { key } from "../../store/src/journal.ts";' }]);
-        expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['state/src/fold.ts -[edge]-> ../../store/src/journal.ts']);
+        const scanned = Imports.scan([{ path: 'security/src/fold.ts', text: 'import { key } from "../../data/src/journal.ts";' }]);
+        expect(_drawn(Imports.verdict(scanned, _rules(rows)))).toEqual(['security/src/fold.ts -[edge]-> ../../data/src/journal.ts']);
     });
 
     it('a crypto admission outside its sub-folder is a violation', () => {
         const scanned = Imports.scan([
-            { path: 'security/src/session/cookie.ts', text: 'import { SignJWT } from "jose";' },
-            { path: 'security/src/sign/jwt.ts', text: 'import { SignJWT } from "jose";' },
+            { path: 'security/src/authn/session.ts', text: 'import { SignJWT } from "jose";' },
+            { path: 'security/src/crypt/sign.ts', text: 'import { SignJWT } from "jose";' },
         ]);
-        expect(_drawn(Imports.verdict(scanned, _cryptoRules))).toEqual(['security/src/session/cookie.ts -[edge]-> jose']);
+        expect(_drawn(Imports.verdict(scanned, _cryptoRules))).toEqual(['security/src/authn/session.ts -[edge]-> jose']);
     });
 });
