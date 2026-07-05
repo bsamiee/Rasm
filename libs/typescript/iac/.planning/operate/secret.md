@@ -180,7 +180,7 @@ const _uses = [
 
 const _Profile = Schema.Struct({
   algorithm: Schema.optionalWith(Schema.Literal("RSA", "ECDSA", "ED25519"), { default: () => "ECDSA" as const }),
-  curve: Schema.optionalWith(Schema.NonEmptyString, { default: () => "P256" }),
+  curve: Schema.optionalWith(Schema.Literal("P224", "P256", "P384", "P521"), { default: () => "P256" as const }),
   validityHours: Schema.optionalWith(Schema.Int.pipe(Schema.between(24, 87600)), { default: () => 8760 }),
   renewBeforeHours: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 8760)), { default: () => 720 }),
   uses: Schema.optionalWith(

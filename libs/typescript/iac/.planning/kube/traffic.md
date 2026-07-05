@@ -12,11 +12,12 @@ The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issue
 ## [2]-[INGRESS_EDGE]
 
 [INGRESS_EDGE]:
-- Owner: the tier's edge assembly — the issued triple sinks into one `core/v1.Secret` of `type: "kubernetes.io/tls"` (`stringData` carrying `tls.crt`/`tls.key`), the `networking/v1.Ingress` references it by `secretName` and routes the hostname to the workload service, and the `NetworkPolicy` closes the namespace: ingress admitted only from the ingress-controller namespace to the service port, egress open — the fence the policy pack's cross-resource row verifies exists wherever a `Deployment` does.
+- Owner: the tier's edge assembly — the issued triple sinks into one `core/v1.Secret` of `type: "kubernetes.io/tls"` (`stringData` carrying `tls.crt`/`tls.key`), the `networking/v1.Ingress` references it by `secretName` and routes the hostname to the workload service, and the `NetworkPolicy` closes the namespace: ingress admitted only from the ingress-controller namespace or the arm's tunnel connector pods to the service port, egress open — the connector row is inert under `direct` because no pod carries the label, and the fence is what the policy pack's cross-resource row verifies exists wherever a `Deployment` does.
 - Law: the hostname derives once — `app.domain` from the spec's `domain` Option; an absent domain or zone fails the tier loudly at construction (`RunError` naming the coordinate), because traffic without an address is a spec defect.
 - Law: material crosses as the triple only — `args.issue(hostname)` yields `Certs.Issued` with `key` and `cert` as state-encrypted `Output`s and `renewal` as the rotation boolean; the tier never sees a private-key PEM outside the sink write, and a second consumer of the same material is a second sink row, never a second issuance.
 - Law: TLS is structural — the ingress carries its `tls` block by construction and the policy pack rejects one without it, so an unencrypted edge is unshippable from both directions.
 - Law: the controller identity is one `_EDGE` anchor — the ingress's `ingressClassName` and the fence's namespace selector are its two projections, so the bootstrap-installed controller renames in one edit and the routing class and the admission fence cannot drift; a fence naming a namespace no controller occupies, or an ingress naming a class no controller serves, is the split this anchor deletes.
+- Law: the connector identity is the `_connector` projection — the fence's same-namespace admission row and the tunnel Deployment's labels and selector read one spelling, so a fence that blocks its own connector is unspellable and a connector rename lands in one edit.
 - Entry: `new Traffic("traffic", { spec, namespace, service, port, connector, issue, apiToken }, opts)`; `traffic.hostname` feeds `StackOutputs.ingress`, `traffic.renewal` feeds the drift watch.
 - Growth: a second hostname is a second issue-and-sink pass on the same CA; a stricter fence (egress allowlist) is one `NetworkPolicy` spec row.
 - Boundary: issuance mechanics, the usage vocabulary, and the renewal window are `operate/secret.md`'s; the workload service is `kube/workload.md`'s; the cloud-LB ingress cells are the prepared arms'.
@@ -48,6 +49,10 @@ declare namespace Traffic {
 
 const _EDGE = { className: "nginx", namespace: "ingress-nginx" } as const
 
+const _connector = (name: string): { readonly "app.kubernetes.io/name": string } => ({
+  "app.kubernetes.io/name": `${name}-connector`,
+})
+
 const _fenced = (
   name: string,
   args: Traffic.Args,
@@ -59,7 +64,10 @@ const _fenced = (
       podSelector: {},
       policyTypes: ["Ingress"],
       ingress: [{
-        from: [{ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": _EDGE.namespace } } }],
+        from: [
+          { namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": _EDGE.namespace } } },
+          { podSelector: { matchLabels: _connector(name) } },
+        ],
         ports: [{ port: args.port, protocol: "TCP" }],
       }],
     },
@@ -101,7 +109,7 @@ const _tunneled = (
       ],
     },
   }, opts.cf)
-  const labels = { "app.kubernetes.io/name": `${name}-connector` }
+  const labels = _connector(name)
   const token = cloudflare.getZeroTrustTunnelCloudflaredTokenOutput({ accountId: coords.account, tunnelId: tunnel.id }, opts.cf)
   new k8s.apps.v1.Deployment(`${name}-connector`, {
     metadata: { namespace: args.namespace, labels },

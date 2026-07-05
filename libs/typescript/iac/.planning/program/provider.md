@@ -246,7 +246,7 @@ class Bootstrap extends Tier {
 [ARM_PROGRAMS]:
 - Law: the k8s arm composes in dependency order — `Bootstrap` (kubeconfig) → `k8s.Provider` + one `Namespace` → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Workload.token` → optional `Workload` whose live-`Output` env pairs derive from the same outputs record through the one `_pairs` fold (when `spec.image` is present) → one `Certs.root` CA → `Traffic` over the workload service with the issuance capability injected — and returns every realized `StackOutputs` plane, `fanout` included.
 - Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, and by-value `secrets` bind Doppler outputs so no build credential touches disk. The fastcdc wasm artifact is a build-stage product of this same image — a rust stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg — so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm is build-plus-runtime — the `ssh://` `docker.Provider` binds the proven connection (the daemon `Bootstrap`'s docker install left behind), and the app `docker.Container` pins the built digest with the runtime fully wired at the catalogued nested spellings: `ports` rows (`internal`/`external`), `networksAdvanced` binding the `docker.Network` by its `name` output, `volumes` binding the `docker.Volume` by `volumeName`/`containerPath`; the arm publishes no output plane it does not realize, so its return stays empty until a traffic cell lands on this column.
+- Law: the docker arm is bootstrap-plus-build-plus-runtime — the daemon `Bootstrap` realizes the column's bootstrap cell (the proven connection and key drive the engine install, `epoch`-triggered like every host mutation), the `ssh://` `docker.Provider` binds the proven connection behind it with `dependsOn` the daemon so the first `up` cannot race the install, and the app `docker.Container` pins the built digest with the runtime fully wired at the catalogued nested spellings: `ports` rows (`internal`/`external`), `networksAdvanced` binding the `docker.Network` by its `name` output, `volumes` binding the `docker.Volume` by `volumeName`/`containerPath`; the arm publishes no output plane it does not realize, so its return stays empty until a traffic cell lands on this column.
 - Law: the aws arm realizes its column through the composition tier — one `aws.Provider` from the proven region (credentials ambient under `doppler run`), `awsx.ec2.Vpc` expands the AZ intent, `awsx.ecr.Repository` + `awsx.ecr.Image` build-and-push through the same bundled buildx builder, `aws.ecs.Cluster` + `awsx.ecs.FargateService` run the digest behind `awsx.lb.ApplicationLoadBalancer`, and `aws.s3.BucketV2` is the object cell; raw `aws.*` resources compose only where the component does not expose the attribute.
 - Law: the gcp and cloudflare arms are provider-seam-complete — `gcp` proves `region` and `project`, binds `credentials` from the `GCP_CREDENTIALS` fan-in read, and realizes the GKE anchor (`container.Cluster` at its catalogued fields); `cloudflare` binds `apiToken` from `CLOUDFLARE_API_TOKEN` and realizes the dns cell (`DnsRecord` at its catalogued fields); each returns exactly the planes it realizes — no declared-signature bag pads an output record — and promoting either arm is realizing more of its map column (Cloud SQL, GCS, R2, Workers) against the catalogued args: the record row, signature, and outputs contract never move.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
@@ -364,9 +364,15 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         (proven, ref) => ({ proven, ref }),
       ),
       ({ proven, ref }) => async () => {
+        const daemon = new Bootstrap("daemon", {
+          connection: proven.connection,
+          key: pulumi.secret(Redacted.value(proven.key)),
+          epoch: spec.epoch,
+          install: pins.install,
+        })
         const provider = new docker.Provider("engine", {
           host: `ssh://${proven.connection.user}@${proven.connection.host}:${proven.connection.port}`,
-        })
+        }, { dependsOn: [daemon] })
         const image = new dockerBuild.Image("app", {
           push: true,
           tags: [ref],
