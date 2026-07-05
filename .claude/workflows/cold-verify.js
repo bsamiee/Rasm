@@ -1,11 +1,11 @@
 export const meta = {
   name: 'cold-verify',
   whenToUse: 'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver is the terminal finalizer — findings resolve in-run, never as a report, and no phase follows it.',
-  description: 'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; opus verifiers fan out, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts); ONE terminal fable resolver then finalizes the campaign — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose, and pushes touched pages past the ruling per the floor law. No phase follows the resolver.',
+  description: 'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; opus verifiers fan out, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; one verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. No phase follows the resolver.',
   phases: [
     { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
-    { title: 'Verify', detail: 'per campaign: opus slice verifiers + one governance verifier, read-only, typed anchored findings', model: 'opus' },
-    { title: 'Resolve', detail: 'per campaign: one terminal fable finalizer — findings as signals, own hunt beyond them, every ripple resolved in-run', model: 'fable' },
+    { title: 'Verify', detail: 'per campaign: opus slice verifiers + one governance verifier + one cross-libs ripple verifier, read-only, self-verified typed anchored findings', model: 'opus' },
+    { title: 'Resolve', detail: 'per campaign: one terminal fable finalizer — findings as signals, own hunt beyond them, every ripple resolved in-run, libs-wide', model: 'fable' },
   ],
 }
 
@@ -50,6 +50,11 @@ const HUNT = 'HUNT CLASSES: missing (a ruled motion, page, owner, case, band, se
   'disagreeing — page vs index doc vs manifest vs .api), phantom (a cited member, page, or anchor that does not exist). ' +
   'Every finding carries a file anchor and, where the fix is derivable, the exact fix. Verify cited external members ' +
   'against the .api catalogs; never trust page prose about itself.'
+const SELF_CHECK = 'MANDATORY SELF-VERIFY (second pass, before returning): attack your OWN findings — re-open every ' +
+  'cited anchor and try to REFUTE each finding from disk; a finding that fails re-confirmation is deleted, one that ' +
+  'survives carries the exact anchor and concrete evidence. A vague finding — no precise anchor, hedged appears/seems ' +
+  'wording, a class without a demonstrated instance — is a defect. Then re-read your scope once more hunting what the ' +
+  'first pass skimmed past; a clean verdict is asserted only after this second hostile pass returns empty.'
 
 // --- [COMPOSITION] ---
 const lanes = await parallel(CAMPS.map((c) => async () => {
@@ -61,25 +66,38 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN, stallMs: STALL })
   const slices = ((plan && plan.slices) || []).filter((s) => s && s.length)
   const gov = (plan && plan.governance) || []
-  const verifyTasks = slices.map((pages, i) => () => agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: HOSTILE READ-ONLY VERIFY, ' +
+  const verifyTasks = slices.map((pages, i) => () => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY VERIFY, ' +
     'slice ' + i + '. Read ' + c.doc + ' IN FULL — every ruling, page row, band, seam, rider, and acceptance trace that ' +
     'touches your pages. Then read each of these pages IN FULL plus every .api catalog its fences cite: ' +
     JSON.stringify(pages) + '. Verify each ruling landed PROPERLY — integrated as if always designed that way, at the ' +
     'ruled band/signature/charter, frozen names byte-identical — and attack past the ruling: the floor law means a ' +
     'page that merely met its disposition without depth is a naive finding. Return typed anchored findings.',
     { label: 'verify:' + tag + ':s' + i, phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
-  verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' + c.doc +
+  verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' + c.doc +
     ' IN FULL, then audit the governance surface end to end: ' + JSON.stringify(gov) + '. Every acceptance trace ' +
     'resolves on disk (page exists, entry carries the ruled signature, seam anchor present); every rider has its landed ' +
     'receipt; the README router/package groups, ARCHITECTURE codemap + seams ledger (canonical [KIND] tags, mirrored ' +
     'endpoints), central manifest rows, and .api anchors agree with the landed page set — a disagreement between any ' +
     'two surfaces is a drift finding. Return typed anchored findings.',
     { label: 'verify:' + tag + ':gov', phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
+  verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY CROSS-LIBS ' +
+    'RIPPLE VERIFY. Read ' + c.doc + ' IN FULL, then hunt every cross-folder touchpoint the campaign touches OUTSIDE ' +
+    c.root + ', across all of libs/ (real grep/listing, never memory): sibling ARCHITECTURE seam ledgers naming this ' +
+    'package (mirrored glyphs and [KIND] tags, anchors into pages the campaign split, renamed, re-pointed, or ' +
+    'deleted), consumer pages citing target anchors, every counterpart obligation the doc records (each recorded at ' +
+    'its named home, or landed where the doc rules an edit), shared manifest rows and .api tiers, frozen wire names ' +
+    'held byte-identical on both ends. A stale sibling anchor, a one-sided seam edit, an unrecorded counterpart, or a ' +
+    'sibling interior edited past the doc ruling is a finding. Return typed anchored findings.',
+    { label: 'verify:' + tag + ':ripple', phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
   const found = (await parallel(verifyTasks)).filter(Boolean)
   const all = found.flatMap((f) => f.findings || [])
   log(tag + ': ' + all.length + ' finding(s) from ' + found.length + ' verifier(s)')
   const fix = await agent(CTX(c) + '\n\n' + HUNT + '\n\nTASK: TERMINAL FINALIZE (WRITER — full authority over ' + c.root +
-    ', its manifest rows, and ' + c.doc + ' where a finding proves the doc itself wrong; you are the run\'s LAST agent, ' +
+    ', its manifest rows, ' + c.doc + ' where a finding proves the doc itself wrong, AND libs-wide ripple authority: a ' +
+    'ripple a fix exposes anywhere under libs/ — sibling seam ledgers, mirrored rows, consumer anchors, index docs, ' +
+    '.api catalogs — is repaired in place at the sibling in the same pass, both ends; where the doc rules a ' +
+    'counterpart RECORDED with a demanding consumer rather than edited, the recording IS the fix and the sibling ' +
+    'interior stays unedited past that ruling. You are the run\'s LAST agent, ' +
     'no phase follows you). Read ' + c.doc + ' IN FULL first. The verifier findings below are SIGNALS, not law: do not ' +
     're-litigate a correct finding — re-verify each on disk, then implement the STRONGEST resolution, which is the ' +
     'suggested fix only when that fix is already the root-level form; where a suggestion is weak, short-sighted, or a ' +
@@ -87,7 +105,7 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     'is rejected with reason). Then hunt PAST the signal list on your own authority — the hunt classes above over the ' +
     'corpus and governance surface as you work it — and fix what the verifiers missed; `beyond` enumerates those fixes, ' +
     'and an empty `beyond` attests your own hunt found nothing, never that it did not run. Every ripple an edit exposes ' +
-    'is YOURS in the same pass: seam counterparts both ends, consumer sites, index docs, manifest rows, .api anchors — ' +
+    'is YOURS in the same pass, anywhere under libs/: seam counterparts both ends, consumer sites, index docs, manifest rows, .api anchors — ' +
     'the run ends finalized, nothing deferred. The floor law governs every page you touch: exceed the ruling with ' +
     'denser, deeper, more capable form. Frozen signatures and wire names stay byte-identical. ' +
     'FINDINGS: ' + JSON.stringify(all),
