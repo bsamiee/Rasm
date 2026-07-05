@@ -100,7 +100,7 @@
 
 [INTEGRATION_LAW]:
 - Stack with `@effect/platform` `HttpClient`: the native `Otlp` lane requires `HttpClient` — satisfied by `net/client` default-policy rows (timeout/retry/proxy) on node/bun, or `BrowserHttpClient.layerXMLHttpRequest` in the browser. `otel/emit` composes the export layer onto the shared net-client policy, so OTLP egress inherits the same retry/proxy posture as every other outbound call.
-- Stack with `kernel/identity` `AppIdentity`: `Resource.layer({ serviceName, serviceVersion, attributes })` is fed the `AppIdentity` value; the egress-redaction policy rows (`otel/emit`) scrub PII at the export boundary before serialization.
+- Stack with `core/value/identity` `AppIdentity`: `Resource.layer({ serviceName, serviceVersion, attributes })` is fed the `AppIdentity` value; the egress-redaction policy rows (`otel/emit`) scrub PII at the export boundary before serialization.
 - Stack with `@effect/experimental` `Sse` / `edge`: inbound ingress (`edge/api/middleware`, `browser` boot, `work` entities) calls `Tracer.makeExternalSpan`/`withSpanContext` to continue the W3C `traceparent`; the `otel/emit` module owns this extract-and-continue at every entry.
 - Stack with `effect` `Logger`: `OtlpLogger.layer` (native) or `Logger.layerLoggerReplace` (SDK) replaces the process `Logger`, so structured logs become OTLP log records on the same resource — one signal spine, never a parallel log sink.
 

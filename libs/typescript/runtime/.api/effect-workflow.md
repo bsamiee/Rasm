@@ -1,6 +1,6 @@
 # [@effect/workflow] — durable workflow + activity definitions with compensation/saga folds over a swappable engine
 
-`@effect/workflow` is the durable-execution vocabulary `work/flow` and `work/queue` compose: a `Workflow` is a `Schema`-typed, idempotency-keyed, suspend-and-replay computation; an `Activity` is a once-executed, durably-recorded effect inside it; and the surrounding primitives (`DurableDeferred` external-signal await, `DurableClock` durable timer, `DurableQueue` persisted job, `DurableRateLimiter` durable throttle) are the durable analogs of their in-memory `effect` peers. Every definition runs against the `WorkflowEngine` Tag — satisfied by `WorkflowEngine.layerMemory` for specs OR by `@effect/cluster` `ClusterWorkflowEngine.layer` (`work/.api/effect-cluster.md`) for durable sharded execution over `MessageStorage` — so the SAME workflow rides both by Layer selection at the app root. Durability is suspend/replay: an `Activity` executes once, its exit is persisted, and on resume the workflow replays recorded activities without re-running side effects, with `withCompensation` running saga finalizers on whole-workflow failure. Retry/timeout budgets ride `effect/Schedule` from `kernel/fault`, never a hand-rolled loop.
+`@effect/workflow` is the durable-execution vocabulary `work/flow` and `work/queue` compose: a `Workflow` is a `Schema`-typed, idempotency-keyed, suspend-and-replay computation; an `Activity` is a once-executed, durably-recorded effect inside it; and the surrounding primitives (`DurableDeferred` external-signal await, `DurableClock` durable timer, `DurableQueue` persisted job, `DurableRateLimiter` durable throttle) are the durable analogs of their in-memory `effect` peers. Every definition runs against the `WorkflowEngine` Tag — satisfied by `WorkflowEngine.layerMemory` for specs OR by `@effect/cluster` `ClusterWorkflowEngine.layer` (`runtime/.api/effect-cluster.md`) for durable sharded execution over `MessageStorage` — so the SAME workflow rides both by Layer selection at the app root. Durability is suspend/replay: an `Activity` executes once, its exit is persisted, and on resume the workflow replays recorded activities without re-running side effects, with `withCompensation` running saga finalizers on whole-workflow failure. Retry/timeout budgets ride `effect/Schedule` from `core/value/fault`, never a hand-rolled loop.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -59,12 +59,12 @@
 
 [ENTRYPOINT_SCOPE]: activities — the once-executed durable steps with retry budgets
 - rail: durable-execution
-- `Activity.make` records a step's exit durably; retry/timeout budgets come from `effect/Schedule` (`kernel/fault`), never a loop. `idempotencyKey` and `raceAll` are the dedup and speculative-execution seams.
+- `Activity.make` records a step's exit durably; retry/timeout budgets come from `effect/Schedule` (`core/value/fault`), never a loop. `idempotencyKey` and `raceAll` are the dedup and speculative-execution seams.
 
 | [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
 |  [01]   | `Activity.make({ name, execute, success?, error?, interruptRetryPolicy? })`           | declare        | `work/flow` — the durable step; `interruptRetryPolicy` a `Schedule` |
-|  [02]   | `Activity.retry(effect, options)`                                                     | retry          | Effect.Retry options minus `schedule` (`times`/`while`/`until` only — the shipped surface types `schedule` out); bounds and gates from `kernel/fault` rows, pacing composed on the body |
+|  [02]   | `Activity.retry(effect, options)`                                                     | retry          | Effect.Retry options minus `schedule` (`times`/`while`/`until` only — the shipped surface types `schedule` out); bounds and gates from `core/value/fault` rows, pacing composed on the body |
 |  [03]   | `Activity.idempotencyKey(name, { includeAttempt? })`                                  | dedup          | the durable step key; `includeAttempt` splits retries into distinct keys |
 |  [04]   | `Activity.raceAll(name, activities)`                                                  | race           | first durable step to complete wins; the speculative-execution fold |
 
@@ -100,7 +100,7 @@
 - one definition, swappable engine: every `Workflow`/`Activity`/`DurableDeferred`/`DurableClock`/`DurableQueue` runs against the `WorkflowEngine` Tag. `WorkflowEngine.layerMemory` is the spec engine; `ClusterWorkflowEngine.layer` (over `Sharding` + `MessageStorage`) is the durable sharded engine. The definition never names its engine — the app root selects, so promoting a workflow from spec to durable is a Layer swap, not a rewrite.
 - durability is suspend/replay, not re-run: an `Activity` executes exactly once and its exit is persisted through the engine's `MessageStorage` (`ClusterSchema.Persisted` on the durable path). On resume the workflow REPLAYS recorded activities from the durable log — side effects never repeat. `idempotencyKey` (workflow) and `Activity.idempotencyKey` (step) are the replay keys; `executionId(payload)` makes re-execution of an equal payload resume the same run.
 - compensation is the saga rail, top-level only: `withCompensation(effect, (value, cause) => cleanup)` registers a finalizer that runs when the WHOLE workflow fails — the saga rollback. The documented constraint is load-bearing: compensation registers for top-level workflow effects, not for effects nested inside an activity; a rollback belongs at the workflow body, not inside a step.
-- retry/timeout budgets are `Schedule`, not loops: `interruptRetryPolicy`, `Activity.retry`, `suspendedRetrySchedule`, and `DurableQueue` `retrySchedule` all take an `effect/Schedule` sourced from `kernel/fault` degradation budgets (`Schedule.exponential`/`.jittered`). A hand-rolled retry counter or sleep loop is the defect.
+- retry/timeout budgets are `Schedule`, not loops: `interruptRetryPolicy`, `Activity.retry`, `suspendedRetrySchedule`, and `DurableQueue` `retrySchedule` all take an `effect/Schedule` sourced from `core/value/fault` degradation budgets (`Schedule.exponential`/`.jittered`). A hand-rolled retry counter or sleep loop is the defect.
 - external signals are token-addressed: a workflow `await`s a `DurableDeferred`; an out-of-band caller resolves it by `Token` (`tokenFromPayload`/`tokenFromExecutionId` → `succeed`/`fail`/`done`). The suspended workflow resumes when the token is set — the human-approval / webhook-callback pattern.
 
 [STACKS_WITH]:
@@ -114,7 +114,7 @@
 - Define workflows/activities against the `WorkflowEngine` Tag; never hardcode `layerMemory` or the cluster engine inside a definition — the app root selects.
 - Derive the replay key from `idempotencyKey`/`executionId`; never mint an ad-hoc run id or re-run an activity for its side effect.
 - Register rollback through `withCompensation` at the workflow top level; never nest compensation inside an activity, and never hand-roll a saga.
-- Take retry/timeout budgets from `kernel/fault` `Schedule`s (`interruptRetryPolicy`/`retrySchedule`/`suspendedRetrySchedule`); never a manual retry loop or `setTimeout`.
+- Take retry/timeout budgets from `core/value/fault` `Schedule`s (`interruptRetryPolicy`/`retrySchedule`/`suspendedRetrySchedule`); never a manual retry loop or `setTimeout`.
 - Resolve external waits through a `DurableDeferred` `Token`; never poll for an out-of-band condition.
 - Wrap `DurableQueue` over `@effect/experimental` `PersistedQueue` and `DurableRateLimiter` over its `RateLimiter`; never re-implement a persisted queue or distributed limiter.
 

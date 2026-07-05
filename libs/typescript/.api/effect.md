@@ -23,8 +23,8 @@
 |  [03]   | `Cause<E>` / `Exit<A, E>`                         | failure tree / outcome | `wire/fault` reconstruction, `otel/crash` — retains defect + interrupt + parallel failures |
 |  [04]   | `Data.TaggedEnum<...>` / `Data.Class`             | closed family        | `state` CRDT ops, `wire` decoded unions, `edge` control intents — value equality by structure |
 |  [05]   | `Redacted<A>`                                     | secret carrier       | `security/secret`, `proc/config` — never logged; `Redacted.value` unwraps at the crypto seam only |
-|  [06]   | `Duration` / `DateTime.Utc` / `DateTime.Zoned`    | time value           | `kernel/clock`, `work/queue`, `store/journal` — monotonic + wall-clock evidence |
-|  [07]   | `Brand.Branded<A, K>`                             | nominal refinement   | `kernel/schema` brand floor (`ContentKey`, `Hlc`, `OrdinalKey`) — decode-once type identity |
+|  [06]   | `Duration` / `DateTime.Utc` / `DateTime.Zoned`    | time value           | `core/value/clock`, `work/queue`, `store/journal` — monotonic + wall-clock evidence |
+|  [07]   | `Brand.Branded<A, K>`                             | nominal refinement   | `core/value/schema` brand floor (`ContentKey`, `Hlc`, `OrdinalKey`) — decode-once type identity |
 |  [08]   | `Scope` / `Fiber<A, E>`                           | resource / handle    | `proc/life`, `work/engine`, `browser/boot` — structured lifetime and interruptible child fibers |
 
 [PUBLIC_TYPE_SCOPE]: schema, its derivations, and boundary shapes
@@ -35,7 +35,7 @@
 |  [01]   | `Schema.Schema<Type, Encoded, R>`                         | codec              | every boundary — one Schema owns decode, encode, and every derived surface |
 |  [02]   | `Schema.Struct` / `Schema.Class` / `Schema.TaggedClass`   | record family      | `store/journal` events (`Schema.TaggedClass` + `eventVersion`), `kernel` value objects |
 |  [03]   | `Schema.TaggedError` / `Schema.TaggedRequest`             | fault / request    | `wire/fault` decoded errors, `store`/`work` request schemas with success+failure channels |
-|  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`        | field modality     | `kernel/schema` optional-to-`Option` decode, constructor defaults, key renaming at the seam |
+|  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`        | field modality     | `core/value/schema` optional-to-`Option` decode, constructor defaults, key renaming at the seam |
 |  [05]   | `ParseResult.ParseError` / `ParseResult.ParseIssue`       | decode fault       | every ingress — lifts into the `Effect` error channel; `ArrayFormatter` renders issue trees |
 |  [06]   | `SchemaAST.AST` + annotation IDs                          | reflection node    | the testkit arbitrary derivation (`tests/typescript/_testkit`), `edge/api` OpenAPI emission read the annotated AST |
 |  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`) / `Arbitrary.LazyArbitrary<A>` | generator | the testkit arbitrary source (`tests/typescript/_testkit`) — Schema-derived property generators, no hand-rolled fixtures; `LazyArbitrary<A>` = `(fc: typeof FastCheck) => FastCheck.Arbitrary<A>`, the deferred/recursive-schema form |
@@ -82,7 +82,7 @@
 |  [03]   | `Schema.Union` / `Schema.Literal` / `Schema.Enums` / `Schema.TemplateLiteralParser`              | closed union    | `state`/`wire` tagged families; `TemplateLiteralParser` decodes structured string keys |
 |  [04]   | `Schema.pick` / `Schema.omit` / `Schema.partial` / `Schema.extend` / `Schema.pluck`              | project         | `DERIVED_TYPES` — every projection derives from the one owner, never a parallel schema |
 |  [05]   | `Schema.transformOrFail(from, to, { decode, encode })` / `Schema.transform`                      | bidirectional   | `wire` codec crossings, `kernel` brand mint — total both directions, proven by the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) |
-|  [06]   | `Schema.brand("K")` / `Schema.filter` / `Schema.optionalWith(s, { as: "Option", default })`     | refine          | `kernel/schema` brand floor; `optionalWith` decodes absence to `Option` with a constructor default |
+|  [06]   | `Schema.brand("K")` / `Schema.filter` / `Schema.optionalWith(s, { as: "Option", default })`     | refine          | `core/value/schema` brand floor; `optionalWith` decodes absence to `Option` with a constructor default |
 |  [07]   | `Schema.Option` / `Schema.Either` / `Schema.Chunk` / `Schema.HashMap` / `Schema.Redacted`        | effect-data     | schemas whose decoded value is an Effect data structure, not a plain object |
 |  [08]   | `Schema.Uint8ArrayFromBase64` / `Schema.StringFromHex` / `Schema.parseJson(inner)`               | wire codec      | `wire` byte↔value crossings; `parseJson` composes an inner schema over a JSON string field |
 |  [09]   | `Arbitrary.make(schema)` / `Arbitrary.makeLazy(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive | one Schema yields the generator (`tests/typescript/_testkit`), the OpenAPI node (`edge`), the printer, and structural equality; `makeLazy` returns the deferred `LazyArbitrary<A>` for recursive/suspended schemas |
@@ -141,10 +141,10 @@
 
 | [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY]  | [CONSUMER]                                                 |
 | :-----: | :---------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------- |
-|  [01]   | `Schedule.exponential` / `Schedule.jittered` / `Schedule.intersect` / `Schedule.recurWhile` / `Schedule.cron` | recurrence | `kernel/fault` budget rows compile to schedules; `work/queue` cron; retry policy as a value |
+|  [01]   | `Schedule.exponential` / `Schedule.jittered` / `Schedule.intersect` / `Schedule.recurWhile` / `Schedule.cron` | recurrence | `core/value/fault` budget rows compile to schedules; `work/queue` cron; retry policy as a value |
 |  [02]   | `Config.string` / `Config.redacted` / `Config.integer` / `Config.withDefault` / `Config.nested` | config schema   | `proc/config` typed ingress; `Config.redacted` keeps secrets in `Redacted` end-to-end |
 |  [03]   | `ConfigProvider.fromEnv` / `ConfigProvider.fromJson` / `.orElse` / `ConfigProvider.constantCase`| provider chain  | `runtime/src/proc/config.ts` env→file→remote chain; case adapters map `FOO_BAR`↔`fooBar` |
-|  [04]   | `Duration.seconds` / `Duration.decode` / `DateTime.now` / `DateTime.addDuration` / `Cron.parse` | time            | `kernel/clock` HLC composition, `work` deadlines, `store` retention windows |
+|  [04]   | `Duration.seconds` / `Duration.decode` / `DateTime.now` / `DateTime.addDuration` / `Cron.parse` | time            | `core/value/clock` HLC composition, `work` deadlines, `store` retention windows |
 |  [05]   | `Metric.counter` / `Metric.histogram` / `Metric.gauge` / `Metric.timerWithBoundaries` / `.tagged` | metric        | `telemetry/signal` — `(app, tenant)`-tagged instruments; `Effect.withMetric` attaches to a rail |
 |  [06]   | `Logger.make` / `Logger.replace` / `Logger.batched` / `LogLevel.Debug` / `Logger.structuredLogger`| logger        | `telemetry` structured logging; `Logger.batched` for buffered export, `withMinimumLogLevel` gate |
 |  [07]   | `Metric.snapshot` / `Tracer.externalSpan` / `Effect.makeSpanScoped`                             | signal read     | `core/observe/board` reads the registry; `externalSpan` continues an extracted W3C trace context |

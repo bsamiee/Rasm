@@ -71,7 +71,7 @@
 [INTEGRATION_LAW]:
 - Stack with `@effect/experimental` EventLog: `BrowserKeyValueStore.layerLocalStorage` satisfies the `KeyValueStore` `EventLog.layerIdentityKvs({ key })` requires; `BrowserSocket.layerWebSocketConstructor` satisfies the `Socket.WebSocketConstructor` `EventLogRemote.layerWebSocket` requires; `EventJournal.layerIndexedDb` provides the journal. The browser EventLog client is these four Layers merged.
 - Stack with `@effect/opentelemetry`: `BrowserHttpClient.layerXMLHttpRequest` is the `HttpClient` the native `Otlp.layer` requires in the browser; `WebSdk.layer` is the browser SDK-bridge alternative. Browser RUM export rides the XHR client.
-- Stack with `runtime browser/fetch` + `ui/viewer`: `BrowserWorker.layer(spawn)` provides the off-main-thread decode pool; the worker side composes `BrowserWorkerRunner.layer`. Frame reassembly + content-key verify run off-thread, delegating the mint to `kernel/identity`.
+- Stack with `runtime browser/fetch` + `ui/viewer`: `BrowserWorker.layer(spawn)` provides the off-main-thread decode pool; the worker side composes `BrowserWorkerRunner.layer`. Frame reassembly + content-key verify run off-thread, delegating the mint to `core/value/identity`.
 - Stack with `@effect/platform` `Stream`/`HttpClient`: `BrowserStream.fromEventListener*` feeds `runtime browser/boot` connectivity rows; the XHR `HttpClient` composes the `runtime net/client` default-policy (timeout/retry) transformers like any other client.
 
 [LOCAL_ADMISSION]:

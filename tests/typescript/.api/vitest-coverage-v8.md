@@ -89,7 +89,7 @@ interface Thresholds {
   statements?: number; functions?: number; branches?: number; lines?: number
 }
 // Per-glob override: tighten a hot path above the global floor — one parameterized map, not a per-file config family.
-//   thresholds: { functions: 95, branches: 70, autoUpdate: true, 'src/kernel/**.ts': { lines: 100, statements: 95 } }
+//   thresholds: { functions: 95, branches: 70, autoUpdate: true, 'src/value/**.ts': { lines: 100, statements: 95 } }
 ```
 
 ## [04]-[INTEGRATION]

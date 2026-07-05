@@ -8,7 +8,7 @@
 - package: `@effect/cluster`
 - version: `0.59.0`
 - license: `MIT`
-- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x`, `@effect/rpc ^0.75.x`, `@effect/sql ^0.51.x`, `@effect/workflow ^0.18.x` (universal-tier + sibling substrate; `.api/effect.md`, `.api/effect-platform.md`, `work/.api/effect-workflow.md`)
+- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x`, `@effect/rpc ^0.75.x`, `@effect/sql ^0.51.x`, `@effect/workflow ^0.18.x` (universal-tier + sibling substrate; `.api/effect.md`, `.api/effect-platform.md`, `runtime/.api/effect-workflow.md`)
 - deps: `kubernetes-types` (the K8s pod shapes `K8sHttpClient` discovery types against)
 - runtime: node/bun durable lanes — runners use `@effect/platform` `Socket`/`HttpClient`/`FileSystem`; `MessageStorage`/`RunnerStorage` persist on `@effect/sql` (a store-owned driver); no browser lane
 - catalog-verdict: KEEP — the one durable-actor + sharding engine; a hand-rolled actor mailbox, shard assigner, or message-replay store is the named reinvention defect
