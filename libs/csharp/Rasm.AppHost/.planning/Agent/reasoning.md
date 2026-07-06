@@ -17,7 +17,7 @@ The in-process reasoning surface for the runtime spine — the third agent front
 - Cases: `ReasoningTurn` = Thinking | ToolCalled | Message | Completed | Faulted — the disposition a streamed reasoning turn folds to as the chat client surfaces text, reasoning content, function calls, and the finish reason.
 - Entry: `Reason(ReasoningRuntime runtime, ReasoningPolicy policy, Seq<ChatMessage> conversation)` returns `IO<ReasoningTranscript>` — the loop streams `IChatClient.GetStreamingResponseAsync` with `ChatOptions.Tools` set to the brokered `CommandAIFunction` set, accumulates the `ChatResponseUpdate` stream into one `ChatResponse`, records each `FunctionCallContent`/`FunctionResultContent` pair as a transcript row, and terminates on the `ChatFinishReason` with the projected `ReasoningTranscript`.
 - Auto: the `ChatOptions.Tools` list is the exact brokered `CommandAIFunction` set the `Agent/mcp#METHOD_AXIS` `ToolProjection.Adopt` mints — the loop reuses the one tool-adoption seam and never news up a second projection, so a model tool call and an MCP tool call route through the identical brokered invoker over `CommandAlgebra.Run`; the function-invocation iteration is the `MODEL_GOVERNANCE` `FunctionInvokingChatClient` decorator, not a hand-rolled call-and-feed loop — `ReasoningSession` supplies the tool set and the conversation, the decorator runs the tool-call cycle, and the session folds the resulting stream into turns; `ChatOptions.ToolMode` is the policy's `AutoChatToolMode`/`RequiredChatToolMode`/`NoneChatToolMode` row so a session forces, permits, or forbids tool use without a parallel flag; the streaming accumulation uses the `ChatResponseUpdate` stream so a long reasoning turn surfaces incrementally and the host fans interim `Thinking`/`Message` turns to the session reporter exactly as `STREAM_PROGRESS` fans MCP progress; `ChatOptions.Seed` binds to the `DeterminismContext` RNG seed so a recorded reasoning turn replays under the same sampling seed, and `MaximumIterationsPerRequest`/`MaximumConsecutiveErrorsPerRequest` trace to the policy's `DeadlineClass`-derived loop bound, never a literal.
-- Receipt: each completed reasoning run mints one `ReasoningTranscript` (REPLAYABLE_TRANSCRIPT) whose rows are the `CommandReceipt`s the tool calls minted; the per-turn fan is the streamed turn itself, not a separate receipt; the session-open transition logs through one `SpineLog` event in the 1000-1999 band.
+- Receipt: each completed reasoning run mints one `ReasoningTranscript` (REPLAYABLE_TRANSCRIPT) whose rows are the `CommandReceipt`s the tool calls minted; the per-turn fan is the streamed turn itself, not a separate receipt; the session-open transition logs through one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`).
 - Packages: Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one turn disposition is one `ReasoningTurn` case breaking every fold arm; a new loop-policy column is one field on `ReasoningPolicy`; a new tool front door is the SAME `CommandAIFunction` set adopted by a new caller, never a new projection; zero new surface.
 - Boundary: the reasoning loop is the in-process model-driven command owner — it never executes an op itself, it routes every tool call through the brokered `CommandAIFunction` onto the command algebra, so the transaction, grant, and cost semantics are the command algebra's and the loop is the model-driven dispatch over them; a tool set divorced from the `Agent/mcp#METHOD_AXIS` adoption seam is the deleted form, so the in-process loop and the MCP server share one tool catalog; the `IChatClient` the loop drives is the `MODEL_GOVERNANCE`-wrapped client, never a raw provider client, so an unmetered un-ledgered model draw cannot reach the loop; the loop owns the turn vocabulary and the session-scoped conversation buffer, while `MODEL_GOVERNANCE` owns the metering, caching, tracing, and content-addressing — the two never merge, so the loop stays the orchestration and the middleware stays the policy; a model call that bypasses the function-invocation decorator to invoke a tool directly is the deleted form, because the decorator is the one seam where `ChatOptions.Tools` becomes executed calls.
@@ -176,38 +176,26 @@ public static class SemanticDiscovery {
 }
 
 // --- [TYPES] ----------------------------------------------------------------------------
-// DiscoveryQuery.ByIntent extends Agent/capability#DISCOVERY_FOLD: the [Union] gains
-// one case and the registry's Discover switch gains the byIntent arm. The case is authored
-// ON the registry owner; this fence shows the delta the registry absorbs, not a second union.
+// DiscoveryQuery.ByIntent is LANDED on Agent/capability#DISCOVERY_FOLD: the [Union] carries the
+// case and CapabilityRegistry.Discover carries the byIntent arm over its composition-bound
+// intent-rank delegate. This page BINDS that delegate at composition — the rank fold below closed
+// over the frozen EmbeddingIndex and the resolved IEmbeddingGenerator:
 //
-// public abstract partial record DiscoveryQuery {
-//     ... ById / BySurface / ByEffect / Permitting / All ...
-//     public sealed record ByIntent(string Intent) : DiscoveryQuery;   // NEW — breaks every Switch site
-// }
+//   new CapabilityRegistry(rows, intentRank: Some<Func<string, Seq<string>>>(intent =>
+//       SemanticDiscovery.Rank(index, embedder, intent, top: 8).Run()
+//           .Map(static match => match.Descriptor).ToSeq()));
 //
-// CapabilityRegistry gains the embedding index handle and the byIntent arm:
-//
-// public Seq<DiscoveryResult> Discover(DiscoveryQuery query) =>
-//     Project(query.Switch(
-//         byId: q => Resolve(q.Id).ToSeq(),
-//         bySurface: q => bySurface[q.Surface].ToSeq(),
-//         byEffect: q => byId.Values.Where(row => row.Effect == q.Effect).ToSeq(),
-//         permitting: q => byId.Values.Where(row => q.Level.Permits(Gate(row.Effect))).ToSeq(),
-//         byIntent: q => intentIndex.Match(
-//             Some: idx => SemanticDiscovery.Rank(idx, embedder, q.Intent, top: 8).Run()
-//                 .Map(match => Resolve(match.Descriptor)).Somes().ToSeq(),
-//             None: () => Seq<CapabilityDescriptor>()),
-//         all: _ => byId.Values.ToSeq()));
+// One union, one owner, one arm — this page authors the RANKING, never a second query surface.
 ```
 
 ## [04]-[REPLAYABLE_TRANSCRIPT]
 
 - Owner: `ReasoningTranscript` the function-invocation transcript record; `TranscriptDigest` the content-address of the whole reasoning turn; `TranscriptProjection` the static transcript-to-`CommandReceipt`-and-`LogEntry` fold over the `Runtime/determinism#EVENT_LOG` chain and the `#MACRO_ENGINE`.
 - Entry: `Chain(TranscriptRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context)` returns `IO<(EventLog.Chain Chain, Seq<LogEntry> Entries)>` — folds each transcript tool-call row's `CommandReceipt` into the event-log chain through `EventLog.Append` so the reasoning turn's command sequence becomes a content-addressed, hash-chained log slice; `AsMacro(string macroId, Seq<LogEntry> entries, Seq<MacroParameter> parameters)` returns `Macro` — records the chained transcript slice as a reusable parameterized macro through `MacroEngine`-equivalent `Macro.Record`.
-- Auto: the transcript's tool-call rows ARE the `CommandReceipt`s the brokered `CommandAIFunction` minted through `CommandAlgebra.Run`, so the transcript is a slice of the command-execution stream, never a separate recording format — each `ReasoningTurn.ToolCalled` carries the `CommandReceipt` the EVENT_LOG already knows how to chain; `Chain` folds those receipts through `EventLog.Append(chain, receipt, context, physical, logical)` so a reasoning turn's commands chain into the SAME hash-chained content-addressed log a live command chains into, and the chain's tamper-evidence proves the reasoning trace is unaltered; the transcript digest is `XxHash128` over the ordered tool-call content hashes plus the model response digest so an identical reasoning turn under an identical determinism context produces an identical transcript digest — the replay-skip and dedup key, reusing the determinism kernel's `XxHash128` primitive (System.IO.Hashing); `AsMacro` records the chained log slice through `Macro.Record` so a reasoning run becomes a reusable parameterized workflow the `MacroEngine.Play` replays as an all-or-nothing batch, turning a one-off agent session into a callable operation; the model response itself content-addresses into the EVENT_LOG as one `LogEntry` (descriptor `agent.reasoning`, arguments digest = the conversation digest, determinism digest = the context fingerprint) so the model draw is on the chain beside its tool calls and `MODEL_GOVERNANCE` replays it from the `HybridCache` content key.
+- Auto: the transcript's tool-call rows ARE the `CommandReceipt`s the brokered `CommandAIFunction` minted through `CommandAlgebra.Run`, so the transcript is a slice of the command-execution stream, never a separate recording format — each `ReasoningTurn.ToolCalled` carries the `CommandReceipt` the EVENT_LOG already knows how to chain; `Chain` folds those receipts through `EventLog.Append(chain, receipt, context, physical, logical)` so a reasoning turn's commands chain into the SAME hash-chained content-addressed log a live command chains into, and the chain's tamper-evidence proves the reasoning trace is unaltered; the transcript digest composes the kernel `ContentHash.Of` over the ordered tool-call content hashes plus the model response digest so an identical reasoning turn under an identical determinism context produces an identical transcript digest — the replay-skip and dedup key, one federation-wide content-identity algorithm; `AsMacro` records the chained log slice through `Macro.Record` so a reasoning run becomes a reusable parameterized workflow the `MacroEngine.Play` replays as an all-or-nothing batch, turning a one-off agent session into a callable operation; the model response itself content-addresses into the EVENT_LOG as one `LogEntry` (descriptor `agent.reasoning`, arguments digest = the conversation digest, determinism digest = the context fingerprint) so the model draw is on the chain beside its tool calls and `MODEL_GOVERNANCE` replays it from the `HybridCache` content key.
 - Receipt: each chained tool-call row is one `LogEntry` on the event-log chain; the model response is one `LogEntry`; the whole turn is one `ReasoningTranscript` carrying its `TranscriptDigest`; the chain advance is the EVENT_LOG's own evidence, never a parallel transcript receipt.
 - Packages: System.IO.Hashing, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one transcript column is one field on `ReasoningTranscript`; a new macro substitution point is one `MacroParameter` row on the recorded slice; a new digest input is one component on the `XxHash128` seed; zero new surface.
+- Growth: one transcript column is one field on `ReasoningTranscript`; a new macro substitution point is one `MacroParameter` row on the recorded slice; a new digest input is one component on the kernel `ContentHash.Of` canonical bytes; zero new surface.
 - Boundary: the transcript is the only reasoning-replay owner — an opaque LLM-call log, a free-text reasoning dump, and a separate agent-trace store are the deleted forms, so an agent reasoning run is a replayable command sequence the EVENT_LOG chains and the `REPLAY_VERIFY` rail proves bit-identical; the transcript rides the determinism kernel's owners (`EventLog`/`Macro`/`ContentHash`) so the reasoning trace and the command log are one stream, never a second event-sourcing truth — a reasoning turn's commands chain into the same `OpLog` changefeed a live command chains into; the macro projection reuses `Macro.Record`/`MacroEngine.Play` so a recorded reasoning run gains no privileged execution — it replays through the command algebra's brokered, grant-metered batch exactly as a hand-recorded macro does; the transcript digest is the bit-identity key so a replayed reasoning turn under the same context and the same cached model response reproduces the identical command sequence, and a divergent digest names the turn as non-reproducible; the model response `LogEntry` is content-addressed by the response digest so an identical prompt-under-context replays the SAME response from cache, making the model draw deterministic on replay — a fresh non-deterministic draw on replay is the deleted form.
 
 ```csharp signature
@@ -221,8 +209,8 @@ public sealed record ReasoningTranscript(
     Instant Started,
     Duration Elapsed) {
     public static ReasoningTranscript Of(ChatResponse response, Seq<ReasoningTurn> turns, Instant started, Duration elapsed) {
-        var responseDigest = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(
-            Encoding.UTF8.GetBytes(string.Join("\n", response.Messages.AsIterable().Map(static m => m.Text)))));
+        var responseDigest = ContentHash.Of(
+            Encoding.UTF8.GetBytes(string.Join("\n", response.Messages.AsIterable().Map(static m => m.Text)))).ToString("x32");
         var digest = TranscriptDigest.Of(turns, responseDigest);
         return new(
             TranscriptId: digest.Value,
@@ -243,9 +231,10 @@ public sealed record ReasoningTranscript(
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
     ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
 public readonly partial struct TranscriptDigest {
+    // Kernel content identity — one algorithm, one seed; hex is the boundary projection.
     public static TranscriptDigest Of(Seq<ReasoningTurn> turns, string responseDigest) =>
-        TranscriptDigest.Create(Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(Encoding.UTF8.GetBytes(
-            $"{responseDigest}:{string.Join(':', turns.Choose(static t => t is ReasoningTurn.ToolCalled c ? Some(c.Receipt.Descriptor) : Option<string>.None))}"))));
+        TranscriptDigest.Create(ContentHash.Of(Encoding.UTF8.GetBytes(
+            $"{responseDigest}:{string.Join(':', turns.Choose(static t => t is ReasoningTurn.ToolCalled c ? Some(c.Receipt.Descriptor) : Option<string>.None))}")).ToString("x32"));
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -407,7 +396,7 @@ public static class ModelGovernance {
             idempotency: Idempotency.NonIdempotent,
             cost: new CostModel(cost, static _ => CostVector.Zero),
             permission: new PermissionShape(FrozenSet<string>.Empty, EffectClass.External, DataClassification.Operational),
-            compile: static _ => Fin.Fail<ComputeIntent>(Error.New("model-draw-is-not-a-compute-intent")));
+            compile: static _ => Fin.Fail<ComputeIntent>(new CommandFault.CompileRejected("model-draw-is-not-a-compute-intent")));
 }
 ```
 
@@ -472,13 +461,13 @@ public static class ModalIntake {
     public static IO<string> Transcribe(ModalRuntime runtime, ModalClient.Speech speech, Stream audio) =>
         runtime.Enabled.Contains(ModalKind.Speech)
             ? IO.liftAsync(async () => (await speech.Client.GetTextAsync(audio)).Text ?? string.Empty)
-            : IO.fail<string>(Error.New("modal-speech-disabled"));
+            : IO.fail<string>(new FeatureFault.ProviderNotReady("modal-speech"));
 
     public static IO<DataContent> Render(ModalRuntime runtime, ModalClient.Image image, string prompt) =>
         runtime.Enabled.Contains(ModalKind.Image)
             ? IO.liftAsync(async () => (await image.Client.GenerateAsync(new ImageGenerationRequest(prompt)))
                 .Contents.AsIterable().OfType<DataContent>().Head())
-            : IO.fail<DataContent>(Error.New("modal-image-disabled"));
+            : IO.fail<DataContent>(new FeatureFault.ProviderNotReady("modal-image"));
 }
 ```
 

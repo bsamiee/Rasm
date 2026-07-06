@@ -32,7 +32,7 @@ import { Array, type ParseResult, Schema, type Types } from "effect"
 const _arms = ["proto", "cbor", "msgpack", "jsonpatch"] as const
 
 const _families = [
-  "ReceiptEnvelopeWire", "HlcStampWire", "TenantContextWire", "AvailabilityWire", "RenderReceiptWire",
+  "ReceiptEnvelopeWire", "HlcStampWire", "TenantContextWire", "CommandAvailabilityWire", "RenderReceiptWire",
   "FaultDetailWire", "QuantityWire",
   "ElementGraphWire", "NodeWire", "RelationshipWire",
   "OpLogWire", "SnapshotHeader", "CrdtOpWire",
@@ -53,7 +53,7 @@ const _census = {
   ReceiptEnvelopeWire: { arm: "proto", source: "Rasm.AppHost", consumer: "state", home: "codec" },
   HlcStampWire: { arm: "proto", source: "Rasm.AppHost", consumer: "value", home: "codec" },
   TenantContextWire: { arm: "proto", source: "Rasm.AppHost", consumer: "value", home: "codec" },
-  AvailabilityWire: { arm: "proto", source: "Rasm.AppHost/Observability", consumer: "state", home: "codec" },
+  CommandAvailabilityWire: { arm: "proto", source: "Rasm.AppHost/Observability", consumer: "state", home: "codec" },
   RenderReceiptWire: { arm: "proto", source: "Rasm.AppUi/Render", consumer: "ui", home: "codec" },
   FaultDetailWire: { arm: "proto", source: "Rasm.Compute/Runtime", consumer: "interchange", home: "codec" },
   QuantityWire: { arm: "proto", source: "Rasm.Compute", consumer: "value", home: "codec" },
@@ -71,7 +71,7 @@ const _census = {
   ProgressMarkWire: { arm: "proto", source: "Rasm.Compute/Runtime", consumer: "state", home: "codec" },
   CredentialPemWire: { arm: "proto", source: "Rasm.AppHost", consumer: "security", home: "codec" },
   BenchmarkClaimWire: { arm: "proto", source: "Rasm.AppHost/Observability", consumer: "ui", home: "codec" },
-  HostFingerprintWire: { arm: "proto", source: "Rasm.AppHost/Observability", consumer: "ui", home: "codec" },
+  HostFingerprintWire: { arm: "proto", source: "Rasm.AppHost/Runtime", consumer: "ui", home: "codec" },
   BindingStatusWire: { arm: "proto", source: "Rasm.AppHost/Wire", consumer: "ui", home: "codec" },
   CoercedValueWire: { arm: "proto", source: "Rasm.AppHost/Wire", consumer: "ui", home: "codec" },
   WriteReceiptWire: { arm: "proto", source: "Rasm.AppHost/Wire", consumer: "ui", home: "codec" },
@@ -305,7 +305,7 @@ const Parity: {
 ## [5]-[LANDING_EVIDENCE]
 
 [LANDING_EVIDENCE]:
-- Owner: the core-landing rows and the CRDT op union — `ReceiptEnvelopeWire`, `HlcStampWire`, `TenantContextWire`, `AvailabilityWire`, `QuantityWire`, `ProgressMarkWire` decode INTO `state`/`value` owners whole with zero local twins; `CommitWire`/`BranchWire`/`VersionVectorWire`/`MerkleSummaryWire` land the `state` version plane over the msgpack arm; `CrdtOp` is the tagged six-op journal union — `Assign`, `Adjoin`, `Retire`, `Splice`, `Tick`, and the `Alien` foreign-ext landing — whose `hlc` cells intern through the `format#MSGPACK_ENGINE` extension row and whose per-case merge instances bind at `state/merge.ts`'s algebra.
+- Owner: the core-landing rows and the CRDT op union — `ReceiptEnvelopeWire`, `HlcStampWire`, `TenantContextWire`, `CommandAvailabilityWire`, `QuantityWire`, `ProgressMarkWire` decode INTO `state`/`value` owners whole with zero local twins; `CommitWire`/`BranchWire`/`VersionVectorWire`/`MerkleSummaryWire` land the `state` version plane over the msgpack arm; `CrdtOp` is the tagged six-op journal union — `Assign`, `Adjoin`, `Retire`, `Splice`, `Tick`, and the `Alien` foreign-ext landing — whose `hlc` cells intern through the `format#MSGPACK_ENGINE` extension row and whose per-case merge instances bind at `state/merge.ts`'s algebra.
 - Law: the typed families never erase — the envelope's `receipt` field decodes as `state`'s tagged receipt union with every kind distinct, the stamp decodes through the kernel `Hlc` class shape (physical half first, logical second), and `TenantContext` crosses verbatim as the one tenancy value; a flattened `{ kind, payload }` landing is the collapse defect.
 - Law: nested case families carry their `_tag` on the C# emit — the receipt kinds and availability verdicts mint the discriminant wire-side as part of the adopted-verbatim contract, pinned by the roster-parity corpus fixtures; a nested family shipped untagged gains its discriminant at the landing exactly as `[06]`'s `_stamp` law spells.
 - Law: a new receipt kind, availability level, or version-plane axis is a C# case plus a `state` vocabulary row and zero edits here — the landings compose the sibling owners whole, so roster parity pins at this seam by construction.
@@ -377,7 +377,7 @@ type CrdtOp = typeof CrdtOp.Type
 ## [6]-[LANDING_WIRE]
 
 [LANDING_WIRE]:
-- Owner: the wire-owned decoded shapes — decode-boundary vocabulary for consumers in later waves, adopted verbatim from the C# mints and declared exactly once. The evidence plane: `RenderReceipt` (the frame-hash proof; `matched` is C#-computed and never re-hashed), `FaultDetail` over the `Hops` sixteen-row vocabulary with the `FaultEnricher` Layer, `FlagVerdict` (the OpenFeature evaluation projection the runtime flag service consumes). The shell plane: `BindingStatus`/`CoercedValue`/`WriteReceipt` live-binding triple, the six-kind `ControlIntent` union gaining its `_tag` at the declaration, `LayoutProgram` (order-preserving Cassowary constraint program, decode-only, never solved here). The BIM plane: `BcfTopic`/`BcfViewpoint` over the one `_GlobalId` brand, `BimModel`/`BimDiff`/`IdsAudit`. The appearance plane: `Material`/`PbrGroups`/`AppearanceSummary` mirroring the OpenPBR projection field-for-field. The geo plane: `GeoFeature` with the opaque WKB band, the seven-kind geometry union, the CRS rows, the tile quadkey algebra, and the `WkbParser` port. The identity plane: `SnapshotHeader` (canonical-CBOR, segment roster), `Claim`/`HostFingerprint` with the boot-identity admission gate, `Credential` (the sealed PEM carrier — secret sealed AT the decode transform, fingerprint-only audit identity, sealed rotation compare).
+- Owner: the wire-owned decoded shapes — decode-boundary vocabulary for consumers in later waves, adopted verbatim from the C# mints and declared exactly once. The evidence plane: `RenderReceipt` (the frame-hash proof; `matched` is C#-computed and never re-hashed), `FaultDetail` over the `Hops` sixteen-row vocabulary with the `FaultEnricher` Layer, `FlagVerdict` (the OpenFeature evaluation projection the runtime flag service consumes). The shell plane: `BindingStatus`/`CoercedValue`/`WriteReceipt` live-binding triple, the closed `ControlIntent` union gaining its `_tag` at the declaration, `LayoutProgram` (order-preserving Cassowary constraint program, decode-only, never solved here). The BIM plane: `BcfTopic`/`BcfViewpoint` over the one `_GlobalId` brand, `BimModel`/`BimDiff`/`IdsAudit`. The appearance plane: `Material`/`PbrGroups`/`AppearanceSummary` mirroring the OpenPBR projection field-for-field. The geo plane: `GeoFeature` with the opaque WKB band, the seven-kind geometry union, the CRS rows, the tile quadkey algebra, and the `WkbParser` port. The identity plane: `SnapshotHeader` (canonical-CBOR, segment roster), `Claim`/`HostFingerprint` with the boot-identity admission gate, `Credential` (the sealed PEM carrier — secret sealed AT the decode transform, fingerprint-only audit identity, sealed rotation compare).
 - Law: `_GlobalId` is one anchor — the twenty-two-character IFC base64 identity brands once and both the BCF and BIM planes compose it; a per-plane re-declaration is the split-brain defect this collapse killed. `BcfViewpoint.GlobalId` is the exported decode surface: the ui selection plane resolves raw pick material through `Schema.decodeUnknownOption(BcfViewpoint.GlobalId)`, so a locally-minted brand beside it is unspellable.
 - Law: the wire ships tagged families untagged — `Schema.tag` demands `_tag` on decode input, so every tagged landing decodes through its `FromWire` twin, `_stamp` minting the discriminant at the seam exactly as `ControlIntent` attaches its own; the stamp overwrites nothing a tagged wire already carries, encode passes through, and the twin rides the owner as a static so one import serves class and wire. Discriminant-attach has exactly these two spellings by structural necessity — `Schema.attachPropertySignature` where the input is a `Struct`, `_stamp` where the landing is a `Schema.Class` the combinator cannot prepend to — one concept, never drift, and a third spelling is the defect.
 - Law: the landing-class roster is a ratified co-located owner family — the census demands every wire-owned decoded shape in this one module, each class is an independent decode owner a later wave consumes directly, and collapsing the roster onto `Wire.*` statics trades one-hop resolution for a cosmetic export count; the charter accepts the wide export tail and the census guard keeps it closed.
@@ -848,7 +848,7 @@ const _landingRows = {
   ReceiptEnvelopeWire: ReceiptEnvelope,
   HlcStampWire: Hlc,
   TenantContextWire: TenantContext,
-  AvailabilityWire: Availability,
+  CommandAvailabilityWire: Availability,
   RenderReceiptWire: RenderReceipt,
   FaultDetailWire: FaultDetail.FromWire,
   QuantityWire: Quantity,
@@ -892,7 +892,7 @@ const _schemas: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uin
   ReceiptEnvelopeWire: Proto.family(Proto.suite.ReceiptEnvelopeWire, ReceiptEnvelope),
   HlcStampWire: Proto.family(Proto.suite.HlcStampWire, Hlc),
   TenantContextWire: Proto.family(Proto.suite.TenantContextWire, TenantContext),
-  AvailabilityWire: Proto.family(Proto.suite.AvailabilityWire, Availability),
+  CommandAvailabilityWire: Proto.family(Proto.suite.CommandAvailabilityWire, Availability),
   RenderReceiptWire: Proto.family(Proto.suite.RenderReceiptWire, RenderReceipt),
   FaultDetailWire: Proto.family(Proto.suite.FaultDetailWire, FaultDetail.FromWire),
   QuantityWire: Proto.family(Proto.suite.QuantityWire, Quantity),

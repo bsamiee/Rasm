@@ -48,8 +48,7 @@ compute/
 *                   ⇄  csharp:Rasm.Compute       # [GRADUATION]: HandoffAxis graduation evidence
 graduation/codegen  ←  csharp:Rasm.Compute       # [WIRE]: EvidenceBundle graduation-evidence wire
 solvers/receipt     →  csharp:Rasm.Compute       # [PROJECTION]: SolverReceipt convergence verdict
-graduation          ←  python:geometry/ifc       # [GRADUATION]: geometry HandoffAxis case IDS/clash/BCF
-graduation/handoff  ⇄  python:geometry/graph     # [GRADUATION]: HandoffAxis geometry case
+graduation          ←  python:geometry           # [GRADUATION]: GeometryHandoff.wire() receipt data; geometry-minted differentiated GeometrySubject union
 numerics/array      ⇄  python:runtime/transport  # [WIRE]: ContentIdentity array backend dispatch
 numerics/quantity   ⇄  csharp:Rasm.Compute       # [WIRE]: QuantityFamily SI canonicalization over the wire to host-free peers
 experiments/study   ←  python:data/tabular       # [SHAPE]: DOE dataset / labelled-array study input
@@ -66,5 +65,5 @@ The `analysis/spatial` and `solvers/mesh` owners close the former gaps: `analysi
 
 - `compute` is not a production compute runtime, benchmark authority, substrate selector, tensor-session owner, or product-receipt owner; it owns offline evidence that graduates through the one rail.
 - Columnar and labelled-array interchange ownership stays in the `data` branch; `compute` composes the `xarray`/`dask` shapes as study inputs and never re-catalogues them. Columnar and gridded statistical aggregation — grouped reductions, rolling windows, per-cell/per-band summaries over a labelled or gridded array — is the `data` branch gridded/field owner; `numerics/statistics` operates on an in-memory sample array only and never re-owns a grouped-reduction or labelled-array aggregation.
-- Geometry tessellation, registration, and topology stay in the `geometry` branch and graduate through the geometry `HandoffAxis` case; `compute` accepts the geometry evidence, never re-implements it.
+- Geometry tessellation, registration, and topology stay in the `geometry` branch and graduate as `GeometryHandoff` receipt data under the geometry-minted `GeometrySubject` union; `compute` decodes the crossing at its `HandoffAxis` geometry case, never re-implements it and never imports geometry.
 - Classical statistics, validated numerics, surrogate and classification model assets, and gradient-MCMC inference are in-scope; generative and deep-learning model authoring is out of scope across every sub-domain.

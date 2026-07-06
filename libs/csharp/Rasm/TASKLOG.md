@@ -6,7 +6,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 ## [01]-[OPEN]
 
-<!-- source-only: open idea card template:
+<!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis>.
 - Capability: <higher-order concept, invariant, or owner capability>.
 - Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.

@@ -16,7 +16,7 @@ Rasm.AppHost boots every process through one host-variance axis: eight string-ke
 - Entry: `Fin<ResolvedProfile> Resolve(HostProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default)` — `Fin` aborts on attachment and root rejection.
 - Auto: one Resolve fold replaces eight bootstrap programs — column values, attachment legality, per-user roots, and process identity land in one record; raw profile keys admit through the generated `Validate` against `ProfileFault`.
 - Packages: Microsoft.Extensions.Hosting, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: one profile row — key, seven column values, two delegate bindings — absorbs a new host modality with zero new surface; standalone-integrating stays the `Integrating` field, never a ninth row.
+- Growth: one profile row — key, eight column values, two delegate bindings — absorbs a new host modality with zero new surface; standalone-integrating stays the `Integrating` field, never a ninth row.
 - Boundary: column values are app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the standalone single-instance value is probed through the discovery manifest, the web row serves the built TS bundle same-origin from its app root with cross-origin headers held as designed growth, and the test row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof; the `RecoveryObjective` column is the one DR-target source — `Rasm.Persistence/Version/recovery` `Recovery.Objective(ResolvedProfile)` reads `ResolvedProfile.Recovery` as settled vocabulary through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [PORT]: ResolvedProfile DR-objective inputs` seam and never re-derives the per-modality `(Rpo, Rto)` from the profile key, so a host-band-keyed RPO/RTO table on the Persistence side is the deleted form and the durability objective stays a profile column the runtime owns, the engine arms gauge their measured RPO/RTO against, never a second DR taxonomy.
 
 ```csharp signature
@@ -42,9 +42,9 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
 
     public static ProfileFault Create(string message) => new Text(message);
 
-    public sealed record Text : ProfileFault { public Text(string detail) : base(detail, 1100) { } }
-    public sealed record AttachmentRejected : ProfileFault { public AttachmentRejected(string detail) : base(detail, 1101) { } }
-    public sealed record RootUnresolved : ProfileFault { public RootUnresolved(string detail) : base(detail, 1102) { } }
+    public sealed record Text : ProfileFault { public Text(string detail) : base(detail, FaultBand.Profile.Code(0)) { } }
+    public sealed record AttachmentRejected : ProfileFault { public AttachmentRejected(string detail) : base(detail, FaultBand.Profile.Code(1)) { } }
+    public sealed record RootUnresolved : ProfileFault { public RootUnresolved(string detail) : base(detail, FaultBand.Profile.Code(2)) { } }
 }
 
 // The per-modality durability objective: the declared (Rpo, Rto) DR window each HostProfile row carries and
@@ -254,7 +254,7 @@ public static class ProfileIdentity {
 - Cases: 3 power rows — plugged, battery, low-battery; 4 thermal rows — nominal(0), fair(1), serious(2), critical(3) — the macOS thermal-pressure ladder; `FidelityScale` grades the cross-product into a sustained-versus-burst compute profile.
 - Entry: `PowerProbe.Read()` returns `Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)>` — the platform native read of the power source, thermal-pressure level, and battery charge; `FidelityScale.Grade(PowerState power, ThermalPressure thermal, double battery)` is the total projection from power and thermal state into the fidelity profile the compute scheduler reads.
 - Auto: a plugged host at nominal thermal pressure grades to the full burst profile; a low-battery or critical-thermal host grades to the sustained profile that caps parallelism and lowers the compute fidelity tier so the device stays within its energy and thermal budget; the macOS thermal-pressure level reads through `NSProcessInfo.thermalState` exposed by the IOKit/SMC native probe, and battery charge reads through the IOKit power-source service, so the fidelity grade rides the OS's own power and thermal authority, never a guessed heuristic; the power state feeds the resource-pressure health contributor as one extra grade input so a thermally-throttled host degrades through the existing degradation rail, never a parallel power alarm.
-- Receipt: `FidelityScale` carries the parallelism cap, the fidelity tier, and the sustained flag the compute scheduler reads; a power-state transition logs through one `SpineLog` event in the 1000-1999 band.
+- Receipt: `FidelityScale` carries the parallelism cap, the fidelity tier, and the sustained flag the compute scheduler reads; a power-state transition logs through one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`).
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one power row absorbs a new power source; one thermal row absorbs a new pressure level; a new fidelity profile is one `FidelityScale` grade arm, never a parallel scaling owner; zero new surface.
 - Boundary: the power-and-fidelity fold is the only energy-awareness owner — a per-solve battery check, an ad hoc thermal poll, and a parallel power monitor are the deleted forms; the fidelity scale is data the Compute scheduler reads to bound its `CpuBudget` and lane parallelism, so the host owns the power-state truth and the compute scheduler consumes the fidelity grade, never re-reading the power state; the IOKit/SMC reads are macOS-only and a non-macOS host grades from the BCL battery-status fallback, so the probe is a platform branch on `PowerProbe`, never a separate owner; the power state enters the resource-pressure grade as a third input beside CPU and memory so a thermally-throttled host degrades on the same `Pressure`-tagged rule, never a new degradation level; the IOKit/SMC native reads stay a tier-3 live-host residual because the power-management framework needs the running device to report battery and thermal state.
@@ -309,11 +309,11 @@ public sealed class PowerCell : IDisposable {
     public void Dispose() => listener.Dispose();
 }
 
-public static partial class PowerProbe {
+// The IOKit/SMC native read is the honestly-flagged tier-3 live-host residual (POWER_NATIVE): the
+// signature-locked member shapes live in the research row, and the dead [LibraryImport] declaration
+// leaves until the native realization lands — a declared-never-called P/Invoke is the deleted form.
+public static class PowerProbe {
     public const string PowerSourceService = "IOPMrootDomain";
-
-    [LibraryImport("/System/Library/Frameworks/IOKit.framework/IOKit", EntryPoint = "IOPSCopyPowerSourcesInfo")]
-    private static partial nint CopyPowerSourcesInfo();
 
     public static Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)> Read() =>
         OperatingSystem.IsMacOS()

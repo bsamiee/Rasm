@@ -14,7 +14,7 @@ The urban-district massing owner — the 2.5-D layer above the building model wh
 - Cases: `DistrictSource.dfjson` discriminates by payload shape exactly as the model page's hbjson arm — bytes decode `msgspec.json.decode` then `Model.from_dict`, a mapping reconstructs directly, a path routes `Model.from_file` (dfjson/dfpkl by extension); `DistrictSource.geojson` carries `(Path, Anchor)` — `Model.from_geojson(path, location, point)` imports footprints as extruded buildings anchored at the equirectangular origin; `DistrictSource.massing` folds each `BuildingSpec` through `Building.from_footprint(identifier, footprints, floor_to_floor_heights)` over `Face3D`-lifted rings, assembling `Model(identifier, buildings, units, tolerance, angle_tolerance)`.
 - Entry: `District.of` runs the admission fold inside the `evidence_run` weave and converges every arm on the ONE gate — dragonfly `check_all(raise_exception=False, detailed=True)` rows fold to a typed fault census on any defect (missing adjacencies, room-plate overlaps, roof/room conflicts, degenerate plates, invalid window parameters), an empty set admits with `ContentIdentity.key("district", dfjson_bytes)`. `zone(tolerance)` runs the ordered pair over every story's `room_2ds` — `intersect_adjacency` then `solve_adjacency` — and returns the re-keyed successor (zoning changed the document). `explode(policy)` runs `to_honeybee(object_per_model=..., use_multiplier=..., add_plenum=..., solve_ceiling_adjacencies=..., enforce_adj=..., enforce_solid=...)` and hands each emitted honeybee model's dict to `BuildingModel.of(ModelSource(hbjson=...))` — the seam onto the model owner: the district constructs, the model page's gate admits, and the result is a `Block[BuildingModel]` of content-keyed building capsules ready for `energy/simulate`; failed building admissions accumulate through the faults owner's `traversed(ACCUMULATE)` fold so every bad building names itself in the combined aggregate fault rather than aborting the district silently. `assign(spec)` mirrors the model page's energy assignment over `Room2D` hosts — `dragonfly_energy`'s import side effect registers `.properties.energy`, identifiers resolve through the SAME `RESOLVERS` rows imported downward from `energy/model`, the HVAC template and `SHWSystem` mint ride the same `HvacSpec`/`shw` rows, and the fold covers `room_2ds` (or the spec's named subset). `translate(target)` dispatches the closed union: `urbanopt` calls `model_to_urbanopt(model, location, point, des_loop, electrical_network, road_network, ground_pv, folder)` and returns the feature-GeoJSON path; `des_param` calls `loop.to_des_param_dict(model.buildings, tolerance)`; `opendss` calls `network.to_geojson_dict(model.buildings, location, point, tolerance)` paired with `to_electrical_database_dict()`; `reopt` calls `parameter.to_assumptions_dict(base_file, urdb_label)`; `geojson` calls `model.to_geojson(location, point, folder)` — each arm one row-resolved provider call returning typed payloads, never a run driver.
 - Auto: every entry rides `evidence_run(EvidenceScope.ENERGY_DISTRICT, <operation>, dispatch)`; the multiplier discipline is dragonfly's — `use_multiplier=True` keeps the compact graph (fast simulation) and `False` instances every floor, a policy value the explode row carries; the geo anchor projects into `Location(latitude=..., longitude=..., elevation=...)` inside each kernel — the equirectangular meters-to-lon-lat correspondence stays `dragonfly.projection`'s, never re-derived; a `des_param`/`opendss`/`reopt` target consumes CALLER-authored dragonfly-energy value objects (`GHEThermalLoop` with its `SoilParameter`/`FluidParameter`/`PipeParameter`/`BoreholeParameter`/`GHEDesignParameter` rows, `ElectricalNetwork` with its transformer/wire catalogs, `REoptParameter` with its financial/PV/wind/storage rows) — this page routes them through the translation seam and re-mints none of their vocabulary; `ModelEnergyProperties.check_all` rides the one gate after `assign` exactly as on the model page (dragonfly folds its registered extension checks automatically).
-- Receipt: `DistrictReceipt` carries buildings/stories/room2d counts, the story-multiplier sum (the real modeled-floor census), footprint and floor areas, the exploded-model count, the translation target discriminant, and the `ContentKey`; `contribute` yields one emitted-phase `Receipt.of("rasm.geometry.energy.district", ("emitted", subject, facts))` triple — the receipts owner's `Evidence` shape; `graduates(key, ceiling)` folds under `GeometrySubject.BUILDING_ENERGY` with the unzoned-boundary fraction as the residual (adjacency-unsolved wall segments over total wall segments — a fully-zoned district graduates at zero), never a count ledger.
+- Receipt: `DistrictReceipt` carries buildings/stories/room2d counts, the story-multiplier sum (the real modeled-floor census), footprint and floor areas, the exploded-model count, the translation target discriminant, and the `ContentKey`; `contribute` yields one emitted-phase `Receipt.of("rasm.geometry.energy.district", ("emitted", subject, facts))` triple — the receipts owner's `Evidence` shape; `graduates(key, ceiling)` folds under `GeometrySubject.BUILDING_ENERGY` with the unzoned-boundary fraction as the residual, DERIVED from the receipt's own segment census (`unzoned_segments`/`total_segments`, folded once in `receipt()` — a fully-zoned district graduates at zero), never a caller-supplied fraction and never a count ledger.
 - Packages: `dragonfly-core` (`model.Model` — `from_dict`/`from_dfjson`/`from_file`/`from_geojson`/`to_geojson`/`to_dict`/`check_all`/`to_honeybee`; `building.Building.from_footprint`/`unique_stories`; `story.Story.multiplier`/`solve_room_2d_adjacency`; `room2d.Room2D.intersect_adjacency`/`solve_adjacency`/`from_polygon`; `context.ContextShade`; the discriminated window/skylight/shading parameter families as upstream vocabulary — all function-local, AGPL-3.0 companion posture; the module is `dragonfly`, never `dragonfly_core`), `dragonfly-energy` (the `_extend_dragonfly` import side effect, `writer.model_to_urbanopt`, `des.loop.FourthGenThermalLoop`/`GHEThermalLoop.to_des_param_dict`, `opendss.network.ElectricalNetwork.to_geojson_dict`/`to_electrical_database_dict`, `reopt.REoptParameter.to_assumptions_dict` — same posture; the URBANopt/Modelica/RNM/REopt ENGINES are external process-boundary services this page never shells), `ladybug-geometry` (`Face3D`/`Polygon2D` footprint lifting), `ladybug-core` (`location.Location` the anchor projection), `msgspec` (`json` codec for canonical dfjson bytes), `expression` (`Block`/`Map`/`Option`/`tagged_union`), geometry (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`, `energy/model` `BuildingModel`/`ModelSource`/`EnergySpec`/`RESOLVERS`/`StandardsKind` imported downward), runtime (`ContentIdentity`/`ContentKey`, `RuntimeRail`/`BoundaryFault`, `traversed`/`Disposition` the explode accumulation, `Receipt`).
 - Growth: a new translation egress is one `DistrictTarget` case + one dispatch arm; a new massing construction row is one `BuildingSpec` field (window/skylight/shading parameter families attach as spec rows when a consumer names them); the URBANopt/DES/RNM/REopt RUN drivers enter only through a future admission motion provisioning their engines (recorded design pressure, never a pre-admitted subprocess arm); urban-microclimate EPW morphing stays admission-gated growth on the climate owner; the GeoJSON parcel-layer ingest at scale composes the data folder's geospatial owners at the data seam, never a geometry-side `geopandas` import.
 - Boundary: no detailed building-energy model (rooms/faces/apertures are `energy/model`'s — this page stops at `Room2D` plates and the explosion seam), no simulation or result decode (`energy/simulate`), no weather (`energy/climate`), no engine subprocess (URBANopt/Modelica/RNM/REopt are external services), and no GIS re-projection beyond dragonfly's own equirectangular helpers (accurate CRS work is the data folder's `pyproj` plane at the data seam). The deleted forms: a solve over un-intersected plates (the ordered `intersect_adjacency` -> `solve_adjacency` pair is the only zoning path); an explode that bypasses the model page's gate (every emitted honeybee model crosses `BuildingModel.of`); a per-target `to_urbanopt`/`to_des`/`to_opendss` method family where one `translate` dispatches the union; four loose lat/lon/elevation/point parameters where `Anchor` carries the geo registration; a re-minted thermal-loop/electrical/REopt vocabulary where the caller authors dragonfly-energy value objects; importing the module as `dragonfly_core`; and a run driver shelling an unprovisioned engine.
@@ -119,6 +119,8 @@ class DistrictReceipt(Struct, frozen=True):
     exploded: int
     target: Option[str]
     content_key: ContentKey
+    unzoned_segments: int = 0  # wall segments whose boundary condition is not Surface after zoning
+    total_segments: int = 0
 
     def contribute(self) -> Iterable[Receipt]:
         yield Receipt.of(
@@ -132,16 +134,21 @@ class DistrictReceipt(Struct, frozen=True):
                     "room2ds": self.room2ds,
                     "modeled_floors": self.modeled_floors,
                     "exploded": self.exploded,
+                    "unzoned_segments": self.unzoned_segments,
+                    "total_segments": self.total_segments,
                     "content_key": self.content_key.hex,
                 },
             ),
         )
 
-    def graduates(self, key: ContentKey, unsolved_fraction: float, ceiling: float) -> GeometryHandoff:
+    def graduates(self, key: ContentKey, ceiling: float) -> GeometryHandoff:
+        # the sibling 2-param shape: the residual DERIVES from the carried segment census —
+        # a fully-zoned district graduates at zero, never a caller-supplied fraction.
+        residual = self.unzoned_segments / max(self.total_segments, 1)
         return GeometryHandoff.of(
             GeometrySubject.BUILDING_ENERGY,
             key,
-            {"unzoned": unsolved_fraction, "buildings": float(self.buildings), "floor_area": self.floor_area},
+            {"unzoned": residual, "buildings": float(self.buildings), "floor_area": self.floor_area},
             {"unzoned": ceiling},
         )
 
@@ -239,6 +246,9 @@ class District(Struct, frozen=True):
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, "assign", fold)
 
     def receipt(self, exploded: int = 0, target: Option[str] = Nothing) -> DistrictReceipt:
+        # the segment census folds here so `graduates` derives its residual from carried facts:
+        # a non-Surface boundary condition after zoning is an adjacency-unsolved segment.
+        conditions = [type(bc).__name__ for room in self.graph.room_2ds for bc in room.boundary_conditions]
         return DistrictReceipt(
             buildings=len(self.graph.buildings),
             stories=len(self.graph.stories),
@@ -249,6 +259,8 @@ class District(Struct, frozen=True):
             exploded=exploded,
             target=target,
             content_key=self.content_key,
+            unzoned_segments=sum(1 for name in conditions if name != "Surface"),
+            total_segments=len(conditions),
         )
 
     def translate(self, target: DistrictTarget) -> "RuntimeRail[object]":

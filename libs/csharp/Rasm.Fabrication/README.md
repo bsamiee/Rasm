@@ -1,26 +1,68 @@
 # [RASM_FABRICATION]
 
-`Rasm.Fabrication` is the host-neutral portable-fabrication owner over the `Rasm` kernel. The polymorphic `Fabrication` owner closes the 3D-to-fabrication concern over a `FabricationPolicy` `[Union]` discriminant folded by one `Run` generated total `Switch`, spanning exact hidden-line projection, CAM toolpath motion with serial-chain kinematics, 2D true-shape nesting, and a portable cut-program emitter — all over a shared 2D polygon-algebra floor. The domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
+`Rasm.Fabrication` is the host-neutral AEC-DOMAIN production-fabrication engine over the `Rasm` kernel — fifteen folders ↔ fifteen namespaces, bijective. The polymorphic `Fabrication` owner closes the whole concern over the 10-case `FabricationPolicy` `[Union]` folded by one `Run` generated total `Switch` (Cam · HiddenLine · Nest · Additive · Verify · Inspect · Post · Document · Derive · Form); every flagship terminates in a content-keyed machine-consumable artifact through the thirteen-row `EgressKind` + `ContentKey.Of` egress spine. The domain map, seam ledger, and fault registry live in `ARCHITECTURE.md`; forward work in `IDEAS.md` and `TASKLOG.md`. Rows [01]-[33] mirror the DECISION roster; rows [34]-[59] are the widened-map pages. A `[QUEUED]` row names a DECISION roster page a later tranche builds.
 
 ## [01]-[ROUTER]
 
-- [01]-[OWNER](.planning/Process/owner.md): polymorphic `Fabrication` owner — `FabricationPolicy`/`FabricationResult` unions, shared `Loop`/`Edge3`/`Move`/`PartTransform` atoms, one `Run` fold.
-- [02]-[FAMILY](.planning/Process/family.md): `Process`/`Machine` axis pair — removal-modality/kinematic-class/post-dialect discriminant covering mill/turn/route/laser/plasma/waterjet/additive/oxyfuel/edm-wire.
-- [03]-[CLIPPER](.planning/Polygon/clipper.md): `Clipper2` polygon-algebra substrate — offset/inflate, Boolean clip, Minkowski sum, open-path screen clip.
-- [04]-[IMPORT](.planning/Polygon/import.md): portable 2D profile-ingress boundary — DXF/DWG closed-polyline and arc entities tessellated into the canonical `Loop` via `ACadSharp`, host-neutral and coexisting with Rhino-native I/O.
-- [05]-[PROJECTION](.planning/Posting/projection.md): HLR — BSP front-to-back visibility and `Clipper2` open-path-Boolean screen clip; world-space edge sets for the `AppUi` `Viewport2D`.
-- [06]-[MOTION](.planning/Toolpath/motion.md): CAM motion — `(RemovalModality, CutStrategy)` cross-product move family (boundary-pass/pocket-clear/peck/adaptive/radial-sweep/plunge-dwell/helical/layer-walk, the modality enveloping each strategy) over the `Geometry2D` offset, the arc-capable `Move` carrying its `ArcCenter` for the posting biarc refit.
-- [07]-[SKELETON](.planning/Toolpath/skeleton.md): straight-skeleton/medial-axis author-kernel driving trochoidal adaptive clearing.
-- [08]-[SLICING](.planning/Toolpath/slicing.md): FFF/DED slicing author-kernel — planar-section layer contours, perimeter shells, and hatch-clip infill over the `Geometry2D` substrate.
-- [09]-[KINEMATICS](.planning/Toolpath/kinematics.md): articulated-robot-cell solver — `RobotProgram` drives a serial-chain `Move` stream through the admitted `Robots` cell (FK/IK, joint-limit/singularity/reach validation, cell-dialect post), superseding the hand-rolled DH/Jacobian-IK sketch.
-- [10]-[NFP](.planning/Nesting/nfp.md): 2D true-shape nesting — NFP feasibility plus the inner-fit-polygon dual, bottom-left/genetic/`RectpackSharp` rect-fastpath placement over a `Seq<Stock>` multi-sheet inventory, and the kerf-inflated Boolean-difference `Remnant` lineage producer.
-- [11]-[PROGRAM](.planning/Posting/program.md): host-neutral cut-program emission — dialect-neutral G-code AST plus the `Process/family` `PostDialect` family with the independent dialect-override seam, kerf-comp, lead-in/out, pierce, micro-tab, `geometry3Sharp` `g3.BiArcFit2` biarc arc-fit, jerk-limited look-ahead feedrate, cut-sequencing.
-- [12]-[WORKHOLDING](.planning/Nesting/workholding.md): `Workholder` keep-out family (clamp/vise/chuck/vacuum-table/magnet/sacrificial-bed) conditioning the toolpath and cut sequence against fixture geometry.
-- [13]-[PHYSICS](.planning/Process/physics.md): removal-physics table projecting `process × material × tool × operation` to the modality-discriminated `RemovalBudget` (subtractive/thermal/abrasive/additive) the toolpath generators read.
-- [14]-[FAULTS](.planning/Process/faults.md): `FabricationFault` cases on the registry band `FaultBand.Fabrication` (2700, offset-derived codes) composing the kernel band-2400 `GeometryFault`.
-- [15]-[GUARD](.planning/Toolpath/guard.md): swept tool-plus-holder collision/gouge guard — `SweptVolume` over the `Geometry2D` Minkowski substrate, the `Verdict` union (clear/gouge/collision/clearance), and the collision-aware safe-Z lift `Cam.Solve` consults per feed move.
-- [16]-[MAGAZINE](.planning/Process/magazine.md): tool-magazine — `Magazine` carousel/turret/manual slot map, per-slot `ToolAssembly` holder geometry, and the minimal-swap tool-change `Schedule` the posting `G43`/`M6` emits.
-- [17]-[STOCK](.planning/Nesting/stock.md): rectangular cutting-stock yield engine — one `StockNest.Pack` fold over the `NestStrategy` `[Union]` collapsing the five `RectangleBinPack.CSharp` packers (max-rects/skyline/guillotine/shelf/mass-cut plus the heuristic sweep) into the `NestPlan`/`NestYield` per-sheet sheet-yield receipt the `Nest.Honor` fold consumes on `FabricationInput.Plan`.
+- [01]-[OWNER](.planning/Process/owner.md): owner#atoms vocabulary (`Loop`+`Bulges`/`Edge3`/`Move`/`PartTransform`/`ProjectionDir`/`CutterForm`/`AdmittedComponent`/`PlannedStep`/`BendStep`/`ResidualStock`/`StockSnapshot`/`CapabilityVerdict`/`EgressKind`/`ContentKey`) + the 10-case `Run` entry (owner#run).
+- [02]-[FAMILY](.planning/Process/family.md): `ProcessKind` (11) / `Machine` (14) axes, the `ProcessModality` superset (7 rows under `ModalityClass` {removal, additive, formed, joined}), `CutStrategy` + dimensionality, `KinematicClass` rotary topology, and the `PostDialect` grammar-capability table.
+- [03]-[PHYSICS](.planning/Process/physics.md): ONE `Material` identity carrying `Map<ProcessModality, ModalityPhysics>` → the nine-case `RemovalBudget` (subtractive/thermal/abrasive/FFF/DED/erosion/resin/powder/formed; `Deposition` doubles as the joined-key weld heat-input budget).
+- [04]-[FAULTS](.planning/Process/faults.md): the band-2700 registry — frozen retyped 2701-2710 + folder-grouped growth 2711-2729 + 2730-2746; next free 2747.
+- [05]-[MAGAZINE](.planning/Tooling/magazine.md): MTConnect ISO-13399 `ToolAssembly` + the life-split minimal-swap `Schedule` wired to the posting `Tnn`/`M6`/`G43` blocks.
+- [06]-[CUTTINGDATA](.planning/Tooling/cuttingdata.md): Kienzle `kc` machinability — ISO 513 class seeds, CSV/QIF data ingress, `CutterForm.Of(ToolAssembly)` projection.
+- [07]-[ALGEBRA](.planning/Geometry2D/algebra.md): Clipper2 line-space substrate — offset, variable-delta offset, Boolean/open-path clip, Minkowski sum/diff (carries the arc-space block until `arcs` lands).
+- [08]-[ARCS]: [QUEUED] CavalierContours arc-space owner — `ArcAlgebra` kerf/lead/adaptive over kernel region offsets.
+- [09]-[PROFILE](.planning/Ingress/profile.md): the DXF/DWG profile arm of the ONE polymorphic `Ingress.Admit` fold via `ACadSharp`; hosts the 4-case `IngressSource` union.
+- [10]-[SOLID]: [QUEUED] OcctNet STEP/IGES/STL B-rep ingress → kernel `MeshSpace` admission.
+- [11]-[STEEL]: [QUEUED] DSTV NC1 steel-exchange read arm → `Loop` via Mapperly projection; `KA` blocks feed `Forming/sheet`.
+- [12]-[MOTION](.planning/Toolpath/motion.md): `(ProcessModality, CutStrategy)` generator arms; the Cam fold emits the conditioned `Motion`; the Turn arm composes `Turning.Generate`; SliceWalk carries seam/comb/monotonic rows.
+- [13]-[SURFACE]: [QUEUED] OpenCAMLib cutter positioning + kernel on-mesh path layout — the 3D-surface finishing family.
+- [14]-[PARTITION]: [QUEUED] SharpVoronoiLib Fortune/Lloyd region-decomposition CAM lane.
+- [15]-[GUARD](.planning/Toolpath/guard.md): swept tool-plus-holder gouge/collision guard consulted per committed feed move; retract routing re-pointed to `Link.Route`.
+- [16]-[SKELETON](.planning/Toolpath/skeleton.md): trochoidal constant-engagement WALK over the kernel clearance family.
+- [17]-[CELL](.planning/Kinematics/cell.md): `Robots` serial-chain cell solve — per-manufacturer posts, `extern alias R3` boundary.
+- [18]-[MACHINE]: [QUEUED] 5-axis rotary-topology inverse + TCP/RTCP; homes the ONE motion-dynamics law.
+- [19]-[SLICING](.planning/Additive/slicing.md): FFF/DED planar slicing — `InfillPattern` + shells with the Arachne bead law over the K1 medial RADIUS and the density-field infill policy row (kernel `SliceStack` consumer).
+- [20]-[IMPLICIT]: [QUEUED] PicoGK implicit/voxel lanes — TPMS/lattice/resin-powder, the declared ALC-firebreak posture.
+- [21]-[PRODUCTION]: [QUEUED] build orientation + machine profiles + lib3mf 3MF egress.
+- [22]-[NFP](.planning/Nesting/nfp.md): NFP-feasibility true-shape nesting over the `Seq<Stock>` inventory, `MaxRectsBinPack` rect-fastpath, kerf-difference `Remnant` lineage (the mint half — the lifecycle half is `remnant`).
+- [23]-[STOCK](.planning/Nesting/stock.md): rectangular cutting-stock yield — one `StockNest.Pack` fold over the `NestStrategy` `[Union]`, the `NestPlan`/`NestYield` receipt `Nest.Honor` consumes.
+- [24]-[WORKHOLDING](.planning/Fixturing/workholding.md): `Clamp`/`ExclusionZone` keep-out family + the `Condition` fold the Cam conditioning composes.
+- [25]-[SETUPS]: [QUEUED] QuikGraph multi-fixture setup scheduler owning the setup→WCS assignment rows.
+- [26]-[PROGRAM](.planning/Posting/program.md): dialect-neutral `CutProgram` AST + cut conditioning (incl. the cooling Lookahead-sibling pass) + content key; the `Run(Post)` case assembles the AST from the atoms `Motion`; `Parse` round-trip.
+- [27]-[DIALECT]: [QUEUED] per-dialect `Emit` generated total `Switch` over the `PostDialect` grammar family; canned-cycle/macro/subprogram lowering; NC1 emit target.
+- [28]-[REMOVAL]: [QUEUED] PicoGK voxel material-removal verify → typed receipts, `ResidualStock` + per-setup `StockSnapshot`s.
+- [29]-[PROBING]: [QUEUED] in-process metrology — G31/G38 rows, kernel ICP best-fit, `ConformanceMetric` verdicts, QIF → capability.
+- [30]-[TOLERANCE]: [QUEUED] typed GD&T vocabulary — ISO 286 generated fits, ISO 1101/ASME Y14.5, ISO 1302; the spec-drives-process derivation rows.
+- [31]-[CAPABILITY]: [QUEUED] Cp/Cpk over kernel `Stat.Of` + MathNet; the plan-time Cpk gate producing `CapabilityVerdict`.
+- [32]-[PROJECTION](.planning/Documentation/projection.md): HLR emission (kernel `DrawingProjection` consumer) — the `HiddenLineResult` receipt AppUi is insulated at.
+- [33]-[TRAVELER]: [QUEUED] content-keyed setup sheets + shop travelers composed via the `Run(Document)` case.
+- [34]-[DERIVATION](.planning/Process/derivation.md): the `Run(Derive)` orchestrator — `Derivation.Plan` stage rail (manufacturability → routing → fleet → setup/assembly → programs → documentation), `DerivePolicy`/`DerivationStage`, the realized `FabricationProjector : IElementProjection` registration.
+- [35]-[WEAR](.planning/Tooling/wear.md): Taylor VB flank-wear + condition-based RUL over decoded MTConnect telemetry; cross-`ModalityClass` consumable state; `ToolWear.Assess` → `WearState` feeding `magazine.Schedule` + estimation.
+- [36]-[CURVES](.planning/Geometry2D/curves.md): the parametric third owner — `CurveAlgebra.Apply` over kernel exact offsets/stations/divide/refit + `Fill` + NURBS refit/frames; feeds turning, 2.5D pocket-profile, posting stations, 5-axis smoothing.
+- [37]-[ELEMENT](.planning/Ingress/element.md): the `ElementGraph.Bake` arm of `Ingress.Admit` → `AdmittedComponent` (representation key, composition layers, connection rows, `DemandKey`-pinned quantity/property bags).
+- [38]-[TURNING](.planning/Toolpath/turning.md): `LatheOp` union + `Turning.Generate` — G71/G72/G73 pass folds, ISO thread degression, 9-quadrant nose comp, Css/G97 spindle modes, K14 revolved envelope.
+- [39]-[WIRE](.planning/Toolpath/wire.md): wire-EDM cycle union — compound skim offsets, guide-plane taper + corner modes, corner slowdown + wire lag, slug/tab retention; the `Erosion` budget's consumer.
+- [40]-[LINK](.planning/Toolpath/link.md): rapid-travel minimization — `Link.Route` QuikGraph tour + A*/Dijkstra obstacle-routed retracts over guard clearance + kernel `SpatialIndex`.
+- [41]-[BEVEL](.planning/Toolpath/bevel.md): `BevelType` I/V/A/Y/K/X per-edge coupled condition rows; waterjet twin-tilt taper-lag; the ONE THC/Z-law custodian; groove-prep feeds `Joining/weld`.
+- [42]-[FLEET](.planning/Kinematics/fleet.md): the machine-capability registry — `Fleet.Capable(AdmittedComponent, MachineFleet)` six-check join → ranked `Seq<MachineMatch>`; instance DATA over the family `Machine` axis.
+- [43]-[SCANPATH](.planning/Additive/scanpath.md): LPBF hatch union + 66.7° rotation recurrence + direction×ordering sorter axes + up/down/in-skin partition; `scan-vectors` egress off the `Powder` budget.
+- [44]-[SUPPORT](.planning/Additive/support.md): planar layer-diff overhang census + interface carve; TREE influence-area walk with avoidance-state cache; bridge anchor state machine; voxel/lattice lane stays `implicit`.
+- [45]-[REMNANT](.planning/Nesting/remnant.md): the offcut lifecycle partial — `RemnantState` transitions, `ReusePolicy` admission, Claim/Release ledger, `Stockable` re-mint into the next `Inventory`.
+- [46]-[LINKING](.planning/Nesting/linking.md): `LinkOp` union (CommonLine/ChainCut/Bridge/SkeletonCutUp) — collision-checked graph edits over the `Placement`; one pierce/lead per chain into program.
+- [47]-[ASSEMBLY](.planning/Fixturing/assembly.md): join-precedence planning — `Assembly.Sequence` → `AssemblyPlan`; `JoinClass` classification; QuikGraph DAG gate + topological order + transitive reduction.
+- [48]-[OPTIMIZATION](.planning/Posting/optimization.md): MRR-adaptive feedrate + HSM corner smoothing + block-cap compaction over the `CutProgram` AST via the internal `Lookahead` re-sweep.
+- [49]-[ESTIMATION](.planning/Verify/estimation.md): `Estimate.Of(FabricationResult)` → `CostReceipt` — simulate clock, nest waste, wear consumables, remnant credit, fleet `HourlyRate` rates; receipts only.
+- [50]-[AUDIT](.planning/Verify/audit.md): additive layer-stack pre-flight — `Span2D` connected components, `LayerDefect` union, cross-layer lineage; receipts only.
+- [51]-[SIMULATE](.planning/Verify/simulate.md): `Simulate.Execute` — the modal-state execution walk over the parsed `CutProgram`, per-block accel-limited time, envelope/overtravel verdicts; the authoritative cycle-time owner.
+- [52]-[MANUFACTURABILITY](.planning/Spec/manufacturability.md): cross-`ModalityClass` DfM verdicts on ONE surface — `Manufacturability.Assess` → `DfmReport` (with the ranked `Routing` derivation feed); receipts only.
+- [53]-[REPORT](.planning/Documentation/report.md): FAI/mill-cert/weld-inspection as-built `QualityRecord` union — measured features + Cp/Cpk + conformance rows, content-keyed; MODEL only.
+- [54]-[SHEET](.planning/Forming/sheet.md): the ONE unfold owner — `FlatPattern.Unfold` as the BA-substitution overlay over kernel `Development.Apply`; K-factor table/coupon/DIN-6935; relief/hem unions; `FormPolicy` mints here.
+- [55]-[BRAKE](.planning/Forming/brake.md): `BendSequence.Plan` best-first over the reach/collision/occlusion matrix; V=f·T die rows; air-bend tonnage; `BendMethod` air/bottoming/coining; springback overbend into `BendStep`.
+- [56]-[TUBE](.planning/Forming/tube.md): XYZ→YBC/LRA centerline fold + elongation carry + CLR/mandrel admission + analytic cope development; research-gated row (bender-format breadth precedes the deep interior).
+- [57]-[WELD](.planning/Joining/weld.md): joint×prep over the Materials-owned groove vocabulary; bead-stack fill fold; `HI = η·60·V·I/(1000·v)` off the joined-key `Deposition` budget; torch `Motion` through Cam.
+- [58]-[SEQUENCE](.planning/Joining/sequence.md): distortion ordering (Backstep/SkipWeld/Balanced/Block) + tack plan + interpass scheduling; permutes only within `AssemblyPlan.Precedence`.
+- [59]-[PROCEDURE](.planning/Joining/procedure.md): WPS/PQR essential-variable rows (`EssentialVariable` mints here) + the heat-input compliance gate; QIF-aligned.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -33,7 +75,7 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `ACadSharp` — DWG/DXF read at the `Rasm.Bim` interchange seam for 2D profile ingress; DXF/DWG WRITE is the AppUi drafting leg, never a Fabrication arm.
 
 [STEEL_FABRICATION_EXCHANGE]:
-- `DSTV.Net` — DSTV/NC1 steel fabrication exchange for profile-cut programs, saw/drill/punch data, and shop-machine handoff beside the neutral G-code AST.
+- `DSTV.Net` — DSTV/NC1 steel fabrication exchange for profile-cut programs, saw/drill/punch data, and shop-machine handoff beside the neutral G-code AST; `KA` bend blocks feed `Forming/sheet`.
 
 [RECT_PACKING]:
 - `RectangleBinPack.CSharp` — cutting-stock suite: five packers behind `Nesting/stock`, and the `Nesting/nfp` rectangle fast-path via `MaxRectsBinPack`.
@@ -42,7 +84,7 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `geometry3Sharp` — the SOLE biarc/curve-fit owner, scoped to `g3.BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d`; the mesh-boolean half stays firewalled.
 
 [ROBOT_KINEMATICS]:
-- `Robots` — visose serial-chain kinematics owner: DH FK, analytic+numerical IK, `KinematicSolution`, external axes; never RhinoCommon into `Rhino3dm`.
+- `Robots` — visose serial-chain kinematics owner: DH FK, analytic+numerical IK, `KinematicSolution`, external axes; never RhinoCommon into `Rhino3dm`; the weld-torch cell posts ride the same rows.
 
 [ARC_OFFSET]:
 - `CavalierContours` — arc-native bulge polyline offset/Boolean owner with `StaticAABB2DIndex`; orthogonal to line-only `Clipper2` and the `g3.BiArcFit2` refit.
@@ -60,10 +102,10 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `lib3mf` — 3MF reader/WRITER: core/production/beam-lattice/slice egress, PicoGK `Lattice` maps onto `CBeamLattice`. Vendored ACT binding, RID native (BSD-2).
 
 [TOOL_DATA_MODEL]:
-- `MTConnect.NET-Common` — TrakHound ISO-13399 cutting-tool model behind the `Magazine`/`ToolAssembly` catalogue; feeds/speeds data stays a recorded gap.
+- `MTConnect.NET-Common` — TrakHound ISO-13399 cutting-tool model behind the `Magazine`/`ToolAssembly` catalogue; feeds/speeds live on `Tooling/cuttingdata` (Kienzle `kc` + data ingress); `Tooling/wear` reads the decoded condition/telemetry slice.
 
 [SOLID_INGRESS]:
-- `OcctNet.Wrapper` — managed STEP/IGES B-rep ingress to `OcctShape`/`OcctMesh`; single-shape import only, no TKHLR/TKXCAF — HLR stays `Posting/projection`.
+- `OcctNet.Wrapper` — managed STEP/IGES B-rep ingress to `OcctShape`/`OcctMesh`; single-shape import only, no TKHLR/TKXCAF — HLR stays `Documentation/projection`.
 
 [REJECTED]:
 - `netDxf` — rejected second reader: DXF-only, no `Spline`/bulge parity with `ACadSharp`; the WRITE leg is the AppUi ACadSharp leg.
@@ -82,21 +124,21 @@ Substrate cards this folder consumes from the registry. Full substrate law and p
 
 [TIME_IDENTITY]:
 - `System.IO.Hashing` — reached ONLY through the kernel `ContentHash.Of` single mint; every egress content key seeds there.
-- `NodaTime` — `Instant` stamps on traveler documents, probing receipts, tool-life schedules, and SPC control points.
+- `NodaTime` — `Instant` stamps on traveler documents, quality-record models, probing receipts, tool-life schedules, and SPC control points.
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet` — cut-parameter boundary + `Spec/tolerance` quantities (Speed/Length/RotationalSpeed/Pressure + Force/Power/Temperature/Angle/Torque overlay).
-- `MathNet.Numerics` — `Spec/capability` distribution-fit + Monte-Carlo tolerance-stackup; the streaming-moment half stays kernel `Domain/stats`.
+- `MathNet.Numerics` — `Spec/capability` distribution-fit + Monte-Carlo tolerance-stackup; `Tooling/wear` Taylor log-log `Fit.Line`; the streaming-moment half stays kernel `Domain/stats`.
 
 [SIMD_SPANS]:
 - `System.Numerics.Tensors` — SIMD-lower the hot sampling folds across `Toolpath/motion`, `Nesting/nfp`, `Spec/capability`.
-- `CommunityToolkit.HighPerformance` — `Span2D`/`Memory2D` 2D grids for grayscale/uncut/engagement rasters.
+- `CommunityToolkit.HighPerformance` — `Span2D`/`Memory2D` 2D grids for grayscale/uncut/engagement rasters and the `Verify/audit` layer census.
 
 [MAPPING]:
 - `Riok.Mapperly` — zero-reflection source-generated projections: DSTV-record→`Loop`, MTConnect asset rows, and the `extern alias R3` Rhino3dm boundary seam.
 
 [GRAPH]:
-- `QuikGraph` — the `Fixturing/setups` operation-precedence + datum-lineage graph (the magazine-eviction greedy stays hand-rolled).
+- `QuikGraph` — the `Fixturing/setups` operation-precedence + datum-lineage graph, the `Fixturing/assembly` join-precedence DAG, and the `Toolpath/link` tour/routing (the magazine-eviction greedy stays hand-rolled).
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.core`

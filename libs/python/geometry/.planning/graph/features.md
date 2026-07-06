@@ -4,24 +4,24 @@
 
 The analytics table closes five families under one `backend=` dispatch row: connectivity (`connected_components`/`weakly_connected_components`/`strongly_connected_components`), centrality (`betweenness_centrality`/`degree_centrality`/`closeness_centrality`/`eigenvector_centrality`/`pagerank`), spanning structure (`minimum_spanning_tree`), cycle census (`simple_cycles`), and community partition (`nx.community.louvain_communities`). The row `mode_guard` skips a directed-only or undirected-only algorithm by data, never by an inline `if graph.is_directed()` branch.
 
-The feature graph graduates through `FeatureResult.graduates`, minting the geometry `GraduationReceipt` over `HandoffAxis(geometry="network-graph")` on the same compute admission rail the `algebra` sibling rides for the identical subject. This owner is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file. Raw mesh-file exchange stays at the data seam, mesh repair/boolean is the `mesh` sibling, and non-manifold cell topology is the `nonmanifold` sibling.
+The feature graph graduates through `FeatureResult.graduates`, returning the local `rasm.geometry.graduation` `GeometryHandoff` carrier under `GeometrySubject.NETWORK_GRAPH` — the same geometry-minted member the `algebra` sibling produces, the crossing to compute the carrier's `wire()` data, never an import. This owner is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file. Raw mesh-file exchange stays at the data seam, mesh repair/boolean is the `mesh` sibling, and non-manifold cell topology is the `nonmanifold` sibling.
 
-`trimesh`, `numpy`, and `networkx` ride the runtime lane directly.
+`trimesh`, `numpy`, and `networkx` ride the runtime lane directly; the reducer-return vocabulary (`AnalyticValue`, the `ranked` board fold, the census projections) imports downward from the tier-0 `graph/analytic` substrate — no local twin, no geometry-minted limiter (the `bridged` mirror rides the runtime lane THREAD band).
 
 ## [01]-[INDEX]
 
-- [01]-[FEATURES]: the `FeatureKind` detect/project op-table, the `MarkSpace`-keyed `MARK_PROJECT` projection algebra over the spec's `EdgeSource`, the `AnalyticOp`/`AnalyticValue` analytics table folding to one typed `Census`, the `CASE` ledger/ceiling spec table, the `Features` producer capsule with its `@receipted` `_extract` (sync) and `_offload` (async) bodies, its polymorphic single-or-batch `run`, and its async `bridged` fence mirror routing the `@receipted` `_offload` heavy/light split through `_ANALYTIC_LIMITER`-bounded `anyio.to_thread.run_sync` and returning the bare `RuntimeRail`, the typed `FeatureResult`, and the per-kind `graduates` rail under one `ReceiptContributor`.
+- [01]-[FEATURES]: the `FeatureKind` detect/project op-table, the `MarkSpace`-keyed `MARK_PROJECT` projection algebra over the spec's `EdgeSource`, the `AnalyticOp`/`AnalyticValue` analytics table folding to one typed `Census`, the `CASE` ledger/ceiling spec table, the `Features` producer capsule with its one `@receipted` `_extract` body, its polymorphic single-or-batch `run`, and its async `bridged` mirror offloading the SAME `@receipted` `_extract` onto the runtime lane THREAD band (zero geometry-minted limiters), the typed `FeatureResult`, and the per-kind `graduates` carrier fold.
 
 ## [02]-[FEATURES]
 
-- Owner: `Features` — the producer capsule holding the conditioned `trimesh.Trimesh`, its polymorphic `run` discriminating a single `FeatureRequest` or a batch through the `FEATURE_OPS` detect/project table; `@receipted(_REDACTION)` wraps the pure `_extract` (sync) and `_offload` (async heavy/light split) bodies so each harvests its `FeatureResult.contribute` stream on exit — the sync arm through `Signals.emit`, the async arm through `Signals.emit_async` off the aspect's `iscoroutinefunction` dispatch — while the `boundary`/`async_boundary` fence sits OUTSIDE in `run`/`bridged`, so a raise is an `Error(BoundaryFault)` on the rail the aspect never falsely emits and the public surface is the contributor the caller reads, never a per-op rail the aspect discards. `FeatureKind` selects the kind; `GraphMode` resolves `create_using` over the full `nx.Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family through its `MODE_CREATE` row, so directedness and multiplicity are a bounded vocabulary, never a `directed: bool`/`multi: bool` knob pair; `GraphBackend` names the `@nx._dispatchable` dispatch backend (`DEFAULT`/`PARALLEL`/`CUGRAPH`/`GRAPHBLAS`), threaded once as `backend=` into every reducer rather than forked per call site; `MarkSpace` tags which index space a detector's marks live in (`EDGE_ROW`/`VERTEX`/`FACET`) and is the key the `MARK_PROJECT` table dispatches the projection on, so a `FeatureSpec`'s detector and projection cannot cross-index and the projection is one data row per space rather than a function reference threaded per kind. `FeatureSpec` binds a kind to its `(Detector, EdgeSource, MarkSpace)` triple — `EdgeSource` resolving the `(n, 2)` index array the `EDGE_ROW`/`VERTEX` projections lift, so the four kinds reuse two projection arms rather than four projection functions; `AnalyticSpec` binds an `AnalyticOp` to its `(reducer, mode_guard)` pair; `AnalyticValue` the `@tagged_union` collapsing every reducer return — a `scalar` `float`, a `leaderboard` `Leaders`, or a `groups` `Partition` partition — to one typed carrier owning its own dual projection (`as_scalar` the cardinality, `peak` the head-magnitude) so `_analyse` folds to `Map[AnalyticOp, AnalyticValue]` with no `isinstance` reconstruction and no module-level `_peak` fold beside it. `Census` the typed value object holding the kind/mode/backend tags, node/edge/marks counts, and that `Map`, projected to facts through `msgspec.structs.asdict` with the `_HEAD_OPS` centrality rows reading `peak` and the count/partition rows reading `as_scalar`. `FeatureResult` the sole `ReceiptContributor`, carrying the kind, the `Census`, the node-link graph projection, and the case-keyed `GeometrySubject` literal (`rasm.compute.graduation.handoff#GeometrySubject`, never a bare `str`). `FeaturePolicy` the `msgspec.Struct` value object carrying the `dihedral_cos`/`coplanar_cos`/`defect` thresholds, the `GraphMode`, the `GraphBackend`, the `centrality_top` leaderboard cap, the `power_iter` power-iteration ceiling, and the `AnalyticOp` selection set, so every threshold, cap, solver bound, and analytic toggle is a policy field, never a positional float or a boolean knob.
+- Owner: `Features` — the producer capsule holding the conditioned `trimesh.Trimesh`, its polymorphic `run` discriminating a single `FeatureRequest` or a batch through the `FEATURE_OPS` detect/project table; `@receipted(_REDACTION)` wraps the ONE pure `_extract` body both paths share so it harvests its `FeatureResult.contribute` stream on exit, while the fence sits OUTSIDE — `run`'s `boundary` on the sync arm, the lane's `async_boundary` on the bridged arm — so a raise is an `Error(BoundaryFault)` on the rail the aspect never falsely emits and the public surface is the contributor the caller reads, never a per-op rail the aspect discards. `FeatureKind` selects the kind; `GraphMode` resolves `create_using` over the full `nx.Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family through its `MODE_CREATE` row, so directedness and multiplicity are a bounded vocabulary, never a `directed: bool`/`multi: bool` knob pair; `GraphBackend` names the `@nx._dispatchable` dispatch backend (`DEFAULT`/`PARALLEL`/`CUGRAPH`/`GRAPHBLAS`), threaded once as `backend=` into every reducer rather than forked per call site; `MarkSpace` tags which index space a detector's marks live in (`EDGE_ROW`/`VERTEX`/`FACET`) and is the key the `MARK_PROJECT` table dispatches the projection on, so a `FeatureSpec`'s detector and projection cannot cross-index and the projection is one data row per space rather than a function reference threaded per kind. `FeatureSpec` binds a kind to its `(Detector, EdgeSource, MarkSpace)` triple — `EdgeSource` resolving the `(n, 2)` index array the `EDGE_ROW`/`VERTEX` projections lift, so the four kinds reuse two projection arms rather than four projection functions; `AnalyticSpec` binds an `AnalyticOp` to its `(reducer, mode_guard)` pair; `AnalyticValue` — imported from the tier-0 `graph/analytic` substrate (the one carrier all three graph producers compose, never authored verbatim per page) — collapses every reducer return to one typed carrier with its dual `as_scalar`/`peak` projections, so `_analyse` folds to `Map[AnalyticOp, AnalyticValue]` with no `isinstance` reconstruction; the centrality boards mint through the substrate's polymorphic `ranked` fold and the census scalars read through its `peak_of`/`scalar_of` projections. `Census` the typed value object holding the kind/mode/backend tags, node/edge/marks counts, and that `Map`, projected to facts through `msgspec.structs.asdict` with the `_HEAD_OPS` centrality rows reading `peak` and the count/partition rows reading `as_scalar`. `FeatureResult` the sole receipt carrier (conforming structurally to the runtime-checkable `ReceiptContributor` Protocol), carrying the kind, the `Census`, the node-link graph projection, and the case-keyed geometry-minted `GeometrySubject` member, never a bare `str`. `FeaturePolicy` the `msgspec.Struct` value object carrying the `dihedral_cos`/`coplanar_cos`/`defect` thresholds, the `GraphMode`, the `GraphBackend`, the `centrality_top` leaderboard cap, the `power_iter` power-iteration ceiling, and the `AnalyticOp` selection set, so every threshold, cap, solver bound, and analytic toggle is a policy field, never a positional float or a boolean knob.
 - Cases: `FeatureKind` rows `SHARP_EDGE` (face pairs across `face_adjacency` whose `face_normals` cosine falls below `dihedral_cos`, the dihedral crease set) · `PLANAR` (the `facets` coplanar groups whose member normals stay above `coplanar_cos`, the flat-region partition) · `CURVATURE` (vertices whose `vertex_defects` angle-defect — the discrete Gaussian curvature — exceeds `defect`, the high-curvature set) · `BOUNDARY` (the `edges_unique` rows whose `edges_face` incidence count is exactly one — the open-boundary loop, read off the catalogue-confirmed `edges_face` per-edge face accessor rather than a hand-rolled triangle-edge expansion) — each row a `FeatureSpec(detector, edge_source, mark_space)`, never a dispatch branch; a fifth kind is one `FeatureKind` row plus one `FEATURE_OPS` entry. `AnalyticOp` rows close the analytics vocabulary across five families — components (`COMPONENTS`/`WEAK_COMPONENTS`/`STRONG_COMPONENTS`), centrality (`BETWEENNESS`/`DEGREE`/`CLOSENESS`/`EIGENVECTOR`/`PAGERANK`), spanning (`SPANNING_WEIGHT`), cycles (`CYCLES`), community (`COMMUNITY`) — each one `ANALYTICS` row folding one catalogue-confirmed `networkx` algorithm over the one projection, its directed/undirected applicability gated by the row's `mode_guard` predicate.
-- Entry: `Features.run(request)` is the one polymorphic entrypoint discriminating a single `FeatureRequest` or a batch `Sequence[FeatureRequest]`. A single request lifts `_extract` through `boundary(f"features.{kind}", ...)` — the single exception-to-fault conversion at the host edge, where the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence` from an unconverged eigen/pagerank pass) and the `trimesh` cache faults convert exactly once, interior code receiving only the rail. A batch builds a `Block` of per-request rails in one comprehension and folds them through `runtime.faults.traversed` (`Disposition.ACCUMULATE`) so one fault stays addressable in the aggregate while every successful `FeatureResult` already landed on the contributed stream. `bridged` is the bare async fence mirror returning `RuntimeRail[FeatureResult]`: it routes the `@receipted` `_offload` body — whose heavy analytics band (`betweenness_centrality`/`pagerank`/`simple_cycles`, all-pairs and enumeration cores that must not block the event loop) hoists through `_ANALYTIC_LIMITER`-bounded `anyio.to_thread.run_sync` while the cheap rows fold inline — through `async_boundary` so the aspect emits on `_offload`'s exit through `emit_async` exactly as the sync arm emits on `_extract`'s, and a concurrent fan of bridged analytics holds at most `_ANALYTIC_LIMITER` worker slots rather than draining anyio's runtime-shared default 40-token pool. `bridged` is not itself `@receipted` and never `.default_value`-collapses an offload fault into a synthetic empty result the aspect would falsely emit as `admitted`; a failed offload stays an `Error(BoundaryFault)` on the returned rail exactly as the `algebra` sibling's `bridged` holds, the `_SOLVER_LIMITER`-bound fence-outside-the-aspect wiring applied to the analytics band rather than a parallel async surface.
+- Entry: `Features.run(request)` is the one polymorphic entrypoint discriminating a single `FeatureRequest` or a batch `Sequence[FeatureRequest]`. A single request lifts `_extract` through `boundary(f"features.{kind}", ...)` — the single exception-to-fault conversion at the host edge, where the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence` from an unconverged eigen/pagerank pass) and the `trimesh` cache faults convert exactly once, interior code receiving only the rail. A batch builds a `Block` of per-request rails in one comprehension and folds them through `runtime.faults.traversed` (`Disposition.ACCUMULATE`) so one fault stays addressable in the aggregate while every successful `FeatureResult` already landed on the contributed stream. `bridged` is the bare async mirror returning `RuntimeRail[FeatureResult]`: it offloads the SAME `@receipted` `_extract` onto `lane.offload(..., modality=Modality.THREAD)` — the all-pairs and enumeration cores (`betweenness_centrality`/`pagerank`/`simple_cycles`) never block the event loop, the runtime-owned THREAD band bounds every concurrent bridged pass (zero geometry-minted `CapacityLimiter`s), the lane's own `async_boundary` is the single fence, and the aspect emits on `_extract`'s exit on the worker thread exactly as the sync arm does. `bridged` is not itself `@receipted` and never `.default_value`-collapses an offload fault into a synthetic empty result; a failed offload stays an `Error(BoundaryFault)` on the returned rail.
 - Auto: the detector kernels never branch per kind — each is a closed `numpy` reduction over the `trimesh` cached property the row names, woven with the policy threshold in one vectorized fold. The crease set is a single `numpy.where` over the clipped row-dot of `linalg.norm`-normalized `face_normals` indexed by `face_adjacency` against `dihedral_cos` (no inverse trig); the planar set is the `facets` coplanar groups admitted only where the group's `face_normals` mean-direction agreement clears `coplanar_cos`; curvature is `numpy.abs(vertex_defects) > defect`; the boundary loop is the `edges_unique` rows whose `edges_face` incidence is a single face, computed by one `numpy.where` over `(edges_face >= 0).sum(axis=1) == 1` — the catalogue-confirmed `edges_face` `(e, 2)` per-edge face accessor (`-1` filling the open side) is the incidence source, so a count-1 mark indexes `edges_unique` directly and the detector and its projection share that one array with no triangle-edge expansion. The projection is data-driven on the row's `MarkSpace` through the `MARK_PROJECT` table: `EDGE_ROW` and `VERTEX` both resolve a `(n, 2)` edge array from the row's `EdgeSource` and lift `rows[marks]` through `from_edgelist` — `VERTEX` first scatters a boolean vertex flag (`flags[marks]`, then `flags[edges].any(axis=1)`) so a vertex-index mark selects the incident `edges_unique` rows rather than indexing edge rows by a vertex id — while `FACET` builds the boolean facet-adjacency matrix through `from_numpy_array`, so an edge-index mark and a vertex-index mark never cross-index. All lift through `create_using=policy.mode.create_using` so one call discriminates graph kind, and `backend=policy.backend.value` threads the dispatch backend into every reducer. The node-link evidence is `msgspec.json.encode(node_link_data(graph, edges="edges"))` so the graduation payload is real JSON bytes, never a Python `repr`.
-- Receipt: `FeatureResult` conforms to `ReceiptContributor`; `contribute` returns the one-element `tuple[Receipt, ...]` the port streams, minting `Receipt.of("geometry.graph.features", (phase, subject, facts))` per the runtime two-argument factory — the `(Phase, subject, facts)` evidence triple minting the `fact` case. The phase is data-driven: `phase="emitted"` for a graph that produced nodes and `phase="admitted"` for a vacuous feature set (no marks, an empty graph) the census flags as the entry caveat rather than asserting a result. The facts ride as native `dict[str, object]` — the `Census` projected through `msgspec.structs.asdict` carrying the kind/mode/backend tags, the node/edge/marks counts, and one native scalar per selected analytic: the count/spanning/cycle/community rows their `as_scalar` cardinality (component/weak/strong counts, spanning-tree weight, cycle count, community count) and the `_HEAD_OPS` centrality rows their `peak` top head score (the max betweenness/degree/closeness/eigenvector/pagerank value, not the board length, so the load-bearing centrality signal survives onto the flat map) — never `str()`-coerced, because the `observability/receipts#RECEIPT` `Encoder(enc_hook=repr, order="deterministic")` renderer serializes native scalars and a pre-`str()` map is the deleted form that owner rejects. The tuple-of-tuple leaderboards and the community partition stay off the flat facts map and ride the typed `Census.values` `Map`. `FeatureResult.graduates(evidence_key)` routes the per-kind `CASE.ledger`/`CASE.ceiling` through the one `GraduationReceipt.graduates(source_package, HandoffAxis(geometry=subject), evidence_key, measured, ceiling)` admission — the same residual-over-ceiling fold the `algebra` and `nonmanifold` siblings feed — gating an `empty_graph_fraction` against the zero ceiling so a vacuous projection (no nodes) is an `Error(BoundaryFault)` rather than a graduated handoff. The `node_link` JSON bytes are the graduation evidence that fold keys; the census is the evidence it reads, never a re-measured value.
-- Packages: `trimesh` (`Trimesh.face_adjacency`/`face_normals`/`vertex_defects`/`facets`/`edges_face`/`edges_unique`/`vertices`/`faces`), `numpy` (`linalg.norm`/`clip`/`sum`/`where`/`abs`/`asarray`/`zeros`/`full`/`empty`), `networkx` (`from_edgelist`/`from_numpy_array`/`connected_components`/`weakly_connected_components`/`strongly_connected_components`/`betweenness_centrality`/`degree_centrality`/`closeness_centrality`/`eigenvector_centrality`/`pagerank`/`minimum_spanning_tree`/`simple_cycles`/`community.louvain_communities`/`node_link_data`, the `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` payload family, the `create_using`/`backend=` axes), `msgspec` (`Struct`/`structs.asdict`/`json.encode`), `anyio` (`to_thread.run_sync`/`CapacityLimiter` the bounded heavy-analytics offload pool), `expression` (`tagged_union`/`case`/`tag`, `Block`/`Map`), runtime (`RuntimeRail`/`boundary`/`async_boundary`/`traversed`/`Disposition`, `Receipt`/`ReceiptContributor`/`Redaction`/`receipted`, `ContentKey`), compute (`GeometrySubject`/`GraduationReceipt`/`HandoffAxis`).
-- Growth: a new feature kind is one `FeatureKind` row plus one `FEATURE_OPS` row binding its `(detector, edge_source, mark_space)` triple and one `CASE` ledger/ceiling row; a new mark space is one `MarkSpace` member plus one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row plus one `ANALYTICS` row binding its `(reducer, mode_guard)` pair, plus one `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape is one case plus one arm in each projection (`as_scalar` and `peak`); a stricter threshold, a larger leaderboard, a different analytic selection, or a directedness/backend switch is a `FeaturePolicy` field value the caller passes; zero new surface, no per-kind dispatch branch.
-- Boundary: this owner detects features and projects them onto the `networkx` analytic graph — mesh repair/winding/boolean is the `mesh/repair` sibling over `trimesh`/`manifold3d`, non-manifold cell/aperture topology is the `nonmanifold` sibling over `topologicpy`, compas numerical/form-finding geometry is the `algebra` sibling, and raw mesh-file decode/encode plus columnar edge-list reframing into Arrow stays at the data seam. The `network-graph` subject crosses from this owner alongside the `algebra` sibling's `network-graph` arm on the one geometry `HandoffAxis` case; the two are distinct producers of the same subject (mesh-feature projection here, compas adjacency there), never folded into one file. Backend selection rides the policy `GraphBackend` row threaded as `backend=`, never a forked per-backend call site nor a global `nx.config` mutation this owner reaches across. The deleted forms: a flat module-level `extract` function in place of the polymorphic single-or-batch `Features.run` capsule with its async `bridged` mirror; a `_extract` constructing `FeatureResult` against fields it never declares (`policy`/`marks`/`nodes`/`edges`) where the `Census` carries the counts and `FeatureResult` carries only `(kind, census, node_link, graduation_subject)`; a reducer threading a phantom `p.pagerank_iter` where the policy field is `power_iter`; a `Census(values=...)` constructed without its `kind`/`mode`/`backend`/`marks`/`nodes`/`edges` slots where `_analyse` returns the full census; four projection functions threaded per kind where the `MARK_PROJECT` table dispatches two arms on `MarkSpace`; a hand-rolled `numpy.unique` triangle-edge expansion where the catalogue-confirmed `edges_face` accessor is the incidence source; a hand-built `dict[str, object]` facts map where `structs.asdict` projects the typed `Census`; a constant `phase="emitted"` where the empty-graph verdict data-drives the phase; a four-positional `Receipt.of(phase, owner, subject, facts)` against the runtime two-argument contract; a `str()`-coerced `dict[str, str]` facts map; an unbounded `anyio.to_thread.run_sync` analytics offload draining the default 40-token pool where `_ANALYTIC_LIMITER` bounds the heavy band exactly as the `algebra` sibling's `_SOLVER_LIMITER` does; a second batch method where the one `traversed` fold drains a `Sequence`; a `bridged` that `.default_value`-collapses an offload fault into a synthetic empty `FeatureResult` the `@receipted` aspect falsely emits as an `admitted` receipt where `bridged` returns the bare `RuntimeRail[FeatureResult]` and a raise stays an `Error(BoundaryFault)` the caller reads; a `bridged` doubly `@receipted` over an unwrapped value where the aspect lives on the inner `_offload` body and `bridged` is the bare async fence mirror exactly as the `algebra` sibling wires it; an async `_offload` body the `@receipted` aspect never wraps where the sync `_extract` carries the aspect, leaving the bridged path emitting through a `bridged`-level aspect over a fault-collapsed value.
+- Receipt: `FeatureResult` conforms to `ReceiptContributor`; `contribute` returns the one-element `tuple[Receipt, ...]` the port streams, minting `Receipt.of("geometry.graph.features", (phase, subject, facts))` per the runtime two-argument factory — the `(Phase, subject, facts)` evidence triple minting the `fact` case. The phase is data-driven: `phase="emitted"` for a graph that produced nodes and `phase="admitted"` for a vacuous feature set (no marks, an empty graph) the census flags as the entry caveat rather than asserting a result. The facts ride as native `dict[str, object]` — the `Census` projected through `msgspec.structs.asdict` carrying the kind/mode/backend tags, the node/edge/marks counts, and one native scalar per selected analytic: the count/spanning/cycle/community rows their `as_scalar` cardinality (component/weak/strong counts, spanning-tree weight, cycle count, community count) and the `_HEAD_OPS` centrality rows their `peak` top head score (the max betweenness/degree/closeness/eigenvector/pagerank value, not the board length, so the load-bearing centrality signal survives onto the flat map) — never `str()`-coerced, because the `observability/receipts#RECEIPT` `Encoder(enc_hook=repr, order="deterministic")` renderer serializes native scalars and a pre-`str()` map is the deleted form that owner rejects. The tuple-of-tuple leaderboards and the community partition stay off the flat facts map and ride the typed `Census.values` `Map`. `FeatureResult.graduates(evidence_key)` routes the per-kind `CASE.ledger`/`CASE.ceiling` onto the local `GeometryHandoff` carrier — the same residual-over-ceiling direction the `algebra` and `nonmanifold` siblings ride — gating an `empty_graph_fraction` against the zero ceiling so a vacuous projection (no nodes) breaches the carrier's `admitted` verdict rather than crossing clean; the compute crossing is the carrier's `wire()` data. The `node_link` JSON bytes are the graduation evidence that fold keys; the census is the evidence it reads, never a re-measured value.
+- Packages: `trimesh` (`Trimesh.face_adjacency`/`face_normals`/`vertex_defects`/`facets`/`edges_face`/`edges_unique`/`vertices`/`faces`), `numpy` (`linalg.norm`/`clip`/`sum`/`where`/`abs`/`asarray`/`zeros`/`full`/`empty`), `networkx` (`from_edgelist`/`from_numpy_array`/`connected_components`/`weakly_connected_components`/`strongly_connected_components`/`betweenness_centrality`/`degree_centrality`/`closeness_centrality`/`eigenvector_centrality`/`pagerank`/`minimum_spanning_tree`/`simple_cycles`/`community.louvain_communities`/`node_link_data`, the `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` payload family, the `create_using`/`backend=` axes), `msgspec` (`Struct`/`structs.asdict`/`json.encode`), `expression` (`tagged_union`/`case`/`tag`, `Block`/`Map`), geometry (`AnalyticValue`/`ranked`/`peak_of`/`scalar_of` the tier-0 analytic substrate, `GeometrySubject`/`GeometryHandoff` the graduation spine), runtime (`RuntimeRail`/`boundary`/`traversed`/`Disposition`, `Receipt`/`Redaction`/`receipted`, `ContentKey` from `rasm.runtime.identity`, `LanePolicy.offload`/`Modality.THREAD` the runtime-owned worker band the bridged mirror rides).
+- Growth: a new feature kind is one `FeatureKind` row plus one `FEATURE_OPS` row binding its `(detector, edge_source, mark_space)` triple and one `CASE` ledger/ceiling row; a new mark space is one `MarkSpace` member plus one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row plus one `ANALYTICS` row binding its `(reducer, mode_guard)` pair, plus one `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape is one case on the `graph/analytic` substrate owner (plus one arm per projection there); a stricter threshold, a larger leaderboard, a different analytic selection, or a directedness/backend switch is a `FeaturePolicy` field value the caller passes; zero new surface, no per-kind dispatch branch.
+- Boundary: this owner detects features and projects them onto the `networkx` analytic graph — mesh repair/winding/boolean is the `mesh/repair` sibling over `trimesh`/`manifold3d`, non-manifold cell/aperture topology is the `nonmanifold` sibling over `topologicpy`, compas numerical/form-finding geometry is the `algebra` sibling, and raw mesh-file decode/encode plus columnar edge-list reframing into Arrow stays at the data seam. The `network-graph` subject crosses from this owner alongside the `algebra` sibling's `network-graph` arm on the one geometry `HandoffAxis` case; the two are distinct producers of the same subject (mesh-feature projection here, compas adjacency there), never folded into one file. Backend selection rides the policy `GraphBackend` row threaded as `backend=`, never a forked per-backend call site nor a global `nx.config` mutation this owner reaches across. The deleted forms: a flat module-level `extract` function in place of the polymorphic single-or-batch `Features.run` capsule with its async `bridged` mirror; a `_extract` constructing `FeatureResult` against fields it never declares (`policy`/`marks`/`nodes`/`edges`) where the `Census` carries the counts and `FeatureResult` carries only `(kind, census, node_link, graduation_subject)`; a reducer threading a phantom `p.pagerank_iter` where the policy field is `power_iter`; a `Census(values=...)` constructed without its `kind`/`mode`/`backend`/`marks`/`nodes`/`edges` slots where `_analyse` returns the full census; four projection functions threaded per kind where the `MARK_PROJECT` table dispatches two arms on `MarkSpace`; a hand-rolled `numpy.unique` triangle-edge expansion where the catalogue-confirmed `edges_face` accessor is the incidence source; a hand-built `dict[str, object]` facts map where `structs.asdict` projects the typed `Census`; a constant `phase="emitted"` where the empty-graph verdict data-drives the phase; a four-positional `Receipt.of(phase, owner, subject, facts)` against the runtime two-argument contract; a `str()`-coerced `dict[str, str]` facts map; a geometry-minted `CapacityLimiter` or a bare `anyio.to_thread.run_sync` offload where the runtime lane THREAD band owns the worker bound; a second batch method where the one `traversed` fold drains a `Sequence`; a `bridged` that `.default_value`-collapses an offload fault into a synthetic empty `FeatureResult` the `@receipted` aspect falsely emits as an `admitted` receipt where `bridged` returns the bare `RuntimeRail[FeatureResult]` and a raise stays an `Error(BoundaryFault)` the caller reads; a `bridged` doubly `@receipted` over an unwrapped value where the aspect lives on the one `_extract` body both paths share; a page-local `AnalyticValue` twin or `_ranked` fold where the `graph/analytic` substrate owns the vocabulary.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -30,7 +30,6 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
-import anyio
 import msgspec
 import networkx as nx
 import numpy as np
@@ -40,10 +39,12 @@ from expression.collections import Block, Map
 from msgspec import Struct, structs
 from numpy.typing import NDArray
 
-from rasm.compute.graduation.handoff import GeometrySubject, GraduationReceipt, HandoffAxis
-from rasm.runtime.content_identity import ContentKey
-from rasm.runtime.faults import Disposition, RuntimeRail, async_boundary, boundary, traversed
-from rasm.runtime.receipts import Receipt, ReceiptContributor, Redaction, receipted
+from rasm.geometry.graduation import GeometryHandoff, GeometrySubject
+from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked, scalar_of
+from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.identity import ContentKey
+from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.receipts import Receipt, Redaction, receipted
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -54,9 +55,7 @@ type GraphFamily = type[nx.Graph] | type[nx.DiGraph] | type[nx.MultiGraph] | typ
 type Detector = Callable[[trimesh.Trimesh, "FeaturePolicy"], Marks]
 type EdgeSource = Callable[[trimesh.Trimesh], EdgeArray]
 type Projection = Callable[[trimesh.Trimesh, "FeatureSpec", Marks, "FeaturePolicy"], nx.Graph]
-type Reducer = Callable[[nx.Graph, "FeaturePolicy"], "AnalyticValue"]
-type Leaders = tuple[tuple[int, float], ...]
-type Partition = tuple[tuple[int, ...], ...]
+type Reducer = Callable[[nx.Graph, "FeaturePolicy"], AnalyticValue]
 
 
 class FeatureKind(StrEnum):
@@ -121,9 +120,6 @@ _DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.PAGERANK,
     AnalyticOp.SPANNING_WEIGHT,
 })
-# the all-pairs / enumeration band whose blocking cores `bridged` hoists to a worker thread so the
-# event loop never stalls; every other reducer is cheap enough to fold inline on either path.
-_HEAVY_OPS: Final[frozenset[AnalyticOp]] = frozenset({AnalyticOp.BETWEENNESS, AnalyticOp.PAGERANK, AnalyticOp.CYCLES})
 # the centrality band whose flat fact IS the top head score, not the board cardinality: `Census.facts`
 # projects `peak()` for these rows and `as_scalar()` for the count/partition rows, so a betweenness fact
 # rides its max centrality while a component-count fact rides its count — one membership test, no branch.
@@ -134,11 +130,6 @@ _HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.EIGENVECTOR,
     AnalyticOp.PAGERANK,
 })
-# this owner's OWN bounded worker pool the heavy-band offload holds: a concurrent fan of bridged analytics
-# holds at most four slots rather than draining anyio's runtime-shared default 40-token pool — the
-# explicit-limiter law every bounded subsystem rides. The per-owner 4-slot PATTERN the `graph/algebra.md`
-# `_SOLVER_LIMITER` and `graph/nonmanifold.md` `_ANALYTIC_LIMITER` siblings each mint INDEPENDENTLY, never a
-_ANALYTIC_LIMITER: Final[anyio.CapacityLimiter] = anyio.CapacityLimiter(4)
 _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # feature facts carry no secret field
 # a vacuous projection (no nodes) breaches the zero ceiling, so an empty feature graph does not graduate.
 _EMPTY_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_graph_fraction": 0.0})
@@ -160,53 +151,6 @@ class FeaturePolicy(Struct, frozen=True, gc=False):
 class FeatureRequest(Struct, frozen=True):
     kind: FeatureKind
     policy: FeaturePolicy = FeaturePolicy()
-
-
-@tagged_union(frozen=True)
-class AnalyticValue:
-    tag: Literal["scalar", "leaderboard", "groups"] = tag()
-    scalar: float = case()
-    leaderboard: Leaders = case()
-    groups: Partition = case()
-
-    @staticmethod
-    def Scalar(value: float) -> "AnalyticValue":
-        return AnalyticValue(scalar=value)
-
-    @staticmethod
-    def Leaderboard(rows: Leaders) -> "AnalyticValue":
-        return AnalyticValue(leaderboard=rows)
-
-    @staticmethod
-    def Groups(partition: Partition) -> "AnalyticValue":
-        return AnalyticValue(groups=partition)
-
-    def as_scalar(self) -> float:
-        # the cardinality projection: a scalar carries its value, a leaderboard / partition carries its
-        # member count, so a count-keyed analytic reads one `float` off the flat facts map.
-        match self:
-            case AnalyticValue(tag="scalar", scalar=v):
-                return v
-            case AnalyticValue(tag="leaderboard", leaderboard=rows):
-                return float(len(rows))
-            case AnalyticValue(tag="groups", groups=partition):
-                return float(len(partition))
-            case _ as unreachable:
-                assert_never(unreachable)
-
-    def peak(self) -> float:
-        # the head-magnitude projection where the extremum is the signal, not the count: a scalar IS its
-        # peak, a leaderboard its top `numpy.asarray(...).max` head score, a partition its member count —
-        # the one fold that lets a centrality fact ride its max score off the same union `as_scalar` reads.
-        match self:
-            case AnalyticValue(tag="scalar", scalar=v):
-                return v
-            case AnalyticValue(tag="leaderboard", leaderboard=rows):
-                return float(np.asarray([score for _, score in rows]).max(initial=0.0))
-            case AnalyticValue(tag="groups", groups=partition):
-                return float(len(partition))
-            case _ as unreachable:
-                assert_never(unreachable)
 
 
 class FeatureSpec(Struct, frozen=True, gc=False):
@@ -237,8 +181,8 @@ class Census(Struct, frozen=True):
     values: Map[AnalyticOp, AnalyticValue]
 
     def scalar(self, op: AnalyticOp) -> float:
-        proj = AnalyticValue.peak if op in _HEAD_OPS else AnalyticValue.as_scalar
-        return self.values.try_find(op).map(proj).default_value(0.0)
+        # the substrate census projections: peak for the centrality band, cardinality elsewhere.
+        return peak_of(self.values, op) if op in _HEAD_OPS else scalar_of(self.values, op)
 
     def facts(self) -> dict[str, object]:
         # the count/partition rows project `as_scalar` (cardinality), the centrality rows `peak` (top
@@ -255,7 +199,7 @@ class CaseSpec(Struct, frozen=True):
     ceiling: Mapping[str, float]
 
 
-class FeatureResult(Struct, ReceiptContributor, frozen=True):
+class FeatureResult(Struct, frozen=True):  # conforms structurally to the runtime-checkable ReceiptContributor Protocol
     kind: FeatureKind
     census: Census
     node_link: bytes
@@ -267,13 +211,11 @@ class FeatureResult(Struct, ReceiptContributor, frozen=True):
         phase: Phase = "emitted" if self.census.nodes else "admitted"
         return (Receipt.of("geometry.graph.features", (phase, self.graduation_subject, self.census.facts())),)
 
-    def graduates(self, evidence_key: ContentKey) -> "RuntimeRail[GraduationReceipt]":
-        # the per-kind CaseSpec supplies subject, the empty-graph ledger, and the zero ceiling, folded
-        # through the one compute residual-over-ceiling admission; never a re-measured value or a second gate.
+    def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
+        # the per-kind CaseSpec supplies subject, the empty-graph ledger, and the zero ceiling; the local
+        # carrier's residual-over-ceiling `admitted` verdict gates and `wire()` is the compute crossing.
         spec = CASE[self.kind]
-        return GraduationReceipt.graduates(
-            "geometry.graph.features", HandoffAxis(geometry=self.graduation_subject), evidence_key, spec.ledger(self.census), dict(spec.ceiling)
-        )
+        return GeometryHandoff.of(self.graduation_subject, evidence_key, spec.ledger(self.census), spec.ceiling)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -390,11 +332,6 @@ FEATURE_OPS: Final[Mapping[FeatureKind, FeatureSpec]] = MappingProxyType({
 })
 
 
-def _ranked(scores: Mapping[int, float], policy: FeaturePolicy) -> AnalyticValue:
-    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[: policy.centrality_top]
-    return AnalyticValue.Leaderboard(tuple((int(n), float(s)) for n, s in ranked))
-
-
 def _component_count(generator: Iterable[object]) -> AnalyticValue:
     return AnalyticValue.Scalar(float(sum(1 for _ in generator)))
 
@@ -411,13 +348,13 @@ ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
         lambda g, p: _component_count(nx.strongly_connected_components(g, backend=p.backend.value)),
         lambda m: m.directed,
     ),
-    AnalyticSpec(AnalyticOp.BETWEENNESS, lambda g, p: _ranked(nx.betweenness_centrality(g, backend=p.backend.value), p), lambda _: True),
-    AnalyticSpec(AnalyticOp.DEGREE, lambda g, p: _ranked(nx.degree_centrality(g, backend=p.backend.value), p), lambda _: True),
-    AnalyticSpec(AnalyticOp.CLOSENESS, lambda g, p: _ranked(nx.closeness_centrality(g, backend=p.backend.value), p), lambda _: True),
+    AnalyticSpec(AnalyticOp.BETWEENNESS, lambda g, p: ranked(nx.betweenness_centrality(g, backend=p.backend.value), p.centrality_top), lambda _: True),
+    AnalyticSpec(AnalyticOp.DEGREE, lambda g, p: ranked(nx.degree_centrality(g, backend=p.backend.value), p.centrality_top), lambda _: True),
+    AnalyticSpec(AnalyticOp.CLOSENESS, lambda g, p: ranked(nx.closeness_centrality(g, backend=p.backend.value), p.centrality_top), lambda _: True),
     AnalyticSpec(
         AnalyticOp.EIGENVECTOR,
         lambda g, p: (
-            _ranked(nx.eigenvector_centrality(g, max_iter=p.power_iter, backend=p.backend.value), p)
+            ranked(nx.eigenvector_centrality(g, max_iter=p.power_iter, backend=p.backend.value), p.centrality_top)
             if g.number_of_nodes()
             else AnalyticValue.Leaderboard(())
         ),
@@ -426,7 +363,7 @@ ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
     AnalyticSpec(
         AnalyticOp.PAGERANK,
         lambda g, p: (
-            _ranked(nx.pagerank(g, max_iter=p.power_iter, backend=p.backend.value), p) if g.number_of_nodes() else AnalyticValue.Leaderboard(())
+            ranked(nx.pagerank(g, max_iter=p.power_iter, backend=p.backend.value), p.centrality_top) if g.number_of_nodes() else AnalyticValue.Leaderboard(())
         ),
         lambda _: True,
     ),
@@ -455,10 +392,10 @@ ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
 CASE: Final[Mapping[FeatureKind, CaseSpec]] = MappingProxyType({
     kind: CaseSpec(subject, lambda c: {"empty_graph_fraction": 0.0 if c.nodes else 1.0}, _EMPTY_CEILING)
     for kind, subject in (
-        (FeatureKind.SHARP_EDGE, "network-graph"),
-        (FeatureKind.PLANAR, "network-graph"),
-        (FeatureKind.CURVATURE, "network-graph"),
-        (FeatureKind.BOUNDARY, "network-graph"),
+        (FeatureKind.SHARP_EDGE, GeometrySubject.NETWORK_GRAPH),
+        (FeatureKind.PLANAR, GeometrySubject.NETWORK_GRAPH),
+        (FeatureKind.CURVATURE, GeometrySubject.NETWORK_GRAPH),
+        (FeatureKind.BOUNDARY, GeometrySubject.NETWORK_GRAPH),
     )
 })
 
@@ -497,18 +434,17 @@ def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeatureP
 
 
 class Features(Struct, frozen=True):
-    # the one ReceiptContributor producer: `run` discriminates a single FeatureRequest or a batch over
-    # the FEATURE_OPS table; the `@receipted` aspect sits on the pure `_extract` (sync) and `_offload`
-    # (async heavy/light split) bodies, and the `boundary`/`async_boundary` fence sits OUTSIDE in
-    # `run`/`bridged` so a raise stays an `Error(BoundaryFault)` the aspect never falsely emits. The
-    # capsule holds the conditioned mesh; the policy rides each request.
+    # the one receipt-producing capsule: `run` discriminates a single FeatureRequest or a batch over
+    # the FEATURE_OPS table; the `@receipted` aspect sits on the ONE pure `_extract` body both paths
+    # share, the `boundary` fence sits OUTSIDE in `run`, and `bridged` offloads the same body onto the
+    # runtime lane THREAD band. The capsule holds the conditioned mesh; the policy rides each request.
     mesh: trimesh.Trimesh
+    lane: LanePolicy
 
     @receipted(_REDACTION)
     def _extract(self, request: FeatureRequest) -> FeatureResult:
-        # the pure sync detect/project/analyse body the `@receipted` aspect harvests on exit; the
-        # `boundary` fence in `run` is the single exception-to-fault seam, so this threads no emit
-        # and no try/except. The async path rides the sibling `_offload` body, not this one.
+        # the ONE pure detect/project/analyse body both paths share; the `@receipted` aspect harvests
+        # on exit, the fence (run's `boundary` or the lane's `async_boundary`) sits outside.
         graph, marks = _project(self.mesh, request.kind, request.policy)
         return _assemble(graph, marks, request.kind, request.policy, _analyse(graph, request.policy, ops=request.policy.ops))
 
@@ -527,34 +463,10 @@ class Features(Struct, frozen=True):
                 assert_never(unreachable)
 
     async def bridged(self, request: FeatureRequest) -> RuntimeRail[FeatureResult]:
-        # the async fence mirror of `run`: it routes the `@receipted` `_offload` through the bounded
-        # worker pool, so the aspect emits on `_offload`'s exit exactly as the sync arm emits on
-        # `_extract`'s. `bridged` is NOT itself `@receipted` and returns the bare `RuntimeRail` —
-        # a failed offload stays an `Error(BoundaryFault)` the caller reads, never a `.default_value`
-        # collapse into a synthetic empty result the aspect would falsely emit as `admitted`.
-        return await async_boundary(f"features.{request.kind}", lambda: self._offload(request))
-
-    @receipted(_REDACTION)
-    async def _offload(self, request: FeatureRequest) -> FeatureResult:
-        # the async detect/project/analyse body the `@receipted` aspect harvests on exit through
-        # `emit_async`; the `async_boundary` fence in `bridged` is the single exception-to-fault seam,
-        # so a raise never reaches the aspect and no synthetic result is emitted. The heavy analytic
-        # band — betweenness/pagerank/simple_cycles whose all-pairs and enumeration cores must not block
-        # the loop — hoists to the `_ANALYTIC_LIMITER`-bounded worker pool, the cheap rows fold inline,
-        # and the two maps merge through `Map.of_seq` over their items.
-        graph, marks = _project(self.mesh, request.kind, request.policy)
-        heavy, light = request.policy.ops & _HEAVY_OPS, request.policy.ops - _HEAVY_OPS
-        offloaded = await anyio.to_thread.run_sync(lambda: _analyse(graph, request.policy, ops=heavy), limiter=_ANALYTIC_LIMITER)
-        values = Map.of_seq([*_analyse(graph, request.policy, ops=light).items(), *offloaded.items()])
-        return _assemble(graph, marks, request.kind, request.policy, values)
+        # the async mirror of `run`: the SAME `@receipted` `_extract` offloads onto the runtime lane
+        # THREAD band, so the all-pairs/enumeration cores never block the loop, the runtime-owned band
+        # bounds every concurrent pass (zero geometry-minted limiters), the lane's `async_boundary` is
+        # the single fence, and the aspect emits on `_extract`'s exit on the worker thread. `bridged`
+        # is NOT itself `@receipted`; a failed offload stays an `Error(BoundaryFault)` the caller reads.
+        return await self.lane.offload(lambda: self._extract(request), modality=Modality.THREAD)
 ```
-
-## [03]-[RESEARCH]
-
-- [BOUNDARY_INCIDENCE]: the `_boundary_edges` kernel reads the catalogue-confirmed `edges_face` `(e, 2)` per-edge face accessor (`.api/trimesh.md` edge-topology row [08], confirmed cached property at the members line) directly aligned to `edges_unique`, `-1` filling an open side, and selects the rows whose live-face count `(edges_face >= 0).sum(axis=1)` is one — one `numpy.where` over the confirmed accessor, no triangle-edge expansion. `edges_unique` is the projection's `EdgeSource` so a count-1 mark indexes it exactly; both members are catalogue-confirmed cached properties keyed off the `vertices`/`faces` content hash, and `numpy.where`/`sum`/`asarray` are confirmed (`numpy.md` `where` row [04], `sum`, `asarray`). The prior `_face_edge_set` `numpy.unique(tri_edges, axis=0, return_counts=True)` over the sorted `faces` triangle-edge fancy-index is the deleted form: it re-derived the incidence the confirmed `edges_face` accessor already carries. The `facets_boundary` outline path (also a confirmed cached property) admits as a future facet-boundary `FeatureKind` row reading the per-facet boundary edges directly, never a replacement of the `edges_face` open-edge discriminant.
-- [NETWORKX_ANALYTICS]: the `ANALYTICS` table folds eleven catalogue-confirmed `networkx` algorithm families — `connected_components` (row [06], undirected set generator), `weakly_connected_components` (row [10], directed set generator), `strongly_connected_components` (row [07], directed set generator), `betweenness_centrality` (row [17], node-score dict), `degree_centrality`/`closeness_centrality`/`eigenvector_centrality` (row [18], node-score dict), `pagerank` (row [16], node-score dict), `minimum_spanning_tree` (row [08], graph), `simple_cycles` (row [14], cycle generator), and `nx.community.louvain_communities` (row [21], `list[set]` partition) — plus the `node_link_data` node-link projection verb (row [13]). The `from_edgelist`/`from_numpy_array` conversion bridges (rows [07]/[03]), the `create_using` directedness/multiplicity axis over the `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family (PUBLIC_TYPES [01]–[04]), and the `backend=`/`**backend_kwargs` dispatch axis on every `@nx._dispatchable` algorithm (IMPLEMENTATION_LAW BACKEND_DISPATCH) are catalogue-confirmed. The `networkx` catalogue lives at the branch tier `libs/python/.api/networkx.md` with `data` the package owner of record; `graph/features` is the geometry-side consumer of the same admitted package, citing the one branch catalogue rather than minting a duplicate folder `.api`. The `GraphBackend` policy row threads `backend=` into each reducer per the catalogue's "receipt records the backend and never forks parallel call sites per backend" law; the page never mutates process-global `nx.config`, leaving dispatch policy to the application boundary the catalogue names.
-- [COMMUNITY_ANALYTIC]: `nx.community.louvain_communities(G, weight='weight', resolution=1, threshold=1e-07, max_level=None, seed=None)` returning `list[set]` is catalogue-confirmed (`networkx.md` ENTRYPOINTS row [21]) and is the ARCHITECTURE-charter community-detection analytic, now a live `AnalyticOp.COMMUNITY` row rather than a deferred fence — its partition projects through the `AnalyticValue.Groups` case so the receipt carries the community count as a native scalar while the full partition rides the typed `Census.values` `Map`. The sibling partition verbs `greedy_modularity_communities` (row [22]) and `girvan_newman`/`modularity` (row [23]) admit as further `AnalyticOp` rows the same way; `louvain_communities` is the seeded default the policy `ops` set toggles.
-- [MARK_SPACE_PAIRING]: each `FeatureSpec` carries a `MarkSpace` tag and an `EdgeSource` resolver, and the `MARK_PROJECT` table dispatches the projection on that tag — three arms over four kinds rather than four projection functions. `EDGE_ROW` (`_edge_row` lifts the spec's `EdgeSource` array through `rows[marks]`: `SHARP_EDGE` binds `_adjacency_rows` over `face_adjacency`, `BOUNDARY` binds `_unique_edges` over `edges_unique` so the count-1 `edges_face` mark indexes it exactly), `VERTEX` (`_vertex_edge` scatters a boolean vertex flag `flags[marks]` and keeps the `EdgeSource` rows where `flags[edges].any(axis=1)`, so `CURVATURE`'s vertex-index marks select the incident `edges_unique` rows rather than indexing edge rows by a vertex id), and `FACET` (`_facet_matrix` builds the facet-adjacency matrix from `face_adjacency`, `PLANAR` binding the `_no_edges` source it ignores). The pairing is a `FEATURE_OPS` row property, so a detector returning a different mark space binds its matching `MarkSpace`/`EdgeSource` in the same row and the cross-index defect (an edge projection consuming vertex marks as edge-row indices) cannot recur. All marks stay 1-D index arrays so the `Census.marks` count (`int(marks.size)`) is total across every kind.
-- [NODE_LINK_EDGES_KEY]: `node_link_data` takes the `edges=` key argument selecting the edge-collection key in the emitted mapping; the explicit `edges="edges"` pin produces the stable forward-compatible node-link schema and the `links` default is the removed legacy spelling the `networkx.md` INTEGRATION law forbids pinning — `edges="edges"` is the settled 3.x default. `msgspec.json.encode` (`msgspec.md` ENTRYPOINTS [01]) serializes the resulting mapping to JSON bytes — the graduation payload is real JSON, never `str(dict)` Python `repr` — and the `networkx.md` INTEGRATION law confirms a `node_link_data` payload is the canonical persisted graph document keyed through the `msgspec`/JSON codec rail.
-- [ANALYTIC_VALUE_COLLAPSE]: the prior page modelled analytics as a flat `tuple[AnalyticSpec, ...]` of lambdas returning `float | int | tuple[tuple[int, float], ...]`, reconstructed into a five-field `Analytics` struct through a `folded.get(op, 0)` per-field remap and an `isinstance`-guarded `rank` lambda — a drift surface where a new analytic forced a struct field plus a remap edit. The rebuild collapses the reducer return to the `AnalyticValue` `@tagged_union` (`scalar`/`leaderboard`/`groups`) — the IDENTICAL shape the `nonmanifold` sibling rides, owning its own dual projection (`as_scalar` the cardinality, `peak` the `numpy.asarray(...).max` head score) so neither page mints a parallel msgspec subclass family nor a module-level `_peak` fold beside the union — so `_analyse` folds to one `Map[AnalyticOp, AnalyticValue]` with no `isinstance` reconstruction, and `Census` is a thin projection over that map: `Census.facts` keys the projection on `_HEAD_OPS`, reading `peak()` off a centrality row (its top head score) and `as_scalar()` off a count/partition row (its value or cardinality), so the receipt's flat `dict[str, object]` carries the load-bearing native scalar per selected analytic while the full leaderboards and partitions ride the typed `values` `Map`. A new analytic is one `AnalyticOp` row plus one `ANALYTICS` reducer and, if its flat fact is the extremum rather than the count, one `_HEAD_OPS` membership; a new return shape is one `AnalyticValue` case plus one arm in each projection.
-- [RECEIPT_CONTRACT]: `FeatureResult` conforms to the runtime `observability/receipts#RECEIPT` `ReceiptContributor` `Protocol` and `contribute` returns the `Iterable[Receipt]` the port streams (a one-element tuple), minting through the two-argument `Receipt.of(owner, evidence)` factory with the `(Phase, subject, facts)` evidence triple — never the four-positional `Receipt.of(phase, owner, subject, facts)` form, which is not the factory's signature. The facts ride as `dict[str, object]` carrying native `int`/`float` scalars, because the receipts owner's `Encoder(enc_hook=repr, order="deterministic")` renderer serializes native scalars and a `str()`-coerced `dict[str, str]` is the deleted form that owner rejects. `@receipted(_REDACTION)` on the pure `_extract` (sync) and `_offload` (async) bodies is the AOP aspect harvesting and emitting the contributor stream on exit — the sync arm through `Signals.emit`, the async arm through `Signals.emit_async` off the aspect's `iscoroutinefunction` dispatch so a high-volume bridged path offloads render-and-sink rather than blocking the loop — receipt egress a decorator rail, not an inline `Signals.emit`, the same `@receipted` seam the sibling `mesh/cad.md#CAD` `CadReceipt` rides. The fence sits OUTSIDE the aspect in `run`/`bridged`, so an offload raise stays an `Error(BoundaryFault)` on the returned rail rather than a `.default_value`-collapsed synthetic empty result the aspect would falsely emit. The keep-all `_REDACTION` (an empty-classification `Redaction`) matches the `compute/graduation/handoff#GRADUATION` graduation facts that carry no secret field.

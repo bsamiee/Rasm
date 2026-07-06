@@ -106,7 +106,7 @@
 |  [04]   | `EvaluationContextBuilder.Build()`              | builder finalize  | immutable context             |
 |  [05]   | `new InMemoryProvider(flags)`                   | provider ctor     | config-backed flag set        |
 |  [06]   | `InMemoryProvider.UpdateFlagsAsync(flags)`      | provider mutation | live flag-set reconfigure     |
-|  [07]   | `new Flag<T>(variants, default, evaluator, …)`  | flag ctor         | variant map plus bucketing    |
+|  [07]   | `new Flag<T>(variants, default, evaluator?, metadata?, disabled?)` | flag ctor | `disabled:` is the provider's ONLY off-gate — the `Evaluate` branch reads the ctor param, never flag metadata |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

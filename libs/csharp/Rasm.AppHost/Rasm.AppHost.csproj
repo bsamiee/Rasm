@@ -49,7 +49,6 @@
         <PackageReference Include="OpenFeature" />
         <PackageReference Include="OpenIddict.Client" />
         <PackageReference Include="OpenTelemetry" />
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
@@ -60,8 +59,6 @@
         <PackageReference Include="Scrutor" />
         <PackageReference Include="Serilog" />
         <PackageReference Include="Serilog.Extensions.Hosting" />
-        <PackageReference Include="Serilog.Sinks.Console" />
-        <PackageReference Include="Serilog.Sinks.File" />
         <PackageReference Include="Sigstore" />
         <PackageReference Include="System.CommandLine" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
@@ -75,7 +72,6 @@
     <ItemGroup Label="Ports Transport">
         <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Grpc.AspNetCore.HealthChecks" />
-        <PackageReference Include="Grpc.AspNetCore.Web" />
         <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />

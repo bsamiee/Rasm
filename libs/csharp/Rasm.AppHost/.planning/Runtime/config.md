@@ -1,6 +1,6 @@
 # [APPHOST_CONFIGURATION_AND_OPTIONS]
 
-Configuration admission for the runtime spine: eight ranked `ConfigSource` rows mount every input onto one `ConfigurationManager` chain, a source-generated binder admits immutable policy records onto the `Validation<ConfigError,T>` rail, options validate once and publish frozen at ready, every change lands as a reload-class-gated `ReloadOutcome` transition carried by a `ReloadReceipt` — a structured operator edit arriving as an RFC-6902 `application/json-patch+json` document folds through `PatchSection` onto that same transition — the operator kill-switch is one transition-class config row whose `OperatorOverride` union forces the degradation fold, the `SecretsStore` source extends into a `SecretLease` row family that acquires, renews, and zeroizes credential material against the one RID-dispatched credential-store provider the host resolves — and surfaces the per-store-open KMS-unwrap handle `Rasm.Persistence/Element/identity#KEY_ENVELOPE` reads as one `SecretLease`-class content carrier so the cloud-KMS key-handle lifecycle stays the runtime lease's concern, never a long-lived Persistence-side key — and one `CredentialPem` axis is the suite's only credential-material wire vocabulary — the host encodes every PEM-bearing credential into one canonical RFC-7468 multi-element bundle the `\n` PEM-block delimiter joins, mints the redacted `CredentialPemWire` carrier the TS verifier and the Python admission decode, and never crosses a raw `byte[]` or a parallel base64 envelope. The page owns the source axis with rank and reload-class columns, the `ConfigError` fault vocabulary, the reload transition family, the operator forcing family, the secret-lease lifecycle, and the credential-PEM encoding vocabulary. The spine is Microsoft.Extensions.Configuration with its four provider packages, Microsoft.Extensions.Options, FluentValidation, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core, with System.Security.Cryptography (the BCL `PemEncoding`/`X509Certificate2` PEM owners) and System.IO.Hashing for the credential-bundle encoding.
+Configuration admission for the runtime spine: eight ranked `ConfigSource` rows mount every input onto one `ConfigurationManager` chain, a source-generated binder admits immutable policy records onto the `Validation<ConfigError,T>` rail, options validate once and publish frozen at ready, every change lands as a reload-class-gated `ReloadOutcome` transition carried by a `ReloadReceipt` — a structured operator edit arriving as an RFC-6902 `application/json-patch+json` document folds through `PatchSection` onto that same transition — and the operator kill-switch is one transition-class config row whose `OperatorOverride` union forces the degradation fold. The page owns the source axis with rank and reload-class columns, the `ConfigError` fault vocabulary, the reload transition family, and the operator forcing family; the credential-material lifecycle the `SecretsStore` row feeds is `Runtime/secrets`' concern, extending the frozen rank-40 mount from above, never a second source axis. The spine is Microsoft.Extensions.Configuration with its four provider packages, Microsoft.Extensions.Options, FluentValidation, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ## [01]-[INDEX]
 
@@ -8,8 +8,6 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 - [02]-[TYPED_BINDING]: Fail-closed source-generated binding into validated policy records.
 - [03]-[POLICY_VALUES]: Validate-once frozen publish with reload-class-gated receipted transitions.
 - [04]-[KILL_SWITCH]: Operator override row forcing the degradation fold.
-- [05]-[SECRET_LEASE]: Acquire-renew-zeroize credential lifecycle extending the `SecretsStore` row.
-- [06]-[CREDENTIAL_PEM]: Canonical RFC-7468 PEM bundle encoding and the redacted cross-language carrier.
 
 ## [02]-[SOURCE_AXIS]
 
@@ -107,7 +105,7 @@ public sealed partial class ConfigSource {
 ## [03]-[TYPED_BINDING]
 
 - Owner: `PolicyBinding` static admission surface; `ConfigError` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract.
-- Cases: Text, SourceRejected, SectionAbsent, BindRejected, Scalar, Invariant, Aggregate — codes 4100-4199, `Combine` folds independent faults into Aggregate.
+- Cases: Text, SourceRejected, SectionAbsent, BindRejected, Scalar, Invariant, Aggregate — codes derive through `FaultBand.Config` (the registry's one legal multi-decade stride), `Combine` folds independent faults into Aggregate.
 - Entry: `Bind<T>(IConfigurationRoot root, string section)` — `Validation<ConfigError,T>` accumulates; unknown keys fail closed through `ErrorOnUnknownConfiguration`.
 - Packages: Microsoft.Extensions.Configuration.Binder, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one case on `ConfigError`; zero new surface.
@@ -120,29 +118,29 @@ public abstract partial record ConfigError : Expected, IValidationError<ConfigEr
 
     public static ConfigError Create(string message) => new Text(message);
 
-    public sealed record Text : ConfigError { public Text(string detail) : base(detail, 4100) { } }
+    public sealed record Text : ConfigError { public Text(string detail) : base(detail, FaultBand.Config.Code(0)) { } }
     public sealed record SourceRejected : ConfigError {
-        public SourceRejected(string source, string detail) : base($"{source}: {detail}", 4101) => Source = source;
+        public SourceRejected(string source, string detail) : base($"{source}: {detail}", FaultBand.Config.Code(1)) => Source = source;
         public string Source { get; }
     }
     public sealed record SectionAbsent : ConfigError {
-        public SectionAbsent(string section) : base($"{section}: absent", 4102) => Section = section;
+        public SectionAbsent(string section) : base($"{section}: absent", FaultBand.Config.Code(2)) => Section = section;
         public string Section { get; }
     }
     public sealed record BindRejected : ConfigError {
-        public BindRejected(string section, string detail) : base($"{section}: {detail}", 4103) => Section = section;
+        public BindRejected(string section, string detail) : base($"{section}: {detail}", FaultBand.Config.Code(3)) => Section = section;
         public string Section { get; }
     }
     public sealed record Scalar : ConfigError {
-        public Scalar(string key, string detail) : base($"{key}: {detail}", 4104) => Key = key;
+        public Scalar(string key, string detail) : base($"{key}: {detail}", FaultBand.Config.Code(4)) => Key = key;
         public string Key { get; }
     }
     public sealed record Invariant : ConfigError {
-        public Invariant(string member, string detail) : base($"{member}: {detail}", 4105) => Member = member;
+        public Invariant(string member, string detail) : base($"{member}: {detail}", FaultBand.Config.Code(5)) => Member = member;
         public string Member { get; }
     }
     public sealed record Aggregate : ConfigError {
-        public Aggregate(Seq<ConfigError> faults) : base($"{faults.Count} faults", 4199) => Faults = faults;
+        public Aggregate(Seq<ConfigError> faults) : base($"{faults.Count} faults", FaultBand.Config.Code(99)) => Faults = faults;
         public Seq<ConfigError> Faults { get; }
     }
 
@@ -185,7 +183,7 @@ public static class PolicyBinding {
 - Receipt: `ReloadReceipt` — section, reload class, trigger, outcome, `Instant`, correlation id.
 - Packages: Microsoft.Extensions.Options, Microsoft.AspNetCore.JsonPatch.SystemTextJson, FluentValidation, NodaTime, LanguageExt.Core
 - Growth: one case on `ReloadOutcome`; one config-boundary variant is one rule-set name through `IncludeRuleSets`, never a second validator; a new per-tenant policy override is one `Overlay` named-options registration keyed by `TenantContext.Slug`, never a second options surface; a structured partial config edit is one RFC-6902 `application/json-patch+json` document folded through `PatchSection` onto the same `ReloadOutcome` transition under `ReloadReceipt.PatchTrigger`, never a second mutation path; zero new surface.
-- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; the POSIX `SIGHUP` route and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger` — `SignalTrigger` is Unix-only, registered through `PosixSignalRegistration.Create(PosixSignal.SIGHUP, ...)` which the runtime supports on Linux and macOS but not on a `win-*` RID where no `SIGHUP` exists, so a Windows host carries no signal route and reload arrives exclusively through `ControlTrigger`; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `When`/`Unless` gate a rule on a sibling-member predicate, `DependentRules` chains a rule block that runs only after its predecessors pass, and `ChildRules` validates an inline nested member graph without a second `IValidator` type, so a relational invariant across two policy fields is one rule expression rather than a hand-rolled post-bind check; `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, `WithState` carries a constructed `ConfigError` straight off the failure so `Refine` reads the typed fault before falling back to the `WithErrorCode`/`WithSeverity` 4100-4199 band, and the flat `ToDictionary` re-derivation is the deleted form; a monitor-cache invalidation becomes a typed runtime transition through the polymorphic `Invalidate` over `TryRemove` and `Clear`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset; a per-tenant policy override is a named-options registration keyed by `TenantContext.Slug` through `Overlay` — the named instance binds the tenant overlay section `{section}:tenants:{slug}` over the base section so `IOptionsMonitor.Get(slug)` reads the tenant-overlaid record while the default name carries the single-tenant `Root` value, never a parallel tenant-config table, and the overlay change rides the same `ReloadClass.Transition` reload as the base section; a structured operator config edit arrives as an RFC-6902 `application/json-patch+json` document the `PatchSection` route applies to the live `{section}` `JsonObject` projection through the package's own `JsonPatchDocument.ApplyTo(JsonObject, logErrorAction)` over the `JsonObjectAdapter` — the `logErrorAction` delegate is the named capture seam folding each `JsonPatchError` into a `ConfigError.BindRejected` so a bad op-path lands the `ReloadOutcome.Rejected` carrying the typed fault while the prior values stay live, the applied `JsonObject` re-admits through the section-keyed `revalidate` closure the composition root registers per section — itself the composed `PolicyBinding.Bind<T>` + `Refine` for that section's policy type, so the patch route never names `T` at the verb seam and a patch that breaks an invariant never publishes — the whole apply gates on the section's `ReloadClass` so a `Frozen` section answers `RestartRequired` and only a `Transition` section re-publishes, and the transition stamps `ReloadReceipt.PatchTrigger` distinguishing it from the monitor, signal, and control triggers — a hand-rolled RFC-6902 operation dispatch and a Newtonsoft `JsonPatchDocument` are the deleted forms, the package owns the `op`/`path`/`from`/`value` operation model and the `Test`-op precondition assertion that fails the whole patch before any mutation lands.
+- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; the POSIX `SIGHUP` route and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger` — `SignalTrigger` is Unix-only, registered through `PosixSignalRegistration.Create(PosixSignal.SIGHUP, ...)` which the runtime supports on Linux and macOS but not on a `win-*` RID where no `SIGHUP` exists, so a Windows host carries no signal route and reload arrives exclusively through `ControlTrigger`; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `When`/`Unless` gate a rule on a sibling-member predicate, `DependentRules` chains a rule block that runs only after its predecessors pass, and `ChildRules` validates an inline nested member graph without a second `IValidator` type, so a relational invariant across two policy fields is one rule expression rather than a hand-rolled post-bind check; `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, `WithState` carries a constructed `ConfigError` straight off the failure so `Refine` reads the typed fault before falling back to a `WithErrorCode`/`WithSeverity` code the `FaultBand.Config` registry row owns, and the flat `ToDictionary` re-derivation is the deleted form; a monitor-cache invalidation becomes a typed runtime transition through the polymorphic `Invalidate` over `TryRemove` and `Clear`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset; a per-tenant policy override is a named-options registration keyed by `TenantContext.Slug` through `Overlay` — the named instance binds the tenant overlay section `{section}:tenants:{slug}` over the base section so `IOptionsMonitor.Get(slug)` reads the tenant-overlaid record while the default name carries the single-tenant `Root` value, never a parallel tenant-config table, and the overlay change rides the same `ReloadClass.Transition` reload as the base section; a structured operator config edit arrives as an RFC-6902 `application/json-patch+json` document the `PatchSection` route applies to the live `{section}` `JsonObject` projection through the package's own `JsonPatchDocument.ApplyTo(JsonObject, logErrorAction)` over the `JsonObjectAdapter` — the `logErrorAction` delegate is the named capture seam folding each `JsonPatchError` into a `ConfigError.BindRejected` so a bad op-path lands the `ReloadOutcome.Rejected` carrying the typed fault while the prior values stay live, the applied `JsonObject` re-admits through the section-keyed `revalidate` closure the composition root registers per section — itself the composed `PolicyBinding.Bind<T>` + `Refine` for that section's policy type, so the patch route never names `T` at the verb seam and a patch that breaks an invariant never publishes — the whole apply gates on the section's `ReloadClass` so a `Frozen` section answers `RestartRequired` and only a `Transition` section re-publishes, and the transition stamps `ReloadReceipt.PatchTrigger` distinguishing it from the monitor, signal, and control triggers — a hand-rolled RFC-6902 operation dispatch and a Newtonsoft `JsonPatchDocument` are the deleted forms, the package owns the `op`/`path`/`from`/`value` operation model and the `Test`-op precondition assertion that fails the whole patch before any mutation lands.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -229,7 +227,7 @@ public static class OptionsAdmission {
             .Errors.AsIterable()
             .Map(static failure => failure.CustomState is ConfigError carried
                 ? carried
-                : failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && coded is >= 4100 and <= 4199
+                : failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && FaultBand.OwnerOf(coded).Exists(static band => band == FaultBand.Config)
                     ? (ConfigError)new ConfigError.Scalar(failure.PropertyName, failure.ErrorMessage)
                     : new ConfigError.Invariant(failure.PropertyName, failure.ErrorMessage))
             .ToSeq() is { IsEmpty: false } faults
@@ -276,14 +274,14 @@ public static class OptionsAdmission {
 ## [05]-[KILL_SWITCH]
 
 - Owner: `KillSwitchConfig` config row record; `OperatorOverride` `[Union]` forcing family.
-- Cases: ForceLevel, Release — ForceLevel carries a degradation row key as text, Release withdraws the force.
+- Cases: ForceLevel, ForceFlagsOff, Release — ForceLevel carries a degradation row key as text, ForceFlagsOff carries the forced-off flag-key set the `Runtime/features#KILL_SWITCH_FOLD` `ForcesOff` predicate reads, Release withdraws the force.
 - Entry: `From(KillSwitchConfig row, Instant at)` — total projection from the bound row into the forcing family.
-- Packages: Microsoft.Extensions.Configuration.Binder, NodaTime, Thinktecture.Runtime.Extensions
-- Growth: one case on `OperatorOverride`; zero new surface — the degradation fold gains one input arm per case.
+- Packages: Microsoft.Extensions.Configuration.Binder, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: one case on `OperatorOverride`; zero new surface — the degradation fold and the features kill-switch fold each read their owning case and ignore the sibling's.
 - Boundary: `KillSwitchConfig` binds at the `Section` symbol as a `ReloadClass.Transition` row, so an operator flip lands without restart; forced beats derived and Release re-derives inside the health-and-degradation fold, which also admits `Level` against the `DegradationLevel` row keys; the ControlService set-degradation verb is the service-modality wire route into the same union; the keyed manual breaker control on hops is the enforcement consequence at the hop registry.
 
 ```csharp signature
-public sealed record KillSwitchConfig(string? ForcedLevel, string? Reason) {
+public sealed record KillSwitchConfig(string? ForcedLevel, string? ForcedFlagsOff, string? Reason) {
     public const string Section = nameof(KillSwitchConfig);
 }
 
@@ -292,244 +290,27 @@ public abstract partial record OperatorOverride {
     private OperatorOverride() { }
 
     public sealed record ForceLevel(string Level, string Reason, Instant At) : OperatorOverride;
+    public sealed record ForceFlagsOff(FrozenSet<string> Flags, string Reason, Instant At) : OperatorOverride;
     public sealed record Release(string Reason, Instant At) : OperatorOverride;
+
+    // The features KILL_SWITCH_FOLD predicate: only the flag-forcing case answers true, so the
+    // degradation fold and the flag fold read one union without inspecting each other's cases.
+    public bool ForcesOff(string flag) => this is ForceFlagsOff f && f.Flags.Contains(flag);
 
     public static OperatorOverride From(KillSwitchConfig row, Instant at) =>
         row.ForcedLevel is { Length: > 0 } level
             ? new ForceLevel(Level: level, Reason: row.Reason ?? string.Empty, At: at)
+        : row.ForcedFlagsOff is { Length: > 0 } flags
+            ? new ForceFlagsOff(
+                flags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal),
+                row.Reason ?? string.Empty, At: at)
             : new Release(Reason: row.Reason ?? string.Empty, At: at);
 }
 ```
 
-## [06]-[SECRET_LEASE]
+## [06]-[RESEARCH]
 
-- Owner: `SecretLease` boundary capsule extending `ConfigSource.SecretsStore` — the only credential lifecycle owner; `LeaseTransition` `[Union]` lifecycle vocabulary; `SecretFault` `[Union]` fault family in the 4780-4789 band; `SecretReceipt` the redacted rotation evidence record.
-- Cases: lifecycle transitions Acquired | Renewed | Released | Zeroized; `SecretFault` = Text | AcquireRejected | RenewMissed | StoreUnavailable.
-- Entry: `Acquire(SecretRuntime runtime, string keyId)` returns `Fin<SecretLease>` — the credential-store read folds the `ConfigLayer.SecretsSource` provider into a held lease on `Fin`; `Renew(SecretRuntime runtime, SecretLease lease)` returns `Fin<SecretLease>` re-pulling before expiry and zeroizing the prior copy; `Zeroize(SecretLease lease)` returns `Unit`, the drain-forced terminal that overwrites the in-memory copy.
-- Auto: renewal registers one `ScheduleEntry` on Runtime/time#SCHEDULE_PORT at the credential-rotation `DeadlineClass` row carrying a `LeasePolicy` whose `CrashStaleness` outlives the renewal window, so a single occurrence row drives rotation ahead of expiry with no per-secret timer; the zeroization registers as one Runtime/lifecycle#DRAIN_CONDUCTOR `DrainBand.Stores` participant row that runs under the drain-forced token so a hung renewal never strands a live secret; the credential bytes carry `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases them at every egress and the receipt diff folds through the bound `Redactor`.
-- Receipt: `SecretReceipt` carries the lease window, the content-hash of the canonical credential bytes, and the redacted credential-id diff only — never a secret byte; the transition emits on ReceiptSinkPort.Send partitioned by `TenantId` so each tenant's rotation stream stays isolated.
-- Packages: Microsoft.Extensions.Configuration.UserSecrets, Microsoft.Extensions.Compliance.Redaction, System.IO.Hashing, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one lifecycle transition is one `LeaseTransition` case; one fault is one `SecretFault` case; a new credential source is one `SecretsSource` provider value on the existing `ConfigLayer`, never a second lease owner; zero new surface.
-- Boundary: the lease is the suite's only credential lifecycle owner — a per-secret rotation helper, a raw `string` credential field, and a second zeroization path are the deleted forms; a lease renews strictly before expiry or the fold degrades through Observability/health#DEGRADATION_RAIL, never a hard fault, so `RenewMissed` lands `DegradationLevel.ReadOnly` rather than terminating the rail; the in-memory copy is a rented `byte[]` overwritten through `CryptographicOperations.ZeroMemory` so no managed copy survives collection; the rotation-diff identity is the `XxHash128` content digest of the canonical credential bytes — a non-cryptographic `System.IO.Hashing` value carrying identity only, never a security claim, so the diff is an equality of digest bytes with no constant-time pretense layered over a non-crypto hash; the lease holds the live raw `byte[]` and owns only the in-memory lifecycle and zeroization, while the canonical at-rest and on-wire credential encoding is `CREDENTIAL_PEM`'s `CredentialBundle`/`CredentialPem` — the lease never encodes material and the PEM axis never holds a live mutable copy, so a PEM-bearing credential's `SecretReceipt.ContentHash` is the `CredentialBundle` per-block digest fold and the redacted rotation crosses as the `CredentialPemWire` carrier, never two parallel credential encodings; the lease extends `ConfigSource.SecretsStore` rank-40 frozen-class row — the credential never re-mounts at runtime, the lease owns the live rotation above that frozen mount, and the credential-store read reuses `ConfigLayer.SecretsSource` rather than a parallel provider; the per-store-open KMS-unwrap handle `Rasm.Persistence/Element/identity#KEY_ENVELOPE` reads crosses as one `SecretLease`-class content carrier through the `Runtime ⇄ Rasm.Persistence/Element/identity # [PORT]: KMS-unwrap port` seam — the lease owns the acquire-renew-zeroize custody of the cloud-KMS CMK access (the `KmsProvider`-resolved credential the Persistence `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring` `Mint`/`Unwrap`/`Rewrap`/`Probe` delegate quartet binds against, where each arm's mechanism is a policy value on the `KmsProvider` row — AWS encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP encrypt-as-wrap with CRC32C and primary-version repoint — not one arm's spelling as a universal law) so the in-process key-handle lifecycle stays the runtime lease's concern and Persistence consumes the resolved per-open handle without minting a long-lived in-process key, the unwrapped DEK never persists and zeroizes through the same `CryptographicOperations.ZeroMemory` path the lease owns, and the KMS-unwrap handle is a content carrier riding this lifecycle, never an eighth port — a Persistence-side long-lived key cache or a second credential lifecycle is the deleted form.
-
-```csharp signature
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LeaseTransition {
-    private LeaseTransition() { }
-    public sealed record Acquired(string KeyId, Interval Window) : LeaseTransition;
-    public sealed record Renewed(string KeyId, Interval Window) : LeaseTransition;
-    public sealed record Released(string KeyId, Instant At) : LeaseTransition;
-    public sealed record Zeroized(string KeyId, Instant At) : LeaseTransition;
-}
-
-[Union]
-public abstract partial record SecretFault : Expected, IValidationError<SecretFault> {
-    private SecretFault(string detail, int code) : base(detail, code, None) { }
-    public static SecretFault Create(string message) => new Text(message);
-    public sealed record Text : SecretFault { public Text(string detail) : base(detail, 4780) { } }
-    public sealed record AcquireRejected : SecretFault { public AcquireRejected(string keyId, string detail) : base($"{keyId}: {detail}", 4781) => KeyId = keyId; public string KeyId { get; } }
-    public sealed record RenewMissed : SecretFault { public RenewMissed(string keyId, string detail) : base($"{keyId}: {detail}", 4782) => KeyId = keyId; public string KeyId { get; } }
-    public sealed record StoreUnavailable : SecretFault { public StoreUnavailable(string detail) : base(detail, 4783) { } }
-}
-
-public sealed record SecretReceipt(
-    string KeyId,
-    LeaseTransition Transition,
-    Interval Window,
-    string ContentHash,
-    string RedactedId,
-    Instant At);
-
-public sealed record SecretRuntime(
-    Func<string, Fin<byte[]>> Read,
-    Redactor Redactor,
-    LeasePolicy Lease,
-    DeadlineClass Rotation,
-    ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
-    TenantContext Tenant,
-    CorrelationId Correlation,
-    JsonSerializerOptions Wire);
-
-public sealed record SecretLease(string KeyId, byte[] Material, Interval Window, ScheduleEntry Renewal) {
-    public static string Digest(ReadOnlySpan<byte> material) =>
-        Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(material));
-
-    public string Redacted(Redactor redactor) {
-        Span<char> sink = stackalloc char[redactor.GetRedactedLength(KeyId)];
-        var written = redactor.Redact(KeyId, sink);
-        return new string(sink[..written]);
-    }
-}
-
-public static class SecretLeaseOps {
-    public static Fin<SecretLease> Acquire(SecretRuntime runtime, string keyId) =>
-        runtime.Read(keyId)
-            .MapFail(error => (Error)new SecretFault.AcquireRejected(keyId, error.Message))
-            .Map(material => {
-                var now = runtime.Clocks.Now;
-                var window = ClockPolicy.Window(now + runtime.Rotation.Allotted, runtime.Rotation.Allotted);
-                var renewal = new ScheduleEntry(
-                    Key: $"secret-renew:{keyId}",
-                    Spec: new OccurrenceSpec.Every(runtime.Rotation.Allotted),
-                    Deadline: runtime.Rotation,
-                    Lease: Some(runtime.Lease),
-                    Work: () => IO.pure(unit));
-                return Emit(runtime, new SecretLease(keyId, material, window, renewal), new LeaseTransition.Acquired(keyId, window));
-            });
-
-    public static Fin<SecretLease> Renew(SecretRuntime runtime, SecretLease lease) =>
-        runtime.Clocks.Now is var now && now >= lease.Window.End
-            ? Fin.Fail<SecretLease>(new SecretFault.RenewMissed(lease.KeyId, "lease expired before renewal"))
-            : runtime.Read(lease.KeyId)
-                .MapFail(error => (Error)new SecretFault.RenewMissed(lease.KeyId, error.Message))
-                .Map(material => {
-                    CryptographicOperations.ZeroMemory(lease.Material);
-                    var window = ClockPolicy.Window(now + runtime.Rotation.Allotted, runtime.Rotation.Allotted);
-                    return Emit(runtime, lease with { Material = material, Window = window }, new LeaseTransition.Renewed(lease.KeyId, window));
-                });
-
-    public static Unit Zeroize(SecretRuntime runtime, SecretLease lease) {
-        ignore(Emit(runtime, lease, new LeaseTransition.Zeroized(lease.KeyId, runtime.Clocks.Now)));
-        CryptographicOperations.ZeroMemory(lease.Material);
-        return unit;
-    }
-
-    static SecretLease Emit(SecretRuntime runtime, SecretLease lease, LeaseTransition transition) {
-        var receipt = new SecretReceipt(
-            lease.KeyId, transition, lease.Window,
-            SecretLease.Digest(lease.Material), lease.Redacted(runtime.Redactor), runtime.Clocks.Now);
-        ignore(runtime.Sink.Send(
-            runtime.Correlation, runtime.Tenant, TelemetrySource.AppHost.Key, nameof(SecretLease),
-            JsonSerializer.SerializeToElement(receipt, runtime.Wire)).Run());
-        return lease;
-    }
-}
-```
-
-## [07]-[CREDENTIAL_PEM]
-
-- Owner: `PemLabel` `[SmartEnum<string>]` the closed RFC-7468 textual-encoding label vocabulary under the `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `PemBlock` the single armored element; `CredentialBundle` the ordered multi-element bundle the canonical `\n` PEM-block delimiter joins; `CredentialPemWire` the redacted cross-language carrier; `PemFault` `[Union]` fault family in the 4790-4799 band; `CredentialPem` the static encode-decode-redact surface.
-- Cases: 6 label rows — certificate, public-key, private-key, ec-private-key, rsa-private-key, pkcs7 — the RFC-7468 armor labels the BCL `PemEncoding` writes between the `-----BEGIN {label}-----`/`-----END {label}-----` lines; `PemFault` = Text | LabelUnknown | ArmorMalformed | EmptyBundle.
-- Entry: `Encode(CredentialBundle bundle)` returns `string` — one fold writes each `PemBlock` through `PemEncoding.WriteString(label, der)` and joins the armored elements with the single `\n` RFC-7468 inter-block delimiter, so a certificate chain plus its private key crosses as one canonical bundle text whose element boundary is the `-----END-----`/`-----BEGIN-----` armor pair, never a hand-built `--SEP--` token; `Decode(string text)` returns `Fin<CredentialBundle>` — one fold walks `PemEncoding.TryFind` across the text, peeling each `-----BEGIN/END-----` armored element into a `PemBlock` so the decoder reads any RFC-7468 producer's bundle without a separator contract; `Carrier(CredentialBundle bundle, string keyId, Redactor redactor, ClockPolicy clocks)` returns `CredentialPemWire` — the redacted carrier the wire crosses, carrying the bundle's label set, the per-block `XxHash128` content digest, and the redacted key-id, never a private-key byte.
-- Auto: the bundle is the canonical wire shape the `SecretLease` produces and the TS verifier and Python admission consume — a credential-material wire crossing as a raw `byte[]`, a bare base64 string, or a hand-built `\n--SEP--\n`-joined envelope is the deleted form, the RFC-7468 armor IS the self-delimiting separator and the `\n` between an `-----END-----` and the next `-----BEGIN-----` is the only inter-block byte; the `CredentialBundle.Cert(X509Certificate2 certificate)` factory derives a certificate bundle from the cert's own DER (`X509Certificate2.RawData`) so the host never hand-encodes bytes it already owns through the BCL cert surface, and `CredentialPem.Decode` round-trips a `CERTIFICATE` block through `X509Certificate2.CreateFromPem(text)` so the decoder proves the armored bytes parse as a real certificate before admission; a `PrivateKey`-classed `PemBlock` carries `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases its bytes at every egress and the `CredentialPemWire` never carries a private-key block's content, only its label and content digest; the per-block digest is the non-cryptographic `XxHash128` identity value the `System.IO.Hashing` rail law forbids security claims over, so the wire carrier proves bundle identity without exposing material and the rotation diff is a digest equality, never a constant-time pretense.
-- Receipt: the credential rotation rides the `SecretReceipt` the `SECRET_LEASE` cluster mints — `SecretReceipt.ContentHash` is the `CredentialBundle` per-block digest fold and `SecretReceipt.RedactedId` the carrier's redacted key-id, so the PEM axis adds no parallel receipt and the `CredentialPemWire` is the redacted projection the receipt sink already fans.
-- Packages: System.Security.Cryptography, System.IO.Hashing, Microsoft.Extensions.Compliance.Redaction, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one armor label is one `PemLabel` row; one bundle-element kind is one `PemBlock` carried in the existing ordered bundle, never a parallel envelope; one fault is one `PemFault` case; a new credential material kind rides the label axis already; zero new surface.
-- Boundary: the PEM axis is the suite's only credential-material wire owner — the `SecretLease` holds the live `byte[]` in memory and zeroizes it, while `CredentialPem` owns the canonical at-rest and on-wire encoding, so the lease lifecycle and the material encoding never merge into one surface and never split the material into two encodings; the BCL `PemEncoding` owns the RFC-7468 armor write/find and `X509Certificate2.ExportCertificatePem`/`CreateFromPem` own the certificate round-trip — a hand-rolled base64 wrap, a manual `-----BEGIN-----` string build, and a Newtonsoft or third-party PEM codec are the deleted forms; the bundle crosses to TS as the `CredentialPemWire` the `security/auth` `WebauthnCredential` public-key column and the OAuth provider-cert path decode through `@simplewebauthn/server`'s own key parse, and to Python as the carrier the `runtime/execution/admission` `SettingsAdmission` secret-file source reads through `cryptography`'s `load_pem_*` parse — both consumers decode the one C#-minted bundle and re-mint no parallel PEM vocabulary, per architecture#CROSS_LANGUAGE_WIRE; the private-key block never crosses in the `CredentialPemWire` carrier — only the public certificate chain, the label set, and the content digests cross, so a TS or Python verifier reads the credential's public identity off the wire while the private material stays host-side under the `SecretLease` zeroization; the label set is the closed RFC-7468 vocabulary the BCL writes, so an unknown armor label decodes to `PemFault.LabelUnknown` rather than admitting an unrecognized block.
-
-```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-public sealed partial class PemLabel {
-    public static readonly PemLabel Certificate = new("CERTIFICATE", secret: false);
-    public static readonly PemLabel PublicKey = new("PUBLIC KEY", secret: false);
-    public static readonly PemLabel PrivateKey = new("PRIVATE KEY", secret: true);
-    public static readonly PemLabel EcPrivateKey = new("EC PRIVATE KEY", secret: true);
-    public static readonly PemLabel RsaPrivateKey = new("RSA PRIVATE KEY", secret: true);
-    public static readonly PemLabel Pkcs7 = new("PKCS7", secret: false);
-
-    public bool Secret { get; }
-}
-
-public readonly record struct PemBlock(PemLabel Label, ReadOnlyMemory<byte> Der) {
-    public string Digest => Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(Der.Span));
-    public string Armor => PemEncoding.WriteString(Label.Key, Der.Span);
-}
-
-public sealed record CredentialBundle(Seq<PemBlock> Blocks) {
-    public static CredentialBundle Cert(X509Certificate2 certificate) =>
-        new(Seq(new PemBlock(PemLabel.Certificate, certificate.RawData)));
-
-    public FrozenSet<string> Labels => Blocks.Map(static block => block.Label.Key).ToFrozenSet(StringComparer.Ordinal);
-    public bool CarriesSecret => Blocks.Exists(static block => block.Label.Secret);
-}
-
-public readonly record struct CredentialPemWire(
-    string KeyId,
-    FrozenSet<string> Labels,
-    Seq<string> BlockDigests,
-    string BundleDigest,
-    Instant At);
-
-[Union]
-public abstract partial record PemFault : Expected, IValidationError<PemFault> {
-    private PemFault(string detail, int code) : base(detail, code, None) { }
-    public static PemFault Create(string message) => new Text(message);
-    public sealed record Text : PemFault { public Text(string detail) : base(detail, 4790) { } }
-    public sealed record LabelUnknown : PemFault { public LabelUnknown(string label) : base($"{label}: unknown PEM label", 4791) => Label = label; public string Label { get; } }
-    public sealed record ArmorMalformed : PemFault { public ArmorMalformed(string detail) : base(detail, 4792) { } }
-    public sealed record EmptyBundle : PemFault { public EmptyBundle() : base("empty PEM bundle", 4793) { } }
-}
-
-public static class CredentialPem {
-    public static string Encode(CredentialBundle bundle) =>
-        string.Join('\n', bundle.Blocks.Map(static block => block.Armor));
-
-    public static Fin<CredentialBundle> Decode(string text) {
-        var span = text.AsSpan();
-        var blocks = Seq<PemBlock>();
-        while (PemEncoding.TryFind(span, out var fields)) {
-            var label = span[fields.Label].ToString();
-            var der = new byte[fields.DecodedDataLength];
-            if (!Convert.TryFromBase64Chars(span[fields.Base64Data], der, out _))
-                return Fin.Fail<CredentialBundle>(new PemFault.ArmorMalformed(label));
-            if (!PemLabel.TryGet(label, out var row))
-                return Fin.Fail<CredentialBundle>(new PemFault.LabelUnknown(label));
-            blocks = blocks.Add(new PemBlock(row, der));
-            span = span[fields.Location.End..];
-        }
-        return blocks.IsEmpty ? Fin.Fail<CredentialBundle>(new PemFault.EmptyBundle()) : Fin.Succ(new CredentialBundle(blocks));
-    }
-
-    public static CredentialPemWire Carrier(CredentialBundle bundle, string keyId, Redactor redactor, ClockPolicy clocks) {
-        Span<char> sink = stackalloc char[redactor.GetRedactedLength(keyId)];
-        var written = redactor.Redact(keyId, sink);
-        var digests = bundle.Blocks.Map(static block => block.Digest);
-        return new CredentialPemWire(
-            KeyId: new string(sink[..written]),
-            Labels: bundle.Labels,
-            BlockDigests: digests,
-            BundleDigest: Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(Encoding.UTF8.GetBytes(string.Concat(digests)))),
-            At: clocks.Now);
-    }
-}
-```
-
-## [08]-[TS_PROJECTION]
-
-- Owner: `CredentialPemWire` — the redacted credential-bundle carrier the TS `security/auth` and the Python `runtime/execution/admission` decode; the raw bundle text crosses as the standard RFC-7468 PEM string the consumers parse through their own key surfaces.
-- Entry: the bundle text crosses as the canonical multi-element PEM string (`-----BEGIN/END-----` armored blocks joined by `\n`), and the redacted carrier crosses as `CredentialPemWire` so a consumer reads the bundle's label set and content digests without the private-key bytes.
-- Packages: BCL inbox
-- Growth: one wire-member row per new carrier field; the label set crosses as a string array of the closed RFC-7468 labels; zero new surface.
-- Boundary: the PEM bundle text crosses as the standard RFC-7468 armored string so a consumer's own PEM parser (`@simplewebauthn/server` key parse on TS, `cryptography.hazmat` `load_pem_*` on Python) reads the same bytes the BCL `PemEncoding` wrote, never a re-minted base64 envelope; the carrier never carries a private-key block's content — only the label set, the per-block `XxHash128` digests, and the redacted key-id cross — so the TS and Python verifiers read the credential's public identity off the wire while the private material stays host-side; the bundle separator is the RFC-7468 armor itself, so a consumer splits blocks on the `-----BEGIN-----`/`-----END-----` boundary its PEM parser already owns, never a `--SEP--` token.
-
-```ts contract
-type PemLabelKey =
-  | "CERTIFICATE"
-  | "PUBLIC KEY"
-  | "PRIVATE KEY"
-  | "EC PRIVATE KEY"
-  | "RSA PRIVATE KEY"
-  | "PKCS7";
-
-interface CredentialPemWire {
-  readonly keyId: string;
-  readonly labels: ReadonlyArray<PemLabelKey>;
-  readonly blockDigests: ReadonlyArray<string>;
-  readonly bundleDigest: string;
-  readonly at: string;
-}
-```
-
-## [09]-[RESEARCH]
-
-- [SOURCE_ROUTES]: the secrets-store provider route behind `ConfigLayer.SecretsSource` is RID-dispatched, never a single universal keychain — macOS resolves to Security.framework `SecItemCopyMatching` P/Invoke (from the Security.framework headers) versus a `/usr/bin/security` child process; Linux has no keychain and resolves to libsecret/`systemd-creds`/a file-backed `UserSecrets` store; Windows resolves to DPAPI/Credential Manager. The P/Invoke entrypoints are authored from the Apple/Linux man-pages and SDK headers and stay RESEARCH-flagged; no live `SecItem*`/DPAPI/credential-store read is performed during authoring because each raises an OS unlock dialog. The `SecretRuntime.Read` delegate the `SecretLease` acquires through resolves to whichever store the RID selected, never a parallel reader beside it.
-- [SIGHUP_RELOAD]: the launchd and systemd `SIGHUP` reload-trigger delivery that re-mounts the transition-class sources and enqueues one `ReloadOutcome` under `ReloadReceipt.SignalTrigger` — the registration is `System.Runtime.InteropServices.PosixSignalRegistration.Create(PosixSignal.SIGHUP, ctx => ...)`, a Unix-only seam (Linux + macOS); a `win-*` host has no `SIGHUP` and routes reload solely through `ControlTrigger`, so the `SignalTrigger` band never fabricates a Windows signal path. The `PosixSignalRegistration`/`PosixSignal` member shape is not in the folder `.api/` catalogue; its spelling and the `PosixSignalContext.Cancel` re-handling default are the open verification before transcription. The live delivery of `SIGHUP` under the running service manager (one reload, zero drains) is the open distinction the live service-manager host resolves.
+- [SOURCE_ROUTES]: the secrets-store provider route behind `ConfigLayer.SecretsSource` is RID-dispatched, never a single universal keychain — macOS resolves to Security.framework `SecItemCopyMatching` P/Invoke (from the Security.framework headers) versus a `/usr/bin/security` child process; Linux has no keychain and resolves to libsecret/`systemd-creds`/a file-backed `UserSecrets` store; Windows resolves to DPAPI/Credential Manager. The P/Invoke entrypoints are authored from the Apple/Linux man-pages and SDK headers and stay RESEARCH-flagged; no live `SecItem*`/DPAPI/credential-store read is performed during authoring because each raises an OS unlock dialog. The `Runtime/secrets#SECRET_LEASE` `SecretRuntime.Read` delegate acquires through whichever store the RID selected, never a parallel reader beside it.
+- [SIGHUP_RELOAD]: the launchd and systemd `SIGHUP` reload-trigger delivery that re-mounts the transition-class sources and enqueues one `ReloadOutcome` under `ReloadReceipt.SignalTrigger` — the registration is `System.Runtime.InteropServices.PosixSignalRegistration.Create(PosixSignal.SIGHUP, ctx => ...)`, a Unix-only seam (Linux + macOS); a `win-*` host has no `SIGHUP` and routes reload solely through `ControlTrigger`, so the `SignalTrigger` band never fabricates a Windows signal path. The `PosixSignalRegistration.Create(PosixSignal, Action<PosixSignalContext>)`/`PosixSignal`/`PosixSignalContext.Cancel` member shape is catalogued at the substrate tier. The live delivery of `SIGHUP` under the running service manager (one reload, zero drains) is the open distinction the live service-manager host resolves.
 - [BINDER_COVERAGE]: source-generated binder interception of `Get<T>` with `BinderOptions.ErrorOnUnknownConfiguration` under `EnableConfigurationBindingGenerator`.
-- [PATCH_ERROR_SHAPE]: the `JsonPatchDocument.ApplyTo(object objectToApplyTo, Action<JsonPatchError> logErrorAction)` overload and the `JsonObjectAdapter` `JsonObject` mutation path are catalogued in `.api/api-jsonpatch.md`, and `Operations.Operation` carries the `path` field; the `JsonPatchError.Operation` (typed `Operations.Operation?`) and `JsonPatchError.ErrorMessage` property spellings the `logErrorAction` delegate reads, plus the `application/json-patch+json` `IEndpointParameterMetadataProvider` intake the `DispatchPatch` control verb mounts, are the one open verification before transcription — the `op`/`path`/`from`/`value` operation model and the `Test`-op precondition assertion are package-owned and never re-spelled. The patch applies to a `JsonObject` projection of the live section rather than a typed `JsonPatchDocument<T>` so a `Test`-op precondition failure or an invalid op-path rejects the whole document before any re-bind, and the applied object re-enters through `PolicyBinding.Bind<T>`/`Refine` so a structurally valid but invariant-breaking patch never publishes.
-- [ZEROIZE_PRIMITIVE]: `System.Security.Cryptography.CryptographicOperations.ZeroMemory(Span<byte>)` is the doctrine integrity owner's overwrite member the `SecretLease` zeroize and renew paths bind; the member is not yet in the folder `.api/` catalogue, so its span-overload spelling is the one open verification before transcription. The earlier `FixedTimeEquals` rotation-diff claim is withdrawn — the digest is the non-cryptographic `XxHash128` identity value the `System.IO.Hashing` rail law forbids security claims over, so no constant-time comparison member is bound and none is catalogued.
-- [KMS_UNWRAP_PORT]: the per-store-open KMS-unwrap handle `Rasm.Persistence/Element/identity#KEY_ENVELOPE` reads crosses through the `[PORT]: KMS-unwrap port` seam as one `SecretLease`-class content carrier — the lease owns the acquire-renew-zeroize custody of the cloud-KMS CMK access the Persistence `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring` (the provider-neutral `Mint`/`Unwrap`/`Rewrap`/`Probe` delegate quartet one `KmsProvider` row projects, each arm's mechanism a policy value on that row — AWS `GenerateDataKey`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey` RSA-OAEP-256, GCP `Encrypt`/`Decrypt` encrypt-as-wrap with bidirectional CRC32C integrity and `UpdateCryptoKeyPrimaryVersion` primary-version repoint, never one arm's spelling masquerading as a universal law) binds against, so the in-process key-handle lifecycle stays the runtime lease's concern and Persistence consumes the resolved per-open handle, never minting a long-lived in-process key; the `Probe` arm resolves the key's lifecycle `KeyState` so a wrap against a disabled or destroy-scheduled key rejects at admission, the `Rewrap` arm advances the version ladder per the row's rotation kind, the unwrapped DEK zeroizes through the same `CryptographicOperations.ZeroMemory` path and the handle is a content carrier riding this lifecycle, never an eighth port, per `Runtime/ports#PORT_RECORDS` (a `SecretLease` row is never promoted to a port). The concrete `KmsProvider` axis (`AWSSDK.KeyManagementService`/`Azure.Security.KeyVault.Keys`/`Google.Cloud.Kms.V1`) and the per-arm AAD binding stay Persistence-side — the `EnvelopeAad` carrying the store partition and (under RLS) the `TenantContext.TenantId.Uuid` digested through `XxHash128`, ridden as the provider `EncryptionContext`/`AdditionalAuthenticatedData` exact-match on the AWS/GCP `context` arms and compared application-side against the persisted digest on the Azure native-wrap `application` arm; AppHost surfaces only the lease-managed handle custody.
-- [PEM_ENCODING]: the `System.Security.Cryptography.PemEncoding` armor owner the `CredentialPem` axis binds — `PemEncoding.WriteString(ReadOnlySpan<char> label, ReadOnlySpan<byte> data)` for the per-block armor write, `PemEncoding.TryFind(ReadOnlySpan<char> pemData, out PemFields fields)` for the multi-element walk, and the `PemFields` struct (`Location`/`Label`/`Base64Data`/`DecodedDataLength` ranges) the decoder reads — plus `System.Security.Cryptography.X509Certificates.X509Certificate2.RawData` (the cert's DER bytes the `CredentialBundle.Cert` factory armors) and `X509Certificate2.CreateFromPem(ReadOnlySpan<char> certPem)` for the certificate round-trip the decoder proves, are BCL inbox members not yet in the folder `.api/` catalogue, so their exact spellings are the one open verification before transcription, authored from the .NET cryptography surface. The `PemBlock.Der` `ReadOnlyMemory<byte>` is the raw DER the armor encodes; the `Decode` fold reads `PemFields.DecodedDataLength` and `PemFields.Base64Data` to size and fill the DER through `Convert.TryFromBase64Chars`, never a fabricated single decode member — the assay binder indexes `System.Security.Cryptography`/`System.Security.Cryptography.X509Certificates` once these enter the folder `.api/` catalogue. The bundle separator is the RFC-7468 `-----END-----`/`-----BEGIN-----` armor boundary joined by `\n`, never a `--SEP--` token: the textual-encoding self-delimitation IS the separator, so no separator constant is minted and the earlier `\n--SEP--\n` placeholder resolves to the single `\n` the `Encode` fold's `string.Join('\n', ...)` writes between self-armored blocks.
-- [CREDENTIAL_WIRE_CONSUMERS]: the C#-minted `CredentialBundle` PEM text and the redacted `CredentialPemWire` carrier are the suite's only credential-material wire vocabulary — TS `services/security/auth` decodes the certificate/public-key blocks through `@simplewebauthn/server`'s own key parse and Python `runtime/execution/admission` `SettingsAdmission` reads the bundle through `cryptography.hazmat.primitives.serialization` `load_pem_*`, both decoding the one host-minted RFC-7468 bundle and re-minting no parallel PEM vocabulary per architecture#CROSS_LANGUAGE_WIRE. The `\n`-joined armor is the wire contract; the consumer-side `load_pem_*`/key-parse spellings are the peer branches' own admissions, not this page's fences.
+- [PATCH_ERROR_SHAPE]: the `JsonPatchDocument.ApplyTo(object objectToApplyTo, Action<JsonPatchError> logErrorAction)` overload and the `JsonObjectAdapter` `JsonObject` mutation path are catalogued in `.api/api-jsonpatch.md`, and `Operations.Operation` carries the `path` field, and the `JsonPatchError.Operation` (typed `Operations.Operation?`)/`JsonPatchError.ErrorMessage` property spellings the `logErrorAction` delegate reads are catalogued beside it; the `application/json-patch+json` `IEndpointParameterMetadataProvider` intake the `DispatchPatch` control verb mounts is package-owned; the `op`/`path`/`from`/`value` operation model and the `Test`-op precondition assertion are package-owned and never re-spelled. The patch applies to a `JsonObject` projection of the live section rather than a typed `JsonPatchDocument<T>` so a `Test`-op precondition failure or an invalid op-path rejects the whole document before any re-bind, and the applied object re-enters through `PolicyBinding.Bind<T>`/`Refine` so a structurally valid but invariant-breaking patch never publishes.

@@ -1,23 +1,23 @@
 export const meta = {
   name: 'stack-cs',
   whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
-  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file\'s own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, resolves every reported residual, and finalizes cold in one sweep; nothing follows it. Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
+  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file\'s own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep; nothing follows it. Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
   phases: [
-    { title: 'Inventory', detail: 'parse the README atlas + the domain/ router for the ordered core + domain file set + per-file state' },
+    { title: 'Inventory', detail: 'mechanical enumeration: the ordered core + domain file set from the README atlas + the domain/ router, resolved against real disk' },
     { title: 'Gate', detail: 'justification gate (default harden-in-place): only on an explicit cited justification + target atlas position author ONE new core page, edit the README atlas/STATE, seed the region ledger, and splice it into the ordered set' },
     { title: 'Harden', detail: 'per FILE: initial -> critique -> redteam chained within the file; all files concurrent under one pool cap; critique/redteam read the live corpus and edit only their own file' },
-    { title: 'Corpus', detail: 'ONE terminal fable agent: align seams, close gaps, resolve every reported residual, finalize cold — nothing follows it' },
+    { title: 'Corpus', detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold — nothing follows it' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10
+const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 const ROOT = 'docs/stacks/csharp'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, folder: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, call: { type: 'string' } } } } } }
+const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' } } } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'reason'], properties: { verdict: { type: 'string', enum: ['harden_in_place', 'new_page'] }, reason: { type: 'string' }, page: { type: 'object', additionalProperties: false, required: ['path', 'atlas_index', 'decision', 'justification'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, decision: { type: 'string' }, folder: { type: 'string' }, justification: { type: 'string' }, seed_regions: { type: 'array', items: { type: 'string' } } } } } }
 const SEED_SCHEMA = { type: 'object', additionalProperties: false, required: ['path', 'verdict'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, regions: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['seeded', 'aborted'] } } }
@@ -339,7 +339,7 @@ const redteamPrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
 const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
   'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
     'CURRENT disk). Read the README first, then every atlas page IN FULL in order; WRITE every fix in place via Edit/Write across ANY page under ' +
-    ROOT + '/ — a finding is a fix, never a note. The sweep owns FOUR mandates at once:',
+    ROOT + '/ — a finding is a fix, never a note. The sweep owns FIVE mandates at once:',
   '(1) ALIGN — the corpus as ONE body: one unified shape vocabulary across all pages (identical spellings for shared rails, generated owners, ' +
     'fault families, policy forms); zero duplicated snippet regions corpus-wide (repair by routing to the owning page, never by re-teaching); ' +
     'altitude (each page owns ONLY its layer; later atlas pages compose earlier law as settled supporting material, never restate it; a domain ' +
@@ -349,11 +349,17 @@ const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED
     'right page and every fence demonstrates the mandates its layer admits (generated closed-family owners, the two-weave AOP, the LanguageExt ' +
     'rails, the interface/graph seam law, the CS_SUBSTRATE stacking); close every gap IN PLACE on the owning page; spot-verify named host/NuGet ' +
     'members via assay api (fallback when blocked: the `.api` catalogs + the nuget MCP + Context7/exa/tavily) and delete phantoms.',
-  '(3) RESIDUALS — the cross-file residuals below are SIGNALS the per-file pipelines reported, not law: re-verify each on CURRENT disk (a later ' +
+  '(3) COMPUTATION-LAW BODIES — the algorithmic-bodies law legislates every working body in the corpus: audit EVERY fence on EVERY page against ' +
+    'it — deferred LINQ at depth (`Aggregate`/`SelectMany`/`Zip`/`Chunk`/`GroupBy`/`Scan`) or LanguageExt `.Fold`/`.FoldBack`/`.Traverse`/' +
+    '`.Choose` over the carrier in place of mutable accumulation, collection expressions + list/slice/relational/logical patterns + ' +
+    'switch-expression dispatch over closed families in place of imperative branching, `ref struct`/`Span<T>` kernels ONLY where EARNED at the ' +
+    'named EXPRESSION_SPINE exemption — and rebuild any body below that bar in place; a fence whose body the computation law would rewrite is a ' +
+    'defect on ITS page, whatever the page`s own layer.',
+  '(4) RESIDUALS — the cross-file residuals below are SIGNALS the per-file pipelines reported, not law: re-verify each on CURRENT disk (a later ' +
     'sibling pipeline may already have resolved it); implement the STRONGEST resolution — the denser root-level reconstruction where the implied ' +
     'fix is weak, short-sighted, or a single-point patch; a residual factually wrong or already resolved on disk is rejected with reason. ' +
     'RESIDUALS: ' + JSON.stringify(residuals),
-  '(4) FINALIZE — the terminal cold read as a first reader with fresh hostile eyes: fix every residual weakness, hedge, meta line, thin card, or ' +
+  '(5) FINALIZE — the terminal cold read as a first reader with fresh hostile eyes: fix every residual weakness, hedge, meta line, thin card, or ' +
     'under-dense fence; density within the soft ~450 LOC signal without card/snippet spam; hunt PAST the residual list on your own authority — ' +
     '`beyond` enumerates those fixes, and an empty `beyond` attests your hunt found nothing, never that it did not run. FAILED PAGES (their ' +
     'pipeline died — the page left the run un-hardened; give it the full harden here as part of this sweep): ' + JSON.stringify(failed) + '. ' +
@@ -392,24 +398,22 @@ const seedPrompt = (page) => [DOCTRINE, '',
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Inventory')
-const inv = await agent('DISCOVERY — the read-only reconnaissance grounding every downstream stage; read-only is its ONLY concession. Enumerate ' +
-  'from the SOURCE OF TRUTH, never memory: run a REAL find/ls listing of every page under ' + ROOT + ', read ' + ROOT + '/README.md [01]-[ATLAS] ' +
-  'and the ' + ROOT + '/domain/README.md router IN FULL, and resolve the ordered set against the disk listing (a page on disk absent from the ' +
-  'atlas/router, or a row with no file, is noted in that row`s `call`, never silently dropped). Return the full ordered file set: every CONCEPT ' +
-  'page that exists on disk under ' + ROOT + ' (the core pages first in atlas order, then the domain/ shards in the domain router order), ' +
-  'EXCLUDING every README.md and the entire .reports/ workspace. Each row {path (repo-relative), order (global integer), folder (`domain` or ' +
-  'empty for core), regions (its snippet-demonstration region tags read from the corpus region ledger where one exists on disk, else from the ' +
-  'page body`s actual snippet demonstrations — verified by a real read, never guessed), call (ONE hostile weak/strong line on the page grounded ' +
-  'in what you read)}. This map is an initial pointer, never a ceiling: every downstream stage re-reads the full pages from disk. Use find/read; ' +
-  'do not cd; do not edit anything.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
+const inv = await agent('INVENTORY — pure mechanical enumeration, read-only. Resolve the ordered page set against REAL disk state, never ' +
+  'memory: run a real find/ls listing of every page under ' + ROOT + ', read ' + ROOT + '/README.md [01]-[ATLAS] for the core order and the ' +
+  ROOT + '/domain/README.md router for the shard order — routers own ORDER, disk owns EXISTENCE (a page on disk absent from the atlas/router ' +
+  'still returns, ordered after its section). Return every CONCEPT page that exists on disk as {path (repo-relative), order (global integer: ' +
+  'core pages first in atlas order, then the domain/ shards in the domain router order)}, EXCLUDING every README.md and the entire .reports/ ' +
+  'workspace. Enumerate and order — nothing else: no page reading, no capability maps, no verdicts (every downstream stage re-reads the full ' +
+  'pages from disk). Use find/ls plus reading ONLY the README routers; do not cd; do not edit anything.',
+  { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const ordered = ((inv && inv.files) || []).filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0).sort((a, b) => a.order - b.order).map((f) => f.path)
 log('Inventory: ' + ordered.length + ' csharp doctrine pages (core + domain) to harden; CAP=' + CAP)
 if (!ordered.length) { log('No pages resolved — nothing to harden'); return { workflow: 'stack-cs', root: ROOT, total: 0 } }
 
 phase('Gate')
-const gate = await agent(gatePrompt(ordered), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'max', stallMs: STALL })
+const gate = await agent(gatePrompt(ordered), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'high', stallMs: STALL })
 if (gate && gate.verdict === 'new_page' && gate.page && gate.page.path) {
-  const seed = await agent(seedPrompt(gate.page), { label: 'seed:' + nameOf(gate.page.path), phase: 'Gate', schema: SEED_SCHEMA, effort: 'max', stallMs: STALL })
+  const seed = await agent(seedPrompt(gate.page), { label: 'seed:' + nameOf(gate.page.path), phase: 'Gate', schema: SEED_SCHEMA, effort: 'high', stallMs: STALL })
   if (seed && seed.path && seed.verdict === 'seeded') {
     const at = Math.max(0, Math.min(ordered.length, (gate.page.atlas_index || ordered.length + 1) - 1))
     ordered.splice(at, 0, seed.path)
@@ -420,14 +424,14 @@ if (gate && gate.verdict === 'new_page' && gate.page && gate.page.path) {
 // Per-file pipeline: initial -> critique -> redteam chain WITHIN the file only; the pool is the sole scheduler across files.
 phase('Harden')
 const results = (await pool(ordered, CAP, async (page) => {
-  const init = await agent(authorPrompt(page), { label: 'initial:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+  const init = await agent(authorPrompt(page), { label: 'initial:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
   if (!init) return { page, failed: true, logs: [] } // failure isolation: a dead initial skips its file's reviews; the run continues
-  const crit = await agent(critiquePrompt(page), { label: 'critique:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
-  const rt = await agent(redteamPrompt(page), { label: 'redteam:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
+  const crit = await agent(critiquePrompt(page), { label: 'critique:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
+  const rt = await agent(redteamPrompt(page), { label: 'redteam:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
   return { page, failed: false, logs: [init, crit, rt].filter(Boolean) }
 })).filter(Boolean)
 const FAILED = results.filter((r) => r.failed).map((r) => r.page)
-const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
+const norm = (x, page) => ({ files: x.files && x.files.length ? x.files : [page], claim: x.claim })
 const RESIDUALS = [...new Map(results.flatMap((r) => r.logs.flatMap((l) => (l.residual_high || []).map((x) => norm(x, r.page))))
   .map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
 log('Harden: ' + (results.length - FAILED.length) + '/' + ordered.length + ' file pipelines complete; ' + RESIDUALS.length +

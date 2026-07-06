@@ -49,8 +49,8 @@
 | :-----: | :--------------------------------- | :------------- | :------------------------ |
 |  [01]   | `Command(name, description?)`      | command ctor   | named command node        |
 |  [02]   | `RootCommand(description?)`        | root ctor      | top-level entry point     |
-|  [03]   | `Option<T>(name, description?)`    | option ctor    | typed option symbol       |
-|  [04]   | `Argument<T>(name?, description?)` | argument ctor  | typed positional argument |
+|  [03]   | `Option<T>(name, params aliases)`  | option ctor    | typed option symbol; `Description` is a settable `Symbol` property, never a ctor arg |
+|  [04]   | `Argument<T>(name)`                | argument ctor  | typed positional argument; name required, `Description` set post-construction |
 
 [ENTRYPOINT_SCOPE]: command composition
 - rail: configuration

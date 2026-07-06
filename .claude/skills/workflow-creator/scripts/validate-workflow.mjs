@@ -143,7 +143,7 @@ for (const [re, label] of [
 // never trip this), and the literal VALUE is read from raw `src` at the same offset.
 const ALLOWED = {
   effort: new Set(['low', 'medium', 'high', 'xhigh', 'max']),
-  model: new Set(['haiku', 'sonnet', 'opus', 'fable', 'inherit']),
+  model: new Set(['sonnet', 'opus', 'fable', 'inherit']),
 }
 for (const key of ['effort', 'model']) {
   const re = new RegExp(`\\b${key}\\s*:`, 'g')

@@ -1,15 +1,16 @@
 export const meta = {
   name: 'tidy-planning-docs',
   whenToUse: 'Surgical comment and prose hygiene pass over a .planning design corpus, after a rebuild lands.',
-  description: 'Surgical comment + prose HYGIENE pass over every .planning design corpus under a libs/ scope. NOT a rebuild: it changes ONLY fenced-code comments and page prose, never a code fence design, signature, type, case, field, body, or design decision. One agent per .planning-owning package folder (the whole folder corpus to one agent), all folders concurrent under one flat pool (CAP=10), each folder run through a true 3-step ADVERSARIAL pipeline: tidy -> critique -> redteam (each stage consumes the prior stage\'s product). Every comment is treated as agent-facing framing that exists ONLY to help a future rebuild-* agent understand the why/intent/invariant: noise/restatement/process comments are deleted, every kept comment is refined to 1-2 (max 3) high-signal lines, and prose is trimmed of stale/wrong/noise content toward a ~20-25% reduction WHERE possible without losing any load-bearing context. Self-enclosing: a same-kind defect a pipeline exposes in ANOTHER folder\'s .planning page is fixed there in the same pass under the current-state law, never handed to a later run. Edits are scoped to .planning markdown; governing docs (ARCHITECTURE/README/IDEAS/TASKLOG/.api), docs/standards/style-guide.md, and CLAUDE.md [08] divider grammar are read for context only. args = optional libs scope (e.g. libs/csharp, libs/python, libs/typescript); empty = all of libs.',
+  description: 'Surgical comment + prose HYGIENE pass over every .planning design corpus under a libs/ scope. NOT a rebuild: it changes ONLY fenced-code comments and page prose, never a code fence design, signature, type, case, field, body, or design decision. One work unit per .planning-owning package folder — a folder above 12 design pages splits into two page-slice units so per-stage full-corpus reads stop scaling with folder size — every agent call scheduled by one agent-level slot scheduler (CAP=14), each unit run through a true 3-step ADVERSARIAL pipeline: tidy -> critique -> redteam (each stage consumes the prior stage\'s product). Every comment is treated as agent-facing framing that exists ONLY to help a future rebuild-* agent understand the why/intent/invariant: noise/restatement/process comments are deleted, every kept comment is refined to 1-2 (max 3) high-signal lines, and prose is trimmed of stale/wrong/noise content toward a ~20-25% reduction WHERE possible without losing any load-bearing context. Self-enclosing: a same-kind defect a pipeline exposes in ANOTHER folder\'s .planning page is fixed there in the same pass under the current-state law, never handed to a later run. Edits are scoped to .planning markdown; governing docs (ARCHITECTURE/README/IDEAS/TASKLOG/.api), docs/standards/style-guide.md, and CLAUDE.md [08] divider grammar are read for context only. args = optional libs scope (e.g. libs/csharp, libs/python, libs/typescript); empty = all of libs.',
   phases: [
-    { title: 'Discover', detail: 'list every .planning-owning package folder under the scope, plus any language/branch-level .planning tier', model: 'sonnet' },
-    { title: 'Tidy', detail: 'per folder (1 agent/folder, whole corpus): tidy(max) -> critique(xhigh) -> redteam, every stage ADVERSARIAL, comments + prose only, all folders concurrent at CAP=10' },
+    { title: 'Discover', detail: 'list every .planning-owning package folder under the scope with its design-page count, plus any language/branch-level .planning tier', model: 'sonnet' },
+    { title: 'Tidy', detail: 'per unit (a folder, or one of two page-slices when it exceeds 12 pages): tidy(high) -> critique(high) -> redteam, every stage ADVERSARIAL, comments + prose only, all units concurrent under agent-level slots at CAP=14' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10
+const CAP = 14
+const PAGE_SPLIT = 12
 const STAGGER_MS = 1500
 const STALL = 300000
 
@@ -18,14 +19,15 @@ const raw = (typeof args === 'string') ? args.trim() : (args && typeof args === 
 const SCOPE = raw || 'libs'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['units'], properties: { units: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'planning', 'context_root'], properties: { folder: { type: 'string' }, planning: { type: 'string' }, context_root: { type: 'string' }, pages: { type: 'integer' } } } } } }
+const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['units'], properties: { units: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'planning', 'context_root', 'pages'], properties: { folder: { type: 'string' }, planning: { type: 'string' }, context_root: { type: 'string' }, pages: { type: 'integer' } } } } } }
 const HYGIENE_LOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['trimmed', 'refined', 'clean'] }, pages: { type: 'integer' }, comments_cut: { type: 'integer' }, reduction_pct: { type: 'number' }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
   'SCOPE: this is a SURGICAL HYGIENE pass over ONE planning FOLDER`s design corpus — fenced-code COMMENTS and page PROSE ONLY. It is NOT a rebuild ' +
     'and NOT a design pass: do NOT change any code fence`s design, signatures, types, members, cases, fields, bodies, structure, ordering, or the ' +
-    'design decisions a page makes; do NOT add, remove, or reorder design content, cards, signature fences, or tables. Every edit lands in .planning markdown — this folder`s tree is your primary surface.',
+    'design decisions a page makes; do NOT add, remove, or reorder design content, cards, signature fences, or tables. Every edit lands in ' +
+    '.planning markdown — this folder`s tree is your primary surface.',
   'READ (never edit) the folder`s governing docs for CONTEXT — `ARCHITECTURE.md`, `README.md`, `IDEAS.md`, `TASKLOG.md` — so every trim is ' +
     'informed by what the folder owns and where it integrates. Enumerate BOTH `.api` tiers with a REAL disk listing, never from memory: the ' +
     '`.api/` catalogs at the folder`s context root AND the language-root catalogs at `libs/<lang>/.api/`. The code fences plus both tiers are ' +
@@ -35,7 +37,8 @@ const LAW = [
     'canonical section-divider labels and the divider grammar. Governing docs and `.api` catalogs stay read-only context — this pass never edits them.',
   'RIPPLE + CURRENT STATE: a comments-and-prose defect your verification exposes in ANOTHER folder`s .planning page — the far end of a broken ' +
     'cross-reference, the same phantom claim or noise family — is YOURS in the same pass under the identical comments-and-prose-only law; never a ' +
-    'note for a later run. Sibling pipelines run concurrently: before editing any page outside your tree, re-read its CURRENT on-disk state, compose landed sibling edits as found, and resolve a conflict to the stronger form, never a revert.',
+    'note for a later run. Sibling pipelines run concurrently: before editing any page outside your tree, re-read its CURRENT on-disk state, ' +
+    'compose landed sibling edits as found, and resolve a conflict to the stronger form, never a revert.',
 ].join('\n')
 const DIVIDERS = [
   'DIVIDER GRAMMAR (CLAUDE.md [08]): a CANONICAL top-level section divider is the comment marker + space + `---` + a bracketed UPPERCASE_SNAKE ' +
@@ -94,17 +97,31 @@ const DOCTRINE = [LAW, '', DIVIDERS, '', COMMENTS, '', PROSE, '', PRESERVE, '', 
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
-const pool = async (items, cap, worker) => {
-  const out = new Array(items.length)
-  let next = 0
+// Agent-level slot scheduler: every agent() call takes one slot, so unit chains launch freely via Promise.all while true in-flight agents stay at CAP.
+const makeSlots = (cap) => {
+  let active = 0
   let gate = Promise.resolve()
-  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
-  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
-  return out
+  const waiters = []
+  const stagger = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  return async (fn) => {
+    if (active >= cap) await new Promise((res) => waiters.push(res))
+    active++
+    await stagger()
+    try { return await fn() } finally { active--; const next = waiters.shift(); if (next) next() }
+  }
 }
+const slot = makeSlots(CAP)
+// A folder past PAGE_SPLIT design pages becomes two page-slice units, bounding each stage's full-corpus read.
+const splitUnits = (list) => list.flatMap((u) => (u.pages > PAGE_SPLIT)
+  ? [1, 2].map((part) => ({ folder: u.folder, planning: u.planning, context_root: u.context_root, pages: u.pages, slice: part }))
+  : [{ folder: u.folder, planning: u.planning, context_root: u.context_root, pages: u.pages || 0, slice: 0 }])
+const sliceCtx = (u) => !u.slice ? '' : '\nPAGE SLICE ' + u.slice + ' of 2 (this folder holds ' + u.pages + ' design pages; the corpus is split so ' +
+  'per-stage reads stay bounded — every whole-corpus instruction above NARROWS to your slice): enumerate every markdown design page under the ' +
+  'planning tree sorted lexicographically by path; your pages are ' + (u.slice === 1 ? 'the FIRST half of that ordering (1..ceil(N/2))' :
+  'the SECOND half of that ordering (after ceil(N/2))') + '. PROCESS and EDIT only your slice pages — the sibling slice agent owns the rest ' +
+  'concurrently; a FAMILY sweep runs across your slice; the RIPPLE + CURRENT-STATE law still governs an out-of-tree far end.'
 const ctx = (u) => '\nFOLDER: ' + u.folder + '\nPLANNING TREE (your primary surface): ' + u.planning + '\nCONTEXT ROOT (read-only ' +
-  'governing docs + .api): ' + u.context_root
+  'governing docs + .api): ' + u.context_root + sliceCtx(u)
 const tidyPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: SURGICAL HYGIENE PASS over EVERY design page under this folder`s .planning tree. ' +
   'First read the context-root governing docs + BOTH .api tiers + the style-guide + CLAUDE.md [08] divider grammar, then process EVERY ' +
   'markdown design page under the planning tree: apply the COMMENT hygiene (trim/refine/delete per the mandate), the PROSE hygiene (remove ' +
@@ -139,18 +156,18 @@ const redteamPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL 
   'every defect in place; a page already at the bar is proven by an attack that finds nothing, never conceded — never invent churn. The report ' +
   'is the fix-log of edits made: folder, pages, reduction_pct, summary; verdict `clean` ONLY when the full cold attack found nothing.' + ctx(u)].join('\n')
 const STAGES = [
-  { key: 'tidy', build: tidyPrompt, effort: 'max' },
-  { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: redteamPrompt, effort: 'xhigh' },
+  { key: 'tidy', build: tidyPrompt, effort: 'high' },
+  { key: 'crit', build: critiquePrompt, effort: 'high' },
+  { key: 'redteam', build: redteamPrompt, effort: 'high' },
 ]
-const processFolder = async (u) => { // true per-item pipeline: each stage consumes the prior stage's on-disk product; a dead stage ends its folder's chain
+const processUnit = async (u) => { // true per-unit pipeline: each stage consumes the prior stage's on-disk product; a dead stage ends its unit's chain
   const logs = {}
   for (const st of STAGES) {
-    const r = await agent(st.build(u), { label: st.key + ':' + u.folder, phase: 'Tidy', schema: HYGIENE_LOG_SCHEMA, effort: st.effort, stallMs: STALL })
+    const r = await slot(() => agent(st.build(u), { label: st.key + ':' + u.folder + (u.slice ? '#' + u.slice : ''), phase: 'Tidy', schema: HYGIENE_LOG_SCHEMA, effort: st.effort, stallMs: STALL }))
     if (r === null) break
     logs[st.key] = r
   }
-  return { folder: u.folder, logs, ok: Object.keys(logs).length === STAGES.length }
+  return { folder: u.folder, slice: u.slice, logs, ok: Object.keys(logs).length === STAGES.length }
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -167,11 +184,16 @@ const inv = await agent('List every PACKAGE FOLDER under ' + SCOPE + ' that owns
   'the governing docs + .api/. The unit list is scope resolution, an initial pointer: downstream agents full-read every page under each ' +
   'planning tree themselves, so the list never caps what they process. Do not cd; do not edit anything.', { label: 'discover', phase: 'Discover', schema: DISCOVER_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const units = ((inv && inv.units) || []).filter((u) => u && u.folder && u.planning)
-log('Discover under ' + SCOPE + ': ' + units.length + ' planning folders; pooling at CAP=' + CAP)
+const workUnits = splitUnits(units)
+log('Discover under ' + SCOPE + ': ' + units.length + ' planning folders -> ' + workUnits.length + ' work units; agent-level slots at CAP=' + CAP)
 
 // --- [TIDY]
 phase('Tidy')
-const done = (await pool(units, CAP, (u) => processFolder(u))).filter(Boolean)
+const done = (await Promise.all(workUnits.map((u) => processUnit(u)))).filter(Boolean)
 const complete = done.filter((r) => r.ok)
-log('Tidy: ' + complete.length + '/' + units.length + ' folders fully passed (tidy -> critique -> redteam)')
-return { workflow: 'tidy-planning-docs', scope: SCOPE, folders: units.length, complete: complete.length, incomplete: done.filter((r) => !r.ok).length, results: done.map((r) => ({ folder: r.folder, log: (r.logs.redteam || r.logs.crit || r.logs.tidy || null) })) }
+const lastLog = (r) => r.logs.redteam || r.logs.crit || r.logs.tidy || null
+const commentsCut = done.reduce((n, r) => n + STAGES.reduce((m, st) => m + ((r.logs[st.key] && r.logs[st.key].comments_cut) || 0), 0), 0)
+const pcts = done.map(lastLog).filter((l) => l && typeof l.reduction_pct === 'number').map((l) => l.reduction_pct)
+const reduction = pcts.length ? Math.round((pcts.reduce((a, b) => a + b, 0) / pcts.length) * 10) / 10 : 0
+log('Tidy: ' + complete.length + '/' + workUnits.length + ' units fully passed (tidy -> critique -> redteam); comments cut ' + commentsCut + '; mean prose reduction ' + reduction + '%')
+return { workflow: 'tidy-planning-docs', scope: SCOPE, folders: units.length, units: workUnits.length, complete: complete.length, incomplete: done.filter((r) => !r.ok).length, comments_cut: commentsCut, reduction_pct_mean: reduction, results: done.map((r) => ({ folder: r.folder, slice: r.slice, log: lastLog(r) })) }

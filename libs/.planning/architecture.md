@@ -64,7 +64,7 @@ Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes
 - All planning lives under the single `.planning/`: never a `.planning/` inside a real source sub-folder. The package `ARCHITECTURE.md` maps the full folder structure (including planned sub-domains that have no page yet), so the map fuels ideas and tasks without scattering planning across the tree.
 - Mature folders with real code at the bar carry NO `.planning/`, neither at the package root nor inside a sub-folder. Their co-located source architecture note is the only design surface; their open split/cleanup/re-architect work lives as task cards in the branch `TASKLOG.md`.
 - The one exception is a genuinely-new unbuilt sub-domain inside an otherwise-mature package: it keeps its scaffold in that sub-domain folder, because a package-root `.planning/` would wrongly imply the mature siblings are also in planning.
-- `Rasm.Rhino` and `Rasm.Grasshopper` are out of scope: self-contained, durable, host-bound code with no `.planning/`.
+- `Rasm.Rhino` and `Rasm.Grasshopper` are planning folders like every sibling: each carries the four index docs, one package-root `.planning/`, and a folder `.api/` tier over its host assemblies, referencing only the `Rasm` kernel.
 
 ## [06]-[PER_LANGUAGE_ROLES]
 

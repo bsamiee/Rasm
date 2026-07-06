@@ -25,7 +25,7 @@ The boundary readers and the time model. `EPW` is the canonical weather source; 
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]                                                          |
 | :-----: | :---------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `epw.EPW`         | weather file    | full EnergyPlus weather file; 40+ climate fields as `DataCollection`s, design-day extraction, `to_wea`/`to_ddy` |
+|  [01]   | `epw.EPW`         | weather file    | full EnergyPlus weather file; 40+ climate fields as `DataCollection`s, `is_leap_year`/`location` header facts, design-day extraction, `to_wea`/`to_ddy` |
 |  [02]   | `wea.Wea`         | solar radiation | direct/diffuse/global irradiance; 8 factory constructors, analysis-period filtering, `directional_irradiance` |
 |  [03]   | `stat.STAT` / `ddy.DDY` / `designday.DesignDay` | design conditions | `.stat`/`.ddy` design-day and climate-summary readers |
 |  [04]   | `location.Location` | site            | latitude/longitude/elevation/time_zone/meridian; `from_idf`/`to_idf` |

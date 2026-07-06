@@ -112,6 +112,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Kiwi`
 
 [MEDIA]:
+- `FFmpeg.AutoGen`
 - `HanumanInstitute.LibMpv`
 - `HanumanInstitute.LibMpv.Avalonia`
 
@@ -124,6 +125,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 [DRAFTING_EXPORT]:
 - `ACadSharp`
 - `DocumentFormat.OpenXml`
+- `lcmsNET`
 - `PDFsharp`
 - `PDFsharp-MigraDoc`
 
@@ -146,6 +148,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 [COLLABORATION_LOCALE]:
 - `LoroCs`
 - `MessageFormat`
+- `Whisper.net`
 
 [DEV_LOOP]:
 - `ProDiagnostics`
@@ -157,6 +160,9 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 
 > [!NOTE]
 > The `Semi.Avalonia` design-token theme is the active layer over the retained `Avalonia.Themes.Fluent` floor — its base `SemiTheme` plus the `DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit` skins restyle the admitted control roster to one token system the `Wacton.Unicolour` OKLCH pipeline materializes into the `ControlIntent` + `Theme/tokens` vocabulary, never displacing the Fluent-templated `bodong.PropertyGrid`/`DialogHost`. `Irihi.Ursa` adds the extended-control families the curated set lacks — `NavMenu`, `Timeline`, `Toast`/`Notification`, `Loading`/`Skeleton`, `Banner`, `Form`, `Drawer` — themed by `Irihi.Ursa.Themes.Semi` and bridged to the admitted ReactiveUI MVVM rail through `Irihi.Ursa.ReactiveUIExtension`. `NodeEditorAvalonia` owns the node/pin/connector graph-editing canvas inside a `PanAndZoom` `ZoomBorder` for the `Shell/Editing` parametric and dependency-graph surfaces (ReactiveUI view-models over the framework-agnostic `INode`/`IConnector` model). `Mapsui.Avalonia12` is the interactive slippy-map / basemap viewport rendering through the admitted `SkiaSharp` + `Avalonia.Skia` and binding the Bim-owned `NetTopologySuite` so GDAL/OGR features draw as overlays beside the `Wgpu` 3D viewport. `LoroCs` is the Eg-walker/Fugue sequence+map+text+movable-list+tree CRDT engine backing the notebook/annotation/table collaboration op-log and presence (`runtimes/osx-arm64/native/loro.dylib`), retiring the bespoke `NotebookCrdt` LWW algebra; `MessageFormat` is the managed ICU MessageFormat engine (CLDR cardinal+ordinal `plural`/`selectordinal`/`select`) materializing `ResolvedLocale.Plural` over the resx pattern vocabulary. `PDFsharp` + `PDFsharp-MigraDoc` add the structured vector-PDF page model and the auto-paginated flow-report DOM the OOXML/DXF/raster export set lacked.
+
+> [!NOTE]
+> The Media / Drafting Export / Collaboration And Locale families gain three native-backed engine owners, each provisioned at the app-host distribution layer, never bundled. `FFmpeg.AutoGen` (MIT, Ruslan-B) is the in-process video-encode owner — the CppSharp-generated FFmpeg 8.x binding whose `ffmpeg` hub muxes the compositor/path-trace RGBA stream into an MP4/H.264 flythrough (`sws_scale` RGBA→YUV420P, the `avcodec_send_frame`/`avcodec_receive_packet` loop, libavformat write), the encode peer to the `HanumanInstitute.LibMpv` decode/playback owner; ship an LGPL-configured dynamically-linked FFmpeg build pointed at through `ffmpeg.RootPath` (`.api/api-ffmpeg-autogen.md`). `lcmsNET` (MIT) is the ICC / device-CMYK print-fidelity owner — the Little CMS 2 binding whose one polymorphic `Transform.Create` fold and K-preservation `Intent` vocabulary color-manage the export raster to device CMYK beside `PDFsharp`'s vector page, leaving the screen-perceptual `Wacton.Unicolour` OKLCH pipeline as the UI-token authority; the native `lcms2` library binds through P/Invoke (`.api/api-lcmsnet.md`). `Whisper.net` (MIT, sandrohanea) is the offline speech-to-text owner for LiveCaption — the `whisper.cpp` binding whose one `WhisperProcessorBuilder` `With*` fold and streaming `ProcessAsync` emit translated caption segments (built-in translate-to-English, Silero VAD); the native runtime ships as a separate `Whisper.net.Runtime*` package (CoreML on Apple silicon) and the ggml weights download through `WhisperGgmlDownloader` (`.api/api-whisper-net.md`).
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

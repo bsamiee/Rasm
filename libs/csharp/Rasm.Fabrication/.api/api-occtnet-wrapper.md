@@ -14,7 +14,7 @@
 - native asset: `runtimes/{osx-arm64,linux-x64,win-x64}/native/` — a REAL osx-arm64 OCCT 7.9.3 build IS present (`libOcctNetNative.dylib` + 170 `libTK*.dylib` OCCT toolkits, versioned `*.7.9.3.dylib`/`*.7.9.dylib`/`*.dylib`); the RID-native asset resolves on the `osx-arm64` consumer. `OcctRuntime.NativeVersion` P/Invokes `GetVersion()` to confirm the loaded native build
 - ABI boundary: the managed types are `IDisposable` handle owners (`OcctShape`/`OcctPoint3d` hold `OcctShapeHandle`/`OcctPointHandle` SafeHandles over native memory) — every imported/constructed shape MUST be disposed; the `.Native.NativeMethods` P/Invoke layer + `OcctStatus` return codes are internal plumbing, not a consumer surface
 - runtime cost: NOT ALC-safe across an in-Rhino net48 plugin boundary — the native OCCT toolkits are process-global unmanaged libraries; this is a host-neutral net10.0 portable-fabrication owner, loaded once per process, never into a per-plugin AssemblyLoadContext
-- rail: fabrication (`Polygon/import` solid-ingress; the B-rep peer of the 2D `ACadSharp` reader)
+- rail: fabrication (`Ingress/profile` solid-ingress; the B-rep peer of the 2D `ACadSharp` reader)
 
 ## [02]-[PUBLIC_TYPES]
 

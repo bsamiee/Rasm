@@ -10,7 +10,7 @@
 - rail: figure
 - installed: `1.5.0` (wrapper); `__kiwi_version__` `1.4.2` (underlying C++ Kiwi library — distinct from the Python wrapper version, surface the C++ version when a solver-behavior receipt needs the algorithm provenance)
 - license: BSD (Modified/3-Clause, Nucleic Development Team)
-- target: cp315 native abi (`_cext.cpython-315-darwin.so`, `Root-Is-Purelib: false`, `py.typed`); cp315 wheel present on this interpreter — no `python_version` gate. Promoted from a transitive `matplotlib` dependency to a direct admission per the campaign roster.
+- target: cp315 native abi (`_cext.cpython-315-darwin.so`, `Root-Is-Purelib: false`, `py.typed`); the version-specific (NOT abi3) C extension has no published cp315 wheel — the resolved `.so` is a local source build, so the manifest row carries `; python_version<'3.15'` and the marker drops when a stable cp315/abi3 wheel lands. Promoted from a transitive `matplotlib` dependency to a direct admission per the campaign roster.
 - entry points: none (library only)
 - capability: incremental Cassowary linear-constraint solving with amortized-incremental add/remove and edit-variable re-solve; an operator-built `Variable`/`Term`/`Expression` linear-form algebra; `Constraint` construction by relational operator with a four-band priority hierarchy plus symbolic-weight blending; edit variables for interactive suggested-value re-solve (drag/resize); constraint-violation introspection; full solver-internals text dump (`Objective`/`Tableau`/`Variables`/`Edit Variables`/`Constraints`); and a typed exception family naming every solver-state failure with the offending `constraint`/`edit_variable` carried on the exception
 

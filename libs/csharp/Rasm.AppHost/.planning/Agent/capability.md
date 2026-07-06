@@ -165,7 +165,7 @@ public static class ModelProjection {
 ## [03]-[DISCOVERY_FOLD]
 
 - Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `DiscoveryResult` the matched-descriptor projection.
-- Cases: `ById(string Id)`, `BySurface(string Surface)`, `ByEffect(EffectClass Effect)`, `Permitting(DegradationLevel Level)`, `All` — one polymorphic discovery entrypoint discriminates on the query value, never a `GetById`/`GetBySurface`/`List` proliferation.
+- Cases: `ById(string Id)`, `BySurface(string Surface)`, `ByEffect(EffectClass Effect)`, `Permitting(DegradationLevel Level)`, `ByIntent(string Intent)`, `All` — one polymorphic discovery entrypoint discriminates on the query value, never a `GetById`/`GetBySurface`/`List` proliferation; `ByIntent` is the semantic arm — the embedding-rank delegate `Agent/reasoning#SEMANTIC_DISCOVERY` binds at composition ranks descriptors by intent similarity, and an unbound index answers empty rather than faulting.
 - Entry: `Discover(DiscoveryQuery query)` returns `Seq<DiscoveryResult>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup.
 - Auto: the registry freezes the descriptor fan-in into one `FrozenDictionary<string, CapabilityDescriptor>` at composition and a `Lookup<string, CapabilityDescriptor>` index by surface so a surface query reads one bucket; `Permitting` folds the level's retained capability set against each descriptor's `EffectClass` so a degraded host advertises only the ops it can still serve, deleting a parallel per-level command list.
 - Receipt: `DiscoveryResult` — descriptor id, surface, effect key, idempotency key, estimated cost vector for the empty argument shape, permission scope hash.
@@ -181,6 +181,7 @@ public abstract partial record DiscoveryQuery {
     public sealed record BySurface(string Surface) : DiscoveryQuery;
     public sealed record ByEffect(EffectClass Effect) : DiscoveryQuery;
     public sealed record Permitting(DegradationLevel Level) : DiscoveryQuery;
+    public sealed record ByIntent(string Intent) : DiscoveryQuery;
     public sealed record All : DiscoveryQuery;
 }
 
@@ -197,11 +198,16 @@ public sealed class CapabilityRegistry {
     readonly ILookup<string, CapabilityDescriptor> bySurface;
     readonly FrozenDictionary<string, CapabilityDescriptor>.AlternateLookup<ReadOnlySpan<char>> probe;
 
-    public CapabilityRegistry(IEnumerable<CapabilityDescriptor> rows) {
+    // The semantic index is a composition-bound delegate (reasoning's embedding rank over the frozen
+    // catalog): intent text -> ranked descriptor ids. Unbound answers empty — discovery never faults on intent.
+    readonly Option<Func<string, Seq<string>>> byIntent;
+
+    public CapabilityRegistry(IEnumerable<CapabilityDescriptor> rows, Option<Func<string, Seq<string>>> intentRank = default) {
         var rowSet = rows.ToArray();
         byId = rowSet.ToFrozenDictionary(static row => row.Id, StringComparer.Ordinal);
         bySurface = rowSet.ToLookup(static row => row.Surface, StringComparer.Ordinal);
         probe = byId.GetAlternateLookup<ReadOnlySpan<char>>();
+        byIntent = intentRank;
     }
 
     public Option<CapabilityDescriptor> Resolve(string id) =>
@@ -213,6 +219,9 @@ public sealed class CapabilityRegistry {
             bySurface: q => bySurface[q.Surface].ToSeq(),
             byEffect: q => byId.Values.Where(row => row.Effect == q.Effect).ToSeq(),
             permitting: q => byId.Values.Where(row => q.Level.Permits(Gate(row.Effect))).ToSeq(),
+            byIntent: q => byIntent.Match(
+                Some: rank => rank(q.Intent).Map(Resolve).Somes().ToSeq(),
+                None: () => Seq<CapabilityDescriptor>()),
             all: _ => byId.Values.ToSeq()));
 
     static Capability Gate(EffectClass effect) => effect.Switch(
@@ -232,12 +241,12 @@ public sealed class CapabilityRegistry {
 
 ## [04]-[COMMAND_ALGEBRA]
 
-- Owner: `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` fault family in the 4600 band; `CommandReceipt` the per-command evidence record; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker and onto the Compute dispatch rail.
+- Owner: `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` fault family deriving its codes through `FaultBand.Command`; `CommandReceipt` the per-command evidence record; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker and onto the Compute dispatch rail.
 - Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = Text | NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed.
 - Entry: `Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments)` returns `IO<CommandReceipt>` — the algebra resolves the descriptor, brokers the grant, compiles the `ComputeIntent`, admits it through `IntentAdmission.Admit`, dispatches it, and commits or rolls back; `Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands)` runs an all-or-nothing intent group folding each command's compensation in reverse on the first failure.
 - Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it, never a phantom undo; the dispatch lands through the Compute `SubstrateSelection.Dispatch` rail so the command algebra owns the transaction boundary while Compute owns substrate selection and execution, never a second dispatcher; every disposition mints one `CommandReceipt` fanned through `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key.
 - Receipt: `CommandReceipt` — descriptor id, transaction disposition, charged cost vector, `SelectionReceipt` of the dispatched intent, elapsed `Duration`, correlation id, tenant.
-- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox (the Compute `ComputeIntent`/`IntentAdmission`/`SelectionReceipt` rail composes by reference — the declared `[WIRE_VOCABULARY]` ledger row, Compute the owner, this algebra the decoder, never a reversed CLR dependency)
 - Growth: one transaction disposition is one `CommandTxn` case breaking every consumer arm; one fault is one `CommandFault` case; a new compensation strategy is one column on the descriptor runtime, never a second algebra; zero new surface.
 - Boundary: the command algebra is the only commit-or-rollback owner for op invocation — a per-op transaction helper and a hand-rolled saga loop are the deleted forms; the `Batch` group is an intent transaction, not a database transaction — durable atomicity stays the Persistence execution strategy and the algebra composes the Compute intent group, so the two transaction concerns never merge; the grant brokerage at `GRANT_BROKER` runs before compile so a denied command never compiles a `ComputeIntent` and never charges cost; the compensation runs under the same `CancelScope` the forward command derived, so a drain-interrupted rollback escalates through the conductor rather than orphaning; `CommandTxn.Compensated` carries the compensation's own receipt so the evidence stream records the roll-forward, never a silent swallow.
 
@@ -255,12 +264,12 @@ public abstract partial record CommandTxn {
 public abstract partial record CommandFault : Expected, IValidationError<CommandFault> {
     private CommandFault(string detail, int code) : base(detail, code, None) { }
     public static CommandFault Create(string message) => new Text(message);
-    public sealed record Text : CommandFault { public Text(string detail) : base(detail, 4600) { } }
-    public sealed record NotFound : CommandFault { public NotFound(string detail) : base(detail, 4601) { } }
-    public sealed record GrantDenied : CommandFault { public GrantDenied(string detail) : base(detail, 4602) { } }
-    public sealed record CompileRejected : CommandFault { public CompileRejected(string detail) : base(detail, 4603) { } }
-    public sealed record ExecutionFaulted : CommandFault { public ExecutionFaulted(string detail) : base(detail, 4604) { } }
-    public sealed record CompensationFailed : CommandFault { public CompensationFailed(string detail) : base(detail, 4605) { } }
+    public sealed record Text : CommandFault { public Text(string detail) : base(detail, FaultBand.Command.Code(0)) { } }
+    public sealed record NotFound : CommandFault { public NotFound(string detail) : base(detail, FaultBand.Command.Code(1)) { } }
+    public sealed record GrantDenied : CommandFault { public GrantDenied(string detail) : base(detail, FaultBand.Command.Code(2)) { } }
+    public sealed record CompileRejected : CommandFault { public CompileRejected(string detail) : base(detail, FaultBand.Command.Code(3)) { } }
+    public sealed record ExecutionFaulted : CommandFault { public ExecutionFaulted(string detail) : base(detail, FaultBand.Command.Code(4)) { } }
+    public sealed record CompensationFailed : CommandFault { public CompensationFailed(string detail) : base(detail, FaultBand.Command.Code(5)) { } }
 }
 
 public sealed record CommandReceipt(
@@ -365,14 +374,14 @@ flowchart LR
 
 ## [05]-[GRANT_BROKER]
 
-- Owner: `GrantScope` the object-set × op-class × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family in the 4620 band; `GrantBroker` the static admission-and-metering surface.
+- Owner: `GrantScope` the object-set × op-class × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family deriving its codes through `FaultBand.Grant`; `GrantBroker` the static admission-and-metering surface.
 - Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired | Fenced.
-- Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker resolves the holder's `GrantScope`, evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the budget under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation runs the identical decision-and-pricing fold priced against the live budget without charging it.
-- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying both the cost and the scope `Ceiling` under a `FencingToken.Admits`-fenced compare-and-set, so the ceiling check executes INSIDE the one atomic store write — `spent + cost > ceiling` rejects `CeilingExceeded` within the same transaction — and a tenant's cost ceiling is enforced fleet-wide because two nodes presenting fresh tokens cannot both overshoot (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate would open, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
-- Receipt: the broker's charge is the `CommandReceipt.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event in the 1000-1999 band — no parallel grant receipt.
-- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, System.IO.Hashing, BCL inbox
+- Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker resolves the holder's `GrantScope`, evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the budget under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(CapabilityDescriptor descriptor, Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation runs the identical decision-and-pricing fold priced against the live budget without charging it.
+- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying the cost AND the scope `Ceiling` as per-`CostUnit` primitives under the store's VECTOR fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's ceiling check executes INSIDE the one atomic store write and a tenant's cost ceiling is enforced fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate would open, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
+- Receipt: the broker's charge is the `CommandReceipt.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`) — no parallel grant receipt.
+- Packages: Rasm (kernel `ContentHash.Of`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column plus one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already; cross-process metering is the one `DistributedBudget` seam, never a second meter; zero new surface.
-- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam debits through the existing `Runtime/time#FENCING_TOKEN` `FencingToken.Admits` Kleppmann reject-lower so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell plus the fenced debit ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable budget so a multi-node identity plane cannot let a tenant exceed its ceiling N-fold; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
+- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam debits under the STORE-validated fence — the decoded `Runtime/time#FENCING_TOKEN` carrier presents the store-issued generation and the store's row-CAS predicate is the authoritative reject-lower — so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell plus the fenced debit ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable budget so a multi-node identity plane cannot let a tenant exceed its ceiling N-fold; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
 
 ```csharp signature
 public sealed record GrantScope(
@@ -400,27 +409,28 @@ public abstract partial record Consent {
 public abstract partial record GrantFault : Expected, IValidationError<GrantFault> {
     private GrantFault(string detail, int code) : base(detail, code, None) { }
     public static GrantFault Create(string message) => new Text(message);
-    public sealed record Text : GrantFault { public Text(string detail) : base(detail, 4620) { } }
-    public sealed record OutOfScope : GrantFault { public OutOfScope(string detail) : base(detail, 4621) { } }
-    public sealed record CeilingExceeded : GrantFault { public CeilingExceeded(string unit, long over) : base($"{unit}:+{over}", 4622) => Unit = unit; public string Unit { get; } }
-    public sealed record WindowClosed : GrantFault { public WindowClosed(string detail) : base(detail, 4623) { } }
-    public sealed record ConsentRequired : GrantFault { public ConsentRequired(string detail) : base(detail, 4624) { } }
-    public sealed record Fenced : GrantFault { public Fenced(string detail) : base(detail, 4625) { } }
+    public sealed record Text : GrantFault { public Text(string detail) : base(detail, FaultBand.Grant.Code(0)) { } }
+    public sealed record OutOfScope : GrantFault { public OutOfScope(string detail) : base(detail, FaultBand.Grant.Code(1)) { } }
+    public sealed record CeilingExceeded : GrantFault { public CeilingExceeded(string unit, long over) : base($"{unit}:+{over}", FaultBand.Grant.Code(2)) => Unit = unit; public string Unit { get; } }
+    public sealed record WindowClosed : GrantFault { public WindowClosed(string detail) : base(detail, FaultBand.Grant.Code(3)) { } }
+    public sealed record ConsentRequired : GrantFault { public ConsentRequired(string detail) : base(detail, FaultBand.Grant.Code(4)) { } }
+    public sealed record Fenced : GrantFault { public Fenced(string detail) : base(detail, FaultBand.Grant.Code(5)) { } }
 }
 
-// The cross-process quota seam: a durable per-tenant Budget the broker reads and debits under a
-// FencingToken-fenced compare-and-set. Spent reads the durable cell (the dry-run pre-flight price), Debit
-// applies the fenced CAS at Persistence carrying BOTH the cost AND the ceiling so the ceiling is enforced
-// INSIDE the one atomic store write — two nodes presenting fresh tokens cannot both overshoot because the
-// store rejects the second debit when spent + cost exceeds the ceiling within the same transaction, and a
-// stale token fails Fenced — Token mints the holder's monotone fence. The AppHost never gates the ceiling
-// outside the fenced write (that is the multi-node TOCTOU the card forecloses). With no seam bound the
-// broker debits the per-process Cell. The durable Budget cell + fenced debit ledger are the Rasm.Persistence
-// ONE_FENCED_LEASE_STORE ripple under the TenantId RLS predicate — one backing, never a second meter.
+// The decode-only Persistence PORT for the fleet-wide budget (ONE_FENCED_LEASE_STORE, TenantId RLS):
+// the debit crosses DOWN as per-CostUnit PRIMITIVES — unit STRING key -> long amount, the smart-enum
+// mapped at this boundary — riding the store's VECTOR fenced compare-and-decrement
+// (WHERE token >= held AND balance_i >= debit_i FOR EVERY unit i), so every metered unit's ceiling is
+// enforced INSIDE the one atomic store write and two nodes with fresh tokens cannot both overshoot ANY
+// unit. The store-issued token generation flows store->AppHost ONLY (Token reads it, Debit returns the
+// advanced generation); no AppHost type crosses down and the store's rejection decodes at the seam
+// binding as GrantFault.CeilingExceeded (the store's per-unit exhaustion) or GrantFault.Fenced (the
+// store's LeaseFenced). With no seam bound the broker debits the per-process Cell — one backing, never
+// a second meter.
 public sealed record DistributedBudget(
-    Func<TenantId, Fin<CostVector>> Spent,
-    Func<TenantId, FencingToken, CostVector, CostVector, Fin<CostVector>> Debit,
-    Func<TenantId, Fin<FencingToken>> Token);
+    Func<TenantId, Fin<HashMap<string, long>>> Spent,
+    Func<TenantId, ulong, HashMap<string, long>, HashMap<string, long>, Fin<ulong>> Debit,
+    Func<TenantId, Fin<ulong>> Token);
 
 public sealed record GrantBroker(
     Atom<HashMap<TenantId, (GrantScope Scope, CostVector Spent)>> Cell,
@@ -451,25 +461,37 @@ public sealed record GrantBroker(
                 None: () => { if (!dryRun) ignore(Cell.Swap(map => map.AddOrUpdate(tenant, _ => (scope, next), (scope, next)))); return Fin.Succ(cost); })
             : Fin.Fail<CostVector>(new GrantFault.Text(tenant.ToString()));
 
-    // Fleet-wide debit: a dry run prices off the durable spent and gates the ceiling AppHost-side without
-    // touching the store; a live charge delegates the ceiling to the store's atomic fenced CAS — Debit
-    // carries the scope ceiling so spent + cost > ceiling rejects CeilingExceeded INSIDE the one transaction
-    // and a stale token fails Fenced, so two nodes with fresh tokens cannot both overshoot (the AppHost-side
-    // ceiling check is never the live gate, foreclosing the multi-node TOCTOU).
+    // Fleet-wide debit: a dry run prices off the decoded durable spent and gates the ceiling AppHost-side
+    // without touching the store; a live charge delegates the whole per-unit ceiling to the store's atomic
+    // VECTOR fenced compare-and-decrement — the debit and ceiling cross as unit-keyed primitives, the store
+    // rejects the second overshooting node inside the one transaction, and a stale token fails Fenced (the
+    // AppHost-side ceiling check is never the live gate, foreclosing the multi-node TOCTOU).
     Fin<CostVector> FencedCharge(DistributedBudget store, TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
         dryRun
             ? from spent in store.Spent(tenant)
-              from _ceiling in Ceiling(scope, spent.Add(cost)).Match(
+              from _ceiling in CeilingWire(scope, spent, cost).Match(
                   Some: cap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(cap.Unit, cap.Over)),
                   None: () => Fin.Succ(cost))
               select cost
-            : store.Token(tenant).Bind(token => store.Debit(tenant, token, cost, scope.Ceiling)).Map(static _ => cost);
+            : store.Token(tenant)
+                .Bind(held => store.Debit(tenant, held, Wire(cost), Wire(scope.Ceiling)))
+                .Map(_ => cost);
+
+    // The smart-enum maps at the boundary: CostVector -> unit STRING key + long amount primitives.
+    static HashMap<string, long> Wire(CostVector vector) =>
+        vector.Units.AsIterable().Fold(HashMap<string, long>(), static (map, row) => map.Add(row.Key.Key, row.Value));
 
     static Option<(string Unit, long Over)> Ceiling(GrantScope scope, CostVector next) =>
         scope.Ceiling.Units.AsIterable()
             .Filter(cap => next.Of(cap.Key) > cap.Value)
             .HeadOrNone()
             .Map(cap => (cap.Key.Key, next.Of(cap.Key) - cap.Value));
+
+    static Option<(string Unit, long Over)> CeilingWire(GrantScope scope, HashMap<string, long> spent, CostVector cost) =>
+        scope.Ceiling.Units.AsIterable()
+            .Filter(cap => spent.Find(cap.Key.Key).IfNone(0L) + cost.Of(cap.Key) > cap.Value)
+            .HeadOrNone()
+            .Map(cap => (cap.Key.Key, spent.Find(cap.Key.Key).IfNone(0L) + cost.Of(cap.Key) - cap.Value));
 }
 ```
 
@@ -516,7 +538,7 @@ public static class SdkCodegen {
     public static SdkArtifact Emit(CapabilityRegistry registry, SdkTarget target) {
         var rows = registry.Discover(new DiscoveryQuery.All());
         var body = string.Join('\n', rows.Map(target.Render));
-        var digest = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(Encoding.UTF8.GetBytes(body)));
+        var digest = ContentHash.Of(Encoding.UTF8.GetBytes(body)).ToString("x32");
         return new SdkArtifact(target, body, rows.Count, digest);
     }
 }
@@ -561,7 +583,7 @@ interface CapabilityCommandReceiptWire {
 
 ## [08]-[RESEARCH]
 
-- [INTENT_SPEC]: the `ComputeIntent.Spec` field arity (`WorkLane.Interactive`, `AllocationClass.Pooled`, `CachePolicy.None`) the command algebra constructs for a brokered command resolves against the finalized Compute intent-and-selection#INTENT_FAMILY surface; the `SelectionReceipt.None` sentinel for a compensation forward leg confirms against the Compute dispatch-spine receipt shape. Build-order prerequisite: `capability/Registry.cs` cannot compile until the `Rasm.Compute` intent-and-selection contract (`ComputeIntent`/`IntentAdmission`/`SelectionReceipt`/`AdmittedIntent`) and the sibling AppHost settled vocabulary (`ports`/`time`/`hosting`: `CancelScope`/`ClockPolicy`/`ReceiptSinkPort`/`TenantContext`/`DegradationLevel`/`Capability`/`Interval`) land — these are consumed by type on `CommandRuntime`/`CommandReceipt`, so the page is the downstream of that vocabulary, and `Agent/mcp.md` is in turn downstream of this page.
+- [INTENT_SPEC]: the `ComputeIntent.Spec` field arity (`WorkLane.Interactive`, `AllocationClass.Pooled`, `CachePolicy.None`) the command algebra constructs for a brokered command resolves against the finalized `Rasm.Compute/Runtime/admission#INTENT_FAMILY` surface; the `SelectionReceipt.None` sentinel for a compensation forward leg confirms against the Compute dispatch-spine receipt shape. Build-order prerequisite: `capability/Registry.cs` cannot compile until the `Rasm.Compute/Runtime/admission` contract (`ComputeIntent`/`IntentAdmission`/`SelectionReceipt`/`AdmittedIntent`) and the sibling AppHost settled vocabulary (`ports`/`time`/`hosting`: `CancelScope`/`ClockPolicy`/`ReceiptSinkPort`/`TenantContext`/`DegradationLevel`/`Capability`/`Interval`) land — these are consumed by type on `CommandRuntime`/`CommandReceipt`, so the page is the downstream of that vocabulary, and `Agent/mcp.md` is in turn downstream of this page.
 - [SCHEMA_DIGEST]: the `JsonSchemaExporter` schema the SDK codegen reads per descriptor `CommandArguments` derives through `SuiteContracts.Schema`, and the cross-language shape-identity proof — the C#, TS, and Python emitted methods bind one schema — confirms against the live schema export at SDK-bootstrap.
-- [GRANT_ATTESTATION]: the detached-signature primitive (BCL `System.Security.Cryptography`) the broker mints over the canonical `GrantAttestation` bytes, the `XxHash128` digest seed the attestation shares with the determinism kernel, and the `EventLog` chaining seat the attestation rides confirm against Runtime/determinism#EVENT_LOG; the cross-process verify predicate the sidecar write-forward and the plugin host call resolves against the `companion`/`sandbox` consumer shapes at integration.
+- [GRANT_ATTESTATION]: the detached-signature primitive (BCL `System.Security.Cryptography`) the broker mints over the canonical `GrantAttestation` bytes, the kernel `ContentHash.Of` content digest the attestation shares with the determinism chain, and the `EventLog` chaining seat the attestation rides confirm against Runtime/determinism#EVENT_LOG; the cross-process verify predicate the sidecar write-forward and the plugin host call resolves against the `companion`/`sandbox` consumer shapes at integration.
 - [TOKEN_PRICING]: the `ModelProjection.Project` model-draw `CostModel.Variable` members verify against the folder `.api/api-ml-tokenizers.md` (`Microsoft.ML.Tokenizers` 2.0.0, `lib/net8.0` bound) — `TiktokenTokenizer.CreateForModel(string modelName, ...)` and `CreateForEncoding(string encodingName, ...)` are the air-gapped no-stream embedded-vocab factories (entrypoint construction `[01]`/`[02]`), `Tokenizer.CountTokens(string text, bool = true, bool = true)` returns the `int` per-prompt token count (count entry `[01]`), and `GetIndexByTokenCount` is the context-window prefix-trim (count entry `[03]`); the o200k/cl100k vocab ship as the referenced `*.Data.*` assemblies (`api-ml-tokenizers-o200k.md`/`-cl100k.md`) so the dry-run price is offline. The `ModelTokens` pre-price the descriptor charges reconciles against the post-hoc `ChatResponse.Usage` `ModelTokens` charge at `Agent/reasoning#MODEL_GOVERNANCE` — the descriptor grant-prices the draw before spend, the governance middleware charges the realized usage after, both against the one broker `CostUnit.ModelTokens` axis, never a parallel model meter.

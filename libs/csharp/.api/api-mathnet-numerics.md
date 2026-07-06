@@ -177,6 +177,13 @@ Every metric is a static reduce over a vector pair. The core metrics ship three 
 |  [07]   | `Distance.SAD(a, b)` / `MAE(a, b)` / `SSD(a, b)` / `MSE(a, b)` | static `double`/`float` | absolute-sum / mean-absolute / squared-sum / mean-squared deviation; `Vector<T>` + array overloads |
 |  [08]   | `Distance.Pearson(IEnumerable<double> a, IEnumerable<double> b)` | static `double` | correlation distance `1 − r`                              |
 
+[ENTRYPOINT_SCOPE]: least-squares fitting (`Fit` class, root `MathNet.Numerics`)
+- rail: numeric
+
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                  | [CAPABILITY]                                                                    |
+| :-----: | :--------------------------------- | :---------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `Fit.Line(double[] x, double[] y)` | static `(double A, double B)` | least-squares line `y = a + b·x` — intercept `A`, slope `B`; the log-log calibration substrate (Kienzle `kc`, Taylor life, wear-rate trajectories) |
+
 [ENTRYPOINT_SCOPE]: discrete Fourier transform (`Fourier` class, `MathNet.Numerics.IntegralTransforms`)
 - rail: numeric
 
@@ -258,6 +265,6 @@ Every transform is IN-PLACE over the caller's buffer; the scaling convention is 
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (core assembly, non-provider namespaces)
-- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), the `Distance` metric catalog (Euclidean/Manhattan/Chebyshev/Minkowski over `Vector<T>`+arrays; Cosine/Canberra/Hamming/Jaccard array-only; Pearson), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), window tapers (19-factory `Window` catalog)
+- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), least-squares line fit (`Fit.Line`), the `Distance` metric catalog (Euclidean/Manhattan/Chebyshev/Minkowski over `Vector<T>`+arrays; Cosine/Canberra/Hamming/Jaccard array-only; Pearson), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), window tapers (19-factory `Window` catalog)
 - Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form, in-place `Complex[]`/split `double[]` spectral buffers under a `FourierOptions` scaling, `Window` tapers as `double[]`
-- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled pairwise-metric loop beside the `Distance` catalog, a phantom `Distance.Cosine(Vector<T>, Vector<T>)` overload (cosine is array-only), a hand-rolled radix-2/Bluestein FFT, a hand-rolled cosine/rectangular taper, `1/N` bin spacing where `Fourier.FrequencyScale` gives the real axis
+- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled least-squares line beside `Fit.Line`, a hand-rolled pairwise-metric loop beside the `Distance` catalog, a phantom `Distance.Cosine(Vector<T>, Vector<T>)` overload (cosine is array-only), a hand-rolled radix-2/Bluestein FFT, a hand-rolled cosine/rectangular taper, `1/N` bin spacing where `Fourier.FrequencyScale` gives the real axis

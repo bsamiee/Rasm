@@ -14,7 +14,7 @@
       }
     ]
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "claudeMdExcludes": [
     "**/.cache/**/CLAUDE.md",
     "**/node_modules/**/CLAUDE.md",

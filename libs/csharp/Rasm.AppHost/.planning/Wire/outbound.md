@@ -13,12 +13,12 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 
 ## [02]-[HOP_AXIS]
 
-- Owner: `OutboundHop` `[Union]` seven sealed hop cases; `HopPolicy` per-case row record; `HopRows` frozen row set with the total dispatch; `HopIdempotency` keyless vocabulary; `HopTransport` keyless byte-mover vocabulary; `HopRateLimit` keyless admission-shape vocabulary; `HopFault` `[Union]` fault family in the 4500 band; `ReleaseIdentity` vehicle-free update identity.
+- Owner: `OutboundHop` `[Union]` seven sealed hop cases; `HopPolicy` per-case row record; `HopRows` frozen row set with the total dispatch; `HopIdempotency` keyless vocabulary; `HopTransport` keyless byte-mover vocabulary; `HopRateLimit` keyless admission-shape vocabulary; `HopDelivery` keyless delivery-honesty vocabulary — every row STATES its guarantee, never assumes one; `HopFault` `[Union]` fault family deriving its codes through `FaultBand.Hop`; `ReleaseIdentity` vehicle-free update identity.
 - Cases: HttpApi, Grpc, ServerStream, CompanionSpawn, LocalIpc, WebhookPost, UpdateCheck — the stream case is gRPC server-stream; UpdateCheck carries `ReleaseIdentity` and is structurally excluded on plugin rows.
 - Entry: `HopPolicy Policy` — extension property; total state-free `Switch` from case to frozen row.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one case plus one `HopPolicy` row absorbs a new outbound boundary; the update vehicle lands as one `UpdatePort` row on the UpdateCheck case; the admission shape lands as one `HopRateLimit` key plus one `Admission` column value, never a second limiter rail; zero new surface.
-- Boundary: deadline durations are the two hop deadline rows read by projection, never literals here; database retry is excluded from the hop law — the store execution strategy owns it; the `Transport` column names the byte mover on every row — `SocketsHttpHandler`, `GrpcChannel`, or process spawn — and resilience-event enrichment is the pipeline-key tag, never a second enrichment surface; the `Admission` column names the pipeline-head limiter shape on every row — `Concurrency` for the bounded-permit default, `SlidingWindow` for the webhook segment cap, `TokenBucket` for the redial-paced peer hop — read by `KeyedLane.Limiter`, never a second limiter selector; the row's `Needs` capability is the degradation gate and `ExcludedOn` is the modality fence; webhook delivery identity is the case's `DeliveryKey` payload, never a header literal.
+- Boundary: deadline durations are the two hop deadline rows read by projection, never literals here; database retry is excluded from the hop law — the store execution strategy owns it; the `Transport` column names the byte mover on every row — `SocketsHttpHandler`, `GrpcChannel`, or process spawn — and resilience-event enrichment is the pipeline-key tag, never a second enrichment surface; the `Admission` column names the pipeline-head limiter shape on every row — `Concurrency` for the bounded-permit default, `SlidingWindow` for the webhook segment cap, `TokenBucket` for the redial-paced peer hop — read by `KeyedLane.Limiter`, never a second limiter selector; the `Delivery` column is the honesty axis every row STATES — `BestEffort` (local-ipc, spawn, update-check: a lost frame is acceptable evidence loss), `AtLeastOnce` (webhook, http, server-stream: the retry schedule redelivers so consumers dedupe by delivery key), `ExactlyOnceEffective` (the wire-native gRPC hop the outbox drain rides: at-least-once transport + consumer dedupe by `id`=`ContentKey` per the Persistence CloudEvents law, the Persistence egress pump composing this exact column) — a hop whose guarantee is unstated and a claim stronger than the transport provides are both deleted forms; the row's `Needs` capability is the degradation gate and `ExcludedOn` is the modality fence; webhook delivery identity is the case's `DeliveryKey` payload, never a header literal.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -40,13 +40,13 @@ public abstract partial record HopFault : Expected, IValidationError<HopFault> {
 
     public static HopFault Create(string message) => new Text(message);
 
-    public sealed record Text : HopFault { public Text(string detail) : base(detail, 4500) { } }
-    public sealed record Excluded : HopFault { public Excluded(string detail) : base(detail, 4501) { } }
-    public sealed record Fenced : HopFault { public Fenced(string detail) : base(detail, 4502) { } }
-    public sealed record OwnerConflict : HopFault { public OwnerConflict(string detail) : base(detail, 4503) { } }
-    public sealed record StaleManifest : HopFault { public StaleManifest(string detail) : base(detail, 4504) { } }
-    public sealed record ChecksumBreaking : HopFault { public ChecksumBreaking(string detail) : base(detail, 4505) { } }
-    public sealed record SpawnRejected : HopFault { public SpawnRejected(string detail) : base(detail, 4506) { } }
+    public sealed record Text : HopFault { public Text(string detail) : base(detail, FaultBand.Hop.Code(0)) { } }
+    public sealed record Excluded : HopFault { public Excluded(string detail) : base(detail, FaultBand.Hop.Code(1)) { } }
+    public sealed record Fenced : HopFault { public Fenced(string detail) : base(detail, FaultBand.Hop.Code(2)) { } }
+    public sealed record OwnerConflict : HopFault { public OwnerConflict(string detail) : base(detail, FaultBand.Hop.Code(3)) { } }
+    public sealed record StaleManifest : HopFault { public StaleManifest(string detail) : base(detail, FaultBand.Hop.Code(4)) { } }
+    public sealed record ChecksumBreaking : HopFault { public ChecksumBreaking(string detail) : base(detail, FaultBand.Hop.Code(5)) { } }
+    public sealed record SpawnRejected : HopFault { public SpawnRejected(string detail) : base(detail, FaultBand.Hop.Code(6)) { } }
 }
 
 [SmartEnum]
@@ -71,6 +71,15 @@ public sealed partial class HopRateLimit {
     public static readonly HopRateLimit TokenBucket = new();
 }
 
+// The delivery-honesty axis: policy DATA over the existing rows, zero new resilience surface.
+// ExactlyOnceEffective = at-least-once transport + consumer dedupe by id=ContentKey (never magic).
+[SmartEnum]
+public sealed partial class HopDelivery {
+    public static readonly HopDelivery BestEffort = new();
+    public static readonly HopDelivery AtLeastOnce = new();
+    public static readonly HopDelivery ExactlyOnceEffective = new();
+}
+
 public sealed record ReleaseIdentity(string Product, string Channel, string Installed, Uri Feed);
 
 public sealed record HopPolicy(
@@ -81,19 +90,20 @@ public sealed record HopPolicy(
     Capability Needs,
     HopIdempotency Idempotency,
     HopRateLimit Admission,
+    HopDelivery Delivery,
     Func<HostProfile, bool> ExcludedOn);
 
 public static class HopRows {
     static readonly Func<HostProfile, bool> Never = static _ => false;
     static readonly Func<HostProfile, bool> PluginRows = static profile => profile == HostProfile.RhinoPlugin || profile == HostProfile.Gh2Plugin;
 
-    public static readonly HopPolicy HttpApi = new(nameof(OutboundHop.HttpApi), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.MethodDerived, HopRateLimit.Concurrency, Never);
-    public static readonly HopPolicy Grpc = new(nameof(OutboundHop.Grpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, HopRateLimit.Concurrency, Never);
-    public static readonly HopPolicy ServerStream = new(nameof(OutboundHop.ServerStream), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, HopRateLimit.Concurrency, Never);
-    public static readonly HopPolicy CompanionSpawn = new(nameof(OutboundHop.CompanionSpawn), HopTransport.ProcessSpawn, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.SingleShot, HopRateLimit.Concurrency, Never);
-    public static readonly HopPolicy LocalIpc = new(nameof(OutboundHop.LocalIpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.Keyed, HopRateLimit.TokenBucket, Never);
-    public static readonly HopPolicy WebhookPost = new(nameof(OutboundHop.WebhookPost), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, HopRateLimit.SlidingWindow, Never);
-    public static readonly HopPolicy UpdateCheck = new(nameof(OutboundHop.UpdateCheck), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, HopRateLimit.Concurrency, PluginRows);
+    public static readonly HopPolicy HttpApi = new(nameof(OutboundHop.HttpApi), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.MethodDerived, HopRateLimit.Concurrency, HopDelivery.AtLeastOnce, Never);
+    public static readonly HopPolicy Grpc = new(nameof(OutboundHop.Grpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, HopRateLimit.Concurrency, HopDelivery.ExactlyOnceEffective, Never);
+    public static readonly HopPolicy ServerStream = new(nameof(OutboundHop.ServerStream), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, HopRateLimit.Concurrency, HopDelivery.AtLeastOnce, Never);
+    public static readonly HopPolicy CompanionSpawn = new(nameof(OutboundHop.CompanionSpawn), HopTransport.ProcessSpawn, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.SingleShot, HopRateLimit.Concurrency, HopDelivery.BestEffort, Never);
+    public static readonly HopPolicy LocalIpc = new(nameof(OutboundHop.LocalIpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.Keyed, HopRateLimit.TokenBucket, HopDelivery.BestEffort, Never);
+    public static readonly HopPolicy WebhookPost = new(nameof(OutboundHop.WebhookPost), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, HopRateLimit.SlidingWindow, HopDelivery.AtLeastOnce, Never);
+    public static readonly HopPolicy UpdateCheck = new(nameof(OutboundHop.UpdateCheck), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, HopRateLimit.Concurrency, HopDelivery.BestEffort, PluginRows);
 
     extension(OutboundHop hop) {
         public HopPolicy Policy => hop.Switch(
@@ -455,8 +465,8 @@ public static class Discovery {
 - Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; `DeliveryReceipt` the per-channel delivery evidence; `DeliveryFanout` the static multi-channel fan surface with the dedupe cell.
 - Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer; delivery dispositions ride `HopOutcome`.
 - Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<DeliveryReceipt>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` so one notification reaches every configured channel under one dedupe guard.
-- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe decision reads the idempotency-key cell BEFORE the fan stamps it — the window-pruned map's `ContainsKey` on the message key is the dedupe verdict (first sight within the window is absent so the fan delivers, a re-fanned identical message within the window is present so every channel folds to a `DeliveryReceipt` carrying the deduped flag rather than re-delivering), then the cell records `now` so the window slides on the latest sight, never deciding on the post-swap value; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan runs the channels concurrently under one `CancelScope` so a slow channel does not block the others.
-- Receipt: `DeliveryReceipt` — channel key, idempotency key, `HopOutcome`, deduped flag, attempt count, elapsed `Duration`, correlation id.
+- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe fold is read-modify-write INSIDE `Swap(current => ...)` — the prune and the add fold over the LIVE cell value and the verdict derives from the swap itself (first sight within the window delivers, a re-fanned identical message folds every channel to a `DeliveryReceipt` carrying the deduped flag), so concurrent fans never lose each other's records — a stale-read `.Value` snapshot beside the swap is the deleted form; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan runs the channels concurrently under one `CancelScope` so a slow channel does not block the others.
+- Receipt: `DeliveryReceipt` — channel key, idempotency key, `HopOutcome`, deduped flag, attempt count, elapsed `Duration`, the advanced watermark (`Some` only on a fenced outbox-relay advance — the fan-out legs answer `None`), correlation id.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; a new delivery disposition rides the existing `HopOutcome`; zero new surface.
 - Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded — the idempotency-key cell evicts past its window so a long-lived process does not accumulate unbounded dedup state, mirroring the cache tag-cut bound; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row plus one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport — the `Hop(DeliveryTarget)` switch is total and a target/channel shape mismatch is a typed `HopFault.Excluded`, never an unsound construction.
@@ -503,6 +513,7 @@ public readonly record struct DeliveryReceipt(
     bool Deduped,
     int Attempts,
     Duration Elapsed,
+    Option<ulong> Watermark,
     CorrelationId Correlation);
 
 public sealed record DeliveryRuntime(
@@ -518,12 +529,18 @@ public static class DeliveryFanout {
     public static IO<Seq<DeliveryReceipt>> Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels) =>
         IO.lift(() => runtime.Clocks.Now).Bind(now => {
             var correlation = Correlation.Mint();
-            var pruned = runtime.Dedupe.Value.Filter(stamp => now - stamp < runtime.DedupeWindow);
-            var deduped = pruned.ContainsKey(message.IdempotencyKey);
-            runtime.Dedupe.Swap(_ => pruned.AddOrUpdate(message.IdempotencyKey, now, now));
+            // Read-modify-write INSIDE the swap: prune and add fold over the LIVE cell value and the
+            // dedupe verdict derives from the swap result — a Swap closing over a stale .Value read
+            // loses concurrent fans' records and is the deleted form.
+            var deduped = false;
+            ignore(runtime.Dedupe.Swap(current => {
+                var pruned = current.Filter(stamp => now - stamp < runtime.DedupeWindow);
+                deduped = pruned.ContainsKey(message.IdempotencyKey);
+                return pruned.AddOrUpdate(message.IdempotencyKey, now, now);
+            }));
             return channels.ToArray().ToSeq()
                 .TraverseM(channel => deduped
-                    ? IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Delivered(), Deduped: true, 0, Duration.Zero, correlation))
+                    ? IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Delivered(), Deduped: true, 0, Duration.Zero, None, correlation))
                     : Deliver(runtime, channel, message, correlation))
                 .As();
         });
@@ -533,8 +550,8 @@ public static class DeliveryFanout {
          from hop in channel.Hop(target)
          select (Target: target, Hop: hop)).Match(
             Succ: bound => OutboundSurface.Run(runtime.Outbound, bound.Hop, runtime.Send(bound.Hop, message))
-                .Map(receipt => new DeliveryReceipt(channel.Key, message.IdempotencyKey, receipt.Outcome, Deduped: false, receipt.Attempts, receipt.Elapsed, correlation)),
-            Fail: error => IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Refused(error), Deduped: false, 0, Duration.Zero, correlation)));
+                .Map(receipt => new DeliveryReceipt(channel.Key, message.IdempotencyKey, receipt.Outcome, Deduped: false, receipt.Attempts, receipt.Elapsed, None, correlation)),
+            Fail: error => IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Refused(error), Deduped: false, 0, Duration.Zero, None, correlation)));
 }
 ```
 

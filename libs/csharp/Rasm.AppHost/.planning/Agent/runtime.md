@@ -12,10 +12,10 @@ The named command-dispatch owner the runtime spine referenced but nowhere declar
 
 - Owner: `CommandIntent` the front-door request carrier (descriptor id, arguments, caller modality); `CommandDispatch` the static command-dispatch front-door surface over the one `CommandAlgebra.Run` transaction; `DispatchRuntime` the dependency record threading the `CommandRuntime`, the `EventLog` chain cell, and the determinism context.
 - Cases: three front doors map to one transaction — `CallerModality.Agent` for the MCP tool call and the in-process reasoning loop, `CallerModality.Operator` for the interactive host command, `CallerModality.Plugin` for the sandboxed-plugin `GrantHandle` route; one orchestration consumer — the durable workflow step and the event-bus subscription both invoke the same `Run`.
-- Entry: `Run(DispatchRuntime runtime, CommandIntent intent)` returns `IO<CommandReceipt>` — the one front-door entry routes the command through `CommandAlgebra.Run`, chains the resulting `CommandReceipt` into the `EventLog`, and returns the receipt; `Project(CommandReceipt receipt)` returns `ToolResult` — the structured projection the MCP and plugin callers read, identical to the `Agent/mcp#TOOL_DISPATCH` `McpDispatch.Project`.
+- Entry: `Run(DispatchRuntime runtime, CommandIntent intent)` returns `IO<CommandReceipt>` — the one front-door entry routes the command through `CommandAlgebra.Run`, chains the resulting `CommandReceipt` into the `EventLog`, and returns the receipt; `Project(CommandReceipt receipt, Option<string> tool = default)` returns `ToolResult` — THE one structured projection every front door reads; it delegates to the upstream `Agent/mcp#TOOL_DISPATCH` `McpDispatch.Project` fold with the descriptor as the tool key, so exactly one physical fold exists.
 - Auto: `Run` resolves the descriptor through `CapabilityRegistry.Resolve` and dispatches through `CommandAlgebra.Run` so the transaction, grant brokerage, cost metering, and Compute dispatch are the command algebra's exactly as a direct `CommandAlgebra.Run` call — this surface adds no second transaction, it names the front door the orchestration and bus drive through; every committed dispatch chains its `CommandReceipt` into the `EventLog` through `EventLog.Append` under the determinism context so a dispatched command is on the same hash-chained content-addressed log a reasoning transcript chains into, advancing the one chain cell; the caller modality rides the `CommandIntent` so an operator, agent, and plugin call land one transaction discriminated only by the `BrokeredCall` modality the `Sandbox/isolation#GRANT_HANDLE` mediation records, never a parallel dispatcher per caller; the orchestration step and the bus subscription pass a `CommandIntent` carrying the step's descriptor and the resume-cursor arguments so a durable step's execution is one `Run` call the workflow chains.
 - Receipt: each dispatch mints one `CommandReceipt` (the command algebra's own receipt) and one `EventLog.LogEntry` (the chain advance), fanned through the command algebra's `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key — no parallel dispatch receipt.
-- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, System.IO.Hashing, BCL inbox
+- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new front door is the SAME `Run` entry a new caller invokes carrying its `CallerModality`, never a new dispatcher; a new orchestration consumer drives the same `Run`; zero new surface.
 - Boundary: the dispatch front door is the one named command-execution owner the orchestration steps invoke and the event-bus subscriptions trigger — it consolidates the references the spine scattered across `Agent/capability.md`/`Agent/mcp.md`/`Agent/reasoning.md` into one declared owner page, and forks no second dispatcher: `CommandAlgebra` stays the one commit-or-rollback transaction at `Agent/capability#COMMAND_ALGEBRA`, this surface is the front door over it; `EventLog` stays the one hash-chained content-addressed command log on the durable `OpLog` changefeed (`Runtime/determinism#EVENT_LOG`) and `Run` chains into it, never a second event store; the `Run` entry is the only command transaction the durable workflow steps call (`Runtime/orchestration#STEP_EXECUTOR`) and the event-bus subscriptions invoke (`Wire/topics#SUBSCRIPTION_FABRIC`), so the spine's dangling dispatch reference resolves to this concrete owner; a command that bypasses this front door to dispatch a `ComputeIntent` directly without chaining its receipt is the deleted form, because the front door is the one seam where a dispatched command becomes a chained `EventLog` entry.
 
@@ -56,16 +56,11 @@ public static class CommandDispatch {
                 EventLog.Append(chain, receipt, runtime.Context, runtime.Clocks.Now, (ulong)chain.Sequence).Chain)).Map(static _ => unit)
             : IO.pure(unit);
 
-    // The structured projection the MCP and plugin callers read — identical to McpDispatch.Project, the
-    // one CommandReceipt-to-ToolResult fold the front doors share rather than re-deriving per caller.
-    public static ToolResult Project(CommandReceipt receipt) =>
-        receipt.Txn switch {
-            CommandTxn.Committed => new ToolResult(receipt.Descriptor, [JsonSerializer.SerializeToNode(receipt.Dispatch)!], IsError: false, receipt.Correlation),
-            CommandTxn.Compensated c => new ToolResult(receipt.Descriptor, [JsonValue.Create($"compensated:{c.Compensation}")!], IsError: true, receipt.Correlation),
-            CommandTxn.RolledBack r => new ToolResult(receipt.Descriptor, [JsonValue.Create(r.Reason)!], IsError: true, receipt.Correlation),
-            CommandTxn.Refused f => new ToolResult(receipt.Descriptor, [JsonValue.Create(f.Fault.Message)!], IsError: true, receipt.Correlation),
-            _ => new ToolResult(receipt.Descriptor, [], IsError: true, receipt.Correlation),
-        };
+    // ONE physical fold: the receipt-to-result switch lives on Agent/mcp#TOOL_DISPATCH
+    // McpDispatch.Project (upstream in the page DAG); this entry supplies the descriptor as the
+    // tool key or forwards a caller-supplied key — never a switch copy.
+    public static ToolResult Project(CommandReceipt receipt, Option<string> tool = default) =>
+        McpDispatch.Project(tool.IfNone(receipt.Descriptor), receipt);
 }
 ```
 

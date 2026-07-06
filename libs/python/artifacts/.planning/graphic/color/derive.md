@@ -1,38 +1,38 @@
 # [PY_ARTIFACTS_GRAPHIC_COLOR_DERIVE]
 
-The upstream color-derivation owner feeding consistent, perceptually-correct color into every visual sub-domain. `Colorimetry` is ONE owner over a two-engine dispatch on the runtime. colour-science (NumFOCUS-affiliated, BSD-3, NumPy-backed, pure-Python, host-free) carries the colorimetric truth — the universal `colour.convert` model-pair gateway over 30+ spaces, the CIECAM02 / CAM16 appearance models, `colour.wavelength_to_XYZ` spectral-locus intake, the `colour.delta_E` CIE/CMC/DIN99 difference family, the `colour.chromatic_adaptation` cross-illuminant white-point transform over an `Observer`-keyed `colour.CCS_ILLUMINANTS` whitepoint table, the `colour.msds_to_XYZ` multi-spectral batch intake, the bidirectional correlated-color-temperature axis, the `whiteness`/`yellowness`/`colour_rendering_index`/`colour_fidelity_index`/`dominant_wavelength`/`complementary_wavelength` colorimetric-index family, and the `colour_correction` measured-vs-reference CCM. ColorAide (pure-Python, zero-native, the `everything.ColorAll` all-plugins engine) carries the per-color presentation legs colour-science lacks — `Color.fit(method=...)` perceptual gamut mapping with the `in_gamut` predicate, the full `Color.filter(name=...)` CVD-plus-W3C effect surface scored by `delta_e`, the `Color.steps`/`Color.discrete`/`Color.interpolate` `method`/`hue`-keyed smooth-or-categorical palette over the `Color.harmony` wheel and `Color.average` seed-blend, the `Color.layer` blend-mode/Porter-Duff compositing with `Color.weighted_mix`, the `Color.blackbody` Planckian swatch, the OKLab-perceptual `Color.delta_e(method=...)` `ok`/`jz`/`hyab`/`itp`/`99o`/`cam02`/`cam16`/`hct` difference family colour-science has no Lab-array form for, the WCAG21 `Color.contrast`/`Color.luminance`/`Color.distance`/`Color.cct` safety measures, and the `Color.to_string` CSS-notation egress. colour-cxf (BSD, `xsdata`-bound CxF3) is the inbound spot-library exchange skin the `Spot` arm owns: `read_cxf` decodes a print partner's `.cxf` into the typed `cxf3` graph whose measured `ReflectanceSpectrum`/`ColorCielab`/`ColorCiexyz` per `Object`, resolved through the `ColorSpecification` IDREF (illuminant/observer/wavelength grid) into `colour.sd_to_XYZ` under the CxF measurement context, seeds the palette from an exchanged measured spot set — the one CxF colour-half intake derive owns, the device-half `ColorCmykplusN` separations remaining `graphic/color/managed#MANAGED`'s. `ColorOp` is ONE closed `@tagged_union` family carrying each operation's typed payload, never an erased `params` bag, dispatched by one total `match` returning `RuntimeRail[ColorReceipt]` — the one frozen-dataclass receipt every arm folds into, its `measures` an immutable `frozendict[Metric, float]` evidence map, its `notation` the `Color.to_string` CSS form of each output color, and its `wired()` `ColorReceiptWire` `msgspec.Struct` projection sinking ravelled `coords`+`shape` outward, never an overloaded `scalar` field, an un-encodable `NDArray`-on-the-wire owner, or an erased `object`. Each `Metric` row in the `_METRIC` `frozendict[Metric, MetricSpec]` binds the measure to the input `ColorModel` its engine demands, and `Measure` resolves every sample into that space through the one `_resolve` kernel `Convert` shares, so a difference, a whiteness, a wavelength, and a chromaticity each read their correct space rather than a uniform-signature table mis-feeding the wrong one. Scalar-bounded payloads admit through a refined `Annotated`+`beartype.vale.Is` contract at the `@beartype`-guarded factory so an out-of-range amount, count, spacing, kelvin, or wavelength is refused at construction, and every residual provider raise crosses the `async_boundary` seam. It hands palettes, conversions, adaptations, and measures to `visualization/chart#CHART`, `scene#SCENE`, `visualization/table#TABLE`, `graphic/marks/encode#MARK`, and the document output, so every visual artifact draws color from one owner through its `notation` CSS strings and `coords` arrays; the `ColorReceipt.wired()` `ColorReceiptWire` projection is the wire-ready lowering (a columnar consumer binds it when a data-side palette arm exists; no seam row stands today), and the color-space and `describe_conversion_path` provenance on `path` feeds the `graphic/color/managed#MANAGED` ICC/LUT raster-egress leg. This page carries no raster egress — every arm resolves inside a serialized `to_thread` offload (off the event loop, one `CapacityLimiter(1)` slot because colour-science's `domain_range_scale` mutates a process-global rather than a thread-local) and folds into `ColorReceipt`. It closes the `COLOR_MANAGED_VISUAL_PIPELINE` and `COLORBLIND_SAFE_PALETTE` ideas on the derivation side.
+The upstream color-derivation SUBSTRATE feeding consistent, perceptually-correct color into every visual sub-domain — derive returns color VALUES, never a receipt. `Colorimetry` is ONE owner over a two-engine dispatch. colour-science (NumFOCUS-affiliated, BSD-3, NumPy-backed, pure-Python, host-free) carries the colorimetric truth — the universal `colour.convert` model-pair gateway over 30+ spaces, the CIECAM02 / CAM16 appearance models, `colour.wavelength_to_XYZ` spectral-locus intake, the `colour.delta_E` CIE/CMC/DIN99 difference family, the `colour.chromatic_adaptation` cross-illuminant white-point transform over an `Observer`-keyed `colour.CCS_ILLUMINANTS` whitepoint table, the `colour.msds_to_XYZ` multi-spectral batch intake, the measurement-side spectral RESAMPLE (`SpectralDistribution.align` onto the one working `SpectralShape`), the bidirectional correlated-color-temperature axis, the `whiteness`/`yellowness`/`colour_rendering_index`/`colour_fidelity_index`/`dominant_wavelength`/`complementary_wavelength` colorimetric-index family, and the `colour_correction` measured-vs-reference CCM. ColorAide (pure-Python, zero-native, the `everything.ColorAll` all-plugins engine) carries the per-color presentation legs colour-science lacks — `Color.fit(method=...)` perceptual gamut mapping with the `in_gamut` predicate, the full `Color.filter(name=...)` CVD-plus-W3C effect surface scored by `delta_e`, the `Color.steps`/`Color.discrete`/`Color.interpolate` `method`/`hue`-keyed smooth-or-categorical palette over the `Color.harmony` wheel and `Color.average` seed-blend, the `Color.layer` blend-mode/Porter-Duff compositing with `Color.mask` channel prep and `Color.weighted_mix` (the two-color `mix` is its N=2 weighted arm), the `Color.blackbody` Planckian swatch, the OKLab-perceptual `Color.delta_e(method=...)` `ok`/`jz`/`hyab`/`itp`/`99o`/`cam02`/`cam16`/`hct` difference family colour-science has no Lab-array form for, the WCAG21 `Color.contrast`/`Color.luminance`/`Color.distance`/`Color.cct` safety measures, and the `Color.to_string` CSS-notation egress. colour-cxf (BSD, `xsdata`-bound CxF3) is the inbound spot-library exchange skin the `Spot` arm owns: `read_cxf` decodes a print partner's `.cxf` into the typed `cxf3` graph whose measured `ReflectanceSpectrum`/`ColorCielab`/`ColorCiexyz` per `Object`, resolved through the `ColorSpecification` IDREF (illuminant/observer/wavelength grid) into `colour.sd_to_XYZ` under the CxF measurement context, seeds the palette from an exchanged measured spot set — the one CxF colour-half intake derive owns, the device-half `ColorCmykplusN` separations remaining `graphic/color/managed#MANAGED`'s. `ColorOp` is ONE closed `@tagged_union` family carrying each operation's typed payload, never an erased `params` bag, dispatched by one total `match` returning the frozen `Derivation` value-bundle every arm folds into — `coords` arrays, the `Color.to_string` CSS `notation`, the resolved model-graph `path`, an immutable `frozendict[Metric, float]` `measures` evidence map, and the space/pointer gamut predicates. The color arity is RULED at two pages: measurement (the 28-member `Metric` family, the spectral resample) is a derive owner block, while CxF device-half intake, plate authoring, the TAC gate, LUT authoring, and every raster egress consolidate in `graphic/color/managed#MANAGED` — 3/4-page splits are thin single-consumer shells. This page OWNS `AdaptMethod` (managed composes it downward), the re-homed `Palette` carrier and `hex_ramp` CSS-hex projection every visual band shares, and NO receipt: the deleted `ColorReceipt`/`ColorReceiptWire` parallel rail is the anti-pattern — the LUT/plate/swatch terminals mint `ArtifactReceipt.Color` on managed, and derive's consumers compose values. Each `Metric` row in the `_METRIC` `Map[Metric, MetricSpec]` table binds the measure to the input `ColorModel` its engine demands, and `Measure` resolves every sample into that space through the one `_resolve` kernel `Convert` shares. Scalar-bounded payloads admit through refined `Annotated`+`beartype.vale.Is` contracts at the `@beartype`-guarded factories, so an out-of-range amount, count, spacing, kelvin, or wavelength is refused at construction. Every arm resolves through the runtime `LanePolicy.offload` under `Modality.INTERPRETER` — interpreter-local `colour` module state makes the non-thread-local `domain_range_scale` global race-free without any folder-minted limiter — and hands palettes, conversions, adaptations, and measures to `visualization/chart#CHART`, `scene#SCENE`, `visualization/table#TABLE`, `graphic/marks/encode#MARK`, the drawing plane, and the document output, so every visual artifact draws color from one owner; the color-space and `describe_conversion_path` provenance on `path` feeds the `graphic/color/managed#MANAGED` ICC/LUT raster-egress leg.
 
 ## [01]-[INDEX]
 
-- [01]-[DERIVE]: the two-engine `Colorimetry` owner over the closed-payload `ColorOp` family — `convert`/`adapt`/`gamut`/`filter`/`palette`/`compose`/`temperature`/`measure`/`correct`/`spot` folding into one typed `ColorReceipt` whose `tag` carries the same closed `ColorOpTag` literal and whose `measures` is a `Metric`-keyed scalar-evidence map, never a bare `str` tag or an overloaded `scalar` field; `colour.convert` is the universal colour-science gateway (with `colour.wavelength_to_XYZ` admitting a spectral-locus `Wavelength` source) and `describe_conversion_path(mode="Long")` recovers the resolved model-graph onto the receipt `path`; `colour.chromatic_adaptation` is the standalone cross-illuminant XYZ adaptation between `Illuminant` white points read from the `Observer`-keyed `_WHITEPOINT` `frozendict[Observer, frozendict[Illuminant, Tristimulus]]` nested table derived once from `colour.CCS_ILLUMINANTS[observer]`, keyed by the `CamMethod` `CHROMATIC_ADAPTATION_METHODS` registry (`Von Kries`/`CMCCAT2000`/`Zhai 2018`/`Li 2025`), distinct from the in-conversion `AdaptMethod` transforms `convert` resolves; ColorAide `everything.ColorAll` owns the disjoint gamut/filter/compose/palette/contrast legs; `ColorModel` is the dual-name `ModelNames(science, aide, spectral)` vocabulary collapsing the two engine spellings into one row whose `science` column keys colour-science and whose `aide` column keys ColorAide (either column `None` where one engine lacks the space) so one model value serves both engines — never two parallel model enums; `ColorFilter` keys the full `Color.filter` CVD-plus-W3C plugin map, `Ramp` is the closed palette-modality `@tagged_union` (`smooth` `Color.steps`, `discrete` `Color.discrete`, `harmony` `Color.harmony`) carrying its own `Interp`/`HueArc`/`Easing`/`Harmony` payload so a perceptually-even ramp, a categorical scale, and a named wheel are three cases of one axis — never a `harmony is None` discriminant beside parallel curve fields; `BlendMode`/`PorterDuff` key the `Color.layer` compositing axes, `FitMethod`/`Harmony` the ColorAide fit/harmony maps, `AdaptMethod` the `convert` `chromatic_adaptation_transform` registry, `CctMethod` the four `colour.temperature` illuminant methods and `Blackbody` the ColorAide Planckian methods, `CorrectMethod` the `colour_correction` CCM solvers, all carried as case payload; `Metric` is the one scalar-evidence vocabulary whose `_METRIC` `frozendict[Metric, MetricSpec]` binds each row to the input `ColorModel` its engine demands — colour-science CIE/CMC/DIN99 `delta_E` over `LAB`, `whiteness`/`yellowness` over `XYZ`, `dominant`/`complementary` wavelength over `XYY`, `cri`/`cfi` over `SPECTRAL`, the ColorAide OKLab-perceptual `ok`/`jz`/`hyab`/`itp`/`99o`/`cam02`/`cam16`/`hct` `delta_e` plus `distance`/`contrast`/`luminance`/`cct`/`duv`/`severity` over `SRGB`, and the `chromaticity-x`/`chromaticity-y` `XYY` reads — so `Measure` resolves each sample into the row's space through the shared `_resolve` kernel under its payload `Observer` before applying, never a uniform-signature table silently mis-feeding the wrong space; `ColorSource = SpectralDistribution | MultiSpectralDistributions | Tristimulus | Wavelength` is the convert/measure input union whose `MultiSpectralDistributions` member folds the batch `colour.msds_to_XYZ` modality, and `CctSource = Kelvin | Chromaticity` the bidirectional `Temperature` payload discriminating by input shape; scalar-bounded payloads (`Amount`/`PaletteCount`/`Spacing`/`Kelvin`/`Wavelength`) are refined `Annotated`+`Is` aliases admitted through the `@beartype`-guarded factory.
+- [01]-[DERIVE]: the two-engine `Colorimetry` owner over the closed-payload `ColorOp` family — `convert`/`adapt`/`gamut`/`filter`/`palette`/`compose`/`temperature`/`measure`/`correct`/`spot` folding into one frozen `Derivation` value whose `tag` carries the same closed `ColorOpTag` literal and whose `measures` is a `Metric`-keyed scalar-evidence map, never a bare `str` tag, an overloaded `scalar` field, or a receipt; `colour.convert` is the universal colour-science gateway (with `colour.wavelength_to_XYZ` admitting a spectral-locus `Wavelength` source) and `describe_conversion_path(mode="Long")` recovers the resolved model-graph onto `path`; `colour.chromatic_adaptation` is the standalone cross-illuminant XYZ adaptation between `Illuminant` white points read from the `Observer`-keyed `_WHITEPOINT` `Map[Observer, Map[Illuminant, Tristimulus]]` nested table derived once from `colour.CCS_ILLUMINANTS[observer]`, keyed by the `CamMethod` `CHROMATIC_ADAPTATION_METHODS` registry (`Von Kries`/`CMCCAT2000`/`Zhai 2018`/`Li 2025`), distinct from the in-conversion `AdaptMethod` transforms `convert` resolves — `AdaptMethod` is declared HERE and `graphic/color/managed#MANAGED` composes it; ColorAide `everything.ColorAll` owns the disjoint gamut/filter/compose/palette/contrast legs; `ColorModel` is the dual-name `ModelNames(science, aide, spectral)` vocabulary collapsing the two engine spellings into one row (either column `None` where one engine lacks the space) so one model value serves both engines — never two parallel model enums; `ColorFilter` keys the full `Color.filter` CVD-plus-W3C plugin map, `Ramp` is the closed palette-modality `@tagged_union` (`smooth` `Color.steps`, `discrete` `Color.discrete`, `harmony` `Color.harmony`) carrying its own `Interp`/`HueArc`/`Easing`/`Harmony` payload so a perceptually-even ramp, a categorical scale, and a named wheel are three cases of one axis; `BlendMode`/`PorterDuff` key the full 16-blend/15-operator `Color.layer` compositing axes with the `mask` channel tuple riding the same `Compose` payload, `FitMethod`/`Harmony` the ColorAide fit/harmony maps, `AdaptMethod` the `convert` `chromatic_adaptation_transform` registry, `CctMethod` the four `colour.temperature` illuminant methods and `Blackbody` the ColorAide Planckian methods, `CorrectMethod` the `colour_correction` CCM solvers, all carried as case payload; `Metric` is the one 28-member scalar-evidence vocabulary whose `_METRIC` `Map[Metric, MetricSpec]` table binds each row to the input `ColorModel` its engine demands — colour-science CIE/CMC/DIN99 `delta_E` over `LAB`, `whiteness`/`yellowness` over `XYZ`, `dominant`/`complementary` wavelength over `XYY`, `cri`/`cfi` over `SPECTRAL` (resampled to `_WORKING_SHAPE` at ingress), the ColorAide OKLab-perceptual rows plus `distance`/`contrast`/`luminance`/`cct`/`duv`/`severity` over `SRGB`, and the `chromaticity-x`/`chromaticity-y` `XYY` reads — so `Measure` resolves each sample into the row's space through the shared `_resolve` kernel under its payload `Observer` before applying; `ColorSource = SpectralDistribution | MultiSpectralDistributions | Tristimulus | Wavelength` is the convert/measure input union whose `MultiSpectralDistributions` member folds the batch `colour.msds_to_XYZ` modality, and `CctSource = Kelvin | Chromaticity` the bidirectional `Temperature` payload discriminating by input shape; `Palette` is the re-homed N-swatch carrier and `hex_ramp` the one srgb-array→CSS-hex projection (MOVED IN from `visualization/chart/spec` — chart, table, diagram, and the drawing pens rewire to this owner); scalar-bounded payloads (`Amount`/`PaletteCount`/`Spacing`/`Kelvin`/`Wavelength`) are refined `Annotated`+`Is` aliases admitted through the `@beartype`-guarded factories.
 
 ## [02]-[DERIVE]
 
-- Cases: `ColorOp` cases — `Convert(value, source, target, adapt)` (any model-pair through the universal `colour.convert` gateway, the typed `ColorSource = SpectralDistribution | MultiSpectralDistributions | Tristimulus | Wavelength` payload discriminating a single spectral distribution, a multi-channel batch folded through `colour.msds_to_XYZ`, a tristimulus array, and a single-`Wavelength` spectral-locus float folded through `colour.wavelength_to_XYZ(nm, cmfs)` under the payload `Observer` cmfs then converted to the target, absorbing the SD->XYZ->display and CIECAM02/CAM16 appearance arms as `ColorModel` source/target values reached through `source.science`/`target.science`, the receipt `path` recovered from `colour.describe_conversion_path(mode="Long")`) · `Adapt(value, source, target, method, observer)` (one cross-illuminant chromatic-adaptation axis folding `colour.chromatic_adaptation(xyz, source_white, dest_white, method=...)` where the `Illuminant` source/target resolve to XYZ white points through the `Observer`-keyed `_WHITEPOINT[observer]` table derived from `colour.CCS_ILLUMINANTS[observer]`, keyed by the `CamMethod` `CHROMATIC_ADAPTATION_METHODS` registry — the standalone explicit-white-point form `convert`'s in-conversion `chromatic_adaptation_transform` kwarg cannot express, never a parallel adaptation surface) · `Gamut(value, source, target, method)` (`Color(source.aide, value).convert(target.aide).clone().fit(method=...)` perceptual gamut mapping into a destination space, the pre-fit `in_gamut(target.aide)` predicate carried as evidence, the `_path` graph on the receipt `path`) · `Filter(value, name, amount)` (the single `Color.filter` surface keyed by the `ColorFilter` vocabulary — the `protan`/`deutan`/`tritan` CVD legs and the `brightness`/`contrast`/`saturate`/`hue-rotate`/`grayscale`/`sepia`/`invert`/`opacity` W3C effect legs folded into one case, the `amount` a refined `Amount` in `[0, 1]`, the source-to-filtered `delta_e` shift carried as the `Metric.SEVERITY` evidence — so a deficiency simulation and a presentation effect share one arm, never a parallel filter-versus-CVD surface) · `Palette(seed, stop, count, spacing, space, ramp, anchors)` (one perceptual-palette axis whose `Ramp` discriminant folds the `smooth` perceptually-even `Color.steps` ramp `max_delta_e`-spaced and `interp`/`hue`/`easing`-keyed, the `discrete` categorical `Color.discrete` Interpolator `interp`/`hue`/`easing`-keyed and sampled at `count` points for a non-blended data scale, or the `harmony` named-wheel `Color.harmony` — from the `Color.average` seed-blend, the `anchors` brand-color tuple snapping each ramp step to its nearest admissible color via `Color.closest` keyed on `delta_e`, the endpoint WCAG21 `contrast` carried as `Metric.CONTRAST`, the `count` a refined `PaletteCount` >= 1 and `spacing` a refined `Spacing` >= 0 — never a parallel ramp-versus-harmony-versus-discrete surface nor a `harmony is None` discriminant) · `Compose(colors, space, blend, operator, weights)` (the compositing axis whose empty-`weights` arm folds the W3C blend-mode/Porter-Duff stack via `Color.layer` keyed by `BlendMode`/`PorterDuff` and whose non-empty-`weights` arm folds the perceptual `Color.weighted_mix`, so a layered translucent overlay and a weighted N-color blend share one arm) · `Temperature(value, method, planck, space)` (one bidirectional correlated-color-temperature axis whose refined-`Kelvin` payload mints the Planckian swatch via `Color.blackbody` keyed by the `Blackbody` method and records the `colour.temperature.CCT_to_xy` chromaticity on `path` with `Metric.CCT`, and whose `Chromaticity` payload folds the inverse `colour.temperature.xy_to_CCT` to a `Kelvin` on `Metric.CCT`, the `CctMethod` illuminant on `path`, the direction discriminated by the `CctSource` input shape — never a parallel inverse-temperature surface) · `Measure(sample, source, reference, metric, observer)` (the one colorimetric-measure surface keyed by the `Metric` vocabulary over the `_METRIC` `frozendict[Metric, MetricSpec]` policy table — each row binding its measure to the input `ColorModel` it demands so the arm resolves the `source`-spaced sample and the `Option`-carried reference into that space through the shared `_resolve` kernel under the payload `Observer` cmfs and `D65` white before applying (the standard-observer axis `Convert`/`Adapt` also carry, so a 10-degree large-field whiteness/CRI/wavelength measure reads the right cmfs), the colour-science `delta_E`/`whiteness`/`yellowness`/`dominant_wavelength`/`complementary_wavelength`/`colour_rendering_index`/`colour_fidelity_index` rows over `LAB`/`XYZ`/`XYY`/`SPECTRAL` and the ColorAide `distance`/`contrast`/`luminance`/`cct`/`ok`/`jz`/`hyab`/`itp`/`99o`/`cam02`/`cam16`/`hct`/`chromaticity` rows over `SRGB`/`XYY` folded into one case, the resolved coordinates on `coords` and the result on the `metric`-keyed `measures` slot — so every scalar color measure shares one arm and reads its correct input space) · `Correct(measured, reference, method)` (the measured-vs-reference correction-matrix calibration via `colour.colour_correction` keyed by the `CorrectMethod` solver `Cheung 2004`/`Finlayson 2015`/`Vandermonde`, the corrected array on `coords`) · `Spot(document, target)` (the colour-cxf inbound spot-library seed — `read_cxf` decodes the `.cxf` bytes into the `cxf3.CxF` graph, each `Object`'s primary `ReflectanceSpectrum` resolved through its `ColorSpecification` IDREF measurement context (illuminant/observer/grid) into `colour.sd_to_XYZ`, falling back to a direct `ColorCielab`/`ColorCiexyz` when no spectrum is measured, converted to the `target` model and folded into a palette on `coords`+`notation` with the spot names on `path` — closing the derive-owned CxF wire `colour-cxf.md` names, never re-parsing CxF XML by hand nor re-integrating an SPD colour-science owns) — matched by one total `match`/`case`.
-- Auto: `Convert` folds the source through the shared `_resolve` kernel under `colour.domain_range_scale("reference")` — a `Wavelength` float through `colour.wavelength_to_XYZ(nm, cmfs)` then `colour.convert(xyz, "CIE XYZ", target.science)`, a `MultiSpectralDistributions` batch through `colour.msds_to_XYZ(value, cmfs, ...)` then convert, and a spectral/tristimulus source through `colour.convert(value, source.science, target.science, chromatic_adaptation_transform=adapt.value)` — or, when either endpoint is a `science=None` wide-gamut/HSL/HWB space colour-science has no convert node for, through the ColorAide `Color(source.aide, coords).convert(target.aide)` gateway so the fold is TOTAL over every `ColorModel` pair rather than passing `None` to `colour.convert`, the `cmfs` read from `colour.MSDS_CMFS[observer]` — the receipt carrying `target.science`, the `_notate` CSS `notation`, and the `describe_conversion_path(mode="Long")` resolved model-graph as `path`; `Adapt` folds `colour.chromatic_adaptation(np.asarray(value), _WHITEPOINT[observer][source], _WHITEPOINT[observer][target], method=method.value)` under `colour.domain_range_scale("reference")`, the adapted XYZ on `coords` and the observer/source/target illuminant plus method on `path`; `Gamut` folds the source through `Color(source.aide, value).convert(target.aide)` then a `clone().fit(method=...)` (or `clone().fit_pointer_gamut()` when `method is FitMethod.POINTER`, the real-surface printable-gamut map), carrying BOTH the pre-fit `in_gamut(target.aide)` space predicate and the `in_pointer_gamut()` printable predicate as evidence so a no-op fit and a print-plane printability check are both recoverable; `Filter` folds `Color('srgb', value).clone().filter(name.value, amount=amount)` and carries the source-to-filtered `delta_e` shift as `Metric.SEVERITY`; `Palette` folds the multi-color `seed` tuple through `Color.average(seeds, space=space.aide, out_space='srgb')` to one perceptually-weighted base, then discriminates on the `Ramp` case — the `smooth` arm folds `Color.steps([base, stop], steps=count, max_steps=count, max_delta_e=spacing, delta_e="2000", method=interp.value, hue=hue.value, progress=_EASING[easing], space=space.aide, out_space='srgb')`, the `discrete` arm folds the `Color.discrete([base, stop], steps=count, method=interp.value, hue=hue.value, progress=_EASING[easing], space=space.aide, out_space='srgb')` Interpolator sampled at `count` even points (`curve(i / (count - 1))`) for the categorical scale, the `harmony` arm folds `base.harmony(name.value, ...)` — then, when `anchors` is non-empty, snaps each step through `step.closest(list(anchors), method="2000")` to the nearest admissible brand color, snapshotting the endpoint WCAG21 `contrast` as `Metric.CONTRAST` and the ramp kind/curve/hue/easing on `path`; `Compose` folds a non-empty-`weights` payload through `Color.weighted_mix(colors, weights=..., space=space.aide, out_space='srgb')` and an empty-`weights` payload through `Color.layer(colors, blend=blend.value, operator=operator.value, space=space.aide, out_space='srgb')`; `Temperature` discriminates on the `CctSource` shape — a `Kelvin` float mints `Color.blackbody(space.aide, value, method=planck.value).convert('srgb')` carrying its `to_string` `notation`, records `colour.temperature.CCT_to_xy(value, method=method.value)` as `Metric.CHROMATICITY_X`/`CHROMATICITY_Y` and the kelvin as `Metric.CCT`, a `Chromaticity` tuple folds `colour.temperature.xy_to_CCT(np.asarray(value), method=method.value)` to the `Metric.CCT` Kelvin beside its `Metric.CHROMATICITY_X`/`CHROMATICITY_Y` reads; `Measure` resolves the `source`-spaced `sample` and the `Option`-carried `reference` (mapped through `_resolve`, defaulting to the payload `Observer` `D65` white when `Nothing`) into the metric's required `space` through `_resolve` under that `Observer`, then applies the `_METRIC[metric]` callable onto the `metric`-keyed `measures` slot with the resolved coordinates on `coords`; `Correct` folds `colour.colour_correction(measured, measured, reference, method=method.value)` to the corrected array on `coords` with its `_notate` `notation`; `Spot` decodes `read_cxf(document)` and folds each `Object` through `_swatches` -> `_resolve_spot` -> `_spectrum_xyz`, resolving the primary `ReflectanceSpectrum` against its `ColorSpecification` illuminant/observer through `colour.sd_to_XYZ` (the `_cxf_context` admission kernel mapping the CxF `EobserverType`/`EilluminantType` onto `MSDS_CMFS`/`SDS_ILLUMINANTS` and the `WavelengthRange.increment` onto the SPD grid) then `colour.convert` into `target`, the N swatches stacked on `coords` with their `_notate` CSS on `notation` and the `Object` names on `path`. Each arm writes one `ColorReceipt` with its own typed `frozendict` `measures` keys and `notation` strings, never an overloaded scalar.
-- Growth: a new color-derivation operation is one `ColorOp` case carrying its payload plus one acceptor arm folding into `ColorReceipt`, its `tag` extending the one `ColorOpTag` literal the receipt shares; a new colorimetric measure is one `Metric` member plus one `_METRIC` `MetricSpec` row carrying its input `ColorModel` and callable, the receipt key already typed, a measure under a different standard observer the `Observer` axis already on the `Measure` payload; a new filter or CVD type is one `ColorFilter` row; a new gamut-fit method is one `FitMethod` row; a new palette modality is one `Ramp` case, a new interpolation curve one `Interp` row, a new hue arc one `HueArc` row, a new easing curve one `Easing` row and one `_EASING` callable; a new blend mode is one `BlendMode` row and a new compositing operator one `PorterDuff` row; a new harmony wheel is one `Harmony` row; a new appearance or named model is one `ColorModel` row carrying both its `science` and `aide` (or `None` where one engine lacks it) name columns; a new CCT illuminant method is one `CctMethod` row and a new Planckian method one `Blackbody` row; a new in-conversion adaptation transform is one `AdaptMethod` row and a new standalone CAT one `CamMethod` row; a new adaptation white point is one `Illuminant` row keying `CCS_ILLUMINANTS` and a new standard observer one `Observer` row keying the nested `_WHITEPOINT`/`MSDS_CMFS`; a new correction solver is one `CorrectMethod` row; a brand-palette constraint is the `anchors` tuple on the existing `Palette` payload, a weighted blend the `weights` tuple on the existing `Compose` payload, a batch spectral source the `MultiSpectralDistributions` member on the existing `ColorSource` union, a new persisted wire column one `ColorReceiptWire` field derived in `wired()`; a new inbound exchange intake is one `ColorOp` case decoding its wire (the `Spot` CxF spot-library seed is exactly that — one `spot` case plus one `_swatches` arm, the `_cxf_context`/`_resolve_spot`/`_spectrum_xyz` resolvers reusing the `Observer` axis and `_notate` kernel the interior already owns); a new printability predicate is one `ColorReceipt`/`ColorReceiptWire` field (the `pointer_gamut` Pointer's-gamut flag is that, beside `in_gamut`); a pigment/paint interpolation curve is one `Interp` row (`catrom`/`spectral`/`spectral-continuous` are those, the AEC-material mixbox palette), a perceptual fit method one `FitMethod` row (`hct-chroma`/`oklch-cubic`, and the non-`method=` `POINTER` map the arm special-cases), and a perceptual difference one `Metric`+`_METRIC` row (`deltaE-helmlab`) — never a parallel surface; zero new surface.
-- Boundary: no chart/scene rendering (that stays at the visual owners); no ICC/LUT/CCTF raster egress (that is `graphic/color/managed#MANAGED`'s exclusively — this owner resolves the color-space and tone-curve provenance the managed leg consumes but writes no raster and imports no `pillow`); the color arms emit one `ColorReceipt` carrying `coords` arrays, the `notation` CSS strings, the `frozendict[Metric, float]` `measures` map, chromaticities, and palettes, projected outward through the `wired()` `ColorReceiptWire` and consumed inward by the visual and document sub-domains; the gamut-mapping, filter (CVD + W3C), compositing, smooth-or-categorical palette, harmony, average/weighted-blend, nearest-snap, blackbody, OKLab-perceptual difference, and contrast/luminance/distance legs are ColorAide's, and colour-science keeps spectral/CAM/CIE-difference/cross-illuminant-adaptation/temperature/colorimetric-index/CCM/graph-query, never a second convert, gamut-fit, or contrast engine. The colour-cxf intake is COLOUR-HALF only: `read_cxf` decodes each `Object`'s measured `ColorValues` (spectral/Lab/XYZ) for the palette seed, while the device-half `ColorCmykplusN`/`ColorRecipe` separations declaration is `graphic/color/managed#MANAGED`'s (two readers of one immutable `.cxf`, disjoint projections, no trample), and derive never re-parses CxF XML by hand nor re-integrates an SPD — `colour_cxf` owns the exchange shape, `colour-science` owns the SPD->XYZ colorimetry. The difference family spans both engines under the ONE `_METRIC` surface — colour-science `delta_E` owns the CIE/CMC/DIN99 Lab-array rows, ColorAide `Color.delta_e` owns the OKLab-perceptual `ok`/`jz`/`hyab`/`itp`/`99o`/`cam02`/`cam16`/`hct` sRGB-coord rows colour-science has no equivalent for — so the table is one measure surface keyed by `Metric`, never two parallel difference owners. `everything.ColorAll` is the single all-plugins `Color` so OKLCH/HCT and the registered fit/filter/harmony/blend/average/closest/blackbody plugins resolve without a per-space class; the `colour.temperature` illuminant-method literal set, the `describe_conversion_path` `mode`/`print_callable` capture surface, the `CHROMATIC_ADAPTATION_TRANSFORMS`/`CHROMATIC_ADAPTATION_METHODS` registry bindings, the `CCS_ILLUMINANTS` whitepoint keys, the ColorAide harmony-name and `BlendMode`/`PorterDuff` operator strings, and the `science=None` wide-gamut/`HSL`/`HWB` space rows stay [03]-[RESEARCH] catalogue-deepen items until the folder `.api` catalogues carry their full literal sets; every other colour-science and ColorAide spelling below is settled fence code.
+- Cases: `ColorOp` cases — `Convert(value, source, target, adapt, observer)` (any model-pair through the universal `colour.convert` gateway, the typed `ColorSource` payload discriminating a single spectral distribution, a multi-channel batch folded through `colour.msds_to_XYZ`, a tristimulus array, and a single-`Wavelength` spectral-locus float folded through `colour.wavelength_to_XYZ(nm, cmfs)` under the payload `Observer` cmfs then converted to the target, absorbing the SD→XYZ→display and CIECAM02/CAM16 appearance arms as `ColorModel` values, the `path` recovered from `colour.describe_conversion_path(mode="Long")`) · `Adapt(value, source, target, method, observer)` (one cross-illuminant chromatic-adaptation axis folding `colour.chromatic_adaptation(xyz, source_white, dest_white, method=...)` where the `Illuminant` source/target resolve to XYZ white points through the `Observer`-keyed `_WHITEPOINT[observer]` table, keyed by the `CamMethod` registry — the standalone explicit-white-point form `convert`'s in-conversion `chromatic_adaptation_transform` kwarg cannot express, never a parallel adaptation surface) · `Gamut(value, source, target, method)` (`Color(source.aide, value).convert(target.aide).clone().fit(method=...)` perceptual gamut mapping into a destination space, the pre-fit `in_gamut(target.aide)` and `in_pointer_gamut()` predicates carried as evidence, `FitMethod.POINTER` routing to the `fit_pointer_gamut()` real-surface printable map) · `Filter(value, name, amount)` (the single `Color.filter` surface keyed by the `ColorFilter` vocabulary — the `protan`/`deutan`/`tritan` CVD legs and the eight W3C effect legs folded into one case, the `amount` a refined `Amount` in `[0, 1]`, the source-to-filtered `delta_e` shift carried as `Metric.SEVERITY` — so a deficiency simulation and a presentation effect share one arm) · `Palette(seed, stop, count, spacing, space, ramp, anchors)` (one perceptual-palette axis whose `Ramp` discriminant folds the `smooth` perceptually-even `Color.steps` ramp `max_delta_e`-spaced and `interp`/`hue`/`easing`-keyed, the `discrete` categorical `Color.discrete` Interpolator sampled at `count` points for a non-blended data scale, or the `harmony` named-wheel `Color.harmony` — from the `Color.average` seed-blend, the `anchors` brand-color tuple snapping each ramp step to its nearest admissible color via `Color.closest` keyed on `delta_e`, the endpoint WCAG21 `contrast` carried as `Metric.CONTRAST`, never a parallel ramp-versus-harmony-versus-discrete surface nor a `harmony is None` discriminant) · `Compose(colors, space, blend, operator, weights, mask)` (the compositing axis whose empty-`weights` arm folds the W3C blend-mode/Porter-Duff stack via `Color.layer` keyed by `BlendMode`/`PorterDuff` over the `mask`-prepped stack — a non-empty `mask` tuple zeroes the named channels per color through `Color.mask` before layering — and whose non-empty-`weights` arm folds the perceptual `Color.weighted_mix`, the two-color `mix` exactly its N=2 form, so a layered translucent overlay, a masked-channel composite, and a weighted N-color blend share one arm) · `Temperature(value, method, planck, space)` (one bidirectional correlated-color-temperature axis whose refined-`Kelvin` payload mints the Planckian swatch via `Color.blackbody` keyed by the `Blackbody` method and records `colour.temperature.CCT_to_xy` chromaticity with `Metric.CCT`, and whose `Chromaticity` payload folds the inverse `colour.temperature.xy_to_CCT` to a `Kelvin`, the direction discriminated by the `CctSource` input shape — never a parallel inverse-temperature surface) · `Measure(sample, source, reference, metric, observer)` (the one colorimetric-measure surface keyed by the `Metric` vocabulary over the `_METRIC` `Map[Metric, MetricSpec]` policy table — each row binding its measure to the input `ColorModel` it demands so the arm resolves the `source`-spaced sample and the `Option`-carried reference into that space through the shared `_resolve` kernel under the payload `Observer` cmfs and `D65` white before applying, the resolved coordinates on `coords` and the result on the `metric`-keyed `measures` slot — so every scalar color measure shares one arm and reads its correct input space) · `Correct(measured, reference, method)` (the measured-vs-reference correction-matrix calibration via `colour.colour_correction` keyed by the `CorrectMethod` solver, the corrected array on `coords`) · `Spot(document, target)` (the colour-cxf inbound spot-library seed — `read_cxf` decodes the `.cxf` bytes into the `cxf3.CxF` graph, each `Object`'s primary `ReflectanceSpectrum` resolved through its `ColorSpecification` IDREF measurement context into `colour.sd_to_XYZ`, falling back to a direct `ColorCielab`/`ColorCiexyz` when no spectrum is measured, converted to the `target` model and folded into a palette on `coords`+`notation` with the spot names on `path` — never re-parsing CxF XML by hand nor re-integrating an SPD colour-science owns) — matched by one total `match`/`case`.
+- Auto: every arm resolves inside `LanePolicy.offload(Colorimetry._resolved, op, modality=Modality.INTERPRETER)` — the runtime-owned bound; `Modality.INTERPRETER` gives each offload interpreter-local `colour` module state, so the non-thread-local `domain_range_scale` process-global never races concurrent derives and the prior folder-minted `CapacityLimiter(1)`/`to_thread` serialization lane is DEAD; a provider raise crosses the offload's own `async_boundary` onto the rail. `Convert` folds the source through the shared `_resolve` kernel under `colour.domain_range_scale("reference")` — a `Wavelength` float through `colour.wavelength_to_XYZ(nm, cmfs)` then `colour.convert(xyz, "CIE XYZ", target.science)`, a `MultiSpectralDistributions` batch through `colour.msds_to_XYZ` then convert, and a spectral/tristimulus source through `colour.convert(value, source.science, target.science, chromatic_adaptation_transform=adapt.value)` — or, when either endpoint is a `science=None` wide-gamut/HSL/HWB space, through the ColorAide `Color(source.aide, coords).convert(target.aide)` gateway so the fold is TOTAL over every `ColorModel` pair rather than passing `None` to `colour.convert`; every spectral ingress first passes `_aligned` — the measurement-side resample onto the one `_WORKING_SHAPE` working grid (copy-then-align; colour mutates in place), distinct from the LUT-authoring interpolators `graphic/color/managed#MANAGED` owns. `Palette` folds the multi-color `seed` tuple through `Color.average` to one perceptually-weighted base, discriminates on the `Ramp` case, snaps through `Color.closest` when `anchors` is non-empty, and snapshots the endpoint WCAG21 `contrast`; `Compose` masks then layers, or weighted-mixes; `Measure` resolves the sample and the `Option`-carried reference (defaulting to the payload `Observer` `D65` white when `Nothing`) into the `_METRIC[metric]` row's space before applying its callable. `hex_ramp` is the one srgb-array→CSS-hex projection — rows clip lawfully through the engine (`Color.clip().to_string(hex=True)`), never a hand-rolled int cast and never a literal hex constant. Each arm writes one `Derivation` with typed `frozendict` `measures` keys and `notation` strings, never an overloaded scalar.
+- Growth: a new color-derivation operation is one `ColorOp` case carrying its payload plus one acceptor arm folding into `Derivation`, its `tag` extending the one `ColorOpTag` literal; a new colorimetric measure is one `Metric` member plus one `_METRIC` `MetricSpec` row carrying its input `ColorModel` and callable, a measure under a different standard observer the `Observer` axis already on the `Measure` payload; a new filter or CVD type is one `ColorFilter` row; a new gamut-fit method is one `FitMethod` row; a new palette modality is one `Ramp` case, a new interpolation curve one `Interp` row (`catrom`/`spectral`/`spectral-continuous` are those, the AEC-material mixbox pigment palette), a new hue arc one `HueArc` row, a new easing curve one `Easing` row and one `_EASING` callable; a new blend mode is one `BlendMode` row and a new compositing operator one `PorterDuff` row (the full 15-operator Porter-Duff set stands); a new harmony wheel is one `Harmony` row; a new appearance or named model is one `ColorModel` row carrying both engine name columns; a new CCT illuminant method is one `CctMethod` row and a new Planckian method one `Blackbody` row; a new in-conversion adaptation transform is one `AdaptMethod` row and a new standalone CAT one `CamMethod` row; a new adaptation white point is one `Illuminant` row and a new standard observer one `Observer` row keying the nested `_WHITEPOINT`/`MSDS_CMFS`; a new correction solver is one `CorrectMethod` row; a brand-palette constraint is the `anchors` tuple and a masked composite the `mask` tuple on the existing payloads; a batch spectral source is the `MultiSpectralDistributions` member on the existing `ColorSource` union; a new inbound exchange intake is one `ColorOp` case decoding its wire (the `Spot` CxF seed is exactly that); a new palette egress is one projection beside `hex_ramp`, never a per-consumer re-spelling; a finer working grid is the one `_WORKING_SHAPE` policy row — never a parallel surface; zero new surface.
+- Boundary: no chart/scene rendering (that stays at the visual owners); no ICC/LUT/CCTF raster egress, no plate authoring, no TAC gate, no CxF device-half — `graphic/color/managed#MANAGED` owns them exclusively (this owner resolves the color-space and tone-curve provenance the managed leg consumes but writes no raster and imports no `pillow`); derive mints NO receipt — the deleted forms are the `ColorReceipt`/`ColorReceiptWire` parallel receipt rail (a substrate returns values; the LUT/plate/swatch terminals mint `ArtifactReceipt.Color` on managed), a folder-minted `CapacityLimiter`/`to_thread` lane beside the runtime `offload`, a literal hex constant anywhere a derive projection resolves color, and a per-consumer RGB→hex re-spelling beside `hex_ramp`. The gamut-mapping, filter (CVD + W3C), compositing (mask/layer/weighted-mix), smooth-or-categorical palette, harmony, average/nearest-snap, blackbody, OKLab-perceptual difference, and contrast/luminance/distance legs are ColorAide's, and colour-science keeps spectral/CAM/CIE-difference/cross-illuminant-adaptation/temperature/colorimetric-index/CCM/graph-query — never a second convert, gamut-fit, or contrast engine. The colour-cxf intake is COLOUR-HALF only: `read_cxf` decodes each `Object`'s measured `ColorValues` (spectral/Lab/XYZ) for the palette seed, while the device-half `ColorCmykplusN`/`ColorRecipe` separations declaration is managed's (two readers of one immutable `.cxf`, disjoint projections, no trample). The difference family spans both engines under the ONE `_METRIC` surface — colour-science `delta_E` owns the CIE/CMC/DIN99 Lab-array rows, ColorAide `Color.delta_e` owns the OKLab-perceptual sRGB-coord rows — so the table is one measure surface keyed by `Metric`, never two parallel difference owners.
+- Packages: `colour-science` (`convert`/`describe_conversion_path`/`chromatic_adaptation`/`delta_E`/`whiteness`/`yellowness`/`dominant_wavelength`/`complementary_wavelength`/`colour_rendering_index`/`colour_fidelity_index`/`colour_correction`/`wavelength_to_XYZ`/`msds_to_XYZ`/`sd_to_XYZ`/`temperature.CCT_to_xy`/`temperature.xy_to_CCT`/`domain_range_scale`, the `MSDS_CMFS`/`SDS_ILLUMINANTS`/`CCS_ILLUMINANTS` registries, `SpectralDistribution`/`MultiSpectralDistributions`/`SpectralShape`+`align` the measurement-side resample; the `CctMethod` four-string illuminant literal set and the `describe_conversion_path` `mode=`/`print_callable=` capture kwargs stand ahead of the folder catalog — the catalog-deepen obligation rides `.api/colour-science.md`), `coloraide` (`everything.ColorAll` the all-plugins engine — 8-method `FIT_MAP` + `in_pointer_gamut`/`fit_pointer_gamut`, 11-row `FILTER_MAP`, 13-method `DE_MAP` incl. `helmlab`, 9-method `INTERPOLATE_MAP` incl. the mixbox `spectral` curves, 8-wheel `harmonies.SUPPORTED`, 16-mode/15-operator `layer` axes, `mask`/`weighted_mix`/`average`/`closest`/`steps`/`discrete`/`blackbody`/`cct`/`contrast`/`luminance`/`clip`/`to_string(hex=True)`, the `ease*` progress callables), `colour-cxf` (`read_cxf` → the `cxf3.CxF.resources.{object_collection.object_value, color_specification_collection.color_specification}` spine; `Object.color_values.choice` yielding `ReflectanceSpectrum(value, start_wl, color_specification)`/`ColorCielab(l, a, b)`/`ColorCiexyz(x, y, z)`; `ColorSpecification.tristimulus_spec{observer, illuminant_or_custom_illuminant}` + `measurement_spec[].wavelength_range.increment` the measurement context — all cp315-wheel-verified field names), `expression` (`tagged_union`/`case`/`tag`, `Option`, `Map.of_seq` the V16 table spine), `numpy` (array carriers, `ravel`/`asarray`/`clip`), `beartype` (`@beartype` + `vale.Is` the refined-payload admission), runtime (`RuntimeRail`, `LanePolicy.offload`/`Modality.INTERPRETER` the one execution bound).
 
 ```python signature
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, StrEnum
-from typing import Annotated, Literal, NamedTuple, assert_never
+from typing import Annotated, Final, Literal, NamedTuple, assert_never
 
 import colour
 import numpy as np
-from anyio import CapacityLimiter, to_thread
 from beartype import beartype
 from beartype.vale import Is
-from builtins import frozendict
 from coloraide import ease, ease_in, ease_in_out, ease_out, linear
 from coloraide.everything import ColorAll as Color
-from colour import MultiSpectralDistributions, SpectralDistribution
+from colour import MultiSpectralDistributions, SpectralDistribution, SpectralShape
 from expression import Option, case, tag, tagged_union
-from msgspec import Struct
+from expression.collections import Map
 from numpy.typing import NDArray
 
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.lanes import LanePolicy, Modality
 
 lazy from colour_cxf import (
     cxf3,
@@ -40,6 +40,7 @@ lazy from colour_cxf import (
 )  # CxF3 spot-library intake (cold): the proxy reifies on first Spot-arm use, decoding a print partner's .cxf into the palette source
 
 type Tristimulus = NDArray[np.float64]
+type Palette = NDArray[np.float64]  # N-swatch (N, 3) srgb rows — the re-homed carrier chart/table/diagram/drawing consume
 type Wavelength = Annotated[float, Is[lambda nm: 360.0 <= nm <= 830.0]]
 type ColorSource = SpectralDistribution | MultiSpectralDistributions | Tristimulus | Wavelength
 type MetricInput = Tristimulus | SpectralDistribution
@@ -92,6 +93,7 @@ class Illuminant(StrEnum):
 
 
 class AdaptMethod(StrEnum):
+    # canonical HERE (E6): the in-conversion chromatic_adaptation_transform registry; managed composes, never re-declares.
     VON_KRIES = "Von Kries"
     BRADFORD = "Bradford"
     CAT02 = "CAT02"
@@ -191,6 +193,10 @@ class BlendMode(StrEnum):
 
 
 class PorterDuff(StrEnum):
+    # the full 15-operator compositing set the engine registers — porter_duff.SUPPORTED, closed.
+    CLEAR = "clear"
+    COPY = "copy"
+    DESTINATION = "destination"
     SOURCE_OVER = "source-over"
     DESTINATION_OVER = "destination-over"
     SOURCE_IN = "source-in"
@@ -200,6 +206,9 @@ class PorterDuff(StrEnum):
     SOURCE_ATOP = "source-atop"
     DESTINATION_ATOP = "destination-atop"
     XOR = "xor"
+    LIGHTER = "lighter"
+    PLUS_LIGHTER = "plus-lighter"
+    PLUS_DARKER = "plus-darker"
 
 
 class CctMethod(StrEnum):
@@ -256,67 +265,73 @@ class MetricSpec(NamedTuple):
     fn: Callable[[MetricInput, MetricInput], float]
 
 
+# the one measurement-side working grid: an arbitrary-grid measured spectrum aligns here ONCE at
+# ingress before sd_to_XYZ/msds_to_XYZ/CRI/CFI; LUT-authoring interpolators stay managed's.
+_WORKING_SHAPE: Final[SpectralShape] = SpectralShape(360.0, 830.0, 1.0)
+
 # Observer-keyed whitepoint XYZ derived once from CCS_ILLUMINANTS so a 2-degree vs 10-degree adaptation reads the right white.
-_WHITEPOINT: frozendict[Observer, frozendict[Illuminant, Tristimulus]] = frozendict({
-    observer: frozendict({
-        illum: np.asarray(colour.xy_to_XYZ(colour.CCS_ILLUMINANTS[observer.value][illum.value]), dtype=np.float64) for illum in Illuminant
-    })
+_WHITEPOINT: Final[Map[Observer, Map[Illuminant, Tristimulus]]] = Map.of_seq(
+    (
+        observer,
+        Map.of_seq(
+            (illum, np.asarray(colour.xy_to_XYZ(colour.CCS_ILLUMINANTS[observer.value][illum.value]), dtype=np.float64)) for illum in Illuminant
+        ),
+    )
     for observer in Observer
-})
+)
 
 # CxF EobserverType.value -> the Observer (colour MSDS_CMFS key); the two named standard observers, Custom_CMF folding to 2-degree.
-_CXF_OBSERVER: frozendict[str, Observer] = frozendict({"2_Degree": Observer.CIE_1931_2, "10_Degree": Observer.CIE_1964_10})
-# CxF EilluminantType.value -> the Illuminant (colour SDS_ILLUMINANTS key); the shared CxF strings colour's registry names directly, an unmapped illuminant folding to D65.
-_CXF_ILLUMINANT: frozendict[str, Illuminant] = frozendict({illum.value: illum for illum in Illuminant})
+_CXF_OBSERVER: Final[Map[str, Observer]] = Map.of_seq([("2_Degree", Observer.CIE_1931_2), ("10_Degree", Observer.CIE_1964_10)])
+# CxF EilluminantType.value -> the Illuminant (colour SDS_ILLUMINANTS key); an unmapped illuminant folds to D65.
+_CXF_ILLUMINANT: Final[Map[str, Illuminant]] = Map.of_seq((illum.value, illum) for illum in Illuminant)
 
 # Color.steps/discrete take a progress= easing callable; _EASING resolves the Easing vocabulary to the package's own curves.
-_EASING: frozendict[Easing, Callable[[float], float]] = frozendict({
-    Easing.LINEAR: linear,
-    Easing.EASE: ease,
-    Easing.EASE_IN: ease_in,
-    Easing.EASE_OUT: ease_out,
-    Easing.EASE_IN_OUT: ease_in_out,
-})
+_EASING: Final[Map[Easing, Callable[[float], float]]] = Map.of_seq([
+    (Easing.LINEAR, linear),
+    (Easing.EASE, ease),
+    (Easing.EASE_IN, ease_in),
+    (Easing.EASE_OUT, ease_out),
+    (Easing.EASE_IN_OUT, ease_in_out),
+])
 
-# Each row binds the metric to the input ColorModel its engine demands — colour delta_E/whiteness Lab/XYZ, dominant/complementary xy, CRI/CFI a SpectralDistribution, the ColorAide rows sRGB — so Measure resolves sample+reference into that space before applying fn.
-_METRIC: frozendict[Metric, MetricSpec] = frozendict({
-    Metric.DELTA_E_2000: MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CIE 2000"))),
-    Metric.DELTA_E_1994: MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CIE 1994"))),
-    Metric.DELTA_E_1976: MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CIE 1976"))),
-    Metric.DELTA_E_CMC: MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CMC"))),
-    Metric.DELTA_E_DIN99: MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="DIN99"))),
-    Metric.DELTA_E_OK: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="ok")),
-    Metric.DELTA_E_JZ: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="jz")),
-    Metric.DELTA_E_HYAB: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="hyab")),
-    Metric.DELTA_E_ITP: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="itp")),
-    Metric.DELTA_E_99O: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="99o")),
-    Metric.DELTA_E_CAM02: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="cam02")),
-    Metric.DELTA_E_CAM16: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="cam16")),
-    Metric.DELTA_E_HCT: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="hct")),
-    Metric.DELTA_E_HELMLAB: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="helmlab")),
-    Metric.DISTANCE: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).distance(Color("srgb", list(b)), space="lab")),
-    Metric.CONTRAST: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).contrast(Color("srgb", list(b)))),
-    Metric.LUMINANCE: MetricSpec(ColorModel.SRGB, lambda a, _b: Color("srgb", list(a)).luminance()),
-    Metric.WHITENESS: MetricSpec(
-        ColorModel.XYZ, lambda a, b: float(np.ravel(colour.whiteness(a, b))[0])
+# Each row binds the metric to the input ColorModel its engine demands — colour delta_E/whiteness Lab/XYZ, dominant/complementary xy,
+# CRI/CFI a SpectralDistribution, the ColorAide rows sRGB — so Measure resolves sample+reference into that space before applying fn.
+_METRIC: Final[Map[Metric, MetricSpec]] = Map.of_seq([
+    (Metric.DELTA_E_2000, MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CIE 2000")))),
+    (Metric.DELTA_E_1994, MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CIE 1994")))),
+    (Metric.DELTA_E_1976, MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CIE 1976")))),
+    (Metric.DELTA_E_CMC, MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="CMC")))),
+    (Metric.DELTA_E_DIN99, MetricSpec(ColorModel.LAB, lambda a, b: float(colour.delta_E(b, a, method="DIN99")))),
+    (Metric.DELTA_E_OK, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="ok"))),
+    (Metric.DELTA_E_JZ, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="jz"))),
+    (Metric.DELTA_E_HYAB, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="hyab"))),
+    (Metric.DELTA_E_ITP, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="itp"))),
+    (Metric.DELTA_E_99O, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="99o"))),
+    (Metric.DELTA_E_CAM02, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="cam02"))),
+    (Metric.DELTA_E_CAM16, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="cam16"))),
+    (Metric.DELTA_E_HCT, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="hct"))),
+    (Metric.DELTA_E_HELMLAB, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="helmlab"))),
+    (Metric.DISTANCE, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).distance(Color("srgb", list(b)), space="lab"))),
+    (Metric.CONTRAST, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).contrast(Color("srgb", list(b))))),
+    (Metric.LUMINANCE, MetricSpec(ColorModel.SRGB, lambda a, _b: Color("srgb", list(a)).luminance())),
+    (
+        Metric.WHITENESS,
+        MetricSpec(ColorModel.XYZ, lambda a, b: float(np.ravel(colour.whiteness(a, b))[0])),
     ),  # CIE 2004 returns [W, T]; the whiteness index is the head
-    Metric.YELLOWNESS: MetricSpec(ColorModel.XYZ, lambda a, _b: float(colour.yellowness(a))),
-    Metric.DOMINANT_WAVELENGTH: MetricSpec(
-        ColorModel.XYY, lambda a, b: float(np.ravel(colour.dominant_wavelength(a[:2], b[:2])[0])[0])
+    (Metric.YELLOWNESS, MetricSpec(ColorModel.XYZ, lambda a, _b: float(colour.yellowness(a)))),
+    (
+        Metric.DOMINANT_WAVELENGTH,
+        MetricSpec(ColorModel.XYY, lambda a, b: float(np.ravel(colour.dominant_wavelength(a[:2], b[:2])[0])[0])),
     ),  # returns (wl, xy_wl, xy_cwl); the wl head is the measure
-    Metric.COMPLEMENTARY_WAVELENGTH: MetricSpec(ColorModel.XYY, lambda a, b: float(np.ravel(colour.complementary_wavelength(a[:2], b[:2])[0])[0])),
-    Metric.CRI: MetricSpec(ColorModel.SPECTRAL, lambda a, _b: float(colour.colour_rendering_index(a))),
-    Metric.CFI: MetricSpec(ColorModel.SPECTRAL, lambda a, _b: float(colour.colour_fidelity_index(a))),
-    Metric.CCT: MetricSpec(ColorModel.SRGB, lambda a, _b: float(Color("srgb", list(a)).cct()[0])),
-    Metric.DUV: MetricSpec(ColorModel.SRGB, lambda a, _b: float(Color("srgb", list(a)).cct()[1])),
-    Metric.CHROMATICITY_X: MetricSpec(ColorModel.XYY, lambda a, _b: float(a[0])),
-    Metric.CHROMATICITY_Y: MetricSpec(ColorModel.XYY, lambda a, _b: float(a[1])),
-    Metric.SEVERITY: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="2000")),
-})
-
-# colour-science's domain_range_scale mutates a process-global (not thread-local), so the offload lane is ONE slot:
-# to_thread keeps the event loop responsive while serializing every arm so two scale contexts never race.
-_COLOR_LANE: CapacityLimiter = CapacityLimiter(1)
+    (Metric.COMPLEMENTARY_WAVELENGTH, MetricSpec(ColorModel.XYY, lambda a, b: float(np.ravel(colour.complementary_wavelength(a[:2], b[:2])[0])[0]))),
+    (Metric.CRI, MetricSpec(ColorModel.SPECTRAL, lambda a, _b: float(colour.colour_rendering_index(a)))),
+    (Metric.CFI, MetricSpec(ColorModel.SPECTRAL, lambda a, _b: float(colour.colour_fidelity_index(a)))),
+    (Metric.CCT, MetricSpec(ColorModel.SRGB, lambda a, _b: float(Color("srgb", list(a)).cct()[0]))),
+    (Metric.DUV, MetricSpec(ColorModel.SRGB, lambda a, _b: float(Color("srgb", list(a)).cct()[1]))),
+    (Metric.CHROMATICITY_X, MetricSpec(ColorModel.XYY, lambda a, _b: float(a[0]))),
+    (Metric.CHROMATICITY_Y, MetricSpec(ColorModel.XYY, lambda a, _b: float(a[1]))),
+    (Metric.SEVERITY, MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).delta_e(Color("srgb", list(b)), method="2000"))),
+])
 
 
 @tagged_union(frozen=True)
@@ -347,7 +362,7 @@ class ColorOp:
     gamut: tuple[Tristimulus, ColorModel, ColorModel, FitMethod] = case()
     filter: tuple[Tristimulus, ColorFilter, Amount] = case()
     palette: tuple[tuple[str, ...], str, PaletteCount, Spacing, ColorModel, Ramp, tuple[str, ...]] = case()
-    compose: tuple[tuple[str, ...], ColorModel, BlendMode, PorterDuff, tuple[float, ...]] = case()
+    compose: tuple[tuple[str, ...], ColorModel, BlendMode, PorterDuff, tuple[float, ...], tuple[str, ...]] = case()
     temperature: tuple[CctSource, CctMethod, Blackbody, ColorModel] = case()
     measure: tuple[ColorSource, ColorModel, Option[Tristimulus], Metric, Observer] = case()
     correct: tuple[Tristimulus, Tristimulus, CorrectMethod] = case()
@@ -399,8 +414,9 @@ class ColorOp:
         blend: BlendMode = BlendMode.NORMAL,
         operator: PorterDuff = PorterDuff.SOURCE_OVER,
         weights: tuple[float, ...] = (),
+        mask: tuple[str, ...] = (),
     ) -> "ColorOp":
-        return ColorOp(compose=(colors, space, blend, operator, weights))
+        return ColorOp(compose=(colors, space, blend, operator, weights, mask))
 
     @staticmethod
     @beartype
@@ -429,7 +445,9 @@ class ColorOp:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class ColorReceipt:
+class Derivation:
+    # the derived color VALUE bundle of one ColorOp — a substrate result, never a receipt: no
+    # contribute, no wire projection; consumers compose coords/notation/measures directly.
     tag: ColorOpTag
     coords: Tristimulus
     notation: tuple[str, ...] = ()  # Color.to_string() of each output color so a consumer renders without re-instantiating Color
@@ -437,60 +455,40 @@ class ColorReceipt:
     path: tuple[str, ...] = ()
     measures: frozendict[Metric, float] = frozendict()
     in_gamut: bool = True
-    pointer_gamut: bool = (
-        True  # Pointer's-gamut (real-surface printable) membership — the print-plane printability predicate beside the space-gamut in_gamut
-    )
-
-    def wired(self) -> "ColorReceiptWire":
-        return ColorReceiptWire(
-            tag=self.tag,
-            coords=tuple(float(c) for c in np.ravel(self.coords)),
-            shape=tuple(int(d) for d in self.coords.shape),
-            notation=self.notation,
-            space=self.space,
-            path=self.path,
-            measures={metric.value: value for metric, value in self.measures.items()},
-            in_gamut=self.in_gamut,
-            pointer_gamut=self.pointer_gamut,
-        )
+    pointer_gamut: bool = True  # Pointer's-gamut (real-surface printable) membership — the print-plane predicate beside the space-gamut in_gamut
 
 
-class ColorReceiptWire(Struct, frozen=True, omit_defaults=True):
-    tag: ColorOpTag
-    coords: tuple[float, ...]  # ravelled; shape reconstructs the N-color palette or single-color row at the sink
-    shape: tuple[int, ...]
-    notation: tuple[str, ...] = ()
-    space: str = ""
-    path: tuple[str, ...] = ()
-    measures: dict[str, float] = {}
-    in_gamut: bool = True
-    pointer_gamut: bool = True
+def hex_ramp(palette: Palette, /) -> tuple[str, ...]:
+    # the ONE srgb-array -> CSS-hex projection every band shares (chart theme ranges, drawing pens,
+    # diagram inks, legend swatches); rows clip lawfully through the engine, never a hand cast.
+    rows = palette if palette.ndim == 2 else palette[np.newaxis, :]
+    return tuple(Color("srgb", list(row)).clip().to_string(hex=True) for row in rows)
 
 
-class Colorimetry(Struct, frozen=True):
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Colorimetry:
     op: ColorOp
+    lane: LanePolicy
 
-    async def derive(self) -> RuntimeRail[ColorReceipt]:
-        return await async_boundary(f"color.{self.op.tag}", self._compute, catch=(ValueError, KeyError))
+    async def derive(self) -> RuntimeRail[Derivation]:
+        # colour-science + ColorAide are synchronous CPU kernels (spectral integration, delta-E-spaced
+        # ramps, N-swatch CxF decode). INTERPRETER modality gives each offload interpreter-local
+        # `colour` module state, so the non-thread-local domain_range_scale global never races
+        # concurrent derives; the runtime owns the bound and the boundary rail — no folder limiter.
+        return await self.lane.offload(Colorimetry._resolved, self.op, modality=Modality.INTERPRETER)
 
-    async def _compute(self) -> ColorReceipt:
-        # colour-science + ColorAide are synchronous CPU work (spectral integration, delta-E-spaced palette
-        # ramps, N-swatch CxF decode); offload off the event loop under _COLOR_LANE — a serialized slot the
-        # non-thread-local domain_range_scale global forces — so a raised ValueError/KeyError re-raises here
-        # and folds through the derive() async_boundary catch unchanged.
-        return await to_thread.run_sync(self._resolved, limiter=_COLOR_LANE)
-
-    def _resolved(self) -> ColorReceipt:
-        match self.op:
+    @staticmethod
+    def _resolved(op: ColorOp) -> Derivation:
+        match op:
             case ColorOp(tag="convert", convert=(value, source, target, adapt, observer)):
                 with colour.domain_range_scale("reference"):
-                    coords = np.asarray(self._resolve(value, source, target, observer, adapt), dtype=np.float64)
-                return ColorReceipt(
+                    coords = np.asarray(Colorimetry._resolve(value, source, target, observer, adapt), dtype=np.float64)
+                return Derivation(
                     tag="convert",
                     coords=coords,
-                    notation=self._notate(target.aide, coords),
+                    notation=Colorimetry._notate(target.aide, coords),
                     space=target.science or target.aide or "",
-                    path=self._path(source, target),
+                    path=Colorimetry._path(source, target),
                 )
             case ColorOp(tag="adapt", adapt=(value, source, target, method, observer)):
                 with colour.domain_range_scale("reference"):
@@ -500,10 +498,10 @@ class Colorimetry(Struct, frozen=True):
                         ),
                         dtype=np.float64,
                     )
-                return ColorReceipt(
+                return Derivation(
                     tag="adapt",
                     coords=adapted,
-                    notation=self._notate(ColorModel.XYZ.aide, adapted),
+                    notation=Colorimetry._notate(ColorModel.XYZ.aide, adapted),
                     space="CIE XYZ",
                     path=(observer.value, source.value, target.value, method.value),
                 )
@@ -511,12 +509,12 @@ class Colorimetry(Struct, frozen=True):
                 seeded = Color(source.aide, list(value)).convert(target.aide)
                 fitted = seeded.clone().fit_pointer_gamut() if method is FitMethod.POINTER else seeded.clone().fit(method=method.value)
                 coords = np.asarray(fitted.coords(), dtype=np.float64)
-                return ColorReceipt(
+                return Derivation(
                     tag="gamut",
                     coords=coords,
                     notation=(fitted.to_string(),),
                     space=target.aide or "",
-                    path=self._path(source, target),
+                    path=Colorimetry._path(source, target),
                     in_gamut=seeded.in_gamut(target.aide),
                     pointer_gamut=seeded.in_pointer_gamut(),
                 )
@@ -524,7 +522,7 @@ class Colorimetry(Struct, frozen=True):
                 origin = Color("srgb", list(value))
                 filtered = origin.clone().filter(name.value, amount=amount)
                 coords = np.asarray(filtered.coords(), dtype=np.float64)
-                return ColorReceipt(
+                return Derivation(
                     tag="filter",
                     coords=coords,
                     notation=(filtered.to_string(),),
@@ -568,7 +566,7 @@ class Colorimetry(Struct, frozen=True):
                 snapped = [step.closest(list(anchors), method="2000") for step in ramped] if anchors else ramped
                 coords = np.array([step.coords() for step in snapped], dtype=np.float64)
                 contrast = float(Color("srgb", list(coords[0])).contrast(Color("srgb", list(coords[-1]))))
-                return ColorReceipt(
+                return Derivation(
                     tag="palette",
                     coords=coords,
                     notation=tuple(step.to_string() for step in snapped),
@@ -576,21 +574,22 @@ class Colorimetry(Struct, frozen=True):
                     path=(space.aide or "", *trail),
                     measures=frozendict({Metric.CONTRAST: contrast}),
                 )
-            case ColorOp(tag="compose", compose=(colors, space, blend, operator, weights)):
+            case ColorOp(tag="compose", compose=(colors, space, blend, operator, weights, mask)):
+                stacked = [Color(row).mask(list(mask)) for row in colors] if mask else list(colors)
                 blended = (
-                    Color.weighted_mix(list(colors), weights=list(weights), space=space.aide, out_space="srgb")
+                    Color.weighted_mix(stacked, weights=list(weights), space=space.aide, out_space="srgb")
                     if weights
-                    else Color.layer(list(colors), blend=blend.value, operator=operator.value, space=space.aide, out_space="srgb")
+                    else Color.layer(stacked, blend=blend.value, operator=operator.value, space=space.aide, out_space="srgb")
                 )
                 coords = np.asarray(blended.coords(), dtype=np.float64)
-                return ColorReceipt(tag="compose", coords=coords, notation=(blended.to_string(),), space="srgb", path=(blend.value, operator.value))
+                return Derivation(tag="compose", coords=coords, notation=(blended.to_string(),), space="srgb", path=(blend.value, operator.value))
             case ColorOp(tag="temperature", temperature=(value, method, planck, space)):
                 match value:
                     case float() as kelvin:
                         swatch = Color.blackbody(space.aide, kelvin, method=planck.value).convert("srgb")
                         chroma = np.asarray(colour.temperature.CCT_to_xy(kelvin, method=method.value), dtype=np.float64)
                         coords = np.asarray(swatch.coords(), dtype=np.float64)
-                        return ColorReceipt(
+                        return Derivation(
                             tag="temperature",
                             coords=coords,
                             notation=(swatch.to_string(),),
@@ -604,7 +603,7 @@ class Colorimetry(Struct, frozen=True):
                         )
                     case (x, y):
                         kelvin = float(np.ravel(colour.temperature.xy_to_CCT(np.asarray((x, y), dtype=np.float64), method=method.value))[0])
-                        return ColorReceipt(
+                        return Derivation(
                             tag="temperature",
                             coords=np.asarray((x, y), dtype=np.float64),
                             space="CIE xyY",
@@ -616,21 +615,23 @@ class Colorimetry(Struct, frozen=True):
             case ColorOp(tag="measure", measure=(sample, source, reference, metric, observer)):
                 space, fn = _METRIC[metric]
                 with colour.domain_range_scale("reference"):
-                    a = self._resolve(sample, source, space, observer)
-                    b = reference.map(lambda ref: self._resolve(ref, source, space, observer)).default_with(lambda: self._white(space, observer))
+                    a = Colorimetry._resolve(sample, source, space, observer)
+                    b = reference.map(lambda ref: Colorimetry._resolve(ref, source, space, observer)).default_with(
+                        lambda: Colorimetry._white(space, observer)
+                    )
                     value = float(fn(a, b))
                 coords = a if isinstance(a, np.ndarray) else np.empty(0, dtype=np.float64)
-                return ColorReceipt(tag="measure", coords=coords, space=space.science or space.aide or "", measures=frozendict({metric: value}))
+                return Derivation(tag="measure", coords=coords, space=space.science or space.aide or "", measures=frozendict({metric: value}))
             case ColorOp(tag="correct", correct=(measured, reference, method)):
                 corrected = np.asarray(colour.colour_correction(measured, measured, reference, method=method.value), dtype=np.float64)
-                return ColorReceipt(
-                    tag="correct", coords=corrected, notation=self._notate(ColorModel.SRGB.aide, corrected), space="sRGB", path=(method.value,)
+                return Derivation(
+                    tag="correct", coords=corrected, notation=Colorimetry._notate(ColorModel.SRGB.aide, corrected), space="sRGB", path=(method.value,)
                 )
             case ColorOp(tag="spot", spot=(document, target)):
                 with colour.domain_range_scale("reference"):
-                    swatches = self._swatches(read_cxf(document), target)
+                    swatches = Colorimetry._swatches(read_cxf(document), target)
                 coords = np.array([row[0] for row in swatches], dtype=np.float64) if swatches else np.empty((0, 3), dtype=np.float64)
-                return ColorReceipt(
+                return Derivation(
                     tag="spot",
                     coords=coords,
                     notation=tuple(row[1] for row in swatches),
@@ -638,21 +639,32 @@ class Colorimetry(Struct, frozen=True):
                     path=("cxf", *(row[2] for row in swatches)),
                 )
             case _:
-                assert_never(self.op)
+                assert_never(op)
+
+    @staticmethod
+    def _aligned(value: ColorSource, /) -> ColorSource:
+        # measurement-side resample: an arbitrary-grid measured spectrum aligns to the working shape
+        # once at ingress (copy-then-align — colour mutates in place); non-spectral sources pass through.
+        match value:
+            case SpectralDistribution() | MultiSpectralDistributions():
+                return value.copy().align(_WORKING_SHAPE)
+            case other:
+                return other
 
     @staticmethod
     def _resolve(
         value: ColorSource, source: ColorModel, target: ColorModel, observer: Observer, adapt: AdaptMethod = AdaptMethod.BRADFORD
     ) -> MetricInput:
+        aligned = Colorimetry._aligned(value)
         if target.spectral:
-            return value  # CRI/CFI read the SpectralDistribution directly; no coordinate form exists to resolve into
+            return aligned  # CRI/CFI read the resampled SpectralDistribution directly; no coordinate form exists to resolve into
         cmfs = colour.MSDS_CMFS[observer.value]
-        match value:
+        match aligned:
             case float() as nm:
                 return np.asarray(colour.convert(colour.wavelength_to_XYZ(nm, cmfs), "CIE XYZ", target.science), dtype=np.float64)
             case MultiSpectralDistributions():
                 return np.asarray(
-                    colour.convert(colour.msds_to_XYZ(value, cmfs, colour.SDS_ILLUMINANTS[Illuminant.D65.value]), "CIE XYZ", target.science),
+                    colour.convert(colour.msds_to_XYZ(aligned, cmfs, colour.SDS_ILLUMINANTS[Illuminant.D65.value]), "CIE XYZ", target.science),
                     dtype=np.float64,
                 )
             case _ if source.aide is not None and target.aide is not None and (source.science is None or target.science is None):
@@ -660,10 +672,12 @@ class Colorimetry(Struct, frozen=True):
                 # ColorAide `Color.convert` gateway so `Convert` is total over every ColorModel pair rather than
                 # handing `None` to `colour.convert`; the coords enter in `source.aide` and leave in `target.aide`.
                 return np.asarray(
-                    Color(source.aide, list(np.ravel(np.asarray(value, dtype=np.float64)))).convert(target.aide).coords(), dtype=np.float64
+                    Color(source.aide, list(np.ravel(np.asarray(aligned, dtype=np.float64)))).convert(target.aide).coords(), dtype=np.float64
                 )
             case _:
-                return np.asarray(colour.convert(value, source.science, target.science, chromatic_adaptation_transform=adapt.value), dtype=np.float64)
+                return np.asarray(
+                    colour.convert(aligned, source.science, target.science, chromatic_adaptation_transform=adapt.value), dtype=np.float64
+                )
 
     @staticmethod
     def _white(space: ColorModel, observer: Observer) -> Tristimulus:
@@ -731,8 +745,8 @@ class Colorimetry(Struct, frozen=True):
         if not samples:
             return None
         observer, illuminant, interval = Colorimetry._cxf_context(spec)
-        start = int(spectrum.start_wl or 380)
-        sd = colour.SpectralDistribution(dict(zip((start + index * interval for index in range(len(samples))), samples, strict=True)))
+        raw = colour.SpectralDistribution(dict(zip((int(spectrum.start_wl or 380) + index * interval for index in range(len(samples))), samples, strict=True)))
+        sd = raw.align(_WORKING_SHAPE)  # freshly built from the CxF grid — resampled to the working shape before integration
         xyz = (
             np.asarray(
                 colour.sd_to_XYZ(sd, cmfs=colour.MSDS_CMFS[observer.value], illuminant=colour.SDS_ILLUMINANTS[illuminant.value]), dtype=np.float64
@@ -743,31 +757,23 @@ class Colorimetry(Struct, frozen=True):
 
     @staticmethod
     def _cxf_context(spec: "cxf3.ColorSpecification | None") -> tuple[Observer, Illuminant, int]:
-        # CxF measurement admission kernel: a spectrum is interpretable only against its ColorSpecification illuminant/observer/grid; a missing spec folds to D65 / 2-degree / 10nm.
+        # CxF measurement admission kernel: a spectrum is interpretable only against its ColorSpecification
+        # illuminant/observer/grid; a missing spec folds to D65 / 2-degree / 10nm.
         if spec is None:
             return Observer.CIE_1931_2, Illuminant.D65, 10
         tri = spec.tristimulus_spec
         observer, illuminant = Observer.CIE_1931_2, Illuminant.D65
         if tri is not None:
             if tri.observer is not None and tri.observer.value is not None:
-                observer = _CXF_OBSERVER.get(tri.observer.value.value, Observer.CIE_1931_2)
+                observer = _CXF_OBSERVER.try_find(tri.observer.value.value).default_value(Observer.CIE_1931_2)
             illum = tri.illuminant_or_custom_illuminant
             if isinstance(illum, cxf3.Illuminant) and illum.value is not None:
-                illuminant = _CXF_ILLUMINANT.get(illum.value.value, Illuminant.D65)
+                illuminant = _CXF_ILLUMINANT.try_find(illum.value.value).default_value(Illuminant.D65)
         measurements = spec.measurement_spec
         increment = measurements[0].wavelength_range.increment if measurements and measurements[0].wavelength_range is not None else None
         return observer, illuminant, int(increment or 10)
 ```
 
-## [03]-[RESEARCH]
+`Colorimetry` is the substrate every visual plane draws color from, and its egress is VALUES: `Derivation.coords`/`notation`/`measures` compose into `graphic/style#STYLE` theme rows, `visualization/chart` theme ranges, `visualization/table` palettes, `visualization/diagram/draw` inks, `scene/render` colormaps, and the `drawing/*` discipline pens — each consumer reads the value bundle and mints its own artifacts; the LUT/plate/swatch/plate-set terminals that DO produce artifacts mint `ArtifactReceipt.Color` on `graphic/color/managed#MANAGED`, never here. `Palette` and `hex_ramp` are derive-owned: the one N-swatch carrier and the one srgb→CSS-hex projection every band shares, so a recolor anywhere in the corpus is a palette swap against this owner and a literal hex constant anywhere downstream is a defect. `AdaptMethod` is declared here once; managed composes it for its ICC/LUT egress provenance and re-declares nothing.
 
-- [OFFLOAD] [RESOLVED]: `_compute` is a thin async wrapper that offloads the synchronous colour-science/ColorAide/numpy kernel `_resolved` through `anyio.to_thread.run_sync(self._resolved, limiter=_COLOR_LANE)`, never running the CPU-bound resolve inline on the event loop the way the prior loop-resident `_compute` did — the same `concurrency.md` OFFLOAD_LANE law the `graphic/color/managed#MANAGED` `to_process`/`to_thread` arms and the `graphic/raster/io#RASTER` worker seam obey, here a `to_thread` arm because the resolve shares the address space (ColorAide `Color` objects, numpy views) with no pickle and colour-science's numpy paths release the GIL. `_COLOR_LANE` is a `CapacityLimiter(1)`, NOT a wider fan: `colour.domain_range_scale` mutates the module-level process-global `_DOMAIN_RANGE_SCALE` through a `global` statement (verified — not a `threading.local`), so two concurrent `with colour.domain_range_scale("reference")` contexts on separate worker threads would race the enter/exit save-and-restore and corrupt an in-flight conversion; the single slot serializes every derive so the loop stays responsive (other coroutines proceed while the one thread runs) while the non-thread-safe scale global is never entered twice at once. A `ValueError`/`KeyError` raised inside the worker re-raises in the awaiting `_compute` and folds through the `derive()` `async_boundary(catch=(ValueError, KeyError))` unchanged; a cancelled scope is not in that catch set and propagates as cancellation, never a railed value. Close-condition: none — the offload seam and the serialization rationale are fence-local and verified against the colour-science global.
-- [MEASURE_POLICY] [RESOLVED]: the `_METRIC` `frozendict[Metric, MetricSpec]` binds each measure to the input `ColorModel` its engine demands and `Measure` resolves the `source`-spaced sample (and the `Option`-carried reference, defaulting to the payload `Observer` `D65` white when `Nothing`) into that space through the one `_resolve` kernel `Convert` shares under the payload `Observer` (the standard-observer axis `Convert`/`Adapt` carry) before applying — colour-science `delta_E` over `LAB`, `whiteness`/`yellowness` over `XYZ`, `dominant_wavelength`/`complementary_wavelength` over `XYY` (the `xy` pair sliced from the `xyY` coords), `colour_rendering_index`/`colour_fidelity_index` over a `SpectralDistribution` passed through untouched, and the ColorAide `delta_e`/`distance`/`contrast`/`luminance`/`cct`/`severity` plus the `chromaticity-x`/`chromaticity-y` reads over `SRGB`/`XYY` — replacing the prior uniform `Callable[[ColorSource, Tristimulus | None], float]` table that silently mis-fed `LAB`/`XYZ`/`XYY` rows sRGB coordinates. The `ColorReceipt` is the frozen-dataclass canonical owner carrying the `NDArray` `coords`, the `Color.to_string` `notation`, and the immutable `frozendict[Metric, float]` `measures`; its `wired()` derives the `ColorReceiptWire` `msgspec.Struct` with ravelled `coords`+`shape` as the wire-ready columnar lowering, since an `NDArray` field on a wire struct carries no msgspec codec. The `async_boundary` `catch=(ValueError, KeyError)` narrowing folds the colour-science/ColorAide domain raises onto the rail while an unexpected raise propagates as a defect. Close-condition: none — the metric policy, the `_resolve` kernel, the chromaticity rows, and the receipt/wire split are fence-local.
-- [SPOT_INTAKE] [RESOLVED]: the colour-cxf inbound `Spot` case verifies against the cp315 `colour-cxf 0.1.1` wheel — `read_cxf(bytes) -> cxf3.CxF`, the `cxf3.CxF.resources.{object_collection.object_value, color_specification_collection.color_specification}` spine, each `Object.color_values.choice` list yielding a `ReflectanceSpectrum(value: list[float], start_wl: int | None, color_specification)` / `ColorCielab(l, a, b)` / `ColorCiexyz(x, y, z)`, and the `ColorSpecification(tristimulus_spec{observer: Observer(value: EobserverType | None), illuminant_or_custom_illuminant: Illuminant(value: EilluminantType | None)}, measurement_spec[].wavelength_range.increment)` measurement context — all confirmed field names and Optional shapes. `_cxf_context` maps the CxF `EobserverType` (`2_Degree`/`10_Degree`) and `EilluminantType` (`D65`/`D50`/...) `.value.value` strings onto the `Observer`/`Illuminant` colour registry keys (verified `MSDS_CMFS`/`SDS_ILLUMINANTS`), a missing spec/observer/illuminant folding to D65 / 2-degree / 10nm; `_spectrum_xyz` builds the SPD grid from `start_wl` + `WavelengthRange.increment`, resolves `colour.sd_to_XYZ(sd, cmfs=..., illuminant=...)` under `domain_range_scale("reference")` (the `/100` normalizing the reflectance XYZ into the convert domain), then `colour.convert`s into `target` — the load-bearing distinction from `_resolve`'s generic default-illuminant convert, since a CxF spectrum is interpretable only against its referenced spec's illuminant/observer. `Spot` folds the N swatches into one palette `ColorReceipt`, closing the derive-owned CxF wire `colour-cxf.md [INTEGRATION_STACK]` names; the device-half `ColorCmykplusN` separations stay `graphic/color/managed#MANAGED`'s. Close-condition: none — the `read_cxf`/`cxf3` graph and the `sd_to_XYZ` resolution are fence-local and verified against the cp315 wheel.
-- [GAMUT_FIT_DELTA] [RESOLVED]: the coloraide `ColorAll` `FIT_MAP` (`hct-chroma`/`oklch-cubic` added, verified 8 methods), `DE_MAP` (`helmlab` added, verified 13 methods), `INTERPOLATE_MAP` (`catrom`/`spectral`/`spectral-continuous` added, verified 9 methods), and `in_pointer_gamut()`/`fit_pointer_gamut()` all verify against the cp315 `coloraide 8.10` wheel, closing the prior `FitMethod`/`Metric`/`Interp` catalogue-deepen seams — the `spectral`/`spectral-continuous` mixbox pigment curves seed the AEC-material paint palette, `hct-chroma`/`oklch-cubic` the perceptual gamut-fit pair, `helmlab` the Helmholtz-Kohlrausch Lab difference, and `in_pointer_gamut`/`FitMethod.POINTER` the real-surface printable-gamut predicate/map for the print plane. Close-condition: none — all four surfaces are verified fence code.
-- [ADMISSION] [RESEARCH]: the `Amount`/`PaletteCount`/`Spacing`/`Kelvin`/`Wavelength` refined aliases carry a local `beartype.vale.Is[...]` predicate enforced by the `@beartype`-guarded `Convert`/`Filter`/`Palette`/`Temperature` factories — the two-tier admission `shapes.md` legislates, refusing an out-of-range amount, count, spacing, kelvin, or wavelength at construction so the dispatch interior is total over well-formed payloads. The `Is` predicates are self-contained (no catalogue dependency) and settled; a construction-time `BeartypeCallHintViolation` surfaces to the caller's admission boundary, distinct from the runtime-provider raise `async_boundary` maps inside `_compute`. Close-condition: none — the contract is fence-local.
-- [TEMPERATURE] [RESEARCH]: the colour-science `colour.temperature.CCT_to_xy(CCT, method=...)`/`xy_to_CCT(xy, method=...)` call surface is settled fence code, and the ColorAide `Color.blackbody(space, temp, method=...)` swatch and `Color.cct(method=...)` read are settled against the catalogue CCT leg (the `ohno-2013`/`robertson-1968` Planckian methods named, so `Blackbody` is settled). The inverse arm reads `np.ravel(xy_to_CCT(...))[0]` so a method returning a `[CCT, Duv]` pair and one returning a scalar both narrow to the Kelvin. The one open colour-science leg is the illuminant `method` literal set — the catalogue row names a `method` axis without enumerating the four strings, so the `CctMethod` vocabulary (`{"CIE Illuminant D Series", "Kang 2002", "Hernandez 1999", "McCamy 1992"}`) stays a catalogue-deepen item until a `colour.temperature` method-literal reflection pass lands. Close-condition: `.api` catalogue enumerates the `CCT_to_xy`/`xy_to_CCT` four-method literal set.
-- [CONVERSION_PATH] [RESEARCH]: the `Colorimetry._path` graph capture spells `describe_conversion_path(source, target, mode="Long", print_callable=captured.append)`, but the folder `.api` catalogue verifies only the two-argument `describe_conversion_path(source, target)` call without the `mode`/`print_callable` capture kwargs. The full signature is `describe_conversion_path(source, target, mode='Short', width=79, padding=3, print_callable=print, **kwargs) -> None` — `mode='Long'` is load-bearing: the default `'Short'` prints a truncated summary while `'Long'` yields the resolved model-graph the receipt `path` claims. The `mode`/`print_callable`-fed capture and the `(source, *captured, target)` path tuple stay a catalogue-deepen seam until a `describe_conversion_path` signature reflection lands; the `Convert`/`Gamut` receipt-`path` shape is settled. Close-condition: `.api` catalogue carries `describe_conversion_path` with `mode`/`print_callable`.
-- [COMPOSE] [RESEARCH]: the `Color.layer(colors, blend=, operator=, space=, out_space=)` classmethod and `Color.weighted_mix(colors, weights=, space=, out_space=)` calls verify against the catalogue composition leg, so the `Compose` arm shape is settled; the W3C `BlendMode` (the sixteen `normal`/`multiply`/`screen`/`overlay`/.../`luminosity` separable-and-non-separable modes) and `PorterDuff` (the nine `source-over`/.../`xor` operators) name sets are not enumerated in the catalogue, so those `StrEnum` rows stay a catalogue-deepen seam. Close-condition: `.api` catalogue enumerates the `Color.layer` blend-mode and Porter-Duff operator name sets.
-- [SPACES] [RESEARCH]: the `ColorModel` rows carry both engine spellings — `ICTCP` keys `science="ICtCp"` (confirmed by the catalogue `XYZ_to_ICtCp` named transform) and `aide="ictcp"`, while `DISPLAY_P3`/`REC2020`/`HSL`/`HWB` key `science=None` as ColorAide-reached gamut/palette/compose/filter AND `Convert` targets: `_resolve` routes any pair with a `science=None` endpoint through the ColorAide `Color(source.aide, coords).convert(target.aide)` gateway (verified `Color.convert` catalogue `[07]`), so `Convert` is TOTAL over every `ColorModel` pair rather than handing `None` to `colour.convert` — the aide-only spaces are first-class conversion targets, not gamut-map-only. The guard is `source.aide is not None and target.aide is not None` so an `aide=None` appearance model (`CIECAM02`/`CAM16`) and a `SpectralDistribution` source stay on the colour-science direct path (with `chromatic_adaptation_transform`). The catalogue confirms the wide-gamut spaces' presence in the ColorAide base set but does not enumerate the exact registered space ids nor a colour-science convert-node name; those `aide` strings and a future `science` column stay a catalogue-deepen seam. Close-condition: `.api` catalogue enumerates the ColorAide registered space ids and the colour-science wide-gamut convert nodes.
-- [HARMONY] [RESEARCH]: the `Harmony` `StrEnum` carries the ColorAide harmony-wheel names (`mono`/`complement`/`split`/`analogous`/`triad`/`square`/`rectangle`/`wheel`) as the `Color.harmony(name, ...)` payload, but the catalogue documents the call without enumerating the registered names. The row is `rectangle`, NOT `rectangular` (which raises `ValueError: color harmony 'rectangular' cannot be found`), and the singular `complement`/`triad`/`mono` forms not the `-ary`/`-ic` long forms. The `Harmony` row strings stay a catalogue-deepen seam until a `coloraide` harmony-name reflection pass lands; the `Palette` `Harmony` arm shape is settled. Close-condition: `.api` catalogue carries the registered harmony `name` strings.
+The engine boundary is law: colour-science owns spectral/colorimetric truth (SPD→XYZ integration over the `_WORKING_SHAPE`-aligned grid, CAM appearance, CIE/CMC/DIN99 Lab-array difference, cross-illuminant adaptation, temperature, colorimetric indices, CCM), ColorAide owns the per-color presentation legs (gamut fit, CVD+W3C filters, palette interpolation incl. the mixbox pigment curves, mask/layer/weighted-mix compositing, harmony, blackbody, OKLab-perceptual difference, WCAG contrast, CSS notation), and colour-cxf owns the CxF3 exchange shape — derive never parses CxF XML by hand, never re-integrates an SPD, never parses CSS inside colour-science, and never gamut-maps inside colour-cxf. `everything.ColorAll` is the single all-plugins `Color` so OKLCH/HCT and the registered fit/filter/harmony/blend/average/closest/blackbody plugins resolve without a per-space class; execution rides the runtime lane exclusively — `Modality.INTERPRETER` isolation makes the `domain_range_scale` process-global race-free per interpreter, the policy's capacity is the one bound, and the offload's `async_boundary` is the one fault seam, so the page mints no limiter, no thread hop, and no local boundary wrap.

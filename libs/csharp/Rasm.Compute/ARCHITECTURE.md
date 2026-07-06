@@ -68,7 +68,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Runtime               ⇄  python:geometry/mesh                    # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
+Runtime               ⇄  python:geometry/mesh                    # [CONTENT_KEY]: ContentIdentity XxHash128 seed parity + geometry TessellationPolicy-folded cache key
 Runtime/wire          →  typescript:core/interchange/codec       # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
 Runtime/wire          →  typescript:core/interchange/contract    # [WIRE]: FileDescriptorSet ContractDrift verdict
 Runtime/transport     →  typescript:core/interchange/frame       # [WIRE]: ArtifactFrameWire reassembly
@@ -78,7 +78,6 @@ Runtime/wire          ⇄  python:geometry/mesh                    # [WIRE]: Com
 Runtime/progress      →  typescript:core/state/evidence          # [WIRE]: ProgressMarkWire
 Runtime               ←  python:geometry/mesh                    # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
 Runtime/codecs        ←  python:geometry/mesh                    # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
-Runtime               ←  python:geometry                         # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
 Runtime/payload       →  csharp:Rasm.AppUi/Render/pipeline       # [PROJECTION]: ResidencyPayload blob+layout → AppUi ResidencyManifest.Mint meshopt bufferView
 Analysis              ←  csharp:Rasm.Element/Graph               # [SHAPE]: ElementGraph above seam; geometry one-hop via GeometrySource by key
 Analysis              →  csharp:Rasm.Element/Assessment          # [SHAPE]: Node.Assessment GraphDelta on neutral Assign edge, never IFC-named
@@ -140,7 +139,7 @@ Solver/contract       ←  csharp:Rasm.Element/Composition         # [SHAPE]: Ma
 Tensor/dispatch       ⇄  csharp:Rasm/Numerics/spectral           # [SHAPE]: TensorOpKind.Geometry rows bind OperatorRow; routes Apply JVP/Adjoint VJP
 Tensor/residency      ←  csharp:Rasm/Drawing/pack                # [CONTENT_KEY]: EncodedGeometry as EncodedTensor — residency never a re-pack
 Tensor/residency      ⇄  csharp:Rasm.AppHost/Sandbox/solver      # [SHAPE]: EncodingKind rows align onto the PackKind axis; Field/Toolpath land as PackKind rows
-Runtime               ⇄  python:compute/graduation               # [GRADUATION]: HandoffAxis graduation evidence
+Runtime               ⇄  python:compute/graduation               # [GRADUATION]: HandoffAxis graduation evidence, incl. the geometry case (GeometryHandoff wire data: topology-graph / bim-lifecycle / registration-transform et al.)
 Runtime               →  python:compute/graduation               # [WIRE]: EvidenceBundle graduation-evidence wire
 Runtime               ←  python:compute/solvers                  # [PROJECTION]: SolverReceipt convergence verdict
 Runtime               ←  python:data/tabular                     # [SHAPE]: DOE dataset / labelled-array study input

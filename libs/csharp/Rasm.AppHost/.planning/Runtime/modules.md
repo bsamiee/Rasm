@@ -1,12 +1,13 @@
 # [APPHOST_COMPOSITION_AND_MODULES]
 
-One composition root per process folds a frozen module table into the service graph and freezes it. Composition owns three axes: the `ModuleContribution` row — assembly, scan, descriptor, contributor, registrar, and decoration columns — the one-pass receipted composition fold, and admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery. One descriptor algebra serves every seam: `ServiceDescriptor.Describe` and `DescribeKeyed` rows carry registrations, and `TryAddEnumerable` ordered sets carry every fan-in family. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration and `FluentValidation.DependencyInjectionExtensions` validator discovery at the root.
+One composition root per process folds a frozen module table into the service graph and freezes it. Composition owns three axes: the `ModuleContribution` row — assembly, scan, descriptor, contributor, registrar, and decoration columns — the one-pass receipted composition fold, and admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery. One descriptor algebra serves every seam: `ServiceDescriptor.Describe` and `DescribeKeyed` rows carry registrations, and `TryAddEnumerable` ordered sets carry every fan-in family. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration, `FluentValidation.DependencyInjectionExtensions` validator discovery at the root, and `System.CommandLine` as the app-root verb boundary — one `ParseResult`-driven projection onto the existing owners, never a second dispatcher.
 
 ## [01]-[INDEX]
 
 - [01]-[MODULE_TABLE]: Frozen contribution rows with one descriptor algebra for every fan-in seam.
 - [02]-[SCAN_AND_DECORATE]: One-pass scan, decoration, and keyed registration fold with receipted freeze.
 - [03]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
+- [04]-[APP_ROOT_VERBS]: The `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
 
 ## [02]-[MODULE_TABLE]
 
@@ -188,5 +189,61 @@ public static class BoundaryActivation {
             lifetime,
             filter,
             includeInternalTypes: false);
+}
+```
+
+## [05]-[APP_ROOT_VERBS]
+
+- Owner: `VerbRow` the seed-DATA verb table row; `AppRootVerbs` the one CLI boundary adapter mounting the table onto a `RootCommand`.
+- Cases: canonical rows — `dispatch` projects a descriptor + serialized arguments onto `Agent/runtime#DISPATCH_FRONT_DOOR` `CommandDispatch.Run`; `replay` and `bisect` are the `Runtime/determinism` ingress (the `ChangefeedPort.Load` windowed read feeding `ReplayVerify.Replay`/`AdversarialProbe.Bisect`); `capture-support` admits one `SupportTrigger.ExternalCommand` onto the `Observability/bundles` capture fan — every host modality that also carries the ControlService verbs shares these exact owners, so the CLI is a projection, never a parallel verb semantics.
+- Entry: `Mount(string description, Seq<VerbRow> rows)` returns `RootCommand` — the table mounts once at the app root; each row's `Command.SetAction(Func<ParseResult, CancellationToken, Task<int>>)` binds the projection; `ParseResult.GetValue<T>(Option<T>)`/`GetValue<T>(Argument<T>)` are the only argument reads.
+- Packages: System.CommandLine, LanguageExt.Core, BCL inbox
+- Growth: a new operator verb is one `VerbRow` in the table projecting onto an existing owner; a verb whose owner does not exist yet is a missing case on the owning page, never a CLI-local body; zero new surface.
+- Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation seam); parse failures surface as `ParseResult.Errors` projected to exit-code evidence, never a thrown parse; the ControlService verbs stay the service-modality wire route — the CLI row and the control verb project onto the SAME owner so an operator at a terminal and an operator over the control hop invoke one semantics; removal of this table is legal only on proof every verb rides ControlService for every host modality.
+
+```csharp signature
+// Seed DATA: one verb row per operator concern, each a projection onto an existing owner.
+public sealed record VerbRow(Command Command, Func<ParseResult, CancellationToken, Task<int>> Project);
+
+public static class AppRootVerbs {
+    // Named boundary capsule: RootCommand mutation is the host-owned statement seam.
+    public static RootCommand Mount(string description, Seq<VerbRow> rows) {
+        var root = new RootCommand(description);
+        rows.Iter(row => { row.Command.SetAction(row.Project); root.Add(row.Command); });
+        return root;
+    }
+
+    public static VerbRow Dispatch(DispatchRuntime runtime, Func<string, string, Fin<CommandIntent>> intentOf) {
+        var descriptor = new Argument<string>("descriptor");
+        var arguments = new Option<string>("--arguments", "-a");
+        var command = new Command("dispatch", "run one capability through the command front door") { descriptor, arguments };
+        return new(command, (parse, token) =>
+            intentOf(parse.GetValue(descriptor)!, parse.GetValue(arguments) ?? "{}")
+                .Match(
+                    Succ: intent => CommandDispatch.Run(runtime, intent).RunAsync().AsTask()
+                        .ContinueWith(static run => run.IsCompletedSuccessfully && run.Result.Txn is CommandTxn.Committed ? 0 : 1, token),
+                    Fail: error => Task.FromResult((int)error.Code)));
+    }
+
+    public static VerbRow Replay(ReplayRuntime runtime, ChangefeedPort port, DeterminismContext live) {
+        var origin = new Option<Guid>("--origin");
+        var from = new Option<long>("--from");
+        var to = new Option<long>("--to");
+        var command = new Command("replay", "rehydrate a recorded chain from the durable store and replay-verify it") { origin, from, to };
+        return new(command, (parse, token) =>
+            port.Load(new ChangefeedWindow(parse.GetValue(origin), parse.GetValue(from), parse.GetValue(to)))
+                .Match(
+                    Succ: log => ReplayVerify.Replay(runtime, log, live).RunAsync().AsTask()
+                        .ContinueWith(static run => run.Result.Exists(static o => o is not ReplayOutcome.Matched) ? 1 : 0, token),
+                    Fail: error => Task.FromResult((int)error.Code)));
+    }
+
+    public static VerbRow CaptureSupport(CorrelationId correlation, Func<SupportTrigger, IO<Unit>> capture) {
+        var reason = new Option<string>("--reason");
+        var command = new Command("capture-support", "admit one external-command support capture") { reason };
+        return new(command, (parse, token) =>
+            capture(new SupportTrigger.ExternalCommand(correlation, parse.GetValue(reason) ?? string.Empty))
+                .RunAsync().AsTask().ContinueWith(static run => run.IsCompletedSuccessfully ? 0 : 1, token));
+    }
 }
 ```

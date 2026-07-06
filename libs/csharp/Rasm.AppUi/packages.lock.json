@@ -213,6 +213,12 @@
           "System.Reactive": "6.1.0"
         }
       },
+      "FFmpeg.AutoGen": {
+        "type": "Direct",
+        "requested": "[8.1.0, )",
+        "resolved": "8.1.0",
+        "contentHash": "j7YbmE4QGst6OPk0w1D/EMBv7Ig1CoCnAVtSEYh/88q9MAVEzhu3FjgVFGYqH83jhz2opvaqZe90qG73RLMBWQ=="
+      },
       "FluentIcons.Avalonia": {
         "type": "Direct",
         "requested": "[2.1.331, )",
@@ -323,6 +329,12 @@
         "requested": "[5.0.0-beta-77, )",
         "resolved": "5.0.0-beta-77",
         "contentHash": "zVBqn2alHIDTOSjgWDUo31irEg59ZfM6T8e24UcUn6o/F+5Qr0jRjGPp2LzME7PHyKh+crK+boBmdCAFguwqjw=="
+      },
+      "lcmsNET": {
+        "type": "Direct",
+        "requested": "[1.2.1, )",
+        "resolved": "1.2.1",
+        "contentHash": "NBwlUu+aB17eTGu/WVNpnJDGdZstxvYzCiFa9M2cptQmuGMOSRB+S3SIHdqSTHQ25zh8QaTw1WBygQFUbiXwRA=="
       },
       "LiveChartsCore.SkiaSharpView.Avalonia": {
         "type": "Direct",
@@ -720,6 +732,15 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
+      },
+      "Whisper.net": {
+        "type": "Direct",
+        "requested": "[1.9.1, )",
+        "resolved": "1.9.1",
+        "contentHash": "82WAKyyMun44cAXE80sP7vIra1oYhbVp2WrnqJm0CISTfMAvint1k/umt0SvsQH+IkDyekZ3BgMdS3Rag9SZ5A==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.2.0"
+        }
       },
       "Xaml.Behaviors.Avalonia": {
         "type": "Direct",
@@ -2811,7 +2832,6 @@
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Grpc.AspNetCore": "[2.80.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.80.0, )",
-          "Grpc.AspNetCore.Web": "[2.80.0, )",
           "Grpc.Core.Api": "[2.80.0, )",
           "Grpc.Net.Client": "[2.80.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
@@ -2862,7 +2882,6 @@
           "OpenFeature": "[2.14.0, )",
           "OpenIddict.Client": "[7.5.0, )",
           "OpenTelemetry": "[1.16.0, )",
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.16.0, )",
           "OpenTelemetry.Extensions.Hosting": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Http": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
@@ -2874,8 +2893,6 @@
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.3.1, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
-          "Serilog.Sinks.Console": "[6.1.1, )",
-          "Serilog.Sinks.File": "[7.0.0, )",
           "Sigstore": "[0.5.0, )",
           "System.CommandLine": "[2.0.9, )",
           "System.IO.Hashing": "[10.0.9, )",
@@ -3622,12 +3639,6 @@
           "Grpc.AspNetCore.Server": "2.80.0",
           "Grpc.HealthCheck": "2.80.0"
         }
-      },
-      "Grpc.AspNetCore.Web": {
-        "type": "CentralTransitive",
-        "requested": "[2.80.0, )",
-        "resolved": "2.80.0",
-        "contentHash": "cDxy61tAgx/CD7fUQrXD/fGVqPQw8ka5vL8wM4WDlFZiubHDXWWTHkTvR5hP1tW0JI1uU3887uLLZds6FCfFTQ=="
       },
       "Grpc.Core.Api": {
         "type": "CentralTransitive",
@@ -4822,15 +4833,6 @@
           "OpenTelemetry.Api.ProviderBuilderExtensions": "1.16.0"
         }
       },
-      "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
-        "type": "CentralTransitive",
-        "requested": "[1.16.0, )",
-        "resolved": "1.16.0",
-        "contentHash": "gzYLY8sVDY5FYtVlCYSzBYX53xslRlvBLxwFYOdNIhc76SgKdFYUoDQXOeQI3WPBCrZp51QNcP6fZHh1+HtpIQ==",
-        "dependencies": {
-          "OpenTelemetry": "1.16.0"
-        }
-      },
       "OpenTelemetry.Extensions.Hosting": {
         "type": "CentralTransitive",
         "requested": "[1.16.0, )",
@@ -5077,24 +5079,6 @@
           "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
           "Serilog": "4.3.0",
           "Serilog.Extensions.Logging": "10.0.0"
-        }
-      },
-      "Serilog.Sinks.Console": {
-        "type": "CentralTransitive",
-        "requested": "[6.1.1, )",
-        "resolved": "6.1.1",
-        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
-        "dependencies": {
-          "Serilog": "4.0.0"
-        }
-      },
-      "Serilog.Sinks.File": {
-        "type": "CentralTransitive",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
-        "dependencies": {
-          "Serilog": "4.2.0"
         }
       },
       "SharpGLTF.Core": {

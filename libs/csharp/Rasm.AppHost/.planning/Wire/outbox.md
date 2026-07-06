@@ -10,14 +10,14 @@ The transactional-outbox and dead-letter owner for the runtime spine: a `DomainE
 
 ## [02]-[OUTBOX_FABRIC]
 
-- Owner: `DispatchStatus` `[SmartEnum<string>]` the outbox-row lifecycle under the `ComparerAccessors.StringOrdinal` accessor; `OutboxRow` the durable transactional-outbox record; `DeadLetterRow` the poison-row record; `OutboxFault` `[Union]` fault family in the 4740 band.
+- Owner: `DispatchStatus` `[SmartEnum<string>]` the outbox-row lifecycle under the `ComparerAccessors.StringOrdinal` accessor; `OutboxRow` the durable transactional-outbox record; `DeadLetterRow` the poison-row record; `OutboxFault` `[Union]` fault family deriving its codes through `FaultBand.Outbox`.
 - Cases: dispatch statuses pending | dispatched | dead-lettered; `OutboxFault` = Text | RelayRejected | Exhausted | WatermarkStale.
-- Entry: `OutboxRow.Enqueue(DomainEvent evt, TenantContext tenant, Instant at)` materializes a pending row carrying the event payload, the topic, the dedup key, the HLC stamp, and a zero attempt count; `OutboxRow.Relayed(OutboxRow row, Instant at)` folds a successful relay onto the row as `dispatched`, and `OutboxRow.Deferred(OutboxRow row, OutboxFault cause, Instant at)` increments the attempt and routes to `dead-lettered` when the attempt budget is exhausted.
-- Auto: the outbox row writes same-transaction with the producing write so a domain event and its source state commit atomically — a crash between the state write and the event publish cannot lose the event because both ride one transaction, and the dispatch sweep relays the durable row after commit, the transactional-outbox guarantee; the dedup key is the event's idempotency key so a re-enqueued identical event within the relay window dedupes through the `DeliveryFanout` cell exactly as the bus and notification fan-out dedupe, never a second dedup map; a row exhausting its attempt budget routes to `DeadLetterRow` carrying the last fault and the attempt history so a poison message leaves the dispatch lane rather than blocking it, and a dead-letter row is replayable through an operator command; the row carries the HLC stamp so the relay advances a `(ConsumerId, Hlc)` watermark monotonically and a relayed row never re-relays.
+- Entry: `OutboxRow.Enqueue(DomainEvent evt, TenantContext tenant)` materializes a pending row carrying the event payload, the topic, the dedup key, the event's `DataClassification`, the HLC stamp, and a zero attempt count; `OutboxRow.Relayed(Instant at)` folds a successful relay onto the row as `dispatched` stamping the dispatched-at column, and `OutboxRow.Deferred(Instant at)` increments the attempt, stamps the same column, and routes to `dead-lettered` when the attempt budget is exhausted.
+- Auto: the outbox row writes same-transaction with the producing write so a domain event and its source state commit atomically — a crash between the state write and the event publish cannot lose the event because both ride one transaction, and the dispatch sweep relays the durable row after commit, the transactional-outbox guarantee; the dedup key is the event's idempotency key so a re-enqueued identical event within the relay window dedupes through the `DeliveryFanout` cell exactly as the bus and notification fan-out dedupe, never a second dedup map; a row exhausting its attempt budget routes to `DeadLetterRow` carrying the last fault and the attempt history so a poison message leaves the dispatch lane rather than blocking it, and a dead-letter row is replayable through an operator command; the row carries the HLC stamp so the relay advances a `(ConsumerId, Hlc)` watermark monotonically and a relayed row never re-relays; the row persists the event's `DataClassification` and `ToEvent` re-emits it verbatim, so a `Personal`/`Confidential`/`Secret` event relayed through the durable lane re-enters the bus under its original classification and the `Observability/telemetry#REDACTION_TAXONOMY` seam never sees a silently-`Operational` downgrade.
 - Receipt: a relayed row mints one `DeliveryReceipt` (the `DeliveryFanout` shape) carrying the topic and the dispatched flag; a dead-letter transition fans one `SpineLog` event; no parallel outbox receipt.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one dispatch status is one `DispatchStatus` row; a new outbox column is one field on `OutboxRow`; a new fault is one `OutboxFault` case; zero new surface.
-- Boundary: the outbox is the only transactional-message owner — a fire-and-forget publish, a separate message queue, and a parallel event store are the deleted forms; the outbox row writes atomically with the producing transaction so atomicity stays Persistence and the AppHost names the seam — the durable outbox table, the dispatch-sweep cursor, and the dedup-key index land as the branch `ONE_OUTBOX_EGRESS_SPINE` Persistence ripple under the `TenantId` RLS predicate; the outbox row and the `Runtime/orchestration#STEP_STATE_SEAM` workflow step-state row commit under one tenant-scoped transaction so exactly-once-effective delivery and crash-durable step resumption share one durable boundary (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`); the relay registers as one keyed `OutboundHop` consumer advancing its own `(ConsumerId, Hlc)` watermark over the `ONE_OUTBOX_EGRESS_SPINE` op-log; the `[ONE_OUTBOX_EGRESS_SPINE]` branch binds three keyed `OutboundHop` consumers over the one op-log — this outbox relay, the `Runtime/orchestration#STEP_STATE_SEAM` workflow-step dispatch, and the `Rasm.Persistence/Sync/egress` webhook/gRPC sinks (registered through the `Runtime ⇄ Rasm.Persistence/Sync/egress # [PORT]: keyed OutboundHop egress` seam) — each draining the same `CdcEnvelopeWire` CloudEvents envelope as the hop payload rather than re-minting a second envelope shape or a parallel egress table, so the CloudEvents projection is the one wire payload and a per-consumer changefeed is the drift defect; the dedup reuses the `DeliveryFanout` idempotency-key precedent so the outbox dedup and the delivery dedup are one cell, never two.
+- Boundary: the outbox is the only transactional-message owner — a fire-and-forget publish, a separate message queue, and a parallel event store are the deleted forms; the outbox row writes atomically with the producing transaction so atomicity stays Persistence and the AppHost names the seam — the durable outbox table, the dispatch-sweep cursor, and the dedup-key index land as the branch `ONE_OUTBOX_EGRESS_SPINE` Persistence ripple under the `TenantId` RLS predicate; the outbox row and the `Runtime/orchestration#STEP_STATE_SEAM` workflow step-state row commit under one tenant-scoped transaction so exactly-once-effective delivery and crash-durable step resumption share one durable boundary (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`); the relay registers as one keyed `OutboundHop` consumer advancing its own `(ConsumerId, Hlc)` watermark over the `ONE_OUTBOX_EGRESS_SPINE` op-log; the `[ONE_OUTBOX_EGRESS_SPINE]` branch binds three keyed `OutboundHop` consumers over the one op-log — this outbox relay, the `Runtime/orchestration#STEP_STATE_SEAM` workflow-step dispatch, and the `Rasm.Persistence/Version/egress` webhook/gRPC sinks (registered through the `Runtime ⇄ Rasm.Persistence/Version/egress # [PORT]: keyed OutboundHop egress` seam) — each draining the SAME Persistence-owned `CdcEnvelope` CloudEvents projection as the hop payload (`id` = `OpLogEntry.ContentKey` lower-hex, the `Sequence` extension = the outbox cursor, `partitionkey` = `EntityKey`) — the envelope is DECODED, never re-minted, and a per-consumer re-pack is the drift defect; the dedup reuses the `DeliveryFanout` idempotency-key precedent so the outbox dedup and the delivery dedup are one cell, never two.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -33,10 +33,10 @@ public sealed partial class DispatchStatus {
 public abstract partial record OutboxFault : Expected, IValidationError<OutboxFault> {
     private OutboxFault(string detail, int code) : base(detail, code, None) { }
     public static OutboxFault Create(string message) => new Text(message);
-    public sealed record Text : OutboxFault { public Text(string detail) : base(detail, 4740) { } }
-    public sealed record RelayRejected : OutboxFault { public RelayRejected(string detail) : base(detail, 4741) { } }
-    public sealed record Exhausted : OutboxFault { public Exhausted(string detail) : base(detail, 4742) { } }
-    public sealed record WatermarkStale : OutboxFault { public WatermarkStale(string detail) : base(detail, 4743) { } }
+    public sealed record Text : OutboxFault { public Text(string detail) : base(detail, FaultBand.Outbox.Code(0)) { } }
+    public sealed record RelayRejected : OutboxFault { public RelayRejected(string detail) : base(detail, FaultBand.Outbox.Code(1)) { } }
+    public sealed record Exhausted : OutboxFault { public Exhausted(string detail) : base(detail, FaultBand.Outbox.Code(2)) { } }
+    public sealed record WatermarkStale : OutboxFault { public WatermarkStale(string detail) : base(detail, FaultBand.Outbox.Code(3)) { } }
 }
 
 public sealed record OutboxRow(
@@ -44,22 +44,28 @@ public sealed record OutboxRow(
     string Topic,
     string DedupKey,
     JsonElement Payload,
+    DataClassification Classification,
     DispatchStatus Status,
     int Attempt,
     ulong Logical,
     Instant Physical,
-    TenantContext Tenant) {
+    TenantContext Tenant,
+    Option<Instant> DispatchedAt = default) {
     public const int MaxAttempts = 8;
 
-    public static OutboxRow Enqueue(DomainEvent evt, TenantContext tenant, Instant at) =>
-        new($"{evt.Topic}:{evt.IdempotencyKey}", evt.Topic, evt.IdempotencyKey, evt.Payload, DispatchStatus.Pending, Attempt: 0, evt.Logical, evt.Physical, tenant);
+    public static OutboxRow Enqueue(DomainEvent evt, TenantContext tenant) =>
+        new($"{evt.Topic}:{evt.IdempotencyKey}", evt.Topic, evt.IdempotencyKey, evt.Payload, evt.Classification, DispatchStatus.Pending, Attempt: 0, evt.Logical, evt.Physical, tenant);
 
-    public OutboxRow Relayed(Instant at) => this with { Status = DispatchStatus.Dispatched };
+    // Every Instant parameter is CONSUMED: the transition stamps the row's dispatched-at column.
+    public OutboxRow Relayed(Instant at) => this with { Status = DispatchStatus.Dispatched, DispatchedAt = Some(at) };
 
     public OutboxRow Deferred(Instant at) =>
-        Attempt + 1 >= MaxAttempts ? this with { Status = DispatchStatus.DeadLettered, Attempt = Attempt + 1 } : this with { Attempt = Attempt + 1 };
+        Attempt + 1 >= MaxAttempts
+            ? this with { Status = DispatchStatus.DeadLettered, Attempt = Attempt + 1, DispatchedAt = Some(at) }
+            : this with { Attempt = Attempt + 1, DispatchedAt = Some(at) };
 
-    public DomainEvent ToEvent() => new(Topic, DedupKey, Payload, DataClassification.Operational, Logical, Physical);
+    // The relayed event round-trips its ORIGINAL classification — a durable hop never downgrades the redaction taxonomy.
+    public DomainEvent ToEvent() => new(Topic, DedupKey, Payload, Classification, Logical, Physical);
 }
 
 public sealed record DeadLetterRow(
@@ -75,11 +81,11 @@ public sealed record DeadLetterRow(
 
 - Owner: `OutboxRelay` the static sweep-and-relay surface over the one `SchedulePort` cadence, advancing the `(ConsumerId, Hlc)` watermark.
 - Entry: `Sweep(OutboxRelay.Runtime runtime, TenantContext tenant, ulong watermark)` returns `IO<Seq<DeliveryReceipt>>` — reads the pending outbox rows past the `watermark` cursor, relays each through the in-process `EventBus.Dispatch` and the durable `OutboundHop`, advances the watermark on each success, and defers or dead-letters a failed row; `Replay(OutboxRelay.Runtime runtime, string outboxId)` returns `IO<DeliveryReceipt>` — re-enqueues a dead-letter row for one more dispatch attempt.
-- Auto: the sweep rides one `ScheduleEntry.Spread` row on the one `SchedulePort` so the dispatch cadence is one schedule row, never a second scheduler — the fleet-spread seed distributes the sweep across nodes so two nodes do not relay the same row simultaneously, and the `FencingToken` fences the watermark advance so a stale node cannot rewind it; each pending row relays through `EventBus.Dispatch` to feed the in-process bus and through `OutboundSurface.Run` over its topic's `OutboundHop` for a durable subscriber, so the in-process and durable delivery legs ride one relay; a successful relay advances the `(ConsumerId, Hlc)` watermark monotonically so a relayed row never re-relays — the at-least-once-with-watermark guarantee that, with the consumer-side dedup, is exactly-once-effective; a failed relay increments the row's attempt and re-defers to the next sweep, routing to dead-letter on budget exhaustion so a poison row leaves the lane.
-- Receipt: each relayed row mints one `DeliveryReceipt` carrying the topic and the dispatched flag; the watermark advance is the relay's own evidence; a dead-letter transition fans one `SpineLog` event; no parallel relay receipt.
+- Auto: the sweep rides one `ScheduleEntry.Spread` row on the one `SchedulePort` so the dispatch cadence is one schedule row, never a second scheduler — the fleet-spread seed distributes the sweep across nodes so two nodes do not relay the same row simultaneously, and the `FencingToken` fences the watermark advance so a stale node cannot rewind it; each pending row relays through `EventBus.Dispatch` to feed the in-process bus and through `OutboundSurface.Run` over its topic's `OutboundHop` for a durable subscriber, so the in-process and durable delivery legs ride one relay; a successful relay advances the `(ConsumerId, Hlc)` watermark monotonically so a relayed row never re-relays — the at-least-once-with-watermark guarantee that, with the consumer-side dedup, is exactly-once-effective; a failed relay increments the row's attempt and PERSISTS the deferred row through the `Park` port — the retry budget is durable, so exhaustion actually trips across sweeps — routing to dead-letter on budget exhaustion so a poison row leaves the lane and its dead-lettered status leaves the pending set.
+- Receipt: each relayed row mints one `DeliveryReceipt` carrying the topic, the dispatched flag, and the ADVANCED watermark — the fenced advance THREADS into the returned receipt so delivery accounting is wired, never notional (a bound-then-discarded advance is the deleted form); a dead-letter transition fans one `SpineLog` event; no parallel relay receipt.
 - Packages: LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
 - Growth: a new relay target is one `OutboundHop` the topic binds; the sweep cadence is one `ScheduleEntry.Spread` row column; zero new surface.
-- Boundary: the dispatch sweep is the only outbox-relay owner — a per-row background loop, a second scheduler for the sweep, and a parallel relay are the deleted forms; the sweep rides the one `SchedulePort` so the cadence is one schedule row and the fleet-spread seed distributes it; the relay registers as one keyed `OutboundHop` consumer advancing its own `(ConsumerId, Hlc)` watermark over the `ONE_OUTBOX_EGRESS_SPINE` op-log, never re-minting the `CdcEnvelopeWire` or a second egress table; the watermark advance fences through `FencingToken.Admits` so two nodes cannot both advance it past one row; the consumer-side dedup reuses the `DeliveryFanout` cell so at-least-once dispatch plus idempotent-key dedup is exactly-once-effective, never an exactly-once distributed-transaction protocol.
+- Boundary: the dispatch sweep is the only outbox-relay owner — a per-row background loop, a second scheduler for the sweep, and a parallel relay are the deleted forms; the sweep rides the one `SchedulePort` so the cadence is one schedule row and the fleet-spread seed distributes it; the relay registers as one keyed `OutboundHop` consumer advancing its own `(ConsumerId, Hlc)` watermark over the `ONE_OUTBOX_EGRESS_SPINE` op-log, never re-minting the Persistence-owned `CdcEnvelope` CloudEvents projection or a second egress table; the watermark advance fences through `FencingToken.Admits` so two nodes cannot both advance it past one row; the consumer-side dedup reuses the `DeliveryFanout` cell so at-least-once dispatch plus idempotent-key dedup is exactly-once-effective, never an exactly-once distributed-transaction protocol.
 
 ```csharp signature
 public static class OutboxRelay {
@@ -88,6 +94,7 @@ public static class OutboxRelay {
         OutboundRuntime Outbound,
         Func<TenantContext, ulong, Fin<Seq<OutboxRow>>> Pending,
         Func<OutboxRow, FencingToken, Fin<ulong>> Advance,
+        Func<OutboxRow, Fin<Unit>> Park,
         Func<DeadLetterRow, Fin<Unit>> DeadLetter,
         Func<TenantContext, Fin<FencingToken>> Fence,
         Func<string, OutboundHop> Hop,
@@ -100,18 +107,31 @@ public static class OutboxRelay {
             Succ: rows => rows.TraverseM(row => Relay(runtime, tenant, row)).As(),
             Fail: fault => IO.pure(Seq<DeliveryReceipt>()));
 
+    // The fenced advance THREADS: the store-validated watermark lands IN the returned receipt (Some on
+    // a delivered advance, None on a defer), so accounting derives from the wired value — a bound-then-
+    // discarded advance and a constant sentinel cursor are the deleted forms.
     static IO<DeliveryReceipt> Relay(Runtime runtime, TenantContext tenant, OutboxRow row) =>
         from _bus in EventBus.Dispatch(runtime.Bus, row.ToEvent())
         from receipt in OutboundSurface.Run(runtime.Outbound, runtime.Hop(row.Topic), runtime.Send(row, row.ToEvent()))
-        from _advance in receipt.Outcome is HopOutcome.Delivered
-            ? IO.lift(() => runtime.Fence(tenant).Bind(token => runtime.Advance(row.Relayed(runtime.Clocks.Now), token)))
+        from advanced in receipt.Outcome is HopOutcome.Delivered
+            ? IO.lift(() => runtime.Fence(tenant)
+                .Bind(token => runtime.Advance(row.Relayed(runtime.Clocks.Now), token))
+                .Map(Some))
             : Defer(runtime, row)
-        select new DeliveryReceipt(row.Topic, row.DedupKey, receipt.Outcome, Deduped: false, receipt.Attempts, receipt.Elapsed, Correlation.Mint());
+        select new DeliveryReceipt(
+            row.Topic, row.DedupKey, receipt.Outcome, Deduped: false, receipt.Attempts, receipt.Elapsed,
+            advanced.Match(Succ: static cursor => cursor, Fail: static _ => Option<ulong>.None), Correlation.Mint());
 
-    static IO<Fin<ulong>> Defer(Runtime runtime, OutboxRow row) =>
+    // A deferred row advances NO watermark — the defer answers None — and the incremented attempt /
+    // DispatchedAt row PERSISTS through Park on BOTH arms, so the retry budget is durable across sweeps
+    // and a dead-lettered row leaves the pending set; a computed-then-dropped Deferred is the deleted form.
+    static IO<Fin<Option<ulong>>> Defer(Runtime runtime, OutboxRow row) =>
         row.Deferred(runtime.Clocks.Now) is var deferred && deferred.Status == DispatchStatus.DeadLettered
-            ? IO.lift(() => runtime.DeadLetter(new DeadLetterRow(row.OutboxId, row.Topic, row.Payload, "relay-exhausted", deferred.Attempt, runtime.Clocks.Now)).Map(static _ => 0UL))
-            : IO.pure(Fin.Succ(0UL));
+            ? IO.lift(() => runtime.Park(deferred)
+                .Bind(_ => runtime.DeadLetter(new DeadLetterRow(
+                    row.OutboxId, row.Topic, row.Payload, "relay-exhausted", deferred.Attempt, runtime.Clocks.Now)))
+                .Map(static _ => Option<ulong>.None))
+            : IO.lift(() => runtime.Park(deferred).Map(static _ => Option<ulong>.None));
 }
 ```
 
@@ -162,6 +182,6 @@ interface DeadLetterRowWire {
 
 ## [05]-[RESEARCH]
 
-- [OUTBOX_RIPPLE]: the durable transactional-outbox table, the dispatch-sweep cursor, and the dedup-key index are the `Rasm.Persistence` `ONE_OUTBOX_EGRESS_SPINE` ripple under the `TenantId` RLS predicate — the AppHost names the seam and the relay, the outbox row writes atomically with the producing transaction at Persistence, and the `[ONE_OUTBOX_EGRESS_SPINE]` branch binds three keyed `OutboundHop` consumers over the one op-log: this outbox relay, the `Runtime/orchestration#STEP_STATE_SEAM` workflow-step dispatch, and the `Rasm.Persistence/Sync/egress#EGRESS_SINK` webhook/gRPC sinks through the `[PORT]: keyed OutboundHop egress` seam — each advancing its own `(ConsumerId, Hlc)` watermark and draining the same `CdcEnvelopeWire` CloudEvents envelope as the hop payload rather than re-minting a second envelope shape or a parallel egress table, so the CloudEvents projection is the one wire payload across all three consumers; the outbox row and the `Runtime/orchestration#STEP_STATE_SEAM` workflow step-state row commit under one tenant-scoped transaction (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`), so exactly-once-effective delivery and crash-durable step resumption share one durable boundary that lands in parallel as the two Persistence legs.
+- [OUTBOX_RIPPLE]: the durable transactional-outbox table, the dispatch-sweep cursor, and the dedup-key index are the `Rasm.Persistence` `ONE_OUTBOX_EGRESS_SPINE` ripple under the `TenantId` RLS predicate — the AppHost names the seam and the relay, the outbox row writes atomically with the producing transaction at Persistence, and the `[ONE_OUTBOX_EGRESS_SPINE]` branch binds three keyed `OutboundHop` consumers over the one op-log: this outbox relay, the `Runtime/orchestration#STEP_STATE_SEAM` workflow-step dispatch, and the `Rasm.Persistence/Version/egress#EGRESS_SINK` webhook/gRPC sinks through the `[PORT]: keyed OutboundHop egress` seam — each advancing its own `(ConsumerId, Hlc)` watermark (the Persistence cursor owner is `Store/coordination#OUTBOX_CURSOR`, `OutboxAdvance(Sink, Through)` the one fenced CAS writer) and draining the SAME Persistence-owned `CdcEnvelope` CloudEvents projection as the hop payload (`id` = `OpLogEntry.ContentKey` lower-hex, `Sequence` = the outbox cursor, `partitionkey` = `EntityKey`) — decoded, never re-minted, so the CloudEvents projection is the one wire payload across all three consumers; the wire-native gRPC hop reads its `HopDelivery.ExactlyOnceEffective` row so the delivery guarantee is STATED per sink; the outbox row and the `Runtime/orchestration#STEP_STATE_SEAM` workflow step-state row commit under one tenant-scoped transaction (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`), so exactly-once-effective delivery and crash-durable step resumption share one durable boundary that lands in parallel as the two Persistence legs.
 - [SWEEP_CADENCE]: the dispatch sweep rides one `Runtime/time#SCHEDULE_PORT` `ScheduleEntry.Spread` row so the cadence is one schedule row and the fleet-spread `XxHash3` seed distributes the sweep across nodes — a second scheduler for the outbox sweep is the rejected form; the watermark advance fences through `Runtime/time#FENCING_TOKEN` `FencingToken.Admits` so two nodes cannot both advance it past one row, and the consumer-side dedup reuses the `Wire/outbound#DELIVERY_FANOUT` idempotency-key precedent so at-least-once dispatch plus idempotent-key dedup is exactly-once-effective, never an exactly-once distributed-transaction protocol.
 - [BUS_FEED]: the relay feeds the in-process `Wire/topics#BUS_CONDUCTOR` `EventBus.Dispatch` and the durable `OutboundHop` over `OutboundSurface.Run` in one relay, so the in-process leg carries bounded back-pressure and the durable leg rides the one retry owner; the `DeadLetter` lane carries a poison row for operator replay through `Replay`, never a blocked dispatch lane.

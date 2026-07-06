@@ -102,7 +102,7 @@ export const meta = {
   whenToUse: 'CI is intermittently red',  // optional — shown in the workflow list
   phases: [                            // optional — one entry per phase() call
     { title: 'Scan',  detail: 'grep test logs for retries' },
-    { title: 'Fix',   detail: 'one agent per flaky test', model: 'haiku' },
+    { title: 'Fix',   detail: 'one agent per flaky test', model: 'sonnet' },
   ],
 }
 ```
@@ -117,7 +117,7 @@ export const meta = {
 > **`phases[].model` is a label, not a setting.** The binary stores it and shows
 > it in the permission dialog, but **no code reads it to choose a model**. The
 > model is set *only* by the `model` option on each `agent()` call. If a phase
-> runs on Haiku, put `model: 'haiku'` both on the `phases[]` entry (so the dialog
+> runs on Sonnet, put `model: 'sonnet'` both on the `phases[]` entry (so the dialog
 > is honest) **and** on every `agent()` call in that phase (so it actually
 > happens). The entry alone does nothing.
 
@@ -200,7 +200,7 @@ the agent from `/workflows`, `agent()` returns `null` — which is why you
 | `label` | string | Display name for this agent in `/workflows`. Defaults to the first 60 chars of the prompt. Not part of the resume cache key — relabelling never invalidates a cached call. |
 | `phase` | string | Assign this agent to a named progress group. Use inside `pipeline`/`parallel` stages so concurrent calls land in the right group instead of racing on the global `phase()`. Not part of the cache key. |
 | `schema` | object | A JSON Schema. Forces structured output — `agent()` returns the validated object. See **Structured output** below. |
-| `model` | string | Per-agent model. `'haiku'`, `'sonnet'`, `'opus'`, `'fable'`, `'inherit'`, or a full model ID. Omit to inherit the session model. See **Setting the model** below. |
+| `model` | string | Per-agent model. `'sonnet'`, `'opus'`, `'fable'`, `'inherit'`, or a full model ID — `'sonnet'` is the floor. Omit to inherit the session model. See **Setting the model** below. |
 | `effort` | string | Reasoning-effort tier for this call — `'low'`/`'medium'`/`'high'`/`'xhigh'`/`'max'` (mirrors `/effort`). Independent of `model` — it tiers the *reasoning*, not the model. Match it to the stage role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for mechanical discovery/classification leaf work; omit it to inherit the session tier. NOT part of the resume cache key. |
 | `isolation` | `'worktree'` | Run the agent in a fresh git worktree. Expensive (~200–500 ms + disk each). Use **only** when parallel agents mutate files and would otherwise collide; the worktree is auto-removed if unchanged. `'worktree'` is the only accepted value; any other value is rejected. |
 | `agentType` | string | Run as a registered subagent type instead of the default workflow subagent. See **Custom agent types** below. |
@@ -217,22 +217,23 @@ Claude Code's normal alias resolver:
 
 | You pass | Resolves to |
 |---|---|
-| `'haiku'` | the current default Haiku |
 | `'sonnet'` | the current default Sonnet |
 | `'opus'` | the current default Opus |
 | `'fable'` | the current default Fable |
 | `'inherit'` | the session's main-loop model (same as omitting `model`) |
-| a full model ID (e.g. `'claude-haiku-4-5'`) | passed through unchanged |
+| a full model ID (e.g. `'claude-sonnet-5'`) | passed through unchanged |
 | *omitted* | the session's main-loop model |
 
-**There is no validation.** An unrecognised string (a typo like `'hauku'`) is
+**There is no validation.** An unrecognised string (a typo like `'sonet'`) is
 **not** rejected at parse time — the resolver passes it through verbatim and the
 agent fails later when the API call is made. Spell the alias exactly.
 
 Guidance: omit `model` for judgement-heavy work so it inherits the capable
 session model; drop **cheap, high-volume, mechanical** leaf work (one-line
-classification, refute-this checks, per-item summaries) to `'haiku'`. A
-verification or fan-out stage is the usual `'haiku'` candidate.
+classification, refute-this checks, per-item summaries) to `'sonnet'` — the
+model floor — or route a self-contained leg to gpt-5.5 through the
+codex wrapper (SKILL.md, "Dispatching gpt-5.5"). A verification or fan-out
+stage is the usual candidate for either.
 
 Two things that are **not** how you set a model:
 

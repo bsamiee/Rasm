@@ -53,13 +53,13 @@ public static class SupportTriggerOps {
 
 ## [03]-[CAPTURE_PIPELINE]
 
-- Owner: `SupportCapture` — the window-freeze, ordered fan-in, redact, and cap fold; `SupportArtifact` the contributor factory row; `SupportPolicy` and `SupportRuntime` the bound capture context.
+- Owner: `SupportCapture` — the window-freeze, ordered fan-in, redact, and cap fold; `SupportArtifact` the contributor factory row; `SupportFault` `[Union]` fault family deriving its codes through `FaultBand.Support`; `DumpPolicy` the dump-completeness policy row; `SupportPolicy` and `SupportRuntime` the bound capture context.
 - Entry: `Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportReceipt>` — `IO` carries the freeze-fan-redact-cap-bundle effect.
 - Auto: `GlobalLogBuffer.Flush` replays the fault buffer into the frozen window before contributor fan-in; the `DeadlineClass.SupportWindow` row bounds the capture run on the cancel spine.
 - Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as `SupportManifest.Entry` rows.
-- Packages: Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one `SupportArtifact` factory row lands a new contributor — `EffectiveConfig` is the config debug-view row and `ProcessDump` is the gated row that fails closed until the diagnostics-tool gate clears; zero new surface.
-- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row's `Produce` fails closed on the `[DUMP_ADMISSION]` gate, present as a fail-closed contributor, never an absent one.
+- Packages: Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one `SupportArtifact` factory row lands a new contributor; a new dump completeness is one `DumpPolicy` value (`Triage` routine, `WithHeap`/`Full` escalation-only); a new fault is one `SupportFault` case; zero new surface.
+- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, `ServerNotAvailableException`/IO faults mapping to the typed `SupportFault.DumpRejected` — and the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, decode faults mapping to `SupportFault.DecodeFaulted` and landing `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has NO reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` TOOL boundary — deleting the column is capability deletion, the forbidden form.
 
 ```csharp signature
 public sealed record SupportArtifact(
@@ -83,11 +83,50 @@ public sealed record SupportArtifact(
             return (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(view)), redactions);
         }));
 
-    public static SupportArtifact ProcessDump(long estimatedBytes) => new(
+    // The [DUMP_ADMISSION] fill: DiagnosticsClient.WriteDump captures under the frozen window with
+    // completeness as row policy; a capture-tool fault is the typed registry-banded case, never a
+    // bare Error.New and never an orphan code outside every band.
+    public static SupportArtifact ProcessDump(DumpPolicy policy, string captureRoot) => new(
         Name: "process-dump",
         Classification: DataClassification.HostIdentity,
-        EstimatedBytes: estimatedBytes,
-        Produce: static _ => IO.fail<(ReadOnlyMemory<byte>, int)>(Error.New(9300, "dump-admission-gated")));
+        EstimatedBytes: policy.EstimatedBytes,
+        Produce: _ => IO.lift(() => {
+            var path = Path.Join(captureRoot, $"dump-{Environment.ProcessId}.dmp");
+            new DiagnosticsClient(Environment.ProcessId).WriteDump(policy.Kind, path, policy.Flags);
+            return (new ReadOnlyMemory<byte>(File.ReadAllBytes(path)), 0);
+        }).MapFail(static error => (Error)new SupportFault.DumpRejected(error.Message)));
+
+    // The event-STREAM leg: an EventPipe session decodes through TraceEvent's EventPipeEventSource on a
+    // dedicated pump; records clone before retention and a decode fault lands the bundle PARTIAL.
+    public static SupportArtifact EventTrace(Seq<EventPipeProvider> providers, Duration window) => new(
+        Name: "event-trace",
+        Classification: DataClassification.Operational,
+        EstimatedBytes: 32L << 20,
+        Produce: _ => IO.lift(() => {
+            using var session = new DiagnosticsClient(Environment.ProcessId).StartEventPipeSession([.. providers], requestRundown: false);
+            var sink = new StringBuilder();
+            var source = new EventPipeEventSource(session.EventStream);
+            source.Dynamic.All += evt => sink.AppendLine($"{evt.TimeStamp:O} {evt.ProviderName}/{evt.EventName}");
+            ignore(Task.Delay(window.ToTimeSpan()).ContinueWith(_ => session.Stop()));
+            source.Process();
+            return (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(sink.ToString())), 0);
+        }).MapFail(static error => (Error)new SupportFault.DecodeFaulted(error.Message)));
+}
+
+// Dump completeness is policy DATA: Triage is the routine row, WithHeap/Full escalation-only.
+public sealed record DumpPolicy(DumpType Kind, WriteDumpFlags Flags, long EstimatedBytes) {
+    public static readonly DumpPolicy Routine = new(DumpType.Triage, WriteDumpFlags.None, 64L << 20);
+    public static readonly DumpPolicy Escalated = new(DumpType.WithHeap, WriteDumpFlags.None, 512L << 20);
+}
+
+[Union]
+public abstract partial record SupportFault : Expected, IValidationError<SupportFault> {
+    private SupportFault(string detail, int code) : base(detail, code, None) { }
+    public static SupportFault Create(string message) => new Text(message);
+    public sealed record Text : SupportFault { public Text(string detail) : base(detail, FaultBand.Support.Code(0)) { } }
+    public sealed record DumpRejected : SupportFault { public DumpRejected(string detail) : base(detail, FaultBand.Support.Code(1)) { } }
+    public sealed record DecodeFaulted : SupportFault { public DecodeFaulted(string detail) : base(detail, FaultBand.Support.Code(2)) { } }
+    public sealed record ContributorFaulted : SupportFault { public ContributorFaulted(string artifact, string detail) : base($"{artifact}: {detail}", FaultBand.Support.Code(3)) { } }
 }
 
 public sealed record SupportPolicy(
@@ -183,7 +222,8 @@ Canonical AppHost artifact rows are current; `process-dump` is the designed capt
 |  [02]   | buffered-logs    | profile log pipeline fault buffer       |
 |  [03]   | phase-receipts   | lifecycle receipts in the frozen window |
 |  [04]   | health-snapshot  | latest health fold                      |
-|  [05]   | process-dump     | dump and gcdump capture                 |
+|  [05]   | process-dump     | `DiagnosticsClient.WriteDump` under `DumpPolicy`; gcdump via the `dotnet-gcdump` tool boundary |
+|  [06]   | event-trace      | EventPipe session decoded through TraceEvent `EventPipeEventSource` |
 
 ## [04]-[MANIFEST_RECEIPT]
 
@@ -323,4 +363,4 @@ type SupportReceipt =
 
 ## [06]-[RESEARCH]
 
-- [DUMP_ADMISSION]: dump and gcdump capture-tool admission for the process-dump row.
+- [DUMP_ADMISSION]: RESOLVED — the process-dump row composes `Microsoft.Diagnostics.NETCore.Client` (`DiagnosticsClient(int)`, `WriteDump(DumpType, string, WriteDumpFlags)`, `StartEventPipeSession`, `EventPipeSession.EventStream`) and the event-trace row decodes through `Microsoft.Diagnostics.Tracing.TraceEvent` (`EventPipeEventSource(Stream)`, `TraceEventDispatcher.Process()`), both inside the capture fan's caps/redaction/truncation law; the `.gcdump` heap-graph read has no owner in the admitted 3.2.4 assembly (`DotNetHeapDumpGraphReader`/`GCHeapDump`/`MemoryGraph` absent — the recorded REJECT in `api-traceevent.md`), so the gcdump column binds the `dotnet-gcdump` tool boundary.

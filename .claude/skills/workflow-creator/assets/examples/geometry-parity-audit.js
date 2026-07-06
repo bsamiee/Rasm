@@ -19,7 +19,7 @@ export const meta = {
   whenToUse: 'Auditing cross-runtime parity before locking a wire contract',
   phases: [
     { title: 'Enumerate ops' },
-    { title: 'Compare', detail: 'one agent per operation', model: 'haiku' },
+    { title: 'Compare', detail: 'one agent per operation', model: 'sonnet' },
     { title: 'Cluster divergences' },
   ],
 }
@@ -66,7 +66,7 @@ const comparisons = await parallel(ops.map(op => () =>
     `Compare how "${op}" is implemented in libs/csharp/Rasm versus libs/python/geometry. ` +
     `Read both implementations. Report whether their numeric results, tolerance handling, ` +
     `or degenerate-case behavior diverge, and cite the file:symbol on each side.`,
-    { label: `compare:${op}`, phase: 'Compare', model: 'haiku', schema: COMPARISON },
+    { label: `compare:${op}`, phase: 'Compare', model: 'sonnet', schema: COMPARISON },
   ),
 ))
 

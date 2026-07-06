@@ -1,14 +1,14 @@
 # [PY_GEOMETRY_MESH_SPATIAL]
 
-Spatial query over an in-memory triangulation — the proximity, ray, containment, bounds, clearance, and sampling primitive the deviation, clash, and reconstruction hops compose against a built mesh. `SpatialQuery` is one tagged union discriminating by query kind; `query` is one polymorphic `async` entrypoint accepting one query or a batch sequence, amortizing the cached `kdtree` / `triangles_tree` / `ray` indices once per surface and folding every kind through one capability-aware `_route` — a core-resident kind on the synchronous `boundary`, a native-backend kind whose compiled package is absent on the local interpreter offloaded onto the `LanePolicy.offload` PEP 734 subinterpreter hop the companion carries — and `SpatialResult` is one union carrier whose case mirrors the query case so a proximity result, a ray result, a containment mask, a bounds-candidate set, a clearance scalar, and a sample set are arms of one result owner rather than six parallel result types. The pure-Python spine is `trimesh` plus `numpy`/`scipy` on the runtime: the module-level `proximity.closest_point`/`signed_distance` field samplers, the `mesh.contains` solid test, the `mesh.ray.intersects_location` batch ray intersector (the pure-Python `ray.ray_triangle.RayMeshIntersector`, transparently superseded by the `ray.ray_pyembree` Embree mirror when the native `embreex` package resolves), `sample.sample_surface`/`sample_surface_even`, and the `scipy` `kdtree` — never a single flat call. Three arms ride a NATIVE COMPILED backend `trimesh` binds but the manifest does not declare and no package ships, so they resolve only on the worker companion: `Bounds` over the `rtree`-backed `triangles_tree` R-tree, the conservative `Clearance` over the `python-fcl` `collision.CollisionManager.min_distance_single` separation, and the exact `Clearance` over the `manifold3d.Manifold.min_gap` watertight gap that SUPERSEDES the FCL separation when its package is the richer one. `SpatialBackend` is the per-interpreter native-capability resolver — `CORE` (every pure-Python arm plus the conservative FCL clearance and the rtree bounds when those packages happen to resolve in-process), `MANIFOLD3D` (the exact-gap clearance superseding FCL) — computed once through `SpatialBackend.resolve` off real `find_spec` probes of `rtree`/`fcl`/`manifold3d`, never a second query owner and never an asserted-always runtime floor. The parallel vertex-KNN tiers `open3d.geometry.KDTreeFlann` and `small_gicp.KdTree.batch_knn_search` are NOT this owner's backend: a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/deviation`+`scan/registration` consumers that own the cloud-to-vertex correspondence, never minted here as a dead spatial row. This owner is a pure kernel implementing `ReceiptContributor`: it indexes an in-memory `trimesh.Trimesh`, returns numpy arrays across the wire, and contributes one typed `SpatialReceipt` row per query — mesh-file decode/encode is the data `MeshPayload` owner (`rasm.data.spatial.mesh`), and the geometry shed never opens or writes a mesh file.
+Spatial query over an in-memory triangulation — the proximity, ray, containment, bounds, clearance, and sampling primitive the deviation, clash, and reconstruction hops compose against a built mesh. `SpatialQuery` is one tagged union discriminating by query kind; `query` is one polymorphic `async` entrypoint accepting one query or a batch sequence, amortizing the cached `kdtree` / `triangles_tree` / `ray` indices once per surface and folding every kind through one capability-aware `_route` — a core-resident kind on the synchronous `boundary`, a native-backend kind whose compiled package is absent on the local interpreter offloaded onto the `LanePolicy.offload` PEP 734 subinterpreter hop the companion carries — and `SpatialResult` is one union carrier whose case mirrors the query case so a proximity result, a ray result, a containment mask, a bounds-candidate set, a clearance scalar, and a sample set are arms of one result owner rather than six parallel result types. The pure-Python spine is `trimesh` plus `numpy` on the runtime: the module-level `proximity.closest_point`/`signed_distance` field samplers (riding the `Trimesh`-cached nearest index), the `mesh.contains` solid test, the `mesh.ray.intersects_location` batch ray intersector (the pure-Python `ray.ray_triangle.RayMeshIntersector`, transparently superseded by the `ray.ray_pyembree` Embree mirror when the native `embreex` package resolves), and `sample.sample_surface`/`sample_surface_even` — never a single flat call and never a phantom `scipy` spine (no geometry fence imports a scipy member). Three arms ride the ADMITTED native band (`rtree` and `python-fcl` are manifest worker-lane rows with folder-tier catalogs) composed at the DIRECT surface, not a one-call trimesh veneer: `Bounds`/`Nearest` over the `rtree`-backed `triangles_tree` R-tree through the numpy-vectorized batch `intersection_v`/`nearest_v` candidate generators (one vectorized call for the whole box set, never a per-box Python loop), the conservative `Clearance` over the direct `fcl.distance(o1, o2, DistanceRequest(enable_nearest_points=True, enable_signed_distance=True), DistanceResult())` narrow-phase read — SIGNED separation plus the witness contact pair `DistanceResult.nearest_points` carries, richer than the unsigned `CollisionManager.min_distance_single` float — and the exact `Clearance` over the `manifold3d.Manifold.min_gap` watertight gap that SUPERSEDES the FCL separation when its package is the richer one, both operands built through repair's public `to_manifold` kernel (repair is the chartered `manifold3d` owner; no re-spelled `Mesh`/`Mesh64` build here). `SpatialBackend` is the per-interpreter native-capability resolver — `CORE` (every pure-Python arm plus the conservative FCL clearance and the rtree bounds when those packages happen to resolve in-process), `MANIFOLD3D` (the exact-gap clearance superseding FCL) — computed once through `SpatialBackend.resolve` off real `find_spec` probes of `rtree`/`fcl`/`manifold3d`, never a second query owner and never an asserted-always runtime floor. The parallel vertex-KNN tiers `open3d.geometry.KDTreeFlann` and `small_gicp.KdTree.batch_knn_search` are NOT this owner's backend: a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/deviation`+`scan/registration` consumers that own the cloud-to-vertex correspondence, never minted here as a dead spatial row. This owner is a pure kernel conforming structurally to the runtime-checkable `ReceiptContributor` Protocol (never subclassing it): it indexes an in-memory `trimesh.Trimesh`, returns numpy arrays across the wire, and contributes one typed `SpatialReceipt` row per query — mesh-file decode/encode is the data `MeshPayload` owner (`rasm.data.spatial.mesh`), and the geometry shed never opens or writes a mesh file.
 
 ## [01]-[INDEX]
 
-- [01]-[SPATIAL]: the proximity, ray, contains, bounds, clearance, and sample queries under one tagged union over the `trimesh`/`numpy`/`scipy` spine, woven from stacked `.api` members per arm, dispatched through one capability-aware `async` `_route` that runs every pure-Python core kind on the synchronous `boundary` and offloads the native-backend kinds whose compiled package is absent in-process (`rtree` bounds, `python-fcl` clearance, the exact `manifold3d.min_gap` clearance) onto the `LanePolicy.offload` PEP 734 subinterpreter the companion carries, resolved per interpreter through `SpatialBackend` off real `find_spec` probes, returning one unified `SpatialResult` union and contributing one typed `SpatialReceipt` stream.
+- [01]-[SPATIAL]: the proximity, ray, contains, bounds, nearest, clearance, and sample queries under one tagged union over the `trimesh`/`numpy` spine with the admitted `rtree`/`python-fcl` native band composed direct, woven from stacked `.api` members per arm, dispatched through one capability-aware `async` `_route` that runs every pure-Python core kind on the synchronous `boundary` and offloads the native-backend kinds whose compiled package is absent in-process (`rtree` bounds, `python-fcl` clearance, the exact `manifold3d.min_gap` clearance) onto the `LanePolicy.offload` PEP 734 subinterpreter the companion carries, resolved per interpreter through `SpatialBackend` off real `find_spec` probes, returning one unified `SpatialResult` union and contributing one typed `SpatialReceipt` stream.
 
 ## [02]-[SPATIAL]
 
-- Entry: `query` is the one polymorphic `async` entrypoint discriminating a single `SpatialQuery` or a batch `Sequence[SpatialQuery]` by total `match` (a lone `SpatialQuery` as one case, a `Sequence` as the other — never an `isinstance` ladder), with `@overload` arms keyed on the input shape so a caller narrows on what it passes rather than re-matching the widened return. A single query awaits one `_route`; a batch routes each query in turn into a `Block` of rails (the offload lane's own `CapacityLimiter` already bounds the concurrent subinterpreter hops, so the batch needs no second task-group pool) and folds them through `traversed(rails, by=Disposition.ACCUMULATE)` (the runtime `reliability/faults#FAULT` owner's one disposition-keyed fold; `ACCUMULATE` keeps a faulted query addressable in the aggregate while every successful `SpatialResult` already landed, never a junior `accumulate` boolean flag) into one `RuntimeRail[Block[SpatialResult]]`, never a second batch method nor a quadratic singleton-append. `_route` is the one capability-aware fence over the SINGLE module-level `_dispatch(mesh, q, backend) -> Outcome` body: it probes `q.tag in self._offload` (the data-driven set of native-backend kinds whose compiled package is absent in-process) and either runs `_dispatch` synchronously inside `boundary(f"mesh.spatial.{q.tag}", lambda: self._fold(q, _dispatch(self._mesh, q, self._backend)))` for a kind whose backend is resident or awaits `self._lane.offload(_dispatch, self._mesh, q, self._backend)` for a worker kind (mapping the offloaded `Outcome` through `self._fold`) — the SAME exhaustive `_dispatch` runs either way, so the offload-vs-sync choice never forks the geometry body. The pure-Python `Proximity`/`Ray`/`Contains`/`Sample` arms run on the synchronous `boundary`: `proximity`/`contains`/`sample` ride the `scipy`+`numpy` core and the `Ray` arm is one batch `mesh.ray.intersects_location` call over the in-memory `RayMeshIntersector` (the pure-Python `ray_triangle` form, the `ray_pyembree` Embree mirror a transparent in-process upgrade when `embreex` resolves), not a per-ray Python loop, so none stalls the loop nor carries a hard native dependency. The native-compiled kinds are worker: the `rtree` `Bounds` index build plus query, the `python-fcl` `CollisionManager` separation, and the exact `manifold3d.Manifold` build plus `min_gap` fold each ride one PEP 734 subinterpreter hop when their package is missing in-process, under the lane's shared `CapacityLimiter` and deadline, the lane importing neither the native module nor `_dispatch` (a module-level arg-only `Callable` the no-pickle hop receives verbatim) and converting a `BrokenWorkerInterpreter`/deadline `TimeoutError` through its own `async_boundary`, exactly the offload-aware parity the `mesh/repair.md#MESH` and `mesh/quality.md#QUALITY` siblings hold. `_dispatch` is one total `match`/`assert_never` over every kind: `Proximity` calls `proximity.closest_point(mesh, points)` for nearest points/distances/triangle ids and stacks `proximity.signed_distance(mesh, points)` into the fourth result column when `signed`; `Ray` calls the vectorized `mesh.ray.intersects_location(origins, _unit(directions))` once for the whole batch and `_nearest_hits` reduces the all-hits `(locations, ray_idx, tri_idx)` to the nearest hit per ray through one `lexsort` on `(ray_idx, dist)` and the first-of-group mask, scattering into the dense origin order — a ray absent from `ray_idx` or whose nearest hit exceeds `max_distance` fills `tri_idx == -1` and a `NaN` hit point — never a per-ray cast; `Contains` gates `Trimesh.is_watertight` BEFORE the test and short-circuits an off-solid query to an admitted caveat rather than running `Trimesh.contains` over a leaky surface and returning a meaningless mask; `Bounds` queries the `rtree`-backed `triangles_tree` R-tree per box for candidate triangle ids; `Sample` draws through the evenness selector and stacks `signed_distance` when `attribute`; `Clearance` gates both surfaces watertight, then folds the exact `manifold3d.Manifold.min_gap(other, search_length)` when `backend is MANIFOLD3D` (building each `Manifold` once via `_to_manifold`) else the conservative `python-fcl` `collision.CollisionManager` `add_object` + `min_distance_single(other)` separation. An offloaded kind rebuilds whatever index its hop needs inside the subinterpreter (a live `triangles_tree` R-tree or `Manifold` cannot cross the no-pickle boundary, so the capsule caches no native handle across hops — the per-hop build is the offload cost the lane isolates, distinct from the `mesh/quality.md#QUALITY` in-process `ExactTopology` VALUE reuse), while the in-process pure-Python arms read off the lazily-cached `kdtree`/`ray` indices the `Trimesh` owns, built once and reused across the capsule's lifetime. The cross-cutting concern — folding each `Outcome` into one `SpatialReceipt` row with the backend tier and index-reuse verdict — rides the one `_fold(q, out)` method `_route` calls on both the synchronous and the offloaded `Outcome`, so a new kind writes only its `_dispatch` arm returning an `Outcome` (the watertight gate stays inside the `Contains`/`Clearance` arms, which carry the shape-specific short-circuit the fold cannot apply uniformly); the `_f64` float64 coercion is a shared helper each arm calls on its own array shape, since proximity points, ray origins/directions, contains points, and bounds boxes carry distinct `Nx3`/`Nx6` shapes the fold cannot coerce uniformly.
+- Entry: `query` is the one polymorphic `async` entrypoint discriminating a single `SpatialQuery` or a batch `Sequence[SpatialQuery]` by total `match` (a lone `SpatialQuery` as one case, a `Sequence` as the other — never an `isinstance` ladder), with `@overload` arms keyed on the input shape so a caller narrows on what it passes rather than re-matching the widened return. A single query awaits one `_route`; a batch routes each query in turn into a `Block` of rails (the offload lane's own `CapacityLimiter` already bounds the concurrent subinterpreter hops, so the batch needs no second task-group pool) and folds them through `traversed(rails, by=Disposition.ACCUMULATE)` (the runtime `reliability/faults#FAULT` owner's one disposition-keyed fold; `ACCUMULATE` keeps a faulted query addressable in the aggregate while every successful `SpatialResult` already landed, never a junior `accumulate` boolean flag) into one `RuntimeRail[Block[SpatialResult]]`, never a second batch method nor a quadratic singleton-append. `_route` is the one capability-aware fence over the SINGLE module-level `_dispatch(mesh, q, backend) -> Outcome` body: it probes `q.tag in self._offload` (the data-driven set of native-backend kinds whose compiled package is absent in-process) and either runs `_dispatch` synchronously inside `boundary(f"mesh.spatial.{q.tag}", lambda: self._fold(q, _dispatch(self._mesh, q, self._backend)))` for a kind whose backend is resident or awaits `self._lane.offload(_dispatch, self._mesh, q, self._backend)` for a worker kind (mapping the offloaded `Outcome` through `self._fold`) — the SAME exhaustive `_dispatch` runs either way, so the offload-vs-sync choice never forks the geometry body. The pure-Python `Proximity`/`Ray`/`Contains`/`Sample` arms run on the synchronous `boundary`: `proximity`/`contains`/`sample` ride the trimesh-cached index plus the `numpy` core and the `Ray` arm is one batch `mesh.ray.intersects_location` call over the in-memory `RayMeshIntersector` (the pure-Python `ray_triangle` form, the `ray_pyembree` Embree mirror a transparent in-process upgrade when `embreex` resolves), not a per-ray Python loop, so none stalls the loop nor carries a hard native dependency. The native-compiled kinds are worker: the `rtree` `Bounds`/`Nearest` index build plus vectorized query, the direct `python-fcl` `fcl.distance` signed separation, and the exact `manifold3d.Manifold` build plus `min_gap` fold each ride one PEP 734 subinterpreter hop when their package is missing in-process, under the lane's shared `CapacityLimiter` and deadline, the lane importing neither the native module nor `_dispatch` (a module-level arg-only `Callable` the no-pickle hop receives verbatim) and converting a `BrokenWorkerInterpreter`/deadline `TimeoutError` through its own `async_boundary`, exactly the offload-aware parity the `mesh/repair.md#MESH` and `mesh/quality.md#QUALITY` siblings hold. `_dispatch` is one total `match`/`assert_never` over every kind: `Proximity` calls `proximity.closest_point(mesh, points)` for nearest points/distances/triangle ids and stacks `proximity.signed_distance(mesh, points)` into the fourth result column when `signed`; `Ray` calls the vectorized `mesh.ray.intersects_location(origins, _unit(directions))` once for the whole batch and `_nearest_hits` reduces the all-hits `(locations, ray_idx, tri_idx)` to the nearest hit per ray through one `lexsort` on `(ray_idx, dist)` and the first-of-group mask, scattering into the dense origin order — a ray absent from `ray_idx` or whose nearest hit exceeds `max_distance` fills `tri_idx == -1` and a `NaN` hit point — never a per-ray cast; `Contains` gates `Trimesh.is_watertight` BEFORE the test and short-circuits an off-solid query to an admitted caveat rather than running `Trimesh.contains` over a leaky surface and returning a meaningless mask; `Bounds` queries the `rtree`-backed `triangles_tree` R-tree through ONE vectorized `intersection_v(mins, maxs)` call whose flat `(ids, counts)` return splits per box (never a per-box Python loop), and `Nearest` reads `nearest_v(mins, maxs, num_results)` for the k-nearest candidate triangles per probe box; `Sample` draws through the evenness selector and stacks `signed_distance` when `attribute`; `Clearance` gates both surfaces watertight, then folds the exact `manifold3d.Manifold.min_gap(other, search_length)` when `backend is MANIFOLD3D` (building each operand once through repair's public `to_manifold`) else the direct `fcl.distance` narrow-phase read over two `BVHModel`-lifted `fcl.CollisionObject` operands (`beginModel`/`addSubModel`/`endModel`) with `DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)`, reading `DistanceResult.min_distance` AND the `nearest_points` witness pair the clearance result carries. An offloaded kind rebuilds whatever index its hop needs inside the subinterpreter (a live `triangles_tree` R-tree or `Manifold` cannot cross the no-pickle boundary, so the capsule caches no native handle across hops — the per-hop build is the offload cost the lane isolates, distinct from the `mesh/quality.md#QUALITY` in-process `ExactTopology` VALUE reuse), while the in-process pure-Python arms read off the lazily-cached `kdtree`/`ray` indices the `Trimesh` owns, built once and reused across the capsule's lifetime. The cross-cutting concern — folding each `Outcome` into one `SpatialReceipt` row with the backend tier and index-reuse verdict — rides the one `_fold(q, out)` method `_route` calls on both the synchronous and the offloaded `Outcome`, so a new kind writes only its `_dispatch` arm returning an `Outcome` (the watertight gate stays inside the `Contains`/`Clearance` arms, which carry the shape-specific short-circuit the fold cannot apply uniformly); the `_f64` float64 coercion is a shared helper each arm calls on its own array shape, since proximity points, ray origins/directions, contains points, and bounds boxes carry distinct `Nx3`/`Nx6` shapes the fold cannot coerce uniformly.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -23,16 +23,14 @@ from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
+from rasm.geometry.mesh.repair import to_manifold
 from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Phase, Receipt, ReceiptContributor
-
-if TYPE_CHECKING:
-    import manifold3d
+from rasm.runtime.receipts import Phase, Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type QueryKind = Literal["proximity", "ray", "contains", "bounds", "clearance", "sample"]
+type QueryKind = Literal["proximity", "ray", "contains", "bounds", "nearest", "clearance", "sample"]
 
 
 class SpatialBackend(
@@ -55,6 +53,7 @@ class SpatialQuery:
     ray: tuple[np.ndarray, np.ndarray, float] = case()
     contains: np.ndarray = case()
     bounds: np.ndarray = case()
+    nearest: tuple[np.ndarray, int] = case()
     clearance: tuple[trimesh.Trimesh, float] = case()
     sample: tuple[int, bool, bool] = case()
 
@@ -77,6 +76,10 @@ class SpatialQuery:
         return SpatialQuery(bounds=boxes)
 
     @staticmethod
+    def Nearest(boxes: np.ndarray, num_results: int = 1) -> "SpatialQuery":  # Nx6 AABB probes; k nearest candidate triangles per probe
+        return SpatialQuery(nearest=(boxes, num_results))
+
+    @staticmethod
     def Clearance(other: trimesh.Trimesh, search_length: float) -> "SpatialQuery":
         return SpatialQuery(clearance=(other, search_length))
 
@@ -92,7 +95,8 @@ class SpatialResult:
     ray: tuple[np.ndarray, np.ndarray, np.ndarray] = case()
     contains: np.ndarray = case()
     bounds: tuple[np.ndarray, ...] = case()
-    clearance: float = case()
+    nearest: tuple[np.ndarray, ...] = case()
+    clearance: tuple[float, tuple[tuple[float, float, float], tuple[float, float, float]] | None] = case()
     sample: tuple[np.ndarray, np.ndarray, np.ndarray] = case()
 
     @staticmethod
@@ -112,8 +116,14 @@ class SpatialResult:
         return SpatialResult(bounds=candidates)
 
     @staticmethod
-    def Clearance(gap: float) -> "SpatialResult":
-        return SpatialResult(clearance=gap)
+    def Nearest(candidates: tuple[np.ndarray, ...]) -> "SpatialResult":
+        return SpatialResult(nearest=candidates)
+
+    @staticmethod
+    def Clearance(gap: float, witness: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None) -> "SpatialResult":
+        # the witness contact pair rides the fcl arm (`DistanceResult.nearest_points`); the exact
+        # manifold3d gap carries no witness — one case, backend-shaped payload.
+        return SpatialResult(clearance=(gap, witness))
 
     @staticmethod
     def Sample(points: np.ndarray, triangle_ids: np.ndarray, signed: np.ndarray) -> "SpatialResult":
@@ -127,7 +137,7 @@ class SpatialResult:
 # keys whose probe is absent in-process, plus `clearance` when only the companion carries the exact gap), so the
 # `_route` fence reads one data-driven membership rather than a hardcoded per-case `if q.tag == ...` branch, and
 # every pure-Python kind (proximity/ray/contains/sample) stays off the set and runs synchronously under `boundary`.
-_NATIVE: Final[Map[QueryKind, str]] = Map.of_seq((("bounds", "rtree"), ("clearance", "fcl")))
+_NATIVE: Final[Map[QueryKind, str]] = Map.of_seq((("bounds", "rtree"), ("nearest", "rtree"), ("clearance", "fcl")))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -183,22 +193,9 @@ def _nearest_hits(
     return face, pos, dist
 
 
-def _to_manifold(
-    mesh: trimesh.Trimesh,
-) -> "manifold3d.Manifold":  # Mesh64 past the uint32 ceiling so a large surface keeps 64-bit positions and triangle indices
-    import manifold3d  # noqa: PLC0415
-
-    verts, faces = np.asarray(mesh.vertices), np.asarray(mesh.faces)
-    if (
-        len(verts) > np.iinfo(np.uint32).max
-    ):  # 32-bit Mesh overflows past ~4.29B verts; Mesh64 is the f64 carrier (.api type row [04]), so its positions are f64 too
-        return manifold3d.Manifold(manifold3d.Mesh64(vert_properties=verts.astype(np.float64), tri_verts=faces.astype(np.uint64)))
-    return manifold3d.Manifold(manifold3d.Mesh(vert_properties=verts.astype(np.float32), tri_verts=faces.astype(np.uint32)))
-
-
 # the one exhaustive geometry dispatch over EVERY query kind — module-level and arg-only (`(mesh, query, backend)`)
 # so the no-pickle PEP 734 subinterpreter receives it verbatim as the offloaded kernel, the lane importing neither it
-# nor any native backend. The pure-Python kinds bind the trimesh/scipy/numpy `.api` members; the native-backend arms
+# nor any native backend. The pure-Python kinds bind the trimesh/numpy `.api` members; the native-backend arms
 # (`bounds` over rtree, `clearance` over fcl/manifold3d) build their index per call (a live R-tree or Manifold cannot
 # cross the subinterpreter boundary, so no cached native handle here, unlike the in-process mesh/quality value reuse).
 # The total `match`/`assert_never` forces a new SpatialQuery case to add its arm here, and `_route` decides
@@ -224,10 +221,16 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -
             return Outcome(SpatialResult.Contains(mask), len(mask), int(mask.sum()), True)
         case SpatialQuery(
             tag="bounds", bounds=boxes
-        ):  # the rtree-backed triangles_tree (native libspatialindex); offloaded when rtree is absent in-process
+        ):  # the rtree-backed triangles_tree (native libspatialindex); ONE vectorized batch call, never a per-box loop
             tree, rows = mesh.triangles_tree, _f64(boxes)
-            candidates = tuple(np.fromiter(tree.intersection(tuple(row)), dtype=np.int64) for row in rows)
-            return Outcome(SpatialResult.Bounds(candidates), len(rows), sum(c.size for c in candidates), True)
+            ids, counts = tree.intersection_v(rows[:, :3], rows[:, 3:])  # flat candidate ids + per-box counts
+            candidates = tuple(np.asarray(chunk, dtype=np.int64) for chunk in np.split(ids, np.cumsum(counts)[:-1]))
+            return Outcome(SpatialResult.Bounds(candidates), len(rows), int(ids.size), True)
+        case SpatialQuery(tag="nearest", nearest=(boxes, num_results)):
+            tree, rows = mesh.triangles_tree, _f64(boxes)
+            ids, counts = tree.nearest_v(rows[:, :3], rows[:, 3:], num_results=num_results)  # k nearest candidates per probe box
+            candidates = tuple(np.asarray(chunk, dtype=np.int64) for chunk in np.split(ids, np.cumsum(counts)[:-1]))
+            return Outcome(SpatialResult.Nearest(candidates), len(rows), int(ids.size), True)
         case SpatialQuery(tag="sample", sample=(count, even, attribute)):
             sampler = trimesh.sample.sample_surface_even if even else trimesh.sample.sample_surface
             points, triangle_ids = sampler(mesh, count)
@@ -238,28 +241,45 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -
         ):  # both backends native worker; exact manifold3d gap supersedes the conservative fcl separation
             if not (mesh.is_watertight and other.is_watertight):  # a solid-to-solid gap demands both surfaces close on either backend
                 return Outcome(SpatialResult.Clearance(float("nan")), 1, 0, False)
-            gap = (
-                float(_to_manifold(mesh).min_gap(_to_manifold(other), search_length))
-                if backend is SpatialBackend.MANIFOLD3D
-                else _fcl_gap(mesh, other)
-            )
-            return Outcome(SpatialResult.Clearance(gap), 1, int(gap <= search_length), True)
+            if backend is SpatialBackend.MANIFOLD3D:
+                gap, witness = float(to_manifold(mesh).min_gap(to_manifold(other), search_length)), None
+            else:
+                gap, witness = _fcl_gap(mesh, other)
+            return Outcome(SpatialResult.Clearance(gap, witness), 1, int(gap <= search_length), True)
         case _ as unreachable:
             assert_never(unreachable)
 
 
+def _bvh(mesh: trimesh.Trimesh) -> "fcl.CollisionObject":
+    # the catalog-verified BVH lift: beginModel/addSubModel/endModel over the raw vertex/face arrays,
+    # bound into a CollisionObject — never a veneer helper the catalog does not carry.
+    import fcl  # noqa: PLC0415
+
+    model = fcl.BVHModel()
+    model.beginModel(len(mesh.vertices), len(mesh.faces))
+    model.addSubModel(mesh.vertices, mesh.faces)
+    model.endModel()
+    return fcl.CollisionObject(model)
+
+
 def _fcl_gap(
     mesh: trimesh.Trimesh, other: trimesh.Trimesh
-) -> float:  # the CORE clearance: conservative python-fcl minimum separation, exact min_gap superseding it under MANIFOLD3D
-    manager = trimesh.collision.CollisionManager()
-    manager.add_object("surface", mesh)
-    return float(manager.min_distance_single(other))
+) -> tuple[float, tuple[tuple[float, float, float], tuple[float, float, float]]]:
+    # the CORE clearance at the DIRECT fcl narrow-phase surface: signed separation plus the witness
+    # contact pair — richer than the unsigned CollisionManager.min_distance_single float veneer.
+    import fcl  # noqa: PLC0415
+
+    request = fcl.DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)
+    result = fcl.DistanceResult()
+    gap = float(fcl.distance(_bvh(mesh), _bvh(other), request, result))
+    a, b = result.nearest_points
+    return gap, (tuple(float(v) for v in a), tuple(float(v) for v in b))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class MeshSpatial(ReceiptContributor):
+class MeshSpatial:  # conforms structurally to the runtime-checkable ReceiptContributor Protocol; subclassing the port is the deleted form
     def __init__(self, mesh: trimesh.Trimesh, lane: LanePolicy, backend: SpatialBackend | None = None) -> None:
         self._mesh = mesh
         self._lane = (
@@ -326,8 +346,3 @@ class MeshSpatial(ReceiptContributor):
             "mesh.spatial", (phase, r.kind, facts)
         )  # the owner's shape-polymorphic (Phase, subject, facts) factory; subject is the query kind
 ```
-
-## [03]-[RESEARCH]
-
-
-## [04]-[UPSTREAM]

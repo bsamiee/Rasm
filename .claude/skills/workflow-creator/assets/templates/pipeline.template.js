@@ -3,8 +3,8 @@
 // Replace the TODOs, rename the file to <your-name>.js, drop it in .claude/workflows/.
 
 export const meta = {
-  name: 'TODO-pipeline',
-  whenToUse: 'TODO: when a reader should pick this',  // optional                              // required — the workflow's name
+  name: 'TODO-pipeline',                              // required — the workflow's name
+  whenToUse: 'TODO: when a reader should pick this',  // optional
   description: 'TODO: one line — what this produces', // required — shown in the permission dialog
   phases: [{ title: 'Stage1' }, { title: 'Stage2' }], // optional — progress groups (see the phase option below)
 }

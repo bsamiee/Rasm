@@ -98,16 +98,20 @@ Sub-topology accessors return the constituent handles; boolean ops return a new 
 | :-----: | :--------------------------------------- | :------------- | :------------------------------------ |
 |  [01]   | `Topology.Cells(topology)`               | accessor       | constituent cells                     |
 |  [02]   | `Topology.Faces(topology)`               | accessor       | constituent faces                     |
-|  [03]   | `Topology.Vertices(topology)`            | accessor       | constituent vertices                  |
-|  [04]   | `Topology.AdjacentTopologies(...)`       | accessor       | topologies adjacent to a sub-topology |
-|  [05]   | `Topology.Union(a, b)`                   | boolean        | non-manifold union                    |
-|  [06]   | `Topology.Difference(a, b)`              | boolean        | non-manifold difference               |
-|  [07]   | `Topology.Intersect(a, b)`               | boolean        | non-manifold intersection             |
-|  [08]   | `Topology.Slice(topology, tool)`         | boolean        | slice by a cutting topology           |
-|  [09]   | `Topology.BoundingBox(topology)`         | analysis       | axis-aligned bound cell               |
-|  [10]   | `Topology.Centroid(topology)`            | analysis       | centroid vertex                       |
-|  [11]   | `Topology.Contains(topology, vtx)`       | analysis       | point containment test                |
-|  [12]   | `Topology.AddDictionary(topology, dict)` | attribute      | attach a `Dictionary`                 |
+|  [03]   | `Topology.Edges(topology)`               | accessor       | constituent edges                     |
+|  [04]   | `Topology.Vertices(topology)`            | accessor       | constituent vertices                  |
+|  [05]   | `Topology.SubTopologies(topology, subTopologyType)` | accessor | typed sub-topology `list` — `"vertex"`/`"edge"`/`"wire"`/`"face"`/`"shell"`/`"cell"`/`"cellcomplex"`/`"cluster"`/`"aperture"`; `None` on a bad kind |
+|  [06]   | `Topology.AdjacentTopologies(...)`       | accessor       | topologies adjacent to a sub-topology |
+|  [07]   | `Topology.Union(a, b)`                   | boolean        | non-manifold union                    |
+|  [08]   | `Topology.Difference(a, b)`              | boolean        | non-manifold difference               |
+|  [09]   | `Topology.Intersect(a, b)`               | boolean        | non-manifold intersection             |
+|  [10]   | `Topology.Slice(topology, tool)`         | boolean        | slice by a cutting topology           |
+|  [11]   | `Topology.BoundingBox(topology)`         | analysis       | axis-aligned bound cell               |
+|  [12]   | `Topology.Centroid(topology)`            | analysis       | centroid vertex                       |
+|  [13]   | `Topology.Contains(topology, vtx)`       | analysis       | point containment test                |
+|  [14]   | `Topology.Analyze(topology)`             | analysis       | formatted analysis summary `str` (no keyword params) |
+|  [15]   | `Topology.Decompose(topology, tiltAngle=10.0, tolerance=0.0001, silent=False)` | analysis | building-element category `dict` — `cells`, external/internal/free vertical/horizontal/inclined face lists and their aperture lists; a role classifier, NEVER a hierarchy accessor |
+|  [16]   | `Topology.AddDictionary(topology, dict)` | attribute      | attach a `Dictionary`                 |
 
 [ENTRYPOINT_SCOPE]: sub-topology constructors and graph/dictionary
 - rail: geometry-algebra

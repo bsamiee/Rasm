@@ -10,7 +10,7 @@
 - owner: `artifacts`
 - rail: compression
 - installed: `1.0.0`
-- license: `PSF-2.0` (mirrors and accelerates the CPython `zlib`/`gzip` modules under the Python Software Foundation License v2 — copyleft-clean, GIL-releasing native core)
+- license: `PSF-2.0` (mirrors and accelerates the CPython `zlib`/`gzip` modules under the Python Software Foundation License v2 — permissive, GIL-releasing native core)
 - asset: native wheel binding the bundled zlib-ng `2.2.5` C core (`zlib_ng.ZLIBNG_RUNTIME_VERSION`); the emulated zlib API level is `ZLIB_RUNTIME_VERSION` (`'1.2.12'`) — both are STRING attributes (the `.pyi` `int` annotation is wrong)
 - entry points: `python -m zlib_ng.gzip_ng` is a CLI (`gzip_ng.main`) mirroring the stdlib `gzip` command; no `[project.scripts]` console entry point
 - capability: SIMD-accelerated DEFLATE/zlib/gzip — one-shot and streaming `zlib`-API compression/decompression, the modern `_ZlibDecompressor` bytes-feeding decode, Adler-32/CRC-32 checksums with `crc32_combine` block-trailer recombination, a stdlib-`gzip` drop-in (`GzipNGFile`/`open`/`compress`/`decompress`), and GIL-escaping multi-threaded gzip streaming (`gzip_ng_threaded`)

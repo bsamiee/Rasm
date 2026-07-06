@@ -1,13 +1,13 @@
 # [APPHOST_TIME_AND_DEADLINES]
 
-One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the nine-row bound vocabulary that every duration literal in the four packages traces to, `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership — and `FencingToken` rides that maintenance lease as the monotone single-writer correctness proof a timeout alone cannot give. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
+One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the nine-row bound vocabulary that every duration literal in the four packages traces to, `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership — and `FencingToken` is the decoded CARRIER of the store-issued lease generation riding that maintenance lease — the Persistence store's row-CAS predicate is the authoritative fence, the monotone single-writer correctness proof a timeout alone cannot give, and AppHost mints no token of its own. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
 
 ## [01]-[INDEX]
 
 - [01]-[CLOCK_SPLIT]: One injected clock pair; elapsed versus semantic time with sentinel admission.
 - [02]-[DEADLINE_TAXONOMY]: Nine deadline rows; every suite duration literal traces here.
 - [03]-[SCHEDULE_PORT]: The suite scheduler with cron and period rows and lease values.
-- [04]-[FENCING_TOKEN]: Monotone single-writer token; Kleppmann reject-lower over the lease.
+- [04]-[FENCING_TOKEN]: Decoded store-issued token carrier; the store's CAS predicate is the fence.
 
 ## [02]-[CLOCK_SPLIT]
 
@@ -297,11 +297,11 @@ The heartbeat period is one policy value fixed at 3 × the health-probe row; one
 
 ## [05]-[FENCING_TOKEN]
 
-- Owner: `FencingToken` `[ValueObject<ulong>]` monotone single-writer token; `LeaseElection` static acquire-and-fence surface extending `LeasePolicy.Maintenance`.
-- Entry: `Admits(FencingToken incoming)` is the Kleppmann reject-lower predicate the resource enforces — a write carrying a token strictly below the latest accepted one is rejected; `Acquire(LeaseElection.Runtime runtime)` returns `Fin<FencingToken>` minting one strictly-increasing token per maintenance-lease acquisition.
-- Packages: Thinktecture.Runtime.Extensions, NodaTime, System.IO.Hashing, LanguageExt.Core, BCL inbox
-- Growth: a new fenced resource reads the same `Admits` predicate, never a second token type; a new election driver acquires through the same maintenance-lease `Acquire`; zero new surface.
-- Boundary: the token must be checked by the resource, not merely held — a timeout-only lease is unsafe under a paused holder, and a resumed stale holder presents a lower token the fenced write rejects through `Admits`; the election reuses the `LeasePolicy.Maintenance` `CrashStaleness` window as the lease timeout but the token is the correctness proof the timeout alone cannot give; the token is monotone by `ulong` increment, value-keyed so `>`/`>=` compare on the owner under the generated key operators, and crosses the wire as the same decimal-string width as the HLC `Logical` half so the op-log cursor and the fence read one monotone identity; the maintenance-lease election at SCHEDULE_PORT, the Sandbox/provisioning#ROLLOVER_DRAIN `FleetRoll` conductor election, and the sidecar Wire/companion#PROCESS_MODALITY write-forward each acquire through this one rail and the store fences the token at Persistence/server-tier, aligned to a sibling branch, never coupled; a held lease without a fenced token is the rejected form.
+- Owner: `FencingToken` `[ValueObject<ulong>]` — the decoded carrier of the store-issued lease generation; `LeaseElection` the ONE Persistence PORT adapter acquiring, renewing, and fencing through the coordination op-union.
+- Entry: `Acquire(LeaseElection.Runtime runtime, string leaseKey)` returns `Fin<FencingToken>` — the adapter calls the Persistence coordination op-union with wire-stable primitives (lease key, holder id, staleness millis) and DECODES the store-issued `LeaseToken` generation into the carrier; `Fence(runtime, leaseKey, held)` routes a guarded write's token through the store's row-CAS predicate — the authoritative check; `Admits(FencingToken incoming)` survives ONLY as a documented client-side pre-check that short-circuits an obviously-stale retry before the round-trip, never a substitute for the store's verdict.
+- Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
+- Growth: a new fenced resource carries the same decoded token through the same `Fence` adapter, never a second token type; a new election driver acquires through the same `Acquire`; zero new surface.
+- Boundary: the fence is store-validated or it is not fencing — a per-process token mint, an in-memory latest-token cell, and an in-memory fence validation are the DELETED forms (two processes minting independent sequences is zero cross-process safety); the store issues the strictly-increasing generation as its fenced-lease column and validates every guarded write with `WHERE token >= held` (the Kleppmann reject-lower AT the resource), so a paused-then-resumed stale holder's late write rejects store-side and surfaces through the adapter as the decoded `LeaseFenced` fault — a registry-banded `Wire/coordination#DISTRIBUTED_LOCK` `CoordinationFault` case the composition-root delegate binding constructs at the seam, never a bare `Error.New` minted here; requests cross as wire-stable primitives and results decode from Persistence-owned types — no AppHost interface or type crosses down; the election reuses the `LeasePolicy.Maintenance` `CrashStaleness` window as the lease timeout but the store-validated token is the correctness proof the timeout alone cannot give; the token crosses the wire as the same decimal-string width as the HLC `Logical` half so the op-log cursor and the fence read one monotone identity; the maintenance-lease election at SCHEDULE_PORT, the Sandbox/provisioning#ROLLOVER_DRAIN `FleetRoll` conductor election, and the sidecar Wire/companion#PROCESS_MODALITY write-forward each acquire through this one rail — the store (`Rasm.Persistence` `ONE_FENCED_LEASE_STORE`) fences every token, aligned to a sibling branch, never coupled; a held lease without a store-validated token is the rejected form.
 
 ```csharp signature
 [ValueObject<ulong>(
@@ -310,24 +310,33 @@ The heartbeat period is one policy value fixed at 3 × the health-probe row; one
 public readonly partial struct FencingToken {
     public static readonly FencingToken Zero = Create(0UL);
 
-    public FencingToken Next() => Create((ulong)this + 1UL);
-
+    // Client-side PRE-CHECK only: short-circuits an obviously-stale retry before the round-trip.
+    // The authoritative fence is the store's row-CAS predicate (WHERE token >= held) — always consulted.
     public bool Admits(FencingToken incoming) => incoming >= this;
 }
 
+// The ONE Persistence PORT adapter for lease custody: wire-stable primitives cross down, the
+// store-issued generation decodes back. AppHost mints nothing; the delegates bind the store's
+// coordination op-union at the composition root, their failures the decoded registry-banded
+// CoordinationFault cases (LeaseFenced on a rejected guarded write) constructed at that binding.
 public static class LeaseElection {
     public sealed record Runtime(
-        Atom<FencingToken> Latest,
-        Func<LeasePolicy, Fin<Unit>> AcquireLease,
+        Func<string, LeasePolicy, Fin<(ulong Generation, Instant Deadline)>> AcquireLease,
+        Func<string, LeasePolicy, ulong, Fin<(ulong Generation, Instant Deadline)>> RenewLease,
+        Func<string, ulong, Fin<Unit>> GuardWrite,
+        Func<string, ulong, Fin<Unit>> ReleaseLease,
         LeasePolicy Lease);
 
-    public static Fin<FencingToken> Acquire(Runtime runtime) =>
-        runtime.AcquireLease(runtime.Lease)
-            .Map(_ => runtime.Latest.Swap(static current => current.Next()));
+    public static Fin<FencingToken> Acquire(Runtime runtime, string leaseKey) =>
+        runtime.AcquireLease(leaseKey, runtime.Lease).Map(static grant => FencingToken.Create(grant.Generation));
 
-    public static Fin<Unit> Fence(Runtime runtime, FencingToken incoming) =>
-        runtime.Latest.Value.Admits(incoming)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(Error.New($"<fenced-stale-token:{(ulong)incoming}<{(ulong)runtime.Latest.Value}>"));
+    public static Fin<FencingToken> Renew(Runtime runtime, string leaseKey, FencingToken held) =>
+        runtime.RenewLease(leaseKey, runtime.Lease, (ulong)held).Map(static grant => FencingToken.Create(grant.Generation));
+
+    public static Fin<Unit> Fence(Runtime runtime, string leaseKey, FencingToken held) =>
+        runtime.GuardWrite(leaseKey, (ulong)held);
+
+    public static Fin<Unit> Release(Runtime runtime, string leaseKey, FencingToken held) =>
+        runtime.ReleaseLease(leaseKey, (ulong)held);
 }
 ```

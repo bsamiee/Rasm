@@ -79,6 +79,7 @@ tabular/query       →   python:runtime/observability              # [RECEIPT]:
 tabular/profile     →   python:artifacts/figures                  # [SHAPE]: QualityProfile frame rendered by the great-tables tier
 gridded/virtual     →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: icechunk as-of snapshot identity reproduced from the XxHash128 seed
 spatial/geospatial  →   csharp:Rasm.Compute                       # [SHAPE]: native GeoArrow buffers (geoarrow_wire) sharing the GLB wire layout
+spatial/geospatial  ←   csharp:Rasm.Bim/Semantics/geospatial      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
 spatial/mesh        →   python:geometry/scan/ingestion            # [SHAPE]: data COPC arm decode leaving the pdal filter-graph owner unchanged
 impact              ←   python:runtime                            # [PORT]: TransportResource for the EC3 + openLCA server endpoints
 impact              →   python:runtime/observability              # [RECEIPT]: ImpactReceipt contribution keyed by ContentIdentity

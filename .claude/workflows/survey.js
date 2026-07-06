@@ -1,25 +1,27 @@
 export const meta = {
   name: 'survey',
-  whenToUse: 'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; multiple targets run sequentially (the central manifest has one writer at a time).',
-  description: 'Package survey-and-integrate over one target planning folder per lane. Scout (opus, read-only) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (opus, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members. ONE admission writer (fable) consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (opus, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, returning information maps — locations, verified members, integration shapes as fact, never prescriptions. ONE fable executor implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. Nothing follows the executor; cold-verify runs separately when wanted.',
+  whenToUse: 'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target lanes run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
+  description: 'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.5 dispatched through a sonnet codex wrapper; the CODEX flag false restores native opus) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.5 codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members. ONE admission writer (fable) consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.5 codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, returning information maps — locations, verified members, integration shapes as fact, never prescriptions. ONE fable executor implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap (CAP=14); the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. Nothing follows the executor; cold-verify runs separately when wanted.',
   phases: [
-    { title: 'Scout', detail: 'one read-only agent per target: folder map, hand-roll census, domain gaps, bounded research facets', model: 'opus' },
-    { title: 'Research', detail: 'one agent per facet, parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified', model: 'opus' },
-    { title: 'Admit', detail: 'one writer: adversarial consolidation, central manifest + registry + README bidirectional edits, restore/lock gate, self-heal, revert on failure', model: 'fable' },
-    { title: 'Catalog', detail: 'parallel writers: full-depth .api catalogs for every admitted package, verified members, [STACKING], owning-tier homing', model: 'fable' },
-    { title: 'Map', detail: 'read-only mappers over all planning pages + both .api tiers, new catalogs first: information maps, never prescriptions', model: 'opus' },
+    { title: 'Scout', detail: 'one read-only gpt-5.5 lane per target (codex wrapper): folder map, hand-roll census, domain gaps, bounded research facets' },
+    { title: 'Research', detail: 'one gpt-5.5 lane per facet (codex wrapper with live web search), parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified' },
+    { title: 'Admit', detail: 'one writer, serialized across targets: adversarial consolidation, central manifest + registry + README bidirectional edits, restore/lock gate, self-heal, revert on failure', model: 'fable' },
+    { title: 'Catalog', detail: 'parallel writers: full-depth .api catalogs for every admitted package, verified members, [STACKING], owning-tier homing; shared-tier catalogs of one language route through one serialized writer', model: 'fable' },
+    { title: 'Map', detail: 'read-only gpt-5.5 mappers (codex wrappers) over all planning pages + both .api tiers, new catalogs first: information maps, never prescriptions' },
     { title: 'Integrate', detail: 'one executor: the whole integration in place — new owners where demanded, existing pages grown, index docs closed, ripples in-pass', model: 'fable' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
-const CAP = 10
+const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 const EXEC_STALL = 480000
 const MAP_SLICE = 5 // planning pages per mapper
 const CATALOG_BATCH = 2 // admitted packages per catalog writer
+const CODEX = true // scout/research/map lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -81,13 +83,20 @@ const LANG = {
   cs: { key: 'cs', root: 'libs/csharp', stack: 'docs/stacks/csharp',
     manifest: '`Directory.Packages.props` (central pins, label-grouped, one-line maintenance comments) + `Directory.Build.props` (net10.0 floor, osx-arm64)',
     registry: 'the owning `.csproj` PackageReference rows and the folder README package sections',
-    gate: '`uv run --frozen python -m tools.assay static --project <csproj>` (one JSON Envelope on stdout); assay unavailable: `dotnet restore` + `dotnet build` at the same green criterion',
-    runtime: 'PLATFORM: osx-arm64 on net10.0 — managed AnyCPU, an osx-arm64 native asset, or a Forge-provisioned native substrate; reject win-only/x64-only/dead-on-arm. For a multi-target package decompile the lib/<tfm> a net10 consumer actually binds (assay default resolution can pick a non-bound TFM whose surface differs — set DOTNET_ROOT and run `ilspycmd <pkg>/lib/<consumer-tfm>/<asm>.dll -t <FQN>` when in doubt); never document a member from a non-bound TFM.' },
+    gate: '`uv run --frozen python -m tools.assay static --project <csproj>` (one JSON Envelope on stdout); assay unavailable: `dotnet restore` + ' +
+      '`dotnet build` at the same green criterion',
+    runtime: 'PLATFORM: osx-arm64 on net10.0 — managed AnyCPU, an osx-arm64 native asset, or a Forge-provisioned native substrate; reject ' +
+      'win-only/x64-only/dead-on-arm. For a multi-target package decompile the lib/<tfm> a net10 consumer actually binds (assay default ' +
+      'resolution can pick a non-bound TFM whose surface differs — set DOTNET_ROOT and run `ilspycmd <pkg>/lib/<consumer-tfm>/<asm>.dll ' +
+      '-t <FQN>` when in doubt); never document a member from a non-bound TFM.' },
   py: { key: 'py', root: 'libs/python', stack: 'docs/stacks/python',
     manifest: '`pyproject.toml` (dependencies / dependency-groups, lean unpinned names by default)',
     registry: 'the folder README package sections',
     gate: '`uv lock` + `uv sync` + import-verification of the new modules + `ruff check` at the same green criterion',
-    runtime: 'RUNTIME: the workspace floor is CPython 3.15 on osx-arm64; admissibility is decided by an ACTUAL `uv lock` + `uv sync` + import on cp315, never wheel-presence alone — a pure-Python/cp315-clean wheel or a native sdist that source-builds via the Forge scientific toolchain is admitted un-gated; a `python_version` marker is honest only for a real reported cp315 build failure. Verify members against the actually-installed distribution.' },
+    runtime: 'RUNTIME: the workspace floor is CPython 3.15 on osx-arm64; admissibility is decided by an ACTUAL `uv lock` + `uv sync` + import ' +
+      'on cp315, never wheel-presence alone — a pure-Python/cp315-clean wheel or a native sdist that source-builds via the Forge scientific ' +
+      'toolchain is admitted un-gated; a `python_version` marker is honest only for a real reported cp315 build failure. Verify members ' +
+      'against the actually-installed distribution.' },
   ts: { key: 'ts', root: 'libs/typescript', stack: 'docs/stacks/typescript',
     manifest: '`pnpm-workspace.yaml` (catalog)',
     registry: 'the folder README package sections',
@@ -99,16 +108,61 @@ const langOf = (t) => t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/py
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
-const pool = async (items, cap, worker) => {
-  const out = new Array(items.length)
-  let next = 0
+// Agent-level slot scheduler: CAP agents in flight across ALL target lanes, staggered launch,
+// work-conserving backfill the moment a slot frees. The single governor for every agent call.
+const makeSlots = (cap) => {
+  let active = 0
   let gate = Promise.resolve()
-  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
-  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
-  return out
+  const waiters = []
+  const stagger = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  return async (fn) => {
+    if (active >= cap) await new Promise((res) => waiters.push(res))
+    active++
+    await stagger()
+    try { return await fn() } finally { active--; const next = waiters.shift(); if (next) next() }
+  }
 }
+const slot = makeSlots(CAP)
+// Serial write chains — first lane to arrive goes first; the slot is acquired INSIDE the chained
+// thunk, so a queued lane never holds a slot while waiting its turn.
+const makeChain = () => { let tail = Promise.resolve(); return (fn) => { const p = tail.then(fn, fn); tail = p.then(() => undefined, () => undefined); return p } }
+const admitSerial = makeChain() // ONE central-manifest writer at a time across all targets
+const sharedSerial = { cs: makeChain(), py: makeChain(), ts: makeChain() } // ONE language-root .api writer at a time per language
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
+// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
+// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
+// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges
+// the work. `web` inserts live web search.
+const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
+const codexPrompt = (label, task, schema, writes, web) => {
+  const base = CODEX_DIR + '/' + fileTag(label)
+  const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
+    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
+  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+    (web ? '-c web_search="live" ' : '') + '--output-schema ' + base + '-schema.json -o ' + base + '-report.json ' +
+    '"Do the task in ' + base + '-task.md from the repository root. Final message: JSON per the output schema." ' +
+    '</dev/null >/dev/null 2>&1 &',
+  '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
+    'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
+    'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
+    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
+  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
+    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
+    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+  'TASK — write verbatim to the task file, then dispatch:',
+  task].join('\n\n')
+}
+// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
+const recon = (task, o) => CODEX
+  ? agent(codexPrompt(o.label, task, o.schema, !!o.writes, !!o.web),
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
+  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
 
 // --- [SHARED_BLOCKS] ---------------------------------------------------------------------
 
@@ -162,14 +216,24 @@ if (badLang.length) {
   return { targets: TARGETS, lanes: [] }
 }
 
-// Targets run sequentially: the central manifest has exactly one writer at a time.
-const lanes = []
-for (const t of TARGETS) {
+// All target lanes run CONCURRENTLY; the slot scheduler is the only concurrency governor. The six
+// phases are declared up front — concurrent lanes route every agent to its group via the per-call
+// phase option and never race the global phase(). Only Admit serializes across lanes (admitSerial);
+// shared-tier catalogs of one language serialize through sharedSerial so lanes never collide on
+// the language-root .api files.
+phase('Scout')
+phase('Research')
+phase('Admit')
+phase('Catalog')
+phase('Map')
+phase('Integrate')
+
+const lane = async (t) => {
   const L = LANG[langOf(t)]
   const tag = t.split('/').pop()
 
-  phase('Scout')
-  const scout = await agent([CTX(t, L), MEMBER_TRUTH(L), ADDITION_LAW,
+  // --- [SCOUT]
+  const scoutPrompt = [CTX(t, L), MEMBER_TRUTH(L), ADDITION_LAW,
     'TASK: HOSTILE READ-ONLY SCOUT (investigate, do NOT edit). Map ' + t + ' against real disk, never memory: `ls`/`fd` the ' +
     'folder tree and BOTH .api tiers, then FULL-read the README, the project/registry surface, every folder-tier catalog, every ' +
     'design page under ' + t + '/.planning/, the substrate-tier catalogs the folder references, and the folder\'s central ' +
@@ -180,31 +244,39 @@ for (const t of TARGETS) {
     'on both naivety axes (COVERAGE: the folder models a thin slice of its domain; APPROACH: hand-rolled enumeration where a ' +
     'package-backed generator should own the space). Each facet is all its researcher receives — pack the mandate with the ' +
     'admitted-adjacent packages the candidate must NOT duplicate and the seams it must integrate with; the facet is a pointer, ' +
-    'never a ceiling.'].join('\n\n'),
-    { label: 'scout:' + tag, phase: 'Scout', model: 'opus', effort: 'high', schema: SCOUT_SCHEMA, stallMs: STALL })
+    'never a ceiling.'].join('\n\n')
+  const scoutOpts = { label: 'scout:' + tag, phase: 'Scout', schema: SCOUT_SCHEMA }
+  // One bounded re-attempt: a dead scout silently no-ops the whole lane.
+  const scout = (await slot(() => recon(scoutPrompt, scoutOpts)))
+    || (await slot(() => recon(scoutPrompt, { ...scoutOpts, label: 'scout:' + tag + ':retry' })))
   const facets = ((scout && scout.facets) || []).filter((f) => f && f.id)
   const pages = ((scout && scout.pages) || []).filter(Boolean)
-  log(tag + ' scout: ' + facets.length + ' facet(s), ' + pages.length + ' page(s), ' + (((scout && scout.handRolls) || []).length) + ' hand-roll(s)')
-  if (!facets.length) { lanes.push({ target: t, admitted: 0, note: 'no research facets' }); continue }
+  const handRolls = ((scout && scout.handRolls) || []).filter(Boolean)
+  log(tag + ' scout: ' + facets.length + ' facet(s), ' + pages.length + ' page(s), ' + handRolls.length + ' hand-roll(s)')
+  if (!facets.length) return { target: t, admitted: 0, note: 'no research facets' }
 
-  phase('Research')
-  const research = (await pool(facets, CAP, (fc) => agent([CTX(t, L), MEMBER_TRUTH(L), ADMISSION_GATE, ADDITION_LAW,
+  // --- [RESEARCH]
+  const research = (await Promise.all(facets.map((fc) => slot(() => recon([CTX(t, L), MEMBER_TRUTH(L), ADMISSION_GATE, ADDITION_LAW,
     'TASK: RESEARCH one facet (read-only, then self-validate). facet=' + fc.id + ' · direction=' + fc.direction + ' · gap=' +
     fc.gap + (fc.mandate ? ' · mandate=' + fc.mandate : '') + '. Find the best-in-class MODERN package(s) that close this gap ' +
     'for the folder domain. The facet is your initial pointer, never a ceiling: re-derive the landscape yourself and sweep the ' +
     'full space it names — the first-found candidate is the presumed-naive pick until the real alternatives are attacked and ' +
     'the strongest named. Reject a thin-slice package covering one corner when a full-space owner exists; prefer one ' +
-    'parameterized owner over a roster of point solutions. Web research for landscape/newest/maintenance/license; registry ' +
+    'parameterized owner over a roster of point solutions. The folder\'s scout-verified HAND-ROLL CENSUS — capability the ' +
+    'design pages implement by hand that a real package owns — is: ' + JSON.stringify(handRolls) + '; a candidate that owns ' +
+    'one of these census sites outranks one that merely adjoins the gap. Web research for landscape/newest/maintenance/license; registry ' +
     'truth for versions and licenses; members per MEMBER TRUTH. Exclude anything already admitted unless it is a strictly ' +
     'stronger replacement (then set `fills` to name what it replaces). Self-validate each candidate against the ADMISSION GATE ' +
     'and return the gate fields with evidence and the alternatives compared. Write nothing.'].join('\n\n'),
-    { label: 'research:' + tag + ':' + fc.id, phase: 'Research', model: 'opus', effort: 'high', schema: RESEARCH_SCHEMA, stallMs: STALL }))).filter(Boolean)
+    { label: 'research:' + tag + ':' + fc.id, phase: 'Research', schema: RESEARCH_SCHEMA, web: true }))))).filter(Boolean)
   const okCount = research.reduce((n, r) => n + ((r.candidates || []).filter((c) => c && c.ok).length), 0)
   log(tag + ' research: ' + research.length + '/' + facets.length + ' facet(s) returned, ' + okCount + ' gated candidate(s)')
 
-  phase('Admit')
-  const admit = await agent([CTX(t, L), MEMBER_TRUTH(L), ADMISSION_GATE, ADDITION_LAW, WRITE_LAW,
-    'TASK: ADMISSION WRITER — you are the run\'s only central-manifest writer. The research payload is inlined below; ' +
+  // --- [ADMIT]
+  // Serialized across lanes: one central-manifest writer at a time.
+  const admitPrompt = [CTX(t, L), MEMBER_TRUTH(L), ADMISSION_GATE, ADDITION_LAW, WRITE_LAW,
+    'TASK: ADMISSION WRITER — you are the run\'s only central-manifest writer while you hold the serial window. The research ' +
+    'payload is inlined below; ' +
     'consolidate ADVERSARIALLY: an inlined ok=true is a claim to re-derive, never a fact — re-check each against the central ' +
     'manifest truth (a dup with an admitted row, a phantom version, or domain drift kills the claim), resolve every remaining ' +
     'overlap across facets to the single best, and drop anything outside the folder domain. THEN execute each surviving ' +
@@ -216,26 +288,35 @@ for (const t of TARGETS) {
     'report `catalog` = the canonical .api path at its OWNING tier (folder-domain package -> ' + t + '/.api/; cross-folder ' +
     'substrate -> ' + L.root + '/.api/), matching the sibling naming convention. `green` is true only when the final gate is ' +
     'clean after your repairs. RESEARCH PAYLOAD (consolidate only candidates present here; never fabricate a package, ' +
-    'version, or member beyond it):\n' + JSON.stringify(research, null, 1)].join('\n\n'),
-    { label: 'admit:' + tag, phase: 'Admit', model: 'fable', effort: 'high', schema: ADMIT_SCHEMA, stallMs: EXEC_STALL })
+    'version, or member beyond it):\n' + JSON.stringify(research)].join('\n\n')
+  const admitOpts = { label: 'admit:' + tag, phase: 'Admit', model: 'fable', effort: 'high', schema: ADMIT_SCHEMA, stallMs: EXEC_STALL }
+  // One bounded re-attempt inside the serial window: a dead admit drops the lane's whole admission.
+  const admit = await admitSerial(async () => (await slot(() => agent(admitPrompt, admitOpts)))
+    || (await slot(() => agent(admitPrompt, { ...admitOpts, label: 'admit:' + tag + ':retry' }))))
   const admitted = ((admit && admit.admitted) || []).filter((a) => a && a.package)
   log(tag + ' admit: ' + admitted.length + ' admitted, ' + (((admit && admit.skipped) || []).length) + ' skipped, green=' + !!(admit && admit.green))
-  if (!admitted.length) { lanes.push({ target: t, admitted: 0, green: !!(admit && admit.green), note: (admit && admit.summary) || 'nothing admitted' }); continue }
+  if (!admitted.length) return { target: t, admitted: 0, green: !!(admit && admit.green), note: (admit && admit.summary) || 'nothing admitted' }
 
-  phase('Catalog')
-  const catalogs = (await pool(chunk(admitted, CATALOG_BATCH), CAP, (batch, i) => agent([CTX(t, L), MEMBER_TRUTH(L), CATALOG_LAW(L), WRITE_LAW,
+  // --- [CATALOG]
+  // Folder-tier batches fan freely; shared-tier catalogs route through this language's ONE serialized writer.
+  const catalogPrompt = (batch) => [CTX(t, L), MEMBER_TRUTH(L), CATALOG_LAW(L), WRITE_LAW,
     'TASK: AUTHOR the full-depth .api catalog for each of these admitted packages, at the exact `catalog` path each carries: ' +
     JSON.stringify(batch) + '. Read the sibling catalogs at the owning tier first for the house convention, then write each ' +
     'catalog complete: the full advanced surface at operator depth, every member verified per MEMBER TRUTH (a member no tier ' +
     'verifies is dropped and listed in `phantomsDropped`), the [STACKING] section wiring the package into the substrate rails ' +
-    'and its sibling domain packages. Sibling writers land catalogs concurrently — compose theirs as found on disk.'].join('\n\n'),
-    { label: 'catalog:' + tag + ':b' + i, phase: 'Catalog', model: 'fable', effort: 'high', schema: CATALOG_SCHEMA, stallMs: STALL }))).filter(Boolean)
+    'and its sibling domain packages. Sibling writers land catalogs concurrently — compose theirs as found on disk.'].join('\n\n')
+  const catalogOpts = (lbl) => ({ label: lbl, phase: 'Catalog', model: 'fable', effort: 'high', schema: CATALOG_SCHEMA, stallMs: STALL })
+  const sharedTier = admitted.filter((a) => String(a.catalog || '').indexOf(L.root + '/.api/') === 0)
+  const folderTier = admitted.filter((a) => String(a.catalog || '').indexOf(L.root + '/.api/') !== 0)
+  const catalogTasks = chunk(folderTier, CATALOG_BATCH).map((batch, i) => slot(() => agent(catalogPrompt(batch), catalogOpts('catalog:' + tag + ':b' + i))))
+  if (sharedTier.length) catalogTasks.push(sharedSerial[L.key](() => slot(() => agent(catalogPrompt(sharedTier), catalogOpts('catalog:' + tag + ':shared')))))
+  const catalogs = (await Promise.all(catalogTasks)).filter(Boolean)
   const catalogFiles = catalogs.flatMap((c) => c.files || [])
   log(tag + ' catalog: ' + catalogFiles.length + ' catalog file(s) authored')
 
-  phase('Map')
+  // --- [MAP]
   const slices = pages.length ? chunk(pages, MAP_SLICE) : [[]]
-  const maps = (await pool(slices, CAP, (s, i) => agent([CTX(t, L), MEMBER_TRUTH(L), INFO_LAW,
+  const maps = (await Promise.all(slices.map((s, i) => slot(() => recon([CTX(t, L), MEMBER_TRUTH(L), INFO_LAW,
     'TASK: INTEGRATION MAP, slice ' + i + ' (read-only). The run just admitted: ' + JSON.stringify(admitted) + '. Read the NEW ' +
     'catalogs FIRST (' + JSON.stringify(catalogFiles) + '), then each of these design pages IN FULL from CURRENT disk: ' +
     JSON.stringify(s) + ', then every other catalog (folder tier and ' + L.root + '/.api/) the pages cite. Return entries: ' +
@@ -243,12 +324,12 @@ for (const t of TARGETS) {
     'integration shape as fact), what each page currently hand-rolls that an admitted package now owns (`state`/`gap` with ' +
     'exact anchors), where a new page or sub-folder is warranted because no existing page owns the concept (`gap`), and every ' +
     'registry/index surface the integration will touch (`registry`/`ripple`).'].join('\n\n'),
-    { label: 'map:' + tag + ':s' + i, phase: 'Map', model: 'opus', effort: 'high', schema: MAP_SCHEMA, stallMs: STALL }))).filter(Boolean)
+    { label: 'map:' + tag + ':s' + i, phase: 'Map', schema: MAP_SCHEMA }))))).filter(Boolean)
   const entries = maps.flatMap((m) => m.entries || [])
   log(tag + ' map: ' + entries.length + ' entr(ies) from ' + maps.length + ' mapper(s)')
 
-  phase('Integrate')
-  const fix = await agent([CTX(t, L), MEMBER_TRUTH(L), WRITE_LAW,
+  // --- [INTEGRATE]
+  const integratePrompt = [CTX(t, L), MEMBER_TRUTH(L), WRITE_LAW,
     'TASK: INTEGRATION EXECUTOR (WRITER — you are the run\'s LAST agent for this target; nothing follows you; full write ' +
     'authority over the folder, its index docs, and any file a ripple exposes). Read the ' + L.stack + '/ doctrine at source ' +
     '(README and every page it routes) — it is the bar. The maps below are reconnaissance — information, not instructions; ' +
@@ -257,10 +338,17 @@ for (const t of TARGETS) {
     'field, or operation — reshaped as if always carried, never a tacked-on mention), author a new page or sub-folder ' +
     'ground-up where the mapped capability demands an owner no page carries, weave beyond-map underutilized capability the ' +
     'catalogs expose, and close the folder README/ARCHITECTURE index docs so the landed state is truthfully reflected. ' +
-    'Every ripple in the same pass, both seam ends. ADMITTED: ' + JSON.stringify(admitted) + '. MAPS: ' + JSON.stringify(entries)].join('\n\n'),
-    { label: 'integrate:' + tag, phase: 'Integrate', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: EXEC_STALL })
-  lanes.push({ target: t, admitted: admitted.length, skipped: (admit && admit.skipped) || [], green: !!(admit && admit.green),
+    'Every ripple in the same pass, both seam ends. ADMITTED: ' + JSON.stringify(admitted) + '. HAND-ROLLS (the scout census ' +
+    'of page-local reimplementation the admission now owns — every census site replaced at its evidence anchor, none left ' +
+    'half-migrated): ' + JSON.stringify(handRolls) + '. MAPS: ' + JSON.stringify(entries)].join('\n\n')
+  const integrateOpts = { label: 'integrate:' + tag, phase: 'Integrate', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: EXEC_STALL }
+  // One bounded re-attempt: a dead executor leaves the lane admitted but unintegrated.
+  const fix = (await slot(() => agent(integratePrompt, integrateOpts)))
+    || (await slot(() => agent(integratePrompt, { ...integrateOpts, label: 'integrate:' + tag + ':retry' })))
+  return { target: t, admitted: admitted.length, skipped: (admit && admit.skipped) || [], green: !!(admit && admit.green),
     catalogs: catalogFiles, mapEntries: entries.length, built: (fix && fix.built && fix.built.length) || 0,
-    beyond: (fix && fix.beyond && fix.beyond.length) || 0, summary: (fix && fix.summary) || '' })
+    beyond: (fix && fix.beyond && fix.beyond.length) || 0, summary: (fix && fix.summary) || (fix ? '' : 'integrate agent died twice') }
 }
+
+const lanes = (await Promise.all(TARGETS.map((t) => lane(t).then((r) => r, () => ({ target: t, admitted: 0, note: 'lane crashed — inspect the run journal' }))))).filter(Boolean)
 return { targets: TARGETS, lanes }

@@ -1,31 +1,30 @@
 # [APPHOST_SANDBOX_HOST]
 
-The capability-brokered plugin sandbox for the runtime spine: a two-row isolation axis runs a plugin under a WASM component instance or an out-of-process child, every plugin holds zero ambient authority and reaches host capability only through a brokered grant handle, resource quotas cap CPU, memory, wall-time, and egress per plugin, a kill-or-quarantine rail evicts a misbehaving plugin, and a supply-chain gate admits only a signature-verified, SLSA-attested, semver-compatible artifact before it ever loads. The page owns the isolation axis, the grant broker handle, the quota cell, the kill-quarantine rail, and the supply-chain admission gate; it consumes `CapabilityDescriptor`/`GrantBroker`/`GrantScope`, `CommandAlgebra`, `OutboundHop.CompanionSpawn`/`Discovery`, `PeerAdmission`, `CancelScope`, `DegradationCell`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+The capability-brokered plugin sandbox for the runtime spine: a two-row isolation axis runs a plugin under a Wasmtime core-module instance (WASI-Preview-1, granted-descriptor import table) or an out-of-process child, every plugin holds zero ambient authority and reaches host capability only through a brokered grant handle, resource quotas cap CPU, memory, wall-time, and egress per plugin, a kill-or-quarantine rail evicts a misbehaving plugin, and every artifact admits through the ONE `Sandbox/admission#SUPPLY_CHAIN_GATE` `SupplyChainGate.Admit` (as `AdmissionSubject.Plugin`) before it ever loads. The page owns the isolation axis, the grant broker handle, the quota cell, and the kill-quarantine rail; it consumes `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact` from `Sandbox/admission`, `CapabilityDescriptor`/`GrantBroker`/`GrantScope`, `CommandAlgebra`, `OutboundHop.CompanionSpawn`/`Discovery`, `PeerAdmission`, `CancelScope`, `DegradationCell`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
 ## [01]-[INDEX]
 
-- [01]-[ISOLATION_AXIS]: WASM-component and process isolation rows with no-ambient-authority load law.
+- [01]-[ISOLATION_AXIS]: WASM core-module and process isolation rows with no-ambient-authority load law.
 - [02]-[GRANT_HANDLE]: Capability-brokered grant handle with per-call authority mediation.
 - [03]-[QUOTA_CONTROL]: CPU/memory/wall/egress quota cell with kill and quarantine rail.
-- [04]-[SUPPLY_CHAIN]: Signature, SLSA-attestation, and semver admission before load.
 
 ## [02]-[ISOLATION_AXIS]
 
-- Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `ComparerAccessors.StringOrdinal` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule; `SandboxFault` `[Union]` fault family in the 4660 band.
-- Cases: wasm-component, process — wasm-component runs the plugin as a WebAssembly component instance with a linear-memory boundary and import-only host access, process runs the plugin as an out-of-process child reached over the local-ipc hop with OS-level isolation; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined.
-- Entry: `SandboxRow Row` is the extension property total state-free `Switch` from case to frozen row; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the supply-chain gate admits the artifact, the row materializes the isolation boundary, and the plugin loads with exactly the brokered grant scope and no ambient authority.
-- Auto: the wasm-component row hosts the plugin on the `wasmtime-dotnet` embedding and instantiates the component with only the WASI-Preview-2 component-model imports the grant scope names, so clocks, files, sockets, and http are granted explicitly through the import table and an ungranted host capability is simply absent — the no-ambient-authority law is the component model's power-by-default isolation, a structural property of the import linkage, not a runtime check; a process row spawns the child through `OutboundHop.CompanionSpawn` and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` column seats the quota cell at load so the limits arrive with the instance, never bolted on after.
+- Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `ComparerAccessors.StringOrdinal` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule; `SandboxFault` `[Union]` fault family deriving its codes through `FaultBand.Sandbox`.
+- Cases: wasm-module, process — wasm-module runs the plugin as a Wasmtime core-module instance with a linear-memory boundary and import-only host access, process runs the plugin as an out-of-process child reached over the local-ipc hop with OS-level isolation; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined.
+- Entry: `SandboxRow Row` is the extension property total state-free `Switch` from case to frozen row; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the ONE `Sandbox/admission` gate admits the artifact as `AdmissionSubject.Plugin` (an all-empty artifact rejects `AttestationMissing` by construction), the row materializes the isolation boundary, and the plugin loads with exactly the brokered grant scope and no ambient authority.
+- Auto: the wasm-module row hosts the plugin on the `Wasmtime` embedding as a core module: the `Linker` import table carries only the host functions the grant scope names and `Linker.DefineWasi()` mounts the WASI-Preview-1 descriptors a `WasiConfiguration` pre-open set scopes, so clocks, files, sockets, and http are granted explicitly through the import table and an ungranted host capability is simply absent — the no-ambient-authority law is a structural property of the import linkage, not a runtime check — with `Config.WithFuelConsumption`/`Store.Fuel` metering CPU and `Store.SetLimits` capping linear memory; a process row spawns the child through `OutboundHop.CompanionSpawn` and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` column seats the quota cell at load so the limits arrive with the instance, never bolted on after.
 - Receipt: `SandboxReceipt` — plugin id, isolation key, granted scope hash, load outcome, `Instant`; the load transition logs through one `SpineLog` event.
-- Packages: wasmtime-dotnet, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Wasmtime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one isolation row absorbs a new sandbox topology — a new linear-memory or OS-isolation backend is one `SandboxRow`, never a parallel loader; a new fault is one `SandboxFault` case; zero new surface.
-- Boundary: the sandbox is the only plugin-load owner — a direct `Assembly.LoadFrom`, a plugin `AppDomain`, or an in-process plugin reference is the deleted form, so a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `wasmtime-dotnet` with WIT-generated host bindings — a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface`, but a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm-component import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns, never re-declaring the spawn or connect bytes.
+- Boundary: the sandbox is the only plugin-load owner — a direct `Assembly.LoadFrom`, a plugin `AppDomain`, or an in-process plugin reference is the deleted form, so a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `Wasmtime` (the NuGet package id; core-module + WASI-Preview-1 — the 44.0.0 embedding carries NO Component-Model surface, so the granted-descriptor import-table law, fuel metering, and linear-memory caps run on the core-module `Engine`/`Linker`/`Store` surface, and the WASI-Preview-2 Component-Model runtime is a RECORDED domain-gap growth line re-opened when the binding lands it — a vendored P/Invoke over the wasmtime C-API component surface is admissible only on a consumer-named demand with the maintenance burden recorded) — a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface`, but a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns, never re-declaring the spawn or connect bytes.
 
 ```csharp signature
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SandboxIsolation {
-    public static readonly SandboxIsolation WasmComponent = new("wasm-component");
+    public static readonly SandboxIsolation WasmModule = new("wasm-module");
     public static readonly SandboxIsolation Process = new("process");
 }
 
@@ -33,11 +32,11 @@ public sealed partial class SandboxIsolation {
 public abstract partial record SandboxFault : Expected, IValidationError<SandboxFault> {
     private SandboxFault(string detail, int code) : base(detail, code, None) { }
     public static SandboxFault Create(string message) => new Text(message);
-    public sealed record Text : SandboxFault { public Text(string detail) : base(detail, 4660) { } }
-    public sealed record LoadRejected : SandboxFault { public LoadRejected(string detail) : base(detail, 4661) { } }
-    public sealed record NoAuthority : SandboxFault { public NoAuthority(string detail) : base(detail, 4662) { } }
-    public sealed record QuotaExceeded : SandboxFault { public QuotaExceeded(string unit, long over) : base($"{unit}:+{over}", 4663) => Unit = unit; public string Unit { get; } }
-    public sealed record Quarantined : SandboxFault { public Quarantined(string detail) : base(detail, 4664) { } }
+    public sealed record Text : SandboxFault { public Text(string detail) : base(detail, FaultBand.Sandbox.Code(0)) { } }
+    public sealed record LoadRejected : SandboxFault { public LoadRejected(string detail) : base(detail, FaultBand.Sandbox.Code(1)) { } }
+    public sealed record NoAuthority : SandboxFault { public NoAuthority(string detail) : base(detail, FaultBand.Sandbox.Code(2)) { } }
+    public sealed record QuotaExceeded : SandboxFault { public QuotaExceeded(string unit, long over) : base($"{unit}:+{over}", FaultBand.Sandbox.Code(3)) => Unit = unit; public string Unit { get; } }
+    public sealed record Quarantined : SandboxFault { public Quarantined(string detail) : base(detail, FaultBand.Sandbox.Code(4)) { } }
 }
 
 public sealed record SandboxRow(
@@ -63,7 +62,7 @@ public readonly record struct SandboxReceipt(
     Instant At);
 
 public sealed record SandboxRuntime(
-    SupplyChainGate Gate,
+    SupplyChainGate.Runtime Gate,
     CommandRuntime Command,
     Func<PluginArtifact, GrantScope, IO<CompanionPeer>> Spawn,
     ClockPolicy Clocks,
@@ -74,21 +73,21 @@ public sealed record SandboxRuntime(
 }
 
 public static class SandboxRows {
-    public static readonly SandboxRow WasmComponent = new(SandboxIsolation.WasmComponent, LinearMemory: true, OutOfProcess: false, DeadlineClass.HopTotal, QuotaShape.Canonical);
+    public static readonly SandboxRow WasmModule = new(SandboxIsolation.WasmModule, LinearMemory: true, OutOfProcess: false, DeadlineClass.HopTotal, QuotaShape.Canonical);
     public static readonly SandboxRow Process = new(SandboxIsolation.Process, LinearMemory: false, OutOfProcess: true, DeadlineClass.HopTotal, QuotaShape.Canonical);
 
     extension(SandboxIsolation isolation) {
         public SandboxRow Row => isolation.Switch(
-            wasmComponent: static () => WasmComponent,
+            wasmModule: static () => WasmModule,
             process: static () => Process);
     }
 
     public static IO<PluginInstance> Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime) =>
-        runtime.Gate.Admit(artifact).Match(
-            Succ: verified => row.OutOfProcess
-                ? runtime.Spawn(verified, scope).Map(peer => Instance(row, verified, scope, runtime, Some(peer)))
-                : IO.pure(Instance(row, verified, scope, runtime, None)),
-            Fail: fault => IO.fail<PluginInstance>(fault));
+        SupplyChainGate.Admit(runtime.Gate, new AdmissionSubject.Plugin(artifact), runtime.Spine.Token).Bind(admitted => admitted.Match(
+            Succ: _ => row.OutOfProcess
+                ? runtime.Spawn(artifact, scope).Map(peer => Instance(row, artifact, scope, runtime, Some(peer)))
+                : IO.pure(Instance(row, artifact, scope, runtime, None)),
+            Fail: faults => IO.fail<PluginInstance>(faults.Head)));
 
     static PluginInstance Instance(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime, Option<CompanionPeer> child) =>
         new(artifact.PluginId, row.Isolation, scope, QuotaCell.Open(row.QuotaShape, runtime.Clocks.Now), child, runtime.Spine.Derive($"plugin-{artifact.PluginId}", runtime.Clocks.Time));
@@ -181,9 +180,9 @@ public static class GrantHandleSurface {
 - Owner: `QuotaShape` the per-plugin resource-ceiling record; `QuotaCell` the live-metering boundary capsule; `Quarantine` `[Union]` the eviction disposition; `QuotaControl` the static enforcement surface.
 - Cases: `Quarantine` = Active | Killed | Quarantined | Released — Active is the running plugin, Killed terminates immediately, Quarantined disables the grant handle and holds the artifact for inspection, Released reinstates after review.
 - Entry: `Enforce(PluginInstance plugin, CostVector observed, Instant now)` returns `Quarantine` — the enforcement fold compares observed resource use against the quota shape and disposes the plugin; `Kill(SandboxRuntime runtime, PluginInstance plugin, string reason)` returns `IO<SandboxReceipt>` — terminates the wasm instance or the child process and withdraws the grant handle.
-- Auto: a wasm-component plugin's CPU and memory are read from the `wasmtime-dotnet` `Store` fuel counter and linear-memory size, a process plugin's from its `ResourceQuota`-graded `UtilizationCell` over the child's resource-monitoring instruments, so quota enforcement reads the same observable-instrument and quota path the host pressure grade reads, never a parallel meter; a quota breach kills the wasm instance synchronously and signals the child process to drain then terminates it on the forced deadline, so a runaway plugin cannot exceed its wall budget; a killed plugin's grant handle dispatch returns `SandboxFault.Quarantined` so a held reference cannot reach the host after eviction.
+- Auto: a wasm-module plugin's CPU and memory are read from the `Wasmtime` `Store.Fuel` counter and the `Store.SetLimits` linear-memory bound, a process plugin's from its `ResourceQuota`-graded `UtilizationCell` over the child's resource-monitoring instruments, so quota enforcement reads the same observable-instrument and quota path the host pressure grade reads, never a parallel meter; a quota breach kills the wasm instance synchronously and signals the child process to drain then terminates it on the forced deadline, so a runaway plugin cannot exceed its wall budget; a killed plugin's grant handle dispatch returns `SandboxFault.Quarantined` so a held reference cannot reach the host after eviction.
 - Receipt: the eviction mints a `SandboxReceipt` and the kill rides the existing `DegradationCell` only when the plugin failure escalates a host capability — a plugin kill is process-local evidence, never a host degradation by itself.
-- Packages: wasmtime-dotnet, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Packages: Wasmtime, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one quota dimension is one field on `QuotaShape` riding the `CostUnit` axis; one disposition is one `Quarantine` case; zero new surface.
 - Boundary: the quota cell is the only plugin-resource owner — an unbounded plugin, a best-effort timeout, and a parallel plugin watchdog are the deleted forms; the quota shape's units are the same `CostUnit` rows the cost model meters, so a plugin's quota and a tenant's budget speak one resource vocabulary; the kill rail is the consequence of a quota breach, a supply-chain revocation, or an operator command — all three land on `Quarantine`, never three eviction paths; quarantine holds the artifact and the last receipt for inspection so a suspected-malicious plugin's evidence survives the eviction, distinct from a clean kill that discards the instance; the wall-time ceiling is a `DeadlineClass` row read by projection, never a literal here.
 
@@ -243,98 +242,7 @@ public static class QuotaControl {
 }
 ```
 
-## [05]-[SUPPLY_CHAIN]
+## [05]-[RESEARCH]
 
-- Owner: `PluginArtifact` the candidate plugin record; `Attestation` the SLSA-provenance record; `SemverGate` the version-compatibility check; `SupplyChainFault` `[Union]` fault family in the 4680 band; `SupplyChainGate` the static admission surface.
-- Entry: `Admit(PluginArtifact artifact)` returns `Fin<PluginArtifact>` — the gate verifies the artifact signature against the trusted publisher set, validates the SLSA provenance attestation, and checks semver compatibility against the host contract version before the artifact ever loads; a single rejected check fails closed.
-- Auto: signature verification reads the artifact's detached signature against the publisher's pinned public key so an unsigned or wrong-key artifact is rejected before parse; the SLSA attestation binds the artifact digest to its build provenance so a tampered artifact whose digest drifts from the attestation is rejected; the semver gate reads the host's plugin-contract version and the artifact's declared compatibility range so a plugin built against an incompatible contract is rejected at admission, never at first call; the digest is content-addressed through `XxHash128` so the admission decision caches on the digest and a re-presented artifact re-verifies once.
-- Receipt: the admission decision rides one `SpineLog` event carrying the digest, the publisher, and the outcome; a rejected admission never loads, so there is no instance receipt for a rejected artifact.
-- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, System.IO.Hashing, BCL inbox
-- Growth: one supply-chain check is one fold arm on `Admit`; a new attestation format is one `Attestation` variant; zero new surface.
-- Boundary: the supply-chain gate is the only plugin-admission owner — an unverified load, a trust-on-first-use path, and a post-load signature check are the deleted forms, so verification always precedes load; the gate is fail-closed — a missing signature, an absent attestation, or an unparseable semver range all reject, so the default is exclusion, never admission; the trusted publisher set is a frozen config-bound policy, so a new publisher is one config row, never a code change; the digest content-addressing means the gate and the host evidence stream identify a plugin by the same hash, so a quarantined plugin's digest matches its admission record; the gate never executes the artifact to inspect it — verification reads the signature, the attestation, and the manifest only, so a malicious artifact cannot exploit the gate by running during admission.
-
-```csharp signature
-[Union]
-public abstract partial record SupplyChainFault : Expected, IValidationError<SupplyChainFault> {
-    private SupplyChainFault(string detail, int code) : base(detail, code, None) { }
-    public static SupplyChainFault Create(string message) => new Text(message);
-    public sealed record Text : SupplyChainFault { public Text(string detail) : base(detail, 4680) { } }
-    public sealed record SignatureInvalid : SupplyChainFault { public SignatureInvalid(string detail) : base(detail, 4681) { } }
-    public sealed record AttestationMissing : SupplyChainFault { public AttestationMissing(string detail) : base(detail, 4682) { } }
-    public sealed record DigestMismatch : SupplyChainFault { public DigestMismatch(string detail) : base(detail, 4683) { } }
-    public sealed record VersionIncompatible : SupplyChainFault { public VersionIncompatible(string detail) : base(detail, 4684) { } }
-}
-
-public sealed record Attestation(
-    string BuilderId,
-    string SourceUri,
-    string BuildDigest,
-    int SlsaLevel);
-
-public sealed record PluginArtifact(
-    string PluginId,
-    string Digest,
-    string Publisher,
-    ReadOnlyMemory<byte> Signature,
-    Option<Attestation> Provenance,
-    string ContractRange,
-    ReadOnlyMemory<byte> Component) {
-    public static string DigestOf(ReadOnlyMemory<byte> component) =>
-        Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(component.Span));
-}
-
-public sealed record SupplyChainPolicy(
-    FrozenDictionary<string, ReadOnlyMemory<byte>> TrustedPublishers,
-    int MinimumSlsaLevel,
-    string HostContractVersion) {
-    public const string Section = nameof(SupplyChainPolicy);
-}
-
-public sealed record SupplyChainGate(SupplyChainPolicy Policy, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, bool> Verify) {
-    public Fin<PluginArtifact> Admit(PluginArtifact artifact) =>
-        from publisher in Policy.TrustedPublishers.TryGetValue(artifact.Publisher, out var key)
-            ? Fin.Succ(key)
-            : Fin.Fail<ReadOnlyMemory<byte>>(new SupplyChainFault.SignatureInvalid($"untrusted:{artifact.Publisher}"))
-        from _signed in Verify(artifact.Component, artifact.Signature, publisher)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new SupplyChainFault.SignatureInvalid(artifact.PluginId))
-        from _digest in PluginArtifact.DigestOf(artifact.Component) == artifact.Digest
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new SupplyChainFault.DigestMismatch(artifact.PluginId))
-        from attestation in artifact.Provenance.ToFin(new SupplyChainFault.AttestationMissing(artifact.PluginId))
-        from _slsa in attestation.SlsaLevel >= Policy.MinimumSlsaLevel && attestation.BuildDigest == artifact.Digest
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new SupplyChainFault.AttestationMissing($"slsa-{attestation.SlsaLevel}"))
-        from _semver in SemverGate.Compatible(artifact.ContractRange, Policy.HostContractVersion)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new SupplyChainFault.VersionIncompatible($"{artifact.ContractRange}!~{Policy.HostContractVersion}"))
-        select artifact;
-}
-
-public static class SemverGate {
-    public static bool Compatible(string range, string hostVersion) =>
-        Version.TryParse(hostVersion, out var host)
-        && range.Split('-', 2) is [{ } lower, { } upper]
-        && Version.TryParse(lower, out var min) && Version.TryParse(upper, out var max)
-        && host >= min && host < max;
-}
-```
-
-```mermaid
-flowchart TD
-    Admit[SupplyChainGate.Admit] -->|reject| Closed[fail-closed]
-    Admit -->|verified| Load[SandboxRows.Load]
-    Load --> WasmRow{isolation}
-    WasmRow -->|wasm-component| Imports[scoped import table]
-    WasmRow -->|process| Spawn[CompanionSpawn + PeerAdmission]
-    Imports --> Active[Active under QuotaCell]
-    Spawn --> Active
-    Active -->|breach| Killed[Quarantine.Killed]
-    Active -->|suspect| Quarantined[Quarantine.Quarantined]
-```
-
-## [06]-[RESEARCH]
-
-- [WASM_RUNTIME]: the `wasmtime-dotnet` embedding component instantiation, the WASI-Preview-2 component-model import table scoped to the granted descriptors (clocks/files/sockets/http granted explicitly), and the `Store` fuel and linear-memory counters the quota cell reads confirm against the runtime package at the integrated host; the scope-derived import set and the `componentize-dotnet` WIT-generated host bindings are the open distinction the live runtime resolves.
-- [SIGNATURE_VERIFY]: the artifact signature-verification primitive (the detached-signature check against the pinned publisher public key) and the SLSA in-toto provenance attestation parse confirm against the admitted cryptography surface; the verification reads only the signature, attestation, and manifest and never executes the artifact, so the gate carries no execution residual.
+- [WASM_RUNTIME]: the `Wasmtime` embedding hosts core modules under WASI-Preview-1 — `Module.FromBytes`, `Linker.DefineWasi()` over a `WasiConfiguration` pre-open set, `Config.WithFuelConsumption`/`WithEpochInterruption`, `Store.Fuel`/`Store.SetLimits`/`Store.SetEpochDeadline`, and the store-before-engine dispose hierarchy per `api-wasmtime.md`; the scope-derived import set confirms at the integrated host. The WASI-Preview-2 Component-Model runtime is the recorded domain-gap growth line — the 44.0.0 assembly ships no Component type — re-opened when the binding lands it.
 - [CHILD_SHUTDOWN]: the `CompanionPeer.Control.ShutdownAsync` graceful-then-forced child termination over the control hop and the wasm-instance synchronous teardown compile through the G7 spec-compile gate until the `Grpc.Core.Api` assay source map registers the transitive package; the kill-then-quarantine convergence against a runaway plugin is the open distinction the live host resolves.

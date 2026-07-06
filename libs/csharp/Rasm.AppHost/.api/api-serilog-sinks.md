@@ -2,6 +2,8 @@
 
 `Serilog.Sinks.Console` and `Serilog.Sinks.File` provide the bootstrap sink surfaces AppHost uses for interactive diagnostics and retained local runtime logs. Both extend the `Serilog` `WriteTo` and `AuditTo` configuration rails; the core event model, enrichment, filtering, and host integration stay in `api-serilog.md` and `api-serilog-hosting.md`.
 
+[APP_ROOT_RESERVED]: `[V15]` — `WriteTo.Console`/`WriteTo.File` sink projection is a composition-root concern; the lib emits `ILogger` only. The central pins are retained; the rows move out of the lib csproj.
+
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog.Sinks.Console`

@@ -128,13 +128,13 @@ public static class Pools {
 
 ## [04]-[DRAIN_QUEUES]
 
-- Owner: `DrainSpec` frozen rows carrying the `DrainKind` `[SmartEnum<string>]` topology discriminant, materialized through the `DrainQueue<T>` union; `DrainSurface` carries options projection, open, drain, and the fan-out/join/coalesce block builders as one extension surface.
-- Cases: `Pipe(DrainSpec Spec, Channel<T> Channel)` for simple producer-consumer seams; `Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail)` for every completion-propagating block graph — single-stage batch, `BroadcastBlock` fan-out, `JoinBlock` correlated-join, and `BatchedJoinBlock` dual-stream coalesce all land as `Network` whose `Row.Kind` names the topology.
+- Owner: `DrainSpec` frozen rows carrying the `DrainKind` `[SmartEnum<string>]` topology discriminant, materialized through the `DrainQueue<T>` union; `DrainFault` `[Union]` fault family deriving its codes through `FaultBand.Drain`; `DrainSurface` carries options projection, open, drain, and the fan-out/join/coalesce block builders as one extension surface.
+- Cases: `Pipe(DrainSpec Spec, Channel<T> Channel)` for simple producer-consumer seams; `Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail)` for every completion-propagating block graph — single-stage batch, `BroadcastBlock` fan-out, `JoinBlock` correlated-join, and `BatchedJoinBlock` dual-stream coalesce all land as `Network` whose `Row.Kind` names the topology; `DrainFault` = Text | UnreceiptedLoss | TopologyMismatch — a lossy row opened without its `onDrop` receipt and an arm projection against the wrong topology are typed rail failures, never throws.
 - Entry: `Task Drained(CancellationToken token)`.
 - Receipt: `DropOldest` rows surface every lost item through the open-time `onDrop` delegate; a faulted `Completion` projects typed evidence onto the lifecycle fault rail; the `Network` tail's `Completion` carries the join-failure and coalesce-flush evidence.
 - Packages: BCL inbox; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: one `DrainSpec` row per queue carrying its `DrainKind`; a fan-out clone, a correlated-join arity, or a dual-stream coalesce batch is one row column, never a new owner; `Greedy`, `MaxGroups`, and `PropagateCompletion` are policy columns on the row; zero new surface.
-- Boundary: `System.Threading.Tasks.Dataflow` rides the shared framework and its central pin stays a transitive floor, never a direct project asset; `DrainQueue` names process-level drainable queues while `WorkLane` stays the Compute solve-path name; `BroadcastBlock` fans the receipt stream to multiple sinks, `JoinBlock` correlates the watchdog heartbeat against the health snapshot, and `BatchedJoinBlock` coalesces the support artifact stream against the error stream — each is a `DrainSurface` builder over the same union, never a hand-rolled fan-out loop, correlation buffer, or dual-queue zip; completion awaits land at the row's `DrainBand` under the conductor's cancellation scope — this family deletes per-lane queue classes and free-floating background loops.
+- Boundary: `System.Threading.Tasks.Dataflow` is an out-of-band NuGet asset (not in the shared framework) referenced directly by the project against its central pin — a shared-framework or transitive-floor claim is the corrected fiction; `DrainQueue` names process-level drainable queues while `WorkLane` stays the Compute solve-path name; `BroadcastBlock` fans the receipt stream to multiple sinks, `JoinBlock` correlates the watchdog heartbeat against the health snapshot, and `BatchedJoinBlock` coalesces the support artifact stream against the error stream — each is a `DrainSurface` builder over the same union, never a hand-rolled fan-out loop, correlation buffer, or dual-queue zip; every dispatch over the union is TOTAL — the arm projections return `Fin` with `DrainFault.TopologyMismatch` on the pipe arm and the builders bind their block graphs through total helpers, so a `throw new UnreachableException()` inside an expression fold is the deleted form; completion awaits land at the row's `DrainBand` under the conductor's cancellation scope — this family deletes per-lane queue classes and free-floating background loops.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -144,6 +144,15 @@ public sealed partial class DrainKind {
     public static readonly DrainKind FanOut = new("fan-out");
     public static readonly DrainKind CorrelatedJoin = new("correlated-join");
     public static readonly DrainKind DualCoalesce = new("dual-coalesce");
+}
+
+[Union]
+public abstract partial record DrainFault : Expected, IValidationError<DrainFault> {
+    private DrainFault(string detail, int code) : base(detail, code, None) { }
+    public static DrainFault Create(string message) => new Text(message);
+    public sealed record Text : DrainFault { public Text(string detail) : base(detail, FaultBand.Drain.Code(0)) { } }
+    public sealed record UnreceiptedLoss : DrainFault { public UnreceiptedLoss(string queue) : base(queue, FaultBand.Drain.Code(1)) { } }
+    public sealed record TopologyMismatch : DrainFault { public TopologyMismatch(string queue, string expected) : base($"{queue}!={expected}", FaultBand.Drain.Code(2)) { } }
 }
 
 public sealed record DrainSpec(
@@ -221,38 +230,45 @@ public static class DrainSurface {
                 ? Fin.Succ<DrainQueue<T>>(new DrainQueue<T>.Pipe(spec, onDrop is { IsSome: true, Case: Action<T> drop }
                     ? Channel.CreateBounded<T>(spec.PipeOptions(), drop)
                     : Channel.CreateBounded<T>(spec.PipeOptions())))
-                : Fin.Fail<DrainQueue<T>>(Error.New($"unreceipted-loss:{spec.Name}"));
+                : Fin.Fail<DrainQueue<T>>(new DrainFault.UnreceiptedLoss(spec.Name));
 
         public DrainQueue<T> Open<T>(ITargetBlock<T> intake, IDataflowBlock tail) =>
             new DrainQueue<T>.Network(spec, intake, tail);
 
+        // Total builders: the block binds, the links thread as tuple-sequenced effects, the Network case
+        // returns — no always-true pattern ternary and no throw fallback on the fold.
         public DrainQueue<T> Broadcast<T>(Func<T, T> clone, Seq<ITargetBlock<T>> sinks, CancellationToken token) =>
-            new BroadcastBlock<T>(clone, spec.BroadcastOptions(token)) is var head
-                ? new DrainQueue<T>.Network(spec, head, sinks.Fold(head as IDataflowBlock, (_, sink) =>
-                    (head.LinkTo(sink, spec.LinkOptions()), head).Item2))
-                : throw new UnreachableException();
+            Fanned(spec, new BroadcastBlock<T>(clone, spec.BroadcastOptions(token)), sinks);
 
         public DrainQueue<Tuple<T1, T2>> Join<T1, T2>(ITargetBlock<Tuple<T1, T2>> sink, CancellationToken token) =>
-            new JoinBlock<T1, T2>(spec.GroupingOptions(token)) is var join
-                ? (join.LinkTo(sink, spec.LinkOptions()), new DrainQueue<Tuple<T1, T2>>.Network(spec, DataflowBlock.NullTarget<Tuple<T1, T2>>(), join)).Item2
-                : throw new UnreachableException();
+            Tailed<Tuple<T1, T2>, JoinBlock<T1, T2>>(spec, new JoinBlock<T1, T2>(spec.GroupingOptions(token)), sink);
 
         public DrainQueue<Tuple<IList<T1>, IList<T2>>> Coalesce<T1, T2>(ITargetBlock<Tuple<IList<T1>, IList<T2>>> sink, CancellationToken token) =>
-            new BatchedJoinBlock<T1, T2>(spec.Batch.IfNone(spec.Capacity), spec.GroupingOptions(token)) is var coalesce
-                ? (coalesce.LinkTo(sink, spec.LinkOptions()), new DrainQueue<Tuple<IList<T1>, IList<T2>>>.Network(spec, DataflowBlock.NullTarget<Tuple<IList<T1>, IList<T2>>>(), coalesce)).Item2
-                : throw new UnreachableException();
+            Tailed<Tuple<IList<T1>, IList<T2>>, BatchedJoinBlock<T1, T2>>(spec, new BatchedJoinBlock<T1, T2>(spec.Batch.IfNone(spec.Capacity), spec.GroupingOptions(token)), sink);
     }
 
+    static DrainQueue<T> Fanned<T>(DrainSpec spec, BroadcastBlock<T> head, Seq<ITargetBlock<T>> sinks) =>
+        new DrainQueue<T>.Network(spec, head, sinks.Fold((IDataflowBlock)head, (tail, sink) =>
+            (head.LinkTo(sink, spec.LinkOptions()), tail).Item2));
+
+    static DrainQueue<T> Tailed<T, TBlock>(DrainSpec spec, TBlock tail, ITargetBlock<T> sink) where TBlock : ISourceBlock<T> =>
+        (tail.LinkTo(sink, spec.LinkOptions()), new DrainQueue<T>.Network(spec, DataflowBlock.NullTarget<T>(), tail)).Item2;
+
     extension<T1, T2>(DrainQueue<Tuple<T1, T2>> queue) {
-        public (ITargetBlock<T1> First, ITargetBlock<T2> Second) Arms => queue.Switch(
-            pipe: static _ => throw new UnreachableException(),
-            network: static n => (JoinBlock<T1, T2>)n.Tail is var join ? (join.Target1, join.Target2) : throw new UnreachableException());
+        // Total arm projection: the pipe arm and a foreign tail are typed rail failures, never throws.
+        public Fin<(ITargetBlock<T1> First, ITargetBlock<T2> Second)> Arms => queue.Switch(
+            pipe: static p => Fin.Fail<(ITargetBlock<T1>, ITargetBlock<T2>)>(new DrainFault.TopologyMismatch(p.Spec.Name, DrainKind.CorrelatedJoin.Key)),
+            network: static n => n.Tail is JoinBlock<T1, T2> join
+                ? Fin.Succ<(ITargetBlock<T1>, ITargetBlock<T2>)>((join.Target1, join.Target2))
+                : Fin.Fail<(ITargetBlock<T1>, ITargetBlock<T2>)>(new DrainFault.TopologyMismatch(n.Spec.Name, DrainKind.CorrelatedJoin.Key)));
     }
 
     extension<T1, T2>(DrainQueue<Tuple<IList<T1>, IList<T2>>> queue) {
-        public (ITargetBlock<T1> First, ITargetBlock<T2> Second) CoalesceArms => queue.Switch(
-            pipe: static _ => throw new UnreachableException(),
-            network: static n => (BatchedJoinBlock<T1, T2>)n.Tail is var coalesce ? (coalesce.Target1, coalesce.Target2) : throw new UnreachableException());
+        public Fin<(ITargetBlock<T1> First, ITargetBlock<T2> Second)> CoalesceArms => queue.Switch(
+            pipe: static p => Fin.Fail<(ITargetBlock<T1>, ITargetBlock<T2>)>(new DrainFault.TopologyMismatch(p.Spec.Name, DrainKind.DualCoalesce.Key)),
+            network: static n => n.Tail is BatchedJoinBlock<T1, T2> coalesce
+                ? Fin.Succ<(ITargetBlock<T1>, ITargetBlock<T2>)>((coalesce.Target1, coalesce.Target2))
+                : Fin.Fail<(ITargetBlock<T1>, ITargetBlock<T2>)>(new DrainFault.TopologyMismatch(n.Spec.Name, DrainKind.DualCoalesce.Key)));
     }
 
     extension<T>(DrainQueue<T> queue) {

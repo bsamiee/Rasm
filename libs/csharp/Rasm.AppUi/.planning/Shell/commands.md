@@ -273,10 +273,10 @@ flowchart LR
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: `CommandIntentWire`, `CommandAvailabilityWire`, `CommandInvocationWire`, `CommandPayloadWire`, `CommandOutcomeWire`, `CommandReceiptWire` — the command wire contract the TS layer consumes today while `SurfaceHost` WebBrowser stays a designed-only growth case.
+- Owner: `CommandIntentWire`, `CommandGateWire`, `CommandInvocationWire`, `CommandPayloadWire`, `CommandOutcomeWire`, `CommandReceiptWire` — the command wire contract the TS layer consumes today while `SurfaceHost` WebBrowser stays a designed-only growth case.
 - Packages: BCL inbox
 - Growth: one wire member row per new receipt field and one kind literal per new payload or outcome case; zero new surface.
-- Boundary: shapes transcribe the camelCase emission of the suite wire law — intent keys cross as ordinal strings, the level field crosses as the degradation smart-enum string key, elapsed crosses as ISO-8601 duration text, correlation crosses as a guid string, gesture crosses as its parse-round-trip text, and payload and outcome discriminate on the locked kind literals; the receipt binds as the payload type parameter on the envelope wire record from the suite wire law.
+- Boundary: shapes transcribe the camelCase emission of the suite wire law — intent keys cross as ordinal strings, the level field crosses as the degradation smart-enum string key, elapsed crosses as ISO-8601 duration text, correlation crosses as a guid string, gesture crosses as its parse-round-trip text, and payload and outcome discriminate on the locked kind literals; the receipt binds as the payload type parameter on the envelope wire record from the suite wire law; `CommandGateWire` transcribes the per-row `CanExecute` gate verdict — the frozen name `CommandAvailabilityWire` is `Rasm.AppHost/Observability` health.md's `DegradationLevel` command-availability snapshot, a different carrier this palette wire never shadows.
 
 ```ts contract
 type CommandPayloadWire =
@@ -292,7 +292,7 @@ type CommandOutcomeWire =
   | { readonly kind: "faulted"; readonly detail: string; readonly code: number };
 
 interface CommandIntentWire { readonly key: string; readonly gesture: string | null; }
-interface CommandAvailabilityWire { readonly key: string; readonly available: boolean; readonly level: string; }
+interface CommandGateWire { readonly key: string; readonly available: boolean; readonly level: string; }
 interface CommandInvocationWire { readonly key: string; readonly payload: CommandPayloadWire; }
 interface CommandReceiptWire { readonly key: string; readonly surface: string; readonly elapsed: string; readonly outcome: CommandOutcomeWire; readonly payloadDigest: string; readonly correlation: string; }
 ```

@@ -83,7 +83,7 @@
 
 - the live-wire `mtconnect` transport row is one `ExternalTransport` `[SmartEnum<string>]` case (`Wire/livewire#TRANSPORT_AXIS`) with its `TransportRow` (`ReadShape.Poll` over an `OutboundHop.HttpApi` for the `/sample` cursor poll, or `Subscribe` for MQTT-relay agents, `Writable: false` for the pure-consume case) and one `LiveClient` case wrapping the poll-decode-cursor loop — no second MTConnect surface, no bespoke poller beyond the `OutboundHop`.
 - the data-item map (device key, data-item keys, poll interval, sequence cursor) is binding-spec policy DATA; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
-- the named forward consumers are Fabrication `Process/magazine` mid-job tool-life reload — decoding `CuttingToolAsset` life/wear observations — and `Verify/probing` measured-feature/work-offset observations (`RASM-CS-FABRICATION-BRIEF.md` `[04]`/`[V7]`); both pin the `-Common` model slice and firewall transport here, the observation crossing the seam as a wire row exactly as `api-bacnet.md` feeds the twin-calibration lane. OPC-UA/umati machine data stays on the kept `OPCFoundation` runtime, never re-homed here.
+- the named forward consumers are Fabrication `Tooling/magazine` mid-job tool-life reload — decoding `CuttingToolAsset` life/wear observations — and `Verify/probing` measured-feature/work-offset observations; both pin the `-Common` model slice and firewall transport here, the observation crossing the seam as a wire row exactly as `api-bacnet.md` feeds the twin-calibration lane. OPC-UA/umati machine data stays on the kept `OPCFoundation` runtime, never re-homed here.
 
 [RAIL_LAW]:
 - Package: `MTConnect.NET-Common`

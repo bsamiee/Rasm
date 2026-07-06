@@ -2,6 +2,8 @@
 
 `OpenTelemetry.Exporter.OpenTelemetryProtocol` supplies OTLP gRPC and HTTP/Protobuf exporters for traces, metrics, and logs, a unified `UseOtlpExporter` builder extension that wires all three signals at once, typed options for endpoint, protocol, compression, and headers, and per-signal exporter and processor builder surfaces.
 
+[APP_ROOT_RESERVED]: `[V15]` — the OTLP exporter is a composition-root instantiation only; the lib emits `ILogger` + minted `ActivitySource`/`Meter` pairs and `UseOtlpExporter` composes at service app roots. The central pin is retained; the row moves out of the lib csproj.
+
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Exporter.OpenTelemetryProtocol`

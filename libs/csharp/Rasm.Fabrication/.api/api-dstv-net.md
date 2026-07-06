@@ -127,7 +127,7 @@
 - numeric/enum/tuple coercion failures are distinct cases (`DoubleParseException`/`IntegerParseException`/`EnumParseException`/`TupleParseException`), so a diagnostic can name the exact malformed field class without string-matching a message.
 
 [STACKING_SEAM]:
-- the parsed `DstvHole`/`DstvSlot`/`Contour` `(XCoord, YCoord)` flange coordinates map to `Clipper2` `Path64`/`PathD` (`api-clipper2`): contour boundaries become subject paths and holes/slots become clip paths for the true-shape `Nesting/nfp` pack and the `Posting/projection` screen clip — DSTV.Net delivers the read geometry, `Clipper2` owns the polygon algebra.
+- the parsed `DstvHole`/`DstvSlot`/`Contour` `(XCoord, YCoord)` flange coordinates map to `Clipper2` `Path64`/`PathD` (`api-clipper2`): contour boundaries become subject paths and holes/slots become clip paths for the true-shape `Nesting/nfp` pack and the `Documentation/projection` screen clip — DSTV.Net delivers the read geometry, `Clipper2` owns the polygon algebra.
 - a parsed piece is content-addressed for the nesting/remnant lineage by `System.IO.Hashing` `XxHash128.HashToUInt128` (`api-hashing`) over the canonical header+feature bytes, so an identical `.nc1` re-parse keys to the same `Stock`/part identity.
 - `ToSvg()` is a DEBUG/preview projection only; it is NOT the drafting rail — DXF/DWG read is `ACadSharp` and DXF/DWG WRITE is the AppUi two-format ACadSharp drafting leg, neither routed through DSTV.Net.
 

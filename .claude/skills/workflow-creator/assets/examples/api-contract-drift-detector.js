@@ -20,7 +20,7 @@ export const meta = {
   whenToUse: 'Auditing wire-contract parity across the tri-language platform before a release',
   phases: [
     { title: 'List wire types' },
-    { title: 'Check', detail: 'one agent per wire type', model: 'haiku' },
+    { title: 'Check', detail: 'one agent per wire type', model: 'sonnet' },
     { title: 'Open PR' },
   ],
 }
@@ -73,7 +73,7 @@ const checks = await parallel(types.map(wt => () =>
     `it. Report whether field names, optionality, enum codes, or ordering have diverged from ` +
     `the producer, cite the file:symbol on each side, and if drift exists give a corrected ` +
     `consumer-side snippet.`,
-    { label: `check:${wt}`, phase: 'Check', model: 'haiku', schema: DRIFT },
+    { label: `check:${wt}`, phase: 'Check', model: 'sonnet', schema: DRIFT },
   ),
 ))
 

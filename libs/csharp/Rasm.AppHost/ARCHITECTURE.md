@@ -15,6 +15,7 @@ Rasm.AppHost/
 │   ├── Resources.cs     # Bounded resource lanes: hybrid cache, object pools, drainable queues
 │   ├── Modules.cs       # One composition root folding and freezing service graph
 │   ├── Config.cs        # Ranked config-source chain with fail-closed source-gen binding
+│   ├── Secrets.cs       # Credential-material lifecycle: SecretLease acquire/renew/zeroize + RFC-7468 CredentialPem wire + KMS-unwrap port
 │   ├── Ports.cs         # Seven inward port records — only cross-package seam
 │   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode + hash-chained command log
 │   ├── Orchestration.cs # Crash-durable workflow + persistent-job owner over CommandDispatch/EventLog/SchedulePort
@@ -34,8 +35,9 @@ Rasm.AppHost/
 │   ├── Topics.cs        # In-process event-bus topology over Dataflow fan-out/join/coalesce DrainSurface builders
 │   ├── Outbox.cs        # Transactional outbox + dead-letter relay over the watermark-advancing dispatch sweep
 │   └── Coordination.cs  # Cluster membership/election/distributed-lock over the fenced lease; ServiceEndpointResolver role resolution
-├── Sandbox/             # Capability-brokered plugin isolation and solver-plugin contract
-│   ├── Isolation.cs     # Capability-brokered WASM/process plugin isolation; unified BrokeredCall caller-modality mediation
+├── Sandbox/             # Capability-brokered plugin isolation, one supply-chain admission gate, and solver-plugin contract
+│   ├── Admission.cs     # The ONE supply-chain admission gate: offline Sigstore + SLSA provenance + NuGet.Versioning contract over one AdmissionSubject union
+│   ├── Isolation.cs     # Capability-brokered WASM core-module/process plugin isolation; unified BrokeredCall caller-modality mediation
 │   ├── Solver.cs        # Seven-kind solver-plugin contract with canonical-representation negotiation
 │   └── Provisioning.cs  # Post-fetch self-update state machine with the canary/blue-green/linear-wave RollStrategy axis
 └── Observability/       # Four-signal telemetry, health, and redacted support capture
@@ -55,21 +57,21 @@ Runtime/Ports.cs            →  typescript:core/value/clock                 # [
 Agent/Capability.cs         ⇄  python:runtime/transport                    # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
 Observability/Health.cs     →  typescript:core/state/evidence              # [WIRE]: DegradationLevel / CommandAvailabilityWire
 Observability/Telemetry.cs  ←  python:runtime/observability                # [WIRE]: W3C trace-context inbound extraction
-Observability/Telemetry.cs  →  typescript:core/interchange/codec           # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
-Runtime/Config.cs           →  python:runtime/execution                    # [WIRE]: CredentialPem
+Runtime/Determinism.cs      →  typescript:core/interchange/codec           # [WIRE]: HostFingerprintWire identity gate (EnvFingerprint digest mints here)
+Observability/Telemetry.cs  →  typescript:core/interchange/codec           # [WIRE]: BenchmarkClaimWire identity gate
+Runtime/Secrets.cs          →  python:runtime/execution                    # [WIRE]: CredentialPem
 Runtime/Ports.cs            ⇄  python:runtime/transport                    # [WIRE]: HLC two-half stamp + Tenant partition
 Runtime/Ports.cs            →  typescript:core/state/evidence              # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
 Runtime/Ports.cs            →  python:runtime/clock                        # [PORT]: Hlc two-half NodaTime stamp single mint + Tenant
 Wire/Livewire.cs            →  typescript:core/interchange/codec           # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
 Wire/Livewire.cs            →  typescript:ui/viewer                        # [WIRE]: BindingStatus/CoercedValue/WriteReceipt triple at the viewer panel plane
 Observability/Telemetry.cs  →  typescript:runtime/otel                     # [TRANSPORT]: OtelExport OTLP egress aligned at the shared collector
-Runtime                     ←  csharp:Rasm/Drawing/pack                    # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
-Runtime                     →  csharp:Rasm.AppUi/Editing/notebook          # [PORT]: DeterminismContext / CapabilityPin environment identity
+Sandbox/solver              ←  csharp:Rasm/Drawing/pack                    # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant (GeometryPacking capsule)
+Runtime/determinism         →  csharp:Rasm.AppUi/Editing/notebook          # [PORT]: DeterminismContext / RecomputeGraph caller-keyed granularity-neutral
 Runtime                     →  csharp:Rasm.Persistence/Query/cache         # [PORT]: TenantId RLS + cache L2 partition
 Runtime                     →  csharp:Rasm.Persistence/Version/recovery    # [PORT]: ResolvedProfile DR-objective inputs
-Runtime                     →  csharp:Rasm.Persistence/Query/transaction   # [PORT]: drain 2PC in-doubt set
-Runtime                     →  csharp:Rasm.Persistence/Element/identity    # [PORT]: KMS-unwrap port (#KEY_ENVELOPE EnvelopeKeyring)
-Runtime                     →  csharp:Rasm.Persistence/Sync/egress         # [PORT]: keyed OutboundHop egress
+Runtime/secrets             →  csharp:Rasm.Persistence/Element/identity    # [PORT]: KMS-unwrap port (#KEY_ENVELOPE EnvelopeKeyring)
+Wire/outbox                 →  csharp:Rasm.Persistence/Version/egress      # [PORT]: keyed OutboundHop egress (one CloudEvents envelope, three consumers)
 Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                     # [PORT]: HLC two-half + TenantContext causal frame
 Agent/identity              ⇄  csharp:Rasm.Persistence                     # [PORT]: identity store (TenantId RLS)
 Agent/capability            ⇄  csharp:Rasm.Persistence                     # [PORT]: fenced per-tenant Budget debit (ONE_FENCED_LEASE_STORE)
@@ -78,11 +80,21 @@ Wire/outbox                 ⇄  csharp:Rasm.Persistence                     # [
 Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence                     # [PORT]: CAS + fenced-lease + membership backing store (ONE_FENCED_LEASE_STORE)
 Runtime/Features.cs         →  typescript:core/interchange/codec           # [WIRE]: FlagVerdictWire over the OpenFeature contract at runtime/proc flag
 Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission       # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
-Observability/Health.cs     →  csharp:Rasm.Persistence/Store               # [PORT]: HealthContributorRow fold over shared pooled Npgsql/Redis/Kafka driver
-Model/agent                 →  csharp:Rasm.Compute/Model                   # [PORT]: Microsoft.Extensions.AI middleware governing/pricing
+Observability/Health.cs     →  csharp:Rasm.Persistence/Store               # [PORT]: HealthContributorRow fold over the shared pooled Npgsql data source, the L2 IDistributedCache transit, and the pooled NATS connection
+Agent/reasoning             →  csharp:Rasm.Compute/Model                   # [WIRE_VOCABULARY]: AppHost owns the M.E.AI GoverningChatClient fold; Compute Model is retrieval-only
 Runtime/lifecycle           ←  csharp:Rasm.Compute/Runtime                 # [PORT]: LaneDrain DrainParticipantPort per lane (DrainBand.Compute band-200)
 Wire/livewire               ←  csharp:Rasm.Compute/Solver                  # [RECEIPT]: DigitalTwin clash suggestion as receipted ExternalValue (HopReceipt ack)
 Sandbox/solver              ⇄  csharp:Rasm.Compute/Tensor/residency        # [SHAPE]: EncodingKind rows align onto the PackKind axis
+Agent/capability            →  csharp:Rasm.Compute/Runtime/admission       # [WIRE_VOCABULARY]: ComputeIntent/IntentAdmission/SelectionReceipt command rail (compose-by-reference)
+Runtime/determinism         →  csharp:Rasm.Persistence/Version/ledger      # [PORT]: neutral determinism-log projection over the changefeed (#CHANGEFEED windowed read-back)
+Runtime/determinism         →  csharp:Rasm/Domain/identity                 # [WIRE_VOCABULARY]: content digests compose ContentHash.Of (#CONTENT_KEY)
+Wire/coordination           →  csharp:Rasm.Persistence/Store/coordination  # [PORT]: MembershipView + RoleElection + DistributedLock over the fenced lease store
+Sandbox/provisioning        ⇄  csharp:Wire/coordination                    # [WIRE_VOCABULARY]: FleetRoll reads MembershipView.Serving (cluster liveness)
+Wire/companion              →  csharp:Rasm.Persistence/Version/ledger      # [WIRE]: presence beat as ephemeral Awareness PresenceRow (#PRESENCE, durable:false)
+Wire/companion              ⇄  csharp:Sandbox/provisioning                 # [WIRE_VOCABULARY]: PeerRoster local attach contributes into MembershipView
+Observability/telemetry     →  csharp:Rasm.Persistence/Element             # [WIRE_VOCABULARY]: DataClassification crosses as value fields (codec/identity rows), never a ClassificationGuard
+Runtime/profiles            →  csharp:Rasm.Compute/Runtime/scheduling      # [WIRE_VOCABULARY]: FidelityScale export declaration (Compute-side echo pending)
+Wire/topics                 ←  csharp:Rasm.AppUi/Editing/collab            # [WIRE]: session-ephemeral Loro live-delta as opaque payload rows on the one topics law
 Observability/Telemetry.cs  ⇄  python:runtime/observability                # [TRANSPORT]: trace-context + OTLP egress aligned at the shared collector
 Runtime                     ⇄  python:runtime/transport                    # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
 Runtime                     →  python:runtime/transport                    # [TRANSPORT]: gRPC ServerHost
@@ -118,9 +130,9 @@ flowchart LR
 ## [04]-[BOUNDARIES]
 
 - AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or host-boundary package.
-- AppHost owns runtime state and policy; app roots own process attachment, host events, and app-root-only pins (OTLP exporter, the MCP HTTP transport, the WASM/industrial-protocol runtimes, Kestrel/gRPC surfaces, Serilog host bridge and sinks).
-- Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`, `Bundle`, `Evict`, `Publish`, `Connect`, `Execute`, `EventLog.Append`, `SandboxRows.Load`, `SupplyChainGate.Admit`, and `PowerProbe.Read` are the boundary capsules; every other member stays expression-shaped on typed rails.
-- AppHost owns the self-describing op catalog, command transaction, grant/cost broker, MCP projection, plugin sandbox, solver contract, reactive external binding, and reproducibility kernel as runtime-policy axes; op execution stays Compute, durability stays Persistence, the MCP protocol routes to the official SDK, and the WASM and industrial-protocol runtimes stay app-root-pinned host surfaces. The grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
+- AppHost owns runtime state and policy; app roots own process attachment, host events, and the composition-root-only pins — the OTLP exporter, the Serilog host bridge and sinks, `Grpc.AspNetCore.Web` middleware, and Kestrel public binding; the protocol runtimes whose types AppHost fences carry (`Wasmtime` Engine/Linker, `MQTTnet`/`OPCFoundation`/`FluentModbus`/`System.IO.Ports` in the LiveClient union, `Grpc.AspNetCore` in the companion ServiceHost, `ModelContextProtocol.AspNetCore` in the mcp HTTP transport, `BACnet`/`MTConnect.NET-Common` in the LiveClient union) STAY lib references.
+- Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`, `Bundle`, `Evict`, `Publish`, `Connect`, `Execute`, `EventLog.Append`, `SandboxRows.Load`, `SupplyChainGate.Admit`, `AppRootVerbs.Mount`, `GeometryPacking.Pack`, and `PowerProbe.Read` are the boundary capsules; every other member stays expression-shaped on typed rails.
+- AppHost owns the self-describing op catalog, command transaction, grant/cost broker, MCP projection, plugin sandbox, solver contract, reactive external binding, and reproducibility kernel as runtime-policy axes; op execution stays Compute, durability stays Persistence, the MCP protocol routes to the official SDK, and the WASM core-module and industrial-protocol runtimes are lib references whose types the fences carry, app roots pinning only the exporter/sink/Kestrel-public-binding surfaces. The grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects platform defaults to `Option<Instant>`; interiors never see nulls, sentinels, or provider shapes.
 - AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
@@ -141,7 +153,7 @@ The closed NEVER list — the deleted patterns the owner regions foreclose.
 - NEVER a process-static `Meter` or `ActivitySource` outliving its provider; never Serilog types below composition roots; never OTLP exporter pins below service app roots.
 - NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters; never an unredacted classified value at an exporter or bundle seam.
 - NEVER posix traps or single-instance enforcement on plugin rows; host-attach injection drives phases there.
-- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/Modbus/serial/WASM client beside the certified stack (OPC-UA + MQTTnet + FluentModbus + System.IO.Ports + wasmtime-dotnet); a federated external MCP server's tools, resources, and prompts enter only as brokered `CapabilityDescriptor` rows through the one registry, never as an unbrokered side channel or a second tool catalog, and the in-process reasoning loop reuses the one brokered `CommandAIFunction` tool-adoption seam, never a second tool projection.
+- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/Modbus/serial/WASM client beside the certified stack (OPC-UA + MQTTnet + FluentModbus + System.IO.Ports + Wasmtime core-module); a federated external MCP server's tools, resources, and prompts enter only as brokered `CapabilityDescriptor` rows through the one registry, never as an unbrokered side channel or a second tool catalog, and the in-process reasoning loop reuses the one brokered `CommandAIFunction` tool-adoption seam, never a second tool projection.
 - NEVER an opaque model call: every `IChatClient` invocation (the in-process reasoning loop and the MCP server-sampling leg) composes the one `Microsoft.Extensions.AI` middleware pipeline — a model call is metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the resources-lane `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`; a second model cache, a per-call OTel span beside the decorators, or an unmetered un-ledgered model draw is the deleted form.
 - NEVER a second op-metadata owner beside `CapabilityDescriptor`, a second permission-and-cost owner beside `GrantBroker`, an in-process third-party plugin outside the WASM/process isolation boundary, or a plugin-private geometry representation; a plugin speaks the Compute canonical `EncodedTensor` and dispatches through the command algebra.
 - NEVER a second RNG or non-chained event log: `DeterminismContext` owns the seed and float mode, `EventLog` is the single hash-chained content-addressed command log riding the durable `OpLog`.

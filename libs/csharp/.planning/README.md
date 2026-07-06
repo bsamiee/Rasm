@@ -15,8 +15,8 @@ The planning-scoped package roots in strata order; each root `README.md` carries
 - [07]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
 - [08]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
 - [09]-[APP-PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product UI.
-
-The HOST-BOUNDARY packages `Rasm.Rhino` and `Rasm.Grasshopper` are out-of-scope-durable source with no `.planning/`.
+- [10]-[HOST-BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/) — RhinoCommon + Eto host boundary; references only `Rasm`.
+- [11]-[HOST-BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/) — GH2 + Eto host boundary; references only `Rasm`.
 
 Branch-level pages beside this router: [component-system.md](component-system.md) — the Element/Materials/Bim triad: the thing model, the projection seams, and the extension recipes for adding a family, a section shape, an IFC category, or a property without a second paradigm.
 

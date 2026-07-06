@@ -9,7 +9,7 @@
 - import: `pymupdf` (legacy alias `fitz`)
 - owner: `artifacts`
 - rail: pdf
-- installed: `1.27.2.3`
+- installed: `1.28.0`
 - license: `AGPL-3.0-or-later OR Artifex-Commercial`; copyleft is whole-program — distributing a closed network service over an AGPL MuPDF link triggers source-disclosure obligations, so a commercial deployment routes structural editing to BSD `pypdf`/`pypdfium2` or licenses Artifex; this is the load-bearing licensing constraint of the pdf rail
 - entry points: none (library only)
 - capability: PDF/XPS/EPUB/CBZ/MOBI/FB2/SVG/image document open, page rasterization (`Pixmap` with matrix/dpi/colorspace/clip/alpha), per-page Tesseract OCR, text/image/table extraction (`TEXTFLAGS_*` modes, `find_tables` -> pandas/markdown), native outline and embedded-file recovery, vector drawing (`Shape`/`get_drawings`), PDF-page vector placement (`show_pdf_page`), positioned glyph authoring (`TextWriter`/`insert_htmlbox`), the full annotation-authoring family plus redaction, redaction-grade scrub/bake/font-subset/image-rewrite, lossless image embed, reflowable `Story` HTML layout, page assembly/reorder/copy, OCG/OCMD layers (`add_ocg`/`set_ocmd`), info-dict + XMP metadata authoring (`set_metadata`/`set_xml_metadata`), journalled undo/redo, AES-256/RC4 encrypted incremental save

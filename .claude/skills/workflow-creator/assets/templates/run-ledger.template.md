@@ -1,8 +1,9 @@
 # Run ledger — <workflow-name>
 
 Write this the moment `Workflow` returns; update it on every resume or restart. Keep it in
-the session scratch dir, never the repo. Resume works ONLY in the session that launched the
-run — losing the run ID means re-running the whole job.
+the session scratch dir, never the repo. A plain resume works only in the session that launched
+the run — losing the run ID means re-running the whole job; crossing a session boundary takes
+the journal transplant (api-reference §11).
 
 This ledger is NOT the journal. The journal (`journal.jsonl`, in the transcript dir below) is
 the runtime's automatic cache of agent results — it does the resuming. This file is only your
@@ -24,7 +25,8 @@ record of the run ID to pass to `resumeFromRunId`. Resume needs the run ID + the
   `effort`, and `stallMs` are NOT in the key.
 - Do NOT edit the launched script while resumable, or the resume becomes a full re-run.
 - Resume requires `resumeFromRunId` AND the same session; a bare re-invocation, or a new
-  session, starts fresh from zero.
+  session, starts fresh from zero (cross-session: transplant the old `journal.jsonl` into the
+  new session's `wf_<id>` directory first — api-reference §11).
 - Lost this ledger? The run ID is also in `/workflows` and is the `wf_<id>` directory name
   under the transcript dir — recover it there, then resume. (The ledger is just a convenience.)
 

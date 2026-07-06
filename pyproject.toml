@@ -38,7 +38,7 @@ dependencies = [
     "google-crc32c",                                 # [RUNTIME]: SecretPayload.data_crc32c integrity digest for the admission cloud arm
     "zstandard",                                     # [TOOLING]: zstd compression for tools.assay logging and cache payloads
     "trio",                                          # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
-    "zlib-ng",                                       # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
+    "zlib-ng; python_version<'3.15'",                # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
     # --- [SCIENTIFIC]
     "adbc-driver-manager",                           # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
     "arro3-core",                                    # [DATA]: Arrow core bridge
@@ -50,7 +50,7 @@ dependencies = [
     "dask",                                          # [DATA_COMPUTE]: out-of-core arrays and dataframes; passive array_namespace backend
     "deltalake",                                     # [DATA]: lakehouse tables
     "duckdb",                                        # [DATA]: analytical SQL engine
-    "geopandas",                                     # [GEOMETRY]: geospatial frames
+    "geopandas",                                     # [DATA]: geospatial frames
     "h5py",                                          # [DATA]: HDF5 arrays
     "h5netcdf",                                      # [DATA]: pure-h5py netCDF-4 engine for FieldEngine.H5NETCDF
     "icechunk",                                      # [DATA]: versioned tensor store
@@ -78,11 +78,11 @@ dependencies = [
     "pyarrow<24",                                    # [DATA]: Arrow C++ bridge; ceiling tracks the Forge arrow-cpp major
     "pye57; python_version<'3.15'",                  # [GEOMETRY]: E57 scan IO; sdist hardcodes /usr/local xerces-c (no cp315 wheel)
     "pymc<5.27",                                     # [COMPUTE]: probabilistic programming; ceiling holds pytensor 2 — pytensor 3 hard-requires numba (no cp315)
-    "pyogrio",                                       # [GEOMETRY]: GDAL vector IO
-    "pyproj",                                        # [GEOMETRY]: PROJ coordinate transforms
+    "pyogrio",                                       # [DATA]: GDAL vector IO
+    "pyproj",                                        # [DATA]: PROJ coordinate transforms
     "python-flint",                                  # [COMPUTE]: Arb interval numerics
     "rasterio",                                      # [DATA]: raster geospatial IO
-    "rhino3dm",                                      # [GEOMETRY]: Rhino mesh and 3DM IO
+    "rhino3dm",                                      # [DATA]: Rhino mesh and 3DM IO
     "rustworkx",                                     # [DATA_ARTIFACTS]: graph algorithms
     "salib",                                         # [COMPUTE]: global sensitivity analysis
     "clarabel",                                      # [COMPUTE]: Clarabel conic solver and cvxpy backend
@@ -116,12 +116,12 @@ dependencies = [
     "scikit-learn",                                  # [COMPUTE]: classical ML and ONNX export
     "scipy",                                         # [COMPUTE]: numerical algorithms
     "scipy-stubs",
-    "shapely",                                       # [GEOMETRY]: planar operations
+    "shapely",                                       # [DATA]: planar operations
     "sparse; python_version<'3.15'",                 # [COMPUTE]: sparse n-D arrays
     "sympy",                                         # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
     "trimesh",
     "uncertainties",                                 # [COMPUTE]: first-order error propagation with correlated_values/unumpy
-    "xarray",
+    "xarray",                                        # [DATA_COMPUTE]: labelled field datasets; the compute DataTree/labelled-array arms
     "xxhash",                                        # [RUNTIME]: content identity hashes matching C# System.IO.Hashing
     "grpcio-tools",                                  # [RUNTIME]: gRPC protoc codegen companion
     "zarr",                                          # [DATA]: chunked n-D arrays
@@ -192,7 +192,7 @@ dependencies = [
     "pymupdf",
     "pypdf",
     "pypdfium2",
-    "pyvista; python_version<'3.15'",                # [ARTIFACTS]: 3D scientific visualization
+    "pyvista",                                       # [ARTIFACTS]: 3D scientific visualization
     "python-barcode",                                # [ARTIFACTS]: linear barcode symbologies beside the segno QR arm
     "python-docx",
     "python-magic",                                  # [ARTIFACTS]: libmagic broad-database fallback behind the puremagic in-process default detect sniffer (retained for niche leaf signatures magic_data.json lacks, never the default path)
@@ -236,10 +236,10 @@ dependencies = [
     "pyvips",                                        # [ARTIFACTS]: fused decode, downscale, ICC, and smartcrop
     "lets-plot; python_version<'3.15'",              # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
     "python-bidi",                                   # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
-    "python-calamine",                               # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
+    "python-calamine; python_version<'3.15'",        # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
     "uniseg",                                        # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
-    "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode
+    "zxing-cpp; python_version<'3.15'",              # [ARTIFACTS]: 2D matrix codes encode and decode
     "stream-unzip",                                  # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
     "pdf-oxide",                                     # [ARTIFACTS]: Rust PDF extract/render/create/forms (abi3)
     "PhotoshopAPI; python_version<'3.15'",           # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
@@ -252,7 +252,7 @@ dependencies = [
     "PyICU; python_version<'3.15'",                  # [ARTIFACTS]: ICU locale line-break/bidi/collation (sdist-only, needs ICU native)
     "pyelk",                                         # [ARTIFACTS]: ELK layered/orthogonal/ports/nesting diagram layout
     "fast-sugiyama",                                 # [ARTIFACTS]: fast Sugiyama layered placement replacing grandalf placement
-    "kiwisolver",                                    # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
+    "kiwisolver; python_version<'3.15'",             # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
     "ziafont",                                       # [ARTIFACTS]: font glyph text-to-SVG-path
     "ziamath",                                       # [ARTIFACTS]: math-to-SVG rendering
     "schemdraw",                                     # [ARTIFACTS]: native-SVG schematic diagrams
@@ -307,6 +307,13 @@ config-settings-package = {
 extra-build-variables = {
     grimp = { UNSAFE_PYO3_SKIP_VERSION_CHECK = "1", RUSTFLAGS = "-C link-arg=-undefined -C link-arg=dynamic_lookup" },
 }
+
+# colour-cxf 0.1.1 declares Requires-Python <3.14 (no 3.15 support): corrected static metadata drops the spurious cap so it resolves on the >=3.15 floor with its runtime deps intact.
+[[tool.uv.dependency-metadata]]
+name =            "colour-cxf"
+version =         "0.1.1"
+requires-python = ">=3.10"
+requires-dist =   ["typing-extensions<5,>=4", "xsdata>25.4"]
 
 # --- [TY] ------------------------------------------------------------------
 

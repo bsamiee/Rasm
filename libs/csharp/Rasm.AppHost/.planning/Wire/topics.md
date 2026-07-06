@@ -17,7 +17,7 @@ The in-process event-bus topology for the runtime spine: a `Topic<T>` fans a `Do
 - Receipt: a published event is one `DomainEvent` on the fan; the per-subscription delivery is the subscription's own `DeliveryReceipt`; no parallel topic receipt.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one topic is one `Topic` row binding its `DrainSpec`; a new event shape is one `DomainEvent` payload column; zero new surface.
-- Boundary: the topic fabric is the only in-process pub/sub owner — a per-topic background loop, a hand-rolled fan-out, and a second queue owner are the deleted forms; the fan is a `DrainSurface.Broadcast` builder over the one `DrainKind` union so the Dataflow `BroadcastBlock` rides the transitive framework floor, never a direct project asset; the event ordering is the HLC stamp the suite already carries so the bus and the command log order by one causal primitive, never a re-minted timeline; producer back-pressure is the fan's own `BoundedCapacity` — `Publish`'s `SendAsync` awaits when the bounded `BroadcastBlock` is full, never an unbounded fan — while the `BroadcastBlock` is latest-value to a slow target by construction, so the in-process leg is bounded best-effort fan-out and the AT-LEAST-ONCE guarantee is the durable `Wire/outbox#DISPATCH_SWEEP` leg (the outbox row + watermark + consumer dedup), never the in-process broadcast: a subscription whose bounded buffer is full when the fan offers misses the in-process copy and re-receives it on the outbox sweep, so durability is the outbox's and the in-process bus is the fast path; the relay to a durable subscriber rides the `Wire/outbound#DELIVERY_FANOUT` fold as one subscriber so the bus and the notification fan-out share one relay, never a parallel sender.
+- Boundary: the topic fabric is the only in-process pub/sub owner — a per-topic background loop, a hand-rolled fan-out, and a second queue owner are the deleted forms; the fan is a `DrainSurface.Broadcast` builder over the one `DrainKind` union so the Dataflow `BroadcastBlock` rides the `Runtime/resources#DRAIN_QUEUES` direct project reference (central pin 10.0.9), one Dataflow owner for the whole spine; the event ordering is the HLC stamp the suite already carries so the bus and the command log order by one causal primitive, never a re-minted timeline; producer back-pressure is the fan's own `BoundedCapacity` — `Publish`'s `SendAsync` awaits when the bounded `BroadcastBlock` is full, never an unbounded fan — while the `BroadcastBlock` is latest-value to a slow target by construction, so the in-process leg is bounded best-effort fan-out and the AT-LEAST-ONCE guarantee is the durable `Wire/outbox#DISPATCH_SWEEP` leg (the outbox row + watermark + consumer dedup), never the in-process broadcast: a subscription whose bounded buffer is full when the fan offers misses the in-process copy and re-receives it on the outbox sweep, so durability is the outbox's and the in-process bus is the fast path; the relay to a durable subscriber rides the `Wire/outbound#DELIVERY_FANOUT` fold as one subscriber so the bus and the notification fan-out share one relay, never a parallel sender.
 
 ```csharp signature
 public sealed record DomainEvent(
@@ -47,10 +47,10 @@ public sealed partial class Topic {
 public abstract partial record BusFault : Expected, IValidationError<BusFault> {
     private BusFault(string detail, int code) : base(detail, code, None) { }
     public static BusFault Create(string message) => new Text(message);
-    public sealed record Text : BusFault { public Text(string detail) : base(detail, 4730) { } }
-    public sealed record TopicUnknown : BusFault { public TopicUnknown(string detail) : base(detail, 4731) { } }
-    public sealed record SubscriptionFull : BusFault { public SubscriptionFull(string detail) : base(detail, 4732) { } }
-    public sealed record JoinUnmatched : BusFault { public JoinUnmatched(string detail) : base(detail, 4733) { } }
+    public sealed record Text : BusFault { public Text(string detail) : base(detail, FaultBand.Bus.Code(0)) { } }
+    public sealed record TopicUnknown : BusFault { public TopicUnknown(string detail) : base(detail, FaultBand.Bus.Code(1)) { } }
+    public sealed record SubscriptionFull : BusFault { public SubscriptionFull(string detail) : base(detail, FaultBand.Bus.Code(2)) { } }
+    public sealed record JoinUnmatched : BusFault { public JoinUnmatched(string detail) : base(detail, FaultBand.Bus.Code(3)) { } }
 }
 
 public sealed record TopicHead(Topic Topic, BroadcastBlock<DomainEvent> Fan);
@@ -93,14 +93,17 @@ public static class SubscriptionFabric {
         return new Subscription($"{head.Topic.Key}:{spec.Name}", spec.Open<DomainEvent>(buffer, consumer), consumer);
     }
 
-    // The dedupe verdict reads the idempotency-key cell BEFORE the fan stamps it, exactly the DELIVERY_FANOUT
-    // precedent: first sight within the window is absent so the consumer runs, a re-published identical event
-    // is present so it folds to a no-op; then the cell records now so the window slides on the latest sight.
+    // Read-modify-write INSIDE the swap, exactly the DELIVERY_FANOUT idiom: prune and add fold over
+    // the LIVE cell value and the verdict derives from the swap result, so concurrent fans never lose
+    // each other's records — a Swap closing over a stale .Value read is the deleted form.
     static bool Dedupe(Atom<HashMap<string, Instant>> cell, Duration window, ClockPolicy clocks, DomainEvent evt) {
         var now = clocks.Now;
-        var pruned = cell.Value.Filter(stamp => now - stamp < window);
-        var seen = pruned.ContainsKey(evt.IdempotencyKey);
-        ignore(cell.Swap(_ => pruned.AddOrUpdate(evt.IdempotencyKey, now, now)));
+        var seen = false;
+        ignore(cell.Swap(current => {
+            var pruned = current.Filter(stamp => now - stamp < window);
+            seen = pruned.ContainsKey(evt.IdempotencyKey);
+            return pruned.AddOrUpdate(evt.IdempotencyKey, now, now);
+        }));
         return seen;
     }
 
@@ -179,6 +182,7 @@ flowchart LR
 
 ## [05]-[RESEARCH]
 
-- [DATAFLOW_FLOOR]: the topic fan, the bounded subscriptions, the correlation join, and the coalesce are all `Runtime/resources#DRAIN_QUEUES` `DrainSurface` builders over the one `DrainKind` union — `BroadcastBlock` through `DrainSurface.Broadcast`, the bounded `BufferBlock`/`ActionBlock` over `DrainSpec.NetworkOptions`, `JoinBlock` through `DrainSurface.Join`, `BatchedJoinBlock` through `DrainSurface.Coalesce` — so `System.Threading.Tasks.Dataflow` rides the transitive framework floor (admitted 10.0.9, `.api/api-dataflow.md`), never a direct project asset; the `BoundedCapacity` back-pressure, the `PropagateCompletion` link option, and the `Greedy`/`MaxGroups` policy columns are the `DrainSpec` row's, so the bus adds no new Dataflow surface beyond the builders.
+- [COLLAB_DELTA_FEED]: the `Rasm.AppUi` `Editing/collab` live-delta broadcast rides this one topics law as OPAQUE payload rows — the session-ephemeral Loro CRDT wire crosses as `DomainEvent.Payload` bytes on a collab topic (durable document deltas on one topic, lossy presence/awareness on a separate ephemeral topic), NEVER durable truth and never a second bus (AppUi the demanding consumer; the seam is ledgered both sides).
+- [DATAFLOW_FLOOR]: the topic fan, the bounded subscriptions, the correlation join, and the coalesce are all `Runtime/resources#DRAIN_QUEUES` `DrainSurface` builders over the one `DrainKind` union — `BroadcastBlock` through `DrainSurface.Broadcast`, the bounded `BufferBlock`/`ActionBlock` over `DrainSpec.NetworkOptions`, `JoinBlock` through `DrainSurface.Join`, `BatchedJoinBlock` through `DrainSurface.Coalesce` — so `System.Threading.Tasks.Dataflow` is a direct project reference against its central pin (admitted 10.0.9, `.api/api-dataflow.md`) — not in the shared framework, so a transitive-floor claim is the corrected fiction — never a second Dataflow-owning project asset; the `BoundedCapacity` back-pressure, the `PropagateCompletion` link option, and the `Greedy`/`MaxGroups` policy columns are the `DrainSpec` row's, so the bus adds no new Dataflow surface beyond the builders.
 - [DEDUPE_PRECEDENT]: the per-subscription dedupe reads the `Wire/outbound#DELIVERY_FANOUT` idempotency-key cell BEFORE the consumer runs, exactly the delivery-fanout dedupe precedent (first sight within the window is absent so deliver, a re-published identical event is present so fold to a no-op), so the bus dedupe and the notification dedupe share one cell and one window-bound; the relay to a durable subscriber rides `OutboundSurface.Run` over an `OutboundHop` so the bus rides the one retry owner and the `DeliveryFanout` folds in as one subscriber, never a parallel sender.
 - [OUTBOX_FEED]: the outbox dispatch sweep feeds the topics over the `Rasm.Persistence` `ONE_OUTBOX_EGRESS_SPINE` op-log shared with `SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE` — the `Wire/outbox.md` owner relays each outbox row as one keyed `OutboundHop` consumer advancing its `(ConsumerId, Hlc)` watermark and dispatches it through `EventBus.Dispatch`, so the durable leg of exactly-once-effective delivery feeds the in-process bus and the in-process leg carries bounded back-pressure, never a second egress table; the event HLC ordering is the `Runtime/determinism#EVENT_LOG` causal primitive so the bus and the command log order by one stamp.

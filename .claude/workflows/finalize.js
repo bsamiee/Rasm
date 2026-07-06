@@ -1,18 +1,21 @@
 export const meta = {
   name: 'finalize',
   whenToUse: 'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed to kill split-brain, unify paradigms, adjudicate phantoms, collapse duplication and indirection in place, smooth logic flow end-to-end, and finish naive surfaces — every folder concurrent under one pool cap, every defect fixed by the run that finds it.',
-  description: 'Language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages and emits folders in dependency order — the order biases launch, never serializes. All folders run CONCURRENTLY under one pool cap: Census — ONE opus agent PER PAGE fully understands the page + its related pages + the package README/ARCHITECTURE/manifest + every relevant .api catalog (both tiers) and returns the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references); Fix — ONE fable agent per folder, chained only behind its own folder\'s census, holds all the folder dossiers + the doctrine ROOT pages and corrects the folder in place under the fix-it-now law (every defect its work exposes, anywhere in the project, fixed in the same pass) and the current-state law (concurrently landed sibling corrections composed as found, conflicts resolved to the stronger form, never a revert). The package index docs and central manifests are the one single-writer surface: fixers report exact rows, ONE terminal fable writer applies them once. Nothing else follows the fixers; cold-verify is a separate run.',
+  description: 'Language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages and emits folders in dependency order — the order biases launch, never serializes. All folders run CONCURRENTLY under one pool cap: Context — ONE sonnet agent per folder reads the package README/ARCHITECTURE, its manifest rows, and a real ls of both .api tiers ONCE, writing a grounding dossier file (verbatim extracts with file:line anchors, pointer rows for the tail — facts only, never verdicts) under .claude/scratch/; Census — ONE read-only lane PER PAGE on gpt-5.5 dispatched through a sonnet codex wrapper (CODEX flag; false restores native opus) reads the grounding dossier + its page + its related pages + every relevant .api catalog, spot-verifying dossier anchors on disk instead of re-reading the whole shared context, and returns the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references); Fix — ONE fable agent per folder, chained only behind its own folder\'s census, holds all the folder dossiers + the doctrine ROOT pages and corrects the folder in place under the fix-it-now law (every defect its work exposes, anywhere in the project, fixed in the same pass) and the current-state law (concurrently landed sibling corrections composed as found, conflicts resolved to the stronger form, never a revert). The package index docs and central manifests are the one single-writer surface: fixers report exact rows, ONE terminal fable writer applies them once. Nothing else follows the fixers; cold-verify is a separate run.',
   phases: [
-    { title: 'Plan', detail: 'one thin agent enumerates the planning sub-folders and their design pages, folders emitted in dependency order (foundations first) as a launch bias only', model: 'sonnet' },
-    { title: 'Finalize', detail: 'all folders concurrent under the one pool cap: one opus census agent per page, then ONE fable fixer per folder chained only behind its own folder\'s census — fix-it-now write authority over the whole project, current-state composition of concurrent sibling work' },
+    { title: 'Plan', detail: 'one thin agent enumerates the planning sub-folders and their design pages, folders emitted in dependency order (foundations first) as a launch bias only; one bounded re-attempt on a dead agent', model: 'sonnet' },
+    { title: 'Finalize', detail: 'all folders concurrent under the one pool cap: one sonnet context agent per folder writes the grounding dossier once, one gpt-5.5 census lane per page (codex wrapper, read-only) reads it plus its page and related pages, then ONE fable fixer per folder chained only behind its own folder\'s census — fix-it-now write authority over the whole project, current-state composition of concurrent sibling work' },
     { title: 'Index', detail: 'one fable writer applies every reported package index-doc and central-manifest row exactly once; skipped when no rows were reported', model: 'fable' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10
+const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 480000
+const SCRATCH = '.claude/scratch/finalize-grounding' // per-folder grounding dossiers: shared-context extracts, facts only
+const CODEX = true // census lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '')
@@ -55,15 +58,20 @@ const LANG = {
   cs: { name: 'C#', root: 'libs/csharp', shared: 'libs/csharp/.api',
     manifest: 'the package `.csproj` and the central `Directory.Packages.props` block for this package',
     verify: '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + Context7/exa/tavily own the fallback)',
-    stackLaw: 'the docs/stacks/csharp ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis); the domain/ sub-folder is OUT of this read' },
+    stackLaw: 'the docs/stacks/csharp ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full (README, language, ' +
+      'shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis); the domain/ sub-folder is OUT of this read' },
   py: { name: 'Python', root: 'libs/python', shared: 'libs/python/.api',
     manifest: 'the root `pyproject.toml` rows this package consumes',
     verify: '`uv run python -m tools.assay api resolve <pkg>` (blocked or gated: the `.api` catalogs + PyPI feed truth + Context7/exa/tavily own the fallback)',
-    stackLaw: 'the docs/stacks/python ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full in the README [01]-[ATLAS] order (language, shapes, iteration, surfaces-and-dispatch, rails-and-effects, concurrency, boundaries, algorithms, system-apis, runtime); the domain/ and numerics/ sub-folders are OUT of this read' },
+    stackLaw: 'the docs/stacks/python ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full in the README ' +
+      '[01]-[ATLAS] order (language, shapes, iteration, surfaces-and-dispatch, rails-and-effects, concurrency, boundaries, algorithms, ' +
+      'system-apis, runtime); the domain/ and numerics/ sub-folders are OUT of this read' },
   ts: { name: 'TypeScript', root: 'libs/typescript', shared: 'libs/typescript/.api',
     manifest: 'the `pnpm-workspace.yaml` / package manifest rows this area consumes',
     verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
-    stackLaw: 'the docs/stacks/typescript ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full (README, language, derivation, values, computation, shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries)' },
+    stackLaw: 'the docs/stacks/typescript ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full (README, ' +
+      'language, derivation, values, computation, shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, ' +
+      'streams, boundaries)' },
 }
 const L = LANG[LANG_KEY] || LANG.cs // inert fallback: composition no-ops before any agent call when LANG_KEY is null
 
@@ -105,8 +113,39 @@ const pool = async (items, cap, worker) => {
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
+// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
+// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
+// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
+const codexPrompt = (label, task, schema, writes) => {
+  const base = CODEX_DIR + '/' + fileTag(label)
+  const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
+    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
+  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+    '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+  '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
+    'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
+    'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
+    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
+  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
+    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
+    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+  'TASK — write verbatim to the task file, then dispatch:',
+  task].join('\n\n')
+}
+// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
+const recon = (task, o) => CODEX
+  ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
+  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
 
-// --- [PROMPTS] ---------------------------------------------------------------------------
 const planPrompt = () => ['Rasm monorepo. TASK: thin enumerate (read-only, do NOT edit). TARGETS (repo-relative): ' + JSON.stringify(TARGETS) +
   '. Each target is a package root (e.g. ' + L.root + '/<Package>) or a planning sub-folder (<root>/.planning/<Folder>). Resolve the ONE ' +
   'owning package root. Return root (the package root) and folders — one entry per planning sub-folder in scope (a package-root target ' +
@@ -114,11 +153,22 @@ const planPrompt = () => ['Rasm monorepo. TASK: thin enumerate (read-only, do NO
   'name, pages: repo-relative *.md paths under it}. EXCLUDE IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md and any _*.md campaign document. ' +
   'EMIT `folders` IN DEPENDENCY ORDER — foundations before their consumers, judged from the package README.md/ARCHITECTURE.md composition ' +
   'order; the engine launches in your emitted order and never re-sorts, so early rows tend to start early. Use find/ls; do NOT cd.'].join('\n')
-const censusPrompt = (page, folder, root) => [LAW,
+const contextPrompt = (folder, root, dossier) => ['Rasm monorepo, ' + L.name + ' planning corpus. TASK: FOLDER GROUNDING for ' + folder +
+  ' — read-only over the corpus; your ONLY write is the dossier file. Read ONCE the shared context every per-page census of this folder ' +
+  'would otherwise re-read: the package README.md + ARCHITECTURE.md at ' + root + ', ' + L.manifest + ', and a real ls of BOTH .api tiers ' +
+  '(' + L.shared + '/ AND the package .api/). Write the grounding dossier to ' + dossier + ': verbatim extracts WITH file:line anchors for ' +
+  'the load-bearing content (the README/ARCHITECTURE rows and sections naming ' + folder + ' or its pages, the manifest rows the package ' +
+  'consumes, the full catalog roster of both tiers), pointer rows (path + one-line scope) for the tail. FACTS ONLY — locations, anchors, ' +
+  'rosters, extracts; never verdicts, never findings, never prescriptions — the census agents judge, you ground. Return the dossier path ' +
+  'and a one-line coverage note.'].join('\n\n')
+const censusPrompt = (page, folder, root, dossier) => [LAW,
   'TASK: PER-PAGE DISCOVERY (read-only, do NOT edit) — you own ONE page: ' + page + ' (folder ' + folder + '). FULLY understand it: read the ' +
   'page top-to-bottom, then read EVERY related page it composes or is composed by (seam partners both directions, entry owners, vocabulary ' +
-  'sources — full reads, never skims). Read the package README.md + ARCHITECTURE.md at ' + root + ' and ' + L.manifest + '. Enumerate BOTH ' +
-  '.api tiers with a real ls (' + L.shared + '/ AND the package .api/) and READ every catalog relevant to this page. Verify every ' +
+  'sources — full reads, never skims). Your shared grounding is the folder dossier at ' + dossier + ' — verbatim extracts with file:line ' +
+  'anchors from the package README.md/ARCHITECTURE.md at ' + root + ' and ' + L.manifest + ', plus the real ls roster of BOTH .api tiers ' +
+  '(' + L.shared + '/ AND the package .api/) — read it INSTEAD of re-deriving that shared context yourself; SPOT-VERIFY on disk every ' +
+  'dossier anchor a finding builds on (the dossier points, you verify); a missing dossier means you derive the same context from those ' +
+  'sources directly. READ every catalog the roster marks relevant to this page. Verify every ' +
   'load-bearing cited member via ' + L.verify + ' — never memory. Sibling folders are being corrected concurrently: judge CURRENT disk only ' +
   '— a defect already fixed on disk is not a finding. Return the correction census, one finding per defect with an exact anchor (a finding ' +
   'may anchor outside your page or folder — your folder\'s fixer owns every finding you return): `underutilized` (a catalog capability the ' +
@@ -137,7 +187,7 @@ const fixPrompt = (folder, pages, dossiers, root) => [LAW, FIX_NOW, CURRENT_STAT
   'finalization law to EVERY page: unify split-brain onto one paradigm; collapse differentiation and duplication IN PLACE; realize every ' +
   'phantom_forgotten properly and at full depth; delete every phantom_lie; grow naive owners to the real concept; smooth logic flow ' +
   'end-to-end; wire every underutilized capability into its owner; replace hand-rolled logic with the package surface (verify members via ' +
-  L.verify + '). DOSSIERS:\n' + JSON.stringify(dossiers, null, 1) +
+  L.verify + '). DOSSIERS:\n' + JSON.stringify(dossiers) +
   '\nReturn the fix-log: files (every file edited, in and out of the folder), verdict, collapsed (what merged), realized (phantoms made ' +
   'real), summary, indexRows (the exact single-writer rows; empty attests no index-doc or manifest impact).'].join('\n\n')
 const indexPrompt = (rows, root) => [LAW, BOUNDARY,
@@ -145,7 +195,7 @@ const indexPrompt = (rows, root) => [LAW, BOUNDARY,
   ') and the central manifests; the folder fixers reported these rows instead of editing those surfaces. Apply every row to its owning doc ' +
   'exactly once: dedupe semantically identical rows, keep each doc\'s section grammar, verify each claim against the finalized pages on ' +
   'CURRENT disk (a row disk disproves is rejected in the summary, never applied); a central-manifest row hand-edits the grouped manifest at ' +
-  'the SYMBOL anchor, never a line number, preserving label-group order. ROWS:\n' + JSON.stringify(rows, null, 1) +
+  'the SYMBOL anchor, never a line number, preserving label-group order. ROWS:\n' + JSON.stringify(rows) +
   '\nReturn files, applied, summary.'].join('\n\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -154,7 +204,9 @@ if (!TARGETS.length) { log('No targets — pass a package root, an array of plan
 if (!LANG_KEY) { log('Targets must live under ONE language root (libs/csharp | libs/python | libs/typescript). Got: ' + JSON.stringify(TARGETS)); return { targets: TARGETS, folders: 0 } }
 
 phase('Plan')
-const plan = await agent(planPrompt(), { label: 'plan', phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL })
+// One bounded re-attempt: a silently dead plan agent would no-op the whole run.
+const planOpts = { label: 'plan', phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL }
+const plan = (await agent(planPrompt(), planOpts)) || (await agent(planPrompt(), { ...planOpts, label: 'plan:retry' }))
 const ROOT = (plan && plan.root) || TARGETS[0]
 const FOLDERS = ((plan && plan.folders) || []).filter((f) => f && f.folder && (f.pages || []).length)
 const pagesOf = new Map(FOLDERS.map((f) => [f.folder, f.pages]))
@@ -163,17 +215,29 @@ log('Plan[' + LANG_KEY + ']: ' + ORDERED.length + ' folder(s), ' + FOLDERS.reduc
 if (!ORDERED.length) { log('No folders resolved under the targets'); return { targets: TARGETS, language: LANG_KEY, folders: 0 } }
 
 phase('Finalize')
-// One flat pool owns every census and every fixer. Fix items sit after ALL census items in the FIFO,
-// so a pulled fixer's own census is already in flight — it awaits only its folder gate, never an unpulled item.
+// One flat pool owns every context, census, and fixer. Context items sit FIRST in the FIFO (a pulled
+// census's own context is already in flight); fix items sit after ALL census items, so a pulled fixer's
+// own census is already in flight — each awaits only its folder gate, never an unpulled item.
 const dossierBag = new Map(ORDERED.map((f) => [f, []]))
-const gates = new Map(ORDERED.map((f) => { let open; const p = new Promise((r) => { open = r }); return [f, { p, open, left: pagesOf.get(f).length }] }))
+const dossierOf = (f) => SCRATCH + '/' + ROOT.split('/').pop() + '-' + f + '.md'
+const mkGate = () => { let open; const p = new Promise((r) => { open = r }); return { p, open } }
+const ctxGates = new Map(ORDERED.map((f) => [f, mkGate()]))
+const gates = new Map(ORDERED.map((f) => { const g = mkGate(); g.left = pagesOf.get(f).length; return [f, g] }))
 const arm = (f) => { const g = gates.get(f); g.left -= 1; if (g.left <= 0) g.open() }
-const items = ORDERED.flatMap((f) => pagesOf.get(f).map((page) => ({ kind: 'census', folder: f, page })))
+const items = ORDERED.map((f) => ({ kind: 'context', folder: f }))
+  .concat(ORDERED.flatMap((f) => pagesOf.get(f).map((page) => ({ kind: 'census', folder: f, page }))))
   .concat(ORDERED.map((f) => ({ kind: 'fix', folder: f })))
 const results = (await pool(items, CAP, async (it) => {
+  if (it.kind === 'context') {
+    await agent(contextPrompt(it.folder, ROOT, dossierOf(it.folder)),
+      { label: 'context:' + it.folder, phase: 'Finalize', model: 'sonnet', effort: 'low', stallMs: STALL })
+    ctxGates.get(it.folder).open() // a dead context never blocks the folder — each census derives the shared context itself
+    return null
+  }
   if (it.kind === 'census') {
-    const d = await agent(censusPrompt(it.page, it.folder, ROOT),
-      { label: 'census:' + it.folder + '/' + it.page.split('/').pop(), phase: 'Finalize', model: 'opus', effort: 'high', schema: DOSSIER_SCHEMA, stallMs: STALL })
+    await ctxGates.get(it.folder).p
+    const d = await recon(censusPrompt(it.page, it.folder, ROOT, dossierOf(it.folder)),
+      { label: 'census:' + it.folder + '/' + it.page.split('/').pop(), phase: 'Finalize', schema: DOSSIER_SCHEMA })
     if (d) dossierBag.get(it.folder).push(d) // a dead census never blocks the folder — the fixer reads every page in full regardless
     arm(it.folder)
     return null

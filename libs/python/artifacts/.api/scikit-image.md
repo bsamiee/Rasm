@@ -146,7 +146,7 @@
 |  [05]   | `erosion(image, footprint, out, shift_x, shift_y, *, mode)`   | gray morph     | grayscale erosion                          |
 |  [06]   | `dilation(image, footprint, out, shift_x, shift_y, *, mode)`  | gray morph     | grayscale dilation                         |
 |  [07]   | `label(label_image, background, return_num, connectivity)`    | labeling       | connected-component labeling               |
-|  [08]   | `remove_small_objects(ar, connectivity, *, max_size, out)`    | filtering      | remove connected components below max_size |
+|  [08]   | `remove_small_objects(ar, connectivity, *, min_size, out)`    | filtering      | remove connected components below min_size |
 |  [09]   | `remove_small_holes(ar, area_threshold, connectivity, ...)`   | filtering      | fill holes below area threshold            |
 |  [10]   | `skeletonize(image, *, method)`                               | skeleton       | topological skeleton of binary image       |
 |  [11]   | `disk` / `square` / `diamond` / `ball` / `cube` / `rectangle` / `ellipse` / `octagon` / `star` / `footprint_rectangle` | structuring | the full footprint factory (2D and 3D); `footprint_rectangle` is the 0.26 successor to `square`/`cube`/`rectangle` |

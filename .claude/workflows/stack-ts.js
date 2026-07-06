@@ -11,13 +11,13 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10
+const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 const ROOT = 'docs/stacks/typescript'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, verdict: { type: 'string' }, map: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
+const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, map: { type: 'string' } } } } } }
 const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 // Required-but-possibly-empty `beyond` is an attestation: the terminal agent's own hunt ran, not only the residual list.
@@ -263,9 +263,10 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
-const archLine = (arch) => arch ? '\nSETTLED ATLAS (honor each page`s charter; an initial pointer, never a ceiling — re-read everything from ' +
-  'disk, it never licenses a skim):\n' + JSON.stringify(arch, null, 1) : ''
-const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: INITIAL STAGE — ADVERSARIAL HARDEN-REBUILD of ' + page + ' to the ULTRA-DENSE ' +
+// Workers see the ordered path list + their OWN charter only — never sibling charters, renames, or the gate rationale.
+const archLine = (paths, charter) => '\nSETTLED ATLAS (ordered paths; an initial pointer, never a ceiling — re-read everything from disk, it ' +
+  'never licenses a skim):\n' + JSON.stringify(paths) + (charter ? '\nTHIS PAGE`S CHARTER (honor it; siblings honor their own): ' + charter : '')
+const authorPrompt = (page, paths, charter) => [DOCTRINE, '', 'TASK: INITIAL STAGE — ADVERSARIAL HARDEN-REBUILD of ' + page + ' to the ULTRA-DENSE ' +
   'TypeScript doctrine bar; you own THIS file alone (siblings are mid-pipeline in their own concurrent hardens — do not read or edit them; ' +
   'corpus composition belongs to critique/redteam and the terminal corpus agent). Attack the page as naive/shallow/illusory; wherever the attack ' +
   'lands, rebuild that ' +
@@ -279,8 +280,8 @@ const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: INITIAL STAGE — ADV
   'one polymorphic entrypoint per modality with dual data-first/data-last signatures where the operator warrants both. Make every snippet ' +
   'AGNOSTIC (neutral names), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the growth axis ' +
   'visible. Cut every table-stakes card/snippet. Apply page-craft + style/comment hygiene. Report `collapsed`, `extended`, and the page`s ' +
-  'spotlight `regions`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
-const critiquePrompt = (page, arch) => [DOCTRINE, '', CURRENT_STATE, '',
+  'spotlight `regions`. Return residual_high {files:[...], claim}.' + archLine(paths, charter)].join('\n')
+const critiquePrompt = (page, paths, charter) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: CRITIQUE STAGE — HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation ' +
     'exists in EVERY fence; trust NOTHING the prose claims; "good enough" rejected. CORPUS AWARENESS: read the README + EVERY file under ' +
     'docs/stacks/typescript/ from CURRENT disk so your judgments are corpus-aware (vocabulary consistency, region overlap, altitude) per ' +
@@ -314,8 +315,8 @@ const critiquePrompt = (page, arch) => [DOCTRINE, '', CURRENT_STATE, '',
     'Effect surface or the real concept admits that the owner OMITS (case/row/field/operation) with a cite — COVERAGE naivety; rebuild any ' +
     'enumerated roster of hardcoded instances into ONE generator over named parameters with the roster as seed data — APPROACH naivety; delete ' +
     'any table-stakes/decorative/speculative card or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high ' +
-    '{files:[...], claim}.' + archLine(arch)].join('\n')
-const redteamPrompt = (page, arch) => [DOCTRINE, '', CURRENT_STATE, '',
+    '{files:[...], claim}.' + archLine(paths, charter)].join('\n')
+const redteamPrompt = (page, paths, charter) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: RED-TEAM STAGE — ADVERSARIAL ARCHITECT ATTACK + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE per-file stage. Red-team is ' +
     'critique AND MORE; the burden of proof is ON THE PAGE; trust NOTHING the prior stages claimed. CORPUS AWARENESS: read the README + EVERY ' +
     'file under docs/stacks/typescript/ from CURRENT disk per CURRENT STATE — you EDIT ONLY ' + page + '. Open the Effect ecosystem, ' +
@@ -339,7 +340,7 @@ const redteamPrompt = (page, arch) => [DOCTRINE, '', CURRENT_STATE, '',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW: re-attack every critique dimension with fresh hostile eyes. The page must end objectively denser, MORE ' +
     'capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest ' +
     'form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high ' +
-    '{files:[...], claim}.' + archLine(arch)].join('\n')
+    '{files:[...], claim}.' + archLine(paths, charter)].join('\n')
 const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
   'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
   'CURRENT disk). Read the README first, then every atlas page IN FULL in atlas order — the order IS the implementation chain: each page ' +
@@ -381,10 +382,12 @@ const inv = await agent('TASK: DISCOVERY — the read-only reconnaissance ground
   'list a phantom) + contextual seams to sibling pages + stacking guidance; `verdict` = the hostile weak/strong call (which surfaces look naive, ' +
   'thin, or illusory and why); `regions` = its current snippet-demonstration region tags. The map is an initial pointer, never a ceiling — ' +
   'downstream stages re-read and exceed it; it never licenses a skim. Use fd/find/read; do not cd; do not edit.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
-const invFiles = ((inv && inv.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order)
+const invFiles = ((inv && inv.files) || []).filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0).sort((a, b) => a.order - b.order)
 log('Inventory: ' + invFiles.length + ' TS doctrine pages under ' + ROOT + '; CAP=' + CAP)
 
 phase('Gate')
+// The gate receives facts only — path, order, capability map — never the inventory's weak/strong verdict (an assessment, not evidence).
+const gateRows = invFiles.map((f) => ({ path: f.path, order: f.order, map: f.map }))
 const arch = await agent([DOCTRINE, '', 'TASK: ATLAS STRUCTURE CHALLENGE GATE (structure only — no content authoring). The atlas roster is ' +
   'SETTLED law; a structural change (merge, split, kill, rename, add) requires DISQUALIFYING evidence — a page provably thin/table-stakes with ' +
   'no densification path, two pages provably owning one layer, a genuinely disjoint uncovered layer — never taste. Read the README atlas + ' +
@@ -394,8 +397,9 @@ const arch = await agent([DOCTRINE, '', 'TASK: ATLAS STRUCTURE CHALLENGE GATE (s
   'DROPS no capability: route every law the retired page owns into the absorbing page charter so the pipelines realize the absorption — zero ' +
   'current consumers never lowers the bar, and a kill without a named absorber is forbidden. Edit ONLY ' +
   'under ' + ROOT + '/. Return the FINAL ordered file set {path, order, charter, isNew}, renames, rationale.\nINVENTORY:\n' +
-  JSON.stringify(invFiles, null, 1)].join('\n'), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'max', stallMs: STALL })
+  JSON.stringify(gateRows)].join('\n'), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'high', stallMs: STALL })
 const archFiles = ((arch && arch.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order)
+const charters = new Map(archFiles.map((f) => [f.path, f.charter]))
 const ordered = archFiles.length ? archFiles.map((f) => f.path) : invFiles.map((f) => f.path)
 log('Gate: settled atlas = ' + ordered.length + ' pages' + (arch && arch.renames && arch.renames.length ? ' (' + arch.renames.length + ' structural changes)' : ' (roster unchanged)'))
 if (!ordered.length) { log('No pages resolved — nothing to harden'); return { workflow: 'stack-ts', root: ROOT, total: 0 } }
@@ -403,14 +407,14 @@ if (!ordered.length) { log('No pages resolved — nothing to harden'); return { 
 // Per-file pipeline: initial -> critique -> redteam chain WITHIN the file only; the pool is the sole scheduler across files.
 phase('Harden')
 const results = (await pool(ordered, CAP, async (page) => {
-  const init = await agent(authorPrompt(page, arch), { label: 'initial:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+  const init = await agent(authorPrompt(page, ordered, charters.get(page)), { label: 'initial:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
   if (!init) return { page, failed: true, logs: [] } // failure isolation: a dead initial skips its file's reviews; the run continues
-  const crit = await agent(critiquePrompt(page, arch), { label: 'critique:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
-  const rt = await agent(redteamPrompt(page, arch), { label: 'redteam:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
+  const crit = await agent(critiquePrompt(page, ordered, charters.get(page)), { label: 'critique:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
+  const rt = await agent(redteamPrompt(page, ordered, charters.get(page)), { label: 'redteam:' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
   return { page, failed: false, logs: [init, crit, rt].filter(Boolean) }
 })).filter(Boolean)
 const FAILED = results.filter((r) => r.failed).map((r) => r.page)
-const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
+const norm = (x, page) => ({ files: x.files && x.files.length ? x.files : [page], claim: x.claim })
 const RESIDUALS = [...new Map(results.flatMap((r) => r.logs.flatMap((l) => (l.residual_high || []).map((x) => norm(x, r.page))))
   .map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
 log('Harden: ' + (results.length - FAILED.length) + '/' + ordered.length + ' file pipelines complete; ' + RESIDUALS.length +

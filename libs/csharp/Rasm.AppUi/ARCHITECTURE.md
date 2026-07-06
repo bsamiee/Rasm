@@ -75,14 +75,14 @@ Render            ←  csharp:Rasm/Drawing/view                    # [PROJECTION
 Render            ←  csharp:Rasm/Processing/flatten              # [PROJECTION]: ChartAtlas / texture UV channel
 Render/reality    ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: SplatPayload / PointPayload decode
 Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam over the kernel DrawingProjection analytic HLR
-Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
+Render            ←  csharp:Rasm.Fabrication/Documentation/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
 Render/pathtrace  ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
 Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain
 Editing           ←  csharp:Rasm.Bim/coordination                # [SHAPE]: BcfTopic/BcfComment/BcfViewpoint annotation domain
 Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: Forward/inverse delta replays as SyncOpKind durable inverse stream
 Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
 Shell/controls    →  typescript:core/interchange/codec           # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
-Shell/controls    →  typescript:ui/viewer                        # [WIRE]: ControlIntent six-kind union materialized at the panel plane
+Shell/controls    →  typescript:ui/viewer                        # [WIRE]: ControlIntent closed union materialized at the panel plane
 Shell/solver      →  typescript:core/interchange/codec           # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
 Shell/solver      →  typescript:ui/viewer                        # [WIRE]: ordered LayoutProgram re-solved at the panel plane
 ```

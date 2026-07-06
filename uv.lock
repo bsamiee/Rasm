@@ -8,6 +8,14 @@ resolution-markers = [
     "sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+
+[[manifest.dependency-metadata]]
+name = "colour-cxf"
+version = "0.1.1"
+requires-dist = ["typing-extensions>=4,<5", "xsdata>25.4"]
+requires-python = ">=3.10"
+
 [[package]]
 name = "adbc-driver-flightsql"
 version = "1.11.0"
@@ -98,6 +106,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz", hash = "sha256:8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e", size = 254831, upload-time = "2026-06-24T20:56:06.017Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b0/7b/90df4a0a816d98d6ea26f559d87836d494a2cf1fcf063be67df50a7bcc30/anyio-4.14.1-py3-none-any.whl", hash = "sha256:4e5533c5b8ff0a24f5d7a176cbe6877129cd183893f66b537f8f227d10527d72", size = 124875, upload-time = "2026-06-24T20:56:04.413Z" },
+]
+
+[[package]]
+name = "appdirs"
+version = "1.4.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41", size = 13470, upload-time = "2020-05-11T07:59:51.037Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128", size = 9566, upload-time = "2020-05-11T07:59:49.499Z" },
 ]
 
 [[package]]
@@ -2372,6 +2389,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/de/130820754c21c00dfdc6852661de2bb30161b5a439a8643a446dae97a02f/imagecodecs-2026.6.26-cp315-cp315t-win32.whl", hash = "sha256:a10c347225f5fb1b9d1a36cfadccad9b173609c30e0dd3f68706675d6f4f9b58", size = 17330338, upload-time = "2026-06-28T18:26:52.04Z" },
     { url = "https://files.pythonhosted.org/packages/a7/df/b4f6f2a9e9102ca674673cb1b432bbebfe2d99acb6364390768024d56ae6/imagecodecs-2026.6.26-cp315-cp315t-win_amd64.whl", hash = "sha256:85ab027a8bc900f13b1cdaac05bb602ea58749731ae18743a7956642a7da7a2c", size = 22116857, upload-time = "2026-06-28T18:26:55.65Z" },
     { url = "https://files.pythonhosted.org/packages/2e/c4/d87b33e8df5c6ec19f5cd1d5ab39195b2077ac21536ff5146c20d3fb8694/imagecodecs-2026.6.26-cp315-cp315t-win_arm64.whl", hash = "sha256:41e18fcd2124c083b00f988eeb9c5cf89274e5c2f473ee03d54761b71048085c", size = 17651071, upload-time = "2026-06-28T18:26:59.305Z" },
+]
+
+[[package]]
+name = "imageio"
+version = "2.37.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/84/93bcd1300216ea50811cee96873b84a1bebf8d0489ffaf7f2a3756bab866/imageio-2.37.3.tar.gz", hash = "sha256:bbb37efbfc4c400fcd534b367b91fcd66d5da639aaa138034431a1c5e0a41451", size = 389673, upload-time = "2026-03-09T11:31:12.573Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/fa/391e437a34e55095173dca5f24070d89cbc233ff85bf1c29c93248c6588d/imageio-2.37.3-py3-none-any.whl", hash = "sha256:46f5bb8522cd421c0f5ae104d8268f569d856b29eb1a13b92829d1970f32c9f0", size = 317646, upload-time = "2026-03-09T11:31:10.771Z" },
 ]
 
 [[package]]
@@ -5217,12 +5247,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/04/fd/0caae7b35a30e4faae305c315a84826a8795ea65922c33ea14d67b7a61ce/python_bidi-0.6.10.tar.gz", hash = "sha256:a7853e894f723675489ac49aa4b52dc8eac87d7a67b5940631c8c9d2aab46f90", size = 58172, upload-time = "2026-05-13T21:46:45.366Z" }
 
 [[package]]
-name = "python-calamine"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ab/0b/81a04d6b50c6761906e5bbb3c23341540dfd072d1826de53f02a2b4e4fe0/python_calamine-0.7.0.tar.gz", hash = "sha256:761fc39ddc22736b261c46888d83649f1ab4207a4e2090f0066f0d09e1a0d691", size = 136922, upload-time = "2026-06-17T07:57:26.3Z" }
-
-[[package]]
 name = "python-daemon"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -5315,6 +5339,22 @@ dependencies = [
     { name = "cffi" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2d/6a/282936de9faac6addf6bc8792c18e006489d0023ffd8856b8643f54d0558/pyvips-3.1.1.tar.gz", hash = "sha256:84fe744d023b1084ac2516bb17064cacd41c7f8aabf8e524dd383534941b9301", size = 56951, upload-time = "2025-12-09T18:38:06.355Z" }
+
+[[package]]
+name = "pyvista"
+version = "0.36.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "appdirs" },
+    { name = "imageio" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "scooby" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/45/b7/47fffbb930c9863fafe627c3a99d63a32330be10b37c58bfc9042550a374/pyvista-0.36.0.tar.gz", hash = "sha256:91553804aa162e055e486092bbd4fa60f7e6871096ad4dc47bcc329ad70ce8d6", size = 1425629, upload-time = "2022-07-31T03:28:54.188Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/35/61/be354dda968290574da958791b305c2c5f40ed401a561c7c73393e5c4fc0/pyvista-0.36.0-py3-none-any.whl", hash = "sha256:5eddabc8ad22627c667ae9da92c38ade5ef29304f85c5a9445d1f14b5dd4e35c", size = 1453226, upload-time = "2022-07-31T03:28:52.234Z" },
+]
 
 [[package]]
 name = "pywavelets"
@@ -5806,6 +5846,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e5/9b/6cb11393563241c79b74e035c1d697329d1dce1635565e40b0085d56a2fe/scipy_stubs-1.18.0.0.tar.gz", hash = "sha256:a1fc917da66e4d338998839170e218754a669f6455c24243890a1e572bde98f6", size = 402538, upload-time = "2026-06-19T10:56:39.57Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/b4/82d4de656500722dea533151b88f926672341b46289cc31eb2e2c1c7c1d7/scipy_stubs-1.18.0.0-py3-none-any.whl", hash = "sha256:872ec1066a75feb5c5d8451231e8f7826d08d53fb806c526abd5f97bb1ba29fb", size = 608175, upload-time = "2026-06-19T10:56:37.905Z" },
+]
+
+[[package]]
+name = "scooby"
+version = "0.11.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/06/9a8600207fd72a29ee965e9a4c61b750cc3fa106768f14a7b3ee3e36cb61/scooby-0.11.2.tar.gz", hash = "sha256:0575c73636ec4c2587bea1f8a038798ddcb249e02067fae897dac3bf4f4e444d", size = 242928, upload-time = "2026-04-22T23:13:12.307Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/bc/1173f502f1870e3bae81c148326c5cbcc19ec77df79a9aaf17a59911355c/scooby-0.11.2-py3-none-any.whl", hash = "sha256:f34c36bbee749b2c55816a080521f216d88304e635017e911c12249607d38c49", size = 20142, upload-time = "2026-04-22T23:13:10.705Z" },
 ]
 
 [[package]]
@@ -6864,7 +6913,6 @@ dependencies = [
     { name = "jinja2" },
     { name = "jupytext" },
     { name = "keyring" },
-    { name = "kiwisolver" },
     { name = "ladybug-comfort" },
     { name = "ladybug-core" },
     { name = "ladybug-geometry" },
@@ -6947,12 +6995,12 @@ dependencies = [
     { name = "pysubs2" },
     { name = "python-barcode" },
     { name = "python-bidi" },
-    { name = "python-calamine" },
     { name = "python-docx" },
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
     { name = "pyvips" },
+    { name = "pyvista" },
     { name = "pywavelets" },
     { name = "queenbee" },
     { name = "rasterio" },
@@ -7006,9 +7054,7 @@ dependencies = [
     { name = "zarr" },
     { name = "ziafont" },
     { name = "ziamath" },
-    { name = "zlib-ng" },
     { name = "zstandard" },
-    { name = "zxing-cpp" },
 ]
 
 [package.dev-dependencies]
@@ -7131,7 +7177,7 @@ requires-dist = [
     { name = "jupytext" },
     { name = "keyring" },
     { name = "kiss-matcher", marker = "python_full_version < '3.15'" },
-    { name = "kiwisolver" },
+    { name = "kiwisolver", marker = "python_full_version < '3.15'" },
     { name = "ladybug-comfort" },
     { name = "ladybug-core" },
     { name = "ladybug-geometry" },
@@ -7225,14 +7271,14 @@ requires-dist = [
     { name = "pysubs2" },
     { name = "python-barcode" },
     { name = "python-bidi" },
-    { name = "python-calamine" },
+    { name = "python-calamine", marker = "python_full_version < '3.15'" },
     { name = "python-docx" },
     { name = "python-fcl", marker = "python_full_version < '3.15'" },
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
     { name = "pyvips" },
-    { name = "pyvista", marker = "python_full_version < '3.15'" },
+    { name = "pyvista" },
     { name = "pywavelets" },
     { name = "quadax", marker = "python_full_version < '3.15'" },
     { name = "queenbee" },
@@ -7294,9 +7340,9 @@ requires-dist = [
     { name = "zarr" },
     { name = "ziafont" },
     { name = "ziamath" },
-    { name = "zlib-ng" },
+    { name = "zlib-ng", marker = "python_full_version < '3.15'" },
     { name = "zstandard" },
-    { name = "zxing-cpp" },
+    { name = "zxing-cpp", marker = "python_full_version < '3.15'" },
 ]
 
 [package.metadata.requires-dev]
@@ -7459,12 +7505,6 @@ wheels = [
 ]
 
 [[package]]
-name = "zlib-ng"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/46/7d/901c6e333fb031b5bfbd1532099200cf859f12aa83689be494eade6685ec/zlib_ng-1.0.0.tar.gz", hash = "sha256:c753cea73f9e803c246e9bf01a59eb652897ed8a19334ada0f968394c7f61650", size = 5799954, upload-time = "2025-09-10T11:46:17.553Z" }
-
-[[package]]
 name = "zopfli"
 version = "0.4.3"
 source = { registry = "https://pypi.org/simple" }
@@ -7485,9 +7525,3 @@ name = "zstandard"
 version = "0.25.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fd/aa/3e0508d5a5dd96529cdc5a97011299056e14c6505b678fd58938792794b1/zstandard-0.25.0.tar.gz", hash = "sha256:7713e1179d162cf5c7906da876ec2ccb9c3a9dcbdffef0cc7f70c3667a205f0b", size = 711513, upload-time = "2025-09-14T22:15:54.002Z" }
-
-[[package]]
-name = "zxing-cpp"
-version = "3.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f1/c6/ac2a12cdc2b1c296804fc6a65bf112b607825ca7f47742a5aca541134711/zxing_cpp-3.0.0.tar.gz", hash = "sha256:703353304de24d947bd68044fac4e062953a7b64029de6941ba8ffeb4476b60d", size = 1197544, upload-time = "2026-02-10T12:50:11.252Z" }

@@ -1,39 +1,40 @@
 # [RASM_FABRICATION_CUT_PARAMETER]
 
-The removal-physics policy table: `RemovalParameter` the one frozen `process × material × tool × operation` cross-product owner projecting each row to the modality-discriminated `RemovalBudget` `[Union]` the `Toolpath/motion#CAM_MOTION` and `Toolpath/skeleton#STRAIGHT_SKELETON` generators read as settled scalars. The `Process/family#PROCESS_FAMILY` `Process.RemovalModality` column is the ONE discriminant the `Budget` projection switches on — a subtractive mill row projects a `SubtractiveBudget` (rpm/feed/depth/MRR), a thermal laser/plasma/oxyfuel row a `ThermalBudget` (pierce-time/kerf-width/cut-speed/assist-pressure), an abrasive waterjet row an `AbrasiveBudget` (jet-pressure/abrasive-rate/traverse-speed), and an additive FFF row an `AdditiveBudget` (extrusion-width/layer-height/print-speed/melt-temp). The table is data-driven dispatch keyed by the composite `(Process, Material, Tool, Operation)` smart-enum quad — a new process, material, tool, or operation is one row, never a per-generator magic number, and a new modality is one `RemovalBudget` case plus one projection arm the generated total `Switch` breaks the build until it lands. Each `Material` carries a per-modality `ModalityPhysics` payload column the `RemovalModality` `Switch` reads ONLY for its case (the subtractive surface-speed for milling, the thermal kerf/pierce row for a laser, the abrasive jet row for a waterjet, the additive melt-temp row for an FFF head) so materials own real specific vocabularies without a flat wide record where every modality's columns sit nullable side-by-side. The `Tool` axis carries its full tooling payload — `Diameter`/`Flutes` plus `Coating` (the `uncoated`/`TiN`/`TiAlN`/`diamond` `[SmartEnum<string>]`), `CornerRadius`, `HelixAngle`, `Stickout`, `Runout` — the `Stickout` column feeding the `MAGAZINE` holder geometry and the `POST_THERMAL_DEFLECTION_COMP` bending-stiffness consumer, never a parallel tool-geometry record. A frozen `CuttingData` table keyed by the `(Material, Tool, Operation)` triple supplies the measured surface-feet-per-minute and chip-load per cell consulted BEFORE the subtractive formula, defeating the single hardcoded `90.0 m/min` fallback so a `TiAlN`-coated endmill in stainless reads its own SFM/chip-load cell rather than the one constant; the table rides BESIDE the existing `(Process, Material, Tool, Operation)` `Overrides` table, never a parallel `ToolMaterialTable` the density law forbids. The upstream-owned constitutive scalars — thermal conductivity, specific heat, density — admit as RAW DOUBLES at the `Rasm.Materials/physical-properties#MATERIAL_PROPERTY` AEC-peer boundary (the additive melt-temp and process-only thermal columns are NOT upstream engineering properties and stay in-folder). Quantity-bearing ingress (a feed in `mm/min`, a surface speed in `m/min`, a spindle speed in `rpm`, a depth in `mm`, an assist pressure in `bar`) admits ONCE through the in-folder `UnitsNet` boundary at `RemovalParameter.Admit` — the strata-correct resolution honoring the AEC-domain → app-platform acyclicity that forbids Fabrication a downward edge to the `Rasm.Compute` units owner: the boundary `TryParse`s each `"<value> <unit>"` string through the `Speed`/`Length`/`RotationalSpeed`/`Pressure` facades and reads the SI accessor, so this table stores and projects only the canonical raw doubles, because the toolpath interior operates on raw coordinate/rate doubles and a `Speed`/`Length`/`RotationalSpeed`/`Pressure` quantity in a generator signature is the seam violation the Fabrication owner forbids. It composes the `Process/owner#FABRICATION_OWNER` shared vocabulary as the consumer seam; it computes no hash and operates on raw doubles at the interior.
+The process-physics owner: ONE `Material` identity per physical material carrying a `Map<ProcessModality, ModalityPhysics>` payload — stainless is ONE row whose map holds its subtractive, abrasive, erosion, formed, and joined physics; the disk `stainless-abrasive`/`mild-steel-thermal` fragmented per-modality material rows are the collapsed form. `RemovalParameter.Budget` modality-dispatches into the map: the `Process/family#PROCESS_FAMILY` `ProcessKind.Modality` selects the map entry, and the ENTRY'S `ModalityPhysics` case selects the `RemovalBudget` case — so the `additive` modality resolves FFF extrusion for `pla-filament`, DED deposition for `mild-steel`, resin exposure/cure for `photopolymer-resin`, and powder laser/hatch/scan for `ss316-powder` off the one map; the `erosion` modality resolves a REAL `Erosion` budget (EDM discharge current, pulse on/off, wire feed) — the `erosion→ThermalBudget` conflation is dead; the `formed` modality resolves the `Formed` FORM budget (tensile `Rm` the brake tonnage formula `F=(C·Rm·S²·L)/(V·1000)` consumes, base K-factor the bend-allowance projection `BA=(π/180)·A·(R+K·T)` consumes, springback ratio the overbend derivation consumes, minimum-bend-radius factor in thickness multiples — `Forming/{sheet,brake}` are the consumers); and the `joined` modality REUSES the landed `Deposition` case as the weld heat-input budget (`Joining/weld` is its first consumer — arc power/wire-feed/standoff/interpass drive `HI = η·60·V·I/(1000·v)` and the interpass schedule on `Joining/sequence`), never a parallel weld-physics sibling. A material lacking the demanded modality's entry routes the kernel `GeometryFault.DegenerateInput`, never a hardcoded fallback: the dead `(ProcessKind, Material, Tool, Operation)` `Overrides` carrier is DELETED (measured production data enters through `Tooling/cuttingdata`'s ingress arm, never a page-local dictionary), and the inline `90.0 m/min` literal is demoted behind the data table — every seed value is a constructor-bound row datum, no code-path constant survives. The measured machinability table (the SFM/chip-load cells) is EXCISED to `Tooling/cuttingdata` and deepened there to the Kienzle `kc` model; this page keeps the material identity, the per-modality physics, and the formula FLOOR the generators fall back to when no measured cell exists — consumers consult `CuttingData.Of` first, `Budget` always.
 
-Wire posture: HOST-LOCAL. The `RemovalBudget` scalars cross only the in-process seam to the toolpath generators — never a browser or peer wire. The `Material`/`Tool`/`Operation` vocabularies and the `RemovalBudget` union are host-local types that never sit between wire and rail.
+`Budget` reads the mounted `ToolAssembly` (the `Tooling/magazine` ISO-13399-backed assembly), not a bare catalog row — the subtractive projection reads the assembly's tool diameter/flutes and the operation's chip-load/engagement columns, so a measured tool budgets from its real geometry. The `Tool` axis stays HERE as the process-discriminated catalog vocabulary (`Diameter`/`Flutes`/`Coating`/`CornerRadius`/`HelixAngle`/`Stickout`/`Runout` columns) the `ToolAssembly` composes; a parallel tool-geometry record anywhere is the deleted form. The upstream constitutive scalars — conductivity, specific heat, density — admit as RAW DOUBLES at the `Rasm.Materials` `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` AEC-peer boundary (never a `MaterialProperty` type in-folder). Quantity-bearing ingress (`mm/min`, `m/min`, `rpm`, `mm`, `bar`) admits ONCE through the in-folder `UnitsNet` boundary (`Speed`/`Length`/`RotationalSpeed`/`Pressure` `TryParse` → SI accessor), the strata-correct owner honoring AEC-domain acyclicity; the interior stores and projects only canonical raw doubles, and a quantity type in a generator signature is the seam violation.
+
+Wire posture: HOST-LOCAL. The `RemovalBudget` scalars cross only the in-process seam to the toolpath generators — never a browser or peer wire; the axes and unions never sit between wire and rail.
 
 ## [01]-[INDEX]
 
-- [01]-[CUT_PARAMETER]: owns the `Material`/`Tool`/`Operation` cross-product axes, the `ModalityPhysics` per-modality payload, the `RemovalBudget` `[Union]` modality-discriminated receipt, and the `RemovalParameter` frozen policy table — the `process × material × tool × operation` rows projecting through the `Process.RemovalModality` switch to the per-modality budget the toolpath generators read.
+- [01]-[CUT_PARAMETER]: owns the `Coating`/`Tool`/`Operation` catalog axes, the nine-case `ModalityPhysics` per-modality payload union, the ONE `Material` identity with its `Map<ProcessModality, ModalityPhysics>` column, the nine-case `RemovalBudget` receipt union, and the `RemovalParameter.Budget` projection — the modality-dispatched map read the toolpath, additive, erosion, forming, and joining generators consume as settled scalars.
 
 ## [02]-[CUT_PARAMETER]
 
-- Owner: `Material` `[SmartEnum<string>]` the stock-material axis carrying a per-modality `ModalityPhysics` payload column (never a flat 15-column nullable record); `Coating` `[SmartEnum<string>]` the tool-coating axis (`uncoated`/`TiN`/`TiAlN`/`diamond`); `Tool` `[SmartEnum<string>]` the process-discriminated tooling axis (`endmill-3mm`/`endmill-6mm`/`endmill-10mm`/`drill-6mm` milling rows kept, plus `turning-insert`/`laser-head`/`plasma-torch`/`waterjet-nozzle`/`fff-nozzle`) carrying its full tooling payload — `Diameter`/`Flutes` plus the `Coating`/`CornerRadius`/`HelixAngle`/`Stickout`/`Runout` geometry columns its process reads as behavior; `Operation` `[SmartEnum<string>]` the cut-operation axis (`contour`/`pocket`/`drill`/`trochoidal`) carrying a chip-load and an engagement column; `ModalityPhysics` `[Union]` the closed per-modality material payload (`SubtractivePhysics` surface-speed · `ThermalPhysics` kerf-width/pierce-time/assist-pressure · `AbrasivePhysics` jet-pressure/abrasive-rate · `AdditivePhysics` melt-temp/bond-window) the `RemovalModality` switch reads only for its case; `RemovalBudget` `[Union]` the modality-discriminated raw-scalar receipt (`SubtractiveBudget` rpm/feed/depth/MRR · `ThermalBudget` pierce/kerf/speed/pressure · `AbrasiveBudget` pressure/rate/traverse · `AdditiveBudget` width/layer/speed/temp); `RemovalParameter` the static surface owning the frozen `(Process, Material, Tool, Operation)`-keyed override table, the frozen `(Material, Tool, Operation)`-keyed `CuttingData` SFM/chip-load table, and the `Budget` projection from the row columns through the `RemovalModality` switch.
-- Cases: `Coating` rows `uncoated` · `TiN` · `TiAlN` · `diamond` (4); `Tool` rows `endmill-3mm` · `endmill-6mm` · `endmill-10mm` · `drill-6mm` · `turning-insert` · `laser-head` · `plasma-torch` · `waterjet-nozzle` · `fff-nozzle` (9); `Operation` rows `contour` · `pocket` · `drill` · `trochoidal` (4); `ModalityPhysics`/`RemovalBudget` cases `Subtractive` · `Thermal` · `Abrasive` · `Additive` (4 each, one-to-one with the `RemovalModality` rows the `Process` carries); the subtractive budget reads the `(Material, Tool, Operation)` `CuttingData` cell for its surface-speed and chip-load (the hardcoded `90.0` defeated by the per-cell row consulted before the formula), then projects `spindle = surfaceSpeed · 1000 / (π · diameter)`, `feed = spindle · flutes · chipLoad`, `depth = engagement · diameter`, `mrr = depth · engagement · diameter · feed` — the milling formula UNCHANGED as the `Subtractive` arm, only its surface-speed/chip-load inputs now sourced from the measured table cell; the thermal budget projects pierce-time and assist-pressure off the `ThermalPhysics` row scaled by the cut speed, the abrasive budget the jet-pressure/abrasive-rate off the `AbrasivePhysics` row, the additive budget the extrusion-width/layer-height/print-speed off the `AdditivePhysics` melt-temp row — each a settled formula over the per-modality payload, the table the composite-key admission factory the generators read.
-- Entry: `public static RemovalBudget Budget(Process process, Material material, Tool tool, Operation operation)` — the ONE projection discriminating by `Process.RemovalModality` through the generated total `Switch`, total over every modality (each case closed, the projection a pure formula over the payload columns), no rail because a budget is always derivable once the modality and rows are settled; `public static Fin<RemovalBudget> Admit(ReadOnlySpan<char> process, ReadOnlySpan<char> material, ReadOnlySpan<char> tool, ReadOnlySpan<char> operation)` is the span-keyed boundary admitting external text through each axis's generated `Validate`, routing the kernel `GeometryFault.DegenerateInput` on an unknown key; `Feed`/`Spindle`/`Depth`/`Assist` are the in-folder `UnitsNet` quantity-text boundaries `TryParse`-ing a `"<value> <unit>"` string (feed `mm/min`, spindle `rpm`, depth `mm`, assist pressure `bar`) against an invariant culture and emitting the canonical SI `double`, each routing `GeometryFault.DegenerateInput` on an unparseable quantity.
-- Auto: `RemovalParameter.Budget` reads the `Process.RemovalModality` and dispatches the per-modality projection through the generated total `Switch` — the `Subtractive` arm consults the frozen `(Material, Tool, Operation)`-keyed `CuttingData` table FIRST for the measured surface-speed and chip-load cell (a `TiAlN`-coated endmill in stainless reads its own SFM/chip-load), falling back to the `SubtractivePhysics.SurfaceSpeed` off the `Material` payload only when no cell exists, reads the diameter and flute count off the `Tool` column and the engagement off the `Operation` column, and projects the four milling scalars exactly as the milling table always did — the single inline `90.0 m/min` constant defeated by the table cell; the `Thermal` arm reads the `ThermalPhysics` kerf-width/pierce-time/assist-pressure and the cut speed; the `Abrasive` arm reads the `AbrasivePhysics` jet-pressure/abrasive-rate; the `Additive` arm reads the `AdditivePhysics` melt-temp/bond-window and the layer geometry. A frozen `(Process, Material, Tool, Operation)`-keyed override is consulted BEFORE the formula so a hand-measured budget defeats the projection. The upstream constitutive scalars (a thermal cut reads its material's conductivity and specific heat to scale the pierce time, an abrasive cut its density) admit as raw doubles through the `Rasm.Materials/physical-properties#MATERIAL_PROPERTY` boundary — `Thermal.ConductivityWMK`/`SpecificHeatJKgK`, `Mechanical.DensityKgM3` — never a `MaterialProperty` type in a generator signature. Quantity text (`"3000 mm/min"`, `"200 m/min"`, `"12000 rpm"`, `"8 bar"`) admits through the in-folder `UnitsNet` boundary at `RemovalParameter.Admit` — `Speed.TryParse`/`Length.TryParse`/`RotationalSpeed.TryParse`/`Pressure.TryParse` against an invariant `IFormatProvider`, the SI accessor (`Speed.MetersPerSecond`, `RotationalSpeed.RevolutionsPerMinute`) read once — canonicalizing to the SI scalar, a `false` probe lowering to `GeometryFault.DegenerateInput`; this table stores only the canonical doubles and never lets a quantity type cross into the interior. The `Toolpath/motion#CAM_MOTION` `Cam.Solve` reads the modality-matched budget case directly — the `SubtractiveBudget.MaterialRemovalRate` is the constant-MRR trochoidal budget, the `ThermalBudget.PierceTime`/`AssistPressure` the laser/plasma pierce conditioning, the `AdditiveBudget.LayerHeight`/`MeltTemp` the FFF slice budget.
-- Receipt: the `RemovalBudget` case carries its modality's raw scalars directly — the projected budget IS the evidence the generators read; no generic parameter ledger, no quantity type escaping the boundary, and no budget case carrying a column outside its modality.
-- Packages: `Rasm.Numerics` (composed at the consumer seam), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` for the axes, `[Union]` for `ModalityPhysics`/`RemovalBudget` with the `RemovalModality`-driven total `Switch`), `UnitsNet` (the `Speed`/`Length`/`RotationalSpeed`/`Pressure` `Parse`/`TryParse`/`From<Unit>` ingress and the SI accessor properties, admitted as a direct in-folder Fabrication reference at the `RemovalParameter.Admit` boundary — the strata-correct quantity owner honoring AEC → app-platform acyclicity, the `.api/api-unitsnet.md` catalogue), LanguageExt.Core, BCL inbox; the `Rasm.Materials/physical-properties#MATERIAL_PROPERTY` constitutive scalars admit as raw doubles at the peer boundary (a legal upward acyclic AEC-domain-peer read, distinct from the forbidden app-platform `Rasm.Compute` downward edge), never a `MaterialProperty` type in-folder.
-- Growth: a new material is one `[SmartEnum<string>]` row plus its `ModalityPhysics` payload column, the cross-product projection unchanged; a new tool/operation is one row plus its behavior columns; a new tool coating is one `Coating` row; a new removal modality is one `RemovalModality` row (in `Process/family`) plus one `ModalityPhysics` case plus one `RemovalBudget` case plus one `Budget` switch arm, the generated dispatch breaking the build until the arm lands; a new budget scalar (coolant pressure, plunge rate) is one field on the modality's budget case plus one projection formula; a measured cutting-data cell is one frozen `(Material, Tool, Operation)`-keyed `CuttingData` row; a fully tabulated per-cell override is one frozen `(Process, Material, Tool, Operation)`-keyed override row consulted before the formula; zero new surface.
-- Boundary: `RemovalParameter` is the ONE removal-physics owner and a per-generator magic number is the deleted form — the trochoidal step-over, the contour feed, the laser pierce, the FFF layer all read the `RemovalBudget` case; the cutting data is the `(Material, Tool, Operation)` `CuttingData` table cell and a per-`Tool` scalar surface-speed fallback or the single inline `90.0 m/min` constant is the deleted form — the measured cell is consulted before the formula, the `ModalityPhysics.Subtractive.SurfaceSpeed` payload only the no-cell fallback; the `CuttingData` table rides beside the `Overrides` table and a parallel `ToolMaterialTable` sibling is the named density defect — the SFM/chip-load cross-product is one frozen table, never a second owner; the tool geometry rides the `Tool` payload columns (`Coating`/`CornerRadius`/`HelixAngle`/`Stickout`/`Runout`) and a parallel tool-geometry record is the deleted form — the `Stickout` column the `MAGAZINE` holder and the deflection-comp consumer both read is one column on the one `Tool` axis; the budget is the modality-discriminated union and a parallel `ThermalParameter`/`AbrasiveParameter`/`AdditiveParameter` sibling table is the deleted form — one `Budget` projection over the `RemovalModality` switch; the per-modality physics rides the `ModalityPhysics` payload column the switch reads per case and a flat `Material` record with every modality's columns nullable side-by-side is the named density defect (the flag-set deleted form); the table is the cross-product composite-key factory and a `MaterialTable`/`ToolTable`/`OperationTable` sibling triple is the deleted form; the modality discriminant is the `Process.RemovalModality` row from `Process/family#PROCESS_FAMILY` and a second parallel modality enum in this folder is the deleted form — the two pages share the one modality vocabulary; the quantity admission is the in-folder `UnitsNet` boundary at `RemovalParameter.Admit` (the strata-correct owner: an AEC-domain folder reaching DOWN to the app-platform `Rasm.Compute` units owner is the forbidden acyclicity violation, so the quantity parse lives in-folder) and a quantity parse outside the `Admit` boundary is the seam violation; the constitutive scalars admit as raw doubles at the `Rasm.Materials/physical-properties#MATERIAL_PROPERTY` boundary and a `MaterialProperty` type in a `Cam`/`StraightSkeleton` signature is the named seam violation; the generators read raw `double` budgets and a `Speed`/`RotationalSpeed`/`Length`/`Pressure` quantity in a generator signature is the seam violation the Fabrication owner's interior-double law forbids — the quantity type lives only at the `Admit` ingress, never the interior.
+- Owner: `Coating` `[SmartEnum<string>]` (`uncoated`/`TiN`/`TiAlN`/`diamond`); `Tool` `[SmartEnum<string>]` the process-discriminated catalog axis carrying the full tooling payload columns; `Operation` `[SmartEnum<string>]` (`contour`/`pocket`/`drill`/`trochoidal`) carrying chip-load and engagement columns; `ModalityPhysics` `[Union]` the closed per-modality material payload — `Subtractive` (surface-speed floor) · `Thermal` (kerf/pierce/assist/speed) · `Abrasive` (jet/rate/traverse) · `Fff` (melt-temp/bond-window/extrusion-width) · `Deposition` (power/wire-feed/standoff/interpass — DED distinct from FFF) · `Erosion` (discharge-current/pulse-on/pulse-off/wire-feed) · `Resin` (exposure/cure-depth/lift) · `Powder` (laser-power/hatch-spacing/scan-speed) · `Forming` (tensile-Rm/K-factor/springback-ratio/min-bend-radius-factor — the sheet-forming constitutive row); `Material` `[SmartEnum<string>]` the ONE per-physical-material identity carrying `Map<ProcessModality, ModalityPhysics>`; `RemovalBudget` `[Union]` the case-per-physics raw-scalar receipt mirroring the nine payload cases — its `Formed` case IS the form budget (tonnage/springback/bend-allowance inputs) and its `Deposition` case doubles as the weld heat-input budget under the `joined` map key; `RemovalParameter` the static surface owning `Budget` and the admission boundaries.
+- Cases: `Material` rows 8 — `aluminium` {subtractive, thermal, abrasive, formed} · `mild-steel` {subtractive, thermal, additive→Deposition, formed, joined→Deposition} · `stainless` {subtractive, abrasive, erosion, formed, joined→Deposition} · `acrylic` {subtractive, thermal} · `plywood` {subtractive, thermal} · `pla-filament` {additive→Fff} · `photopolymer-resin` {additive→Resin} · `ss316-powder` {additive→Powder}; the map entry's CASE, not the modality row, discriminates the budget case, so one `additive` modality serves four distinct production physics and the `Deposition` case serves BOTH the DED build (`additive` key) and the weld heat-input budget (`joined` key) off distinct row values; `Tool` rows 9; `Operation` rows 4; the subtractive projection is the unchanged milling formula (`spindle = v·1000/(π·d)`, `feed = spindle·flutes·chipLoad`, `depth = engagement·d`, `mrr`) over the map's surface-speed floor and the assembly geometry — the MEASURED cell (Kienzle `kc`, per-operation speed, feed-per-tooth) lives at `Tooling/cuttingdata` and defeats this floor at the consumer.
+- Entry: `public static Fin<RemovalBudget> Budget(ProcessKind process, Material material, ToolAssembly tool, Operation operation)` — the ONE projection: `process.Modality` keys the material map, a missing entry routes `GeometryFault.DegenerateInput` (the material/modality pairing is degenerate input, never a silent default), the present entry's case projects its budget through the generated total `Switch`; `public static Fin<(ProcessKind, Material, Operation)> Admit(ReadOnlySpan<char> process, ReadOnlySpan<char> material, ReadOnlySpan<char> operation)` is the span-keyed axis boundary; `Feed`/`Spindle`/`Depth`/`Assist` are the `UnitsNet` quantity-text boundaries emitting canonical SI doubles, each routing `DegenerateInput` on an unparseable quantity.
+- Auto: `Budget` binds `material.Physics.Find(process.Modality)` and folds the entry through the `ModalityPhysics` generated total `Switch` — `Subtractive` projects the milling formula from the map floor + `tool.Tool.Diameter`/`Flutes` + `operation.ChipLoad`/`Engagement`; `Thermal` projects pierce/kerf/speed/assist off its row; `Abrasive` jet/rate/traverse; `Fff` extrusion width/layer (width·0.5)/speed/melt-temp; `Deposition` power/feed/standoff/interpass; `Erosion` discharge/pulse-on/pulse-off/wire-feed; `Resin` exposure/cure-depth/lift; `Powder` laser/hatch/scan; `Forming` Rm/K/springback/min-radius. Constitutive scalars (a thermal cut scaling pierce by conductivity, an abrasive cut by density) admit as raw doubles at the `Rasm.Materials` peer boundary. `Toolpath/motion` reads the modality-matched case; `Tooling/cuttingdata` keys its Kienzle table by this page's `Material` identity; `Toolpath/surface` reads the subtractive chip-load budget for engagement bounds; `Forming/sheet` reads `Formed.KFactor` as the coupon-refinable base row and `Forming/brake` reads `Formed.TensileRm`/`SpringbackRatio`/`MinBendRadiusFactor` for tonnage/overbend/radius-floor; `Joining/weld` reads the `joined`-keyed `Deposition` for heat input and `Joining/sequence` its `InterpassTemp` for the interpass schedule; `Additive/scanpath` consumes the `Powder` budget's laser/hatch/scan triple.
+- Receipt: the `RemovalBudget` case carries its physics' raw scalars directly — the projected budget IS the evidence; no generic parameter ledger, no quantity type escaping the boundary, no case carrying a column outside its physics.
+- Packages: `Process/family#PROCESS_FAMILY` (`ProcessKind`/`ProcessModality` — the one modality vocabulary, composed), `Tooling/magazine#TOOL_MAGAZINE` (`ToolAssembly` — the mounted-tool geometry the budget reads), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`/`[Union]`), `UnitsNet` (`Speed`/`Length`/`RotationalSpeed`/`Pressure` ingress + SI accessors — the `.api/api-unitsnet.md` overlay), `Rasm.Numerics` (`GeometryFault` band-2400), LanguageExt.Core (`Fin`/`Map`), BCL inbox; `Rasm.Materials` `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` constitutive scalars as raw doubles at the peer boundary.
+- Growth: a new material is one `Material` row binding its full modality map; a new modality physics for an existing material is one map entry on its row; a new production physics (a new AM class) is one `ModalityPhysics` case + one `RemovalBudget` case + one `Switch` arm, the generated dispatch breaking the build until the arm lands; a new budget scalar is one field on its case + one projection term; measured production machinability is `Tooling/cuttingdata`'s ingress arm, NEVER a page-local override dictionary; zero new surface.
+- Boundary: `RemovalParameter` is the ONE removal-physics owner and a per-generator magic number is the deleted form; the material is ONE identity row and a per-modality material sibling (`stainless-abrasive`, `mild-steel-thermal`) is the deleted fragmentation — the map column owns the modality spread; the `Overrides` dictionary is DELETED and a resurrected page-local measured-data carrier is the rejected form — measured cells are `Tooling/cuttingdata`'s, entered through its data-ingress arm; no code-path fallback constant survives — a missing map entry FAILS typed, the seed values are row data, and an inline surface-speed/pierce/melt literal in a projection body is the named defect the `90.0` demotion killed; the budget union is modality-discriminated and a parallel `ThermalParameter`/`ErosionParameter` sibling table is the deleted form; the modality discriminant is the `Process/family` row and a second modality enum here is the deleted form; the quantity parse lives only at the `UnitsNet` boundary and the interior is raw doubles; the constitutive read is raw doubles at the `Rasm.Materials` peer boundary and a `MaterialProperty` type in a generator signature is the seam violation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.Collections.Frozen;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System.Globalization;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Fabrication.ProcessModel;
+using Rasm.Fabrication.Tooling;
 using Rasm.Numerics;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
 
-namespace Rasm.Fabrication.ProcessPhysics;
+namespace Rasm.Fabrication.Process;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class Coating {
     public static readonly Coating Uncoated = new("uncoated");
@@ -74,7 +75,9 @@ public sealed partial class Operation {
     public double Engagement { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// Eight production physics, one union: the map ENTRY'S case (not the modality row) discriminates the budget case,
+// so the one `additive` modality serves FFF, DED, resin, and powder off four distinct material rows.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ModalityPhysics {
     private ModalityPhysics() { }
@@ -82,21 +85,49 @@ public abstract partial record ModalityPhysics {
     public sealed record Subtractive(double SurfaceSpeed) : ModalityPhysics;
     public sealed record Thermal(double KerfWidth, double PierceTime, double AssistPressure, double CutSpeed) : ModalityPhysics;
     public sealed record Abrasive(double JetPressure, double AbrasiveRate, double TraverseSpeed) : ModalityPhysics;
-    public sealed record Additive(double MeltTemp, double BondWindow, double ExtrusionWidth) : ModalityPhysics;
+    public sealed record Fff(double MeltTemp, double BondWindow, double ExtrusionWidth) : ModalityPhysics;
+    public sealed record Deposition(double PowerW, double WireFeedRate, double Standoff, double InterpassTemp) : ModalityPhysics;
+    public sealed record Erosion(double DischargeCurrent, double PulseOnUs, double PulseOffUs, double WireFeed) : ModalityPhysics;
+    public sealed record Resin(double Exposure, double CureDepth, double LiftHeight) : ModalityPhysics;
+    public sealed record Powder(double LaserPower, double HatchSpacing, double ScanSpeed) : ModalityPhysics;
+    public sealed record Forming(double TensileRm, double KFactor, double SpringbackRatio, double MinBendRadiusFactor) : ModalityPhysics;
 }
 
+// ONE identity per physical material; the Map column owns the modality spread. Every scalar is a row datum —
+// no code-path fallback constant exists anywhere on this page.
 [SmartEnum<string>]
 public sealed partial class Material {
-    public static readonly Material Aluminium = new("aluminium", new ModalityPhysics.Subtractive(300.0));
-    public static readonly Material MildSteel = new("mild-steel", new ModalityPhysics.Subtractive(90.0));
-    public static readonly Material Stainless = new("stainless", new ModalityPhysics.Subtractive(45.0));
-    public static readonly Material Acrylic = new("acrylic", new ModalityPhysics.Subtractive(500.0));
-    public static readonly Material Plywood = new("plywood", new ModalityPhysics.Subtractive(600.0));
-    public static readonly Material MildSteelThermal = new("mild-steel-thermal", new ModalityPhysics.Thermal(KerfWidth: 1.2, PierceTime: 0.5, AssistPressure: 8.0, CutSpeed: 2000.0));
-    public static readonly Material StainlessAbrasive = new("stainless-abrasive", new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 150.0));
-    public static readonly Material PlaFilament = new("pla-filament", new ModalityPhysics.Additive(MeltTemp: 210.0, BondWindow: 15.0, ExtrusionWidth: 0.45));
+    public static readonly Material Aluminium = new("aluminium", Map(
+        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(300.0)),
+        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 1.0, PierceTime: 0.3, AssistPressure: 10.0, CutSpeed: 4000.0)),
+        (ProcessModality.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 250.0)),
+        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 260.0, KFactor: 0.43, SpringbackRatio: 0.98, MinBendRadiusFactor: 1.5))));
+    public static readonly Material MildSteel = new("mild-steel", Map(
+        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(90.0)),
+        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 1.2, PierceTime: 0.5, AssistPressure: 8.0, CutSpeed: 2000.0)),
+        (ProcessModality.Additive, new ModalityPhysics.Deposition(PowerW: 2400.0, WireFeedRate: 2.0, Standoff: 10.0, InterpassTemp: 250.0)),
+        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 440.0, KFactor: 0.44, SpringbackRatio: 0.99, MinBendRadiusFactor: 1.0)),
+        (ProcessModality.Joined, new ModalityPhysics.Deposition(PowerW: 8100.0, WireFeedRate: 9.0, Standoff: 15.0, InterpassTemp: 250.0))));
+    public static readonly Material Stainless = new("stainless", Map(
+        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(45.0)),
+        (ProcessModality.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 150.0)),
+        (ProcessModality.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 8.0, PulseOnUs: 4.0, PulseOffUs: 12.0, WireFeed: 8.0)),
+        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 620.0, KFactor: 0.45, SpringbackRatio: 0.97, MinBendRadiusFactor: 2.0)),
+        (ProcessModality.Joined, new ModalityPhysics.Deposition(PowerW: 6200.0, WireFeedRate: 7.5, Standoff: 12.0, InterpassTemp: 150.0))));
+    public static readonly Material Acrylic = new("acrylic", Map(
+        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(500.0)),
+        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.2, PierceTime: 0.05, AssistPressure: 0.5, CutSpeed: 12000.0))));
+    public static readonly Material Plywood = new("plywood", Map(
+        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(600.0)),
+        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.3, PierceTime: 0.1, AssistPressure: 0.6, CutSpeed: 8000.0))));
+    public static readonly Material PlaFilament = new("pla-filament", Map(
+        (ProcessModality.Additive, (ModalityPhysics)new ModalityPhysics.Fff(MeltTemp: 210.0, BondWindow: 15.0, ExtrusionWidth: 0.45))));
+    public static readonly Material PhotopolymerResin = new("photopolymer-resin", Map(
+        (ProcessModality.Additive, (ModalityPhysics)new ModalityPhysics.Resin(Exposure: 2.5, CureDepth: 0.1, LiftHeight: 5.0))));
+    public static readonly Material Ss316Powder = new("ss316-powder", Map(
+        (ProcessModality.Additive, (ModalityPhysics)new ModalityPhysics.Powder(LaserPower: 200.0, HatchSpacing: 0.12, ScanSpeed: 900.0))));
 
-    public ModalityPhysics Physics { get; }
+    public Map<ProcessModality, ModalityPhysics> Physics { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -107,67 +138,45 @@ public abstract partial record RemovalBudget {
     public sealed record Thermal(double PierceTime, double KerfWidth, double CutSpeed, double AssistPressure) : RemovalBudget;
     public sealed record Abrasive(double JetPressure, double AbrasiveRate, double TraverseSpeed) : RemovalBudget;
     public sealed record Additive(double ExtrusionWidth, double LayerHeight, double PrintSpeed, double MeltTemp) : RemovalBudget;
+    public sealed record Deposition(double PowerW, double WireFeedRate, double Standoff, double InterpassTemp) : RemovalBudget;
+    public sealed record Erosion(double DischargeCurrent, double PulseOnUs, double PulseOffUs, double WireFeed) : RemovalBudget;
+    public sealed record Resin(double Exposure, double CureDepth, double LiftHeight) : RemovalBudget;
+    public sealed record Powder(double LaserPower, double HatchSpacing, double ScanSpeed) : RemovalBudget;
+    // The FORM budget: brake computes F=(C·Rm·S²·L)/(V·1000) from TensileRm; sheet computes BA=(π/180)·A·(R+K·T) from KFactor.
+    public sealed record Formed(double TensileRm, double KFactor, double SpringbackRatio, double MinBendRadiusFactor) : RemovalBudget;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class RemovalParameter {
-    static readonly FrozenDictionary<(string Process, string Material, string Tool, string Operation), RemovalBudget> Overrides =
-        FrozenDictionary<(string, string, string, string), RemovalBudget>.Empty;
+    // The modality keys the map; the ENTRY'S case projects its budget. A missing entry is degenerate input —
+    // the measured Kienzle cell (Tooling/cuttingdata) defeats the subtractive formula floor at the CONSUMER.
+    public static Fin<RemovalBudget> Budget(ProcessKind process, Material material, ToolAssembly tool, Operation operation) =>
+        material.Physics.Find(process.Modality).Match(
+            None: () => Fin.Fail<RemovalBudget>(GeometryFault.DegenerateInput($"removal-parameter:{material.Key}-lacks-{process.Modality.Key}").ToError()),
+            Some: physics => Fin.Succ(physics.Switch<RemovalBudget>(
+                subtractive: sub => SubtractiveFloor(sub, tool, operation),
+                thermal:     th => new RemovalBudget.Thermal(th.PierceTime, th.KerfWidth, th.CutSpeed, th.AssistPressure),
+                abrasive:    ab => new RemovalBudget.Abrasive(ab.JetPressure, ab.AbrasiveRate, ab.TraverseSpeed),
+                fff:         f => new RemovalBudget.Additive(f.ExtrusionWidth, 0.5 * f.ExtrusionWidth, PrintSpeed: 60.0, f.MeltTemp),
+                deposition:  d => new RemovalBudget.Deposition(d.PowerW, d.WireFeedRate, d.Standoff, d.InterpassTemp),
+                erosion:     e => new RemovalBudget.Erosion(e.DischargeCurrent, e.PulseOnUs, e.PulseOffUs, e.WireFeed),
+                resin:       r => new RemovalBudget.Resin(r.Exposure, r.CureDepth, r.LiftHeight),
+                powder:      p => new RemovalBudget.Powder(p.LaserPower, p.HatchSpacing, p.ScanSpeed),
+                forming:     fo => new RemovalBudget.Formed(fo.TensileRm, fo.KFactor, fo.SpringbackRatio, fo.MinBendRadiusFactor))));
 
-    static readonly FrozenDictionary<(string Material, string Tool, string Operation), (double Sfm, double ChipLoad)> CuttingData =
-        new Dictionary<(string, string, string), (double, double)> {
-            [("aluminium", "endmill-6mm", "contour")] = (400.0, 0.075),
-            [("aluminium", "endmill-6mm", "pocket")]   = (400.0, 0.060),
-            [("mild-steel", "endmill-6mm", "contour")] = (120.0, 0.050),
-            [("stainless", "endmill-6mm", "contour")]  = (60.0, 0.038),
-            [("stainless", "endmill-6mm", "trochoidal")] = (90.0, 0.055),
-            [("stainless", "endmill-10mm", "pocket")]  = (60.0, 0.045),
-        }.ToFrozenDictionary();
-
-    public static RemovalBudget Budget(Process process, Material material, Tool tool, Operation operation) =>
-        Overrides.TryGetValue((process.Key, material.Key, tool.Key, operation.Key), out var measured)
-            ? measured
-            : process.Modality.Switch(
-                state:       (material, tool, operation),
-                subtractive: static s => SubtractiveBudget(s.material, s.tool, s.operation),
-                thermal:     static s => ThermalBudget(s.material, s.tool),
-                abrasive:    static s => AbrasiveBudget(s.material),
-                additive:    static s => AdditiveBudget(s.material, s.tool),
-                erosion:     static s => ThermalBudget(s.material, s.tool));
-
-    static RemovalBudget SubtractiveBudget(Material material, Tool tool, Operation operation) {
-        var (surfaceSpeed, chipLoad) = CuttingData.TryGetValue((material.Key, tool.Key, operation.Key), out var cell)
-            ? cell
-            : (material.Physics is ModalityPhysics.Subtractive sub ? sub.SurfaceSpeed : 90.0, operation.ChipLoad);
-        double spindle = surfaceSpeed * 1000.0 / (Math.PI * tool.Diameter);
-        double feed = spindle * tool.Flutes * chipLoad;
-        double depth = operation.Engagement * tool.Diameter;
-        double width = operation.Engagement * tool.Diameter;
-        return new RemovalBudget.Subtractive(spindle, feed, depth, depth * width * feed);
+    static RemovalBudget SubtractiveFloor(ModalityPhysics.Subtractive sub, ToolAssembly tool, Operation operation) {
+        double spindle = sub.SurfaceSpeed * 1000.0 / (Math.PI * tool.Tool.Diameter);
+        double feed = spindle * tool.Tool.Flutes * operation.ChipLoad;
+        double depth = operation.Engagement * tool.Tool.Diameter;
+        return new RemovalBudget.Subtractive(spindle, feed, depth, depth * operation.Engagement * tool.Tool.Diameter * feed);
     }
 
-    static RemovalBudget ThermalBudget(Material material, Tool tool) =>
-        material.Physics is ModalityPhysics.Thermal th
-            ? new RemovalBudget.Thermal(th.PierceTime, th.KerfWidth, th.CutSpeed, th.AssistPressure)
-            : new RemovalBudget.Thermal(PierceTime: 0.5, KerfWidth: tool.Diameter, CutSpeed: 2000.0, AssistPressure: 8.0);
-
-    static RemovalBudget AbrasiveBudget(Material material) =>
-        material.Physics is ModalityPhysics.Abrasive ab
-            ? new RemovalBudget.Abrasive(ab.JetPressure, ab.AbrasiveRate, ab.TraverseSpeed)
-            : new RemovalBudget.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 150.0);
-
-    static RemovalBudget AdditiveBudget(Material material, Tool tool) =>
-        material.Physics is ModalityPhysics.Additive ad
-            ? new RemovalBudget.Additive(ad.ExtrusionWidth, ad.ExtrusionWidth * 0.5, PrintSpeed: 60.0, ad.MeltTemp)
-            : new RemovalBudget.Additive(ExtrusionWidth: tool.Diameter * 1.125, LayerHeight: tool.Diameter * 0.5, PrintSpeed: 60.0, MeltTemp: 210.0);
-
-    // --- [BOUNDARIES] ---------------------------------------------------------------------
-    public static Fin<RemovalBudget> Admit(ReadOnlySpan<char> process, ReadOnlySpan<char> material, ReadOnlySpan<char> tool, ReadOnlySpan<char> operation) =>
-        Process.Validate(process, null, out var pr) is { } pf ? Fin.Fail<RemovalBudget>(GeometryFault.DegenerateInput($"removal-parameter:process:{pf.Message}").ToError())
-        : Material.Validate(material, null, out var m) is { } mf ? Fin.Fail<RemovalBudget>(GeometryFault.DegenerateInput($"removal-parameter:material:{mf.Message}").ToError())
-        : Tool.Validate(tool, null, out var t) is { } tf ? Fin.Fail<RemovalBudget>(GeometryFault.DegenerateInput($"removal-parameter:tool:{tf.Message}").ToError())
-        : Operation.Validate(operation, null, out var o) is { } of ? Fin.Fail<RemovalBudget>(GeometryFault.DegenerateInput($"removal-parameter:operation:{of.Message}").ToError())
-        : Fin.Succ(Budget(pr!, m!, t!, o!));
+    // --- [BOUNDARIES] -------------------------------------------------------------------------------------------------------------------------------
+    public static Fin<(ProcessKind Process, Material Material, Operation Operation)> Admit(ReadOnlySpan<char> process, ReadOnlySpan<char> material, ReadOnlySpan<char> operation) =>
+        ProcessKind.Validate(process, null, out var pr) is { } pf ? Fin.Fail<(ProcessKind, Material, Operation)>(GeometryFault.DegenerateInput($"removal-parameter:process:{pf.Message}").ToError())
+        : Material.Validate(material, null, out var m) is { } mf ? Fin.Fail<(ProcessKind, Material, Operation)>(GeometryFault.DegenerateInput($"removal-parameter:material:{mf.Message}").ToError())
+        : Operation.Validate(operation, null, out var o) is { } of ? Fin.Fail<(ProcessKind, Material, Operation)>(GeometryFault.DegenerateInput($"removal-parameter:operation:{of.Message}").ToError())
+        : Fin.Succ((pr!, m!, o!));
 
     public static Fin<double> Feed(string text) =>
         Speed.TryParse(text, CultureInfo.InvariantCulture, out Speed feed)
@@ -198,12 +207,15 @@ config:
   theme: base
 ---
 flowchart LR
-    Process["Process.RemovalModality"] -->|generated Switch| Budget["RemovalParameter.Budget"]
-    Quantity["Quantity text mm/min · rpm · bar"] -->|in-folder UnitsNet Admit boundary| Canonical["Canonical raw double"]
-    Material["Material.Physics (ModalityPhysics payload)"] -->|per-case read| Budget
-    Constitutive["Materials Thermal/Mechanical scalars"] -->|raw doubles at peer boundary| Budget
-    Canonical -->|axis columns| Budget
-    Budget -->|Subtractive rpm/feed/depth/MRR| Cam["CAM_MOTION milling"]
-    Budget -->|Thermal pierce/kerf/speed| Thermal["CAM_MOTION thermal-contour"]
-    Budget -->|Additive width/layer/temp| Additive["Toolpath/slicing layers"]
+    ProcessKind["ProcessKind.Modality"] -->|map key| Budget["RemovalParameter.Budget"]
+    Material["Material identity Map&lt;ProcessModality, ModalityPhysics&gt;"] -->|entry CASE discriminates| Budget
+    Assembly["ToolAssembly (Tooling/magazine)"] -->|measured geometry| Budget
+    Quantity["Quantity text mm/min · rpm · bar"] -->|UnitsNet boundary| Budget
+    Constitutive["Rasm.Materials constitutive raw doubles"] -->|peer boundary| Budget
+    Budget -->|Subtractive floor| Cam["motion / surface (CuttingData.Of consulted FIRST)"]
+    Budget -->|Fff · Deposition · Resin · Powder| AM["Additive plane budgets"]
+    Budget -->|Erosion discharge/pulse/wire| Edm["EDM wire generators"]
+    Budget -->|Formed Rm/K/springback| Form["Forming sheet + brake"]
+    Budget -->|"Deposition (joined key) heat input"| Weld["Joining weld + sequence"]
+    Budget -.->|missing map entry| Degen["GeometryFault.DegenerateInput"]
 ```

@@ -52,7 +52,7 @@ const DSL_GLOBALS = ['args', 'agent', 'parallel', 'pipeline', 'workflow', 'phase
 const HOST_GLOBALS = ['process', 'global', 'globalThis', 'require', 'module', 'exports', 'Buffer', '__dirname', '__filename']
 const GLOBALS = [...DSL_GLOBALS, ...HOST_GLOBALS]
 
-// --- [INPUT] -----------------------------------------------------------------
+// --- [INPUTS] ----------------------------------------------------------------
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   mode: { type: 'string', default: 'sim' }, args: { type: 'string' }, fixtures: { type: 'string' }, scope: { type: 'string' }, json: { type: 'boolean', default: false },
 } })

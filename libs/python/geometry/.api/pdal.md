@@ -90,10 +90,11 @@ Output members are `libpdalpython.Pipeline` C-extension attributes, undefined be
 |  [03]   | `p.get_meshio(idx) -> meshio.Mesh \| None`             | output         | fold array XYZ + mesh A/B/C into a `meshio.Mesh` with one `triangle` `CellBlock`; `None` when empty |
 |  [04]   | `p.get_dataframe(idx) -> pandas.DataFrame \| None`     | output         | structured array as a `pandas` frame                |
 |  [05]   | `p.get_geodataframe(idx, xyz=False, crs=None) -> geopandas.GeoDataFrame \| None` | output | frame with `points_from_xy` geometry (XY or XYZ) and optional CRS |
-|  [06]   | `p.metadata -> str` / `p.schema -> str` / `p.srswkt2 -> str` / `p.quickinfo -> str` / `p.log -> str` | output | last-run JSON metadata / dimension schema JSON / SRS WKT2 / quick info / execution log |
-|  [07]   | `p.stages -> list[Stage]` / `p.streamable -> bool`     | query          | the Python `Stage` list / whether every stage streams |
-|  [08]   | `p.loglevel -> int` (get/set)                          | config         | maps Python `logging` levels to PDAL log levels      |
-|  [09]   | `p.inputs = [(array, handler), ...]`                   | config         | `numpy` structured arrays as in-memory point sources, each optionally paired with a stream-handler callable |
+|  [06]   | `p.metadata -> dict` / `p.schema -> dict` / `p.quickinfo -> dict` | output | parsed JSON (`json.loads` in the binding): last-run per-stage metadata / dimension census `{"schema": {"dimensions": [...]}}` / pre-execute quick info |
+|  [07]   | `p.srswkt2 -> str` / `p.log -> str`                    | output         | SRS WKT2 text / execution log text                  |
+|  [08]   | `p.stages -> list[Stage]` / `p.streamable -> bool`     | query          | the Python `Stage` list / whether every stage streams |
+|  [09]   | `p.loglevel -> int` (get/set)                          | config         | maps Python `logging` levels to PDAL log levels      |
+|  [10]   | `p.inputs = [(array, handler), ...]`                   | config         | `numpy` structured arrays as in-memory point sources, each optionally paired with a stream-handler callable |
 
 [ENTRYPOINT_SCOPE]: PipelineIterator and module introspection
 - rail: scan-processing
@@ -101,7 +102,7 @@ Output members are `libpdalpython.Pipeline` C-extension attributes, undefined be
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                            |
 | :-----: | :----------------------------------------- | :------------- | :------------------------------------------------ |
 |  [01]   | `iter(p.iterator(...))` / `it.__next__() -> np.ndarray` | streaming | next chunk as a structured `numpy` array          |
-|  [02]   | `it.log / it.schema / it.metadata`         | output         | log / schema JSON / metadata JSON for completed chunks |
+|  [02]   | `it.log -> str` / `it.schema -> dict` / `it.metadata -> dict` | output | log text / parsed schema / parsed metadata for completed chunks |
 |  [03]   | `libpdalpython.infer_reader_driver(path)` / `infer_writer_driver(path)` | query | driver string inferred from extension (`Reader`/`Writer` use these) |
 |  [04]   | `libpdalpython.getDrivers()` / `getOptions()` / `getDimensions()` / `getInfo()` | query | raw registry rows the driver injection and module-level `dimensions`/`info` consume |
 

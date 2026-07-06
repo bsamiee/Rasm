@@ -94,7 +94,7 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 - `SetFallbackRedactor<ErasingRedactor>()` is the fail-closed default for unmapped classifications, so an unclassified value erases rather than leaks.
 - `SetHmacRedactor` carries `EXTEXP0002`; the fold registers it without a suppression because the HMAC row is a declared policy value, not an experimental opt-in at the call site.
 - HMAC redaction pseudonymizes while preserving cross-event correlation; erase destroys the value; credential and secret material never persists in any signal.
-- `GetRedactor` is the read seam Persistence `ClassificationGuard` consumes for store-side enforcement; it never re-registers a second redaction builder.
+- `GetRedactor` is the provider read seam that resolves a `Redactor` from a `DataClassificationSet` at every exporter/bundle egress; `DataClassification` crosses to Persistence as VALUE fields on landed rows (`Element/codec` `SnapshotCatalogRow.Classification`, `Element/identity`), never a guard symbol — the once-cited Persistence `ClassificationGuard` is a phantom absent from the landed corpus; it never re-registers a second redaction builder.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Compliance.Redaction`

@@ -1,0 +1,12 @@
+# [API_GH2_DOCUMENT]
+
+Catalog scope: the Grasshopper2 document graph — document lifecycle, the object list, the mutation verb surface, connectivity/wire topology, special objects, undo, and solution control.
+
+[NAMESPACES]:
+- `Grasshopper2.Doc` — `Document` (file/undo/solution/named-views/display/globals/custom-values/notes/hash/modifications), `DocumentMethods` (the full mutation verb surface: clipboard, chain/cluster, group, delete, show/hide, colour override, `DropObject`/`DropSnippet`, `AddDependency`, `IsolateObject`, `MigrateObjects`, `SplitWire`, dependency graph, selection verbs), `ObjectList` (find families, forwards, selection, draw order, groups, meta names, `WindowSelect`, counts, `AttributeBounds`/`PivotBounds`), `IDocumentObject` (`InstanceId`, `Nomen`, `Activity`/`Selection`/`Display`/`Phase`/`State`, `Attributes`, `Expire`), `GroupObject`, `IParameter`, `SolutionServer` (start/stop, `SolutionMode`, solution event family), `WireEnds`, `Snapshot<DocumentMutationDelta>`, `GraphTopology`, `IDocumentParent`.
+- `Grasshopper2.Doc` connectivity — `Connectivity` (immediate/all inputs/outputs, `IsLinear`, `SubsetTopology`, `SortCausally`, `WithoutRelays`), `ConnectiveObject`, `Connections` (connect/disconnect families, replace source/target, swap, cut-out-middle-man, migrate/copy all inputs/outputs), `Wire.AllWireEnds`, `OCD` (align/move-parameter families).
+- `Grasshopper2.Doc` events — `ModifiedChanged`, `StateChanged`, `ParentChanged`, object added/removed/expired/name/selection/enabled/relevance/layout/display/instance-id families, solution about-to-start/started/stopped/cancelled/completed/faulted, and their event-arg types.
+- `Grasshopper2.Doc.Attributes` — `IAttributes` (`Owner`, `Pivot`, `Bounds`, `AggregateBounds`, `Snappable`, `Layout`, `Move`), `IResizableAttributes`/`ResizableAttributes<T>`, `ComponentAttributes`, `Nomen`/`NomenAttribute`, `KeyedValues`, `IContextMenuAware`/`ICursorAwareAttributes`.
+- `Grasshopper2.SpecialObjects` / `Grasshopper2.Parameters.Special` — `Shout`/`Listen` (wireless), `NumberSliderObject`, `ToggleObject`, `ScribbleObject`, `NamedView`.
+- `Grasshopper2.Undo` / `Grasshopper2.Undo.Actions` — `ActionList`, `History` (modified/undone/redone/node families), `RenameAction`, `PropertyAction`, `ObjectActivityAction`, `PivotAction`, `ResizeAction`, `SnappingAction`, `VerbNoun`, undo `Node`/`Record`, `State`.
+- `Grasshopper2.Framework` — `Snippet`.

@@ -83,7 +83,7 @@ Model                     →  python:geometry/mesh                     # [SHAPE
 Exchange/wire             →  python:geometry/energy                   # [SHAPE]: IFC SPF source bytes for the geometry-side BIM-to-BEM derivation modality
 Semantics                 →  csharp:Rasm.Compute/Runtime              # [PROJECTION]: IFC/glTF semantic metadata layer
 Semantics/classification  ←  csharp:Rasm.Compute/Runtime/transport     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
-Semantics/geospatial      →  python:geometry/ifc                      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
+Semantics/geospatial      →  python:data/spatial/geospatial           # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
 Semantics/geospatial      →  typescript:core/interchange/codec        # [WIRE]: GeoFeature WKB decode; turf NTS-equivalent planar peer in ui/viewer [R6]
 Semantics/geospatial      →  csharp:Rasm.AppUi/Charts                 # [SHAPE]: NTS Feature geometry as Mapsui basemap overlays beside the Wgpu viewport
 Semantics/geospatial      ←  csharp:Rasm.Persistence/Store            # [TRANSPORT]: GDAL /vsimem open + OGR Arrow C-stream GeoParquet/FlatGeobuf ingest
@@ -102,7 +102,7 @@ Exchange/wire             ←  csharp:Rasm.Persistence/Element/codec    # [BOUND
 Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [SHAPE]: BimCommit DAG common-ancestor merge substrate (CommitGraph.MergeBase)
 Model                     →  csharp:Rasm.Persistence/Store/quality    # [SHAPE]: IFC validation rules into QualityRule rows
 Review/validation         →  csharp:Rasm.Compute/Runtime/codecs       # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
-Exchange/format           →  csharp:Rasm.Fabrication/Polygon          # [SHAPE]: ACadSharp DWG/DXF read codec; Bim owns it, Fabrication consumes for 2D profiles
+Exchange/format           →  csharp:Rasm.Fabrication/Ingress          # [SHAPE]: ACadSharp DWG/DXF read codec; Bim owns it, Fabrication consumes for 2D profiles
 Exchange/wire             →  typescript:core/interchange/codec        # [WIRE]: IfcWire WireParity — web peer decodes bytes, reproduces ContentAddress (Agrees)
 Exchange/wire             →  typescript:ui/viewer                     # [WIRE]: BcfWire/DiffWire GlobalId anchor decode
 coordination              ⇄  csharp:Rasm.Persistence/Sync/annotation  # [WIRE]: durable annotation + CDE op-log

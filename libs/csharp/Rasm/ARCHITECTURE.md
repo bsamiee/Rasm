@@ -87,13 +87,14 @@ Rasm/
 Domain/Identity.cs        ⇄  csharp:Rasm.Element/Projection/address     # [CONTENT_KEY]: seed-zero XxHash128 ContentHash.Of — ONE NodeId/ContentAddress hasher
 Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec      # [CONTENT_KEY]: ContentAddress composes seed-zero XxHash128 entry, no codec hasher
 Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity         # [CONTENT_KEY]: ModelIdentity.Checksum → ContentHash.Of, the ONE federation hasher
+Domain/Identity.cs        ←  csharp:Rasm.AppHost/Runtime/determinism    # [CONTENT_KEY]: chain/digest sites compose ContentHash.Of
 Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query/topology     # [CONTENT_KEY]: GeometryHash through the Domain/Identity seed, content-hash ONLY
 Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity           # [CONTENT_KEY]: canonical bytes reproducing the Domain/Identity XxHash128 seed-zero
 Spatial/Reconciliation.cs ⇄  typescript:core/value/contentKey           # [CONTENT_KEY]: content-hashing wasm reproducing the Domain/Identity seed-zero
 Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute                        # [SHAPE]: DiscreteCalculus DEC operator bundle — the frozen adjoint-carrier shape
 Meshing/Mesh.cs           →  csharp:Rasm.Compute                        # [SHAPE]: MeshAdjointSnapshot adjoint handle over the cached DiscreteCalculus
 Spatial/Index.cs          →  csharp:Rasm.Fabrication/Toolpath/guard     # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
-Spatial/Index.cs          →  csharp:Rasm.Fabrication/Posting/projection # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
+Spatial/Index.cs          →  csharp:Rasm.Fabrication/Documentation/projection # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
 Spatial/Index.cs          →  csharp:Rasm.Compute                        # [WIRE]: Spatial.Apply Wire case emits; Compute decodes
 Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Posting            # [WIRE]: IntersectResult / PlaneMesh section curve
 Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Toolpath           # [WIRE]: SliceStack five-channel forest: layers·contours·nesting·chains·elevations
@@ -101,12 +102,12 @@ Meshing/Slice.cs          →  csharp:Rasm.Compute                        # [WIR
 Meshing/Offset.cs         ⇄  csharp:Rasm.Fabrication/Toolpath           # [SHAPE]: the ONE 2D/3D clearance family — Medial + Clearance(probe) radius payload
 Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath           # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — the 3D clearance half
 Processing/Remesh.cs      →  csharp:Rasm.Compute                        # [SHAPE]: Isotropic volumetric boundary-conditioning, no Compute-side remesher
-Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Posting/projection # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
+Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Documentation/projection # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    →  csharp:Rasm.Fabrication/Posting            # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
 Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization  # [SHAPE]: Coordinate-level Predicate.Orient3D/InSphere cores, no Compute-side mint
 Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting            # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Drawing/View.cs           →  csharp:Rasm.AppUi/Render                   # [PROJECTION]: DrawingProjection / drafting-sheet layout
-Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant
+Drawing/Pack.cs           →  csharp:Rasm.AppHost/Sandbox/solver         # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant
 Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency       # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
 Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
 Processing/Flatten.cs     →  csharp:Rasm.AppUi/Render                   # [PROJECTION]: ChartAtlas / texture UV channel

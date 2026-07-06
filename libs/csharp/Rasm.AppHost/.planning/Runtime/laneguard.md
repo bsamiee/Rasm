@@ -10,8 +10,7 @@ The in-process work-lane resilience governor for the runtime spine: one `LaneGua
 
 ## [02]-[LANE_GUARD]
 
-- Owner: `LaneStrategy` `[SmartEnum<string>]` the per-lane pipeline-row vocabulary under the `ComparerAccessors.StringOrdinal` accessor; `LanePolicy` the per-`WorkLane` resilience-row record; `LaneGuard` the static keyed-pipeline registry over the in-process lanes; `LaneFault` `[Union]` fault family in the 4750 band.
-- Cases: lane strategies bulkhead | rate-limiter | circuit-breaker | hedge | chaos — each a pipeline row driven by its column; `LaneFault` = Text | BulkheadRejected | Shed | LaneBroken.
+- Owner: `LaneStrategy` `[SmartEnum<string>]` the per-lane pipeline-row vocabulary under the `ComparerAccessors.StringOrdinal` accessor; `LanePolicy` the per-`WorkLane` resilience-row record; `LaneGuard` the static keyed-pipeline registry over the in-process lanes; `LaneFault` `[Union]` fault family deriving its codes through `FaultBand.Lane` = Text | BulkheadRejected | Shed | LaneBroken.
 - Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, bool chaos, params ReadOnlySpan<LanePolicy> rows)` — one `AddResiliencePipeline` entry per `WorkLane` row keyed by the lane key, composing bulkhead, rate-limiter, circuit-breaker, hedge, and (on the test-host profile) chaos strategies; `Run(LaneGuard.Runtime runtime, WorkLane lane, Func<CancellationToken, ValueTask<T>> work)` returns `IO<T>` — executes the in-process work through the lane's keyed pipeline so the command/solve edge rides the lane's resilience.
 - Auto: each lane's pipeline is one keyed `ResiliencePipeline` registered through `AddResiliencePipeline<T>(lane.Key, ...)` exactly as `KeyedLane.Register` registers per hop, but for the in-process command/solve edge so the lane and the hop share one resilience pattern and one retry-owner discipline — exactly one retry owner per lane just as each hop has exactly one; the bulkhead is a `ConcurrencyLimiterStrategyOptions` bounded-permit isolation per lane so a saturated lane cannot starve another lane's permits, the rate-limiter is the lane's admission shape, the circuit-breaker binds a `CircuitBreakerManualControl` and `CircuitBreakerStateProvider` keyed per lane so the breaker state reads from Polly's own observation surface (never a parallel state delegate), and the hedge admits only idempotent commands so a duplicated non-idempotent solve never double-applies; the adaptive-concurrency arm reads `ResourceMonitoring` and resizes the bulkhead permit count at runtime (`ADAPTIVE_ARMS`), and the load-shed arm reads the atomic `DegradationReading` and sheds at the lane's degradation floor; the chaos strategies arm on the test-host profile only — `AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome` over `ChaosLatencyStrategyOptions`/`ChaosFaultStrategyOptions`/`ChaosOutcomeStrategyOptions` with an `InjectionRate` column — so the work lanes carry a first-class chaos surface symmetric to the transport `KeyedLane` chaos, never in production; adaptive concurrency reads `TimeProvider` through `ClockPolicy`, never `Stopwatch`.
 - Receipt: a lane execution's resilience events land under the lane key in the package meter and logger exactly as the keyed-pipeline events do; a shed decision fans the shed verdict (`SHED_VERDICT`); no parallel lane receipt.
@@ -35,10 +34,10 @@ public sealed partial class LaneStrategy {
 public abstract partial record LaneFault : Expected, IValidationError<LaneFault> {
     private LaneFault(string detail, int code) : base(detail, code, None) { }
     public static LaneFault Create(string message) => new Text(message);
-    public sealed record Text : LaneFault { public Text(string detail) : base(detail, 4750) { } }
-    public sealed record BulkheadRejected : LaneFault { public BulkheadRejected(string detail) : base(detail, 4751) { } }
-    public sealed record Shed : LaneFault { public Shed(string detail) : base(detail, 4752) { } }
-    public sealed record LaneBroken : LaneFault { public LaneBroken(string detail) : base(detail, 4753) { } }
+    public sealed record Text : LaneFault { public Text(string detail) : base(detail, FaultBand.Lane.Code(0)) { } }
+    public sealed record BulkheadRejected : LaneFault { public BulkheadRejected(string detail) : base(detail, FaultBand.Lane.Code(1)) { } }
+    public sealed record Shed : LaneFault { public Shed(string detail) : base(detail, FaultBand.Lane.Code(2)) { } }
+    public sealed record LaneBroken : LaneFault { public LaneBroken(string detail) : base(detail, FaultBand.Lane.Code(3)) { } }
 }
 
 public sealed record LanePolicy(
@@ -109,10 +108,13 @@ public static class LaneGuard {
 ```csharp signature
 public static class AdaptiveConcurrency {
     public const int MinPermits = 4;
+    // Named policy consts per the const discipline — an inline CPU threshold is the deleted literal.
+    public const double CpuSaturated = 0.90d;
+    public const double CpuPressured = 0.75d;
 
     public static int Resize(LanePolicy policy, Utilization utilization) =>
-        utilization.CpuRatio is var cpu && cpu >= 0.90d ? MinPermits
-        : cpu >= 0.75d ? int.Max(policy.BulkheadPermits / 2, MinPermits)
+        utilization.CpuRatio is var cpu && cpu >= CpuSaturated ? MinPermits
+        : cpu >= CpuPressured ? int.Max(policy.BulkheadPermits / 2, MinPermits)
         : policy.BulkheadPermits;
 }
 

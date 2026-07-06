@@ -68,7 +68,7 @@
 
 [SUBSTRATE_STACK]: stacking onto the universal Python rails (`libs/python/.api/`)
 - `anyio` — the `run_*` pipeline is long, blocking, subprocess/Docker-bound: drive each stage through `anyio.run_process` / `anyio.to_thread.run_sync` inside a task group with a cancel scope + deadline so a wedged URBANopt/Modelica run reclaims cleanly.
-- `stamina` — wrap `run_reopt` (the NREL REopt HTTP API) in a retry context for transient API failures; do not retry the local subprocess stages (they are not idempotent mid-run).
+- runtime `guarded` — wrap `run_reopt` (the NREL REopt HTTP API) in the runtime retry rail for transient API failures (never a bare `stamina` mint); do not retry the local subprocess stages (they are not idempotent mid-run).
 - `structlog` + `opentelemetry` — a span per `model_to_urbanopt`/`run_urbanopt`/`run_des_modelica`/`run_reopt` carrying `(scenario, building_count, cpu_count)`; the run is minutes-long so the span is the unit, not per-building events.
 - `psutil` — `prepare_urbanopt_folder`/`run_urbanopt` take a `cpu_count`; size it from the resource governor rather than hardcoding.
 - `universal-pathlib` — point the `folder` outputs (feature GeoJSON, OSW, sys-param JSON) at the artifact store.

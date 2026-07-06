@@ -22,7 +22,7 @@ Rasm.Persistence/
 │   ├── Retention.cs      # Classification/retention classes, the holds-first sweep fold, the full-history reachability GC
 │   ├── Recovery.cs       # RecoveryRoute backup substrates (PG-PITR/object-replica/snapshot-archive), verified PITR choreography, RPO/RTO RecoveryFact stream
 │   └── Egress.cs         # CDC egress pump: ONE CloudEvents envelope over the EgressSink union, DeliveryAck fold, per-sink dedup, typed dead-letter + replay
-├── Query/               # The read lanes split by consistency demand + the reuse index
+├── Query/                # The read lanes split by consistency demand + the reuse index
 │   ├── Lane.cs           # ReadRouter (synchronous authoritative vs async analytical), StalenessWatermark sequence-gap, ElementSet/SetExpr selection algebra
 │   ├── Retrieval.cs      # Coupled ANN subsystem: FusionRank fusion over pgvector/pg_search branches, VectorCodebook PQ train/ADC scan, VectorBackend axis
 │   ├── Topology.cs       # In-process QuikGraph view + frozen incidence index + traversal/path/components/topological-sort (DEFAULT synchronous topology owner)
@@ -30,11 +30,11 @@ Rasm.Persistence/
 │   ├── Cypher.cs         # OPTIONAL self-hosted Apache AGE openCypher + pgrouting (async, demoted beneath QuikGraph)
 │   ├── Cache.cs          # Compute-result index: ArtifactIndexRow + ModelResultIndex + BenchmarkRow gate + CloudRun + scylla residency + Redis invalidation
 │   └── Federation.cs     # Substrait federation router: SubstraitDeserializer ingress, RelationVisitor lowers onto SetExpr / ADBC lane, FederatedResult replay
-├── Ingest/              # The file-codec ingress axis
+├── Ingest/               # The file-codec ingress axis
 │   ├── Tabular.cs        # TabularSource over MiniExcel + Sep delimited lane; linq2db BulkCopyAsync over identity DbContext; app root owns tabular→element map
 │   ├── Schedule.cs       # MPXJ.Net schedule-file codec (.mpp/XER/PMXML) + durable TaskRelation DAG rows; the Persistence half of the Bim schedule domain
 │   └── Geospatial.cs     # GeoSource over GeoPackage/GeoJSON/WKB-WKT rows; features reify through GeoJsonProjection; H3 cell composes identity#SPATIAL_CELL
-└── Store/               # Durable-home + coordination substrate
+└── Store/                # Durable-home + coordination substrate
     ├── BlobStore.cs      # Content-keyed object store: write-blob-first + 412-noop seal, five-row ObjectStore union, content-lineage catalog + full-history GC
     ├── Provisioning.cs   # Verification-first PostgreSQL 18 extension tier + embedded-SQLite floor + wire/EF provider-binding rows + 11-axis STORE_AXIS_MAP
     └── Coordination.cs   # Token-validating fenced-lease store: CoordinationOp union (Budget/step-CAS/lease/membership/OutboxAdvance), ONE_OUTBOX_EGRESS_SPINE
@@ -87,7 +87,7 @@ Store/provisioning   ←  csharp:Rasm.AppHost/Observability     # [RECEIPT]: Rea
 Store/coordination   ⇄  csharp:Rasm.AppHost/Agent/capability  # [PORT]: fenced per-tenant Budget debit — CostVector string unit key onto HashMap<string,long>
 Store/coordination   ⇄  csharp:Rasm.AppHost/Runtime/orchestration # [PORT]: step-state CAS + StepStateInFlight READ (CrashResume)
 Store/coordination   ⇄  csharp:Rasm.AppHost/Wire/outbox       # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE — the Marten stream IS the outbox)
-Store/coordination   ⇄  csharp:Rasm.AppHost/Wire/Coordination # [PORT]: CAS + lease + membership rows; MembershipView.Serving the in-process consumer
+Store/coordination   ⇄  csharp:Rasm.AppHost/Wire/coordination # [PORT]: CAS + lease + membership rows; MembershipView.Serving the in-process consumer
 Version/egress       ←  Store/coordination                    # [TRANSPORT]: drains per-sink outbox_cursor(SinkKey, Sequence); forward-only, never reads pump
 Version/egress       ←  Version/ledger                        # [TRANSPORT]: OpLogEntry durable-lane rows via ReplayWindow.DurableOps
 Version/egress       →  csharp:Rasm.AppHost/Wire/outbox       # [PORT]: keyed OutboundHop counterpart; sink reads AppHost hop delivery-honesty policy

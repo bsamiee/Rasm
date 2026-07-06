@@ -37,7 +37,8 @@ const pool = async (items, cap, worker) => {
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-// --- Edit: one worker per file; fix what it can alone, DEFER cross-file work as DATA (a file LIST). ---
+// --- [EDIT]
+// One worker per file; fix what it can alone, DEFER cross-file work as DATA (a file LIST).
 phase('Edit')
 const done = (await pool(FILES, 10, (f) => agent(
   'Tighten the wire-decode module ' + f + ' in place against coding-ts. Fix everything you can within this ONE file. Anything that also requires ' +
@@ -45,7 +46,8 @@ const done = (await pool(FILES, 10, (f) => agent(
     'residual as {files: [every file the fix touches], claim}.',
   { label: 'edit:' + f, phase: 'Edit', schema: EDIT }))).filter(Boolean)
 
-// --- Reconcile: BARRIER (dedup + cluster by shared file via union-find), then PIPELINE fix -> verify. ---
+// --- [RECONCILE]
+// BARRIER (dedup + cluster by shared file via union-find), then PIPELINE fix -> verify.
 // Single-pass: each cluster fixes + verifies ONCE. To ITERATE this to drive-to-zero, progress-gate every
 // round — skip the verify on a no-change fix, re-queue only NEW residuals via a seen-set, break the round
 // nothing changed a file (the round cap is a backstop, not the exit). Worked law: references/patterns.md section 13.

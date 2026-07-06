@@ -40,7 +40,7 @@ viewer/scene     ←  typescript:runtime/browser # [PORT]: GlbViewport satisfied
 viewer/scene     ←  typescript:runtime/serve   # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
 viewer/scene     ←  csharp:Rasm.Materials      # [WIRE]: PbrGroups appearance decode
 viewer/panel     ←  csharp:Rasm.AppHost        # [WIRE]: livewire triple BindingStatus/CoercedValue/WriteReceipt
-viewer/panel     ←  csharp:Rasm.AppUi          # [WIRE]: ControlIntent six-kind union + the ordered LayoutProgram
+viewer/panel     ←  csharp:Rasm.AppUi          # [WIRE]: ControlIntent closed union + the ordered LayoutProgram
 viewer/mark      ←  csharp:Rasm.Bim            # [WIRE]: BcfTopic/BcfViewpoint marks + GlobalId selection sets
 viewer/probe     ←  csharp:Rasm.AppUi          # [RECEIPT]: RenderReceipt claims paired with local render evidence
 ```

@@ -10,29 +10,31 @@
 - [04]-[RESOURCES](.planning/Runtime/resources.md)
 - [05]-[MODULES](.planning/Runtime/modules.md)
 - [06]-[CONFIG](.planning/Runtime/config.md)
-- [07]-[PORTS](.planning/Runtime/ports.md)
-- [08]-[DETERMINISM](.planning/Runtime/determinism.md)
-- [09]-[ORCHESTRATION](.planning/Runtime/orchestration.md)
-- [10]-[LANEGUARD](.planning/Runtime/laneguard.md)
-- [11]-[FEATURES](.planning/Runtime/features.md)
-- [12]-[MCP](.planning/Agent/mcp.md)
-- [13]-[REASONING](.planning/Agent/reasoning.md)
-- [14]-[FEDERATION](.planning/Agent/federation.md)
-- [15]-[CAPABILITY](.planning/Agent/capability.md)
-- [16]-[IDENTITY](.planning/Agent/identity.md)
-- [17]-[RUNTIME](.planning/Agent/runtime.md)
-- [18]-[OUTBOUND](.planning/Wire/outbound.md)
-- [19]-[LIVEWIRE](.planning/Wire/livewire.md)
-- [20]-[COMPANION](.planning/Wire/companion.md)
-- [21]-[TOPICS](.planning/Wire/topics.md)
-- [22]-[OUTBOX](.planning/Wire/outbox.md)
-- [23]-[COORDINATION](.planning/Wire/coordination.md)
-- [24]-[ISOLATION](.planning/Sandbox/isolation.md)
-- [25]-[SOLVER](.planning/Sandbox/solver.md)
-- [26]-[PROVISIONING](.planning/Sandbox/provisioning.md)
-- [27]-[TELEMETRY](.planning/Observability/telemetry.md)
-- [28]-[HEALTH](.planning/Observability/health.md)
-- [29]-[BUNDLES](.planning/Observability/bundles.md)
+- [07]-[SECRETS](.planning/Runtime/secrets.md)
+- [08]-[PORTS](.planning/Runtime/ports.md)
+- [09]-[DETERMINISM](.planning/Runtime/determinism.md)
+- [10]-[ORCHESTRATION](.planning/Runtime/orchestration.md)
+- [11]-[LANEGUARD](.planning/Runtime/laneguard.md)
+- [12]-[FEATURES](.planning/Runtime/features.md)
+- [13]-[MCP](.planning/Agent/mcp.md)
+- [14]-[REASONING](.planning/Agent/reasoning.md)
+- [15]-[FEDERATION](.planning/Agent/federation.md)
+- [16]-[CAPABILITY](.planning/Agent/capability.md)
+- [17]-[IDENTITY](.planning/Agent/identity.md)
+- [18]-[RUNTIME](.planning/Agent/runtime.md)
+- [19]-[OUTBOUND](.planning/Wire/outbound.md)
+- [20]-[LIVEWIRE](.planning/Wire/livewire.md)
+- [21]-[COMPANION](.planning/Wire/companion.md)
+- [22]-[TOPICS](.planning/Wire/topics.md)
+- [23]-[OUTBOX](.planning/Wire/outbox.md)
+- [24]-[COORDINATION](.planning/Wire/coordination.md)
+- [25]-[ADMISSION](.planning/Sandbox/admission.md)
+- [26]-[ISOLATION](.planning/Sandbox/isolation.md)
+- [27]-[SOLVER](.planning/Sandbox/solver.md)
+- [28]-[PROVISIONING](.planning/Sandbox/provisioning.md)
+- [29]-[TELEMETRY](.planning/Observability/telemetry.md)
+- [30]-[HEALTH](.planning/Observability/health.md)
+- [31]-[BUNDLES](.planning/Observability/bundles.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -55,7 +57,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `FluentValidation`
 - `FluentValidation.DependencyInjectionExtensions`
 - `Scrutor`
-- `System.CommandLine`
+- `System.CommandLine` — the app-root verb table (`modules#APP_ROOT_VERBS`): `ParseResult`-driven projection onto `CommandDispatch.Run`, the determinism replay/bisect ingress, and the support-capture verb.
 
 [TIME]:
 - `Cronos`
@@ -84,12 +86,12 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `OpenTelemetry.Extensions.Hosting`
 - `OpenTelemetry.Instrumentation.Http`
 - `OpenTelemetry.Instrumentation.Runtime`
-- `OpenTelemetry.Exporter.OpenTelemetryProtocol`
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — app-root-reserved (`[V15]`): the lib emits `ILogger` + minted sources only; exporter projection composes at service app roots (central pin retained).
 - `Pyroscope.OpenTelemetry`
 - `Serilog`
 - `Serilog.Extensions.Hosting`
-- `Serilog.Sinks.Console`
-- `Serilog.Sinks.File`
+- `Serilog.Sinks.Console` — app-root-reserved (`[V15]`): sink projection composes at app roots.
+- `Serilog.Sinks.File` — app-root-reserved (`[V15]`): sink projection composes at app roots.
 
 [OUTBOUND]:
 - `Microsoft.Extensions.Http.Resilience`
@@ -160,7 +162,7 @@ Cross-cutting C# substrate libraries AppHost consumes; package charters live in 
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
-- `Grpc.AspNetCore.Web`
+- `Grpc.AspNetCore.Web` — app-root-reserved (`[V15]`): `UseGrpcWeb` is composition-root pipeline middleware, zero fence consumers (central pin retained).
 - `Grpc.AspNetCore.HealthChecks`
 - `Grpc.Core.Api`
 

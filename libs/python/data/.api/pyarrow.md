@@ -9,7 +9,7 @@
 - module: `pyarrow`
 - version: `23.0.1`
 - license: `Apache-2.0`
-- owner: `data`, `geometry` (scan/ingestion `arrow_las` `pyarrow.Table` decode)
+- owner: `data`, `geometry` (scan/ingestion `arrow_las` `pyarrow.Table` decode; energy/simulate `Table.from_pydict` at the result-frame crossing edge)
 - rail: Arrow columnar memory
 - submodules: `compute`, `acero`, `substrait`, `dataset`, `parquet`, `csv`, `json`, `orc`, `feather`, `ipc`, `flight`, `fs`, `cuda`, `interchange`, `types`, `util`
 

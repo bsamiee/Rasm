@@ -9,7 +9,7 @@
 - import: `ocrmypdf`
 - owner: `artifacts`
 - rail: pdf / document (OCR)
-- installed: `17.7.0` (cp315-resolvable in `.venv`; `api resolve` returns the `pydist` asset — reflection-verified, not source-only)
+- installed: `17.8.0` (cp315-resolvable in `.venv`; `api resolve` returns the `pydist` asset — reflection-verified, not source-only)
 - license: `MPL-2.0` (the `License-Expression` metadata field; per-file `SPDX-License-Identifier: MPL-2.0`). Copyleft is file-level (weak): linking from a closed consumer is permitted, modifications to ocrmypdf's own source must stay MPL — non-viral for the importing campaign, unlike the AGPL `pymupdf` constraint
 - deps (reflection-verified `Requires-Dist`): `pikepdf>=10` (PDF model over QPDF), `pypdfium2>=5.0.0` (PDFium page rasterizer), `pdfminer-six>=20220319` (text extraction), `img2pdf>=0.5` (image->PDF), `Pillow>=10.0.1`+`pi-heif` (raster IO/HEIF), `pluggy>=1` (plugin manager), `pydantic>=2.12.5` (`OcrOptions` v2 model), `fpdf2>=2.8.0` (the `fpdf2` text-layer renderer arm), `uharfbuzz>=0.53.2` (glyph shaping for the text layer), `rich>=13` (progress), `packaging>=20`, `deprecation>=2.1.0`; the `watcher`/`webservice` extras (`cyclopts`/`watchdog`/`streamlit`) are unused by the library path
 - entry points: console script `ocrmypdf` (CLI, declared in `entry_points.txt`); library use is import-only via `ocrmypdf.ocr()` or the `ocrmypdf.api` lower-level functions — no `[project.entry-points]` plugin group the campaign consumes

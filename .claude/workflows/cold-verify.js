@@ -1,10 +1,10 @@
 export const meta = {
   name: 'cold-verify',
   whenToUse: 'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver is the terminal finalizer — findings resolve in-run, never as a report, and no phase follows it.',
-  description: 'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; opus verifiers fan out, each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; one verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. No phase follows the resolver.',
+  description: 'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.5 (codex) verifiers fan out through sonnet dispatch wrappers (CODEX flag; false restores native opus), each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; one verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. No phase follows the resolver.',
   phases: [
     { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
-    { title: 'Verify', detail: 'per campaign: opus slice verifiers + one governance verifier + one cross-libs ripple verifier, read-only, self-verified typed anchored findings', model: 'opus' },
+    { title: 'Verify', detail: 'per campaign: slice verifiers + one governance verifier + per-branch cross-libs ripple verifiers on gpt-5.5 via codex wrappers (sonnet shells), read-only, self-verified typed anchored findings', model: 'sonnet' },
     { title: 'Resolve', detail: 'per campaign: one terminal fable finalizer — findings as signals, own hunt beyond them, every ripple resolved in-run, libs-wide', model: 'fable' },
   ],
 }
@@ -12,6 +12,8 @@ export const meta = {
 // --- [CONSTANTS] ---
 const SLICES = 4
 const STALL = 300000
+const CODEX = true // verifier fan lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
 
 // --- [INPUTS] ---
 const argsIn = (typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args
@@ -60,6 +62,40 @@ const SELF_CHECK = 'MANDATORY SELF-VERIFY (second pass, before returning): attac
   'wording, a class without a demonstrated instance — is a defect. Then re-read your scope once more hunting what the ' +
   'first pass skimmed past; a clean verdict is asserted only after this second hostile pass returns empty.'
 
+// --- [OPERATIONS] ---
+// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
+// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
+// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
+const codexPrompt = (label, task, schema, writes) => {
+  const base = CODEX_DIR + '/' + fileTag(label)
+  const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
+    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
+  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+    '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+  '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
+    'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
+    'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
+    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
+  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
+    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
+    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+  'TASK — write verbatim to the task file, then dispatch:',
+  task].join('\n\n')
+}
+// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
+const recon = (task, o) => CODEX
+  ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
+  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
+
 // --- [COMPOSITION] ---
 const lanes = await parallel(CAMPS.map((c) => async () => {
   const tag = c.root.split('/').pop()
@@ -70,22 +106,22 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN, stallMs: STALL })
   const slices = ((plan && plan.slices) || []).filter((s) => s && s.length)
   const gov = (plan && plan.governance) || []
-  const verifyTasks = slices.map((pages, i) => () => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY VERIFY, ' +
+  const verifyTasks = slices.map((pages, i) => () => recon(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY VERIFY, ' +
     'slice ' + i + '. Read ' + c.doc + ' IN FULL — every ruling, page row, band, seam, rider, and acceptance trace that ' +
     'touches your pages. Then read each of these pages IN FULL plus every .api catalog its fences cite: ' +
     JSON.stringify(pages) + '. Verify each ruling landed PROPERLY — integrated as if always designed that way, at the ' +
     'ruled band/signature/charter, frozen names byte-identical — and attack past the ruling: the floor law means a ' +
     'page that merely met its disposition without depth is a naive finding. Return typed anchored findings.',
-    { label: 'verify:' + tag + ':s' + i, phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
-  verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' + c.doc +
+    { label: 'verify:' + tag + ':s' + i, phase: 'Verify', schema: FINDINGS }))
+  verifyTasks.push(() => recon(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' + c.doc +
     ' IN FULL, then audit the governance surface end to end: ' + JSON.stringify(gov) + '. Every acceptance trace ' +
     'resolves on disk (page exists, entry carries the ruled signature, seam anchor present); every rider has its landed ' +
     'receipt; the README router/package groups, ARCHITECTURE codemap + seams ledger (canonical [KIND] tags, mirrored ' +
     'endpoints), central manifest rows, and .api anchors agree with the landed page set — a disagreement between any ' +
     'two surfaces is a drift finding. Return typed anchored findings.',
-    { label: 'verify:' + tag + ':gov', phase: 'Verify', model: 'opus', effort: 'high', schema: FINDINGS, stallMs: STALL }))
+    { label: 'verify:' + tag + ':gov', phase: 'Verify', schema: FINDINGS }))
   const BRANCHES = ['libs/csharp', 'libs/python', 'libs/typescript']
-  BRANCHES.forEach((branch) => verifyTasks.push(() => agent(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: ' +
+  BRANCHES.forEach((branch) => verifyTasks.push(() => recon(CTX(c) + '\n\n' + HUNT + '\n\n' + SELF_CHECK + '\n\nTASK: ' +
     'HOSTILE READ-ONLY CROSS-LIBS RIPPLE VERIFY over ' + branch + ' (its branch .planning core, its .api tier, and ' +
     'every package folder inside it EXCEPT ' + c.root + '). Read ' + c.doc + ' IN FULL, then hunt every cross-folder ' +
     'touchpoint the campaign touches inside your scope (real grep/listing, never memory): sibling ARCHITECTURE seam ' +
@@ -96,8 +132,7 @@ const lanes = await parallel(CAMPS.map((c) => async () => {
     'sibling anchor, a one-sided seam edit, a missing authorized edit, an unrecorded counterpart, or a sibling ' +
     'interior edited past the doc ruling is a finding. Zero touchpoints in your scope is a valid empty result. ' +
     'Return typed anchored findings.',
-    { label: 'verify:' + tag + ':ripple:' + branch.split('/').pop(), phase: 'Verify', model: 'opus', effort: 'high',
-      schema: FINDINGS, stallMs: STALL })))
+    { label: 'verify:' + tag + ':ripple:' + branch.split('/').pop(), phase: 'Verify', schema: FINDINGS })))
   const found = (await parallel(verifyTasks)).filter(Boolean)
   const all = found.flatMap((f) => f.findings || [])
   log(tag + ': ' + all.length + ' finding(s) from ' + found.length + ' verifier(s)')

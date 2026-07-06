@@ -1,19 +1,20 @@
 # [APPHOST_SOLVER_PLUGIN]
 
-The extensibility contract for third-party compute extensions: one solver-kind axis carries the seven extension categories — solvers, meshers, optimizers, CAM post-processors, material models, field codecs, generative codecs — as rows whose typed contract binds a sandboxed plugin to the Compute dispatch rail, one contract record names the input representation, output representation, and capability descriptors a plugin declares, one hosting fold loads a verified solver plugin under the sandbox and projects its declared ops into the capability registry, and one negotiation step proves a plugin's representation contract against the canonical Compute encoding before its first solve. The page owns the solver-kind axis, the `EncodingKind` representation axis that projects onto the Compute `GeometryEncoding` cases, the plugin contract, the hosting projection, and the representation negotiation; it consumes `SolverContract`-shaped Compute owners, `GeometryEncoding`/`EncodedTensor`, `CapabilityDescriptor`/`DescriptorSurface`, `SandboxIsolation`/`PluginInstance`/`GrantScope`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+The extensibility contract for third-party compute extensions: one solver-kind axis carries the seven extension categories — solvers, meshers, optimizers, CAM post-processors, material models, field codecs, generative codecs — as rows whose typed contract binds a sandboxed plugin to the Compute dispatch rail, one contract record names the input representation, output representation, and capability descriptors a plugin declares, one hosting fold loads a verified solver plugin under the sandbox and projects its declared ops into the capability registry, one `GeometryPacking` capsule decodes the kernel `Rasm/Drawing/pack` wire (`Encode.Apply(PackOp, Op?)` → `EncodedGeometry` over the `EncodingChannel` vocabulary) at the sandbox seam, and one negotiation step proves a plugin's representation contract against the canonical encoding before its first solve. The page owns the solver-kind axis, the `EncodingKind` representation axis whose six rows signature-lock 1:1 on the kernel `PackKind` keys, the `GeometryPacking` capsule, the plugin contract, the hosting projection, and the representation negotiation; it consumes the kernel `PackOp`/`EncodedGeometry`/`EncodingChannel`/`PackKind` wire (Compute residency WRAPS the same `EncodedGeometry` as `EncodedTensor` — never a residency-side packer), `SolverContract`-shaped Compute owners, `CapabilityDescriptor`/`DescriptorSurface`, `SandboxIsolation`/`PluginInstance`/`GrantScope`, `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact` from `Sandbox/admission`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
 ## [01]-[INDEX]
 
 - [01]-[SOLVER_KIND]: Seven extension-category rows with per-kind contract shape.
-- [02]-[PLUGIN_CONTRACT]: Declared representation, ops, and capability descriptors a plugin ships.
-- [03]-[SOLVER_HOSTING]: Sandboxed load, registry projection, and representation negotiation.
+- [02]-[GEOMETRY_PACKING]: The kernel pack-wire capsule — `EncodingKind` locked 1:1 on `PackKind`.
+- [03]-[PLUGIN_CONTRACT]: Declared representation, ops, and capability descriptors a plugin ships.
+- [04]-[SOLVER_HOSTING]: Sandboxed load, registry projection, and representation negotiation.
 
 ## [02]-[SOLVER_KIND]
 
-- Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `ComparerAccessors.StringOrdinal` accessor; `EncodingKind` `[SmartEnum<string>]` the representation axis whose four geometry rows project onto the `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` cases and whose `Field`/`Toolpath` rows ride the pending encoding-table extensions; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family in the 4700 band.
+- Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `ComparerAccessors.StringOrdinal` accessor; `EncodingKind` `[SmartEnum<string>]` the six-row representation axis signature-locked 1:1 on the kernel `Rasm/Drawing/pack#PackKind` keys (`point-cloud`/`mesh-patch`/`voxel-grid`/`brep-patch`/`field`/`toolpath`), the case axis Compute residency mirrors; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family deriving its codes through `FaultBand.Solver`.
 - Cases: solver, mesher, optimizer, cam-postprocessor, material-model, field-codec, generative-codec — each carrying the input and output `EncodingKind` its contract speaks and the `EffectClass` its ops carry; `SolverFault` = Text | ContractRejected | RepresentationMismatch | KindUnsupported.
 - Entry: `KindContract Contract` is the extension property total state-free `Switch` from kind to frozen contract shape; the contract shape names the canonical input and output `EncodingKind` a plugin of that kind must speak.
-- Auto: a solver kind's input and output representations are `EncodingKind` rows that project onto the finalized `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` case axis, so a mesher declares a brep-in mesh-out contract in the same representation vocabulary the Compute tensor lane reads, never a plugin-private representation; the contract's `EffectClass` defaults to the kind's natural side-effect class — a solver and an optimizer are `pure` over their inputs, a CAM post-processor is `write` because it emits a toolpath artifact, a field codec is `pure` — so the kind axis seats the effect class the capability descriptor carries; the kind's `Streaming` column gates whether a plugin of that kind may emit progress frames, so a long optimization streams while a field codec returns once.
+- Auto: a solver kind's input and output representations are `EncodingKind` rows keyed byte-identically to the kernel `PackKind` rows (the Compute `Tensor/residency#GEOMETRY_ENCODING` axis mirrors the same keys, wrapping the kernel `EncodedGeometry` as `EncodedTensor`), so a mesher declares a brep-in mesh-out contract in the one representation vocabulary the whole federation reads, never a plugin-private representation; the contract's `EffectClass` defaults to the kind's natural side-effect class — a solver and an optimizer are `pure` over their inputs, a CAM post-processor is `write` because it emits a toolpath artifact, a field codec is `pure` — so the kind axis seats the effect class the capability descriptor carries; the kind's `Streaming` column gates whether a plugin of that kind may emit progress frames, so a long optimization streams while a field codec returns once.
 - Receipt: the contract resolution is a pure fold; a plugin's solve receipt is the `CommandReceipt` the command algebra mints when its projected descriptor dispatches — no parallel solver receipt.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one kind row absorbs a new extension category — a new solver family is one `SolverKind` row carrying its contract shape, never a parallel plugin contract; a new fault is one `SolverFault` case; zero new surface.
@@ -37,10 +38,10 @@ public sealed partial class SolverKind {
 public abstract partial record SolverFault : Expected, IValidationError<SolverFault> {
     private SolverFault(string detail, int code) : base(detail, code, None) { }
     public static SolverFault Create(string message) => new Text(message);
-    public sealed record Text : SolverFault { public Text(string detail) : base(detail, 4700) { } }
-    public sealed record ContractRejected : SolverFault { public ContractRejected(string detail) : base(detail, 4701) { } }
-    public sealed record RepresentationMismatch : SolverFault { public RepresentationMismatch(string expected, string actual) : base($"{expected}!={actual}", 4702) { } }
-    public sealed record KindUnsupported : SolverFault { public KindUnsupported(string detail) : base(detail, 4703) { } }
+    public sealed record Text : SolverFault { public Text(string detail) : base(detail, FaultBand.Solver.Code(0)) { } }
+    public sealed record ContractRejected : SolverFault { public ContractRejected(string detail) : base(detail, FaultBand.Solver.Code(1)) { } }
+    public sealed record RepresentationMismatch : SolverFault { public RepresentationMismatch(string expected, string actual) : base($"{expected}!={actual}", FaultBand.Solver.Code(2)) { } }
+    public sealed record KindUnsupported : SolverFault { public KindUnsupported(string detail) : base(detail, FaultBand.Solver.Code(3)) { } }
 }
 
 [SmartEnum<string>]
@@ -84,7 +85,36 @@ public static class KindContracts {
 }
 ```
 
-## [03]-[PLUGIN_CONTRACT]
+## [03]-[GEOMETRY_PACKING]
+
+- Owner: `GeometryPacking` — the sandbox-seam capsule consuming the kernel `Rasm/Drawing/pack` wire; the `EncodingKind`→`PackKind` signature-lock table.
+- Entry: `Pack(PackOp op, Op? key = null)` returns `Fin<EncodedGeometry>` — one compose of the kernel `Encode.Apply(PackOp, Op?)`, byte-identical spelling, never a re-implementation; `ChannelsOf(EncodingKind kind)` projects the kernel row's `Channels` column so a kind's active `EncodingChannel` set is read off the kernel law, never re-declared.
+- Auto: the lock table maps each `EncodingKind` row onto its kernel `PackKind` twin by construction — the kernel's own law states the six keys signature-lock one-to-one onto these rows (`field` packs `geodesic`/`weight`, `toolpath` packs `position`/`weight`) — so a plugin's declared channel decodes the exact `EncodedGeometry` descriptor tiling the kernel witnessed, `RoundTripWitness` evidence included; the projection compile closure encodes the canonical input through this capsule into the plugin's declared channel and decodes the plugin's output back, so the encoding boundary lives here and the plugin sees only its declared channel.
+- Packages: Rasm (kernel `Encode.Apply`/`PackOp`/`EncodedGeometry`/`EncodingChannel`/`PackKind`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new kernel `PackKind` row lands here as one `EncodingKind` row plus one lock-table entry; zero new surface.
+- Boundary: the capsule is the ONLY AppHost holder of the pack wire — a residency-side or AppHost-side `GeometryEncoding` re-implementation, a second packer, and a per-plugin geometry codec are the deleted forms; the kernel owns encode/decode and the round-trip witness, Compute residency owns the tensor view (`EncodedTensor`), this capsule owns only the sandbox-seam composition; the seam is the declared kernel ledger edge (`Rasm/ARCHITECTURE.md` `Drawing/Pack.cs → Rasm.AppHost/Sandbox/solver`).
+
+```csharp signature
+// The kernel pack wire at the sandbox seam: PackOp in, EncodedGeometry out — one owner, zero re-implementation.
+public static class GeometryPacking {
+    // EncodingKind -> kernel PackKind, byte-identical keys; a drifted key fails the lock at type initialization.
+    public static readonly FrozenDictionary<EncodingKind, PackKind> Kinds = new Dictionary<EncodingKind, PackKind> {
+        [EncodingKind.PointCloud] = PackKind.PointCloud,
+        [EncodingKind.MeshPatch] = PackKind.MeshPatch,
+        [EncodingKind.VoxelGrid] = PackKind.VoxelGrid,
+        [EncodingKind.BrepPatch] = PackKind.BrepPatch,
+        [EncodingKind.Field] = PackKind.Field,
+        [EncodingKind.Toolpath] = PackKind.Toolpath,
+    }.ToFrozenDictionary();
+
+    public static Fin<EncodedGeometry> Pack(PackOp op, Op? key = null) => Encode.Apply(op, key);
+
+    // The kind's active channel roster is the kernel row's Channels column — read, never re-declared.
+    public static Seq<EncodingChannel> ChannelsOf(EncodingKind kind) => Kinds[kind].Channels;
+}
+```
+
+## [04]-[PLUGIN_CONTRACT]
 
 - Owner: `SolverManifest` the plugin's declared contract; `OpDeclaration` a single declared op shape; `SolverPluginContract` the static contract-validation surface.
 - Entry: `Validate(SolverManifest manifest)` returns `Fin<SolverManifest>` — the contract validation proves the manifest's declared kind, the input and output encoding channels, and each op declaration against the kind contract, returning the manifest or a typed contract rejection.
@@ -135,7 +165,7 @@ public static class SolverPluginContract {
 }
 ```
 
-## [04]-[SOLVER_HOSTING]
+## [05]-[SOLVER_HOSTING]
 
 - Owner: `HostedSolver` the loaded-and-projected solver capsule; `Negotiation` the representation-negotiation record; `SolverHosting` the static load-and-project surface.
 - Entry: `Host(SolverHostingRuntime runtime, SolverManifest manifest, GrantScope scope)` returns `IO<HostedSolver>` — the hosting fold validates the contract, negotiates the representation against the canonical Compute encoding, loads the plugin under the sandbox, and projects the plugin's declared ops into the capability registry; `Negotiate(SolverManifest manifest, Func<EncodingKind, EncodingKind, bool> lossless, Func<SolverManifest, string> digestOf)` returns `Fin<Negotiation>` — the negotiation proves the plugin's input and output representations admit lossless round-trip through the canonical `EncodedTensor` shape, and `SolverHostingRuntime.Negotiator` is this body closed over the Compute lossless and digest projections so the hosting fold composes one negotiation surface, never a second predicate.
@@ -162,6 +192,7 @@ public sealed record SolverHostingRuntime(
     SandboxRuntime Sandbox,
     SandboxRow Row,
     Func<SolverManifest, Fin<Negotiation>> Negotiator,
+    Func<SolverManifest, Fin<PluginArtifact>> Resolve,
     Func<OpDeclaration, Func<CommandArguments, Fin<ComputeIntent>>> CompileOf,
     Func<Seq<CapabilityDescriptor>, IO<Seq<DescriptorReceipt>>> Project,
     ClockPolicy Clocks,
@@ -175,8 +206,13 @@ public static class SolverHosting {
                 Fail: fault => IO.fail<HostedSolver>(fault)),
             Fail: fault => IO.fail<HostedSolver>(fault));
 
+    // Real material only: Resolve loads component bytes + the cosign bundle from the manifest source
+    // through PluginArtifact.From, so a manifest with no resolvable artifact rejects AttestationMissing
+    // by construction and a hollow artifact never reaches the gate.
     static IO<HostedSolver> Loaded(SolverHostingRuntime runtime, SolverManifest manifest, GrantScope scope, Negotiation negotiation) =>
-        from artifact in IO.lift(() => Artifact(manifest))
+        from artifact in IO.lift(() => runtime.Resolve(manifest)).Bind(static resolved => resolved.Match(
+            Succ: IO.pure,
+            Fail: fault => IO.fail<PluginArtifact>(fault)))
         from instance in SandboxRows.Load(runtime.Row, artifact, scope, runtime.Sandbox)
         let descriptors = SolverPluginContract.Descriptors(manifest, scope, runtime.CompileOf)
         from _projected in runtime.Project(descriptors)
@@ -186,13 +222,10 @@ public static class SolverHosting {
         lossless(manifest.Input, manifest.Output)
             ? Fin.Succ(new Negotiation(manifest.Input, manifest.Output, LosslessRoundTrip: true, digestOf(manifest)))
             : Fin.Fail<Negotiation>(new SolverFault.RepresentationMismatch(manifest.Input.Key, manifest.Output.Key));
-
-    static PluginArtifact Artifact(SolverManifest manifest) =>
-        new(manifest.PluginId, string.Empty, manifest.PluginId, ReadOnlyMemory<byte>.Empty, None, manifest.ContractRange, ReadOnlyMemory<byte>.Empty);
 }
 ```
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
 
-- [ENCODING_KIND]: the `EncodingKind` geometry rows (`PointCloud`/`MeshPatch`/`VoxelGrid`/`BrepPatch`) project one-to-one onto the finalized `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` case axis (the representation a kind contract speaks is the case, never the per-feature `EncodingChannel` rows `Position`/`Normal`/`ColorRgba`/`Curvature`/`Geodesic`/`Intensity`/`Occupancy`/`Weight`), so the kind-contract negotiation reads the case-level encoding the suite emits; the residual is the `Field` and `Toolpath` representations the solver and CAM-post contracts speak — they land as two `GeometryEncoding` case extensions in the Compute encoding table, never solver-page literals, and the `EncodingKind.Field`/`.Toolpath` rows here carry the working spelling until that table extension finalizes; the lossless round-trip rides the canonical `EncodedTensor` shape.
+- [ENCODING_KIND]: the six `EncodingKind` rows (`PointCloud`/`MeshPatch`/`VoxelGrid`/`BrepPatch`/`Field`/`Toolpath`) signature-lock one-to-one on the LANDED kernel `Rasm/Drawing/pack` `PackKind` keys (the representation a kind contract speaks is the case, never the per-feature `EncodingChannel` rows `Position`/`Normal`/`ColorRgba`/`Curvature`/`Geodesic`/`Intensity`/`Occupancy`/`Weight`), and the LANDED Compute `Tensor/residency#GEOMETRY_ENCODING` axis mirrors the same keys wrapping the kernel `EncodedGeometry` as `EncodedTensor` — the `Field`/`Toolpath` rows are kernel law on disk (`field` packs `geodesic`/`weight`, `toolpath` packs `position`/`weight`), never solver-page literals; the lossless round-trip rides the kernel `RoundTripWitness` evidence through the canonical `EncodedTensor` view.
 - [REPRESENTATION_NEGOTIATION]: the lossless-round-trip proof that a plugin's declared input and output channels admit canonical `EncodedTensor` round-trip confirms against the Compute equivalence-interop `EquivalenceLaw` surface, so the negotiation reads the suite's equivalence proof rather than a solver-page heuristic.

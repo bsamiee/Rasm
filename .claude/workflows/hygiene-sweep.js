@@ -1,17 +1,17 @@
 export const meta = {
   name: 'hygiene-sweep',
   whenToUse: 'Whole-tree freshness, seam, and consistency sweep over a target root before a cold-verify gate.',
-  description: 'Whole-tree freshness/seams/consistency/blocker-resolution over a target root: README <-> central dependency manifest <-> per-dependency API/evidence catalogs, ARCHITECTURE seams line-by-line, done-task verify-remove, blocker protocol, then a per-folder cold-verify gate that FIXES what it finds — clean verdicts earned by an attack that comes back empty. Language-agnostic (each agent resolves the actual manifest/toolchain owner from CLAUDE.md + the repo). Surgical, fix-in-place, no new design pages. Self-enclosing: every agent carries full ripple authority — a defect its work exposes anywhere in scope is fixed in the same pass, both ends, under the current-state law; the central manifest is the single permitted handoff (folder agents report exact rows, the one global writer applies them once). One flat pool (CAP=10) schedules every fan. args = optional scope (e.g. "libs/python"); empty = all of libs.',
+  description: 'Whole-tree freshness/seams/consistency/blocker-resolution over a target root: README <-> central dependency manifest <-> per-dependency API/evidence catalogs, ARCHITECTURE seams line-by-line, done-task verify-remove, blocker protocol, then a per-folder cold-verify gate that FIXES what it finds — clean verdicts earned by an attack that comes back empty. Language-agnostic (each agent resolves the actual manifest/toolchain owner from CLAUDE.md + the repo). Surgical, fix-in-place, no new design pages. Self-enclosing: every agent carries full ripple authority — a defect its work exposes anywhere in scope is fixed in the same pass, both ends, under the current-state law; the central manifest is the single permitted handoff (folder agents report exact rows, the one global writer applies them once, with one bounded re-attempt). A fan agent that dies is surfaced as a skipped folder in the return, never silently dropped. One flat pool (CAP=14) schedules every fan; every worker runs on fable. args = optional scope (e.g. "libs/python"); empty = all of libs.',
   phases: [
     { title: 'Hygiene-Discover', detail: 'list the package/area folders under the target', model: 'sonnet' },
-    { title: 'H1-Folder', detail: 'per folder, all concurrent: README<->manifest<->API consistency, ARCHITECTURE seams, done-task verify-remove, blockers; cross-folder ripples fixed in-pass; manifest rows reported' },
-    { title: 'H2-Global', detail: 'the single central-manifest writer: applies reported rows, global manifest<->README consistency, branch/lib refinement, tooling correctness' },
-    { title: 'H3-ColdVerify', detail: 'per folder, all concurrent: fresh adversarial re-derive that fixes every residual in place; gate = zero unrepaired defects' },
+    { title: 'H1-Folder', detail: 'per folder, all concurrent: README<->manifest<->API consistency, ARCHITECTURE seams, done-task verify-remove, blockers; cross-folder ripples fixed in-pass; manifest rows reported', model: 'fable' },
+    { title: 'H2-Global', detail: 'the single central-manifest writer, one bounded re-attempt: applies reported rows, global manifest<->README consistency, branch/lib refinement, tooling correctness', model: 'fable' },
+    { title: 'H3-ColdVerify', detail: 'per folder, all concurrent: fresh adversarial re-derive that fixes every residual in place; gate = zero unrepaired defects', model: 'fable' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10
+const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 
@@ -27,15 +27,15 @@ const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: [
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
-  'Rasm monorepo. CLAUDE.md governs (WORKSPACE_LAW, DEPENDENCY_POLICY, OWNER_ROUTING). This is a SURGICAL hygiene pass: refine/correct, NEVER ' +
-    'explanatory bloat, NEVER a new design page. Cards: default refine-do-not-proliferate (a genuinely-new card only if truly appropriate). VERIFY ' +
-    'against disk before removing any done-claimed card. De-bloat verbose ARCHITECTURE comment lines; use correct glyphs; stay concise. Resolve ' +
-    'the language toolchain owner from CLAUDE.md OWNER_ROUTING and invoke its real metadata/resolve command; when that command fails or is ' +
-    'unavailable (it is under active construction), verify through the fallback tiers instead — BOTH .api catalog tiers, the nuget MCP for NuGet ' +
-    'feed truth / Context7 for API docs, exa/tavily against the package source. Fix-in-place.',
-  'MANIFEST OWNER: central package/version ownership lives in ONE owning manifest per language (per DEPENDENCY_POLICY) — identify the one ' +
-    'governing this root (the Python pyproject, the C# Directory.Packages.props, or the TS workspace manifest) and treat it as the single source ' +
-    'of truth. Each consumed dependency may carry an API/evidence catalog (a .api/<pkg> entry where the root maintains one); a folder README lists ' +
+  'Rasm monorepo. This is a SURGICAL hygiene pass: refine/correct, NEVER explanatory bloat, NEVER a new design page. Cards: default ' +
+    'refine-do-not-proliferate (a genuinely-new card only if truly appropriate). VERIFY against disk before removing any done-claimed card. ' +
+    'De-bloat verbose ARCHITECTURE comment lines; use correct glyphs; stay concise. Resolve the language toolchain owner per OWNER_ROUTING and ' +
+    'invoke its real metadata/resolve command; when that command fails or is unavailable (it is under active construction), verify through the ' +
+    'fallback tiers instead — BOTH .api catalog tiers, the nuget MCP for NuGet feed truth / Context7 for API docs, exa/tavily against the ' +
+    'package source. Fix-in-place.',
+  'MANIFEST OWNER: central package/version ownership lives in ONE owning manifest per language — identify the one governing this root per ' +
+    'DEPENDENCY_POLICY and treat it as the single source of truth. Each consumed dependency may carry an API/evidence catalog (a .api/<pkg> ' +
+    'entry where the root maintains one); a folder README lists ' +
     'the dependencies it consumes. These three must agree. The central manifest has exactly ONE in-run writer — the global stage: a fan agent ' +
     'that proves a manifest defect reports the exact correction as a {doc, row} in `manifest_rows` and never edits the manifest itself.',
   'WRITE-FULLY + RIPPLE AUTHORITY: every fix/correction you identify you MUST make NOW via Edit/Write directly in the file — the structured ' +
@@ -97,7 +97,7 @@ log('Hygiene discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders')
 
 // --- [H1_FOLDER]
 phase('H1-Folder')
-const h1 = (await pool(FOLDERS, CAP, (f) => agent([
+const h1Raw = await pool(FOLDERS, CAP, (f) => agent([
   LAW, '', BLOCKER, '',
   'TASK (folder hygiene, primary folder ' + f + '): full-read the folder at large FIRST — README, ARCHITECTURE, cards, .api entries, every ' +
     '.planning page — full files, never skims. (1) CONSISTENCY — every dependency in ' + f + '/README.md exists in the central dependency ' +
@@ -114,14 +114,17 @@ const h1 = (await pool(FOLDERS, CAP, (f) => agent([
     'itself, never the card claim); remove only verified-done; REVERT a false-complete card to its truthful open status and correct its body ' +
     'NOW. (4) BLOCKERS — apply the blocker protocol to every [BLOCKED] card in this folder. Fix-in-place. Return the fix-log of edits already ' +
     'made.',
-].join('\n'), { label: 'H1:' + f.split('/').pop(), phase: 'H1-Folder', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL }))).filter(Boolean)
+].join('\n'), { label: 'H1:' + f.split('/').pop(), phase: 'H1-Folder', schema: FIXLOG_SCHEMA, model: 'fable', effort: 'high', stallMs: STALL }))
+const h1 = FOLDERS.map((f, i) => (h1Raw[i] ? { folder: f, ...h1Raw[i] } : null)).filter(Boolean)
+const h1Skipped = FOLDERS.filter((f, i) => !h1Raw[i]) // dead agents surface as skipped folders, never silent losses
 const ROWS = h1.flatMap((r) => r.manifest_rows || [])
-log('H1 folder hygiene done across ' + h1.length + ' folders; ' + ROWS.length + ' manifest row(s) reported')
+log('H1 folder hygiene done across ' + h1.length + ' folders; ' + ROWS.length + ' manifest row(s) reported' +
+  (h1Skipped.length ? '; SKIPPED (agent died): ' + h1Skipped.join(', ') : ''))
 
 // --- [H2_GLOBAL]
 phase('H2-Global')
-const h2 = await agent([
-  LAW, '', BLOCKER, '',
+const h2Prompt = [
+  LAW, '',
   'TASK (global, scope ' + SWEEP + ' — you are the run\'s ONLY central-manifest writer): (1) MANIFEST ROWS — apply every reported row below to ' +
     'its owning manifest exactly once: re-verify each against the implicated README/catalog on CURRENT disk, dedupe semantically identical rows, ' +
     'hand-edit at the symbol anchor (never a line number) preserving label-group order; a row disk disproves is dropped, named in the summary. ' +
@@ -132,12 +135,16 @@ const h2 = await agent([
     'cross-package seams, correct anchors) to the current state; no new design pages. (4) TOOLING — prove every tooling reference (toolchain ' +
     'invocation, command catalogs, owner routing) against the live owner by resolving/invoking it, and correct drift NOW. Fix-in-place. Return ' +
     'the fix-log of edits already made.',
-].join('\n'), { label: 'H2:global', phase: 'H2-Global', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
-log('H2 global consistency + manifest rows + branch/lib refinement done')
+].join('\n')
+const h2Opts = { label: 'H2:global', phase: 'H2-Global', schema: FIXLOG_SCHEMA, model: 'fable', effort: 'high', stallMs: STALL }
+// One bounded re-attempt: a dead H2 silently drops every folder's manifest rows.
+const h2 = (await agent(h2Prompt, h2Opts)) || (await agent(h2Prompt, { ...h2Opts, label: 'H2:global:retry' }))
+log(h2 ? 'H2 global consistency + manifest rows + branch/lib refinement done'
+  : 'H2 WRITER DIED TWICE — ' + ROWS.length + ' manifest row(s) unapplied, surfaced in the return')
 
 // --- [H3_COLDVERIFY]
 phase('H3-ColdVerify')
-const h3 = (await pool(FOLDERS, CAP, (f) => agent([
+const h3Raw = await pool(FOLDERS, CAP, (f) => agent([
   LAW, '', BLOCKER, '',
   'TASK (COLD VERIFY of ' + f + ' — adversarial and WRITING, no prior verdicts exist for you): re-derive the folder hygiene state from fresh ' +
     'full-file reads and attack it — README <-> central manifest <-> BOTH .api tiers fully consistent (no missing/orphan catalog entry, no ' +
@@ -150,13 +157,18 @@ const h3 = (await pool(FOLDERS, CAP, (f) => agent([
     'when you repaired anything; verdict=clean ONLY when your attack found nothing; verdict=fail ONLY for a defect whose truth this run cannot ' +
     'establish (toolchain outage with no corroborating tier) — the entry stays untouched, the fail names it in the summary. Return the fix-log ' +
     'of edits already made.',
-].join('\n'), { label: 'H3:' + f.split('/').pop(), phase: 'H3-ColdVerify', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL }))).filter(Boolean)
+].join('\n'), { label: 'H3:' + f.split('/').pop(), phase: 'H3-ColdVerify', schema: FIXLOG_SCHEMA, model: 'fable', effort: 'high', stallMs: STALL }))
+const h3 = FOLDERS.map((f, i) => (h3Raw[i] ? { folder: f, ...h3Raw[i] } : null)).filter(Boolean)
+const h3Skipped = FOLDERS.filter((f, i) => !h3Raw[i]) // dead agents surface as skipped folders, never silent losses
 const failing = h3.filter((v) => v && v.verdict === 'fail')
-log('H3 cold verify: ' + (h3.length - failing.length) + '/' + h3.length + ' clean or fixed; ' + failing.length + ' failing')
+log('H3 cold verify: ' + (h3.length - failing.length) + '/' + h3.length + ' clean or fixed; ' + failing.length + ' failing' +
+  (h3Skipped.length ? '; SKIPPED (agent died): ' + h3Skipped.join(', ') : ''))
 
 return {
   scope: SWEEP,
-  h1: h1.map((r) => ({ files: (r.files || []).length, verdict: r.verdict, applied: (r.applied || []).length, manifest_rows: (r.manifest_rows || []).length })),
-  h2: { verdict: h2 && h2.verdict, applied: (h2 && h2.applied && h2.applied.length) || 0, rows: ROWS.length },
+  h1: h1.map((r) => ({ folder: r.folder, files: (r.files || []).length, verdict: r.verdict, applied: (r.applied || []).length, manifest_rows: (r.manifest_rows || []).length })),
+  h2: { verdict: (h2 && h2.verdict) || 'DEAD', applied: (h2 && h2.applied && h2.applied.length) || 0, rows: ROWS.length },
   gate: { clean: h3.length - failing.length, total: h3.length, failing: failing.map((v) => v.summary) },
+  skipped: { h1: h1Skipped, h3: h3Skipped },
+  unapplied_rows: h2 ? [] : ROWS,
 }

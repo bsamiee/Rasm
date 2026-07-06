@@ -30,6 +30,7 @@ of this file.
 - [17. Resumable runs: the journal, the ledger, and how to actually resume](#17-resumable-runs-the-journal-the-ledger-and-how-to-actually-resume)
 - [18. Fence untrusted content (prompt-injection defense)](#18-fence-untrusted-content-prompt-injection-defense)
 - [19. Parameterized scope/target resolution (file / sub-folder / unit / many)](#19-parameterized-scopetarget-resolution-file--sub-folder--unit--many)
+- [20. Producer → reviewer chain without anchoring (navigation handoff)](#20-producer--reviewer-chain-without-anchoring-navigation-handoff)
 - [Defining schemas](#defining-schemas)
 
 ## The canonical map
@@ -209,7 +210,7 @@ const ROUTES = {
   cs:  { prompt: f => `Refactor ${f} to LanguageExt ROP; collapse parallel types into a [Union].`, model: 'inherit' },
   ts:  { prompt: f => `Refactor ${f} to Effect-TS; replace throws with typed error channels.`,      model: 'inherit' },
   py:  { prompt: f => `Refactor ${f} to expression style; replace mutable accumulation with folds.`, model: 'inherit' },
-  sql: { prompt: f => `Rewrite ${f} set-algebraically; push filters into the query.`,                model: 'haiku'   },
+  sql: { prompt: f => `Rewrite ${f} set-algebraically; push filters into the query.`,                model: 'sonnet'   },
 }
 const classify = f => f.endsWith('.cs') ? 'cs' : f.endsWith('.ts') ? 'ts'
                     : f.endsWith('.py') ? 'py' : f.endsWith('.sql') ? 'sql' : null
@@ -587,10 +588,39 @@ const done = (await pool(pages, 10, p => processPage(p))).filter(Boolean)
 ```
 
 **The `launch()` gate spaces the roll-out.** Each worker awaits the shared gate before it starts
-a job, so launches are `STAGGER_MS` apart and the pool ramps to `cap` gradually rather than all at
-once — the gradual roll-out holds identically whether the run starts fresh or resumes from cache.
-Tune `cap` and `STAGGER_MS` to the work's weight; ~10 concurrent and ~1500 ms suit heavy
+a job, so launches are one stagger interval apart and the pool ramps to `cap` gradually rather than
+all at once — the gradual roll-out holds identically whether the run starts fresh or resumes from
+cache. Tune `cap` and the stagger to the work's weight; ~10 concurrent and ~1500 ms suit heavy
 multi-stage agents.
+
+**Slot the agents, not the chains, when chains have uneven stage widths.** The pool above
+holds ≤cap *chains*; a chain whose current stage is one agent still occupies a whole slot, and
+a chain that bursts several concurrent agents in one stage (a multi-lens recon) overshoots the
+cap. Moving the semaphore to the individual `agent()` call — each call acquires a slot, chains
+launch freely via `Promise.all` — keeps the true in-flight agent count exactly at cap with
+work-conserving backfill. The cost is FIFO ordering across stages (later stages of early
+chains queue behind first stages of late chains); throughput is unchanged because the cap
+stays saturated:
+
+```js
+const makeSlots = (cap) => {
+  let active = 0
+  let gate = Promise.resolve()
+  const waiters = []
+  const stagger = () => { gate = gate.then(() => sleep(1500)); return gate }
+  return async (fn) => {
+    if (active >= cap) await new Promise((res) => waiters.push(res))
+    active++
+    await stagger()
+    try { return await fn() } finally { active--; const next = waiters.shift(); if (next) next() }
+  }
+}
+const slot = makeSlots(14)
+await Promise.all(batches.map(async (b) => {
+  const [a, c] = await Promise.all([slot(() => agent(lensA(b))), slot(() => agent(lensB(b)))])
+  const impl = await slot(() => agent(implPrompt(b, a, c)))          // chain continues per batch
+}))
+```
 
 `parallel()` is still correct for a small fixed fan-out that needs a barrier; reach
 for the pool only for the large-corpus case `parallel()` does not serve as well. When
@@ -655,7 +685,7 @@ determinism, and reports per-phase agent counts, the phase sequence, nested work
 and cap pressure — for zero tokens, never touching the file.
 
 ```bash
-node .claude/skills/workflow-creator/scripts/dry-run.mjs <workflow.js> [--args '<json>'] [--fixtures '<json>']
+node ${CLAUDE_SKILL_DIR}/scripts/dry-run.mjs <workflow.js> [--args '<json>'] [--fixtures '<json>']
 ```
 
 It is the parse-check too: constructing the body with `new Function(…)` throws on a
@@ -853,6 +883,47 @@ the unit to the coherence boundary the stages need, and scope every terminal sta
 > `args` for a `scriptPath` launch, relaunch with an inline `script` string or encode the
 > scope in the file — never silently fall back to a full-corpus default that the empty-args
 > no-op above already prevents.
+
+---
+
+## 20. Producer → reviewer chain without anchoring (navigation handoff)
+
+**Canonical:** prompt chaining hardened for review integrity. **Primitive:** sequential
+`agent()` stages passing a facts-only JS projection. **Guards:** reviewer anchoring — a
+reviewer that reads the producer's rationale, self-assessment, or confidence ratifies instead
+of attacking; verdicts flip on authority cues alone, "ignore the prior verdict" instructions
+do not remove the bias, and a reviewer handed the producer's framing scores below one reading
+the artifact cold. Withholding is the only mitigation that works.
+
+Four rules make a writer → critic → red-team chain fast AND independent:
+
+- **Pass navigation, withhold assessment.** The inter-stage payload carries only verifiable
+  location facts — touched files, symbol deltas as data (`{symbol, change}`), seam/ripple
+  pointers — never the producer's summary, verdict, confidence, or rationale. Scope ("look
+  here first") is legitimate; assessment ("this is complete") is the anchor. Build the
+  projection in JS from schema fields so adjectives cannot leak:
+
+  ```js
+  const navOf = (fix) => ({ files: fix.files, deltas: fix.deltas, seams: fix.seamsTouched })
+  const crit = await agent(criticPrompt(pages, navOf(fix)), { schema: REVIEW })  // fix.summary never travels
+  ```
+
+- **Own verdict first.** Order the reviewer's work explicitly: derive your own defect list
+  from the artifact on disk FIRST, then use the navigation to reach touched territory fast.
+  Never place the prior stage's output last in the prompt — trailing content reads as the
+  conclusion; end on the task and output contract instead.
+- **Third-party framing.** Present the artifact as another author's submission under review,
+  never "your team's work" — models catch errors in others' text that they cannot see in
+  work they believe is their own.
+- **Claims only to the terminal skeptic, as refutation targets.** A later red-team stage MAY
+  receive the critic's fix-log — explicitly framed as unverified claims to refute against
+  the current artifact, placed mid-prompt, never as a settled record.
+
+Give sequential review stages genuinely different objectives (a clause-by-clause conformance
+audit vs a pre-mortem/counterfactual attack) and license "clean after a failed attack" as a
+first-class verdict — a second identical review manufactures findings the artifact cannot
+supply, and a reviewer forced to edit invents defects. Distinct from #8 (independent skeptic
+votes on one claim): this hardens a *sequential* chain where every stage also writes.
 
 ---
 

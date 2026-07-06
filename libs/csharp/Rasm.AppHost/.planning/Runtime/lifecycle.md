@@ -1,18 +1,19 @@
 # [APPHOST_LIFECYCLE_AND_DRAIN]
 
-Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows under one total transition law, one Atom-backed `Lifecycle` capsule minting a `PhaseReceipt` on every CAS commit, a four-case `FaultSource` spine with crash-marker and upgrade boot probing, a rank-band drain conductor folding participant rows into one `DrainReceipt`, and one `CancelScope` spine beneath which every cancellation token is derived. The page owns the boot-minted `CorrelationId` identity, the phase family, the trigger vocabulary, the fault traps, the frozen drain bands with their store-dependency column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
+Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows under one total transition law, one Atom-backed `Lifecycle` capsule minting a `PhaseReceipt` on every CAS commit, a four-case `FaultSource` spine with crash-marker and upgrade boot probing, the one type-enforced `FaultBand` registry every fault union's `Expected.Code` derives through, a rank-band drain conductor folding participant rows into one `DrainReceipt`, and one `CancelScope` spine beneath which every cancellation token is derived. The page owns the boot-minted `CorrelationId` identity, the phase family, the trigger vocabulary, the fault traps, the fault-band registry with its foreign mirror rows, the frozen drain bands with their store-dependency column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
 
 ## [01]-[INDEX]
 
 - [01]-[PHASE_FAMILY]: Eight phases, ten triggers, one CAS transition law, and receipted subscriptions.
 - [02]-[FAULT_SPINE]: Four fault sources, trap registrations, crash-marker, and upgrade boot probe.
-- [03]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one unload receipt.
-- [04]-[CANCEL_SPINE]: One root source; derived scopes carry provenance and deadlines.
-- [05]-[TS_PROJECTION]: Phase, fault, and unload receipt wire shapes.
+- [03]-[FAULT_TABLES]: One type-enforced band registry — own rows, event stride, foreign mirrors.
+- [04]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one unload receipt.
+- [05]-[CANCEL_SPINE]: One root source; derived scopes carry provenance and deadlines.
+- [06]-[TS_PROJECTION]: Phase, fault, and unload receipt wire shapes.
 
 ## [02]-[PHASE_FAMILY]
 
-- Owner: `CorrelationId` `[ValueObject<Guid>]` boot-minted root identity; `RuntimePhase` `[SmartEnum<string>]` eight rows under the `ComparerAccessors.StringOrdinal` accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell; `LifecycleFault` fault family in the 1200 code band; `PhaseSubscription` LIFO detacher composite.
+- Owner: `CorrelationId` `[ValueObject<Guid>]` boot-minted root identity; `RuntimePhase` `[SmartEnum<string>]` eight rows under the `ComparerAccessors.StringOrdinal` accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell; `LifecycleFault` fault family deriving its codes through `FaultBand.Lifecycle`; `PhaseSubscription` LIFO detacher composite.
 - Cases: boot, ready, running, degraded, draining, unloaded, faulted, support-capture; ten trigger cases; `LifecycleFault` = Text | IllegalTransition.
 - Entry: `Fin<PhaseReceipt> Transition(PhaseTrigger trigger)` — `Fin` aborts on illegal transitions; the `RuntimePhase`-shaped overload admits evidence-free phase targets from host-attach injection through the same law.
 - Auto: every CAS commit fires the cell change event into subscription detachers and the latest receipt is the cell value itself; `Attach` projects the lifetime tokens into trigger values — never a second state machine; receipts flow to the receipt-sink envelope unchanged.
@@ -65,8 +66,8 @@ public abstract partial record PhaseTrigger {
 public abstract partial record LifecycleFault : Expected, IValidationError<LifecycleFault> {
     private LifecycleFault(string detail, int code) : base(detail, code, None) { }
     public static LifecycleFault Create(string message) => new Text(message);
-    public sealed record Text : LifecycleFault { public Text(string detail) : base(detail, 1200) { } }
-    public sealed record IllegalTransition : LifecycleFault { public IllegalTransition(RuntimePhase from, string trigger) : base($"{from.Key}:{trigger}", 1201) { } }
+    public sealed record Text : LifecycleFault { public Text(string detail) : base(detail, FaultBand.Lifecycle.Code(0)) { } }
+    public sealed record IllegalTransition : LifecycleFault { public IllegalTransition(RuntimePhase from, string trigger) : base($"{from.Key}:{trigger}", FaultBand.Lifecycle.Code(1)) { } }
 }
 
 public readonly record struct PhaseReceipt(RuntimePhase From, RuntimePhase To, string Trigger, Instant At, Duration Held, HostProfile Profile, CorrelationId CorrelationId);
@@ -276,16 +277,90 @@ public static class FaultSpine {
 }
 ```
 
-## [04]-[DRAIN_CONDUCTOR]
+## [04]-[FAULT_TABLES]
+
+- Owner: `FaultBand` `[SmartEnum<int>]` — the ONE fault-band registry; `BandKind` event-vs-fault discriminant; the disjointness proof fold.
+- Cases: own rows for every AppHost band (the 1xxx boot space with the 1000-1099 EVENT stride disjoint from the fault decades; the 4100-4810 wire/agent space); mirror rows reserving every foreign neighborhood — Compute 2200-2220 and Remote 4520-4539, the paradigm AEC registry flanks 2300-2399/2450-2799, kernel `GeometryFault` 2400-2449 hard-bounded, Persistence 5400/7710/8250-8459, AppUi 6000-6999, and the kernel substrate `Fault` discriminant 9104 — the sole foreign 9xxx occupant.
+- Entry: `int Code(int offset)` — every fault union's `Expected.Code` derives through its registry row; a `base(detail, NNNN)` literal is the deleted form. `Option<FaultBand> OwnerOf(int code)` is the reverse projection telemetry and support capture read.
+- Auto: the generated key lookup fails at type initialization on a duplicate base integer, and the `Disjoint` fold fails on any span overlap — a colliding band is unrepresentable from the floor, so no prose census exists anywhere in the corpus; a page states its band as one registry reference.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: one registry row per new band — own rows name their owning-page anchor, mirror rows reserve the foreign integer only; a sibling package admitting a band lands here as one mirror row in the same motion; zero new surface.
+- Boundary: `FaultBand` is the named boundary capsule for the construction-guard carve-out — the duplicate-key and span-overlap proofs are type-initialization pressure, the registry's compile-adjacent floor, not rail control flow; mirror rows never derive codes (`Code` rejects on a mirror row by construction — a foreign band's cases mint sibling-side); the AppUi 6xxx reservation is reciprocal (`RASM-CS-APPUI-BRIEF.md` `[V1]` re-bands every AppUi union into 6xxx and its registry pins this one's 1xxx/4xxx back); event rows (`SpineLog` 1000-1099) register under `BandKind.Event` so event-vs-fault disjointness is type-enforced, never a naming convention.
+
+```csharp signature
+public enum BandKind { Event, Fault }
+
+[SmartEnum<int>]
+public sealed partial class FaultBand {
+    // Own rows — base, span, kind, owning-page anchor. A new AppHost band is one row here first.
+    public static readonly FaultBand SpineEvents      = new(1000,  100, BandKind.Event, "Observability/telemetry#LOG_PROJECTION", mirror: false);
+    public static readonly FaultBand Profile          = new(1100,  100, BandKind.Fault, "Runtime/profiles#PROFILE_AXIS", mirror: false);
+    public static readonly FaultBand Lifecycle        = new(1200,  100, BandKind.Fault, "Runtime/lifecycle#PHASE_FAMILY", mirror: false);
+    public static readonly FaultBand Update           = new(1300,   20, BandKind.Fault, "Sandbox/provisioning#UPDATE_RAIL", mirror: false);
+    public static readonly FaultBand SupplyChain      = new(1320,   20, BandKind.Fault, "Sandbox/admission#SUPPLY_CHAIN_GATE", mirror: false);
+    public static readonly FaultBand Config           = new(4100,  100, BandKind.Fault, "Runtime/config#TYPED_BINDING", mirror: false);
+    public static readonly FaultBand Hop              = new(4500,   20, BandKind.Fault, "Wire/outbound#HOP_AXIS", mirror: false);
+    public static readonly FaultBand Coordination     = new(4540,   20, BandKind.Fault, "Wire/coordination#DISTRIBUTED_LOCK", mirror: false);
+    public static readonly FaultBand Command          = new(4600,   20, BandKind.Fault, "Agent/capability#COMMAND_ALGEBRA", mirror: false);
+    public static readonly FaultBand Grant            = new(4620,   10, BandKind.Fault, "Agent/capability#GRANT_BROKER", mirror: false);
+    public static readonly FaultBand Identity         = new(4630,   10, BandKind.Fault, "Agent/identity#TOKEN_VALIDATION", mirror: false);
+    public static readonly FaultBand Mcp              = new(4640,   20, BandKind.Fault, "Agent/mcp#TOOL_DISPATCH", mirror: false);
+    public static readonly FaultBand Sandbox          = new(4660,   20, BandKind.Fault, "Sandbox/isolation#ISOLATION_AXIS", mirror: false);
+    public static readonly FaultBand Feature          = new(4700,   10, BandKind.Fault, "Runtime/features#VERDICT_PROJECTION", mirror: false);
+    public static readonly FaultBand Solver           = new(4710,   10, BandKind.Fault, "Sandbox/solver#SOLVER_KIND", mirror: false);
+    public static readonly FaultBand LiveWire         = new(4720,   10, BandKind.Fault, "Wire/livewire#TRANSPORT_AXIS", mirror: false);
+    public static readonly FaultBand Bus              = new(4730,   10, BandKind.Fault, "Wire/topics#TOPIC_FABRIC", mirror: false);
+    public static readonly FaultBand Outbox           = new(4740,   10, BandKind.Fault, "Wire/outbox#OUTBOX_FABRIC", mirror: false);
+    public static readonly FaultBand Lane             = new(4750,   10, BandKind.Fault, "Runtime/laneguard#LANE_GUARD", mirror: false);
+    public static readonly FaultBand Replay           = new(4760,   10, BandKind.Fault, "Runtime/determinism#REPLAY_VERIFY", mirror: false);
+    public static readonly FaultBand Orchestration    = new(4770,   10, BandKind.Fault, "Runtime/orchestration#WORKFLOW_FAMILY", mirror: false);
+    public static readonly FaultBand Secret           = new(4780,   10, BandKind.Fault, "Runtime/secrets#SECRET_LEASE", mirror: false);
+    public static readonly FaultBand Pem              = new(4790,   10, BandKind.Fault, "Runtime/secrets#CREDENTIAL_PEM", mirror: false);
+    public static readonly FaultBand Federation       = new(4800,   10, BandKind.Fault, "Agent/federation#FEDERATION_AXIS", mirror: false);
+    public static readonly FaultBand Support          = new(4810,   10, BandKind.Fault, "Observability/bundles#CAPTURE_PIPELINE", mirror: false);
+    public static readonly FaultBand Drain            = new(4820,   10, BandKind.Fault, "Runtime/resources#DRAIN_QUEUES", mirror: false);
+    // Mirror rows — foreign neighborhoods reserved; source of truth is the sibling registry.
+    public static readonly FaultBand ComputeCore      = new(2200,   21, BandKind.Fault, "Rasm.Compute/Runtime/admission", mirror: true);
+    public static readonly FaultBand AecLow           = new(2300,  100, BandKind.Fault, "RASM-COMPONENT-PARADIGM 23xx", mirror: true);
+    public static readonly FaultBand KernelGeometry   = new(2400,   50, BandKind.Fault, "Rasm/Numerics/faults", mirror: true);
+    public static readonly FaultBand AecHigh          = new(2450,  350, BandKind.Fault, "RASM-COMPONENT-PARADIGM 24xx-27xx", mirror: true);
+    public static readonly FaultBand ComputeRemote    = new(4520,   20, BandKind.Fault, "Rasm.Compute/Runtime/wire", mirror: true);
+    public static readonly FaultBand PersistRemote    = new(5400,  100, BandKind.Fault, "Rasm.Persistence/Element/graph", mirror: true);
+    public static readonly FaultBand AppUi            = new(6000, 1000, BandKind.Fault, "Rasm.AppUi/Shell/hosts", mirror: true);
+    public static readonly FaultBand PersistLocal     = new(7710,   10, BandKind.Fault, "Rasm.Persistence/Element/graph", mirror: true);
+    public static readonly FaultBand PersistStore     = new(8250,  210, BandKind.Fault, "Rasm.Persistence/Element/graph", mirror: true);
+    public static readonly FaultBand KernelSubstrate  = new(9104,    1, BandKind.Fault, "Rasm/Domain/rails", mirror: true);
+
+    public int Span { get; }
+    public BandKind Kind { get; }
+    public string Owner { get; }
+    public bool Mirror { get; }
+    // Registry-derived code: the sole legal source of an Expected.Code. Construction guard, not rail flow —
+    // a bad offset or a mirror-row derivation fails when the owning union's static case initializes.
+    public int Code(int offset) =>
+        !Mirror && offset >= 0 && offset < Span ? Key + offset
+            : throw new InvalidOperationException($"{Owner}:{Key}+{offset}");
+    public static Option<FaultBand> OwnerOf(int code) =>
+        toSeq(Items).Find(band => code >= band.Key && code < band.Key + band.Span);
+    // Span-overlap proof: base uniqueness is the generated key lookup; range disjointness is this fold.
+    public static readonly Unit Disjoint = ignore(
+        toSeq(Items).OrderBy(static band => band.Key).ToSeq()
+            .Fold(0, static (ceiling, band) => band.Key >= ceiling
+                ? band.Key + band.Span
+                : throw new InvalidOperationException($"{band.Owner}:{band.Key}")));
+}
+```
+
+## [05]-[DRAIN_CONDUCTOR]
 
 - Owner: `DrainBand` `[SmartEnum<int>]` frozen rank bands with the store-dependency column; `DrainOutcome` `[SmartEnum<string>]` step vocabulary; `DrainConductor` ordered fold.
 - Cases: Interaction 100, Compute 200, Stores 300, Telemetry 400; outcomes flushed | escalated | straggled.
 - Entry: `IO<DrainReceipt> Drain(Seq<(string Name, DrainBand Band, int Rank, Func<CancellationToken, IO<Unit>> Drain)> rows, Duration cooperative, Duration forced)` — `IO` carries the ordered flush effects and aborts on a rejected fence transition.
-- Auto: the conductor's first act is the draining transition, and interior admission dispatches on the phase cell, so inbound admission ceases before any band-100 row runs; queue completion awaits and telemetry flush rows enter as ordinary registrations at their declared band; the Stores-band 2PC in-doubt reconciliation row reads the `TwoPhase.InDoubt` prepared-transaction set and resolves each before the store closes so a prepared transaction never strands across the drain; every step receipt lands regardless of outcome.
+- Auto: the conductor's first act is the draining transition, and interior admission dispatches on the phase cell, so inbound admission ceases before any band-100 row runs; queue completion awaits and telemetry flush rows enter as ordinary registrations at their declared band; every step receipt lands regardless of outcome.
 - Receipt: `DrainReceipt` aggregates `DrainStep` rows — name, band, allotted, consumed, outcome — with final phase, `Instant`, elapsed, correlation id; `Stragglers` is the deadline-miss projection naming every miss.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one registration row per participant and one band row per new package altitude; zero new surface.
-- Boundary: cooperative and forced budgets arrive from the drain-cooperative and drain-forced deadline rows; registration rows arrive field-identical from the drain-participant port; store writes stay legal through band 300 and are foreclosed on the Telemetry row; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; the 2PC in-doubt reconciliation registers as one Stores-band (300) `DrainParticipantPort` row — `Rasm.Persistence/Query/transaction` `TwoPhase.InDoubt(db)` projects the `pg_prepared_xacts` set and the drain row resolves each prepared-but-unresolved transaction (`TwoPhase.Commit`/`TwoPhase.Rollback` per the coordinator's last-recorded second-phase decision) through the `Runtime ⇄ Rasm.Persistence/Query/transaction # [PORT]: drain 2PC in-doubt set` seam, so a crash between prepare and second-phase resolution drains rather than stranding a prepared transaction holding locks — the in-doubt reconciliation runs while store writes stay open at band 300 and a managed XA transaction manager is the deleted form, the conductor consumes the `InDoubt` projection and AppHost never owns the 2PC protocol the engine's `PREPARE TRANSACTION` owns; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
+- Boundary: cooperative and forced budgets arrive from the drain-cooperative and drain-forced deadline rows; registration rows arrive field-identical from the drain-participant port; store writes stay legal through band 300 and are foreclosed on the Telemetry row; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; the finalized Persistence single-`IDocumentSession` same-transaction spine mints no prepared transactions, so NO 2PC in-doubt drain row exists — a prepared-transaction reconciliation row or a managed XA transaction manager beside the spine is dead apparatus, the retired form; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
 
 ```csharp signature
 [SmartEnum<int>]
@@ -338,7 +413,7 @@ public static class DrainConductor {
 }
 ```
 
-## [05]-[CANCEL_SPINE]
+## [06]-[CANCEL_SPINE]
 
 - Owner: `CancelScope` — the one root source and every derived scope as provenance-carrying values.
 - Entry: `CancelScope Derive(string provenance, TimeProvider time, Option<Duration> deadline = default)` — linked-token derivation with provider-driven deadline expiry.
@@ -360,7 +435,7 @@ public sealed record CancelScope(string Provenance, CancellationTokenSource Sour
 }
 ```
 
-## [06]-[TS_PROJECTION]
+## [07]-[TS_PROJECTION]
 
 - Owner: `PhaseReceiptWire`, `BootMarkerWire`, `FaultRecordWire`, `DrainStepWire`, `DrainReceiptWire` — the dashboard-ingested shapes of the lifecycle receipts.
 - Packages: BCL inbox
@@ -387,8 +462,7 @@ interface DrainStepWire { readonly name: string; readonly band: number; readonly
 interface DrainReceiptWire { readonly steps: readonly DrainStepWire[]; readonly final: RuntimePhaseKey; readonly at: string; readonly elapsed: string; readonly correlationId: string; }
 ```
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 - [FAULT_PROBES]: standalone-row crash-flag marker path and schema beneath the per-user support root; SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger.
 - [DRAIN_CLASSIFIER]: `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates.
-- [TWO_PHASE_DRAIN]: the Stores-band (300) 2PC in-doubt reconciliation drain row consumes the `Rasm.Persistence/Query/transaction#TWO_PHASE_COMMIT` `TwoPhase.InDoubt(db)` `pg_prepared_xacts` projection and resolves each prepared-but-unresolved transaction (`COMMIT PREPARED`/`ROLLBACK PREPARED` per the coordinator's last second-phase decision) through the `[PORT]: drain 2PC in-doubt set` seam — the AppHost conductor consumes the `InDoubt` projection and names the resolution while the PG-native prepared-transaction protocol stays Persistence, so a managed XA transaction manager is the rejected form; the reconciliation runs at band 300 while store writes remain open, before the Telemetry-band foreclosure, so a crash between prepare and second-phase resolution drains the in-doubt set rather than stranding a prepared transaction holding its locks past unload, and the `max_prepared_transactions` GUC floor verified through Persistence `ClusterConfig.Verify` is the engine-side precondition the drain assumes.

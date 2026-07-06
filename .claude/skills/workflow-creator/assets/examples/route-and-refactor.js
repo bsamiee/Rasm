@@ -14,7 +14,7 @@
  * The dispatch table IS the pattern: adding a language is one ROUTES row, never a
  * branch threaded through the body. An unroutable file (a `.md`, a `.json`) returns
  * null from the thunk and falls out at `.filter(Boolean)` instead of hitting a wrong
- * specialist. The mechanical SQL row runs on Haiku; the rest inherit the session model.
+ * specialist. The mechanical SQL row runs on Sonnet; the rest inherit the session model.
  *
  * Workflow({ name: 'route-and-refactor',
  *            args: ['libs/csharp/Rasm.Compute/Solver.cs',
@@ -36,7 +36,7 @@ export const meta = {
 // --- [CONSTANTS] -------------------------------------------------------------------------
 // One row per language class: the specialist prompt for a file, and the model it runs on.
 // The three judgement-heavy rows omit `model` — an omitted/undefined model inherits the
-// session model, the capable default. Only the mechanical SQL rewrite drops to Haiku.
+// session model, the capable default. Only the mechanical SQL rewrite drops to Sonnet.
 const ROUTES = {
   cs: {
     prompt: f =>
@@ -59,7 +59,7 @@ const ROUTES = {
       `and tighten the type annotations. Report what changed and any cross-file follow-up.`,
   },
   sql: {
-    model: 'haiku',
+    model: 'sonnet',
     prompt: f =>
       `Rewrite ${f} set-algebraically per coding-pg: push filters into the query, replace ` +
       `row-by-row logic with set operations, and pin invariants at the schema level. Report ` +

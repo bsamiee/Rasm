@@ -68,6 +68,7 @@ Bind the meshed geometry to a `Section`, then run the geometric pass first (warp
 |  [06]   | `Section.calculate_stress(...) -> post.StressPost`            | solver         | full-field stress under a design-action load case      |
 |  [07]   | `Section.get_stress_at_points(pts, n, mxx, myy, ...) -> list` | query          | per-point stress under a normal force/moment load case |
 |  [08]   | `Section.get_*()` accessor family                             | accessor       | read computed scalars off the property receipt (see [04] for the confirmed accessor set) |
+|  [09]   | `Section.elements -> list[fea.Tri6]` / `Section.num_nodes -> int` / `Section.mesh_elements -> np.ndarray` / `Section.mesh_nodes -> np.ndarray` | attribute | the FE mesh census: Tri6 element roster, node count, triangle connectivity, vertex coordinates (`num_elements` does NOT exist) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

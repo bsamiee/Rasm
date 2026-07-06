@@ -42,7 +42,7 @@ transport/shapes         ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: PROTO
 transport/wire           ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: WireProtoCodec transcode + length-prefixed frame legs
 transport/wire           ⇄  csharp:Rasm.Persistence/Version    # [WIRE]: CrdtOp MessagePack union decode (DecompressFn seam)
 transport/wire           ⇄  csharp:Rasm.Persistence/Sync       # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
-transport/serve          ←  csharp:Rasm.AppHost/Runtime        # [WIRE]: CredentialPolicy five-row axis decode (UDS loopback admit)
+transport/serve          ←  csharp:Rasm.Compute/Runtime/transport # [WIRE]: CredentialPolicy five-row axis decode (UDS loopback admit)
 transport/serve          →  csharp:Rasm.AppHost/Observability  # [WIRE]: W3C trace-context inbound extraction
 transport/serve          ⇄  csharp:Rasm.AppHost/Agent          # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
 transport/serve          ⇄  csharp:Rasm.AppHost/Runtime        # [WIRE]: HLC two-half stamp + Tenant partition
@@ -50,7 +50,7 @@ observability/telemetry  ⇄  csharp:Rasm.AppHost/Observability  # [TRANSPORT]: 
 transport/roots          ⇄  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
 transport/serve          ←  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: gRPC ServerHost
 transport/shapes         ⇄  python:geometry/mesh               # [WIRE]: Tessellation Request/Receipt registry rows bound by symbol (mesh/serve servicer)
-evidence                 ←  python:geometry/mesh               # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes with policy seed
+evidence                 ←  python:geometry/mesh               # [CONTENT_KEY]: ContentIdentity.of source bytes + geometry TessellationPolicy.spec cache seed; seed-zero GLB wire key
 evidence/identity        →  python:data/tabular                # [CONTENT_KEY]: ContentIdentity content-key
 observability            ←  python:artifacts/core/receipt      # [RECEIPT]: ArtifactReceipt receipt-facts contribution
 execution                →  python:artifacts/core/receipt      # [RECEIPT]: reuse-fabric elision ContentKey hit/miss

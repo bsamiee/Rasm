@@ -18,8 +18,37 @@ Read: `README.md` + `tools/assay/README.md`
 
 ## [01]-[WORKSPACE_LAW]
 
+Rankings, higher = better. Cost reflects what I actually pay (OpenAI is near-free for me due to a deal), not list price. Intelligence is how hard a problem you can hand the model unsupervised. Taste covers UI/UX, code quality, API design, and copy.
+
+| [INDEX] | [MODEL]  | [COST] | [INTELLIGENCE] | [TASTE] |
+| :-----: | :------- | :----: | :------------: | :-----: |
+|  [00]   | gpt-5.5  |   9    |       8        |    5    |
+|  [00]   | sonnet-5 |   5    |       4        |    6    |
+|  [00]   | opus-4.8 |   4    |       7        |    7    |
+|  [00]   | fable-5  |   2    |       9        |    9    |
+
+How to apply:
+- These are defaults, not limits. You have standing permission to override them: if a cheaper model's output doesn't meet the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
+- Don't let cost prevent you from using the right model for the job. Instead, take advantage of cheaper options to get more information and try things before moving the work to a more expensive option.
+- Bulk/mechanical work (clear-spec implementation, data analysis, migrations): gpt-5.5 - it's effectively free.
+- Heavy exploration, investigation, and research legs: dispatch to gpt-5.5 (`codex exec -s read-only`) before spawning Claude subagents - the transcript stays out of context and the usage is free. Work that must author or edit files dispatches the same way at `-s workspace-write`; the sandbox flag IS the modality (read/response vs write/edit) and is always set explicitly.
+- Codex is a first-class worker, never a bent fallback: hand it ONE self-contained prompt (it inherits none of this conversation), let it drive its own tools to completion, and take its final message as the result - relay a read leg's report, apply a write leg's edits as delivered. Verify load-bearing claims against source before acting; never silently rewrite, re-judge, or wrap its output in extra ceremony.
+- Anything user-facing (UI, copy, API design) needs taste ≥ 7.
+- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.5 as an extra independent perspective.
+- Mechanics: gpt-5.5 is only reachable through the Codex CLI - `codex exec` / `codex review` (my ~/.codex/config.toml defaults to gpt-5.5 at high reasoning).
+- Load the codex skill `.claude/skills/codex/SKILL.md` whenever dispatching work to codex - delegation triggers, invocation mechanics, sandboxing, effort tiers, sessions, and review modes live there.
+- Reasoning effort defaults to high; escalate a single run to xhigh with `codex exec --profile xhigh` (or `-c model_reasoning_effort="xhigh"`) for the hardest research, review, and design legs - multi-minute latency, reserve for depth over throughput.
+- Claude models (sonnet-5, opus-4.8, fable-5) run via the Agent/Workflow model parameter.
+- [NEVER] use Haiku.
+
+Using gpt-5.5 inside workflows and subagents (the model parameter only takes Claude models, so use a wrapper):
+- Spawn a thin Claude wrapper agent with `model: 'sonnet', effort: 'low'` whose prompt instructs it to write a self-contained codex prompt, run `codex exec` via Bash, and return the report (use `schema` on the wrapper to get structured output back).
+- Always label these agents with a `gpt-5.5:` prefix, e.g. `{label: 'gpt-5.5:review-auth'}` - the workflow UI shows the wrapper's Claude model, so the label is the only indication the real worker is gpt-5.5.
+- A short leg runs synchronously: `codex exec` prints its final message to stdout (banner and reasoning go to stderr), so the wrapper captures stdout under a tier-matched Bash timeout. A long leg exceeds one Bash call's 10-minute cap and the wrapper's own stall window, so it launches detached (a bare `&`, never `nohup`, stdout and stderr to `/dev/null`) against a `-o` report and polls by liveness across bounded calls - report present, or the codex process gone - never relaunching a live run.
+- `codex exec -o <file>` writes the final message to a file (the report artifact a detached run polls); `--output-schema <schema.json>` constrains that final message to a JSON Schema when the wrapper must return typed results.
+- Workflow token budgets only count Claude tokens; codex work is free and invisible to `budget.spent()`.
+
 [WORKFLOW_ENGINE]:
-- The workflow roster is self-describing: `ls .claude/workflows/`, each file's `meta` block stating its own contract. The operating triad: `realize` executes a root campaign DECISION/brief into its target folder — an opus recon fan (page maps, governance, two-tier `.api` stacking; information, never prescriptions), then one fable executor at the doctrine bar. `cold-verify` is the closure gate after any pass — an opus verifier fan, then one terminal fable finalizer treating findings as signals. `rebuild` is the general hostile pass over normal targets (a file, sub-folder, or package root; targets only) — all batches parallel under one in-flight cap, per-batch discover -> implement -> critique -> redteam against current disk state, a read-only finder fan + one terminal fixer close.
 - Workflows launch by `scriptPath` (the absolute path to `.claude/workflows/<name>.js`), never by registry `name`: name-resolution serves a session-start snapshot and silently runs a stale contract after any in-session workflow edit; `scriptPath` reads the current disk file. After editing a workflow, verify the launch summary echoes the edited contract before trusting the run shape.
 - A campaign needing a shape the roster lacks gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing.
 - Every workflow agent WRITES and is ultra-adversarial; the discovery/critique/red-team/verify role law, the two naivety axes, and the collapse-floor freedom are sealed in `libs/.planning/campaign-method.md`.
@@ -46,16 +75,16 @@ Read: `README.md` + `tools/assay/README.md`
 
 Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                              | [ROUTE]                  |
-| :-----: | ---------------------------------------- | ------------------------ |
-|  [01]   | TypeScript (`.ts`, `.tsx`)               | `docs/stacks/typescript` |
-|  [02]   | TypeScript tests (`.spec.ts`, `.pw.ts`)  | `testing-ts`             |
-|  [03]   | C# production (`.cs`)                    | `docs/stacks/csharp`     |
-|  [04]   | C# tests (`.spec.cs`)                    | `testing-cs`             |
-|  [05]   | Runtime scenarios (`Scenarios/*.cs`)     | `testing-cs`             |
-|  [06]   | Python (`.py`)                           | `docs/stacks/python`     |
-|  [07]   | Bash/sh (`.sh`, `.bash`)                 | `coding-bash`            |
-|  [08]   | SQL (`.sql`)                             | `coding-pg`              |
+| [INDEX] | [FILE_TYPE]                             | [ROUTE]                  |
+| :-----: | --------------------------------------- | ------------------------ |
+|  [01]   | TypeScript (`.ts`, `.tsx`)              | `docs/stacks/typescript` |
+|  [02]   | TypeScript tests (`.spec.ts`, `.pw.ts`) | `testing-ts`             |
+|  [03]   | C# production (`.cs`)                   | `docs/stacks/csharp`     |
+|  [04]   | C# tests (`.spec.cs`)                   | `testing-cs`             |
+|  [05]   | Runtime scenarios (`Scenarios/*.cs`)    | `testing-cs`             |
+|  [06]   | Python (`.py`)                          | `docs/stacks/python`     |
+|  [07]   | Bash/sh (`.sh`, `.bash`)                | `coding-bash`            |
+|  [08]   | SQL (`.sql`)                            | `coding-pg`              |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 

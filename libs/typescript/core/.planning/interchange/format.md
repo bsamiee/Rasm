@@ -90,7 +90,7 @@ const _frame = (gen: DescMessage): Schema.Schema<Message, Uint8Array> =>
   ).pipe(Schema.compose(_Message, { strict: false }))
 
 const _names = [
-  "ReceiptEnvelopeWire", "HlcStampWire", "TenantContextWire", "AvailabilityWire", "RenderReceiptWire",
+  "ReceiptEnvelopeWire", "HlcStampWire", "TenantContextWire", "CommandAvailabilityWire", "RenderReceiptWire",
   "FaultDetailWire", "QuantityWire", "ElementGraphWire", "NodeWire", "RelationshipWire",
   "ProgressMarkWire", "CredentialPemWire", "BenchmarkClaimWire", "HostFingerprintWire",
   "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire", "FlagVerdictWire",
@@ -105,7 +105,7 @@ const _suite = {
   ReceiptEnvelopeWire: pb.ReceiptEnvelopeWireSchema,
   HlcStampWire: pb.HlcStampWireSchema,
   TenantContextWire: pb.TenantContextWireSchema,
-  AvailabilityWire: pb.AvailabilityWireSchema,
+  CommandAvailabilityWire: pb.CommandAvailabilityWireSchema,
   RenderReceiptWire: pb.RenderReceiptWireSchema,
   FaultDetailWire: pb.FaultDetailWireSchema,
   QuantityWire: pb.QuantityWireSchema,

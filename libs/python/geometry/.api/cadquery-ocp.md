@@ -70,6 +70,14 @@
 |  [08]   | `Geom_Plane`          | plane surface    | infinite plane geometry           |
 |  [09]   | `Geom_CartesianPoint` | point geometry   | `gp_Pnt` in geometry hierarchy    |
 
+[PUBLIC_TYPE_SCOPE]: curve fitting — `OCP.GeomAPI` / `OCP.TColgp`
+- rail: cad-kernel geometry construction
+
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                                          |
+| :-----: | :------------------------ | :------------ | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `TColgp_Array1OfPnt`      | point array   | one-based `(lower, upper)` ctor; `SetValue(i, gp_Pnt)` / `Value(i)` accessors                          |
+|  [02]   | `GeomAPI_PointsToBSpline` | curve fitter  | `(points: TColgp_Array1OfPnt)` B-spline fit; `.Curve() -> Geom_BSplineCurve` feeding `BRepBuilderAPI_MakeEdge(curve).Edge()` |
+
 [PUBLIC_TYPE_SCOPE]: shape builders — `OCP.BRepBuilderAPI`
 - rail: cad-kernel shape construction
 

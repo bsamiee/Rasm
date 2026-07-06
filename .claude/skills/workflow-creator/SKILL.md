@@ -1,5 +1,6 @@
 ---
 name: workflow-creator
+allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
 description: >-
   Author runnable workflow scripts for Claude Code's Workflow tool — deterministic
   multi-agent orchestration files that fan out fresh-context subagents under plain
@@ -44,6 +45,19 @@ Complete, runnable example workflows are in `assets/examples/` —
 `assets/examples/README.md` maps each one to a topology and to the model /
 structured-output techniques it shows. A linter and a dry-run simulator are in
 `scripts/`.
+
+## Hard rules — the five that break files
+
+1. `meta` is a **pure literal**, the first statement, **no backticks anywhere** inside it.
+2. `Date.now()`, `Math.random()`, and argless `new Date()` **throw** — pass timestamps via
+   `args`; vary "randomness" by loop index.
+3. No filesystem or Node APIs in the orchestrator — file and shell work lives **inside
+   `agent()`**; the body is plain JavaScript, never TypeScript.
+4. `parallel()` takes **thunks** (`[() => agent(…)]`), never bare promises.
+5. Always `.filter(Boolean)` on `parallel()`/`pipeline()` results — skipped, failed, and
+   budget-dropped items are `null` holes.
+
+The Gotchas section at the bottom carries the full list with rationale.
 
 ---
 
@@ -180,7 +194,7 @@ export const meta = {
   whenToUse: 'Before shipping a branch',          // optional — shown in the workflow list
   phases: [                                       // optional — one entry per phase() call
     { title: 'Review' },
-    { title: 'Verify', model: 'haiku' },
+    { title: 'Verify', model: 'sonnet' },
   ],
 }
 ```
@@ -243,10 +257,12 @@ Three independent axes set per `agent()` call; `references/api-reference.md` §5
 the full table of each, with the alias resolver, the validation rules, and the
 resume-cache-key membership.
 
-- **`model`** picks the model for that call (`'haiku'`/`'sonnet'`/`'opus'`/`'fable'`/`'inherit'`
-  or a full ID). Drop cheap, high-volume, mechanical leaf work to `'haiku'`; leave
-  judgement-heavy work on the inherited model. The matching `meta.phases[].model`
-  is a **dialog label only** — set both for a Haiku phase or the dialog lies.
+- **`model`** picks the model for that call (`'sonnet'`/`'opus'`/`'fable'`/`'inherit'`
+  or a full ID — `'sonnet'` is the floor). Drop cheap, high-volume, mechanical leaf work to
+  `'sonnet'`, or route a self-contained leg to gpt-5.5 through the codex wrapper
+  below; leave judgement-heavy work on the inherited model. The matching
+  `meta.phases[].model` is a **dialog label only** — set both for a re-tiered
+  phase or the dialog lies.
 - **`effort`** tiers the reasoning (`'low'`…`'max'`), independent of `model`:
   `'max'`/`'xhigh'` for synthesis and adversarial judgment, `'low'` for mechanical
   leaf work. A cheap model can still reason hard.
@@ -254,6 +270,44 @@ resume-cache-key membership.
   string — pass it for any result a later line reads a field off of, keep it small
   and `required`-tight. To hand data between stages, `JSON.stringify` it into the
   next prompt; the orchestrator shares no memory with the subagent.
+
+### Dispatching gpt-5.5 (Codex) — the wrapper shape
+
+`model` accepts only Claude models, so a self-contained codex leg (repo sweep, audit,
+research, or a mechanical edit) routes through a thin wrapper agent whose ONLY job is
+**dispatch-and-relay**: `model: 'sonnet', effort: 'low'`, label prefixed `gpt-5.5:`. The
+wrapper composes the codex prompt, launches codex, waits, and returns codex's typed answer
+**verbatim** — it never performs, edits, judges, or re-summarizes the work. For a large
+prompt, have the wrapper write the task to a scratch file and point codex at it (`codex
+exec … "Do the task in <task>.md"`) rather than fighting shell quoting; write the
+`--output-schema` file the same way so codex returns typed JSON.
+
+```js
+const report = await agent(codexDispatchPrompt(task, SCHEMA, /*writes*/ false),
+  { model: 'sonnet', effort: 'low', label: 'gpt-5.5:audit-auth', schema: SCHEMA })
+```
+
+- **Sandbox = modality.** `-s read-only` for investigation/research/response legs; `-s
+  workspace-write` when codex must author or edit files (partition write scopes across
+  concurrent wrappers, or keep codex read-only and let a Claude writer apply edits — two
+  workspace-write runs over one path collide). Set `-s` explicitly; the config default is
+  not read-only.
+- **Detached + liveness poll.** codex runs at its config-default effort (high); two ceilings
+  force the detached shape — one Bash call caps at 10 minutes, and the wrapper agent's stall
+  window aborts it if a single call blocks too long. So launch codex DETACHED with a bare
+  `&` (`… -o <report> "<prompt>" </dev/null >/dev/null 2>&1 &`) and poll the report across
+  sequential bounded Bash calls, each a fresh tool-call that both outlasts a long run and
+  keeps the agent alive. Never `nohup` — a bare `&` already survives, and a `nohup` without a
+  clean redirect writes a stray `nohup.out`; the `>/dev/null 2>&1` discards codex's event
+  stream so only the `-o` report remains. An absent report while the process is alive is
+  NORMAL — keep waiting; only a gone process with an empty report is a failure worth one
+  relaunch. Never relaunch a live run. Check liveness with `pgrep -f "<report-basename>"`.
+- `</dev/null` is non-negotiable — `codex exec` blocks forever on open stdin; `2>&1` to a
+  sink or `2>/dev/null` drops the thinking-token stream. `--ephemeral` suits fan-out legs
+  that never resume.
+- The wrapper re-emits codex's typed JSON through its own `schema`, so the workflow reads a
+  validated object. Codex tokens are invisible to `budget.spent()` — budget-gated loops
+  meter only their Claude legs. The full dispatch mechanics live in the `codex` skill.
 
 For full signatures, every option, and every cap, **read
 `references/api-reference.md` now.** For ready-made orchestration shapes, **read
@@ -306,7 +360,7 @@ external parser for neither.
 First the linter — the parser's hard rules:
 
 ```bash
-node .claude/skills/workflow-creator/scripts/validate-workflow.mjs <file.js>
+node ${CLAUDE_SKILL_DIR}/scripts/validate-workflow.mjs <file.js>
 ```
 
 A missing or non-first `meta`, a non-literal `meta` (a stray backtick included), a
@@ -319,7 +373,7 @@ not catch an unbalanced paren.
 Then dry-run it — the syntax, control-flow, and determinism check, for zero tokens:
 
 ```bash
-node .claude/skills/workflow-creator/scripts/dry-run.mjs <file.js> [--args '<json>'] [--fixtures '<json>']
+node ${CLAUDE_SKILL_DIR}/scripts/dry-run.mjs <file.js> [--args '<json>'] [--fixtures '<json>']
 ```
 
 It re-hosts the unmodified file under mocked globals, runs the real control flow with
@@ -338,6 +392,16 @@ invocation for you to authorize and spawns nothing.
 Do not rely on raw `node --check`: a workflow body's top-level `return` and
 `export const meta` parse under no single module mode, so it rejects a valid file either
 way. The linter and the dry-run are the dependable checks.
+
+### Skill-level regression — `evals/evals.json`
+
+The two scripts gate each **authored workflow**; `evals/evals.json` gates **this skill**:
+behavioral cases (explicit, implicit, and debugging triggers, plus must-NOT-trigger
+controls) whose `expected_behavior` assertions use the linter and dry-run as deterministic
+graders. Re-run them after editing the frontmatter `description` or the Hard rules, and
+after a Claude Code or model bump — execute each `query` in a fresh session and check every
+assertion; the skill-creator plugin's eval loop automates the runs and measures trigger
+rate. A case that passes with the skill disabled is teaching nothing — replace it.
 
 ---
 
@@ -454,7 +518,8 @@ These are the mistakes that actually break workflows:
 - **Wrap long prompt strings with adjacent `+`, not a multi-line template.**
   Split at a space and keep the space on the left segment; the value must stay
   byte-identical — a fused word or an injected `\n` is a silent prompt change.
-  Body prompts only, never inside `meta`. The linter warns past ~150 columns.
+  Body prompts only, never inside `meta`. The linter warns once a single string
+  literal runs past 160 chars.
 - **No backticks anywhere in `meta`.** The linter reads any backtick inside the
   `meta` literal — even one inside a quoted string — as a template literal and
   rejects the file. Write identifiers in `name`/`description`/`phases` as plain text.
@@ -479,5 +544,5 @@ These are the mistakes that actually break workflows:
 For a complete runnable workflow — fan out one reviewer per dimension, then verify
 each finding the moment its review lands — read `assets/examples/review-branch.js`.
 It is the canonical `pipeline` + nested `parallel` shape, with structured `schema`
-on every stage and an independently-tiered `model: 'haiku'` / `effort: 'high'`
+on every stage and an independently-tiered `model: 'sonnet'` / `effort: 'high'`
 verify stage. `references/patterns.md` §3 is the same shape stripped to its core.

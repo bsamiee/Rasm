@@ -9,7 +9,7 @@
 - import: `pdf_oxide`
 - owner: `artifacts`
 - rail: pdf
-- installed: `0.3.69`
+- installed: `0.3.73`
 - license: `MIT OR Apache-2.0` — permissive, no copyleft; this is the load-bearing differentiator from AGPL `pymupdf`. A closed-source distributed/SaaS render-extract-redact-separation pipeline routes here without source-disclosure obligation; `pdf_oxide` is the commercial-safe categorical-best PDF render/extract/redact/prepress owner and the supersession candidate for the AGPL-bound arms of that path
 - build floor: Rust core, `cp38-abi3` wheel (`pdf_oxide.pdf_oxide.abi3.so` via maturin) — one abi3 wheel forward-compatible across all CPython including 3.15; `Requires-Python >=3.8`, no cp-gate, ungated in the manifest. Self-contained: no Python runtime deps (no Pillow/cryptography/lxml), the Rust core carries codecs, crypto providers, OCR, and Office conversion in-process
 - target: `osx-arm64` (and every wheel platform); resolved/reflected on cp315 `osx-arm64`
