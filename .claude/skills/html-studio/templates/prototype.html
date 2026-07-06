@@ -6,7 +6,7 @@
 <!-- replace: page title -->
 <title>Prototype: Task-Complete Micro-interaction</title>
 <style>
-/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; overrides ride the later template-local layers */
 @layer reset,tokens,base,components,utilities,print,overrides;
 @layer reset{
 *,*::before,*::after{box-sizing:border-box}
@@ -31,9 +31,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
   --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
   --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
-  --font-display:ui-serif,Georgia,'Times New Roman',serif;
-  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --font-display:ui-serif,Georgia,'Iowan Old Style','Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  --font-mono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,'Cascadia Mono','Segoe UI Mono',Consolas,'Liberation Mono',monospace;
   --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
   --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
@@ -95,13 +95,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec}
 .section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
-.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
 .chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
 .chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
 .chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
 .chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
 .stat{display:grid;gap:var(--s1)}
-.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
 .stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
 .kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
@@ -120,7 +120,7 @@ button,select,input,textarea{font:inherit;color:inherit}
 .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
 table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
 th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
-th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
@@ -170,7 +170,7 @@ details[open]>summary::before{transform:rotate(90deg)}
   :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
 }
 }
-/* --- [PROTOTYPE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
 @layer tokens{
   :root{--ease:var(--ease-out);--fill-d:0ms;--check-d:80ms;--strike-d:120ms;--settle-d:380ms;--collapse-d:600ms}
 }
@@ -178,9 +178,9 @@ details[open]>summary::before{transform:rotate(90deg)}
   .bench{display:grid;gap:var(--s5);grid-template-columns:minmax(0,1.4fr) minmax(15rem,1fr);align-items:start;margin-top:var(--s4)}
   @media (max-width:56rem){.bench{grid-template-columns:minmax(0,1fr)}}
   .stagebox{display:grid;place-content:stretch;gap:var(--s4);padding:var(--s6);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-3);min-block-size:14rem}
-  .stage-hint{text-align:center;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+  .stage-hint{text-align:center;font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
   /* task row micro-interaction: fill -> check draw -> strike -> settle -> step back */
-  .task{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);background:var(--raised);border:1px solid var(--line-strong);border-radius:var(--r-2);cursor:pointer;user-select:none;max-block-size:5rem;transition:opacity var(--dur-2) var(--ease),border-color var(--dur-1) var(--ease-standard)}
+  .task{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);background:var(--raised);border:1px solid var(--line-strong);border-radius:var(--r-2);cursor:pointer;user-select:none;max-block-size:5rem;transition:background-color var(--dur-2) var(--ease),border-color var(--dur-1) var(--ease-standard)}
   .task:hover{border-color:var(--accent)}
   .task .ring{inline-size:22px;block-size:22px;flex:none;border-radius:50%;border:2px solid var(--line-strong);display:grid;place-items:center;background:transparent}
   .task .ring svg{inline-size:14px;block-size:14px;overflow:visible}
@@ -192,26 +192,26 @@ details[open]>summary::before{transform:rotate(90deg)}
   .task.done .ring path{stroke-dashoffset:0}
   .task.done .label{color:var(--text-muted)}
   .task.done .label::after{inline-size:100%}
-  .task.done{opacity:.7;transition-delay:var(--collapse-d)}
+  .task.done{background:var(--surface);border-color:var(--line);transition-delay:var(--collapse-d)}
   @keyframes settle{0%{transform:scale(.8);background:var(--accent);border-color:var(--accent)}55%{transform:scale(1.18)}100%{transform:scale(1);background:var(--ok);border-color:var(--ok)}}
   .easing-panel{display:grid;gap:var(--s2)}
   .easing-panel .btn{display:grid;gap:2px;text-align:left}
-  .easing-panel .btn small{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+  .easing-panel .btn small{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
   .timeline-strip{display:flex;align-items:flex-start;gap:0;margin-top:var(--s4);padding:var(--s4);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);overflow-x:auto}
   .beat{flex:1;min-inline-size:5.5rem;display:grid;justify-items:start;gap:var(--s1);position:relative;padding-top:var(--s3)}
   .beat::before{content:"";position:absolute;top:calc(var(--s3) + 5px);left:12px;right:0;block-size:2px;background:var(--line)}
   .beat:last-child::before{display:none}
   .beat .dot{inline-size:12px;block-size:12px;border-radius:50%;background:var(--accent);position:relative;z-index:1}
   .beat.final .dot{background:var(--ok)}
-  .beat b{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600}
-  .beat small{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+  .beat b{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .beat small{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;color:var(--text-muted)}
   /* interaction bench: native drag-to-reorder */
   .navlist{display:grid;gap:var(--s2);margin:0;padding:0;list-style:none}
   .navlist li{display:flex;align-items:center;gap:var(--s3);padding:var(--s2) var(--s3);background:var(--raised);border:1px solid var(--line-strong);border-radius:var(--r-1);cursor:grab}
   .navlist li:hover{border-color:var(--accent)}
   .navlist li.dragging{opacity:.35;rotate:2deg;cursor:grabbing}
   .navlist .grip{color:var(--text-faint);font-family:var(--font-mono);letter-spacing:-2px;user-select:none}
-  .navlist .count{margin-inline-start:auto;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-muted)}
+  .navlist .count{margin-inline-start:auto;font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;color:var(--text-muted)}
   #drop-marker{block-size:2px;background:var(--accent);border-radius:var(--r-full);margin:0;list-style:none}
   .decision-list{display:grid;gap:var(--s3)}
   .oq{display:grid;gap:var(--s2);padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-2);background:var(--raised)}
@@ -221,7 +221,7 @@ details[open]>summary::before{transform:rotate(90deg)}
   .oq .seg label:has(input:checked){background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
   .oq .seg input{position:absolute;opacity:0;pointer-events:none}
   .oq textarea{inline-size:100%;resize:vertical;font-size:var(--fs-xs)}
-  #egress{inline-size:100%;min-height:5rem;font-family:var(--font-mono);font-size:var(--fs-2xs);margin-top:var(--s3)}
+  #egress{inline-size:100%;min-height:5rem;font-family:var(--font-mono);font-size:var(--fs-xs);margin-top:var(--s3)}
   #toast{position:fixed;inset:auto var(--s4) var(--s4) auto;margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2);color:var(--text)}
 }
 @layer utilities{
@@ -345,6 +345,7 @@ const root = document.documentElement;
 const storedTheme = (() => { try { return localStorage.getItem(themeKey); } catch { return null; } })();
 if (storedTheme) root.dataset.theme = storedTheme;
 const returnMeta = document.querySelector('meta[name="artifact-return"]');
+const tokenMeta = document.querySelector('meta[name="artifact-token"]');
 const esc = v => { const n = document.createElement("span"); n.textContent = v == null ? "" : String(v); return n.innerHTML; };
 
 // --- model: easing choice + per-question answers are the captured state
@@ -407,7 +408,7 @@ const answered = () => model.questions.filter(q => state.answers[q.id].pick || s
 const toEnvelope = () => ({
   kind: "prototype", version: 1,
   artifact: { id: model.meta.artifactId, title: model.meta.title, baseline: "b-1" },
-  decision: { status: answered().length === model.questions.length ? "approve_with_notes" : "comment", at: new Date().toISOString() },
+  decision: { status: model.questions.length && answered().length === model.questions.length ? "approve_with_notes" : "comment", at: new Date().toISOString() },
   decisions: model.questions.map(q => ({ id: q.id, verdict: state.answers[q.id].pick || null, note: state.answers[q.id].note.trim() })),
   changes: [], annotations: [],
   state: { easing: state.easing },
@@ -431,7 +432,7 @@ const copyText = async text => {
 };
 const download = (name, mime, text) => { const url = URL.createObjectURL(new Blob([text], { type: mime })); Object.assign(document.createElement("a"), { href: url, download: name }).click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
 const sendToAgent = async env => {
-  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json", "X-Artifact-Token": tokenMeta?.content ?? "" }, body: JSON.stringify({ kind: env.kind, artifact: env.artifact.id, version: env.version, data: env }) });
   if (!res.ok) throw new Error("submit " + res.status);
   return res.json();
 };

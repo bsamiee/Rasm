@@ -6,7 +6,7 @@
 <!-- replace: page title -->
 <title>Report: Engineering Status, Week 27</title>
 <style>
-/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; overrides ride the later template-local layers */
 @layer reset,tokens,base,components,utilities,print,overrides;
 @layer reset{
 *,*::before,*::after{box-sizing:border-box}
@@ -31,9 +31,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
   --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
   --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
-  --font-display:ui-serif,Georgia,'Times New Roman',serif;
-  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --font-display:ui-serif,Georgia,'Iowan Old Style','Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  --font-mono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,'Cascadia Mono','Segoe UI Mono',Consolas,'Liberation Mono',monospace;
   --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
   --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
@@ -95,13 +95,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec}
 .section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
-.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
 .chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
 .chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
 .chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
 .chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
 .stat{display:grid;gap:var(--s1)}
-.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
 .stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
 .kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
@@ -120,7 +120,7 @@ button,select,input,textarea{font:inherit;color:inherit}
 .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
 table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
 th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
-th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
@@ -170,24 +170,25 @@ details[open]>summary::before{transform:rotate(90deg)}
   :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
 }
 }
-/* --- [REPORT_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
 @layer components{
   body{counter-reset:sec}
   .kpis{display:grid;gap:var(--s4);grid-template-columns:repeat(4,1fr)}
   @media (max-width:880px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpis .card.alert{border-inline-start:3px solid var(--warn)}
-  .kpis small{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+  .kpis small{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
   .hl{display:grid;gap:var(--s3)}
-  .chart-cap{color:var(--text-faint);font-size:var(--fs-xs);margin-top:var(--s2)}
+  .chart-cap{color:var(--text-muted);font-size:var(--fs-xs);margin-top:var(--s2)}
   .vchart .bar{fill:color-mix(in oklch,var(--series-1) 55%,var(--surface))}
   .vchart .bar.peak{fill:var(--series-1)}
   .vchart .gridline{stroke:var(--line);stroke-width:1}
   .vchart text{font-family:var(--font-mono);font-size:11px;fill:var(--text-muted)}
+  .vchart text.val{fill:var(--text);font-weight:600}
   .risk-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:var(--s1);vertical-align:baseline}
   .risk-dot.lo{background:var(--ok)}.risk-dot.md{background:var(--warn)}.risk-dot.hi{background:var(--fail)}
   .carry{display:grid;gap:var(--s2)}
   .carry .row{display:flex;gap:var(--s3);align-items:baseline;padding:var(--s2) var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-1)}
-  .sources{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint);border-top:1px solid var(--line);padding-top:var(--s4);margin-top:var(--s7)}
+  .sources{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted);border-top:1px solid var(--line);padding-top:var(--s4);margin-top:var(--s7)}
   .pills{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s3) 0}
   .tldr{background:var(--overlay);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:var(--s4) var(--s5);margin:var(--s4) 0}
   .tldr .eyebrow{color:var(--accent)}
@@ -197,14 +198,14 @@ details[open]>summary::before{transform:rotate(90deg)}
   .timeline .dot{position:absolute;left:0;top:5px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--line-strong)}
   .timeline .impact .dot{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 30%,var(--surface))}
   .timeline .mitigated .dot{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 30%,var(--surface))}
-  .timeline .stamp{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint);border:1px solid var(--line);border-radius:var(--r-1);padding:1px var(--s2);margin-right:var(--s2)}
+  .timeline .stamp{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;color:var(--text-muted);border:1px solid var(--line);border-radius:var(--r-1);padding:1px var(--s2);margin-right:var(--s2)}
   .diff .add{color:var(--ok)}.diff .del{color:var(--fail);text-decoration:line-through;text-decoration-color:color-mix(in oklch,var(--fail) 50%,transparent)}
   .actions{display:grid;gap:var(--s2)}
   .actions .row{display:grid;grid-template-columns:auto auto 1fr auto;gap:var(--s3);align-items:center;padding:var(--s2) var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-1)}
   .actions .row.done{border-color:color-mix(in oklch,var(--ok) 35%,transparent)}
   .actions .row.done .what{color:var(--text-muted);text-decoration:line-through;text-decoration-color:color-mix(in oklch,var(--text-muted) 60%,transparent)}
-  .avatar{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent-weak);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600}
-  .due{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+  .avatar{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent-weak);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .due{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;color:var(--text-muted)}
 }
 @layer print{
 @media print{.kpis{grid-template-columns:repeat(4,1fr)}}
@@ -356,7 +357,8 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
 const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const root = document.documentElement;
-try { root.dataset.theme = localStorage.getItem(themeKey) ?? "dark"; } catch { root.dataset.theme = "dark"; }
+const storedTheme = (() => { try { return localStorage.getItem(themeKey); } catch { return null; } })();
+if (storedTheme) root.dataset.theme = storedTheme;
 
 const model = JSON.parse($("#payload").textContent);
 
@@ -387,8 +389,8 @@ const chart = $("#vchart");
 if (chart) {
   const NS = "http://www.w3.org/2000/svg";
   const { days, counts, caption } = model.velocity;
-  const max = Math.max(...counts), peak = counts.indexOf(max);
-  const bw = 560 / counts.length;
+  const max = Math.max(1, ...counts), peak = counts.indexOf(Math.max(...counts));
+  const bw = 560 / Math.max(1, counts.length);
   for (let g = 1; g <= max; g++) {
     const y = 160 - (g / max) * 130;
     const ln = document.createElementNS(NS, "line");
@@ -406,7 +408,7 @@ if (chart) {
     const t = document.createElementNS(NS, "text"); t.setAttribute("x", x + (bw - 18) / 2); t.setAttribute("y", 180);
     t.setAttribute("text-anchor", "middle"); t.textContent = days[i]; chart.append(t);
     const v = document.createElementNS(NS, "text"); v.setAttribute("x", x + (bw - 18) / 2); v.setAttribute("y", 152 - h);
-    v.setAttribute("text-anchor", "middle"); v.textContent = c; chart.append(v);
+    v.setAttribute("text-anchor", "middle"); v.setAttribute("class", "val"); v.textContent = c; chart.append(v);
   });
   $("#vchart-cap").textContent = caption;
 }

@@ -8,6 +8,9 @@ config:
   layout: elk
   look: neo
   theme: base
+  flowchart:
+    padding: 16
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.edgePaths path{stroke-width:1.5px}"
   themeVariables:
     darkMode: true
     background: "#282A36"
@@ -16,8 +19,8 @@ config:
     primaryBorderColor: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
-    edgeLabelBackground: "#282A36"
-    fontFamily: "monospace"
+    edgeLabelBackground: "#44475A"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
 ---
 flowchart LR
     accTitle: Owner-set spine
@@ -32,7 +35,7 @@ flowchart LR
     Run --> Drain[Drain]
     Fault -->|unconditional cleanup| Drain
     Drain --> Stop([Stop])
-    linkStyle 5,6,8 stroke:#FF5555
+    linkStyle 5,6,8 stroke:#FF5555,stroke-width:2px,color:#F8F8F2
     classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
     classDef error fill:#FF5555,stroke:#FF5555,color:#282A36
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
@@ -43,4 +46,4 @@ flowchart LR
     class Registry data
 ```
 
-Refill by renaming stages to the real owner set, keep the single gate, and route every stage that can fail onto the one rail with a dotted edge — solid edges carry the walked path, dotted edges carry the fault hops, and every fault edge stays on the Red rail: its `linkStyle` indices are declaration positions, so recount after any edge insertion.
+Refill by renaming stages to the real owner set, keep the single gate, and route every stage that can fail onto the one rail — the gate's fault exit and the unconditional cleanup rejoin stay solid because the runtime walks them, a mid-stage fault hop rides a dotted edge, and every fault edge stays on the Red rail: its `linkStyle` indices are declaration positions, so recount after any edge insertion. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#44475A` edge-label backing are fixed law — a refill renames content, never strips the fidelity surface.

@@ -6,6 +6,7 @@ Draw an ordered exchange across a wire or process boundary. The template bakes i
 ---
 config:
   theme: base
+  themeCSS: "text.actor tspan{font-size:14px;font-weight:600}.messageText{font-size:12.5px;font-weight:500}.noteText{font-size:12.5px}.loopText,.labelText{font-size:12px;font-weight:500}"
   themeVariables:
     darkMode: true
     background: "#282A36"
@@ -26,7 +27,7 @@ config:
     labelBoxBkgColor: "#21222C"
     labelBoxBorderColor: "#6272A4"
     labelTextColor: "#F8F8F2"
-    fontFamily: "monospace"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
 ---
 sequenceDiagram
     accTitle: Wire exchange
@@ -54,4 +55,4 @@ sequenceDiagram
     end
 ```
 
-Refill by renaming the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work, and the owned region on its `rect` background.
+Refill by renaming the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work, and the owned region on its `rect` background. The frontmatter micro-scale `themeCSS` stamp and the ruled mono stack are fixed law — a refill renames participants, never strips the fidelity surface.

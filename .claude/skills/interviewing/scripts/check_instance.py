@@ -36,6 +36,7 @@ class Check(StrEnum):
     FIELD_VOCAB = "field-vocab"
     FILENAME = "filename"
     FOLD_BACK = "fold-back"
+    HEADER = "header"
     HEADING_CENSUS = "heading-census"
     ID_ORDINAL = "id-ordinal"
     ID_REFERENCE = "id-reference"
@@ -102,36 +103,6 @@ TABLE_SPLIT = re.compile(r"^\|(?P<body>.*)\|\s*$")
 VOCAB_LINE = re.compile(r"^\[(?P<label>[A-Z_]+)\]:(?P<body>.+)$")
 VOCAB_TOKEN = re.compile(r"`\[(?P<token>[A-Z0-9_]+)(?P<tail>:<id>)?\]`")
 
-KIND_BY_SUFFIX: dict[str, ArtifactKind] = {
-    "DECISIONS": "decision-record",
-    "DIRECTIONS": "direction-set",
-    "ROADMAP": "roadmap-brief",
-    "BLINDSPOTS": "blindspot-ledger",
-    "CAPABILITIES": "capability-entry",
-}
-OPTIONAL_SECTIONS: dict[ArtifactKind, frozenset[str]] = {"direction-set": frozenset({"WARGAME"})}
-ENTRY_FLOOR: dict[ArtifactKind, int] = {"decision-record": 1, "direction-set": 2, "roadmap-brief": 1, "capability-entry": 1}
-MINT_SECTIONS: dict[ArtifactKind, frozenset[str]] = {
-    "decision-record": frozenset({"RECORDS"}),
-    "direction-set": frozenset({"DIRECTIONS"}),
-    "roadmap-brief": frozenset({"NOW", "NEXT", "LATER"}),
-    "blindspot-ledger": frozenset({"FINDINGS"}),
-    "capability-entry": frozenset({"ENTRIES"}),
-}
-REFERENCE_SECTIONS: dict[ArtifactKind, frozenset[str]] = {"direction-set": frozenset({"WARGAME", "RULING"})}
-REQUIRED_FIELDS: dict[ArtifactKind, dict[str, frozenset[str]]] = {
-    "decision-record": {"RECORDS": frozenset({"Context", "Drivers", "Options", "Ruling", "Consequence", "Confirmation"})},
-    "direction-set": {
-        "DIRECTIONS": frozenset({"Thesis", "Cost", "Kills", "Reversibility", "Evidence", "Confidence"}),
-    },
-    "roadmap-brief": {
-        "NOW": frozenset({"Why", "Bet", "Measure", "Confidence"}),
-        "NEXT": frozenset({"Why", "Bet", "Measure", "Promote"}),
-        "LATER": frozenset({"Why", "Promote"}),
-    },
-    "blindspot-ledger": {"FINDINGS": frozenset({"Anchor", "Consequence", "Fold-back", "Route"})},
-    "capability-entry": {"ENTRIES": frozenset({"Owner", "Edges", "Importance", "Gaps"})},
-}
 REPEATABLE_FIELDS = frozenset({"Anchor", "Rejected", "Route"})
 WARGAME_TOTAL_TOLERANCE = 0.05
 SEMANTIC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -152,6 +123,75 @@ class Row(msgspec.Struct, frozen=True, gc=False):
     check: Check
     status: Status
     detail: str
+
+
+class KindRule(msgspec.Struct, frozen=True, gc=False):
+    """One artifact kind's whole gate row; a new kind lands as one row here plus its template.
+
+    `header` names a required `[LABEL]:` document line whose tokens must resolve in the mint
+    sections' leader vocabulary; `empty_with_header` names sections legally empty when that
+    line carries a nonempty `clean:` tail — required-field optionality stays semantic, so it
+    lives here rather than deriving from the template's full field census.
+    """
+
+    kind: ArtifactKind
+    suffix: str
+    floor: int
+    mint: frozenset[str]
+    required: dict[str, frozenset[str]]
+    reference: frozenset[str] = frozenset()
+    optional: frozenset[str] = frozenset()
+    header: str | None = None
+    empty_with_header: frozenset[str] = frozenset()
+
+
+REGISTRY: tuple[KindRule, ...] = (
+    KindRule(
+        kind="decision-record",
+        suffix="DECISIONS",
+        floor=1,
+        mint=frozenset({"RECORDS"}),
+        required={"RECORDS": frozenset({"Context", "Drivers", "Options", "Ruling", "Consequence", "Confirmation"})},
+    ),
+    KindRule(
+        kind="direction-set",
+        suffix="DIRECTIONS",
+        floor=2,
+        mint=frozenset({"DIRECTIONS"}),
+        required={"DIRECTIONS": frozenset({"Thesis", "Cost", "Kills", "Reversibility", "Evidence", "Confidence"})},
+        reference=frozenset({"WARGAME", "RULING"}),
+        optional=frozenset({"WARGAME"}),
+    ),
+    KindRule(
+        kind="roadmap-brief",
+        suffix="ROADMAP",
+        floor=1,
+        mint=frozenset({"NOW", "NEXT", "LATER"}),
+        required={
+            "NOW": frozenset({"Why", "Bet", "Measure", "Confidence"}),
+            "NEXT": frozenset({"Why", "Bet", "Measure", "Promote"}),
+            "LATER": frozenset({"Why", "Promote"}),
+        },
+    ),
+    KindRule(
+        kind="blindspot-ledger",
+        suffix="BLINDSPOTS",
+        floor=0,
+        mint=frozenset({"FINDINGS"}),
+        required={"FINDINGS": frozenset({"Anchor", "Consequence", "Fold-back", "Route"})},
+        header="AXES",
+        empty_with_header=frozenset({"FINDINGS"}),
+    ),
+    KindRule(
+        kind="capability-entry",
+        suffix="CAPABILITIES",
+        floor=1,
+        mint=frozenset({"ENTRIES"}),
+        required={"ENTRIES": frozenset({"Owner", "Edges", "Importance", "Gaps"})},
+    ),
+)
+RULES: dict[ArtifactKind, KindRule] = {rule.kind: rule for rule in REGISTRY}
+KIND_BY_SUFFIX: dict[str, ArtifactKind] = {rule.suffix: rule.kind for rule in REGISTRY}
 
 
 class SourceLine(BaseModel):
@@ -304,12 +344,12 @@ def schema_for(kind: ArtifactKind, path: Path) -> TemplateContract | Row:
     return TemplateContract(
         kind=kind,
         sections=tuple(token for _, _, token in headings(template)),
-        optional=OPTIONAL_SECTIONS.get(kind, frozenset()),
+        optional=RULES[kind].optional,
         fields={key: frozenset(value) for key, value in fields.items()},
         leaders=leaders,
         marks=marks,
         bullets={key: frozenset(value) for key, value in bullets.items()},
-        required=REQUIRED_FIELDS.get(kind, {}),
+        required=RULES[kind].required,
     )
 
 
@@ -402,50 +442,89 @@ def heading_rows(document: Document, contract: TemplateContract) -> tuple[Row, .
         for index, (line, number, _) in enumerate(got, 1)
         if number != index
     ]
+    exempt = RULES[document.kind].empty_with_header if header_clean(document) else frozenset()
     empty_rows = [
         row(document.path, section.line, Check.SECTION_EMPTY, "fail", f"[{section.token}] has no bullets or entries")
         for section in document.sections
-        if section.token in contract.sections and not section.bullets and not section.entries
+        if section.token in contract.sections and section.token not in exempt and not section.bullets and not section.entries
     ]
     return (*duplicate_rows, *required_rows, *unknown_rows, *order_rows, *number_rows, *empty_rows)
 
 
+def header_line(document: Document) -> tuple[SourceLine, str] | None:
+    label = RULES[document.kind].header
+    if label is None:
+        return None
+    return next(
+        ((line, match.group("body")) for line in document.lines if (match := re.match(rf"^\[{label}\]: (?P<body>\S.*)$", line.text))),
+        None,
+    )
+
+
+def header_clean(document: Document) -> bool:
+    found = header_line(document)
+    return found is not None and bool(re.search(r"\bclean: *[A-Z][A-Z0-9_]*", found[1]))
+
+
+def header_rows(document: Document, contract: TemplateContract) -> tuple[Row, ...]:
+    rule = RULES[document.kind]
+    if rule.header is None:
+        return ()
+    found = header_line(document)
+    if found is None:
+        return (row(document.path, document.h1_line, Check.HEADER, "fail", f"missing [{rule.header}]: line"),)
+    line, body = found
+    vocabulary = {token for section in rule.mint for token in contract.leaders.get(section, {})}
+    return tuple(
+        row(document.path, line.number, Check.HEADER, "fail", f"[{token}] outside the [{rule.header}] vocabulary")
+        for token in re.findall(r"[A-Z][A-Z0-9_]*", body)
+        if token not in vocabulary
+    )
+
+
 def leader_rows(document: Document, contract: TemplateContract) -> tuple[Row, ...]:
+    # Two passes: mint every id first, then resolve references — supersession points forward.
     rows: list[Row] = []
+    rule = RULES[document.kind]
     minted: dict[str, Entry] = {}
-    prefix_by_section: dict[str, str] = {}
-    ordinals: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
-    for section in document.sections:
-        for entry in section.entries:
-            match = ID.fullmatch(entry.identity)
-            if match is None or int(match.group("ordinal")) == 0:
-                rows.append(row(document.path, entry.line, Check.LEADER_ID, "fail", f"[{entry.identity}] outside the id grammar"))
-                continue
-            prefix, ordinal = match.group("prefix"), int(match.group("ordinal"))
-            if section.token in MINT_SECTIONS.get(document.kind, frozenset()):
-                if entry.identity in minted:
-                    rows.append(row(document.path, entry.line, Check.LEADER_UNIQUE, "fail", f"[{entry.identity}] already minted at line {minted[entry.identity].line}"))
-                minted.setdefault(entry.identity, entry)
-                ordinals[section.token].append((entry.line, ordinal, prefix))
-                prefix_by_section.setdefault(section.token, prefix)
-                if prefix_by_section[section.token] != prefix:
-                    rows.append(row(document.path, entry.line, Check.ID_ORDINAL, "fail", f"[{entry.identity}] prefix drifts inside [{section.token}]"))
-            elif section.token in REFERENCE_SECTIONS.get(document.kind, frozenset()) and entry.identity not in minted:
-                rows.append(row(document.path, entry.line, Check.ID_REFERENCE, "fail", f"[{entry.identity}] references no minted entry"))
-            allowed = contract.leaders.get(section.token, {})
-            for token in entry.tokens:
-                name, _, tail = token.partition(":")
-                requires_id = allowed.get(name)
-                valid = requires_id is not None and ((tail in minted) if requires_id else not tail)
-                if not valid:
-                    rows.append(row(document.path, entry.line, Check.LEADER_VOCAB, "fail", f"[{token}] outside declared vocabulary or unresolved id tail"))
-            if entry.tokens and entry.tokens[0].startswith("SUPERSEDED:") and entry.tokens[0].partition(":")[2] not in minted:
-                rows.append(row(document.path, entry.line, Check.ID_TOMBSTONE, "fail", f"[{entry.tokens[0]}] names no successor id"))
-    for section_token, triples in ordinals.items():
-        expected = list(range(1, len(triples) + 1))
-        for (line, ordinal, _), wanted in zip(triples, expected, strict=True):
-            if ordinal != wanted:
-                rows.append(row(document.path, line, Check.ID_ORDINAL, "fail", f"[{section_token}] ordinal {ordinal:02d} expected {wanted:02d}"))
+    minted_prefix: str | None = None
+    minted_order: list[tuple[int, int]] = []
+    parsed = [
+        (section.token, entry, ID.fullmatch(entry.identity))
+        for section in document.sections
+        for entry in section.entries
+    ]
+    for token, entry, match in parsed:
+        if match is None or int(match.group("ordinal")) == 0:
+            rows.append(row(document.path, entry.line, Check.LEADER_ID, "fail", f"[{entry.identity}] outside the id grammar"))
+        elif token in rule.mint:
+            if entry.identity in minted:
+                rows.append(row(document.path, entry.line, Check.LEADER_UNIQUE, "fail", f"[{entry.identity}] already minted at line {minted[entry.identity].line}"))
+            minted.setdefault(entry.identity, entry)
+            minted_order.append((entry.line, int(match.group("ordinal"))))
+            if minted_prefix is None:
+                minted_prefix = match.group("prefix")
+            elif minted_prefix != match.group("prefix"):
+                rows.append(row(document.path, entry.line, Check.ID_ORDINAL, "fail", f"[{entry.identity}] prefix drifts inside the instance"))
+    for token, entry, match in parsed:
+        if match is None or int(match.group("ordinal")) == 0:
+            continue
+        if token in rule.reference and entry.identity not in minted:
+            rows.append(row(document.path, entry.line, Check.ID_REFERENCE, "fail", f"[{entry.identity}] references no minted entry"))
+        allowed = contract.leaders.get(token, {})
+        for leader in entry.tokens:
+            name, _, tail = leader.partition(":")
+            requires_id = allowed.get(name)
+            valid = requires_id is not None and ((tail in minted) if requires_id else not tail)
+            if not valid:
+                rows.append(row(document.path, entry.line, Check.LEADER_VOCAB, "fail", f"[{leader}] outside declared vocabulary or unresolved id tail"))
+        if entry.tokens and entry.tokens[0].startswith("SUPERSEDED:"):
+            successor = entry.tokens[0].partition(":")[2]
+            if successor not in minted or successor == entry.identity:
+                rows.append(row(document.path, entry.line, Check.ID_TOMBSTONE, "fail", f"[{entry.tokens[0]}] names no distinct minted successor"))
+    for (line, ordinal), wanted in zip(minted_order, range(1, len(minted_order) + 1), strict=True):
+        if ordinal != wanted:
+            rows.append(row(document.path, line, Check.ID_ORDINAL, "fail", f"minted ordinal {ordinal:02d} expected {wanted:02d} in instance order"))
     return tuple(rows)
 
 
@@ -457,6 +536,10 @@ def field_rows(document: Document, contract: TemplateContract) -> tuple[Row, ...
             row(document.path, bullet.line, Check.FIELD_VOCAB, "fail", f"field {bullet.name} outside [{section.token}] vocabulary")
             for bullet in section.bullets
             if declared and bullet.name not in declared
+        )
+        rows.extend(
+            row(document.path, section.line, Check.FIELD_REQUIRED, "fail", f"[{section.token}] missing bullet {name}")
+            for name in sorted(contract.bullets.get(section.token, frozenset()) - {bullet.name for bullet in section.bullets})
         )
         for entry in section.entries:
             rows.extend(entry_field_rows(document.path, section.token, entry, contract, declared))
@@ -527,7 +610,7 @@ def wargame_rows(document: Document) -> tuple[Row, ...]:
         return ()
     criteria = next((bullet for bullet in wargame.bullets if bullet.name == "Criteria"), None)
     tokens = BRACKET_TOKEN.findall(criteria.value) if criteria else []
-    weights = [float(match.group(2) or "0") for match in re.finditer(r"\[[A-Z0-9_]+\]:(\d+(?:\.\d+)?)", criteria.value if criteria else "")]
+    weights = [float(match.group(1)) for match in re.finditer(r"\[[A-Z0-9_]+\]:(\d+(?:\.\d+)?)", criteria.value if criteria else "")]
     rows = [
         row(document.path, criteria.line if criteria else wargame.line, Check.WARGAME_CRITERIA, "fail", "criteria tokens repeat")
         for values in ([token for token, _ in tokens],)
@@ -574,8 +657,8 @@ def landing_rows(document: Document) -> tuple[Row, ...]:
 
 
 def kind_rows(document: Document) -> tuple[Row, ...]:
-    entry_count = sum(len(section.entries) for section in document.sections if section.token in MINT_SECTIONS.get(document.kind, frozenset()))
-    floor = ENTRY_FLOOR.get(document.kind, 0)
+    entry_count = sum(len(section.entries) for section in document.sections if section.token in RULES[document.kind].mint)
+    floor = RULES[document.kind].floor
     span = {
         token
         for section in document.sections
@@ -607,6 +690,7 @@ def validate(path: Path) -> tuple[Row, ...]:
         for group in (
             filename_rows(parsed),
             heading_rows(parsed, contract),
+            header_rows(parsed, contract),
             slot_rows(parsed),
             leader_rows(parsed, contract),
             field_rows(parsed, contract),
@@ -681,7 +765,7 @@ def main(argv: list[str] | None = None) -> int:
 
 # --- [EXPORTS] ---------------------------------------------------------------------------
 
-__all__ = ["Check", "Document", "Row", "TemplateContract", "main", "scan", "validate"]
+__all__ = ["Check", "Document", "KindRule", "Row", "TemplateContract", "main", "scan", "validate"]
 
 
 if __name__ == "__main__":

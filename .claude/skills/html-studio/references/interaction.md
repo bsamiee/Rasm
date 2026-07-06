@@ -54,7 +54,7 @@ A `snapshot()` reads live UI state; one control copies markdown, one downloads J
 
 [CLIPBOARD]:
 
-One recipe owns every copy: `navigator.clipboard.writeText` first, a hidden-textarea `execCommand` fallback for `file://` contexts, and a toast flash on landing. A second clipboard path in the same artifact is a defect.
+One recipe owns every copy: `navigator.clipboard.writeText` first, a hidden-textarea `execCommand` fallback for `file://` contexts, and a toast flash on landing. A capturing artifact whose export bar carries the visible readonly mirror routes its denied-clipboard fallback there instead — the mirror already holds the exact payload. Two clipboard paths in the same artifact is a defect.
 
 ```js copy-safe
 const copyText = async text => {

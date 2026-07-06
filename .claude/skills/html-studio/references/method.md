@@ -10,13 +10,13 @@ Markdown is the default carrier; a page earns its file only where structure, adj
 | :-----: | :----------------------- | :-------------------------------------------------------------------------------------- |
 |  [01]   | exploration and planning | undecided alternatives sit adjacent, compare visually, and convert into the chosen plan |
 |  [02]   | review and understanding | diffs, call graphs, and risk maps keep their spatial relations instead of flattening    |
-|  [03]   | design                   | tokens, type scales, and component states render as the live decisions they are        |
-|  [04]   | prototyping              | motion and interaction must be felt — easing, timing, and flow tune only when live     |
-|  [05]   | illustration and diagram | vector figures need hand-tweaking, per-figure export, or clickable inspection          |
-|  [06]   | deck                     | a case walks slide by slide under keyboard control with no export step                 |
-|  [07]   | research and learning    | navigation scaffolds — tabs, glossaries, live models — make the topic traversable      |
-|  [08]   | report                   | metrics, timelines, and evidence tables turn a skimmed document into a scanned one     |
-|  [09]   | editing interface        | the exact decision surface is a purpose-built control set exporting durable output     |
+|  [03]   | design                   | tokens, type scales, and component states render as the live decisions they are         |
+|  [04]   | prototyping              | motion and interaction must be felt — easing, timing, and flow tune only when live      |
+|  [05]   | illustration and diagram | vector figures need hand-tweaking, per-figure export, or clickable inspection           |
+|  [06]   | deck                     | a case walks slide by slide under keyboard control with no export step                  |
+|  [07]   | research and learning    | navigation scaffolds — tabs, glossaries, live models — make the topic traversable       |
+|  [08]   | report                   | metrics, timelines, and evidence tables turn a skimmed document into a scanned one      |
+|  [09]   | editing interface        | the exact decision surface is a purpose-built control set exporting durable output      |
 
 Render the thing: real code, real controls, real data rows, real SVG land on the page — prose describing an unrendered candidate is a defect. Decisions sit beside the evidence that earns them: a recommendation, verdict, or ranking shares a viewport with its pro/con rows, risk map, or score matrix, never a separate section.
 
@@ -51,6 +51,8 @@ Subject-shaped extraction — the material the inventory reads first:
 |  [05]   | concept   | concrete instance, mechanism, boundary case, ladder       |
 
 Bind evidence to claims: every claim on the page gets one visible evidence object — a table row, chart mark, diagram relation, code span, timeline event, or quote fragment. Hunt negative evidence — excluded cases, failed scenarios, degraded states; negative evidence that changes the answer rides the main path, never a caveat.
+
+Surface the unknowns as regions, never as buried prose: decisions rank by blast radius and tweak likelihood — data model, interface contract, execution model, permissions, persistence semantics precede naming, copy, and polish — and the decisions a reviewer most plausibly flips sit first with their alternative and flip condition beside them, while trusted mechanical work collapses below the decision surface. An assumption the page rests on renders as a named row a reader can strike; an open question carries its decision owner and deadline; a costed option states its implementation consequence, never a bare label. Every captured answer folds back as a constraint on the plan, never as transcript.
 
 Resolve the interactivity conflict before designing: name the one thing a reader misreads if the page stays static, and the one thing a reader skips if the page demands interaction. Those two answers rule the interaction budget.
 
@@ -143,7 +145,7 @@ Write the static alternative first; the interactive form ships only after the st
 
 Every control declares its variable in its label, shows its current state at all times, and exposes reset whenever a noncanonical state is reachable. Hover carries supplement only — hover-only evidence dies on touch and print. A toggle serves two low-memory states; many or precise differences force side-by-side. Motion binds to scroll or slider position so the reader can slow, reverse, and inspect; motion that decorates is removed. A sandbox opens only after the guided model gives exploration meaning, and a control whose states the prose never interprets is deleted.
 
-A control that captures judgment — a verdict, a ranking, an edited value — feeds the export model and, when the return channel is live, the send-to-agent action; a captured state that reaches neither is a toy and is removed.
+A control that captures judgment — a verdict, a ranking, an edited value — feeds the export model and, when the return channel is live, the send-to-agent action; a captured state that reaches neither is a toy and is removed. Every control resolves into one of the three classes the type law fixes — load-bearing with its envelope field named, view-only convenience, or forbidden — and the element carrying it is chosen from the generator catalog in [elements.md](elements.md) by the reader question, never by habit.
 
 ## [08]-[REVIEW]
 
@@ -155,4 +157,4 @@ Review runs in fixed order — skim, coverage, interaction necessity, density, p
 - [DENSITY] — Remove every mark that carries no evidence, separation, or priority; removal that costs nothing convicts the mark. Fail: decoration survives, everything is highlighted, values lack units or baselines, or the page is sparse because comparisons were exiled to separate views.
 - [PRINT] — Freeze the default state and read it as paper. Pass: answer, evidence, caveats, and verification route all survive; color never carries a category alone; controls print with their selected values readable.
 
-Attack stances that catch what the ordered tests miss: the hostile skimmer writes the answer from the first viewport alone and diffs it against the real answer; the hostile expert jumps straight to the densest evidence and verifies the claim survives exact inspection; the hostile skeptic hunts the missing denominator, stale source, or excluded case; the hostile editor removes each paragraph and keeps every one whose absence unanswers a question; the hostile navigator demands location, active state, and exit without memory; the hostile interaction skipper ignores every widget and requires a complete argument. A defect defended by taste, convention, or implementation difficulty stands unrepaired — the review passes only when every surviving region carries a reader question, an evidence object, an interaction cost, and a falsifiable completion check.
+Attack stances that catch what the ordered tests miss: the hostile skimmer writes the answer from the first viewport alone and diffs it against the real answer; the hostile expert jumps straight to the densest evidence and verifies the claim survives exact inspection; the hostile skeptic hunts the missing denominator, stale source, or excluded case; the hostile editor removes each paragraph and keeps every one whose absence unanswers a question; the hostile navigator demands location, active state, and exit without memory; the hostile interaction skipper ignores every widget and requires a complete argument. The named element defects — decorative slider, unkeyed drag state, forced orientation, buried conclusion, circular-for-linear, rainbow taxonomy, unlocked multiples, DOM-sourced export, phantom capture — are hunted by name per [elements.md](elements.md). A defect defended by taste, convention, or implementation difficulty stands unrepaired — the review passes only when every surviving region carries a reader question, an evidence object, an interaction cost, and a falsifiable completion check.

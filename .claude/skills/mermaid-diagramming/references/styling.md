@@ -51,7 +51,7 @@ An edge id names one edge for behavior metadata: `A e1@--> B` then a metadata bl
 |  [02]   | `e1@{ animation: fast }` | Fast preset; `slow` is the slow preset.                                      |
 |  [03]   | `e1@{ curve: <value> }`  | Per-edge spline from the documented curve set, overriding the diagram curve. |
 
-Stroke width, dash, and label color stay on `linkStyle`; the edge id owns only animate, animation, and curve. When an edge is modified more than once the last modification wins.
+The metadata block owns only animate, animation, and curve; stroke width, dash, and label color ride `linkStyle` or an edge-id class — `class e1 edgeError` styles the id's stroke, width, dash, and label through the class system, the engine deriving the arrowhead from the resolved stroke. When an edge is modified more than once the last modification wins.
 
 | [INDEX] | [FORM]                  | [EFFECT]                                  |
 | :-----: | :---------------------- | :---------------------------------------- |
@@ -229,20 +229,31 @@ Edge styling resolves along a parallel chain: theme line variables, then `linkSt
 ---
 config:
   theme: base
+  flowchart:
+    padding: 16
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.cluster-label .nodeLabel{font-size:13px;font-weight:600}.cluster rect{stroke-width:1.5px}.edgePaths path{stroke-width:1.5px}"
   themeVariables:
     darkMode: true
     primaryColor: "#44475A"
     primaryBorderColor: "#BD93F9"
     primaryTextColor: "#F8F8F2"
     lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#6272A4"
+    edgeLabelBackground: "#44475A"
+    titleColor: "#F8F8F2"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
 ---
 flowchart LR
+  accTitle: Style precedence demo
+  accDescr: One flowchart spending theme variables, classes, inline style, linkStyle, and edge metadata so later and more specific declarations win.
   Ingress@{ shape: lean-r, label: "Ingress" }
   Router{Route?}
   Cache[(Cache)]
   Worker[[Worker]]
   Sink@{ shape: cyl, label: "Sink" }
-  subgraph Core [Core]
+  subgraph Core [CORE]
     direction TB
     Router ==> Worker
     Worker e1@--> Cache
@@ -252,10 +263,12 @@ flowchart LR
   Worker --o Sink
   Cache <--> Sink
   e1@{ curve: linear, animate: true }
-  classDef hot fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef store fill:#FFB86C,stroke:#FFB86C,color:#282A36
-  class Router hot
-  class Cache store
+  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+  classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
+  classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
+  class Router primary
+  class Cache data
+  class Sink external
   style Cache fill:#282A36,stroke:#BD93F9,color:#F8F8F2
   linkStyle 3 stroke:#8BE9FD,color:#F8F8F2
 ```
@@ -329,14 +342,15 @@ Every family ships at or above its floor — the minimum styling below which its
 
 ## [07]-[CONSISTENCY_LAWS]
 
-Review binds these six laws on every committed fence.
+Review binds these seven laws on every committed fence; the values each law spends — hexes, stamps, rail styles — live with their owner, and a law here never redefines them.
 
-- Edge-rail law: every semantic edge carries an explicit `linkStyle` from the six-rail set — fault edges Red, trace and annotation edges Comment-dashed, data-carrying edges Orange, typed-interface edges Cyan, executed edges Green; only a plain forward hop inherits the Pink default. Every edge insertion recounts positional indices.
-- Container law: every flowchart `subgraph` rides `clusterBkg` `#21222C` with a border encoding ownership — `#6272A4` neutral, `#BD93F9` owned boundary; every sequence `alt`/`par`/`break` region wraps in a `rect` or `box` background; every state composite sets `tertiaryColor` `#21222C`.
+- Edge-rail law: every semantic edge carries an explicit rail from the six-rail set the palette layer owns, bound positionally through `linkStyle` or insertion-stably through an edge-id class; only a plain forward hop inherits the default, every fault edge is Red, and every edge insertion recounts positional indices.
+- Container law: a container is never naked — a flowchart `subgraph` rides the recessed cluster surface with a border encoding ownership at the ruled cluster stroke weight, a sequence `alt`/`par`/`break`/`critical` region wraps in a `rect` or `box` background, and a state composite sets the recessed tertiary surface; every fill and stroke traces to the role map.
 - classDef-completeness law: a flowchart, state, ER, class, or requirement diagram ships every class its semantics demand — an aggregate root, junction, fault, or dormant state rendering identical to its neighbors is the defect.
-- Typography law: the base block's `fontFamily: "monospace"` reaches every committed fence; label size rides the host.
-- Ordinal-completeness law: a type reading an ordinal palette defines the full engine range — 12 for `pie*` and `cScale*`, 8 for `fillType*` and `git*`.
-- Single-home law: `theming.md` carries every token role and family floor; an extended fence demonstrates, never privately defines.
+- Typography law: the ruled mono stack and the micro-scale `themeCSS` stamps reach every committed fence, and no canvas text renders below the theming floor.
+- Backing law: label backings ride Selection, one elevation above the canvas — a backing equal to the canvas leaves labels colliding with the strokes they cross.
+- Ordinal-completeness law: a type reading an ordinal palette defines the full engine range the base block carries, so no band derives to `primaryColor` mud.
+- Single-home law: the palette layer carries every token role, the micro-scale stamps, and the canonical class and rail sets; this reference carries the mechanical grammar and the per-family floors; an extended fence demonstrates the keys it consumes and never privately defines a role.
 
 ## [08]-[SCOPE]
 

@@ -1,6 +1,6 @@
 # [CONSTRUCTION]
 
-Per-type construction binds here — the question a type answers, what its marks assert, and the characteristic failure modes and truth tests that type carries. Type selection and the general soundness audit stay methodology's property; a record's truth tests bind at review, and the validator owns only its named machine checks.
+Per-type construction binds here — the question a type answers, what its marks assert, the signal its best render concentrates, the master patterns past standard practice, and the characteristic failure modes and truth tests that type carries. Type selection, the pre-drawing investigation traces, and staged growth stay methodology's property; a record's truth tests bind at review, and the validator owns only its named machine checks.
 
 Sections: [01] core types - [02] extended types.
 
@@ -11,12 +11,19 @@ Sections: [01] core types - [02] extended types.
 - Question: what exists and how same-level parts relate under one relation.
 - Node: an owner or operation at one abstraction level.
 - Edge: the single declared relation, its direction load-bearing.
+- Signal: the branch structure and its rejoin points — a strong flowchart lets the reader reconstruct every path without prose, so the discriminators and folds carry the value, never the boxes between them.
 - Method:
   1. Fix the relation semantic first.
   2. Place the dominant rail from start to outcome.
   3. Attach branches off discriminators only.
   4. Class nodes by semantic role.
   5. Label every non-obvious edge with the relation verb.
+- Master patterns:
+  - Declare the dominant rail contiguously first, branches after, so the rail reads as one unbroken line.
+  - Converge every fault onto one rail instead of per-stage dead ends; the convergence point states the recovery law once.
+  - Fan a discriminator with exhaustive labeled out-edges that re-merge at a single fold — an arm that never rejoins is a leaked exit.
+  - Keep annotation traffic on dashed Comment traces so the solid control rail stays the loudest ink on the canvas.
+  - Broadcast with `A --> B & C` only for genuinely symmetric fan-out; asymmetric hops get their own labeled edges.
 - Failure modes:
   - the god-flowchart absorbing lifecycle, sequence, or schema payloads.
   - control flow drawn beside data flow, both unlabeled.
@@ -32,12 +39,20 @@ Sections: [01] core types - [02] extended types.
 - Question: who exchanges what, in what order, to complete one scenario.
 - Participant: an autonomous runtime actor — process, service, or thread — never a data object.
 - Message: one protocol step its sender can actually initiate.
+- Signal: causality and ownership — every request visibly paired with its return, and the activation bars showing exactly who holds the work at every instant.
 - Method:
   1. Pick one scenario, happy path plus at most one fault split.
   2. Order participants left-to-right by first touch.
   3. Write messages as verb phrases carrying the payload name.
   4. Add activation only where lifetime matters.
   5. Close on the terminal response or fault.
+- Master patterns:
+  - Name the frame shape ON the wire in a `Note over` both sides — the contract becomes a visible shared fact, not two private assumptions.
+  - Tint the region one participant owns with `rect` — sequence's one styling lever — so ownership reads as surface, never inference.
+  - Split aborts from outcomes: `break` for the path that ends the exchange, `alt` for the paths that complete it differently.
+  - Run `autonumber` on any exchange another document cites, so a step reference survives edits.
+  - Show lifetime with `create`/`destroy` instead of a static roster when the scenario births or kills a participant.
+  - Group participants into `box` blocks by process boundary, so the wire crossings stand apart from in-process calls.
 - Failure modes:
   - the god-participant sending and receiving everything, hiding decomposition.
   - response arrows omitted, leaving causality unverifiable.
@@ -53,12 +68,19 @@ Sections: [01] core types - [02] extended types.
 - Question: which modes an entity occupies and which events move it.
 - State: a mode the system rests in, observable between events.
 - Transition: an event plus optional guard; guards leaving one state stay disjoint.
+- Signal: the guard vocabulary — which event moves which mode and what makes every exit deterministic; the states are the given, the guards are the knowledge.
 - Method:
   1. Enumerate resting modes first, rejecting any activity.
   2. Fix entry `[*]` and every terminal.
   3. Add one transition per event with its guard.
   4. Nest a composite only where substates share every external transition.
   5. Name transitions by event, never by target state.
+- Master patterns:
+  - Bound every recovery loop — a fault state exits on `recover [attempts < max]` and `abort [attempts == max]`, so the machine provably terminates.
+  - Fan a multi-way guard through a `<<choice>>` pseudostate instead of stacking guards on one source, keeping each edge's condition atomic.
+  - Split genuinely independent sub-modes into `--` concurrency regions rather than multiplying the state count combinatorially.
+  - Class every resting state by criticality — dormant `recessed`, fault `error`, terminal `boundary` — so lifecycle risk reads at a glance.
+  - Give a composite its own `direction` when its interior flow runs against the outer axis.
 - Failure modes:
   - an activity drawn as a state, a step mistaken for a mode.
   - overlapping guards making a transition nondeterministic.
@@ -76,11 +98,18 @@ Sections: [01] core types - [02] extended types.
 - Question: how declared types relate under inheritance, composition, or dependency.
 - Class: a real declared type in the system.
 - Relation: a compile-time relationship the source proves.
+- Signal: the relation kinds chosen — inheritance versus composition versus dependency is the design decision; members exist only to justify an arrow.
 - Method:
   1. Select the type cluster answering the question, never the whole codebase.
   2. Choose which relation kinds appear, two at most.
   3. Carry only members that discriminate the design.
   4. Group by namespace when the ownership boundary is the point.
+- Master patterns:
+  - Hold the two-relation ceiling; a third relation kind is a second diagram over the same class names.
+  - Spend `namespace` as the ownership boundary claim, mirroring the real module or package seam.
+  - Attach a lollipop `()--` only to the port a consumer actually binds; decorating every class with interfaces flattens the one seam that matters.
+  - Keep generics on the declaration and drop them at every reference — the engine collides two classes differing only by generic suffix.
+  - Note the one non-obvious invariant with `note for`; every other comment belongs to the owning page.
 - Failure modes:
   - member dumps of every field and method drowning the relations.
   - inheritance and dependency arrows mixed without visual distinction.
@@ -96,12 +125,19 @@ Sections: [01] core types - [02] extended types.
 - Question: what data entities exist, how they identify each other, and what multiplicity constrains them.
 - Entity: a persisted noun with identity.
 - Relationship: a join path whose cardinality storage enforces.
+- Signal: keys and cardinality as enforced constraints — the diagram's worth is exactly the set of joins a reader can trust without opening the DDL.
 - Method:
   1. Start from the aggregate root.
   2. Add entities one join away until the question closes.
   3. Mark PK and FK on every drawn entity.
   4. Set cardinality from the constraint storage enforces, never intended usage.
   5. Name relations with the owning verb.
+- Master patterns:
+  - Resolve every many-to-many through a visible junction entity whose composite PK is both FKs — the crow's foot cannot state it directly.
+  - Hold FK-edge reciprocity as one atomic edit: an FK attribute lands with its relationship edge, and either alone is a lie.
+  - Spend the identifying `--` versus non-identifying `..` stroke as a real dependency claim, not typography.
+  - Class the hierarchy — aggregate root `primary`, junction `recessed`, externally-owned registry `external` — so ownership renders, not just relates.
+  - Trim attributes to identifying and discriminating columns; the full column roster is the DDL's property.
 - Failure modes:
   - value objects promoted to entities.
   - cardinality drawn from hope — the code allows many, the diagram says one.
@@ -274,3 +310,39 @@ Sections: [01] core types - [02] extended types.
   - lanes for systems that never act, a data store being no owner, or cross-lane edges so dense the partition carries nothing.
 - Logic checks:
   - every node sits in the lane of the owner that performs it.
+
+[EVENTMODELING]:
+
+- Question: which commands produce which events and which projections consume them, in timeline order.
+- Frame: one numbered timeframe holding a ui, command, event, processor, or read-model fact; frame order is the asserted causality.
+- Failure modes:
+  - a command and its event out of frame order, a read model fed by no upstream event, or frames spent as free-form boxes outside the five kinds.
+- Logic checks:
+  - frame numbers strictly increase within each timeline run, and every read model traces to an upstream event frame.
+
+[VENN]:
+
+- Question: how much the declared sets genuinely overlap under one measure.
+- Set: a weighted membership region; a union row asserts a measured overlap, never a drawn guess.
+- Failure modes:
+  - overlap sizes invented to render nicely, or a union larger than its smallest member.
+- Logic checks:
+  - every union size is at most the smallest member set's size.
+
+[WARDLEY]:
+
+- Question: where each capability sits on visibility and evolution, and what depends on what.
+- Component: a capability at assessed `[visibility, evolution]` coordinates; the anchor is the user need every chain serves.
+- Failure modes:
+  - coordinates placed by narrative rather than assessed evolution, or a component chain reaching no anchor.
+- Logic checks:
+  - every component reaches an anchor through the dependency links, and every coordinate stays inside the unit square.
+
+[ISHIKAWA]:
+
+- Question: which cause categories plausibly produce one named effect.
+- Cause: one contributing condition under exactly one category; the head names the effect, never a category.
+- Failure modes:
+  - categories that are org names rather than causal families, or a remedy listed where a condition belongs.
+- Logic checks:
+  - every cause states a condition, and each sits under exactly one category.

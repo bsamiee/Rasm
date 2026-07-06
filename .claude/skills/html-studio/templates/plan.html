@@ -6,7 +6,7 @@
 <!-- replace: page title -->
 <title>Implementation Plan: Ingest Loader Collapse</title>
 <style>
-/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; overrides ride the later template-local layers */
 @layer reset,tokens,base,components,utilities,print,overrides;
 @layer reset{
 *,*::before,*::after{box-sizing:border-box}
@@ -31,9 +31,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
   --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
   --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
-  --font-display:ui-serif,Georgia,'Times New Roman',serif;
-  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --font-display:ui-serif,Georgia,'Iowan Old Style','Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  --font-mono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,'Cascadia Mono','Segoe UI Mono',Consolas,'Liberation Mono',monospace;
   --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
   --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
@@ -95,13 +95,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec}
 .section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
-.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
 .chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
 .chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
 .chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
 .chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
 .stat{display:grid;gap:var(--s1)}
-.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
 .stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
 .kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
@@ -120,7 +120,7 @@ button,select,input,textarea{font:inherit;color:inherit}
 .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
 table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
 th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
-th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
@@ -187,7 +187,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 .rowline{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin-block:var(--s4)}
 .stats .stat{padding:var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2)}
-.stats .stat small{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.stats .stat small{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 .spine{display:flex;align-items:flex-start;gap:0;margin-block:var(--s4);overflow-x:auto;padding-block:var(--s2)}
 .spine .node{display:grid;justify-items:center;gap:var(--s1);min-inline-size:8.5rem;text-align:center;background:none;border:0;cursor:pointer;padding:0}
 .spine .dot{inline-size:14px;block-size:14px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);transition:transform var(--dur-2) var(--ease-out)}
@@ -195,7 +195,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 .spine .node.done .dot{background:var(--ok);border-color:var(--ok)}
 .spine .node.active .dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-weak)}
 .spine .node.blocked .dot{background:var(--fail);border-color:var(--fail)}
-.spine .node small{font-size:var(--fs-2xs)}
+.spine .node small{font-size:var(--fs-xs)}
 .spine .link{flex:1 1 3rem;block-size:2px;background:var(--line-strong);margin-block-start:7px;min-inline-size:2rem}
 .spine .link.done{background:var(--ok)}
 .spine .link.blocked{background:var(--fail)}
@@ -219,7 +219,7 @@ summary{list-style:none;font-size:var(--fs-sm)}
 .qcard{padding:var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);margin-block:var(--s3)}
 .qcard textarea{inline-size:100%;min-block-size:3rem;margin-block-start:var(--s2)}
 .egress-wrap{display:grid;gap:var(--s2);margin-block-start:var(--s4)}
-.egress-wrap textarea{inline-size:100%;min-block-size:5rem;font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.egress-wrap textarea{inline-size:100%;min-block-size:5rem;font-family:var(--font-mono);font-size:var(--fs-xs)}
 .pop{margin:0;padding:var(--s3);min-inline-size:min(92vw,20rem);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) var(--s4) auto;opacity:0;transform:translateY(-.25rem);transition:opacity var(--dur-2) var(--ease-out),transform var(--dur-2) var(--ease-out),display var(--dur-2) allow-discrete}
 .pop:popover-open{opacity:1;transform:translateY(0)}
 @starting-style{.pop:popover-open{opacity:0;transform:translateY(-.25rem)}}
@@ -270,6 +270,7 @@ h2{break-after:avoid}
         <div class="twrap"><table><thead><tr><th scope="col">Topic</th><th scope="col">Ruling</th><th scope="col">Rationale</th><th scope="col">State</th><th scope="col">Verdict</th></tr></thead><tbody id="decisions-body"></tbody></table></div>
       </section>
       <section class="section" id="phases" aria-labelledby="phases-h"><h2 id="phases-h">Phases</h2><div id="phases-body"></div></section>
+      <section class="section" id="keycode" aria-labelledby="keycode-h" hidden><h2 id="keycode-h">Key code</h2><div id="keycode-body"></div></section>
       <section class="section" id="risks" aria-labelledby="risks-h"><h2 id="risks-h">Risk register</h2>
         <div class="twrap"><table><thead><tr><th scope="col">Risk</th><th scope="col">Phase</th><th scope="col">Likelihood</th><th scope="col">Impact</th><th scope="col">Exposure</th><th scope="col">Mitigation</th></tr></thead><tbody id="risks-body"></tbody></table></div>
       </section>
@@ -288,7 +289,7 @@ h2{break-after:avoid}
   <button type="button" class="btn" data-export="json">Copy JSON envelope</button>
   <button type="button" class="btn ghost" data-export="changed" disabled>Copy changed-only</button>
 </footer>
-<div id="toast" class="toast no-print" role="status" popover="manual" hidden></div>
+<output id="toast" class="toast no-print" role="status" popover="manual" aria-live="polite"></output>
 <!-- replace: plan model payload -->
 <script type="application/json" id="payload">{
   "meta": {
@@ -352,6 +353,9 @@ h2{break-after:avoid}
     { "id": "dec-3", "topic": "Schema drift", "ruling": "Reject on digest mismatch, never coerce",
       "rationale": "Silent coercion forks the model downstream", "status": "open" }
   ],
+  "keycode": [
+    { "id": "kc-1", "title": "Loader dispatch surface — the error-prone arity fold", "code": "def dispatch(self, req: Request) -> Result:\n    return _ROUTES[req.arity](self, req).fold(fail, ok)" }
+  ],
   "risks": [
     { "id": "risk-1", "text": "Streaming backpressure stalls the ingest under burst load", "likelihood": 3, "impact": 3,
       "mitigation": "Bounded channel with an explicit drop policy proven under a load fixture", "phaseId": "phase-b" },
@@ -409,7 +413,7 @@ const exposures = () => model.risks.map(r => ({ ...r, exp: r.likelihood * r.impa
 const topRisk = () => exposures()[0];
 
 const cap = id => (state.captures[id] ??= { verdict: "", note: "", ann: "active" });
-const annotations = () => Object.entries(state.captures).filter(([, c]) => c.note).map(([id, c], i) => ({ id: "a-" + (i + 1), itemId: id, intent: "note", status: c.ann, text: c.note }));
+const annotations = () => Object.entries(state.captures).filter(([, c]) => c.note).map(([id, c]) => ({ id: "a-" + id, itemId: id, intent: "note", status: c.ann, text: c.note }));
 const decisionsOut = () => Object.entries(state.captures).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
 const changesOut = () => Object.entries(state.answers).filter(([id, v]) => v !== (baseline.answers[id] || "")).map(([id, v]) => ({ itemId: id, path: "/questions/" + id + "/answer", from: baseline.answers[id] || "", to: v }));
 const isChanged = () => decisionsOut().length || changesOut().length || annotations().length || state.global.status || state.global.note;
@@ -438,7 +442,7 @@ function renderSpine() {
       kids.push(el("span", { class: "link " + (phaseDone(prev) ? "done" : blocked(p) ? "blocked" : ""), "aria-hidden": "true" }));
     }
     const ps = phaseState(p);
-    kids.push(el("button", { type: "button", class: "node " + ps, "data-goto": "phases", "aria-label": p.title + " " + MARK[ps] },
+    kids.push(el("button", { type: "button", class: "node " + ps, "data-goto": p.id, "aria-label": p.title + " " + MARK[ps] },
       el("span", { class: "dot" }), el("small", { text: p.title }), el("small", { class: "mono", text: pct(p) + "%" })));
   });
   $("#spine").replaceChildren(...kids);
@@ -461,7 +465,7 @@ function render() {
     ["Phases done", model.phases.filter(phaseDone).length + " / " + model.phases.length],
     ["Stages done", stages.filter(s => s.status === "done").length + " / " + stages.length],
     ["Open questions", String(model.questions.length)],
-    ["Top risk", tr.text, tr.exp]
+    tr ? ["Top risk", tr.text, tr.exp] : ["Top risk", "none recorded"]
   ];
   $("#stats").replaceChildren(...stats.map(([k, v, x]) => el("div", { class: "stat" },
     el("small", { text: k }),
@@ -469,8 +473,15 @@ function render() {
 
   renderSpine();
 
-  const toc = [["context", "Context"], ["decisions", "Decisions"], ["phases", "Phases"], ["risks", "Risk register"], ["questions", "Open questions"]];
+  const kc = model.keycode || [];
+  const toc = [["context", "Context"], ["decisions", "Decisions"], ["phases", "Phases"], ...(kc.length ? [["keycode", "Key code"]] : []), ["risks", "Risk register"], ["questions", "Open questions"]];
   $("#toc").replaceChildren(...toc.map(([id, label]) => el("a", { href: "#" + id, text: label })));
+
+  $("#keycode").hidden = !kc.length;
+  $("#keycode-body").replaceChildren(...kc.map(k => {
+    const pre = el("pre", {}, el("code", { class: "mono", text: k.code }));
+    return el("details", { id: k.id }, el("summary", { text: k.title }), pre);
+  }));
 
   $("#context-body").replaceChildren(...model.context.map(t => el("p", { text: t })));
 
@@ -505,7 +516,7 @@ function render() {
           ? (() => { const d = el("details", {}, el("summary", { text: "Acceptance (" + s.acceptance.length + ")" })); const ul = el("ul"); s.acceptance.forEach(a => ul.append(el("li", { text: a }))); d.append(ul); return d; })()
           : el("small", { class: "muted", text: "Acceptance names no observable signal — unprovable stage." }),
         el("div", { class: "cap" }, verdictSelect(s.id, true), noteButton(s.id)))));
-    return el("article", { class: "card phase", "aria-label": "Phase " + p.title },
+    return el("article", { class: "card phase", id: p.id, "aria-label": "Phase " + p.title },
       el("h3", { text: p.title }),
       el("div", { class: "phase__grid" }, body, meta));
   }));
@@ -552,13 +563,14 @@ function validate(env) {
   ["decisions", "changes", "annotations"].forEach(k => { if (!Array.isArray(env[k])) errs.push(k); });
   return errs;
 }
+const mdCell = s => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
 function toMarkdown(env) {
   const L = ["# " + model.meta.title, "",
     "**Verdict:** " + (env.decision.status || "(none)") + (env.decision.note ? " — " + env.decision.note : ""),
     "Owner: " + model.meta.owner + " · Date: " + model.meta.date, "", "## Decisions"];
   if (env.decisions.length) {
     L.push("| Item | Verdict | Note |", "| --- | --- | --- |");
-    env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + (d.note || "") + " |"));
+    env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + mdCell(d.note || "") + " |"));
   } else L.push("_No item verdicts captured._");
   if (env.changes.length) { L.push("", "## Answers"); env.changes.forEach(c => L.push("- " + c.itemId + ": " + c.to)); }
   if (env.annotations.length) { L.push("", "## Annotations"); env.annotations.forEach(a => L.push("- [" + a.status + "] " + a.itemId + " (" + a.intent + "): " + a.text)); }
@@ -568,16 +580,16 @@ function toMarkdown(env) {
 let toastTimer;
 const flash = msg => { const t = $("#toast"); t.textContent = msg; t.showPopover?.(); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidePopover?.(), 1600); };
 const markExported = () => { Object.values(state.captures).forEach(c => { if (c.note) c.ann = "exported"; }); };
-const copyOut = out => {
-  const done = () => { state.copies++; markExported(); flash("Copied"); render(); };
-  navigator.clipboard?.writeText(out).then(done).catch(() => { flash("Clipboard denied — copy from the box"); render(); });
-  if (!navigator.clipboard) render();
+const copyText = async text => {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch { flash("Clipboard denied — copy from the box"); return false; }
 };
 
 const returnMeta = document.querySelector('meta[name="artifact-return"]');
+const tokenMeta = document.querySelector('meta[name="artifact-token"]');
 if (returnMeta) $("[data-export='send']").hidden = false;
 const sendToAgent = async env => {
-  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json", "X-Artifact-Token": tokenMeta?.content ?? "" }, body: JSON.stringify({ kind: env.kind, artifact: env.artifact.id, version: env.version, data: env }) });
   if (!res.ok) throw new Error("submit " + res.status);
   return res.json();
 };
@@ -597,11 +609,11 @@ document.addEventListener("click", e => {
     b.disabled = true;
     sendToAgent(env)
       .then(() => { markExported(); b.textContent = "Sent"; flash("Sent to agent"); render(); })
-      .catch(() => { b.textContent = "Send failed — copied instead"; copyOut(out); })
+      .catch(async () => { b.textContent = "Send failed — copied instead"; await copyText(out); render(); }) // failed POST: annotations stay active
       .finally(() => { b.disabled = false; });
     return;
   }
-  copyOut(out);
+  copyText(out).then(ok => { if (ok) { state.copies++; markExported(); flash("Copied"); } render(); });
 });
 document.addEventListener("change", e => {
   const v = e.target.closest("[data-verdict-for]");

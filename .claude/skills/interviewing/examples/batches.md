@@ -1,6 +1,6 @@
 # [ROUND_AND_THREAD_CRAFT]
 
-A round's question batch is the interview's payload, and a thread is the sequence of rounds where each answer's consequence becomes the next question's premise; a batch that asks the abstract, courts agreement, surveys defaults, or hides a contradiction ships a confident wrong spec, and a thread whose links are descriptive, grandiose, independent, or mechanism-first burns the budget without landing a ruling. Each entry names one defect — a single round's batch or a cross-round thread — under the fixed Detection / Rejected / Accepted / Reason / Reframe card. The Rejected and Accepted bodies are real batches or real worked threads, never descriptions of them; a thread entry's bodies run numbered strata with answer branches and the premise link that ties each answer to the next stem, terminating in a marked ruling.
+A round's question batch is the interview's payload, and a thread is the sequence of rounds where each answer's consequence becomes the next question's premise; a batch that asks the abstract, courts agreement, surveys defaults, ratifies a scope cut, or hides a contradiction ships a confident wrong spec, and a thread whose links are descriptive, grandiose, independent, mechanism-first, or one-endpoint burns the budget without landing a ruling. Each entry names one defect — a single round's batch or a cross-round thread — under the fixed Detection / Rejected / Accepted / Reason / Reframe card. The Rejected and Accepted bodies are real batches or real worked threads, never descriptions of them; a thread entry's bodies run numbered strata with answer branches and the premise link that ties each answer to the next stem, terminating in a marked ruling.
 
 ## [01]-[UNGROUNDED_ABSTRACTION]
 
@@ -316,3 +316,55 @@ A gating answer invalidates the pre-planned branch, and the thread pushes the de
   ```
 - Reason: A gating fork plans both branches before it is asked; when the answer kills one, the thread abandons that branch's rounds and enters the other's — pushing the dead rounds spends the budget on a foreclosed world and, worse, lets the thread trail off without the ruling the fork existed to land.
 - Reframe: Plan both branches of every gating fork; on the answer, discard the dead branch's strata and re-enter at the live branch's first stratum; a thread seals only on a terminal ruling, never on a trailing question.
+
+## [14]-[BAR_LOWERED_BY_ABSENCE]
+
+A question offers a scope cut as the default because no consumer exists yet, so the round ratifies a thin owner the capability bar forbids instead of forcing the refused-versus-gap ruling.
+
+- Detection: A stem framing missing demand as license to build less — the options are cut-now against keep-just-in-case — and the concept's full arm census was never taken, so neither option names what the owner actually omits.
+- Rejected:
+  ```markdown
+  1. No consumer reads the assessment sweep yet — cut the owner to the two fields the report uses?
+     - a) Cut to two fields — smaller surface, ship sooner.
+     - b) Keep everything — just in case a consumer arrives.
+  ```
+- Accepted:
+  ```markdown
+  1. `<unit>/planning/assessment.md:31` models the assessment owner with four of the twelve attributes the concept carries — `method`, `stage`, `factor-set`, and `system-boundary` among the absent. Which missing arms are refused by design, and which are gaps the owner absorbs now?
+     - a) Refused — each refusal recorded as owned law naming the surface that holds it instead; costs the refusal audit, keeps a four-arm owner honest.
+     - b) Gaps — the owner extends to the concept's space now; costs the wider model, prevents the tacked-on retrofit when the first consumer lands.
+     - c) Split — some arms refused with their owning surface named, the rest absorbed; costs ruling arm by arm, and the record carries one line per arm.
+  ```
+- Reason: Absent consumers never lower the capability bar — missing demand is not evidence the domain lacks the arm; the cut-now framing converts an unexamined census into a scope ruling, and the retrofit it invites lands as tacked-on flat code instead of a rebuilt owner.
+- Reframe: Take the concept's arm census before the question, confront the user with the carried-versus-full count and the named absentees, and force every missing arm into refused-by-design with its owning surface or gap-absorbed-now — never into a build-less ratification.
+
+## [15]-[ONE_SIDED_SEAM]
+
+A thread rules a cross-owner seam by interrogating one endpoint, so the ruling binds obligations onto a party the thread never questioned and the mirror declaration surfaces later as drift.
+
+- Detection: Every stratum's stem names the producing surface; no stratum opens the consuming endpoint or its mirror declaration, and the terminal ruling assigns decode, versioning, or alignment obligations to the silent side.
+- Rejected:
+  ```text
+  1. Which shape does the producer emit on the wire?
+     → the receipt envelope.
+  2. Which envelope fields does the producer version?
+     → all of them.
+  3. When does the producer publish a schema change?
+     → on every release.
+  (ruling binds the consumer's decode and migration obligations; the consumer's endpoint was never opened)
+  ```
+- Accepted:
+  ```text
+  1. Which side owns the seam contract — the producer minting the shape, or a shared vocabulary both endpoints decode? [root — assigns the authority every later ruling cites]
+     - a) producer-owned → 2p
+     - b) shared vocabulary → 2v
+  2p. (premise: producer-owned) What does the consumer's endpoint record today — the mirrored declaration, a local re-decode, or nothing?
+     - a) mirrored declaration, same shape → 3
+     - b) local re-decode or absent mirror → the one-sided seam is its own finding with both anchors, then 3
+  3. (premise: authority fixed, mirror state known) Which drift gate proves the endpoints stay aligned, and whose change breaks loudly first?
+     - a) a shared fixture keys both ends → terminal
+     - b) no gate exists → the ruling records the gate as its confirmation condition → terminal
+  Terminal: fact — contract owner, mirror obligation, and drift gate land as one ruling naming both endpoints; an obligation on a party the thread never questioned re-routes through that party's endpoint before the seal.
+  ```
+- Reason: A seam is a two-sided fact — a contract declared on one side only is the drift the interview exists to prevent, and a ruling that assigns the silent side's obligations hard-codes the interviewer's guess about an endpoint nobody opened.
+- Reframe: Open every seam thread on contract authority, give each endpoint its own stratum, verify the mirror declaration on disk before the ruling, and let the terminal ruling name both endpoints and the gate that keeps them aligned.

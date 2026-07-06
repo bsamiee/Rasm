@@ -11,7 +11,7 @@ One `<!doctype html>` file: one `<title>`, all CSS in one `<style>`, all JS in o
 |  [01]   | In-page anchor | `href="#section-id"`            |
 |  [02]   | Inline asset   | `data:` URI                     |
 |  [03]   | Sibling page   | relative `href` to a sibling    |
-|  [04]   | Return channel | `<meta name="artifact-return">` |
+|  [04]   | Return channel | server-injected `artifact-return` + `artifact-token` metas |
 
 Wide content — tables, diagrams, code — rides inside an `overflow-x:auto` container (`.twrap`, `pre`); `body` sets `overflow-x:hidden` so the page never scrolls sideways.
 
@@ -20,13 +20,13 @@ Wide content — tables, diagrams, code — rides inside an `overflow-x:auto` co
 Semantic names only; a consumer reads intent, never hex. Dark is the shipped base; light arrives through `data-theme="light"` and the system-preference media query.
 
 - Elevation: `--bg` `--surface` `--raised` `--raised-2` `--overlay` — each step perceptibly lighter than the one below, so depth is carried by tone; `--line`/`--line-strong` are white-alpha hairlines that read at every elevation.
-- Text: `--text` `--text-muted` `--text-faint` — `--text-muted` is contrast-guaranteed legal body copy; `--text-faint` carries only labels and never sentences.
+- Text: `--text` `--text-muted` `--text-faint` — `--text-muted` is contrast-guaranteed legal body copy; `--text-faint` is legal only for pure decoration at 13px and above (grip dots, disabled controls, filter-dimmed de-emphasis). Any label carrying real information at 12px or below binds `--text-muted`, never `--text-faint` — at 11px on `--raised`, faint sits near 3.4:1 and fails the text floor.
 - Violet (`--accent` family): the interactive role — buttons, links, focus, selection, toggles, meters.
 - Copper (`--editorial` family): the editorial role — eyebrows, section numerals, keyline callouts, figure captions.
 - Status: `--ok` `--warn` `--fail` `--info` — chips, verdicts, rails; hue reinforces, the bracket marker carries state.
 - Series: `--series-1`..`--series-6` — chart marks only; a dataviz skill, when present, owns their assignment.
 - Space: `--s1`..`--s8` (4/8/12/16/24/32/48/64) — every gap, pad, and margin rides a token.
-- Type: `--fs-2xs`..`--fs-4xl` on a 1.20 modular scale; `--font-display` serif for titles and stat numerals, `--font-sans` body, `--font-mono` labels, chips, data, code.
+- Type: `--fs-2xs`..`--fs-4xl` on a 1.20 modular scale. Mono is the systemic voice — every numeral, stat figure, label, tag, chip, keycap, data cell, stamp, and code span rides `--font-mono`; serif (`--font-display`) is a restrained editorial accent spent only on `h1`/`h2` and an optional deck lead, and `--font-sans` carries sentences and nothing else.
 - Motion: `--dur-1/2/3` with `--ease-out` `--ease-standard` `--ease-spring`; reduced-motion zeroes every duration.
 - Shape: `--r-1/2/3` `--r-full` `--shadow-1/2` `--measure`.
 
@@ -38,7 +38,7 @@ The baseline declares the layer order and populates `reset`, `tokens`, `base`, `
 
 ```html copy-safe
 <style>
-/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; overrides ride the later template-local layers */
 @layer reset,tokens,base,components,utilities,print,overrides;
 @layer reset{
 *,*::before,*::after{box-sizing:border-box}
@@ -63,9 +63,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
   --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
   --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
-  --font-display:ui-serif,Georgia,'Times New Roman',serif;
-  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --font-display:ui-serif,Georgia,'Iowan Old Style','Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  --font-mono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,'Cascadia Mono','Segoe UI Mono',Consolas,'Liberation Mono',monospace;
   --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
   --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
@@ -127,13 +127,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec}
 .section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
-.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
 .chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
 .chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
 .chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
 .chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
 .stat{display:grid;gap:var(--s1)}
-.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
 .stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
 .kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
@@ -152,7 +152,7 @@ button,select,input,textarea{font:inherit;color:inherit}
 .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
 table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
 th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
-th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
@@ -178,7 +178,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 @media print{
   :root{
     color-scheme:light;
-    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --bg:oklch(1 0 0);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);--raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
     --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
     --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
     --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
@@ -212,7 +212,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 - `.card` — one lifted concern block on `--raised` with hairline and shadow.
 - `.grid` — responsive `auto-fit` columns for direction sets and swimlanes.
 - `.chip` — uppercase mono status token carrying bracket text; add `ok`/`warn`/`fail`/`info`.
-- `.stat` — serif display numeral with an optional `.delta.up`/`.delta.down` trend pill.
+- `.stat` — mono display numeral at weight 600 with an optional `.delta.up`/`.delta.down` trend pill.
 - `.rail` — 3px keyline callout; copper by default, status hue by class.
 - `.toc` — sticky in-page nav; `.on` marks the active section, stamped by an `IntersectionObserver`.
 - `.meter` — violet gradient fill; `.meter.seg` stacks `ok`/`warn`/`fail` segments for pass/fail/skip.
@@ -220,7 +220,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 - `.export-bar` — sticky bottom egress: copy-markdown, download-JSON, and the send-to-agent action when the return channel is live.
 - `.twrap` `.kbd` `.num` `pre`/`code` — wide-content shell, keycap, tabular numerals, code surfaces.
 
-A heatmap cell derives its fill in place: `background:color-mix(in oklch, var(--surface), var(--accent) calc(var(--score)/var(--max)*70%))` — score intensity reads at a glance and the winning row takes an `--ok` rail, never whole-row opacity.
+Derived structural devices — the heat cell, timeline spine, split pane, sidenote — live in [styling.md](styling.md) with their recipes and ceilings; the baseline owns only the classes above.
 
 ## [05]-[THEME]
 
@@ -229,3 +229,27 @@ The base `:root` is NOCTURNE dark; the light palette arrives through `@media (pr
 ## [06]-[CHARTS_AND_FIGURES]
 
 Charts and diagrams are inline `<svg>` only — no canvas, no image, no library. Every stroke and fill reads a token through CSS classes (`--accent`, `--ok`, `--line`, `--series-*`); wide plots ride `.twrap`. Chart mark and palette decisions defer to a dataviz skill when the host exposes one; diagram construction law — markers, flows, node interaction, standalone export — is [svg.md](svg.md).
+
+## [07]-[MICRO_SCALE]
+
+Quality lives at the per-element level: every text class carries an exact size, weight, and floor, and any element rendering below its floor is a defect regardless of how the system reads at a glance.
+
+| [INDEX] | [CLASS]                                       | [TOKEN]      | [FAMILY_WEIGHT]         | [FLOOR] |
+| :-----: | :-------------------------------------------- | :----------- | :---------------------- | :------ |
+|  [01]   | h1                                             | `--fs-3xl`   | serif 600               | 30px    |
+|  [02]   | h2                                             | `--fs-xl`    | serif 600               | 21px    |
+|  [03]   | h3                                             | `--fs-lg`    | sans 600                | 18px    |
+|  [04]   | deck / lead                                    | `--fs-lg`    | sans or serif 400       | 17px    |
+|  [05]   | stat numeral, KPI value                        | `--fs-2xl`   | mono 600, tabular       | 22px    |
+|  [06]   | body p, li                                     | `--fs-md`    | sans 400                | 15px    |
+|  [07]   | table cell                                     | `--fs-sm`    | sans 400 / mono for num | 13px    |
+|  [08]   | pre / code block                               | `--fs-xs`    | mono 400                | 12px    |
+|  [09]   | small / caption                                | `--fs-xs`    | sans 400                | 12px    |
+|  [10]   | svg canvas label                               | 11px literal | mono 400-500            | 11px    |
+|  [11]   | eyebrow, chip, th, kbd, delta, stamp, numeral  | `--fs-2xs`   | mono 600, uppercase     | 11px    |
+
+- `--fs-2xs` is the label floor and is legal only for uppercase mono at weight 600 with letter-spacing at or above `.04em` — never sentence text, never `--text-faint` ink.
+- Letter-spacing per role: eyebrow `.08em`, th and section numerals `.06em`, chips `.04em`; numerals track `-.01em` and always set `tabular-nums`.
+- Nothing on an SVG canvas renders below 11px; a value label that must dominate its axis binds `--text` at weight 600 while tick numerals stay `--text-muted`.
+- Elevation nesting: a chip, input, code block, or `th` sits one step DOWN from its host (`--surface` on `--raised`); a nested card steps UP to `--raised-2` — never `--raised` on `--raised`. A fill meeting a same-tone neighbor without a `--s4` gap steps its border to `--line-strong`; card-to-card separation is otherwise carried by the gap, since `--line` between equal elevations reads near 1.3:1 and vanishes.
+- An inline diagram sits on the page body or inside a container one elevation below its canvas; a diagram whose canvas tone is within one elevation step of its host card loses its edge and either the card steps down or the SVG takes a `--line-strong` frame.

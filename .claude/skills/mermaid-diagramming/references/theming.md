@@ -1,6 +1,6 @@
 # [THEMING]
 
-Dracula is the skill's theme system — every committed diagram opens `theme: base` and draws its colors from the Dracula token table below; ad-hoc hexes outside the table are a defect. Sections: [01] palette, [02] role map, [03] base block, [04] classDef and linkStyle, [05] dual host, [06] when theming drops.
+Dracula is the skill's theme system — every committed diagram opens `theme: base` and draws its colors from the Dracula token table below; ad-hoc hexes outside the table are a defect. Sections: [01] palette, [02] role map, [03] base block, [04] classDef and linkStyle, [05] micro scale, [06] dual host, [07] when theming drops.
 
 ## [01]-[PALETTE]
 
@@ -27,9 +27,9 @@ Every token carries its role on two surfaces at once: the `themeVariables` that 
 
 | [INDEX] | [TOKEN]    | [ROLE]                        | [THEME_CARRIERS]                                                                  | [CLASS_OR_RAIL]                              |
 | :-----: | :--------- | :---------------------------- | :-------------------------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | Background | canvas + bright-fill text     | `background`, `edgeLabelBackground`, bright-ordinal `*Label*`                      | `color:#282A36` on every bright class        |
+|  [01]   | Background | canvas + bright-fill text     | `background`, bright-ordinal `*Label*`                                             | `color:#282A36` on every bright class        |
 |  [02]   | Darker     | recessed / dormant / done     | `clusterBkg`, `tertiaryColor`, `doneTaskBkgColor`, `sectionBkgColor`               | `recessed` class                             |
-|  [03]   | Selection  | neutral node fill             | `mainBkg`, `primaryColor`, `actorBkg`, `taskBkgColor`, `noteBkgColor`              | `primary` fill                               |
+|  [03]   | Selection  | neutral fill + label backing  | `mainBkg`, `primaryColor`, `actorBkg`, `taskBkgColor`, `noteBkgColor`, `edgeLabelBackground`, `relationLabelBackground` | `primary` fill |
 |  [04]   | Comment    | secondary rail + muted stroke | `secondaryColor`, `clusterBorder`, `gridColor`, `activationBkgColor`, `git7`       | `annotation` stroke; dashed trace rail       |
 |  [05]   | Foreground | label text                    | every `*TextColor`, `textColor`, `titleColor`                                      | `color:#F8F8F2` on dark classes              |
 |  [06]   | Cyan       | external system / typed iface | `git2`, `pie2`, `cScale1`, `plotColorPalette`                                      | `external` class; external rail              |
@@ -52,7 +52,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
-    fontFamily: "monospace"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     background: "#282A36"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
@@ -71,7 +71,8 @@ config:
     textColor: "#F8F8F2"
     clusterBkg: "#21222C"
     clusterBorder: "#6272A4"
-    edgeLabelBackground: "#282A36"
+    edgeLabelBackground: "#44475A"
+    labelBackgroundColor: "#44475A"
     titleColor: "#F8F8F2"
     noteBkgColor: "#44475A"
     noteTextColor: "#F8F8F2"
@@ -89,7 +90,7 @@ config:
     requirementBorderColor: "#BD93F9"
     requirementTextColor: "#F8F8F2"
     relationColor: "#FF79C6"
-    relationLabelBackground: "#282A36"
+    relationLabelBackground: "#44475A"
     relationLabelColor: "#F8F8F2"
     attributeBackgroundColorOdd: "#282A36"
     attributeBackgroundColorEven: "#21222C"
@@ -203,7 +204,9 @@ config:
 
 - `theme: base` is the only theme accepting `themeVariables`; every unset variable derives from `primaryColor`, `background`, or `darkMode`, and a direct override always wins over a derived default.
 - `darkMode: true` flips the derived-color math toward the dark host.
-- `fontFamily: "monospace"` binds the corpus label face on every family that reads it; `fontSize` stays inert for gantt, ER, and flowchart — size adjustments ride the host or `themeCSS`, never that variable.
+- `fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"` is the ruled mono stack — every node, edge, cluster, actor, note, and section label is mono, resolving through Menlo on Apple and Cascadia Mono or Consolas on Windows; a bare `fontFamily: "monospace"` is a defect, and a hyphenated family token — `ui-monospace`, `SFMono-Regular` — makes the engine emit an empty declaration, silently falling back to the sans default.
+- `fontSize` stays inert for gantt, ER, and flowchart — per-class sizing rides `themeCSS` per [05], never that variable.
+- `edgeLabelBackground`, `relationLabelBackground`, and the state family's `labelBackgroundColor` carry Selection `#44475A`, one elevation above the canvas, so a label reads as a chip lifted off both the `#282A36` surface and any crossing stroke; a backing equal to `background` renders invisible, a backing left unset derives to near-black, and either collides labels with Pink strokes.
 - Bright tokens (Green, Cyan, Yellow, Orange) as fills take `#282A36` text, never `#F8F8F2`.
 - Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud.
 - Per-type nested objects `xyChart` and `radar` nest inside `themeVariables`, alongside any other type that admits a nested block.
@@ -214,13 +217,13 @@ config:
 
 Each surface owns one color job; ceding it to another is the defect, and every `classDef` sets an explicit `color:` to survive a host swap. Class names are free-form — an archetype names its own semantic classes — while every hex a class carries traces to the palette table.
 
-| [INDEX] | [SURFACE]        | [OWNS]                  |
-| :-----: | :--------------- | :---------------------- |
-|  [01]   | `themeVariables` | diagram-wide defaults   |
-|  [02]   | `classDef`       | semantic node classes   |
-|  [03]   | `linkStyle`      | per-edge semantic rails |
-|  [04]   | inline `style`   | one-off node exception  |
-|  [05]   | `themeCSS`       | renderer escape hatch   |
+| [INDEX] | [SURFACE]        | [OWNS]                                     |
+| :-----: | :--------------- | :----------------------------------------- |
+|  [01]   | `themeVariables` | diagram-wide defaults                      |
+|  [02]   | `classDef`       | semantic node classes, id-bound edge rails |
+|  [03]   | `linkStyle`      | positional per-edge semantic rails         |
+|  [04]   | inline `style`   | one-off node exception                     |
+|  [05]   | `themeCSS`       | renderer escape hatch                      |
 
 The canonical Dracula node classes — nine, one per role the role map binds:
 
@@ -236,20 +239,62 @@ classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
 classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
 ```
 
-`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. The six edge rails — every semantic edge takes its rail explicitly, and only a plain forward hop rides the default:
+`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. On an ER entity a bright class fill floods the attribute rows and collides with the banding, so ER role classes stroke-encode instead — an external registry rides `fill:#21222C,stroke:#8BE9FD,color:#8BE9FD`, the role carried by stroke and title ink on a recessed surface. The six edge rails — every semantic edge takes its rail explicitly, and only a plain forward hop rides the default:
 
 ```text
 linkStyle default stroke:#FF79C6,color:#F8F8F2
 linkStyle 1 stroke:#50FA7B,color:#F8F8F2
-linkStyle 2 stroke:#FF5555,color:#F8F8F2
+linkStyle 2 stroke:#FF5555,stroke-width:2px,color:#F8F8F2
 linkStyle 3 stroke:#8BE9FD,color:#F8F8F2
 linkStyle 4 stroke:#FFB86C,color:#F8F8F2
 linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-dasharray:4 3
 ```
 
-Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. `linkStyle` indices are 0-based parse positions: every edge insertion or deletion recounts every positional index in the fence before the diagram ships.
+Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color, and the fault rail alone carries `stroke-width:2px` so weight discriminates a fault hop from a primary hop; the engine derives each styled edge's arrowhead marker from its resolved stroke, so a Red rail terminates in a Red head with no extra key, and `arrowheadColor` governs only unstyled edges. A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`, where the id form survives the insertions that renumber every positional index; a fence past its edge budget or under ongoing edits prefers the id form. The canonical edge classes mirror the five non-default rails:
 
-## [05]-[DUAL_HOST]
+```text
+classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+classDef edgeError stroke:#FF5555,stroke-width:2px,color:#F8F8F2
+classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+classDef edgeData stroke:#FFB86C,color:#F8F8F2
+classDef edgeTrace stroke:#6272A4,color:#F8F8F2,stroke-dasharray:4 3
+```
+
+## [05]-[MICRO_SCALE]
+
+Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every value is an exact stamp over the SVG-px scale; `[FLOOR]` is the absolute minimum, and nothing on a mermaid canvas renders below 12px — SVG text carries no hinting, so the floor sits above a hinted HTML equivalent.
+
+| [INDEX] | [CLASS]                    | [SELECTOR]               | [PX] | [WEIGHT]               | [FLOOR] |
+| :-----: | :------------------------- | :----------------------- | :--: | :--------------------- | :-----: |
+|  [01]   | node label                 | `.nodeLabel`             |  14  | 500                    |   13    |
+|  [02]   | actor label (sequence)     | `text.actor tspan`       |  14  | 600                    |   13    |
+|  [03]   | ER entity name             | `.name .nodeLabel`       |  14  | 600                    |   13    |
+|  [04]   | cluster / composite title  | `.cluster-label .nodeLabel` | 13 | 600, uppercase in text |   12    |
+|  [05]   | edge label                 | `.edgeLabel`             | 12.5 | 500                    |   12    |
+|  [06]   | message text (sequence)    | `.messageText`           | 12.5 | 500                    |   12    |
+|  [07]   | note text                  | `.noteText`              | 12.5 | 400                    |   12    |
+|  [08]   | ER attribute cell          | `.nodeLabel` under ER    |  12  | 400                    |   12    |
+|  [09]   | loop / group label         | `.loopText`, `.labelText` | 12  | 500                    |   11    |
+|  [10]   | section title (gantt)      | `.sectionTitle`          |  12  | 600                    |   11    |
+
+The canonical `themeCSS` strings — one per family, copied verbatim into the fence frontmatter:
+
+```text
+flowchart:  ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.edgePaths path{stroke-width:1.5px}"
++ clusters: ".cluster-label .nodeLabel{font-size:13px;font-weight:600}.cluster rect{stroke-width:1.5px}"
+state:      ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.cluster-label .nodeLabel{font-size:13px;font-weight:600}.transition{stroke-width:1.5px}"
+sequence:   "text.actor tspan{font-size:14px;font-weight:600}.messageText{font-size:12.5px;font-weight:500}.noteText{font-size:12.5px}.loopText,.labelText{font-size:12px;font-weight:500}"
+er:         ".nodeLabel{font-size:12px}.name .nodeLabel{font-size:14px;font-weight:600}.edgeLabel .nodeLabel{font-size:12.5px;font-weight:500}.relationshipLine{stroke-width:1.5px}"
+```
+
+- `themeCSS` admits no `>` combinator: the sanitizer drops the entire injected block on the first `>`, silently reverting every rule in it — use the descendant space. A `classDef` emits `!important`, so a `themeCSS` rule targeting the same property on a classed node loses; the strings above target label typography and bare strokes, which no class carries.
+- The engine measures label boxes before `themeCSS` applies, so a `text-transform` clips its target — the uppercase cluster title rides the title text itself (`subgraph core[CORE PACKAGE]`), and any size stamped above the measured 16px default clips the same way; the stamps above only step down.
+- Stroke-weight law: `1.5px` is the standing edge weight, `2px` the fault and emphasis weight, and the two never coincide — weight alone discriminates a primary hop from a fault hop. Cluster borders and grid strokes step to `1.5px` so a Comment boundary reads as a containment edge, not a smudge; a hairline never renders heavier than the structural line beside it.
+- Dashed-rhythm law: `4 3` reads as trace and annotation, `6 3` as planned and deferred, solid as realized — one rhythm system across every diagram, matching the dotted-token and Comment-rail semantics.
+- Canvas law: flowchart fences carry `flowchart: { padding: 16 }` so no node or label touches the SVG edge; `subGraphTitleMargin` stays out of ELK diagrams — it displaces edge labels there.
+- Marker proportion: arrowhead length runs ≈6× stroke width and rides the renderer; it needs no stamp, only the weight law above so heads stay proportionate.
+
+## [06]-[DUAL_HOST]
 
 Node fills and their text travel inside the SVG, so Selection-filled nodes with Foreground text hold on any host. What breaks on a white host is ink drawn over the page — edge strokes, edge labels without a background, transparent-canvas text.
 
@@ -266,12 +311,13 @@ Node fills and their text travel inside the SVG, so Selection-filled nodes with 
 
 Red is the only accent passing non-text contrast on both hosts; Comment passes normal text on white and only large-text and non-text duty on dark; every other accent is dark-host-only ink.
 
-- A diagram whose host is unknown keeps `edgeLabelBackground: "#282A36"` and dark node fills, so labels ride their own surface.
+- A diagram whose host is unknown keeps `edgeLabelBackground: "#44475A"` and dark node fills, so labels ride their own lifted surface on any page.
+- On a dark host page the `#282A36` canvas reads as a raised panel — inline the SVG on the page body; a container whose fill sits within one elevation step of the canvas erases the diagram edge, so the container steps down a level or frames the SVG with a visible border.
 - Pink primary-flow strokes are the standing default; a white-host commitment downgrades line ink to Comment `#6272A4`, the one dual-host line token besides Red.
 - A genuinely light-host corpus themes from Alucard, the official light complement, instead of forcing Dracula accents onto white.
 
 Alucard carries the same role map on a light surface: Background `#FFFBEB`, Foreground `#1F1F1F`, Comment `#6C664B`, Selection `#CFCFDE`, Red `#CB3A2A`, Orange `#A34D14`, Yellow `#846E15`, Green `#14710A`, Cyan `#036A96`, Purple `#644AC9`, Pink `#A3144D`.
 
-## [06]-[WHEN_THEMING_DROPS]
+## [07]-[WHEN_THEMING_DROPS]
 
 Theming is omitted whole, never half-applied. Drop the theme block when the fence targets a host that injects its own mermaid theme, such as a docs site with a site-level `initialize`; when the type ignores `themeVariables`, such as packet; or when a diagram is a throwaway scratch artifact that never ships. A committed diagram in this repo is themed, or it carries the reason in its authoring context, not in the fence.

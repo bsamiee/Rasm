@@ -39,6 +39,7 @@ class Check(StrEnum):
     READ = "read"
     SELF_COUNT = "self-count"
     SETEXT_HEADING = "setext-heading"
+    TABLE_CELL = "table-cell"
     TABLE_HEADER = "table-header"
     TABLE_INDEX = "table-index"
     TABLE_SHAPE = "table-shape"
@@ -49,7 +50,8 @@ class Check(StrEnum):
 
 # --- [CONSTANTS] -------------------------------------------------------------------------
 
-CAP = 160
+CAP = 150
+CELL_BUDGET = 160
 LIST_CHAR_CAP = 500
 LIST_SENTENCE_CAP = 3
 ROSTER_SPAN_SHARE = 0.6
@@ -319,6 +321,12 @@ def table_rows(doc: Document) -> tuple[Row, ...]:
                 actual = body[0] if body else "<empty>"
                 if actual.strip() != expected:
                     rows.append(row(doc.path, table.line + index + 1, Check.TABLE_INDEX, "fail", f"{actual or '<empty>'} != {expected}"))
+        rows.extend(
+            row(doc.path, table.line + index + 1, Check.TABLE_CELL, "warn", f"prose-crammed cell ({len(cell)} chars); rows stay atomic, nuance moves to prose")
+            for index, body in enumerate(table.rows, 1)
+            for cell in body
+            if len(cell) > CELL_BUDGET
+        )
     return tuple(rows)
 
 

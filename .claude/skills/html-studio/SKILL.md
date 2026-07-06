@@ -14,7 +14,7 @@ description: >-
   Artifact tool's hosted fragments; mermaid fences belong to mermaid-diagramming.
 allowed-tools:
   - Bash(uv run ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py *)
-  - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py *)
+  - Bash(uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py *)
 ---
 
 # [HTML_STUDIO]
@@ -25,7 +25,7 @@ An HTML page trades a document that gets skimmed for one that gets read — spat
 
 1. Investigate and select against [references/method.md](references/method.md): name the decision the page moves, build the question inventory, bind every claim to an evidence object, and resolve the interactivity conflict before any layout thought.
 2. Pick the type in [02]; copy its template or compose its region spine from [references/artifact-types.md](references/artifact-types.md).
-3. Embed the NOCTURNE baseline verbatim from [references/design-system.md](references/design-system.md); layout grammar and structural devices come from [references/styling.md](references/styling.md); the interaction floor and motion grammar from [references/interaction.md](references/interaction.md); data modeling, embedding, and redaction from [references/state.md](references/state.md); inline SVG diagrams and figures from [references/svg.md](references/svg.md).
+3. Embed the NOCTURNE baseline verbatim from [references/design-system.md](references/design-system.md), then compose from the routed references: layout and devices [references/styling.md](references/styling.md), element generators [references/elements.md](references/elements.md), interaction and motion [references/interaction.md](references/interaction.md), state and redaction [references/state.md](references/state.md), inline SVG [references/svg.md](references/svg.md).
 4. Fill content answer-first; render the thing itself — real code, real controls, real data rows — never prose describing an unrendered surface.
 5. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the envelope, verdict vocabulary, stable item ids, dual export, and the return-channel probe.
 6. Gate: `uv run ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
@@ -89,12 +89,12 @@ Finished exemplars at the shipping bar are [examples/README.md](examples/README.
 
 An artifact whose value is the user's judgment — verdicts, scores, reorderings, edits — runs served, not just opened:
 
-1. `python3 ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py serve <artifact.html>` in the background; the banner prints `URL=`, `RECEIPTS=`, `STATE=`.
-2. Open the URL for the user. The served page carries the injected `artifact-return` meta; its export bar shows the primary send action.
-3. The user adjusts the page and sends; each submission appends one JSONL row to the receipts file.
-4. Read the receipts, act on the payload, then `artifact_server.py stop`.
+1. `uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py serve <artifact.html>` in the background; the banner prints `URL=`, `RECEIPTS=`, `STATE=` (`--output json` for one machine-readable object, `--ttl` to bound the run).
+2. Open the URL for the user. The served page carries the injected `artifact-return` and `artifact-token` metas; its export bar shows the primary send action, and the page returns the token as the `X-Artifact-Token` header.
+3. The user adjusts the page and sends; each accepted submission appends one tagged receipt row to the receipts JSONL beside lifecycle event rows.
+4. `artifact_server.py receipts <file> --last 1` is the canonical read; act on the payload, then `artifact_server.py stop`. `status` proves liveness; `self-test` proves the circuit end to end.
 
-Opened plain from disk the same artifact degrades to copy-markdown and JSON download; the envelope is identical on every path. Protocol detail is [references/roundtrip.md](references/roundtrip.md).
+Opened plain from disk the same artifact degrades to copy-markdown and JSON download; the canonical envelope is identical on every path and the served POST wraps it as `{kind, artifact, version, data}`. Protocol detail is [references/roundtrip.md](references/roundtrip.md).
 
 ## [05]-[LIFECYCLE]
 

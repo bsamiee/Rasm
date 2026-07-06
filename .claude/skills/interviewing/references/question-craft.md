@@ -10,6 +10,8 @@ A question earns its round only when all three hold:
 - Consequential: At least two options lead to materially different work. A question with one sane answer is a statement wearing a question mark — state it and move on.
 - Ranked: Among the undetermined and consequential, the question whose answer invalidates the most downstream decisions leads. Architecture outranks interface outranks wording, and the load-bearing question is asked first even when it is uncomfortable.
 
+The judgment classes rank the spend, highest blast first: an architecture fork (which stratum owns the capability, which owner splits or folds), a seam ruling (which side owns a cross-owner contract and what crosses it), a capability-bar ruling (which of a concept's arms are refused by design and which are gaps — absent consumers never lower the bar), an identity or data-shape ruling (key regime, schema, persistence semantics), then interface, then wording. Mechanical work — renames, moves, one-sane-form refactors — never spends a question unless it encodes one of these classes; it collapses below the decision surface as trusted execution.
+
 Open on low-burden ground the user knows well, then lead with each thread's root before any question inside its branches.
 
 ## [02]-[THREAD_DESIGN]
@@ -36,7 +38,7 @@ A thread degrades into one of the named failure shapes; each carries its detecti
 Answers are evidence only when anchored to specifics; the interviewer repairs a drifting conversation by changing the question, never by asking the user to be more accurate.
 
 - Ask about what happened, never about a hypothetical future: the most recent occurrence, the current workaround, what the problem cost, who was involved, what was tried and abandoned. A future-tense answer is optimism — record it as an assumption.
-- Anchor every generality: "usually", "always", "we tend to" converts to "walk me through the last time." The episode walk — what happened next, what was compared, what was eliminated, what changed the priority — yields the facts the generality hid.
+- Anchor every generality: `usually`, `always`, and `we tend to` convert to `walk me through the last time`. The episode walk — what happened next, what was compared, what was eliminated, what changed the priority — yields the facts the generality hid.
 - Mine ideas and feature requests for their motivation: the request enters the record as the constraint or pain that produced it, never as the feature itself.
 - Deflect agreement: a compliment, a "sounds right", or an answer mirroring the question's framing is re-anchored to a concrete instance before it becomes a ruling.
 - Capture the user's own vocabulary verbatim where it names a concept; replacing it with the interviewer's vocabulary erases the signal that a term meant something specific.
@@ -47,10 +49,11 @@ Answers are evidence only when anchored to specifics; the interviewer repairs a 
 Settled judgments get challenged by structure, not by tone; each protocol has its trigger.
 
 - [ASSUMPTIONS_CHECK] — Trigger: a design line treated as settled. Write the line, articulate its stated and unstated premises, and for each ask why it must be true, what makes it fail, and whether the judgment survives its failure. Only premises that must be true survive as assumptions; the rest convert to open questions.
-- [PROSPECTIVE_HINDSIGHT] — Trigger: a plan or direction about to seal. Declare the failure as already true — "this shipped and failed; what killed it" — and collect causes before any discussion of likelihood. Assuming the failure as fact is what makes the uncomfortable causes speakable; asking "what might go wrong" invites politeness instead.
+- [PROSPECTIVE_HINDSIGHT] — Trigger: a plan or direction about to seal. Declare the failure as already true — `this shipped and failed; what killed it` — and collect causes before any discussion of likelihood. Assuming the failure as fact is what makes the uncomfortable causes speakable; the softened `what could break` form invites politeness instead.
 - [DISCONFIRMATION] — Trigger: competing explanations or directions. Evaluate options by the evidence that is inconsistent with each, never by collecting support; the option that survives disconfirmation wins, and evidence consistent with every option decides nothing.
 - [INVERSION] — Trigger: a stated goal. Assume the goal is met and the outcome still counts as failure; the causes name the constraints the goal statement omitted.
 - [MARKED_ADVOCACY] — Trigger: one dominant view with no live alternative. Build the strongest contrary case — most vulnerable assumption, contrary evidence, neglected alternative — and mark it explicitly as the contrarian exercise so the record never confuses the challenge with the ruling.
+- [REFERENCE_CONFIRMATION] — Trigger: a ruling premising on a supplied reference — a port or an internalization. Build the semantics map first: the behavior inventory, each behavior marked preserved, changed, or dropped with deliberate changes argued separately, and the edge cases encoding the real contract as parity challenges. The map renders as a diff-review confirmed or corrected by numbered row; a correction re-opens its rows, and a port ruled without the map is an unmarked assumption.
 
 ## [05]-[INTERVIEWER_DISCIPLINE]
 
@@ -72,6 +75,7 @@ The interviewer's own agreement drift is a failure engine on par with the user's
 - The escape row is a state report, not an evasion: "outside my knowledge" and "needs investigation" are legitimate answers that route the question to the corpus or a delegation leg. Free-text "Other" is the valve for an option set that missed; a question expecting it was not ready to ask.
 - A batch stays narrow enough that every option is a real tradeoff; a survey-sized batch makes the user pick defaults. The stratum law owns batch independence and the thread-spanning budget.
 - When the user hesitates on an open question, convert it to a closed menu of concrete options with costs; hesitation signals the question outran the user's vocabulary, not their intent.
+- Serial compliance is the batch-level agreement trap: three consecutive answers taking the leading option without adding a fact indict the batch, not the user — rotate option order, withhold the `(Recommended)` marker, and re-anchor the last ruling to a concrete episode before the next stratum spends.
 
 ## [07]-[STARTING_POINT]
 

@@ -7,6 +7,7 @@ Draw a stateful owner: the resting modes it occupies and the guarded transitions
 config:
   look: neo
   theme: base
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.cluster-label .nodeLabel{font-size:13px;font-weight:600}.transition{stroke-width:1.5px}"
   themeVariables:
     darkMode: true
     background: "#282A36"
@@ -17,7 +18,9 @@ config:
     textColor: "#F8F8F2"
     tertiaryColor: "#21222C"
     tertiaryTextColor: "#F8F8F2"
-    fontFamily: "monospace"
+    edgeLabelBackground: "#44475A"
+    labelBackgroundColor: "#44475A"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
 ---
 stateDiagram-v2
     accTitle: Owner lifecycle
@@ -44,4 +47,4 @@ stateDiagram-v2
     class Idle,Paused,Draining recessed
 ```
 
-Refill by renaming the modes to the real owner's vocabulary and keep the invariants — disjoint guards per source state, one fault state with its recovery bound, exactly one terminal reached by every path, and a class on every resting state.
+Refill by renaming the modes to the real owner's vocabulary and keep the invariants — disjoint guards per source state, one fault state with its recovery bound, exactly one terminal reached by every path, and a class on every resting state. The frontmatter micro-scale `themeCSS` stamp and the ruled mono stack are fixed law — a refill renames modes, never strips the fidelity surface.

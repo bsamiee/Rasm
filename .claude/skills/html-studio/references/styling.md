@@ -28,15 +28,16 @@ The embedded design-system floor declares the layer order — `reset, tokens, ba
 
 The artifact class fixes the content column; `--measure` is overridden once in the template tokens layer and every centered shell reads it.
 
-| [INDEX] | [ARTIFACT_CLASS]                          | [MEASURE]          | [COLLAPSE]                          |
-| :-----: | :---------------------------------------- | :----------------- | :---------------------------------- |
-|  [01]   | reading — explainer, buy-in, quiz          | `760px`–`900px`    | single column throughout            |
-|  [02]   | operational — plan, report, diff-review    | `1040px`–`1120px`  | sidebar folds under `56rem`         |
-|  [03]   | board — editor, dashboard, wargame         | `1180px`–`1280px`  | four columns to two under `64rem`   |
-|  [04]   | stage — architecture, atlas, prototype     | full viewport      | stage scrolls inside itself         |
-|  [05]   | deck                                       | per-slide `100vw`  | inner content holds a reading width |
+| [INDEX] | [ARTIFACT_CLASS]                        | [MEASURE]         | [COLLAPSE]                          |
+| :-----: | :-------------------------------------- | :---------------- | :---------------------------------- |
+|  [01]   | reading — explainer, buy-in, quiz       | `760px`–`900px`   | single column throughout            |
+|  [02]   | operational — plan, report, diff-review | `1040px`–`1120px` | sidebar folds under `56rem`         |
+|  [03]   | board — editor, dashboard, wargame      | `1180px`–`1280px` | four columns to two under `64rem`   |
+|  [04]   | stage — architecture, atlas, prototype  | full viewport     | stage scrolls inside itself         |
+|  [05]   | deck                                    | per-slide `100vw` | inner content holds a reading width |
 
 - [ONE_MEASURE]: one `--measure` per artifact; a page mixing widths per section reads as three documents stapled together.
+- [CLASS_BY_SPINE]: the type lists are representative, not closed — a composed type adopts the class of the region spine it composes from, so a new artifact type lands as membership in an existing class, never a sixth width band.
 - [PAGE_PAD]: the shell pads `var(--s6) var(--s4) var(--s8)` — generous bottom padding so the last section never kisses the viewport edge; a deck and a stage pad per-region instead.
 - [COLLAPSE_BANDS]: breakpoints live at the container, not the viewport, wherever a container ancestor exists; the bands above are the only sanctioned widths, so two templates never fold at arbitrary neighboring values.
 
@@ -44,15 +45,15 @@ The artifact class fixes the content column; `--measure` is overridden once in t
 
 Grid owns page shells and two-dimensional rhythm, subgrid aligns nested internals, and flex packs one axis — every interior gap rides `gap`, never a margin.
 
-| [INDEX] | [RECIPE]        | [TRACKS]                                              | [FOLDS_TO]              |
-| :-----: | :-------------- | :---------------------------------------------------- | :----------------------- |
-|  [01]   | alternatives    | `repeat(3, minmax(0,1fr))`                             | one column under `56rem` |
-|  [02]   | stat band       | `repeat(4, minmax(0,1fr))`                             | two columns under `48rem`|
-|  [03]   | main + sidebar  | `minmax(0,1fr) minmax(15rem,18rem)`                    | one column under `56rem` |
-|  [04]   | board           | `repeat(4, minmax(0,1fr))`                             | two columns under `64rem`|
-|  [05]   | nav + main      | `minmax(11rem,13rem) minmax(0,1fr)`                    | nav hides under `48rem`  |
-|  [06]   | collection      | `repeat(auto-fit, minmax(min(100%,18rem),1fr))`        | intrinsic, no query      |
-|  [07]   | split pane      | `repeat(2, minmax(0,1fr))` with a shared header row    | stacked under `48rem`    |
+| [INDEX] | [RECIPE]       | [TRACKS]                                            | [FOLDS_TO]                |
+| :-----: | :------------- | :-------------------------------------------------- | :------------------------ |
+|  [01]   | alternatives   | `repeat(3, minmax(0,1fr))`                          | one column under `56rem`  |
+|  [02]   | stat band      | `repeat(4, minmax(0,1fr))`                          | two columns under `48rem` |
+|  [03]   | main + sidebar | `minmax(0,1fr) minmax(15rem,18rem)`                 | one column under `56rem`  |
+|  [04]   | board          | `repeat(4, minmax(0,1fr))`                          | two columns under `64rem` |
+|  [05]   | nav + main     | `minmax(11rem,13rem) minmax(0,1fr)`                 | nav hides under `48rem`   |
+|  [06]   | collection     | `repeat(auto-fit, minmax(min(100%,18rem),1fr))`     | intrinsic, no query       |
+|  [07]   | split pane     | `repeat(2, minmax(0,1fr))` with a shared header row | stacked under `48rem`     |
 
 ```css copy-safe
 @layer components {
@@ -94,22 +95,22 @@ Sticky elements keep orientation and controls in reach; each recipe owns one con
 
 The structural devices are the page's visual vocabulary; every template composes from this set, so four artifacts read as one system.
 
-| [INDEX] | [DEVICE]         | [COMPOSITION]                                                                          |
-| :-----: | :--------------- | :-------------------------------------------------------------------------------------- |
+| [INDEX] | [DEVICE]         | [COMPOSITION]                                                                            |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------------- |
 |  [01]   | header triad     | `.eyebrow` kicker, display `h1`, `.deck` line — every page opens with all three          |
 |  [02]   | section numerals | `.section` counter on `h2::before` — copper mono `01 02 03` where order is meaningful    |
 |  [03]   | prompt block     | the originating request in a `--surface` panel led by a mono `PROMPT` label              |
 |  [04]   | stat chip        | `.stat` serif numeral, mono caption, `.delta.up`/`.delta.down` trend pill                |
 |  [05]   | meter            | `.meter` violet gradient fill; `.meter.seg` stacks status segments for pass/fail/skip    |
 |  [06]   | keyline rail     | `.rail` callout — copper for editorial asides, status hue for verdicts and risk          |
-|  [07]   | heatmap cell     | fill intensity from the score — the recipe below                                        |
+|  [07]   | heatmap cell     | fill intensity from the score — the recipe below                                         |
 |  [08]   | timeline spine   | a vertical or horizontal rail of dot nodes; dot hue carries state, edges carry order     |
 |  [09]   | split pane       | before/after panels sharing one header row and one scroll shell                          |
 |  [10]   | sidenote         | margin annotation floated into the gutter, folding to block flow when the column narrows |
 
 ```css copy-safe
 @layer components {
-  .heat { background: color-mix(in oklch, var(--surface), var(--accent) calc(var(--score) / var(--max) * 70%)) }
+  .heat { background: color-mix(in oklch, var(--surface), var(--accent) calc(var(--score) / var(--max) * 60%)) }
   .timeline { display: grid; grid-template-columns: max-content 1fr; gap: var(--s2) var(--s4) }
   .timeline .dot { inline-size: 10px; block-size: 10px; border-radius: 50%; background: var(--text-faint); margin-block-start: .45em }
   .timeline .dot.done { background: var(--ok) } .timeline .dot.active { background: var(--accent) } .timeline .dot.blocked { background: var(--fail) }
@@ -119,9 +120,14 @@ The structural devices are the page's visual vocabulary; every template composes
 ```
 
 - [DEPTH_BY_TONE]: the elevation ladder carries depth — a card is visibly lighter than the page and a popover lighter than a card; a hairline accompanies tone and never substitutes for it.
+- [GAP_SEPARATES]: card-to-card separation is carried by the `--s4` gap, and a same-elevation abutment steps its border to `--line-strong` — the elevation-nesting law is design-system [07].
 - [NO_OPACITY_DIM]: a de-emphasized row keeps legible text — `--text-faint` labels, a `--fail` rail, or a strike on the leading cell; whole-row `opacity` drops content below contrast and is banned.
 - [WINNER_MARKED]: in any scored surface the winning row carries an `--ok` rail and the disqualified row a `--fail` rail with its reason inline — verdicts are structural, never a tint rumor.
+- [HEAT_CEILING]: heat intensity tops at 60% toward `--accent` so cell text holds 4.5:1 at full score; the winner still signals through its rail, never fill alone.
 - [ACCENT_COMMITTED]: violet appears as a filled field somewhere above the fold — the primary action, the active tab, the meter — so the accent is a commitment, not a rumor; copper never fills a control.
+- [DASH_RHYTHM]: one dashed vocabulary across HTML borders and SVG strokes — `4 3` reads as annotation or trace, `6 3` as planned or not-yet, solid as realized; a third rhythm is a defect. A `stroke-dasharray` equal to its path length driving a draw-on `stroke-dashoffset` animation renders solid and sits outside the vocabulary, as does the animated `6 4` flow-edge dash in [svg.md](svg.md).
+- [MARKER_SCALE]: markers size by role — micro status dot 8px, small marker 10px, node and timeline dot 16px with a 2px border; a hollow marker over tinted fill binds `--text-muted` with a 1px `--bg` outline so it reads at any intensity.
+- [HAIRLINE_ORDER]: hairline dividers and card top-highlights ride 1px `--line`; structural dividers and same-elevation borders ride 1px `--line-strong`; chart gridlines ride `--line` with the zero baseline stepped to `--line-strong` — a hairline never outweighs the structural line beside it.
 
 ## [06]-[STATE_SYSTEM]
 
@@ -226,12 +232,12 @@ The modular scale is fixed; fluidity lives in exactly one token — `--fs-4xl`, 
 
 The floor ships three durations and three easings and zeroes every duration under reduced motion — a transition reading `--dur-1/2/3` collapses to instant for the reduced-motion reader with no per-rule guard.
 
-| [INDEX] | [MOVE]                          | [TOKENS]                          |
-| :-----: | :------------------------------ | :--------------------------------- |
-|  [01]   | tint, color, border             | `--dur-1` + `--ease-standard`      |
-|  [02]   | lift, reveal, disclosure        | `--dur-2` + `--ease-out`           |
-|  [03]   | overlay, panel slide            | `--dur-3` + `--ease-out`           |
-|  [04]   | micro-celebration               | `--ease-spring`, one element, once |
+| [INDEX] | [MOVE]                   | [TOKENS]                           |
+| :-----: | :----------------------- | :--------------------------------- |
+|  [01]   | tint, color, border      | `--dur-1` + `--ease-standard`      |
+|  [02]   | lift, reveal, disclosure | `--dur-2` + `--ease-out`           |
+|  [03]   | overlay, panel slide     | `--dur-3` + `--ease-out`           |
+|  [04]   | micro-celebration        | `--ease-spring`, one element, once |
 
 ```css copy-safe
 @layer components {

@@ -8,6 +8,9 @@ config:
   layout: elk
   look: neo
   theme: base
+  flowchart:
+    padding: 16
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.cluster-label .nodeLabel{font-size:13px;font-weight:600}.cluster rect{stroke-width:1.5px}.edgePaths path{stroke-width:1.5px}"
   themeVariables:
     darkMode: true
     background: "#282A36"
@@ -18,23 +21,23 @@ config:
     textColor: "#F8F8F2"
     clusterBkg: "#21222C"
     clusterBorder: "#6272A4"
-    edgeLabelBackground: "#282A36"
+    edgeLabelBackground: "#44475A"
     titleColor: "#F8F8F2"
-    fontFamily: "monospace"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
 ---
 flowchart TB
     accTitle: Stratum dependency law
     accDescr: Four stacked strata with downward-only dependency edges, one dashed legal skip edge, and one forbidden upward edge styled red and marked prohibited.
-    subgraph L4[App]
+    subgraph L4[APP]
         App[App]
     end
-    subgraph L3[Host boundary]
+    subgraph L3[HOST BOUNDARY]
         Host[Host]
     end
-    subgraph L2[Platform]
+    subgraph L2[PLATFORM]
         Platform[Platform]
     end
-    subgraph L1[Kernel]
+    subgraph L1[KERNEL]
         Kernel[Kernel]
     end
     App --> Host
@@ -42,8 +45,8 @@ flowchart TB
     Platform --> Kernel
     App -.->|legal skip| Platform
     Kernel -->|"forbidden: upward dep"| App
-    linkStyle 3 stroke:#6272A4
-    linkStyle 4 stroke:#FF5555,stroke-width:2px,color:#FF5555
+    linkStyle 3 stroke:#6272A4,color:#F8F8F2
+    linkStyle 4 stroke:#FF5555,stroke-width:2px,color:#F8F8F2
     classDef stratumApp fill:#BD93F9,stroke:#BD93F9,color:#282A36
     classDef stratumHost fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
     classDef stratumPlatform fill:#FFB86C,stroke:#FFB86C,color:#282A36
@@ -54,4 +57,4 @@ flowchart TB
     class Kernel boundary
 ```
 
-Refill by renaming strata to the real layer roster, keep edges downward with at most one demonstrative skip on the Comment rail, keep the single forbidden edge red, and keep one distinct ordinal fill per stratum — every `linkStyle` index is the edge's declaration position, so recount after any edge insertion.
+Refill by renaming strata to the real layer roster, keep edges downward with at most one demonstrative skip on the Comment rail, keep the single forbidden edge red, and keep one distinct ordinal fill per stratum — the ordinal `stratum*` classes are this archetype's stated exception to the canonical-class floor, so the validator's class warns are the accepted receipt — every `linkStyle` index is the edge's declaration position, so recount after any edge insertion. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#44475A` edge-label backing are fixed law — a refill renames content, never strips the fidelity surface.

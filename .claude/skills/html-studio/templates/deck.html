@@ -6,7 +6,7 @@
 <!-- replace: page title -->
 <title>Deck: Collapsing the Shape Surface</title>
 <style>
-/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; overrides ride the later template-local layers */
 @layer reset,tokens,base,components,utilities,print,overrides;
 @layer reset{
 *,*::before,*::after{box-sizing:border-box}
@@ -31,9 +31,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
   --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
   --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
-  --font-display:ui-serif,Georgia,'Times New Roman',serif;
-  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --font-display:ui-serif,Georgia,'Iowan Old Style','Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  --font-mono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,'Cascadia Mono','Segoe UI Mono',Consolas,'Liberation Mono',monospace;
   --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
   --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
@@ -95,13 +95,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec}
 .section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
-.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
 .chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
 .chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
 .chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
 .chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
 .stat{display:grid;gap:var(--s1)}
-.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
 .stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
 .kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
@@ -120,7 +120,7 @@ button,select,input,textarea{font:inherit;color:inherit}
 .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
 table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
 th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
-th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
@@ -170,7 +170,7 @@ details[open]>summary::before{transform:rotate(90deg)}
   :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
 }
 }
-/* --- [DECK_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
 @layer tokens{
   :root{--barh:52px;--slide-lead:clamp(2.2rem,1.4rem + 4.5vw,4rem)}
 }
@@ -181,8 +181,8 @@ details[open]>summary::before{transform:rotate(90deg)}
   .deckbar{position:fixed;inset:0 0 auto 0;z-index:5;display:flex;align-items:center;gap:var(--s3);justify-content:space-between;block-size:var(--barh);padding:0 var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-strong)}
   .deckbar__title{display:flex;align-items:center;gap:var(--s2);min-inline-size:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)}
   .controls{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
-  .controls .btn{font-size:var(--fs-2xs);padding:var(--s1) var(--s3)}
-  #counter{min-width:5ch;text-align:center;color:var(--text-muted);font-family:var(--font-mono);font-size:var(--fs-2xs)}
+  .controls .btn{font-size:var(--fs-xs);padding:var(--s1) var(--s3)}
+  #counter{min-width:5ch;text-align:center;color:var(--text-muted);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em}
   .progress{position:fixed;top:var(--barh);left:0;z-index:5;block-size:2px;inline-size:0;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:inline-size var(--dur-2) var(--ease-standard)}
   .slide{min-block-size:100svh;scroll-snap-align:start;scroll-snap-stop:always;display:grid;align-content:center;justify-items:start;padding:calc(var(--barh) + var(--s5)) var(--s5) var(--s7);position:relative}
   .slide__inner{max-inline-size:min(52rem,92vw);margin-inline:auto;inline-size:100%}
@@ -197,7 +197,7 @@ details[open]>summary::before{transform:rotate(90deg)}
   .dwarn{margin:0 0 var(--s3)}
   .stat-row{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))}
   .slide[data-kind="decision"]{background:linear-gradient(135deg,var(--accent),var(--accent-active));color:var(--on-accent)}
-  .slide[data-kind="decision"] .slide__kicker{color:var(--on-accent);opacity:.75}
+  .slide[data-kind="decision"] .slide__kicker{color:color-mix(in oklch,var(--on-accent) 80%,transparent)}
   .slide[data-kind="decision"] .chip{color:var(--on-accent);border-color:color-mix(in oklch,var(--on-accent) 45%,transparent);background:color-mix(in oklch,var(--on-accent) 12%,transparent)}
   .slide[data-kind="decision"] .capture,.slide[data-kind="decision"] .speaker{color:var(--on-accent)}
   .slide[data-kind="decision"] input,.slide[data-kind="decision"] select,.slide[data-kind="decision"] textarea{color:var(--text)}
@@ -207,9 +207,9 @@ details[open]>summary::before{transform:rotate(90deg)}
   .capture textarea{inline-size:100%;resize:vertical}
   .speaker{margin-block-start:var(--s5);padding:var(--s3) var(--s4);border-inline-start:3px solid var(--editorial);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0;font-size:var(--fs-sm)}
   body[data-mode="present"] .speaker{display:none}
-  .helpline{position:fixed;inset:auto auto var(--s3) var(--s4);z-index:5;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+  .helpline{position:fixed;inset:auto auto var(--s3) var(--s4);z-index:5;font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
   #toast{position:fixed;inset:auto var(--s4) var(--s4) auto;margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2);color:var(--text)}
-  .export-bar textarea{flex:1 1 100%;min-height:5rem;font-family:var(--font-mono);font-size:var(--fs-2xs)}
+  .export-bar textarea{flex:1 1 100%;min-height:5rem;font-family:var(--font-mono);font-size:var(--fs-xs)}
   .export-bar{flex-wrap:wrap;scroll-snap-align:end}
 }
 @layer print{
@@ -261,6 +261,7 @@ const root = document.documentElement;
 const storedTheme = (() => { try { return localStorage.getItem(themeKey); } catch { return null; } })();
 if (storedTheme) root.dataset.theme = storedTheme;
 const returnMeta = document.querySelector('meta[name="artifact-return"]');
+const tokenMeta = document.querySelector('meta[name="artifact-token"]');
 
 // --- model -> derived state
 const model = JSON.parse($("#payload").textContent);
@@ -314,6 +315,7 @@ const slides = [...stage.querySelectorAll(".slide")];
 const counter = $("#counter"), progress = $("#progress");
 let index = 0;
 const paintPos = () => {
+  if (!slides.length) { counter.textContent = "0 / 0"; progress.style.inlineSize = "0%"; return; }
   counter.textContent = `${index + 1} / ${slides.length}`;
   progress.style.inlineSize = ((index + 1) / slides.length * 100) + "%";
 };
@@ -326,7 +328,7 @@ const spy = new IntersectionObserver(entries => {
   });
 }, { threshold: 0.6 });
 slides.forEach(s => spy.observe(s));
-const show = next => { const t = Math.max(0, Math.min(slides.length - 1, next)); slides[t].scrollIntoView({ behavior: "smooth" }); };
+const show = next => { if (!slides.length) return; const t = Math.max(0, Math.min(slides.length - 1, next)); slides[t].scrollIntoView({ behavior: "smooth" }); };
 const fromHash = () => { const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && n <= slides.length) slides[n - 1].scrollIntoView(); };
 fromHash(); paintPos();
 
@@ -371,7 +373,7 @@ const copyText = async text => {
   }
 };
 const sendToAgent = async env => {
-  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json", "X-Artifact-Token": tokenMeta?.content ?? "" }, body: JSON.stringify({ kind: env.kind, artifact: env.artifact.id, version: env.version, data: env }) });
   if (!res.ok) throw new Error("submit " + res.status);
   return res.json();
 };

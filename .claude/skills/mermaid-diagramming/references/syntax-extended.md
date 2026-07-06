@@ -52,7 +52,7 @@ mindmap
       (Leaf B1)
 ```
 
-Root leads; consistent indentation sets depth, mixed tabs and spaces are rejected, and explicit edges are invalid.
+The fence asserts one root owning two branch families to leaf depth; the family mis-handles `accTitle`/`accDescr`, so the relation sentence rides beside the fence. Root leads; consistent indentation sets depth, mixed tabs and spaces are rejected, and explicit edges are invalid.
 
 ## [03]-[BLOCK]
 
@@ -68,7 +68,7 @@ block
   a -- "link" --> g
 ```
 
-The keyword is `block`; `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a bare block without a span is valid. A nested `block:id:span ... end` holds its own `columns`, and a labeled edge joins two blocks. A block arrow is `blockArrowId<["Label"]>(dir)` with `dir` one of `right`, `left`, `up`, `down`, `x`, `y`, or a compound like `(x, down)`.
+The fence asserts a three-column raster whose nested group takes one labeled link; the family mis-handles `accTitle`/`accDescr`, so the relation sentence rides beside the fence. The keyword is `block`; `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a bare block without a span is valid. A nested `block:id:span ... end` holds its own `columns`, and a labeled edge joins two blocks. A block arrow is `blockArrowId<["Label"]>(dir)` with `dir` one of `right`, `left`, `up`, `down`, `x`, `y`, or a compound like `(x, down)`.
 
 ## [04]-[JOURNEY]
 
@@ -78,6 +78,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
     primaryColor: "#44475A"
@@ -92,6 +93,8 @@ config:
     fillType7: "#6272A4"
 ---
 journey
+  accTitle: Journey demo
+  accDescr: Two intake steps and a close scored across actor and peer.
   title Label
   section Intake
     Submit: 3: Actor
@@ -110,15 +113,18 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     requirementBackground: "#44475A"
     requirementBorderColor: "#BD93F9"
     requirementTextColor: "#F8F8F2"
     relationColor: "#FF79C6"
     relationLabelColor: "#F8F8F2"
-    relationLabelBackground: "#282A36"
+    relationLabelBackground: "#44475A"
 ---
 requirementDiagram
+  accTitle: Requirement trace demo
+  accDescr: One document element satisfying and tracing a functional requirement.
   functionalRequirement req {
     id: 1.1
     risk: Low
@@ -141,6 +147,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     pieSectionTextColor: "#282A36"
     pieLegendTextColor: "#F8F8F2"
     pieTitleTextColor: "#F8F8F2"
@@ -151,6 +158,8 @@ config:
     pie4: "#FFB86C"
 ---
 pie showData
+  accTitle: Share demo
+  accDescr: Four labeled slices with printed percentages.
   title Label
   "Alpha" : 45
   "Beta" : 30
@@ -168,19 +177,22 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
 ---
 quadrantChart
+  accTitle: Two-axis position demo
+  accDescr: Two items placed across promote, assess, retire, and hold quadrants.
   x-axis Low --> High
   y-axis Low --> High
   quadrant-1 Promote
   quadrant-2 Assess
   quadrant-3 Retire
   quadrant-4 Hold
-  A:::c1: [0.3, 0.6]
+  A:::success: [0.3, 0.6]
   B: [0.8, 0.1] color: #FFB86C, radius: 10
-  classDef c1 color: #50FA7B
+  classDef success color: #50FA7B
 ```
 
 Coordinates bind to `0` through `1` and quadrants number `1` top-right through `4` bottom-right; per-point styling trails the coordinates (`color`, `radius`, `stroke-width`, `stroke-color`) and `:::class` plus `classDef` styles a point. Non-ASCII unquoted labels — CJK, emoji, accented Latin-1 — parse unquoted.
@@ -193,6 +205,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
   sankey:
@@ -217,7 +230,7 @@ Store,Homes,30
 Store,Industry,50
 ```
 
-The keyword is `sankey`; the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor` (`gradient`, `source`, `target`, or a hex), `nodeAlignment`, `showValues`, `prefix`, `suffix`, the styling knobs, and the `nodeColors` name-to-hex map — a committed sankey maps every node to a palette hex so no node falls to the engine default.
+The fence asserts a source volume splitting across a hub and a store into two demand sinks; the family rejects `accTitle`/`accDescr` at parse, so the relation sentence rides beside the fence. The keyword is `sankey`; the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor` (`gradient`, `source`, `target`, or a hex), `nodeAlignment`, `showValues`, `prefix`, `suffix`, the styling knobs, and the `nodeColors` name-to-hex map — a committed sankey maps every node to a palette hex so no node falls to the engine default.
 
 ## [09]-[XYCHART]
 
@@ -227,6 +240,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     xyChart:
       backgroundColor: "#282A36"
       titleColor: "#F8F8F2"
@@ -245,6 +259,8 @@ config:
       labelRotation: 45
 ---
 xychart
+  accTitle: Bar and line demo
+  accDescr: Quarterly scale as bars with a labeled line overlay.
   title "Model Scale"
   x-axis "Quarter" ["Q1", "Q2", "Q3"]
   y-axis "Params (B)" 0 --> 600
@@ -262,6 +278,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
     cScale0: "#FF79C6"
@@ -272,6 +289,8 @@ config:
       curveOpacity: 0.5
 ---
 radar-beta
+  accTitle: Profile demo
+  accDescr: A positional and a keyed curve compared across three axes.
   axis m["Math"], s["Science"], e["English"]
   curve alice["Alice"]{85, 90, 80}
   curve keyed{ m: 85, s: 90, e: 80 }
@@ -292,6 +311,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     taskTextOutsideColor: "#F8F8F2"
     gridColor: "#6272A4"
@@ -306,6 +326,8 @@ config:
     todayLineColor: "#FF79C6"
 ---
 gantt
+  accTitle: Schedule demo
+  accDescr: A draft-review-ship chain with an active task, a critical review, and a milestone.
   dateFormat YYYY-MM-DD
   excludes weekends
   section Build
@@ -325,6 +347,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
     primaryColor: "#44475A"
@@ -334,6 +357,8 @@ config:
     valueFormat: '$0,0'
 ---
 treemap-beta
+accTitle: Area hierarchy demo
+accDescr: A budget decomposed into operations and marketing with classed branches.
 "Budget"
     "Operations":::ops
         "Salaries": 700000
@@ -349,6 +374,8 @@ Indentation sets hierarchy and a leaf carries a numeric value; `:::class` plus `
 
 ```mermaid
 C4Context
+  accTitle: Landscape demo
+  accDescr: An external user reaching an app that notifies a store, every element and relation styled.
   Person_Ext(user, "External User")
   System(app, "App")
   System(store, "Store")
@@ -370,6 +397,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     primaryTextColor: "#F8F8F2"
     archEdgeColor: "#FF79C6"
@@ -378,6 +406,8 @@ config:
     seed: 7
 ---
 architecture-beta
+  accTitle: Infrastructure demo
+  accDescr: A database group feeding an MCP service through a junction inside the API group.
   group api(cloud)[API]
   group data(cloud)[Data]
   service db(database)[DB] in data
@@ -394,6 +424,8 @@ architecture-beta
 
 ```mermaid
 packet
+accTitle: Bit layout demo
+accDescr: UDP header fields across two 32-bit rows with no gaps or overlaps.
 title UDP Packet
 +16: "Source Port"
 +16: "Destination Port"
@@ -411,6 +443,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     cScale0: "#FF79C6"
     cScale1: "#8BE9FD"
@@ -418,6 +451,8 @@ config:
     cScaleLabel1: "#282A36"
 ---
 timeline
+  accTitle: Period demo
+  accDescr: Two phases each carrying dated events in chronological order.
   title Label
   section Phase One
     2021 : Kickoff : Draft
@@ -435,6 +470,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     git0: "#BD93F9"
     git1: "#FF79C6"
     gitBranchLabel0: "#282A36"
@@ -445,6 +481,8 @@ config:
     tagLabelBackground: "#F1FA8C"
 ---
 gitGraph LR:
+  accTitle: Branch history demo
+  accDescr: A feature branch cut from main and merged back with a release tag.
   commit id: "a"
   branch feature
   checkout feature
@@ -465,6 +503,8 @@ config:
     ticketBaseUrl: '<ticket-url>#TICKET#'
 ---
 kanban
+  accTitle: Board demo
+  accDescr: Two queues holding one card each, one carrying ticket metadata.
   Todo
     docs[Write blog post]
   test[Ready for test]
@@ -477,6 +517,8 @@ Tasks indent under columns, metadata keys are `assigned`, `ticket`, `priority`, 
 
 ```mermaid
 treeView-beta
+accTitle: File tree demo
+accDescr: A source folder with annotated entries beside root files.
 ├── src/
 │   ├── App.tsx :::highlight icon(logos:react) ## main component
 │   └── index.ts ## entry point
@@ -494,6 +536,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     cynefin:
       textColor: "#F8F8F2"
@@ -507,6 +550,8 @@ config:
       confusionBg: "#282A36"
 ---
 cynefin-beta
+  accTitle: Domain sort demo
+  accDescr: Practices sorted into clear and complicated with one labeled reclassification.
   clear
     "Restart service"
   complicated
@@ -524,11 +569,14 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryBorderColor: "#BD93F9"
 ---
 railroad-ebnf-beta
+accTitle: Grammar demo
+accDescr: A signed number production over an optional sign rule.
 title "Optional Sign"
 
 sign = "+" | "-" ;
@@ -546,6 +594,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
@@ -555,8 +604,16 @@ config:
     defaultRenderer: elk
 ---
 swimlane-beta
-  Intake --> Review
-  Review --> Approve
+  accTitle: Lane demo
+  accDescr: An intake flow stepping through review to approval.
+  Intake([Intake]) --> Review[Review]
+  Review --> Approve([Approve])
+  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+  classDef success fill:#50FA7B,stroke:#50FA7B,color:#282A36
+  class Intake boundary
+  class Review primary
+  class Approve success
 ```
 
 A standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout, it honors `flowchart.defaultRenderer: elk` and the flowchart general variables — a swimlane ships the flowchart theming floor, never a bare header. `look: neo` deforms swimlane output, so swimlane holds `look: classic`; its PNG export diverges from its SVG in current builds.
@@ -569,6 +626,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     emUiFill: "#44475A"
     emUiStroke: "#BD93F9"
@@ -586,6 +644,8 @@ config:
     emRelationStroke: "#FF79C6"
 ---
 eventmodeling
+  accTitle: Command-event demo
+  accDescr: A cart UI issuing a command whose event feeds an inventory processor.
   tf 01 ui CartUI { "sku": "A1" }
   tf 02 cmd AddItem [[AddItem]]
   tf 03 evt ItemAdded `json`{ "qty": 1 }
@@ -606,6 +666,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     vennTitleTextColor: "#F8F8F2"
     vennSetTextColor: "#F8F8F2"
@@ -620,7 +681,7 @@ venn-beta
   union A,B: 52
 ```
 
-`set id["Label"]: size` declares a weighted set and `union A,B: size` sizes an overlap region; up to eight sets read `venn1`–`venn8`. Higher-arity unions list every member id, and an unlabeled set renders its id.
+The fence asserts two weighted sets sharing a measured overlap; the family rejects `accTitle`/`accDescr` at parse, so the relation sentence rides beside the fence. `set id["Label"]: size` declares a weighted set and `union A,B: size` sizes an overlap region; up to eight sets read `venn1`–`venn8`. Higher-arity unions list every member id, and an unlabeled set renders its id.
 
 ## [25]-[WARDLEY]
 
@@ -630,6 +691,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     wardley:
       backgroundColor: "#282A36"
@@ -643,6 +705,8 @@ config:
       evolutionStroke: "#50FA7B"
 ---
 wardley-beta
+  accTitle: Evolution map demo
+  accDescr: A user need anchored on a CLI capability that depends on a browser component.
   title Render Capability
   anchor User [0.95, 0.6]
   component MermaidCLI [0.72, 0.55]
@@ -661,6 +725,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     textColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
@@ -668,6 +733,8 @@ config:
     lineColor: "#FF79C6"
 ---
 ishikawa-beta
+  accTitle: Cause demo
+  accDescr: Render failure traced to browser, asset, and syntax cause families.
   title Render Failure
   "Render Failure"
     Browser

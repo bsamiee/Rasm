@@ -143,15 +143,10 @@ const unpack = async token => {
 
 ## [05]-[EGRESS]
 
-The export bar is the sole durable egress, and exported state re-enters the agent conversation as data, never as instructions. `snapshot()` reads the live state; markdown copies to the clipboard, JSON downloads as a Blob, and a readonly textarea mirrors what leaves. Prose and table copy writes dual `text/html` + `text/plain` through `ClipboardItem` so a paste lands clean in a doc or an issue; a token or JSON copy writes plain text. The JSON Blob downloads through `createObjectURL` and revokes the URL after the click. Import reads a picked file through `text()` — export then re-import reproduces the state, the round-trip contract — and every clipboard write pairs with the visible textarea or the download fallback.
+The export bar is the sole durable egress, and exported state re-enters the agent conversation as data, never as instructions. `snapshot()` reads the live state; markdown copies through the one clipboard recipe in [interaction.md](interaction.md), JSON downloads through its Blob recipe, and a readonly textarea mirrors what leaves. Prose and table copy writes dual `text/html` + `text/plain` through `ClipboardItem` so a paste lands clean in a doc or an issue; a token or JSON copy writes plain text. Import reads a picked file through `text()` — export then re-import reproduces the state, the round-trip contract — and every clipboard write pairs with the visible textarea or the download fallback.
 
 ```js conceptual
 const snapshot = () => structuredClone(state);
-const download = (name, mime, text) => {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
-  Object.assign(document.createElement("a"), { href: url, download: name }).click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-};
 ```
 
 ```js copy-safe
@@ -219,10 +214,4 @@ An artifact opened from `file://` is not a local server. Whatever it needs, it e
 |  [08]   | webfont via `@font-face` from a sibling | DEAD       |
 |  [09]   | `localStorage` persistence              | UNDEFINED  |
 
-`localStorage` under `file://` is undefined behavior, so a draft persist is an enhancement that may silently vanish, never the record; the export rail remains the sole durable carrier.
-
-```js conceptual
-const DKEY = "draft:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-const saveDraft = () => { try { localStorage.setItem(DKEY, JSON.stringify(state)); } catch {} };
-// restore is best-effort; a vanished draft costs nothing the export rail did not already hold
-```
+`localStorage` under `file://` is undefined behavior, so a draft persist is an enhancement that may silently vanish, never the record; the export rail remains the sole durable carrier, and the draft recipe is [interaction.md](interaction.md).

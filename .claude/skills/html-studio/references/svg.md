@@ -6,28 +6,31 @@ Inline SVG is the artifact's pen: structural diagrams, flowcharts, topologies, a
 
 - One stable `viewBox` per SVG; the frame scales without script and the coordinate system never changes after authoring.
 - Arrowheads and terminals live as `<marker>` elements in `<defs>`, one marker id per edge class, each `fill` reading a CSS variable.
-- Every stroke and fill routes through a CSS class reading a token (`--line`, `--accent`, `--ok`, `--fail`, `--text-muted`); a hard-coded hex inside a themed SVG is a defect — the diagram flips with the page theme or it lies in one of them.
-- SVG `<text>` does not wrap: size each box from its label length, hold at least 40px between nodes, and back every edge label with a `--bg`-filled rect so crossing lines never strike through words. A genuinely long label rides `<foreignObject>`; a short one never does.
-- Inner node labels are mono at 11-12px; outer annotations are sans at 12px in `--text-muted`.
+- Every stroke and fill reads a token — through a CSS class or a `var(--token)` presentation value (`--line`, `--accent`, `--ok`, `--fail`, `--text-muted`); a hard-coded hex inside a themed SVG is a defect — the diagram flips with the page theme or it lies in one of them.
+- SVG `<text>` does not wrap: size each box from its label length and hold at least 40px between nodes. A genuinely long label rides `<foreignObject>`; a short one never does.
+- Every edge label takes a backing rect at `rx="4"` filled one elevation step off the diagram's canvas — `--surface` when the SVG sits on a `--raised` card, `--surface` or `--raised` on the page body — so the label lifts off both the canvas and any crossing stroke; a backing equal to the canvas tone masks strokes but reads as a hole, and no backing at all lets lines strike through words.
+- Nothing on the canvas renders below 11px: inner node labels are mono at 11-12px, node sublabels and edge labels mono at 11px, outer annotations sans at 12px in `--text-muted`. An information-bearing canvas label never binds `--text-faint`.
+- Arrowheads scale with their stroke — head length near 6x stroke width (a 9px head on a 1.5px edge, 12px on a 2px emphasis edge); marker geometry lives once in `<defs>` and the head reads as a terminal, never a smudge.
+- Dashed strokes follow the one rhythm vocabulary: `4 3` for annotation and trace edges, `6 3` for planned or future edges, solid for realized paths — matching the HTML dashed-border rhythms so both media read as one system.
 - A diagram past roughly twelve elements splits by zone or phase — two legible figures beat one spaghetti map, and calling out a genuinely tangled region beats hiding it.
 
 ## [02]-[EDGE_AND_NODE_SEMANTICS]
 
 Marks carry meaning by class, one vocabulary across every diagram in the artifact:
 
-| [INDEX] | [CLASS]     | [MARK]                          | [MEANS]                        |
-| :-----: | :---------- | :------------------------------ | :----------------------------- |
-|  [01]   | `edge`      | 1.5px solid `--line-strong`     | synchronous call or data flow  |
-|  [02]   | `edge.async`| 1.5px dashed                    | async, fallback, or cold path  |
-|  [03]   | `edge.hot`  | 2.5px solid `--accent`          | the hot or primary path        |
-|  [04]   | `edge.fail` | dashed `--fail`                 | failure or rejection route     |
-|  [05]   | `node`      | `--raised` fill, `--line-strong`| owner, service, process        |
-|  [06]   | `node.gate` | diamond path                    | decision or readiness gate     |
-|  [07]   | `node.store`| cylinder or `rx` tall rect      | durable store                  |
-|  [08]   | `node.ext`  | dashed border, `--info` stroke  | external system                |
-|  [09]   | `node.on`   | 2.5px `--accent` stroke         | selected or active node        |
+| [INDEX] | [CLASS]      | [MARK]                           | [MEANS]                       |
+| :-----: | :----------- | :------------------------------- | :---------------------------- |
+|  [01]   | `edge`       | 1.5px solid `--line-strong`      | synchronous call or data flow |
+|  [02]   | `edge.async` | 1.5px dashed `4 3`               | async, fallback, or cold path |
+|  [03]   | `edge.hot`   | 2.5px solid `--accent`           | the hot or primary path       |
+|  [04]   | `edge.fail`  | 2px dashed `4 3` `--fail`        | failure or rejection route    |
+|  [05]   | `node`       | `--raised` fill, `--line-strong` | owner, service, process       |
+|  [06]   | `node.gate`  | diamond path                     | decision or readiness gate    |
+|  [07]   | `node.store` | cylinder or `rx` tall rect       | durable store                 |
+|  [08]   | `node.ext`   | dashed `6 3`, `--info` stroke    | external system               |
+|  [09]   | `node.on`    | 2.5px `--accent` stroke          | selected or active node       |
 
-Zones group nodes as dashed-stroke rects with `--surface` fills and mono zone labels; status hues mark state on nodes (`--ok` healthy, `--warn` degraded, `--fail` down), reinforced by a text badge because hue never carries state alone.
+Zones group nodes as 1.5px dashed-`6 3` rects with `--surface` fills and mono zone labels; status hues mark state on nodes (`--ok` healthy, `--warn` degraded, `--fail` down), reinforced by a text badge because hue never carries state alone.
 
 ## [03]-[INTERACTIVE_DIAGRAM]
 

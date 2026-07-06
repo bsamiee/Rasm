@@ -18,16 +18,25 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     mainBkg: "#44475A"
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
 ---
 flowchart LR
+    accTitle: Flowchart metadata demo
+    accDescr: A row store extracted, normalized, and scored, exercising shape metadata, markdown labels, KaTeX, and an animated edge id.
     Store@{ shape: cyl, label: "Row store" } --> Extract@{ shape: lean-r, label: "Extract" }
     Extract --> Norm("`**normalize** rows`")
     Norm e1@--> Score["$$\sigma = \sqrt{Var}$$"]
     e1@{ animate: true }
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Extract,Norm primary
+    class Store data
+    class Score boundary
 ```
 
 `markdownAutoWrap: false` stops auto-wrap on markdown labels; edge labels take math as `|"$$\sqrt{x+3}$$"|`. `@{ label: "text" }` overrides the bracket text, and the `text` shape renders a borderless label-only node.
@@ -53,6 +62,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
     actorBkg: "#44475A"
@@ -64,6 +74,8 @@ config:
     messageTextColor: "#F8F8F2"
 ---
 sequenceDiagram
+    accTitle: Typed participant demo
+    accDescr: A boundary API querying a database and warming a created cache participant that is later destroyed.
     participant API@{ "type": "boundary", "alias": "Public API" }
     actor DB@{ "type": "database" } as User Database
     API->>+DB: query rows
@@ -93,12 +105,17 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     mainBkg: "#44475A"
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
+    edgeLabelBackground: "#44475A"
+    labelBackgroundColor: "#44475A"
 ---
 stateDiagram-v2
+    accTitle: Composite state demo
+    accDescr: A ready state routed through a choice into a composite running state with concurrent exec and watch regions.
     direction LR
     [*] --> Ready
     Ready --> Pick
@@ -131,13 +148,17 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     mainBkg: "#44475A"
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     classText: "#F8F8F2"
     textColor: "#F8F8F2"
+    edgeLabelBackground: "#44475A"
 ---
 classDiagram
+    accTitle: Namespace and generics demo
+    accDescr: A generic user service inside a namespace, consumed by a developer and exposed through a lollipop port.
     namespace Auth["Authentication Service"] {
         class UserService~T~ {
             +login() Result~T~
@@ -170,14 +191,18 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
     primaryColor: "#44475A"
     primaryBorderColor: "#BD93F9"
     relationColor: "#FF79C6"
     textColor: "#F8F8F2"
+    edgeLabelBackground: "#44475A"
     attributeBackgroundColorOdd: "#282A36"
     attributeBackgroundColorEven: "#21222C"
 ---
 erDiagram
+    accTitle: ER attribute grammar demo
+    accDescr: A person holding customer accounts, exercising nullable, array, compound-key, and escaped attribute names.
     direction LR
     p["Person"] {
         string driversLicense PK "license number"

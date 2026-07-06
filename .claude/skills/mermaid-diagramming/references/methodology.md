@@ -19,7 +19,37 @@ The pre-drawing procedure runs in order before the first shape.
 4. Trace one representative scenario, because runtime behavior exposes the real seams a file layout hides.
 5. Fix a canonical name vocabulary — external actors, internal elements, relation verbs, allowed abbreviations — before the first fence.
 
-## [03]-[NODE_LAW]
+Each archetype names the corpus evidence that seeds its inventory; a diagram drawn from memory instead of these traces fabricates its subject.
+
+| [INDEX] | [ARCHETYPE]   | [TRACE_BEFORE_DRAWING]                                                                                                      |
+| :-----: | :------------ | :--------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | spine         | the boot entrypoint and composition root — walk main from process start to shutdown, listing every owner touched in order and every call that can fault |
+|  [02]   | seam-graph    | cross-package imports and the declared seam ledger — every type that crosses the boundary, its direction, and the counterpart's mirror declaration |
+|  [03]   | logic-flow    | the dispatch surface — the match, table, or policy rows of the one entry point, its discriminant vocabulary, and where the arms re-merge |
+|  [04]   | lifecycle     | the state field — its bounded vocabulary, every write site as a transition candidate, every guard condition at each write     |
+|  [05]   | wire-sequence | protocol handlers on both sides of the wire — the request and response shapes, the timeout and fault arms, who initiates each step |
+|  [06]   | schema        | the DDL, migrations, or model declarations — real PK, FK, and unique constraints, never the ORM's intended usage              |
+|  [07]   | strata        | the manifest dependency edges — declared package references, the permitted direction law, and any recorded violation          |
+
+## [03]-[STAGED_GROWTH]
+
+A committed diagram is grown in rounds, never drawn at final size in one pass; naive size — the first seven boxes that come to mind — is the floor the rounds build past.
+
+1. Skeleton: the dominant rail alone at one abstraction level — entry, the load-bearing owners, the terminal. Every later mark subordinates to this rail.
+2. Interrogation rounds: each round asks one named reader question against the skeleton — where does this fault, what stores the fact, who sits outside the boundary, what selects the arm, what returns — and admits only the marks that answer it. A round that adds no mark closes the growth.
+3. Layering round: meaning that earns presence but not a node lands on the secondary vocabulary — edge labels, notes, annotation-classed side nodes on the Comment rail, subgraph membership, dashed traces — so density rises without new primary marks.
+4. Split check: growth stops the moment a round's question is a second question — that round becomes a new diagram sharing the same name vocabulary, not a larger canvas.
+
+The node-annotation-omission ladder rules every candidate mark:
+
+- NODE — it owns, receives, transforms, stores, decides, or transitions under the payload relation and carries at least one committed edge.
+- EDGE LABEL — it qualifies one relation with its verb, kind, or guard; it has no independent existence off that edge.
+- ANNOTATION — a reader decision needs it, but it holds no payload relation: a note, a brace comment, or an `annotation`-classed node on a dashed Comment trace.
+- OMISSION — its removal leaves the answer intact; the owning page's prose carries it, and the diagram does not.
+
+A massive subject stays one diagram only while every mark still serves the single question under hierarchy — composites, subgraphs, summarizing nodes; a needed legend, a second edge semantic, or a budget breach that aggregation cannot cure is the split, partitioned along the seam the reader already knows: phase, aggregate, package, or gate.
+
+## [04]-[NODE_LAW]
 
 - Every primary node holds the same abstraction level; a product beside a function makes edge semantics unknowable.
 - A concept reaches node status only when it owns, receives, transforms, stores, decides, or transitions under the payload relation.
@@ -28,7 +58,7 @@ The pre-drawing procedure runs in order before the first shape.
 - Names are canonical domain nouns found in source, glossary, or architecture record — never `manager`, `processor`, `handler`, `service`.
 - Omission test: a node whose removal leaves the answer intact is deleted.
 
-## [04]-[EDGE_LAW]
+## [05]-[EDGE_LAW]
 
 - One edge semantic carries the whole diagram.
 - Every edge holds a specific verb phrase matching its direction — `publishes events to`, `validates token with`, never `uses`.
@@ -38,7 +68,7 @@ The pre-drawing procedure runs in order before the first shape.
 - Structural edges never imply time; first, next, retry, and timeout route to a sequence or state diagram.
 - No edge skips an abstraction level — the intermediate owner joins the view or the whole view drops one level.
 
-## [05]-[VISUAL_ENCODING]
+## [06]-[VISUAL_ENCODING]
 
 Every visual channel is spent deliberately; a channel spent twice on one meaning, or once on two meanings, is a defect.
 
@@ -51,7 +81,7 @@ Every visual channel is spent deliberately; a channel spent twice on one meaning
 - Peers declare contiguously and flows declare in walk order — declaration order is the author's one lever over layout stability.
 - A diagram read by an agent keeps its source fence beside the render, names nodes uniquely, and states every relation as an explicit labeled edge — spatial implication is invisible to a machine reader.
 
-## [06]-[TYPE_SELECTION]
+## [07]-[TYPE_SELECTION]
 
 The question shape selects the declaration.
 
@@ -74,7 +104,7 @@ The question shape selects the declaration.
 - dependency drawn as sequence -> `flowchart`
 - quantity drawn as node-link -> chart
 
-## [07]-[SOUNDNESS]
+## [08]-[SOUNDNESS]
 
 Every committed diagram passes a mechanical audit; each finding blocks the fence.
 
@@ -87,7 +117,7 @@ Every committed diagram passes a mechanical audit; each finding blocks the fence
   - a legend explaining two taxonomies or two edge semantics
   - a diagram needing narration to supply its own title, scope, node types, or edge meaning
 
-## [08]-[COMPOSITION]
+## [09]-[COMPOSITION]
 
 - Zoom levels are separate diagrams for separate audiences, added only while a lower-level question stays unanswered.
 - A static and dynamic pair shares the exact element names, so the runtime view resolves against the structure view.
@@ -95,7 +125,7 @@ Every committed diagram passes a mechanical audit; each finding blocks the fence
 - A scenario traced across views is the cross-check that surfaces missing nodes, inconsistent names, and unsupported behavior.
 - A new diagram is admitted by a new question, never a new layout; the set is bounded by question coverage, not a fixed count.
 
-## [09]-[MAINTENANCE]
+## [10]-[MAINTENANCE]
 
 - Diagram source lives beside the truth it describes and diffs in review alongside the change that can invalidate it.
 - Every long-lived diagram names the surface that falsifies it — code path, contract, schema, or decision record.

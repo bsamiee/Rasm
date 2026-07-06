@@ -1,6 +1,6 @@
 # [ARTIFACT_CRAFT]
 
-A durable artifact seals a ruling for a future session to consult as law; an instance that hedges its ruling, seals a decision no thread forced, drops a reopen condition, collides two entries on one id, fakes a multi-tier fan, strands a finding with no landing surface, leaks a plan into a horizon, or asserts a gap by assumption fails the conformance gate or the cold read a year later. Each entry names one instance defect across the five durable kinds under the fixed Detection / Rejected / Accepted / Reason / Reframe card, grouped by the kind it strikes; the Rejected and Accepted bodies are schema-conformant fragments using each template's leader and field grammar.
+A durable artifact seals a ruling for a future session to consult as law; an instance that hedges its ruling, seals a decision no thread forced, drops a reopen condition, collides two entries on one id, fakes a multi-tier fan, strands a finding with no landing surface, leaks a plan into a horizon, asserts a gap by assumption, or lets its projection fence drift from its rows fails the conformance gate or the cold read a year later. Each entry names one instance defect across the five durable kinds under the fixed Detection / Rejected / Accepted / Reason / Reframe card, grouped by the kind it strikes; the Rejected and Accepted bodies are schema-conformant fragments using each template's leader and field grammar.
 
 ## [01]-[HEDGED_RULING]
 
@@ -158,102 +158,7 @@ A section mints the same `[<id>]` on two leaders — a collision that leaves the
 - Reason: An id is the record's addressable handle — minted once, it lets a later section, a fold-back, or a cross-artifact reference point at exactly one entry; a second mint of the same id inside one section is the mechanical tell the conformance gate rejects, resolving to neither entry, while the same token in a scoring or ruling section is the reference the gate admits.
 - Reframe: Mint each id once in its owning section and cite it by the same token from later sections; when two entries collide on an id, renumber the second at its mint, never at a reference.
 
-## [07]-[DATED_HORIZON]
-
-A roadmap horizon carries a dated task list — a plan leaking upward — where the schema demands an outcome and the condition that promotes it.
-
-- Detection: A horizon entry whose `Bet` or body sequences dated work — week one, then week two — instead of naming a change in behavior and how attainment is observed.
-- Rejected:
-  ```markdown rejected
-  - [01]: Ship the graph carrier
-    - Bet: Week 1 write the tagged union; week 2 wire the resolver; week 3 add the tests.
-  ```
-- Accepted:
-  ```markdown accepted
-  - [01]: Graph carrier type-checks under strict mode
-    - Why: The string union blocks every downstream graph consumer from strict typing.
-    - Bet: A tagged-union owner with a per-backend resolver.
-    - Measure: The carrier passes strict type-check and consumers drop their `Any` casts.
-    - Confidence: The carrier has one call site.
-  - [02]: The GPL backend leaves the default wheel
-    - Why: The default build ships a GPL surface it does not need.
-    - Bet: An optional build lane for the GPL backend.
-    - Measure: The default wheel excludes the GPL tag.
-    - Promote: A consumer names a GPL-only algorithm it depends on, or the license audit flags the default wheel.
-  ```
-- Reason: Horizons are confidence bands, not schedules; a dated task list belongs to the plan that its execution consumes, and lodging it in the roadmap freezes a sequence the roadmap has no authority to hold.
-- Reframe: State each entry as an outcome with its measure, move dated mechanics down to the plan, and give every `[NEXT]` entry a `Promote` condition that carries it into `[NOW]`.
-
-## [08]-[ANCHORLESS_FINDING]
-
-A blindspot finding records a feeling with no anchor, so a reader cannot verify it, size its blast radius, or fold it back into the owning task.
-
-- Detection: A finding whose `Anchor` is a vibe — "feels under-typed", "seems fragile" — with no path, no observed fact, and a consequence stated as a guess.
-- Rejected:
-  ```markdown rejected
-  - [01]-[APPROACH]-[OPEN]: The graph carrier feels under-typed
-    - Anchor: general impression from reading the page.
-    - Consequence: might cause problems later.
-  ```
-- Accepted:
-  ```markdown accepted
-  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
-    - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
-    - Consequence: Every consumer casts through `Any`, strict mode misses a wrong-backend call, and the GPL backend rides the default surface unmarked; the blast reaches every graph consumer.
-    - Fold-back: Retype `GraphCarrier` as a tagged union, confine the GPL tag to an optional lane, and drop the consumer `Any` casts.
-    - Route: The graph carrier owner.
-  ```
-- Reason: A finding earns entry by surviving on-disk verification — the anchor is the evidence and the blast radius is the rank; a vibe carries no order, no proof, and no landing surface.
-- Reframe: Re-open the candidate on disk, record the path and the observed fact as `Anchor`, size the blast in `Consequence`, and write the `Fold-back` as the copyable prompt that lands the fix.
-
-## [09]-[ORPHANED_FINDING]
-
-A blindspot finding proves its anchor and sizes its blast but carries no `Fold-back` — the copyable prompt that lands the fix — so the finding names a problem no task can pick up and the blindspot survives the pass that found it.
-
-- Detection: A finding with a verified `Anchor` and a sized `Consequence` and a named `Route` but no `Fold-back` — a diagnosis with no prescription, leaving the owner a problem restated instead of a change to make.
-- Rejected:
-  ```markdown rejected
-  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
-    - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
-    - Consequence: Every consumer casts through `Any`; the blast reaches every graph consumer.
-    - Route: The graph carrier owner.
-  ```
-- Accepted:
-  ```markdown accepted
-  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
-    - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
-    - Consequence: Every consumer casts through `Any`; the blast reaches every graph consumer.
-    - Fold-back: Retype `GraphCarrier` as a tagged union over the three backends, confine the GPL tag to an optional lane, and drop the consumer `Any` casts.
-    - Route: The graph carrier owner.
-  ```
-- Reason: A ledger exists to convert findings into work — the `Fold-back` is the carrier, the exact prompt the `Route` owner picks up verbatim; a finding with anchor and blast but no fold-back strands the fix, and the next pass re-discovers the same weakness from zero.
-- Reframe: Write the `Fold-back` as the change to make in the `Route` owner, not the problem restated; a finding that cannot yield one is not yet understood well enough to record, and drops back to a corpus check.
-
-## [10]-[UNCHECKED_GAPS]
-
-A capability entry asserts an empty `Gaps` field by assumption, claiming the surface is fully exploited without checking the admitted capability against the owner.
-
-- Detection: A `Gaps` of `none` on a capability whose owner demonstrably leaves admitted library surface unused, and a maturity marker inflated past the built reality.
-- Rejected:
-  ```markdown rejected
-  - [01]-[BUILT]: Impact assessment over element sets
-    - Owner: The impact domain owner.
-    - Edges: depends-on the element graph; consumed-by the assessment report.
-    - Importance: Serves the environmental-scoring direction.
-    - Gaps: none.
-  ```
-- Accepted:
-  ```markdown accepted
-  - [01]-[GENESIS]: Impact assessment over element sets
-    - Owner: The impact domain owner.
-    - Edges: depends-on the element graph; consumed-by the assessment report.
-    - Importance: Serves the environmental-scoring direction.
-    - Gaps: The admitted impact library owns an EC3 search stream and wide `MultiLCA` sweeps the owner gates behind an unnamed consumer; both are unexploited capability, so the surface is a thin slice, not a full owner.
-  ```
-- Reason: `Gaps` is the load-bearing field for elicitation — an empty gaps field asserts full exploitation, and that assertion gets checked against the admitted surface, never assumed; the same check corrects the maturity marker the empty field inflated.
-- Reframe: Sample the owner against the full attribute and capability space of its admitted dependencies, record every unexploited member as a gap, and set the maturity marker to the built reality the gap check reveals.
-
-## [11]-[MISCOVERED_WARGAME]
+## [07]-[MISCOVERED_WARGAME]
 
 A wargame section scores a set that drifted from its directions — a phantom row scoring a direction that never entered, an entered direction never scored — so the comparison decides on a roster the fan did not produce.
 
@@ -286,3 +191,197 @@ A wargame section scores a set that drifted from its directions — a phantom ro
   ```
 - Reason: The wargame is the direction set's own scoring, so its roster is the DIRECTIONS roster by construction — a phantom row smuggles in an unexamined option, and an unscored direction exits the comparison silently; the conformance gate rejects both drift directions.
 - Reframe: Score exactly the entered directions, one row per direction id in entry order, and let the sensitivity line reason only over rows the set carries.
+
+## [08]-[DATED_HORIZON]
+
+A roadmap horizon carries a dated task list — a plan leaking upward — where the schema demands an outcome and the condition that promotes it.
+
+- Detection: A horizon entry whose `Bet` or body sequences dated work — week one, then week two — instead of naming a change in behavior and how attainment is observed.
+- Rejected:
+  ```markdown rejected
+  - [01]: Ship the graph carrier
+    - Bet: Week 1 write the tagged union; week 2 wire the resolver; week 3 add the tests.
+  ```
+- Accepted:
+  ```markdown accepted
+  ## [01]-[NOW]
+
+  - [01]: Graph carrier type-checks under strict mode
+    - Why: The string union blocks every downstream graph consumer from strict typing.
+    - Bet: A tagged-union owner with a per-backend resolver.
+    - Measure: The carrier passes strict type-check and consumers drop their `Any` casts.
+    - Confidence: The carrier has one call site.
+
+  ## [02]-[NEXT]
+
+  - [02]: The GPL backend leaves the default wheel
+    - Why: The default build ships a GPL surface it does not need.
+    - Bet: An optional build lane for the GPL backend.
+    - Measure: The default wheel excludes the GPL tag.
+    - Promote: A consumer names a GPL-only algorithm it depends on, or the license audit flags the default wheel.
+  ```
+- Reason: Horizons are confidence bands, not schedules; a dated task list belongs to the plan that its execution consumes, and lodging it in the roadmap freezes a sequence the roadmap has no authority to hold.
+- Reframe: State each entry as an outcome with its measure, move dated mechanics down to the plan, and give every `[NEXT]` entry a `Promote` condition that carries it into `[NOW]`.
+
+## [09]-[ANCHORLESS_FINDING]
+
+A blindspot finding records a feeling with no anchor, so a reader cannot verify it, size its blast radius, or fold it back into the owning task.
+
+- Detection: A finding whose `Anchor` is a vibe — "feels under-typed", "seems fragile" — with no path, no observed fact, and a consequence stated as a guess.
+- Rejected:
+  ```markdown rejected
+  - [01]-[APPROACH]-[OPEN]: The graph carrier feels under-typed
+    - Anchor: general impression from reading the page.
+    - Consequence: might cause problems later.
+  ```
+- Accepted:
+  ```markdown accepted
+  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
+    - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
+    - Consequence: Every consumer casts through `Any`, strict mode misses a wrong-backend call, and the GPL backend rides the default surface unmarked; the blast reaches every graph consumer.
+    - Fold-back: Retype `GraphCarrier` as a tagged union, confine the GPL tag to an optional lane, and drop the consumer `Any` casts.
+    - Route: The graph carrier owner.
+  ```
+- Reason: A finding earns entry by surviving on-disk verification — the anchor is the evidence and the blast radius is the rank; a vibe carries no order, no proof, and no landing surface.
+- Reframe: Re-open the candidate on disk, record the path and the observed fact as `Anchor`, size the blast in `Consequence`, and write the `Fold-back` as the copyable prompt that lands the fix.
+
+## [10]-[ORPHANED_FINDING]
+
+A blindspot finding proves its anchor and sizes its blast but carries no `Fold-back` — the copyable prompt that lands the fix — so the finding names a problem no task can pick up and the blindspot survives the pass that found it.
+
+- Detection: A finding with a verified `Anchor` and a sized `Consequence` and a named `Route` but no `Fold-back` — a diagnosis with no prescription, leaving the owner a problem restated instead of a change to make.
+- Rejected:
+  ```markdown rejected
+  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
+    - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
+    - Consequence: Every consumer casts through `Any`; the blast reaches every graph consumer.
+    - Route: The graph carrier owner.
+  ```
+- Accepted:
+  ```markdown accepted
+  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
+    - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
+    - Consequence: Every consumer casts through `Any`; the blast reaches every graph consumer.
+    - Fold-back: Retype `GraphCarrier` as a tagged union over the three backends, confine the GPL tag to an optional lane, and drop the consumer `Any` casts.
+    - Route: The graph carrier owner.
+  ```
+- Reason: A ledger exists to convert findings into work — the `Fold-back` is the carrier, the exact prompt the `Route` owner picks up verbatim; a finding with anchor and blast but no fold-back strands the fix, and the next pass re-discovers the same weakness from zero.
+- Reframe: Write the `Fold-back` as the change to make in the `Route` owner, not the problem restated; a finding that cannot yield one is not yet understood well enough to record, and drops back to a corpus check.
+
+## [11]-[UNCHECKED_GAPS]
+
+A capability entry asserts an empty `Gaps` field by assumption, claiming the surface is fully exploited without checking the admitted capability against the owner.
+
+- Detection: A `Gaps` of `none` on a capability whose owner demonstrably leaves admitted library surface unused, and a maturity marker inflated past the built reality.
+- Rejected:
+  ```markdown rejected
+  - [01]-[BUILT]: Impact assessment over element sets
+    - Owner: The impact domain owner.
+    - Edges: depends-on the element graph; consumed-by the assessment report.
+    - Importance: Serves the environmental-scoring direction.
+    - Gaps: none.
+  ```
+- Accepted:
+  ```markdown accepted
+  - [01]-[GENESIS]: Impact assessment over element sets
+    - Owner: The impact domain owner.
+    - Edges: depends-on the element graph; consumed-by the assessment report.
+    - Importance: Serves the environmental-scoring direction.
+    - Gaps: The admitted impact library owns an EC3 search stream and wide `MultiLCA` sweeps the owner gates behind an unnamed consumer; both are unexploited capability, so the surface is a thin slice, not a full owner.
+  ```
+- Reason: `Gaps` is the load-bearing field for elicitation — an empty gaps field asserts full exploitation, and that assertion gets checked against the admitted surface, never assumed; the same check corrects the maturity marker the empty field inflated.
+- Reframe: Sample the owner against the full attribute and capability space of its admitted dependencies, record every unexploited member as a gap, and set the maturity marker to the built reality the gap check reveals.
+
+## [12]-[DRIFTED_PROJECTION]
+
+A projection fence beside an instance's relation rows asserts an edge no row mints, so the diagram rules a relation the record never sealed and the reader trusts the drawing over the truth it claims to project.
+
+- Detection: The instance's `Edges` or `Depends` rows and the mermaid fence beside them diverge in either direction — a fence edge with no backing row, or a carried row the fence silently drops while presenting itself as the set.
+- Rejected:
+  ````markdown rejected
+  - [01]-[BUILT]: Content-keyed artifact lookup
+    - Owner: The artifact index owner.
+    - Edges: depends-on the identity kernel; consumed-by the render cache.
+  - [02]-[BUILT]: Deterministic render caching
+    - Owner: The render cache owner.
+    - Edges: depends-on the artifact index.
+
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  flowchart:
+    padding: 16
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.edgePaths path{stroke-width:1.5px}"
+  themeVariables:
+    darkMode: true
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#44475A"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+---
+flowchart LR
+    accTitle: Capability edge projection
+    accDescr: The artifact index depends on the identity kernel and is consumed by the render cache and the deploy root.
+    KERNEL[identity kernel] -->|"depends-on"| INDEX[artifact index]
+    INDEX -->|"consumed-by"| CACHE[render cache]
+    INDEX -->|"consumed-by"| DEPLOY[deploy root]
+    classDef primary fill:#44475A,stroke:#BD93F9,color:#F8F8F2
+    classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    class INDEX primary
+    class KERNEL external
+    class CACHE,DEPLOY annotation
+```
+  ````
+- Accepted:
+  ````markdown accepted
+  - [01]-[BUILT]: Content-keyed artifact lookup
+    - Owner: The artifact index owner.
+    - Edges: depends-on the identity kernel; consumed-by the render cache and the deploy root.
+  - [02]-[BUILT]: Deterministic render caching
+    - Owner: The render cache owner.
+    - Edges: depends-on the artifact index.
+
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  flowchart:
+    padding: 16
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.edgePaths path{stroke-width:1.5px}"
+  themeVariables:
+    darkMode: true
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#44475A"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+---
+flowchart LR
+    accTitle: Capability edge projection
+    accDescr: The artifact index depends on the identity kernel and is consumed by the render cache and the deploy root.
+    KERNEL[identity kernel] -->|"depends-on"| INDEX[artifact index]
+    INDEX -->|"consumed-by"| CACHE[render cache]
+    INDEX -->|"consumed-by"| DEPLOY[deploy root]
+    classDef primary fill:#44475A,stroke:#BD93F9,color:#F8F8F2
+    classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    class INDEX primary
+    class KERNEL external
+    class CACHE,DEPLOY annotation
+```
+  ````
+- Reason: The rows are the truth the fence projects — a fence edge without its row is an unruled relation smuggled in as settled fact, and once the drawing and the record disagree every future reader must guess which one lies; the seal's cold read rejects the divergence in either direction.
+- Reframe: Derive the fence from the sealed rows, re-derive it on every row edit, and repair a fence-row diff at whichever end is wrong — mint the missing row when the relation is real, delete the fence edge when it is not.

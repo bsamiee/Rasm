@@ -23,7 +23,7 @@ config:
     textColor: "#F8F8F2"
   htmlLabels: false
   markdownAutoWrap: false
-  fontFamily: monospace
+  fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
   deterministicIds: true
   elk:
     mergeEdges: true
@@ -32,10 +32,19 @@ config:
   flowchart:
     curve: basis
     defaultRenderer: elk
+    padding: 16
 ---
 flowchart LR
-  A --> B --> C
-  A --> C
+  accTitle: Frontmatter contract demo
+  accDescr: A three-stage flow with a dotted store trace, its whole render contract carried in fence frontmatter.
+  In([In]) --> Work[Work] --> Out([Out])
+  Work -.-> Store[(Store)]
+  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+  classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
+  class Work primary
+  class In,Out boundary
+  class Store data
 ```
 
 - Keys are case-sensitive; a misspelled key silently no-ops, and malformed YAML kills the whole diagram.
@@ -70,14 +79,23 @@ config:
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
   elk:
     nodePlacementStrategy: BRANDES_KOEPF
     cycleBreakingStrategy: GREEDY
 ---
 graph TD
-  A --> B
-  B --> C
-  A --> C
+  accTitle: ELK layout demo
+  accDescr: A gate fanning to a run stage and a shared terminal under an explicit ELK placement strategy.
+  Gate{Gate} --> Run[Run]
+  Run --> Done([Done])
+  Gate --> Done
+  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+  classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+  class Gate recessed
+  class Run primary
+  class Done boundary
 ```
 
 - A flowchart takes ELK through `layout: elk` or `flowchart.defaultRenderer: elk`; swimlane consumes only the `flowchart.defaultRenderer: elk` route into its own layout.
@@ -112,7 +130,7 @@ Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, 
 
 ## [04]-[ACCESSIBILITY]
 
-`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. `block` and `mindmap` mis-handle the directives — omit them there rather than emit broken nodes.
+`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Four families refuse the directives — `block` and `mindmap` mis-handle them as nodes, `sankey` and `venn` reject them at parse — so there the relation sentence sits beside the fence.
 
 ## [05]-[RENDER_ENVIRONMENT]
 
@@ -165,6 +183,9 @@ A fully offline deterministic render pins every input: the lockfile pins the CLI
 
 ## [06]-[TRAPS]
 
+- A `>` combinator anywhere in `themeCSS` makes the sanitizer drop the entire injected block, silently reverting every rule in it; descendant space selectors only.
+- A hyphenated family token in `themeVariables.fontFamily` — `ui-monospace`, `SFMono-Regular` — makes the engine drop the whole declaration and fall back to the sans default; hyphen-free family names only.
+- A `text-transform` in `themeCSS` clips its target: the engine measures label boxes before CSS applies, so case changes ride the label text itself, never a transform.
 - `xychart` point labels render only on `line`; the syntax parses on `bar` but the labels are silently ignored.
 - Packet `themeVariables` are inert.
 - TreeView icons need registered packs; an unregistered icon renders as `?`.

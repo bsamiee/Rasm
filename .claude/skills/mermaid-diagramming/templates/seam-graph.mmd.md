@@ -10,6 +10,9 @@ config:
   theme: base
   elk:
     mergeEdges: true
+  flowchart:
+    padding: 16
+  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.cluster-label .nodeLabel{font-size:13px;font-weight:600}.cluster rect{stroke-width:1.5px}.edgePaths path{stroke-width:1.5px}"
   themeVariables:
     darkMode: true
     background: "#282A36"
@@ -20,14 +23,14 @@ config:
     textColor: "#F8F8F2"
     clusterBkg: "#21222C"
     clusterBorder: "#6272A4"
-    edgeLabelBackground: "#282A36"
+    edgeLabelBackground: "#44475A"
     titleColor: "#F8F8F2"
-    fontFamily: "monospace"
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
 ---
 flowchart LR
     accTitle: Package seam registry
     accDescr: Home package sub-domains exchanging kinded shapes with external counterparts, edge rails colored by kind and nodes classed by seam direction.
-    subgraph core[core package]
+    subgraph core[CORE PACKAGE]
         Resolver[Resolver]
         Registry[Registry]
         Composer[Composer]
@@ -45,10 +48,10 @@ flowchart LR
     Resolver -->|"[PROJECTION]: ViewModel"| UiShell
     Resolver -->|"[RECEIPT]: RunReceipt"| UiShell
     Resolver -->|"[FAULT]: FaultRow"| UiShell
-    linkStyle 2,3,4 stroke:#FFB86C
-    linkStyle 6,7 stroke:#8BE9FD
-    linkStyle 8 stroke:#50FA7B
-    linkStyle 9 stroke:#FF5555
+    linkStyle 2,3,4 stroke:#FFB86C,color:#F8F8F2
+    linkStyle 6,7 stroke:#8BE9FD,color:#F8F8F2
+    linkStyle 8 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 9 stroke:#FF5555,stroke-width:2px,color:#F8F8F2
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
     classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
@@ -57,4 +60,4 @@ flowchart LR
     class UiShell annotation
 ```
 
-Refill by renaming owners and counterparts to the real packages, keep every label `[KIND]: shape-name` with the shape's exact wire name, keep each edge on its kind's rail — `linkStyle` indices are declaration positions, recounted after any edge insertion — and land the mirrored edge in the counterpart's graph in the same change.
+Refill by renaming owners and counterparts to the real packages, keep every label `[KIND]: shape-name` with the shape's exact wire name, keep each edge on its kind's rail — `linkStyle` indices are declaration positions, recounted after any edge insertion; a seam registry that grows under edits moves its rails to edge-id classes (`Resolver f1@-->|"[FAULT]: FaultRow"| UiShell` with `class f1 edgeError`), which survive insertions without recounts — and land the mirrored edge in the counterpart's graph in the same change. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#44475A` edge-label backing are fixed law — a refill renames content, never strips the fidelity surface.
