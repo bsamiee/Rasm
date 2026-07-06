@@ -1,6 +1,6 @@
 # [STRATA]
 
-Draw which layer may depend on which. The template bakes in the full dependency law, not just the stack — downward edges are legal including skips, so one dashed skip edge shows transitive reach is permitted; exactly one upward edge exists, styled Dracula Red and labeled forbidden, making the violated law visible instead of implicit; and each stratum is a subgraph so membership, not position, carries the layer fact. Use `flowchart TB` with 4-5 stratum subgraphs, solid adjacent-layer edges, at most one dashed legal skip, and the one red forbidden edge. The 6-stratum ceiling binds at review — the validator's flowchart family ceiling cannot see strata. A runtime walk order is a spine, never a stratum stack.
+Draw which layer may depend on which. The template bakes in the full dependency law, not just the stack — downward edges are legal including skips, so one dashed skip edge shows transitive reach is permitted on the Comment rail; exactly one upward edge exists, styled Dracula Red and labeled forbidden, making the violated law visible instead of implicit; and each stratum is a subgraph so membership, not position, carries the layer fact, with each stratum node filled from the ordinal accents so altitude reads as color. Use `flowchart TB` with 4-5 stratum subgraphs, solid adjacent-layer edges, at most one dashed legal skip, and the one red forbidden edge. The 6-stratum ceiling binds at review — the validator's flowchart family ceiling cannot see strata. A runtime walk order is a spine, never a stratum stack.
 
 ```mermaid
 ---
@@ -20,6 +20,7 @@ config:
     clusterBorder: "#6272A4"
     edgeLabelBackground: "#282A36"
     titleColor: "#F8F8F2"
+    fontFamily: "monospace"
 ---
 flowchart TB
     accTitle: Stratum dependency law
@@ -41,9 +42,16 @@ flowchart TB
     Platform --> Kernel
     App -.->|legal skip| Platform
     Kernel -->|"forbidden: upward dep"| App
+    linkStyle 3 stroke:#6272A4
     linkStyle 4 stroke:#FF5555,stroke-width:2px,color:#FF5555
+    classDef stratumApp fill:#BD93F9,stroke:#BD93F9,color:#282A36
+    classDef stratumHost fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
+    classDef stratumPlatform fill:#FFB86C,stroke:#FFB86C,color:#282A36
     classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class App stratumApp
+    class Host stratumHost
+    class Platform stratumPlatform
     class Kernel boundary
 ```
 
-Refill by renaming strata to the real layer roster, keep edges downward with at most one demonstrative skip, and keep the single forbidden edge red — its `linkStyle` index is the edge's declaration position, so recount after any edge insertion.
+Refill by renaming strata to the real layer roster, keep edges downward with at most one demonstrative skip on the Comment rail, keep the single forbidden edge red, and keep one distinct ordinal fill per stratum — every `linkStyle` index is the edge's declaration position, so recount after any edge insertion.

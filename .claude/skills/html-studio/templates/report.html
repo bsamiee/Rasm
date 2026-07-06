@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Report: Engineering Status, Week 27</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [REPORT_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer components{
+  body{counter-reset:sec}
+  .kpis{display:grid;gap:var(--s4);grid-template-columns:repeat(4,1fr)}
+  @media (max-width:880px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpis .card.alert{border-inline-start:3px solid var(--warn)}
+  .kpis small{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+  .hl{display:grid;gap:var(--s3)}
+  .chart-cap{color:var(--text-faint);font-size:var(--fs-xs);margin-top:var(--s2)}
+  .vchart .bar{fill:color-mix(in oklch,var(--series-1) 55%,var(--surface))}
+  .vchart .bar.peak{fill:var(--series-1)}
+  .vchart .gridline{stroke:var(--line);stroke-width:1}
+  .vchart text{font-family:var(--font-mono);font-size:11px;fill:var(--text-muted)}
+  .risk-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:var(--s1);vertical-align:baseline}
+  .risk-dot.lo{background:var(--ok)}.risk-dot.md{background:var(--warn)}.risk-dot.hi{background:var(--fail)}
+  .carry{display:grid;gap:var(--s2)}
+  .carry .row{display:flex;gap:var(--s3);align-items:baseline;padding:var(--s2) var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-1)}
+  .sources{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint);border-top:1px solid var(--line);padding-top:var(--s4);margin-top:var(--s7)}
+  .pills{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s3) 0}
+  .tldr{background:var(--overlay);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:var(--s4) var(--s5);margin:var(--s4) 0}
+  .tldr .eyebrow{color:var(--accent)}
+  .timeline{list-style:none;margin:0;padding:0;position:relative}
+  .timeline::before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--line-strong)}
+  .timeline li{position:relative;padding:0 0 var(--s4) var(--s6)}
+  .timeline .dot{position:absolute;left:0;top:5px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--line-strong)}
+  .timeline .impact .dot{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 30%,var(--surface))}
+  .timeline .mitigated .dot{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 30%,var(--surface))}
+  .timeline .stamp{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint);border:1px solid var(--line);border-radius:var(--r-1);padding:1px var(--s2);margin-right:var(--s2)}
+  .diff .add{color:var(--ok)}.diff .del{color:var(--fail);text-decoration:line-through;text-decoration-color:color-mix(in oklch,var(--fail) 50%,transparent)}
+  .actions{display:grid;gap:var(--s2)}
+  .actions .row{display:grid;grid-template-columns:auto auto 1fr auto;gap:var(--s3);align-items:center;padding:var(--s2) var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-1)}
+  .actions .row.done{border-color:color-mix(in oklch,var(--ok) 35%,transparent)}
+  .actions .row.done .what{color:var(--text-muted);text-decoration:line-through;text-decoration-color:color-mix(in oklch,var(--text-muted) 60%,transparent)}
+  .avatar{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent-weak);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600}
+  .due{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+}
+@layer print{
+@media print{.kpis{grid-template-columns:repeat(4,1fr)}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- replace: STATUS variant — weekly or monthly cadence; delete when authoring an incident -->
+  <header id="status-head">
+    <p class="eyebrow">Report · Weekly Status</p>
+    <!-- replace: title, period, generation chip -->
+    <h1>Engineering status, week 27</h1>
+    <div class="pills"><span class="muted">2026-06-29 to 2026-07-05</span> <span class="chip info">[AUTO-GENERATED]</span>
+      <button type="button" class="btn ghost no-print" data-toggle-theme style="margin-left:auto">Theme</button></div>
+  </header>
+  <div class="kpis" id="kpis"></div>
+  <section class="section" id="highlights">
+    <h2>Highlights</h2>
+    <div class="hl" id="hl"></div>
+  </section>
+  <section class="section" id="shipped">
+    <h2>Shipped</h2>
+    <div class="twrap"><table id="ship-table">
+      <thead><tr><th>[CHANGE]</th><th>[TITLE]</th><th>[OWNER]</th><th>[RISK]</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+  <section class="section" id="velocity">
+    <h2>Velocity</h2>
+    <div class="card">
+      <svg class="vchart" id="vchart" viewBox="0 0 640 200" role="img" aria-label="Changes landed per day with the peak highlighted"></svg>
+      <p class="chart-cap" id="vchart-cap"></p>
+    </div>
+  </section>
+  <section class="section" id="carryover">
+    <h2>Carryover</h2>
+    <div class="carry" id="carry"></div>
+  </section>
+  <!-- replace: end STATUS variant -->
+
+  <!-- replace: INCIDENT variant — postmortem cadence; delete when authoring a status report -->
+  <header id="incident-head" style="margin-top:var(--s8)">
+    <p class="eyebrow">Report · Incident INC-0412</p>
+    <!-- replace: incident title and pill row -->
+    <h1>Elevated refusals on run admission</h1>
+    <div class="pills">
+      <span class="chip fail">[SEV-2]</span>
+      <span class="chip ok">[RESOLVED]</span>
+      <span class="chip">[47 MIN]</span>
+      <span class="chip info">[OWNER: D.P.]</span>
+    </div>
+  </header>
+  <div class="tldr">
+    <p class="eyebrow">TL;DR</p>
+    <!-- replace: cause, impact, mitigation in four sentences -->
+    <p>A policy rollout lowered the batch lane's burst ceiling from 40 to 8 under a debug value committed by mistake. Admission refusals climbed past 20 percent for 47 minutes under normal afternoon load. Reverting the row and reloading the table restored admission within three minutes. No accepted work was lost; refused submissions retried within their horizons.</p>
+  </div>
+  <section class="section" id="timeline">
+    <h2>Timeline</h2>
+    <ul class="timeline" id="tl"></ul>
+  </section>
+  <section class="section" id="root-cause">
+    <h2>Root cause</h2>
+    <!-- replace: the mechanism and the diff that carried the defect -->
+    <p>The policy linter validates types, never magnitudes, so a burst value an order of magnitude low passed review. Rollouts and code deploys ride separate pipelines, which sent the first responder to the wrong lever for thirteen minutes.</p>
+    <pre class="diff"><code>  "compute.batch": {
+<span class="del">-   "rate": 20, "burst": 40,</span>
+<span class="add">+   "rate": 20, "burst": 8,</span>
+    "retry_after": "30s"
+  }</code></pre>
+  </section>
+  <section class="section" id="impact">
+    <h2>Impact</h2>
+    <div class="twrap"><table>
+      <!-- replace: measured impact rows -->
+      <thead><tr><th>[MEASURE]</th><th class="num">[VALUE]</th></tr></thead>
+      <tbody>
+        <tr><td>Submissions refused</td><td class="num">41,200</td></tr>
+        <tr><td>Peak refusal rate</td><td class="num">21.4%</td></tr>
+        <tr><td>Lanes affected</td><td class="num">1 of 9</td></tr>
+        <tr><td>Accepted work lost</td><td class="num">0</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+  <section class="section" id="actions">
+    <h2>Action items</h2>
+    <div class="actions" id="acts"></div>
+  </section>
+  <!-- replace: end INCIDENT variant -->
+
+  <p class="sources">
+    <!-- replace: generation sources and reviewers -->
+    sources: run ledger, gate metrics, change log · generated 2026-07-05 18:00 · reviewed by the owning rotation
+  </p>
+</div>
+<div class="export-bar no-print">
+  <button type="button" class="btn" data-export="md">Copy digest</button>
+  <button type="button" class="btn ghost" data-export="json">Download JSON</button>
+  <span class="muted" id="copy-note" role="status" aria-live="polite"></span>
+</div>
+<!-- replace: report model payload — keep the variant keys you use -->
+<script type="application/json" id="payload">{
+  "meta": { "title": "Engineering status, week 27", "period": "2026-06-29/2026-07-05" },
+  "kpis": [
+    { "label": "changes landed", "value": "14", "delta": "+3 vs w26", "dir": "up" },
+    { "label": "gates green", "value": "6/6", "delta": "steady", "dir": "flat" },
+    { "label": "incidents", "value": "1", "delta": "SEV-2, 47m", "dir": "down", "alert": true },
+    { "label": "flaky specs fixed", "value": "3", "delta": "suite 99.1%", "dir": "up" }
+  ],
+  "highlights": [
+    { "tone": "ok", "mark": "[SHIPPED]", "text": "Batch admission landed behind the lane flag and ramped to every workspace with no refusal regression." },
+    { "tone": "ok", "mark": "[FASTER]", "text": "Ledger open path p95 down 38 percent after the scoped batch lookup replaced per-run checks." },
+    { "tone": "warn", "mark": "[INCIDENT]", "text": "One SEV-2 on Wednesday from a bad policy value; mitigated in 47 minutes, postmortem linked below." }
+  ],
+  "shipped": [
+    { "id": "c-4871", "title": "Batch admission: lane model plus flag ramp", "owner": "M.O.", "risk": "md" },
+    { "id": "c-4874", "title": "Scoped batch lookup on the ledger open path", "owner": "D.P.", "risk": "md" },
+    { "id": "c-4878", "title": "Fix retry race in the artifact uploader", "owner": "S.R.", "risk": "lo" },
+    { "id": "c-4879", "title": "Idempotent keys for the reminder scheduler", "owner": "P.A.", "risk": "hi" },
+    { "id": "c-4885", "title": "Quarantine three flaky webhook specs", "owner": "J.T.", "risk": "lo" }
+  ],
+  "velocity": { "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "counts": [2, 3, 1, 4, 2, 1, 1], "caption": "Changes landed per day; the Thursday peak is the batch-admission train landing together." },
+  "carryover": [
+    { "state": "IN REVIEW", "tone": "info", "text": "Workspace export to CSV, waiting on pagination review.", "owner": "S.R." },
+    { "state": "BLOCKED", "tone": "fail", "text": "SSO group mapping, blocked on staging credentials.", "owner": "P.A." },
+    { "state": "SLIPPED", "tone": "warn", "text": "Push reliability dashboard, deprioritized for incident follow-up.", "owner": "D.P." }
+  ],
+  "incident": {
+    "timeline": [
+      { "stamp": "14:02", "state": "", "text": "Policy change promoted to production through the standard rollout." },
+      { "stamp": "14:06", "state": "impact", "text": "Impact starts: refusal rate climbs past the lane alert threshold under normal load." },
+      { "stamp": "14:07", "state": "", "text": "Alert fires; on-call acknowledges." },
+      { "stamp": "14:18", "state": "", "text": "First hypothesis is a bad deploy; the last two application deploys roll back with no effect." },
+      { "stamp": "14:31", "state": "", "text": "Pressure metric points at the batch lane; investigation pivots to policy, away from application code." },
+      { "stamp": "14:44", "state": "mitigated", "text": "Mitigated: the policy row reverts and the table reloads; refusals drop below threshold within three minutes." },
+      { "stamp": "14:49", "state": "", "text": "Monitors green for five minutes; incident declared resolved." }
+    ],
+    "actions": [
+      { "who": "DP", "what": "Revert the debug policy value and restore burst to 40", "due": "07-02", "done": true },
+      { "who": "MO", "what": "Add a magnitude range check to the policy linter", "due": "07-09", "done": false },
+      { "who": "SR", "what": "Surface recent policy rollouts beside deploys on the on-call board", "due": "07-16", "done": false },
+      { "who": "PA", "what": "Canary policy changes on one lane before fleet promote", "due": "07-23", "done": false }
+    ]
+  }
+}</script>
+<script>
+const $ = (sel, root = document) => root.querySelector(sel);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+try { root.dataset.theme = localStorage.getItem(themeKey) ?? "dark"; } catch { root.dataset.theme = "dark"; }
+
+const model = JSON.parse($("#payload").textContent);
+
+// --- status variant: KPI band, highlights, shipped, velocity, carryover
+const kpis = $("#kpis");
+if (kpis) model.kpis.forEach(k => {
+  const c = el("div", "card stat" + (k.alert ? " alert" : ""));
+  c.append(el("b", "num", k.value), el("small", null, k.label));
+  const d = el("span", "delta " + (k.dir === "up" ? "up" : k.dir === "down" ? "down" : ""), (k.dir === "up" ? "▲ " : k.dir === "down" ? "▼ " : "") + k.delta);
+  c.append(d); kpis.append(c);
+});
+const hl = $("#hl");
+if (hl) model.highlights.forEach(h => {
+  const r = el("div", "rail " + h.tone);
+  const p = el("p"); p.style.margin = "0";
+  p.append(el("strong", null, h.mark + " "), document.createTextNode(h.text));
+  r.append(p); hl.append(r);
+});
+const shipBody = $("#ship-table tbody");
+if (shipBody) model.shipped.forEach(s => {
+  const tr = el("tr");
+  tr.append(el("td", null, ""), el("td", null, s.title), el("td", null, s.owner));
+  tr.children[0].append(el("code", null, s.id));
+  const td = el("td"); td.append(el("span", "risk-dot " + s.risk), document.createTextNode({ lo: "low", md: "medium", hi: "high" }[s.risk]));
+  tr.append(td); shipBody.append(tr);
+});
+const chart = $("#vchart");
+if (chart) {
+  const NS = "http://www.w3.org/2000/svg";
+  const { days, counts, caption } = model.velocity;
+  const max = Math.max(...counts), peak = counts.indexOf(max);
+  const bw = 560 / counts.length;
+  for (let g = 1; g <= max; g++) {
+    const y = 160 - (g / max) * 130;
+    const ln = document.createElementNS(NS, "line");
+    ln.setAttribute("class", "gridline"); ln.setAttribute("x1", 48); ln.setAttribute("x2", 620);
+    ln.setAttribute("y1", y); ln.setAttribute("y2", y); chart.append(ln);
+    const t = document.createElementNS(NS, "text"); t.setAttribute("x", 40); t.setAttribute("y", y + 4);
+    t.setAttribute("text-anchor", "end"); t.textContent = g; chart.append(t);
+  }
+  counts.forEach((c, i) => {
+    const h = (c / max) * 130, x = 56 + i * bw;
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("class", "bar" + (i === peak ? " peak" : ""));
+    r.setAttribute("x", x); r.setAttribute("y", 160 - h); r.setAttribute("width", bw - 18); r.setAttribute("height", h); r.setAttribute("rx", 4);
+    chart.append(r);
+    const t = document.createElementNS(NS, "text"); t.setAttribute("x", x + (bw - 18) / 2); t.setAttribute("y", 180);
+    t.setAttribute("text-anchor", "middle"); t.textContent = days[i]; chart.append(t);
+    const v = document.createElementNS(NS, "text"); v.setAttribute("x", x + (bw - 18) / 2); v.setAttribute("y", 152 - h);
+    v.setAttribute("text-anchor", "middle"); v.textContent = c; chart.append(v);
+  });
+  $("#vchart-cap").textContent = caption;
+}
+const carry = $("#carry");
+if (carry) model.carryover.forEach(c => {
+  const r = el("div", "row");
+  r.append(el("span", "chip " + c.tone, "[" + c.state + "]"), el("span", null, c.text), el("small", null, c.owner));
+  carry.append(r);
+});
+
+// --- incident variant: timeline spine and action rows
+const tl = $("#tl");
+if (tl && model.incident) model.incident.timeline.forEach(t => {
+  const li = el("li", t.state);
+  li.append(el("span", "dot"));
+  const p = el("p"); p.style.margin = "0";
+  p.append(el("span", "stamp num", t.stamp), document.createTextNode(t.text));
+  li.append(p); tl.append(li);
+});
+const acts = $("#acts");
+if (acts && model.incident) model.incident.actions.forEach(a => {
+  const r = el("div", "row" + (a.done ? " done" : ""));
+  r.append(el("span", "chip " + (a.done ? "ok" : ""), a.done ? "[DONE]" : "[OPEN]"), el("span", "avatar", a.who), el("span", "what", a.what), el("span", "due num", "due " + a.due));
+  acts.append(r);
+});
+
+// --- digest export: the skim layer as pasteable markdown
+const toMarkdown = () => {
+  const L = ["# " + model.meta.title, ""];
+  L.push("## KPIs", "");
+  model.kpis.forEach(k => L.push(`- ${k.label}: ${k.value} (${k.delta})`));
+  L.push("", "## Highlights", "");
+  model.highlights.forEach(h => L.push(`- ${h.mark} ${h.text}`));
+  L.push("", "## Carryover", "");
+  model.carryover.forEach(c => L.push(`- [${c.state}] ${c.text} (${c.owner})`));
+  if (model.incident) {
+    L.push("", "## Incident actions", "");
+    model.incident.actions.forEach(a => L.push(`- [${a.done ? "DONE" : "OPEN"}] ${a.what} (${a.who}, due ${a.due})`));
+  }
+  return L.join("\n");
+};
+const note = $("#copy-note");
+const download = (name, mime, text) => { const url = URL.createObjectURL(new Blob([text], { type: mime })); Object.assign(document.createElement("a"), { href: url, download: name }).click(); setTimeout(() => URL.revokeObjectURL(url), 0); };
+document.addEventListener("click", e => {
+  const theme = e.target.closest("[data-toggle-theme]");
+  if (theme) { const next = root.dataset.theme === "dark" ? "light" : "dark"; try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; } return; }
+  const exp = e.target.closest("[data-export]"); if (!exp) return;
+  if (exp.dataset.export === "json") { download("report.json", "application/json", JSON.stringify(model, null, 2)); note.textContent = "JSON downloaded"; return; }
+  const p = navigator.clipboard?.writeText(toMarkdown());
+  if (p) p.then(() => { note.textContent = "Digest copied"; }).catch(() => { note.textContent = "Copy blocked in this context"; });
+  else note.textContent = "Copy unavailable in this context";
+});
+</script>
+</body>
+</html>

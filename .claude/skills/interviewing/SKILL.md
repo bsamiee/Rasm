@@ -7,7 +7,7 @@ description: >-
   buy-in packets, and vocabulary teaching — each terminating in a schema-declared artifact
   (decision record, direction set, roadmap brief, blindspot ledger, capability entry) at its ruled
   altitude. Owns the question-threading method, the axis catalog, the artifact schemas, and the
-  durable-versus-ephemeral ruling; rendering a page is html-artifacts. Use when requirements are
+  durable-versus-ephemeral ruling; rendering a page is html-studio. Use when requirements are
   ambiguous or live in the user's head, before authoring any brief, spec, roadmap, or direction
   document, when a conversation must produce a durable decision or roadmap artifact, or when the
   user says "interview me", "find my blindspots", "what am I missing", "wargame this", "brainstorm
@@ -114,7 +114,8 @@ Worked accepted and rejected instances are [examples/artifacts.md](examples/arti
 
 - The ruling record binds downstream: the authoring pass honors every ruling and re-litigates none; an entry overturned later is edited in place with its superseding ruling.
 - Landing completes on three inspectable facts: the terminal artifact's fold-back is emitted — the copyable prompt that carries its content into the next task as binding input — the durable instance is rendered to its page, and the page is homed under the repo's naming law. A durable ruling missing any of the three is unlanded, not merely unpolished.
-- Comparative and spatial artifacts render through the html-artifacts type rows — direction set as brainstorm, roadmap brief as roadmap, scored boards as wargame, quiz as quiz, packet as buy-in, capability entries as capability-atlas; the schema instance stays the source of truth the page renders. A record nobody reads rots regardless of its schema, so render and home are landing, never decoration.
+- Comparative and spatial artifacts render through the html-studio type rows — direction set as brainstorm, roadmap brief as roadmap, scored boards as wargame, quiz as quiz, packet as buy-in, capability entries as capability-atlas; the schema instance stays the source of truth the page renders. A record nobody reads rots regardless of its schema, so render and home are landing, never decoration.
+- An interactive carrier — quiz, scored wargame board, direction picker, blindspot editor — runs served through the html-studio return channel: the user's verdicts, scores, and selections come back as submission receipts the interviewer converts into rulings; copy-paste is the degraded path, never the default. The receipt payload is answer material and enters the record only through the same challenge every spoken answer faces.
 - The seal is a fresh cold read over a complete landing — fold-back, render, and home present and no new question raised; author satisfaction is not the exit.
 
 ## [09]-[GOTCHAS]
@@ -125,4 +126,4 @@ Worked accepted and rejected instances are [examples/artifacts.md](examples/arti
 
 ## [10]-[REPO_INTEGRATION]
 
-Durable pages home at `docs/atlas/` under `<kind>.<scope>[.<slug>].html`, rendered through html-artifacts; a host instruction chain declaring its own artifact home and naming law binds instead. Corpus grounding routes through the host's search owners — in this repo `uv run python -m tools.assay code` for structural search and LSP for symbol navigation; the portable law is verb-neutral: verify on disk before asking.
+Durable pages home at `docs/atlas/` under `<kind>.<scope>[.<slug>].html`, rendered through html-studio; a host instruction chain declaring its own artifact home and naming law binds instead. Corpus grounding routes through the host's search owners — in this repo `uv run python -m tools.assay code` for structural search and LSP for symbol navigation; the portable law is verb-neutral: verify on disk before asking.

@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Explainer: How the Run Gate Admits Work</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [EXPLAINER_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer components{
+  body{counter-reset:sec}
+  .skip{position:absolute;left:-9999px}
+  .skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:5;background:var(--raised);padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1)}
+  .layout{display:grid;gap:var(--s6);grid-template-columns:220px minmax(0,1fr)}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}.toc{position:static}}
+  .sidenav .navhead{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:var(--s4) 0 var(--s2)}
+  .sidenav .files{list-style:none;margin:0;padding:0;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-muted)}
+  .sidenav .files li{padding:var(--s1) 0;border-bottom:1px solid var(--line)}
+  .tldr{background:var(--overlay);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:var(--s4) var(--s5);margin:var(--s4) 0}
+  .tldr .eyebrow{color:var(--accent)}
+  .step summary{display:flex;align-items:baseline;gap:var(--s3);padding:var(--s3) var(--s4)}
+  .step{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);margin:0 0 var(--s3);box-shadow:var(--shadow-1)}
+  .step[open]{border-color:var(--line-strong)}
+  .step .n{font-family:var(--font-mono);font-size:var(--fs-sm);color:var(--editorial);font-weight:600}
+  .step .loc{margin-left:auto;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-faint)}
+  .step .body{padding:0 var(--s4) var(--s4);border-top:1px solid var(--line)}
+  .tabbar{display:flex;gap:var(--s1);border-bottom:1px solid var(--line-strong);margin:var(--s4) 0 0}
+  .tabbar .btn{border:0;border-radius:var(--r-1) var(--r-1) 0 0;background:transparent;color:var(--text-muted)}
+  .tabbar .btn.on{background:var(--accent-weak);color:var(--text);box-shadow:inset 0 -2px 0 var(--accent)}
+  .pane{display:none}.pane.on{display:block}
+  .simgrid{display:grid;gap:var(--s5);grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:start}
+  @media (max-width:900px){.simgrid{grid-template-columns:1fr}}
+  .simctl{display:grid;gap:var(--s3)}
+  .simctl label{display:grid;gap:var(--s1);font-size:var(--fs-xs);color:var(--text-muted)}
+  .simctl output{font-family:var(--font-mono);color:var(--text)}
+  .readout{display:flex;gap:var(--s4);flex-wrap:wrap;font-family:var(--font-mono);font-size:var(--fs-sm)}
+  .readout .ok{color:var(--ok)}.readout .fail{color:var(--fail)}
+  .sim .tick{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.5}
+  .sim .tick.ok{fill:color-mix(in oklch,var(--ok) 30%,var(--surface));stroke:var(--ok)}
+  .sim .tick.fail{fill:color-mix(in oklch,var(--fail) 26%,var(--surface));stroke:var(--fail)}
+  .sim .lvl{fill:var(--accent-weak);stroke:var(--accent);stroke-width:1.5}
+  .sim .frame{fill:none;stroke:var(--line-strong);stroke-width:1.5}
+  .sim text{font-family:var(--font-mono);font-size:11px;fill:var(--text-muted)}
+  .gloss dt{font-weight:600;margin-top:var(--s3)}
+  .gloss dd{margin:0 0 var(--s2);color:var(--text-muted);font-size:var(--fs-sm)}
+  .gloss dt.hl{color:var(--accent)}
+  .term{text-decoration:underline dotted;text-decoration-color:var(--editorial);cursor:help}
+  .cmp td.weak{color:var(--fail)}
+  .cmp td.strong{color:var(--ok)}
+  .faq h3{margin-top:var(--s4)}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+<div class="layout">
+  <nav class="sidenav toc no-print" aria-label="On this page">
+    <p class="navhead">On this page</p>
+    <!-- replace: nav anchors matching the sections you keep -->
+    <a href="#tldr">TL;DR</a>
+    <a href="#path">Request path</a>
+    <a href="#samples">Samples</a>
+    <a href="#gotchas">Gotchas</a>
+    <a href="#faq">FAQ</a>
+    <a href="#model">Live model</a>
+    <a href="#versus">Versus</a>
+    <p class="navhead">Files read</p>
+    <!-- replace: the exact files this explanation was derived from -->
+    <ul class="files">
+      <li>gate/admission.py</li>
+      <li>gate/policy_table.py</li>
+      <li>runtime/run_ledger.py</li>
+      <li>config/gate.policy.json</li>
+    </ul>
+  </nav>
+  <main id="main" tabindex="-1">
+    <header>
+      <!-- replace: eyebrow, title, deck -->
+      <p class="eyebrow">Explainer · Run Gate</p>
+      <h1>How the run gate admits work</h1>
+      <p class="deck">Every run enters through one admission gate; this page walks the path, the policy that binds it, and the model that decides under load.</p>
+    </header>
+
+    <div class="tldr" id="tldr">
+      <p class="eyebrow">TL;DR</p>
+      <!-- replace: the whole answer in three sentences -->
+      <p>Every submitted run passes <code>admit()</code>, which resolves the caller to a policy row and charges one token from that row's bucket. Buckets refill continuously at the row's rate up to its burst ceiling, so short spikes ride the ceiling while sustained pressure converges on the rate. A run refused at the gate returns a typed refusal with the retry horizon — the ledger records admissions only.</p>
+    </div>
+
+    <!-- replace: FEATURE region — keep for a feature walk, delete when only the concept model is needed -->
+    <section class="section" id="path">
+      <h2>Request path</h2>
+      <p>Four steps carry every submission; each step names its exact source location.</p>
+      <details class="step" open>
+        <summary><span class="n">1</span> Resolve the caller to a policy row <span class="loc">gate/admission.py:21</span></summary>
+        <div class="body"><p>The gate reduces the submission to a policy key — the declared lane when one is present, the caller identity otherwise. A submission with no resolvable key takes the default row, which carries the lowest rate in the table.</p></div>
+      </details>
+      <details class="step">
+        <summary><span class="n">2</span> Look up the bucket <span class="loc">gate/policy_table.py:9</span></summary>
+        <div class="body"><p>Rows live in one policy table keyed by lane; each row owns a rate, a burst ceiling, and a refusal horizon. The table reloads on file change without a restart.</p></div>
+      </details>
+      <details class="step">
+        <summary><span class="n">3</span> Refill and charge <span class="loc">gate/policy_table.py:31</span></summary>
+        <div class="body"><p>The bucket refills lazily: elapsed time times rate, clamped to burst, computed at read. Admission charges one token; the charge and the refill are one atomic step.</p></div>
+      </details>
+      <details class="step">
+        <summary><span class="n">4</span> Refuse when empty <span class="loc">gate/admission.py:48</span></summary>
+        <div class="body"><p>An empty bucket returns the typed refusal carrying the row's retry horizon. The refusal is a value, never an exception — callers route on it.</p></div>
+      </details>
+    </section>
+
+    <section class="section" id="samples">
+      <h2>Samples</h2>
+      <div class="tabbar" role="tablist">
+        <button type="button" class="btn on" data-tab="0">policy row</button>
+        <button type="button" class="btn" data-tab="1">call site</button>
+        <button type="button" class="btn" data-tab="2">refusal</button>
+      </div>
+      <!-- replace: the three panes with real config, call site, and observed response -->
+      <pre class="pane on" data-pane="0"><code>{
+  "compute.batch": { "rate": 20, "burst": 40, "retry_after": "30s" },
+  "default":       { "rate": 4,  "burst": 8,  "retry_after": "120s" }
+}</code></pre>
+      <pre class="pane" data-pane="1"><code>receipt = gate.admit(run_request)
+match receipt:
+    case Admitted(run_id):   ledger.open(run_id)
+    case Refused(horizon):   scheduler.park(run_request, horizon)</code></pre>
+      <pre class="pane" data-pane="2"><code>Refused(lane="compute.batch", retry_after=30.0, pressure=1.35)</code></pre>
+    </section>
+
+    <section class="section" id="gotchas">
+      <h2>Gotchas</h2>
+      <!-- replace: the operational traps worth a rail each -->
+      <div class="rail warn"><p><strong>Burst is not rate.</strong> A lane idle for one minute can fire its full burst instantly even when its rate is low; capacity planning reads both numbers.</p></div>
+      <div class="rail warn" style="margin-top:var(--s3)"><p><strong>Buckets are per process.</strong> A multi-worker host multiplies effective rate by worker count; the policy table states per-process numbers.</p></div>
+      <div class="rail fail" style="margin-top:var(--s3)"><p><strong>The default row is a trap for new lanes.</strong> A lane misspelled at the call site silently rides the lowest rate; the refusal's <code>lane</code> field is the diagnostic.</p></div>
+    </section>
+
+    <section class="section faq" id="faq">
+      <h2>FAQ</h2>
+      <!-- replace: recurring questions with settled answers -->
+      <h3>How does a lane get a higher rate?</h3>
+      <p>Add or edit its row in <code>config/gate.policy.json</code>; the table reloads live and the next admission reads the new numbers.</p>
+      <h3>Where do refusals surface?</h3>
+      <p>Every refusal increments the gate's pressure metric tagged by lane; the ledger stays admission-only by design.</p>
+      <h3>Can a run bypass the gate?</h3>
+      <p>The gate is the only door — the ledger refuses a run id it did not mint, so a bypass cannot record work.</p>
+    </section>
+    <!-- replace: end FEATURE region -->
+
+    <!-- replace: CONCEPT region — keep for a live model, delete when the feature walk suffices -->
+    <section class="section" id="model">
+      <h2>Live model</h2>
+      <p>Drag the two policy knobs and replay the same request train; the bucket level and each verdict recompute live. <span class="term" data-term="t-rate">Rate</span> sets the refill slope, <span class="term" data-term="t-burst">burst</span> sets the ceiling.</p>
+      <div class="simgrid">
+        <div class="card">
+          <svg class="sim" id="sim" viewBox="0 0 560 200" role="img" aria-label="Token bucket simulation over a request train">
+            <rect class="frame" x="8" y="8" width="544" height="120" rx="10"></rect>
+            <g id="lvl-g"></g>
+            <text x="16" y="26">bucket level</text>
+            <g id="train"></g>
+            <text x="16" y="192">request train, one dot per submission</text>
+          </svg>
+          <p class="readout num" style="margin-top:var(--s3)">
+            <span class="ok">admitted <output id="out-ok">0</output></span>
+            <span class="fail">refused <output id="out-fail">0</output></span>
+            <span class="muted">final level <output id="out-lvl">0</output></span>
+          </p>
+        </div>
+        <div class="simctl card">
+          <label>rate, tokens per second
+            <input type="range" id="rate" min="1" max="20" value="6" data-export-model>
+            <output id="rate-out">6</output>
+          </label>
+          <label>burst ceiling
+            <input type="range" id="burst" min="2" max="24" value="10">
+            <output id="burst-out">10</output>
+          </label>
+          <p class="muted" style="margin:0">The train is fixed — a calm open, a burst at midpoint, a calm tail — so knob effects stay comparable.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="versus">
+      <h2>Versus the naive alternative</h2>
+      <div class="twrap"><table class="cmp">
+        <thead><tr><th>[PROPERTY]</th><th>[FIXED_WINDOW]</th><th>[TOKEN_BUCKET]</th></tr></thead>
+        <tbody>
+          <tr><td>Spike at a window edge</td><td class="weak">admits double the limit</td><td class="strong">bounded by burst</td></tr>
+          <tr><td>Sustained pressure</td><td class="strong">converges on the limit</td><td class="strong">converges on the rate</td></tr>
+          <tr><td>Idle recovery</td><td class="weak">all-at-once at reset</td><td class="strong">continuous refill</td></tr>
+          <tr><td>State per lane</td><td class="strong">one counter</td><td class="strong">level plus timestamp</td></tr>
+        </tbody>
+      </table></div>
+      <dl class="gloss card" style="margin-top:var(--s4)">
+        <!-- replace: glossary entries hover-linked from prose terms -->
+        <dt id="t-rate">Rate</dt><dd>The refill slope — tokens added per second, the sustained admission ceiling.</dd>
+        <dt id="t-burst">Burst</dt><dd>The bucket ceiling — the largest instantaneous spike a fully idle lane can absorb.</dd>
+        <dt id="t-horizon">Retry horizon</dt><dd>The row's declared wait carried inside every refusal.</dd>
+      </dl>
+    </section>
+    <!-- replace: end CONCEPT region -->
+  </main>
+</div>
+</div>
+<div class="export-bar no-print">
+  <button type="button" class="btn" data-export="md">Copy outline</button>
+  <span class="muted" id="copy-note" role="status" aria-live="polite"></span>
+</div>
+<script>
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+try { root.dataset.theme = localStorage.getItem(themeKey) ?? "dark"; } catch { root.dataset.theme = "dark"; }
+document.addEventListener("keydown", e => { if (e.key === "t" && !e.target.matches("input,textarea,select")) toggleTheme(); });
+const toggleTheme = () => { const next = root.dataset.theme === "dark" ? "light" : "dark"; try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; } };
+
+// --- scroll spy: the active section lights its nav anchor
+const anchors = $$(".sidenav a[href^='#']");
+const byId = Object.fromEntries(anchors.map(a => [a.getAttribute("href").slice(1), a]));
+const spy = new IntersectionObserver(entries => entries.forEach(en => {
+  if (!en.isIntersecting) return;
+  anchors.forEach(a => a.classList.remove("on"));
+  byId[en.target.id]?.classList.add("on");
+}), { rootMargin: "-20% 0px -70% 0px" });
+$$("main [id]").filter(n => byId[n.id]).forEach(n => spy.observe(n));
+
+// --- tabs: one active pane per bar
+document.addEventListener("click", e => {
+  const tab = e.target.closest("[data-tab]");
+  if (tab) {
+    $$(".tabbar .btn").forEach(b => b.classList.toggle("on", b === tab));
+    $$(".pane").forEach(p => p.classList.toggle("on", p.dataset.pane === tab.dataset.tab));
+    return;
+  }
+  if (e.target.closest("[data-export]")) copyOutline();
+});
+
+// --- one-open steps: opening a step closes its siblings
+$$(".step").forEach(d => d.addEventListener("toggle", () => {
+  if (d.open) $$(".step").forEach(s => { if (s !== d) s.open = false; });
+}));
+
+// --- glossary hover link
+document.addEventListener("mouseover", e => {
+  const t = e.target.closest(".term"); if (!t) return;
+  $$(".gloss dt").forEach(dt => dt.classList.toggle("hl", dt.id === t.dataset.term));
+});
+document.addEventListener("mouseout", e => { if (e.target.closest(".term")) $$(".gloss dt.hl").forEach(d => d.classList.remove("hl")); });
+
+// --- token-bucket simulator: fixed request train, live policy knobs
+const TRAIN = [0.2, 0.9, 1.7, 2.6, 3.4, 4.0, 4.05, 4.1, 4.15, 4.2, 4.25, 4.3, 4.35, 4.4, 4.5, 5.6, 6.5, 7.4, 8.3, 9.2];
+const simulate = (rate, burst) => {
+  let level = burst, last = 0, okN = 0, failN = 0;
+  const points = TRAIN.map(t => {
+    level = Math.min(burst, level + (t - last) * rate); last = t;
+    const ok = level >= 1; if (ok) { level -= 1; okN++; } else failN++;
+    return { t, ok, level };
+  });
+  return { points, okN, failN, level };
+};
+const renderSim = () => {
+  const rate = Number($("#rate").value), burst = Number($("#burst").value);
+  $("#rate-out").value = rate; $("#burst-out").value = burst;
+  const { points, okN, failN, level } = simulate(rate, burst);
+  const x = t => 16 + (t / 9.4) * 528;
+  const lvl = $("#lvl-g"); lvl.textContent = "";
+  points.forEach(p => {
+    const h = (p.level / burst) * 96;
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("class", "lvl"); r.setAttribute("x", x(p.t) - 5); r.setAttribute("width", 10);
+    r.setAttribute("y", 124 - h); r.setAttribute("height", Math.max(2, h)); r.setAttribute("rx", 2);
+    lvl.append(r);
+  });
+  const train = $("#train"); train.textContent = "";
+  points.forEach(p => {
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("class", "tick " + (p.ok ? "ok" : "fail"));
+    c.setAttribute("cx", x(p.t)); c.setAttribute("cy", 160); c.setAttribute("r", 7);
+    train.append(c);
+  });
+  $("#out-ok").value = okN; $("#out-fail").value = failN; $("#out-lvl").value = level.toFixed(1);
+};
+document.addEventListener("input", e => { if (e.target.matches("#rate,#burst")) renderSim(); });
+renderSim();
+
+// --- outline export: sections, gotchas, and FAQ as pasteable markdown
+const copyOutline = () => {
+  const L = ["# " + document.title, ""];
+  $$("main .section").forEach(s => {
+    L.push("## " + s.querySelector("h2").textContent.trim());
+    $$(".step summary", s).forEach(st => L.push("- " + st.textContent.trim().replace(/\s+/g, " ")));
+    $$(".rail", s).forEach(rl => L.push("- " + rl.textContent.trim().replace(/\s+/g, " ")));
+    $$("h3", s).forEach(h => L.push("- " + h.textContent.trim()));
+    L.push("");
+  });
+  const text = L.join("\n");
+  const note = $("#copy-note");
+  const p = navigator.clipboard?.writeText(text);
+  if (p) p.then(() => { note.textContent = "Outline copied"; }).catch(() => { note.textContent = "Copy blocked — select and copy below"; });
+  else note.textContent = "Copy unavailable in this context";
+};
+</script>
+</body>
+</html>

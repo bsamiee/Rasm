@@ -14,6 +14,13 @@ title: Render contract
 config:
   look: neo
   layout: elk
+  theme: base
+  themeVariables:
+    darkMode: true
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
   htmlLabels: false
   markdownAutoWrap: false
   fontFamily: monospace
@@ -32,12 +39,13 @@ flowchart LR
 ```
 
 - Keys are case-sensitive; a misspelled key silently no-ops, and malformed YAML kills the whole diagram.
+- The opening `---` tolerates leading horizontal whitespace on the current engine; an older pin rejects an indented delimiter, so the delimiter stays at column one.
 - Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter as the highest.
 - `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone.
 - Root keys with render impact: `htmlLabels` (supersedes deprecated `flowchart.htmlLabels`), `markdownAutoWrap`, `fontFamily`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`.
 - Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, and the rest — carrying that type's own keys.
 
-Frontmatter requests capability; the host provides it. `layout: elk`, icon packs, zenuml, and tidy-tree each need a registered loader — the CLI registers ELK and zenuml itself, a browser must register the rest.
+Frontmatter requests capability; the host provides it. `layout: elk`, icon packs, zenuml, and tidy-tree each need a registered loader — the CLI registers ELK, zenuml, and `@mermaid-js/layout-tidy-tree` itself, a browser must register the rest.
 
 ## [02]-[LAYOUT]
 
@@ -55,6 +63,13 @@ ELK is the standing layout engine: every ELK-capable diagram declares `layout: e
 ---
 config:
   layout: elk
+  theme: base
+  themeVariables:
+    darkMode: true
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
   elk:
     nodePlacementStrategy: BRANDES_KOEPF
     cycleBreakingStrategy: GREEDY
@@ -89,6 +104,8 @@ ELK engine facts, each carrying its authoring rule:
 - A self-referential edge lands misplaced — a self-loop routes through an explicit intermediate node.
 - Interactive link tooltips are dead under ELK — the label carries the fact.
 
+Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, `idealEdgeLengthMultiplier`, `edgeElasticity`, `numIter` — with `seed` as the deterministic lock and `align row|column {ids}` as the placement constraint; `randomize: false` alone never guarantees identical renders.
+
 ## [03]-[LOOK]
 
 `look` selects `classic`, `handDrawn`, or `neo`; state and sequence accept `look: neo`, and `handDrawnSeed` pins hand-drawn jitter. Schema themes are `default`, `base`, `dark`, `forest`, `neutral`, `neo`, `neo-dark`, `redux`, `redux-dark`, `redux-color`, and `redux-dark-color`. Theme selection and `themeVariables` palette work ride the same frontmatter `config:` block, owned by the theming reference — only `base` accepts `themeVariables`.
@@ -103,14 +120,15 @@ ELK engine facts, each carrying its authoring rule:
 
 ```bash
 mmdc -i input.mmd -o output.svg
-mmdc -i input.mmd -o output.png -b transparent
+mmdc -i input.mmd -o output.png -b transparent -s 1.5 -w 1600 -H 900
 mmdc -i input.md -o rendered.md -a ./artefacts -j 4
 mmdc -i - -o - -e svg
 ```
 
+- Format derives from the output extension (`.svg`, `.png`, `.pdf`); `-b` sets background, `-s` a fractional raster scale, `-w`/`-H` the viewport, `-j` parallel jobs in markdown mode.
 - `--theme` exposes only `default`, `forest`, `dark`, and `neutral`; `base` plus `themeVariables` and every schema theme require `--configFile` JSON.
-- `--iconPacks @iconify-json/<pack>` fetches over the network — an icon-bearing diagram needs network access or a cached pack.
-- The CLI loads KaTeX and FontAwesome CSS, registers ELK and zenuml, and waits on `document.fonts` before render.
+- `--iconPacks @iconify-json/<pack>` fetches over the network; `iconPacksNamesAndUrls` in the CLI config maps pack names to `file://` or internal URLs, so a deterministic render never touches unpkg.
+- The CLI loads KaTeX and FontAwesome CSS, registers ELK and zenuml, and waits on `document.fonts` before render; the current CLI drives Puppeteer v25.
 
 A schema theme or `themeVariables` reaches the CLI only through `--configFile`, since `--theme` cannot select it:
 
@@ -123,14 +141,26 @@ A schema theme or `themeVariables` reaches the CLI only through `--configFile`, 
 }
 ```
 
-A sandboxed or root CI passes Puppeteer launch args through `--puppeteerConfigFile`:
+A sandboxed or root CI passes Puppeteer launch args through `--puppeteerConfigFile`; a machine without a bundled Chromium pins `executablePath`:
 
 ```json
-{ "args": ["--no-sandbox", "--disable-setuid-sandbox"] }
+{ "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "args": ["--no-sandbox", "--disable-dev-shm-usage"] }
+```
+
+A fully offline deterministic render pins every input: the lockfile pins the CLI, `executablePath` pins the browser, `iconPacksNamesAndUrls` pins icons, images ride `file://` or `data:`, and the config file locks the identity surface:
+
+```json
+{
+  "theme": "base",
+  "deterministicIds": true,
+  "deterministicIDSeed": "mermaid-corpus",
+  "handDrawnSeed": 1001,
+  "architecture": { "randomize": false, "seed": 1001 }
+}
 ```
 
 - SVG output carries labels in `foreignObject` HTML that downstream SVG consumers drop — PNG is the portable export.
-- Repeated runs are not byte-identical, so render comparison keys on raster output, never SVG hashes.
+- Repeated runs are not byte-identical, so render comparison keys on raster output, never SVG hashes; `deterministicIds` stabilizes internal SVG ids, and ids are diagram-prefixed, so CSS targeting exact ids moves to suffix or semantic selectors.
 - Markdown-mode fence detection misses a fence whose info string carries irregular whitespace.
 
 ## [06]-[TRAPS]

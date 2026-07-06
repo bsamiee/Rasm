@@ -88,9 +88,14 @@ Use the route-owned standard for the file being edited:
 |  [08]   | SQL (`.sql`)                            | `coding-pg`              |
 |  [09]   | Durable markdown (`.md`)                | `docgen`                 |
 |  [10]   | Mermaid fences                          | `mermaid-diagramming`    |
-|  [11]   | HTML artifacts (`.html`)                | `html-artifacts`         |
+|  [11]   | HTML artifacts (`.html`)                | `html-studio`            |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
+
+[SKILL_CONCERT]: The visualization skills compose; each owns one medium and hands off at the seam.
+- Interviewing owns elicitation and its schema instances; a comparative, scored, or spatial ruling renders through the html-studio type rows, and an interactive carrier (quiz, wargame board, direction picker) runs served through the html-studio return channel so user verdicts come back as submission receipts.
+- html-studio owns single-file interactive HTML pages including their inline-SVG diagrams; mermaid-diagramming owns mermaid fences inside markdown; the dataviz skill owns chart-mark and chart-palette decisions in any medium.
+- Durable artifact pages home at `docs/atlas/` as `<kind>.<scope>[.<slug>].html`; session-scoped pages stay in scratch space and never commit.
 
 ## [03]-[NAMING_SCHEMA]
 

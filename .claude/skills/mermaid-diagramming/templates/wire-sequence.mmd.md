@@ -1,6 +1,6 @@
 # [WIRE_SEQUENCE]
 
-Draw an ordered exchange across a wire or process boundary. The template bakes in the wire discipline an unassisted attempt drops — the frame shape is named ON the wire in a note, so both sides visibly share one contract; every request has its visible return in both the success and fault arms, keeping causality auditable; the resolver's activation brackets exactly the work it owns; and the timeout escape is a `break` block, because a timeout aborts the exchange rather than branching it. Use `sequenceDiagram` with 3-4 participants, `autonumber` for citable steps, and one `alt` splitting success from fault. `sequenceDiagram` takes no ELK; `look: neo` applies. An unordered ownership structure is a spine or seam-graph, never a sequence.
+Draw an ordered exchange across a wire or process boundary. The template bakes in the wire discipline an unassisted attempt drops — the frame shape is named ON the wire in a note, so both sides visibly share one contract; every request has its visible return in both the success and fault arms, keeping causality auditable; the resolver's activation brackets exactly the work it owns; and the timeout escape is a `break` block, because a timeout aborts the exchange rather than branching it. The resolver's owned exchange sits on a `rect` background — the container is sequence's one styling lever, so the region a participant owns is tinted, never inferred. Use `sequenceDiagram` with 3-4 participants, `autonumber` for citable steps, and one `alt` splitting success from fault. `sequenceDiagram` takes no ELK; `look: neo` applies. An unordered ownership structure is a spine or seam-graph, never a sequence.
 
 ```mermaid
 ---
@@ -26,6 +26,7 @@ config:
     labelBoxBkgColor: "#21222C"
     labelBoxBorderColor: "#6272A4"
     labelTextColor: "#F8F8F2"
+    fontFamily: "monospace"
 ---
 sequenceDiagram
     accTitle: Wire exchange
@@ -39,16 +40,18 @@ sequenceDiagram
     break wire timeout
         W-->>C: TimeoutFault
     end
-    W->>R: Dispatch(Frame)
-    activate R
-    alt resolved
-        R-->>W: Receipt
-        W-->>C: Receipt
-    else fault
-        R-->>W: FaultRow
-        W-->>C: FaultRow
+    rect rgb(33, 34, 44)
+        W->>R: Dispatch(Frame)
+        activate R
+        alt resolved
+            R-->>W: Receipt
+            W-->>C: Receipt
+        else fault
+            R-->>W: FaultRow
+            W-->>C: FaultRow
+        end
+        deactivate R
     end
-    deactivate R
 ```
 
-Refill by renaming the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work.
+Refill by renaming the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work, and the owned region on its `rect` background.

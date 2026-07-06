@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Wargame: Ingest Compute Placement</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer tokens{
+:root{--measure:1220px;--score-max:5}
+}
+@layer components{
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:20;background:var(--raised-2);padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1)}
+.head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s3);justify-content:space-between}
+.rowline{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.criteria{position:sticky;top:0;z-index:5;display:grid;gap:var(--s2) var(--s5);grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));padding:var(--s3) var(--s4);margin-block:var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line-strong);border-radius:var(--r-2)}
+.crit{display:grid;gap:var(--s1)}
+.crit .rowline{justify-content:space-between}
+.crit input[type=range]{inline-size:100%;accent-color:var(--accent);padding:0;border:0;background:transparent}
+.crit output{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
+.verdict-pane{display:grid;gap:var(--s3);padding:var(--s4);margin-block:var(--s4);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2)}
+.standing{display:grid;grid-template-columns:minmax(9rem,max-content) minmax(0,1fr) max-content max-content;gap:var(--s2) var(--s3);align-items:center}
+.standing .meter{align-self:center}
+.standing b{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.matrix{min-inline-size:46rem}
+.matrix td.heat{background:color-mix(in oklch,var(--surface),var(--accent) calc(var(--score)/var(--score-max)*70%))}
+.matrix .cell{display:flex;gap:var(--s1);align-items:center}
+.matrix .cell input{inline-size:3.25rem;text-align:center;background:color-mix(in oklch,var(--bg) 55%,transparent)}
+.matrix .total{font-family:var(--font-mono);font-weight:700;font-variant-numeric:tabular-nums}
+.matrix tr.best td:first-child{border-inline-start:3px solid var(--ok)}
+.matrix tr.dq td:first-child{border-inline-start:3px solid var(--fail)}
+.matrix tr.dq .total{text-decoration:line-through;color:var(--text-muted)}
+.dot{border-radius:var(--r-full);padding:2px;min-inline-size:1.4rem}
+.dot.filled::before,.dot.hollow::before{content:"";inline-size:9px;block-size:9px;border-radius:50%;display:inline-block}
+.dot.filled::before{background:var(--accent)}
+.dot.hollow::before{border:1.5px solid var(--text-faint);background:transparent}
+.risks{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))}
+.export-bar{flex-wrap:wrap}
+.export-bar .egress{inline-size:100%;min-block-size:0;block-size:3rem;font-family:var(--font-mono);font-size:var(--fs-2xs);transition:block-size var(--dur-2) var(--ease-out)}
+.export-bar .egress:focus{block-size:9rem}
+.pop{margin:0;padding:var(--s3);min-inline-size:min(92vw,20rem);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) var(--s4) auto;opacity:0;transform:translateY(.25rem);transition:opacity var(--dur-2) var(--ease-out),transform var(--dur-2) var(--ease-out),display var(--dur-2) allow-discrete}
+.pop:popover-open{opacity:1;transform:translateY(0)}
+@starting-style{.pop:popover-open{opacity:0;transform:translateY(.25rem)}}
+.pop textarea{inline-size:100%;min-block-size:4rem;margin-block-start:var(--s2)}
+#toast{margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) calc(var(--s8) + var(--s4)) auto;opacity:0;transition:opacity var(--dur-2) var(--ease-out),display var(--dur-2) allow-discrete}
+#toast:popover-open{opacity:1}
+@starting-style{#toast:popover-open{opacity:0}}
+}
+@layer utilities{
+.mono{font-family:var(--font-mono)}
+.right{margin-inline-start:auto}
+body{counter-reset:sec}
+}
+@layer print{@media print{
+.matrix{min-inline-size:0}
+.criteria{position:static}
+.verdict-pane,tr,.card{break-inside:avoid}
+h2{break-after:avoid}
+}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <!-- replace: eyebrow scope line -->
+      <p class="eyebrow" id="doc-eyebrow">Wargame · Data Platform</p>
+      <h1 id="doc-title">…</h1>
+      <p class="deck" id="doc-sub"></p>
+    </div>
+    <div class="rowline no-print">
+      <small id="doc-date" class="mono"></small>
+      <button type="button" class="btn ghost" data-toggle-theme aria-label="Toggle color theme">Theme</button>
+    </div>
+  </header>
+
+  <section class="criteria no-print" id="criteria" aria-label="Criterion weights"></section>
+
+  <section class="verdict-pane" id="verdict-pane" aria-live="polite"></section>
+
+  <main id="main" tabindex="-1">
+    <section class="section">
+      <h2 id="matrix-h">Scoring matrix</h2>
+      <div class="twrap"><table class="matrix" aria-labelledby="matrix-h">
+        <thead><tr id="matrix-head"></tr></thead>
+        <tbody id="matrix-body"></tbody>
+      </table></div>
+      <small class="muted">Cell intensity tracks the score; a zero on a disqualifier criterion excludes the option from winning.</small>
+    </section>
+    <section class="section">
+      <h2 id="risks-h">Option risks</h2>
+      <div class="risks" id="risks-body"></div>
+    </section>
+  </main>
+
+  <footer class="export-bar no-print" aria-label="Export bar">
+    <button type="button" class="btn primary" data-export="send" hidden>Send to agent</button>
+    <label class="rowline">Final call <select id="final-call" aria-label="Chosen option"></select></label>
+    <label class="rowline">Verdict <select id="global-verdict" aria-label="Global verdict"></select></label>
+    <button type="button" class="btn" data-export="md">Copy markdown</button>
+    <button type="button" class="btn" data-export="json">Download JSON</button>
+    <button type="button" class="btn ghost" data-export="changed" disabled>Copy changed-only</button>
+    <small id="egress-meta" class="mono right"></small>
+    <label class="rowline" style="flex:1 1 100%">Dissent <textarea id="dissent" class="egress" aria-label="Dissent note" placeholder="Dissent from the computed winner"></textarea></label>
+    <textarea class="egress" id="egress" readonly placeholder="Exported payload mirrors here." aria-label="Exported payload"></textarea>
+  </footer>
+</div>
+<output id="toast" popover="manual" role="status" aria-live="polite"></output>
+<!-- replace: wargame model payload -->
+<script type="application/json" id="payload">{
+  "meta": {
+    "id": "wargame.ingest-compute-placement",
+    "title": "Wargame: Ingest Compute Placement",
+    "subtitle": "Weights and scores are live; the verdict pane, heatmap, and sensitivity recompute on every change.",
+    "date": "2026-07-06",
+    "owner": "data-platform",
+    "baseline": "b-0",
+    "weightMax": 9,
+    "scoreMax": 5
+  },
+  "criteria": [
+    { "id": "crit-impact", "name": "Impact", "weight": 4, "disqualifier": false },
+    { "id": "crit-delivery", "name": "Delivery risk", "weight": 3, "disqualifier": false },
+    { "id": "crit-revert", "name": "Reversibility", "weight": 2, "disqualifier": false },
+    { "id": "crit-security", "name": "Security posture", "weight": 3, "disqualifier": true }
+  ],
+  "options": [
+    {
+      "id": "opt-absorb",
+      "name": "Absorb into one Loader",
+      "cells": {
+        "crit-impact": { "score": 5, "rationale": "Removes the cross-service hop; one owner holds the transform." },
+        "crit-delivery": { "score": 3, "rationale": "Largest diff, but the path is well understood." },
+        "crit-revert": { "score": 3, "rationale": "" },
+        "crit-security": { "score": 4, "rationale": "Stays inside the existing trust boundary." }
+      }
+    },
+    {
+      "id": "opt-sidecar",
+      "name": "Sidecar transform service",
+      "cells": {
+        "crit-impact": { "score": 4, "rationale": "" },
+        "crit-delivery": { "score": 4, "rationale": "Independent deploy cadence lowers blast radius." },
+        "crit-revert": { "score": 4, "rationale": "Swap the sidecar without touching the core." },
+        "crit-security": { "score": 4, "rationale": "mTLS between core and sidecar." }
+      }
+    },
+    {
+      "id": "opt-indb",
+      "name": "In-database compute",
+      "cells": {
+        "crit-impact": { "score": 4, "rationale": "Compute next to the data cuts transfer cost." },
+        "crit-delivery": { "score": 2, "rationale": "The extension review is a long pole." },
+        "crit-revert": { "score": 2, "rationale": "" },
+        "crit-security": { "score": 5, "rationale": "Runs under the database trust domain." }
+      }
+    },
+    {
+      "id": "opt-client",
+      "name": "Client-side pipeline",
+      "cells": {
+        "crit-impact": { "score": 5, "rationale": "Zero server compute cost." },
+        "crit-delivery": { "score": 5, "rationale": "Ships with the client bundle." },
+        "crit-revert": { "score": 5, "rationale": "Feature-flag rollback." },
+        "crit-security": { "score": 0, "rationale": "An untrusted client cannot hold the transform keys." }
+      }
+    }
+  ],
+  "risks": {
+    "opt-absorb": ["Dispatch body grows dense without a reader registry", "Requires disciplined input detection"],
+    "opt-sidecar": ["Extra network hop on every ingest", "A second thing to run and page on"],
+    "opt-indb": ["Extension upgrade couples to the database release train", "Harder to unit-test in isolation"],
+    "opt-client": ["Transform logic and keys exposed to an untrusted runtime", "No server-side audit of the computation"]
+  }
+}</script>
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs, ...kids) => {
+  const n = document.createElement(tag);
+  if (attrs) for (const k in attrs) { const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === "text") n.textContent = v; else if (v === true) n.setAttribute(k, ""); else n.setAttribute(k, v); }
+  for (const kid of kids) { if (kid == null || kid === false) continue; n.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+  return n;
+};
+const VOCAB = ["approve", "approve_with_notes", "reject", "defer", "edit", "comment", "dismiss"];
+
+// theme stamp: stored choice wins; unstored follows the system preference
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+try { const s = localStorage.getItem(themeKey); if (s) root.dataset.theme = s; } catch {}
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
+  const next = dark ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+
+const model = JSON.parse($("#payload").textContent);
+const BASE_ID = model.meta.baseline;
+const WMAX = model.meta.weightMax, SMAX = model.meta.scoreMax;
+document.documentElement.style.setProperty("--score-max", SMAX);
+const baseModel = structuredClone(model);
+const state = { captures: {}, global: { status: "", choice: "", note: "" }, copies: 0 };
+
+const num = v => Number(v) || 0;
+const weight = c => num(c.weight);
+const cellOf = (o, cid) => (o.cells[cid] ??= { score: 0, rationale: "" });
+const scoreOf = (o, cid) => num(cellOf(o, cid).score);
+const maxTotal = () => model.criteria.reduce((a, c) => a + weight(c) * SMAX, 0);
+const totals = () => model.options.map(o => {
+  let total = 0, dq = false;
+  for (const c of model.criteria) { const s = scoreOf(o, c.id); total += s * weight(c); if (c.disqualifier && s === 0) dq = true; }
+  return { id: o.id, name: o.name, total, dq };
+});
+const winnerOf = ts => { const q = ts.filter(t => !t.dq).slice().sort((a, b) => b.total - a.total); return q[0] || null; };
+
+function sensitivity() {
+  const base = totals(), win = winnerOf(base);
+  const qualified = base.filter(t => !t.dq);
+  if (!win || qualified.length < 2) return null;
+  const optById = Object.fromEntries(model.options.map(o => [o.id, o]));
+  let best = null;
+  const take = (delta, desc) => { if (delta >= 0 && Number.isFinite(delta) && (!best || delta < best.delta - 1e-9)) best = { delta, desc }; };
+  for (const c of model.criteria) {
+    const w = weight(c);
+    for (const t of qualified) {
+      if (t.id === win.id) continue;
+      const gap = win.total - t.total;
+      if (w > 0) {
+        const ds = gap / w;
+        if (scoreOf(optById[win.id], c.id) - ds >= -1e-9) take(ds, "lower " + win.name + " " + c.name + " score by " + ds.toFixed(2) + " to tie " + t.name);
+        if (scoreOf(optById[t.id], c.id) + ds <= SMAX + 1e-9) take(ds, "raise " + t.name + " " + c.name + " score by " + ds.toFixed(2) + " to tie " + win.name);
+      }
+      const slope = scoreOf(optById[win.id], c.id) - scoreOf(optById[t.id], c.id);
+      if (Math.abs(slope) > 1e-12) {
+        const dw = gap / Math.abs(slope), dir = slope > 0 ? -1 : 1, target = w + dir * dw;
+        if (target >= -1e-9 && target <= WMAX + 1e-9) take(dw, (dir < 0 ? "lower " : "raise ") + c.name + " weight by " + dw.toFixed(2) + " to tie " + win.name + " and " + t.name);
+      }
+    }
+  }
+  return best;
+}
+
+const cap = id => (state.captures[id] ??= { verdict: "", note: "", ann: "active" });
+const decisionsOut = () => Object.entries(state.captures).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
+const annotations = () => Object.entries(state.captures).filter(([, c]) => c.note).map(([id, c], i) => ({ id: "a-" + (i + 1), itemId: id, intent: "note", status: c.ann, text: c.note }));
+function changesOut() {
+  const out = [];
+  model.criteria.forEach(c => { const b = baseModel.criteria.find(x => x.id === c.id); if (num(c.weight) !== num(b.weight)) out.push({ itemId: c.id, path: "/criteria/" + c.id + "/weight", from: b.weight, to: num(c.weight) }); });
+  model.options.forEach(o => { const bo = baseModel.options.find(x => x.id === o.id);
+    model.criteria.forEach(c => { const cur = cellOf(o, c.id), bc = bo.cells[c.id] || { score: 0, rationale: "" };
+      if (num(cur.score) !== num(bc.score)) out.push({ itemId: o.id + "/" + c.id, path: "/options/" + o.id + "/cells/" + c.id + "/score", from: bc.score, to: num(cur.score) });
+      if ((cur.rationale || "") !== (bc.rationale || "")) out.push({ itemId: o.id + "/" + c.id, path: "/options/" + o.id + "/cells/" + c.id + "/rationale", from: bc.rationale || "", to: cur.rationale || "" });
+    }); });
+  return out;
+}
+const isChanged = () => changesOut().length || decisionsOut().length || annotations().length || state.global.status || state.global.choice || state.global.note;
+
+const verdictSelect = (id, current) => {
+  const sel = el("select", { "aria-label": "Verdict for " + id, "data-verdict-for": id });
+  ["", "approve", "reject", "defer"].forEach(v => sel.append(el("option", { value: v, ...(current === v ? { selected: true } : {}) }, v || "—")));
+  return sel;
+};
+
+function render() {
+  $("#doc-title").textContent = model.meta.title;
+  $("#doc-sub").textContent = model.meta.subtitle;
+  $("#doc-date").textContent = model.meta.date;
+
+  $("#criteria").replaceChildren(...model.criteria.map(c => el("div", { class: "crit" },
+    el("div", { class: "rowline" },
+      el("span", { class: "chip " + (c.disqualifier ? "fail" : "info"), text: c.name + (c.disqualifier ? " [DQ]" : "") }),
+      el("output", { text: "w " + weight(c) })),
+    el("input", { type: "range", "data-weight": c.id, value: weight(c), min: 0, max: WMAX, step: 1, "aria-label": c.name + " weight" }))));
+
+  const ts = totals(), win = winnerOf(ts), sens = sensitivity(), mt = maxTotal() || 1;
+  $("#verdict-pane").replaceChildren(
+    el("div", { class: "rail " + (win ? "ok" : "fail") },
+      el("strong", {}, win ? "Winner: " + win.name + " — " + win.total.toFixed(1) : "No winner — every option disqualified"),
+      el("div", {}, el("small", { class: "muted", text: sens ? "Sensitivity: " + sens.delta.toFixed(2) + " — " + sens.desc : "Sensitivity: not defined (fewer than two qualified options)" }))),
+    el("div", { class: "standing" }, ...ts.flatMap(t => {
+      const meter = el("div", { class: "meter", role: "img", "aria-label": t.name + " " + t.total.toFixed(1) + " of " + mt });
+      meter.append(el("span", { style: "width:" + (t.total / mt * 100).toFixed(1) + "%" }));
+      return [
+        el("span", { text: t.name }),
+        meter,
+        el("b", { text: t.total.toFixed(1) }),
+        t.dq ? el("span", { class: "chip fail", text: "[DISQUALIFIED]" })
+             : (win && win.id === t.id ? el("span", { class: "chip ok", text: "[WINNER]" }) : el("span", { class: "chip", text: "[QUALIFIED]" })),
+      ];
+    })));
+
+  const head = $("#matrix-head");
+  head.replaceChildren(el("th", { scope: "col", text: "Option" }));
+  model.criteria.forEach(c => head.append(el("th", { scope: "col", text: c.name + " · w" + weight(c) })));
+  head.append(el("th", { scope: "col", class: "num", text: "Total" }), el("th", { scope: "col", text: "Verdict" }));
+
+  $("#matrix-body").replaceChildren(...model.options.map(o => {
+    const t = ts.find(x => x.id === o.id);
+    const tr = el("tr", { class: (t.dq ? "dq" : (win && win.id === o.id ? "best" : "")), "data-option": o.id });
+    tr.append(el("td", {}, el("strong", { text: o.name }),
+      t.dq ? el("div", {}, el("span", { class: "chip fail", text: "[DISQUALIFIED]" })) : null));
+    model.criteria.forEach(c => {
+      const cell = cellOf(o, c.id), pid = "rat-" + o.id + "-" + c.id, has = !!(cell.rationale && cell.rationale.trim());
+      tr.append(el("td", { class: "heat", style: "--score:" + scoreOf(o, c.id) },
+        el("div", { class: "cell" },
+          el("input", { type: "number", class: "mono", "data-score": o.id + "|" + c.id, value: scoreOf(o, c.id), min: 0, max: SMAX, "aria-label": o.name + " " + c.name + " score" }),
+          el("button", { type: "button", class: "btn ghost dot no-print " + (has ? "filled" : "hollow"), popovertarget: pid, "aria-label": (has ? "Rationale for " : "Missing rationale for ") + o.name + " " + c.name }),
+          el("div", { id: pid, class: "pop no-print", popover: "auto" },
+            el("strong", { text: o.name + " · " + c.name }),
+            el("textarea", { "data-rationale-for": o.id + "|" + c.id, "aria-label": "Rationale for " + o.name + " " + c.name, placeholder: "Rationale (empty renders a hollow marker)" }, cell.rationale || "")))));
+    });
+    tr.append(el("td", { class: "total num", text: t.total.toFixed(1) }),
+      el("td", {}, verdictSelect(o.id, cap(o.id).verdict)));
+    return tr;
+  }));
+
+  $("#risks-body").replaceChildren(...model.options.map(o => {
+    const art = el("article", { class: "card", "aria-label": "Risks for " + o.name }, el("h3", { text: o.name }));
+    const ul = el("ul"); (model.risks[o.id] || []).forEach(r => ul.append(el("li", { text: r }))); art.append(ul); return art;
+  }));
+
+  const fc = $("#final-call");
+  if (!fc.options.length) { fc.append(el("option", { value: "" }, "—")); model.options.forEach(o => fc.append(el("option", { value: o.id }, o.name))); }
+  fc.value = state.global.choice;
+  const gv = $("#global-verdict");
+  if (!gv.options.length) ["", ...VOCAB].forEach(v => gv.append(el("option", { value: v }, v || "—")));
+  gv.value = state.global.status;
+  $("#dissent").value = state.global.note;
+
+  $("#egress-meta").textContent = "copies: " + state.copies + " · unresolved notes: " + annotations().filter(a => a.status === "active").length;
+  $("[data-export='changed']").disabled = !isChanged();
+}
+
+function envelope(changedOnly) {
+  const ts = totals(), win = winnerOf(ts), sens = sensitivity();
+  return {
+    kind: "wargame", version: 1,
+    artifact: { id: model.meta.id, title: model.meta.title, baseline: BASE_ID },
+    decision: { status: state.global.status || "comment", at: new Date().toISOString(), ...(state.global.note ? { note: state.global.note } : {}) },
+    decisions: decisionsOut(), changes: changesOut(), annotations: annotations(),
+    state: {
+      matrix: model.options.map(o => ({ id: o.id, total: ts.find(t => t.id === o.id).total, disqualified: ts.find(t => t.id === o.id).dq })),
+      criteria: model.criteria, options: model.options, captures: state.captures, global: state.global
+    },
+    extensions: { choice: state.global.choice || null, winner: win ? win.id : null, sensitivity: sens ? { delta: Number(sens.delta.toFixed(4)), desc: sens.desc } : null, ...(changedOnly ? { diffBaseline: BASE_ID } : {}) }
+  };
+}
+function validate(env) {
+  const errs = [];
+  if (env.kind !== "wargame") errs.push("kind");
+  if (env.version !== 1) errs.push("version");
+  if (!env.artifact || !env.artifact.id || !env.artifact.title) errs.push("artifact");
+  if (!VOCAB.includes(env.decision.status)) errs.push("decision.status");
+  env.decisions.forEach(d => { if (!d.id || !VOCAB.includes(d.verdict)) errs.push("decision:" + d.id); });
+  ["decisions", "changes", "annotations"].forEach(k => { if (!Array.isArray(env[k])) errs.push(k); });
+  return errs;
+}
+function toMarkdown(env) {
+  const ts = totals(), win = winnerOf(ts), sens = sensitivity();
+  const choice = model.options.find(o => o.id === state.global.choice);
+  const L = ["# " + model.meta.title, "",
+    "**Final call:** " + (choice ? choice.name : "(none)") + " · verdict " + (env.decision.status || "(none)") + (state.global.note ? " · dissent: " + state.global.note : ""),
+    "Winner (computed): " + (win ? win.name + " — " + win.total.toFixed(1) : "none"),
+    "Sensitivity: " + (sens ? sens.delta.toFixed(2) + " — " + sens.desc : "not defined"), "", "## Scored matrix"];
+  L.push("| Option | " + model.criteria.map(c => c.name + " (w" + weight(c) + ")").join(" | ") + " | Total | Status |");
+  L.push("| " + Array(model.criteria.length + 3).fill("---").join(" | ") + " |");
+  model.options.forEach(o => {
+    const t = ts.find(x => x.id === o.id);
+    L.push("| " + o.name + " | " + model.criteria.map(c => String(scoreOf(o, c.id))).join(" | ") + " | " + t.total.toFixed(1) + " | " + (t.dq ? "DISQUALIFIED" : (win && win.id === o.id ? "WINNER" : "")) + " |");
+  });
+  if (env.decisions.length) { L.push("", "## Option verdicts", "| Option | Verdict | Note |", "| --- | --- | --- |"); env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + (d.note || "") + " |")); }
+  return L.join("\n") + "\n";
+}
+
+let toastTimer;
+const flash = msg => { const t = $("#toast"); t.textContent = msg; t.showPopover?.(); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidePopover?.(), 1600); };
+const markExported = () => { Object.values(state.captures).forEach(c => { if (c.note) c.ann = "exported"; }); };
+const copyText = async text => {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const t = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;left:-9999px" });
+    document.body.append(t); t.select(); document.execCommand("copy"); t.remove();
+  }
+};
+const download = (name, mime, text) => {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// return channel: the injected meta is the protocol switch — absent means file:// and export-only
+const returnMeta = document.querySelector('meta[name="artifact-return"]');
+if (returnMeta) $("[data-export='send']").hidden = false;
+const sendToAgent = async env => {
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  if (!res.ok) throw new Error("submit " + res.status);
+  return res.json();
+};
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-export]"); if (!b) return;
+  const mode = b.dataset.export, env = envelope(mode === "changed"), errs = validate(env), eg = $("#egress");
+  if (errs.length) { eg.value = "BLOCKED — invalid payload: " + errs.join(", "); flash("Export blocked"); return; }
+  if (mode === "send") {
+    b.disabled = true;
+    try { await sendToAgent(env); state.copies++; markExported(); flash("Sent to agent"); }
+    catch { eg.value = JSON.stringify(env, null, 2); await copyText(eg.value); flash("Send failed — copied instead"); }
+    finally { b.disabled = false; render(); }
+    return;
+  }
+  const out = mode === "md" ? toMarkdown(env) : JSON.stringify(env, null, 2);
+  eg.value = out;
+  if (mode === "json") { download(model.meta.id + ".json", "application/json", out); flash("Downloaded"); }
+  else { await copyText(out); markExported(); flash("Copied"); }
+  state.copies++; render();
+});
+document.addEventListener("input", e => {
+  const w = e.target.closest("[data-weight]");
+  if (w) { const c = model.criteria.find(x => x.id === w.dataset.weight); c.weight = num(w.value); render(); }
+  const s = e.target.closest("[data-score]");
+  if (s) { const [oid, cid] = s.dataset.score.split("|"); cellOf(model.options.find(o => o.id === oid), cid).score = Math.max(0, Math.min(SMAX, num(s.value))); render(); }
+  const r = e.target.closest("[data-rationale-for]");
+  if (r) { const [oid, cid] = r.dataset.rationaleFor.split("|"); cellOf(model.options.find(o => o.id === oid), cid).rationale = r.value; $("[data-export='changed']").disabled = !isChanged(); }
+  if (e.target.id === "dissent") { state.global.note = e.target.value; $("[data-export='changed']").disabled = !isChanged(); }
+});
+document.addEventListener("change", e => {
+  const v = e.target.closest("[data-verdict-for]");
+  if (v) { cap(v.dataset.verdictFor).verdict = v.value; render(); }
+  if (e.target.id === "final-call") { state.global.choice = e.target.value; render(); }
+  if (e.target.id === "global-verdict") { state.global.status = e.target.value; render(); }
+});
+render();
+})();
+</script>
+</body>
+</html>

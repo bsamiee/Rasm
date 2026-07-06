@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Dashboard: Verification Runs</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer tokens{
+:root{--measure:1240px}
+}
+@layer components{
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:40;background:var(--raised-2);padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1)}
+.head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s3);justify-content:space-between}
+.head-tools{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center}
+.head time{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
+.filters{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:var(--s4);align-items:center;margin-block:var(--s4);padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line-strong);border-radius:var(--r-2)}
+.filters label{display:flex;gap:var(--s2);align-items:center;font-size:var(--fs-sm);color:var(--text-muted)}
+.filter-count{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-muted)}
+.disclosure{font-size:var(--fs-xs);margin:var(--s2) 0}
+.kpis{container:kpis / inline-size;margin-block:var(--s4)}
+.kpi .spark{display:block;margin-block-start:var(--s1)}
+.kpi b.ok{color:var(--ok)}.kpi b.fail{color:var(--fail)}
+.charts figure{margin:0;display:grid;gap:var(--s2)}
+.charts figcaption{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+.chart{padding:var(--s2)}
+.chart svg{display:block}
+th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap;transition:background var(--dur-1) var(--ease-standard),color var(--dur-1) var(--ease-standard)}
+th[data-sort]:hover{background:var(--raised-2);color:var(--text)}
+th[aria-sort=ascending]::after{content:" \2191";color:var(--accent)}
+th[aria-sort=descending]::after{content:" \2193";color:var(--accent)}
+tbody tr{cursor:pointer;transition:background var(--dur-1) var(--ease-standard)}
+tbody tr:hover{background:color-mix(in oklch,var(--accent) 6%,transparent)}
+tbody tr[data-active]{background:var(--accent-weak)}
+tbody tr:has([data-flagged]){box-shadow:inset 3px 0 0 var(--warn)}
+td[data-cell=status]{text-transform:uppercase;font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600}
+td[data-cell=status].pass{color:var(--ok)}td[data-cell=status].fail{color:var(--fail)}td[data-cell=status].skip{color:var(--warn)}
+.flag-mark{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--warn)}
+.drawer{position:fixed;inset-block:0;inset-inline-end:0;z-index:30;inline-size:min(24rem,94vw);display:grid;grid-template-rows:auto 1fr auto;gap:var(--s3);padding:var(--s5);background:var(--raised-2);border-inline-start:1px solid var(--line-strong);box-shadow:var(--shadow-2);transform:translateX(102%);transition:transform var(--dur-3) var(--ease-out)}
+.drawer[data-open]{transform:translateX(0)}
+.drawer h3{margin:0;font-family:var(--font-display)}
+.drawer dl{display:grid;grid-template-columns:max-content 1fr;gap:var(--s1) var(--s3);margin:0;font-size:var(--fs-sm);align-content:start}
+.drawer dt{font-family:var(--font-mono);font-size:var(--fs-2xs);text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);align-self:center}
+.drawer dd{margin:0}
+.drawer .verdict-row{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.drawer textarea{inline-size:100%;min-block-size:4rem;font-family:var(--font-mono);font-size:var(--fs-xs)}
+.export-bar{flex-wrap:wrap}
+.export-bar .egress{inline-size:100%;block-size:3rem;font-family:var(--font-mono);font-size:var(--fs-2xs);transition:block-size var(--dur-2) var(--ease-out)}
+.export-bar .egress:focus{block-size:9rem}
+.export-status{font-size:var(--fs-xs);color:var(--text-muted)}
+#toast{margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) calc(var(--s8) + var(--s4)) auto;opacity:0;transition:opacity var(--dur-2) var(--ease-out),display var(--dur-2) allow-discrete}
+#toast:popover-open{opacity:1}
+@starting-style{#toast:popover-open{opacity:0}}
+}
+@layer utilities{
+.mono{font-family:var(--font-mono)}
+.right{margin-inline-start:auto}
+}
+@layer print{
+@media print{
+  .filters,.head-tools,.drawer,.disclosure{display:none!important}
+  .kpis,.charts figure,tbody tr{break-inside:avoid}
+  tbody tr{cursor:default}
+}
+}
+@layer overrides{
+@container kpis (inline-size < 30rem){.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (forced-colors:active){tbody tr:has([data-flagged]){box-shadow:none;border-inline-start:3px solid CanvasText}}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#board">Skip to data board</a>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <!-- replace: eyebrow scope line -->
+      <p class="eyebrow">Dashboard · Verify</p>
+      <h1>Dashboard: Verification Runs</h1>
+      <p class="deck">Filterable board over an embedded run log; KPIs, sparklines, and charts recompute under the active filter, and a row opens its detail drawer.</p>
+    </div>
+    <div class="head-tools no-print">
+      <span class="chip info">[LIVE]</span>
+      <!-- replace: report date -->
+      <time datetime="2026-07-06">2026-07-06</time>
+      <button type="button" class="btn ghost" data-toggle-theme aria-label="Toggle color theme">Theme</button>
+    </div>
+  </header>
+
+  <search class="filters no-print" aria-label="Run filters">
+    <label>Filter <input type="search" data-filter-box placeholder="Filter across all columns" aria-label="Filter runs by text"></label>
+    <label>Suite <select data-facet aria-label="Filter runs by suite"><option value="all">All suites</option></select></label>
+    <output class="filter-count num" data-count aria-live="polite"></output>
+  </search>
+
+  <p class="disclosure muted">A filter hides rows from view, never from the embedded source: the full run log stays in the page payload and every export can carry it.</p>
+
+  <!-- replace: embedded dataset payload — meta plus run rows (id, suite, status, duration_ms, owner, day) -->
+  <script type="application/json" id="payload">{"meta": {"title": "Dashboard: Verification Runs", "owner": "verify", "date": "2026-07-06"}, "rows": [{"id": 1, "suite": "geometry", "status": "fail", "duration_ms": 40, "owner": "kernel", "day": "2026-06-29"}, {"id": 2, "suite": "compute", "status": "pass", "duration_ms": 77, "owner": "seam", "day": "2026-06-30"}, {"id": 3, "suite": "persistence", "status": "pass", "duration_ms": 114, "owner": "host", "day": "2026-07-01"}, {"id": 4, "suite": "bridge", "status": "pass", "duration_ms": 151, "owner": "bim", "day": "2026-07-02"}, {"id": 5, "suite": "artifacts", "status": "pass", "duration_ms": 188, "owner": "core", "day": "2026-07-03"}, {"id": 6, "suite": "runtime", "status": "pass", "duration_ms": 225, "owner": "docs", "day": "2026-07-04"}, {"id": 7, "suite": "geometry", "status": "pass", "duration_ms": 262, "owner": "kernel", "day": "2026-07-05"}, {"id": 8, "suite": "compute", "status": "skip", "duration_ms": 299, "owner": "seam", "day": "2026-07-06"}, {"id": 9, "suite": "persistence", "status": "pass", "duration_ms": 336, "owner": "host", "day": "2026-06-29"}, {"id": 10, "suite": "bridge", "status": "fail", "duration_ms": 373, "owner": "bim", "day": "2026-06-30"}, {"id": 11, "suite": "artifacts", "status": "pass", "duration_ms": 410, "owner": "core", "day": "2026-07-01"}, {"id": 12, "suite": "runtime", "status": "pass", "duration_ms": 447, "owner": "docs", "day": "2026-07-02"}, {"id": 13, "suite": "geometry", "status": "pass", "duration_ms": 484, "owner": "kernel", "day": "2026-07-03"}, {"id": 14, "suite": "compute", "status": "pass", "duration_ms": 521, "owner": "seam", "day": "2026-07-04"}, {"id": 15, "suite": "persistence", "status": "skip", "duration_ms": 558, "owner": "host", "day": "2026-07-05"}, {"id": 16, "suite": "bridge", "status": "pass", "duration_ms": 595, "owner": "bim", "day": "2026-07-06"}, {"id": 17, "suite": "artifacts", "status": "pass", "duration_ms": 632, "owner": "core", "day": "2026-06-29"}, {"id": 18, "suite": "runtime", "status": "pass", "duration_ms": 669, "owner": "docs", "day": "2026-06-30"}, {"id": 19, "suite": "geometry", "status": "fail", "duration_ms": 706, "owner": "kernel", "day": "2026-07-01"}, {"id": 20, "suite": "compute", "status": "pass", "duration_ms": 743, "owner": "seam", "day": "2026-07-02"}, {"id": 21, "suite": "persistence", "status": "pass", "duration_ms": 780, "owner": "host", "day": "2026-07-03"}, {"id": 22, "suite": "bridge", "status": "skip", "duration_ms": 817, "owner": "bim", "day": "2026-07-04"}, {"id": 23, "suite": "artifacts", "status": "pass", "duration_ms": 854, "owner": "core", "day": "2026-07-05"}, {"id": 24, "suite": "runtime", "status": "pass", "duration_ms": 891, "owner": "docs", "day": "2026-07-06"}, {"id": 25, "suite": "geometry", "status": "pass", "duration_ms": 928, "owner": "kernel", "day": "2026-06-29"}, {"id": 26, "suite": "compute", "status": "pass", "duration_ms": 42, "owner": "seam", "day": "2026-06-30"}, {"id": 27, "suite": "persistence", "status": "pass", "duration_ms": 79, "owner": "host", "day": "2026-07-01"}, {"id": 28, "suite": "bridge", "status": "fail", "duration_ms": 116, "owner": "bim", "day": "2026-07-02"}, {"id": 29, "suite": "artifacts", "status": "skip", "duration_ms": 153, "owner": "core", "day": "2026-07-03"}, {"id": 30, "suite": "runtime", "status": "pass", "duration_ms": 190, "owner": "docs", "day": "2026-07-04"}, {"id": 31, "suite": "geometry", "status": "pass", "duration_ms": 227, "owner": "kernel", "day": "2026-07-05"}, {"id": 32, "suite": "compute", "status": "pass", "duration_ms": 264, "owner": "seam", "day": "2026-07-06"}, {"id": 33, "suite": "persistence", "status": "pass", "duration_ms": 301, "owner": "host", "day": "2026-06-29"}, {"id": 34, "suite": "bridge", "status": "pass", "duration_ms": 338, "owner": "bim", "day": "2026-06-30"}, {"id": 35, "suite": "artifacts", "status": "pass", "duration_ms": 375, "owner": "core", "day": "2026-07-01"}, {"id": 36, "suite": "runtime", "status": "skip", "duration_ms": 412, "owner": "docs", "day": "2026-07-02"}, {"id": 37, "suite": "geometry", "status": "fail", "duration_ms": 449, "owner": "kernel", "day": "2026-07-03"}, {"id": 38, "suite": "compute", "status": "pass", "duration_ms": 486, "owner": "seam", "day": "2026-07-04"}, {"id": 39, "suite": "persistence", "status": "pass", "duration_ms": 523, "owner": "host", "day": "2026-07-05"}, {"id": 40, "suite": "bridge", "status": "pass", "duration_ms": 560, "owner": "bim", "day": "2026-07-06"}, {"id": 41, "suite": "artifacts", "status": "pass", "duration_ms": 597, "owner": "core", "day": "2026-06-29"}, {"id": 42, "suite": "runtime", "status": "pass", "duration_ms": 634, "owner": "docs", "day": "2026-06-30"}, {"id": 43, "suite": "geometry", "status": "skip", "duration_ms": 671, "owner": "kernel", "day": "2026-07-01"}, {"id": 44, "suite": "compute", "status": "pass", "duration_ms": 708, "owner": "seam", "day": "2026-07-02"}, {"id": 45, "suite": "persistence", "status": "pass", "duration_ms": 745, "owner": "host", "day": "2026-07-03"}, {"id": 46, "suite": "bridge", "status": "fail", "duration_ms": 782, "owner": "bim", "day": "2026-07-04"}, {"id": 47, "suite": "artifacts", "status": "pass", "duration_ms": 819, "owner": "core", "day": "2026-07-05"}, {"id": 48, "suite": "runtime", "status": "pass", "duration_ms": 856, "owner": "docs", "day": "2026-07-06"}]}</script>
+
+  <section class="kpis grid" aria-label="Recomputed indicators">
+    <div class="card stat kpi"><small>Matching runs</small><b data-kpi="total">0</b><svg class="spark" data-spark="total" viewBox="0 0 120 28" width="120" height="28" role="img" aria-label="Runs per day"></svg></div>
+    <div class="card stat kpi"><small>Passed</small><b class="ok" data-kpi="pass">0</b><span class="delta" data-delta="pass"></span></div>
+    <div class="card stat kpi"><small>Failed</small><b class="fail" data-kpi="fail">0</b><span class="delta" data-delta="fail"></span></div>
+    <div class="card stat kpi"><small>Pass rate</small><b data-kpi="rate">0%</b><span class="delta" data-delta="rate"></span></div>
+  </section>
+
+  <section class="charts grid" aria-label="Recomputed charts">
+    <figure class="card"><figcaption>Runs by suite (pass / fail / skip)</figcaption><div class="twrap chart" data-chart="bar"></div></figure>
+    <figure class="card"><figcaption>Pass rate by day</figcaption><div class="twrap chart" data-chart="line"></div></figure>
+  </section>
+
+  <main id="board" tabindex="-1">
+    <p class="disclosure muted" data-truncation hidden></p>
+    <div class="twrap"><table aria-label="Verification runs">
+      <thead><tr>
+        <th scope="col" data-sort="id" aria-sort="none">ID</th>
+        <th scope="col" data-sort="suite" aria-sort="none">Suite</th>
+        <th scope="col" data-sort="status" aria-sort="none">Status</th>
+        <th scope="col" class="num" data-sort="duration_ms" aria-sort="none">Duration (ms)</th>
+        <th scope="col" data-sort="owner" aria-sort="none">Owner</th>
+        <th scope="col" data-sort="day" aria-sort="none">Day</th>
+        <th scope="col">Flag</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </main>
+
+  <footer class="export-bar no-print" aria-label="Export controls">
+    <button type="button" class="btn primary" data-export="send" hidden>Send to agent</button>
+    <label class="rowline" style="display:flex;gap:var(--s2);align-items:center">Verdict
+      <select data-verdict aria-label="Overall board verdict">
+        <option value="comment">comment</option>
+        <option value="approve">approve</option>
+        <option value="approve_with_notes">approve_with_notes</option>
+        <option value="reject">reject</option>
+        <option value="defer">defer</option>
+        <option value="edit">edit</option>
+        <option value="dismiss">dismiss</option>
+      </select>
+    </label>
+    <button type="button" class="btn" data-export="md">Copy filtered markdown</button>
+    <button type="button" class="btn" data-export="json">Download full JSON</button>
+    <button type="button" class="btn ghost" data-export="changed" disabled>Copy changed-only</button>
+    <output class="export-status right" data-egress-status aria-live="polite"></output>
+    <textarea class="egress" id="egress" readonly aria-label="Exported payload mirror"></textarea>
+  </footer>
+</div>
+
+<template id="row-tpl">
+  <tr>
+    <td class="num" data-cell="id"></td>
+    <td data-cell="suite"></td>
+    <td data-cell="status"></td>
+    <td class="num" data-cell="duration_ms"></td>
+    <td data-cell="owner"></td>
+    <td data-cell="day"></td>
+    <td><span class="flag-mark" data-flag-mark></span></td>
+  </tr>
+</template>
+
+<aside class="drawer no-print" id="drawer" aria-label="Run detail">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--s3)">
+    <h3 data-drawer-title>Run</h3>
+    <button type="button" class="btn ghost" data-drawer-close aria-label="Close detail drawer">Close</button>
+  </div>
+  <div style="display:grid;gap:var(--s4);align-content:start">
+    <dl data-drawer-fields></dl>
+    <div>
+      <p class="eyebrow" style="margin:0 0 var(--s2)">Flag verdict</p>
+      <div class="verdict-row">
+        <button type="button" class="btn" data-verdict-set="approve">approve</button>
+        <button type="button" class="btn" data-verdict-set="reject">reject</button>
+        <button type="button" class="btn" data-verdict-set="defer">defer</button>
+        <button type="button" class="btn ghost" data-verdict-set="clear">clear</button>
+      </div>
+    </div>
+    <label style="display:grid;gap:var(--s1);font-size:var(--fs-sm)">Note
+      <textarea data-flag-note aria-label="Flag note"></textarea>
+    </label>
+  </div>
+  <button type="button" class="btn primary" data-flag-save>Save flag</button>
+</aside>
+
+<output id="toast" popover="manual" role="status" aria-live="polite"></output>
+
+<script>
+(() => {
+"use strict";
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+try { const s = localStorage.getItem(themeKey); if (s) root.dataset.theme = s; } catch {}
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
+  const next = dark ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+
+const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
+const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+const mdCell = s => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const VERDICTS = new Set(["approve", "approve_with_notes", "reject", "defer", "edit", "comment", "dismiss"]);
+const ANNO = new Set(["active", "exported", "done"]);
+
+const seed = JSON.parse(document.getElementById("payload").textContent);
+const meta = seed.meta, rows = seed.rows;
+const COLS = ["id", "suite", "status", "duration_ms", "owner", "day"];
+const NUMERIC = new Set(["id", "duration_ms"]);
+const CAP = 40;
+const ARTIFACT_ID = "dashboard." + slug(meta.title);
+const BASELINE_ID = "b-" + hash(JSON.stringify(rows));
+const rowById = Object.fromEntries(rows.map(r => [String(r.id), r]));
+const suites = [...new Set(rows.map(r => r.suite))].sort();
+const days = [...new Set(rows.map(r => r.day))].sort();
+const state = { view: { q: "", facet: "all", sortKey: null, sortDir: 1 }, flags: {}, verdict: "comment" };
+
+const facet = document.querySelector("[data-facet]");
+suites.forEach(s => facet.append(Object.assign(document.createElement("option"), { value: s, textContent: s })));
+
+const tbody = document.querySelector("tbody");
+const tpl = document.getElementById("row-tpl");
+const egress = document.getElementById("egress");
+const statusOut = document.querySelector("[data-egress-status]");
+const changedBtn = document.querySelector('[data-export="changed"]');
+const toast = document.getElementById("toast");
+let toastTimer;
+const flash = m => { toast.textContent = m; toast.showPopover?.(); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidePopover?.(), 1600); };
+const copyText = async text => {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    const t = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;left:-9999px" });
+    document.body.append(t); t.select(); const ok = document.execCommand("copy"); t.remove(); return ok;
+  }
+};
+
+const mountAll = () => {
+  const frag = document.createDocumentFragment();
+  rows.forEach(r => {
+    const n = tpl.content.firstElementChild.cloneNode(true);
+    n.dataset.id = r.id;
+    COLS.forEach(c => { if (c === "status") return; n.querySelector('[data-cell="' + c + '"]').textContent = r[c]; });
+    const stCell = n.querySelector('[data-cell="status"]');
+    stCell.textContent = r.status; stCell.classList.add(r.status);
+    frag.append(n);
+  });
+  tbody.append(frag);
+};
+
+const matches = r => {
+  const q = state.view.q, f = state.view.facet;
+  if (f !== "all" && r.suite !== f) return false;
+  if (q && !COLS.some(c => String(r[c]).toLowerCase().includes(q))) return false;
+  return true;
+};
+
+// KPI band: counts, pass-rate, day-over-day deltas, and a runs-per-day sparkline
+const kpi = v => {
+  const pass = v.filter(r => r.status === "pass").length, fail = v.filter(r => r.status === "fail").length;
+  const rate = v.length ? Math.round(pass / v.length * 100) : 0;
+  document.querySelector('[data-kpi="total"]').textContent = v.length;
+  document.querySelector('[data-kpi="pass"]').textContent = pass;
+  document.querySelector('[data-kpi="fail"]').textContent = fail;
+  document.querySelector('[data-kpi="rate"]').textContent = rate + "%";
+  const byDay = d => v.filter(r => r.day === d);
+  const last = days[days.length - 1], prev = days[days.length - 2];
+  const dayStat = (d, kind) => { const rs = byDay(d); if (!rs.length) return kind === "rate" ? 0 : 0; if (kind === "rate") return Math.round(rs.filter(r => r.status === "pass").length / rs.length * 100); return rs.filter(r => r.status === kind).length; };
+  const paintDelta = (kind, invert) => {
+    const out = document.querySelector('[data-delta="' + kind + '"]'); if (!out || !prev) return;
+    const d = dayStat(last, kind) - dayStat(prev, kind);
+    const up = d > 0, good = invert ? !up : up;
+    out.textContent = d === 0 ? "→ flat vs " + prev.slice(5) : (up ? "▲ " : "▼ ") + Math.abs(d) + (kind === "rate" ? "pt" : "") + " vs " + prev.slice(5);
+    out.className = "delta " + (d === 0 ? "" : good ? "up" : "down");
+  };
+  paintDelta("pass", false); paintDelta("fail", true); paintDelta("rate", false);
+  const counts = days.map(d => byDay(d).length), maxC = Math.max(1, ...counts);
+  const step = days.length > 1 ? 116 / (days.length - 1) : 0;
+  const pts = counts.map((c, i) => (2 + i * step).toFixed(1) + "," + (26 - c / maxC * 24).toFixed(1)).join(" ");
+  document.querySelector('[data-spark="total"]').innerHTML =
+    '<polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="1.5"/>';
+};
+
+const barChart = v => {
+  const W = 360, H = 180, pad = 30, bw = suites.length ? (W - pad * 2) / suites.length : 0;
+  const cols = suites.map(s => {
+    const rs = v.filter(r => r.suite === s);
+    return { s, pass: rs.filter(r => r.status === "pass").length, fail: rs.filter(r => r.status === "fail").length, skip: rs.filter(r => r.status === "skip").length };
+  });
+  const maxN = Math.max(1, ...cols.map(c => c.pass + c.fail + c.skip)), scale = (H - pad * 2) / maxN;
+  const bars = cols.map((c, i) => {
+    const x = pad + i * bw + bw * 0.15, w = bw * 0.7;
+    let y = H - pad;
+    const seg = (n, fill) => { const h = n * scale; y -= h; return h ? '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" fill="' + fill + '"><title>' + esc(c.s + " " + n) + '</title></rect>' : ""; };
+    const stack = seg(c.pass, "var(--ok)") + seg(c.fail, "var(--fail)") + seg(c.skip, "var(--warn)");
+    return stack + '<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - pad + 14) + '" fill="var(--text-faint)" font-size="10" text-anchor="middle">' + esc(c.s) + '</text>';
+  }).join("");
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Runs by suite, stacked by status"><line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '" stroke="var(--line-strong)"/>' + bars + '</svg>';
+};
+
+const lineChart = v => {
+  const W = 360, H = 180, pad = 30, stepX = days.length > 1 ? (W - pad * 2) / (days.length - 1) : 0;
+  const yOf = rate => H - pad - rate * (H - pad * 2);
+  const pts = days.map((d, i) => {
+    const rs = v.filter(r => r.day === d), rate = rs.length ? rs.filter(r => r.status === "pass").length / rs.length : 0;
+    return { x: pad + i * stepX, y: yOf(rate), d, rate };
+  });
+  const grid = [0, .5, 1].map(g => '<line x1="' + pad + '" y1="' + yOf(g).toFixed(1) + '" x2="' + (W - pad) + '" y2="' + yOf(g).toFixed(1) + '" stroke="var(--line)"/><text x="' + (pad - 4) + '" y="' + (yOf(g) + 3).toFixed(1) + '" fill="var(--text-faint)" font-size="10" text-anchor="end">' + Math.round(g * 100) + '</text>').join("");
+  const line = pts.length ? '<polyline points="' + pts.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ") + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' : "";
+  const dots = pts.map(p => '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="var(--accent)"><title>' + esc(p.d + " " + Math.round(p.rate * 100) + "%") + '</title></circle>').join("");
+  const labels = pts.map(p => '<text x="' + p.x.toFixed(1) + '" y="' + (H - pad + 14) + '" fill="var(--text-faint)" font-size="10" text-anchor="middle">' + esc(p.d.slice(5)) + '</text>').join("");
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Pass rate by day">' + grid + '<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '" stroke="var(--line-strong)"/>' + line + dots + labels + '</svg>';
+};
+
+const paintFlags = () => {
+  tbody.querySelectorAll("tr").forEach(tr => {
+    const f = state.flags[tr.dataset.id], mark = tr.querySelector("[data-flag-mark]");
+    if (f) { mark.dataset.flagged = ""; mark.textContent = "[" + f.verdict.toUpperCase() + "]"; }
+    else { delete mark.dataset.flagged; mark.textContent = ""; }
+  });
+};
+
+const applyView = () => {
+  let matched = 0, shown = 0;
+  tbody.querySelectorAll("tr").forEach(tr => {
+    const hit = matches(rowById[tr.dataset.id]);
+    if (hit) { matched++; if (shown < CAP) { tr.hidden = false; shown++; } else tr.hidden = true; }
+    else tr.hidden = true;
+  });
+  const vis = rows.filter(matches);
+  kpi(vis);
+  document.querySelector('[data-chart="bar"]').innerHTML = barChart(vis);
+  document.querySelector('[data-chart="line"]').innerHTML = lineChart(vis);
+  document.querySelector("[data-count]").textContent = matched + " of " + rows.length + " rows match";
+  const trc = document.querySelector("[data-truncation]");
+  if (matched > shown) { trc.hidden = false; trc.textContent = "Render cap: showing " + shown + " of " + matched + " matching rows; KPIs and charts still count all " + matched + "."; }
+  else trc.hidden = true;
+  paintFlags();
+};
+
+const sortBy = key => {
+  state.view.sortDir = state.view.sortKey === key ? -state.view.sortDir : 1;
+  state.view.sortKey = key;
+  const dir = state.view.sortDir, num = NUMERIC.has(key);
+  [...tbody.querySelectorAll("tr")].sort((a, b) => {
+    const av = rowById[a.dataset.id][key], bv = rowById[b.dataset.id][key];
+    return (num ? av - bv : String(av) > String(bv) ? 1 : String(av) < String(bv) ? -1 : 0) * dir;
+  }).forEach(tr => tbody.append(tr));
+  document.querySelectorAll("th[data-sort]").forEach(th => th.setAttribute("aria-sort", th.dataset.sort === key ? (dir > 0 ? "ascending" : "descending") : "none"));
+  applyView();
+};
+
+let filterTimer;
+document.addEventListener("input", e => {
+  if (!e.target.closest("[data-filter-box]")) return;
+  clearTimeout(filterTimer);
+  const q = e.target.value.trim().toLowerCase();
+  filterTimer = setTimeout(() => { state.view.q = q; applyView(); }, 120);
+});
+document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-facet]"); if (sel) { state.view.facet = sel.value; applyView(); return; }
+  const vb = e.target.closest("[data-verdict]"); if (vb) { state.verdict = vb.value; }
+});
+
+// detail drawer: a row click opens its record beside the board; flag editing lives here
+const drawer = document.getElementById("drawer");
+const drawerFields = drawer.querySelector("[data-drawer-fields]");
+const drawerTitle = drawer.querySelector("[data-drawer-title]");
+const flagNote = drawer.querySelector("[data-flag-note]");
+let pending = null;
+const highlightPending = () => drawer.querySelectorAll("[data-verdict-set]").forEach(b => b.setAttribute("aria-pressed", b.dataset.verdictSet === pending));
+const openDrawer = id => {
+  const r = rowById[id]; if (!r) return;
+  drawer.dataset.rowId = id;
+  drawerTitle.textContent = "Run #" + id;
+  drawerFields.replaceChildren();
+  COLS.forEach(c => {
+    const dt = document.createElement("dt"); dt.textContent = c;
+    const dd = document.createElement("dd"); dd.textContent = r[c];
+    if (c === "status") { dd.innerHTML = ""; const chip = document.createElement("span"); chip.className = "chip " + (r.status === "pass" ? "ok" : r.status === "fail" ? "fail" : "warn"); chip.textContent = "[" + r.status.toUpperCase() + "]"; dd.append(chip); }
+    drawerFields.append(dt, dd);
+  });
+  const f = state.flags[id] || {};
+  pending = f.verdict || null;
+  flagNote.value = f.note || "";
+  highlightPending();
+  drawer.dataset.open = "";
+  tbody.querySelectorAll("tr[data-active]").forEach(tr => delete tr.dataset.active);
+  tbody.querySelector('tr[data-id="' + CSS.escape(id) + '"]')?.setAttribute("data-active", "");
+};
+const closeDrawer = () => { delete drawer.dataset.open; delete drawer.dataset.rowId; tbody.querySelectorAll("tr[data-active]").forEach(tr => delete tr.dataset.active); };
+const saveFlag = () => {
+  const id = drawer.dataset.rowId, note = flagNote.value.trim();
+  if (!id) return;
+  if (pending === "clear" || (!pending && !note)) delete state.flags[id];
+  else { const prev = state.flags[id] || {}; state.flags[id] = { verdict: pending && pending !== "clear" ? pending : prev.verdict || "defer", note, status: "active" }; }
+  paintFlags(); updateExport(); flash("Flag saved"); closeDrawer();
+};
+
+document.addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]"); if (th) { sortBy(th.dataset.sort); return; }
+  if (e.target.closest("[data-drawer-close]")) { closeDrawer(); return; }
+  const vs = e.target.closest("[data-verdict-set]"); if (vs) { pending = vs.dataset.verdictSet; highlightPending(); return; }
+  if (e.target.closest("[data-flag-save]")) { saveFlag(); return; }
+  const tr = e.target.closest("tbody tr"); if (tr && !e.target.closest("button")) openDrawer(tr.dataset.id);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.dataset.open !== undefined) closeDrawer(); });
+
+const hasCaptures = () => Object.keys(state.flags).length > 0;
+const updateExport = () => { changedBtn.disabled = !hasCaptures(); };
+
+const buildEnvelope = changedOnly => {
+  const flags = state.flags;
+  const decisions = Object.entries(flags).map(([id, f]) => f.note ? { id: "r-" + id, verdict: f.verdict, note: f.note } : { id: "r-" + id, verdict: f.verdict });
+  const changes = Object.entries(flags).map(([id, f]) => ({ itemId: "r-" + id, path: "/rows/" + id + "/flag", from: null, to: f.verdict }));
+  const annotations = Object.entries(flags).filter(([, f]) => f.note).map(([id, f]) => ({ id: "an-" + id, itemId: "r-" + id, intent: "comment", status: f.status || "active", text: f.note }));
+  const env = { kind: "dashboard", version: 1, artifact: { id: ARTIFACT_ID, title: meta.title, baseline: BASELINE_ID }, decision: { status: state.verdict, at: isoNow() }, decisions, changes, annotations };
+  env.state = changedOnly ? {} : { view: state.view, rows };
+  return env;
+};
+
+const validateEnvelope = (env, changedOnly) => {
+  if (typeof env.kind !== "string" || !env.kind) return { ok: false, error: "missing kind" };
+  if (env.version !== 1) return { ok: false, error: "bad version" };
+  const a = env.artifact; if (!a || !a.id || !a.title || !a.baseline) return { ok: false, error: "incomplete artifact ref" };
+  if (!env.decision || !VERDICTS.has(env.decision.status)) return { ok: false, error: "decision status outside vocabulary" };
+  if (!ISO.test(env.decision.at)) return { ok: false, error: "decision timestamp not UTC ISO" };
+  for (const k of ["decisions", "changes", "annotations"]) if (!Array.isArray(env[k])) return { ok: false, error: k + " not an array" };
+  for (const d of env.decisions) if (!VERDICTS.has(d.verdict)) return { ok: false, error: "verdict outside vocabulary: " + d.verdict };
+  for (const an of env.annotations) if (!ANNO.has(an.status)) return { ok: false, error: "annotation status invalid" };
+  if (changedOnly && env.decisions.length + env.changes.length + env.annotations.length === 0) return { ok: false, error: "changed-only export is empty" };
+  return { ok: true };
+};
+
+const toMarkdown = env => {
+  const vis = rows.filter(matches);
+  const L = ["# " + meta.title, "", "Verdict: **" + env.decision.status + "** · " + meta.date + " · baseline " + env.artifact.baseline, ""];
+  L.push("## Flagged rows (" + env.decisions.length + ")");
+  if (env.decisions.length) { L.push("| id | verdict | note |", "| --- | --- | --- |"); env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + mdCell(d.note || "") + " |")); }
+  else L.push("_none flagged_");
+  L.push("", "## Filtered view (" + vis.length + " of " + rows.length + ")", "| " + COLS.join(" | ") + " |", "| " + COLS.map(() => "---").join(" | ") + " |");
+  vis.forEach(r => L.push("| " + COLS.map(c => mdCell(r[c])).join(" | ") + " |"));
+  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- " + a.itemId + " (" + a.status + "): " + mdCell(a.text))); }
+  return L.join("\n") + "\n";
+};
+
+const download = (name, mime, text) => {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+const markExported = () => { Object.values(state.flags).forEach(f => { if (f.note && f.status === "active") f.status = "exported"; }); paintFlags(); };
+
+// return channel: the injected meta is the protocol switch — absent means file:// and export-only
+const returnMeta = document.querySelector('meta[name="artifact-return"]');
+if (returnMeta) document.querySelector("[data-export='send']").hidden = false;
+const sendToAgent = async env => {
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  if (!res.ok) throw new Error("submit " + res.status);
+  return res.json();
+};
+
+const emit = async kind => {
+  const changedOnly = kind === "changed";
+  const env = buildEnvelope(changedOnly);
+  const v = validateEnvelope(env, changedOnly && kind !== "send");
+  if (!v.ok) { egress.value = "EXPORT BLOCKED: " + v.error; statusOut.textContent = "blocked — " + v.error; flash("Export blocked"); return; }
+  if (kind === "send") {
+    const btn = document.querySelector("[data-export='send']"); btn.disabled = true;
+    try { await sendToAgent(env); statusOut.textContent = "sent to agent"; markExported(); flash("Sent to agent"); }
+    catch { egress.value = JSON.stringify(env, null, 2); await copyText(egress.value); statusOut.textContent = "send failed — copied instead"; flash("Send failed — copied instead"); }
+    finally { btn.disabled = false; updateExport(); }
+    return;
+  }
+  if (kind === "json") { const t = JSON.stringify(env, null, 2); egress.value = t; download(slug(meta.title) + ".json", "application/json", t); statusOut.textContent = "downloaded full JSON envelope (" + env.changes.length + " changes)"; markExported(); updateExport(); return; }
+  const text = kind === "md" ? toMarkdown(env) : JSON.stringify(env, null, 2);
+  egress.value = text;
+  if (await copyText(text)) { statusOut.textContent = "copied " + (kind === "md" ? "markdown summary" : "changed-only envelope"); markExported(); flash("Copied"); }
+  else { statusOut.textContent = "clipboard blocked — copy from the mirror"; flash("Copy from mirror"); }
+  updateExport();
+};
+document.addEventListener("click", e => { const b = e.target.closest("[data-export]"); if (b) emit(b.dataset.export); });
+
+mountAll();
+applyView();
+updateExport();
+})();
+</script>
+</body>
+</html>

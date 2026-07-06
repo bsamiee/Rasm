@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Atlas: Run Pipeline Owners</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [ATLAS_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer components{
+  body{counter-reset:sec}
+  .flowbar{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin:var(--s4) 0}
+  .stagegrid{display:grid;gap:var(--s4);grid-template-columns:minmax(0,1fr) 280px;align-items:start}
+  @media (max-width:960px){.stagegrid{grid-template-columns:1fr}}
+  .detail{position:sticky;top:var(--s4)}
+  .detail .meta{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+  .detail h3{margin-top:0}
+  .flowsteps{margin:var(--s3) 0 0;padding-inline-start:var(--s5);font-size:var(--fs-sm);color:var(--text-muted)}
+  .legend{display:flex;flex-wrap:wrap;gap:var(--s4);font-size:var(--fs-xs);color:var(--text-muted);margin-top:var(--s3)}
+  .legend .sw{display:inline-block;width:18px;height:0;border-top:2.5px solid var(--line-strong);margin-right:var(--s1);vertical-align:middle}
+  .legend .sw.async{border-top-style:dashed}
+  .legend .sw.hot{border-top-color:var(--accent)}
+  .legend .sw.zone{border:1.5px dashed var(--line-strong);width:14px;height:10px}
+  /* --- topology mark classes: every stroke and fill reads a token */
+  .atlas .zone{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.5;stroke-dasharray:6 4;rx:14}
+  .atlas .zlabel{font-family:var(--font-mono);font-size:11px;fill:var(--text-faint);letter-spacing:.08em;text-transform:uppercase}
+  .atlas .node rect,.atlas .node ellipse{fill:var(--raised);stroke:var(--line-strong);stroke-width:1.5;transition:stroke var(--dur-1) var(--ease-standard)}
+  .atlas .node.store rect{fill:var(--surface)}
+  .atlas .node.ext rect{stroke:var(--info);stroke-dasharray:5 4}
+  .atlas .node text{font-family:var(--font-mono);font-size:12px;fill:var(--text)}
+  .atlas .node .sub{font-size:10px;fill:var(--text-muted)}
+  .atlas .node{cursor:pointer}
+  .atlas .node:hover rect,.atlas .node:hover ellipse{stroke:var(--accent)}
+  .atlas .node.on rect,.atlas .node.on ellipse{stroke:var(--accent);stroke-width:2.5}
+  .atlas .edge{stroke:var(--line-strong);stroke-width:1.5;fill:none}
+  .atlas .edge.async{stroke-dasharray:5 4}
+  .atlas .elabel{font-family:var(--font-mono);font-size:10px;fill:var(--text-muted)}
+  .atlas .elabel-bg{fill:var(--bg)}
+  .atlas .dim{opacity:.22;transition:opacity var(--dur-2) var(--ease-standard)}
+  .atlas .lit{stroke:var(--accent);stroke-width:2.5;stroke-dasharray:6 4;animation:flow 1.2s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-20}}
+  @media (prefers-reduced-motion:reduce){.atlas .lit{animation:none}}
+  .m-meter{min-width:90px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <!-- replace: eyebrow, title, deck -->
+    <p class="eyebrow">Atlas · Run Pipeline</p>
+    <h1>Run pipeline owners</h1>
+    <p class="deck">One topology, four owners, three named flows; click a node for its contract, pick a flow to watch it move.</p>
+  </header>
+  <div class="flowbar no-print" role="toolbar" aria-label="Flow selection">
+    <!-- replace: one chip per named flow in the FLOWS map -->
+    <button type="button" class="btn" data-flow="submit">[SUBMIT]</button>
+    <button type="button" class="btn" data-flow="query">[QUERY]</button>
+    <button type="button" class="btn" data-flow="fault">[FAULT]</button>
+    <button type="button" class="btn ghost" data-flow="">Clear</button>
+    <button type="button" class="btn ghost" data-toggle-theme style="margin-left:auto">Theme</button>
+  </div>
+  <div class="stagegrid">
+    <div class="card">
+      <!-- replace: the topology — zones, nodes with data-k, edges with ids the FLOWS map names -->
+      <svg class="atlas" id="stage" viewBox="0 0 920 480" role="img" aria-label="Owner topology: gate and composer in the core zone, ledger and artifact store in persistence, host adapter external">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" class="arrhead"></path>
+          </marker>
+          <style>.arrhead{fill:var(--line-strong)}.lit-m{fill:var(--accent)}</style>
+        </defs>
+        <rect class="zone" x="20" y="40" width="270" height="400" rx="14"></rect>
+        <text class="zlabel" x="36" y="66">ingress</text>
+        <rect class="zone" x="330" y="40" width="270" height="400" rx="14"></rect>
+        <text class="zlabel" x="346" y="66">core</text>
+        <rect class="zone" x="640" y="40" width="260" height="400" rx="14"></rect>
+        <text class="zlabel" x="656" y="66">persistence</text>
+
+        <g class="edge-g"><path id="e1" class="edge" d="M212 150 H 366" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="258" y="130" width="64" height="14" rx="3"></rect>
+          <text class="elabel" x="262" y="141">admit()</text></g>
+        <g class="edge-g"><path id="e2" class="edge" d="M530 150 H 686" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="574" y="130" width="70" height="14" rx="3"></rect>
+          <text class="elabel" x="578" y="141">open run</text></g>
+        <g class="edge-g"><path id="e3" class="edge" d="M465 186 V 300" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="474" y="234" width="58" height="14" rx="3"></rect>
+          <text class="elabel" x="478" y="245">compose</text></g>
+        <g class="edge-g"><path id="e4" class="edge" d="M530 340 H 686" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="566" y="320" width="86" height="14" rx="3"></rect>
+          <text class="elabel" x="570" y="331">write artifact</text></g>
+        <g class="edge-g"><path id="e5" class="edge async" d="M155 186 V 340 H 400" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="200" y="320" width="92" height="14" rx="3"></rect>
+          <text class="elabel" x="204" y="331">query receipts</text></g>
+        <g class="edge-g"><path id="e6" class="edge async" d="M760 186 V 300" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="770" y="234" width="64" height="14" rx="3"></rect>
+          <text class="elabel" x="774" y="245">index row</text></g>
+        <g class="edge-g"><path id="e7" class="edge async" d="M366 128 L 212 96" marker-end="url(#arr)"></path>
+          <rect class="elabel-bg" x="252" y="96" width="66" height="14" rx="3"></rect>
+          <text class="elabel" x="256" y="107">refusal</text></g>
+
+        <g class="node" data-k="host" id="n-host"><rect x="60" y="90" width="152" height="96" rx="10"></rect>
+          <text x="136" y="130" text-anchor="middle">host adapter</text>
+          <text class="sub" x="136" y="150" text-anchor="middle">boundary</text></g>
+        <g class="node ext" data-k="ui" id="n-ui"><rect x="60" y="300" width="152" height="80" rx="10"></rect>
+          <text x="136" y="334" text-anchor="middle">query surface</text>
+          <text class="sub" x="136" y="354" text-anchor="middle">external consumer</text></g>
+        <g class="node" data-k="gate" id="n-gate"><rect x="366" y="90" width="164" height="96" rx="10"></rect>
+          <text x="448" y="130" text-anchor="middle">run gate</text>
+          <text class="sub" x="448" y="150" text-anchor="middle">admission owner</text></g>
+        <g class="node" data-k="composer" id="n-composer"><rect x="366" y="300" width="164" height="96" rx="10"></rect>
+          <text x="448" y="340" text-anchor="middle">composer</text>
+          <text class="sub" x="448" y="360" text-anchor="middle">artifact assembly</text></g>
+        <g class="node store" data-k="ledger" id="n-ledger"><rect x="686" y="90" width="150" height="96" rx="26"></rect>
+          <text x="761" y="130" text-anchor="middle">run ledger</text>
+          <text class="sub" x="761" y="150" text-anchor="middle">durable store</text></g>
+        <g class="node store" data-k="artifacts" id="n-artifacts"><rect x="686" y="300" width="150" height="96" rx="26"></rect>
+          <text x="761" y="340" text-anchor="middle">artifact index</text>
+          <text class="sub" x="761" y="360" text-anchor="middle">durable store</text></g>
+      </svg>
+      <div class="legend">
+        <span><span class="sw"></span>sync call</span>
+        <span><span class="sw async"></span>async or fallback</span>
+        <span><span class="sw hot"></span>selected flow</span>
+        <span><span class="sw zone"></span>ownership zone</span>
+      </div>
+    </div>
+    <aside class="card detail" data-detail aria-live="polite">
+      <p class="meta">select a node</p>
+      <h3>Topology</h3>
+      <p>Every submission crosses the ingress seam once; the core owns decisions, persistence owns records, and no consumer reaches a store directly.</p>
+      <ol class="flowsteps" data-steps hidden></ol>
+    </aside>
+  </div>
+  <section class="section" id="coverage">
+    <h2>Coverage</h2>
+    <div class="twrap"><table id="cov">
+      <thead><tr><th>[CAPABILITY]</th><th>[OWNER]</th><th>[MATURITY]</th><th>[GAP]</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+</div>
+<div class="export-bar no-print">
+  <button type="button" class="btn" data-export="svg">Download map SVG</button>
+  <button type="button" class="btn ghost" data-export="md">Copy coverage</button>
+  <span class="muted" id="copy-note" role="status" aria-live="polite"></span>
+</div>
+<!-- replace: atlas model payload — DETAIL per node, FLOWS per behavior, coverage rows -->
+<script type="application/json" id="payload">{
+  "detail": {
+    "host":      { "title": "Host adapter", "meta": "boundary · ingress", "body": "The single ingress: translates host requests into canonical submissions and carries refusals back with their retry horizons." },
+    "ui":        { "title": "Query surface", "meta": "external · read-only", "body": "Consumes receipts through the composer's query lane; never touches a store directly." },
+    "gate":      { "title": "Run gate", "meta": "owner · admission", "body": "Resolves every submission to a policy row, charges the bucket, and mints the run id the ledger requires." },
+    "composer":  { "title": "Composer", "meta": "owner · assembly", "body": "Folds admitted work into artifacts and answers receipt queries; the one writer the artifact index accepts." },
+    "ledger":    { "title": "Run ledger", "meta": "store · durable", "body": "Append-only record of admissions; refuses any run id the gate did not mint." },
+    "artifacts": { "title": "Artifact index", "meta": "store · durable", "body": "Content-keyed artifact rows indexed asynchronously from ledger events." }
+  },
+  "flows": {
+    "submit": { "edges": ["e1", "e2", "e3", "e4"], "nodes": ["host", "gate", "ledger", "composer", "artifacts"],
+      "steps": ["Host adapter submits through admit()", "Gate charges the lane and opens the run", "Composer assembles the admitted work", "Artifact lands in the index"] },
+    "query":  { "edges": ["e5", "e6"], "nodes": ["ui", "composer", "ledger", "artifacts"],
+      "steps": ["Query surface asks the composer for receipts", "Composer reads the index, never the ledger", "Index rows arrive from ledger events"] },
+    "fault":  { "edges": ["e1", "e7"], "nodes": ["host", "gate"],
+      "steps": ["Submission reaches the gate", "Empty bucket returns the typed refusal", "Host adapter parks the work until the horizon"] }
+  },
+  "coverage": [
+    { "capability": "Admission policy per lane", "owner": "run gate", "maturity": 90, "chip": "ok", "mark": "[SETTLED]", "gap": "magnitude linting on policy rows" },
+    { "capability": "Durable run record", "owner": "run ledger", "maturity": 95, "chip": "ok", "mark": "[SETTLED]", "gap": "none open" },
+    { "capability": "Artifact assembly", "owner": "composer", "maturity": 70, "chip": "warn", "mark": "[GROWING]", "gap": "streaming assembly for oversized runs" },
+    { "capability": "Receipt query lane", "owner": "composer", "maturity": 55, "chip": "warn", "mark": "[GROWING]", "gap": "cursor pagination beyond one page" },
+    { "capability": "Host fault surfacing", "owner": "host adapter", "maturity": 35, "chip": "fail", "mark": "[THIN]", "gap": "refusal horizons invisible in the host UI" }
+  ]
+}</script>
+<script>
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+try { root.dataset.theme = localStorage.getItem(themeKey) ?? "dark"; } catch { root.dataset.theme = "dark"; }
+
+const model = JSON.parse($("#payload").textContent);
+
+// --- node click fills the sticky detail panel
+const panel = $("[data-detail]");
+document.addEventListener("click", e => {
+  const g = e.target.closest(".atlas .node"); if (!g) return;
+  $$(".atlas .node.on").forEach(n => n.classList.remove("on"));
+  g.classList.add("on");
+  const d = model.detail[g.dataset.k]; if (!d) return;
+  panel.querySelector(".meta").textContent = d.meta;
+  panel.querySelector("h3").textContent = d.title;
+  panel.querySelector("p:not(.meta)").textContent = d.body;
+});
+
+// --- named flows over one topology: dim everything, light the path, walk the steps
+const steps = $("[data-steps]");
+const setFlow = key => {
+  const flow = model.flows[key];
+  $$(".atlas .node, .atlas .edge-g").forEach(n => n.classList.toggle("dim", Boolean(flow)));
+  $$(".atlas .edge.lit").forEach(p => p.classList.remove("lit"));
+  if (flow) {
+    flow.nodes.forEach(k => $("#n-" + k)?.classList.remove("dim"));
+    flow.edges.forEach(id => { const p = $("#" + id); if (!p) return; p.closest(".edge-g").classList.remove("dim"); p.classList.add("lit"); });
+    steps.hidden = false; steps.textContent = "";
+    flow.steps.forEach(s => steps.append(el("li", null, s)));
+  } else { steps.hidden = true; steps.textContent = ""; }
+  $$("[data-flow]").forEach(b => b.setAttribute("aria-pressed", String(Boolean(flow) && b.dataset.flow === key)));
+};
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-flow]"); if (b) { setFlow(b.dataset.flow); return; }
+  const theme = e.target.closest("[data-toggle-theme]");
+  if (theme) { const next = root.dataset.theme === "dark" ? "light" : "dark"; try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; } return; }
+  const exp = e.target.closest("[data-export]"); if (exp) doExport(exp.dataset.export);
+});
+
+// --- coverage table with maturity meters
+const cov = $("#cov tbody");
+model.coverage.forEach(c => {
+  const tr = el("tr");
+  tr.append(el("td", null, c.capability), el("td", null, ""), el("td"), el("td", null, c.gap));
+  tr.children[1].append(el("code", null, c.owner));
+  const m = el("div", "meter m-meter"); const span = el("span"); span.style.width = c.maturity + "%"; m.append(span);
+  const cell = tr.children[2];
+  cell.append(el("span", "chip " + c.chip, c.mark), m);
+  cov.append(tr);
+});
+
+// --- export: standalone SVG (tokens resolved to literals) and coverage markdown
+const note = $("#copy-note");
+const doExport = which => {
+  if (which === "svg") {
+    const svg = $("#stage").cloneNode(true);
+    const cs = getComputedStyle(document.documentElement);
+    const v = name => cs.getPropertyValue(name).trim();
+    const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+    style.textContent = `
+      .zone{fill:${v("--surface")};stroke:${v("--line-strong")};stroke-width:1.5;stroke-dasharray:6 4}
+      .zlabel{font:11px ${v("--font-mono")};fill:${v("--text-faint")};letter-spacing:.08em;text-transform:uppercase}
+      .node rect{fill:${v("--raised")};stroke:${v("--line-strong")};stroke-width:1.5}
+      .node.store rect{fill:${v("--surface")}}
+      .node.ext rect{stroke:${v("--info")};stroke-dasharray:5 4}
+      .node text{font:12px ${v("--font-mono")};fill:${v("--text")}}
+      .node .sub{font-size:10px;fill:${v("--text-muted")}}
+      .edge{stroke:${v("--line-strong")};stroke-width:1.5;fill:none}
+      .edge.async{stroke-dasharray:5 4}
+      .elabel{font:10px ${v("--font-mono")};fill:${v("--text-muted")}}
+      .elabel-bg{fill:${v("--bg")}}
+      .arrhead{fill:${v("--line-strong")}}
+      .lit{stroke:${v("--accent")};stroke-width:2.5}
+      .dim{opacity:.22}`;
+    svg.querySelector("defs").append(style);
+    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bg.setAttribute("width", "920"); bg.setAttribute("height", "480"); bg.setAttribute("fill", v("--bg"));
+    svg.prepend(bg);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml;charset=utf-8" }));
+    Object.assign(document.createElement("a"), { href: url, download: "atlas-map.svg" }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    note.textContent = "SVG downloaded";
+    return;
+  }
+  const L = ["# Coverage: " + document.title, "", "| capability | owner | maturity | gap |", "| --- | --- | --- | --- |"];
+  model.coverage.forEach(c => L.push(`| ${c.capability} | ${c.owner} | ${c.mark} ${c.maturity}% | ${c.gap} |`));
+  const p = navigator.clipboard?.writeText(L.join("\n"));
+  if (p) p.then(() => { note.textContent = "Coverage copied"; }).catch(() => { note.textContent = "Copy blocked in this context"; });
+  else note.textContent = "Copy unavailable in this context";
+};
+</script>
+</body>
+</html>

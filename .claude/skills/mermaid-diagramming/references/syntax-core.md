@@ -8,11 +8,21 @@ Sections: [01] flowchart - [02] sequence - [03] state - [04] class - [05] ER.
 
 The `@{ shape: name }` form and aliases resolve to canonical names (`database` = `cyl`). The complete shape registry with its aliases is the styling reference's property.
 
-An edge ID names one edge for animation and curve, never stroke: `A e1@--> B` then `e1@{ animate: true }` or `e1@{ animation: fast }`; per-edge curves through `e1@{ curve: linear }`. The curve roster and the `linkStyle` dash-animation mechanics are the styling reference's property.
+An edge ID names one edge for animation and curve, never stroke: `A e1@--> B` then `e1@{ animate: true }` or `e1@{ animation: fast }`; per-edge curves through `e1@{ curve: linear }`. An edge ID is also a `classDef` target — `classDef pulse stroke:#FF79C6,stroke-dasharray:5 5` then `class e1 pulse` styles the edge stroke through the class system. The curve roster and the `linkStyle` dash-animation mechanics are the styling reference's property. `datastore` joins the shape registry as a persistence-role alias beside `cyl`.
 
 Icon and image shapes: `A@{ icon: "fa:user", form: "square", label: "User", pos: "t", h: 60 }` and `B@{ img: "<url>", w: 80, h: 60, constraint: "on" }`; `form` is `square`, `circle`, or `rounded` and `pos` is `t` or `b`; `constraint: on` preserves aspect ratio by deriving width from height. An icon resolves only against a pack registered at the renderer, never in frontmatter. `A --> B & C` fans one source to many; `~~~` is an invisible rank-only link; extra dashes (`---->`) lengthen rank distance. Markdown strings and KaTeX (flowchart and sequence only) compose on the same node:
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+---
 flowchart LR
     Store@{ shape: cyl, label: "Row store" } --> Extract@{ shape: lean-r, label: "Extract" }
     Extract --> Norm("`**normalize** rows`")
@@ -35,7 +45,7 @@ flowchart LR
 
 `-)` is the async send and `--)` the async dotted send; the full arrow matrix — line, arrow, cross, async, bidirectional, solid and dotted — is the styling reference's edge table.
 
-Typed participants carry a UML stereotype (`type` values `boundary`, `control`, `database`) and alias; the JSON form and an `as` alias combine:
+Typed participants carry a UML stereotype (`type` values `boundary`, `control`, `entity`, `database`, `queue`, `collections`) and alias; the JSON form and an `as` alias combine:
 
 ```mermaid
 ---
@@ -78,6 +88,16 @@ Lifecycle uses `create participant X`, the aliased variant `create actor D as Do
 Composite states nest a per-composite `direction`, and a `--` separator splits concurrency regions inside one composite:
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+---
 stateDiagram-v2
     direction LR
     [*] --> Ready
@@ -106,6 +126,17 @@ Pseudostates are `<<choice>>`, `<<fork>>`, and `<<join>>`. `state "long text" as
 Generics use `~T~` and nest as `List~List~int~~`; commas inside a generic declaration are unsupported. Nested namespaces and namespace labels, and `class.hierarchicalNamespaces: false` flattens dotted paths:
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    classText: "#F8F8F2"
+    textColor: "#F8F8F2"
+---
 classDiagram
     namespace Auth["Authentication Service"] {
         class UserService~T~ {
@@ -127,18 +158,32 @@ Lollipop interfaces are `bar ()-- foo`. `note for Shape "text"` attaches a note,
 - A generic suffix drops in references — two classes differing only by generic collide.
 - Notes and namespaces take themes but are not individually styleable.
 - A member-less `class Foo` renders empty members hidden under the unified renderer.
+- `style`, `classDef`, and `click` bind to a generic class by its bare name — `UserService`, never `UserService~T~`.
 
 ## [05]-[ER]
 
-Nullable attribute types (`string? middleName`); array types are `string[] parts`; entity aliases quote spaced names; compound keys chain as `PK, FK`:
+Nullable attribute types (`string? middleName`); array types are `string[] parts`; entity aliases quote spaced names; compound keys chain as `PK, FK`; a backtick-escaped name or type carries dots and other special characters:
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    primaryColor: "#44475A"
+    primaryBorderColor: "#BD93F9"
+    relationColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    attributeBackgroundColorOdd: "#282A36"
+    attributeBackgroundColorEven: "#21222C"
+---
 erDiagram
     direction LR
     p["Person"] {
         string driversLicense PK "license number"
         string? middleName
         string[] parts
+        datetime `created.at`
         string carRegistration PK, FK
     }
     a["Customer Account"] {

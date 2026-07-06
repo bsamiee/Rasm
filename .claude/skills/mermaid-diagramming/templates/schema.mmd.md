@@ -1,6 +1,6 @@
 # [SCHEMA]
 
-Draw persistent entities and their relations. The template bakes in the schema discipline an unassisted attempt violates — every relationship edge has its FK attribute on the owning side and every FK has its edge, so the diagram and the storage constraint cannot disagree; cardinality states what storage enforces, never intended usage; and a many-to-many resolves through a visible junction entity carrying both FKs, because the crow's foot cannot express it directly. Use `erDiagram` with 4-7 entities around one aggregate root, typed attributes with `PK`/`FK` markers, and verb-labeled relations. `erDiagram` takes no ELK, and this template holds the classic look — keep `theme: base` with its variable block. In-memory type relations are a class diagram, never a persistence schema.
+Draw persistent entities and their relations. The template bakes in the schema discipline an unassisted attempt violates — every relationship edge has its FK attribute on the owning side and every FK has its edge, so the diagram and the storage constraint cannot disagree; cardinality states what storage enforces, never intended usage; and a many-to-many resolves through a visible junction entity carrying both FKs, because the crow's foot cannot express it directly. Use `erDiagram` with 4-7 entities around one aggregate root, typed attributes with `PK`/`FK` markers, and verb-labeled relations; the aggregate root is classed `primary`, the junction `recessed`, and an externally-owned registry `external`, so the hierarchy the prose claims is the hierarchy the render shows. `erDiagram` takes no ELK, and this template holds the classic look — keep `theme: base` with its variable block. In-memory type relations are a class diagram, never a persistence schema.
 
 ```mermaid
 ---
@@ -18,6 +18,7 @@ config:
     edgeLabelBackground: "#282A36"
     attributeBackgroundColorOdd: "#282A36"
     attributeBackgroundColorEven: "#21222C"
+    fontFamily: "monospace"
 ---
 erDiagram
     accTitle: Persistent entity schema
@@ -60,6 +61,12 @@ erDiagram
         uuid run_id PK, FK
         uuid artifact_id PK, FK
     }
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
+    class RUN primary
+    class RUN_ARTIFACT recessed
+    class REGISTRY external
 ```
 
-Refill by renaming entities to the real aggregate, keep FK-edge reciprocity on every relation, and resolve any many-to-many through a junction entity whose composite key is both FKs.
+Refill by renaming entities to the real aggregate, keep FK-edge reciprocity on every relation, resolve any many-to-many through a junction entity whose composite key is both FKs, and keep the root/junction/external classes on the entities that carry those roles.

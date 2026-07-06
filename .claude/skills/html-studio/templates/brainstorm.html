@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Brainstorm: Shape Directions</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer tokens{
+:root{--measure:1220px}
+@property --lift{syntax:"<number>";inherits:false;initial-value:0}
+}
+@layer components{
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:20;background:var(--raised-2);padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1)}
+.head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s3);justify-content:space-between}
+.rowline{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.toolbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s4);margin-block:var(--s4);padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line-strong);border-radius:var(--r-2)}
+.toolbar label{display:flex;align-items:center;gap:var(--s2);font-size:var(--fs-sm);color:var(--text-muted)}
+.board{container:board / inline-size;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr))}
+.dir{--lift:0;display:grid;gap:var(--s3);transform:translateY(calc(var(--lift) * -1 * var(--s1)));transition:--lift var(--dur-2) var(--ease-out),border-color var(--dur-1) var(--ease-standard),box-shadow var(--dur-2) var(--ease-out)}
+.dir:hover{--lift:1;box-shadow:var(--shadow-2)}
+.dir[data-state="reject"]{border-inline-start:3px solid var(--fail)}
+.dir[data-state="approve"],.dir[data-state="approve_with_notes"]{border-inline-start:3px solid var(--ok)}
+.dir[data-state="lean"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent),var(--shadow-1)}
+.dir__head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s2);justify-content:space-between}
+.dir__head h3{margin:0;font-family:var(--font-display);font-size:var(--fs-xl)}
+.thesis{font-style:italic;margin:0}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-1);padding:var(--s3);overflow-x:auto}
+.stage pre{border:0;padding:0;background:none;font-size:var(--fs-2xs);margin:0}
+.dir__sub{margin:var(--s2) 0 var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--editorial)}
+.facet__list{margin:0;padding-inline-start:var(--s4);font-size:var(--fs-sm)}
+.facet__item{margin:var(--s1) 0;border-radius:var(--r-1);transition:background-color var(--dur-1) var(--ease-standard)}
+.facet__item.hl{background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent);padding-inline:var(--s1)}
+.frags{list-style:none;margin:0;padding:0;display:grid;gap:var(--s2)}
+.frag{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);padding:var(--s2);border:1px solid var(--line);border-radius:var(--r-1);background:var(--surface);font-size:var(--fs-sm)}
+.frag__text{flex:1 1 12rem}
+.frag[data-stolen]{border-color:var(--accent);background:var(--accent-weak)}
+.btn--mini{font-size:var(--fs-2xs);padding:2px var(--s2)}
+.dir__verdict{display:flex;align-items:center;gap:var(--s2);font-size:var(--fs-sm);color:var(--text-muted)}
+.distinct{display:grid;gap:var(--s3);margin-block:var(--s4)}
+.hybrid{margin-block-start:var(--s5)}
+.hybrid[data-live]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent),var(--shadow-1)}
+.hybrid h2{margin-top:0}
+.capbar{margin-block-start:var(--s5);display:grid;gap:var(--s3);grid-template-columns:1fr}
+.capbar:has(:focus-visible){border-color:var(--accent)}
+@container board (inline-size >= 40rem){.capbar{grid-template-columns:repeat(2,1fr)}}
+.capbar__field{display:flex;flex-direction:column;gap:var(--s1);font-size:var(--fs-sm);color:var(--text-muted)}
+.export-bar{flex-wrap:wrap}
+.export-bar .egress{inline-size:100%;block-size:3rem;font-family:var(--font-mono);font-size:var(--fs-2xs);transition:block-size var(--dur-2) var(--ease-out)}
+.export-bar .egress:focus{block-size:9rem}
+#toast{margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) calc(var(--s8) + var(--s4)) auto;opacity:0;transition:opacity var(--dur-2) var(--ease-out),display var(--dur-2) allow-discrete}
+#toast:popover-open{opacity:1}
+@starting-style{#toast:popover-open{opacity:0}}
+}
+@layer utilities{
+.mono{font-family:var(--font-mono)}
+.right{margin-inline-start:auto}
+body{counter-reset:sec}
+}
+@layer print{@media print{
+.toolbar,.capbar{display:none!important}
+.board{display:block}
+.dir,.hybrid{break-inside:avoid;margin-block-end:var(--s4)}
+}}
+</style>
+</head>
+<body>
+<a class="skip" href="#board">Skip to directions</a>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <!-- replace: eyebrow scope line -->
+      <p class="eyebrow">Brainstorm · Shape Owner</p>
+      <h1 id="doc-title">…</h1>
+      <p class="deck" id="doc-sub"></p>
+    </div>
+    <div class="rowline no-print">
+      <span class="chip info" id="dir-count"></span>
+      <small id="doc-date" class="mono"></small>
+      <button type="button" class="btn ghost" data-toggle-theme aria-label="Toggle color theme">Theme</button>
+    </div>
+  </header>
+
+  <div class="toolbar no-print">
+    <label>Lift criterion
+      <select data-compare><option value="none">none</option></select>
+    </label>
+    <search><label>Filter <input type="search" data-filter-box placeholder="narrow directions"></label></search>
+  </div>
+
+  <section class="distinct" id="distinct" aria-label="Distinctness warnings"></section>
+
+  <main id="board" tabindex="-1" class="grid board"></main>
+
+  <article class="card hybrid" id="hybrid" aria-label="Composed hybrid direction"></article>
+
+  <section class="card capbar" aria-label="Leaning and flip trigger">
+    <label class="capbar__field">Leaning direction
+      <select data-leaning><option value="">none</option></select>
+    </label>
+    <label class="capbar__field">Flip trigger
+      <input type="text" data-flip placeholder="Evidence that flips the lean">
+    </label>
+  </section>
+
+  <footer class="export-bar no-print">
+    <button type="button" class="btn primary" data-export="send" hidden>Send to agent</button>
+    <button type="button" class="btn" data-export="md">Copy markdown</button>
+    <button type="button" class="btn" data-export="json">Download JSON</button>
+    <button type="button" class="btn ghost" data-export="changed" disabled>Copy changed-only</button>
+    <small class="mono right num" id="egress-meta">0 stolen, 0 verdicts</small>
+    <textarea class="egress" id="egress" readonly placeholder="Exported payload mirrors here." aria-label="Exported payload"></textarea>
+  </footer>
+</div>
+<output id="toast" popover="manual" role="status" aria-live="polite"></output>
+<!-- replace: brainstorm model payload; each direction stages its call-site shape as a rendered fragment -->
+<script type="application/json" id="payload">{
+  "meta": {
+    "title": "Brainstorm: Shape Directions",
+    "subtitle": "Four generated directions for the Shape owner; steal fragments across cards to compose the hybrid.",
+    "date": "2026-07-06"
+  },
+  "criteria": [
+    { "id": "c-surface", "name": "Surface density" },
+    { "id": "c-callsite", "name": "Call-site ergonomics" },
+    { "id": "c-boundary", "name": "Boundary clarity" },
+    { "id": "c-evolve", "name": "Independent evolution" }
+  ],
+  "directions": [
+    {
+      "id": "d-absorb", "name": "A, Absorb into Shape", "posture": "collapse",
+      "thesis": "One polymorphic owner discriminates on input shape.",
+      "stage": "let receipt = Shape.dispatch(req);\n// req.arity selects single | batch | stream",
+      "optimizes": ["c-surface", "c-boundary"], "costs": ["c-callsite"],
+      "kills": ["Modality-named exports", "Duplicated boundary mapping"],
+      "fragments": [
+        { "id": "f-a1", "text": "Single dispatch(req) entry discriminating on req.arity." },
+        { "id": "f-a2", "text": "Closed arity vocabulary, no runtime-supplied kinds." },
+        { "id": "f-a3", "text": "Boundary mapping runs once at ingress." }
+      ]
+    },
+    {
+      "id": "d-unify", "name": "B, Unify under one owner", "posture": "collapse",
+      "thesis": "A single owner absorbs every modality behind one door.",
+      "stage": "let receipt = Owner.run({ kind, payload, policy });\n// provider and retries resolve inside",
+      "optimizes": ["c-surface", "c-boundary"], "costs": ["c-callsite"],
+      "kills": ["Sibling export drift"],
+      "fragments": [
+        { "id": "f-b1", "text": "Provider selection folds into a policy value on the request." },
+        { "id": "f-b2", "text": "Batch and stream collapse into one input-shape detector." },
+        { "id": "f-b3", "text": "Telemetry and retries internalized on the owner." }
+      ]
+    },
+    {
+      "id": "d-split", "name": "C, Split by variant", "posture": "diverge",
+      "thesis": "Each variant keeps its own surface and call site.",
+      "stage": "let a = getOne(id);\nlet b = getMany(ids);\nlet c = getStream(cursor);",
+      "optimizes": ["c-callsite"], "costs": ["c-surface", "c-boundary"],
+      "kills": ["Density target"],
+      "fragments": [
+        { "id": "f-c1", "text": "Flat per-variant call sites, no dispatch body." },
+        { "id": "f-c2", "text": "Each export owns its own boundary mapping." },
+        { "id": "f-c3", "text": "A new modality is a new sibling export." }
+      ]
+    },
+    {
+      "id": "d-edge", "name": "D, Adapter at the edge", "posture": "layer",
+      "thesis": "PRIMARY maps once at the boundary, internals stay canonical.",
+      "stage": "let canonical = Ingress.map(primary);\nlet receipt = Core.run(canonical);",
+      "optimizes": ["c-boundary", "c-evolve"], "costs": ["c-surface"],
+      "kills": ["Stringly boundary logic"],
+      "fragments": [
+        { "id": "f-d1", "text": "Thin ingress adapter translates PRIMARY once." },
+        { "id": "f-d2", "text": "Internals read canonical names only." },
+        { "id": "f-d3", "text": "Boundary evolves independently of the owner." }
+      ]
+    }
+  ]
+}</script>
+<script>
+(() => {
+"use strict";
+const $ = (sel, root = document) => root.querySelector(sel);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+// theme stamp: stored choice wins; unstored follows the system preference
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+try { const s = localStorage.getItem(themeKey); if (s) root.dataset.theme = s; } catch {}
+
+const model = JSON.parse($("#payload").textContent);
+const critName = Object.fromEntries(model.criteria.map(c => [c.id, c.name]));
+const dirById = Object.fromEntries(model.directions.map(d => [d.id, d]));
+const fragMeta = {};
+model.directions.forEach(d => d.fragments.forEach(f => { fragMeta[f.id] = { text: f.text, from: d.name, fromId: d.id }; }));
+const shortName = name => name.split(",")[0].trim();
+const state = { compare: "none", hybrid: [], verdicts: {}, leaning: "", flipTrigger: "", flipExported: false, distinctness: [] };
+
+// --- direction card projection: each card stages its call-site shape as a rendered fragment
+const facet = (label, items, isCrit) => {
+  const wrap = el("div", "facet"); wrap.append(el("h4", "dir__sub", label));
+  const ul = el("ul", "facet__list");
+  items.forEach(x => { const li = el("li", "facet__item"); if (isCrit) { li.dataset.criterion = x; li.textContent = critName[x] || x; } else li.textContent = x; ul.append(li); });
+  wrap.append(ul); return wrap;
+};
+const board = $("#board");
+model.directions.forEach(d => {
+  const card = el("article", "card dir"); card.dataset.id = d.id; card.dataset.filter = ""; card.dataset.posture = d.posture;
+  const head = el("div", "dir__head"); head.append(el("h3", null, d.name), el("span", "chip info", d.posture.toUpperCase())); card.append(head);
+  card.append(el("p", "thesis", d.thesis));
+  if (d.stage) { const stage = el("div", "stage"); const pre = el("pre"); pre.append(el("code", "mono", d.stage)); stage.append(pre); card.append(stage); }
+  card.append(facet("Optimizes", d.optimizes, true), facet("Costs", d.costs, true), facet("Kills", d.kills, false));
+  card.append(el("h4", "dir__sub", "Stealable fragments"));
+  const fl = el("ul", "frags");
+  d.fragments.forEach(f => {
+    const li = el("li", "frag"); li.dataset.frag = f.id; li.append(el("span", "frag__text", f.text));
+    const steal = el("button", "btn btn--mini", "Steal"); steal.type = "button"; steal.dataset.steal = f.id; steal.setAttribute("aria-pressed", "false");
+    li.append(steal); fl.append(li);
+  });
+  card.append(fl);
+  const vl = el("label", "dir__verdict"); vl.append(el("span", null, "Verdict"));
+  const vs = el("select"); vs.dataset.verdict = d.id;
+  [["none", "none"], ["approve", "approve"], ["approve_with_notes", "approve with notes"], ["reject", "reject"], ["defer", "defer"]].forEach(([v, t]) => { const o = el("option", null, t); o.value = v; vs.append(o); });
+  vl.append(vs); card.append(vl);
+  board.append(card);
+});
+
+const cmpSel = $("[data-compare]"); model.criteria.forEach(c => { const o = el("option", null, c.name); o.value = c.id; cmpSel.append(o); });
+const leanSel = $("[data-leaning]"); model.directions.forEach(d => { const o = el("option", null, d.name); o.value = d.id; leanSel.append(o); });
+$("#dir-count").textContent = model.directions.length + " DIRECTIONS";
+$("#doc-title").textContent = model.meta.title;
+$("#doc-sub").textContent = model.meta.subtitle;
+$("#doc-date").textContent = model.meta.date;
+
+// --- pairwise distinctness readout
+const eqSet = (a, b) => a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
+const distinct = $("#distinct");
+const renderDistinct = () => {
+  const dirs = model.directions, warns = [];
+  for (let i = 0; i < dirs.length; i++) for (let j = i + 1; j < dirs.length; j++) { const a = dirs[i], b = dirs[j]; if (a.posture === b.posture && eqSet(a.optimizes, b.optimizes)) warns.push({ a, b }); }
+  state.distinctness = warns.map(w => ({ a: w.a.id, b: w.b.id }));
+  distinct.replaceChildren();
+  warns.forEach(w => {
+    const c = el("div", "rail warn"); const p = el("p");
+    p.append(el("span", "chip warn", "[COLLAPSE]"), document.createTextNode(" " + w.a.name + " and " + w.b.name + " share posture \"" + w.a.posture + "\" and optimize the same axes (" + w.a.optimizes.map(x => critName[x]).join(", ") + "). Collapse these into one direction."));
+    p.style.margin = "0"; c.append(p); distinct.append(c);
+  });
+};
+
+// --- hybrid assembly card
+const hybrid = $("#hybrid");
+const renderHybrid = () => {
+  hybrid.replaceChildren(el("h2", null, "Composed hybrid"));
+  if (!state.hybrid.length) { hybrid.append(el("p", "muted", "Steal fragments from any direction to compose a hybrid here.")); hybrid.removeAttribute("data-live"); return; }
+  hybrid.setAttribute("data-live", "");
+  const ul = el("ul", "frags");
+  state.hybrid.forEach(fid => {
+    const f = fragMeta[fid]; const li = el("li", "frag");
+    li.append(el("span", "chip info", shortName(f.from)), el("span", "frag__text", f.text));
+    const drop = el("button", "btn btn--mini", "Remove"); drop.type = "button"; drop.dataset.drop = fid; li.append(drop); ul.append(li);
+  });
+  hybrid.append(ul);
+};
+const paintSteals = () => {
+  document.querySelectorAll("[data-steal]").forEach(b => {
+    const on = state.hybrid.includes(b.dataset.steal);
+    b.setAttribute("aria-pressed", on);
+    b.closest("[data-frag]").toggleAttribute("data-stolen", on);
+    b.textContent = on ? "Stolen" : "Steal";
+  });
+};
+const paintCards = () => {
+  document.querySelectorAll(".dir").forEach(c => {
+    const v = state.verdicts[c.dataset.id];
+    c.dataset.state = state.leaning === c.dataset.id ? "lean" : (v || "");
+  });
+};
+
+// --- export meta + changed-only gate
+const meta = $("#egress-meta");
+const changedBtn = $('[data-export="changed"]');
+const changed = () => !!(state.leaning || state.flipTrigger.trim() || state.hybrid.length || Object.keys(state.verdicts).length);
+const refreshMeta = () => { meta.textContent = state.hybrid.length + " stolen, " + Object.keys(state.verdicts).length + " verdicts"; changedBtn.disabled = !changed(); };
+
+// --- dual export from one state graph
+const nameOf = id => dirById[id]?.name || id;
+const toEnvelope = () => ({
+  kind: "brainstorm", version: 1,
+  artifact: { id: "brainstorm." + themeKey.slice(6), title: model.meta.title, baseline: "b-" + model.directions.length },
+  decision: { status: state.leaning ? "approve_with_notes" : "comment", at: new Date().toISOString() },
+  decisions: Object.entries(state.verdicts).map(([id, verdict]) => ({ id, verdict })),
+  changes: [],
+  annotations: state.flipTrigger.trim() ? [{ id: "a-flip", itemId: state.leaning || null, intent: "comment", status: state.flipExported ? "exported" : "active", text: state.flipTrigger.trim() }] : [],
+  state: { leaning: state.leaning, flipTrigger: state.flipTrigger.trim(), hybrid: state.hybrid.map(fid => ({ id: fid, from: fragMeta[fid].fromId, text: fragMeta[fid].text })), directions: model.directions.map(d => ({ id: d.id, name: d.name, posture: d.posture, optimizes: d.optimizes })), distinctness: state.distinctness },
+});
+const validate = env => env.kind === "brainstorm" && !!env.artifact?.id && Array.isArray(env.decisions) && typeof env.decision?.at === "string";
+const toMarkdown = () => {
+  const L = ["# " + model.meta.title, "", "Leaning: " + (state.leaning ? nameOf(state.leaning) : "(undecided)"), "Flip trigger: " + (state.flipTrigger.trim() || "(none)"), "", "## Direction verdicts", ""];
+  const vs = Object.entries(state.verdicts);
+  if (!vs.length) L.push("No verdicts recorded."); else vs.forEach(([id, v]) => L.push("- " + nameOf(id) + ": " + v));
+  L.push("", "## Hybrid, stolen fragments", "");
+  if (!state.hybrid.length) L.push("None stolen."); else state.hybrid.forEach(fid => { const f = fragMeta[fid]; L.push("- [" + shortName(f.from) + "] " + f.text); });
+  L.push("", "## Distinctness warnings", "");
+  if (!state.distinctness.length) L.push("Directions are distinct."); else state.distinctness.forEach(p => L.push("- Collapse: " + nameOf(p.a) + " plus " + nameOf(p.b) + " (same posture and optimized axes)."));
+  return L.join("\n");
+};
+
+const download = (name, mime, text) => { const url = URL.createObjectURL(new Blob([text], { type: mime })); Object.assign(document.createElement("a"), { href: url, download: name }).click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+const toast = $("#toast"); let toastTimer;
+const flash = msg => { toast.textContent = msg; toast.showPopover?.(); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidePopover?.(), 1600); };
+const markExported = () => { state.flipExported = !!state.flipTrigger.trim(); };
+const copyText = async text => {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const t = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;left:-9999px" });
+    document.body.append(t); t.select(); document.execCommand("copy"); t.remove();
+  }
+};
+
+// return channel: the injected meta is the protocol switch — absent means file:// and export-only
+const returnMeta = document.querySelector('meta[name="artifact-return"]');
+if (returnMeta) $("[data-export='send']").hidden = false;
+const sendToAgent = async env => {
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  if (!res.ok) throw new Error("submit " + res.status);
+  return res.json();
+};
+
+const egress = $("#egress");
+const doExport = async which => {
+  const env = toEnvelope();
+  if (!validate(env)) { egress.value = "[BLOCKED] envelope failed validation"; flash("Export blocked"); return; }
+  if (which === "send") {
+    const btn = $("[data-export='send']"); btn.disabled = true;
+    try { await sendToAgent(env); markExported(); flash("Sent to agent"); }
+    catch { egress.value = JSON.stringify(env, null, 2); await copyText(egress.value); flash("Send failed — copied instead"); }
+    finally { btn.disabled = false; }
+    return;
+  }
+  if (which === "json") { const text = JSON.stringify(env, null, 2); egress.value = text; download("brainstorm-" + themeKey.slice(6) + ".json", "application/json", text); markExported(); flash("Downloaded JSON"); return; }
+  if (which === "changed") { if (!changed()) { flash("Nothing captured"); return; } const text = JSON.stringify({ kind: env.kind, version: env.version, artifact: env.artifact, baselineRef: "b-" + model.directions.length, decisions: env.decisions, state: { leaning: env.state.leaning, flipTrigger: env.state.flipTrigger, hybrid: env.state.hybrid } }, null, 2); egress.value = text; await copyText(text); markExported(); flash("Copied changed-only"); return; }
+  egress.value = toMarkdown(); await copyText(egress.value); markExported(); flash("Copied");
+};
+
+// --- one listener per concern
+document.addEventListener("click", e => {
+  const st = e.target.closest("[data-steal]"); if (st) { const id = st.dataset.steal; state.hybrid = state.hybrid.includes(id) ? state.hybrid.filter(x => x !== id) : [...state.hybrid, id]; renderHybrid(); paintSteals(); refreshMeta(); return; }
+  const rm = e.target.closest("[data-drop]"); if (rm) { state.hybrid = state.hybrid.filter(x => x !== rm.dataset.drop); renderHybrid(); paintSteals(); refreshMeta(); return; }
+  const theme = e.target.closest("[data-toggle-theme]"); if (theme) { const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches; const next = dark ? "light" : "dark"; try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; } return; }
+  const exp = e.target.closest("[data-export]"); if (exp) doExport(exp.dataset.export);
+});
+document.addEventListener("change", e => {
+  const cmp = e.target.closest("[data-compare]"); if (cmp) { state.compare = cmp.value; document.querySelectorAll("[data-criterion]").forEach(li => li.classList.toggle("hl", state.compare !== "none" && li.dataset.criterion === state.compare)); return; }
+  const v = e.target.closest("[data-verdict]"); if (v) { if (v.value === "none") delete state.verdicts[v.dataset.verdict]; else state.verdicts[v.dataset.verdict] = v.value; paintCards(); refreshMeta(); return; }
+  const lean = e.target.closest("[data-leaning]"); if (lean) { state.leaning = lean.value; paintCards(); refreshMeta(); }
+});
+document.addEventListener("input", e => {
+  const box = e.target.closest("[data-filter-box]"); if (box) { const q = box.value.trim().toLowerCase(); document.querySelectorAll("#board [data-filter]").forEach(c => { c.hidden = q !== "" && !c.textContent.toLowerCase().includes(q); }); return; }
+  const flip = e.target.closest("[data-flip]"); if (flip) { state.flipTrigger = flip.value; state.flipExported = false; refreshMeta(); }
+});
+
+renderDistinct(); renderHybrid(); paintSteals(); paintCards(); refreshMeta();
+})();
+</script>
+</body>
+</html>

@@ -30,8 +30,8 @@ Each mode is the operating loop specialized to one extraction; the card carries 
 - Generate: From the constraint frame alone, generate a free pool across the tiers — patch, structural, rebuild — before any seed or prior-art exposure (exit: two tiers carry distinct theses).
 - Expand: Force category jumps on the free pool — mechanism, goal, inversion, failure, scale, horizon, consumer — folding the quarantined seeds in only now (exit: no two directions share a thesis).
 - Attack: Attack each direction with disconfirmation; the wargame variant scores on weights declared before any direction is scored; a direction surviving no disconfirmation exits rejected with its kill anchor, and a kill felling every direction re-grounds the fan against the indicted constraint (exit: a surviving direction leads or the binding constraint is re-grounded; a scored choice carries one row per direction).
-- Lands: A `direction-set` with the leading direction and the flip triggers that overturn it; the rendered comparison page is html-artifacts ground.
-- Terminate: The user reacts to rendered directions, the ruling is recorded, rejected directions keep their reopen conditions.
+- Lands: A `direction-set` with the leading direction and the flip triggers that overturn it; the rendered comparison page is html-studio ground, served through the return channel so the user's pick, scores, and steal-selections come back as a submission receipt.
+- Terminate: The user reacts to rendered directions — receipt or spoken — the ruling is recorded, rejected directions keep their reopen conditions.
 
 ## [04]-[QUIZ]
 
@@ -40,7 +40,7 @@ Each mode is the operating loop specialized to one extraction; the card carries 
 - Items: From the grounded corners, author application shapes answerable only through the changed causal model — predict the output of an input not in the diff, name what breaks when a changed predicate inverts, transfer the invariant to an adjacent boundary, map a symptom back to its mechanism, select the repair that preserves the invariant (exit: every item maps to a merge-critical invariant and the section that teaches it).
 - Score: Each item's options homogeneous with three effective choices, every wrong answer carrying one diagnosable misconception, and a selected answer carrying a one-sentence causal justification that must agree with it (exit: scored, no answer-justification mismatch).
 - Gate: Criterion, never percentage — every merge-critical invariant correct; a miss re-teaches from the mapped section and retests the same invariant through a fresh isomorphic scenario, never the revealed item, and a second miss on that invariant is a design gap rather than a reader gap — it stops the retest and hands the merge to Terminate (exit: every critical invariant correct on renewed retrieval, or its second miss ruled a design gap and routed).
-- Lands: The scored gate, ephemeral; a wrong answer that exposed a real design gap graduates as a `blindspot-ledger` finding.
+- Lands: The scored gate, ephemeral; the quiz page runs served through the html-studio return channel so selections and justifications return as one receipt the gate scores. A wrong answer that exposed a real design gap graduates as a `blindspot-ledger` finding.
 - Terminate: The criterion gate clears or an explicit decision holds the merge.
 
 ## [05]-[BUY_IN]

@@ -7,8 +7,9 @@ Paths: .md/.mmd files or directories (walked for *.md, *.mmd); a missing path or
 file emits a check=collect fail row. Files without fences are skipped. Output:
 `file:line: ok|FAIL <reason>|WARN <reason>` per fence; --json emits NDJSON rows
 {"file","line","check","status","detail"} with check in render|frontmatter|contract|logic|setup|read|collect.
-Contract rows warn on an inconsistent accTitle/accDescr pair and on off-palette hexes in a
-fence that declares themeVariables.
+Contract rows warn on an inconsistent accTitle/accDescr pair, on off-palette hexes in a
+fence that declares themeVariables, and on a themable family with no `theme:` frontmatter
+(floor:no-theme); families without a themeVariables route are exempt.
 Logic rows fire only on findings: structural defects (orphan node, unreachable state, undefined
 class, unknown node, unclosed fence or frontmatter, deprecated init directive) fail;
 legibility-budget overruns, duplicate edges, and a diagram family without implemented logic
@@ -54,6 +55,17 @@ PALETTE = {
     "#036A96", "#644AC9", "#A3144D",
 }
 HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}\b")
+
+# Families with a live themeVariables route; a committed fence in one of these meets its floor
+# with `theme:` frontmatter. Routeless families (mindmap, kanban, packet, treeView, C4) are exempt.
+THEMED_HEADS = frozenset({
+    "flowchart", "graph", "sequenceDiagram", "classDiagram", "erDiagram", "gantt",
+    "timeline", "gitGraph", "requirementDiagram", "pie", "quadrantChart",
+    "sankey", "sankey-beta", "xychart", "xychart-beta", "radar-beta",
+    "treemap", "treemap-beta", "journey", "architecture-beta", "venn-beta",
+    "eventmodeling", "wardley-beta",
+})
+THEME_KEY = re.compile(r"^\s*theme\s*:", re.MULTILINE)
 
 # Flowchart tokenization: edge runs (with optional edge-id prefix and inline label), shape-bracket
 # payloads, and metadata that must vanish before endpoints are read.
@@ -504,20 +516,40 @@ def logic_findings(body: str) -> list[Finding]:
     return [Finding(status="warn", detail=f"logic-unimplemented:{header}")] if header else []
 
 
-def contract_findings(body: str) -> list[Finding]:
-    """Committed-diagram contract checks: accessibility-pair consistency and palette fidelity.
-
-    An accTitle without accDescr (or the reverse) is always a defect; a fence that declares
-    `themeVariables` has opted into the palette contract, so an off-palette hex warns.
+def _frontmatter_text(body: str) -> str:
+    """Extract the frontmatter block body, empty when no closed block opens the fence.
 
     Returns:
-        Warn findings only; empty when the fence honors both contracts.
+        The text between the delimiter pair, without the delimiters.
+    """
+    lines = body.splitlines()
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    if i >= len(lines) or lines[i].strip() != "---":
+        return ""
+    close = next((k for k in range(i + 1, len(lines)) if lines[k].strip() == "---"), -1)
+    return "\n".join(lines[i + 1:close]) if close > 0 else ""
+
+
+def contract_findings(body: str) -> list[Finding]:
+    """Committed-diagram contract checks: accessibility pair, palette fidelity, theming floor.
+
+    An accTitle without accDescr (or the reverse) is always a defect; a fence that declares
+    `themeVariables` has opted into the palette contract, so an off-palette hex warns; a fence
+    whose family has a themeVariables route but carries no `theme:` key warns floor:no-theme.
+
+    Returns:
+        Warn findings only; empty when the fence honors every contract.
     """
     has_title, has_descr = "accTitle" in body, "accDescr" in body
     findings = [Finding(status="warn", detail="acc-pair-incomplete")] if has_title != has_descr else []
     if "themeVariables" in body:
         off = {h.upper() for h in HEX_COLOR.findall(body)} - PALETTE
         findings += [Finding(status="warn", detail=f"off-palette:{h}") for h in sorted(off)]
+    header = _diagram_lines(body)[0]
+    if (header in THEMED_HEADS or header.startswith("stateDiagram")) and not THEME_KEY.search(_frontmatter_text(body)):
+        findings.append(Finding(status="warn", detail="floor:no-theme"))
     return findings
 
 

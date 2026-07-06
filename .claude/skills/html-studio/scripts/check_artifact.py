@@ -10,11 +10,14 @@ references inside srcdoc), base (any <base href> rewriting relative resolution),
 title (present and non-empty), dark-theme (prefers-color-scheme media query and data-theme
 selector proven in parsed CSS, never in comments or prose), embedded-state (every JSON
 script payload — application/json, any +json, importmap, speculationrules — must parse
-whole), size warn >400KB on raw bytes, print warn (no @media print in CSS), residue warn
-(template replace-markers), script-hazard warn (raw U+2028/U+2029 inside script bodies),
+whole), srgb-mix (any `color-mix(in srgb ...)` — derived color is OKLCH-only), size warn
+>400KB on raw bytes, print warn (no @media print in CSS), residue warn (template
+replace-markers), script-hazard warn (raw U+2028/U+2029 inside script bodies),
 export-control warn (capture controls without a data-export egress), theme-tokens warn
-(CSS present without semantic tokens), secret warn (credential-shaped literals outside
-base64 blobs). Output: `file:line: FAIL|WARN <check> <detail>`; --json emits NDJSON rows
+(CSS present without semantic tokens), raw-hex warn (hex color in a non-custom-property
+declaration — color reaches rules through tokens), interaction warn (button rules without
+an `:active` state), secret warn (credential-shaped literals outside base64 blobs).
+Output: `file:line: FAIL|WARN <check> <detail>`; --json emits NDJSON rows
 {"file","line","check","status","detail"}. Unreadable or invalid-UTF-8 input emits one
 check=read fail row. Rendering fidelity and runtime-built egress are the browser and CSP
 oracle's; this gate owns the static single-file contract.
@@ -49,8 +52,11 @@ class Check(StrEnum):
     TITLE = "title"
     DARK_THEME = "dark-theme"
     EMBEDDED_STATE = "embedded-state"
+    SRGB_MIX = "srgb-mix"
     EXPORT_CONTROL = "export-control"
     THEME_TOKENS = "theme-tokens"
+    RAW_HEX = "raw-hex"
+    INTERACTION = "interaction"
     SIZE = "size"
     PRINT = "print"
     RESIDUE = "residue"
@@ -80,6 +86,11 @@ SECRET = re.compile(
     r"(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36,}|xox[baprs]-[A-Za-z0-9-]{10,}"
     r"|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{8,}\.eyJ)"
 )
+SRGB_MIX = re.compile(r"color-mix\(\s*in\s+srgb", re.IGNORECASE)
+CSS_DECL = re.compile(r"(?P<prop>[-\w]+)\s*:(?P<value>[^;{}]*)")
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+BUTTON_RULE = re.compile(r"(?:^|[,{}\s])(?:\.btn|button)\b", re.IGNORECASE)
+ACTIVE_STATE = re.compile(r":active\b", re.IGNORECASE)
 SRC_ALLOWED = re.compile(r"^(#|data:)", re.IGNORECASE)
 SRC_ATTRS = frozenset({"src", "poster", "action", "data"})
 SRCDOC_REMOTE = re.compile(r"\b(?:src|href)\s*=\s*['\"]?(?:https?:)?//", re.IGNORECASE)
@@ -264,6 +275,19 @@ def audit(path: Path) -> list[Row]:
         rows.append(Row(line=1, check=Check.EXPORT_CONTROL, status="warn", detail=f"{parser.captures} capture controls, no data-export egress"))
     if parser.css and not all(token in css_text for token in THEME_TOKENS):
         rows.append(Row(line=1, check=Check.THEME_TOKENS, status="warn", detail="style present without semantic theme tokens"))
+    rows.extend(
+        Row(line=base_line, check=Check.SRGB_MIX, status="fail", detail=f"color-mix in srgb: {m.group(0)[:80]}")
+        for base_line, css in parser.css
+        for m in SRGB_MIX.finditer(CSS_COMMENT.sub(" ", css))
+    )
+    rows.extend(
+        Row(line=base_line, check=Check.RAW_HEX, status="warn", detail=f"{m['prop']}:{m['value'].strip()[:60]}")
+        for base_line, css in parser.css
+        for m in CSS_DECL.finditer(CSS_COMMENT.sub(" ", css))
+        if not m["prop"].startswith("--") and HEX_COLOR.search(m["value"])
+    )
+    if BUTTON_RULE.search(css_text) and not ACTIVE_STATE.search(css_text):
+        rows.append(Row(line=1, check=Check.INTERACTION, status="warn", detail="button rules without an :active state"))
     if len(raw) > SIZE_WARN:
         rows.append(Row(line=1, check=Check.SIZE, status="warn", detail=f"{len(raw) // 1024}KB > {SIZE_WARN // 1024}KB"))
     if "@media print" not in css_text:

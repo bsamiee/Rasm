@@ -1,8 +1,36 @@
 # [METHOD]
 
-The page is an information instrument before it is an interface: every region answers a named reader question, and a mark that cannot name its question is deleted. The method runs in order — investigate, select, structure, lay out, choose interaction, review — and each stage consumes the artifacts of the one before it.
+The page is an information instrument before it is an interface: every region answers a named reader question, and a mark that cannot name its question is deleted. The method runs in order — qualify the medium, investigate, select, structure, lay out, choose interaction, review — and each stage consumes the artifacts of the one before it.
 
-## [01]-[INVESTIGATE]
+## [01]-[MEDIUM]
+
+Markdown is the default carrier; a page earns its file only where structure, adjacency, or manipulation changes the reader's answer. The work class names the win the page must deliver — a page that cannot name its row stays markdown.
+
+| [INDEX] | [WORK]                   | [HTML_WINS_WHEN]                                                                        |
+| :-----: | :----------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | exploration and planning | undecided alternatives sit adjacent, compare visually, and convert into the chosen plan |
+|  [02]   | review and understanding | diffs, call graphs, and risk maps keep their spatial relations instead of flattening    |
+|  [03]   | design                   | tokens, type scales, and component states render as the live decisions they are        |
+|  [04]   | prototyping              | motion and interaction must be felt — easing, timing, and flow tune only when live     |
+|  [05]   | illustration and diagram | vector figures need hand-tweaking, per-figure export, or clickable inspection          |
+|  [06]   | deck                     | a case walks slide by slide under keyboard control with no export step                 |
+|  [07]   | research and learning    | navigation scaffolds — tabs, glossaries, live models — make the topic traversable      |
+|  [08]   | report                   | metrics, timelines, and evidence tables turn a skimmed document into a scanned one     |
+|  [09]   | editing interface        | the exact decision surface is a purpose-built control set exporting durable output     |
+
+Render the thing: real code, real controls, real data rows, real SVG land on the page — prose describing an unrendered candidate is a defect. Decisions sit beside the evidence that earns them: a recommendation, verdict, or ranking shares a viewport with its pro/con rows, risk map, or score matrix, never a separate section.
+
+## [02]-[SCOPES]
+
+Artifacts compose at three scopes, each owning one altitude, linked as relative sibling pages so a reader descends by click and never by re-derivation.
+
+- Repo scope — a roadmap or atlas spanning the monorepo: branch-level outcomes, cross-branch dependencies, promotion conditions. It links each branch page and restates none of its detail.
+- Branch scope — one language or platform branch: package sequencing, seam obligations, capability coverage. It links folder pages for mechanism.
+- Folder scope — one package or planning folder: stages, acceptance, risks, code-level evidence.
+
+A fact lives at exactly one scope; the scope above carries the link and the consequence, never a copy. A session plan consumed by its own execution stays scratch at any scope.
+
+## [03]-[INVESTIGATE]
 
 Name the decision the page must move; when no decision exists, name the mental model it must change. That sentence governs every later cut.
 
@@ -30,7 +58,7 @@ The comparison phase gates the comparison shape: unnamed candidates get a genera
 
 Investigation stops when every surviving content object maps to a reader question and every question has an answer object. The first pass removes content; it never collects more.
 
-## [02]-[SELECT]
+## [04]-[SELECT]
 
 Placement is earned on a ladder, and the ladder is the whole selection law:
 
@@ -58,7 +86,7 @@ Representation swaps by reader task:
 
 A metric earns placement only with its target, history, threshold, or denominator beside it. A screenshot earns placement only for spatial evidence text cannot reconstruct. A code excerpt earns placement only when the exact syntax is the evidence; otherwise render behavior or flow. Sourced material synthesizes — the page states what the sources mean together, never serially paraphrases them — and every finding carries its action edge: what the reader does differently for knowing it. The final selection fits one answer path, one evidence path, and one verification path.
 
-## [03]-[STRUCTURE]
+## [05]-[STRUCTURE]
 
 Answer-first is the default order: the first viewport carries the answer, its scope, the dominant evidence, and a route to deeper inspection. Model-building order — prerequisites before the answer — is reserved for concept pages where the answer is meaningless until the model exists.
 
@@ -76,7 +104,7 @@ A file tour, member walk, or evidence sequence orders by reading path, never alp
 
 Structure fails when the same fact appears twice without serving different tasks, when two sections swap without damaging logic, when the richest evidence lands after the reader was asked to believe, or when the complete story exists only behind every widget.
 
-## [04]-[LAYOUT]
+## [06]-[LAYOUT]
 
 The spine is the vertical claim path that stays coherent with every optional branch ignored; rails and stickiness are earned, never default.
 
@@ -90,7 +118,7 @@ The spine is the vertical claim path that stays coherent with every optional bra
 
 The layout passes only when a reader can always name the current section, active filter, active parameter, and reset path without memory.
 
-## [05]-[INTERACTION]
+## [07]-[INTERACTION]
 
 Interaction is a contract: the reader pays attention, effort, and state management, and the page repays insight unavailable statically. The default state answers the most common question with zero interaction, and the page stays a complete argument with every widget ignored.
 
@@ -115,7 +143,9 @@ Write the static alternative first; the interactive form ships only after the st
 
 Every control declares its variable in its label, shows its current state at all times, and exposes reset whenever a noncanonical state is reachable. Hover carries supplement only — hover-only evidence dies on touch and print. A toggle serves two low-memory states; many or precise differences force side-by-side. Motion binds to scroll or slider position so the reader can slow, reverse, and inspect; motion that decorates is removed. A sandbox opens only after the guided model gives exploration meaning, and a control whose states the prose never interprets is deleted.
 
-## [06]-[REVIEW]
+A control that captures judgment — a verdict, a ranking, an edited value — feeds the export model and, when the return channel is live, the send-to-agent action; a captured state that reaches neither is a toy and is removed.
+
+## [08]-[REVIEW]
 
 Review runs in fixed order — skim, coverage, interaction necessity, density, print — and aesthetics is judged last. Each test is falsifiable; a failed test is repaired before the next runs.
 

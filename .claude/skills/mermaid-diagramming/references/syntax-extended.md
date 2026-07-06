@@ -33,8 +33,9 @@ Pick a type by intent, then its section for the minimal fence, version gate, and
 |  [23]   | `railroad-beta`      | grammar syntax rails     |
 |  [24]   | `swimlane-beta`      | laned process flow       |
 |  [25]   | `zenuml`             | sequence via zenuml      |
+|  [26]   | `eventmodeling`      | command-event timeline   |
 
-`venn-beta`, `ishikawa-beta`, and `wardley-beta` are registered and sit outside the admitted scope until a proven fence lands; `zenuml` is an external diagram the CLI registers.
+`zenuml` is an external diagram the CLI registers.
 
 The quantitative rows — pie, xychart, sankey, radar — serve only when the artifact must stay a mermaid fence; a data visualization routes to the dataviz lane.
 
@@ -81,6 +82,14 @@ config:
     titleColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
+    fillType0: "#FF79C6"
+    fillType1: "#8BE9FD"
+    fillType2: "#50FA7B"
+    fillType3: "#FFB86C"
+    fillType4: "#BD93F9"
+    fillType5: "#FF5555"
+    fillType6: "#F1FA8C"
+    fillType7: "#6272A4"
 ---
 journey
   title Label
@@ -91,11 +100,24 @@ journey
     Close: 2: Peer
 ```
 
-Scores are integers `1` through `5`; a task belongs under a `section`, an actor needs no declaration, and an out-of-range score is invalid.
+Scores are integers `1` through `5`; a task belongs under a `section`, an actor needs no declaration, and an out-of-range score is invalid. The score faces and section fills read `fillType0`–`fillType7`, never `primaryColor` — a journey themed without the `fillType` set renders its whole point unstyled.
 
 ## [05]-[REQUIREMENT_DIAGRAM]
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    requirementBackground: "#44475A"
+    requirementBorderColor: "#BD93F9"
+    requirementTextColor: "#F8F8F2"
+    relationColor: "#FF79C6"
+    relationLabelColor: "#F8F8F2"
+    relationLabelBackground: "#282A36"
+---
 requirementDiagram
   functionalRequirement req {
     id: 1.1
@@ -114,6 +136,20 @@ Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `perfo
 ## [06]-[PIE]
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    pieSectionTextColor: "#282A36"
+    pieLegendTextColor: "#F8F8F2"
+    pieTitleTextColor: "#F8F8F2"
+    pieStrokeColor: "#282A36"
+    pie1: "#FF79C6"
+    pie2: "#8BE9FD"
+    pie3: "#50FA7B"
+    pie4: "#FFB86C"
+---
 pie showData
   title Label
   "Alpha" : 45
@@ -154,10 +190,22 @@ Coordinates bind to `0` through `1` and quadrants number `1` top-right through `
 ```mermaid
 ---
 config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    titleColor: "#F8F8F2"
   sankey:
     labelStyle: outlined
+    linkColor: gradient
     nodeWidth: 15
     nodePadding: 20
+    nodeColors:
+      Source: "#BD93F9"
+      Hub: "#FF79C6"
+      Store: "#FFB86C"
+      Homes: "#50FA7B"
+      Industry: "#8BE9FD"
 ---
 sankey
 
@@ -169,13 +217,28 @@ Store,Homes,30
 Store,Industry,50
 ```
 
-The keyword is `sankey`; the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor`, `nodeAlignment`, `showValues`, `prefix`, `suffix`, the styling knobs, and a `nodeColors` name-to-hex map.
+The keyword is `sankey`; the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor` (`gradient`, `source`, `target`, or a hex), `nodeAlignment`, `showValues`, `prefix`, `suffix`, the styling knobs, and the `nodeColors` name-to-hex map — a committed sankey maps every node to a palette hex so no node falls to the engine default.
 
 ## [09]-[XYCHART]
 
 ```mermaid
 ---
 config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    xyChart:
+      backgroundColor: "#282A36"
+      titleColor: "#F8F8F2"
+      xAxisLabelColor: "#F8F8F2"
+      xAxisTitleColor: "#F8F8F2"
+      xAxisTickColor: "#6272A4"
+      xAxisLineColor: "#6272A4"
+      yAxisLabelColor: "#F8F8F2"
+      yAxisTitleColor: "#F8F8F2"
+      yAxisTickColor: "#6272A4"
+      yAxisLineColor: "#6272A4"
+      plotColorPalette: "#BD93F9, #FF79C6"
   xyChart:
     showDataLabel: true
     xAxis:
@@ -259,19 +322,28 @@ Dates match `dateFormat`, `after taskId` and `until taskId` reference existing I
 ```mermaid
 ---
 config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    titleColor: "#F8F8F2"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
   treemap:
     valueFormat: '$0,0'
 ---
 treemap-beta
 "Budget"
-    "Operations"
+    "Operations":::ops
         "Salaries": 700000
     "Marketing":::focus
         "Advertising": 400000
+classDef ops fill:#44475A,stroke:#8BE9FD,color:#F8F8F2
 classDef focus fill:#44475A,stroke:#FFB86C,color:#F8F8F2
 ```
 
-Indentation sets hierarchy and a leaf carries a numeric value; `:::class` plus `classDef` styles a node, and `valueFormat` formats values through d3-format grammar alongside `showValues`, `nodeWidth`, `diagramPadding`.
+Indentation sets hierarchy and a leaf carries a numeric value; `:::class` plus `classDef` styles a node, and `valueFormat` formats values through d3-format grammar alongside `showValues`, `nodeWidth`, `diagramPadding`. Every top-level branch carries a class — a single classed node beside default siblings reads as an accident, not a system.
 
 ## [13]-[C4]
 
@@ -334,6 +406,17 @@ The keyword is `packet`, never `packet-beta`; `start-end: "name"` ranges and `+c
 ## [16]-[TIMELINE]
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    cScale0: "#FF79C6"
+    cScale1: "#8BE9FD"
+    cScaleLabel0: "#282A36"
+    cScaleLabel1: "#282A36"
+---
 timeline
   title Label
   section Phase One
@@ -347,6 +430,20 @@ A multi-event row repeats `:`, styling uses `cScale0` through `cScale11`, and ti
 ## [17]-[GITGRAPH]
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    git0: "#BD93F9"
+    git1: "#FF79C6"
+    gitBranchLabel0: "#282A36"
+    gitBranchLabel1: "#282A36"
+    commitLabelColor: "#F8F8F2"
+    commitLabelBackground: "#44475A"
+    tagLabelColor: "#282A36"
+    tagLabelBackground: "#F1FA8C"
+---
 gitGraph LR:
   commit id: "a"
   branch feature
@@ -392,6 +489,23 @@ The tree parses box-drawing input, a trailing `/` marking a directory; annotatio
 ## [20]-[CYNEFIN]
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    cynefin:
+      textColor: "#F8F8F2"
+      labelColor: "#F8F8F2"
+      boundaryColor: "#6272A4"
+      arrowColor: "#FF79C6"
+      complexBg: "#44475A"
+      complicatedBg: "#21222C"
+      clearBg: "#44475A"
+      chaoticBg: "#21222C"
+      confusionBg: "#282A36"
+---
 cynefin-beta
   clear
     "Restart service"
@@ -400,7 +514,7 @@ cynefin-beta
   clear --> complicated : "Pattern found"
 ```
 
-The five domains are `complex`, `complicated`, `clear`, `chaotic`, `confusion`, each holding quoted items, and a transition spells `domain --> domain : "label"`. The current geometry draws axis-aligned rectangles, not the canonical curved domain boundaries.
+The five domains are `complex`, `complicated`, `clear`, `chaotic`, `confusion`, each holding quoted items, and a transition spells `domain --> domain : "label"`; domain fills, boundary, cliff, and arrow color nest under `cynefin:`. The current geometry draws axis-aligned rectangles, not the canonical curved domain boundaries.
 
 ## [21]-[RAILROAD]
 
@@ -421,14 +535,150 @@ sign = "+" | "-" ;
 number = sign? digit+ ;
 ```
 
-The keyword selects the grammar parser — `railroad-ebnf-beta` for EBNF, `railroad-abnf-beta` for ABNF, `railroad-peg-beta` for PEG, and `railroad-beta` for Mermaid's intermediate constructors.
+The keyword selects the grammar parser — `railroad-ebnf-beta` for EBNF, `railroad-abnf-beta` for ABNF, `railroad-peg-beta` for PEG, and `railroad-beta` for Mermaid's intermediate constructors. Production, terminal, and reference nodes share the `primaryColor` fill; the beta carries no class route, so grammar-role differentiation waits on the engine, never on an invented selector.
 
 ## [22]-[SWIMLANE]
 
 ```mermaid
+---
+config:
+  look: classic
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+  flowchart:
+    defaultRenderer: elk
+---
 swimlane-beta
   Intake --> Review
   Review --> Approve
 ```
 
-A standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout, it honors `flowchart.defaultRenderer: elk`. `look: neo` deforms swimlane output, so swimlane holds `look: classic`; its PNG export diverges from its SVG in current builds.
+A standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout, it honors `flowchart.defaultRenderer: elk` and the flowchart general variables — a swimlane ships the flowchart theming floor, never a bare header. `look: neo` deforms swimlane output, so swimlane holds `look: classic`; its PNG export diverges from its SVG in current builds.
+
+## [23]-[EVENTMODELING]
+
+```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    emUiFill: "#44475A"
+    emUiStroke: "#BD93F9"
+    emCommandFill: "#44475A"
+    emCommandStroke: "#8BE9FD"
+    emEventFill: "#44475A"
+    emEventStroke: "#FFB86C"
+    emProcessorFill: "#21222C"
+    emProcessorStroke: "#6272A4"
+    emReadModelFill: "#21222C"
+    emReadModelStroke: "#50FA7B"
+    emSwimlaneBackgroundOdd: "#282A36"
+    emSwimlaneBackgroundStroke: "#44475A"
+    emArrowhead: "#FF79C6"
+    emRelationStroke: "#FF79C6"
+---
+eventmodeling
+  tf 01 ui CartUI { "sku": "A1" }
+  tf 02 cmd AddItem [[AddItem]]
+  tf 03 evt ItemAdded `json`{ "qty": 1 }
+  rf 10 pcr InventoryProcessor
+  data AddItem `json`{
+    "sku": "A1",
+    "quantity": 1
+  }
+```
+
+`tf`/`timeframe` orders frames left to right and `rf`/`resetframe` restarts the clock; frame kinds are `ui`, `cmd`, `evt`, `pcr` (processor), and `rmo` (read model), relations infer from frame order, and a `data` block carries a payload schema by name. Namespaced frame ids map onto swimlanes, and each frame kind reads its own `em*Fill`/`em*Stroke` pair — the committed fence themes every kind it uses.
+
+## [24]-[VENN]
+
+```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    vennTitleTextColor: "#F8F8F2"
+    vennSetTextColor: "#F8F8F2"
+    venn1: "#BD93F9"
+    venn2: "#8BE9FD"
+    venn3: "#50FA7B"
+---
+venn-beta
+  title Coverage Overlap
+  set A["Authored"]: 80
+  set B["Rendered"]: 65
+  union A,B: 52
+```
+
+`set id["Label"]: size` declares a weighted set and `union A,B: size` sizes an overlap region; up to eight sets read `venn1`–`venn8`. Higher-arity unions list every member id, and an unlabeled set renders its id.
+
+## [25]-[WARDLEY]
+
+```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    wardley:
+      backgroundColor: "#282A36"
+      axisColor: "#6272A4"
+      axisTextColor: "#F8F8F2"
+      gridColor: "#44475A"
+      componentFill: "#44475A"
+      componentStroke: "#BD93F9"
+      componentLabelColor: "#F8F8F2"
+      linkStroke: "#FF79C6"
+      evolutionStroke: "#50FA7B"
+---
+wardley-beta
+  title Render Capability
+  anchor User [0.95, 0.6]
+  component MermaidCLI [0.72, 0.55]
+  component Browser [0.48, 0.4]
+  User->MermaidCLI
+  MermaidCLI->Browser
+```
+
+Coordinates are `[visibility, evolution]` on `0`–`1`; `anchor` places a user need, `component` a capability, `->` a dependency link. OWM grammar adds `evolve`, `pipeline`, `note`, inertia markers, and build/buy/outsource annotations; theme variables nest under `wardley:`.
+
+## [26]-[ISHIKAWA]
+
+```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    textColor: "#F8F8F2"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+---
+ishikawa-beta
+  title Render Failure
+  "Render Failure"
+    Browser
+      "Chromium missing"
+      "Sandbox denied"
+    Assets
+      "Remote icon"
+      "Remote image"
+    Syntax
+      "Beta drift"
+      "Reserved word"
+```
+
+The quoted head names the effect, top-level identifiers are cause categories, and quoted children are causes; depth rides indentation. The beta reads the general variables only.

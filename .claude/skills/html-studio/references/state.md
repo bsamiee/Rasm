@@ -4,7 +4,7 @@ The data model is the single source of truth, the DOM renders a projection of it
 
 ## [01]-[STATE_MODEL]
 
-The artifact models its content before it renders it: entities, relations, hierarchy, states, and cross-references live in the data model, and markup carries no fact the model lacks. A single entity kind stays a flat row list; the model normalizes into keyed collections the moment two views read one entity or any item is referenced by id — a fact duplicated across the payload is a fork. Every region is a projection — filter, group, join — of the one model, and an item that accepts reader judgment carries its decision slot in the model, so capture is model mutation and export serializes the model.
+The artifact models its content before it renders it: entities, relations, hierarchy, states, and cross-references live in the data model, and markup carries no fact the model lacks. The source data declares at the top of the script, before any render logic, so a reader auditing the artifact finds the whole truth in one place. A single entity kind stays a flat row list; the model normalizes into keyed collections the moment two views read one entity or any item is referenced by id — a fact duplicated across the payload is a fork. Every region is a projection — filter, group, join — of the one model, and an item that accepts reader judgment carries its decision slot in the model, so capture is model mutation and export serializes the model.
 
 One plain state object holds every fact the artifact captures; `render()` projects it into the DOM and the DOM position is never read back as authority. Load freezes a baseline snapshot through `structuredClone`, and every changed-key and diff readout derives from state-versus-baseline. Undo is a snapshot stack pushed before each mutation.
 
@@ -23,7 +23,7 @@ const changedKeys = () => Object.keys(state)
 
 The dataset ships as one `<script type="application/json">` payload parsed once at boot; the parser output is the sole data source and markup never duplicates a field. The payload is sanitized before embedding so it can never terminate its own script tag — `</` sequences escape to their `<`-form and the U+2028/U+2029 line separators escape — and repeated rows hydrate by cloning a `<template>` rather than concatenating markup strings.
 
-A data-bearing payload is scrubbed before embed: credential-shaped values scan across every row, never a sample; redaction matches field-name whole tokens and value patterns; a redacted value becomes a stable indexed placeholder so grouping and joins survive. A filter hides rows from view, never from the embedded source — the page states that plainly when the data is sensitive.
+A data-bearing payload passes a programmatic redaction pass before embed — datasets, logs, diffs, and configs alike: credential-shaped values scan across every row, never a sample; redaction matches field-name whole tokens and value patterns; a redacted value becomes a stable indexed placeholder so grouping and joins survive. The `check_artifact.py` secret check backstops the pass, and a backstop hit means the redaction pass failed, never that the gate is noise. A filter hides rows from view, never from the embedded source — the page states that plainly when the data is sensitive.
 
 ```js copy-safe
 // build-time: sanitize before the JSON lands inside the script element
@@ -62,7 +62,7 @@ Render cost binds to row count; the artifact holds a view, never a corpus.
 |  [02]   | 1k-10k    | paginate or pre-aggregate the render; the filter walks the full model |
 |  [03]   | above 10k | the data moves to a linked file; the artifact keeps the view only     |
 
-The filter recomputes visible aggregates from the shown rows — a total that ignores the active filter lies — and its input debounces. Sort re-appends existing nodes, since `append` moves a node with its handlers intact rather than rebuilding them. A long listing carries a scroll minimap mapping row offsets to viewport-scaled markers, rebuilt on resize and on filter.
+A filter acts in two modalities and never deletes from the model: a scope filter hides non-matching rows (`hidden`), an attention filter — a tag or facet highlight — dims them with a class, keeping the dimmed rows scannable as context. The filter recomputes visible aggregates from the shown rows — a total that ignores the active filter lies — and its input debounces. Sort re-appends existing nodes, since `append` moves a node with its handlers intact rather than rebuilding them. A long listing carries a scroll minimap mapping row offsets to viewport-scaled markers, rebuilt on resize and on filter.
 
 ```js copy-safe
 let t;
@@ -111,7 +111,7 @@ addEventListener("resize", buildMinimap);
 
 ## [04]-[URL_STATE]
 
-Shareable view state — mode, filter, selection, active tab — lives in the fragment through `history.replaceState`, so a share is a copied URL and the history stack never fills. `URLSearchParams` reads and writes the fragment body. Personal transient state — collapse, sort direction — stays out of the URL. The plain-params form is preferred until size forces packing; then state packs as JSON to gzip through `CompressionStream` to a URL-safe base64 token. Every decode path falls back to a valid default state on malformed input.
+Shareable view state — mode, filter, selection, active tab — lives in the fragment through `history.replaceState`, so a share is a copied URL and the history stack never fills. `URLSearchParams` reads and writes the fragment body. Personal transient state — collapse, sort direction — stays out of the URL, and a redacted value never rides it: the fragment carries selection ids and view keys, never row content. The plain-params form is preferred until size forces packing; then state packs as JSON to gzip through `CompressionStream` to a URL-safe base64 token. Every decode path falls back to a valid default state on malformed input.
 
 ```js copy-safe
 const writeUrl = view => history.replaceState(null, "",

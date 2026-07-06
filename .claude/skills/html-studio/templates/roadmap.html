@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Roadmap: Compute Surface</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [ROADMAP_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer tokens{
+:root{
+  --risk-fill:color-mix(in oklch,var(--warn) 14%,transparent);
+  --risk-edge:color-mix(in oklch,var(--warn) 50%,var(--line));
+  --drop-fill:color-mix(in oklch,var(--accent) 12%,transparent);
+}
+}
+@layer components{
+.masthead{display:grid;gap:var(--s2);margin-block-end:var(--s5)}
+.masthead .top{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;justify-content:space-between}
+.masthead time{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
+.rowline{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.timeline{margin:var(--s4) 0;display:grid;gap:var(--s2)}
+.timeline svg{display:block}
+.rollup{margin:var(--s4) 0}
+.rollup .card{display:grid;gap:var(--s2)}
+.rollup h3{margin:0;font-size:var(--fs-lg)}
+.rollup .counts{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.tools{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin:var(--s4) 0}
+.tools label{display:flex;gap:var(--s2);align-items:center;flex:1;min-width:220px;font-size:var(--fs-sm);color:var(--text-muted)}
+.tools input{flex:1}
+.filter-count{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-muted)}
+.lanes{container:lanes / inline-size;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s4);align-items:start}
+.lane{display:grid;gap:var(--s3);padding:var(--s3);border:1px solid var(--line);border-radius:var(--r-2);background:var(--surface);min-block-size:120px;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.lane > h3{margin:0;position:sticky;top:0;background:var(--surface);padding-block:var(--s1);font-size:var(--fs-lg)}
+.lane[data-over]{background:var(--drop-fill);border-color:var(--accent)}
+.ms{display:grid;gap:var(--s1);cursor:grab}
+.ms:active{cursor:grabbing}
+.ms-head{display:flex;justify-content:space-between;gap:var(--s2);align-items:baseline}
+.ms h4{margin:0;font-size:var(--fs-md)}
+.ms-owner,.ms-dep,.ms-risk,.ms-note{margin:0;font-size:var(--fs-2xs)}
+.ms-owner,.ms-dep{color:var(--text-muted)}
+.ms-risk{color:var(--warn);background:var(--risk-fill);padding:var(--s1) var(--s2);border-radius:var(--r-1)}
+.ms:has(.chip.warn){border-color:var(--risk-edge)}
+.ms-note{color:var(--text-muted);border-inline-start:3px solid var(--editorial);padding-inline-start:var(--s2)}
+.ms-edit{justify-self:start;padding:2px var(--s2);font-size:var(--fs-2xs)}
+.egress-wrap{display:grid;gap:var(--s2);margin-block:var(--s4)}
+.egress-wrap textarea{inline-size:100%;min-block-size:44px;font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.export-status{font-size:var(--fs-xs);color:var(--text-muted)}
+.pop{min-inline-size:230px;display:grid;gap:var(--s2);padding:var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2)}
+.pop-title{margin:0;font-weight:600}
+.pop .verdict-row{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.pop [data-status-set][data-on]{border-color:var(--accent);background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.pop-note{display:grid;gap:var(--s1);font-size:var(--fs-sm)}
+.pop-note textarea{width:100%;font-family:var(--font-mono);font-size:var(--fs-2xs)}
+#toast{position:fixed;inset:auto var(--s4) calc(var(--s8) + var(--s4)) auto;margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2);font-size:var(--fs-sm)}
+}
+@layer utilities{
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:5;background:var(--raised-2);padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1)}
+}
+@layer print{
+@media print{
+  .tools,.ms-edit,.skip,.egress-wrap{display:none!important}
+  .lanes{grid-template-columns:1fr;container-type:normal}
+  .lane,.ms,.timeline,.rollup .card{break-inside:avoid}
+}
+}
+@layer overrides{
+@container lanes (inline-size < 44rem){.lanes{grid-template-columns:1fr}}
+@media (forced-colors:active){.lane[data-over]{border:2px solid Highlight}}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#lanes">Skip to horizon lanes</a>
+<div class="wrap">
+  <header class="masthead">
+    <div class="top">
+      <!-- replace: eyebrow scope line -->
+      <span class="eyebrow">Roadmap &middot; core</span>
+      <div class="rowline no-print">
+        <span class="chip info" data-overall-chip>[OPEN]</span>
+        <!-- replace: roadmap date -->
+        <time datetime="2026-07-06">2026-07-06</time>
+        <button type="button" class="btn ghost" data-toggle-theme aria-label="Toggle color theme">Theme</button>
+      </div>
+    </div>
+    <!-- replace: page title -->
+    <h1>Roadmap: Compute Surface</h1>
+    <p class="deck">Capability sequenced across confidence horizons; dependency risk and status derive live, and a drag between lanes is a captured move.</p>
+  </header>
+
+  <!-- replace: embedded roadmap payload — meta, horizons, milestones (id, title, horizon, status, depends, owner, note) -->
+  <script type="application/json" id="payload">{"meta": {"title": "Roadmap: Compute Surface", "owner": "core", "date": "2026-07-06", "start": "2026-06-15", "end": "2026-09-15"}, "horizons": ["now", "next", "later"], "milestones": [{"id": "m1", "title": "Owner charter sealed", "horizon": "now", "status": "done", "depends": [], "owner": "core", "note": ""}, {"id": "m2", "title": "Boundary map drafted", "horizon": "now", "status": "done", "depends": ["m1"], "owner": "core", "note": ""}, {"id": "m3", "title": "Kernel seam frozen", "horizon": "now", "status": "open", "depends": ["m8"], "owner": "kernel", "note": ""}, {"id": "m4", "title": "Facet filter shipped", "horizon": "next", "status": "active", "depends": ["m2"], "owner": "ui", "note": ""}, {"id": "m5", "title": "Batch ingest path", "horizon": "next", "status": "open", "depends": ["m2"], "owner": "data", "note": ""}, {"id": "m6", "title": "Telemetry receipts", "horizon": "next", "status": "open", "depends": ["m4"], "owner": "host", "note": ""}, {"id": "m7", "title": "Stream modality folded", "horizon": "later", "status": "open", "depends": ["m5"], "owner": "core", "note": ""}, {"id": "m8", "title": "Solver graduation", "horizon": "later", "status": "active", "depends": ["m2"], "owner": "kernel", "note": ""}, {"id": "m9", "title": "Public atlas", "horizon": "later", "status": "open", "depends": ["m8"], "owner": "docs", "note": ""}]}</script>
+
+  <figure class="timeline card">
+    <figcaption><small>Horizon timeline — milestone diamonds by status, dashed arcs for cross-horizon hard dependencies, today marker from the roadmap date</small></figcaption>
+    <div class="twrap"><div data-timeline></div></div>
+  </figure>
+
+  <section class="rollup grid" data-rollup aria-label="Per-horizon rollup"></section>
+
+  <search class="tools no-print" aria-label="Milestone filter">
+    <label>Filter <input type="search" data-filter-box placeholder="Filter milestones across horizons" aria-label="Filter milestones by text"></label>
+    <output class="filter-count" data-count aria-live="polite"></output>
+  </search>
+
+  <main id="lanes" tabindex="-1">
+    <div class="lanes" data-lanes></div>
+  </main>
+
+  <div class="egress-wrap no-print">
+    <output class="export-status" data-egress-status aria-live="polite"></output>
+    <textarea id="egress" readonly aria-label="Exported payload mirror" rows="4"></textarea>
+  </div>
+</div>
+
+<footer class="export-bar no-print" aria-label="Export controls">
+  <label class="rowline">Verdict
+    <select data-verdict aria-label="Overall roadmap verdict">
+      <option value="comment">comment</option>
+      <option value="approve">approve</option>
+      <option value="approve_with_notes">approve_with_notes</option>
+      <option value="reject">reject</option>
+      <option value="defer">defer</option>
+      <option value="edit">edit</option>
+      <option value="dismiss">dismiss</option>
+    </select>
+  </label>
+  <button type="button" class="btn primary" data-export="send" hidden>Send to agent</button>
+  <button type="button" class="btn" data-export="md">Copy roadmap markdown</button>
+  <button type="button" class="btn" data-export="json">Download full JSON</button>
+  <button type="button" class="btn ghost" data-export="changed" disabled>Copy changed-only</button>
+</footer>
+
+<template id="ms-tpl">
+  <article class="card ms" draggable="true" data-filter>
+    <div class="ms-head">
+      <h4 data-ms-title>Milestone</h4>
+      <span class="chip" data-ms-chip></span>
+    </div>
+    <p class="ms-owner">Owner: <span data-ms-owner></span></p>
+    <p class="ms-dep" data-ms-dep></p>
+    <p class="ms-risk" data-ms-risk hidden></p>
+    <p class="ms-note" data-ms-note hidden></p>
+    <button type="button" class="btn ms-edit no-print" data-ms-edit aria-label="Override status or add note">Override</button>
+  </article>
+</template>
+
+<div id="ms-pop" popover class="pop">
+  <p class="pop-title" data-ms-pop-title>Override milestone</p>
+  <div class="verdict-row">
+    <button type="button" class="btn" data-status-set="open">open</button>
+    <button type="button" class="btn" data-status-set="active">active</button>
+    <button type="button" class="btn" data-status-set="done">done</button>
+  </div>
+  <label class="pop-note">Note <textarea data-ms-pop-note rows="2" aria-label="Milestone note"></textarea></label>
+  <button type="button" class="btn primary" data-ms-pop-save>Save override</button>
+</div>
+
+<output id="toast" popover="manual" aria-live="polite"></output>
+
+<script>
+"use strict";
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+const storedTheme = (() => { try { return localStorage.getItem(themeKey); } catch { return null; } })();
+if (storedTheme) root.dataset.theme = storedTheme;
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
+  const next = dark ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+
+const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
+const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+const mdCell = s => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const VERDICTS = new Set(["approve", "approve_with_notes", "reject", "defer", "edit", "comment", "dismiss"]);
+const ANNO = new Set(["active", "exported", "done"]);
+const CHIP = { done: ["ok", "[DONE]"], active: ["info", "[ACTIVE]"], open: ["info", "[OPEN]"], "at-risk": ["warn", "[AT-RISK]"] };
+const DIAMOND = { done: "var(--ok)", active: "var(--accent)", open: "var(--surface)", "at-risk": "var(--warn)" };
+
+const seed = JSON.parse(document.getElementById("payload").textContent);
+const meta = seed.meta;
+const HORIZON_INDEX = Object.fromEntries(seed.horizons.map((h, i) => [h, i]));
+const ARTIFACT_ID = "roadmap." + slug(meta.title);
+const BASELINE_ID = "b-" + hash(JSON.stringify(seed.milestones));
+const baseIndex = Object.fromEntries(seed.milestones.map(m => [m.id, { horizon: m.horizon, status: m.status }]));
+const state = { milestones: structuredClone(seed.milestones), notes: {}, noteStatus: {}, verdict: "comment" };
+
+const byId = id => state.milestones.find(m => m.id === id);
+const title = id => (byId(id) || { title: id }).title;
+const egress = document.getElementById("egress");
+const statusOut = document.querySelector("[data-egress-status]");
+const changedBtn = document.querySelector('[data-export="changed"]');
+const toast = document.getElementById("toast");
+let toastTimer;
+const flash = m => { toast.textContent = m; try { toast.showPopover(); } catch {} clearTimeout(toastTimer); toastTimer = setTimeout(() => { try { toast.hidePopover(); } catch {} }, 1600); };
+
+const offending = m => (m.depends || []).map(depId => {
+  const d = byId(depId); if (!d) return null;
+  if (HORIZON_INDEX[d.horizon] > HORIZON_INDEX[m.horizon]) return { dep: d, reason: "later horizon" };
+  if (d.status !== "done") return { dep: d, reason: "not done" };
+  return null;
+}).filter(Boolean);
+const derived = m => {
+  if (m.status === "done") return { status: "done", risk: [] };
+  const off = offending(m);
+  return { status: off.length ? "at-risk" : m.status, risk: off };
+};
+
+const rollupCounts = () => {
+  const acc = Object.fromEntries(seed.horizons.map(h => [h, { total: 0, done: 0, active: 0, open: 0, "at-risk": 0 }]));
+  state.milestones.forEach(m => { const d = derived(m).status, a = acc[m.horizon]; a.total++; a[d] = (a[d] || 0) + 1; });
+  return acc;
+};
+
+const renderTimeline = counts => {
+  const W = 680, padX = 26, axisY = 34, rowH = 15;
+  const perLane = Math.max(...seed.horizons.map(h => state.milestones.filter(m => m.horizon === h).length), 1);
+  const H = axisY + 30 + perLane * rowH + 8;
+  const start = Date.parse(meta.start), end = Date.parse(meta.end), today = Date.parse(meta.date);
+  const span = Math.max(1, end - start);
+  const xOf = t => padX + Math.max(0, Math.min(1, (t - start) / span)) * (W - 2 * padX);
+  const n = seed.horizons.length, bandW = (W - 2 * padX) / n;
+  const bands = seed.horizons.map((h, i) => {
+    const x0 = padX + i * bandW, cx = x0 + bandW / 2, c = counts[h];
+    const tick = '<line x1="' + x0.toFixed(1) + '" y1="' + (axisY - 6) + '" x2="' + x0.toFixed(1) + '" y2="' + (axisY + 6) + '" stroke="var(--line-strong)"/>';
+    const lab = '<text x="' + cx.toFixed(1) + '" y="' + (axisY - 12) + '" fill="var(--text)" font-size="12" font-family="var(--font-mono)" text-anchor="middle">' + esc(h) + '</text>';
+    const sub = '<text x="' + cx.toFixed(1) + '" y="' + (H - 4) + '" fill="var(--text-muted)" font-size="10" text-anchor="middle">' + esc(c.total + " items · " + c["at-risk"] + " at-risk") + '</text>';
+    return tick + lab + sub;
+  }).join("");
+  const pos = {};
+  const diamonds = seed.horizons.map((h, hi) => {
+    const x0 = padX + hi * bandW;
+    return state.milestones.filter(m => m.horizon === h).map((m, i) => {
+      const x = x0 + bandW / 2, y = axisY + 24 + i * rowH;
+      pos[m.id] = { x, y };
+      const d = derived(m).status;
+      const stroke = d === "open" ? "var(--line-strong)" : DIAMOND[d];
+      return '<path d="M ' + x + ' ' + (y - 5) + ' L ' + (x + 5) + ' ' + y + ' L ' + x + ' ' + (y + 5) + ' L ' + (x - 5) + ' ' + y + ' Z" fill="' + DIAMOND[d] + '" stroke="' + stroke + '"><title>' + esc(m.title + " " + CHIP[d][1]) + '</title></path>';
+    }).join("");
+  }).join("");
+  const arcs = state.milestones.flatMap(m => (m.depends || []).map(depId => {
+    const d = byId(depId); if (!d || d.horizon === m.horizon) return "";
+    const a = pos[depId], b = pos[m.id]; if (!a || !b) return "";
+    const bad = HORIZON_INDEX[d.horizon] > HORIZON_INDEX[m.horizon];
+    const midY = Math.min(a.y, b.y) - 10;
+    return '<path d="M ' + a.x + ' ' + a.y + ' Q ' + ((a.x + b.x) / 2) + ' ' + midY + ' ' + b.x + ' ' + b.y + '" fill="none" stroke="' + (bad ? "var(--fail)" : "var(--text-faint)") + '" stroke-width="1" stroke-dasharray="4 3"/><circle cx="' + b.x + '" cy="' + b.y + '" r="1.8" fill="' + (bad ? "var(--fail)" : "var(--text-faint)") + '"/>';
+  })).join("");
+  const endTick = '<line x1="' + (W - padX).toFixed(1) + '" y1="' + (axisY - 6) + '" x2="' + (W - padX).toFixed(1) + '" y2="' + (axisY + 6) + '" stroke="var(--line-strong)"/>';
+  const tx = xOf(today).toFixed(1);
+  const marker = '<line x1="' + tx + '" y1="10" x2="' + tx + '" y2="' + (H - 14) + '" stroke="var(--accent)" stroke-width="2"/><text x="' + tx + '" y="9" fill="var(--accent)" font-size="10" text-anchor="middle">today</text>';
+  return '<svg viewBox="0 0 ' + W + " " + H + '" width="100%" role="img" aria-label="Horizon timeline with milestone diamonds, dependency arcs, and today marker"><line x1="' + padX + '" y1="' + axisY + '" x2="' + (W - padX) + '" y2="' + axisY + '" stroke="var(--line-strong)" stroke-width="2"/>' + bands + endTick + arcs + diamonds + marker + '</svg>';
+};
+
+const renderRollup = counts => {
+  const host = document.querySelector("[data-rollup]");
+  host.replaceChildren();
+  seed.horizons.forEach(h => {
+    const c = counts[h], card = document.createElement("div");
+    card.className = "card";
+    const chips = ["done", "active", "open", "at-risk"].filter(k => c[k]).map(k => '<span class="chip ' + CHIP[k][0] + '">' + CHIP[k][1] + " " + c[k] + "</span>").join(" ");
+    card.innerHTML = "<h3>" + esc(cap(h)) + "</h3><small>" + c.total + ' milestones</small><div class="counts">' + chips + "</div>";
+    host.append(card);
+  });
+};
+
+const msTpl = document.getElementById("ms-tpl");
+const cardFor = m => {
+  const d = derived(m), node = msTpl.content.firstElementChild.cloneNode(true);
+  node.dataset.id = m.id;
+  node.querySelector("[data-ms-title]").textContent = m.title;
+  node.querySelector("[data-ms-owner]").textContent = m.owner;
+  const chip = node.querySelector("[data-ms-chip]");
+  chip.classList.add(CHIP[d.status][0]); chip.textContent = CHIP[d.status][1];
+  const deps = (m.depends || []).map(id => title(id));
+  node.querySelector("[data-ms-dep]").textContent = "Depends on: " + (deps.length ? deps.join(", ") : "none");
+  if (d.risk.length) { const r = node.querySelector("[data-ms-risk]"); r.hidden = false; r.textContent = "At risk — " + d.risk.map(o => o.dep.title + " (" + o.reason + ")").join("; "); }
+  const note = state.notes[m.id];
+  if (note) { const nn = node.querySelector("[data-ms-note]"); nn.hidden = false; nn.textContent = note; }
+  node.dataset.filter = (m.title + " " + m.owner + " " + d.status + " " + deps.join(" ")).toLowerCase();
+  return node;
+};
+
+const renderLanes = () => {
+  const host = document.querySelector("[data-lanes]");
+  host.replaceChildren();
+  const counts = rollupCounts();
+  seed.horizons.forEach(h => {
+    const sec = document.createElement("section");
+    sec.className = "lane"; sec.dataset.bucket = h; sec.setAttribute("aria-label", h + " horizon");
+    const head = document.createElement("h3"); head.textContent = cap(h) + " (" + counts[h].total + ")"; sec.append(head);
+    state.milestones.filter(m => m.horizon === h).forEach(m => sec.append(cardFor(m)));
+    host.append(sec);
+  });
+};
+
+let filterQ = "";
+const applyFilter = () => {
+  let shown = 0, total = 0;
+  document.querySelectorAll("[data-lanes] .ms").forEach(el => { total++; const hit = !filterQ || el.dataset.filter.includes(filterQ); el.hidden = !hit; if (hit) shown++; });
+  document.querySelector("[data-count]").textContent = shown + " of " + total + " milestones";
+};
+
+const derive = () => {
+  const changes = [], annotations = [];
+  state.milestones.forEach(m => {
+    const b = baseIndex[m.id];
+    if (m.horizon !== b.horizon) changes.push({ itemId: m.id, path: "/milestones/" + m.id + "/horizon", from: b.horizon, to: m.horizon });
+    if (m.status !== b.status) changes.push({ itemId: m.id, path: "/milestones/" + m.id + "/status", from: b.status, to: m.status });
+    const note = state.notes[m.id];
+    if (note) annotations.push({ id: "an-" + m.id, itemId: m.id, intent: "comment", status: state.noteStatus[m.id] || "active", text: note });
+  });
+  return { changes, annotations };
+};
+
+const hasCaptures = () => { const { changes, annotations } = derive(); return changes.length + annotations.length > 0; };
+const updateExport = () => {
+  changedBtn.disabled = !hasCaptures();
+  const counts = rollupCounts();
+  const atRisk = seed.horizons.reduce((s, h) => s + counts[h]["at-risk"], 0);
+  const chip = document.querySelector("[data-overall-chip]");
+  chip.className = "chip " + (atRisk ? "warn" : "ok");
+  chip.textContent = atRisk ? "[AT-RISK " + atRisk + "]" : "[ON TRACK]";
+};
+
+const render = () => { const counts = rollupCounts(); document.querySelector("[data-timeline]").innerHTML = renderTimeline(counts); renderRollup(counts); renderLanes(); applyFilter(); updateExport(); };
+
+document.addEventListener("input", e => {
+  const box = e.target.closest("[data-filter-box]"); if (!box) return;
+  filterQ = box.value.trim().toLowerCase(); applyFilter();
+});
+document.addEventListener("change", e => { const vb = e.target.closest("[data-verdict]"); if (vb) state.verdict = vb.value; });
+
+document.addEventListener("dragstart", e => { const c = e.target.closest(".ms"); if (c) e.dataTransfer.setData("text/plain", c.dataset.id); });
+document.addEventListener("dragover", e => { const l = e.target.closest(".lane"); if (l) { e.preventDefault(); l.dataset.over = ""; } });
+document.addEventListener("dragleave", e => { const l = e.target.closest(".lane"); if (l && !l.contains(e.relatedTarget)) delete l.dataset.over; });
+document.addEventListener("drop", e => {
+  const l = e.target.closest(".lane"); if (!l) return; e.preventDefault(); delete l.dataset.over;
+  const id = e.dataTransfer.getData("text/plain"), m = byId(id);
+  if (m && m.horizon !== l.dataset.bucket) { m.horizon = l.dataset.bucket; render(); flash("moved to " + l.dataset.bucket); }
+});
+
+const msPop = document.getElementById("ms-pop");
+const msPopNote = msPop.querySelector("[data-ms-pop-note]");
+const msPopTitle = msPop.querySelector("[data-ms-pop-title]");
+let pendingStatus = null;
+const markPending = () => msPop.querySelectorAll("[data-status-set]").forEach(b => b.toggleAttribute("data-on", b.dataset.statusSet === pendingStatus));
+const openMsPop = (btn, id) => {
+  const m = byId(id); if (!m) return;
+  msPop.dataset.id = id; pendingStatus = m.status; msPopNote.value = state.notes[id] || "";
+  msPopTitle.textContent = "Override " + m.title;
+  try { msPop.showPopover(); } catch {}
+  const r = btn.getBoundingClientRect();
+  msPop.style.margin = "0"; msPop.style.position = "fixed";
+  msPop.style.top = (r.bottom + 6) + "px";
+  msPop.style.left = Math.max(8, Math.min(window.innerWidth - msPop.offsetWidth - 8, r.left)) + "px";
+  markPending();
+};
+const saveOverride = () => {
+  const id = msPop.dataset.id, m = byId(id), note = msPopNote.value.trim();
+  if (pendingStatus) m.status = pendingStatus;
+  if (note) { state.notes[id] = note; state.noteStatus[id] = "active"; } else { delete state.notes[id]; delete state.noteStatus[id]; }
+  try { msPop.hidePopover(); } catch {}
+  render(); flash("override saved");
+};
+document.addEventListener("click", e => {
+  const ed = e.target.closest("[data-ms-edit]"); if (ed) { openMsPop(ed, ed.closest(".ms").dataset.id); return; }
+  const ss = e.target.closest("[data-status-set]"); if (ss) { pendingStatus = ss.dataset.statusSet; markPending(); return; }
+  if (e.target.closest("[data-ms-pop-save]")) saveOverride();
+});
+
+const buildEnvelope = changedOnly => {
+  const { changes, annotations } = derive();
+  const env = { kind: "roadmap", version: 1, artifact: { id: ARTIFACT_ID, title: meta.title, baseline: BASELINE_ID }, decision: { status: state.verdict, at: isoNow() }, decisions: [], changes, annotations };
+  env.state = changedOnly ? {} : { horizons: seed.horizons, milestones: state.milestones };
+  return env;
+};
+const validateEnvelope = (env, changedOnly) => {
+  if (typeof env.kind !== "string" || !env.kind) return { ok: false, error: "missing kind" };
+  if (env.version !== 1) return { ok: false, error: "bad version" };
+  const a = env.artifact; if (!a || !a.id || !a.title || !a.baseline) return { ok: false, error: "incomplete artifact ref" };
+  if (!env.decision || !VERDICTS.has(env.decision.status)) return { ok: false, error: "decision status outside vocabulary" };
+  if (!ISO.test(env.decision.at)) return { ok: false, error: "decision timestamp not UTC ISO" };
+  for (const k of ["decisions", "changes", "annotations"]) if (!Array.isArray(env[k])) return { ok: false, error: k + " not an array" };
+  for (const an of env.annotations) if (!ANNO.has(an.status)) return { ok: false, error: "annotation status invalid" };
+  if (changedOnly && env.changes.length + env.annotations.length === 0) return { ok: false, error: "changed-only export is empty" };
+  return { ok: true };
+};
+const toMarkdown = env => {
+  const L = ["# " + meta.title, "", "Verdict: **" + env.decision.status + "** · " + meta.date + " · baseline " + env.artifact.baseline, ""];
+  L.push("## Moves and overrides (" + env.changes.length + ")");
+  if (env.changes.length) { L.push("| milestone | field | from | to |", "| --- | --- | --- | --- |"); env.changes.forEach(c => L.push("| " + c.itemId + " | " + c.path.split("/").pop() + " | " + c.from + " | " + c.to + " |")); }
+  else L.push("_no moves or overrides_");
+  L.push("", "## Horizon map");
+  seed.horizons.forEach(h => {
+    L.push("", "### " + cap(h));
+    state.milestones.filter(m => m.horizon === h).forEach(m => { const d = derived(m); L.push("- " + m.title + " — " + CHIP[d.status][1] + (d.risk.length ? " (" + d.risk.map(o => o.dep.title + ": " + o.reason).join("; ") + ")" : "") + " · owner " + m.owner); });
+  });
+  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- " + a.itemId + " (" + a.status + "): " + mdCell(a.text))); }
+  return L.join("\n") + "\n";
+};
+
+const download = (name, mime, text) => {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+const markExported = () => { Object.keys(state.notes).forEach(id => { if (state.noteStatus[id] === "active") state.noteStatus[id] = "exported"; }); };
+
+const returnMeta = document.querySelector('meta[name="artifact-return"]');
+if (returnMeta) document.querySelector('[data-export="send"]').hidden = false;
+const sendToAgent = async env => {
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  if (!res.ok) throw new Error("submit " + res.status);
+  return res.json();
+};
+
+const emit = async kind => {
+  const changedOnly = kind === "changed";
+  const env = buildEnvelope(changedOnly);
+  const v = validateEnvelope(env, changedOnly);
+  if (!v.ok) { egress.value = "EXPORT BLOCKED: " + v.error; statusOut.textContent = "blocked — " + v.error; flash("export blocked"); return; }
+  if (kind === "send") {
+    const b = document.querySelector('[data-export="send"]');
+    b.disabled = true;
+    try { await sendToAgent(env); statusOut.textContent = "sent to agent (" + env.changes.length + " changes)"; markExported(); render(); flash("sent to agent"); }
+    catch {
+      const t = JSON.stringify(env, null, 2); egress.value = t;
+      try { await navigator.clipboard.writeText(t); statusOut.textContent = "send failed — envelope copied instead"; } catch { statusOut.textContent = "send failed — copy from the mirror below"; }
+      flash("send failed — copied");
+    } finally { b.disabled = false; }
+    return;
+  }
+  if (kind === "json") { const t = JSON.stringify(env, null, 2); egress.value = t; download(slug(meta.title) + ".json", "application/json", t); statusOut.textContent = "downloaded full JSON envelope (" + env.changes.length + " changes)"; markExported(); render(); return; }
+  const text = kind === "md" ? toMarkdown(env) : JSON.stringify(env, null, 2);
+  egress.value = text;
+  try { await navigator.clipboard.writeText(text); statusOut.textContent = "copied " + (kind === "md" ? "markdown summary" : "changed-only envelope") + " to clipboard"; markExported(); render(); flash("copied"); }
+  catch { statusOut.textContent = "clipboard blocked — copy from the mirror below"; }
+};
+document.addEventListener("click", e => { const b = e.target.closest("[data-export]"); if (b) emit(b.dataset.export); });
+
+render();
+</script>
+</body>
+</html>

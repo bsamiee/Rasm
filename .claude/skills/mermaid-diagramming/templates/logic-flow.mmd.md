@@ -1,6 +1,6 @@
 # [LOGIC_FLOW]
 
-Draw one operation's dispatch structure: input discrimination fanning to arms, arms folding into one merge, the merge yielding a receipt. The template bakes in the polymorphic-collapse law — variation lives in the arms and never in parallel exits, so every arm folds back to the single receipt path — plus two supports an unassisted attempt omits: the discriminator reads its arms from a policy store, making dispatch table-driven rather than hardcoded branching, and evidence feeds the fold on a dotted trace so the receipt is auditable. Use `flowchart LR` with 8-12 nodes, one rhombus discriminator whose out-labels are exhaustive and disjoint, and three-or-more arms; the receipt is classed `success`, stores are classed `data`. Ordered steps across a boundary are a wire-sequence, never a dispatch fold.
+Draw one operation's dispatch structure: input discrimination fanning to arms, arms folding into one merge, the merge yielding a receipt. The template bakes in the polymorphic-collapse law — variation lives in the arms and never in parallel exits, so every arm folds back to the single receipt path — plus two supports an unassisted attempt omits: the discriminator reads its arms from a policy store, making dispatch table-driven rather than hardcoded branching, and evidence feeds the fold on a dotted trace so the receipt is auditable. Use `flowchart LR` with 8-12 nodes, one rhombus discriminator whose out-labels are exhaustive and disjoint, and three-or-more arms; the receipt is classed `success`, stores are classed `data`, and every dotted trace rides the Comment rail — a trace annotates the fold, so its stroke leaves the Pink control default. Ordered steps across a boundary are a wire-sequence, never a dispatch fold.
 
 ```mermaid
 ---
@@ -17,6 +17,7 @@ config:
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
     edgeLabelBackground: "#282A36"
+    fontFamily: "monospace"
 ---
 flowchart LR
     accTitle: Dispatch and fold
@@ -32,6 +33,7 @@ flowchart LR
     Fold --> Receipt[/Receipt/]
     Receipt --> Out([Out])
     Evidence[(Evidence)] -.->|trace| Fold
+    linkStyle 1,10 stroke:#6272A4
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef success fill:#50FA7B,stroke:#50FA7B,color:#282A36
     classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
@@ -40,4 +42,4 @@ flowchart LR
     class Policy,Evidence data
 ```
 
-The arm labels are the input-shape vocabulary — rename them to the real discriminants and keep them exhaustive; a new capability is a new arm row, never a second exit after the fold.
+The arm labels are the input-shape vocabulary — rename them to the real discriminants and keep them exhaustive; a new capability is a new arm row, never a second exit after the fold. Trace edges keep the Comment rail: recount the `linkStyle` indices after any edge insertion.

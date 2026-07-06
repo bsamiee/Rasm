@@ -7,7 +7,7 @@ Dracula is the skill's theme system — every committed diagram opens `theme: ba
 | [INDEX] | [TOKEN]    | [HEX]     | [SEMANTIC_ROLE]                    |
 | :-----: | :--------- | :-------- | :--------------------------------- |
 |  [01]   | Background | `#282A36` | host surface                       |
-|  [02]   | Darker     | `#21222C` | recessed surface                   |
+|  [02]   | Darker     | `#21222C` | recessed surface + dormant fill    |
 |  [03]   | Selection  | `#44475A` | node fill                          |
 |  [04]   | Comment    | `#6272A4` | muted line + annotation            |
 |  [05]   | Foreground | `#F8F8F2` | label text                         |
@@ -23,17 +23,22 @@ Current Line and Comment share `#6272A4`; Selection `#44475A` is the fill shade.
 
 ## [02]-[ROLE_MAP]
 
-| [INDEX] | [DIAGRAM_ROLE]  | [TOKEN_USE]                      |
-| :-----: | :-------------- | :------------------------------- |
-|  [01]   | Primary flow    | Pink stroke                      |
-|  [02]   | Secondary flow  | Comment stroke                   |
-|  [03]   | Boundary        | Purple border on Darker fill     |
-|  [04]   | Success         | Green                            |
-|  [05]   | Error           | Red                              |
-|  [06]   | External system | Cyan                             |
-|  [07]   | Data store      | Orange                           |
-|  [08]   | Payload         | Yellow accents on Selection fill |
-|  [09]   | Annotation      | Comment text                     |
+Every token carries its role on two surfaces at once: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge. A token holding a role with no rail is unspendable, so every row closes both columns.
+
+| [INDEX] | [TOKEN]    | [ROLE]                        | [THEME_CARRIERS]                                                                  | [CLASS_OR_RAIL]                              |
+| :-----: | :--------- | :---------------------------- | :-------------------------------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | Background | canvas + bright-fill text     | `background`, `edgeLabelBackground`, bright-ordinal `*Label*`                      | `color:#282A36` on every bright class        |
+|  [02]   | Darker     | recessed / dormant / done     | `clusterBkg`, `tertiaryColor`, `doneTaskBkgColor`, `sectionBkgColor`               | `recessed` class                             |
+|  [03]   | Selection  | neutral node fill             | `mainBkg`, `primaryColor`, `actorBkg`, `taskBkgColor`, `noteBkgColor`              | `primary` fill                               |
+|  [04]   | Comment    | secondary rail + muted stroke | `secondaryColor`, `clusterBorder`, `gridColor`, `activationBkgColor`, `git7`       | `annotation` stroke; dashed trace rail       |
+|  [05]   | Foreground | label text                    | every `*TextColor`, `textColor`, `titleColor`                                      | `color:#F8F8F2` on dark classes              |
+|  [06]   | Cyan       | external system / typed iface | `git2`, `pie2`, `cScale1`, `plotColorPalette`                                      | `external` class; external rail              |
+|  [07]   | Green      | success / executed            | `git3`, `pie3`, `cScale2`                                                          | `success` class; success rail                |
+|  [08]   | Orange     | data store / durable fact     | `git4`, `pie4`, `cScale3`                                                          | `data` class; data rail                      |
+|  [09]   | Pink       | primary control flow          | `lineColor`, `arrowheadColor`, `signalColor`, `relationColor`, `todayLineColor`    | `primary` stroke; default rail               |
+|  [10]   | Purple     | ownership boundary / focus    | `nodeBorder`, `primaryBorderColor`, `actorBorder`, `taskBorderColor`, `git0`       | `boundary` stroke                            |
+|  [11]   | Red        | error / rejection / forbidden | `critBkgColor`, `critBorderColor`, `git5`, `pie6`, `cScale5`                       | `error` class; error rail on every fault edge |
+|  [12]   | Yellow     | payload / literal / tag       | `tagLabelBackground`, `git6`, `pie7`, `cScale6`                                    | `payload` class; payload rail                |
 
 Same meaning, same token, across every diagram in a corpus. A role outside this table composes from the nearest listed role, never a new hex.
 
@@ -47,6 +52,7 @@ config:
   theme: base
   themeVariables:
     darkMode: true
+    fontFamily: "monospace"
     background: "#282A36"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
@@ -102,6 +108,19 @@ config:
     critBkgColor: "#FF5555"
     critBorderColor: "#FF5555"
     todayLineColor: "#FF79C6"
+    fillType0: "#FF79C6"
+    fillType1: "#8BE9FD"
+    fillType2: "#50FA7B"
+    fillType3: "#FFB86C"
+    fillType4: "#BD93F9"
+    fillType5: "#FF5555"
+    fillType6: "#F1FA8C"
+    fillType7: "#6272A4"
+    personBorder: "#BD93F9"
+    personBkg: "#44475A"
+    archEdgeColor: "#FF79C6"
+    archEdgeArrowColor: "#FF79C6"
+    archGroupBorderColor: "#6272A4"
     git0: "#BD93F9"
     git1: "#FF79C6"
     git2: "#8BE9FD"
@@ -129,6 +148,11 @@ config:
     pie5: "#BD93F9"
     pie6: "#FF5555"
     pie7: "#F1FA8C"
+    pie8: "#8BE9FD"
+    pie9: "#50FA7B"
+    pie10: "#FFB86C"
+    pie11: "#BD93F9"
+    pie12: "#FF5555"
     pieSectionTextColor: "#282A36"
     pieLegendTextColor: "#F8F8F2"
     cScale0: "#FF79C6"
@@ -138,6 +162,11 @@ config:
     cScale4: "#BD93F9"
     cScale5: "#FF5555"
     cScale6: "#F1FA8C"
+    cScale7: "#8BE9FD"
+    cScale8: "#50FA7B"
+    cScale9: "#FFB86C"
+    cScale10: "#BD93F9"
+    cScale11: "#FF5555"
     cScaleLabel0: "#282A36"
     cScaleLabel1: "#282A36"
     cScaleLabel2: "#282A36"
@@ -145,6 +174,11 @@ config:
     cScaleLabel4: "#282A36"
     cScaleLabel5: "#282A36"
     cScaleLabel6: "#282A36"
+    cScaleLabel7: "#282A36"
+    cScaleLabel8: "#282A36"
+    cScaleLabel9: "#282A36"
+    cScaleLabel10: "#282A36"
+    cScaleLabel11: "#282A36"
     xyChart:
       backgroundColor: "#282A36"
       titleColor: "#F8F8F2"
@@ -169,10 +203,12 @@ config:
 
 - `theme: base` is the only theme accepting `themeVariables`; every unset variable derives from `primaryColor`, `background`, or `darkMode`, and a direct override always wins over a derived default.
 - `darkMode: true` flips the derived-color math toward the dark host.
+- `fontFamily: "monospace"` binds the corpus label face on every family that reads it; `fontSize` stays inert for gantt, ER, and flowchart — size adjustments ride the host or `themeCSS`, never that variable.
 - Bright tokens (Green, Cyan, Yellow, Orange) as fills take `#282A36` text, never `#F8F8F2`.
+- Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud.
 - Per-type nested objects `xyChart` and `radar` nest inside `themeVariables`, alongside any other type that admits a nested block.
-- Partial-consumers: C4 reads only `personBorder`/`personBkg` and routes element colors through `UpdateElementStyle`/`UpdateRelStyle`; packet defines a style block but breaks propagation, so theming drops there; sankey and ishikawa take global vars only.
-- `fontSize` is inert for gantt, ER, and flowchart — size adjustments ride the host or `themeCSS`, never that variable.
+- Partial-consumers: C4 reads `personBorder`/`personBkg` from this block and routes element and relation colors through `UpdateElementStyle`/`UpdateRelStyle`; packet defines a style block but breaks propagation, so theming drops there; sankey and ishikawa take global vars only.
+- This block is the single home for every corpus-wide token: an extended fence demonstrates the keys it consumes and never privately defines a role — `architecture`, `journey`, and C4 tokens live here, not in their fences.
 
 ## [04]-[CLASSDEF_LINKSTYLE]
 
@@ -186,7 +222,7 @@ Each surface owns one color job; ceding it to another is the defect, and every `
 |  [04]   | inline `style`   | one-off node exception  |
 |  [05]   | `themeCSS`       | renderer escape hatch   |
 
-The canonical Dracula node classes:
+The canonical Dracula node classes — nine, one per role the role map binds:
 
 ```text
 classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
@@ -195,18 +231,23 @@ classDef success fill:#50FA7B,stroke:#50FA7B,color:#282A36
 classDef error fill:#FF5555,stroke:#FF5555,color:#282A36
 classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
 classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
+classDef payload fill:#F1FA8C,stroke:#F1FA8C,color:#282A36
+classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
 classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
 ```
 
-The edge-rail pattern — default Pink, success Green, error Red, external Cyan:
+`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. The six edge rails — every semantic edge takes its rail explicitly, and only a plain forward hop rides the default:
 
 ```text
 linkStyle default stroke:#FF79C6,color:#F8F8F2
 linkStyle 1 stroke:#50FA7B,color:#F8F8F2
 linkStyle 2 stroke:#FF5555,color:#F8F8F2
 linkStyle 3 stroke:#8BE9FD,color:#F8F8F2
+linkStyle 4 stroke:#FFB86C,color:#F8F8F2
+linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-dasharray:4 3
 ```
 
+Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. `linkStyle` indices are 0-based parse positions: every edge insertion or deletion recounts every positional index in the fence before the diagram ships.
 
 ## [05]-[DUAL_HOST]
 
@@ -233,4 +274,4 @@ Alucard carries the same role map on a light surface: Background `#FFFBEB`, Fore
 
 ## [06]-[WHEN_THEMING_DROPS]
 
-Theming is omitted whole, never half-applied. Drop the theme block when the fence targets a host that injects its own mermaid theme, such as a docs site with a site-level `initialize`; when the type ignores `themeVariables`, such as packet or C4 beyond its person tokens; or when a diagram is a throwaway scratch artifact that never ships. A committed diagram in this repo is themed, or it carries the reason in its authoring context, not in the fence.
+Theming is omitted whole, never half-applied. Drop the theme block when the fence targets a host that injects its own mermaid theme, such as a docs site with a site-level `initialize`; when the type ignores `themeVariables`, such as packet; or when a diagram is a throwaway scratch artifact that never ships. A committed diagram in this repo is themed, or it carries the reason in its authoring context, not in the fence.

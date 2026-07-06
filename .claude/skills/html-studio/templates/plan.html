@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Implementation Plan: Ingest Loader Collapse</title>
+<style>
+/* --- [NOCTURNE_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
+  --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
+  --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
+  --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
+  --editorial:oklch(0.71 0.13 55);--editorial-weak:oklch(0.71 0.13 55/.14);
+  --ok:oklch(0.76 0.15 150);--warn:oklch(0.8 0.14 78);--fail:oklch(0.68 0.2 25);--info:oklch(0.79 0.12 225);
+  --series-1:var(--accent);--series-2:oklch(0.72 0.19 350);--series-3:var(--info);
+  --series-4:var(--ok);--series-5:oklch(0.78 0.13 60);--series-6:oklch(0.85 0.11 100);
+  --focus:var(--accent);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;
+  --fs-2xs:.694rem;--fs-xs:.833rem;--fs-sm:.9rem;--fs-md:1rem;--fs-lg:1.2rem;
+  --fs-xl:1.44rem;--fs-2xl:1.728rem;--fs-3xl:2.074rem;
+  --fs-4xl:clamp(2.074rem,1.6rem + 2.2cqi,2.986rem);
+  --lh-tight:1.15;--lh-heading:1.25;--lh-body:1.6;--lh-data:1.4;
+  --font-display:ui-serif,Georgia,'Times New Roman',serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --dur-1:120ms;--dur-2:200ms;--dur-3:320ms;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-1:6px;--r-2:10px;--r-3:16px;--r-full:999px;--measure:1100px;
+  --shadow-1:0 1px 2px oklch(0 0 0/.45),0 1px 1px oklch(0 0 0/.3);
+  --shadow-2:0 6px 24px oklch(0 0 0/.55),0 2px 6px oklch(0 0 0/.4);
+}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
+  --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+  --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
+  --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
+  --editorial:oklch(0.55 0.12 55);--editorial-weak:oklch(0.55 0.12 55/.1);
+  --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+  --shadow-1:0 1px 2px oklch(0 0 0/.08),0 1px 1px oklch(0 0 0/.05);
+  --shadow-2:0 6px 24px oklch(0 0 0/.12),0 2px 6px oklch(0 0 0/.08);
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
+}
+@layer base{
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-md);line-height:var(--lh-body);overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s6) var(--s4) var(--s8)}
+h1,h2{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+h1{font-size:var(--fs-3xl);line-height:var(--lh-tight);margin:0 0 var(--s3)}
+h2{font-size:var(--fs-xl);line-height:var(--lh-heading);margin:var(--s7) 0 var(--s3)}
+h3{font-size:var(--fs-lg);font-weight:600;line-height:var(--lh-heading);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+p{margin:0 0 var(--s3)}
+.muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
+a:hover{text-decoration-color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
+::selection{background:var(--accent-weak)}
+}
+@layer components{
+.eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
+.deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.section{counter-increment:sec}
+.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
+.stat{display:grid;gap:var(--s1)}
+.stat b{font-family:var(--font-display);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
+.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
+.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
+.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
+pre code{background:none;padding:0}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{background:var(--raised-2);border-color:var(--accent)}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
+input:hover,select:hover,textarea:hover{border-color:var(--accent)}
+summary{cursor:pointer;font-weight:500}
+summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+details[open]>summary::before{transform:rotate(90deg)}
+.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+}
+@layer print{
+@media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:oklch(0.945 0.012 85);--raised:#fff;--raised-2:#fff;--overlay:#fff;
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
+    --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
+    --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
+    --shadow-1:none;--shadow-2:none;
+  }
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button,.export-bar{display:none!important}
+  details>*{display:block!important}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+@media (prefers-contrast:more){
+  :focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--focus)}
+}
+}
+/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@property --tone{syntax:"<percentage>";inherits:true;initial-value:0%}
+@layer tokens{
+:root{
+  --ok-fill:color-mix(in oklch,var(--ok) 14%,transparent);
+  --warn-fill:color-mix(in oklch,var(--warn) 14%,transparent);
+  --fail-fill:color-mix(in oklch,var(--fail) 14%,transparent);
+}
+}
+@layer components{
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:20;background:var(--raised-2);padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1)}
+.masthead{display:grid;gap:var(--s2);margin-block-end:var(--s5)}
+.masthead .top{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;justify-content:space-between}
+.rowline{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin-block:var(--s4)}
+.stats .stat{padding:var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2)}
+.stats .stat small{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.spine{display:flex;align-items:flex-start;gap:0;margin-block:var(--s4);overflow-x:auto;padding-block:var(--s2)}
+.spine .node{display:grid;justify-items:center;gap:var(--s1);min-inline-size:8.5rem;text-align:center;background:none;border:0;cursor:pointer;padding:0}
+.spine .dot{inline-size:14px;block-size:14px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);transition:transform var(--dur-2) var(--ease-out)}
+.spine .node:hover .dot{transform:scale(1.25)}
+.spine .node.done .dot{background:var(--ok);border-color:var(--ok)}
+.spine .node.active .dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-weak)}
+.spine .node.blocked .dot{background:var(--fail);border-color:var(--fail)}
+.spine .node small{font-size:var(--fs-2xs)}
+.spine .link{flex:1 1 3rem;block-size:2px;background:var(--line-strong);margin-block-start:7px;min-inline-size:2rem}
+.spine .link.done{background:var(--ok)}
+.spine .link.blocked{background:var(--fail)}
+.layout{display:grid;grid-template-columns:minmax(11rem,13rem) minmax(0,1fr);gap:var(--s5);container:layout/inline-size}
+main{counter-reset:sec}
+.phase{container:phase/inline-size;margin-block:var(--s4);background:color-mix(in oklch,var(--raised),var(--accent) var(--tone));transition:--tone var(--dur-2) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
+.phase:has(.verdict[data-set="reject"]){--tone:8%;border-color:var(--fail)}
+.phase:has(.verdict[data-set="approve"]){--tone:6%;border-color:var(--ok)}
+.phase__grid{display:grid;gap:var(--s4)}
+@container phase (inline-size>=40rem){.phase__grid{grid-template-columns:minmax(0,1.5fr) minmax(9rem,.5fr)}}
+.phase__meta{display:grid;gap:var(--s2);align-content:start}
+.stage{border-block-start:1px solid var(--line);padding-block-start:var(--s3);margin-block-start:var(--s3)}
+.stage:first-child{border-block-start:0;padding-block-start:0;margin-block-start:0}
+.cap{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin-block-start:var(--s2)}
+.verdict{font:inherit;font-size:var(--fs-sm)}
+tr.risk-top td{background:var(--warn-fill)}
+tr.risk-top td:first-child{border-inline-start:3px solid var(--warn)}
+.expo{font-variant-numeric:tabular-nums;font-weight:700;font-family:var(--font-mono)}
+details{border:1px solid var(--line);border-radius:var(--r-1);padding:var(--s2) var(--s3);margin-block-start:var(--s2);background:var(--surface)}
+summary{list-style:none;font-size:var(--fs-sm)}
+.qcard{padding:var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);margin-block:var(--s3)}
+.qcard textarea{inline-size:100%;min-block-size:3rem;margin-block-start:var(--s2)}
+.egress-wrap{display:grid;gap:var(--s2);margin-block-start:var(--s4)}
+.egress-wrap textarea{inline-size:100%;min-block-size:5rem;font-family:var(--font-mono);font-size:var(--fs-2xs)}
+.pop{margin:0;padding:var(--s3);min-inline-size:min(92vw,20rem);border:1px solid var(--line-strong);border-radius:var(--r-2);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) var(--s4) auto;opacity:0;transform:translateY(-.25rem);transition:opacity var(--dur-2) var(--ease-out),transform var(--dur-2) var(--ease-out),display var(--dur-2) allow-discrete}
+.pop:popover-open{opacity:1;transform:translateY(0)}
+@starting-style{.pop:popover-open{opacity:0;transform:translateY(-.25rem)}}
+.pop textarea{inline-size:100%;min-block-size:4rem;margin-block-start:var(--s2)}
+.toast{margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--raised-2);box-shadow:var(--shadow-2);position:fixed;inset:auto var(--s4) calc(var(--s8) + var(--s4)) auto}
+}
+@layer utilities{
+.flow>*+*{margin-block-start:var(--s3)}
+.mono{font-family:var(--font-mono)}
+.right{margin-inline-start:auto}
+}
+@layer utilities{
+@container layout (inline-size<44rem){.layout{grid-template-columns:1fr}.toc{position:static}}
+@media (width<48rem){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+}
+@layer print{@media print{
+.layout{grid-template-columns:1fr}
+.phase,.stat,.qcard,tr{break-inside:avoid}
+h2{break-after:avoid}
+.spine{overflow:visible}
+.pop,.toast,.egress-wrap{display:none}
+}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="masthead">
+    <div class="top">
+      <!-- replace: eyebrow scope line -->
+      <span class="eyebrow" id="doc-eyebrow">Implementation plan &middot; data-platform</span>
+      <div class="rowline">
+        <span class="chip" id="doc-status"></span>
+        <small id="doc-date" class="mono"></small>
+        <button type="button" class="btn ghost no-print" data-toggle-theme aria-label="Toggle color theme">Theme</button>
+      </div>
+    </div>
+    <h1 id="doc-title">&hellip;</h1>
+    <p class="deck" id="doc-deck"></p>
+  </header>
+  <section class="stats" id="stats" aria-label="Progress summary"></section>
+  <div class="spine" id="spine" role="group" aria-label="Phase dependency spine"></div>
+  <div class="layout">
+    <nav class="toc no-print" id="toc" aria-label="Section navigation"></nav>
+    <main id="main" tabindex="-1">
+      <section class="section" id="context" aria-labelledby="context-h"><h2 id="context-h">Context</h2><div id="context-body" class="flow"></div></section>
+      <section class="section" id="decisions" aria-labelledby="decisions-h"><h2 id="decisions-h">Decisions</h2>
+        <div class="twrap"><table><thead><tr><th scope="col">Topic</th><th scope="col">Ruling</th><th scope="col">Rationale</th><th scope="col">State</th><th scope="col">Verdict</th></tr></thead><tbody id="decisions-body"></tbody></table></div>
+      </section>
+      <section class="section" id="phases" aria-labelledby="phases-h"><h2 id="phases-h">Phases</h2><div id="phases-body"></div></section>
+      <section class="section" id="risks" aria-labelledby="risks-h"><h2 id="risks-h">Risk register</h2>
+        <div class="twrap"><table><thead><tr><th scope="col">Risk</th><th scope="col">Phase</th><th scope="col">Likelihood</th><th scope="col">Impact</th><th scope="col">Exposure</th><th scope="col">Mitigation</th></tr></thead><tbody id="risks-body"></tbody></table></div>
+      </section>
+      <section class="section" id="questions" aria-labelledby="questions-h"><h2 id="questions-h">Open questions</h2><div id="questions-body"></div></section>
+      <div class="egress-wrap no-print">
+        <small id="egress-meta" class="mono"></small>
+        <textarea id="egress" readonly placeholder="Exported payload appears here." aria-label="Exported payload"></textarea>
+      </div>
+    </main>
+  </div>
+</div>
+<footer class="export-bar no-print" aria-label="Export bar">
+  <label class="rowline">Global verdict <select id="global-verdict" aria-label="Global verdict"></select></label>
+  <button type="button" class="btn primary" data-export="send" hidden>Send to agent</button>
+  <button type="button" class="btn" data-export="md">Copy summary</button>
+  <button type="button" class="btn" data-export="json">Copy JSON envelope</button>
+  <button type="button" class="btn ghost" data-export="changed" disabled>Copy changed-only</button>
+</footer>
+<div id="toast" class="toast no-print" role="status" popover="manual" hidden></div>
+<!-- replace: plan model payload -->
+<script type="application/json" id="payload">{
+  "meta": {
+    "id": "plan.ingest-loader-collapse",
+    "title": "Ingest Loader Collapse",
+    "deck": "Three near-duplicate readers collapse onto one polymorphic Loader entry; the boundary maps at the edge and the legacy modules retire once every call site moves.",
+    "date": "2026-07-06",
+    "owner": "data-platform",
+    "baseline": "b-0"
+  },
+  "context": [
+    "The ingest path carries three near-duplicate readers, one per source format, each rediscovering schema mapping, receipts, and error handling.",
+    "This change collapses them onto one polymorphic Loader entry that discriminates on input shape, wires the boundary at the edge, and retires the legacy modules once every call site moves."
+  ],
+  "phases": [
+    {
+      "id": "phase-a",
+      "title": "Consolidate the loader owner",
+      "intent": "Collapse three source readers into one polymorphic Loader entry.",
+      "depends": [],
+      "stages": [
+        { "id": "st-a1", "title": "Define the Loader dispatch surface", "status": "done",
+          "acceptance": ["assay api shows no sibling loader export survives", "one entry resolves single, batch, and stream inputs"] },
+        { "id": "st-a2", "title": "Migrate the CSV reader", "status": "done",
+          "acceptance": ["the golden CSV fixture round-trips byte-identical"] },
+        { "id": "st-a3", "title": "Migrate the Parquet reader", "status": "done",
+          "acceptance": ["the Parquet path composes the same Loader entry", "the schema digest normalizes column order before compare"] }
+      ]
+    },
+    {
+      "id": "phase-b",
+      "title": "Wire the ingest boundary",
+      "intent": "Map provider names to canonical fields at the edge and emit typed receipts.",
+      "depends": ["phase-a"],
+      "stages": [
+        { "id": "st-b1", "title": "Boundary adapter at ingress", "status": "done",
+          "acceptance": ["the adapter maps provider names to the canonical Field at the edge"] },
+        { "id": "st-b2", "title": "Typed ingest receipts", "status": "active",
+          "acceptance": ["a receipt carries row count, schema digest, and source uri"] },
+        { "id": "st-b3", "title": "Backpressure policy", "status": "planned", "acceptance": [] }
+      ]
+    },
+    {
+      "id": "phase-c",
+      "title": "Cut over and delete legacy",
+      "intent": "Point every consumer at the one Loader and remove the retired modules.",
+      "depends": ["phase-b"],
+      "stages": [
+        { "id": "st-c1", "title": "Census legacy call sites", "status": "planned",
+          "acceptance": ["assay code enumerates every call site before deletion"] },
+        { "id": "st-c2", "title": "Delete retired loader modules", "status": "planned",
+          "acceptance": ["no import of the three retired modules remains"] }
+      ]
+    }
+  ],
+  "decisions": [
+    { "id": "dec-1", "topic": "Loader placement", "ruling": "Loader absorbs the CSV, Parquet, and stream readers",
+      "rationale": "One polymorphic entry; input detection selects the reader", "status": "ruled" },
+    { "id": "dec-2", "topic": "Ingest error rail", "ruling": "Typed Result across ingest; no exceptions in domain paths",
+      "rationale": "A single ROP rail folds partial-batch failure into one receipt", "status": "ruled" },
+    { "id": "dec-3", "topic": "Schema drift", "ruling": "Reject on digest mismatch, never coerce",
+      "rationale": "Silent coercion forks the model downstream", "status": "open" }
+  ],
+  "risks": [
+    { "id": "risk-1", "text": "Streaming backpressure stalls the ingest under burst load", "likelihood": 3, "impact": 3,
+      "mitigation": "Bounded channel with an explicit drop policy proven under a load fixture", "phaseId": "phase-b" },
+    { "id": "risk-2", "text": "A hidden consumer breaks when the legacy modules are deleted", "likelihood": 2, "impact": 3,
+      "mitigation": "The assay code call-site census gates the deletion", "phaseId": "phase-c" },
+    { "id": "risk-3", "text": "A Parquet digest false-positive rejects a valid file", "likelihood": 2, "impact": 2,
+      "mitigation": "The digest normalizes column order before compare", "phaseId": "phase-a" },
+    { "id": "risk-4", "text": "Provider names leak past the boundary adapter", "likelihood": 1, "impact": 3,
+      "mitigation": "The adapter owns all translation; internals read canonical Field only", "phaseId": "phase-b" }
+  ],
+  "questions": [
+    { "id": "q-1", "text": "Who owns the call-site census before the legacy delete?", "owner": "ingest", "due": "2026-07-20" },
+    { "id": "q-2", "text": "Do we ship the streaming path in v1 or defer it to v2?", "owner": "arch", "due": "2026-07-13" }
+  ]
+}</script>
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs, ...kids) => {
+  const n = document.createElement(tag);
+  if (attrs) for (const k in attrs) { const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === "text") n.textContent = v; else if (v === true) n.setAttribute(k, ""); else n.setAttribute(k, v); }
+  for (const kid of kids) { if (kid == null || kid === false) continue; n.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+  return n;
+};
+const VOCAB = ["approve", "approve_with_notes", "reject", "defer", "edit", "comment", "dismiss"];
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+const stored = (() => { try { return localStorage.getItem(themeKey); } catch { return null; } })();
+if (stored) root.dataset.theme = stored;
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
+  const next = dark ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+
+const model = JSON.parse($("#payload").textContent);
+const BASE_ID = model.meta.baseline;
+const state = { captures: {}, answers: {}, global: { status: "", note: "" }, copies: 0 };
+model.questions.forEach(q => { state.answers[q.id] = ""; });
+const baseline = structuredClone(state);
+
+const phaseIndex = Object.fromEntries(model.phases.map(p => [p.id, p]));
+const pct = p => p.stages.length ? Math.round(p.stages.filter(s => s.status === "done").length / p.stages.length * 100) : 0;
+const phaseDone = p => p.stages.length > 0 && p.stages.every(s => s.status === "done");
+const unmetDeps = p => (p.depends || []).filter(d => !(phaseIndex[d] && phaseDone(phaseIndex[d])));
+const blocked = p => unmetDeps(p).length > 0;
+const phaseState = p => blocked(p) ? "blocked" : phaseDone(p) ? "done" : p.stages.some(s => s.status === "active") ? "active" : "planned";
+const CHIP = { done: "ok", active: "info", planned: "info", blocked: "fail" };
+const MARK = { done: "[DONE]", active: "[ACTIVE]", planned: "[PLANNED]", blocked: "[BLOCKED]" };
+const exposures = () => model.risks.map(r => ({ ...r, exp: r.likelihood * r.impact })).sort((a, b) => b.exp - a.exp);
+const topRisk = () => exposures()[0];
+
+const cap = id => (state.captures[id] ??= { verdict: "", note: "", ann: "active" });
+const annotations = () => Object.entries(state.captures).filter(([, c]) => c.note).map(([id, c], i) => ({ id: "a-" + (i + 1), itemId: id, intent: "note", status: c.ann, text: c.note }));
+const decisionsOut = () => Object.entries(state.captures).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
+const changesOut = () => Object.entries(state.answers).filter(([id, v]) => v !== (baseline.answers[id] || "")).map(([id, v]) => ({ itemId: id, path: "/questions/" + id + "/answer", from: baseline.answers[id] || "", to: v }));
+const isChanged = () => decisionsOut().length || changesOut().length || annotations().length || state.global.status || state.global.note;
+
+const verdictSelect = (id, onlyThree) => {
+  const opts = onlyThree ? ["", "approve", "reject", "defer"] : ["", ...VOCAB];
+  const sel = el("select", { class: "verdict", "aria-label": "Verdict for " + id, "data-verdict-for": id });
+  opts.forEach(v => sel.append(el("option", { value: v, ...(cap(id).verdict === v ? { selected: true } : {}) }, v || "—")));
+  sel.dataset.set = cap(id).verdict || "";
+  return sel;
+};
+const noteButton = id => {
+  const pid = "note-" + id;
+  const btn = el("button", { type: "button", class: "btn ghost no-print", popovertarget: pid, "aria-label": "Note for " + id }, cap(id).note ? "note*" : "note");
+  const pop = el("div", { id: pid, class: "pop no-print", popover: "auto" },
+    el("strong", { text: "Annotation" }),
+    el("textarea", { "data-note-for": id, "aria-label": "Annotation text for " + id, placeholder: "Anchored to " + id }, cap(id).note || ""));
+  return el("span", { class: "rowline" }, btn, pop);
+};
+
+function renderSpine() {
+  const kids = [];
+  model.phases.forEach((p, i) => {
+    if (i > 0) {
+      const prev = model.phases[i - 1];
+      kids.push(el("span", { class: "link " + (phaseDone(prev) ? "done" : blocked(p) ? "blocked" : ""), "aria-hidden": "true" }));
+    }
+    const ps = phaseState(p);
+    kids.push(el("button", { type: "button", class: "node " + ps, "data-goto": "phases", "aria-label": p.title + " " + MARK[ps] },
+      el("span", { class: "dot" }), el("small", { text: p.title }), el("small", { class: "mono", text: pct(p) + "%" })));
+  });
+  $("#spine").replaceChildren(...kids);
+}
+
+function render() {
+  $("#doc-title").textContent = model.meta.title;
+  $("#doc-deck").textContent = model.meta.deck || "";
+  $("#doc-eyebrow").textContent = "Implementation plan · " + model.meta.owner;
+  const anyBlocked = model.phases.some(blocked);
+  const anyActive = model.phases.some(p => p.stages.some(s => s.status === "active"));
+  const dst = $("#doc-status");
+  dst.className = "chip " + (anyBlocked ? "warn" : anyActive ? "info" : "ok");
+  dst.textContent = anyBlocked ? "[BLOCKED-EDGE]" : anyActive ? "[ACTIVE]" : "[DONE]";
+  $("#doc-date").textContent = model.meta.date;
+
+  const stages = model.phases.flatMap(p => p.stages);
+  const tr = topRisk();
+  const stats = [
+    ["Phases done", model.phases.filter(phaseDone).length + " / " + model.phases.length],
+    ["Stages done", stages.filter(s => s.status === "done").length + " / " + stages.length],
+    ["Open questions", String(model.questions.length)],
+    ["Top risk", tr.text, tr.exp]
+  ];
+  $("#stats").replaceChildren(...stats.map(([k, v, x]) => el("div", { class: "stat" },
+    el("small", { text: k }),
+    x != null ? el("span", {}, el("b", { text: String(x) }), el("small", { text: " " + v })) : el("b", { text: v }))));
+
+  renderSpine();
+
+  const toc = [["context", "Context"], ["decisions", "Decisions"], ["phases", "Phases"], ["risks", "Risk register"], ["questions", "Open questions"]];
+  $("#toc").replaceChildren(...toc.map(([id, label]) => el("a", { href: "#" + id, text: label })));
+
+  $("#context-body").replaceChildren(...model.context.map(t => el("p", { text: t })));
+
+  $("#decisions-body").replaceChildren(...model.decisions.map(d => {
+    const rowVerdict = el("div", { class: "cap" }, verdictSelect(d.id, true), noteButton(d.id));
+    return el("tr", {},
+      el("td", { text: d.topic }),
+      el("td", { text: d.ruling }),
+      el("td", { class: "muted", text: d.rationale }),
+      el("td", {}, el("span", { class: "chip " + (d.status === "ruled" ? "ok" : "info"), text: "[" + d.status.toUpperCase() + "]" })),
+      el("td", {}, rowVerdict));
+  }));
+
+  $("#phases-body").replaceChildren(...model.phases.map(p => {
+    const ps = phaseState(p);
+    const meta = el("div", { class: "phase__meta" },
+      el("div", {}, el("span", { class: "chip " + CHIP[ps], text: MARK[ps] })),
+      el("div", { class: "meter", "aria-label": "Completion " + pct(p) + " percent", role: "img" }, el("span", { style: "width:" + pct(p) + "%" })),
+      el("small", { class: "mono", text: pct(p) + "% complete" }),
+      ...(p.depends || []).map(d => {
+        const met = phaseIndex[d] && phaseDone(phaseIndex[d]);
+        return el("div", {}, el("span", { class: "chip " + (met ? "ok" : "fail"), text: (met ? "[DEP-MET] " : "[BLOCKED-BY] ") + (phaseIndex[d] ? phaseIndex[d].title : d) }));
+      }));
+    const body = el("div", {},
+      el("p", { class: "muted", text: p.intent }),
+      ...p.stages.map(s => el("div", { class: "stage" },
+        el("div", { class: "rowline" },
+          el("strong", { text: s.title }),
+          el("span", { class: "chip " + (s.status === "done" ? "ok" : s.status === "active" ? "info" : "warn"), text: "[" + s.status.toUpperCase() + "]" }),
+          s.acceptance.length === 0 ? el("span", { class: "chip fail", text: "[NO-ACCEPTANCE]" }) : null),
+        s.acceptance.length
+          ? (() => { const d = el("details", {}, el("summary", { text: "Acceptance (" + s.acceptance.length + ")" })); const ul = el("ul"); s.acceptance.forEach(a => ul.append(el("li", { text: a }))); d.append(ul); return d; })()
+          : el("small", { class: "muted", text: "Acceptance names no observable signal — unprovable stage." }),
+        el("div", { class: "cap" }, verdictSelect(s.id, true), noteButton(s.id)))));
+    return el("article", { class: "card phase", "aria-label": "Phase " + p.title },
+      el("h3", { text: p.title }),
+      el("div", { class: "phase__grid" }, body, meta));
+  }));
+
+  $("#risks-body").replaceChildren(...exposures().map((r, i) => el("tr", { class: i === 0 ? "risk-top" : "" },
+    el("td", { text: r.text }),
+    el("td", {}, el("small", { class: "mono muted", text: phaseIndex[r.phaseId] ? phaseIndex[r.phaseId].title : r.phaseId })),
+    el("td", { class: "mono", text: "L" + r.likelihood }),
+    el("td", { class: "mono", text: "I" + r.impact }),
+    el("td", {}, el("span", { class: "expo" + (i === 0 ? " chip warn" : ""), text: String(r.exp) })),
+    el("td", { class: "muted", text: r.mitigation }))));
+
+  $("#questions-body").replaceChildren(...model.questions.map(q => el("div", { class: "qcard", "aria-label": "Question " + q.id },
+    el("div", { class: "rowline" }, el("strong", { text: q.text }),
+      el("span", { class: "chip info", text: "[OWNER " + q.owner + "]" }), el("small", { class: "mono", text: "due " + q.due })),
+    el("textarea", { "data-answer-for": q.id, "aria-label": "Answer for " + q.id, placeholder: "Answer slot" }, state.answers[q.id] || ""))));
+
+  const gv = $("#global-verdict");
+  if (!gv.options.length) ["", ...VOCAB].forEach(v => gv.append(el("option", { value: v }, v || "—")));
+  gv.value = state.global.status;
+
+  $("#egress-meta").textContent = "copies: " + state.copies + " · unresolved notes: " + annotations().filter(a => a.status === "active").length;
+  $("[data-export='changed']").disabled = !isChanged();
+}
+
+function envelope(changedOnly) {
+  const env = {
+    kind: "plan", version: 1,
+    artifact: { id: model.meta.id, title: model.meta.title, baseline: BASE_ID },
+    decision: { status: state.global.status || "comment", at: new Date().toISOString(), ...(state.global.note ? { note: state.global.note } : {}) },
+    decisions: decisionsOut(), changes: changesOut(), annotations: annotations(),
+    state: { captures: state.captures, answers: state.answers, global: state.global }
+  };
+  if (changedOnly) env.extensions = { diffBaseline: BASE_ID };
+  return env;
+}
+function validate(env) {
+  const errs = [];
+  if (env.kind !== "plan") errs.push("kind");
+  if (env.version !== 1) errs.push("version");
+  if (!env.artifact || !env.artifact.id || !env.artifact.title) errs.push("artifact");
+  if (!VOCAB.includes(env.decision.status)) errs.push("decision.status");
+  env.decisions.forEach(d => { if (!d.id || !VOCAB.includes(d.verdict)) errs.push("decision:" + d.id); });
+  ["decisions", "changes", "annotations"].forEach(k => { if (!Array.isArray(env[k])) errs.push(k); });
+  return errs;
+}
+function toMarkdown(env) {
+  const L = ["# " + model.meta.title, "",
+    "**Verdict:** " + (env.decision.status || "(none)") + (env.decision.note ? " — " + env.decision.note : ""),
+    "Owner: " + model.meta.owner + " · Date: " + model.meta.date, "", "## Decisions"];
+  if (env.decisions.length) {
+    L.push("| Item | Verdict | Note |", "| --- | --- | --- |");
+    env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + (d.note || "") + " |"));
+  } else L.push("_No item verdicts captured._");
+  if (env.changes.length) { L.push("", "## Answers"); env.changes.forEach(c => L.push("- " + c.itemId + ": " + c.to)); }
+  if (env.annotations.length) { L.push("", "## Annotations"); env.annotations.forEach(a => L.push("- [" + a.status + "] " + a.itemId + " (" + a.intent + "): " + a.text)); }
+  return L.join("\n") + "\n";
+}
+
+let toastTimer;
+const flash = msg => { const t = $("#toast"); t.textContent = msg; t.showPopover?.(); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidePopover?.(), 1600); };
+const markExported = () => { Object.values(state.captures).forEach(c => { if (c.note) c.ann = "exported"; }); };
+const copyOut = out => {
+  const done = () => { state.copies++; markExported(); flash("Copied"); render(); };
+  navigator.clipboard?.writeText(out).then(done).catch(() => { flash("Clipboard denied — copy from the box"); render(); });
+  if (!navigator.clipboard) render();
+};
+
+const returnMeta = document.querySelector('meta[name="artifact-return"]');
+if (returnMeta) $("[data-export='send']").hidden = false;
+const sendToAgent = async env => {
+  const res = await fetch(returnMeta.content, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(env) });
+  if (!res.ok) throw new Error("submit " + res.status);
+  return res.json();
+};
+
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-goto]");
+  if (g) { document.getElementById(g.dataset.goto)?.scrollIntoView({ behavior: "smooth" }); return; }
+  const b = e.target.closest("[data-export]"); if (!b) return;
+  const mode = b.dataset.export;
+  const env = envelope(mode === "changed");
+  const errs = validate(env);
+  const eg = $("#egress");
+  if (errs.length) { eg.value = "BLOCKED — invalid payload: " + errs.join(", "); flash("Export blocked"); return; }
+  const out = mode === "md" ? toMarkdown(env) : JSON.stringify(env, null, 2);
+  eg.value = out;
+  if (mode === "send") {
+    b.disabled = true;
+    sendToAgent(env)
+      .then(() => { markExported(); b.textContent = "Sent"; flash("Sent to agent"); render(); })
+      .catch(() => { b.textContent = "Send failed — copied instead"; copyOut(out); })
+      .finally(() => { b.disabled = false; });
+    return;
+  }
+  copyOut(out);
+});
+document.addEventListener("change", e => {
+  const v = e.target.closest("[data-verdict-for]");
+  if (v) { const id = v.dataset.verdictFor; cap(id).verdict = v.value; v.dataset.set = v.value; render(); }
+  if (e.target.id === "global-verdict") { state.global.status = e.target.value; render(); }
+});
+document.addEventListener("input", e => {
+  const n = e.target.closest("[data-note-for]");
+  if (n) { const id = n.dataset.noteFor; cap(id).note = n.value; cap(id).ann = "active"; $("#egress-meta").textContent = "copies: " + state.copies + " · unresolved notes: " + annotations().filter(a => a.status === "active").length; $("[data-export='changed']").disabled = !isChanged(); }
+  const a = e.target.closest("[data-answer-for]");
+  if (a) { state.answers[a.dataset.answerFor] = a.value; $("[data-export='changed']").disabled = !isChanged(); }
+});
+const tocFor = id => document.querySelector('.toc a[href="#' + CSS.escape(id) + '"]');
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(en => { if (en.isIntersecting) { document.querySelectorAll(".toc a.on").forEach(a => a.classList.remove("on")); tocFor(en.target.id)?.classList.add("on"); } });
+}, { rootMargin: "-20% 0px -70% 0px" });
+addEventListener("beforeprint", () => document.querySelectorAll("details").forEach(d => { d.dataset.wasOpen = d.open; d.open = true; }));
+addEventListener("afterprint", () => document.querySelectorAll("details").forEach(d => { d.open = d.dataset.wasOpen === "true"; }));
+render();
+document.querySelectorAll("main section[id]").forEach(s => spy.observe(s));
+})();
+</script>
+</body>
+</html>
