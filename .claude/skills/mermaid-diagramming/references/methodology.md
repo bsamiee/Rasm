@@ -38,21 +38,34 @@ The pre-drawing procedure runs in order before the first shape.
 - Structural edges never imply time; first, next, retry, and timeout route to a sequence or state diagram.
 - No edge skips an abstraction level — the intermediate owner joins the view or the whole view drops one level.
 
-## [05]-[TYPE_SELECTION]
+## [05]-[VISUAL_ENCODING]
+
+Every visual channel is spent deliberately; a channel spent twice on one meaning, or once on two meanings, is a defect.
+
+- Shape carries kind, color carries category or status, stroke carries state, edge style carries relation modality, text carries exact semantics — and critical meaning lands twice, text plus one visual form.
+- A `subgraph` asserts membership; a color class asserts a distributed category; both together assert two real memberships, never reinforcement. A node enclosed for visual neatness reads as a member — the enclosure is the claim.
+- Six categorical classes bound a diagram; past six the category moves to labels, groups, or a split. Every color-coded meaning carries a redundant encoding, so the diagram survives grayscale and color-blind readers.
+- Node labels are noun phrases with the discriminating word first; edge labels are verb phrases; direct labels beat legends — a legend is a lookup jump forced on every read.
+- Dashed and dotted strokes carry modality — optional, planned, inferred — never primary direction; direction rides the arrowhead.
+- Dense many-to-many interiors defeat node-link reading near twenty nodes; the repair is a summarizing node, a split, or a table, never a bigger canvas.
+- Peers declare contiguously and flows declare in walk order — declaration order is the author's one lever over layout stability.
+- A diagram read by an agent keeps its source fence beside the render, names nodes uniquely, and states every relation as an explicit labeled edge — spatial implication is invisible to a machine reader.
+
+## [06]-[TYPE_SELECTION]
 
 The question shape selects the declaration.
 
-| [INDEX] | [QUESTION]                | [TYPE]                |
-| :-----: | :------------------------ | :-------------------- |
-|  [01]   | what exists and relates   | `flowchart`           |
-|  [02]   | who talks in order        | `sequenceDiagram`     |
-|  [03]   | which modes and transitions | `stateDiagram-v2`   |
-|  [04]   | what data and cardinality | `erDiagram`           |
-|  [05]   | proportion trend or rank  | dataviz external lane |
-|  [06]   | work steps and branching  | `flowchart`           |
-|  [07]   | hierarchy and containment | `mindmap` / `treemap` |
-|  [08]   | dated plan over time      | `gantt`               |
-|  [09]   | system landscape at zoom  | `C4` / `architecture-beta` |
+| [INDEX] | [QUESTION]                  | [TYPE]                     |
+| :-----: | :-------------------------- | :------------------------- |
+|  [01]   | what exists and relates     | `flowchart`                |
+|  [02]   | who talks in order          | `sequenceDiagram`          |
+|  [03]   | which modes and transitions | `stateDiagram-v2`          |
+|  [04]   | what data and cardinality   | `erDiagram`                |
+|  [05]   | proportion trend or rank    | dataviz external lane      |
+|  [06]   | work steps and branching    | `flowchart`                |
+|  [07]   | hierarchy and containment   | `mindmap` / `treemap`      |
+|  [08]   | dated plan over time        | `gantt`                    |
+|  [09]   | system landscape at zoom    | `C4` / `architecture-beta` |
 
 [CONTRAST]: classic mismatches, each repaired by payload alignment:
 
@@ -61,11 +74,11 @@ The question shape selects the declaration.
 - dependency drawn as sequence -> `flowchart`
 - quantity drawn as node-link -> chart
 
-## [06]-[SOUNDNESS]
+## [07]-[SOUNDNESS]
 
 Every committed diagram passes a mechanical audit; each finding blocks the fence.
 
-- [MACHINE] — `validate_mermaid.py` blocks on orphan node, unreachable state, undefined class, and unknown class target; its duplicate-edge and budget-overrun warns demand a split or a stated reason.
+- [MACHINE] — the bundled `validate_mermaid.py` owns the machine roster, blocking on structural defects and warning on legibility pressure; its output is the authority.
 - [JUDGMENT] — the reviewer clears these before commit:
   - a cycle in a domain declared acyclic
   - one concept rendered under two names
@@ -73,10 +86,8 @@ Every committed diagram passes a mechanical audit; each finding blocks the fence
   - mixed edge semantics hidden behind precise labels
   - a legend explaining two taxonomies or two edge semantics
   - a diagram needing narration to supply its own title, scope, node types, or edge meaning
-  - an absorbing state undeclared as terminal
-  - a state machine missing its initial entry
 
-## [07]-[COMPOSITION]
+## [08]-[COMPOSITION]
 
 - Zoom levels are separate diagrams for separate audiences, added only while a lower-level question stays unanswered.
 - A static and dynamic pair shares the exact element names, so the runtime view resolves against the structure view.
@@ -84,7 +95,7 @@ Every committed diagram passes a mechanical audit; each finding blocks the fence
 - A scenario traced across views is the cross-check that surfaces missing nodes, inconsistent names, and unsupported behavior.
 - A new diagram is admitted by a new question, never a new layout; the set is bounded by question coverage, not a fixed count.
 
-## [08]-[MAINTENANCE]
+## [09]-[MAINTENANCE]
 
 - Diagram source lives beside the truth it describes and diffs in review alongside the change that can invalidate it.
 - Every long-lived diagram names the surface that falsifies it — code path, contract, schema, or decision record.

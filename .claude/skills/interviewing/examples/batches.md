@@ -1,6 +1,6 @@
-# [BATCH_CRAFT]
+# [ROUND_AND_THREAD_CRAFT]
 
-A round's question batch is the interview's payload; a batch that asks the abstract, courts agreement, surveys defaults, or hides a contradiction ships a confident wrong spec. Each entry names one batch defect and its fix under the fixed Detection / Rejected / Accepted / Reason / Reframe card; the Rejected and Accepted bodies are real batches, not descriptions of batches.
+A round's question batch is the interview's payload, and a thread is the sequence of rounds where each answer's consequence becomes the next question's premise; a batch that asks the abstract, courts agreement, surveys defaults, or hides a contradiction ships a confident wrong spec, and a thread whose links are descriptive, grandiose, independent, or mechanism-first burns the budget without landing a ruling. Each entry names one defect — a single round's batch or a cross-round thread — under the fixed Detection / Rejected / Accepted / Reason / Reframe card. The Rejected and Accepted bodies are real batches or real worked threads, never descriptions of them; a thread entry's bodies run numbered strata with answer branches and the premise link that ties each answer to the next stem, terminating in a marked ruling.
 
 ## [01]-[UNGROUNDED_ABSTRACTION]
 
@@ -121,8 +121,9 @@ Options list forms without their costs, so the user chooses by preference instea
   1. `<unit>/architecture.md:54` marks the viewer codec-absent until an upstream wasm decoder identity is admitted. Which decode owner does the viewer bind?
      - a) Upstream wasm decoder — keeps the viewer thin; costs a hard dependency on an unadmitted serving row that blocks render until it lands.
      - b) Server-side tessellation to a mesh wire — unblocks render now; costs a round-trip per view and a server the viewer did not need.
+     - c) Needs investigation — routes the decoder-availability question to a corpus leg before this binds; costs one round.
   ```
-- Reason: Options are probes, not menus — each names its cost and cites its anchor, so the answer reveals which consequence the user accepts, and the lead marker points only where one option dominates.
+- Reason: Options are probes, not menus — each names its cost and cites its anchor, so the answer reveals which consequence the user accepts, and the `(Recommended)` marker leads only where one option dominates.
 - Reframe: Attach a cost or foreclosure to every option, cite the confrontation-set anchor where one exists, and let free-text remain the escape valve, never the plan.
 
 ## [07]-[DEPENDENT_CASCADE]
@@ -163,3 +164,155 @@ Two rulings collide and the interviewer picks one quietly, burying the conflict 
   ```
 - Reason: A silently reconciled conflict hard-codes the interviewer's guess as the user's ruling; surfacing it with each resolution's consequence hands the authority back where it belongs.
 - Reframe: Give every contradiction its own question — the two rulings, the surfacing observation, and the consequence of each resolution — and record the outcome as a conflict entry, never as a quiet overwrite.
+
+## [09]-[NAIVE_CHAIN]
+
+A thread chains descriptive facts — biggest, longest, most-used — so each answer ranks nothing and premises no next question; the sequence walks visible inventory instead of the pressure the capability moves.
+
+- Detection: Every stratum's answer is a description that changes no subsequent stem; the thread stops after any link and has learned the same nothing, because size and visibility stand in for ownership pressure.
+- Rejected:
+  ```text
+  1. Which planning page is the longest?
+     → the graph page.
+  2. Which page names the most backends?
+     → the graph page — three.
+  3. Which of those three is used most?
+     → the first one.
+  4. Which page gets edited first?
+     → the graph page.
+  (no ruling: four descriptions, no decision)
+  ```
+- Accepted:
+  ```text
+  1. Which invariant breaks if the new capability lands? [root — decides the whole line]
+     - a) identity — a content key changes → 2i
+     - b) semantics — a domain vocabulary changes → 2s
+     - c) operational — a lifecycle or port changes → 2o
+  2i. (premise: identity is the invariant) Does the pressure change the key primitive itself, or only add a consumer of the existing key?
+     - a) adds a consumer → 3
+     - b) changes the primitive → escalate to the kernel owner; re-run 1 against the wider blast
+  3. (premise: an existing key, a new consumer) Which existing owner absorbs the consumer as a seam row rather than a second key scheme?
+     - a) the byte-owning page absorbs it → terminal
+     - b) no owner fits → the consumer names a missing seam; record open
+  Terminal: fact — the campaign edits the invariant owner named at 2i and records every downstream as a seam, never a parallel key. [open if 3b]
+  ```
+- Reason: A descriptive chain mistakes inventory for pressure — size and visibility rank nothing and premise nothing, so four rounds yield four facts and no decision; a worked thread opens on the invariant the capability moves and lets each answer become the next stem's premise, so the same four rounds converge on one owner.
+- Reframe: Open every thread on the root — the load-bearing fork that decides whether the line exists at all — make each stratum's stem consume the prior answer verbatim, and delete any link whose answer changes no subsequent question.
+
+## [10]-[NONSENSE_COMPLEXITY]
+
+A thread dresses its strata in pseudo-profound abstraction — self-synchronizing ontologies, emergent schemas — that no owner, row, or fence can answer, mistaking grandiosity for depth.
+
+- Detection: Each stem reaches for a grand abstraction whose answer names no file, no case, no seam; every answer is unfalsifiable, so the thread cannot terminate in a ruling because nothing it asks is decidable against the corpus.
+- Rejected:
+  ```text
+  1. How should the domain ontology self-synchronize across the computational planes?
+  2. Which schema dialect maximizes semantic density?
+  3. Which emergent structure best resonates with the runtime?
+  (no ruling: no stratum names a surface to edit)
+  ```
+- Accepted:
+  ```text
+  1. Which concrete owner carries the concept? [root — the corpus already holds it]
+     - a) the graph owner → 2g
+     - b) the semantic-projection owner → 2s
+     - c) the durable-ledger owner → 2d
+  2g. (premise: the graph owner) Is the change a node case, a relationship, a property or quantity row, or a constraint?
+     - a) a node case → 3
+     - b) a property row → 3'
+  3. (premise: a new node case) Which existing relationship and property bags cover the case without a second graph model?
+     - a) the existing bags cover it → terminal
+     - b) none fit → the case needs a new relationship kind; name it, then terminal
+  Terminal: fact — name the owner file, the exact row or case that changes, and the single seam consumer; the abstraction dissolves into one concrete edit.
+  ```
+- Reason: Grandiosity is not depth — a stem no owner can answer spends a round on a feeling and lands nothing, while the corpus already holds enough real complexity (nodes, projections, rows, receipts) that every stratum can name the surface it moves.
+- Reframe: Root every abstraction thread on "which concrete owner carries this", and reject any stratum whose answer cannot name a file, a row, or a fence.
+
+## [11]-[UNTHREADED_SURVEY]
+
+A thread stretches independent inventory prompts across rounds, so no answer becomes the next round's premise; it is a survey wearing a thread's length.
+
+- Detection: Round N's stem does not consume round N-1's answer — reorder the rounds and nothing breaks. The batch defect over-fills one round with independent options; this over-lengthens a whole thread with the same independence, producing a corpus map instead of an elicitation thread.
+- Rejected:
+  ```text
+  1. Which packages exist in the branch?
+  2. Which external dependencies are admitted?
+  3. Which seams cross the strata?
+  4. Which future apps will consume it?
+  (reorder these four freely: nothing changes)
+  ```
+- Accepted:
+  ```text
+  1. Does the capability cross a stratum boundary? [root]
+     - a) no, inside one package → 2n
+     - b) yes, across domain peers → 2p
+     - c) yes, across runtimes → 2r
+  2p. (premise: it crosses domain peers) Does the fact cross as graph content, a content-keyed artifact, or a receipt?
+     - a) graph content → 3
+     - b) a receipt → 3'
+  3. (premise: it crosses as graph content) Which side authors the content and which side only decodes it?
+     - a) the graph owner authors, the peer decodes → terminal
+     - b) both claim authorship → surface the conflict as its own question before terminal
+  Terminal: fact — the campaign lands at the authoring owner and records only the seam at every decoder; no peer owns a second copy.
+  ```
+- Reason: A survey's rounds are commutative — reorder them and nothing changes, proof no answer premised the next; a thread's rounds form a chain where round one's fork chooses which round two even exists.
+- Reframe: Before each round, name the prior answer it consumes; a round that consumes none is a survey item — default it or drop it — and reserve the thread for the one fork that gates the rest.
+
+## [12]-[PREMATURE_DEPTH]
+
+A thread opens on mechanism — which attribute, which overload, which fence — before direction is fixed, so the mechanism answer is void the moment the owner and truth source land elsewhere.
+
+- Detection: The first strata ask how while which owner and what truth remain unruled; the sequence skips ownership, stratum, truth source, and seam type, and every mechanism answer is discarded if a later round routes the capability to a different owner.
+- Rejected:
+  ```text
+  1. Which source-generator attribute tags the new type?
+  2. Which dispatch overload is fastest?
+  3. Which fence signature is shortest?
+  (all three void once direction routes the capability elsewhere)
+  ```
+- Accepted:
+  ```text
+  1. What truth source changes? [root — direction before mechanism]
+     - a) graph truth → 2g
+     - b) semantic truth → 2s
+     - c) runtime truth → 2r
+  2g. (premise: graph truth) Which owner owns canonical admission and mutation of that truth?
+     - a) the graph owner → 3
+     - b) an unclear owner → resolve ownership before any shape question
+  3. (premise: the graph owner) Which generated shape expresses it — value object, smart enum, union, port, or policy row?
+     - a) a union case → 4
+  4. (premise: a union case on the graph owner) Only now: which generator attribute and dispatch form realize it?
+  Terminal: inference — mechanism is ruled last, derived from the truth, owner, and shape the earlier strata fixed; a mechanism chosen before them is rework waiting to happen.
+  ```
+- Reason: Mechanism has no meaning until the owner and truth source are fixed — a fence chosen before the owner is known is discarded the instant direction lands; the thread earns its mechanism stratum only after truth, owner, and shape are ruled.
+- Reframe: Order every thread truth → owner → shape → mechanism; a stem naming an attribute, overload, or signature before the owner is fixed waits for the stratum that fixes it.
+
+## [13]-[ABANDONED_BRANCH]
+
+A gating answer invalidates the pre-planned branch, and the thread pushes the dead branch's rounds forward anyway — or trails off with no terminal ruling — spending the budget on a foreclosed world.
+
+- Detection: The thread pre-planned rounds 2 through N assuming answer (a) to the gating fork; the user answers (b), and the thread asks the (a)-branch rounds regardless, then stops without recording the ruling the fork existed to land.
+- Rejected:
+  ```text
+  1. Is the carrier one owner or one per backend?
+     → per backend. [kills the single-owner branch]
+  2. For the single owner, which tag discriminates? [dead — presupposes the killed branch]
+  3. For that tag, which resolver caches it? [dead]
+  (thread stops: no ruling recorded)
+  ```
+- Accepted:
+  ```text
+  1. Is the carrier one owner or one per backend? [gating fork — both branches pre-planned]
+     - a) one owner → plan A: 2a designs the discriminant, 3a the GPL confinement
+     - b) per backend → plan B: 2b designs the shared traversal contract
+     → user answers (b): discard plan A, enter plan B at 2b
+  2b. (premise: per-backend owners) Which contract does every backend implement so consumers stay backend-agnostic?
+     - a) a traversal protocol → 3b
+     - b) no shared contract needed → the split is genuine; go to terminal
+  3b. (premise: a shared traversal protocol) Which backend's algorithm set forces a member the others cannot honor?
+     - a) none → the protocol is total → terminal
+     - b) the GPL backend → confine it behind the protocol's optional arm → terminal
+  Terminal: fact — per-backend owners behind one traversal protocol, the GPL backend confined to its optional arm; recorded as the ruling the fork opened, not left dangling.
+  ```
+- Reason: A gating fork plans both branches before it is asked; when the answer kills one, the thread abandons that branch's rounds and enters the other's — pushing the dead rounds spends the budget on a foreclosed world and, worse, lets the thread trail off without the ruling the fork existed to land.
+- Reframe: Plan both branches of every gating fork; on the answer, discard the dead branch's strata and re-enter at the live branch's first stratum; a thread seals only on a terminal ruling, never on a trailing question.

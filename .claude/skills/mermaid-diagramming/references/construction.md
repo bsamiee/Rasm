@@ -1,6 +1,8 @@
 # [CONSTRUCTION]
 
-Per-type construction binds here — the question a type answers, what its marks assert, and the characteristic failure modes and truth tests that type carries. Type selection and the general soundness audit stay methodology's property.
+Per-type construction binds here — the question a type answers, what its marks assert, and the characteristic failure modes and truth tests that type carries. Type selection and the general soundness audit stay methodology's property; a record's truth tests bind at review, and the validator owns only its named machine checks.
+
+Sections: [01] core types - [02] extended types.
 
 ## [01]-[CORE_TYPES]
 
@@ -64,6 +66,8 @@ Per-type construction binds here — the question a type answers, what its marks
   - a missing terminal, so the lifecycle never ends.
 - Logic checks:
   - every non-terminal state holds an exit.
+  - an absorbing state is declared terminal or gains an exit.
+  - the machine carries its initial `[*]` entry.
   - guards leaving one state are mutually exclusive and cover the event's domain.
   - each composite's substates genuinely share its external transitions.
 
@@ -110,6 +114,24 @@ Per-type construction binds here — the question a type answers, what its marks
 
 ## [02]-[EXTENDED_TYPES]
 
+[BLOCK]:
+
+- Question: how parts occupy a fixed grid the layout engine must not rearrange.
+- Block: one cell or span in a declared column raster, nesting reading as containment.
+- Failure modes:
+  - a manual grid standing in for a flowchart's automatic layout, position earning its cost only where position is the meaning, or spans that break the column arithmetic.
+- Logic checks:
+  - every row's spans sum within the declared `columns`.
+
+[JOURNEY]:
+
+- Question: how satisfaction moves across the phases one actor set walks.
+- Task: one scored step owned by named actors, the score asserting measured or judged sentiment.
+- Failure modes:
+  - scores invented to fill the syntax, or phases that are org-chart stages rather than the actor's path.
+- Logic checks:
+  - every task carries at least one actor and a defensible 1-5 score.
+
 [ARCHITECTURE]:
 
 - Question: which deployable units run where and reach each other over what path.
@@ -139,6 +161,15 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every `after` chain matches a real dependency.
 
+[TREEMAP]:
+
+- Question: how a whole decomposes into parts weighted by one measure.
+- Leaf: a part carrying its numeric weight, nesting reading as strict containment under one root.
+- Failure modes:
+  - weights of mixed units gathered in one tree, or a hierarchy invented to group visually when the data is flat.
+- Logic checks:
+  - sibling weights share one unit and sum to their parent's meaning.
+
 [TIMELINE]:
 
 - Question: what occurred across successive periods.
@@ -166,6 +197,33 @@ Per-type construction binds here — the question a type answers, what its marks
   - columns that are statuses rather than queues.
 - Logic checks:
   - every card sits in exactly one column.
+
+[TREEVIEW]:
+
+- Question: what a filesystem or containment hierarchy actually holds.
+- Entry: one file or directory at its true depth, a trailing slash marking a directory.
+- Failure modes:
+  - a tree drawn from memory rather than disk truth, or annotation icons carrying meaning the text does not.
+- Logic checks:
+  - the tree matches a listing of the real structure it claims.
+
+[CYNEFIN]:
+
+- Question: which decision domain each item occupies and what movement between domains is claimed.
+- Item: one situated practice quoted under exactly one domain, a transition asserting a real reclassification event.
+- Failure modes:
+  - items placed by mood rather than the domain's definition — clear holds known practice, complicated expert analysis, complex an emergent probe, chaotic act-first — or transitions drawn as decoration.
+- Logic checks:
+  - every transition names its trigger in the label.
+
+[RAILROAD]:
+
+- Question: which strings a grammar admits, rule by rule.
+- Production: one named rule owning its expression, a reference naming another rule.
+- Failure modes:
+  - a referenced rule never defined, or alternation flattened into prose that hides precedence.
+- Logic checks:
+  - every referenced nonterminal carries its own production.
 
 [REQUIREMENT]:
 
@@ -207,3 +265,12 @@ Per-type construction binds here — the question a type answers, what its marks
   - field ranges that gap or overlap the wire contract.
 - Logic checks:
   - field ranges match the wire spec exactly, no gaps or overlaps.
+
+[SWIMLANE]:
+
+- Question: which owner performs which step in one laned process.
+- Lane: one owner, a node asserting that owner performs the step.
+- Failure modes:
+  - lanes for systems that never act, a data store being no owner, or cross-lane edges so dense the partition carries nothing.
+- Logic checks:
+  - every node sits in the lane of the owner that performs it.

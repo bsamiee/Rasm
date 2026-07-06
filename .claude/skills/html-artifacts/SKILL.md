@@ -24,7 +24,7 @@ An HTML artifact trades a document that gets skimmed for one that gets read: spa
 
 1. Investigate and select against [references/method.md](references/method.md): name the decision the page moves, build the question inventory, bind every claim to an evidence object, and resolve the interactivity conflict before any layout thought.
 2. Pick the type in [02]; copy its template or compose its region spine from [references/artifact-types.md](references/artifact-types.md).
-3. Embed the design-system baseline verbatim from [references/design-system.md](references/design-system.md); compose interaction patterns from [references/interaction.md](references/interaction.md); state, embedded data, scale, and export mechanics follow [references/state.md](references/state.md).
+3. Embed the design-system baseline verbatim from [references/design-system.md](references/design-system.md); template-local rules compose the layer architecture, state system, and composition law from [references/styling.md](references/styling.md); interaction patterns come from [references/interaction.md](references/interaction.md); state, embedded data, scale, and export mechanics follow [references/state.md](references/state.md).
 4. Fill content answer-first; datasets embed as sanitized JSON payloads under the scale law, and an oversized dataset belongs in a linked file.
 5. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the closed verdict vocabulary, stable item ids, the versioned envelope, and dual markdown-plus-JSON export.
 6. Gate: `python3 ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.

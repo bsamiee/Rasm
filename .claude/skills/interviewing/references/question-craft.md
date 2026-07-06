@@ -1,6 +1,6 @@
 # [QUESTION_CRAFT]
 
-Composition law for every round: how a question earns its slot, how evidence is extracted instead of opinion, how settled answers are challenged, how the interviewer holds its own stance, and how the record stays honest. The always-hot core rides in the skill entry; this page is the depth loaded when composing rounds.
+Composition law for the interview's questions: how a question earns its round, how questions thread into dependency chains, how evidence is extracted instead of opinion, how settled answers are challenged, how the interviewer holds its own stance, and how the record stays honest. The always-hot core rides in the skill entry; the depth loads here when composing a round or planning a thread.
 
 ## [01]-[WORTH_A_ROUND]
 
@@ -10,9 +10,28 @@ A question earns its round only when all three hold:
 - Consequential: At least two options lead to materially different work. A question with one sane answer is a statement wearing a question mark — state it and move on.
 - Ranked: Among the undetermined and consequential, the question whose answer invalidates the most downstream decisions leads. Architecture outranks interface outranks wording, and the load-bearing question is asked first even when it is uncomfortable.
 
-Prepare the three highest-value learning targets before any round opens; a round without a prepared target is theater regardless of how the conversation feels. Open on low-burden ground the user knows well, and run a screening question that decides whether a whole line exists before any question inside that line.
+Open on low-burden ground the user knows well, then lead with each thread's root before any question inside its branches.
 
-## [02]-[EVIDENCE_EXTRACTION]
+## [02]-[THREAD_DESIGN]
+
+The thread is the unit of the interview, not the round: a prepared learning target expands into a dependency chain where each answer's consequence premises the next question, and the chain runs until it seals in a durable ruling. A round is one horizontal slice across the live threads; the interview's shape is the set of threads it drives to their rulings.
+
+- [ANATOMY] — A thread roots at its highest-ranked load-bearing fork and descends by consequence: each answer names the owner, boundary, or premise the next question interrogates, narrowing from direction to owner to seam to consumer until a ruling lands; every deeper stratum resolves what the answer above it left open, never the ground a fresh survey re-scans.
+- [BRANCH_PLANNING] — The whole tree is planned before the thread opens: each fork carries two or three answer classes — wider forks screen to a live subset — each class its premised follow-up, and only the reached branch's follow-up is spent. The tree converges: deep strata narrow to shared question shapes and the terminal ruling is one schema every leaf instantiates, so depth runs three to five strata at any width. The prepared learning targets are the thread roots, each planned to its ruling.
+- [STRATUM] — A batch is one thread stratum: the independent questions at the current depth, each answerable without the others. A dependent question is the next stratum, asked after its gating answer lands, never stacked where that answer discards it. The budget spans the thread, not the round — a thread spends one question per stratum descended, planned branches costing nothing until reached — and a near-exhausted budget collapses the open forks into one wide stratum ranked by blast radius.
+- [SPAWN] — An answer that surfaces a prerequisite in another owner never widens the current thread. A dependency the corpus already decides folds into the terminal ruling as its ordering clause — prerequisite owner first, consumer move second; a dependency opening its own load-bearing fork mints a new thread root, ranked against the live threads for the remaining budget or routed to a tracked card when the budget cannot reach it.
+- [TERMINATION] — Every thread ends in a durable ruling marked fact, assumption, or inference, or in an explicit open item routed to a tracked card; a thread that dissolves into "what is next" never reached one. The terminal stratum is the depth at which the next question detects no new gap, and the ruling records the whole descent as one settled decision, not the transcript that produced it.
+- [REPAIR] — When an answer invalidates the planned branch — a premise the tree assumed, an owner the corpus does not carry, a fork the user collapses to one arm — the thread re-plans from the delivered premise rather than forcing the prepared follow-up. The interviewer restates the new premise, checks it against the corpus, and rebuilds the downstream tree from there; a follow-up asked past an invalidated premise interrogates a branch that no longer exists.
+
+A thread degrades into one of the named failure shapes; each carries its detection and its repair.
+
+- [NAIVE_CHAIN] — Successive answers change no downstream question: the chain inventories files, packages, or docs and ends at "make a plan". Detection: reordering the questions loses nothing, and no answer narrows an owner. Repair: re-root on the load-bearing fork and descend by consequence, so each answer premises the next.
+- [NONSENSE_COMPLEX] — The vocabulary carries no actionable discriminant: every question interrogates an abstraction no corpus owner names, and every answer returns unknown. Detection: no question binds to a path, owner, case, or row. Repair: bind each stratum to a concrete owner and a real discriminant the corpus already carries.
+- [UNTHREADED_SURVEY] — The questions are independent inventory prompts with no dependency between them, a corpus map standing in for an elicitation. Detection: every question stands alone and no answer is another's premise. Repair: ask the gating fork first, then follow its consequence into the owner, seam, and consumer.
+- [PREMATURE_DEPTH] — Mechanism is fixed before direction exists: the thread selects a signature, combinator, or limiter before owner, truth, and seam are decided, or roots at a consumer surface whose discriminant the corpus binds upstream. Detection: an implementation detail asked while the owner is still open, or a root interrogating presentation while an upstream owner carries the semantics. Repair: re-root at the upstream owner, then hold mechanism as the last stratum.
+- [FIXED_MOVE] — Every fork applies one presumed move to a rotating target — a file per producer, a direct peer coupling, a sibling mirrored locally — and the move itself is never interrogated. Detection: substituting the move's verb rewrites every question at once, and the answers repeat one value — inert, refused, or the next copy. Repair: promote the move to the root as its own fork — which discriminant varies, which side owns the crossing — collapsing the instances into one owning surface.
+
+## [03]-[EVIDENCE_EXTRACTION]
 
 Answers are evidence only when anchored to specifics; the interviewer repairs a drifting conversation by changing the question, never by asking the user to be more accurate.
 
@@ -23,7 +42,7 @@ Answers are evidence only when anchored to specifics; the interviewer repairs a 
 - Capture the user's own vocabulary verbatim where it names a concept; replacing it with the interviewer's vocabulary erases the signal that a term meant something specific.
 - An answer earns force by changing the next action — a ruling that alters no artifact entry, no option ranking, and no downstream decision was a wasted round; treat it as a signal the question was not consequential.
 
-## [03]-[CHALLENGE_PROTOCOLS]
+## [04]-[CHALLENGE_PROTOCOLS]
 
 Settled judgments get challenged by structure, not by tone; each protocol has its trigger.
 
@@ -33,43 +52,41 @@ Settled judgments get challenged by structure, not by tone; each protocol has it
 - [INVERSION] — Trigger: a stated goal. Assume the goal is met and the outcome still counts as failure; the causes name the constraints the goal statement omitted.
 - [MARKED_ADVOCACY] — Trigger: one dominant view with no live alternative. Build the strongest contrary case — most vulnerable assumption, contrary evidence, neglected alternative — and mark it explicitly as the contrarian exercise so the record never confuses the challenge with the ruling.
 
-## [04]-[INTERVIEWER_DISCIPLINE]
+## [05]-[INTERVIEWER_DISCIPLINE]
 
 The interviewer's own agreement drift is a failure engine on par with the user's compliance; stance is held by structure.
 
 - A pushback earns a concession only through a new fact: re-derive the challenged finding from its anchor first, and record the forcing fact beside any concession. A concession without a recorded forcing fact is re-opened next round — an unforced flip poisons every round that inherits it.
-- The user's certainty is not evidence: a first-person conviction enters the record as a reported belief in third person and is tested as an assumption like any other. Certainty raises the challenge bar, never lowers it.
+- The user's certainty is not evidence, and authorship is not verification: a first-person conviction — the author's memory of code they wrote included — enters the record as a reported belief in third person and is tested as an assumption like any other; the corpus is on disk. Certainty raises the challenge bar, never lowers it.
 - Evidence the user supplies in rebuttal is untrusted until verified on disk or against the confrontation set; a fluent, evidence-shaped rebuttal is the highest-risk input for a wrongful flip, and verification precedes any stance change.
+- A forcing fact concedes exactly its own scope: the verified fragment enters as fact with its anchor, the unproven remainder of the finding stands, and the next question interrogates the residue.
+- Pressure without a new fact terminates in a conflict entry, never a third exchange: the finding stands with its anchor, the contrary claim records as reported belief, and every ruling premised on the disputed line stays open until the conflict resolves.
 - The user's premise is quarantined before it is inherited: restate the claim in the interviewer's own terms, check it against the corpus, and only then build questions inside it. A false premise absorbed silently frames every downstream round.
 - Answers are recorded and probed, never graded: praise, quality ratings, and "good point" mirror the user back at themselves and buy agreement with the next challenge.
 
-## [05]-[OPTIONS_AND_BATCHES]
+## [06]-[OPTIONS_AND_BATCHES]
 
 - Options are probes, not menus: each names its cost or consequence, cites its confrontation-set anchor where one exists, and the `(Recommended)` marker leads only where one option dominates. A preview carries a concrete artifact — schema shape, worked example, rendered direction — when the choice is between comparable forms.
 - Options state competing resolutions, never one proposition to ratify: an agree-or-disagree question harvests acquiescence, and each option label carries its construct — "keep the dual rail, absorbing the drift cost" over a bare "yes".
 - Option order reads as a ranking whether or not one is intended: the first position carries primacy weight, so order by impact deliberately and never bury the live option last.
 - The escape row is a state report, not an evasion: "outside my knowledge" and "needs investigation" are legitimate answers that route the question to the corpus or a delegation leg. Free-text "Other" is the valve for an option set that missed; a question expecting it was not ready to ask.
-- Each question stands independent of the others' answers; a dependent question waits for the next round, and a cascade of dependents signals a one-question round.
-- A batch stays narrow enough that every option is a real tradeoff; a survey-sized batch makes the user pick defaults.
-- The question budget is part of the protocol: roughly ten per session, nonessential gaps defaulted with the default named in the record. When the budget nears exhaustion with decisions still landing, the remaining questions collapse into one wide batch ranked by impact.
+- A batch stays narrow enough that every option is a real tradeoff; a survey-sized batch makes the user pick defaults. The stratum law owns batch independence and the thread-spanning budget.
 - When the user hesitates on an open question, convert it to a closed menu of concrete options with costs; hesitation signals the question outran the user's vocabulary, not their intent.
 
-## [06]-[STARTING_POINT]
+## [07]-[STARTING_POINT]
 
 Open by establishing the user's position, not the task's: where they are in their thinking, what they tried, what they already rejected and why. The same request from a user who explored the space for a week and one who thought of it an hour ago needs opposite interviews — depth for the first, framing for the second. Give this position to every downstream round: it decides which bucket dominates and which mode leads.
 
-## [07]-[RECORDING]
+## [08]-[RECORDING]
 
 - Every round appends to the ruling record: question, ruling, consequence, and the ruling's mark — fact (anchored evidence), assumption (must-be-true, unverified), inference (derived, named premises), open (tracked, unresolved).
 - Marks are load-bearing: an assumption entering a durable artifact carries its mark and its invalidating condition; a fact carries its anchor.
-- An entry overturned later is edited in place with the superseding ruling, never duplicated; the record reads as current law, not as a transcript.
+- The record reads as current law, never as a transcript: an overturned entry takes its superseding ruling in place and no duplicate row survives.
 - Conflicts get their own entry: the two rulings, the question that surfaced the conflict, and the resolution with its consequence.
 
-## [08]-[EXIT_TESTS]
+## [09]-[EXIT_TESTS]
 
-Each stage carries an explicit completion criterion; a stage with no criterion runs past its gap.
+Each stage carries an explicit completion criterion; a stage with no criterion runs past its gap. The round loop and the seal carry their exits in the skill entry.
 
 - Context-gathering ends when the user's dump adds no new fact, not when the first answer arrives.
 - Follow-up ends when gap-detection finds no new gap in the latest answer; follow-ups are derived from named gaps, never from a generic prompt bank.
-- The round loop ends when two consecutive rounds change no ruling.
-- The seal test is a fresh cold read raising no new question — reader comprehension, never author satisfaction.

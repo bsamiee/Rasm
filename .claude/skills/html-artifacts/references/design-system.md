@@ -27,17 +27,23 @@ Semantic names only. A consumer reads intent, not hex. Dark values ship through 
 - Shape: `--r1`..`--r3` `--shadow-1` `--shadow-2` `--measure` — radii, elevation, content column.
 - Font: `--font-sans` `--font-mono` — system stack, mono for code, chips, numerics.
 
-The palette is Dracula: the dark theme carries the classic values on the official surface ladder, and the light theme is Alucard, the palette's own light counterpart — never an algorithmic inversion. Muted text is never load-bearing: the dark comment tone sits below body-text contrast by the palette's own design, so anything a reader must not miss rides `--text` or a status chip. Status color never carries state alone; the chip's bracket marker is the accessible carrier and the hue is reinforcement.
+The palette is Dracula: the dark theme carries the classic values on the surface ladder, and the light theme is Alucard, the palette's light counterpart — never an algorithmic inversion. Muted text is never load-bearing: the dark comment tone sits below body-text contrast by the palette's own design, so anything a reader must not miss rides `--text` or a status chip. Status color never carries state alone; the chip's bracket marker is the accessible carrier and the hue is reinforcement.
 
 System stacks only — `ui-sans-serif, system-ui` and `ui-monospace, SFMono-Regular, Menlo`. A webfont breaches the no-network contract, so the stack stays native.
 
 ## [03]-[BASELINE]
 
-```html
+The baseline declares the layer order and populates `reset`, `tokens`, `base`, `components`, `print`, and `overrides`; template-local rules land in `components`, `utilities`, or `overrides` — never unlayered, so the cascade stays owned by the layer order. Print flips the token set to the light palette on white, and forced colors hand the palette to the system.
+
+```html copy-safe
 <style>
 /* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
 :root{
   color-scheme:light;
   --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
@@ -67,6 +73,8 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
 }
+}
+@layer base{
 body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
 .wrap{max-width:var(--measure);margin:0 auto;padding:var(--s5) var(--s4)}
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
@@ -78,6 +86,10 @@ p,li{text-wrap:pretty}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer components{
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--f0);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
@@ -99,12 +111,18 @@ th{background:var(--surface);font-weight:600}tr:last-child td{border-bottom:0}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r1)}
 pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);font-size:var(--f1);line-height:1.5}
 pre code{background:none;padding:0}
-button,select,input,textarea{font:inherit;color:inherit}
 .btn{font-size:var(--f1);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer print{
 @media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:#ECE9DF;--raised:#fff;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+    --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
+    --shadow-1:none;--shadow-2:none;
+  }
   @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
@@ -112,6 +130,13 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   .card,tr,pre,figure{break-inside:avoid}
   body,.twrap,pre{overflow:visible}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--text:CanvasText;--muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
 }
 </style>
 ```

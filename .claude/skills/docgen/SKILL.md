@@ -4,8 +4,8 @@ description: >-
   Doc-gen foundation for durable agent-facing documents: the owning-voice register, altitude
   control, file-kind consistency and marker systems, the anti-anchoring law against enumerating
   or freezing facts prose cannot keep true, the named defect catalog (capability-gating,
-  legacy-compat, process-ledger, deleted-form litanies, coupling), and a deterministic prose
-  gate. Use when authoring, editing, reviewing, or rewriting any durable markdown — README,
+  legacy-compat, imported upstream posture, process-ledger, deleted-form litanies, coupling),
+  and a deterministic prose gate. Use when authoring, editing, reviewing, or rewriting any durable markdown — README,
   ARCHITECTURE, specs, standards, skills, prompts, tool docs — when designing a document schema
   or marker vocabulary, or when hunting noise, fragility, staleness, poison framing, or context
   anchoring.
@@ -59,6 +59,16 @@ The trust gate binds every identifier crossing into engine SQL.
 
 [CAPABILITY] — Capability lands as present-tense owned fact with deep foresight, or the sentence does not exist. Consumer count is never a design axis: nothing is deferred until demand, defended against an imagined objection, or preserved for an old reader. A capability that cannot yet be modeled gets silence; genuinely open work is a tracked card, never a soft sentence.
 
+[NAMED_SURFACE] — A nameable surface — member, command, key, flag, token — is written as a code span in its exact verified spelling; verification precedes authoring, an unverifiable member is a tracked open item never settled prose, and a nameable surface paraphrased in prose is a defect: the code span is the instruction.
+
+```markdown rejected
+Enable the merge-edges option and the network-simplex placement strategy in the layout block.
+```
+
+```markdown accepted
+The layout block carries `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPLEX`.
+```
+
 Rebuilding an existing document under this register is its own discipline — the source's frame is the primary contaminant; run the [references/rewriting.md](references/rewriting.md) procedure.
 
 ## [03]-[FACT_LAW]
@@ -70,7 +80,7 @@ Rebuilding an existing document under this register is its own discipline — th
 
 [REGENERATION_TEST] — Delete the sentence. A fresh agent regenerating the fact from disk plus the document's stated invariants proves it was a mirror: delete it, or demote it to a fenced representation when structure must be shown. A fact that cannot be regenerated is law kept at the altitude that owns it, still answerable to every defect class: surviving regeneration rules out the mirror alone, never a freeze, hedge, or ledger the catalog deletes.
 
-[ONE_OWNER] — A second prose copy of any fact, at any altitude, is a fork waiting to drift. A pointer names the owner and the one consumed symbol, nothing of its internals; a doctrine is stated once at its charter and never recited per page.
+[ONE_OWNER] — A second prose copy of any fact, at any altitude, is a fork waiting to drift. A pointer names the owner and the one consumed symbol, nothing of its internals; a doctrine is stated once at its charter and never recited per page. A corpus's vocabulary, owners, and policy values arrive settled in every later document — composed as given, never re-taught, renamed, or locally re-defined.
 
 Altitude tiers, routing law, representation choice, table design, file-kind schemas, and marker systems are [references/structure.md](references/structure.md).
 
@@ -79,7 +89,7 @@ Altitude tiers, routing law, representation choice, table design, file-kind sche
 The defect classes are the review vocabulary; findings cite class and line. Definitions, detection tests, pairs, and reframe rules are [references/defects.md](references/defects.md).
 
 [STRUCTURAL]: `ENUMERATION_ANCHOR` `STALE_MIRROR` `MECHANISM_LEAK` `META_FRAME` `TWIN_TRUTH` `REPORT_FRAME` `COUPLING`
-[SEMANTIC]: `HEDGE` `CAPABILITY_GATE` `LEGACY_COMPAT` `SET_IN_STONE` `WEAK_VERBS` `PROCESS_LEDGER` `ASSERTED_IMPOSSIBILITY` `DELETED_FORM_LITANY`
+[SEMANTIC]: `HEDGE` `CAPABILITY_GATE` `LEGACY_COMPAT` `IMPORTED_POSTURE` `VERSION_ANCHOR` `SET_IN_STONE` `WEAK_VERBS` `PROCESS_LEDGER` `ASSERTED_IMPOSSIBILITY` `DELETED_FORM_LITANY`
 
 ## [05]-[TEMPLATES]
 
@@ -114,6 +124,7 @@ Comments — in source and in transcription-complete fences alike — serve the 
 - Legal prohibition is the house register, not a defect — stated once at the owner it stands; recited per page it is `TWIN_TRUTH`; enumerated as a roster it is `DELETED_FORM_LITANY`.
 - Contract qualifiers survive the hedge ban: `optional`, `if present`, `where supported`, `when configured`, `only when`, `unless` scope behavior. Future tense survives only on a card growth line and a tracked research item.
 - Tooling docs are durable law too: a tool doc states its contract and routes verbs to live `--help`, never mirroring help output or narrating commands for a human tour.
+- Author satisfaction is never the exit: a durable doc seals on a context-free cold read that raises nothing — the producer's grade admits, the cold read decides.
 
 ## [09]-[REPO_INTEGRATION]
 

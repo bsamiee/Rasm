@@ -1,6 +1,6 @@
 # [LIFECYCLE]
 
-Draw a stateful owner: the resting modes it occupies and the guarded transitions between them. The template bakes in the state semantics an unassisted attempt flattens — every state is a mode the owner rests in, never an activity; guards leaving one state are disjoint, so the two `stop` exits cannot race; the fault path is a first-class state with a bounded recovery loop and a terminal abort, not an annotation; and the composite earns its nesting because its substates share every external transition. Use `stateDiagram-v2` with 5-9 states, `[*]` entry and exit, and a guard on every ambiguous transition. `stateDiagram-v2` takes no ELK — drop `layout: elk`; `look: neo` applies, and `classDef` styles plain states only, never `[*]` or a composite.
+Draw a stateful owner: the resting modes it occupies and the guarded transitions between them. The template bakes in the state semantics an unassisted attempt flattens — every state is a mode the owner rests in, never an activity; guards leaving one state are disjoint, so the two `stop` exits cannot race; the fault path is a first-class state with a bounded recovery loop and a terminal abort, not an annotation; and the composite earns its nesting because its substates share every external transition. Use `stateDiagram-v2` with 5-9 states, `[*]` entry and exit, and a guard on every ambiguous transition. `stateDiagram-v2` takes no ELK — drop `layout: elk`; `look: neo` applies, and `classDef` styles plain states only, never `[*]` or a composite. A once-walked path with no re-entry is a spine, never a lifecycle.
 
 ```mermaid
 ---
@@ -36,9 +36,9 @@ stateDiagram-v2
     Draining --> Closed: flushed
     Closed --> [*]
     classDef error fill:#FF5555,stroke:#FF5555,color:#282A36
-    classDef terminal fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
     class Faulted error
-    class Closed terminal
+    class Closed boundary
 ```
 
 Refill by renaming the modes to the real owner's vocabulary and keep the invariants — disjoint guards per source state, one fault state with its recovery bound, exactly one terminal reached by every path.

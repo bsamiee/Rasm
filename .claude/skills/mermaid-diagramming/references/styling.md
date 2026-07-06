@@ -2,24 +2,26 @@
 
 The engine's full styling grammar — every link form, node shape, container, and style statement under one ruled precedence. Color assignment rides the palette layer; this reference owns the mechanical surface.
 
+Sections: [01] edges and links - [02] shape registry - [03] containers - [04] precedence - [05] per-type matrix - [06] scope.
+
 ## [01]-[EDGES]
 
 The flowchart endpoint matrix is the stroke family crossed with the endpoint marker. Every cell is a working link; an open form omits the arrowhead, a marker on the left mirrors the right.
 
-| [STROKE] | [OPEN] | [POINT] | [CIRCLE] | [CROSS] | [POINT_BOTH] | [CIRCLE_BOTH] | [CROSS_BOTH] |
-| :------------ | :-------- | :--------- | :--------- | :--------- | :---------- | :---------- | :---------- |
-| Normal        | `A --- B` | `A --> B`  | `A --o B`  | `A --x B`  | `A <--> B`  | `A o--o B`  | `A x--x B`  |
-| Thick         | `A === B` | `A ==> B`  | `A ==o B`  | `A ==x B`  | `A <==> B`  | `A o==o B`  | `A x==x B`  |
-| Dotted        | `A -.- B` | `A -.-> B` | `A -.-o B` | `A -.-x B` | `A <-.-> B` | `A o-.-o B` | `A x-.-x B` |
-| Invisible     | `A ~~~ B` | —          | —          | —          | —           | —           | —           |
+| [INDEX] | [STROKE]  | [OPEN]    | [POINT]    | [CIRCLE]   | [CROSS]    | [POINT_BOTH] | [CIRCLE_BOTH] | [CROSS_BOTH] |
+| :-----: | :-------- | :-------- | :--------- | :--------- | :--------- | :----------- | :------------ | :----------- |
+|  [01]   | Normal    | `A --- B` | `A --> B`  | `A --o B`  | `A --x B`  | `A <--> B`   | `A o--o B`    | `A x--x B`   |
+|  [02]   | Thick     | `A === B` | `A ==> B`  | `A ==o B`  | `A ==x B`  | `A <==> B`   | `A o==o B`    | `A x==x B`   |
+|  [03]   | Dotted    | `A -.- B` | `A -.-> B` | `A -.-o B` | `A -.-x B` | `A <-.-> B`  | `A o-.-o B`   | `A x-.-x B`  |
+|  [04]   | Invisible | `A ~~~ B` | —          | —          | —          | —            | —             | —            |
 
 Extra dash, equals, or dot characters raise the minimum rank span; the renderer may still lengthen a link to satisfy layout, and the span caps at 10. With a middle label the extra characters sit right of the label: `A -- text ---> B`.
 
-| [SPAN] | [NORMAL] | [THICK] | [DOTTED] |
-| :----: | :---------- | :---------- | :----------- |
-|  [01]  | `A --> B`   | `A ==> B`   | `A -.-> B`   |
-|  [02]  | `A ---> B`  | `A ===> B`  | `A -..-> B`  |
-|  [03]  | `A ----> B` | `A ====> B` | `A -...-> B` |
+| [INDEX] | [NORMAL]    | [THICK]     | [DOTTED]     |
+| :-----: | :---------- | :---------- | :----------- |
+|  [01]   | `A --> B`   | `A ==> B`   | `A -.-> B`   |
+|  [02]   | `A ---> B`  | `A ===> B`  | `A -..-> B`  |
+|  [03]   | `A ----> B` | `A ====> B` | `A -...-> B` |
 
 Labels attach as a pipe pair or a middle segment on any stroke family:
 
@@ -61,13 +63,13 @@ The `linkStyle` property set is `stroke`, `stroke-width`, `stroke-dasharray`, `c
 
 Sequence lines carry no `linkStyle`; the stroke shape is the arrow token itself, and grouped backgrounds live in containers.
 
-| [FAMILY]      | [SOLID]   | [DOTTED]   |
-| :------------ | :-------- | :--------- |
-| Line          | `A->B`    | `A-->B`    |
-| Arrow         | `A->>B`   | `A-->>B`   |
-| Cross         | `A-xB`    | `A--xB`    |
-| Async         | `A-)B`    | `A--)B`    |
-| Bidirectional | `A<<->>B` | `A<<-->>B` |
+| [INDEX] | [FAMILY]      | [SOLID]   | [DOTTED]   |
+| :-----: | :------------ | :-------- | :--------- |
+|  [01]   | Line          | `A->B`    | `A-->B`    |
+|  [02]   | Arrow         | `A->>B`   | `A-->>B`   |
+|  [03]   | Cross         | `A-xB`    | `A--xB`    |
+|  [04]   | Async         | `A-)B`    | `A--)B`    |
+|  [05]   | Bidirectional | `A<<->>B` | `A<<-->>B` |
 
 Activation shorthand fuses to the arrow: `A->>+B` opens an activation, `B-->>-A` closes it; every `+` balances a `-`.
 
@@ -189,15 +191,15 @@ A metadata block also accepts `label` to override the bracket text, and the `tex
 
 Containers style through the id, never the title, and each type admits a bounded route.
 
-| [INDEX] | [CONTAINER]        | [STYLE_ROUTE]                                                     | [UNSTYLEABLE]                  |
-| :-----: | :----------------- | :---------------------------------------------------------------- | :----------------------------- |
-|  [01]   | Flowchart subgraph | `style id`, `class id`, `classDef` by id; inner `direction`       | title text                     |
-|  [02]   | State composite    | class on inner states only                                        | `[*]` and the composite itself |
-|  [03]   | Sequence `box`     | named color, `rgb(...)`, `rgba(...)`, `transparent`, or text-only | —                              |
-|  [04]   | Sequence `rect`    | `rect rgb(...)` or `rect rgba(...)` background                    | named color                    |
-|  [05]   | Block              | `class`/`style` by id, nesting                                    | title text                     |
-|  [06]   | Architecture group | theme variables `archGroupBorder*`, `archEdge*`                   | in-diagram class/style         |
-|  [07]   | Class namespace    | theme only                                                        | individual note/namespace      |
+| [INDEX] | [CONTAINER]        | [STYLE_ROUTE]                                                     | [UNSTYLEABLE]                        |
+| :-----: | :----------------- | :---------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | Flowchart subgraph | `style id`, `class id`, `classDef` by id; inner `direction`       | title text                           |
+|  [02]   | State composite    | class on plain states; composite class lands in the DOM           | `[*]` markers; composite fill/stroke |
+|  [03]   | Sequence `box`     | named color, `rgb(...)`, `rgba(...)`, `transparent`, or text-only | —                                    |
+|  [04]   | Sequence `rect`    | `rect rgb(...)` or `rect rgba(...)` background                    | named color                          |
+|  [05]   | Block              | `class`/`style` by id, nesting                                    | title text                           |
+|  [06]   | Architecture group | theme variables `archGroupBorder*`, `archEdge*`                   | in-diagram class/style               |
+|  [07]   | Class namespace    | theme only                                                        | individual note/namespace            |
 
 A subgraph names its id and title as `subgraph id [Title]`, nests, and takes an inner `direction`; that inner direction is dropped and inherited from the parent the moment any member node links outside the block. `style id` on the subgraph beats `clusterBkg`, and a class on the subgraph id colors the title text over `titleColor`.
 
@@ -211,16 +213,17 @@ Node styling resolves in application order, later and more specific winning.
 - Inline `style id ...` is the direct override and wins last — the engine emits it as an inline `!important` declaration; its property set is `fill`, `stroke`, `stroke-width`, `color`, and `stroke-dasharray`.
 - `classDef` rules emit with `!important`, so a `themeCSS` rule without `!important` loses to any class on the same node.
 
-A node carries more than one class through several forms.
+Class assignment splits by family — flowchart binds one class per statement, ER admits a comma list on one node.
 
-| [INDEX] | [FORM]              | [SYNTAX]                    |
-| :-----: | :------------------ | :-------------------------- |
-|  [01]   | Shorthand class     | `A:::name` or stacked `A:::a:::b` |
-|  [02]   | Post-hoc assignment | `class A,B name`            |
-|  [03]   | Comma class list    | `CUSTOMER:::important,external` |
-|  [04]   | Node and class list | `class n1,n2 c1,c2`         |
+| [INDEX] | [FAMILY]  | [FORM]                | [SYNTAX]                        |
+| :-----: | :-------- | :-------------------- | :------------------------------ |
+|  [01]   | Flowchart | One class inline      | `A:::name`                      |
+|  [02]   | Flowchart | One class across many | `class A,B name`                |
+|  [03]   | ER        | Comma class list      | `CUSTOMER:::important,external` |
 
-Edge styling resolves along a parallel chain: theme line variables, then `linkStyle default`, then positional `linkStyle N`, a repeated index resolving last-wins. A class on an edge id rides the edge group yet never beats a same-edge `linkStyle` stroke; edge metadata `e1@{ animate }`, `e1@{ animation }`, and `e1@{ curve }` owns behavior alone; `style e1 ...` on an edge id renders and silently no-ops; and an invisible `~~~` link stays invisible under any `linkStyle`.
+A flowchart node takes one class per statement: stacked `A:::a:::b` raises a parse error, and `class N a,b` binds the single literal class token `a,b` rather than two classes.
+
+Edge styling resolves along a parallel chain: theme line variables, then `linkStyle default`, then positional `linkStyle N`, a repeated index resolving last-wins. A class on an edge id rides the edge group yet never beats a same-edge `linkStyle` stroke; edge metadata `e1@{ animate }`, `e1@{ animation }`, and `e1@{ curve }` owns behavior alone; `style e1 ...` on an edge id renders and silently no-ops; and a `linkStyle` on a `~~~` edge writes inline stroke that overrides the invisible class, turning the rank edge visible, so a rank-only edge never takes `linkStyle`.
 
 ```mermaid
 ---
@@ -261,32 +264,32 @@ flowchart LR
 
 Each diagram type accepts a bounded set of styling statements; `yes` is verified acceptance, `no` is no verified route, and the local mechanism is the type's own styling surface.
 
-| [INDEX] | [TYPE]       | [CLASSDEF] | [TRIPLE_COLON] | [STYLE] | [LINKSTYLE] | [LOCAL]                                            |
-| :-----: | :----------- | :--------: | :------------: | :-----: | :---------: | :------------------------------------------------- |
-|  [01]   | Flowchart    |    yes     |      yes       |   yes   |     yes     | edge ids, metadata, curves, animation, icon/image  |
-|  [02]   | Sequence     |     no     |       no       |   no    |     no      | `box`, `rect` backgrounds                          |
-|  [03]   | State        |    yes     |      yes       |   yes   |     no      | composite state classes; no transition route       |
-|  [04]   | Class        |    yes     |      yes       |   yes   |     no      | relation arrows, lollipop interfaces               |
-|  [05]   | ER           |    yes     |      yes       |   yes   |     no      | identifying `--` vs non-identifying `..`           |
-|  [06]   | Gantt        |     no     |       no       |   no    |     no      | `todayMarker`, section styles via config           |
-|  [07]   | Pie          |     no     |       no       |   no    |     no      | ordinal `pie1`–`pie12` theme variables             |
-|  [08]   | Quadrant     |    yes     |      yes       |   no    |     no      | point-local `color`/`radius`/`stroke-*`            |
-|  [09]   | Timeline     |     no     |       no       |   no    |     no      | `cScale0`–`cScale11` theme variables               |
-|  [10]   | Mindmap      |     no     |      yes       |   no    |     no      | host-supplied classes, `::icon(...)`               |
-|  [11]   | Kanban       |     no     |       no       |   no    |     no      | task metadata block, config keys                   |
-|  [12]   | GitGraph     |     no     |       no       |   no    |     no      | `git0`–`git7` and label theme variables            |
-|  [13]   | Requirement  |    yes     |      yes       |   yes   |     no      | direct requirement/element styling                 |
-|  [14]   | Architecture |     no     |       no       |   no    |     no      | `archEdge*` and `archGroupBorder*` theme variables |
-|  [15]   | Block        |    yes     |       no       |   yes   |     no      | `class`/`style` by id, nesting                     |
-|  [16]   | Sankey       |     no     |       no       |   no    |     no      | link color strategy via config                     |
-|  [17]   | XY chart     |     no     |       no       |   no    |     no      | plot palette via config theme variables            |
-|  [18]   | Radar        |     no     |       no       |   no    |     no      | `cScale${i}` and nested `radar` variables          |
-|  [19]   | Treemap      |    yes     |      yes       |   no    |     no      | node-local `:::class` and `classDef`               |
+| [INDEX] | [TYPE]       | [CLASSDEF] | [TRIPLE_COLON] | [STYLE] | [LINKSTYLE] | [LOCAL]                                              |
+| :-----: | :----------- | :--------: | :------------: | :-----: | :---------: | :--------------------------------------------------- |
+|  [01]   | Flowchart    |    yes     |      yes       |   yes   |     yes     | edge ids, metadata, curves, animation, icon/image    |
+|  [02]   | Sequence     |     no     |       no       |   no    |     no      | `box`, `rect` backgrounds                            |
+|  [03]   | State        |    yes     |      yes       |   yes   |     no      | composite state classes; no transition route         |
+|  [04]   | Class        |    yes     |      yes       |   yes   |     no      | relation arrows, lollipop interfaces                 |
+|  [05]   | ER           |    yes     |      yes       |   yes   |     no      | identifying `--` vs non-identifying `..`             |
+|  [06]   | Gantt        |     no     |       no       |   no    |     no      | `todayMarker`, section styles via config             |
+|  [07]   | Pie          |     no     |       no       |   no    |     no      | ordinal `pie1`–`pie12` theme variables               |
+|  [08]   | Quadrant     |    yes     |      yes       |   no    |     no      | point-local `color`/`radius`/`stroke-*`              |
+|  [09]   | Timeline     |     no     |       no       |   no    |     no      | `cScale0`–`cScale11` theme variables                 |
+|  [10]   | Mindmap      |     no     |      yes       |   no    |     no      | host-supplied classes, `::icon(...)`                 |
+|  [11]   | Kanban       |     no     |       no       |   no    |     no      | task metadata block, config keys                     |
+|  [12]   | GitGraph     |     no     |       no       |   no    |     no      | `git0`–`git7` and label theme variables              |
+|  [13]   | Requirement  |    yes     |      yes       |   yes   |     no      | direct requirement/element styling                   |
+|  [14]   | Architecture |     no     |       no       |   no    |     no      | `archEdge*` and `archGroupBorder*` theme variables   |
+|  [15]   | Block        |    yes     |       no       |   yes   |     no      | `class`/`style` by id, nesting                       |
+|  [16]   | Sankey       |     no     |       no       |   no    |     no      | link color strategy via config                       |
+|  [17]   | XY chart     |     no     |       no       |   no    |     no      | plot palette via config theme variables              |
+|  [18]   | Radar        |     no     |       no       |   no    |     no      | `cScale${i}` and nested `radar` variables            |
+|  [19]   | Treemap      |    yes     |      yes       |   no    |     no      | node-local `:::class` and `classDef`                 |
 |  [20]   | Packet       |     no     |       no       |   no    |     no      | `blockStrokeColor`, `blockFillColor` theme variables |
-|  [21]   | Journey      |     no     |       no       |   no    |     no      | `fillType0`–`fillType7` theme variables            |
-|  [22]   | C4           |     no     |       no       |   no    |     no      | `UpdateElementStyle`, `UpdateRelStyle`             |
+|  [21]   | Journey      |     no     |       no       |   no    |     no      | `fillType0`–`fillType7` theme variables              |
+|  [22]   | C4           |     no     |       no       |   no    |     no      | `UpdateElementStyle`, `UpdateRelStyle`               |
 
-The silent traps live where syntax parses but styling does not apply: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling never reaches `[*]` or a composite state even where the parser accepts the statement; and the packet theme-variable block is inert in the current build.
+The silent traps live where syntax parses but styling does not apply: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling reaches plain states while a composite class parses and lands in the DOM with its fill and stroke non-portable and `[*]` markers unstyleable; and the packet theme-variable block is inert in the current build.
 
 ## [06]-[SCOPE]
 

@@ -16,7 +16,7 @@ An annotation lives a three-state life: `active` when authored, `exported` only 
 
 One canonical envelope carries every export; a runtime wrapper transforms it at the boundary but never redefines it.
 
-```json
+```json conceptual
 {
   "kind": "plan",
   "version": 1,

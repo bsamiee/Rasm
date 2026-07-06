@@ -7,12 +7,16 @@
 <title>Dashboard: Verification Runs</title>
 <style>
 /* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
 :root{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
   --f0:12px;--f1:13.5px;--f2:15px;--f3:18px;--f4:24px;--f5:32px;
   --r1:6px;--r2:10px;--r3:14px;--measure:1100px;
@@ -22,22 +26,24 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme]){
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }
 :root[data-theme="light"]{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
 }
+}
+@layer base{
 body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
 .wrap{max-width:var(--measure);margin:0 auto;padding:var(--s5) var(--s4)}
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
@@ -49,6 +55,10 @@ p,li{text-wrap:pretty}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer components{
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--f0);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
@@ -70,12 +80,18 @@ th{background:var(--surface);font-weight:600}tr:last-child td{border-bottom:0}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r1)}
 pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);font-size:var(--f1);line-height:1.5}
 pre code{background:none;padding:0}
-button,select,input,textarea{font:inherit;color:inherit}
 .btn{font-size:var(--f1);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer print{
 @media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:#ECE9DF;--raised:#fff;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+    --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
+    --shadow-1:none;--shadow-2:none;
+  }
   @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
@@ -84,70 +100,161 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   body,.twrap,pre{overflow:visible}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
-/* --- [DASHBOARD_LOCAL] --- */
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--text:CanvasText;--muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+}
+</style>
+<style>
+/* --- [DASHBOARD_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer tokens{
+:root{
+  --step-title:clamp(1.6rem,1.2rem + 1.6cqi,2rem);
+  --step-stat:clamp(1.5rem,1rem + 2.4cqi,var(--f5));
+  --dur:0ms;--ease:cubic-bezier(.16,1,.3,1);
+  --flag-fill:color-mix(in oklch,var(--warn) 18%,transparent);
+  --row-flagged:color-mix(in oklch,var(--accent) 10%,transparent);
+  --btn-fill:color-mix(in oklch,var(--accent) 88%,white);
+  --set-on:color-mix(in oklch,var(--accent) 16%,transparent);
+  --chart-ok:var(--ok);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme]){--chart-ok:color-mix(in oklch,var(--ok) 55%,var(--surface))}}
+:root[data-theme="dark"]{--chart-ok:color-mix(in oklch,var(--ok) 55%,var(--surface))}
+@media (prefers-reduced-motion:no-preference){:root{--dur:180ms}}
+}
+@layer components{
 .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
+.head-tools{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center}
+.head h1{font-size:var(--step-title)}
+.head time{font-family:var(--font-mono);font-size:var(--f1);color:var(--muted)}
 .filters{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:center;margin:var(--s4) 0}
 .filters label{display:flex;gap:var(--s2);align-items:center;font-size:var(--f1);color:var(--muted)}
-.kpis{margin:var(--s4) 0}
-.stat{font-size:var(--f5);line-height:1.1;margin-top:var(--s1)}
+.filter-count{font-family:var(--font-mono);font-size:var(--f0);color:var(--muted)}
+.disclosure{font-size:var(--f1);margin:var(--s2) 0}
+.kpis{container:kpis / inline-size;margin:var(--s4) 0}
+.kpi{display:grid;gap:var(--s1)}
+.stat{font-size:var(--step-stat);line-height:1.1;font-variant-numeric:tabular-nums}
 .stat.ok{color:var(--ok)}.stat.fail{color:var(--fail)}
-.charts figure{margin:0}
-.charts figcaption{margin-bottom:var(--s2)}
-.charts .twrap{padding:var(--s2)}
+.charts figure{margin:0;display:grid;gap:var(--s2)}
+.chart{padding:var(--s2)}
+.chart svg{display:block}
 th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap}
 th[aria-sort=ascending]::after{content:" \2191";color:var(--accent)}
 th[aria-sort=descending]::after{content:" \2193";color:var(--accent)}
 td[data-cell=status]{text-transform:uppercase;font-family:var(--font-mono);font-size:var(--f0);font-weight:600}
-td.pass{color:var(--ok)}td.fail{color:var(--fail)}td.skip{color:var(--warn)}
-.bar{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin:var(--s5) 0}
-.bar textarea{flex:1;min-width:220px;min-height:44px;font-family:var(--font-mono);font-size:var(--f0)}
+td[data-cell=status].pass{color:var(--ok)}td[data-cell=status].fail{color:var(--fail)}td[data-cell=status].skip{color:var(--warn)}
+tbody tr:has(.flag-btn[data-on]){background:var(--row-flagged)}
+.flag-cell{white-space:nowrap}
+.flag-btn{padding:2px var(--s2);line-height:1}
+.flag-btn[data-on]{border-color:var(--warn);background:var(--flag-fill);color:var(--warn)}
+.export-bar{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin:var(--s5) 0}
+.export-bar textarea{flex:1 1 260px;min-height:44px;font-family:var(--font-mono);font-size:var(--f0)}
+.verdict-pick{display:flex;gap:var(--s2);align-items:center;font-size:var(--f1);color:var(--muted)}
+.export-status{font-size:var(--f1);color:var(--muted)}
+.pop{min-inline-size:230px;display:grid;gap:var(--s2);padding:var(--s3);border:1px solid var(--line);border-radius:var(--r2);background:var(--raised);box-shadow:var(--shadow-2)}
+.pop-title{margin:0;font-weight:600}
+.pop .verdict-row{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.pop [data-verdict-set][data-on]{border-color:var(--accent);background:var(--set-on);color:var(--accent)}
+.pop-note{display:grid;gap:var(--s1);font-size:var(--f1)}
+.pop-note textarea{width:100%;font-family:var(--font-mono);font-size:var(--f0)}
+#toast{position:fixed;inset:auto var(--s4) var(--s4) auto;margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r2);background:var(--raised);box-shadow:var(--shadow-2);font-size:var(--f1)}
+.card{transition:background-color var(--dur) var(--ease)}
+.btn{transition:border-color var(--dur) var(--ease),background-color var(--dur) var(--ease)}
+.btn:hover:not(:disabled){background:var(--btn-fill);color:var(--bg)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+}
+@layer utilities{
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:5;background:var(--raised);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1)}
+}
+@layer print{
+@media print{
+  .export-bar,.filters,.head-tools,.flag-cell,.skip,.disclosure{display:none!important}
+  .kpis,.charts figure,tbody tr{break-inside:avoid}
+}
+}
+@layer overrides{
+@container kpis (inline-size < 30rem){.kpis .grid,.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (forced-colors:active){.flag-btn[data-on]{border:2px solid CanvasText}}
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#board">Skip to data board</a>
 <div class="wrap">
   <header class="head">
-    <div><h1>Dashboard: Verification Runs</h1><small>Filterable board over an embedded run log. KPIs and charts recompute under the active filter.</small></div>
-    <!-- replace: filter facet options, date -->
-    <div class="filters no-print">
-      <search>
-        <label>Filter <input type="search" data-filter-box placeholder="Filter runs"></label>
-        <label>Suite <select data-facet><option value="all">All suites</option></select></label>
-      </search>
-      <small>YYYY-MM-DD</small> <button type="button" class="btn" data-toggle-theme>Theme</button>
+    <div>
+      <!-- replace: page title -->
+      <h1>Dashboard: Verification Runs</h1>
+      <small>Filterable board over an embedded run log; KPIs and charts recompute under the active filter.</small>
+    </div>
+    <div class="head-tools no-print">
+      <span class="chip info">[LIVE]</span>
+      <!-- replace: report date -->
+      <time datetime="2026-07-06">2026-07-06</time>
+      <button type="button" class="btn" data-toggle-theme aria-label="Toggle color theme">Theme</button>
     </div>
   </header>
 
-  <!-- replace: embedded dataset — id, suite, status, duration_ms, owner, day -->
-  <script type="application/json" id="data">[{"id": 1, "suite": "geometry", "status": "fail", "duration_ms": 40, "owner": "kernel", "day": "2026-06-29"}, {"id": 2, "suite": "compute", "status": "pass", "duration_ms": 77, "owner": "seam", "day": "2026-06-30"}, {"id": 3, "suite": "persistence", "status": "pass", "duration_ms": 114, "owner": "host", "day": "2026-07-01"}, {"id": 4, "suite": "bridge", "status": "pass", "duration_ms": 151, "owner": "bim", "day": "2026-07-02"}, {"id": 5, "suite": "artifacts", "status": "pass", "duration_ms": 188, "owner": "kernel", "day": "2026-07-03"}, {"id": 6, "suite": "runtime", "status": "pass", "duration_ms": 225, "owner": "seam", "day": "2026-07-04"}, {"id": 7, "suite": "geometry", "status": "pass", "duration_ms": 262, "owner": "host", "day": "2026-07-05"}, {"id": 8, "suite": "compute", "status": "skip", "duration_ms": 299, "owner": "bim", "day": "2026-07-06"}, {"id": 9, "suite": "persistence", "status": "pass", "duration_ms": 336, "owner": "kernel", "day": "2026-06-29"}, {"id": 10, "suite": "bridge", "status": "fail", "duration_ms": 373, "owner": "seam", "day": "2026-06-30"}, {"id": 11, "suite": "artifacts", "status": "pass", "duration_ms": 410, "owner": "host", "day": "2026-07-01"}, {"id": 12, "suite": "runtime", "status": "pass", "duration_ms": 447, "owner": "bim", "day": "2026-07-02"}, {"id": 13, "suite": "geometry", "status": "pass", "duration_ms": 484, "owner": "kernel", "day": "2026-07-03"}, {"id": 14, "suite": "compute", "status": "pass", "duration_ms": 521, "owner": "seam", "day": "2026-07-04"}, {"id": 15, "suite": "persistence", "status": "skip", "duration_ms": 558, "owner": "host", "day": "2026-07-05"}, {"id": 16, "suite": "bridge", "status": "pass", "duration_ms": 595, "owner": "bim", "day": "2026-07-06"}, {"id": 17, "suite": "artifacts", "status": "pass", "duration_ms": 632, "owner": "kernel", "day": "2026-06-29"}, {"id": 18, "suite": "runtime", "status": "pass", "duration_ms": 669, "owner": "seam", "day": "2026-06-30"}, {"id": 19, "suite": "geometry", "status": "fail", "duration_ms": 706, "owner": "host", "day": "2026-07-01"}, {"id": 20, "suite": "compute", "status": "pass", "duration_ms": 743, "owner": "bim", "day": "2026-07-02"}, {"id": 21, "suite": "persistence", "status": "pass", "duration_ms": 780, "owner": "kernel", "day": "2026-07-03"}, {"id": 22, "suite": "bridge", "status": "skip", "duration_ms": 817, "owner": "seam", "day": "2026-07-04"}, {"id": 23, "suite": "artifacts", "status": "pass", "duration_ms": 854, "owner": "host", "day": "2026-07-05"}, {"id": 24, "suite": "runtime", "status": "pass", "duration_ms": 891, "owner": "bim", "day": "2026-07-06"}, {"id": 25, "suite": "geometry", "status": "pass", "duration_ms": 928, "owner": "kernel", "day": "2026-06-29"}, {"id": 26, "suite": "compute", "status": "pass", "duration_ms": 965, "owner": "seam", "day": "2026-06-30"}, {"id": 27, "suite": "persistence", "status": "pass", "duration_ms": 42, "owner": "host", "day": "2026-07-01"}, {"id": 28, "suite": "bridge", "status": "fail", "duration_ms": 79, "owner": "bim", "day": "2026-07-02"}, {"id": 29, "suite": "artifacts", "status": "skip", "duration_ms": 116, "owner": "kernel", "day": "2026-07-03"}, {"id": 30, "suite": "runtime", "status": "pass", "duration_ms": 153, "owner": "seam", "day": "2026-07-04"}, {"id": 31, "suite": "geometry", "status": "pass", "duration_ms": 190, "owner": "host", "day": "2026-07-05"}, {"id": 32, "suite": "compute", "status": "pass", "duration_ms": 227, "owner": "bim", "day": "2026-07-06"}, {"id": 33, "suite": "persistence", "status": "pass", "duration_ms": 264, "owner": "kernel", "day": "2026-06-29"}, {"id": 34, "suite": "bridge", "status": "pass", "duration_ms": 301, "owner": "seam", "day": "2026-06-30"}, {"id": 35, "suite": "artifacts", "status": "pass", "duration_ms": 338, "owner": "host", "day": "2026-07-01"}, {"id": 36, "suite": "runtime", "status": "skip", "duration_ms": 375, "owner": "bim", "day": "2026-07-02"}, {"id": 37, "suite": "geometry", "status": "fail", "duration_ms": 412, "owner": "kernel", "day": "2026-07-03"}, {"id": 38, "suite": "compute", "status": "pass", "duration_ms": 449, "owner": "seam", "day": "2026-07-04"}, {"id": 39, "suite": "persistence", "status": "pass", "duration_ms": 486, "owner": "host", "day": "2026-07-05"}, {"id": 40, "suite": "bridge", "status": "pass", "duration_ms": 523, "owner": "bim", "day": "2026-07-06"}, {"id": 41, "suite": "artifacts", "status": "pass", "duration_ms": 560, "owner": "kernel", "day": "2026-06-29"}, {"id": 42, "suite": "runtime", "status": "pass", "duration_ms": 597, "owner": "seam", "day": "2026-06-30"}, {"id": 43, "suite": "geometry", "status": "skip", "duration_ms": 634, "owner": "host", "day": "2026-07-01"}, {"id": 44, "suite": "compute", "status": "pass", "duration_ms": 671, "owner": "bim", "day": "2026-07-02"}, {"id": 45, "suite": "persistence", "status": "pass", "duration_ms": 708, "owner": "kernel", "day": "2026-07-03"}, {"id": 46, "suite": "bridge", "status": "fail", "duration_ms": 745, "owner": "seam", "day": "2026-07-04"}, {"id": 47, "suite": "artifacts", "status": "pass", "duration_ms": 782, "owner": "host", "day": "2026-07-05"}, {"id": 48, "suite": "runtime", "status": "pass", "duration_ms": 819, "owner": "bim", "day": "2026-07-06"}]</script>
+  <search class="filters no-print" aria-label="Run filters">
+    <label>Filter <input type="search" data-filter-box placeholder="Filter across all columns" aria-label="Filter runs by text"></label>
+    <label>Suite <select data-facet aria-label="Filter runs by suite"><option value="all">All suites</option></select></label>
+    <output class="filter-count" data-count aria-live="polite"></output>
+  </search>
 
-  <div class="grid kpis">
-    <div class="card"><small>Total runs</small><div class="stat num" data-kpi="total">0</div></div>
-    <div class="card"><small>Passed</small><div class="stat num ok" data-kpi="pass">0</div></div>
-    <div class="card"><small>Failed</small><div class="stat num fail" data-kpi="fail">0</div></div>
-    <div class="card"><small>Pass rate</small><div class="stat num" data-kpi="rate">0%</div></div>
-  </div>
+  <p class="disclosure muted">A filter hides rows from view, never from the embedded source: the full run log stays in the page payload and every export can carry it.</p>
 
-  <div class="grid charts">
-    <figure class="card"><figcaption><small>Runs by suite</small></figcaption><div class="twrap" data-chart="bar"></div></figure>
-    <figure class="card"><figcaption><small>Pass rate by day</small></figcaption><div class="twrap" data-chart="line"></div></figure>
-  </div>
+  <!-- replace: embedded dataset payload — meta plus run rows (id, suite, status, duration_ms, owner, day) -->
+  <script type="application/json" id="payload">{"meta": {"title": "Dashboard: Verification Runs", "owner": "verify", "date": "2026-07-06"}, "rows": [{"id": 1, "suite": "geometry", "status": "fail", "duration_ms": 40, "owner": "kernel", "day": "2026-06-29"}, {"id": 2, "suite": "compute", "status": "pass", "duration_ms": 77, "owner": "seam", "day": "2026-06-30"}, {"id": 3, "suite": "persistence", "status": "pass", "duration_ms": 114, "owner": "host", "day": "2026-07-01"}, {"id": 4, "suite": "bridge", "status": "pass", "duration_ms": 151, "owner": "bim", "day": "2026-07-02"}, {"id": 5, "suite": "artifacts", "status": "pass", "duration_ms": 188, "owner": "core", "day": "2026-07-03"}, {"id": 6, "suite": "runtime", "status": "pass", "duration_ms": 225, "owner": "docs", "day": "2026-07-04"}, {"id": 7, "suite": "geometry", "status": "pass", "duration_ms": 262, "owner": "kernel", "day": "2026-07-05"}, {"id": 8, "suite": "compute", "status": "skip", "duration_ms": 299, "owner": "seam", "day": "2026-07-06"}, {"id": 9, "suite": "persistence", "status": "pass", "duration_ms": 336, "owner": "host", "day": "2026-06-29"}, {"id": 10, "suite": "bridge", "status": "fail", "duration_ms": 373, "owner": "bim", "day": "2026-06-30"}, {"id": 11, "suite": "artifacts", "status": "pass", "duration_ms": 410, "owner": "core", "day": "2026-07-01"}, {"id": 12, "suite": "runtime", "status": "pass", "duration_ms": 447, "owner": "docs", "day": "2026-07-02"}, {"id": 13, "suite": "geometry", "status": "pass", "duration_ms": 484, "owner": "kernel", "day": "2026-07-03"}, {"id": 14, "suite": "compute", "status": "pass", "duration_ms": 521, "owner": "seam", "day": "2026-07-04"}, {"id": 15, "suite": "persistence", "status": "skip", "duration_ms": 558, "owner": "host", "day": "2026-07-05"}, {"id": 16, "suite": "bridge", "status": "pass", "duration_ms": 595, "owner": "bim", "day": "2026-07-06"}, {"id": 17, "suite": "artifacts", "status": "pass", "duration_ms": 632, "owner": "core", "day": "2026-06-29"}, {"id": 18, "suite": "runtime", "status": "pass", "duration_ms": 669, "owner": "docs", "day": "2026-06-30"}, {"id": 19, "suite": "geometry", "status": "fail", "duration_ms": 706, "owner": "kernel", "day": "2026-07-01"}, {"id": 20, "suite": "compute", "status": "pass", "duration_ms": 743, "owner": "seam", "day": "2026-07-02"}, {"id": 21, "suite": "persistence", "status": "pass", "duration_ms": 780, "owner": "host", "day": "2026-07-03"}, {"id": 22, "suite": "bridge", "status": "skip", "duration_ms": 817, "owner": "bim", "day": "2026-07-04"}, {"id": 23, "suite": "artifacts", "status": "pass", "duration_ms": 854, "owner": "core", "day": "2026-07-05"}, {"id": 24, "suite": "runtime", "status": "pass", "duration_ms": 891, "owner": "docs", "day": "2026-07-06"}, {"id": 25, "suite": "geometry", "status": "pass", "duration_ms": 928, "owner": "kernel", "day": "2026-06-29"}, {"id": 26, "suite": "compute", "status": "pass", "duration_ms": 42, "owner": "seam", "day": "2026-06-30"}, {"id": 27, "suite": "persistence", "status": "pass", "duration_ms": 79, "owner": "host", "day": "2026-07-01"}, {"id": 28, "suite": "bridge", "status": "fail", "duration_ms": 116, "owner": "bim", "day": "2026-07-02"}, {"id": 29, "suite": "artifacts", "status": "skip", "duration_ms": 153, "owner": "core", "day": "2026-07-03"}, {"id": 30, "suite": "runtime", "status": "pass", "duration_ms": 190, "owner": "docs", "day": "2026-07-04"}, {"id": 31, "suite": "geometry", "status": "pass", "duration_ms": 227, "owner": "kernel", "day": "2026-07-05"}, {"id": 32, "suite": "compute", "status": "pass", "duration_ms": 264, "owner": "seam", "day": "2026-07-06"}, {"id": 33, "suite": "persistence", "status": "pass", "duration_ms": 301, "owner": "host", "day": "2026-06-29"}, {"id": 34, "suite": "bridge", "status": "pass", "duration_ms": 338, "owner": "bim", "day": "2026-06-30"}, {"id": 35, "suite": "artifacts", "status": "pass", "duration_ms": 375, "owner": "core", "day": "2026-07-01"}, {"id": 36, "suite": "runtime", "status": "skip", "duration_ms": 412, "owner": "docs", "day": "2026-07-02"}, {"id": 37, "suite": "geometry", "status": "fail", "duration_ms": 449, "owner": "kernel", "day": "2026-07-03"}, {"id": 38, "suite": "compute", "status": "pass", "duration_ms": 486, "owner": "seam", "day": "2026-07-04"}, {"id": 39, "suite": "persistence", "status": "pass", "duration_ms": 523, "owner": "host", "day": "2026-07-05"}, {"id": 40, "suite": "bridge", "status": "pass", "duration_ms": 560, "owner": "bim", "day": "2026-07-06"}, {"id": 41, "suite": "artifacts", "status": "pass", "duration_ms": 597, "owner": "core", "day": "2026-06-29"}, {"id": 42, "suite": "runtime", "status": "pass", "duration_ms": 634, "owner": "docs", "day": "2026-06-30"}, {"id": 43, "suite": "geometry", "status": "skip", "duration_ms": 671, "owner": "kernel", "day": "2026-07-01"}, {"id": 44, "suite": "compute", "status": "pass", "duration_ms": 708, "owner": "seam", "day": "2026-07-02"}, {"id": 45, "suite": "persistence", "status": "pass", "duration_ms": 745, "owner": "host", "day": "2026-07-03"}, {"id": 46, "suite": "bridge", "status": "fail", "duration_ms": 782, "owner": "bim", "day": "2026-07-04"}, {"id": 47, "suite": "artifacts", "status": "pass", "duration_ms": 819, "owner": "core", "day": "2026-07-05"}, {"id": 48, "suite": "runtime", "status": "pass", "duration_ms": 856, "owner": "docs", "day": "2026-07-06"}]}</script>
 
-  <div class="twrap"><table>
-    <thead><tr>
-      <th data-sort="id" aria-sort="none">ID</th>
-      <th data-sort="suite" aria-sort="none">Suite</th>
-      <th data-sort="status" aria-sort="none">Status</th>
-      <th data-sort="duration_ms" aria-sort="none">Duration (ms)</th>
-      <th data-sort="owner" aria-sort="none">Owner</th>
-      <th data-sort="day" aria-sort="none">Day</th>
-    </tr></thead>
-    <tbody></tbody>
-  </table></div>
+  <section class="kpis grid" aria-label="Recomputed indicators">
+    <div class="card kpi"><small>Matching runs</small><div class="stat num" data-kpi="total">0</div></div>
+    <div class="card kpi"><small>Passed</small><div class="stat num ok" data-kpi="pass">0</div></div>
+    <div class="card kpi"><small>Failed</small><div class="stat num fail" data-kpi="fail">0</div></div>
+    <div class="card kpi"><small>Pass rate</small><div class="stat num" data-kpi="rate">0%</div></div>
+  </section>
 
-  <footer class="bar no-print">
+  <section class="charts grid" aria-label="Recomputed charts">
+    <figure class="card"><figcaption><small>Runs by suite (pass / fail / skip)</small></figcaption><div class="twrap chart" data-chart="bar"></div></figure>
+    <figure class="card"><figcaption><small>Pass rate by day</small></figcaption><div class="twrap chart" data-chart="line"></div></figure>
+  </section>
+
+  <main id="board" tabindex="-1">
+    <p class="disclosure muted" data-truncation hidden></p>
+    <div class="twrap"><table aria-label="Verification runs">
+      <thead><tr>
+        <th scope="col" data-sort="id" aria-sort="none">ID</th>
+        <th scope="col" data-sort="suite" aria-sort="none">Suite</th>
+        <th scope="col" data-sort="status" aria-sort="none">Status</th>
+        <th scope="col" data-sort="duration_ms" aria-sort="none">Duration (ms)</th>
+        <th scope="col" data-sort="owner" aria-sort="none">Owner</th>
+        <th scope="col" data-sort="day" aria-sort="none">Day</th>
+        <th scope="col">Flag</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </main>
+
+  <footer class="export-bar no-print" aria-label="Export controls">
+    <label class="verdict-pick">Verdict
+      <select data-verdict aria-label="Overall board verdict">
+        <option value="comment">comment</option>
+        <option value="approve">approve</option>
+        <option value="approve_with_notes">approve_with_notes</option>
+        <option value="reject">reject</option>
+        <option value="defer">defer</option>
+        <option value="edit">edit</option>
+        <option value="dismiss">dismiss</option>
+      </select>
+    </label>
     <button type="button" class="btn" data-export="md">Copy filtered markdown</button>
     <button type="button" class="btn" data-export="json">Download full JSON</button>
-    <textarea id="egress" readonly aria-label="Exported markdown"></textarea>
+    <button type="button" class="btn" data-export="changed" disabled>Copy changed-only</button>
+    <output class="export-status" data-egress-status aria-live="polite"></output>
+    <textarea id="egress" readonly aria-label="Exported payload mirror" rows="4"></textarea>
   </footer>
 </div>
 
@@ -159,10 +266,26 @@ td.pass{color:var(--ok)}td.fail{color:var(--fail)}td.skip{color:var(--warn)}
     <td class="num" data-cell="duration_ms"></td>
     <td data-cell="owner"></td>
     <td data-cell="day"></td>
+    <td class="flag-cell"><button type="button" class="btn flag-btn" data-flag aria-label="Flag this run"><span aria-hidden="true">&#9873;</span></button></td>
   </tr>
 </template>
 
+<div id="flag-pop" popover class="pop">
+  <p class="pop-title" data-flag-title>Flag run</p>
+  <div class="verdict-row">
+    <button type="button" class="btn" data-verdict-set="approve">approve</button>
+    <button type="button" class="btn" data-verdict-set="reject">reject</button>
+    <button type="button" class="btn" data-verdict-set="defer">defer</button>
+    <button type="button" class="btn" data-verdict-set="clear">clear</button>
+  </div>
+  <label class="pop-note">Note <textarea data-flag-note rows="2" aria-label="Flag note"></textarea></label>
+  <button type="button" class="btn" data-flag-save>Save flag</button>
+</div>
+
+<output id="toast" popover="manual" aria-live="polite"></output>
+
 <script>
+"use strict";
 const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const root = document.documentElement;
 root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
@@ -173,45 +296,70 @@ document.addEventListener("click", e => {
 });
 
 const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
-const rows = JSON.parse(document.getElementById("data").textContent);
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
+const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+const mdCell = s => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const VERDICTS = new Set(["approve", "approve_with_notes", "reject", "defer", "edit", "comment", "dismiss"]);
+const ANNO = new Set(["active", "exported", "done"]);
+
+const seed = JSON.parse(document.getElementById("payload").textContent);
+const meta = seed.meta, rows = seed.rows;
 const COLS = ["id", "suite", "status", "duration_ms", "owner", "day"];
 const NUMERIC = new Set(["id", "duration_ms"]);
+const CAP = 40;
+const ARTIFACT_ID = "dashboard." + slug(meta.title);
+const BASELINE_ID = "b-" + hash(JSON.stringify(rows));
+const rowById = Object.fromEntries(rows.map(r => [String(r.id), r]));
 const suites = [...new Set(rows.map(r => r.suite))].sort();
 const days = [...new Set(rows.map(r => r.day))].sort();
-const state = { q: "", suite: "all", sortKey: null, sortDir: 1 };
+const state = { view: { q: "", facet: "all", sortKey: null, sortDir: 1 }, flags: {}, verdict: "comment" };
 
 const facet = document.querySelector("[data-facet]");
 suites.forEach(s => facet.append(Object.assign(document.createElement("option"), { value: s, textContent: s })));
 
 const tbody = document.querySelector("tbody");
 const tpl = document.getElementById("row-tpl");
-const mount = () => {
+const egress = document.getElementById("egress");
+const statusOut = document.querySelector("[data-egress-status]");
+const changedBtn = document.querySelector('[data-export="changed"]');
+const toast = document.getElementById("toast");
+let toastTimer;
+const flash = m => { toast.textContent = m; try { toast.showPopover(); } catch {} clearTimeout(toastTimer); toastTimer = setTimeout(() => { try { toast.hidePopover(); } catch {} }, 1600); };
+
+const mountAll = () => {
   const frag = document.createDocumentFragment();
   rows.forEach(r => {
-    const node = tpl.content.firstElementChild.cloneNode(true);
-    node.dataset.id = r.id;
-    COLS.forEach(c => { node.querySelector(`[data-cell=${c}]`).textContent = r[c]; });
-    node.querySelector("[data-cell=status]").classList.add(r.status);
-    frag.append(node);
+    const n = tpl.content.firstElementChild.cloneNode(true);
+    n.dataset.id = r.id;
+    COLS.forEach(c => { if (c === "status") return; n.querySelector('[data-cell="' + c + '"]').textContent = r[c]; });
+    const stCell = n.querySelector('[data-cell="status"]');
+    if (r.status === "skip") { const chip = document.createElement("span"); chip.className = "chip"; chip.textContent = r.status; stCell.replaceChildren(chip); }
+    else { stCell.textContent = r.status; stCell.classList.add(r.status); }
+    frag.append(n);
   });
-  tbody.replaceChildren(frag);
+  tbody.append(frag);
 };
 
-const matches = r => (state.suite === "all" || r.suite === state.suite)
-  && (!state.q || COLS.some(c => String(r[c]).toLowerCase().includes(state.q)));
-const visible = () => rows.filter(matches);
+const matches = r => {
+  const q = state.view.q, f = state.view.facet;
+  if (f !== "all" && r.suite !== f) return false;
+  if (q && !COLS.some(c => String(r[c]).toLowerCase().includes(q))) return false;
+  return true;
+};
 
 const kpi = v => {
   const pass = v.filter(r => r.status === "pass").length, fail = v.filter(r => r.status === "fail").length;
-  const rate = v.length ? Math.round((pass / v.length) * 100) : 0;
-  document.querySelector("[data-kpi=total]").textContent = v.length;
-  document.querySelector("[data-kpi=pass]").textContent = pass;
-  document.querySelector("[data-kpi=fail]").textContent = fail;
-  document.querySelector("[data-kpi=rate]").textContent = `${rate}%`;
+  const rate = v.length ? Math.round(pass / v.length * 100) : 0;
+  document.querySelector('[data-kpi="total"]').textContent = v.length;
+  document.querySelector('[data-kpi="pass"]').textContent = pass;
+  document.querySelector('[data-kpi="fail"]').textContent = fail;
+  document.querySelector('[data-kpi="rate"]').textContent = rate + "%";
 };
 
 const barChart = v => {
-  const W = 320, H = 160, pad = 26, bw = suites.length ? (W - pad * 2) / suites.length : 0;
+  const W = 340, H = 170, pad = 28, bw = suites.length ? (W - pad * 2) / suites.length : 0;
   const cols = suites.map(s => {
     const rs = v.filter(r => r.suite === s);
     return { s, pass: rs.filter(r => r.status === "pass").length, fail: rs.filter(r => r.status === "fail").length, skip: rs.filter(r => r.status === "skip").length };
@@ -220,32 +368,62 @@ const barChart = v => {
   const bars = cols.map((c, i) => {
     const x = pad + i * bw + bw * 0.15, w = bw * 0.7;
     let y = H - pad;
-    const seg = (n, fill) => { const h = n * scale; y -= h; return h ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>` : ""; };
-    const stack = seg(c.pass, "var(--ok)") + seg(c.fail, "var(--fail)") + seg(c.skip, "var(--warn)");
-    return `${stack}<text x="${x + w / 2}" y="${H - pad + 12}" fill="var(--muted)" font-size="9" text-anchor="middle">${esc(c.s)}</text>`;
+    const seg = (n, fill) => { const h = n * scale; y -= h; return h ? '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" fill="' + fill + '"><title>' + esc(c.s + " " + n) + '</title></rect>' : ""; };
+    const stack = seg(c.pass, "var(--chart-ok)") + seg(c.fail, "var(--fail)") + seg(c.skip, "var(--warn)");
+    return stack + '<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - pad + 12) + '" fill="var(--muted)" font-size="9" text-anchor="middle">' + esc(c.s) + '</text>';
   }).join("");
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Runs by suite"><line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="var(--line)"/>${bars}</svg>`;
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Runs by suite, stacked by status"><line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '" stroke="var(--line)"/>' + bars + '</svg>';
 };
 
 const lineChart = v => {
-  const W = 320, H = 160, pad = 26, stepX = days.length > 1 ? (W - pad * 2) / (days.length - 1) : 0;
-  const y = rate => H - pad - rate * (H - pad * 2);
+  const W = 340, H = 170, pad = 28, stepX = days.length > 1 ? (W - pad * 2) / (days.length - 1) : 0;
+  const yOf = rate => H - pad - rate * (H - pad * 2);
   const pts = days.map((d, i) => {
     const rs = v.filter(r => r.day === d), rate = rs.length ? rs.filter(r => r.status === "pass").length / rs.length : 0;
-    return { x: pad + i * stepX, y: y(rate), d };
+    return { x: pad + i * stepX, y: yOf(rate), d, rate };
   });
-  const line = pts.length ? `<polyline points="${pts.map(p => `${p.x},${p.y}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2"/>` : "";
-  const dots = pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--accent)"/>`).join("");
-  const labels = pts.map(p => `<text x="${p.x}" y="${H - pad + 12}" fill="var(--muted)" font-size="8" text-anchor="middle">${esc(p.d.slice(5))}</text>`).join("");
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Pass rate by day"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H - pad}" stroke="var(--line)"/><line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="var(--line)"/>${line}${dots}${labels}</svg>`;
+  const line = pts.length ? '<polyline points="' + pts.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ") + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' : "";
+  const dots = pts.map(p => '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="var(--accent)"><title>' + esc(p.d + " " + Math.round(p.rate * 100) + "%") + '</title></circle>').join("");
+  const labels = pts.map(p => '<text x="' + p.x.toFixed(1) + '" y="' + (H - pad + 12) + '" fill="var(--muted)" font-size="8" text-anchor="middle">' + esc(p.d.slice(5)) + '</text>').join("");
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Pass rate by day"><line x1="' + pad + '" y1="' + pad + '" x2="' + pad + '" y2="' + (H - pad) + '" stroke="var(--line)"/><line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '" stroke="var(--line)"/>' + line + dots + labels + '</svg>';
 };
 
-const applyFilter = () => {
-  const v = visible(), ids = new Set(v.map(r => r.id));
-  tbody.querySelectorAll("tr").forEach(tr => { tr.hidden = !ids.has(Number(tr.dataset.id)); });
-  kpi(v);
-  document.querySelector("[data-chart=bar]").innerHTML = barChart(v);
-  document.querySelector("[data-chart=line]").innerHTML = lineChart(v);
+const paintFlags = () => {
+  tbody.querySelectorAll("tr").forEach(tr => {
+    const f = state.flags[tr.dataset.id], btn = tr.querySelector("[data-flag]");
+    if (f) { btn.dataset.on = f.verdict; btn.title = f.verdict + (f.note ? " · noted (" + f.status + ")" : ""); }
+    else { delete btn.dataset.on; btn.title = "Flag this run"; }
+  });
+};
+
+const applyView = () => {
+  let matched = 0, shown = 0;
+  tbody.querySelectorAll("tr").forEach(tr => {
+    const hit = matches(rowById[tr.dataset.id]);
+    if (hit) { matched++; if (shown < CAP) { tr.hidden = false; shown++; } else tr.hidden = true; }
+    else tr.hidden = true;
+  });
+  const vis = rows.filter(matches);
+  kpi(vis);
+  document.querySelector('[data-chart="bar"]').innerHTML = barChart(vis);
+  document.querySelector('[data-chart="line"]').innerHTML = lineChart(vis);
+  document.querySelector("[data-count]").textContent = matched + " of " + rows.length + " rows match";
+  const trc = document.querySelector("[data-truncation]");
+  if (matched > shown) { trc.hidden = false; trc.textContent = "Render cap: showing " + shown + " of " + matched + " matching rows; KPIs and charts still count all " + matched + "."; }
+  else trc.hidden = true;
+  paintFlags();
+};
+
+const sortBy = key => {
+  state.view.sortDir = state.view.sortKey === key ? -state.view.sortDir : 1;
+  state.view.sortKey = key;
+  const dir = state.view.sortDir, num = NUMERIC.has(key);
+  [...tbody.querySelectorAll("tr")].sort((a, b) => {
+    const av = rowById[a.dataset.id][key], bv = rowById[b.dataset.id][key];
+    return (num ? av - bv : String(av) > String(bv) ? 1 : String(av) < String(bv) ? -1 : 0) * dir;
+  }).forEach(tr => tbody.append(tr));
+  document.querySelectorAll("th[data-sort]").forEach(th => th.setAttribute("aria-sort", th.dataset.sort === key ? (dir > 0 ? "ascending" : "descending") : "none"));
+  applyView();
 };
 
 let filterTimer;
@@ -253,47 +431,107 @@ document.addEventListener("input", e => {
   if (!e.target.closest("[data-filter-box]")) return;
   clearTimeout(filterTimer);
   const q = e.target.value.trim().toLowerCase();
-  filterTimer = setTimeout(() => { state.q = q; applyFilter(); }, 120);
+  filterTimer = setTimeout(() => { state.view.q = q; applyView(); }, 120);
 });
 document.addEventListener("change", e => {
-  const sel = e.target.closest("[data-facet]"); if (!sel) return;
-  state.suite = sel.value; applyFilter();
+  const sel = e.target.closest("[data-facet]"); if (sel) { state.view.facet = sel.value; applyView(); return; }
+  const vb = e.target.closest("[data-verdict]"); if (vb) { state.verdict = vb.value; }
+});
+document.addEventListener("click", e => { const th = e.target.closest("th[data-sort]"); if (th) sortBy(th.dataset.sort); });
+
+const flagPop = document.getElementById("flag-pop");
+const flagNote = flagPop.querySelector("[data-flag-note]");
+const flagTitle = flagPop.querySelector("[data-flag-title]");
+let pending = null;
+const highlightPending = () => flagPop.querySelectorAll("[data-verdict-set]").forEach(b => b.toggleAttribute("data-on", b.dataset.verdictSet === pending));
+const openFlag = (btn, id) => {
+  flagPop.dataset.rowId = id;
+  const f = state.flags[id] || {};
+  pending = f.verdict || null;
+  flagNote.value = f.note || "";
+  flagTitle.textContent = "Flag run #" + id;
+  try { flagPop.showPopover(); } catch {}
+  const r = btn.getBoundingClientRect();
+  flagPop.style.margin = "0"; flagPop.style.position = "fixed";
+  flagPop.style.top = (r.bottom + 6) + "px";
+  flagPop.style.left = Math.max(8, Math.min(window.innerWidth - flagPop.offsetWidth - 8, r.left)) + "px";
+  highlightPending();
+};
+const saveFlag = () => {
+  const id = flagPop.dataset.rowId, note = flagNote.value.trim();
+  if (pending === "clear" || (!pending && !note)) delete state.flags[id];
+  else { const prev = state.flags[id] || {}; state.flags[id] = { verdict: pending && pending !== "clear" ? pending : prev.verdict || "defer", note, status: "active" }; }
+  try { flagPop.hidePopover(); } catch {}
+  paintFlags(); updateExport(); flash("flag saved");
+};
+document.addEventListener("click", e => {
+  const fb = e.target.closest("[data-flag]"); if (fb) { openFlag(fb, fb.closest("tr").dataset.id); return; }
+  const vs = e.target.closest("[data-verdict-set]"); if (vs) { pending = vs.dataset.verdictSet; highlightPending(); return; }
+  if (e.target.closest("[data-flag-save]")) saveFlag();
 });
 
-const sortBy = key => {
-  state.sortDir = state.sortKey === key ? -state.sortDir : 1;
-  state.sortKey = key;
-  const dir = state.sortDir, numeric = NUMERIC.has(key);
-  [...tbody.querySelectorAll("tr")].sort((a, b) => {
-    const av = a.querySelector(`[data-cell=${key}]`).textContent, bv = b.querySelector(`[data-cell=${key}]`).textContent;
-    return (numeric ? Number(av) - Number(bv) : av > bv ? 1 : av < bv ? -1 : 0) * dir;
-  }).forEach(tr => tbody.append(tr));
-  document.querySelectorAll("th[data-sort]").forEach(th =>
-    th.setAttribute("aria-sort", th.dataset.sort === key ? (dir > 0 ? "ascending" : "descending") : "none"));
+const hasCaptures = () => Object.keys(state.flags).length > 0;
+const updateExport = () => { changedBtn.disabled = !hasCaptures(); };
+
+const buildEnvelope = changedOnly => {
+  const flags = state.flags;
+  const decisions = Object.entries(flags).map(([id, f]) => f.note ? { id: "r-" + id, verdict: f.verdict, note: f.note } : { id: "r-" + id, verdict: f.verdict });
+  const changes = Object.entries(flags).map(([id, f]) => ({ itemId: "r-" + id, path: "/rows/" + id + "/flag", from: null, to: f.verdict }));
+  const annotations = Object.entries(flags).filter(([, f]) => f.note).map(([id, f]) => ({ id: "an-" + id, itemId: "r-" + id, intent: "comment", status: f.status || "active", text: f.note }));
+  const env = { kind: "dashboard", version: 1, artifact: { id: ARTIFACT_ID, title: meta.title, baseline: BASELINE_ID }, decision: { status: state.verdict, at: isoNow() }, decisions, changes, annotations };
+  env.state = changedOnly ? {} : { view: state.view, rows };
+  return env;
 };
-document.addEventListener("click", e => { const th = e.target.closest("th[data-sort]"); if (th) sortBy(th.dataset.sort); });
+
+const validateEnvelope = (env, changedOnly) => {
+  if (typeof env.kind !== "string" || !env.kind) return { ok: false, error: "missing kind" };
+  if (env.version !== 1) return { ok: false, error: "bad version" };
+  const a = env.artifact; if (!a || !a.id || !a.title || !a.baseline) return { ok: false, error: "incomplete artifact ref" };
+  if (!env.decision || !VERDICTS.has(env.decision.status)) return { ok: false, error: "decision status outside vocabulary" };
+  if (!ISO.test(env.decision.at)) return { ok: false, error: "decision timestamp not UTC ISO" };
+  for (const k of ["decisions", "changes", "annotations"]) if (!Array.isArray(env[k])) return { ok: false, error: k + " not an array" };
+  for (const d of env.decisions) if (!VERDICTS.has(d.verdict)) return { ok: false, error: "verdict outside vocabulary: " + d.verdict };
+  for (const an of env.annotations) if (!ANNO.has(an.status)) return { ok: false, error: "annotation status invalid" };
+  if (changedOnly && env.decisions.length + env.changes.length + env.annotations.length === 0) return { ok: false, error: "changed-only export is empty" };
+  return { ok: true };
+};
+
+const toMarkdown = env => {
+  const vis = rows.filter(matches);
+  const L = ["# " + meta.title, "", "Verdict: **" + env.decision.status + "** · " + meta.date + " · baseline " + env.artifact.baseline, ""];
+  L.push("## Flagged rows (" + env.decisions.length + ")");
+  if (env.decisions.length) { L.push("| id | verdict | note |", "| --- | --- | --- |"); env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + mdCell(d.note || "") + " |")); }
+  else L.push("_none flagged_");
+  L.push("", "## Filtered view (" + vis.length + " of " + rows.length + ")", "| " + COLS.join(" | ") + " |", "| " + COLS.map(() => "---").join(" | ") + " |");
+  vis.forEach(r => L.push("| " + COLS.map(c => mdCell(r[c])).join(" | ") + " |"));
+  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- " + a.itemId + " (" + a.status + "): " + mdCell(a.text))); }
+  return L.join("\n") + "\n";
+};
 
 const download = (name, mime, text) => {
   const url = URL.createObjectURL(new Blob([text], { type: mime }));
   Object.assign(document.createElement("a"), { href: url, download: name }).click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 };
-const toMarkdown = v => {
-  const head = `| ${COLS.join(" | ")} |`, sep = `| ${COLS.map(() => "---").join(" | ")} |`;
-  const body = v.map(r => `| ${COLS.map(c => String(r[c])).join(" | ")} |`).join("\n");
-  return `# ${document.title}\n\n${head}\n${sep}\n${body}\n`;
-};
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-export]"); if (!b) return;
-  if (b.dataset.export === "md") {
-    const md = toMarkdown(visible());
-    document.getElementById("egress").value = md;
-    navigator.clipboard?.writeText(md).catch(() => {});
-  } else download("verification-runs.json", "application/json", JSON.stringify(rows, null, 2));
-});
+const markExported = () => { Object.values(state.flags).forEach(f => { if (f.note && f.status === "active") f.status = "exported"; }); paintFlags(); };
 
-mount();
-applyFilter();
+const emit = async kind => {
+  const changedOnly = kind === "changed";
+  const env = buildEnvelope(changedOnly);
+  const v = validateEnvelope(env, changedOnly);
+  if (!v.ok) { egress.value = "EXPORT BLOCKED: " + v.error; statusOut.textContent = "blocked — " + v.error; flash("export blocked"); return; }
+  if (kind === "json") { const t = JSON.stringify(env, null, 2); egress.value = t; download(slug(meta.title) + ".json", "application/json", t); statusOut.textContent = "downloaded full JSON envelope (" + env.changes.length + " changes)"; markExported(); updateExport(); return; }
+  const text = kind === "md" ? toMarkdown(env) : JSON.stringify(env, null, 2);
+  egress.value = text;
+  try { await navigator.clipboard.writeText(text); statusOut.textContent = "copied " + (kind === "md" ? "markdown summary" : "changed-only envelope") + " to clipboard"; markExported(); flash("copied"); }
+  catch { statusOut.textContent = "clipboard blocked — copy from the mirror below"; flash("copy from mirror"); }
+  updateExport();
+};
+document.addEventListener("click", e => { const b = e.target.closest("[data-export]"); if (b) emit(b.dataset.export); });
+
+mountAll();
+applyView();
+updateExport();
 </script>
 </body>
 </html>

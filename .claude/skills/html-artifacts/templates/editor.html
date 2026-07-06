@@ -3,16 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<!-- replace: page title (also the draft namespace) -->
-<title>Decision Rules: Shape</title>
+<!-- replace: page title -->
+<title>Decision Rules: Shape Dispatch</title>
 <style>
 /* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
 :root{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
   --f0:12px;--f1:13.5px;--f2:15px;--f3:18px;--f4:24px;--f5:32px;
   --r1:6px;--r2:10px;--r3:14px;--measure:1100px;
@@ -22,22 +26,24 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme]){
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }
 :root[data-theme="light"]{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
 }
+}
+@layer base{
 body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
 .wrap{max-width:var(--measure);margin:0 auto;padding:var(--s5) var(--s4)}
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
@@ -49,6 +55,10 @@ p,li{text-wrap:pretty}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer components{
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--f0);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
@@ -70,12 +80,18 @@ th{background:var(--surface);font-weight:600}tr:last-child td{border-bottom:0}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r1)}
 pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);font-size:var(--f1);line-height:1.5}
 pre code{background:none;padding:0}
-button,select,input,textarea{font:inherit;color:inherit}
 .btn{font-size:var(--f1);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer print{
 @media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:#ECE9DF;--raised:#fff;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+    --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
+    --shadow-1:none;--shadow-2:none;
+  }
   @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
@@ -84,56 +100,136 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   body,.twrap,pre{overflow:visible}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
-/* --- [EDITOR_LOCAL] --- */
-.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
-.rule{display:grid;grid-template-columns:1fr 120px 1fr auto;gap:var(--s2);align-items:center;margin-bottom:var(--s2)}
-@media (max-width:700px){.rule{grid-template-columns:1fr}}
-.rule input,.rule select{width:100%}
-.bar{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin:var(--s4) 0}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--text:CanvasText;--muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+}
+</style>
+<style>
+/* --- [EDITOR_LOCAL] --- appends into the floor's named layers; floor owns the order */
+@layer tokens{
+  :root{
+    --dur:0ms;--ease:cubic-bezier(.16,1,.3,1);
+    --row-invalid:color-mix(in oklch,var(--fail) 10%,transparent);
+    --row-warn:color-mix(in oklch,var(--warn) 10%,transparent);
+    --row-dragging:color-mix(in oklch,var(--accent) 14%,transparent);
+  }
+  @media (prefers-reduced-motion:no-preference){:root{--dur:160ms}}
+}
+@layer components{
+  .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
+  .head__meta{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+  .editor{container:editor / inline-size}
+  .erows{display:grid;gap:var(--s2)}
+  .erow{display:grid;gap:var(--s2) var(--s3);grid-template-columns:auto minmax(0,1fr) auto;align-items:start;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r2);background:color-mix(in oklch,var(--raised),transparent 40%);transition:background-color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+  .erow:focus-within{border-color:var(--accent)}
+  .erow[data-status="duplicate"]{background:var(--row-invalid);border-color:var(--fail)}
+  .erow[data-status="incomplete"]{background:var(--row-warn);border-color:var(--warn)}
+  .erow.dragging{background:var(--row-dragging);opacity:.7}
+  .erow.dragover{border-color:var(--accent);border-style:dashed}
+  .erow__grip{cursor:grab;border:0;background:transparent;color:var(--muted);font-size:var(--f3);line-height:1;padding:var(--s1);align-self:center}
+  .erow__grip:active{cursor:grabbing}
+  .erow__fields{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3)}
+  .field{display:grid;gap:2px;min-inline-size:0;flex:1 1 9rem}
+  .field--wide{flex:2.5 1 16rem}
+  .field>span{font-size:var(--f0);color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .field input,.field select{width:100%}
+  .field :is(input,select)[aria-invalid="true"]{border-color:var(--fail);outline-color:var(--fail)}
+  .erow__side{display:grid;gap:var(--s1);justify-items:end;align-content:start}
+  .erow__remove{border:0;background:transparent;color:var(--muted);font-size:var(--f3);line-height:1;cursor:pointer;padding:0 var(--s1)}
+  .erow__remove:hover{color:var(--fail)}
+  @container editor (inline-size < 34rem){.erow{grid-template-columns:auto minmax(0,1fr)}.erow__side{grid-column:1 / -1;justify-items:start}}
+  .toolbar{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin:var(--s4) 0}
+  .validate{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin:var(--s4) 0}
+  .diffstat{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin:var(--s4) 0}
+  .diffstat ul{margin:var(--s2) 0 0;padding-inline-start:var(--s5);width:100%}
+  .export-bar{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin-top:var(--s6)}
+  .export-bar__status{font-size:var(--f0);color:var(--muted);margin-inline-start:auto}
+  .export-bar textarea{flex:1 1 100%;min-height:9rem;font-family:var(--font-mono);font-size:var(--f0)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn:disabled:hover{border-color:var(--line)}
+  #toast{position:fixed;inset:auto var(--s4) var(--s4) auto;margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r2);background:var(--raised);box-shadow:var(--shadow-2);color:var(--text)}
+}
+@layer utilities{
+  .skip{position:absolute;left:-9999px}
+  .skip:focus{left:var(--s4);top:var(--s4);position:fixed;background:var(--raised);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);z-index:2}
+}
+@layer print{
+  @media print{
+    .erow__grip,.erow__remove,.toolbar{display:none!important}
+    .erow{break-inside:avoid}
+  }
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#erows">Skip to the rules</a>
 <div class="wrap">
   <header class="head">
-    <div><h1>Decision Rules: Shape</h1><small>Editable rules for the &lt;capability&gt; owner. Edits persist locally; export writes a markdown table.</small></div>
-    <!-- replace: date -->
-    <div><span class="chip info" id="state">DRAFT</span> <small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
+    <div>
+      <!-- replace: title -->
+      <h1 id="doc-title">Decision Rules: Shape Dispatch</h1>
+      <small>The row form renders from the payload schema; retarget the editor by editing the schema, never the markup.</small>
+    </div>
+    <div class="head__meta">
+      <span class="chip info" id="state-chip">DRAFT</span>
+      <!-- replace: date slot -->
+      <small id="date-slot">2026-07-06</small>
+      <button type="button" class="btn no-print" data-toggle-theme>Theme</button>
+    </div>
   </header>
 
-  <!-- replace: seed rules; each rule is When / Then / Note -->
-  <div id="rules" class="card">
-    <div class="rule" data-rule>
-      <input type="text" data-f="when" value="input is single" placeholder="When ...">
-      <select data-f="then"><option>dispatch</option><option>defer</option><option>reject</option><option>escalate</option></select>
-      <input type="text" data-f="note" value="one polymorphic entry" placeholder="Note">
-      <button type="button" class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
-    </div>
-    <div class="rule" data-rule>
-      <input type="text" data-f="when" value="input is batch" placeholder="When ...">
-      <select data-f="then"><option>dispatch</option><option>defer</option><option>reject</option><option>escalate</option></select>
-      <input type="text" data-f="note" value="same owner, shape detection" placeholder="Note">
-      <button type="button" class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
-    </div>
-  </div>
+  <section class="validate" id="validate" aria-label="Validation summary"><!-- projected from state --></section>
 
-  <div class="bar no-print">
-    <button type="button" class="btn" data-add>Add rule</button>
-    <button type="button" class="btn" data-export>Export markdown</button>
-<textarea id="egress" readonly aria-label="Exported state"></textarea>
-    <button type="button" class="btn" data-clear>Clear draft</button>
-  </div>
+  <main class="card editor" id="editor" aria-label="Rule editor">
+    <div class="erows" id="erows"><!-- projected from schema and rows --></div>
+    <div class="toolbar no-print">
+      <button type="button" class="btn" data-add>Add rule</button>
+      <button type="button" class="btn" data-reset>Reset to baseline</button>
+    </div>
+  </main>
+
+  <section class="diffstat" id="diffstat" aria-label="Changed-key diff"><!-- projected from state versus baseline --></section>
+
+  <footer class="export-bar no-print" aria-label="Export bar">
+    <button type="button" class="btn" data-export="md">Copy rules markdown</button>
+    <button type="button" class="btn" data-export="json">Copy envelope JSON</button>
+    <button type="button" class="btn" data-export="changed" id="btn-changed" disabled>Copy changed-only</button>
+    <button type="button" class="btn" data-export="download">Download full state</button>
+    <span class="export-bar__status" id="egress-status"></span>
+    <textarea id="egress" readonly aria-label="Exported payload mirror"></textarea>
+  </footer>
 </div>
+<output id="toast" popover="manual" aria-live="polite"></output>
 
-<template id="rowtpl">
-  <div class="rule" data-rule>
-    <input type="text" data-f="when" placeholder="When ...">
-    <select data-f="then"><option>dispatch</option><option>defer</option><option>reject</option><option>escalate</option></select>
-    <input type="text" data-f="note" placeholder="Note">
-    <button type="button" class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
-  </div>
-</template>
-
+<!-- replace: schema + rows; fields[].kind is text|select; the first field is the identity key duplicate detection reads -->
+<script type="application/json" id="payload">
+{
+  "meta": { "title": "Decision Rules: Shape Dispatch", "date": "2026-07-06" },
+  "artifactId": "rules.shape-dispatch",
+  "schema": {
+    "fields": [
+      { "key": "when", "label": "When", "kind": "text" },
+      { "key": "then", "label": "Then", "kind": "select", "options": ["dispatch", "defer", "reject", "escalate"] },
+      { "key": "severity", "label": "Severity", "kind": "select", "options": ["info", "warn", "fail"] },
+      { "key": "note", "label": "Note", "kind": "text", "optional": true }
+    ]
+  },
+  "rows": [
+    { "id": "r-1", "values": { "when": "input is single", "then": "dispatch", "severity": "info", "note": "one polymorphic entry" } },
+    { "id": "r-2", "values": { "when": "input is batch", "then": "dispatch", "severity": "info", "note": "same owner, shape detection" } },
+    { "id": "r-3", "values": { "when": "input is stream", "then": "defer", "severity": "warn", "note": "backpressure buffer holds the tail" } },
+    { "id": "r-4", "values": { "when": "input is single", "then": "reject", "severity": "fail", "note": "duplicate key with the first rule; collapse or rename the condition" } },
+    { "id": "r-5", "values": { "when": "unknown arity", "then": "escalate", "severity": "fail", "note": "arity fell outside the closed vocabulary" } },
+    { "id": "r-6", "values": { "when": "empty payload", "then": "reject", "severity": "warn", "note": "" } }
+  ]
+}
+</script>
 <script>
+// --- [RUNTIME_PRELUDE] ---
 const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const root = document.documentElement;
 root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
@@ -142,42 +238,243 @@ document.addEventListener("click", e => {
   const next = root.dataset.theme === "dark" ? "light" : "dark";
   try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
 });
-const draftKey = "draft:" + themeKey.slice(6);
-const host = document.getElementById("rules"), tpl = document.getElementById("rowtpl");
-const readState = () => [...host.querySelectorAll("[data-rule]")].map(r => {
-  const o = {}; r.querySelectorAll("[data-f]").forEach(f => { o[f.dataset.f] = f.value; }); return o;
+const esc = v => { const n = document.createElement("span"); n.textContent = v == null ? "" : String(v); return n.innerHTML; };
+
+// --- [MODEL] ---
+const model = JSON.parse(document.getElementById("payload").textContent);
+const fields = model.schema.fields;
+const keyField = fields[0].key;
+const STATUS = { duplicate: "fail", incomplete: "warn", added: "info", modified: "info", unchanged: "ok" };
+let seq = model.rows.length;
+const freshId = () => "r-new-" + (++seq);
+
+const state = { rows: structuredClone(model.rows) };
+const baseline = structuredClone(state);
+const baseMap = new Map(baseline.rows.map(r => [r.id, r]));
+const digest = obj => { const s = JSON.stringify(obj); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return "b-" + (h >>> 0).toString(36); };
+const baselineDigest = digest(baseline);
+
+// --- [COMPUTED] ---
+const val = (r, k) => (r.values[k] ?? "").toString();
+const validity = () => {
+  const counts = {};
+  state.rows.forEach(r => { const k = val(r, keyField).trim(); if (k) counts[k] = (counts[k] || 0) + 1; });
+  return state.rows.map(r => {
+    const k = val(r, keyField).trim();
+    const missing = fields.some(f => !f.optional && !val(r, f.key).trim());
+    if (!k || missing) return "incomplete";
+    if (counts[k] > 1) return "duplicate";
+    return "valid";
+  });
+};
+const rowDiff = r => {
+  const b = baseMap.get(r.id);
+  if (!b) return "added";
+  return JSON.stringify(b.values) !== JSON.stringify(r.values) ? "modified" : "unchanged";
+};
+const statusOf = (r, v) => v !== "valid" ? v : rowDiff(r);
+const changed = () => {
+  const curIds = new Set(state.rows.map(r => r.id)), changes = [];
+  baseline.rows.filter(b => !curIds.has(b.id)).forEach(b => changes.push({ itemId: b.id, path: `/rows/${b.id}`, from: b.values, to: null }));
+  state.rows.forEach(r => {
+    const b = baseMap.get(r.id);
+    if (!b) { changes.push({ itemId: r.id, path: `/rows/${r.id}`, from: null, to: r.values }); return; }
+    fields.forEach(f => { if (val(r, f.key) !== (b.values[f.key] ?? "").toString()) changes.push({ itemId: r.id, path: `/rows/${r.id}/values/${f.key}`, from: b.values[f.key] ?? null, to: r.values[f.key] ?? null }); });
+  });
+  return changes;
+};
+const isChanged = () => changed().length > 0;
+
+// --- [ENVELOPE] ---
+const nowIso = () => new Date().toISOString().replace(/\.\d+Z$/, "Z");
+const envelope = scope => ({
+  kind: "decision-rules",
+  version: 1,
+  artifact: { id: model.artifactId, title: model.meta.title, baseline: baselineDigest },
+  decision: { status: "edit", at: nowIso() },
+  decisions: [],
+  changes: scope === "changed" ? changed() : changed(),
+  annotations: [],
+  state: scope === "changed" ? undefined : { schema: model.schema, rows: state.rows },
 });
-const addRow = v => {
-  const node = tpl.content.firstElementChild.cloneNode(true);
-  if (v) node.querySelectorAll("[data-f]").forEach(f => { if (v[f.dataset.f] != null) f.value = v[f.dataset.f]; });
-  host.append(node);
+const toMarkdown = () => {
+  const head = `| ${fields.map(f => f.label).join(" | ")} |`;
+  const sep = `| ${fields.map(() => "---").join(" | ")} |`;
+  const body = state.rows.map(r => `| ${fields.map(f => val(r, f.key).replace(/\|/g, "\\|") || "—").join(" | ")} |`);
+  const v = validity();
+  const dup = v.filter(x => x === "duplicate").length, inc = v.filter(x => x === "incomplete").length;
+  const notes = [`_${state.rows.length} rules, ${dup} duplicate-key, ${inc} incomplete._`];
+  const c = changed();
+  if (c.length) notes.push(`_${c.length} changes vs baseline ${baselineDigest}._`);
+  return [`# ${model.meta.title}`, ``, head, sep, ...body, ``, ...notes].join("\n");
 };
-const save = () => { try { localStorage.setItem(draftKey, JSON.stringify(readState())); } catch {} };
-const load = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(draftKey) ?? "null");
-    if (Array.isArray(stored) && stored.length) { host.replaceChildren(); stored.forEach(addRow); }
-  } catch {}
-};
-const exportMarkdown = (md, name) => {
-  const egress = document.getElementById("egress"); if (egress) egress.value = md;
-  navigator.clipboard?.writeText(md).catch(() => {});
-  const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
-  Object.assign(document.createElement("a"), { href: url, download: (name ?? "rules") + ".md" }).click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-};
-document.addEventListener("input", e => { if (e.target.closest("#rules")) save(); });
-document.addEventListener("click", e => {
-  if (e.target.closest("[data-add]")) { addRow(); save(); }
-  if (e.target.closest("[data-remove]")) { e.target.closest("[data-rule]").remove(); save(); }
-  if (e.target.closest("[data-clear]")) { try { localStorage.removeItem(draftKey); } catch {} location.reload(); }
-  if (e.target.closest("[data-export]")) {
-    const rows = readState().map(o => `| ${o.when ?? ""} | ${o.then ?? ""} | ${o.note ?? ""} |`);
-    const md = `# ${document.title}\n\n| When | Then | Note |\n| --- | --- | --- |\n${rows.join("\n")}\n`;
-    exportMarkdown(md, "rules");
+
+// --- [RENDER] ---
+const control = (r, f) => {
+  const id = `f-${r.id}-${f.key}`, v = val(r, f.key);
+  if (f.kind === "select") {
+    const opts = (f.options ?? []).map(o => `<option value="${esc(o)}"${o === v ? " selected" : ""}>${esc(o)}</option>`).join("");
+    const blank = f.optional || v === "" ? `<option value=""${v === "" ? " selected" : ""}>—</option>` : "";
+    return `<label class="field" for="${id}"><span>${esc(f.label)}</span><select id="${id}" data-key="${esc(f.key)}">${blank}${opts}</select></label>`;
   }
+  return `<label class="field${f.optional ? " field--wide" : ""}" for="${id}"><span>${esc(f.label)}${f.optional ? "" : " *"}</span><input id="${id}" type="text" data-key="${esc(f.key)}" value="${esc(v)}" placeholder="${esc(f.label)}"></label>`;
+};
+const renderRows = () => {
+  const v = validity();
+  document.getElementById("erows").innerHTML = state.rows.map((r, i) => {
+    const st = statusOf(r, v[i]);
+    return `<div class="erow" data-id="${esc(r.id)}" data-status="${st}" draggable="false">
+      <button type="button" class="erow__grip" draggable="true" data-grip aria-label="Drag to reorder rule">⠿</button>
+      <div class="erow__fields">${fields.map(f => control(r, f)).join("")}</div>
+      <div class="erow__side">
+        <span class="chip ${STATUS[st]}" data-rowchip>${st.toUpperCase()}</span>
+        <button type="button" class="erow__remove no-print" data-remove aria-label="Remove rule">×</button>
+      </div>
+    </div>`;
+  }).join("");
+  markInvalid(v);
+};
+const markInvalid = v => {
+  [...document.querySelectorAll(".erow")].forEach((el, i) => {
+    const r = state.rows[i], bad = v[i] !== "valid";
+    el.querySelectorAll("[data-key]").forEach(c => {
+      const empty = !c.dataset.key || (!fields.find(f => f.key === c.dataset.key)?.optional && !val(r, c.dataset.key).trim());
+      const isKey = c.dataset.key === keyField;
+      c.setAttribute("aria-invalid", String(bad && (empty || (isKey && v[i] === "duplicate"))));
+    });
+  });
+};
+const renderValidate = () => {
+  const v = validity();
+  const dup = v.filter(x => x === "duplicate").length, inc = v.filter(x => x === "incomplete").length, ok = v.filter(x => x === "valid").length;
+  document.getElementById("validate").innerHTML =
+    `<span class="chip ${dup ? "fail" : "ok"}">DUPLICATE ${dup}</span>` +
+    `<span class="chip ${inc ? "warn" : "ok"}">INCOMPLETE ${inc}</span>` +
+    `<span class="chip ok">VALID ${ok}</span>` +
+    `<span class="chip info">ROWS ${state.rows.length}</span>`;
+  const chip = document.getElementById("state-chip");
+  const dirty = isChanged();
+  chip.className = "chip " + (dup ? "fail" : dirty ? "info" : "ok");
+  chip.textContent = dup ? "INVALID" : dirty ? "EDITED" : "CLEAN";
+};
+const renderDiff = () => {
+  const curIds = new Set(state.rows.map(r => r.id));
+  const added = state.rows.filter(r => !baseMap.has(r.id));
+  const removed = baseline.rows.filter(b => !curIds.has(b.id));
+  const modified = state.rows.filter(r => baseMap.has(r.id) && rowDiff(r) === "modified");
+  const rows = [
+    ...added.map(r => `<li><span class="chip info">ADDED</span> ${esc(val(r, keyField) || r.id)}</li>`),
+    ...removed.map(r => `<li><span class="chip fail">REMOVED</span> ${esc((r.values[keyField] ?? r.id))}</li>`),
+    ...modified.map(r => `<li><span class="chip info">MODIFIED</span> ${esc(val(r, keyField) || r.id)} — ${esc(fields.filter(f => val(r, f.key) !== (baseMap.get(r.id).values[f.key] ?? "").toString()).map(f => f.label).join(", "))}</li>`),
+  ];
+  document.getElementById("diffstat").innerHTML =
+    `<span class="chip ${added.length ? "info" : "ok"}">ADDED ${added.length}</span>` +
+    `<span class="chip ${removed.length ? "fail" : "ok"}">REMOVED ${removed.length}</span>` +
+    `<span class="chip ${modified.length ? "info" : "ok"}">MODIFIED ${modified.length}</span>` +
+    (rows.length ? `<ul>${rows.join("")}</ul>` : `<span class="muted">No changes against baseline ${esc(baselineDigest)}.</span>`);
+};
+const syncDerived = () => {
+  const v = validity();
+  [...document.querySelectorAll(".erow")].forEach((el, i) => {
+    const st = statusOf(state.rows[i], v[i]);
+    el.dataset.status = st;
+    const chip = el.querySelector("[data-rowchip]");
+    chip.className = "chip " + STATUS[st];
+    chip.textContent = st.toUpperCase();
+  });
+  markInvalid(v);
+  renderValidate(); renderDiff();
+  document.getElementById("btn-changed").disabled = !isChanged();
+};
+const render = () => { renderRows(); renderValidate(); renderDiff(); document.getElementById("btn-changed").disabled = !isChanged(); document.getElementById("doc-title").textContent = model.meta.title; document.getElementById("date-slot").textContent = model.meta.date; };
+
+// --- [CAPTURE] ---
+const rowIndex = el => [...document.querySelectorAll(".erow")].indexOf(el.closest(".erow"));
+document.addEventListener("input", e => {
+  const c = e.target.closest("[data-key]");
+  if (!c) return;
+  const i = rowIndex(c);
+  if (i < 0) return;
+  state.rows[i].values[c.dataset.key] = c.value;
+  syncDerived();
 });
-load();
+document.addEventListener("change", e => {
+  const c = e.target.closest("select[data-key]");
+  if (!c) return;
+  const i = rowIndex(c);
+  if (i < 0) return;
+  state.rows[i].values[c.dataset.key] = c.value;
+  syncDerived();
+});
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-remove]")) { const i = rowIndex(e.target); if (i >= 0) { state.rows.splice(i, 1); render(); } return; }
+  if (e.target.closest("[data-add]")) { state.rows.push({ id: freshId(), values: Object.fromEntries(fields.map(f => [f.key, ""])) }); render(); return; }
+  if (e.target.closest("[data-reset]")) { state.rows = structuredClone(baseline.rows); render(); flash("Reset to baseline"); return; }
+});
+
+// --- [DRAG_REORDER] --- the model array is the source of truth; DOM position is never read back
+let dragId = null;
+document.addEventListener("dragstart", e => {
+  const grip = e.target.closest("[data-grip]");
+  if (!grip) { e.preventDefault(); return; }
+  const row = grip.closest(".erow");
+  dragId = row.dataset.id;
+  row.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", dragId);
+});
+document.addEventListener("dragend", e => { e.target.closest(".erow")?.classList.remove("dragging"); document.querySelectorAll(".erow.dragover").forEach(el => el.classList.remove("dragover")); });
+document.addEventListener("dragover", e => {
+  const row = e.target.closest(".erow");
+  if (!row || dragId == null) return;
+  e.preventDefault();
+  document.querySelectorAll(".erow.dragover").forEach(el => el !== row && el.classList.remove("dragover"));
+  row.classList.add("dragover");
+});
+document.addEventListener("drop", e => {
+  const row = e.target.closest(".erow");
+  if (!row || dragId == null) return;
+  e.preventDefault();
+  const from = state.rows.findIndex(r => r.id === dragId), to = state.rows.findIndex(r => r.id === row.dataset.id);
+  if (from >= 0 && to >= 0 && from !== to) { const [moved] = state.rows.splice(from, 1); state.rows.splice(to, 0, moved); render(); }
+  dragId = null;
+});
+
+// --- [EGRESS] ---
+let toastTimer;
+const flash = msg => { const t = document.getElementById("toast"); t.textContent = msg; try { t.showPopover(); } catch {} clearTimeout(toastTimer); toastTimer = setTimeout(() => { try { t.hidePopover(); } catch {} }, 1600); };
+const egress = document.getElementById("egress");
+const validEnvelope = env => { try { const s = JSON.stringify(env); const p = JSON.parse(s); return p && p.kind && p.version && p.artifact?.id ? s : null; } catch { return null; } };
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-export]");
+  if (!b || b.disabled) return;
+  const kind = b.dataset.export;
+  if (kind === "md") {
+    egress.value = toMarkdown();
+    document.getElementById("egress-status").textContent = `markdown · ${state.rows.length} rules`;
+    navigator.clipboard?.writeText(egress.value).then(() => flash("Rules markdown copied")).catch(() => flash("Copy blocked; mirror holds the markdown"));
+    return;
+  }
+  if (kind === "download") {
+    const env = envelope("full"), s = validEnvelope(env);
+    if (!s) { flash("Envelope failed validation; export blocked"); return; }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(env, null, 2)], { type: "application/json" }));
+    Object.assign(document.createElement("a"), { href: url, download: "rules-state.json" }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    egress.value = JSON.stringify(env, null, 2);
+    document.getElementById("egress-status").textContent = "full state downloaded";
+    return;
+  }
+  const scope = kind === "changed" ? "changed" : "full";
+  const env = envelope(scope), s = validEnvelope(env);
+  if (!s) { flash("Envelope failed validation; export blocked"); return; }
+  const pretty = JSON.stringify(env, null, 2);
+  egress.value = pretty;
+  document.getElementById("egress-status").textContent = scope === "changed" ? `changed-only · baseline ${baselineDigest}` : "full envelope";
+  navigator.clipboard?.writeText(pretty).then(() => flash(scope === "changed" ? "Changed-only copied" : "Envelope copied")).catch(() => flash("Copy blocked; mirror holds the JSON"));
+});
+
+render();
 </script>
 </body>
 </html>

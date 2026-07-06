@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 - package: <package-id>
-- version: <version>
 - license: <license>
 - namespace: <namespace-or-import>
 - asset: <asset-or-dll>

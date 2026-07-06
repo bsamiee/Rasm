@@ -89,6 +89,16 @@ The review vocabulary. Findings cite the defect name and the line.
 - Accepted: Clusters without the gateway class select the ingress row.
 - Reason: Coexisting arms are peer rows selected by a present environment fact. A genuine persisted-wire pin is a positive wire property stated once at its codec owner; everything else has no predecessor to spare.
 
+[IMPORTED_POSTURE] — A foreign authority's posture adopted over the corpus ruling: an upstream maturity label on a ruled standard, the ecosystem default presented as the default here, a fallback named beside the ruling, probationary ceremony on the ruled path, environment caveats the operating environment already resolves.
+- Rejected: The engine stays experimental — a diagram ships only after its render is inspected, and the shared renderer is the fallback when a defect bites.
+- Accepted: The engine lays out every graph family; a family that cannot take it routes to its own engine truth, and each engine trap carries its authoring rule beside it.
+- Reason: A maturity label, default, or risk posture is a fact about the upstream, never law here. The reframe flips the authority: the ruling stated as owned law, every alternative demoted to a boundary fact where the standard structurally cannot apply, each trap carrying its in-standard answer.
+
+[VERSION_ANCHOR] — Durable prose anchored to a release point in time: a version number or pin, a version-conditional behavior band, a date, release narration, or deictic freshness vocabulary — newest, latest, modern, currently, recently. The corpus assumes the newest stable release of everything it touches.
+- Rejected: The neo look lands at 2.14.0+; the curve default moved at 2.13.0 — restore the spline with the prior key.
+- Accepted: The look key accepts `neo`; the curve default is `rounded`, and `basis` restores the spline.
+- Reason: Behavior is stated as the behavior — the newest stable's truth with no band. A genuine wire or persistence version boundary is a positive property stated once at its codec owner; every other pin lives in the owning manifest alone.
+
 [SET_IN_STONE] — Wording that freezes the current shape against ground-up rebuild: SEALED, FROZEN, FINAL, legislated counts, "never re-opened", per-member byte-identical chants.
 - Rejected: The FROZEN twenty-column receipt: field names, types, and order are byte-identical wire law.
 - Accepted: The receipt's `[Key]` sequence is the persisted decode contract; growth is trailing-append.

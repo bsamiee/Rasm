@@ -37,6 +37,11 @@ Choose the container by what the reader retrieves; convert before styling.
 - Graphical labels carry concept names only: a node, edge, or tree-entry label stays under ten words, and code detail never rides a tree, seam edge, or diagram label.
 - One diagram owns one question; a diagram needing two legends is two diagrams.
 
+[FENCE_CONTENT]:
+- A fence carries a language tag plus one intent label from the closed set — `copy-safe` runs as written, `template` carries neutral placeholders, `conceptual` illustrates, `generated` and `output-only` carry produced output, `rejected` carries a counterexample — and the body honors its label: a copy-safe body runs, a renderable body renders under the corpus validator.
+- Reusable examples use legal neutral identifiers; placeholder strings such as `"<value-a>"` appear only inside literals, and no project, host, or domain concept anchors an example meant to travel.
+- Each example owns one demonstration region no sibling example repeats, and shows the form at real composed scale — admission, dispatch, and policy in one body with the growth axis visible — never an isolated minimum.
+
 [TABLE_ELIGIBILITY] — Build a table only when all three hold: rows share one comparison question, every column answers it with an atomic value, and more than one row exists. A single prose column disqualifies the table outright; a one-row table is a definition record; rows with no shared question are separate records. Eligibility is structural, never an enumeration license: rows mirroring an owner recorded elsewhere are a stale mirror however atomic the cells; the doc tables only its own registry or a verified representation.
 
 [CELL_BUDGET] — Each cell is one atomic unit: a value, marker, token, code span, proper noun, path, or a phrase of at most six words carrying no internal comma or clause-joining conjunction. A cell that wants a comma wants to be a card; a cell that wraps to a second rendered line is over budget. The stub column is a short unique key, never a sentence.
@@ -104,6 +109,7 @@ A closed marker vocabulary plus a templated entry shape is the device that keeps
 - Entry leaders compose identity and state (`[<ID>]-[<STATUS>]:`), so an entry's lifecycle is readable and greppable without parsing its body; status transitions are edits to the leader, never narrated in prose.
 - Field lines under a leader come from the closed field vocabulary in declared order; a field that decides nothing for this entry is omitted, never filled with filler.
 - Compact status glyphs (`[O]` `[X]` `[!]` `[~]`) render only where density matters — checked lists, delta summaries, table cells — with globally declared meanings; a marker never duplicates a field the entry already carries.
+- Invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) weight constraints in instruction files alone; ordinary documentation carries strength through prose modals, and one concept never carries both.
 
 ```markdown accepted
 - [0042]-[BLOCKED]: <entry title>

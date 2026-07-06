@@ -9,6 +9,7 @@
 - [<id>]: <outcome-as-a-change-in-behavior-or-capability>
   - Why: <the-opportunity-or-problem-that-makes-it-matter>
   - Bet: <the-candidate-route-without-making-output-the-point>
+  - Depends: <the-predecessor-outcome-owner-or-seam-that-must-land-first>
   - Measure: <how-attainment-is-observed>
   - Confidence: <what-carries-the-commitment>
 
@@ -17,6 +18,7 @@
 - [<id>]: <outcome>
   - Why: <opportunity-or-problem>
   - Bet: <candidate-route>
+  - Depends: <the-predecessor-outcome-owner-or-seam-that-must-land-first>
   - Measure: <how-attainment-is-observed>
   - Promote: <what-must-be-learned-or-proven-to-enter-NOW>
 
@@ -26,4 +28,4 @@
   - Why: <opportunity-or-problem>
   - Promote: <the-evidence-that-moves-it-to-NEXT>
 
-Binding: entries are outcomes, never task lists — a dated task inside a horizon is a plan leaking upward and moves to its plan. `LATER` is visibility, not discard: an entry leaves only by promotion or by an explicit ruling recorded in the owning decision set. Horizon movement edits the entry's section, never duplicates it.
+Binding: entries are outcomes, never task lists — a dated task inside a horizon is a plan leaking upward and moves to its plan. `Depends` names a predecessor outcome, owner, or seam that must land first, never a task; a `[NOW]` commitment whose predecessor is unbuilt is a sequencing trap, and the field is omitted when the outcome stands alone. `LATER` is visibility, not discard: an entry leaves only by promotion or by an explicit ruling recorded in the owning decision set. Horizon movement edits the entry's section, never duplicates it.

@@ -1,6 +1,6 @@
 # [WIRE_SEQUENCE]
 
-Draw an ordered exchange across a wire or process boundary. The template bakes in the wire discipline an unassisted attempt drops — the frame shape is named ON the wire in a note, so both sides visibly share one contract; every request has its visible return in both the success and fault arms, keeping causality auditable; the resolver's activation brackets exactly the work it owns; and the timeout escape is a `break` block, because a timeout aborts the exchange rather than branching it. Use `sequenceDiagram` with 3-4 participants, `autonumber` for citable steps, and one `alt` splitting success from fault. `sequenceDiagram` takes no ELK; `look: neo` applies at 11.14.0+.
+Draw an ordered exchange across a wire or process boundary. The template bakes in the wire discipline an unassisted attempt drops — the frame shape is named ON the wire in a note, so both sides visibly share one contract; every request has its visible return in both the success and fault arms, keeping causality auditable; the resolver's activation brackets exactly the work it owns; and the timeout escape is a `break` block, because a timeout aborts the exchange rather than branching it. Use `sequenceDiagram` with 3-4 participants, `autonumber` for citable steps, and one `alt` splitting success from fault. `sequenceDiagram` takes no ELK; `look: neo` applies. An unordered ownership structure is a spine or seam-graph, never a sequence.
 
 ```mermaid
 ---

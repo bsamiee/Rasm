@@ -24,7 +24,7 @@
 
 - Criteria: [<criterion-token>]:<weight> | [<criterion-token>]:<weight> | [<criterion-token>]:<weight>
 - [<direction-id>]: <score-per-criterion-in-declared-order> = <weighted-total>
-- Sensitivity: <the-weight-change-that-flips-the-winner>
+- Sensitivity: <the-reweighting-that-flips-the-winner-or-the-margin-the-winner-survives>
 
 ## [04]-[RULING]
 
@@ -32,4 +32,4 @@
 - Flips: <the-trigger-condition-that-overturns-the-leading-direction>
 - Rejected: <direction> — <why-it-lost>; reopens when <condition>
 
-Binding: the set spans at least two tiers with materially different theses — one track of variations on a single idea is not a set. Every direction survives disconfirmation before entering; `Evidence` cites what is inconsistent with the thesis, not only what supports it. `[03]-[WARGAME]` is the one sanctioned optional section: present exactly when the choice is scored, its weights declared before any direction is scored, one score row per direction, and later sections renumber up when it is omitted.
+Binding: the set spans at least two tiers with materially different theses — one track of variations on a single idea is not a set. Every direction survives disconfirmation before entering; `Evidence` cites what is inconsistent with the thesis, not only what supports it. `[03]-[WARGAME]` is the one sanctioned optional section: present exactly when the choice is scored, its weights declared before any direction is scored, one score row per direction, its `Sensitivity` naming the reweighting that flips the winner or the margin the winner survives, and later sections renumber up when it is omitted.

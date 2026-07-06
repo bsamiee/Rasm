@@ -1,40 +1,42 @@
 # [SYNTAX_EXTENDED]
 
-The diagram roster beyond the five core types, each at its 11.16 minimal form with the version gate and render trap that bind it.
+The diagram roster beyond the five core types — each admitted row carries its working form and the traps that bind it, and a registered row outside the admitted scope carries its registry entry alone.
 
 ## [01]-[REGISTRY]
 
 Pick a type by intent, then its section for the minimal fence, version gate, and traps; a dash marks a pre-11 introduction.
 
-| [INDEX] | [TYPE]               | [INTENT]                  | [SINCE]  |
-| :-----: | :------------------- | :------------------------ | :------- |
-|  [01]   | `mindmap`            | radial hierarchy          | —        |
-|  [02]   | `block`              | manual grid layout        | —        |
-|  [03]   | `journey`            | phase sentiment           | —        |
-|  [04]   | `requirementDiagram` | requirement traceability  | —        |
-|  [05]   | `pie`                | part-to-whole share       | —        |
-|  [06]   | `quadrantChart`      | two-axis position map     | —        |
-|  [07]   | `sankey`             | weighted directed flow    | —        |
-|  [08]   | `xychart`            | bar or line chart         | —        |
-|  [09]   | `radar-beta`         | multivariate profile      | 11.6.0   |
-|  [10]   | `gantt`              | dated schedule            | —        |
-|  [11]   | `treemap-beta`       | area-weighted hierarchy   | 11.8.0   |
-|  [12]   | `C4`                 | system landscape views    | —        |
-|  [13]   | `architecture-beta`  | infrastructure groups     | 11.1.0   |
-|  [14]   | `packet`             | bit-field layout          | 11.0.0   |
-|  [15]   | `timeline`           | chronological periods     | —        |
-|  [16]   | `gitGraph`           | branch and merge history  | —        |
-|  [17]   | `kanban`             | workflow-stage board      | 11.4.0   |
-|  [18]   | `treeView-beta`      | file-tree hierarchy       | 11.14.0  |
-|  [19]   | `venn-beta`          | set-overlap regions       | 11.13.0  |
-|  [20]   | `ishikawa-beta`      | cause-effect fishbone     | 11.13.0  |
-|  [21]   | `wardley-beta`       | value-chain evolution     | 11.14.0  |
-|  [22]   | `cynefin-beta`       | decision-domain sort      | 11.16.0  |
-|  [23]   | `railroad-beta`      | grammar syntax rails      | 11.16.0  |
-|  [24]   | `swimlane-beta`      | laned process flow        | 11.16.0  |
-|  [25]   | `zenuml`             | sequence via zenuml       | —        |
+| [INDEX] | [TYPE]               | [INTENT]                 |
+| :-----: | :------------------- | :----------------------- |
+|  [01]   | `mindmap`            | radial hierarchy         |
+|  [02]   | `block`              | manual grid layout       |
+|  [03]   | `journey`            | phase sentiment          |
+|  [04]   | `requirementDiagram` | requirement traceability |
+|  [05]   | `pie`                | part-to-whole share      |
+|  [06]   | `quadrantChart`      | two-axis position map    |
+|  [07]   | `sankey`             | weighted directed flow   |
+|  [08]   | `xychart`            | bar or line chart        |
+|  [09]   | `radar-beta`         | multivariate profile     |
+|  [10]   | `gantt`              | dated schedule           |
+|  [11]   | `treemap-beta`       | area-weighted hierarchy  |
+|  [12]   | `C4`                 | system landscape views   |
+|  [13]   | `architecture-beta`  | infrastructure groups    |
+|  [14]   | `packet`             | bit-field layout         |
+|  [15]   | `timeline`           | chronological periods    |
+|  [16]   | `gitGraph`           | branch and merge history |
+|  [17]   | `kanban`             | workflow-stage board     |
+|  [18]   | `treeView-beta`      | file-tree hierarchy      |
+|  [19]   | `venn-beta`          | set-overlap regions      |
+|  [20]   | `ishikawa-beta`      | cause-effect fishbone    |
+|  [21]   | `wardley-beta`       | value-chain evolution    |
+|  [22]   | `cynefin-beta`       | decision-domain sort     |
+|  [23]   | `railroad-beta`      | grammar syntax rails     |
+|  [24]   | `swimlane-beta`      | laned process flow       |
+|  [25]   | `zenuml`             | sequence via zenuml      |
 
-`venn-beta`, `ishikawa-beta`, and `wardley-beta` carry registry rows without a working fence in scope; `zenuml` is an external diagram the CLI registers through `@mermaid-js/mermaid-zenuml`.
+`venn-beta`, `ishikawa-beta`, and `wardley-beta` are registered and sit outside the admitted scope until a proven fence lands; `zenuml` is an external diagram the CLI registers.
+
+The quantitative rows — pie, xychart, sankey, radar — serve only when the artifact must stay a mermaid fence; a data visualization routes to the dataviz lane.
 
 ## [02]-[MINDMAP]
 
@@ -65,7 +67,7 @@ block
   a -- "link" --> g
 ```
 
-Stable keyword `block` since 11.10.0 (formerly `block-beta`); `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a bare block without a span is valid. A nested `block:id:span ... end` holds its own `columns`, and a labeled edge joins two blocks.
+The keyword is `block`; `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a bare block without a span is valid. A nested `block:id:span ... end` holds its own `columns`, and a labeled edge joins two blocks. A block arrow is `blockArrowId<["Label"]>(dir)` with `dir` one of `right`, `left`, `up`, `down`, `x`, `y`, or a compound like `(x, down)`.
 
 ## [04]-[JOURNEY]
 
@@ -107,7 +109,7 @@ requirementDiagram
   req <- traces - ent
 ```
 
-Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `performanceRequirement`, `physicalRequirement`, `designConstraint`; `risk` takes `Low`/`Medium`/`High` and `verifymethod` takes `Analysis`/`Inspection`/`Test`/`Demonstration`. Relations `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces` spell both `a - satisfies -> b` and `b <- traces - a`, quoted text carries markdown, and `direction` plus the hand-drawn look are 11.6.0+.
+Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `performanceRequirement`, `physicalRequirement`, `designConstraint`; `risk` takes `Low`/`Medium`/`High` and `verifymethod` takes `Analysis`/`Inspection`/`Test`/`Demonstration`. Relations `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces` spell both `a - satisfies -> b` and `b <- traces - a`, quoted text carries markdown, and the diagram takes `direction` plus the hand-drawn look.
 
 ## [06]-[PIE]
 
@@ -120,7 +122,7 @@ pie showData
   "Delta" : 10
 ```
 
-Values sum above `0`, labels are quoted, and `showData` prints percentages; donut, legend, and slice highlight are 11.16.0+.
+Values sum above `0`, labels are quoted, and `showData` prints percentages; donut, legend, and slice highlight compose on it.
 
 ## [07]-[QUADRANT_CHART]
 
@@ -141,11 +143,11 @@ quadrantChart
   quadrant-3 Retire
   quadrant-4 Hold
   A:::c1: [0.3, 0.6]
-  B: [0.8, 0.1] color: #ff3300, radius: 10
-  classDef c1 color: #109060
+  B: [0.8, 0.1] color: #FFB86C, radius: 10
+  classDef c1 color: #50FA7B
 ```
 
-Coordinates bind to `0` through `1` and quadrants number `1` top-right through `4` bottom-right; per-point styling trails the coordinates (`color`, `radius`, `stroke-width`, `stroke-color`) and `:::class` plus `classDef` styles a point. Non-ASCII unquoted labels — CJK, emoji, accented Latin-1 — parse from 11.16.0+.
+Coordinates bind to `0` through `1` and quadrants number `1` top-right through `4` bottom-right; per-point styling trails the coordinates (`color`, `radius`, `stroke-width`, `stroke-color`) and `:::class` plus `classDef` styles a point. Non-ASCII unquoted labels — CJK, emoji, accented Latin-1 — parse unquoted.
 
 ## [08]-[SANKEY]
 
@@ -167,7 +169,7 @@ Store,Homes,30
 Store,Industry,50
 ```
 
-Stable keyword `sankey` since 11.10.0 (formerly `sankey-beta`); the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor`, `nodeAlignment`, `showValues`, `prefix`, `suffix`, the 11.15.0+ styling knobs, and a `nodeColors` name-to-hex map.
+The keyword is `sankey`; the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor`, `nodeAlignment`, `showValues`, `prefix`, `suffix`, the styling knobs, and a `nodeColors` name-to-hex map.
 
 ## [09]-[XYCHART]
 
@@ -187,7 +189,7 @@ xychart
   line [120 "Small", 340 "Mid", 540 "Large"]
 ```
 
-Stable keyword `xychart` since 11.10.0 (formerly `xychart-beta`); `xychart horizontal` flips orientation and each `bar` or `line` array matches the x-axis category count. Line point labels are 11.16.0+ and render on `line` only — accepted but ignored on `bar` — while `showDataLabelOutsideBar` pushes bar values past the bar edge.
+The keyword is `xychart`; `xychart horizontal` flips orientation and each `bar` or `line` array matches the x-axis category count. Line point labels render on `line` only — accepted but ignored on `bar` — while `showDataLabelOutsideBar` pushes bar values past the bar edge.
 
 ## [10]-[RADAR]
 
@@ -217,7 +219,7 @@ radar-beta
   min 0
 ```
 
-Available 11.6.0+; `axis` names the axes, a positional curve `alice["Alice"]{...}` follows axis order and a keyed curve `keyed{ m: 85, ... }` binds by axis id. `graticule` also accepts `circle`, config admits `axisScaleFactor` and `curveTension`, and theme variables nest under `radar:`.
+`axis` names the axes, a positional curve `alice["Alice"]{...}` follows axis order and a keyed curve `keyed{ m: 85, ... }` binds by axis id. `graticule` also accepts `circle`, config admits `axisScaleFactor` and `curveTension`, and theme variables nest under `radar:`.
 
 ## [11]-[GANTT]
 
@@ -250,7 +252,7 @@ gantt
   Ship :milestone, m, after b, 0d
 ```
 
-Dates match `dateFormat`, `after taskId` and `until taskId` reference existing IDs, and modifiers are `done`, `active`, `crit`, `milestone`, `vert`; repeated `excludes`/`includes` entries are 11.16.0+.
+Dates match `dateFormat`, `after taskId` and `until taskId` reference existing IDs, and modifiers are `done`, `active`, `crit`, `milestone`, `vert`; repeated `excludes` and `includes` entries stack.
 
 ## [12]-[TREEMAP]
 
@@ -266,7 +268,7 @@ treemap-beta
         "Salaries": 700000
     "Marketing":::focus
         "Advertising": 400000
-classDef focus fill:#f96,stroke:#333;
+classDef focus fill:#44475A,stroke:#FFB86C,color:#F8F8F2
 ```
 
 Indentation sets hierarchy and a leaf carries a numeric value; `:::class` plus `classDef` styles a node, and `valueFormat` formats values through d3-format grammar alongside `showValues`, `nodeWidth`, `diagramPadding`.
@@ -276,17 +278,17 @@ Indentation sets hierarchy and a leaf carries a numeric value; `:::class` plus `
 ```mermaid
 C4Context
   Person_Ext(user, "External User")
-  System_Boundary(bound, "Platform") {
-    System(app, "App")
-  }
+  System(app, "App")
+  System(store, "Store")
   Rel(user, app, "Uses")
-  Rel(app, user, "Notifies")
-  UpdateElementStyle(bound, $fontColor="#F8F8F2", $bgColor="#282A36", $borderColor="#6272A4")
+  Rel(app, store, "Notifies")
+  UpdateElementStyle(app, $fontColor="#F8F8F2", $bgColor="#44475A", $borderColor="#BD93F9")
+  UpdateElementStyle(store, $fontColor="#F8F8F2", $bgColor="#44475A", $borderColor="#BD93F9")
   UpdateRelStyle(user, app, $textColor="#F8F8F2", $lineColor="#FF79C6")
-  UpdateRelStyle(app, user, $textColor="#F8F8F2", $lineColor="#FF79C6")
+  UpdateRelStyle(app, store, $textColor="#F8F8F2", $lineColor="#FF79C6")
 ```
 
-The family covers `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; an alias exists before `Rel()` and named parameters take `$`. It stays experimental and theming routes through `UpdateElementStyle`/`UpdateRelStyle`, not `themeVariables`.
+The family covers `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; an alias exists before `Rel()` and named parameters take `$`. `Enterprise_Boundary` nests boundaries, `System_Ext` marks an external system, and `BiRel` draws a bidirectional relation. Theming routes through `UpdateElementStyle`/`UpdateRelStyle`, not `themeVariables`; the fence stays flat by ruling since boundary label color is uncontrollable.
 
 ## [14]-[ARCHITECTURE]
 
@@ -314,7 +316,7 @@ architecture-beta
   align column mcp jn
 ```
 
-`group`, `service`, and `junction` place nodes, a member declares `in group`, edge ports are `T|B|L|R`, a group-boundary edge takes `{group}`, and an Iconify icon resolves as `pack:name`. `align row|column` orders members from 11.16.0+ and fails when it contradicts a directional edge; layout is cytoscape fcose, not ELK, with 11.15.0+ knobs `nodeSeparation`, `idealEdgeLengthMultiplier`, `edgeElasticity`, `numIter`, and `architecture.seed` (11.16.0+) is the deterministic lock since `randomize: false` alone does not guarantee identical renders.
+`group`, `service`, and `junction` place nodes, a member declares `in group`, edge ports are `T|B|L|R`, a group-boundary edge takes `{group}`, and an Iconify icon resolves as `pack:name`. `align row|column` orders members and fails when it contradicts a directional edge; layout is cytoscape fcose, not ELK, with knobs `nodeSeparation`, `idealEdgeLengthMultiplier`, `edgeElasticity`, `numIter`, and `architecture.seed` is the deterministic lock since `randomize: false` alone does not guarantee identical renders. Two siblings sharing one logical position overlap — `align row|column` or a junction separates them — and long group names collide, so a group label stays short.
 
 ## [15]-[PACKET]
 
@@ -327,7 +329,7 @@ title UDP Packet
 48-63: "Checksum"
 ```
 
-The keyword is `packet`, never `packet-beta`; `start-end: "name"` ranges and `+count: "name"` auto-counted fields (11.7.0+) mix in one diagram under an optional `title`. Theme-variable propagation is broken, so a packet diagram takes no theme.
+The keyword is `packet`, never `packet-beta`; `start-end: "name"` ranges and `+count: "name"` auto-counted fields mix in one diagram under an optional `title`. Theme-variable propagation is broken, so a packet diagram takes no theme.
 
 ## [16]-[TIMELINE]
 
@@ -340,7 +342,7 @@ timeline
     2022 : Review : Release
 ```
 
-A multi-event row repeats `:`, styling uses `cScale0` through `cScale11`, and timeline `direction` is 11.14.0+.
+A multi-event row repeats `:`, styling uses `cScale0` through `cScale11`, and timeline takes `direction`.
 
 ## [17]-[GITGRAPH]
 
@@ -385,7 +387,7 @@ treeView-beta
 └── package.json
 ```
 
-Available 11.14.0+ with box-drawing input from 11.16.0+, a trailing `/` marking a directory; annotations trail an entry as `:::class`, `## description`, and `icon(name)`/`icon(none)`. Config carries `showIcons`, `defaultIconPack`, `filenameIcons`, `extensionIcons`, and an unregistered icon renders as a question mark.
+The tree parses box-drawing input, a trailing `/` marking a directory; annotations trail an entry as `:::class`, `## description`, and `icon(name)`/`icon(none)`. Config carries `showIcons`, `defaultIconPack`, `filenameIcons`, `extensionIcons`, and an unregistered icon renders as a question mark.
 
 ## [20]-[CYNEFIN]
 
@@ -398,7 +400,7 @@ cynefin-beta
   clear --> complicated : "Pattern found"
 ```
 
-Available 11.16.0+; the five domains are `complex`, `complicated`, `clear`, `chaotic`, `confusion`, each holding quoted items, and a transition spells `domain --> domain : "label"`.
+The five domains are `complex`, `complicated`, `clear`, `chaotic`, `confusion`, each holding quoted items, and a transition spells `domain --> domain : "label"`. The current geometry draws axis-aligned rectangles, not the canonical curved domain boundaries.
 
 ## [21]-[RAILROAD]
 
@@ -409,7 +411,8 @@ config:
   themeVariables:
     darkMode: true
     textColor: "#F8F8F2"
-    primaryTextColor: "#F8F8F2"
+    primaryColor: "#44475A"
+    primaryBorderColor: "#BD93F9"
 ---
 railroad-ebnf-beta
 title "Optional Sign"
@@ -418,7 +421,7 @@ sign = "+" | "-" ;
 number = sign? digit+ ;
 ```
 
-Available 11.16.0+; the keyword selects the grammar parser — `railroad-ebnf-beta` for EBNF, `railroad-abnf-beta` for ABNF, `railroad-peg-beta` for PEG, and `railroad-beta` for Mermaid's intermediate constructors.
+The keyword selects the grammar parser — `railroad-ebnf-beta` for EBNF, `railroad-abnf-beta` for ABNF, `railroad-peg-beta` for PEG, and `railroad-beta` for Mermaid's intermediate constructors.
 
 ## [22]-[SWIMLANE]
 
@@ -428,4 +431,4 @@ swimlane-beta
   Review --> Approve
 ```
 
-Available 11.16.0+ as a standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout; it honors `flowchart.defaultRenderer: elk`.
+A standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout, it honors `flowchart.defaultRenderer: elk`. `look: neo` deforms swimlane output, so swimlane holds `look: classic`; its PNG export diverges from its SVG in current builds.

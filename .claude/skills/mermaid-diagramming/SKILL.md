@@ -1,20 +1,22 @@
 ---
 name: mermaid-diagramming
 description: >-
-  Generates and validates Mermaid v11 diagrams with YAML frontmatter, ELK layout, Dracula theme
+  Generates and validates Mermaid diagrams with YAML frontmatter, ELK layout, Dracula theme
   tokens, and a bundled render-plus-graph-logic validator. Owns diagram methodology — when to
   diagram, node and edge selection, per-type construction, logical soundness — the standard
   archetype catalog (architecture spine, package seam graph, logic flow, state lifecycle, wire
-  sequence, persistence schema, dependency strata), and the full v11 type roster from flowchart,
-  sequence, state, class, and ER through gantt, mindmap, timeline, C4, architecture, kanban, and
-  the chart family. Use when authoring or editing a mermaid fence, choosing a diagram type, or
-  drawing any structural or relational diagram — nodes, states, sequences, entities — distinct
-  from quantitative dataviz marks or an interactive HTML page.
+  sequence, persistence schema, dependency strata), and the admitted type registry: flowchart,
+  sequence, state, class, ER, gantt, mindmap, timeline, kanban, gitGraph, requirement, C4, and
+  architecture. Use when authoring, editing, or fixing any mermaid fence, choosing a diagram
+  type, or whenever a task asks to draw, diagram, map, or visualize a system, flow, state
+  machine, sequence exchange, database schema, dependency structure, schedule, hierarchy, or
+  workflow board — even when mermaid is never named — distinct from quantitative dataviz marks
+  (charts of data) and interactive HTML pages.
 ---
 
 # [MERMAID_DIAGRAMMING]
 
-Every committed diagram answers one written question, instantiates one catalog archetype or admitted type, opens with frontmatter carrying the Dracula theme block, and ships only after the validator and the soundness audit pass. The reasoning discipline and the engine surface load on demand through the reference routes below.
+Every committed diagram answers one written question, instantiates one catalog archetype or admitted type, opens with frontmatter carrying its type's Dracula subset, and ships only after the validator and the soundness audit pass. The reasoning discipline and the engine surface load on demand through the reference routes below.
 
 ## [01]-[QUESTION]
 
@@ -22,7 +24,7 @@ A diagram earns its fence only when the reader traces a relation across more mar
 
 ## [02]-[CATALOG]
 
-Select the archetype by intent, copy its template, and refill. An intent outside the catalog selects its type through the methodology decision table and the extended roster, under the same frontmatter, theming, and validation law.
+Select the archetype by intent, copy its template, and refill — a catalog template is self-sufficient, carrying its archetype's construction law in its own prose. An intent outside the catalog selects its type through the methodology decision table and the extended registry, under the same frontmatter, theming, and validation law.
 
 | [INDEX] | [ARCHETYPE]   | [INTENT]                    | [DECLARATION]     |
 | :-----: | :------------ | :-------------------------- | :---------------- |
@@ -50,7 +52,7 @@ A diagram is not done until its fence passes both stages: graph-logic checks ove
 python scripts/validate_mermaid.py <file.md ...>
 ```
 
-Each fence emits `file:line: ok|FAIL <reason>|WARN <reason>` rows with check kinds `render`, `frontmatter`, `logic`, `setup`, and `read`; `--json` emits NDJSON for tooling. Logic failures block: orphan node, unreachable state, undefined class, unknown class target. Logic warns demand a split or a stated reason: duplicate edge, budget overrun. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram.
+Each fence emits `file:line: ok|FAIL <reason>|WARN <reason>` rows with check kinds `render`, `frontmatter`, `contract`, `logic`, `setup`, `read`, and `collect`; `--json` emits NDJSON for tooling. Contract, logic, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers flowchart, state, sequence, ER, class, gantt, requirement, and architecture; any other family emits a `logic-unimplemented` warn instead of silent approval. Logic failures block: orphan node, unreachable state, undefined or unknown class targets, dangling task, group, service, or relation references. Logic warns demand a split or a stated reason: duplicate edges and relations, orphan participants, entities, services, and requirements, budget overruns. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram.
 
 The renderer resolves as `--renderer CMD`, then a `pnpm exec mmdc` workspace, then `mmdc` on PATH, then `npx -y @mermaid-js/mermaid-cli`. The final branch reaches the network on every run; install the renderer once so validation stays offline:
 
@@ -60,8 +62,8 @@ pnpm add -D @mermaid-js/mermaid-cli
 
 ## [04]-[CONTRACT]
 
-- Frontmatter opens every fence body before the diagram header, carrying `theme: base` with the Dracula variable subset the diagram type consumes; the token system, role map, and dual-host law are [references/theming.md](references/theming.md).
-- `accTitle` and `accDescr` follow the header on every committed diagram, stating the relation the diagram encodes so the exported SVG stays usable outside its source.
+- Frontmatter opens every fence body before the diagram header, carrying `theme: base` with the Dracula variable subset the diagram type consumes; the token system, role map, dual-host law, and the types and hosts that carry a local style law instead — packet, C4 element surfaces, host-themed docs — are [references/theming.md](references/theming.md).
+- `accTitle` and `accDescr` follow the header on every committed diagram, stating the relation the diagram encodes so the exported SVG stays usable outside its source; `block` and `mindmap` mis-handle the directives, so there the relation sentence sits beside the fence.
 - Node and edge labels carry concept names, never mechanism detail — the owning page carries the bytes.
 - Semantic node classes and edge rails come from the canonical Dracula `classDef` set; an ad-hoc hex is a defect.
 
@@ -94,11 +96,11 @@ A faulted fence converges on its own source across at most five render-inspect-e
 
 - When to diagram, investigation, node and edge law, type selection, soundness audit, multi-diagram composition: [references/methodology.md](references/methodology.md)
 - Per-type construction — the question each type answers, what its marks assert, failure modes, truth tests: [references/construction.md](references/construction.md)
-- Dracula palette, role map, base theme block, canonical classDef rails, dual-host contrast, Alucard: [references/theming.md](references/theming.md)
-- The full styling grammar — every link form and length, the complete shape registry, containers, style precedence with its interaction traps, the per-type styling matrix: [references/styling.md](references/styling.md)
+- Dracula palette, role map, the base theme block, canonical classDef rails, dual-host contrast, Alucard: [references/theming.md](references/theming.md)
+- The full styling grammar — every link and arrow form for every family, link lengths, the complete shape registry, containers and subgraphs, style precedence with its interaction traps, the per-type styling matrix: [references/styling.md](references/styling.md)
 - Frontmatter schema, secure keys, layout engines and ELK tuning, look system, accessibility, mmdc and CI, trap list: [references/config.md](references/config.md)
-- Advanced flowchart, sequence, state, class, and ER — shape registry, edge IDs, markdown strings, KaTeX, version gates: [references/syntax-core.md](references/syntax-core.md)
-- The full type roster beyond the core five, each with its minimal fence, version gate, and traps: [references/syntax-extended.md](references/syntax-extended.md)
+- Advanced flowchart, sequence, state, class, and ER — node metadata, edge IDs, markdown strings, KaTeX, per-type traps: [references/syntax-core.md](references/syntax-core.md)
+- The type registry beyond the core five — admitted rows with working fences and traps, registered rows named: [references/syntax-extended.md](references/syntax-extended.md)
 
 ## [07]-[GOTCHAS]
 

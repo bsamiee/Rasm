@@ -7,12 +7,16 @@
 <title>Brainstorm: Shape Directions</title>
 <style>
 /* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
+@layer reset,tokens,base,components,utilities,print,overrides;
+@layer reset{
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+}
+@layer tokens{
 :root{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
   --f0:12px;--f1:13.5px;--f2:15px;--f3:18px;--f4:24px;--f5:32px;
   --r1:6px;--r2:10px;--r3:14px;--measure:1100px;
@@ -22,22 +26,24 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme]){
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }
 :root[data-theme="light"]{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
 }
+}
+@layer base{
 body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
 .wrap{max-width:var(--measure);margin:0 auto;padding:var(--s5) var(--s4)}
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
@@ -49,6 +55,10 @@ p,li{text-wrap:pretty}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer components{
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--f0);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
@@ -70,12 +80,18 @@ th{background:var(--surface);font-weight:600}tr:last-child td{border-bottom:0}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r1)}
 pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);font-size:var(--f1);line-height:1.5}
 pre code{background:none;padding:0}
-button,select,input,textarea{font:inherit;color:inherit}
 .btn{font-size:var(--f1);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+}
+@layer print{
 @media print{
+  :root{
+    color-scheme:light;
+    --bg:#fff;--surface:#ECE9DF;--raised:#fff;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+    --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
+    --shadow-1:none;--shadow-2:none;
+  }
   @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
@@ -84,72 +100,263 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   body,.twrap,pre{overflow:visible}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
-/* --- [BRAINSTORM_LOCAL] --- */
-.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
-.dir h3{margin-top:0}.dir .thesis{font-style:italic;color:var(--muted)}
-.dir h4{margin:var(--s3) 0 var(--s1);font-size:var(--f1);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.dir ul{margin:0;padding-left:var(--s4)}.dir li{margin:2px 0}
-[data-criterion].hl{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:var(--r1);outline:2px solid var(--accent-muted)}
-.verdict{margin-top:var(--s5);border-color:var(--accent)}
+}
+@layer overrides{
+@media (forced-colors:active){
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--text:CanvasText;--muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  *{box-shadow:none!important;text-shadow:none!important}
+}
+}
+/* --- [BRAINSTORM_LOCAL] --- appends into the floor's named layers; the floor owns the order */
+@layer tokens{
+  :root{--dur:0ms;--ease:cubic-bezier(.16,1,.3,1);--lift-tone:0%;--text-2:var(--muted)}
+  @media (prefers-color-scheme:dark){:root:not([data-theme]){--text-2:color-mix(in oklch,var(--text) 70%,var(--muted))}}
+  :root[data-theme="dark"]{--text-2:color-mix(in oklch,var(--text) 70%,var(--muted))}
+  @media (prefers-reduced-motion:no-preference){:root{--dur:180ms}}
+}
+@layer utilities{.t2{color:var(--text-2)}}
+@layer components{
+  @property --lift{syntax:"<number>";inherits:false;initial-value:0}
+  .skip{position:absolute;left:-9999px}
+  .skip:focus{left:var(--s4);top:var(--s4);position:fixed;z-index:5;background:var(--raised);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1)}
+  .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
+  .head__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s4);margin:var(--s4) 0}
+  .toolbar label{display:flex;align-items:center;gap:var(--s2);font-size:var(--f1);color:var(--muted)}
+  .board{container:board / inline-size;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr))}
+  .dir{container:dir / inline-size;--lift:0;transform:translateY(calc(var(--lift) * -1 * var(--s1)));transition:--lift var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+  .dir:hover{--lift:1}
+  .dir__head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s2);justify-content:space-between}
+  .dir__head h2{margin:0;font-size:var(--f3)}
+  .thesis{font-style:italic;color:var(--text);margin:var(--s2) 0 var(--s3)}
+  .dir__sub{margin:var(--s3) 0 var(--s1);font-size:var(--f1);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .facet__list,.frags{margin:0;padding-inline-start:var(--s4)}
+  .facet__item,.frag{margin:var(--s1) 0}
+  .facet__item{border-radius:var(--r1);transition:background-color var(--dur) var(--ease)}
+  .facet__item.hl{background:color-mix(in oklch,var(--accent) 16%,transparent);outline:2px solid var(--accent-muted);padding-inline:var(--s1)}
+  .frags{list-style:none;padding-inline-start:0;display:grid;gap:var(--s2)}
+  .frag{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);padding:var(--s2);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface)}
+  .frag__text{flex:1 1 12rem}
+  .frag__acts{display:flex;gap:var(--s1)}
+  .btn--mini{font-size:var(--f0);padding:2px var(--s2)}
+  .dir__verdict{display:flex;align-items:center;gap:var(--s2);margin-block-start:var(--s3);font-size:var(--f1);color:var(--muted)}
+  .distinct{display:grid;gap:var(--s3);margin:var(--s4) 0}
+  .warn-card{border-color:color-mix(in oklch,var(--warn) 50%,var(--line));background:color-mix(in oklch,var(--raised),var(--warn) 8%)}
+  .warn-card p{margin:0}
+  .hybrid{margin-block-start:var(--s5);border-color:var(--line)}
+  .hybrid.hybrid--live{border-color:var(--accent);background:color-mix(in oklch,var(--raised),var(--accent) 6%)}
+  .hybrid h2{margin-top:0}
+  .capbar{margin-block-start:var(--s5);display:grid;gap:var(--s3);grid-template-columns:1fr;transition:border-color var(--dur) var(--ease)}
+  .capbar:has(input:focus-visible),.capbar:has(select:focus-visible){border-color:var(--accent)}
+  @container board (inline-size >= 40rem){.capbar{grid-template-columns:repeat(2,1fr)}}
+  .capbar__field{display:flex;flex-direction:column;gap:var(--s1);font-size:var(--f1);color:var(--muted)}
+  .capbar__field input{inline-size:100%}
+  .exportbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-block:var(--s5);padding:var(--s3) 0;background:var(--bg);border-top:1px solid var(--line)}
+  .egress-meta{color:var(--muted);font-size:var(--f1)}
+  .egress-label{display:flex;flex-direction:column;gap:var(--s1);flex:1 1 240px;font-size:var(--f1);color:var(--muted)}
+  #egress{inline-size:100%;resize:vertical;font-family:var(--font-mono);font-size:var(--f0)}
+  #toast{position:fixed;inset:auto var(--s4) var(--s4) auto;margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r2);background:var(--raised);box-shadow:var(--shadow-2);color:var(--text)}
+}
+@layer print{
+@media print{
+  .toolbar,.frag__acts,.dir__verdict,.capbar,.exportbar,.skip{display:none!important}
+  .board{display:block}
+  .dir,.hybrid,.warn-card{break-inside:avoid;margin-block-end:var(--s4)}
+}
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#board">Skip to directions</a>
 <div class="wrap">
   <header class="head">
-    <div><h1>Brainstorm: Shape Directions</h1><small>Three directions for the &lt;capability&gt; owner.</small></div>
-    <!-- replace: direction count + date -->
-    <div><span class="chip info">3 DIRECTIONS</span> <small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
+    <div><h1>Brainstorm: Shape Directions</h1><small>Directions for the Shape owner.</small></div>
+    <div class="head__meta">
+      <!-- replace: direction count + date -->
+      <span class="chip info" id="dir-count">4 DIRECTIONS</span>
+      <small>2026-07-06</small>
+      <button type="button" class="btn no-print" data-toggle-theme>Theme</button>
+    </div>
   </header>
 
-  <div class="no-print" style="margin:var(--s4) 0">
-    <label>Highlight criterion
-      <select data-compare>
-        <option value="none">none</option><option value="strengths">strengths</option>
-        <option value="costs">costs</option><option value="kills">kills</option>
-      </select>
+  <div class="toolbar no-print">
+    <label>Lift criterion
+      <select data-compare><option value="none">none</option></select>
     </label>
+    <search><label>Filter <input type="search" data-filter-box placeholder="narrow directions"></label></search>
   </div>
 
-  <!-- replace: one .card.dir per direction; keep the four data-criterion blocks -->
-  <div class="grid">
-    <article class="card dir"><h3>A — Absorb into Shape</h3>
-      <p class="thesis">One polymorphic owner discriminates on input.</p>
-      <div data-criterion="strengths"><h4>Strengths</h4><ul><li>Single entry point</li><li>No sibling drift</li></ul></div>
-      <div data-criterion="costs"><h4>Costs</h4><ul><li>Denser dispatch body</li></ul></div>
-      <div data-criterion="kills"><h4>Kills</h4><ul><li>Modality-named exports</li></ul></div>
-    </article>
-    <article class="card dir"><h3>B — Split by Variant</h3>
-      <p class="thesis">Each variant keeps its own surface.</p>
-      <div data-criterion="strengths"><h4>Strengths</h4><ul><li>Flat call sites</li></ul></div>
-      <div data-criterion="costs"><h4>Costs</h4><ul><li>Parallel exports proliferate</li><li>Boundary duplication</li></ul></div>
-      <div data-criterion="kills"><h4>Kills</h4><ul><li>Density target</li></ul></div>
-    </article>
-    <article class="card dir"><h3>C — Adapter at edge</h3>
-      <p class="thesis">PRIMARY maps once at the boundary.</p>
-      <div data-criterion="strengths"><h4>Strengths</h4><ul><li>Canonical internals</li><li>Thin edge</li></ul></div>
-      <div data-criterion="costs"><h4>Costs</h4><ul><li>Extra ingress hop</li></ul></div>
-      <div data-criterion="kills"><h4>Kills</h4><ul><li>Stringly boundary logic</li></ul></div>
-    </article>
-  </div>
+  <section class="distinct" id="distinct" aria-label="Distinctness warnings"></section>
 
-  <article class="card verdict"><h3>Verdict</h3>
-    <p>Direction <strong>A</strong> leads: it collapses the surface without losing modality. Flips to <strong>C</strong> if the boundary needs independent evolution from the owner.</p>
-  </article>
+  <main id="board" tabindex="-1" class="grid board"></main>
+
+  <article class="card hybrid" id="hybrid" aria-label="Composed hybrid direction"></article>
+
+  <section class="card capbar" aria-label="Leaning and flip trigger">
+    <label class="capbar__field">Leaning direction
+      <select data-leaning><option value="">none</option></select>
+    </label>
+    <label class="capbar__field">Flip trigger
+      <input type="text" data-flip placeholder="Evidence that flips the lean">
+    </label>
+  </section>
+
+  <footer class="exportbar no-print">
+    <button type="button" class="btn" data-export="md">Copy markdown</button>
+    <button type="button" class="btn" data-export="json">Download JSON</button>
+    <button type="button" class="btn" data-export="changed" disabled>Copy changed</button>
+    <span class="egress-meta num" id="egress-meta">0 stolen, 0 verdicts</span>
+    <label class="egress-label">Exported payload
+      <textarea id="egress" readonly rows="3"></textarea>
+    </label>
+  </footer>
 </div>
+<output id="toast" popover="manual" aria-live="polite"></output>
+<!-- replace: brainstorm model payload -->
+<script type="application/json" id="payload">{"meta":{"title":"Shape Directions","date":"2026-07-06"},"criteria":[{"id":"c-surface","name":"Surface density"},{"id":"c-callsite","name":"Call-site ergonomics"},{"id":"c-boundary","name":"Boundary clarity"},{"id":"c-evolve","name":"Independent evolution"}],"directions":[{"id":"d-absorb","name":"A, Absorb into Shape","posture":"collapse","thesis":"One polymorphic owner discriminates on input shape.","optimizes":["c-surface","c-boundary"],"costs":["c-callsite"],"kills":["Modality-named exports","Duplicated boundary mapping"],"fragments":[{"id":"f-a1","text":"Single dispatch(req) entry discriminating on req.arity."},{"id":"f-a2","text":"Closed arity vocabulary, no runtime-supplied kinds."},{"id":"f-a3","text":"Boundary mapping runs once at ingress."}]},{"id":"d-unify","name":"B, Unify under one owner","posture":"collapse","thesis":"A single owner absorbs every modality behind one door.","optimizes":["c-surface","c-boundary"],"costs":["c-callsite"],"kills":["Sibling export drift"],"fragments":[{"id":"f-b1","text":"Provider selection folds into a policy value on the request."},{"id":"f-b2","text":"Batch and stream collapse into one input-shape detector."},{"id":"f-b3","text":"Telemetry and retries internalized on the owner."}]},{"id":"d-split","name":"C, Split by variant","posture":"diverge","thesis":"Each variant keeps its own surface and call site.","optimizes":["c-callsite"],"costs":["c-surface","c-boundary"],"kills":["Density target"],"fragments":[{"id":"f-c1","text":"Flat per-variant call sites, no dispatch body."},{"id":"f-c2","text":"Each export owns its own boundary mapping."},{"id":"f-c3","text":"A new modality is a new sibling export."}]},{"id":"d-edge","name":"D, Adapter at the edge","posture":"layer","thesis":"PRIMARY maps once at the boundary, internals stay canonical.","optimizes":["c-boundary","c-evolve"],"costs":["c-surface"],"kills":["Stringly boundary logic"],"fragments":[{"id":"f-d1","text":"Thin ingress adapter translates PRIMARY once."},{"id":"f-d2","text":"Internals read canonical names only."},{"id":"f-d3","text":"Boundary evolves independently of the owner."}]}]}</script>
 <script>
+const $ = (sel, root = document) => root.querySelector(sel);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
 const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const root = document.documentElement;
-root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+try { root.dataset.theme = localStorage.getItem(themeKey) ?? "dark"; } catch { root.dataset.theme = "dark"; }
+
+// --- model -> lookups + capture state
+const model = JSON.parse($("#payload").textContent);
+const critName = Object.fromEntries(model.criteria.map(c => [c.id, c.name]));
+const dirById = Object.fromEntries(model.directions.map(d => [d.id, d]));
+const fragMeta = {};
+model.directions.forEach(d => d.fragments.forEach(f => { fragMeta[f.id] = { text: f.text, from: d.name, fromId: d.id }; }));
+const shortName = name => name.split(",")[0].trim();
+const state = { compare: "none", hybrid: [], verdicts: {}, leaning: "", flipTrigger: "", flipExported: false, distinctness: [] };
+
+// --- direction card projection
+const facet = (label, items, isCrit) => {
+  const wrap = el("div", "facet"); wrap.append(el("h3", "dir__sub", label));
+  const ul = el("ul", "facet__list");
+  items.forEach(x => { const li = el("li", "facet__item"); if (isCrit) { li.dataset.criterion = x; li.textContent = critName[x] || x; } else li.textContent = x; ul.append(li); });
+  wrap.append(ul); return wrap;
+};
+const board = $("#board");
+model.directions.forEach(d => {
+  const card = el("article", "card dir"); card.dataset.id = d.id; card.dataset.filter = ""; card.dataset.posture = d.posture;
+  const head = el("div", "dir__head"); const pc = el("span", "chip info", d.posture.toUpperCase()); head.append(el("h2", null, d.name), pc); card.append(head);
+  card.append(el("p", "thesis", d.thesis));
+  card.append(facet("Optimizes", d.optimizes, true), facet("Costs", d.costs, true), facet("Kills", d.kills, false));
+  card.append(el("h3", "dir__sub t2", "Stealable fragments"));
+  const fl = el("ul", "frags");
+  d.fragments.forEach(f => {
+    const li = el("li", "frag"); li.dataset.frag = f.id; li.append(el("span", "frag__text t2", f.text));
+    const acts = el("span", "frag__acts");
+    const steal = el("button", "btn btn--mini", "Steal"); steal.type = "button"; steal.dataset.steal = f.id;
+    const skip = el("button", "btn btn--mini", "Skip"); skip.type = "button"; skip.dataset.skip = f.id;
+    acts.append(steal, skip); li.append(acts); fl.append(li);
+  });
+  card.append(fl);
+  const vl = el("label", "dir__verdict"); vl.append(el("span", null, "Verdict"));
+  const vs = el("select"); vs.dataset.verdict = d.id;
+  [["none", "none"], ["approve", "approve"], ["approve_with_notes", "approve with notes"], ["reject", "reject"], ["defer", "defer"]].forEach(([v, t]) => { const o = el("option", null, t); o.value = v; vs.append(o); });
+  vl.append(vs); card.append(vl);
+  board.append(card);
+});
+
+// --- populate controls from model
+const cmpSel = $("[data-compare]"); model.criteria.forEach(c => { const o = el("option", null, c.name); o.value = c.id; cmpSel.append(o); });
+const leanSel = $("[data-leaning]"); model.directions.forEach(d => { const o = el("option", null, d.name); o.value = d.id; leanSel.append(o); });
+$("#dir-count").textContent = `${model.directions.length} DIRECTIONS`;
+
+// --- pairwise distinctness readout
+const eqSet = (a, b) => a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
+const distinct = $("#distinct");
+const renderDistinct = () => {
+  const dirs = model.directions, warns = [];
+  for (let i = 0; i < dirs.length; i++) for (let j = i + 1; j < dirs.length; j++) { const a = dirs[i], b = dirs[j]; if (a.posture === b.posture && eqSet(a.optimizes, b.optimizes)) warns.push({ a, b }); }
+  state.distinctness = warns.map(w => ({ a: w.a.id, b: w.b.id }));
+  distinct.replaceChildren();
+  warns.forEach(w => {
+    const c = el("div", "card warn-card"); const p = el("p"); const chip = el("span", "chip warn"); chip.append(el("span", "chip__mark", "[COLLAPSE]"));
+    p.append(chip, document.createTextNode(` ${w.a.name} and ${w.b.name} share posture "${w.a.posture}" and optimize the same axes (${w.a.optimizes.map(x => critName[x]).join(", ")}). Collapse these into one direction.`));
+    c.append(p); distinct.append(c);
+  });
+};
+
+// --- hybrid assembly card
+const hybrid = $("#hybrid");
+const renderHybrid = () => {
+  hybrid.replaceChildren(el("h2", null, "Composed hybrid"));
+  if (!state.hybrid.length) { hybrid.append(el("p", "muted", "Steal fragments from any direction to compose a hybrid here.")); hybrid.classList.remove("hybrid--live"); return; }
+  hybrid.classList.add("hybrid--live");
+  const ul = el("ul", "frags");
+  state.hybrid.forEach(fid => {
+    const f = fragMeta[fid]; const li = el("li", "frag");
+    li.append(el("span", "chip info", shortName(f.from)), el("span", "frag__text", f.text));
+    const drop = el("button", "btn btn--mini", "Remove"); drop.type = "button"; drop.dataset.drop = fid; li.append(drop); ul.append(li);
+  });
+  hybrid.append(ul);
+};
+
+// --- export meta + changed-only gate
+const meta = $("#egress-meta");
+const changedBtn = $('[data-export="changed"]');
+const changed = () => !!(state.leaning || state.flipTrigger.trim() || state.hybrid.length || Object.keys(state.verdicts).length);
+const refreshMeta = () => { meta.textContent = `${state.hybrid.length} stolen, ${Object.keys(state.verdicts).length} verdicts`; changedBtn.disabled = !changed(); };
+
+// --- dual export from one state graph
+const nameOf = id => dirById[id]?.name || id;
+const toEnvelope = () => ({
+  kind: "brainstorm", version: 1,
+  artifact: { id: "brainstorm." + themeKey.slice(6), title: model.meta.title, baseline: "b-" + model.directions.length },
+  decision: { status: state.leaning ? "approve_with_notes" : "comment", at: new Date().toISOString() },
+  decisions: Object.entries(state.verdicts).map(([id, verdict]) => ({ id, verdict })),
+  changes: [],
+  annotations: state.flipTrigger.trim() ? [{ id: "a-flip", itemId: state.leaning || null, intent: "comment", status: state.flipExported ? "exported" : "active", text: state.flipTrigger.trim() }] : [],
+  state: { leaning: state.leaning, flipTrigger: state.flipTrigger.trim(), hybrid: state.hybrid.map(fid => ({ id: fid, from: fragMeta[fid].fromId, text: fragMeta[fid].text })), directions: model.directions.map(d => ({ id: d.id, name: d.name, posture: d.posture, optimizes: d.optimizes })), distinctness: state.distinctness },
+});
+const validate = env => env.kind === "brainstorm" && !!env.artifact?.id && Array.isArray(env.decisions) && typeof env.decision?.at === "string";
+const toMarkdown = () => {
+  const L = [`# Brainstorm: ${model.meta.title}`, "", `Leaning: ${state.leaning ? nameOf(state.leaning) : "(undecided)"}`, `Flip trigger: ${state.flipTrigger.trim() || "(none)"}`, "", "## Direction verdicts", ""];
+  const vs = Object.entries(state.verdicts);
+  if (!vs.length) L.push("No verdicts recorded."); else vs.forEach(([id, v]) => L.push(`- ${nameOf(id)}: ${v}`));
+  L.push("", "## Hybrid, stolen fragments", "");
+  if (!state.hybrid.length) L.push("None stolen."); else state.hybrid.forEach(fid => { const f = fragMeta[fid]; L.push(`- [${shortName(f.from)}] ${f.text}`); });
+  L.push("", "## Distinctness warnings", "");
+  if (!state.distinctness.length) L.push("Directions are distinct."); else state.distinctness.forEach(p => L.push(`- Collapse: ${nameOf(p.a)} plus ${nameOf(p.b)} (same posture and optimized axes).`));
+  return L.join("\n");
+};
+
+const download = (name, mime, text) => { const url = URL.createObjectURL(new Blob([text], { type: mime })); Object.assign(document.createElement("a"), { href: url, download: name }).click(); setTimeout(() => URL.revokeObjectURL(url), 0); };
+const toast = $("#toast"); let toastTimer;
+const flash = msg => { if (!toast.showPopover) return; toast.textContent = msg; try { toast.showPopover(); } catch { /* already open */ } clearTimeout(toastTimer); toastTimer = setTimeout(() => { try { toast.hidePopover(); } catch { /* already hidden */ } }, 1600); };
+const markExported = () => { state.flipExported = !!state.flipTrigger.trim(); };
+const copy = text => { const p = navigator.clipboard?.writeText(text); if (p) p.then(() => { markExported(); flash("Copied"); }).catch(() => flash("Copy blocked, use the box")); else flash("Copy unavailable, use the box"); };
+const egress = $("#egress");
+const doExport = which => {
+  const env = toEnvelope();
+  if (!validate(env)) { egress.value = "[BLOCKED] envelope failed validation"; flash("Export blocked"); return; }
+  if (which === "json") { const text = JSON.stringify(env, null, 2); egress.value = text; download("brainstorm-" + themeKey.slice(6) + ".json", "application/json", text); markExported(); flash("Downloaded JSON"); return; }
+  if (which === "changed") { if (!changed()) { flash("Nothing captured"); return; } const text = JSON.stringify({ kind: env.kind, version: env.version, artifact: env.artifact, baselineRef: "b-" + model.directions.length, decisions: env.decisions, state: { leaning: env.state.leaning, flipTrigger: env.state.flipTrigger, hybrid: env.state.hybrid } }, null, 2); egress.value = text; copy(text); return; }
+  egress.value = toMarkdown(); copy(egress.value);
+};
+
+// --- one listener per concern
 document.addEventListener("click", e => {
-  if (!e.target.closest("[data-toggle-theme]")) return;
-  const next = root.dataset.theme === "dark" ? "light" : "dark";
-  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+  const st = e.target.closest("[data-steal]"); if (st) { if (!state.hybrid.includes(st.dataset.steal)) state.hybrid.push(st.dataset.steal); renderHybrid(); refreshMeta(); return; }
+  const sk = e.target.closest("[data-skip]"); if (sk) { state.hybrid = state.hybrid.filter(x => x !== sk.dataset.skip); renderHybrid(); refreshMeta(); return; }
+  const rm = e.target.closest("[data-drop]"); if (rm) { state.hybrid = state.hybrid.filter(x => x !== rm.dataset.drop); renderHybrid(); refreshMeta(); return; }
+  const theme = e.target.closest("[data-toggle-theme]"); if (theme) { const next = root.dataset.theme === "dark" ? "light" : "dark"; try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; } return; }
+  const exp = e.target.closest("[data-export]"); if (exp) doExport(exp.dataset.export);
 });
 document.addEventListener("change", e => {
-  const sel = e.target.closest("[data-compare]"); if (!sel) return;
-  const k = sel.value;
-  document.querySelectorAll("[data-criterion]").forEach(r => r.classList.toggle("hl", k !== "none" && r.dataset.criterion === k));
+  const cmp = e.target.closest("[data-compare]"); if (cmp) { state.compare = cmp.value; document.querySelectorAll("[data-criterion]").forEach(li => li.classList.toggle("hl", state.compare !== "none" && li.dataset.criterion === state.compare)); return; }
+  const v = e.target.closest("[data-verdict]"); if (v) { if (v.value === "none") delete state.verdicts[v.dataset.verdict]; else state.verdicts[v.dataset.verdict] = v.value; refreshMeta(); return; }
+  const lean = e.target.closest("[data-leaning]"); if (lean) { state.leaning = lean.value; refreshMeta(); }
 });
+document.addEventListener("input", e => {
+  const box = e.target.closest("[data-filter-box]"); if (box) { const q = box.value.trim().toLowerCase(); document.querySelectorAll("#board [data-filter]").forEach(c => { c.hidden = q !== "" && !c.textContent.toLowerCase().includes(q); }); return; }
+  const flip = e.target.closest("[data-flip]"); if (flip) { state.flipTrigger = flip.value; state.flipExported = false; refreshMeta(); }
+});
+
+renderDistinct(); renderHybrid(); refreshMeta();
 </script>
 </body>
 </html>
