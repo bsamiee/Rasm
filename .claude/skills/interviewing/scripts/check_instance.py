@@ -1,444 +1,687 @@
 #!/usr/bin/env python3
-# ruff: noqa: T201 — stdout is this gate's output contract
-"""Deterministic conformance gate over durable artifact instances. Exit 0 iff no fail.
-
-Usage: check_instance.py [--json] <instance.md>...
-Kind binds from the first content line, which must be the template H1 (suffix _DECISIONS,
-_DIRECTIONS, _ROADMAP, _BLINDSPOTS, _CAPABILITIES); the template is the schema — sections,
-per-section field names, and leader vocabularies derive from it at run time. Checks: collect
-(unresolvable argv path), read (unreadable or invalid-UTF-8 input), template (unreadable
-schema source), kind, slot-residue (unfilled template slots outside fences and code spans),
-heading-census (missing, unknown, misordered, or misnumbered sections), leader-id (entry ids
-are an optional capital kind letter then a zero-padded ordinal), leader-vocab (leader tokens
-drawn from the template's declared vocabularies — a parameterized token such as
-`[SUPERSEDED:<id>]` requires a well-formed id tail — plus the axis catalog for the blindspot
-ledger), leader-unique (an entry id mints once per section; a cross-section repeat is a
-reference), field-vocab (entry field names drawn from the template's fields for the active
-section), mark-vocab (a field whose template value leads with a `[<VOCAB>]` slot requires the
-instance field to lead with a token drawn from that declared vocabulary), entry-floor (a
-non-blindspot entry-bearing artifact carries at least one entry — a fully conformant but
-empty artifact is vacuous), section-span (a direction set spans at least two distinct tiers),
-section-coverage (a direction set's wargame, when present, scores exactly the declared
-directions — no unscored direction, no phantom score row), wargame-criteria (a direction
-set's wargame criteria tokens are distinct — a repeated criterion double-counts its weight).
-Output:
-`file:line: FAIL <check> <detail>` per hit; --json emits NDJSON rows
-{"file","line","check","status","detail"}.
-"""
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["cyclopts", "msgspec", "pydantic"]
+# ///
+# ruff: noqa: T201
+"""Deterministic conformance gate over durable artifact instances."""
 
 # --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
 
-import argparse
-from dataclasses import dataclass
+from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
-import json
 from pathlib import Path
 import re
 import sys
+from typing import Annotated, Literal, TypedDict
+
+from cyclopts import App, Parameter
+import msgspec
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] -----------------------------------------------------------------------------
+
+type Status = Literal["ok", "warn", "fail"]
+
 
 class Check(StrEnum):
-    """Closed check vocabulary; every emitted row names one member."""
+    """Closed finding vocabulary."""
 
     COLLECT = "collect"
-    READ = "read"
-    TEMPLATE = "template"
-    KIND = "kind"
-    SLOT_RESIDUE = "slot-residue"
+    ENTRY_FLOOR = "entry-floor"
+    FIELD_DUPLICATE = "field-duplicate"
+    FIELD_REQUIRED = "field-required"
+    FIELD_VOCAB = "field-vocab"
+    FILENAME = "filename"
+    FOLD_BACK = "fold-back"
     HEADING_CENSUS = "heading-census"
+    ID_ORDINAL = "id-ordinal"
+    ID_REFERENCE = "id-reference"
+    ID_TOMBSTONE = "id-tombstone"
+    KIND = "kind"
     LEADER_ID = "leader-id"
     LEADER_UNIQUE = "leader-unique"
     LEADER_VOCAB = "leader-vocab"
-    FIELD_VOCAB = "field-vocab"
     MARK_VOCAB = "mark-vocab"
-    ENTRY_FLOOR = "entry-floor"
-    SECTION_SPAN = "section-span"
+    READ = "read"
     SECTION_COVERAGE = "section-coverage"
+    SECTION_DUPLICATE = "section-duplicate"
+    SECTION_EMPTY = "section-empty"
+    SECTION_SPAN = "section-span"
+    SEMANTIC_REVIEW = "semantic-review"
+    SLOT_RESIDUE = "slot-residue"
+    TABLE_HEADER = "table-header"
+    TABLE_INDEX = "table-index"
+    TEMPLATE = "template"
     WARGAME_CRITERIA = "wargame-criteria"
+    WARGAME_SCORE = "wargame-score"
+    WARGAME_TOTAL = "wargame-total"
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+type ArtifactKind = Literal["decision-record", "direction-set", "roadmap-brief", "blindspot-ledger", "capability-entry"]
 
-KIND_BY_SUFFIX = {
+
+class EntryDraft(TypedDict):
+    line: int
+    section: str
+    identity: str
+    tokens: tuple[str, ...]
+    title: str
+    fields: list[dict[str, object]]
+
+
+class SectionDraft(TypedDict):
+    line: int
+    number: int
+    token: str
+    bullets: list[dict[str, object]]
+    entries: list[EntryDraft]
+
+
+# --- [CONSTANTS] -------------------------------------------------------------------------
+
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+AXES_PAGE = SKILL_ROOT / "references" / "axes.md"
+TEMPLATE_DIR = SKILL_ROOT / "templates"
+
+BRACKET_TOKEN = re.compile(r"\[([A-Z0-9_]+)(?::([A-Z]?\d{2,}))?\]")
+BULLET = re.compile(r"^- (?P<name>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
+CODE_SPAN = re.compile(r"`+[^`]*`+")
+ENTRY = re.compile(r"^- \[(?P<id>[^\]]+)\](?:-\[(?P<a>[^\]]+)\])?(?:-\[(?P<b>[^\]]+)\])?:\s*(?P<title>.*)$")
+FENCE = re.compile(r"^(?P<indent> *)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
+FIELD = re.compile(r"^  - (?P<name>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
+H1 = re.compile(r"^# \[(?P<title>.+)\]\s*$")
+HEADING = re.compile(r"^## \[(?P<number>\d{2})\]-\[(?P<token>[A-Z0-9_]+)\]\s*$")
+ID = re.compile(r"^(?P<prefix>[A-Z]?)(?P<ordinal>\d{2,})$")
+MARK_LEAD = re.compile(r"^\[(?P<token>[A-Z0-9_]+)\]")
+MARK_SLOT = re.compile(r"^\[<(?P<label>[A-Z_]+)>\]")
+SLOT = re.compile(r"<[A-Za-z][A-Za-z0-9|]*(?:[-_][A-Za-z0-9|<>]+)*>")
+TABLE_SPLIT = re.compile(r"^\|(?P<body>.*)\|\s*$")
+VOCAB_LINE = re.compile(r"^\[(?P<label>[A-Z_]+)\]:(?P<body>.+)$")
+VOCAB_TOKEN = re.compile(r"`\[(?P<token>[A-Z0-9_]+)(?P<tail>:<id>)?\]`")
+
+KIND_BY_SUFFIX: dict[str, ArtifactKind] = {
     "DECISIONS": "decision-record",
     "DIRECTIONS": "direction-set",
     "ROADMAP": "roadmap-brief",
     "BLINDSPOTS": "blindspot-ledger",
     "CAPABILITIES": "capability-entry",
 }
-OPTIONAL_SECTIONS = {"direction-set": frozenset({"WARGAME"})}
-# Kind-bound entry floor: a non-blindspot entry-bearing artifact carries at least this many entries; zero is vacuous.
-ENTRY_FLOOR_BY_KIND = {"decision-record": 1, "roadmap-brief": 1, "capability-entry": 1}
-# Kind-bound span law: (section, minimum) — the section needs that many entries with distinct primary tokens.
-SECTION_SPAN_RULES = {"direction-set": ("DIRECTIONS", 2)}
-# Kind-bound coverage law: (source, cover) — when the optional cover section is present its entry ids equal the source's.
-SECTION_COVERAGE_RULES = {"direction-set": ("DIRECTIONS", "WARGAME")}
-# Kind-bound criteria law: (section, bullet) — the wargame criteria bullet's bracket tokens are distinct.
-WARGAME_CRITERIA_RULES = {"direction-set": ("WARGAME", "Criteria")}
-BRACKET_TOKEN = re.compile(r"\[([A-Z0-9_]+)\]")
-# A section-level bullet sits at column zero with a labeled field but no id — the frame and wargame carry these.
-BULLET = re.compile(r"^- (?P<name>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
-CODE_SPAN = re.compile(r"`+[^`]*`+")
-# An entry leader sits at column zero; indented bracket bullets are field content, never entries.
-ENTRY = re.compile(r"^- \[(?P<id>[^\]]+)\](?:-\[(?P<a>[^\]]+)\])?(?:-\[(?P<b>[^\]]+)\])?:")
-# A fence opens at any indent — field continuations nest fenced snippets — and closes on its own glyph at >= width.
-FENCE = re.compile(r"^(?P<indent> *)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
-# A field line is exactly two-space indented; deeper lines are continuations of the field above.
-FIELD = re.compile(r"^  - (?P<name>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
-H1 = re.compile(r"^# \[(.+)\]\s*$")
-HEADING = re.compile(r"^## \[(\d{2})\]-\[([A-Z0-9_]+)\]\s*$")
-LEADER_ID = re.compile(r"^[A-Z]?\d{2,}$")
-# A mark-slotted template value opens with `[<VOCAB>]`; the instance value opens with `[TOKEN]`.
-MARK_LEAD = re.compile(r"^\[([A-Z0-9_]+)\]")
-MARK_SLOT = re.compile(r"^\[<([A-Z_]+)>\]")
-SLOT = re.compile(r"<[A-Za-z][A-Za-z0-9|]*(?:[-_][A-Za-z0-9|<>]+)*>")
-VOCAB_LINE = re.compile(r"^\[([A-Z_]+)\]:(.+)$")
-VOCAB_TOKEN = re.compile(r"`\[([A-Z0-9_]+)(:<[a-z-]+>)?\]`")
+OPTIONAL_SECTIONS: dict[ArtifactKind, frozenset[str]] = {"direction-set": frozenset({"WARGAME"})}
+ENTRY_FLOOR: dict[ArtifactKind, int] = {"decision-record": 1, "direction-set": 2, "roadmap-brief": 1, "capability-entry": 1}
+MINT_SECTIONS: dict[ArtifactKind, frozenset[str]] = {
+    "decision-record": frozenset({"RECORDS"}),
+    "direction-set": frozenset({"DIRECTIONS"}),
+    "roadmap-brief": frozenset({"NOW", "NEXT", "LATER"}),
+    "blindspot-ledger": frozenset({"FINDINGS"}),
+    "capability-entry": frozenset({"ENTRIES"}),
+}
+REFERENCE_SECTIONS: dict[ArtifactKind, frozenset[str]] = {"direction-set": frozenset({"WARGAME", "RULING"})}
+REQUIRED_FIELDS: dict[ArtifactKind, dict[str, frozenset[str]]] = {
+    "decision-record": {"RECORDS": frozenset({"Context", "Drivers", "Options", "Ruling", "Consequence", "Confirmation"})},
+    "direction-set": {
+        "DIRECTIONS": frozenset({"Thesis", "Cost", "Kills", "Reversibility", "Evidence", "Confidence"}),
+    },
+    "roadmap-brief": {
+        "NOW": frozenset({"Why", "Bet", "Measure", "Confidence"}),
+        "NEXT": frozenset({"Why", "Bet", "Measure", "Promote"}),
+        "LATER": frozenset({"Why", "Promote"}),
+    },
+    "blindspot-ledger": {"FINDINGS": frozenset({"Anchor", "Consequence", "Fold-back", "Route"})},
+    "capability-entry": {"ENTRIES": frozenset({"Owner", "Edges", "Importance", "Gaps"})},
+}
+REPEATABLE_FIELDS = frozenset({"Anchor", "Rejected", "Route"})
+WARGAME_TOTAL_TOLERANCE = 0.05
+SEMANTIC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b(probably|maybe|could also|depending on|might)\b", re.IGNORECASE), "hedged ruling language"),
+    (re.compile(r"\bweek\s+\d+|\bQ[1-4]\b|\b\d{4}-\d{2}-\d{2}\b", re.IGNORECASE), "dated horizon or plan residue"),
+    (re.compile(r"\bnone\b", re.IGNORECASE), "empty gap claim needs cold-read proof"),
+)
+ROW_ENCODER = msgspec.json.Encoder()
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ----------------------------------------------------------------------------
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Line:
-    """One content line admitted past fence and frontmatter state."""
+class Row(msgspec.Struct, frozen=True, gc=False):
+    """One emitted conformance row."""
+
+    file: str
+    line: int
+    check: Check
+    status: Status
+    detail: str
+
+
+class SourceLine(BaseModel):
+    """One content line outside fenced blocks."""
+
+    model_config = ConfigDict(frozen=True)
 
     number: int
     text: str
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Row:
-    """One conformance finding projected to an NDJSON fail row."""
+class FieldLine(BaseModel):
+    """One field under an entry."""
+
+    model_config = ConfigDict(frozen=True)
 
     line: int
-    check: Check
-    detail: str
+    name: str
+    value: str
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Schema:
-    """The template-derived contract one kind enforces: sections, fields, leader and mark vocabularies."""
+class Entry(BaseModel):
+    """One leader and its owned fields."""
 
+    model_config = ConfigDict(frozen=True)
+
+    line: int
+    section: str
+    identity: str
+    tokens: tuple[str, ...] = ()
+    title: str = ""
+    fields: tuple[FieldLine, ...] = ()
+
+
+class Section(BaseModel):
+    """One heading span."""
+
+    model_config = ConfigDict(frozen=True)
+
+    line: int
+    number: int
+    token: str
+    bullets: tuple[FieldLine, ...] = ()
+    entries: tuple[Entry, ...] = ()
+
+
+class TemplateContract(BaseModel):
+    """Template-derived contract for one artifact kind."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: ArtifactKind
     sections: tuple[str, ...]
-    optional: frozenset[str]
-    fields: dict[str, frozenset[str]]
-    leaders: dict[str, bool]
-    marks: dict[str, dict[str, bool]]
+    optional: frozenset[str] = frozenset()
+    fields: dict[str, frozenset[str]] = Field(default_factory=dict)
+    leaders: dict[str, dict[str, bool]] = Field(default_factory=dict)
+    marks: dict[str, dict[str, bool]] = Field(default_factory=dict)
+    bullets: dict[str, frozenset[str]] = Field(default_factory=dict)
+    required: dict[str, frozenset[str]] = Field(default_factory=dict)
 
 
-# --- [BOUNDARIES] --------------------------------------------------------------------------
+class Document(BaseModel):
+    """Parsed instance document."""
 
-SKILL_ROOT = Path(__file__).resolve().parent.parent
-AXES_PAGE = SKILL_ROOT / "references" / "axes.md"
-TEMPLATE_DIR = SKILL_ROOT / "templates"
+    model_config = ConfigDict(frozen=True)
 
-
-# --- [OPERATIONS] --------------------------------------------------------------------------
-
-def fence_closed(fence: tuple[str, int], m: re.Match[str] | None) -> bool:
-    """Decide whether the matched line closes the open fence.
-
-    Returns:
-        True when the marker shares the glyph at >= width with an empty info string.
-    """
-    return bool(
-        m and m.group("marker")[0] == fence[0]
-        and len(m.group("marker")) >= fence[1]
-        and not m.group("info").strip()
-    )
+    path: Path
+    h1_line: int
+    h1_title: str
+    kind: ArtifactKind
+    lines: tuple[SourceLine, ...]
+    sections: tuple[Section, ...]
 
 
-def content_lines(text: str) -> tuple[Line, ...]:
-    """Admit lines outside fenced blocks; a fence closes only on its own glyph at >= width.
+# --- [OPERATIONS] ------------------------------------------------------------------------
 
-    Returns:
-        Numbered content lines in document order.
-    """
-    admitted: list[Line] = []
+def row(path: Path, line: int, check: Check, status: Status, detail: str) -> Row:
+    return Row(file=str(path), line=line, check=check, status=status, detail=detail)
+
+
+def closed_by(fence: tuple[str, int], match: re.Match[str] | None) -> bool:
+    return bool(match and match.group("marker")[0] == fence[0] and len(match.group("marker")) >= fence[1] and not match.group("info").strip())
+
+
+def content_lines(text: str) -> tuple[SourceLine, ...]:
+    admitted: list[dict[str, object]] = []
     fence: tuple[str, int] | None = None
     for number, raw in enumerate(text.splitlines(), 1):
-        m = FENCE.match(raw)
-        if m and fence is None:
-            fence = (m.group("marker")[0], len(m.group("marker")))
+        match = FENCE.match(raw)
+        if match and fence is None:
+            fence = (match.group("marker")[0], len(match.group("marker")))
             continue
         if fence is not None:
-            if fence_closed(fence, m):
+            if closed_by(fence, match):
                 fence = None
             continue
-        admitted.append(Line(number=number, text=raw))
-    return tuple(admitted)
+        admitted.append({"number": number, "text": raw})
+    return tuple(TypeAdapter(list[SourceLine]).validate_python(admitted))
 
 
-def headings(lines: tuple[Line, ...]) -> tuple[tuple[int, str, str], ...]:
-    """Project section headings from admitted lines.
-
-    Returns:
-        (line, number, token) triples in document order.
-    """
-    return tuple((line.number, m.group(1), m.group(2)) for line in lines if (m := HEADING.match(line.text)))
-
-
-def schema_for(kind: str) -> Schema | Row:
-    """Derive the kind's schema from its template file; the template is the single source.
-
-    Section order and per-section field names come from the template body; each `[NAME]:`
-    vocabulary line declares a named token set, where a `:<id>` tail marks a token as
-    id-parameterized. A field whose template value leads with a `[<NAME>]` slot binds that
-    field to the `NAME` mark vocabulary; every other named vocabulary is a leader vocabulary,
-    and the blindspot ledger additionally admits every axis heading token as a leader token.
-
-    Returns:
-        The derived schema, or one template fault row when a schema source is unreadable.
-    """
+def read(path: Path) -> str | Row:
     try:
-        template = content_lines((TEMPLATE_DIR / f"{kind}.md").read_text(encoding="utf-8"))
-        axis_text = AXES_PAGE.read_text(encoding="utf-8") if kind == "blindspot-ledger" and AXES_PAGE.is_file() else ""
+        return path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        return Row(line=0, check=Check.TEMPLATE, detail=f"{kind}: {type(exc).__name__}")
+        return row(path, 0, Check.READ, "fail", type(exc).__name__)
+
+
+def template_kind(line: SourceLine) -> ArtifactKind | None:
+    match = H1.match(line.text)
+    return KIND_BY_SUFFIX.get(match.group("title").rsplit("_", 1)[-1]) if match else None
+
+
+def headings(lines: Iterable[SourceLine]) -> tuple[tuple[int, int, str], ...]:
+    return tuple((line.number, int(match.group("number")), match.group("token")) for line in lines if (match := HEADING.match(line.text)))
+
+
+def schema_for(kind: ArtifactKind, path: Path) -> TemplateContract | Row:
+    text = read(TEMPLATE_DIR / f"{kind}.md")
+    if isinstance(text, Row):
+        return row(path, 0, Check.TEMPLATE, "fail", text.detail)
+    template = content_lines(text)
     named = {
-        v.group(1): {m.group(1): bool(m.group(2)) for m in VOCAB_TOKEN.finditer(line.text)}
+        vocab.group("label"): {token.group("token"): bool(token.group("tail")) for token in VOCAB_TOKEN.finditer(vocab.group("body"))}
         for line in template
-        if (v := VOCAB_LINE.match(line.text))
+        if (vocab := VOCAB_LINE.match(line.text))
     }
-    fields: dict[str, set[str]] = {}
+    fields: dict[str, set[str]] = defaultdict(set)
+    bullets: dict[str, set[str]] = defaultdict(set)
     marks: dict[str, dict[str, bool]] = {}
     mark_names: set[str] = set()
     section = ""
     for line in template:
-        if h := HEADING.match(line.text):
-            section = h.group(2)
-        elif section and (f := FIELD.match(line.text)):
-            fields.setdefault(section, set()).add(f.group("name"))
-            if (slot := MARK_SLOT.match(f.group("value"))) and slot.group(1) in named:
-                marks[f.group("name")] = named[slot.group(1)]
-                mark_names.add(slot.group(1))
-    leaders = {
-        token: requires_id
-        for label, tokens in named.items() if label not in mark_names
-        for token, requires_id in tokens.items()
-    }
-    leaders.update({token: False for _, _, token in headings(content_lines(axis_text))})
-    return Schema(
+        if heading := HEADING.match(line.text):
+            section = heading.group("token")
+        elif section and (field := FIELD.match(line.text)):
+            fields[section].add(field.group("name"))
+            if (slot := MARK_SLOT.match(field.group("value"))) and slot.group("label") in named:
+                marks[field.group("name")] = named[slot.group("label")]
+                mark_names.add(slot.group("label"))
+        elif section and (bullet := BULLET.match(line.text)):
+            bullets[section].add(bullet.group("name"))
+    leader_tokens = {label: tokens for label, tokens in named.items() if label not in mark_names}
+    leaders: dict[str, dict[str, bool]] = {section_token: {} for _, _, section_token in headings(template)}
+    for section_token in leaders:
+        leaders[section_token] = {token: requires_id for tokens in leader_tokens.values() for token, requires_id in tokens.items()}
+    if kind == "blindspot-ledger" and AXES_PAGE.is_file():
+        axis_text = read(AXES_PAGE)
+        if not isinstance(axis_text, Row):
+            leaders["FINDINGS"].update({token: False for _, _, token in headings(content_lines(axis_text))})
+    return TemplateContract(
+        kind=kind,
         sections=tuple(token for _, _, token in headings(template)),
         optional=OPTIONAL_SECTIONS.get(kind, frozenset()),
-        fields={section: frozenset(names) for section, names in fields.items()},
+        fields={key: frozenset(value) for key, value in fields.items()},
         leaders=leaders,
         marks=marks,
+        bullets={key: frozenset(value) for key, value in bullets.items()},
+        required=REQUIRED_FIELDS.get(kind, {}),
     )
 
 
-def census(schema: Schema, got: tuple[tuple[int, str, str], ...]) -> list[Row]:
-    """Judge the section census: presence, order, and numbering, each at its own line.
-
-    Returns:
-        One row per missing required section, unknown section, order break, or number break.
-    """
-    got_tokens = [token for _, _, token in got]
-    present = set(got_tokens)
-    anchor = got[0][0] if got else 1
-    rows = [
-        Row(line=anchor, check=Check.HEADING_CENSUS, detail=f"missing section [{token}]")
-        for token in schema.sections
-        if token not in present and token not in schema.optional
-    ]
-    rows.extend(
-        Row(line=line, check=Check.HEADING_CENSUS, detail=f"unknown section [{token}]")
-        for line, _, token in got
-        if token not in schema.sections
-    )
-    expected_order = [token for token in schema.sections if token in present]
-    if [token for token in got_tokens if token in schema.sections] != expected_order:
-        rows.append(Row(line=anchor, check=Check.HEADING_CENSUS, detail=f"sections {got_tokens} out of template order"))
-    rows.extend(
-        Row(line=line, check=Check.HEADING_CENSUS, detail=f"number [{number}] out of sequence, expected [{index:02d}]")
-        for index, (line, number, _) in enumerate(got, 1)
-        if int(number) != index
-    )
-    return rows
-
-
-def leader_rows(line: Line, schema: Schema) -> list[Row]:
-    """Judge one entry leader: id grammar plus every trailing token against the vocabulary.
-
-    A parameterized token (`SUPERSEDED:<id>` in the template) requires a well-formed id tail
-    on the instance; a plain token rejects any tail.
-
-    Returns:
-        Finding rows for this leader.
-    """
-    m = ENTRY.match(line.text)
-    if m is None:
-        return []
-    rows = [] if LEADER_ID.match(m.group("id")) else [
-        Row(line=line.number, check=Check.LEADER_ID, detail=f"[{m.group('id')}] outside the id grammar")
-    ]
-    for token in (m.group("a"), m.group("b")):
-        if token is None:
-            continue
-        name, _, tail = token.partition(":")
-        requires_id = schema.leaders.get(name)
-        valid = requires_id is not None and (bool(LEADER_ID.match(tail)) if requires_id else not tail)
-        if not valid:
-            rows.append(Row(line=line.number, check=Check.LEADER_VOCAB, detail=f"[{token}] outside declared vocabulary"))
-    return rows
-
-
-def criteria_rows(line: Line, section: str, rule: tuple[str, str] | None) -> list[Row]:
-    """Judge one wargame criteria bullet: its bracket tokens are distinct.
-
-    Returns:
-        One row per repeated criterion token; empty off the criteria bullet.
-    """
-    if rule is None or section != rule[0]:
-        return []
-    b = BULLET.match(line.text)
-    if b is None or b.group("name") != rule[1]:
-        return []
-    rows: list[Row] = []
-    seen: set[str] = set()
-    for token in BRACKET_TOKEN.findall(b.group("value")):
-        if token in seen:
-            rows.append(Row(line=line.number, check=Check.WARGAME_CRITERIA, detail=f"criterion [{token}] repeated"))
-        seen.add(token)
-    return rows
-
-
-def scan(path: Path) -> list[Row]:
-    """Run all conformance checks over one instance file.
-
-    Returns:
-        Finding rows in scan order.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        return [Row(line=0, check=Check.READ, detail=type(exc).__name__)]
+def parse(path: Path, text: str) -> Document | list[Row]:
     lines = content_lines(text)
     first = next((line for line in lines if line.text.strip()), None)
     if first is None:
-        return [Row(line=1, check=Check.KIND, detail="no content lines")]
+        return [row(path, 1, Check.KIND, "fail", "no content lines")]
     h1 = H1.match(first.text)
-    if h1 is None:
-        return [Row(line=first.number, check=Check.KIND, detail="first content line is not a template H1")]
-    kind = KIND_BY_SUFFIX.get(h1.group(1).rsplit("_", 1)[-1], "")
-    if not kind:
-        return [Row(line=first.number, check=Check.KIND, detail=f"H1 [{h1.group(1)}] resolves to no template")]
-    schema = schema_for(kind)
-    if isinstance(schema, Row):
-        return [schema]
-
-    rows: list[Row] = []
-    section = ""
-    section_line = 0
-    entry_count = 0
-    seen_ids: dict[tuple[str, str], int] = {}
-    span: dict[str, set[str]] = {}
-    span_rule = SECTION_SPAN_RULES.get(kind)
-    coverage_rule = SECTION_COVERAGE_RULES.get(kind)
-    criteria_rule = WARGAME_CRITERIA_RULES.get(kind)
-    covers: dict[str, dict[str, int]] = {}
+    kind = template_kind(first)
+    if h1 is None or kind is None:
+        return [row(path, first.number, Check.KIND, "fail", "first content line does not resolve to a template kind")]
+    headings_index = {line: (number, token) for line, number, token in headings(lines)}
+    sections: list[SectionDraft] = []
+    current: SectionDraft | None = None
+    current_entry: EntryDraft | None = None
     for line in lines:
-        if m := HEADING.match(line.text):
-            section = m.group(2)
-            if span_rule and section == span_rule[0]:
-                section_line = line.number
-            if coverage_rule and section in coverage_rule:
-                covers.setdefault(section, {})
-        rows.extend(
-            Row(line=line.number, check=Check.SLOT_RESIDUE, detail=m.group(0))
-            for m in SLOT.finditer(CODE_SPAN.sub(" ", line.text))
-        )
-        rows.extend(criteria_rows(line, section, criteria_rule))
-        rows.extend(leader_rows(line, schema))
-        if e := ENTRY.match(line.text):
-            entry_count += 1
-            key = (section, e.group("id"))
-            if key in seen_ids:
-                rows.append(Row(
-                    line=line.number, check=Check.LEADER_UNIQUE,
-                    detail=f"[{e.group('id')}] reused in [{section}], first at line {seen_ids[key]}",
-                ))
-            else:
-                seen_ids[key] = line.number
-            if span_rule and section == span_rule[0] and e.group("a"):
-                span.setdefault(section, set()).add(e.group("a"))
-            if coverage_rule and section in coverage_rule:
-                covers.setdefault(section, {}).setdefault(e.group("id"), line.number)
-        declared = schema.fields.get(section, frozenset())
-        if f := FIELD.match(line.text):
-            name = f.group("name")
-            if declared and name not in declared:
-                rows.append(Row(
-                    line=line.number, check=Check.FIELD_VOCAB,
-                    detail=f"field {name} outside [{section}] vocabulary",
-                ))
-            if (allowed := schema.marks.get(name)) is not None:
-                lead = MARK_LEAD.match(f.group("value"))
-                if lead is None:
-                    rows.append(Row(
-                        line=line.number, check=Check.MARK_VOCAB,
-                        detail=f"{name} value lacks a leading mark token",
-                    ))
-                elif lead.group(1) not in allowed:
-                    rows.append(Row(
-                        line=line.number, check=Check.MARK_VOCAB,
-                        detail=f"[{lead.group(1)}] outside the {name} mark vocabulary",
-                    ))
-    if (floor := ENTRY_FLOOR_BY_KIND.get(kind)) and entry_count < floor:
-        rows.append(Row(
-            line=first.number, check=Check.ENTRY_FLOOR,
-            detail=f"{kind} carries {entry_count} entries, minimum {floor}",
-        ))
-    if span_rule and len(span.get(span_rule[0], set())) < span_rule[1]:
-        rows.append(Row(
-            line=section_line, check=Check.SECTION_SPAN,
-            detail=f"[{span_rule[0]}] spans {len(span.get(span_rule[0], set()))} distinct tiers, minimum {span_rule[1]}",
-        ))
-    if coverage_rule and (cover := coverage_rule[1]) in covers:
-        source, source_ids, cover_ids = coverage_rule[0], covers.get(coverage_rule[0], {}), covers[cover]
-        rows.extend(
-            Row(line=at, check=Check.SECTION_COVERAGE, detail=f"[{source}] entry [{eid}] has no [{cover}] score row")
-            for eid, at in source_ids.items() if eid not in cover_ids
-        )
-        rows.extend(
-            Row(line=at, check=Check.SECTION_COVERAGE, detail=f"[{cover}] score row [{eid}] matches no [{source}] entry")
-            for eid, at in cover_ids.items() if eid not in source_ids
-        )
-    rows.extend(census(schema, headings(lines)))
-    return rows
+        if line.number in headings_index:
+            number, token = headings_index[line.number]
+            current = {"line": line.number, "number": number, "token": token, "bullets": [], "entries": []}
+            sections.append(current)
+            current_entry = None
+            continue
+        if current is None:
+            continue
+        if match := BULLET.match(line.text):
+            current["bullets"].append({"line": line.number, "name": match.group("name"), "value": match.group("value")})
+            current_entry = None
+        elif match := ENTRY.match(line.text):
+            current_entry = {
+                "line": line.number,
+                "section": current["token"],
+                "identity": match.group("id"),
+                "tokens": tuple(token for token in (match.group("a"), match.group("b")) if token),
+                "title": match.group("title"),
+                "fields": [],
+            }
+            current["entries"].append(current_entry)
+        elif current_entry is not None and (field := FIELD.match(line.text)):
+            current_entry["fields"].append({"line": line.number, "name": field.group("name"), "value": field.group("value")})
+    try:
+        return TypeAdapter(Document).validate_python({
+            "path": path,
+            "h1_line": first.number,
+            "h1_title": h1.group("title"),
+            "kind": kind,
+            "lines": lines,
+            "sections": sections,
+        })
+    except ValidationError as exc:
+        return [
+            row(path, first.number, Check.KIND, "fail", f"document admission failed: {err['loc']} {err['msg']}")
+            for err in exc.errors(include_url=False)
+        ]
 
 
-# --- [COMPOSITION] -------------------------------------------------------------------------
+def filename_rows(document: Document) -> tuple[Row, ...]:
+    pattern = re.compile(rf"^{re.escape(document.kind)}\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)?\.md$")
+    return () if pattern.fullmatch(document.path.name) else (
+        row(document.path, 0, Check.FILENAME, "fail", f"{document.path.name} must match <kind>.<scope>[.<slug>].md for {document.kind}"),
+    )
 
-def main(argv: list[str]) -> int:
-    """Run the conformance gate over argv instances; emit one row per hit.
+
+def heading_rows(document: Document, contract: TemplateContract) -> tuple[Row, ...]:
+    got = [(section.line, section.number, section.token) for section in document.sections]
+    tokens = [token for _, _, token in got]
+    present = set(tokens)
+    anchor = got[0][0] if got else document.h1_line
+    duplicate_rows = [
+        row(document.path, line, Check.SECTION_DUPLICATE, "fail", f"[{token}] duplicates an earlier section")
+        for index, (line, _, token) in enumerate(got)
+        if token in tokens[:index]
+    ]
+    required_rows = [
+        row(document.path, anchor, Check.HEADING_CENSUS, "fail", f"missing section [{token}]")
+        for token in contract.sections
+        if token not in present and token not in contract.optional
+    ]
+    unknown_rows = [
+        row(document.path, line, Check.HEADING_CENSUS, "fail", f"unknown section [{token}]")
+        for line, _, token in got
+        if token not in contract.sections
+    ]
+    order = [token for token in contract.sections if token in present]
+    order_rows = [] if [token for token in tokens if token in contract.sections] == order else [
+        row(document.path, anchor, Check.HEADING_CENSUS, "fail", f"sections {tokens} out of template order"),
+    ]
+    number_rows = [
+        row(document.path, line, Check.HEADING_CENSUS, "fail", f"number [{number:02d}] out of sequence, expected [{index:02d}]")
+        for index, (line, number, _) in enumerate(got, 1)
+        if number != index
+    ]
+    empty_rows = [
+        row(document.path, section.line, Check.SECTION_EMPTY, "fail", f"[{section.token}] has no bullets or entries")
+        for section in document.sections
+        if section.token in contract.sections and not section.bullets and not section.entries
+    ]
+    return (*duplicate_rows, *required_rows, *unknown_rows, *order_rows, *number_rows, *empty_rows)
+
+
+def leader_rows(document: Document, contract: TemplateContract) -> tuple[Row, ...]:
+    rows: list[Row] = []
+    minted: dict[str, Entry] = {}
+    prefix_by_section: dict[str, str] = {}
+    ordinals: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
+    for section in document.sections:
+        for entry in section.entries:
+            match = ID.fullmatch(entry.identity)
+            if match is None or int(match.group("ordinal")) == 0:
+                rows.append(row(document.path, entry.line, Check.LEADER_ID, "fail", f"[{entry.identity}] outside the id grammar"))
+                continue
+            prefix, ordinal = match.group("prefix"), int(match.group("ordinal"))
+            if section.token in MINT_SECTIONS.get(document.kind, frozenset()):
+                if entry.identity in minted:
+                    rows.append(row(document.path, entry.line, Check.LEADER_UNIQUE, "fail", f"[{entry.identity}] already minted at line {minted[entry.identity].line}"))
+                minted.setdefault(entry.identity, entry)
+                ordinals[section.token].append((entry.line, ordinal, prefix))
+                prefix_by_section.setdefault(section.token, prefix)
+                if prefix_by_section[section.token] != prefix:
+                    rows.append(row(document.path, entry.line, Check.ID_ORDINAL, "fail", f"[{entry.identity}] prefix drifts inside [{section.token}]"))
+            elif section.token in REFERENCE_SECTIONS.get(document.kind, frozenset()) and entry.identity not in minted:
+                rows.append(row(document.path, entry.line, Check.ID_REFERENCE, "fail", f"[{entry.identity}] references no minted entry"))
+            allowed = contract.leaders.get(section.token, {})
+            for token in entry.tokens:
+                name, _, tail = token.partition(":")
+                requires_id = allowed.get(name)
+                valid = requires_id is not None and ((tail in minted) if requires_id else not tail)
+                if not valid:
+                    rows.append(row(document.path, entry.line, Check.LEADER_VOCAB, "fail", f"[{token}] outside declared vocabulary or unresolved id tail"))
+            if entry.tokens and entry.tokens[0].startswith("SUPERSEDED:") and entry.tokens[0].partition(":")[2] not in minted:
+                rows.append(row(document.path, entry.line, Check.ID_TOMBSTONE, "fail", f"[{entry.tokens[0]}] names no successor id"))
+    for section_token, triples in ordinals.items():
+        expected = list(range(1, len(triples) + 1))
+        for (line, ordinal, _), wanted in zip(triples, expected, strict=True):
+            if ordinal != wanted:
+                rows.append(row(document.path, line, Check.ID_ORDINAL, "fail", f"[{section_token}] ordinal {ordinal:02d} expected {wanted:02d}"))
+    return tuple(rows)
+
+
+def field_rows(document: Document, contract: TemplateContract) -> tuple[Row, ...]:
+    rows: list[Row] = []
+    for section in document.sections:
+        declared = contract.fields.get(section.token, frozenset()) | contract.bullets.get(section.token, frozenset())
+        rows.extend(
+            row(document.path, bullet.line, Check.FIELD_VOCAB, "fail", f"field {bullet.name} outside [{section.token}] vocabulary")
+            for bullet in section.bullets
+            if declared and bullet.name not in declared
+        )
+        for entry in section.entries:
+            rows.extend(entry_field_rows(document.path, section.token, entry, contract, declared))
+    return tuple(rows)
+
+
+def entry_field_rows(path: Path, section: str, entry: Entry, contract: TemplateContract, declared: frozenset[str]) -> tuple[Row, ...]:
+    by_name: dict[str, list[FieldLine]] = defaultdict(list)
+    rows: list[Row] = []
+    for field in entry.fields:
+        by_name[field.name].append(field)
+        rows.extend(field_vocab_rows(path, section, field, contract, declared))
+    rows.extend(
+        row(path, entry.line, Check.FIELD_REQUIRED, "fail", f"[{entry.identity}] missing field {name}")
+        for name in contract.required.get(section, frozenset())
+        if name not in by_name
+    )
+    rows.extend(
+        row(path, repeats[1].line, Check.FIELD_DUPLICATE, "fail", f"{name} repeats inside [{entry.identity}]")
+        for name, repeats in by_name.items()
+        if len(repeats) > 1 and name not in REPEATABLE_FIELDS
+    )
+    return tuple(rows)
+
+
+def field_vocab_rows(path: Path, section: str, field: FieldLine, contract: TemplateContract, declared: frozenset[str]) -> tuple[Row, ...]:
+    rows = [row(path, field.line, Check.FIELD_VOCAB, "fail", f"field {field.name} outside [{section}] vocabulary")] if declared and field.name not in declared else []
+    if (allowed := contract.marks.get(field.name)) is not None:
+        lead = MARK_LEAD.match(field.value)
+        if lead is None or lead.group("token") not in allowed:
+            rows.append(row(path, field.line, Check.MARK_VOCAB, "fail", f"{field.name} value lacks a declared leading mark"))
+    return tuple(rows)
+
+
+def slot_rows(document: Document) -> tuple[Row, ...]:
+    return tuple(
+        row(document.path, line.number, Check.SLOT_RESIDUE, "fail", match.group(0))
+        for line in document.lines
+        for match in SLOT.finditer(CODE_SPAN.sub(" ", line.text))
+    )
+
+
+def table_rows(document: Document) -> tuple[Row, ...]:
+    rows: list[Row] = []
+    lines = document.lines
+    for index, line in enumerate(lines[:-1]):
+        header = TABLE_SPLIT.match(line.text)
+        divider = TABLE_SPLIT.match(lines[index + 1].text)
+        if header is None or divider is None or not set(divider.group("body").replace("|", "").strip()) <= {":", "-", " "}:
+            continue
+        cells = [cell.strip() for cell in header.group("body").split("|")]
+        if "[INDEX]" not in cells:
+            rows.append(row(document.path, line.number, Check.TABLE_INDEX, "fail", "table header lacks [INDEX]"))
+        rows.extend(
+            row(document.path, line.number, Check.TABLE_HEADER, "fail", f"header {cell} is not bracketed uppercase")
+            for cell in cells
+            if not re.fullmatch(r"\[[A-Z0-9_]+\]", cell)
+        )
+    return tuple(rows)
+
+
+def wargame_rows(document: Document) -> tuple[Row, ...]:
+    if document.kind != "direction-set":
+        return ()
+    directions = {entry.identity for section in document.sections if section.token == "DIRECTIONS" for entry in section.entries}
+    wargame = next((section for section in document.sections if section.token == "WARGAME"), None)
+    if wargame is None:
+        return ()
+    criteria = next((bullet for bullet in wargame.bullets if bullet.name == "Criteria"), None)
+    tokens = BRACKET_TOKEN.findall(criteria.value) if criteria else []
+    weights = [float(match.group(2) or "0") for match in re.finditer(r"\[[A-Z0-9_]+\]:(\d+(?:\.\d+)?)", criteria.value if criteria else "")]
+    rows = [
+        row(document.path, criteria.line if criteria else wargame.line, Check.WARGAME_CRITERIA, "fail", "criteria tokens repeat")
+        for values in ([token for token, _ in tokens],)
+        if len(values) != len(set(values))
+    ]
+    score_ids = {entry.identity for entry in wargame.entries}
+    rows.extend(row(document.path, wargame.line, Check.SECTION_COVERAGE, "fail", f"[DIRECTIONS] entry [{identity}] has no [WARGAME] score row") for identity in sorted(directions - score_ids))
+    rows.extend(row(document.path, entry.line, Check.SECTION_COVERAGE, "fail", f"[WARGAME] score row [{entry.identity}] matches no [DIRECTIONS] entry") for entry in wargame.entries if entry.identity not in directions)
+    for entry in wargame.entries:
+        numbers = [float(value) for value in re.findall(r"(?<!\[)\b\d+(?:\.\d+)?\b(?!\])", entry.title)]
+        scores = numbers[:-1] if "=" in entry.title else numbers
+        if len(scores) != len(weights):
+            rows.append(row(document.path, entry.line, Check.WARGAME_SCORE, "fail", f"{len(scores)} scores for {len(weights)} criteria"))
+            continue
+        if numbers and weights:
+            total = numbers[-1]
+            weighted = sum(score * weight for score, weight in zip(scores, weights, strict=True))
+            if abs(total - weighted) > WARGAME_TOTAL_TOLERANCE:
+                rows.append(row(document.path, entry.line, Check.WARGAME_TOTAL, "fail", f"total {total:g} does not match weighted {weighted:g}"))
+    return tuple(rows)
+
+
+def semantic_rows(document: Document) -> tuple[Row, ...]:
+    return tuple(
+        row(document.path, line.number, Check.SEMANTIC_REVIEW, "warn", detail)
+        for line in document.lines
+        for pattern, detail in SEMANTIC_PATTERNS
+        if pattern.search(CODE_SPAN.sub(" ", line.text))
+    )
+
+
+def landing_rows(document: Document) -> tuple[Row, ...]:
+    if document.kind != "blindspot-ledger":
+        return ()
+    rows: list[Row] = []
+    for section in document.sections:
+        for entry in section.entries:
+            fields = {field.name: field for field in entry.fields}
+            for name in ("Fold-back", "Route"):
+                field = fields.get(name)
+                if field is None or SLOT.search(field.value) or field.value.lower().startswith(("none", "n/a")):
+                    rows.append(row(document.path, entry.line if field is None else field.line, Check.FOLD_BACK, "fail", f"[{entry.identity}] needs concrete {name}"))
+    return tuple(rows)
+
+
+def kind_rows(document: Document) -> tuple[Row, ...]:
+    entry_count = sum(len(section.entries) for section in document.sections if section.token in MINT_SECTIONS.get(document.kind, frozenset()))
+    floor = ENTRY_FLOOR.get(document.kind, 0)
+    span = {
+        token
+        for section in document.sections
+        if document.kind == "direction-set" and section.token == "DIRECTIONS"
+        for entry in section.entries
+        for token in entry.tokens[:1]
+    }
+    return (
+        *([] if entry_count >= floor else [row(document.path, document.h1_line, Check.ENTRY_FLOOR, "fail", f"{document.kind} carries {entry_count} entries, minimum {floor}")]),
+        *([] if document.kind != "direction-set" or len(span) >= 2 else [row(document.path, document.h1_line, Check.SECTION_SPAN, "fail", f"[DIRECTIONS] spans {len(span)} distinct tiers, minimum 2")]),
+    )
+
+
+def validate(path: Path) -> tuple[Row, ...]:
+    """Return every conformance row for one instance path."""
+    if is_skill_corpus_non_instance(path):
+        return ()
+    text = read(path)
+    if isinstance(text, Row):
+        return (text,)
+    parsed = parse(path, text)
+    if isinstance(parsed, list):
+        return tuple(parsed)
+    contract = schema_for(parsed.kind, path)
+    if isinstance(contract, Row):
+        return (contract,)
+    return tuple(
+        rows
+        for group in (
+            filename_rows(parsed),
+            heading_rows(parsed, contract),
+            slot_rows(parsed),
+            leader_rows(parsed, contract),
+            field_rows(parsed, contract),
+            table_rows(parsed),
+            kind_rows(parsed),
+            wargame_rows(parsed),
+            landing_rows(parsed),
+            semantic_rows(parsed),
+        )
+        for rows in group
+    )
+
+
+def is_skill_corpus_non_instance(path: Path) -> bool:
+    try:
+        inside_skill = path.resolve().is_relative_to(SKILL_ROOT)
+    except OSError:
+        inside_skill = False
+    return inside_skill and not any(re.fullmatch(rf"{re.escape(kind)}\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)?\.md", path.name) for kind in KIND_BY_SUFFIX.values())
+
+
+def collect(paths: Sequence[str]) -> tuple[Path | Row, ...]:
+    found: list[Path | Row] = []
+    for raw in paths:
+        path = Path(raw)
+        found.append(path if path.is_file() and path.suffix == ".md" else row(path, 0, Check.COLLECT, "fail", "not a readable markdown file"))
+    return tuple(found)
+
+
+def emit(record: Row, json_mode: bool) -> None:
+    if json_mode:
+        print(ROW_ENCODER.encode(record).decode())
+    else:
+        print(f"{record.file}:{record.line}: {record.status.upper()} {record.check.value} {record.detail}")
+
+
+def exit_code(rows: Iterable[Row]) -> int:
+    return 1 if any(record.status == "fail" for record in rows) else 0
+
+
+def scan(path: Path) -> list[Row]:
+    """Compatibility surface for tests that expect a mutable row list.
 
     Returns:
-        Process exit code: 0 clean, 1 any fail.
+        Conformance rows as a list.
     """
-    ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--json", action="store_true")
-    ap.add_argument("paths", nargs="+")
-    ns = ap.parse_args(argv)
+    return list(validate(path))
 
-    def emit(path: Path, row: Row) -> None:
-        if ns.json:
-            print(json.dumps(
-                {"file": str(path), "line": row.line, "check": row.check, "status": "fail", "detail": row.detail}
-            ))
-        else:
-            print(f"{path}:{row.line}: FAIL {row.check} {row.detail}")
 
-    failed = False
-    for raw in ns.paths:
-        path = Path(raw)
-        found = scan(path) if path.is_file() else [Row(line=0, check=Check.COLLECT, detail="not a readable file")]
-        for row in found:
-            failed = True
-            emit(path, row)
-    return 1 if failed else 0
+# --- [COMPOSITION] -----------------------------------------------------------------------
+
+app = App(result_action="return_int_as_exit_code_else_zero")
+
+
+@app.default
+def command(*paths: str, json: Annotated[bool, Parameter(negative="")] = False) -> int:
+    records = tuple(item if isinstance(item, Row) else rows for item in collect(paths) for rows in ((item,) if isinstance(item, Row) else validate(item)))
+    for record in records:
+        emit(record, json)
+    return exit_code(records)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Execute the Cyclopts app.
+
+    Returns:
+        Process exit code.
+    """
+    result = app(argv)
+    return result if isinstance(result, int) else 0
+
+
+# --- [EXPORTS] ---------------------------------------------------------------------------
+
+__all__ = ["Check", "Document", "Row", "TemplateContract", "main", "scan", "validate"]
 
 
 if __name__ == "__main__":

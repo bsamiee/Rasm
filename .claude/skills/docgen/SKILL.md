@@ -18,10 +18,10 @@ Durable prose is law for an agent that loads it with no memory of why it was wri
 ## [01]-[GATE]
 
 ```bash
-python scripts/prose_gate.py [--json] <paths...>
+uv run scripts/prose_gate.py [--json] <paths...>
 ```
 
-Run the gate on every touched durable doc before returning. It is the trivial floor: fence geometry, the banned-word roster its constants own, meta-phrases, sentence-initial self-counts, the list-entry budget, and table header rows (every header cell is a bracketed `[UPPER_SNAKE]` token), with mention handled — code spans and double-quoted spans stripped, example-leader lines (`Accepted:`, `Rejected:`, `Near miss:`, `Banned:`, `Survivors:`) exempt, fence bodies skipped. Every semantic class and every altitude judgment is review work the gate does not attempt: found by reading against the catalog, never by grep.
+Run the gate on every touched durable doc before returning. It is the mechanical floor: fence geometry, fence language, fence closure, heading order, setext markers, table headers, enumerable table indexes, row width, relative links, template residue, bold emphasis, trailing whitespace, banned-word roster, meta-phrases, sentence-initial self-counts, and list-entry budgets. The gate scans prose spans only: fence bodies, code spans, link destinations, template placeholders, and example-leader rows are structural carriers, not prose findings. Every semantic class and every altitude judgment remains review work against the catalog.
 
 ## [02]-[REGISTER]
 

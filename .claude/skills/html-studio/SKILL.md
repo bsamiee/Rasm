@@ -13,7 +13,7 @@ description: >-
   or report, or asks to visualize a plan, decision, architecture, or data. Distinct from the
   Artifact tool's hosted fragments; mermaid fences belong to mermaid-diagramming.
 allowed-tools:
-  - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py *)
+  - Bash(uv run ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py *)
   - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py *)
 ---
 
@@ -28,7 +28,7 @@ An HTML page trades a document that gets skimmed for one that gets read — spat
 3. Embed the NOCTURNE baseline verbatim from [references/design-system.md](references/design-system.md); layout grammar and structural devices come from [references/styling.md](references/styling.md); the interaction floor and motion grammar from [references/interaction.md](references/interaction.md); data modeling, embedding, and redaction from [references/state.md](references/state.md); inline SVG diagrams and figures from [references/svg.md](references/svg.md).
 4. Fill content answer-first; render the thing itself — real code, real controls, real data rows — never prose describing an unrendered surface.
 5. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the envelope, verdict vocabulary, stable item ids, dual export, and the return-channel probe.
-6. Gate: `python3 ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
+6. Gate: `uv run ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
 7. Review in the fixed order method.md owns — skim, coverage, interaction necessity, density, print — and open-check in a browser when one is available.
 8. Home the artifact per [05]; an interactive session runs the return channel per [04].
 

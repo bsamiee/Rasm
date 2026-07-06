@@ -1,279 +1,417 @@
-#!/usr/bin/env python3
-# ruff: noqa: T201 — stdout is this gate's output contract
-"""Deterministic prose gates over durable markdown. Exit 0 iff no fail.
-
-Usage: prose_gate.py [--json] [--cap N] <path>...
-Paths: .md files or directories (walked for *.md); a missing path, non-markdown file, or
-markdown-free directory emits a check=collect fail row — the gate never exits clean on
-unscanned input. Checks: fence-geometry (line-length cap inside codemap/seams/tree-glyph
-fences and README package card rows), hedge (word-bounded banned words and phrases),
-meta-phrase, self-count (sentence-initial counts of own content), list-bloat (entry
-sentence/char budget, roster entries exempt by code-span share), table-header (every
-header-row cell is a bracketed `[UPPER_SNAKE]` token, separator arity must match),
-version-anchor (semver triples, release bands, v-prefixed versions; the manifest owns pins) —
-prose lines only throughout. Output: `file:line: FAIL <check> <detail>` per hit; --json
-emits NDJSON rows {"file","line","check","status","detail"}. Unreadable or invalid-UTF-8
-input emits one check=read fail row. Judgment-tier defects (enumeration anchoring,
-altitude) are review work, not gates.
-"""
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["cyclopts", "msgspec"]
+# ///
+# ruff: noqa: T201, D100, D101, D103
 
 # --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
 
-import argparse
-import json
+from collections.abc import Iterable
+from enum import StrEnum
 from pathlib import Path
 import re
 import sys
-from typing import NamedTuple
+from typing import Literal
+
+from cyclopts import App
+import msgspec
+
+
+# --- [TYPES] -----------------------------------------------------------------------------
+
+type Status = Literal["ok", "warn", "fail"]
+
+
+class Check(StrEnum):
+    BOLD_EMPHASIS = "bold-emphasis"
+    COLLECT = "collect"
+    DEAD_RELATIVE_LINK = "dead-relative-link"
+    FENCE_GEOMETRY = "fence-geometry"
+    FENCE_LANGUAGE = "fence-language"
+    FENCE_UNCLOSED = "fence-unclosed"
+    HEADING_H1 = "heading-h1"
+    HEADING_ORDER = "heading-order"
+    HEDGE = "hedge"
+    LIST_BLOAT = "list-bloat"
+    LIST_LEADER = "list-leader"
+    META_PHRASE = "meta-phrase"
+    READ = "read"
+    SELF_COUNT = "self-count"
+    SETEXT_HEADING = "setext-heading"
+    TABLE_HEADER = "table-header"
+    TABLE_INDEX = "table-index"
+    TABLE_SHAPE = "table-shape"
+    TEMPLATE_SLOT = "template-slot"
+    TRAILING_WHITESPACE = "trailing-whitespace"
+    VERSION_ANCHOR = "version-anchor"
 
 
 # --- [CONSTANTS] -------------------------------------------------------------------------
 
 CAP = 160
-# Leader exemption is the record form only — the canonical word plus an optional parenthetical
-# qualifier, closed by a colon; blockquoted, numbered, and bulleted example leaders all qualify.
-EXAMPLE_LINE = re.compile(
-    r"^\s*(?:>\s*)?(?:[-+*]|\d+[.)])?\s*(?:Rejected|Accepted|Near miss|Banned|Survivors)(?:\s*\([^)]*\))?:"
-)
-# List-entry budget from corpus evidence; roster-shaped entries (mostly code spans) are registry enumerations.
 LIST_CHAR_CAP = 500
-LIST_ITEM = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+\S")
 LIST_SENTENCE_CAP = 3
 ROSTER_SPAN_SHARE = 0.6
-SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
+APP = App(help="Gate durable markdown prose.")
+ENCODER = msgspec.json.Encoder()
+
+BOLD = re.compile(r"(?<!\*)\*\*(?=\S)(.+?)(?<=\S)\*\*(?!\*)|(?<!_)__(?=\S)(.+?)(?<=\S)__(?!_)")
 CARD_ROW = re.compile(r"^\s*-\s+`[^`]+`\s+-\s+")
-# A fence opener indents at most 3 spaces; the full info string is significant (`text codemap`).
+EXAMPLE_LINE = re.compile(
+    r"^\s*(?:>\s*)?(?:[-+*]|\d+[.)])?\s*(?:Detection|Rejected|Accepted|Near miss|Banned|Survivors|Reason|Reframe)"
+    r"(?:\s*\([^)]*\))?:"
+)
 FENCE = re.compile(r"^(?P<indent> {0,3})(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
 GLYPHS = ("│", "├", "└", "⇄")
-# Table header cells carry the bracketed token form; a header row is the row a separator row follows.
-HEADER_CELL = re.compile(r"^\[[A-Z0-9_]+\]$")
+HEADER_CELL = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
+HEADING = re.compile(r"^(?P<level>#{1,6})\s+(?P<title>.+?)\s*$")
+LIST_ITEM = re.compile(r"^(?P<indent>\s*)(?:[-+*]|\d+[.)])\s+(?P<body>\S.*)$")
+LIST_LEADER = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+\[(?:\d{2}(?:-[A-Z0-9_]+)?|[A-Z0-9_]+|[OX!~ ])\](?:\s+[—-]|[-:]\s*|:)")
+LINK = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+NUMBERED_SECTION = re.compile(r"^\[(?P<n>\d{2})\]-\[(?P<token>[A-Z][A-Z0-9_]*)\]$")
+PLACEHOLDER = re.compile(r"<[a-z][a-z0-9]*(?:[-_][a-z0-9]+)+>")
+SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
+SETEXT = re.compile(r"^\s*(?:=+|-{3,})\s*$")
 TABLE_SEP = re.compile(r"^\s*\|(?:\s*:?-+:?\s*\|)+\s*$")
-QUOTED_SPAN = re.compile(r'"[^"]*"')
 YAML_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*\s*:")
+
 HEDGE_PHRASE = re.compile(
-    r"\b(?:is\s+expected\s+to|can\s+be|aims\s+to|is\s+designed\s+to|in\s+the\s+future"
-    r"|eventually|as\s+needed|if\s+necessary)\b",
+    r"\b(?:is\s+expected\s+to|can\s+be|aims\s+to|is\s+designed\s+to|in\s+the\s+future|eventually|as\s+needed|if\s+necessary)\b",
     re.IGNORECASE,
 )
 HEDGE_WORDS = re.compile(
-    r"\b(should|could|would|might|maybe|perhaps|likely|probably|propose|consider|recommended"
-    r"|ideally|experimental|we|our|you)\b",
+    r"\b(should|could|would|might|maybe|perhaps|likely|probably|propose|consider|recommended|ideally|experimental|we|our|you)\b",
     re.IGNORECASE,
 )
 MARKER_WORDS = re.compile(r"\b(TBD|TODO|FIXME)\b", re.IGNORECASE)
 META_PHRASE = re.compile(
-    r"\b(?:this\s+document|this\s+file\s+describes|this\s+page\s+describes|as\s+mentioned\s+above"
-    r"|as\s+described\s+above|note\s+that|it\s+is\s+worth|in\s+this\s+section"
-    r"|the\s+following\s+sections|as\s+of\s+20|per\s+research|at\s+the\s+time\s+of\s+writing)\b",
+    r"\b(?:this\s+document|this\s+file\s+describes|this\s+page\s+describes|as\s+mentioned\s+above|as\s+described\s+above"
+    r"|note\s+that|it\s+is\s+worth|in\s+this\s+section|the\s+following\s+sections|as\s+of\s+20|per\s+research"
+    r"|at\s+the\s+time\s+of\s+writing)\b",
     re.IGNORECASE,
 )
-# Self-mirroring counts open a sentence about own content ("Fifteen classes are ..."); mid-sentence
-# quantities are thresholds, consequences, or definitions and stay legal — judgment-tier, not gated.
 SELF_COUNT = re.compile(
-    r"(?:^|[.!?—]\s+)(Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen"
-    r"|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty|\d+)\s+(named\s+)?(classes|laws"
-    r"|rules|sections|types|axes|fields|modes|tests|checks|steps|entries|forms|tiers|bands|devices"
-    r"|archetypes|templates|references|tables|diagrams|cards|rows|columns|tokens|markers|vocabularies)\b"
+    r"(?:^|[.!?]\s+)(Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen"
+    r"|Seventeen|Eighteen|Nineteen|Twenty|\d+)\s+(named\s+)?(classes|laws|rules|sections|types|axes|fields|modes"
+    r"|tests|checks|steps|entries|forms|tiers|bands|devices|archetypes|templates|references|tables|diagrams|cards"
+    r"|rows|columns|tokens|markers|vocabularies)\b"
 )
-# A release band (2.3+), a semver triple, or a v-prefixed version in prose; the manifest owns pins.
 VERSION_ANCHOR = re.compile(r"\bv?\d+\.\d+(?:\.\d+)+\b|\b\d+\.\d+(?:\.\d+)?\+|\bv\d+\.\d+\b")
-PATTERN_GATES: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("hedge", HEDGE_WORDS),
-    ("hedge", MARKER_WORDS),
-    ("hedge", HEDGE_PHRASE),
-    ("meta-phrase", META_PHRASE),
-    ("self-count", SELF_COUNT),
-    ("version-anchor", VERSION_ANCHOR),
+PATTERNS: tuple[tuple[Check, re.Pattern[str]], ...] = (
+    (Check.HEDGE, HEDGE_WORDS),
+    (Check.HEDGE, MARKER_WORDS),
+    (Check.HEDGE, HEDGE_PHRASE),
+    (Check.META_PHRASE, META_PHRASE),
+    (Check.SELF_COUNT, SELF_COUNT),
+    (Check.VERSION_ANCHOR, VERSION_ANCHOR),
 )
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
 
-class Fence(NamedTuple):
-    """Open-fence state: closing requires the same glyph at >= width with an empty info string."""
-
-    glyph: str
-    width: int
-    capped: bool
-
-    def closed_by(self, m: re.Match[str] | None) -> bool:
-        """Decide whether the matched line closes this fence.
-
-        Returns:
-            True when the marker shares the glyph at >= width with an empty info string.
-        """
-        return bool(
-            m and m.group("marker")[0] == self.glyph
-            and len(m.group("marker")) >= self.width
-            and not m.group("info").strip()
-        )
-
-
-class Row(NamedTuple):
-    """One prose-gate finding projected to an NDJSON fail row."""
-
+class Row(msgspec.Struct, frozen=True):
+    file: str
     line: int
-    check: str
+    check: Check
+    status: Status
     detail: str
+
+
+class Span(msgspec.Struct, frozen=True):
+    line: int
+    text: str
+
+
+class Table(msgspec.Struct, frozen=True):
+    line: int
+    headers: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+
+
+class Heading(msgspec.Struct, frozen=True):
+    line: int
+    level: int
+    title: str
+
+
+class LinkRef(msgspec.Struct, frozen=True):
+    line: int
+    target: str
+
+
+class ListEntry(msgspec.Struct, frozen=True):
+    line: int
+    text: str
+    prose: str
+    span_share: float
+
+
+class Document(msgspec.Struct, frozen=True):
+    path: str
+    template: bool
+    prose: tuple[Span, ...]
+    tables: tuple[Table, ...]
+    headings: tuple[Heading, ...]
+    links: tuple[LinkRef, ...]
+    lists: tuple[ListEntry, ...]
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
-def collect(paths: list[str]) -> tuple[list[Path], list[tuple[Path, Row]]]:
-    """Expand argv paths to markdown files plus collection faults for unresolvable input.
+def row(path: Path | str, line: int, check: Check, status: Status, detail: str) -> Row:
+    return Row(file=str(path), line=line, check=check, status=status, detail=detail)
 
-    Returns:
-        Unique files in first-seen order, and one fault row per missing path, non-markdown
-        file, or directory holding no markdown — unscanned input is a failure, never silence.
-    """
+
+def collect(paths: tuple[Path, ...]) -> tuple[tuple[Path, ...], tuple[Row, ...]]:
     files: list[Path] = []
-    faults: list[tuple[Path, Row]] = []
-    for raw in paths:
-        p = Path(raw)
-        if p.is_dir():
-            found = sorted(p.rglob("*.md"))
+    faults: list[Row] = []
+    for target in paths:
+        if target.is_dir():
+            found = tuple(sorted(target.rglob("*.md")))
             files.extend(found)
             if not found:
-                faults.append((p, Row(0, "collect", "directory holds no markdown")))
-        elif p.suffix == ".md" and p.is_file():
-            files.append(p)
+                faults.append(row(target, 0, Check.COLLECT, "fail", "directory holds no markdown"))
+        elif target.suffix == ".md" and target.is_file():
+            files.append(target)
         else:
-            faults.append((p, Row(0, "collect", "not a readable markdown file")))
-    return list(dict.fromkeys(files)), faults
+            faults.append(row(target, 0, Check.COLLECT, "fail", "not a readable markdown file"))
+    return tuple(dict.fromkeys(files)), tuple(faults)
 
 
-def frontmatter_end(lines: list[str]) -> int:
-    """Return the 1-based line number of the closing frontmatter delimiter, 0 when absent.
-
-    Frontmatter requires a first-line `---`, a closing `---`, and at least one YAML-shaped key
-    between them; a leading horizontal rule or an unclosed block is body, never a skip region.
-    """
+def frontmatter_end(lines: tuple[str, ...]) -> int:
     if not lines or lines[0].rstrip() != "---":
         return 0
-    for n, line in enumerate(lines[1:], 2):
+    for number, line in enumerate(lines[1:], 2):
         if line.rstrip() == "---":
-            return n if any(YAML_KEY.match(body) for body in lines[1 : n - 1]) else 0
+            return number if any(YAML_KEY.match(body) for body in lines[1 : number - 1]) else 0
     return 0
 
 
-def strip_mentions(line: str) -> str:
-    """Blank inline code spans (delimiter-length matched) and double-quoted spans.
-
-    Returns:
-        The line with mention spans replaced by single spaces; unpaired backtick runs stay text.
-    """
-    parts: list[str] = []
-    i = 0
-    while i < len(line):
-        if line[i] != "`":
-            parts.append(line[i])
-            i += 1
-            continue
-        run = line[i:]
-        width = len(run) - len(run.lstrip("`"))
-        end = line.find("`" * width, i + width)
-        if end < 0:
-            parts.append(line[i])
-            i += 1
+def split_cells(line: str) -> tuple[str, ...]:
+    cells: list[str] = []
+    current: list[str] = []
+    escaped = False
+    for char in line.strip().strip("|"):
+        if escaped:
+            current.append(char)
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "|":
+            cells.append("".join(current).strip())
+            current = []
         else:
-            parts.append(" ")
-            i = end + width
-    return QUOTED_SPAN.sub(" ", "".join(parts))
+            current.append(char)
+    cells.append("".join(current).strip())
+    return tuple(cells)
 
 
-def scan(path: Path, cap: int) -> list[Row]:
-    """Scan one file for every gate check.
-
-    Mention is not use: inline code spans and double-quoted spans are stripped and
-    example-leader lines are exempt before the semantic scans — quoting a banned word to
-    legislate it is legal; the convention for feature vocabulary is backticks. Unreadable
-    or invalid-UTF-8 input yields one read fault so the run reports and fails.
-
-    Returns:
-        Finding rows in scan order.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        return [Row(0, "read", type(exc).__name__)]
-    rows: list[Row] = []
-    lines = text.splitlines()
-    skip_until = frontmatter_end(lines)
-    fence: Fence | None = None
-    is_readme = path.name == "README.md"
-    for n, line in enumerate(lines, 1):
-        if n <= skip_until:
+def prose_spans(line: str, number: int) -> tuple[Span, ...]:
+    pieces: list[str] = []
+    index = 0
+    while index < len(line):
+        link = LINK.match(line, index)
+        if link:
+            pieces.append(link.group(1))
+            index = link.end()
             continue
-        m = FENCE.match(line)
-        if m and fence is None:
-            marker, info = m.group("marker"), m.group("info").strip().lower()
-            fence = Fence(marker[0], len(marker), "codemap" in info or "seams" in info)
+        if line[index] == "`":
+            width = len(line[index:]) - len(line[index:].lstrip("`"))
+            end = line.find("`" * width, index + width)
+            index = end + width if end >= 0 else index + 1
+            continue
+        pieces.append(line[index])
+        index += 1
+    text = "".join(pieces)
+    return (Span(number, text),) if text.strip() else ()
+
+
+def read(path: Path) -> str | Row:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return row(path, 0, Check.READ, "fail", type(exc).__name__)
+
+
+def lex(path: Path, text: str, cap: int) -> tuple[Document | None, tuple[Row, ...]]:
+    raw = tuple(text.splitlines())
+    skip_until = frontmatter_end(raw)
+    prose: list[Span] = []
+    tables: list[Table] = []
+    headings: list[Heading] = []
+    links: list[LinkRef] = []
+    lists: list[ListEntry] = []
+    rows: list[Row] = []
+    fence: tuple[str, int, int, str] | None = None
+    n = 0
+    while n < len(raw):
+        number, line = n + 1, raw[n]
+        if line.endswith((" ", "\t")):
+            rows.append(row(path, number, Check.TRAILING_WHITESPACE, "fail", "line ends with space or tab"))
+        if number <= skip_until:
+            n += 1
+            continue
+        matched = FENCE.match(line)
+        if fence is None and matched:
+            marker, info = matched.group("marker"), matched.group("info").strip()
+            if not info:
+                rows.append(row(path, number, Check.FENCE_LANGUAGE, "fail", "opening fence has no language tag"))
+            fence = (marker[0], len(marker), number, info.lower())
+            n += 1
             continue
         if fence is not None:
-            if fence.closed_by(m):
+            glyph, width, _start, info = fence
+            if matched and matched.group("marker")[0] == glyph and len(matched.group("marker")) >= width and not matched.group("info").strip():
                 fence = None
-            elif (fence.capped or any(g in line for g in GLYPHS)) and len(line) > cap:
-                rows.append(Row(n, "fence-geometry", f"line {len(line)} > cap {cap}"))
+            elif ("codemap" in info or "seams" in info or any(glyph in line for glyph in GLYPHS)) and len(line) > cap:
+                rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"line {len(line)} > cap {cap}"))
+            n += 1
             continue
-        if is_readme and CARD_ROW.match(line) and len(line) > cap:
-            rows.append(Row(n, "fence-geometry", f"card row {len(line)} > cap {cap}"))
-        if line.lstrip().startswith("|") and n < len(lines) and TABLE_SEP.match(lines[n]):
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            seps = [c.strip() for c in lines[n].strip().strip("|").split("|")]
-            rows.extend(Row(n, "table-header", cell or "<empty>") for cell in cells if not HEADER_CELL.match(cell))
-            if len(seps) != len(cells):
-                rows.append(Row(n, "table-header", f"separator cells {len(seps)} != header cells {len(cells)}"))
-        if EXAMPLE_LINE.match(line):
+        if path.name == "README.md" and CARD_ROW.match(line) and len(line) > cap:
+            rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"card row {len(line)} > cap {cap}"))
+        if heading := HEADING.match(line):
+            headings.append(Heading(number, len(heading.group("level")), heading.group("title")))
+        if SETEXT.match(line) and n > 0 and raw[n - 1].strip() and not TABLE_SEP.match(line):
+            rows.append(row(path, number, Check.SETEXT_HEADING, "fail", "setext heading marker"))
+        if line.lstrip().startswith("|") and n + 1 < len(raw) and TABLE_SEP.match(raw[n + 1]):
+            headers = split_cells(line)
+            body: list[tuple[str, ...]] = []
+            cursor = n + 2
+            while cursor < len(raw) and raw[cursor].lstrip().startswith("|"):
+                body.append(split_cells(raw[cursor]))
+                cursor += 1
+            tables.append(Table(number, headers, tuple(body)))
+            n = cursor
             continue
-        prose = strip_mentions(line)
-        if LIST_ITEM.match(line):
-            span_share = 1 - (len(prose.strip()) / max(1, len(line.strip())))
-            sentences = len(SENTENCE_END.findall(prose))
-            if span_share < ROSTER_SPAN_SHARE:
-                if sentences > LIST_SENTENCE_CAP:
-                    rows.append(Row(n, "list-bloat", f"{sentences} sentences > cap {LIST_SENTENCE_CAP}"))
-                elif len(line) > LIST_CHAR_CAP:
-                    rows.append(Row(n, "list-bloat", f"entry {len(line)} chars > cap {LIST_CHAR_CAP}"))
-        rows.extend(
-            Row(n, check, hit.group(0).lstrip(".!?— "))
-            for check, pattern in PATTERN_GATES
-            for hit in pattern.finditer(prose)
-        )
-    return rows
+        links.extend(LinkRef(number, link.group(2)) for link in LINK.finditer(line))
+        if item := LIST_ITEM.match(line):
+            cursor = n + 1
+            chunks = [item.group("body")]
+            while cursor < len(raw) and raw[cursor].startswith((" ", "\t")) and not LIST_ITEM.match(raw[cursor]):
+                chunks.append(raw[cursor].strip())
+                cursor += 1
+            text = " ".join(chunks)
+            stripped = " ".join(span.text.strip() for span in prose_spans(text, number))
+            share = 1 - (len(stripped) / max(1, len(text.strip())))
+            lists.append(ListEntry(number, text, stripped, share))
+        if not line.lstrip().startswith("|"):
+            prose.extend(prose_spans(line, number))
+        n += 1
+    if fence is not None:
+        rows.append(row(path, fence[2], Check.FENCE_UNCLOSED, "fail", "opening fence has no closing fence"))
+    doc = Document(str(path), "templates" in path.parts, tuple(prose), tuple(tables), tuple(headings), tuple(links), tuple(lists))
+    return doc, tuple(rows)
 
 
-# --- [COMPOSITION] -----------------------------------------------------------------------
+def table_rows(doc: Document) -> tuple[Row, ...]:
+    rows: list[Row] = []
+    for table in doc.tables:
+        rows.extend(row(doc.path, table.line, Check.TABLE_HEADER, "fail", cell or "<empty>") for cell in table.headers if not HEADER_CELL.match(cell))
+        for index, body in enumerate(table.rows, 1):
+            if len(body) != len(table.headers):
+                rows.append(row(doc.path, table.line + index + 1, Check.TABLE_SHAPE, "fail", f"row cells {len(body)} != header cells {len(table.headers)}"))
+        if len(table.rows) >= 2 and (not table.headers or table.headers[0] != "[INDEX]"):
+            rows.append(row(doc.path, table.line, Check.TABLE_INDEX, "fail", "enumerable table lacks leading [INDEX]"))
+        if table.headers and table.headers[0] == "[INDEX]":
+            for index, body in enumerate(table.rows, 1):
+                expected = f"[{index:02}]"
+                actual = body[0] if body else "<empty>"
+                if actual.strip() != expected:
+                    rows.append(row(doc.path, table.line + index + 1, Check.TABLE_INDEX, "fail", f"{actual or '<empty>'} != {expected}"))
+    return tuple(rows)
 
-def main(argv: list[str]) -> int:
-    """Run the gates over argv paths; emit one row per hit.
 
-    Returns:
-        Process exit code: 0 clean, 1 any fail.
-    """
-    ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--json", action="store_true")
-    ap.add_argument("--cap", type=int, default=CAP)
-    ap.add_argument("paths", nargs="+")
-    ns = ap.parse_args(argv)
+def heading_rows(doc: Document) -> tuple[Row, ...]:
+    if doc.template:
+        return ()
+    rows: list[Row] = []
+    h1 = tuple(heading for heading in doc.headings if heading.level == 1)
+    rows.extend(row(doc.path, heading.line, Check.HEADING_H1, "fail", "duplicate H1") for heading in h1[1:])
+    expected = 1
+    for heading in (heading for heading in doc.headings if heading.level == 2):
+        matched = NUMBERED_SECTION.match(heading.title)
+        if not matched:
+            rows.append(row(doc.path, heading.line, Check.HEADING_ORDER, "fail", heading.title))
+            continue
+        actual = int(matched.group("n"))
+        if actual != expected:
+            rows.append(row(doc.path, heading.line, Check.HEADING_ORDER, "fail", f"{actual:02} != {expected:02}"))
+        expected = actual + 1
+    return tuple(rows)
 
-    def emit(path: Path, row: Row) -> None:
-        if ns.json:
-            print(json.dumps(
-                {"file": str(path), "line": row.line, "check": row.check, "status": "fail", "detail": row.detail}
-            ))
+
+def link_rows(doc: Document) -> tuple[Row, ...]:
+    if doc.template:
+        return ()
+    base = Path(doc.path).parent
+    rows: list[Row] = []
+    for link in doc.links:
+        target = link.target.split("#", 1)[0]
+        if not target or target == "path" or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE):
+            continue
+        if not (base / target).resolve(strict=False).exists():
+            rows.append(row(doc.path, link.line, Check.DEAD_RELATIVE_LINK, "fail", link.target))
+    return tuple(rows)
+
+
+def prose_rows(doc: Document) -> tuple[Row, ...]:
+    rows: list[Row] = []
+    for span in doc.prose:
+        if EXAMPLE_LINE.match(span.text):
+            continue
+        if not doc.template:
+            rows.extend(row(doc.path, span.line, Check.TEMPLATE_SLOT, "fail", hit.group(0)) for hit in PLACEHOLDER.finditer(span.text))
+        rows.extend(row(doc.path, span.line, Check.BOLD_EMPHASIS, "fail", hit.group(0)) for hit in BOLD.finditer(span.text))
+        rows.extend(row(doc.path, span.line, check, "fail", hit.group(0).lstrip(".!? ")) for check, pattern in PATTERNS for hit in pattern.finditer(span.text))
+    return tuple(rows)
+
+
+def list_rows(doc: Document) -> tuple[Row, ...]:
+    if doc.template:
+        return ()
+    rows: list[Row] = []
+    for entry in doc.lists:
+        if entry.text.startswith("[") and not LIST_LEADER.match(f"- {entry.text}"):
+            rows.append(row(doc.path, entry.line, Check.LIST_LEADER, "fail", entry.text.split(":", 1)[0]))
+        if entry.span_share < ROSTER_SPAN_SHARE:
+            sentences = len(SENTENCE_END.findall(entry.prose))
+            if sentences > LIST_SENTENCE_CAP:
+                rows.append(row(doc.path, entry.line, Check.LIST_BLOAT, "warn", f"{sentences} sentences > cap {LIST_SENTENCE_CAP}"))
+            elif len(entry.text) > LIST_CHAR_CAP:
+                rows.append(row(doc.path, entry.line, Check.LIST_BLOAT, "warn", f"entry {len(entry.text)} chars > cap {LIST_CHAR_CAP}"))
+    return tuple(rows)
+
+
+def scan(path: Path, cap: int) -> tuple[Row, ...]:
+    text = read(path)
+    if isinstance(text, Row):
+        return (text,)
+    doc, lexer_rows = lex(path, text, cap)
+    return lexer_rows if doc is None else lexer_rows + table_rows(doc) + heading_rows(doc) + link_rows(doc) + prose_rows(doc) + list_rows(doc)
+
+
+def emit(rows: Iterable[Row], json_mode: bool) -> None:
+    for finding in rows:
+        if json_mode:
+            print(ENCODER.encode(finding).decode())
         else:
-            print(f"{path}:{row.line}: FAIL {row.check} {row.detail}")
+            print(f"{finding.file}:{finding.line}: {finding.status.upper()} {finding.check} {finding.detail}")
 
-    files, faults = collect(ns.paths)
-    failed = bool(faults)
-    for path, row in faults:
-        emit(path, row)
-    for path in files:
-        for row in scan(path, ns.cap):
-            failed = True
-            emit(path, row)
-    return 1 if failed else 0
+
+def code(rows: Iterable[Row]) -> int:
+    return 1 if any(finding.status == "fail" for finding in rows) else 0
+
+
+# --- [ENTRY] -----------------------------------------------------------------------------
+
+@APP.default
+def run(*paths: Path, json: bool = False, cap: int = CAP) -> int:
+    files, faults = collect(paths)
+    rows = faults + tuple(finding for path in files for finding in scan(path, cap))
+    emit(rows, json)
+    return code(rows)
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(APP(sys.argv[1:], result_action="return_value"))

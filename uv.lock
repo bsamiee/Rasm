@@ -3114,6 +3114,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/05/3b/aab6728cae887456f409b4d75e8a01856e4f04bd510de38052a47768b680/lxml-6.1.1.tar.gz", hash = "sha256:ba96ae44888e0185281e937633a743ea90d5a196c6000f82565ebb0580012d40", size = 4197430, upload-time = "2026-05-18T19:19:06.424Z" }
 
 [[package]]
+name = "lxml-stubs"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/da/1a3a3e5d159b249fc2970d73437496b908de8e4716a089c69591b4ffa6fd/lxml-stubs-0.5.1.tar.gz", hash = "sha256:e0ec2aa1ce92d91278b719091ce4515c12adc1d564359dfaf81efa7d4feab79d", size = 14778, upload-time = "2024-01-10T09:37:46.521Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1f/c9/e0f8e4e6e8a69e5959b06499582dca6349db6769cc7fdfb8a02a7c75a9ae/lxml_stubs-0.5.1-py3-none-any.whl", hash = "sha256:1f689e5dbc4b9247cb09ae820c7d34daeb1fdbd1db06123814b856dae7787272", size = 13584, upload-time = "2024-01-10T09:37:44.931Z" },
+]
+
+[[package]]
 name = "lz4"
 version = "4.4.5"
 source = { registry = "https://pypi.org/simple" }
@@ -6443,6 +6452,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-networkx"
+version = "3.6.1.20260624"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/f9/975c2bb35407c241fb788e9c75b2e2642af43a6c9cf81056a119dd98e59c/types_networkx-3.6.1.20260624.tar.gz", hash = "sha256:f031a9ee0bd27de4ab6d3e35a10f3492a4befc7b8c348607892b0ccb1b415d4d", size = 74060, upload-time = "2026-06-24T05:56:25.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/d4/67136d3323dd8a8ecc8124531f737dee97819811026da20a2a72949f462a/types_networkx-3.6.1.20260624-py3-none-any.whl", hash = "sha256:071734f88733afaaa06cbb62eb8c603626f4f9aa18424771acbdd3a638828d9a", size = 162457, upload-time = "2026-06-24T05:56:24.063Z" },
+]
+
+[[package]]
 name = "types-psutil"
 version = "7.2.2.20260518"
 source = { registry = "https://pypi.org/simple" }
@@ -7066,6 +7087,7 @@ dev = [
     { name = "hypothesis" },
     { name = "import-linter" },
     { name = "inline-snapshot" },
+    { name = "lxml-stubs" },
     { name = "moto", extra = ["server"] },
     { name = "mypy" },
     { name = "pytest" },
@@ -7081,6 +7103,7 @@ dev = [
     { name = "squawk-cli" },
     { name = "ty" },
     { name = "types-grpcio" },
+    { name = "types-networkx" },
     { name = "types-psutil" },
     { name = "validate-pyproject", extra = ["all"] },
 ]
@@ -7354,6 +7377,7 @@ dev = [
     { name = "hypothesis" },
     { name = "import-linter" },
     { name = "inline-snapshot" },
+    { name = "lxml-stubs" },
     { name = "moto", extras = ["server"] },
     { name = "mypy" },
     { name = "pytest" },
@@ -7369,6 +7393,7 @@ dev = [
     { name = "squawk-cli" },
     { name = "ty" },
     { name = "types-grpcio" },
+    { name = "types-networkx" },
     { name = "types-psutil" },
     { name = "validate-pyproject", extras = ["all"] },
 ]

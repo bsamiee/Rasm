@@ -97,7 +97,7 @@ The durability test: a future session consults the artifact as law — a standin
 Each durable kind is a fixed schema owned by its template: the gate derives the whole contract — section census, leader, field, and mark vocabularies, kind-bound span and coverage laws, the blindspot ledger's axis leaders — from `templates/` at run time, so a schema change is a template edit and a new kind is a template plus its H1-suffix row in the gate. Run the gate on every instance before the seal. Entry ids are zero-padded ordinals scoped to the instance, optionally led by one capital kind letter (`[01]`, `[F01]`); an id mints once per section — a later-section repeat is a reference — and is never reused after deletion. An instance is authored in working space named `<kind>.<scope>[.<slug>].md` — the artifact home's naming law with the rendered page's extension swapped — and enters the artifact home only through rendering. Marks carry two enforcement tiers: a missing or out-of-vocabulary mark token fails the gate; a semantically wrong mark — a `[FACT]` no anchor supports, an assumption missing its invalidating condition — fails the cold-read seal.
 
 ```bash
-python scripts/check_instance.py [--json] <instance.md>...
+uv run scripts/check_instance.py [--json] <instance.md>...
 ```
 
 | [INDEX] | [KIND]             | [CARRIES]                                   | [TEMPLATE]                                                     |
