@@ -32,7 +32,7 @@ An HTML artifact trades a document that gets skimmed for one that gets read: spa
 
 ## [02]-[TYPE_CHOOSER]
 
-The most specific trigger wins; each row names the misfit sibling it displaces.
+The most specific trigger wins; each row names the misfit sibling it displaces. A comparison of visual directions, UI options, layouts, or weighted candidates never flattens into inline chips or prose options — the artifact route fires first and the page carries the comparison. A request no row matches composes the nearest type's region spine rather than falling back to markdown.
 
 | [INDEX] | [TYPE]           | [WHEN]                             | [INSTEAD_OF] |
 | :-----: | :--------------- | :--------------------------------- | :----------- |

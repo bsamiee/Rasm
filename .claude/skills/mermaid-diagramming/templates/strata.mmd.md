@@ -1,6 +1,6 @@
 # [STRATA]
 
-Draw which layer may depend on which. Use `flowchart TB` with 4-5 stratum subgraphs stacked top to bottom, edges permitted only downward, and one forbidden upward edge styled Dracula Red and labeled prohibited. The red `linkStyle` on the offending edge is the law made visible: dependency flows down, never up.
+Draw which layer may depend on which. The template bakes in the full dependency law, not just the stack — downward edges are legal including skips, so one dashed skip edge shows transitive reach is permitted; exactly one upward edge exists, styled Dracula Red and labeled forbidden, making the violated law visible instead of implicit; and each stratum is a subgraph so membership, not position, carries the layer fact. Use `flowchart TB` with 4-5 stratum subgraphs, solid adjacent-layer edges, at most one dashed legal skip, and the one red forbidden edge.
 
 ```mermaid
 ---
@@ -23,7 +23,7 @@ config:
 ---
 flowchart TB
     accTitle: Stratum dependency law
-    accDescr: Four stacked strata with downward-only dependency edges and one forbidden upward edge styled red and marked prohibited.
+    accDescr: Four stacked strata with downward-only dependency edges, one dashed legal skip edge, and one forbidden upward edge styled red and marked prohibited.
     subgraph L4[App]
         App[App]
     end
@@ -39,8 +39,11 @@ flowchart TB
     App --> Host
     Host --> Platform
     Platform --> Kernel
+    App -.->|legal skip| Platform
     Kernel -->|forbidden: upward dep| App
-    linkStyle 3 stroke:#FF5555,stroke-width:2px,color:#FF5555
+    linkStyle 4 stroke:#FF5555,stroke-width:2px,color:#FF5555
     classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
     class Kernel boundary
 ```
+
+Refill law: rename strata to the real layer roster, keep edges downward with at most one demonstrative skip, and keep the single forbidden edge red — its `linkStyle` index is the edge's declaration position, so recount after any edge insertion.

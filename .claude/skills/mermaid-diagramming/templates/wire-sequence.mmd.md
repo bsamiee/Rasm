@@ -1,6 +1,6 @@
 # [WIRE_SEQUENCE]
 
-Draw an ordered exchange across a wire or process boundary. Use `sequenceDiagram` with 3-4 participants, `autonumber`, one `alt` block splitting success from fault, and one `Note over` the wire naming the frame shape. `sequenceDiagram` supports no ELK; `look: neo` applies at 11.14.0+.
+Draw an ordered exchange across a wire or process boundary. The template bakes in the wire discipline an unassisted attempt drops — the frame shape is named ON the wire in a note, so both sides visibly share one contract; every request has its visible return in both the success and fault arms, keeping causality auditable; the resolver's activation brackets exactly the work it owns; and the timeout escape is a `break` block, because a timeout aborts the exchange rather than branching it. Use `sequenceDiagram` with 3-4 participants, `autonumber` for citable steps, and one `alt` splitting success from fault. `sequenceDiagram` takes no ELK; `look: neo` applies at 11.14.0+.
 
 ```mermaid
 ---
@@ -29,14 +29,18 @@ config:
 ---
 sequenceDiagram
     accTitle: Wire exchange
-    accDescr: Ordered request and response across a process boundary with a success versus fault alternative and the frame shape noted over the wire.
+    accDescr: Ordered request and response across a process boundary with a success versus fault alternative, a timeout break, and the frame shape noted over the wire.
     autonumber
     participant C as Composer
     participant W as Wire
     participant R as Resolver
     Note over C,W: Frame { key, payload }
     C->>W: Request(Frame)
+    break wire timeout
+        W-->>C: TimeoutFault
+    end
     W->>R: Dispatch(Frame)
+    activate R
     alt resolved
         R-->>W: Receipt
         W-->>C: Receipt
@@ -44,4 +48,7 @@ sequenceDiagram
         R-->>W: FaultRow
         W-->>C: FaultRow
     end
+    deactivate R
 ```
+
+Refill law: rename the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work.

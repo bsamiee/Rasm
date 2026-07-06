@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Dashboard: Verification Runs</title>
+<style>
+/* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+:root{
+  color-scheme:light;
+  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
+  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --f0:12px;--f1:13.5px;--f2:15px;--f3:18px;--f4:24px;--f5:32px;
+  --r1:6px;--r2:10px;--r3:14px;--measure:1100px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
+  --font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme]){
+  color-scheme:dark;
+  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
+  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s5) var(--s4)}
+h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
+h2{font-size:var(--f4);line-height:1.2;margin:var(--s6) 0 var(--s3)}
+h3{font-size:var(--f3);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--f0);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 40%,transparent);background:color-mix(in srgb,var(--fail) 12%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in srgb,var(--info) 40%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
+.kbd{font-family:var(--font-mono);font-size:var(--f0);padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:var(--r1);background:var(--surface)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--f1)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--muted);border-left:2px solid var(--line)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent);text-decoration:none}
+.meter{height:8px;border-radius:999px;background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:var(--accent)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r2)}
+table{border-collapse:collapse;width:100%;font-size:var(--f1)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-weight:600}tr:last-child td{border-bottom:0}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);font-size:var(--f1);line-height:1.5}
+pre code{background:none;padding:0}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{font-size:var(--f1);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media print{
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button{display:none!important}
+  details>*{display:block!important}
+  .card{box-shadow:none}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+/* --- [DASHBOARD_LOCAL] --- */
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
+.filters{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:center;margin:var(--s4) 0}
+.filters label{display:flex;gap:var(--s2);align-items:center;font-size:var(--f1);color:var(--muted)}
+.kpis{margin:var(--s4) 0}
+.stat{font-size:var(--f5);line-height:1.1;margin-top:var(--s1)}
+.stat.ok{color:var(--ok)}.stat.fail{color:var(--fail)}
+.charts figure{margin:0}
+.charts figcaption{margin-bottom:var(--s2)}
+.charts .twrap{padding:var(--s2)}
+th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap}
+th[aria-sort=ascending]::after{content:" \2191";color:var(--accent)}
+th[aria-sort=descending]::after{content:" \2193";color:var(--accent)}
+td[data-cell=status]{text-transform:uppercase;font-family:var(--font-mono);font-size:var(--f0);font-weight:600}
+td.pass{color:var(--ok)}td.fail{color:var(--fail)}td.skip{color:var(--warn)}
+.bar{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin:var(--s5) 0}
+.bar textarea{flex:1;min-width:220px;min-height:44px;font-family:var(--font-mono);font-size:var(--f0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div><h1>Dashboard: Verification Runs</h1><small>Filterable board over an embedded run log. KPIs and charts recompute under the active filter.</small></div>
+    <!-- replace: filter facet options, date -->
+    <div class="filters no-print">
+      <search>
+        <label>Filter <input type="search" data-filter-box placeholder="Filter runs"></label>
+        <label>Suite <select data-facet><option value="all">All suites</option></select></label>
+      </search>
+      <small>YYYY-MM-DD</small> <button type="button" class="btn" data-toggle-theme>Theme</button>
+    </div>
+  </header>
+
+  <!-- replace: embedded dataset — id, suite, status, duration_ms, owner, day -->
+  <script type="application/json" id="data">[{"id": 1, "suite": "geometry", "status": "fail", "duration_ms": 40, "owner": "kernel", "day": "2026-06-29"}, {"id": 2, "suite": "compute", "status": "pass", "duration_ms": 77, "owner": "seam", "day": "2026-06-30"}, {"id": 3, "suite": "persistence", "status": "pass", "duration_ms": 114, "owner": "host", "day": "2026-07-01"}, {"id": 4, "suite": "bridge", "status": "pass", "duration_ms": 151, "owner": "bim", "day": "2026-07-02"}, {"id": 5, "suite": "artifacts", "status": "pass", "duration_ms": 188, "owner": "kernel", "day": "2026-07-03"}, {"id": 6, "suite": "runtime", "status": "pass", "duration_ms": 225, "owner": "seam", "day": "2026-07-04"}, {"id": 7, "suite": "geometry", "status": "pass", "duration_ms": 262, "owner": "host", "day": "2026-07-05"}, {"id": 8, "suite": "compute", "status": "skip", "duration_ms": 299, "owner": "bim", "day": "2026-07-06"}, {"id": 9, "suite": "persistence", "status": "pass", "duration_ms": 336, "owner": "kernel", "day": "2026-06-29"}, {"id": 10, "suite": "bridge", "status": "fail", "duration_ms": 373, "owner": "seam", "day": "2026-06-30"}, {"id": 11, "suite": "artifacts", "status": "pass", "duration_ms": 410, "owner": "host", "day": "2026-07-01"}, {"id": 12, "suite": "runtime", "status": "pass", "duration_ms": 447, "owner": "bim", "day": "2026-07-02"}, {"id": 13, "suite": "geometry", "status": "pass", "duration_ms": 484, "owner": "kernel", "day": "2026-07-03"}, {"id": 14, "suite": "compute", "status": "pass", "duration_ms": 521, "owner": "seam", "day": "2026-07-04"}, {"id": 15, "suite": "persistence", "status": "skip", "duration_ms": 558, "owner": "host", "day": "2026-07-05"}, {"id": 16, "suite": "bridge", "status": "pass", "duration_ms": 595, "owner": "bim", "day": "2026-07-06"}, {"id": 17, "suite": "artifacts", "status": "pass", "duration_ms": 632, "owner": "kernel", "day": "2026-06-29"}, {"id": 18, "suite": "runtime", "status": "pass", "duration_ms": 669, "owner": "seam", "day": "2026-06-30"}, {"id": 19, "suite": "geometry", "status": "fail", "duration_ms": 706, "owner": "host", "day": "2026-07-01"}, {"id": 20, "suite": "compute", "status": "pass", "duration_ms": 743, "owner": "bim", "day": "2026-07-02"}, {"id": 21, "suite": "persistence", "status": "pass", "duration_ms": 780, "owner": "kernel", "day": "2026-07-03"}, {"id": 22, "suite": "bridge", "status": "skip", "duration_ms": 817, "owner": "seam", "day": "2026-07-04"}, {"id": 23, "suite": "artifacts", "status": "pass", "duration_ms": 854, "owner": "host", "day": "2026-07-05"}, {"id": 24, "suite": "runtime", "status": "pass", "duration_ms": 891, "owner": "bim", "day": "2026-07-06"}, {"id": 25, "suite": "geometry", "status": "pass", "duration_ms": 928, "owner": "kernel", "day": "2026-06-29"}, {"id": 26, "suite": "compute", "status": "pass", "duration_ms": 965, "owner": "seam", "day": "2026-06-30"}, {"id": 27, "suite": "persistence", "status": "pass", "duration_ms": 42, "owner": "host", "day": "2026-07-01"}, {"id": 28, "suite": "bridge", "status": "fail", "duration_ms": 79, "owner": "bim", "day": "2026-07-02"}, {"id": 29, "suite": "artifacts", "status": "skip", "duration_ms": 116, "owner": "kernel", "day": "2026-07-03"}, {"id": 30, "suite": "runtime", "status": "pass", "duration_ms": 153, "owner": "seam", "day": "2026-07-04"}, {"id": 31, "suite": "geometry", "status": "pass", "duration_ms": 190, "owner": "host", "day": "2026-07-05"}, {"id": 32, "suite": "compute", "status": "pass", "duration_ms": 227, "owner": "bim", "day": "2026-07-06"}, {"id": 33, "suite": "persistence", "status": "pass", "duration_ms": 264, "owner": "kernel", "day": "2026-06-29"}, {"id": 34, "suite": "bridge", "status": "pass", "duration_ms": 301, "owner": "seam", "day": "2026-06-30"}, {"id": 35, "suite": "artifacts", "status": "pass", "duration_ms": 338, "owner": "host", "day": "2026-07-01"}, {"id": 36, "suite": "runtime", "status": "skip", "duration_ms": 375, "owner": "bim", "day": "2026-07-02"}, {"id": 37, "suite": "geometry", "status": "fail", "duration_ms": 412, "owner": "kernel", "day": "2026-07-03"}, {"id": 38, "suite": "compute", "status": "pass", "duration_ms": 449, "owner": "seam", "day": "2026-07-04"}, {"id": 39, "suite": "persistence", "status": "pass", "duration_ms": 486, "owner": "host", "day": "2026-07-05"}, {"id": 40, "suite": "bridge", "status": "pass", "duration_ms": 523, "owner": "bim", "day": "2026-07-06"}, {"id": 41, "suite": "artifacts", "status": "pass", "duration_ms": 560, "owner": "kernel", "day": "2026-06-29"}, {"id": 42, "suite": "runtime", "status": "pass", "duration_ms": 597, "owner": "seam", "day": "2026-06-30"}, {"id": 43, "suite": "geometry", "status": "skip", "duration_ms": 634, "owner": "host", "day": "2026-07-01"}, {"id": 44, "suite": "compute", "status": "pass", "duration_ms": 671, "owner": "bim", "day": "2026-07-02"}, {"id": 45, "suite": "persistence", "status": "pass", "duration_ms": 708, "owner": "kernel", "day": "2026-07-03"}, {"id": 46, "suite": "bridge", "status": "fail", "duration_ms": 745, "owner": "seam", "day": "2026-07-04"}, {"id": 47, "suite": "artifacts", "status": "pass", "duration_ms": 782, "owner": "host", "day": "2026-07-05"}, {"id": 48, "suite": "runtime", "status": "pass", "duration_ms": 819, "owner": "bim", "day": "2026-07-06"}]</script>
+
+  <div class="grid kpis">
+    <div class="card"><small>Total runs</small><div class="stat num" data-kpi="total">0</div></div>
+    <div class="card"><small>Passed</small><div class="stat num ok" data-kpi="pass">0</div></div>
+    <div class="card"><small>Failed</small><div class="stat num fail" data-kpi="fail">0</div></div>
+    <div class="card"><small>Pass rate</small><div class="stat num" data-kpi="rate">0%</div></div>
+  </div>
+
+  <div class="grid charts">
+    <figure class="card"><figcaption><small>Runs by suite</small></figcaption><div class="twrap" data-chart="bar"></div></figure>
+    <figure class="card"><figcaption><small>Pass rate by day</small></figcaption><div class="twrap" data-chart="line"></div></figure>
+  </div>
+
+  <div class="twrap"><table>
+    <thead><tr>
+      <th data-sort="id" aria-sort="none">ID</th>
+      <th data-sort="suite" aria-sort="none">Suite</th>
+      <th data-sort="status" aria-sort="none">Status</th>
+      <th data-sort="duration_ms" aria-sort="none">Duration (ms)</th>
+      <th data-sort="owner" aria-sort="none">Owner</th>
+      <th data-sort="day" aria-sort="none">Day</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table></div>
+
+  <footer class="bar no-print">
+    <button type="button" class="btn" data-export="md">Copy filtered markdown</button>
+    <button type="button" class="btn" data-export="json">Download full JSON</button>
+    <textarea id="egress" readonly aria-label="Exported markdown"></textarea>
+  </footer>
+</div>
+
+<template id="row-tpl">
+  <tr>
+    <td class="num" data-cell="id"></td>
+    <td data-cell="suite"></td>
+    <td data-cell="status"></td>
+    <td class="num" data-cell="duration_ms"></td>
+    <td data-cell="owner"></td>
+    <td data-cell="day"></td>
+  </tr>
+</template>
+
+<script>
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+
+const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
+const rows = JSON.parse(document.getElementById("data").textContent);
+const COLS = ["id", "suite", "status", "duration_ms", "owner", "day"];
+const NUMERIC = new Set(["id", "duration_ms"]);
+const suites = [...new Set(rows.map(r => r.suite))].sort();
+const days = [...new Set(rows.map(r => r.day))].sort();
+const state = { q: "", suite: "all", sortKey: null, sortDir: 1 };
+
+const facet = document.querySelector("[data-facet]");
+suites.forEach(s => facet.append(Object.assign(document.createElement("option"), { value: s, textContent: s })));
+
+const tbody = document.querySelector("tbody");
+const tpl = document.getElementById("row-tpl");
+const mount = () => {
+  const frag = document.createDocumentFragment();
+  rows.forEach(r => {
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    node.dataset.id = r.id;
+    COLS.forEach(c => { node.querySelector(`[data-cell=${c}]`).textContent = r[c]; });
+    node.querySelector("[data-cell=status]").classList.add(r.status);
+    frag.append(node);
+  });
+  tbody.replaceChildren(frag);
+};
+
+const matches = r => (state.suite === "all" || r.suite === state.suite)
+  && (!state.q || COLS.some(c => String(r[c]).toLowerCase().includes(state.q)));
+const visible = () => rows.filter(matches);
+
+const kpi = v => {
+  const pass = v.filter(r => r.status === "pass").length, fail = v.filter(r => r.status === "fail").length;
+  const rate = v.length ? Math.round((pass / v.length) * 100) : 0;
+  document.querySelector("[data-kpi=total]").textContent = v.length;
+  document.querySelector("[data-kpi=pass]").textContent = pass;
+  document.querySelector("[data-kpi=fail]").textContent = fail;
+  document.querySelector("[data-kpi=rate]").textContent = `${rate}%`;
+};
+
+const barChart = v => {
+  const W = 320, H = 160, pad = 26, bw = suites.length ? (W - pad * 2) / suites.length : 0;
+  const cols = suites.map(s => {
+    const rs = v.filter(r => r.suite === s);
+    return { s, pass: rs.filter(r => r.status === "pass").length, fail: rs.filter(r => r.status === "fail").length, skip: rs.filter(r => r.status === "skip").length };
+  });
+  const maxN = Math.max(1, ...cols.map(c => c.pass + c.fail + c.skip)), scale = (H - pad * 2) / maxN;
+  const bars = cols.map((c, i) => {
+    const x = pad + i * bw + bw * 0.15, w = bw * 0.7;
+    let y = H - pad;
+    const seg = (n, fill) => { const h = n * scale; y -= h; return h ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>` : ""; };
+    const stack = seg(c.pass, "var(--ok)") + seg(c.fail, "var(--fail)") + seg(c.skip, "var(--warn)");
+    return `${stack}<text x="${x + w / 2}" y="${H - pad + 12}" fill="var(--muted)" font-size="9" text-anchor="middle">${esc(c.s)}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Runs by suite"><line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="var(--line)"/>${bars}</svg>`;
+};
+
+const lineChart = v => {
+  const W = 320, H = 160, pad = 26, stepX = days.length > 1 ? (W - pad * 2) / (days.length - 1) : 0;
+  const y = rate => H - pad - rate * (H - pad * 2);
+  const pts = days.map((d, i) => {
+    const rs = v.filter(r => r.day === d), rate = rs.length ? rs.filter(r => r.status === "pass").length / rs.length : 0;
+    return { x: pad + i * stepX, y: y(rate), d };
+  });
+  const line = pts.length ? `<polyline points="${pts.map(p => `${p.x},${p.y}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2"/>` : "";
+  const dots = pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--accent)"/>`).join("");
+  const labels = pts.map(p => `<text x="${p.x}" y="${H - pad + 12}" fill="var(--muted)" font-size="8" text-anchor="middle">${esc(p.d.slice(5))}</text>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Pass rate by day"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H - pad}" stroke="var(--line)"/><line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="var(--line)"/>${line}${dots}${labels}</svg>`;
+};
+
+const applyFilter = () => {
+  const v = visible(), ids = new Set(v.map(r => r.id));
+  tbody.querySelectorAll("tr").forEach(tr => { tr.hidden = !ids.has(Number(tr.dataset.id)); });
+  kpi(v);
+  document.querySelector("[data-chart=bar]").innerHTML = barChart(v);
+  document.querySelector("[data-chart=line]").innerHTML = lineChart(v);
+};
+
+let filterTimer;
+document.addEventListener("input", e => {
+  if (!e.target.closest("[data-filter-box]")) return;
+  clearTimeout(filterTimer);
+  const q = e.target.value.trim().toLowerCase();
+  filterTimer = setTimeout(() => { state.q = q; applyFilter(); }, 120);
+});
+document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-facet]"); if (!sel) return;
+  state.suite = sel.value; applyFilter();
+});
+
+const sortBy = key => {
+  state.sortDir = state.sortKey === key ? -state.sortDir : 1;
+  state.sortKey = key;
+  const dir = state.sortDir, numeric = NUMERIC.has(key);
+  [...tbody.querySelectorAll("tr")].sort((a, b) => {
+    const av = a.querySelector(`[data-cell=${key}]`).textContent, bv = b.querySelector(`[data-cell=${key}]`).textContent;
+    return (numeric ? Number(av) - Number(bv) : av > bv ? 1 : av < bv ? -1 : 0) * dir;
+  }).forEach(tr => tbody.append(tr));
+  document.querySelectorAll("th[data-sort]").forEach(th =>
+    th.setAttribute("aria-sort", th.dataset.sort === key ? (dir > 0 ? "ascending" : "descending") : "none"));
+};
+document.addEventListener("click", e => { const th = e.target.closest("th[data-sort]"); if (th) sortBy(th.dataset.sort); });
+
+const download = (name, mime, text) => {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+const toMarkdown = v => {
+  const head = `| ${COLS.join(" | ")} |`, sep = `| ${COLS.map(() => "---").join(" | ")} |`;
+  const body = v.map(r => `| ${COLS.map(c => String(r[c])).join(" | ")} |`).join("\n");
+  return `# ${document.title}\n\n${head}\n${sep}\n${body}\n`;
+};
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-export]"); if (!b) return;
+  if (b.dataset.export === "md") {
+    const md = toMarkdown(visible());
+    document.getElementById("egress").value = md;
+    navigator.clipboard?.writeText(md).catch(() => {});
+  } else download("verification-runs.json", "application/json", JSON.stringify(rows, null, 2));
+});
+
+mount();
+applyFilter();
+</script>
+</body>
+</html>

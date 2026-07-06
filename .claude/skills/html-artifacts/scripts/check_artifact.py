@@ -6,10 +6,13 @@ Usage: check_artifact.py [--json] <file.html>...
 Checks: external-ref (any src/srcset/url() outside data:/#; any href with a scheme or //; any
 javascript:, //, or http(s) URL literal inside an on* handler value), base (any <base href> that
 rewrites relative resolution), doctype, title, dark-theme handling (prefers-color-scheme or
-data-theme present), size warn >400KB, print warn (no @media print block), residue warn (template
-replace-markers left in a filled artifact), script-hazard warn (raw U+2028/U+2029 breaking an
-embedded JS string literal). Output: `file:line: FAIL|WARN <check> <detail>`; --json emits NDJSON
-rows {"file","line","check","status","detail"}. An unreadable file emits one check=read fail row.
+data-theme present), embedded-state (any <script type="application/json"> payload must parse),
+size warn >400KB, print warn (no @media print block), residue warn (template replace-markers left
+in a filled artifact), script-hazard warn (raw U+2028/U+2029 breaking an embedded JS string
+literal), export-control warn (capture controls without a data-export egress), theme-tokens warn
+(style present without semantic tokens), secret warn (credential-shaped literals). Output:
+`file:line: FAIL|WARN <check> <detail>`; --json emits NDJSON rows
+{"file","line","check","status","detail"}. An unreadable file emits one check=read fail row.
 Rendering fidelity and runtime-built egress (fetch/XHR assembled at run time) are the browser and
 CSP oracle's, not this gate's; this gate owns the static single-file contract.
 """
@@ -32,11 +35,17 @@ CSS_URL = re.compile(r"url\(\s*['\"]?([^'\")]+)", re.IGNORECASE)
 HANDLER_URL = re.compile(r"(javascript:|//|https?:)", re.IGNORECASE)
 HREF_BLOCKED = re.compile(r"^(//|[a-z][a-z0-9+.-]*:)", re.IGNORECASE)
 HREF_ALLOWED = re.compile(r"^(#|data:|mailto:)", re.IGNORECASE)
+CAPTURE_TAGS = ("input", "select", "textarea")
 RESIDUE = re.compile(r"<!--\s*replace:", re.IGNORECASE)
 SCRIPT_HAZARD = re.compile(r"[\u2028\u2029]")
+SECRET = re.compile(
+    r"(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36,}|xox[baprs]-[A-Za-z0-9-]{10,}"
+    r"|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{8,}\.eyJ)"
+)
 SRC_ALLOWED = re.compile(r"^(#|data:)", re.IGNORECASE)
 SRC_ATTRS = ("src", "srcset", "poster", "action", "data")
 SIZE_WARN = 400 * 1024
+THEME_TOKENS = ("--bg", "--text", "--accent")
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -58,7 +67,11 @@ class Audit(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.rows: list[Row] = []
         self.has_title = False
+        self.has_export = False
+        self.captures = 0
+        self.payloads: list[tuple[int, str]] = []
         self._in_style = False
+        self._script_json_line: int | None = None
         self.css: list[tuple[int, str]] = []
 
     @override
@@ -68,7 +81,15 @@ class Audit(HTMLParser):
             self.has_title = True
         if tag == "style":
             self._in_style = True
+        if tag in CAPTURE_TAGS:
+            self.captures += 1
+        if tag == "script" and any(n == "type" and v and v.strip().lower() == "application/json" for n, v in attrs):
+            self._script_json_line = line
         for name, value in attrs:
+            if name == "data-export" or name.startswith("data-export-"):
+                self.has_export = True
+            if name in ("contenteditable", "draggable") and (value is None or value.strip().lower() != "false"):
+                self.captures += 1
             if value is None:
                 continue
             v = value.strip()
@@ -98,11 +119,15 @@ class Audit(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag == "style":
             self._in_style = False
+        if tag == "script":
+            self._script_json_line = None
 
     @override
     def handle_data(self, data: str) -> None:
         if self._in_style:
             self.css.append((self.getpos()[0], data))
+        if self._script_json_line is not None and data.strip():
+            self.payloads.append((self._script_json_line, data))
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
@@ -133,6 +158,15 @@ def audit(path: Path) -> list[Row]:
         ("prefers-color-scheme" in text or "data-theme" in text, Row(1, "dark-theme", "fail", "no prefers-color-scheme or data-theme handling")),
     )
     rows.extend(row for present, row in document_checks if not present)
+    for payload_line, payload in parser.payloads:
+        try:
+            json.loads(payload)
+        except json.JSONDecodeError as exc:
+            rows.append(Row(payload_line, "embedded-state", "fail", f"payload does not parse: {exc.msg}"))
+    if parser.captures and not parser.has_export:
+        rows.append(Row(1, "export-control", "warn", f"{parser.captures} capture controls, no data-export egress"))
+    if parser.css and not all(token in text for token in THEME_TOKENS):
+        rows.append(Row(1, "theme-tokens", "warn", "style present without semantic theme tokens"))
     if len(text.encode()) > SIZE_WARN:
         rows.append(Row(1, "size", "warn", f"{len(text.encode()) // 1024}KB > {SIZE_WARN // 1024}KB"))
     if "@media print" not in text:
@@ -143,6 +177,7 @@ def audit(path: Path) -> list[Row]:
         for check, pattern, detail in (
             ("residue", RESIDUE, "template replace-marker remains"),
             ("script-hazard", SCRIPT_HAZARD, "raw U+2028/U+2029 line separator"),
+            ("secret", SECRET, "credential-shaped literal"),
         )
         if pattern.search(line_text)
     )

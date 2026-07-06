@@ -43,6 +43,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-si
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
 h2{font-size:var(--f4);line-height:1.2;margin:var(--s6) 0 var(--s3)}
 h3{font-size:var(--f3);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+.num{font-variant-numeric:tabular-nums}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
@@ -73,10 +76,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media print{
+  @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
-  .card{box-shadow:none;break-inside:avoid}
+  .card{box-shadow:none}
+  .card,tr,pre,figure{break-inside:avoid}
   body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* --- [BRAINSTORM_LOCAL] --- */
 .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
@@ -92,7 +98,7 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   <header class="head">
     <div><h1>Brainstorm: Shape Directions</h1><small>Three directions for the &lt;capability&gt; owner.</small></div>
     <!-- replace: direction count + date -->
-    <div><span class="chip info">3 DIRECTIONS</span> <small>YYYY-MM-DD</small> <button class="btn no-print" data-toggle-theme>Theme</button></div>
+    <div><span class="chip info">3 DIRECTIONS</span> <small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
   </header>
 
   <div class="no-print" style="margin:var(--s4) 0">
@@ -131,22 +137,18 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   </article>
 </div>
 <script>
-(function(){
-  var key="theme:"+document.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-  var root=document.documentElement;
-  root.setAttribute("data-theme", localStorage.getItem(key) || "dark");
-  document.addEventListener("click",function(e){
-    if(!e.target.closest("[data-toggle-theme]")) return;
-    var next=root.getAttribute("data-theme")==="dark"?"light":"dark";
-    root.setAttribute("data-theme",next); localStorage.setItem(key,next);
-  });
-})();
-document.addEventListener("change",function(e){
-  var sel=e.target.closest("[data-compare]"); if(!sel) return;
-  var k=sel.value;
-  document.querySelectorAll("[data-criterion]").forEach(function(r){
-    r.classList.toggle("hl", k!=="none" && r.getAttribute("data-criterion")===k);
-  });
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-compare]"); if (!sel) return;
+  const k = sel.value;
+  document.querySelectorAll("[data-criterion]").forEach(r => r.classList.toggle("hl", k !== "none" && r.dataset.criterion === k));
 });
 </script>
 </body>

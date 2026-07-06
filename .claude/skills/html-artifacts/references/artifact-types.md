@@ -14,7 +14,7 @@ Regions in order:
 - Stages — one `.card` per stage over an ordered acceptance list.
 - Risk register — table of risk, likelihood, impact, mitigation.
 - Appendix — collapsible section holding a code excerpt.
-Patterns: theme toggle, deep-link, collapsible, copy-to-clipboard.
+Patterns: theme toggle, deep-link, collapsible, copy clipboard.
 Export: optional-with-form — the stage list and acceptance as markdown.
 Review: acceptance that names no observable signal, so a stage stays unprovable.
 
@@ -27,7 +27,7 @@ Regions in order:
 - Direction grid — one `.card` per direction over thesis, strengths, costs, and kills; a code-approaches variant adds an executable excerpt and a failure-mode line per direction.
 - Comparison control — highlights one criterion row across every card at once.
 - Verdict footer — the leaning direction and the trigger that flips it.
-Patterns: theme toggle, compare-highlight, deep-link.
+Patterns: theme toggle, filter, deep-link.
 Export: optional-with-form — the leaning direction and its flip trigger as markdown.
 Review: directions collapsing onto one axis, so the comparison decides nothing.
 
@@ -67,7 +67,7 @@ Regions in order:
 - Diff spine — the patch as a preserved line stream over add, remove, and context classes, every line escaped before render.
 - Annotation rail — sticky column of severity chips and jump anchors, each suggested fix beside the line it touches.
 - Verdict footer — merge posture and the blocking findings.
-Patterns: theme toggle, escape render, diff spine, deep-link.
+Patterns: theme toggle, escape render, diff, deep-link.
 Export: optional-with-form — a clarified-review markdown.
 Review: unescaped source reaching the DOM, so the patch text renders as live markup.
 
@@ -123,7 +123,7 @@ Regions in order:
 - Sidenote rail — definitions and caveats float beside the claim, collapsing to block flow on narrow screens.
 - Callout cards — one `.card` for the load-bearing claim or caveat per section.
 - Evidence — collapsible sections holding code excerpts or data tables in `.twrap`.
-Patterns: theme toggle, collapsible, deep-link, margin note, copy-to-clipboard.
+Patterns: theme toggle, collapsible, deep-link, margin note, scrub control, copy clipboard.
 Export: optional-with-form — the section outline as markdown.
 Review: interaction that hides the conclusion, so the settled decision stays buried.
 
@@ -148,7 +148,7 @@ Regions in order:
 - Rule rows — repeating row of text inputs over a select and a remove control, plus an add-row control.
 - Changed-key diff — the live state compared against a frozen initial snapshot.
 - Export bar — the rules table as markdown, plus clear-draft.
-Patterns: theme toggle, draft persist, changed-key diff, export bar, copy-to-clipboard.
+Patterns: theme toggle, draft persist, diff, export bar, copy clipboard.
 Export: required — the rules table as markdown; a tweakable-plan variant exports a clarified spec.
 Review: state read from the DOM, so the export forks from the true model.
 
@@ -162,7 +162,7 @@ Regions in order:
 - Type scale — live specimens at each type token.
 - Spacing and shape — spacing tokens as bars, radii and elevation as physical cards.
 - Component contact sheet — each component across size, intent, state, density, and theme.
-Patterns: theme toggle, filter, keyboard nav, copy-to-clipboard.
+Patterns: theme toggle, filter, keyboard nav, copy clipboard.
 Export: optional-with-form — the token roster as markdown or JSON.
 Review: a knob that changes no behavior, so the sheet drifts into decoration.
 
@@ -176,7 +176,7 @@ Regions in order:
 - Timeline — a week window for status, minute-by-minute for incident ordered by causality.
 - Evidence cards — one `.card` per finding with a jump anchor; the research variant adds a contradictions card.
 - Asks and actions — the requested decisions and follow-ups, one owner chip each; the research variant closes on a decision section.
-Patterns: theme toggle, collapsible, deep-link, copy-to-clipboard.
+Patterns: theme toggle, collapsible, deep-link, copy clipboard.
 Export: optional-with-form — the asks and status digest as markdown.
 Review: causality out of order, so the timeline hides what drove the outcome.
 

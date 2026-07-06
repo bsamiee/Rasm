@@ -43,6 +43,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-si
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
 h2{font-size:var(--f4);line-height:1.2;margin:var(--s6) 0 var(--s3)}
 h3{font-size:var(--f3);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+.num{font-variant-numeric:tabular-nums}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
@@ -73,10 +76,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media print{
+  @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
-  .card{box-shadow:none;break-inside:avoid}
+  .card{box-shadow:none}
+  .card,tr,pre,figure{break-inside:avoid}
   body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* --- [WARGAME_LOCAL] --- */
 .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
@@ -91,40 +97,41 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   <header class="head">
     <div><h1>Wargame: Shape Options</h1><small>Weighted scoring of the &lt;capability&gt; options. Weights and scores are editable; totals recompute live.</small></div>
     <!-- replace: date -->
-    <div><small>YYYY-MM-DD</small> <button class="btn no-print" data-toggle-theme>Theme</button></div>
+    <div><small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
   </header>
 
   <!-- replace: criteria columns (data-crit + weight) and option rows (data-option + scores) -->
   <div class="twrap"><table class="matrix">
     <thead><tr>
       <th>Option</th>
-      <th data-crit="Impact">Impact<br><input type="number" data-weight value="3" min="0" max="9" aria-label="Impact weight"></th>
-      <th data-crit="Effort">Effort<br><input type="number" data-weight value="1" min="0" max="9" aria-label="Effort weight"></th>
-      <th data-crit="Durability">Durability<br><input type="number" data-weight value="2" min="0" max="9" aria-label="Durability weight"></th>
+      <th data-crit="Impact">Impact<br><input class="num" type="number" data-weight value="3" min="0" max="9" aria-label="Impact weight"></th>
+      <th data-crit="Effort">Effort<br><input class="num" type="number" data-weight value="1" min="0" max="9" aria-label="Effort weight"></th>
+      <th data-crit="Durability">Durability<br><input class="num" type="number" data-weight value="2" min="0" max="9" aria-label="Durability weight"></th>
       <th>Total</th>
     </tr></thead>
     <tbody>
       <tr data-option="Absorb into Shape"><td>Absorb into Shape</td>
-        <td><input type="number" data-score value="5" min="0" max="5"></td>
-        <td><input type="number" data-score value="3" min="0" max="5"></td>
-        <td><input type="number" data-score value="5" min="0" max="5"></td>
-        <td class="total">0</td></tr>
+        <td><input class="num" type="number" data-score value="5" min="0" max="5"></td>
+        <td><input class="num" type="number" data-score value="3" min="0" max="5"></td>
+        <td><input class="num" type="number" data-score value="5" min="0" max="5"></td>
+        <td class="total num">0</td></tr>
       <tr data-option="Split by Variant"><td>Split by Variant</td>
-        <td><input type="number" data-score value="3" min="0" max="5"></td>
-        <td><input type="number" data-score value="4" min="0" max="5"></td>
-        <td><input type="number" data-score value="2" min="0" max="5"></td>
-        <td class="total">0</td></tr>
+        <td><input class="num" type="number" data-score value="3" min="0" max="5"></td>
+        <td><input class="num" type="number" data-score value="4" min="0" max="5"></td>
+        <td><input class="num" type="number" data-score value="2" min="0" max="5"></td>
+        <td class="total num">0</td></tr>
       <tr data-option="Adapter at edge"><td>Adapter at edge</td>
-        <td><input type="number" data-score value="4" min="0" max="5"></td>
-        <td><input type="number" data-score value="3" min="0" max="5"></td>
-        <td><input type="number" data-score value="4" min="0" max="5"></td>
-        <td class="total">0</td></tr>
+        <td><input class="num" type="number" data-score value="4" min="0" max="5"></td>
+        <td><input class="num" type="number" data-score value="3" min="0" max="5"></td>
+        <td><input class="num" type="number" data-score value="4" min="0" max="5"></td>
+        <td class="total num">0</td></tr>
     </tbody>
   </table></div>
 
   <div class="bar no-print">
-    <button class="btn" data-export>Export markdown</button>
-    <button class="btn" data-clear>Clear draft</button>
+    <button type="button" class="btn" data-export>Export markdown</button>
+<textarea id="egress" readonly aria-label="Exported state"></textarea>
+    <button type="button" class="btn" data-clear>Clear draft</button>
     <small>Highest weighted total is marked in green.</small>
   </div>
 
@@ -139,52 +146,60 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   </div>
 </div>
 <script>
-(function(){
-  var key="theme:"+document.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-  var root=document.documentElement;
-  root.setAttribute("data-theme", localStorage.getItem(key) || "dark");
-  document.addEventListener("click",function(e){
-    if(!e.target.closest("[data-toggle-theme]")) return;
-    var next=root.getAttribute("data-theme")==="dark"?"light":"dark";
-    root.setAttribute("data-theme",next); localStorage.setItem(key,next);
-  });
-})();
-var DKEY="draft:"+document.title.toLowerCase().replace(/[^a-z0-9]+/g,"-");
-function fields(){return document.querySelectorAll("input[data-weight],input[data-score]");}
-function weights(){return Array.prototype.map.call(document.querySelectorAll("thead [data-weight]"),function(i){return parseFloat(i.value)||0;});}
-function recompute(){
-  var w=weights(), max=-1, best=null;
-  document.querySelectorAll("tbody tr[data-option]").forEach(function(tr){
-    var s=tr.querySelectorAll("[data-score]"), t=0;
-    for(var i=0;i<s.length;i++) t+=(parseFloat(s[i].value)||0)*(w[i]||0);
-    tr.querySelector(".total").textContent=t.toFixed(1);
-    tr.classList.remove("best"); if(t>max){max=t;best=tr;}
-  });
-  if(best) best.classList.add("best");
-}
-function save(){localStorage.setItem(DKEY,JSON.stringify(Array.prototype.map.call(fields(),function(i){return i.value;})));}
-(function load(){var s=localStorage.getItem(DKEY);if(s)try{var v=JSON.parse(s);fields().forEach(function(i,k){if(v[k]!=null)i.value=v[k];});}catch(e){}})();
-document.addEventListener("input",function(e){if(e.target.closest("[data-weight],[data-score]")){recompute();save();}});
-function exportMarkdown(md,name){
-  navigator.clipboard&&navigator.clipboard.writeText(md);
-  var a=document.createElement("a");
-  a.href="data:text/markdown;charset=utf-8,"+encodeURIComponent(md);
-  a.download=(name||"wargame")+".md"; a.click();
-}
-document.addEventListener("click",function(e){
-  if(e.target.closest("[data-export]")){
-    var crits=Array.prototype.slice.call(document.querySelectorAll("thead [data-crit]")), w=weights();
-    var cols=crits.length+2;
-    var head="| Option | "+crits.map(function(c,i){return c.getAttribute("data-crit")+" (w"+w[i]+")";}).join(" | ")+" | Total |";
-    var sep="| "+Array(cols).fill("---").join(" | ")+" |";
-    var rows=Array.prototype.map.call(document.querySelectorAll("tbody tr[data-option]"),function(tr){
-      var cells=Array.prototype.map.call(tr.querySelectorAll("[data-score]"),function(i){return i.value||"0";});
-      return "| "+tr.getAttribute("data-option")+" | "+cells.join(" | ")+" | "+tr.querySelector(".total").textContent+" |";
-    });
-    exportMarkdown("# "+document.title+"\n\n"+head+"\n"+sep+"\n"+rows.join("\n")+"\n","wargame");
-  }
-  if(e.target.closest("[data-clear]")){localStorage.removeItem(DKEY);location.reload();}
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
 });
+
+const draftKey = "draft:" + themeKey.slice(6);
+const fields = () => document.querySelectorAll("input[data-weight],input[data-score]");
+const weights = () => [...document.querySelectorAll("thead [data-weight]")].map(i => parseFloat(i.value) || 0);
+const recompute = () => {
+  const w = weights();
+  let max = -1, best = null;
+  document.querySelectorAll("tbody tr[data-option]").forEach(tr => {
+    const total = [...tr.querySelectorAll("[data-score]")].reduce((sum, s, i) => sum + (parseFloat(s.value) || 0) * (w[i] || 0), 0);
+    tr.querySelector(".total").textContent = total.toFixed(1);
+    tr.classList.remove("best");
+    if (total > max) { max = total; best = tr; }
+  });
+  best?.classList.add("best");
+};
+const save = () => { try { localStorage.setItem(draftKey, JSON.stringify([...fields()].map(i => i.value))); } catch {} };
+const load = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+    if (Array.isArray(stored)) [...fields()].forEach((i, k) => { if (stored[k] != null) i.value = stored[k]; });
+  } catch {}
+};
+document.addEventListener("input", e => { if (e.target.closest("[data-weight],[data-score]")) { recompute(); save(); } });
+
+const exportMarkdown = (md, name) => {
+  const egress = document.getElementById("egress"); if (egress) egress.value = md;
+  navigator.clipboard?.writeText(md).catch(() => {});
+  const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+  Object.assign(document.createElement("a"), { href: url, download: (name ?? "wargame") + ".md" }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-export]")) {
+    const crits = [...document.querySelectorAll("thead [data-crit]")], w = weights();
+    const cols = crits.length + 2;
+    const head = "| Option | " + crits.map((c, i) => `${c.dataset.crit} (w${w[i]})`).join(" | ") + " | Total |";
+    const sep = "| " + Array(cols).fill("---").join(" | ") + " |";
+    const rows = [...document.querySelectorAll("tbody tr[data-option]")].map(tr => {
+      const cells = [...tr.querySelectorAll("[data-score]")].map(i => i.value || "0");
+      return `| ${tr.dataset.option} | ${cells.join(" | ")} | ${tr.querySelector(".total").textContent} |`;
+    });
+    exportMarkdown(`# ${document.title}\n\n${head}\n${sep}\n${rows.join("\n")}\n`, "wargame");
+  }
+  if (e.target.closest("[data-clear]")) { try { localStorage.removeItem(draftKey); } catch {} location.reload(); }
+});
+load();
 recompute();
 </script>
 </body>

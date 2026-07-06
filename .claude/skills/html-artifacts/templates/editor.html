@@ -43,6 +43,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-si
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
 h2{font-size:var(--f4);line-height:1.2;margin:var(--s6) 0 var(--s3)}
 h3{font-size:var(--f3);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+.num{font-variant-numeric:tabular-nums}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
@@ -73,10 +76,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media print{
+  @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
-  .card{box-shadow:none;break-inside:avoid}
+  .card{box-shadow:none}
+  .card,tr,pre,figure{break-inside:avoid}
   body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* --- [EDITOR_LOCAL] --- */
 .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
@@ -91,79 +97,87 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   <header class="head">
     <div><h1>Decision Rules: Shape</h1><small>Editable rules for the &lt;capability&gt; owner. Edits persist locally; export writes a markdown table.</small></div>
     <!-- replace: date -->
-    <div><span class="chip info" id="state">DRAFT</span> <small>YYYY-MM-DD</small> <button class="btn no-print" data-toggle-theme>Theme</button></div>
+    <div><span class="chip info" id="state">DRAFT</span> <small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
   </header>
 
   <!-- replace: seed rules; each rule is When / Then / Note -->
   <div id="rules" class="card">
     <div class="rule" data-rule>
-      <input data-f="when" value="input is single" placeholder="When ...">
+      <input type="text" data-f="when" value="input is single" placeholder="When ...">
       <select data-f="then"><option>dispatch</option><option>defer</option><option>reject</option><option>escalate</option></select>
-      <input data-f="note" value="one polymorphic entry" placeholder="Note">
-      <button class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
+      <input type="text" data-f="note" value="one polymorphic entry" placeholder="Note">
+      <button type="button" class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
     </div>
     <div class="rule" data-rule>
-      <input data-f="when" value="input is batch" placeholder="When ...">
+      <input type="text" data-f="when" value="input is batch" placeholder="When ...">
       <select data-f="then"><option>dispatch</option><option>defer</option><option>reject</option><option>escalate</option></select>
-      <input data-f="note" value="same owner, shape detection" placeholder="Note">
-      <button class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
+      <input type="text" data-f="note" value="same owner, shape detection" placeholder="Note">
+      <button type="button" class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
     </div>
   </div>
 
   <div class="bar no-print">
-    <button class="btn" data-add>Add rule</button>
-    <button class="btn" data-export>Export markdown</button>
-    <button class="btn" data-clear>Clear draft</button>
+    <button type="button" class="btn" data-add>Add rule</button>
+    <button type="button" class="btn" data-export>Export markdown</button>
+<textarea id="egress" readonly aria-label="Exported state"></textarea>
+    <button type="button" class="btn" data-clear>Clear draft</button>
   </div>
 </div>
 
 <template id="rowtpl">
   <div class="rule" data-rule>
-    <input data-f="when" placeholder="When ...">
+    <input type="text" data-f="when" placeholder="When ...">
     <select data-f="then"><option>dispatch</option><option>defer</option><option>reject</option><option>escalate</option></select>
-    <input data-f="note" placeholder="Note">
-    <button class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
+    <input type="text" data-f="note" placeholder="Note">
+    <button type="button" class="btn no-print" data-remove aria-label="Remove rule">&times;</button>
   </div>
 </template>
 
 <script>
-(function(){
-  var key="theme:"+document.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-  var root=document.documentElement;
-  root.setAttribute("data-theme", localStorage.getItem(key) || "dark");
-  document.addEventListener("click",function(e){
-    if(!e.target.closest("[data-toggle-theme]")) return;
-    var next=root.getAttribute("data-theme")==="dark"?"light":"dark";
-    root.setAttribute("data-theme",next); localStorage.setItem(key,next);
-  });
-})();
-var DKEY="draft:"+document.title.toLowerCase().replace(/[^a-z0-9]+/g,"-");
-var host=document.getElementById("rules"), tpl=document.getElementById("rowtpl");
-function readState(){return Array.prototype.map.call(host.querySelectorAll("[data-rule]"),function(r){
-  var o={}; r.querySelectorAll("[data-f]").forEach(function(f){o[f.getAttribute("data-f")]=f.value;}); return o;});}
-function addRow(v){var n=tpl.content.firstElementChild.cloneNode(true);
-  if(v)n.querySelectorAll("[data-f]").forEach(function(f){var k=f.getAttribute("data-f");if(v[k]!=null)f.value=v[k];});
-  host.appendChild(n);}
-function save(){localStorage.setItem(DKEY,JSON.stringify(readState()));}
-(function load(){var s=localStorage.getItem(DKEY);if(!s)return;try{var v=JSON.parse(s);
-  if(v.length){host.innerHTML="";v.forEach(addRow);}}catch(e){}})();
-document.addEventListener("input",function(e){if(e.target.closest("#rules"))save();});
-function exportMarkdown(md,name){
-  navigator.clipboard&&navigator.clipboard.writeText(md);
-  var a=document.createElement("a");
-  a.href="data:text/markdown;charset=utf-8,"+encodeURIComponent(md);
-  a.download=(name||"rules")+".md"; a.click();
-}
-document.addEventListener("click",function(e){
-  if(e.target.closest("[data-add]")){addRow();save();}
-  if(e.target.closest("[data-remove]")){e.target.closest("[data-rule]").remove();save();}
-  if(e.target.closest("[data-clear]")){localStorage.removeItem(DKEY);location.reload();}
-  if(e.target.closest("[data-export]")){
-    var rows=readState().map(function(o){return "| "+(o.when||"")+" | "+(o.then||"")+" | "+(o.note||"")+" |";});
-    var md="# "+document.title+"\n\n| When | Then | Note |\n| --- | --- | --- |\n"+rows.join("\n")+"\n";
-    exportMarkdown(md,"rules");
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+const draftKey = "draft:" + themeKey.slice(6);
+const host = document.getElementById("rules"), tpl = document.getElementById("rowtpl");
+const readState = () => [...host.querySelectorAll("[data-rule]")].map(r => {
+  const o = {}; r.querySelectorAll("[data-f]").forEach(f => { o[f.dataset.f] = f.value; }); return o;
+});
+const addRow = v => {
+  const node = tpl.content.firstElementChild.cloneNode(true);
+  if (v) node.querySelectorAll("[data-f]").forEach(f => { if (v[f.dataset.f] != null) f.value = v[f.dataset.f]; });
+  host.append(node);
+};
+const save = () => { try { localStorage.setItem(draftKey, JSON.stringify(readState())); } catch {} };
+const load = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+    if (Array.isArray(stored) && stored.length) { host.replaceChildren(); stored.forEach(addRow); }
+  } catch {}
+};
+const exportMarkdown = (md, name) => {
+  const egress = document.getElementById("egress"); if (egress) egress.value = md;
+  navigator.clipboard?.writeText(md).catch(() => {});
+  const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+  Object.assign(document.createElement("a"), { href: url, download: (name ?? "rules") + ".md" }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+document.addEventListener("input", e => { if (e.target.closest("#rules")) save(); });
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-add]")) { addRow(); save(); }
+  if (e.target.closest("[data-remove]")) { e.target.closest("[data-rule]").remove(); save(); }
+  if (e.target.closest("[data-clear]")) { try { localStorage.removeItem(draftKey); } catch {} location.reload(); }
+  if (e.target.closest("[data-export]")) {
+    const rows = readState().map(o => `| ${o.when ?? ""} | ${o.then ?? ""} | ${o.note ?? ""} |`);
+    const md = `# ${document.title}\n\n| When | Then | Note |\n| --- | --- | --- |\n${rows.join("\n")}\n`;
+    exportMarkdown(md, "rules");
   }
 });
+load();
 </script>
 </body>
 </html>

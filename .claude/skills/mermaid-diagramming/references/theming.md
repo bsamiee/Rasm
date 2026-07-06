@@ -183,16 +183,16 @@ linkStyle 3 stroke:#8BE9FD,color:#F8F8F2
 
 Node fills and their text travel inside the SVG, so Selection-filled nodes with Foreground text hold on any host. What breaks on a white host is ink drawn over the page — edge strokes, edge labels without a background, transparent-canvas text.
 
-| [TOKEN] | [ON_DARK]    | [ON_WHITE]  |
-| :------ | :----------- | :---------- |
-| Comment | `3.03` pass  | `4.71` pass |
-| Cyan    | `10.29` pass | `1.38` fail |
-| Green   | `10.38` pass | `1.37` fail |
-| Orange  | `8.36` pass  | `1.70` fail |
-| Pink    | `5.97` pass  | `2.39` fail |
-| Purple  | `5.90` pass  | `2.41` fail |
-| Red     | `4.53` pass  | `3.14` pass |
-| Yellow  | `12.74` pass | `1.12` fail |
+| [INDEX] | [TOKEN] | [ON_DARK]    | [ON_WHITE]  |
+| :-----: | :------ | :----------- | :---------- |
+|  [01]   | Comment | `3.03` pass  | `4.71` pass |
+|  [02]   | Cyan    | `10.29` pass | `1.38` fail |
+|  [03]   | Green   | `10.38` pass | `1.37` fail |
+|  [04]   | Orange  | `8.36` pass  | `1.70` fail |
+|  [05]   | Pink    | `5.97` pass  | `2.39` fail |
+|  [06]   | Purple  | `5.90` pass  | `2.41` fail |
+|  [07]   | Red     | `4.53` pass  | `3.14` pass |
+|  [08]   | Yellow  | `12.74` pass | `1.12` fail |
 
 Red is the only accent passing non-text contrast on both hosts; Comment passes on both; every other accent is dark-host-only ink.
 

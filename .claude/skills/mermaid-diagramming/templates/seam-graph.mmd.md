@@ -1,6 +1,6 @@
 # [SEAM_GRAPH]
 
-Draw who exchanges what shape across a package boundary. Use `flowchart LR` with one `subgraph` for the home package holding its sub-domain owners, counterpart packages outside it, and 8-12 edges each labeled `"[KIND]: shape-name"`. The KIND vocabulary is closed: `[WIRE] [SHAPE] [PORT] [BOUNDARY] [RECEIPT] [CONTENT_KEY] [GRADUATION] [TESSELLATION] [FAULT] [PROJECTION] [TRANSPORT]`. Node `classDef` encodes seam direction — bidirectional counterparts classed `external` against one-way sinks classed `annotation`.
+Draw who exchanges what shape across a package boundary. The template bakes in what a seam actually is — every edge is one contracted shape crossing the boundary, labeled `"[KIND]: shape-name"` from the closed KIND vocabulary `[WIRE] [SHAPE] [PORT] [BOUNDARY] [RECEIPT] [CONTENT_KEY] [GRADUATION] [TESSELLATION] [FAULT] [PROJECTION] [TRANSPORT]`, so an unkinded edge is an unowned contract; a bidirectional edge exists only where a real inverse contract exists, never as label-dodging; and the counterpart mirrors the same edge verbatim in its own seam graph, so the label text is shared law, not local prose. Use `flowchart LR` with one `subgraph` for the home package holding its sub-domain owners, counterpart packages outside it, and 8-12 edges. Node `classDef` encodes seam direction — bidirectional counterparts classed `external` against one-way sinks classed `annotation`.
 
 ```mermaid
 ---
@@ -49,3 +49,5 @@ flowchart LR
     class DataStore,Transport external
     class UiShell annotation
 ```
+
+Refill law: rename owners and counterparts to the real packages, keep every label `[KIND]: shape-name` with the shape's exact wire name, and land the mirrored edge in the counterpart's graph in the same change.

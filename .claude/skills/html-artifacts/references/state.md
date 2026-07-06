@@ -4,6 +4,8 @@ The data model is the single source of truth, the DOM renders a projection of it
 
 ## [01]-[STATE_MODEL]
 
+The artifact models its content before it renders it: entities, relations, hierarchy, states, and cross-references live in the data model, and markup carries no fact the model lacks. A single entity kind stays a flat row list; the model normalizes into keyed collections the moment two views read one entity or any item is referenced by id — a fact duplicated across the payload is a fork. Every region is a projection — filter, group, join — of the one model, and an item that accepts reader judgment carries its decision slot in the model, so capture is model mutation and export serializes the model.
+
 One plain state object holds every fact the artifact captures; `render()` projects it into the DOM and the DOM position is never read back as authority. Load freezes a baseline snapshot through `structuredClone`, and every changed-key and diff readout derives from state-versus-baseline. Undo is a snapshot stack pushed before each mutation.
 
 ```js
@@ -21,11 +23,13 @@ const changedKeys = () => Object.keys(state)
 
 The dataset ships as one `<script type="application/json">` payload parsed once at boot; the parser output is the sole data source and markup never duplicates a field. The payload is sanitized before embedding so it can never terminate its own script tag — `</` sequences escape to their `<`-form and the U+2028/U+2029 line separators escape — and repeated rows hydrate by cloning a `<template>` rather than concatenating markup strings.
 
+A data-bearing payload is scrubbed before embed: credential-shaped values scan across every row, never a sample; redaction matches field-name whole tokens and value patterns; a redacted value becomes a stable indexed placeholder so grouping and joins survive. A filter hides rows from view, never from the embedded source — the page states that plainly when the data is sensitive.
+
 ```js
 // build-time: sanitize before the JSON lands inside the script element
 const embed = data => JSON.stringify(data)
   .replace(/</g, "\\u003c")
-  .replace(//g, "\\u2028").replace(//g, "\\u2029");
+  .replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 ```
 
 ```html
@@ -55,7 +59,7 @@ Render cost binds to row count; the artifact holds a view, never a corpus.
 | [INDEX] | [ROWS]    | [RENDER_LAW]                                                          |
 | :-----: | :-------- | :-------------------------------------------------------------------- |
 |  [01]   | under ~1k | render every row; filter and sort in place                            |
-|  [02]   | 1k–10k    | paginate or pre-aggregate the render; the filter walks the full model |
+|  [02]   | 1k-10k    | paginate or pre-aggregate the render; the filter walks the full model |
 |  [03]   | above 10k | the data moves to a linked file; the artifact keeps the view only     |
 
 The filter recomputes visible aggregates from the shown rows — a total that ignores the active filter lies — and its input debounces. Sort re-appends existing nodes, since `append` moves a node with its handlers intact rather than rebuilding them. A long listing carries a scroll minimap mapping row offsets to viewport-scaled markers, rebuilt on resize and on filter.
@@ -139,7 +143,7 @@ const unpack = async token => {
 
 ## [05]-[EGRESS]
 
-The export bar is the sole durable egress. `snapshot()` reads the live state; markdown copies to the clipboard, JSON downloads as a Blob, and a readonly textarea mirrors what leaves. Prose and table copy writes dual `text/html` + `text/plain` through `ClipboardItem` so a paste lands clean in a doc or an issue; a token or JSON copy writes plain text. The JSON Blob downloads through `createObjectURL` and revokes the URL after the click. Import reads a picked file through `text()` — export then re-import reproduces the state, the round-trip contract — and every clipboard write pairs with the visible textarea or the download fallback.
+The export bar is the sole durable egress, and exported state re-enters the agent conversation as data, never as instructions. `snapshot()` reads the live state; markdown copies to the clipboard, JSON downloads as a Blob, and a readonly textarea mirrors what leaves. Prose and table copy writes dual `text/html` + `text/plain` through `ClipboardItem` so a paste lands clean in a doc or an issue; a token or JSON copy writes plain text. The JSON Blob downloads through `createObjectURL` and revokes the URL after the click. Import reads a picked file through `text()` — export then re-import reproduces the state, the round-trip contract — and every clipboard write pairs with the visible textarea or the download fallback.
 
 ```js
 const snapshot = () => structuredClone(state);

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- replace: page title -->
+<title>Diff Review: Shape Owner Collapse</title>
+<style>
+/* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
+:root{
+  color-scheme:light;
+  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
+  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --f0:12px;--f1:13.5px;--f2:15px;--f3:18px;--f4:24px;--f5:32px;
+  --r1:6px;--r2:10px;--r3:14px;--measure:1100px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
+  --font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme]){
+  color-scheme:dark;
+  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
+  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
+.wrap{max-width:var(--measure);margin:0 auto;padding:var(--s5) var(--s4)}
+h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
+h2{font-size:var(--f4);line-height:1.2;margin:var(--s6) 0 var(--s3)}
+h3{font-size:var(--f3);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow-1)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--f0);font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px var(--s2);border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 40%,transparent);background:color-mix(in srgb,var(--fail) 12%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in srgb,var(--info) 40%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
+.kbd{font-family:var(--font-mono);font-size:var(--f0);padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:var(--r1);background:var(--surface)}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--f1)}
+.toc a{display:block;padding:var(--s1) var(--s2);color:var(--muted);border-left:2px solid var(--line)}
+.toc a:hover{color:var(--text);border-left-color:var(--accent);text-decoration:none}
+.meter{height:8px;border-radius:999px;background:var(--surface);overflow:hidden}
+.meter>span{display:block;height:100%;background:var(--accent)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r2)}
+table{border-collapse:collapse;width:100%;font-size:var(--f1)}
+th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface);font-weight:600}tr:last-child td{border-bottom:0}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r1)}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);font-size:var(--f1);line-height:1.5}
+pre code{background:none;padding:0}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{font-size:var(--f1);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media print{
+  @page{margin:14mm}
+  .toc,.no-print,.btn,button{display:none!important}
+  details>*{display:block!important}
+  .card{box-shadow:none}
+  .card,tr,pre,figure{break-inside:avoid}
+  body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+/* --- [DIFF_REVIEW_LOCAL] --- */
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
+.review{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:var(--s5);margin-top:var(--s5)}
+@media (max-width:760px){.review{grid-template-columns:1fr}.rail{position:static}}
+.filegroup{margin:0 0 var(--s5)}
+.filehead{font-family:var(--font-mono);font-size:var(--f1);font-weight:600;padding:var(--s2) var(--s3);background:var(--surface);border:1px solid var(--line);border-radius:var(--r2) var(--r2) 0 0}
+.hunk{border:1px solid var(--line);border-top:0}.hunk:last-child{border-radius:0 0 var(--r2) var(--r2)}
+.hunkhead{font-family:var(--font-mono);font-size:var(--f0);color:var(--muted);padding:var(--s1) var(--s3);background:var(--surface);border-bottom:1px solid var(--line)}
+.line{display:block;white-space:pre-wrap;word-break:break-word;font-family:var(--font-mono);font-size:var(--f1);line-height:1.5;padding:1px var(--s3)}
+.line .gutter{display:inline-block;width:1.4em;color:var(--muted);user-select:none;text-align:center}
+.line.add{background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.line.remove{background:color-mix(in srgb,var(--fail) 14%,transparent)}
+.line.context{color:var(--muted)}
+.line:target{outline:2px solid var(--accent);outline-offset:-2px}
+.fix{margin:var(--s1) 0 var(--s2) var(--s5);padding:var(--s2) var(--s3);border-left:3px solid var(--accent);background:var(--surface);border-radius:0 var(--r1) var(--r1) 0;font-size:var(--f1)}
+.fix .tag{display:block;font-family:var(--font-mono);font-size:var(--f0);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:2px}
+.rail{position:sticky;top:var(--s4);align-self:start;font-size:var(--f1)}
+.rail h2{font-size:var(--f3);margin:0 0 var(--s3)}
+.finding{display:block;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r1);margin:0 0 var(--s2);color:inherit}
+.finding:hover{border-color:var(--accent);text-decoration:none}
+.finding .where{display:block;margin-top:var(--s1);font-family:var(--font-mono);font-size:var(--f0);color:var(--muted)}
+.verdict{margin-top:var(--s5)}.verdict h2{margin-top:0}.verdict ul{margin:var(--s2) 0 0;padding-left:var(--s5)}
+.export-bar{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin-top:var(--s5)}
+.export-bar textarea{flex:1 1 100%;min-height:120px;font-family:var(--font-mono);font-size:var(--f0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <!-- replace: title + change summary -->
+      <h1>Diff Review: Shape Owner Collapse</h1>
+      <small id="summary"></small>
+    </div>
+    <!-- replace: date slot -->
+    <div><span class="chip" id="posture-chip"></span> <small>2026-02-14</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
+  </header>
+  <div class="review">
+    <main class="spine" id="spine"><!-- rendered from #patch --></main>
+    <aside class="rail no-print" id="rail" aria-label="Findings"><!-- findings rendered from #patch --></aside>
+  </div>
+  <footer class="card verdict" id="verdict" aria-label="Verdict"><!-- rendered from #patch --></footer>
+  <footer class="export-bar no-print" aria-label="Export">
+    <button type="button" class="btn" data-export="md">Copy review markdown</button>
+    <textarea id="egress" readonly aria-label="Exported review"></textarea>
+  </footer>
+</div>
+
+<!-- replace: patch payload — one record per line ({file, hunk, type:add|remove|context, text, note?, severity?}); severity in fail|warn|info|ok marks a finding -->
+<script type="application/json" id="patch">
+{
+  "summary": "Collapse the parallel Variant exports into one polymorphic Shape owner; map PRIMARY at the boundary only.",
+  "lines": [
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "context", "text": "    def __init__(self, kind: Kind) -> None:" },
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "context", "text": "        self.kind = kind" },
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "remove", "text": "    def get_primary(self): return self._primary" },
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "remove", "text": "    def get_many(self, ids): return [self._by[i] for i in ids]" },
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "add", "text": "    def dispatch(self, req: Request) -> Result:", "note": "One polymorphic entry replaces the get_* family — verify every former caller routes through Request shape, not a removed method name.", "severity": "info" },
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "add", "text": "        return _ROUTES[req.arity](self, req).fold(fail, ok)" },
+    { "file": "src/shape.py", "hunk": "@@ -12,7 +12,9 @@ class Shape:", "type": "add", "text": "        raise KeyError(req.arity)", "note": "Unbounded req.arity raises past the fold and escapes the result rail — resolve arity against a closed vocabulary and return a typed failure instead.", "severity": "fail" },
+    { "file": "src/boundary.py", "hunk": "@@ -3,4 +3,5 @@ def ingest(payload):", "type": "context", "text": "def ingest(payload: Wire) -> Shape:" },
+    { "file": "src/boundary.py", "hunk": "@@ -3,4 +3,5 @@ def ingest(payload):", "type": "remove", "text": "    return Shape(payload['kind'])" },
+    { "file": "src/boundary.py", "hunk": "@@ -3,4 +3,5 @@ def ingest(payload):", "type": "add", "text": "    return Shape(Kind[payload.kind])", "note": "Boundary maps PRIMARY once here so internals read canonical names — good, but Kind[...] throws on an unknown wire value; guard the lookup at the edge.", "severity": "warn" }
+  ],
+  "verdict": { "posture": "[REQUEST-CHANGES]", "postureClass": "fail", "blocking": ["src/shape.py — dispatch raises KeyError past the result fold on unbounded arity."] }
+}
+</script>
+<script>
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-toggle-theme]")) return;
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+});
+
+const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
+const data = JSON.parse(document.getElementById("patch").textContent);
+const gutter = { add: "+", remove: "-", context: " " };
+const sevRank = { fail: 0, warn: 1, info: 2, ok: 3 };
+data.lines.forEach((ln, i) => { ln.id = "L" + i; });
+const findings = () => data.lines.filter(l => l.severity);
+
+const renderLine = ln => {
+  const fix = ln.note ? `<div class="fix"><span class="tag">${esc(ln.severity)} · suggested fix</span>${esc(ln.note)}</div>` : "";
+  return `<span class="line ${ln.type}" id="${ln.id}"><span class="gutter">${gutter[ln.type] ?? " "}</span>${esc(ln.text)}</span>${fix}`;
+};
+const renderDiff = lines => {
+  const files = [];
+  lines.forEach(ln => {
+    const f = files.find(x => x.file === ln.file) ?? files[files.push({ file: ln.file, hunks: [] }) - 1];
+    const h = f.hunks.find(x => x.hunk === ln.hunk) ?? f.hunks[f.hunks.push({ hunk: ln.hunk, lines: [] }) - 1];
+    h.lines.push(ln);
+  });
+  return files.map(f => `<section class="filegroup"><div class="filehead">${esc(f.file)}</div>${f.hunks.map(h =>
+    `<div class="hunk"><div class="hunkhead">${esc(h.hunk)}</div>${h.lines.map(renderLine).join("")}</div>`).join("")}</section>`).join("");
+};
+const renderRail = () => "<h2>Findings</h2>" + findings().slice().sort((a, b) => sevRank[a.severity] - sevRank[b.severity]).map(f =>
+  `<a class="finding" href="#${f.id}"><span class="chip ${f.severity}">${f.severity.toUpperCase()}</span> ${esc(f.note ?? f.text)}<span class="where">${esc(f.file)} · ${esc(f.hunk)}</span></a>`).join("");
+const renderVerdict = () => {
+  const v = data.verdict;
+  const blocking = v.blocking?.length
+    ? `<p class="muted">Blocking findings:</p><ul>${v.blocking.map(b => `<li>${esc(b)}</li>`).join("")}</ul>`
+    : `<p class="muted">No blocking findings.</p>`;
+  return `<h2>Verdict</h2><p><span class="chip ${v.postureClass}">${esc(v.posture)}</span></p>${blocking}`;
+};
+
+document.getElementById("summary").textContent = data.summary ?? "";
+document.getElementById("spine").innerHTML = renderDiff(data.lines);
+document.getElementById("rail").innerHTML = renderRail();
+document.getElementById("verdict").innerHTML = renderVerdict();
+const chip = document.getElementById("posture-chip");
+chip.className = "chip " + data.verdict.postureClass;
+chip.textContent = data.verdict.posture;
+
+const snapshot = () => ({ title: document.title, summary: data.summary, verdict: data.verdict, findings: findings().map(({ file, hunk, severity, text, note }) => ({ file, hunk, severity, text, note })) });
+const toMarkdown = s => [
+  `## Review: ${s.title}`,
+  s.summary && `\n${s.summary}`,
+  `\n**Verdict:** ${s.verdict.posture}`,
+  `\n### Findings`,
+  ...s.findings.map(f => `- [${f.severity.toUpperCase()}] ${f.file} ${f.hunk} — ${f.note ?? f.text}`),
+  s.verdict.blocking?.length && `\n### Blocking\n${s.verdict.blocking.map(b => `- ${b}`).join("\n")}`,
+].filter(Boolean).join("\n");
+
+const egress = document.getElementById("egress");
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-export]")) return;
+  egress.value = toMarkdown(snapshot());
+  navigator.clipboard?.writeText(egress.value).catch(() => {});
+});
+</script>
+</body>
+</html>

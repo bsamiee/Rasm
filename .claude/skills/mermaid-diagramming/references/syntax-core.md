@@ -38,9 +38,10 @@ Icon and image shapes are `11.3.0+`: `A@{ icon: "fa:user", form: "square", label
 
 ```mermaid
 flowchart LR
-    A@{ shape: cyl } --> B@{ shape: lean-r }
-    B --> C("`**parsed** label`")
-    C --> D["$$\sqrt{x}$$"]
+    Store@{ shape: cyl, label: "Row store" } --> Extract@{ shape: lean-r, label: "Extract" }
+    Extract --> Norm("`**normalize** rows`")
+    Norm e1@--> Score["$$\sigma = \sqrt{Var}$$"]
+    e1@{ animate: true }
 ```
 
 `markdownAutoWrap: false` stops auto-wrap on markdown labels; edge labels take math as `|"$$\sqrt{x+3}$$"|`. `@{ label: "text" }` overrides the bracket text, and the `text` shape renders a borderless label-only node.
@@ -60,10 +61,13 @@ Typed participants carry a UML stereotype (`type` values `boundary`, `control`, 
 sequenceDiagram
     participant API@{ "type": "boundary", "alias": "Public API" }
     actor DB@{ "type": "database" } as User Database
-    API->>DB: query
+    API->>+DB: query rows
+    DB-->>-API: row batch
     create participant Cache
-    API->>Cache: warm
+    API->>Cache: warm(rows)
+    Cache-->>API: ready
     destroy Cache
+    API-xCache: evict
 ```
 
 Lifecycle uses `create participant X`, the aliased variant `create actor D as Donald`, and `destroy X` mid-diagram. Grouping boxes wrap participants: `box Purple Name ... end`, or `box transparent Name`. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`. `autonumber` accepts a decimal start and increment (`11.15.0+`): `autonumber 10.5 0.25`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
@@ -118,7 +122,8 @@ classDiagram
     namespace Company.Engineering.Backend {
         class Developer
     }
-    bar ()-- UserService
+    AuthPort ()-- UserService
+    Developer ..> UserService : consumes
     note for Developer "hierarchical namespace"
 ```
 

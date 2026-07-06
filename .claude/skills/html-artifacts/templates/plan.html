@@ -43,6 +43,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-si
 h1{font-size:var(--f5);line-height:1.15;margin:0 0 var(--s3)}
 h2{font-size:var(--f4);line-height:1.2;margin:var(--s6) 0 var(--s3)}
 h3{font-size:var(--f3);margin:var(--s5) 0 var(--s2)}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+.num{font-variant-numeric:tabular-nums}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 p{margin:0 0 var(--s3)}.muted{color:var(--muted)}small{font-size:var(--f1);color:var(--muted)}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
@@ -73,10 +76,13 @@ button,select,input,textarea{font:inherit;color:inherit}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media print{
+  @page{margin:14mm}
   .toc,.no-print,.btn,button{display:none!important}
   details>*{display:block!important}
-  .card{box-shadow:none;break-inside:avoid}
+  .card{box-shadow:none}
+  .card,tr,pre,figure{break-inside:avoid}
   body,.twrap,pre{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* --- [PLAN_LOCAL] --- */
 .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
@@ -96,7 +102,7 @@ details[open]>summary::before{transform:rotate(90deg)}
   <header class="head">
     <div><h1>Implementation Plan: Shape</h1><small>Owner surface for the &lt;capability&gt; concern.</small></div>
     <!-- replace: status chip + date -->
-    <div><span class="chip info">[OPEN]</span> <small>YYYY-MM-DD</small> <button class="btn no-print" data-toggle-theme>Theme</button></div>
+    <div><span class="chip info">[OPEN]</span> <small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
   </header>
   <div class="layout">
     <nav class="toc no-print" aria-label="Contents">
@@ -138,7 +144,7 @@ details[open]>summary::before{transform:rotate(90deg)}
       </section>
       <section id="appendix"><h2>Appendix</h2>
         <details><summary>Reference excerpt</summary>
-          <button class="btn copy no-print" data-copy="#excerpt">COPY</button>
+          <button type="button" class="btn copy no-print" data-copy="#excerpt">COPY</button>
           <pre><code id="excerpt">Shape.of(input)
   .dispatch(Variant.PRIMARY)
   .map(project)
@@ -149,27 +155,28 @@ details[open]>summary::before{transform:rotate(90deg)}
   </div>
 </div>
 <script>
-(function(){
-  var key="theme:"+document.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-  var root=document.documentElement;
-  root.setAttribute("data-theme", localStorage.getItem(key) || "dark");
-  document.addEventListener("click",function(e){
-    if(!e.target.closest("[data-toggle-theme]")) return;
-    var next=root.getAttribute("data-theme")==="dark"?"light":"dark";
-    root.setAttribute("data-theme",next); localStorage.setItem(key,next);
-  });
-})();
-document.addEventListener("click",function(e){
-  var b=e.target.closest("[data-copy]"); if(!b) return;
-  var src=document.querySelector(b.getAttribute("data-copy"));
-  if(src&&navigator.clipboard){navigator.clipboard.writeText(src.textContent);
-    var o=b.textContent; b.textContent="COPIED"; setTimeout(function(){b.textContent=o;},1200);}
+const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-toggle-theme]")) {
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
+  }
+  const copy = e.target.closest("[data-copy]");
+  if (!copy) return;
+  const src = document.querySelector(copy.dataset.copy);
+  if (src) navigator.clipboard?.writeText(src.textContent).then(() => {
+    const prev = copy.textContent; copy.textContent = "COPIED"; setTimeout(() => { copy.textContent = prev; }, 1200);
+  }).catch(() => {});
 });
-function markActive(){var id=location.hash.slice(1);if(!id)return;
-  document.querySelectorAll(".toc a").forEach(function(a){a.style.color=a.getAttribute("href")==="#"+id?"var(--text)":"";});}
-addEventListener("hashchange",markActive); markActive();
-addEventListener("beforeprint",function(){document.querySelectorAll("details").forEach(function(d){d._o=d.open;d.open=true;});});
-addEventListener("afterprint",function(){document.querySelectorAll("details").forEach(function(d){d.open=d._o;});});
+const markActive = () => {
+  const id = location.hash.slice(1); if (!id) return;
+  document.querySelectorAll(".toc a").forEach(a => { a.style.color = a.getAttribute("href") === "#" + id ? "var(--text)" : ""; });
+};
+addEventListener("hashchange", markActive); markActive();
+addEventListener("beforeprint", () => document.querySelectorAll("details").forEach(d => { d.dataset.wasOpen = d.open; d.open = true; }));
+addEventListener("afterprint", () => document.querySelectorAll("details").forEach(d => { d.open = d.dataset.wasOpen === "true"; }));
 </script>
 </body>
 </html>

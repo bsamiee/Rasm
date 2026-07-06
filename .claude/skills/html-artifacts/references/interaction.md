@@ -52,23 +52,25 @@ document.addEventListener("click", e => {
 
 ## [04]-[POPOVER_ANCHOR]
 
-Menus, tooltips, and inspector panels ride the top layer as a native `popover` tethered to its trigger by anchor positioning; the browser owns light-dismiss, escape close, and stacking, so no outside-click listener or z-index ladder survives. Entry animates from `@starting-style` with `display` flipped discretely, and a `commandfor`/`command` button toggles it declaratively against the newest engines.
+Menus, tooltips, inspector panels, and transient status toasts ride the top layer as a native `popover`; an anchored panel tethers to its trigger by anchor positioning while a `popover="manual"` toast a timer auto-hides carries copy and save feedback, and the browser owns light-dismiss, escape close, and stacking. Entry animates from `@starting-style` with `display` flipped discretely; a `commandfor`/`command` button toggles a panel declaratively against the newest engines.
 
 ```html
-<button popovertarget="acts" aria-label="Actions">⋯</button>
-<menu id="acts" popover class="pop">…</menu>
+<button popovertarget="acts" aria-label="Actions">⋯</button><menu id="acts" popover class="pop">…</menu>
+<output id="toast" popover="manual" role="status" aria-live="polite"></output>
 ```
 
 ```css
 [popovertarget="acts"] { anchor-name: --acts }
-.pop {
-  position: absolute; position-anchor: --acts; position-area: block-end span-inline-end;
-  margin: var(--s2) 0 0; padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r2);
-  background: var(--raised); box-shadow: var(--shadow-2);
-  opacity: 0; transform: translateY(-.25rem); transition: opacity .16s, transform .16s, display .16s allow-discrete;
-}
-.pop:popover-open { opacity: 1; transform: translateY(0) }
-@starting-style { .pop:popover-open { opacity: 0; transform: translateY(-.25rem) } }
+.pop { position: absolute; position-anchor: --acts; position-area: block-end span-inline-end; margin: var(--s2) 0 0; padding: var(--s3); transform: translateY(-.25rem) }
+#toast { position: fixed; inset: auto var(--s4) var(--s4) auto; margin: 0; padding: var(--s2) var(--s3); border-radius: var(--r1) }
+.pop, #toast { border: 1px solid var(--line); border-radius: var(--r2); background: var(--raised); box-shadow: var(--shadow-2); opacity: 0; transition: opacity .16s, transform .16s, display .16s allow-discrete }
+.pop:popover-open, #toast:popover-open { opacity: 1; transform: translateY(0) }
+@starting-style { .pop:popover-open, #toast:popover-open { opacity: 0 } }
+```
+
+```js
+let toastTimer;
+const flash = msg => { toast.textContent = msg; toast.showPopover(); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidePopover(), 1600); };
 ```
 
 ## [05]-[DIALOG]
@@ -117,8 +119,7 @@ A tablist wires `role=tab`/`tablist`/`tabpanel`; the active tab holds `tabindex=
   <button data-tab="p1" role="tab" aria-selected="true" tabindex="0">One</button>
   <button data-tab="p2" role="tab" aria-selected="false" tabindex="-1">Two</button>
 </div>
-<section id="p1" data-panel role="tabpanel"></section>
-<section id="p2" data-panel role="tabpanel" hidden></section>
+<section id="p1" data-panel role="tabpanel"></section><section id="p2" data-panel role="tabpanel" hidden></section>
 ```
 
 ```js
@@ -136,10 +137,14 @@ document.addEventListener("keydown", e => {
 
 ## [08]-[FILTER]
 
-A live query narrows any `[data-filter]` collection inside a `<search>` landmark; a fixed facet set drops the script entirely, since `:has(input:checked)` flows the checked state upward to hide the misses.
+A live query narrows any `[data-filter]` collection inside a `<search>` landmark; a fixed facet set drops the script entirely, since `:has(input:checked)` flows the checked state upward to hide the misses. A criterion selector lifts one row across parallel cards so a single axis reads at a glance.
 
 ```html
 <search><label>Filter <input type="search" data-filter-box></label></search>
+```
+
+```css
+.toolbar:has(#only-open:checked) ~ .items > :not([data-open]) { display: none }
 ```
 
 ```js
@@ -148,50 +153,33 @@ document.addEventListener("input", e => {
   const q = box.value.trim().toLowerCase();
   document.querySelectorAll("[data-filter]").forEach(el => { el.hidden = q !== "" && !el.textContent.toLowerCase().includes(q); });
 });
-```
-
-```css
-.toolbar:has(#only-open:checked) ~ .items > :not([data-open]) { display: none }
-```
-
-## [09]-[COMPARE_HIGHLIGHT]
-
-A criterion selector lifts one row across parallel cards so a single axis reads at a glance; a radio group plus `:has()` holds it with no script for a fixed criteria set.
-
-```js
 document.addEventListener("change", e => {
   const sel = e.target.closest("[data-compare]"); if (!sel) return;
   document.querySelectorAll("[data-criterion]").forEach(r => r.classList.toggle("hl", sel.value !== "none" && r.dataset.criterion === sel.value));
 });
 ```
 
-## [10]-[DIFF_SPINE]
+## [09]-[DIFF]
 
-The patch renders as a preserved line stream beside a sticky annotation rail; a two-column grid keeps code and critique synchronized, subgrid aligns hunk rows across the split, and each line escapes before it renders.
+The patch renders as a preserved line stream beside a sticky annotation rail; a two-column grid keeps code and critique synchronized, subgrid aligns hunk rows, and each line escapes before it renders. An editor freezes a `structuredClone` baseline at load and derives every change against it, so the data model is the source of truth, never the DOM.
 
 ```css
+.review-wrap { container: review / inline-size }
 .review { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: var(--s5) }
 .line { display: block; white-space: pre-wrap; font-family: var(--font-mono); font-size: var(--f1) }
 .added { background: color-mix(in srgb, var(--ok) 14%, transparent) }
 .removed { background: color-mix(in srgb, var(--fail) 14%, transparent) }
 .rail { position: sticky; top: var(--s4); align-self: start }
-@container (width < 48rem) { .review { grid-template-columns: 1fr } }
+@container review (width < 48rem) { .review { grid-template-columns: 1fr } }
 ```
 
 ```js
 const renderDiff = parts => parts.map(p => `<span class="line ${p.type === "add" ? "added" : p.type === "remove" ? "removed" : "same"}">${esc(p.text)}</span>`).join("");
-```
-
-## [11]-[CHANGED_KEY_DIFF]
-
-An editor freezes a `structuredClone` baseline at load and derives every change by comparing live state against it; the data model is the source of truth, never the DOM.
-
-```js
 const baseline = structuredClone(readState());
 const changedKeys = () => { const now = readState(); return Object.keys(now).filter(k => now[k] !== baseline[k]); };
 ```
 
-## [12]-[DRAG_BOARD]
+## [10]-[DRAG_BOARD]
 
 Work items drag across buckets with move state reduced to card id plus target bucket; the model re-renders after each drop and DOM position is never authoritative.
 
@@ -204,22 +192,9 @@ document.addEventListener("drop", e => {
 });
 ```
 
-## [13]-[DECK]
+## [11]-[DECK]
 
-A small state machine over `<section class="slide">` holds one active slide; arrow keys and buttons advance, a counter shows position, and `startViewTransition` wraps the swap as a guarded enhancement that degrades to an instant cut.
-
-```js
-const slides = [...document.querySelectorAll(".slide")], swap = document.startViewTransition ? cb => document.startViewTransition(cb) : cb => cb();
-let index = 0;
-const paint = () => { slides.forEach((s, i) => s.classList.toggle("active", i === index)); counter.textContent = `${index + 1} / ${slides.length}`; };
-const show = next => { const c = Math.max(0, Math.min(slides.length - 1, next)); if (c !== index) { index = c; swap(paint); } };
-addEventListener("keydown", e => { const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (d) show(index + d); });
-paint();
-```
-
-## [14]-[STEPPER]
-
-A staged argument exposes discrete progress with a visible count; one active step carries `aria-current`, forward and back moves shift it, and a typed `@property` variable fills the progress meter.
+A small state machine over `<section class="slide">` holds one active slide; arrow keys and buttons advance, a counter shows position, and `startViewTransition` wraps the swap as a guarded enhancement that degrades to an instant cut. An inline stepper is the same machine over `<li>` stages: one active step carries `aria-current`, and a typed `@property` variable fills the progress meter.
 
 ```css
 @property --reach { syntax: "<number>"; inherits: true; initial-value: 0 }
@@ -231,18 +206,15 @@ A staged argument exposes discrete progress with a visible count; one active ste
 ```
 
 ```js
-const steps = [...document.querySelectorAll(".stepper > li")];
-let step = 0;
-const stepTo = i => {
-  step = Math.max(0, Math.min(steps.length - 1, i));
-  steps.forEach((s, k) => s.setAttribute("aria-current", k === step ? "step" : "false"));
-  root.style.setProperty("--reach", step / (steps.length - 1) * 100);
-};
-document.addEventListener("click", e => { const d = { next: 1, prev: -1 }[e.target.closest("[data-step-nav]")?.dataset.stepNav]; if (d) stepTo(step + d); });
-stepTo(0);
+const slides = [...document.querySelectorAll(".slide")], swap = document.startViewTransition ? cb => document.startViewTransition(cb) : cb => cb();
+let index = 0;
+const paint = () => { slides.forEach((s, i) => s.classList.toggle("active", i === index)); counter.textContent = `${index + 1} / ${slides.length}`; };
+const show = next => { const c = Math.max(0, Math.min(slides.length - 1, next)); if (c !== index) { index = c; swap(paint); } };
+addEventListener("keydown", e => { const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (d) show(index + d); });
+paint();
 ```
 
-## [15]-[SCRUB_CONTROL]
+## [12]-[SCRUB_CONTROL]
 
 A slider or segmented control binds to one state object; each input recomputes the object and repaints the SVG figure and metric readout, so the reader drives the explainer live.
 
@@ -259,41 +231,22 @@ document.addEventListener("input", e => { const c = e.target.closest("[data-scru
 paintFig();
 ```
 
-## [16]-[TOAST_STATUS]
-
-Copy and save feedback surfaces as a transient `popover="manual"` toast the browser stacks on the top layer; a `role=status` live region announces it, a timer auto-hides it, and `@starting-style` animates the entry.
-
-```html
-<output id="toast" popover="manual" role="status" aria-live="polite"></output>
-```
-
-```css
-#toast {
-  position: fixed; inset: auto var(--s4) var(--s4) auto; margin: 0; padding: var(--s2) var(--s3);
-  border: 1px solid var(--line); border-radius: var(--r1); background: var(--raised); box-shadow: var(--shadow-2);
-  opacity: 0; transition: opacity .2s, display .2s allow-discrete;
-}
-#toast:popover-open { opacity: 1 }
-@starting-style { #toast:popover-open { opacity: 0 } }
-```
-
-```js
-let toastTimer;
-const flash = msg => { toast.textContent = msg; toast.showPopover(); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidePopover(), 1600); };
-```
-
-## [17]-[DEEP_LINK]
+## [13]-[DEEP_LINK]
 
 On load the page scrolls to the hash target and marks its TOC anchor active; `URLSearchParams` packed onto the fragment carries selected tab, lane, filter, and theme, so a reopened file restores its view with no storage.
 
 ```js
 const params = () => new URLSearchParams(location.hash.slice(1));
 const writeView = patch => { const p = params(); for (const [k, v] of Object.entries(patch)) p.set(k, v); history.replaceState(null, "", "#" + p); };
-const markActive = () => { const id = params().get("at"); document.querySelectorAll(".toc a").forEach(a => a.classList.toggle("here", a.hash === "#at=" + id)); };
+const markActive = () => {
+  const id = params().get("at"); if (!id) return;
+  document.getElementById(id)?.scrollIntoView();
+  document.querySelectorAll(".toc a").forEach(a => a.classList.toggle("here", a.hash === "#at=" + id));
+};
 addEventListener("hashchange", markActive); markActive();
 ```
 
-## [18]-[KEYBOARD_NAV]
+## [14]-[KEYBOARD_NAV]
 
 A skip link jumps to `#main`; a grid or list is one roving-tabindex composite, so arrow keys move focus across cells while the collection holds a single tab stop.
 
@@ -314,7 +267,7 @@ document.addEventListener("keydown", e => {
 });
 ```
 
-## [19]-[MARGIN_NOTE]
+## [15]-[MARGIN_NOTE]
 
 Definitions and caveats float beside the claim as sidenotes with a sticky glossary rail; a container query collapses them to block flow when the column narrows, so the argument stays unbroken at any width.
 
@@ -325,7 +278,7 @@ Definitions and caveats float beside the claim as sidenotes with a sticky glossa
 @container explainer (width < 40rem) { .explainer { display: block } .sidenote { float: none; width: auto; margin: var(--s2) 0 } }
 ```
 
-## [20]-[DRAFT_PERSIST]
+## [16]-[DRAFT_PERSIST]
 
 A namespaced `localStorage` draft protects in-session edits, restored on load and saved debounced; a `file://` origin may withhold storage, so the export is the durable record, never the draft.
 
@@ -336,7 +289,7 @@ let saveTimer;
 document.addEventListener("input", () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify(readState())); } catch {} }, 250); });
 ```
 
-## [21]-[COPY_CLIPBOARD]
+## [17]-[COPY_CLIPBOARD]
 
 One listener copies the element named by a button's `data-copy` selector; prose and tables write both `text/html` and `text/plain` so a paste lands clean in a doc or an issue, tokens and commands write plain text, and the toast confirms.
 

@@ -1,53 +1,128 @@
 ---
 name: interviewing
 description: >-
-  Structured elicitation that surfaces unknowns before work is planned or sealed: in-depth
-  interviews with non-obvious questions ordered by architectural impact, blindspot passes over a
-  plan or corpus, intervention brainstorms and wargames across scope tiers, pre-merge
-  comprehension quizzes, and buy-in docs that pre-answer objections. Owns the elicitation
-  thinking process; rendering a comparison, wargame, or roadmap as an interactive page is
-  html-artifacts. Use when requirements are ambiguous or live in the user's head, before
-  authoring any brief, spec, or roadmap, or when the user says "interview me", "find my blindspots",
-  "what am I missing", "wargame this", "brainstorm this", or "quiz me".
+  Adversarial elicitation that converts unknowns into durable decision artifacts: corpus-grounded
+  interviews whose questions confront the user with what exists, blindspot passes along a named
+  interrogation-axis catalog, direction brainstorms and wargames, pre-merge comprehension quizzes,
+  buy-in packets, and vocabulary teaching — each terminating in a schema-declared artifact
+  (decision record, direction set, roadmap brief, blindspot ledger, capability entry) at its ruled
+  altitude. Owns the questioning method, the axis catalog, the artifact schemas, and the
+  durable-versus-ephemeral ruling; rendering a page is html-artifacts. Use when requirements are
+  ambiguous or live in the user's head, before authoring any brief, spec, roadmap, or direction
+  document, when a conversation must produce a durable decision or roadmap artifact, or when the
+  user says "interview me", "find my blindspots", "what am I missing", "wargame this", "brainstorm
+  this", "quiz me", or "teach me the domain".
 ---
 
 # [INTERVIEWING]
 
-An interview converts the user's unknowns into visible decisions before work seals: the adversarial partner attacks the request's framing and hunts the unknown unknowns in both the request and the corpus it touches, and the answer it collects matters less than the conflict it surfaces. A stenographer that collects answers without challenging them ships a confident wrong spec.
+An interview converts the gap between the request and the territory into visible rulings before work seals: the questions confront the user with what the corpus actually holds, every answer is challenged before it becomes a ruling, and every ruling lands in a schema-declared artifact at its ruled altitude. A stenographer that collects answers without grounding or challenge ships a confident wrong spec.
 
-## [01]-[ELICITATION_LAW]
+## [01]-[OPERATING_LOOP]
 
-- The interview is a hard gate before implementation, not an optional courtesy: a change that looks too simple to design still passes intent → constraints → options → validation, and only a decision that moves architecture, UX, risk, or evidence earns a question.
-- Questions are ordered by architectural impact: the one answer that invalidates the most downstream work leads every round — architecture outranks interface outranks wording — and the load-bearing question is asked first even when it is uncomfortable.
-- A question whose answer the corpus already holds, or which the stated constraints already determine, is a wasted round; the corpus check precedes every batch.
-- Elicitation is staged context transfer, not prose generation: the user's dump is drawn first, gap-detection reads it for what is missing, and each numbered follow-up is derived from a named gap — never a generic tone or audience prompt.
-- Answers are challenged, not transcribed: an answer contradicting an earlier ruling, the corpus, or the stated goal surfaces as its own conflict in the next round, never silently reconciled.
-- Pacing is bounded on both ends: a low-stakes task exits after one confirming round, a long interview that keeps landing decisions collapses its remaining questions into one wide batch, and the interview terminates when two consecutive rounds change no decision.
+Elicitation is a hard gate before any brief, spec, roadmap, or direction document: a change that looks too simple to design still passes intent, constraints, options, and validation. The loop runs five moves; each carries its exit test.
 
-## [02]-[MODES]
+- [GROUND]: Read the corpus along the interrogation axes before the first question; exit when the confrontation set holds verified anchors for every axis the request touches.
+- [FRAME]: Classify the unknowns into the four buckets and route each to its technique; exit when every named unknown has a bucket and no bucket with signal has zero coverage.
+- [INTERROGATE]: Run impact-ranked rounds under the question law; exit when two consecutive rounds change no ruling.
+- [RULE]: Convert each answer into a marked ruling — fact, assumption, inference, or open — and surface every conflict as its own question; exit when no ruling contradicts another and no answer remains unclassified.
+- [LAND]: Select the artifact kind by altitude, instantiate its schema, and hand off; exit when a cold read of the instance raises no new question.
 
-Every mode obeys the elicitation law and differs only in what it extracts and hands off; depth per card is [references/modes.md](references/modes.md).
+Pacing is bounded on both ends: one load-bearing question at a time when answers cascade, independent questions batched, roughly ten questions per session with nonessential gaps defaulted and named as defaults in the record.
 
-| [INDEX] |     [MODE]       | [TRIGGER]                          | [OUTPUT]            |
-| :-----: | :--------------- | :--------------------------------- | :------------------ |
-|  [01]   | `interview`      | requirements ambiguous or unstated | `decisions-table`   |
-|  [02]   | `blindspot-pass` | plan or corpus pre-seal            | `defect-cards`      |
-|  [03]   | `brainstorm`     | multiple viable interventions      | `direction-set`     |
-|  [04]   | `quiz`           | comprehension unproven pre-merge   | `scored-quiz`       |
-|  [05]   | `buy-in`         | stakeholder acceptance needed      | `objection-answers` |
-|  [06]   | `teach-me`       | user lacks precise vocabulary      | `vocabulary-map`    |
+## [02]-[GROUNDING]
 
-## [03]-[QUESTION_CRAFT]
+Questions confront the user with what is, never with an abstraction the user must imagine.
 
-How a question earns its round, where the unknown unknowns hide, how options work as probes, and how each stage gates itself are [references/question-craft.md](references/question-craft.md).
+- The corpus check precedes every round: a question whose answer the corpus, the stated constraints, or the domain default already holds is a wasted round.
+- The confrontation set is the grounding product: each entry carries the exact anchor (path and line), the observed fact, and its axis token. A question earns force by embedding its anchor — the user reacts to a named surface, a real weakness, a real structure.
+- A corpus beyond one session's reading budget partitions into read-only investigation legs, each assigned axes and returning anchored facts; the legs fold into the confrontation set before round one.
+- An unverified candidate finding never enters a question; the anchor is re-opened on disk first.
 
-## [04]-[HANDOFF]
+The axis catalog — each axis with its probe method, question shape, and confirming evidence — is [references/axes.md](references/axes.md), loaded before any grounding pass.
 
-- Every mode exports its product back into the task as binding input, never a transcript: the decisions table becomes the authoring pass's contract, and a blindspot pass emits the stronger prompt that folds its findings back.
-- The decisions table binds downstream: the spec honors every entry and re-litigates none.
-- A spec seals only when a fresh cold read raises no new question: predict the reader's questions, read the draft as a fresh agent, and iterate on comprehension — author satisfaction is not the exit.
-- Comparative or spatial output — brainstorm directions, decision matrices, wargame boards, buy-in evidence — is the thinking this skill owns; it renders as an interactive page artifact, and a plain decisions table stays markdown.
+## [03]-[UNKNOWNS_ROUTING]
 
-## [05]-[REPO_INTEGRATION]
+Every request decomposes into four knowledge buckets; the bucket selects the technique. Blindspot and brainstorm run before interview rounds — the interview covers the residuals they leave.
 
-The pre-question corpus check routes through the host repo's search owner; in this repo that is `assay code` for structural search and LSP navigation for symbol lookup. The portable law is verb-neutral: search the corpus for the answer before spending a question on it.
+| [INDEX] | [BUCKET]         | [SIGNAL]                         | [TECHNIQUE]                    |
+| :-----: | :--------------- | :------------------------------- | :----------------------------- |
+|  [01]   | known knowns     | stated in the request            | recorded as constraints        |
+|  [02]   | known unknowns   | the user names the open question | interview rounds               |
+|  [03]   | unknown knowns   | recognizable only when seen      | direction fanout and prototype |
+|  [04]   | unknown unknowns | unfamiliar territory or corpus   | blindspot pass along the axes  |
+
+Two degenerate signals re-route before any decision question: a user who cannot describe the target supplies a reference, and source code outranks any screenshot or description of it; a user who cannot evaluate options enters teach-me — fanning variations at someone who cannot judge them wastes the fan.
+
+## [04]-[MODES]
+
+Every mode obeys the operating loop and differs in what it extracts and lands; staged procedures with per-stage exit tests are [references/modes.md](references/modes.md), loaded when a mode begins.
+
+| [INDEX] | [MODE]           | [TRIGGER]                          | [DEFAULT_LANDING]               |
+| :-----: | :--------------- | :--------------------------------- | :------------------------------ |
+|  [01]   | `interview`      | requirements ambiguous or unstated | `decision-record` set           |
+|  [02]   | `blindspot-pass` | unfamiliar ground or pre-seal      | `blindspot-ledger`              |
+|  [03]   | `brainstorm`     | direction uncommitted              | `direction-set`                 |
+|  [04]   | `quiz`           | comprehension unproven pre-merge   | scored gate, ephemeral          |
+|  [05]   | `buy-in`         | acceptance needed outside the loop | packet; ruling graduates        |
+|  [06]   | `teach-me`       | user cannot evaluate or phrase     | vocabulary map, binds interview |
+
+The landing column is the default; the altitude law owns kind selection. Roadmap-altitude rulings compose a `roadmap-brief` from any mode, and `capability-entry` rows land from the capability-weakness and touch-point axes of a blindspot pass or from an interview walking a capability surface.
+
+## [05]-[QUESTION_LAW]
+
+The always-hot core; composition depth — option design, timeline walks, challenge protocols, batch mechanics — is [references/question-craft.md](references/question-craft.md), loaded when composing any round.
+
+- A question earns its round only when undetermined, consequential, and ranked: not answerable from the corpus, carrying at least two options that change the work differently, and batched ahead of everything its answer invalidates. Architecture outranks interface outranks wording.
+- Past specifics outrank hypotheticals: a generality is anchored to its most recent occurrence, and a future-tense answer is recorded as an assumption, never as a fact ruling.
+- State the target behavior a question must extract; a prohibition phrased as a question plants the pattern it forbids.
+- Options are probes: each names its cost or consequence, cites its corpus anchor where one exists, and the `(Recommended)` marker leads only where one option dominates.
+- A conflict between rulings surfaces as its own question with the consequence of each resolution spelled out, never silently reconciled.
+
+## [06]-[ALTITUDE]
+
+Every output lands at exactly one altitude; the altitude rules whether it is durable.
+
+- [DIRECTION]: Why and where — committed and rejected directions with their kill conditions. Durable.
+- [ROADMAP]: What order — outcomes sequenced by confidence horizon with promotion conditions between horizons. Durable. Horizons are confidence bands; a dated task list inside a roadmap is a plan leaking upward.
+- [PLAN]: How — tasks, sequencing, mechanics. Ephemeral: a plan is consumed by its execution and never enters the artifact home.
+
+The durability test: a future session consults the artifact as law — a standing direction, a ruled decision, a verified finding, a capability fact. Anything consumed by its own execution — transcripts, quizzes, buy-in packets, wargame boards — is working material; its surviving ruling graduates to a decision record and the carrier dies.
+
+## [07]-[ARTIFACTS]
+
+Five durable kinds, each a fixed schema; an instance conforms byte-structurally — heading census matches the template, zero residual slot tokens, leader tokens drawn from the declared vocabularies, every entry marked fact, assumption, inference, or open where the schema carries marks. The gate enforces it; run it on every instance before the seal.
+
+```bash
+python scripts/check_instance.py [--json] <instance.md>...
+```
+
+| [INDEX] | [KIND]             | [CARRIES]                                   | [TEMPLATE]                                                      |
+| :-----: | :----------------- | :------------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | `decision-record`  | one ruling, options, consequence, lifecycle | [templates/decision-record.md](templates/decision-record.md)   |
+|  [02]   | `direction-set`    | competing directions, kills, flip triggers  | [templates/direction-set.md](templates/direction-set.md)       |
+|  [03]   | `roadmap-brief`    | confidence horizons, outcomes, promotions   | [templates/roadmap-brief.md](templates/roadmap-brief.md)       |
+|  [04]   | `blindspot-ledger` | verified findings, blast radius, fold-backs | [templates/blindspot-ledger.md](templates/blindspot-ledger.md) |
+|  [05]   | `capability-entry` | owner, edges, maturity, gaps                | [templates/capability-entry.md](templates/capability-entry.md) |
+
+Worked accepted and rejected instances are [examples/artifacts.md](examples/artifacts.md); worked question batches are [examples/batches.md](examples/batches.md) — consult the matching set before instantiating a kind or composing a first round.
+
+## [08]-[HANDOFF]
+
+- The ruling record binds downstream: the authoring pass honors every ruling and re-litigates none; an entry overturned later is edited in place with its superseding ruling.
+- Every terminal artifact carries its fold-back — the copyable prompt that carries its content into the next task as binding input.
+- Comparative and spatial artifacts render as interactive pages through the html-artifacts type rows — direction set as brainstorm, roadmap brief as roadmap, scored boards as wargame, quiz as quiz, packet as buy-in, capability entries as capability-atlas; the schema instance stays the source of truth the page renders.
+- An artifact seals only when a fresh cold read raises no new question; author satisfaction is not the exit.
+
+## [09]-[GOTCHAS]
+
+- Agreement is the trap: an answer that mirrors the question's framing is re-anchored to a specific instance before it becomes a ruling — compliments and consensus are noise wearing signal.
+- A round without a prepared learning target is theater; prepare the three highest-value targets before opening any round.
+- Survey-sized batches make the user pick defaults; a batch stays narrow enough that every option is a real tradeoff.
+- Softening a finding to spare the corpus author loses the finding; the anchor states the fact and the fact is the kindness.
+- An artifact that needs its transcript to be understood failed the seal; the instance carries everything the consumer needs.
+- The quiz gate passes only on a perfect score; a partial pass re-teaches and re-quizzes.
+
+## [10]-[REPO_INTEGRATION]
+
+When the host repo declares an artifact home and naming law in its instruction chain, that law binds durable homing — in this repo `docs/atlas/` under `<kind>.<scope>[.<slug>].html`, rendered through html-artifacts. Corpus grounding routes through the host's search owners — in this repo `assay code` for structural search and LSP for symbol navigation; the portable law is verb-neutral: verify on disk before asking.

@@ -41,31 +41,40 @@ Pick a type by intent, then its section for the minimal fence, version gate, and
 ```mermaid
 mindmap
   Root
-    [Square]
-      (Rounded)
+    [Branch A]
+      (Leaf A1)
+      (Leaf A2)
+    ["`**Branch B**
+    second line`"]
+      (Leaf B1)
 ```
-Root leads; consistent indentation sets depth, mixed tabs and spaces are rejected, and explicit edges are invalid; a backtick-quoted markdown string carries bold and multiline labels.
+Root leads; consistent indentation sets depth, mixed tabs and spaces are rejected, and explicit edges are invalid.
 
 ## [03]-[BLOCK]
 
 ```mermaid
 block
   columns 3
-  a["A"] b:2 c d
+  a["A"] b:2
+  c space d
   block:g:2
     columns 2
     h i
   end
+  a -- "link" --> g
 ```
-Stable keyword `block` since 11.10.0 (formerly `block-beta`); `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a bare block without a span is valid. A nested `block:id:span ... end` holds its own `columns`.
+Stable keyword `block` since 11.10.0 (formerly `block-beta`); `columns N` precedes a row, a `:n` span widens a block, `space` inserts a filler, and a bare block without a span is valid. A nested `block:id:span ... end` holds its own `columns`, and a labeled edge joins two blocks.
 
 ## [04]-[JOURNEY]
 
 ```mermaid
 journey
   title Label
-  section Phase
-    Task: 5: Actor
+  section Intake
+    Submit: 3: Actor
+    Review: 5: Actor, Peer
+  section Resolve
+    Close: 2: Peer
 ```
 Scores are integers `1` through `5`; a task belongs under a `section`, an actor needs no declaration, and an out-of-range score is invalid.
 
@@ -91,8 +100,10 @@ Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `perfo
 ```mermaid
 pie showData
   title Label
-  "A" : 1
-  "B" : 2
+  "Alpha" : 45
+  "Beta" : 30
+  "Gamma" : 15
+  "Delta" : 10
 ```
 Values sum above `0`, labels are quoted, and `showData` prints percentages; donut, legend, and slice highlight are 11.16.0+.
 
@@ -102,6 +113,10 @@ Values sum above `0`, labels are quoted, and `showData` prints percentages; donu
 quadrantChart
   x-axis Low --> High
   y-axis Low --> High
+  quadrant-1 Promote
+  quadrant-2 Assess
+  quadrant-3 Retire
+  quadrant-4 Hold
   A:::c1: [0.3, 0.6]
   B: [0.8, 0.1] color: #ff3300, radius: 10
   classDef c1 color: #109060
@@ -111,12 +126,23 @@ Coordinates bind to `0` through `1` and quadrants number `1` top-right through `
 ## [08]-[SANKEY]
 
 ```mermaid
+---
+config:
+  sankey:
+    labelStyle: outlined
+    nodeWidth: 15
+    nodePadding: 20
+---
 sankey
 
-Grid,Homes,113.7
-Grid,Industry,342.2
+Source,Hub,120
+Source,Store,80
+Hub,Homes,70
+Hub,Industry,50
+Store,Homes,30
+Store,Industry,50
 ```
-Stable keyword `sankey` since 11.10.0 (formerly `sankey-beta`); the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor`, `nodeAlignment`, `showValues`, `prefix`, `suffix`, and the 11.15.0+ `labelStyle`, `nodeWidth`, `nodePadding`, and `nodeColors` name-to-hex map.
+Stable keyword `sankey` since 11.10.0 (formerly `sankey-beta`); the body is three-column CSV `source,target,value` with blank lines allowed and CSV quoting for embedded commas. Config carries `linkColor`, `nodeAlignment`, `showValues`, `prefix`, `suffix`, the 11.15.0+ styling knobs, and a `nodeColors` name-to-hex map.
 
 ## [09]-[XYCHART]
 
@@ -190,6 +216,7 @@ architecture-beta
 packet
 title UDP Packet
 +16: "Source Port"
++16: "Destination Port"
 32-47: "Length"
 48-63: "Checksum"
 ```

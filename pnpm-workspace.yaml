@@ -264,6 +264,7 @@ overrides:
   axios: 1.17.0
   jiti: 2.7.0
   koa: 3.2.1
+  mermaid: 11.16.0
   minimatch: 10.2.5
   node-forge: 1.4.0
   puppeteer: 25.1.0

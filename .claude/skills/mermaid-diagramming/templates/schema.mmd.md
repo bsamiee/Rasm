@@ -1,6 +1,6 @@
 # [SCHEMA]
 
-Draw persistent entities and their relations. Use `erDiagram` with 4-5 entities, typed attributes carrying `PK`/`FK` markers, and relationship cardinalities with verb labels. `erDiagram` supports no ELK and no `look` — keep `theme: base` with its variable block.
+Draw persistent entities and their relations. The template bakes in the schema discipline an unassisted attempt violates — every relationship edge has its FK attribute on the owning side and every FK has its edge, so the diagram and the storage constraint cannot disagree; cardinality states what storage enforces, never intended usage; and a many-to-many resolves through a visible junction entity carrying both FKs, because the crow's foot cannot express it directly. Use `erDiagram` with 4-7 entities around one aggregate root, typed attributes with `PK`/`FK` markers, and verb-labeled relations. `erDiagram` takes no ELK and no `look` — keep `theme: base` with its variable block.
 
 ```mermaid
 ---
@@ -21,11 +21,13 @@ config:
 ---
 erDiagram
     accTitle: Persistent entity schema
-    accDescr: Typed entities linked by primary and foreign keys, each relation carrying a crow's-foot cardinality.
+    accDescr: Typed entities around one aggregate root, every relationship backed by its foreign key and a junction entity resolving the many-to-many.
     OWNER ||--o{ RUN : issues
     RUN ||--|{ RECEIPT : yields
     RUN }o--|| REGISTRY : binds
     RECEIPT ||--o{ FAULT : records
+    RUN ||--o{ RUN_ARTIFACT : consumes
+    ARTIFACT ||--o{ RUN_ARTIFACT : feeds
     OWNER {
         uuid id PK
         string name
@@ -33,6 +35,7 @@ erDiagram
     RUN {
         uuid id PK
         uuid owner_id FK
+        uuid registry_id FK
         string state
     }
     RECEIPT {
@@ -49,4 +52,14 @@ erDiagram
         uuid receipt_id FK
         string reason
     }
+    ARTIFACT {
+        uuid id PK
+        string content_key UK
+    }
+    RUN_ARTIFACT {
+        uuid run_id PK, FK
+        uuid artifact_id PK, FK
+    }
 ```
+
+Refill law: rename entities to the real aggregate, keep FK-edge reciprocity on every relation, and resolve any many-to-many through a junction entity whose composite key is both FKs.

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- replace: page title -->
-<title>Roadmap: Shape</title>
+<title>Deck: Collapsing the Shape Surface</title>
 <style>
 /* --- [DESIGN_SYSTEM_BASELINE] --- verbatim across templates; edit token values only */
 *,*::before,*::after{box-sizing:border-box}
@@ -84,69 +84,124 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
   body,.twrap,pre{overflow:visible}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
-/* --- [ROADMAP_LOCAL] --- */
-.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3);justify-content:space-between}
-.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4);align-items:start}
-@media (max-width:820px){.lanes{grid-template-columns:1fr}}
-.lane h3{margin:0 0 var(--s3);position:sticky;top:0;background:var(--bg);padding-bottom:var(--s2)}
-.ms{margin-bottom:var(--s3)}.ms h4{margin:0 0 var(--s1);font-size:var(--f2)}
-.dep{color:var(--muted);font-size:var(--f0);margin:var(--s1) 0 0}
-.tools{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin:var(--s4) 0}
-.tools input{flex:1;min-width:180px}
+/* --- [DECK_LOCAL] --- */
+.deckbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);justify-content:space-between;position:sticky;top:0;z-index:2;background:var(--bg);padding:var(--s3) 0;border-bottom:1px solid var(--line)}
+.controls{display:flex;align-items:center;gap:var(--s2)}
+#counter{min-width:5ch;text-align:center;color:var(--muted)}
+.slide{display:none;padding:var(--s6) 0;min-height:62vh}
+.slide.active{display:block}
+.slide h2{margin-top:0}
+.slide .lead{font-size:var(--f5);line-height:1.1;text-wrap:balance;margin:0 0 var(--s3)}
+.slide .sub{font-size:var(--f3);color:var(--muted)}
+.stat{display:flex;flex-wrap:wrap;gap:var(--s4);margin:var(--s4) 0}
+.stat .card{flex:1 1 160px}
+.stat .n{font-size:var(--f4);font-variant-numeric:tabular-nums;display:block}
+.speaker{margin-top:var(--s5);padding:var(--s3);border-left:3px solid var(--accent-muted);background:var(--surface);border-radius:0 var(--r1) var(--r1) 0;font-size:var(--f1);color:var(--muted)}
+body[data-mode="present"] .speaker{display:none}
+@media print{
+  .deckbar{display:none}
+  .slide,.slide.active{display:block!important;min-height:0;break-inside:avoid;page-break-after:always;border-bottom:1px solid var(--line);padding:var(--s5) 0}
+  .speaker{display:block!important}
+}
 </style>
 </head>
-<body>
+<body data-mode="present">
 <div class="wrap">
-  <header class="head">
-    <div><h1>Roadmap: Shape</h1><small>Sequencing the &lt;capability&gt; surface across horizons.</small></div>
-    <!-- replace: status chip + date -->
-    <div><span class="chip info">[OPEN]</span> <small>YYYY-MM-DD</small> <button type="button" class="btn no-print" data-toggle-theme>Theme</button></div>
+  <header class="deckbar no-print">
+    <!-- replace: deck title -->
+    <div><strong>Collapsing the Shape Surface</strong> <span class="chip info">CASE</span></div>
+    <div class="controls">
+      <button type="button" class="btn" data-nav="-1" aria-label="Previous slide">Prev</button>
+      <span id="counter" class="num" role="status" aria-live="polite">1 / 5</span>
+      <button type="button" class="btn" data-nav="1" aria-label="Next slide">Next</button>
+      <button type="button" class="btn" data-toggle-notes aria-label="Toggle speaker notes">Notes</button>
+      <button type="button" class="btn" data-toggle-theme>Theme</button>
+    </div>
   </header>
-
-  <svg viewBox="0 0 600 40" width="100%" height="40" role="img" aria-label="Horizon timeline">
-    <line x1="10" y1="20" x2="590" y2="20" stroke="var(--line)" stroke-width="2"/>
-    <circle cx="110" cy="20" r="6" fill="var(--accent)"/><text x="110" y="38" fill="var(--muted)" font-size="11" text-anchor="middle">now</text>
-    <circle cx="300" cy="20" r="6" fill="var(--info)"/><text x="300" y="38" fill="var(--muted)" font-size="11" text-anchor="middle">next</text>
-    <circle cx="490" cy="20" r="6" fill="var(--muted)"/><text x="490" y="38" fill="var(--muted)" font-size="11" text-anchor="middle">later</text>
-  </svg>
-
-  <div class="tools no-print">
-    <input type="search" data-filter-box placeholder="Filter milestones">
-    <small>Type to narrow across all horizons.</small>
-  </div>
-
-  <!-- replace: milestones per horizon; each .ms carries data-filter -->
-  <div class="lanes">
-    <section class="lane"><h3>Now</h3>
-      <article class="card ms" data-filter><h4>Owner established</h4><span class="chip ok">[DONE]</span>
-        <p class="dep">Depends on: none</p></article>
-      <article class="card ms" data-filter><h4>PRIMARY boundary mapped</h4><span class="chip warn">[AT-RISK]</span>
-        <p class="dep">Depends on: Owner established</p></article>
+  <main>
+    <!-- replace: one <section class="slide"> per slide; keep an <aside class="speaker" aria-label="Speaker notes 1"> per slide -->
+    <section class="slide" id="s1" aria-label="Title">
+      <p class="lead">Collapsing the Shape Surface</p>
+      <p class="sub">One polymorphic owner replaces five parallel exports.</p>
+      <aside class="speaker" aria-label="Speaker notes 2">Set the frame: this is a density decision, not a rewrite. The audience is the reviewers who own the call sites.</aside>
     </section>
-    <section class="lane"><h3>Next</h3>
-      <article class="card ms" data-filter><h4>Variant absorbed</h4><span class="chip info">[OPEN]</span>
-        <p class="dep">Depends on: Owner established</p></article>
+    <section class="slide" id="s2" aria-label="Context">
+      <h2>Context</h2>
+      <p>The <code>Shape</code> concept ships five entry points — <code>get_primary</code>, <code>get_many</code>, <code>list</code>, <code>find</code>, <code>search</code> — each re-deriving the same routing and boundary mapping.</p>
+      <ul>
+        <li>Every new modality has added a sibling export, not a row.</li>
+        <li>Boundary translation is duplicated across three of the five.</li>
+        <li>Callers pick an entry by name, so arity leaks into the call site.</li>
+      </ul>
+      <aside class="speaker" aria-label="Speaker notes 3">Anchor the cost in the reviewers' own diffs — the last two modalities each touched all five sites.</aside>
     </section>
-    <section class="lane"><h3>Later</h3>
-      <article class="card ms" data-filter><h4>Stream modality folded in</h4><span class="chip info">[OPEN]</span>
-        <p class="dep">Depends on: Variant absorbed</p></article>
+    <section class="slide" id="s3" aria-label="Evidence">
+      <h2>Evidence</h2>
+      <div class="stat">
+        <div class="card"><span class="n num">5 → 1</span><small>public entry points</small></div>
+        <div class="card"><span class="n num">−214</span><small>net lines of surface</small></div>
+        <div class="card"><span class="n num">1</span><small>boundary mapping site</small></div>
+      </div>
+      <p class="muted">Arity, filter, and provider move into the <code>Request</code> shape; the owner dispatches on a closed vocabulary.</p>
+      <aside class="speaker" aria-label="Speaker notes 4">The −214 is surface, not capability — every modality still reachable, just through one door. Have the branch open if asked.</aside>
     </section>
-  </div>
+    <section class="slide" id="s4" aria-label="Decision">
+      <h2>Decision</h2>
+      <p><span class="chip ok">[DECIDED]</span> Merge the five exports into <code>Shape.dispatch(req)</code>, discriminating on <code>req.arity</code> against a bounded vocabulary.</p>
+      <p><span class="chip info">[BOUNDARY]</span> PRIMARY maps once at ingress; internals read canonical names only.</p>
+      <aside class="speaker" aria-label="Speaker notes 5">Name what is explicitly out of scope: the wire format is unchanged, so no downstream service moves this quarter.</aside>
+    </section>
+    <section class="slide" id="s5" aria-label="Asks">
+      <h2>Asks</h2>
+      <ul>
+        <li>Approve the single-entry dispatch shape by Friday.</li>
+        <li>One reviewer to own the call-site migration audit.</li>
+        <li>Confirm the arity vocabulary is closed — no runtime-supplied kinds.</li>
+      </ul>
+      <aside class="speaker" aria-label="Speaker notes 6">Close on the Friday date and the one named owner — leave with a commitment, not a discussion.</aside>
+    </section>
+  </main>
 </div>
 <script>
 const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const root = document.documentElement;
 root.dataset.theme = localStorage.getItem(themeKey) ?? "dark";
+
+const slides = [...document.querySelectorAll(".slide")];
+const counter = document.getElementById("counter");
+const swap = document.startViewTransition ? cb => document.startViewTransition(cb) : cb => cb();
+const clamp = n => Math.max(0, Math.min(slides.length - 1, n));
+const fromHash = () => clamp((parseInt(location.hash.slice(1), 10) || 1) - 1);
+let index = fromHash();
+
+const paint = () => {
+  slides.forEach((s, i) => s.classList.toggle("active", i === index));
+  counter.textContent = `${index + 1} / ${slides.length}`;
+};
+const show = next => {
+  const target = clamp(next);
+  if (target === index) return;
+  index = target;
+  history.replaceState(null, "", "#" + (index + 1));
+  swap(paint);
+};
+
 document.addEventListener("click", e => {
+  const nav = e.target.closest("[data-nav]");
+  if (nav) show(index + Number(nav.dataset.nav));
+  if (e.target.closest("[data-toggle-notes]")) document.body.dataset.mode = document.body.dataset.mode === "present" ? "notes" : "present";
   if (!e.target.closest("[data-toggle-theme]")) return;
   const next = root.dataset.theme === "dark" ? "light" : "dark";
   try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
 });
-document.addEventListener("input", e => {
-  const box = e.target.closest("[data-filter-box]"); if (!box) return;
-  const q = box.value.trim().toLowerCase();
-  document.querySelectorAll("[data-filter]").forEach(el => { el.hidden = q !== "" && !el.textContent.toLowerCase().includes(q); });
+document.addEventListener("keydown", e => {
+  const step = { ArrowRight: 1, ArrowLeft: -1, PageDown: 1, PageUp: -1 }[e.key];
+  if (!step || e.target.matches("input,textarea,select")) return;
+  e.preventDefault();
+  show(index + step);
 });
+addEventListener("hashchange", () => { index = fromHash(); paint(); });
+paint();
 </script>
 </body>
 </html>
