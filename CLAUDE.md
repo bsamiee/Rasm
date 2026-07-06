@@ -10,6 +10,7 @@ Read: `README.md` + `tools/assay/README.md`
 
 [CRITICAL]:
 - We are in a long-term planning phase of the project, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning`, and read them fully: `libs/.planning/planning-targets.md`, `libs/.planning/campaign-method.md`, `libs/.planning/README.md`, `libs/.planning/architecture.md`.
+- [ALWAYS] Load the `docgen` skill before authoring, editing, reviewing, or rewriting ANY durable markdown in this planning phase — index docs, specs, `.api` catalogs, standards, briefs, tool docs. It owns the register, the defect catalog, the file-kind templates, and the prose gate; work on durable prose without it loaded is a process defect, and every touched doc passes its gate before the turn ends.
 - All main agent + sub-agents MUST approach any/all content within our `libs/` with EXTREME hostility and be adversarial, always attacking code quality, naivety, and code quality + structure; we are aggressively rebuilding files constantly ground/root-up to achieve world-class, award winning folders, functionality, and code.
 - When working in `libs/python/` we MUST fully read and UNDERSTAND all of the files within `docs/stacks/python/` and follow them to the letter. The same is true for working in `libs/csharp/` and all files in `docs/stacks/csharp/` including the extended `docs/stacks/csharp/domain` folder files, and for working in `libs/typescript/` and all files in `docs/stacks/typescript/`.
 - THE PURPOSE OF WORKING IN `.md` FILES IS TO GIVE US MAXIMUM FREEDOM TO REBUILD ALL DESIGN DOCS/FEATURES/CAPABILITIES ROOT/GROUND-UP WITH NO HESITATION, TO ENSURE WE HAVE THE WORLD-CLASS/BLEEDING-EDGE CAPABILITY WE WANT, ALL FEATURES ADDED VIA REBUILDING, NEVER TACKING-ON FLAT CODE. Constantly finding weak implementations, further opportunities to push code sophistication, density, complexity, and richness whilst collapsing total surface as much as possible, and reducing LOC as well, and most importantly ULTRA stacking all content from our `.api/` folders, the language specific ones, as well as planning folder specific `libs/csharp/.api/`, `libs/python/.api/`, `libs/typescript/.api/`, `libs/csharp/<folder>/.api/`, `libs/python/<folder>/.api/`, `libs/typescript/<folder>/.api/` etc...
@@ -85,6 +86,9 @@ Use the route-owned standard for the file being edited:
 |  [06]   | Python (`.py`)                          | `docs/stacks/python`     |
 |  [07]   | Bash/sh (`.sh`, `.bash`)                | `coding-bash`            |
 |  [08]   | SQL (`.sql`)                            | `coding-pg`              |
+|  [09]   | Durable markdown (`.md`)                | `docgen`                 |
+|  [10]   | Mermaid fences                          | `mermaid-diagramming`    |
+|  [11]   | HTML artifacts (`.html`)                | `html-artifacts`         |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 

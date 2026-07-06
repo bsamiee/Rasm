@@ -1,0 +1,92 @@
+# [METHODOLOGY]
+
+A diagram is the answer to one written question; its node set, edge set, type, and count all derive from that question.
+
+## [01]-[QUESTION_FIRST]
+
+- Removal test: a fence earns its slot only when page meaning changes on its removal; below that threshold prose or a table owns the fact.
+- One-question law: the question lands as one sentence before any node exists — an unwritable question means the subject splits into separate diagrams.
+- Audience sets abstraction: the reader's decision picks the level, never the available implementation detail.
+- Diagrams stay out of lists, scalar facts, decision records, and API contracts that carry no inspectable relation.
+
+## [02]-[INVESTIGATION]
+
+The pre-drawing procedure runs in order before the first shape.
+
+1. Inventory candidate entities, relations, and attributes on separate lists, keeping attributes off the node roster.
+2. Classify every relation into one semantic family — ownership, dependency, dataflow, invocation, sequence, containment, state-transition.
+3. Select one family as the payload and discard every entity that neither participates in it nor anchors a boundary.
+4. Trace one representative scenario, because runtime behavior exposes the real seams a file layout hides.
+5. Fix a canonical name vocabulary — external actors, internal elements, relation verbs, allowed abbreviations — before the first fence.
+
+## [03]-[NODE_LAW]
+
+- Every primary node holds the same abstraction level; a product beside a function makes edge semantics unknowable.
+- A concept reaches node status only when it owns, receives, transforms, stores, decides, or transitions under the payload relation.
+- Technologies, protocols, versions, and statuses demote to labels unless the question asks how those items relate to each other.
+- The smallest node set answers the question; a dense graph nearing 50 nodes becomes a search task, so hierarchy, filtering, or a split lands first.
+- Names are canonical domain nouns found in source, glossary, or architecture record — never `manager`, `processor`, `handler`, `service`.
+- Omission test: a node whose removal leaves the answer intact is deleted.
+
+## [04]-[EDGE_LAW]
+
+- One edge semantic carries the whole diagram.
+- Every edge holds a specific verb phrase matching its direction — `publishes events to`, `validates token with`, never `uses`.
+- Direction draws only for an asymmetric relation, and a bidirectional edge never dodges the real semantics of two distinct claims.
+- Cardinality appears only when multiplicity changes the reader's decision on capacity, ownership, optionality, or fan-out.
+- Edge crossings are defects unless the crossing is the subject; the repair is split, reorder, aggregate, or a type change.
+- Structural edges never imply time; first, next, retry, and timeout route to a sequence or state diagram.
+- No edge skips an abstraction level — the intermediate owner joins the view or the whole view drops one level.
+
+## [05]-[TYPE_SELECTION]
+
+The question shape selects the declaration.
+
+| [INDEX] | [QUESTION]                | [TYPE]                |
+| :-----: | :------------------------ | :-------------------- |
+|  [01]   | what exists and relates   | `flowchart`           |
+|  [02]   | who talks in order        | `sequenceDiagram`     |
+|  [03]   | which modes and transitions | `stateDiagram-v2`   |
+|  [04]   | what data and cardinality | `erDiagram`           |
+|  [05]   | proportion trend or rank  | dataviz external lane |
+|  [06]   | work steps and branching  | `flowchart`           |
+|  [07]   | hierarchy and containment | `mindmap` / `treemap` |
+|  [08]   | dated plan over time      | `gantt`               |
+|  [09]   | system landscape at zoom  | `C4` / `architecture-beta` |
+
+[CONTRAST]: classic mismatches, each repaired by payload alignment:
+
+- lifecycle drawn as flowchart -> `stateDiagram-v2`
+- call order drawn as graph -> `sequenceDiagram`
+- dependency drawn as sequence -> `flowchart`
+- quantity drawn as node-link -> chart
+
+## [06]-[SOUNDNESS]
+
+Every committed diagram passes a mechanical audit; each finding blocks the fence.
+
+- [MACHINE] — `validate_mermaid.py` blocks on orphan node, unreachable state, undefined class, and unknown class target; its duplicate-edge and budget-overrun warns demand a split or a stated reason.
+- [JUDGMENT] — the reviewer clears these before commit:
+  - a cycle in a domain declared acyclic
+  - one concept rendered under two names
+  - an edge skipping the declared abstraction level
+  - mixed edge semantics hidden behind precise labels
+  - a legend explaining two taxonomies or two edge semantics
+  - a diagram needing narration to supply its own title, scope, node types, or edge meaning
+  - an absorbing state undeclared as terminal
+  - a state machine missing its initial entry
+
+## [07]-[COMPOSITION]
+
+- Zoom levels are separate diagrams for separate audiences, added only while a lower-level question stays unanswered.
+- A static and dynamic pair shares the exact element names, so the runtime view resolves against the structure view.
+- One vocabulary owns names across the set; a rename lands in every view in the same edit.
+- A scenario traced across views is the cross-check that surfaces missing nodes, inconsistent names, and unsupported behavior.
+- A new diagram is admitted by a new question, never a new layout; the set is bounded by question coverage, not a fixed count.
+
+## [08]-[MAINTENANCE]
+
+- Diagram source lives beside the truth it describes and diffs in review alongside the change that can invalidate it.
+- Every long-lived diagram names the surface that falsifies it — code path, contract, schema, or decision record.
+- Model-first naming governs elements that recur across diagrams: define each once, render many views from that data.
+- A diagram whose update reverse-engineers more than it explains is rewritten or deleted.
