@@ -23,9 +23,9 @@ Rankings, higher = better. Cost reflects what I actually pay (OpenAI is near-fre
 | [INDEX] | [MODEL]  | [COST] | [INTELLIGENCE] | [TASTE] |
 | :-----: | :------- | :----: | :------------: | :-----: |
 |  [00]   | gpt-5.5  |   9    |       8        |    5    |
-|  [00]   | sonnet-5 |   5    |       4        |    6    |
-|  [00]   | opus-4.8 |   4    |       7        |    7    |
-|  [00]   | fable-5  |   2    |       9        |    9    |
+|  [01]   | sonnet-5 |   5    |       4        |    6    |
+|  [02]   | opus-4.8 |   4    |       7        |    7    |
+|  [03]   | fable-5  |   2    |       9        |    9    |
 
 How to apply:
 - These are defaults, not limits. You have standing permission to override them: if a cheaper model's output doesn't meet the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
@@ -44,7 +44,7 @@ How to apply:
 Using gpt-5.5 inside workflows and subagents (the model parameter only takes Claude models, so use a wrapper):
 - Spawn a thin Claude wrapper agent with `model: 'sonnet', effort: 'low'` whose prompt instructs it to write a self-contained codex prompt, run `codex exec` via Bash, and return the report (use `schema` on the wrapper to get structured output back).
 - Always label these agents with a `gpt-5.5:` prefix, e.g. `{label: 'gpt-5.5:review-auth'}` - the workflow UI shows the wrapper's Claude model, so the label is the only indication the real worker is gpt-5.5.
-- A short leg runs synchronously: `codex exec` prints its final message to stdout (banner and reasoning go to stderr), so the wrapper captures stdout under a tier-matched Bash timeout. A long leg exceeds one Bash call's 10-minute cap and the wrapper's own stall window, so it launches detached (a bare `&`, never `nohup`, stdout and stderr to `/dev/null`) against a `-o` report and polls by liveness across bounded calls - report present, or the codex process gone - never relaunching a live run.
+- A short leg runs synchronously: `codex exec` prints its final message to stdout (banner and reasoning go to stderr), so the wrapper captures stdout under a tier-matched Bash timeout. A long leg exceeds one Bash call's 10-minute cap and the wrapper's own stall window, so it launches detached (a bare `&`, never `nohup`, stdout to `/dev/null`, stderr to a per-run log whose tail is the crash reason) against a `-o` report and polls by liveness across bounded calls - report present, or the codex process gone - never relaunching a live run. Liveness is not health: alive past ~10 min with no report is WEDGED - kill it and relaunch once, a second wedge is the failure. Fan-out and file-only legs pass `-c mcp_servers={}` - every codex process spawns the full config MCP fleet otherwise. `--output-schema` schemas are STRICT: every property in `required` (conditional fields required-but-empty) or the API 400s `invalid_json_schema`; task/schema files are Write-tool-written at absolute paths and `test -s`-verified before launch.
 - `codex exec -o <file>` writes the final message to a file (the report artifact a detached run polls); `--output-schema <schema.json>` constrains that final message to a JSON Schema when the wrapper must return typed results.
 - Workflow token budgets only count Claude tokens; codex work is free and invisible to `budget.spent()`.
 

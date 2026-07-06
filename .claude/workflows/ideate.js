@@ -11,25 +11,56 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const SURVEY_PAGE_CAP = 12
 const STAGGER_MS = 1500
 const STALL = 300000
-const CODEX = true // survey lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
+const CODEX = true                         // survey lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX_DIR = '.claude/scratch/ideate' // wrapper task/schema/report files, one triple per lane
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
 const rawScope = (typeof input === 'string') ? input.trim() : (input && typeof input === 'object' && input.target) ? String(input.target).trim() : ''
 const SWEEP = (!rawScope || rawScope === 'ALL') ? 'libs' : rawScope
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['folders'], properties: { folders: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'pages'], properties: { folder: { type: 'string' }, pages: { type: 'integer' } } } } } }
-const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: ['realized', 'gaps', 'notes'], properties: { realized: { type: 'array', items: { type: 'string' } }, gaps: { type: 'array', items: { type: 'string' } }, cross_folder: { type: 'array', items: { type: 'string' } }, existing_cards: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } } }
+
+// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
+const ANCHOR = { type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: ['state', 'ruling', 'catalog', 'counterpart', 'absence'] },
+  note: { type: 'string' } } }
+
+// Heavy survey product — written to disk, read by the ideate stage; inventory-shaped, one anchored fact per entry.
+const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: ['entries', 'coverage', 'summary'], properties: {
+  entries: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'kind', 'files', 'info', 'anchors', 'members'], properties: {
+    target: { type: 'string' }, // page, seam, catalog, or card the entry grounds
+    kind: { type: 'string', enum: ['realized', 'gap', 'cross-folder', 'existing-card', 'stacking'] },
+    files: { type: 'array', items: { type: 'string' } }, // files the ideate stage must open for this entry
+    info: { type: 'string' }, // the fact: realized capability, deferred gap, seam endpoints — prose truth, zero prescriptions
+    anchors: { type: 'array', items: ANCHOR }, // exact coordinates backing the fact
+    members: { type: 'array', items: { type: 'string' } } } } }, // verified catalog members backing a stacking entry
+  coverage: { type: 'object', additionalProperties: false, required: ['requested', 'read', 'skipped', 'unverified'], properties: {
+    requested: { type: 'array', items: { type: 'string' } },
+    read: { type: 'array', items: { type: 'string' } },
+    skipped: { type: 'array', items: { type: 'string' } },
+    unverified: { type: 'array', items: { type: 'string' } } } },
+  summary: { type: 'string' } } }
+
+// Thin wire receipt: the survey lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' } } }
+
 // Required-but-possibly-empty `beyondFolder` is an attestation: the cross-folder Ripple hunt ran, and every counterpart landed.
-const CARDLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'beyondFolder', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, beyondFolder: { type: 'array', items: { type: 'string' } }, applied: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'refined', 'hardened', 'clean'] }, summary: { type: 'string' } } }
+const CARDLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'beyondFolder', 'verdict', 'summary', 'applied'], properties: { files: { type: 'array', items: { type: 'string' } }, beyondFolder: { type: 'array', items: { type: 'string' } }, applied: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'refined', 'hardened', 'clean'] }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the role law and voice, and libs/.planning/README.md ' +
     'for the exact IDEAS/TASKLOG card schema. You produce a folder ' +
@@ -64,7 +95,23 @@ const LAW = [
     'return verdict=clean — a clean verdict is EARNED by an attack that finds nothing, never conceded on first read; never invent cards to look busy.',
 ].join('\n')
 
+const INFO_LAW = 'You provide INFORMATION, never prescriptions: exact disk locations and anchors, the current shape at each realized site, seam ' +
+  'endpoints on both sides, verified member spellings, gaps. The ideate stage decides what to card; a map entry that tells it what to write ' +
+  'instead of what is true is a defect. ENTRY FORM: `info` is prose truth; `anchors` carry one coordinate per row (role names what it proves; ' +
+  '`note` is the shortest literal witness under 20 words, or empty when path+line suffice; an `absence` anchor names where the expected thing ' +
+  'was searched and not found); `files` lists what the ideate stage must open for the entry; `members` are verified catalog spellings backing a ' +
+  'stacking entry. A stacking or gap entry is INVENTORY, never instruction: verified members, current usage anchors, the concept that admits it — ' +
+  'the ideate stage decides whether it cards. COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you actually ' +
+  'full-read, `skipped`/`unverified` = what you did not reach — an honest skip beats a silent one.'
+
+const SELF_CHECK = 'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every entry from disk — re-open each cited ' +
+  'anchor and confirm it states what the entry claims, re-verify each member spelling against its catalog, trace each cross-folder seam to both ' +
+  'endpoints. An entry that fails re-confirmation is corrected or deleted, never returned; a guess, an assumption, a skimmed summary, or a ' +
+  'vague/hedged entry is a defect. Completeness is part of correctness: after the re-read, hunt once more for what the first pass missed — an ' +
+  'omitted load-bearing fact is as wrong as a false one.'
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // Agent-level slot scheduler: every agent() call takes one slot, so folder chains launch freely via Promise.all while true in-flight agents stay at CAP.
 const makeSlots = (cap) => {
@@ -81,67 +128,78 @@ const makeSlots = (cap) => {
 }
 const slot = makeSlots(CAP)
 const nameOf = (f) => f.split('/').pop() || f
+
 // gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
 // CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
+// ideate stage. It never does, edits, judges, or relays the work.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
 const codexPrompt = (label, task, schema, writes) => {
   const base = CODEX_DIR + '/' + fileTag(label)
   const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
-  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
-    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
-  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
-    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+  const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1) // self-excluding pgrep/pkill pattern
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
+    'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
+  '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' + CODEX_DIR + '; purge stale lane artifacts (a leftover report would READY instantly with last run\'s data): rm -f ' + base + '-report.json ' + base + '-stderr.log; Write the TASK block below verbatim to ' + base + '-task.md; Write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json — both paths resolved ABSOLUTE under the repository root: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' + base + '-task.md && test -s ' + base + '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
+    'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
+    'zero-CPU, no report): ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
     '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
-    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' + base + '-stderr.log &',
   '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
     'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
     'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
-    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
-    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
-  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
-    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+    'pgrep -f "' + rptPat + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rptPat + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 2nd RUNNING ' +
+    'poll (~10 min wall) the run is WEDGED, not slow — kill it (pkill -f "' + rptPat + '") and go to (4) as GONE. ' +
+    'Cap at 7 poll calls total.',
+  '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
+    'judgment): entries=$(jq \'.entries | length\' ' + base + '-report.json); kinds=$(jq -r \'[.entries[].kind] | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' + base + '-report.json). ' +
+    'Return the RECEIPT: ok=true, report=' + base + '-report.json, entries=that count, headline="<entries> entries | <kinds>", failure empty. GONE with no report: tail -5 ' + base + '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
+    'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
   'TASK — write verbatim to the task file, then dispatch:',
   task].join('\n\n')
 }
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-const recon = (task, o) => CODEX
+
+// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise. The roster row
+// carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is
+// exact even when the lane died before writing anything.
+const recon = (task, o) => (CODEX
   ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
-    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
-  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
-const surveyPrompt = (folder, slice) => [LAW, '', 'TASK: DISCOVERY SURVEY of ' + folder + ' — read-only is its ONLY concession; skimming, memory-recall ' +
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    CODEX_DIR + '/' + fileTag(o.label) + '-report.json (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(o.schema) + ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+    { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL })
+).then((r) => ({ lane: o.label, scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+  entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died') }))
+const surveyPrompt = (folder, slice) => [LAW, '', INFO_LAW, '', SELF_CHECK, '', 'TASK: DISCOVERY SURVEY of ' + folder + ' — read-only is its ONLY concession; skimming, memory-recall ' +
   'inventories, and verdict-only output are process defects. FULL-FILE read every design page under ' + folder + '/.planning/**, plus ' +
   'ARCHITECTURE.md, README.md, and any existing ' + folder + '/IDEAS.md + TASKLOG.md; walk the folder at large and enumerate both .api tiers per ' +
-  'the ULTRA-STACKING LAW; resolve scope against real disk state. Produce a per-page MAP, never a verdict: (realized) per page, the capability it ' +
-  'composes NOW — never to be carded; (gaps) genuinely-deferred capability the REAL domain needs beyond the realized set — research the domain, ' +
-  'never guess — including every admitted capability no page or card exploits, each named with concrete verified members, never a phantom; ' +
-  '(cross_folder) contextual seams where a card should Ripple to a sibling owner; (existing_cards) the current pool and its state; (notes) ' +
-  'stacking guidance plus a hostile weak/strong call per page. The map is an initial pointer for downstream stages, never a ceiling.' +
-  (slice ? '\n' + slice : '')].join('\n')
+  'the ULTRA-STACKING LAW; resolve scope against real disk state. Produce ANCHORED MAP ENTRIES, never a verdict — each entry a fact with exact ' +
+  'anchors, kind naming its role: `realized` = the capability a page composes NOW (never to be carded); `gap` = genuinely-deferred capability the ' +
+  'REAL domain needs beyond the realized set — research the domain, never guess — each named with concrete verified members, never a phantom; ' +
+  '`stacking` = an admitted .api capability no page or card exploits, carrying verified members and the page whose concept admits it; ' +
+  '`cross-folder` = a contextual seam where a card should Ripple to a sibling owner, anchored on both endpoints; `existing-card` = a current pool ' +
+  'card and its state. `summary` carries stacking guidance plus a hostile weak/strong call per page. The map is an initial pointer for downstream ' +
+  'stages, never a ceiling.' + (slice ? '\n' + slice : '')].join('\n')
 const slicePrompt = (folder, part, pages) => 'PAGE SLICE ' + part + ' of 2 — ' + folder + ' holds ' + pages + ' design pages, so the survey is split ' +
   'and this directive NARROWS the every-page read above: enumerate every design page under ' + folder + '/.planning/** sorted lexicographically by ' +
   'path; FULL-FILE read ' + (part === 1 ? 'ONLY the FIRST half of that ordering (pages 1..ceil(N/2))' : 'ONLY the SECOND half of that ordering (the ' +
   'pages after ceil(N/2))') + '. ARCHITECTURE.md, README.md, the existing card files, and both .api tiers stay FULL reads; your map covers your slice pages.'
-// Two page-slice survey maps fold into one SURVEY_SCHEMA-shaped object before ideate; a single-part survey passes through untouched.
-const mergeSurveys = (parts) => parts.length === 1 ? parts[0] : {
-  realized: [...new Set(parts.flatMap((p) => p.realized || []))],
-  gaps: [...new Set(parts.flatMap((p) => p.gaps || []))],
-  cross_folder: [...new Set(parts.flatMap((p) => p.cross_folder || []))],
-  existing_cards: [...new Set(parts.flatMap((p) => p.existing_cards || []))],
-  notes: parts.map((p) => p.notes || '').filter(Boolean).join('\n'),
-}
-const ideatePrompt = (folder, ctx) => [LAW, '', 'SURVEY of ' + folder + ':\n' + ctx, '', 'TASK: author/rebuild the IDEAS + TASKS pool in ' + folder + '/IDEAS.md ' +
-  'and ' + folder + '/TASKLOG.md, grounded in the survey above — the survey is an initial pointer, never a ceiling: re-read the corpus and both ' +
-  '.api tiers yourself and exceed it; it never licenses a skim. Author IDEAS for the conceptual/multi-step gaps and TASKS for the ' +
-  'concrete/deferred ones; each card dense at the 7-point rubric and naive on neither axis, genuinely-deferred ONLY (never a realized page from ' +
-  'the survey), correctly anchored, with every Ripple bidirectional per the RIPPLE + CURRENT-STATE laws — the cross-folder counterpart referenced ' +
-  'where it exists, authored in the sibling folder NOW where it does not. Match the exact card schema from libs/.planning/README.md and the voice ' +
-  'from campaign-method.md. Fix-in-place (write the files, create if absent). Return the card-log listing every file you edited, sibling folders ' +
-  'included.'].join('\n')
+const ideatePrompt = (folder, roster, unmapped) => [LAW, '', 'TASK: author/rebuild the IDEAS + TASKS pool in ' + folder + '/IDEAS.md ' +
+  'and ' + folder + '/TASKLOG.md. The survey REPORT FILES are your reconnaissance, never a ceiling. CONSUMPTION: (a) UNMAPPED scope below gets your ' +
+  'own cold read FIRST; (b) read every ok survey report IN FULL from disk and dedupe entries by target as you read; (c) each entry\'s anchors are ' +
+  'jump coordinates — spot-verify what you build on — information, not instructions. Then re-read the corpus and both .api tiers yourself and EXCEED ' +
+  'the survey; it never licenses a skim. Author IDEAS for the conceptual/multi-step gaps and TASKS for the concrete/deferred ones; each card dense ' +
+  'at the 7-point rubric and naive on neither axis, genuinely-deferred ONLY (never a realized page from the survey), correctly anchored, with every ' +
+  'Ripple bidirectional per the RIPPLE + CURRENT-STATE laws — the cross-folder counterpart referenced where it exists, authored in the sibling ' +
+  'folder NOW where it does not. Match the exact card schema from libs/.planning/README.md and the voice from campaign-method.md. Fix-in-place ' +
+  '(write the files, create if absent). Return the card-log listing every file you edited, sibling folders included. ' +
+  'UNMAPPED: ' + JSON.stringify(unmapped) + ' ROSTER: ' + JSON.stringify(roster)].join('\n')
 const critiquePrompt = (folder) => [LAW, '', 'TASK: MECHANICAL LINE-BY-LINE CRITIQUE + FIX IN PLACE of every card in ' + folder + '/IDEAS.md + ' +
   'TASKLOG.md — hold the pool naive until it proves otherwise. Audit card by card and pull the pool UP: denser/sharper theses, fuller ' +
   'domain-completeness (is a genuinely-deferred capability still missing?), better anchors, richer and correct Ripple refs, polymorphic/AOP ' +
@@ -162,15 +220,20 @@ const redteamPrompt = (folder) => [LAW, '', 'TASK: ADVERSARIAL RED-TEAM + FIX IN
   'set of deferred bets, or is there a denser/higher-leverage framing?), then END with a full cold re-review of both files as one body — ' +
   'verdict=clean only when that cold attack finds nothing. Repair every defect in place, wherever it lives. Return the card-log listing every ' +
   'file you edited, sibling folders included.'].join('\n')
+
 const ideateFolder = async (u) => {
   const folder = u.folder
   const surveyors = ((u.pages || 0) > SURVEY_PAGE_CAP)
     ? [1, 2].map((part) => slot(() => recon(surveyPrompt(folder, slicePrompt(folder, part, u.pages)),
-        { label: 'survey:' + nameOf(folder) + '#' + part, phase: 'Survey', schema: SURVEY_SCHEMA })))
-    : [slot(() => recon(surveyPrompt(folder, ''), { label: 'survey:' + nameOf(folder), phase: 'Survey', schema: SURVEY_SCHEMA }))]
-  const parts = (await Promise.all(surveyors)).filter(Boolean)
-  if (parts.length !== surveyors.length) return { folder, logs: {}, ok: false }
-  const authored = await slot(() => agent(ideatePrompt(folder, JSON.stringify(mergeSurveys(parts))), { label: 'ideate:' + nameOf(folder), phase: 'Ideate', model: 'fable', schema: CARDLOG_SCHEMA, effort: 'high', stallMs: STALL }))
+        { label: 'survey:' + nameOf(folder) + '#' + part, phase: 'Survey', schema: SURVEY_SCHEMA, scope: [folder + ' (slice ' + part + '/2)'] })))
+    : [slot(() => recon(surveyPrompt(folder, ''), { label: 'survey:' + nameOf(folder), phase: 'Survey', schema: SURVEY_SCHEMA, scope: [folder] }))]
+  const roster = (await Promise.all(surveyors)).filter(Boolean)
+  const mapped = roster.filter((r) => r.ok)
+  const total = mapped.reduce((a, r) => a + r.entries, 0)
+  const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })))
+  log(nameOf(folder) + ': ' + total + ' survey entries across ' + mapped.length + '/' + roster.length + ' lane(s)' +
+    (mapped.length < roster.length ? ' — FAILED: ' + roster.filter((r) => !r.ok).map((r) => r.lane).join(', ') : ''))
+  const authored = await slot(() => agent(ideatePrompt(folder, roster, unmapped), { label: 'ideate:' + nameOf(folder), phase: 'Ideate', model: 'fable', schema: CARDLOG_SCHEMA, effort: 'high', stallMs: STALL }))
   if (authored === null) return { folder, logs: {}, ok: false }
   const crit = await slot(() => agent(critiquePrompt(folder), { label: 'crit:' + nameOf(folder), phase: 'Critique', model: 'fable', schema: CARDLOG_SCHEMA, effort: 'high', stallMs: STALL }))
   const rt = await slot(() => agent(redteamPrompt(folder), { label: 'redteam:' + nameOf(folder), phase: 'Redteam', model: 'fable', schema: CARDLOG_SCHEMA, effort: 'high', stallMs: STALL }))

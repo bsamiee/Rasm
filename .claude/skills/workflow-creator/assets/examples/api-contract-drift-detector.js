@@ -26,28 +26,33 @@ export const meta = {
 }
 
 // --- [INPUTS] ----------------------------------------------------------------------------
-// `args` arrives as structured data. An object with a `types` list overrides the
-// discovery step; nothing passed lets the kernel enumerate the shared wire types.
+
+// `args` arrives as structured data. An object with a `types` list overrides the discovery step; nothing passed lets the kernel enumerate the shared wire types.
 const seedTypes = Array.isArray(args?.types) ? args.types : null
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
+// STRICT everywhere: additionalProperties:false + every property required at every level; a conditional field is required-but-empty ('' / []), never omitted.
 const TYPES = {
   type: 'object',
+  additionalProperties: false,
   required: ['types'],
   properties: {
     types: { type: 'array', items: { type: 'string' } },
   },
 }
+
 const DRIFT = {
   type: 'object',
-  required: ['type', 'hasDrift'],
+  additionalProperties: false,
+  required: ['type', 'hasDrift', 'summary', 'producerRef', 'consumerRefs', 'fix'],
   properties: {
     type: { type: 'string' },
     hasDrift: { type: 'boolean' },
-    summary: { type: 'string' },
+    summary: { type: 'string' },       // empty when hasDrift is false
     producerRef: { type: 'string' },
     consumerRefs: { type: 'array', items: { type: 'string' } },
-    fix: { type: 'string' },
+    fix: { type: 'string' },           // corrected consumer-side snippet, empty when in sync
   },
 }
 
@@ -64,8 +69,7 @@ const { types } = seedTypes
     )
 log(`${types.length} shared wire type(s) to check`)
 
-// Fan out — one checker per wire type, all at once. Barrier on purpose: the PR
-// stage edits every divergence together, so it needs the full set of results.
+// Fan out — one checker per wire type, all at once. Barrier on purpose: the PR stage edits every divergence together, so it needs the full set of results.
 const checks = await parallel(types.map(wt => () =>
   agent(
     `Check the wire type "${wt}" for drift across the three branches. Read the C# producer ` +
@@ -85,6 +89,9 @@ if (drifted.length === 0) {
 }
 
 // --- [OPEN_PR]
+
+// Paste fan-in is small-output-only (drift set bounded by the wire-type roster); past
+// ~50 rows the product moves to a scratch report file + receipt — SKILL.md "Data flow between stages".
 phase('Open PR')
 await agent(
   `Open ONE draft pull request that realigns every drifted wire type to its C# producer ` +
@@ -93,7 +100,7 @@ await agent(
   `untouched. Title the PR for the wire-contract drift it closes:\n\n` +
   drifted.map(d =>
     `### ${d.type}\n${d.summary}\nProducer (reference): ${d.producerRef}\n` +
-    `Consumers: ${(d.consumerRefs ?? []).join(', ')}\n${d.fix ?? ''}`,
+    `Consumers: ${d.consumerRefs.join(', ')}\n${d.fix}`,
   ).join('\n\n'),
   { label: 'open-pr', phase: 'Open PR' },
 )

@@ -411,7 +411,7 @@ SHARED-TIER WEAVE, composed in EVERY production fold, never re-minted: `expressi
 | V13 | NEW `graphic/style.md` (`core/` is never a style home; no departure evidence): theme-as-data with TYPE SYSTEM rows + SHEET FAMILY rows; every visual plane composes the binding seam; theme rows SELECT `drawing/regime` bind rows by key — the full generate/bind/select triad named (vector+pattern+symbol+solar+shape+math+marks-encode GENERATE; regime+layer+sheet+schedule+io-policy BIND; style+managed SELECT); the six AEC DiagramKinds reach publish grade — gradient fills, blended transparency, entourage silhouettes, art-directed annotation type — as theme DATA over V15 geometry. Library-default output is a defect. |
 | V14 | NEW `graphic/layer.md` `LayerPlan`: the semantic layer TREE, ISO 13567 names; the NINE disk projectors project INTO it (the upward fan becomes nine downward edges — inversion c disposed); `export/layered` stays ONE page composing the tree; the 12 PSD blend modes land on psd-tools; the Illustrator lane explicit. |
 | V15 | NEW `visualization/diagram/solar.md` (pvlib ADMITTED + the closed-form fallback recorded); plan-geometry typed-column ingress + the area law in `layout`/`glyphset`; the massing suite = V9 scene egress + diagram overlays (DATA parents). Ladybug `Sunpath` stays OUT (AGPL, process boundary, geometry track). |
-| V16 | (a) `content_identity`→`identity` (69 spellings / 45 full paths / 44 pages, per touched page); (b) the band-vs-table split RULED in `[10]` on the PEP-814 refutation; (c) the `[RESEARCH]` purge (54 pages) folds load-bearing confirmations into `Packages` blocks or `.api` catalogs, deletes freshness narration, converts unsettled items to in-body gated obligations. Acceptance invariant per `[10]`. |
+| V16 | (a) `content_identity`→`identity` — LANDED corpus-wide: zero `rasm.runtime.content_identity` spellings under `libs/python/artifacts/`; (b) the band-vs-table split RULED in `[10]` on the PEP-814 refutation; (c) the `[RESEARCH]` purge (54 pages) folds load-bearing confirmations into `Packages` blocks or `.api` catalogs, deletes freshness narration, converts unsettled items to in-body gated obligations. Acceptance invariant per `[10]`. |
 
 ## [06]-[EVIDENCE] — E1-E13, every row disposed (anchors re-verified on disk)
 
@@ -455,7 +455,7 @@ The register's E13(b) premise — "`from builtins import frozendict` is not a CP
 
 Cross-track record: the runtime/data/compute briefs cite the same falsified premise; this DECISION corrects the justification in artifacts scope and flags the cross-track re-grounding without re-planning siblings.
 
-Acceptance invariant (per touched page): the rebound corpus carries zero `rasm.runtime.content_identity` spellings, zero `from builtins import frozendict` import lines, and zero `[RESEARCH]` headers under `libs/python/artifacts/.planning/`. Bare `frozendict[...]` band references survive (V16b-C); they carry no import line and are not the gated form.
+Acceptance invariant: the corpus carries zero `rasm.runtime.content_identity` spellings under `libs/python/artifacts/` — corpus-wide, landed; per touched page the rebound corpus additionally carries zero `from builtins import frozendict` import lines and zero `[RESEARCH]` headers under `libs/python/artifacts/.planning/`. Bare `frozendict[...]` band references survive (V16b-C); they carry no import line and are not the gated form.
 
 ## [11]-[ACCEPTANCE] — the three flagship construction chains
 

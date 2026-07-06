@@ -11,8 +11,8 @@ A declarative constraint-layout engine replaces width-breakpoint knobs with a re
 
 ## [02]-[CONSTRAINT_ALGEBRA]
 
-- Owner: `LayoutVar` the named layout variable (edge, size, anchor); `LayoutTerm` the variable-times-coefficient; `LayoutExpr` the linear form; `LayoutRelation` the relation axis; `LayoutStrength` the priority axis; `LayoutConstraint` the typed equality/inequality binding; `LayoutFault` the fault family in the 4400 code band.
-- Cases: `LayoutRelation` = eq | le | ge; `LayoutStrength` = required | strong | medium | weak under the `Kiwi` lexicographic packing; `LayoutFault` = Text | Unsatisfiable | NonLinear | UnknownVariable in the 4400 code band.
+- Owner: `LayoutVar` the named layout variable (edge, size, anchor); `LayoutTerm` the variable-times-coefficient; `LayoutExpr` the linear form; `LayoutRelation` the relation axis; `LayoutStrength` the priority axis; `LayoutConstraint` the typed equality/inequality binding; `LayoutFault` the typed fault family on the `AppUiFaultBand.Layout` registry row (6020).
+- Cases: `LayoutRelation` = eq | le | ge; `LayoutStrength` = required | strong | medium | weak under the `Kiwi` lexicographic packing; `LayoutFault` = Text | Unsatisfiable | NonLinear | UnknownVariable — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
 - Entry: `public Constraint Compile(VariableEnv env)` — compiles a typed `LayoutConstraint` into a `Kiwi` `Constraint` over the resolved `Variable` handles at the row's `Strength`; the algebra composes through `Kiwi` operator overloads (`Variable * double` → `Term`, `Term + Term` → `Expression`), never hand-built tableau rows.
 - Auto: `LayoutVar` names a child's `Left`/`Top`/`Right`/`Bottom`/`Width`/`Height`/`CenterX`/`CenterY` plus the panel's own bounds, so a layout rule reads geometry by variable; `LayoutConstraint` binds a `LayoutExpr` to a `LayoutRelation` at a `LayoutStrength` mapping onto `Constraint.Equal`/`LessEqual`/`GreaterEqual` at `Strength.Required`/`Strong`/`Medium`/`Weak`; `Theme/tokens` `Metric` rows supply spacing constants so a gap is a token value in the constraint, never a call-site literal; fixed structural rules use `required` and competing preferences use `strong`/`medium`/`weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
 - Packages: Kiwi, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
@@ -59,10 +59,10 @@ public abstract partial record LayoutFault : Expected, IValidationError<LayoutFa
 
     public static LayoutFault Create(string message) => new Text(message);
 
-    public sealed record Text : LayoutFault { public Text(string detail) : base(detail, 4400) { } }
-    public sealed record Unsatisfiable : LayoutFault { public Unsatisfiable(string detail) : base(detail, 4401) { } }
-    public sealed record NonLinear : LayoutFault { public NonLinear(string detail) : base(detail, 4402) { } }
-    public sealed record UnknownVariable : LayoutFault { public UnknownVariable(string detail) : base(detail, 4403) { } }
+    public sealed record Text : LayoutFault { public Text(string detail) : base(detail, AppUiFaultBand.Layout.Code(0)) { } }
+    public sealed record Unsatisfiable : LayoutFault { public Unsatisfiable(string detail) : base(detail, AppUiFaultBand.Layout.Code(1)) { } }
+    public sealed record NonLinear : LayoutFault { public NonLinear(string detail) : base(detail, AppUiFaultBand.Layout.Code(2)) { } }
+    public sealed record UnknownVariable : LayoutFault { public UnknownVariable(string detail) : base(detail, AppUiFaultBand.Layout.Code(3)) { } }
 }
 
 public sealed record LayoutConstraint(LayoutExpr Left, LayoutRelation Relation, LayoutExpr Right, LayoutStrength Strength) {
@@ -152,46 +152,93 @@ public sealed record LayoutReceipt(string Panel, int Constraints, Duration Elaps
 }
 
 public sealed class LayoutSolver : Panel {
-    private readonly VariableEnv env = new();
+    private VariableEnv env = new();
     private Solver solver = new();
     private ConstraintProgram program = new(Seq<LayoutConstraint>(), Seq<string>(), Seq<(LayoutVar, LayoutStrength)>(), Seq<(LayoutVar, double)>());
 
     public const string Key = "layout-solver";
 
+    // Load enforces the Suggest contract structurally: every variable Suggest later touches — the panel
+    // width/height pair AND every program suggestion row — registers as an edit variable here, so
+    // TrySuggestValue never addresses an unregistered variable and a registration failure is a typed fault.
+    // Commit is TRANSACTIONAL over the whole triple: each Load compiles into a FRESH Solver AND a FRESH
+    // VariableEnv, and solver/env/program swap together only after the full rail succeeds — a failed load
+    // leaves the prior triple intact and a stale variable handle from a rejected or superseded program
+    // can never leak into the live tableau.
     public Fin<Unit> Load(ConstraintProgram next) {
-        var fresh = new Solver();
-        program = next;
+        var (fresh, scope) = (new Solver(), new VariableEnv());
         return next.Constraints
             .Fold(Fin.Succ(unit), (rail, constraint) => rail.Bind(_ =>
-                fresh.TryAddConstraint(constraint.Compile(env)) ? Fin.Succ(unit) : Fin.Fail<Unit>(new LayoutFault.Unsatisfiable(Key))))
-            .Map(_ => { next.Edits.Iter(edit => fresh.TryAddEditVariable(env.Resolve(edit.Var), edit.Strength.Value)); solver = fresh; return unit; });
+                fresh.TryAddConstraint(constraint.Compile(scope)) ? Fin.Succ(unit) : Fin.Fail<Unit>(new LayoutFault.Unsatisfiable(Key))))
+            .Bind(_ => EditRows(next)
+                .Fold(Fin.Succ(unit), (rail, edit) => rail.Bind(__ =>
+                    fresh.TryAddEditVariable(scope.Resolve(edit.Var), edit.Strength.Value)
+                        ? Fin.Succ(unit)
+                        : Fin.Fail<Unit>(new LayoutFault.UnknownVariable(edit.Var.Name)))))
+            .Map(_ => { (solver, env, program) = (fresh, scope, next); return unit; });
     }
+
+    private static Seq<(LayoutVar Var, LayoutStrength Strength)> EditRows(ConstraintProgram next) =>
+        Seq(
+            (new LayoutVar(Key, LayoutEdge.Width), LayoutStrength.Strong),
+            (new LayoutVar(Key, LayoutEdge.Height), LayoutStrength.Strong))
+        + next.Edits
+        + next.Suggestions
+            .Map(static suggestion => (suggestion.Var, LayoutStrength.Medium))
+            .Filter(row => !next.Edits.Exists(edit => edit.Var == row.Var));
+
+    // The pass-fault cell: a failed suggest or a keyless child lands HERE as a typed fault the receipt
+    // seal consumes (Relaxed = fault present) — the layout pass degrades to the last solved state and
+    // never throws mid-pass, and a false TrySuggestValue is never silently ignored.
+    private Option<LayoutFault> fault = None;
+
+    public Option<LayoutFault> LastFault => fault;
 
     protected override Size MeasureOverride(Size availableSize) {
         Children.OfType<Control>().Iter(child => child.Measure(availableSize));
-        Suggest(availableSize.Width, availableSize.Height);
+        ignore(Commit(Suggest(availableSize.Width, availableSize.Height)));
         return new Size(env.ValueOf(new LayoutVar(Key, LayoutEdge.Width)), env.ValueOf(new LayoutVar(Key, LayoutEdge.Height)));
     }
 
     protected override Size ArrangeOverride(Size finalSize) {
-        Suggest(finalSize.Width, finalSize.Height);
-        Children.OfType<Control>().Iter(child => child.Arrange(SolvedRect(child)));
+        ignore(Commit(Suggest(finalSize.Width, finalSize.Height)));
+        Children.OfType<Control>().Iter(child => SolvedRect(child).Match(
+            Succ: rect => { child.Arrange(rect); return unit; },
+            Fail: error => Commit(Fin.Fail<Unit>(error))));
         return finalSize;
     }
 
-    private void Suggest(double width, double height) {
-        solver.TrySuggestValue(env.Resolve(new LayoutVar(Key, LayoutEdge.Width)), width);
-        solver.TrySuggestValue(env.Resolve(new LayoutVar(Key, LayoutEdge.Height)), height);
-        program.Suggestions.Iter(suggestion => solver.TrySuggestValue(env.Resolve(suggestion.Var), suggestion.Value));
-        solver.Solve();
+    private Unit Commit(Fin<Unit> outcome) {
+        fault = outcome.Match(
+            Succ: static _ => Option<LayoutFault>.None,
+            Fail: error => Some(error is LayoutFault typed ? typed : new LayoutFault.Text(error.Message)));
+        return unit;
     }
 
-    private Rect SolvedRect(Control child) =>
-        child.Name is { } owner
-            ? new Rect(
+    private Fin<Unit> Suggest(double width, double height) =>
+        (Seq(
+            (Var: new LayoutVar(Key, LayoutEdge.Width), Value: width),
+            (Var: new LayoutVar(Key, LayoutEdge.Height), Value: height))
+         + program.Suggestions)
+        .Fold(Fin.Succ(unit), (rail, row) => rail.Bind(_ =>
+            solver.TrySuggestValue(env.Resolve(row.Var), row.Value)
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new LayoutFault.UnknownVariable(row.Var.Name))))
+        .Map(_ => { solver.Solve(); return unit; });
+
+    // Solved geometry keys by a REQUIRED child identity: the program child key attached at materialization
+    // (ChildKeyProperty, set from the ControlIntent key) — a nullable Control.Name lookup is the deleted form.
+    public static readonly AttachedProperty<string> ChildKeyProperty =
+        AvaloniaProperty.RegisterAttached<LayoutSolver, Control, string>("ChildKey");
+
+    private Fin<Rect> SolvedRect(Control child) {
+        string owner = child.GetValue(ChildKeyProperty);
+        return string.IsNullOrEmpty(owner)
+            ? Fin.Fail<Rect>(new LayoutFault.UnknownVariable($"{child.GetType().Name} mounted without a program child key"))
+            : Fin.Succ(new Rect(
                 env.ValueOf(new LayoutVar(owner, LayoutEdge.Left)), env.ValueOf(new LayoutVar(owner, LayoutEdge.Top)),
-                env.ValueOf(new LayoutVar(owner, LayoutEdge.Width)), env.ValueOf(new LayoutVar(owner, LayoutEdge.Height)))
-            : default;
+                env.ValueOf(new LayoutVar(owner, LayoutEdge.Width)), env.ValueOf(new LayoutVar(owner, LayoutEdge.Height))));
+    }
 
     public const string SolveInstrument = "rasm.appui.layout.solve-elapsed";
     public const string UnsatisfiableInstrument = "rasm.appui.layout.unsatisfiable";

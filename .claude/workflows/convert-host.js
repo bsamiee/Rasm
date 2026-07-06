@@ -1,9 +1,9 @@
 export const meta = {
   name: 'convert-host',
-  description: 'Convert Rasm.Rhino and Rasm.Grasshopper from durable host-bound source into full planning folders: hostile source census + current-only host-API research (assay decompile over RhinoCommon/Eto/Grasshopper2 - never Rhino 7 or GH1 material) deepening the existing folder .api stubs in place - the census/research/kernel/acceptance lanes run on gpt-5.5 dispatched through codex wrapper agents (CODEX flag; false restores native opus) - one shared kernel recon lane over the rebuilt libs/csharp/Rasm corpus (unified motion/easing/color math and every universal owner the host layers must compose instead of re-deriving), one architect per folder ruling the re-derived sub-domain map + unit dependency edges and executing the scaffold, then ALL build units across both folders CONCURRENT under one agent-level slot cap (a unit waits only on the implement stage of its declared dependency units, never on sibling chains) - each unit an implement-critique-redteam chain with navigation-fact handoffs, seam-ledger coordination, and bidirectional kernel ripple authority under the evidence/expand-form/depth bounds; per-folder index docs authored last from the landed tree, one serialized law tail owning central manifests and stale-claim verification, read-only acceptance close.',
+  description: 'Convert Rasm.Rhino and Rasm.Grasshopper from durable host-bound source into full planning folders: hostile source census + current-only host-API research (assay decompile over RhinoCommon/Eto/Grasshopper2 - never Rhino 7 or GH1 material) deepening the existing folder .api stubs in place - the census/research/kernel/acceptance lanes run on gpt-5.5 dispatched through codex wrapper agents (CODEX flag; false restores native opus), each lane writing its COMPLETE typed JSON product to the workflow scratch and returning a thin receipt {ok, report, entries, headline, failure}; the architect consumes every ok report IN FULL from disk with failed-lane scope as its direct-read queue - one shared kernel recon lane over the rebuilt libs/csharp/Rasm corpus (unified motion/easing/color math and every universal owner the host layers must compose instead of re-deriving), one architect per folder ruling the re-derived sub-domain map + unit dependency edges and executing the scaffold, then ALL build units across both folders CONCURRENT under one agent-level slot cap (a unit waits only on the implement stage of its declared dependency units, never on sibling chains) - each unit an implement-critique-redteam chain with navigation-fact handoffs, seam-ledger coordination, and bidirectional kernel ripple authority under the evidence/expand-form/depth bounds; per-folder index docs authored last from the landed tree, one serialized law tail owning central manifests and stale-claim verification, read-only acceptance close.',
   whenToUse: 'Launch once to open the host-boundary planning campaign. Ephemeral - delete after the campaign lands.',
   phases: [
-    { title: 'Survey', detail: 'census + catalog-deepening research + kernel recon lanes on gpt-5.5 via the codex wrapper (sonnet dispatch shells); CODEX=false restores native opus', model: 'sonnet' },
+    { title: 'Survey', detail: 'census + catalog-deepening research + kernel recon lanes on gpt-5.5 via the codex wrapper (sonnet dispatch shells); products to disk, receipts on the wire; CODEX=false restores native opus', model: 'sonnet' },
     { title: 'Architect' },
     { title: 'Build' },
     { title: 'Close' },
@@ -12,14 +12,13 @@ export const meta = {
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
-const CAP = 14 // runtime concurrency clamp is min(16, cores-2) = 14 on this machine
+const CAP = 14       // runtime concurrency clamp is min(16, cores-2) = 14 on this machine
 const STAGGER_MS = 1500
 const STALL = 300000
 const MAX_UNITS = 6
 const UNIT_PAGES = 8 // pages per unit ceiling; editing fidelity degrades past ~8 dense pages per writer
-const SCRATCH = '.claude/scratch/convert-host'
-const CODEX = true // survey/kernel/acceptance lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
+const CODEX = true   // survey/kernel/acceptance lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX_DIR = '.claude/scratch/convert-host' // per-run scratch: task/schema/report/stderr per lane + unit seam ledgers
 
 const FOLDERS = [
   {
@@ -88,8 +87,45 @@ const ACTIVE = wanted
 
 // --- [MODELS] ----------------------------------------------------------------------------
 
-const DOSSIER = { type: 'object', additionalProperties: false, required: ['path', 'summary'], properties: {
-  path: { type: 'string' }, summary: { type: 'string' } } }
+// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
+const anchorOf = (roles) => ({ type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: roles }, note: { type: 'string' } } })
+const COVERAGE = { type: 'object', additionalProperties: false, required: ['requested', 'read', 'skipped', 'unverified'], properties: {
+  requested: { type: 'array', items: { type: 'string' } }, read: { type: 'array', items: { type: 'string' } },
+  skipped: { type: 'array', items: { type: 'string' } }, unverified: { type: 'array', items: { type: 'string' } } } }
+// Recon/inventory product (research + kernel recon lanes): facts with anchors, never prescriptions.
+const MAP = { type: 'object', additionalProperties: false, required: ['entries', 'coverage', 'summary'], properties: {
+  entries: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'kind', 'files', 'info', 'anchors', 'members'], properties: {
+    target: { type: 'string' }, // catalog, kernel owner, capability cluster, or seam the entry grounds
+    kind: { type: 'string', enum: ['owner', 'catalog', 'capability', 'gap', 'seam'] },
+    files: { type: 'array', items: { type: 'string' } }, // files the reader must open for this entry
+    info: { type: 'string' }, // the fact: current shape, extension site, seam endpoints — prose truth, zero prescriptions
+    anchors: { type: 'array', items: anchorOf(['state', 'ruling', 'catalog', 'counterpart', 'absence']) },
+    members: { type: 'array', items: { type: 'string' } } } } }, // verified member spellings backing the entry
+  coverage: COVERAGE, summary: { type: 'string' } } }
+// Defect-shaped product (census register + acceptance audit): inventory fields + constraint-boundary fields per entry.
+const REGISTER = { type: 'object', additionalProperties: false, required: ['entries', 'coverage', 'summary'], properties: {
+  entries: { type: 'array', items: { type: 'object', additionalProperties: false,
+    required: ['claimKey', 'target', 'kind', 'files', 'info', 'members', 'severity', 'claim', 'mechanism', 'owner', 'reject', 'acceptance', 'anchors'], properties: {
+    claimKey: { type: 'string' }, // <kind>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+    target: { type: 'string' }, // the .cs file (census), csproj (manifest), or miss label (acceptance)
+    kind: { type: 'string', enum: ['register', 'manifest', 'symbol', 'disposition', 'boundary', 'kernel', 'law'] },
+    files: { type: 'array', items: { type: 'string' } }, // files the reader must open or edit first
+    info: { type: 'string' }, // inventory prose: owned capability + host-agnostic vs host-bound split — facts only
+    members: { type: 'array', items: { type: 'string' } }, // exact host members composed, verified spellings
+    severity: { type: 'string', enum: ['blocker', 'major', 'minor'] }, // bound to consequence, never prose confidence
+    claim: { type: 'string' }, // the observed fact or defect (census: quality verdict, naivety axes named)
+    mechanism: { type: 'string' }, // WHY the current form fails — factual, zero repair verbs
+    owner: { type: 'string' }, // canonical absorber (census: the collapse-signal polymorphic owner)
+    reject: { type: 'array', items: { type: 'string' } }, // deleted forms (census: what dies as pattern)
+    acceptance: { type: 'array', items: { type: 'string' } }, // proof signals (census: what survives as concept)
+    anchors: { type: 'array', items: anchorOf(['defect', 'ruling', 'catalog', 'counterpart', 'absence']) } } } },
+  coverage: COVERAGE, summary: { type: 'string' } } }
+// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' } } }
 const UNIT = { type: 'object', additionalProperties: false, required: ['key', 'pages', 'owns', 'charter', 'after'], properties: {
   key: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } },
   owns: { type: 'string' }, // the ownership boundary: which vocabulary/owners THIS unit mints vs composes
@@ -104,14 +140,12 @@ const DEFERRED = { type: 'array', items: { type: 'object', additionalProperties:
 const INDEXROWS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['doc', 'row'],
   properties: { doc: { type: 'string' }, row: { type: 'string' } } } }
 const FIXLOG = { type: 'object', additionalProperties: false,
-  required: ['files', 'verdict', 'summary', 'deltas', 'deferred', 'indexRows'], properties: {
+  required: ['files', 'verdict', 'summary', 'deltas', 'deferred', 'indexRows', 'phantoms'], properties: {
   files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'rebuilt', 'refined', 'clean'] },
   phantoms: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' },
   deltas: DELTAS, deferred: DEFERRED, indexRows: INDEXROWS } }
 const DOCS_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const ACCEPT_SCHEMA = { type: 'object', additionalProperties: false, required: ['unresolved', 'summary'], properties: {
-  unresolved: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 
@@ -156,7 +190,7 @@ const READ_FIRST = 'READ FIRST, IN ORDER, BEFORE ANY EDIT. (1) DOCTRINE - enumer
   'Thinktecture/LanguageExt rails onto the host surfaces, never the host set alone. (3) AUTHORING LAW - ' +
   'libs/.planning/README.md in full (doc-set, page grammar, card law, banned hedges) and docs/standards/' +
   'style-guide.md. (4) KERNEL - the Rasm package README.md + ARCHITECTURE.md so kernel leverage composes real ' +
-  'surfaces, never guesses; the kernel recon dossier carries the exact unified-owner sites.'
+  'surfaces, never guesses; the kernel recon report carries the exact unified-owner sites.'
 
 const STANCE = 'STANCE - every pass is hostile; the pages under review were authored by ANOTHER engineer and are under ' +
   'adversarial review. Hold every fence naive, shallow, or illusory until it survives a real attack; the burden of proof ' +
@@ -179,13 +213,39 @@ const CURRENT_STATE = 'CURRENT STATE - sibling units land work concurrently with
   'CURRENT on-disk state of your pages AND every sibling page your pages compose; landed sibling work is picked up as ' +
   'found. A vocabulary owner your charter marks as composed (not minted) is read from disk as it NOW stands; a conflict ' +
   'between your design and a landed sibling resolves to the stronger form, never a revert. SEAM LEDGER: append one row ' +
-  'per cross-unit event to your unit ledger `' + SCRATCH + '/<folder>-<unit>-seams.md` (`SEAM_CHANGED | <files> | ' +
+  'per cross-unit event to your unit ledger `' + CODEX_DIR + '/<folder>-<unit>-seams.md` (`SEAM_CHANGED | <files> | ' +
   '<symbol fact, old -> new>` when a shared name/signature you mint moves; `RIPPLE_REPAIRED | <files> | <fact>` when you ' +
-  'repair a counterpart). Before any edit outside your unit pages, ls `' + SCRATCH + '/` and read every sibling ' +
+  'repair a counterpart). Before any edit outside your unit pages, ls `' + CODEX_DIR + '/` and read every sibling ' +
   '`*-seams.md` row whose files intersect yours - a RIPPLE_REPAIRED row is work you do NOT redo.'
 
 const GIT_GROUND = 'DELTA GROUNDING - run `git status` and `git diff --stat -- <your unit pages>` to see what this run ' +
   'changed before judging it; the diff is orientation, CURRENT disk is truth.'
+
+const INFO_LAW = 'You provide INFORMATION, never prescriptions: exact disk locations and anchors, the current shape at ' +
+  'each surface, verified member spellings, gaps. The architect and unit writers decide how to build; an entry that ' +
+  'tells them what to write instead of what is true is a defect. ENTRY FORM: `info` is prose truth; `anchors` carry one ' +
+  'coordinate per row (role names what it proves; `note` is the shortest literal witness under 20 words, or empty when ' +
+  'path+line suffice; an `absence` anchor names where the expected thing was searched and not found); `files` lists ' +
+  'what the reader must open for the entry; `members` carry verified spellings only. An underutilized-capability entry ' +
+  'is INVENTORY, never instruction: verified members, current usage anchors, the concept that admits it - the writer ' +
+  'decides whether it composes. COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you ' +
+  'actually full-read, `skipped`/`unverified` = what you did not reach - an honest skip beats a silent one.'
+
+const EVIDENCE_LAW = 'ENTRY FORM - you deliver TRUTH, never an implementation: `claim` states the observed fact or ' +
+  'defect; `mechanism` states WHY the current form fails as fact; `anchors` carry one coordinate per row (role names ' +
+  'what the coordinate proves; `note` is the shortest literal witness - a symbol, member spelling, or fragment under ' +
+  '20 words - or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not ' +
+  'found); `owner` names the canonical owner that must absorb the resolution (the owning axis, row roster, or ' +
+  'polymorphic owner - never a new local shape); `reject` lists the forms the rebuild must not take; `acceptance` ' +
+  'lists the signals that prove resolution. NEVER write add/replace/implement/promote/delete as instruction - the ' +
+  'writer owns the design; you own the constraint boundary. `claimKey` = <kind>|<owner>|<primary symbol or absence ' +
+  'route>, identical for the same fact regardless of lane or wording. `severity` binds to consequence: blocker = ' +
+  'campaign-blocking, major = rebuild-ruling correctness, minor = local cleanup - never prose confidence. OUTPUT ' +
+  'BOUNDS: the task states your register bound - a census register is COMPLETE (every assigned file appears as one ' +
+  'entry); an audit scope returns only confirmed misses, 0 only when the hostile pass comes back empty, and then ' +
+  '`summary` names the probes that produced nothing; never manufacture an entry, never delete a confirmed one. ' +
+  'COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you actually full-read, ' +
+  '`skipped`/`unverified` = what you did not reach or could not confirm - an honest skip beats a silent one.'
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -204,100 +264,125 @@ const makeSlots = (cap) => {
     try { return await fn() } finally { active--; const next = waiters.shift(); if (next) next() }
   }
 }
+
 const slot = makeSlots(CAP)
 // gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
 // CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
+// downstream readers. It never does, edits, judges, or relays the work.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
 const codexPrompt = (label, task, schema, writes) => {
   const base = CODEX_DIR + '/' + fileTag(label)
   const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
-  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
-    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
-  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
-    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+  const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1) // self-excluding pgrep/pkill pattern
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
+    'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
+  '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' + CODEX_DIR + '; purge stale lane artifacts (a leftover report would READY instantly with last run\'s data): rm -f ' + base + '-report.json ' + base + '-stderr.log; Write the TASK block below verbatim to ' + base + '-task.md; Write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json — both paths resolved ABSOLUTE under the repository root: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' + base + '-task.md && test -s ' + base + '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
+    'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
+    'zero-CPU, no report): ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
     '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
-    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' + base + '-stderr.log &',
   '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
     'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
     'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
-    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
-    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
-  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
-    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+    'pgrep -f "' + rptPat + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rptPat + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 2nd RUNNING ' +
+    'poll (~10 min wall) the run is WEDGED, not slow — kill it (pkill -f "' + rptPat + '") and go to (4) as GONE. ' +
+    'Cap at 7 poll calls total.',
+  '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
+    'judgment): entries=$(jq \'.entries | length\' ' + base + '-report.json); kinds=$(jq -r \'[.entries[].kind] | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' + base + '-report.json); top=$(jq -r \'[.entries[].files[0]] | group_by(.) | max_by(length) | .[0] // "none"\' ' + base + '-report.json). ' +
+    'Return the RECEIPT: ok=true, report=' + base + '-report.json, entries=that count, headline="<entries> entries | <kinds> | top: <top>", failure empty. ' +
+    'GONE with no report: tail -5 ' + base + '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
+    'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
   'TASK — write verbatim to the task file, then dispatch:',
   task].join('\n\n')
 }
+
 // Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-const recon = (task, o) => CODEX
+// The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
+// unmapped territory is exact even when the lane died before writing anything.
+const recon = (task, o) => (CODEX
   ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
-    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
-  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    CODEX_DIR + '/' + fileTag(o.label) + '-report.json (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(o.schema) + ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+    { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL }))
+  .then((r) => ({ lane: o.label, scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+    entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died') }))
+  .catch(() => ({ lane: o.label, scope: o.scope || [], ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }))
 // Navigation handoff: FACTS ONLY - files, symbol deltas, backlog. Never verdicts, summaries, or adjectives.
 const navOf = (logs) => { const rows = logs.filter(Boolean); return { files: [...new Set(rows.flatMap((r) => r.files || []))],
   deltas: rows.flatMap((r) => r.deltas || []), deferred: rows.flatMap((r) => r.deferred || []) } }
 
-const censusPrompt = (folder, lane) => [CONTEXT, MANDATE,
+const censusPrompt = (folder, lane) => [CONTEXT, MANDATE, EVIDENCE_LAW,
   'TASK: HOSTILE READ-ONLY SOURCE CENSUS over ' + folder.root + ' - your assigned slice: ' + lane.paths + '. ' +
-  'Read every assigned .cs file IN FULL. For EACH file emit one register row: file | owned capability in concept ' +
-  'terms | the exact host members it composes (' + folder.host + ') | quality verdict with the naivety axes named | ' +
-  'collapse signal (which sibling capabilities belong inside one polymorphic owner) | HOST-AGNOSTIC vs HOST-BOUND split ' +
-  '(pure math/algebra liftable to the Rasm kernel vs genuinely host-coupled mechanism) | rebuild intent (what survives ' +
-  'as concept, what dies as pattern). Also inventory ' + folder.root + '/' + folder.name + '.csproj: references, ' +
-  'packages, host assembly bindings. The register must be COMPLETE - every assigned file appears; downstream ' +
-  'disposition audits key off your rows. Write the dossier to ' + SCRATCH + '/' + folder.key + '-census-' + lane.key +
-  '.md and return {path, summary} - summary max 10 lines.',
+  'Read every assigned .cs file IN FULL. For EACH file emit one `register` entry: `target` = the file; `info` = the ' +
+  'owned capability in concept terms plus the HOST-AGNOSTIC vs HOST-BOUND split (pure math/algebra liftable to the ' +
+  'Rasm kernel vs genuinely host-coupled mechanism); `members` = the exact host members it composes (' + folder.host +
+  '); `claim` = the quality verdict with the naivety axes named; `mechanism` = why the current form fails; `owner` = ' +
+  'the collapse signal (the one polymorphic owner the sibling capabilities belong inside); `reject` = what dies as ' +
+  'pattern; `acceptance` = what survives as concept (the rebuild intent). Also inventory ' + folder.root + '/' +
+  folder.name + '.csproj as one `manifest` entry: references, packages, host assembly bindings in `info`/`members`. ' +
+  'The register must be COMPLETE - every assigned file appears; downstream disposition audits key off your entries.',
 ].join('\n\n')
 
-const researchPrompt = (folder, lane) => [CONTEXT, MANDATE,
+const researchPrompt = (folder, lane) => [CONTEXT, MANDATE, INFO_LAW,
   'TASK: CURRENT-ONLY HOST-API RESEARCH for ' + folder.name + ' - lane ' + lane.key + '. ' + lane.charge + ' ' +
   'PRIMARY ROUTE: `uv run python -m tools.assay api` decompile over the installed host assemblies - enumerate ' +
   'namespaces, then drill the surfaces your charge names; quote verified member signatures with their assembly ' +
   'anchors. SECONDARY: existing catalogs under libs/csharp/Rasm/.api/ and libs/csharp/.api/, Context7, and current ' +
   'McNeel developer material - marked catalog-verified when assay cannot reach a surface. FORBIDDEN: any Rhino 6/7-era ' +
-  'or GH1 pattern presented as current; training-data recall without verification. PRODUCT: DEEPEN these existing ' +
-  'folder .api stub catalogs IN PLACE at ' + folder.root + '/.api/ - each stub declares its owned namespace scope; you ' +
-  'grow it to a verified-member catalog (exact signatures, integration shape per capability cluster, what the ' +
-  'census-era source missed), preserving each stub file scope and name: ' + lane.catalogs + '. These files are YOURS ' +
-  'alone this run - no other lane writes them' + (folder.key === 'gh' ? ' (the Rhino folder owns its own copies of the ' +
-  'eto catalogs; never edit outside ' + folder.root + ')' : '') + '. Also write a dossier of cross-catalog findings to ' +
-  SCRATCH + '/' + folder.key + '-research-' + lane.key + '.md with verified anchors ONLY - a fake anchor is your ' +
-  'defect. Return {path, summary} - summary max 10 lines.',
+  'or GH1 pattern presented as current; training-data recall without verification. IN-PLACE PRODUCT: DEEPEN these ' +
+  'existing folder .api stub catalogs IN PLACE at ' + folder.root + '/.api/ - each stub declares its owned namespace ' +
+  'scope; you grow it to a verified-member catalog (exact signatures, integration shape per capability cluster, what ' +
+  'the census-era source missed), preserving each stub file scope and name: ' + lane.catalogs + '. These files are ' +
+  'YOURS alone this run - no other lane writes them' + (folder.key === 'gh' ? ' (the Rhino folder owns its own copies ' +
+  'of the eto catalogs; never edit outside ' + folder.root + ')' : '') + '. REPORT PRODUCT: one `catalog` entry per ' +
+  'deepened catalog (its landed anchor state) plus `capability`/`gap`/`seam` entries for cross-catalog findings - ' +
+  'verified anchors ONLY; a fake anchor is your defect.',
 ].join('\n\n')
 
-const kernelPrompt = () => [CONTEXT, MANDATE,
+const kernelPrompt = () => [CONTEXT, MANDATE, INFO_LAW,
   'TASK: READ-ONLY KERNEL RECON over libs/csharp/Rasm - the rebuilt kernel planning corpus the host folders compose. ' +
   'Read the package README.md + ARCHITECTURE.md, then EVERY design page under libs/csharp/Rasm/.planning/ IN FULL ' +
   '(all sub-domains - Analysis, Domain, Drawing, Meshing, Numerics, Parametric, Processing, Solving, Spatial), and ls ' +
-  'libs/csharp/Rasm/.api/. PRODUCT - information, never prescriptions: (1) UNIFIED OWNERS: every kernel owner the ' +
+  'libs/csharp/Rasm/.api/. PRODUCT - information, never prescriptions: (1) `owner` entries: every kernel owner the ' +
   'host-boundary layers must COMPOSE instead of re-deriving - easing/spring/interpolation/timeline math, perceptual ' +
   'color algebra, pure geometry/numeric algorithms, parametric/motion vocabulary - each with the exact page, owner ' +
-  'name, and member spellings quoted with file:line anchors. (2) KERNEL GAPS: host-agnostic capability the census-era ' +
+  'name, and member spellings quoted with file:line anchors. (2) `gap` entries: host-agnostic capability the census-era ' +
   'host source hand-rolls (46-curve easing families, damped-spring integrators, OKLab/OKLCH blending, repeat/yoyo ' +
   'cycle arithmetic) that NO kernel owner carries yet - name the closest existing kernel owner and the expand-form ' +
-  'extension site (the page + section where a case/row/field/operation would land). (3) SEAMS: every kernel surface ' +
-  'whose shape the host folders depend on, quoted. MANDATORY SELF-VERIFY: re-open every cited anchor before returning; ' +
-  'a guess or vague entry is deleted. Write the dossier to ' + SCRATCH + '/kernel-recon.md and return {path, summary}.',
+  'extension site (the page + section where a case/row/field/operation would land) as fact. (3) `seam` entries: every ' +
+  'kernel surface whose shape the host folders depend on, quoted. MANDATORY SELF-VERIFY: re-open every cited anchor ' +
+  'before returning; a guess or vague entry is deleted.',
 ].join('\n\n')
 
-const architectPrompt = (folder, dossiers, kernelDossier) => [CONTEXT, MANDATE, READ_FIRST, STANCE,
-  'TASK: RULE + SCAFFOLD the ' + folder.name + ' planning folder. EVIDENCE - read every dossier in full: ' +
-  dossiers.join(', ') + ', and the kernel recon at ' + kernelDossier + '. RULE the architecture: RE-DERIVE the ' +
+const architectPrompt = (folder, survey, kernelReport, unmapped) => [CONTEXT, MANDATE, READ_FIRST, STANCE,
+  'TASK: RULE + SCAFFOLD the ' + folder.name + ' planning folder. EVIDENCE - the survey REPORT FILES are your ' +
+  'reconnaissance. CONSUMPTION: (a) UNMAPPED scope below gets your own cold read FIRST - a failed lane\'s territory ' +
+  'is your direct census; (b) read every ok report IN FULL from disk - the kernel recon (' +
+  (kernelReport || 'UNMAPPED: read libs/csharp/Rasm README + ARCHITECTURE + .planning directly') + ') and the ' +
+  'research reports before the census slices; entries overlap across lanes, dedupe by claimKey/target as you read; ' +
+  '(c) each entry\'s anchors are jump coordinates - spot-verify what you build on, and re-open every anchor behind an ' +
+  'edit; (d) `owner`/`reject`/`acceptance` on a census entry are its constraint boundary - honor them; the DESIGN is ' +
+  'yours. UNMAPPED: ' + JSON.stringify(unmapped) + ' ROSTER: ' + JSON.stringify(survey) + '. ' +
+  'RULE the architecture: RE-DERIVE the ' +
   'sub-domain map from the census evidence, never from the current folder layout - a sub-domain earns 3+ pages or ' +
   'folds; concern-mixing in the source is split pressure (a single UI sub-domain carrying canvas painting, wire ' +
   'routing, motion, interaction, chrome, and events at ~9k LOC fails the map - rule the split the evidence demands); ' +
   'an Eto sub-domain is MANDATORY and owns full native UI construction as generator rows. Emit the complete page ' +
   'roster (PascalCase sub-folders, lowercase page names, one dense owner per page), the disposition of every census ' +
-  'register row (absorbed into a named page or explicitly killed with a ruling), the host-agnostic rows routed to the ' +
+  'register entry (absorbed into a named page or explicitly killed with a ruling), the host-agnostic rows routed to the ' +
   'kernel per MANDATE rule (2) (each with its kernel extension site from the recon), and any packageDeltas (central ' +
   'Directory.Packages.props motions - REPORT them, never edit the central manifest; folder .csproj edits are yours). ' +
   'PARTITION the roster into at most ' + MAX_UNITS + ' build units of at most ' + UNIT_PAGES + ' pages each: units ' +
   'run CONCURRENTLY, so each unit carries `owns` (the vocabulary/owners it MINTS - no two units mint the same owner), ' +
-  'a charter (collapse rulings, census-row dispositions, host-capability targets from the research catalogs, kernel ' +
+  'a charter (collapse rulings, census-entry dispositions, host-capability targets from the research catalogs, kernel ' +
   'compose/extend rows), and `after` (the unit keys whose IMPLEMENT must land before this unit starts - ONLY true ' +
   'vocabulary dependence, typically the foundation unit alone; an empty after is the default, and after may only name ' +
   'units earlier in your emitted order). THEN EXECUTE the scaffold: record the current HEAD hash as preSwap; create ' +
@@ -307,14 +392,17 @@ const architectPrompt = (folder, dossiers, kernelDossier) => [CONTEXT, MANDATE, 
   'units, packageDeltas, summary}.',
 ].join('\n\n')
 
-const implementPrompt = (folder, unit, preSwap, dossiers, kernelDossier, scopes) => [CONTEXT, MANDATE, READ_FIRST,
+const implementPrompt = (folder, unit, preSwap, reports, kernelReport, scopes) => [CONTEXT, MANDATE, READ_FIRST,
   STANCE, WRITE_FULLY, CURRENT_STATE,
   'TASK: GROUND-UP AUTHOR unit ' + unit.key + ' of ' + folder.name + ' - build freely and ambitiously to the full ' +
   'bar; the trailing critique and red-team passes carry the attack. EXACTLY these pages: ' + unit.pages.join(', ') +
-  '. OWNS: ' + unit.owns + '. CHARTER: ' + unit.charter + ' Evidence dossiers: ' + dossiers.join(', ') +
-  '; kernel recon: ' + kernelDossier + '; the folder .api catalogs are deepened and verified - compose them. ' +
+  '. OWNS: ' + unit.owns + '. CHARTER: ' + unit.charter + ' Evidence reports (typed JSON products on disk - read the ' +
+  'ones your charter touches IN FULL; each entry\'s anchors are jump coordinates, re-open any anchor behind an edit): ' +
+  reports.join(', ') + '; kernel recon report: ' +
+  (kernelReport || 'UNMAPPED - read libs/csharp/Rasm README + ARCHITECTURE + .planning directly') +
+  '; the folder .api catalogs are deepened and verified - compose them. ' +
   'CONCURRENT UNIT SCOPES (a page another unit owns is composed from disk, never edited; a needed change there is a ' +
-  '`deferred` row): ' + scopes + '. Old source recovers via git show ' + preSwap + ':<path> when a census row needs ' +
+  '`deferred` row): ' + scopes + '. Old source recovers via git show ' + preSwap + ':<path> when a census entry needs ' +
   'depth beyond its register. Before authoring EACH page, restate in one line the owner it holds, the vocabulary it ' +
   'mints vs composes, and the doctrine laws that bind it - then build against that restatement. Construct in ' +
   'LIFECYCLE order: admit raw once, canonical owner by OWNER_CHOOSER, stacked rail/aspect over a thin pure core, ' +
@@ -410,15 +498,16 @@ const lawPrompt = (results, backlog) => [CONTEXT, MANDATE, WRITE_FULLY,
   'by members and law, never by count. Return {files, summary}.',
 ].join('\n\n')
 
-const acceptPrompt = (results) => [CONTEXT,
+const acceptPrompt = (results) => [CONTEXT, EVIDENCE_LAW,
   'TASK: READ-ONLY ACCEPTANCE - investigate, never edit, never block. Over both converted folders (' +
-  results.map((r) => r.folder).join(', ') + '): (1) cross-page symbol sweep - every cross-page symbol a landed ' +
-  'fence composes resolves on a sibling owner with a matching signature; (2) census-disposition spot-audit - sample ' +
-  '10 register rows per folder from the census dossiers under ' + SCRATCH + '/ and confirm each landed in a page or ' +
-  'carries an explicit kill; (3) boundary audit - no reference beyond the Rasm kernel, no AppUi, no GH1/legacy ' +
-  'member cited as current; (4) kernel-unification audit - no host-agnostic math re-derived in a fence where the ' +
-  'kernel owns or gained the owner; (5) law-doc audit - no surviving out-of-scope claim. Report each miss as ' +
-  'unresolved with file evidence. Return {unresolved, summary}.',
+  results.map((r) => r.folder).join(', ') + '): (1) `symbol` - cross-page symbol sweep: every cross-page symbol a ' +
+  'landed fence composes resolves on a sibling owner with a matching signature; (2) `disposition` - census-disposition ' +
+  'spot-audit: sample 10 register entries per folder from the census reports under ' + CODEX_DIR + '/ ' +
+  '(census-*-report.json) and confirm each landed in a page or carries an explicit kill; (3) `boundary` - no reference ' +
+  'beyond the Rasm kernel, no AppUi, no GH1/legacy member cited as current; (4) `kernel` - no host-agnostic math ' +
+  're-derived in a fence where the kernel owns or gained the owner; (5) `law` - no surviving out-of-scope claim in ' +
+  'the law docs. Each confirmed miss is one entry of the matching kind with file-evidence anchors; zero misses is a ' +
+  'valid empty result.',
 ].join('\n\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -431,20 +520,30 @@ log('Converting: ' + ACTIVE.map((f) => f.name).join(', ') + '; CAP=' + CAP)
 
 phase('Survey')
 const kernelRecon = slot(() => recon(kernelPrompt(),
-  { label: 'recon:kernel', phase: 'Survey', schema: DOSSIER, writes: true })) // shared across folders; awaited before each architect
+  { label: 'recon:kernel', phase: 'Survey', schema: MAP, scope: ['libs/csharp/Rasm'] })) // shared across folders; awaited before each architect
 
 const results = (await Promise.all(ACTIVE.map(async (folder) => {
-  const lanes = folder.census.map((lane) => ({ kind: 'census', lane })).concat(
-    folder.research.map((lane) => ({ kind: 'research', lane })))
-  const dossiers = (await Promise.all(lanes.map((entry) => slot(() =>
+  const lanes = folder.census.map((lane) => ({ kind: 'census', lane, schema: REGISTER, writes: false,
+    scope: [folder.root + ': ' + lane.paths] })).concat(
+    folder.research.map((lane) => ({ kind: 'research', lane, schema: MAP, writes: true,
+      scope: lane.catalogs.split(',').map((s) => folder.root + '/.api/' + s.trim()) })))
+  const roster = await Promise.all(lanes.map((entry) => slot(() =>
     recon(entry.kind === 'census' ? censusPrompt(folder, entry.lane) : researchPrompt(folder, entry.lane), {
-      label: entry.kind + ':' + folder.key + ':' + entry.lane.key, phase: 'Survey', schema: DOSSIER, writes: true,
-    })).catch(() => null)))).filter(Boolean).map((d) => d.path)
-  if (!dossiers.length) throw new Error(folder.name + ': no survey dossier landed')
+      label: entry.kind + ':' + folder.key + ':' + entry.lane.key, phase: 'Survey', schema: entry.schema,
+      writes: entry.writes, scope: entry.scope,
+    }))))
+  const mapped = roster.filter((r) => r.ok)
+  if (!mapped.length) throw new Error(folder.name + ': no survey report landed')
   const kmap = await kernelRecon
-  const kernelDossier = (kmap && kmap.path) || SCRATCH + '/kernel-recon.md'
+  const survey = roster.concat([kmap])
+  const unmapped = survey.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })))
+  const kernelReport = kmap.ok ? kmap.report : ''
+  const reports = survey.filter((r) => r.ok).map((r) => r.report)
+  log(folder.name + ': ' + survey.filter((r) => r.ok).reduce((a, r) => a + r.entries, 0) + ' survey entries across ' +
+    survey.filter((r) => r.ok).length + '/' + survey.length + ' lanes' + (unmapped.length
+      ? ' — FAILED: ' + survey.filter((r) => !r.ok).map((r) => r.lane).join(', ') : ''))
 
-  const arch = await slot(() => agent(architectPrompt(folder, dossiers, kernelDossier), {
+  const arch = await slot(() => agent(architectPrompt(folder, survey, kernelReport, unmapped), {
     label: 'architect:' + folder.key, phase: 'Architect', model: 'fable', effort: 'high', schema: ARCH_SCHEMA, stallMs: STALL,
   }))
   if (!arch || !arch.units || !arch.units.length) throw new Error(folder.name + ': architect did not land')
@@ -460,7 +559,7 @@ const results = (await Promise.all(ACTIVE.map(async (folder) => {
   const unitReports = await Promise.all(units.map(async (unit, i) => {
     const deps = (unit.after || []).filter((k) => implDone.has(k) && keyIndex.get(k) < i)
     await Promise.all(deps.map((k) => implDone.get(k).p))
-    const fix = await slot(() => agent(implementPrompt(folder, unit, arch.preSwap, dossiers, kernelDossier, scopes), {
+    const fix = await slot(() => agent(implementPrompt(folder, unit, arch.preSwap, reports, kernelReport, scopes), {
       label: 'impl:' + folder.key + ':' + unit.key, phase: 'Build', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: STALL,
     })).catch(() => null)
     implDone.get(unit.key).release() // dependents launch even on failure; they compose current disk
@@ -479,7 +578,7 @@ const results = (await Promise.all(ACTIVE.map(async (folder) => {
   const docs = await slot(() => agent(docsPrompt(folder, unitReports.map((u) => ({ unit: u.unit, pages: u.pages, verdict: u.verdict }))), {
     label: 'docs:' + folder.key, phase: 'Build', model: 'fable', effort: 'high', schema: DOCS_SCHEMA, stallMs: STALL,
   }))
-  return { folder: folder.name, preSwap: arch.preSwap, units: unitReports,
+  return { folder: folder.name, root: folder.root, preSwap: arch.preSwap, units: unitReports,
     packageDeltas: arch.packageDeltas || [], deferred: unitReports.flatMap((u) => u.deferred),
     indexRows: unitReports.flatMap((u) => u.indexRows), docs: docs ? docs.summary : 'dropped' }
 }).map((p) => p.catch((e) => { log('folder failed: ' + e.message); return null })))).filter(Boolean)
@@ -497,12 +596,13 @@ const law = await slot(() => agent(lawPrompt(results, BACKLOG), {
   label: 'law', phase: 'Close', model: 'fable', effort: 'high', schema: DOCS_SCHEMA, stallMs: STALL,
 }))
 const accept = await slot(() => recon(acceptPrompt(results),
-  { label: 'acceptance', phase: 'Close', schema: ACCEPT_SCHEMA }))
+  { label: 'acceptance', phase: 'Close', schema: REGISTER, scope: results.map((r) => r.root) }))
 
 return {
   folders: results.map((r) => ({ folder: r.folder, preSwap: r.preSwap, units: r.units.map((u) => ({ unit: u.unit, verdict: u.verdict })),
     packageDeltas: r.packageDeltas, docs: r.docs })),
   backlog: BACKLOG.length,
   law: law ? law.summary : 'dropped',
-  acceptance: accept ? { unresolved: accept.unresolved, summary: accept.summary } : 'dropped',
+  acceptance: accept.ok ? { report: accept.report, entries: accept.entries, headline: accept.headline }
+    : 'dropped: ' + accept.failure,
 }

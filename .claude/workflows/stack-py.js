@@ -10,14 +10,17 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 const ROOT = 'docs/stacks/python'
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' } } } } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'residual_high'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+
 // Required-but-possibly-empty `beyond` is an attestation: the terminal agent's own hunt ran, not only the residual list.
 const CORPUS_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'resolved', 'beyond', 'rejected', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } },
@@ -27,6 +30,7 @@ const CORPUS_SCHEMA = { type: 'object', additionalProperties: false, required: [
   summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'TARGET: docs/stacks/python/ is the route-owned Python CODE DOCTRINE — a doc set of AGNOSTIC teaching pages (the core concept pages plus any ' +
     'sub-folder shard set present on disk) that legislate how all project Python is written. It is NOT a libs/python/.planning design corpus: a page ' +
@@ -45,6 +49,7 @@ const LAW = [
     'behind except a genuine cross-FILE defect a concurrent sibling pipeline owns — report it in residual_high; the terminal corpus agent resolves ' +
     'every reported residual in this same run.',
 ].join('\n')
+
 const ADVERSARIAL = [
   'ADVERSARIAL STANCE — EVERY stage (author, critique, AND red-team) is HOSTILE: assume the page is NAIVE, SHALLOW, JUNIOR, or ILLUSORY until it ' +
     'survives an aggressive attack; the burden of proof is ON THE PAGE, never on you. A `finalized` state marker, "mature", "already strong", ' +
@@ -65,6 +70,7 @@ const ADVERSARIAL = [
     'duplication, AOP + shape-budget maximization, substrate-depth + phantoms, capability-completeness). Neither is a ledger of notes: both EDIT ' +
     'the page; the page must end objectively denser, more capable, and more doctrine-compliant than each stage found it.',
 ].join('\n')
+
 const PYDOCTRINE17 = [
   'HOLD the README [02]-[DOCTRINE] 17 laws as fact, never restated on a concept page: [FLOW] EXPRESSION_SPINE (domain logic is expression-shaped; ' +
     'dependent steps `bind`, independent ones accumulate; statements survive only in a measured kernel that names the exemption) + ' +
@@ -78,6 +84,7 @@ const PYDOCTRINE17 = [
     'enumerable family an algebra, table, fold, or generator can own is a collapse target you hunt down yourself, listed or not. A page that ' +
     'demonstrates a coding law must itself obey every law it can reach.',
 ].join('\n')
+
 const SHAPE_ADT = [
   'EXTREME SHAPE/TYPE DENSITY (the central mandate): one concept owns exactly ONE type as a dense CLOSED-FAMILY ADT — `@tagged_union` / `Literal` ' +
     'set / `StrEnum` / `msgspec.Struct` / frozen dataclass / `frozendict` table — chosen by the OWNER_CHOOSER 5 discriminants (admission, identity ' +
@@ -89,6 +96,7 @@ const SHAPE_ADT = [
     'consumer untouched or broken loudly at type-check — one owner READY TO REPLACE 10+ loose things. The exemplary snippet MUST show the owner at ' +
     'that scale with the growth axis visible, not an isolated minimum.',
 ].join('\n')
+
 const AOP_FIRST = [
   'FULL AOP (ULTRA-CRITICAL): every CROSS-CUTTING concern — retry, telemetry/spans, validation, contracts, memoization, registration, receipts, ' +
     'fault rails — is OUR OWN signature- AND rail-preserving decorator (inline `**P` + `functools.wraps`) STACKED over a THIN PURE CORE; it ' +
@@ -99,6 +107,7 @@ const AOP_FIRST = [
     'wrappers sharing an admission path collapse into ONE parameterized aspect factory; a page reads as stacked decorators over a pure core, ' +
     'never inline-repeated concerns or sibling helper functions. A concern open-coded where a decorator belongs is a defect.',
 ].join('\n')
+
 const PARAM_POLY = [
   'HEAVY PARAMETERIZATION, ZERO HARDCODING/FRAGILE LOGIC, FULL POLYMORPHISM. ONE entrypoint owns every modality — `T | Iterable[T]` normalized ' +
     'ONCE at the head, discriminating on input SHAPE (type/tag/pattern/arity), never a name suffix or a `mode`/`batch`/`strict` knob (KNOB_TEST: ' +
@@ -110,6 +119,7 @@ const PARAM_POLY = [
     'detection, forward and inverse directions on one surface), variation living in input shape, policy values, and table rows, never parallel ' +
     'exports or modality-named siblings; the surface narrows by absorption, never by omission.',
 ].join('\n')
+
 const CORE_LOGIC = [
   'WORLD-CLASS ALGORITHMIC BODIES (the function-body mandate, owner = iteration.md): every body that does real work is expression-shaped at full ' +
     'operator depth — a naive `for`-loop with mutable accumulation, a hand-rolled index counter, a `while`-mutator, or an intermediate materialized ' +
@@ -123,6 +133,7 @@ const CORE_LOGIC = [
     'composed form states once is surface-sprawl-in-time. Every snippet body across the corpus obeys this and composes iteration.md as settled ' +
     'supporting material, never re-teaching it.',
 ].join('\n')
+
 const ASYNC_DEPTH = [
   'STRUCTURED-CONCURRENCY DEPTH (wherever a page touches async): one `anyio` failure boundary, NEVER naive `asyncio`. Task fan-out is a task group ' +
     'with a typed child carrier; cancellation is scope-based (`fail_after`/`move_on_after`/`current_effective_deadline`, level-triggered, ' +
@@ -135,6 +146,7 @@ const ASYNC_DEPTH = [
     'seam; a transport rail (`asyncssh` `SSHClientConnection.run(check=True)`) is a rail-CONSUMER example, never the subject of a core page. Stack ' +
     'the async surface at full depth — flat single-await code below the structured-concurrency operator depth is a defect.',
 ].join('\n')
+
 const PAYLOAD_TAXONOMY = [
   'PAYLOAD TAXONOMY (closed, MINIMAL, each pushed PAST the limit — `frozendict` is ONE member, NEVER the default): the payload shape is chosen by ' +
     'discriminant, never settled on one form. EDGE keyword ingress -> closed `TypedDict` (`closed=True`/`extra_items=T`, per-key ' +
@@ -147,6 +159,7 @@ const PAYLOAD_TAXONOMY = [
     'one shape (a `dict[str, Any]` bag, a `MappingProxyType`, a mutate-then-freeze, a tuple-pair pseudo-map, homogeneous `**kwargs`) where the ' +
     'discriminant selects another. Owners: shapes.md owns the taxonomy + admission, boundaries.md owns the wire/octet seam.',
 ].join('\n')
+
 const PY315 = [
   'BLEEDING-EDGE Python 3.15 ONLY: PEP 585 builtin generics, PEP 604 unions, PEP 695 type parameters (`class C[T]`, `def f[T]`, `type Alias[T] = ' +
     '...`). NEVER `from __future__ import annotations`; NEVER legacy `typing.List`/`Optional`/`Union`/`TypeVar`+`Generic`. Use ' +
@@ -158,6 +171,7 @@ const PY315 = [
     'REJECT `MappingProxyType`, a module-level mutable `dict` used as a table, tuple-pair pseudo-maps, mutate-then-freeze, `dict[str, Any]` bags, ' +
     'and homogeneous `**kwargs`.',
 ].join('\n')
+
 const APISTACK_SUBSTRATE = [
   'CITATION TIER (load-bearing, doctrine-specific): the SHARED substrate catalogs — `expression`, `pydantic`, `pydantic-settings`, `beartype`, ' +
     '`msgspec`, `anyio`, `structlog`, `stamina`, `numpy`, `psutil`, `opentelemetry-*`, `protobuf`, `grpcio` — are cited by EVERY page. ENUMERATE ' +
@@ -176,6 +190,7 @@ const APISTACK_SUBSTRATE = [
     'admission/shape/rail/dispatch/boundary decisions the core owns) and owns ONE closed vocabulary for its axis. Use the DEEPEST primitive each ' +
     'package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
 ].join('\n')
+
 const PAGECRAFT = [
   'PAGE-CRAFT LAW (README [05]-[PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then ONE agnostic snippet beside the ' +
     'rule it proves; the page ends at its last card. CARD ECONOMY: cards are few, deep, evidence-dense; near-peer cards MERGE until each owns a ' +
@@ -188,6 +203,7 @@ const PAGECRAFT = [
     'every downstream generation that loads the page; a stale `capture-pending`/`research` block is deleted. A sub-folder (domain/, numerics/) present ' +
     'on disk carries its own one-table README router (pages compose root laws, never re-open them).',
 ].join('\n')
+
 const AGNOSTIC_SNIPPETS = [
   'AGNOSTIC SNIPPET LAW (style-guide [07]-[PLACEHOLDER_LAW]): every snippet COMPILES under Python 3.15 with legal NEUTRAL identifiers — ' +
     '`Shape`/`RefinedShape`/`Variant`/`PRIMARY`/`Field`/`KEY`/`Row`/`ROW_A`/`TABLE`/`SELECTED` — and placeholder strings (`"<value-a>"`) appear ' +
@@ -200,6 +216,7 @@ const AGNOSTIC_SNIPPETS = [
     '~3-4x denser than ordinary code, at the scale a large system takes (admission + dispatch + rail + policy in one fence with the growth axis ' +
     'visible).',
 ].join('\n')
+
 const OPINIONATED = [
   'HEAVILY-OPINIONATED PROJECT DOCTRINE, NOT a language survey. ZERO table-stakes is tolerated, ever: a card or snippet teaching something a ' +
     'competent Python developer already knows — rather than an opinionated, dense, project-specific CHOICE — is a DEFECT to delete or densify. No ' +
@@ -211,6 +228,7 @@ const OPINIONATED = [
     'dropped — zero current consumers never lowers the capability bar; deletion is lawful only for table-stakes, duplicated-region, phantom, or ' +
     'decorative content, never for a density number.',
 ].join('\n')
+
 const STYLE_PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the ' +
     'consequence or boundary. Cut hedges (`may`/`might`/`probably`/`generally`/`where possible`/`if needed`), provenance, process narration, and ' +
@@ -219,6 +237,7 @@ const STYLE_PROSE = [
   'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in a code span; name ' +
     'the exact member instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
 ].join('\n')
+
 const COMMENTS = 'COMMENT HYGIENE + FILE ORGANIZATION: code fences are agent-facing. Do NOT use section-divider headers in snippets (NO `# --- ' +
   '[LABEL] ---` lines and NO standalone `[LABEL]` section-header comments — they add LOC without value); organize PURELY by the canonical ' +
   'declaration ORDER (CLAUDE.md [08]-[FILE_ORGANIZATION]: imports + `TYPE_CHECKING` -> types -> constants -> models -> errors -> services -> ' +
@@ -227,14 +246,17 @@ const COMMENTS = 'COMMENT HYGIENE + FILE ORGANIZATION: code fences are agent-fac
   'existing divider/section-label line. Beyond that, comment ONLY where intent is not already obvious from names, types, and signatures: default ' +
   'ZERO comments; at most 1 line where a comment genuinely earns its place. No narration, no restating the code, no docstring bloat, no ' +
   'task/process/review comments.'
+
 const CURRENT_STATE = 'CURRENT STATE — sibling pages are being hardened concurrently by their own file pipelines, each at its own stage. Before ' +
   'any edit, re-read the CURRENT on-disk state of the README and every corpus page your page cross-references; landed sibling hardening is ' +
   'composed AS FOUND, never assumed settled. A conflict between your page and a landed sibling resolves to the STRONGER form, never a revert. ' +
   'You EDIT ONLY your own file while pipelines run — the anti-collision rule; a genuinely cross-file defect is a residual_high the terminal ' +
   'corpus agent resolves in this same run, never a sibling edit.'
+
 const DOCTRINE = [LAW, '', ADVERSARIAL, '', PYDOCTRINE17, '', SHAPE_ADT, '', AOP_FIRST, '', PARAM_POLY, '', CORE_LOGIC, '', ASYNC_DEPTH, '', PY315, '', PAYLOAD_TAXONOMY, '', APISTACK_SUBSTRATE, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
 const pool = async (items, cap, worker) => {
@@ -247,6 +269,7 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
+
 const authorPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE HARDEN of ' + page + ' to the ULTRA-DENSE Python doctrine bar; you own THIS file alone ' +
   '(siblings are mid-pipeline in their own concurrent hardens — do not read or edit them; corpus composition belongs to critique/redteam and the ' +
   'terminal corpus agent). DISBELIEVE the page — ' +
@@ -264,6 +287,7 @@ const authorPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE HARDEN of ' + page 
   'before->after) in `collapsed`, what capability you extended (each addition + its cited source) in `extended`, and this page`s spotlight snippet ' +
   'REGIONS in `regions`. verdict is `rebuilt` unless the page genuinely survived untouched. Return residual_high — each a {files:[every ' +
   'repo-relative path the cross-file fix spans], claim} for any CROSS-FILE item you cannot fix from this one file.'].join('\n')
+
 const critiquePrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation ' +
     'exists in EVERY fence until you prove otherwise, trust NOTHING the author or the prose claims, and "good enough"/"mature" is rejected ' +
@@ -306,6 +330,7 @@ const critiquePrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
     'card/snippet (delete or densify it).',
   'EDIT the page to fix every hit. Report what you extended in `extended` and the page`s snippet REGIONS in `regions`. Return residual_high — each ' +
     'a {files:[...], claim} for any CROSS-FILE item you cannot fix here.'].join('\n')
+
 const redteamPrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + '. You are the LAST and MOST AGGRESSIVE per-file stage: assume the author ' +
     'and critique missed things and that the chosen design is naive or illusory until PROVEN the strongest, the burden of proof ON THE PAGE. ' +
@@ -332,6 +357,7 @@ const redteamPrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
     'opinionated than the critique left it; if the strongest form is genuinely already present, prove it by finding nothing — never invent churn. ' +
     'Report what you extended in `extended` and the page`s REGIONS in `regions`. Return residual_high — each a {files:[...], claim} for a ' +
     'CROSS-FILE item you cannot fix from one file.'].join('\n')
+
 const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
   'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
     'CURRENT disk). Read the README first, then every atlas page IN FULL in order; WRITE every fix in place via Edit/Write across ANY page under ' +
@@ -395,6 +421,7 @@ log('Harden: ' + (results.length - FAILED.length) + '/' + ordered.length + ' fil
 phase('Corpus')
 const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED),
   { label: 'corpus', phase: 'Corpus', model: 'fable', effort: 'high', schema: CORPUS_SCHEMA, stallMs: STALL })
+
 return { workflow: 'stack-py', root: ROOT, ordered: ordered, total: ordered.length, failed: FAILED, residuals: RESIDUALS.length,
   corpus: corpus && { files: (corpus.files || []).length, resolved: (corpus.resolved || []).length, beyond: (corpus.beyond || []).length,
   rejected: (corpus.rejected || []).length, summary: corpus.summary } }

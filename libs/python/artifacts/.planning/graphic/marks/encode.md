@@ -38,7 +38,7 @@ from expression.extra.result import traverse
 from msgspec import Struct
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.content_identity import ContentIdentity
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 

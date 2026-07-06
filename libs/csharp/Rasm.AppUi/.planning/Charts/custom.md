@@ -1,6 +1,6 @@
 # [APPUI_CUSTOM_VISUALS]
 
-Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-case union (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every case is a pure layout fold from `CustomVisualData` to an `SKPath` run, materialized through the one offscreen draw capsule and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the single suite-wide wide-gamut vocabulary the codec working-space consumes. The page owns the custom-visual union, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row color-space axis the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
+Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-case union (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every case is a pure layout fold from `CustomVisualData` to an `SKPath` run, materialized through the one offscreen draw capsule and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the chart-side KEYED PROJECTION of the capture-owned `VisualCodec.ColorPolicy` rows — the one suite gamut/transfer vocabulary lives on `Render/capture.md#ENCODE_IDENTITY`, this axis derives and never diverges. The page owns the custom-visual union, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row keyed projection the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,15 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
 - Receipt: every materialize lands one `RenderReceipt` of kind custom-visual carrying the blob artifact key as its destination and the `ColorSpaceAxis` row key as its `ColorSpace` tag; `TelemetryRow` contributes the rendered count and the layout-elapsed duration inward through the AppHost `TelemetryContributorPort`, the layout-fold duration measured around `Layout` distinctly from the encode-elapsed the encode receipt carries, so a slow pack folds onto the layout-elapsed instrument and never blurs into encode cost.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new diagram or geo-layer kind is one `CustomVisual` case breaking the `Key` and `Layout` dispatch at compile time; a fifteenth kind carries its render-hash baseline by construction of the same fold; a new layout input is one `CustomVisualData` field, never a parallel data record; zero new surface.
-- Boundary: `CustomVisual` mints zero Skia-surface, encode, placement, or peer owner — the layout fold composes through `DrawSource.Owned.Materialize` (the only Skia-surface owner) exactly as `PreviewRow.Render` does, `VisualCodec.Encode` is the only encode path, `DashboardTile.Custom` places a kind in a board, and the `custom-visual` `AnnouncementRow` synthesized row gives each kind its live-region peer through the one `ControlAutomationPeer` synthesized-peer construction; the projected `SKPath` is using-scoped inside the fold and never outlives the materialize so a layout fault leaks no native handle; ribbon and trapezoid fills resolve from `TokenRow` paint keys as `SKColorF` token paints under the color-managed law and stage labels shape through the typography rail's `DrawShapedText` so glyphs raster through HarfBuzz, never a raw `DrawText` loop or a sRGB-quantized fill; gradient ribbons enter through `SKShader.CreateLinearGradient(SKPoint, SKPoint, SKColorF[], SKColorSpace, SKShaderTileMode)` so a wide-gamut ramp stays float end-to-end; the layout folds are managed Skia geometry only and carry no native, bridge, or live-host probe and cross no TS wire — `CustomVisual`, `CustomVisualData`, `CustomVisuals`, and `ColorSpaceAxis` are host-local desktop-Skia owners with no browser or peer crossing, so the page authors no `TS_PROJECTION` cluster; a custom-tile dashboard feed crosses only as the already-projected `EvidenceTimeline`/`RenderReceipt` evidence wire on Render/evidence#TS_PROJECTION and any remote numeric input arrives through the existing Compute Runtime/wire#PROTO_VOCABULARY `Solve` rpc, never a new AppUi wire shape — a custom-visual wire contract is the deleted form; each materialize folds one observation into the rendered count and the measured layout-fold duration into the layout-elapsed instrument through the one `AppUiTelemetry.Contribute` spine, so a custom-tile render contributes through `TelemetryContributorPort` and a layout-local meter is the deleted form; a fork of `ChartSeriesSpec` for these kinds, a hand-rolled diagram control, and a second Skia-surface owner are the deleted patterns.
+- Boundary:
+  - `CustomVisual` mints zero Skia-surface, encode, placement, or peer owner — the layout fold composes through `DrawSource.Owned.Materialize` (the only Skia-surface owner) exactly as `PreviewRow.Render` does, `VisualCodec.Encode` is the only encode path, `DashboardTile.Custom` places a kind in a board, and the `custom-visual` `AnnouncementRow` synthesized row gives each kind its live-region peer through the one `ControlAutomationPeer` synthesized-peer construction.
+  - The projected `SKPath` is using-scoped inside the fold and never outlives the materialize so a layout fault leaks no native handle.
+  - Ribbon and trapezoid fills resolve from `TokenRow` paint keys as `SKColorF` token paints under the color-managed law and stage labels shape through the typography rail's `DrawShapedText` so glyphs raster through HarfBuzz, never a raw `DrawText` loop or a sRGB-quantized fill.
+  - Gradient ribbons enter through `SKShader.CreateLinearGradient(SKPoint, SKPoint, SKColorF[], SKColorSpace, SKShaderTileMode)` so a wide-gamut ramp stays float end-to-end.
+  - The layout folds are managed Skia geometry only and carry no native, bridge, or live-host probe and cross no TS wire — `CustomVisual`, `CustomVisualData`, `CustomVisuals`, and `ColorSpaceAxis` are host-local desktop-Skia owners with no browser or peer crossing, so the page authors no `TS_PROJECTION` cluster.
+  - A custom-tile dashboard feed crosses only as the already-projected `EvidenceTimeline`/`RenderReceipt` evidence wire on Diagnostics/evidence#TS_PROJECTION and any remote numeric input arrives through the existing Compute Runtime/wire#PROTO_VOCABULARY `Solve` rpc, never a new AppUi wire shape — a custom-visual wire contract is the deleted form.
+  - Each materialize folds one observation into the rendered count and the measured layout-fold duration into the layout-elapsed instrument through the one `AppUiTelemetry.Contribute` spine, so a custom-tile render contributes through `TelemetryContributorPort` and a layout-local meter is the deleted form.
+  - A fork of `ChartSeriesSpec` for these kinds, a hand-rolled diagram control, and a second Skia-surface owner are the deleted patterns.
 
 ```csharp signature
 public sealed record CustomVisualData(
@@ -165,7 +173,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual ParallelCoordinates = new CustomVisual.ParallelCoordinates("parallel-coordinates", static (data, info) =>
         data.Series.IsEmpty || data.Series[0].Axes.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/parcoords-empty: no series axes"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("parcoords: no series axes"))
             : NormalizeAxes(data.Series) switch {
                 var normalized => Fin.Succ(data.Series.Map((row, _) => row).Fold(new SKPath(), (path, row) => {
                     int axisCount = row.Axes.Count;
@@ -181,7 +189,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual Radar = new CustomVisual.Radar("radar", static (data, info) =>
         data.Series.IsEmpty || data.Series[0].Axes.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/radar-empty: no series axes"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("radar: no series axes"))
             : NormalizeAxes(data.Series) switch {
                 var normalized => Fin.Succ(data.Series.Fold(new SKPath(), (path, row) => {
                     int spokes = row.Axes.Count;
@@ -200,7 +208,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual Network = new CustomVisual.Network("network", static (data, info) =>
         data.Vertices.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/network-empty: no vertices"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("network: no vertices"))
             : Fin.Succ(data.Edges.Fold(new SKPath(), (path, edge) => {
                 if (edge.From >= data.Vertices.Count || edge.To >= data.Vertices.Count) { return path; }
                 var (fx, fy) = data.Vertices[edge.From];
@@ -217,7 +225,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual Gantt = new CustomVisual.Gantt("gantt", static (data, info) =>
         data.Spans.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/gantt-empty: no spans"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("gantt: no spans"))
             : (Lo: data.Spans.Min(static s => s.Start), Hi: data.Spans.Max(static s => s.End), Tracks: data.Spans.Max(static s => s.Track) + 1) switch {
                 var bounds when bounds.Hi > bounds.Lo => Fin.Succ(data.Spans.Fold(new SKPath(), (path, span) => {
                     float scale = info.Width / (float)(bounds.Hi - bounds.Lo);
@@ -228,12 +236,12 @@ public static class CustomVisuals {
                     path.AddRoundRect(new SKRoundRect(new SKRect(x0, y0, x1, y0 + (trackHeight * 0.7f)), 3f, 3f));
                     return path;
                 })),
-                _ => Fin.Fail<SKPath>(Error.New("custom-visual/gantt-degenerate: zero time span")),
+                _ => Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("gantt: zero time span")),
             });
 
     public static readonly CustomVisual Sunburst = new CustomVisual.Sunburst("sunburst", static (data, info) =>
         data.Wedges.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/sunburst-empty: no wedges"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("sunburst: no wedges"))
             : Fin.Succ(SunburstArcs(data.Wedges).Fold(new SKPath(), (path, arc) => {
                 float cx = info.Width * 0.5f, cy = info.Height * 0.5f;
                 float ringWidth = Math.Min(cx, cy) / (float)(data.Wedges.Max(static w => w.Depth) + 1);
@@ -248,7 +256,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual Hexbin = new CustomVisual.Hexbin("hexbin", static (data, info) =>
         data.Points.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/hexbin-empty: no points"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("hexbin: no points"))
             : Fin.Succ(Bin(data.Points, info, radiusPx: 18f).Fold(new SKPath(), static (path, cell) => {
                 path.AddPath(Hexagon(cell.Cx, cell.Cy, cell.Radius));
                 return path;
@@ -256,7 +264,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual GeoArc = new CustomVisual.GeoArc("geo-arc", static (data, info) =>
         data.Arcs.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/geoarc-empty: no arcs"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("geoarc: no arcs"))
             : Fin.Succ(data.Arcs.Fold(new SKPath(), (path, arc) => {
                 var (sx, sy) = Project(arc.From.Lon, arc.From.Lat, info);
                 var (ex, ey) = Project(arc.To.Lon, arc.To.Lat, info);
@@ -268,7 +276,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual Trip = new CustomVisual.Trip("trip", static (data, info) =>
         data.Trips.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/trip-empty: no trips"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("trip: no trips"))
             : Fin.Succ(data.Trips.Fold(new SKPath(), (path, trip) => {
                 trip.Path.Iter((node, index) => {
                     var (x, y) = Project(node.Lon, node.Lat, info);
@@ -279,7 +287,7 @@ public static class CustomVisuals {
 
     public static readonly CustomVisual Extrusion = new CustomVisual.Extrusion("extrusion", static (data, info) =>
         data.Points.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/extrusion-empty: no columns"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("extrusion: no columns"))
             : (Max: data.Points.Max(static p => p.Weight)) switch {
                 var bounds when bounds.Max > 0d => Fin.Succ(data.Points.Fold(new SKPath(), (path, column) => {
                     var (x, y) = Project(column.Lon, column.Lat, info);
@@ -293,12 +301,12 @@ public static class CustomVisuals {
                     path.AddRect(new SKRect(x - half, y - height, x + half, y));
                     return path;
                 })),
-                _ => Fin.Fail<SKPath>(Error.New("custom-visual/extrusion-degenerate: zero column weight")),
+                _ => Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("extrusion: zero column weight")),
             });
 
     public static readonly CustomVisual Terrain = new CustomVisual.Terrain("terrain", static (data, info) =>
         data.Points.IsEmpty
-            ? Fin.Fail<SKPath>(Error.New("custom-visual/terrain-empty: no samples"))
+            ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("terrain: no samples"))
             : (Side: (int)Math.Sqrt(data.Points.Count)) switch {
                 var grid when grid.Side >= 2 && grid.Side * grid.Side <= data.Points.Count => Fin.Succ(
                     Enumerable.Range(0, grid.Side - 1).Aggregate(new SKPath(), (path, row) => {
@@ -310,7 +318,7 @@ public static class CustomVisuals {
                         });
                         return path;
                     })),
-                _ => Fin.Fail<SKPath>(Error.New("custom-visual/terrain-degenerate: sample count is not a square grid")),
+                _ => Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("terrain: sample count is not a square grid")),
             });
 
     static Func<int, double, double> NormalizeAxes(Seq<(string Series, Seq<double> Axes)> series) {
@@ -361,7 +369,7 @@ public static class CustomVisuals {
 
     static Fin<Seq<SKRect>> Squarify(Seq<(string Label, double Value)> nodes, SKRect bounds) {
         double total = nodes.Sum(static n => n.Value);
-        if (total <= 0d) return Fin.Fail<Seq<SKRect>>(Error.New("custom-visual/treemap-empty: node weights sum to zero"));
+        if (total <= 0d) return Fin.Fail<Seq<SKRect>>(new ChartFault.VisualEmpty("treemap: node weights sum to zero"));
         double area = bounds.Width * bounds.Height;
         Seq<double> scaled = nodes.OrderByDescending(static n => n.Value).Map(n => n.Value / total * area).ToSeq();
         return Fin.Succ(Pack(scaled, Seq<double>(), bounds, Seq<SKRect>()));
@@ -436,13 +444,13 @@ flowchart LR
 
 ## [03]-[COLOR_SPACE]
 
-- Owner: `ColorSpaceAxis` SmartEnum · `ComparerAccessors.StringOrdinal` accessor
+- Owner: `ColorSpaceAxis` SmartEnum — a KEYED PROJECTION of the capture-owned `VisualCodec.ColorPolicy` rows (`[V10]`: `ColorPolicy` is the ONE gamut/transfer family; this axis derives, never diverges) · `ComparerAccessors.StringOrdinal` accessor
 - Cases: srgb · display-p3 · rec2020 · scrgb-float — the baseline plus three wide-gamut rows
 - Entry: `public SKColorSpace Working()` — the working-space factory per row; the `Encode` member projects the row onto the codec encode policy
-- Auto: each row carries the `Func<SKColorSpace>` working-space factory and the `SKColorType` surface format the encode loop selects — the srgb, display-p3, and rec2020 rows tag ICC primaries through `SKColorSpace.CreateRgb(SKColorSpaceTransferFn, SKColorSpaceXyz)` on the `Rgba8888` byte surface, and the scrgb-float row carries `SKColorSpace.CreateSrgbLinear` on the `RgbaF16` float surface; the row's `Encode` member yields the matching `VisualCodec.EncodeRow` whose `ColorPolicy` reproject pins the output space, so a materialize tags its `RenderReceipt.ColorSpace` with the exact gamut and a cross-host byte swap is attributable to one of four spaces, never silent.
+- Auto: each row wraps exactly ONE `VisualCodec.ColorPolicy` row and derives every column from it — `Working()` reads the policy's working-space factory, `Surface` its pixel format, `Encode` its matching `EncodeRow` — so the axis cannot diverge from the capture family by construction; a materialize tags its `RenderReceipt.ColorSpace` with the policy key, so a cross-host byte swap is attributable to the exact gamut, never silent.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new gamut is one `ColorSpaceAxis` row carrying its working-space factory, surface format, and encode row; zero new surface.
-- Boundary: `ColorSpaceAxis` is the single suite-wide gamut vocabulary — `VisualCodec.ColorPolicy` consumes it through the `DisplayP3`/`Rec2020`/`ScrgbFloat` policy rows the encode identity carries and the `RenderReceipt.ColorSpace` field tags it, so a parallel `Gamut` enum or a per-encode color struct is the deleted form; the working space converts once at projection through `SKImageInfo.WithColorSpace` and `SKColorSpace.Equal` is the only identity test the reproject runs fail-closed against an already-matching space; the ICC-primary path uses `SKColorSpaceXyz.DisplayP3` and `SKColorSpaceXyz.Rec2020` with `SKColorSpaceTransferFn.Srgb` for the display-referred rows and `SKColorSpaceTransferFn.Linear` with `SKColorSpaceXyz.Srgb` for the scene-referred float row, so the byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form and a wide-gamut custom visual hashes its float or ICC-tagged pixels, never a quantized sRGB shadow; the gamut row key crosses no TS wire on its own — it tags `RenderReceipt.ColorSpace` which crosses host-local only as the existing evidence wire on Render/evidence#TS_PROJECTION, so `ColorSpaceAxis` authors no `TS_PROJECTION` cluster.
+- Growth: a new gamut lands as one `ColorPolicy` row on the capture codec FIRST; this axis gains a one-line keyed projection of it only when a chart consumes it; zero new surface.
+- Boundary: `VisualCodec.ColorPolicy` (`Render/capture.md#ENCODE_IDENTITY`) is the single suite-wide gamut/transfer vocabulary and `ColorSpaceAxis` is its chart-side keyed projection — a parallel enum with divergent membership, an axis-local working-space factory, or a per-encode color struct is the deleted form; the working space converts once at projection through `SKImageInfo.WithColorSpace` and `SKColorSpace.Equal` is the only identity test the reproject runs fail-closed against an already-matching space; the ICC-primary path uses `SKColorSpaceXyz.DisplayP3` and `SKColorSpaceXyz.Rec2020` with `SKColorSpaceTransferFn.Srgb` for the display-referred rows and `SKColorSpaceTransferFn.Linear` with `SKColorSpaceXyz.Srgb` for the scene-referred float row, so the byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form and a wide-gamut custom visual hashes its float or ICC-tagged pixels, never a quantized sRGB shadow; the gamut row key crosses no TS wire on its own — it tags `RenderReceipt.ColorSpace` which crosses host-local only as the existing evidence wire on Diagnostics/evidence#TS_PROJECTION, so `ColorSpaceAxis` authors no `TS_PROJECTION` cluster.
 
 ```csharp signature
 
@@ -450,30 +458,19 @@ flowchart LR
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColorSpaceAxis {
-    public static readonly ColorSpaceAxis Srgb = new("srgb",
-        working: static () => SKColorSpace.CreateSrgb(),
-        surface: SKColorType.Rgba8888,
-        encode: VisualCodec.Png);
-    public static readonly ColorSpaceAxis DisplayP3 = new("display-p3",
-        working: static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3),
-        surface: SKColorType.Rgba8888,
-        encode: VisualCodec.PngP3);
-    public static readonly ColorSpaceAxis Rec2020 = new("rec2020",
-        working: static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020),
-        surface: SKColorType.Rgba8888,
-        encode: VisualCodec.PngRec2020);
-    public static readonly ColorSpaceAxis ScrgbFloat = new("scrgb-float",
-        working: static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb),
-        surface: SKColorType.RgbaF16,
-        encode: VisualCodec.PngScrgb);
-
-    private readonly Func<SKColorSpace> working;
-
-    public SKColorType Surface { get; }
+    // Every row is a keyed projection of ONE capture-owned ColorPolicy row — zero axis-local color science.
+    public static readonly ColorSpaceAxis Srgb = new("srgb", VisualCodec.Png);
+    public static readonly ColorSpaceAxis DisplayP3 = new("display-p3", VisualCodec.PngP3);
+    public static readonly ColorSpaceAxis Rec2020 = new("rec2020", VisualCodec.PngRec2020);
+    public static readonly ColorSpaceAxis ScrgbFloat = new("scrgb-float", VisualCodec.PngScrgb);
 
     public VisualCodec.EncodeRow Encode { get; }
 
-    public SKColorSpace Working() => working();
+    public VisualCodec.ColorPolicy Policy => Encode.Color;
+
+    public SKColorType Surface => Policy.Surface;
+
+    public SKColorSpace Working() => Policy.Working();
 }
 ```
 

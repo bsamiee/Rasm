@@ -40,27 +40,31 @@ core/
 ## [02]-[SEAMS]
 
 ```text seams
-value/contentKey     ⇄  csharp:Rasm                # [CONTENT_KEY]: XxHash128 seed-zero :x32 content identity
-value/contentKey     ⇄  typescript:data/object     # [CONTENT_KEY]: ObjectKey IS ContentKey — a delegating mint site, never a second hash
-value/contentKey     ⇄  typescript:runtime/browser # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site
-value/contentKey     ←  csharp:Rasm.Compute        # [WIRE]: XxHash128 seed-zero two-half reproduced off-thread [gated: hash-wasm]
-value/clock          ←  csharp:Rasm.AppHost        # [WIRE]: Hlc two-half compose-order parity
-value/quantity       ⇄  csharp:Rasm.Compute        # [WIRE]: QuantityWire SI-scalar decode
-interchange/codec    ←  csharp:Rasm.AppHost        # [WIRE]: ReceiptEnvelope/TenantContext/livewire triple/FlagVerdict/CredentialPem landings
-interchange/invoke   ←  csharp:Rasm.AppHost        # [CONTENT_KEY]: CapabilityDescriptor command-shape
-interchange/codec    ←  csharp:Rasm.Compute        # [WIRE]: proto suite + FaultDetail + ProgressMark frames
-interchange/codec    ←  csharp:Rasm.Persistence    # [WIRE]: OpLog/Snapshot CRDT wire + JsonPatch egress
-interchange/codec    ⇄  csharp:Rasm.Element        # [WIRE]: ElementGraph content-keyed wire under the drift gate
-interchange/codec    ←  csharp:Rasm.Bim            # [WIRE]: BcfTopic/BcfViewpoint + BimWire/DiffWire/OpLogWire/IdsAudit + GeoFeature WKB
-interchange/codec    ←  csharp:Rasm.Materials      # [WIRE]: MaterialWire/PbrGroups appearance decode
-interchange/codec    ←  csharp:Rasm.AppUi          # [WIRE]: CommandPayload/RenderReceipt/GeometryResidency/ControlIntent/LayoutProgram
-interchange/contract ←  csharp:Rasm.Compute        # [WIRE]: FileDescriptorSet generations feeding the drift verdict
-interchange/codec    →  typescript:runtime/proc    # [SHAPE]: FlagVerdict OpenFeature-contract landing the flag service consumes
-state/fold           →  typescript:data/read       # [SHAPE]: Fold.Plan bound at the durable projection altitude
-state/feed           →  typescript:ui/view         # [SHAPE]: Feed.Document column band driving the dynamic grid fold
-value/fault          →  typescript:runtime/net     # [SHAPE]: Budget ledger rows compiled into lane pulses
-observe/convention   →  typescript:runtime/otel    # [SHAPE]: Convention rows stamped at every emission
-observe/board        →  typescript:iac/operate     # [PROJECTION]: DashboardModel.Encoded + Alert.Spec + Slo.Objective realized as grafana rows
+value/contentKey     ⇄  csharp:Rasm                   # [CONTENT_KEY]: XxHash128 seed-zero :x32 content identity
+value/contentKey     ⇄  typescript:data/object        # [CONTENT_KEY]: ObjectKey IS ContentKey — a delegating mint site, never a second hash
+value/contentKey     ⇄  typescript:runtime/browser    # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site
+value/contentKey     ←  csharp:Rasm.Compute           # [WIRE]: XxHash128 seed-zero two-half reproduced off-thread [gated: hash-wasm]
+value/clock          ←  csharp:Rasm.AppHost           # [WIRE]: Hlc two-half compose-order parity
+value/quantity       ⇄  csharp:Rasm.Compute           # [WIRE]: QuantityWire SI-scalar decode
+interchange/codec    ←  csharp:Rasm.AppHost           # [WIRE]: ReceiptEnvelope/TenantContext/livewire triple/FlagVerdict/CredentialPem landings
+interchange/invoke   ←  csharp:Rasm.AppHost           # [CONTENT_KEY]: CapabilityDescriptor command-shape
+interchange/codec    ←  csharp:Rasm.Compute           # [WIRE]: proto suite + FaultDetail + ProgressMark frames
+interchange/codec    ←  csharp:Rasm.Persistence       # [WIRE]: OpLog/Snapshot CRDT wire + JsonPatch egress
+interchange/codec    ⇄  csharp:Rasm.Element           # [WIRE]: ElementGraph content-keyed wire under the drift gate
+interchange/codec    ←  csharp:Rasm.Bim               # [WIRE]: BcfTopic/BcfViewpoint + BimWire/DiffWire/OpLogWire/IdsAudit + GeoFeature WKB
+interchange/codec    ←  csharp:Rasm.Materials         # [WIRE]: MaterialWire/PbrGroups appearance decode
+interchange/invoke   ←  csharp:Rasm.AppUi/Shell       # [WIRE]: CommandPayloadWire
+interchange/codec    ←  csharp:Rasm.AppUi/Shell       # [WIRE]: CommandGateWire + ControlIntentWire + LayoutConstraintWire
+interchange/frame    ←  csharp:Rasm.AppUi/Render      # [WIRE]: GeometryResidencyWire
+interchange/codec    ←  csharp:Rasm.AppUi/Render      # [WIRE]: RenderReceiptWire
+state/feed           ←  csharp:Rasm.AppUi/Diagnostics # [WIRE]: EvidenceFeed / EvidenceTimeline envelope rows absorbed through Feed.timeline
+interchange/contract ←  csharp:Rasm.Compute           # [WIRE]: FileDescriptorSet generations feeding the drift verdict
+interchange/codec    →  typescript:runtime/proc       # [SHAPE]: FlagVerdict OpenFeature-contract landing the flag service consumes
+state/fold           →  typescript:data/read          # [SHAPE]: Fold.Plan bound at the durable projection altitude
+state/feed           →  typescript:ui/view            # [SHAPE]: Feed.Document column band driving the dynamic grid fold
+value/fault          →  typescript:runtime/net        # [SHAPE]: Budget ledger rows compiled into lane pulses
+observe/convention   →  typescript:runtime/otel       # [SHAPE]: Convention rows stamped at every emission
+observe/board        →  typescript:iac/operate        # [PROJECTION]: DashboardModel.Encoded + Alert.Spec + Slo.Objective realized as grafana rows
 ```
 
 ## [03]-[ORGANIZATION]

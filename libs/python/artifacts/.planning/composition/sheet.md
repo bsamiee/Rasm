@@ -41,7 +41,7 @@ from expression import Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, structs
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt

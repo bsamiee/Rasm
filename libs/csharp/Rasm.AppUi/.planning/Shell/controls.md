@@ -11,8 +11,8 @@ One typed `ControlIntent` family materializes every interactive control from a d
 
 ## [02]-[CONTROL_INTENT]
 
-- Owner: `ControlIntent` `[Union]` the interactive-control family; `IntentBinding` the per-intent command-and-token column carrier; `ControlFault` the fault family in the 4200 code band.
-- Cases: `ControlIntent` = Button | TextInput | NumberInput | DateInput | PathInput | Select | Slider | Toggle | Radio | Grid | Tree | Menu | Toolbar | Tab | Accordion | Panel | Dock | Splitter under the locked kind literals; `ControlFault` = Text | UnboundIntent | TokenUnresolved | TemplateMissing | RecyclingViolation in the 4200 code band.
+- Owner: `ControlIntent` `[Union]` the interactive-control family; `IntentBinding` the per-intent command-and-token column carrier; `ControlFault` the typed fault family on the `AppUiFaultBand.Control` registry row (6010).
+- Cases: `ControlIntent` = Button | TextInput | NumberInput | DateInput | PathInput | Select | Slider | Toggle | Radio | Grid | Tree | Menu | Toolbar | Tab | Accordion | Panel | Dock | Splitter under the locked kind literals; `ControlFault` = Text | UnboundIntent | TokenUnresolved | TemplateMissing | RecyclingViolation — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
 - Entry: every case is one record whose fields carry the control's typed shape (value type, range, option set, child intents) and whose `IntentBinding` carries the `Option<string>` command key, the `TokenRole` visual key, and the `AutomationName` derivation — arity, provider, and modality live in the shape, so a number editor is `NumberInput` not a `GetNumberControl` name.
 - Auto: the `EditorFactory` eleven-row typed-shape→control precedent already proven in `PropertyGrid` cells (`Inspector/editor-factories`) is the inspector specialization of this vocabulary — `ControlIntent` generalizes it from property cells to whole screens, so a grid cell editor and a screen field materialize through one fold; `Theme/tokens` `TokenRow` resolves every appearance and `Shell/accessibility` `AutomationProperties.SetName` reads the one `AutomationName` column, so a per-control token literal and a per-control automation call site are the deleted forms.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
@@ -26,11 +26,11 @@ public abstract partial record ControlFault : Expected, IValidationError<Control
 
     public static ControlFault Create(string message) => new Text(message);
 
-    public sealed record Text : ControlFault { public Text(string detail) : base(detail, 4200) { } }
-    public sealed record UnboundIntent : ControlFault { public UnboundIntent(string detail) : base(detail, 4201) { } }
-    public sealed record TokenUnresolved : ControlFault { public TokenUnresolved(string detail) : base(detail, 4202) { } }
-    public sealed record TemplateMissing : ControlFault { public TemplateMissing(string detail) : base(detail, 4203) { } }
-    public sealed record RecyclingViolation : ControlFault { public RecyclingViolation(string detail) : base(detail, 4204) { } }
+    public sealed record Text : ControlFault { public Text(string detail) : base(detail, AppUiFaultBand.Control.Code(0)) { } }
+    public sealed record UnboundIntent : ControlFault { public UnboundIntent(string detail) : base(detail, AppUiFaultBand.Control.Code(1)) { } }
+    public sealed record TokenUnresolved : ControlFault { public TokenUnresolved(string detail) : base(detail, AppUiFaultBand.Control.Code(2)) { } }
+    public sealed record TemplateMissing : ControlFault { public TemplateMissing(string detail) : base(detail, AppUiFaultBand.Control.Code(3)) { } }
+    public sealed record RecyclingViolation : ControlFault { public RecyclingViolation(string detail) : base(detail, AppUiFaultBand.Control.Code(4)) { } }
 }
 
 public sealed record IntentBinding(
@@ -87,6 +87,7 @@ public enum PathBrowseMode { File, Directory, SaveFile }
 public sealed record MaterializeContext(
     Func<string, Option<ICommand>> Command,
     Func<string, Option<IBrush>> Token,
+    Func<string, Option<double>> Metric,
     Func<VirtualWindowSpec, IObservable<IChangeSet<RealizedItem<object>, object>>> Window,
     Func<string, Fin<Control>> Layout,
     ClockPolicy Clocks);
@@ -126,21 +127,63 @@ public static class ControlFactory {
         dock: static (ctx, c) => ctx.Layout(c.ConstraintProgram),
         splitter: static (ctx, c) => Split(c, ctx));
 
+    // The recycling re-entry: MaterializePool routes a reset parked control back through the one Bind fold.
+    public static Fin<Control> Rebind(IntentBinding binding, Control control, MaterializeContext context) =>
+        Bind(binding, control, context);
+
     static Fin<Control> Bind(IntentBinding binding, Control control, MaterializeContext context) =>
         from command in binding.Command.Match(
             Some: key => context.Command(key).Map(Fin<Option<ICommand>>.Succ).IfNone(() => Fin<Option<ICommand>>.Fail(new ControlFault.UnboundIntent(key))),
             None: () => Fin<Option<ICommand>>.Succ(None))
         from brush in context.Token(binding.TokenRole).Map(Fin<IBrush>.Succ).IfNone(() => Fin<IBrush>.Fail(new ControlFault.TokenUnresolved(binding.TokenRole)))
-        select Apply(control, command, brush, binding.AutomationName);
+        select Apply(control, binding, command, brush, context);
 
-    static Control Apply(Control control, Option<ICommand> command, IBrush brush, string automationName) {
-        AutomationProperties.SetName(control, automationName);
+    // Recycling owns binding LIFETIME: the live ValuePath subscription parks here (weak-keyed, so an
+    // unparked control frees with GC) and Apply/Unbind dispose it before rebinding or resetting.
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, IDisposable> LiveBindings = new();
+
+    internal static Unit Unbind(Control control) {
+        if (LiveBindings.TryGetValue(control, out IDisposable? live)) { live.Dispose(); ignore(LiveBindings.Remove(control)); }
+        return unit;
+    }
+
+    // Apply covers the full token set the role carries: brush, metric (font size + min touch height),
+    // value-path binding, automation identity, and the one behavior bridge — idempotent for recycling:
+    // the prior binding disposes before the new one registers, so a re-applied control never stacks two.
+    static Control Apply(Control control, IntentBinding binding, Option<ICommand> command, IBrush brush, MaterializeContext context) {
+        AutomationProperties.SetName(control, binding.AutomationName);
         control.SetValue(TemplatedControl.ForegroundProperty, brush);
+        context.Metric($"{binding.TokenRole}.font-size").Iter(size => control.SetValue(TemplatedControl.FontSizeProperty, size));
+        context.Metric($"{binding.TokenRole}.min-height").Iter(height => control.SetValue(Layoutable.MinHeightProperty, height));
+        ignore(Unbind(control));
+        binding.ValuePath.Iter(path => LiveBindings.Add(control, control.Bind(
+            ContentPropertyOf(control), new Avalonia.Data.Binding(path) { Mode = Avalonia.Data.BindingMode.TwoWay })));
+        Interaction.GetBehaviors(control).Clear();
         command.Iter(cmd => Interaction.GetBehaviors(control).Add(new EventTriggerBehavior {
-            EventName = nameof(Button.Click), Actions = { BehaviorRail.Intent(cmd) },
+            EventName = ActivationEventOf(control), Actions = { BehaviorRail.Intent(cmd) },
         }));
         return control;
     }
+
+    // Per-control value property (TextBox.Text, NumericUpDown.Value, ...) — one table, no per-kind binder.
+    internal static AvaloniaProperty ContentPropertyOf(Control control) => control switch {
+        TextBox => TextBox.TextProperty,
+        NumericUpDown => NumericUpDown.ValueProperty,
+        Slider => RangeBase.ValueProperty,
+        ToggleSwitch => ToggleButton.IsCheckedProperty,
+        ComboBox => SelectingItemsControl.SelectedItemProperty,
+        _ => ContentControl.ContentProperty,
+    };
+
+    // Per-control activation event — the sibling table to ContentPropertyOf: the behavior bridge routes
+    // the intent off the control's OWN activation semantics; Tapped is the pointer-activation floor every
+    // InputElement raises, never a Button-only Click assumption.
+    internal static string ActivationEventOf(Control control) => control switch {
+        MenuItem => nameof(MenuItem.Click),
+        Button => nameof(Button.Click),
+        SelectingItemsControl => nameof(SelectingItemsControl.SelectionChanged),
+        _ => nameof(InputElement.Tapped),
+    };
 }
 ```
 
@@ -178,10 +221,23 @@ public static class MaterializePool {
                 Some: parked => Rebind(parked, intent, context),
                 None: () => ControlFactory.Materialize(intent, context));
 
+        // The recycling core: a parked control genuinely RESETS — stale bindings clear, the new row's
+        // ValuePath re-binds, and the token role re-applies through the one Bind fold — never a bare return.
         private static Fin<Control> Rebind(Control parked, ControlIntent intent, MaterializeContext context) =>
             parked.GetType().Name == ControlTypeOf(intent)
-                ? Fin<Control>.Succ(parked)
+                ? Reset(parked).Bind(cleared => ControlFactory.Rebind(intent.Binding, cleared, context))
                 : Fin<Control>.Fail(new ControlFault.RecyclingViolation($"{intent.Key}:{parked.GetType().Name}!={ControlTypeOf(intent)}"));
+
+        private static Fin<Control> Reset(Control parked) {
+            ignore(ControlFactory.Unbind(parked)); // disposes the prior row's ValuePath subscription
+            parked.ClearValue(ControlFactory.ContentPropertyOf(parked)); // clears the resolved value surface
+            parked.ClearValue(TemplatedControl.ForegroundProperty);
+            parked.ClearValue(TemplatedControl.FontSizeProperty);
+            parked.ClearValue(Layoutable.MinHeightProperty);
+            parked.DataContext = null;
+            Interaction.GetBehaviors(parked).Clear();
+            return Fin<Control>.Succ(parked);
+        }
     }
 }
 ```

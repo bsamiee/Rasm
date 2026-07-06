@@ -175,14 +175,18 @@ const task = typeof args === 'string' ? args : 'the change described in TASK.md'
 Never `JSON.parse(args)` — it is already a live value, not JSON text, and parsing
 an object throws. A workflow saved as a `/<name>` command receives input the way
 the user phrases the invocation, parsed into structured data before the script
-runs; the `?? default` is what keeps the file runnable with no args at all.
+runs; the `?? default` is what keeps the file runnable with no args at all. ONE
+narrow carve-out: a saved-command invocation may hand a JSON-LOOKING STRING — a
+single guarded normalizer at `[INPUTS]` only,
+`(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args`,
+is admitted; a bare `JSON.parse(args)` anywhere else stays forbidden.
 
 ---
 
 ## 5. `agent()` in full
 
 ```js
-const text = await agent('Summarize the README.')                 // → string
+const text = await agent('Summarize the README.')                   // → string
 const data = await agent('List the deps.', { schema: DEPS_SCHEMA }) // → validated object
 ```
 
@@ -231,7 +235,7 @@ agent fails later when the API call is made. Spell the alias exactly.
 Guidance: omit `model` for judgement-heavy work so it inherits the capable
 session model; drop **cheap, high-volume, mechanical** leaf work (one-line
 classification, refute-this checks, per-item summaries) to `'sonnet'` — the
-model floor — or route a self-contained leg to gpt-5.5 through the
+model floor — or route a self-contained lane to gpt-5.5 through the
 codex wrapper (SKILL.md, "Dispatching gpt-5.5"). A verification or fan-out
 stage is the usual candidate for either.
 
@@ -266,12 +270,21 @@ const DEPS = {
 const { deps } = await agent('List the npm dependencies.', { schema: DEPS })
 ```
 
+Two validators sit behind the two schema surfaces a workflow touches — author
+every schema to the STRICTER profile so one shape serves both without edits:
+
+| Producer | Validator | Requirement |
+|---|---|---|
+| `agent(…, { schema })` | AJV, in the runtime | Tolerates optional properties and open objects — strict is convention, not enforcement |
+| `codex exec --output-schema` | OpenAI strict structured output | `additionalProperties: false` on every object, every key in `properties` listed in `required`, conditional fields required-but-empty (`""`/`[]`) — a violation 400s `invalid_json_schema` and the run silently degrades to unvalidated output |
+
 Rules of thumb for "computing data properly":
 
 - **Use `schema` for anything a later line reads a field off of.** Free text is
   fine only when the result is just passed whole into another agent's prompt.
-- **Keep schemas small and `required`-tight.** The schema is a contract — every
-  `required` field is one the subagent is forced to produce. Define schemas as
+- **Keep schemas small, strict, and `required`-tight.** The schema is a contract —
+  every `required` field is one the subagent is forced to produce, and every name
+  in `required` must exist as a real property (no phantom keys). Define schemas as
   `const`s in the body (never inside `meta`).
 - **To hand data from one stage to the next**, stringify it into the next
   prompt: `agent('Cluster these:\n' + JSON.stringify(items))`. The orchestrator

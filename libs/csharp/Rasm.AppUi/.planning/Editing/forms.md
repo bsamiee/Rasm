@@ -11,8 +11,8 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 
 ## [02]-[FORM_SCHEMA]
 
-- Owner: `FormField` the typed field row; `FormSchema` the field-row sequence; `FormFault` the fault family in the 4900 code band; `FormSurface` the schema-to-control-intent fold.
-- Cases: `FormFault` = Text | FieldInvalid | StepIncomplete | SubmitRejected in the 4900 code band.
+- Owner: `FormField` the typed field row; `FormSchema` the field-row sequence; `FormFault` the typed fault family on the `AppUiFaultBand.Form` registry row (6310); `FormSurface` the schema-to-control-intent fold.
+- Cases: `FormFault` = Text | FieldInvalid | StepIncomplete | SubmitRejected — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
 - Entry: `public ControlIntent Intent(FormField field)` — projects one typed field row onto its `ControlIntent` (`Shell/controls`) materialized through `ControlFactory`; `public IObservable<Validation<Error, FormState>> Admit(FormSchema schema, FormState state)` — the form-level admission folding every field's typed rail through the applicative `Validation` accumulate.
 - Auto: a `FormField` carries its key, its label key, its typed shape (the same `EditorFactory`-shaped value vocabulary the inspector cells resolve — text/number/date/path/select/toggle/quantity/value-object), its `[PropertyVisibilityCondition]` predicate, and its `Validation<Error,T>` rule, so a form is a field-row schema rather than a hand-laid-out settings dialog; `FormSurface.Intent` projects each field onto its `ControlIntent` so the form materializes through the one `ControlFactory` fold — a form-control framework is the deleted form; validation is the screens `Validation<Error,T>` lift (`Shell/screens#VALIDATION_UX`) so a field error feeds the same `Gate` context-validity stream the command table reads, and the form submit gates on the all-valid fold; conditional fields ride the admitted `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations so a dependent field shows or hides without code-behind.
 - Packages: bodong.PropertyModels, ReactiveUI.Validation, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -26,10 +26,10 @@ public abstract partial record FormFault : Expected, IValidationError<FormFault>
 
     public static FormFault Create(string message) => new Text(message);
 
-    public sealed record Text : FormFault { public Text(string detail) : base(detail, 4900) { } }
-    public sealed record FieldInvalid : FormFault { public FieldInvalid(string target, string detail) : base($"{target}: {detail}", 4901) => Target = target; public string Target { get; } }
-    public sealed record StepIncomplete : FormFault { public StepIncomplete(string detail) : base(detail, 4902) { } }
-    public sealed record SubmitRejected : FormFault { public SubmitRejected(string detail) : base(detail, 4903) { } }
+    public sealed record Text : FormFault { public Text(string detail) : base(detail, AppUiFaultBand.Form.Code(0)) { } }
+    public sealed record FieldInvalid : FormFault { public FieldInvalid(string target, string detail) : base($"{target}: {detail}", AppUiFaultBand.Form.Code(1)) => Target = target; public string Target { get; } }
+    public sealed record StepIncomplete : FormFault { public StepIncomplete(string detail) : base(detail, AppUiFaultBand.Form.Code(2)) { } }
+    public sealed record SubmitRejected : FormFault { public SubmitRejected(string detail) : base(detail, AppUiFaultBand.Form.Code(3)) { } }
 }
 
 public sealed record FormField(

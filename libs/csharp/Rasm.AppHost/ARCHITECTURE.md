@@ -67,10 +67,11 @@ Wire/Livewire.cs            →  typescript:core/interchange/codec           # [
 Wire/Livewire.cs            →  typescript:ui/viewer                        # [WIRE]: BindingStatus/CoercedValue/WriteReceipt triple at the viewer panel plane
 Observability/Telemetry.cs  →  typescript:runtime/otel                     # [TRANSPORT]: OtelExport OTLP egress aligned at the shared collector
 Sandbox/solver              ←  csharp:Rasm/Drawing/pack                    # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant (GeometryPacking capsule)
-Runtime/determinism         →  csharp:Rasm.AppUi/Editing/notebook          # [PORT]: DeterminismContext / RecomputeGraph caller-keyed granularity-neutral
+Runtime/determinism         →  csharp:Rasm.AppUi/Document/notebook          # [PORT]: DeterminismContext / RecomputeGraph caller-keyed granularity-neutral
 Runtime                     →  csharp:Rasm.Persistence/Query/cache         # [PORT]: TenantId RLS + cache L2 partition
 Runtime                     →  csharp:Rasm.Persistence/Version/recovery    # [PORT]: ResolvedProfile DR-objective inputs
 Runtime/secrets             →  csharp:Rasm.Persistence/Element/identity    # [PORT]: KMS-unwrap port (#KEY_ENVELOPE EnvelopeKeyring)
+Runtime/secrets             →  csharp:Rasm.AppUi/Document/export           # [PORT]: IDigitalSigner credential-material ingress through the SecretLease acquire/renew/zeroize lifecycle — AppUi composes signer boundary material, never stores key bytes
 Wire/outbox                 →  csharp:Rasm.Persistence/Version/egress      # [PORT]: keyed OutboundHop egress (one CloudEvents envelope, three consumers)
 Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                     # [PORT]: HLC two-half + TenantContext causal frame
 Agent/identity              ⇄  csharp:Rasm.Persistence                     # [PORT]: identity store (TenantId RLS)
@@ -94,7 +95,7 @@ Wire/companion              →  csharp:Rasm.Persistence/Version/ledger      # [
 Wire/companion              ⇄  csharp:Sandbox/provisioning                 # [WIRE_VOCABULARY]: PeerRoster local attach contributes into MembershipView
 Observability/telemetry     →  csharp:Rasm.Persistence/Element             # [WIRE_VOCABULARY]: DataClassification crosses as value fields (codec/identity rows), never a ClassificationGuard
 Runtime/profiles            →  csharp:Rasm.Compute/Runtime/scheduling      # [WIRE_VOCABULARY]: FidelityScale export declaration (Compute-side echo pending)
-Wire/topics                 ←  csharp:Rasm.AppUi/Editing/collab            # [WIRE]: session-ephemeral Loro live-delta as opaque payload rows on the one topics law
+Wire/topics                 ←  csharp:Rasm.AppUi/Collab/sync            # [WIRE]: session-ephemeral Loro live-delta as opaque payload rows on the one topics law
 Observability/Telemetry.cs  ⇄  python:runtime/observability                # [TRANSPORT]: trace-context + OTLP egress aligned at the shared collector
 Runtime                     ⇄  python:runtime/transport                    # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
 Runtime                     →  python:runtime/transport                    # [TRANSPORT]: gRPC ServerHost

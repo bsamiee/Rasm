@@ -10,21 +10,25 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
 const rawScope = (typeof input === 'string') ? input.trim() : (input && typeof input === 'object' && input.target) ? String(input.target).trim() : ''
 const SWEEP = (!rawScope || rawScope === 'ALL') ? 'libs' : rawScope
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['folders'], properties: { folders: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'files'], properties: { folder: { type: 'string' }, files: { type: 'array', items: { type: 'string' } } } } } } }
 // Required-but-possibly-empty `repaired` is an attestation: ripple authority ran; empty attests no cross-file defect surfaced.
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'applied', 'verdict', 'repaired', 'summary'], properties: { folder: { type: 'string' }, applied: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['aligned', 'clean'] }, repaired: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the role law and voice, and libs/.planning/README.md for ' +
     'the exact IDEAS/TASKLOG card schema. This is an ALIGNMENT/REFINEMENT pass: re-align each card to the CURRENT state of the folder it governs ' +
@@ -55,6 +59,7 @@ const LAW = [
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
@@ -80,6 +85,7 @@ const CARD_FILES = FOLDERS.flatMap((u) => u.files).filter(Boolean)
 log('Cards discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders / ' + CARD_FILES.length + ' card files')
 
 // --- [CARDS_ALIGN]
+
 phase('Cards-Align')
 const aligned = (await pool(FOLDERS, CAP, (u) => agent([
   LAW, '',
@@ -96,6 +102,7 @@ const aligned = (await pool(FOLDERS, CAP, (u) => agent([
 log('Cards aligned across ' + aligned.length + ' folders')
 
 // --- [CARDS_VERIFY]
+
 phase('Cards-Verify')
 const verify = (await pool([
   () => agent([LAW, '', 'TASK: BIDIRECTIONALITY verify + FIX IN PLACE across ALL discovered card files (' + JSON.stringify(CARD_FILES) + '). This ' +

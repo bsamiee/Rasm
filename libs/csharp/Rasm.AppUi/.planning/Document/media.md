@@ -10,8 +10,8 @@ A rich-content-and-media owner renders markdown to live Avalonia inlines and pla
 
 ## [02]-[MARKDOWN_INLINES]
 
-- Owner: `MarkdownInlineRenderer` the `MarkdownRow`/`InlineRun`-to-Avalonia-inline materialization; `InlineStyle` the per-run token-style resolve; `ContentFault` the fault family in the 4B00 code band.
-- Cases: `ContentFault` = Text | UnresolvedRole | CodecAbsent | DecodeFailed in the 4B00 code band.
+- Owner: `MarkdownInlineRenderer` the `MarkdownRow`/`InlineRun`-to-Avalonia-inline materialization; `InlineStyle` the per-run token-style resolve; `ContentFault` the typed fault family on the `AppUiFaultBand.Content` registry row (6410).
+- Cases: `ContentFault` = Text | UnresolvedRole | CodecAbsent | DecodeFailed.
 - Entry: `public InlineCollection Render(MarkdownDocumentRows rows, FontChain chain)` — materializes the `Theme/typography` `MarkdownProjection.Project` rows into one `InlineCollection` of `Avalonia.Controls.Documents` `Run`/`Bold`/`Italic`/`Span` styled through the resolved `TextStyleRow`; `public Control Block(MarkdownRow row, FontChain chain)` — materializes a block row (heading, quote, list, grid, code-fence, rule) into its container control.
 - Auto: the markdown AST projection is owned by `Theme/typography` (`MarkdownProjection`, the closed seven-arm fold to `MarkdownRow`/`InlineRun`) — this renderer consumes those rows and never re-parses, so a parallel markdown model is the deleted form; each `InlineRun` materializes into a `Run` wrapped in `Bold`/`Italic`/`Span` per its `Strong`/`Emphasis`/`Code`/`Link` flags, styled through `TextStyleRow.Resolve(role, chain)` so the inline font, weight, tracking, line-height, and OpenType features ride the one `TypographyRole` vocabulary (the `Code` run takes the mono role, a heading takes its `HeadingRole`); a `CodeFence` row hands off to the `Inspector#CODE_EDITING` `CodePane` with its language tag so the renderer never highlights code; an `HtmlBlock`/`HtmlInline` run degrades to empty per the typography projection so raw HTML never enters the retained tree; the round-trip `SourceSpan` on each run maps a retained run back to its byte range for editor sync.
 - Packages: Markdig, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -25,10 +25,10 @@ public abstract partial record ContentFault : Expected, IValidationError<Content
 
     public static ContentFault Create(string message) => new Text(message);
 
-    public sealed record Text : ContentFault { public Text(string detail) : base(detail, 0x4B00) { } }
-    public sealed record UnresolvedRole : ContentFault { public UnresolvedRole(string detail) : base(detail, 0x4B01) { } }
-    public sealed record CodecAbsent : ContentFault { public CodecAbsent(string detail) : base(detail, 0x4B02) { } }
-    public sealed record DecodeFailed : ContentFault { public DecodeFailed(string detail) : base(detail, 0x4B03) { } }
+    public sealed record Text : ContentFault { public Text(string detail) : base(detail, AppUiFaultBand.Content.Code(0)) { } }
+    public sealed record UnresolvedRole : ContentFault { public UnresolvedRole(string detail) : base(detail, AppUiFaultBand.Content.Code(1)) { } }
+    public sealed record CodecAbsent : ContentFault { public CodecAbsent(string detail) : base(detail, AppUiFaultBand.Content.Code(2)) { } }
+    public sealed record DecodeFailed : ContentFault { public DecodeFailed(string detail) : base(detail, AppUiFaultBand.Content.Code(3)) { } }
 }
 
 public static class MarkdownInlineRenderer {
@@ -97,8 +97,27 @@ public static class MediaSurfaces {
     public static Fin<Control> Mount(MediaSurface surface, SurfaceSeam seam) => surface.Switch(
         state: seam,
         image: static (s, i) => Fin<Control>.Succ(new AdvancedImage(new Uri(i.Source)) { Stretch = i.Stretch, Loader = ImageLoader.AsyncImageLoader }),
-        video: static (s, v) => Fin<Control>.Succ(new MpvView { Renderer = VideoRenderer.OpenGl }),
-        audio: static (s, a) => Fin<Control>.Succ(new MpvView { Renderer = VideoRenderer.OpenGl }));
+        video: static (s, v) => Wire(s, v.Source, v.AutoPlay, v.Loop),
+        audio: static (s, a) => Wire(s, a.Source, a.AutoPlay, loop: false));
+
+    // The wired mount: MpvContext binds onto the view's MpvContextProperty, the AutoPlay/Loop columns
+    // land as Pause/LoopFile options, and source intake runs the ONE PlaybackTransport.Load rail to
+    // completion BEFORE the view mounts — a load failure faults the mount instead of racing it.
+    static Fin<Control> Wire(SurfaceSeam seam, string source, bool autoPlay, bool loop) =>
+        Guarded(() => {
+            MpvContext context = new();
+            MpvView view = new() { Renderer = VideoRenderer.OpenGl };
+            view.SetValue(MpvView.MpvContextProperty, context);
+            context.Pause.Set(!autoPlay);
+            if (loop) { context.LoopFile.Set("inf"); }
+            PlaybackTransport.Load(context, source).Run();
+            return seam.Mount(view);
+        });
+
+    static Fin<Control> Guarded(Func<Control> mount) {
+        try { return Fin.Succ(mount()); }
+        catch (Exception ex) { return Fin.Fail<Control>(new ContentFault.CodecAbsent(ex.Message)); }
+    }
 }
 ```
 
@@ -150,4 +169,4 @@ flowchart LR
 ## [05]-[RESEARCH]
 
 - [INLINE_DOCUMENTS]: the `Avalonia.Controls.Documents` inline-materialization surface the `MarkdownInlineRenderer` mounts — the `Run`/`Bold`/`Italic`/`Span`/`LineBreak` construction and the `InlineCollection.Add` append the `Theme/typography` `MARKDOWN_PROJECTION` boundary names — resolved at implementation against the Avalonia 12 documents surface; the `MarkdownRow`/`InlineRun` rows (typography-owned), the `TextStyleRow.Resolve` styling, and the block-container materialization are settled, the per-inline `Avalonia.Controls.Documents` member spellings are the unverified surface bound at composition.
-- [MPV_SURFACE_MOUNT]: the `HanumanInstitute.LibMpv.Avalonia` `MpvView`/`OpenGlView` `SurfaceSeam` mount surface the `MediaSurface` video/audio rows bind — the `MpvView.Renderer`/`MpvContext`/`InitRenderer` `DirectProperty` binding and the `OpenGlControlBase` GL-surface mount on the one render `SurfaceSeam` (`.api/api-libmpv.md` view/render integration) — resolved at implementation against the installed `HanumanInstitute.LibMpv.Avalonia` surface and the libmpv native (>= 0.40.0) provisioned at the app-host distribution layer; the `MediaSurface` union, the codec rows, the playback transport, and the `SurfaceSeam` mount are settled, the exact `MpvView` mount member spellings and the libmpv OpenGL render-path binding are the unverified surface composed at the package edge.
+- [MPV_SURFACE_MOUNT]: the libmpv NATIVE provisioning fact only — the libmpv native (>= 0.40.0) provisions at the app-host distribution layer; the mount itself is WIRED (`MpvView.Renderer`/`MpvContextProperty`/`LoadFile`/`Pause`/`LoopFile` verified against `.api/api-libmpv.md`), the `MediaSurface` union, the codec rows, the playback transport, and the `SurfaceSeam` mount are settled.

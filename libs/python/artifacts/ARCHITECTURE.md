@@ -112,7 +112,7 @@ graphic/color/managed        →  python:artifacts/graphic/raster         # [PRO
 graphic/color/managed        →  python:artifacts/document               # [PROJECTION]: ICC-profiled raster consumed by document/PDF output
 core/receipt                 ←  python:runtime/execution                # [RECEIPT]: reuse-fabric elision ContentKey hit/miss
 core/receipt                 ←  python:runtime/observability            # [RECEIPT]: Metrics.record(domain="artifact", kind) distribution rows off _facts at contribute
-core/receipt                 →  python:compute/graduation               # [WIRE]: graduates rail projects ArtifactReceipt into HandoffAxis(artifact=) keyed by ContentIdentity
+core/receipt                 →  python:compute/graduation               # [GRADUATION]: graduates projects ArtifactReceipt into HandoffAxis(artifact=)
 core/receipt                 ←  python:artifacts/core/plan              # [RECEIPT]: per-artifact contribute folds walked into the elision plan
 visualization/table          ←  python:data/tabular                     # [SHAPE]: QualityProfile frame rendered by the great-tables tier
 visualization/diagram/layout ←  python:data/tabular                     # [SHAPE]: graph adjacency/attributes feed the layout

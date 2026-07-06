@@ -22,39 +22,47 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const RANK = { low: 0, medium: 1, high: 2, critical: 3 }
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 // `args` arrives as structured data — read fields directly, default the omitted case.
 const scope = args?.scope ?? 'libs'
 const minPriority = args?.minPriority ?? 'high'
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
+// STRICT everywhere: additionalProperties:false + every property required at every level; a conditional field is required-but-empty (''), never omitted.
 const CARDS = {
   type: 'object',
+  additionalProperties: false,
   required: ['cards'],
   properties: {
     cards: {
       type: 'array',
       items: {
         type: 'object',
-        required: ['id', 'title', 'priority'],
+        additionalProperties: false,
+        required: ['id', 'title', 'priority', 'file'],
         properties: {
           id: { type: 'string' },
           title: { type: 'string' },
           priority: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] },
-          file: { type: 'string' },
+          file: { type: 'string' }, // empty when the card path could not be resolved
         },
       },
     },
   },
 }
+
 const VERDICT = {
   type: 'object',
-  required: ['realized'],
+  additionalProperties: false,
+  required: ['realized', 'note'],
   properties: {
     realized: { type: 'boolean' },
-    note: { type: 'string' },
+    note: { type: 'string' }, // why the verify failed; empty on a clean pass
   },
 }
 
@@ -83,11 +91,10 @@ const results = await pipeline(
   // Stage 1 — realize the card in the codebase, following the package's standards.
   card => agent(
     `Realize this planning card in ${scope}, extending the canonical owner per CLAUDE.md.\n` +
-    `Card ${card.id} [${card.priority}]: ${card.title}\nSource: ${card.file ?? '(unknown)'}`,
+    `Card ${card.id} [${card.priority}]: ${card.title}\nSource: ${card.file || '(unknown)'}`,
     { label: `realize:${card.id}`, phase: 'Realize' },
   ),
-  // Stage 2 — verify the realization, then mark the card done. Adversarial
-  // completeness judgment, so tier the reasoning up.
+  // Stage 2 — verify the realization, then mark the card done. Adversarial completeness judgment, so tier the reasoning up.
   (_done, card) => agent(
     `Verify the realization of card ${card.id} ("${card.title}") is complete and matches the ` +
     `card's charter. Run the package's owner-scoped proof gate. If complete, remove the done card.`,
@@ -96,4 +103,5 @@ const results = await pipeline(
 )
 
 const realized = results.filter(Boolean).filter(r => r.realized)
+
 return { candidates: top.length, realized: realized.length, results: results.filter(Boolean) }

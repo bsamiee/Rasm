@@ -15,8 +15,8 @@ libs/csharp/
 ├── Rasm.Fabrication/  # [AEC_DOMAIN]    — Host-neutral HLR, CAM toolpath, kinematics, and nesting over a Clipper2 polygon floor
 ├── Rasm.AppHost/      # [APP_PLATFORM]  — Runtime spine: lifecycle, clocks, config, ports, observability
 ├── Rasm.Compute/      # [APP_PLATFORM]  — Measured execution: tensor, model, solver, runtime
-├── Rasm.Persistence/  # [APP_PLATFORM]  — Durable stores: store, schema, query, version, sync
-├── Rasm.AppUi/        # [APP_PLATFORM]  — Avalonia product UI: shell, render, charts, editing, theme
+├── Rasm.Persistence/  # [APP_PLATFORM]  — Durable stores: store, element, ingest, query, version
+├── Rasm.AppUi/        # [APP_PLATFORM]  — Avalonia product UI: shell, render, charts, editing, document, collab, diagnostics, theme
 ├── Rasm.Rhino/        # [HOST_BOUNDARY] — RhinoCommon host APIs; references only Rasm
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY] — GH2 host APIs; references only Rasm
 ```

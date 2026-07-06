@@ -1,19 +1,20 @@
 # [APPUI_VISUALS_OFFSCREEN]
 
-Offscreen visuals are the package's raster rail: one DrawSource capsule projects every Skia canvas — host-leased or owned — through a Fin-railed Use, thumbnails and geometry previews materialize as SKImage through host-agnostic capture delegates, one codec surface encodes and decodes with content-hashed RenderReceipt evidence, and one SKDocument export surface paginates a flow-fold of content blocks under a break rule and header-footer band, delivering paged output to parameterized destinations. The page owns the draw capsule, the thumbnail and preview row families, the encode axis, the export spec with its flow vocabulary and destination union, and the RenderReceipt family the render-hash proof lanes and the AppHost telemetry spine consume. The package spine is SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation; HUD and viewport overlay drawing stays host-side.
+Offscreen visuals are the package's raster rail: one DrawSource capsule projects every Skia canvas — host-leased or owned — through a Fin-railed Use, thumbnails and geometry previews materialize as SKImage through host-agnostic capture delegates, one codec surface encodes and decodes with content-hashed RenderReceipt evidence, one narrowed SKDocument surface carries the pure-visual vector-print arm, and one FFmpeg encode surface muxes frame streams into H.264/MP4 clips. The page owns the draw capsule, the thumbnail and preview row families, the encode axis with the ONE `ColorPolicy` gamut/transfer family, the vector-print arm, the video encode rows, and the RenderReceipt family the render-hash proof lanes and the AppHost telemetry spine consume. Document/Office/print export is `Document/export.md`'s — this page only rasters, encodes, and prints vectors. The package spine is SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation; HUD and viewport overlay drawing stays host-side.
 
 ## [01]-[INDEX]
 
-- [01]-[DRAW_CAPSULE]: Borrowed and owned Skia canvas projection on one `Fin` rail.
-- [02]-[THUMBNAIL_PIPELINE]: Host-agnostic capture rows, blob-backed cache, async display.
-- [03]-[PREVIEW_SURFACES]: Receipt-to-path preview rows, backplates, zoomable viewing.
-- [04]-[ENCODE_IDENTITY]: Codec axis, content-hashed receipts, native asset identity.
-- [05]-[DOCUMENT_EXPORT]: Paged `SKDocument` export to parameterized destinations.
+- [02]-[DRAW_CAPSULE]: Borrowed and owned Skia canvas projection on one `Fin` rail.
+- [03]-[THUMBNAIL_PIPELINE]: Host-agnostic capture rows, blob-backed cache, async display.
+- [04]-[PREVIEW_SURFACES]: Receipt-to-path preview rows, backplates, zoomable viewing.
+- [05]-[ENCODE_IDENTITY]: Codec axis, the one gamut/transfer family, content-hashed receipts.
+- [06]-[VECTOR_PRINT]: The narrowed pure-visual `SKDocument` vector-print arm.
+- [07]-[VIDEO_ENCODE]: FFmpeg mux/encode rows — frame stream to H.264/MP4.
 
 ## [02]-[DRAW_CAPSULE]
 
-- Owner: `DrawSource` [Union] · `Offscreen`
-- Cases: Borrowed · Owned
+- Owner: `DrawSource` [Union] · `Offscreen` · `VisualFault` — the page's typed fault family on the `AppUiFaultBand.Visual` registry row (6160)
+- Cases: Borrowed · Owned; `VisualFault` = LeaseBound | IccInvalid | XpsUnavailable | EncodeFailed
 - Entry: `public Fin<T> Use<T>(Func<SKCanvas, Fin<T>> draw)` — Fin rail
 - Auto: in-tree visuals lease the live canvas through `ISkiaSharpApiLeaseFeature.Lease` at render scope and fold to Borrowed; offscreen pipelines construct Owned with the target `SKImageInfo` and Materialize a snapshot.
 - Packages: SkiaSharp, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -21,6 +22,19 @@ Offscreen visuals are the package's raster rail: one DrawSource capsule projects
 - Boundary: `Offscreen` is the named boundary capsule — the using-scoped `SKSurface` create-and-dispose pair is the only place a Skia surface is owned; a Borrowed lease draws into the host's in-flight frame and never materializes, so Materialize folds that arm to the LeaseBound error row; transforms compose as `SKMatrix` values inside `Save`/`Restore` scopes and no mutated canvas state survives a projection; FX-row effect natives construct once at token resolve and bind onto the long-lived paint, and gradient stops enter through `SKColorF` token paints under the color-managed law so a wide-gamut ramp never quantizes through the byte color path — a per-draw effect construction or a sRGB-lerped gradient is the deleted form; the custom-visual layout folds compose their projected `SKPath` through `Owned.Materialize` exactly as `PreviewRow.Render` does, so `Offscreen` stays the only Skia-surface owner and the custom-visual rail mints no second surface, encode, or capture owner; the GPU-accelerated offscreen path is the `Render/pipeline.md#RENDER_GRAPH` `RenderTargetFactory` backend column, so an offscreen dashboard or custom-tile draw under the `Wgpu` row encodes through the `Silk.NET.WebGPU` `RenderPipeline`/`CommandEncoder` wgpu surface and an offscreen draw under the `Software` row stays this `SKSurface.Create` CPU floor, the backend selection riding the one `GpuBackend` factory column and never a second offscreen-surface owner here — the in-tree `ICustomDrawOperation` Borrowed lease is the Skia-backend vehicle and the offscreen `Owned` capsule is the floor below the GPU factory.
 
 ```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record VisualFault : Expected {
+    private VisualFault(string detail, int code) : base(detail, code) { }
+    public sealed record LeaseBound()
+        : VisualFault("visuals/lease-bound: a borrowed host lease draws into the live frame and never materializes", AppUiFaultBand.Visual.Code(0));
+    public sealed record IccInvalid(string Key)
+        : VisualFault($"visuals/icc-invalid: profile bytes for {Key} do not parse as an ICC profile", AppUiFaultBand.Visual.Code(1));
+    public sealed record XpsUnavailable()
+        : VisualFault("visuals/xps-unavailable: the loaded Skia native carries no XPS backend on this platform", AppUiFaultBand.Visual.Code(2));
+    public sealed record EncodeFailed(string Stage)
+        : VisualFault($"visuals/encode-failed: {Stage}", AppUiFaultBand.Visual.Code(3));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DrawSource {
     private DrawSource() { }
@@ -39,7 +53,7 @@ public abstract partial record DrawSource {
 }
 
 public static class Offscreen {
-    public static readonly Error LeaseBound = Error.New("visuals/lease-bound: a borrowed host lease draws into the live frame and never materializes");
+    public static readonly VisualFault LeaseBound = new VisualFault.LeaseBound();
 
     public static Fin<T> Rent<T>(SKImageInfo info, Func<SKCanvas, Fin<T>> draw) {
         using SKSurface surface = SKSurface.Create(info);
@@ -156,13 +170,20 @@ public sealed record PreviewRow<TReceipt>(
 
 ## [05]-[ENCODE_IDENTITY]
 
-- Owner: `RenderReceipt` · `NativeAssetFact` · `VisualCodec`
+- Owner: `RenderReceipt` · `NativeAssetFact` · `VisualCodec` — including `ColorPolicy`, the ONE suite gamut/transfer row family (`[V10]`).
 - Entry: `public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key)` — IO rail
 - Auto: the runtime NativeIdentity delegate is filled by the mount transaction's load-identity probe and yields one `NativeAssetFact` per loaded native (libSkiaSharp, libHarfBuzzSharp) with version, path, and RID; the evidence stream folds the facts with kind native-asset.
-- Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate bound to the suite XxHash128 identity row; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent.
-- Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair and rides the `ColorSpaceAxis` gamut vocabulary; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorPolicy.FromIcc` value from a profile-byte source — zero new surface.
-- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing; color management is float end-to-end — the encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the consumed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace` and whose `Output` space pins the encoded payload, `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection, `SKColorSpace.Equal` is the only color-space identity test, the `SKImage.ColorSpace` read, the `SKColorType.RgbaF16` float surface format, and the `SKAlphaType.Premul` alpha mode that the five-argument `SKImageInfo` constructor and `SKImageInfo.WithColorSpace` compose are confirmed against the installed SkiaSharp surface, and the reproject is fail-closed against an already-matching color space, and the byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form so a wide-gamut render hashes its float pixels, never a quantized sRGB shadow; `SKColorF` carries token paints into the float pipeline so a wide-gamut token never round-trips through the byte color quantizer; the four `ColorPolicy` gamut rows `Display`, `DisplayP3`, `Rec2020`, and `ScrgbFloat` are the encode-side projection of the single suite-wide `ColorSpaceAxis` vocabulary the custom-visual rail owns, the ICC-tagged rows source `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3)` and `SKColorSpaceXyz.Rec2020` on the `Rgba8888` byte surface and the float row sources `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb)` on the `RgbaF16` surface, the `Surface` column selects the reproject pixel format per row so the float row never truncates to bytes and the ICC rows never inflate to half-float, and the `RenderReceipt.ColorSpace` tag is one of the axis keys so a cross-host byte swap is attributable to the exact gamut and a parallel `Gamut` enum or per-encode color struct is the deleted form; HDR tone-mapping is the `ToneMap` smart-enum column on `ColorPolicy` — the `Aces`/`Reinhard`/`HableFilmic` curves are pure float operators sampled into a 256-entry `SKColorFilter.CreateTable` LUT bound onto the reproject paint exactly once at projection, so a scene-referred Rec.2020-PQ render tone-maps to the SDR output gamut through one filter pass and a per-pixel managed tone-map loop or a second display-mapping owner is the deleted form, and the `HdrPq` row carries the `Aces` operator so an HDR baseline keys distinctly and its SDR projection is reproducible; ICC profile management is `ColorPolicy.FromIcc` — an embedded or sidecar ICC profile parses through `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` into the working-and-output space so a display-calibrated or print profile drives the reproject without a fifth enum, an unparseable profile folds to the `icc-invalid` error row rather than a silent sRGB fallback, and an OpenColorIO config crosses the seam as a profile-byte source the caller resolves — AppUi consumes the profile bytes and never embeds an OCIO runtime; the OCIO-config-to-ICC extraction is caller-side and a managed OCIO color-pipeline is the deleted form; the `SKColorSpace.CreateIcc` parse, the `SKColorFilter.CreateTable(byte[])` LUT arity, and the `SKImageInfo.WithColorSpace` ICC tag round-trip resolve at implementation against the installed SkiaSharp surface under ICC_TONEMAP.
+- Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate — the delegate binds at composition to the kernel `Rasm.Domain` `ContentHash.Of(ReadOnlySpan<byte>) -> UInt128` seed-zero entry (the federation one-hasher; hex encoding stays this boundary's projection), so an AppUi-local `XxHash128` call site is the deleted form; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent.
+- Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), Rasm (project), NodaTime, LanguageExt.Core
+- Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorPolicy.FromIcc` value from a profile-byte source — zero new surface.
+- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
+- Color law, float end-to-end:
+  - The encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the consumed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace`, and whose `Output` space pins the encoded payload; `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection; `SKColorSpace.Equal` is the only color-space identity test; the reproject is fail-closed against an already-matching color space.
+  - The byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form — a wide-gamut render hashes its float pixels, never a quantized sRGB shadow; `SKColorF` carries token paints into the float pipeline.
+  - `ColorPolicy` is THE single suite-wide gamut/transfer vocabulary — the six gamut rows `Display`, `WideGamut`, `DisplayP3`, `Rec2020`, `ScrgbFloat`, and `HdrPq` are the one family; the custom-visual rail's `ColorSpaceAxis` is a keyed PROJECTION of these rows (`Charts/custom.md`), never a parallel enum with divergent membership; the `RenderReceipt.ColorSpace` tag is one of the family keys so a cross-host byte swap is attributable to the exact gamut.
+  - The ICC-tagged rows source `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3)` and `SKColorSpaceXyz.Rec2020` on the `Rgba8888` byte surface; the float row sources `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb)` on the `RgbaF16` surface; the `Surface` column selects the reproject pixel format per row so the float row never truncates to bytes and the ICC rows never inflate to half-float.
+  - HDR tone-mapping is the `ToneMap` smart-enum column on `ColorPolicy` — the `Aces`/`Reinhard`/`HableFilmic` curves are pure float operators sampled into a 256-entry `SKColorFilter.CreateTable` LUT bound onto the reproject paint exactly once at projection, so a scene-referred Rec.2020-PQ render tone-maps to the SDR output gamut through one filter pass; a per-pixel managed tone-map loop or a second display-mapping owner is the deleted form; the `HdrPq` row carries the `Aces` operator so an HDR baseline keys distinctly and its SDR projection is reproducible.
+  - ICC profile management is `ColorPolicy.FromIcc` — an embedded or sidecar ICC profile parses through `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` into the working-and-output space so a display-calibrated profile drives the reproject without a seventh enum row; an unparseable profile folds to the `icc-invalid` error row rather than a silent sRGB fallback; an OpenColorIO config crosses the seam as a profile-byte source the caller resolves — AppUi consumes the profile bytes and never embeds an OCIO runtime; device-CMYK print transforms are `Document/export.md#PRINT_ARM`'s lcmsNET charter, disjoint from this display-referred family.
 
 ```csharp signature
 public sealed record RenderReceipt(
@@ -200,7 +221,7 @@ public static class VisualCodec {
         public static Fin<ColorPolicy> FromIcc(string key, ReadOnlyMemory<byte> profile, SKColorType surface) =>
             Optional(SKColorSpace.CreateIcc(profile.Span)) is { IsSome: true, Case: SKColorSpace space }
                 ? Fin.Succ(new ColorPolicy(key, () => space, () => space, surface, ToneMap.None))
-                : Fin.Fail<ColorPolicy>(Error.New($"visuals/icc-invalid: profile bytes for {key} do not parse as an ICC profile"));
+                : Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid(key));
 
         public Fin<SKImage> Reproject(SKImage image) {
             using SKColorSpace target = Output();
@@ -262,212 +283,31 @@ public static class VisualCodec {
 }
 ```
 
-## [06]-[DOCUMENT_EXPORT]
+## [06]-[VECTOR_PRINT]
 
-- Owner: `VisualDestination` [Union] · `VisualExportSpec` · `FlowBlock` [Union] · `VisualExport` · `OfficeFormat` · `OfficeSpec` · `OfficeSheet` [Union] · `OfficeExport`
-- Cases: FilePath · BlobLane · Bundle; `OfficeFormat` = xlsx · pptx · docx; `OfficeSheet` = Table · Chart · Image · RichText
-- Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail; `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail
-- Auto: the Bundle arm delivers visual artifacts through the runtime BundleWrite delegate with their classification — the support-contributor consequence; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from ProfileRoots.
-- Receipt: one RenderReceipt of kind document per export with whole-payload content hash and the delivered destination key.
-- Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; one `FlowBlock` case extends the flow-block owner and one `BreakRule` value extends the break policy column; one `OfficeFormat` row admits an Office target and one `OfficeSheet` case admits a content kind; zero new surface.
-- Boundary: `FlowBlock` is the budgeted export-flow owner (DENSITY_BAR row 30), `HeaderFooterBand` its companion band member, and `BreakRule` a `POLICY_VALUES` column on `VisualExportSpec` — the document-pagination concern resolves through these without minting a surface beside the destination owners; Paged, Flow, and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging, content-to-page flow, and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; the `FlowFold` consumes a `Seq<FlowBlock>` under the spec's `BreakRule` column and emits the same precomposed `Func<SKCanvas, Fin<Unit>>` page folds the explicit-pages path already carries — each page draws the `HeaderFooterBand` first, then the block run the break rule fits, with a `Text` block's `Draw` delegate composing the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster and the block's `Height` advance derives from the shaped run's `SKShaper.Result` `Width` and the role-row line box, never a per-glyph placement loop, and chart snapshots entering as `SKImage` tiles; vector content enters pages as picture content so vectors and text survive rather than rasterizing; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; Office export is the `OfficeExport.Emit` rail over the `OfficeSpec` — XLSX, PPTX, and DOCX targets carry typed `OfficeSheet` content (tables, charts projecting the `ChartSeriesSpec` points, images as `SKImage` tiles, rich text as `FlowBlock` runs) with embedded font faces packed into the OOXML part so a report renders identically off-machine, and the deterministic pagination reuses the `FlowFold` break algebra so a DOCX page break matches the PDF page break — a hand-laid-out report and a per-format report builder are the deleted forms; the Office payload writes through the OpenXML writer bodies — XLSX through `SpreadsheetDocument.Create`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`, DOCX through `WordprocessingDocument.Create`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`, both delivering through the typed part-graph factory and never a raw ZIP/XML write (the `api-drafting-export.md` RAIL_LAW reject) — so the XLSX and DOCX arms transcribe now beside the `SKDocument` PDF and the codec axis; the PPTX slide part-graph (`PresentationDocument`/`PresentationPart`/`SlidePart`/`SlideLayoutPart` chain) and the cell-style/run-formatting member spellings are the residual OFFICE_OPENXML surface; the Office destination is the same `VisualDestination` union so the Office emit mints no second destination owner and the receipt rides the `RenderReceipt` family as kind office, the embedded-font part packed through `FontTablePart.GetStream` so a report renders identically off-machine.
+- Owner: `VisualExportSpec` · `VisualExport` — the pure-visual vector-print arm: precomposed canvas page folds through `SKDocument.CreatePdf`/`CreateXps`, nothing more.
+- Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail.
+- Auto: pages are precomposed `Func<SKCanvas, Fin<Unit>>` folds — vector content enters as picture content so vectors and text survive rather than rasterizing; delivery rides the `Document/export.md#EXPORT_DESTINATIONS` `VisualDestination` union.
+- Receipt: one RenderReceipt of kind document per export with whole-payload content hash through the kernel-bound delegate and the delivered destination key.
+- Packages: SkiaSharp, SkiaSharp.HarfBuzz, Rasm.AppHost (project), NodaTime, LanguageExt.Core
+- Growth: one page-size row extends the table; zero new surface.
+- Boundary: this arm is NARROWED to pure-visual vector printing — flow pagination, running bands, Office output, PDF security/signatures/AcroForms/UA, and print color are `Document/export.md`'s owners, and the hand-rolled `FlowBlock`/`FlowFold`/`HeaderFooterBand`/`BreakRule` pagination engine is DELETED for the MigraDoc flow DOM; Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; text drawn onto a page composes the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster.
 
 ```csharp signature
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record VisualDestination {
-    private VisualDestination() { }
-    public sealed record FilePath(string AbsolutePath) : VisualDestination;
-    public sealed record BlobLane(string ArtifactKey) : VisualDestination;
-    public sealed record Bundle(string ArtifactName, DataClassification Classification) : VisualDestination;
-}
-
 public sealed record VisualExportSpec(
     string Format,
     float PageWidth,
     float PageHeight,
     Seq<Func<SKCanvas, Fin<Unit>>> Pages,
-    BreakRule Break,
     VisualDestination Destination);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FlowBlock {
-    private FlowBlock() { }
-    public sealed record Text(float Height, Func<SKCanvas, float, Fin<Unit>> Draw) : FlowBlock;
-    public sealed record Tile(float Height, SKImage Image) : FlowBlock;
-    public sealed record Rule(float Height) : FlowBlock;
-
-    public float Advance => Switch(text: static t => t.Height, tile: static i => i.Height, rule: static r => r.Height);
-
-    public Fin<Unit> Draw(SKCanvas canvas, float cursor) =>
-        Switch(
-            state: (Canvas: canvas, Cursor: cursor),
-            text: static (ctx, t) => t.Draw(ctx.Canvas, ctx.Cursor),
-            tile: static (ctx, i) => (fun(() => ctx.Canvas.DrawImage(i.Image, 0f, ctx.Cursor))(), FinSucc(unit)).Item2,
-            rule: static (_, _) => FinSucc(unit));
-}
-
-[SmartEnum]
-public sealed partial class BreakRule {
-    public static readonly BreakRule Greedy = new();
-    public static readonly BreakRule BlockAtomic = new();
-    public static readonly BreakRule OnePerPage = new();
-}
-
-public readonly record struct HeaderFooterBand(
-    Option<Func<SKCanvas, int, Fin<Unit>>> Header,
-    Option<Func<SKCanvas, int, Fin<Unit>>> Footer,
-    float HeaderHeight,
-    float FooterHeight);
-
-public static class FlowLayout {
-    public static Seq<Func<SKCanvas, Fin<Unit>>> FlowFold(VisualExportSpec spec, Seq<FlowBlock> blocks, HeaderFooterBand band) =>
-        blocks.Fold(
-                (Pages: Seq<Seq<FlowBlock>>(), Run: Seq<FlowBlock>(), Cursor: band.HeaderHeight),
-                (state, block) =>
-                    !state.Run.IsEmpty && (spec.Break == BreakRule.OnePerPage || state.Cursor + block.Advance > spec.PageHeight - band.FooterHeight)
-                        ? (Pages: state.Pages.Add(state.Run), Run: Seq(block), Cursor: band.HeaderHeight + block.Advance)
-                        : (Pages: state.Pages, Run: state.Run.Add(block), Cursor: state.Cursor + block.Advance))
-            switch {
-                var folded => folded.Pages.Add(folded.Run).Filter(static run => !run.IsEmpty).Map((run, index) => Page(band, index, run)),
-            };
-
-    static Func<SKCanvas, Fin<Unit>> Page(HeaderFooterBand band, int index, Seq<FlowBlock> run) =>
-        canvas =>
-            band.Header.Match(Some: header => header(canvas, index), None: static () => FinSucc(unit))
-                .Bind(_ => run.Fold(Fin.Succ(band.HeaderHeight),
-                    (cursor, block) => cursor.Bind(at => block.Draw(canvas, at).Map(_ => at + block.Advance))))
-                .Bind(_ => band.Footer.Match(Some: footer => footer(canvas, index), None: static () => FinSucc(unit)));
-}
-
-[SmartEnum<string>]
-public sealed partial class OfficeFormat {
-    public static readonly OfficeFormat Xlsx = new("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    public static readonly OfficeFormat Pptx = new("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-    public static readonly OfficeFormat Docx = new("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-
-    public string MediaType { get; }
-}
-
-public sealed record OfficeSpec(
-    OfficeFormat Format,
-    Seq<OfficeSheet> Sheets,
-    Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> EmbeddedFonts,
-    VisualDestination Destination);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record OfficeSheet {
-    private OfficeSheet() { }
-    public sealed record Table(string Name, Seq<Seq<string>> Rows, bool Header) : OfficeSheet;
-    public sealed record Chart(string Name, ChartSeriesSpec Spec, Seq<(double X, double Y)> Points) : OfficeSheet;
-    public sealed record Image(string Name, SKImage Picture) : OfficeSheet;
-    public sealed record RichText(string Name, Seq<FlowBlock> Blocks) : OfficeSheet;
-}
-
-public static class OfficeExport {
-    public const string Kind = "office";
-
-    public static readonly Error PresentationUnsupported = Error.New("visuals/office-pptx: the PPTX slide part-graph member spellings resolve under OFFICE_OPENXML");
-
-    public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec) =>
-        from mark in IO.lift(runtime.Clocks.Mark)
-        from payload in Write(spec)
-        from destination in Deliver(runtime, spec.Destination, payload)
-        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(Kind, spec.Format.Key, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
-        from _ in runtime.Sink(receipt)
-        select receipt;
-
-    static IO<byte[]> Write(OfficeSpec spec) =>
-        spec.Format.Key switch {
-            "xlsx" => IO.lift(() => WriteXlsx(spec)),
-            "docx" => IO.lift(() => WriteDocx(spec)),
-            _ => IO.fail<byte[]>(PresentationUnsupported),
-        };
-
-    static byte[] WriteXlsx(OfficeSpec spec) {
-        using MemoryStream sink = new();
-        using (SpreadsheetDocument doc = SpreadsheetDocument.Create(sink, SpreadsheetDocumentType.Workbook)) {
-            WorkbookPart workbook = doc.AddWorkbookPart();
-            workbook.Workbook = new Workbook();
-            Sheets sheets = workbook.Workbook.AppendChild(new Sheets());
-            spec.Sheets.Iter((sheet, index) => {
-                WorksheetPart part = workbook.AddNewPart<WorksheetPart>();
-                SheetData data = new();
-                Rows(sheet).Iter(row => data.Append(row));
-                part.Worksheet = new Worksheet(data);
-                sheets.Append(new Sheet { Id = workbook.GetIdOfPart(part), SheetId = (uint)(index + 1), Name = SheetName(sheet) });
-            });
-            EmbedFonts(workbook, spec.EmbeddedFonts);
-            workbook.Workbook.Save();
-        }
-        return sink.ToArray();
-    }
-
-    static byte[] WriteDocx(OfficeSpec spec) {
-        using MemoryStream sink = new();
-        using (WordprocessingDocument doc = WordprocessingDocument.Create(sink, WordprocessingDocumentType.Document)) {
-            MainDocumentPart main = doc.AddMainDocumentPart();
-            Body body = new();
-            spec.Sheets.Iter(sheet => Paragraphs(sheet).Iter(p => body.Append(p)));
-            main.Document = new Document(body);
-            main.Document.Save();
-        }
-        return sink.ToArray();
-    }
-
-    static Seq<Row> Rows(OfficeSheet sheet) =>
-        sheet switch {
-            OfficeSheet.Table table => table.Rows.Map(cells => {
-                Row row = new();
-                cells.Iter(value => row.Append(new Cell { DataType = CellValues.String, CellValue = new CellValue(value) }));
-                return row;
-            }),
-            OfficeSheet.Chart chart => chart.Points.Map(point => {
-                Row row = new();
-                row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.X) });
-                row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.Y) });
-                return row;
-            }),
-            _ => Seq<Row>(),
-        };
-
-    static Seq<Paragraph> Paragraphs(OfficeSheet sheet) =>
-        sheet switch {
-            OfficeSheet.Table table => table.Rows.Map(cells =>
-                new Paragraph(new Run(new Text(string.Join('\t', cells))))),
-            OfficeSheet.RichText rich => rich.Blocks.Bind(block => block switch {
-                FlowBlock.Text => Seq(new Paragraph(new Run(new Text(string.Empty) { Space = SpaceProcessingModeValues.Preserve }))),
-                _ => Seq<Paragraph>(),
-            }),
-            _ => Seq<Paragraph>(),
-        };
-
-    static string SheetName(OfficeSheet sheet) =>
-        sheet.Switch(table: static t => t.Name, chart: static c => c.Name, image: static i => i.Name, richText: static r => r.Name);
-
-    static void EmbedFonts(WorkbookPart workbook, Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> fonts) =>
-        fonts.Iter(font => {
-            FontTablePart part = workbook.AddNewPart<FontTablePart>();
-            using Stream stream = part.GetStream();
-            stream.Write(font.Face.Span);
-        });
-
-    static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
-        destination.Switch(
-            state: (runtime, payload),
-            filePath: static (ctx, file) => IO.lift(() => { File.WriteAllBytes(file.AbsolutePath, ctx.payload); return file.AbsolutePath; }),
-            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
-            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
-}
 
 public static class VisualExport {
-    public static readonly Error XpsUnavailable = Error.New("visuals/xps-unavailable: the loaded Skia native carries no XPS backend on this platform");
+    public static readonly VisualFault XpsUnavailable = new VisualFault.XpsUnavailable();
 
     public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec) =>
         from mark in IO.lift(runtime.Clocks.Mark)
         from payload in IO.lift(() => Paged(spec).ThrowIfFail())
-        from destination in Deliver(runtime, spec.Destination, payload)
+        from destination in ExportDelivery.Deliver(runtime, spec.Destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
         let receipt = new RenderReceipt("document", spec.Format, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
@@ -485,16 +325,6 @@ public static class VisualExport {
                 Succ: _ => { scoped.Close(); return Fin.Succ(sink.ToArray()); },
                 Fail: error => { scoped.Abort(); return Fin.Fail<byte[]>(error); });
     }
-
-    static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
-        destination.Switch(
-            state: (runtime, payload),
-            filePath: static (ctx, file) => IO.lift(() => {
-                File.WriteAllBytes(file.AbsolutePath, ctx.payload);
-                return file.AbsolutePath;
-            }),
-            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
-            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
 }
 ```
 
@@ -505,8 +335,121 @@ public static class VisualExport {
 |  [03]   | letter-portrait  | 612        | 792         |
 |  [04]   | letter-landscape | 792        | 612         |
 
-## [07]-[RESEARCH]
+## [07]-[VIDEO_ENCODE]
 
-- [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics through the confirmed `SKShaper.Result` `Clusters` and `Width` surface, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.
-- [OFFICE_OPENXML]: the XLSX (`SpreadsheetDocument`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`/`Sheets`/`Sheet`) and DOCX (`WordprocessingDocument`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`) writer bodies transcribe now against the catalogued `DocumentFormat.OpenXml` 3.5.1 part-graph factory (`.api/api-drafting-export.md`); the residual surface is the PPTX slide part-graph (`PresentationDocument.Create(Stream, PresentationDocumentType.Presentation)` then the `PresentationPart`/`SlidePart`/`SlideLayoutPart`/`SlideMasterPart` chain insertion the spreadsheet/word roots do not share), the cell-style and run-formatting member spellings (`CellFormats`/`RunProperties` numbering for a styled report), and the deterministic-ordering knobs (`OpenSettings`/relationship-id ordering) that make the OOXML byte-stream byte-reproducible across runs — these resolve at implementation against the installed OpenXML surface; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeSpec`, the `FlowFold`-shared pagination, and the `FontTablePart` embedded-font packing are settled.
+- Owner: `VideoEncodeRow` — the codec/container policy row; `ClipEncoder` — the in-process FFmpeg mux/encode surface a frame stream folds through.
+- Entry: `public static IO<RenderReceipt> Mux(VisualRuntime runtime, VideoEncodeRow row, Seq<SKImage> frames, VisualDestination destination)` — IO rail; one clip per fold.
+- Auto: frames convert RGBA -> `Yuv420p` through one `sws_getContext`/`sws_scale` pair constructed once per clip; the codec context configures H.264 through `avcodec_find_encoder`/`avcodec_alloc_context3`/`avcodec_open2`; the container muxes MP4 through `avformat_alloc_output_context2`/`avformat_new_stream`/`avformat_write_header`/`av_interleaved_write_frame`/`av_write_trailer`; the send/receive loop is `avcodec_send_frame`/`avcodec_receive_packet` with the flush-on-null terminal; the animation walkthrough's flythrough composes THESE rows past its frame-sequence terminal — the encode is capture's row, animation keeps the frame sequence (`Render/animation.md#WALKTHROUGH`), and the tour clip render rides the same route.
+- Receipt: one RenderReceipt of kind clip per mux with whole-payload content hash and the delivered destination key; per-frame hashes stay animation's walkthrough proof.
+- Packages: FFmpeg.AutoGen, SkiaSharp, Rasm.AppHost (project), LanguageExt.Core
+- Growth: a new codec or container is one `VideoEncodeRow` (codec id, pixel format, container name, bitrate policy); zero new surface.
+- Boundary: FFmpeg binds through `DynamicallyLoadedBindings` with the native FFmpeg shipped as LGPL-configured dynamic-linked libraries (the catalog boundary fact); every native context (`AVFormatContext`, `AVCodecContext`, `AVFrame`, `AVPacket`, `SwsContext`) allocates and frees inside the one encode fold so a failing clause never leaks a native handle; a second video pipeline, a shell-out to an ffmpeg binary, or a per-consumer encoder is the deleted form — this is the ONE in-process mux/encode owner.
+
+```csharp signature
+public sealed record VideoEncodeRow(string Key, AVCodecID Codec, AVPixelFormat PixelFormat, string Container, int Fps, long BitRate) {
+    public static readonly VideoEncodeRow H264Mp4 = new("h264-mp4", AVCodecID.AV_CODEC_ID_H264, AVPixelFormat.AV_PIX_FMT_YUV420P, "mp4", 30, 8_000_000);
+}
+
+public static class ClipEncoder {
+    public const string Kind = "clip";
+
+    public static IO<RenderReceipt> Mux(VisualRuntime runtime, VideoEncodeRow row, Seq<SKImage> frames, VisualDestination destination) =>
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from payload in IO.lift(() => Encode(row, frames))
+        from delivered in ExportDelivery.Deliver(runtime, destination, payload)
+        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+        let receipt = new RenderReceipt(Kind, row.Key, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(delivered), VisualCodec.ColorPolicy.Display.Key)
+        from _ in runtime.Sink(receipt)
+        select receipt;
+
+    static Exception Fault(string stage) => ((Error)new VisualFault.EncodeFailed(stage)).ToException();
+
+    static int Guard(int code, string stage) => code >= 0 ? code : throw Fault($"{stage}: {code}");
+
+    // ONE statement-bodied boundary kernel per the boundary-kernel law: alloc muxer/encoder/frame/packet/
+    // sws, write header, per-frame convert -> send -> receive -> mux, null-frame flush terminal, trailer,
+    // teardown in reverse ownership order. Faults throw typed VisualFault the IO.lift rail captures.
+    static unsafe byte[] Encode(VideoEncodeRow row, Seq<SKImage> frames) {
+        SKImage first = frames.Head.Match(Some: static image => image, None: () => throw Fault("empty frame stream"));
+        (int width, int height) = (first.Width, first.Height);
+        string sink = Path.Combine(Path.GetTempPath(), $"rasm-clip-{Guid.CreateVersion7():N}.{row.Container}");
+        AVFormatContext* mux = null;
+        AVCodecContext* codec = null;
+        AVFrame* frame = null;
+        AVPacket* packet = null;
+        SwsContext* sws = null;
+        try {
+            Guard(ffmpeg.avformat_alloc_output_context2(&mux, null, row.Container, sink), "mux-alloc");
+            AVCodec* encoder = ffmpeg.avcodec_find_encoder(row.Codec);
+            if (encoder is null) { throw Fault($"encoder-absent: {row.Codec}"); }
+            codec = ffmpeg.avcodec_alloc_context3(encoder);
+            codec->width = width;
+            codec->height = height;
+            codec->pix_fmt = row.PixelFormat;
+            codec->time_base = new AVRational { num = 1, den = row.Fps };
+            codec->framerate = new AVRational { num = row.Fps, den = 1 };
+            codec->bit_rate = row.BitRate;
+            Guard(ffmpeg.avcodec_open2(codec, encoder, null), "codec-open");
+            AVStream* stream = ffmpeg.avformat_new_stream(mux, encoder);
+            if (stream is null) { throw Fault("stream-alloc"); }
+            stream->time_base = codec->time_base;
+            Guard(ffmpeg.avcodec_parameters_from_context(stream->codecpar, codec), "codec-params");
+            frame = ffmpeg.av_frame_alloc();
+            frame->width = width;
+            frame->height = height;
+            frame->format = (int)row.PixelFormat;
+            Guard(ffmpeg.av_frame_get_buffer(frame, 0), "frame-buffer");
+            packet = ffmpeg.av_packet_alloc();
+            sws = ffmpeg.sws_getContext(width, height, AVPixelFormat.AV_PIX_FMT_RGBA, width, height, row.PixelFormat, ffmpeg.SWS_BILINEAR, null, null, null);
+            if (sws is null) { throw Fault("sws-alloc"); }
+            Guard(ffmpeg.avio_open(&mux->pb, sink, ffmpeg.AVIO_FLAG_WRITE), "io-open");
+            Guard(ffmpeg.avformat_write_header(mux, null), "header");
+            long pts = 0;
+            foreach (SKImage image in frames) {
+                using SKBitmap pixels = SKBitmap.FromImage(image);
+                Guard(ffmpeg.av_frame_make_writable(frame), "frame-writable");
+                byte*[] source = [(byte*)pixels.GetPixels(), null, null, null];
+                int[] strides = [pixels.RowBytes, 0, 0, 0];
+                Guard(ffmpeg.sws_scale(sws, source, strides, 0, height, frame->data, frame->linesize), "sws-scale");
+                frame->pts = pts++;
+                Drain(mux, codec, stream, packet, frame);
+            }
+            Drain(mux, codec, stream, packet, null); // null-frame flush terminal
+            Guard(ffmpeg.av_write_trailer(mux), "trailer");
+            Guard(ffmpeg.avio_closep(&mux->pb), "io-close");
+            return File.ReadAllBytes(sink);
+        }
+        finally {
+            if (sws is not null) { ffmpeg.sws_freeContext(sws); }
+            if (packet is not null) { ffmpeg.av_packet_free(&packet); }
+            if (frame is not null) { ffmpeg.av_frame_free(&frame); }
+            if (codec is not null) { ffmpeg.avcodec_free_context(&codec); }
+            if (mux is not null) {
+                // avformat_free_context never closes an avio_open handle: a mid-encode fault must still
+                // release the sink; closep nulls pb, so this is a no-op after the success-path close.
+                if (mux->pb is not null) { _ = ffmpeg.avio_closep(&mux->pb); }
+                ffmpeg.avformat_free_context(mux);
+            }
+            File.Delete(sink);
+        }
+    }
+
+    static unsafe void Drain(AVFormatContext* mux, AVCodecContext* codec, AVStream* stream, AVPacket* packet, AVFrame* frame) {
+        Guard(ffmpeg.avcodec_send_frame(codec, frame), "send-frame");
+        for (int received = ffmpeg.avcodec_receive_packet(codec, packet);
+             received != ffmpeg.AVERROR(ffmpeg.EAGAIN) && received != ffmpeg.AVERROR_EOF;
+             received = ffmpeg.avcodec_receive_packet(codec, packet)) {
+            Guard(received, "receive-packet");
+            packet->pts = ffmpeg.av_rescale_q(packet->pts, codec->time_base, stream->time_base);
+            packet->dts = ffmpeg.av_rescale_q(packet->dts, codec->time_base, stream->time_base);
+            packet->stream_index = stream->index;
+            Guard(ffmpeg.av_interleaved_write_frame(mux, packet), "mux-write");
+            ffmpeg.av_packet_unref(packet);
+        }
+    }
+}
+```
+
+## [08]-[RESEARCH]
+
 - [ICC_TONEMAP]: the `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` ICC-profile parse returning a tagged color space, the `SKColorFilter.CreateTable(byte[])` 256-entry LUT-filter arity the `ToneMap.Filter` builds, and the `SKImageInfo.WithColorSpace` ICC round-trip preservation resolve at implementation against the installed SkiaSharp 3 surface; the `ColorPolicy.FromIcc` fence, the `ToneMap` curve operators, and the reproject paint binding are settled, the exact `CreateIcc`/`CreateTable` member shapes are the unverified surface.

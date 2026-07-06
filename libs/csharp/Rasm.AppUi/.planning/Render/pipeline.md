@@ -12,10 +12,10 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 ## [02]-[RENDER_GRAPH]
 
 - Owner: `RenderPass` `[Union]` frame-pass vocabulary; `RenderGraph` pass-DAG executor; `RenderTarget` the lease-bound GPU surface; `FrameReceipt` per-frame evidence; `ViewportFault` the fault family; `ResolvePass` `[SmartEnum]` the antialias-and-super-resolution resolve ladder the `Composite` pass selects; `ResolvePolicy` the per-tier delegate-row binding.
-- Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay under the locked kind literals cull, geometry, path-trace, composite, sim, overlay; `ResolvePass` = Msaa | Taa | Fsr | Smaa under the locked policy literals; `ViewportFault` = Text | ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected in the 4500 code band.
-- Entry: `public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget)` — `IO` rail; the pass-DAG executes topologically and the frame seals one receipt carrying the per-pass elapsed and the GPU-time fold.
+- Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay under the locked kind literals cull, geometry, path-trace, composite, sim, overlay; `ResolvePass` = Msaa | Taa | Fsr | Smaa under the locked policy literals; `ViewportFault` = Text | ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected — codes derive through the `AppUiFaultBand.Viewport` registry row (6100), shared with pathtrace.
+- Entry: `public IO<FrameReceipt> Frame(ViewportClock clock, FrameBudget budget)` on `RenderGraph` — `IO` rail; the pass-DAG executes topologically and the frame seals one receipt carrying the per-pass elapsed and the GPU-time fold.
 - Auto: `Lease` opens the host-shared GPU context through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` and folds the leased context to the `RenderTarget` through the `GpuBackend`'s own `RenderTargetFactory` column, so a pass-emit body binds a backend-provided target factory rather than the single `GRContext`-plus-`SKRuntimeEffect` emit path and the embedded viewport composites into the Rhino-owned context and never mints a second `GRContext`; when the platform lease yields no GPU context the graph folds to the `Software` backend's CPU 2D-Skia factory and the `Composite`-only raster pass so the viewport renders a deterministic CPU frame; the frame-budget invariant gates the pass list — a pass whose accumulated GPU-time projection overruns `FrameBudget.Frame` defers to the next frame and the deferral folds onto the budget-overrun instrument, so frame budget is an invariant the graph enforces, never a hope.
-- Backend: `GpuBackend` carries the `RenderTargetFactory` delegate column per backend row — `Metal`, `Vulkan`, `OpenGl`, and `Software` bind the SkiaSharp Ganesh `GRContext` target factory, `Wgpu` binds the `Silk.NET.WebGPU` wgpu/Dawn target factory (D3D12/Metal/Vulkan auto-negotiated through `BackendType`) acquiring an `Adapter` matched to the compositor adapter LUID/UUID, requesting a `Device`+`Queue`, configuring a `Surface` swapchain, and presenting the rendered `Texture` into the Avalonia compositor through `ICompositionGpuInterop.ImportImage` — the wgpu mesh-shader/compute passes record through `CommandEncoder`/`RenderPassEncoder` and submit through `QueueSubmit`, never a managed scene wrapper — and `WebGpu` binds the in-browser WebGPU factory the TS web leg consumes — so the `Lease` and every `RenderPass`/`CapturePass`/`CustomVisual` emit body binds a backend-provided target factory and a substrate swap is one backend row, the render-graph pass algebra staying backend-agnostic above the factory; the per-backend emit path (wgpu pipeline submit versus `SKRuntimeEffect` shader) diverges below the `RenderTargetFactory`, so the factory column owns the divergence and the CPU 2D-Skia fallback is the floor.
+- Backend: `GpuBackend` carries the `RenderTargetFactory` delegate column per backend row — `Metal`, `Vulkan`, `OpenGl`, and `Software` bind the SkiaSharp Ganesh `GRContext` target factory, `Wgpu` binds the `Silk.NET.WebGPU` wgpu/Dawn target factory (D3D12/Metal/Vulkan auto-negotiated through `BackendType`) acquiring an `Adapter` matched to the compositor adapter LUID/UUID, requesting a `Device`+`Queue`, and DISCRIMINATING the presentation arm on `WgpuPresentation` — the in-tree composited viewport IMPORTS the rendered texture through the compositor interop family (`ICompositionGpuInterop.ImportImage`/`ImportSemaphore` then `CompositionDrawingSurface.UpdateWithKeyedMutexAsync`/`UpdateWithSemaphoresAsync`/`UpdateWithTimelineSemaphoresAsync` per `GetSynchronizationCapabilities`; a second swapchain in composited mode is the DELETED form), while `SurfaceConfigure`/`SurfaceGetCurrentTexture` survives ONLY as the exclusive-fullscreen/headless arm — the wgpu mesh-shader/compute passes record through `CommandEncoder`/`RenderPassEncoder` and submit through `QueueSubmit`, never a managed scene wrapper — and `WebGpu` binds the in-browser WebGPU factory the TS web leg consumes — so the `Lease` and every `RenderPass`/`CapturePass`/`CustomVisual` emit body binds a backend-provided target factory and a substrate swap is one backend row, the render-graph pass algebra staying backend-agnostic above the factory; the per-backend emit path (wgpu pipeline submit versus `SKRuntimeEffect` shader) diverges below the `RenderTargetFactory`, so the factory column owns the divergence and the CPU 2D-Skia fallback is the floor.
 - Resolve: the `Composite` pass selects one `ResolvePass` policy row after the geometry and path-trace passes — `Taa` jitters the camera sub-pixel per frame and reprojects the prior frame (`ResolveState.History`/`Jitter` threaded into the `composite` delegate) through the motion-vector buffer under a neighborhood-clamp history rejection so a static scene converges and a moving scene ghosts no tail, `Smaa` runs the morphological edge AA, `Msaa` multi-samples the raster, and `Fsr` renders sub-resolution (`RenderScale` 0.6) under the `Render/meshlets` `ResidencyBudget` VRAM bound and spatially upscales to display resolution so a 4K viewport renders at a fraction of the pixel cost; `ResolvePolicy` binds each `PERF_BUDGET` `QualityTier` rank to its `ResolvePass` through the frozen `int -> ResolvePass` table (`ByTier`, ranks 4..0) so the governor steps the full ladder `Taa(4,3) -> Smaa(2) -> Msaa(1) -> Fsr(0)` on the same hysteresis band that degrades the render passes — the high tiers spend pixels on temporal quality and the floor tier trades resolution for budget; the `Taa` motion-vector buffer is ONE `Render/meshlets` `BindlessTable` slot, never a parallel motion-vector owner; the resolve is a `Composite` policy column and a parallel post-process engine is the deleted form.
 - Receipt: `FrameReceipt` — frame ordinal, per-pass `Duration` seq, GPU `Duration`, triangles drawn, budget verdict, `Instant`, `CorrelationId`; sealed through `ReceiptSinkPort` as a `Render`-family fact; `TelemetryRow` contributes the frame-elapsed, gpu-elapsed, and budget-overrun instruments inward through `TelemetryContributorPort`.
 - Packages: SkiaSharp, Avalonia.Skia, Avalonia (compositor GPU interop), Silk.NET.WebGPU, Silk.NET.WebGPU.Native.WGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
@@ -29,11 +29,11 @@ public abstract partial record ViewportFault : Expected, IValidationError<Viewpo
 
     public static ViewportFault Create(string message) => new Text(message);
 
-    public sealed record Text : ViewportFault { public Text(string detail) : base(detail, 4500) { } }
-    public sealed record ContextUnavailable : ViewportFault { public ContextUnavailable(string detail) : base(detail, 4501) { } }
-    public sealed record BackendUnsupported : ViewportFault { public BackendUnsupported(string detail) : base(detail, 4502) { } }
-    public sealed record BudgetExceeded : ViewportFault { public BudgetExceeded(string detail) : base(detail, 4503) { } }
-    public sealed record LeaseRejected : ViewportFault { public LeaseRejected(string detail) : base(detail, 4504) { } }
+    public sealed record Text : ViewportFault { public Text(string detail) : base(detail, AppUiFaultBand.Viewport.Code(0)) { } }
+    public sealed record ContextUnavailable : ViewportFault { public ContextUnavailable(string detail) : base(detail, AppUiFaultBand.Viewport.Code(1)) { } }
+    public sealed record BackendUnsupported : ViewportFault { public BackendUnsupported(string detail) : base(detail, AppUiFaultBand.Viewport.Code(2)) { } }
+    public sealed record BudgetExceeded : ViewportFault { public BudgetExceeded(string detail) : base(detail, AppUiFaultBand.Viewport.Code(3)) { } }
+    public sealed record LeaseRejected : ViewportFault { public LeaseRejected(string detail) : base(detail, AppUiFaultBand.Viewport.Code(4)) { } }
 }
 
 public sealed record RenderTargetFactory(GpuBackend Backend, Func<SKImageInfo, Fin<RenderTarget>> Target) {
@@ -55,6 +55,67 @@ public sealed partial class GpuBackend {
 }
 
 public enum GpuFamily { SkiaGanesh, SkiaRaster, Wgpu, WebGpu }
+
+// The WGPU presentation dispatch the Wgpu RenderTargetFactory row routes through: Composited imports the
+// externally-rendered texture through the compositor interop family (a second swapchain in composited
+// mode cannot type), Swapchain survives ONLY as the exclusive-fullscreen arm, Headless renders offscreen.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WgpuPresentation {
+    private WgpuPresentation() { }
+
+    public sealed record Composited(
+        ICompositionGpuInterop Interop,
+        CompositionDrawingSurface Surface,
+        ICompositionImportedGpuImage Image,
+        CompositionGpuImportedImageSynchronizationCapabilities Sync,
+        Option<(ICompositionImportedGpuSemaphore Wait, ICompositionImportedGpuSemaphore Signal)> Semaphores) : WgpuPresentation;
+
+    public sealed record Swapchain(nint WgpuSurface) : WgpuPresentation; // the SurfaceConfigure/SurfaceGetCurrentTexture arm
+
+    public sealed record Headless(SKImageInfo Info) : WgpuPresentation;
+
+    // Composited construction: the wgpu device is created against the compositor adapter (DeviceLuid/
+    // DeviceUuid pin), the shared texture imports ONCE, and the synchronization arm derives from the
+    // interop's own capability probe — never assumed.
+    public static Fin<WgpuPresentation> CompositedOf(
+        ICompositionGpuInterop interop,
+        CompositionDrawingSurface surface,
+        IPlatformHandle sharedTexture,
+        PlatformGraphicsExternalImageProperties shape,
+        string handleType,
+        Func<CompositionGpuImportedImageSynchronizationCapabilities, Option<(ICompositionImportedGpuSemaphore Wait, ICompositionImportedGpuSemaphore Signal)>> semaphores) =>
+        interop.GetSynchronizationCapabilities(handleType) switch {
+            var sync => Fin.Succ<WgpuPresentation>(new Composited(
+                interop, surface, interop.ImportImage(sharedTexture, shape), sync, semaphores(sync))),
+        };
+
+    // Per-frame refresh: the capability-discriminated update family — keyed mutex, timeline semaphores,
+    // binary semaphores, then the Automatic arm; the Swapchain arm presents at the wgpu device seam.
+    public IO<Unit> Present(uint acquireIndex, uint releaseIndex, ulong waitValue, ulong signalValue) => this switch {
+        Composited c => IO.liftAsync(async () => {
+            await (c switch {
+                { Sync: var sync } when sync.HasFlag(CompositionGpuImportedImageSynchronizationCapabilities.KeyedMutex) =>
+                    c.Surface.UpdateWithKeyedMutexAsync(c.Image, acquireIndex, releaseIndex),
+                { Sync: var sync, Semaphores.Case: (ICompositionImportedGpuSemaphore wait, ICompositionImportedGpuSemaphore signal) }
+                    when sync.HasFlag(CompositionGpuImportedImageSynchronizationCapabilities.TimelineSemaphores) =>
+                    c.Surface.UpdateWithTimelineSemaphoresAsync(c.Image, wait, waitValue, signal, signalValue),
+                { Sync: var sync, Semaphores.Case: (ICompositionImportedGpuSemaphore wait, ICompositionImportedGpuSemaphore signal) }
+                    when sync.HasFlag(CompositionGpuImportedImageSynchronizationCapabilities.Semaphores) =>
+                    c.Surface.UpdateWithSemaphoresAsync(c.Image, wait, signal),
+                _ => c.Surface.UpdateAsync(c.Image),
+            });
+            return unit;
+        }),
+        _ => IO.pure(unit),
+    };
+}
+
+// The Wgpu factory row closes over its presentation arm — target construction discriminates HERE, below
+// the RenderTargetFactory column, so a pass-emit body never sees the presentation topology.
+public static class WgpuTargets {
+    public static RenderTargetFactory Factory(WgpuPresentation presentation, Func<SKImageInfo, WgpuPresentation, Fin<RenderTarget>> device) =>
+        new(GpuBackend.Wgpu, info => device(info, presentation));
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderPass {
@@ -131,6 +192,8 @@ public sealed record FrameBudget(Duration Frame, long VramBytes, int MaxTriangle
 
 public sealed record ViewportClock(ClockPolicy Clocks, CorrelationId Correlation);
 
+// Fault is a LOCAL egress column (trailing, defaulted): the FrameReceiptWire projection omits it, so
+// the frozen web wire is untouched while in-process consumers distinguish a failed frame from fallback.
 public sealed record FrameReceipt(
     long Ordinal,
     GpuBackend Backend,
@@ -139,7 +202,8 @@ public sealed record FrameReceipt(
     long Triangles,
     bool WithinBudget,
     Instant At,
-    CorrelationId Correlation) {
+    CorrelationId Correlation,
+    Option<Error> Fault = default) {
     public const string Kind = "frame";
 }
 
@@ -152,21 +216,23 @@ public sealed record RenderGraph(
     Func<FrameReceipt, IO<Unit>> Sink) {
     private long ordinal;
 
+    // The interlocked ordinal threads through BOTH arms — the success fold and the Empty fault path —
+    // so no receipt is ever constructed with a literal zero ordinal.
     public IO<FrameReceipt> Frame(ViewportClock clock, FrameBudget budget) =>
         from start in IO.lift(clock.Clocks.Mark)
         from next in IO.lift(() => Interlocked.Increment(ref ordinal))
-        from frame in IO.lift(() => Render(clock.Clocks, budget).IfFail(fault => Empty(clock, fault)))
-        from receipt in IO.pure(frame with { Ordinal = next, At = clock.Clocks.Now, Correlation = clock.Correlation })
+        from frame in IO.lift(() => Render(next, clock.Clocks, budget).IfFail(fault => Empty(next, clock, fault)))
+        from receipt in IO.pure(frame with { At = clock.Clocks.Now, Correlation = clock.Correlation })
         from _ in Sink(receipt)
         select receipt;
 
-    private Fin<FrameReceipt> Render(ClockPolicy clocks, FrameBudget budget) =>
+    private Fin<FrameReceipt> Render(long next, ClockPolicy clocks, FrameBudget budget) =>
         Lease(target => Passes
             .Fold(
                 Fin.Succ(new PassFold(Seq<(string, Duration)>(), 0L, true)),
                 (rail, pass) => rail.Bind(state => Execute(pass, target, clocks, budget, state)))
             .Map(folded => new FrameReceipt(
-                0L, Factory.Backend, folded.Passes,
+                next, Factory.Backend, folded.Passes,
                 folded.Passes.Map(static p => p.Elapsed).Fold(Duration.Zero, static (a, d) => a + d),
                 folded.Triangles, folded.Budget, default, default)));
 
@@ -178,9 +244,9 @@ public sealed record RenderGraph(
             : clocks.Mark() switch {
                 var mark => pass.Switch(
                         state: (Target: target, Cluster),
-                        cull: static (ctx, c) => c.Visible(ctx.Target, ctx.Cluster),
-                        geometry: static (ctx, g) => g.Draw(ctx.Target, ctx.Cluster, ctx.Cluster.Meshlets.Count),
-                        pathTrace: static (ctx, p) => p.Pass.Accumulate(ctx.Target, 1, 0L).Map(static drawn => (int)drawn),
+                        cull: static (ctx, c) => c.Visible(ctx.Target, ctx.Cluster).Map(static result => result.Draw.Count),
+                        geometry: static (ctx, g) => g.Draw(ctx.Target, ctx.Cluster, ctx.Cluster.Clusters.Count),
+                        pathTrace: static (ctx, p) => p.Pass.Accumulate(p.Target, p.Rig, 1, 0L).Map(static advanced => advanced.Accumulated),
                         sim: static (ctx, s) => s.Visual.Geometry(s.Field).Map(static path => path.PointCount),
                         composite: static (ctx, c) => ctx.Target.Surface.Match(Some: surface => c.Raster(surface.Canvas).Map(static _ => 0), None: () => Fin.Succ(0)),
                         overlay: static (ctx, o) => ctx.Target.Surface.Match(Some: surface => o.Draw(surface.Canvas).Map(static _ => 0), None: () => Fin.Succ(0)))
@@ -190,8 +256,10 @@ public sealed record RenderGraph(
                     }),
             };
 
-    private FrameReceipt Empty(ViewportClock clock, Error fault) =>
-        new(0L, GpuBackend.Software, Seq(("composite", Duration.Zero)), Duration.Zero, 0L, false, clock.Clocks.Now, clock.Correlation);
+    // A failed frame is DISTINGUISHABLE from a healthy software fallback: the fault threads onto the
+    // receipt's Fault column and no fabricated pass row exists — zero passes executed is the honest fact.
+    private FrameReceipt Empty(long next, ViewportClock clock, Error fault) =>
+        new(next, GpuBackend.Software, Seq<(string Pass, Duration Elapsed)>(), Duration.Zero, 0L, false, clock.Clocks.Now, clock.Correlation, Some(fault));
 
     public const string FrameInstrument = "rasm.appui.viewport.frame-elapsed";
     public const string GpuInstrument = "rasm.appui.viewport.gpu-elapsed";
@@ -280,7 +348,7 @@ public abstract partial record SimVisual {
 - Receipt: `Viewpoint` serializes through the package wire context as a versioned portable receipt the dashboard, the markup, and the cross-process coordination consume.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project), BCL inbox
 - Growth: a new view-state field is one `Viewpoint` member; a new override channel is one `VisibilityOverride` column; zero new surface.
-- Boundary: the viewpoint is the one portable view-state owner — a per-feature camera-snapshot shape is the deleted form, and the section box, visibility, override, and selection all ride this one receipt so a coordination markup and a saved camera share it; `ViewpointCodec` projects the receipt onto the one `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract (the `BcfCamera` `Perspective`/`Orthogonal` union over host-free `System.Numerics.Vector3` triplets, the `SelectedGlobalIds` selection, the `VisibilityExceptions`/`DefaultVisibility` visibility pair, the ARGB-hex `BcfColoring` colour rows, the `BcfClippingPlane` section rows) so a viewpoint round-trips an external BCF tool through the Bim-owned record and an AppUi-local BCF viewpoint schema is the deleted form — the transparency channel stays render-only, a `source`-carried re-encode `with`-preserves the `Snapshot`/`Lines`/`Bitmaps`/`Index`/`ViewSetupHints` columns and the source visibility convention the board round-trip consumes, and inbound arbitrary clipping planes exceed the axis-box receipt so decode leaves the section disabled while the source-carried re-encode keeps the original planes; the viewpoint binds onto the render-graph camera and section pass at apply time and the GPU clip is the render-graph consequence under VIEWPORT_GPU; the viewpoint receipt is host-local — its camera and section apply onto the 2D-fallback projection and onto the GPU clip when the viewport context lands; the `Editing/issues` board and the `Editing/tour` saved-viewpoints consume this one receipt so a coordination viewpoint mints no second camera-snapshot shape.
+- Boundary: the viewpoint is the one portable view-state owner — a per-feature camera-snapshot shape is the deleted form, and the section box, visibility, override, and selection all ride this one receipt so a coordination markup and a saved camera share it; `ViewpointCodec` projects the receipt onto the one `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract (the `BcfCamera` `Perspective`/`Orthogonal` union over host-free `System.Numerics.Vector3` triplets, the `SelectedGlobalIds` selection, the `VisibilityExceptions`/`DefaultVisibility` visibility pair, the ARGB-hex `BcfColoring` colour rows, the `BcfClippingPlane` section rows) so a viewpoint round-trips an external BCF tool through the Bim-owned record and an AppUi-local BCF viewpoint schema is the deleted form — the transparency channel stays render-only, a `source`-carried re-encode `with`-preserves the `Snapshot`/`Lines`/`Bitmaps`/`Index`/`ViewSetupHints` columns and the source visibility convention the board round-trip consumes, and inbound arbitrary clipping planes exceed the axis-box receipt so decode leaves the section disabled while the source-carried re-encode keeps the original planes; the viewpoint binds onto the render-graph camera and section pass at apply time and the GPU clip is the render-graph consequence under VIEWPORT_GPU; the viewpoint receipt is host-local — its camera and section apply onto the 2D-fallback projection and onto the GPU clip when the viewport context lands; the `Collab/issues` board and the `Collab/tour` saved-viewpoints consume this one receipt so a coordination viewpoint mints no second camera-snapshot shape.
 
 ```csharp signature
 public readonly record struct ViewCamera(
@@ -591,5 +659,5 @@ public partial class ResidencyWireContext : JsonSerializerContext;
 ## [06]-[RESEARCH]
 
 - [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), the `ResolvePass` live dispatch (the `Taa` motion-vector-reprojection compute pass and history-clamp, the `Fsr` sub-resolution spatial-upscale `Silk.NET.WebGPU` `ComputePassEncoder`/`SKRuntimeEffect` pass, the `Smaa` morphological edge pass) below the `Composite` `RenderTargetFactory`, and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the `ResolvePass` ladder and the `ResolvePolicy` tier table and the `ResolveState` jitter-and-history Fold, the simulation render passes, and the viewpoint codec are settled as the CPU/2D-Skia fallback (the `Msaa`/`Smaa`/single-sample resolve runs on the CPU raster); the GPU dispatch, the shared-context lease, the live `Taa`/`Fsr` compute resolve, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
-- [WGPU_BACKEND]: the `Wgpu` `RenderTargetFactory` row binding the `Silk.NET.WebGPU` wgpu/Dawn surface — `WebGPU.GetApi()`, `CreateInstance`, `InstanceRequestAdapter` on the compositor adapter (LUID/UUID matched through `ICompositionGpuInterop.DeviceLuid`/`DeviceUuid`), `AdapterRequestDevice`+`DeviceGetQueue`, `SurfaceConfigure`/`SurfaceGetCurrentTexture` for the swapchain, the `CommandEncoder`/`RenderPassEncoder`/`ComputePassEncoder` recording, `QueueSubmit`, and the `CompositionDrawingSurface.UpdateWithExternalImageAsync` import of the rendered shared texture — resolve against the admitted `Silk.NET.WebGPU` 2.23 surface (`.api/api-silk-webgpu.md`) and the Avalonia 12 compositor interop (`.api/api-avalonia-gpu-interop.md`); the backend rows, the `RenderTargetFactory` column shape, and the factory-bound pass algebra are settled, the wgpu device acquisition, the shared-texture export-and-import handshake (D3D11 keyed-mutex / Vulkan external-memory / Metal `IOSurface`), and the wgpu-versus-Skia present-path divergence below the factory are the unverified surface gated on the live GPU device, with `Silk.NET.WebGPU` a stable pinnable .NET Foundation identity and the `Software` Skia Ganesh raster row the shippable floor. Skia Graphite is not yet shipped; no `SkiaGraphite` row is admitted until SkiaSharp exposes the Recorder/Context surface, at which point the row re-admits with no other change.
+- [WGPU_BACKEND]: the `Wgpu` `RenderTargetFactory` row binding the `Silk.NET.WebGPU` wgpu/Dawn surface — `WebGPU.GetApi()`, `CreateInstance`, `InstanceRequestAdapter` on the compositor adapter (LUID/UUID matched through `ICompositionGpuInterop.DeviceLuid`/`DeviceUuid`), `AdapterRequestDevice`+`DeviceGetQueue`, the `CommandEncoder`/`RenderPassEncoder`/`ComputePassEncoder` recording, and `QueueSubmit` — resolve against the admitted `Silk.NET.WebGPU` 2.23 surface (`.api/api-silk-webgpu.md`); the COMPOSITED presentation arm is SETTLED against the Avalonia 12 compositor interop catalog (`.api/api-avalonia-gpu-interop.md` — `ICompositionGpuInterop.ImportImage`/`ImportSemaphore`, `GetSynchronizationCapabilities`, and the `CompositionDrawingSurface.UpdateWithKeyedMutexAsync`/`UpdateWithSemaphoresAsync`/`UpdateWithTimelineSemaphoresAsync` family) with `SurfaceConfigure`/`SurfaceGetCurrentTexture` narrowed to the exclusive-fullscreen/headless arm; the backend rows, the `RenderTargetFactory` column shape, the presentation-arm discrimination, and the factory-bound pass algebra are settled, while the wgpu device acquisition and the per-platform shared-texture EXPORT handshake (D3D11 keyed-mutex / Vulkan external-memory / Metal `IOSurface`) are the unverified surface gated on the live GPU device, with `Silk.NET.WebGPU` a stable pinnable .NET Foundation identity and the `Software` Skia Ganesh raster row the shippable floor. Skia Graphite is not yet shipped; no `SkiaGraphite` row is admitted until SkiaSharp exposes the Recorder/Context surface, at which point the row re-admits with no other change.
 - [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `typescript:runtime/browser` fetch plane (`browser/fetch` Depot verified arrivals) is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `BlobKeyOf` blob-lane addressing, and the `StreamWire`/`MeshletWireOf`/`TileOf` projection off each Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload` (its EXT_meshopt_compression `StreamSpan` bufferViews, `ResidencyMeshlet` clusters, bounds, and `ContentKey`) are built and settled now, so the worker decodes the meshopt-compressed blob and drives a WebGPU viewport off the content-keyed tiles against the same Compute `Runtime/codecs#CONTENT_ADDRESSING` keying the desktop and Persistence read; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/viewer/scene#VIEWPORT_PORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The gaussian-splat tile manifest arm projects a present Compute gaussian-splat `ResidencyPayload` now; only the upstream Compute splat-payload decode that feeds it (the `Runtime/payload#RESIDENCY` `SplatScan` admission at the `Runtime/transport` `GaussianSplatScan` wire) stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` residency keying.

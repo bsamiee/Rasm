@@ -12,13 +12,13 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 
 ## [02]-[SPLAT_SOURCE]
 
-- Owner: `SplatEllipsoid` the single anisotropic 3D-Gaussian; `SplatSource` the decoded ellipsoid set; `SplatSort` the view-dependent radix-sort fold; `CaptureFault` the fault family in the 4900 band.
-- Cases: `CaptureFault` = Text | PayloadMalformed | SortOverflow | BackendUnsupported | DecodeDeferred in the 4900 code band.
-- Entry: `public static Fin<SplatSource> Decode(GpuBackend backend, SplatPayload payload, ResidencyBudget budget)` — projects the canonical Compute splat payload into the residency-keyed ellipsoid set; the page never decodes SOG/PLY or LAZ, it admits the decoded payload at the interchange wire.
-- Auto: each ellipsoid carries its mean position, the three scale magnitudes, the rotation quaternion, the spherical-harmonic color coefficients, and the opacity, so a `SplatSource` is the decoded SOG (self-organizing-gaussian) or PLY ellipsoid set the Compute payload streams; `SplatSort` radix-sorts the ellipsoids back-to-front per view by their projected depth so the alpha-composited rasterization composites in order — the 3DGS draw demands depth-sorted ellipsoids and the radix sort is the per-view fold the pass re-runs on a camera change; the ellipsoid bytes stream from the Persistence blob lane through the residency budget exactly as the meshlet tiles do, so a massive splat scene stays VRAM-bounded; each ellipsoid's content key folds its mean, scale, and rotation through `XxHash128` so residency keys the splat tile identically to the meshlet tile.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, Rasm.Compute (project)
+- Owner: `SplatEllipsoid` the single anisotropic 3D-Gaussian; `SplatSource` the decoded ellipsoid set over the ONE Compute `ResidencyPayload` carrier; `SplatSort` the view-dependent radix-sort fold; `CaptureFault` the typed fault family on the `AppUiFaultBand.Capture` registry row (6130).
+- Cases: `CaptureFault` = Text | PayloadMalformed | SortOverflow | BackendUnsupported | DecodeDeferred — codes derive through the `AppUiFaultBand.Capture` registry row (6130).
+- Entry: `public static Fin<SplatSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget)` — projects the ONE Compute `ResidencyPayload` (gaussian-splat kind, the `GaussianSplatScan` wire-fed row) into the residency-keyed ellipsoid set under the admission ladder kind -> non-empty -> exact wire layout -> residency watermark, an oversized payload failing `CaptureFault.DecodeDeferred` so the residency lane streams it; the page never decodes SOG/PLY or LAZ, it admits the decoded payload at the interchange wire; a divergent `SplatPayload` carrier beside the Compute record is the DELETED form (`[V5]`).
+- Auto: each ellipsoid carries its mean position, the three scale magnitudes, the rotation quaternion, the spherical-harmonic color coefficients, and the opacity, so a `SplatSource` is the decoded SOG (self-organizing-gaussian) or PLY ellipsoid set the Compute payload streams; `SplatSort` radix-sorts the ellipsoids back-to-front per view by their projected depth so the alpha-composited rasterization composites in order — the 3DGS draw demands depth-sorted ellipsoids and the radix sort is the per-view fold the pass re-runs on a camera change; the ellipsoid bytes stream from the Persistence blob lane through the residency budget exactly as the meshlet tiles do, so a massive splat scene stays VRAM-bounded; the splat tile keys by the PAYLOAD'S OWN `ContentKey` per the single-mint law — a local re-hash over raw component floats is the DELETED form (doubly foreclosed by the kernel one-hasher law: no AppUi-side content-key fold exists beside `ContentHash.Of`), so residency keys the splat tile identically to the meshlet tile.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
 - Growth: a new splat attribute is one `SplatEllipsoid` field; a new sort policy is one `SplatSort` value; a new fault is one `CaptureFault` case; zero new surface.
-- Boundary: the splat source projects off the canonical Compute splat payload through the `SplatPayload` boundary record — the page never decodes SOG/PLY/LAZ and never re-models a splat, the proto-to-`SplatSource` projection is the cross-package wire boundary resolved under CAPTURE_PAYLOAD, and the ellipsoid set consumes the projected payload so the no-re-decode law holds exactly as the meshlet build never re-tessellates; the radix sort is the one view-dependent depth order and a painter's-algorithm per-ellipsoid sort is the deleted form; the residency keying rides the `RESIDENCY_BUDGET` owner so the splat tile and the meshlet tile share one residency manager and a second splat-residency owner is the rejected form; the GPU ellipsoid rasterization binds the `T-BACKEND-PORT` `RenderTarget` factory through the render-graph lease — the per-backend splat-rasterizer compute kernel resolves under CAPTURE_GPU and a CPU ellipsoid-projection oracle is the floor for the 2D-fallback point preview while the GPU dispatch is the SPIKE.
+- Boundary: the splat source projects off the ONE Compute `ResidencyPayload` boundary record `Render/pipeline.md` already consumes — one AppUi-side projection of one Compute concept, the page never decodes SOG/PLY/LAZ and never re-models a splat, and the `MemoryMarshal.Cast` layout assumption stays GATED on CAPTURE_PAYLOAD, and the ellipsoid set consumes the projected payload so the no-re-decode law holds exactly as the meshlet build never re-tessellates; the radix sort is REAL — `Sorted` runs an LSD radix over 32-bit quantized VIEW-ALIGNED depth keys (the camera-forward projection off the one `ViewCamera` row, never a radial eye distance) discriminated by the `SplatSort` row — `RadixDepth` full-key depth, `RadixTile` screen-tile-major with depth within — so the enum is consumed and the `OrderByDescending` stopgap is dead; the residency keying rides the `RESIDENCY_BUDGET` owner so the splat tile and the meshlet tile share one residency manager and a second splat-residency owner is the rejected form; the GPU ellipsoid rasterization binds the `T-BACKEND-PORT` `RenderTarget` factory through the render-graph lease — the per-backend splat-rasterizer compute kernel resolves under CAPTURE_GPU and a CPU ellipsoid-projection oracle is the floor for the 2D-fallback point preview while the GPU dispatch is the SPIKE.
 
 ```csharp signature
 [Union]
@@ -27,11 +27,11 @@ public abstract partial record CaptureFault : Expected, IValidationError<Capture
 
     public static CaptureFault Create(string message) => new Text(message);
 
-    public sealed record Text : CaptureFault { public Text(string detail) : base(detail, 4900) { } }
-    public sealed record PayloadMalformed : CaptureFault { public PayloadMalformed(string detail) : base(detail, 4901) { } }
-    public sealed record SortOverflow : CaptureFault { public SortOverflow(string detail) : base(detail, 4902) { } }
-    public sealed record BackendUnsupported : CaptureFault { public BackendUnsupported(string detail) : base(detail, 4903) { } }
-    public sealed record DecodeDeferred : CaptureFault { public DecodeDeferred(string detail) : base(detail, 4904) { } }
+    public sealed record Text : CaptureFault { public Text(string detail) : base(detail, AppUiFaultBand.Capture.Code(0)) { } }
+    public sealed record PayloadMalformed : CaptureFault { public PayloadMalformed(string detail) : base(detail, AppUiFaultBand.Capture.Code(1)) { } }
+    public sealed record SortOverflow : CaptureFault { public SortOverflow(string detail) : base(detail, AppUiFaultBand.Capture.Code(2)) { } }
+    public sealed record BackendUnsupported : CaptureFault { public BackendUnsupported(string detail) : base(detail, AppUiFaultBand.Capture.Code(3)) { } }
+    public sealed record DecodeDeferred : CaptureFault { public DecodeDeferred(string detail) : base(detail, AppUiFaultBand.Capture.Code(4)) { } }
 }
 
 public readonly record struct SplatEllipsoid(
@@ -43,13 +43,10 @@ public readonly record struct SplatEllipsoid(
     public BoundingSphere Bounds =>
         new(MeanX, MeanY, MeanZ, MathF.Max(ScaleX, MathF.Max(ScaleY, ScaleZ)) * 3f);
 
-    public UInt128 ContentKey =>
-        System.Buffers.Binary.BinaryPrimitives.ReadUInt128LittleEndian(
-            System.IO.Hashing.XxHash128.Hash(MemoryMarshal.AsBytes(
-                (ReadOnlySpan<float>)stackalloc float[] { MeanX, MeanY, MeanZ, ScaleX, ScaleY, ScaleZ, RotX, RotY, RotZ, RotW })));
 }
 
-public sealed record SplatPayload(string Key, int Count, ReadOnlyMemory<byte> Ellipsoids, ReadOnlyMemory<float> Harmonics, int HarmonicDegree, BoundingSphere Bounds);
+// The ONE payload carrier is the Compute ResidencyPayload — identity is ITS ContentKey (decode-only);
+// no local SplatPayload record and no local content-key fold exist.
 
 [SmartEnum<string>]
 public sealed partial class SplatSort {
@@ -59,32 +56,96 @@ public sealed partial class SplatSort {
 
 public sealed record SplatSource(
     GpuBackend Backend,
+    UInt128 ContentKey,
     Seq<SplatEllipsoid> Ellipsoids,
     ReadOnlyMemory<float> Harmonics,
     SplatSort Sort,
     int HarmonicDegree,
     BoundingSphere Bounds) {
-    public static Fin<SplatSource> Decode(GpuBackend backend, SplatPayload payload, ResidencyBudget budget) =>
-        payload.Count <= 0
-            ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/empty:{payload.Key}"))
-            : Fin.Succ(new SplatSource(backend, Project(payload), payload.Harmonics, SplatSort.RadixDepth, payload.HarmonicDegree, payload.Bounds));
+    // Admission ladder: kind -> non-empty -> exact wire layout (the MemoryMarshal.Cast gate) -> residency
+    // watermark; an oversized payload DEFERS (CaptureFault.DecodeDeferred) so materialization stays
+    // budget-bounded and the residency lane streams it instead of a whole-scene VRAM spike.
+    public static Fin<SplatSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget) =>
+        payload.Kind != ResidencyKind.GaussianSplat
+            ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/kind:{payload.Kind}"))
+            : payload.SplatCount <= 0
+                ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/empty:{payload.ContentKey:x32}"))
+                : payload.SplatBytes.Length != payload.SplatCount * Unsafe.SizeOf<SplatEllipsoid>()
+                    ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/layout:{payload.SplatBytes.Length}b != {payload.SplatCount}x{Unsafe.SizeOf<SplatEllipsoid>()}b"))
+                    : payload.SplatBytes.Length > budget.Watermark
+                        ? Fin.Fail<SplatSource>(new CaptureFault.DecodeDeferred($"splat/oversized:{payload.SplatBytes.Length}b > {budget.Watermark}b"))
+                        : Fin.Succ(new SplatSource(
+                            backend, payload.ContentKey, Project(payload), payload.Harmonics,
+                            SplatSort.RadixDepth, payload.HarmonicDegree, BoundsOf(payload)));
 
-    public Seq<SplatEllipsoid> Sorted((double X, double Y, double Z) eye) =>
-        Ellipsoids
-            .OrderByDescending(splat => Depth(splat, eye))
-            .ToSeq();
+    // REAL LSD radix sort over 32-bit keys DISCRIMINATED by the SplatSort row: RadixDepth quantizes the
+    // VIEW-ALIGNED depth (projection onto the camera forward axis) back-to-front across the full key;
+    // RadixTile packs a 16x16 screen-tile id (lateral view-basis coordinates over the source bounds)
+    // into the top byte with the quantized depth below it, so compositing stays tile-coherent.
+    public Seq<SplatEllipsoid> Sorted(ViewCamera camera) {
+        int count = Ellipsoids.Count;
+        if (count <= 1) { return Ellipsoids; }
+        (double fx, double fy, double fz) = Normalize(camera.TargetX - camera.EyeX, camera.TargetY - camera.EyeY, camera.TargetZ - camera.EyeZ);
+        (double rx, double ry, double rz) = Normalize(Cross(fx, fy, fz, camera.UpX, camera.UpY, camera.UpZ));
+        (double ux, double uy, double uz) = Cross(rx, ry, rz, fx, fy, fz);
+        var (keys, order, depths) = (new uint[count], new int[count], new double[count]);
+        double maxDepth = 1e-9;
+        for (var at = 0; at < count; at++) {
+            SplatEllipsoid splat = Ellipsoids[at];
+            depths[at] = ((splat.MeanX - camera.EyeX) * fx) + ((splat.MeanY - camera.EyeY) * fy) + ((splat.MeanZ - camera.EyeZ) * fz);
+            maxDepth = Math.Max(maxDepth, depths[at]);
+        }
+        double lateralSpan = Math.Max(Bounds.Radius * 2d, 1e-9);
+        for (var at = 0; at < count; at++) {
+            SplatEllipsoid splat = Ellipsoids[at];
+            uint depthKey = uint.MaxValue - (uint)(Math.Clamp(depths[at] / maxDepth, 0d, 1d) * uint.MaxValue); // back-to-front
+            if (Sort == SplatSort.RadixTile) {
+                (double cx, double cy, double cz) = (splat.MeanX - camera.EyeX, splat.MeanY - camera.EyeY, splat.MeanZ - camera.EyeZ);
+                uint tx = (uint)Math.Clamp(((((cx * rx) + (cy * ry) + (cz * rz)) / lateralSpan) + 0.5d) * 16d, 0d, 15d);
+                uint ty = (uint)Math.Clamp(((((cx * ux) + (cy * uy) + (cz * uz)) / lateralSpan) + 0.5d) * 16d, 0d, 15d);
+                keys[at] = (((ty << 4) | tx) << 24) | (depthKey >> 8);
+            } else { keys[at] = depthKey; }
+            order[at] = at;
+        }
+        var (scratchKeys, scratchOrder, counts) = (new uint[count], new int[count], new int[256]);
+        for (var shift = 0; shift < 32; shift += 8) {
+            Array.Clear(counts);
+            for (var at = 0; at < count; at++) { counts[(keys[at] >> shift) & 0xFF]++; }
+            for (var bucket = 1; bucket < 256; bucket++) { counts[bucket] += counts[bucket - 1]; }
+            for (var at = count - 1; at >= 0; at--) {
+                int slot = --counts[(keys[at] >> shift) & 0xFF];
+                scratchKeys[slot] = keys[at];
+                scratchOrder[slot] = order[at];
+            }
+            (keys, scratchKeys) = (scratchKeys, keys);
+            (order, scratchOrder) = (scratchOrder, order);
+        }
+        return toSeq(order.Select(at => Ellipsoids[at]));
+    }
 
-    private static double Depth(SplatEllipsoid splat, (double X, double Y, double Z) eye) =>
-        Math.Pow(splat.MeanX - eye.X, 2) + Math.Pow(splat.MeanY - eye.Y, 2) + Math.Pow(splat.MeanZ - eye.Z, 2);
+    // MemoryMarshal.Cast layout assumption GATED on CAPTURE_PAYLOAD — the wire layout contract; Decode
+    // proves the byte length against SplatCount before this cast ever runs.
+    private static Seq<SplatEllipsoid> Project(ResidencyPayload payload) =>
+        toSeq(MemoryMarshal.Cast<byte, SplatEllipsoid>(payload.SplatBytes.Span).ToArray());
 
-    private static Seq<SplatEllipsoid> Project(SplatPayload payload) =>
-        toSeq(MemoryMarshal.Cast<byte, SplatEllipsoid>(payload.Ellipsoids.Span).ToArray());
+    private static BoundingSphere BoundsOf(ResidencyPayload payload) =>
+        new(payload.BoundsX, payload.BoundsY, payload.BoundsZ, payload.BoundsRadius);
+
+    static (double X, double Y, double Z) Normalize(double x, double y, double z) {
+        double length = Math.Max(Math.Sqrt((x * x) + (y * y) + (z * z)), 1e-12);
+        return (x / length, y / length, z / length);
+    }
+
+    static (double X, double Y, double Z) Normalize((double X, double Y, double Z) v) => Normalize(v.X, v.Y, v.Z);
+
+    static (double X, double Y, double Z) Cross(double ax, double ay, double az, double bx, double by, double bz) =>
+        ((ay * bz) - (az * by), (az * bx) - (ax * bz), (ax * by) - (ay * bx));
 }
 ```
 
 ```mermaid
 flowchart LR
-    SplatPayload -->|Decode| SplatSource
+    Payload["Compute ResidencyPayload (gaussian-splat)"] -->|Decode| SplatSource
     SplatSource -->|Sorted| SplatSort
     SplatSource --> CapturePass
     CapturePass --> RenderTarget
@@ -94,11 +155,11 @@ flowchart LR
 ## [03]-[POINT_SOURCE]
 
 - Owner: `PointSample` the single LiDAR return; `PointCloudSource` the decoded point set; `PointOctree` the level-of-detail residency tree.
-- Entry: `public static Fin<PointCloudSource> Decode(GpuBackend backend, PointPayload payload, ResidencyBudget budget)` — projects the canonical Compute point payload into the octree-keyed point set; AppUi consumes the decoded payload at the wire and never decodes LAZ.
+- Entry: `public static Fin<PointCloudSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget)` — projects the ONE Compute `ResidencyPayload` (point-cloud kind) into the octree-keyed point set under the same kind -> non-empty -> layout -> watermark admission ladder the splat arm runs, an oversized cloud failing `CaptureFault.DecodeDeferred` for the residency stream; a divergent `PointPayload` carrier is the DELETED form (`[V5]`); AppUi consumes the decoded payload at the wire and never decodes LAZ.
 - Auto: each point carries its position, the classification byte, the intensity, and the RGB color so a `PointCloudSource` is the decoded scan return set the Compute payload streams; `PointOctree` partitions the points into a spatial octree whose nodes carry their level-of-detail subsample so a massive cloud renders the coarse subsample at distance and the full density up close, pop-free because adjacent levels share locked node boundaries exactly as the meshlet cluster-LOD shares cluster boundaries; the octree nodes key into the residency budget by their cell so a billion-point cloud stays VRAM-bounded; the classification byte routes through the perceptually-uniform colormap so a class-colored cloud maps through one lightness-monotone scale.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
 - Growth: a new point attribute is one `PointSample` field; a new LOD policy is one octree subsample value; zero new surface.
-- Boundary: the point source projects off the canonical Compute point payload through the `PointPayload` boundary record — the offline LAZ/scan decode is the Python companion's geometry producer crossing as a Compute payload, so AppUi carries no LAZ-decode package and a `laszip`/`pdal` admission inside `realitycapture/` is the rejected form; the octree LOD is the one massive-cloud residency law and a flat point-array draw is the deleted form; the octree residency rides the `RESIDENCY_BUDGET` owner so the point node and the meshlet tile share one residency manager; the GPU point splatting binds the `RenderTarget` factory through the render-graph lease under CAPTURE_GPU and a CPU octree subsample is the floor for the 2D fallback while the GPU draw is the SPIKE.
+- Boundary: the point source projects off the ONE Compute `ResidencyPayload` boundary record — the offline LAZ/scan decode is the Python companion's geometry producer crossing as a Compute payload, so AppUi carries no LAZ-decode package and a `laszip`/`pdal` admission inside `realitycapture/` is the rejected form; the octree LOD is the one massive-cloud residency law and a flat point-array draw is the deleted form; the octree residency rides the `RESIDENCY_BUDGET` owner so the point node and the meshlet tile share one residency manager; the GPU point splatting binds the `RenderTarget` factory through the render-graph lease under CAPTURE_GPU and a CPU octree subsample is the floor for the 2D fallback while the GPU draw is the SPIKE.
 
 ```csharp signature
 public readonly record struct PointSample(
@@ -109,8 +170,6 @@ public readonly record struct PointSample(
     public (double X, double Y, double Z) Position => (X, Y, Z);
 }
 
-public sealed record PointPayload(string Key, long Count, ReadOnlyMemory<byte> Points, int LevelDepth, BoundingSphere Bounds);
-
 public sealed record PointOctreeNode(string Cell, int Level, BoundingSphere Bounds, int SampleStride, long Count, long LastTouch);
 
 public sealed record PointCloudSource(
@@ -119,21 +178,33 @@ public sealed record PointCloudSource(
     Seq<PointOctreeNode> Octree,
     Colormap ClassRamp,
     BoundingSphere Bounds) {
-    public static Fin<PointCloudSource> Decode(GpuBackend backend, PointPayload payload, ResidencyBudget budget) =>
-        payload.Count <= 0L
-            ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/empty:{payload.Key}"))
-            : Fin.Succ(new PointCloudSource(backend, Project(payload), Octree(payload), Colormap.Viridis, payload.Bounds));
+    // The SAME admission ladder as the splat arm: kind -> non-empty -> exact wire layout -> residency
+    // watermark; an oversized cloud DEFERS so the octree residency streams it instead of materializing.
+    public static Fin<PointCloudSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget) =>
+        payload.Kind != ResidencyKind.PointCloud
+            ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/kind:{payload.Kind}"))
+            : payload.PointCount <= 0L
+                ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/empty:{payload.ContentKey:x32}"))
+                : payload.PointBytes.Length != payload.PointCount * Unsafe.SizeOf<PointSample>()
+                    ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/layout:{payload.PointBytes.Length}b != {payload.PointCount}x{Unsafe.SizeOf<PointSample>()}b"))
+                    : payload.PointBytes.Length > budget.Watermark
+                        ? Fin.Fail<PointCloudSource>(new CaptureFault.DecodeDeferred($"point/oversized:{payload.PointBytes.Length}b > {budget.Watermark}b"))
+                        : Fin.Succ(new PointCloudSource(backend, Project(payload), Octree(payload), Colormap.Viridis,
+                            new BoundingSphere(payload.BoundsX, payload.BoundsY, payload.BoundsZ, payload.BoundsRadius)));
 
     public Seq<PointOctreeNode> Visible(Frustum frustum, double lodScale) =>
         Octree.Filter(node => frustum.Intersects(node.Bounds) && node.Level <= (int)lodScale);
 
-    private static Seq<PointSample> Project(PointPayload payload) =>
-        toSeq(MemoryMarshal.Cast<byte, PointSample>(payload.Points.Span).ToArray());
+    // MemoryMarshal.Cast layout assumption GATED on CAPTURE_PAYLOAD — the wire layout contract.
+    private static Seq<PointSample> Project(ResidencyPayload payload) =>
+        toSeq(MemoryMarshal.Cast<byte, PointSample>(payload.PointBytes.Span).ToArray());
 
-    private static Seq<PointOctreeNode> Octree(PointPayload payload) =>
+    private static Seq<PointOctreeNode> Octree(ResidencyPayload payload) =>
         toSeq(Enumerable.Range(0, int.Max(payload.LevelDepth, 1))
             .Select(level => new PointOctreeNode(
-                $"{payload.Key}/{level}", level, payload.Bounds, 1 << (payload.LevelDepth - level), payload.Count >> level, 0L)));
+                $"{payload.ContentKey:x32}/{level}", level,
+                new BoundingSphere(payload.BoundsX, payload.BoundsY, payload.BoundsZ, payload.BoundsRadius),
+                1 << (payload.LevelDepth - level), payload.PointCount >> level, 0L)));
 }
 ```
 

@@ -4,16 +4,16 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Irihi.Ursa` 2.0.1
+[PACKAGE_SURFACE]: `Irihi.Ursa` 2.1.0
 - package: `Irihi.Ursa`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.dll`); the package multi-targets net8.0 / net10.0 and the `net10.0` asset is bound
 - assembly: `Ursa`
-- namespace: `Ursa.Controls` (the full control roster — 227 control/option/event types), `Ursa.Common` (`Position`/`ItemAlignment`/`CornerPosition` placement vocabulary, `ObservableHelper`), `Ursa.Converters`, `Ursa.Helpers`, `Ursa.EventArgs`
+- namespace: `Ursa.Controls` (the full control roster — 244 control/option/event types), `Ursa.Common` (`Position`/`ItemAlignment`/`CornerPosition` placement vocabulary, `ObservableHelper`), `Ursa.Converters`, `Ursa.Helpers`, `Ursa.EventArgs`
 - depends: `Avalonia` (12.x — its `>= 11.x` floor rises to the admitted line), `Irihi.Avalonia.Shared` + `Irihi.Avalonia.Shared.Contracts` 0.4.0 (the shared primitive closure also floored by `Semi.Avalonia`); vendors `Gma.QrCodeNet` internally for the `QRCode` control (no QR dependency surfaces)
 - rail: controls
 
-[PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi` 2.0.1
+[PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi` 2.1.0
 - package: `Irihi.Ursa.Themes.Semi`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.Themes.Semi.dll`)

@@ -31,7 +31,7 @@ from msgspec import Struct
 from opentelemetry import trace
 from stamina import AsyncRetryingCaller
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 # pyphen/uniseg are pure-Python (present on cp315, run inline); PyICU is cp-gated

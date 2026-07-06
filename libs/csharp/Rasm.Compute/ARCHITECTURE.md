@@ -139,10 +139,10 @@ Solver/contract       ←  csharp:Rasm.Element/Composition         # [SHAPE]: Ma
 Tensor/dispatch       ⇄  csharp:Rasm/Numerics/spectral           # [SHAPE]: TensorOpKind.Geometry rows bind OperatorRow; routes Apply JVP/Adjoint VJP
 Tensor/residency      ←  csharp:Rasm/Drawing/pack                # [CONTENT_KEY]: EncodedGeometry as EncodedTensor — residency never a re-pack
 Tensor/residency      ⇄  csharp:Rasm.AppHost/Sandbox/solver      # [SHAPE]: EncodingKind rows align onto the PackKind axis; Field/Toolpath land as PackKind rows
-Runtime               ⇄  python:compute/graduation               # [GRADUATION]: HandoffAxis graduation evidence, incl. the geometry case (GeometryHandoff wire data: topology-graph / bim-lifecycle / registration-transform et al.)
+Runtime               ←  python:compute/graduation               # [GRADUATION]: HandoffAxis graduation evidence crosses INWARD only — compute graduates outward, C# never imports back; incl. the geometry case (GeometryHandoff wire data: topology-graph / bim-lifecycle / registration-transform et al.)
 Runtime               →  python:compute/graduation               # [WIRE]: EvidenceBundle graduation-evidence wire
 Runtime               ←  python:compute/solvers                  # [PROJECTION]: SolverReceipt convergence verdict
-Runtime               ←  python:data/tabular                     # [SHAPE]: DOE dataset / labelled-array study input
+Runtime               ←  python:data/tabular                     # [SHAPE]: DOE dataset study input
 Runtime               ←  python:data/spatial/geospatial          # [SHAPE]: GeoArrow buffers share GLB tessellation wire layout
 ```
 

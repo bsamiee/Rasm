@@ -38,7 +38,21 @@ cheap *and* needs to think.
 **Structured output (`schema`).** Every example that later reads a field off a
 result defines a JSON Schema `const` and passes it as `schema` — so `agent()`
 returns a parsed object and the next line is plain JavaScript (`review.passed`,
-`issues.filter(...)`). Schemas are kept small and `required`-tight.
+`issues.filter(...)`). Schemas are STRICT at every level: `additionalProperties:
+false` on every object, `required` listing every property, a conditional field
+designed required-but-empty (`''`/`[]`) — the codex `--output-schema` endpoint
+rejects anything looser, and the same shape keeps native agents honest.
+
+**Scratch artifacts (heavy products).** Run scratch is
+`.claude/scratch/<workflow-name>/` — one folder per workflow, gitignored,
+ephemeral; file grammar `<scope>-<lane>-<artifact>.<ext>` (lane = short semantic
+slug like `s0`/`gov`/`rip-python`; artifact = `task`/`schema`/`report`/`stderr`;
+no agent names, timestamps, or run IDs). A lane whose product is heavy (~50+
+rows) writes it there as one JSON file and returns only the thin receipt
+`{ok, report, entries, headline, failure}`; failure lives in the envelope, never
+as sentinel rows in the data. These examples all stay under that line and paste
+inline — `.claude/workflows/realize.js` and `cold-verify.js` are the worked
+receipt pattern, and SKILL.md "Data flow between stages" is the law.
 
 **Reading `args`** (the rule lives in `../../references/api-reference.md` §4).
 `planning-card-triage.js` reads object fields with a literal default

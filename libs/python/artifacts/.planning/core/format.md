@@ -34,7 +34,7 @@ from expression import Block, Error, Ok, Result
 from msgspec import Struct, field
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.content_identity import ContentKey
+from rasm.runtime.identity import ContentKey
 from rasm.runtime.faults import RuntimeRail, traversed
 
 from artifacts.document.emit import DocumentMode, DocumentPlan, EmitSpec, PdfVariant, XlsxRegime, produced

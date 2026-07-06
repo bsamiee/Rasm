@@ -10,8 +10,8 @@ One immersive owner binds OpenXR stereo design-review plus `XR_FB_passthrough` o
 
 ## [02]-[XR_SESSION]
 
-- Owner: `ImmersiveSession` the OpenXR session lifecycle; `XrRuntime` the loader-presence probe; `ImmersiveFault` the fault family in the 4D00 code band.
-- Cases: `ImmersiveFault` = Text | LoaderAbsent | SystemUnavailable | SessionRejected | SwapchainFailed in the 4D00 code band.
+- Owner: `ImmersiveSession` the OpenXR session lifecycle; `XrRuntime` the loader-presence probe; `ImmersiveFault` the typed fault family on the `AppUiFaultBand.Immersive` registry row (6120) — the hex band.
+- Cases: `ImmersiveFault` = Text | LoaderAbsent | SystemUnavailable | SessionRejected | SwapchainFailed — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry; the hex band is dead.
 - Entry: `public Fin<ImmersiveSession> Create(WgpuDevice device, XrRuntime runtime, Func<WgpuDevice, Fin<ImmersiveSession>> bind)` — gates on the loader-presence probe and hands the shared `WgpuDevice` to the `bind` native-open continuation that runs `XR.GetApi` -> `CreateInstance` (with `XR_FB_passthrough` listed in the enabled-extension chain when the runtime advertises it) -> `GetSystem` -> `CreateSession` against the device's `Wgpu` graphics binding -> `CreateSwapchain` per eye -> `CreateReferenceSpace`, folding to the flat viewport when the loader is absent; `bind` is the named boundary capsule carrying the native-handle statements so the one `WgpuDevice` crosses into the OpenXR session and a second GPU device is structurally impossible.
 - Auto: the session creates against the graphics-binding `next` chain sharing the same physical device, queue family, and queue index the wgpu instance negotiated (`KHR_vulkan_enable2`, `GraphicsBindingVulkanKHR`) so the meshlet/path-trace/splat passes render into the OpenXR swapchain images with the one device — a second GPU device for the immersive path is the cross-adapter copy penalty the shared binding avoids; the session probes for `XR_FB_passthrough` through `EnumerateInstanceExtensionProperties` and lists it in `InstanceCreateInfo.EnabledExtensionNames` when advertised; the absence of an installed loader (`libopenxr_loader`) is the no-HMD floor that folds to the flat `Render/pipeline` viewport rather than a hard fault, so the immersive session is an optional surface the desktop path degrades from; all native handles release through their `DestroyXxx` call in a scoped fold.
 - Receipt: the session creation emits a session-resolved evidence row — system id, view config, swapchain format, passthrough-available flag; `TelemetryRow` contributes the session-resolved and session-absent instruments inward through the AppHost `TelemetryContributorPort`.
@@ -26,11 +26,11 @@ public abstract partial record ImmersiveFault : Expected, IValidationError<Immer
 
     public static ImmersiveFault Create(string message) => new Text(message);
 
-    public sealed record Text : ImmersiveFault { public Text(string detail) : base(detail, 0x4D00) { } }
-    public sealed record LoaderAbsent : ImmersiveFault { public LoaderAbsent(string detail) : base(detail, 0x4D01) { } }
-    public sealed record SystemUnavailable : ImmersiveFault { public SystemUnavailable(string detail) : base(detail, 0x4D02) { } }
-    public sealed record SessionRejected : ImmersiveFault { public SessionRejected(string detail) : base(detail, 0x4D03) { } }
-    public sealed record SwapchainFailed : ImmersiveFault { public SwapchainFailed(string detail) : base(detail, 0x4D04) { } }
+    public sealed record Text : ImmersiveFault { public Text(string detail) : base(detail, AppUiFaultBand.Immersive.Code(0)) { } }
+    public sealed record LoaderAbsent : ImmersiveFault { public LoaderAbsent(string detail) : base(detail, AppUiFaultBand.Immersive.Code(1)) { } }
+    public sealed record SystemUnavailable : ImmersiveFault { public SystemUnavailable(string detail) : base(detail, AppUiFaultBand.Immersive.Code(2)) { } }
+    public sealed record SessionRejected : ImmersiveFault { public SessionRejected(string detail) : base(detail, AppUiFaultBand.Immersive.Code(3)) { } }
+    public sealed record SwapchainFailed : ImmersiveFault { public SwapchainFailed(string detail) : base(detail, AppUiFaultBand.Immersive.Code(4)) { } }
 }
 
 public readonly record struct XrRuntime(bool LoaderPresent, bool PassthroughAdvertised, ViewConfigurationType ViewConfig) {

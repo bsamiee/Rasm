@@ -13,7 +13,7 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 ## [02]-[HOST_AXIS]
 
 - Owner: `SurfaceHost` — one `[Union]` host axis; `SurfaceSeam` — the host-delegate column record; `SurfaceRow` — the resolved policy row; `Surfaces` — the total dispatch and mount surface; `SurfaceFault` — the fault family; `SurfaceReceipt` and `SurfaceSession` — mount evidence.
-- Cases: AvaloniaDesktopWindow, RhinoPanel, RhinoModal, Gh2CompanionWindow, SidecarShell, WebBrowser, Headless; `SurfaceFault` = Text | HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity in the 4100 code band.
+- Cases: AvaloniaDesktopWindow, RhinoPanel, RhinoModal, Gh2CompanionWindow, SidecarShell, WebBrowser, Headless; `SurfaceFault` = Text | HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity — codes derive through the `AppUiFaultBand.Surface` registry row (6000).
 - Entry: `Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation)` — `Fin` aborts on absent host, rejected mount, missing handle, and thread-affinity violation.
 - Auto: one mount transaction replaces seven boot programs — boot-edge guard, builder shaping, parent-handle capture, scale capture, disposal registration, and receipt emission land in one fold; raw case keys serialize through the suite wire law as locked kind literals.
 - Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor and value, scale, `Instant`, `CorrelationId`; `TelemetryRow` contributes the mount-outcome and scale-flip instruments inward through the AppHost `TelemetryContributorPort`.
@@ -40,11 +40,11 @@ public abstract partial record SurfaceFault : Expected, IValidationError<Surface
 
     public static SurfaceFault Create(string message) => new Text(message);
 
-    public sealed record Text : SurfaceFault { public Text(string detail) : base(detail, 4100) { } }
-    public sealed record HostAbsent : SurfaceFault { public HostAbsent(string detail) : base(detail, 4101) { } }
-    public sealed record MountRejected : SurfaceFault { public MountRejected(string detail) : base(detail, 4102) { } }
-    public sealed record HandleUnavailable : SurfaceFault { public HandleUnavailable(string detail) : base(detail, 4103) { } }
-    public sealed record ThreadAffinity : SurfaceFault { public ThreadAffinity(string detail) : base(detail, 4104) { } }
+    public sealed record Text : SurfaceFault { public Text(string detail) : base(detail, AppUiFaultBand.Surface.Code(0)) { } }
+    public sealed record HostAbsent : SurfaceFault { public HostAbsent(string detail) : base(detail, AppUiFaultBand.Surface.Code(1)) { } }
+    public sealed record MountRejected : SurfaceFault { public MountRejected(string detail) : base(detail, AppUiFaultBand.Surface.Code(2)) { } }
+    public sealed record HandleUnavailable : SurfaceFault { public HandleUnavailable(string detail) : base(detail, AppUiFaultBand.Surface.Code(3)) { } }
+    public sealed record ThreadAffinity : SurfaceFault { public ThreadAffinity(string detail) : base(detail, AppUiFaultBand.Surface.Code(4)) { } }
 }
 
 public sealed record SurfaceSeam(

@@ -1,7 +1,7 @@
 # Run ledger — <workflow-name>
 
 Write this the moment `Workflow` returns; update it on every resume or restart. Keep it in
-the session scratch dir, never the repo. A plain resume works only in the session that launched
+the session scratchpad (harness temp dir), never the repo. A plain resume works only in the session that launched
 the run — losing the run ID means re-running the whole job; crossing a session boundary takes
 the journal transplant (api-reference §11).
 
@@ -16,6 +16,8 @@ record of the run ID to pass to `resumeFromRunId`. Resume needs the run ID + the
 - Run ID: <wf_...>
 - Launched scriptPath: <abs-path-to-the-.js-that-was-launched>
 - Transcript dir: <~/.claude/projects/.../subagents/workflows/wf_<id>/ — holds journal.jsonl>
+- Run scratch: <.claude/scratch/<workflow-name>/ — lane report files; a continuation script
+  rebuilds completed stages from these plus the journal's `result` records>
 
 ## Resume / restart (same session only)
 - Resume: `Workflow({ scriptPath: "<launched scriptPath>", resumeFromRunId: "<wf_...>" })`

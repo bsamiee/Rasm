@@ -135,7 +135,7 @@ public sealed partial class EditorFactory {
 ## [04]-[COMMIT_VALIDATION]
 
 - Owner: `EditFault` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract; `EditOutcome` `[Union]`; `EditReceipt` record; `EditGate` static admission surface.
-- Cases: `EditFault` Text, Parse, Invariant, UnmatchedShape, StoreRejected, HostRejected, Aggregate — codes 4700-4799, `Combine` folds independent faults into Aggregate; `EditOutcome` Observed, Committed, Reverted, Rejected, HostRouted.
+- Cases: `EditFault` Text, Parse, Invariant, UnmatchedShape, StoreRejected, HostRejected, Aggregate — codes derive through the `AppUiFaultBand.Edit` registry row (6300, ONE decade — the whole-decade claim is dead and `Aggregate` carries child codes in its payload, never a reserved code), `Combine` folds independent faults into Aggregate; `EditOutcome` Observed, Committed, Reverted, Rejected, HostRouted.
 - Entry: `Admit<TOwner, TRaw, TError>(string target, TRaw raw, IFormatProvider? culture = null)` — `Validation<EditFault,TOwner>` accumulates; `Resolve(Type shape)` lifts an unmatched shape onto the same rail.
 - Receipt: `EditReceipt` — kind, surface, target, editor row key, outcome, `Instant`, `CorrelationId`.
 - Packages: Thinktecture.Runtime.Extensions, UnitsNet, ReactiveUI.Validation, NodaTime, LanguageExt.Core
@@ -149,29 +149,29 @@ public abstract partial record EditFault : Expected, IValidationError<EditFault>
 
     public static EditFault Create(string message) => new Text(message);
 
-    public sealed record Text : EditFault { public Text(string detail) : base(detail, 4700) { } }
+    public sealed record Text : EditFault { public Text(string detail) : base(detail, AppUiFaultBand.Edit.Code(0)) { } }
     public sealed record Parse : EditFault {
-        public Parse(string target, string detail) : base($"{target}: {detail}", 4701) => Target = target;
+        public Parse(string target, string detail) : base($"{target}: {detail}", AppUiFaultBand.Edit.Code(1)) => Target = target;
         public string Target { get; }
     }
     public sealed record Invariant : EditFault {
-        public Invariant(string target, string detail) : base($"{target}: {detail}", 4702) => Target = target;
+        public Invariant(string target, string detail) : base($"{target}: {detail}", AppUiFaultBand.Edit.Code(2)) => Target = target;
         public string Target { get; }
     }
     public sealed record UnmatchedShape : EditFault {
-        public UnmatchedShape(string shape) : base($"{shape}: no editor row", 4703) => Shape = shape;
+        public UnmatchedShape(string shape) : base($"{shape}: no editor row", AppUiFaultBand.Edit.Code(3)) => Shape = shape;
         public string Shape { get; }
     }
     public sealed record StoreRejected : EditFault {
-        public StoreRejected(string target, string detail) : base($"{target}: {detail}", 4704) => Target = target;
+        public StoreRejected(string target, string detail) : base($"{target}: {detail}", AppUiFaultBand.Edit.Code(4)) => Target = target;
         public string Target { get; }
     }
     public sealed record HostRejected : EditFault {
-        public HostRejected(string target, string detail) : base($"{target}: {detail}", 4705) => Target = target;
+        public HostRejected(string target, string detail) : base($"{target}: {detail}", AppUiFaultBand.Edit.Code(5)) => Target = target;
         public string Target { get; }
     }
     public sealed record Aggregate : EditFault {
-        public Aggregate(Seq<EditFault> faults) : base($"{faults.Count} faults", 4799) => Faults = faults;
+        public Aggregate(Seq<EditFault> faults) : base($"{faults.Count} faults", AppUiFaultBand.Edit.Code(6)) => Faults = faults;
         public Seq<EditFault> Faults { get; }
     }
 
@@ -358,17 +358,80 @@ public readonly record struct GeometryDiff(
     Option<Viewpoint> RemoteView);
 
 public static class ThreeWay {
-    public static Seq<ThreeWayHunk> Diff(string baseText, string local, string remote) =>
-        Zip(Lines(baseText), Lines(local), Lines(remote))
-            .Map(static line => new ThreeWayHunk(
-                line.Base, line.Local, line.Remote,
-                Conflicted: line.Local != line.Base && line.Remote != line.Base && line.Local != line.Remote));
+    // Real diff3: LCS-anchored alignment per side, then hunk detection over the anchor structure — an
+    // insertion or deletion shifts nothing downstream, so a one-line insert yields ONE hunk, never a
+    // whole-file cascade. The positional zip is the deleted form.
+    public static Seq<ThreeWayHunk> Diff(string baseText, string local, string remote) {
+        Seq<string> baseLines = Lines(baseText);
+        Seq<(Option<string> Base, Option<string> Side)> localAligned = Align(baseLines, Lines(local));
+        Seq<(Option<string> Base, Option<string> Side)> remoteAligned = Align(baseLines, Lines(remote));
+        return Hunks(baseLines, localAligned, remoteAligned);
+    }
 
     static Seq<string> Lines(string text) => toSeq(text.Split('\n'));
 
-    static Seq<(string Base, string Local, string Remote)> Zip(Seq<string> b, Seq<string> l, Seq<string> r) =>
-        toSeq(Enumerable.Range(0, Math.Max(b.Count, Math.Max(l.Count, r.Count)))
-            .Select(i => (i < b.Count ? b[i] : "", i < l.Count ? l[i] : "", i < r.Count ? r[i] : "")));
+    // Myers/LCS alignment: each base line pairs with its matched side line or None (deleted); side lines
+    // absent from base interleave as (None, Some) insertions at their anchor position.
+    static Seq<(Option<string> Base, Option<string> Side)> Align(Seq<string> baseLines, Seq<string> side) {
+        int[,] lcs = new int[baseLines.Count + 1, side.Count + 1];
+        for (var i = baseLines.Count - 1; i >= 0; i--) {
+            for (var j = side.Count - 1; j >= 0; j--) {
+                lcs[i, j] = baseLines[i] == side[j] ? lcs[i + 1, j + 1] + 1 : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
+            }
+        }
+        var aligned = Seq<(Option<string>, Option<string>)>();
+        var (bi, si) = (0, 0);
+        while (bi < baseLines.Count && si < side.Count) {
+            if (baseLines[bi] == side[si]) { aligned = aligned.Add((Some(baseLines[bi]), Some(side[si]))); bi++; si++; }
+            else if (lcs[bi + 1, si] >= lcs[bi, si + 1]) { aligned = aligned.Add((Some(baseLines[bi]), Option<string>.None)); bi++; }
+            else { aligned = aligned.Add((Option<string>.None, Some(side[si]))); si++; }
+        }
+        while (bi < baseLines.Count) { aligned = aligned.Add((Some(baseLines[bi]), Option<string>.None)); bi++; }
+        while (si < side.Count) { aligned = aligned.Add((Option<string>.None, Some(side[si]))); si++; }
+        return aligned;
+    }
+
+    // diff3 hunking: walk both alignments against the shared base spine; a region where either side
+    // diverges from base opens a hunk, closed at the next stable anchor; both-diverged marks conflict.
+    static Seq<ThreeWayHunk> Hunks(
+        Seq<string> baseLines,
+        Seq<(Option<string> Base, Option<string> Side)> local,
+        Seq<(Option<string> Base, Option<string> Side)> remote) =>
+        toSeq(WalkAnchors(baseLines, local, remote));
+
+    static IEnumerable<ThreeWayHunk> WalkAnchors(
+        Seq<string> baseLines,
+        Seq<(Option<string> Base, Option<string> Side)> local,
+        Seq<(Option<string> Base, Option<string> Side)> remote) {
+        Map<int, Seq<string>> localByAnchor = ByAnchor(local);
+        Map<int, Seq<string>> remoteByAnchor = ByAnchor(remote);
+        for (var anchor = 0; anchor <= baseLines.Count; anchor++) {
+            Seq<string> baseRun = anchor < baseLines.Count ? Seq(baseLines[anchor]) : Seq<string>();
+            Seq<string> localRun = localByAnchor.Find(anchor).IfNone(baseRun);
+            Seq<string> remoteRun = remoteByAnchor.Find(anchor).IfNone(baseRun);
+            if (localRun == baseRun && remoteRun == baseRun && baseRun.IsEmpty) { continue; }
+            var conflicted = localRun != baseRun && remoteRun != baseRun && localRun != remoteRun;
+            yield return new ThreeWayHunk(
+                string.Join('\n', baseRun), string.Join('\n', localRun), string.Join('\n', remoteRun), conflicted);
+        }
+    }
+
+    // Projects an alignment into per-anchor side runs: the run replacing base line N, insertions attached
+    // to the anchor they precede, base-count as the trailing-insert anchor.
+    static Map<int, Seq<string>> ByAnchor(Seq<(Option<string> Base, Option<string> Side)> aligned) {
+        var runs = Map<int, Seq<string>>();
+        var anchor = 0;
+        var pending = Seq<string>();
+        foreach ((Option<string> baseLine, Option<string> side) in aligned) {
+            if (baseLine.IsSome) {
+                runs = runs.AddOrUpdate(anchor, pending + side.ToSeq());
+                pending = Seq<string>();
+                anchor++;
+            }
+            else { pending = pending + side.ToSeq(); }
+        }
+        return pending.IsEmpty ? runs : runs.AddOrUpdate(anchor, pending);
+    }
 }
 ```
 

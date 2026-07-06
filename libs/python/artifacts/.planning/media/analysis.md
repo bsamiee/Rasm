@@ -32,7 +32,7 @@ from numpy.typing import NDArray
 
 from builtins import frozendict
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 

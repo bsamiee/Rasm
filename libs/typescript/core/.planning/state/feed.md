@@ -4,12 +4,13 @@ The evidence timeline aggregator: one process-local `Entry` family wrapping the 
 
 ## [1]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                            | [PUBLIC]                                            |
-| :-----: | :--------------- | :------------------------------------------------------------------ | :------------------------------------------------------ |
-|  [01]   | `DOCUMENT_REF`   | the content-keyed result-document reference and its column band     | `Feed.Document`                                          |
-|  [02]   | `ENTRY_FAMILY`   | the tagged entry union and its total projections                    | `Feed.Entry`, `Feed.at/.lane/.subject`                   |
-|  [03]   | `FEED_FOLD`      | the ordered feed state, absorb step, policy row, merge, fold plan   | `Feed.absorb/.merge/.plan`                               |
-|  [04]   | `FEED_READS`     | window and recency reads over the folded feed                       | `Feed.window/.recent`                                    |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]                               |
+| :-----: | :------------------ | :---------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `DOCUMENT_REF`      | the content-keyed result-document reference and its column band         | `Feed.Document`                        |
+|  [02]   | `ENTRY_FAMILY`      | the tagged entry union and its total projections                        | `Feed.Entry`, `Feed.at/.lane/.subject` |
+|  [03]   | `FEED_FOLD`         | the ordered feed state, absorb step, policy row, merge, fold plan       | `Feed.absorb/.merge/.plan`             |
+|  [04]   | `EVIDENCE_TIMELINE` | the AppUi evidence-timeline wire counterpart absorbed onto the one feed | `Feed.timeline`                        |
+|  [05]   | `FEED_READS`        | window and recency reads over the folded feed                           | `Feed.window/.recent`                  |
 
 ## [2]-[DOCUMENT_REF]
 
@@ -124,6 +125,7 @@ declare namespace Feed {
     readonly subject: (entry: Entry) => string
     readonly empty: State
     readonly absorb: (policy: Policy) => (state: State, entry: Entry) => State
+    readonly timeline: (policy: Policy) => (state: State, timeline: Timeline) => State
     readonly merge: (policy: Policy) => Merge.Instance<State>
     readonly plan: (policy: Policy) => Fold.Plan<Entry, TenantContext, State>
     readonly window: (state: State, bounds: { readonly from: Option.Option<Hlc>; readonly until: Option.Option<Hlc> }) => Chunk.Chunk<Entry>
@@ -178,7 +180,23 @@ const _absorb = (policy: Feed.Policy) => (state: Feed.State, entry: Feed.Entry):
 const _empty: Feed.State = { rows: SortedMap.empty(_byKey), live: HashMap.empty() }
 ```
 
-## [5]-[FEED_READS]
+## [5]-[EVIDENCE_TIMELINE]
+
+[EVIDENCE_TIMELINE]:
+- Owner: `Feed.Timeline` — the AppUi `Diagnostics/evidence` counterpart: the exported `EvidenceTimelineWire` (correlation + envelope rows) decodes at the `state/evidence` `ReceiptEnvelope` wire twin, and `Feed.timeline` absorbs the decoded envelopes onto the ONE feed — no sibling feed shape, no second timeline owner.
+- Law: the correlation key survives as each envelope's own correlation column and skew bands re-derive from the `Hlc` stamps at render — the wire's `band` pairs are producer-side render hints the fold never re-stores, so timeline ingest and live absorb converge on identical state.
+- Growth: a new evidence wire row is one envelope case at the `state/evidence` twin; this fold absorbs it with zero edits.
+
+```typescript
+declare namespace Feed {
+  type Timeline = { readonly correlation: string; readonly envelopes: Chunk.Chunk<ReceiptEnvelope> }
+}
+
+const _timeline = (policy: Feed.Policy) => (state: Feed.State, timeline: Feed.Timeline): Feed.State =>
+  Chunk.reduce(timeline.envelopes, state, (folded, envelope) => _absorb(policy)(folded, _Entry.Receipt({ envelope })))
+```
+
+## [6]-[FEED_READS]
 
 [FEED_READS]:
 - Owner: the read family — `window` folds the rows inside optional `Hlc` bounds, `recent` takes the newest slice from the tail; both are projections of the ordered state, so no read allocates beyond its answer and no read observes an unordered intermediate.
@@ -194,6 +212,7 @@ const Feed: Feed.Shape = {
   subject: _subject,
   empty: _empty,
   absorb: _absorb,
+  timeline: _timeline,
   merge: (policy) =>
     Merge.instance({
       combine: Semigroup.make((self: Feed.State, that: Feed.State) =>

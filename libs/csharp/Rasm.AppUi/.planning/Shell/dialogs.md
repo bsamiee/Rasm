@@ -11,7 +11,7 @@ Rasm.AppUi presents every modal and transient surface through one `DialogIntent`
 
 ## [02]-[DIALOG_INTENTS]
 
-- Owner: `DialogIntent` `[Union]` — the one modal vocabulary across every admitted surface; `DialogFault` fault family in the 4130 code band.
+- Owner: `DialogIntent` `[Union]` — the one modal vocabulary across every admitted surface; `DialogFault` the typed fault family on the `AppUiFaultBand.Dialog` registry row (6040).
 - Cases: Confirm → `Unit`, Form → template commit record, Pick → `Seq<string>`, Progress → `DeadlineOutcome`, Error → `Unit`, About → `Unit`; dismissal projects `Option<TResult>.None`; `DialogFault` = Text | ResultShape | PickerUnavailable.
 - Auto: the screen fault fold raises the Error case with its correlation — never per-control failure handling; the boot crash-restore offer rides one Confirm row; the conflict-resolution inspector registers as one Form content row.
 - Packages: Thinktecture.Runtime.Extensions, ReactiveUI, LanguageExt.Core, Rasm.AppHost (project)
@@ -36,9 +36,9 @@ public abstract partial record DialogFault : Expected, IValidationError<DialogFa
 
     public static DialogFault Create(string message) => new Text(message);
 
-    public sealed record Text : DialogFault { public Text(string detail) : base(detail, 4130) { } }
-    public sealed record ResultShape : DialogFault { public ResultShape(string expected, string actual) : base($"{expected}:{actual}", 4131) { } }
-    public sealed record PickerUnavailable : DialogFault { public PickerUnavailable(string surface) : base(surface, 4132) { } }
+    public sealed record Text : DialogFault { public Text(string detail) : base(detail, AppUiFaultBand.Dialog.Code(0)) { } }
+    public sealed record ResultShape : DialogFault { public ResultShape(string expected, string actual) : base($"{expected}:{actual}", AppUiFaultBand.Dialog.Code(1)) { } }
+    public sealed record PickerUnavailable : DialogFault { public PickerUnavailable(string surface) : base(surface, AppUiFaultBand.Dialog.Code(2)) { } }
 }
 ```
 
@@ -64,7 +64,7 @@ public sealed record DialogTopology(
     IDialogPopupPositioner Positioner,
     Func<Option<TopLevel>> TopLevelResolver,
     Func<string, Option<IDataTemplate>> ContentTemplate,
-    Func<ToastRow, string, string, Option<string>, Unit> ToastPipe,
+    Func<ToastRow, string, string, Option<string>, IO<Unit>> ToastPipe,
     Option<Func<DialogIntent.Pick, Task<Seq<string>>>> PickPipe) {
     public Interaction<DialogIntent, object?> Requests { get; } = new();
 
@@ -176,7 +176,7 @@ public static class ToastGate {
         public IO<ToastReceipt> Toast(ToastRow row, string title, string body, RuntimePhase phase, DegradationState degradation, Instant at, CorrelationId correlation, Option<string> intentKey = default) =>
             ToastGate.Admit(phase, degradation.Level) switch {
                 var outcome when outcome == ToastOutcome.Shown =>
-                    IO.lift(() => root.ToastPipe(row, title, body, intentKey)).Map(_ => new ToastReceipt(row, root.SurfaceKey, ToastOutcome.Shown, intentKey, at, correlation)),
+                    root.ToastPipe(row, title, body, intentKey).Map(_ => new ToastReceipt(row, root.SurfaceKey, ToastOutcome.Shown, intentKey, at, correlation)),
                 var outcome => IO.pure(new ToastReceipt(row, root.SurfaceKey, outcome, intentKey, at, correlation)),
             };
     }

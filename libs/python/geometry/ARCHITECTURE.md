@@ -78,7 +78,7 @@ mesh                ⇄  csharp:Rasm.Bim/Exchange     # [TESSELLATION]: GLB tess
 mesh/serve          ⇄  csharp:Rasm.Compute/Runtime  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 mesh/serve          →  csharp:Rasm.Compute/Runtime  # [TRANSPORT]: ServerHost-registered servicer streaming GLB + semantic header, 64 KiB Crc32 frames
 mesh/serve          →  csharp:Rasm.Compute/Runtime  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell decoded by Codecs
-mesh/serve          →  csharp:Rasm.AppUi/Render     # [SHAPE]: SharpGLTF GLB import per-element tessellation
+mesh/serve          →  csharp:Rasm.Compute/Runtime/codecs # [SHAPE]: SharpGLTF GLB import per-element tessellation staged into ResidencyPayload rows — AppUi decodes ONLY the Compute payload owner, never this rail directly
 mesh/daemon         ⇄  csharp:Rasm.Compute/Runtime  # [CONTENT_KEY]: ContentIdentity XxHash128 source bytes + TessellationPolicy.spec seed re-tessellation cache parity
 mesh/daemon         ⇄  csharp:Rasm.Element/Graph    # [WIRE]: imported-IFC GLB seed-zero XxHash128 == seam RepresentationContentHash entry; decode the seam key
 mesh/serve          ⇄  python:runtime/transport     # [WIRE]: TessellationRequest/TessellationReceipt/ArtifactFrame registry rows bound by symbol; Route rows into ServerHost.register

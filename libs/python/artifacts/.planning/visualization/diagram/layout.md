@@ -38,7 +38,7 @@ from msgspec import Struct
 from pyelk import ELK
 from pyelk.graph import collect_edges, validate_graph
 
-from rasm.runtime.content_identity import ContentIdentity
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt

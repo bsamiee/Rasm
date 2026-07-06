@@ -44,7 +44,7 @@ from expression.collections import Block, Map
 from msgspec import Struct, json
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.content_identity import ContentIdentity
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.composition.sheet import TitleBlock

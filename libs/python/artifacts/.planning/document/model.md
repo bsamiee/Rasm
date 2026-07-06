@@ -32,7 +32,7 @@ from expression import pipe
 from expression.collections import Block
 from msgspec import Meta, Struct, UnsetType, UNSET
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 
 lazy from lxml import etree  # the tree -> HTML/`_Element` lowering builder; cold, deferred to first `to_html`/`to_lxml_tree`
 
@@ -1174,7 +1174,7 @@ from expression import Nothing, Option, Some
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentKey
+from rasm.runtime.identity import ContentKey
 
 from .model import BlockNode, DocumentNode, ListNode, PageNode, SectionNode, StructureNode, walk
 

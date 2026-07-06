@@ -117,6 +117,7 @@
     <ItemGroup Label="Graph And Map Surfaces">
         <PackageReference Include="Mapsui.Avalonia12" />
         <PackageReference Include="NodeEditorAvalonia" />
+        <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
     <ItemGroup Label="Collaboration And Locale">

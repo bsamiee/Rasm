@@ -11,15 +11,18 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 const ROOT = 'docs/stacks/typescript'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, map: { type: 'string' } } } } } }
-const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+
+const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'map'], properties: { path: { type: 'string' }, order: { type: 'integer' }, map: { type: 'string' } } } } } }
+const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale', 'renames'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter', 'isNew'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'residual_high'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+
 // Required-but-possibly-empty `beyond` is an attestation: the terminal agent's own hunt ran, not only the residual list.
 const CORPUS_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'resolved', 'beyond', 'rejected', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } },
@@ -29,6 +32,7 @@ const CORPUS_SCHEMA = { type: 'object', additionalProperties: false, required: [
   summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'TARGET: docs/stacks/typescript/ is the route-owned TypeScript CODE DOCTRINE — a doc set of AGNOSTIC teaching pages that legislate how all ' +
     'project TypeScript is written. It is NOT a libs/typescript/.planning design corpus: a page teaches a coding LAW with exemplary agnostic ' +
@@ -45,6 +49,7 @@ const LAW = [
     'except a genuine cross-FILE defect a concurrent sibling pipeline owns — report it in residual_high; the terminal corpus agent resolves ' +
     'every reported residual in this same run.',
 ].join('\n')
+
 const ADVERSARIAL = [
   'ADVERSARIAL STANCE — EVERY stage is HOSTILE: assume the page is NAIVE, SHALLOW, or ILLUSORY until it survives an aggressive attack; the burden ' +
     'of proof is ON THE PAGE. `finalized`, "mature", "already strong", "good enough", and a prior `clean` grade are REJECTED self-assessments. ' +
@@ -58,6 +63,7 @@ const ADVERSARIAL = [
     'parameterized, algorithmic owner should GENERATE the space (a fixed roster of styles, patterns, or variants is seed DATA feeding ONE ' +
     'generator over named parameters, never the mechanism itself).',
 ].join('\n')
+
 const TS_DOCTRINE = [
   'HOLD the docs/stacks/typescript/README [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] signals as fact, never restated on a concept page. ' +
     'BOUNDARY_ADMISSION: raw is admitted EXACTLY ONCE through a Schema decode at the edge into an evidence-carrying owner; the interior never ' +
@@ -68,6 +74,7 @@ const TS_DOCTRINE = [
   'A page that demonstrates a coding law must itself obey every law it can reach — the doctrine pages are the reference implementation of the ' +
     'doctrine.',
 ].join('\n')
+
 const TS_SHAPE = [
   'EXTREME SHAPE/TYPE DENSITY + ONE CANONICAL FORM (the central mandate): one concept owns exactly ONE canonical declaration — a `Schema` owner ' +
     '(class-based `Schema.Class`/`Schema.TaggedClass` or a schema value with `Schema.Schema.Type<typeof X>` derivation), a value-derived ' +
@@ -90,6 +97,7 @@ const TS_SHAPE = [
     '`Schema.Class` owners where the class IS both, const+type same-name pairing) so a consumer takes a single import and never aliases, ' +
     're-derives, or writes `typeof` at the call site.',
 ].join('\n')
+
 const TS_EFFECT = [
   'EFFECT-TS IS THE RAIL (ULTRA-CRITICAL): domain logic is `Effect`-shaped — dependent steps compose with `Effect.gen`/`pipe`/`flatMap`, ' +
     'independent ones accumulate (`Effect.all` with the right concurrency/mode); ZERO `throw` in domain logic (failures are typed in the `Effect` ' +
@@ -102,6 +110,7 @@ const TS_EFFECT = [
     'combinator/Layer. BOUNDARIES are SCHEMA-FIRST: decode-don`t-validate with the `effect` `Schema` module at ingress and egress, refined owners ' +
     'carry the proof inward, and the same owner sources and sinks across consumers without interior edits.',
 ].join('\n')
+
 const TS_CORE_LOGIC = [
   'WORLD-CLASS ALGORITHMIC BODIES: every body that does real work is expression-shaped — a naive imperative `for`/`while` with mutable accumulation ' +
     'or an intermediate array where a combinator pipeline or fold expresses it is a DEFECT. Compose the `ReadonlyArray`/`Array`/`Iterable` ' +
@@ -111,6 +120,7 @@ const TS_CORE_LOGIC = [
     'imperative branching; `const`-asserted readonly data + structural pattern dispatch replace mutable scans. NO mutable accumulation in domain ' +
     'flow, NO intermediate array a fold would fuse, NO imperative loop where a total combinator expresses it.',
 ].join('\n')
+
 const PARAM_POLY = [
   'HEAVY PARAMETERIZATION, ZERO HARDCODING/FRAGILE LOGIC, FULL POLYMORPHISM. ONE entrypoint owns every modality — `T | Iterable<T>` (or the ' +
     'Schema-discriminated request) normalized ONCE at the head, discriminating on input SHAPE, never a name suffix or a `mode`/`batch`/`strict` ' +
@@ -125,6 +135,7 @@ const PARAM_POLY = [
     'directions on one surface), variation living in input shape, policy values, and table rows, never parallel exports or modality-named ' +
     'siblings; the surface narrows by absorption, never by omission.',
 ].join('\n')
+
 const TS_LANG = [
   'BLEEDING-EDGE TypeScript ONLY (latest stable): `satisfies`, `const` type parameters, `NoInfer`, instantiation expressions, variance ' +
     'annotations (`in`/`out`), template-literal types, `using`/`await using` for disposables, the `infer`/conditional/mapped-type toolkit at ' +
@@ -151,6 +162,7 @@ const TS_LANG = [
     'free-floating one-field brand alias. No `const`+`type`+`typeof` triple for one concept (ONE canonical owner, derive the rest). Keep every ' +
     'choice CONSISTENT across the whole corpus so it reads as ONE unified, ultra-advanced shape system, never a patchwork.',
 ].join('\n')
+
 const TS_CITATION = [
   'CITATION / LIBRARY DEPTH: the TS substrate is the Effect ecosystem (`effect` — Schema/Match/Data/Stream/Layer included — plus `@effect/platform` ' +
     'and the admitted Effect packages) — mine each to its FULL advanced surface (the deep ' +
@@ -198,6 +210,7 @@ const TS_CITATION = [
     'in the installed releases — never cite): `RequestResolver.grouped`, `RequestResolver.setDelay`, `Record.upsert`, `Schedule.both`, ' +
     '`Layer.parent`, `DateTime.zonedNow`, `Runtime.enableRuntimeMetrics`.',
 ].join('\n')
+
 const PAGECRAFT = [
   'PAGE-CRAFT LAW (README [05]-[PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then the region snippet beside the ' +
     'rule it proves; the page ends at its last card. CARD ECONOMY: cards are few, deep, evidence-dense; near-peer cards MERGE until each owns a ' +
@@ -210,6 +223,7 @@ const PAGECRAFT = [
     'ZERO META: no provenance, source trace, release narration, process state, or tool/skill context — any such block POISONS every downstream ' +
     'generation that loads the page.',
 ].join('\n')
+
 const AGNOSTIC_SNIPPETS = [
   'AGNOSTIC SNIPPET LAW (style-guide [07]-[PLACEHOLDER_LAW]): every snippet COMPILES under the active TypeScript surface with legal NEUTRAL ' +
     'identifiers — `Shape`/`RefinedShape`/`Variant`/`PRIMARY`/`Field`/`KEY`/`Row`/`ROW_A`/`TABLE`/`SELECTED` — and placeholder strings ' +
@@ -220,6 +234,7 @@ const AGNOSTIC_SNIPPETS = [
     'by ROUTING to its owner, never by re-teaching. Snippets are doctrine-exemplary at full operator depth, ~3-4x denser than ordinary code, at ' +
     'the scale a large system takes (admission + dispatch + rail + policy in one fence with the growth axis visible).',
 ].join('\n')
+
 const OPINIONATED = [
   'HEAVILY-OPINIONATED PROJECT DOCTRINE, NOT a language survey. ZERO table-stakes is tolerated, ever: a card or snippet teaching something a ' +
     'competent TypeScript developer already knows — rather than an opinionated, dense, project-specific CHOICE — is a DEFECT to delete or densify. ' +
@@ -231,6 +246,7 @@ const OPINIONATED = [
     'world-class engineer would study (a Machine-backed state machine, a fused fold pipeline, a request-batched resolver, a derivation tower) — ' +
     'never a toy slice; the algorithmic-bodies page owns the deepest of these and later pages compose it.',
 ].join('\n')
+
 const STYLE_PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the ' +
     'consequence or boundary. Cut hedges (`may`/`might`/`probably`/`generally`/`where possible`/`if needed`), provenance, process narration, and ' +
@@ -239,18 +255,22 @@ const STYLE_PROSE = [
   'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in a code span; name ' +
     'the exact member instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
 ].join('\n')
+
 const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing. KEEP the canonical section-divider headers (`// --- [UPPERCASE_LABEL]` ' +
   'dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default ZERO comments; at most ' +
   '1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant or boundary. No narration, no restating the code, ' +
   'no TSDoc bloat, no task/process/review comments.'
+
 const CURRENT_STATE = 'CURRENT STATE — sibling pages are being hardened concurrently by their own file pipelines, each at its own stage. Before ' +
   'any edit, re-read the CURRENT on-disk state of the README and every corpus page your page cross-references; landed sibling hardening is ' +
   'composed AS FOUND, never assumed settled. A conflict between your page and a landed sibling resolves to the STRONGER form, never a revert. ' +
   'You EDIT ONLY your own file while pipelines run — the anti-collision rule; a genuinely cross-file defect is a residual_high the terminal ' +
   'corpus agent resolves in this same run, never a sibling edit.'
+
 const DOCTRINE = [LAW, '', ADVERSARIAL, '', TS_DOCTRINE, '', TS_SHAPE, '', TS_EFFECT, '', TS_CORE_LOGIC, '', PARAM_POLY, '', TS_LANG, '', TS_CITATION, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
 const pool = async (items, cap, worker) => {
@@ -263,9 +283,11 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
+
 // Workers see the ordered path list + their OWN charter only — never sibling charters, renames, or the gate rationale.
 const archLine = (paths, charter) => '\nSETTLED ATLAS (ordered paths; an initial pointer, never a ceiling — re-read everything from disk, it ' +
   'never licenses a skim):\n' + JSON.stringify(paths) + (charter ? '\nTHIS PAGE`S CHARTER (honor it; siblings honor their own): ' + charter : '')
+
 const authorPrompt = (page, paths, charter) => [DOCTRINE, '', 'TASK: INITIAL STAGE — ADVERSARIAL HARDEN-REBUILD of ' + page + ' to the ULTRA-DENSE ' +
   'TypeScript doctrine bar; you own THIS file alone (siblings are mid-pipeline in their own concurrent hardens — do not read or edit them; ' +
   'corpus composition belongs to critique/redteam and the terminal corpus agent). Attack the page as naive/shallow/illusory; wherever the attack ' +
@@ -281,6 +303,7 @@ const authorPrompt = (page, paths, charter) => [DOCTRINE, '', 'TASK: INITIAL STA
   'AGNOSTIC (neutral names), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the growth axis ' +
   'visible. Cut every table-stakes card/snippet. Apply page-craft + style/comment hygiene. Report `collapsed`, `extended`, and the page`s ' +
   'spotlight `regions`. Return residual_high {files:[...], claim}.' + archLine(paths, charter)].join('\n')
+
 const critiquePrompt = (page, paths, charter) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: CRITIQUE STAGE — HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation ' +
     'exists in EVERY fence; trust NOTHING the prose claims; "good enough" rejected. CORPUS AWARENESS: read the README + EVERY file under ' +
@@ -316,6 +339,7 @@ const critiquePrompt = (page, paths, charter) => [DOCTRINE, '', CURRENT_STATE, '
     'enumerated roster of hardcoded instances into ONE generator over named parameters with the roster as seed data — APPROACH naivety; delete ' +
     'any table-stakes/decorative/speculative card or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high ' +
     '{files:[...], claim}.' + archLine(paths, charter)].join('\n')
+
 const redteamPrompt = (page, paths, charter) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: RED-TEAM STAGE — ADVERSARIAL ARCHITECT ATTACK + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE per-file stage. Red-team is ' +
     'critique AND MORE; the burden of proof is ON THE PAGE; trust NOTHING the prior stages claimed. CORPUS AWARENESS: read the README + EVERY ' +
@@ -341,6 +365,7 @@ const redteamPrompt = (page, paths, charter) => [DOCTRINE, '', CURRENT_STATE, ''
     'capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest ' +
     'form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high ' +
     '{files:[...], claim}.' + archLine(paths, charter)].join('\n')
+
 const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
   'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
   'CURRENT disk). Read the README first, then every atlas page IN FULL in atlas order — the order IS the implementation chain: each page ' +
@@ -423,6 +448,7 @@ log('Harden: ' + (results.length - FAILED.length) + '/' + ordered.length + ' fil
 phase('Corpus')
 const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED),
   { label: 'corpus', phase: 'Corpus', model: 'fable', effort: 'high', schema: CORPUS_SCHEMA, stallMs: STALL })
+
 return { workflow: 'stack-ts', root: ROOT, settled: arch, ordered: ordered, total: ordered.length, failed: FAILED, residuals: RESIDUALS.length,
   corpus: corpus && { files: (corpus.files || []).length, resolved: (corpus.resolved || []).length, beyond: (corpus.beyond || []).length,
   rejected: (corpus.rejected || []).length, summary: corpus.summary } }

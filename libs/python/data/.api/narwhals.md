@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `narwhals`
 - package: `narwhals`
-- owner: `data`
+- owner: `data`; `compute` (`experiments/study` DOE-frame admission arm — consumed through the published `data/tabular` `FrameAdmission`/`FrameInterop` surfaces, never a direct frame interior)
 - module: `narwhals`
 - version: `2.22.1`
 - license: MIT

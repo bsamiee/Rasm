@@ -24,6 +24,7 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const DIMENSIONS = [
   { key: 'bugs',     prompt: 'Find logic bugs in the files changed on this branch vs main.' },
   { key: 'security', prompt: 'Find security issues in the files changed on this branch vs main.' },
@@ -31,15 +32,19 @@ const DIMENSIONS = [
 ]
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 // Structured output: each reviewer must return findings in this exact shape.
+// STRICT everywhere: additionalProperties:false + every property required at every level; a conditional field is required-but-empty (''), never omitted.
 const FINDINGS = {
   type: 'object',
+  additionalProperties: false,
   required: ['findings'],
   properties: {
     findings: {
       type: 'array',
       items: {
         type: 'object',
+        additionalProperties: false,
         required: ['title', 'file', 'severity'],
         properties: {
           title: { type: 'string' },
@@ -50,12 +55,14 @@ const FINDINGS = {
     },
   },
 }
+
 const VERDICT = {
   type: 'object',
-  required: ['isReal'],
+  additionalProperties: false,
+  required: ['isReal', 'reason'],
   properties: {
     isReal: { type: 'boolean' },
-    reason: { type: 'string' },
+    reason: { type: 'string' }, // the refutation when isReal is false; empty when confirmed
   },
 }
 

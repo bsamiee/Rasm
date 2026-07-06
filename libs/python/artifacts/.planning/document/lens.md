@@ -65,7 +65,7 @@ from artifacts.document.model import (
     node_digest,
     walk,
 )
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 

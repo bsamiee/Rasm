@@ -141,13 +141,25 @@ public sealed record PipelineInputs<TRow>(
 
 ## [04]-[BINDING_CAPSULE]
 
-- Owner: `BindingCapsule` — the single UI-thread binding edge.
+- Owner: `BindingCapsule` — the single UI-thread binding edge; `LiveDataFault` — the typed fault family on the `AppUiFaultBand.LiveData` registry row (6340), the ONE conversion every Rx failure crosses before reaching the fault rail.
 - Entry: `public IDisposable Into<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, ObservableCollectionExtended<TRow> target, Option<IObservable<IComparer<TRow>>> order = default)` — sorted binding rides the comparer stream; absent order is the bare bind; `IntoList<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, IObservableList<TRow> target)` binds the insertion-ordered consumer through `BindToObservableList`; `Drained<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<TRow, ValueTask> release)` binds the async-disposal drain hook over the same edge.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core
 - Growth: a new binding posture is one policy value on the capsule record; the list-target bind is one `IntoList` row and the async-drain hook is one `Drained` row on the capsule; zero new surface.
-- Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here — a second `ObserveOn` anywhere in a pipeline is the named defect; `Ui` arrives from the surface scheduler boundary fed by `UiSchedulerPort`; every `Into` disposable registers into the caller's activation scope, whose disposal receipts are the screens law — no second disposal stream exists here; the `IntoList` edge is the one ordered-target binding — it consumes the `OrderedList` source delta and reattaches insertion order through `BindToObservableList` so the ordered consumer never forks a second collection-mutation path, and a `SortAndBind` over an unordered source beside it is the deleted form; rows holding disposable child resources bind through `AsyncDisposeMany`, whose completion stream is the cache drain hook awaited at deactivation so leavers release asynchronously before the scope tears down — a synchronous `DisposeMany` over async-disposable rows is the deleted form; faults reach the screen fault state through `Fault` and silent failure is structurally impossible; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
+- Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here — a second `ObserveOn` anywhere in a pipeline is the named defect; `Ui` arrives from the surface scheduler boundary fed by `UiSchedulerPort`; every `Into` disposable registers into the caller's activation scope, whose disposal receipts are the screens law — no second disposal stream exists here; the `IntoList` edge is the one ordered-target binding — it consumes the `OrderedList` source delta and reattaches insertion order through `BindToObservableList` so the ordered consumer never forks a second collection-mutation path, and a `SortAndBind` over an unordered source beside it is the deleted form; rows holding disposable child resources bind through `AsyncDisposeMany`, whose completion stream is the cache drain hook awaited at deactivation so leavers release asynchronously before the scope tears down — a synchronous `DisposeMany` over async-disposable rows is the deleted form; faults reach the screen fault state through `Fault` as typed `LiveDataFault` cases (the `LiveDataFault.Of` conversion is the one Rx-to-rail fold — a bare `Error.New` on a subscription edge is the deleted form) and silent failure is structurally impossible; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
 
 ```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LiveDataFault : Expected {
+    private LiveDataFault(string detail, int code) : base(detail, code) { }
+    public sealed record Pipeline(string Edge, string Reason)
+        : LiveDataFault($"live/pipeline: {Edge}: {Reason}", AppUiFaultBand.LiveData.Code(0));
+    public sealed record Source(string Reason)
+        : LiveDataFault($"live/source: {Reason}", AppUiFaultBand.LiveData.Code(1));
+
+    // The ONE Rx-to-rail conversion: every subscription edge folds its exception through here.
+    public static LiveDataFault Of(string edge, Exception raw) => new Pipeline(edge, raw.Message);
+}
+
 public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
     public IDisposable Into<TRow, TKey>(
         IObservable<IChangeSet<TRow, TKey>> pipeline,
@@ -159,7 +171,7 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
             _ => pipeline.ObserveOn(Ui).Bind(target),
         })
         .DisposeMany()
-        .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
+        .Subscribe(static _ => { }, raw => Fault(LiveDataFault.Of("into", raw)));
 
     public IDisposable IntoList<TRow, TKey>(
         IObservable<IChangeSet<TRow, TKey>> pipeline,
@@ -167,7 +179,7 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
         where TRow : notnull where TKey : notnull =>
         pipeline.ObserveOn(Ui)
             .BindToObservableList(target)
-            .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
+            .Subscribe(static _ => { }, raw => Fault(LiveDataFault.Of("into-list", raw)));
 
     public IDisposable Drained<TRow, TKey>(
         IObservable<IChangeSet<TRow, TKey>> pipeline,
@@ -175,7 +187,7 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
         where TRow : notnull where TKey : notnull =>
         pipeline.ObserveOn(Ui)
             .AsyncDisposeMany(release)
-            .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
+            .Subscribe(static _ => { }, raw => Fault(LiveDataFault.Of("drained", raw)));
 }
 ```
 
@@ -202,7 +214,7 @@ public static class LiveDataOps {
             Func<IObservable<IChangeSet<TRow, TKey>>, IObservable<double>> fold,
             Action<double> render)
             where TRow : notnull where TKey : notnull =>
-            fold(pipeline).ObserveOn(capsule.Ui).Subscribe(render, raw => capsule.Fault(Error.New(raw)));
+            fold(pipeline).ObserveOn(capsule.Ui).Subscribe(render, raw => capsule.Fault(LiveDataFault.Of("tile", raw)));
     }
 }
 ```

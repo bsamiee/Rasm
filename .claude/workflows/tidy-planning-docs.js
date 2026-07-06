@@ -9,20 +9,24 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const PAGE_SPLIT = 12
 const STAGGER_MS = 1500
 const STALL = 300000
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 const raw = (typeof args === 'string') ? args.trim() : (args && typeof args === 'object' && args.target) ? String(args.target).trim() : ''
 const SCOPE = raw || 'libs'
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['units'], properties: { units: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'planning', 'context_root', 'pages'], properties: { folder: { type: 'string' }, planning: { type: 'string' }, context_root: { type: 'string' }, pages: { type: 'integer' } } } } } }
-const HYGIENE_LOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['trimmed', 'refined', 'clean'] }, pages: { type: 'integer' }, comments_cut: { type: 'integer' }, reduction_pct: { type: 'number' }, summary: { type: 'string' } } }
+const HYGIENE_LOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary', 'pages', 'comments_cut', 'reduction_pct'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['trimmed', 'refined', 'clean'] }, pages: { type: 'integer' }, comments_cut: { type: 'integer' }, reduction_pct: { type: 'number' }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'SCOPE: this is a SURGICAL HYGIENE pass over ONE planning FOLDER`s design corpus — fenced-code COMMENTS and page PROSE ONLY. It is NOT a rebuild ' +
     'and NOT a design pass: do NOT change any code fence`s design, signatures, types, members, cases, fields, bodies, structure, ordering, or the ' +
@@ -40,6 +44,7 @@ const LAW = [
     'note for a later run. Sibling pipelines run concurrently: before editing any page outside your tree, re-read its CURRENT on-disk state, ' +
     'compose landed sibling edits as found, and resolve a conflict to the stronger form, never a revert.',
 ].join('\n')
+
 const DIVIDERS = [
   'DIVIDER GRAMMAR (CLAUDE.md [08]): a CANONICAL top-level section divider is the comment marker + space + `---` + a bracketed UPPERCASE_SNAKE ' +
     'label + dash-fill to the language width (e.g. `// --- [TYPES] -------...`, `# --- [CONSTANTS] -------...`), using a canonical label ' +
@@ -50,6 +55,7 @@ const DIVIDERS = [
     'invent a divider, NEVER convert a loose sub-section divider into a dash-filled canonical one or vice versa, and NEVER relabel a canonical ' +
     'section to a drift label. Dividers are STRUCTURE, exempt from the comment-trim mandate.',
 ].join('\n')
+
 const COMMENTS = [
   'COMMENT HYGIENE (the core mandate): EVERY comment inside a code fence is AGENT-FACING framing — it exists ONLY to help a FUTURE coding agent ' +
     '(one that rebuilds this page via the rebuild-* workflows) grasp the WHY, intent, invariant, contract, or boundary that the names, types, and ' +
@@ -59,6 +65,7 @@ const COMMENTS = [
     'not. A comment of 2+ lines is reduced to the smallest reasonable line count (5 -> 3, 4 -> 2-3), targeting 1-3 lines with 1-2 ideal; only a ' +
     'genuinely subtle multi-part invariant, contract, or boundary keeps 3. The net effect per fence: fewer comments, each load-bearing and tight.',
 ].join('\n')
+
 const PROSE = [
   'PROSE HYGIENE: improve ALL page prose — lead paragraphs, card lines, section text, bullets, and table cells. REMOVE stale, wrong, outdated, ' +
     'contradicted, or superseded statements; remove noise, empty hedges, redundancy, and report framing per the style-guide; tighten very long ' +
@@ -67,6 +74,7 @@ const PROSE = [
     'smaller reduction (or none) is correct. NEVER pad to look thorough and NEVER cut signal to hit a number; the percentage is a target for noise ' +
     'removal, not a quota over meaning.',
 ].join('\n')
+
 const PRESERVE = [
   'LOAD-BEARING PRESERVATION (CRITICAL): these pages are FAR from done — the rebuild-* workflows will later rebuild them and RELY on the prose + ' +
     'comments to carry the context, intent, rationale, integration knowledge, and cross-references the code fences alone do not hold. The goal is ' +
@@ -76,6 +84,7 @@ const PRESERVE = [
     'WORSE than leaving slight bloat. The pass adds signal and removes noise; it never strips the folder of the framing that makes a future ' +
     'rebuild possible.',
 ].join('\n')
+
 const ADVERSARIAL = [
   'ADVERSARIAL STANCE (every stage): the corpus is naive until it survives attack, and dense confident-looking prose is the prime suspect. ' +
     'Assume the state handed to you BOTH under-trimmed (noise/stale/bloat survives) AND over-trimmed (a load-bearing comment, explanation, ' +
@@ -90,12 +99,15 @@ const ADVERSARIAL = [
     'recurring noise family that one tighter rule can own is a target you find yourself. Every stage WRITES: repair each hit in place the ' +
     'moment it is found; output is a fix-log of edits ALREADY MADE, never a ledger, a to-do list, or a would/should hedge.',
 ].join('\n')
+
 const STYLE = 'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule; one idea per paragraph; close on ' +
   'the consequence or boundary. Cut hedges (may/might/probably/generally/where possible/if needed) and report framing; preserve contract scope ' +
   'qualifiers (optional/if present/when configured). Backtick every code symbol, type, member, path, command, and literal value.'
+
 const DOCTRINE = [LAW, '', DIVIDERS, '', COMMENTS, '', PROSE, '', PRESERVE, '', STYLE].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // Agent-level slot scheduler: every agent() call takes one slot, so unit chains launch freely via Promise.all while true in-flight agents stay at CAP.
 const makeSlots = (cap) => {
@@ -115,13 +127,16 @@ const slot = makeSlots(CAP)
 const splitUnits = (list) => list.flatMap((u) => (u.pages > PAGE_SPLIT)
   ? [1, 2].map((part) => ({ folder: u.folder, planning: u.planning, context_root: u.context_root, pages: u.pages, slice: part }))
   : [{ folder: u.folder, planning: u.planning, context_root: u.context_root, pages: u.pages || 0, slice: 0 }])
+
 const sliceCtx = (u) => !u.slice ? '' : '\nPAGE SLICE ' + u.slice + ' of 2 (this folder holds ' + u.pages + ' design pages; the corpus is split so ' +
   'per-stage reads stay bounded — every whole-corpus instruction above NARROWS to your slice): enumerate every markdown design page under the ' +
   'planning tree sorted lexicographically by path; your pages are ' + (u.slice === 1 ? 'the FIRST half of that ordering (1..ceil(N/2))' :
   'the SECOND half of that ordering (after ceil(N/2))') + '. PROCESS and EDIT only your slice pages — the sibling slice agent owns the rest ' +
   'concurrently; a FAMILY sweep runs across your slice; the RIPPLE + CURRENT-STATE law still governs an out-of-tree far end.'
+
 const ctx = (u) => '\nFOLDER: ' + u.folder + '\nPLANNING TREE (your primary surface): ' + u.planning + '\nCONTEXT ROOT (read-only ' +
   'governing docs + .api): ' + u.context_root + sliceCtx(u)
+
 const tidyPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: SURGICAL HYGIENE PASS over EVERY design page under this folder`s .planning tree. ' +
   'First read the context-root governing docs + BOTH .api tiers + the style-guide + CLAUDE.md [08] divider grammar, then process EVERY ' +
   'markdown design page under the planning tree: apply the COMMENT hygiene (trim/refine/delete per the mandate), the PROSE hygiene (remove ' +
@@ -129,6 +144,7 @@ const tidyPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: SURGICAL HYGIEN
   'context for future rebuild agents. Touch comments + prose ONLY — never a code fence`s design, signatures, structure, or content. Report ' +
   'the folder, pages touched, comments cut, an approximate prose reduction_pct, and a one-line summary. verdict `trimmed` unless the corpus ' +
   'was already maximally tight (then `refined`/`clean`).' + ctx(u)].join('\n')
+
 const critiquePrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: HOSTILE HYGIENE AUDIT + FIX IN PLACE over EVERY page under this folder`s ' +
   '.planning tree. Trust NOTHING the tidy pass claims; audit every page line by line and REPAIR every hit in place — the numbered checks are a ' +
   'FLOOR hunted past, never the whole audit: (1) any noise / stale / wrong / restating / process comment the pass MISSED -> delete it; (2) any ' +
@@ -141,6 +157,7 @@ const critiquePrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: HOSTILE HYG
   'hit is a FAMILY: when a check lands, sweep the same defect pattern across the whole corpus — both naivety axes attacked. The report is the ' +
   'fix-log of edits made: folder, pages, reduction_pct, summary; verdict `trimmed` when this attack cut or restored material, `refined` for ' +
   'quality-only edits, `clean` ONLY when a full attack found nothing.' + ctx(u)].join('\n')
+
 const redteamPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE over this folder`s .planning tree — the ' +
   'LAST and MOST AGGRESSIVE pass; red-team is the critique AND MORE. Re-attack every page COLD, trusting nothing the prior passes claimed — ' +
   'every critique dimension re-run in full — plus these lenses, each a floor: (COUNTERFACTUAL) read each page as the cold rebuild agent that ' +
@@ -155,11 +172,13 @@ const redteamPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL 
   'fence design/signature/structure was touched anywhere. The folder must end objectively higher-signal, leaner, and fully load-bearing. Fix ' +
   'every defect in place; a page already at the bar is proven by an attack that finds nothing, never conceded — never invent churn. The report ' +
   'is the fix-log of edits made: folder, pages, reduction_pct, summary; verdict `clean` ONLY when the full cold attack found nothing.' + ctx(u)].join('\n')
+
 const STAGES = [
   { key: 'tidy', build: tidyPrompt, effort: 'high' },
   { key: 'crit', build: critiquePrompt, effort: 'high' },
   { key: 'redteam', build: redteamPrompt, effort: 'high' },
 ]
+
 const processUnit = async (u) => { // true per-unit pipeline: each stage consumes the prior stage's on-disk product; a dead stage ends its unit's chain
   const logs = {}
   for (const st of STAGES) {
@@ -187,7 +206,6 @@ const units = ((inv && inv.units) || []).filter((u) => u && u.folder && u.planni
 const workUnits = splitUnits(units)
 log('Discover under ' + SCOPE + ': ' + units.length + ' planning folders -> ' + workUnits.length + ' work units; agent-level slots at CAP=' + CAP)
 
-// --- [TIDY]
 phase('Tidy')
 const done = (await Promise.all(workUnits.map((u) => processUnit(u)))).filter(Boolean)
 const complete = done.filter((r) => r.ok)
@@ -196,4 +214,5 @@ const commentsCut = done.reduce((n, r) => n + STAGES.reduce((m, st) => m + ((r.l
 const pcts = done.map(lastLog).filter((l) => l && typeof l.reduction_pct === 'number').map((l) => l.reduction_pct)
 const reduction = pcts.length ? Math.round((pcts.reduce((a, b) => a + b, 0) / pcts.length) * 10) / 10 : 0
 log('Tidy: ' + complete.length + '/' + workUnits.length + ' units fully passed (tidy -> critique -> redteam); comments cut ' + commentsCut + '; mean prose reduction ' + reduction + '%')
+
 return { workflow: 'tidy-planning-docs', scope: SCOPE, folders: units.length, units: workUnits.length, complete: complete.length, incomplete: done.filter((r) => !r.ok).length, comments_cut: commentsCut, reduction_pct_mean: reduction, results: done.map((r) => ({ folder: r.folder, slice: r.slice, log: lastLog(r) })) }

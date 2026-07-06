@@ -26,10 +26,11 @@ core     ←  csharp:Rasm.Persistence  # [WIRE]: OpLog/Snapshot CRDT wire + Json
 core     ⇄  csharp:Rasm.Element      # [WIRE]: ElementGraph content-keyed wire under the drift gate
 core     ←  csharp:Rasm.Bim          # [WIRE]: BcfTopic/BcfViewpoint + BimWire/DiffWire/OpLogWire/IdsAudit golden-byte parity + GeoFeature WKB
 core     ←  csharp:Rasm.Materials    # [WIRE]: MaterialWire/PbrGroups appearance decode
-core     ←  csharp:Rasm.AppUi        # [WIRE]: CommandPayload + RenderReceipt + GeometryResidency + ControlIntent/LayoutProgram
+core     ←  csharp:Rasm.AppUi        # [WIRE]: CommandPayloadWire + CommandGateWire + RenderReceiptWire + GeometryResidencyWire + ControlIntentWire/LayoutConstraintWire + the EvidenceFeed timeline landing at state/feed
 runtime  ←  csharp:Rasm.AppHost      # [TRANSPORT]: OTLP export alignment at the shared collector
 ui       ←  csharp:Rasm.AppHost      # [WIRE]: livewire triple materialized at the viewer panel
-ui       ←  csharp:Rasm.AppUi        # [WIRE]: ControlIntent/LayoutProgram materialized + RenderReceipt evidence pairing
+ui       ←  csharp:Rasm.AppUi        # [WIRE]: ControlIntentWire + LayoutConstraintWire materialized at viewer/panel
+ui       ←  csharp:Rasm.AppUi        # [RECEIPT]: RenderReceiptWire / RenderReceipt paired with local render evidence at viewer/probe
 ui       ←  csharp:Rasm.Bim          # [WIRE]: BCF marks + GlobalId selection sets
 ui       ←  csharp:Rasm.Materials    # [WIRE]: PbrGroups appearance into the scene
 ```

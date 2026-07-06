@@ -40,7 +40,7 @@ from expression.collections import Block, Map
 from msgspec import Struct, field, structs
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 

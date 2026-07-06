@@ -11,16 +11,19 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 const ROOT = 'docs/stacks/csharp'
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' } } } } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'reason'], properties: { verdict: { type: 'string', enum: ['harden_in_place', 'new_page'] }, reason: { type: 'string' }, page: { type: 'object', additionalProperties: false, required: ['path', 'atlas_index', 'decision', 'justification'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, decision: { type: 'string' }, folder: { type: 'string' }, justification: { type: 'string' }, seed_regions: { type: 'array', items: { type: 'string' } } } } } }
-const SEED_SCHEMA = { type: 'object', additionalProperties: false, required: ['path', 'verdict'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, regions: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['seeded', 'aborted'] } } }
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'residual_high'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'reason', 'page'], properties: { verdict: { type: 'string', enum: ['harden_in_place', 'new_page'] }, reason: { type: 'string' }, page: { type: 'object', additionalProperties: false, required: ['path', 'atlas_index', 'decision', 'justification', 'folder', 'seed_regions'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, decision: { type: 'string' }, folder: { type: 'string' }, justification: { type: 'string' }, seed_regions: { type: 'array', items: { type: 'string' } } } } } }
+const SEED_SCHEMA = { type: 'object', additionalProperties: false, required: ['path', 'verdict', 'atlas_index', 'regions'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, regions: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['seeded', 'aborted'] } } }
+
 // Required-but-possibly-empty `beyond` is an attestation: the terminal agent's own hunt ran, not only the residual list.
 const CORPUS_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'resolved', 'beyond', 'rejected', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } },
@@ -30,6 +33,7 @@ const CORPUS_SCHEMA = { type: 'object', additionalProperties: false, required: [
   summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'TARGET: docs/stacks/csharp/ is the route-owned C# CODE DOCTRINE — a doc set of AGNOSTIC teaching pages (core + a domain/ shard set) that ' +
     'legislate how all project C# is written. A page teaches a coding LAW with one exemplary agnostic snippet, never a concrete module. The README ' +
@@ -46,6 +50,7 @@ const LAW = [
     'defect a concurrent sibling pipeline owns — report it in residual_high; the terminal corpus agent resolves every reported residual in this ' +
     'same run.',
 ].join('\n')
+
 const ADVERSARIAL = [
   'ADVERSARIAL STANCE — EVERY stage (author, critique, AND red-team) is HOSTILE: assume the page is NAIVE, SHALLOW, JUNIOR, or ILLUSORY until it ' +
     'survives an aggressive attack; the burden of proof is ON THE PAGE. `finalized`, "mature", "already strong", "good enough", and a prior ' +
@@ -60,6 +65,7 @@ const ADVERSARIAL = [
     'parameterized, algorithmic owner should GENERATE the space (a fixed roster of styles, patterns, or variants is seed DATA feeding ONE ' +
     'generator over named parameters, never the mechanism itself). Attack both axes in every fence and repair on sight.',
 ].join('\n')
+
 const CSDOCTRINE = [
   'HOLD the README [DOCTRINE] 17 laws as fact, never restated on a concept page: [FLOW] EXPRESSION_SPINE (domain logic expression-shaped; ' +
     'dependent steps `Bind`, independent ones accumulate applicatively; the carrier selects the algebra; statements only in measured ' +
@@ -74,6 +80,7 @@ const CSDOCTRINE = [
   'A page that demonstrates a coding law must itself obey every law it can reach; a domain shard COMPOSES the finalized core laws as settled ' +
     'material and never re-opens admission/shape/rail/dispatch/boundary decisions.',
 ].join('\n')
+
 const CS_SHAPE = [
   'EXTREME SHAPE/TYPE DENSITY: one concept owns exactly ONE type as a dense closed family chosen by OWNER_CHOOSER — `[ValueObject<TKey>]` ' +
     '(invariant-bearing scalar), `[ComplexValueObject]` (N-field product), `[SmartEnum<TKey>]` (wire-keyed vocabulary) / `[SmartEnum]` keyless ' +
@@ -86,6 +93,7 @@ const CS_SHAPE = [
     'value with every consumer untouched or broken LOUDLY at compile time (total generated `Switch`, NO runtime-silent `_` arm). The exemplary ' +
     'snippet shows one owner ready to replace 10+ loose things with the growth axis visible.',
 ].join('\n')
+
 const CS_INTERFACE = [
   'INTERFACE DOCTRINE (lib contracts are load-bearing seams, never loose markers): an interface is EITHER the COMPOSE/inject face — a member-bearing ' +
     'strategy/store/codec/provider contract or a BCL `IAsyncEnumerable<T>`/`IDisposable`/`IAsyncDisposable` stream/lifetime contract — paired with an ' +
@@ -117,6 +125,7 @@ const CS_INTERFACE = [
     '[SHAPE] INTERFACE_SEAM, shapes.md OWNER_CHOOSER, surfaces-and-dispatch.md (static-abstract + visitor dispatch forms), boundaries.md ' +
     '(hold-the-floor + lifetime + the cross-stratum seam floor), and rails-and-effects.md (the accumulating-`Validation` constraint fold).',
 ].join('\n')
+
 const CS_AOP = [
   'TWO-WEAVE AOP: definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE ' +
     'GENERATION in the fixed generator-owned order; composition-time concerns attach as effect transformers in author order — retry as ' +
@@ -132,6 +141,7 @@ const CS_AOP = [
     'admission/identity/dispatch/serialization in the fixed generator-owned order; the content-key aspect is the SAME canonical byte-codec the ' +
     'graph law addresses content by, never a second hashing path.',
 ].join('\n')
+
 const CS_RAILS = [
   'RAILS (RAIL_CHOOSER, narrowest carrier chosen ONCE at admission): `Option<T>` absence, `Fin<T>` synchronous fallibility, `Validation<Error,T>` ' +
     'independent accumulated faults, `Eff<RT,T>` runtime capability, `IO<T>` deferred boundary work, `Schedule` retry, ' +
@@ -141,6 +151,7 @@ const CS_RAILS = [
     '`Switch` with compile-time exhaustiveness; `.Fold`/`.Traverse`/`.Choose` with the mandatory `.As()` re-anchor; NO exception control flow in ' +
     'domain logic, NO mutable accumulation.',
 ].join('\n')
+
 const CS_CORE_LOGIC = [
   'WORLD-CLASS ALGORITHMIC BODIES: every body that does real work is expression-shaped at full operator depth — a naive `for`/`foreach` with ' +
     'mutable accumulation, a hand-rolled index counter, or an intermediate materialized list where a deferred pipeline or fold expresses it is a ' +
@@ -150,6 +161,7 @@ const CS_CORE_LOGIC = [
     'list/slice/relational/logical patterns, and switch-expression dispatch over a closed family replace imperative branching. NO mutable ' +
     'accumulation in domain flow, NO intermediate sequence a fold would fuse, NO LINQ over a measured hot loop where a span kernel is the faster owner.',
 ].join('\n')
+
 const CS_GRAPH = [
   'GRAPH-AS-CLOSED-FAMILY (the domain-graph law, DISTRIBUTED across shapes.md / algorithms.md / boundaries.md, never a standalone page, never ' +
     're-taught): a domain graph is a PROPERTY GRAPH whose every edge kind is ONE neutral edge-algebra `[Union]` over a small closed verb set ' +
@@ -168,6 +180,7 @@ const CS_GRAPH = [
     'diff; a second hashing/serialization path or a fresh content-addressing card is the rejected form. The rooted graph id is a NEUTRAL kernel ' +
     'value; any foreign/wire id is a boundary attribute, never the kernel key.',
 ].join('\n')
+
 const PARAM_POLY = [
   'HEAVY PARAMETERIZATION, ZERO HARDCODING/FRAGILE LOGIC, FULL POLYMORPHISM. ONE entrypoint owns every modality, discriminating on input SHAPE ' +
     '(`params ReadOnlySpan<T>`, request union, case), never a name suffix or a `bool`/`mode`/`batch` knob (KNOB_TEST: delete each parameter; if ' +
@@ -179,6 +192,7 @@ const PARAM_POLY = [
     'inverse directions on one surface), variation living in input shape, policy values, and table rows, never parallel exports or modality-named ' +
     'siblings; the surface narrows by absorption, never by omission.',
 ].join('\n')
+
 const CS14 = [
   'LATEST STABLE C# 14 on net10 to the metal (`Nullable enable`, NRT enforced): primary constructors, collection expressions with spread, `params` ' +
     'collections (incl. `params ReadOnlySpan<T>`), list/slice/relational/logical patterns, switch expressions, `required` members, `file`-scoped ' +
@@ -188,6 +202,7 @@ const CS14 = [
     'block; canonical order TYPES -> CONSTANTS -> MODELS -> ERRORS -> SERVICES -> OPERATIONS -> COMPOSITION -> EXPORTS; one generated case / ' +
     'static entry per physical line; preserve generated-case + smart-enum semantic order.',
 ].join('\n')
+
 const CS_SUBSTRATE = [
   'STACK CAPABILITY, ULTRA-STACKED: enumerate BOTH `.api` tiers with a REAL ls/fd listing from disk, never memory — the central `libs/csharp/.api/` ' +
     'substrate catalogs (api-thinktecture-runtime-extensions, api-quikgraph, api-mapperly, api-generator-equals, api-mathnet-numerics, api-csparse, ' +
@@ -209,6 +224,7 @@ const CS_SUBSTRATE = [
     'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback) — a member ' +
     'you cannot verify through ANY of these rails is a phantom to delete.',
 ].join('\n')
+
 const PAGECRAFT = [
   'PAGE-CRAFT LAW (README [PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then ONE agnostic snippet beside the rule ' +
     'it proves; the page ends at its last card. CARD ECONOMY: cards are few, deep, evidence-dense; near-peer cards MERGE until each owns a ' +
@@ -218,6 +234,7 @@ const PAGECRAFT = [
     'source trace, release narration, process state, or tool context — any such block POISONS every downstream generation. The README is the only ' +
     'file that carries a Markdown link; the domain/ README is a one-table router.',
 ].join('\n')
+
 const AGNOSTIC_SNIPPETS = [
   'AGNOSTIC SNIPPET LAW (style-guide [PLACEHOLDER_LAW]): every snippet compiles under C# 14 with legal NEUTRAL identifiers — ' +
     '`Shape`/`RefinedShape`/`Variant`/`PRIMARY`/`Field`/`KEY`/`Row`/`ROW_A`/`TABLE`/`SELECTED` — and placeholder strings (`"<value-a>"`) appear ' +
@@ -227,6 +244,7 @@ const AGNOSTIC_SNIPPETS = [
     'region is repaired by ROUTING to its owner, never by re-teaching. Snippets are doctrine-exemplary at full operator depth, ~3-4x denser than ' +
     'ordinary code, at the scale a large system takes (admission + dispatch + rail + policy in one fence with the growth axis visible).',
 ].join('\n')
+
 const OPINIONATED = [
   'HEAVILY-OPINIONATED PROJECT DOCTRINE, NOT a language survey. ZERO table-stakes is tolerated, ever: a card or snippet teaching something a ' +
     'competent C# developer already knows — rather than an opinionated, dense, project-specific CHOICE — is a DEFECT to delete or densify. No ' +
@@ -253,6 +271,7 @@ const OPINIONATED = [
     'COLLECTIONS_AND_IDENTITY and the memo key in boundaries.md MEMO_KEY — the phase-split harden JOINS the existing cards. Re-authoring any of ' +
     'these as fresh cards is the defect this pass most often commits — route to the owner instead.',
 ].join('\n')
+
 const STYLE_PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the ' +
     'consequence or boundary. Cut hedges (`may`/`might`/`probably`/`generally`/`where possible`/`if needed`), provenance, process narration, and ' +
@@ -260,18 +279,22 @@ const STYLE_PROSE = [
     'ASSERTS capability the fence lacks is a defect, not content. BACKTICK every symbol, type, field, member, operator, package ID, path, command, ' +
     'and literal value; name the exact member instead of paraphrasing behavior.',
 ].join('\n')
+
 const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing. KEEP the canonical section-divider headers (`// --- [UPPERCASE_LABEL]` ' +
   'dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default ZERO comments; at most ' +
   '1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant or boundary. No narration, no restating the code, ' +
   'no XML-doc bloat, no task/process/review comments.'
+
 const CURRENT_STATE = 'CURRENT STATE — sibling pages are being hardened concurrently by their own file pipelines, each at its own stage. Before ' +
   'any edit, re-read the CURRENT on-disk state of the README and every corpus page your page cross-references; landed sibling hardening is ' +
   'composed AS FOUND, never assumed settled. A conflict between your page and a landed sibling resolves to the STRONGER form, never a revert. ' +
   'You EDIT ONLY your own file while pipelines run — the anti-collision rule; a genuinely cross-file defect is a residual_high the terminal ' +
   'corpus agent resolves in this same run, never a sibling edit.'
+
 const DOCTRINE = [LAW, '', ADVERSARIAL, '', CSDOCTRINE, '', CS_SHAPE, '', CS_INTERFACE, '', CS_AOP, '', CS_RAILS, '', CS_CORE_LOGIC, '', CS_GRAPH, '', PARAM_POLY, '', CS14, '', CS_SUBSTRATE, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
 const pool = async (items, cap, worker) => {
@@ -284,6 +307,7 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
+
 const authorPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE HARDEN of ' + page + ' to the ULTRA-DENSE C# doctrine bar; you own THIS file alone ' +
   '(siblings are mid-pipeline in their own concurrent hardens — do not read or edit them; corpus composition belongs to critique/redteam and the ' +
   'terminal corpus agent). DISBELIEVE the page — ' +
@@ -298,6 +322,7 @@ const authorPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE HARDEN of ' + page 
   'growth axis visible. Cut every table-stakes card/snippet and every loose type/constant cluster. Apply page-craft + section-order + ' +
   'style/comment hygiene. Report `collapsed` (count before->after), `extended` (each addition + cited source), and the page`s spotlight `regions`. ' +
   'verdict is `rebuilt` unless the page genuinely survived untouched. Return residual_high — {files:[...], claim} for any CROSS-FILE item.'].join('\n')
+
 const critiquePrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation exists in EVERY fence; ' +
     'trust NOTHING the prose claims; "good enough"/"mature" rejected. CORPUS AWARENESS: read the README + EVERY file under docs/stacks/csharp/ ' +
@@ -318,6 +343,7 @@ const critiquePrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
     'cite; rebuild a COVERAGE thin-slice to the real breadth of its concept; collapse an APPROACH roster into ONE generator over seed rows; delete ' +
     'any table-stakes/decorative/speculative card. The 12 checks are a FLOOR, never the complete audit — hunt past them and repair every defect ' +
     'the list does not name. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high {files:[...], claim}.'].join('\n')
+
 const redteamPrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
   'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE per-file stage; red-team is critique AND ' +
     'MORE; the burden of proof is ON THE PAGE; trust nothing the prior stages claimed. CORPUS AWARENESS: read the README + EVERY file under ' +
@@ -336,6 +362,7 @@ const redteamPrompt = (page) => [DOCTRINE, '', CURRENT_STATE, '',
     'table-stakes/decorative/speculative content. ALSO a FULL COLD ADVERSARIAL RE-REVIEW of every critique dimension. The page must end ' +
     'objectively denser, more capable, more agnostic-compliant; if the strongest form is genuinely present, find nothing — never invent churn. ' +
     'Report `extended` and `regions`. Return residual_high {files:[...], claim}.'].join('\n')
+
 const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
   'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
     'CURRENT disk). Read the README first, then every atlas page IN FULL in order; WRITE every fix in place via Edit/Write across ANY page under ' +
@@ -364,6 +391,7 @@ const corpusPrompt = (ordered, residuals, failed) => [DOCTRINE, '', 'THE SETTLED
     '`beyond` enumerates those fixes, and an empty `beyond` attests your hunt found nothing, never that it did not run. FAILED PAGES (their ' +
     'pipeline died — the page left the run un-hardened; give it the full harden here as part of this sweep): ' + JSON.stringify(failed) + '. ' +
     'Return files, resolved, beyond, rejected, summary.'].join('\n')
+
 const gatePrompt = (ordered) => [DOCTRINE, '',
   'TASK: JUSTIFICATION GATE (default-off new-page valve). Diff the doctrine blocks above against the ON-DISK README laws + atlas: every law, ' +
     'mandate, or substrate elevation this doctrine legislates that the README has NOT yet landed is a live DELTA — the known candidates are (1) the ' +
@@ -384,6 +412,7 @@ const gatePrompt = (ordered) => [DOCTRINE, '',
     '[02]-[DOCTRINE], [05]-[PAGE_CRAFT], [06]-[CORPUS_LAW]) and the candidate owner pages. Current ordered atlas file set:\n' +
     JSON.stringify(ordered, null, 1) + '\nReturn verdict, reason, and (only for new_page) page {path, atlas_index, decision, folder, ' +
     'justification, seed_regions}.'].join('\n')
+
 const seedPrompt = (page) => [DOCTRINE, '',
   'TASK: SEED a JUSTIFIED new core doctrine page at ' + page.path + ' (reader-decision "' + (page.decision || '') + '", target atlas index ' +
     page.atlas_index + '). The justification gate cleared it: ' + (page.justification || '') + '. (1) AUTHOR a page-craft-conformant skeleton + ' +

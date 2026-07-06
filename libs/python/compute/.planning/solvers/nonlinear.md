@@ -13,8 +13,8 @@ The rail composes four admitted libraries as one woven flow rather than four fla
 - Solver policy: `NonlinearSolver` is the ONE bounded solver vocabulary across every route, and `_SOLVER` maps each member to a `_SolverSpec(attr, profile)` row. The `SolverProfile` enum records which keyword surface the constructor carries: `TOLERANCE` for the bare `(rtol, atol, norm)` quasi-Newton/derivative-free family, `LINEAR` for the `Newton`/`Chord`/`GaussNewton`/`LevenbergMarquardt`/`Dogleg` family that additionally threads `linear_solver=` from the `InnerSolver` cell, `LEARNING_RATE` for `GradientDescent` whose `learning_rate=policy.learning_rate` the convergence tolerance is never reused for, `TOL_ONLY` for the tolerance-only 1-D `Bisection`/`GoldenSearch` carrying neither `norm` nor `linear_solver`, and `OPTAX` for the three `OptaxMinimiser(optim, rtol, atol, norm)`-lifted minimisers. `NonlinearEngine.build_solver(tag, solver, policy)` reads the profile off the carrier's gated modules and assembles the constructor keywords once, so a new solver is one enum member plus one `_SOLVER` row — never a repeated `rtol=_TOL` literal, never a sixth solver body, and never a loose `(lx, optx, optax)` module triple threaded through a free builder. `_route_cells` records, per tag, the `optimistix` entry and the residual contraction (`norm(fn(v))` for root and least-squares, the stationarity residual `norm(jax.grad(fn)(v))` for minimise, `norm(fn(v) - v)` over the per-leaf `jax.tree_util.tree_map` difference for fixed-point), so the route reads one cell and the solver reads one orthogonal cell, not a tag×solver matrix; the `optimistix` norm is pytree-total over `Array` leaves (`(PyTree[Array]) → Shaped[Array, '']`), so a structured `x0` (a parameter `(weights, bias)` pair) contracts to one global scalar directly while the fixed-point residual `fn(v) - v` subtracts leaf-wise first because `-` on two pytrees is undefined. The single resolved `norm` is threaded into both `build_solver` and the route cell, so the termination norm and the receipt residual are the same callable by construction; `_BEST` wraps a converged solver in the route-matched `BestSoFarRootFinder`/`BestSoFarMinimiser`/`BestSoFarFixedPoint`/`BestSoFarLeastSquares` when `SolverPolicy.best_so_far` is set, the monotone-iterate guard as one aspect over any solver. `least_squares` upcasts a minimiser member and `root_find`/`fixed_point` accept an upcast least-squares or minimiser solver when the problem class permits, as the `optimistix` entries document.
 - Step-size axis: `SolverPolicy.learning_rate: float | None` is the ONE first-order-step axis the convergence tolerance is never reused for. The `LEARNING_RATE`-profile `GradientDescent` reads it as its `learning_rate=` (defaulting `1e-3`), and the `OPTAX`-profile minimisers thread it into the lifted `optax` transformation — but `optax.lbfgs(learning_rate=None, ...)` is line-search-driven, so the `OPTAX_LBFGS` member passes `learning_rate=None` to keep its `scale_by_zoom_linesearch` Wolfe zoom rather than a fixed step that disables it, while `OPTAX_ADAM`/`OPTAX_SGD` take the policy scalar. The bracket axis is orthogonal and lives on `NonlinearPolicy`, not `SolverPolicy`: `NonlinearPolicy.bracket: tuple[float, float] | None` is the per-solve entry-call argument the `TOL_ONLY` profile (`Bisection`/`GoldenSearch`) forwards as the optimistix entry `options=dict(lower=, upper=)`, since the bracket is a runtime region passed to the entry function — not a solver-constructor kwarg the way the five `SolverPolicy` axes are (`Bisection(rtol, atol, flip, expand_if_necessary)`/`GoldenSearch(rtol, atol)` take no bracket) — exactly like `max_steps`/`adjoint`/`has_aux` which already ride `NonlinearPolicy` and thread through `run()`; `GoldenSearch` ignores `y0` so the bracket is its sole region specifier, and every non-`TOL_ONLY` solver forwards `options=None`. The `InnerSolver` axis spans the full `lineax` `linear_solver=` family the catalogued `INTEGRATION_LAW` admits — `AutoLinearSolver(well_posed=None)` tag-dispatched, `LU`/`QR`/`SVD` direct, and `GMRES`/`BiCGStab`/`Normal(CG(...))` iterative — so a Newton step on a general non-symmetric Jacobian factors through `GMRES` and an LM normal-equation through `Normal(CG)` rather than only the four cells a narrower vocabulary exposes; `_INNER` is one `Callable[[SolverPolicy, object], object]` row per member reading the policy tolerance and the gated `lx` module.
 - JAX-pytree discipline: `x0` and every solve value are JAX pytrees, so the gated body first floats the rail to float64 with `jax.config.update("jax_enable_x64", True)` (the `1e-8` tolerance is below float32 eps, and JAX downcasts a float64 `x0` to float32 without it), lifts the initial point per-leaf with `jax.tree_util.tree_map(jnp.asarray, x0)`, contracts residuals with the pytree-total `NormKind`-selected `optimistix` norm, and reads back the converged value through the same per-leaf `tree_map` — never `numpy.asarray`, which flattens a pytree and breaks a non-array leaf. The solve objective `lambda y, _: fn(y)` wraps in `equinox.filter_jit` so the static (non-array) leaves of the closure skip XLA tracing while array leaves compile through the iteration; the receipt-residual `lift` closes over the same user function and contracts the converged value once at egress through the resolved `NormKind` norm. The least-squares `rank` slot is the pytree-total leaf-element count `sum(leaf.size for leaf in jax.tree_util.tree_leaves(value))` (`_tree_rank`), total over a structured `x0` where a bare `value.size` assumes a single array leaf, the batched path dividing the stacked count by the leading sweep width to recover the per-row rank. When `NonlinearPolicy.batched` is set the leading axis of `x0` is a sweep of initial points and the whole solve maps through `equinox.filter_vmap(..., in_axes=0)` as one compiled solve over the stack, folding the per-row residual scalar (itself a norm over that row's pytree) to its max component; the batched path reduces the per-row `RESULTS` to the single worst-case termination member through `NonlinearEngine.verdict` — `jnp.max` over the per-row `_value` codes (the zero `successful` making `max == 0` iff every start converged) plus the `RESULTS._name_to_item` name inversion, NEVER `RESULTS.promote` (which is inheritance-widening that raises on a same-class member, not a vmap combine, exactly as `optimization/design.md#DESIGN` resolves its multi-start ensemble) — so the sweep carries its true aggregate verdict rather than the `result=None` residual-floor fiction, while the single-point path inverts the one `int(solution.result._value)` to its member name. One compiled solve over the whole sweep, never a Python loop over starts.
-- Entry: `NonlinearIntent.solve` is a method on the union entering one `boundary(f"solve.{intent.tag}", ...)`; the minimise, root, and fixed-point routes fold the final residual, the iteration count, and the `RESULTS` member name into `SolverReceipt.Iterative`, and the least-squares route folds the rank, the step count, and the `RESULTS` member name into `SolverReceipt.LeastSquares`. The backend `RESULTS` member name (`NonlinearEngine.verdict` inverting `RESULTS._name_to_item` off the `Solution.result._value` code, since the `EnumerationItem` carries no `.name`) flows to the receipt as the adjudication string the `_status` fold maps into `SolveStatus`, so a `max_steps_reached` or `nonlinear_divergence` solve carries its true verdict rather than collapsing to a residual-floor guess. The route passes `max_steps`, the `ImplicitAdjoint`/`RecursiveCheckpointAdjoint` mode, and the profile-gated `options` (the `TOL_ONLY` `Bisection`/`GoldenSearch` bracket projected to `options=dict(lower=, upper=)`, `options=None` for every other solver) from `NonlinearPolicy` into the Optimistix entry under `throw=False`, so `solvers/sensitivity.md#SENSITIVITY` differentiates through the converged solution rather than through the iteration trace, with the checkpoint adjoint reachable when the implicit form is not well-posed and a non-`successful` verdict recorded rather than raised. A `TOL_ONLY` solver selected with `bracket=None` rails as a typed boundary fault on the `solve` fence rather than crashing inside optimistix on the missing options. Emission rides the runtime `@receipted(_REDACTION)` aspect the measured `_dispatch` kernel wears, so the harvested `SolverReceipt.contribute` stream emits on exit rather than an inline `Signals.emit` threaded through the route body — matching every sibling solver route (`solvers/linear.md#LINEAR`, `solvers/differential.md#DIFFERENTIAL`, `solvers/field.md#FIELD`, `solvers/mesh.md#EXCHANGE`), the `boundary` fence and the `@receipted` aspect firing on the same exit.
-- Packages: `optimistix` (`root_find`, `minimise`, `fixed_point`, `least_squares`, `Newton`, `Chord`, `Bisection`, `GoldenSearch`, `LBFGS`, `BFGS`, `DFP`, `NonlinearCG`, `NelderMead`, `GradientDescent`, `FixedPointIteration`, `GaussNewton`, `LevenbergMarquardt`, `IndirectLevenbergMarquardt`, `Dogleg`, `OptaxMinimiser`, `BestSoFarMinimiser`, `BestSoFarLeastSquares`, `BestSoFarRootFinder`, `BestSoFarFixedPoint`, `max_norm`, `rms_norm`, `two_norm`, `ImplicitAdjoint`, `RecursiveCheckpointAdjoint`, `Solution`, `RESULTS`), `lineax` (`AutoLinearSolver`, `LU`, `QR`, `SVD`, `GMRES`, `BiCGStab`, `Normal`, `CG` — the `InnerSolver`-projected `linear_solver=` cell for the Newton/Gauss-Newton/LM family, spanning the catalogued tag-dispatched/direct/iterative solver surface), `optax` (`lbfgs`, `adam`, `sgd` — the first-order transformations `OptaxMinimiser` lifts into the minimise route; `optax.lbfgs(learning_rate=None)` keeps its `scale_by_zoom_linesearch` Wolfe zoom that a fixed `learning_rate` would disable), `equinox` (`filter_jit`, `filter_vmap`), `jax` (`config.update("jax_enable_x64", True)` floating the gated solve to float64 so the `1e-8` tolerance is reachable rather than silently clamped at float32 eps, `grad` for the minimise stationarity residual, `tree_util.tree_map` for the per-leaf lift/read total over a structured `x0`, `tree_util.tree_leaves` for the pytree-total least-squares rank), `numpy` (`eye`, `linalg.norm`), `expression` (`tag`, `case`, `tagged_union` for the `NonlinearIntent` union; `expression.collections.Map` for the empty `Redaction.classified` policy), `msgspec` (`Struct` for the `SolverPolicy`/`NonlinearPolicy`/`_SolverSpec` value objects), `solvers/receipt.md#RECEIPT` (`SolverReceipt` — `SolveStatus` is folded inside the receipt factories, never imported here), runtime (`RuntimeRail`, `boundary`, `Redaction` the empty-`classified` policy the `@receipted` aspect binds, `receipted` the aspect the measured `_dispatch` kernel wears, plus `Signals` whose `msgspec` encoder carries the receipt's native scalars — referenced as the egress contract, matching every sibling solver route).
+- Entry: `NonlinearIntent.solve(lane)` is the one `async` method on the union, composing `lane.offload(_dispatch, self, modality=Modality.PROCESS, retry=RetryClass.OCCT)` under the hub `evidence_run` weave — the x64-gated family pins the PROCESS modality (the flag is process-global native state), the retry wraps the isolation leg only, and the weave owns span, fence, and the `@receipted(REDACTION)` receipt harvest; the minimise, root, and fixed-point routes fold the final residual, the iteration count, and the `RESULTS` member name into `SolverReceipt.Iterative`, and the least-squares route folds the rank, the step count, and the `RESULTS` member name into `SolverReceipt.LeastSquares`. The backend `RESULTS` member name (`NonlinearEngine.verdict`, a one-row composition of the receipt-owned shared `verdict` fold, off the `Solution.result._value` code, since the `EnumerationItem` carries no `.name`) flows to the receipt as the adjudication string the `_status` fold maps into `SolveStatus`, so a `max_steps_reached` or `nonlinear_divergence` solve carries its true verdict rather than collapsing to a residual-floor guess. The route passes `max_steps`, the `ImplicitAdjoint`/`RecursiveCheckpointAdjoint` mode, and the profile-gated `options` (the `TOL_ONLY` `Bisection`/`GoldenSearch` bracket projected to `options=dict(lower=, upper=)`, `options=None` for every other solver) from `NonlinearPolicy` into the Optimistix entry under `throw=False`, so `solvers/sensitivity.md#SENSITIVITY` differentiates through the converged solution rather than through the iteration trace, with the checkpoint adjoint reachable when the implicit form is not well-posed and a non-`successful` verdict recorded rather than raised. A `TOL_ONLY` solver selected with `bracket=None` rails as a typed boundary fault on the `solve` fence rather than crashing inside optimistix on the missing options. Emission rides the runtime `@receipted(_REDACTION)` aspect the measured `_dispatch` kernel wears, so the harvested `SolverReceipt.contribute` stream emits on exit rather than an inline `Signals.emit` threaded through the route body — matching every sibling solver route (`solvers/linear.md#LINEAR`, `solvers/differential.md#DIFFERENTIAL`, `solvers/field.md#FIELD`, `solvers/mesh.md#EXCHANGE`), the `boundary` fence and the `@receipted` aspect firing on the same exit.
+- Packages: `optimistix` (`root_find`, `minimise`, `fixed_point`, `least_squares`, `Newton`, `Chord`, `Bisection`, `GoldenSearch`, `LBFGS`, `BFGS`, `DFP`, `NonlinearCG`, `NelderMead`, `GradientDescent`, `FixedPointIteration`, `GaussNewton`, `LevenbergMarquardt`, `IndirectLevenbergMarquardt`, `Dogleg`, `OptaxMinimiser`, `BestSoFarMinimiser`, `BestSoFarLeastSquares`, `BestSoFarRootFinder`, `BestSoFarFixedPoint`, `max_norm`, `rms_norm`, `two_norm`, `ImplicitAdjoint`, `RecursiveCheckpointAdjoint`, `Solution`, `RESULTS`), `lineax` (`AutoLinearSolver`, `LU`, `QR`, `SVD`, `GMRES`, `BiCGStab`, `Normal`, `CG` — the `InnerSolver`-projected `linear_solver=` cell for the Newton/Gauss-Newton/LM family, spanning the catalogued tag-dispatched/direct/iterative solver surface), `optax` (`lbfgs`, `adam`, `sgd` — the first-order transformations `OptaxMinimiser` lifts into the minimise route; `optax.lbfgs(learning_rate=None)` keeps its `scale_by_zoom_linesearch` Wolfe zoom that a fixed `learning_rate` would disable), `equinox` (`filter_jit`, `filter_vmap`), `jax` (`config.update("jax_enable_x64", True)` floating the gated solve to float64 so the `1e-8` tolerance is reachable rather than silently clamped at float32 eps, `grad` for the minimise stationarity residual, `tree_util.tree_map` for the per-leaf lift/read total over a structured `x0`, `tree_util.tree_leaves` for the pytree-total least-squares rank), `numpy` (`eye`, `linalg.norm`), `expression` (`tag`, `case`, `tagged_union` for the `NonlinearIntent` union; `expression.collections.Map` for the empty `Redaction.classified` policy), `msgspec` (`Struct` for the `SolverPolicy`/`NonlinearPolicy`/`_SolverSpec` value objects), `solvers/receipt.md#RECEIPT` (`SolverReceipt` — `SolveStatus` is folded inside the receipt factories, never imported here), hub (`EvidenceScope`/`evidence_run` — the span/fence/harvest weave), `solvers/receipt.md#RECEIPT` (`verdict` the shared enum-verdict fold composed one-row on the gated carrier), runtime (`RuntimeRail`, `LanePolicy`/`Modality` the offload axis, `RetryClass.OCCT` the worker-death band on the process hop).
 - Growth: a new nonlinear route is one `NonlinearIntent` case plus one `_route_cells` cell; a new solver on any route is one `NonlinearSolver` member plus one `_SOLVER` row naming its `SolverProfile`, reusing `NonlinearEngine.build_solver`; a new constructor keyword surface is one `SolverProfile` member plus one `build_solver` arm; a new termination norm is one `NormKind` member plus one arm in `NonlinearEngine.norm`; a new inner linear solver is one `InnerSolver` member plus one `_INNER` row reading the policy tolerance; a new adjoint mode is one `AdjointMode` member plus one arm in `NonlinearEngine.adjoint`; a first-order step-size change is one `SolverPolicy.learning_rate` value, never a second entry; a 1-D bracketing solve sets `NonlinearPolicy.bracket` and the `TOL_ONLY` profile forwards it as the entry `options`, never a second bracketing entry; a multi-start study sets `NonlinearPolicy.batched` and vmaps through the same `solve`; the receipt evidence and its emission grow on the `solvers/receipt.md#RECEIPT` owner (`SolverReceipt` slot rows) and the runtime `@receipted` aspect, never a per-route emit. Zero new surface, never a parallel root-finder and minimiser owner, never a per-route helper body, never a boolean toggling two hardcoded solvers.
 
 ```python signature
@@ -22,17 +22,18 @@ The rail composes four admitted libraries as one woven flow rather than four fla
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, Self, assert_never
+from typing import Final, Literal, Self, assert_never
 
 import numpy as np
-from beartype import FrozenDict
 from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
-from rasm.compute.solvers.receipt import SolverReceipt
-from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Redaction, receipted
+from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.solvers.receipt import SolverReceipt, verdict
+from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.resilience import RetryClass
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
@@ -110,10 +111,14 @@ _TOL: float = 1e-8
 _LR: float = 1e-3  # GradientDescent / optax step size; the convergence tolerance is never reused as a learning rate
 _FD: float = 1e-6  # central-difference half-step for the numpy floor's gradient/residual probe
 
-# Field-redaction policy the `@receipted` aspect binds; the solver facts are native residual/step
-# scalars carrying no secret, so the classification map is the empty persistent `Map`, never a mutable
-# `{}` the FP rail rejects for domain state — the sibling `solvers/field.md#FIELD` route's `_REDACTION`.
-_REDACTION: Redaction = Redaction(classified=Map.empty())
+# the family modality row: every nonlinear route rides the x64-gated optimistix carrier, so the
+# family pins PROCESS — the x64 flag is process-global native state concurrent in-process solves
+# corrupt; policy DATA beside the route tables, never a per-page literal.
+_MODALITY: Final[Modality] = Modality.PROCESS
+
+# the nonlinear family's DEFAULT graduation ceiling — the governed policy row per the hub ceiling
+# law; a caller's tighter row overrides at the `graduate` projection on `solvers/receipt`.
+_CEILING: Final[Map[str, float]] = Map.of_seq([("residual", 1e-8)])
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
@@ -179,8 +184,15 @@ class NonlinearIntent:
     ) -> "NonlinearIntent":
         return NonlinearIntent(least_squares=(residual_fn, x0, solver, policy))
 
-    def solve(self) -> "RuntimeRail[SolverReceipt]":
-        return boundary(f"solve.{self.tag}", lambda: _dispatch(self))
+    async def solve(self, lane: LanePolicy) -> "RuntimeRail[SolverReceipt]":
+        # the x64-gated solve crosses the process lane as spec data plus operands (the module-level
+        # `_dispatch` kernel resolves by import in the worker); worker death rides `retry=
+        # RetryClass.OCCT` on the isolation leg only — the deterministic solve is never retried.
+        # The weave owns span, fence, and the `@receipted(REDACTION)` receipt harvest.
+        async def dispatch() -> RuntimeRail[SolverReceipt]:
+            return await lane.offload(_dispatch, self, modality=_MODALITY, retry=RetryClass.OCCT)
+
+        return await evidence_run(EvidenceScope.NONLINEAR, f"solve.{self.tag}", dispatch)
 
 
 # The seven gated modules folded into one value object with behavior: `build_solver`, `norm`, `route`,
@@ -218,18 +230,13 @@ class NonlinearEngine:
     def adjoint(self, mode: AdjointMode) -> object:
         return {AdjointMode.IMPLICIT: self.optx.ImplicitAdjoint, AdjointMode.RECURSIVE_CHECKPOINT: self.optx.RecursiveCheckpointAdjoint}[mode]()
 
-    def verdict(self, result: object, *, batched: bool) -> str:
-        # the `RESULTS` member NAME the `_status` `_STATUS` table keys on, recovered by inverting the
-        # class `_name_to_item` code->item map — an `EnumerationItem` carries ONLY `_value`/`_enumeration`
-        # (no `.name`, and `RESULTS[item]` yields the human MESSAGE), exactly the design.md `_result_names`
-        # inversion. The batched sweep reduces the worst-case verdict by `jnp.max` over the per-row `_value`
-        # codes (the zero `successful` makes `max == 0` iff every start converged); `RESULTS.promote` is NOT
-        # a batch combine — it widens a member from a parent `Enumeration` to a subclass and raises on a
-        # same-class member — so the reduction is the code max, never `promote(result)`, and the single
-        # path inverts the one `int(result._value)` rather than reading a non-existent `.name`.
-        code = int(self.jnp.max(result._value)) if batched else int(result._value)
-        names = {int(item._value): name for name, item in self.optx.RESULTS._name_to_item.items()}
-        return names.get(code, "")
+    def verdict(self, result: object) -> str:
+        # one-row composition of the receipt-owned shared enum-verdict fold: the `_name_to_item`
+        # inversion and the batched worst-code `jnp.max` reduce live on `solvers/receipt.verdict`,
+        # parameterized by this carrier's gated handle and the `optimistix.RESULTS` class — the
+        # zero-code convention makes `max == 0` iff every start converged, and `RESULTS.promote`
+        # is inheritance-widening, never a batch combine.
+        return verdict(self.jnp, self.optx.RESULTS, result)
 
     def route(self, tag: Route, fn: Callable[..., object], policy: NonlinearPolicy) -> tuple[Callable[..., object], Callable[[object], object]]:
         return _route_cells(self, fn, policy)[tag]
@@ -276,50 +283,50 @@ class _SolverSpec(Struct, frozen=True):
     profile: SolverProfile
 
 
-_SOLVER: FrozenDict[NonlinearSolver, _SolverSpec] = FrozenDict({
-    NonlinearSolver.NEWTON: _SolverSpec("Newton", SolverProfile.LINEAR),
-    NonlinearSolver.CHORD: _SolverSpec("Chord", SolverProfile.LINEAR),
-    NonlinearSolver.BISECTION: _SolverSpec("Bisection", SolverProfile.TOL_ONLY),
-    NonlinearSolver.GOLDEN_SEARCH: _SolverSpec("GoldenSearch", SolverProfile.TOL_ONLY),
-    NonlinearSolver.LBFGS: _SolverSpec("LBFGS", SolverProfile.TOLERANCE),
-    NonlinearSolver.BFGS: _SolverSpec("BFGS", SolverProfile.TOLERANCE),
-    NonlinearSolver.DFP: _SolverSpec("DFP", SolverProfile.TOLERANCE),
-    NonlinearSolver.NONLINEAR_CG: _SolverSpec("NonlinearCG", SolverProfile.TOLERANCE),
-    NonlinearSolver.NELDER_MEAD: _SolverSpec("NelderMead", SolverProfile.TOLERANCE),
-    NonlinearSolver.GRADIENT_DESCENT: _SolverSpec("GradientDescent", SolverProfile.LEARNING_RATE),
-    NonlinearSolver.OPTAX_LBFGS: _SolverSpec("lbfgs", SolverProfile.OPTAX),
-    NonlinearSolver.OPTAX_ADAM: _SolverSpec("adam", SolverProfile.OPTAX),
-    NonlinearSolver.OPTAX_SGD: _SolverSpec("sgd", SolverProfile.OPTAX),
-    NonlinearSolver.FIXED_POINT_ITERATION: _SolverSpec("FixedPointIteration", SolverProfile.TOLERANCE),
-    NonlinearSolver.GAUSS_NEWTON: _SolverSpec("GaussNewton", SolverProfile.LINEAR),
-    NonlinearSolver.LEVENBERG_MARQUARDT: _SolverSpec("LevenbergMarquardt", SolverProfile.LINEAR),
-    NonlinearSolver.INDIRECT_LEVENBERG_MARQUARDT: _SolverSpec("IndirectLevenbergMarquardt", SolverProfile.LINEAR),
-    NonlinearSolver.DOGLEG: _SolverSpec("Dogleg", SolverProfile.LINEAR),
-})
+_SOLVER: Map[NonlinearSolver, _SolverSpec] = Map.of_seq([
+    (NonlinearSolver.NEWTON, _SolverSpec("Newton", SolverProfile.LINEAR)),
+    (NonlinearSolver.CHORD, _SolverSpec("Chord", SolverProfile.LINEAR)),
+    (NonlinearSolver.BISECTION, _SolverSpec("Bisection", SolverProfile.TOL_ONLY)),
+    (NonlinearSolver.GOLDEN_SEARCH, _SolverSpec("GoldenSearch", SolverProfile.TOL_ONLY)),
+    (NonlinearSolver.LBFGS, _SolverSpec("LBFGS", SolverProfile.TOLERANCE)),
+    (NonlinearSolver.BFGS, _SolverSpec("BFGS", SolverProfile.TOLERANCE)),
+    (NonlinearSolver.DFP, _SolverSpec("DFP", SolverProfile.TOLERANCE)),
+    (NonlinearSolver.NONLINEAR_CG, _SolverSpec("NonlinearCG", SolverProfile.TOLERANCE)),
+    (NonlinearSolver.NELDER_MEAD, _SolverSpec("NelderMead", SolverProfile.TOLERANCE)),
+    (NonlinearSolver.GRADIENT_DESCENT, _SolverSpec("GradientDescent", SolverProfile.LEARNING_RATE)),
+    (NonlinearSolver.OPTAX_LBFGS, _SolverSpec("lbfgs", SolverProfile.OPTAX)),
+    (NonlinearSolver.OPTAX_ADAM, _SolverSpec("adam", SolverProfile.OPTAX)),
+    (NonlinearSolver.OPTAX_SGD, _SolverSpec("sgd", SolverProfile.OPTAX)),
+    (NonlinearSolver.FIXED_POINT_ITERATION, _SolverSpec("FixedPointIteration", SolverProfile.TOLERANCE)),
+    (NonlinearSolver.GAUSS_NEWTON, _SolverSpec("GaussNewton", SolverProfile.LINEAR)),
+    (NonlinearSolver.LEVENBERG_MARQUARDT, _SolverSpec("LevenbergMarquardt", SolverProfile.LINEAR)),
+    (NonlinearSolver.INDIRECT_LEVENBERG_MARQUARDT, _SolverSpec("IndirectLevenbergMarquardt", SolverProfile.LINEAR)),
+    (NonlinearSolver.DOGLEG, _SolverSpec("Dogleg", SolverProfile.LINEAR)),
+])
 
 
 # InnerSolver -> the lineax linear_solver= the LINEAR-profile Newton/GN/LM family threads; one row
 # per member reading the policy tolerance and the gated `lx` module, so a new inner solver is one row
 # and the iterative CG/GMRES/BiCGStab cells carry the convergence tolerance the Krylov loop reads.
-_INNER: FrozenDict[InnerSolver, InnerPick] = FrozenDict({
-    InnerSolver.AUTO: lambda p, lx: lx.AutoLinearSolver(well_posed=None),
-    InnerSolver.LU: lambda p, lx: lx.LU(),
-    InnerSolver.QR: lambda p, lx: lx.QR(),
-    InnerSolver.SVD: lambda p, lx: lx.SVD(),
-    InnerSolver.GMRES: lambda p, lx: lx.GMRES(rtol=p.rtol, atol=p.atol),
-    InnerSolver.BICGSTAB: lambda p, lx: lx.BiCGStab(rtol=p.rtol, atol=p.atol),
-    InnerSolver.NORMAL_CG: lambda p, lx: lx.Normal(lx.CG(rtol=p.rtol, atol=p.atol)),
-})
+_INNER: Map[InnerSolver, InnerPick] = Map.of_seq([
+    (InnerSolver.AUTO, lambda p, lx: lx.AutoLinearSolver(well_posed=None)),
+    (InnerSolver.LU, lambda p, lx: lx.LU()),
+    (InnerSolver.QR, lambda p, lx: lx.QR()),
+    (InnerSolver.SVD, lambda p, lx: lx.SVD()),
+    (InnerSolver.GMRES, lambda p, lx: lx.GMRES(rtol=p.rtol, atol=p.atol)),
+    (InnerSolver.BICGSTAB, lambda p, lx: lx.BiCGStab(rtol=p.rtol, atol=p.atol)),
+    (InnerSolver.NORMAL_CG, lambda p, lx: lx.Normal(lx.CG(rtol=p.rtol, atol=p.atol))),
+])
 
 
 # Route -> the route-matched BestSoFar* monotone-iterate guard wrapping a converged solver when
 # SolverPolicy.best_so_far is set; one aspect over any solver, keyed by tag.
-_BEST: FrozenDict[Route, str] = FrozenDict({
-    "root_find": "BestSoFarRootFinder",
-    "minimise": "BestSoFarMinimiser",
-    "fixed_point": "BestSoFarFixedPoint",
-    "least_squares": "BestSoFarLeastSquares",
-})
+_BEST: Map[Route, str] = Map.of_seq([
+    ("root_find", "BestSoFarRootFinder"),
+    ("minimise", "BestSoFarMinimiser"),
+    ("fixed_point", "BestSoFarFixedPoint"),
+    ("least_squares", "BestSoFarLeastSquares"),
+])
 
 
 # Route -> (optimistix entry, residual contraction). The optimistix norm is pytree-total over Array
@@ -331,28 +338,25 @@ _BEST: FrozenDict[Route, str] = FrozenDict({
 # undefined — jax.tree_util.tree_map subtracts leaf-wise before the norm contracts the difference.
 def _route_cells(
     e: "NonlinearEngine", fn: Callable[..., object], policy: NonlinearPolicy
-) -> FrozenDict[Route, tuple[Callable[..., object], Callable[[object], object]]]:
+) -> Map[Route, tuple[Callable[..., object], Callable[[object], object]]]:
     norm, out = e.norm(policy.solver.norm), (lambda v: fn(v)[0]) if policy.has_aux else fn
     grad_fn = e.jax.grad(fn, has_aux=policy.has_aux)
     minim = (lambda v: grad_fn(v)[0]) if policy.has_aux else grad_fn
-    return FrozenDict({
-        "root_find": (e.optx.root_find, lambda v: norm(out(v))),
-        "minimise": (e.optx.minimise, lambda v: norm(minim(v))),
-        "fixed_point": (e.optx.fixed_point, lambda v: norm(e.jtu.tree_map(lambda a, b: e.jnp.asarray(a) - e.jnp.asarray(b), out(v), v))),
-        "least_squares": (e.optx.least_squares, lambda v: norm(out(v))),
-    })
+    return Map.of_seq([
+        ("root_find", (e.optx.root_find, lambda v: norm(out(v)))),
+        ("minimise", (e.optx.minimise, lambda v: norm(minim(v)))),
+        ("fixed_point", (e.optx.fixed_point, lambda v: norm(e.jtu.tree_map(lambda a, b: e.jnp.asarray(a) - e.jnp.asarray(b), out(v), v)))),
+        ("least_squares", (e.optx.least_squares, lambda v: norm(out(v)))),
+    ])
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
 
-# `@receipted(_REDACTION)` wraps the one measured kernel that returns the `SolverReceipt`: the aspect
-# harvests its `SolverReceipt.contribute` stream and emits on exit, so receipt production stays a decorator
-# rail rather than an inline `Signals.emit` threaded through each route — matching every sibling solver
-# route. `solve` fences this kernel in one `boundary`, so a host fault rails and the receipt emits on the
-# same exit; the single optimistix/floor `try/except ImportError` is the boundary-kernel import gate, not a
-# domain rail — the four-parallel per-route form is the deleted spelling, never this one unified arm.
-@receipted(_REDACTION)
+# the one measured kernel returning the `SolverReceipt` — module-level and import-resolvable, so it
+# crosses the process lane as spec data plus operands; the weave's `@receipted(REDACTION)` harvest
+# streams the receipt. The single optimistix/floor `try/except ImportError` is the boundary-kernel
+# import gate, not a domain rail — the four-parallel per-route form is the deleted spelling.
 def _dispatch(intent: NonlinearIntent) -> SolverReceipt:
     match intent:
         case (
@@ -361,6 +365,12 @@ def _dispatch(intent: NonlinearIntent) -> SolverReceipt:
             | NonlinearIntent(tag="fixed_point", fixed_point=(fn, x0, solver, policy))
             | NonlinearIntent(tag="least_squares", least_squares=(fn, x0, solver, policy))
         ):
+            # the TOL_ONLY bracket invariant is a POLICY gate, not an optimistix option quirk: it
+            # holds HERE before the import attempt so the gated path and the numpy floor rail the
+            # same misconfiguration identically — optional-package availability never changes the
+            # fault, and the floor's bracket read is established by construction past this gate.
+            if _SOLVER[solver].profile is SolverProfile.TOL_ONLY and policy.bracket is None:
+                raise ValueError(f"{solver} requires NonlinearPolicy.bracket=(lower, upper)")
             try:
                 return _optimistix_receipt(intent.tag, fn, x0, solver, policy)
             except ImportError:
@@ -377,12 +387,9 @@ def _optimistix_receipt(tag: Route, fn: Callable[..., object], x0: Pytree, solve
     # The TOL_ONLY pair (Bisection/GoldenSearch) carries the bracket through the entry options, not the
     # constructor, so the single edge maps the typed 2-tuple to optimistix's options=dict(lower=, upper=)
     # shape gated on the resolved profile; every other solver forwards options=None and a non-None bracket
-    # on a non-TOL_ONLY solver is a no-op the entry never reads. A TOL_ONLY solver with bracket=None cannot
-    # proceed (optimistix raises on the missing options), so the kernel raises a typed misconfiguration the
-    # `solve` boundary fence converts to a BoundaryFault rather than an opaque optimistix internal error.
+    # on a non-TOL_ONLY solver is a no-op the entry never reads. The bracket invariant is `_dispatch`'s
+    # shared policy gate, already established before this kernel runs.
     profile = _SOLVER[solver].profile
-    if profile is SolverProfile.TOL_ONLY and policy.bracket is None:
-        raise ValueError(f"{solver} requires NonlinearPolicy.bracket=(lower, upper) for the optimistix entry options")
     options = {"lower": policy.bracket[0], "upper": policy.bracket[1]} if profile is SolverProfile.TOL_ONLY and policy.bracket is not None else None
     compiled = engine.eqx.filter_jit(lambda y, _: fn(y))
     lift_x0 = jtu.tree_map(engine.jnp.asarray, x0)  # per-leaf lift, total over a structured x0; a bare jnp.asarray flattens the pytree
@@ -395,12 +402,12 @@ def _optimistix_receipt(tag: Route, fn: Callable[..., object], x0: Pytree, solve
         per_row = engine.eqx.filter_vmap(lift, in_axes=0)(solutions.value)
         residual = float(engine.jnp.max(engine.jnp.asarray(per_row)))  # worst per-row residual; each is itself a norm over that row's pytree
         steps = int(engine.jnp.max(engine.jnp.asarray(solutions.stats["num_steps"])))
-        result = engine.verdict(solutions.result, batched=True)  # worst-case verdict: jnp.max over the per-row `_value` codes, name-inverted
+        result = engine.verdict(solutions.result)  # worst-case verdict: the shared receipt fold reduces the per-row codes
         width = int(engine.jnp.asarray(jtu.tree_leaves(lift_x0)[0]).shape[0])  # leading sweep width
         rank = _tree_rank(jtu, solutions.value) // width  # batched leaf count divided back to per-row rank
     else:
         solution = run(lift_x0)
-        residual, steps, result = float(lift(solution.value)), int(solution.stats["num_steps"]), engine.verdict(solution.result, batched=False)
+        residual, steps, result = float(lift(solution.value)), int(solution.stats["num_steps"]), engine.verdict(solution.result)
         rank = _tree_rank(jtu, solution.value)
     if tag == "least_squares":
         return SolverReceipt.LeastSquares(residual, rank, steps, policy.solver.rtol, result)
@@ -423,7 +430,8 @@ def _tree_rank(jtu: object, value: object) -> int:
 # A TOL_ONLY solver (Bisection/GoldenSearch) probes at the bracket midpoint (lower+upper)/2 rather than
 # x0, mirroring optimistix's bracket semantics — GoldenSearch ignores x0 entirely and Bisection is the
 # region centre rather than an x0 probe optimistix would never compute; the bracket=None misconfiguration
-# is already railed on the gated path's boundary fence before the floor is reached.
+# is railed by `_dispatch`'s shared policy gate BEFORE the import fork, so a TOL_ONLY solver reaching
+# this floor carries a bracket by construction and no silent x0 fallback exists.
 def _floor_receipt(tag: Route, fn: Callable[..., object], x0: np.ndarray, solver: NonlinearSolver, policy: NonlinearPolicy) -> SolverReceipt:
     rtol, out = policy.solver.rtol, (lambda v: fn(v)[0]) if policy.has_aux else fn
     bracketed = _SOLVER[solver].profile is SolverProfile.TOL_ONLY and policy.bracket is not None
@@ -441,8 +449,3 @@ def _floor_receipt(tag: Route, fn: Callable[..., object], x0: np.ndarray, solver
         return SolverReceipt.LeastSquares(float(probe), int(x0.size), 0, rtol, None)
     return SolverReceipt.Iterative(float(probe), 0, rtol, None)
 ```
-
-## [03]-[RESEARCH]
-
-- [SOLVER_AXES]: the five orthogonal tuning axes are policy values folded through `NonlinearEngine.build_solver` off the carrier rather than seventeen hardcoded `(rtol, atol)` constructors or a loose `(lx, optx, optax)` module triple. The `SolverProfile`-keyed builder assembles the constructor keywords per family: the `LINEAR`-profile `Newton`/`Chord`/`GaussNewton`/`LevenbergMarquardt`/`Dogleg` accept `linear_solver=` from the `lineax` family the catalogued `INTEGRATION_LAW` admits — `AutoLinearSolver(well_posed=None)` tag-dispatched, `LU`/`QR`/`SVD` direct, and `GMRES`/`BiCGStab`/`Normal(CG(...))` iterative — so the `InnerSolver` cell selects the inner linear solve a Newton step factors through, a general non-symmetric Jacobian routing `GMRES` and an SPD normal-equation `Normal(CG)`; the `LEARNING_RATE`-profile `GradientDescent` carries `learning_rate=policy.learning_rate` as a distinct constructor argument the convergence tolerance is never reused for; the `TOL_ONLY`-profile `Bisection(rtol, atol, flip, expand_if_necessary)`/`GoldenSearch(rtol, atol)` carry neither `norm` nor `linear_solver`. The resolved `norm` (`max_norm`/`rms_norm`/`two_norm`, selected once by `NormKind` through `NonlinearEngine.norm`) is threaded into both `build_solver` and the `_route_cells` residual contraction, so the solver's `norm=` termination argument and the receipt residual are the same callable rather than two parallel lookups that agree by coincidence. The `OPTAX`-profile `OptaxMinimiser(optim, rtol, atol, norm)` wrapper lifts an `optax` `lbfgs`/`adam`/`sgd` transformation into an `AbstractMinimiser`, so the `optax`-descent axis runs inside `minimise` with the full `Solution`/`RESULTS`/adjoint machinery rather than a hand-written training loop — `OPTAX_LBFGS` passes `learning_rate=None` so `optax.lbfgs` keeps its `scale_by_zoom_linesearch` Wolfe zoom (a fixed step disables it) while `OPTAX_ADAM`/`OPTAX_SGD` take `policy.learning_rate`; this is the catalogued `optax`-stacking path, the `lineax` `linear_solver=` stacking, the `equinox.filter_jit` objective, and the `jax` pytree composed as one rail. `BestSoFarMinimiser`/`BestSoFarLeastSquares`/`BestSoFarRootFinder`/`BestSoFarFixedPoint` wrap the converged solver when `SolverPolicy.best_so_far` is set, returning the best iterate seen rather than a non-monotone final one, the `_BEST` route-matched aspect.
-- [EQUINOX_TRANSFORM]: `equinox.filter_jit` wraps the residual/objective evaluation so the static (non-array) leaves of the closure skip XLA tracing while array leaves compile, and `equinox.filter_vmap(run, in_axes=0)` maps a batched initial-point stack over the leading axis when a study sets `NonlinearPolicy.batched` to sweep many starts through one compiled solve, folding the per-row residual to its max component. Both verify against `compute/.api/equinox.md` on the worker lane; neither re-implements a JAX transform. `filter_vmap(fun, *, in_axes=if_array(0), out_axes=if_array(0), axis_name, axis_size)` is the documented signature.

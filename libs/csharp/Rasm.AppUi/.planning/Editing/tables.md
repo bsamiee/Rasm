@@ -231,10 +231,17 @@ public static class CommitSurface {
         public Seq<TableColumnRow<TRow>> Admitted(TableExportSpec spec) =>
             rows.Filter(row => spec.ColumnKeys.Contains(row.Key) && row.Classification.IsNone);
 
+        // RFC-4180: a field containing the delimiter, a quote, CR, or LF wraps in quotes with interior
+        // quotes doubled — a bare string.Join over raw cell values is the deleted form.
         public string Delimited(TableExportSpec spec, Seq<TRow> items) =>
             string.Join(Environment.NewLine,
-                (spec.HeaderRow ? string.Join(spec.Delimiter, rows.Admitted(spec).Map(static row => row.Header)).Cons(Seq<string>()) : Seq<string>())
-                + items.Map(item => string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => row.Export(item)))));
+                (spec.HeaderRow ? string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => Quote(row.Header, spec.Delimiter))).Cons(Seq<string>()) : Seq<string>())
+                + items.Map(item => string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => Quote(row.Export(item), spec.Delimiter)))));
+
+        private static string Quote(string field, string delimiter) =>
+            field.Contains(delimiter, StringComparison.Ordinal) || field.Contains('"') || field.Contains('\r') || field.Contains('\n')
+                ? $"\"{field.Replace("\"", "\"\"")}\""
+                : field;
     }
 }
 ```

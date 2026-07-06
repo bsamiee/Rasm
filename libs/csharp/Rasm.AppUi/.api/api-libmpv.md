@@ -121,6 +121,8 @@
 |  [11]   | `EofReached`                    | `MpvPropertyRead<bool>`    | end-of-file flag       |
 |  [12]   | `Seeking`                       | `MpvPropertyRead<bool>`    | seek-in-progress flag  |
 |  [13]   | `AudioId` / `SubId` / `VideoId` | `MpvOptionWithAutoNo<int>` | active track selection |
+|  [14]   | `LoopFile` / `LoopPlaylist`     | `MpvOptionString`          | loop policy (`"inf"` / `"no"` / count string on `loop-file`/`loop-playlist`) |
+|  [15]   | `AbLoopA` / `AbLoopB` / `AbLoopCount` | `MpvOptionString`    | A-B section loop bounds + count |
 
 [ENTRYPOINT_SCOPE]: client core and render path on `MpvContextBase`
 - rail: media

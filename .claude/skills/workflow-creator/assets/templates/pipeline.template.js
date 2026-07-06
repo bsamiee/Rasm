@@ -10,12 +10,14 @@ export const meta = {
 }
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 // `args` arrives as structured data — an array stays an array, read it directly.
 const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TODO item two']
 
 // --- [MODELS] ----------------------------------------------------------------------------
 const STAGE1_SCHEMA = {
   type: 'object',
+  additionalProperties: false, // STRICT: required must list every property — codex --output-schema rejects anything less
   required: ['result'],
   properties: { result: { type: 'string' } },
 }

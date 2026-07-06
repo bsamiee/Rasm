@@ -14,7 +14,7 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 
 - Owner: `CommandIntent` row record with its nested `Availability` input struct; `CommandPayload` `[Union]` argument shapes; `CommandDeck` per-surface frozen result carrying the row table, the normalized palette index, and the gesture-conflict fold.
 - Cases: `CommandPayload` = None | Single | Many | Text under the locked kind literals none, single, many, text — parameterized intents discriminate on payload shape, never on name suffixes.
-- Entry: `public static Fin<CommandDeck> Freeze` — `Fin` aborts on a duplicate intent key or duplicate palette label; one freeze per mounted surface.
+- Entry: `public static Fin<CommandDeck> Freeze` — `Fin` aborts on a duplicate intent key or duplicate palette label with a typed `CommandFault` case deriving through the `AppUiFaultBand.Command` registry row (6070); one freeze per mounted surface.
 - Auto: the `Surfaces` predicate filters rows exactly once at freeze, so a row absent from a surface never materializes there; the mount transaction sinks every `GestureConflicts` row as one envelope of kind `ConflictKind`.
 - Receipt: `GestureConflicts` is the freeze-time evidence fold — each conflict names the chord and every intent key bound to it.
 - Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, BCL inbox
@@ -46,6 +46,15 @@ public abstract partial record CommandPayload {
     public sealed record Single(string Id) : CommandPayload;
     public sealed record Many(Seq<string> Ids) : CommandPayload;
     public sealed record Text(string Value) : CommandPayload;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CommandFault : Expected {
+    private CommandFault(string detail, int code) : base(detail, code) { }
+    public sealed record DuplicateRow(string Detail)
+        : CommandFault($"command/duplicate: {Detail}", AppUiFaultBand.Command.Code(0));
+    public sealed record UnknownIntent(string Key)
+        : CommandFault($"command/unknown-intent: {Key}", AppUiFaultBand.Command.Code(1));
 }
 
 public sealed record CommandDeck(
@@ -87,7 +96,7 @@ public sealed record CommandDeck(
         rows.Map(static row => row.Key).Distinct().Length == rows.Length
             && rows.Map(row => label(row.Key).ToLowerInvariant()).Distinct().Length == rows.Length
             ? Fin<Seq<CommandIntent>>.Succ(rows)
-            : Fin<Seq<CommandIntent>>.Fail(Error.New(nameof(CommandDeck) + " duplicate intent key or palette label"));
+            : Fin<Seq<CommandIntent>>.Fail(new CommandFault.DuplicateRow("intent key or palette label"));
 }
 ```
 
@@ -131,7 +140,7 @@ public static class CommandGate {
 - Receipt: `CommandReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed through `ReceiptSinkPort.Send` as kind `command` with the boot-bound `CommandDeck.Tenant` threaded so the envelope partitions per tenant; the HLC envelope is the only cross-process correlation carrier and `TenantContext` rides the deck as settled AppHost vocabulary, never re-minted; `TelemetryRow` contributes the command-outcome and command-elapsed instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: ReactiveUI, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
 - Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time, and one command instrument is one `InstrumentRow` on `CommandExecution.TelemetryRow`; zero new surface.
-- Boundary: the receipt record lands as one `[JsonSerializable]` row on the package wire context merged at app roots; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction is the rejected form; the digest is the XxHash128 hex of the serialized payload, so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling — a sibling `Batch` payload case beside the closed four-case union and a per-macro registry are the rejected forms, an unknown batch key aborts the macro on the `Fin` rail rather than dropping under a `ContainsKey` filter, and the combined command's child execution still seals one `CommandReceipt` per child through the same sink so batch evidence never collapses into one opaque receipt.
+- Boundary: the receipt record lands as one `[JsonSerializable]` row on the package wire context merged at app roots; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction is the rejected form; the digest is the kernel `ContentHash.Of` hex of the serialized payload (the federation one-hasher; seed zero), so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling — a sibling `Batch` payload case beside the closed four-case union and a per-macro registry are the rejected forms, an unknown batch key aborts the macro on the `Fin` rail rather than dropping under a `ContainsKey` filter, and the combined command's child execution still seals one `CommandReceipt` per child through the same sink so batch evidence never collapses into one opaque receipt.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -187,14 +196,16 @@ public static class CommandExecution {
             toSeq(keys.ToArray())
                 .Traverse(key => deck.Rows.TryGetValue(key, out var row)
                     ? Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Succ(row.Materialize(deck))
-                    : Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Fail(Error.New(nameof(Combine) + " unknown intent key " + key)))
+                    : Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Fail(new CommandFault.UnknownIntent(key)))
                 .As()
                 .Map(children => ReactiveCommand.CreateCombined(children, outputScheduler: deck.Scheduler));
     }
 
     extension(CommandPayload payload) {
+        // The one-hasher law: the digest mints through the kernel Rasm.Domain ContentHash.Of seed-zero
+        // entry; the lowercase-hex spelling is this boundary's wire projection of the UInt128.
         public string Digest(JsonSerializerOptions wire) =>
-            Convert.ToHexStringLower(XxHash128.Hash(JsonSerializer.SerializeToUtf8Bytes(payload, wire)));
+            $"{ContentHash.Of(JsonSerializer.SerializeToUtf8Bytes(payload, wire)):x32}";
     }
 
     public const string OutcomeInstrument = "rasm.appui.command.outcome";

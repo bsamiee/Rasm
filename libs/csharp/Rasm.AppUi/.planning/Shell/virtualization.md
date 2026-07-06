@@ -11,8 +11,8 @@ One surface-agnostic virtualization fabric materializes only the visible window 
 
 ## [02]-[WINDOW_OWNER]
 
-- Owner: `VirtualWindowSpec` the window request shape; `VirtualWindow<TItem, TKey>` the range-to-realized-item owner; `RealizedItem<TItem>` the windowed item with its extent and offset; `VirtualFault` the fault family in the 4300 code band.
-- Cases: `VirtualFault` = Text | RangeInverted | ExtentUnmeasured | KeyAbsent in the 4300 code band.
+- Owner: `VirtualWindowSpec` the window request shape; `VirtualWindow<TItem, TKey>` the range-to-realized-item owner; `RealizedItem<TItem>` the windowed item with its extent and offset; `VirtualFault` the fault family — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
+- Cases: `VirtualFault` = Text | RangeInverted | ExtentUnmeasured | KeyAbsent — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
 - Entry: `public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(IObservable<IChangeSet<TItem, TKey>> source, IObservable<ViewportRange> viewport, Func<TItem, TKey> key)` — folds the source change-set against the live viewport range into exactly the realized items the window shows, the `key` projection threading the item identity through the `ExtentLedger`; the realized set re-emits incrementally as the viewport scrolls or the source changes, never a full re-window.
 - Auto: `VirtualWindowSpec` carries the viewport extent (pixels), the scroll offset, the overscan margin, and the extent mode (fixed-height or measured), so a window request is one shape every windowed surface authors; the range fold composes `DynamicData` `Virtualise(IObservable<VirtualRequest>)` over the source so windowing is the settled `LiveData` operator, never a hand-sliced list — the `VirtualRequest` start index and size derive from the scroll offset divided by the extent, and the `VirtualResponse` realized bounds feed back into the `RealizedItem` offset; control recycling rides the `ControlFactory` `RecycleScope` pool (`Shell/controls`) so a scrolled-out control parks and a scrolled-in control reuses it; the realized count tracks the viewport extent so the window never realizes more items than fit plus overscan.
 - Packages: DynamicData, System.Reactive, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -45,18 +45,23 @@ public abstract partial record VirtualFault : Expected, IValidationError<Virtual
 
     public static VirtualFault Create(string message) => new Text(message);
 
-    public sealed record Text : VirtualFault { public Text(string detail) : base(detail, 4300) { } }
-    public sealed record RangeInverted : VirtualFault { public RangeInverted(string detail) : base(detail, 4301) { } }
-    public sealed record ExtentUnmeasured : VirtualFault { public ExtentUnmeasured(string detail) : base(detail, 4302) { } }
-    public sealed record KeyAbsent : VirtualFault { public KeyAbsent(string detail) : base(detail, 4303) { } }
+    public sealed record Text : VirtualFault { public Text(string detail) : base(detail, AppUiFaultBand.Virtual.Code(0)) { } }
+    public sealed record RangeInverted : VirtualFault { public RangeInverted(string detail) : base(detail, AppUiFaultBand.Virtual.Code(1)) { } }
+    public sealed record ExtentUnmeasured : VirtualFault { public ExtentUnmeasured(string detail) : base(detail, AppUiFaultBand.Virtual.Code(2)) { } }
+    public sealed record KeyAbsent : VirtualFault { public KeyAbsent(string detail) : base(detail, AppUiFaultBand.Virtual.Code(3)) { } }
 }
 
 public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLedger<TKey> Ledger) where TItem : notnull where TKey : notnull {
+    // Ordinal registration precedes windowing: every source change-set feeds the ledger (adds register
+    // at the running estimate, removes retire) BEFORE a VirtualRequest derives, so fixed mode windows a
+    // fresh source from its true count and measured mode seeks unmeasured rows through estimate offsets;
+    // Measure is thereafter a point update over an already-registered ordinal.
     public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(
         IObservable<IChangeSet<TItem, TKey>> source,
         IObservable<ViewportRange> viewport,
         Func<TItem, TKey> key) =>
         source
+            .Do(changes => Ledger.Admit(changes))
             .Virtualise(viewport
                 .Select(range => new VirtualRequest(Ledger.StartIndex(range, Spec), Ledger.Size(range, Spec)))
                 .DistinctUntilChanged())
@@ -74,7 +79,7 @@ public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLe
 ## [03]-[EXTENT_MEASURE]
 
 - Owner: `ExtentLedger<TKey>` the per-key extent and cumulative-offset model; `MeasurePolicy` the fixed-versus-measured extent fold.
-- Entry: `public double OffsetOf(TKey key)` — the cumulative pixel offset of a key from the window top; `public Unit Measure(TKey key, double extent)` — records a measured row's extent and re-accumulates the cumulative offsets downstream.
+- Entry: `public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes)` — source registration: adds enter at the running estimate, removes retire to zero-extent tombstones, so ordinals and count are live before any measure; `public double OffsetOf(TKey key)` — the cumulative pixel offset of a key from the window top; `public Unit Measure(TKey key, double extent)` — a point delta update over an already-registered ordinal.
 - Auto: in fixed mode the extent is `VirtualWindowSpec.FixedItemExtent` and the offset is index times extent, so the scroll math is exact and O(1); in measured mode each realized row reports its measured extent through `Measure`, the ledger keeps a Fenwick/prefix-sum tree of cumulative extents so `OffsetOf` and the total extent are O(log n), and a not-yet-measured row uses the running average extent as its estimate so the scrollbar is stable before every row measures; the scroll-to-index seek resolves the target offset from the ledger so a programmatic scroll lands exactly.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new extent estimator is one `MeasurePolicy` value; zero new surface.
@@ -90,18 +95,68 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     private readonly Dictionary<TKey, int> ordinals = new();
     private readonly List<TKey> order = [];
     private readonly List<double> extents = [];
-    private readonly List<double> prefix = [];
+    private double[] fenwick = new double[16]; // 1-based Fenwick (BIT) over per-index extents
     private double averageExtent = 28d;
+    private int retired;
 
-    public Unit Measure(TKey key, double extent) {
-        if (!ordinals.TryGetValue(key, out var index)) { index = order.Count; ordinals[key] = index; order.Add(key); extents.Add(extent); }
-        else { extents[index] = extent; }
-        averageExtent = extents.Count > 0 ? extents.Average() : extent;
-        Reaccumulate(index);
+    // Source registration: adds enter at the running estimate so count, offsets, and seeks are live
+    // BEFORE any row measures; removes retire to a zero-extent tombstone (offsets stay exact) and a
+    // tombstone-majority compacts the ledger in one rebuild.
+    public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes) where TItem : notnull {
+        foreach (var change in changes) {
+            _ = change.Reason switch {
+                ChangeReason.Add => Apply(change.Key, averageExtent, register: true),
+                ChangeReason.Remove => Retire(change.Key),
+                _ => unit,
+            };
+        }
         return unit;
     }
 
-    public double OffsetOf(TKey key) => ordinals.TryGetValue(key, out var index) ? (index < prefix.Count ? prefix[index] : index * averageExtent) : 0d;
+    // O(log n): a measure is a point DELTA update over an already-registered ordinal — registration is
+    // Admit's, so an unseen key registers first and then measures through the same delta path.
+    public Unit Measure(TKey key, double extent) => Apply(key, extent, register: true);
+
+    private Unit Apply(TKey key, double extent, bool register) {
+        double delta;
+        if (!ordinals.TryGetValue(key, out var index)) {
+            if (!register) { return unit; }
+            index = order.Count; ordinals[key] = index; order.Add(key); extents.Add(extent);
+            EnsureCapacity(order.Count); delta = extent;
+        }
+        else { delta = extent - extents[index]; extents[index] = extent; }
+        averageExtent = extents.Count > 0 ? averageExtent + ((extent - averageExtent) / extents.Count) : extent;
+        for (var at = index + 1; at <= order.Count; at += at & -at) { fenwick[at] += delta; }
+        return unit;
+    }
+
+    private Unit Retire(TKey key) {
+        if (!ordinals.TryGetValue(key, out var index)) { return unit; }
+        ignore(Apply(key, 0d, register: false));
+        ignore(ordinals.Remove(key));
+        retired++;
+        if (retired * 2 > order.Count) { Compact(); }
+        return unit;
+    }
+
+    private void Compact() {
+        var live = order.Where(ordinals.ContainsKey).ToList();
+        var kept = live.Select(key => extents[ordinals[key]]).ToList();
+        ordinals.Clear(); order.Clear(); extents.Clear();
+        fenwick = new double[Math.Max(16, live.Count + 1)];
+        retired = 0;
+        for (var at = 0; at < live.Count; at++) { ignore(Apply(live[at], kept[at], register: true)); }
+    }
+
+    // O(log n) prefix query: cumulative extent of indices [0, index).
+    private double PrefixSum(int index) {
+        var sum = 0d;
+        for (var at = index; at > 0; at -= at & -at) { sum += fenwick[at]; }
+        return sum;
+    }
+
+    public double OffsetOf(TKey key) =>
+        ordinals.TryGetValue(key, out var index) ? PrefixSum(index) : 0d;
 
     public double ExtentOf(TKey key, VirtualWindowSpec spec) =>
         spec.Mode == ExtentMode.Fixed ? spec.FixedItemExtent
@@ -117,17 +172,22 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
             ? range.Indices(spec.FixedItemExtent, order.Count).Size
             : Math.Max(1, Seek(range.Offset + range.Extent + range.Overscan) - Seek(range.Offset - range.Overscan) + 1);
 
+    // O(log n) offset-to-index seek: binary descent over the Fenwick tree itself, never a scan.
     private int Seek(double offset) {
-        var lo = 0;
-        var hi = prefix.Count;
-        while (lo < hi) { var mid = (lo + hi) / 2; if (prefix[mid] < offset) { lo = mid + 1; } else { hi = mid; } }
-        return Math.Clamp(lo, 0, Math.Max(0, order.Count - 1));
+        var index = 0;
+        var remaining = offset;
+        for (var bit = 1 << System.Numerics.BitOperations.Log2((uint)Math.Max(1, order.Count)); bit > 0; bit >>= 1) {
+            var next = index + bit;
+            if (next <= order.Count && fenwick[next] < remaining) { remaining -= fenwick[next]; index = next; }
+        }
+        return Math.Clamp(index, 0, Math.Max(0, order.Count - 1));
     }
 
-    private void Reaccumulate(int from) {
-        while (prefix.Count < extents.Count) { prefix.Add(0d); }
-        var running = from > 0 ? prefix[from - 1] + extents[from - 1] : 0d;
-        for (var at = from; at < extents.Count; at++) { prefix[at] = running; running += extents[at]; }
+    private void EnsureCapacity(int count) {
+        if (count < fenwick.Length) { return; }
+        var grown = new double[Math.Max(fenwick.Length * 2, count + 1)];
+        fenwick.CopyTo(grown, 0);
+        fenwick = grown;
     }
 }
 ```

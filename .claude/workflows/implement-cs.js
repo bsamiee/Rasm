@@ -1,28 +1,28 @@
 export const meta = {
   name: 'implement-cs',
   whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the C# target folders (default: AppHost, Compute, AppUi, Persistence).',
-  description: 'Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified catalog members, seam targets) and never verdicts; it runs read-only on gpt-5.5 dispatched through a sonnet codex wrapper (CODEX flag; false restores the native inherit-model lane); when it proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain\'s terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run\'s terminal single-writer, the central Directory.Packages.props pin and the package ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal sonnet writer applies them serially. C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
+  description: 'Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified catalog members, seam targets) and never verdicts; it runs read-only on gpt-5.5 dispatched through a sonnet codex wrapper (CODEX flag; false restores the native inherit-model lane), writes its COMPLETE product as one on-disk report the folder\'s implement/critique/redteam stages read IN FULL from disk, and returns a thin receipt plus the jq-extracted structural skeleton (order, card rows with verified pages, ripple classes, gates) the orchestrator\'s no-op/fan/ripple control flow runs on; when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain\'s terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run\'s terminal single-writer, the central Directory.Packages.props pin and the package ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal sonnet writer applies them serially. C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
   phases: [
-    { title: 'Realize', detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.5 via codex wrapper, read-only navigation facts) -> implement(high; fans over discovery-proven page-disjoint card groups) -> critique(high) -> redteam(high, terminal close); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces' },
+    { title: 'Realize', detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.5 via codex wrapper, read-only; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(high; reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(high) -> redteam(high, terminal close); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces' },
     { title: 'Pins', detail: 'one terminal single-writer applies every reported central Directory.Packages.props pin row at the symbol anchor and every reported ARCHITECTURE.md [02]-[SEAMS] row serially; runs only when rows were reported', model: 'sonnet' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 14 // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
+
+const CAP = 14     // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
 const IMPL_FAN = 3 // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
-// The launch gate spaces every pooled start (chain heads + implement-fan members) >= STAGGER_MS
-// apart for the run's whole life: real (slow) work fans wide while a fast-fail cascade self-throttles.
 const STAGGER_MS = 1500
 const STALL = 300000
 const ROOT = 'libs/csharp'
 const SHARED_API = 'libs/csharp/.api'
 const CENTRAL = 'Directory.Packages.props'
 const DEFAULT_TARGETS = ['libs/csharp/Rasm.AppHost', 'libs/csharp/Rasm.Compute', 'libs/csharp/Rasm.AppUi', 'libs/csharp/Rasm.Persistence']
-const CODEX = true // the discovery lane runs on gpt-5.5 via the codex wrapper; false restores the native inherit-model lane
-const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
+const CODEX = true
+const CODEX_DIR = '.claude/scratch/implement-cs' // wrapper task/schema/report files, one triple per lane
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 const norm = (t) => { const s = String(t).trim(); return s.indexOf('libs/') === 0 ? s : ROOT + '/' + s }
 const TARGETS = Array.isArray(args) ? args.filter(Boolean).map(norm)
   : (args && typeof args === 'object' && Array.isArray(args.targets)) ? args.targets.filter(Boolean).map(norm)
@@ -31,24 +31,63 @@ const TARGETS = Array.isArray(args) ? args.filter(Boolean).map(norm)
 const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ')
 
 // --- [MODELS] ----------------------------------------------------------------------------
-// Per-folder discovery: `pages` per card are disk-verified Anchors targets proving page-disjoint
-// implement groups; `malformed_ripples` is a required attestation (empty = none found).
-const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'order', 'tasks', 'ideas', 'ripples', 'malformed_ripples'], properties: {
+
+// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
+const ANCHOR = { type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: ['state', 'ruling', 'catalog', 'counterpart', 'absence'] },
+  note: { type: 'string' } } }
+
+const RIPPLE_ROWS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'klass', 'to_pkg', 'to_slug'], properties: { from_slug: { type: 'string' }, klass: { type: 'string', enum: ['in_scope', 'oos_csharp', 'cross_lang'] }, to_pkg: { type: 'string' }, to_slug: { type: 'string' } } } }
+const GATE_ROWS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['blocked_slug', 'gated_by_slug', 'in_scope'], properties: { blocked_slug: { type: 'string' }, gated_by_slug: { type: 'string' }, in_scope: { type: 'boolean' } } } }
+const MALFORMED_ROWS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'raw'], properties: { from_slug: { type: 'string' }, raw: { type: 'string' } } } }
+
+// Per-folder discovery PRODUCT — the lane's on-disk report, read IN FULL by the folder's
+// implement/critique/redteam stages: `pages` per card are disk-verified Anchors targets proving
+// page-disjoint implement groups; `malformed_ripples` is a required attestation (empty = none found).
+const DISCOVERY = { type: 'object', additionalProperties: false, required: ['folder', 'order', 'tasks', 'ideas', 'ripples', 'malformed_ripples', 'gates', 'map', 'coverage'], properties: {
   folder: { type: 'string' },
   order: { type: 'array', items: { type: 'string' } },
-  tasks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'status', 'pages'], properties: { slug: { type: 'string' }, status: { type: 'string' }, atomic: { type: 'boolean' }, thesis: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } } } } },
-  ideas: { type: 'array', maxItems: 3, items: { type: 'object', additionalProperties: false, required: ['slug', 'status', 'pages'], properties: { slug: { type: 'string' }, status: { type: 'string' }, thesis: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } } } } },
-  ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'klass', 'to_pkg', 'to_slug'], properties: { from_slug: { type: 'string' }, klass: { type: 'string', enum: ['in_scope', 'oos_csharp', 'cross_lang'] }, to_pkg: { type: 'string' }, to_slug: { type: 'string' } } } },
-  gates: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['blocked_slug', 'gated_by_slug', 'in_scope'], properties: { blocked_slug: { type: 'string' }, gated_by_slug: { type: 'string' }, in_scope: { type: 'boolean' } } } },
-  map: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'composed', 'underutilized', 'seams', 'stacking'], properties: { page: { type: 'string' }, composed: { type: 'string' }, underutilized: { type: 'string' }, seams: { type: 'string' }, stacking: { type: 'string' } } } },
-  malformed_ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'raw'], properties: { from_slug: { type: 'string' }, raw: { type: 'string' } } } },
+  tasks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'status', 'pages', 'atomic', 'thesis'], properties: { slug: { type: 'string' }, status: { type: 'string' }, atomic: { type: 'boolean' }, thesis: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } } } } },
+  ideas: { type: 'array', maxItems: 3, items: { type: 'object', additionalProperties: false, required: ['slug', 'status', 'pages', 'thesis'], properties: { slug: { type: 'string' }, status: { type: 'string' }, thesis: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } } } } },
+  ripples: RIPPLE_ROWS,
+  gates: GATE_ROWS,
+  map: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'files', 'anchors', 'members', 'composed', 'underutilized', 'seams', 'stacking'], properties: {
+    page: { type: 'string' },
+    files: { type: 'array', items: { type: 'string' } }, // files the implementer must open for this row
+    anchors: { type: 'array', items: ANCHOR }, // exact coordinates backing the row's facts
+    members: { type: 'array', items: { type: 'string' } }, // verified member spellings backing `underutilized`
+    composed: { type: 'string' }, underutilized: { type: 'string' }, seams: { type: 'string' }, stacking: { type: 'string' } } } },
+  malformed_ripples: MALFORMED_ROWS,
+  coverage: { type: 'object', additionalProperties: false, required: ['requested', 'read', 'skipped', 'unverified'], properties: {
+    requested: { type: 'array', items: { type: 'string' } },
+    read: { type: 'array', items: { type: 'string' } },
+    skipped: { type: 'array', items: { type: 'string' } },
+    unverified: { type: 'array', items: { type: 'string' } } } },
 } }
+
+// Thin wire receipt + the small structural skeleton the orchestrator's control flow runs on (empty
+// no-op, fan proof, gate merges, ripple classes): theses, the navigation map, anchors, and coverage
+// stay on disk at `report`; skeleton rows are jq-extracted from the product, never lane judgment.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure', 'folder', 'order', 'tasks', 'ideas', 'ripples', 'gates', 'malformed_ripples'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' },
+  folder: { type: 'string' },
+  order: { type: 'array', items: { type: 'string' } },
+  tasks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'status', 'atomic', 'pages'], properties: { slug: { type: 'string' }, status: { type: 'string' }, atomic: { type: 'boolean' }, pages: { type: 'array', items: { type: 'string' } } } } },
+  ideas: { type: 'array', maxItems: 3, items: { type: 'object', additionalProperties: false, required: ['slug', 'status', 'pages'], properties: { slug: { type: 'string' }, status: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } } } } },
+  ripples: RIPPLE_ROWS,
+  gates: GATE_ROWS,
+  malformed_ripples: MALFORMED_ROWS,
+} }
+
 // Required-but-possibly-empty `ripples`/`pins`/`seams` are attestations: ripple repair ran in-pass,
 // and pin + seam rows are the run's only single-writer handoffs — empty attests none arose, never a skip.
 const RIPPLES = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['counterpart', 'action'], properties: { counterpart: { type: 'string' }, action: { type: 'string' } } } }
 const PINS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'row'], properties: { package: { type: 'string' }, row: { type: 'string' } } } }
 const SEAMS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['file', 'row'], properties: { file: { type: 'string' }, row: { type: 'string' } } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'ripples', 'pins', 'seams', 'summary'], properties: {
+
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'ripples', 'pins', 'seams', 'summary', 'realized', 'deferred', 'collapsed'], properties: {
   folder: { type: 'string' },
   verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
   realized: { type: 'array', items: { type: 'string' } },
@@ -59,7 +98,8 @@ const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: [
   seams: SEAMS,
   summary: { type: 'string' },
 } }
-const REDTEAM_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'ripples', 'pins', 'seams', 'closed', 'reopened', 'summary'], properties: {
+
+const REDTEAM_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'ripples', 'pins', 'seams', 'closed', 'reopened', 'summary', 'realized', 'deferred', 'collapsed'], properties: {
   folder: { type: 'string' },
   verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
   realized: { type: 'array', items: { type: 'string' } },
@@ -72,6 +112,7 @@ const REDTEAM_SCHEMA = { type: 'object', additionalProperties: false, required: 
   reopened: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'reason'], properties: { slug: { type: 'string' }, reason: { type: 'string' } } } },
   summary: { type: 'string' },
 } }
+
 const PIN_SCHEMA = { type: 'object', additionalProperties: false, required: ['applied', 'seam_rows_applied', 'rejected', 'summary'], properties: {
   applied: { type: 'array', items: { type: 'string' } },
   seam_rows_applied: { type: 'array', items: { type: 'string' } },
@@ -80,7 +121,9 @@ const PIN_SCHEMA = { type: 'object', additionalProperties: false, required: ['ap
 } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const FB = ' (the `.api` catalogs, the `nuget` MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback when assay is unavailable)'
+
 const LAW = [
   'Rasm monorepo, libs/csharp planning corpus (markdown specs of intended C# package designs). CLAUDE.md manifest + WORKSPACE_LAW strata govern ' +
     '(KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; a host-neutral owner only where a non-Rhino runtime ' +
@@ -111,6 +154,7 @@ const LAW = [
     'highest-collision shared surface); every other page-level ripple stays yours, repaired distributed under the anchored-Edit discipline. If ' +
     'after real investigation a fence is already correct, say so — never invent edits to look busy.',
 ].join('\n')
+
 const CARD = [
   'CARD SCHEMA: open cards live in `<pkg>/IDEAS.md` (ideas — larger conceptual capability) and `<pkg>/TASKLOG.md` (tasks — concrete targeted ' +
     'work), under section `[01]-[OPEN]`; closed cards collapse under `[02]-[CLOSED]`. A card is `[ID]-[STATUS]: <thesis>` then the bullets ' +
@@ -146,6 +190,7 @@ const CARD = [
     'seams); the run\'s terminal single-writer applies it, never you. A ripple-carrying card closes COMPLETE only when its seam is verified landed ' +
     'on BOTH ends on current disk; close only `strong` cards and honestly re-open the rest.',
 ].join('\n')
+
 const BARHUNT = [
   'BAR — a high-value IMPLEMENT leaves every owner capturing the FULL capability of every package it admits, every sprawl collapsed into one ' +
     'denser owner with NO capability lost, and every fence transcription-complete against the verified `.api`. The critique guards capability ' +
@@ -166,6 +211,7 @@ const BARHUNT = [
     'parallel spelling, or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself. A discovery ' +
     '`map` row in the worklist is an initial pointer, never a ceiling — re-read the pages in full and exceed it; a map never licenses a skim.',
 ].join('\n')
+
 const ULTRA = [
   'OPERATIVE DOCTRINE — the 16 named laws of docs/stacks/csharp/README.md, held as fact: [FLOW] EXPRESSION_SPINE (domain logic is ' +
     'expression-shaped; dependent steps `Bind` monadically, independent ones accumulate applicatively; the carrier, never a flag, selects the ' +
@@ -202,6 +248,7 @@ const ULTRA = [
     'consumer — zero consumers never lowers the bar; planned consumers are real design pressure. Where a fence is already dense, deepen; where ' +
     'it is flat/naive, rebuild ground-up. Never regress correctness or boundary/strata law.',
 ].join('\n')
+
 const PATLAW = [
   'C# PATTERN LAW: model the domain precisely — NEVER weak/unbounded/erased types where the language can express the domain; NEVER exception ' +
     'control flow in domain logic (use the LanguageExt typed rails / ROP and the route recovery patterns); NEVER imperative branching where a ' +
@@ -223,15 +270,18 @@ const PATLAW = [
     'per concept (one word default, three the ceiling); arity/filter/provider/modality live in request shape, case, or policy row, never parallel ' +
     '`Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` names; ONE_HOP_RESOLUTION (no alias chains, forwarding helpers, or util shells).',
 ].join('\n')
+
 const BOUNDARIES = 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with one ' +
   'owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; never introduce a downward dependency or leak ' +
   'a host type into a host-neutral owner. Cross-folder repair is seam-shaped: align counterparts, consumer sites, and counterpart cards — a ' +
   'concern owned twice across a runtime, a folder mixing unrelated concerns, or coupling to a sibling owner INTERIOR (vs its seam/wire) is a defect.'
+
 const CURRENT = 'CURRENT STATE — sibling folder pipelines land work concurrently with yours. Before ANY edit, re-read the CURRENT on-disk state ' +
   'of your pages AND every sibling page your pages compose or ripple into; landed sibling work is composed as found, never assumed from the ' +
   'discovery map. A seam counterpart a sibling pipeline landed is COMPOSED, not re-derived; a conflict between your design and a landed sibling ' +
   'resolves to the STRONGER form, never a revert. Edit any potentially shared page with surgical anchored Edits only — re-read and re-apply on an ' +
   'edit conflict, never a whole-file rewrite.'
+
 const PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the controlling ' +
     'rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, freshness ' +
@@ -240,18 +290,31 @@ const PROSE = [
   'BACKTICK ALL CODE: wrap every symbol, type, field, method, operator, package ID, path, command, flag, and literal value in backticks. Name the ' +
     'exact member/type/rail in backticks instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
 ].join('\n')
+
 const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical ' +
   'section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ONLY ' +
   'where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line where a ' +
   'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
   'task/process/session/history/proof/review comments, no XML-doc bloat. Densify names and types so comments are rarely needed; cut every ' +
   'low-value comment.'
+
 const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', CURRENT, '', PROSE, '', COMMENTS].join('\n')
+
 const GROUPNOTE = 'CONCURRENT CARD GROUP: sibling implement agents realize this folder\'s OTHER page-disjoint card groups concurrently. Realize ' +
-  'ONLY the cards in your worklist; touch any shared folder surface (README.md, a page outside your group\'s anchored pages, a sibling folder ' +
-  'page) with surgical anchored Edits only, re-read and re-applied on conflict.'
+  'ONLY the cards in your worklist (the report\'s `map` rows for pages outside your `pages` list are context, never your work); touch any shared ' +
+  'folder surface (README.md, a page outside your group\'s anchored pages, a sibling folder page) with surgical anchored Edits only, re-read and ' +
+  're-applied on conflict.'
+
+const INFO_LAW = 'You provide INFORMATION, never prescriptions: exact disk locations and anchors, the current shape at each page, verified member ' +
+  'spellings, seam endpoints, gaps. Downstream stages decide how to build; a map row that tells them what to write instead of what is true is a ' +
+  'defect. ROW FORM: `composed`/`underutilized`/`seams`/`stacking` are prose facts; `members` carries exact verified spellings; `anchors` carry ' +
+  'one coordinate per row (role names what it proves; `note` is the shortest literal witness under 20 words, or empty when path+line suffice; an ' +
+  '`absence` anchor names where the expected thing was searched and not found); `files` lists what the implementer must open for the row. ' +
+  'COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you ' +
+  'did not reach — an honest skip beats a silent one.'
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
 let gate = Promise.resolve()
@@ -263,39 +326,61 @@ const pool = async (items, cap, worker) => {
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
+
 // gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
 // CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+// liveness (never relaunching a live run), and returns a thin RECEIPT plus the jq-extracted structural
+// skeleton — the product stays on disk for the folder's stages. It never does, edits, judges, or relays the work.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
 const codexPrompt = (label, task, schema, writes) => {
   const base = CODEX_DIR + '/' + fileTag(label)
   const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
-  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
-    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
-  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
-    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+  const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1) // self-excluding pgrep/pkill pattern
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
+    'RECEIPT plus a jq-extracted structural skeleton for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
+  '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' + CODEX_DIR + '; purge stale lane artifacts (a leftover report would READY instantly with last run\'s data): rm -f ' + base + '-report.json ' + base + '-stderr.log; Write the TASK block below verbatim to ' + base + '-task.md; Write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json — both paths resolved ABSOLUTE under the repository root: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' + base + '-task.md && test -s ' + base + '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
+    'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
+    'zero-CPU, no report): ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
     '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
-    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' + base + '-stderr.log &',
   '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
     'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
     'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
-    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
-    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
-  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
-    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+    'pgrep -f "' + rptPat + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rptPat + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 2nd RUNNING ' +
+    'poll (~10 min wall) the run is WEDGED, not slow — kill it (pkill -f "' + rptPat + '") and go to (4) as GONE. ' +
+    'Cap at 7 poll calls total.',
+  '(4) READY: do NOT relay the report body through your output — build the MECHANICAL receipt with jq (never your own ' +
+    'judgment): cards=$(jq \'(.tasks | length) + (.ideas | length)\' ' + base + '-report.json); parts=$(jq -r \'"\\(.tasks|length)t+\\(.ideas|length)i cards | ripples:\\(.ripples|length) | gates:\\(.gates|length) | map:\\(.map|length)"\' ' + base + '-report.json); skeleton=$(jq \'{folder, order, tasks: [.tasks[] | {slug, status, atomic, pages}], ideas: [.ideas[] | {slug, status, pages}], ripples, gates, malformed_ripples}\' ' + base + '-report.json). ' +
+    'Return: ok=true, report=' + base + '-report.json, entries=that cards count, headline=that parts string, failure empty, and every skeleton field copied VERBATIM from the jq output — a mechanical transcription (the orchestrator\'s no-op/fan/ripple control flow runs on these rows), never retyped, filtered, reworded, or summarized. ' +
+    'GONE with no report: tail -5 ' + base + '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
+    'foreground) and resume polling; a second GONE returns ok=false, entries=0, report, headline, and folder empty, every skeleton array empty, failure=the stderr tail in one line.',
   'TASK — write verbatim to the task file, then dispatch:',
   task].join('\n\n')
 }
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, the native inherit-model lane otherwise.
-const recon = (task, o) => CODEX
-  ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
-    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
-  : agent(task, { label: o.label, phase: o.phase, effort: 'high', schema: o.schema, stallMs: STALL })
+
+// The discovery lane routes here: gpt-5.5 wrapper when CODEX, the native inherit-model lane otherwise.
+// The row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
+// territory is exact even when the lane died before writing anything; downstream filters on `ok`.
+const recon = (task, o) => (CODEX
+  ? agent(codexPrompt(o.label, task, DISCOVERY, !!o.writes),
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    CODEX_DIR + '/' + fileTag(o.label) + '-report.json (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(DISCOVERY) + ' — then return ONLY the receipt + skeleton: ok, report path, entries = open card count, one-line ' +
+    'mechanical headline, failure empty, and folder/order/tasks/ideas/ripples/gates/malformed_ripples transcribed from the ' +
+    'product (task rows reduced to slug/status/atomic/pages, idea rows to slug/status/pages — theses, map, and coverage stay on disk).',
+    { label: o.label, phase: o.phase, effort: 'high', schema: RECEIPT, stallMs: STALL })
+).then((r) => ({ scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+  entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died'),
+  folder: (r && r.folder) || '', order: (r && r.order) || [], tasks: (r && r.tasks) || [], ideas: (r && r.ideas) || [],
+  ripples: (r && r.ripples) || [], gates: (r && r.gates) || [], malformed_ripples: (r && r.malformed_ripples) || [] }))
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p
+
 // Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page,
 // gate pairs merge, and components pack heaviest-first into <= IMPL_FAN buckets without splitting.
 const cardGroups = (t) => {
@@ -320,19 +405,16 @@ const cardGroups = (t) => {
   for (const c of sorted) { const b = buckets.reduce((m, x) => (x.pages.length < m.pages.length ? x : m)); b.slugs.push(...c.slugs); b.pages.push(...c.pages) }
   return buckets
 }
-const groupSeq = (t, g) => {
-  const s = new Set(g.slugs)
-  const p = new Set(g.pages)
-  return JSON.stringify({
-    order: (t.order || []).filter((x) => s.has(x)),
-    tasks: (t.tasks || []).filter((c) => s.has(c.slug)),
-    ideas: (t.ideas || []).filter((c) => s.has(c.slug)),
-    ripples: (t.ripples || []).filter((r) => s.has(r.from_slug)),
-    gates: (t.gates || []).filter((x) => s.has(x.blocked_slug)),
-    map: (t.map || []).filter((m) => p.has(m.page)),
-  }, null, 1)
-}
-const discoverPrompt = (folder) => [LAW, '', CARD, '',
+
+const groupSeq = (t, g) => JSON.stringify({
+  order: t.order.filter((x) => g.slugs.indexOf(x) >= 0),
+  tasks: t.tasks.filter((c) => g.slugs.indexOf(c.slug) >= 0),
+  ideas: t.ideas.filter((c) => g.slugs.indexOf(c.slug) >= 0),
+  ripples: t.ripples.filter((r) => g.slugs.indexOf(r.from_slug) >= 0),
+  gates: t.gates.filter((x) => g.slugs.indexOf(x.blocked_slug) >= 0),
+  pages: g.pages, // the group's disjoint page set — the report's map rows for these pages are the group's own
+}, null, 1)
+const discoverPrompt = (folder) => [LAW, '', CARD, '', INFO_LAW, '',
   'TASK: DISCOVER + SEQUENCE + MAP the open work of the single session target `' + folder + '` (the full session target set, for ripple ' +
     'classification only: ' + JSON.stringify(TARGETS) + '). DISCOVERY is the reconnaissance this folder\'s downstream chain stands on, and ' +
     'read-only is its ONLY concession — full reads, never skims, never memory. FIRST enumerate from the source of truth with a REAL listing ' +
@@ -351,18 +433,24 @@ const discoverPrompt = (folder) => [LAW, '', CARD, '',
     'to_pkg, to_slug}: klass=`in_scope` if to_pkg is one of the session targets, `oos_csharp` if it is another libs/csharp package, `cross_lang` ' +
     'if it points at `libs/.planning` / `libs/typescript` / `libs/python`; (6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, ' +
     'in_scope} where in_scope is true iff the gating work is itself an open card in one of the session targets (that card becomes actionable ' +
-    'this run once its gate lands); (7) map — one row per design page the open cards target: {page, composed: the capability the page already ' +
-    'composes, underutilized: catalog-anchored member FACTS — the exact verified member spellings, each with its owning `.api` catalog, that the ' +
-    'page does not yet compose (verified members ONLY — a member you cannot verify is a phantom and is NEVER listed; exact spellings and ' +
-    'locations, never judgment wording), seams: the contextual cross-page/cross-folder seams the page meets, stacking: how the catalog ' +
-    'capability stacks into the realization}. The map carries NAVIGATION FACTS — paths, verified member locations, seam targets — never ' +
-    'verdicts; downstream agents treat it as an initial pointer, never a ceiling, and it licenses no skim. Also return malformed_ripples for any ' +
-    '`Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug you cannot locate in the named pkg. Return the structured map ' +
-    'ONLY; edit nothing — read-only is DISCOVERY\'s sole concession.'].join('\n')
-const implementPrompt = (folder, seq, note) => [DOCTRINE, '',
-  'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the ULTRA bar. The sequenced worklist (slugs + ' +
-    'ripple map + discovery capability map; read each FULL card body from `' + folder + '/IDEAS.md` + ' +
-    '`' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
+    'this run once its gate lands); (7) map — one row per design page the open cards target: {page, files: every file (the page, its cited ' +
+    'catalogs, its seam counterparts) the implementer must open for this row, anchors: exact coordinates backing the row\'s facts per the ROW ' +
+    'FORM law, members: the exact verified member spellings backing underutilized, each verified against its owning `.api` catalog (verified ' +
+    'members ONLY — a member you cannot verify is a phantom and is NEVER listed; exact spellings and locations, never judgment wording), ' +
+    'composed: the capability the page already composes, underutilized: catalog-anchored member FACTS the page does not yet compose, seams: the ' +
+    'contextual cross-page/cross-folder seams the page meets, stacking: how the catalog capability stacks into the realization}. The map ' +
+    'carries NAVIGATION FACTS — paths, verified member locations, seam targets — never verdicts; downstream agents treat it as an initial ' +
+    'pointer, never a ceiling, and it licenses no skim; (8) coverage — the honesty ledger per the ROW FORM law. Also return malformed_ripples ' +
+    'for any `Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug you cannot locate in the named pkg. Return the ' +
+    'structured product ONLY; edit nothing — read-only is DISCOVERY\'s sole concession.'].join('\n')
+const implementPrompt = (folder, seq, report, note) => [DOCTRINE, '',
+  'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the ULTRA bar. The sequenced worklist (slugs, ' +
+    'ripple rows, gates; theses and the navigation map live in the discovery report on disk; read each FULL card body from ' +
+    '`' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD FIRST the DISCOVERY REPORT at `' +
+    report + '` IN FULL from disk — full card theses plus the per-page navigation map ({page, files, anchors, members, composed, underutilized, ' +
+    'seams, stacking}) and the lane `coverage`; its rows are FACTS with jump-coordinate anchors, never verdicts or ceilings — spot-verify what ' +
+    'you build on, re-open every anchor behind an edit, hunt past the map on your own authority, and give any `skipped`/`unverified` coverage ' +
+    'entry your own cold read. THEN READ: ' +
     'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to, at their CURRENT ' +
     'on-disk state; the package-root `ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card ' +
     'concern; BOTH `.api` tiers in full — `' + SHARED_API + '/` + `' + folder + '/.api/api-*.md`, enumerated by real listing, never memory — plus ' +
@@ -381,10 +469,13 @@ const implementPrompt = (folder, seq, note) => [DOCTRINE, '',
     'owns card status. Modern C# 14 / net10 to the metal, high-signal prose all-backticked, comment hygiene, fix-in-place (read-then-extend, ' +
     'preserve capability). Return verdict + realized slugs + deferred (any card you could not realize, with reason) + collapsed (before->after ' +
     'counts) + ripples + pins + seams + summary.' + (note ? '\n' + note : '')].join('\n')
-const critiquePrompt = (folder, seq) => [DOCTRINE, '',
+
+const critiquePrompt = (folder, seq, report) => [DOCTRINE, '',
   'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' + folder + '`. You are an ULTRA-HARSH, UNAGREEABLE auditor: ' +
     'assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized this turn (read each ' +
-    'FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages, the sibling pages at their ' +
+    'FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nThe discovery report at `' + report + '` carries ' +
+    'the navigation map from disk — facts with anchors, never verdicts; consult it for verified members, seam targets, and coverage gaps, and ' +
+    'it licenses no skim.\nREAD the realized pages, the sibling pages at their ' +
     'CURRENT on-disk state, docs/stacks/csharp/ core + the relevant domain/ shard(s), and BOTH `.api` tiers by real listing — `' + SHARED_API + '/` ' +
     'substrate + `' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line as a ' +
     'FLOOR you hunt past, never the complete audit, and REPAIR every hit in place (a fix, never a ledger note):',
@@ -442,10 +533,13 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
   'Also enforce the docs/stacks/csharp file-organization + section-order law, cross-package convention consistency, and prose + comment hygiene. ' +
     'FIX every hit NOW wherever it lives per WRITE-FULLY; report any central `' + CENTRAL + '` row in `pins`. Return verdict + realized + deferred ' +
     '+ collapsed + ripples + pins + seams + summary.'].join('\n')
-const redteamPrompt = (folder, seq) => [DOCTRINE, '',
+
+const redteamPrompt = (folder, seq, report) => [DOCTRINE, '',
   'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE + TERMINAL CLOSE across `' + folder + '`. You are the LAST and MOST AGGRESSIVE pass: ' +
     'assume the author and critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE ' +
-    'DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nREAD BOTH `.api` tiers by real listing — `' + SHARED_API + '/` ' +
+    'DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nThe discovery report at `' + report + '` carries the navigation ' +
+    'map from disk — facts with anchors, never verdicts; consult it for verified members, seam targets, and coverage gaps, and it licenses no ' +
+    'skim.\nREAD BOTH `.api` tiers by real listing — `' + SHARED_API + '/` ' +
     'substrate + `' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails, the sibling pages at their CURRENT on-disk state, ' +
     'docs/stacks/csharp/ + the relevant domain/ shard. Attack from every direction and REPAIR every defect in place — no soft-pedalling, no ' +
     'could/should, a fix never a ledger.',
@@ -486,6 +580,7 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     '`strong`, with a one-line reason (a real out-of-run or cross-language dependency). The orchestrator DEMOTES any card closed below `strong`, ' +
     'so never inflate. Return verdict + realized + deferred + collapsed + ripples + pins + seams + closed [{slug, disposition, strength}] + ' +
     'reopened [{slug, reason}] + summary.'].join('\n')
+
 const pinPrompt = (pins, seams) => [LAW, '', PROSE, '',
   'TASK: TERMINAL SINGLE-WRITER — you are the run\'s SOLE writer for the repo-root `' + CENTRAL + '` and for every package `ARCHITECTURE.md` ' +
     '`[02]-[SEAMS]` section, and its LAST agent. PINS: apply each reported row below exactly once — hand-edit the grouped manifest at the SYMBOL ' +
@@ -499,30 +594,31 @@ const pinPrompt = (pins, seams) => [LAW, '', PROSE, '',
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-// --- [REALIZE]
 phase('Realize')
 log('Pooling ' + TARGETS.length + ' folder chain(s) at CAP=' + CAP)
 const runFolder = async (target) => {
   const tag = folderName(target)
   try {
-    const t = await recon(discoverPrompt(target), { label: 'discover:' + tag, phase: 'Realize', schema: DISCOVERY_SCHEMA })
-    if (!t) return { folder: target, failed: true, empty: false, logs: [], red: null, cross_lang: [], malformed: [] }
-    const cross = (t.ripples || []).filter((rp) => rp.klass === 'cross_lang').map((rp) => tag + ' [' + rp.from_slug + '] -> ' + rp.to_pkg + ' [' + rp.to_slug + ']')
-    const malformed = t.malformed_ripples || []
-    if (!((t.tasks && t.tasks.length) || (t.ideas && t.ideas.length))) return { folder: target, failed: false, empty: true, logs: [], red: null, cross_lang: cross, malformed }
-    const seq = JSON.stringify({ order: t.order, tasks: t.tasks, ideas: t.ideas, ripples: t.ripples, gates: t.gates || [], map: t.map || [] }, null, 1)
+    const t = await recon(discoverPrompt(target), { label: 'discover:' + tag, phase: 'Realize', scope: [target] })
+    // A failed lane is {ok:false, failure:<stderr tail>} — the chain isolates on `ok`, never on a sentinel payload.
+    if (!t.ok) return { folder: target, failed: true, empty: false, logs: [], red: null, cross_lang: [], malformed: [], error: t.failure }
+    const report = t.report
+    const cross = t.ripples.filter((rp) => rp.klass === 'cross_lang').map((rp) => tag + ' [' + rp.from_slug + '] -> ' + rp.to_pkg + ' [' + rp.to_slug + ']')
+    const malformed = t.malformed_ripples
+    if (!(t.tasks.length || t.ideas.length)) return { folder: target, failed: false, empty: true, logs: [], red: null, cross_lang: cross, malformed }
+    const seq = JSON.stringify({ order: t.order, tasks: t.tasks, ideas: t.ideas, ripples: t.ripples, gates: t.gates }, null, 1)
     const groups = cardGroups(t)
     let impls
     if (groups) {
       log(tag + ': implement fan over ' + groups.length + ' page-disjoint group(s); page weights ' + groups.map((g) => g.pages.length).join('/'))
-      impls = (await parallel(groups.map((g, gi) => async () => { await stagger(); return agent(implementPrompt(target, groupSeq(t, g), GROUPNOTE), { label: 'implement:' + tag + ':g' + gi, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL }) }))).filter(Boolean)
+      impls = (await parallel(groups.map((g, gi) => async () => { await stagger(); return agent(implementPrompt(target, groupSeq(t, g), report, GROUPNOTE), { label: 'implement:' + tag + ':g' + gi, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL }) }))).filter(Boolean)
     } else {
-      const one = await agent(implementPrompt(target, seq, ''), { label: 'implement:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
+      const one = await agent(implementPrompt(target, seq, report, ''), { label: 'implement:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
       impls = one ? [one] : []
     }
     if (!impls.length) return { folder: target, failed: true, empty: false, logs: [], red: null, cross_lang: cross, malformed } // failure isolation: a dead implement skips its reviews
-    const crit = await agent(critiquePrompt(target, seq), { label: 'critique:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
-    const red = await agent(redteamPrompt(target, seq), { label: 'redteam:' + tag, phase: 'Realize', schema: REDTEAM_SCHEMA, effort: 'high', stallMs: STALL })
+    const crit = await agent(critiquePrompt(target, seq, report), { label: 'critique:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL })
+    const red = await agent(redteamPrompt(target, seq, report), { label: 'redteam:' + tag, phase: 'Realize', schema: REDTEAM_SCHEMA, effort: 'high', stallMs: STALL })
     return { folder: target, failed: false, empty: false, logs: [...impls, crit, red].filter(Boolean), red, cross_lang: cross, malformed }
   } catch (e) {
     return { folder: target, failed: true, empty: false, logs: [], red: null, cross_lang: [], malformed: [], error: String((e && e.message) || e) } // failure isolation: one thrown chain never rejects the pool
@@ -551,6 +647,7 @@ log('Realize: ' + active.length + '/' + TARGETS.length + ' folder(s) realized ('
   ' pin(s) + ' + seamsReported.length + ' seam row(s) reported' + (failed.length ? '; failed: ' + failed.join(', ') : ''))
 
 // --- [PINS]
+
 let pinlog = null
 if (pinsReported.length || seamsReported.length) {
   phase('Pins')

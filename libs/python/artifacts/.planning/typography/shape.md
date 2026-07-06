@@ -34,7 +34,7 @@ from msgspec import Struct
 from opentelemetry import trace
 from stamina import AsyncRetryingCaller
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 lazy import uharfbuzz as hb

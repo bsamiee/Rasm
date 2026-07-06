@@ -1,6 +1,6 @@
 # [PY_COMPUTE_STUDY]
 
-The one study-spine owner over design-of-experiments sampling, global sensitivity analysis, and surrogate fitting. `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union OWNS its fold: `StudyMethod.design`/`discrepancy`/`indices` are three total `match` case methods taking `axes` as payload — the inference `Distribution.declare` and model `ValidationCheck.run` discipline — never a detached free function reaching back into the union. `Study.run` weaves the one `study.run` span over the `boundary` fault fence, the `@beartype(conf=FAULT_CONF)`-guarded `_execute`, and the `@receipted(_REDACTION)` egress aspect into a single rail the way `experiments/inference.md#BAYESIAN` and `experiments/model.md#ASSET` do, so the run is a traced, fault-railed, receipted leg and receipt emission is the decorator rail `observability/receipts.md#RECEIPT` declares, never an inline `Signals.emit` threaded through the body.
+The one study-spine owner over design-of-experiments sampling, global sensitivity analysis, and surrogate fitting. `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union OWNS its fold: `StudyMethod.design`/`discrepancy`/`indices` are three total `match` case methods taking `axes` as payload — the inference `Distribution.declare` and model `ValidationCheck.run` discipline — never a detached free function reaching back into the union. `Study.run` weaves the one `study.run` span over the `boundary` fault fence, the `@beartype(conf=FAULT_CONF)`-guarded `_execute`, and the weave's fenced `@receipted(REDACTION)` harvest into a single rail the way `experiments/inference.md#BAYESIAN` and `experiments/model.md#ASSET` do, so the run is a traced, fault-railed, receipted leg and receipt emission is the decorator rail `observability/receipts.md#RECEIPT` declares, never an inline `Signals.emit` threaded through the body.
 
 Four polymorphic surfaces carry every variation. `StudyMethod` is the `@tagged_union` over the `scipy.stats.qmc` `Sobol`/`Halton`/`LatinHypercube` engines, the SALib sensitivity family (Sobol, Morris, FAST, RBD-FAST, delta, PAWN, DGSM, HDMR) composed through one `ProblemSpec` fluent pipeline, and the `numpy.polynomial`-and-scikit-learn surrogate band — every case a row on one owner, with the eight SALib methods collapsed to one `SALIB_ROUTES` `Map[SalibTag, SalibRoute]` table whose named `sample_module`/`analyze_module`/`result_key`/`needs_design` fields drive one routed sampler body and one routed analyzer body, the per-method knobs (`morris` `num_levels`) folded from the case payload through `_salib_args` rather than a hardcoded arm beside the table. `Objective` is the input-shape-parameterized carrier — a per-row `RowScorer` plus an `Option[BatchScorer]` vectorized fast lane — so a `numpy`-ufunc or SALib-`evaluate`-style matrix objective rides one batch call rather than the per-row loop. `MeasurementMode` is a live discriminant whose `evaluate` folds the design evaluation through `_timed` into one `Measured` value object carrying the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective rather than a fabricated ~1.0 ratio over the identical per-row work timed twice. `AxisDist` is the per-axis input-marginal vocabulary: a non-uniform input is one marginal declared into `problem['dists']` for the SALib samplers and inverse-transformed on the qmc path through `scipy.stats.<dist>.ppf`, never a caller pre-transform. SALib owns sensitivity analysis, so the owner composes its sampler-and-analyzer pair through `ProblemSpec.sample`/`analyze` across every method rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity; the numpy full-factorial and `numpy.polynomial` surrogate floors run on runtime.
 
@@ -12,9 +12,10 @@ Four polymorphic surfaces carry every variation. `StudyMethod` is the `@tagged_u
 
 - Owner: `Study` — the ONE study-lake owner discriminating by a `StudyMethod` axis over the param-axis, sample-grid, objective-route, and measurement spine; DOE sampling, global sensitivity, and surrogate fitting are cases on one owner. The `StudyMethod` union owns its three folds (`design`/`discrepancy`/`indices`), so `Study` carries no detached `_design`/`_indices` free function and `experiments/history.md#RUN_HISTORY` composes `study.method.design(study.axes, seed)`/`study.method.indices(study.axes, design, responses)` directly rather than importing a `_`-prefixed private across the package seam. `RunHistory` rides the same spine for persistence and resume; the benchmark concern is the live `MeasurementMode` discriminant folded into `Measured`, never a parallel benchmark owner.
 - Cases: `StudyMethod` discriminates the DOE samplers (`StudyMethod(lhs=n)`, `StudyMethod(sobol=n)`, and `StudyMethod(halton=n)` over the one `scipy.stats.qmc.LatinHypercube`/`Sobol`/`Halton` engine family with the `ParamAxis.rescale` box-map-or-`ppf` fold and the `qmc.discrepancy` uniformity score, `StudyMethod(factorial=levels)` numpy full-factorial floor), the SALib sensitivity analyzers (`StudyMethod(morris_screen=(trajectories, levels))`, `StudyMethod(sobol_indices=n)`, `StudyMethod(fast=n)`, `StudyMethod(rbd_fast=n)`, `StudyMethod(delta=n)`, `StudyMethod(pawn=n)`, `StudyMethod(dgsm=n)`, `StudyMethod(hdmr=n)`), and the surrogates (`StudyMethod(polynomial=degree)` over the `numpy.polynomial.Polynomial.fit` per-axis least-squares floor reading in-sample `R^2`, `StudyMethod(surrogate=kind)` over the scikit-learn estimator protocol reading the cross-validated `R^2`). The union's keyword constructor is the one construction surface, no sibling factory family. The eight SALib analyzers are not eight bodies: `SALIB_ROUTES` carries one `SalibRoute` value object per tag — `sample_module`/`analyze_module`/`result_key`/`needs_design` read by name, with `route.sampler()`/`route.analyzer()` resolving `SALib.sample.<module>`/`SALib.analyze.<module>` — so `StudyMethod.design` runs one routed sampler body and `StudyMethod.indices` one routed analyzer body across all eight methods including Morris, reads the row's `ResultDict` key, and `set_samples(design)` only when `needs_design` (the Morris/RBD-FAST/delta/PAWN/DGSM/HDMR `X`-and-`Y` analyzers) versus the responses alone (the Sobol/FAST `Y`-only analyzers over their structured design). The per-method sampler/analyzer knobs ride the case payload: `_salib_args` folds `morris_screen=(traj, levels)` to the `(traj, {"num_levels": levels}, {"num_levels": levels})` triple so the SAME `num_levels` threads `morris.sample` and `morris.analyze` — the elementary-effect grid and the index reconstruction agree — while the single-`int` analyzers fold to `(n, {}, {})`, no per-method sampler arm beside the table. `MeasurementMode.evaluate` folds to one `Measured` carrier through the shared `_timed` primitive: `RESULT`/`WALLCLOCK` and the bare `SPEEDUP` (no batch lane) collapse to one timed-`fast` arm differing only in whether the wallclock reports, while `SPEEDUP` with a real `Objective.batch` lane earns the second timed pass folding the honest serial-over-batch ratio — never a dead label, never a positional `(responses, elapsed, speedup)` tuple, never the fabricated ~1.0 ratio of timing the per-row loop twice. Each `ParamAxis` carries one `AxisDist` marginal plus its `params` parameter vector matching the `problem['dists']` distribution's `scipy.stats` parameterization exactly (`unif` `(low, high)`, `norm`/`lognorm` 2-param, `triang` 3-param `(start, end, peak)`, `truncnorm` 4-param `(lower, upper, mean, std)`): `_spec` emits each `bounds` row as the dist's full `params` vector and the non-uniform tags into `problem['dists']` so the SALib samplers shape their own inputs, and `ParamAxis.rescale` reproduces the EXACT `scipy.stats.<dist>.ppf` inverse-transform per dist (`triang.ppf(x, c=peak, loc=start, scale=end-start)`, `exp(norm.ppf(x, ln_mean, ln_std))`, `truncnorm.ppf(x, (lower-mean)/std, (upper-mean)/std, loc=mean, scale=std)`) so the qmc draw and the SALib `dists`-shaped draw are one marginal, never a 2-tuple overload silently truncating the 3- and 4-param vectors into a divergent standard distribution.
-- Entry: `Study.run` opens the one `study.run` `opentelemetry-api` span behind an `is_recording()` attribute gate, runs `boundary(f"study.{tag}", lambda: Study._emit(self._execute(objective, seed)))` inside it, and on the `Ok` arm batches `span_facts` behind the `is_recording()` gate and sets `Status(StatusCode.OK)`; the `Error` arm needs no body because the fence's `_convert` already recorded the cause and set `StatusCode.ERROR` on the active span — the same span-then-fence-then-receipt weave `experiments/inference.md#BAYESIAN` and `experiments/model.md#ASSET` hold, so the trace status and the rail outcome never disagree. `_emit` is the `@receipted(_REDACTION)` static aspect harvesting the receipt's `contribute` stream on exit, so the body threads no inline `Signals.emit`. `_execute` is the `@beartype(conf=FAULT_CONF)`-guarded body: it draws the design through `StudyMethod.design`, evaluates the `Objective` under `MeasurementMode.evaluate` into one `Measured` (the batch lane when present, the per-row stack otherwise), `match`es the design `ContentKey` off the railed `ContentIdentity.of` so a hash `Error` re-raises onto the `boundary`, and folds `StudyReceipt.graded` carrying the method, mode, the `design_cells` row count and the `response_width` per-cell output arity, the per-axis sensitivity indices, the `qmc.discrepancy` design-uniformity score, the elapsed wallclock and `Option[float]` batch speedup, and the design `ContentKey`. The `ProblemSpec` sampler-and-analyzer pipeline is the canonical sensitivity owner, so Morris elementary effects, Saltelli first-and-total-order Sobol indices, RBD-FAST random-balance indices, and Borgonovo delta moment-independent measures are read from SALib, never hand-rolled.
+- Entry: `Study.run(source, lane, *, seed)` is the one `async` polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, and a contract-gated DOE frame (narwhals-typed, admitted through the data `FrameAdmission.admit`/`enforce` gate over `FrameInterop.of(frame_backend)` — the source-bearing interop constructor fed by the `Study.frame_backend` `Backend` policy row, PYARROW default — plus `FrameInterop.schema_of`, decoded to the design matrix and response vector at the boundary) grades a pre-measured cohort — never a second entry. The lane resolves BY PAYLOAD SHAPE: a module-qualified objective crosses the PROCESS band as spec data through the module-level `_run_kernel`, a closure-bearing objective rides the THREAD band, and a lambda objective on the process lane is a deleted form. The hub `evidence_run` weave owns span, fault fence, and the fenced `@receipted(REDACTION)` receipt harvest — the former page-local `_TRACER`/`_REDACTION` mints and inline span open are the deleted forms. The render seam is `StudyReceipt.render`: one self-describing tabular frame projection crossing as content-keyed Arrow bytes through the data-owned `columnar.arrow_bytes` public fold to the artifacts consumer.
 - Receipt: `StudyReceipt.contribute` returns the one-element `tuple[Receipt, ...]` the `ReceiptContributor` port streams — `Receipt.of("compute.study", ("emitted", self.method, facts))` against the runtime two-argument `of(owner, evidence)` contract, never a four-positional call and never a single-`Receipt` return against the `Iterable[Receipt]` port. Native `float` elapsed, discrepancy, speedup, and per-axis indices ride the `EventDict` `dict[str, object]` slots the receipts owner's `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without a `str()` coerce; `span_facts` is the bounded `str | int | float` scalar source the span reads, the full `indices` ledger riding the receipt facts only.
-- Packages: `SALib` (`ProblemSpec` fluent `sample`/`set_samples`/`set_results`/`analyze` with the `samples`/`analysis` accessors, the `SALib.sample.<morris|sobol|fast_sampler|finite_diff|latin>` and `SALib.analyze.<morris|sobol|fast|rbd_fast|delta|pawn|dgsm|hdmr>` submodules resolved through `importlib.import_module`), `scipy` (`stats.qmc.LatinHypercube`/`Sobol`/`Halton` with the SPEC-007 `rng` constructor keyword and `qmc.discrepancy`, the `stats.norm`/`triang`/`truncnorm` `.ppf` percent-point functions inverse-transforming the unit draw to a declared `AxisDist` marginal over the exact `problem['dists']` `scipy.stats` parameterization, with `lognorm` as `exp(norm.ppf(x, ln_mean, ln_std))`), `scikit-learn` (the `pipeline.Pipeline` of `preprocessing.StandardScaler` and a `SurrogateKind`-resolved `base.BaseEstimator` regressor `ensemble.GradientBoostingRegressor`/`ensemble.RandomForestRegressor`/`svm.SVR`/`linear_model.Ridge`, scored through `model_selection.cross_val_score` reading `metrics.r2_score`), `numpy` (`linspace`, `meshgrid`, `stack`, `asarray`, `where`, `exp`, `polynomial.Polynomial.fit`), `expression` (`tagged_union`/`case`/`tag`, `Ok`/`Error`/`Some`/`Nothing`/`Option` with `Option.map`/`default_value`/`is_some` the `Objective.batch` fast-lane fold, the `Map` route/class tables), `msgspec` (`Struct`, `gc=False` on the container-free `SalibRoute`/`Measured` leaves, the `params`-`tuple`-carrying `ParamAxis` and the `RowScorer`+`Option[BatchScorer]`-carrying `Objective` GC-tracked exactly as `experiments/inference.md#BAYESIAN` keeps its `hdi`-tuple `PosteriorSummary`), `beartype` (`@beartype(conf=FAULT_CONF)` fencing the `_execute` body so a contract violation folds onto the rail through the `CLASSIFY` `api` row), `opentelemetry-api` (`trace.get_tracer`/`start_as_current_span`/`Span.set_attributes`/`is_recording`/`set_status`/`Status`/`StatusCode` the one `study.run` span), `time.perf_counter` folded once through the `_timed` measurement primitive the `MeasurementMode.evaluate` arms share, runtime (`FAULT_CONF`/`RuntimeRail`/`boundary`, the railed `ContentIdentity.of`/`ContentKey` over the `CANONICAL_POLICY` default, `Receipt`/`Redaction`/`receipted`/`ReceiptContributor` the `@receipted(_REDACTION)` egress aspect).
+- Packages: `SALib` (`ProblemSpec` fluent `sample`/`set_samples`/`set_results`/`analyze` with the `samples`/`analysis` accessors, the `SALib.sample.<morris|sobol|fast_sampler|finite_diff|latin>` and `SALib.analyze.<morris|sobol|fast|rbd_fast|delta|pawn|dgsm|hdmr>` submodules resolved through `importlib.import_module`), `scipy` (`stats.qmc.LatinHypercube`/`Sobol`/`Halton` with the SPEC-007 `rng` constructor keyword and `qmc.discrepancy`, the `stats.norm`/`triang`/`truncnorm` `.ppf` percent-point functions inverse-transforming the unit draw to a declared `AxisDist` marginal over the exact `problem['dists']` `scipy.stats` parameterization, with `lognorm` as `exp(norm.ppf(x, ln_mean, ln_std))`), `scikit-learn` (the `pipeline.Pipeline` of `preprocessing.StandardScaler` and a `SurrogateKind`-resolved `base.BaseEstimator` regressor `ensemble.GradientBoostingRegressor`/`ensemble.RandomForestRegressor`/`svm.SVR`/`linear_model.Ridge`, scored through `model_selection.cross_val_score` reading `metrics.r2_score`), `numpy` (`linspace`, `meshgrid`, `stack`, `asarray`, `where`, `exp`, `polynomial.Polynomial.fit`), `expression` (`tagged_union`/`case`/`tag`, `Ok`/`Error`/`Some`/`Nothing`/`Option` with `Option.map`/`default_value`/`is_some` the `Objective.batch` fast-lane fold, the `Map` route/class tables), `msgspec` (`Struct`, `gc=False` on the container-free `SalibRoute`/`Measured` leaves, the `params`-`tuple`-carrying `ParamAxis` and the `RowScorer`+`Option[BatchScorer]`-carrying `Objective` GC-tracked exactly as `experiments/inference.md#BAYESIAN` keeps its `hdi`-tuple `PosteriorSummary`), `beartype` (`@beartype(conf=FAULT_CONF)` fencing the `_execute` body so a contract violation folds onto the rail through the `CLASSIFY` `api` row), hub (`EvidenceScope`/`evidence_run` — the span/fence/harvest weave), `time.perf_counter` folded once through the `_timed` measurement primitive the `MeasurementMode.evaluate` arms share, runtime (`FAULT_CONF`/`RuntimeRail`/`boundary`, the railed `ContentIdentity.of`/`ContentKey` over the `CANONICAL_POLICY` default, `Receipt`/`Redaction`/`receipted`/`ReceiptContributor` the `@receipted(_REDACTION)` egress aspect).
+- Seams: `numerics/jit` (`JitBackend`/`LoweredSpec` — the loop-kernel batch-lane compile and the symbolic-lowered spec VALUE), `data/tabular` (`FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` — the published DOE-frame admission surfaces, plus `columnar.arrow_bytes` the render-seam serialization fold; no data interior beyond them), hub (`EvidenceScope`/`evidence_run`), runtime (`LanePolicy`/`Modality` the payload-shape lane axis).
 - Growth: a new param axis is one `ParamAxis` coordinate; a new input marginal is one `AxisDist` member plus one `rescale` `.ppf` arm and one `bounds` arm matching its `problem['dists']` `scipy.stats` parameterization, reaching the SALib `dists` channel and the qmc inverse-transform by that single add over the dist's `params` vector; a new SALib analyzer is one `StudyMethod` case plus one `SALIB_ROUTES` `SalibRoute` row, no new body; a new `qmc` engine or numpy floor is one arm on `StudyMethod._qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member plus one `SURROGATE_CLASS` row resolving its scikit-learn class; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; zero new surface.
 
 ```python signature
@@ -29,12 +30,15 @@ from beartype import beartype
 from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.numerics.jit import JitBackend, LoweredSpec
+from rasm.data.tabular.contract import FrameAdmission
+from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
     from SALib import ProblemSpec
@@ -62,9 +66,41 @@ type SalibTag = Literal["morris_screen", "sobol_indices", "fast", "rbd_fast", "d
 class Objective(Struct, frozen=True):
     row: RowScorer
     batch: Option[BatchScorer] = Nothing  # vectorized fast lane; absent objectives score per-row only
+    jit: Option[JitBackend] = Nothing  # the loop-kernel accelerator row the batch lane compiles through
+
+    @staticmethod
+    def lowered(spec: LoweredSpec) -> "Objective":
+        # a symbolic-lowered spec arrives as the jit-minted VALUE: the spec's kernel is the row
+        # scorer and its recommended route arms the batch-lane compile — the symbolic->jit->study
+        # chain with zero symbolic imports.
+        return Objective(row=spec.kernel, jit=Some(spec.route))
+
+    def scorer(self) -> RowScorer:
+        # the batch lane's loop-kernel accelerator: a Some `jit` row compiles the row scorer through
+        # `JitBackend.compile` (the numba njit row for a Python loop kernel) and the study spine
+        # harvests the `Jitted` contribute stream off the rail; a compile fault degrades to the
+        # host row — the fence the receipt prose long described.
+        return self.jit.map(lambda route: route.compile(self.row).map(lambda jitted: jitted.fn).default_value(self.row)).default_value(self.row)
 
     def rows(self, design: np.ndarray) -> np.ndarray:
-        return np.stack([np.asarray(self.row(point), dtype=float) for point in design])
+        scorer = self.scorer()
+        return np.stack([np.asarray(scorer(point), dtype=float) for point in design])
+
+
+def _importable_kernel(objective: Objective) -> bool:
+    # the process-lane payload law: only a module-qualified importable callable set crosses the
+    # process band; a closure or lambda anywhere in the objective drops to the THREAD band.
+    def importable(fn: object) -> bool:
+        name = getattr(fn, "__qualname__", "<lambda>")
+        return "<lambda>" not in name and "<locals>" not in name
+
+    return importable(objective.row) and objective.batch.map(importable).default_value(True)
+
+
+def _run_kernel(study: "Study", objective: Objective, seed: int) -> "RuntimeRail[StudyReceipt]":
+    # the module-level measured kernel — resolvable by import in the worker, the sampler/analyzer/
+    # fit raise converting at the fence and the receipt harvested by the weave.
+    return boundary(f"study.{study.method.tag}", lambda: study._execute(objective, seed))
 
 
 def _timed[T](thunk: Callable[[], T]) -> tuple[T, float]:
@@ -361,10 +397,6 @@ class StudyMethod:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # study facts carry no secret field
-
-_TRACER: Final[trace.Tracer] = trace.get_tracer("compute.study")
-
 # --- [TABLES] ---------------------------------------------------------------------------
 
 # the eight analyzers collapse to one route row per tag driving one sampler body and one analyzer
@@ -435,6 +467,21 @@ class StudyReceipt(Struct, frozen=True):
             "content_key": self.content_key.hex,
         }
 
+    def render(self, design: np.ndarray, responses: np.ndarray, axes: "tuple[ParamAxis, ...]") -> bytes:
+        # the render seam: ONE self-describing tabular frame projection — an axis column per
+        # `ParamAxis` plus the response columns, the schema metadata carrying source, unit,
+        # identifier, and the content key — crossing as content-keyed Arrow bytes through the
+        # data-owned `columnar.arrow_bytes` public fold; the artifacts consumer decodes the frame
+        # and never re-derives the cohort.
+        import pyarrow as pa
+
+        from rasm.data.tabular.columnar import arrow_bytes
+
+        columns = {axis.name: pa.array(np.asarray(design[:, i], dtype=float)) for i, axis in enumerate(axes)}
+        columns |= {f"response_{j}": pa.array(np.asarray(responses).reshape(len(design), -1)[:, j]) for j in range(self.response_width)}
+        metadata = {b"source": b"compute.study", b"identifier": self.method.encode(), b"unit": b"dimensionless", b"content_key": self.content_key.hex.encode()}
+        return bytes(arrow_bytes(pa.table(columns).replace_schema_metadata(metadata)))
+
     def contribute(self) -> Iterable[Receipt]:
         # the runtime `Receipt.of(owner, evidence)` two-argument contract: the `(Phase, subject, facts)`
         # triple mints `fact` at `emitted`. Native `float` indices ride the `EventDict` `dict[str, object]`
@@ -458,32 +505,55 @@ class Study(Struct, frozen=True):
     axes: tuple[ParamAxis, ...]
     method: StudyMethod
     mode: MeasurementMode
+    # the DOE-frame arm's admission source: a data-owned `Backend` policy row (PYARROW the Arrow
+    # interchange default), threaded into `FrameInterop.of` — the interop owner is source-bearing
+    # and a zero-arity `FrameInterop()` is not an owned constructor shape.
+    frame_backend: Backend = Backend.PYARROW
 
-    def run(self, objective: Objective, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
-        # one woven rail: the `study.run` span wraps the `boundary` fence over the
-        # `@beartype(conf=FAULT_CONF)`-guarded `_execute` and the `@receipted(_REDACTION)` egress
-        # aspect, so a sampler/analyzer/fit raise folds onto the rail rather than escaping; the
-        # `Ok` arm batches `span_facts` behind an `is_recording()` gate and sets a total `Status`,
-        # while the `Error` arm needs no body — the fence's `_convert` already recorded the cause and
-        # set ERROR on the active span, exactly the span-then-fence-then-receipt weave
-        # `experiments/inference.md#BAYESIAN` and `experiments/model.md#ASSET` hold.
-        with _TRACER.start_as_current_span("study.run") as span:
-            if span.is_recording():
-                span.set_attributes({"study.method": self.method.tag, "study.mode": self.mode.value})
-            rail = boundary(f"study.{self.method.tag}", lambda: self._emit(self._execute(objective, seed)))
-            match rail:
-                case Ok(receipt):
-                    if span.is_recording():
-                        span.set_attributes(receipt.span_facts)
-                    span.set_status(Status(StatusCode.OK))
-                case Error(_):
-                    pass
-            return rail
+    async def run(self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
+        # ONE polymorphic entry discriminating by input shape — the Objective+axes modality AND the
+        # contract-gated DOE frame — never a second entry. The lane resolves BY PAYLOAD SHAPE: a
+        # module-level objective crosses the PROCESS band as spec data, a closure-bearing objective
+        # rides the THREAD band (a lambda objective on the process lane is a deleted form, never a
+        # runtime pickle crash), and a pre-measured frame decodes inline. The hub weave owns span,
+        # fence, and the fenced `@receipted(REDACTION)` harvest of the `StudyReceipt`.
+        async def dispatch() -> RuntimeRail[StudyReceipt]:
+            match source:
+                case Objective() as objective:
+                    modality = Modality.PROCESS if _importable_kernel(objective) else Modality.THREAD
+                    return (await lane.offload(_run_kernel, self, objective, seed, modality=modality)).bind(lambda rail: rail)
+                case frame:
+                    return self._admit_frame(frame).bind(
+                        lambda decoded: boundary(f"study.{self.method.tag}", lambda: self._graded_frame(*decoded))
+                    )
 
-    @staticmethod
-    @receipted(_REDACTION)
-    def _emit(receipt: StudyReceipt) -> StudyReceipt:
-        return receipt
+        return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch)
+
+    def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
+        # the `[V10]` DOE-frame admission arm: the data-owned `FrameAdmission.admit`/`enforce` gate
+        # proves one Float64 column per `ParamAxis` plus the `response` column through
+        # `FrameInterop.schema_of`, and the decoded design matrix + response vector cross the
+        # boundary as numpy buffers — the published data surfaces only, no data interior.
+        shapes = tuple(FieldShape(field=axis.name, logical_type="Float64", nullable=False) for axis in self.axes)
+        gate = FrameAdmission.of(FrameInterop.of(self.frame_backend), (*shapes, FieldShape(field="response", logical_type="Float64", nullable=False)))
+        return gate.admit(frame).bind(
+            lambda admitted: gate.enforce(admitted).map(
+                lambda _claim: (
+                    np.column_stack([np.asarray(admitted.frame[axis.name], dtype=float) for axis in self.axes]),
+                    np.asarray(admitted.frame["response"], dtype=float),
+                )
+            )
+        )
+
+    def _graded_frame(self, design: np.ndarray, responses: np.ndarray) -> StudyReceipt:
+        # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the
+        # receipt grades the decoded cohort under the same design content key the resume proof reads.
+        measured = Measured(responses[:, None] if responses.ndim == 1 else responses, 0.0, Nothing)
+        match ContentIdentity.of("study", design.tobytes()):
+            case Ok(key):
+                return StudyReceipt.graded(self, design, measured, key)
+            case Error(fault):
+                raise RuntimeError(fault)
 
     @beartype(conf=FAULT_CONF)
     def _execute(self, objective: Objective, seed: int) -> StudyReceipt:
@@ -492,8 +562,10 @@ class Study(Struct, frozen=True):
         # `ContentIdentity.of` returns `RuntimeRail[ContentKey]`, so the design key is `match`ed off the
         # rail inside the already-fenced body and a hash `Error` re-raises onto the `boundary` rather
         # than a bare-`ContentKey` use of the railed owner. The design bytes carry no tessellation
-        # tolerance, so the `CANONICAL_POLICY` default keys the canonical path — never a fresh
-        # `IdentityPolicy()` allocation the runtime content owner rejects.
+        # tolerance, so the `CANONICAL_POLICY` default keys the canonical path — an explicit
+        # `IdentityPolicy()` allocation keys IDENTICALLY (the policy is a frozen single-field value,
+        # so default and fresh allocation are value-equal) and is deleted as pure ceremony, which is
+        # exactly what makes `history`'s resume key provably equal to this design key.
         match ContentIdentity.of("study", design.tobytes()):
             case Ok(key):
                 return StudyReceipt.graded(self, design, measured, key)
@@ -504,7 +576,3 @@ class Study(Struct, frozen=True):
 The per-method SALib semantics anchor the `SALIB_ROUTES` table: `route.sampler()`/`route.analyzer()` resolve the submodule callables, `spec.sample(sampler, ...)` draws the structured design and `spec.set_results(Y)`, `set_samples(X)` feeds the design only for the `route.needs_design` rows, then `analyze(analyzer).analysis` reads `route.result_key` over the `ResultDict`. The Morris row reads `mu_star`, the Sobol and FAST rows read first-and-total-order `ST` (over a Saltelli and a FAST-frequency design), the RBD-FAST row reads first-order `S1` over a Latin-hypercube design, the delta row reads the Borgonovo moment-independent `delta` over a Latin-hypercube design, the PAWN row reads the `median` KS statistic over a Sobol design, the DGSM row reads the derivative-based `dgsm` index over a `finite_diff` design, and the HDMR row reads the per-input sensitivity `S` (`S = Sa + Sb`, length `num_vars`) over a Latin-hypercube design (its `ST` key is the per-component-term total expansion of length `n1 + n2 + n3` — strictly longer than `num_vars` for `d >= 2` — so the per-axis `strict=True` zip reads `S`, never `ST`).
 
 The surrogate seam is the one place the charter boundary holds: the `StudyMethod(surrogate=kind)` row composes a `Pipeline` of `StandardScaler` and a `SurrogateKind.estimator()`-resolved `BaseEstimator` regressor and reads the honest cross-validated `R^2` through `cross_val_score`, never the in-sample fit score, while the `polynomial` row's per-axis `numpy.polynomial.Polynomial.fit` in-sample `R^2` is the cheap univariate screening diagnostic. Classical polynomial and ensemble/kernel regression surrogates are in-scope; a neural surrogate and an acquisition-driven active-learning loop are not.
-
-## [03]-[RESEARCH]
-
-- [SALIB_RESULT_KEYS]: the eight analyze submodules (`morris`, `sobol`, `fast`, `rbd_fast`, `delta`, `pawn`, `dgsm`, `hdmr`) are each catalogued in `compute/.api/salib.md` `[02]` analyze-submodule table, and the two `ResultDict` key families the `.api` `[04]-[IMPLEMENTATION_LAW]` documents anchor the table — Sobol `S1`/`S2`/`ST` and Morris `mu`/`mu_star`/`sigma`. The `SalibRoute.result_key` field selects the per-method scalar each analyzer returns over its `ResultDict`: `morris_screen` reads `mu_star` and the Sobol/FAST variance routes read `ST` (both confirmed key families); `rbd_fast` reads the first-order `S1`, `delta` the Borgonovo moment-independent `delta`, `pawn` the per-input `median` of the KS statistic, `dgsm` the derivative-based `dgsm` index, and `hdmr` the per-input sensitivity `S` (the `salib.md` `[03]` HDMR row catalogues an `Sa`/`Sb`/`ST` expansion; the analyzer's `Sa`/`Sb`/`S` arrays are per-input length `num_vars` — `S = Sa + Sb` the total per-input sensitivity, `Sa` its structural and `Sb` its correlated component — while `ST` is the per-component-term total over `n1 + n2 + n3` expansion terms, so reading `ST` overflows the per-axis `strict=True` zip for `d >= 2` and the route reads `S`) — the standard per-input `ResultDict` key each analyzer emits over an array of length `num_vars`, read by `route.result_key` off the `analysis` accessor rather than re-declared. `ProblemSpec.analyze` threads the stored sample matrix and result array to each analyzer over its signature — the `needs_design` rows (`rbd_fast.analyze(problem, X, Y, M=10, ...)`, `delta.analyze(problem, X, Y, ..., method='all')`, `pawn.analyze(problem, X, Y, S=10)` are catalogued in `salib.md` `[03]` analyze table; the `dgsm`/`hdmr` analyzers take `(problem, X, Y, ...)` over their imported signature; `morris.analyze(problem, X, Y)`) call `set_samples(design)` before `analyze`, while the `Y`-only rows (`sobol.analyze(problem, Y)`/`fast.analyze(problem, Y)`) read the responses against their structured design — each keyed by axis name so a `RunHistory` compare join lands on matching rows.

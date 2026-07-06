@@ -1,33 +1,33 @@
 # [PY_COMPUTE_JIT]
 
-The one polymorphic JIT owner collapsing the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler into a single backend-discriminated route table. `JitBackend` is one `@tagged_union` whose `Literal` tag selects the compile route — numba `njit`, numba `vectorize`/`guvectorize`, or jax `jit` — and one `_JIT_ROUTES` `FrozenDict[Tag, Capture]` carries the per-route compile-and-capture closure as data — the bare `_capture_*` function IS the row, never a single-field wrapper struct over it — so `compile` indexes one row and folds one `Jitted` rather than a four-arm `match` fanning the shared decorate -> warm-probe -> read-lowered-IR pattern across parallel bodies. The captured lowered-IR evidence rides the `JitEvidence` `@tagged_union` that parameterizes the output the way `JitBackend` parameterizes the input: `Llvm`/`Ufunc`/`Xla`/`Host` each name only their own facts through a total `facts()` projection, never one `dict[str, str]` of default-empty slots restating every route's fields. The `none` passthrough is the unconditional runtime floor reachable for every kernel, so a runtime run without the gated packages returns the host callable as `Host` evidence rather than `Error(Import)`. numba is a loop-kernel compiler and jax is an XLA array-transform compiler; both are admitted here as study-kernel accelerators on one owner, distinct from the Array-API backend dispatch in `numerics/array.md#PAYLOAD` where jax rides `array_namespace` as a backend rather than a wrap.
+The one polymorphic JIT owner collapsing the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler into a single backend-discriminated route table. `JitBackend` is one `@tagged_union` whose `Literal` tag selects the compile route — numba `njit`, numba `vectorize`/`guvectorize`, or jax `jit` — and one `_JIT_ROUTES` `Map[Tag, Capture]` carries the per-route compile-and-capture closure as data — the bare `_capture_*` function IS the row, never a single-field wrapper struct over it — so `compile` indexes one row and folds one `Jitted` rather than a four-arm `match` fanning the shared decorate -> warm-probe -> read-lowered-IR pattern across parallel bodies. The captured lowered-IR evidence rides the `JitEvidence` `@tagged_union` that parameterizes the output the way `JitBackend` parameterizes the input: `Llvm`/`Ufunc`/`Xla`/`Host` each name only their own facts through a total `facts()` projection, never one `dict[str, str]` of default-empty slots restating every route's fields. The `none` passthrough is the unconditional runtime floor reachable for every kernel, so a runtime run without the gated packages returns the host callable as `Host` evidence rather than `Error(Import)`. numba is a loop-kernel compiler and jax is an XLA array-transform compiler; both are admitted here as study-kernel accelerators on one owner, distinct from the Array-API backend dispatch in `numerics/array.md#PAYLOAD` where jax rides `array_namespace` as a backend rather than a wrap. This owner additionally MINTS the lowered-spec vocabulary of the symbolic->jit->consumer lowering chain: `LoweredSpec` is the value `analysis/symbolic.md#DERIVATION` emits off its `_lower` fold (the lambdify/codegen callable plus its arity, dtype signature, and recommended route) and `experiments/study.md#STUDY` and `solvers/quadrature.md#QUADRATURE` compile through `JitBackend.compile` — DAG-lawful by construction: symbolic imports jit downward to TYPE its emission, the consumers import jit ONLY, and a symbolic-derived spec reaches them as a value, never a symbolic import. The `Cfunc` route row compiles a C-ABI callback (`numba.cfunc`) beside the standing `Njit`/`Vectorize`/`JaxJit` rows for the quadax/scipy callback consumers.
 
 ## [01]-[INDEX]
 
-- [01]-[JIT]: numba `njit`/`vectorize`/`guvectorize` and jax `jit` collapsed into one backend-discriminated `JitBackend` owner over one `_JIT_ROUTES` compile-and-capture table, folding the `JitEvidence` discriminated lowered-IR carrier through one railed `ContentIdentity`-keyed `Jitted` receipt — no four-arm dispatch, no parallel receipt union, no stringly evidence map.
+- [01]-[JIT]: numba `njit`/`vectorize`/`guvectorize`/`cfunc` and jax `jit` collapsed into one backend-discriminated `JitBackend` owner over one `_JIT_ROUTES` compile-and-capture table, folding the `JitEvidence` discriminated lowered-IR carrier through one railed `ContentIdentity`-keyed `Jitted` receipt, plus the jit-minted `LoweredSpec` vocabulary of the symbolic->jit->consumer lowering bridge — no five-arm dispatch, no parallel receipt union, no stringly evidence map.
 
 ## [02]-[JIT]
 
-- Owner: `JitBackend` — the numba-and-jax JIT cases on the one accelerator; `Njit(parallel, fastmath, cache, boundscheck, nogil)`, `Vectorize(signatures, target, layout)`, `JaxJit(static_argnums, donate_argnums)`, and the `none` passthrough each discriminate the compile route, and the `Capture` closure is the one row carrying the route's compile body (decorate the kernel, run the typed `Specimen` warm probe, read the lowered IR into the matching `JitEvidence` case) as data — the bare `_capture_*` function keyed directly in `_JIT_ROUTES`, no single-field row struct between. The numba `njit` row runs `numba.njit(cache=, parallel=, fastmath=, boundscheck=, nogil=)`; the numba `vectorize` row runs `numba.vectorize(signatures, target=)` (or `numba.guvectorize(signatures, layout, target=)` when the `layout` column is present); the jax row runs `jax.jit(static_argnums=, donate_argnums=)`. The four routes are four `_JIT_ROUTES` rows over one fold — the decorator, its options, the warm probe, and the lowered-IR read are the row, each row a bare `_capture_*` function reference carrying the full `Capture` arity (the `numba`/`jax` import scoped inside each body, so the table is an eager import-free module constant) — never four `match` arms, never a per-decorator method family, never parallel wrap modules, never a second union restating the same tag, never a forwarding lambda where the capture already holds the row signature.
+- Owner: `JitBackend` — the numba-and-jax JIT cases on the one accelerator; `Njit(parallel, fastmath, cache, boundscheck, nogil)`, `Vectorize(signatures, target, layout)`, `Cfunc(signature)`, `JaxJit(static_argnums, donate_argnums)`, and the `none` passthrough each discriminate the compile route, and the `Capture` closure is the one row carrying the route's compile body (decorate the kernel, run the typed `Specimen` warm probe, read the lowered IR into the matching `JitEvidence` case) as data — the bare `_capture_*` function keyed directly in `_JIT_ROUTES`, no single-field row struct between. The numba `njit` row runs `numba.njit(cache=, parallel=, fastmath=, boundscheck=, nogil=)`; the numba `vectorize` row runs `numba.vectorize(signatures, target=)` (or `numba.guvectorize(signatures, layout, target=)` when the `layout` column is present); the `cfunc` row runs `numba.cfunc(signature)` capturing the C-ABI `address` beside the compiled callback; the jax row runs `jax.jit(static_argnums=, donate_argnums=)`. The five routes are five `_JIT_ROUTES` rows over one fold — the decorator, its options, the warm probe, and the lowered-IR read are the row, each row a bare `_capture_*` function reference carrying the full `Capture` arity (the `numba`/`jax` import scoped inside each body, so the table is an eager import-free module constant) — never four `match` arms, never a per-decorator method family, never parallel wrap modules, never a second union restating the same tag, never a forwarding lambda where the capture already holds the row signature.
 - Request axis: `Specimen` is the ONE typed warm-probe carrier the routes consume rather than untyped `*probe: object` varargs — `Specimen.of(*args)` folds the concrete argument tuple a route forces one specialization against, and the empty `Specimen()` is the unarmed probe that leaves a route unspecialized, gated by `Specimen.is_armed`. The numba `njit` route calls the dispatcher on the specimen to compile one signature; the jax row threads the same specimen through one `make_jaxpr(return_shape=True)` trace. One carrier parameterizes the input across every route the way `JitEvidence` parameterizes the output, so a route never reads a positional `probe[0]` off an erased tuple and the `none`/`vectorize` routes ignore the specimen total.
-- Output axis: `JitEvidence` is the `@tagged_union` lowered-IR carrier discriminating the captured evidence by route — `Llvm(signature, parallel, fastmath, cached, ir_lines, diagnostics_lines)` for the numba njit specialization (`diagnostics_lines` the realized parallel-region report-line count captured off `parallel_diagnostics`, distinct from the requested `parallel` flag), `Ufunc(signature, layout, target)` for the vectorize/guvectorize lift, `Xla(static_argnums, out_shape, out_dtype, jaxpr_lines)` for the traced jax transform, and `Host()` for the passthrough — each owning a total `facts()` projection of native scalars. The XLA case mirrors the input precision: `static_argnums` rides as the native `tuple[int, ...]` the `JaxJit` request carries and `out_shape` as the native `tuple[int, ...]` read off the traced `ShapeDtypeStruct.shape` (with `out_dtype` its `str`-named dtype), never a `repr(static_argnums)`/`repr(out_shape)` stringified slot the `enc_hook=repr` receipt renderer would double-quote — the same native-scalar discipline the `Llvm` case holds for its `bool`/`int` fields. The receipt spreads only the slots the matched case carries, so an LLVM specialization names `signature`/`ir_lines` and an XLA trace names `out_shape`/`jaxpr_lines` without a `Llvm(..., out_shape=(), jaxpr_lines=0)` overload smuggling jax fields onto the numba case. This is the same discriminated-output collapse `analysis/signal.md#SIGNAL` applies to `SignalEvidence` and `analysis/spatial.md#SPATIAL` to its query evidence, never one `dict[str, str]` of every route's union of slots.
-- Receipt: `Jitted` is the typed compile-evidence carrier — the compiled callable, the originating `JitBackend` case, the keying `ContentKey`, and the `JitEvidence` lowered-IR union folded off the route. `Jitted.contribute` yields into the `Iterable[Receipt]` the runtime `ReceiptContributor` port declares — one `Receipt.of("compute.jit", ("emitted", self.backend.tag, facts))` row against the two-argument `of(owner, evidence)` contract over the `(Phase, subject, facts)` triple, the `facts` map spreading the route tag, the `content_key.project("hex")` render, and only the slots the matched `JitEvidence` carries through its own `facts()`. `compile` returns the resolved `Jitted` whole on the `Ok` arm rather than threading an inline `Signals.emit` through the compile body, so the consuming solve/study spine harvests the one `contribute` stream where it composes the `Jitted` — the `analysis/signal.md#SIGNAL` `SignalReceipt`-on-the-rail convention, never re-deriving the compile facts downstream.
-- Packages: `numba` (`njit`, `vectorize`, `guvectorize`, the `CPUDispatcher.signatures`/`inspect_llvm`/`parallel_diagnostics` evidence-capture surface read off the `TYPE_CHECKING` `Dispatcher` `Protocol`), `jax` (`jit`, `make_jaxpr(return_shape=True)` returning the jaxpr and the output-structure pytree of `ShapeDtypeStruct` leaves in one trace, `tree_util.tree_leaves` reading the leading out-spec leaf so a multi-output kernel never raises on a `tuple`/`dict` pytree, the leaf `ShapeDtypeStruct.shape`/`.dtype` read off the `TYPE_CHECKING` `ShapeDtypeStruct` `Protocol` into the native `Xla` shape tuple and dtype name), `beartype` (`door.is_bearable` the kernel-callability `TypeIs` guard rejecting a non-callable before the gated import, `FrozenDict` the `_JIT_ROUTES` route table), `expression` (`tag`/`case`/`tagged_union` the `JitBackend`/`JitEvidence` unions, `Error` the pure non-callable reject arm), `msgspec` (`Struct` the `Jitted`/`Specimen` carriers, both GC-tracked because each holds a container field — `Specimen` the `args` tuple, `Jitted` the `fn` callable and the `backend`/`evidence` unions — never the `gc=False`-on-a-container-carrier deleted form; the route row is the bare `Capture` closure keyed in `_JIT_ROUTES`, not a struct), stdlib (`io.StringIO`/`contextlib.redirect_stdout` capturing the `parallel_diagnostics` stdout report into the `diagnostics_lines` count), runtime (`RuntimeRail`/`boundary`/`BoundaryFault` from `runtime/faults`, `ContentIdentity`/`ContentKey` from `runtime/content_identity`, `Receipt`/`ReceiptContributor` from `runtime/receipts`).
-- Growth: a new loop-kernel compiler is one `JitBackend` case plus one `_JIT_ROUTES` row carrying its compile closure and the matching `JitEvidence` case; a new numba option is one column on the `Njit`/`Vectorize` tuple absorbed by the existing decorator call; a generalized ufunc is the `layout` column already on `Vectorize`; a new captured-IR fact is one slot on the route's `JitEvidence` case plus its `facts()` arm; zero new surface, never a per-backend accelerator owner, never parallel numba-wrap and jax-wrap modules, never a per-mode receipt union mirroring the backend tag, never a four-arm dispatch fold parallel to the route table.
+- Output axis: `JitEvidence` is the `@tagged_union` lowered-IR carrier discriminating the captured evidence by route — `Llvm(signature, parallel, fastmath, cached, ir_lines, diagnostics_lines)` for the numba njit specialization (`diagnostics_lines` the realized parallel-region report-line count captured off `parallel_diagnostics`, distinct from the requested `parallel` flag), `Ufunc(signature, layout, target)` for the vectorize/guvectorize lift, `Xla(static_argnums, out_shape, out_dtype, jaxpr_lines)` for the traced jax transform, and `Host()` for the passthrough — each owning a total `facts()` projection of native scalars. The XLA case mirrors the input precision: `static_argnums` rides as the native `tuple[int, ...]` the `JaxJit` request carries and `out_shape` as the native `tuple[int, ...]` read off the traced `ShapeDtypeStruct.shape` (with `out_dtype` its `str`-named dtype), never a `repr(static_argnums)`/`repr(out_shape)` stringified slot the `enc_hook=repr` receipt renderer would double-quote — the same native-scalar discipline the `Llvm` case holds for its `bool`/`int` fields. The receipt spreads only the slots the matched case carries, so an LLVM specialization names `signature`/`ir_lines` and an XLA trace names `out_shape`/`jaxpr_lines` without a `Llvm(..., out_shape=(), jaxpr_lines=0)` overload smuggling jax fields onto the numba case. This is the same discriminated-output collapse `analysis/signal.md#DSP` applies to `SignalEvidence` and `analysis/spatial.md#SPATIAL` to its query evidence, never one `dict[str, str]` of every route's union of slots.
+- Receipt: `Jitted` is the typed compile-evidence carrier — the compiled callable, the originating `JitBackend` case, the keying `ContentKey`, and the `JitEvidence` lowered-IR union folded off the route. `Jitted.contribute` yields into the `Iterable[Receipt]` the runtime `ReceiptContributor` port declares — one `Receipt.of("compute.jit", ("emitted", self.backend.tag, facts))` row against the two-argument `of(owner, evidence)` contract over the `(Phase, subject, facts)` triple, the `facts` map spreading the route tag, the `content_key.project("hex")` render, and only the slots the matched `JitEvidence` carries through its own `facts()`. `compile` returns the resolved `Jitted` whole on the `Ok` arm rather than threading an inline `Signals.emit` through the compile body, so the consuming solve/study spine harvests the one `contribute` stream where it composes the `Jitted` — the `analysis/signal.md#DSP` `SignalReceipt`-on-the-rail convention, never re-deriving the compile facts downstream.
+- Packages: `numba` (`njit`, `vectorize`, `guvectorize`, `cfunc` the C-ABI callback route, the `CPUDispatcher.signatures`/`inspect_llvm`/`parallel_diagnostics` evidence-capture surface read off the `TYPE_CHECKING` `Dispatcher` `Protocol`), `jax` (`jit`, `make_jaxpr(return_shape=True)` returning the jaxpr and the output-structure pytree of `ShapeDtypeStruct` leaves in one trace, `tree_util.tree_leaves` reading the leading out-spec leaf so a multi-output kernel never raises on a `tuple`/`dict` pytree, the leaf `ShapeDtypeStruct.shape`/`.dtype` read off the `TYPE_CHECKING` `ShapeDtypeStruct` `Protocol` into the native `Xla` shape tuple and dtype name), `beartype` (`door.is_bearable` the kernel-callability `TypeIs` guard rejecting a non-callable before the gated import), `expression.collections` (`Map` the `_JIT_ROUTES` route table — the folder's one dispatch rail), `expression` (`tag`/`case`/`tagged_union` the `JitBackend`/`JitEvidence` unions, `Error` the pure non-callable reject arm), `msgspec` (`Struct` the `Jitted`/`Specimen` carriers, both GC-tracked because each holds a container field — `Specimen` the `args` tuple, `Jitted` the `fn` callable and the `backend`/`evidence` unions — never the `gc=False`-on-a-container-carrier deleted form; the route row is the bare `Capture` closure keyed in `_JIT_ROUTES`, not a struct), stdlib (`io.StringIO`/`contextlib.redirect_stdout` capturing the `parallel_diagnostics` stdout report into the `diagnostics_lines` count), runtime (`RuntimeRail`/`boundary`/`BoundaryFault` from `runtime/faults`, `ContentIdentity`/`ContentKey` from `runtime/identity`, `Receipt`/`ReceiptContributor` from `runtime/receipts`).
+- Growth: a new loop-kernel compiler is one `JitBackend` case plus one `_JIT_ROUTES` row carrying its compile closure and the matching `JitEvidence` case (the `Cfunc` C-ABI row is exactly that path realized); a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new numba option is one column on the `Njit`/`Vectorize` tuple absorbed by the existing decorator call; a generalized ufunc is the `layout` column already on `Vectorize`; a new captured-IR fact is one slot on the route's `JitEvidence` case plus its `facts()` arm; zero new surface, never a per-backend accelerator owner, never parallel numba-wrap and jax-wrap modules, never a per-mode receipt union mirroring the backend tag, never a four-arm dispatch fold parallel to the route table.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterable
 from contextlib import redirect_stdout
-from typing import TYPE_CHECKING, Literal, Protocol, assert_never
+from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 
-from beartype import FrozenDict
 from beartype.door import is_bearable
 from expression import Error, case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
-type Tag = Literal["njit", "vectorize", "jax_jit", "none"]
+type Tag = Literal["njit", "vectorize", "cfunc", "jax_jit", "none"]
 type Kernel = Callable[..., object]  # the study kernel; numba reads numpy arrays, jax reads its own `Array`
 # one route row: (kernel, specimen, backend) -> (compiled callable, captured IR); the bare closure IS
 # the row, so the `_JIT_ROUTES` table keys `Tag -> Capture` with no single-field wrapper struct between.
@@ -87,9 +87,10 @@ class JitEvidence:
     # shape, not one `dict[str, str]` of every route's slots. `facts()` is the total projection the
     # receipt spreads, so each case names only its own native-scalar slots. `Xla` is its own case
     # rather than an `Llvm(..., out_shape=(), jaxpr_lines=0)` overload smuggling jax fields onto numba.
-    tag: Literal["llvm", "ufunc", "xla", "host"] = tag()
+    tag: Literal["llvm", "ufunc", "cabi", "xla", "host"] = tag()
     llvm: tuple[str, bool, bool, bool, int, int] = case()  # signature, parallel, fastmath, cached, ir_lines, diagnostics_lines
     ufunc: tuple[str, str, str] = case()  # signature, layout, target
+    cabi: tuple[str, int] = case()  # signature, address
     xla: tuple[tuple[int, ...], tuple[int, ...], str, int] = case()  # static_argnums, out_shape, out_dtype, jaxpr_lines
     host: tuple[()] = case()
 
@@ -100,6 +101,10 @@ class JitEvidence:
     @staticmethod
     def Ufunc(signature: str, layout: str, target: str) -> "JitEvidence":
         return JitEvidence(ufunc=(signature, layout, target))
+
+    @staticmethod
+    def Cabi(signature: str, address: int) -> "JitEvidence":
+        return JitEvidence(cabi=(signature, address))
 
     @staticmethod
     def Xla(static_argnums: tuple[int, ...], out_shape: tuple[int, ...], out_dtype: str, jaxpr_lines: int) -> "JitEvidence":
@@ -123,6 +128,8 @@ class JitEvidence:
                 }
             case JitEvidence(tag="ufunc", ufunc=(signature, layout, target)):
                 return {"mode": "gufunc" if layout else "ufunc", "signature": signature, "layout": layout or "<elementwise>", "target": target}
+            case JitEvidence(tag="cabi", cabi=(signature, address)):
+                return {"mode": "cabi", "signature": signature, "address": address}
             case JitEvidence(tag="xla", xla=(static_argnums, out_shape, out_dtype, jaxpr_lines)):
                 return {"mode": "xla", "static_argnums": static_argnums, "out_shape": out_shape, "out_dtype": out_dtype, "jaxpr_lines": jaxpr_lines}
             case JitEvidence(tag="host", host=()):
@@ -157,6 +164,7 @@ class JitBackend:
     tag: Tag = tag()
     njit: tuple[bool, bool, bool, bool, bool] = case()  # parallel, fastmath, cache, boundscheck, nogil
     vectorize: tuple[tuple[str, ...], Literal["cpu", "parallel"], str] = case()  # signatures, target, layout
+    cfunc: tuple[str] = case()  # the numba C signature string, e.g. "float64(float64, voidptr)"
     jax_jit: tuple[tuple[int, ...], tuple[int, ...]] = case()  # static_argnums, donate_argnums
     none: tuple[()] = case()
 
@@ -167,6 +175,10 @@ class JitBackend:
     @staticmethod
     def Vectorize(signatures: tuple[str, ...], *, target: Literal["cpu", "parallel"] = "cpu", layout: str = "") -> "JitBackend":
         return JitBackend(vectorize=(signatures, target, layout))
+
+    @staticmethod
+    def Cfunc(signature: str) -> "JitBackend":
+        return JitBackend(cfunc=(signature,))
 
     @staticmethod
     def JaxJit(*, static_argnums: tuple[int, ...] = (), donate_argnums: tuple[int, ...] = ()) -> "JitBackend":
@@ -186,13 +198,37 @@ class JitBackend:
         # `ImportError`. `compile` is the `RuntimeRail[Jitted]` boundary owner returning the resolved
         # `Jitted` contributor whole on the `Ok` arm, so the consuming solve/study spine harvests its
         # `contribute` stream where it composes the `Jitted`, never an inline `emit` here — the
-        # `analysis/signal.md#SIGNAL` `SignalReceipt`-on-the-rail convention.
+        # `analysis/signal.md#DSP` `SignalReceipt`-on-the-rail convention.
         if not is_bearable(kernel, Kernel):
             return Error(BoundaryFault(boundary=(f"jit.{self.tag}", "kernel-not-callable")))
-        buffer = _identity_buffer(kernel, specimen)
-        return ContentIdentity.of(f"jit.{self.tag}", buffer).bind(
+        return ContentIdentity.of(f"jit.{self.tag}", self.identity_buffer(kernel, specimen)).bind(
             lambda key: boundary(f"jit.{self.tag}", lambda: self._compiled(kernel, specimen, key))
         )
+
+    def identity_buffer(self, kernel: Kernel, specimen: "Specimen") -> bytes:
+        # the FULL compile identity, owned by the route: every option column that changes the compiled
+        # artifact (the numba flag quintet, the vectorize signatures/target/layout, the C signature, the
+        # jax static/donate argnum tuples) beside the kernel's qualified name and the specimen
+        # dtype/shape signature — so one kernel compiled under two option payloads never shares a
+        # `ContentKey`. The closure source is not byte-stable across runs; tag + qualname + probe
+        # signature + option row is the stable accelerator-capture buffer.
+        row: tuple[object, ...]
+        match self:
+            case JitBackend(tag="njit", njit=options):
+                row = options
+            case JitBackend(tag="vectorize", vectorize=(signatures, target, layout)):
+                row = (repr(signatures), target, layout)
+            case JitBackend(tag="cfunc", cfunc=(signature,)):
+                row = (signature,)
+            case JitBackend(tag="jax_jit", jax_jit=(static_argnums, donate_argnums)):
+                row = (repr(static_argnums), repr(donate_argnums))
+            case JitBackend(tag="none", none=()):
+                row = ()
+            case _ as unreachable:
+                assert_never(unreachable)
+        probe = "|".join(f"{type(a).__name__}:{getattr(a, 'shape', ())}:{getattr(a, 'dtype', '')}" for a in specimen.args)
+        cells = "|".join(str(cell) for cell in row)
+        return f"{self.tag}|{getattr(kernel, '__qualname__', repr(kernel))}|{probe}|{cells}".encode()
 
     def _compiled(self, kernel: Kernel, specimen: "Specimen", key: ContentKey) -> "Jitted":
         # the route reads its option payload off `self`; the table key is the tag and the payload is
@@ -202,16 +238,6 @@ class JitBackend:
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
-
-
-def _identity_buffer(kernel: Kernel, specimen: "Specimen") -> bytes:
-    # the canonical content-identity buffer the `whole` modality keys (named `buffer`, not `seed`, to
-    # stay distinct from the `ContentIdentity.of` `seed: Option[U64]` override): the kernel's qualified
-    # name joined with the specimen shape signature, so two compiles of the same kernel against the same
-    # probe key identically and a changed probe re-keys. The closure source is not byte-stable across
-    # runs; the qualname plus the probe dtype/shape is the stable accelerator-capture buffer.
-    probe = "|".join(f"{type(a).__name__}:{getattr(a, 'shape', ())}:{getattr(a, 'dtype', '')}" for a in specimen.args)
-    return f"{getattr(kernel, '__qualname__', repr(kernel))}|{probe}".encode()
 
 
 def _capture_njit(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
@@ -258,6 +284,17 @@ def _capture_jax(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") ->
     return fn, JitEvidence.Xla(static_argnums, (), "<unspecialized>", 0)
 
 
+def _capture_cfunc(kernel: Kernel, _specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
+    import numba
+
+    # the C-ABI callback route: `numba.cfunc(signature)` compiles ahead-of-call, and the `.address`
+    # integer is the callback pointer a quadax/scipy `LowLevelCallable` consumer binds; the compiled
+    # object stays Python-callable through `.ctypes`, so the returned kernel is uniformly invocable.
+    (signature,) = backend.cfunc
+    fn = numba.cfunc(signature)(kernel)
+    return fn, JitEvidence.Cabi(signature, int(fn.address))
+
+
 def _capture_host(kernel: Kernel, _specimen: "Specimen", _backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
     return kernel, JitEvidence.Host()
 
@@ -281,18 +318,33 @@ def _diagnostics_lines(fn: "Dispatcher") -> int:
 # the matching `JitEvidence` case. Each `_capture_*` already holds the full `Capture` arity, so the row
 # is the bare function reference — no single-field wrapper struct and no forwarding lambda intercedes;
 # the gated `numba`/`jax` import stays inside each body, so the table is an eager import-free module
-# constant the dispatch indexes directly, anchored after the captures the module-level `FrozenDict`
+# constant the dispatch indexes directly, anchored after the captures the module-level `Map`
 # resolves at load. `_compiled` indexes one row rather than a four-arm `match` fanning the shared
 # decorate -> probe -> read pattern across parallel bodies. The `none` row ignores the specimen total.
-_JIT_ROUTES: FrozenDict[Tag, Capture] = FrozenDict({
-    "njit": _capture_njit,
-    "vectorize": _capture_vectorize,
-    "jax_jit": _capture_jax,
-    "none": _capture_host,
-})
+_JIT_ROUTES: Final[Map[Tag, Capture]] = Map.of_seq([
+    ("njit", _capture_njit),
+    ("vectorize", _capture_vectorize),
+    ("cfunc", _capture_cfunc),
+    ("jax_jit", _capture_jax),
+    ("none", _capture_host),
+])
+
+
+# --- [EXPORTS] -------------------------------------------------------------------------------
+
+
+class LoweredSpec(Struct, frozen=True):
+    # the jit-MINTED lowered-callable spec vocabulary of the symbolic->jit->consumer bridge:
+    # `analysis/symbolic.md#DERIVATION` emits it off its `_lower` fold (the lambdify/codegen callable
+    # plus arity, dtype signature, and the recommended route row), and `experiments/study.md#STUDY` /
+    # `solvers/quadrature.md#QUADRATURE` compile it — a symbolic-derived spec crosses as a VALUE, so
+    # no consumer imports symbolic and the DAG carries no back-edge.
+    kernel: Kernel
+    name: str
+    arity: int
+    signature: str = ""
+    route: JitBackend = JitBackend.Passthrough()
+
+    def compiled(self, specimen: Specimen = Specimen()) -> "RuntimeRail[Jitted]":
+        return self.route.compile(self.kernel, specimen)
 ```
-
-## [03]-[RESEARCH]
-
-- [ROUTE_TABLE]: `_JIT_ROUTES` is the `beartype.FrozenDict[Tag, Capture]` the dispatch resolves by `JitBackend.tag`, the same callable-row table `numerics/statistics.md#STATISTICS` builds for `_STAT_ROUTES` and `analysis/signal.md#SIGNAL` for its wavelet routes — each row the route's bare `_capture_*` function (every capture holds the full `Capture` arity, so neither a forwarding lambda nor a single-field `JitRoute` wrapper intercedes; the sibling `_STAT_ROUTES` carries a two-cell `StatRoute` only because it pairs `run` with a `Decision`, a second axis this owner has no analogue for), so a new accelerator is one `JitBackend` case plus one row rather than a fifth `match` arm. The `numba`/`jax` import stays boundary-scoped inside each `_capture_*` body per the manifest import policy, so the table is an eager import-free module constant anchored after the captures it references; the route reads its option payload off the bound `JitBackend` the `compile` entry threads, so the table key is the tag and the payload is the case tuple, never a parallel option-passing channel. The `JitEvidence` output union and the `Specimen` input carrier are the input-and-output parameterization the `transport/roots#RESOURCE` `@overload` ladder and the `analysis/signal.md#SIGNAL` `SignalEvidence` collapse share — the compile owner parameterized over both the warm probe it consumes and the lowered-IR shape it emits.
-- [RECEIPT_SHAPE]: `Jitted.contribute` yields into the `Iterable[Receipt]` the `runtime/observability/receipts#RECEIPT` `ReceiptContributor` Protocol declares (`contribute(self) -> Iterable[Receipt]`), and the row is `Receipt.of("compute.jit", ("emitted", backend_tag, facts))` — the two-argument shape-polymorphic factory over the `(Phase, subject, facts)` `Evidence` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` the factory does not admit and never a bare `Receipt` return against the `Iterable[Receipt]` port. `JitEvidence` parameterizes the output shape and owns its own `facts()` projection, so the receipt spreads only the slots the matched case carries beside the `backend` tag and the `content_key.project("hex")` render, the dedicated `Xla` case keeping a jaxpr capture off the LLVM slots. `compile` is the `RuntimeRail[Jitted]` boundary owner (the error arm carries no contributor), so it returns the resolved `Jitted` contributor whole on the `Ok` arm and the consuming solve/study spine harvests its `contribute` stream where it composes the `Jitted` — the `analysis/signal.md#SIGNAL` `SignalReceipt`-on-the-rail convention (the receipt the contributor and the rail the boundary form), distinct from the single-entry `numerics/statistics.md#STATISTICS` weave that drives a `@receipted(_REDACTION)` egress aspect off its own `_TRACER` span because that owner emits at its terminal entry rather than feeding a downstream spine. The `ContentIdentity.of` key threads through `.bind` per the `evidence/identity#IDENTITY` `ContentIdentity.of(fmt, source, policy=CANONICAL_POLICY, *, view="value", seed=Nothing) -> RuntimeRail[ContentKey]` contract and the sibling `numerics/array.md#PAYLOAD` threading idiom, resting on the `CANONICAL_POLICY` default rather than a fresh `IdentityPolicy()` allocation, so two compiles of the same kernel against the same `Specimen` key identically and a bare-`ContentKey` assignment dropping the canonical-encode rail is the deleted form.

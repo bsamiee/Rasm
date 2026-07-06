@@ -20,17 +20,17 @@ This is the core solver route. `sympy` is pure-Python and imports on the runtime
 |  [03]   | `Substitute`   | staging  | `(SubstituteMode, Map[str, str])`    | `Expr.subs` simultaneous map / `Expr.replace` over a `Wild` pattern / `Expr.rewrite` into a functional basis |
 |  [04]   | `Refine`       | staging  | `AssumptionPredicate`                | `refine(expr, Q.<pred>(sym))` simplification under the `SymbolSpec` assumption context |
 |  [05]   | `Solve`        | terminal | `(SolveRoute, SolveDomain, GroundDomain)` | `solve` / `solveset(domain=)` / `linsolve` / `nonlinsolve` / `nsolve` / `dsolve` / `pdsolve` / `roots`, plus `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant`, the polynomial routes lowering to `fmpq_poly` on the `FLINT` ground domain |
-|  [06]   | `LinAlg`       | terminal | `(MatrixRoute, GroundDomain)`        | `Matrix.eigenvals` / `eigenvects` / `det` / `charpoly` / `minpoly` / `rref` / `nullspace` / `rank` / `inv` / `pinv` / `LUdecomposition` / `QRdecomposition` / `cholesky` / `diagonalize` / `jordan_form` / `singular_values` over a dense `Matrix`, the `_FLINT_MATRIX_ROUTES` subset lowering to `fmpq_mat` on the `FLINT` ground domain |
+|  [06]   | `LinAlg`       | terminal | `(MatrixRoute, GroundDomain)`        | `Matrix.eigenvals` / `eigenvects` / `det` / `charpoly` / `rref` / `nullspace` / `rank` / `inv` / `pinv` / `LUdecomposition` / `QRdecomposition` / `cholesky` / `diagonalize` / `jordan_form` / `singular_values` over a dense `Matrix`, the `_FLINT_MATRIX_ROUTES` subset lowering to `fmpq_mat` on the `FLINT` ground domain (`MINPOLY` FLINT-only — sympy `Matrix` owns no minpoly kernel) |
 |  [07]   | `NumberTheory` | terminal | `(NumberRoute, GroundDomain)`        | `factorint` / `primerange` / `isprime` / `gcd` / `lcm`, the integer-domain structure with the `FLINT` `fmpz.factor`/`is_prime`/`divisor_sigma`/`euler_phi` accelerator on the single-integer routes selected by the same `GroundDomain` axis `Solve`/`LinAlg` carry |
 |  [08]   | `Evaluate`     | terminal | `(int, Precision)` digits+precision  | `N(expr, digits)` heuristic exact-to-decimal through the `mpmath` context, or `flint.good` certified `arb`-ball reconstruction carrying `rad()`, falling to `Poly(expr, primary).all_coeffs()` lead-coefficient magnitude on a still-symbolic polynomial |
-|  [09]   | `Lower`        | terminal | `LowerBackend`                       | `lambdify(modules=numpy\|jax, cse=True)` vectorized/differentiable callable, `ufuncify` broadcasting ufunc, `autowrap` compiled native callable |
+|  [09]   | `Lower`        | terminal | `LowerBackend`                       | `lambdify(modules=numpy\|jax, cse=True)` vectorized/differentiable call emitted as the jit-minted `LoweredSpec` value its consumers compileable, `ufuncify` broadcasting ufunc, `autowrap` compiled native callable |
 |  [10]   | `Codegen`      | terminal | `(CodeTarget, str)` target+name      | `utilities.codegen.codegen` named module or the per-target printer `ccode`/`cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`, one printer surface keyed by `CodeTarget` |
 
 - Calculus rows force the unevaluated `Derivative`/`Integral`/`Sum` node through `.doit()` and trim the `series` asymptotic `Order` term through `.removeO()` in the same row, never a second method.
 - Substitution rows discriminate `SubstituteMode` over `subs`/`replace`/`rewrite`: `subs` threads a simultaneous structural map, `replace` matches a `Wild` pattern, `rewrite` retargets a functional basis (`exp`, `Piecewise`). The map keys/values are symbol/expression spellings resolved against the live `SymbolSpec`, never raw strings escaping the boundary.
 - `Refine` consumes the assumptions the `SymbolSpec` already declares: `refine(expr, Q.positive(sym))` rather than re-deriving assumptions post hoc, satisfying the assumption-as-input law. `ask(Q.<pred>(sym))` gates the refinement when the predicate is decidable.
 - `Solve` yields a closed-form, set-valued (`solveset` over a `SolveDomain` of `Reals`/`Complexes`/`Integers`/`Naturals`), numeric-root, polynomial-root-multiset, exact-factorization, or resultant result rather than a callable. The polynomial routes read `Poly.real_roots`/`nroots`/`factor_list`/`discriminant` for isolated roots, factor structure, root count, and discriminant evidence, and on the `FLINT` `GroundDomain` lower the carried `Poly` to an `fmpq_poly` (over `_as_fmpq` exact coefficients, so a rational-coefficient poly lowers without an `int(c)` coerce) whose `factor`/`complex_roots`/`resultant`/`derivative` own the fast exact ground-domain arithmetic; the `solution` evidence carries `(route, cardinality, metric)` where `metric` is the discriminant magnitude, the resultant magnitude, or the `nsolve` residual per route, never a dead `0.0`.
-- `LinAlg` builds a dense `Matrix` from the carried expression rows and extracts the exact spectrum, eigenvectors, determinant, characteristic or minimal polynomial, reduced row-echelon form, null-space basis, rank, inverse, pseudo-inverse, or canonical decomposition (`LU`/`QR`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values`) — the matrix-algebra `[ENTRYPOINT_SCOPE]` surface the owner owns rather than deferring to a numeric kernel before graduation. The `FLINT` `GroundDomain` lowers the matrix to an `fmpq_mat` (exact `_as_fmpq` cells) for the `_FLINT_MATRIX_ROUTES` subset `fmpq_mat` owns an exact kernel for — `det`/`rank`/`charpoly`/`minpoly`/`inv`/`rref`/`nullspace` — while eigenvalues/singular-values/QR/cholesky/diagonalize/jordan/pinv have no exact rational analogue and stay on the symbolic kernel regardless of ground rather than calling a phantom `fmpq_mat` method.
+- `LinAlg` builds a dense `Matrix` from the carried expression rows and extracts the exact spectrum, eigenvectors, determinant, characteristic or minimal polynomial, reduced row-echelon form, null-space basis, rank, inverse, pseudo-inverse, or canonical decomposition (`LU`/`QR`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values`) — the matrix-algebra `[ENTRYPOINT_SCOPE]` surface the owner owns rather than deferring to a numeric kernel before graduation. The `FLINT` `GroundDomain` lowers the matrix to an `fmpq_mat` (exact `_as_fmpq` cells) for the `_FLINT_MATRIX_ROUTES` subset `fmpq_mat` owns an exact kernel for — `det`/`rank`/`charpoly`/`minpoly`/`inv`/`rref`/`nullspace` — while eigenvalues/singular-values/QR/cholesky/diagonalize/jordan/pinv have no exact rational analogue and stay on the symbolic kernel regardless of ground rather than calling a phantom `fmpq_mat` method. `MINPOLY` is FLINT-ONLY in the other direction: sympy `Matrix` exposes no minimal-polynomial method and `charpoly` is not a substitute, so a `MINPOLY` request on the sympy ground rails a fenced typed fault directing the caller to `GroundDomain.FLINT`.
 - `NumberTheory` is the integer-domain terminal: `factorint` returns the prime-factor multiset, `primerange`/`isprime` the prime structure, `gcd`/`lcm` the divisor algebra. GCD/LCM are binary over the divisor lattice, but the fold carries one `Expr`, so the unary reinterpretation is route- and operand-shaped: a **polynomial** reads `gcd(p, p')` — the squarefree-content kernel — while a **leaf integer** has no derivative and reads its genuine divisor-lattice structure rather than the vacuous `gcd(n, n) == n` tautology. The `GroundDomain.FLINT` axis lowers the single-integer routes (`FACTORINT`/`ISPRIME`/`GCD`/`LCM` on an integer `expr`) to an `fmpz` whose GMP-backed `factor`/`is_prime`/`divisor_sigma`/`euler_phi` own the fast exact kernel — GCD reading the divisor-lattice bottom (`divisor_sigma(0)` count, `divisor_sigma(1)` sum), LCM the lattice top (`euler_phi` totient) — the same row-level accelerator selection `Solve`/`LinAlg` carry rather than a parallel FLINT number surface; `PRIMERANGE` (a range generator, not an `fmpz` query) and a still-symbolic divisor stay on the `SYMPY` ground domain by construction, the SYMPY leaf integer falling to its `factorint` divisor structure where FLINT's totient is unavailable. The `arithmetic` evidence carries `(route, cardinality, magnitude)` so a factorization names its distinct-prime count and largest-prime magnitude rather than smuggling the result through the `solution` slots, and no route returns a tautological self-divisor.
 - `Evaluate` carries a `Precision` axis: `HEURISTIC` lifts `N(expr, digits)` through the bundled `mpmath` context (no error bound), `CERTIFIED` re-evaluates the closed form through a `python-flint` `arb`/`acb` ball under `flint.good` to the requested `dps`, reading `mid()` as the value and `rad()` as the certified error bound the heuristic path lacks; both fall to `Poly(expr, primary).all_coeffs()[0]` lead-coefficient magnitude on a still-symbolic polynomial, both into one `numeric` carrying `(digits, magnitude, radius)`.
 - `Codegen` is the one source-emission surface keyed by `CodeTarget` over `c`/`cxx`/`fortran`/`rust`/`julia`/`octave`: a `_CODE_PRINTER` dispatch row selects `ccode`/`cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`, and `utilities.codegen.codegen(language=...)` wraps a named, header-stripped module where the target supports it. A new code target is one `CodeTarget` value plus one `_CODE_PRINTER` row, never a parallel emitter — the catalog's single-polymorphic-codegen law.
@@ -41,11 +41,11 @@ This is the core solver route. `sympy` is pure-Python and imports on the runtime
 
 `SymbolicDerivation` threads an assumption-carrying `SymbolSpec` over an `ExprForm` and left-folds a `Block[SymbolicOp]` pipeline to one typed `SymbolicReceipt`. A single derivation yields the numpy study callable, the jax differentiable callable, the compiled native callable, the matrix-invariant spectrum, the number-theoretic structure, the certified-or-heuristic numeric reconstruction, or the generated source handoff from one shared `cse` lowering rather than parallel entries; the terminal op's `Outcome` case is the receipt's evidence carrier, not a tag selecting one of seven sibling factories.
 
-- Entry: `SymbolicDerivation.derive(form, spec, *ops)` is the one railed entrypoint returning `RuntimeRail[SymbolicReceipt]`. It keys the derivation through the railed `ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops), IdentityPolicy())` and `bind`s the resolved `content_key` into one `boundary(f"symbolic.{ops[-1].tag if ops else 'noop'}", run)`, mirroring the `numerics/array.md#PAYLOAD` admit-then-bind weave so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference and a canonical-encode fault rails before any `sympy` work. Inside `run` it mints the assumption-carrying free symbols from `spec.symbols(sympy)` (each name a `sympy.Symbol` carrying its declared `real`/`positive`/`integer` assumption), `sympify`s the `ExprForm` against those exact symbol objects through a `locals` binding, left-folds the staging ops with `Block.fold` (each rewriting the carried `Expr`), applies the terminal op, and carries the resulting `Outcome` into one `SymbolicReceipt`. The `sympy` import, the empty-pipeline gate, the fold, and the receipt construction all live inside `run` so every raise — a `sympy`/`flint` step, an empty `*ops`, or a `staged` terminal — converts to one `BoundaryFault` rather than escaping; the subject reads a stable label, never `ops[-1]` at construction time where an empty pipeline would escape the rail as `IndexError`. There is no second un-railed constructor. The graduation gate reads the `source` evidence as the kernel-handoff artifact through the symbolic `HandoffAxis` case.
+- Entry: `SymbolicDerivation.derive(form, spec, *ops)` is the one railed entrypoint returning `RuntimeRail[SymbolicReceipt]`. It keys the derivation through the railed `ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops))` under the `CANONICAL_POLICY` default and `bind`s the resolved `content_key` into one `boundary(f"symbolic.{ops[-1].tag if ops else 'noop'}", run)`, mirroring the `numerics/array.md#PAYLOAD` admit-then-bind weave so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference and a canonical-encode fault rails before any `sympy` work. Inside `run` it mints the assumption-carrying free symbols from `spec.symbols(sympy)` (each name a `sympy.Symbol` carrying its declared `real`/`positive`/`integer` assumption), `sympify`s the `ExprForm` against those exact symbol objects through a `locals` binding, left-folds the staging ops with `Block.fold` (each rewriting the carried `Expr`), applies the terminal op, and carries the resulting `Outcome` into one `SymbolicReceipt`. The `sympy` import, the empty-pipeline gate, the fold, and the receipt construction all live inside `run` so every raise — a `sympy`/`flint` step, an empty `*ops`, or a `staged` terminal — converts to one `BoundaryFault` rather than escaping; the subject reads a stable label, never `ops[-1]` at construction time where an empty pipeline would escape the rail as `IndexError`. There is no second un-railed constructor. The graduation gate reads the `source` evidence as the kernel-handoff artifact through the symbolic `HandoffAxis` case.
 - `ExprForm` is the polymorphic input carrier: a `str` source spelling `sympify`s directly, a `MatrixForm` (a row-major `tuple[tuple[str, ...], ...]` of cell spellings) builds the `Matrix` the `LinAlg` terminal extracts from, and an already-constructed `Expr` passes through. One `derive` entry discriminates the input shape rather than `derive`/`derive_matrix`/`derive_expr` siblings — input polymorphism mirroring the `Outcome` output polymorphism.
 - Identity: `SymbolicPayload` is the canonical `msgspec.Struct(frozen=True, gc=False)` the `canonical` `IdentitySource` modality folds through the one cached deterministic encoder — the `repr` of the `form` (a `str` spelling, the `MatrixForm` tuple, or `srepr(expr)` for a constructed `Expr`), the sorted `(name, predicate)` assumption pairs, and the ordered op-tag-and-case-data tuple — so the runtime content owner mints the key rather than a hand-rolled `msgspec.json.encode` plus `b"\x00".join` reinvention of the canonical encode. Two derivations with the same expression but a different assumption context, op pipeline, or terminal route key distinctly.
-- Receipt: `SymbolicReceipt` is one `Struct(frozen=True)` of `(op, symbols, content_key, outcome)`, where `outcome` is the terminal `Outcome` case and owns the `facts()` total projection — collapsing what would be a multi-field default-zero result bag into one discriminated carrier the way `analysis/signal.md#DSP` collapses `Spectral`/`Multiresolution`/`Scale`/`Packet` and `analysis/spatial.md#SPATIAL` collapses `Proximity`/`Complex`/`Boundary`. `contribute` yields the `Iterable[Receipt]` the `ReceiptContributor` port declares — one `Receipt.of("compute.symbolic", ("emitted", op_tag, facts))` row over the `(Phase, subject, facts)` `Evidence` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` the factory rejects — whose `facts` spreads the `op`/`symbols`/`content_key.project("hex")` render plus only the slots the matched `Outcome` carries (`route`/`cardinality`/`metric` for `solution`, `route`/`dimension`/`invariant` for `spectrum`, `route`/`cardinality`/`magnitude` for `arithmetic`, `digits`/`magnitude`/`radius` for `numeric`, `backend`/`arity` for `callable_`, `target`/`name`/`byte_count` for `source`). `derive` is the `RuntimeRail[SymbolicReceipt]` boundary owner; the resolved `SymbolicReceipt` is the contributor the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm, never an inline emit, the same convention `analysis/signal.md#DSP` and `analysis/spatial.md#SPATIAL` hold. A `source` derivation graduates outward through `graduation/handoff.md#GRADUATION` on the `HandoffAxis(symbolic=...)` case once stable and reproducible.
-- Growth: a new calculus transform is one `CalculusKind` row plus one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route is one `SolveRoute` row on the existing `Solve` case; a new matrix extraction is one `MatrixRoute` row; a new number-theoretic query is one `NumberRoute` row; an exact-arithmetic accelerator is the existing `GroundDomain.FLINT` value on the `Solve`/`LinAlg`/`NumberTheory` route it accelerates; a new lowering backend is one `LowerBackend` row on the `_lower` match; a new code target is one `CodeTarget` row plus one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case plus its `facts()` arm and one terminal `apply` arm; zero new owner surface, never a parallel entrypoint or emitter.
+- Receipt: `SymbolicReceipt` is one `Struct(frozen=True)` of `(op, symbols, content_key, outcome)`, where `outcome` is the terminal `Outcome` case and owns the `facts()` total projection — collapsing what would be a multi-field default-zero result bag into one discriminated carrier the way `analysis/signal.md#DSP` collapses `Spectral`/`Multiresolution`/`Scale`/`Packet` and `analysis/spatial.md#SPATIAL` collapses `Proximity`/`Complex`/`Boundary`. `contribute` yields the `Iterable[Receipt]` the `ReceiptContributor` port declares — one `Receipt.of("compute.symbolic", ("emitted", op_tag, facts))` row over the `(Phase, subject, facts)` `Evidence` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` the factory rejects — whose `facts` spreads the `op`/`symbols`/`content_key.project("hex")` render plus only the slots the matched `Outcome` carries (`route`/`cardinality`/`metric` for `solution`, `route`/`dimension`/`invariant` for `spectrum`, `route`/`cardinality`/`magnitude` for `arithmetic`, `digits`/`magnitude`/`radius` for `numeric`, `backend`/`arity` for `callable_` (the carried `LoweredSpec` is a VALUE, projected off the outcome by consumers, never a receipt fact), `target`/`name`/`byte_count` for `source`). `derive` is the `RuntimeRail[SymbolicReceipt]` boundary owner; the resolved `SymbolicReceipt` is the contributor the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm, never an inline emit, the same convention `analysis/signal.md#DSP` and `analysis/spatial.md#SPATIAL` hold. A derivation graduates outward through the self-wired `graduates` producer on the `HandoffAxis(symbolic=...)` case under the page's own stability law — `Precision.CERTIFIED` (the arb radius is the residual) or reproducibly `HEURISTIC` — against the `_CEILING` family policy row; the prose-only claim with no prelude import is the deleted form this producer replaces.
+- Growth: a new calculus transform is one `CalculusKind` row plus one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route is one `SolveRoute` row on the existing `Solve` case; a new matrix extraction is one `MatrixRoute` row; a new number-theoretic query is one `NumberRoute` row; an exact-arithmetic accelerator is the existing `GroundDomain.FLINT` value on the `Solve`/`LinAlg`/`NumberTheory` route it accelerates; a new lowering backend is one `LowerBackend` row on the `_lower` match plus one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row plus one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case plus its `facts()` arm and one terminal `apply` arm; zero new owner surface, never a parallel entrypoint or emitter.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -57,7 +57,9 @@ from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
+from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.numerics.jit import JitBackend, LoweredSpec
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
@@ -177,6 +179,17 @@ class LowerBackend(StrEnum):
     NATIVE = "native"  # autowrap compiled extension, host-toolchain gated
 
 
+# LowerBackend -> the recommended jit route row the emitted `LoweredSpec` carries: a numpy/ufunc/
+# native lowering is already vectorized or compiled (Passthrough), the jax lowering recommends the
+# XLA route — the consumer compiles through `JitBackend.compile`, never by importing this page.
+_LOWER_ROUTE: Final[Map[LowerBackend, JitBackend]] = Map.of_seq([
+    (LowerBackend.NUMPY, JitBackend.Passthrough()),
+    (LowerBackend.JAX, JitBackend.JaxJit()),
+    (LowerBackend.UFUNC, JitBackend.Passthrough()),
+    (LowerBackend.NATIVE, JitBackend.Passthrough()),
+])
+
+
 class CodeTarget(StrEnum):
     C = "c"
     CXX = "cxx"
@@ -245,7 +258,7 @@ class Outcome:
     spectrum: tuple[MatrixRoute, int, float] = case()
     arithmetic: tuple[NumberRoute, int, float] = case()
     numeric: tuple[int, float, float] = case()
-    callable_: tuple[LowerBackend, int] = case()
+    callable_: tuple[LowerBackend, int, LoweredSpec] = case()  # the jit-minted spec the consumers compile — the lowered callable is never discarded
     source: tuple[CodeTarget, str, str] = case()
 
     @staticmethod
@@ -269,8 +282,8 @@ class Outcome:
         return Outcome(numeric=(digits, magnitude, radius))
 
     @staticmethod
-    def Callable(backend: LowerBackend, arity: int) -> "Outcome":
-        return Outcome(callable_=(backend, arity))
+    def Callable(backend: LowerBackend, arity: int, spec: LoweredSpec) -> "Outcome":
+        return Outcome(callable_=(backend, arity, spec))
 
     @staticmethod
     def Source(target: CodeTarget, name: str, source: str) -> "Outcome":
@@ -286,7 +299,7 @@ class Outcome:
                 return {"route": route.value, "cardinality": cardinality, "magnitude": f"{magnitude:.6g}"}
             case Outcome(tag="numeric", numeric=(digits, magnitude, radius)):
                 return {"digits": digits, "magnitude": f"{magnitude:.6g}", "radius": f"{radius:.3e}"}
-            case Outcome(tag="callable_", callable_=(backend, arity)):
+            case Outcome(tag="callable_", callable_=(backend, arity, _spec)):
                 return {"backend": backend.value, "arity": arity}
             case Outcome(tag="source", source=(target, name, source)):
                 return {"target": target.value, "name": name, "byte_count": len(source)}
@@ -425,11 +438,19 @@ class SymbolicOp:
             case SymbolicOp(tag="evaluate", evaluate=(digits, precision)):
                 return _evaluate(sym, expr, free, digits, precision)
             case SymbolicOp(tag="lower", lower=backend):
-                # Materialize the callable as the witness that lowering compiles; the receipt
-                # carries `(backend, arity)` evidence, the live `fn` rides the cross-file
-                # lowering seam since a callable is not encodable on the frozen receipt.
-                _lower(sym, expr, free, backend)
-                return Outcome.Callable(backend, len(free))
+                # the lowering bridge realized: the materialized callable rides the jit-minted
+                # `LoweredSpec` value the study/quadrature consumers compile through
+                # `JitBackend.compile` — the callable is never discarded, and no consumer imports
+                # this page; the route row is the `_LOWER_ROUTE` recommendation per backend.
+                fn = _lower(sym, expr, free, backend)
+                spec = LoweredSpec(
+                    kernel=fn,
+                    name=f"symbolic.{backend.value}",
+                    arity=len(free),
+                    signature=", ".join(str(s) for s in free),
+                    route=_LOWER_ROUTE[backend],
+                )
+                return Outcome.Callable(backend, len(free), spec)
             case SymbolicOp(tag="codegen", codegen=(target, name)):
                 return Outcome.Source(target, name, _emit(sym, expr, target, name))
             case _ as unreachable:
@@ -575,9 +596,17 @@ def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain)
             # `max`, never `values[0]` resting on the descending-order contract of one method.
             values = matrix.singular_values()
             return Outcome.Spectrum(route, len(values), max((abs(float(sym.N(v))) for v in values), default=0.0))
-        case MatrixRoute.CHARPOLY | MatrixRoute.MINPOLY:
-            poly = matrix.charpoly() if route is MatrixRoute.CHARPOLY else matrix.minimal_polynomial()
-            return Outcome.Spectrum(route, poly.degree())
+        case MatrixRoute.CHARPOLY:
+            # degree alone restates the dimension; the characteristic polynomial's own
+            # `Poly.discriminant()` is the matrix-specific invariant — zero exactly on a
+            # repeated-eigenvalue spectrum, the poly-route discriminant metric precedent.
+            poly = matrix.charpoly()
+            return Outcome.Spectrum(route, poly.degree(), abs(float(sym.N(poly.discriminant()))))
+        case MatrixRoute.MINPOLY:
+            # sympy `Matrix` exposes NO minimal-polynomial method (`charpoly` is not a substitute —
+            # the minimal polynomial divides it); the FLINT `fmpq_mat.minpoly` kernel is the one
+            # admitted owner, so the sympy ground rails a fenced typed fault, never a phantom call.
+            raise ValueError("minimal polynomial requires GroundDomain.FLINT; sympy Matrix owns no exact minpoly kernel")
         case MatrixRoute.NULLSPACE:
             return Outcome.Spectrum(route, len(matrix.nullspace()))
         case MatrixRoute.INVERSE | MatrixRoute.PINV:
@@ -607,7 +636,11 @@ def _flint_matrix(sym: object, matrix: object, route: MatrixRoute) -> Outcome:
         case MatrixRoute.RANK:
             return Outcome.Spectrum(route, fm.rank())
         case MatrixRoute.CHARPOLY | MatrixRoute.MINPOLY:
-            return Outcome.Spectrum(route, (fm.charpoly() if route is MatrixRoute.CHARPOLY else fm.minpoly()).degree())
+            # degree alone restates the spectrum dimension; the monic polynomial's discriminant
+            # magnitude — `resultant` against the formal derivative, the poly-route metric
+            # precedent — is the invariant, zero exactly on a repeated-root spectrum.
+            poly = fm.charpoly() if route is MatrixRoute.CHARPOLY else fm.minpoly()
+            return Outcome.Spectrum(route, poly.degree(), abs(float(poly.resultant(poly.derivative()))))
         case MatrixRoute.INVERSE:
             return Outcome.Spectrum(route, fm.inv().nrows(), abs(float(fm.det())))
         case _:  # RREF/NULLSPACE — the only remaining `_FLINT_MATRIX_ROUTES` members `fmpq_mat`
@@ -763,9 +796,23 @@ class SymbolicDerivation:
         # `SymbolicPayload` and binds the resolved `content_key` into the `boundary` fence, the
         # admit-then-bind weave `numerics/array.md#PAYLOAD` holds, so a repeated derivation at
         # identical `(form, spec, ops)` is a cache hit and a canonical-encode fault rails first.
-        return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops), IdentityPolicy()).bind(
+        return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops)).bind(
             lambda key: boundary(f"symbolic.{ops[-1].tag if ops else 'noop'}", lambda: _derive(form, spec, ops, key))
         )
+
+
+# the symbolic family's DEFAULT graduation ceiling — the stability law as data: a derivation
+# graduates only when CERTIFIED (radius bounded) or reproducibly HEURISTIC (zero refutation);
+# the governed policy row per the hub ceiling law, caller-overridable.
+_CEILING: Final[Map[str, float]] = Map.of_seq([("radius", 1e-12), ("unstable", 0.0)])
+
+
+def graduates(receipt: SymbolicReceipt, *, certified: bool, radius: float = 0.0) -> "RuntimeRail[GraduationReceipt]":
+    # the self-wired `symbolic` producer under the page's own stability law: `Precision.CERTIFIED`
+    # ships its arb `rad()` bound as the radius residual; a reproducibly HEURISTIC derivation ships
+    # zero instability — either clears the `_CEILING` family row or the hub rejects the crossing.
+    ledger = {"radius": radius, "unstable": 0.0 if certified else 1.0}
+    return GraduationReceipt.graduates("compute.symbolic", HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items()))
 
 
 def _derive(form: ExprForm, spec: SymbolSpec, ops: tuple[SymbolicOp, ...], key: ContentKey) -> SymbolicReceipt:
@@ -822,12 +869,3 @@ def _stage(op: SymbolicOp, sym: object, expr: "Expr", free: tuple["Expr", ...]) 
         case _:
             raise ValueError(f"non-terminal op {op.tag} must be a calculus/rewrite/substitute/refine staging op")
 ```
-
-## [04]-[RESEARCH]
-
-- [SOLVE_DOMAIN]: the `Solve` route carries a `SolveDomain` (`Reals`/`Complexes`/`Integers`/`Naturals`) so `solveset(expr, primary, domain=...)` returns the set-valued solution over the declared domain rather than the unbounded `Complexes` default; `_solve` is a total `match` over the twelve-member `SolveRoute` closed by `assert_never`, dispatching each route to its catalogued call shape rather than a `getattr(sym, route.value)(expr, *free)` catch-all: `solve(f, *symbols)` and `solveset(f, symbol, domain=)` take the scalar equation against the free symbols, `linsolve`/`nonlinsolve` take a one-equation *system* so the carried `expr` lifts to the singleton `(expr,)` the set solvers require (catalog rows [01]-[04]), `dsolve`/`pdsolve` take the differential equation (rows [06]-[07]), and the polynomial routes (`REAL_ROOTS`/`NROOTS`/`FACTOR_LIST`/`RESULTANT`) read `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant` (rows [05]-[06] of the numeric-evaluation table) for isolated roots, root count, factor structure, and the squarefree resultant against the formal derivative. The `solution` `metric` slot carries a real per-route fact — the discriminant magnitude for the root/factor routes, the resultant magnitude for `RESULTANT`, the substituted-residual magnitude for `nsolve` — replacing the prior dead `discriminant=0.0` the `solution` slot carried on every non-polynomial route.
-- [MATRIX_ALGEBRA]: the `LinAlg` terminal owns the matrix `[ENTRYPOINT_SCOPE]` surface — `Matrix.eigenvals`/`eigenvects`/`det`/`charpoly`/`minimal_polynomial`/`rref`/`nullspace`/`rank`/`inv`/`pinv`/`norm`/`LUdecomposition`/`QRdecomposition`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values` over a dense concrete `Matrix` built from the carried `MatrixForm` rows (catalog matrix rows [03]-[10]) — extracting the exact spectral radius (max `abs(N(eigenvalue))`), determinant magnitude, characteristic/minimal-polynomial degree, largest singular value (read order-independently through `max`, never `values[0]` resting on the descending-order contract), null-space dimension, inverse determinant or pseudo-inverse Frobenius `norm()` (never a dead `0.0`), or decomposition leading dimension into one `Outcome.spectrum`. The `eigenvects` route reads the `(value, multiplicity, basis)` triples folding the value→multiplicity map the eigenvalue radius reads; `minpoly` reads `Matrix.minimal_polynomial`. The `MatrixForm` cell spellings `sympify` against the live `SymbolSpec` so a symbolic matrix carries the same free variables the calculus and solve rows do, and the `FLINT` ground domain lowers the cells to exact `fmpq` entries (a `Float` coerced through `sym.Rational` first) for the `_FLINT_MATRIX_ROUTES` subset so the exact spectrum reads off certified arithmetic rather than a float coerce, the eigen/singular/decomposition routes staying symbolic since `fmpq_mat` carries no exact analogue.
-- [NUMERIC_BRIDGE]: the `Evaluate` row carries a `Precision` axis spanning the heuristic and certified bridges. `HEURISTIC` is the `.api` `[GRADUATION_PATH]` numeric bridge through the bundled `mpmath` context — `N(expr, digits)` lifts a numeric expression to a fixed-precision decimal, and on a still-symbolic polynomial `Poly(expr, primary).all_coeffs()[0]` reads the leading coefficient whose magnitude evaluates at the same precision — with `radius=0.0` because `mpmath` carries no error bound. `CERTIFIED` is the `compute/.api/python-flint.md` `[ARITHMETIC_STACKING]` `mpmath ↔ flint` promotion: the exact scalar re-evaluates through a `python-flint` `arb` ball under the adaptive `flint.good(func)` driver (`compute/.api/python-flint.md` certified-evaluation ENTRYPOINTS [01]) that re-runs the thunk at rising working precision until the ball is accurate to the `flint.ctx.dps` target the block-scoped `flint.ctx.workdps(digits)` context manager sets and restores on exit (never the leaking `ctx.dps = digits` global mutation); the thunk lowers the exact closed form to a parseable decimal through sympy's own `Expr.evalf(ctx.dps + 2)` before `arb(str(...))` (so `sqrt(2)` lifts as a decimal midpoint rather than the unparseable `str(sqrt(2))` symbol spelling), reading `mid()` as the value and `rad()` as the certified error bound the heuristic path lacks — so the precision claim and the certified bound enter the same `SymbolicReceipt` the codegen and lower rows feed, rather than a separate evaluation surface. `cse=True` precedes every `lambdify` lowering to dedupe shared subexpressions as the `.api` law requires.
-- [CODEGEN_PRINTER]: `Codegen` is the single polymorphic source-emission surface the `[GRADUATION_PATH]` law mandates — `_CODE_PRINTER` keys the per-target printer (`ccode`/`cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`, catalog rows [07][08]) by `CodeTarget`, and `utilities.codegen.codegen(language=...)` (row [09]) wraps a named, header-stripped module where the target supports it, falling to the printer for a bare expression render. A new code target is one `CodeTarget` value plus one `_CODE_PRINTER` row, never a parallel emitter. `cse` precedes codegen to dedupe shared subexpressions, and the emitted source becomes the `Rasm.Compute` C# numeric-owner graduation candidate the symbolic `HandoffAxis` reads.
-- [CONTENT_IDENTITY]: `SymbolicDerivation.derive` keys the derivation through the railed `ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops), IdentityPolicy())` from `runtime/evidence/identity#IDENTITY` and `bind`s the resolved `content_key` into the `boundary` fence — the `ContentIdentity.of(fmt, source, policy, *, view="value") -> RuntimeRail[ContentKey]` contract and the admit-then-bind weave `numerics/array.md#PAYLOAD` holds and the sibling `experiments/inference.md#BAYESIAN`/`experiments/model.md#ASSET` thread, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference. `SymbolicPayload` is the canonical `msgspec.Struct(frozen=True, gc=False)` the `canonical` `IdentitySource` modality folds through the one cached deterministic encoder (the form repr, the sorted assumption pairs, the ordered op signature), so the runtime content owner mints the key rather than a hand-rolled `msgspec.json.encode` plus `b"\x00".join` reinvention. `SymbolicReceipt` carries the resolved `content_key` and renders it through `ContentKey.project("hex")` (the `{value:032x}:{fmt}` form the C# `InterchangeIdentity.Key` contract reads) on every `contribute` row beside the `op`/`symbols` facts — the prior receipt carrying no content identity is the deleted form. A bare-`ContentKey` assignment off the railed `ContentIdentity.of` is the deleted form the in-fence `bind` replaces.
-- [RECEIPT_SHAPE]: `SymbolicReceipt.contribute` yields the `Iterable[Receipt]` the `runtime/observability/receipts#RECEIPT` `ReceiptContributor` Protocol declares (`contribute(self) -> Iterable[Receipt]`), and the row is `Receipt.of("compute.symbolic", ("emitted", op_tag, facts))` — the two-argument shape-polymorphic factory over the `(Phase, subject, facts)` `Evidence` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` the factory does not admit, and never a single bare `Receipt` against the `Iterable[Receipt]` port, the same `yield`-one-row form `analysis/spatial.md#SPATIAL` and `analysis/transform.md#TRANSFORM` hold. `Outcome` parameterizes the terminal artifact and owns its own `facts()` projection, so the receipt spreads only the slots the matched case carries rather than a multi-field default-zero struct. `derive` is the `RuntimeRail[SymbolicReceipt]` boundary owner (the error arm carries no contributor), so emission is not an `@receipted` decorator on `derive` but the study spine harvesting the resolved `SymbolicReceipt` contributor through the `@receipted` aspect on the `Ok` arm — the same convention `analysis/signal.md#DSP` and `analysis/spatial.md#SPATIAL` hold.

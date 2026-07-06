@@ -17,7 +17,19 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-(none)
+[T1]-[BLOCKED]: `ElementSet` query algebra reaches the AppUi viewport as a declared `[PROJECTION]` seam.
+- Capability: model-query results (`Model/query` `ElementSet`) rendered as AppUi viewport/inspector selections.
+- Shape: one `Model/query -> csharp:Rasm.AppUi/<owner> # [PROJECTION]` seam row plus the consuming AppUi page fence.
+- Unlocks: saved-query overlays, selection-driven dashboards, query-scoped exports.
+- Anchors: `Model/query` `ElementSet`; the AppUi `[V9]` growth register carries the reciprocal record.
+- Tension: no AppUi page names a consumer today — the seam row re-enters `ARCHITECTURE.md` `[02]-[SEAMS]` only when one does; deferred pressure never rides the ledger.
+
+[T2]-[BLOCKED]: `ScheduleNetwork` CPM/4D projection reaches the AppUi Charts plane as a declared `[PROJECTION]` seam.
+- Capability: 4D construction-sequencing and critical-path dashboards over the `Planning/schedule` domain.
+- Shape: one `Planning/schedule -> csharp:Rasm.AppUi/Charts # [PROJECTION]` seam row plus the consuming dashboards fence.
+- Unlocks: 4D playback tiles, earned-value overlays beside the existing `Planning/cost` receipt row.
+- Anchors: `Planning/schedule` `ScheduleNetwork`; the AppUi `[V9]` growth register carries the reciprocal record.
+- Tension: no AppUi consuming fence exists today — same re-entry law as `[T1]`.
 
 ## [02]-[CLOSED]
 

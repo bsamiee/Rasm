@@ -21,9 +21,9 @@ A numpy central-difference floor reports the gradient-norm residual at `x0` for 
 - Compilation: the partitioned objective `fn(y, args)` is wrapped once through `equinox.filter_jit` so the static rest skips tracing and the inexact-array design leaves are the only XLA-traced inputs — this is the same compile surface `solvers/nonlinear.md#NONLINEAR` threads through Optimistix, composed here, never re-derived. A `restarts>1` multi-start jitters `y0` across a leading restart axis through `jax.random.split`/`jax.random.normal` over the seeded PRNG key — each start is a distinct perturbed design, not a broadcast copy — and threads the partitioned solve through `equinox.filter_vmap` over that axis, returning the per-start converged values from which the route folds the best objective through one `jax.tree_util.tree_map` slice at `jax.numpy.argmin`; the ensemble is one `filter_vmap` row on the same `solve` owner, never a parallel multi-start optimizer surface.
 - Adjoint: every Optimistix entry carries the default `optimistix.ImplicitAdjoint`, so a sensitivity through a design that itself solves an inner system differentiates the converged solution through one linear solve per backward pass rather than backpropagating the iterations; `solvers/sensitivity.md#SENSITIVITY` reads that adjoint through `jax.vjp` over the objective, and `solvers/linear.md#LINEAR`/`solvers/nonlinear.md#NONLINEAR`/`solvers/differential.md#DIFFERENTIAL` expose the autodifferentiable inner solves the `Field` objective composes (the quadrature weak-form assembly enters transitively through `solvers/mesh`, never as a direct dependency here). The converged objective and the first-order/KKT residual fold from one `equinox.filter_value_and_grad(Objective.cost, has_aux=True)` pass over the partitioned cost — value and gradient w.r.t. the inexact-array design leaves in a single trace, the reported objective scalar carried as the differentiation aux so it is never re-evaluated, never a separate objective evaluation and a re-traced gradient — so the residual norm is the gradient PyTree's L∞ stationarity norm through `optimistix.max_norm` directly over the PyTree, never by routing the converged PyTree through `numpy.asarray`.
 - Entry: `DesignProblem.solve` enters one `boundary(f"design.{problem.tag}", ...).bind(lambda r: r)`, so the solve fence and the `_design_key` `RuntimeRail[ContentKey]` digest rail join on one `RuntimeRail[OutcomeReceipt]` without double-wrapping — the same rail-join shape the sibling `optimization/program.md#PROGRAM` `solve` holds. The body resolves the `Descent` policy (caller override or the `_DEFAULT_DESCENT` per-tag default), gates it through `Descent.admits(problem.carried.shape)` so a mismatched override mints a typed `Error(BoundaryFault(boundary=...))` directly onto the rail — never a `raise` relying on the fence to re-classify, the ROP form the sibling `program.md` `Termination` adjudication holds — rather than reaching the wrong solve entry, dispatches the `_backend_outcome` import-guard (`_optimistix` tries the gated Optimistix route, falling to `_floor`, the numpy central-difference floor, on `ImportError`) into the deferred `Callable[[ContentKey], OutcomeReceipt]` receipt builder, and `Result.map`s the railed `_design_key` digest into it so a digest fault rides the one rail rather than collapsing to a phantom bare `ContentKey`. The `minimise`-vs-`least_squares` entry is the `_objective()[shape]` row the `Objective.shape` selects (the `@functools.cache`-built table deferring the gated `optimistix` import past module load), the route is the `Descent.solver()` projection plus that entry, the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the receipt as its mapped `SolveStatus` rather than raising, and the converged objective and residual fold from one `filter_value_and_grad`. The `_design_key` digest over the canonical objective-parameter buffer — the per-leaf ordinal-and-shape signature and the iterate-determining `descent`/`restarts`/`seed` policy folded into the `fmt` exactly as `program.md`'s `_program_key` folds its slot/shape plus seeded `_engine_tag` discriminant — keys a design re-run from the same starting point under the same engine and ensemble identically across backends, so a single raveled buffer shared by structurally distinct PyTrees (a `(4,)` array vs a tuple of two `(2,)` leaves) or a re-solve under a different engine/restart/seed never collides on the boundary-erasing flatten.
-- Receipt: `OutcomeReceipt` is the ONE optimization-outcome receipt this owner and `optimization/program.md#PROGRAM` share — `OutcomeReceipt.Design` folds the design convergence verdict and `OutcomeReceipt.Program` folds the math-program feasibility verdict on the same `@tagged_union`, both minted through the `@classmethod`-plus-`Self` form that binds the subtype once (never a `@staticmethod` over a `"OutcomeReceipt"` forward-ref string). The case payloads are owned by one `_OUTCOME_SLOTS` field-name table — the same data-driven projection the sibling `solvers/receipt.md#RECEIPT` `SolverReceipt._SLOTS` establishes — so `.facts`, `.status`, and `.content_key` are each one total `match self` fold closed by `assert_never`, the `.facts` arm zipping `_OUTCOME_SLOTS[tag]` against the matched case's destructured payload under `zip(..., strict=True)` rather than a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie — the closed-union law the sibling `SolverReceipt.facts` and `reliability/faults#FAULT` `BoundaryFault.facts` both hold against the getattr escape. `.contribute` spreads that one fold into a single `Receipt.of(f"compute.optimization.{self.tag}", ("emitted", self.tag, facts))` row rather than a per-case hand-spelled `dict`, the tag riding as the receipt `subject` the runtime `project` binds; its facts carry the full per-case numeric evidence (the problem/program name, the converged objective, the first-order/KKT residual, the iteration count, the `SolveStatus`, the constraint violation) with `key` lowered to `ContentKey.hex` and the derived `converged` injected. The `strict=True` zip makes the slot row and the case-tuple length structurally inseparable — a row that drifts from its payload raises rather than truncating evidence. Both cases carry `SolveStatus` (`solvers/receipt.md#RECEIPT`): the `design` case folds the `optimistix.Solution.result` `RESULTS` member name through the sibling `_status(adjudicated, residual, tol)` polymorphic verdict — the one fold every solver route shares, mapping a backend member name through `_STATUS` and grading the no-adjudicator floor against tolerance — the `program` case carries the `scipy.optimize` verdict, so both speak one termination vocabulary the C# graduation gate reads. The facts ride as native scalars — the objective and residual as `float`, the iteration count as `int`, the status as the `SolveStatus` `StrEnum` member, the key through `ContentKey.hex` — into the `observability/receipts#RECEIPT` `dict[str, object]` `EventDict` its `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without a `str()` coerce, never a pre-`f""`-formatted `dict[str, str]`. The `Program` factory and the program-route body that maps the `OptimizeResult` into that vocabulary live on `optimization/program.md#PROGRAM`. The residual is the convergence evidence the C# graduation gate reads through the existing `solver` `HandoffAxis` case at `graduation/handoff.md#GRADUATION` to admit or reject a converged design for kernel handoff — no new handoff axis and no graduation edit. `ConvexReceipt` (`optimization/convex.md#CONVEX`) stays a distinct struct: its duality-gap, dual-infeasibility, and solver-status certificate is the global-optimality proof object the first-order and feasibility verdicts carry no field for, so folding it onto `OutcomeReceipt` would erase the spectral/convergence certificate.
+- Receipt: `OutcomeReceipt` is the ONE optimization-outcome receipt this owner and `optimization/program.md#PROGRAM` share — `OutcomeReceipt.Design` folds the design convergence verdict and `OutcomeReceipt.Program` folds the math-program feasibility verdict on the same `@tagged_union`, both minted through the `@classmethod`-plus-`Self` form that binds the subtype once (never a `@staticmethod` over a `"OutcomeReceipt"` forward-ref string). The case payloads are owned by one `_OUTCOME_SLOTS` field-name table — the same data-driven projection the sibling `solvers/receipt.md#RECEIPT` `SolverReceipt._SLOTS` establishes — so `.facts`, `.status`, and `.content_key` are each one total `match self` fold closed by `assert_never`, the `.facts` arm zipping `_OUTCOME_SLOTS[tag]` against the matched case's destructured payload under `zip(..., strict=True)` rather than a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie — the closed-union law the sibling `SolverReceipt.facts` and `reliability/faults#FAULT` `BoundaryFault.facts` both hold against the getattr escape. `.contribute` spreads that one fold into a single `Receipt.of(f"compute.optimization.{self.tag}", ("emitted", self.tag, facts))` row rather than a per-case hand-spelled `dict`, the tag riding as the receipt `subject` the runtime `project` binds; its facts carry the full per-case numeric evidence (the problem/program name, the converged objective, the first-order/KKT residual, the iteration count, the `SolveStatus`, the constraint violation) with `key` lowered to `ContentKey.hex` and the derived `converged` injected. The `strict=True` zip makes the slot row and the case-tuple length structurally inseparable — a row that drifts from its payload raises rather than truncating evidence. Both cases carry `SolveStatus` (`solvers/receipt.md#RECEIPT`): the `design` case folds the `optimistix.Solution.result` `RESULTS` member name through the sibling `status_of(adjudicated, residual, tol)` polymorphic verdict — the one fold every solver route shares, mapping a backend member name through `_STATUS` and grading the no-adjudicator floor against tolerance — the `program` case carries the `scipy.optimize` verdict, so both speak one termination vocabulary the C# graduation gate reads. The facts ride as native scalars — the objective and residual as `float`, the iteration count as `int`, the status as the `SolveStatus` `StrEnum` member, the key through `ContentKey.hex` — into the `observability/receipts#RECEIPT` `dict[str, object]` `EventDict` its `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without a `str()` coerce, never a pre-`f""`-formatted `dict[str, str]`. The `Program` factory and the program-route body that maps the `OptimizeResult` into that vocabulary live on `optimization/program.md#PROGRAM`. The residual is the convergence evidence the C# graduation gate reads through the existing `solver` `HandoffAxis` case at `graduation/handoff.md#GRADUATION` to admit or reject a converged design for kernel handoff — no new handoff axis and no graduation edit. `ConvexReceipt` (`optimization/convex.md#CONVEX`) stays a distinct struct: its duality-gap, dual-infeasibility, and solver-status certificate is the global-optimality proof object the first-order and feasibility verdicts carry no field for, so folding it onto `OutcomeReceipt` would erase the spectral/convergence certificate.
 - Egress: `OutcomeReceipt` implements the `observability/receipts#RECEIPT` `ReceiptContributor` port through `contribute`, so the converged outcome streams its `Receipt` sequence into the one egress fold the consumer drives — `Signals.emit`, or the cross-cutting `@receipted` aspect over a measured study kernel that returns the receipt as a `ReceiptContributor`. `DesignProblem.solve` returns the `RuntimeRail[OutcomeReceipt]` and threads no inline `emit`: the solve fence and the receipt egress stay orthogonal, `boundary` mints the rail, the receipt owns its projection, and a consumer drives graduation through `GraduationReceipt.graduates` on the `solver` axis.
-- Packages: `optimistix` (`minimise`, `least_squares`, `OptaxMinimiser`, `BFGS`, `LevenbergMarquardt`, `BestSoFarMinimiser`, `BestSoFarLeastSquares`, `ImplicitAdjoint`, `Solution`, `RESULTS` — the `equinox.Enumeration` whose `EnumerationItem._value` integer code the multi-start ensemble reduces by `jnp.max` (zero `successful` code iff every start converged) and whose code→member-name is recovered by inverting the class `RESULTS._name_to_item` in `_result_names()`, since an item carries no `.name` and `RESULTS[item]` yields the human message not the name; `RESULTS.promote` is NOT a batch combine and is deliberately unused, `max_norm` — the Chebyshev stationarity norm over the gradient PyTree; the resolved member name folds into `SolveStatus` and `throw=False` defers the non-success verdict to the receipt), `equinox` (`partition`, `combine`, `is_inexact_array`, `filter_jit`, `filter_vmap`, `filter_value_and_grad` — the partition/compile/vectorize/combined-grad filter transforms threading the inexact-array design leaves, the value-and-grad-with-aux fold the converged objective and residual share), `jax` (`numpy` the on-device reduction namespace; `random.key`/`random.split`/`random.normal` the seeded multi-start jitter; `tree_util.tree_map` the per-start value slice at `jax.numpy.argmin`; the autodiff floor the objective and the adjoint resolve over), `optax` (`adam`, `sgd`, `chain`, `multi_transform`, `zero_nans`/`clip_by_global_norm` — the diverged-inner-solve guard at the chain head neutralizing a NaN gradient then bounding the step, `GradientTransformationExtraArgs`/`EmptyState`/`apply_updates`/`keep_params_nonnegative`/`tree_utils.tree_add`/`tree_utils.tree_scale` — the chain-shaped `_projected` lift folding an `optax.projections.projection_box`/`projection_simplex`/`projection_non_negative` Euclidean projection into the `density` chain as a `GradientTransformation`, the first-order-descent engine threaded through `OptaxMinimiser`), `numpy` (`asarray`, `ascontiguousarray`, `concatenate`, `split`, `cumsum`, `zeros`, `fromiter`, `linalg.norm` — the host-side central-difference residual floor over real arrays only: the `_ravel` pure-numpy flatten/restore (`concatenate`/`split`/`cumsum` the leaf flatten and shape-restore the host mirror of `jax.flatten_util.ravel_pytree`), the `Shape`-keyed `_floor_cost` reduction over the structured `unravel`, the `np.zeros` one-hot directional perturbation (never a dense `np.eye(x0.size)` basis), and the `np.fromiter` `‖·‖∞` probe fold, never over a JAX PyTree, and the canonical raveled key buffer), `solvers/receipt.md#RECEIPT` (`SolveStatus` the shared `design`/`program` cases carry, and `_status` the one polymorphic verdict fold the gated route and the numpy floor both adjudicate through — mapping a backend `RESULTS` member name through the owner's `_STATUS` table or grading the floor residual against tolerance to `NONFINITE`/`SUCCESS`/`STAGNATION`), `solvers/sensitivity.md#SENSITIVITY` (the implicit-adjoint gradient read through the converged solve), `solvers/{linear,nonlinear,differential}.md` (the autodifferentiable inner solves the `Field` objective composes), `solvers/mesh.md#MESH_FIELD` (`AssembledSystem` stiffness/load for the field objective), `graduation/handoff.md#GRADUATION` (the `solver` axis the converged design graduates on), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor` the `OutcomeReceipt` contributes through, the `@receipted` aspect and `Signals.emit` available to the consuming study kernel).
+- Packages: `optimistix` (`minimise`, `least_squares`, `OptaxMinimiser`, `BFGS`, `LevenbergMarquardt`, `BestSoFarMinimiser`, `BestSoFarLeastSquares`, `ImplicitAdjoint`, `Solution`, `RESULTS` — the `equinox.Enumeration` whose `EnumerationItem._value` integer code the multi-start ensemble reduces by `jnp.max` (zero `successful` code iff every start converged) and whose code→member-name is recovered by inverting the class `RESULTS._name_to_item` in `_result_names()`, since an item carries no `.name` and `RESULTS[item]` yields the human message not the name; `RESULTS.promote` is NOT a batch combine and is deliberately unused, `max_norm` — the Chebyshev stationarity norm over the gradient PyTree; the resolved member name folds into `SolveStatus` and `throw=False` defers the non-success verdict to the receipt), `equinox` (`partition`, `combine`, `is_inexact_array`, `filter_jit`, `filter_vmap`, `filter_value_and_grad` — the partition/compile/vectorize/combined-grad filter transforms threading the inexact-array design leaves, the value-and-grad-with-aux fold the converged objective and residual share), `jax` (`numpy` the on-device reduction namespace; `random.key`/`random.split`/`random.normal` the seeded multi-start jitter; `tree_util.tree_map` the per-start value slice at `jax.numpy.argmin`; the autodiff floor the objective and the adjoint resolve over), `optax` (`adam`, `sgd`, `chain`, `multi_transform`, `zero_nans`/`clip_by_global_norm` — the diverged-inner-solve guard at the chain head neutralizing a NaN gradient then bounding the step, `GradientTransformationExtraArgs`/`EmptyState`/`apply_updates`/`keep_params_nonnegative`/`tree_utils.tree_add`/`tree_utils.tree_scale` — the chain-shaped `_projected` lift folding an `optax.projections.projection_box`/`projection_simplex`/`projection_non_negative` Euclidean projection into the `density` chain as a `GradientTransformation`, the first-order-descent engine threaded through `OptaxMinimiser`), `numpy` (`asarray`, `ascontiguousarray`, `concatenate`, `split`, `cumsum`, `zeros`, `fromiter`, `linalg.norm` — the host-side central-difference residual floor over real arrays only: the `_ravel` pure-numpy flatten/restore (`concatenate`/`split`/`cumsum` the leaf flatten and shape-restore the host mirror of `jax.flatten_util.ravel_pytree`), the `Shape`-keyed `_floor_cost` reduction over the structured `unravel`, the `np.zeros` one-hot directional perturbation (never a dense `np.eye(x0.size)` basis), and the `np.fromiter` `‖·‖∞` probe fold, never over a JAX PyTree, and the canonical raveled key buffer), `solvers/receipt.md#RECEIPT` (`SolveStatus` the shared `design`/`program` cases carry, and `status_of` the one polymorphic verdict fold the gated route and the numpy floor both adjudicate through — mapping a backend `RESULTS` member name through the owner's `_STATUS` table or grading the floor residual against tolerance to `NONFINITE`/`SUCCESS`/`STAGNATION`), `solvers/sensitivity.md#SENSITIVITY` (the implicit-adjoint gradient read through the converged solve), `solvers/{linear,nonlinear,differential}.md` (the autodifferentiable inner solves the `Field` objective composes), `solvers/mesh.md#MESH_FIELD` (`AssembledSystem` stiffness/load for the field objective), `graduation/handoff.md#GRADUATION` (the `solver` axis the converged design graduates on), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor` the `OutcomeReceipt` contributes through, the `@receipted` aspect and `Signals.emit` available to the consuming study kernel).
 - Growth: a new design provenance is one `DesignProblem` case plus one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member plus one `_objective()` row, one `Objective.target` solve-input arm, one `Objective.cost` receipt-objective arm, and its `_floor_cost` host-mirror arm (all `assert_never`-closed so the addition is compile-surfaced); a new descent engine is one `Descent` case mapping to its Optimistix/optax constructor in `Descent.solver` (a `chain` of `optax` transformations, an `optimistix.LBFGS`/`NonlinearCG`, or a trust-region least-squares solver), selectable per call without a body edit; a new feasibility constraint is one `Feasible` member plus one `_feasible()` projection row; a new outcome-receipt evidence field is one `_OUTCOME_SLOTS` slot plus its case-tuple position with no `contribute` edit, the slot table projecting it for free; a perturbed multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`; zero new surface, never a parallel field-design and density-design owner, never a per-case helper body, never a per-case fact dict beside the `_OUTCOME_SLOTS` projection, never a training loop.
 
 ```python signature
@@ -34,13 +34,16 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Literal, Self, assert_never
 
 import numpy as np
-from beartype import FrozenDict
 from expression import Error, case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Struct
 
-from rasm.compute.solvers.receipt import SolveStatus, _status
-from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
+from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.solvers.receipt import SolveStatus, status_of, verdict
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.resilience import RetryClass
 from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:  # worker annotation carriers only; no package imports at runtime
@@ -82,10 +85,10 @@ _MAX_STEPS: int = 256
 # `program` verdict in slot 2. The ONE owner over the case shapes the sibling `SolverReceipt._SLOTS`
 # establishes: the `.facts` total `match`-zip packs each case's destructured payload by its row under
 # `strict=True`, so a case's evidence is one row, never a per-case hand-spelled fact dict.
-_OUTCOME_SLOTS: FrozenDict[str, tuple[str, ...]] = FrozenDict({
-    "design": ("problem", "objective", "residual", "iterations", "status", "key"),
-    "program": ("program", "objective", "status", "violation", "key"),
-})
+_OUTCOME_SLOTS: Map[str, tuple[str, ...]] = Map.of_seq([
+    ("design", ("problem", "objective", "residual", "iterations", "status", "key")),
+    ("program", ("program", "objective", "status", "violation", "key")),
+])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -251,11 +254,7 @@ class Descent:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_DEFAULT_DESCENT: FrozenDict[str, Descent] = FrozenDict({
-    "field": Descent.QuasiNewton(),
-    "mesh": Descent.Levenberg(),
-    "density": Descent.FirstOrder(feasible=Feasible.BOX),
-})
+_DEFAULT_DESCENT: Map[str, Descent] = Map.of_seq([("field", Descent.QuasiNewton()), ("mesh", Descent.Levenberg()), ("density", Descent.FirstOrder(feasible=Feasible.BOX))])
 
 
 def _projected(projection: "Callable[[PyTree], PyTree]") -> "optax.GradientTransformationExtraArgs":
@@ -278,7 +277,7 @@ def _projected(projection: "Callable[[PyTree], PyTree]") -> "optax.GradientTrans
 
 
 @functools.cache
-def _feasible() -> "FrozenDict[Feasible, tuple[optax.GradientTransformation, ...]]":
+def _feasible() -> "Map[Feasible, tuple[optax.GradientTransformation, ...]]":
     # no jaxlib/optax admission resolves — the `_floor` path stays reachable. `@functools.cache` builds
     # the table once on the first gated `Descent.solver` call. Each `Feasible` row is a tuple of
     # chain-foldable `GradientTransformation`s, never a bare `projection_box(x, lower, upper)`
@@ -287,31 +286,18 @@ def _feasible() -> "FrozenDict[Feasible, tuple[optax.GradientTransformation, ...
     # in-chain box feasibility, `FREE` is the empty tuple.
     import optax
 
-    return FrozenDict({
-        Feasible.FREE: (),
-        Feasible.BOX: (_projected(functools.partial(optax.projections.projection_box, lower=0.0, upper=1.0)),),
-        Feasible.SIMPLEX: (_projected(optax.projections.projection_simplex),),
-        Feasible.NONNEGATIVE: (optax.keep_params_nonnegative(),),
-    })
-
-
-@functools.cache
-def _result_names() -> FrozenDict[int, str]:
-    # the integer-code -> member-name inversion of the gated `optimistix.RESULTS` `Enumeration`,
-    # exposes only `_value` (the code) and `_enumeration` (the class); the member NAME the sibling
-    # `_status` `_STATUS` table keys on is recoverable ONLY by inverting the class `_name_to_item`
-    # name->item map (`RESULTS[item]` yields the human message, not the name), so the gated route maps
-    # `int(solution.result._value)` to `successful`/`max_steps_reached`/`nonlinear_divergence`/... here
-    # rather than reading a non-existent `.name` off the item.
-    import optimistix as optx
-
-    return FrozenDict({int(item._value): name for name, item in optx.RESULTS._name_to_item.items()})
+    return Map.of_seq([
+        (Feasible.FREE, ()),
+        (Feasible.BOX, (_projected(functools.partial(optax.projections.projection_box, lower=0.0, upper=1.0)),)),
+        (Feasible.SIMPLEX, (_projected(optax.projections.projection_simplex),)),
+        (Feasible.NONNEGATIVE, (optax.keep_params_nonnegative(),)),
+    ])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def solve(problem: "DesignProblem", /, *, descent: "Descent | None" = None, restarts: int = 1, seed: int = _SEED) -> "RuntimeRail[OutcomeReceipt]":
+async def solve(problem: "DesignProblem", lane: LanePolicy, /, *, descent: "Descent | None" = None, restarts: int = 1, seed: int = _SEED) -> "RuntimeRail[OutcomeReceipt]":
     # the override resolves per-tag default or caller policy; `Descent.admits` rejects an
     # engine/shape mismatch (an LM least-squares solver on a scalar objective) as a typed
     # `Error(BoundaryFault(boundary=...))` minted directly onto the rail — never a `raise` relying on
@@ -320,6 +306,19 @@ def solve(problem: "DesignProblem", /, *, descent: "Descent | None" = None, rest
     # over the rail join `.bind`-flattens the solve fence and the digest rail onto one
     # `RuntimeRail[OutcomeReceipt]` without double-wrapping, the sibling `program.md` join shape.
     chosen = descent if descent is not None else _DEFAULT_DESCENT[problem.tag]
+
+    async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
+        # the x64-gated optimistix descent pins PROCESS with the MODULE-LEVEL `_solve_kernel`
+        # crossing as spec data plus operands — no closure crosses the process lane; worker death
+        # rides `retry=RetryClass.OCCT` on the isolation leg only.
+        return (await lane.offload(_solve_kernel, problem, chosen, restarts, seed, modality=Modality.PROCESS, retry=RetryClass.OCCT)).bind(
+            lambda rail: rail
+        )
+
+    return await evidence_run(EvidenceScope.DESIGN, f"design.{problem.tag}", dispatch)
+
+
+def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":
     return boundary(
         f"design.{problem.tag}",
         lambda: _backend(problem, chosen, restarts, seed) if chosen.admits(problem.carried.shape) else _mismatch(problem, chosen),
@@ -381,31 +380,26 @@ def _optimistix(tag: str, objective: "Objective", descent: "Descent", restarts: 
         # load-bearing invariant — the specific non-zero code is a representative failure, the codes
         # carry no severity total-order). `RESULTS.promote` is NOT a batch combine — it widens a member
         # from a parent `Enumeration` to a subclass and raises `ValueError` on a same-class member — so
-        # the reduction is the code max, never `promote(solution.result)`, the code mapped to its name
-        # through the one `_result_names()` inversion.
-        code = int(jnp.max(solution.result._value))
+        # the reduction is the code max, never `promote(solution.result)` — the receipt-owned shared
+        # `verdict` fold carries the reduction and the name inversion.
     else:
         solution = run(design)
         converged = eqx.combine(solution.value, static)
         steps = int(solution.stats["num_steps"])
-        code = int(solution.result._value)
 
     # the converged objective and the L∞ stationarity residual fold from one value-and-grad-with-aux
     # pass; the receipt builder is deferred over the railed `ContentKey` the `.map` in `_backend`
     # supplies, so the gated solve evaluates eagerly inside the import guard while the key stays railed.
-    # The verdict folds through the sibling `_status` (the backend `RESULTS` member NAME as the
+    # The verdict folds through the sibling `status_of` (the backend `RESULTS` member NAME as the
     # adjudicator), so the gated design route and the numpy floor read the one polymorphic verdict
-    # every solver route folds rather than re-inlining the `_STATUS.get(..., OTHER)` lookup here.
+    # every solver route folds rather than re-inlining the receipt's `_STATUS` table lookup here.
     (_, reported), gradient = eqx.filter_value_and_grad(objective.cost, has_aux=True)(converged)
     objective_value, residual = float(reported), float(optx.max_norm(gradient))
-    # `solution.result` is an `optimistix.RESULTS` `EnumerationItem` carrying ONLY an integer-code
-    # array and the enum class — no `.name`/`.value` member-name attribute, and `RESULTS[item]` yields
-    # the human MESSAGE, not the member name the `_STATUS` table keys. `_result_names()` inverts the
-    # `RESULTS._name_to_item` code→name map once so the converged code resolves to its member name
-    # (`successful`/`max_steps_reached`/`nonlinear_divergence`/...) the sibling `_status` adjudicates;
-    # an unmapped code degrades to "" (a present `str`, so `_status` lands `OTHER` through the
-    # `case str()` arm rather than the `case None` residual floor a `None` would wrongly trip).
-    status = _status(_result_names().get(code, ""), residual, _TOL)
+    # the enum-verdict inversion is the receipt-owned shared `verdict` fold — the `_name_to_item`
+    # inversion plus the batched worst-code reduce live on `solvers/receipt.verdict`, composed
+    # one-row with the gated handles — never a page-local `_result_names()` re-spelling; the
+    # resolved member name feeds the sibling `status_of` adjudicator.
+    status = status_of(verdict(jnp, optx.RESULTS, solution.result), residual, _TOL)
     return lambda key: OutcomeReceipt.Design(tag, objective_value, residual, steps, status, key)
 
 
@@ -421,7 +415,7 @@ def _floor(tag: str, objective: "Objective") -> "Callable[[ContentKey], OutcomeR
     x0, unravel = _ravel(objective.params)
     cost, reported = _floor_cost(objective, unravel)
     residual = _central_difference_norm(cost, x0)
-    status = _status(None, residual, _TOL)  # the no-adjudicator floor: `_status` grades NONFINITE/SUCCESS/STAGNATION
+    status = status_of(None, residual, _TOL)  # the no-adjudicator floor: `status_of` grades NONFINITE/SUCCESS/STAGNATION
     return lambda key: OutcomeReceipt.Design(tag, reported(x0), residual, 0, status, key)
 
 
@@ -504,7 +498,7 @@ def _design_key(tag: str, params: "PyTree", descent: "Descent", restarts: int, s
     shape_tag = "".join(f".{i}:{leaf.ndim}x{'x'.join(map(str, leaf.shape))}" for i, leaf in enumerate(leaves))
     policy_tag = f".{descent.tag}.r{restarts}" + (f".s{seed}" if restarts > 1 else "")
     buffer = _ravel(params)[0].tobytes()
-    return ContentIdentity.of(f"design-{tag}{shape_tag}{policy_tag}", buffer, IdentityPolicy())
+    return ContentIdentity.of(f"design-{tag}{shape_tag}{policy_tag}", buffer)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -543,14 +537,10 @@ class DesignProblem:
 
 
 @functools.cache
-def _objective() -> "FrozenDict[Shape, DesignEntry]":
+def _objective() -> "Map[Shape, DesignEntry]":
     # the gated `optimistix` import is deferred to first call and the `minimise`/`least_squares`
     # the lookup only resolves inside the gated `_optimistix` route the import guard fences.
     import optimistix as optx
 
-    return FrozenDict({Shape.SCALAR: optx.minimise, Shape.RESIDUAL: optx.least_squares})
+    return Map.of_seq([(Shape.SCALAR, optx.minimise), (Shape.RESIDUAL, optx.least_squares)])
 ```
-
-## [03]-[RESEARCH]
-
-- [EQUINOX_PARAM]: the `equinox.partition`/`combine` PyTree split over `equinox.is_inexact_array` separates the inexact-array design leaves the optimizer threads from the static rest, and the combined PyTree is the `y0` Optimistix carries through iteration; the spellings verify against `compute/.api/equinox.md` once the equinox package resolves on the worker lane. The partitioned objective compiles through `equinox.filter_jit` so the static rest skips tracing, and a `restarts>1` ensemble jitters the design leaves through `jax.random.split`/`jax.random.normal` over the seeded `jax.random.key(seed)`, threads the partitioned solve through `equinox.filter_vmap` over the leading restart axis, scores each converged start through `Objective.cost(...)[0]`, folds the best converged iterate and step count through one `jax.tree_util.tree_map` slice at `jax.numpy.argmin`, and reduces the per-start verdicts by `jnp.max` over the batched `optimistix.RESULTS` `EnumerationItem._value` codes — the zero `successful` code makes `max == 0` iff every start converged, so a partial-failure ensemble never masks a diverged start as `SUCCESS`, the specific non-zero code a representative failure since the codes carry no severity total-order. `optimistix.RESULTS.promote` is NOT a batch code-combine: it widens a member from a parent `Enumeration` to a subclass and raises `ValueError` on a same-class member, so the documented vmap reduction is the integer-code max plus the code→member-name inversion of `RESULTS._name_to_item` (an `EnumerationItem` carries only `_value`/`_enumeration`, no `.name`, and `RESULTS[item]` yields the human message not the member-name key the `_STATUS` table reads), never `promote(solution.result)` and never a discarded-to-floor `result=None` — the `key`/`split`/`normal` PRNG triple confirmed in `compute/.api/jax.md`, the `RESULTS` enumeration and `max_norm` in `compute/.api/optimistix.md`, and both filter transforms in `compute/.api/equinox.md`, never a broadcast-copy restart and never a per-start optimizer surface. The descent engine is the `Descent` `@tagged_union` projected to its Optimistix/optax solver in `Descent.solver` — `optimistix.BFGS`/`LevenbergMarquardt` and `optimistix.OptaxMinimiser(optax.chain(optax.zero_nans(), optax.clip_by_global_norm(_CLIP), optax.adam(lr), *_feasible()[feasible]), ...)` all catalogued in `compute/.api/optimistix.md`/`compute/.api/optax.md`, defaulted per route through `_DEFAULT_DESCENT` and overridable per call — never a hardcoded per-case solver and never a hand-rolled momentum accumulator. The chain head folds the catalogued `zero_nans`+`clip_by_global_norm` diverged-inner-solve robustness guard (`compute/.api/optax.md` `[INTEGRATION_LAW]` robustness row) so a non-finite gradient from a diverged inner solve is neutralized then bounded before the moment rescaling. The `density` route folds a feasibility projection into the chain through the `@functools.cache`-built `_feasible()` table as a chain-shaped `GradientTransformation` — the `_projected` lift wrapping an `optax.projections.projection_box`/`projection_simplex` Euclidean projection in a `GradientTransformationExtraArgs` whose `update` returns `projection(apply_updates(params, updates)) − params`, since a bare `projection_box(x, lower, upper)` callable is not a transformation an `optax.chain` composes (the catalogue documents projections as applied after `apply_updates`, with `keep_params_nonnegative` the lone in-chain box transform — line 137/84 of `compute/.api/optax.md`). The SIMP design vector thus stays feasible without a penalty term, and a heterogeneous design vector routes through `optax.multi_transform` on the same projection without a second optimizer.

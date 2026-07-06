@@ -25,25 +25,30 @@ export const meta = {
 }
 
 // --- [INPUTS] ----------------------------------------------------------------------------
-// `args` arrives as structured data. An object with an `ops` list overrides the
-// discovery step; nothing passed lets the kernel enumerate the shared ops itself.
+
+// `args` arrives as structured data. An object with an `ops` list overrides the discovery step; nothing passed lets the kernel enumerate the shared ops itself.
 const seedOps = Array.isArray(args?.ops) ? args.ops : null
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
+// STRICT everywhere: additionalProperties:false + every property required at every level; a conditional field is required-but-empty (''), never omitted.
 const OPS = {
   type: 'object',
+  additionalProperties: false,
   required: ['ops'],
   properties: {
     ops: { type: 'array', items: { type: 'string' } },
   },
 }
+
 const COMPARISON = {
   type: 'object',
-  required: ['op', 'diverges'],
+  additionalProperties: false,
+  required: ['op', 'diverges', 'detail', 'csharpRef', 'pythonRef'],
   properties: {
     op: { type: 'string' },
     diverges: { type: 'boolean' },
-    detail: { type: 'string' },
+    detail: { type: 'string' },    // empty when the implementations agree
     csharpRef: { type: 'string' },
     pythonRef: { type: 'string' },
   },
@@ -59,8 +64,7 @@ const ops = seedOps ?? (await agent(
 )).ops
 log(`${ops.length} shared operation(s) to compare`)
 
-// Compare each op independently. Barrier on purpose — the clustering step works
-// across the WHOLE set of divergences, so it needs every comparison together.
+// Compare each op independently. Barrier on purpose — the clustering step works across the WHOLE set of divergences, so it needs every comparison together.
 const comparisons = await parallel(ops.map(op => () =>
   agent(
     `Compare how "${op}" is implemented in libs/csharp/Rasm versus libs/python/geometry. ` +
@@ -78,6 +82,9 @@ if (divergent.length === 0) {
 }
 
 // --- [CLUSTER_DIVERGENCES]
+
+// Paste fan-in is small-output-only (divergences bounded by the op roster); past ~50 rows
+// the product moves to a scratch report file + receipt — SKILL.md "Data flow between stages".
 phase('Cluster divergences')
 const report = await agent(
   `Here are ${divergent.length} cross-runtime geometry divergences. Cluster them into ` +

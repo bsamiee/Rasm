@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA_XAML_LOADER]
 
-`Avalonia.Markup.Xaml.Loader` supplies runtime XAML parsing through `AvaloniaRuntimeXamlLoader`, compiling XAML strings, streams, and loader documents at runtime (via the in-process `AvaloniaXamlIlRuntimeCompiler`) without the build-time `.axaml` -> IL precompilation. It is the dev-loop / hot-reload inflation engine, gated out of trimmed production builds.
+`Avalonia.Markup.Xaml.Loader` supplies runtime XAML parsing through `AvaloniaRuntimeXamlLoader`, compiling XAML strings, streams, and loader documents at runtime (via the in-process `AvaloniaXamlIlRuntimeCompiler`) without the build-time `.axaml` -> IL precompilation. It is the dev-loop / hot-reload inflation engine anchored to `Diagnostics/devloop.md` (zero direct page composition — HotAvalonia's Debug-only runtime-inflation substrate, PrivateAssets dev-loop scoped), gated out of trimmed production builds.
 
 ## [01]-[PACKAGE_SURFACE]
 

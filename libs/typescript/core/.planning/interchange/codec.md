@@ -4,16 +4,16 @@ The keyed-decode engine of the interchange plane: ONE closed census of every C#-
 
 ## [1]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                     | [PUBLIC]                  |
-| :-----: | :----------------- | :--------------------------------------------------------------------------- | :------------------------ |
-|  [01]   | `WIRE_CENSUS`      | the closed family tuple, arm/source/consumer/home columns, the wire literal  | `Wire` (census reads)     |
-|  [02]   | `FAULT_RAIL`       | `WireFault` policy table, poison intake, budgeted replay, the divert         | `WireFault`, `Quarantine` |
-|  [03]   | `PARITY_VERIFY`    | content-key mint delegate, verify, roundtrip, the key-cell reflection walk   | `Parity`                  |
-|  [04]   | `LANDING_EVIDENCE` | evidence/identity/version landings into core vocabulary + the CRDT op union  | `CrdtOp`, `OpLog` shapes  |
-|  [05]   | `LANDING_WIRE`     | wire-owned decoded shapes for later-wave consumers                           | landing classes on `Wire` |
-|  [06]   | `KEYED_REGISTRY`   | the mapped landing table, the polymorphic decode/encode/stream entrypoints   | `Wire`                    |
-|  [07]   | `FEED_DEDUP`       | the divert+dedup stream combinator and its per-family policy rows            | `feed`                    |
-|  [08]   | `SEQUENCE_GAP`     | the gap Mealy, the resumable oplog stream, the frontier read                 | `Gap`, `OpLog`            |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC]                  |
+| :-----: | :----------------- | :-------------------------------------------------------------------------- | :------------------------ |
+|  [01]   | `WIRE_CENSUS`      | the closed family tuple, arm/source/consumer/home columns, the wire literal | `Wire` (census reads)     |
+|  [02]   | `FAULT_RAIL`       | `WireFault` policy table, poison intake, budgeted replay, the divert        | `WireFault`, `Quarantine` |
+|  [03]   | `PARITY_VERIFY`    | content-key mint delegate, verify, roundtrip, the key-cell reflection walk  | `Parity`                  |
+|  [04]   | `LANDING_EVIDENCE` | evidence/identity/version landings into core vocabulary + the CRDT op union | `CrdtOp`, `OpLog` shapes  |
+|  [05]   | `LANDING_WIRE`     | wire-owned decoded shapes for later-wave consumers                          | landing classes on `Wire` |
+|  [06]   | `KEYED_REGISTRY`   | the mapped landing table, the polymorphic decode/encode/stream entrypoints  | `Wire`                    |
+|  [07]   | `FEED_DEDUP`       | the divert+dedup stream combinator and its per-family policy rows           | `feed`                    |
+|  [08]   | `SEQUENCE_GAP`     | the gap Mealy, the resumable oplog stream, the frontier read                | `Gap`, `OpLog`            |
 
 ## [2]-[WIRE_CENSUS]
 
@@ -40,7 +40,7 @@ const _families = [
   "JsonPatchDocument", "ProgressMarkWire", "CredentialPemWire",
   "BenchmarkClaimWire", "HostFingerprintWire",
   "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire",
-  "FlagVerdictWire", "ControlIntentWire", "LayoutConstraintWire",
+  "FlagVerdictWire", "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire",
   "BcfTopicWire", "BcfViewpointWire", "GeoFeatureWire",
   "BimWire", "DiffWire", "IdsAuditWire",
   "MaterialWire", "OpenPbrGroupsWire", "AppearanceSummaryWire",
@@ -78,6 +78,7 @@ const _census = {
   FlagVerdictWire: { arm: "proto", source: "Rasm.AppHost", consumer: "runtime", home: "codec" },
   ControlIntentWire: { arm: "proto", source: "Rasm.AppUi/Shell", consumer: "ui", home: "codec" },
   LayoutConstraintWire: { arm: "proto", source: "Rasm.AppUi/Shell", consumer: "ui", home: "codec" },
+  CommandGateWire: { arm: "proto", source: "Rasm.AppUi/Shell", consumer: "ui", home: "codec" },
   BcfTopicWire: { arm: "proto", source: "Rasm.Bim", consumer: "ui", home: "codec" },
   BcfViewpointWire: { arm: "proto", source: "Rasm.Bim", consumer: "ui", home: "codec" },
   GeoFeatureWire: { arm: "proto", source: "Rasm.Bim/Semantics", consumer: "ui", home: "codec" },

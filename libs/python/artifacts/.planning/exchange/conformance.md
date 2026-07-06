@@ -77,7 +77,7 @@ from pyhanko.stamp import BaseStampStyle, QRPosition, QRStampStyle, TextStampSty
 from pyhanko_certvalidator import ValidationContext
 from pyhanko_certvalidator.registry import SimpleCertificateStore
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
 

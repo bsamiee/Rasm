@@ -36,7 +36,7 @@ from polars.exceptions import PolarsError
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt

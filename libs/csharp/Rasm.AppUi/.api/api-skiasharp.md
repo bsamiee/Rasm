@@ -251,7 +251,7 @@
 - Text in custom visuals shapes through `SkiaSharp.HarfBuzz` `SKShaper.Shape` (`api-skia-harfbuzz.md`) into an `SKTextBlob`, then draws via `SKCanvas.DrawTextBlob`; `SKFontManager.MatchCharacter` supplies font fallback before shaping. Direct `SKCanvas.DrawText` is reserved for diagnostics where shaping is not required.
 
 [OFFSCREEN_AND_CAPTURE_RAIL]: deterministic raster evidence stacks raster `SKSurface` + `SKImage.Encode` + `SKData`.
-- The capture/evidence rails (`Render/capture.md`, `Render/evidence.md`) allocate a raster `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext` for compositor capture), draw, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, …)` to an `SKData` payload — the byte buffer is the diffable visual receipt the bridge/Verify lane asserts on.
+- The capture/evidence rails (`Render/capture.md`, `Diagnostics/proof.md`) allocate a raster `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext` for compositor capture), draw, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, …)` to an `SKData` payload — the byte buffer is the diffable visual receipt the bridge/Verify lane asserts on.
 - `SKColorSpace.CreateSrgb`/`CreateIcc` + `SKImageInfo.WithColorSpace` make capture color-managed so cross-host evidence is reproducible regardless of platform default `PlatformColorType`.
 - Animated/sequence evidence decodes through `SKCodec.FrameCount`/`GetFrameInfo` (one decode per frame) rather than per-format branching.
 

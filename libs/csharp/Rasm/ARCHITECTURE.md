@@ -88,6 +88,7 @@ Domain/Identity.cs        ⇄  csharp:Rasm.Element/Projection/address     # [CON
 Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec      # [CONTENT_KEY]: ContentAddress composes seed-zero XxHash128 entry, no codec hasher
 Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity         # [CONTENT_KEY]: ModelIdentity.Checksum → ContentHash.Of, the ONE federation hasher
 Domain/Identity.cs        ←  csharp:Rasm.AppHost/Runtime/determinism    # [CONTENT_KEY]: chain/digest sites compose ContentHash.Of
+Domain/Identity.cs        ←  csharp:Rasm.AppUi/*                        # [CONTENT_KEY]: every AppUi content-identity mint (capture runtime delegate, walkthrough frame proof, command payload digest, notebook replay inputs, asset receipts, collab snapshot-accelerator key) composes ContentHash.Of
 Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query/topology     # [CONTENT_KEY]: GeometryHash through the Domain/Identity seed, content-hash ONLY
 Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity           # [CONTENT_KEY]: canonical bytes reproducing the Domain/Identity XxHash128 seed-zero
 Spatial/Reconciliation.cs ⇄  typescript:core/value/contentKey           # [CONTENT_KEY]: content-hashing wasm reproducing the Domain/Identity seed-zero
@@ -105,12 +106,10 @@ Processing/Remesh.cs      →  csharp:Rasm.Compute                        # [SHA
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Documentation/projection # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    →  csharp:Rasm.Fabrication/Posting            # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
 Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization  # [SHAPE]: Coordinate-level Predicate.Orient3D/InSphere cores, no Compute-side mint
-Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting            # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
-Drawing/View.cs           →  csharp:Rasm.AppUi/Render                   # [PROJECTION]: DrawingProjection / drafting-sheet layout
+Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting            # [PROJECTION]: DrawingProjection / HLR visible/hidden segments (AppUi consumes ONLY the Fabrication HiddenLineResult receipt — no direct AppUi row exists)
 Drawing/Pack.cs           →  csharp:Rasm.AppHost/Sandbox/solver         # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant
 Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency       # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
-Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
-Processing/Flatten.cs     →  csharp:Rasm.AppUi/Render                   # [PROJECTION]: ChartAtlas / texture UV channel
+Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt (the only live consumer; the AppUi texture-UV channel stands on the AppUi [V9] growth register, not the ledger)
 Parametric/Develop.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas isometric strips + DevelopmentReceipt isometry witness
 Parametric/Nurbs.cs       →  csharp:Rasm.Generation                     # [WIRE]: Nurbs.Of(NurbsWire) arbitrary-knot ingress — SpineRef surface resolution G1
 Parametric/Curve.cs       →  csharp:Rasm.Generation                     # [WIRE]: Stations StationField SoA over SpineRef window — PathRow/Placement producer

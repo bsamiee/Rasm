@@ -326,7 +326,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand AecHigh          = new(2450,  350, BandKind.Fault, "RASM-COMPONENT-PARADIGM 24xx-27xx", mirror: true);
     public static readonly FaultBand ComputeRemote    = new(4520,   20, BandKind.Fault, "Rasm.Compute/Runtime/wire", mirror: true);
     public static readonly FaultBand PersistRemote    = new(5400,  100, BandKind.Fault, "Rasm.Persistence/Element/graph", mirror: true);
-    public static readonly FaultBand AppUi            = new(6000, 1000, BandKind.Fault, "Rasm.AppUi/Shell/hosts", mirror: true);
+    public static readonly FaultBand AppUi            = new(6000, 1000, BandKind.Fault, "Rasm.AppUi/Diagnostics/evidence#FAULT_TABLES", mirror: true);
     public static readonly FaultBand PersistLocal     = new(7710,   10, BandKind.Fault, "Rasm.Persistence/Element/graph", mirror: true);
     public static readonly FaultBand PersistStore     = new(8250,  210, BandKind.Fault, "Rasm.Persistence/Element/graph", mirror: true);
     public static readonly FaultBand KernelSubstrate  = new(9104,    1, BandKind.Fault, "Rasm/Domain/rails", mirror: true);

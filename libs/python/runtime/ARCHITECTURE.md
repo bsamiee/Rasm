@@ -41,7 +41,7 @@ clock/clock              ←  csharp:Rasm.AppHost/Runtime        # [PORT]: Hlc t
 transport/shapes         ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: PROTO_VOCABULARY 16-shape vocabulary + descriptor_pool drift gate (single-mint decode)
 transport/wire           ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: WireProtoCodec transcode + length-prefixed frame legs
 transport/wire           ⇄  csharp:Rasm.Persistence/Version    # [WIRE]: CrdtOp MessagePack union decode (DecompressFn seam)
-transport/wire           ⇄  csharp:Rasm.Persistence/Sync       # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
+transport/wire           ⇄  csharp:Rasm.Persistence/Version/ledger # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta / replay-window decode
 transport/serve          ←  csharp:Rasm.Compute/Runtime/transport # [WIRE]: CredentialPolicy five-row axis decode (UDS loopback admit)
 transport/serve          →  csharp:Rasm.AppHost/Observability  # [WIRE]: W3C trace-context inbound extraction
 transport/serve          ⇄  csharp:Rasm.AppHost/Agent          # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
@@ -59,7 +59,8 @@ evidence/identity        →  python:artifacts                   # [CONTENT_KEY]
 evidence                 ←  python:data                        # [CONTENT_KEY]: ContentIdentity over mesh point coordinates + tabular put payload e-tag
 execution                ←  python:geometry/energy             # [PORT]: RecipeExecution/RecipeSpec — geometry binds the Job/RecipeInterface schema
 evidence/identity        ←  csharp:Rasm.Compute/Runtime        # [WIRE]: XxHash128 seed-zero two-half [gated: hash-wasm / xxhash cp315]
-evidence/identity        ⇄  python:compute/numerics            # [CONTENT_KEY]: CANONICAL_POLICY seed law + IdentitySource.lift array-backend bit-identity
+evidence/identity        →  python:compute/numerics/array      # [CONTENT_KEY]: ContentIdentity under CANONICAL_POLICY + ParityReceipt layout proof; no re-mint
+transport/roots          →  python:compute/experiments/model   # [BOUNDARY]: ResourceRef/UPath model-asset path resolution
 execution                →  python:artifacts/core/plan         # [CONTENT_KEY]: Keyed session-lane elision (ContentKey, Work)
 observability            ←  python:data/tabular                # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage
 transport/roots          →  python:data/tabular                # [PORT]: TransportResource remote connection

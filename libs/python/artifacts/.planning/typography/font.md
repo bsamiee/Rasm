@@ -31,7 +31,7 @@ from anyio import CapacityLimiter, to_thread
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt

@@ -10,8 +10,10 @@ export const meta = {
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const RESULT_SCHEMA = {
   type: 'object',
+  additionalProperties: false, // STRICT: required must list every property — codex --output-schema rejects anything less
   required: ['items'],
   properties: {
     items: { type: 'array', items: { type: 'string' } },
@@ -47,6 +49,9 @@ const collected = []
 //
 // effort: 'low' suits a mechanical collect/discovery round; raise it if each
 // round demands real reasoning (effort guidance: references/api-reference.md).
+// The dedup paste below grows per round — small-output-only; a heavy accumulator
+// moves to a run-scratch report file + receipt (SKILL.md "Data flow between stages").
+
 while (budget.total && budget.remaining() > 50_000 && collected.length < 200) {
   const r = await agent(
     'TODO: instruction. Do not repeat anything already found below.\n\n'

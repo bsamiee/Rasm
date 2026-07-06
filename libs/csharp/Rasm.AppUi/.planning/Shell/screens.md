@@ -15,7 +15,7 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 
 - Owner: `ScreenCatalogRow` row record; `ScreenCatalog` frozen table with total projections.
 - Entry: `public static Fin<ScreenCatalog> Freeze(params ReadOnlySpan<ScreenCatalogRow> rows)` — `Fin` aborts on a duplicate row id.
-- Auto: dock factories, window titles, palette listings, automation names, and headless proof specs derive as folds over `Rows` — zero per-derivation registries; `IViewFor<TViewModel>` views register through `RegisterView` on the ReactiveUI builder at the composition root, one registration per catalog row.
+- Auto: dock factories, window titles, palette listings, automation names, and headless proof specs derive as folds over `Rows` — zero per-derivation registries; `IViewFor<TViewModel>` views register through `RegisterViews(m => m.Map<TViewModel, TView>())` on the ReactiveUI builder at the composition root (the catalog-verified spelling — `RegisterView<...>` does not exist), one registration per catalog row.
 - Packages: ReactiveUI, LanguageExt.Core, BCL inbox
 - Growth: one catalog row carries screen, dockable, title, automation name, headless proof, and the generative control-intent body; zero new surface.
 - Boundary: `Id`, `RouteKey`, `IconKey`, and `TitleRole` cells are string-serializable symbols — the route key crosses deep links and remote invocation unchanged, the title-role and icon cells resolve against the typography-role and icon-key vocabularies at render, and `Surface` is the single per-host admission gate; the `AutomationName`, `HeadlessProof`, and `Surface` columns are the one derivation source for accessibility names and headless proof lanes; a per-screen base-class family is the rejected form; the `Body` column is the generative control-intent body — a `Func<ScreenBase, ControlIntent>` projecting the screen's model onto the one `ControlIntent` vocabulary (`Shell/controls`) materialized through `ControlFactory`, so a screen is authored as a control-intent stream and a per-screen XAML literal body is the deleted form, the body crossing the `ControlIntentWire` seam unchanged so a web/remote caller materializes the same screen the desktop renders.
@@ -45,10 +45,11 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
     public Seq<ScreenCatalogRow> For(SurfaceHost host) =>
         toSeq(Rows.Values).Filter(row => row.Surface(host));
 
+    // The fault names the offending key: the first id declared more than once rides the DuplicateId detail.
     static Fin<ScreenCatalog> Build(Seq<ScreenCatalogRow> rows) =>
-        rows.Map(static row => row.Id).Distinct().Count == rows.Count
-            ? Fin<ScreenCatalog>.Succ(new(rows.ToFrozenDictionary(static row => row.Id, static row => row, StringComparer.Ordinal)))
-            : Fin<ScreenCatalog>.Fail(Error.New("duplicate screen catalog id"));
+        Optional(rows.Map(static row => row.Id).GroupBy(static id => id).FirstOrDefault(static group => group.Count() > 1)).Match(
+            Some: duplicate => Fin<ScreenCatalog>.Fail(new ScreenFault.DuplicateId(duplicate.Key)),
+            None: () => Fin<ScreenCatalog>.Succ(new(rows.ToFrozenDictionary(static row => row.Id, static row => row, StringComparer.Ordinal))));
 }
 ```
 
@@ -71,7 +72,7 @@ public sealed record ScreenRuntime(
 
 public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValidatableViewModel {
     long mark;
-    Option<ScreenFault> fault = None;
+    Option<ScreenIncident> fault = None;
 
     protected ScreenBase(ScreenCatalogRow row, string surface, ScreenRuntime runtime) {
         Row = row;
@@ -85,7 +86,7 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     public ScreenRuntime Runtime { get; }
     public ViewModelActivator Activator { get; } = new();
     public ValidationContext Rules { get; } = new();
-    public Option<ScreenFault> Fault { get => fault; private set => this.RaiseAndSetIfChanged(ref fault, value); }
+    public Option<ScreenIncident> Fault { get => fault; private set => this.RaiseAndSetIfChanged(ref fault, value); }
 
     IValidationContext IValidatableViewModel.ValidationContext => Rules;
 
@@ -118,7 +119,7 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     public static DrainParticipantPort DrainRow(Func<Seq<ScreenBase>> active) =>
         new("screens", DrainBand.Interaction, 10, token => active().TraverseM(static screen => screen.Suspend()).As().Map(static _ => unit));
 
-    internal Unit Commit(ScreenFault failure) => ignore(Fault = Some(failure));
+    internal Unit Commit(ScreenIncident failure) => ignore(Fault = Some(failure));
 
     IEnumerable<IDisposable> Scope() {
         mark = Runtime.Clocks.Mark();
@@ -132,15 +133,24 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
 
 ## [04]-[DERIVED_STATE]
 
-- Owner: `ScreenFault` state record; `DerivedOps` extension fold over `ScreenBase`.
+- Owner: `ScreenFault` — the typed fault family on the `AppUiFaultBand.Screen` registry row (6080); `ScreenIncident` — the fault-cell state record (who, when, which typed fault); `DerivedOps` extension fold over `ScreenBase`.
 - Entry: `public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, string property, IScheduler scheduler, T initial)` — one paced OAPH row per derived property.
-- Auto: `WhenAnyValue` and `SubscribeToExpressionChain` streams feed `Derive`; `FoldFaults` merges command and pipeline `ThrownExceptions` into the one `Fault` cell; `RaiseAndSetIfChanged` publishes the fault transition to bound views.
+- Auto: `WhenAnyValue` and `SubscribeToExpressionChain` streams feed `Derive`; `FoldFaults` merges command and pipeline `ThrownExceptions` through the one `ScreenFault.Thrown` conversion into the `Fault` cell; `RaiseAndSetIfChanged` publishes the fault transition to bound views.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime
 - Growth: one OAPH row per derived property and one merged stream per fault source; zero new surface.
 - Boundary: per-control exception handling is the deleted pattern — `Fault` is the single screen failure surface, and the error dialog row and the evidence stream both consume it through composition-bound delegates; the `IScheduler` parameter arrives from the surface scheduler boundary and applies once per pipeline, never per operator; `Calm` pins the operator order — distinct before throttle — so burst sources collapse before pacing.
 
 ```csharp signature
-public readonly record struct ScreenFault(string ScreenId, Error Evidence, Instant At, string Source);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ScreenFault : Expected {
+    private ScreenFault(string detail, int code) : base(detail, code) { }
+    public sealed record DuplicateId(string Detail)
+        : ScreenFault($"screen/duplicate: {Detail}", AppUiFaultBand.Screen.Code(0));
+    public sealed record Thrown(string Source, string Reason)
+        : ScreenFault($"screen/thrown: {Source}: {Reason}", AppUiFaultBand.Screen.Code(1));
+}
+
+public readonly record struct ScreenIncident(string ScreenId, ScreenFault Evidence, Instant At, string Source);
 
 public static class DerivedOps {
     extension(ScreenBase screen) {
@@ -152,7 +162,7 @@ public static class DerivedOps {
 
         public IDisposable FoldFaults(string source, params ReadOnlySpan<IObservable<Exception>> streams) =>
             Observable.Merge(streams.ToArray()).Subscribe(failure =>
-                screen.Commit(new ScreenFault(screen.Row.Id, Error.New(failure), screen.Runtime.Clocks.Now, source)));
+                screen.Commit(new ScreenIncident(screen.Row.Id, new ScreenFault.Thrown(source, failure.Message), screen.Runtime.Clocks.Now, source)));
     }
 }
 ```

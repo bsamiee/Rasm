@@ -9,7 +9,7 @@
 - import: `import xarray as xr`
 - version: `2025.x`
 - license: Apache-2.0
-- owner: `data` (field-dataset), `compute` (`DataTree`, `experiments/inference`)
+- owner: `data` (field-dataset), `compute` (`DataTree`, `experiments/inference`; `numerics/array` — the `ArraySource.Labelled` arm extracting `.data` plus coords into `NamedAxis` rows, structural reads only)
 - rail: field-dataset
 - entry points: backend plugins register through the `xarray.backends` entry-point group (`netcdf4`, `h5netcdf`, `zarr`, `scipy`, `rasterio` via rioxarray); library use is import-only
 - capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware label selection, grouped/binned/resampled/rolling/coarsen/weighted reductions, interpolation and nodata fill, polynomial and non-linear curve fitting, numerical integration/differentiation, the `.dt`/`.str`/`.plot` computed accessors plus custom-accessor registration, hierarchical `DataTree` with `map_over_datasets`, netCDF/Zarr/Icechunk IO over the netcdf4/h5netcdf/zarr engines with per-variable `encoding`, and a dask/cubed-backed lazy/chunked path

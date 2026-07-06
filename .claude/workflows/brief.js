@@ -1,39 +1,42 @@
 export const meta = {
   name: 'brief',
-  description: 'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.5 via codex dispatch wrappers (sonnet shells; surveyors write dossiers workspace-write, deep lanes add live web search; CODEX flag false restores native lanes) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md. 10-12 agents per target + 3 review.',
+  description: 'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.5 via codex dispatch wrappers (sonnet shells; surveyors write dossiers workspace-write, deep lanes add live web search; CODEX flag false restores native lanes; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md. 10-12 agents per target + 3 review.',
   whenToUse: 'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const STALL = 480000
 const CODEX = true // survey/strata + deep research lanes run on gpt-5.5 via the codex wrapper; false restores native lanes
-const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
+const SCRATCH = '.claude/scratch/brief' // per-lane task/schema/report/stderr/dossier files
+
 const LANG = {
-  python: { tag: 'PY', doctrine: 'docs/stacks/python/', tiers: 'libs/python/.api/ (branch substrate) + the folder .api/ (domain)',
+    python: { tag: 'PY', doctrine: 'docs/stacks/python/', tiers: 'libs/python/.api/ (branch substrate) + the folder .api/ (domain)',
     manifest: 'the root pyproject.toml — lean unpinned names, bounds only on resolver evidence, one owning manifest',
     verify: 'PyPI JSON + two corroborating web sources per candidate (license, wheels incl. the <3.15 band where relevant, maintenance); paid/gated/proprietary REJECTED',
     law: 'the shared-tier weave is corpus law: expression tagged_union/Result/Option/Block/Map as the one ADT and dispatch spine, anyio at ' +
-      'concurrent seams, runtime guarded/railed retry over the POLICY rows, msgspec one-shot ingress, beartype public entries' },
-  csharp: { tag: 'CS', doctrine: 'docs/stacks/csharp/ plus the docs/stacks/csharp/domain/ shards', tiers: 'libs/csharp/.api/ (shared substrate) + the package .api/ (domain)',
+    'concurrent seams, runtime guarded/railed retry over the POLICY rows, msgspec one-shot ingress, beartype public entries' },
+    csharp: { tag: 'CS', doctrine: 'docs/stacks/csharp/ plus the docs/stacks/csharp/domain/ shards', tiers: 'libs/csharp/.api/ (shared substrate) + the package .api/ (domain)',
     manifest: 'Directory.Packages.props (hand-edited, label-grouped; never dotnet add) + the target .csproj',
     verify: 'uv run python -m tools.assay api over restored assemblies (member truth, verified-local wins) + the nuget MCP (feed truth) + two ' +
-      'corroborating web sources; license gate enforced (OSS or free-for-OSS commercial; pay-tiered/seat-licensed/proprietary-gated REJECTED)',
+    'corroborating web sources; license gate enforced (OSS or free-for-OSS commercial; pay-tiered/seat-licensed/proprietary-gated REJECTED)',
     law: 'the WORKSPACE_LAW strata govern placement: KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP, depending strictly upward; ' +
-      'AEC peers never reference each other' },
-  typescript: { tag: 'TS', doctrine: 'docs/stacks/typescript/', tiers: 'libs/typescript/.api/ (branch) + the folder .api/ (domain)',
+    'AEC peers never reference each other' },
+    typescript: { tag: 'TS', doctrine: 'docs/stacks/typescript/', tiers: 'libs/typescript/.api/ (branch) + the folder .api/ (domain)',
     manifest: 'pnpm-workspace.yaml + the workspace catalog — central version ownership, no per-package drift',
     verify: 'the npm registry + two corroborating web sources per candidate (license, types, maintenance); paid/gated/proprietary REJECTED',
     law: 'the Effect-native platform doctrine governs: services/layers/runtime wiring, one rail, schema-first boundaries per docs/stacks/typescript' },
 }
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 // Hosts may deliver object args JSON-encoded; decode before shape dispatch.
 const argsIn = (typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args
 const TARGETS = (typeof argsIn === 'string' && argsIn.trim()) ? [argsIn.trim().replace(/\/+$/, '')]
-  : (Array.isArray(argsIn)) ? argsIn.filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().replace(/\/+$/, ''))
-  : (argsIn && typeof argsIn === 'object' && argsIn.targets)
-    ? (Array.isArray(argsIn.targets) ? argsIn.targets : [argsIn.targets]).filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().replace(/\/+$/, ''))
-    : []
+    : (Array.isArray(argsIn)) ? argsIn.filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().replace(/\/+$/, ''))
+    : (argsIn && typeof argsIn === 'object' && argsIn.targets)
+        ? (Array.isArray(argsIn.targets) ? argsIn.targets : [argsIn.targets]).filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().replace(/\/+$/, ''))
+        : []
 const UPSTREAM = (argsIn && typeof argsIn === 'object' && Array.isArray(argsIn.upstream)) ? argsIn.upstream.filter((u) => typeof u === 'string' && u.trim()) : []
 const DEEP = (argsIn && typeof argsIn === 'object') ? argsIn.deep : false
 const MANDATE = (argsIn && typeof argsIn === 'object') ? argsIn.mandate : ''
@@ -47,26 +50,53 @@ const deepFor = (t) => DEEP === true || (Array.isArray(DEEP) && DEEP.includes(t)
 const mandateFor = (t) => (typeof MANDATE === 'string') ? MANDATE.trim() : (MANDATE && typeof MANDATE === 'object' && typeof MANDATE[t] === 'string') ? MANDATE[t].trim() : ''
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: ['dossier', 'lane', 'key_facts'], properties: {
-  dossier: { type: 'string' }, lane: { type: 'string' }, pages_read: { type: 'number' },
-  key_facts: { type: 'array', items: { type: 'string' } },
-  verdict_candidates: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['what', 'evidence'], properties: { what: { type: 'string' }, evidence: { type: 'string' } } } } } }
+
+// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
+const ANCHOR = { type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: ['state', 'ruling', 'catalog', 'counterpart', 'absence'] },
+  note: { type: 'string' } } }
+
+const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: ['dossier', 'entries', 'coverage', 'summary'], properties: {
+  dossier: { type: 'string' }, // path to the lane's full markdown dossier
+  entries: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'kind', 'files', 'info', 'anchors', 'members'], properties: {
+    target: { type: 'string' }, // page, seam, catalog, or package the entry grounds
+    kind: { type: 'string', enum: ['state', 'defect', 'pressure', 'seam', 'stacking', 'candidate', 'roster'] },
+    files: { type: 'array', items: { type: 'string' } }, // files the author must open for this entry
+    info: { type: 'string' }, // the evidence as prose fact; a candidate states the ruling it argues plus its fatal proofs
+    anchors: { type: 'array', items: ANCHOR }, // exact coordinates backing the entry
+    members: { type: 'array', items: { type: 'string' } } } } }, // verified member/package spellings backing a stacking or roster entry
+  coverage: { type: 'object', additionalProperties: false, required: ['requested', 'read', 'skipped', 'unverified'], properties: {
+    requested: { type: 'array', items: { type: 'string' } },
+    read: { type: 'array', items: { type: 'string' } },
+    skipped: { type: 'array', items: { type: 'string' } },
+    unverified: { type: 'array', items: { type: 'string' } } } },
+  summary: { type: 'string' } } }
+
+// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + counts travel inline.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' } } }
+
 const AUTHOR_SCHEMA = { type: 'object', additionalProperties: false, required: ['brief', 'verdict_count', 'evidence_rows', 'thesis'], properties: {
   brief: { type: 'string' }, verdict_count: { type: 'number' }, evidence_rows: { type: 'number' }, thesis: { type: 'string' } } }
-const PASS_SCHEMA = { type: 'object', additionalProperties: false, required: ['edits', 'findings'], properties: {
-  edits: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['section', 'what'], properties: { section: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' } } } },
+
+const PASS_SCHEMA = { type: 'object', additionalProperties: false, required: ['edits', 'findings', 'roster_changes', 'upstream_ripples', 'ripple_audit', 'final_verdict', 'top_risks'], properties: {
+  edits: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['section', 'what', 'why'], properties: { section: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' } } } },
   findings: { type: 'array', items: { type: 'string' } },
-  roster_changes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['action', 'package', 'concern'], properties: { action: { type: 'string', enum: ['ADD', 'REMOVE', 'REPLACE', 'INTEGRATE'] }, package: { type: 'string' }, concern: { type: 'string' }, verification: { type: 'string' } } } },
-  upstream_ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['brief', 'what'], properties: { brief: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' } } } },
+  roster_changes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['action', 'package', 'concern', 'verification'], properties: { action: { type: 'string', enum: ['ADD', 'REMOVE', 'REPLACE', 'INTEGRATE'] }, package: { type: 'string' }, concern: { type: 'string' }, verification: { type: 'string' } } } },
+  upstream_ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['brief', 'what', 'why'], properties: { brief: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' } } } },
   ripple_audit: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claimed', 'verdict'], properties: { claimed: { type: 'string' }, verdict: { type: 'string', enum: ['LANDED', 'APPLIED-BY-ME', 'CORRECTED'] } } } },
   final_verdict: { type: 'string' }, top_risks: { type: 'array', items: { type: 'string' } } } }
-const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['edits', 'opportunities', 'alignments'], properties: {
-  edits: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['brief', 'what'], properties: { brief: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' } } } },
+
+const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['edits', 'opportunities', 'alignments', 'final_verdict', 'residual_risks'], properties: {
+  edits: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['brief', 'what', 'why'], properties: { brief: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' } } } },
   opportunities: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['enabler', 'consumer', 'what'], properties: { enabler: { type: 'string' }, consumer: { type: 'string' }, what: { type: 'string' } } } },
   alignments: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['seam', 'fix'], properties: { seam: { type: 'string' }, fix: { type: 'string' } } } },
   final_verdict: { type: 'string' }, residual_risks: { type: 'array', items: { type: 'string' } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const ROSTER_LAW = 'PACKAGE ROSTER LAW: central version ownership per the language manifest; per-package catalogs live in the .api tiers and every ' +
   'admission/removal carries its catalog motion. The roster is OPEN — modern/bleeding-edge additions, verified removals, and categorical-best ' +
   'replacements are all in scope, one categorical-best owner per concern. INTEGRATION-FIRST: an admitted package with zero page consumers is an ' +
@@ -80,16 +110,19 @@ const ROSTER_LAW = 'PACKAGE ROSTER LAW: central version ownership per the langua
   'so an addition lands clean across the chain, never a folder-local orphan. DOMAIN-GAP research is mandatory where the target scope demands ' +
   'capability no admitted package owns: name the concern + the categorical-best candidate + the binding surface, verified per the language rail. ' +
   'Never silently narrow the domain to the current roster.'
+
 const CROSS_FOLDER_LAW = 'CROSS-FOLDER LAW: high-value capability is never planned in isolation. The brief names enablement rows in RELATED ' +
   'FOLDERS — the realized corpora on disk, independent of any upstream brief — in BOTH directions: a base/lower-stratum extension that unlocks a ' +
   'stronger form in the target (the base folder gains a fully-specified IDEAS-row obligation, the target verdict composes it), and a target ' +
   'capability that opens doors in consumers or siblings (the consumer opportunity named with its seam). Every row binds at declared wire/seam ' +
   'boundaries — content keys, frozen wire names, entry/receipt ports — never a coupling to a sibling interior; cross-language rows bind at the ' +
   'wire only. A cross-folder row without a named seam is a defect.'
+
 const CHAFF_LAW = 'SECTION UTILITY LAW: the brief is LAW the rebuild engine executes directly — it never requires a second document, a follow-up ' +
   'design pass, or a DECISION file. Every section, verdict clause, evidence row, and table row must change the executing agent\'s behavior; ' +
   'boilerplate framing, restated doctrine, generic methodology, empty filler sections, and prose that describes rather than rules are deleted on ' +
   'sight. A genuine evidence-gated hinge is DECIDED in the brief — a ruled default plus the deciding criteria that would flip it — never deferred.'
+
 const RIPPLE_LAW = 'CORPUS + WATERFALL LAW: the finalized briefs listed as CORPUS are law for this target — read each FULLY; this target is their ' +
   'CONSUMER (every upstream capability it could compose instead of hand-rolling is a named opportunity; every assumption an upstream brief ' +
   'changes is a named migration pressure), and cross-LANGUAGE corpus rows bind at wire/content-key seams only, decoded at the boundary, never a ' +
@@ -97,6 +130,15 @@ const RIPPLE_LAW = 'CORPUS + WATERFALL LAW: the finalized briefs listed as CORPU
   'extension (a verdict clause, an evidence row, an escalation delta, a package row) framed as consumer pressure with this target named as the ' +
   'demanding consumer, EXTENDING its numbering (a new Vn/En), never a rewrite, never re-planning the upstream, and every such edit recorded in ' +
   'your return as upstream_ripples so the terminal audit can re-verify it on disk.'
+
+const ENTRY_LAW = 'REPORT FORM — the JSON report is the wire product the author consumes; the dossier carries the full prose. `entries` carry ' +
+  'one fact, defect, pressure, seam, stacking gap, or verdict candidate each: `info` is prose evidence (a candidate states the ruling it argues ' +
+  'plus its independently-fatal proofs — the AUTHOR owns the decision; a candidate is pressure with evidence, never settled law); `files` lists ' +
+  'what the author must open for the entry; `anchors` carry one coordinate per row (role names what it proves; `note` is the shortest literal ' +
+  'witness under 20 words, or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not found); ' +
+  '`members` = verified member/package spellings backing a stacking or roster entry. COVERAGE is part of the product: `requested` = your ' +
+  'assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did not reach — an honest skip beats a silent one.'
+
 const preOf = (t, corpus) => { const L = langOf(t), m = mandateFor(t); return 'Rasm monorepo. Target: ' + t + '/.planning/ (markdown design pages ' +
   'of intended code; the fences are the product). ' + L.doctrine + ' governs every fence; ' + L.law + '; libs/.planning/architecture.md governs ' +
   'the cross-branch map. Both .api tiers are member truth: ' + L.tiers + '. Manifest: ' + L.manifest + '. Verification rail: ' + L.verify + '. ' +
@@ -110,52 +152,71 @@ const preOf = (t, corpus) => { const L = langOf(t), m = mandateFor(t); return 'R
   (m ? '\nSCOPE MANDATE (binding): ' + m : '') }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 // gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges
-// the work. `web` inserts live web search.
+// SCRATCH, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
+// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
+// terminal reader. It never does, edits, judges, or relays the work. `web` inserts live web search.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
+const dossierOf = (label) => SCRATCH + '/' + fileTag(label) + '-dossier.md'
 const codexPrompt = (label, task, schema, writes, web) => {
-  const base = CODEX_DIR + '/' + fileTag(label)
+  const base = SCRATCH + '/' + fileTag(label)
   const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
-  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
-    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
-  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
-    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
-    (web ? '-c web_search="live" ' : '') + '--output-schema ' + base + '-schema.json -o ' + base + '-report.json ' +
-    '"Do the task in ' + base + '-task.md from the repository root. Final message: JSON per the output schema." ' +
-    '</dev/null >/dev/null 2>&1 &',
+  const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1) // self-excluding pgrep/pkill pattern
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
+    'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
+  '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' + SCRATCH + '; purge stale lane artifacts (a leftover report would READY instantly with last run\'s data): rm -f ' + base + '-report.json ' + base + '-stderr.log; Write the TASK block below verbatim to ' + base + '-task.md; Write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json — both paths resolved ABSOLUTE under the repository root: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' + base + '-task.md && test -s ' + base + '-schema.json || echo ' +
+    'FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
+    'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
+    'zero-CPU, no report): ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
+    (web ? '-c web_search="live" ' : '') + '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' + base + '-stderr.log &',
   '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
     'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
     'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
-    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
-    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
-  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
-    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+    'pgrep -f "' + rptPat + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rptPat + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 2nd RUNNING ' +
+    'poll (~10 min wall) the run is WEDGED, not slow — kill it (pkill -f "' + rptPat + '") and go to (4) as GONE. ' +
+    'Cap at 7 poll calls total.',
+  '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
+    'judgment): entries=$(jq \'.entries | length\' ' + base + '-report.json); kinds=$(jq -r \'[.entries[].kind] | group_by(.) | map(.[0] + "x" + (length|tostring)) | join(",")\' ' + base + '-report.json); top=$(jq -r \'[.entries[].files[0]] | group_by(.) | max_by(length) | .[0] // "none"\' ' + base + '-report.json). ' +
+    'Return the RECEIPT: ok=true, report=' + base + '-report.json, entries=that count, headline="<entries> entries | <kinds> | top: <top>", failure empty. ' +
+    'GONE with no report: tail -5 ' + base + '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
+    'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
   'TASK — write verbatim to the task file, then dispatch:',
   task].join('\n\n')
 }
-// Every survey/research lane routes here: gpt-5.5 wrapper when CODEX, the lane's native model otherwise.
-const recon = (task, o) => CODEX
+
+// Every survey/research lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
+// The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
+// unmapped territory is exact even when the lane died before writing anything.
+const recon = (task, o) => (CODEX
   ? agent(codexPrompt(o.label, task, o.schema, !!o.writes, !!o.web),
-    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
-  : agent(task, o.model
-    ? { label: o.label, phase: o.phase, model: o.model, effort: 'high', schema: o.schema, stallMs: STALL }
-    : { label: o.label, phase: o.phase, effort: 'high', schema: o.schema, stallMs: STALL })
-const surveyPrompt = (pre, scratch, lane, scope) => [pre, 'TASK: READ-ONLY SURVEY, lane = ' + lane + '. Scope: ' + scope + '. Deep-read fully — ' +
-  'never skim. WRITE a dense dossier to ' + scratch + '/dossier-' + lane + '.md: per-page {verdict 1-10, defects with file:line, ' +
-  'split/merge/move pressure, the owner charter as it SHOULD be}, cross-cutting {duplication, concern mixing, hardcoding-vs-generator, dead ' +
-  'carriers, unwired seams, unmined capability with catalog anchors}, and the 5-10 strongest VERDICT CANDIDATES (campaign-defining structural ' +
-  'rulings with evidence). Dense, evidence-first, zero narration. NO edits outside ' + scratch + '/.'].join('\n')
-const deepPrompt = (pre, scratch, lane, focus) => [pre, ROSTER_LAW, 'TASK: ECOSYSTEM RESEARCH, lane = ' + lane + '. ' + focus + ' Web research ' +
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    SCRATCH + '/' + fileTag(o.label) + '-report.json (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(o.schema) + ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+    { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL })
+).then((r) => ({ lane: o.label, scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+  entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died') }))
+const surveyPrompt = (pre, dossier, lane, scope) => [pre, ENTRY_LAW, 'TASK: READ-ONLY SURVEY, lane = ' + lane + '. Scope: ' + scope + '. Deep-read fully — ' +
+  'never skim. WRITE a dense dossier to ' + dossier + ' (Write tool, path resolved absolute under the repository root): per-page {verdict 1-10, ' +
+  'defects with file:line, split/merge/move pressure, the owner charter as it SHOULD be}, cross-cutting {duplication, concern mixing, ' +
+  'hardcoding-vs-generator, dead carriers, unwired seams, unmined capability with catalog anchors}, and the 5-10 strongest VERDICT CANDIDATES ' +
+  '(campaign-defining structural rulings with evidence). Dense, evidence-first, zero narration. Your JSON report distills the dossier into typed ' +
+  'entries — every verdict candidate (kind=candidate), every anchored defect and pressure, every seam, stacking, and state fact — with `dossier` ' +
+  'set to ' + dossier + '. NO edits outside ' + SCRATCH + '/.'].join('\n')
+const deepPrompt = (pre, dossier, lane, focus) => [pre, ROSTER_LAW, ENTRY_LAW, 'TASK: ECOSYSTEM RESEARCH, lane = ' + lane + '. ' + focus + ' Web research ' +
   'with two corroborating sources per candidate and the license gate enforced; verify real, maintained, current. WRITE the dossier to ' +
-  scratch + '/dossier-' + lane + '.md: per-candidate {package, concern owned, binding surface, license, maturity signals, verdict ' +
-  'ADMIT-CANDIDATE/REFERENCE-ONLY/REJECT with the reason}. NO edits outside ' + scratch + '/.'].join('\n')
-const authorPrompt = (pre, t, out, dossiers) => [pre, ROSTER_LAW, 'TASK: AUTHOR the campaign brief ' + out + ' (repo root) for the ground-up ' +
+  dossier + ' (Write tool, path resolved absolute under the repository root): per-candidate {package, concern owned, binding surface, license, ' +
+  'maturity signals, verdict ADMIT-CANDIDATE/REFERENCE-ONLY/REJECT with the reason}. Your JSON report carries one kind=roster entry per ' +
+  'candidate — `members` = the verified package spelling, `info` = concern + binding surface + license + verdict with reason, `anchors` empty ' +
+  'where the evidence is web-only (the dossier carries the sources) — with `dossier` set to ' + dossier + '. NO edits outside ' + SCRATCH + '/.'].join('\n')
+const authorPrompt = (pre, t, out, roster, unmapped) => [pre, ROSTER_LAW, 'TASK: AUTHOR the campaign brief ' + out + ' (repo root) for the ground-up ' +
   'restructure+rebuild of ' + t + '/.planning/. GOLD STANDARD: read ' + GOLD + ' (repo root) COMPLETELY first — match its density, structure, ' +
   'and law-grade voice. The brief carries: [00]-SHARED_LAW (a VERDICT with independently-fatal proofs anchored file:line; TELOS with the ' +
   '5x-consumer bar; STRUCTURAL_AUTHORITY incl. split/merge/move/new-folder freedom; the placement/strata law; GENERATOR_LAW; the seam/entry/' +
@@ -168,9 +229,14 @@ const authorPrompt = (pre, t, out, dossiers) => [pre, ROSTER_LAW, 'TASK: AUTHOR 
   'applies), [07] OUT_OF_SCOPE. The brief is SINGLE-PHASE and decision-complete per the section utility law: the rebuild engine consumes it ' +
   'directly, no second document ever follows it, and every structural hinge is DECIDED — a ruled default plus the deciding criteria that would ' +
   'flip it. HEADER LAW: line 3 of the brief is the campaign line, 1-3 lines: its track order relative to the corpus, the Workflow invocation ' +
-  '(rebuild.js args), and its one sequencing constraint. Sources: the survey dossiers ' + JSON.stringify(dossiers) + ' (evidence — re-verify on ' +
-  'disk anything load-bearing) plus the corpus as law. Every claim anchored; agent-facing declarative; no provenance, no hedging, no restated ' +
-  'doctrine. Return the path + counts + a one-line thesis.'].join('\n')
+  '(rebuild.js args), and its one sequencing constraint. SOURCES — CONSUMPTION PROTOCOL, in order: (a) UNMAPPED scope below is your direct-hunt ' +
+  'queue — a failed lane\'s territory gets your own cold read FIRST; (b) read every ok survey REPORT FILE IN FULL from disk, shared-surface ' +
+  'lanes (api-tiers, census, strata, ecosystem) before the corpus halves, and read each report\'s `dossier` markdown IN FULL alongside it; ' +
+  'entries overlap across lanes — cluster by target as you read; (c) entries are EVIDENCE with jump-coordinate anchors, never settled law: ' +
+  're-verify on disk every anchor behind a claim the brief makes (MANDATORY); navigation-only entries re-verify only when touched; a verdict ' +
+  'candidate is pressure you adopt, strengthen, or reject on your own authority. Plus the corpus as law. ' +
+  'UNMAPPED: ' + JSON.stringify(unmapped) + ' ROSTER: ' + JSON.stringify(roster) + '. Every claim anchored; agent-facing declarative; no ' +
+  'provenance, no hedging, no restated doctrine. Return the path + counts + a one-line thesis.'].join('\n')
 const passPrompts = (pre, brief) => [
   [pre, 'TASK: ADVERSARIAL PASS 1 of 4 — ARCHITECTURE. You WRITE: fix and improve ' + brief + ' in place. Interrogate the brief AS AN ' +
     'ARCHITECTURE: do its verdicts compose into one coherent domain map (draw the post-campaign dependency graph — cycles, owners with two ' +
@@ -199,6 +265,7 @@ const passPrompts = (pre, brief) => [
     'ripple the author and passes 1-3 claimed — read the upstream brief at the claimed site; a claimed-but-absent edit is APPLIED by you now ' +
     '(owner-extension form), a wrong one CORRECTED; record each in ripple_audit. Return the final verdict + top risks.'].join('\n'),
 ]
+
 const reviewPre = (scope) => 'Rasm monorepo. THE CORPUS, in dependency order (earlier = upstream foundation, later = consumer; languages may ' +
   'mix — cross-language rows bind at wire/content-key seams only): ' + JSON.stringify(scope) + ' — each a finalized campaign brief a rebuild ' +
   'workflow executes against its folder. Read EVERY brief COMPLETELY and in order before any edit. You WRITE: improvements land in the briefs ' +
@@ -246,13 +313,12 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
   const L = langOf(t)
   const name = nameOf(t)
   const out = outOf(t)
-  const scratch = '.claude/scratch/brief-' + L.tag.toLowerCase() + '-' + name.toLowerCase()
   const pre = preOf(t, corpus)
   const P = L.tag + ':' + name.toLowerCase()
+  const laneLabel = (lane) => 'survey:' + L.tag.toLowerCase() + '-' + name.toLowerCase() + ':' + lane
 
-  // --- [SURVEY]
   phase(P + ' survey')
-  const lanes = [
+  const surveyLanes = [
     { lane: 'corpus-a', scope: 'the FIRST half of the target .planning pages (alphabetical by path) FULLY, plus the folder README/ARCHITECTURE/TASKLOG/IDEAS where present' },
     { lane: 'corpus-b', scope: 'the SECOND half of the target .planning pages FULLY, plus every page the first half seams to at the depth fit requires' },
     { lane: 'api-tiers', scope: 'BOTH .api tiers COMPLETE (' + L.tiers + ') + the manifest (' + L.manifest + '); judge every stub ' +
@@ -270,22 +336,23 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     { lane: 'ecosystem-b', focus: 'Sweep the ADJACENT/emerging lanes: bleeding-edge or cross-domain packages that could raise the capability ' +
       'ceiling, plus supersession candidates for weak admitted owners.' },
   ] : []
-  const surveyed = (await parallel([
-    ...lanes.map((l) => () => recon(surveyPrompt(pre, scratch, l.lane, l.scope),
-      { label: 'survey:' + l.lane, phase: P + ' survey', model: 'opus', schema: SURVEY_SCHEMA, writes: true })),
-    ...deepLanes.map((l) => () => recon(deepPrompt(pre, scratch, l.lane, l.focus),
-      { label: 'survey:' + l.lane, phase: P + ' survey', schema: SURVEY_SCHEMA, writes: true, web: true })),
+  const roster = (await parallel([
+    ...surveyLanes.map((l) => () => recon(surveyPrompt(pre, dossierOf(laneLabel(l.lane)), l.lane, l.scope),
+      { label: laneLabel(l.lane), phase: P + ' survey', schema: SURVEY_SCHEMA, writes: true, scope: [l.scope] })),
+    ...deepLanes.map((l) => () => recon(deepPrompt(pre, dossierOf(laneLabel(l.lane)), l.lane, l.focus),
+      { label: laneLabel(l.lane), phase: P + ' survey', schema: SURVEY_SCHEMA, writes: true, web: true, scope: [l.focus] })),
   ])).filter(Boolean)
-  const dossiers = surveyed.map((s) => s.dossier)
-  log(P + ' survey: ' + surveyed.length + '/' + (lanes.length + deepLanes.length) + ' dossiers')
+  const surveyed = roster.filter((r) => r.ok)
+  const total = surveyed.reduce((a, r) => a + r.entries, 0)
+  const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((s) => ({ lane: r.lane, scope: s })))
+  log(P + ' survey: ' + total + ' entries across ' + surveyed.length + '/' + roster.length + ' lanes' +
+    (surveyed.length < roster.length ? ' — FAILED: ' + roster.filter((r) => !r.ok).map((r) => r.lane).join(', ') : ''))
 
-  // --- [AUTHOR]
   phase(P + ' author')
-  const authored = await agent(authorPrompt(pre, t, out, dossiers), { label: 'author:' + name.toLowerCase(), phase: P + ' author', effort: 'high', schema: AUTHOR_SCHEMA, stallMs: STALL })
+  const authored = await agent(authorPrompt(pre, t, out, roster, unmapped), { label: 'author:' + name.toLowerCase(), phase: P + ' author', effort: 'high', schema: AUTHOR_SCHEMA, stallMs: STALL })
   if (!authored) { log(P + ': author produced nothing — aborting this target; resume re-runs it.'); continue }
   log(P + ' author: ' + authored.brief + ' — ' + authored.verdict_count + ' verdicts, ' + authored.evidence_rows + ' E-rows')
 
-  // --- [REFINE]
   phase(P + ' refine')
   const PASS_LABELS = ['architecture', 'capability', 'roster', 'cold-read']
   let lastPass = null
@@ -300,6 +367,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
 }
 
 // --- [REVIEW]
+
 let review = null
 if (produced.length && !REVIEW_OFF) {
   phase('review')

@@ -11,21 +11,25 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const STAGGER_MS = 1500
 const STALL = 300000
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
 const rawScope = (typeof input === 'string') ? input.trim() : (input && typeof input === 'object' && input.target) ? String(input.target).trim() : ''
 const SWEEP = (!rawScope || rawScope === 'ALL') ? 'libs' : rawScope
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['folders'], properties: { folders: { type: 'array', items: { type: 'string' } } } }
 // Required-but-possibly-empty `manifest_rows` is an attestation: the manifest single-writer law held — needed rows are reported, never hand-edited in a fan.
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'applied', 'verdict', 'manifest_rows', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, applied: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean', 'fail'] }, manifest_rows: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['doc', 'row'], properties: { doc: { type: 'string' }, row: { type: 'string' } } } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo. This is a SURGICAL hygiene pass: refine/correct, NEVER explanatory bloat, NEVER a new design page. Cards: default ' +
     'refine-do-not-proliferate (a genuinely-new card only if truly appropriate). VERIFY against disk before removing any done-claimed card. ' +
@@ -61,6 +65,7 @@ const LAW = [
     'one systematic pass, never the mechanism). A token or single-point patch where a root-level correction of the same files is available is ' +
     'itself a defect — repair to the root form.',
 ].join('\n')
+
 const BLOCKER = [
   'BLOCKER PROTOCOL: for each [BLOCKED] card, classify. GENUINE-EXTERNAL (a dependency build/wheel/target absent for the runtime, upstream issue ' +
     'open, sibling card unmet, live-proof needed) -> keep [BLOCKED], sharpen the rationale. RESEARCH/PROBING-RESOLVABLE -> PROBE NOW (the ' +
@@ -71,6 +76,7 @@ const BLOCKER = [
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // The single scheduler for every fan in the run: CAP tasks in flight, staggered launch.
 const pool = async (items, cap, worker) => {
@@ -122,6 +128,7 @@ log('H1 folder hygiene done across ' + h1.length + ' folders; ' + ROWS.length + 
   (h1Skipped.length ? '; SKIPPED (agent died): ' + h1Skipped.join(', ') : ''))
 
 // --- [H2_GLOBAL]
+
 phase('H2-Global')
 const h2Prompt = [
   LAW, '',
@@ -136,6 +143,7 @@ const h2Prompt = [
     'invocation, command catalogs, owner routing) against the live owner by resolving/invoking it, and correct drift NOW. Fix-in-place. Return ' +
     'the fix-log of edits already made.',
 ].join('\n')
+
 const h2Opts = { label: 'H2:global', phase: 'H2-Global', schema: FIXLOG_SCHEMA, model: 'fable', effort: 'high', stallMs: STALL }
 // One bounded re-attempt: a dead H2 silently drops every folder's manifest rows.
 const h2 = (await agent(h2Prompt, h2Opts)) || (await agent(h2Prompt, { ...h2Opts, label: 'H2:global:retry' }))
@@ -143,6 +151,7 @@ log(h2 ? 'H2 global consistency + manifest rows + branch/lib refinement done'
   : 'H2 WRITER DIED TWICE — ' + ROWS.length + ' manifest row(s) unapplied, surfaced in the return')
 
 // --- [H3_COLDVERIFY]
+
 phase('H3-ColdVerify')
 const h3Raw = await pool(FOLDERS, CAP, (f) => agent([
   LAW, '', BLOCKER, '',

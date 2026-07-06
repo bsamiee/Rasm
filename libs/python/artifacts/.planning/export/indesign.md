@@ -32,7 +32,7 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from msgspec import Struct
 from pydantic import StringConstraints, TypeAdapter, ValidationError
 
-from rasm.runtime.content_identity import ContentIdentity
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt

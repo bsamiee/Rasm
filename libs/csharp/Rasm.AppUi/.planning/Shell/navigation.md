@@ -21,8 +21,21 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record NavFault : Expected {
+    private NavFault(string detail, int code) : base(detail, code) { }
+    public sealed record InvalidDeepLink(string Link)
+        : NavFault($"nav/deep-link: {Link}", AppUiFaultBand.Nav.Code(0));
+    public sealed record SchemeMismatch(string Link)
+        : NavFault($"nav/scheme: {Link} does not carry the rasm scheme", AppUiFaultBand.Nav.Code(1));
+    public sealed record UnknownVerb(string Verb)
+        : NavFault($"nav/verb: {Verb}", AppUiFaultBand.Nav.Code(2));
+    public sealed record UnknownRoute(string Key)
+        : NavFault($"nav/route: {Key}", AppUiFaultBand.Nav.Code(3));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NavRequest {
-    private const string Scheme = "rasm:";
+    private const string Scheme = "rasm";
 
     private NavRequest() { }
 
@@ -36,15 +49,31 @@ public abstract partial record NavRequest {
 
     public sealed record Modal(string RouteKey) : NavRequest;
 
+    // Robust scheme parse: Uri owns the grammar — scheme match is ordinal-case-insensitive, the verb is
+    // the authority-or-first-segment, the key is the remaining path, and every reject is a typed NavFault.
     public static Fin<NavRequest> Parse(string deepLink) =>
-        deepLink.Split('/', StringSplitOptions.RemoveEmptyEntries) switch {
-            [Scheme, "push", var key] => Fin.Succ<NavRequest>(new Push(key)),
-            [Scheme, "pop"] => Fin.Succ<NavRequest>(new Pop()),
-            [Scheme, "replace", var key] => Fin.Succ<NavRequest>(new Replace(key)),
-            [Scheme, "reset", var key] => Fin.Succ<NavRequest>(new Reset(key)),
-            [Scheme, "modal", var key] => Fin.Succ<NavRequest>(new Modal(key)),
-            _ => Fin.Fail<NavRequest>(Error.New($"<invalid-deep-link:{deepLink}>")),
-        };
+        Uri.TryCreate(deepLink, UriKind.Absolute, out Uri? uri)
+            ? !string.Equals(uri.Scheme, Scheme, StringComparison.OrdinalIgnoreCase)
+                ? Fin.Fail<NavRequest>(new NavFault.SchemeMismatch(deepLink))
+                : Segments(uri) switch {
+                    ["push", var key] => Fin.Succ<NavRequest>(new Push(key)),
+                    ["pop"] => Fin.Succ<NavRequest>(new Pop()),
+                    ["replace", var key] => Fin.Succ<NavRequest>(new Replace(key)),
+                    ["reset", var key] => Fin.Succ<NavRequest>(new Reset(key)),
+                    ["modal", var key] => Fin.Succ<NavRequest>(new Modal(key)),
+                    [var verb, ..] => Fin.Fail<NavRequest>(new NavFault.UnknownVerb(verb)),
+                    _ => Fin.Fail<NavRequest>(new NavFault.InvalidDeepLink(deepLink)),
+                }
+            : Fin.Fail<NavRequest>(new NavFault.InvalidDeepLink(deepLink));
+
+    // rasm:push/key and rasm://push/key both admit: authority-form verbs land in Host, opaque-form in the path.
+    private static string[] Segments(Uri uri) =>
+        (uri.IsAbsoluteUri && uri.Host.Length > 0
+            ? new[] { uri.Host }.Concat(uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            : (uri.IsAbsoluteUri ? uri.AbsolutePath : uri.OriginalString)
+                .Split('/', StringSplitOptions.RemoveEmptyEntries).AsEnumerable())
+        .Select(Uri.UnescapeDataString)
+        .ToArray();
 }
 
 public sealed class ShellRoot(
@@ -78,7 +107,7 @@ public sealed class ShellRoot(
     private IO<IRoutableViewModel> Resolve(string key) =>
         Routes.TryGetValue(key, out var make)
             ? IO.pure(make(this))
-            : IO.fail<IRoutableViewModel>(Error.New($"<unknown-route:{key}>"));
+            : IO.fail<IRoutableViewModel>(new NavFault.UnknownRoute(key));
 
     private IO<Unit> Forward(ReactiveCommand<IRoutableViewModel, IRoutableViewModel> verb, string key) =>
         Resolve(key).Bind(vm => IO.liftAsync(async () => { await verb.Execute(vm); return unit; }));

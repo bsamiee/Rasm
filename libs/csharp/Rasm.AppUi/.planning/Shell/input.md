@@ -66,7 +66,7 @@ public static class BehaviorRail {
         new() { Command = command, PassEventArgsToCommand = false };
 
     public static Fin<T> RejectViewBinding<T>(string member) =>
-        Fin.Fail<T>(Error.New($"<view-binding-rejected:{member}; binding is XAML compiled-binding and behavior-rail only>"));
+        Fin.Fail<T>(new InputDriverFault.BindingRejected($"{member}: binding is XAML compiled-binding and behavior-rail only"));
 }
 ```
 
@@ -166,13 +166,13 @@ public abstract partial record DragPayload {
     public static Validation<Error, DragPayload> Admit(Seq<string> paths, Func<string, bool> admitted) =>
         Refused(paths, admitted) switch {
             { IsEmpty: true } => paths.IsEmpty
-                ? (Validation<Error, DragPayload>)Error.New("<empty-drop>")
+                ? (Validation<Error, DragPayload>)new InputDriverFault.DropRejected("empty drop")
                 : (Validation<Error, DragPayload>)new Files(paths),
             var refused => (Validation<Error, DragPayload>)Error.Many([.. refused]),
         };
 
     private static Seq<Error> Refused(Seq<string> paths, Func<string, bool> admitted) =>
-        paths.Filter(path => !admitted(path)).Map(static path => Error.New($"<unadmitted-drop:{path}>"));
+        paths.Filter(path => !admitted(path)).Map(static path => (Error)new InputDriverFault.DropRejected($"unadmitted drop: {path}"));
 }
 
 public sealed record ClipboardRow(
@@ -182,7 +182,7 @@ public sealed record ClipboardRow(
     public static readonly ClipboardRow Text = new(
         "text/plain",
         Copy: static payload => Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(DragPayload.Textual(payload))),
-        Paste: static _ => (Validation<Error, DragPayload>)Error.New("<plain-text-paste-unrouted>"));
+        Paste: static _ => (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("plain-text paste unrouted"));
 
     public static readonly ClipboardRow Tsv = new(
         "text/tab-separated-values",
@@ -194,7 +194,7 @@ public sealed record ClipboardRow(
         Copy: static payload => payload is DragPayload.Image image ? Optional(image.Png) : None,
         Paste: static bytes => bytes.Span is [0x89, 0x50, 0x4E, 0x47, ..]
             ? (Validation<Error, DragPayload>)new DragPayload.Image(bytes)
-            : (Validation<Error, DragPayload>)Error.New("<png-signature-mismatch>"));
+            : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("png signature mismatch"));
 
     public static readonly ClipboardRow Asset = new(
         "application/x-rasm-asset-key",
@@ -270,8 +270,8 @@ public static class InputFabric {
 
 ## [07]-[DEVICE_DRIVERS]
 
-- Owner: `DeviceDriver` `[Union]` the four SDK boundary capsules binding the fabric's delegate columns; `DeviceSession` the scoped device handle; `InputDriverFault` the fault family in the 4150 code band.
-- Cases: `DeviceDriver` = Hid(HidSharp SpaceMouse) | Gamepad(Silk.NET.Input controller) | Haptic(Silk.NET.SDL force-feedback) | Midi(Melanchall.DryWetMidi control surface) under the locked kind literals; `InputDriverFault` = Text | DeviceAbsent | OpenRejected | DecodeFailed in the 4150 code band.
+- Owner: `DeviceDriver` `[Union]` the four SDK boundary capsules binding the fabric's delegate columns; `DeviceSession` the scoped device handle; `InputDriverFault` the typed fault family on the `AppUiFaultBand.InputDriver` registry row (6050).
+- Cases: `DeviceDriver` = Hid(HidSharp SpaceMouse) | Gamepad(Silk.NET.Input controller) | Haptic(Silk.NET.SDL force-feedback) | Midi(Melanchall.DryWetMidi control surface) under the locked kind literals; `InputDriverFault` = Text | DeviceAbsent | OpenRejected | DecodeFailed — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
 - Entry: `public Fin<DeviceSession> Open(DeviceDriver driver)` — opens the SDK handle in a scoped boundary, returning the device→intent projection the fabric arm reads and the teardown that releases the native handle; `public IObservable<Seq<DeviceAxis>> Stream(DeviceSession session)` — projects the SDK's raw report stream into normalized `DeviceAxis` samples.
 - Auto: the `Hid` capsule enumerates a 3Dconnexion SpaceMouse through `DeviceList.Local.GetHidDevices(vendorId, productId)`, opens a scoped `HidStream`, and decodes its six translation/rotation axes through `DeviceItemInputParser`/`DataValue.GetScaledValue` so canonical [-1,1] axes leave the capsule, not raw HID bytes (`.api/api-hidsharp.md`); the `Gamepad` capsule mints one `IInputContext` per view through `IView.CreateInput()`, reads `IGamepad.Thumbsticks`/`Triggers`/`Buttons` through the named `GamepadExtensions` accessors with `Deadzone.Apply` recentering, and folds them into `DeviceAxis` samples (`.api/api-silk-input.md`); the `Haptic` capsule arms the SDL haptic subsystem through `Init(InitHaptic)`, opens a device through `HapticOpenFromJoystick`, and runs effects through `HapticRumblePlay`/`GameControllerRumble` gated behind `HapticQuery` capability (`.api/api-silk-sdl.md`); the `Midi` capsule resolves an input device through `InputDevice.GetByName`, listens through `StartEventsListening`, and projects `ControlChangeEvent.ControlValue`/`NoteOnEvent.Velocity` (bounded `SevenBitNumber`) into normalized parameter axes (`.api/api-drywetmidi.md`); every handle is lifecycle-scoped and disposed at teardown.
 - Receipt: the first opened device emits a driver-resolved evidence row — device kind, identity, axis count; `TelemetryRow` contributes the device-resolved and device-absent instruments inward through the AppHost `TelemetryContributorPort`.
@@ -286,10 +286,13 @@ public abstract partial record InputDriverFault : Expected, IValidationError<Inp
 
     public static InputDriverFault Create(string message) => new Text(message);
 
-    public sealed record Text : InputDriverFault { public Text(string detail) : base(detail, 4150) { } }
-    public sealed record DeviceAbsent : InputDriverFault { public DeviceAbsent(string detail) : base(detail, 4151) { } }
-    public sealed record OpenRejected : InputDriverFault { public OpenRejected(string detail) : base(detail, 4152) { } }
-    public sealed record DecodeFailed : InputDriverFault { public DecodeFailed(string detail) : base(detail, 4153) { } }
+    public sealed record Text : InputDriverFault { public Text(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(0)) { } }
+    public sealed record DeviceAbsent : InputDriverFault { public DeviceAbsent(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(1)) { } }
+    public sealed record OpenRejected : InputDriverFault { public OpenRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(2)) { } }
+    public sealed record DecodeFailed : InputDriverFault { public DecodeFailed(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(3)) { } }
+    public sealed record BindingRejected : InputDriverFault { public BindingRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(4)) { } }
+    public sealed record DropRejected : InputDriverFault { public DropRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(5)) { } }
+    public sealed record PasteRejected : InputDriverFault { public PasteRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(6)) { } }
 }
 
 public sealed record DeviceSession(string Id, InputDevice Device, IObservable<Seq<DeviceAxis>> Samples, IDisposable Teardown) : IDisposable {

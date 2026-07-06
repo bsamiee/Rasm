@@ -48,7 +48,7 @@ from expression.extra.result import catch
 from msgspec import Raw, Struct, field, json, structs
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
 

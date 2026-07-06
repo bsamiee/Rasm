@@ -40,6 +40,7 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `array-api-extra`
 - `numba`
 - `jax`
+- `jaxtyping`
 - `sparse`
 
 [SOLVERS_DIFFERENTIAL]:
@@ -88,7 +89,6 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 [EXPERIMENTS_SENSITIVITY]:
 - `SALib`
 - `scikit-learn`
-- `dask`
 
 [MODEL_ASSETS]:
 - `onnx`
@@ -113,9 +113,14 @@ Cross-cutting Python substrate libraries this folder consumes; canonical registr
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
+- `dask` (passive `array_namespace` backend only — the branch-tier catalog is the owner; compute imports no Dask runtime)
 
 [FIELD_DATA]:
 - `xarray`
+- `narwhals` (the study DOE-frame admission arm, consumed through the published `data/tabular` contract surfaces)
+
+[OBSERVABILITY]:
+- `opentelemetry-api` (the hub `evidence_run` weave imports `trace`/`Span`/`Status`/`StatusCode`; SDK binding stays at composition root)
 
 [RESOURCES]:
 - `universal-pathlib`

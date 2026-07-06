@@ -76,7 +76,6 @@ Review/validation         ←  python:geometry/ifc                      # [BOUND
 Model                     →  csharp:Rasm.Persistence/Query/columnar   # [PROJECTION]: Persistence FlatTableProjection reads Bim-typed nodes; owns typing [M4]
 Model/structural          →  csharp:Rasm.Compute/Analysis             # [SHAPE]: StructuralReads Supports/Loads on Generic edges; axis by Representations.Axis
 Semantics/appearance      ⇄  csharp:Rasm.Element/Composition          # [CONTENT_KEY]: AppearanceSummary ↔ Materials Appearance at content key, no direct ref
-Model/query               →  csharp:Rasm.AppUi/Render                 # [PORT]: ElementSet query algebra via capability descriptor
 Model                     ←  csharp:Rasm.Materials/Component          # [WIRE]: IIfcTypeReconciler Type Object identity; Canonical reuses Materials, else ad-hoc
 Semantics/properties      ←  csharp:Rasm.Materials/Projection         # [SHAPE]: round-trips the IDENTICAL DetailSchema realization bag at IFC ingress/Emit
 Model                     →  python:geometry/mesh                     # [SHAPE]: IFC GLB tessellation reference for scan-deviation analysis
@@ -85,11 +84,10 @@ Semantics                 →  csharp:Rasm.Compute/Runtime              # [PROJE
 Semantics/classification  ←  csharp:Rasm.Compute/Runtime/transport     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
 Semantics/geospatial      →  python:data/spatial/geospatial           # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
 Semantics/geospatial      →  typescript:core/interchange/codec        # [WIRE]: GeoFeature WKB decode; turf NTS-equivalent planar peer in ui/viewer [R6]
-Semantics/geospatial      →  csharp:Rasm.AppUi/Charts                 # [SHAPE]: NTS Feature geometry as Mapsui basemap overlays beside the Wgpu viewport
+Semantics/geospatial      →  csharp:Rasm.AppUi/Charts/basemap         # [SHAPE]: NTS Feature geometry as Mapsui basemap overlays beside the Wgpu viewport
 Semantics/geospatial      ←  csharp:Rasm.Persistence/Store            # [TRANSPORT]: GDAL /vsimem open + OGR Arrow C-stream GeoParquet/FlatGeobuf ingest
 Semantics/geospatial      ⇄  Semantics/georeference                   # [PROJECTION]: GeoFeature.Reproject ProjNET GEODETIC_TRANSFORM; OSR for datum-grids
 Model                     →  csharp:Rasm.Compute/Runtime/codecs       # [CONTENT_KEY]: IfcRepresentation.Keys [M2] off the kernel seed-zero; codecs join by key
-Planning/schedule         →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: ScheduleNetwork CPM/CriticalPath/4D report as a Charts/dashboards projection
 Planning/cost             →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CostSchedule EarnedValue/ChangeOrder report as a Charts/dashboards projection
 Exchange/tessellation     →  csharp:Rasm.Compute/Runtime/codecs       # [TESSELLATION]: TessellationOutcome GLB; Origin by ArtifactKey SourceKey/ContentKey
 Exchange/tessellation     →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: TessellationOutcome ArtifactKey cache-hit lookup
@@ -105,10 +103,10 @@ Review/validation         →  csharp:Rasm.Compute/Runtime/codecs       # [TRANS
 Exchange/format           →  csharp:Rasm.Fabrication/Ingress          # [SHAPE]: ACadSharp DWG/DXF read codec; Bim owns it, Fabrication consumes for 2D profiles
 Exchange/wire             →  typescript:core/interchange/codec        # [WIRE]: IfcWire WireParity — web peer decodes bytes, reproduces ContentAddress (Agrees)
 Exchange/wire             →  typescript:ui/viewer                     # [WIRE]: BcfWire/DiffWire GlobalId anchor decode
-coordination              ⇄  csharp:Rasm.Persistence/Sync/annotation  # [WIRE]: durable annotation + CDE op-log
-schedule                  ⇄  csharp:Rasm.Persistence/Sync/schedule    # [WIRE]: P6/MS-Project + 4D construction domain
-coordination              →  csharp:Rasm.AppUi/Editing/issues         # [PORT]: BCF issue-board projection
-Exchange/import           ⇄  csharp:Rasm.Persistence/Sync             # [TRANSPORT]: Speckle Base→ElementGraph via Persistence SyncTransport.SpeckleLikeDiff
+coordination              ⇄  csharp:Rasm.Persistence/Version/ledger   # [WIRE]: durable annotation + CDE rows through the OpLogEntry/ReplayWindow op-log owner
+schedule                  ⇄  csharp:Rasm.Persistence/Version/ledger   # [WIRE]: P6/MS-Project + 4D construction changefeed rows through the same op-log owner
+coordination              →  csharp:Rasm.AppUi/Collab/issues          # [PORT]: BCF issue-board projection
+Exchange/import           ⇄  csharp:Rasm.Persistence/Version/ledger   # [TRANSPORT]: Speckle Base→ElementGraph diff rows over the op-log owner (SyncTransport.SpeckleLikeDiff case)
 Exchange/tessellation     ⇄  csharp:Rasm.Compute                      # [SHAPE]: Bim EXT_structural_metadata/EXT_mesh_features glTF; Compute meshopt encode
 Energy/projector          ⇄  csharp:Rasm.Compute/Analysis             # [SHAPE]: OpenStudio SIMULATION (Compute) vs Bim EXCHANGE; seam-aligned not coupled
 Projection/semantic       →  csharp:Rasm.Compute/Analysis             # [PROJECTION]: IfcRelSpaceBoundary/FootPrint/Qto/IsExternal shape EnergyGraphReads reads

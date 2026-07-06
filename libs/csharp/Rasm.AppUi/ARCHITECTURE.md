@@ -1,6 +1,6 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-The domain map of `Rasm.AppUi` — the APP-PLATFORM Avalonia product UI engine. The `Shell`, `Render`, `Charts`, `Editing`, and `Theme` domain folders, each page a UI capability unit over the settled receipt spine and the GPU render surface.
+The domain map of `Rasm.AppUi` — the APP-PLATFORM Avalonia product UI engine. The `Shell`, `Render`, `Charts`, `Editing`, `Document`, `Collab`, `Diagnostics`, and `Theme` domain folders, each page a UI capability unit over the settled receipt spine and the GPU render surface — 8 folders, 43 pages.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -9,83 +9,109 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ```text codemap
 Rasm.AppUi/
 ├── Shell/                # Host-mount axis and application shell spine
-│   ├── Navigation.cs     # Routing spine with deep-link grammar over Dock-driven dockable layouts
+│   ├── Navigation.cs     # Routing spine with typed NavFault deep-link grammar over Dock-driven dockable layouts
 │   ├── Screens.cs        # Screen catalog, ref-counted activation, OAPH-paced state, control-intent stream body
 │   ├── Hosts.cs          # Host-neutral SurfaceHost mounting with seam delegate columns
 │   ├── Commands.cs       # CommandIntent vocabulary with availability algebra and total receipts
 │   ├── Controls.cs       # ControlIntent [Union] materialized through ControlFactory over BehaviorRail.Intent
 │   ├── Solver.cs         # LayoutConstraint Kiwi algebra solved by one LayoutSolver custom Avalonia panel
-│   ├── Virtualization.cs # VirtualWindow owner over DynamicData change-sets every windowed surface consumes
+│   ├── Virtualization.cs # VirtualWindow owner over DynamicData change-sets; Fenwick extent ledger
 │   ├── Dialogs.cs        # Typed-Fin dialog intents with dismissal-as-value and host-agnostic pickers
 │   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, InputFabric device drivers
-│   └── Accessibility.cs  # Automation identity, tab-order/trap law, one WCAG luminance gate
-├── Render/               # GPU render surface and its viewport projections
+│   └── Accessibility.cs  # Automation identity, tab-order/trap law, one Unicolour WCAG luminance gate
+├── Render/               # Pure GPU-viewport + temporal tier
 │   ├── Pipeline.cs       # RenderGraph pass-DAG, per-backend RenderTargetFactory, resolve ladder, SimVisual, Viewpoint
-│   ├── Meshlets.cs       # MeshletCluster GPU-driven cluster-LOD with bindless residency and VRAM-budget streaming
-│   ├── PathTrace.cs      # BVH/ReSTIR/denoise integrator shading FROM Materials LayeredBsdf/SurfaceShade
-│   ├── Capture.cs        # Offscreen render and document export over a Skia draw capsule
-│   ├── Drafting.cs       # Sheet drafting with title-blocks, hidden-line projection, ASME Y14.5 dimensioning
-│   ├── Reality.cs        # Gaussian-splat/point-cloud reality-capture viewport render-pass cases
-│   ├── Evidence.cs       # One EvidenceReceipt union sealed through HLC sink envelope
-│   ├── Shading.cs        # GPU ShaderAsset cache per GpuBackend feeding the LayeredBsdf SurfaceShade pass
-│   └── Immersive.cs      # OpenXR stereo design-review plus FB passthrough over the shared Wgpu device
-├── Charts/               # Chart and dashboard projection over receipt spine
+│   ├── Meshlets.cs       # Compute ResidencyPayload cluster consumption: hysteresis LOD cut, cone/HZB cull ladder, bindless residency
+│   ├── PathTrace.cs      # Recursive SAH BVH/ReSTIR/denoise oracle over the one LightSource rig, shading FROM Materials LayeredBsdf
+│   ├── Shading.cs        # GPU ShaderAsset cache per GpuBackend feeding the LayeredBsdf SurfaceShade pass off the same rig
+│   ├── Immersive.cs      # OpenXR stereo design-review plus FB passthrough over the shared Wgpu device
+│   ├── Reality.cs        # Gaussian-splat/point-cloud reality capture over the one Compute ResidencyPayload carrier
+│   ├── Capture.cs        # Raster capsule + VisualCodec/ColorPolicy owner + vector-print arm + FFmpeg encode rows
+│   ├── Drafting.cs       # Sheet drafting with per-region bases, hidden-line consumption, one-CadDocument DWG/DXF write leg
+│   └── Animation.cs      # Timeline keyframe-track union, track-owned interpolation rows (one pose-slerp site), walkthrough fold
+├── Charts/               # Chart, dashboard, and geo-basemap projection
 │   ├── Dashboards.cs     # LiveCharts series/axis rows, LTTB-downsampled stream binding, cross-filter brushing
-│   └── Custom.cs         # CustomVisual Skia layout-algebra rail for bespoke chart geometry
+│   ├── Custom.cs         # CustomVisual Skia layout-algebra rail; ColorSpaceAxis as a keyed ColorPolicy projection
+│   └── Basemap.cs        # Mapsui MapControl tiled basemap with Bim-owned NTS overlays beside the Wgpu viewport
 ├── Editing/              # Typed-edit surfaces over model
-│   ├── Inspector.cs      # Typed PropertyGrid inspection with ranked editor-factory rows and conflict resolution
+│   ├── Inspector.cs      # Typed PropertyGrid inspection with ranked editor-factory rows and real diff3 conflict hunks
 │   ├── Tables.cs         # Tabular/hierarchical projection with column-metadata family routed through VirtualWindow
-│   ├── Notebook.cs       # Reproducible computational document with CapabilityPin cells and CRDT co-editing
-│   ├── Collab.cs         # LoroDoc-backed CollabDoc merge authority every co-edited surface composes; op-log sync, presence, Frontiers time-travel
-│   ├── LiveData.cs       # Reactive data spine over closed DataSource cases and DynamicData operators
 │   ├── Forms.cs          # FormSchema+wizard through ControlFactory, selection batch-edit folding one CommandReceipt
-│   ├── History.cs        # RevertibleOp inverse algebra over CancelableCommandRecorder + durable op-log
-│   ├── Media.cs          # Markdig inlines + MediaSurface [Union] codec rows on the one SurfaceSeam (LibMpv)
-│   ├── Issues.cs         # openBIM issue board PROJECTION over Rasm.Bim-owned BCF topic/component contract
-│   └── Tour.cs           # Saved-viewpoint review tour over animation playhead
-└── Theme/                # Vocabulary tier: tokens, typography, motion, assets, locale
+│   ├── History.cs        # RevertibleOp inverse algebra over CancelableCommandRecorder + Version/ledger durable arm
+│   ├── LiveData.cs       # Reactive data spine over closed DataSource cases and DynamicData operators
+│   └── Graph.cs          # NodeEditor parametric graph canvas: QuikGraph admission gate, echo-suppressed LoroTree co-edit
+├── Document/             # Reproducible document plane
+│   ├── Notebook.cs       # CapabilityPin cells composing the AppHost RecomputeGraph; CollabDoc co-editing; replay bundle
+│   ├── Media.cs          # Markdig inlines + MediaSurface [Union] codec rows on the one SurfaceSeam (LibMpv, wired mount)
+│   └── Export.cs         # MigraDoc flow reports, PDFsharp security/signatures/AcroForms/UA, OOXML arm, lcmsNET print arm
+├── Collab/               # Live-collaboration plane over the Persistence-owned durable spine
+│   ├── Sync.cs           # LoroDoc live merge authority; typed EditIntent stream onto Version/ledger; session-epoch law
+│   ├── Issues.cs         # openBIM issue board PROJECTION over Rasm.Bim BCF contract; comments as CollabDoc map container
+│   └── Tour.cs           # Review tour as a camera-Track projection onto the animation engine; presenter-follow presence arm
+├── Diagnostics/          # Evidence, proof, dev loop, quality governance
+│   ├── Evidence.cs       # One EvidenceReceipt union + correlation join + the AppUi 6xxx [FAULT_TABLES] registry
+│   ├── Proof.cs          # Capture lanes, catalog-derived headless matrix, ProofLaw goldens, typed ProofFault
+│   ├── DevLoop.cs        # Hot-reload knobs, ProDiagnostics inspector, HUD, flamegraph, solve scrub, REPL, remote ingest
+│   └── Governor.cs       # PerfBudget quality governor + GpuTimeline timestamp/statistics attribution
+└── Theme/                # Pure vocabulary tier: tokens, typography, motion, assets, locale
     ├── Tokens.cs         # Design-token engine with OKLab ramp mix and atomic theme swap
-    ├── Typography.cs     # Type roles, embedded-Inter admission, one HarfBuzz shaping rail
+    ├── Typography.cs     # Type roles, embedded-Inter admission, one HarfBuzz shaping rail, live front-matter arms
     ├── Motion.cs         # Motion tokens with spring algebra and ProgressPhase-to-MotionToken map
-    ├── Animation.cs      # Timeline keyframe-track union with frame-indexed playhead and re-entrant scrub
     ├── Assets.cs         # Nameof-derived AssetKey vocabulary with rank-fallback icon sourcing
-    └── Locale.cs         # Resx/ICU/NodaTime locale rows with pseudo-locale conformance and RTL mirroring
+    └── Locale.cs         # Resx/ICU/NodaTime locale rows, typed LocaleFault, Whisper.net LiveCaption
 ```
 
-`Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, control, layout, virtualization, dialog, input, and accessibility pages ride the same spine — `controls` materializes the one `ControlIntent` family through `ControlFactory`, `solver` solves the `LayoutConstraint` algebra in one `LayoutSolver` panel, and `virtualization` owns the one `VirtualWindow` every windowed surface consumes. `Theme` is the vocabulary tier every literal traces to. `Render` is the GPU render surface — `pipeline` drives the frame pass-DAG and draws the `meshlets` cluster-LOD and the `pathtrace` integrator, `drafting`, `reality`, and `evidence` resolve over the receipt spine, the `capture` codec, and the GPU render-target factory, and `shading` and `immersive` deepen it (the GPU shader-asset cache feeding the `LayeredBsdf` shade, the OpenXR stereo surface) without minting a parallel scene model or a second GPU device. `Charts` and `Editing` project over the same receipt spine; `forms` and `history` deliver declarative forms, batch editing, and the one revertible-op inverse algebra over `PropertyModels`, `media` renders markdown inlines and mounts codec rows on the one `SurfaceSeam`, `Editing/issues` composes the viewport, notebook, and chart owners as a pure board PROJECTION over the `Rasm.Bim`-owned BCF topic contract, and `Editing/tour` rides the animation playhead. `Editing/collab` is the one `CollabDoc` `LoroDoc`-backed CRDT merge authority the notebook, issue-board, table, and live-data annotation surfaces compose — no per-surface last-writer-wins register or fractional-index algebra survives beside it, its op-log delta projects onto the `Rasm.Persistence` op-log and its content-keyed snapshot crosses the blob lane.
+`Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, control, layout, virtualization, dialog, input, and accessibility pages ride the same spine — `controls` materializes the one `ControlIntent` family through `ControlFactory`, `solver` solves the `LayoutConstraint` algebra in one `LayoutSolver` panel, and `virtualization` owns the one `VirtualWindow` every windowed surface consumes. `Theme` is the pure vocabulary tier every literal traces to — the animation runtime engine lives in `Render`. `Render` is the GPU-viewport and temporal tier — `pipeline` drives the frame pass-DAG and draws the `meshlets` Compute-consumed cluster cut and the `pathtrace` oracle over the one `LightSource` rig, `capture` owns the raster capsule, the `ColorPolicy` gamut singleton, the vector-print arm, and the FFmpeg encode rows, `drafting` consumes the Fabrication hidden-line receipt and writes DWG/DXF through one `CadDocument` fold, and `animation` owns the timeline engine the tour projects onto. `Charts` projects the chart, dashboard, and Mapsui basemap planes; `Editing` is the typed-edit tier with the NodeEditor graph canvas. `Document` is the reproducible document plane — the notebook composes the AppHost `RecomputeGraph`, media mounts codec rows on the one `SurfaceSeam`, and `export` owns every paginated Office/PDF/print output. `Collab` is the live-collaboration plane: `sync` holds the one `CollabDoc` `LoroDoc` LIVE merge authority every co-edited surface composes AND the single typed `EditIntent` union that is the DURABLE truth on the Persistence `Version/ledger` — no Loro byte crosses durable truth, the snapshot blob survives only as a content-keyed derivable accelerator. `Diagnostics` carries the evidence union with the `[FAULT_TABLES]` 6xxx registry, the headless proof matrix, the dev loop, and the quality governor.
 
 ## [02]-[SEAMS]
 
 ```text seams
-Shell/commands    →  typescript:core/interchange/codec           # [WIRE]: CommandPayloadWire + AvailabilityStore gate
-Render/capture    →  typescript:core/interchange/codec           # [WIRE]: RenderReceiptWire frame-hash proof
-Render/capture    →  typescript:ui/viewer                        # [RECEIPT]: RenderReceipt claims paired with local render evidence at the probe plane
-Render/evidence   →  typescript:core/state/feed                  # [WIRE]: EvidenceFeed / EvidenceTimeline
-Render/pipeline   →  typescript:core/interchange/codec           # [WIRE]: GeometryResidencyWire ResidencyManifest content-key
-Render/glb        →  typescript:ui/viewer                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
-Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation
-Editing/notebook  ←  csharp:Rasm.AppHost/Runtime                 # [PORT]: DeterminismContext / CapabilityPin environment identity
-Render/query      ←  csharp:Rasm.Bim/Model                       # [PORT]: ElementSet query algebra via capability descriptor
-Charts            ←  csharp:Rasm.Bim/Semantics/geospatial        # [SHAPE]: Basemap draws Bim-owned NetTopologySuite as map overlays beside the Wgpu viewport
-Charts            ←  csharp:Rasm.Bim/Planning                    # [RECEIPT]: ScheduleNetwork CPM/4D/CostSchedule/etc Render as Charts/dashboards projections
-Editing/collab    →  csharp:Rasm.Persistence/Store               # [CONTENT_KEY]: CollabSnapshot XxHash128 op-log-snapshot accelerator blob
-Editing/collab    →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: CollabDoc op-log delta durably projected as OpLogEntry
-Render/pipeline   ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: ResidencyManifest.Mint web geometry residency
-Render            ←  csharp:Rasm/Drawing/view                    # [PROJECTION]: DrawingProjection / drafting-sheet layout
-Render            ←  csharp:Rasm/Processing/flatten              # [PROJECTION]: ChartAtlas / texture UV channel
-Render/reality    ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: SplatPayload / PointPayload decode
-Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam over the kernel DrawingProjection analytic HLR
-Render            ←  csharp:Rasm.Fabrication/Documentation/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
-Render/pathtrace  ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
-Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain
-Editing           ←  csharp:Rasm.Bim/coordination                # [SHAPE]: BcfTopic/BcfComment/BcfViewpoint annotation domain
-Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: Forward/inverse delta replays as SyncOpKind durable inverse stream
-Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
-Shell/controls    →  typescript:core/interchange/codec           # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
-Shell/controls    →  typescript:ui/viewer                        # [WIRE]: ControlIntent closed union materialized at the panel plane
-Shell/solver      →  typescript:core/interchange/codec           # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
-Shell/solver      →  typescript:ui/viewer                        # [WIRE]: ordered LayoutProgram re-solved at the panel plane
+Shell/commands        →  typescript:core/interchange/codec          # [WIRE]: CommandPayloadWire + CommandGateWire palette gate
+Shell/controls        →  typescript:core/interchange/codec          # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
+Shell/controls        →  typescript:ui/viewer                       # [WIRE]: ControlIntent closed union materialized at the panel plane
+Shell/solver          →  typescript:core/interchange/codec          # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
+Shell/solver          →  typescript:ui/viewer                       # [WIRE]: ordered LayoutProgram re-solved at the panel plane
+Render/capture        →  typescript:core/interchange/codec          # [WIRE]: RenderReceiptWire frame-hash proof
+Render/capture        →  typescript:ui/viewer                       # [RECEIPT]: RenderReceipt claims paired with local render evidence at the probe plane
+Render/pipeline       →  typescript:core/interchange/codec          # [WIRE]: GeometryResidencyWire ResidencyManifest content-key (the residency wire lives at pipeline#TS_PROJECTION)
+Diagnostics/evidence  →  typescript:core/state/feed                 # [WIRE]: EvidenceFeed / EvidenceTimeline
+Render/meshlets       ←  csharp:Rasm.Compute/Runtime/payload        # [SHAPE]: ResidencyPayload meshlet-cluster rows — cone columns + BY-CONSTRUCTION monotonic Error/ParentError the LOD cut reads (python geometry tessellation reaches AppUi ONLY through this Compute payload owner)
+Render/reality        ←  csharp:Rasm.Compute/Runtime/payload        # [SHAPE]: the ONE ResidencyPayload carrier (gaussian-splat/point-cloud kinds; GaussianSplatScan wire-fed), payload ContentKey identity
+Render/pipeline       ←  csharp:Rasm.Compute/Runtime                # [PROJECTION]: ResidencyManifest.Mint web geometry residency
+Render/pathtrace      ←  csharp:Rasm.Compute/Analysis/daylight      # [PORT]: SolarPosition.At(SolarSite, Instant) -> SunPosition feeding LightSource.Sun
+Render/shading        ⇄  csharp:Rasm.Compute                        # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
+Render/drafting       ←  csharp:Rasm.Fabrication/Posting            # [BOUNDARY]: HiddenLineSeam over the kernel DrawingProjection analytic HLR (routed through the Fabrication receipt)
+Render                ←  csharp:Rasm.Fabrication/Documentation/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
+Render/pathtrace      ←  csharp:Rasm.Materials/Appearance           # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
+Charts/basemap        ←  csharp:Rasm.Bim/Semantics/geospatial       # [SHAPE]: Bim-owned NTS features carrying GeoReference (GeoFeature.Reproject geodesy) drawn as tiled map overlays; GeoTiles/TileJSON vector-tile lane
+Collab/sync           →  csharp:Rasm.Persistence/Version/ledger     # [PROJECTION]: typed EditIntent ops onto Persistence-owned OpLogEntry/SyncOpKind rows through the ledger changefeed
+Collab/sync           ←  csharp:Rasm.Persistence/Version/ledger     # [PORT]: per-document replay-window read decoded into a fresh LoroDoc (cold-start epoch seed)
+Collab/sync           →  csharp:Rasm.Persistence/Store              # [CONTENT_KEY]: snapshot ACCELERATOR blob — kernel ContentHash.Of keyed, derivable, never system-of-record
+Collab/sync           →  csharp:Rasm.AppHost/Wire/topics            # [WIRE]: live-delta broadcast + presence topics — session-ephemeral Loro wire as opaque DomainEvent payload rows ([COLLAB_DELTA_FEED], both sides declared)
+Editing/history       →  csharp:Rasm.Persistence/Version/ledger     # [PROJECTION]: RevertibleOp inverse deltas onto the Collab/sync EditIntent rail as SyncOpKind rows
+Editing/graph         ←  csharp:Rasm.AppHost/Runtime/determinism    # [PORT]: RecomputeGraph read projection for dependency visualization (decode-only)
+Document/notebook     ←  csharp:Rasm.AppHost/Runtime                # [PORT]: DeterminismContext / CapabilityPin environment identity + RecomputeGraph per-cell composition (caller-keyed, granularity-neutral)
+Document/export       ←  csharp:Rasm.AppHost/Runtime/secrets        # [PORT]: signing-credential lease ingress for IDigitalSigner material (acquire/renew/zeroize; AppUi never holds key bytes)
+Collab/issues         ←  csharp:Rasm.Bim/coordination               # [PORT]: BCF issue-board domain
+Collab                ←  csharp:Rasm.Bim/coordination               # [SHAPE]: BcfTopic/BcfComment/BcfViewpoint annotation domain
+AppUi/*               →  csharp:Rasm.AppHost/Runtime                # [PORT]: the port-spine row family — TelemetryContributorPort / ReceiptSinkPort / UiSchedulerPort / ClockPolicy / DataClassification, one declared family naming every composing folder (Shell, Render, Charts, Editing, Document, Collab, Diagnostics, Theme)
+AppUi/*               →  csharp:Rasm/Domain/identity                # [CONTENT_KEY]: every AppUi content-identity mint composes kernel ContentHash.Of (capture runtime delegate, walkthrough frame proof, command payload digest, notebook replay inputs, asset receipts, the sync snapshot key) — one declared row family naming every minting folder
+AppUi/faults          ⇄  csharp:Rasm.AppHost/Runtime/lifecycle      # [FAULT]: AppUi 6xxx FaultBand neighborhood — Diagnostics/evidence#FAULT_TABLES owns the registry, the AppHost registry pins the reciprocal AppUi row (both directions settled)
 ```
+
+Ledger truth notes: the former `Render/glb` and `Render/query` source nodes are DEAD (no such pages; the residency wire re-anchored to `Render/pipeline#TS_PROJECTION`, the Bim `ElementSet` query surface stands on the growth register); the former direct kernel `Drawing/view` and `Processing/flatten` rows are RETIRED AppUi-side (AppUi reaches hidden-line only through the Fabrication `HiddenLineResult` receipt; the `ChartAtlas` texture channel stands on the growth register — the kernel ledger's view→AppUi and flatten→AppUi mirror rows re-scope accordingly); the former `Rasm.Persistence/Sync` targets are DEAD (folder deleted by the Persistence campaign; owner `Version/ledger`); the Bim `Planning` `ScheduleNetwork` row is RETIRED (zero consuming fence; growth register).
+
+## [03]-[GROWTH_REGISTER]
+
+Standing deferred-capability record — each row re-opens only when a consumer names it, never as a speculative seam:
+
+- `ChartAtlas` texture UV channel (kernel `Processing/flatten` stays live for Fabrication `Nesting/nfp`).
+- Bim `ElementSet` query surface (`Model/query` algebra).
+- `ScheduleNetwork` 4D/CPM dashboards projection.
+- Broad-target machine translation past the Whisper.net translate-to-English arm.
+- Kernel `Analysis/query.md` `Analyze` measured-query receipt projection — inspector and dashboard rows when a host-side producer ships them over the receipt spine.
+
+Standing host gate: the live-Rhino embed probe — `SurfaceHost.RhinoPanel`/`EmbedCapsule`/`RenderGraph.Lease` GPU-lease validation against an integrated RhinoWIP host surface that does not yet exist — host-gated and open.
 
 ## [05]-[PROHIBITIONS]
 
@@ -100,6 +126,10 @@ The closed NEVER list — the deleted patterns the owner regions foreclose. Ever
 - NEVER a parallel control-generation or layout framework — a control-materialization or constraint-layout system is ONE polymorphic owner feeding the existing rails (the `ControlIntent` `[Union]` materialized through `ControlFactory`, the `LayoutConstraint` algebra solved by one `LayoutSolver` `Panel`), never a parallel framework with a second binding, token, or automation path.
 - NEVER a per-surface virtualizer — viewport-range windowing, control recycling, variable-extent measurement, sticky headers, and hierarchical flatten ride the one `VirtualWindow` owner over `DynamicData` change-sets, and every windowed surface (tables, notebook, dashboard, canvas) consumes it.
 - NEVER a generic `IReceipt`, ledger, or reported-value abstraction — every receipt stays its typed record (`CommandReceipt`, `FrameReceipt`, `ShaderReceipt`, `MediaReceipt`, `FormReceipt`, `EditReceipt`) sealed through `ReceiptSinkPort`.
-- NEVER a second revert vocabulary beside the one inverse algebra — `RevertibleOp` forward/inverse deltas fold across the client `CancelableCommandRecorder` window and the durable `Rasm.Persistence/Sync` `OpLogEntry` inverse stream as two arms of one `RevertScope`, the `EditOutcome.Reverted` outcome the only revert receipt.
+- NEVER a fault code outside the `Diagnostics/evidence#FAULT_TABLES` registry — every AppUi fault union's `Code` derives through its 6xxx `AppUiFaultBand` row, a `base(detail, NNNN)` literal, a hex band, and a bare `Error.New` on a rail are the three deleted forms.
+- NEVER a Loro byte as durable truth — the durable collaboration stream is the ONE `Collab/sync` `EditIntent` union projected onto Persistence-owned `OpLogEntry`/`SyncOpKind` rows; the Loro snapshot blob survives only as a content-keyed derivable cold-start accelerator, and a second CRDT or per-page op union is the deleted form.
+- NEVER a second revert vocabulary beside the one inverse algebra — `RevertibleOp` forward/inverse deltas fold across the client `CancelableCommandRecorder` window and the durable Persistence `Version/ledger` `OpLogEntry` inverse stream (via the `Collab/sync` intent rail) as two arms of one `RevertScope`, the `EditOutcome.Reverted` outcome the only revert receipt.
 - NEVER a second BCF or coordination-domain owner inside AppUi — `Rasm.Bim/coordination` owns the openBIM topic/component/comment exchange semantics and AppUi retains only the `Viewpoint` board projection over the consumed contract.
+- NEVER an AppUi-local content-identity mint beside the kernel `ContentHash.Of` — every AppUi-side content hash composes the one federation seed-zero entry; Compute-minted payload/splat keys are decode-only.
+- NEVER a local geodesy, solar-position, clustering, or recompute engine — Bim owns geodesy (`GeoFeature.Reproject`), Compute owns solar position (`SolarPosition.At`) and meshlet clustering (`ResidencyPayload`), and the AppHost `RecomputeGraph` owns incremental recompute; AppUi consumes each at its declared seam.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

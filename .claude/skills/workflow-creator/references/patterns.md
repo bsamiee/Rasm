@@ -1,37 +1,34 @@
 # Workflow Patterns
 
-Copy-paste orchestration shapes. Each says when to use it, the primitive it rests
-on, and the failure mode it guards — then gives runnable code. Match the pattern to
-the Step 2 answers in `SKILL.md`: known list vs unknown count, one pass vs staged,
-barrier needed or not.
-
-JSON Schemas are shown abbreviated as `SCHEMA`; define real ones — see the bottom
-of this file.
+Copy-paste orchestration shapes. Each says when to use it, the primitive it rests on, and the failure mode it guards — then gives runnable code. Match the pattern to the Step 2 answers in `SKILL.md`: known list vs unknown count, one pass vs staged, barrier needed or not. JSON Schemas are shown abbreviated as `SCHEMA`; define real ones — see the bottom of this file.
 
 ## Contents
 
-- [The canonical map](#the-canonical-map)
-- [1. Prompt chaining — fixed ordered stages](#1-prompt-chaining--fixed-ordered-stages)
-- [2. Parallelization (sectioning) — fan-out then synthesize](#2-parallelization-sectioning--fan-out-then-synthesize)
-- [3. Parallelization (sectioning) — pipeline: review then verify (the default multi-stage shape)](#3-parallelization-sectioning--pipeline-review-then-verify-the-default-multi-stage-shape)
-- [4. Sectioning with a barrier — dedup before the next stage](#4-sectioning-with-a-barrier--dedup-before-the-next-stage)
-- [5. Routing — discriminate, then dispatch one specialist](#5-routing--discriminate-then-dispatch-one-specialist)
-- [6. Orchestrator–workers — a planner emits the worklist](#6-orchestratorworkers--a-planner-emits-the-worklist)
-- [7. Evaluator–optimizer — generate, grade, iterate to a bar](#7-evaluatoroptimizer--generate-grade-iterate-to-a-bar)
-- [8. Voting — adversarial verification (skeptic panel)](#8-voting--adversarial-verification-skeptic-panel)
-- [9. Voting + synthesis — judge panel (N attempts, score, combine)](#9-voting--synthesis--judge-panel-n-attempts-score-combine)
-- [10. Loop until a target count](#10-loop-until-a-target-count)
-- [11. Loop until the budget runs low](#11-loop-until-the-budget-runs-low)
-- [12. Loop until dry (unknown-size discovery)](#12-loop-until-dry-unknown-size-discovery)
-- [13. Fan-out then reconcile deferrals](#13-fan-out-then-reconcile-deferrals)
-- [14. Steady worker pool for a large list of long chains](#14-steady-worker-pool-for-a-large-list-of-long-chains)
-- [15. Nested workflow](#15-nested-workflow)
-- [16. Dry-run and simulate before you spend tokens](#16-dry-run-and-simulate-before-you-spend-tokens)
-- [17. Resumable runs: the journal, the ledger, and how to actually resume](#17-resumable-runs-the-journal-the-ledger-and-how-to-actually-resume)
-- [18. Fence untrusted content (prompt-injection defense)](#18-fence-untrusted-content-prompt-injection-defense)
-- [19. Parameterized scope/target resolution (file / sub-folder / unit / many)](#19-parameterized-scopetarget-resolution-file--sub-folder--unit--many)
-- [20. Producer → reviewer chain without anchoring (navigation handoff)](#20-producer--reviewer-chain-without-anchoring-navigation-handoff)
-- [Defining schemas](#defining-schemas)
+- [Workflow Patterns](#workflow-patterns)
+  - [Contents](#contents)
+  - [The canonical map](#the-canonical-map)
+  - [1. Prompt chaining — fixed ordered stages](#1-prompt-chaining--fixed-ordered-stages)
+  - [2. Parallelization (sectioning) — fan-out then synthesize](#2-parallelization-sectioning--fan-out-then-synthesize)
+  - [3. Parallelization (sectioning) — pipeline: review then verify (the default multi-stage shape)](#3-parallelization-sectioning--pipeline-review-then-verify-the-default-multi-stage-shape)
+  - [4. Sectioning with a barrier — dedup before the next stage](#4-sectioning-with-a-barrier--dedup-before-the-next-stage)
+  - [5. Routing — discriminate, then dispatch one specialist](#5-routing--discriminate-then-dispatch-one-specialist)
+  - [6. Orchestrator–workers — a planner emits the worklist](#6-orchestratorworkers--a-planner-emits-the-worklist)
+  - [7. Evaluator–optimizer — generate, grade, iterate to a bar](#7-evaluatoroptimizer--generate-grade-iterate-to-a-bar)
+  - [8. Voting — adversarial verification (skeptic panel)](#8-voting--adversarial-verification-skeptic-panel)
+  - [9. Voting + synthesis — judge panel (N attempts, score, combine)](#9-voting--synthesis--judge-panel-n-attempts-score-combine)
+  - [10. Loop until a target count](#10-loop-until-a-target-count)
+  - [11. Loop until the budget runs low](#11-loop-until-the-budget-runs-low)
+  - [12. Loop until dry (unknown-size discovery)](#12-loop-until-dry-unknown-size-discovery)
+  - [13. Fan-out then reconcile deferrals](#13-fan-out-then-reconcile-deferrals)
+  - [14. Steady worker pool for a large list of long chains](#14-steady-worker-pool-for-a-large-list-of-long-chains)
+  - [15. Nested workflow](#15-nested-workflow)
+  - [16. Dry-run and simulate before you spend tokens](#16-dry-run-and-simulate-before-you-spend-tokens)
+  - [17. Resumable runs: the journal, the ledger, and how to actually resume](#17-resumable-runs-the-journal-the-ledger-and-how-to-actually-resume)
+  - [18. Fence untrusted content (prompt-injection defense)](#18-fence-untrusted-content-prompt-injection-defense)
+  - [19. Parameterized scope/target resolution (file / sub-folder / unit / many)](#19-parameterized-scopetarget-resolution-file--sub-folder--unit--many)
+  - [20. Producer → reviewer chain without anchoring (navigation handoff)](#20-producer--reviewer-chain-without-anchoring-navigation-handoff)
+  - [21. Report-file fan-out — receipts on the wire, products on disk](#21-report-file-fan-out--receipts-on-the-wire-products-on-disk)
+  - [Defining schemas](#defining-schemas)
 
 ## The canonical map
 
@@ -79,11 +76,11 @@ const sections = ['geometry kernel', 'mesh pipeline', 'IFC export']
 
 const out = await pipeline(
   sections,
-  s          => agent(`Outline the doc section for: ${s}. Return headings only.`,
-                      { label: `outline:${s}`, phase: 'Outline', schema: OUTLINE_SCHEMA }),
-  (outline, s) => agent(`Draft "${s}" from this outline:\n${JSON.stringify(outline)}`,
+  s             => agent(`Outline the doc section for: ${s}. Return headings only.`,
+                        { label: `outline:${s}`, phase: 'Outline', schema: OUTLINE_SCHEMA }),
+  (outline, s)  => agent(`Draft "${s}" from this outline:\n${JSON.stringify(outline)}`,
                         { label: `draft:${s}`, phase: 'Draft' }),
-  (draft, s)   => agent(`Tighten this "${s}" draft — cut redundancy, keep every claim:\n${draft}`,
+  (draft, s)    => agent(`Tighten this "${s}" draft — cut redundancy, keep every claim:\n${draft}`,
                         { label: `tighten:${s}`, phase: 'Tighten' }),
 )
 
@@ -129,6 +126,10 @@ const report = await agent(
 
 return { questionCount: clean.length, report }
 ```
+
+Inline synthesis is small-output only: past ~50 rows of collected product, the
+`JSON.stringify` handoff spends the synthesizer's context before its work starts — route
+heavy products through the report-file topology (§21).
 
 ---
 
@@ -207,10 +208,10 @@ export const meta = {
 
 // One row per class: the discriminant value, the specialist prompt, and its model.
 const ROUTES = {
-  cs:  { prompt: f => `Refactor ${f} to LanguageExt ROP; collapse parallel types into a [Union].`, model: 'inherit' },
-  ts:  { prompt: f => `Refactor ${f} to Effect-TS; replace throws with typed error channels.`,      model: 'inherit' },
+  cs:  { prompt: f => `Refactor ${f} to LanguageExt ROP; collapse parallel types into a [Union].`,   model: 'inherit' },
+  ts:  { prompt: f => `Refactor ${f} to Effect-TS; replace throws with typed error channels.`,       model: 'inherit' },
   py:  { prompt: f => `Refactor ${f} to expression style; replace mutable accumulation with folds.`, model: 'inherit' },
-  sql: { prompt: f => `Rewrite ${f} set-algebraically; push filters into the query.`,                model: 'sonnet'   },
+  sql: { prompt: f => `Rewrite ${f} set-algebraically; push filters into the query.`,                model: 'sonnet'  },
 }
 const classify = f => f.endsWith('.cs') ? 'cs' : f.endsWith('.ts') ? 'ts'
                     : f.endsWith('.py') ? 'py' : f.endsWith('.sql') ? 'sql' : null
@@ -250,7 +251,7 @@ phase('Plan')
 const plan = await agent(
   `Decompose this migration into independent units. One task per file or module that `
   + `can be changed on its own.\n\n${task}`,
-  { label: 'orchestrator', schema: PLAN_SCHEMA })   // → { tasks: [{ id, file, instruction }] }
+  { label: 'orchestrator', schema: PLAN_SCHEMA })  // → { tasks: [{ id, file, instruction }] }
 
 phase('Work')
 const done = (await parallel((plan?.tasks ?? []).map(t => () =>
@@ -290,9 +291,9 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
     + `\n\nTask: ${task}`,
     { label: `attempt:${round}` })
 
-  const review = await agent(                          // SEPARATE agent — never self-grade
+  const review = await agent(  // SEPARATE agent — never self-grade
     `Evaluate this attempt against the acceptance criteria. Be strict.\n\n${draft}`,
-    { label: `evaluate:${round}`, schema: REVIEW_SCHEMA })   // → { passed, feedback }
+    { label: `evaluate:${round}`, schema: REVIEW_SCHEMA })  // → { passed, feedback }
 
   log(`round ${round}: ${review?.passed ? 'PASS' : 'revise'}`)
   if (review?.passed) return { draft, rounds: round }
@@ -441,10 +442,11 @@ The deferral must be DATA whose resource slot is a LIST, so a deferral spanning 
 files names BOTH — that is the only thing that lets you cluster by shared resource.
 
 ```js
-// per-worker schema: a residual carries a FILE LIST, not a free string
-const FIX = { type: 'object', required: ['file'], properties: {
+// per-worker schema: a residual carries a FILE LIST, not a free string; `residual` is
+// required-but-possibly-empty per the strict profile
+const FIX = { type: 'object', additionalProperties: false, required: ['file', 'residual'], properties: {
   file: { type: 'string' },
-  residual: { type: 'array', items: { type: 'object', required: ['files', 'claim'],
+  residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'],
     properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 
 const done = (await parallel(items.map(it => () => agent(workPrompt(it), { schema: FIX })))).filter(Boolean)
@@ -512,7 +514,7 @@ const shardOversized = (clusters, cap) => clusters.flatMap((c) => {
 const packClusters = (clusters, n) => {
   const cap = Math.max(1, Math.ceil(clusters.reduce((w, c) => w + clusterWork(c), 0) / n))
   const shards = shardOversized(clusters, cap)
-  if (shards.length <= n) return shards                           // one agent per shard — balanced by construction
+  if (shards.length <= n) return shards  // one agent per shard — balanced by construction
   const buckets = Array.from({ length: n }, () => ({ work: 0, rows: [] }))
   for (const c of shards.slice().sort((a, b) => clusterWork(b) - clusterWork(a))) {
     let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].work < buckets[mi].work) mi = i
@@ -546,15 +548,15 @@ while (pending.length && round++ < MAX_ROUNDS) {
   let changed = false; const next = []
   for (const cl of unionFindBySharedFile(pending)) {
     const fix = await agent(fixPrompt(cl), { schema: FIXED })
-    if (!(fix?.files ?? []).filter(inRepo).length || fix?.verdict === 'clean') continue   // (1) no change -> NO verify
+    if (!(fix?.files ?? []).filter(inRepo).length || fix?.verdict === 'clean') continue  // (1) no change -> NO verify
     changed = true
     const v = await agent(verifyPrompt(cl, fix.files), { schema: VERIFY })
     for (const c of v?.claims ?? []) if (!c.resolved && !seen.has(key(c))) { seen.add(key(c)); next.push(c) }  // (2) only NEW
   }
-  if (!changed) break                                  // (3) a round that changed no file never will -> stop
+  if (!changed) break  // (3) a round that changed no file never will -> stop
   pending = next
 }
-return { hard: pending }                               // still-open: log LOUDLY + return, never drop
+return { hard: pending }  // still-open: log LOUDLY + return, never drop
 ```
 
 (1) a fix that touched no file (or returned `clean`) has nothing to verify — skip the verify
@@ -578,7 +580,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  let gate = Promise.resolve()                                   // serialized launch gate
+  let gate = Promise.resolve()  // serialized launch gate
   const launch = () => { gate = gate.then(() => sleep(1500)); return gate }
   const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
@@ -618,7 +620,7 @@ const makeSlots = (cap) => {
 const slot = makeSlots(14)
 await Promise.all(batches.map(async (b) => {
   const [a, c] = await Promise.all([slot(() => agent(lensA(b))), slot(() => agent(lensB(b)))])
-  const impl = await slot(() => agent(implPrompt(b, a, c)))          // chain continues per batch
+  const impl = await slot(() => agent(implPrompt(b, a, c)))  // chain continues per batch
 }))
 ```
 
@@ -755,7 +757,7 @@ So resuming is one specific call — and three mistakes silently turn it into a 
 
 The **ledger** exists to make the first rule possible: the moment `Workflow` returns, write a
 small file (run ID, launched `scriptPath`, `args`, and the exact resume command) under the
-session scratch dir, from `assets/templates/run-ledger.template.md`. Without the captured run
+session scratchpad (harness temp dir, outside the repo), from `assets/templates/run-ledger.template.md`. Without the captured run
 ID a later turn cannot resume — it can only start over. While a run is resumable, do not edit
 the launched script.
 
@@ -833,7 +835,7 @@ Four things make this robust:
   `Root/Sub`; name that special case in the discovery prompt so it routes to `Root`.
 
 ```js
-// --- [INPUTS] --- a target, an array of targets, or {targets:[...]}; empty = no-op
+// A target, an array of targets, or {targets:[...]}; empty = no-op
 const ROOT = 'libs/python'
 const normTarget = t => { const s = String(t).trim().replace(/\/+$/, ''); return (s === ROOT || s.indexOf(ROOT + '/') === 0) ? s : ROOT + '/' + s.replace(/^\/+/, '') }
 const rawTargets = Array.isArray(args) ? args
@@ -842,11 +844,10 @@ const rawTargets = Array.isArray(args) ? args
   : []
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))]
 
-// --- discovery agent resolves owning units + both page sets (orchestrator has no FS) ---
 const DISCOVERY = { type: 'object', additionalProperties: false, required: ['packages', 'targetPages', 'folderPages'], properties: {
   packages:    { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'root'], properties: { name: { type: 'string' }, root: { type: 'string' } } } },
-  targetPages: { type: 'array', items: { type: 'string' } },   // the granular subset to act on
-  folderPages: { type: 'array', items: { type: 'string' } } } } // every page under each owning unit — the blast radius
+  targetPages: { type: 'array', items: { type: 'string' } },     // the granular subset to act on
+  folderPages: { type: 'array', items: { type: 'string' } } } }  // every page under each owning unit — the blast radius
 
 const inv = await agent('Resolve these TARGETS into owning units + page sets. A target is a UNIT root, a SUB-FOLDER at ANY depth, or a FILE; the owning '
   + 'unit is the path BEFORE the structural sentinel "/.planning/" (or the target itself when it has none). A UNIT-root target expands to every page '
@@ -858,13 +859,13 @@ const targetPages = [...new Set((inv?.targetPages ?? []).filter(Boolean))]
 const folderPages = [...new Set((inv?.folderPages ?? []).filter(Boolean))]
 if (!targetPages.length) { log('no targets — pass a file, sub-folder, or unit path'); return { targets: TARGETS, total: 0 } }
 
-const done = (await pool(targetPages, CAP, p => processPage(p))).filter(Boolean)   // cost ∝ targeted subset, pattern #14
+const done = (await pool(targetPages, CAP, p => processPage(p))).filter(Boolean)  // cost ∝ targeted subset, pattern #14
 
 // terminal folder-wide concern over each owning unit — only where untargeted siblings exist
 const seam = (inv?.packages ?? []).map(pkg => {
   const t = targetPages.filter(p => p.indexOf(pkg.root + '/') === 0)
   const f = folderPages.filter(p => p.indexOf(pkg.root + '/') === 0)
-  return { pkg, hasSiblings: t.length > 0 && t.length < f.length }   // skip when the whole unit was targeted
+  return { pkg, hasSiblings: t.length > 0 && t.length < f.length }  // skip when the whole unit was targeted
 }).filter(x => x.hasSiblings)
 const seamed = (await pool(seam, CAP, x => agent(seamPrompt(x.pkg), { schema: SEAM_SCHEMA, effort: 'xhigh' }))).filter(Boolean)
 return { targets: TARGETS, units: (inv?.packages ?? []).map(p => p.name), done: done.length, seamed: seamed.length }
@@ -927,25 +928,141 @@ votes on one claim): this hardens a *sequential* chain where every stage also wr
 
 ---
 
+## 21. Report-file fan-out — receipts on the wire, products on disk
+
+**Canonical:** sectioning hardened for heavy products. **Primitive:** a fan of producing
+LANES (a lane = one concurrent worker with its own scope, product, and receipt), each writing
+its complete product to run scratch and returning a thin receipt; one terminal reader
+consuming the files. **Guards:** relay loss — every hop a heavy product takes through an
+intermediate agent's structured output is a truncation/paraphrase risk on the weakest model
+in the chain, and a full product `JSON.stringify`-ed into a downstream prompt spends the
+reader's context before its work starts. The dataflow law lives in `SKILL.md` "Data flow
+between stages"; this is the runnable shape. It composes with any concurrency shape (#2,
+#14) — it is the dataflow contract, not a topology of its own.
+
+Dual schema: the PRODUCT schema types the on-disk file; the RECEIPT types the wire. Both
+strict — every object `additionalProperties: false` with every property required
+(`api-reference.md` §5) — so one shape serves AJV lanes and codex `--output-schema` alike.
+
+```js
+// One anchor = one fact at one coordinate; interpretation never lives in an anchor row. `note` is the shortest literal witness under 20 words,
+// or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not found.
+const ANCHOR = { type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: ['defect', 'ruling', 'catalog', 'counterpart', 'absence'] },
+  note: { type: 'string' } } }
+
+// Defect-shaped PRODUCT. A recon/inventory product swaps the defect fields for prose `info`
+// facts plus verified `members`, framed inventory-never-instruction, and swaps the anchor
+// role `defect` for `state`; anchors and coverage stay.
+const PRODUCT = { type: 'object', additionalProperties: false, required: ['findings', 'coverage', 'summary'], properties: {
+  findings: { type: 'array', items: { type: 'object', additionalProperties: false,
+    required: ['claimKey', 'target', 'files', 'class', 'severity', 'claim', 'anchors', 'mechanism', 'owner', 'reject', 'acceptance'], properties: {
+    claimKey: { type: 'string' },  // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+    target: { type: 'string' },                                        // short display label
+    files: { type: 'array', items: { type: 'string' } },               // What the reader must open or edit first
+    class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
+    severity: { type: 'string', enum: ['blocker', 'major', 'minor'] }, // bound to consequence, never prose confidence
+    claim: { type: 'string' },                                         // The observed defect as fact
+    anchors: { type: 'array', items: ANCHOR },
+    mechanism: { type: 'string' },                                     // WHY it fails — factual, zero repair verbs
+    owner: { type: 'string' },                                         // canonical owner that must absorb the resolution
+    reject: { type: 'array', items: { type: 'string' } },              // forms the repair must NOT take
+    acceptance: { type: 'array', items: { type: 'string' } } } } },    // signals proving resolution
+  coverage: { type: 'object', additionalProperties: false, required: ['requested', 'read', 'skipped', 'unverified'], properties: {
+    requested: { type: 'array', items: { type: 'string' } }, read: { type: 'array', items: { type: 'string' } },
+    skipped: { type: 'array', items: { type: 'string' } }, unverified: { type: 'array', items: { type: 'string' } } } },
+  summary: { type: 'string' } } }
+
+// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + counts travel.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' } } }
+
+// Dispatch helper: codex wrapper when CODEX, native lane otherwise. `codexPrompt` is the
+// four-step template in SKILL.md "Dispatching gpt-5.5" (Write-tool task/schema files + stale
+// purge, test -s guard + verbatim detached launch with -c mcp_servers={}, bounded liveness
+// polls with the wedge kill, jq-built mechanical receipt). The `.then()` attaches the
+// ORCHESTRATOR-ASSIGNED scope so a lane that dies before writing still names its territory.
+const lane = (task, o) => (CODEX
+  ? agent(codexPrompt(o.label, task, PRODUCT, !!o.writes),
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    SCRATCH + '/' + o.label + '-report.json (Write tool, absolute path under the repo root): ' + JSON.stringify(PRODUCT) +
+    ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+    { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL })
+).then((r) => ({ lane: o.label, scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+  entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died') }))
+
+const roster = (await parallel(slices.map((s, i) => () =>
+  lane(producePrompt(s), { label: 's' + i, phase: 'Produce', scope: s })))).filter(Boolean)
+const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })))
+log(roster.filter((r) => r.ok).reduce((a, r) => a + r.entries, 0) + ' entries across ' + roster.length + ' lanes')
+
+// FIXLOG: {files, resolved[], beyond[], rejected[], summary} — required-but-possibly-empty
+// `beyond` is an attestation that the reader's own hunt ran, not only the signal list.
+const done = await agent(readerPrompt() + ' UNMAPPED: ' + JSON.stringify(unmapped) + ' ROSTER: ' + JSON.stringify(roster),
+  { label: 'resolve', phase: 'Resolve', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: STALL })
+```
+
+Laws that ride the shape:
+
+- **Receipts are thin and mechanical.** `report` is the product path; `entries` is jq-counted
+  from the product's primary array; `headline` is jq-built (per-class/kind tallies, top file)
+  — never the lane's own judgment or a lifted summary sentence, so the terminal reader meets
+  every product cold. A failed lane returns `{ok: false, report: '', entries: 0, headline: '',
+  failure: <stderr tail, one line>}` — failure lives in the envelope, never as sentinel values
+  inside data rows; downstream filters on `ok`, never string-matches magic values.
+- **The producer prompt carries the evidence law** for defect-shaped products: the lane
+  delivers TRUTH, never an implementation — `claim` states the observed defect and `mechanism`
+  states why it fails as fact, with add/replace/implement/promote/delete never written as
+  instruction; the reader owns the design, the lane owns the constraint boundary (`owner`,
+  `reject`, `acceptance`). Output bounds: an ordinary scope yields 3-8 retained findings; 0
+  only after a mandatory second-pass self-verify (re-open every cited anchor, delete what
+  fails re-confirmation) returns empty, with `summary` naming the probes that produced
+  nothing. `coverage` is part of the product — an honest skip beats a silent one.
+- **The terminal reader's consumption protocol**, baked into its prompt, in order: (a)
+  UNMAPPED is the direct-hunt queue — a failed lane's territory gets the reader's own cold
+  read FIRST; (b) every ok report read IN FULL from disk, shared-surface/governance lanes
+  before per-item lanes, grouped by `claimKey` while reading — the same key across lanes is
+  ONE defect with corroborating evidence, never several priorities; (c) every entry is a
+  SIGNAL, not law — anchors behind an edit re-verify MANDATORY, navigation-only entries in
+  untouched groups re-verify only when touched; (d) a finding whose anchors do not re-confirm
+  is rejected with reason, and the reader hunts PAST the signal list on its own authority.
+- **Run scratch discipline**: files at
+  `.claude/scratch/<workflow-name>/<scope>-<lane>-<artifact>.<ext>`; a lane's first act purges
+  its own prior `report`/`stderr`; consumers get explicit roster paths, never a search
+  (scratch is gitignored, so `rg`/`fd` skip it by default).
+
+Distinct from #2 (inline synthesis — correct below ~50 rows) and #13 (deferral reconcile —
+which can ride this contract when its residual sets grow heavy).
+
+---
+
 ## Defining schemas
 
-A schema is a plain JSON Schema object. Keep them small and `required`-tight so
-the subagent returns exactly what you need.
+A schema is a plain JSON Schema object. Keep them small, strict, and `required`-tight
+so the subagent returns exactly what you need. Default to the strict profile —
+`additionalProperties: false` on every object, every property listed in `required`,
+conditional fields required-but-empty — so the same shape is copyable into a codex
+`--output-schema` lane without edits (`api-reference.md` §5 is the validator split).
 
 ```js
 const FINDINGS_SCHEMA = {
   type: 'object',
+  additionalProperties: false,
   required: ['findings'],
   properties: {
     findings: {
       type: 'array',
       items: {
         type: 'object',
-        required: ['title', 'file'],
+        additionalProperties: false,
+        required: ['title', 'file', 'line'],
         properties: {
           title: { type: 'string' },
           file:  { type: 'string' },
-          line:  { type: 'number' },
+          line:  { type: 'integer' },
         },
       },
     },
@@ -954,11 +1071,12 @@ const FINDINGS_SCHEMA = {
 
 const VERDICT_SCHEMA = {
   type: 'object',
-  required: ['isReal'],
+  additionalProperties: false,
+  required: ['isReal', 'refuted', 'reason'],
   properties: {
     isReal:   { type: 'boolean' },
     refuted:  { type: 'boolean' },
-    reason:   { type: 'string' },
+    reason:   { type: 'string' },  // empty string when there is nothing to say
   },
 }
 ```

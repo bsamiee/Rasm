@@ -60,7 +60,7 @@ impact              →   python:data/tabular/columnar              # [WIRE]: th
 impact              →   python:data/tabular/contract              # [SHAPE]: MaterialImpact.gated proves _WIRE_SHAPES through the one contract gate
 impact              →   python:data/tabular/interop               # [SHAPE]: Backend/FieldShape/FrameInterop the gate's lowering vocabulary
 impact              →   python:data/tabular/profile               # [RECEIPT]: MaterialImpact.profiled grades the frame through QualityProfile
-tabular             →   csharp:Rasm.Compute/Runtime               # [SHAPE]: DOE dataset / labelled-array study input
+tabular             →   csharp:Rasm.Compute/Runtime               # [SHAPE]: DOE dataset study input
 spatial/mesh        →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
 tabular/egress      →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
 tabular/*           ←   python:runtime                            # [PORT]: TransportResource remote connection
@@ -72,7 +72,7 @@ tabular/columnar    ←   python:runtime/transport                  # [TRANSPORT
 spatial/mesh        ←   python:geometry/scan                      # [SHAPE]: Arrow point-record columnar bridge x/y/z
 spatial/mesh        ←   python:geometry/mesh                      # [BOUNDARY]: mesh-file decode/encode + GLB preview here; repair returns in-memory Trimesh
 spatial/mesh        →   python:geometry/mesh                      # [SHAPE]: MeshPayload cell-block topology
-tabular             →   python:compute/experiments/study          # [SHAPE]: DOE dataset / labelled-array study input
+tabular             →   python:compute/experiments/study          # [SHAPE]: FrameAdmission/FrameInterop DOE-frame admission arm
 tabular/*           →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: C#-seed ContentKey stamped on outputs, federated as durable reuse ledger
 tabular/query       ⇄   csharp:Rasm.Persistence/Query/federation  # [WIRE]: Substrait binary plan interchange — outbound minted by QuerySpec.Federated
 tabular/query       →   python:runtime/observability              # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage contribution

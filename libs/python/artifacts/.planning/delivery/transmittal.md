@@ -31,7 +31,7 @@ from expression import Error, Ok, Option, Result, case, tag, tagged_union
 from msgspec import Struct, structs
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.composition.imposition import Geometry, ImposedPlan, ImposeOp, Imposition, Marks, Scheme

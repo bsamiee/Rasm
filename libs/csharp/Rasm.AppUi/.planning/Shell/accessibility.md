@@ -130,17 +130,18 @@ public static class FocusOps {
 - Entry: `public static ContrastReceipt Measure(string pairKey, string variant, Color foreground, Color background, double floor)` — one ratio assertion per candidate pair.
 - Auto: token resolve and every variant swap emit candidate pairs through `Measure`; the high-contrast variant gates at the elevated floor row; receipts join the evidence stream.
 - Receipt: `ContrastReceipt` per candidate pair, keyed pair key plus variant.
-- Packages: Avalonia.Controls.ColorPicker, Avalonia, BCL inbox
+- Packages: Wacton.Unicolour, Avalonia, BCL inbox
 - Growth: one floor row per pair class; zero new surface.
-- Boundary: the one luminance implementation suite-wide — a second ratio computation anywhere is the deleted pattern; theme tokens emit pairs and consume receipts, never ratios; `GetRelativeLuminance` is the only luminance primitive.
+- Boundary: the one luminance implementation suite-wide rides the Unicolour color kernel (`Theme/tokens.md` seals Unicolour as the suite colour owner — it owns the sRGB-to-luminance transform beside OKLab mix and colormap sampling), so a second ratio computation anywhere is the deleted pattern and the Avalonia `ColorHelper.GetRelativeLuminance` call is the DELETED form (`[V10]`); theme tokens emit pairs and consume receipts, never ratios.
 
 ```csharp signature
 public readonly record struct ContrastReceipt(string PairKey, string Variant, double Ratio, double Floor, bool Pass);
 
 public static class ContrastGate {
+    // WCAG relative luminance through the Unicolour kernel — one color-science owner suite-wide.
     public static double Ratio(Color foreground, Color background) {
-        var first = ColorHelper.GetRelativeLuminance(foreground);
-        var second = ColorHelper.GetRelativeLuminance(background);
+        var first = new Unicolour(ColourSpace.Rgb255, foreground.R, foreground.G, foreground.B).RelativeLuminance;
+        var second = new Unicolour(ColourSpace.Rgb255, background.R, background.G, background.B).RelativeLuminance;
         return (Math.Max(first, second) + 0.05) / (Math.Min(first, second) + 0.05);
     }
 

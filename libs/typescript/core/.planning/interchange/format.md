@@ -4,13 +4,13 @@ The four format engines of the interchange plane — one arm per C#-minted byte 
 
 ## [1]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                     | [PUBLIC] |
-| :-----: | :---------------- | :--------------------------------------------------------------------------- | :------- |
-|  [01]   | `ENGINE_FOLD`     | the shared defect-to-`ParseError` fold every arm's transform composes         | interior |
-|  [02]   | `PROTO_ENGINE`    | read/write posture, frame/family/stream, the suite table, the one registry   | `Proto`  |
-|  [03]   | `CBOR_ENGINE`     | the configured canonical decoder, the DoS gate, the quirk augmentation        | `Cbor`   |
-|  [04]   | `MSGPACK_ENGINE`  | the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress  | `Pack`   |
-|  [05]   | `JSONPATCH_ENGINE`| the op union, apply, diff, OCC guards, and the patch content key             | `Patch`  |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC] |
+| :-----: | :----------------- | :-------------------------------------------------------------------------- | :------- |
+|  [01]   | `ENGINE_FOLD`      | the shared defect-to-`ParseError` fold every arm's transform composes       | interior |
+|  [02]   | `PROTO_ENGINE`     | read/write posture, frame/family/stream, the suite table, the one registry  | `Proto`  |
+|  [03]   | `CBOR_ENGINE`      | the configured canonical decoder, the DoS gate, the quirk augmentation      | `Cbor`   |
+|  [04]   | `MSGPACK_ENGINE`   | the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress | `Pack`   |
+|  [05]   | `JSONPATCH_ENGINE` | the op union, apply, diff, OCC guards, and the patch content key            | `Patch`  |
 
 ## [2]-[ENGINE_FOLD]
 
@@ -94,7 +94,7 @@ const _names = [
   "FaultDetailWire", "QuantityWire", "ElementGraphWire", "NodeWire", "RelationshipWire",
   "ProgressMarkWire", "CredentialPemWire", "BenchmarkClaimWire", "HostFingerprintWire",
   "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire", "FlagVerdictWire",
-  "ControlIntentWire", "LayoutConstraintWire", "BcfTopicWire", "BcfViewpointWire",
+  "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire", "BcfTopicWire", "BcfViewpointWire",
   "GeoFeatureWire", "BimWire", "DiffWire", "IdsAuditWire",
   "MaterialWire", "OpenPbrGroupsWire", "AppearanceSummaryWire",
   "ArtifactFrameWire", "GeometryPayloadWire", "GeometryResidencyWire",
@@ -122,6 +122,7 @@ const _suite = {
   FlagVerdictWire: pb.FlagVerdictWireSchema,
   ControlIntentWire: pb.ControlIntentWireSchema,
   LayoutConstraintWire: pb.LayoutConstraintWireSchema,
+  CommandGateWire: pb.CommandGateWireSchema,
   BcfTopicWire: pb.BcfTopicWireSchema,
   BcfViewpointWire: pb.BcfViewpointWireSchema,
   GeoFeatureWire: pb.GeoFeatureWireSchema,

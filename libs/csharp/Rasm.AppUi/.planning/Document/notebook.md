@@ -1,13 +1,13 @@
 # [APPUI_NOTEBOOK_DOCUMENT]
 
-The notebook rail is the reproducible computational-document model: `NotebookCell` is the closed cell-kind union (code, markdown, chart, render, viewpoint, parameter) each carrying a pinned capability fingerprint, `DependencyGraph` is the cell DAG whose dirty-propagation drives recompute over exactly the affected closure, `NotebookCoedit` projects the cell sequence onto the one `Editing/collab.md` `CollabDoc` merge authority for co-editing, and `ReplayBundle` exports the notebook plus its pinned capabilities and inputs as a portable replay artifact. The page owns the cell union with its pinned-capability fingerprint, the dependency DAG and dirty-recompute fold, the co-edit projection over the shared CRDT document, and the export-to-replay bundle; the substrate is the Compute capability registry and receipt determinism for pinned cells, AvaloniaEdit for code cells, the chart and render owners for output cells, the `Editing/collab.md` `CollabDoc` for co-editing, the Persistence op-log for replay, and the AppHost clock and HLC for ordering. Replay reproduces a notebook bit-identically because every cell pins the capability and inputs it ran against.
+The notebook rail is the reproducible computational-document model: `NotebookCell` is the closed cell-kind union (code, markdown, chart, render, viewpoint, parameter) each carrying a pinned capability fingerprint, recompute COMPOSES the AppHost `RecomputeGraph` through the declared port — the notebook keeps only the document-local projection (cell-id to node-id map, UI dirty overlay) and owns NO topo/dirty/recompute engine of its own, `NotebookCoedit` projects the cell sequence onto the one `Collab/sync.md` `CollabDoc` merge authority for live co-editing with durable truth on the `[V2]` edit-intent stream, and `ReplayBundle` exports the notebook plus its pinned capabilities and inputs as a portable replay artifact. The page owns the cell union with its pinned-capability fingerprint, the recompute projection, the co-edit projection over the shared CRDT document, and the export-to-replay bundle; the substrate is the Compute capability registry and receipt determinism for pinned cells, AvaloniaEdit for code cells, the chart and render owners for output cells, the `Collab/sync.md` `CollabDoc` for co-editing, the `Collab/sync.md` edit-intent stream over the Persistence `Version/ledger` for durability, and the AppHost clock and HLC for ordering. Replay reproduces a notebook bit-identically because every cell pins the capability and inputs it ran against.
 
 ## [01]-[INDEX]
 
-- [01]-[CELL_MODEL]: Closed cell-kind union; pinned capability fingerprint per cell.
-- [02]-[DEPENDENCY_GRAPH]: Cell DAG, dirty propagation, recompute over the affected closure.
-- [03]-[CRDT_COEDIT]: Cell-sequence projection over the one `CollabDoc` merge authority.
-- [04]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
+- [02]-[CELL_MODEL]: Closed cell-kind union; pinned capability fingerprint per cell.
+- [03]-[RECOMPUTE_PROJECTION]: The AppHost `RecomputeGraph` composed per-cell; the document-local map and dirty overlay.
+- [04]-[CRDT_COEDIT]: Cell-sequence projection over the one `CollabDoc` merge authority.
+- [05]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
 
 ## [02]-[CELL_MODEL]
 
@@ -26,6 +26,9 @@ public readonly record struct CapabilityPin(
     string Substrate,
     Rasm.AppHost.Determinism.DeterminismContext Context) {
     public long Seed => unchecked((long)Context.Seed);
+
+    // Emptiness law: a default-constructed pin on a pin-bearing cell IS the unpinned state the export gate rejects.
+    public bool IsPinned => Capability is { Length: > 0 } && Checksum is { Length: > 0 };
 
     public bool Matches(CapabilityPin other) =>
         Capability == other.Capability
@@ -93,89 +96,65 @@ public abstract partial record NotebookFault : Expected, IValidationError<Notebo
 
     public static NotebookFault Create(string message) => new Text(message);
 
-    public sealed record Text : NotebookFault { public Text(string detail) : base(detail, 4800) { } }
-    public sealed record CapabilityDrift : NotebookFault { public CapabilityDrift(string detail) : base(detail, 4801) { } }
-    public sealed record MissingUpstream : NotebookFault { public MissingUpstream(string detail) : base(detail, 4802) { } }
-    public sealed record CycleDetected : NotebookFault { public CycleDetected(string detail) : base(detail, 4803) { } }
+    public sealed record Text : NotebookFault { public Text(string detail) : base(detail, AppUiFaultBand.Notebook.Code(0)) { } }
+    public sealed record CapabilityDrift : NotebookFault { public CapabilityDrift(string detail) : base(detail, AppUiFaultBand.Notebook.Code(1)) { } }
+    public sealed record MissingUpstream : NotebookFault { public MissingUpstream(string detail) : base(detail, AppUiFaultBand.Notebook.Code(2)) { } }
+    public sealed record CycleDetected : NotebookFault { public CycleDetected(string detail) : base(detail, AppUiFaultBand.Notebook.Code(3)) { } }
 }
 ```
 
-## [03]-[DEPENDENCY_GRAPH]
+## [03]-[RECOMPUTE_PROJECTION]
 
-- Owner: `DependencyGraph` the cell DAG; `RecomputePlan` the affected-closure plan.
-- Entry: `public Fin<RecomputePlan> Dirty(string changed)` — folds the downstream transitive closure of the changed cell into the recompute order; `public Fin<HashMap<string, CellOutput>> Recompute(NotebookRuntime runtime, RecomputePlan plan, HashMap<string, CellOutput> cache)` — evaluates exactly the affected cells in topological order, re-using the cached output of unaffected cells.
-- Auto: `Build` derives the DAG from each cell's declared `Inputs` so the dependency edges are document data, never inferred from source parsing; `Dirty` walks the downstream closure of the changed cell so editing a parameter recomputes only the cells that read it, transitively, and an unaffected cell never re-runs; the topological order is the one evaluation order so a recompute respects the dependency partial order; a cycle in the declared inputs faults at build so a self-referential notebook is structurally rejected.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new propagation policy is one plan value; zero new surface.
-- Boundary: dirty propagation recomputes the affected closure only — a full-notebook re-run on every edit is the deleted form, so a parameter change is O(downstream) not O(cells); the dependency edges are the declared cell inputs so a hidden side-effect dependency is structurally absent — a cell reads only its declared upstream outputs; the recompute re-uses the cached output of cells outside the dirty closure so an expensive upstream cell never re-runs for a downstream-only edit; cycle detection runs at build so a topological order always exists.
+- Owner: `CellNodeMap` — the document-local cell-id to node-identity map; `DirtyOverlay` — the UI dirty-state overlay; `NotebookRecompute` — the per-cell composition of the AppHost `RecomputeGraph`.
+- Entry: `public IO<Fin<HashMap<string, CellOutput>>> Recompute(Notebook notebook, NotebookRuntime runtime, string changed, HashMap<string, CellOutput> cache)` — supplies per-cell descriptors and inputs to the AppHost `RecomputeGraph` port (caller-keyed, granularity-neutral; its `determinism.md` clause names the AppUi notebook's per-cell composition), receives the affected order and dirty closure back as decoded vocabulary, and evaluates exactly the affected cells through `NotebookCell.Evaluate`.
+- Auto: the local topo/dirty/recompute ENGINE IS DELETED with no survival branch — `RecomputeGraph` is caller-keyed and granularity-neutral, the consumer supplies its own descriptor and inputs, so per-cell recompute demands nothing the vocabulary lacks; the notebook keeps ONLY the document-local projection: `CellNodeMap` maps cell-id to the content-address node identity (a cell's node is its command plus its upstream node hashes, exactly as the runtime graph keys it), and `DirtyOverlay` renders the dirty closure the graph reports as the UI cell-state badges; dependency edges remain declared cell `Inputs` — document data, never inferred from source parsing; a cycle faults through the graph's own admission as `NotebookFault.CycleDetected`.
+- Packages: Rasm.AppHost (project), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new propagation concern is a `RecomputeGraph` vocabulary row consumed here; zero new surface, zero local engine.
+- Boundary: the AppHost `RecomputeGraph` is the ONE incremental-recompute owner — a second topo sort, dirty walk, or recompute scheduler here is the deleted form; the port is decode-only: the notebook supplies descriptors and reads the affected order, never re-implementing the algebra; the `Editing/graph.md` dependency read projection consumes the SAME vocabulary, one owner across the runtime and both documents.
 
 ```csharp signature
-public sealed record RecomputePlan(Seq<string> Order);
+public sealed record CellNodeMap(HashMap<string, Rasm.AppHost.Determinism.ChainHash> Nodes) {
+    public static CellNodeMap Of(Notebook notebook, Func<NotebookCell, Seq<Rasm.AppHost.Determinism.ChainHash>, Rasm.AppHost.Determinism.ChainHash> nodeId) =>
+        notebook.Cells.Fold(new CellNodeMap(HashMap<string, Rasm.AppHost.Determinism.ChainHash>()), (map, cell) =>
+            map with { Nodes = map.Nodes.AddOrUpdate(cell.Id, nodeId(cell, cell.Inputs.Bind(input => map.Nodes.Find(input).ToSeq()))) });
+}
 
-public sealed record DependencyGraph(
-    FrozenDictionary<string, Seq<string>> Inputs,
-    FrozenDictionary<string, Seq<string>> Dependents,
-    Seq<string> Topological) {
-    public static Fin<DependencyGraph> Build(Notebook notebook) {
-        var inputs = notebook.Cells.Map(cell => KeyValuePair.Create(cell.Id, cell.Inputs)).ToFrozenDictionary(StringComparer.Ordinal);
-        var dependents = notebook.Cells
-            .Bind(cell => cell.Inputs.Map(input => (Input: input, Cell: cell.Id)))
-            .GroupBy(static edge => edge.Input, StringComparer.Ordinal)
-            .ToFrozenDictionary(static group => group.Key, static group => toSeq(group).Map(static edge => edge.Cell), StringComparer.Ordinal);
-        return Topo(notebook, inputs).Map(order => new DependencyGraph(inputs, dependents, order));
-    }
+public readonly record struct DirtyOverlay(LanguageExt.HashSet<string> DirtyCells) {
+    public bool IsDirty(string cellId) => DirtyCells.Contains(cellId);
+}
 
-    public Fin<RecomputePlan> Dirty(string changed) =>
-        Reachable(changed, Set<string>()) switch {
-            var affected => Fin.Succ(new RecomputePlan(Topological.Filter(affected.Contains))),
-        };
+public sealed record NotebookRecompute(
+    Func<Notebook, string, IO<Fin<Seq<string>>>> AffectedOrder) { // composition-bound: the AppHost RecomputeGraph port, decode-only
 
-    public Fin<HashMap<string, CellOutput>> Recompute(Notebook notebook, NotebookRuntime runtime, RecomputePlan plan, HashMap<string, CellOutput> cache) =>
-        plan.Order.Fold(
+    public IO<Fin<HashMap<string, CellOutput>>> Recompute(Notebook notebook, NotebookRuntime runtime, string changed, HashMap<string, CellOutput> cache) =>
+        AffectedOrder(notebook, changed).Bind(order => order.Match(
+            Succ: affected => Evaluate(notebook, runtime, affected, cache),
+            Fail: error => IO.pure(Fin.Fail<HashMap<string, CellOutput>>(error))));
+
+    static IO<Fin<HashMap<string, CellOutput>>> Evaluate(Notebook notebook, NotebookRuntime runtime, Seq<string> order, HashMap<string, CellOutput> cache) =>
+        IO.lift(() => order.Fold(
             Fin.Succ(cache),
             (rail, id) => rail.Bind(state => notebook.Cells.Find(cell => cell.Id == id)
                 .Map(cell => Gather(cell, state).Bind(upstream => cell.Evaluate(runtime, upstream).Run().Map(output => state.AddOrUpdate(id, output))))
-                .IfNone(() => Fin.Fail<HashMap<string, CellOutput>>(new NotebookFault.MissingUpstream(id)))));
+                .IfNone(() => Fin.Fail<HashMap<string, CellOutput>>(new NotebookFault.MissingUpstream(id))))));
 
-    private Fin<HashMap<string, CellOutput>> Gather(NotebookCell cell, HashMap<string, CellOutput> state) =>
+    static Fin<HashMap<string, CellOutput>> Gather(NotebookCell cell, HashMap<string, CellOutput> state) =>
         cell.Inputs.Fold(
             Fin.Succ(HashMap<string, CellOutput>()),
             (rail, input) => rail.Bind(acc => state.Find(input).Match(
                 Some: output => Fin.Succ(acc.Add(input, output)),
                 None: () => Fin.Fail<HashMap<string, CellOutput>>(new NotebookFault.MissingUpstream($"{cell.Id}<-{input}")))));
-
-    private Set<string> Reachable(string node, Set<string> seen) =>
-        seen.Contains(node)
-            ? seen
-            : Dependents.TryGetValue(node, out var next)
-                ? next.Fold(seen.Add(node), (acc, child) => Reachable(child, acc))
-                : seen.Add(node);
-
-    private static Fin<Seq<string>> Topo(Notebook notebook, FrozenDictionary<string, Seq<string>> inputs) =>
-        notebook.Cells.Fold(
-            Fin.Succ((Order: Seq<string>(), Visited: Set<string>())),
-            (rail, cell) => rail.Bind(state => Visit(cell.Id, inputs, state, Set<string>())))
-        .Map(static state => state.Order);
-
-    private static Fin<(Seq<string> Order, Set<string> Visited)> Visit(string id, FrozenDictionary<string, Seq<string>> inputs, (Seq<string> Order, Set<string> Visited) state, Set<string> stack) =>
-        stack.Contains(id)
-            ? Fin.Fail<(Seq<string>, Set<string>)>(new NotebookFault.CycleDetected(id))
-            : state.Visited.Contains(id)
-                ? Fin.Succ(state)
-                : (inputs.TryGetValue(id, out var deps) ? deps : Seq<string>())
-                    .Fold(Fin.Succ(state), (rail, dep) => rail.Bind(inner => Visit(dep, inputs, inner, stack.Add(id))))
-                    .Map(inner => (inner.Order.Add(id), inner.Visited.Add(id)));
 }
 ```
 
 ## [04]-[CRDT_COEDIT]
 
-- Owner: `NotebookCoedit` the notebook projection over the one `Editing/collab.md#DOCUMENT_OWNER` `CollabDoc` merge authority.
+- Owner: `NotebookCoedit` the notebook projection over the one `Collab/sync.md#DOCUMENT_OWNER` `CollabDoc` merge authority.
 - Entry: `public Fin<NotebookCoedit> Open(CollabDoc document)` — attaches the notebook's `movable-list` cell-sequence container and per-cell `map` containers on the one document; `public Fin<Unit> Insert(int index, NotebookCell cell)` / `Move(int from, int to)` / `Delete(string cellId)` / `Retext(string cellId, string source)` — each a typed edit on the document's containers, the document converging without conflict.
 - Auto: the notebook holds NO replicated-op vocabulary, no last-writer-wins register, no fractional-index math, and no tombstone set — the `CollabDoc` IS the merge authority: the cell sequence is a `movable-list` container whose `Mov(from, to)` reorders by stable id without delete+insert losing identity (the textbook collaborative cell-reorder), a cell insert is `Insert*Container` at the index, a cell delete is the list `Delete` (the engine's tombstone is internal), and a code/markdown cell's `Source` is a `text` container per cell whose concurrent edits the engine's eg-walker text CRDT resolves character-granular rather than whole-cell last-writer-wins; convergence is the `CollabDoc` law so two replicas that have imported the same op-log deltas hold the same notebook; the materialized `Notebook` reads the live container state through `GetDeepValue` projected onto the typed cell union.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
 - Growth: a new co-edited notebook concern is one container attach on the existing document, never a new replicated-op case; zero new surface.
-- Boundary: co-editing rides the one `Editing/collab.md` `CollabDoc` owner — the bespoke `NotebookCrdt`/`NotebookOp` last-writer-wins-plus-fractional-index-plus-tombstone algebra is DROPPED root-up (the `[05]-[PROHIBITIONS]` second-CRDT clause), so the notebook composes the document's `SyncRail` (local-delta broadcast / remote-delta import) and holds no merge logic; the sync transports through the `CollabDoc` `SyncRail` over the Persistence op-log changefeed already owned so the notebook mints no second sync, and a central merge server is the deleted form (two offline replicas reconcile on reconnect through the engine); the cell reorder is `LoroMovableList.Mov` so a reorder preserves cell identity and a delete+reinsert that loses identity is the rejected form; a code cell's `Source` is a per-cell `text` container so concurrent same-cell edits resolve character-granular through the engine rather than a whole-cell last-writer-wins that drops one author's keystrokes; the presence carets ride the document's `Editing/collab.md#PRESENCE` ephemeral channel, never the durable cell op-log; the determinism-replay reproducibility (`[05]-[REPLAY_BUNDLE]`) is a distinct concern composing the AppHost determinism kernel and is never folded into the document time-travel.
+- Boundary: co-editing rides the one `Collab/sync.md` `CollabDoc` owner — the bespoke `NotebookCrdt`/`NotebookOp` last-writer-wins-plus-fractional-index-plus-tombstone algebra is DROPPED root-up, so the notebook composes the document's `LiveWire` (local-delta broadcast / remote-delta import, session-ephemeral) and holds no merge logic; DURABLE truth is the `Collab/sync.md#DURABLE_INTENT` typed edit-intent stream — a committed cell insert/edit/move/delete projects its `EditIntent` row onto the Persistence `Version/ledger`, character-granular text runs ride the gated `TextRun` arm, and a Loro byte crossing durable truth is the deleted form; the cell reorder is `LoroMovableList.Mov` so a reorder preserves cell identity and a delete+reinsert that loses identity is the rejected form; a code cell's `Source` is a per-cell `text` container so concurrent same-cell edits resolve character-granular through the engine in the LIVE session rather than a whole-cell last-writer-wins that drops one author's keystrokes; the presence carets ride the document's `Collab/sync.md#PRESENCE` ephemeral channel, never durable truth; the determinism-replay reproducibility (`[05]-[REPLAY_BUNDLE]`) is a distinct concern composing the AppHost determinism kernel and is never folded into the document time-travel.
 
 ```csharp signature
 public sealed record NotebookCoedit(CollabDoc Document, LoroMovableList Cells) {
@@ -202,12 +181,12 @@ public sealed record NotebookCoedit(CollabDoc Document, LoroMovableList Cells) {
 ## [05]-[REPLAY_BUNDLE]
 
 - Owner: `ReplayManifest` the pinned-input-and-capability manifest; `ReplayBundle` the export-to-replay artifact; `NotebookReplay` the bit-identity check.
-- Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, Func<string, IO<ReadOnlyMemory<byte>>> blob)` — `Fin` aborts when a code or chart cell carries no pin; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded outputs; `public static IO<Fin<bool>> Verify(ReplayBundle bundle, NotebookRuntime runtime)` — re-runs the notebook and compares each cell's output hash to the recorded hash.
-- Auto: the manifest records every cell's `CapabilityPin` (carrying the AppHost `DeterminismContext`/`EnvFingerprint` environment identity) and the content hash of every input blob through the suite `XxHash128` identity row so the bundle is self-contained — a replay resolves its capabilities and determinism context from the manifest and its inputs from the packed blobs, never the live environment; `Verify` composes the AppHost `EventLog`/`ChainHash`/`ReplayVerify` content-hash identity rather than a notebook-local `hash(output)` fold — it re-runs the dependency graph under the manifest's pins through the one `Render/evidence.md#HEADLESS_DERIVATION` `ProofEngine.Replay` route and proves each cell's output content hash matches the recorded hash so a reproducibility regression surfaces as a named cell mismatch, the notebook reproducibility receipt riding the existing `ReceiptEnvelopeWire`/`LogEntryWire` rather than a notebook-only wire shape; the bundle is a versioned Persistence artifact so it crosses the blob lane as an opaque payload.
+- Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, Func<string, IO<ReadOnlyMemory<byte>>> blob)` — `Fin` aborts when any pin-bearing cell kind (code, chart, render) carries an unset pin, input count never proxies the gate; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded outputs; `public static IO<Fin<bool>> Verify(ReplayBundle bundle, NotebookRuntime runtime)` — re-runs the notebook and compares each cell's output hash to the recorded hash.
+- Auto: the manifest records every cell's `CapabilityPin` (carrying the AppHost `DeterminismContext`/`EnvFingerprint` environment identity) and the content hash of every input blob through the kernel `Rasm.Domain` `ContentHash.Of` one-hasher entry (hex encoding stays the boundary projection) so the bundle is self-contained — a replay resolves its capabilities and determinism context from the manifest and its inputs from the packed blobs, never the live environment; `Verify` composes the AppHost `EventLog`/`ChainHash`/`ReplayVerify` content-hash identity rather than a notebook-local `hash(output)` fold — it re-runs the recompute projection under the manifest's pins through the one `Diagnostics/proof.md#HEADLESS_DERIVATION` `ProofEngine.Replay` route and proves each cell's output content hash matches the recorded hash so a reproducibility regression surfaces as a named cell mismatch, the notebook reproducibility receipt riding the existing `ReceiptEnvelopeWire`/`LogEntryWire` rather than a notebook-only wire shape; the bundle is a versioned Persistence artifact so it crosses the blob lane as an opaque payload.
 - Receipt: `Verify` seals a render or evidence receipt per re-run cell; a mismatch folds the cell id into the replay-mismatch instrument.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, NodaTime, Rasm.Persistence (project), Rasm.AppHost (project)
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project), NodaTime, Rasm.Persistence (project), Rasm.AppHost (project)
 - Growth: a new manifest field is one `ReplayManifest` member; zero new surface.
-- Boundary: the bundle is self-contained — replay resolves capabilities, the determinism context, and inputs from the manifest and packed blobs so a notebook reproduces independent of the live environment, and a replay that reaches the live store is the rejected form; the output identity is the content hash through the suite XxHash128 identity row composed as the AppHost `EventLog`/`ChainHash` content-addressed chain so bit-identity is the verification law and a fuzzy float compare is the deleted form; the bundle crosses the Persistence blob lane as a versioned opaque artifact so the notebook mints no second store; the notebook is a UI projection over the runtime determinism owner — the `Verify` composes `Rasm.AppHost/Runtime/determinism.md#REPLAY_VERIFY` `ReplayVerify.Replay` content-hash identity and the journal-replay determinism rides the diagnostics `ProofEngine.Replay` under virtual time so the replay reproducibility shares the settled deterministic-replay law, and a parallel reproducibility-hash fold or a notebook-local replay engine inside `notebook/` is the rejected form; the `RecomputePlan` cell DAG aligns to the `Rasm.AppHost/Runtime/determinism.md#RECOMPUTE_GRAPH` `RecomputeGraph` content-address node identity so the incremental-recompute law is one owner across the runtime and the document — a cell's content-address node identity is its command plus its upstream node hashes exactly as the runtime recompute graph keys it, and a second incremental-recompute owner is the deleted form.
+- Boundary: the bundle is self-contained — replay resolves capabilities, the determinism context, and inputs from the manifest and packed blobs so a notebook reproduces independent of the live environment, and a replay that reaches the live store is the rejected form; the output identity is the content hash through the kernel `ContentHash.Of` one-hasher entry composed as the AppHost `EventLog`/`ChainHash` content-addressed chain so bit-identity is the verification law and a fuzzy float compare is the deleted form; the bundle crosses the Persistence blob lane as a versioned opaque artifact so the notebook mints no second store; the notebook is a UI projection over the runtime determinism owner — the `Verify` composes `Rasm.AppHost/Runtime/determinism.md#REPLAY_VERIFY` `ReplayVerify.Replay` content-hash identity and the journal-replay determinism rides the diagnostics `ProofEngine.Replay` under virtual time so the replay reproducibility shares the settled deterministic-replay law, and a parallel reproducibility-hash fold or a notebook-local replay engine here is the rejected form; the cell node identity aligns to the `Rasm.AppHost/Runtime/determinism.md#RECOMPUTE_GRAPH` `RecomputeGraph` content-address node identity so the incremental-recompute law is one owner across the runtime and the document — a cell's content-address node identity is its command plus its upstream node hashes exactly as the runtime recompute graph keys it, and a second incremental-recompute owner is the deleted form.
 
 ```csharp signature
 public readonly record struct ReplayInput(string Key, string ContentHash, long Bytes);
@@ -234,13 +213,13 @@ public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, Ha
         HashMap<string, ReadOnlyMemory<byte>> blobs,
         Func<CellOutput, Rasm.AppHost.Determinism.ChainHash> hash,
         ClockPolicy clocks) =>
-        notebook.Cells.Find(cell => cell.Inputs.Count > 0 && cell.Pin.IsNone) is { IsSome: true, Case: NotebookCell unpinned }
-            ? Fin.Fail<ReplayBundle>(new NotebookFault.CapabilityDrift($"{unpinned.Id}: code cell carries no capability pin"))
+        notebook.Cells.Find(static cell => cell.Pin.Exists(static pin => !pin.IsPinned)) is { IsSome: true, Case: NotebookCell unpinned }
+            ? Fin.Fail<ReplayBundle>(new NotebookFault.CapabilityDrift($"{unpinned.Id}: pin-bearing cell kind carries no capability pin"))
             : Fin.Succ(new ReplayBundle(
                 new ReplayManifest(
                     notebook.Key, notebook.Version, context,
                     notebook.Cells.Bind(cell => cell.Pin.ToSeq()),
-                    toSeq(blobs).Map(entry => new ReplayInput(entry.Key, Convert.ToHexStringLower(XxHash128.Hash(entry.Value.Span)), entry.Value.Length)),
+                    toSeq(blobs).Map(entry => new ReplayInput(entry.Key, $"{ContentHash.Of(entry.Value.Span):x32}", entry.Value.Length)),
                     notebook.Cells.Filter(cell => outputs.ContainsKey(cell.Id)).Map(cell => (cell.Id, hash(outputs[cell.Id]), cell.Inputs)),
                     clocks.Now),
                 notebook, blobs));
@@ -254,23 +233,28 @@ public static class NotebookReplay {
 
     public static IO<Fin<Seq<string>>> Verify(
         ReplayBundle bundle,
+        NotebookRecompute recompute,
         NotebookRuntime runtime,
         Rasm.AppHost.Determinism.DeterminismContext live,
         Func<CellOutput, Rasm.AppHost.Determinism.ChainHash> hash) =>
         Rasm.AppHost.Determinism.DeterminismKernel.Reproduces(bundle.Manifest.Context, live)
-            ? IO.lift(() => DependencyGraph.Build(bundle.Notebook).Bind(graph => graph.Dirty(bundle.Notebook.Cells.Head.Id)))
-                .Bind(plan => plan.Match(
-                    Succ: order => Recompute(bundle, runtime, hash, order),
-                    Fail: error => IO.pure(Fin.Fail<Seq<string>>(error))))
+            ? Rerun(bundle, recompute, runtime)
+                .Map(result => result.Map(outputs => bundle.Manifest.Outputs
+                    .Filter(recorded => toSeq(outputs).Find(actual => actual.Key == recorded.CellId).Map(actual => hash(actual.Value) != recorded.OutputHash).IfNone(true))
+                    .Map(static mismatch => mismatch.CellId)))
             : IO.pure(Fin.Fail<Seq<string>>(new NotebookFault.CapabilityDrift(
                 $"replay/environment-mismatch:{bundle.Manifest.Context.Fingerprint.Digest}!={live.Fingerprint.Digest}")));
 
-    static IO<Fin<Seq<string>>> Recompute(ReplayBundle bundle, NotebookRuntime runtime, Func<CellOutput, Rasm.AppHost.Determinism.ChainHash> hash, RecomputePlan plan) =>
-        IO.lift(() => DependencyGraph.Build(bundle.Notebook)
-            .Bind(graph => graph.Recompute(bundle.Notebook, runtime, plan, HashMap<string, CellOutput>()))
-            .Map(outputs => bundle.Manifest.Outputs
-                .Filter(recorded => toSeq(outputs).Find(actual => actual.Key == recorded.CellId).Map(actual => hash(actual.Value) != recorded.OutputHash).IfNone(true))
-                .Map(static mismatch => mismatch.CellId)));
+    // Verification seeds from EVERY root cell (no declared inputs), threading the growing output cache
+    // through each recompute so the full notebook re-runs regardless of dependency structure — a
+    // disconnected branch is covered and an empty notebook verifies vacuously, never throws.
+    static IO<Fin<HashMap<string, CellOutput>>> Rerun(ReplayBundle bundle, NotebookRecompute recompute, NotebookRuntime runtime) =>
+        bundle.Notebook.Cells.Filter(static cell => cell.Inputs.IsEmpty).Map(static cell => cell.Id)
+            .Fold(
+                IO.pure(Fin.Succ(HashMap<string, CellOutput>())),
+                (rail, root) => rail.Bind(state => state.Match(
+                    Succ: cache => recompute.Recompute(bundle.Notebook, runtime, root, cache),
+                    Fail: error => IO.pure(Fin.Fail<HashMap<string, CellOutput>>(error)))));
 }
 ```
 
@@ -278,8 +262,8 @@ public static class NotebookReplay {
 flowchart LR
     Notebook --> NotebookCell
     NotebookCell --> CapabilityPin
-    Notebook --> DependencyGraph
-    DependencyGraph --> RecomputePlan
+    Notebook --> NotebookRecompute
+    NotebookRecompute -->|decode-only port| RecomputeGraph["AppHost RecomputeGraph"]
     Notebook --> NotebookCoedit
     NotebookCoedit --> CollabDoc
     Notebook --> ReplayBundle
@@ -289,4 +273,4 @@ flowchart LR
 ## [06]-[RESEARCH]
 
 - [NOTEBOOK_CAPABILITY]: the Compute capability-registry key and checksum surface the `CapabilityPin` records — the capability identity (kernel/model checksum, substrate, opset) the pin matches against, resolved at implementation against the settled Compute model-lane and intent-selection vocabulary; the cell union, the dependency-graph dirty fold, the CRDT merge, and the replay bundle are settled, the exact capability-registry member shape the `VerifyPin` delegate reads is the unverified surface.
-- [NOTEBOOK_DETERMINISM]: the `CapabilityPin` composes the `Rasm.AppHost/Runtime/determinism.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` and `DeterminismKernel.Reproduces` as its environment identity, the `ReplayManifest`/`NotebookReplay.Verify` composes the `#EVENT_LOG` `ChainHash` content-addressed identity and the `#REPLAY_VERIFY` `ReplayVerify.Replay` per-step proof through the diagnostics `ProofEngine.Replay` route, and the `RecomputePlan` cell DAG aligns to the `#RECOMPUTE_GRAPH` `RecomputeNode` content-address node identity — these AppHost determinism members arrive as settled finalized vocabulary consumed at the package edge, so the notebook reproducibility-proof is one owner with the runtime determinism kernel and the `Rasm.AppHost.Determinism` namespace and exact member spellings resolve against the finalized determinism surface, never re-minted.
+- [NOTEBOOK_DETERMINISM]: the `CapabilityPin` composes the `Rasm.AppHost/Runtime/determinism.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` and `DeterminismKernel.Reproduces` as its environment identity, the `ReplayManifest`/`NotebookReplay.Verify` composes the `#EVENT_LOG` `ChainHash` content-addressed identity and the `#REPLAY_VERIFY` `ReplayVerify.Replay` per-step proof through the diagnostics `ProofEngine.Replay` route, and the cell node identity aligns to the `#RECOMPUTE_GRAPH` `RecomputeNode` content-address node identity — these AppHost determinism members arrive as settled finalized vocabulary consumed at the package edge, so the notebook reproducibility-proof is one owner with the runtime determinism kernel and the `Rasm.AppHost.Determinism` namespace and exact member spellings resolve against the finalized determinism surface, never re-minted.

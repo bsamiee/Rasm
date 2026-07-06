@@ -1,11 +1,11 @@
 export const meta = {
   name: 'rebuild',
   whenToUse: 'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it plans, triple-lens-discovers, hostile-implements, critiques, and red-teams every page batch CONCURRENTLY at each owning-language doctrine bar with libs-wide ripple authority, then a read-only finder fan and one terminal fixer close the run.',
-  description: 'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 sonnet) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Build runs ALL batches (even-split, max 8 pages) concurrently under one agent-level slot scheduler: per batch THREE concurrent recon lenses (context/seams + two-tier .api stacking + doctrine-bar quality attack, each second-pass self-verified, information never prescriptions) merge into per-page reading maps and two grounding dossiers - recon and finder lanes run on gpt-5.5 dispatched through codex wrapper agents (CODEX flag; false restores native opus); then implement, critique, and redteam (all fable) chain behind their own batch only. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch (typed fact rows, read by area before any cross-batch edit). Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits are additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Generative openings land now as owner-grammar growth anywhere in libs/, or as a fully-specified IDEAS row the fixer applies this run. Close: read-only finder fan per language on gpt-5.5 (landed pages + seam-ledger verification + one governance finder per language), typed anchored findings graded substantive|hypothetical, stale findings discarded; ONE terminal fable fixer applies every index row, re-verifies findings as signals, drains the deferred backlog, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
+  description: 'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 sonnet) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Build runs ALL batches (even-split, max 8 pages) concurrently under one agent-level slot scheduler: per batch THREE concurrent recon lenses (context/seams + two-tier .api stacking + doctrine-bar quality attack, each second-pass self-verified, information never prescriptions) write their complete products as on-disk JSON reports beside two grounding dossiers and return thin receipts on the wire - recon and finder lanes run on gpt-5.5 dispatched through codex wrapper agents (CODEX flag; false restores native opus); then implement, critique, and redteam (all fable) chain behind their own batch only, consuming the lens reports IN FULL from disk with failed-lens territory cold-read first. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch (typed fact rows, read by area before any cross-batch edit). Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits are additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Generative openings land now as owner-grammar growth anywhere in libs/, or as a fully-specified IDEAS row the fixer applies this run. Close: read-only finder fan per language on gpt-5.5 (landed pages + seam-ledger verification + one governance finder per language), typed anchored findings graded substantive|hypothetical written as on-disk reports with thin receipts, stale findings discarded; ONE terminal fable fixer reads every ok report IN FULL from disk (failed-finder territory cold-read first), applies every index row, re-verifies findings as signals, drains the deferred backlog, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
   phases: [
     { title: 'Plan', detail: 'one thin agent expands the targets into the dependency-ordered, seam-cohesion-adjacent page list under each owning-package charter: existing pages as rebuild, charter-demanded absent pages as new, settled pages skipped', model: 'sonnet' },
-    { title: 'Build', detail: 'all batches concurrent under the agent-level slot cap: per batch a 3-lens gpt-5.5 recon burst (codex wrappers) (context, stacking, quality) then implement, critique, redteam (fable) chained behind their own batch; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority' },
-    { title: 'Close', detail: 'read-only gpt-5.5 finder fan (codex wrappers) per language over landed pages + the seam ledger, plus one governance finder per language; ONE terminal fable fixer applies index rows, resolves findings as signals, drains the deferred backlog, hunts past them, returns the final fixlog' },
+    { title: 'Build', detail: 'all batches concurrent under the agent-level slot cap: per batch a 3-lens gpt-5.5 recon burst (codex wrappers; products to disk, receipts on the wire) then implement, critique, redteam (fable) chained behind their own batch; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority' },
+    { title: 'Close', detail: 'read-only gpt-5.5 finder fan (codex wrappers; products to disk, receipts on the wire) per language over landed pages + the seam ledger, plus one governance finder per language; ONE terminal fable fixer reads the reports from disk, applies index rows, resolves findings as signals, drains the deferred backlog, hunts past them, returns the final fixlog' },
   ],
 }
 
@@ -16,9 +16,8 @@ const STAGGER_MS = 1500
 const STALL = 300000
 const BATCH_MAX = 8 // even-split ceiling; editing fidelity degrades past ~8 dense pages per writer under full doctrine reads
 const FINDER_PAGES = 8 // landed pages per close-phase finder
-const SCRATCH = '.claude/scratch/rebuild-grounding' // dossiers + per-batch seam-ledger files
+const SCRATCH = '.claude/scratch/rebuild' // lane report files + grounding dossiers + per-batch seam-ledger files
 const CODEX = true // recon/finder lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane; codex uses its config-default effort (high)
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -39,55 +38,114 @@ const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter
 
 const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'],
   properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
-const PLAN_SCHEMA = { type: 'object', additionalProperties: false, required: ['packages', 'pages'], properties: {
-  packages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'root', 'planning', 'api'],
+
+const PLAN_SCHEMA = { type: 'object', additionalProperties: false, required: ['packages', 'pages', 'unresolved'], properties: {
+  packages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'root', 'planning', 'api', 'note'],
     properties: { name: { type: 'string' }, root: { type: 'string' }, planning: { type: 'string' }, api: { type: 'string' }, note: { type: 'string' } } } },
   pages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'kind'], properties: {
     page: { type: 'string' }, kind: { type: 'string', enum: ['new', 'rebuild'] } } } }, // ARRAY ORDER IS DEPENDENCY + COHESION ORDER — the engine never re-sorts
   unresolved: { type: 'array', items: { type: 'string' } } } }
-const CTX_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist', 'dossier'], properties: {
-  worklist: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'kind', 'owns', 'contextNote', 'seams'],
+
+// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
+const ANCHOR_INFO = { type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: ['state', 'ruling', 'catalog', 'counterpart', 'absence'] },
+  note: { type: 'string' } } }
+
+const ANCHOR_DEFECT = { type: 'object', additionalProperties: false, required: ['path', 'line', 'role', 'note'], properties: {
+  path: { type: 'string' }, line: { type: 'integer' },
+  role: { type: 'string', enum: ['defect', 'ruling', 'catalog', 'counterpart', 'absence'] },
+  note: { type: 'string' } } }
+
+const COVERAGE = { type: 'object', additionalProperties: false, required: ['requested', 'read', 'skipped', 'unverified'], properties: {
+  requested: { type: 'array', items: { type: 'string' } },
+  read: { type: 'array', items: { type: 'string' } },
+  skipped: { type: 'array', items: { type: 'string' } },
+  unverified: { type: 'array', items: { type: 'string' } } } }
+
+const CTX_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist', 'coverage', 'summary'], properties: {
+  worklist: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'kind', 'owns', 'contextNote', 'seams', 'files', 'anchors'],
     properties: { page: { type: 'string' }, kind: { type: 'string', enum: ['new', 'rebuild'] }, owns: { type: 'string' },
-      contextNote: { type: 'string' }, seams: { type: 'array', items: { type: 'string' } } } } },
-  dossier: { type: 'string' }, summary: { type: 'string' } } } // dossier = the path it WROTE
-const API_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist', 'dossier'], properties: {
-  worklist: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'apiUsed', 'apiUnderutilized', 'stackingGuidance'],
+      contextNote: { type: 'string' }, seams: { type: 'array', items: { type: 'string' } },
+      files: { type: 'array', items: { type: 'string' } }, // files the consumer must open for this entry
+      anchors: { type: 'array', items: ANCHOR_INFO } } } },
+  coverage: COVERAGE, summary: { type: 'string' } } }
+
+const API_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist', 'coverage', 'summary'], properties: {
+  worklist: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'apiUsed', 'apiUnderutilized', 'stackingInventory', 'files', 'anchors'],
     properties: { page: { type: 'string' }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL,
-      stackingGuidance: { type: 'string' } } } },
-  dossier: { type: 'string' }, summary: { type: 'string' } } }
-const BAR_SCHEMA = { type: 'object', additionalProperties: false, required: ['findings', 'weak'], properties: {
-  findings: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'law', 'defect', 'anchor'],
-    properties: { page: { type: 'string' }, law: { type: 'string' }, defect: { type: 'string' }, anchor: { type: 'string' } } } },
-  weak: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
+      stackingInventory: { type: 'string' }, // capability inventory as fact — catalog members + admitting concepts, never a prescribed design
+      files: { type: 'array', items: { type: 'string' } },
+      anchors: { type: 'array', items: ANCHOR_INFO } } } },
+  coverage: COVERAGE, summary: { type: 'string' } } }
+
+const BAR_SCHEMA = { type: 'object', additionalProperties: false, required: ['findings', 'weak', 'coverage', 'summary'], properties: {
+  findings: { type: 'array', items: { type: 'object', additionalProperties: false,
+    required: ['claimKey', 'page', 'law', 'severity', 'claim', 'mechanism', 'owner', 'reject', 'acceptance', 'files', 'anchors'],
+    properties: { claimKey: { type: 'string' }, // <law>|<owner>|<primary symbol> — stable across lanes, never lane wording
+      page: { type: 'string' }, law: { type: 'string' },
+      severity: { type: 'string', enum: ['blocker', 'major', 'minor'] }, // bound to consequence, never prose confidence
+      claim: { type: 'string' }, // the observed defect as fact
+      mechanism: { type: 'string' }, // WHY it fails the law — factual, zero repair verbs
+      owner: { type: 'string' }, // canonical owner that must absorb the resolution
+      reject: { type: 'array', items: { type: 'string' } }, // forms the repair must NOT take
+      acceptance: { type: 'array', items: { type: 'string' } }, // signals proving resolution
+      files: { type: 'array', items: { type: 'string' } },
+      anchors: { type: 'array', items: ANCHOR_DEFECT } } } },
+  weak: { type: 'array', items: { type: 'string' } }, coverage: COVERAGE, summary: { type: 'string' } } }
+
+// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' } } }
+
 const SEAMS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['file', 'counterpart', 'bothEnds'],
   properties: { file: { type: 'string' }, counterpart: { type: 'string' }, bothEnds: { type: 'boolean' } } } }
+
 const DELTAS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['symbol', 'change'],
   properties: { symbol: { type: 'string' }, change: { type: 'string' } } } } // navigation facts: what moved, as data, zero adjectives
+
 const DEFERRED = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'],
   properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } // the counted backlog: second-order + live-batch-scope ripples
+
 const BEYOND = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'member'],
   properties: { catalog: { type: 'string' }, member: { type: 'string' } } } }
+
 const INDEXROWS = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['doc', 'row'],
   properties: { doc: { type: 'string' }, row: { type: 'string' } } } } // doc = index doc, central manifest, or IDEAS.md; row = the exact row text
+
 // Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/deltas/deferred/dossierPhantoms
-// make "read fully / exceed the map / repair both ends / record the backlog" structurally checkable, never wishful prose.
+// make "read fully / exceed the reports / repair both ends / record the backlog" structurally checkable, never wishful prose.
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false,
-  required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'dossierPhantoms'], properties: {
+  required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'dossierPhantoms', 'collapsed', 'extended'], properties: {
   files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'rebuilt', 'refined', 'clean'] },
   collapsed: { type: 'string' }, extended: { type: 'string' }, summary: { type: 'string' },
   seamsTouched: SEAMS, deltas: DELTAS, deferred: DEFERRED, beyondMap: BEYOND, indexRows: INDEXROWS,
   dossierPhantoms: { type: 'array', items: { type: 'string' } } } }
+
 const REVIEW_SCHEMA = { type: 'object', additionalProperties: false,
-  required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows'], properties: {
+  required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'extended'], properties: {
   files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] },
   extended: { type: 'string' }, summary: { type: 'string' }, seamsTouched: SEAMS, deltas: DELTAS, deferred: DEFERRED,
   beyondMap: BEYOND, indexRows: INDEXROWS } }
-const FINDINGS_SCHEMA = { type: 'object', additionalProperties: false, required: ['findings', 'summary'], properties: {
-  findings: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'class', 'grade', 'finding', 'anchor'], properties: {
-    target: { type: 'string' }, class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
+
+const FINDINGS_SCHEMA = { type: 'object', additionalProperties: false, required: ['findings', 'coverage', 'summary'], properties: {
+  findings: { type: 'array', items: { type: 'object', additionalProperties: false,
+    required: ['claimKey', 'target', 'files', 'class', 'grade', 'severity', 'claim', 'anchors', 'mechanism', 'owner', 'reject', 'acceptance'], properties: {
+    claimKey: { type: 'string' }, // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+    target: { type: 'string' }, // short display label for the defect
+    files: { type: 'array', items: { type: 'string' } }, // files the fixer must open or edit first
+    class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
     grade: { type: 'string', enum: ['substantive', 'hypothetical'] }, // substantive = concrete on-disk defect; hypothetical = requires an invented implausible input
-    finding: { type: 'string' }, anchor: { type: 'string' } } } },
-  summary: { type: 'string' } } }
+    severity: { type: 'string', enum: ['blocker', 'major', 'minor'] }, // bound to consequence, never prose confidence
+    claim: { type: 'string' }, // the observed defect as fact
+    anchors: { type: 'array', items: ANCHOR_DEFECT },
+    mechanism: { type: 'string' }, // WHY it fails the law/doctrine — factual, zero repair verbs
+    owner: { type: 'string' }, // canonical owner that must absorb the resolution
+    reject: { type: 'array', items: { type: 'string' } }, // forms the repair must NOT take
+    acceptance: { type: 'array', items: { type: 'string' } } } } }, // signals proving resolution
+  coverage: COVERAGE, summary: { type: 'string' } } }
+
 // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
 const FIXER_SCHEMA = { type: 'object', additionalProperties: false,
   required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'summary'], properties: {
@@ -105,9 +163,8 @@ const FIXER_SCHEMA = { type: 'object', additionalProperties: false,
   summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
-// LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached
-// through READ_FIRST at the source, never paraphrased here.
 
+// LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached through READ_FIRST at the source, never paraphrased here.
 const LANG = {
   cs: {
     key: 'cs', name: 'C#', root: 'libs/csharp', stack: 'docs/stacks/csharp', casing: 'PascalCase',
@@ -254,44 +311,63 @@ const makeSlots = (cap) => {
   }
 }
 const slot = makeSlots(CAP)
+
 // gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+// SCRATCH, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
+// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
+// consuming reader. It never does, edits, judges, or relays the work.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
-const codexPrompt = (label, task, schema, writes) => {
-  const base = CODEX_DIR + '/' + fileTag(label)
+const codexPrompt = (label, task, schema, writes, hl) => {
+  const base = SCRATCH + '/' + fileTag(label)
   const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
-  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
-    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
-  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
-    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+  const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1) // self-excluding pgrep/pkill pattern
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
+    'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
+  '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' + SCRATCH + '; purge stale lane artifacts (a leftover report would READY instantly with last run\'s data): rm -f ' + base + '-report.json ' + base + '-stderr.log; Write the TASK block below verbatim to ' + base + '-task.md; Write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json — both paths resolved ABSOLUTE under the repository root: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' + base + '-task.md && test -s ' + base + '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, zero-CPU, no report): ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
     '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
-    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' + base + '-stderr.log &',
   '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
     'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
     'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
-    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
-    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
-  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
-    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+    'pgrep -f "' + rptPat + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rptPat + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 2nd RUNNING poll (~10 min wall) the run is WEDGED, not slow — kill it (pkill -f "' + rptPat + '") and go to (4) as GONE. Cap at 7 poll calls total.',
+  '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
+    'judgment): entries=$(jq \'.' + hl.arr + ' | length\' ' + base + '-report.json)' +
+    (hl.group ? '; groups=$(jq -r \'[.' + hl.arr + '[].' + hl.group + '] | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' + base + '-report.json)' : '') +
+    '; top=$(jq -r \'[.' + hl.arr + '[].files[0]] | group_by(.) | max_by(length) | .[0] // "none"\' ' + base + '-report.json). ' +
+    'Return the RECEIPT: ok=true, report=' + base + '-report.json, entries=that count, headline="<entries> ' + hl.arr +
+    (hl.group ? ' | <groups>' : '') + ' | top: <top>", failure empty. ' +
+    'GONE with no report: tail -5 ' + base + '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
+    'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
   'TASK — write verbatim to the task file, then dispatch:',
   task].join('\n\n')
 }
+
 // Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-const recon = (task, o) => CODEX
-  ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
-    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
-  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
+// The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
+// unmapped territory is exact even when the lane died before writing anything.
+const recon = (task, o) => (CODEX
+  ? agent(codexPrompt(o.label, task, o.schema, !!o.writes, o.hl),
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    SCRATCH + '/' + fileTag(o.label) + '-report.json (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(o.schema) + ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+    { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL })
+).then((r) => ({ lane: o.label, scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+  entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died') }))
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
 // Even split: ceil(n/max) batches of near-equal size — no runt tail heavying batch 0 and starving the last.
 const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr.length / max) || 1)))
 const pkgOf = (p) => p.split('/.planning/')[0] // package = the write-partition key (index docs live at its root)
 const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs
-const scratchBase = (pkg, i) => SCRATCH + '/' + pkg.split('/').pop() + '-b' + i
+// Scratch paths follow one grammar: SCRATCH + '/' + fileTag(<label>) + '-<artifact>'. Seam ledgers key on the
+// batch tag; dossiers key on their recon lane label; lane reports key on the lane label via codexPrompt.
+const scratchBase = (pkg, i) => SCRATCH + '/' + fileTag(pkg.split('/').pop() + ':b' + i)
+const dossierPath = (lensLabel) => SCRATCH + '/' + fileTag(lensLabel) + '-dossier.md'
 // Preserves plan emission order (dependency + cohesion order); dedupe by page, first wins.
 const normalizePages = (pl) => {
   const seen = new Set()
@@ -304,12 +380,6 @@ const normalizePages = (pl) => {
   return out
 }
 
-// MAP_BY_PAGE — the per-page reading map merged from the three recon lenses, filled per batch before its build stages.
-const MAP_BY_PAGE = new Map()
-const mapFor = (p) => MAP_BY_PAGE.get(p.page || p) || { page: p.page || p, kind: p.kind || 'rebuild', owns: '', contextNote: '',
-  seams: [], apiUsed: [], apiUnderutilized: [], stackingGuidance: '', defects: [], weak: true }
-const mapsFor = (pgs) => pgs.map((p) => mapFor(p))
-const mergeLens = (page, patch) => MAP_BY_PAGE.set(page, Object.assign(mapFor({ page }), patch, { page }))
 // Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
 const navOf = (logs) => {
   const rows = logs.filter(Boolean)
@@ -319,10 +389,12 @@ const navOf = (logs) => {
 }
 
 // --- [SHARED_BLOCKS]
+
 // Every rigor law appears exactly once, here; stages compose subsets. Block order in prompts:
 // stable per-language law first (byte-identical across a batch's stages), batch-variable material
 // second, the stage task + output contract LAST — nothing load-bearing mid-prompt.
 const CONTEXT = (L) => 'Rasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor
+
 const STANCE = (L) => 'STANCE — every pass is hostile: author, critique, and red-team alike. The pages under review were ' +
   'authored by ANOTHER engineer and are under adversarial review; hold every fence naive, shallow, or illusory until it ' +
   'survives a real attack; the burden of proof is on the code, never on you. "Mature", "already strong", "good enough", and ' +
@@ -337,6 +409,7 @@ const STANCE = (L) => 'STANCE — every pass is hostile: author, critique, and r
   'collapse-signal list in these prompts is a FLOOR, never the complete set. NO CHURN: an edit requires a named violated ' +
   'law or invariant and the concrete case that breaks it — no reproduction, no edit; a clean verdict earned by an attack ' +
   'that finds nothing is a first-class result, proven by adding nothing.'
+
 const BUILD_LAW = (L) => 'BUILD LAW — buildout over removal, always. Removal authority is reserved to ONE case: a PHANTOM — a ' +
   'cited member that does not exist. An underutilized catalog, an orphan-looking admission, or a weak fence is an INTEGRATION ' +
   'target: the capability lands as ' + L.ownerGrammar + ' — inside the existing owner, reshaped as if always carried — or is ' +
@@ -354,13 +427,16 @@ const BUILD_LAW = (L) => 'BUILD LAW — buildout over removal, always. Removal a
   'slice built "for now" is the COVERAGE defect by definition. CHANNEL LAW — a canary/beta/pre-release channel is admissible ' +
   'wherever the bleeding edge genuinely adds capability: judged on capability delta, maintenance signal, and integration ' +
   'merit, never rejected for channel alone, pinned exact with the typing posture recorded in the catalog.'
+
 const BODY = (L) => 'FENCE-BODY LAW — the interior of every fence is judged at the same bar as its shapes; a correct owner ' +
   'carrying a naive body is a defect. Rebuilt on sight: ' + L.body + '. The optimal body is dense, flat, ' +
   'expression-shaped, and reads as one algebra — the admitted combinator surface is the material, never hand-rolled ' +
   'control flow, nesting, or extraction to loose helpers.'
+
 const VERIFY = (L) => 'VERIFY — cite only members confirmed via ' + L.verify + '; a member you cannot verify is a phantom to ' +
   'delete. Mine BOTH .api tiers to operator depth: ' + L.apiTiers + ' An admitted capability the concept admits that no ' +
   'owner exploits is a defect to close.'
+
 const RIPPLE_LAW = 'RIPPLE LAW — every fix you identify you make NOW via Edit/Write; the fix-log is a report of edits ' +
   'already made, never a to-do, a ledger, or a would/should hedge. Your ripple authority is LIBS-WIDE — any file under ' +
   'libs/, any language, corrective AND generative — under four bounds that are evidence, never radius. (1) EVIDENCE — an ' +
@@ -379,11 +455,13 @@ const RIPPLE_LAW = 'RIPPLE LAW — every fix you identify you make NOW via Edit/
   'GENERATIVE openings: a capability your work opens elsewhere — same language or not, same folder or not — is realized ' +
   'NOW when it lands in expand-form owner grammar on an existing owner; an opening that demands a new owner outside the ' +
   'target package lands as a fully-specified IDEAS row via `indexRows`, never a vague note.'
+
 const CURRENT_STATE = 'CURRENT STATE — sibling batches land work concurrently with yours. Before any edit, re-read the ' +
   'CURRENT on-disk state of your pages AND every sibling page your pages compose or ripple into; landed sibling work is ' +
   'picked up as found, never assumed from the dossier snapshot — the dossiers ground verified `.api` extracts, never ' +
   'sibling page state. A seam counterpart a sibling batch landed is COMPOSED, not re-derived; a conflict between your ' +
   'design and a landed sibling resolves to the stronger form, never a revert.'
+
 const LEDGER = (base, scopes) => 'SEAM LEDGER — cross-batch coordination is typed fact rows on disk, never prose. Your ' +
   'batch ledger is `' + base + '-seams.md`: append one row per cross-file event as you work — ' +
   '`SEAM_CHANGED | <files> | <symbol/wire fact, old -> new>` when a shared name, signature, or contract you own moves; ' +
@@ -393,6 +471,7 @@ const LEDGER = (base, scopes) => 'SEAM LEDGER — cross-batch coordination is ty
   'sibling `*-seams.md` row whose files intersect yours — a RIPPLE_REPAIRED row is work you do NOT redo; a SEAM_CHANGED ' +
   'row is a contract you compose. Rows are facts with zero adjectives. CONCURRENT BATCH SCOPES (a counterpart inside ' +
   'another live batch\'s scope is recorded in `deferred`, never edited): ' + scopes
+
 const PROSE_COMMENTS = (L) => 'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and ' +
   'formatting.md. The page is a design spec: lead each section with the controlling contract, one idea per paragraph, close ' +
   'on the consequence; no provenance, process narration, freshness disclaimers, or hedges. Backtick every symbol, type, ' +
@@ -400,16 +479,44 @@ const PROSE_COMMENTS = (L) => 'PROSE + COMMENTS — apply docs/standards/style-g
   'behavior; trimming never reduces technical density. Code fences comment for the next agent only: keep the canonical ' +
   'section-divider headers; beyond them default to zero comments, 1-2 lines only for a truly subtle invariant, contract, or ' +
   'boundary; no restating the code, no narration, no ' + L.docBloat + ' bloat.'
+
 const SELF_CHECK = 'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every entry from disk — ' +
   're-open each cited anchor and confirm it states what the entry claims, re-verify each member spelling against its ' +
   'catalog, trace each seam to both endpoints. An entry that fails re-confirmation is corrected or deleted, never returned; ' +
   'a guess, an assumption, a skimmed summary, or a vague/hedged entry is a defect. Completeness is part of correctness: ' +
   'after the re-read, hunt once more for what the first pass missed — an omitted load-bearing fact is as wrong as a false one.'
-const ANTI_ANCHOR = (L) => 'ANTI-ANCHOR LAW: your maps and dossier carry FINDINGS, never designs — quality defects graded ' +
+
+const INFO_LAW = 'You provide INFORMATION, never prescriptions: exact disk locations and anchors, the current shape at each ' +
+  'site, seam endpoints on both sides, verified member spellings, gaps. The implement agent decides how to build; a worklist ' +
+  'entry that tells it what to write instead of what is true is a defect. ENTRY FORM: prose fields carry fact; `anchors` ' +
+  'carry one coordinate per row (role names what it proves; `note` is the shortest literal witness under 20 words, or empty ' +
+  'when path+line suffice; an `absence` anchor names where the expected thing was searched and not found); `files` lists ' +
+  'what the consumer must open for the entry. An underutilized-capability entry is INVENTORY, never instruction: verified ' +
+  'members, current usage anchors, the concept that admits it — the implement agent decides whether it composes. COVERAGE ' +
+  'is part of the product: `requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` ' +
+  '= what you did not reach — an honest skip beats a silent one.'
+
+const EVIDENCE_LAW = 'FINDING FORM — you deliver TRUTH, never an implementation: `claim` states the observed defect; ' +
+  '`mechanism` states WHY it fails the law or doctrine as fact; `anchors` carry one coordinate per row (role names ' +
+  'what the coordinate proves; `note` is the shortest literal witness — a symbol, member spelling, or fragment under ' +
+  '20 words — or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not ' +
+  'found); `owner` names the canonical owner that must absorb the resolution (the owning axis, row roster, registry, or ' +
+  'seam vocabulary — never a new local shape); `reject` lists the deleted forms the repair must not take; `acceptance` ' +
+  'lists the signals that prove resolution. NEVER write add/replace/implement/promote/delete as instruction — the ' +
+  'writer owns the design; you own the constraint boundary. `claimKey` is identical for the same defect regardless of ' +
+  'lane or wording. `severity` binds to consequence: blocker = run-blocking, major = corpus correctness, minor = local ' +
+  'cleanup — never prose confidence. OUTPUT BOUNDS: an ordinary scope yields 3-8 retained findings; 0 only when the ' +
+  'second hostile pass comes back empty, and then `summary` names the probes that produced nothing; never manufacture a ' +
+  'finding to fill the range, never delete a confirmed one to stay inside it. COVERAGE is part of the product: ' +
+  '`requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did not ' +
+  'reach or could not confirm — an honest skip beats a silent one.'
+
+const ANTI_ANCHOR = (L) => 'ANTI-ANCHOR LAW: your report and dossier carry FINDINGS, never designs — quality defects graded ' +
   'against the doctrine read at source (name the law and the ' + L.stack + ' pattern whose application would most deeply ' +
   'transform the page — the collapse, the owner form, the rail — never the resulting code) and capability inventory in ' +
   'catalog-anchored spellings; a fence sketch, a prescribed shape, or a pre-ruled design ANCHORS and WEAKENS the rebuild ' +
   'and is your defect — the implement agent rules every design.'
+
 const readFirst = (L, pkg, dossiers) => [
   'READ FIRST, IN ORDER, BEFORE ANY EDIT — no fence is judged before this read lands.',
   '(1) DOCTRINE — enumerate `' + L.stack + '/` with a real `ls` (never memory), then read the README and EVERY root page it ' +
@@ -438,16 +545,26 @@ const readFirst = (L, pkg, dossiers) => [
     'each page owns and which pages are settled. A page the charter marks landed or settled is out of scope; every page in ' +
     'your batch is rebuilt to the strongest form the doctrine admits.',
 ].filter(Boolean).join('\n')
-const readingMap = (maps) => 'READING MAP — the per-page grounding the recon lenses surfaced (an initial pointer, never the ' +
-  'ceiling):\n' + JSON.stringify(maps, null, 1) + '\nThe map POINTS; you VERIFY and EXCEED it: compose every `apiUsed` ' +
-  'catalog at full operator depth, stack every `apiUnderutilized` {catalog, capability} INTO the owning page as a case, row, ' +
-  'field, or operation, close every `defects` row at its law, and independently confirm no other relevant admitted catalog ' +
-  '(either tier) is missing. Members you compose beyond the map are enumerated in `beyondMap` — an empty `beyondMap` is an ' +
-  'attestation that the map was genuinely complete, not a license to treat it as a ceiling.'
+
+const reconBlock = (roster, unmapped) => 'RECON REPORTS — the lens products are ON DISK as JSON report files; the ' +
+  'receipts below are navigation, never the product. CONSUMPTION: (a) UNMAPPED territory below (a dead lens) gets your own ' +
+  'cold read FIRST — that lens dimension over your pages is yours to derive; (b) read every ok report IN FULL from disk — ' +
+  'the ctx and api grounding lenses before the bar defect lens; entries overlap across lenses, cluster by page as you ' +
+  'read; (c) each entry\'s anchors are jump coordinates — re-open every anchor behind an edit (MANDATORY); ' +
+  'navigation-only entries re-verify only when touched; (d) a bar finding\'s `mechanism`/`owner`/`reject`/`acceptance` are ' +
+  'its constraint boundary — honor the owner and the rejected forms, but the DESIGN is yours. The reports POINT; you ' +
+  'VERIFY and EXCEED them: compose every `apiUsed` catalog at full operator depth, stack every `apiUnderutilized` ' +
+  '{catalog, capability} INTO the owning page as a case, row, field, or operation, close every bar finding at its law, ' +
+  'and independently confirm no other relevant admitted catalog (either tier) is missing. Members you compose beyond the ' +
+  'reports are enumerated in `beyondMap` — an empty `beyondMap` is an attestation that the reports were genuinely ' +
+  'complete, not a license to treat them as a ceiling.\nROSTER: ' + JSON.stringify(roster) +
+  '\nUNMAPPED: ' + JSON.stringify(unmapped)
+
 const GIT_GROUND = 'DELTA GROUNDING — run `git diff --stat` then `git diff -- <your batch pages and their seam files>` to ' +
   'see exactly what this run changed before judging it; `git status` surfaces new files. The diff is orientation, CURRENT ' +
   'disk is truth — the repo carries pre-run uncommitted work, so an unfamiliar hunk is verified against disk, never assumed ' +
   'to be this run\'s.'
+
 const HUNT = 'HUNT CLASSES: missing (an owner, case, field, seam counterpart, or capability the charter or the landed design ' +
   'demands with no counterpart on disk), wrong (landed but contradicting the doctrine, the charter, or the analyzer law), ' +
   'faked (claimed done — prose asserts what the fence body omits, a name promising capability the body lacks), naive (landed ' +
@@ -456,10 +573,11 @@ const HUNT = 'HUNT CLASSES: missing (an owner, case, field, seam counterpart, or
   'that does not exist). Every finding carries a file anchor, names the law or catalog member it violates, and is graded: ' +
   '`substantive` (a concrete defect on current disk) or `hypothetical` (real only under an invented, implausible input). ' +
   'Verify cited external members against the .api catalogs; never trust page prose about itself.'
-const preamble = (L, batch, dossiers, scopes) => [CONTEXT(L), STANCE(L), BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW,
+
+const preamble = (L, batch, dossiers, scopes, roster, unmapped) => [CONTEXT(L), STANCE(L), BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW,
   CURRENT_STATE, PROSE_COMMENTS(L)].concat(L.mechanics ? [L.mechanics] : [])
   .concat([readFirst(L, pkgOf(batch[0].page), dossiers), LEDGER(scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
-    readingMap(mapsFor(batch))])
+    reconBlock(roster, unmapped)])
 
 // Prompt builders — each task states only its own action; shared checks are referenced by name.
 const planPrompt = () => ['Rasm monorepo — the libs/{csharp,python,typescript} planning corpora (markdown design specs). ' +
@@ -480,7 +598,8 @@ const planPrompt = () => ['Rasm monorepo — the libs/{csharp,python,typescript}
   'emitted order, so adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine ' +
   'never re-sorts.',
 ].join('\n\n')
-const ctxLensPrompt = (L, batch, dossier) => [CONTEXT(L), STANCE(L), SELF_CHECK, ANTI_ANCHOR(L),
+
+const ctxLensPrompt = (L, batch, dossier) => [CONTEXT(L), STANCE(L), INFO_LAW, SELF_CHECK, ANTI_ANCHOR(L),
   readFirst(L, pkgOf(batch[0].page), ''),
   'TASK: HOSTILE READ-ONLY CONTEXT + SEAM LENS over these ' + batch.length + ' pages — read-only is the only concession; ' +
   'the hunt is as adversarial as every writing pass (investigate, do NOT edit): ' +
@@ -491,12 +610,14 @@ const ctxLensPrompt = (L, batch, dossier) => [CONTEXT(L), STANCE(L), SELF_CHECK,
   'writers author the same polymorphic surface), `contextNote` (sibling owners/seams composed, folder position, any ' +
   'folder-wide gap routed here), `seams` (every cross-page and cross-package symbol/wire/consumer edge, both endpoints ' +
   'named), and DOMAIN gaps — attributes, sub-kinds, states, relationships, operations the real concept demands that the ' +
-  'page omits — folded into `contextNote` as named gaps. GROUNDING DOSSIER: write `' + dossier + '` — Tier-1: the branch ' +
+  'page omits — folded into `contextNote` as named gaps. Each worklist entry also carries `files` (what the consumer must ' +
+  'open) and typed `anchors` per the entry form. GROUNDING DOSSIER: write `' + dossier + '` — Tier-1: the branch ' +
   'ARCHITECTURE.md [02]-[SEAMS] rows covering these pages quoted verbatim with `file:line` anchors, folder-context anchors, ' +
   'charter intent anchors; Tier-2: pointer rows (path + one line) for every sibling page composed. FORBIDDEN in the ' +
-  'dossier: doctrine digests, removal framing, unanchored claims, any prescriptive design. Return worklist + dossier path.',
+  'dossier: doctrine digests, removal framing, unanchored claims, any prescriptive design. Return worklist + coverage.',
 ].join('\n\n')
-const apiLensPrompt = (L, batch, dossier) => [CONTEXT(L), STANCE(L), VERIFY(L), SELF_CHECK, ANTI_ANCHOR(L),
+
+const apiLensPrompt = (L, batch, dossier) => [CONTEXT(L), STANCE(L), VERIFY(L), INFO_LAW, SELF_CHECK, ANTI_ANCHOR(L),
   'TASK: HOSTILE READ-ONLY TWO-TIER STACKING LENS over these ' + batch.length + ' pages (investigate, do NOT edit): ' +
   batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. `ls` BOTH catalog tiers in full — the shared substrate `' +
   L.root + '/.api/` AND the folder `' + pkgOf(batch[0].page) + '/.api/` — read every catalog relevant to these pages, and ' +
@@ -508,14 +629,16 @@ const apiLensPrompt = (L, batch, dossier) => [CONTEXT(L), STANCE(L), VERIFY(L), 
   'the package, its unexploited members in exact spellings, and each candidate page. Discovery has ZERO removal authority: ' +
   'an underutilized catalog is always a buildout target (which owner grows which case/row/field/operation), never removal ' +
   'evidence. For EACH page return `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact catalog-anchored spelling + ' +
-  'integration shape as fact), `stackingGuidance` (capability names + the doctrine patterns whose application would most ' +
-  'improve the page — never a prescribed design). Verify every cited member via ' + L.verify + '; never list a phantom. ' +
+  'integration shape as fact), `stackingInventory` (capability names + the doctrine patterns the page\'s concept admits, ' +
+  'stated as inventory fact — never a prescribed design), plus `files` (what the consumer must open) and typed `anchors` ' +
+  'per the entry form. Verify every cited member via ' + L.verify + '; never list a phantom. ' +
   'GROUNDING DOSSIER: write `' + dossier + '` — Tier-1: quoted `.api` member blocks with `file:line` anchors for every ' +
-  'member the maps cite plus the real `ls` inventories of both tiers; Tier-2: pointer rows (catalog path + one-line scope) ' +
+  'member the worklist cites plus the real `ls` inventories of both tiers; Tier-2: pointer rows (catalog path + one-line scope) ' +
   'for the remainder of both tiers. FORBIDDEN: doctrine digests, unanchored claims, prescriptive designs. Return worklist + ' +
-  'dossier path.',
+  'coverage.',
 ].join('\n\n')
-const barLensPrompt = (L, batch) => [CONTEXT(L), STANCE(L), SELF_CHECK, ANTI_ANCHOR(L),
+
+const barLensPrompt = (L, batch) => [CONTEXT(L), STANCE(L), EVIDENCE_LAW, SELF_CHECK, ANTI_ANCHOR(L),
   'TASK: HOSTILE READ-ONLY DOCTRINE-BAR ATTACK over these ' + batch.length + ' pages (investigate, do NOT edit): ' +
   batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. Enumerate `' + L.stack + '/` with a real `ls` and read the ' +
   'README and EVERY root page it routes IN FULL' + (L.key === 'cs' ? ' (and the domain/ shards these pages touch)' : '') +
@@ -523,12 +646,13 @@ const barLensPrompt = (L, batch) => [CONTEXT(L), STANCE(L), SELF_CHECK, ANTI_ANC
   'page is presumed ' + L.slur + ' until proven otherwise. Hunt where doctrine is not followed AND where a doctrine law ' +
   'could be applied more deeply for a stronger form: collapse signals ungathered, owner forms weaker than the discriminants ' +
   'demand, rails split or dual-paradigm, knobs where policy values belong, naive bodies below the admitted combinator ' +
-  'surface, ' + L.docBloat + ' bloat, file-organization drift, both naivety axes. Return per-page `findings` — each ' +
-  '{page, law (the named doctrine law/pattern at its source), defect (the concrete weakness as fact), anchor (file:line or ' +
-  'section)} — and `weak` (pages whose overall verdict is weak). Findings name the law and the defect, NEVER the resulting ' +
-  'code — the implement agent rules every design.',
+  'surface, ' + L.docBloat + ' bloat, file-organization drift, both naivety axes. Return per-page `findings` in the ' +
+  'FINDING FORM — `law` names the doctrine law/pattern at its source, `claimKey` = <law>|<owner>|<primary symbol>, typed ' +
+  '`anchors` at exact coordinates — and `weak` (pages whose overall verdict is weak). Findings name the law and the ' +
+  'defect, NEVER the resulting code — the implement agent rules every design.',
 ].join('\n\n')
-const implementPrompt = (L, batch, dossiers, scopes) => preamble(L, batch, dossiers, scopes).concat([
+
+const implementPrompt = (L, batch, dossiers, scopes, roster, unmapped) => preamble(L, batch, dossiers, scopes, roster, unmapped).concat([
   'TASK: HOSTILE IMPLEMENT of these ' + batch.length + ' pages IN PLACE, each per its kind: ' +
   batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '.\n' +
   'kind=`new`: GROUND-UP AUTHOR the page (it does not exist; it may open a new sub-folder) to the full doctrine + ' +
@@ -538,12 +662,13 @@ const implementPrompt = (L, batch, dossiers, scopes) => preamble(L, batch, dossi
   'doctrine laws that bind it — then build against that restatement. Construct in LIFECYCLE order — admit raw once, ' +
   'canonical owner by OWNER_CHOOSER, stacked rail/aspect over a thin pure core, projection, egress, BOTH ingress and ' +
   'egress parameterized; collapse parallel shapes into ' + L.collapseInto + '; one polymorphic entrypoint per modality. ' +
-  'COMPOSE the map\'s `apiUsed` at full operator depth, STACK every `apiUnderutilized` into the owner, CLOSE every ' +
-  '`defects` row at its law, and CONFIRM no other admitted catalog is missing. CLOSE the concept capability gaps per BUILD ' +
+  'COMPOSE the reports\' `apiUsed` at full operator depth, STACK every `apiUnderutilized` into the owner, CLOSE every ' +
+  'bar finding at its law, and CONFIRM no other admitted catalog is missing. CLOSE the concept capability gaps per BUILD ' +
   'LAW. ' + L.modern + '; ' + L.fileOrg + '; high-signal all-backticked prose. Return the fix-log — `deltas` carries every ' +
   'moved symbol/wire as data, `deferred` carries the backlog rows, both exact.',
 ]).join('\n\n')
-const critiquePrompt = (L, batch, dossiers, scopes, nav) => preamble(L, batch, dossiers, scopes).concat([
+
+const critiquePrompt = (L, batch, dossiers, scopes, roster, unmapped, nav) => preamble(L, batch, dossiers, scopes, roster, unmapped).concat([
   'NAVIGATION (facts from the pass that landed these pages — locations only, no assessments; it changes where you look ' +
   'FIRST, never what you conclude): ' + JSON.stringify(nav),
   GIT_GROUND,
@@ -572,7 +697,8 @@ const critiquePrompt = (L, batch, dossiers, scopes, nav) => preamble(L, batch, d
   'capability the owner omits by growing it per BUILD LAW; attack both naivety axes.\n' +
   'Return the batched fix-log — `deltas` and `deferred` exact.',
 ]).join('\n\n')
-const redteamPrompt = (L, batch, dossiers, scopes, nav, crit) => preamble(L, batch, dossiers, scopes).concat([
+
+const redteamPrompt = (L, batch, dossiers, scopes, roster, unmapped, nav, crit) => preamble(L, batch, dossiers, scopes, roster, unmapped).concat([
   'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
   'PRIOR CLAIMS (UNVERIFIED — a previous pass asserts these edits and verdicts; they are refutation targets you judge ' +
   'against CURRENT disk, never a settled record): ' + JSON.stringify(crit ? { files: crit.files, verdict: crit.verdict,
@@ -601,7 +727,8 @@ const redteamPrompt = (L, batch, dossiers, scopes, nav, crit) => preamble(L, bat
   'PRIOR CLAIMS seam landed on BOTH ends; make any missed repair yourself. Return the batched fix-log — `deltas` and ' +
   '`deferred` exact.',
 ]).join('\n\n')
-const finderPrompt = (L, pages, i, seams) => [CONTEXT(L), HUNT, GIT_GROUND,
+
+const finderPrompt = (L, pages, i, seams) => [CONTEXT(L), HUNT, EVIDENCE_LAW, SELF_CHECK, GIT_GROUND,
   'TASK: HOSTILE READ-ONLY FINDER, slice ' + i + ' (investigate, do NOT edit). The run just landed a hostile rebuild over ' +
   'these pages: ' + JSON.stringify(pages) + '. The landed corpus is presumed defective until your attack finds nothing. ' +
   'Read each page IN FULL fresh from CURRENT disk, plus the sibling owners each composes and every .api catalog its fences ' +
@@ -612,7 +739,8 @@ const finderPrompt = (L, pages, i, seams) => [CONTEXT(L), HUNT, GIT_GROUND,
   'name the defect, the law or catalog member it violates, the exact file anchor, and the grade — never the resulting ' +
   'code, a fence sketch, or a ruled design. Return typed anchored graded findings.',
 ].join('\n\n')
-const govFinderPrompt = (L, pkgs, pages, rows) => [CONTEXT(L), HUNT,
+
+const govFinderPrompt = (L, pkgs, pages, rows) => [CONTEXT(L), HUNT, EVIDENCE_LAW, SELF_CHECK,
   'TASK: HOSTILE READ-ONLY GOVERNANCE FINDER (investigate, do NOT edit). Audit the owning packages\' index surface end to ' +
   'end for these packages: ' + JSON.stringify(pkgs) + ' — each package\'s README.md and ARCHITECTURE.md (at the path ' +
   'before `/.planning/`), its central manifest rows, and its `.api/` anchors — against the landed page set: ' +
@@ -621,7 +749,8 @@ const govFinderPrompt = (L, pkgs, pages, rows) => [CONTEXT(L), HUNT,
   'these after you; a gap these rows already close is DROPPED, not reported: ' + JSON.stringify(rows) + '. Return typed ' +
   'anchored graded findings.',
 ].join('\n\n')
-const fixerPrompt = (langs, findings, rows, backlog, failed, pages) => [
+
+const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages) => [
   'Rasm monorepo — the libs/ planning corpora. Per-language doctrine bars:\n' +
   langs.map((k) => '- ' + LANG[k].name + ': ' + LANG[k].stack + '/ read at source; ' + LANG[k].modern + '; ' +
     LANG[k].fileOrg + '; verify members via ' + LANG[k].verify + '.').join('\n'),
@@ -636,11 +765,19 @@ const fixerPrompt = (langs, findings, rows, backlog, failed, pages) => [
   'lands as a fully-specified card in the named IDEAS.md: ' + JSON.stringify(rows) + '.\n' +
   '(2) DEFERRED BACKLOG (second-order and cross-batch ripples the writers recorded — drain it: re-verify each {files, ' +
   'claim} on current disk, fix what holds, reject what disk already resolved): ' + JSON.stringify(backlog) + '.\n' +
-  '(3) FINDINGS are SIGNALS, not law: re-verify each on disk; never re-litigate a correct finding — implement the ' +
-  'STRONGEST resolution, which is the implied fix only when that fix is already the root-level form; where the implied ' +
-  'fix is weak, short-sighted, or a single-point patch, land the denser root-level reconstruction instead; a finding with ' +
-  'a dead anchor, already resolved on disk, or graded `hypothetical` with no substantive re-derivation is rejected with ' +
-  'reason: ' + JSON.stringify(findings) + '.\n' +
+  '(3) FINDER REPORTS — the finder products are ON DISK as JSON report files; the ROSTER receipts below are navigation, ' +
+  'never the product. CONSUMPTION PROTOCOL, in order: (a) UNMAPPED scope below is your direct-hunt queue — a failed ' +
+  'finder\'s territory gets your own cold read, first; (b) read every ok report IN FULL from disk, governance finders ' +
+  'before page slices — group findings by `claimKey` as you read (the same key across lanes is ONE defect with ' +
+  'corroborating evidence, never several priorities) and order work by `severity` then `owner` (shared owners and ' +
+  'registries before their consumers, cross-folder seams before local prose); (c) each finding is a SIGNAL, not law: ' +
+  're-open its anchors before editing — anchors behind an edit, cited members, seams, and manifest rows re-verify ' +
+  'MANDATORY; navigation-only entries in untouched groups re-verify only when touched; (d) `mechanism`/`owner`/`reject`/' +
+  '`acceptance` are the finding\'s constraint boundary — honor the owner and the rejected forms, but the DESIGN is yours: ' +
+  'implement the STRONGEST resolution the boundary admits, never a single-point patch; where the implied fix is weak or ' +
+  'short-sighted, land the denser root-level reconstruction instead; a finding with a dead anchor, already resolved on ' +
+  'disk, or graded `hypothetical` with no substantive re-derivation is rejected with reason. ' +
+  'UNMAPPED: ' + JSON.stringify(unmapped) + ' ROSTER: ' + JSON.stringify(roster) + '.\n' +
   '(4) OWN HUNT: hunt PAST the signal list on your own authority — the hunt classes above over the landed pages and the ' +
   'governance surface as you work them — and fix what the finders missed; `beyond` enumerates those fixes, and an empty ' +
   '`beyond` attests your hunt found nothing, never that it did not run.\n' +
@@ -681,32 +818,30 @@ const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop(
 const built = (await Promise.all(BATCHES.map(async (b) => {
   const tag = b.pkg.split('/').pop() + ':b' + b.i
   const L = Lof(b.pkg)
-  const base = scratchBase(b.pkg, b.i)
   const batch = b.pages.map((p) => Object.assign({}, p, { i: b.i }))
-  // 3-lens recon burst: independent read-only mappers run concurrently; the chain waits on all three.
+  const pageScope = batch.map((p) => p.page)
+  const ctxDossier = dossierPath('recon:ctx:' + tag)
+  const apiDossier = dossierPath('recon:api:' + tag)
+  // 3-lens recon burst: independent read-only mappers run concurrently; the chain waits on all three receipts.
   // ctx/api lenses write their dossier files, so their codex sandbox is workspace-write; bar is read-only.
   const [ctx, api, bar] = await Promise.all([
-    slot(() => recon(ctxLensPrompt(L, batch, base + '-ctx.md'),
-      { label: 'recon:ctx:' + tag, phase: 'Build', schema: CTX_SCHEMA, writes: true })),
-    slot(() => recon(apiLensPrompt(L, batch, base + '-api.md'),
-      { label: 'recon:api:' + tag, phase: 'Build', schema: API_SCHEMA, writes: true })),
+    slot(() => recon(ctxLensPrompt(L, batch, ctxDossier),
+      { label: 'recon:ctx:' + tag, phase: 'Build', schema: CTX_SCHEMA, writes: true, scope: pageScope, hl: { arr: 'worklist', group: 'kind' } })),
+    slot(() => recon(apiLensPrompt(L, batch, apiDossier),
+      { label: 'recon:api:' + tag, phase: 'Build', schema: API_SCHEMA, writes: true, scope: pageScope, hl: { arr: 'worklist' } })),
     slot(() => recon(barLensPrompt(L, batch),
-      { label: 'recon:bar:' + tag, phase: 'Build', schema: BAR_SCHEMA })),
+      { label: 'recon:bar:' + tag, phase: 'Build', schema: BAR_SCHEMA, scope: pageScope, hl: { arr: 'findings', group: 'severity' } })),
   ])
-  ;((ctx && ctx.worklist) || []).forEach((m) => { if (m && m.page) mergeLens(m.page, { kind: m.kind, owns: m.owns, contextNote: m.contextNote, seams: m.seams }) })
-  ;((api && api.worklist) || []).forEach((m) => { if (m && m.page) mergeLens(m.page, { apiUsed: m.apiUsed, apiUnderutilized: m.apiUnderutilized, stackingGuidance: m.stackingGuidance }) })
-  const barFinds = (bar && bar.findings) || []
-  const weakSet = new Set((bar && bar.weak) || [])
-  batch.forEach((p) => mergeLens(p.page, { defects: barFinds.filter((f) => f.page === p.page).map((f) => ({ law: f.law, defect: f.defect, anchor: f.anchor })),
-    weak: bar ? weakSet.has(p.page) : true })) // a dead bar lens keeps the hostile default
-
-  const dossiers = [ctx && ctx.dossier, api && api.dossier].filter(Boolean).join('`, `')
-  const fix = await slot(() => agent(implementPrompt(L, batch, dossiers, SCOPES),
+  const roster = [ctx, api, bar].filter(Boolean)
+  const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((sc) => ({ lane: r.lane, scope: sc })))
+  if (unmapped.length) log(tag + ' — FAILED lens(es): ' + roster.filter((r) => !r.ok).map((r) => r.lane).join(', '))
+  const dossiers = [ctx && ctx.ok && ctxDossier, api && api.ok && apiDossier].filter(Boolean).join('`, `')
+  const fix = await slot(() => agent(implementPrompt(L, batch, dossiers, SCOPES, roster, unmapped),
     { label: 'impl:' + tag, phase: 'Build', model: 'fable', effort: 'high', schema: FIXLOG_SCHEMA, stallMs: STALL }))
   if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null } // failure isolation: a dead implement skips its reviews
-  const crit = await slot(() => agent(critiquePrompt(L, batch, dossiers, SCOPES, navOf([fix])),
+  const crit = await slot(() => agent(critiquePrompt(L, batch, dossiers, SCOPES, roster, unmapped, navOf([fix])),
     { label: 'crit:' + tag, phase: 'Build', model: 'fable', effort: 'high', schema: REVIEW_SCHEMA, stallMs: STALL }))
-  const rt = await slot(() => agent(redteamPrompt(L, batch, dossiers, SCOPES, navOf([fix, crit]), crit),
+  const rt = await slot(() => agent(redteamPrompt(L, batch, dossiers, SCOPES, roster, unmapped, navOf([fix, crit]), crit),
     { label: 'rt:' + tag, phase: 'Build', model: 'fable', effort: 'high', schema: REVIEW_SCHEMA, stallMs: STALL }))
   return { pkg: b.pkg, pages: b.pages, fix, crit, rt }
 }).map((p) => p.catch(() => null)))).filter(Boolean)
@@ -736,17 +871,19 @@ const finderTasks = LANDED_LANGS.flatMap((k) => {
 })
 const found = (await Promise.all(finderTasks.map((t) => slot(() => t.gov
   ? recon(govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS),
-    { label: 'finder:gov:' + t.lang, phase: 'Close', schema: FINDINGS_SCHEMA })
+    { label: 'finder:gov:' + t.lang, phase: 'Close', schema: FINDINGS_SCHEMA, scope: t.pkgs, hl: { arr: 'findings', group: 'class' } })
   : recon(finderPrompt(LANG[t.lang], t.pages, t.i, t.seams),
-    { label: 'finder:' + t.lang + ':s' + t.i, phase: 'Close', schema: FINDINGS_SCHEMA })
+    { label: 'finder:' + t.lang + ':s' + t.i, phase: 'Close', schema: FINDINGS_SCHEMA, scope: t.pages, hl: { arr: 'findings', group: 'class' } })
 ).catch(() => null)))).filter(Boolean)
-const FOUND = found.flatMap((f) => f.findings || [])
-log('Close: ' + FOUND.length + ' finding(s) (' + FOUND.filter((f) => f.grade === 'substantive').length + ' substantive) from ' +
-  found.length + ' finder(s); ' + ROWS.length + ' index row(s) + ' + BACKLOG.length + ' backlog row(s) pending')
-const fixer = await slot(() => agent(fixerPrompt(LANDED_LANGS, FOUND, ROWS, BACKLOG, FAILED, LANDED),
+const FOUND = found.filter((f) => f.ok).reduce((a, f) => a + f.entries, 0)
+const UNMAPPED = found.filter((f) => !f.ok).flatMap((f) => f.scope.map((sc) => ({ lane: f.lane, scope: sc })))
+log('Close: ' + FOUND + ' finding(s) across ' + found.filter((f) => f.ok).length + '/' + found.length + ' finder(s)' +
+  (UNMAPPED.length ? ' — FAILED: ' + found.filter((f) => !f.ok).map((f) => f.lane).join(', ') : '') + '; ' +
+  ROWS.length + ' index row(s) + ' + BACKLOG.length + ' backlog row(s) pending')
+const fixer = await slot(() => agent(fixerPrompt(LANDED_LANGS, found, UNMAPPED, ROWS, BACKLOG, FAILED, LANDED),
   { label: 'fixer', phase: 'Close', model: 'fable', effort: 'high', schema: FIXER_SCHEMA, stallMs: STALL }))
 return { targets: TARGETS, languages: LANDED_LANGS, batches: BATCHES.length, landed: LANDED.length, failed: FAILED,
-  seamRows: SEAM_ROWS.length, backlog: BACKLOG.length, findings: FOUND.length,
+  seamRows: SEAM_ROWS.length, backlog: BACKLOG.length, findings: FOUND, failedFinders: found.filter((f) => !f.ok).map((f) => f.lane),
   fixer: fixer && { files: (fixer.files || []).length, indexApplied: (fixer.indexApplied || []).length,
     resolved: (fixer.resolved || []).length, backlogDrained: (fixer.backlogDrained || []).length,
     beyond: (fixer.beyond || []).length, rejected: (fixer.rejected || []).length, summary: fixer.summary } }

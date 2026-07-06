@@ -36,7 +36,7 @@ from msgspec import Struct
 
 import stamina
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 # graphic/vector/path#PATH owns the SVG parse/query/affine substrate and graphic/vector/region#REGION the

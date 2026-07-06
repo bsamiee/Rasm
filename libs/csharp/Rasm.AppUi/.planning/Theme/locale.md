@@ -151,6 +151,17 @@ public sealed record ResolvedLocale(
             Formatter: new MessageFormatter(useCache: true, culture: formats));
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LocaleFault : Expected {
+    private LocaleFault(string detail, int code) : base(detail, code) { }
+    public sealed record TagUnresolved(string Tag)
+        : LocaleFault($"locale/tag: {Tag}", AppUiFaultBand.Locale.Code(0));
+    public sealed record ZoneUnresolved(string Zone)
+        : LocaleFault($"locale/zone: {Zone}", AppUiFaultBand.Locale.Code(1));
+    public sealed record CaptionModelAbsent(string Model)
+        : LocaleFault($"locale/caption-model: {Model}", AppUiFaultBand.Locale.Code(2));
+}
+
 public sealed record LocaleRuntime(Atom<ResolvedLocale> Cell, IDateTimeZoneProvider Zones) {
     public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones) =>
         Compose(policy, zones).Map(resolved => new LocaleRuntime(Atom(resolved), zones));
@@ -169,8 +180,8 @@ public sealed record LocaleRuntime(Atom<ResolvedLocale> Cell, IDateTimeZoneProvi
         (RowFor(policy.Tag), Optional(zones.GetZoneOrNull(policy.Zone))) switch {
             ({ IsSome: true, Case: LocaleRow row }, { IsSome: true, Case: DateTimeZone zone }) =>
                 Fin<ResolvedLocale>.Succ(ResolvedLocale.Resolve(row, zone, policy.FormatTag)),
-            ({ IsSome: false }, _) => Fin<ResolvedLocale>.Fail(Error.New($"unresolved locale tag: {policy.Tag}")),
-            _ => Fin<ResolvedLocale>.Fail(Error.New($"unresolved zone id: {policy.Zone}")),
+            ({ IsSome: false }, _) => Fin<ResolvedLocale>.Fail(new LocaleFault.TagUnresolved(policy.Tag)),
+            _ => Fin<ResolvedLocale>.Fail(new LocaleFault.ZoneUnresolved(policy.Zone)),
         };
 
     private static Option<LocaleRow> RowFor(string tag) =>
@@ -192,9 +203,9 @@ flowchart LR
 
 - Owner: `MirrorPolicy` directional-row policy record; `ShapedAnnotation` the complex-script 3D-annotation shaping projection; `CaptionSource` · `LiveCaption` the live-caption-and-translation owner.
 - Entry: `public bool Mirrors(string iconKey, LocaleRow row)` — pure predicate; the icon presenter's flow pin folds over it; `public static ShapedAnnotation For(string key, ResolvedLocale locale)` — projects a 3D-annotation string into its shaping features and flow; `public IObservable<ShapedAnnotation> Stream(ResolvedLocale locale)` — the live-caption stream optionally translated into the target locale.
-- Packages: Avalonia, System.Reactive, LanguageExt.Core
+- Packages: Avalonia, System.Reactive, Whisper.net, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a direction-sensitive glyph is one key row on `Directional`; a new caption source is one `CaptionSource` case; zero new surface.
-- Boundary: the mount transaction writes the active row's flow once to the surface root's inherited `Visual.FlowDirection` (`LeftToRight` | `RightToLeft`) and layout mirroring arrives by inheritance — per-control flow flips are the deleted pattern; every icon presenter pins `LeftToRight` structurally — the exemption — and only `Directional` rows re-join the root flow, so logos, status glyphs, and brand marks never mirror; 3D-annotation complex-script shaping rides `ShapedAnnotation` — a viewport label, dimension text, or scene annotation carries its locale's bidi flow and complex-script feature tags (RTL ligatures for Arabic/Hebrew, contextual alternates for Indic) which feed the typography `ShapingSurface.DrawLabel` HarfBuzz rail so a 3D annotation shapes through the one shaping owner exactly as retained text does and a per-annotation glyph loop is the deleted form; drafting title-blocks are locale-aware through the drafting page's `TitleBlock.Fields(ResolvedLocale)` so the ISO/ANSI/JIS field labels and the date resolve through this locale vocabulary — the title-block standard owns layout, the locale owns the field text, and a hardcoded title-block label is the deleted form; live caption and translation ride `LiveCaption` — a spoken or streamed utterance source projects into shaped annotations, the `Translated` source folds each utterance through the composition-bound `Translate` delegate into the target locale before shaping so a live session captions in the viewer's language, with the speech-recognition and translation engine member spellings research-gated; Skia-side bidi and complex-script ordering stay with the shaping rail and this cluster owns retained-layout mirroring plus the annotation-shaping and caption projection; caret travel and text alignment arrive from the inherited flow, never per-control settings.
+- Boundary: the mount transaction writes the active row's flow once to the surface root's inherited `Visual.FlowDirection` (`LeftToRight` | `RightToLeft`) and layout mirroring arrives by inheritance — per-control flow flips are the deleted pattern; every icon presenter pins `LeftToRight` structurally — the exemption — and only `Directional` rows re-join the root flow, so logos, status glyphs, and brand marks never mirror; 3D-annotation complex-script shaping rides `ShapedAnnotation` — a viewport label, dimension text, or scene annotation carries its locale's bidi flow and complex-script feature tags (RTL ligatures for Arabic/Hebrew, contextual alternates for Indic) which feed the typography `ShapingSurface.DrawLabel` HarfBuzz rail so a 3D annotation shapes through the one shaping owner exactly as retained text does and a per-annotation glyph loop is the deleted form; drafting title-blocks are locale-aware through the drafting page's `TitleBlock.Fields(ResolvedLocale)` so the ISO/ANSI/JIS field labels and the date resolve through this locale vocabulary — the title-block standard owns layout, the locale owns the field text, and a hardcoded title-block label is the deleted form; live caption and translation ride `LiveCaption` over the admitted `Whisper.net` owner — `WhisperFactory` model load, streaming `ProcessAsync` timestamped segments, Silero VAD live segmentation through `WhisperVadFactory`, and the built-in translate-to-English task on the `Translated` source, offline with model weights via `WhisperGgmlDownloader`; broad-target MT stays a growth row; Skia-side bidi and complex-script ordering stay with the shaping rail and this cluster owns retained-layout mirroring plus the annotation-shaping and caption projection; caret travel and text alignment arrive from the inherited flow, never per-control settings.
 
 ```csharp signature
 public sealed record MirrorPolicy(Seq<string> Directional) {
@@ -209,24 +220,61 @@ public readonly record struct ShapedAnnotation(string Text, bool RightToLeft, Se
         new(locale.Label(key), locale.Row.RightToLeft, locale.Row.RightToLeft ? Seq("calt", "liga", "rlig") : Seq("calt", "liga"));
 }
 
+// LiveCaption realizes on Whisper.net — one owner for streaming transcription, Silero VAD segmentation,
+// and the built-in translate-to-English task. Translated binds the English target; broad-target MT is a
+// growth row on a named consumer, never a second engine here.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CaptionSource {
     private CaptionSource() { }
-    public sealed record Live(IObservable<string> Utterances) : CaptionSource;
-    public sealed record Translated(IObservable<string> Utterances, Func<string, LocaleRow, IO<string>> Translate) : CaptionSource;
+    public sealed record Live(IObservable<ReadOnlyMemory<float>> Pcm16k, Option<string> Language) : CaptionSource;
+    public sealed record Translated(IObservable<ReadOnlyMemory<float>> Pcm16k) : CaptionSource; // WithTranslate: English target
 }
 
-public sealed record LiveCaption(CaptionSource Source, LocaleRow Target, double DwellSeconds) {
+public sealed record CaptionEngine(WhisperFactory Factory, WhisperVadProcessor Vad) : IDisposable {
+    public static Fin<CaptionEngine> Load(string modelPath, string vadModelPath) =>
+        File.Exists(modelPath) && File.Exists(vadModelPath)
+            ? Fin.Succ(new CaptionEngine(
+                WhisperFactory.FromPath(modelPath),
+                WhisperVadFactory.FromPath(vadModelPath).CreateBuilder().Build()))
+            : Fin.Fail<CaptionEngine>(new LocaleFault.CaptionModelAbsent(File.Exists(modelPath) ? vadModelPath : modelPath));
+
+    // Model weights arrive offline through WhisperGgmlDownloader.Default.GetGgmlModelAsync /
+    // GetGgmlSileroVadModelAsync at provisioning, never at caption time.
+    public WhisperProcessor Processor(CaptionSource source) =>
+        source.Switch(
+            state: Factory,
+            live: static (factory, l) => l.Language.Match(
+                Some: language => factory.CreateBuilder().WithLanguage(language).WithSegmentEventHandler(static _ => { }).Build(),
+                None: () => factory.CreateBuilder().WithLanguageDetection().Build()),
+            translated: static (factory, _) => factory.CreateBuilder().WithLanguageDetection().WithTranslate().Build());
+
+    public void Dispose() { Vad.Dispose(); Factory.Dispose(); }
+}
+
+public sealed record LiveCaption(CaptionEngine Engine, CaptionSource Source, LocaleRow Target, double DwellSeconds) {
+    // VAD-gated streaming: ONE WhisperProcessor per caption session — Observable.Using ties its lifetime
+    // to the subscription so recognition context persists across windows and disposes when the stream
+    // ends; Concat serializes ProcessAsync so the single processor never sees concurrent windows.
     public IObservable<ShapedAnnotation> Stream(ResolvedLocale locale) =>
-        Source.Switch(
-            state: (Target: Target, Locale: locale),
-            live: static (ctx, l) => l.Utterances.Select(text => new ShapedAnnotation(text, ctx.Locale.Row.RightToLeft, Seq("calt", "liga"))),
-            translated: static (ctx, t) => t.Utterances.Select(text => t.Translate(text, ctx.Target).Run())
-                .Select(translated => new ShapedAnnotation(translated, ctx.Target.RightToLeft, ctx.Target.RightToLeft ? Seq("calt", "liga", "rlig") : Seq("calt", "liga"))));
+        Observable.Using(
+            () => Engine.Processor(Source),
+            processor => Pcm(Source)
+                .Select(window => Observable.FromAsync(async () => {
+                    var segments = Seq<string>();
+                    await foreach (SegmentData segment in processor.ProcessAsync(window)) { segments = segments.Add(segment.Text); }
+                    return string.Join(' ', segments);
+                }))
+                .Concat()
+                .Where(static text => !string.IsNullOrWhiteSpace(text))
+                .Select(text => new ShapedAnnotation(
+                    text, Target.RightToLeft, Target.RightToLeft ? Seq("calt", "liga", "rlig") : Seq("calt", "liga"))));
+
+    static IObservable<ReadOnlyMemory<float>> Pcm(CaptionSource source) =>
+        source.Switch(live: static l => l.Pcm16k, translated: static t => t.Pcm16k);
 }
 ```
 
 ## [06]-[RESEARCH]
 
 - [PSEUDO_LOCALE]: qps-ploc satellite resx resolution through the ResourceManager fallback fold on ICU-backed globalization.
-- [LIVE_TRANSLATE]: the speech-recognition utterance source and the machine-translation engine the `LiveCaption.Translated` `Translate` delegate binds — the recognizer producing the utterance stream and the translation service producing the target-locale text, resolved at implementation against an admitted speech-and-translation package bound through a composition delegate; the `ShapedAnnotation` complex-script projection, the `CaptionSource` union, and the caption stream are settled, the recognizer-and-translator member spellings are the unverified surface.
+- [BROAD_TARGET_MT]: machine translation past the Whisper.net translate-to-English arm is a growth row — it re-opens only when a consumer names a non-English caption target; the recognizer, VAD, model-download, segment, streaming, and translate members are VERIFIED against `.api/api-whisper-net.md` and the caption owner is settled.

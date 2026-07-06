@@ -10,25 +10,34 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 14
 const BATCH = 4 // .api files per agent — deep enough per file, many agents for parallelism
 const STAGGER_MS = 1500
 const STALL = 300000
 const CODEX = true // catalog rebuild batch lanes run on gpt-5.5 via the codex wrapper (workspace-write); false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/codex' // wrapper task/schema/report files, one triple per lane
+const CODEX_DIR = '.claude/scratch/rebuild-api' // wrapper task/schema/report files, one triple per lane
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 // args is structured data — a scope string, an array of scopes, or {target|targets}; empty = the full libs sweep.
 const scopeRows = Array.isArray(args) ? args : typeof args === 'string' ? [args] : args && typeof args === 'object' ? [].concat(args.targets ?? args.target ?? []) : []
 const scopes = scopeRows.map((s) => String(s).trim()).filter((s) => s && s !== 'ALL')
 const SWEEP = scopes.length ? scopes.join(', ') : 'libs'
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'string' } } } }
-// Required-but-possibly-empty `beyondBatch` is an attestation: the cross-catalog hunt ran and every exposed defect landed in-pass.
+// On-disk product schema: each batch writes its complete fix-log here; required-but-empty `beyondBatch` attests the cross-catalog hunt ran and every exposed defect landed in-pass.
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'beyondBatch', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, beyondBatch: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, summary: { type: 'string' } } }
 
+// Thin wire receipt: the batch PRODUCT is the edited catalogs on disk plus the fix-log at `report`; only status + count + headline travel inline.
+const RECEIPT = { type: 'object', additionalProperties: false, required: ['ok', 'report', 'entries', 'headline', 'failure'], properties: {
+  ok: { type: 'boolean' }, report: { type: 'string' }, entries: { type: 'integer' },
+  headline: { type: 'string' }, failure: { type: 'string' } } }
+
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo. .api catalogs are agent-facing declarative records of a package useful surface that DESIGN PAGES compose against. CLAUDE.md ' +
     'DEPENDENCY_POLICY: mine each admitted package to its FULL useful capability; prefer ecosystem primitives over reinvention; internalize ' +
@@ -71,6 +80,7 @@ const LAW = [
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 // The single run-wide scheduler: CAP agents in flight across every language lane, launches staggered; a freed slot passes to the next waiter.
 let active = 0
@@ -81,42 +91,55 @@ const release = () => { const w = waiters.shift(); if (w) w(); else active-- }
 const stagger = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
 const scheduled = async (fn) => { await acquire(); await stagger(); try { return await fn() } finally { release() } }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
+
 // gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
 // CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns that JSON verbatim. It never does, edits, or judges the work.
+// liveness (never relaunching a live run), and returns a thin RECEIPT — the product (edited catalogs + fix-log)
+// stays on disk. It never does, edits, judges, or relays the work.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-')
 const codexPrompt = (label, task, schema, writes) => {
   const base = CODEX_DIR + '/' + fileTag(label)
   const rpt = fileTag(label) + '-report.json' // unique per lane; pgrep matches the -o path on the codex cmdline
-  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-    'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-  '(1) mkdir -p ' + CODEX_DIR + '; write the TASK block below verbatim to ' + base + '-task.md; write this JSON ' +
-    'Schema exactly to ' + base + '-schema.json: ' + JSON.stringify(schema),
-  '(2) Launch codex DETACHED from the repo root — ONE Bash call that returns immediately: ' +
-    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral ' +
+  const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1) // self-excluding pgrep/pkill pattern
+  return ['DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
+    'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
+  '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' + CODEX_DIR + '; purge stale lane artifacts (a leftover report would READY instantly with last run\'s data): rm -f ' + base + '-report.json ' + base + '-stderr.log; Write the TASK block below verbatim to ' + base + '-task.md; Write this JSON ' +
+    'Schema exactly to ' + base + '-schema.json — both paths resolved ABSOLUTE under the repository root: ' + JSON.stringify(schema),
+  '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' + base + '-task.md && test -s ' + base + '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, zero-CPU, no report): ' +
+    'codex exec -s ' + (writes ? 'workspace-write' : 'read-only') + ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
     '--output-schema ' + base + '-schema.json -o ' + base + '-report.json "Do the task in ' + base + '-task.md ' +
-    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>&1 &',
+    'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' + base + '-stderr.log &',
   '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
     'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
     'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' + base + '-report.json ] && break; ' +
-    'pgrep -f "' + rpt + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
-    'READY; elif pgrep -f "' + rpt + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-    'while it prints RUNNING; stop on READY; on GONE go to (4). Cap at 7 poll calls.',
-  '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-    'relaunch the (2) command once (detached, never foreground) and resume polling; a second GONE returns the ' +
-    'schema shape with every array empty and each required string field set to CODEX-FAILED plus the one-line reason.',
+    'pgrep -f "' + rptPat + '" >/dev/null || break; sleep 20; done; if [ -s ' + base + '-report.json ]; then echo ' +
+    'READY; elif pgrep -f "' + rptPat + '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
+    'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 2nd RUNNING poll (~10 min wall) the run is WEDGED, not slow — kill it (pkill -f "' + rptPat + '") and go to (4) as GONE. Cap at 7 poll calls total.',
+  '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
+    'judgment): entries=$(jq \'.files | length\' ' + base + '-report.json); beyond=$(jq \'.beyondBatch | length\' ' + base + '-report.json); verdict=$(jq -r \'.verdict\' ' + base + '-report.json). ' +
+    'Return the RECEIPT: ok=true, report=' + base + '-report.json, entries=that count, headline="<entries> catalogs | verdict:<verdict> | +<beyond> beyond", failure empty. ' +
+    'GONE with no report: tail -5 ' + base + '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
+    'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
   'TASK — write verbatim to the task file, then dispatch:',
   task].join('\n\n')
 }
-// Every catalog rebuild batch routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-const recon = (task, o) => CODEX
+
+// Every catalog rebuild batch routes here: gpt-5.5 wrapper when CODEX, native opus otherwise. The roster row carries
+// `scope` from the ORCHESTRATOR (the batch's assigned files) so a failed lane's territory is exact even when it died.
+const recon = (task, o) => (CODEX
   ? agent(codexPrompt(o.label, task, o.schema, !!o.writes),
-    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: o.schema, stallMs: STALL })
-  : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL })
+    { label: 'gpt-5.5:' + o.label, phase: o.phase, model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL })
+  : agent(task + '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    CODEX_DIR + '/' + fileTag(o.label) + '-report.json (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(o.schema) + ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+    { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL })
+).then((r) => ({ lane: o.label, scope: o.scope || [], ok: !!(r && r.ok && r.report), report: (r && r.report) || '',
+  entries: (r && r.entries) || 0, headline: (r && r.headline) || '', failure: (r && r.failure) || (r ? '' : 'lane died') }))
 const rel = (f) => { const i = String(f).indexOf('libs/'); return i > 0 ? String(f).slice(i) : String(f) }
 const isSubstrate = (f) => /^libs\/[^/]+\/\.api\//.test(f)
 const folderOf = (f) => f.slice(0, f.indexOf('/.api/'))
 const langOf = (f) => f.split('/')[1] || ''
+
 // Full folder chunks stay whole; sub-BATCH tails of sibling folders in one language pack together — never a 1-catalog agent per tiny folder.
 const packFolders = (byFolder) => {
   const batches = []
@@ -131,6 +154,7 @@ const packFolders = (byFolder) => {
   if (tail.length) batches.push({ files: tail })
   return batches
 }
+
 const rebuildPrompt = (files, tier, degraded) => [
   LAW, '',
   'TASK: REBUILD these .api catalogs to FULL first-class, integration-shaped capability (fix-in-place, read-then-extend; never shrink real ' +
@@ -165,19 +189,19 @@ const rebuildPrompt = (files, tier, degraded) => [
     'gap a consuming design page genuinely needs (a specific member/signature the design composes). Return the fix-log: `files` = every ' +
     'catalog you edited, `beyondBatch` = those outside your assigned batch.',
 ].join('\n')
-const processBatch = (tier, degraded) => async (w) => {
-  const r = await recon(rebuildPrompt(w.files, tier, degraded), { label: 'api:' + w.files[0].split('/.api/')[0].split('/').pop() + '+' + (w.files.length - 1), phase: tier === 'substrate' ? 'API-Substrate' : 'API-Rebuild', schema: FIXLOG_SCHEMA, writes: true })
-  return r ? { files: w.files, log: r } : null
-}
-const failedOf = (batches, res) => batches.filter((_, i) => !res[i]).flatMap((b) => b.files)
+
+const processBatch = (tier, degraded) => async (w) => recon(rebuildPrompt(w.files, tier, degraded),
+  { label: 'api:' + w.files[0].split('/.api/')[0].split('/').pop() + ':b' + w.idx + '+' + (w.files.length - 1),
+    phase: tier === 'substrate' ? 'API-Substrate' : 'API-Rebuild', schema: FIXLOG_SCHEMA, scope: w.files, writes: true })
+const failedOf = (batches, res) => batches.filter((_, i) => !res[i] || !res[i].ok).flatMap((b) => b.files)
 // One language lane: its substrate hubs land before its folder tier; a failed hub batch FLAGS the folder batches instead of failing silently.
 const runLane = async (l) => {
-  const subRes = l.sub.length ? await Promise.all(l.sub.map((w) => scheduled(() => processBatch('substrate', [])(w)).catch(() => null))) : []
+  const subRes = l.sub.length ? await Promise.all(l.sub.map((w, bi) => scheduled(() => processBatch('substrate', [])({ ...w, idx: bi })).catch(() => null))) : []
   const subFailed = failedOf(l.sub, subRes)
   if (subFailed.length) log('Substrate DEGRADED [' + l.lang + ']: ' + subFailed.join(', ') + ' — ' + l.fold.length +
     ' folder batch(es) proceed FLAGGED: hubs verified from disk, never assumed rebuilt')
-  else if (l.sub.length) log('Substrate [' + l.lang + ']: ' + subRes.filter(Boolean).length + '/' + l.sub.length + ' hub batches landed')
-  const foldRes = l.fold.length ? await Promise.all(l.fold.map((w) => scheduled(() => processBatch('folder', subFailed)(w)).catch(() => null))) : []
+  else if (l.sub.length) log('Substrate [' + l.lang + ']: ' + subRes.filter((r) => r && r.ok).length + '/' + l.sub.length + ' hub batches landed')
+  const foldRes = l.fold.length ? await Promise.all(l.fold.map((w, bi) => scheduled(() => processBatch('folder', subFailed)({ ...w, idx: bi })).catch(() => null))) : []
   return { lang: l.lang, fold: l.fold, subRes, foldRes, subFailed, foldFailed: failedOf(l.fold, foldRes) }
 }
 
@@ -203,19 +227,18 @@ const totalBatches = lanes.reduce((n, l) => n + l.sub.length + l.fold.length, 0)
 log('API discover under ' + SWEEP + ': ' + totalFiles + ' catalogs (' + T0.length + ' substrate + ' + T1.length + ' folder-tier across ' +
   lanes.reduce((n, l) => n + l.folders, 0) + ' folders) in ' + totalBatches + ' batches across ' + LANGS.length + ' language lane(s); CAP=' + CAP)
 
-// --- [API_SUBSTRATE]
 phase('API-Substrate')
-// --- [API_REBUILD]
+
 phase('API-Rebuild')
+
 // Both groups open before launch: lanes interleave the two tiers across languages; each agent lands in the group its phase option names.
 const laneOut = (await Promise.all(lanes.map(runLane))).filter(Boolean)
-const done = laneOut.flatMap((l) => [...l.subRes, ...l.foldRes]).filter(Boolean)
+const done = laneOut.flatMap((l) => [...l.subRes, ...l.foldRes]).filter((r) => r && r.ok)
 const FAILED = laneOut.flatMap((l) => [...l.subFailed, ...l.foldFailed])
 const DEGRADED = laneOut.filter((l) => l.subFailed.length).map((l) => ({ lang: l.lang, substrateFailed: l.subFailed, flaggedFolderBatches: l.fold.length }))
-const touched = [...new Set(done.flatMap((r) => r.log.files || []))]
-const beyond = [...new Set(done.flatMap((r) => r.log.beyondBatch || []))]
-log('API rebuild: ' + done.length + '/' + totalBatches + ' batches landed (' + totalFiles + ' catalogs); ' + touched.length + ' catalogs touched (' +
-  beyond.length + ' via beyond-batch fixes)' +
+const edits = done.reduce((n, r) => n + r.entries, 0) // catalog edits reported across batches; each batch's full fix-log stays on disk at its receipt's `report`
+log('API rebuild: ' + done.length + '/' + totalBatches + ' batches landed (' + totalFiles + ' catalogs); ' + edits + ' catalog edits reported' +
   (DEGRADED.length ? ' — DEGRADED lane(s), folder batches ran against unverified hubs: ' + DEGRADED.map((d) => d.lang).join(', ') : '') +
   (FAILED.length ? ' — FAILED (reported, run continues): ' + FAILED.join(', ') : ''))
-return { scope: SWEEP, catalogs: totalFiles, batches: totalBatches, complete: done.length, failed: FAILED, degraded: DEGRADED, filesTouched: touched.length, beyondBatch: beyond }
+
+return { scope: SWEEP, catalogs: totalFiles, batches: totalBatches, complete: done.length, failed: FAILED, degraded: DEGRADED, edits, reports: done.map((r) => r.report) }

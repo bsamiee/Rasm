@@ -11,13 +11,13 @@ The classical-ML model-asset export, validation, and graduation owner. `ModelAss
 - Owner: `ModelAsset` drives export, validation, and graduation over `onnx`, `onnxruntime`, `skl2onnx`, and `scikit-learn`. `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation seam. Source, check, and result are all discriminated unions, so output is parameterized as tightly as input.
 - Source union: `ExportSource` is the one `@tagged_union` over the `skl2onnx` export routes. `ExportSource.convert(target_opset, gating)` reads the `(model, sample)` pair off the `fitted` projection and runs one `to_onnx(model, X=sample, target_opset=..., options={"zipmap": False}, white_op=gating.white or None, black_op=gating.black or None)` across the `estimator`, `pipeline`, and `columns` cases, so a new source is one case and one arm. The sample drives `initial_types` inference rather than a hand-built `FloatTensorType`; a categorical or mixed-dtype source is the `columns` case `to_onnx` types through `guess_data_type`. `options={"zipmap": False}` forces a classifier's probability output to a dense `np.ndarray` rather than the `ZipMap` list-of-dicts the parity diff cannot consume. `gating` is the `OperatorGate` row whose `white_op`/`black_op` sets bound the emitted operators, so a quantized or opset-restricted graph is a tighter row, never a converter fork.
 - Check union: `ValidationCheck` discriminates `structural` (`onnx.checker.check_model(full_check=True)` folded with `onnx.shape_inference.infer_shapes(strict_mode=True)`, so an unpropagated shape is a structural reject), `io_binding` (proto `model.graph.input` names equal the resolved `InferenceSession.get_inputs()` `NodeArg` names, so an initializer leaking into the declared set, a renamed input, or a divergent session signature is a binding failure — set equality across two distinct sources, never a tautology over one), `smoke` (a zero-tensor `run` is finite over every numeric output, each input zeroed at the declared element dtype through `onnx.helper.tensor_dtype_to_np_dtype` and each output finite-tested only when `np.issubdtype(r.dtype, np.number)` so a `tensor(string)` label column counts finite rather than raising the numeric `np.isfinite` ufunc), and `parity` (the session output over the real `sample` matches the estimator within tolerance). `PROBE_RANK` pairs the parity verb with the ONNX output index the `ExportSource.reference` `Block.choose`/`try_head` fold reads: `predict_proba`/`decision_function` ride output `1` and `predict` rides output `0`, because a `zipmap`-off classifier emits `label` at `0` and dense scores at `1`, so the check diffs `produced[probe.index]` rather than a hardcoded `produced[0]` comparing the int64 label against a float-probability reference.
-- Output union: `ValidationEvidence` parameterizes the verdict — the `structural=(passed, detail)`, `io_binding=(declared, resolved)`, `smoke=(output_count, finite)`, and `parity=(max_abs_delta, tolerance)` cases, each keyword-constructed off the case name and owning its `passed` predicate and `facts()` projection. The case IS the verdict row: its `tag` names the check and `passed` reads the outcome, so no separate `CheckVerdict` carrier re-stamps the discriminant the evidence already holds, and the manifest's `verdicts: tuple[ValidationEvidence, ...]` reads each shape directly rather than through a near-empty wrapper, the same output-parameterization-without-a-default-zero-struct collapse `analysis/signal.md#SIGNAL` applies to `Spectral`/`Multiresolution`/`Scale`/`Packet`. The verdict ledger and the graduation residual map both project off the one evidence stream.
+- Output union: `ValidationEvidence` parameterizes the verdict — the `structural=(passed, detail)`, `io_binding=(declared, resolved)`, `smoke=(output_count, finite)`, and `parity=(max_abs_delta, tolerance)` cases, each keyword-constructed off the case name and owning its `passed` predicate and `facts()` projection. The case IS the verdict row: its `tag` names the check and `passed` reads the outcome, so no separate `CheckVerdict` carrier re-stamps the discriminant the evidence already holds, and the manifest's `verdicts: tuple[ValidationEvidence, ...]` reads each shape directly rather than through a near-empty wrapper, the same output-parameterization-without-a-default-zero-struct collapse `analysis/signal.md#DSP` applies to `Spectral`/`Multiresolution`/`Scale`/`Packet`. The verdict ledger and the graduation residual map both project off the one evidence stream.
 - Check fold: `ValidationCheck.run` is the one total `match` projecting the check input union to its `ValidationEvidence` verdict row. The `structural` arm folds the `checker.check_model` plus strict `shape_inference.infer_shapes` outcome over both `checker.ValidationError` and `shape_inference.InferenceError`, so a malformed graph and an unpropagated shape both land as one failed `structural` verdict on the domain rail rather than an infrastructure `BoundaryFault`. The remaining arms fold the io-name set equality, `np.isfinite` over every output, and the max-abs-delta against the estimator, closed by `assert_never`. `_load_and_run` is the one place the union is built and folded.
-- Entry: `ModelAsset.validate` opens the `content.model.validate` span, loads through `onnx.load`, opens an `InferenceSession` under `SessionOptions(graph_optimization_level=GraphOptimizationLevel.ORT_ENABLE_ALL)` over the provider preference, reads `get_modelmeta()` and the assigned `get_providers()`, runs the zero-tensor smoke feed for the `structural`/`io_binding`/`smoke` checks, runs the real-`sample` feed for the `parity` check when a source is in hand, folds every check through `ValidationCheck.run` to its `ValidationEvidence` verdict row, derives the checksum through `ContentIdentity.of`, and returns `RuntimeRail[ModelAssetManifest]`. Both feeds route through one element-dtype-keyed construction, so int64/double declared types match the session signature. The model-card folds runtime `ModelMetadata` producer/domain/version/graph-name and `custom_metadata_map` over the proto `ir_version` and `metadata_props`. `ModelAsset.export` runs `ExportSource.convert` at `get_latest_tested_opset_version()`, writes the graph, and re-validates with the source in hand so the manifest's `parity` verdict gates graduation.
-- Woven rail: validate and export run inside one OTel span weaving `beartype`, `onnx`/`onnxruntime`/`skl2onnx`, the `boundary` fault fence, and the `@receipted` egress aspect, the `_traced`-shaped discipline `graduation/handoff.md#GRADUATION` and `analysis/signal.md#SIGNAL` hold. `boundary(f"model.{op}", thunk)` runs the `@beartype(conf=FAULT_CONF)`-fenced inner thunk inside the span, so a converter raise, a checker `ValidationError`, or a session-construction failure folds onto the rail. The `Ok` arm sets `Status(StatusCode.OK)` and writes the bounded `ModelAssetManifest.span_facts` scalars behind the `is_recording()` gate the sibling `experiments/inference.md#BAYESIAN` and `graduation/handoff.md#GRADUATION` owners hold, so a no-op span pays no attribute build and the per-check `ValidationEvidence` ledger rides the receipt facts rather than the span. `@receipted(_REDACTION)` harvests the contributor stream, so the bodies thread no inline `Signals.emit`; the fence's `_convert` already records the cause and sets ERROR on the span.
+- Entry: `ModelAsset.validate` opens the `model.validate` span (the `EvidenceScope.MODEL` scope row), loads through `onnx.load`, opens an `InferenceSession` under `SessionOptions(graph_optimization_level=GraphOptimizationLevel.ORT_ENABLE_ALL)` over the provider preference, reads `get_modelmeta()` and the assigned `get_providers()`, runs the zero-tensor smoke feed for the `structural`/`io_binding`/`smoke` checks, runs the real-`sample` feed for the `parity` check when a source is in hand, folds every check through `ValidationCheck.run` to its `ValidationEvidence` verdict row, derives the checksum through `ContentIdentity.of`, and returns `RuntimeRail[ModelAssetManifest]`. Both feeds route through one element-dtype-keyed construction, so int64/double declared types match the session signature. The model-card folds runtime `ModelMetadata` producer/domain/version/graph-name and `custom_metadata_map` over the proto `ir_version` and `metadata_props`. `ModelAsset.export` runs `ExportSource.convert` at `get_latest_tested_opset_version()`, writes the graph, and re-validates with the source in hand so the manifest's `parity` verdict gates graduation.
+- Woven rail: `validate(lane)` and `export(lane, source)` are `async`, composing `lane.offload` on the family THREAD row (ONNX sessions and skl2onnx conversion are native work; compute mints no limiter) under the hub `evidence_run` weave — span from the `compute.model` scope row, `boundary` fence over the `@beartype(conf=FAULT_CONF)`-guarded kernels, and the fenced `@receipted(REDACTION)` harvest of the `ModelAssetManifest` contributor; the former page-local `_TRACER`/`_REDACTION` mints and `_emit` aspect are the deleted forms.
 - Graduation: `ModelAssetManifest.graduates(ceiling)` lowers the verdict ledger to the `residuals` map (`0.0` on pass, `1.0` on fail) and calls `GraduationReceipt.graduates("compute", HandoffAxis(model_asset=self.subject()), self.checksum, residuals, ceiling)`. A failed check is a residual `1.0` above the default `0.0` ceiling, so any failed verdict is an `Error(BoundaryFault)` rejection on the one residual-over-ceiling fold the handoff owner declares, never a second admission body here. The subject is the `producer` model-card entry.
 - Receipt: `ModelAssetManifest.contribute` yields one `Receipt.of("compute.model", ("emitted", subject, facts))` row (the `tuple[Receipt, ...]` the `ReceiptContributor` port streams) carrying io-names, opset, op-types, assigned providers, model-card, and the per-check ledger spread through each `ValidationEvidence.facts()`. The manifest crosses outward only through `graduates`, never a parallel emission path or a four-positional `Receipt.of` the factory does not admit.
-- Packages: `onnx` (`load`, `checker.check_model`, `checker.ValidationError`, `shape_inference.infer_shapes`, `shape_inference.InferenceError`, `helper.tensor_dtype_to_np_dtype`, `defs.onnx_opset_version`, `ModelProto`, `opset_import`, `graph.node`, `graph.input`, `metadata_props`, `ir_version`), `onnxruntime` (`InferenceSession`, `SessionOptions`, `GraphOptimizationLevel`, `get_inputs`, `get_outputs`, `get_providers`, `get_available_providers`, `get_modelmeta`, `run`, `NodeArg`, `ModelMetadata`), `skl2onnx` (`to_onnx` with `options={"zipmap": False}`, `get_latest_tested_opset_version`, `common.data_types.guess_data_type`, `sklapi.CastTransformer`), `scikit-learn` (`base.BaseEstimator`, `pipeline.Pipeline`, `compose.ColumnTransformer`, the `predict`/`predict_proba`/`decision_function` parity surface paired through `PROBE_RANK`), `numpy` (`zeros` at the declared element dtype, `astype` casting the parity feed, `isfinite`/`issubdtype` the numeric-output finiteness gate, `abs`, `asarray`), `expression` (`tagged_union`/`case`/`tag`, `Block.of_seq`/`choose`/`try_head`/`Some`/`Nothing`/`Option.default_value` the `PROBE_RANK` verb-rank Option fold, `Option.of_optional`/`Option.map`/`Option.to_list` the source-keyed parity-check tail, `Block.map(ValidationCheck.run)` the point-free verdict fold replacing a mutable `list`+`append`), `universal-pathlib` (`UPath` the `ResourceRef.path` filesystem/object-store handle the load/session/`read_bytes`/`write_bytes` ride, never stdlib `pathlib.Path`), `msgspec` (`Struct`, `gc=False` on the container-free `OperatorGate`/`ModelAsset` leaves, the tracked `ProbeRef` `ndarray` and the `ModelAssetManifest` `model_card` `dict` staying GC-tracked), `beartype` (`@beartype(conf=FAULT_CONF)`, `beartype.vale.Is` the `ParityArray`/`Residual` finiteness refinement), stdlib `math.isfinite` (the `Residual` predicate), `opentelemetry-api` (`trace.get_tracer`/`start_as_current_span`/`Status`/`StatusCode`), `graduation/handoff.md#GRADUATION` (`GraduationReceipt`, `HandoffAxis`), runtime (`RuntimeRail`, `boundary`, `FAULT_CONF`, `ContentIdentity`/`ContentKey` over the `CANONICAL_POLICY` default, `Receipt`/`ReceiptContributor`/`Redaction`/`receipted`, `ResourceRef`).
+- Packages: `onnx` (`load`, `checker.check_model`, `checker.ValidationError`, `shape_inference.infer_shapes`, `shape_inference.InferenceError`, `helper.tensor_dtype_to_np_dtype`, `defs.onnx_opset_version`, `ModelProto`, `opset_import`, `graph.node`, `graph.input`, `metadata_props`, `ir_version`), `onnxruntime` (`InferenceSession`, `SessionOptions`, `GraphOptimizationLevel`, `get_inputs`, `get_outputs`, `get_providers`, `get_available_providers`, `get_modelmeta`, `run`, `NodeArg`, `ModelMetadata`), `skl2onnx` (`to_onnx` with `options={"zipmap": False}`, `get_latest_tested_opset_version`, `common.data_types.guess_data_type`, `sklapi.CastTransformer`), `scikit-learn` (`base.BaseEstimator`, `pipeline.Pipeline`, `compose.ColumnTransformer`, the `predict`/`predict_proba`/`decision_function` parity surface paired through `PROBE_RANK`), `numpy` (`zeros` at the declared element dtype, `astype` casting the parity feed, `isfinite`/`issubdtype` the numeric-output finiteness gate, `abs`, `asarray`), `expression` (`tagged_union`/`case`/`tag`, `Block.of_seq`/`choose`/`try_head`/`Some`/`Nothing`/`Option.default_value` the `PROBE_RANK` verb-rank Option fold, `Option.of_optional`/`Option.map`/`Option.to_list` the source-keyed parity-check tail, `Block.map(ValidationCheck.run)` the point-free verdict fold replacing a mutable `list`+`append`), `universal-pathlib` (`UPath` the `ResourceRef.path` filesystem/object-store handle the load/session/`read_bytes`/`write_bytes` ride, never stdlib `pathlib.Path`), `msgspec` (`Struct`, `gc=False` on the container-free `OperatorGate`/`ModelAsset` leaves, the tracked `ProbeRef` `ndarray` and the `ModelAssetManifest` `model_card` `dict` staying GC-tracked), `beartype` (`@beartype(conf=FAULT_CONF)`, `beartype.vale.Is` the `ParityArray`/`Residual` finiteness refinement), stdlib `math.isfinite` (the `Residual` predicate), hub (`EvidenceScope`/`evidence_run` — the span/fence/harvest weave), `graduation/handoff.md#GRADUATION` (`GraduationReceipt`, `HandoffAxis`), runtime (`RuntimeRail`, `boundary`, `FAULT_CONF`, `ContentIdentity`/`ContentKey` over the `CANONICAL_POLICY` default, `Receipt`/`ReceiptContributor`/`Redaction`/`receipted`, `ResourceRef`).
 - Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, and one `run` arm; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal plus one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is one tighter ceiling row the caller supplies. Zero new surface, no `convert_<kind>` family, no second emit method.
 
 ```python signature
@@ -31,14 +31,13 @@ from beartype.vale import Is
 from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 from upath import UPath
 
-from rasm.compute.graduation.handoff import GraduationReceipt, HandoffAxis
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
@@ -63,8 +62,9 @@ type Residual = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v i
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_TRACER: Final[trace.Tracer] = trace.get_tracer("compute.model")
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # model facts carry no secret field
+# the model family modality row: ONNX sessions and skl2onnx conversion are native work riding
+# the runtime THREAD band; policy DATA, never a per-page literal.
+_MODALITY: Final[Modality] = Modality.THREAD
 _PARITY_TOL: Final[float] = 1e-4  # converter float32-vs-float64 numeric drift tolerance
 
 # the ordered parity probe rank: each row pairs a sklearn mixin verb with the ONNX output index
@@ -286,35 +286,35 @@ class ModelAssetManifest(Struct, frozen=True):
 
 # `gc=False`: a container-free leaf over the frozen `ResourceRef` handle and a `str`-tuple, off the
 # tracked set; the entry owner carries no per-instance mutable container.
+def _validate_kernel(asset: "ModelAsset") -> "RuntimeRail[ModelAssetManifest]":
+    return boundary("model.validate", lambda: asset._load_and_run(asset.ref.path, None))
+
+
+def _export_kernel(asset: "ModelAsset", source: "ExportSource", gating: "OperatorGate") -> "RuntimeRail[ModelAssetManifest]":
+    return boundary(f"model.export.{source.tag}", lambda: asset._export(source, gating))
+
+
 class ModelAsset(Struct, frozen=True, gc=False):
     ref: ResourceRef
     providers: tuple[str, ...] = ()
 
-    def validate(self) -> RuntimeRail[ModelAssetManifest]:
-        return self._traced("validate", lambda: self._load_and_run(self.ref.path, None))
+    async def validate(self, lane: LanePolicy) -> RuntimeRail[ModelAssetManifest]:
+        return await self._traced(lane, "validate", _validate_kernel, self)
 
-    def export(self, source: ExportSource, /, *, gating: OperatorGate = OperatorGate()) -> RuntimeRail[ModelAssetManifest]:
-        return self._traced(f"export.{source.tag}", lambda: self._export(source, gating))
+    async def export(self, lane: LanePolicy, source: ExportSource, /, *, gating: OperatorGate = OperatorGate()) -> RuntimeRail[ModelAssetManifest]:
+        return await self._traced(lane, f"export.{source.tag}", _export_kernel, self, source, gating)
 
-    def _traced(self, op: str, thunk: Callable[[], ModelAssetManifest]) -> RuntimeRail[ModelAssetManifest]:
-        # one woven rail: the `boundary` fence wraps the `@beartype(conf=FAULT_CONF)`-guarded thunk
-        # inside the one span, so a converter/checker/session raise folds onto the rail rather than
-        # escaping; the `Ok` arm sets OK and `@receipted` harvests the contributor stream on exit.
-        with _TRACER.start_as_current_span(f"content.model.{op}") as span:
-            rail = boundary(f"model.{op}", lambda: self._emit(thunk()))
-            match rail:
-                case Ok(manifest):
-                    if span.is_recording():
-                        span.set_attributes(manifest.span_facts)
-                    span.set_status(Status(StatusCode.OK))
-                case Error(_):
-                    pass
-            return rail
+    async def _traced(
+        self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeRail[ModelAssetManifest]"], *args: object
+    ) -> RuntimeRail[ModelAssetManifest]:
+        # the ONNX session/converter work offloads on the family THREAD row under the hub weave —
+        # span, fault fence, and the fenced `@receipted(REDACTION)` harvest composed; the
+        # module-level kernels cross the lane and a converter/checker/session raise converts at the
+        # fence — never a page-local tracer or `_emit` aspect.
+        async def dispatch() -> RuntimeRail[ModelAssetManifest]:
+            return (await lane.offload(kernel, *args, modality=_MODALITY)).bind(lambda rail: rail)
 
-    @staticmethod
-    @receipted(_REDACTION)
-    def _emit(manifest: ModelAssetManifest) -> ModelAssetManifest:
-        return manifest
+        return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch)
 
     @beartype(conf=FAULT_CONF)
     def _load_and_run(self, path: UPath, source: ExportSource | None) -> ModelAssetManifest:
@@ -398,4 +398,4 @@ class ModelAsset(Struct, frozen=True, gc=False):
         return self._load_and_run(self.ref.path, source)
 ```
 
-`ExportSource` owns the export, `ValidationCheck` owns the fold, and `ModelAsset.validate`/`export` weave the `boundary` fence, the `@beartype(conf=FAULT_CONF)` body, and the `@receipted` egress aspect under one `content.model.{op}` span. Both feeds route through one element-dtype-keyed construction off `onnx.helper.tensor_dtype_to_np_dtype`, so the parity run scores the estimator's own input rather than the zero feed, and the checksum is `match`ed off `ContentIdentity.of`'s `RuntimeRail[ContentKey]` inside the already-fenced body so an `Error` re-raises onto the `boundary`. The charter boundary holds at the model seam: validating and exporting a classical scikit-learn estimator graph is in-scope; authoring or training a neural model is not.
+`ExportSource` owns the export, `ValidationCheck` owns the fold, and `ModelAsset.validate`/`export` weave the `boundary` fence, the `@beartype(conf=FAULT_CONF)` body, and the `@receipted` egress aspect under one `model.{op}` span (the `EvidenceScope.MODEL` scope row). Both feeds route through one element-dtype-keyed construction off `onnx.helper.tensor_dtype_to_np_dtype`, so the parity run scores the estimator's own input rather than the zero feed, and the checksum is `match`ed off `ContentIdentity.of`'s `RuntimeRail[ContentKey]` inside the already-fenced body so an `Error` re-raises onto the `boundary`. The charter boundary holds at the model seam: validating and exporting a classical scikit-learn estimator graph is in-scope; authoring or training a neural model is not.

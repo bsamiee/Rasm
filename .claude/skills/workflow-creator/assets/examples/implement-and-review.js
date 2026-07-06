@@ -20,17 +20,21 @@ export const meta = {
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const MAX_ROUNDS = 3 // hard cap — every loop in a workflow needs one.
 
 // --- [INPUTS] ----------------------------------------------------------------------------
-// `args` arrives as structured data. This workflow expects a plain-text task
-// string; anything else falls back to the default.
+
+// `args` arrives as structured data. This workflow expects a plain-text task string; anything else falls back to the default.
 const task = typeof args === 'string' && args.trim() ? args : 'collapse the duplicate mesh codecs in libs/csharp/Rasm into one [Union]'
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 // The reviewer must answer two things: did it pass, and if not, what is wrong.
+// STRICT: additionalProperties:false + every property required (issues = required-but-empty on a pass).
 const REVIEW = {
   type: 'object',
+  additionalProperties: false,
   required: ['passed', 'issues'],
   properties: {
     passed: { type: 'boolean' },
@@ -49,8 +53,7 @@ let round = 0
 do {
   round++
 
-  // The reviewer is a fresh-context agent — it never saw the implementer's
-  // reasoning, so it grades the diff on its merits instead of rubber-stamping.
+  // The reviewer is a fresh-context agent — it never saw the implementer's reasoning, so it grades the diff on its merits instead of rubber-stamping.
   phase('Review')
   review = await agent(
     `Review the current uncommitted changes for: ${task}. List concrete, specific issues.`,

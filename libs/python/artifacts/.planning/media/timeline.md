@@ -24,7 +24,7 @@ from beartype.roar import BeartypeCallHintViolation
 from expression import Error, Result, case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 

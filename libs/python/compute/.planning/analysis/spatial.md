@@ -1,6 +1,6 @@
 # [PY_COMPUTE_SPATIAL]
 
-The one array-native computational-geometry owner over `scipy.spatial`. `SpatialQuery` is a `@tagged_union` discriminating Qhull tessellation, KD-tree proximity, the pairwise/condensed distance matrix, the rotation-and-alignment algebra, and the alpha-shape boundary fold over a point set, and `SpatialQuery.resolve` is the one total `match` folding every case to a `SpatialEvidence` discriminated outcome — `Proximity`, `Complex`, `Boundary`, or `Alignment` — that `SpatialReceipt` carries whole, the evidence owning its own `facts()` slot projection, exactly as `analysis/symbolic.md#OP` collapses its `Outcome` and the way the sibling `analysis/signal.md#DSP` and `analysis/transform.md#TRANSFORM` owners cite this owner for collapsing `Proximity`/`Complex`/`Boundary`. The point set admits through `numerics/array.md#PAYLOAD` so the `ArrayPayload.content_key` keys the receipt by `ContentIdentity` and a repeated query on identical points is a cache hit by reference. A data-driven `NEIGHBOUR_FLOOR` supplies a numpy brute-force pairwise reduction for the two KD-tree proximity routes so a runtime run with the scipy package absent still returns a `SpatialReceipt` rather than `Error(import_)`; the Qhull hull/Delaunay/Voronoi, the rotation algebra, and the distance matrix carry no floor because their backend is the gated capability itself. `@receipted` is the cross-cutting emit aspect so the point-cloud and sample-set neighbourhood evidence the study spine reads streams without an inline `emit`. This owner emits point-set evidence and never re-owns the geometry-branch `geometry/mesh/spatial.md#SPATIAL` `trimesh` mesh surface, meeting it only at the graduation wire.
+The one array-native computational-geometry owner over `scipy.spatial`. `SpatialQuery` is a `@tagged_union` discriminating Qhull tessellation, KD-tree proximity, the pairwise/condensed distance matrix, the rotation-and-alignment algebra, and the alpha-shape boundary fold over a point set, and `SpatialQuery.resolve` is the one total `match` folding every case to a `SpatialEvidence` discriminated outcome — `Proximity`, `Complex`, `Boundary`, or `Alignment` — that `SpatialReceipt` carries whole, the evidence owning its own `facts()` slot projection, exactly as `analysis/symbolic.md#OP` collapses its `Outcome` and the way the sibling `analysis/signal.md#DSP` and `analysis/transform.md#TRANSFORM` owners cite this owner for collapsing `Proximity`/`Complex`/`Boundary`. The point set admits through `numerics/array.md#PAYLOAD` so the operand admits once and the receipt keys the RESULT — `SpatialQuery.identity_buffer` folds the query tag, every scalar parameter, and the admitted `ArrayPayload.content_key` into one `ContentIdentity.of` derivation, so a repeated identical query is a cache hit by reference while two different queries over one point set never share a key. A data-driven `NEIGHBOUR_FLOOR` supplies a numpy brute-force pairwise reduction for the two KD-tree proximity routes so a runtime run with the scipy package absent still returns a `SpatialReceipt` rather than `Error(import_)`; the Qhull hull/Delaunay/Voronoi, the rotation algebra, and the distance matrix carry no floor because their backend is the gated capability itself. `@receipted` is the cross-cutting emit aspect so the point-cloud and sample-set neighbourhood evidence the study spine reads streams without an inline `emit`. This owner emits point-set evidence as compute-native receipts and never re-owns the geometry-branch `geometry/mesh/spatial.md#SPATIAL` `trimesh` mesh surface. It GRADUATES nothing on the `geometry` axis: geometry's own reconstruction plane mints `reconstructed-mesh` and the graduation direction is closed one-way — the alpha-shape `Boundary` stays a compute-native receipt product, and a re-graduation would require a named consumer plus a compute-owned axis case, never the geometry case.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ The one array-native computational-geometry owner over `scipy.spatial`. `Spatial
 - Owner: `SpatialQuery` — the array-native computational-geometry cases over a point set discriminated by the geometric question, never a per-query owner and never a `Neighbours`/`Hull`/`Triangulate` method family. `Neighbours(points, queries, k)` over `scipy.spatial.cKDTree.query` (the `workers=-1` thread-parallel k-nearest), `Radius(points, queries, radius)` over `cKDTree.query_ball_point`, `Pairs(points, radius)` over `cKDTree.query_pairs` (the within-set proximity graph), `Distances(left, right, metric)` over `scipy.spatial.distance.cdist` (cross-set) or `distance.pdist`+`squareform` (self, `right` empty) discriminated by the `Metric` vocabulary, `Hull(points)` over `scipy.spatial.ConvexHull`, `Triangulate(points)` over `scipy.spatial.Delaunay`, `Tessellate(points, kind, radius)` over `scipy.spatial.Voronoi`/`SphericalVoronoi`/`HalfspaceIntersection` discriminated by the `Tessellation` vocabulary, `AlphaShape(points, alpha)` folding the boundary from the Delaunay circumradius, and `Align(source, target)` over `scipy.spatial.transform.Rotation.align_vectors` (the rotation Kabsch fit) and `scipy.spatial.procrustes` (the optimal similarity disparity) — a paired correspondence fit, so `source` and `target` carry the same row count (`align_vectors` aligns the position-vector pairs and `procrustes` raises `ValueError` on a shape mismatch, that fault converting on the `boundary` fence). `solve` returns `RuntimeRail[SpatialReceipt]`, admitting the operand through `numerics/array.md#PAYLOAD` for the finite gate and `content_key`, folding the resolved `SpatialEvidence` to one `SpatialReceipt`, and recording the reference-set count through `SpatialQuery.cardinality` rather than the concatenated identity buffer's row count.
 - Outcome: `SpatialEvidence` is the `@tagged_union` parameterizing the result the way the input is parameterized — `Proximity(count, mean_distance, radius)` for the two KD-tree routes and the within-set `Pairs` graph, `Complex(kind, cardinality, measure)` for the Qhull hull/Delaunay/Voronoi/halfspace tessellation and the distance-matrix summary, `Boundary(facets, total_radius)` for the alpha-shape reconstruction, and `Alignment(rmsd, disparity)` for the Kabsch/procrustes fit — and `SpatialQuery.resolve` is the one total `match` over the union tag returning `SpatialEvidence`, closed by `assert_never`, so adding a query writes only its geometry body returning a `SpatialEvidence` rather than a parallel `_neighbours`/`_hull`/`_triangulate` helper family. The evidence owns its own `SpatialEvidence.facts()` slot projection so `Proximity` names `count`/`mean_distance`/`radius`, `Complex` names `kind`/`cardinality`/`measure`, `Boundary` names `facets`/`total_radius`, and `Alignment` names `rmsd`/`disparity` — the `Complex` `cardinality` is the primitive count the `kind` string discriminates (hull facets, Delaunay simplices, Voronoi ridges, halfspace vertices, distance pairs), never a `simplices` label lying over a pair count for the distance route, and never a coarse `(count, measure)` pair smuggling four distinct outcome vocabularies through two overloaded columns — the same self-projecting shape `analysis/transform.md#TRANSFORM` holds over `TransformEvidence.facts()` and `analysis/signal.md#DSP` over `Spectral`/`Multiresolution`/`Scale`/`Packet`.
 - Alpha-shape fold: `_alpha_shape` is the one local kernel beside the scipy queries — no `scipy.spatial` alpha-shape primitive exists. It triangulates the point set, computes each `Delaunay` simplex circumradius from its vertex coordinates through `np.linalg.solve` over the edge basis, retains the simplices whose circumradius is below `alpha`, and reduces them to the boundary facets appearing in exactly one retained simplex through `itertools.combinations(range(d+1), d)` over the facet-vertex subsets and `np.unique(..., return_counts=True)` — the reconstructed boundary the study spine reads, the facet enumeration the stdlib `combinations` primitive rather than a hand-rolled drop-one index generator. `_circumradius` is private to the kernel, not a module-level sibling of the dispatch.
-- Receipt: `SpatialReceipt.of(tag, points, key, evidence)` folds the `(query, points, content_key, evidence)` carrier with no per-case projection — the discrimination lives in `SpatialEvidence.facts()`, not a `match` over flattened columns — the same evidence-on-receipt carry `analysis/signal.md#DSP` and `analysis/symbolic.md#OP` hold. The `points` slot is the `SpatialQuery.cardinality` reference-set count, the leading coordinate buffer's row count, never the `query.points.shape[0]` concatenated identity buffer that sums `len(pts) + len(queries)` on the `neighbours`/`radius`/`align`/cross-`distances` two-set routes — the identity buffer concatenates both operands so a shared-`left` query keys distinctly, but the receipt's count is the geometric subject, the two concerns split across `points`/`cardinality` rather than conflated through one `operand.shape[0]`. `contribute` `yield`s into the `Iterable[Receipt]` the `runtime/observability/receipts#RECEIPT` `ReceiptContributor` Protocol declares (`contribute(self) -> Iterable[Receipt]`) — the one corpus-wide port-type annotation every owner carries, the `yield` body the analysis siblings use and the one-element tuple-return body the numerics/solver/graduation siblings use both satisfying it, never a narrowed `tuple[Receipt, ...]` annotation drifting from the port declaration — one `Receipt.of("compute.spatial", ("emitted", query_tag, facts))` row, the two-argument shape-polymorphic factory over the `(Phase, subject, facts)` `Evidence` triple, never a four-positional `Receipt.of("emitted", owner, subject, facts)` the factory does not admit, whose `facts` spreads the `query`/`points`/`content_key.project("hex")` render plus the matched `SpatialEvidence.facts()` slots a study run records. `solve` is the `RuntimeRail[SpatialReceipt]` boundary owner (the error arm carries no contributor), so emission is not an `@receipted` decorator on `solve` but the study spine harvesting the resolved `SpatialReceipt` contributor through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm — the same convention `analysis/signal.md#DSP` and `analysis/transform.md#TRANSFORM` hold, the receipt the contributor and the rail the boundary form. A reconstructed boundary graduates outward through `graduation/handoff.md#GRADUATION` on the `geometry` `HandoffAxis` case aligned to the scan companion at the wire, never crossing as a geometry-branch mesh.
+- Receipt: `SpatialReceipt.of(tag, points, key, evidence)` folds the `(query, points, content_key, evidence)` carrier with no per-case projection — the discrimination lives in `SpatialEvidence.facts()`, not a `match` over flattened columns — the same evidence-on-receipt carry `analysis/signal.md#DSP` and `analysis/symbolic.md#OP` hold. The `points` slot is the `SpatialQuery.cardinality` reference-set count, the leading coordinate buffer's row count, never the `query.points.shape[0]` concatenated identity buffer that sums `len(pts) + len(queries)` on the `neighbours`/`radius`/`align`/cross-`distances` two-set routes — the identity buffer concatenates both operands so a shared-`left` query keys distinctly, but the receipt's count is the geometric subject, the two concerns split across `points`/`cardinality` rather than conflated through one `operand.shape[0]`. `contribute` `yield`s into the `Iterable[Receipt]` the `runtime/observability/receipts#RECEIPT` `ReceiptContributor` Protocol declares (`contribute(self) -> Iterable[Receipt]`) — the one corpus-wide port-type annotation every owner carries, the `yield` body the analysis siblings use and the one-element tuple-return body the numerics/solver/graduation siblings use both satisfying it, never a narrowed `tuple[Receipt, ...]` annotation drifting from the port declaration — one `Receipt.of("compute.spatial", ("emitted", query_tag, facts))` row, the two-argument shape-polymorphic factory over the `(Phase, subject, facts)` `Evidence` triple, never a four-positional `Receipt.of("emitted", owner, subject, facts)` the factory does not admit, whose `facts` spreads the `query`/`points`/`content_key.project("hex")` render plus the matched `SpatialEvidence.facts()` slots a study run records. `solve` is the `RuntimeRail[SpatialReceipt]` boundary owner (the error arm carries no contributor), so emission is not an `@receipted` decorator on `solve` but the study spine harvesting the resolved `SpatialReceipt` contributor through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm — the same convention `analysis/signal.md#DSP` and `analysis/transform.md#TRANSFORM` hold, the receipt the contributor and the rail the boundary form. The alpha-shape `Boundary` stays a compute-native `SpatialReceipt` product — geometry's reconstruction plane owns the `reconstructed-mesh` mint and the graduation direction is closed one-way, so a compute-emitted geometry subject is the deleted form; an outward crossing would require a named consumer plus a compute-owned axis case, never the geometry case.
 - Packages: `scipy` (`spatial.cKDTree.query`/`query_ball_point`/`query_pairs`, `spatial.ConvexHull`, `spatial.Delaunay`, `spatial.Voronoi`, `spatial.SphericalVoronoi`, `spatial.HalfspaceIntersection`, `spatial.distance.cdist`/`pdist`/`squareform`, `spatial.transform.Rotation.align_vectors`, `spatial.procrustes` — every spelling catalogued in `compute/.api/scipy.md`'s `scipy.spatial` entrypoint table — and `optimize.linprog` for the halfspace cell's Chebyshev-centre interior point; each kernel binds `import scipy.spatial as sp` once at its head the way the `analysis/signal.md#DSP` and `analysis/transform.md#TRANSFORM` kernels bind `import scipy.signal as sig`/`import scipy.fft as fft`, so `resolve` stays a pure tag-dispatch with no `from scipy.spatial import` scattered across its arms), `numpy` (`asarray`, `einsum` the squared-distance/edge-basis contraction owner, `linalg.norm`, `linalg.solve`, `sort` the k-selection of the brute kNN floor, `sqrt`, `unique`, `concatenate`, `zeros`, `mean`, `count_nonzero`), `expression` (`tagged_union`/`tag`/`case` the `SpatialQuery` and `SpatialEvidence` ADTs, `Map` the `NEIGHBOUR_FLOOR` table), `msgspec` (`Struct(frozen=True)` the `SpatialReceipt`), `numerics/array.md#PAYLOAD` (`ArrayPayload.admit`/`ArraySource.Live`/`FiniteGate` admitting the point set and keying the `content_key`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor` from `runtime/receipts`, `ContentKey.project` carried by the admitted payload). The `runtime/observability/receipts#RECEIPT` `@receipted`/`Redaction` aspect is the study spine's harvest of the `Ok`-arm contributor, not an import this owner threads. `scipy.spatial` is not Array-API-aware (unlike the `scipy.fft` the sibling transform owner rides; the `analysis/signal.md#DSP` owner is itself numpy-bound because its `sosfiltfilt`/`welch`/`spectrogram`/`find_peaks`/`resample_poly` entrypoints are out-of-scope or skip-backend for jax/dask/torch in scipy 1.17), so the point set is the numpy `np.ndarray` the Qhull/KD-tree/BLAS backends bind, not the resolved `xp`.
 - Growth: a new spatial query is one `SpatialQuery` case plus one `resolve` arm returning a `SpatialEvidence`; a new evidence shape is one `SpatialEvidence` case plus one `facts()` arm (`SpatialReceipt` carries the evidence whole, so the receipt needs no edit); a new distance metric is one `Metric` row; a new tessellation backend is one `Tessellation` row; a new degrading route is one `NEIGHBOUR_FLOOR` table entry; zero new owner surface, never a per-query method family and never a re-implementation of the geometry-branch mesh surface.
 
@@ -27,7 +27,9 @@ from expression.collections import Map
 from msgspec import Struct
 
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
-from rasm.runtime.content_identity import ContentKey
+from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy, Modality
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
@@ -166,12 +168,12 @@ class SpatialQuery:
 
     @property
     def points(self) -> np.ndarray:
-        # the identity buffer the ArrayPayload admits and the ContentKey seeds, recovered from every
-        # case so admission and identity stay one path; the two-set routes (cross-distance, align)
-        # stack both operands so both coordinate buffers seed the key and a shared-`left` query with
-        # a distinct `right`/`target` never collides, the concatenated-`tobytes` key
-        # `numerics/statistics.md#STAT_CONTENT_KEY` holds over its one-or-two sample buffer. This is
-        # the *identity* operand, never the receipt's point count — `cardinality` carries that.
+        # the OPERAND buffer the ArrayPayload admits, recovered from every case so admission stays
+        # one path; the two-set routes (cross-distance, align) stack both operands so both coordinate
+        # buffers seed the operand key and a shared-`left` query with a distinct `right`/`target`
+        # never collides — the one-or-two-buffer discipline `numerics/statistics.md#STATISTICS`
+        # holds over `TestIntent.identity_buffer`. This is the admission operand, never the receipt's
+        # point count (`cardinality`) and never the result identity (`identity_buffer` folds that).
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(pts, qs, _)) | SpatialQuery(tag="radius", radius=(pts, qs, _)):
                 return np.concatenate([pts, qs])
@@ -190,6 +192,35 @@ class SpatialQuery:
                 return pts
             case _ as unreachable:
                 assert_never(unreachable)
+
+    def identity_buffer(self, operand_key: ContentKey) -> bytes:
+        # the RESULT identity, owned by the query: tag, every non-array parameter (`k`, radius,
+        # `Metric`/`Tessellation` value, alpha), and the operand key fold into the buffer, so two
+        # different queries over one point set never share a `SpatialReceipt.content_key` — the
+        # operand key names the admitted coordinates, this fold names the geometric result.
+        # Length-prefixed parts keep the buffer unambiguous; a new query case is one arm here.
+        row: tuple[object, ...]
+        match self:
+            case SpatialQuery(tag="neighbours", neighbours=(_, _, k)):
+                row = (k,)
+            case SpatialQuery(tag="radius", radius=(_, _, r)) | SpatialQuery(tag="pairs", pairs=(_, r)):
+                row = (r,)
+            case SpatialQuery(tag="distances", distances=(_, _, metric)):
+                row = (metric.value,)
+            case SpatialQuery(tag="tessellate", tessellate=(_, kind, r)):
+                row = (kind.value, r)
+            case SpatialQuery(tag="alpha_shape", alpha_shape=(_, alpha)):
+                row = (alpha,)
+            case SpatialQuery(tag="hull") | SpatialQuery(tag="triangulate") | SpatialQuery(tag="align"):
+                row = ()
+            case _ as unreachable:
+                assert_never(unreachable)
+        parts = (
+            self.tag.encode(),
+            operand_key.project("hex").encode(),
+            *(cell.encode() if isinstance(cell, str) else np.float64(cell).tobytes() for cell in row),
+        )
+        return b"".join(len(part).to_bytes(8, "big") + part for part in parts)
 
     @property
     def cardinality(self) -> int:
@@ -385,18 +416,34 @@ def _circumradius(simplex: np.ndarray) -> float:
     return float(np.linalg.norm(np.linalg.solve(base, rhs)))
 
 
-def solve(query: SpatialQuery) -> "RuntimeRail[SpatialReceipt]":
+# the family modality row: scan-scale Qhull/KD-tree work is native scipy riding the runtime THREAD band;
+# policy DATA, never a per-page literal, never a compute-minted limiter.
+_MODALITY: Final[Modality] = Modality.THREAD
+
+
+async def solve(query: SpatialQuery, lane: LanePolicy) -> "RuntimeRail[SpatialReceipt]":
     # `points` is the concatenated identity buffer (so a shared-`left` query keys distinctly);
     # `cardinality` is the reference-set count the receipt records, never the conflated
     # `len(pts) + len(queries)` sum the concatenated buffer's `shape[0]` carries on a two-set route.
-    return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
-        lambda payload: boundary(
-            f"spatial.{query.tag}", lambda: SpatialReceipt.of(query.tag, query.cardinality, payload.content_key, query.resolve())
+    # Scan-scale Qhull/KD-tree work is native scipy riding the runtime THREAD band — the composed
+    # fence the former worker-lane prose claimed; the weave owns span, fence, and receipt harvest.
+    def resolve(result_key: ContentKey) -> SpatialReceipt:
+        return SpatialReceipt.of(query.tag, query.cardinality, result_key, query.resolve())
+
+    def kernel() -> RuntimeRail[SpatialReceipt]:
+        # SYNCHRONOUS by contract: `lane.offload` takes a `Callable[..., T]` and an async def would
+        # hand the worker a coroutine object — the admit+fence body is the sync kernel, the sibling
+        # `analysis/signal.md#DSP` shape. Admission mints the OPERAND key; the receipt key is the
+        # query-owned RESULT identity folding tag, scalar parameters, and that operand key.
+        return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
+            lambda payload: ContentIdentity.of(f"spatial.{query.tag}", query.identity_buffer(payload.content_key)).bind(
+                lambda result_key: boundary(f"spatial.{query.tag}", lambda: resolve(result_key))
+            )
         )
-    )
+
+    async def dispatch() -> RuntimeRail[SpatialReceipt]:
+        # the one flatten from `RuntimeRail[RuntimeRail[SpatialReceipt]]` to `RuntimeRail[SpatialReceipt]`.
+        return (await lane.offload(kernel, modality=_MODALITY)).bind(lambda rail: rail)
+
+    return await evidence_run(EvidenceScope.SPATIAL, f"spatial.{query.tag}", dispatch)
 ```
-
-## [03]-[RESEARCH]
-
-- [SPATIAL_EVIDENCE]: the terminal `SpatialEvidence` `@tagged_union` over `Proximity`/`Complex`/`Boundary`/`Alignment` collapses what a flat `SpatialReceipt` of `(query, count, measure, content_key)` would have stored with the `measure` column overloaded across hull volume, Delaunay simplex count, Voronoi region count, and procrustes disparity into one discriminated outcome that `SpatialReceipt(query, points, content_key, evidence)` carries whole, the evidence owning its own `facts()` slot projection so each shape names its real vocabulary, mirroring `analysis/transform.md#TRANSFORM`'s `TransformEvidence.facts()` carry, `analysis/symbolic.md#OP`'s `Outcome` union, and `analysis/signal.md#DSP`'s `Spectral`/`Multiresolution`/`Scale`/`Packet` collapse; the `Alignment` case carries the Kabsch fit RMSD (`align_vectors` returns the root-sum-square deviation the fold normalizes by `sqrt(n)` to a sample-independent error) and the procrustes disparity, so the rotation algebra is first-class evidence rather than smuggled through a shared scalar, and a new outcome is one `SpatialEvidence` case plus one `facts()` arm rather than a new nullable field on a fat struct or a re-derived `SpatialReceipt.of` column.
-- [POINT_CONTENT_KEY]: `solve` admits the point set through `ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT)` from `numerics/array.md#PAYLOAD` and binds the resolved payload into the `boundary` thunk, so a non-finite point set returns the admission fault rather than producing a degenerate hull or a NaN-poisoned distance, the finite gate and identity resolve their namespace once inside admission through `array_namespace`, and the `ArrayPayload.content_key` keys the `SpatialReceipt` through `ContentIdentity` the way `numerics/statistics.md#STAT_CONTENT_KEY` keys its sample buffer — a repeated query on identical points a cache hit by reference. The `FiniteGate.REJECT` row forbids any non-finite (NaN or ±inf) at admission. The admission resolves the finite gate and `content_key` over the `query.points` buffer; the numpy-bound `scipy.spatial` kernels bind the per-case coordinate arrays (`pts`/`qs`/`left`/`right`/`source`/`target`) directly off the union — the admitted buffer is the finite/identity witness, not the compute operand, since `scipy.spatial` is not Array-API-aware and the two-set routes need the unconcatenated buffers (`cKDTree(pts)` binds the reference set, not the `[pts, qs]` identity concatenation). The owner never re-rolls the `array_namespace` dispatch, the `FiniteGate` masked reduction, or the `ascontiguousarray(...).tobytes()` canonical-buffer hashing the payload owner holds; `SpatialQuery.points` concatenates both operands on a two-set route so a shared-`left` query keys distinctly, while `SpatialQuery.cardinality` reads the leading buffer's row count for the receipt — admission, identity, and count stay one path across the union without conflating the two-set identity buffer into the point count.

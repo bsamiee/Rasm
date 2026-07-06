@@ -6,6 +6,7 @@ export const meta = {
 }
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 // args = array of file paths, arriving as structured data. Defaults keep it runnable —
 // the interchange decode files that all read one C# wire and must stay mutually consistent.
 const FILES = Array.isArray(args) && args.length ? args : [
@@ -17,18 +18,22 @@ const FILES = Array.isArray(args) && args.length ? args : [
 ]
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const EDIT = { type: 'object', additionalProperties: false, required: ['file', 'verdict'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['edited', 'clean'] }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
+
+// STRICT everywhere: additionalProperties:false + every property required at every level.
+// `residual` is required-but-empty: an empty array attests the cross-file scan ran and found nothing.
+const EDIT = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'residual'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['edited', 'clean'] }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 const FIXED = { type: 'object', additionalProperties: false, required: ['files', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const VERIFY = { type: 'object', additionalProperties: false, required: ['claims'], properties: { claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'resolved'], properties: { claim: { type: 'string' }, resolved: { type: 'boolean' }, evidence: { type: 'string' } } } } } }
+const VERIFY = { type: 'object', additionalProperties: false, required: ['claims'], properties: { claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'resolved', 'evidence'], properties: { claim: { type: 'string' }, resolved: { type: 'boolean' }, evidence: { type: 'string' } } } } } }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 // Steady worker pool — holds a true steady state of <=cap long chains; preferred over
 // parallel(thunks) once the file list grows to hundreds of long multi-stage edits (pattern #14).
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let i = 0
-  let gate = Promise.resolve()                                            // serialized launch gate:
+  let gate = Promise.resolve()                                              // serialized launch gate:
   const launch = () => { gate = gate.then(() => sleep(1500)); return gate } // launches spaced ~1500ms
   const run = async () => { while (i < items.length) { const k = i++; await launch(); out[k] = await worker(items[k], k) } }
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
@@ -68,6 +73,7 @@ let hard = []
 if (clusters.length) {
   phase('Reconcile')
   // Disjoint clusters write non-overlapping files, so per-cluster fixers run concurrently with no collision (no worktree).
+  // Per-cluster paste is small-output-only; a heavy cluster (~50+ rows) moves to a scratch report file + receipt — SKILL.md "Data flow between stages".
   const out = (await pipeline(
     clusters,
     (cl) => agent('Fix these cross-file deferrals in place. Read EVERY listed file; make the shared fix once, consistently, regress nothing.\n' + JSON.stringify(cl, null, 1), { label: 'fix', phase: 'Reconcile', schema: FIXED }),
@@ -77,4 +83,5 @@ if (clusters.length) {
   // A separate verifier with one-verdict-per-claim PROVES completeness: a dropped claim cannot validate.
   hard = out.flatMap((o) => ((o.v && o.v.claims) || []).filter((c) => !c.resolved).map((c) => c.claim))
 }
+
 return { files: FILES.length, clusters: clusters.length, unresolved: hard }
