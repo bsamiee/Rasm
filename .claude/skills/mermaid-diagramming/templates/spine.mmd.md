@@ -37,4 +37,4 @@ flowchart LR
     class Fault error
 ```
 
-Refill law: rename stages to the real owner set, keep the single gate, and route every stage that can fail onto the one rail with a dotted edge — solid edges carry the walked path, dotted edges carry the fault hops.
+Refill by renaming stages to the real owner set, keep the single gate, and route every stage that can fail onto the one rail with a dotted edge — solid edges carry the walked path, dotted edges carry the fault hops.

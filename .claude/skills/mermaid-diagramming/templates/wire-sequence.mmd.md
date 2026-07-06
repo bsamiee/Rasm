@@ -51,4 +51,4 @@ sequenceDiagram
     deactivate R
 ```
 
-Refill law: rename the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work.
+Refill by renaming the participants to the real boundary pair and keep the invariants — one named frame shape, a return in every arm, a break for the abort path, activation only around owned work.

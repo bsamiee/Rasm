@@ -7,8 +7,9 @@ Kind is detected from the H1 suffix token (_DECISIONS, _DIRECTIONS, _ROADMAP, _B
 _CAPABILITIES) and bound to its template. Checks: kind (H1 resolves to a known template),
 slot-residue (unfilled template slots outside fences and code spans), heading-census (section
 token sequence equals the template's, sanctioned optional sections may be absent, numbering
-sequential from 01), leader-vocab (uppercase leader tokens drawn from the template's declared
-vocabularies plus the axis catalog). Templates themselves fail slot-residue by construction;
+sequential from 01, present sections in template order), leader-vocab (leader tokens drawn from
+the template's declared vocabularies, plus the axis catalog for the blindspot ledger).
+Templates themselves fail slot-residue by construction;
 the gate takes instances. Output: `file:line: FAIL <check> <detail>` per hit; --json emits
 NDJSON rows {"file","line","check","status","detail"}. An unreadable file emits one read fail.
 """
@@ -39,6 +40,7 @@ FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 H1 = re.compile(r"^# \[(.+)\]\s*$")
 HEADING = re.compile(r"^## \[(\d{2})\]-\[([A-Z0-9_]+)\]\s*$")
 LEADER = re.compile(r"^\s*- \[([^\]]+)\](?:-\[([^\]]+)\])?(?:-\[([^\]]+)\])?:")
+LEADER_ID = re.compile(r"^[A-Z]?\d{2,}$")
 CODE_SPAN = re.compile(r"`+[^`]*`+")
 SLOT = re.compile(r"<[a-z][a-z0-9|]*(?:-[a-z0-9|<>]+)*>")
 VOCAB_LINE = re.compile(r"^\[([A-Z_]+)\]:(.+)$")
@@ -110,6 +112,8 @@ def scan(path: Path) -> list[Row]:
     if not kind:
         return [Row(1, "kind", f"H1 suffix {suffix or 'missing'} resolves to no template")]
 
+    allowed = vocabulary(kind)
+    prefixes = {t.split(":")[0] for t in allowed}
     in_fence = False
     for n, line in enumerate(lines, 1):
         if FENCE.match(line):
@@ -118,6 +122,14 @@ def scan(path: Path) -> list[Row]:
         if in_fence:
             continue
         rows.extend(Row(n, "slot-residue", m.group(0)) for m in SLOT.finditer(CODE_SPAN.sub(" ", line)))
+        if (m := LEADER.match(line)) is not None:
+            if m.group(2) and not LEADER_ID.match(m.group(1)):
+                rows.append(Row(n, "leader-id", f"[{m.group(1)}] outside the id grammar"))
+            rows.extend(
+                Row(n, "leader-vocab", f"[{token}] outside declared vocabulary")
+                for token in (m.group(2), m.group(3))
+                if token and token.split(":")[0] not in prefixes
+            )
 
     template_text = (TEMPLATE_DIR / f"{kind}.md").read_text(encoding="utf-8", errors="replace")
     want = [token for _, _, token in headings(template_text)]
@@ -125,22 +137,12 @@ def scan(path: Path) -> list[Row]:
     optional = OPTIONAL_SECTIONS.get(kind, set())
     required = [t for t in want if t not in optional]
     got_tokens = [t for _, _, t in got]
-    if [t for t in got_tokens if t in required] != required or any(t not in want for t in got_tokens):
+    present = set(got_tokens)
+    if not set(required) <= present or [t for t in want if t in present] != got_tokens:
         rows.append(Row(0, "heading-census", f"sections {got_tokens} against template {want}"))
     for i, (n, num, _) in enumerate(got, 1):
         if int(num) != i:
             rows.append(Row(n, "heading-census", f"number [{num}] out of sequence, expected [{i:02d}]"))
-
-    allowed = vocabulary(kind)
-    prefixes = {t.split(":")[0] for t in allowed}
-    for n, line in enumerate(lines, 1):
-        if (m := LEADER.match(line)) is None:
-            continue
-        rows.extend(
-            Row(n, "leader-vocab", f"[{token}] outside declared vocabulary")
-            for token in (m.group(2), m.group(3))
-            if token and token.isupper() and token.split(":")[0] not in prefixes
-        )
     return rows
 
 

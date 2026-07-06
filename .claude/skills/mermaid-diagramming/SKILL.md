@@ -94,7 +94,8 @@ A faulted fence converges on its own source across at most five render-inspect-e
 
 - When to diagram, investigation, node and edge law, type selection, soundness audit, multi-diagram composition: [references/methodology.md](references/methodology.md)
 - Per-type construction — the question each type answers, what its marks assert, failure modes, truth tests: [references/construction.md](references/construction.md)
-- Dracula palette, role map, base theme block, classDef and linkStyle rails, dual-host contrast, Alucard: [references/theming.md](references/theming.md)
+- Dracula palette, role map, base theme block, canonical classDef rails, dual-host contrast, Alucard: [references/theming.md](references/theming.md)
+- The full styling grammar — every link form and length, the complete shape registry, containers, style precedence with its interaction traps, the per-type styling matrix: [references/styling.md](references/styling.md)
 - Frontmatter schema, secure keys, layout engines and ELK tuning, look system, accessibility, mmdc and CI, trap list: [references/config.md](references/config.md)
 - Advanced flowchart, sequence, state, class, and ER — shape registry, edge IDs, markdown strings, KaTeX, version gates: [references/syntax-core.md](references/syntax-core.md)
 - The full type roster beyond the core five, each with its minimal fence, version gate, and traps: [references/syntax-extended.md](references/syntax-extended.md)

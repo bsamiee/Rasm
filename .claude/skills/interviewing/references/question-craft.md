@@ -1,6 +1,6 @@
 # [QUESTION_CRAFT]
 
-Composition law for every round: how a question earns its slot, how evidence is extracted instead of opinion, how settled answers are challenged, and how the record stays honest. The always-hot core rides in the skill entry; this page is the depth loaded when composing rounds.
+Composition law for every round: how a question earns its slot, how evidence is extracted instead of opinion, how settled answers are challenged, how the interviewer holds its own stance, and how the record stays honest. The always-hot core rides in the skill entry; this page is the depth loaded when composing rounds.
 
 ## [01]-[WORTH_A_ROUND]
 
@@ -10,7 +10,7 @@ A question earns its round only when all three hold:
 - Consequential: At least two options lead to materially different work. A question with one sane answer is a statement wearing a question mark — state it and move on.
 - Ranked: Among the undetermined and consequential, the question whose answer invalidates the most downstream decisions leads. Architecture outranks interface outranks wording, and the load-bearing question is asked first even when it is uncomfortable.
 
-Prepare the three highest-value learning targets before any round opens; a round without a prepared target is theater regardless of how the conversation feels.
+Prepare the three highest-value learning targets before any round opens; a round without a prepared target is theater regardless of how the conversation feels. Open on low-burden ground the user knows well, and run a screening question that decides whether a whole line exists before any question inside that line.
 
 ## [02]-[EVIDENCE_EXTRACTION]
 
@@ -33,27 +33,39 @@ Settled judgments get challenged by structure, not by tone; each protocol has it
 - [INVERSION] — Trigger: a stated goal. Assume the goal is met and the outcome still counts as failure; the causes name the constraints the goal statement omitted.
 - [MARKED_ADVOCACY] — Trigger: one dominant view with no live alternative. Build the strongest contrary case — most vulnerable assumption, contrary evidence, neglected alternative — and mark it explicitly as the contrarian exercise so the record never confuses the challenge with the ruling.
 
-## [04]-[OPTIONS_AND_BATCHES]
+## [04]-[INTERVIEWER_DISCIPLINE]
+
+The interviewer's own agreement drift is a failure engine on par with the user's compliance; stance is held by structure.
+
+- A pushback earns a concession only through a new fact: re-derive the challenged finding from its anchor first, and record the forcing fact beside any concession. A concession without a recorded forcing fact is re-opened next round — an unforced flip poisons every round that inherits it.
+- The user's certainty is not evidence: a first-person conviction enters the record as a reported belief in third person and is tested as an assumption like any other. Certainty raises the challenge bar, never lowers it.
+- Evidence the user supplies in rebuttal is untrusted until verified on disk or against the confrontation set; a fluent, evidence-shaped rebuttal is the highest-risk input for a wrongful flip, and verification precedes any stance change.
+- The user's premise is quarantined before it is inherited: restate the claim in the interviewer's own terms, check it against the corpus, and only then build questions inside it. A false premise absorbed silently frames every downstream round.
+- Answers are recorded and probed, never graded: praise, quality ratings, and "good point" mirror the user back at themselves and buy agreement with the next challenge.
+
+## [05]-[OPTIONS_AND_BATCHES]
 
 - Options are probes, not menus: each names its cost or consequence, cites its confrontation-set anchor where one exists, and the `(Recommended)` marker leads only where one option dominates. A preview carries a concrete artifact — schema shape, worked example, rendered direction — when the choice is between comparable forms.
-- Free-text is the escape valve, not the plan: a question expecting "Other" was not ready to ask.
+- Options state competing resolutions, never one proposition to ratify: an agree-or-disagree question harvests acquiescence, and each option label carries its construct — "keep the dual rail, absorbing the drift cost" over a bare "yes".
+- Option order reads as a ranking whether or not one is intended: the first position carries primacy weight, so order by impact deliberately and never bury the live option last.
+- The escape row is a state report, not an evasion: "outside my knowledge" and "needs investigation" are legitimate answers that route the question to the corpus or a delegation leg. Free-text "Other" is the valve for an option set that missed; a question expecting it was not ready to ask.
 - Each question stands independent of the others' answers; a dependent question waits for the next round, and a cascade of dependents signals a one-question round.
 - A batch stays narrow enough that every option is a real tradeoff; a survey-sized batch makes the user pick defaults.
 - The question budget is part of the protocol: roughly ten per session, nonessential gaps defaulted with the default named in the record. When the budget nears exhaustion with decisions still landing, the remaining questions collapse into one wide batch ranked by impact.
 - When the user hesitates on an open question, convert it to a closed menu of concrete options with costs; hesitation signals the question outran the user's vocabulary, not their intent.
 
-## [05]-[STARTING_POINT]
+## [06]-[STARTING_POINT]
 
 Open by establishing the user's position, not the task's: where they are in their thinking, what they tried, what they already rejected and why. The same request from a user who explored the space for a week and one who thought of it an hour ago needs opposite interviews — depth for the first, framing for the second. Give this position to every downstream round: it decides which bucket dominates and which mode leads.
 
-## [06]-[RECORDING]
+## [07]-[RECORDING]
 
 - Every round appends to the ruling record: question, ruling, consequence, and the ruling's mark — fact (anchored evidence), assumption (must-be-true, unverified), inference (derived, named premises), open (tracked, unresolved).
 - Marks are load-bearing: an assumption entering a durable artifact carries its mark and its invalidating condition; a fact carries its anchor.
 - An entry overturned later is edited in place with the superseding ruling, never duplicated; the record reads as current law, not as a transcript.
 - Conflicts get their own entry: the two rulings, the question that surfaced the conflict, and the resolution with its consequence.
 
-## [07]-[EXIT_TESTS]
+## [08]-[EXIT_TESTS]
 
 Each stage carries an explicit completion criterion; a stage with no criterion runs past its gap.
 

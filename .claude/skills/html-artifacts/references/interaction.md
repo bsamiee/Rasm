@@ -2,7 +2,11 @@
 
 Each pattern drops into the one `<script>`/`<style>` pair and earns its place only by the reader question it answers. One document-level listener owns each concern, native primitives own every overlay and disclosure the platform ships, and every injected string escapes through `textContent` before a span wraps it.
 
-## [01]-[THEME_TOGGLE]
+## [01]-[FOUNDATION]
+
+Two preludes ride every artifact: the theme stamp and the escape gate.
+
+[THEME_TOGGLE]:
 
 Stamps `data-theme` on `documentElement`; dark is the shipped default, a `localStorage` slug key restores the last choice where the origin grants storage.
 
@@ -17,7 +21,7 @@ document.addEventListener("click", e => {
 });
 ```
 
-## [02]-[ESCAPE_RENDER]
+[ESCAPE_RENDER]:
 
 Source, diff, and answer text reaches the DOM escaped through a detached node; an injected string never renders as trusted HTML.
 
@@ -25,7 +29,11 @@ Source, diff, and answer text reaches the DOM escaped through a detached node; a
 const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
 ```
 
-## [03]-[EXPORT_BAR]
+## [02]-[EGRESS]
+
+Egress moves state out of the page: the export bar is the durable rail, every clipboard write keeps a visible fallback, and a draft is never the record.
+
+[EXPORT_BAR]:
 
 A `snapshot()` reads live UI state; one control copies markdown, one downloads JSON, and a readonly mirror shows what leaves.
 
@@ -50,7 +58,36 @@ document.addEventListener("click", e => {
 });
 ```
 
-## [04]-[POPOVER_ANCHOR]
+[COPY_CLIPBOARD]:
+
+One listener copies the element named by a button's `data-copy` selector; prose and tables write both `text/html` and `text/plain` so a paste lands clean in a doc or an issue, tokens and commands write plain text, and the toast confirms.
+
+```js
+const copyRich = (html, text) => navigator.clipboard.write([new ClipboardItem({
+  "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([text], { type: "text/plain" }),
+})]);
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-copy]"), src = b && document.querySelector(b.dataset.copy); if (!src) return;
+  navigator.clipboard?.writeText(src.textContent).then(() => flash("Copied"));
+});
+```
+
+[DRAFT_PERSIST]:
+
+A namespaced `localStorage` draft protects in-session edits, restored on load and saved debounced; a `file://` origin may withhold storage, so the export is the durable record, never the draft.
+
+```js
+const draftKey = "draft:" + themeKey.slice(6);
+try { const s = localStorage.getItem(draftKey); if (s) writeState(JSON.parse(s)); } catch {}
+let saveTimer;
+document.addEventListener("input", () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify(readState())); } catch {} }, 250); });
+```
+
+## [03]-[OVERLAYS]
+
+The top layer owns every transient surface; the browser owns dismiss, focus, and stacking.
+
+[POPOVER_ANCHOR]:
 
 Menus, tooltips, inspector panels, and transient status toasts ride the top layer as a native `popover`; an anchored panel tethers to its trigger by anchor positioning while a `popover="manual"` toast a timer auto-hides carries copy and save feedback, and the browser owns light-dismiss, escape close, and stacking. Entry animates from `@starting-style` with `display` flipped discretely; a `commandfor`/`command` button toggles a panel declaratively against the newest engines.
 
@@ -73,7 +110,7 @@ let toastTimer;
 const flash = msg => { toast.textContent = msg; toast.showPopover(); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidePopover(), 1600); };
 ```
 
-## [05]-[DIALOG]
+[DIALOG]:
 
 A confirm or destructive-choice flow is a native `<dialog>`; `showModal()` makes the page inert, `form method="dialog"` closes on the chosen `value`, and `returnValue` carries the decision back with no focus-trap or backdrop plumbing. A `commandfor`/`command` button opens it declaratively.
 
@@ -91,7 +128,11 @@ document.addEventListener("click", async e => {
 });
 ```
 
-## [06]-[COLLAPSIBLE]
+## [04]-[DISCLOSURE]
+
+Disclosure keeps the spine short while depth loads in place.
+
+[COLLAPSIBLE]:
 
 Plan sections, critique records, and glossary entries are native `<details>`; a shared `name` makes a group mutually exclusive with no accordion script, `::details-content` styles the open box, and `:has(> details[open])` lifts the owning section. Print expands every disclosure; height interpolation is an enhancement the reveal never depends on.
 
@@ -110,7 +151,7 @@ addEventListener("beforeprint", () => document.querySelectorAll("details").forEa
 addEventListener("afterprint", () => document.querySelectorAll("details").forEach(d => { d.open = d.dataset.wasOpen === "true"; }));
 ```
 
-## [07]-[TABS]
+[TABS]:
 
 A tablist wires `role=tab`/`tablist`/`tabpanel`; the active tab holds `tabindex=0` and the rest `-1`, arrow keys roll focus, and one delegated listener drives selection and panel visibility.
 
@@ -135,7 +176,11 @@ document.addEventListener("keydown", e => {
 });
 ```
 
-## [08]-[FILTER]
+## [05]-[COLLECTIONS]
+
+Collection patterns narrow, reorder, and traverse repeated records; the model stays the source and the DOM follows.
+
+[FILTER]:
 
 A live query narrows any `[data-filter]` collection inside a `<search>` landmark; a fixed facet set drops the script entirely, since `:has(input:checked)` flows the checked state upward to hide the misses. A criterion selector lifts one row across parallel cards so a single axis reads at a glance.
 
@@ -159,7 +204,45 @@ document.addEventListener("change", e => {
 });
 ```
 
-## [09]-[DIFF]
+[DRAG_BOARD]:
+
+Work items drag across buckets with move state reduced to card id plus target bucket; the model re-renders after each drop and DOM position is never authoritative.
+
+```js
+document.addEventListener("dragstart", e => { const c = e.target.closest("[data-id]"); if (c) e.dataTransfer.setData("text/plain", c.dataset.id); });
+document.addEventListener("dragover", e => { if (e.target.closest("[data-bucket]")) e.preventDefault(); });
+document.addEventListener("drop", e => {
+  const b = e.target.closest("[data-bucket]"); if (!b) return;
+  moveCard(e.dataTransfer.getData("text/plain"), b.dataset.bucket); render();
+});
+```
+
+[KEYBOARD_NAV]:
+
+A skip link jumps to `#main`; a grid or list is one roving-tabindex composite, so arrow keys move focus across cells while the collection holds a single tab stop.
+
+```html
+<a class="skip" href="#main">Skip to content</a><main id="main" tabindex="-1"></main>
+```
+
+```css
+.skip { position: absolute; left: -9999px }
+.skip:focus { left: var(--s4); top: var(--s4); position: fixed; background: var(--raised); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r1) }
+```
+
+```js
+document.addEventListener("keydown", e => {
+  const cell = e.target.closest("[data-cell]"), step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 1, ArrowUp: -1 }[e.key]; if (!cell || !step) return;
+  const cells = [...cell.closest("[data-roving]").querySelectorAll("[data-cell]")], n = cells[Math.max(0, Math.min(cells.length - 1, cells.indexOf(cell) + step))];
+  cells.forEach(c => { c.tabIndex = -1; }); n.tabIndex = 0; n.focus(); e.preventDefault();
+});
+```
+
+## [06]-[REVIEW]
+
+Review renders change as data beside critique.
+
+[DIFF]:
 
 The patch renders as a preserved line stream beside a sticky annotation rail; a two-column grid keeps code and critique synchronized, subgrid aligns hunk rows, and each line escapes before it renders. An editor freezes a `structuredClone` baseline at load and derives every change against it, so the data model is the source of truth, never the DOM.
 
@@ -179,20 +262,11 @@ const baseline = structuredClone(readState());
 const changedKeys = () => { const now = readState(); return Object.keys(now).filter(k => now[k] !== baseline[k]); };
 ```
 
-## [10]-[DRAG_BOARD]
+## [07]-[NARRATIVE]
 
-Work items drag across buckets with move state reduced to card id plus target bucket; the model re-renders after each drop and DOM position is never authoritative.
+Narrative patterns walk a reader through an argument and keep position shareable.
 
-```js
-document.addEventListener("dragstart", e => { const c = e.target.closest("[data-id]"); if (c) e.dataTransfer.setData("text/plain", c.dataset.id); });
-document.addEventListener("dragover", e => { if (e.target.closest("[data-bucket]")) e.preventDefault(); });
-document.addEventListener("drop", e => {
-  const b = e.target.closest("[data-bucket]"); if (!b) return;
-  moveCard(e.dataTransfer.getData("text/plain"), b.dataset.bucket); render();
-});
-```
-
-## [11]-[DECK]
+[DECK]:
 
 A small state machine over `<section class="slide">` holds one active slide; arrow keys and buttons advance, a counter shows position, and `startViewTransition` wraps the swap as a guarded enhancement that degrades to an instant cut. An inline stepper is the same machine over `<li>` stages: one active step carries `aria-current`, and a typed `@property` variable fills the progress meter.
 
@@ -214,7 +288,7 @@ addEventListener("keydown", e => { const d = { ArrowRight: 1, ArrowLeft: -1 }[e.
 paint();
 ```
 
-## [12]-[SCRUB_CONTROL]
+[SCRUB_CONTROL]:
 
 A slider or segmented control binds to one state object; each input recomputes the object and repaints the SVG figure and metric readout, so the reader drives the explainer live.
 
@@ -231,7 +305,7 @@ document.addEventListener("input", e => { const c = e.target.closest("[data-scru
 paintFig();
 ```
 
-## [13]-[DEEP_LINK]
+[DEEP_LINK]:
 
 On load the page scrolls to the hash target and marks its TOC anchor active; `URLSearchParams` packed onto the fragment carries selected tab, lane, filter, and theme, so a reopened file restores its view with no storage.
 
@@ -246,28 +320,7 @@ const markActive = () => {
 addEventListener("hashchange", markActive); markActive();
 ```
 
-## [14]-[KEYBOARD_NAV]
-
-A skip link jumps to `#main`; a grid or list is one roving-tabindex composite, so arrow keys move focus across cells while the collection holds a single tab stop.
-
-```html
-<a class="skip" href="#main">Skip to content</a><main id="main" tabindex="-1"></main>
-```
-
-```css
-.skip { position: absolute; left: -9999px }
-.skip:focus { left: var(--s4); top: var(--s4); position: fixed; background: var(--raised); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r1) }
-```
-
-```js
-document.addEventListener("keydown", e => {
-  const cell = e.target.closest("[data-cell]"), step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 1, ArrowUp: -1 }[e.key]; if (!cell || !step) return;
-  const cells = [...cell.closest("[data-roving]").querySelectorAll("[data-cell]")], n = cells[Math.max(0, Math.min(cells.length - 1, cells.indexOf(cell) + step))];
-  cells.forEach(c => { c.tabIndex = -1; }); n.tabIndex = 0; n.focus(); e.preventDefault();
-});
-```
-
-## [15]-[MARGIN_NOTE]
+[MARGIN_NOTE]:
 
 Definitions and caveats float beside the claim as sidenotes with a sticky glossary rail; a container query collapses them to block flow when the column narrows, so the argument stays unbroken at any width.
 
@@ -276,29 +329,4 @@ Definitions and caveats float beside the claim as sidenotes with a sticky glossa
 .glossary { position: sticky; top: var(--s4); align-self: start; font-size: var(--f1) }
 .sidenote { float: right; clear: right; width: 38%; margin-right: -42%; font-size: var(--f1); color: var(--muted) }
 @container explainer (width < 40rem) { .explainer { display: block } .sidenote { float: none; width: auto; margin: var(--s2) 0 } }
-```
-
-## [16]-[DRAFT_PERSIST]
-
-A namespaced `localStorage` draft protects in-session edits, restored on load and saved debounced; a `file://` origin may withhold storage, so the export is the durable record, never the draft.
-
-```js
-const draftKey = "draft:" + themeKey.slice(6);
-try { const s = localStorage.getItem(draftKey); if (s) writeState(JSON.parse(s)); } catch {}
-let saveTimer;
-document.addEventListener("input", () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify(readState())); } catch {} }, 250); });
-```
-
-## [17]-[COPY_CLIPBOARD]
-
-One listener copies the element named by a button's `data-copy` selector; prose and tables write both `text/html` and `text/plain` so a paste lands clean in a doc or an issue, tokens and commands write plain text, and the toast confirms.
-
-```js
-const copyRich = (html, text) => navigator.clipboard.write([new ClipboardItem({
-  "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([text], { type: "text/plain" }),
-})]);
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-copy]"), src = b && document.querySelector(b.dataset.copy); if (!src) return;
-  navigator.clipboard?.writeText(src.textContent).then(() => flash("Copied"));
-});
 ```

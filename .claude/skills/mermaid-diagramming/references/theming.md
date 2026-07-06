@@ -159,7 +159,7 @@ classDef success fill:#50FA7B,stroke:#50FA7B,color:#282A36
 classDef error fill:#FF5555,stroke:#FF5555,color:#282A36
 classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
 classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
-classDef annotation fill:#44475A,stroke:#6272A4,color:#F8F8F2
+classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
 ```
 
 The edge-rail pattern — default Pink, success Green, error Red, external Cyan:
@@ -171,13 +171,6 @@ linkStyle 2 stroke:#FF5555,color:#F8F8F2
 linkStyle 3 stroke:#8BE9FD,color:#F8F8F2
 ```
 
-- `classDef` declares at diagram root after the nodes it styles; declared above them it renders unstyled.
-- `:::name` or `class a,b name` applies a class to its nodes.
-- `linkStyle` indexes edges 0-based in declaration order; `linkStyle default` covers all edges.
-- Edge IDs own animate and curve metadata, never stroke or label color — those stay on `linkStyle`.
-- Commas inside `stroke-dasharray` escape as `\,`.
-- Notes, namespaces, and subgraph titles are not styleable.
-- State `classDef` never applies to `[*]` or composite states.
 
 ## [05]-[DUAL_HOST]
 

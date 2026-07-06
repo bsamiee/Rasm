@@ -125,7 +125,6 @@ A sandboxed or root CI passes Puppeteer launch args through `--puppeteerConfigFi
 - TreeView icons need registered packs; an unregistered icon renders as `?`.
 - Flowchart image shapes distort the node box without `constraint: on`.
 - Sequence actor links and menus die under strict-security or sandboxed hosts.
-- Flowchart subgraph direction is inherited from the parent when any node inside links outside.
 - Sankey CSV must have exactly three columns; blank lines are permitted only without comma separators.
 - `architecture.randomize: false` is not determinism — `architecture.seed` is the lock.
 - Architecture `align row|column` fails when declared order contradicts a directional-edge constraint.

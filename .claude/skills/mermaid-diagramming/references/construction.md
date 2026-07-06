@@ -2,7 +2,9 @@
 
 Per-type construction binds here — the question a type answers, what its marks assert, and the characteristic failure modes and truth tests that type carries. Type selection and the general soundness audit stay methodology's property.
 
-## [01]-[FLOWCHART]
+## [01]-[CORE_TYPES]
+
+[FLOWCHART]:
 
 - Question: what exists and how same-level parts relate under one relation.
 - Node: an owner or operation at one abstraction level.
@@ -23,7 +25,7 @@ Per-type construction binds here — the question a type answers, what its marks
   - each discriminator's out-labels are exhaustive and disjoint.
   - no edge contradicts the subject's declared direction law, a dependency edge pointing one way throughout.
 
-## [02]-[SEQUENCE]
+[SEQUENCE]:
 
 - Question: who exchanges what, in what order, to complete one scenario.
 - Participant: an autonomous runtime actor — process, service, or thread — never a data object.
@@ -44,7 +46,7 @@ Per-type construction binds here — the question a type answers, what its marks
   - no message departs a participant destroyed or never created.
   - the message order is achievable, no reply preceding its request.
 
-## [03]-[STATE]
+[STATE]:
 
 - Question: which modes an entity occupies and which events move it.
 - State: a mode the system rests in, observable between events.
@@ -65,7 +67,7 @@ Per-type construction binds here — the question a type answers, what its marks
   - guards leaving one state are mutually exclusive and cover the event's domain.
   - each composite's substates genuinely share its external transitions.
 
-## [04]-[CLASS]
+[CLASS]:
 
 - Question: how declared types relate under inheritance, composition, or dependency.
 - Class: a real declared type in the system.
@@ -85,7 +87,7 @@ Per-type construction binds here — the question a type answers, what its marks
   - no cycle among the inheritance arrows.
   - cardinality appears only where the association is the point.
 
-## [05]-[ER]
+[ER]:
 
 - Question: what data entities exist, how they identify each other, and what multiplicity constrains them.
 - Entity: a persisted noun with identity.
@@ -106,7 +108,9 @@ Per-type construction binds here — the question a type answers, what its marks
   - every entity carries a PK.
   - cardinality matches the schema constraint.
 
-## [06]-[ARCHITECTURE]
+## [02]-[EXTENDED_TYPES]
+
+[ARCHITECTURE]:
 
 - Question: which deployable units run where and reach each other over what path.
 - Service: a deployable unit.
@@ -116,7 +120,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every edge traces a real port or protocol path.
 
-## [07]-[C4]
+[C4]:
 
 - Question: what the system landscape holds at one audience's zoom level.
 - Element: a context, container, or component fixed at one level per view.
@@ -125,7 +129,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every element resolves into the next zoom level.
 
-## [08]-[GANTT]
+[GANTT]:
 
 - Question: which owned work commits to which dates, and what waits on what.
 - Task: owned work with real start and end dates.
@@ -135,7 +139,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every `after` chain matches a real dependency.
 
-## [09]-[TIMELINE]
+[TIMELINE]:
 
 - Question: what occurred across successive periods.
 - Event: a dated occurrence under its period; adjacency asserts no cause.
@@ -144,7 +148,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - the period sequence runs strictly chronological.
 
-## [10]-[MINDMAP]
+[MINDMAP]:
 
 - Question: how one root concept decomposes into an owned hierarchy.
 - Node: a child owned by exactly one parent, the tree admitting no explicit edge.
@@ -153,7 +157,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every node traces one path back to the root.
 
-## [11]-[KANBAN]
+[KANBAN]:
 
 - Question: which workflow stage holds which work right now.
 - Column: a work queue.
@@ -163,7 +167,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every card sits in exactly one column.
 
-## [12]-[REQUIREMENT]
+[REQUIREMENT]:
 
 - Question: which requirements trace to which satisfying or verifying elements.
 - Requirement: a demanded capability node.
@@ -173,7 +177,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every requirement reaches at least one element via `satisfies` or `verifies`.
 
-## [13]-[GITGRAPH]
+[GITGRAPH]:
 
 - Question: how branches diverge, commit, and merge across repository history.
 - Commit: one node on a branch.
@@ -184,7 +188,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every commit id stays unique and every branch predates its checkout.
 
-## [14]-[QUADRANT]
+[QUADRANT]:
 
 - Question: where items place across two independent judgments.
 - Point: an item positioned by two coordinates.
@@ -195,7 +199,7 @@ Per-type construction binds here — the question a type answers, what its marks
 - Logic checks:
   - every coordinate falls within its declared axis range.
 
-## [15]-[PACKET]
+[PACKET]:
 
 - Question: how bits lay out across a wire-format field contract.
 - Field: a named bit range in the packet.

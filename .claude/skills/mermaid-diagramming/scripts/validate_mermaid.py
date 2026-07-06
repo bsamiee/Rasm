@@ -13,7 +13,6 @@ check=read fail row.
 """
 
 # --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
-from __future__ import annotations
 
 import argparse
 from itertools import pairwise
@@ -52,8 +51,8 @@ ST_TRANSITION = re.compile(r"^\s*(\[\*\]|[\w.]+)\s*-->\s*(\[\*\]|[\w.]+)")
 SQ_ARROW = re.compile(r"^\s*(\w+)\s*(?:<<-?>>|--?(?:>>|>|\)|x))\s*[+-]?\s*(\w+)\s*:")
 ER_RELATION = re.compile(r"^\s*([\w-]+)\s*[|o}{]{2}[-.]{2}[|o}{]{2}\s*([\w-]+)\s*:")
 
-# --- [MODELS] ----------------------------------------------------------------------------
 
+# --- [MODELS] ----------------------------------------------------------------------------
 
 class Fence(NamedTuple):
     """One mermaid fence: 1-based start line and dedented body."""
@@ -63,7 +62,6 @@ class Fence(NamedTuple):
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
-
 
 def collect(paths: list[str]) -> list[Path]:
     """Expand argv paths to .md/.mmd files, directories walked recursively.
@@ -112,7 +110,6 @@ def fences(path: Path) -> list[Fence]:
 
 
 # --- [LOGIC]
-
 
 class Finding(NamedTuple):
     """One graph-logic verdict: fail for structural defects, warn for legibility pressure."""
@@ -370,7 +367,6 @@ def render(prefix: list[str], cwd: Path | None, body: str, workdir: Path) -> tup
 
 
 # --- [COMPOSITION] -----------------------------------------------------------------------
-
 
 def main(argv: list[str]) -> int:
     """Render-validate every fence under argv paths; emit one row per fence.

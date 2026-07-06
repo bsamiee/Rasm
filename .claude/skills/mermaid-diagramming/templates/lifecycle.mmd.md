@@ -41,4 +41,4 @@ stateDiagram-v2
     class Closed terminal
 ```
 
-Refill law: rename the modes to the real owner's vocabulary and keep the invariants — disjoint guards per source state, one fault state with its recovery bound, exactly one terminal reached by every path.
+Refill by renaming the modes to the real owner's vocabulary and keep the invariants — disjoint guards per source state, one fault state with its recovery bound, exactly one terminal reached by every path.

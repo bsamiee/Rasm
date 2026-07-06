@@ -47,17 +47,29 @@ flowchart LR
 `markdownAutoWrap: false` stops auto-wrap on markdown labels; edge labels take math as `|"$$\sqrt{x+3}$$"|`. `@{ label: "text" }` overrides the bracket text, and the `text` shape renders a borderless label-only node.
 
 [GOTCHAS]:
-- Subgraph `direction` is ignored when any member links outside; the subgraph inherits the parent direction.
 - Reserved IDs `end`, `default`, `subgraph`, `class`, `graph` need quoting or capitalization.
-- A leading `o` or `x` on an ID collides with edge-end syntax; a space inside `A [txt]` breaks the node.
-- `classDef` declared above its nodes renders unstyled — declare it at diagram root, after nodes.
-- Escape commas in `stroke-dasharray` as `9\,5`.
+- A space inside `A [txt]` breaks the node.
 
 ## [02]-[SEQUENCE]
 
 Typed participants carry a UML stereotype (`type` values `boundary`, `control`, `database`) and alias; the JSON form and an `as` alias combine:
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    actorBkg: "#44475A"
+    actorBorder: "#BD93F9"
+    actorTextColor: "#F8F8F2"
+    actorLineColor: "#6272A4"
+    signalColor: "#FF79C6"
+    signalTextColor: "#F8F8F2"
+    messageTextColor: "#F8F8F2"
+---
 sequenceDiagram
     participant API@{ "type": "boundary", "alias": "Public API" }
     actor DB@{ "type": "database" } as User Database
@@ -103,8 +115,7 @@ stateDiagram-v2
 Pseudostates are `<<choice>>`, `<<fork>>`, and `<<join>>`. `state "long text" as S` aliases a spaced label. Click directives are `11.7.0+`.
 
 [GOTCHAS]:
-- `classDef` never applies to `[*]` or to a composite state, inside or out.
-- `end` and `state` are reserved words; declare `classDef` at diagram root.
+- `end` and `state` are reserved words.
 - State layout ignores ELK; `look: neo` lands `11.14.0+`.
 
 ## [04]-[CLASS]

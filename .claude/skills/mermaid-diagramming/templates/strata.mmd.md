@@ -46,4 +46,4 @@ flowchart TB
     class Kernel boundary
 ```
 
-Refill law: rename strata to the real layer roster, keep edges downward with at most one demonstrative skip, and keep the single forbidden edge red — its `linkStyle` index is the edge's declaration position, so recount after any edge insertion.
+Refill by renaming strata to the real layer roster, keep edges downward with at most one demonstrative skip, and keep the single forbidden edge red — its `linkStyle` index is the edge's declaration position, so recount after any edge insertion.

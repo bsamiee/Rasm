@@ -26,9 +26,10 @@ An HTML artifact trades a document that gets skimmed for one that gets read: spa
 2. Pick the type in [02]; copy its template or compose its region spine from [references/artifact-types.md](references/artifact-types.md).
 3. Embed the design-system baseline verbatim from [references/design-system.md](references/design-system.md); compose interaction patterns from [references/interaction.md](references/interaction.md); state, embedded data, scale, and export mechanics follow [references/state.md](references/state.md).
 4. Fill content answer-first; datasets embed as sanitized JSON payloads under the scale law, and an oversized dataset belongs in a linked file.
-5. Gate: `python3 ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
-6. Review in the fixed order method.md owns — skim, coverage, interaction necessity, density, print — and open-check in a browser when one is available.
-7. Home the artifact per [05].
+5. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the closed verdict vocabulary, stable item ids, the versioned envelope, and dual markdown-plus-JSON export.
+6. Gate: `python3 ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
+7. Review in the fixed order method.md owns — skim, coverage, interaction necessity, density, print — and open-check in a browser when one is available.
+8. Home the artifact per [05].
 
 ## [02]-[TYPE_CHOOSER]
 
@@ -53,7 +54,8 @@ The most specific trigger wins; each row names the misfit sibling it displaces. 
 |  [15]   | contact-sheet    | one thing across all its states    | brainstorm   |
 |  [16]   | prototype        | an interaction path felt pre-build | brainstorm   |
 
-Routing:
+Templates carry the eight highest-frequency types; the rest compose their region spines from the reference.
+
 - plan: [templates/plan.html](templates/plan.html)
 - brainstorm: [templates/brainstorm.html](templates/brainstorm.html)
 - roadmap: [templates/roadmap.html](templates/roadmap.html)

@@ -78,6 +78,7 @@ The always-hot core; composition depth — option design, timeline walks, challe
 - State the target behavior a question must extract; a prohibition phrased as a question plants the pattern it forbids.
 - Options are probes: each names its cost or consequence, cites its corpus anchor where one exists, and the `(Recommended)` marker leads only where one option dominates.
 - A conflict between rulings surfaces as its own question with the consequence of each resolution spelled out, never silently reconciled.
+- The interviewer holds its own stance by structure: a pushback earns a concession only through a new verified fact, the user's certainty and rebuttal evidence are tested like any other claim, and a premise is checked against the corpus before questions build inside it.
 
 ## [06]-[ALTITUDE]
 
@@ -87,11 +88,11 @@ Every output lands at exactly one altitude; the altitude rules whether it is dur
 - [ROADMAP]: What order — outcomes sequenced by confidence horizon with promotion conditions between horizons. Durable. Horizons are confidence bands; a dated task list inside a roadmap is a plan leaking upward.
 - [PLAN]: How — tasks, sequencing, mechanics. Ephemeral: a plan is consumed by its execution and never enters the artifact home.
 
-The durability test: a future session consults the artifact as law — a standing direction, a ruled decision, a verified finding, a capability fact. Anything consumed by its own execution — transcripts, quizzes, buy-in packets, wargame boards — is working material; its surviving ruling graduates to a decision record and the carrier dies.
+The durability test: a future session consults the artifact as law — a standing direction, a ruled decision, a verified finding, a capability fact. Anything consumed by its own execution — transcripts, quizzes, buy-in packets, rendered interactive boards — is working material; its surviving ruling graduates to the owning durable kind and the carrier dies. Wargame scoring survives as the direction set's own wargame section; a buy-in acceptance survives as a decision record.
 
 ## [07]-[ARTIFACTS]
 
-Five durable kinds, each a fixed schema; an instance conforms byte-structurally — heading census matches the template, zero residual slot tokens, leader tokens drawn from the declared vocabularies, every entry marked fact, assumption, inference, or open where the schema carries marks. The gate enforces it; run it on every instance before the seal.
+Five durable kinds, each a fixed schema; an instance conforms byte-structurally — heading census matches the template, zero residual slot tokens, leader tokens drawn from the template's declared vocabularies (the blindspot ledger adds the axis catalog), every entry marked fact, assumption, inference, or open where the schema carries marks. Entry ids are zero-padded ordinals scoped to the instance, optionally led by one capital kind letter (`[01]`, `[F01]`), and never reused after deletion. An instance is authored in working space named `<kind>.<scope>[.<slug>].md` — the artifact home's naming law with the rendered page's extension swapped — and enters the artifact home only through rendering. The gate enforces conformance; run it on every instance before the seal.
 
 ```bash
 python scripts/check_instance.py [--json] <instance.md>...
@@ -111,12 +112,12 @@ Worked accepted and rejected instances are [examples/artifacts.md](examples/arti
 
 - The ruling record binds downstream: the authoring pass honors every ruling and re-litigates none; an entry overturned later is edited in place with its superseding ruling.
 - Every terminal artifact carries its fold-back — the copyable prompt that carries its content into the next task as binding input.
-- Comparative and spatial artifacts render as interactive pages through the html-artifacts type rows — direction set as brainstorm, roadmap brief as roadmap, scored boards as wargame, quiz as quiz, packet as buy-in, capability entries as capability-atlas; the schema instance stays the source of truth the page renders.
+- Comparative and spatial artifacts render as interactive pages through the html-artifacts type rows — direction set as brainstorm, roadmap brief as roadmap, scored boards as wargame, quiz as quiz, packet as buy-in, capability entries as capability-atlas; the schema instance stays the source of truth the page renders. The rendered page is the consultation surface — a record nobody reads rots regardless of its schema, so rendering and homing are part of landing, never decoration.
 - An artifact seals only when a fresh cold read raises no new question; author satisfaction is not the exit.
 
 ## [09]-[GOTCHAS]
 
-- Agreement is the trap: an answer that mirrors the question's framing is re-anchored to a specific instance before it becomes a ruling — compliments and consensus are noise wearing signal.
+- Agreement is the trap on both sides: an answer mirroring the question's framing is re-anchored to a specific instance before it becomes a ruling, and a concession without a recorded forcing fact is an unforced flip that poisons every round inheriting it.
 - A round without a prepared learning target is theater; prepare the three highest-value targets before opening any round.
 - Survey-sized batches make the user pick defaults; a batch stays narrow enough that every option is a real tradeoff.
 - Softening a finding to spare the corpus author loses the finding; the anchor states the fact and the fact is the kindness.

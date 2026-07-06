@@ -40,4 +40,4 @@ flowchart LR
     class Policy,Evidence data
 ```
 
-Refill law: the arm labels are the input-shape vocabulary — rename them to the real discriminants and keep them exhaustive; a new capability is a new arm row, never a second exit after the fold.
+The arm labels are the input-shape vocabulary — rename them to the real discriminants and keep them exhaustive; a new capability is a new arm row, never a second exit after the fold.

@@ -21,8 +21,8 @@ Each mode is the operating loop specialized to one extraction; the card carries 
 ## [03]-[BRAINSTORM]
 
 - Enter: A named problem with multiple viable interventions and no committed direction; the unknown-knowns bucket dominating — the user will recognize the right direction only on sight.
-- Ground: The corpus surfaces each candidate direction touches; the real constraint set that kills weak candidates early.
-- Procedure: Generate directions spanning the scope-time spectrum — immediate patch, structural fix, long-horizon rebuild — never one track of variations (exit: at least two tiers with materially different theses). Attack each with disconfirmation — the evidence inconsistent with it, what it forecloses, its reversibility (exit: every direction carries the full field set). The wargame variant scores on declared criteria (exit: weights declared before any scoring).
+- Ground: The corpus surfaces each candidate direction touches; the real constraint set that kills weak candidates early. Grounding feeds the frame — the constraint set and kills-early line — never the generation pool: seeds seen before generation narrow the category search.
+- Procedure: Generate a free first pool across the tiers — patch, structural, rebuild — before any seed or prior-art exposure (exit: two tiers, distinct theses). Expand by forced category jumps — mechanism, goal, inversion, failure, scale, horizon, consumer — folding in seeds only after the free pool exists (exit: no two directions share a thesis). Attack each with disconfirmation, then score the wargame variant on weights declared before scoring (exit: the full field set per direction).
 - Lands: A `direction-set` with the leading direction and the flip triggers that overturn it; the rendered comparison page is html-artifacts ground.
 - Terminate: The user reacts to rendered directions, the ruling is recorded, rejected directions keep their reopen conditions.
 

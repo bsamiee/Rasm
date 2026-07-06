@@ -6,8 +6,9 @@ Usage: prose_gate.py [--json] [--cap N] <path>...
 Paths: .md files or directories (walked for *.md). Checks: fence-geometry (line-length cap inside
 codemap/seams/tree-glyph fences and README package card rows), hedge (word-boundary banned list),
 meta-phrase (fixed self-description/provenance list), self-count (sentence-initial counts of own
-content), list-bloat (entry sentence/char budget, roster entries exempt by code-span share) —
-prose lines only throughout. Output: `file:line: FAIL <check> <detail>` per hit; --json emits
+content), list-bloat (entry sentence/char budget, roster entries exempt by code-span share),
+table-header (every header-row cell is a bracketed `[UPPER_SNAKE]` token) — prose lines only
+throughout. Output: `file:line: FAIL <check> <detail>` per hit; --json emits
 NDJSON rows {"file","line","check","status","detail"}. An unreadable file emits one check=read
 fail row. Judgment-tier defects (enumeration anchoring, altitude) are review work, not gates.
 """
@@ -38,6 +39,9 @@ FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})\s*(\S*)")
 MARKER_WORDS = re.compile(r"\b(TBD|TODO|FIXME)\b")
 CARD_ROW = re.compile(r"^\s*-\s+`[^`]+`\s+-\s+")
 CODE_SPAN = re.compile(r"`+[^`]*`+|\"[^\"]*\"")
+# Table header cells carry the bracketed token form; a header row is the row a separator row follows.
+HEADER_CELL = re.compile(r"^\[[A-Z0-9_]+\]$")
+TABLE_SEP = re.compile(r"^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$")
 GLYPHS = ("│", "├", "└", "⇄")
 HEDGE_PHRASES = (
     "is expected to", "can be", "aims to", "is designed to",
@@ -113,7 +117,8 @@ def scan(path: Path, cap: int) -> list[Row]:
     fence_marker = ""
     fence_capped = False
     is_readme = path.name == "README.md"
-    for n, line in enumerate(text.splitlines(), 1):
+    lines = text.splitlines()
+    for n, line in enumerate(lines, 1):
         if n == 1 and line.rstrip() == "---":
             in_frontmatter = True
             continue
@@ -135,6 +140,12 @@ def scan(path: Path, cap: int) -> list[Row]:
             continue
         if is_readme and CARD_ROW.match(line) and len(line) > cap:
             rows.append(Row(n, "fence-geometry", f"card row {len(line)} > cap {cap}"))
+        if line.lstrip().startswith("|") and n < len(lines) and TABLE_SEP.match(lines[n]):
+            rows.extend(
+                Row(n, "table-header", cell)
+                for cell in (c.strip() for c in line.strip().strip("|").split("|"))
+                if cell and not HEADER_CELL.match(cell)
+            )
         if EXAMPLE_LINE.match(line):
             continue
         prose = CODE_SPAN.sub(" ", line)

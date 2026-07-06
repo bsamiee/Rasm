@@ -62,4 +62,4 @@ erDiagram
     }
 ```
 
-Refill law: rename entities to the real aggregate, keep FK-edge reciprocity on every relation, and resolve any many-to-many through a junction entity whose composite key is both FKs.
+Refill by renaming entities to the real aggregate, keep FK-edge reciprocity on every relation, and resolve any many-to-many through a junction entity whose composite key is both FKs.

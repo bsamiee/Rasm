@@ -9,14 +9,14 @@ A decision record's Ruling field carries a preference weighing options instead o
 - Detection: A `Ruling` that hedges — a comparative, a conditional, an option still weighed — leaving the downstream author to re-litigate the decision the record exists to close.
 - Rejected:
   ```markdown
-  - [D07]-[ACCEPTED]: Graph carrier ownership
+  - [07]-[ACCEPTED]: Graph carrier ownership
     - Context: Three backends sit behind a string union no type-checker resolves.
     - Options: single owner | per-backend owner
     - Ruling: A single owner is probably cleaner, though a per-backend split could also work depending on the algorithm set.
   ```
 - Accepted:
   ```markdown
-  - [D07]-[ACCEPTED]: Graph carrier ownership
+  - [07]-[ACCEPTED]: Graph carrier ownership
     - Context: Three backends sit behind a string union no type-checker resolves; the third arm is GPL.
     - Drivers: Strict-typing law; GPL isolation; algorithm coverage.
     - Options: single tagged owner | per-backend owner
@@ -35,13 +35,13 @@ A rejected option records the argument that lost it but not the condition that r
 - Detection: A `Rejected` field naming the loser and its defeat with no `reopens when` clause, stranding the reader who hits the exact condition that revives it.
 - Rejected:
   ```markdown
-  - [D07]-[ACCEPTED]: Graph carrier ownership
+  - [07]-[ACCEPTED]: Graph carrier ownership
     - Ruling: `GraphCarrier` is one tagged-union owner over three backends.
     - Rejected: per-backend owner — proliferates one concept across three surfaces against the collapse law.
   ```
 - Accepted:
   ```markdown
-  - [D07]-[ACCEPTED]: Graph carrier ownership
+  - [07]-[ACCEPTED]: Graph carrier ownership
     - Ruling: `GraphCarrier` is one tagged-union owner over three backends.
     - Rejected: per-backend owner — proliferates one concept across three surfaces against the collapse law; reopens when a backend's algorithm set diverges so far that a shared traversal contract costs more than three owners.
   ```
@@ -55,27 +55,27 @@ A direction set dresses one idea in three costumes — three variations at the s
 - Detection: Every direction shares a tier and a thesis, differing only in a knob; the set offers no real fork between a patch, a structural fix, and a rebuild.
 - Rejected:
   ```markdown
-  - [DIR1]-[STRUCTURAL]: Tagged union carrier
-  - [DIR2]-[STRUCTURAL]: Tagged union with a resolver cache
-  - [DIR3]-[STRUCTURAL]: Tagged union with lazy backend load
+  - [01]-[STRUCTURAL]: Tagged union carrier
+  - [02]-[STRUCTURAL]: Tagged union with a resolver cache
+  - [03]-[STRUCTURAL]: Tagged union with lazy backend load
   ```
 - Accepted:
   ```markdown
-  - [DIR1]-[PATCH]: Type the union in place
+  - [01]-[PATCH]: Type the union in place
     - Thesis: Replace the string union with a tagged union at its one call site; smallest change that restores type-checking.
     - Cost: One page; leaves the GPL lane in the default build.
     - Kills: Nothing structural — a later split stays open.
     - Reversibility: Full.
     - Evidence: `<unit>/planning/graph.md:55` is the sole carrier site.
     - Confidence: high
-  - [DIR2]-[STRUCTURAL]: Split the GPL backend out
+  - [02]-[STRUCTURAL]: Split the GPL backend out
     - Thesis: Confine the GPL backend to an optional lane; the core carries only permissive backends.
     - Cost: A build-lane split and a re-home of the `igraph`-only algorithms.
     - Kills: A single default wheel carrying every algorithm.
     - Reversibility: Partial — the lane split is sticky.
     - Evidence: The GPL license on the carrier's third arm.
     - Confidence: medium
-  - [DIR3]-[REBUILD]: Backend-agnostic graph service
+  - [03]-[REBUILD]: Backend-agnostic graph service
     - Thesis: Own graph compute as a service admitting backends by capability, not by type.
     - Cost: A new owner and a capability registry.
     - Kills: Direct backend access from consumers.
@@ -93,17 +93,17 @@ A roadmap horizon carries a dated task list — a plan leaking upward — where 
 - Detection: A horizon entry whose `Bet` or body sequences dated work — week one, then week two — instead of naming a change in behavior and how attainment is observed.
 - Rejected:
   ```markdown
-  - [R1]: Ship the graph carrier
+  - [01]: Ship the graph carrier
     - Bet: Week 1 write the tagged union; week 2 wire the resolver; week 3 add the tests.
   ```
 - Accepted:
   ```markdown
-  - [R1]: Graph carrier type-checks under strict mode
+  - [01]: Graph carrier type-checks under strict mode
     - Why: The string union blocks every downstream graph consumer from strict typing.
     - Bet: A tagged-union owner with a per-backend resolver.
     - Measure: The carrier passes strict type-check and consumers drop their `Any` casts.
     - Confidence: The carrier has one call site today.
-  - [R2]: The GPL backend leaves the default wheel
+  - [02]: The GPL backend leaves the default wheel
     - Why: The default build ships a GPL surface it does not need.
     - Bet: An optional build lane for the GPL backend.
     - Measure: The default wheel excludes the GPL tag.
@@ -119,13 +119,13 @@ A blindspot finding records a feeling with no anchor, so a reader cannot verify 
 - Detection: A finding whose `Anchor` is a vibe — "feels under-typed", "seems fragile" — with no path, no observed fact, and a consequence stated as a guess.
 - Rejected:
   ```markdown
-  - [B3]-[APPROACH]-[OPEN]: The graph carrier feels under-typed
+  - [01]-[APPROACH]-[OPEN]: The graph carrier feels under-typed
     - Anchor: general impression from reading the page.
     - Consequence: might cause problems later.
   ```
 - Accepted:
   ```markdown
-  - [B3]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
+  - [01]-[CAPABILITY_WEAKNESS]-[OPEN]: Graph carrier types as a string union
     - Anchor: `<unit>/planning/graph.md:55` — `AnyGraph = "RxGraph | NxGraph | igraph.Graph"`, a string no type-checker resolves.
     - Consequence: Every consumer casts through `Any`, strict mode misses a wrong-backend call, and the GPL backend rides the default surface unmarked; the blast reaches every graph consumer.
     - Fold-back: Retype `GraphCarrier` as a tagged union, confine the GPL tag to an optional lane, and drop the consumer `Any` casts.
@@ -141,12 +141,12 @@ An assumption enters a record dressed as a fact, stripping the invalidating cond
 - Detection: A `Premises` mark reading `fact` on a claim no anchor supports — a future consumer's behavior, an unbuilt seam — with no condition that falsifies it.
 - Rejected:
   ```markdown
-  - [D11]-[ACCEPTED]: Impact search stays deferred
+  - [03]-[ACCEPTED]: Impact search stays deferred
     - Premises: fact: a downstream consumer drives the impact search sweep.
   ```
 - Accepted:
   ```markdown
-  - [D11]-[ACCEPTED]: Impact search stays deferred
+  - [03]-[ACCEPTED]: Impact search stays deferred
     - Premises: assumption: a downstream consumer drives the impact search sweep — invalidated when the impact owner must serve search standalone, which pulls the deferred sweep into current scope.
   ```
 - Reason: Marks are load-bearing — a fact carries its anchor and an assumption carries its invalidating condition; mislabeling an unverified premise as fact hides the tripwire that tells the next session the ground moved.
@@ -159,7 +159,7 @@ A capability entry asserts an empty `Gaps` field by assumption, claiming the sur
 - Detection: A `Gaps` of `none` on a capability whose owner demonstrably leaves admitted library surface unused, and a maturity marker inflated past the built reality.
 - Rejected:
   ```markdown
-  - [C4]-[BUILT]: Impact assessment over element sets
+  - [01]-[BUILT]: Impact assessment over element sets
     - Owner: The impact domain owner.
     - Edges: depends-on the element graph; consumed-by the assessment report.
     - Importance: Serves the environmental-scoring direction.
@@ -167,7 +167,7 @@ A capability entry asserts an empty `Gaps` field by assumption, claiming the sur
   ```
 - Accepted:
   ```markdown
-  - [C4]-[GENESIS]: Impact assessment over element sets
+  - [01]-[GENESIS]: Impact assessment over element sets
     - Owner: The impact domain owner.
     - Edges: depends-on the element graph; consumed-by the assessment report.
     - Importance: Serves the environmental-scoring direction.

@@ -44,10 +44,10 @@ flowchart LR
     Resolver -->|"[FAULT]: FaultRow"| UiShell
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FD,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#44475A,stroke:#6272A4,color:#F8F8F2
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
     class Resolver,Registry,Composer primary
     class DataStore,Transport external
     class UiShell annotation
 ```
 
-Refill law: rename owners and counterparts to the real packages, keep every label `[KIND]: shape-name` with the shape's exact wire name, and land the mirrored edge in the counterpart's graph in the same change.
+Refill by renaming owners and counterparts to the real packages, keep every label `[KIND]: shape-name` with the shape's exact wire name, and land the mirrored edge in the counterpart's graph in the same change.

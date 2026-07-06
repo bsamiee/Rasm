@@ -20,12 +20,14 @@ Semantic names only. A consumer reads intent, not hex. Dark values ship through 
 
 - Surface: `--bg` `--surface` `--raised` `--line` — page floor, sunken fill, lifted card, hairlines.
 - Text: `--text` `--muted` — body copy, secondary and label copy.
-- Accent: `--accent` `--accent-muted` — links, primary action, active state.
+- Accent: `--accent` `--accent-muted` — links, primary action, active state; the muted accent is the focus ring.
 - Status: `--ok` `--warn` `--fail` `--info` — chips, meters, verdicts, all color-coded.
 - Space: `--s1`..`--s6` (4/8/12/16/24/32) — every gap, pad, and margin; no raw px.
 - Type: `--f0`..`--f5` (12/13.5/15/18/24/32) — `--f2` body, `--f0` chips and labels, `--f5` page title.
 - Shape: `--r1`..`--r3` `--shadow-1` `--shadow-2` `--measure` — radii, elevation, content column.
 - Font: `--font-sans` `--font-mono` — system stack, mono for code, chips, numerics.
+
+The palette is Dracula: the dark theme carries the classic values on the official surface ladder, and the light theme is Alucard, the palette's own light counterpart — never an algorithmic inversion. Muted text is never load-bearing: the dark comment tone sits below body-text contrast by the palette's own design, so anything a reader must not miss rides `--text` or a status chip. Status color never carries state alone; the chip's bracket marker is the accessible carrier and the hue is reinforcement.
 
 System stacks only — `ui-sans-serif, system-ui` and `ui-monospace, SFMono-Regular, Menlo`. A webfont breaches the no-network contract, so the stack stays native.
 
@@ -38,8 +40,8 @@ System stacks only — `ui-sans-serif, system-ui` and `ui-monospace, SFMono-Regu
 html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:auto}
 :root{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
   --f0:12px;--f1:13.5px;--f2:15px;--f3:18px;--f4:24px;--f5:32px;
   --r1:6px;--r2:10px;--r3:14px;--measure:1100px;
@@ -49,20 +51,20 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme]){
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0d1117;--surface:#161b22;--raised:#1c2333;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--accent-muted:#58a6ff;--ok:#3fb950;--warn:#d29922;--fail:#f85149;--info:#79c0ff;
+  --bg:#282A36;--surface:#21222C;--raised:#343746;--line:#44475A;--text:#F8F8F2;--muted:#6272A4;
+  --accent:#BD93F9;--accent-muted:#815CD6;--ok:#50FA7B;--warn:#FFB86C;--fail:#FF5555;--info:#8BE9FD;
   --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
 }
 :root[data-theme="light"]{
   color-scheme:light;
-  --bg:#fff;--surface:#f6f8fa;--raised:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-muted:#0969da;--ok:#1a7f37;--warn:#9a6700;--fail:#cf222e;--info:#0550ae;
+  --bg:#FFFBEB;--surface:#ECE9DF;--raised:#EFEDDC;--line:#DEDCCF;--text:#1F1F1F;--muted:#6C664B;
+  --accent:#644AC9;--accent-muted:#815CD6;--ok:#14710A;--warn:#A34D14;--fail:#CB3A2A;--info:#036A96;
   --shadow-1:0 1px 2px rgba(0,0,0,.06);--shadow-2:0 4px 16px rgba(0,0,0,.10);
 }
 body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--f2);line-height:1.55;overflow-x:hidden}
