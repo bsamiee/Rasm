@@ -6,10 +6,12 @@ Usage: check_artifact.py [--json] <file.html>...
 Checks: external-ref (any src/srcset/url() outside data:/#; any href with a scheme or //; any
 javascript:, //, or http(s) URL literal inside an on* handler value), base (any <base href> that
 rewrites relative resolution), doctype, title, dark-theme handling (prefers-color-scheme or
-data-theme present), size warn >400KB. Output: `file:line: FAIL|WARN <check> <detail>`; --json
-emits NDJSON rows {"file","line","check","status","detail"}. An unreadable file emits one
-check=read fail row. Rendering fidelity and runtime-built egress (fetch/XHR assembled at run time)
-are the browser and CSP oracle's, not this gate's; this gate owns the static single-file contract.
+data-theme present), size warn >400KB, print warn (no @media print block), residue warn (template
+replace-markers left in a filled artifact), script-hazard warn (raw U+2028/U+2029 breaking an
+embedded JS string literal). Output: `file:line: FAIL|WARN <check> <detail>`; --json emits NDJSON
+rows {"file","line","check","status","detail"}. An unreadable file emits one check=read fail row.
+Rendering fidelity and runtime-built egress (fetch/XHR assembled at run time) are the browser and
+CSP oracle's, not this gate's; this gate owns the static single-file contract.
 """
 
 # --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
@@ -30,6 +32,8 @@ CSS_URL = re.compile(r"url\(\s*['\"]?([^'\")]+)", re.IGNORECASE)
 HANDLER_URL = re.compile(r"(javascript:|//|https?:)", re.IGNORECASE)
 HREF_BLOCKED = re.compile(r"^(//|[a-z][a-z0-9+.-]*:)", re.IGNORECASE)
 HREF_ALLOWED = re.compile(r"^(#|data:|mailto:)", re.IGNORECASE)
+RESIDUE = re.compile(r"<!--\s*replace:", re.IGNORECASE)
+SCRIPT_HAZARD = re.compile(r"[\u2028\u2029]")
 SRC_ALLOWED = re.compile(r"^(#|data:)", re.IGNORECASE)
 SRC_ATTRS = ("src", "srcset", "poster", "action", "data")
 SIZE_WARN = 400 * 1024
@@ -131,6 +135,17 @@ def audit(path: Path) -> list[Row]:
     rows.extend(row for present, row in document_checks if not present)
     if len(text.encode()) > SIZE_WARN:
         rows.append(Row(1, "size", "warn", f"{len(text.encode()) // 1024}KB > {SIZE_WARN // 1024}KB"))
+    if "@media print" not in text:
+        rows.append(Row(1, "print", "warn", "no @media print block"))
+    rows.extend(
+        Row(number, check, "warn", detail)
+        for number, line_text in enumerate(text.split("\n"), start=1)
+        for check, pattern, detail in (
+            ("residue", RESIDUE, "template replace-marker remains"),
+            ("script-hazard", SCRIPT_HAZARD, "raw U+2028/U+2029 line separator"),
+        )
+        if pattern.search(line_text)
+    )
     return sorted(rows)
 
 

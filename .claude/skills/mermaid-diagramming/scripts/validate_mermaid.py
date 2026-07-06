@@ -36,8 +36,8 @@ ENV_MARKERS = ("chrome", "chromium", "puppeteer", "browser", "libnss", "shared l
 RENDER_TIMEOUT = 60
 SUFFIXES = (".md", ".mmd")
 
-# Legibility budgets per diagram family: past the ceiling a diagram splits, so overrun is a warn.
-BUDGETS = {"flowchart-nodes": 15, "flowchart-edges": 20, "sequence-participants": 6, "state-states": 12, "er-entities": 8}
+# Legibility budgets per diagram family, mirroring the catalog law: past the ceiling a diagram splits, so overrun is a warn.
+BUDGETS = {"flowchart-nodes": 12, "flowchart-edges": 12, "sequence-participants": 6, "state-states": 12, "er-entities": 8}
 
 # Flowchart tokenization: edge runs (with optional edge-id prefix and inline label), shape-bracket
 # payloads, and metadata that must vanish before endpoints are read.

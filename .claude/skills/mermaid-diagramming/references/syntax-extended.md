@@ -78,7 +78,9 @@ requirementDiagram
     risk: Low
     verifymethod: Inspection
   }
-  element ent { type: doc }
+  element ent {
+    type: doc
+  }
   ent - satisfies -> req
   req <- traces - ent
 ```
@@ -245,7 +247,7 @@ cynefin-beta
     "Restart service"
   complicated
     "Analyze data"
-  complex --> complicated : "Pattern found"
+  clear --> complicated : "Pattern found"
 ```
 Available 11.16.0+; the five domains are `complex`, `complicated`, `clear`, `chaotic`, `confusion`, each holding quoted items, and a transition spells `domain --> domain : "label"`.
 

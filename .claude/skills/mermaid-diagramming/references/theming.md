@@ -4,38 +4,38 @@ Dracula is the skill's theme system — every committed diagram opens `theme: ba
 
 ## [01]-[PALETTE]
 
-| [INDEX] | [TOKEN]     | [HEX]      | [SEMANTIC_ROLE]              |
-| :-----: | :---------- | :--------- | :--------------------------- |
-|  [01]   | Background  | `#282A36`  | host surface                 |
-|  [02]   | Darker      | `#21222C`  | recessed surface             |
-|  [03]   | Selection   | `#44475A`  | node fill                    |
-|  [04]   | Comment     | `#6272A4`  | muted line + annotation      |
-|  [05]   | Foreground  | `#F8F8F2`  | label text                   |
-|  [06]   | Cyan        | `#8BE9FD`  | external system + interface  |
-|  [07]   | Green       | `#50FA7B`  | success rail + capability    |
-|  [08]   | Orange      | `#FFB86C`  | data store + durable fact    |
-|  [09]   | Pink        | `#FF79C6`  | primary control flow         |
-|  [10]   | Purple      | `#BD93F9`  | ownership boundary + focus   |
-|  [11]   | Red         | `#FF5555`  | error rail + rejection       |
-|  [12]   | Yellow      | `#F1FA8C`  | payload + literal content    |
+| [INDEX] | [TOKEN]     | [HEX]      | [SEMANTIC_ROLE]                     |
+| :-----: | :---------- | :--------- | :---------------------------------- |
+|  [01]   | Background  | `#282A36`  | host surface                        |
+|  [02]   | Darker      | `#21222C`  | recessed surface                    |
+|  [03]   | Selection   | `#44475A`  | node fill                           |
+|  [04]   | Comment     | `#6272A4`  | muted line + annotation             |
+|  [05]   | Foreground  | `#F8F8F2`  | label text                          |
+|  [06]   | Cyan        | `#8BE9FD`  | external system + typed interface   |
+|  [07]   | Green       | `#50FA7B`  | success rail + executed capability  |
+|  [08]   | Orange      | `#FFB86C`  | data store + durable fact           |
+|  [09]   | Pink        | `#FF79C6`  | primary control flow                |
+|  [10]   | Purple      | `#BD93F9`  | ownership boundary + focus          |
+|  [11]   | Red         | `#FF5555`  | error rail + rejection              |
+|  [12]   | Yellow      | `#F1FA8C`  | payload + literal content           |
 
 Current Line and Comment share `#6272A4` by spec; Selection `#44475A` is the fill shade. Hex only — the theming engine rejects named colors.
 
 ## [02]-[ROLE_MAP]
 
-| [INDEX] | [DIAGRAM_ROLE]  | [TOKEN_USE]                   |
-| :-----: | :-------------- | :---------------------------- |
-|  [01]   | Primary flow    | Pink stroke                   |
-|  [02]   | Secondary flow  | Comment stroke                |
-|  [03]   | Boundary        | Purple border on Darker fill  |
-|  [04]   | Success         | Green                         |
-|  [05]   | Error           | Red                           |
-|  [06]   | External system | Cyan                          |
-|  [07]   | Data store      | Orange                        |
-|  [08]   | Payload         | Yellow accents on Selection   |
-|  [09]   | Annotation      | Comment text                  |
+| [INDEX] | [DIAGRAM_ROLE]  | [TOKEN_USE]                       |
+| :-----: | :-------------- | :-------------------------------- |
+|  [01]   | Primary flow    | Pink stroke                       |
+|  [02]   | Secondary flow  | Comment stroke                    |
+|  [03]   | Boundary        | Purple border on Darker fill      |
+|  [04]   | Success         | Green                             |
+|  [05]   | Error           | Red                               |
+|  [06]   | External system | Cyan                              |
+|  [07]   | Data store      | Orange                            |
+|  [08]   | Payload         | Yellow accents on Selection fill  |
+|  [09]   | Annotation      | Comment text                      |
 
-Same meaning, same token, across every diagram in a corpus. A role outside this table composes from the nearest listed role, never a fresh hex.
+Same meaning, same token, across every diagram in a corpus. A role outside this table composes from the nearest listed role, never a new hex.
 
 ## [03]-[BASE_BLOCK]
 
@@ -183,16 +183,16 @@ linkStyle 3 stroke:#8BE9FD,color:#F8F8F2
 
 Node fills and their text travel inside the SVG, so Selection-filled nodes with Foreground text hold on any host. What breaks on a white host is ink drawn over the page — edge strokes, edge labels without a background, transparent-canvas text.
 
-| [TOKEN] | [ON_DARK]   | [ON_WHITE]  |
-| :------ | :---------- | :---------- |
-| Comment | `3.03` pass | `4.71` pass |
-| Cyan    | `10.29` pass| `1.38` fail |
-| Green   | `10.38` pass| `1.37` fail |
-| Orange  | `8.36` pass | `1.70` fail |
-| Pink    | `5.97` pass | `2.39` fail |
-| Purple  | `5.90` pass | `2.41` fail |
-| Red     | `4.53` pass | `3.14` pass |
-| Yellow  | `12.74` pass| `1.12` fail |
+| [TOKEN] | [ON_DARK]    | [ON_WHITE]  |
+| :------ | :----------- | :---------- |
+| Comment | `3.03` pass  | `4.71` pass |
+| Cyan    | `10.29` pass | `1.38` fail |
+| Green   | `10.38` pass | `1.37` fail |
+| Orange  | `8.36` pass  | `1.70` fail |
+| Pink    | `5.97` pass  | `2.39` fail |
+| Purple  | `5.90` pass  | `2.41` fail |
+| Red     | `4.53` pass  | `3.14` pass |
+| Yellow  | `12.74` pass | `1.12` fail |
 
 Red is the only accent passing non-text contrast on both hosts; Comment passes on both; every other accent is dark-host-only ink.
 

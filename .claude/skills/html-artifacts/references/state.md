@@ -25,7 +25,7 @@ The dataset ships as one `<script type="application/json">` payload parsed once 
 // build-time: sanitize before the JSON lands inside the script element
 const embed = data => JSON.stringify(data)
   .replace(/</g, "\\u003c")
-  .replace(/ /g, "\\u2028").replace(/ /g, "\\u2029");
+  .replace(//g, "\\u2028").replace(//g, "\\u2029");
 ```
 
 ```html
@@ -52,11 +52,11 @@ const mountRows = rows => {
 
 Render cost binds to row count; the artifact holds a view, never a corpus.
 
-| [INDEX] | [ROWS]     | [RENDER_LAW]                                                   |
-| :-----: | :--------- | :------------------------------------------------------------ |
-|  [01]   | under ~1k  | render every row; filter and sort in place                    |
-|  [02]   | 1k–10k     | paginate or pre-aggregate the render; the filter walks the full model |
-|  [03]   | above 10k  | the data moves to a linked file; the artifact keeps the view only |
+| [INDEX] | [ROWS]    | [RENDER_LAW]                                                          |
+| :-----: | :-------- | :-------------------------------------------------------------------- |
+|  [01]   | under ~1k | render every row; filter and sort in place                            |
+|  [02]   | 1k–10k    | paginate or pre-aggregate the render; the filter walks the full model |
+|  [03]   | above 10k | the data moves to a linked file; the artifact keeps the view only     |
 
 The filter recomputes visible aggregates from the shown rows — a total that ignores the active filter lies — and its input debounces. Sort re-appends existing nodes, since `append` moves a node with its handlers intact rather than rebuilding them. A long listing carries a scroll minimap mapping row offsets to viewport-scaled markers, rebuilt on resize and on filter.
 
@@ -203,17 +203,17 @@ const textDiff = (a, b) => a.length + b.length > CHAR_CAP * 2
 
 An artifact opened from `file://` is not a local server. Whatever it needs, it embeds; a design that reaches for a sibling file stops being self-contained.
 
-| [INDEX] | [PRIMITIVE]                              | [FILE_URL] |
-| :-----: | :--------------------------------------- | :--------- |
-|  [01]   | inline script and CSS, embedded SVG      | RUNS       |
-|  [02]   | data URL, Blob URL, `createObjectURL`    | RUNS       |
-|  [03]   | user-picked file via `input` + `text()`  | RUNS       |
-|  [04]   | fragment and query URL state             | RUNS       |
-|  [05]   | sibling `fetch`/XHR of a neighbor file   | DEAD       |
-|  [06]   | module import from a neighbor file       | DEAD       |
-|  [07]   | service worker, Cache API                | DEAD       |
-|  [08]   | webfont via `@font-face` from a sibling  | DEAD       |
-|  [09]   | `localStorage` persistence               | UNDEFINED  |
+| [INDEX] | [PRIMITIVE]                             | [FILE_URL] |
+| :-----: | :-------------------------------------- | :--------- |
+|  [01]   | inline script and CSS, embedded SVG     | RUNS       |
+|  [02]   | data URL, Blob URL, `createObjectURL`   | RUNS       |
+|  [03]   | user-picked file via `input` + `text()` | RUNS       |
+|  [04]   | fragment and query URL state            | RUNS       |
+|  [05]   | sibling `fetch`/XHR of a neighbor file  | DEAD       |
+|  [06]   | module import from a neighbor file      | DEAD       |
+|  [07]   | service worker, Cache API               | DEAD       |
+|  [08]   | webfont via `@font-face` from a sibling | DEAD       |
+|  [09]   | `localStorage` persistence              | UNDEFINED  |
 
 `localStorage` under `file://` is undefined behavior, so a draft persist is an enhancement that may silently vanish, never the record; the export rail remains the sole durable carrier.
 

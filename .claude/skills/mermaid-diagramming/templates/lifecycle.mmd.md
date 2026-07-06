@@ -7,6 +7,16 @@ Draw a stateful owner: the states it holds and the guarded transitions between t
 config:
   look: neo
   theme: base
+  themeVariables:
+    darkMode: true
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    tertiaryColor: "#21222C"
+    tertiaryTextColor: "#F8F8F2"
 ---
 stateDiagram-v2
     accTitle: Owner lifecycle

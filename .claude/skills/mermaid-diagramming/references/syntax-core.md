@@ -66,7 +66,7 @@ sequenceDiagram
     destroy Cache
 ```
 
-Lifecycle uses `create participant X` and `destroy X`. Grouping boxes wrap participants: `box Purple Name ... end`, or `box transparent Name`. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`. `autonumber` accepts a decimal start and increment (`11.15.0+`): `autonumber 10.5 0.25`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
+Lifecycle uses `create participant X`, the aliased variant `create actor D as Donald`, and `destroy X` mid-diagram. Grouping boxes wrap participants: `box Purple Name ... end`, or `box transparent Name`. Parallel and conditional blocks are `par ... and ... end`, `critical ... option ... end`, and `break ... end`. `autonumber` accepts a decimal start and increment (`11.15.0+`): `autonumber 10.5 0.25`. Actor menus attach interactive links, live in interactive renderers only: `link Alice: Dashboard @ <url>` and `links Alice: {"Dashboard": "<url>"}`. KaTeX renders in participant names and messages.
 
 [GOTCHAS]:
 - Balance every `+` activation with a `-` deactivation.
@@ -122,16 +122,16 @@ classDiagram
     note for Developer "hierarchical namespace"
 ```
 
-Lollipop interfaces are `bar ()-- foo` (`11.4.0+`). `note for Shape "text"` attaches a note; `link`/`click` carry tooltips; `direction RL` reorients.
+Lollipop interfaces are `bar ()-- foo` (`11.4.0+`). `note for Shape "text"` attaches a note, and `direction RL` reorients. Two hyperlink forms carry tooltips: `link Shape "<url>" "tooltip"` renders a static anchor, `click Shape href "<url>" "tooltip"` fires only in interactive renderers.
 
 [GOTCHAS]:
 - A generic suffix drops in references — two classes differing only by generic collide.
 - Notes and namespaces take themes but are not individually styleable.
-- Every member carries a visibility prefix.
+- A member-less `class Foo` renders empty members hidden under the unified renderer (`11.4.0+`).
 
 ## [05]-[ER]
 
-Nullable attribute types are `11.16.0+` (`string? middleName`); array types are `string[] parts`; entity aliases quote spaced names; compound keys chain as `PK, FK`; word-alias cardinalities stand beside the crow's-foot markers:
+Nullable attribute types are `11.16.0+` (`string? middleName`); array types are `string[] parts`; entity aliases quote spaced names; compound keys chain as `PK, FK`:
 
 ```mermaid
 erDiagram
@@ -148,16 +148,14 @@ erDiagram
     p only one to zero or more a : holds
 ```
 
-Word-alias cardinalities map onto the crow's-foot markers, and `to` versus `optionally to` names the identifying versus non-identifying join. Quoted entity and attribute text takes markdown and Unicode.
+Word-alias cardinalities map onto the crow's-foot markers, and `to` versus `optionally to` names the identifying versus non-identifying join. Quoted entity and attribute text takes markdown and Unicode, and a multi-line attribute label breaks with `<br/>` (`11.1.0+`).
 
-| [INDEX] | [ALIAS]        | [MARKER]         |
-| :-----: | :------------- | :--------------- |
-|  [01]   | `only one`     | `\|\|` exact one |
-|  [02]   | `zero or one`  | `\|o` optional   |
-|  [03]   | `zero or more` | `}o` many        |
-|  [04]   | `one or more`  | `}\|` required   |
-|  [05]   | `many(0)`      | `0+` optional    |
-|  [06]   | `many(1)`      | `1+` required    |
+| [INDEX] | [ALIAS]                        | [MARKER]         |
+| :-----: | :----------------------------- | :--------------- |
+|  [01]   | `only one` `1`                 | `\|\|` exact one |
+|  [02]   | `zero or one` `one or zero`    | `\|o` optional   |
+|  [03]   | `zero or more` `many(0)` `0+`  | `}o` many        |
+|  [04]   | `one or more` `many(1)` `1+`   | `}\|` required   |
 
 [GOTCHAS]:
 - Keys accept only `PK`, `FK`, `UK` — no Unicode or markdown in a key.
