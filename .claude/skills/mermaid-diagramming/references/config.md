@@ -171,10 +171,10 @@ A schema theme or `themeVariables` reaches the CLI only through `--configFile`, 
 }
 ```
 
-A sandboxed or CI render pins `executablePath` through `--puppeteerConfigFile` to the machine's `PUPPETEER_EXECUTABLE_PATH` (the Nix `mermaid-cli` Chromium) or a Chrome-for-Testing build. The pin binds a headless-safe binary, so the render never launches the real `/Applications/Google Chrome.app` — a sandboxed headless caller aborts it at `_RegisterApplication`.
+A sandboxed or CI render pins `executablePath` through `--puppeteerConfigFile` to the machine's `PUPPETEER_EXECUTABLE_PATH` (the Nix Chrome-for-Testing). Launch args carry `--use-mock-keychain` and `--password-store=basic` so a throwaway-profile render never reaches the macOS keychain; `--no-sandbox` and `--disable-dev-shm-usage` are the headless-CI defaults. The pin is a headless-safe Chromium build, never the branded `/Applications/Google Chrome.app`, which a sandboxed headless caller aborts at `_RegisterApplication`.
 
 ```json
-{ "executablePath": "$PUPPETEER_EXECUTABLE_PATH", "args": ["--no-sandbox", "--disable-dev-shm-usage"] }
+{ "executablePath": "$PUPPETEER_EXECUTABLE_PATH", "args": ["--no-sandbox", "--disable-dev-shm-usage", "--use-mock-keychain", "--password-store=basic"] }
 ```
 
 A fully offline deterministic render pins every input: the toolchain pins the CLI, `executablePath` pins the browser, `iconPacksNamesAndUrls` pins icons, images ride `file://` or `data:`, and the config file locks the identity surface:

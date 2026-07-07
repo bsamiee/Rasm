@@ -179,7 +179,8 @@ def _browser_path() -> str | None:
 
 
 PUPPETEER_CONFIG = {
-    "args": ["--no-sandbox", "--disable-dev-shm-usage"],
+    # Throwaway-profile render never touches the macOS keychain: mock-keychain and the basic password store kill the "Chrome Safe Storage" prompt.
+    "args": ["--no-sandbox", "--disable-dev-shm-usage", "--use-mock-keychain", "--password-store=basic"],
     **({"executablePath": _path} if (_path := _browser_path()) else {}),
 }
 THEMED = frozenset({
