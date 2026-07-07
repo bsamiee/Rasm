@@ -4,6 +4,7 @@
 # dependencies = [
 #   "anyio", "coloraide", "cyclopts", "expression", "httpx", "lxml", "msgspec", "psutil",
 #   "stamina", "structlog", "tree-sitter", "tree-sitter-typescript", "watchfiles", "xxhash",
+#   "tinycss2",
 #   "beartype @ git+https://github.com/beartype/beartype.git@f370a0b1733413681e7a72bf36fbe839e60b3c85",
 # ]
 # ///
@@ -20,7 +21,6 @@ and `artifact-token` head metas and appends receipts as one tagged JSONL stream.
 # --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
 
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
 from datetime import datetime, UTC
 from enum import IntEnum, StrEnum
 from functools import cache, partial
@@ -55,6 +55,7 @@ import msgspec
 import psutil
 import stamina
 import structlog
+import tinycss2
 from tree_sitter import Language, Parser
 import tree_sitter_typescript
 import watchfiles
@@ -80,6 +81,9 @@ class Check(StrEnum):
     EMBEDDED_STATE = "embedded-state"
     EXTERNAL_REF = "external-ref"
     FOCUS_VISIBLE = "focus-visible"
+    FIELDSET_LEGEND = "fieldset-legend"
+    FORM_LABEL = "form-label"
+    FORM_NAME = "form-name"
     HEADING_ORDER = "heading-order"
     IMPORTANT = "important"
     INLINE_HANDLER = "inline-handler"
@@ -90,11 +94,13 @@ class Check(StrEnum):
     JS_SINK = "js-sink"
     JS_SYNTAX = "js-syntax"
     PRINT = "print"
+    OUTPUT_FOR = "output-for"
     RAW_HEX = "raw-hex"
     READ = "read"
     REGION = "region"
     RESIDUE = "residue"
     RETURN_META = "return-meta"
+    RUNTIME_FORK = "runtime-fork"
     SCRIPT_COUNT = "script-count"
     SCRIPT_HAZARD = "script-hazard"
     SECRET = "secret"
@@ -173,7 +179,7 @@ CSS_URL = re.compile(r"url\(\s*['\"]?([^'\"\s)]+)", re.IGNORECASE)
 DOCTYPE = re.compile(r"^(?:\s|<!--.*?-->)*<!doctype\s+html", re.IGNORECASE | re.DOTALL)
 EXEC_COMMAND = re.compile(r"\bdocument\s*\.\s*execCommand\s*\(")
 HEX_COLOR = re.compile(r"#[0-9a-fA-F]{3,8}\b")
-JSON_TYPES = frozenset({"application/json", "importmap", "speculationrules"})
+JSON_TYPES = frozenset({"application/json"})
 LAYER_NAME = re.compile(r"@layer\s+([-\w]+)\s*$")
 REMOTE_LITERAL = re.compile(r"(?:https?:)?//|^/")
 RESIDUE = re.compile(r"<!--\s*replace:", re.IGNORECASE)
@@ -192,12 +198,19 @@ FOCUS_OUTLINE = re.compile(r":focus-visible[^{}]*{(?=[^{}]*outline\s*:\s*none)(?
 PRINT_EXPORT_BAR = re.compile(r"@media print[\s\S]*\.export-bar[^{]*{[^{}]*display\s*:\s*none")
 PRINT_SAFE_LAYERS = frozenset({"print", "overrides"})
 SIZE_WARN = 400 * 1024
+TEMPLATE_ROOT = str((SKILL_DIR.parent / "templates").resolve())
 MIN_CONTRAST = 4.5
 CHIP_ALPHA = 0.14
 CONTRAST_CHECKS: tuple[tuple[str, str, float], ...] = (
     *((fg, bg, 1.0) for bg in ("--bg", "--surface", "--raised", "--raised-2", "--overlay") for fg in ("--text", "--text-muted")),
     ("--on-accent", "--accent", 1.0),
     *((token, "--raised", CHIP_ALPHA) for token in ("--ok", "--warn", "--fail", "--info")),
+)
+RUNTIME_FORKS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bconst\s+(?:mdCell|mdLine|line1)\s*="), "markdown escaping belongs to NOCTURNE.md"),
+    (re.compile(r"\bconst\s+(?:verdictSeg|noteControl)\s*="), "capture controls belong to NOCTURNE.capture"),
+    (re.compile(r"\bconst\s+(?:sv|svgEl)\s*="), "SVG construction belongs to NOCTURNE.svg"),
+    (re.compile(r"\bconst\s+dispatch\s*="), "event delegation belongs to NOCTURNE.delegate"),
 )
 
 MARKERS: Mapping[Region, tuple[str, str, str]] = {
@@ -211,30 +224,6 @@ LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
 MAX_BODY = 256 * 1024
 HEAD_OPEN = re.compile(rb"<head(?=[\s>])[^>]*>", re.IGNORECASE)
 TOKEN_META_RE = re.compile(r'name="artifact-token" content="([0-9a-f]{32})"')
-HTTP_STATUS: Mapping[FaultKind, int] = {
-    FaultKind.BAD_HOST: 403,
-    FaultKind.BAD_ORIGIN: 403,
-    FaultKind.BAD_TOKEN: 403,
-    FaultKind.NOT_FOUND: 404,
-    FaultKind.BAD_TYPE: 415,
-    FaultKind.BAD_LENGTH: 411,
-    FaultKind.OVERSIZE: 413,
-    FaultKind.BAD_JSON: 400,
-    FaultKind.BAD_ENVELOPE: 422,
-    FaultKind.RECEIPT_IO: 500,
-    FaultKind.BAD_ARTIFACT: 500,
-}
-EXIT_CODE: Mapping[FaultKind, Exit] = {
-    FaultKind.BAD_ARTIFACT: Exit.IO,
-    FaultKind.RECEIPT_IO: Exit.IO,
-    FaultKind.STAMP: Exit.IO,
-    FaultKind.PORT_BUSY: Exit.NET,
-    FaultKind.SELF_TEST: Exit.CONTRACT,
-    FaultKind.STATE_BUSY: Exit.STATE,
-    FaultKind.STATE_UNREADABLE: Exit.STATE,
-    FaultKind.STOP_TIMEOUT: Exit.STATE,
-}
-
 SHELL = """<!doctype html>
 <html lang="en">
 <head>
@@ -245,7 +234,7 @@ SHELL = """<!doctype html>
 {begin_css}
 {baseline}
 {end_css}
-/* --- [TEMPLATE_LOCAL] --- appends into the floor's named layers */
+/* --- [TEMPLATE_LOCAL] --- appends tokens, components, utilities, print, and overrides only */
 </style>
 </head>
 <body>
@@ -269,7 +258,9 @@ SHELL = """<!doctype html>
 {begin_js}
 {runtime}
 {end_js}
-// --- [TEMPLATE_LOCAL] --- model, render, actions, wire
+// --- [MODELS] --- payload, state, derived indexes
+// --- [OPERATIONS] --- projections, renderers, envelope, markdown
+// --- [COMPOSITION] --- delegated actions, observers, boot
 </script>
 </body>
 </html>
@@ -382,6 +373,18 @@ class Output(msgspec.Struct, frozen=True, omit_defaults=True):
     detail: str = ""
 
 
+class FaultPolicy(msgspec.Struct, frozen=True):
+    http: int = 400
+    exit: Exit = Exit.USAGE
+
+
+class DomRule(msgspec.Struct, frozen=True):
+    expr: str
+    check: Check
+    detail: str
+    status: Status = "fail"
+
+
 # --- [SERVICES] ------------------------------------------------------------------------------
 
 ENC = msgspec.json.Encoder()
@@ -394,6 +397,29 @@ structlog.configure(
     logger_factory=structlog.PrintLoggerFactory(sys.stderr),
 )
 LOG = structlog.get_logger()
+FAULT_POLICY: Mapping[FaultKind, FaultPolicy] = {
+    FaultKind.BAD_HOST: FaultPolicy(http=403),
+    FaultKind.BAD_ORIGIN: FaultPolicy(http=403),
+    FaultKind.BAD_TOKEN: FaultPolicy(http=403),
+    FaultKind.NOT_FOUND: FaultPolicy(http=404),
+    FaultKind.BAD_TYPE: FaultPolicy(http=415),
+    FaultKind.BAD_LENGTH: FaultPolicy(http=411),
+    FaultKind.OVERSIZE: FaultPolicy(http=413),
+    FaultKind.BAD_JSON: FaultPolicy(http=400),
+    FaultKind.BAD_ENVELOPE: FaultPolicy(http=422),
+    FaultKind.RECEIPT_IO: FaultPolicy(http=500, exit=Exit.IO),
+    FaultKind.BAD_ARTIFACT: FaultPolicy(http=500, exit=Exit.IO),
+    FaultKind.STAMP: FaultPolicy(exit=Exit.IO),
+    FaultKind.PORT_BUSY: FaultPolicy(exit=Exit.NET),
+    FaultKind.SELF_TEST: FaultPolicy(exit=Exit.CONTRACT),
+    FaultKind.STATE_BUSY: FaultPolicy(exit=Exit.STATE),
+    FaultKind.STATE_UNREADABLE: FaultPolicy(exit=Exit.STATE),
+    FaultKind.STOP_TIMEOUT: FaultPolicy(exit=Exit.STATE),
+}
+
+
+def fault_policy(kind: FaultKind) -> FaultPolicy:
+    return FAULT_POLICY.get(kind, FaultPolicy())
 
 
 @cache
@@ -427,8 +453,7 @@ class Sink:
         self.append(EventRow(id=xxh3_128_hexdigest(f"{kind}{received}{detail}"), received=received, kind=kind, detail=detail))
 
 
-@dataclass(frozen=True, slots=True)
-class Runtime:
+class Runtime(msgspec.Struct, frozen=True):
     artifact: Path
     token: str
     receipts: Path
@@ -466,6 +491,19 @@ def text(element: html.HtmlElement) -> str:
     return " ".join("".join(element.itertext()).split())
 
 
+LABELABLE = "self::input[not(translate(@type,'HIDEN','hiden')='hidden')] or self::select or self::textarea"
+
+
+def labelled(document: html.HtmlElement, node: html.HtmlElement) -> bool:
+    ident = str(node.get("id") or "")
+    return bool(
+        node.get("aria-label")
+        or node.get("aria-labelledby")
+        or q(node, "ancestor::label")
+        or (ident and q(document, "//label[@for=$ident]", ident=ident))
+    )
+
+
 def tag(element: html.HtmlElement) -> str:
     raw = element.tag
     return raw.decode("utf-8", "replace") if isinstance(raw, bytes | bytearray) else str(raw)
@@ -489,6 +527,10 @@ def emit_row(row: Row, json_mode: bool) -> None:
 
 def bad_reference(value: str) -> bool:
     return bool((ref := value.strip()) and BAD_REF.match(ref) and not ref.lower().startswith(("data:", "blob:", "about:blank")))
+
+
+def template_source(path: str) -> bool:
+    return str(Path(path).resolve()).startswith(TEMPLATE_ROOT + os.sep)
 
 
 def srcset_urls(value: str) -> tuple[str, ...]:
@@ -556,6 +598,28 @@ def dom_rows(artifact: Artifact) -> tuple[Row, ...]:
     rows.extend(
         Row(artifact.path, line(node), Check.INTERACTION, "fail", "clickable svg group lacks tabindex")
         for node in q(document, "//svg//*[@data-k][not(@tabindex)]")
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.FORM_LABEL, "fail", f"<{tag(node)}> lacks label")
+        for node in q(document, f"//*[{LABELABLE}]")
+        if not labelled(document, node)
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.FIELDSET_LEGEND, "fail", "segmented control uses div role; use fieldset and legend")
+        for node in q(document, "//*[contains(concat(' ',normalize-space(@class),' '),' seg ') and (self::div or @role='group' or @role='radiogroup')]")
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.FIELDSET_LEGEND, "fail", "fieldset lacks legend")
+        for node in q(document, "//fieldset[not(legend)]")
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.FORM_NAME, "warn", f"<{tag(node)}> capture control lacks name")
+        for node in q(document, "//*[@form='capture-form' and (self::input or self::select or self::textarea)]")
+        if not node.get("name")
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.OUTPUT_FOR, "warn", "output lacks for")
+        for node in q(document, "//output[not(@for) and not(@id='toast') and not(@id='egress-meta')]")
     )
     return tuple(rows)
 
@@ -628,6 +692,15 @@ def css_structure_rows(artifact: Artifact) -> tuple[Row, ...]:
             if layer not in PRINT_SAFE_LAYERS:
                 rows.append(Row(artifact.path, artifact.line_at(index), Check.IMPORTANT, "fail", f"!important inside layer '{layer or 'none'}'"))
     return tuple(rows)
+
+
+def css_parse_rows(artifact: Artifact) -> tuple[Row, ...]:
+    rules = tinycss2.parse_stylesheet(artifact.css, skip_comments=True, skip_whitespace=True)
+    return tuple(
+        Row(artifact.path, artifact.css_base + int(getattr(rule, "source_line", 1)) - 1, Check.CSS_LAYER, "fail", getattr(rule, "message", "css parse error"))
+        for rule in rules
+        if getattr(rule, "type", "") == "error"
+    )
 
 
 def token_colors(plain: str) -> dict[str, Color]:
@@ -707,9 +780,9 @@ def var_graph_rows(artifact: Artifact) -> tuple[Row, ...]:
     js_writes = {match.group(1) for script in artifact.scripts for match in SET_PROPERTY.finditer(script.body)}
     floor_defined, floor_uses = _baseline_floor()
     rows = [
-        Row(artifact.path, artifact.css_base, Check.VAR_GRAPH, "warn" if fallback else "fail", f"var({name}) references an undefined property")
+        Row(artifact.path, artifact.css_base, Check.VAR_GRAPH, "fail", f"var({name}) references an undefined property")
         for name, fallback in sorted(uses.items())
-        if name not in defined and name not in js_writes and name not in floor_uses
+        if not fallback and name not in defined and name not in js_writes and name not in floor_uses
     ]
     rows.extend(
         Row(artifact.path, artifact.css_base, Check.VAR_GRAPH, "warn", f"{name} defined but never read")
@@ -721,7 +794,7 @@ def var_graph_rows(artifact: Artifact) -> tuple[Row, ...]:
 
 def css_rows(artifact: Artifact) -> tuple[Row, ...]:
     plain = artifact.css_flat
-    rows = [*css_structure_rows(artifact), *contrast_rows(artifact, token_colors(plain)), *var_graph_rows(artifact)]
+    rows = [*css_parse_rows(artifact), *css_structure_rows(artifact), *contrast_rows(artifact, token_colors(plain)), *var_graph_rows(artifact)]
     rows.extend(Row(artifact.path, artifact.line_at(match.start()), Check.SRGB_MIX, "fail", match.group(0)) for match in SRGB_MIX.finditer(plain))
     rows.extend(
         Row(artifact.path, artifact.line_at(match.start()), Check.RAW_HEX, "fail", f"{match['prop']}:{match['value'].strip()[:80]}")
@@ -779,6 +852,22 @@ def js_tree_rows(artifact: Artifact, script: Script) -> tuple[Row, ...]:
     return tuple(rows)
 
 
+def local_script_body(script: Script) -> tuple[int, str]:
+    marker = MARKERS[Region.RUNTIME][2]
+    offset = script.body.find(marker)
+    start = offset + len(marker) if offset >= 0 else 0
+    return script.line + script.body[:start].count("\n"), script.body[start:]
+
+
+def runtime_fork_rows(artifact: Artifact, script: Script) -> tuple[Row, ...]:
+    base, body = local_script_body(script)
+    return tuple(
+        Row(artifact.path, base + body[: match.start()].count("\n"), Check.RUNTIME_FORK, "fail", detail)
+        for pattern, detail in RUNTIME_FORKS
+        for match in pattern.finditer(body)
+    )
+
+
 def script_rows(artifact: Artifact) -> tuple[Row, ...]:
     executable = tuple(script for script in artifact.scripts if script.kind is ScriptKind.EXECUTABLE)
     rows = [] if len(executable) == 1 else [Row(artifact.path, 1, Check.SCRIPT_COUNT, "fail", f"{len(executable)} executable scripts")]
@@ -792,6 +881,7 @@ def script_rows(artifact: Artifact) -> tuple[Row, ...]:
                 rows.append(Row(artifact.path, script.line, Check.EMBEDDED_STATE, "fail", str(exc).splitlines()[0][:120]))
         else:
             rows.extend(js_tree_rows(artifact, script))
+            rows.extend(runtime_fork_rows(artifact, script))
         if SCRIPT_HAZARD.search(script.body):
             rows.append(Row(artifact.path, script.line, Check.SCRIPT_HAZARD, "warn", "raw U+2028/U+2029 line separator"))
     return tuple(rows)
@@ -900,7 +990,9 @@ def audit(path: Path) -> tuple[Row, ...]:
             (Check.RESIDUE, RESIDUE, "template replace-marker remains"),
             (Check.SECRET, SECRET, "credential-shaped literal"),
         )
-        if pattern.search(value) and not (check is Check.SECRET and ";base64," in value)
+        if pattern.search(value)
+        and not (check is Check.RESIDUE and template_source(artifact.path))
+        and not (check is Check.SECRET and ";base64," in value)
     )
     return tuple(sorted(rows, key=lambda row: (row.line, row.check, row.detail)))
 
@@ -988,7 +1080,7 @@ def emit(output: Output, mode: OutputMode) -> None:
 
 def fail(fault: Fault, mode: OutputMode) -> int:
     emit(Output(status="ERROR", detail=f"{fault.kind}: {fault.detail}".strip(": ")), mode)
-    return int(EXIT_CODE.get(fault.kind, Exit.USAGE))
+    return int(fault_policy(fault.kind).exit)
 
 
 def make_handler(runtime: Runtime) -> type[BaseHTTPRequestHandler]:
@@ -1008,7 +1100,7 @@ def make_handler(runtime: Runtime) -> type[BaseHTTPRequestHandler]:
 
         def _fault(self, fault: Fault) -> None:
             LOG.warning("request.rejected", fault=fault.kind, detail=fault.detail)
-            self._respond(HTTP_STATUS.get(fault.kind, 400), ENC.encode(Reply(ok=False, fault=fault.kind)), "application/json")
+            self._respond(fault_policy(fault.kind).http, ENC.encode(Reply(ok=False, fault=fault.kind)), "application/json")
 
         def _token_ok(self) -> bool:
             return hmac.compare_digest(self.headers.get("X-Artifact-Token", ""), runtime.token)

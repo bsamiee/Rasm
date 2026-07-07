@@ -1,108 +1,123 @@
 # [CODE]
 
-The code doctrine for artifact HTML, CSS, and JS: which platform features are vocabulary, which ride a guard, which never ship, and the shape the one script takes. The stylesheet architecture is [styling.md](styling.md), the state model is [state.md](state.md), behavior patterns are [interaction.md](interaction.md); this file owns the stamped-region contract, platform admission, script shape, and egress resilience.
+Artifact code is a stamped shell plus one template-local model. Canonical regions carry shared mechanics; template code declares data, projects state, binds capture, and shapes the envelope. Styling owns cascade and tokens, state owns model truth, interaction owns control patterns, roundtrip owns receipts, and code owns executable shape, platform admission, and region boundaries.
 
 ## [01]-[STAMPED_REGIONS]
 
-Every artifact carries three canonical regions the assembler stamps and the gate byte-verifies; a hand-edited region is drift the gate fails, and a rebuilt canon lands everywhere with one `stamp` run.
+`studio.py` owns every stamped byte. A template composes the regions and appends only its local model, projections, capture bindings, and artifact-specific controls.
 
-| [INDEX] | [REGION]            | [CARRIES]                                              | [SITE]                          |
-| :-----: | :------------------ | :----------------------------------------------------- | :------------------------------ |
-|  [01]   | `NOCTURNE_BASELINE` | the token, base, component, print, and override layers | head `<style>`, first block     |
-|  [02]   | `NOCTURNE_DRAWER`   | drawer tab, export bar, toast output                   | end of `<body>`, before payload |
-|  [03]   | `NOCTURNE_RUNTIME`  | the runtime kernel of [03]                             | the one `<script>`, first block |
+| [INDEX] | [REGION]            | [BYTE_OWNER]                    | [INSERTION]                     | [TEMPLATE_EDGE]              |
+| :-----: | :------------------ | :------------------------------ | :------------------------------ | :--------------------------- |
+|  [01]   | `NOCTURNE_BASELINE` | `scripts/nocturne/baseline.css` | first head `<style>` block      | local layered CSS follows    |
+|  [02]   | `NOCTURNE_DRAWER`   | `scripts/nocturne/drawer.html`  | body end before payload data    | drawer fields append by data |
+|  [03]   | `NOCTURNE_RUNTIME`  | `scripts/nocturne/runtime.js`   | first executable script segment | local script follows         |
 
-- The assembler under `scripts/` is the byte owner; the region delimiters are its contract, and `--help` is its verb surface. Template-local CSS appends after the baseline into the declared layers, template-local markup precedes the drawer, and template-local script follows the kernel.
-- The runtime kernel owns every cross-template concern: theme stamping, the `el()` hydrate factory, `esc()`, `copyText()`, `download()`, `flash()`, the envelope send, the export wire, the scroll spy, print disclosure expansion, and redaction. A template re-authoring any of these forks the grammar and is a defect; a template composes them and supplies only its model, its renderers, and its capture handlers.
-- A composed one-off artifact (no template) starts from a `stamp`-emitted shell, never from a hand-copied baseline.
+- Region delimiters are the assembler contract; hand-edited bytes fail the region gate.
+- One executable script contains exactly one stamped runtime kernel and one local script owner. `application/json` payload scripts are data blocks.
+- The runtime kernel owns theme stamping, DOM and SVG factories, escaping, formatting, markdown cell safety, delegated event routing, debounced input, capture controls, copy, download, standalone SVG export, toast feedback, redaction, envelope validation, served send, fragment view state, scroll spy, print disclosure, and drawer boot.
+- Template-local code calls `NOCTURNE.boot({ kind, envelope, toMarkdown, isChanged, onExported, narrative, redactPayload })` and supplies model-owned functions only.
+- A composed one-off starts from a stamped shell; copied regions never become source truth.
 
 ## [02]-[PLATFORM_ADMISSION]
 
-Admission follows web-platform Baseline: a Baseline-available feature (widely or newly) is plain vocabulary; a Baseline-limited feature rides an `@supports` guard or a JS capability probe and the page stays complete without it; a rejected feature never ships. Verify the band when adopting a feature the tables miss — the band moves, the law does not.
+Platform vocabulary lands by support band. Plain vocabulary ships unguarded; guarded vocabulary enhances a complete fallback; dead vocabulary never appears in an artifact.
 
-[VOCABULARY] — assumed, unguarded:
+[PLAIN]:
 
-| [INDEX] | [FEATURE]                                                 | [KILLS]                                                   |
-| :-----: | :-------------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `popover` + `popovertarget`                               | overlay managers, outside-click and Escape plumbing       |
-|  [02]   | `<dialog>` + `showModal()` + `::backdrop`                 | focus-trap scaffolds, scrim divs, body scroll locks       |
-|  [03]   | `<details name>`                                          | accordion exclusivity scripts                             |
-|  [04]   | `:has()`                                                  | parent class toggles, sibling-walk scripts                |
-|  [05]   | container size queries + `cqi`                            | viewport-only breakpoints, resize listeners               |
-|  [06]   | CSS nesting, `@layer`, `@property`, subgrid               | preprocessor habits, specificity wars, equal-height hacks |
-|  [07]   | OKLCH, `color-mix()`, relative color syntax               | HSL lightness lies, hand-derived palette variants         |
-|  [08]   | `@starting-style` + `transition-behavior: allow-discrete` | JS enter/exit classes, timeout-delayed `display:none`     |
-|  [09]   | `inert`                                                   | focus sentinels, `aria-hidden` tree walks                 |
-|  [10]   | `:user-valid` / `:user-invalid`                           | touched-field tracking scripts                            |
-|  [11]   | `text-wrap: balance`, `clamp()`/`round()`                 | `<br>` headline tuning, JS measurement constants          |
-|  [12]   | `content-visibility: auto`                                | manual below-fold virtualization for static sections      |
-|  [13]   | `color-scheme` + `data-theme` token branches              | duplicate per-component dark-mode rules                   |
-|  [14]   | anchor positioning (`anchor-name`, `position-area`)       | hand-positioned fixed poppers, viewport math              |
-|  [15]   | `<search>`, `<output>`, native form semantics             | `role` retrofits on generic containers                    |
+| [INDEX] | [SURFACE]                                                | [DELETES]                                       |
+| :-----: | :------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `popover`, `popovertarget`, `<dialog>`, `showModal()`    | overlay managers, scrim nodes, focus traps      |
+|  [02]   | `<details name>`, `<search>`, `<output>`, `inert`        | accordion scripts, generic landmark retrofits   |
+|  [03]   | `fieldset`, `legend`, labeled form-associated controls   | ARIA radio retrofits on generic containers      |
+|  [04]   | `:has()`, `:user-valid`, `:user-invalid`                 | parent class toggles, touched-field state       |
+|  [05]   | container size queries, `cqi`, subgrid                   | viewport-only breakpoints, equal-height scripts |
+|  [06]   | CSS nesting, `@layer`, `@property`, `@scope`             | preprocessors, unlayered specificity fights     |
+|  [07]   | OKLCH, `color-mix(in oklch, ...)`, relative color syntax | sRGB ladders, hand-derived hover colors         |
+|  [08]   | `@starting-style`, `transition-behavior: allow-discrete` | JS enter and exit classes                       |
+|  [09]   | `text-wrap: balance`, `clamp()`, `round()`               | `<br>` tuning, JS measurement constants         |
+|  [10]   | `content-visibility: auto`                               | static below-fold virtualization scripts        |
 
-[GUARDED] — enhancement behind `@supports` or a probe; the unguarded page stays whole:
+[GUARDED]:
 
-| [INDEX] | [FEATURE]                          | [GUARD]                                      | [ENHANCES]                            |
-| :-----: | :--------------------------------- | :------------------------------------------- | :------------------------------------ |
-|  [01]   | same-document view transitions     | `document.startViewTransition?.(cb) ?? cb()` | deck and board swaps                  |
-|  [02]   | scroll-driven animations           | `@supports (animation-timeline: scroll())`   | reading progress, orientation only    |
-|  [03]   | container style queries            | attribute-selector twin carries the rule     | density and mode refinement           |
-|  [04]   | `::details-content` transition     | plain open state without it                  | disclosure motion                     |
-|  [05]   | `interpolate-size: allow-keywords` | instant size change without it               | intrinsic-size transitions            |
-|  [06]   | `field-sizing: content`            | fixed `block-size` fallback                  | growing textareas                     |
-|  [07]   | invoker commands (`commandfor`)    | `popovertarget`/listener twin                | declarative dialog and popover wiring |
-|  [08]   | `text-wrap: pretty`                | plain wrapping                               | rag quality                           |
-|  [09]   | `linear()` spring easing           | `--ease-spring` cubic fallback               | one celebratory settle                |
-|  [10]   | `hidden="until-found"`             | plain `<details>`                            | find-in-page into collapsed depth     |
+| [INDEX] | [SURFACE]                          | [GUARD]                                      | [FALLBACK]                 |
+| :-----: | :--------------------------------- | :------------------------------------------- | :------------------------- |
+|  [01]   | same-document view transitions     | `document.startViewTransition?.(cb) ?? cb()` | direct DOM update          |
+|  [02]   | scroll-driven animations           | `@supports (animation-timeline: scroll())`   | static progress affordance |
+|  [03]   | container style queries            | selector branch carries the same rule        | attribute selector branch  |
+|  [04]   | `::details-content` transition     | plain `[open]` state                         | instant disclosure         |
+|  [05]   | `interpolate-size: allow-keywords` | fixed block-size fallback                    | instant size change        |
+|  [06]   | `field-sizing: content`            | fixed control size                           | scrollable input           |
+|  [07]   | invoker commands, `commandfor`     | listener or `popovertarget` twin             | existing route             |
+|  [08]   | `text-wrap: pretty`                | plain wrapping                               | standard line wrapping     |
+|  [09]   | `linear()` spring easing           | `--ease-spring` cubic fallback               | cubic easing               |
+|  [10]   | `hidden="until-found"`             | ordinary `<details>`                         | visible disclosure section |
 
-[REJECTED] — never in an artifact: masonry/`grid-lanes`, `reading-flow`, CSS `if()`/`@function`, `<dialog closedby>`, customizable `<select>` styling beyond tokens, `blocking="render"`, ES modules, import maps, workers and service workers, `document.execCommand`, runtime framework or diagram libraries, webfonts. Module, worker, and fetch graphs die under `file://` per the contract table [state.md](state.md) owns.
+[DEAD]: masonry `grid-lanes` `reading-flow` CSS `if()` CSS `@function` `<dialog closedby>` customizable `<select>` skinning beyond tokens `blocking="render"` ES modules import maps workers service workers runtime frameworks runtime diagram libraries webfonts `document.execCommand`.
 
-## [03]-[SCRIPT_SHAPE]
+## [03]-[TEMPLATE_GRAMMAR]
 
-One classic `<script>` closes the body: `"use strict"` inside an IIFE, `const`-only bindings, expression-shaped arrow functions, and the fixed block order — KERNEL (stamped), MODEL (payload parse, derived projections), RENDER (pure projections of state into DOM), ACTIONS (the delegated verb tables), WIRE (boot, observers, restore). A reader audits the artifact top-down: what it knows, what it draws, what it does, what starts it.
+A template has one shell grammar.
 
-- One state object, one `render()` projection, one `commit(mutate)` entry — the model law is [state.md](state.md); the code law is that no handler touches the DOM directly except through render or a scoped `paint*` projection, and no render reads the DOM back.
-- Events route through delegated verb tables — one document-level listener per event type dispatching on `data-action`/`data-*` keys; per-node `addEventListener` survives only where the target is unique and dynamic (an observer callback, a dialog close). Scoped listener groups take one `AbortController` and die together.
+1. `head` declares metadata, title, one `style`, the stamped `NOCTURNE_BASELINE`, and template-local CSS.
+2. Template-local CSS appends only through `@layer tokens`, `@layer components`, `@layer utilities`, `@layer print`, and `@layer overrides`.
+3. Baseline CSS owns repeated structure: masthead, split layout, compact command rows, note popovers, flow, rowline, mono text, horizontal scrolling, SVG fit utilities, and native capture scaffolding.
+4. `body` orders content as skip link, artifact header, control band, layout shell, `main`, auxiliary native surfaces, stamped drawer, payload, runtime, and local script.
+5. Auxiliary native surfaces are `template`, `dialog`, and `popover` nodes placed after `main` and before the drawer.
+6. The payload script is the only embedded model source and uses `type="application/json"` with `id="payload"`.
+7. The executable script starts with the stamped runtime and continues with one local IIFE.
+8. The local IIFE orders blocks as `[MODELS]`, `[CONSTANTS]` when needed, `[OPERATIONS]`, and `[COMPOSITION]`.
+9. `deck` owns the only alternate visible shell. It still follows the same payload, runtime, and local script grammar.
+
+Native form semantics own every capture control. A segmented choice renders as `fieldset.seg` with `legend.sr-only`, one labeled `input` per option, one shared `name`, and `form="capture-form"` so distributed controls compose into one `FormData` read without selector harvesting. A note, verdict, score, status override, or drawer field either mutates the model and names its envelope contribution, or it renders as view-only chrome with no capture styling.
+
+Template variation is row data. A new section, control, export field, table, card, slide, filter, or capture surface enters through a descriptor row and an existing renderer when that renderer already owns the shape.
+
+## [04]-[EXECUTABLE_SHAPE]
+
+The executable script audits top-down in owner order: stamped runtime, model declarations, pure operations, composition wiring.
+
+[RUNTIME_OWNERS]:
+
+| [INDEX] | [SURFACE]              | [OWNS]                                      |
+| :-----: | :--------------------- | :------------------------------------------ |
+|  [01]   | `NOCTURNE.payload()`   | payload parse                               |
+|  [02]   | `NOCTURNE.index()`     | keyed row maps                              |
+|  [03]   | `NOCTURNE.md`          | Markdown-safe text and tables               |
+|  [04]   | `NOCTURNE.debounce()`  | delayed input commits                       |
+|  [05]   | `NOCTURNE.delegate()`  | document-level event routing                |
+|  [06]   | `NOCTURNE.capture()`   | verdict, note, annotation, exported state   |
+|  [07]   | `NOCTURNE.svg()`       | SVG node construction                       |
+|  [08]   | `NOCTURNE.exportSvg()` | standalone SVG serialization and token fill |
+|  [09]   | `NOCTURNE.boot()`      | envelope egress and drawer lifecycle        |
+
+- `[TYPES]` appears only for JSDoc typedefs. `[CONSTANTS]` appears only for dependency-free anchors independent of model data. `DATA`, `HELPERS`, `UTILS`, `FUNCTIONS`, and `WIRE` do not appear.
+- Module-scope declarations are `const` except timers, drag cursors, RAF handles, and browser lifecycle cells. State itself is a `const` object mutated only through the artifact's named commit path.
+- One state object, one render projection, one mutation lane per user action. A handler mutates state through the lane; it never reads final truth from DOM position or DOM text.
+- A renderer writes with `replaceChildren`, `textContent`, attributes, dataset stamps, or custom properties. A scoped `paint*` function survives only for local SVG, meter, or readout patches whose model remains authoritative.
+- Repeated markup hydrates through `NOCTURNE.el()` or `<template>` cloning. `innerHTML` is legal only for constant audited markup or a wrapper string whose dynamic fragments pass through `NOCTURNE.esc()`.
+- Dynamic selector values pass through `CSS.escape`. Numbers, dates, percentages, and lists pass through `Intl` formatters. Snapshots pass through `structuredClone`.
+- Template-local growth is valid when it is model rows, descriptor rows, or artifact-specific projections. A repeated mechanic graduates to `NOCTURNE` before a second template redefines it.
 
 ```js copy-safe
-const ACTIONS = {
-  goto: el => document.getElementById(el.dataset.goto)?.scrollIntoView({ behavior: "smooth" }),
-  export: el => doExport(el.dataset.export),
+const capture = NOCTURNE.capture(state.captures);
+const sync = () => {
+  api.refresh();
+  paintMeta();
 };
-document.addEventListener("click", e => {
-  const hit = e.target.closest("[data-action]");
-  if (hit && !hit.disabled) ACTIONS[hit.dataset.action]?.(hit, e);
+
+NOCTURNE.delegate({
+  change: [["[data-verdict-for]", hit => { capture.setVerdict(hit); sync(); }]],
+  input: [["[data-note-for]", hit => { capture.setNote(hit); sync(); }]],
 });
 ```
 
-- Repeated markup hydrates by `<template>` cloning or the kernel `el()` factory; data reaches the DOM through `textContent` only. `innerHTML` accepts nothing derived from data — its whole legal domain is constant, authored, audited markup, and generated SVG builds through `createElementNS` or a cloned template, never string concatenation.
-- Focus-preserving updates: a render that replaces a subtree containing the active element re-renders the smallest region instead, or restores focus by stable id after `replaceChildren` — a full-page re-render on every keystroke that eats the caret is a defect.
-- Numbers, dates, and lists format through `Intl` (`NumberFormat`, `RelativeTimeFormat`, `ListFormat`), never hand-rolled separators or pluralization; snapshots and baselines through `structuredClone`; view state through `URLSearchParams` on the fragment; dynamic selector values through `CSS.escape`.
-- JS writes the narrowest runtime API — one `data-*` stamp or one custom property — and CSS derives everything downstream; a JS loop mutating per-node inline styles where a root property serves is a defect. Reads batch before writes inside one `requestAnimationFrame` when input drives repaint.
-- The template-local script past the kernel holds near 250 lines; growth past it means logic belongs in the model as data (rows, vocabularies, dispatch keys), not more branches.
-
-## [04]-[IDIOMS]
-
-| [INDEX] | [USE]                                                    | [REPLACES]                                       |
-| :-----: | :------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | delegated verb table + `AbortController`                 | per-node listeners, manual listener bookkeeping  |
-|  [02]   | `structuredClone(state)`                                 | `JSON.parse(JSON.stringify(...))`, spread copies |
-|  [03]   | `Intl.*` formatters                                      | hand-rolled number, date, and list formatting    |
-|  [04]   | `navigator.clipboard.writeText` + mirror fallback        | `document.execCommand("copy")`, hidden textareas |
-|  [05]   | `matchMedia(...).addEventListener("change", ...)`        | theme polling, duplicate JS theme state          |
-|  [06]   | `IntersectionObserver` / `ResizeObserver`                | scroll math, resize polling                      |
-|  [07]   | `FormData` + `Object.fromEntries`                        | per-field `querySelector` harvesting             |
-|  [08]   | `showPopover()`/`showModal()`/`close()`                  | class-toggle overlays, focus and Escape plumbing |
-|  [09]   | `URL`/`URLSearchParams`                                  | regex URL parsing, string splitting              |
-|  [10]   | `template.content.cloneNode(true)`                       | `innerHTML` string building for repeated rows    |
-|  [11]   | `toggleAttribute`/`dataset`/`classList.toggle(x, force)` | attribute string surgery                         |
-|  [12]   | `Object.groupBy`/`Map.groupBy`                           | reduce-into-dict grouping boilerplate            |
-
 ## [05]-[EGRESS_RESILIENCE]
 
-Judgment is never stranded: every egress walks one ordered chain and reports where it landed.
+Every egress path emits one validated envelope and reports the landing path.
 
-- The chain: served send (`POST` per [roundtrip.md](roundtrip.md)) → clipboard `writeText` → the drawer's readonly mirror selected for manual copy, each fall-through announced in the toast and the mirror always holding the exact payload. `execCommand` is dead; the mirror is the terminal fallback and keeps the page interactive.
-- A failed send flips the control to its failed state, routes the identical envelope to the clipboard path, and leaves annotations `active` — the idempotence law is [roundtrip.md](roundtrip.md).
-- Config, prompt, and dataset payloads run the kernel redaction pass before any copy or send — key-name tokens, known credential prefixes, URL userinfo, high-entropy literals — masking to stable indexed placeholders; the embed-time gate in [state.md](state.md) is the first wall and this pass is the egress wall.
-- The export validates its own envelope before anything leaves and visibly blocks a malformed payload; a silent no-op export is a defect.
+- Ordered chain: served `POST` -> clipboard `writeText` -> readonly mirror. The mirror receives the exact payload before every attempted copy or send.
+- Send failure routes the identical envelope into the clipboard path and leaves contributing annotations `active`.
+- `redactPayload` runs before copy, download, or send for config, prompt, dataset, and credential-shaped content.
+- `validateEnvelope` blocks malformed payloads visibly before egress.
+- Changed-only export is disabled when no model diff exists; it never emits an empty payload.
+- Export marks annotations `exported` only after a send or copy succeeds.

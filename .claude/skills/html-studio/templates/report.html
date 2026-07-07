@@ -94,6 +94,18 @@ button,select,input,textarea{font:inherit;color:inherit}
 @layer components{
 .eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
 .deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.sr-only{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.masthead{display:grid;gap:var(--s2);margin-block-end:var(--masthead-end,var(--s5));
+&>.top{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;justify-content:space-between}}
+.micro{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.layout{display:grid;grid-template-columns:minmax(11rem,13rem) minmax(0,1fr);gap:var(--s5)}
+.cap{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+:where(.cap,.controls,.flowbar) .btn{block-size:28px;font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase}
+:where(.controls,.flowbar) .btn{font-weight:600;padding-inline:var(--s2)}
+.cap .seg{block-size:28px}
+.cap .seg label{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding-inline:var(--s2)}
+.notepop{position:fixed;inset:auto var(--s4) var(--s4) auto;
+& textarea{inline-size:100%;min-block-size:4rem;margin-block-start:var(--s2)}}
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec;&>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}}
@@ -128,7 +140,8 @@ pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);borde
 &.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1);&:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}&:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}}
 &.ghost{background:transparent}&[aria-pressed="true"],&.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
 &:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}}
-.seg{display:inline-flex;block-size:32px;border:1px solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;
+.seg{display:inline-flex;block-size:32px;border:1px solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;margin:0;padding:0;min-inline-size:0;
+&>legend{padding:0}
 & label{display:inline-flex;align-items:center;padding-inline:var(--s3);font-size:var(--fs-sm);font-weight:500;cursor:pointer;transition:background var(--dur-1) var(--ease-standard)}
 & label:hover{background:var(--raised-2)}
 & label:has(input:checked){background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
@@ -163,6 +176,8 @@ details[open]>summary::before{transform:rotate(90deg)}
 .flow>*+*{margin-block-start:var(--s3)}
 .mono{font-family:var(--font-mono)}
 .right{margin-inline-start:auto}
+.scroll-x{overflow-x:auto}
+.fit-svg{display:block;inline-size:100%;block-size:auto}
 }
 @layer print{
 @media print{
@@ -308,6 +323,7 @@ main{counter-reset:sec}
 </template>
 <!-- --- [NOCTURNE_DRAWER:BEGIN] --- -->
 <!-- --- [NOCTURNE_DRAWER] --- assembler-stamped byte canon; per-type controls append into [data-drawer-fields] at render time -->
+<form id="capture-form" data-capture-form hidden></form>
 <button type="button" class="drawer-tab no-print" popovertarget="export-drawer" aria-label="Open export drawer">Export</button>
 <aside id="export-drawer" class="export-bar no-print" popover="auto" aria-label="Export drawer">
 <header><span class="eyebrow">[EXPORT]</span><button type="button" class="btn ghost" popovertarget="export-drawer" popovertargetaction="hide" aria-label="Close export drawer">&#x2715;</button></header>
@@ -426,15 +442,29 @@ const NOCTURNE = (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = value => { const node = document.createElement("span"); node.textContent = String(value); return node.innerHTML; };
-  const el = (tag, attrs, ...kids) => {
-    const node = document.createElement(tag);
-    if (attrs) for (const key in attrs) {
+  const put = (node, attrs) => {
+    if (!attrs) return node;
+    for (const key in attrs) {
       const value = attrs[key];
       if (value == null || value === false) continue;
       if (key === "text") node.textContent = value;
+      else if (key === "dataset") for (const name in value) { if (value[name] != null) node.dataset[name] = value[name]; }
+      else if (key === "style" && typeof value === "object") for (const name in value) node.style.setProperty(name, value[name]);
       else if (value === true) node.setAttribute(key, "");
       else node.setAttribute(key, value);
     }
+    return node;
+  };
+  const el = (tag, attrs, ...kids) => {
+    const node = document.createElement(tag);
+    put(node, attrs);
+    for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+    return node;
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = (tag, attrs, ...kids) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    put(node, attrs);
     for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
     return node;
   };
@@ -444,6 +474,122 @@ const NOCTURNE = (() => {
     return node;
   };
   const fmt = { num: new Intl.NumberFormat(), pct: new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 0 }) };
+  const payload = (id = "payload") => JSON.parse($("#" + CSS.escape(id)).textContent);
+  const index = (rows, key = "id") => Object.fromEntries(rows.map(row => [typeof key === "function" ? key(row) : row[key], row]));
+  const md = {
+    cell: value => String(value ?? "").replace(/\|/g, "\\|").replace(/\n/g, " "),
+    line: value => String(value ?? "").replace(/\s+/g, " ").trim(),
+    table: (headers, rows) => [
+      "| " + headers.map(md.cell).join(" | ") + " |",
+      "| " + headers.map(() => "---").join(" | ") + " |",
+      ...rows.map(row => "| " + row.map(md.cell).join(" | ") + " |"),
+    ].join("\n"),
+  };
+  const debounce = (fn, delay = 120) => {
+    let timer = 0;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
+  const delegate = (tables, rootNode = document) => {
+    const ctl = new AbortController();
+    Object.entries(tables).forEach(([type, rows]) => rootNode.addEventListener(type, event => {
+      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      if (!target) return;
+      rows.some(([selector, fn]) => {
+        const hit = target.closest(selector);
+        if (!hit || !rootNode.contains(hit) || hit.disabled) return false;
+        fn(hit, event);
+        return true;
+      });
+    }, { signal: ctl.signal }));
+    return ctl;
+  };
+  const idToken = value => String(value).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "") || "x";
+  const opt = row => typeof row === "string" ? { value: row, label: row } : row;
+  const formValues = (form = $("#capture-form")) => {
+    if (!form) return {};
+    const data = new FormData(form);
+    return [...new Set(data.keys())].reduce((acc, key) => {
+      const all = data.getAll(key);
+      acc[key] = all.length > 1 ? all : (all[0] ?? "");
+      return acc;
+    }, {});
+  };
+  const choice = ({ name, legend, value = "", options, attrs = {}, input = () => ({}) }) =>
+    el("fieldset", { class: "seg no-print", ...attrs },
+      el("legend", { class: "sr-only", text: legend }),
+      options.map(raw => {
+        const row = opt(raw);
+        const ident = `${name}-${idToken(row.value)}`;
+        return el("label", { for: ident },
+          el("input", { id: ident, type: row.type ?? "radio", name, value: row.value, checked: row.value === value || null, form: "capture-form", ...input(row) }),
+          row.label ?? row.value);
+      }));
+  const field = ({ id, label, control, help }) =>
+    el("div", { class: "field" }, el("label", { for: id, text: label }), control, help ? el("small", { text: help }) : null);
+  const selectField = ({ id, label, value = "", options, attrs = {}, help }) =>
+    field({ id, label, help, control: el("select", { id, name: id, form: "capture-form", ...attrs },
+      options.map(raw => { const row = opt(raw); return el("option", { value: row.value, selected: row.value === value || null }, row.label ?? row.value); })) });
+  const textareaField = ({ id, label, value = "", attrs = {}, help }) =>
+    field({ id, label, help, control: el("textarea", { id, name: id, form: "capture-form", ...attrs }, value) });
+  const note = ({ id, label, value = "", title = "Annotation", attrs = {}, button = "note", active = "note*" }) => {
+    const pid = "note-" + idToken(id);
+    const tid = pid + "-text";
+    return el("span", { class: "rowline" },
+      el("button", { type: "button", class: "btn ghost no-print", popovertarget: pid, "data-note-btn": id, "data-note-empty": button, "data-note-active": active, "aria-label": label }, value ? active : button),
+      el("div", { id: pid, class: "pop notepop no-print", popover: "auto" },
+        el("span", { class: "eyebrow", text: title }),
+        textareaField({ id: tid, label, value, attrs })));
+  };
+  const drawer = (...nodes) => $("[data-drawer-fields]")?.prepend(...nodes);
+  const capture = Object.assign((store, defaults = { verdict: "", note: "", ann: "active" }) => {
+    const row = id => (store[id] ??= { ...defaults });
+    const decisions = () => Object.entries(store).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
+    const annotations = (intent = "note") => Object.entries(store).filter(([, c]) => c.note?.trim()).map(([id, c]) => ({ id: "a-" + id, itemId: id, intent, status: c.ann ?? "active", text: c.note.trim() }));
+    const markExported = () => Object.values(store).forEach(c => { if (c.note?.trim()) c.ann = "exported"; });
+    const keyOf = hit => hit.dataset.id ?? hit.dataset.verdictFor ?? hit.dataset.noteFor ?? "";
+    const setVerdict = hit => { const c = row(keyOf(hit)); c.verdict = hit.value; document.getElementById(keyOf(hit))?.setAttribute("data-verdict", hit.value); };
+    const setNote = hit => {
+      const id = keyOf(hit);
+      const c = row(id);
+      c.note = hit.value;
+      c.ann = "active";
+      $$(`[data-note-btn="${CSS.escape(id)}"]`).forEach(btn => { btn.textContent = hit.value ? (btn.dataset.noteActive || "note*") : (btn.dataset.noteEmpty || "note"); });
+    };
+    return {
+      row,
+      decisions,
+      annotations,
+      markExported,
+      setVerdict,
+      setNote,
+      choice: spec => choice(spec),
+      note: spec => note(spec),
+    };
+  }, { formValues, choice, drawer, field, note, select: selectField, textarea: textareaField });
+  const exportSvg = (source, filename, clean = () => {}) => {
+    const node = typeof source === "string" ? $(source) : source;
+    if (!node) return false;
+    const copy = node.cloneNode(true);
+    const box = node.viewBox?.baseVal;
+    copy.setAttribute("xmlns", SVG_NS);
+    if (box) {
+      copy.setAttribute("width", box.width);
+      copy.setAttribute("height", box.height);
+    }
+    clean(copy);
+    const styles = getComputedStyle(node);
+    copy.querySelectorAll("[fill^='var('],[stroke^='var(']").forEach(item => ["fill", "stroke"].forEach(attr => {
+      const raw = item.getAttribute(attr);
+      if (!raw?.startsWith("var(")) return;
+      const token = raw.slice(4, -1).split(",")[0].trim();
+      item.setAttribute(attr, styles.getPropertyValue(token).trim() || raw);
+    }));
+    download(filename, "image/svg+xml;charset=utf-8", new XMLSerializer().serializeToString(copy));
+    return true;
+  };
 
   const slug = document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const themeKey = "theme:" + slug;
@@ -576,16 +722,20 @@ const NOCTURNE = (() => {
     return { refresh, flash, copyText };
   };
 
-  return { $, $$, el, esc, clone, fmt, slug, flash, copyText, download, redact, VOCAB, validateEnvelope, served, send, view, boot };
+  return {
+    $, $$, el, svg, esc, clone, payload, index, md, fmt, slug, flash, copyText,
+    download, exportSvg, debounce, delegate, capture, redact, VOCAB,
+    validateEnvelope, served, send, view, boot,
+  };
 })();
 // --- [NOCTURNE_RUNTIME:END] ---
 // --- [TEMPLATE_LOCAL] --- model, render, wire; a report is view-only, so the kernel owns every action
 (() => {
 "use strict";
-const { $, el } = NOCTURNE;
+const { $, el, svg: makeSvg } = NOCTURNE;
 
-// --- model
-const model = JSON.parse($("#payload").textContent);
+// --- [MODELS]
+const model = NOCTURNE.payload();
 const variant = model.variant === "incident" ? "incident" : "status";
 const active = model[variant];
 const TONE = { ok: "ok", warn: "warn", fail: "fail", info: "info" };
@@ -624,7 +774,7 @@ const toMarkdown = () => {
   return lines.join("\n") + "\n";
 };
 
-// --- render
+// --- [OPERATIONS]
 const renderMast = () => {
   $("#doc-eyebrow").textContent = active.eyebrow;
   $("#doc-title").textContent = active.title;
@@ -638,13 +788,6 @@ const renderMast = () => {
        el("small", { text: model.incident.owner })]));
 };
 
-const SVGNS = "http://www.w3.org/2000/svg";
-const sv = (tag, attrs, text) => {
-  const node = document.createElementNS(SVGNS, tag);
-  for (const key in attrs) node.setAttribute(key, attrs[key]);
-  if (text != null) node.textContent = text;
-  return node;
-};
 const niceStep = raw => { const pow = 10 ** Math.floor(Math.log10(raw)); const unit = raw / pow; return (unit < 1.5 ? 1 : unit < 3.2 ? 2 : unit < 7.1 ? 5 : 10) * pow; };
 const renderChart = v => {
   const svg = $("#vchart");
@@ -655,8 +798,8 @@ const renderChart = v => {
   const y = value => F.floor - (value / topTick) * (F.floor - F.top);
   for (let tick = 0; tick <= topTick + 1e-9; tick += step) {
     const gy = Math.round(y(tick)) + 0.5;
-    svg.append(sv("line", { class: "grid" + (tick === 0 ? " zero" : ""), x1: F.left, x2: F.right, y1: gy, y2: gy }));
-    svg.append(sv("text", { x: F.left - 8, y: gy + 3.5, "text-anchor": "end" }, String(tick)));
+    svg.append(makeSvg("line", { class: "grid" + (tick === 0 ? " zero" : ""), x1: F.left, x2: F.right, y1: gy, y2: gy }));
+    svg.append(makeSvg("text", { x: F.left - 8, y: gy + 3.5, "text-anchor": "end" }, String(tick)));
   }
   const band = (F.right - F.left) / v.counts.length;
   const bw = Math.round(band * 0.56);
@@ -664,9 +807,9 @@ const renderChart = v => {
   v.counts.forEach((count, i) => {
     const x = Math.round(F.left + i * band + (band - bw) / 2);
     const h = Math.max(1, Math.round((count / topTick) * (F.floor - F.top)));
-    svg.append(sv("rect", { class: "bar" + (i === peak ? " peak" : ""), x, y: F.floor - h, width: bw, height: h, rx: 4 }));
-    svg.append(sv("text", { x: x + bw / 2, y: F.floor + 20, "text-anchor": "middle" }, v.days[i]));
-    if (i === peak) svg.append(sv("text", { class: "val", x: x + bw / 2, y: F.floor - h - 8, "text-anchor": "middle" }, String(count)));
+    svg.append(makeSvg("rect", { class: "bar" + (i === peak ? " peak" : ""), x, y: F.floor - h, width: bw, height: h, rx: 4 }));
+    svg.append(makeSvg("text", { x: x + bw / 2, y: F.floor + 20, "text-anchor": "middle" }, v.days[i]));
+    if (i === peak) svg.append(makeSvg("text", { class: "val", x: x + bw / 2, y: F.floor - h - 8, "text-anchor": "middle" }, String(count)));
   });
   svg.setAttribute("aria-label", v.caption);
   $("#vcap").textContent = v.caption;
@@ -724,7 +867,7 @@ const renderIncident = () => {
     el("span", { class: "due num", text: "due " + a.due }))));
 };
 
-// --- wire
+// --- [COMPOSITION]
 $("#main").replaceChildren(document.getElementById("tpl-" + variant).content.cloneNode(true));
 renderMast();
 (variant === "incident" ? renderIncident : renderStatus)();

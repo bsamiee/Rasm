@@ -4,15 +4,29 @@ const NOCTURNE = (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = value => { const node = document.createElement("span"); node.textContent = String(value); return node.innerHTML; };
-  const el = (tag, attrs, ...kids) => {
-    const node = document.createElement(tag);
-    if (attrs) for (const key in attrs) {
+  const put = (node, attrs) => {
+    if (!attrs) return node;
+    for (const key in attrs) {
       const value = attrs[key];
       if (value == null || value === false) continue;
       if (key === "text") node.textContent = value;
+      else if (key === "dataset") for (const name in value) { if (value[name] != null) node.dataset[name] = value[name]; }
+      else if (key === "style" && typeof value === "object") for (const name in value) node.style.setProperty(name, value[name]);
       else if (value === true) node.setAttribute(key, "");
       else node.setAttribute(key, value);
     }
+    return node;
+  };
+  const el = (tag, attrs, ...kids) => {
+    const node = document.createElement(tag);
+    put(node, attrs);
+    for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+    return node;
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = (tag, attrs, ...kids) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    put(node, attrs);
     for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
     return node;
   };
@@ -22,6 +36,122 @@ const NOCTURNE = (() => {
     return node;
   };
   const fmt = { num: new Intl.NumberFormat(), pct: new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 0 }) };
+  const payload = (id = "payload") => JSON.parse($("#" + CSS.escape(id)).textContent);
+  const index = (rows, key = "id") => Object.fromEntries(rows.map(row => [typeof key === "function" ? key(row) : row[key], row]));
+  const md = {
+    cell: value => String(value ?? "").replace(/\|/g, "\\|").replace(/\n/g, " "),
+    line: value => String(value ?? "").replace(/\s+/g, " ").trim(),
+    table: (headers, rows) => [
+      "| " + headers.map(md.cell).join(" | ") + " |",
+      "| " + headers.map(() => "---").join(" | ") + " |",
+      ...rows.map(row => "| " + row.map(md.cell).join(" | ") + " |"),
+    ].join("\n"),
+  };
+  const debounce = (fn, delay = 120) => {
+    let timer = 0;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
+  const delegate = (tables, rootNode = document) => {
+    const ctl = new AbortController();
+    Object.entries(tables).forEach(([type, rows]) => rootNode.addEventListener(type, event => {
+      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      if (!target) return;
+      rows.some(([selector, fn]) => {
+        const hit = target.closest(selector);
+        if (!hit || !rootNode.contains(hit) || hit.disabled) return false;
+        fn(hit, event);
+        return true;
+      });
+    }, { signal: ctl.signal }));
+    return ctl;
+  };
+  const idToken = value => String(value).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "") || "x";
+  const opt = row => typeof row === "string" ? { value: row, label: row } : row;
+  const formValues = (form = $("#capture-form")) => {
+    if (!form) return {};
+    const data = new FormData(form);
+    return [...new Set(data.keys())].reduce((acc, key) => {
+      const all = data.getAll(key);
+      acc[key] = all.length > 1 ? all : (all[0] ?? "");
+      return acc;
+    }, {});
+  };
+  const choice = ({ name, legend, value = "", options, attrs = {}, input = () => ({}) }) =>
+    el("fieldset", { class: "seg no-print", ...attrs },
+      el("legend", { class: "sr-only", text: legend }),
+      options.map(raw => {
+        const row = opt(raw);
+        const ident = `${name}-${idToken(row.value)}`;
+        return el("label", { for: ident },
+          el("input", { id: ident, type: row.type ?? "radio", name, value: row.value, checked: row.value === value || null, form: "capture-form", ...input(row) }),
+          row.label ?? row.value);
+      }));
+  const field = ({ id, label, control, help }) =>
+    el("div", { class: "field" }, el("label", { for: id, text: label }), control, help ? el("small", { text: help }) : null);
+  const selectField = ({ id, label, value = "", options, attrs = {}, help }) =>
+    field({ id, label, help, control: el("select", { id, name: id, form: "capture-form", ...attrs },
+      options.map(raw => { const row = opt(raw); return el("option", { value: row.value, selected: row.value === value || null }, row.label ?? row.value); })) });
+  const textareaField = ({ id, label, value = "", attrs = {}, help }) =>
+    field({ id, label, help, control: el("textarea", { id, name: id, form: "capture-form", ...attrs }, value) });
+  const note = ({ id, label, value = "", title = "Annotation", attrs = {}, button = "note", active = "note*" }) => {
+    const pid = "note-" + idToken(id);
+    const tid = pid + "-text";
+    return el("span", { class: "rowline" },
+      el("button", { type: "button", class: "btn ghost no-print", popovertarget: pid, "data-note-btn": id, "data-note-empty": button, "data-note-active": active, "aria-label": label }, value ? active : button),
+      el("div", { id: pid, class: "pop notepop no-print", popover: "auto" },
+        el("span", { class: "eyebrow", text: title }),
+        textareaField({ id: tid, label, value, attrs })));
+  };
+  const drawer = (...nodes) => $("[data-drawer-fields]")?.prepend(...nodes);
+  const capture = Object.assign((store, defaults = { verdict: "", note: "", ann: "active" }) => {
+    const row = id => (store[id] ??= { ...defaults });
+    const decisions = () => Object.entries(store).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
+    const annotations = (intent = "note") => Object.entries(store).filter(([, c]) => c.note?.trim()).map(([id, c]) => ({ id: "a-" + id, itemId: id, intent, status: c.ann ?? "active", text: c.note.trim() }));
+    const markExported = () => Object.values(store).forEach(c => { if (c.note?.trim()) c.ann = "exported"; });
+    const keyOf = hit => hit.dataset.id ?? hit.dataset.verdictFor ?? hit.dataset.noteFor ?? "";
+    const setVerdict = hit => { const c = row(keyOf(hit)); c.verdict = hit.value; document.getElementById(keyOf(hit))?.setAttribute("data-verdict", hit.value); };
+    const setNote = hit => {
+      const id = keyOf(hit);
+      const c = row(id);
+      c.note = hit.value;
+      c.ann = "active";
+      $$(`[data-note-btn="${CSS.escape(id)}"]`).forEach(btn => { btn.textContent = hit.value ? (btn.dataset.noteActive || "note*") : (btn.dataset.noteEmpty || "note"); });
+    };
+    return {
+      row,
+      decisions,
+      annotations,
+      markExported,
+      setVerdict,
+      setNote,
+      choice: spec => choice(spec),
+      note: spec => note(spec),
+    };
+  }, { formValues, choice, drawer, field, note, select: selectField, textarea: textareaField });
+  const exportSvg = (source, filename, clean = () => {}) => {
+    const node = typeof source === "string" ? $(source) : source;
+    if (!node) return false;
+    const copy = node.cloneNode(true);
+    const box = node.viewBox?.baseVal;
+    copy.setAttribute("xmlns", SVG_NS);
+    if (box) {
+      copy.setAttribute("width", box.width);
+      copy.setAttribute("height", box.height);
+    }
+    clean(copy);
+    const styles = getComputedStyle(node);
+    copy.querySelectorAll("[fill^='var('],[stroke^='var(']").forEach(item => ["fill", "stroke"].forEach(attr => {
+      const raw = item.getAttribute(attr);
+      if (!raw?.startsWith("var(")) return;
+      const token = raw.slice(4, -1).split(",")[0].trim();
+      item.setAttribute(attr, styles.getPropertyValue(token).trim() || raw);
+    }));
+    download(filename, "image/svg+xml;charset=utf-8", new XMLSerializer().serializeToString(copy));
+    return true;
+  };
 
   const slug = document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const themeKey = "theme:" + slug;
@@ -154,5 +284,9 @@ const NOCTURNE = (() => {
     return { refresh, flash, copyText };
   };
 
-  return { $, $$, el, esc, clone, fmt, slug, flash, copyText, download, redact, VOCAB, validateEnvelope, served, send, view, boot };
+  return {
+    $, $$, el, svg, esc, clone, payload, index, md, fmt, slug, flash, copyText,
+    download, exportSvg, debounce, delegate, capture, redact, VOCAB,
+    validateEnvelope, served, send, view, boot,
+  };
 })();

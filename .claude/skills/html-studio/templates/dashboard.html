@@ -94,6 +94,18 @@ button,select,input,textarea{font:inherit;color:inherit}
 @layer components{
 .eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
 .deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.sr-only{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.masthead{display:grid;gap:var(--s2);margin-block-end:var(--masthead-end,var(--s5));
+&>.top{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;justify-content:space-between}}
+.micro{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.layout{display:grid;grid-template-columns:minmax(11rem,13rem) minmax(0,1fr);gap:var(--s5)}
+.cap{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+:where(.cap,.controls,.flowbar) .btn{block-size:28px;font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase}
+:where(.controls,.flowbar) .btn{font-weight:600;padding-inline:var(--s2)}
+.cap .seg{block-size:28px}
+.cap .seg label{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding-inline:var(--s2)}
+.notepop{position:fixed;inset:auto var(--s4) var(--s4) auto;
+& textarea{inline-size:100%;min-block-size:4rem;margin-block-start:var(--s2)}}
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec;&>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}}
@@ -128,7 +140,8 @@ pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);borde
 &.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1);&:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}&:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}}
 &.ghost{background:transparent}&[aria-pressed="true"],&.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
 &:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}}
-.seg{display:inline-flex;block-size:32px;border:1px solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;
+.seg{display:inline-flex;block-size:32px;border:1px solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;margin:0;padding:0;min-inline-size:0;
+&>legend{padding:0}
 & label{display:inline-flex;align-items:center;padding-inline:var(--s3);font-size:var(--fs-sm);font-weight:500;cursor:pointer;transition:background var(--dur-1) var(--ease-standard)}
 & label:hover{background:var(--raised-2)}
 & label:has(input:checked){background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
@@ -163,6 +176,8 @@ details[open]>summary::before{transform:rotate(90deg)}
 .flow>*+*{margin-block-start:var(--s3)}
 .mono{font-family:var(--font-mono)}
 .right{margin-inline-start:auto}
+.scroll-x{overflow-x:auto}
+.fit-svg{display:block;inline-size:100%;block-size:auto}
 }
 @layer print{
 @media print{
@@ -278,10 +293,10 @@ td.act,th.act{display:none}
     <p class="deck" id="doc-deck"></p>
   </header>
   <search class="toolbar filters no-print" aria-label="Board filters">
-    <input type="search" data-filter-box placeholder="Filter across all columns" aria-label="Filter runs by text">
+    <input type="search" id="dash-filter" data-filter-box placeholder="Filter across all columns" aria-label="Filter runs by text">
     <div class="fgroup" role="group" aria-label="Suite facet"><span class="flabel" aria-hidden="true">Suite</span><span class="fgroup" id="facet-suites"></span></div>
     <div class="fgroup" role="group" aria-label="Status facet"><span class="flabel" aria-hidden="true">Status</span><span class="fgroup" id="facet-statuses"></span></div>
-    <output class="tally num right" data-tally aria-live="polite"></output>
+    <output class="tally num right" data-tally for="dash-filter facet-suites facet-statuses" aria-live="polite"></output>
     <button type="button" class="btn ghost mini" data-clear disabled>Clear filters</button>
   </search>
   <main id="main" tabindex="-1">
@@ -337,11 +352,12 @@ td.act,th.act{display:none}
   </dl>
   <p class="rail fail" data-d="msg" hidden></p>
   <div class="cap">
-    <div class="seg" role="group" aria-label="Flag verdict">
-      <label><input type="radio" name="flag-verdict" value="approve" data-flag-verdict>approve</label>
-      <label><input type="radio" name="flag-verdict" value="reject" data-flag-verdict>reject</label>
-      <label><input type="radio" name="flag-verdict" value="defer" data-flag-verdict>defer</label>
-    </div>
+    <fieldset class="seg">
+      <legend class="sr-only">Flag verdict</legend>
+      <label><input type="radio" name="flag-verdict" value="approve" data-flag-verdict form="capture-form">approve</label>
+      <label><input type="radio" name="flag-verdict" value="reject" data-flag-verdict form="capture-form">reject</label>
+      <label><input type="radio" name="flag-verdict" value="defer" data-flag-verdict form="capture-form">defer</label>
+    </fieldset>
     <button type="button" class="btn ghost" data-flag-clear>Clear</button>
   </div>
   <div class="field">
@@ -351,6 +367,7 @@ td.act,th.act{display:none}
 </dialog>
 <!-- --- [NOCTURNE_DRAWER:BEGIN] --- -->
 <!-- --- [NOCTURNE_DRAWER] --- assembler-stamped byte canon; per-type controls append into [data-drawer-fields] at render time -->
+<form id="capture-form" data-capture-form hidden></form>
 <button type="button" class="drawer-tab no-print" popovertarget="export-drawer" aria-label="Open export drawer">Export</button>
 <aside id="export-drawer" class="export-bar no-print" popover="auto" aria-label="Export drawer">
 <header><span class="eyebrow">[EXPORT]</span><button type="button" class="btn ghost" popovertarget="export-drawer" popovertargetaction="hide" aria-label="Close export drawer">&#x2715;</button></header>
@@ -432,15 +449,29 @@ const NOCTURNE = (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = value => { const node = document.createElement("span"); node.textContent = String(value); return node.innerHTML; };
-  const el = (tag, attrs, ...kids) => {
-    const node = document.createElement(tag);
-    if (attrs) for (const key in attrs) {
+  const put = (node, attrs) => {
+    if (!attrs) return node;
+    for (const key in attrs) {
       const value = attrs[key];
       if (value == null || value === false) continue;
       if (key === "text") node.textContent = value;
+      else if (key === "dataset") for (const name in value) { if (value[name] != null) node.dataset[name] = value[name]; }
+      else if (key === "style" && typeof value === "object") for (const name in value) node.style.setProperty(name, value[name]);
       else if (value === true) node.setAttribute(key, "");
       else node.setAttribute(key, value);
     }
+    return node;
+  };
+  const el = (tag, attrs, ...kids) => {
+    const node = document.createElement(tag);
+    put(node, attrs);
+    for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+    return node;
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = (tag, attrs, ...kids) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    put(node, attrs);
     for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
     return node;
   };
@@ -450,6 +481,122 @@ const NOCTURNE = (() => {
     return node;
   };
   const fmt = { num: new Intl.NumberFormat(), pct: new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 0 }) };
+  const payload = (id = "payload") => JSON.parse($("#" + CSS.escape(id)).textContent);
+  const index = (rows, key = "id") => Object.fromEntries(rows.map(row => [typeof key === "function" ? key(row) : row[key], row]));
+  const md = {
+    cell: value => String(value ?? "").replace(/\|/g, "\\|").replace(/\n/g, " "),
+    line: value => String(value ?? "").replace(/\s+/g, " ").trim(),
+    table: (headers, rows) => [
+      "| " + headers.map(md.cell).join(" | ") + " |",
+      "| " + headers.map(() => "---").join(" | ") + " |",
+      ...rows.map(row => "| " + row.map(md.cell).join(" | ") + " |"),
+    ].join("\n"),
+  };
+  const debounce = (fn, delay = 120) => {
+    let timer = 0;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
+  const delegate = (tables, rootNode = document) => {
+    const ctl = new AbortController();
+    Object.entries(tables).forEach(([type, rows]) => rootNode.addEventListener(type, event => {
+      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      if (!target) return;
+      rows.some(([selector, fn]) => {
+        const hit = target.closest(selector);
+        if (!hit || !rootNode.contains(hit) || hit.disabled) return false;
+        fn(hit, event);
+        return true;
+      });
+    }, { signal: ctl.signal }));
+    return ctl;
+  };
+  const idToken = value => String(value).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "") || "x";
+  const opt = row => typeof row === "string" ? { value: row, label: row } : row;
+  const formValues = (form = $("#capture-form")) => {
+    if (!form) return {};
+    const data = new FormData(form);
+    return [...new Set(data.keys())].reduce((acc, key) => {
+      const all = data.getAll(key);
+      acc[key] = all.length > 1 ? all : (all[0] ?? "");
+      return acc;
+    }, {});
+  };
+  const choice = ({ name, legend, value = "", options, attrs = {}, input = () => ({}) }) =>
+    el("fieldset", { class: "seg no-print", ...attrs },
+      el("legend", { class: "sr-only", text: legend }),
+      options.map(raw => {
+        const row = opt(raw);
+        const ident = `${name}-${idToken(row.value)}`;
+        return el("label", { for: ident },
+          el("input", { id: ident, type: row.type ?? "radio", name, value: row.value, checked: row.value === value || null, form: "capture-form", ...input(row) }),
+          row.label ?? row.value);
+      }));
+  const field = ({ id, label, control, help }) =>
+    el("div", { class: "field" }, el("label", { for: id, text: label }), control, help ? el("small", { text: help }) : null);
+  const selectField = ({ id, label, value = "", options, attrs = {}, help }) =>
+    field({ id, label, help, control: el("select", { id, name: id, form: "capture-form", ...attrs },
+      options.map(raw => { const row = opt(raw); return el("option", { value: row.value, selected: row.value === value || null }, row.label ?? row.value); })) });
+  const textareaField = ({ id, label, value = "", attrs = {}, help }) =>
+    field({ id, label, help, control: el("textarea", { id, name: id, form: "capture-form", ...attrs }, value) });
+  const note = ({ id, label, value = "", title = "Annotation", attrs = {}, button = "note", active = "note*" }) => {
+    const pid = "note-" + idToken(id);
+    const tid = pid + "-text";
+    return el("span", { class: "rowline" },
+      el("button", { type: "button", class: "btn ghost no-print", popovertarget: pid, "data-note-btn": id, "data-note-empty": button, "data-note-active": active, "aria-label": label }, value ? active : button),
+      el("div", { id: pid, class: "pop notepop no-print", popover: "auto" },
+        el("span", { class: "eyebrow", text: title }),
+        textareaField({ id: tid, label, value, attrs })));
+  };
+  const drawer = (...nodes) => $("[data-drawer-fields]")?.prepend(...nodes);
+  const capture = Object.assign((store, defaults = { verdict: "", note: "", ann: "active" }) => {
+    const row = id => (store[id] ??= { ...defaults });
+    const decisions = () => Object.entries(store).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
+    const annotations = (intent = "note") => Object.entries(store).filter(([, c]) => c.note?.trim()).map(([id, c]) => ({ id: "a-" + id, itemId: id, intent, status: c.ann ?? "active", text: c.note.trim() }));
+    const markExported = () => Object.values(store).forEach(c => { if (c.note?.trim()) c.ann = "exported"; });
+    const keyOf = hit => hit.dataset.id ?? hit.dataset.verdictFor ?? hit.dataset.noteFor ?? "";
+    const setVerdict = hit => { const c = row(keyOf(hit)); c.verdict = hit.value; document.getElementById(keyOf(hit))?.setAttribute("data-verdict", hit.value); };
+    const setNote = hit => {
+      const id = keyOf(hit);
+      const c = row(id);
+      c.note = hit.value;
+      c.ann = "active";
+      $$(`[data-note-btn="${CSS.escape(id)}"]`).forEach(btn => { btn.textContent = hit.value ? (btn.dataset.noteActive || "note*") : (btn.dataset.noteEmpty || "note"); });
+    };
+    return {
+      row,
+      decisions,
+      annotations,
+      markExported,
+      setVerdict,
+      setNote,
+      choice: spec => choice(spec),
+      note: spec => note(spec),
+    };
+  }, { formValues, choice, drawer, field, note, select: selectField, textarea: textareaField });
+  const exportSvg = (source, filename, clean = () => {}) => {
+    const node = typeof source === "string" ? $(source) : source;
+    if (!node) return false;
+    const copy = node.cloneNode(true);
+    const box = node.viewBox?.baseVal;
+    copy.setAttribute("xmlns", SVG_NS);
+    if (box) {
+      copy.setAttribute("width", box.width);
+      copy.setAttribute("height", box.height);
+    }
+    clean(copy);
+    const styles = getComputedStyle(node);
+    copy.querySelectorAll("[fill^='var('],[stroke^='var(']").forEach(item => ["fill", "stroke"].forEach(attr => {
+      const raw = item.getAttribute(attr);
+      if (!raw?.startsWith("var(")) return;
+      const token = raw.slice(4, -1).split(",")[0].trim();
+      item.setAttribute(attr, styles.getPropertyValue(token).trim() || raw);
+    }));
+    download(filename, "image/svg+xml;charset=utf-8", new XMLSerializer().serializeToString(copy));
+    return true;
+  };
 
   const slug = document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const themeKey = "theme:" + slug;
@@ -582,16 +729,20 @@ const NOCTURNE = (() => {
     return { refresh, flash, copyText };
   };
 
-  return { $, $$, el, esc, clone, fmt, slug, flash, copyText, download, redact, VOCAB, validateEnvelope, served, send, view, boot };
+  return {
+    $, $$, el, svg, esc, clone, payload, index, md, fmt, slug, flash, copyText,
+    download, exportSvg, debounce, delegate, capture, redact, VOCAB,
+    validateEnvelope, served, send, view, boot,
+  };
 })();
 // --- [NOCTURNE_RUNTIME:END] ---
 // --- [TEMPLATE_LOCAL] --- model, render, actions, wire
 (() => {
 "use strict";
-const { $, $$, el, fmt } = NOCTURNE;
+const { $, $$, el, fmt, md, svg } = NOCTURNE;
 
-// --- model
-const model = JSON.parse($("#payload").textContent);
+// --- [MODELS]
+const model = NOCTURNE.payload();
 const ROWS = model.rows;
 const SUITES = [...new Set(ROWS.map(r => r.suite))].sort();
 const STATUSES = ["pass", "fail", "skip"];
@@ -624,7 +775,6 @@ const envelope = changedOnly => ({
   state: changedOnly ? { view: viewOut() } : { view: viewOut(), rows: ROWS },
   ...(changedOnly ? { extensions: { diffBaseline: model.meta.baseline } } : {}),
 });
-const mdCell = value => String(value).replace(/\|/g, "\\|").replace(/\n/g, " ");
 const toMarkdown = env => {
   const vis = visible();
   const L = ["# " + model.meta.title, "",
@@ -633,42 +783,36 @@ const toMarkdown = env => {
     "## Flags (" + env.decisions.length + ")"];
   if (env.decisions.length) {
     L.push("| Run | Verdict | Note |", "| --- | --- | --- |");
-    env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + mdCell(d.note || "") + " |"));
+    env.decisions.forEach(d => L.push("| " + d.id + " | " + d.verdict + " | " + md.cell(d.note || "") + " |"));
   } else L.push("_No rows flagged._");
   L.push("", "## Filtered view (" + vis.length + " of " + ROWS.length + ")",
     "| Run | Suite | Case | Status | ms | Day |", "| --- | --- | --- | --- | ---: | --- |");
-  vis.forEach(r => L.push("| " + [r.id, r.suite, mdCell(r.case), r.status, r.duration_ms, r.day].join(" | ") + " |"));
-  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- [" + a.status + "] " + a.itemId + ": " + mdCell(a.text))); }
+  vis.forEach(r => L.push("| " + [r.id, r.suite, md.cell(r.case), r.status, r.duration_ms, r.day].join(" | ") + " |"));
+  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- [" + a.status + "] " + a.itemId + ": " + md.cell(a.text))); }
   return L.join("\n") + "\n";
 };
 
-// --- render (build once; paint functions own the dynamic bits)
-const NS = "http://www.w3.org/2000/svg";
+// --- [OPERATIONS]
 const MONO = "ui-monospace,Menlo,monospace";
-const sv = (tag, attrs, ...kids) => {
-  const node = document.createElementNS(NS, tag);
-  if (attrs) for (const key in attrs) { const value = attrs[key]; if (value != null) node.setAttribute(key, value); }
-  for (const kid of kids) node.append(kid);
-  return node;
-};
+const makeSvg = svg;
 const F = { w: 720, h: 320, l: 56, r: 18, t: 26, b: 44 };
 const innerW = F.w - F.l - F.r, innerH = F.h - F.t - F.b;
 const yOf = (v, top) => F.h - F.b - v / top * innerH;
 const niceStep = raw => { const pow = 10 ** Math.floor(Math.log10(Math.max(raw, 1e-9))); const m = raw / pow; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * pow; };
-const chartRoot = (name, title, desc) => sv("svg", { viewBox: `0 0 ${F.w} ${F.h}`, role: "img", "aria-labelledby": `dash-${name}-t dash-${name}-d` },
-  sv("title", { id: `dash-${name}-t` }, title), sv("desc", { id: `dash-${name}-d` }, desc));
+const chartRoot = (name, title, desc) => makeSvg("svg", { viewBox: `0 0 ${F.w} ${F.h}`, role: "img", "aria-labelledby": `dash-${name}-t dash-${name}-d` },
+  makeSvg("title", { id: `dash-${name}-t` }, title), makeSvg("desc", { id: `dash-${name}-d` }, desc));
 const axisFrame = (svg, top, ticks) => {
-  const grid = sv("g", { stroke: "var(--line)", "shape-rendering": "crispEdges" });
-  const labels = sv("g", { "font-family": MONO, "font-size": "11", fill: "var(--text-muted)", "text-anchor": "end" });
+  const grid = makeSvg("g", { stroke: "var(--line)", "shape-rendering": "crispEdges" });
+  const labels = makeSvg("g", { "font-family": MONO, "font-size": "11", fill: "var(--text-muted)", "text-anchor": "end" });
   ticks.forEach(v => {
     const y = Math.round(yOf(v, top)) + 0.5;
-    if (v > 0) grid.append(sv("line", { x1: F.l, y1: y, x2: F.w - F.r, y2: y }));
-    labels.append(sv("text", { x: F.l - 8, y: y + 3.5 }, String(v)));
+    if (v > 0) grid.append(makeSvg("line", { x1: F.l, y1: y, x2: F.w - F.r, y2: y }));
+    labels.append(makeSvg("text", { x: F.l - 8, y: y + 3.5 }, String(v)));
   });
   const base = Math.round(F.h - F.b) + 0.5;
-  svg.append(grid, labels, sv("line", { x1: F.l, y1: base, x2: F.w - F.r, y2: base, stroke: "var(--line-strong)", "shape-rendering": "crispEdges" }));
+  svg.append(grid, labels, makeSvg("line", { x1: F.l, y1: base, x2: F.w - F.r, y2: base, stroke: "var(--line-strong)", "shape-rendering": "crispEdges" }));
 };
-const emptyNote = svg => svg.append(sv("text", { x: F.l + innerW / 2, y: F.t + innerH / 2, "text-anchor": "middle", "font-family": "ui-sans-serif,system-ui,sans-serif", "font-size": "12", fill: "var(--text-muted)" }, "No runs match the filter"));
+const emptyNote = svg => svg.append(makeSvg("text", { x: F.l + innerW / 2, y: F.t + innerH / 2, "text-anchor": "middle", "font-family": "ui-sans-serif,system-ui,sans-serif", "font-size": "12", fill: "var(--text-muted)" }, "No runs match the filter"));
 
 const buildSuiteChart = vis => {
   const cols = SUITES.map(s => { const rs = vis.filter(r => r.suite === s); return { s, seg: STATUSES.map(st => rs.filter(r => r.status === st).length) }; });
@@ -678,14 +822,14 @@ const buildSuiteChart = vis => {
   const ticks = []; for (let v = 0; v <= top; v += step) ticks.push(v);
   const svg = chartRoot("suite", "Runs by suite", "Stacked pass, fail, and skip counts per suite under the active filter.");
   axisFrame(svg, top, ticks);
-  const legend = sv("g", { "font-family": MONO, "font-size": "11" });
+  const legend = makeSvg("g", { "font-family": MONO, "font-size": "11" });
   STATUSES.forEach((st, i) => {
     const x = F.w - F.r - (STATUSES.length - i) * 74;
-    legend.append(sv("rect", { x, y: 8, width: 10, height: 10, rx: 2, fill: `var(--${STATUS_CHIP[st]})` }), sv("text", { x: x + 14, y: 17, fill: "var(--text-muted)" }, st));
+    legend.append(makeSvg("rect", { x, y: 8, width: 10, height: 10, rx: 2, fill: `var(--${STATUS_CHIP[st]})` }), makeSvg("text", { x: x + 14, y: 17, fill: "var(--text-muted)" }, st));
   });
   svg.append(legend);
-  const bars = sv("g", {});
-  const names = sv("g", { "font-family": MONO, "font-size": "11", fill: "var(--text-muted)", "text-anchor": "middle" });
+  const bars = makeSvg("g", {});
+  const names = makeSvg("g", { "font-family": MONO, "font-size": "11", fill: "var(--text-muted)", "text-anchor": "middle" });
   const band = innerW / cols.length;
   cols.forEach((c, i) => {
     const x = Math.round(F.l + i * band + band * 0.22), w = Math.round(band * 0.56);
@@ -693,9 +837,9 @@ const buildSuiteChart = vis => {
     STATUSES.forEach((st, k) => {
       const n = c.seg[k]; if (!n) return;
       const y1 = yOf(acc + n, top), h = yOf(acc, top) - y1; acc += n;
-      bars.append(sv("rect", { x, y: Math.round(y1), width: w, height: Math.max(1, Math.round(h)), fill: `var(--${STATUS_CHIP[st]})` }, sv("title", null, `${c.s} ${st}: ${n}`)));
+      bars.append(makeSvg("rect", { x, y: Math.round(y1), width: w, height: Math.max(1, Math.round(h)), fill: `var(--${STATUS_CHIP[st]})` }, makeSvg("title", null, `${c.s} ${st}: ${n}`)));
     });
-    names.append(sv("text", { x: Math.round(F.l + i * band + band / 2), y: F.h - F.b + 18 }, c.s));
+    names.append(makeSvg("text", { x: Math.round(F.l + i * band + band / 2), y: F.h - F.b + 18 }, c.s));
   });
   svg.append(bars, names);
   if (!vis.length) emptyNote(svg);
@@ -705,9 +849,9 @@ const buildSuiteChart = vis => {
 const buildRateChart = vis => {
   const svg = chartRoot("rate", "Pass rate by day", "Percent of matching runs passing, per day.");
   axisFrame(svg, 100, [0, 50, 100]);
-  const names = sv("g", { "font-family": MONO, "font-size": "11", fill: "var(--text-muted)", "text-anchor": "middle" });
+  const names = makeSvg("g", { "font-family": MONO, "font-size": "11", fill: "var(--text-muted)", "text-anchor": "middle" });
   const xOf = i => F.l + (DAYS.length > 1 ? i / (DAYS.length - 1) * innerW : innerW / 2);
-  DAYS.forEach((d, i) => names.append(sv("text", { x: xOf(i).toFixed(1), y: F.h - F.b + 18 }, d.slice(5))));
+  DAYS.forEach((d, i) => names.append(makeSvg("text", { x: xOf(i).toFixed(1), y: F.h - F.b + 18 }, d.slice(5))));
   svg.append(names);
   const pts = DAYS.map((d, i) => {
     const rs = vis.filter(r => r.day === d);
@@ -717,9 +861,9 @@ const buildRateChart = vis => {
   pts.forEach(p => { if (p) run.push(p); else { if (run.length) segs.push(run); run = []; } });
   if (run.length) segs.push(run);
   segs.filter(seg => seg.length > 1).forEach(seg =>
-    svg.append(sv("polyline", { points: seg.map(p => `${xOf(p.i).toFixed(1)},${yOf(p.rate, 100).toFixed(1)}`).join(" "), fill: "none", stroke: "var(--accent)", "stroke-width": "2" })));
+    svg.append(makeSvg("polyline", { points: seg.map(p => `${xOf(p.i).toFixed(1)},${yOf(p.rate, 100).toFixed(1)}`).join(" "), fill: "none", stroke: "var(--accent)", "stroke-width": "2" })));
   pts.filter(Boolean).forEach(p =>
-    svg.append(sv("circle", { cx: xOf(p.i).toFixed(1), cy: yOf(p.rate, 100).toFixed(1), r: 3.5, fill: "var(--accent)" }, sv("title", null, `${p.d}: ${p.rate}%`))));
+    svg.append(makeSvg("circle", { cx: xOf(p.i).toFixed(1), cy: yOf(p.rate, 100).toFixed(1), r: 3.5, fill: "var(--accent)" }, makeSvg("title", null, `${p.d}: ${p.rate}%`))));
   if (!pts.some(Boolean)) emptyNote(svg);
   return svg;
 };
@@ -729,8 +873,8 @@ const paintSpark = vis => {
   const max = Math.max(1, ...counts), n = counts.length;
   const pts = counts.map((c, i) => [2 + (n > 1 ? i * (116 / (n - 1)) : 58), 22 - c / max * 18]);
   $("[data-spark]").replaceChildren(
-    sv("polyline", { points: pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill: "none", stroke: "var(--accent)", "stroke-width": "1.25" }),
-    sv("circle", { cx: pts.at(-1)[0].toFixed(1), cy: pts.at(-1)[1].toFixed(1), r: 2.5, fill: "var(--accent)" }));
+    makeSvg("polyline", { points: pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill: "none", stroke: "var(--accent)", "stroke-width": "1.25" }),
+    makeSvg("circle", { cx: pts.at(-1)[0].toFixed(1), cy: pts.at(-1)[1].toFixed(1), r: 2.5, fill: "var(--accent)" }));
 };
 
 const renderHeader = () => {
@@ -858,7 +1002,7 @@ const openDetail = id => {
   $("#detail").showModal();
 };
 
-// --- actions
+// --- [OPERATIONS]
 const wire = NOCTURNE.boot({ kind: "dashboard", envelope, toMarkdown, filename: model.meta.id, isChanged, redactPayload: true,
   onExported: () => { Object.values(state.flags).forEach(f => { if (f.note) f.ann = "exported"; }); paintMeta(); } });
 
@@ -921,7 +1065,7 @@ document.addEventListener("click", e => {
   }
 });
 
-// --- wire
+// --- [COMPOSITION]
 renderHeader(); mountFacets(); mountRows(); drawerFields(); sortRows(); paint();
 })();
 </script>

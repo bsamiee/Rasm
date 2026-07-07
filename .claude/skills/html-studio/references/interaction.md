@@ -1,6 +1,6 @@
 # [INTERACTION]
 
-Each pattern drops into the one `<script>`/`<style>` pair and earns its place only by the reader question it answers. One document-level listener owns each concern, native primitives own every overlay and disclosure the platform ships, and every injected string escapes through `textContent` before a span wraps it.
+Each pattern drops into the one executable script and one style block and earns its place only by the reader question it answers. One document-level listener owns each concern, native primitives own every overlay and disclosure the platform ships, and every injected string escapes through `textContent` before a span wraps it.
 
 ## [01]-[FOUNDATION]
 
@@ -205,7 +205,17 @@ A syntax-highlighted editing surface is a `contenteditable` region whose plain t
 - [RAF_THROTTLE]: input re-render schedules through one `requestAnimationFrame` handle, so typing never stacks renders.
 
 ```js conceptual
-editor.addEventListener("paste", e => { e.preventDefault(); document.execCommand("insertText", false, e.clipboardData.getData("text/plain")); });
+const insertText = text => {
+  const sel = getSelection();
+  if (!sel?.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(document.createTextNode(text));
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+editor.addEventListener("paste", e => { e.preventDefault(); insertText(e.clipboardData.getData("text/plain")); });
 let raf = 0;
 editor.addEventListener("input", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => refresh({ preserveCaret: true })); });
 ```

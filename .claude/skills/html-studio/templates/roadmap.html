@@ -94,6 +94,18 @@ button,select,input,textarea{font:inherit;color:inherit}
 @layer components{
 .eyebrow{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--editorial)}
 .deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
+.sr-only{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.masthead{display:grid;gap:var(--s2);margin-block-end:var(--masthead-end,var(--s5));
+&>.top{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;justify-content:space-between}}
+.micro{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.layout{display:grid;grid-template-columns:minmax(11rem,13rem) minmax(0,1fr);gap:var(--s5)}
+.cap{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+:where(.cap,.controls,.flowbar) .btn{block-size:28px;font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:.05em;text-transform:uppercase}
+:where(.controls,.flowbar) .btn{font-weight:600;padding-inline:var(--s2)}
+.cap .seg{block-size:28px}
+.cap .seg label{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding-inline:var(--s2)}
+.notepop{position:fixed;inset:auto var(--s4) var(--s4) auto;
+& textarea{inline-size:100%;min-block-size:4rem;margin-block-start:var(--s2)}}
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .section{counter-increment:sec;&>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}}
@@ -128,7 +140,8 @@ pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);borde
 &.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1);&:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}&:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}}
 &.ghost{background:transparent}&[aria-pressed="true"],&.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
 &:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}}
-.seg{display:inline-flex;block-size:32px;border:1px solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;
+.seg{display:inline-flex;block-size:32px;border:1px solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;margin:0;padding:0;min-inline-size:0;
+&>legend{padding:0}
 & label{display:inline-flex;align-items:center;padding-inline:var(--s3);font-size:var(--fs-sm);font-weight:500;cursor:pointer;transition:background var(--dur-1) var(--ease-standard)}
 & label:hover{background:var(--raised-2)}
 & label:has(input:checked){background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
@@ -163,6 +176,8 @@ details[open]>summary::before{transform:rotate(90deg)}
 .flow>*+*{margin-block-start:var(--s3)}
 .mono{font-family:var(--font-mono)}
 .right{margin-inline-start:auto}
+.scroll-x{overflow-x:auto}
+.fit-svg{display:block;inline-size:100%;block-size:auto}
 }
 @layer print{
 @media print{
@@ -341,8 +356,8 @@ main{counter-reset:sec}
       <p class="muted"><small>Drag a card between horizons, or focus a card and press <span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> — every move and status override lands in the export as a replan change.</small></p>
       <div class="lanes" data-lanes></div>
       <search class="tools no-print" aria-label="Milestone filter">
-        <label>Filter <input type="search" data-filter-box placeholder="Dim by title, owner, status, dependency" aria-label="Filter milestones by text"></label>
-        <output data-count aria-live="polite"></output>
+        <label>Filter <input type="search" id="road-filter" data-filter-box placeholder="Dim by title, owner, status, dependency" aria-label="Filter milestones by text"></label>
+        <output data-count for="road-filter" aria-live="polite"></output>
       </search>
     </section>
   </main>
@@ -364,6 +379,7 @@ main{counter-reset:sec}
 </template>
 <!-- --- [NOCTURNE_DRAWER:BEGIN] --- -->
 <!-- --- [NOCTURNE_DRAWER] --- assembler-stamped byte canon; per-type controls append into [data-drawer-fields] at render time -->
+<form id="capture-form" data-capture-form hidden></form>
 <button type="button" class="drawer-tab no-print" popovertarget="export-drawer" aria-label="Open export drawer">Export</button>
 <aside id="export-drawer" class="export-bar no-print" popover="auto" aria-label="Export drawer">
 <header><span class="eyebrow">[EXPORT]</span><button type="button" class="btn ghost" popovertarget="export-drawer" popovertargetaction="hide" aria-label="Close export drawer">&#x2715;</button></header>
@@ -430,15 +446,29 @@ const NOCTURNE = (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = value => { const node = document.createElement("span"); node.textContent = String(value); return node.innerHTML; };
-  const el = (tag, attrs, ...kids) => {
-    const node = document.createElement(tag);
-    if (attrs) for (const key in attrs) {
+  const put = (node, attrs) => {
+    if (!attrs) return node;
+    for (const key in attrs) {
       const value = attrs[key];
       if (value == null || value === false) continue;
       if (key === "text") node.textContent = value;
+      else if (key === "dataset") for (const name in value) { if (value[name] != null) node.dataset[name] = value[name]; }
+      else if (key === "style" && typeof value === "object") for (const name in value) node.style.setProperty(name, value[name]);
       else if (value === true) node.setAttribute(key, "");
       else node.setAttribute(key, value);
     }
+    return node;
+  };
+  const el = (tag, attrs, ...kids) => {
+    const node = document.createElement(tag);
+    put(node, attrs);
+    for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+    return node;
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = (tag, attrs, ...kids) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    put(node, attrs);
     for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
     return node;
   };
@@ -448,6 +478,122 @@ const NOCTURNE = (() => {
     return node;
   };
   const fmt = { num: new Intl.NumberFormat(), pct: new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 0 }) };
+  const payload = (id = "payload") => JSON.parse($("#" + CSS.escape(id)).textContent);
+  const index = (rows, key = "id") => Object.fromEntries(rows.map(row => [typeof key === "function" ? key(row) : row[key], row]));
+  const md = {
+    cell: value => String(value ?? "").replace(/\|/g, "\\|").replace(/\n/g, " "),
+    line: value => String(value ?? "").replace(/\s+/g, " ").trim(),
+    table: (headers, rows) => [
+      "| " + headers.map(md.cell).join(" | ") + " |",
+      "| " + headers.map(() => "---").join(" | ") + " |",
+      ...rows.map(row => "| " + row.map(md.cell).join(" | ") + " |"),
+    ].join("\n"),
+  };
+  const debounce = (fn, delay = 120) => {
+    let timer = 0;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
+  const delegate = (tables, rootNode = document) => {
+    const ctl = new AbortController();
+    Object.entries(tables).forEach(([type, rows]) => rootNode.addEventListener(type, event => {
+      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      if (!target) return;
+      rows.some(([selector, fn]) => {
+        const hit = target.closest(selector);
+        if (!hit || !rootNode.contains(hit) || hit.disabled) return false;
+        fn(hit, event);
+        return true;
+      });
+    }, { signal: ctl.signal }));
+    return ctl;
+  };
+  const idToken = value => String(value).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "") || "x";
+  const opt = row => typeof row === "string" ? { value: row, label: row } : row;
+  const formValues = (form = $("#capture-form")) => {
+    if (!form) return {};
+    const data = new FormData(form);
+    return [...new Set(data.keys())].reduce((acc, key) => {
+      const all = data.getAll(key);
+      acc[key] = all.length > 1 ? all : (all[0] ?? "");
+      return acc;
+    }, {});
+  };
+  const choice = ({ name, legend, value = "", options, attrs = {}, input = () => ({}) }) =>
+    el("fieldset", { class: "seg no-print", ...attrs },
+      el("legend", { class: "sr-only", text: legend }),
+      options.map(raw => {
+        const row = opt(raw);
+        const ident = `${name}-${idToken(row.value)}`;
+        return el("label", { for: ident },
+          el("input", { id: ident, type: row.type ?? "radio", name, value: row.value, checked: row.value === value || null, form: "capture-form", ...input(row) }),
+          row.label ?? row.value);
+      }));
+  const field = ({ id, label, control, help }) =>
+    el("div", { class: "field" }, el("label", { for: id, text: label }), control, help ? el("small", { text: help }) : null);
+  const selectField = ({ id, label, value = "", options, attrs = {}, help }) =>
+    field({ id, label, help, control: el("select", { id, name: id, form: "capture-form", ...attrs },
+      options.map(raw => { const row = opt(raw); return el("option", { value: row.value, selected: row.value === value || null }, row.label ?? row.value); })) });
+  const textareaField = ({ id, label, value = "", attrs = {}, help }) =>
+    field({ id, label, help, control: el("textarea", { id, name: id, form: "capture-form", ...attrs }, value) });
+  const note = ({ id, label, value = "", title = "Annotation", attrs = {}, button = "note", active = "note*" }) => {
+    const pid = "note-" + idToken(id);
+    const tid = pid + "-text";
+    return el("span", { class: "rowline" },
+      el("button", { type: "button", class: "btn ghost no-print", popovertarget: pid, "data-note-btn": id, "data-note-empty": button, "data-note-active": active, "aria-label": label }, value ? active : button),
+      el("div", { id: pid, class: "pop notepop no-print", popover: "auto" },
+        el("span", { class: "eyebrow", text: title }),
+        textareaField({ id: tid, label, value, attrs })));
+  };
+  const drawer = (...nodes) => $("[data-drawer-fields]")?.prepend(...nodes);
+  const capture = Object.assign((store, defaults = { verdict: "", note: "", ann: "active" }) => {
+    const row = id => (store[id] ??= { ...defaults });
+    const decisions = () => Object.entries(store).filter(([, c]) => c.verdict).map(([id, c]) => ({ id, verdict: c.verdict, ...(c.note ? { note: c.note } : {}) }));
+    const annotations = (intent = "note") => Object.entries(store).filter(([, c]) => c.note?.trim()).map(([id, c]) => ({ id: "a-" + id, itemId: id, intent, status: c.ann ?? "active", text: c.note.trim() }));
+    const markExported = () => Object.values(store).forEach(c => { if (c.note?.trim()) c.ann = "exported"; });
+    const keyOf = hit => hit.dataset.id ?? hit.dataset.verdictFor ?? hit.dataset.noteFor ?? "";
+    const setVerdict = hit => { const c = row(keyOf(hit)); c.verdict = hit.value; document.getElementById(keyOf(hit))?.setAttribute("data-verdict", hit.value); };
+    const setNote = hit => {
+      const id = keyOf(hit);
+      const c = row(id);
+      c.note = hit.value;
+      c.ann = "active";
+      $$(`[data-note-btn="${CSS.escape(id)}"]`).forEach(btn => { btn.textContent = hit.value ? (btn.dataset.noteActive || "note*") : (btn.dataset.noteEmpty || "note"); });
+    };
+    return {
+      row,
+      decisions,
+      annotations,
+      markExported,
+      setVerdict,
+      setNote,
+      choice: spec => choice(spec),
+      note: spec => note(spec),
+    };
+  }, { formValues, choice, drawer, field, note, select: selectField, textarea: textareaField });
+  const exportSvg = (source, filename, clean = () => {}) => {
+    const node = typeof source === "string" ? $(source) : source;
+    if (!node) return false;
+    const copy = node.cloneNode(true);
+    const box = node.viewBox?.baseVal;
+    copy.setAttribute("xmlns", SVG_NS);
+    if (box) {
+      copy.setAttribute("width", box.width);
+      copy.setAttribute("height", box.height);
+    }
+    clean(copy);
+    const styles = getComputedStyle(node);
+    copy.querySelectorAll("[fill^='var('],[stroke^='var(']").forEach(item => ["fill", "stroke"].forEach(attr => {
+      const raw = item.getAttribute(attr);
+      if (!raw?.startsWith("var(")) return;
+      const token = raw.slice(4, -1).split(",")[0].trim();
+      item.setAttribute(attr, styles.getPropertyValue(token).trim() || raw);
+    }));
+    download(filename, "image/svg+xml;charset=utf-8", new XMLSerializer().serializeToString(copy));
+    return true;
+  };
 
   const slug = document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const themeKey = "theme:" + slug;
@@ -580,28 +726,20 @@ const NOCTURNE = (() => {
     return { refresh, flash, copyText };
   };
 
-  return { $, $$, el, esc, clone, fmt, slug, flash, copyText, download, redact, VOCAB, validateEnvelope, served, send, view, boot };
+  return {
+    $, $$, el, svg, esc, clone, payload, index, md, fmt, slug, flash, copyText,
+    download, exportSvg, debounce, delegate, capture, redact, VOCAB,
+    validateEnvelope, served, send, view, boot,
+  };
 })();
 // --- [NOCTURNE_RUNTIME:END] ---
 // --- [TEMPLATE_LOCAL] --- model, render, actions, wire
 (() => {
 "use strict";
-const { $, $$, el } = NOCTURNE;
-const NS = "http://www.w3.org/2000/svg";
-const sv = (tag, attrs, ...kids) => {
-  const node = document.createElementNS(NS, tag);
-  if (attrs) for (const key in attrs) {
-    const value = attrs[key];
-    if (value == null || value === false) continue;
-    if (key === "text") node.textContent = value;
-    else node.setAttribute(key, String(value));
-  }
-  for (const kid of kids.flat(2)) { if (kid != null && kid !== false) node.append(kid); }
-  return node;
-};
+const { $, $$, el, svg: makeSvg, md } = NOCTURNE;
 
-// --- model
-const model = JSON.parse($("#payload").textContent);
+// --- [MODELS]
+const model = NOCTURNE.payload();
 const state = { milestones: structuredClone(model.milestones), notes: {}, noteStatus: {}, global: { status: "" } };
 const baseline = Object.fromEntries(model.milestones.map(m => [m.id, { horizon: m.horizon, status: m.status }]));
 const HX = Object.fromEntries(model.horizons.map((h, i) => [h.id, i]));
@@ -654,14 +792,13 @@ const envelope = changedOnly => ({
   state: { horizons: model.horizons, milestones: state.milestones, notes: state.notes },
   ...(changedOnly ? { extensions: { diffBaseline: model.meta.baseline } } : {}),
 });
-const mdCell = s => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
 const toMarkdown = env => {
   const L = ["# " + model.meta.title, "",
     "**Verdict:** " + env.decision.status,
     "Scope: " + model.meta.scope + " · Date: " + model.meta.date + " · Baseline: " + env.artifact.baseline, "", "## Moves and overrides"];
   if (env.changes.length) {
     L.push("| Milestone | Field | From | To |", "| --- | --- | --- | --- |");
-    env.changes.forEach(c => L.push("| " + mdCell(titleOf(c.itemId)) + " | " + c.path.split("/").pop() + " | " + c.from + " | " + c.to + " |"));
+    env.changes.forEach(c => L.push("| " + md.cell(titleOf(c.itemId)) + " | " + c.path.split("/").pop() + " | " + c.from + " | " + c.to + " |"));
   } else L.push("_No replan captured._");
   L.push("", "## Horizon map");
   model.horizons.forEach(h => {
@@ -671,37 +808,37 @@ const toMarkdown = env => {
       L.push("- " + m.title + " — " + MARK[dstat(m)] + (risk.length ? " (" + risk.map(r => r.dep.title + ": " + r.reason).join("; ") + ")" : "") + " · " + m.owner + " · target " + m.target);
     });
   });
-  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- [" + a.status + "] " + titleOf(a.itemId) + ": " + mdCell(a.text))); }
+  if (env.annotations.length) { L.push("", "## Notes"); env.annotations.forEach(a => L.push("- [" + a.status + "] " + titleOf(a.itemId) + ": " + md.cell(a.text))); }
   return L.join("\n") + "\n";
 };
 
-// --- render (build once; paint functions own the dynamic bits)
+// --- [OPERATIONS]
 const renderTimeline = () => {
   const rows = model.horizons.flatMap(h => laneSort(h.id));
   const t0 = Date.parse(model.meta.start), t1 = Date.parse(model.horizons.at(-1).until), tNow = Date.parse(model.meta.date);
   const W = 960, chartL = 212, chartR = 936, bandTop = 28, y0 = 56, rowH = 26;
   const H = y0 + rows.length * rowH + 24, bandBot = H - 20;
   const x = t => chartL + (Math.min(Math.max(t, t0), t1) - t0) / Math.max(1, t1 - t0) * (chartR - chartL);
-  const svg = sv("svg", { class: "tl", viewBox: "0 0 " + W + " " + H, role: "graphics-document", "aria-labelledby": "rm-tl-title rm-tl-desc" },
-    sv("title", { id: "rm-tl-title", text: "Horizon timeline" }),
-    sv("desc", { id: "rm-tl-desc", text: "Milestone spans and status diamonds per horizon band; dashed arcs mark cross-horizon hard dependencies, a backward dependency draws in the failure hue, and the vertical line marks today." }),
-    sv("defs", {},
-      sv("marker", { id: "rm-arw-dep", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, sv("path", { class: "arw-dep", d: "M1 1 L9 5 L1 9 L3.2 5 Z" })),
-      sv("marker", { id: "rm-arw-back", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, sv("path", { class: "arw-back", d: "M1 1 L9 5 L1 9 L3.2 5 Z" }))));
-  svg.append(sv("line", { class: "bound", x1: chartL + .5, y1: bandTop, x2: chartL + .5, y2: bandBot }));
+  const svg = makeSvg("svg", { class: "tl", viewBox: "0 0 " + W + " " + H, role: "graphics-document", "aria-labelledby": "rm-tl-title rm-tl-desc" },
+    makeSvg("title", { id: "rm-tl-title", text: "Horizon timeline" }),
+    makeSvg("desc", { id: "rm-tl-desc", text: "Milestone spans and status diamonds per horizon band; dashed arcs mark cross-horizon hard dependencies, a backward dependency draws in the failure hue, and the vertical line marks today." }),
+    makeSvg("defs", {},
+      makeSvg("marker", { id: "rm-arw-dep", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, makeSvg("path", { class: "arw-dep", d: "M1 1 L9 5 L1 9 L3.2 5 Z" })),
+      makeSvg("marker", { id: "rm-arw-back", viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, makeSvg("path", { class: "arw-back", d: "M1 1 L9 5 L1 9 L3.2 5 Z" }))));
+  svg.append(makeSvg("line", { class: "bound", x1: chartL + .5, y1: bandTop, x2: chartL + .5, y2: bandBot }));
   model.horizons.forEach((h, i) => {
     const a = x(Date.parse(i ? model.horizons[i - 1].until : model.meta.start)), b = x(Date.parse(h.until));
-    if (i % 2) svg.append(sv("rect", { class: "band", x: a, y: bandTop, width: Math.max(0, b - a), height: bandBot - bandTop }));
-    svg.append(sv("line", { class: "bound", x1: b + .5, y1: bandTop, x2: b + .5, y2: bandBot }),
-      sv("text", { class: "hlab", x: (a + b) / 2, y: bandTop + 14, "text-anchor": "middle", text: h.label.toUpperCase() }));
+    if (i % 2) svg.append(makeSvg("rect", { class: "band", x: a, y: bandTop, width: Math.max(0, b - a), height: bandBot - bandTop }));
+    svg.append(makeSvg("line", { class: "bound", x1: b + .5, y1: bandTop, x2: b + .5, y2: bandBot }),
+      makeSvg("text", { class: "hlab", x: (a + b) / 2, y: bandTop + 14, "text-anchor": "middle", text: h.label.toUpperCase() }));
   });
   const first = new Date(t0);
   let yy = first.getUTCFullYear(), mm = first.getUTCMonth();
   for (let k = 0; k < 36; k++) {
     mm += 1; if (mm > 11) { mm = 0; yy += 1; }
     const t = Date.UTC(yy, mm, 1); if (t >= t1) break;
-    svg.append(sv("line", { class: "grid-m", x1: x(t) + .5, y1: bandTop, x2: x(t) + .5, y2: bandBot }),
-      sv("text", { x: x(t), y: 20, "text-anchor": "middle", text: mshort.format(t).toUpperCase() }));
+    svg.append(makeSvg("line", { class: "grid-m", x1: x(t) + .5, y1: bandTop, x2: x(t) + .5, y2: bandBot }),
+      makeSvg("text", { x: x(t), y: 20, "text-anchor": "middle", text: mshort.format(t).toUpperCase() }));
   }
   const chainIds = critChain(), crit = new Set(chainIds);
   const pos = {};
@@ -713,13 +850,13 @@ const renderTimeline = () => {
   });
   rows.forEach(m => {
     const p = pos[m.id], ds = dstat(m);
-    svg.append(sv("a", { href: "#ms-" + m.id, "aria-label": m.title + " — " + ds + "; jump to card" },
-      sv("title", { text: m.title + " · " + MARK[ds] }),
-      sv("rect", { x: 0, y: p.cy - rowH / 2, width: W, height: rowH, fill: "transparent" }),
-      sv("text", { class: "rlab", x: chartL - 10, y: p.cy, "text-anchor": "end", "dominant-baseline": "central", text: m.title }),
-      slack[m.id] ? sv("rect", { class: "slack", x: slack[m.id].x0, y: p.cy - 2.5, width: Math.max(1, slack[m.id].x1 - slack[m.id].x0), height: 5, rx: 2 }) : null,
-      sv("rect", { class: "bar " + ds + (crit.has(m.id) ? " crit" : ""), x: p.x0, y: p.cy - 4, width: Math.max(2, p.x1 - p.x0), height: 8, rx: 4 }),
-      sv("path", { class: "dia " + ds, d: "M " + p.x1 + " " + (p.cy - 5.5) + " L " + (p.x1 + 5.5) + " " + p.cy + " L " + p.x1 + " " + (p.cy + 5.5) + " L " + (p.x1 - 5.5) + " " + p.cy + " Z" })));
+    svg.append(makeSvg("a", { href: "#ms-" + m.id, "aria-label": m.title + " — " + ds + "; jump to card" },
+      makeSvg("title", { text: m.title + " · " + MARK[ds] }),
+      makeSvg("rect", { x: 0, y: p.cy - rowH / 2, width: W, height: rowH, fill: "transparent" }),
+      makeSvg("text", { class: "rlab", x: chartL - 10, y: p.cy, "text-anchor": "end", "dominant-baseline": "central", text: m.title }),
+      slack[m.id] ? makeSvg("rect", { class: "slack", x: slack[m.id].x0, y: p.cy - 2.5, width: Math.max(1, slack[m.id].x1 - slack[m.id].x0), height: 5, rx: 2 }) : null,
+      makeSvg("rect", { class: "bar " + ds + (crit.has(m.id) ? " crit" : ""), x: p.x0, y: p.cy - 4, width: Math.max(2, p.x1 - p.x0), height: 8, rx: 4 }),
+      makeSvg("path", { class: "dia " + ds, d: "M " + p.x1 + " " + (p.cy - 5.5) + " L " + (p.x1 + 5.5) + " " + p.cy + " L " + p.x1 + " " + (p.cy + 5.5) + " L " + (p.x1 - 5.5) + " " + p.cy + " Z" })));
   });
   state.milestones.forEach(m => (m.depends || []).forEach(edge => {
     if (!edge.hard) return;
@@ -729,12 +866,12 @@ const renderTimeline = () => {
     const back = HX[dep.horizon] > HX[m.horizon];
     const sx = a.x1 + 7, ex = b.x0 - 5;
     const jx = back ? sx + 12 : Math.max(sx + 10, ex - 14);
-    svg.append(sv("path", { class: "dep" + (back ? " back" : ""), "marker-end": "url(#rm-arw-" + (back ? "back" : "dep") + ")",
+    svg.append(makeSvg("path", { class: "dep" + (back ? " back" : ""), "marker-end": "url(#rm-arw-" + (back ? "back" : "dep") + ")",
       d: "M " + sx + " " + a.cy + " L " + jx + " " + a.cy + " L " + jx + " " + b.cy + " L " + ex + " " + b.cy }));
   }));
   const tx = x(tNow);
-  svg.append(sv("line", { class: "today", x1: tx, y1: bandTop - 6, x2: tx, y2: bandBot + 6 }),
-    sv("text", { class: "tlab", x: tx, y: H - 4, "text-anchor": "middle", text: "TODAY" }));
+  svg.append(makeSvg("line", { class: "today", x1: tx, y1: bandTop - 6, x2: tx, y2: bandBot + 6 }),
+    makeSvg("text", { class: "tlab", x: tx, y: H - 4, "text-anchor": "middle", text: "TODAY" }));
   $("[data-tl]").replaceChildren(svg);
 
   const stack = [];
@@ -769,20 +906,15 @@ const renderRollup = () => {
   }));
 };
 
-const statusSeg = m => {
-  const seg = el("div", { class: "seg", role: "group", "aria-label": "Status override for " + m.title });
-  ["open", "active", "done"].forEach(v =>
-    seg.append(el("label", {}, el("input", { type: "radio", name: "st-" + m.id, value: v, "data-status-for": m.id, "aria-label": v, checked: m.status === v ? true : null }), v)));
-  return seg;
-};
-const noteControl = m => {
-  const pid = "note-" + m.id;
-  return el("span", { class: "rowline" },
-    el("button", { type: "button", class: "btn ghost", popovertarget: pid, "data-note-btn": m.id, "aria-label": "Note for " + m.title }, state.notes[m.id] ? "note*" : "note"),
-    el("div", { id: pid, class: "pop notepop no-print", popover: "auto" },
-      el("span", { class: "eyebrow", text: "Annotation" }),
-      el("textarea", { "data-note-for": m.id, "aria-label": "Annotation text for " + m.title, placeholder: "Anchored to " + m.id }, state.notes[m.id] || "")));
-};
+const statusSeg = m => NOCTURNE.capture.choice({
+  name: "st-" + m.id, legend: "Status override for " + m.title, value: m.status,
+  options: ["open", "active", "done"], attrs: { class: "seg" },
+  input: row => ({ "data-status-for": m.id, "aria-label": row.value }),
+});
+const milestoneNote = m => NOCTURNE.capture.note({
+  id: m.id, label: "Annotation text for " + m.title, value: state.notes[m.id] || "",
+  attrs: { "data-note-for": m.id, placeholder: "Anchored to " + m.id },
+});
 
 const cardsById = {};
 const buildLanes = () => {
@@ -796,7 +928,7 @@ const buildLanes = () => {
     }).firstElementChild;
     node.id = "ms-" + m.id;
     node.dataset.id = m.id;
-    node.querySelector(".cap").append(statusSeg(m), noteControl(m));
+    node.querySelector(".cap").append(statusSeg(m), milestoneNote(m));
     cardsById[m.id] = node;
   });
   $("[data-lanes]").replaceChildren(...model.horizons.map(h =>
@@ -861,7 +993,7 @@ const drawerFields = () => {
   $("[data-drawer-fields]").prepend(el("label", { class: "rowline" }, "Global verdict ", sel));
 };
 
-// --- actions
+// --- [OPERATIONS]
 const wire = NOCTURNE.boot({ kind: "roadmap", envelope, toMarkdown, filename: model.meta.id, isChanged,
   onExported: () => { Object.keys(state.notes).forEach(id => { if (state.noteStatus[id] === "active") state.noteStatus[id] = "exported"; }); paintMeta(); } });
 
@@ -915,7 +1047,7 @@ document.addEventListener("drop", e => {
 });
 document.addEventListener("dragend", () => { $$(".ms.dragging").forEach(c => c.classList.remove("dragging")); $$(".lane[data-over]").forEach(l => delete l.dataset.over); });
 
-// --- wire
+// --- [COMPOSITION]
 renderHeader(); buildLanes(); drawerFields(); renderAll();
 })();
 </script>

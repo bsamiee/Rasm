@@ -75,7 +75,7 @@ Templates carry the highest-frequency types; the rest compose their region spine
 
 ## [03]-[CONTRACT]
 
-- One file: `<!doctype html>`, a `<title>`, all CSS in one `<style>`, all JS in one `<script>`. Zero external references — no CDN, no webfont, no remote image; only `#` anchors, `data:` URIs, relative links to sibling artifacts, and the injected return meta.
+- One file: `<!doctype html>`, a `<title>`, all CSS in one `<style>`, one executable `<script>`, and optional `application/json` payload scripts as inert data. Zero external references — no CDN, no webfont, no remote image; only `#` anchors, `data:` URIs, relative links to sibling artifacts, and the injected return meta.
 - From disk means from disk: sibling fetch, module imports, service workers, and webfonts are dead under `file://`; everything the artifact needs, it embeds. `localStorage` is a fallible enhancement; export and the return channel are the durable egress.
 - Dark and light both render: NOCTURNE dark is the base, light arrives through the system preference and the `data-theme` toggle, and both directions win per the design-system theme law.
 - Wide content — tables, diagrams, code — scrolls inside its own `overflow-x:auto` container; the body never scrolls sideways.

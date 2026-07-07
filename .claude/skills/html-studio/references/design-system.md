@@ -4,7 +4,7 @@ NOCTURNE is the single visual voice: a Dracula-descended dark-first system on a 
 
 ## [01]-[CONTRACT]
 
-One `<!doctype html>` file: one `<title>`, all CSS in one `<style>`, all JS in one `<script>`. Zero network references — no CDN, no webfont, no `https://` in any `src`/`href`, no `url()` that resolves off-machine.
+One `<!doctype html>` file: one `<title>`, all CSS in one `<style>`, one executable `<script>`, and optional `application/json` payload scripts as inert data. Zero network references — no CDN, no webfont, no `https://` in any `src`/`href`, no `url()` that resolves off-machine.
 
 | [INDEX] | [ALLOW]        | [FORM]                                                     |
 | :-----: | :------------- | :--------------------------------------------------------- |
