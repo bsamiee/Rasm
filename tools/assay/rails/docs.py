@@ -1,7 +1,6 @@
-"""Validate Mermaid diagrams in routed Markdown files."""
+"""Validate Mermaid diagrams in routed Markdown files through the skill engine."""
 
 from dataclasses import dataclass
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from expression import Result  # noqa: TC002  # beartype resolves return annotations at import time
@@ -14,12 +13,11 @@ from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # bea
 from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # beartype resolves rail annotations at import time
 from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
-    Artifact,
     ArtifactKind,
     BaseParams,
     Check,
     Claim,
-    Completed,  # noqa: TC001  # _rows annotates the ordered fan-out outcomes
+    Completed,  # noqa: TC001  # _findings/_outcomes annotate the ordered fan-out outcomes
     Fault,  # noqa: TC001  # beartype resolves Result[Report, Fault] under PEP 649 at import time
     Language,
     Match,
@@ -46,6 +44,23 @@ class DocsParams(BaseParams):
     strict: bool = False
 
 
+class _Finding(msgspec.Struct, frozen=True):
+    """One engine NDJSON row: ``check`` (validate-mermaid) and ``rule`` (check-canon) are the mutually exclusive kind slots."""
+
+    file: str
+    line: int
+    status: str
+    detail: str = ""
+    check: str = ""
+    rule: str = ""
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_FINDING = msgspec.json.Decoder(_Finding)
+_SEVERITY = {"fail": "error", "warn": "warning"}
+
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
@@ -60,55 +75,45 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _sink_stem(rel: str) -> str:
-    # Full relative-path slugs prevent concurrent README.md sinks from sharing one stem.
-    p = PurePosixPath(rel)
-    return "__".join((*p.parent.parts, p.stem)) or p.stem
+def _decode(line: str) -> _Finding | None:
+    try:
+        return _FINDING.decode(line.encode())
+    except msgspec.MsgspecError:
+        return None
 
 
-def _produced(scope: ArtifactScope, stem: str) -> tuple[str, ...]:
-    # mmdc writes the -o markdown sink (``<stem>.md``) plus one ``<stem>-<n>.svg`` sibling per diagram. The ``<stem>*`` glob
-    # over-matches when one slug stem prefixes another (``a`` catches ``ab.md``), so keep only the exact ``<stem>.md`` sink and
-    # its ``<stem>-`` svg siblings — the boundary char severs a longer co-resident stem.
-    run_dir = scope.path.removeprefix(f"{scope.store.root}/")
-    sink, sibling = f"{stem}.md", f"{stem}-"
-    return tuple(p for p in scope.store.glob(f"{run_dir}/{stem}*") if (name := p.rsplit("/", 1)[-1]) == sink or name.startswith(sibling))
-
-
-def _rows(
-    scope: ArtifactScope, files: tuple[str, ...], stems: tuple[str, ...], done: tuple[Completed, ...]
-) -> tuple[tuple[Match, ...], tuple[Artifact, ...]]:
-    # Fan-out order aligns files with receipts; strict zip keeps routed-empty synthetic callers valid.
-    # Artifact rows enumerate produced Markdown and SVG sinks so envelopes own the scope shape.
-    results = tuple(
+def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
+    # The engines print one NDJSON row per finding to stdout; ``ok`` rows are passes and never surface.
+    return tuple(
         Match(
-            id=f"source:{rel}:1",
-            kind=ArtifactKind.PROCESS,
-            text=f"mmdc {rel}: {'ok' if d.status is not RailStatus.FAILED else 'failed'}",
-            severity="failed" if d.status is RailStatus.FAILED else None,
+            id=f"mermaid:{kind}",
+            kind=ArtifactKind.CODE,
+            text=f"mermaid: {found.file}:{found.line}: {kind}: {found.detail}",
+            line=found.line,
+            severity=severity,
+            path=found.file,
+            message=found.detail,
         )
-        for rel, d in zip(files, done, strict=False)
+        for outcome in done
+        for raw in outcome.stdout.decode(errors="replace").splitlines()
+        if (line := raw.strip()).startswith("{")
+        for found in (_decode(line),)
+        if found is not None and (severity := _SEVERITY.get(found.status)) is not None
+        for kind in (found.check or found.rule or "mermaid",)
     )
-    artifacts = tuple(Artifact(id=path.rsplit("/", 1)[-1], kind=ArtifactKind.SCOPE, path=path) for stem in stems for path in _produced(scope, stem))
-    return results, artifacts
 
 
 def _outcomes(
     routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode, executor: Executor
 ) -> Result[Report, Fault]:
-    # mmdc requires per-file -i/-a/-o placement; scope materialization stays at the ArtifactScope boundary.
-    scope_dir = scope.ensure()
-    pairs = tuple((t, f, _sink_stem(f)) for t in select(claim, routed.language) if t.mode is mode for f in routed.files)
-    files = tuple(f for _, f, _ in pairs)
-    stems = tuple(stem for *_, stem in pairs)
-    checks = tuple(Check(tool=t, args=ToolArgs(input=f, sink_dir=scope_dir, sink=f"{scope_dir}/{stem}.md")) for t, f, stem in pairs)
+    # The skill engine reads each file and renders to its own cache; assay passes only the input, never a sink placement.
+    checks = tuple(Check(tool=t, args=ToolArgs(input=f)) for t in select(claim, routed.language) if t.mode is mode for f in routed.files)
     slots = executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
     def _promote(done: tuple[Completed, ...]) -> Report:
         base = fold(claim, verb, done)
-        results, artifacts = _rows(scope, files, stems, done)
-        status = RailStatus.OK if results and base.status is RailStatus.EMPTY else base.status
-        return msgspec.structs.replace(base, status=status, results=(*base.results, *results), artifacts=(*base.artifacts, *artifacts))
+        status = RailStatus.OK if done and base.status is RailStatus.EMPTY else base.status
+        return msgspec.structs.replace(base, status=status, results=(*base.results, *_findings(done)))
 
     return sequence(block.of_seq(slots)).map(lambda done: _promote(tuple(done)))
 

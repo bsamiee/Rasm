@@ -289,7 +289,22 @@ TOOLS: tuple[Tool, ...] = (
     Tool("sqlfluff", UV, ("sqlfluff", "fix", "--dialect", "postgres"), FILES, SQL, Claim.STATIC, mode=Mode.WRITE),
     Tool("squawk", UV, ("squawk",), FILES, SQL, Claim.STATIC),
     # --- [DOCS]
-    Tool("mmdc", PNPM, ("mmdc", "-q", "-i", "{input}", "-a", "{sink_dir}", "-o", "{sink}"), OWNED, DOCS, Claim.DOCS),
+    Tool(
+        "validate-mermaid",
+        DIRECT,
+        ("uv", "run", "--no-project", ".claude/skills/mermaid-diagramming/scripts/validate_mermaid.py", "--json", "{input}"),
+        OWNED,
+        DOCS,
+        Claim.DOCS,
+    ),
+    Tool(
+        "check-canon",
+        DIRECT,
+        ("uv", "run", "--no-project", ".claude/skills/mermaid-diagramming/scripts/check_canon.py", "--json", "{input}"),
+        OWNED,
+        DOCS,
+        Claim.DOCS,
+    ),
     # --- [CODE]
     Tool(
         "ast-grep",
