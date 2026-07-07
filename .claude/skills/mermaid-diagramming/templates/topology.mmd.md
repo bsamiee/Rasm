@@ -22,7 +22,7 @@ config:
     archEdgeWidth: "2"
     archGroupBorderColor: "#D6BCFA"
     archGroupBorderWidth: "1"
-  themeCSS: ".architecture-service svg rect,.architecture-groups svg rect{fill:#44475A!important}.architecture-groups text{fill:#D6BCFA;font-size:13.5px;font-weight:700;letter-spacing:.08em}.architecture-services text{font-size:13px;font-weight:500}.node-bkg{stroke-dasharray:5 4}"
+  themeCSS: ".architecture-service svg rect{fill:#44475A!important}.architecture-groups svg rect{fill:#44475A!important}.architecture-groups text{fill:#D6BCFA;font-size:13.5px;font-weight:700;letter-spacing:.08em}.architecture-services text{font-size:13px;font-weight:500}.node-bkg{stroke-dasharray:5 4}"
 ---
 architecture-beta
   accTitle: Render service topology

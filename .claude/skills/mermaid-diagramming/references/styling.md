@@ -309,39 +309,39 @@ The silent traps live where syntax parses but styling does not apply or applies 
 
 ## [06]-[FLOORS]
 
-Every family ships at or above its floor — the minimum styling below which its render is naked. A family whose engine admits no color route states that bound beside the fence instead of shipping a dead theme block.
+Every family ships at or above its render floor. Each row inherits `theme: base`, `look: classic`, `fontFamily`, flat locks, palette closure, label backing, and the micro-scale stamp unless `[BOUND]` names a limited surface.
 
-| [INDEX] | [FAMILY]      | [FLOOR]                                                                                                                                                              |
-| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | flowchart     | base vars + three or more canonical classes + explicit rail on every non-primary edge + `fontFamily`                                                                 |
-|  [02]   | sequence      | actor/signal/activation/note vars + one `box` or `rect` grouping around each `alt`/`par`/`critical` region                                                           |
-|  [03]   | state         | general vars + dormant `recessed`, fault `error`, terminal `boundary` classes; nominal states ride the primary default                                               |
-|  [04]   | class         | general vars + `classText` + classes separating the aggregate or interface from leaf types + the gold note chip                                                      |
-|  [05]   | ER            | attribute banding + `lineColor` + `tertiaryColor` + classes: root `primary`, junction `recessed`, ref `external`                                                     |
-|  [06]   | gantt         | `section*`/`task*`/`active*`/`crit*`/`excludeBkgColor`/`todayLineColor`/`gridColor` + `axisFormat` with `tickInterval` + the Lavender `.sectionTitle` stamp          |
-|  [07]   | mindmap       | no in-fence class route — host-registered classes or engine depth colors, the bound stated beside the fence                                                          |
-|  [08]   | timeline      | `cScale0`–`cScale11` + Foreground `cScaleLabel0`–`cScaleLabel11` + the `.node-bkg` fill-opacity stamp with per-section borders + the attribute-hook wayfinding stamp |
-|  [09]   | kanban        | full `cScale`/`cScaleLabel` ranges (columns index from `section-1`) + `background`/`nodeBorder` cards + the container-title stamp + priority-line remaps             |
-|  [10]   | gitGraph      | `git0`–`git7` + `gitBranchLabel*` + `commit*`/`tag*` incl. `tagLabelBorder` + canvas `primaryColor` + the 2px `.arrow` and `.75` commit-dot stamps                   |
-|  [11]   | requirement   | `requirement*`/`relation*` + `edgeLabelBackground` + classes separating requirement from element + the arrow-scale stamp                                             |
-|  [12]   | C4            | `c4:` config color keys + `UpdateRelStyle` on every relation + the boundary/title/marker/image `themeCSS` hooks                                                      |
-|  [13]   | architecture  | `archEdgeColor`/`archEdgeArrowColor`/`archGroupBorderColor` + per-group icon + full `align` grid + `architecture.seed` + the icon re-fill stamp                      |
-|  [14]   | pie           | `pie1`–`pie12` + `pieOpacity: 1` + per-slice `nth-of-type` translucent fills with full strokes + Foreground section/legend text                                      |
-|  [15]   | quadrant      | neutral quadrant fills + Lavender quadrant text + per-point classes + the `.data-point` fill-opacity stamp                                                           |
-|  [16]   | sankey        | `theme: base` frontmatter + `nodeColors` mapped to palette hexes + `labelStyle: legacy` + the `.link` blend stamp + Foreground `.node-labels`                        |
-|  [17]   | xychart       | nested `xyChart` block + `plotColorPalette` + the `.bar-plot-0` translucency stamp + outside data labels capped by `.plot text`                                      |
-|  [18]   | radar         | nested `radar` block + `cScale0`–`cScale11` + distinct per-curve data + margins clearing the axis labels                                                             |
-|  [19]   | treemap       | full `cScale`/`cScalePeer`/Foreground `cScaleLabel` ranges + the dark-section and label-cap stamps; `classDef` banned                                                |
-|  [20]   | packet        | the `.packetBlock`/`.packetLabel`/`.packetByte`/`.packetTitle` `themeCSS` stamp — one hue family, wash-tier fills                                                    |
-|  [21]   | journey       | translucent `fillType0`–`fillType7` + `actor0`–`actor5` + `faceColor` + `journey.titleFontFamily`/`titleColor` + the face/mouth/axis stamps                          |
-|  [22]   | venn          | per-set `style` rows (fill, fill-opacity, stroke, color) + labeled unions + the title and set-label size stamps                                                      |
-|  [23]   | eventmodeling | `em*` fill/stroke pairs + `emSwimlaneBackground*` + the `.em-box span`/`code` and `.em-swimlane text` stamps                                                         |
-|  [24]   | wardley       | nested `wardley` block + `wardleyEvolutionColor`; the family emits no stylesheet, so text metrics stay engine-owned and the user need models as a component          |
-|  [25]   | cynefin       | nested `cynefin` block with wash-tier domain fills, Red cliff, Lavender captions + the item chip stamps + `seed`                                                     |
-|  [26]   | treeView      | config `labelColor`/`lineColor`/`labelFontSize` + the highlight (yellow-law chip) and Cyan description stamps                                                        |
-|  [27]   | ishikawa      | global vars only — `lineColor` and `mainBkg` carry the whole surface; the bound stated beside the fence                                                              |
-|  [28]   | swimlane      | the flowchart floor + `theme: base` + lane `style` emphasis + the container-title stamp on lane labels                                                               |
-|  [29]   | railroad      | the `railroad:` config block — gold-law terminals, Selection nonterminals, Comment rails, pink endpoint dots, Lavender rule names                                    |
+| [INDEX] | [FAMILY]      | [TOKENS]          | [ROUTE]           | [STAMP]           | [BOUND]             |
+| :-----: | :------------ | :---------------- | :---------------- | :---------------- | :------------------ |
+|  [01]   | flowchart     | base vars         | canonical classes | edge rails        | none                |
+|  [02]   | sequence      | actor signal vars | region surfaces   | marker fill       | none                |
+|  [03]   | state         | general vars      | state classes     | composite stamp   | none                |
+|  [04]   | class         | class vars        | type classes      | note chip         | none                |
+|  [05]   | ER            | band vars         | entity classes    | relation stamp    | none                |
+|  [06]   | gantt         | task vars         | axis cadence      | section stamp     | none                |
+|  [07]   | mindmap       | depth colors      | host classes      | node opacity      | no in-fence classes |
+|  [08]   | timeline      | ordinal colors    | section borders   | wayfinding stamp  | none                |
+|  [09]   | kanban        | ordinal colors    | card variables    | priority remap    | none                |
+|  [10]   | gitGraph      | branch colors     | commit variables  | rail dot stamps   | none                |
+|  [11]   | requirement   | requirement vars  | element classes   | marker scale      | none                |
+|  [12]   | C4            | `c4:` config      | relation updates  | boundary hooks    | none                |
+|  [13]   | architecture  | arch vars         | align grid        | icon refill       | group icons         |
+|  [14]   | pie           | pie ordinals      | slice stamps      | foreground labels | none                |
+|  [15]   | quadrant      | quadrant vars     | point classes     | opacity stamp     | none                |
+|  [16]   | sankey        | `nodeColors`      | label strategy    | link blend        | legacy labels       |
+|  [17]   | xychart       | `xyChart` block   | plot palette      | label caps        | none                |
+|  [18]   | radar         | `radar` block     | curve ordinals    | margin clearance  | none                |
+|  [19]   | treemap       | scale ranges      | section stamps    | label caps        | no `classDef`       |
+|  [20]   | packet        | themeCSS classes  | wash fills        | packet labels     | no variables        |
+|  [21]   | journey       | fill actors       | face vars         | axis stamps       | title config        |
+|  [22]   | venn          | set styles        | union labels      | label sizes       | none                |
+|  [23]   | eventmodeling | `em*` pairs       | swimlane vars     | mono spans        | no acc directives   |
+|  [24]   | wardley       | wardley block     | evolution color   | engine metrics    | component anchor    |
+|  [25]   | cynefin       | cynefin block     | domain washes     | item chips        | seed                |
+|  [26]   | treeView      | tree config       | highlight class   | description stamp | none                |
+|  [27]   | ishikawa      | global vars       | main surface      | line weights      | no stylesheet       |
+|  [28]   | swimlane      | flowchart floor   | lane styles       | title stamp       | none                |
+|  [29]   | railroad      | railroad block    | terminal chips    | rule labels       | none                |
 
 ## [07]-[CONSISTENCY_LAWS]
 
@@ -350,7 +350,7 @@ Review binds these laws on every committed fence; the values each law spends —
 - Edge-rail law: every semantic edge carries an explicit rail from the six-rail set the palette layer owns, bound positionally through `linkStyle` or insertion-stably through an edge-id class; only a plain forward hop inherits the default, every fault edge is Red, and every edge insertion recounts positional indices.
 - Weight law: every stroke spends the palette layer's one weight ladder — `2px` standing edge, `3px` fault and emphasis, `1.5px` dashed and node border, `1px` container — so weight alone lifts an important hop above a routine one; the arrowhead rides the `.marker path` scale the family stamp carries, never the line weight.
 - Animation law: `animate: true` marks the one called-out flow — the hot path or the edge feeding a callout node — never decoration; the engine stills it under reduced motion, and a second competing animation dilutes the first. A static export freezes the animation's dash keyframe, so the edge prints dashed and collides with the trace rhythm — a fence whose proof or destination is a raster leaves `animate` off and carries the emphasis on weight or a callout instead.
-- Container law: a container recesses and its boundary reads — a flowchart `subgraph`, state composite, and class namespace fill Darker `#21222C` under a `1px` dashed Lavender boundary with a Lavender title at the 13.5px/700 container-title stamp, a nested region steps one tone lighter so its members read as raised within it, and a sequence `alt`/`par`/`break`/`critical` region wraps in a `rect` or `box` background; a white or naked container is the defect, and every fill and stroke traces to the role map. The stamp binds every titled container the engine draws — cluster, composite, namespace, kanban column, swimlane lane, gantt section, treemap section, C4 boundary, architecture group.
+- Container law: Titled containers recess below the canvas. Flowchart subgraphs, state composites, class namespaces, sequence regions, kanban columns, swimlane lanes, gantt sections, treemap sections, C4 boundaries, and architecture groups use Darker fill, `1px` dashed Lavender boundary, and Lavender 13.5px/700 title ink. Nested regions step one tone lighter; white containers fail the render floor.
 - Render-flat law: every shape renders flat and solid-bordered — `look: classic`, `useGradient: false`, `dropShadow: "none"`, and the `filter:none!important` belt in every node-bearing `themeCSS` string kill the engine's gradient borders and halo at all four layers, and no fence, string, or template reintroduces a gradient reference or a node filter.
 - Terminus law: every terminus mark rides its line's color — Pink arrowheads, start discs, terminal rings, and lollipop rings on control flow, cardinality marks on the relation stroke — at the palette layer's one marker scale and one circle scale, so no circle reads as a stray dot, no circle shoulders its label, and no head outweighs its line; an engine that leaves a marker unfilled takes an explicit fill-and-stroke stamp, so no arrowhead renders grey anywhere.
 - Crossing law: no edge crosses a node — a block raster links only adjacent cells, an architecture fence aligns every rank both ways, a C4 fence homes externals in their own boundary, and a layout that cannot clear its nodes splits the figure.

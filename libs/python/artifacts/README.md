@@ -122,6 +122,7 @@ Every domain rendering library this folder uses. Versions are centralized in the
 - `pdfplumber` - Page text/table/word geometry extraction over pdfminer
 - `ocrmypdf` - OCR text layer over a scanned PDF on the tesseract/ghostscript Forge native floor
 - `lxml`
+- `types-lxml` - static typing surface for `lxml.html.HtmlElement`
 - `ruamel-yaml`
 - `tomlkit`
 

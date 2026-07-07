@@ -113,11 +113,11 @@ A faulted fence converges on its own source across at most five render-inspect-e
 
 ## [07]-[GOTCHAS]
 
-- `%%{init:...}%%` is deprecated — a fence opening with it is a defect; convert to frontmatter.
+- Frontmatter owns initialization; a fence opening with `%%{init:...}%%` converts to frontmatter.
 - Reserved words `end`, `default`, `subgraph`, `class` break node IDs — quote the label, rename the ID.
 - `layout: elk` outside flowchart needs a host-registered loader and has no dagre fallback — only flowchart fences declare it.
 - Edge labels containing `[`, `]`, or `:` need double quotes: `A -->|"[WIRE]: shape"| B`.
-- Beta types shift syntax between minors — validate after any version bump.
+- Extended-family fences validate whenever touched.
 
 ## [08]-[REPO_INTEGRATION]
 

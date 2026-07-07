@@ -4,7 +4,7 @@ The diagram roster beyond the five core types — each admitted row carries its 
 
 ## [01]-[REGISTRY]
 
-Pick a type by intent, then its section for the minimal fence, version gate, and traps; a dash marks a pre-11 introduction.
+Pick a type by intent, then its section for the minimal fence and traps; a dash marks an extended-family registry entry.
 
 | [INDEX] | [TYPE]               | [INTENT]                 |
 | :-----: | :------------------- | :----------------------- |
@@ -728,7 +728,7 @@ config:
     archEdgeWidth: "2"
     archGroupBorderColor: "#D6BCFA"
     archGroupBorderWidth: "1"
-  themeCSS: ".architecture-service svg rect,.architecture-groups svg rect{fill:#44475A!important}.architecture-groups text{fill:#D6BCFA;font-size:13.5px;font-weight:700;letter-spacing:.08em}.architecture-services text{font-size:13px;font-weight:500}.node-bkg{stroke-dasharray:5 4}"
+  themeCSS: ".architecture-service svg rect{fill:#44475A!important}.architecture-groups svg rect{fill:#44475A!important}.architecture-groups text{fill:#D6BCFA;font-size:13.5px;font-weight:700;letter-spacing:.08em}.architecture-services text{font-size:13px;font-weight:500}.node-bkg{stroke-dasharray:5 4}"
 ---
 architecture-beta
   accTitle: Render service topology
@@ -1307,7 +1307,7 @@ ishikawa-beta
       "Remote image"
         "Blocked CDN"
     Syntax
-      "Beta drift"
+      "Syntax drift"
         "Renamed keyword"
       "Reserved word"
 ```

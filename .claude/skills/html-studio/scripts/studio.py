@@ -50,7 +50,7 @@ from expression import Error, Ok, Result
 from expression.extra.result import catch
 import httpx
 from lxml import html
-from lxml.etree import XPath
+from lxml.etree import ParserError, XPath
 import msgspec
 import psutil
 import stamina
@@ -190,17 +190,14 @@ PROP_DEF = re.compile(r"@property\s+(--[\w-]+)")
 SET_PROPERTY = re.compile(r"setProperty\(\s*['\"](--[\w-]+)")
 FOCUS_OUTLINE = re.compile(r":focus-visible[^{}]*{(?=[^{}]*outline\s*:\s*none)(?![^{}]*box-shadow)")
 PRINT_EXPORT_BAR = re.compile(r"@media print[\s\S]*\.export-bar[^{]*{[^{}]*display\s*:\s*none")
-SURFACES = ("--bg", "--surface", "--raised", "--raised-2", "--overlay")
-TEXT_TOKENS = ("--text", "--text-muted")
-STATUS_TOKENS = ("--ok", "--warn", "--fail", "--info")
 PRINT_SAFE_LAYERS = frozenset({"print", "overrides"})
 SIZE_WARN = 400 * 1024
 MIN_CONTRAST = 4.5
 CHIP_ALPHA = 0.14
 CONTRAST_CHECKS: tuple[tuple[str, str, float], ...] = (
-    *((fg, bg, 1.0) for bg in SURFACES for fg in TEXT_TOKENS),
+    *((fg, bg, 1.0) for bg in ("--bg", "--surface", "--raised", "--raised-2", "--overlay") for fg in ("--text", "--text-muted")),
     ("--on-accent", "--accent", 1.0),
-    *((token, "--raised", CHIP_ALPHA) for token in STATUS_TOKENS),
+    *((token, "--raised", CHIP_ALPHA) for token in ("--ok", "--warn", "--fail", "--info")),
 )
 
 MARKERS: Mapping[Region, tuple[str, str, str]] = {
@@ -313,7 +310,7 @@ class Artifact(msgspec.Struct, frozen=True):
             raw = path.read_bytes()
             text = raw.decode("utf-8")
             document = html.document_fromstring(text)
-        except (OSError, UnicodeDecodeError, html.etree.ParserError) as exc:
+        except (OSError, UnicodeDecodeError, ParserError) as exc:
             return Error(Row(str(path), 0, Check.READ, "fail", type(exc).__name__))
         styles = tuple(document.iter("style"))
         css = "\n".join(style.text or "" for style in styles)
@@ -442,11 +439,13 @@ class Runtime:
 
 # --- [GATE_DOM]
 
-_XPATH: dict[str, XPath] = {}
-
-
 def _node_set(found: object) -> TypeIs[list[html.HtmlElement]]:
     return isinstance(found, list) and all(isinstance(node, html.HtmlElement) for node in found)
+
+
+@cache
+def xpath(expr: str) -> XPath:
+    return XPath(expr, smart_strings=False)
 
 
 def q(root: html.HtmlElement, expr: str, /, **bindings: str) -> tuple[html.HtmlElement, ...]:
@@ -455,7 +454,7 @@ def q(root: html.HtmlElement, expr: str, /, **bindings: str) -> tuple[html.HtmlE
     Returns:
         The matched elements in document order.
     """
-    found = _XPATH.setdefault(expr, XPath(expr, smart_strings=False))(root, **bindings)
+    found = xpath(expr)(root, **bindings)
     return tuple(found) if _node_set(found) else ()
 
 
@@ -465,6 +464,11 @@ def line(element: html.HtmlElement) -> int:
 
 def text(element: html.HtmlElement) -> str:
     return " ".join("".join(element.itertext()).split())
+
+
+def tag(element: html.HtmlElement) -> str:
+    raw = element.tag
+    return raw.decode("utf-8", "replace") if isinstance(raw, bytes | bytearray) else str(raw)
 
 
 def scripts(document: html.HtmlElement) -> tuple[Script, ...]:
@@ -484,8 +488,7 @@ def emit_row(row: Row, json_mode: bool) -> None:
 
 
 def bad_reference(value: str) -> bool:
-    ref = value.strip()
-    return bool(ref and BAD_REF.match(ref) and not ref.lower().startswith(("data:", "blob:", "about:blank")))
+    return bool((ref := value.strip()) and BAD_REF.match(ref) and not ref.lower().startswith(("data:", "blob:", "about:blank")))
 
 
 def srcset_urls(value: str) -> tuple[str, ...]:
@@ -520,7 +523,7 @@ def dom_rows(artifact: Artifact) -> tuple[Row, ...]:
         if len(nodes) > 1
     )
     headings = tuple(
-        (int(node.tag[1]), line(node))
+        (int(tag(node)[1]), line(node))
         for node in q(document, "//*[self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6][not(ancestor::template)]")
     )
     rows.extend(
@@ -547,7 +550,7 @@ def dom_rows(artifact: Artifact) -> tuple[Row, ...]:
         if name.lower().startswith("on")
     )
     rows.extend(
-        Row(artifact.path, line(node), Check.INLINE_STYLE, "fail", f"inline style on <{node.tag}>; bind a class or custom property")
+        Row(artifact.path, line(node), Check.INLINE_STYLE, "fail", f"inline style on <{tag(node)}>; bind a class or custom property")
         for node in q(document, "//*[@style][not(ancestor-or-self::svg)]")
     )
     rows.extend(
@@ -559,12 +562,12 @@ def dom_rows(artifact: Artifact) -> tuple[Row, ...]:
 
 def reference_rows(artifact: Artifact) -> tuple[Row, ...]:
     rows = [
-        Row(artifact.path, line(node), Check.EXTERNAL_REF, "fail", f"{node.tag}[{attr}]={link[:120]}")
+        Row(artifact.path, line(node), Check.EXTERNAL_REF, "fail", f"{tag(node)}[{attr}]={link[:120]}")
         for node, attr, link, _pos in artifact.document.iterlinks()
         if attr != "srcset" and bad_reference(link)
     ]
     rows.extend(
-        Row(artifact.path, line(node), Check.EXTERNAL_REF, "fail", f"{node.tag}[srcset]={url[:120]}")
+        Row(artifact.path, line(node), Check.EXTERNAL_REF, "fail", f"{tag(node)}[srcset]={url[:120]}")
         for node in q(artifact.document, "//*[@srcset]")
         for url in srcset_urls(str(node.get("srcset") or ""))
         if bad_reference(url)
@@ -1056,12 +1059,12 @@ def make_handler(runtime: Runtime) -> type[BaseHTTPRequestHandler]:
                 runtime.sink.event(EventKind.REJECTED, FaultKind.BAD_JSON)
                 return self._fault(Fault(FaultKind.BAD_JSON, str(exc)[:120]))
             row = ReceiptRow(
-                id=xxh3_128_hexdigest(raw),
+                id=(digest := xxh3_128_hexdigest(raw)),
                 received=_utc(),
                 kind=envelope.kind,
                 artifact=envelope.artifact,
                 payload=envelope.data,
-                wrapper_digest=xxh3_128_hexdigest(raw),
+                wrapper_digest=digest,
             )
             try:
                 runtime.sink.append(row)

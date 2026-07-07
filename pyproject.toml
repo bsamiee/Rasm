@@ -285,7 +285,7 @@ dev = [
     "s3fs",                 # object-store testkit backend over moto S3
     "squawk-cli",
     "ty",
-    "lxml-stubs",
+    "types-lxml",
     "types-grpcio",
     "types-networkx",
     "types-psutil",

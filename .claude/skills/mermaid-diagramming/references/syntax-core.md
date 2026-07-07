@@ -1,6 +1,6 @@
 # [SYNTAX_CORE]
 
-Advanced and version-gated grammar for flowchart, sequence, state, class, and ER; baseline node, edge, marker, and visibility syntax is assumed, never restated.
+Advanced grammar for flowchart, sequence, state, class, and ER; baseline node, edge, marker, and visibility syntax is assumed, never restated.
 
 ## [01]-[FLOWCHART]
 
