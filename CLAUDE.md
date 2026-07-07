@@ -79,16 +79,13 @@ Use the route-owned standard for the file being edited:
 | [INDEX] | [FILE_TYPE]                             | [ROUTE]                  |
 | :-----: | --------------------------------------- | ------------------------ |
 |  [01]   | TypeScript (`.ts`, `.tsx`)              | `docs/stacks/typescript` |
-|  [02]   | TypeScript tests (`.spec.ts`, `.pw.ts`) | `testing-ts`             |
-|  [03]   | C# production (`.cs`)                   | `docs/stacks/csharp`     |
-|  [04]   | C# tests (`.spec.cs`)                   | `testing-cs`             |
-|  [05]   | Runtime scenarios (`Scenarios/*.cs`)    | `testing-cs`             |
-|  [06]   | Python (`.py`)                          | `docs/stacks/python`     |
-|  [07]   | Bash/sh (`.sh`, `.bash`)                | `coding-bash`            |
-|  [08]   | SQL (`.sql`)                            | `coding-pg`              |
-|  [09]   | Durable markdown (`.md`)                | `docgen`                 |
-|  [10]   | Mermaid fences                          | `mermaid-diagramming`    |
-|  [11]   | HTML artifacts (`.html`)                | `html-studio`            |
+|  [02]   | C# production (`.cs`)                   | `docs/stacks/csharp`     |
+|  [03]   | Python (`.py`)                          | `docs/stacks/python`     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)                | `coding-bash`            |
+|  [05]   | SQL (`.sql`)                            | `coding-pg`              |
+|  [06]   | Durable markdown (`.md`)                | `docgen`                 |
+|  [07]   | Mermaid fences                          | `mermaid-diagramming`    |
+|  [08]   | HTML artifacts (`.html`)                | `html-studio`            |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 
@@ -164,7 +161,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 - [ALWAYS] Invoke the repo operator as `uv run python -m tools.assay ...`; bare `assay ...` is only valid when `command -v assay` proves a local wrapper exists.
 - [ALWAYS] `uv run python -m tools.assay api` owns external-artifact decompile/reflection over host DLLs, NuGet packages, installed Python distributions, and `node_modules` declarations.
 - [ALWAYS] Route live NuGet feed intelligence through the `nuget` MCP; `assay api` answers which members verifiably exist in the restored assembly, and verified-local wins on conflict. Apply a version change by hand-editing the grouped `Directory.Packages.props` (never `dotnet add`), confirm with `dotnet restore`/`dotnet nuget why`, and drive folder-wide modernization through the `survey` workflow; the standalone `nuget.commandline` CLI is unused.
-- [ALWAYS] Treat `Rasm.Bim` as the sole IFC semantic authority: C# owns the `BimModel`/`BimWire`/`ElementSet`/`IfcSemanticModel` graph (GeometryGym, in-process). The `ifc` skill and `ifc` MCP own only live read-only inspection, GLB tessellation (`IfcConvert` keyed by the `XxHash128` content key, cache-checked against the `Rasm.Persistence` artifact index), and the IDS oracle (`ifctester` → `IdsVerdict` rows feeding `IdsAudit.Reconcile`); they never re-author the semantic model, re-implement geometry the kernel owns, or write Psets/Qtos as the system of record.
+- [ALWAYS] Treat `Rasm.Bim` as the sole IFC semantic authority: C# owns the `BimModel`/`BimWire`/`ElementSet`/`IfcSemanticModel` graph (GeometryGym, in-process). The `ifc-bim` skill and `ifc` MCP own only live read-only inspection, GLB tessellation (`IfcConvert` keyed by the `XxHash128` content key, cache-checked against the `Rasm.Persistence` artifact index), and the IDS oracle (`ifctester` → `IdsVerdict` rows feeding `IdsAudit.Reconcile`); they never re-author the semantic model, re-implement geometry the kernel owns, or write Psets/Qtos as the system of record.
 - [ALWAYS] Run inherited local CodeRabbit -> Greptile review only when the user requests it or repo policy explicitly requires it for the current work, never when the user disables review. When review is active, run it only after the owner-scoped `uv run python -m tools.assay` gate passes for the changed files; PR-level review and automation route through the repo `gh`/`mcp__github__*` owners.
 - [ALWAYS] `uv run python -m tools.assay code` owns structural/pattern search over ast-grep metavariables, tree-sitter queries, and CI artifacts; prefer LSP for plain single-symbol navigation.
 - [ALWAYS] `uv run python -m tools.assay static/test/bridge/package` own gating quality rails and mutation routes. LSP is read-only.

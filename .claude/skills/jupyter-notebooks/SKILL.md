@@ -1,6 +1,6 @@
 ---
-name: jupyter
-description: Run and edit Jupyter notebooks two ways — headless batch execution (papermill, nbclient, jupytext, nbconvert; no server) and an interactive live kernel (the jupyter MCP). Use for .ipynb notebooks, executing or parameterizing a notebook, live data exploration, converting between .py and .ipynb, or notebook validation. Dispatch on batch versus interactive.
+name: jupyter-notebooks
+description: Execute, parameterize, convert, validate, and edit Jupyter notebooks, plus drive a live interactive kernel. Use when working with .ipynb files, running or parameterizing a notebook (papermill), converting between .py and .ipynb (jupytext), exporting notebooks to HTML or script (nbconvert), validating notebook JSON, or exploring data in a persistent JupyterLab kernel with state held across cells. Covers a deterministic, server-free batch path and an interactive live-kernel path, chosen by whether cross-cell kernel state must persist. Not for plain .py script execution, which is ordinary Python.
 ---
 
 # Jupyter notebooks
