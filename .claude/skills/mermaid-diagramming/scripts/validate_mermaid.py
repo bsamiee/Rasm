@@ -161,7 +161,11 @@ RENDER_CONFIG = {
 
 
 def _browser_path() -> str | None:
-    """Pinned headless-safe Chromium: honor PUPPETEER_EXECUTABLE_PATH, else the newest headless shell. Never the real Chrome.app — a sandboxed headless caller aborts it at _RegisterApplication and pops a macOS crash dialog."""
+    """Resolve a pinned headless-safe Chromium; never the real Chrome.app, which a sandboxed headless caller aborts at _RegisterApplication.
+
+    Returns:
+        PUPPETEER_EXECUTABLE_PATH when set, else the newest cached chrome-headless-shell, else None.
+    """
     import os
 
     env = os.environ.get("PUPPETEER_EXECUTABLE_PATH", "")
@@ -716,10 +720,6 @@ def resolve_renderer(override: str | None) -> tuple[tuple[str, ...], Path | None
     if override:
         argv = tuple(shlex.split(override))
         return (argv, None) if argv and shutil.which(argv[0]) else ((), None)
-    probe = Path.cwd().resolve()
-    for root in (probe, *probe.parents):
-        if (root / "pnpm-lock.yaml").exists():
-            return ("pnpm", "exec", "mmdc"), root
     return (("mmdc",), None) if shutil.which("mmdc") else ((), None)
 
 

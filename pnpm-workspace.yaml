@@ -250,7 +250,6 @@ catalog:
   vite-plugin-svgr: 5.2.0
   vite-plugin-webfont-dl: 3.12.0
   '@octokit/rest': 22.0.1
-  '@mermaid-js/mermaid-cli': 11.16.0
 
 catalogMode: strict
 
@@ -270,10 +269,8 @@ overrides:
   axios: 1.17.0
   jiti: 2.7.0
   koa: 3.2.1
-  mermaid: 11.16.0
   minimatch: 10.2.5
   node-forge: 1.4.0
-  puppeteer: 25.1.0
   rollup: 4.62.0
   svgo: 4.0.1
   tar: 7.5.16
@@ -285,7 +282,6 @@ peerDependencyRules:
     '@effect/platform': 0.96.2
     '@effect/rpc': 0.75.1
     '@nx/devkit': 23.0.1
-    puppeteer: 25.1.0
     three: 0.185.1
     typescript: 6.0.3
     # @effect/vitest 0.29.x declares peer vitest ^3.2; suites are written v4-forward against installed 4.1.x.
@@ -308,7 +304,6 @@ allowBuilds:
   msgpackr-extract: true
   nx: true
   protobufjs: true
-  puppeteer: true
   sharp: true
   ssh2: true
   unrs-resolver: true
