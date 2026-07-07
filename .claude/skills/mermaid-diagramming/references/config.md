@@ -171,10 +171,10 @@ A schema theme or `themeVariables` reaches the CLI only through `--configFile`, 
 }
 ```
 
-A sandboxed or root CI passes Puppeteer launch args through `--puppeteerConfigFile`; a machine without a bundled Chromium pins `executablePath`:
+A sandboxed or CI render passes Puppeteer launch args through `--puppeteerConfigFile` and pins `executablePath` to a headless-safe Chromium — the machine's `PUPPETEER_EXECUTABLE_PATH` (Nix `mermaid-cli` Chromium) or a Chrome-for-Testing build. The real `/Applications/Google Chrome.app` is never used: a sandboxed headless caller aborts it at `_RegisterApplication` and pops a macOS crash dialog.
 
 ```json
-{ "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "args": ["--no-sandbox", "--disable-dev-shm-usage"] }
+{ "executablePath": "$PUPPETEER_EXECUTABLE_PATH", "args": ["--no-sandbox", "--disable-dev-shm-usage"] }
 ```
 
 A fully offline deterministic render pins every input: the lockfile pins the CLI, `executablePath` pins the browser, `iconPacksNamesAndUrls` pins icons, images ride `file://` or `data:`, and the config file locks the identity surface:

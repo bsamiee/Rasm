@@ -158,9 +158,25 @@ RENDER_CONFIG = {
     "architecture": {"randomize": False, "seed": 1001},
     "flowchart": {"defaultRenderer": "elk"},
 }
+
+
+def _browser_path() -> str | None:
+    """Pinned headless-safe Chromium: honor PUPPETEER_EXECUTABLE_PATH, else the newest headless shell. Never the real Chrome.app — a sandboxed headless caller aborts it at _RegisterApplication and pops a macOS crash dialog."""
+    import os
+
+    env = os.environ.get("PUPPETEER_EXECUTABLE_PATH", "")
+    if env and Path(env).is_file():
+        return env
+    shells = sorted(
+        Path.home().glob(".cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell"),
+        key=lambda p: [int(n) for n in re.findall(r"\d+", p.parts[-3])],
+    )
+    return str(shells[-1]) if shells else None
+
+
 PUPPETEER_CONFIG = {
-    "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "args": ["--no-sandbox", "--disable-dev-shm-usage"],
+    **({"executablePath": _path} if (_path := _browser_path()) else {}),
 }
 THEMED = frozenset({
     "architecture-beta",
@@ -704,13 +720,7 @@ def resolve_renderer(override: str | None) -> tuple[tuple[str, ...], Path | None
     for root in (probe, *probe.parents):
         if (root / "pnpm-lock.yaml").exists():
             return ("pnpm", "exec", "mmdc"), root
-    return (
-        (("mmdc",), None)
-        if shutil.which("mmdc")
-        else (("npx", "-y", "-p", "@mermaid-js/mermaid-cli", "mmdc"), None)
-        if shutil.which("npx")
-        else ((), None)
-    )
+    return (("mmdc",), None) if shutil.which("mmdc") else ((), None)
 
 
 def render(prefix: tuple[str, ...], cwd: Path | None, diagram: Diagram, workdir: Path, cache_dir: Path) -> Row:

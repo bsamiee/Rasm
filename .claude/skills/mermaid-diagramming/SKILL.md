@@ -73,11 +73,7 @@ Each fence emits `file:line: STATUS check detail` rows with check kinds `render`
 
 The canon checker runs beside the validator as `uv run scripts/check_canon.py <file.md ...>` — a render-free, table-driven enforcement of the theming, styling, and config canon per family (palette closure, alpha tiers, yellow law, micro-scale stamps, per-family floors) emitting the same `file:line: STATUS canon rule detail` row shape with `--json` NDJSON and a nonzero exit on any fail. `--explain <rule-id>` prints a finding's canon sentence and owning reference.
 
-The renderer resolves as `--renderer CMD`, then a `pnpm exec mmdc` workspace, then `mmdc` on PATH, then `npx -y @mermaid-js/mermaid-cli`. The final branch reaches the network on every run; install the renderer once so validation stays offline:
-
-```bash
-pnpm add -D @mermaid-js/mermaid-cli
-```
+The renderer is `mmdc`, provided on PATH by the machine toolchain (Nix `mermaid-cli` with a pinned Chromium) and preferred from a `pnpm exec mmdc` workspace when a `pnpm-lock.yaml` roots the run; `--renderer CMD` overrides both. Rendering targets the pinned Chromium through `PUPPETEER_EXECUTABLE_PATH`; the real Google Chrome app is never launched.
 
 ## [04]-[CONTRACT]
 
