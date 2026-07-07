@@ -36,42 +36,41 @@ An HTML page trades a document that gets skimmed for one that gets read — spat
 
 The most specific trigger wins; each row names the misfit sibling it displaces. A comparison of visual directions, UI options, layouts, or weighted candidates never flattens into inline chips or prose options — the artifact route fires first and the page carries the comparison. A request no row matches composes the nearest type's region spine rather than falling back to markdown.
 
-| [INDEX] | [TYPE]           | [WHEN]                                   | [INSTEAD_OF]     |
-| :-----: | :--------------- | :--------------------------------------- | :--------------- |
-|  [01]   | plan             | staged blueprint for one change          | brainstorm       |
-|  [02]   | brainstorm       | unnamed directions generated pre-pick    | wargame          |
-|  [03]   | wargame          | named candidates scored on criteria      | brainstorm       |
-|  [04]   | roadmap          | capability sequenced by horizon          | plan             |
-|  [05]   | diff-review      | a patch read beside critique             | explainer        |
-|  [06]   | quiz             | comprehension gated pre-merge            | diff-review      |
-|  [07]   | buy-in           | objections answered pre-signoff          | explainer        |
-|  [08]   | capability-atlas | one owner-and-edge map                   | roadmap          |
-|  [09]   | explainer        | a feature or concept walked              | wargame          |
-|  [10]   | deck             | a case walked slide by slide             | explainer        |
-|  [11]   | editor           | one decision surface edited in place     | plan             |
-|  [12]   | design-system    | repo tokens as a taste surface           | explainer        |
-|  [13]   | report           | recurring status or incident page        | explainer        |
-|  [14]   | dashboard        | filterable board over one dataset        | report           |
-|  [15]   | contact-sheet    | one thing across all its states          | brainstorm       |
-|  [16]   | prototype        | an interaction or motion felt pre-build  | brainstorm       |
-|  [17]   | figure-sheet     | standalone SVG figures for docs          | explainer        |
-|  [18]   | architecture     | one topology under many named flows      | capability-atlas |
+| [INDEX] | [TYPE]           | [WHEN]                                  | [INSTEAD_OF]     |
+| :-----: | :--------------- | :-------------------------------------- | :--------------- |
+|  [01]   | plan             | staged blueprint for one change         | brainstorm       |
+|  [02]   | brainstorm       | unnamed directions generated pre-pick   | wargame          |
+|  [03]   | wargame          | named candidates scored on criteria     | brainstorm       |
+|  [04]   | roadmap          | capability sequenced by horizon         | plan             |
+|  [05]   | diff-review      | a patch read beside critique            | explainer        |
+|  [06]   | quiz             | comprehension gated pre-merge           | diff-review      |
+|  [07]   | buy-in           | objections answered pre-signoff         | explainer        |
+|  [08]   | capability-atlas | one owner-and-edge map                  | roadmap          |
+|  [09]   | explainer        | a feature or concept walked             | wargame          |
+|  [10]   | deck             | a case walked slide by slide            | explainer        |
+|  [11]   | editor           | one decision surface edited in place    | plan             |
+|  [12]   | design-system    | repo tokens as a taste surface          | explainer        |
+|  [13]   | report           | recurring status or incident page       | explainer        |
+|  [14]   | dashboard        | filterable board over one dataset       | report           |
+|  [15]   | contact-sheet    | one thing across all its states         | brainstorm       |
+|  [16]   | prototype        | an interaction or motion felt pre-build | brainstorm       |
+|  [17]   | figure-sheet     | standalone SVG figures for docs         | explainer        |
+|  [18]   | architecture     | one topology under many named flows     | capability-atlas |
 
-Templates carry the twelve highest-frequency types; the rest compose their region spines from the reference.
+Templates carry the highest-frequency types; the rest compose their region spines from [references/artifact-types.md](references/artifact-types.md).
 
-- plan: [templates/plan.html](templates/plan.html)
-- brainstorm: [templates/brainstorm.html](templates/brainstorm.html)
-- wargame: [templates/wargame.html](templates/wargame.html)
-- roadmap: [templates/roadmap.html](templates/roadmap.html)
-- diff-review: [templates/diff-review.html](templates/diff-review.html)
-- explainer: [templates/explainer.html](templates/explainer.html)
-- deck: [templates/deck.html](templates/deck.html)
-- editor: [templates/editor.html](templates/editor.html)
-- report: [templates/report.html](templates/report.html)
-- dashboard: [templates/dashboard.html](templates/dashboard.html)
-- capability-atlas: [templates/atlas.html](templates/atlas.html)
-- prototype: [templates/prototype.html](templates/prototype.html)
-- quiz, buy-in, design-system, contact-sheet, figure-sheet, architecture: compose from [references/artifact-types.md](references/artifact-types.md)
+- [01]-[PLAN](templates/plan.html)
+- [02]-[BRAINSTORM](templates/brainstorm.html)
+- [03]-[WARGAME](templates/wargame.html)
+- [04]-[ROADMAP](templates/roadmap.html)
+- [05]-[DIFF-REVIEW](templates/diff-review.html)
+- [08]-[CAPABILITY-ATLAS](templates/atlas.html)
+- [09]-[EXPLAINER](templates/explainer.html)
+- [10]-[DECK](templates/deck.html)
+- [11]-[EDITOR](templates/editor.html)
+- [13]-[REPORT](templates/report.html)
+- [14]-[DASHBOARD](templates/dashboard.html)
+- [16]-[PROTOTYPE](templates/prototype.html)
 
 Finished exemplars at the shipping bar are [examples/README.md](examples/README.md); consult the matching exemplar and the good/bad pairs before authoring a first instance of a type.
 
@@ -90,7 +89,7 @@ Finished exemplars at the shipping bar are [examples/README.md](examples/README.
 An artifact whose value is the user's judgment — verdicts, scores, reorderings, edits — runs served, not just opened:
 
 1. `uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py serve <artifact.html>` in the background; the banner prints `URL=`, `RECEIPTS=`, `STATE=` (`--output json` for one machine-readable object, `--ttl` to bound the run).
-2. Open the URL for the user. The served page carries the injected `artifact-return` and `artifact-token` metas; its export bar shows the primary send action, and the page returns the token as the `X-Artifact-Token` header.
+2. Open the URL for the user. The served page carries the injected `artifact-return` and `artifact-token` metas; its export drawer shows the primary send action, and the page returns the token as the `X-Artifact-Token` header.
 3. The user adjusts the page and sends; each accepted submission appends one tagged receipt row to the receipts JSONL beside lifecycle event rows.
 4. `artifact_server.py receipts <file> --last 1` is the canonical read; act on the payload, then `artifact_server.py stop`. `status` proves liveness; `self-test` proves the circuit end to end.
 

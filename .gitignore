@@ -1,7 +1,6 @@
 # --- [DEPENDENCIES] -----------------------------------------------------------
 
 node_modules/
-.pnpm-store/
 pnpm-debug.log*
 
 # --- [BUILD_OUTPUTS] ----------------------------------------------------------
@@ -46,7 +45,6 @@ env/
 .uv/
 .pytest_cache/
 .ruff_cache/
-.mypy_cache/
 .ty_cache/
 *.prof
 *.lprof

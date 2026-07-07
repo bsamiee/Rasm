@@ -79,12 +79,10 @@ TABLE_SEP = re.compile(r"^\s*\|(?:\s*:?-+:?\s*\|)+\s*$")
 YAML_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*\s*:")
 
 HEDGE_PHRASE = re.compile(
-    r"\b(?:is\s+expected\s+to|can\s+be|aims\s+to|is\s+designed\s+to|in\s+the\s+future|eventually|as\s+needed|if\s+necessary)\b",
-    re.IGNORECASE,
+    r"\b(?:is\s+expected\s+to|can\s+be|aims\s+to|is\s+designed\s+to|in\s+the\s+future|eventually|as\s+needed|if\s+necessary)\b", re.IGNORECASE
 )
 HEDGE_WORDS = re.compile(
-    r"\b(should|could|would|might|maybe|perhaps|likely|probably|propose|consider|recommended|ideally|experimental|we|our|you)\b",
-    re.IGNORECASE,
+    r"\b(should|could|would|might|maybe|perhaps|likely|probably|propose|consider|recommended|ideally|experimental|we|our|you)\b", re.IGNORECASE
 )
 MARKER_WORDS = re.compile(r"\b(TBD|TODO|FIXME)\b", re.IGNORECASE)
 META_PHRASE = re.compile(
@@ -111,6 +109,7 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str]], ...] = (
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
+
 
 class Row(msgspec.Struct, frozen=True):
     file: str
@@ -160,6 +159,7 @@ class Document(msgspec.Struct, frozen=True):
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
+
 
 def row(path: Path | str, line: int, check: Check, status: Status, detail: str) -> Row:
     return Row(file=str(path), line=line, check=check, status=status, detail=detail)
@@ -312,7 +312,9 @@ def table_rows(doc: Document) -> tuple[Row, ...]:
         rows.extend(row(doc.path, table.line, Check.TABLE_HEADER, "fail", cell or "<empty>") for cell in table.headers if not HEADER_CELL.match(cell))
         for index, body in enumerate(table.rows, 1):
             if len(body) != len(table.headers):
-                rows.append(row(doc.path, table.line + index + 1, Check.TABLE_SHAPE, "fail", f"row cells {len(body)} != header cells {len(table.headers)}"))
+                rows.append(
+                    row(doc.path, table.line + index + 1, Check.TABLE_SHAPE, "fail", f"row cells {len(body)} != header cells {len(table.headers)}")
+                )
         if len(table.rows) >= 2 and (not table.headers or table.headers[0] != "[INDEX]"):
             rows.append(row(doc.path, table.line, Check.TABLE_INDEX, "fail", "enumerable table lacks leading [INDEX]"))
         if table.headers and table.headers[0] == "[INDEX]":
@@ -322,7 +324,13 @@ def table_rows(doc: Document) -> tuple[Row, ...]:
                 if actual.strip() != expected:
                     rows.append(row(doc.path, table.line + index + 1, Check.TABLE_INDEX, "fail", f"{actual or '<empty>'} != {expected}"))
         rows.extend(
-            row(doc.path, table.line + index + 1, Check.TABLE_CELL, "warn", f"prose-crammed cell ({len(cell)} chars); rows stay atomic, nuance moves to prose")
+            row(
+                doc.path,
+                table.line + index + 1,
+                Check.TABLE_CELL,
+                "warn",
+                f"prose-crammed cell ({len(cell)} chars); rows stay atomic, nuance moves to prose",
+            )
             for index, body in enumerate(table.rows, 1)
             for cell in body
             if len(cell) > CELL_BUDGET
@@ -371,7 +379,9 @@ def prose_rows(doc: Document) -> tuple[Row, ...]:
         if not doc.template:
             rows.extend(row(doc.path, span.line, Check.TEMPLATE_SLOT, "fail", hit.group(0)) for hit in PLACEHOLDER.finditer(span.text))
         rows.extend(row(doc.path, span.line, Check.BOLD_EMPHASIS, "fail", hit.group(0)) for hit in BOLD.finditer(span.text))
-        rows.extend(row(doc.path, span.line, check, "fail", hit.group(0).lstrip(".!? ")) for check, pattern in PATTERNS for hit in pattern.finditer(span.text))
+        rows.extend(
+            row(doc.path, span.line, check, "fail", hit.group(0).lstrip(".!? ")) for check, pattern in PATTERNS for hit in pattern.finditer(span.text)
+        )
     return tuple(rows)
 
 
@@ -412,6 +422,7 @@ def code(rows: Iterable[Row]) -> int:
 
 
 # --- [ENTRY] -----------------------------------------------------------------------------
+
 
 @APP.default
 def run(*paths: Path, json: bool = False, cap: int = CAP) -> int:

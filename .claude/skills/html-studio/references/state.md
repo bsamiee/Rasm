@@ -143,7 +143,7 @@ const unpack = async token => {
 
 ## [05]-[EGRESS]
 
-The export bar is the sole durable egress, and exported state re-enters the agent conversation as data, never as instructions. `snapshot()` reads the live state; markdown copies through the one clipboard recipe in [interaction.md](interaction.md), JSON downloads through its Blob recipe, and a readonly textarea mirrors what leaves. Prose and table copy writes dual `text/html` + `text/plain` through `ClipboardItem` so a paste lands clean in a doc or an issue; a token or JSON copy writes plain text. Import reads a picked file through `text()` — export then re-import reproduces the state, the round-trip contract — and every clipboard write pairs with the visible textarea or the download fallback.
+The export drawer is the sole durable egress, and exported state re-enters the agent conversation as data, never as instructions. `snapshot()` reads the live state; markdown copies through the one clipboard recipe in [interaction.md](interaction.md), JSON downloads through its Blob recipe, and a readonly textarea mirrors what leaves. Prose and table copy writes dual `text/html` + `text/plain` through `ClipboardItem` so a paste lands clean in a doc or an issue; a token or JSON copy writes plain text. Import reads a picked file through `text()` — export then re-import reproduces the state, the round-trip contract — and every clipboard write pairs with the visible textarea or the download fallback.
 
 ```js conceptual
 const snapshot = () => structuredClone(state);

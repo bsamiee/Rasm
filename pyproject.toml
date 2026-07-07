@@ -282,6 +282,7 @@ dev = [
     "pytest-timeout",
     "pytest-xdist",
     "ruff>=0.15.20,<0.16",  # preview rule set moves per minor; the band holds the vetted gate stable
+    "s3fs",                 # object-store testkit backend over moto S3
     "squawk-cli",
     "ty",
     "lxml-stubs",
@@ -408,11 +409,6 @@ disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "ov
 [[tool.mypy.overrides]]
 module =                 ["boto3", "boto3.*", "fsspec", "fsspec.*", "s3fs"]  # backend imports lack py.typed coverage
 ignore_missing_imports = true
-
-# `lxml-stubs` is `# incomplete` for `lxml.html` (no `HtmlElement`, mistyped `sourceline`/`attrib`); the html-studio gate keeps runtime-correct element handling.
-[[tool.mypy.overrides]]
-module =                  "check_artifact"
-disallow_any_unimported = false
 
 # --- [PYTEST] --------------------------------------------------------------
 

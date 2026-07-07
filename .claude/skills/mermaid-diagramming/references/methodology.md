@@ -21,15 +21,13 @@ The pre-drawing procedure runs in order before the first shape.
 
 Each archetype names the corpus evidence that seeds its inventory; a diagram drawn from memory instead of these traces fabricates its subject.
 
-| [INDEX] | [ARCHETYPE]   | [TRACE_BEFORE_DRAWING]                                                                                                      |
-| :-----: | :------------ | :--------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | spine         | the boot entrypoint and composition root — walk main from process start to shutdown, listing every owner touched in order and every call that can fault |
-|  [02]   | seam-graph    | cross-package imports and the declared seam ledger — every type that crosses the boundary, its direction, and the counterpart's mirror declaration |
-|  [03]   | logic-flow    | the dispatch surface — the match, table, or policy rows of the one entry point, its discriminant vocabulary, and where the arms re-merge |
-|  [04]   | lifecycle     | the state field — its bounded vocabulary, every write site as a transition candidate, every guard condition at each write     |
-|  [05]   | wire-sequence | protocol handlers on both sides of the wire — the request and response shapes, the timeout and fault arms, who initiates each step |
-|  [06]   | schema        | the DDL, migrations, or model declarations — real PK, FK, and unique constraints, never the ORM's intended usage              |
-|  [07]   | strata        | the manifest dependency edges — declared package references, the permitted direction law, and any recorded violation          |
+- [01]-[SPINE]: the boot entrypoint and composition root — walk main from process start to shutdown, listing every owner touched in order and every call that can fault
+- [02]-[SEAM-GRAPH]: cross-package imports and the declared seam ledger — every type that crosses the boundary, its direction, and the counterpart's mirror declaration
+- [03]-[LOGIC-FLOW]: the dispatch surface — the match, table, or policy rows of the one entry point, its discriminant vocabulary, and where the arms re-merge
+- [04]-[LIFECYCLE]: the state field — its bounded vocabulary, every write site as a transition candidate, every guard condition at each write
+- [05]-[WIRE-SEQUENCE]: protocol handlers on both sides of the wire — the request and response shapes, the timeout and fault arms, who initiates each step
+- [06]-[SCHEMA]: the DDL, migrations, or model declarations — real PK, FK, and unique constraints, never the ORM's intended usage
+- [07]-[STRATA]: the manifest dependency edges — declared package references, the permitted direction law, and any recorded violation
 
 ## [03]-[STAGED_GROWTH]
 

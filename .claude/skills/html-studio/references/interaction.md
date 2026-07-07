@@ -38,23 +38,31 @@ const byKey = k => document.querySelector(`[data-key="${CSS.escape(k)}"]`);
 
 ## [02]-[EGRESS]
 
-Egress moves state out of the page: the export bar is the durable rail, the one clipboard recipe carries every copy, and a draft is never the record.
+Egress moves state out of the page: the export drawer is the durable rail, the one clipboard recipe carries every copy, and a draft is never the record.
 
-[EXPORT_BAR]:
+[EXPORT_DRAWER]:
 
-A `snapshot()` reads live UI state; one control copies markdown, one downloads JSON, and — when the return channel is live — one posts the envelope, per [roundtrip.md](roundtrip.md).
+One paradigm on every page: a fixed `.drawer-tab` pill anchored to the bottom-right corner, right-aligned to the drawer's edge and clear of the top control bar, opens the `.export-bar` panel through `popovertarget` — `popover="auto"` supplies open, light-dismiss, and `Esc` natively, focus returns to the tab on close, and reduced motion stills the slide through the zeroed duration tokens. The drawer is default-collapsed; open, it is a rounded `--raised` panel at 60vh, never full-height or full-width. Interior order is fixed across every type: the send section, then disk egress, then per-type fields. A `snapshot()` reads live UI state; one control copies markdown, one downloads JSON, and — when the return channel is live — the send section posts the envelope, per [roundtrip.md](roundtrip.md).
 
 ```html copy-safe
-<footer class="export-bar no-print">
-  <button class="btn primary" data-export="send" hidden>Send to agent</button>
-  <button class="btn" data-export="md">Copy markdown</button>
-  <button class="btn" data-export="json">Download JSON</button>
-</footer>
+<button type="button" class="drawer-tab no-print" popovertarget="export-drawer" aria-label="Open export drawer">Export</button>
+<aside id="export-drawer" class="export-bar no-print" popover="auto" aria-label="Export drawer">
+<header><span class="eyebrow">[EXPORT]</span><button type="button" class="btn ghost" popovertarget="export-drawer" popovertargetaction="hide" aria-label="Close export drawer">&#x2715;</button></header>
+<section aria-label="Send to agent"><button type="button" class="btn primary" data-export="send" hidden>Send to agent</button></section>
+<section aria-label="Disk egress">
+<button type="button" class="btn" data-export="md">Copy markdown</button>
+<button type="button" class="btn" data-export="json">Download JSON</button>
+</section>
+<section aria-label="Export fields">
+<label class="rowline">Verdict <select data-verdict aria-label="Overall verdict"></select></label>
+<textarea id="egress" readonly aria-label="Exported payload mirror"></textarea>
+</section>
+</aside>
 ```
 
 [CLIPBOARD]:
 
-One recipe owns every copy: `navigator.clipboard.writeText` first, a hidden-textarea `execCommand` fallback for `file://` contexts, and a toast flash on landing. A capturing artifact whose export bar carries the visible readonly mirror routes its denied-clipboard fallback there instead — the mirror already holds the exact payload. Two clipboard paths in the same artifact is a defect.
+One recipe owns every copy: `navigator.clipboard.writeText` first, a hidden-textarea `execCommand` fallback for `file://` contexts, and a toast flash on landing. A capturing artifact whose export drawer carries the readonly mirror routes its denied-clipboard fallback there instead — the mirror already holds the exact payload. Two clipboard paths in the same artifact is a defect.
 
 ```js copy-safe
 const copyText = async text => {

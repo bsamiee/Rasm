@@ -579,3 +579,14 @@ def test_repo_root_has_only_allowlisted_entries() -> None:
         if entry.name not in _ROOT_ALLOWLIST and not any(fnmatch.fnmatch(entry.name, pattern) for pattern in _ROOT_PATTERNS)
     )
     assert not unexpected, f"unexpected repo-root entries (route tool output under .cache/ or .artifacts/, or review and allowlist): {unexpected}"
+
+
+def test_package_manager_and_type_checker_caches_route_under_owned_roots() -> None:
+    """Root-native package-manager and type-checker config routes generated storage under owned cache roots."""
+    workspace = (REPO_ROOT / "pnpm-workspace.yaml").read_text(encoding="utf-8")
+    mypy = _nav(_pyproject_data(), "tool", "mypy")
+    assert isinstance(mypy, dict), "[tool.mypy] must own native mypy cache routing"
+    assert mypy.get("cache_dir") == ".cache/mypy", "native mypy must never write .mypy_cache at repo root"
+    assert "\nstoreDir: .cache/pnpm/store\n" in workspace, "native pnpm must never write .pnpm-store at repo root"
+    assert "\ncacheDir: .cache/pnpm/cache\n" in workspace, "pnpm metadata cache must stay under .cache"
+    assert "\nstateDir: .cache/pnpm/state\n" in workspace, "pnpm state must stay under .cache"

@@ -8,10 +8,10 @@ Inline SVG is the artifact's pen: structural diagrams, flowcharts, topologies, a
 - Arrowheads and terminals live as `<marker>` elements in `<defs>`, one marker id per edge class, each `fill` reading a CSS variable.
 - Every stroke and fill reads a token — through a CSS class or a `var(--token)` presentation value (`--line`, `--accent`, `--ok`, `--fail`, `--text-muted`); a hard-coded hex inside a themed SVG is a defect — the diagram flips with the page theme or it lies in one of them.
 - SVG `<text>` does not wrap: size each box from its label length and hold at least 40px between nodes. A genuinely long label rides `<foreignObject>`; a short one never does.
-- Every edge label takes a backing rect at `rx="4"` filled one elevation step off the diagram's canvas — `--surface` when the SVG sits on a `--raised` card, `--surface` or `--raised` on the page body — so the label lifts off both the canvas and any crossing stroke; a backing equal to the canvas tone masks strokes but reads as a hole, and no backing at all lets lines strike through words.
+- Every edge label takes a backing rect at `rx="4"` filled one elevation step recessed below the diagram's canvas — `--surface` when the SVG sits on a `--raised` card, `--bg` on the page body — so the label reads as a subtle recessed chip that masks any crossing stroke without the bright pill an elevated backing paints; a backing equal to the canvas tone reads as a hole, and no backing at all lets lines strike through words.
 - Nothing on the canvas renders below 11px: inner node labels are mono at 11-12px, node sublabels and edge labels mono at 11px, outer annotations sans at 12px in `--text-muted`. An information-bearing canvas label never binds `--text-faint`.
 - Arrowheads scale with their stroke — head length near 6x stroke width (a 9px head on a 1.5px edge, 12px on a 2px emphasis edge); marker geometry lives once in `<defs>` and the head reads as a terminal, never a smudge.
-- Dashed strokes follow the one rhythm vocabulary: `4 3` for annotation and trace edges, `6 3` for planned or future edges, solid for realized paths — matching the HTML dashed-border rhythms so both media read as one system.
+- Dashed strokes follow the one rhythm vocabulary: `4 6` for annotation and trace edges, `6 6` for planned or future edges, `5 4` for container and zone boundaries, solid for realized paths — the same rhythm mermaid draws, so both media read as one system.
 - A diagram past roughly twelve elements splits by zone or phase — two legible figures beat one spaghetti map, and calling out a genuinely tangled region beats hiding it.
 
 ## [02]-[EDGE_AND_NODE_SEMANTICS]
@@ -21,16 +21,16 @@ Marks carry meaning by class, one vocabulary across every diagram in the artifac
 | [INDEX] | [CLASS]      | [MARK]                           | [MEANS]                       |
 | :-----: | :----------- | :------------------------------- | :---------------------------- |
 |  [01]   | `edge`       | 1.5px solid `--line-strong`      | synchronous call or data flow |
-|  [02]   | `edge.async` | 1.5px dashed `4 3`               | async, fallback, or cold path |
+|  [02]   | `edge.async` | 1.5px dashed `4 6`               | async, fallback, or cold path |
 |  [03]   | `edge.hot`   | 2.5px solid `--accent`           | the hot or primary path       |
-|  [04]   | `edge.fail`  | 2px dashed `4 3` `--fail`        | failure or rejection route    |
+|  [04]   | `edge.fail`  | 2px dashed `4 6` `--fail`        | failure or rejection route    |
 |  [05]   | `node`       | `--raised` fill, `--line-strong` | owner, service, process       |
 |  [06]   | `node.gate`  | diamond path                     | decision or readiness gate    |
 |  [07]   | `node.store` | cylinder or `rx` tall rect       | durable store                 |
-|  [08]   | `node.ext`   | dashed `6 3`, `--info` stroke    | external system               |
+|  [08]   | `node.ext`   | dashed `6 6`, `--info` stroke    | external system               |
 |  [09]   | `node.on`    | 2.5px `--accent` stroke          | selected or active node       |
 
-Zones group nodes as 1.5px dashed-`6 3` rects with `--surface` fills and mono zone labels; status hues mark state on nodes (`--ok` healthy, `--warn` degraded, `--fail` down), reinforced by a text badge because hue never carries state alone.
+Zones group nodes as 1px dashed-`5 4` rects stroked `--boundary` with `--surface` fills and mono zone labels in `--boundary` ink — half the standing edge weight, with the token's brightness carrying what the thinness gives up, the same containment color mermaid containers draw; status hues mark state on nodes (`--ok` healthy, `--warn` degraded, `--fail` down), reinforced by a text badge because hue never carries state alone.
 
 ## [03]-[INTERACTIVE_DIAGRAM]
 

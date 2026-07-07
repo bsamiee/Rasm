@@ -39,18 +39,18 @@ Serialization law:
 
 ## [03]-[DUAL_EXPORT]
 
-Every capturing artifact exports two forms from the one state graph: the markdown summary for human scanning — verdict first, then decision rows, then annotations — and the JSON envelope as the authoritative instruction. Review loops consume the changed-only form; implementation loops consume the full state. Copy controls sit in a persistent bar visible without scrolling, and clipboard success is confirmed before an annotation marks `exported` — a denied clipboard falls back to the visible textarea and the annotation stays `active`. When the return channel is live, the bar's primary action is `Send to agent` and the copy controls stand behind it as the universal fallback.
+Every capturing artifact exports two forms from the one state graph: the markdown summary for human scanning — verdict first, then decision rows, then annotations — and the JSON envelope as the authoritative instruction. Review loops consume the changed-only form; implementation loops consume the full state. Copy controls sit in the export drawer's disk-egress section — the tab reaches it from anywhere on the page — and clipboard success is confirmed before an annotation marks `exported`: a denied clipboard falls back to the drawer's readonly mirror and the annotation stays `active`. When the return channel is live, the drawer's send section is the primary action and the copy controls stand behind it as the universal fallback.
 
-Page-side affordances every capturing bar carries:
+Page-side affordances every capturing drawer carries:
 
-- Dirty-state count — the bar renders the live unsent tally (`changes` plus active decisions plus active annotations) so pending judgment is visible before any send; a clean page disables the changed-only export rather than emitting it empty.
+- Dirty-state count — the drawer renders the live unsent tally (`changes` plus active decisions plus active annotations) so pending judgment is visible before any send; a clean page disables the changed-only export rather than emitting it empty.
 - What-changed preview — the readonly mirror shows the exact payload leaving the page, so the send is never blind.
 - Submission ack — the send control flips to its sent state only after the POST resolves ok, and only then do contributing annotations move `active` to `exported`; a failed POST flips to its failed state, routes the identical envelope to the clipboard path, and leaves annotations `active`, so judgment is never stranded and never double-fed.
 - Idempotence — the `exported` state stops a re-send from re-feeding resolved items.
 
 ## [04]-[RETURN_CHANNEL]
 
-A served artifact returns judgment automatically; an artifact opened from `file://` returns it through the export bar. The server (`uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py`, verbs `serve | status | stop | receipts | self-test`) injects two head metas into every page it serves — `<meta name="artifact-return" content="/submit">` naming the submit path and `<meta name="artifact-token" content="<hex>">` carrying the per-run bearer. The return meta's presence is the whole protocol switch: present means served, and the export bar renders the primary `Send to agent` action; absent means disk, and the action never renders. The token travels back only as the `X-Artifact-Token` request header — never as a query parameter.
+A served artifact returns judgment automatically; an artifact opened from `file://` returns it through the export drawer. The server (`uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py`, verbs `serve | status | stop | receipts | self-test`) injects two head metas into every page it serves — `<meta name="artifact-return" content="/submit">` naming the submit path and `<meta name="artifact-token" content="<hex>">` carrying the per-run bearer. The return meta's presence is the whole protocol switch: present means served, and the drawer's send section renders the primary `Send to agent` action; absent means disk, and the action never renders. The token travels back only as the `X-Artifact-Token` request header — never as a query parameter.
 
 The wire form wraps the canonical envelope without redefining it: the POST body is `{ kind, artifact, version, data }` where `artifact` is the artifact id string and `data` carries the full envelope of [02]. The server enforces this shape strictly — an unknown top-level field or a non-string `artifact` is a 422 `bad-envelope` rejection.
 

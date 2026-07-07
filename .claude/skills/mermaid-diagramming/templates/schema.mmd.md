@@ -6,20 +6,23 @@ Draw persistent entities and their relations. The template bakes in the schema d
 ---
 config:
   theme: base
-  themeCSS: ".nodeLabel{font-size:12px}.name .nodeLabel{font-size:14px;font-weight:600}.edgeLabel .nodeLabel{font-size:12.5px;font-weight:500}.relationshipLine{stroke-width:1.5px}"
+  look: classic
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     background: "#282A36"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
     primaryBorderColor: "#BD93F9"
+    nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
-    nodeBorder: "#BD93F9"
-    edgeLabelBackground: "#44475A"
+    edgeLabelBackground: "#21222C"
     attributeBackgroundColorOdd: "#282A36"
     attributeBackgroundColorEven: "#21222C"
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+  themeCSS: ".nodeLabel{font-size:12px}.name .nodeLabel{font-size:13px;font-weight:600}.edgeLabel .nodeLabel{font-size:12px;font-weight:500}.relationshipLine{stroke-width:2px}.edge-pattern-dashed{stroke-width:1.5px;stroke-dasharray:6 6}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.marker circle{fill:#282A36}.node rect,.node path{stroke-width:1.5px;filter:none!important}.er.entityBox{filter:none}"
 ---
 erDiagram
     accTitle: Persistent entity schema
@@ -70,4 +73,4 @@ erDiagram
     class REGISTRY external
 ```
 
-Refill by renaming entities to the real aggregate, keep FK-edge reciprocity on every relation, resolve any many-to-many through a junction entity whose composite key is both FKs, and keep the root/junction/external classes on the entities that carry those roles. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#44475A` label backing are fixed law — a refill renames entities, never strips the fidelity surface.
+Refill by renaming entities to the real aggregate, keep FK-edge reciprocity on every relation, resolve any many-to-many through a junction entity whose composite key is both FKs, and keep the root/junction/external classes on the entities that carry those roles. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#21222C` label backing are fixed law — a refill renames entities, never strips the fidelity surface.

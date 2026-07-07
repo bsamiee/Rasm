@@ -5,22 +5,26 @@ Draw one operation's dispatch structure: input discrimination fanning to arms, a
 ```mermaid
 ---
 config:
-  layout: elk
-  look: neo
   theme: base
+  look: classic
+  layout: elk
   flowchart:
-    padding: 16
-  themeCSS: ".nodeLabel{font-size:14px;font-weight:500}.edgeLabel{font-size:12.5px;font-weight:500}.edgePaths path{stroke-width:1.5px}"
+    curve: linear
+    padding: 22
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     background: "#282A36"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
     primaryBorderColor: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
-    edgeLabelBackground: "#44475A"
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:12.5px;font-weight:600;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Dispatch and fold
@@ -36,14 +40,14 @@ flowchart LR
     Fold --> Receipt[/Receipt/]
     Receipt --> Out([Out])
     Evidence[(Evidence)] -.->|trace| Fold
-    linkStyle 1,10 stroke:#6272A4,color:#F8F8F2
+    linkStyle 1,10 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
     linkStyle 8,9 stroke:#50FA7B,color:#F8F8F2
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef success fill:#50FA7B,stroke:#50FA7B,color:#282A36
-    classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
+    classDef success fill:#50FA7B99,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
     class ArmA,ArmB,ArmC primary
     class Receipt success
     class Policy,Evidence data
 ```
 
-The arm labels are the input-shape vocabulary — rename them to the real discriminants and keep them exhaustive; a new capability is a new arm row, never a second exit after the fold. Trace edges keep the Comment rail: recount the `linkStyle` indices after any edge insertion. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#44475A` edge-label backing are fixed law — a refill renames content, never strips the fidelity surface.
+The arm labels are the input-shape vocabulary — rename them to the real discriminants and keep them exhaustive; a new capability is a new arm row, never a second exit after the fold. Trace edges keep the Comment rail: recount the `linkStyle` indices after any edge insertion. The frontmatter micro-scale `themeCSS` stamp, the ruled mono stack, and the `#21222C` edge-label backing are fixed law — a refill renames content, never strips the fidelity surface.

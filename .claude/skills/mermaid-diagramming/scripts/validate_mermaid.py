@@ -76,29 +76,68 @@ ER_RELATION = re.compile(r"^\s*([\w-]+)\s*[|o}{]{2}[-.]{2}[|o}{]{2}\s*([\w-]+)\s
 FC_EDGE = re.compile(r"([<ox]?[-=.~]{2,}[>ox]?(?:\|[^|]*\|)?)")
 FC_EDGE_ID = re.compile(r"(\w+)@(?=[-=.~<])")
 FC_MID_LABEL = re.compile(r"(<?)(--|==|-\.)\s+((?:(?!--|==|\.-)[^|\n])+?)\s+(-{2,}[>ox]?|={2,}[>ox]?|\.-+[>ox]?)")
-FC_SHAPE = re.compile(r"(\[\[.*?\]\]|\[\(.*?\)\]|\(\(.*?\)\)|\(\[.*?\]\)|\{\{.*?\}\}|\[/.*?/\]|\[\\.*?\\\]|(?<![-=<>])>[^\]]*\]|\[.*?\]|\(.*?\)|\{.*?\})")
+FC_SHAPE = re.compile(
+    r"(\[\[.*?\]\]|\[\(.*?\)\]|\(\(.*?\)\)|\(\[.*?\]\)|\{\{.*?\}\}|\[/.*?/\]|\[\\.*?\\\]|(?<![-=<>])>[^\]]*\]|\[.*?\]|\(.*?\)|\{.*?\})"
+)
 FC_SKIP = re.compile(r"^\s*(subgraph\b|end\b|direction\b|classDef\b|linkStyle\b|style\b|click\b|class\b|accTitle|accDescr)")
 FC_STR = re.compile(r'("[^"]*"|`[^`]*`)')
 FENCE_OPEN = re.compile(r"^((?:\s*>)*\s*)(`{3,}|~{3,})\s*mermaid\b")
-HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}\b")
+HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{8}\b|#[0-9A-Fa-f]{6}\b")
 IDENT = re.compile(r"[A-Za-z0-9_]+")
 LINK_STYLE = re.compile(r"^\s*linkStyle\s+([0-9,\s]+|default)\s+(.+)$")
 SQ_ARROW = re.compile(r"^\s*([\w-]*\w)\s*(?:<<--?>>|--?(?:>>|>|\)|x))\s*[+-]?\s*([\w-]*\w)\s*:")
 SQ_PARTICIPANT = re.compile(r"^(?:create\s+)?(?:participant|actor)\s+([\w-]+)(?:@\{.*\})?(?:\s+as\s+.+)?\s*$")
 ST_TRANSITION = re.compile(r"^\s*(\[\*\]|[\w.]+)\s*-->\s*(\[\*\]|[\w.]+)")
 THEME_BASE = re.compile(r"^\s*theme\s*:\s*base\s*$", re.MULTILINE)
+LOOK_CLASSIC = re.compile(r"^\s*look\s*:\s*classic\s*$", re.MULTILINE)
+GRADIENT_KILL = re.compile(r"^\s*useGradient\s*:\s*false\s*$", re.MULTILINE)
+SHADOW_KILL = re.compile(r"^\s*dropShadow\s*:", re.MULTILINE)
 
-ACC_EXEMPT = frozenset({"block", "block-beta", "mindmap", "sankey", "sankey-beta", "venn-beta"})
+ACC_EXEMPT = frozenset({"block", "block-beta", "eventmodeling", "ishikawa-beta", "kanban", "mindmap", "sankey", "sankey-beta", "venn-beta"})
 BUDGETS = {"flowchart-edges": 12, "flowchart-nodes": 12, "sequence-participants": 6, "state-states": 12, "er-entities": 8, "class-classes": 10}
 CANON = frozenset({
-    "primary", "boundary", "success", "error", "external", "data", "payload", "recessed", "annotation",
-    "edgeSuccess", "edgeError", "edgeExternal", "edgeData", "edgeTrace",
+    "primary",
+    "boundary",
+    "success",
+    "error",
+    "external",
+    "data",
+    "payload",
+    "recessed",
+    "annotation",
+    "edgeSuccess",
+    "edgeError",
+    "edgeExternal",
+    "edgeData",
+    "edgeTrace",
 })
 PALETTE = frozenset({
-    "#036A96", "#14710A", "#1F1F1F", "#21222C", "#282A36", "#44475A", "#50FA7B", "#6272A4", "#644AC9", "#6C664B",
-    "#846E15", "#8BE9FD", "#A3144D", "#A34D14", "#BD93F9", "#CB3A2A", "#CFCFDE", "#F1FA8C", "#F8F8F2", "#FF5555",
-    "#FF79C6", "#FFB86C", "#FFFBEB",
+    "#036A96",
+    "#14710A",
+    "#1F1F1F",
+    "#21222C",
+    "#282A36",
+    "#44475A",
+    "#50FA7B",
+    "#6272A4",
+    "#644AC9",
+    "#6C664B",
+    "#846E15",
+    "#8BE9FD",
+    "#A3144D",
+    "#A34D14",
+    "#BD93F9",
+    "#CB3A2A",
+    "#CFCFDE",
+    "#D6BCFA",
+    "#F8F8F2",
+    "#FF5555",
+    "#FF79C6",
+    "#FFB86C",
+    "#FFD866",
+    "#FFFBEB",
 })
+FILL_ALPHAS = frozenset({"", "80", "99", "BF"})
 RENDER_CONFIG = {
     "theme": "base",
     "deterministicIds": True,
@@ -112,15 +151,43 @@ PUPPETEER_CONFIG = {
     "args": ["--no-sandbox", "--disable-dev-shm-usage"],
 }
 THEMED = frozenset({
-    "architecture-beta", "classDiagram", "cynefin-beta", "erDiagram", "eventmodeling", "flowchart", "gantt", "gitGraph",
-    "graph", "ishikawa-beta", "journey", "pie", "quadrantChart", "radar-beta", "railroad-abnf-beta", "railroad-beta",
-    "railroad-ebnf-beta", "railroad-peg-beta", "requirementDiagram", "sankey", "sankey-beta", "sequenceDiagram",
-    "stateDiagram", "stateDiagram-v2", "swimlane-beta", "timeline", "treemap", "treemap-beta", "venn-beta", "wardley-beta",
-    "xychart", "xychart-beta",
+    "architecture-beta",
+    "classDiagram",
+    "cynefin-beta",
+    "erDiagram",
+    "eventmodeling",
+    "flowchart",
+    "gantt",
+    "gitGraph",
+    "graph",
+    "ishikawa-beta",
+    "journey",
+    "pie",
+    "quadrantChart",
+    "radar-beta",
+    "railroad-abnf-beta",
+    "railroad-beta",
+    "railroad-ebnf-beta",
+    "railroad-peg-beta",
+    "requirementDiagram",
+    "sankey",
+    "sankey-beta",
+    "sequenceDiagram",
+    "stateDiagram",
+    "stateDiagram-v2",
+    "swimlane-beta",
+    "timeline",
+    "treemap",
+    "treemap-beta",
+    "venn-beta",
+    "wardley-beta",
+    "xychart",
+    "xychart-beta",
 })
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
+
 
 class Row(msgspec.Struct, frozen=True):
     file: str
@@ -177,6 +244,7 @@ class Diagram(msgspec.Struct, frozen=True):
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
+
 
 def emit(row: Row, json_mode: bool) -> None:
     print(ENCODER.encode(row).decode() if json_mode else f"{row.file}:{row.line}: {row.status.upper()} {row.check.value} {row.detail}")
@@ -263,7 +331,7 @@ def frontmatter(body: str) -> tuple[str, tuple[str, ...], tuple[Row, ...]]:
     close = next((index for index, line in enumerate(lines[1:], 1) if line.strip() == "---"), -1)
     if close < 0:
         return "", (), (Row("-", 0, Check.LOGIC, "fail", "unclosed-frontmatter"),)
-    return "\n".join(lines[1:close]), tuple(lines[close + 1:]), ()
+    return "\n".join(lines[1:close]), tuple(lines[close + 1 :]), ()
 
 
 def body_lines(lines: tuple[str, ...]) -> tuple[str, tuple[str, ...]]:
@@ -292,13 +360,22 @@ def link_rows(lines: tuple[str, ...]) -> tuple[LinkStyle, ...]:
     for line in lines:
         if match := LINK_STYLE.match(line):
             raw = match.group(1).strip()
-            out.append(LinkStyle(line, () if raw == "default" else tuple(int(part) for part in raw.replace(" ", "").split(",") if part), match.group(2), raw == "default"))
+            out.append(
+                LinkStyle(
+                    line,
+                    () if raw == "default" else tuple(int(part) for part in raw.replace(" ", "").split(",") if part),
+                    match.group(2),
+                    raw == "default",
+                )
+            )
     return tuple(out)
 
 
 def strip_metadata(line: str) -> str:
     # Node-shape metadata keeps its id; edge-behavior metadata (animate/animation/curve) erases whole.
-    return re.sub(r"(\w+)@\{[^}]*\}", lambda m: m.group(1) if re.search(r"\b(shape|icon|img|label|pos|form|constraint)\s*:", m.group(0)) else " ", line)
+    return re.sub(
+        r"(\w+)@\{[^}]*\}", lambda m: m.group(1) if re.search(r"\b(shape|icon|img|label|pos|form|constraint)\s*:", m.group(0)) else " ", line
+    )
 
 
 def flow_edges(lines: tuple[str, ...]) -> tuple[Edge, ...]:
@@ -340,7 +417,9 @@ def parse(fence: Fence) -> tuple[Diagram | None, tuple[Row, ...]]:
 def contract(diagram: Diagram) -> tuple[Row, ...]:
     body = diagram.fence.body
     access = [line.strip().split(":", 1)[0].split("{", 1)[0].strip() for line in body.splitlines() if ACCESS.match(line)]
-    off_palette = sorted({hex_value.upper() for hex_value in HEX_COLOR.findall(body)} - PALETTE)
+    off_palette = sorted(
+        {value for value in (hex_value.upper() for hex_value in HEX_COLOR.findall(body)) if value[:7] not in PALETTE or value[7:] not in FILL_ALPHAS}
+    )
     defs = {definition.name: definition for definition in diagram.defs}
     used = {use.name for use in diagram.uses}
     rows = [row(diagram.fence, Check.FRONTMATTER, "warn", "no-frontmatter")] if not body.startswith("---") else []
@@ -349,16 +428,49 @@ def contract(diagram: Diagram) -> tuple[Row, ...]:
     rows += [row(diagram.fence, Check.CONTRACT, "warn", "acc-pair-incomplete")] if ("accTitle" in body) != ("accDescr" in body) else []
     rows += [row(diagram.fence, Check.CONTRACT, "warn", "acc-missing")] if not access and diagram.header and diagram.header not in ACC_EXEMPT else []
     rows += [row(diagram.fence, Check.CONTRACT, "warn", f"off-palette:{value}") for value in off_palette]
-    rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:theme-base")] if diagram.header in THEMED and not THEME_BASE.search(diagram.frontmatter) else []
-    rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:fontFamily")] if diagram.header in THEMED and "fontFamily" not in diagram.frontmatter else []
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "floor:theme-base")]
+        if diagram.header in THEMED and not THEME_BASE.search(diagram.frontmatter)
+        else []
+    )
+    rows += (
+        [
+            row(diagram.fence, Check.CONTRACT, "warn", f"floor:{name}")
+            for name, pattern in (("look-classic", LOOK_CLASSIC), ("use-gradient", GRADIENT_KILL), ("drop-shadow", SHADOW_KILL))
+            if not pattern.search(diagram.frontmatter)
+        ]
+        if diagram.header in THEMED and diagram.frontmatter
+        else []
+    )
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "floor:fontFamily")]
+        if diagram.header in THEMED and "fontFamily" not in diagram.frontmatter
+        else []
+    )
     rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:fontFamily-stack")] if FONT_BARE.search(diagram.frontmatter) else []
     rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:fontFamily-hyphen")] if FONT_HYPHEN.search(diagram.frontmatter) else []
-    rows += [row(diagram.fence, Check.CONTRACT, "warn", f"floor:label-backing:{name}") for name in sorted(set(BACKING_FLAT.findall(diagram.frontmatter)))]
-    rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:clusterBkg")] if diagram.family == Family.FLOWCHART and any(c.startswith("subgraph") for c in diagram.containers) and "clusterBkg" not in diagram.frontmatter else []
-    rows += [row(diagram.fence, Check.CONTRACT, "warn", "flowchart-floor:canonical-class-count")] if diagram.family == Family.FLOWCHART and len(set(defs) & CANON) < 3 else []
+    rows += [
+        row(diagram.fence, Check.CONTRACT, "warn", f"floor:label-backing:{name}") for name in sorted(set(BACKING_FLAT.findall(diagram.frontmatter)))
+    ]
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "floor:clusterBkg")]
+        if diagram.family == Family.FLOWCHART
+        and any(c.startswith("subgraph") for c in diagram.containers)
+        and "clusterBkg" not in diagram.frontmatter
+        else []
+    )
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "flowchart-floor:canonical-class-count")]
+        if diagram.family == Family.FLOWCHART and len(set(defs) & CANON) < 3
+        else []
+    )
     rows += [row(diagram.fence, Check.CONTRACT, "warn", f"class:non-canonical:{name}") for name in sorted(set(defs) - CANON)]
     rows += [row(diagram.fence, Check.CONTRACT, "warn", f"class:unused:{name}") for name in sorted(set(defs) - used)]
-    rows += [row(diagram.fence, Check.CONTRACT, "warn", f"class:missing-color:{name}") for name, definition in sorted(defs.items()) if "color:" not in definition.style]
+    rows += [
+        row(diagram.fence, Check.CONTRACT, "warn", f"class:missing-color:{name}")
+        for name, definition in sorted(defs.items())
+        if "color:" not in definition.style
+    ]
     return tuple(rows)
 
 
@@ -377,9 +489,17 @@ def style_logic(diagram: Diagram) -> tuple[Row, ...]:
         rows += [
             row(diagram.fence, Check.CONTRACT, "warn", f"edge:semantic-rail:{edge.index}")
             for edge in diagram.edges
-            if any(word in f"{edge.label} {edge.source} {edge.target}".lower() for word in ("fault", "error", "reject", "trace", "data", "wire", "external", "receipt")) and edge.index not in styled
+            if any(
+                word in f"{edge.label} {edge.source} {edge.target}".lower()
+                for word in ("fault", "error", "reject", "trace", "data", "wire", "external", "receipt")
+            )
+            and edge.index not in styled
         ]
-        fault_edges = [edge for edge in diagram.edges if any(word in f"{edge.label} {edge.source} {edge.target}".lower() for word in ("fault", "error", "reject"))]
+        fault_edges = [
+            edge
+            for edge in diagram.edges
+            if any(word in f"{edge.label} {edge.source} {edge.target}".lower() for word in ("fault", "error", "reject"))
+        ]
         rows += [
             row(diagram.fence, Check.CONTRACT, "warn", f"edge:fault-not-red:{edge.index}")
             for edge in fault_edges
@@ -416,8 +536,16 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             for (a, b, _), count in Counter((edge.source, edge.target, edge.label) for edge in diagram.edges).items()
             if count > 1
         ]
-        rows += [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(graph.nodes)} nodes > {BUDGETS['flowchart-nodes']}")] if len(graph.nodes) > BUDGETS["flowchart-nodes"] else []
-        rows += [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(diagram.edges)} edges > {BUDGETS['flowchart-edges']}")] if len(diagram.edges) > BUDGETS["flowchart-edges"] else []
+        rows += (
+            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(graph.nodes)} nodes > {BUDGETS['flowchart-nodes']}")]
+            if len(graph.nodes) > BUDGETS["flowchart-nodes"]
+            else []
+        )
+        rows += (
+            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(diagram.edges)} edges > {BUDGETS['flowchart-edges']}")]
+            if len(diagram.edges) > BUDGETS["flowchart-edges"]
+            else []
+        )
         return tuple(rows)
     if diagram.family == Family.STATE:
         reach: nx.DiGraph[str, dict[str, object], dict[str, object]] = nx.DiGraph()
@@ -430,7 +558,11 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
                 reach.add_edge(left, right)
         reachable = set().union(*(nx.descendants(reach, start) | {start} for start in starts), set()) if starts else states
         rows = [row(diagram.fence, Check.LOGIC, "fail", f"unreachable-state:{state}") for state in sorted(states - reachable)]
-        rows += [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(states)} states > {BUDGETS['state-states']}")] if len(states) > BUDGETS["state-states"] else []
+        rows += (
+            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(states)} states > {BUDGETS['state-states']}")]
+            if len(states) > BUDGETS["state-states"]
+            else []
+        )
         return tuple(rows)
     if diagram.family == Family.SEQUENCE:
         declared, used = set[str](), set[str]()
@@ -438,7 +570,11 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             declared.update(match.group(1) for match in [SQ_PARTICIPANT.match(line.strip())] if match)
             used.update(name for match in [SQ_ARROW.match(line)] if match for name in (match.group(1), match.group(2)))
         rows = [row(diagram.fence, Check.LOGIC, "warn", f"orphan-participant:{name}") for name in sorted(declared - used)]
-        rows += [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(declared | used)} participants > {BUDGETS['sequence-participants']}")] if len(declared | used) > BUDGETS["sequence-participants"] else []
+        rows += (
+            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(declared | used)} participants > {BUDGETS['sequence-participants']}")]
+            if len(declared | used) > BUDGETS["sequence-participants"]
+            else []
+        )
         return tuple(rows)
     if diagram.family == Family.ER:
         blocks, related = set[str](), set[str]()
@@ -446,14 +582,27 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             related.update(name for match in [ER_RELATION.match(line)] if match for name in (match.group(1), match.group(2)))
             blocks.update(match.group(1) for match in [re.match(r"^\s*([\w-]+)\s*\{", line)] if match)
         rows = [row(diagram.fence, Check.LOGIC, "warn", f"orphan-entity:{name}") for name in sorted(blocks - related)]
-        rows += [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(blocks | related)} entities > {BUDGETS['er-entities']}")] if len(blocks | related) > BUDGETS["er-entities"] else []
+        rows += (
+            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(blocks | related)} entities > {BUDGETS['er-entities']}")]
+            if len(blocks | related) > BUDGETS["er-entities"]
+            else []
+        )
         return tuple(rows)
     if diagram.family == Family.CLASS:
         names = set[str]()
         for line in diagram.lines:
             names.update(match.group(1) for match in [re.match(r"^\s*class\s+([\w-]+)", line)] if match)
-            names.update(name for match in [re.match(r"^\s*([\w.-]+)\s*(?:<\|--|--\|>|\*--|o--|-->|\.\.>|\.\.\|>|\(\)--)\s*([\w.-]+)", line)] if match for name in (match.group(1), match.group(2)))
-        return (row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(names)} classes > {BUDGETS['class-classes']}"),) if len(names) > BUDGETS["class-classes"] else ()
+            names.update(
+                name
+                for match in [re.match(r"^\s*([\w.-]+)\s*(?:<\|--|--\|>|\*--|o--|-->|\.\.>|\.\.\|>|\(\)--)\s*([\w.-]+)", line)]
+                if match
+                for name in (match.group(1), match.group(2))
+            )
+        return (
+            (row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(names)} classes > {BUDGETS['class-classes']}"),)
+            if len(names) > BUDGETS["class-classes"]
+            else ()
+        )
     if diagram.family == Family.GANTT:
         ids, refs = set[str](), set[str]()
         heads = ("section", "title", "dateFormat", "axisFormat", "tickInterval", "excludes", "includes", "todayMarker", "weekend")
@@ -461,7 +610,9 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             if ":" not in line or line.strip().startswith(heads):
                 continue
             parts = [part.strip() for part in line.split(":", 1)[1].split(",")]
-            ids.update(part for part in parts if re.fullmatch(r"[A-Za-z_][\w-]*", part) and part not in {"active", "crit", "done", "milestone", "vert"})
+            ids.update(
+                part for part in parts if re.fullmatch(r"[A-Za-z_][\w-]*", part) and part not in {"active", "crit", "done", "milestone", "vert"}
+            )
             refs.update(match.group(2) for match in re.finditer(r"\b(after|until)\s+([\w-]+)", line))
         return tuple(row(diagram.fence, Check.LOGIC, "fail", f"dangling-task:{ref}") for ref in sorted(refs - ids))
     if diagram.family == Family.ARCHITECTURE:
@@ -493,10 +644,22 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
         rows += [row(diagram.fence, Check.LOGIC, "warn", f"orphan-requirement:{name}") for name in sorted(requirements - related)]
         return tuple(rows)
     if diagram.family == Family.C4:
-        declared = {match.group(1) for line in diagram.lines for match in [re.match(r"^\s*(?!Rel|BiRel|Update)[A-Za-z_]+\(\s*(\w+)\s*,", line)] if match}
-        related = {name for line in diagram.lines for match in [re.match(r"^\s*(?:Bi)?Rel\w*\(\s*(\w+)\s*,\s*(\w+)", line)] if match for name in (match.group(1), match.group(2))}
+        declared = {
+            match.group(1) for line in diagram.lines for match in [re.match(r"^\s*(?!Rel|BiRel|Update)[A-Za-z_]+\(\s*(\w+)\s*,", line)] if match
+        }
+        related = {
+            name
+            for line in diagram.lines
+            for match in [re.match(r"^\s*(?:Bi)?Rel\w*\(\s*(\w+)\s*,\s*(\w+)", line)]
+            if match
+            for name in (match.group(1), match.group(2))
+        }
         return tuple(row(diagram.fence, Check.LOGIC, "fail", f"dangling-relation:{name}") for name in sorted(related - declared))
-    return (row(diagram.fence, Check.LOGIC, "warn", f"logic-unimplemented:{diagram.header}"),) if diagram.family == Family.UNKNOWN and diagram.header else ()
+    return (
+        (row(diagram.fence, Check.LOGIC, "warn", f"logic-unimplemented:{diagram.header}"),)
+        if diagram.family == Family.UNKNOWN and diagram.header
+        else ()
+    )
 
 
 def class_logic(diagram: Diagram) -> tuple[Row, ...]:
@@ -522,7 +685,13 @@ def resolve_renderer(override: str | None) -> tuple[tuple[str, ...], Path | None
     for root in (probe, *probe.parents):
         if (root / "pnpm-lock.yaml").exists():
             return ("pnpm", "exec", "mmdc"), root
-    return (("mmdc",), None) if shutil.which("mmdc") else (("npx", "-y", "-p", "@mermaid-js/mermaid-cli", "mmdc"), None) if shutil.which("npx") else ((), None)
+    return (
+        (("mmdc",), None)
+        if shutil.which("mmdc")
+        else (("npx", "-y", "-p", "@mermaid-js/mermaid-cli", "mmdc"), None)
+        if shutil.which("npx")
+        else ((), None)
+    )
 
 
 def render(prefix: tuple[str, ...], cwd: Path | None, diagram: Diagram, workdir: Path, cache_dir: Path) -> Row:
@@ -553,8 +722,12 @@ def render(prefix: tuple[str, ...], cwd: Path | None, diagram: Diagram, workdir:
     if proc.returncode != 0 or not out.exists():
         stage = "environment" if any(marker in raw.lower() for marker in ENV_MARKERS) else "syntax"
         return row(diagram.fence, Check.RENDER, "fail", f"{stage}:{raw.strip()[:280]}")
-    if not out.read_text(encoding="utf-8", errors="ignore").lstrip().startswith("<svg"):
+    svg = out.read_text(encoding="utf-8", errors="ignore")
+    if not svg.lstrip().startswith("<svg"):
         return row(diagram.fence, Check.RENDER, "fail", "syntax:invalid-svg-root")
+    if 'aria-roledescription="error"' in svg or "Syntax error in text" in svg:
+        detail = next(iter(re.findall(r"(?:Syntax|Parse) error[^<]{0,180}", svg)), "mermaid-error-graphic")
+        return row(diagram.fence, Check.RENDER, "fail", f"syntax:error-graphic:{' '.join(detail.split())}")
     cached.write_bytes(out.read_bytes())
     return row(diagram.fence, Check.RENDER, "ok", f"rendered:{cached}")
 
@@ -571,8 +744,11 @@ def static_rows(fences: tuple[Fence, ...]) -> tuple[Row, ...]:
 
 # --- [COMPOSITION] -----------------------------------------------------------------------
 
+
 @APP.default
-def main(*paths: Path, json: bool = False, no_render: bool = False, renderer: str | None = None, cache_dir: Path = Path(".cache/mermaid"), jobs: int = 4) -> int:
+def main(
+    *paths: Path, json: bool = False, no_render: bool = False, renderer: str | None = None, cache_dir: Path = Path(".cache/mermaid"), jobs: int = 4
+) -> int:
     del jobs
     files, rows = collect(paths)
     fences: list[Fence] = []

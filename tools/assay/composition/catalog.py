@@ -36,7 +36,15 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ruff-format", UV, ("ruff", "format", "--check"), FILES, PY, Claim.STATIC, parser=Parser.RUFF_FORMAT),
     Tool("ruff-format", UV, ("ruff", "format"), FILES, PY, Claim.STATIC, mode=Mode.WRITE, parser=Parser.RUFF_FORMAT),
     Tool("ty", UV, ("ty", "check", "--no-progress"), OWNED, PY, Claim.STATIC, parser=Parser.TY),
-    Tool("mypy", UV, ("mypy", "--no-error-summary", "--hide-error-context", "--no-pretty"), OWNED, PY, Claim.STATIC, parser=Parser.MYPY),
+    Tool(
+        "mypy",
+        UV,
+        ("mypy", "--cache-dir", ".cache/mypy", "--no-error-summary", "--hide-error-context", "--no-pretty"),
+        OWNED,
+        PY,
+        Claim.STATIC,
+        parser=Parser.MYPY,
+    ),
     Tool("lint-imports", UV, ("lint-imports", "--cache-dir", ".cache/grimp"), OWNED, PY, Claim.STATIC),
     Tool(
         "pytest",

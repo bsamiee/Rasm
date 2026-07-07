@@ -60,15 +60,15 @@ Two degenerate signals re-route before any decision question: a user who cannot 
 
 Every mode obeys the operating loop and differs in what it extracts and lands; staged procedures with per-stage exit tests are [references/modes.md](references/modes.md), loaded when a mode begins.
 
-| [INDEX] | [MODE]           | [TRIGGER]                          | [DEFAULT_LANDING]                  |
-| :-----: | :--------------- | :--------------------------------- | :--------------------------------- |
-|  [01]   | `interview`      | requirements ambiguous or unstated | `decision-record` set              |
-|  [02]   | `blindspot-pass` | unfamiliar ground or pre-seal      | `blindspot-ledger`                 |
-|  [03]   | `brainstorm`     | direction uncommitted              | `direction-set`                    |
-|  [04]   | `quiz`           | comprehension unproven pre-merge   | scored gate, ephemeral             |
-|  [05]   | `buy-in`         | acceptance needed outside the loop | packet; ruling graduates           |
-|  [06]   | `teach-me`       | user cannot evaluate or phrase     | vocabulary map, binds interview    |
-|  [07]   | `notes`          | mid-build discovery strikes a plan | deviation ledger; strikes graduate |
+| [INDEX] | [MODE]           | [TRIGGER]                          | [DEFAULT_LANDING]     |
+| :-----: | :--------------- | :--------------------------------- | :-------------------- |
+|  [01]   | `interview`      | requirements ambiguous or unstated | `decision-record` set |
+|  [02]   | `blindspot-pass` | unfamiliar ground or pre-seal      | `blindspot-ledger`    |
+|  [03]   | `brainstorm`     | direction uncommitted              | `direction-set`       |
+|  [04]   | `quiz`           | comprehension unproven pre-merge   | scored gate           |
+|  [05]   | `buy-in`         | acceptance needed outside the loop | packet                |
+|  [06]   | `teach-me`       | user cannot evaluate or phrase     | vocabulary map        |
+|  [07]   | `notes`          | mid-build discovery strikes a plan | deviation ledger      |
 
 The landing column is the default; the altitude law owns kind selection. Roadmap-altitude rulings compose a `roadmap-brief` from any mode, and a finding stating a standing capability fact lands as a `capability-entry` row from any pass. The trigger word never overrides the entry test: a mode invoked while its entry condition fails re-routes to the mode whose condition holds — a wargame call with no direction fan enters `brainstorm` to generate one, a quiz call on unsealed work returns to the build, a brainstorm call against a committed direction interrogates the commitment as an `interview` thread instead of refanning it.
 
@@ -103,13 +103,11 @@ Each durable kind is a fixed schema owned by its template: the gate derives the 
 uv run scripts/check_instance.py [--json] <instance.md>...
 ```
 
-| [INDEX] | [KIND]             | [CARRIES]                                   | [TEMPLATE]                                                     |
-| :-----: | :----------------- | :------------------------------------------ | :------------------------------------------------------------- |
-|  [01]   | `decision-record`  | one ruling, options, consequence, lifecycle | [templates/decision-record.md](templates/decision-record.md)   |
-|  [02]   | `direction-set`    | competing directions, kills, flip triggers  | [templates/direction-set.md](templates/direction-set.md)       |
-|  [03]   | `roadmap-brief`    | confidence horizons, outcomes, promotions   | [templates/roadmap-brief.md](templates/roadmap-brief.md)       |
-|  [04]   | `blindspot-ledger` | verified findings, blast radius, fold-backs | [templates/blindspot-ledger.md](templates/blindspot-ledger.md) |
-|  [05]   | `capability-entry` | owner, edges, maturity, gaps                | [templates/capability-entry.md](templates/capability-entry.md) |
+- [01]-[DECISION-RECORD](templates/decision-record.md): one ruling, options, consequence, lifecycle
+- [02]-[DIRECTION-SET](templates/direction-set.md): competing directions, kills, flip triggers
+- [03]-[ROADMAP-BRIEF](templates/roadmap-brief.md): confidence horizons, outcomes, promotions
+- [04]-[BLINDSPOT-LEDGER](templates/blindspot-ledger.md): verified findings, blast radius, fold-backs
+- [05]-[CAPABILITY-ENTRY](templates/capability-entry.md): owner, edges, maturity, gaps
 
 Worked accepted and rejected instances are [examples/artifacts.md](examples/artifacts.md); worked question batches and threads are [examples/batches.md](examples/batches.md) — consult the matching set before instantiating a kind, composing a round, or planning a thread.
 

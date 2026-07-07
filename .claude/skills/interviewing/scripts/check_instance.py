@@ -115,6 +115,7 @@ ROW_ENCODER = msgspec.json.Encoder()
 
 # --- [MODELS] ----------------------------------------------------------------------------
 
+
 class Row(msgspec.Struct, frozen=True, gc=False):
     """One emitted conformance row."""
 
@@ -268,6 +269,7 @@ class Document(BaseModel):
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
+
 def row(path: Path, line: int, check: Check, status: Status, detail: str) -> Row:
     return Row(file=str(path), line=line, check=check, status=status, detail=detail)
 
@@ -408,8 +410,10 @@ def parse(path: Path, text: str) -> Document | list[Row]:
 
 def filename_rows(document: Document) -> tuple[Row, ...]:
     pattern = re.compile(rf"^{re.escape(document.kind)}\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)?\.md$")
-    return () if pattern.fullmatch(document.path.name) else (
-        row(document.path, 0, Check.FILENAME, "fail", f"{document.path.name} must match <kind>.<scope>[.<slug>].md for {document.kind}"),
+    return (
+        ()
+        if pattern.fullmatch(document.path.name)
+        else (row(document.path, 0, Check.FILENAME, "fail", f"{document.path.name} must match <kind>.<scope>[.<slug>].md for {document.kind}"),)
     )
 
 
@@ -434,9 +438,11 @@ def heading_rows(document: Document, contract: TemplateContract) -> tuple[Row, .
         if token not in contract.sections
     ]
     order = [token for token in contract.sections if token in present]
-    order_rows = [] if [token for token in tokens if token in contract.sections] == order else [
-        row(document.path, anchor, Check.HEADING_CENSUS, "fail", f"sections {tokens} out of template order"),
-    ]
+    order_rows = (
+        []
+        if [token for token in tokens if token in contract.sections] == order
+        else [row(document.path, anchor, Check.HEADING_CENSUS, "fail", f"sections {tokens} out of template order")]
+    )
     number_rows = [
         row(document.path, line, Check.HEADING_CENSUS, "fail", f"number [{number:02d}] out of sequence, expected [{index:02d}]")
         for index, (line, number, _) in enumerate(got, 1)
@@ -455,10 +461,7 @@ def header_line(document: Document) -> tuple[SourceLine, str] | None:
     label = RULES[document.kind].header
     if label is None:
         return None
-    return next(
-        ((line, match.group("body")) for line in document.lines if (match := re.match(rf"^\[{label}\]: (?P<body>\S.*)$", line.text))),
-        None,
-    )
+    return next(((line, match.group("body")) for line in document.lines if (match := re.match(rf"^\[{label}\]: (?P<body>\S.*)$", line.text))), None)
 
 
 def header_clean(document: Document) -> bool:
@@ -489,17 +492,21 @@ def leader_rows(document: Document, contract: TemplateContract) -> tuple[Row, ..
     minted: dict[str, Entry] = {}
     minted_prefix: str | None = None
     minted_order: list[tuple[int, int]] = []
-    parsed = [
-        (section.token, entry, ID.fullmatch(entry.identity))
-        for section in document.sections
-        for entry in section.entries
-    ]
+    parsed = [(section.token, entry, ID.fullmatch(entry.identity)) for section in document.sections for entry in section.entries]
     for token, entry, match in parsed:
         if match is None or int(match.group("ordinal")) == 0:
             rows.append(row(document.path, entry.line, Check.LEADER_ID, "fail", f"[{entry.identity}] outside the id grammar"))
         elif token in rule.mint:
             if entry.identity in minted:
-                rows.append(row(document.path, entry.line, Check.LEADER_UNIQUE, "fail", f"[{entry.identity}] already minted at line {minted[entry.identity].line}"))
+                rows.append(
+                    row(
+                        document.path,
+                        entry.line,
+                        Check.LEADER_UNIQUE,
+                        "fail",
+                        f"[{entry.identity}] already minted at line {minted[entry.identity].line}",
+                    )
+                )
             minted.setdefault(entry.identity, entry)
             minted_order.append((entry.line, int(match.group("ordinal"))))
             if minted_prefix is None:
@@ -517,7 +524,9 @@ def leader_rows(document: Document, contract: TemplateContract) -> tuple[Row, ..
             requires_id = allowed.get(name)
             valid = requires_id is not None and ((tail in minted) if requires_id else not tail)
             if not valid:
-                rows.append(row(document.path, entry.line, Check.LEADER_VOCAB, "fail", f"[{leader}] outside declared vocabulary or unresolved id tail"))
+                rows.append(
+                    row(document.path, entry.line, Check.LEADER_VOCAB, "fail", f"[{leader}] outside declared vocabulary or unresolved id tail")
+                )
         if entry.tokens and entry.tokens[0].startswith("SUPERSEDED:"):
             successor = entry.tokens[0].partition(":")[2]
             if successor not in minted or successor == entry.identity:
@@ -566,7 +575,11 @@ def entry_field_rows(path: Path, section: str, entry: Entry, contract: TemplateC
 
 
 def field_vocab_rows(path: Path, section: str, field: FieldLine, contract: TemplateContract, declared: frozenset[str]) -> tuple[Row, ...]:
-    rows = [row(path, field.line, Check.FIELD_VOCAB, "fail", f"field {field.name} outside [{section}] vocabulary")] if declared and field.name not in declared else []
+    rows = (
+        [row(path, field.line, Check.FIELD_VOCAB, "fail", f"field {field.name} outside [{section}] vocabulary")]
+        if declared and field.name not in declared
+        else []
+    )
     if (allowed := contract.marks.get(field.name)) is not None:
         lead = MARK_LEAD.match(field.value)
         if lead is None or lead.group("token") not in allowed:
@@ -617,8 +630,15 @@ def wargame_rows(document: Document) -> tuple[Row, ...]:
         if len(values) != len(set(values))
     ]
     score_ids = {entry.identity for entry in wargame.entries}
-    rows.extend(row(document.path, wargame.line, Check.SECTION_COVERAGE, "fail", f"[DIRECTIONS] entry [{identity}] has no [WARGAME] score row") for identity in sorted(directions - score_ids))
-    rows.extend(row(document.path, entry.line, Check.SECTION_COVERAGE, "fail", f"[WARGAME] score row [{entry.identity}] matches no [DIRECTIONS] entry") for entry in wargame.entries if entry.identity not in directions)
+    rows.extend(
+        row(document.path, wargame.line, Check.SECTION_COVERAGE, "fail", f"[DIRECTIONS] entry [{identity}] has no [WARGAME] score row")
+        for identity in sorted(directions - score_ids)
+    )
+    rows.extend(
+        row(document.path, entry.line, Check.SECTION_COVERAGE, "fail", f"[WARGAME] score row [{entry.identity}] matches no [DIRECTIONS] entry")
+        for entry in wargame.entries
+        if entry.identity not in directions
+    )
     for entry in wargame.entries:
         numbers = [float(value) for value in re.findall(r"(?<!\[)\b\d+(?:\.\d+)?\b(?!\])", entry.title)]
         scores = numbers[:-1] if "=" in entry.title else numbers
@@ -652,7 +672,15 @@ def landing_rows(document: Document) -> tuple[Row, ...]:
             for name in ("Fold-back", "Route"):
                 field = fields.get(name)
                 if field is None or SLOT.search(field.value) or field.value.lower().startswith(("none", "n/a")):
-                    rows.append(row(document.path, entry.line if field is None else field.line, Check.FOLD_BACK, "fail", f"[{entry.identity}] needs concrete {name}"))
+                    rows.append(
+                        row(
+                            document.path,
+                            entry.line if field is None else field.line,
+                            Check.FOLD_BACK,
+                            "fail",
+                            f"[{entry.identity}] needs concrete {name}",
+                        )
+                    )
     return tuple(rows)
 
 
@@ -667,8 +695,16 @@ def kind_rows(document: Document) -> tuple[Row, ...]:
         for token in entry.tokens[:1]
     }
     return (
-        *([] if entry_count >= floor else [row(document.path, document.h1_line, Check.ENTRY_FLOOR, "fail", f"{document.kind} carries {entry_count} entries, minimum {floor}")]),
-        *([] if document.kind != "direction-set" or len(span) >= 2 else [row(document.path, document.h1_line, Check.SECTION_SPAN, "fail", f"[DIRECTIONS] spans {len(span)} distinct tiers, minimum 2")]),
+        *(
+            []
+            if entry_count >= floor
+            else [row(document.path, document.h1_line, Check.ENTRY_FLOOR, "fail", f"{document.kind} carries {entry_count} entries, minimum {floor}")]
+        ),
+        *(
+            []
+            if document.kind != "direction-set" or len(span) >= 2
+            else [row(document.path, document.h1_line, Check.SECTION_SPAN, "fail", f"[DIRECTIONS] spans {len(span)} distinct tiers, minimum 2")]
+        ),
     )
 
 
@@ -709,7 +745,9 @@ def is_skill_corpus_non_instance(path: Path) -> bool:
         inside_skill = path.resolve().is_relative_to(SKILL_ROOT)
     except OSError:
         inside_skill = False
-    return inside_skill and not any(re.fullmatch(rf"{re.escape(kind)}\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)?\.md", path.name) for kind in KIND_BY_SUFFIX.values())
+    return inside_skill and not any(
+        re.fullmatch(rf"{re.escape(kind)}\.[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)?\.md", path.name) for kind in KIND_BY_SUFFIX.values()
+    )
 
 
 def collect(paths: Sequence[str]) -> tuple[Path | Row, ...]:
@@ -747,7 +785,9 @@ app = App(result_action="return_int_as_exit_code_else_zero")
 
 @app.default
 def command(*paths: str, json: Annotated[bool, Parameter(negative="")] = False) -> int:
-    records = tuple(item if isinstance(item, Row) else rows for item in collect(paths) for rows in ((item,) if isinstance(item, Row) else validate(item)))
+    records = tuple(
+        item if isinstance(item, Row) else rows for item in collect(paths) for rows in ((item,) if isinstance(item, Row) else validate(item))
+    )
     for record in records:
         emit(record, json)
     return exit_code(records)

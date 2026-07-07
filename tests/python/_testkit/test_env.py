@@ -47,7 +47,8 @@ def test_provision_is_total_over_the_spec_union(socket_enabled: None) -> None:
     """Every ``EnvSpec`` variant provisions a URL, factory, and idempotent teardown."""
     _ = socket_enabled  # ObjectStore binds a real loopback endpoint at provision time
     specs: tuple[EnvSpec, ...] = (SshHost(), RemoteFS(), ObjectStore())
-    for spec, provisioned in zip(specs, map(provision, specs), strict=True):
+    for spec in specs:
+        provisioned = provision(spec)
         assert provisioned.url, f"{type(spec).__name__} provisioned an empty url"
         assert callable(provisioned.client_factory), f"{type(spec).__name__} factory is not callable"
         assert callable(provisioned.teardown), f"{type(spec).__name__} teardown is not callable"

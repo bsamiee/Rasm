@@ -26,15 +26,23 @@ A diagram earns its fence only when the reader traces a relation across more mar
 
 Select the archetype by intent, copy its template, and refill — a catalog template is self-sufficient, carrying its archetype's construction law in its own prose. An intent outside the catalog selects its type through the methodology decision table and the extended registry, under the same frontmatter, theming, and validation law. The budget column is the legibility ceiling that binds at review; past it the split move fragments the subject into two diagrams, and a required legend is itself a split signal.
 
-| [INDEX] | [ARCHETYPE]   | [INTENT]                    | [DECLARATION]     | [BUDGET]       | [SPLIT_MOVE]                     | [TEMPLATE]                                              |
-| :-----: | :------------ | :-------------------------- | :---------------- | :------------- | :------------------------------- | :------------------------------------------------------ |
-|  [01]   | spine         | main path through owners    | `flowchart LR`    | 12 nodes       | split at the readiness gate      | [spine](templates/spine.mmd.md)                         |
-|  [02]   | seam-graph    | shapes across a boundary    | `flowchart LR`    | 12 edges       | partition by counterpart package | [seam-graph](templates/seam-graph.mmd.md)               |
-|  [03]   | logic-flow    | one operation dispatch      | `flowchart LR`    | 12 nodes       | extract an arm subflow           | [logic-flow](templates/logic-flow.mmd.md)               |
-|  [04]   | lifecycle     | guarded state transitions   | `stateDiagram-v2` | 12 states      | nest a composite state           | [lifecycle](templates/lifecycle.mmd.md)                 |
-|  [05]   | wire-sequence | ordered boundary exchange   | `sequenceDiagram` | 6 participants | split by interaction phase       | [wire-sequence](templates/wire-sequence.mmd.md)         |
-|  [06]   | schema        | persistent entity relations | `erDiagram`       | 8 entities     | split by aggregate root          | [schema](templates/schema.mmd.md)                       |
-|  [07]   | strata        | layer dependency direction  | `flowchart TB`    | 6 strata       | collapse peer layers             | [strata](templates/strata.mmd.md)                       |
+| [INDEX] | [ARCHETYPE]   | [INTENT]                    | [DECLARATION]     | [BUDGET]       | [SPLIT_MOVE]                     |
+| :-----: | :------------ | :-------------------------- | :---------------- | :------------- | :------------------------------- |
+|  [01]   | spine         | main path through owners    | `flowchart LR`    | 12 nodes       | split at the readiness gate      |
+|  [02]   | seam-graph    | shapes across a boundary    | `flowchart LR`    | 12 edges       | partition by counterpart package |
+|  [03]   | logic-flow    | one operation dispatch      | `flowchart LR`    | 12 nodes       | extract an arm subflow           |
+|  [04]   | lifecycle     | guarded state transitions   | `stateDiagram-v2` | 12 states      | nest a composite state           |
+|  [05]   | wire-sequence | ordered boundary exchange   | `sequenceDiagram` | 6 participants | split by interaction phase       |
+|  [06]   | schema        | persistent entity relations | `erDiagram`       | 8 entities     | split by aggregate root          |
+|  [07]   | strata        | layer dependency direction  | `flowchart TB`    | 6 strata       | collapse peer layers             |
+
+- [01]-[SPINE](templates/spine.mmd.md)
+- [02]-[SEAM-GRAPH](templates/seam-graph.mmd.md)
+- [03]-[LOGIC-FLOW](templates/logic-flow.mmd.md)
+- [04]-[LIFECYCLE](templates/lifecycle.mmd.md)
+- [05]-[WIRE-SEQUENCE](templates/wire-sequence.mmd.md)
+- [06]-[SCHEMA](templates/schema.mmd.md)
+- [07]-[STRATA](templates/strata.mmd.md)
 
 ## [03]-[VALIDATE]
 
@@ -44,7 +52,7 @@ A diagram is not done until its fence passes both stages: graph-logic checks ove
 uv run scripts/validate_mermaid.py <file.md ...>
 ```
 
-Each fence emits `file:line: STATUS check detail` rows with check kinds `render`, `frontmatter`, `contract`, `logic`, `setup`, `read`, and `collect`; `--json` emits identical-key NDJSON for tooling. Contract, logic, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers flowchart, state, sequence, ER, class, gantt, requirement, architecture, and C4; any other family emits a `logic-unimplemented` warn instead of silent approval. Logic failures block: orphan node, unreachable state, undefined or unknown class targets, dangling task, group, service, or relation references. Logic warns demand a split or a stated reason: duplicate same-label edges, orphan participants, entities, services, and requirements, budget overruns. Contract warnings cover accessibility presence and order, `theme: base`, the mono-stack floors, `clusterBkg`, label backing, canonical classes, linkStyle index drift, semantic edge rails, sequence grouping, and palette drift. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram.
+Each fence emits `file:line: STATUS check detail` rows with check kinds `render`, `frontmatter`, `contract`, `logic`, `setup`, `read`, and `collect`; `--json` emits identical-key NDJSON for tooling. Contract, logic, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers flowchart, state, sequence, ER, class, gantt, requirement, architecture, and C4; any other family emits a `logic-unimplemented` warn instead of silent approval. Logic failures block: orphan node, unreachable state, undefined or unknown class targets, dangling task, group, service, or relation references. Logic warns demand a split or a stated reason: duplicate same-label edges, orphan participants, entities, services, and requirements, budget overruns. Contract warnings cover accessibility presence and order, `theme: base`, the flat-look lock (`look: classic`, `useGradient`, `dropShadow`), the mono-stack floors, `clusterBkg`, label backing, canonical classes, linkStyle index drift, semantic edge rails, sequence grouping, and palette drift including translucent-alpha discipline. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram.
 
 The renderer resolves as `--renderer CMD`, then a `pnpm exec mmdc` workspace, then `mmdc` on PATH, then `npx -y @mermaid-js/mermaid-cli`. The final branch reaches the network on every run; install the renderer once so validation stays offline:
 
@@ -54,11 +62,12 @@ pnpm add -D @mermaid-js/mermaid-cli
 
 ## [04]-[CONTRACT]
 
-- Frontmatter opens every fence body before the diagram header, carrying `theme: base` with the Dracula variable subset the diagram type consumes; the token system, role map, dual-host law, and the types and hosts that carry a local style law instead — packet, C4 element surfaces, host-themed docs — are [references/theming.md](references/theming.md).
+- Frontmatter opens every fence body before the diagram header, carrying `theme: base` and `look: classic` with the Dracula variable subset the diagram type consumes; the token system, role map, dual-host law, and the types and hosts that carry a local style law instead — packet, C4 element surfaces, host-themed docs — are [references/theming.md](references/theming.md).
+- Every themed fence renders flat by construction: `look: classic`, `useGradient: false`, `dropShadow: "none"`, and the family `themeCSS` filter belt kill gradient borders and node halos on every host, including one that initializes a newer look — the border canon in the theming reference owns the lock, the weight ladder, and the Lavender container boundary.
 - `accTitle` and `accDescr` follow the header on every committed diagram, stating the relation the diagram encodes so the exported SVG stays usable outside its source; `block`, `mindmap`, `sankey`, and `venn` refuse the directives, so there the relation sentence sits beside the fence.
 - Node and edge labels carry concept names, never mechanism detail — the owning page carries the bytes.
-- Semantic node classes and edge rails come from the canonical Dracula `classDef` set; an ad-hoc hex is a defect.
-- The ruled mono stack `fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"` and the Selection `#44475A` label backing reach every themed fence; per-element sizes ride the theming micro-scale `themeCSS` stamps, and no canvas text renders below 12px.
+- Semantic node classes and edge rails come from the canonical Dracula `classDef` set with its ruled translucent accent fills; an ad-hoc hex is a defect.
+- The ruled mono stack `fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"` and the recessed `#21222C` label backing reach every themed fence; per-element sizes ride the theming micro-scale `themeCSS` stamps, and no canvas text renders below 12px.
 
 ## [05]-[LEGIBILITY]
 
@@ -75,19 +84,19 @@ A faulted fence converges on its own source across at most five render-inspect-e
 
 ## [06]-[REFERENCES]
 
-- When to diagram, investigation, node and edge law, type selection, soundness audit, multi-diagram composition: [references/methodology.md](references/methodology.md)
-- Per-type construction — the question each type answers, what its marks assert, failure modes, truth tests: [references/construction.md](references/construction.md)
-- Dracula palette, role map, the base theme block, canonical classDef rails, dual-host contrast, Alucard: [references/theming.md](references/theming.md)
-- The full styling grammar — every link and arrow form for every family, link lengths, the complete shape registry, containers and subgraphs, style precedence with its interaction traps, the per-type styling matrix: [references/styling.md](references/styling.md)
-- Frontmatter schema, secure keys, layout engines and ELK tuning, look system, accessibility, mmdc and CI, trap list: [references/config.md](references/config.md)
-- Advanced flowchart, sequence, state, class, and ER — node metadata, edge IDs, markdown strings, KaTeX, per-type traps: [references/syntax-core.md](references/syntax-core.md)
-- The type registry beyond the core five — admitted rows with working fences and traps, registered rows named: [references/syntax-extended.md](references/syntax-extended.md)
+- [01]-[METHODOLOGY](references/methodology.md): when to diagram, investigation, node and edge law, type selection, soundness audit, multi-diagram composition
+- [02]-[CONSTRUCTION](references/construction.md): per-type construction — the question each type answers, what its marks assert, failure modes, truth tests
+- [03]-[THEMING](references/theming.md): Dracula palette, role map, the base theme block, canonical classDef rails, dual-host contrast, Alucard
+- [04]-[STYLING](references/styling.md): the full styling grammar — every link and arrow form for every family, link lengths, the complete shape registry, containers and subgraphs, style precedence with its interaction traps, the per-type styling matrix
+- [05]-[CONFIG](references/config.md): frontmatter schema, secure keys, layout engines and ELK tuning, look system, accessibility, mmdc and CI, trap list
+- [06]-[SYNTAX_CORE](references/syntax-core.md): advanced flowchart, sequence, state, class, and ER — node metadata, edge IDs, markdown strings, KaTeX, per-type traps
+- [07]-[SYNTAX_EXTENDED](references/syntax-extended.md): the type registry beyond the core five — admitted rows with working fences and traps, registered rows named
 
 ## [07]-[GOTCHAS]
 
 - `%%{init:...}%%` is deprecated — a fence opening with it is a defect; convert to frontmatter.
 - Reserved words `end`, `default`, `subgraph`, `class` break node IDs — quote the label, rename the ID.
-- `layout: elk` outside the flowchart family is a dead key — the type ignores or rejects it.
+- `layout: elk` outside flowchart needs a host-registered loader and has no dagre fallback — only flowchart fences declare it.
 - Edge labels containing `[`, `]`, or `:` need double quotes: `A -->|"[WIRE]: shape"| B`.
 - Beta types shift syntax between minors — validate after any version bump.
 

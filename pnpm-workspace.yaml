@@ -2,6 +2,12 @@ packages:
   - 'libs/typescript'
   - 'tests/typescript/*'
 
+cacheDir: .cache/pnpm/cache
+
+stateDir: .cache/pnpm/state
+
+storeDir: .cache/pnpm/store
+
 catalog:
   # substrate — the Effect core family; moves as one peer-locked wave
   effect: 3.21.4

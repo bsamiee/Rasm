@@ -2,8 +2,6 @@
 
 Frontmatter is the only live channel a fence configures itself through: the block on line 1 selects the layout engine, look, per-type config, and accessibility directives the diagram type admits, while the host owns everything a fence can only request.
 
-Sections: [01] frontmatter - [02] layout - [03] look - [04] accessibility - [05] render environment - [06] traps.
-
 ## [01]-[FRONTMATTER]
 
 An opening `---` on line 1 of the fence body carries `title:` and `config:`, closing with `---` before the diagram header. `%%{init:...}%%` directives are deprecated — frontmatter is the current channel.
@@ -12,27 +10,32 @@ An opening `---` on line 1 of the fence body carries `title:` and `config:`, clo
 ---
 title: Render contract
 config:
-  look: neo
-  layout: elk
   theme: base
-  themeVariables:
-    darkMode: true
-    mainBkg: "#44475A"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-  htmlLabels: false
+  look: classic
+  layout: elk
+  htmlLabels: true
   markdownAutoWrap: false
-  fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
   deterministicIds: true
   elk:
     mergeEdges: true
     nodePlacementStrategy: NETWORK_SIMPLEX
     considerModelOrder: NODES_AND_EDGES
   flowchart:
-    curve: basis
+    curve: linear
     defaultRenderer: elk
-    padding: 16
+    padding: 22
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Frontmatter contract demo
@@ -41,7 +44,7 @@ flowchart LR
   Work -.-> Store[(Store)]
   classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
   classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-  classDef data fill:#FFB86C,stroke:#FFB86C,color:#282A36
+  classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
   class Work primary
   class In,Out boundary
   class Store data
@@ -49,9 +52,10 @@ flowchart LR
 
 - Keys are case-sensitive; a misspelled key silently no-ops, and malformed YAML kills the whole diagram.
 - The opening `---` tolerates leading horizontal whitespace on the current engine; an older pin rejects an indented delimiter, so the delimiter stays at column one.
-- Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter as the highest.
-- `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone.
-- Root keys with render impact: `htmlLabels` (supersedes deprecated `flowchart.htmlLabels`), `markdownAutoWrap`, `fontFamily`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`.
+- Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter as the highest — a fence's `look: classic` beats a host that initializes a newer look.
+- `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone; `look`, `theme`, `themeVariables`, and `themeCSS` are not on that list, so the fence always owns its own appearance.
+- Root keys with render impact: `htmlLabels` (supersedes deprecated `flowchart.htmlLabels`), `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`; `fontFamily` lives in `themeVariables`, never at config root.
+- The config block holds one key order on every fence: `theme`, `look`, `layout`, root render keys, per-type blocks, `themeVariables` (opening `darkMode`, `fontFamily`, `useGradient`, `dropShadow`, then colors), `themeCSS` last.
 - Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, and the rest — carrying that type's own keys.
 
 Frontmatter requests capability; the host provides it. `layout: elk`, icon packs, zenuml, and tidy-tree each need a registered loader — the CLI registers ELK, zenuml, and `@mermaid-js/layout-tidy-tree` itself, a browser must register the rest.
@@ -66,23 +70,29 @@ ELK is the standing layout engine: every ELK-capable diagram declares `layout: e
 |  [02]   | swimlane                    | layered orthogonal layout consuming `flowchart.defaultRenderer: elk` |
 |  [03]   | architecture                | fcose under `architecture:` knobs                                    |
 |  [04]   | mindmap                     | `tidy-tree`                                                          |
-|  [05]   | sequence, state, ER, charts | type-owned; `layout:` is dead                                        |
+|  [05]   | sequence, state, ER, charts | type-owned; `layout: elk` needs a registered loader with no fallback |
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  elk:
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY
+  flowchart:
+    curve: linear
   themeVariables:
     darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     mainBkg: "#44475A"
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-  elk:
-    nodePlacementStrategy: BRANDES_KOEPF
-    cycleBreakingStrategy: GREEDY
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 graph TD
   accTitle: ELK layout demo
@@ -100,7 +110,8 @@ graph TD
 
 - A flowchart takes ELK through `layout: elk` or `flowchart.defaultRenderer: elk`; swimlane consumes only the `flowchart.defaultRenderer: elk` route into its own layout.
 - Dagre is the engine's unset-layout behavior, never this corpus's declaration; `flowchart TD` with `dagre-d3` is rejected by the detector, and legacy `graph TD` plus `dagre-d3` exists only as an engine boundary fact.
-- The shared-renderer default edge curve is `rounded` — `flowchart.curve: basis` restores splines.
+- ELK routes orthogonally on its own and overrides the curve selector with a fixed rounded joint over its bend points, so `flowchart.curve` never shapes an ELK route; the corpus still declares `flowchart.curve: linear` because it holds the elbow posture wherever a host lacks the ELK loader and falls back to dagre.
+- The unified state, class, and ER renderers pass `layout: elk` through when a host registers the loader, but only flowchart falls back to dagre when the loader is missing — the other families hard-require it, so only flowchart fences declare `layout: elk` and every other family stays on its own engine for portability.
 
 ELK tuning nests under `elk:`:
 
@@ -126,11 +137,11 @@ Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, 
 
 ## [03]-[LOOK]
 
-`look` selects `classic`, `handDrawn`, or `neo`; state and sequence accept `look: neo`, and `handDrawnSeed` pins hand-drawn jitter. Schema themes are `default`, `base`, `dark`, `forest`, `neutral`, `neo`, `neo-dark`, `redux`, `redux-dark`, `redux-color`, and `redux-dark-color`. Theme selection and `themeVariables` palette work ride the same frontmatter `config:` block, owned by the theming reference — only `base` accepts `themeVariables`.
+`look` selects `classic`, `handDrawn`, or `neo`, and `handDrawnSeed` pins hand-drawn jitter. Every themed fence declares `look: classic` explicitly: the neo look stamps `data-look="neo"` on nodes and clusters and styles them with a gradient-URL stroke and a full-opacity light-gray drop shadow through the theme's `useGradient` and `dropShadow` variables — the gradient border and white halo a newer-look host paints onto an undeclared fence. Frontmatter `look` outranks any host `initialize` look, `useGradient: false` and `dropShadow: "none"` disarm the two variables under any look, and the `filter:none!important` belt in the family `themeCSS` strings closes the cascade; the border canon in the theming reference owns this four-layer lock. Schema themes are `default`, `base`, `dark`, `forest`, `neutral`, `neo`, `neo-dark`, `redux`, `redux-dark`, `redux-color`, and `redux-dark-color`. Theme selection and `themeVariables` palette work ride the same frontmatter `config:` block, owned by the theming reference — only `base` accepts `themeVariables`.
 
 ## [04]-[ACCESSIBILITY]
 
-`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Four families refuse the directives — `block` and `mindmap` mis-handle them as nodes, `sankey` and `venn` reject them at parse — so there the relation sentence sits beside the fence.
+`accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Seven families refuse the directives — `block`, `mindmap`, `kanban`, and `ishikawa` mis-handle them as nodes, `eventmodeling` breaks at parse when they precede its frames, and `sankey` and `venn` reject them at parse — so there the relation sentence sits beside the fence.
 
 ## [05]-[RENDER_ENVIRONMENT]
 
@@ -153,7 +164,6 @@ A schema theme or `themeVariables` reaches the CLI only through `--configFile`, 
 ```json
 {
   "theme": "base",
-  "look": "neo",
   "layout": "elk",
   "flowchart": { "defaultRenderer": "elk" }
 }

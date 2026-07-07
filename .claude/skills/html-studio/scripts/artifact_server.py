@@ -106,15 +106,26 @@ MAX_BODY = 256 * 1024
 HEAD_RE = re.compile(rb"<head[^>]*>", re.IGNORECASE)
 TOKEN_META_RE = re.compile(r'name="artifact-token" content="([0-9a-f]{32})"')
 HTTP_STATUS: Mapping[FaultKind, int] = {
-    FaultKind.BAD_HOST: 403, FaultKind.BAD_ORIGIN: 403, FaultKind.BAD_TOKEN: 403,
-    FaultKind.NOT_FOUND: 404, FaultKind.BAD_TYPE: 415, FaultKind.BAD_LENGTH: 411,
-    FaultKind.OVERSIZE: 413, FaultKind.BAD_JSON: 400, FaultKind.BAD_ENVELOPE: 422,
-    FaultKind.RECEIPT_IO: 500, FaultKind.BAD_ARTIFACT: 500,
+    FaultKind.BAD_HOST: 403,
+    FaultKind.BAD_ORIGIN: 403,
+    FaultKind.BAD_TOKEN: 403,
+    FaultKind.NOT_FOUND: 404,
+    FaultKind.BAD_TYPE: 415,
+    FaultKind.BAD_LENGTH: 411,
+    FaultKind.OVERSIZE: 413,
+    FaultKind.BAD_JSON: 400,
+    FaultKind.BAD_ENVELOPE: 422,
+    FaultKind.RECEIPT_IO: 500,
+    FaultKind.BAD_ARTIFACT: 500,
 }
 EXIT_CODE: Mapping[FaultKind, Exit] = {
-    FaultKind.BAD_ARTIFACT: Exit.IO, FaultKind.RECEIPT_IO: Exit.IO, FaultKind.PORT_BUSY: Exit.NET,
-    FaultKind.SELF_TEST: Exit.CONTRACT, FaultKind.STATE_BUSY: Exit.STATE,
-    FaultKind.STATE_UNREADABLE: Exit.STATE, FaultKind.STOP_TIMEOUT: Exit.STATE,
+    FaultKind.BAD_ARTIFACT: Exit.IO,
+    FaultKind.RECEIPT_IO: Exit.IO,
+    FaultKind.PORT_BUSY: Exit.NET,
+    FaultKind.SELF_TEST: Exit.CONTRACT,
+    FaultKind.STATE_BUSY: Exit.STATE,
+    FaultKind.STATE_UNREADABLE: Exit.STATE,
+    FaultKind.STOP_TIMEOUT: Exit.STATE,
 }
 
 # --- [MODELS] --------------------------------------------------------------------------------
@@ -324,7 +335,7 @@ def fresh_page(artifact: Path, token: str) -> Result[bytes, Fault]:
     if match is None:
         return Error(Fault(FaultKind.BAD_ARTIFACT, "no <head>"))
     meta = f'<meta name="artifact-return" content="/submit"><meta name="artifact-token" content="{token}">'.encode()
-    return Ok(raw[: match.end()] + meta + raw[match.end():])
+    return Ok(raw[: match.end()] + meta + raw[match.end() :])
 
 
 def read_state(state_file: Path) -> Result[ServerState | None, Fault]:
@@ -355,7 +366,14 @@ def emit(output: Output, mode: OutputMode) -> None:
     if mode is OutputMode.JSON:
         print(ENC.encode(output).decode())
     else:
-        pairs = (("URL", output.url), ("ARTIFACT", output.artifact), ("RECEIPTS", output.receipts), ("STATE", output.state), ("RECEIPT_COUNT", str(output.receipt_count or "")), ("DETAIL", output.detail))
+        pairs = (
+            ("URL", output.url),
+            ("ARTIFACT", output.artifact),
+            ("RECEIPTS", output.receipts),
+            ("STATE", output.state),
+            ("RECEIPT_COUNT", str(output.receipt_count or "")),
+            ("DETAIL", output.detail),
+        )
         print("\n".join((f"STATUS={output.status}", *(f"{key}={value}" for key, value in pairs if value))))
     sys.stdout.flush()
 
@@ -439,11 +457,20 @@ def serve(
         return fail(Fault(FaultKind.PORT_BUSY, str(exc)), output)
     me = psutil.Process()
     bound = int(server.server_address[1])
-    write_state(state_file, ServerState(
-        version=1, pid=me.pid, create_time=me.create_time(), port=bound, artifact=str(resolved),
-        artifact_digest=xxh3_128_hexdigest(resolved.read_bytes()), receipts=str(receipt_path),
-        started_at=_utc(), token_digest=xxh3_128_hexdigest(token),
-    ))
+    write_state(
+        state_file,
+        ServerState(
+            version=1,
+            pid=me.pid,
+            create_time=me.create_time(),
+            port=bound,
+            artifact=str(resolved),
+            artifact_digest=xxh3_128_hexdigest(resolved.read_bytes()),
+            receipts=str(receipt_path),
+            started_at=_utc(),
+            token_digest=xxh3_128_hexdigest(token),
+        ),
+    )
     runtime.sink.event(EventKind.STARTED, f"port {bound}")
     emit(Output(status="ACTIVE", url=f"http://{HOST}:{bound}/", artifact=str(resolved), receipts=str(receipt_path), state=str(state_file)), output)
     if open_page:
@@ -473,7 +500,17 @@ def status(*, output: OutputMode = OutputMode.BANNER, session: Session = "no-ses
         emit(Output(status="STALE", state=str(state_file), detail=f"pid {state.ok.pid} gone; state retired"), output)
         return int(Exit.OK)
     count = sum(1 for row in Sink(Path(state.ok.receipts)).rows() if isinstance(row, ReceiptRow))
-    emit(Output(status="ACTIVE", url=f"http://{HOST}:{state.ok.port}/", artifact=state.ok.artifact, receipts=state.ok.receipts, state=str(state_file), receipt_count=count), output)
+    emit(
+        Output(
+            status="ACTIVE",
+            url=f"http://{HOST}:{state.ok.port}/",
+            artifact=state.ok.artifact,
+            receipts=state.ok.receipts,
+            state=str(state_file),
+            receipt_count=count,
+        ),
+        output,
+    )
     return int(Exit.OK)
 
 

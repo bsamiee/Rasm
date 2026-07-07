@@ -76,9 +76,12 @@ The fence asserts a three-column raster whose nested group takes one labeled lin
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
     primaryColor: "#44475A"
@@ -89,7 +92,7 @@ config:
     fillType3: "#FFB86C"
     fillType4: "#BD93F9"
     fillType5: "#FF5555"
-    fillType6: "#F1FA8C"
+    fillType6: "#FFD866"
     fillType7: "#6272A4"
 ---
 journey
@@ -111,16 +114,20 @@ Scores are integers `1` through `5`; a task belongs under a `section`, an actor 
 ---
 config:
   theme: base
+  look: classic
+  htmlLabels: false
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     requirementBackground: "#44475A"
     requirementBorderColor: "#BD93F9"
     requirementTextColor: "#F8F8F2"
     relationColor: "#FF79C6"
     relationLabelColor: "#F8F8F2"
-    relationLabelBackground: "#44475A"
+    relationLabelBackground: "#21222C"
 ---
 requirementDiagram
   accTitle: Requirement trace demo
@@ -135,9 +142,13 @@ requirementDiagram
   }
   ent - satisfies -> req
   req <- traces - ent
+  classDef primary fill:#44475A,stroke:#BD93F9,color:#F8F8F2
+  classDef external fill:#282A36,stroke:#8BE9FD,color:#F8F8F2
+  class req primary
+  class ent external
 ```
 
-Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `performanceRequirement`, `physicalRequirement`, `designConstraint`; `risk` takes `Low`/`Medium`/`High` and `verifymethod` takes `Analysis`/`Inspection`/`Test`/`Demonstration`. Relations `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces` spell both `a - satisfies -> b` and `b <- traces - a`, quoted text carries markdown, and the diagram takes `direction` plus the hand-drawn look.
+Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `performanceRequirement`, `physicalRequirement`, `designConstraint`; `risk` takes `Low`/`Medium`/`High` and `verifymethod` takes `Analysis`/`Inspection`/`Test`/`Demonstration`. Relations `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces` spell both `a - satisfies -> b` and `b <- traces - a`, quoted text carries markdown, and the diagram takes `direction` plus the hand-drawn look. Box fills theme through `classDef`/`class`, never `requirement*` variables alone — those leave the box naked cream — and `htmlLabels: false` stacks the body attributes cleanly; the relation-label background is engine-derived and ignores `relationLabelBackground`.
 
 ## [06]-[PIE]
 
@@ -145,9 +156,12 @@ Types are `requirement`, `functionalRequirement`, `interfaceRequirement`, `perfo
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     pieSectionTextColor: "#282A36"
     pieLegendTextColor: "#F8F8F2"
     pieTitleTextColor: "#F8F8F2"
@@ -175,9 +189,12 @@ Values sum above `0`, labels are quoted, and `showData` prints percentages; donu
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
 ---
@@ -203,11 +220,7 @@ Coordinates bind to `0` through `1` and quadrants number `1` top-right through `
 ---
 config:
   theme: base
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    textColor: "#F8F8F2"
-    titleColor: "#F8F8F2"
+  look: classic
   sankey:
     labelStyle: outlined
     linkColor: gradient
@@ -219,6 +232,13 @@ config:
       Store: "#FFB86C"
       Homes: "#50FA7B"
       Industry: "#8BE9FD"
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    textColor: "#F8F8F2"
+    titleColor: "#F8F8F2"
 ---
 sankey
 
@@ -238,9 +258,16 @@ The fence asserts a source volume splitting across a hub and a store into two de
 ---
 config:
   theme: base
+  look: classic
+  xyChart:
+    showDataLabel: true
+    xAxis:
+      labelRotation: 45
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     xyChart:
       backgroundColor: "#282A36"
       titleColor: "#F8F8F2"
@@ -253,10 +280,6 @@ config:
       yAxisTickColor: "#6272A4"
       yAxisLineColor: "#6272A4"
       plotColorPalette: "#BD93F9, #FF79C6"
-  xyChart:
-    showDataLabel: true
-    xAxis:
-      labelRotation: 45
 ---
 xychart
   accTitle: Bar and line demo
@@ -276,9 +299,12 @@ The keyword is `xychart`; `xychart horizontal` flips orientation and each `bar` 
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
     cScale0: "#FF79C6"
@@ -309,9 +335,12 @@ radar-beta
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     taskTextOutsideColor: "#F8F8F2"
     gridColor: "#6272A4"
@@ -321,9 +350,10 @@ config:
     taskBorderColor: "#BD93F9"
     activeTaskBkgColor: "#6272A4"
     activeTaskBorderColor: "#BD93F9"
-    critBkgColor: "#FF5555"
+    critBkgColor: "#FF555580"
     critBorderColor: "#FF5555"
     todayLineColor: "#FF79C6"
+  themeCSS: ".sectionTitle{font-size:12px;font-weight:600}.taskText,.taskTextOutsideRight,.taskTextOutsideLeft{font-size:12px}"
 ---
 gantt
   accTitle: Schedule demo
@@ -345,16 +375,19 @@ Dates match `dateFormat`, `after taskId` and `until taskId` reference existing I
 ---
 config:
   theme: base
+  look: classic
+  treemap:
+    valueFormat: '$0,0'
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     titleColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
     primaryBorderColor: "#BD93F9"
-  treemap:
-    valueFormat: '$0,0'
 ---
 treemap-beta
 accTitle: Area hierarchy demo
@@ -395,15 +428,18 @@ The family covers `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Dep
 ---
 config:
   theme: base
+  look: classic
+  architecture:
+    seed: 7
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     primaryTextColor: "#F8F8F2"
     archEdgeColor: "#FF79C6"
-    archGroupBorderColor: "#6272A4"
-  architecture:
-    seed: 7
+    archGroupBorderColor: "#D6BCFA"
 ---
 architecture-beta
   accTitle: Infrastructure demo
@@ -441,9 +477,12 @@ The keyword is `packet`, never `packet-beta`; `start-end: "name"` ranges and `+c
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     cScale0: "#FF79C6"
     cScale1: "#8BE9FD"
@@ -468,9 +507,12 @@ A multi-event row repeats `:`, styling uses `cScale0` through `cScale11`, and ti
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     git0: "#BD93F9"
     git1: "#FF79C6"
     gitBranchLabel0: "#282A36"
@@ -478,7 +520,7 @@ config:
     commitLabelColor: "#F8F8F2"
     commitLabelBackground: "#44475A"
     tagLabelColor: "#282A36"
-    tagLabelBackground: "#F1FA8C"
+    tagLabelBackground: "#FFD866"
 ---
 gitGraph LR:
   accTitle: Branch history demo
@@ -503,15 +545,13 @@ config:
     ticketBaseUrl: '<ticket-url>#TICKET#'
 ---
 kanban
-  accTitle: Board demo
-  accDescr: Two queues holding one card each, one carrying ticket metadata.
   Todo
     docs[Write blog post]
   test[Ready for test]
     t4[Parsing tests]@{ ticket: MC-2038, assigned: 'K.S', priority: 'High' }
 ```
 
-Tasks indent under columns, metadata keys are `assigned`, `ticket`, `priority`, and priorities are exactly `Very High`, `High`, `Low`, `Very Low`; `kanban.ticketBaseUrl` links each ticket by substituting the task ticket for `#TICKET#`.
+The fence asserts two queues holding one card each, one carrying ticket metadata; the family mis-handles `accTitle`/`accDescr` as columns, so the relation sentence rides beside the fence. Tasks indent under columns, metadata keys are `assigned`, `ticket`, `priority`, and priorities are exactly `Very High`, `High`, `Low`, `Very Low`; `kanban.ticketBaseUrl` links each ticket by substituting the task ticket for `#TICKET#`.
 
 ## [19]-[TREEVIEW]
 
@@ -534,9 +574,12 @@ The tree parses box-drawing input, a trailing `/` marking a directory; annotatio
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     cynefin:
       textColor: "#F8F8F2"
@@ -567,9 +610,12 @@ The five domains are `complex`, `complicated`, `clear`, `chaotic`, `confusion`, 
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryBorderColor: "#BD93F9"
@@ -590,18 +636,21 @@ The keyword selects the grammar parser — `railroad-ebnf-beta` for EBNF, `railr
 ```mermaid
 ---
 config:
-  look: classic
   theme: base
+  look: classic
+  flowchart:
+    defaultRenderer: elk
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
     primaryBorderColor: "#BD93F9"
+    tertiaryColor: "#21222C"
     lineColor: "#FF79C6"
-  flowchart:
-    defaultRenderer: elk
 ---
 swimlane-beta
   accTitle: Lane demo
@@ -616,7 +665,7 @@ swimlane-beta
   class Approve success
 ```
 
-A standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout, it honors `flowchart.defaultRenderer: elk` and the flowchart general variables — a swimlane ships the flowchart theming floor, never a bare header. `look: neo` deforms swimlane output, so swimlane holds `look: classic`; its PNG export diverges from its SVG in current builds.
+A standalone diagram reusing flowchart body syntax under a dedicated layered orthogonal layout, it honors `flowchart.defaultRenderer: elk` and the flowchart general variables — a swimlane ships the flowchart theming floor, never a bare header. `tertiaryColor` sets the lane background — left unset it derives to an off-palette olive. `look: neo` deforms swimlane output, so swimlane holds `look: classic`; its PNG export diverges from its SVG in current builds.
 
 ## [23]-[EVENTMODELING]
 
@@ -624,9 +673,12 @@ A standalone diagram reusing flowchart body syntax under a dedicated layered ort
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     emUiFill: "#44475A"
     emUiStroke: "#BD93F9"
@@ -644,19 +696,13 @@ config:
     emRelationStroke: "#FF79C6"
 ---
 eventmodeling
-  accTitle: Command-event demo
-  accDescr: A cart UI issuing a command whose event feeds an inventory processor.
   tf 01 ui CartUI { "sku": "A1" }
   tf 02 cmd AddItem [[AddItem]]
   tf 03 evt ItemAdded `json`{ "qty": 1 }
   rf 10 pcr InventoryProcessor
-  data AddItem `json`{
-    "sku": "A1",
-    "quantity": 1
-  }
 ```
 
-`tf`/`timeframe` orders frames left to right and `rf`/`resetframe` restarts the clock; frame kinds are `ui`, `cmd`, `evt`, `pcr` (processor), and `rmo` (read model), relations infer from frame order, and a `data` block carries a payload schema by name. Namespaced frame ids map onto swimlanes, and each frame kind reads its own `em*Fill`/`em*Stroke` pair — the committed fence themes every kind it uses.
+The fence asserts a cart UI issuing a command whose event feeds an inventory processor; `accTitle`/`accDescr` break the parser before the frames, so the relation sentence rides beside the fence. `tf`/`timeframe` orders frames left to right and `rf`/`resetframe` restarts the clock; frame kinds are `ui`, `cmd`, `evt`, `pcr` (processor), and `rmo` (read model), relations infer from frame order, and an inline `{ ... }` or `` `json`{ ... } `` payload annotates a frame. Namespaced frame ids map onto swimlanes, and each frame kind reads its own `em*Fill`/`em*Stroke` pair — the committed fence themes every kind it uses.
 
 ## [24]-[VENN]
 
@@ -664,9 +710,12 @@ eventmodeling
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     vennTitleTextColor: "#F8F8F2"
     vennSetTextColor: "#F8F8F2"
@@ -689,9 +738,12 @@ The fence asserts two weighted sets sharing a measured overlap; the family rejec
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     wardley:
       backgroundColor: "#282A36"
@@ -723,9 +775,12 @@ Coordinates are `[visibility, evolution]` on `0`–`1`; `anchor` places a user n
 ---
 config:
   theme: base
+  look: classic
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
     textColor: "#F8F8F2"
     primaryColor: "#44475A"
     primaryTextColor: "#F8F8F2"
@@ -733,9 +788,6 @@ config:
     lineColor: "#FF79C6"
 ---
 ishikawa-beta
-  accTitle: Cause demo
-  accDescr: Render failure traced to browser, asset, and syntax cause families.
-  title Render Failure
   "Render Failure"
     Browser
       "Chromium missing"
@@ -748,4 +800,4 @@ ishikawa-beta
       "Reserved word"
 ```
 
-The quoted head names the effect, top-level identifiers are cause categories, and quoted children are causes; depth rides indentation. The beta reads the general variables only.
+The fence asserts a render failure traced to browser, asset, and syntax cause families; the family mis-handles `accTitle`/`accDescr`/`title` as spurious head nodes, so the relation sentence rides beside the fence. The quoted head names the effect, top-level identifiers are cause categories, and quoted children are causes; depth rides indentation. The beta reads the general variables only.

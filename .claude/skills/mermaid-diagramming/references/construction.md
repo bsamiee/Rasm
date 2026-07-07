@@ -1,8 +1,6 @@
 # [CONSTRUCTION]
 
-Per-type construction binds here — the question a type answers, what its marks assert, the signal its best render concentrates, the master patterns past standard practice, and the characteristic failure modes and truth tests that type carries. Type selection, the pre-drawing investigation traces, and staged growth stay methodology's property; a record's truth tests bind at review, and the validator owns only its named machine checks.
-
-Sections: [01] core types - [02] extended types.
+Each diagram type answers one question with a bounded mark vocabulary; per type, this reference binds what its marks must assert, the signal a strong render concentrates, its master patterns, and the failure modes and logic checks that gate review. Type selection, investigation traces, and staged growth stay methodology's property; the validator owns only its named machine checks.
 
 ## [01]-[CORE_TYPES]
 

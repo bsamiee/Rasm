@@ -92,7 +92,9 @@ REMOTE_LITERAL = re.compile(r"(?:https?:)?//|^/")
 RESIDUE = re.compile(r"<!--\s*replace:", re.IGNORECASE)
 SCRIPT_HAZARD = re.compile(r"[\u2028\u2029]")
 SCRIPT_SINK_TEXT = re.compile(r"\b(?:fetch|import|Worker|SharedWorker|WebSocket|EventSource|sendBeacon|open)\s*\(", re.IGNORECASE)
-SECRET = re.compile(r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{8,}\.eyJ")
+SECRET = re.compile(
+    r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{8,}\.eyJ"
+)
 SRGB_MIX = re.compile(r"color-mix\(\s*in\s+srgb", re.IGNORECASE)
 STYLE_ALLOWED_AT_RULES = ("@charset", "@layer", "@media", "@property", "@supports", "@keyframes", "@starting-style", "@page")
 SURFACES = ("--bg", "--surface", "--raised", "--raised-2", "--overlay")
@@ -104,6 +106,7 @@ MIN_CONTRAST = 4.5
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
+
 
 class Row(msgspec.Struct, frozen=True):
     file: str
@@ -276,7 +279,9 @@ def js_tree_rows(artifact: Artifact, script: Script) -> tuple[Row, ...]:
 
     def walk(node: Node, *, sink: bool = False) -> Iterable[Row]:
         source = script.body[node.start_byte : node.end_byte]
-        active = sink or (node.type in {"call_expression", "new_expression"} and bool(SCRIPT_SINK_TEXT.search(source[:96]))) or node.type == "import_call"
+        active = (
+            sink or (node.type in {"call_expression", "new_expression"} and bool(SCRIPT_SINK_TEXT.search(source[:96]))) or node.type == "import_call"
+        )
         if active and node.type in {"string", "template_string"} and REMOTE_LITERAL.search(source.strip("`'\"")):
             yield Row(artifact.path, script.line + node.start_point[0], Check.JS_SINK, "fail", source[:120])
         for child in node.children:
@@ -296,15 +301,44 @@ def js_syntax_rows(artifact: Artifact, script: Script) -> tuple[Row, ...]:
 def dom_rows(artifact: Artifact) -> tuple[Row, ...]:
     document = artifact.document
     rows: list[Row] = []
-    rows.extend(Row(artifact.path, line(node), Check.RETURN_META, "fail", "artifact-return meta is server-injected") for node in q(document, "//meta[@name='artifact-return']"))
+    rows.extend(
+        Row(artifact.path, line(node), Check.RETURN_META, "fail", "artifact-return meta is server-injected")
+        for node in q(document, "//meta[@name='artifact-return']")
+    )
     rows.extend(Row(artifact.path, line(node), Check.BASE, "fail", "base href rewrites relative resolution") for node in q(document, "//base[@href]"))
-    ids = {value: q(document, "//*[@id=$ident]", ident=value) for value in {str(node.get("id")) for node in q(document, "//*[@id]") if node.get("id")}}
-    rows.extend(Row(artifact.path, line(nodes[0]), Check.DUPLICATE_ID, "fail", f"#{key} appears {len(nodes)} times") for key, nodes in ids.items() if len(nodes) > 1)
-    headings = tuple((int(node.tag[1]), line(node)) for node in q(document, "//*[self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6][not(ancestor::template)]"))
-    rows.extend(Row(artifact.path, here, Check.HEADING_ORDER, "fail", f"h{previous} to h{current}") for (previous, _), (current, here) in pairwise(headings) if current > previous + 1)
-    rows.extend(Row(artifact.path, line(node), Check.A11Y_NAME, "fail", "icon-only button lacks accessible name") for node in q(document, "//button") if not text(node) and not any(node.get(attr) for attr in ("aria-label", "aria-labelledby", "title")))
-    rows.extend(Row(artifact.path, line(node), Check.INTERACTION, "fail", "toggle button lacks aria-pressed") for node in q(document, "//button[contains(@class,'toggle') or @role='switch' or @data-toggle]") if node.get("aria-pressed") is None)
-    rows.extend(Row(artifact.path, line(node), Check.INLINE_HANDLER, "fail", name) for node in q(document, "//*[@*]") for name in node.attrib if name.lower().startswith("on"))
+    ids = {
+        value: q(document, "//*[@id=$ident]", ident=value) for value in {str(node.get("id")) for node in q(document, "//*[@id]") if node.get("id")}
+    }
+    rows.extend(
+        Row(artifact.path, line(nodes[0]), Check.DUPLICATE_ID, "fail", f"#{key} appears {len(nodes)} times")
+        for key, nodes in ids.items()
+        if len(nodes) > 1
+    )
+    headings = tuple(
+        (int(node.tag[1]), line(node))
+        for node in q(document, "//*[self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6][not(ancestor::template)]")
+    )
+    rows.extend(
+        Row(artifact.path, here, Check.HEADING_ORDER, "fail", f"h{previous} to h{current}")
+        for (previous, _), (current, here) in pairwise(headings)
+        if current > previous + 1
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.A11Y_NAME, "fail", "icon-only button lacks accessible name")
+        for node in q(document, "//button")
+        if not text(node) and not any(node.get(attr) for attr in ("aria-label", "aria-labelledby", "title"))
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.INTERACTION, "fail", "toggle button lacks aria-pressed")
+        for node in q(document, "//button[contains(@class,'toggle') or @role='switch' or @data-toggle]")
+        if node.get("aria-pressed") is None
+    )
+    rows.extend(
+        Row(artifact.path, line(node), Check.INLINE_HANDLER, "fail", name)
+        for node in q(document, "//*[@*]")
+        for name in node.attrib
+        if name.lower().startswith("on")
+    )
     return tuple(rows)
 
 
@@ -334,13 +368,26 @@ def css_rows(artifact: Artifact) -> tuple[Row, ...]:
     rows: list[Row] = []
     rows.extend(css_layer_rows(artifact, artifact.css))
     rows.extend(contrast_rows(artifact, artifact.css))
-    rows.extend(Row(artifact.path, artifact.css[: match.start()].count("\n") + 1, Check.SRGB_MIX, "fail", match.group(0)) for match in SRGB_MIX.finditer(plain))
-    rows.extend(Row(artifact.path, artifact.css[: match.start()].count("\n") + 1, Check.RAW_HEX, "fail", f"{match['prop']}:{match['value'].strip()[:80]}") for match in CSS_DECL.finditer(plain) if HEX_COLOR.search(match["value"]))
+    rows.extend(
+        Row(artifact.path, artifact.css[: match.start()].count("\n") + 1, Check.SRGB_MIX, "fail", match.group(0))
+        for match in SRGB_MIX.finditer(plain)
+    )
+    rows.extend(
+        Row(artifact.path, artifact.css[: match.start()].count("\n") + 1, Check.RAW_HEX, "fail", f"{match['prop']}:{match['value'].strip()[:80]}")
+        for match in CSS_DECL.finditer(plain)
+        if HEX_COLOR.search(match["value"])
+    )
     rows.append(Row(artifact.path, 1, Check.FOCUS_VISIBLE, "fail", "missing :focus-visible selector")) if ":focus-visible" not in plain else None
-    rows.append(Row(artifact.path, 1, Check.FOCUS_VISIBLE, "fail", "outline:none without same-rule focus replacement")) if re.search(r":focus-visible[^{}]*{(?=[^{}]*outline\s*:\s*none)(?![^{}]*box-shadow)", plain) else None
-    rows.append(Row(artifact.path, 1, Check.INTERACTION, "warn", ".btn lacks transition")) if ".btn" in plain and not re.search(r"\.btn[^{]*{[^{}]*transition\s*:", plain) else None
+    rows.append(Row(artifact.path, 1, Check.FOCUS_VISIBLE, "fail", "outline:none without same-rule focus replacement")) if re.search(
+        r":focus-visible[^{}]*{(?=[^{}]*outline\s*:\s*none)(?![^{}]*box-shadow)", plain
+    ) else None
+    rows.append(Row(artifact.path, 1, Check.INTERACTION, "warn", ".btn lacks transition")) if ".btn" in plain and not re.search(
+        r"\.btn[^{]*{[^{}]*transition\s*:", plain
+    ) else None
     rows.append(Row(artifact.path, 1, Check.PRINT, "fail", "missing @media print")) if "@media print" not in plain else None
-    rows.append(Row(artifact.path, 1, Check.PRINT, "fail", ".export-bar not hidden in print")) if "export-bar" in artifact.text and not re.search(r"@media print[\s\S]*\.export-bar[^{]*{[^{}]*display\s*:\s*none", plain) else None
+    rows.append(Row(artifact.path, 1, Check.PRINT, "fail", ".export-bar not hidden in print")) if "export-bar" in artifact.text and not re.search(
+        r"@media print[\s\S]*\.export-bar[^{]*{[^{}]*display\s*:\s*none", plain
+    ) else None
     return tuple(rows)
 
 
@@ -371,19 +418,36 @@ def audit(path: Path) -> tuple[Row, ...]:
     base = (
         (bool(DOCTYPE.match(artifact.text)), Check.DOCTYPE, "missing <!doctype html>"),
         (bool(text(q(artifact.document, "//title")[0])) if q(artifact.document, "//title") else False, Check.TITLE, "empty or missing <title>"),
-        (len(q(artifact.document, "/html/head/style")) == 1, Check.STYLE_COUNT, f"{len(q(artifact.document, '/html/head/style'))} document style blocks"),
+        (
+            len(q(artifact.document, "/html/head/style")) == 1,
+            Check.STYLE_COUNT,
+            f"{len(q(artifact.document, '/html/head/style'))} document style blocks",
+        ),
     )
     rows = [Row(artifact.path, 1, check, "fail", detail) for ok, check, detail in base if not ok]
     rows.extend(dom_rows(artifact) + reference_rows(artifact) + css_rows(artifact) + script_rows(artifact))
-    rows.append(Row(artifact.path, 1, Check.SIZE, "warn", f"{artifact.raw_size // 1024}KB > {SIZE_WARN // 1024}KB")) if artifact.raw_size > SIZE_WARN else None
-    rows.extend(Row(artifact.path, number, check, "warn", detail) for number, value in enumerate(artifact.text.splitlines(), 1) for check, pattern, detail in ((Check.RESIDUE, RESIDUE, "template replace-marker remains"), (Check.SECRET, SECRET, "credential-shaped literal")) if pattern.search(value) and not (check is Check.SECRET and ";base64," in value))
+    rows.append(
+        Row(artifact.path, 1, Check.SIZE, "warn", f"{artifact.raw_size // 1024}KB > {SIZE_WARN // 1024}KB")
+    ) if artifact.raw_size > SIZE_WARN else None
+    rows.extend(
+        Row(artifact.path, number, check, "warn", detail)
+        for number, value in enumerate(artifact.text.splitlines(), 1)
+        for check, pattern, detail in (
+            (Check.RESIDUE, RESIDUE, "template replace-marker remains"),
+            (Check.SECRET, SECRET, "credential-shaped literal"),
+        )
+        if pattern.search(value) and not (check is Check.SECRET and ";base64," in value)
+    )
     return tuple(sorted(rows, key=lambda row: (row.line, row.check, row.detail)))
 
 
 # --- [COMPOSITION] -----------------------------------------------------------------------
 
+
 def check(paths: Annotated[Sequence[Path], Parameter(name="paths")], *, json: bool = False) -> int:
-    rows = tuple(row for path in paths for row in (audit(path) if path.is_file() else (Row(str(path), 0, Check.READ, "fail", "not a readable file"),)))
+    rows = tuple(
+        row for path in paths for row in (audit(path) if path.is_file() else (Row(str(path), 0, Check.READ, "fail", "not a readable file"),))
+    )
     for row in rows:
         emit(row, json)
     return 1 if any(row.status == "fail" for row in rows) else 0

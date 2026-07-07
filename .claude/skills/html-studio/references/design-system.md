@@ -6,11 +6,11 @@ NOCTURNE is the single canonical `<style>` baseline: a Dracula-descended dark-fi
 
 One `<!doctype html>` file: one `<title>`, all CSS in one `<style>`, all JS in one `<script>`. Zero network references — no CDN, no webfont, no `https://` in any `src`/`href`, no `url()` that resolves off-machine.
 
-| [INDEX] | [ALLOW]        | [FORM]                          |
-| :-----: | :------------- | :------------------------------ |
-|  [01]   | In-page anchor | `href="#section-id"`            |
-|  [02]   | Inline asset   | `data:` URI                     |
-|  [03]   | Sibling page   | relative `href` to a sibling    |
+| [INDEX] | [ALLOW]        | [FORM]                                                     |
+| :-----: | :------------- | :--------------------------------------------------------- |
+|  [01]   | In-page anchor | `href="#section-id"`                                       |
+|  [02]   | Inline asset   | `data:` URI                                                |
+|  [03]   | Sibling page   | relative `href` to a sibling                               |
 |  [04]   | Return channel | server-injected `artifact-return` + `artifact-token` metas |
 
 Wide content — tables, diagrams, code — rides inside an `overflow-x:auto` container (`.twrap`, `pre`); `body` sets `overflow-x:hidden` so the page never scrolls sideways.
@@ -19,7 +19,7 @@ Wide content — tables, diagrams, code — rides inside an `overflow-x:auto` co
 
 Semantic names only; a consumer reads intent, never hex. Dark is the shipped base; light arrives through `data-theme="light"` and the system-preference media query.
 
-- Elevation: `--bg` `--surface` `--raised` `--raised-2` `--overlay` — each step perceptibly lighter than the one below, so depth is carried by tone; `--line`/`--line-strong` are white-alpha hairlines that read at every elevation.
+- Elevation: `--bg` `--surface` `--raised` `--raised-2` `--overlay` — each step perceptibly lighter than the one below, so depth is carried by tone; `--line`/`--line-strong` are white-alpha hairlines that read at every elevation, and `--boundary` is the bright containment stroke every dashed zone and container border binds — the shared boundary color the mermaid skill draws its containers with.
 - Text: `--text` `--text-muted` `--text-faint` — `--text-muted` is contrast-guaranteed legal body copy; `--text-faint` is legal only for pure decoration at 13px and above (grip dots, disabled controls, filter-dimmed de-emphasis). Any label carrying real information at 12px or below binds `--text-muted`, never `--text-faint` — at 11px on `--raised`, faint sits near 3.4:1 and fails the text floor.
 - Violet (`--accent` family): the interactive role — buttons, links, focus, selection, toggles, meters.
 - Copper (`--editorial` family): the editorial role — eyebrows, section numerals, keyline callouts, figure captions.
@@ -49,7 +49,7 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   color-scheme:dark;
   --bg:oklch(0.16 0.022 290);--surface:oklch(0.205 0.024 290);--raised:oklch(0.245 0.026 290);
   --raised-2:oklch(0.295 0.028 290);--overlay:oklch(0.345 0.03 290);
-  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);
+  --line:oklch(1 0 0/.09);--line-strong:oklch(1 0 0/.16);--boundary:oklch(0.84 0.089 304);
   --text:oklch(0.965 0.008 290);--text-muted:oklch(0.78 0.03 290);--text-faint:oklch(0.66 0.032 290);
   --accent:oklch(0.72 0.185 292);--accent-hover:oklch(0.78 0.18 292);--accent-active:oklch(0.655 0.175 292);
   --accent-weak:oklch(0.72 0.185 292/.16);--on-accent:oklch(0.16 0.02 292);
@@ -77,7 +77,7 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   color-scheme:light;
   --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
   --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
-  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);--boundary:oklch(0.55 0.16 301);
   --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
   --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
   --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
@@ -90,7 +90,7 @@ html{-webkit-text-size-adjust:100%}body{margin:0}img,svg{max-width:100%;height:a
   color-scheme:light;
   --bg:oklch(0.975 0.008 85);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);
   --raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
-  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);
+  --line:oklch(0 0 0/.1);--line-strong:oklch(0 0 0/.16);--boundary:oklch(0.55 0.16 301);
   --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
   --accent:oklch(0.52 0.19 292);--accent-hover:oklch(0.47 0.19 292);--accent-active:oklch(0.44 0.18 292);
   --accent-weak:oklch(0.52 0.19 292/.12);--on-accent:oklch(0.99 0 0);
@@ -113,8 +113,7 @@ p,li{text-wrap:pretty}
 p{margin:0 0 var(--s3)}
 .muted{color:var(--text-muted)}small{font-size:var(--fs-xs);color:var(--text-muted)}
 .num{font-variant-numeric:tabular-nums}
-a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard)}
-a:hover{text-decoration-color:var(--accent)}
+a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in oklch,var(--accent) 40%,transparent);text-underline-offset:2px;transition:text-decoration-color var(--dur-1) var(--ease-standard);&:hover{text-decoration-color:var(--accent)}}
 hr{border:0;border-top:1px solid var(--line);margin:var(--s5) 0}
 button,select,input,textarea{font:inherit;color:inherit}
 :focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus);border-radius:var(--r-1)}
@@ -125,30 +124,18 @@ button,select,input,textarea{font:inherit;color:inherit}
 .deck{font-size:var(--fs-lg);color:var(--text-muted);max-width:60ch}
 .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);box-shadow:var(--shadow-1)}
 .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-.section{counter-increment:sec}
-.section>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}
-.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface)}
-.chip.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}
-.chip.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
-.chip.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}
-.chip.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}
-.stat{display:grid;gap:var(--s1)}
-.stat b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.stat .delta{font-family:var(--font-mono);font-size:var(--fs-2xs)}
-.stat .delta.up{color:var(--ok)}.stat .delta.down{color:var(--fail)}
+.section{counter-increment:sec;&>h2::before{content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:var(--fs-sm);font-weight:500;color:var(--editorial);margin-right:var(--s3);letter-spacing:.06em}}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px var(--s2);border-radius:var(--r-full);border:1px solid var(--line-strong);color:var(--text-muted);background:var(--surface);
+&.ok{color:var(--ok);border-color:color-mix(in oklch,var(--ok) 45%,transparent);background:color-mix(in oklch,var(--ok) 14%,transparent)}&.warn{color:var(--warn);border-color:color-mix(in oklch,var(--warn) 45%,transparent);background:color-mix(in oklch,var(--warn) 14%,transparent)}
+&.fail{color:var(--fail);border-color:color-mix(in oklch,var(--fail) 45%,transparent);background:color-mix(in oklch,var(--fail) 14%,transparent)}&.info{color:var(--info);border-color:color-mix(in oklch,var(--info) 45%,transparent);background:color-mix(in oklch,var(--info) 14%,transparent)}}
+.stat{display:grid;gap:var(--s1);& b{font-family:var(--font-mono);font-size:var(--fs-2xl);font-weight:600;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;letter-spacing:-.01em}& .delta{font-family:var(--font-mono);font-size:var(--fs-2xs);&.up{color:var(--ok)}&.down{color:var(--fail)}}}
 .kbd{font-family:var(--font-mono);font-size:var(--fs-2xs);padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-1);background:var(--surface)}
-.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0}
-.rail.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
-.rail.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}
-.rail.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}
-.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs)}
-.toc a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard)}
-.toc a:hover{color:var(--text);border-left-color:var(--accent)}
-.toc a.on{color:var(--text);border-left-color:var(--accent);font-weight:500}
-.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden}
-.meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
-.meter.seg{display:flex;gap:2px}.meter.seg>span{transition:none}
-.meter.seg .ok{background:var(--ok)}.meter.seg .warn{background:var(--warn)}.meter.seg .fail{background:var(--fail)}
+.rail{border-inline-start:3px solid var(--editorial);padding:var(--s3) var(--s4);background:var(--editorial-weak);border-radius:0 var(--r-1) var(--r-1) 0;&.ok{border-color:var(--ok);background:color-mix(in oklch,var(--ok) 8%,transparent)}
+&.warn{border-color:var(--warn);background:color-mix(in oklch,var(--warn) 8%,transparent)}&.fail{border-color:var(--fail);background:color-mix(in oklch,var(--fail) 8%,transparent)}}
+.toc{position:sticky;top:var(--s4);align-self:start;font-size:var(--fs-xs);
+& a{display:block;padding:var(--s1) var(--s2);color:var(--text-muted);text-decoration:none;border-left:2px solid var(--line);transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard);&:hover{color:var(--text);border-left-color:var(--accent)}&.on{color:var(--text);border-left-color:var(--accent);font-weight:500}}}
+.meter{height:6px;border-radius:var(--r-full);background:var(--surface);overflow:hidden;&>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-active));transition:width var(--dur-2) var(--ease-standard)}
+&.seg{display:flex;gap:2px;&>span{transition:none}& .ok{background:var(--ok)}& .warn{background:var(--warn)}& .fail{background:var(--fail)}}}
 .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-2)}
 table{border-collapse:collapse;width:100%;font-size:var(--fs-sm)}
 th,td{text-align:left;padding:var(--s2) var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
@@ -156,30 +143,29 @@ th{background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-2xs
 tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-family:var(--font-mono);line-height:var(--lh-data)}
 code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:var(--r-1)}
-pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55}
-pre code{background:none;padding:0}
-.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
-.btn:hover{background:var(--raised-2);border-color:var(--accent)}
-.btn:active{transform:scale(.985)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1)}
-.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}
-.btn.primary:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}
-.btn.ghost{background:transparent}
-.btn[aria-pressed="true"],.btn.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
-.btn:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}
+pre{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--s4);font-size:var(--fs-xs);line-height:1.55;& code{background:none;padding:0}}
+.btn{font-size:var(--fs-sm);font-weight:500;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-1);background:var(--surface);cursor:pointer;transition:background var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out);
+&:hover{background:var(--raised-2);border-color:var(--accent)}&:active{transform:scale(.985)}
+&.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-1);&:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-2)}&:active{background:var(--accent-active);transform:translateY(0) scale(.985);box-shadow:var(--shadow-1)}}
+&.ghost{background:transparent}&[aria-pressed="true"],&.on{background:var(--accent-weak);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+&:disabled{color:var(--text-faint);background:var(--surface);border-color:var(--line);cursor:not-allowed;transform:none;box-shadow:none}}
 input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-1);padding:var(--s2);transition:border-color var(--dur-1) var(--ease-standard)}
 input:hover,select:hover,textarea:hover{border-color:var(--accent)}
-summary{cursor:pointer;font-weight:500}
-summary::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}
+summary{cursor:pointer;font-weight:500;&::before{content:"\25B8";display:inline-block;margin-right:var(--s2);color:var(--editorial);transition:transform var(--dur-1) var(--ease-standard)}}
 details[open]>summary::before{transform:rotate(90deg)}
-.export-bar{position:sticky;bottom:0;display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);background:color-mix(in oklch,var(--raised-2) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line-strong)}
+.export-bar{position:fixed;inset:auto;inset-block-start:50%;inset-inline-end:var(--s4);translate:0 -50%;margin:0;inline-size:min(21rem,calc(100vw - var(--s5)*2));block-size:60vh;flex-direction:column;align-items:stretch;gap:var(--s3);padding:var(--s4);background:var(--raised);color:var(--text);border:1px solid var(--line-strong);border-radius:var(--r-3);box-shadow:var(--shadow-2);overflow:auto;transition:opacity var(--dur-3) var(--ease-out),translate var(--dur-3) var(--ease-out);
+&:popover-open{display:flex;@starting-style{opacity:0;translate:var(--s6) -50%}}
+&>header{display:flex;align-items:center;justify-content:space-between;gap:var(--s2)}
+&>section{display:grid;gap:var(--s2);align-content:start;&+section{border-block-start:1px solid var(--line);padding-block-start:var(--s3)}}
+& textarea{inline-size:100%;min-block-size:0;block-size:3.5rem;font-family:var(--font-mono);font-size:var(--fs-xs);transition:block-size var(--dur-2) var(--ease-out);&:focus{block-size:9rem}}}
+.drawer-tab{position:fixed;inset-block-end:var(--s5);inset-inline-end:var(--s4);z-index:5;display:inline-flex;align-items:center;gap:var(--s2);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:var(--s2) var(--s4);border:1px solid var(--line-strong);border-radius:var(--r-full);background:var(--raised);color:var(--text-muted);box-shadow:var(--shadow-2);cursor:pointer;transition:color var(--dur-1) var(--ease-standard),border-color var(--dur-1) var(--ease-standard),background var(--dur-1) var(--ease-standard),transform var(--dur-2) var(--ease-out);&:hover{color:var(--text);border-color:var(--accent);background:var(--raised-2);transform:translateY(-1px)}&:active{transform:translateY(0)}}
 }
 @layer print{
 @media print{
   :root{
     color-scheme:light;
     --bg:oklch(1 0 0);--surface:oklch(0.945 0.012 85);--raised:oklch(1 0 0);--raised-2:oklch(1 0 0);--overlay:oklch(1 0 0);
-    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);
+    --line:oklch(0 0 0/.14);--line-strong:oklch(0 0 0/.2);--boundary:oklch(0.55 0.16 301);
     --text:oklch(0.21 0.012 290);--text-muted:oklch(0.43 0.02 290);--text-faint:oklch(0.54 0.02 290);
     --accent:oklch(0.52 0.19 292);--editorial:oklch(0.55 0.12 55);
     --ok:oklch(0.52 0.15 150);--warn:oklch(0.56 0.13 70);--fail:oklch(0.54 0.2 25);--info:oklch(0.52 0.12 235);
@@ -195,7 +181,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 }
 @layer overrides{
 @media (forced-colors:active){
-  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText}
+  :root{--bg:Canvas;--surface:Canvas;--raised:Canvas;--raised-2:Canvas;--text:CanvasText;--text-muted:CanvasText;--accent:Highlight;--line:CanvasText;--boundary:CanvasText}
   *{box-shadow:none!important;text-shadow:none!important}
 }
 @media (prefers-contrast:more){
@@ -217,7 +203,7 @@ details[open]>summary::before{transform:rotate(90deg)}
 - `.toc` — sticky in-page nav; `.on` marks the active section, stamped by an `IntersectionObserver`.
 - `.meter` — violet gradient fill; `.meter.seg` stacks `ok`/`warn`/`fail` segments for pass/fail/skip.
 - `.btn` — secondary at rest; `.primary` is the filled violet action, `.ghost` the quiet sibling; pressed state rides `aria-pressed="true"`.
-- `.export-bar` — sticky bottom egress: copy-markdown, download-JSON, and the send-to-agent action when the return channel is live.
+- `.export-bar` + `.drawer-tab` — the export drawer: a deliberate `--raised` pill anchored to the bottom-right corner (`inset-block-end:var(--s5);inset-inline-end:var(--s4)`), right-aligned to the drawer's own edge, carrying an uppercase mono label; its `popovertarget` opens a `popover="auto"` side panel — a rounded `--raised` drawer at 60vh, never full-height or full-width. Fixed interior order: the send-to-agent action, then disk egress (copy-markdown, download-JSON), then per-type fields.
 - `.twrap` `.kbd` `.num` `pre`/`code` — wide-content shell, keycap, tabular numerals, code surfaces.
 
 Derived structural devices — the heat cell, timeline spine, split pane, sidenote — live in [styling.md](styling.md) with their recipes and ceilings; the baseline owns only the classes above.
@@ -236,17 +222,17 @@ Quality lives at the per-element level: every text class carries an exact size, 
 
 | [INDEX] | [CLASS]                                       | [TOKEN]      | [FAMILY_WEIGHT]         | [FLOOR] |
 | :-----: | :-------------------------------------------- | :----------- | :---------------------- | :------ |
-|  [01]   | h1                                             | `--fs-3xl`   | serif 600               | 30px    |
-|  [02]   | h2                                             | `--fs-xl`    | serif 600               | 21px    |
-|  [03]   | h3                                             | `--fs-lg`    | sans 600                | 18px    |
-|  [04]   | deck / lead                                    | `--fs-lg`    | sans or serif 400       | 17px    |
-|  [05]   | stat numeral, KPI value                        | `--fs-2xl`   | mono 600, tabular       | 22px    |
-|  [06]   | body p, li                                     | `--fs-md`    | sans 400                | 15px    |
-|  [07]   | table cell                                     | `--fs-sm`    | sans 400 / mono for num | 13px    |
-|  [08]   | pre / code block                               | `--fs-xs`    | mono 400                | 12px    |
-|  [09]   | small / caption                                | `--fs-xs`    | sans 400                | 12px    |
-|  [10]   | svg canvas label                               | 11px literal | mono 400-500            | 11px    |
-|  [11]   | eyebrow, chip, th, kbd, delta, stamp, numeral  | `--fs-2xs`   | mono 600, uppercase     | 11px    |
+|  [01]   | h1                                            | `--fs-3xl`   | serif 600               | 30px    |
+|  [02]   | h2                                            | `--fs-xl`    | serif 600               | 21px    |
+|  [03]   | h3                                            | `--fs-lg`    | sans 600                | 18px    |
+|  [04]   | deck / lead                                   | `--fs-lg`    | sans or serif 400       | 17px    |
+|  [05]   | stat numeral, KPI value                       | `--fs-2xl`   | mono 600, tabular       | 22px    |
+|  [06]   | body p, li                                    | `--fs-md`    | sans 400                | 15px    |
+|  [07]   | table cell                                    | `--fs-sm`    | sans 400 / mono for num | 13px    |
+|  [08]   | pre / code block                              | `--fs-xs`    | mono 400                | 12px    |
+|  [09]   | small / caption                               | `--fs-xs`    | sans 400                | 12px    |
+|  [10]   | svg canvas label                              | 11px literal | mono 400-500            | 11px    |
+|  [11]   | eyebrow, chip, th, kbd, delta, stamp, numeral | `--fs-2xs`   | mono 600, uppercase     | 11px    |
 
 - `--fs-2xs` is the label floor and is legal only for uppercase mono at weight 600 with letter-spacing at or above `.04em` — never sentence text, never `--text-faint` ink.
 - Letter-spacing per role: eyebrow `.08em`, th and section numerals `.06em`, chips `.04em`; numerals track `-.01em` and always set `tabular-nums`.
