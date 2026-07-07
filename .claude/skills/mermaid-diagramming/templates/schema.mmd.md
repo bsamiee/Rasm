@@ -19,14 +19,15 @@ config:
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
+    tertiaryColor: "#21222C"
     edgeLabelBackground: "#21222C"
     attributeBackgroundColorOdd: "#282A36"
     attributeBackgroundColorEven: "#21222C"
   themeCSS: ".nodeLabel{font-size:12px}.name .nodeLabel{font-size:13px;font-weight:600}.edgeLabel .nodeLabel{font-size:12px;font-weight:500}.relationshipLine{stroke-width:2px}.edge-pattern-dashed{stroke-width:1.5px;stroke-dasharray:6 6}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.marker circle{fill:#282A36}.node rect,.node path{stroke-width:1.5px;filter:none!important}.er.entityBox{filter:none}"
 ---
 erDiagram
-    accTitle: Persistent entity schema
-    accDescr: Typed entities around one aggregate root, every relationship backed by its foreign key and a junction entity resolving the many-to-many.
+    accTitle: Artifact index schema
+    accDescr: Runs issued by an owner yielding receipts and faults, consuming content-keyed artifacts through a junction, bound to an externally owned tool registry.
     OWNER ||--o{ RUN : issues
     RUN ||--|{ RECEIPT : yields
     RUN }o--|| REGISTRY : binds

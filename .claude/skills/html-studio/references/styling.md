@@ -4,7 +4,7 @@ The stylesheet is an architecture: layers order the cascade, the NOCTURNE floor 
 
 ## [01]-[ARCHITECTURE]
 
-The embedded design-system floor declares the layer order — `reset, tokens, base, components, utilities, print, overrides` — and populates the early layers; the template-local sheet appends into the same named layers, where same-name layers merge and later source order wins ties.
+The stamped `NOCTURNE_BASELINE` region declares the layer order — `reset, tokens, base, components, utilities, print, overrides` — and populates the early layers; the template-local sheet appends into the same named layers after the region's end marker, where same-name layers merge and later source order wins ties.
 
 ```css copy-safe
 /* template-local sheet; appends into the floor's named layers — the floor owns the order */
@@ -124,8 +124,8 @@ The structural devices are the page's visual vocabulary; every template composes
 - [NO_OPACITY_DIM]: a de-emphasized row keeps legible text — `--text-faint` labels, a `--fail` rail, or a strike on the leading cell; whole-row `opacity` drops content below contrast and is banned.
 - [WINNER_MARKED]: in any scored surface the winning row carries an `--ok` rail and the disqualified row a `--fail` rail with its reason inline — verdicts are structural, never a tint rumor.
 - [HEAT_CEILING]: heat intensity tops at 60% toward `--accent` so cell text holds 4.5:1 at full score; the winner still signals through its rail, never fill alone.
-- [ACCENT_COMMITTED]: violet appears as a filled field somewhere above the fold — the primary action, the active tab, the meter — so the accent is a commitment, not a rumor; copper never fills a control.
-- [DASH_RHYTHM]: one dashed vocabulary across HTML borders and SVG strokes — `4 3` reads as annotation or trace, `6 3` as planned or not-yet, solid as realized; a third rhythm is a defect. A `stroke-dasharray` equal to its path length driving a draw-on `stroke-dashoffset` animation renders solid and sits outside the vocabulary, as does the animated `6 4` flow-edge dash in [svg.md](svg.md).
+- [ACCENT_FIELD]: the filled violet field the design-system accent budget demands lands as the primary action, the active tab, or the meter; copper never fills a control.
+- [DASH_RHYTHM]: one dashed vocabulary across HTML borders, SVG strokes, and mermaid fences — `4 6` reads as annotation, trace, or async, `6 6` as planned or not-yet, `5 4` as containment boundary, solid as realized; a fourth rhythm is a defect. A `stroke-dasharray` equal to its path length driving a draw-on `stroke-dashoffset` animation renders solid and sits outside the vocabulary, as does the animated `6 4` flow-edge dash in [svg.md](svg.md).
 - [MARKER_SCALE]: markers size by role — micro status dot 8px, small marker 10px, node and timeline dot 16px with a 2px border; a hollow marker over tinted fill binds `--text-muted` with a 1px `--bg` outline so it reads at any intensity.
 - [HAIRLINE_ORDER]: hairline dividers and card top-highlights ride 1px `--line`; structural dividers and same-elevation borders ride 1px `--line-strong`; chart gridlines ride `--line` with the zero baseline stepped to `--line-strong` — a hairline never outweighs the structural line beside it.
 
@@ -230,14 +230,14 @@ The modular scale is fixed; fluidity lives in exactly one token — `--fs-4xl`, 
 
 ## [10]-[MOTION]
 
-The floor ships three durations and three easings and zeroes every duration under reduced motion — a transition reading `--dur-1/2/3` collapses to instant for the reduced-motion reader with no per-rule guard.
+The floor ships entry durations, shorter exit durations, and three easings, and zeroes every duration under reduced motion — a transition reading the tokens collapses to instant for the reduced-motion reader with no per-rule guard. Exit asymmetry is structural: the base rule carries the exit duration and `--ease-standard`, the open-state selector (`:popover-open`, `[open]`) overrides to the entry duration and `--ease-out`, so every overlay leaves faster and quieter than it arrived. Focus rings transition nothing — they appear instantly.
 
-| [INDEX] | [MOVE]                   | [TOKENS]                           |
-| :-----: | :----------------------- | :--------------------------------- |
-|  [01]   | tint, color, border      | `--dur-1` + `--ease-standard`      |
-|  [02]   | lift, reveal, disclosure | `--dur-2` + `--ease-out`           |
-|  [03]   | overlay, panel slide     | `--dur-3` + `--ease-out`           |
-|  [04]   | micro-celebration        | `--ease-spring`, one element, once |
+| [INDEX] | [MOVE]                   | [TOKENS]                                         |
+| :-----: | :----------------------- | :----------------------------------------------- |
+|  [01]   | tint, color, border      | `--dur-1` + `--ease-standard`                    |
+|  [02]   | lift, reveal, disclosure | `--dur-2` in, `--dur-out-2` out, `--ease-out` in |
+|  [03]   | overlay, panel slide     | `--dur-3` in, `--dur-out-3` out, `--ease-out` in |
+|  [04]   | micro-celebration        | `--ease-spring`, one element, once               |
 
 ```css copy-safe
 @layer components {

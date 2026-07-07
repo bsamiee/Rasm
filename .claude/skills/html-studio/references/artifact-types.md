@@ -47,8 +47,9 @@ Every control on a type lands in exactly one of three classes. Load-bearing cont
   - Header — eyebrow, title, scope chip, date slot, live overall chip deriving on-track or at-risk from the dependency graph.
   - Horizon timeline — one banded inline-SVG figure: milestone diamonds by status, dashed dependency arcs drawn only for cross-horizon hard dependencies (a backward dependency renders in `--fail`), a today marker from the roadmap date.
   - Rollup — one card per horizon counting done, active, open, and at-risk milestones.
-  - Horizon lanes — one lane per horizon holding milestone cards; each card carries owner, dependency roster, derived at-risk reason, and a status/note override.
+  - Horizon lanes — one lane per horizon holding milestone cards; each card carries owner, dependency roster, derived at-risk reason, and a status/note override; the hard-dependency critical chain draws at emphasis weight with slack rendered as lighter buffer extensions.
   - Filter box — live-dims cards by text; counts stay visible.
+- Narrow viewports collapse the horizontal timeline into stacked dated cards per horizon — never cramped bars.
 - Load-bearing: a bar or card dragged across horizons is the replan signal — `changes[]{itemId,path:"/milestones/{id}/horizon",from,to}`; a status override or promotion-condition edit lands in `changes[]`; a milestone note in `annotations[]`.
 - View-only: theme toggle, filter-dim with visible counts, click-to-detail, today marker, deep-link.
 - Forbidden: a time-axis zoom that rescales and writes nothing yet reads as interaction; dragging a dependency arrow — dependencies are structure, edited as data or not at all.
@@ -61,8 +62,9 @@ Every control on a type lands in exactly one of three classes. Load-bearing cont
 - Displaces: brainstorm — candidates are named; the page evaluates, never generates.
 - Regions, in order:
   - Header — eyebrow, title, criteria legend with live weight sliders.
-  - Scoring matrix — options as rows, criteria as columns, heatmap cells whose fill intensity tracks score, editable values, a live weighted-total column.
-  - Verdict pane — reranks as weights move; carries the sensitivity line: the smallest change that flips the winner.
+  - Scoring matrix — options as rows, criteria as columns, heatmap cells whose fill intensity tracks score, editable values with a rationale slot per cell, a live weighted-total column.
+  - Hard requirements — pass/fail rows that disqualify a candidate regardless of weighted total; a disqualified row keeps its scores, takes the `--fail` rail with its reason inline, and the verdict pane never crowns it.
+  - Verdict pane — reranks as weights move; carries the sensitivity line as a computed threshold: the named weight or score change that flips the winner (`X wins once criterion Y ≥ N%`).
   - Risk cards — one card per option enumerating failure modes.
 - Load-bearing: weight sliders feed `changes[]` weight rows and the re-rank; editable score and rationale cells feed `changes[]{itemId:"{option}/{criterion}",from,to}`; the final call and dissent feed `decision.status` and `state.global`.
 - View-only: theme toggle, heatmap intensity, risk-card layout.
@@ -179,8 +181,9 @@ Every control on a type lands in exactly one of three classes. Load-bearing cont
   - prompt — a caret-preserving contenteditable template with slot highlighting, unknown-slot warnings, and live sample previews.
   - dataset — row curation with keep/cut marks, tag filters that dim, and a detail drawer.
   - annotation — spans or regions marked with a closed verdict vocabulary.
+  - graph — nodes and typed edges edited in place: add child or sibling, relabel, re-parent by drag, prune; tree layouts (radial, horizontal, vertical) or a small fixed graph, per [svg.md](svg.md); the model is the adjacency list and exports as outline, JSON tree, or edge list.
 - Regions, in order: header; sticky toolbar (filters, reset); the modality surface; changed-state diff against a frozen initial snapshot; export drawer.
-- Load-bearing by modality, all against a frozen `structuredClone` baseline: a board drop feeds `changes[]{itemId,path:"/cards/{id}/col"}`; a config toggle feeds `changes[]{itemId,path,from,to}`; a prompt slot edit feeds `state.template`; a dataset keep/cut feeds `decisions[]`; annotation spans feed `annotations[]`.
+- Load-bearing by modality, all against a frozen `structuredClone` baseline: a board drop feeds `changes[]{itemId,path:"/cards/{id}/col"}`; a config toggle feeds `changes[]{itemId,path,from,to}`; a prompt slot edit feeds `state.template`; a dataset keep/cut feeds `decisions[]`; annotation spans feed `annotations[]`; a graph mutation feeds `changes[]` keyed by node id with the full adjacency in `state`.
 - View-only: theme toggle, tag filter-dim, detail drawer, reset-to-baseline.
 - Forbidden: any control reading final state from the DOM — export derives from the model; a reset that clears the draft but not the baseline diff.
 - Export: required — the durable artifact (markdown board, config diff plus full JSON, prompt text, curated rows), never a UI-state dump; send-to-agent when live.
@@ -228,7 +231,7 @@ Every control on a type lands in exactly one of three classes. Load-bearing cont
 - Question: what the numbers say, how they move under a filter, and which rows drive them.
 - Displaces: report — the reader interrogates the dataset instead of receiving a digest.
 - Regions, in order:
-  - Header — title, filter and facet controls with live match counts.
+  - Header — title, filter and facet controls with live match counts; facets compose OR within a facet and AND across facets, every facet value shows its count under the active filter, the active-filter tally stays visible, and one control clears all.
   - Embedded dataset — the JSON payload inlined and sanitized per [state.md](state.md); the secret-redaction gate runs before embedding; pre-aggregate past ten-thousand rows.
   - KPI row — stat cards recomputed under the active filter.
   - Charts — inline-SVG plots reading series tokens.
@@ -298,3 +301,19 @@ Every control on a type lands in exactly one of three classes. Load-bearing cont
 - Interaction: flow chips dim everything then light the selected path with animated dash offset; reduced-motion stills the dashes; click-to-detail per node. Construction law is [svg.md](svg.md).
 - Export: optional — the stage as a standalone SVG.
 - Review: two behaviors drawn as two topologies, so the reader reconciles diagrams instead of flows.
+
+[19]-[SCHEMA_MAP]:
+
+- Question: what entities exist, how they relate, and what a change does to the shape.
+- Displaces: architecture — tables and keys are the subject, never services and flows.
+- Regions, in order:
+  - Header — title, store name, entity and relation counts.
+  - Entity canvas — table cards carrying column rows (name, type, key marker, nullability, index badge) laid out by domain grouping past eight tables; FK edges run child to parent with crow's-foot cardinality marks, junction tables render smaller between their principals, and external references fade as context cards.
+  - Focus rail — clicking a table lights its relation neighborhood and dims the rest; a name filter narrows; a show-only-related toggle prunes the canvas.
+  - Migration band — present only for a schema change: current/target/diff states toggle in place, added columns in `--ok`, removed in `--fail`, changed in `--warn`, and a changed column's click reveals its rationale.
+  - Query paths — present only when specific queries are the subject: selecting a named query lights the tables, joins, and indexes it touches.
+- Load-bearing: only when the map requests judgment — a per-change verdict on a migration diff feeds `decisions[]`; otherwise the type is narrative and carries no send.
+- View-only: theme toggle, focus fade, filter, migration state toggle, query-path highlight, per-figure SVG download.
+- Forbidden: a table drag that rearranges the canvas and writes nothing; an FK drawn by gesture — relations are data, edited as data or not at all.
+- Export: optional-with-form — the entity-relation roster as markdown; the canvas as standalone SVG.
+- Review: a relation edge whose cardinality contradicts the column keys, so the map lies about the schema.

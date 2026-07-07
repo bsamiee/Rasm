@@ -10,31 +10,13 @@ The theme stamp, the escape gate, and the control floor ride every artifact.
 
 The NOCTURNE floor owns the full control grammar — rest affordance, hover, `:active`, `:focus-visible` double ring, pressed state, disabled state — so a template never authors a private hover or drops a state. Composition is by class alone: the one action that commits the page's purpose is `.btn.primary`; peers are `.btn`; quiet inline actions are `.btn.ghost`; a latched control carries `aria-pressed="true"` and reads visually distinct from hover. Every control answers touch and keyboard identically to mouse, and hover-revealed content is never load-bearing — touch and print receive the default state.
 
-[THEME_TOGGLE]:
+[RUNTIME_KERNEL]:
 
-Stamps `data-theme` on `documentElement`; a `localStorage` slug key restores the last choice where the origin grants storage, and an unstored first paint follows the system preference.
-
-```js copy-safe
-const themeKey = "theme:" + document.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const root = document.documentElement;
-const stored = (() => { try { return localStorage.getItem(themeKey); } catch { return null; } })();
-if (stored) root.dataset.theme = stored;
-document.addEventListener("click", e => {
-  if (!e.target.closest("[data-toggle-theme]")) return;
-  const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
-  const next = dark ? "light" : "dark";
-  try { localStorage.setItem(themeKey, root.dataset.theme = next); } catch { root.dataset.theme = next; }
-});
-```
+The stamped `NOCTURNE_RUNTIME` region ships the cross-template runtime — the theme controller, `el()` and `clone()` factories, `esc()`, the copy chain, `download()`, `flash()`, `redact()`, the envelope validator and send, the export wire, the scroll spy, fragment view state, and print disclosure expansion — as the `NOCTURNE` namespace the template-local script composes. `NOCTURNE.boot({kind, envelope, toMarkdown, isChanged, onExported, narrative, redactPayload})` wires the drawer, theme, spy, and print hooks in one call; a template re-authoring any kernel concern forks the grammar and is a defect per [code.md](code.md).
 
 [ESCAPE_RENDER]:
 
-Source, diff, and answer text reaches the DOM escaped through a detached node; an injected string never renders as trusted HTML, and a dynamic selector value passes through `CSS.escape` before it enters `querySelector`.
-
-```js copy-safe
-const esc = v => { const n = document.createElement("span"); n.textContent = v; return n.innerHTML; };
-const byKey = k => document.querySelector(`[data-key="${CSS.escape(k)}"]`);
-```
+Source, diff, and answer text reaches the DOM escaped — `textContent` assignment or the kernel `esc()` for span-wrapped fragments — and a dynamic selector value passes through `CSS.escape` before it enters `querySelector`; an injected string never renders as trusted HTML.
 
 ## [02]-[EGRESS]
 
@@ -42,48 +24,11 @@ Egress moves state out of the page: the export drawer is the durable rail, the o
 
 [EXPORT_DRAWER]:
 
-One paradigm on every page: a fixed `.drawer-tab` pill anchored to the bottom-right corner, right-aligned to the drawer's edge and clear of the top control bar, opens the `.export-bar` panel through `popovertarget` — `popover="auto"` supplies open, light-dismiss, and `Esc` natively, focus returns to the tab on close, and reduced motion stills the slide through the zeroed duration tokens. The drawer is default-collapsed; open, it is a rounded `--raised` panel at 60vh, never full-height or full-width. Interior order is fixed across every type: the send section, then disk egress, then per-type fields. A `snapshot()` reads live UI state; one control copies markdown, one downloads JSON, and — when the return channel is live — the send section posts the envelope, per [roundtrip.md](roundtrip.md).
+One paradigm on every page: a fixed `.drawer-tab` pill anchored to the bottom-right corner opens the `.export-bar` panel through `popovertarget` — `popover="auto"` supplies open, light-dismiss, and `Esc` natively, focus returns to the tab on close, and reduced motion stills the slide through the zeroed duration tokens. The drawer is default-collapsed; open, it is a rounded `--raised` panel at 60vh, never full-height or full-width. Interior order is fixed across every type: the send section, then disk egress, then per-type fields. The markup is the stamped `NOCTURNE_DRAWER` region — send button, copy-markdown, download-JSON, copy-changed-only, meta line, readonly mirror — and per-type controls append into `[data-drawer-fields]` at render time; `boot()` removes the send section on a narrative type and the changed-only control when no `isChanged` is supplied.
 
-```html copy-safe
-<button type="button" class="drawer-tab no-print" popovertarget="export-drawer" aria-label="Open export drawer">Export</button>
-<aside id="export-drawer" class="export-bar no-print" popover="auto" aria-label="Export drawer">
-<header><span class="eyebrow">[EXPORT]</span><button type="button" class="btn ghost" popovertarget="export-drawer" popovertargetaction="hide" aria-label="Close export drawer">&#x2715;</button></header>
-<section aria-label="Send to agent"><button type="button" class="btn primary" data-export="send" hidden>Send to agent</button></section>
-<section aria-label="Disk egress">
-<button type="button" class="btn" data-export="md">Copy markdown</button>
-<button type="button" class="btn" data-export="json">Download JSON</button>
-</section>
-<section aria-label="Export fields">
-<label class="rowline">Verdict <select data-verdict aria-label="Overall verdict"></select></label>
-<textarea id="egress" readonly aria-label="Exported payload mirror"></textarea>
-</section>
-</aside>
-```
+[COPY_CHAIN]:
 
-[CLIPBOARD]:
-
-One recipe owns every copy: `navigator.clipboard.writeText` first, a hidden-textarea `execCommand` fallback for `file://` contexts, and a toast flash on landing. A capturing artifact whose export drawer carries the readonly mirror routes its denied-clipboard fallback there instead — the mirror already holds the exact payload. Two clipboard paths in the same artifact is a defect.
-
-```js copy-safe
-const copyText = async text => {
-  try { await navigator.clipboard.writeText(text); }
-  catch {
-    const t = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;left:-9999px" });
-    document.body.append(t); t.select(); document.execCommand("copy"); t.remove();
-  }
-  flash("Copied");
-};
-```
-
-[DOWNLOAD]:
-
-```js copy-safe
-const download = (name, mime, text) => {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
-  Object.assign(document.createElement("a"), { href: url, download: name }).click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-```
+One egress chain owns every copy, spelled once in the kernel: the payload lands in the readonly mirror first, `navigator.clipboard.writeText` runs second, and a denied clipboard leaves the mirror selected with the toast naming the fallback — the page never dead-ends and never touches `execCommand`. Downloads ride the kernel `download()` Blob recipe. Two egress paths in one artifact is a defect.
 
 [DRAFT_PERSIST]:
 

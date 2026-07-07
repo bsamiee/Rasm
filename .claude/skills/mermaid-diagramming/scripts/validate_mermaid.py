@@ -88,13 +88,24 @@ LINK_STYLE = re.compile(r"^\s*linkStyle\s+([0-9,\s]+|default)\s+(.+)$")
 SQ_ARROW = re.compile(r"^\s*([\w-]*\w)\s*(?:<<--?>>|--?(?:>>|>|\)|x))\s*[+-]?\s*([\w-]*\w)\s*:")
 SQ_PARTICIPANT = re.compile(r"^(?:create\s+)?(?:participant|actor)\s+([\w-]+)(?:@\{.*\})?(?:\s+as\s+.+)?\s*$")
 ST_TRANSITION = re.compile(r"^\s*(\[\*\]|[\w.]+)\s*-->\s*(\[\*\]|[\w.]+)")
+ACCENT_OPAQUE = re.compile(r"fill:#(?:50FA7B|8BE9FD|FFB86C|FFD866|FF5555|BD93F9|FF79C6)(?![0-9A-Fa-f]{2})", re.IGNORECASE)
+PADDING_22 = re.compile(r"padding:\s*22\b")
+STATE_START_STALE = re.compile(r"state-start\{r:(?!3\.4px)")
+TERMINAL_STALE = re.compile(r"scale\(\.64\)")
+YELLOW_DARK_LINE = re.compile(r"fill:#FFD866[0-9A-Fa-f]{0,2}\b(?=[^\n]*color:#282A36)", re.IGNORECASE)
+YELLOW_DARK_TAG = re.compile(r"tagLabelBackground\s*:\s*[\"']?#FFD866", re.IGNORECASE)
+YELLOW_DARK_TAG_INK = re.compile(r"tagLabelColor\s*:\s*[\"']?#282A36", re.IGNORECASE)
+YELLOW_DARK_NOTE = re.compile(r"noteBkgColor\s*:\s*[\"']?#FFD866", re.IGNORECASE)
+YELLOW_DARK_NOTE_INK = re.compile(r"noteTextColor\s*:\s*[\"']?#282A36", re.IGNORECASE)
+CLUSTER_TITLE = re.compile(r"cluster-label[^{}]*\{(?![^{}]*font-size:13\.5px)[^{}]*\}")
+SECTION_TITLE = re.compile(r"\.sectionTitle\{(?![^{}]*font-size:13\.5px)[^{}]*\}")
+MARKER_CIRCLE_STALE = re.compile(r"\.marker circle\{(?![^{}]*scale\(\.48\))[^{}]*transform[^{}]*\}")
 THEME_BASE = re.compile(r"^\s*theme\s*:\s*base\s*$", re.MULTILINE)
 LOOK_CLASSIC = re.compile(r"^\s*look\s*:\s*classic\s*$", re.MULTILINE)
 GRADIENT_KILL = re.compile(r"^\s*useGradient\s*:\s*false\s*$", re.MULTILINE)
 SHADOW_KILL = re.compile(r"^\s*dropShadow\s*:", re.MULTILINE)
 
 ACC_EXEMPT = frozenset({"block", "block-beta", "eventmodeling", "ishikawa-beta", "kanban", "mindmap", "sankey", "sankey-beta", "venn-beta"})
-BUDGETS = {"flowchart-edges": 12, "flowchart-nodes": 12, "sequence-participants": 6, "state-states": 12, "er-entities": 8, "class-classes": 10}
 CANON = frozenset({
     "primary",
     "boundary",
@@ -137,7 +148,8 @@ PALETTE = frozenset({
     "#FFD866",
     "#FFFBEB",
 })
-FILL_ALPHAS = frozenset({"", "80", "99", "BF"})
+ENGINE_HOOKS = frozenset({"#444444"})
+FILL_ALPHAS = frozenset({"", "1A", "26", "33", "4D", "54", "66", "80", "BF"})
 RENDER_CONFIG = {
     "theme": "base",
     "deterministicIds": True,
@@ -152,6 +164,12 @@ PUPPETEER_CONFIG = {
 }
 THEMED = frozenset({
     "architecture-beta",
+    "block",
+    "block-beta",
+    "kanban",
+    "packet",
+    "packet-beta",
+    "treeView-beta",
     "classDiagram",
     "cynefin-beta",
     "erDiagram",
@@ -417,9 +435,11 @@ def parse(fence: Fence) -> tuple[Diagram | None, tuple[Row, ...]]:
 def contract(diagram: Diagram) -> tuple[Row, ...]:
     body = diagram.fence.body
     access = [line.strip().split(":", 1)[0].split("{", 1)[0].strip() for line in body.splitlines() if ACCESS.match(line)]
-    off_palette = sorted(
-        {value for value in (hex_value.upper() for hex_value in HEX_COLOR.findall(body)) if value[:7] not in PALETTE or value[7:] not in FILL_ALPHAS}
-    )
+    off_palette = sorted({
+        value
+        for value in (hex_value.upper() for hex_value in HEX_COLOR.findall(body))
+        if (value[:7] not in PALETTE or value[7:] not in FILL_ALPHAS) and value not in ENGINE_HOOKS
+    })
     defs = {definition.name: definition for definition in diagram.defs}
     used = {use.name for use in diagram.uses}
     rows = [row(diagram.fence, Check.FRONTMATTER, "warn", "no-frontmatter")] if not body.startswith("---") else []
@@ -471,6 +491,33 @@ def contract(diagram: Diagram) -> tuple[Row, ...]:
         for name, definition in sorted(defs.items())
         if "color:" not in definition.style
     ]
+    rows += [
+        row(diagram.fence, Check.CONTRACT, "warn", f"class:accent-fill-opaque:{name}")
+        for name, definition in sorted(defs.items())
+        if ACCENT_OPAQUE.search(definition.style)
+    ]
+    rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:padding-25")] if PADDING_22.search(diagram.frontmatter) else []
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "floor:container-title")]
+        if CLUSTER_TITLE.search(diagram.frontmatter) or SECTION_TITLE.search(diagram.frontmatter)
+        else []
+    )
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "floor:terminal-circle")]
+        if STATE_START_STALE.search(diagram.frontmatter) or TERMINAL_STALE.search(diagram.frontmatter)
+        else []
+    )
+    rows += (
+        [row(diagram.fence, Check.CONTRACT, "warn", "floor:marker-circle-scale")]
+        if diagram.family == Family.FLOWCHART and MARKER_CIRCLE_STALE.search(diagram.frontmatter)
+        else []
+    )
+    yellow_dark = (
+        any(YELLOW_DARK_LINE.search(line) for line in diagram.lines)
+        or (YELLOW_DARK_TAG.search(diagram.frontmatter) and YELLOW_DARK_TAG_INK.search(diagram.frontmatter))
+        or (YELLOW_DARK_NOTE.search(diagram.frontmatter) and YELLOW_DARK_NOTE_INK.search(diagram.frontmatter))
+    )
+    rows += [row(diagram.fence, Check.CONTRACT, "warn", "floor:yellow-dark-ink")] if yellow_dark else []
     return tuple(rows)
 
 
@@ -515,7 +562,7 @@ def style_logic(diagram: Diagram) -> tuple[Row, ...]:
         grouped = any(line.strip().startswith(("rect ", "box ")) for line in diagram.lines)
         guarded = any(line.strip().startswith(("alt ", "par ", "critical", "break ")) for line in diagram.lines)
         rows += [row(diagram.fence, Check.CONTRACT, "warn", "sequence-floor:region-without-box-or-rect")] if guarded and not grouped else []
-    if diagram.family == Family.C4 and "UpdateElementStyle" not in diagram.fence.body:
+    if diagram.family == Family.C4 and "UpdateRelStyle" not in diagram.fence.body and "UpdateElementStyle" not in diagram.fence.body:
         rows += [row(diagram.fence, Check.CONTRACT, "warn", "c4-floor:update-style")]
     return tuple(rows)
 
@@ -536,16 +583,6 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             for (a, b, _), count in Counter((edge.source, edge.target, edge.label) for edge in diagram.edges).items()
             if count > 1
         ]
-        rows += (
-            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(graph.nodes)} nodes > {BUDGETS['flowchart-nodes']}")]
-            if len(graph.nodes) > BUDGETS["flowchart-nodes"]
-            else []
-        )
-        rows += (
-            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(diagram.edges)} edges > {BUDGETS['flowchart-edges']}")]
-            if len(diagram.edges) > BUDGETS["flowchart-edges"]
-            else []
-        )
         return tuple(rows)
     if diagram.family == Family.STATE:
         reach: nx.DiGraph[str, dict[str, object], dict[str, object]] = nx.DiGraph()
@@ -558,11 +595,6 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
                 reach.add_edge(left, right)
         reachable = set().union(*(nx.descendants(reach, start) | {start} for start in starts), set()) if starts else states
         rows = [row(diagram.fence, Check.LOGIC, "fail", f"unreachable-state:{state}") for state in sorted(states - reachable)]
-        rows += (
-            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(states)} states > {BUDGETS['state-states']}")]
-            if len(states) > BUDGETS["state-states"]
-            else []
-        )
         return tuple(rows)
     if diagram.family == Family.SEQUENCE:
         declared, used = set[str](), set[str]()
@@ -570,11 +602,6 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             declared.update(match.group(1) for match in [SQ_PARTICIPANT.match(line.strip())] if match)
             used.update(name for match in [SQ_ARROW.match(line)] if match for name in (match.group(1), match.group(2)))
         rows = [row(diagram.fence, Check.LOGIC, "warn", f"orphan-participant:{name}") for name in sorted(declared - used)]
-        rows += (
-            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(declared | used)} participants > {BUDGETS['sequence-participants']}")]
-            if len(declared | used) > BUDGETS["sequence-participants"]
-            else []
-        )
         return tuple(rows)
     if diagram.family == Family.ER:
         blocks, related = set[str](), set[str]()
@@ -582,11 +609,6 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
             related.update(name for match in [ER_RELATION.match(line)] if match for name in (match.group(1), match.group(2)))
             blocks.update(match.group(1) for match in [re.match(r"^\s*([\w-]+)\s*\{", line)] if match)
         rows = [row(diagram.fence, Check.LOGIC, "warn", f"orphan-entity:{name}") for name in sorted(blocks - related)]
-        rows += (
-            [row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(blocks | related)} entities > {BUDGETS['er-entities']}")]
-            if len(blocks | related) > BUDGETS["er-entities"]
-            else []
-        )
         return tuple(rows)
     if diagram.family == Family.CLASS:
         names = set[str]()
@@ -598,11 +620,8 @@ def graph_logic(diagram: Diagram) -> tuple[Row, ...]:
                 if match
                 for name in (match.group(1), match.group(2))
             )
-        return (
-            (row(diagram.fence, Check.LOGIC, "warn", f"budget:{len(names)} classes > {BUDGETS['class-classes']}"),)
-            if len(names) > BUDGETS["class-classes"]
-            else ()
-        )
+        del names
+        return ()
     if diagram.family == Family.GANTT:
         ids, refs = set[str](), set[str]()
         heads = ("section", "title", "dateFormat", "axisFormat", "tickInterval", "excludes", "includes", "todayMarker", "weekend")

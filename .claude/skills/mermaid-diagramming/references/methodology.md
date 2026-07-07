@@ -28,15 +28,24 @@ Each archetype names the corpus evidence that seeds its inventory; a diagram dra
 - [05]-[WIRE-SEQUENCE]: protocol handlers on both sides of the wire — the request and response shapes, the timeout and fault arms, who initiates each step
 - [06]-[SCHEMA]: the DDL, migrations, or model declarations — real PK, FK, and unique constraints, never the ORM's intended usage
 - [07]-[STRATA]: the manifest dependency edges — declared package references, the permitted direction law, and any recorded violation
+- [08]-[SCHEDULE]: the task ledger and its dependency claims — real dates, the `after` chains a plan asserts, and the milestone the chains converge on
+- [09]-[BOARD]: the tracker state — queue membership, ticket ids, owners, and priorities as recorded, never as remembered
+- [10]-[HISTORY]: `git log --graph` over the range — branch points, merge directions, tags, and the ids of the commits that carried the work
+- [11]-[TOPOLOGY]: the deployment manifests — units, zones, and the port or protocol each edge traverses
+- [12]-[LANDSCAPE]: the ownership map at one zoom — which systems the boundary owns, which sit outside, and the verb each relation carries
+- [13]-[EVENT-FLOW]: the command handlers and event log — which command emits which event, which projection consumes it, in causal order
+- [14]-[PROFILE]: the assessment record — the axis vocabulary and the scored evidence per subject, with the scoring basis stated beside the fence
+- [15]-[DECOMPOSITION]: the measured inventory — one measure in one unit per leaf, summed bottom-up so parents mean their children
 
 ## [03]-[STAGED_GROWTH]
 
 A committed diagram is grown in rounds, never drawn at final size in one pass; naive size — the first seven boxes that come to mind — is the floor the rounds build past.
 
-1. Skeleton: the dominant rail alone at one abstraction level — entry, the load-bearing owners, the terminal. Every later mark subordinates to this rail.
-2. Interrogation rounds: each round asks one named reader question against the skeleton — where does this fault, what stores the fact, who sits outside the boundary, what selects the arm, what returns — and admits only the marks that answer it. A round that adds no mark closes the growth.
-3. Layering round: meaning that earns presence but not a node lands on the secondary vocabulary — edge labels, notes, annotation-classed side nodes on the Comment rail, subgraph membership, dashed traces — so density rises without new primary marks.
-4. Split check: growth stops the moment a round's question is a second question — that round becomes a new diagram sharing the same name vocabulary, not a larger canvas.
+1. Orientation: reading order carries the payload — `LR` for walks, flows, and time, `TB` for altitude, hierarchy, and dependency descent; left or top holds the entry, and a diagram whose walk runs against its reading order is re-oriented before it grows.
+2. Skeleton: the dominant rail alone at one abstraction level — entry, the load-bearing owners, the terminal. Every later mark subordinates to this rail.
+3. Interrogation rounds: each round asks one named reader question against the skeleton — where does this fault, what stores the fact, who sits outside the boundary, what selects the arm, what returns — and admits only the marks that answer it. A round that adds no mark closes the growth.
+4. Layering round: meaning that earns presence but not a node lands on the secondary vocabulary — edge labels, notes, annotation-classed side nodes on the Comment rail, subgraph membership, dashed traces — so density rises without new primary marks.
+5. Split check: growth stops the moment a round's question is a second question — that round becomes a new diagram sharing the same name vocabulary, not a larger canvas.
 
 The node-annotation-omission ladder rules every candidate mark:
 
@@ -45,14 +54,14 @@ The node-annotation-omission ladder rules every candidate mark:
 - ANNOTATION — a reader decision needs it, but it holds no payload relation: a note, a brace comment, or an `annotation`-classed node on a dashed Comment trace.
 - OMISSION — its removal leaves the answer intact; the owning page's prose carries it, and the diagram does not.
 
-A massive subject stays one diagram only while every mark still serves the single question under hierarchy — composites, subgraphs, summarizing nodes; a needed legend, a second edge semantic, or a budget breach that aggregation cannot cure is the split, partitioned along the seam the reader already knows: phase, aggregate, package, or gate.
+A massive subject stays one diagram only while every mark still serves the single question under hierarchy — composites, subgraphs, summarizing nodes; a needed legend, a second edge semantic, or density that aggregation cannot cure is the split, partitioned along the seam the reader already knows: phase, aggregate, package, or gate.
 
 ## [04]-[NODE_LAW]
 
 - Every primary node holds the same abstraction level; a product beside a function makes edge semantics unknowable.
 - A concept reaches node status only when it owns, receives, transforms, stores, decides, or transitions under the payload relation.
 - Technologies, protocols, versions, and statuses demote to labels unless the question asks how those items relate to each other.
-- The smallest node set answers the question; a dense graph nearing 50 nodes becomes a search task, so hierarchy, filtering, or a split lands first.
+- The smallest node set answers the question; when a graph becomes a search task instead of a read, hierarchy, filtering, or a split lands first.
 - Names are canonical domain nouns found in source, glossary, or architecture record — never `manager`, `processor`, `handler`, `service`.
 - Omission test: a node whose removal leaves the answer intact is deleted.
 
@@ -75,31 +84,57 @@ Every visual channel is spent deliberately; a channel spent twice on one meaning
 - Six categorical classes bound a diagram; past six the category moves to labels, groups, or a split. Every color-coded meaning carries a redundant encoding, so the diagram survives grayscale and color-blind readers.
 - Node labels are noun phrases with the discriminating word first; edge labels are verb phrases; direct labels beat legends — a legend is a lookup jump forced on every read.
 - Dashed and dotted strokes carry modality — optional, planned, inferred — never primary direction; direction rides the arrowhead.
-- Dense many-to-many interiors defeat node-link reading near twenty nodes; the repair is a summarizing node, a split, or a table, never a bigger canvas.
-- Peers declare contiguously and flows declare in walk order — declaration order is the author's one lever over layout stability.
+- Dense many-to-many interiors defeat node-link reading; the repair is a summarizing node, a split, or a table, never a bigger canvas.
+- Peers declare contiguously and flows declare in walk order — declaration order is the author's one lever over layout stability wherever the engine offers no stronger one; where it does, the stronger lever is spent: ELK model order and rank edges on flowcharts, `align row|column` plus edge ports on architecture, boundary homing on C4, adjacent-cell linking on block grids.
+- A crossing found in the render is repaired at the source — reorder declarations, re-home a member, re-port an edge, or split the figure — never accepted as engine fate; the render is re-proven after the repair.
 - A diagram read by an agent keeps its source fence beside the render, names nodes uniquely, and states every relation as an explicit labeled edge — spatial implication is invisible to a machine reader.
 
 ## [07]-[TYPE_SELECTION]
 
-The question shape selects the declaration.
+The question shape selects the declaration; the full grammar, floor, and trap roster per row is the syntax reference's property.
 
-| [INDEX] | [QUESTION]                  | [TYPE]                     |
-| :-----: | :-------------------------- | :------------------------- |
-|  [01]   | what exists and relates     | `flowchart`                |
-|  [02]   | who talks in order          | `sequenceDiagram`          |
-|  [03]   | which modes and transitions | `stateDiagram-v2`          |
-|  [04]   | what data and cardinality   | `erDiagram`                |
-|  [05]   | proportion trend or rank    | dataviz external lane      |
-|  [06]   | work steps and branching    | `flowchart`                |
-|  [07]   | hierarchy and containment   | `mindmap` / `treemap`      |
-|  [08]   | dated plan over time        | `gantt`                    |
-|  [09]   | system landscape at zoom    | `C4` / `architecture-beta` |
+| [INDEX] | [QUESTION]                                   | [TYPE]                        |
+| :-----: | :------------------------------------------- | :---------------------------- |
+|  [01]   | what exists and relates                      | `flowchart`                   |
+|  [02]   | who exchanges what in order                  | `sequenceDiagram`             |
+|  [03]   | which modes and transitions                  | `stateDiagram-v2`             |
+|  [04]   | what data, keys, and cardinality             | `erDiagram`                   |
+|  [05]   | which types relate at compile time           | `classDiagram`                |
+|  [06]   | which owner performs which step              | `swimlane-beta`               |
+|  [07]   | which commands yield which events            | `eventmodeling`               |
+|  [08]   | system landscape at one zoom                 | `C4`                          |
+|  [09]   | which deployable runs where                  | `architecture-beta`           |
+|  [10]   | dated committed work                         | `gantt`                       |
+|  [11]   | which stage holds which work now             | `kanban`                      |
+|  [12]   | how branches diverge and merge               | `gitGraph`                    |
+|  [13]   | what occurred across periods                 | `timeline`                    |
+|  [14]   | how satisfaction moves across phases         | `journey`                     |
+|  [15]   | radial concept decomposition                 | `mindmap`                     |
+|  [16]   | weighted whole-to-part decomposition         | `treemap-beta`                |
+|  [17]   | filesystem or containment truth              | `treeView-beta`               |
+|  [18]   | fixed-grid placement as the meaning          | `block-beta`                  |
+|  [19]   | requirement-to-artifact traceability         | `requirementDiagram`          |
+|  [20]   | part-to-whole share inside a fence           | `pie`                         |
+|  [21]   | two independent judgments as position        | `quadrantChart`               |
+|  [22]   | weighted flow through stages                 | `sankey`                      |
+|  [23]   | categories against a measure                 | `xychart`                     |
+|  [24]   | multivariate profile comparison              | `radar-beta`                  |
+|  [25]   | measured set overlap                         | `venn-beta`                   |
+|  [26]   | capability position on evolution             | `wardley-beta`                |
+|  [27]   | decision-domain sort with movement           | `cynefin-beta`                |
+|  [28]   | admitted strings rule by rule                | `railroad-*-beta`             |
+|  [29]   | plausible causes of one effect               | `ishikawa-beta`               |
+|  [30]   | wire-format bit contract                     | `packet`                      |
+
+The quantitative rows — pie, xychart, sankey, radar — hold only while the artifact must stay a mermaid fence; a standing data visualization routes to the dataviz lane.
 
 [CONTRAST]: classic mismatches, each repaired by payload alignment:
 
 - lifecycle drawn as flowchart -> `stateDiagram-v2`
 - call order drawn as graph -> `sequenceDiagram`
 - dependency drawn as sequence -> `flowchart`
+- ownership lanes drawn as subgraph decoration -> `swimlane-beta`
+- a tree with one needed cross-link -> `flowchart`, the subject is a graph
 - quantity drawn as node-link -> chart
 
 ## [08]-[SOUNDNESS]

@@ -51,7 +51,29 @@ Graph versus spine is a topology decision: forcing a linear chain into a node cl
 - [TREE_INDENT] — nested `<details>`/`<ul>` with `border-inline-start` guides per level, disclosure triangles on the summary marker, leaf rows carrying their own chips. Wins when containment is the relationship and depth stays near five; axes: `depthMax`, `guideStyle`, `leafContent`, `defaultOpen` (depth cutoff), `collapseGroup` (shared `name`).
 - [CHIP_TAXONOMY] — the `.chip` grammar under one closed vocabulary per semantic axis: status, severity, kind, and ownership are distinct axes on distinct token ramps, never a rainbow of ad-hoc colors. A chip is a label, never a control — unless it is a filter facet, which toggles `aria-pressed` and dims the collection; axes: `axisVocab` (closed set), `tokenRamp`, `role` (label | filter-facet | verdict-input), `shape` (pill | square | dot).
 
-## [05]-[ANTI_NAIVETY]
+## [05]-[INFOGRAPHIC_FAMILY]
+
+Vector figure generators past the chart marks above; each row names the reader question and the sibling it beats, and every construction recipe — polar kernel, ribbon cubic, squarify, isometric projection, micro marks — lives in [svg.md](svg.md). A figure earns its geometry by the question: magnitude comparisons stay linear (meter, waffle, bars), and a radial form is legal only where the bounded scalar, the cycle, or the shared-center comparison is itself the subject.
+
+| [INDEX] | [ELEMENT]        | [READER_QUESTION]                                      | [BEATS]                       |
+| :-----: | :--------------- | :----------------------------------------------------- | :---------------------------- |
+|  [01]   | arc gauge        | how far along one bounded scalar stands                | bare percentage numeral       |
+|  [02]   | concentric rings | how 2-6 independent scalars compare on one scale       | row of separate gauges        |
+|  [03]   | radar            | how one option's profile spans a closed criteria set   | per-criterion bar row         |
+|  [04]   | sunburst         | how a hierarchy's parts nest and weigh                 | flat treemap past depth two   |
+|  [05]   | sankey ribbon    | how quantity flows and splits between stages           | table of stage deltas         |
+|  [06]   | dependency arcs  | which ordering constraints span a linear sequence      | full node-edge graph          |
+|  [07]   | funnel           | where a monotone pipeline loses volume                 | bar chart per stage           |
+|  [08]   | treemap          | how a whole divides by weight at one or two levels     | pie, a long ranked list       |
+|  [09]   | icicle           | how a deep hierarchy weighs with legible ancestry      | sunburst past depth three     |
+|  [10]   | isometric stack  | how layered infrastructure composes spatially          | flat box diagram, sometimes   |
+|  [11]   | hex grid         | how modular capabilities tile and neighbor             | card grid without adjacency   |
+|  [12]   | span bars        | when work spans, overlaps, and gates across lanes      | dated task table              |
+|  [13]   | tidy tree        | who reports to or contains whom, 3-40 nodes            | indented text past two levels |
+|  [14]   | bullet           | how an actual stands against target and bands, per row | gauge per row                 |
+|  [15]   | strip plot       | how values spread beyond their center                  | mean with no distribution     |
+
+## [06]-[ANTI_NAIVETY]
 
 Named failure modes; a review flags any survivor as a defect.
 

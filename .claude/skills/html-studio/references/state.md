@@ -23,7 +23,7 @@ const changedKeys = () => Object.keys(state)
 
 The dataset ships as one `<script type="application/json">` payload parsed once at boot; the parser output is the sole data source and markup never duplicates a field. The payload is sanitized before embedding so it can never terminate its own script tag — `</` sequences escape to their `<`-form and the U+2028/U+2029 line separators escape — and repeated rows hydrate by cloning a `<template>` rather than concatenating markup strings.
 
-A data-bearing payload passes a programmatic redaction pass before embed — datasets, logs, diffs, and configs alike: credential-shaped values scan across every row, never a sample; redaction matches field-name whole tokens and value patterns; a redacted value becomes a stable indexed placeholder so grouping and joins survive. The `check_artifact.py` secret check backstops the pass, and a backstop hit means the redaction pass failed, never that the gate is noise. A filter hides rows from view, never from the embedded source — the page states that plainly when the data is sensitive.
+A data-bearing payload passes a programmatic redaction pass before embed — datasets, logs, diffs, and configs alike: credential-shaped values scan across every row, never a sample; redaction matches field-name whole tokens and value patterns; a redacted value becomes a stable indexed placeholder so grouping and joins survive. The `studio.py gate` secret check backstops the pass, and a backstop hit means the redaction pass failed, never that the gate is noise. A filter hides rows from view, never from the embedded source — the page states that plainly when the data is sensitive.
 
 ```js copy-safe
 // build-time: sanitize before the JSON lands inside the script element

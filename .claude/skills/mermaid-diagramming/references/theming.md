@@ -93,7 +93,7 @@ Every token carries its role on two surfaces at once: the `themeVariables` that 
 [YELLOW]:
 - Role: payload / literal / tag / attention note
 - Theme carriers: `tagLabelBackground`, `git6`, `pie7`, `cScale6`, class-diagram `noteBkgColor`
-- Class or rail: `payload` class; payload rail; class-note chip
+- Class or rail: `payload` class; payload rail; class-note chip; gitgraph tag; treeview highlight; railroad terminal — every carrier translucent gold under Foreground ink
 
 ## [03]-[BASE_BLOCK]
 
@@ -162,11 +162,13 @@ config:
     sectionBkgColor: "#21222C"
     altSectionBkgColor: "#282A36"
     sectionBkgColor2: "#21222C"
+    excludeBkgColor: "#21222C"
     gridColor: "#6272A4"
     taskBkgColor: "#44475A"
     taskBorderColor: "#BD93F9"
     taskTextColor: "#F8F8F2"
     taskTextOutsideColor: "#F8F8F2"
+    taskTextDarkColor: "#F8F8F2"
     activeTaskBkgColor: "#6272A4"
     activeTaskBorderColor: "#BD93F9"
     doneTaskBkgColor: "#21222C"
@@ -174,19 +176,29 @@ config:
     critBkgColor: "#FF555580"
     critBorderColor: "#FF5555"
     todayLineColor: "#FF79C6"
-    fillType0: "#FF79C6"
-    fillType1: "#8BE9FD"
-    fillType2: "#50FA7B"
-    fillType3: "#FFB86C"
-    fillType4: "#BD93F9"
-    fillType5: "#FF5555"
-    fillType6: "#FFD866"
+    vertLineColor: "#8BE9FD"
+    fillType0: "#FF79C680"
+    fillType1: "#8BE9FD66"
+    fillType2: "#50FA7B66"
+    fillType3: "#FFB86C66"
+    fillType4: "#BD93F980"
+    fillType5: "#FF555580"
+    fillType6: "#FFD86654"
     fillType7: "#6272A4"
+    actor0: "#BD93F9"
+    actor1: "#8BE9FD"
+    actor2: "#50FA7B"
+    actor3: "#FFB86C"
+    actor4: "#FF79C6"
+    actor5: "#6272A4"
+    faceColor: "#FFD86654"
     personBorder: "#BD93F9"
     personBkg: "#44475A"
     archEdgeColor: "#FF79C6"
     archEdgeArrowColor: "#FF79C6"
+    archEdgeWidth: "2"
     archGroupBorderColor: "#D6BCFA"
+    archGroupBorderWidth: "1"
     git0: "#BD93F9"
     git1: "#FF79C6"
     git2: "#8BE9FD"
@@ -204,9 +216,12 @@ config:
     gitBranchLabel6: "#282A36"
     gitBranchLabel7: "#282A36"
     commitLabelColor: "#F8F8F2"
-    commitLabelBackground: "#44475A"
-    tagLabelColor: "#282A36"
-    tagLabelBackground: "#FFD866"
+    commitLabelBackground: "#21222C"
+    commitLabelFontSize: "11px"
+    tagLabelColor: "#F8F8F2"
+    tagLabelBackground: "#FFD86654"
+    tagLabelBorder: "#FFD866"
+    tagLabelFontSize: "11px"
     pie1: "#FF79C6"
     pie2: "#8BE9FD"
     pie3: "#50FA7B"
@@ -219,8 +234,15 @@ config:
     pie10: "#FFB86C"
     pie11: "#BD93F9"
     pie12: "#FF5555"
-    pieSectionTextColor: "#282A36"
+    pieOpacity: 1
+    pieStrokeWidth: "1.5px"
+    pieOuterStrokeWidth: "0px"
+    pieSectionTextSize: "13px"
+    pieSectionTextColor: "#F8F8F2"
+    pieLegendTextSize: "12px"
     pieLegendTextColor: "#F8F8F2"
+    pieTitleTextSize: "15px"
+    pieTitleTextColor: "#F8F8F2"
     cScale0: "#FF79C6"
     cScale1: "#8BE9FD"
     cScale2: "#50FA7B"
@@ -261,8 +283,10 @@ config:
       plotColorPalette: "#FF79C6,#8BE9FD,#50FA7B,#FFB86C,#BD93F9,#FF5555,#FFD866"
     radar:
       axisColor: "#6272A4"
+      axisStrokeWidth: 1.5
       graticuleColor: "#44475A"
-      curveOpacity: 0.55
+      graticuleOpacity: 0.4
+      curveOpacity: 0.35
       curveStrokeWidth: 2
 ---
 ```
@@ -276,12 +300,12 @@ config:
 - Containers recess and their boundary reads: `clusterBkg` and `compositeBackground` carry Darker `#21222C` under a `compositeTitleBackground` Background `#282A36` title bar, and `altBackground` carries Background `#282A36` so a nested region reads one step lighter. `clusterBorder`/`compositeBorder`/`archGroupBorderColor` carry Lavender `#D6BCFA` with `titleColor` matching, so border and title read as one boundary object.
 - The ER family draws its relationship lines and cardinality markers from `lineColor` and composites its label backing from `tertiaryColor` — an ER fence that omits either derives pale gray lines and an olive label chip, so both keys are ER floor keys; `relationColor` and its label keys feed the requirement family, never ER.
 - `activationBkgColor` carries Selection `#44475A` so a sequence activation reads as a neutral lifted bar over its lifeline, and `sequenceNumberColor` carries Background `#282A36` so autonumber chips print dark numerals on their Pink discs.
-- `critBkgColor` carries the ruled translucent Red `#FF555580` under a solid `critBorderColor`, so a critical gantt bar reads as the same alarm chip an `error` node paints.
+- `critBkgColor` carries the ruled translucent Red `#FF555580` under a solid `critBorderColor`, so a critical gantt bar reads as the same alarm chip an `error` node paints; `excludeBkgColor` recesses excluded date bands and `taskTextDarkColor` joins the Foreground ink set because done bars recess to Darker.
 - Neutral notes fill Selection under a Comment border for sequence and state; the class-diagram note overrides to the translucent Yellow chip per [04].
-- Bright translucent fills take `#282A36` text at the 60–75% alphas and `#F8F8F2` text at the 50% alphas — the fill table in [04] is the owner.
-- Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud.
+- Bright translucent fills take `#282A36` text on the dark-ink tier and `#F8F8F2` text on the light-ink tier — the two-tier table in [04] is the owner. The journey `fillType` set, the gitgraph tag, and the face chip ship in light-ink form here.
+- Ordinal families run their full engine range here — `pie1`–`pie12`, `cScale0`–`cScale11` with `cScaleLabel0`–`cScaleLabel11`, `fillType0`–`fillType7`, `git0`–`git7` — so no band derives to `primaryColor` mud. `cScaleLabel` dark ink serves opaque ordinal fills; a family compositing translucent or recessed ordinal surfaces — timeline, treemap, kanban — overrides its `cScaleLabel` range to Foreground or Lavender in its own fence.
 - Per-type nested objects `xyChart` and `radar` nest inside `themeVariables`, alongside any other type that admits a nested block.
-- Partial-consumers: C4 reads `personBorder`/`personBkg` from this block and routes element and relation colors through `UpdateElementStyle`/`UpdateRelStyle`; packet defines a style block but breaks propagation, so theming drops there; sankey and ishikawa take global vars only.
+- Partial-consumers: C4 reads `personBorder`/`personBkg` from this block and themes element surfaces through `c4:` config color keys plus `UpdateRelStyle`; packet themes through its `themeCSS` class stamp because the nested `themeVariables.packet` block half-applies; sankey and ishikawa take global vars only; wardley emits no stylesheet, so only its nested `wardley:` colors land.
 - This block is the single home for every corpus-wide token: an extended fence demonstrates the keys it consumes and never privately defines a role — `architecture`, `journey`, and C4 tokens live here, not in their fences.
 
 ## [04]-[CLASSDEF_LINKSTYLE]
@@ -296,27 +320,31 @@ Each surface owns one color job; ceding it to another is the defect, and every `
 |  [04]   | inline `style`   | one-off node exception                     |
 |  [05]   | `themeCSS`       | renderer escape hatch                      |
 
-Every accent-colored shape fills translucent: the fill carries its palette hex with an alpha suffix while the border holds the same hue at 100% opacity, so the canvas tone breathes through the fill and depth reads without any shadow. The alpha per hue derives from one law — the composited fill must hold at least 4.5:1 against its declared ink — so the high-luminance accents carry 60%, Orange carries 75%, and the mid-luminance Red and Purple drop to 50% and flip to Foreground ink:
+Every accent-colored shape fills translucent: the fill carries its palette hex with an alpha suffix while the border holds the same hue at 100% opacity and a slightly thinner weight, so the canvas tone breathes through the fill and depth reads without any shadow. The alpha per hue derives from one law — the composited fill must hold at least 4.5:1 against its declared ink — and resolves into two tiers. The dark-ink tier runs the high-luminance accents at 75% under `#282A36` ink; the light-ink tier drops each hue until `#F8F8F2` ink measures, which is where Yellow always lives — white ink on gold is the yellow law, so a gold chip is a low-alpha wash under a full gold border, never a bright pill with dark ink — and where Pink, Purple, and Red live at every alpha, since no alpha lets them carry dark ink:
 
-| [INDEX] | [ACCENT] | [FILL]      | [ALPHA] | [INK]     | [COMPOSITE_CONTRAST] |
-| :-----: | :------- | :---------- | :-----: | :-------- | :------------------: |
-|  [01]   | Green    | `#50FA7B99` |   60%   | `#282A36` |        `4.7`         |
-|  [02]   | Cyan     | `#8BE9FD99` |   60%   | `#282A36` |        `4.7`         |
-|  [03]   | Yellow   | `#FFD86699` |   60%   | `#282A36` |        `4.7`         |
-|  [04]   | Orange   | `#FFB86CBF` |   75%   | `#282A36` |        `5.3`         |
-|  [05]   | Red      | `#FF555580` |   50%   | `#F8F8F2` |        `6.4`         |
-|  [06]   | Purple   | `#BD93F980` |   50%   | `#F8F8F2` |        `5.2`         |
+| [INDEX] | [TIER]    | [ACCENT] | [FILL]      | [ALPHA] | [INK]     | [COMPOSITE_CONTRAST] |
+| :-----: | :-------- | :------- | :---------- | :-----: | :-------- | :------------------: |
+|  [01]   | dark-ink  | Green    | `#50FA7BBF` |   75%   | `#282A36` |        `6.5`         |
+|  [02]   | dark-ink  | Cyan     | `#8BE9FDBF` |   75%   | `#282A36` |        `6.5`         |
+|  [03]   | dark-ink  | Orange   | `#FFB86CBF` |   75%   | `#282A36` |        `5.3`         |
+|  [04]   | light-ink | Pink     | `#FF79C680` |   50%   | `#F8F8F2` |        `5.3`         |
+|  [05]   | light-ink | Purple   | `#BD93F980` |   50%   | `#F8F8F2` |        `5.2`         |
+|  [06]   | light-ink | Red      | `#FF555580` |   50%   | `#F8F8F2` |        `6.3`         |
+|  [07]   | light-ink | Cyan     | `#8BE9FD66` |   40%   | `#F8F8F2` |        `4.6`         |
+|  [08]   | light-ink | Green    | `#50FA7B66` |   40%   | `#F8F8F2` |        `4.7`         |
+|  [09]   | light-ink | Orange   | `#FFB86C66` |   40%   | `#F8F8F2` |        `5.2`         |
+|  [10]   | light-ink | Yellow   | `#FFD86654` |   33%   | `#F8F8F2` |        `5.5`         |
 
-Neutral surfaces — Selection, Darker, Background — stay opaque; translucency marks accent semantics, never structure. The canonical Dracula node classes — nine, one per role the role map binds:
+A node-scale chip takes the dark-ink tier for maximum punch; a family whose engine fixes one ink for every colored surface — journey, pie, timeline, treemap, packet — takes the light-ink tier throughout so Foreground serves everything. Below both tiers sits the wash tier, 10–30% alphas (`1A`–`4D`) for large-area tints that carry no ink of their own: lane emphasis, cynefin domain fields, the treeview highlight band, packet field blocks. Neutral surfaces — Selection, Darker, Background — stay opaque; translucency marks accent semantics, never structure. The canonical Dracula node classes — nine, one per role the role map binds:
 
 ```text
 classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
 classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-classDef success fill:#50FA7B99,stroke:#50FA7B,color:#282A36
+classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
 classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-classDef external fill:#8BE9FD99,stroke:#8BE9FD,color:#282A36
+classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
 classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-classDef payload fill:#FFD86699,stroke:#FFD866,color:#282A36
+classDef payload fill:#FFD86654,stroke:#FFD866,color:#F8F8F2
 classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
 classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
 ```
@@ -333,7 +361,7 @@ classDef calloutExternal fill:#282A36,stroke:#8BE9FD,stroke-width:2px,color:#F8F
 
 A callout node reads against the standing role fills because its recessed surface and heavier stroke set it apart; one or two per diagram hold, a wall of callouts erases the emphasis. The called-out node pairs with an animated hot edge feeding it, so the focus and the flow reaching it read as one gesture.
 
-`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. On an ER entity a bright class fill floods the attribute rows and collides with the banding, so ER role classes stroke-encode instead — an external registry rides `fill:#21222C,stroke:#8BE9FD,color:#8BE9FD`, the role carried by stroke and title ink on a recessed surface. The class-diagram note alone takes the payload chip — `noteBkgColor: "#FFD86699"`, `noteBorderColor: "#FFD866"`, `noteTextColor: "#282A36"` — because a class note tags an invariant, while sequence and state notes stay neutral Selection captions.
+`recessed` fills a dormant, done, or terminal-adjacent node; `annotation` shares its surface with a Comment stroke and carries side commentary, never flow. On an ER entity a bright class fill floods the attribute rows and collides with the banding, so ER role classes stroke-encode instead — an external registry rides `fill:#21222C,stroke:#8BE9FD,color:#8BE9FD`, the role carried by stroke and title ink on a recessed surface. The class-diagram note alone takes the payload chip — `noteBkgColor: "#FFD86654"`, `noteBorderColor: "#FFD866"`, `noteTextColor: "#F8F8F2"` — because a class note tags an invariant, while sequence and state notes stay neutral Selection captions. The gitgraph tag, the treeview highlight, and the railroad terminal spend the same yellow-law chip: translucent gold, full gold border, Foreground ink.
 
 The six edge rails — every semantic edge takes its rail explicitly, and only a plain forward hop rides the default:
 
@@ -346,7 +374,7 @@ linkStyle 4 stroke:#FFB86C,color:#F8F8F2
 linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
 ```
 
-Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color; a rail without an explicit width rides the standing `2px` the micro-scale stamps, the fault rail carries the `3px` emphasis weight, and the trace rail carries the `1.5px` dashed weight — the one ladder in [05]. The engine colors each styled edge's arrowhead from its resolved stroke, so a Red rail terminates in a Red head with no extra key, and `arrowheadColor` governs only unstyled edges. A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`, where the id form survives the insertions that renumber every positional index; a fence past its edge budget or under ongoing edits prefers the id form. The canonical edge classes mirror the five non-default rails:
+Rail semantics: Pink primary, Green success, Red error — mandatory on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color; a rail without an explicit width rides the standing `2px` the micro-scale stamps, the fault rail carries the `3px` emphasis weight, and the trace rail carries the `1.5px` dashed weight — the one ladder in [05]. The engine colors each styled edge's arrowhead from its resolved stroke, so a Red rail terminates in a Red head with no extra key, and `arrowheadColor` governs only unstyled edges. A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`, where the id form survives the insertions that renumber every positional index; a fence under ongoing edits prefers the id form. The canonical edge classes mirror the five non-default rails:
 
 ```text
 classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
@@ -358,7 +386,7 @@ classDef edgeTrace stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dashar
 
 ## [05]-[MICRO_SCALE]
 
-Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every value is an exact stamp over the SVG-px scale on a three-step type ramp — 13 primary, 12.5 title, 12 tertiary — and nothing on a mermaid canvas renders below the 12px floor, since SVG text carries no hinting and sits below a hinted HTML equivalent at equal size.
+Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every value is an exact stamp over the SVG-px scale on a three-step type ramp — 13.5 bold container title, 13 primary, 12 tertiary — and nothing on a mermaid canvas renders below the 12px floor, since SVG text carries no hinting and sits below a hinted HTML equivalent at equal size. The container title sits above the node label deliberately: containment names the largest scope on the canvas, so its title carries the heaviest type, and the 13.5px/700 stamp stays under the engine's 16px measurement box, so no titled container clips.
 
 | [INDEX] | [CLASS]                   | [SELECTOR]                  | [PX] | [WEIGHT]               |
 | :-----: | :------------------------ | :-------------------------- | :--: | :--------------------- |
@@ -366,13 +394,13 @@ Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every valu
 |  [02]   | actor label (sequence)    | `text.actor tspan`          |  13  | 600                    |
 |  [03]   | ER entity name            | `.name .nodeLabel`          |  13  | 600                    |
 |  [04]   | class title               | `.classTitle`               |  13  | 600                    |
-|  [05]   | container / namespace title | `.cluster-label .nodeLabel` | 12.5 | 600, uppercase in text |
+|  [05]   | container / namespace title | `.cluster-label .nodeLabel` | 13.5 | 700, uppercase in text |
 |  [06]   | edge label                | `.edgeLabel`                |  12  | 500                    |
 |  [07]   | message text (sequence)   | `.messageText`              |  12  | 500                    |
 |  [08]   | note text                 | `.noteText`, `.noteLabel .nodeLabel` | 12 | 400            |
 |  [09]   | ER attribute cell         | `.nodeLabel` under ER       |  12  | 400                    |
 |  [10]   | loop / group label        | `.loopText`, `.labelText`   |  12  | 500                    |
-|  [11]   | section title (gantt)     | `.sectionTitle`             |  12  | 600                    |
+|  [11]   | section / lane title      | `.sectionTitle`, kanban `.cluster-label` | 13.5 | 700, Lavender ink |
 
 The line-weight ladder — one scale, every stroke on the canvas, stated here once and spent verbatim by every stamp, rail, and class:
 
@@ -386,27 +414,27 @@ The line-weight ladder — one scale, every stroke on the canvas, stated here on
 |  [06]   | container border             |  `1px`   |   50%   | dashed `5 4`, Lavender     |
 |  [07]   | grid / divider stroke        |  `1px`   |   50%   | family-owned dash          |
 
-Marker and pseudostate scale tie to one factor: arrowheads scale `.8` linear, and pseudostate circles scale `.8` squared — `.64`, radius `4.5px` — because a filled disc reads by area while a head reads by length, so both land at equal visual mass beside a `2px` line.
+Marker and circle scale tie to one factor: every arrowhead across every family scales `.8` linear, and every terminal circle scales `.48` — the `.8` squared area factor cut a further 25%, radius `3.4px` on the state start disc — because a filled disc reads by area while a head reads by length, and a circle at the old `.64` still shouldered its label. The circle factor binds every terminal and endpoint disc: state start and terminal ring, flowchart `--o` endpoints, gitgraph commit dots (`.75` transform on the engine radii, preserving merge-ring ratios), journey actor dots (`r:5.25px`), quadrant points (`radius: 4`), railroad start and end (`markerRadius: 4`). ER cardinality rings stay at the `.8` marker scale — they pair with crow's-foot paths as one glyph, never as terminal dots.
 
 The canonical `themeCSS` strings — one per family, copied verbatim into the fence frontmatter. Every node-bearing string carries `filter:none!important` across the node shapes and cluster rects: the belt that outranks any host-injected halo even when a host forces the neo look, since `themeCSS` lands after the engine's look rules and `!important` wins there. Attribute selectors inside a `themeCSS` string quote with single quotes — a double quote closes the YAML string — and no string uses the `>` combinator, which the sanitizer rejects by dropping the whole block.
 
 ```text
-flowchart: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:12.5px;font-weight:600;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
-state:     ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:12.5px;font-weight:600;letter-spacing:.08em}.transition{stroke-width:2px}.note-edge{stroke-width:1.5px}.node rect,.node circle,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.statediagram-cluster rect.outer{stroke:#D6BCFA;stroke-width:1px!important;stroke-dasharray:5 4}.statediagram-state rect.divider{stroke:#D6BCFA;stroke-width:1px;stroke-dasharray:5 4;fill:#282A36}[id*='barbEnd'] path{fill:#FF79C6;stroke:#FF79C6;transform:scale(.4);transform-origin:14px 7px}.state-start{r:4.5px;fill:#FF79C6;stroke:#FF79C6}.node[id*='_end'] .outer-path{transform-box:fill-box;transform-origin:center;transform:scale(.64)}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
-sequence:  "text.actor tspan{font-size:13px;font-weight:600}.messageText{font-size:12px;font-weight:500}.noteText{font-size:12px}.loopText,.labelText{font-size:12px;font-weight:500}.messageLine0{stroke-width:2px}.messageLine1{stroke-width:1.5px;stroke-dasharray:4 6}.actor{stroke-width:1.5px}rect.actor{filter:none!important}"
-class:     ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.classTitle{font-size:13px;font-weight:600}.cluster-label .nodeLabel,.cluster-label text{font-size:12.5px;font-weight:600;letter-spacing:.08em}.noteLabel .nodeLabel{font-size:12px}.relation{stroke-width:2px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.divider{stroke-width:1px}.node rect,.node path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}"
+flowchart: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+state:     ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em;color:#D6BCFA}.transition{stroke-width:2px}.note-edge{stroke-width:1.5px}.node rect,.node circle,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.statediagram-cluster rect.outer{stroke:#D6BCFA;stroke-width:1px!important;stroke-dasharray:5 4}.statediagram-state rect.divider{stroke:#D6BCFA;stroke-width:1px;stroke-dasharray:5 4;fill:#282A36}[id*='barbEnd'] path{fill:#FF79C6;stroke:#FF79C6;transform:scale(.4);transform-origin:14px 7px}.state-start{r:3.4px;fill:#FF79C6;stroke:#FF79C6}.node[id*='_end'] .outer-path{transform-box:fill-box;transform-origin:center;transform:scale(.48)}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+sequence:  "text.actor tspan{font-size:13px;font-weight:600}.messageText{font-size:12px;font-weight:500}.noteText{font-size:12px}.loopText,.labelText{font-size:12px;font-weight:500}.messageLine0{stroke-width:2px}.messageLine1{stroke-width:1.5px;stroke-dasharray:4 6}.actor{stroke-width:1.5px}rect.actor{filter:none!important}[id$='-filled-head'] path{fill:#FF79C6;stroke:#FF79C6}"
+class:     ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.classTitle{font-size:13px;font-weight:600}.cluster-label .nodeLabel,.cluster-label text{font-size:13.5px;font-weight:700;letter-spacing:.08em}.noteLabel .nodeLabel{font-size:12px}.relation{stroke-width:2px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.divider{stroke-width:1px}.node rect,.node path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}"
 er:        ".nodeLabel{font-size:12px}.name .nodeLabel{font-size:13px;font-weight:600}.edgeLabel .nodeLabel{font-size:12px;font-weight:500}.relationshipLine{stroke-width:2px}.edge-pattern-dashed{stroke-width:1.5px;stroke-dasharray:6 6}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.marker circle{fill:#282A36}.node rect,.node path{stroke-width:1.5px;filter:none!important}.er.entityBox{filter:none}"
-gantt:     ".sectionTitle{font-size:12px;font-weight:600}.taskText,.taskTextOutsideRight,.taskTextOutsideLeft{font-size:12px}"
+gantt:     ".sectionTitle{font-size:13.5px;font-weight:700;fill:#D6BCFA}.taskText,.taskTextOutsideRight,.taskTextOutsideLeft{font-size:12px}.grid .tick text{font-size:11px}"
 ```
 
 - `themeCSS` admits no `>` combinator: the sanitizer drops the entire injected block on the first `>`, silently reverting every rule in it — use the descendant space. A `classDef` emits inline `!important` declarations that beat any stylesheet rule including an `!important` one, so the strings above own only what no class carries: typography, bare strokes, weights, and the filter belt.
 - The engine measures label boxes before `themeCSS` applies, so a `text-transform` clips its target — the uppercase container title rides the title text itself (`subgraph core[CORE PACKAGE]`), and any size stamped above the measured 16px default clips the same way; the stamps above only step down. A namespace path title (`Company.Engineering.Backend`) renders as declared — case law binds free labels only.
 - Weight law: the ladder above is the only weight source — the standing `2px` edge stamps through the engine's own thickness classes, the pattern classes pull every dashed and dotted edge to `1.5px` at the trace rhythm, and a rail that needs another weight carries it inline where it wins by inline precedence.
 - Dashed-rhythm law: `4 6` reads as trace and annotation, `6 6` as planned and deferred, `5 4` as container containment, solid as realized — one rhythm system across every diagram; the trace gap runs longer than its dash so a dotted line reads as a distinct rhythm, not a broken solid.
-- Canvas law: flowchart fences carry `layout: elk` and `flowchart: { curve: linear, padding: 22 }` — ELK routes orthogonally on its own and paints its bends through a fixed rounded joint, while the `curve: linear` key holds the elbow posture on any host that falls back to the non-ELK renderer; `subGraphTitleMargin` stays out of ELK diagrams, since it displaces edge labels there.
-- Marker law: arrowheads are fixed `userSpaceOnUse` markers that never scale with stroke width, so the flowchart, class, and ER strings stamp the `.8` marker scale to match the ladder; the state `barbEnd` marker instead scales WITH its stroke (`markerUnits: strokeWidth`), so at the `2px` transition weight its stamp is `.4` — the `.8` factor divided by the doubled stroke.
-- Terminus law: every terminus mark rides its line's color — Pink arrowheads, the Pink `state-start` disc at `r:4.5px`, the Pink terminal ring scaled `.64` around its Purple core, the Pink lollipop ring, and ER cardinality marks on the relation stroke with a canvas-filled hollow ring for the zero side; a terminus carries no label while a named state always does. The terminal scale rides `.node[id*='_end'] .outer-path` — the engine draws the ring as a path group, never a circle element.
-- Text-color law: container and namespace titles ink Lavender through `titleColor`, matching their border so containment reads as one object; node labels ink Foreground; bright translucent fills ink per the [04] table; canvas text takes a surgical color only through these owners, never a blanket dim gray — a family whose title derives gray is missing its `titleColor` key.
+- Canvas law: flowchart fences carry `layout: elk` and `flowchart: { curve: linear, padding: 25 }` — ELK routes orthogonally on its own and paints its bends through a fixed rounded joint, while the `curve: linear` key holds the elbow posture on any host that falls back to the non-ELK renderer; `subGraphTitleMargin` stays out of ELK diagrams, since it displaces edge labels there.
+- Marker law: arrowheads are fixed `userSpaceOnUse` markers that never scale with stroke width, so the flowchart, class, and ER strings stamp the `.8` marker scale to match the ladder; the state `barbEnd` marker instead scales WITH its stroke (`markerUnits: strokeWidth`), so at the `2px` transition weight its stamp is `.4` — the `.8` factor divided by the doubled stroke. Families outside the shared marker system carry the same canon by their own routes: the requirement 20×20 open V scales `.5` anchored on its ref point, C4 markers scale `.8` on theirs, architecture arrows size through `iconSize` because a CSS transform erases their placement, and every marker whose engine leaves it unfilled — block, journey, timeline, C4 — takes an explicit fill-and-stroke stamp so no arrowhead renders grey or black anywhere.
+- Terminus law: every terminus mark rides its line's color — Pink arrowheads, the Pink `state-start` disc at `r:3.4px`, the Pink terminal ring scaled `.48` around its Purple core, the Pink lollipop ring, and ER cardinality marks on the relation stroke with a canvas-filled hollow ring for the zero side; a terminus carries no label while a named state always does. The terminal scale rides `.node[id*='_end'] .outer-path` — the engine draws the ring as a path group, never a circle element.
+- Text-color law: container and namespace titles ink Lavender through `titleColor` — the state string carries the ink explicitly because its composite title ignores that key — matching their border so containment reads as one object; node labels ink Foreground; bright translucent fills ink per the [04] table; canvas text takes a surgical color only through these owners, never a blanket dim gray — a family whose title derives gray is missing its `titleColor` key.
 
 ## [06]-[BORDER_CANON]
 

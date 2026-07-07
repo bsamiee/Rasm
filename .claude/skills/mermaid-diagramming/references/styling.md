@@ -231,7 +231,7 @@ config:
   layout: elk
   flowchart:
     curve: linear
-    padding: 22
+    padding: 25
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
@@ -247,7 +247,7 @@ config:
     clusterBorder: "#D6BCFA"
     edgeLabelBackground: "#21222C"
     labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:12.5px;font-weight:600;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Style precedence demo
@@ -268,7 +268,7 @@ flowchart LR
   e1@{ curve: linear, animate: true }
   classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
   classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-  classDef external fill:#8BE9FD99,stroke:#8BE9FD,color:#282A36
+  classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
   class Router primary
   class Cache data
   class Sink external
@@ -280,68 +280,68 @@ flowchart LR
 
 Each diagram type accepts a bounded set of styling statements; `yes` is verified acceptance, `no` is no verified route, and the local mechanism is the type's own styling surface.
 
-| [INDEX] | [TYPE]       | [CLASSDEF] | [TRIPLE_COLON] | [STYLE] | [LINKSTYLE] | [LOCAL]                          |
-| :-----: | :----------- | :--------: | :------------: | :-----: | :---------: | :------------------------------- |
-|  [01]   | Flowchart    |    yes     |      yes       |   yes   |     yes     | edge-id + shape metadata         |
-|  [02]   | Sequence     |     no     |       no       |   no    |     no      | `box`/`rect` backgrounds         |
-|  [03]   | State        |    yes     |      yes       |   yes   |     no      | composite-state classes          |
-|  [04]   | Class        |    yes     |      yes       |   yes   |     no      | relation arrows + lollipops      |
-|  [05]   | ER           |    yes     |      yes       |   yes   |     no      | identifying `--` vs non-`..`     |
-|  [06]   | Gantt        |     no     |       no       |   no    |     no      | config section + `todayMarker`   |
-|  [07]   | Pie          |     no     |       no       |   no    |     no      | ordinal `pie1`–`pie12` vars      |
-|  [08]   | Quadrant     |    yes     |      yes       |   no    |     no      | point-local `color`/`radius`     |
-|  [09]   | Timeline     |     no     |       no       |   no    |     no      | `cScale0`–`cScale11` vars        |
-|  [10]   | Mindmap      |     no     |      yes       |   no    |     no      | host classes + `::icon(...)`     |
-|  [11]   | Kanban       |     no     |       no       |   no    |     no      | task metadata + config keys      |
-|  [12]   | GitGraph     |     no     |       no       |   no    |     no      | `git0`–`git7` + label vars       |
-|  [13]   | Requirement  |    yes     |      yes       |   yes   |     no      | direct requirement/element style |
-|  [14]   | Architecture |     no     |       no       |   no    |     no      | `arch*` vars + `align`/`seed`    |
-|  [15]   | Block        |    yes     |       no       |   yes   |     no      | id `class`/`style` + nesting     |
-|  [16]   | Sankey       |     no     |       no       |   no    |     no      | config link-color strategy       |
-|  [17]   | XY chart     |     no     |       no       |   no    |     no      | config plot palette              |
-|  [18]   | Radar        |     no     |       no       |   no    |     no      | nested `radar` + `cScale` vars   |
-|  [19]   | Treemap      |    yes     |      yes       |   no    |     no      | node `:::class`/`classDef`       |
-|  [20]   | Packet       |     no     |       no       |   no    |     no      | `block*Color` vars               |
-|  [21]   | Journey      |     no     |       no       |   no    |     no      | `fillType0`–`fillType7` vars     |
-|  [22]   | C4           |     no     |       no       |   no    |     no      | `Update*Style` calls             |
+| [INDEX] | [TYPE]       | [CLASSDEF] | [TRIPLE_COLON] | [STYLE] | [LINKSTYLE] | [LOCAL]                                        |
+| :-----: | :----------- | :--------: | :------------: | :-----: | :---------: | :--------------------------------------------- |
+|  [01]   | Flowchart    |    yes     |      yes       |   yes   |     yes     | edge-id + shape metadata                       |
+|  [02]   | Sequence     |     no     |       no       |   no    |     no      | `box`/`rect` backgrounds                       |
+|  [03]   | State        |    yes     |      yes       |   yes   |     no      | composite-state classes                        |
+|  [04]   | Class        |    yes     |      yes       |   yes   |     no      | relation arrows + lollipops                    |
+|  [05]   | ER           |    yes     |      yes       |   yes   |     no      | identifying `--` vs non-`..`                   |
+|  [06]   | Gantt        |     no     |       no       |   no    |     no      | config section + `todayMarker`                 |
+|  [07]   | Pie          |     no     |       no       |   no    |     no      | ordinal `pie1`–`pie12` vars                    |
+|  [08]   | Quadrant     |    yes     |      yes       |   no    |     no      | point-local `color`/`radius`                   |
+|  [09]   | Timeline     |     no     |       no       |   no    |     no      | `cScale0`–`cScale11` vars                      |
+|  [10]   | Mindmap      |     no     |      yes       |   no    |     no      | host classes + `::icon(...)`                   |
+|  [11]   | Kanban       |     no     |       no       |   no    |     no      | task metadata + config keys                    |
+|  [12]   | GitGraph     |     no     |       no       |   no    |     no      | `git0`–`git7` + label vars                     |
+|  [13]   | Requirement  |    yes     |      yes       |   yes   |     no      | direct requirement/element style               |
+|  [14]   | Architecture |     no     |       no       |   no    |     no      | `arch*` vars + `align`/`seed`                  |
+|  [15]   | Block        |    yes     |       no       |   yes   |     no      | id `class`/`style` + nesting                   |
+|  [16]   | Sankey       |     no     |       no       |   no    |     no      | config link-color strategy                     |
+|  [17]   | XY chart     |     no     |       no       |   no    |     no      | config plot palette                            |
+|  [18]   | Radar        |     no     |       no       |   no    |     no      | nested `radar` + `cScale` vars                 |
+|  [19]   | Treemap      |    trap    |      trap      |   no    |     no      | ordinal `cScale`/`cScalePeer` + section stamps |
+|  [20]   | Packet       |     no     |       no       |   no    |     no      | `.packet*` `themeCSS` class stamp              |
+|  [21]   | Journey      |     no     |       no       |   no    |     no      | `fillType0`–`fillType7` vars                   |
+|  [22]   | C4           |     no     |       no       |   no    |     no      | `Update*Style` calls                           |
 
-The silent traps live where syntax parses but styling does not apply: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling reaches plain states while a composite class parses and lands in the DOM with its fill and stroke non-portable and `[*]` markers unstyleable; and the packet theme-variable block is inert in the current build.
+The silent traps live where syntax parses but styling does not apply or applies destructively: mindmap `:::` classes must be supplied by the host, so in-diagram `classDef` never defines them; block `:::` has no verified route; state styling reaches plain states while a composite class parses and lands in the DOM with its fill and stroke non-portable and `[*]` markers unstyleable; treemap `classDef` emits inline `!important` fills that lock out every stylesheet correction, so a themed treemap carries no classes and rides its ordinal range plus section stamps; and the nested packet theme-variable block half-applies, so packet styling rides its `themeCSS` classes.
 
 ## [06]-[FLOORS]
 
 Every family ships at or above its floor — the minimum styling below which its render is naked. A family whose engine admits no color route states that bound beside the fence instead of shipping a dead theme block.
 
-| [INDEX] | [FAMILY]      | [FLOOR]                                                                                                           |
-| :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | flowchart     | base vars + three or more canonical classes + explicit rail on every non-primary edge + `fontFamily`              |
-|  [02]   | sequence      | actor/signal/activation/note vars + one `box` or `rect` grouping around each `alt`/`par`/`critical` region        |
-|  [03]   | state         | general vars + a class on every non-`[*]` resting state — dormant `recessed`, fault `error`, terminal `boundary`  |
-|  [04]   | class         | general vars + `classText` + classes separating the aggregate or interface from leaf types                        |
-|  [05]   | ER            | attribute banding + `lineColor` + `tertiaryColor` + classes: root `primary`, junction `recessed`, ref `external`  |
-|  [06]   | gantt         | `section*`/`task*`/`active*`/`crit*`/`todayLineColor`/`gridColor` set                                             |
-|  [07]   | mindmap       | no in-fence class route — host-registered classes or engine depth colors, the bound stated beside the fence       |
-|  [08]   | timeline      | `cScale0`–`cScale11` + `cScaleLabel0`–`cScaleLabel11`                                                             |
-|  [09]   | kanban        | `kanban` config keys + priority metadata; the family carries no theme route                                       |
-|  [10]   | gitGraph      | `git0`–`git7` + `gitBranchLabel*` + `commit*` + `tag*`                                                            |
-|  [11]   | requirement   | `requirement*`/`relation*` + classes separating requirement from element                                          |
-|  [12]   | C4            | `personBorder`/`personBkg` + `UpdateElementStyle`/`UpdateRelStyle` on every element and relation                  |
-|  [13]   | architecture  | `archEdgeColor`/`archGroupBorderColor` + per-group icon + `architecture.seed`                                     |
-|  [14]   | pie           | `pie1`–`pie12` + `pieSectionTextColor` + `pieLegendTextColor`                                                     |
-|  [15]   | quadrant      | `primaryColor`/`primaryTextColor` + per-point `color`/`radius` + quadrant fill vars                               |
-|  [16]   | sankey        | `theme: base` frontmatter + `sankey` config `linkColor` + node colors mapped to palette hexes                     |
-|  [17]   | xychart       | nested `xyChart` block + `plotColorPalette`                                                                       |
-|  [18]   | radar         | nested `radar` block + `cScale0`–`cScale11`                                                                       |
-|  [19]   | treemap       | `theme: base` frontmatter + a class per top-level branch                                                          |
-|  [20]   | packet        | none — style propagation is broken; the one acknowledged naked family                                             |
-|  [21]   | journey       | `fillType0`–`fillType7` — the score fills — + `primaryColor`/`textColor`                                          |
-|  [22]   | venn          | `venn1`–`venn8` + `vennTitleTextColor`/`vennSetTextColor`                                                         |
-|  [23]   | eventmodeling | `em*` fill/stroke pairs + `emSwimlaneBackground*`                                                                 |
-|  [24]   | wardley       | nested `wardley` block + `wardleyEvolutionColor`                                                                  |
-|  [25]   | cynefin       | nested `cynefin` domain backgrounds + boundary and arrow colors                                                   |
-|  [26]   | treeView      | host-registered icon packs and classes; the dependency stated beside the fence                                    |
-|  [27]   | ishikawa      | global vars only; the bound stated beside the fence                                                               |
-|  [28]   | swimlane      | the flowchart floor + `theme: base`; the family reuses the flowchart body                                         |
-|  [29]   | railroad      | `theme: base` + classes separating production, terminal, and reference nodes                                      |
+| [INDEX] | [FAMILY]      | [FLOOR]                                                                                                                                                              |
+| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | flowchart     | base vars + three or more canonical classes + explicit rail on every non-primary edge + `fontFamily`                                                                 |
+|  [02]   | sequence      | actor/signal/activation/note vars + one `box` or `rect` grouping around each `alt`/`par`/`critical` region                                                           |
+|  [03]   | state         | general vars + dormant `recessed`, fault `error`, terminal `boundary` classes; nominal states ride the primary default                                               |
+|  [04]   | class         | general vars + `classText` + classes separating the aggregate or interface from leaf types + the gold note chip                                                      |
+|  [05]   | ER            | attribute banding + `lineColor` + `tertiaryColor` + classes: root `primary`, junction `recessed`, ref `external`                                                     |
+|  [06]   | gantt         | `section*`/`task*`/`active*`/`crit*`/`excludeBkgColor`/`todayLineColor`/`gridColor` + `axisFormat` with `tickInterval` + the Lavender `.sectionTitle` stamp          |
+|  [07]   | mindmap       | no in-fence class route — host-registered classes or engine depth colors, the bound stated beside the fence                                                          |
+|  [08]   | timeline      | `cScale0`–`cScale11` + Foreground `cScaleLabel0`–`cScaleLabel11` + the `.node-bkg` fill-opacity stamp with per-section borders + the attribute-hook wayfinding stamp |
+|  [09]   | kanban        | full `cScale`/`cScaleLabel` ranges (columns index from `section-1`) + `background`/`nodeBorder` cards + the container-title stamp + priority-line remaps             |
+|  [10]   | gitGraph      | `git0`–`git7` + `gitBranchLabel*` + `commit*`/`tag*` incl. `tagLabelBorder` + canvas `primaryColor` + the 2px `.arrow` and `.75` commit-dot stamps                   |
+|  [11]   | requirement   | `requirement*`/`relation*` + `edgeLabelBackground` + classes separating requirement from element + the arrow-scale stamp                                             |
+|  [12]   | C4            | `c4:` config color keys + `UpdateRelStyle` on every relation + the boundary/title/marker/image `themeCSS` hooks                                                      |
+|  [13]   | architecture  | `archEdgeColor`/`archEdgeArrowColor`/`archGroupBorderColor` + per-group icon + full `align` grid + `architecture.seed` + the icon re-fill stamp                      |
+|  [14]   | pie           | `pie1`–`pie12` + `pieOpacity: 1` + per-slice `nth-of-type` translucent fills with full strokes + Foreground section/legend text                                      |
+|  [15]   | quadrant      | neutral quadrant fills + Lavender quadrant text + per-point classes + the `.data-point` fill-opacity stamp                                                           |
+|  [16]   | sankey        | `theme: base` frontmatter + `nodeColors` mapped to palette hexes + `labelStyle: legacy` + the `.link` blend stamp + Foreground `.node-labels`                        |
+|  [17]   | xychart       | nested `xyChart` block + `plotColorPalette` + the `.bar-plot-0` translucency stamp + outside data labels capped by `.plot text`                                      |
+|  [18]   | radar         | nested `radar` block + `cScale0`–`cScale11` + distinct per-curve data + margins clearing the axis labels                                                             |
+|  [19]   | treemap       | full `cScale`/`cScalePeer`/Foreground `cScaleLabel` ranges + the dark-section and label-cap stamps; `classDef` banned                                                |
+|  [20]   | packet        | the `.packetBlock`/`.packetLabel`/`.packetByte`/`.packetTitle` `themeCSS` stamp — one hue family, wash-tier fills                                                    |
+|  [21]   | journey       | translucent `fillType0`–`fillType7` + `actor0`–`actor5` + `faceColor` + `journey.titleFontFamily`/`titleColor` + the face/mouth/axis stamps                          |
+|  [22]   | venn          | per-set `style` rows (fill, fill-opacity, stroke, color) + labeled unions + the title and set-label size stamps                                                      |
+|  [23]   | eventmodeling | `em*` fill/stroke pairs + `emSwimlaneBackground*` + the `.em-box span`/`code` and `.em-swimlane text` stamps                                                         |
+|  [24]   | wardley       | nested `wardley` block + `wardleyEvolutionColor`; the family emits no stylesheet, so text metrics stay engine-owned and the user need models as a component          |
+|  [25]   | cynefin       | nested `cynefin` block with wash-tier domain fills, Red cliff, Lavender captions + the item chip stamps + `seed`                                                     |
+|  [26]   | treeView      | config `labelColor`/`lineColor`/`labelFontSize` + the highlight (yellow-law chip) and Cyan description stamps                                                        |
+|  [27]   | ishikawa      | global vars only — `lineColor` and `mainBkg` carry the whole surface; the bound stated beside the fence                                                              |
+|  [28]   | swimlane      | the flowchart floor + `theme: base` + lane `style` emphasis + the container-title stamp on lane labels                                                               |
+|  [29]   | railroad      | the `railroad:` config block — gold-law terminals, Selection nonterminals, Comment rails, pink endpoint dots, Lavender rule names                                    |
 
 ## [07]-[CONSISTENCY_LAWS]
 
@@ -349,11 +349,15 @@ Review binds these laws on every committed fence; the values each law spends —
 
 - Edge-rail law: every semantic edge carries an explicit rail from the six-rail set the palette layer owns, bound positionally through `linkStyle` or insertion-stably through an edge-id class; only a plain forward hop inherits the default, every fault edge is Red, and every edge insertion recounts positional indices.
 - Weight law: every stroke spends the palette layer's one weight ladder — `2px` standing edge, `3px` fault and emphasis, `1.5px` dashed and node border, `1px` container — so weight alone lifts an important hop above a routine one; the arrowhead rides the `.marker path` scale the family stamp carries, never the line weight.
-- Animation law: `animate: true` marks the one called-out flow — the hot path or the edge feeding a callout node — never decoration; the engine stills it under reduced motion, and a second competing animation dilutes the first.
-- Container law: a container recesses and its boundary reads — a flowchart `subgraph`, state composite, and class namespace fill Darker `#21222C` under a `1px` dashed Lavender boundary with a Lavender title, a nested region steps one tone lighter so its members read as raised within it, and a sequence `alt`/`par`/`break`/`critical` region wraps in a `rect` or `box` background; a white or naked container is the defect, and every fill and stroke traces to the role map.
+- Animation law: `animate: true` marks the one called-out flow — the hot path or the edge feeding a callout node — never decoration; the engine stills it under reduced motion, and a second competing animation dilutes the first. A static export freezes the animation's dash keyframe, so the edge prints dashed and collides with the trace rhythm — a fence whose proof or destination is a raster leaves `animate` off and carries the emphasis on weight or a callout instead.
+- Container law: a container recesses and its boundary reads — a flowchart `subgraph`, state composite, and class namespace fill Darker `#21222C` under a `1px` dashed Lavender boundary with a Lavender title at the 13.5px/700 container-title stamp, a nested region steps one tone lighter so its members read as raised within it, and a sequence `alt`/`par`/`break`/`critical` region wraps in a `rect` or `box` background; a white or naked container is the defect, and every fill and stroke traces to the role map. The stamp binds every titled container the engine draws — cluster, composite, namespace, kanban column, swimlane lane, gantt section, treemap section, C4 boundary, architecture group.
 - Render-flat law: every shape renders flat and solid-bordered — `look: classic`, `useGradient: false`, `dropShadow: "none"`, and the `filter:none!important` belt in every node-bearing `themeCSS` string kill the engine's gradient borders and halo at all four layers, and no fence, string, or template reintroduces a gradient reference or a node filter.
-- Terminus law: every terminus mark rides its line's color — Pink arrowheads, start discs, terminal rings, and lollipop rings on control flow, cardinality marks on the relation stroke — at the palette layer's marker and pseudostate scale, so no circle reads as a stray dot and no head outweighs its line.
+- Terminus law: every terminus mark rides its line's color — Pink arrowheads, start discs, terminal rings, and lollipop rings on control flow, cardinality marks on the relation stroke — at the palette layer's one marker scale and one circle scale, so no circle reads as a stray dot, no circle shoulders its label, and no head outweighs its line; an engine that leaves a marker unfilled takes an explicit fill-and-stroke stamp, so no arrowhead renders grey anywhere.
+- Crossing law: no edge crosses a node — a block raster links only adjacent cells, an architecture fence aligns every rank both ways, a C4 fence homes externals in their own boundary, and a layout that cannot clear its nodes splits the figure.
+- Label-placement law: an edge or relationship label never sits bare on its stroke — the recessed backing chip masks the line it crosses, offsets clear collision hot spots, and a label the engine strands away from its edge is dropped in favor of the rail's color semantics.
+- Elbow law: edges route orthogonally with sharp elbows wherever the family admits routing control — ELK owns flowchart bends, the swimlane layout owns lane hops, ports and aligns own the architecture grid — and soft splines survive only where the engine owns the curve outright.
 - classDef-completeness law: a flowchart, state, ER, class, or requirement diagram ships every class its semantics demand — an aggregate root, junction, fault, or dormant state rendering identical to its neighbors is the defect.
+- Translucency law: every semantically colored shape composites the two-tier alpha table — dark-ink chips at 75%, light-ink surfaces at their measured alphas, washes below — under a full-opacity border of the same hue; an opaque accent fill is the defect the alpha table exists to prevent.
 - Typography law: the ruled mono stack and the micro-scale `themeCSS` stamps reach every committed fence, emphasis rides a callout node or color rather than a markdown `**bold**` span that renders chunky in mono, and no canvas text renders below the theming floor.
 - Backing law: label backings ride Darker `#21222C`, one step recessed below the canvas — a subtle recessed chip masks the stroke it crosses without the bright pill a Selection backing paints, and a backing equal to the canvas reads as a hole.
 - Ordinal-completeness law: a type reading an ordinal palette defines the full engine range the base block carries, so no band derives to `primaryColor` mud.

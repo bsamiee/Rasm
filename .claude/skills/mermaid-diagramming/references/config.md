@@ -17,13 +17,12 @@ config:
   markdownAutoWrap: false
   deterministicIds: true
   elk:
-    mergeEdges: true
     nodePlacementStrategy: NETWORK_SIMPLEX
     considerModelOrder: NODES_AND_EDGES
   flowchart:
     curve: linear
     defaultRenderer: elk
-    padding: 22
+    padding: 25
   themeVariables:
     darkMode: true
     fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
@@ -35,13 +34,14 @@ config:
     textColor: "#F8F8F2"
     edgeLabelBackground: "#21222C"
     labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Frontmatter contract demo
   accDescr: A three-stage flow with a dotted store trace, its whole render contract carried in fence frontmatter.
   In([In]) --> Work[Work] --> Out([Out])
   Work -.-> Store[(Store)]
+  linkStyle 2 stroke:#FFB86C,color:#F8F8F2
   classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
   classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
   classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
@@ -56,6 +56,7 @@ flowchart LR
 - `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone; `look`, `theme`, `themeVariables`, and `themeCSS` are not on that list, so the fence always owns its own appearance.
 - Root keys with render impact: `htmlLabels` (supersedes deprecated `flowchart.htmlLabels`), `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`; `fontFamily` lives in `themeVariables`, never at config root.
 - The config block holds one key order on every fence: `theme`, `look`, `layout`, root render keys, per-type blocks, `themeVariables` (opening `darkMode`, `fontFamily`, `useGradient`, `dropShadow`, then colors), `themeCSS` last.
+- Diagram padding is `25` universally — `flowchart.padding: 25` and every family's equivalent breathing-room knob take the same value, so no fence crowds its viewport edge.
 - Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, and the rest — carrying that type's own keys.
 
 Frontmatter requests capability; the host provides it. `layout: elk`, icon packs, zenuml, and tidy-tree each need a registered loader — the CLI registers ELK, zenuml, and `@mermaid-js/layout-tidy-tree` itself, a browser must register the rest.
@@ -69,7 +70,7 @@ ELK is the standing layout engine: every ELK-capable diagram declares `layout: e
 |  [01]   | flowchart family            | `elk`                                                                |
 |  [02]   | swimlane                    | layered orthogonal layout consuming `flowchart.defaultRenderer: elk` |
 |  [03]   | architecture                | fcose under `architecture:` knobs                                    |
-|  [04]   | mindmap                     | `tidy-tree`                                                          |
+|  [04]   | mindmap                     | `cose-bilkent`; root `layout` may select a registered `tidy-tree`    |
 |  [05]   | sequence, state, ER, charts | type-owned; `layout: elk` needs a registered loader with no fallback |
 
 ```mermaid
@@ -92,9 +93,9 @@ config:
     nodeBorder: "#BD93F9"
     lineColor: "#FF79C6"
     textColor: "#F8F8F2"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path,.marker circle{transform:scale(.8);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
-graph TD
+flowchart TD
   accTitle: ELK layout demo
   accDescr: A gate fanning to a run stage and a shared terminal under an explicit ELK placement strategy.
   Gate{Gate} --> Run[Run]
@@ -125,6 +126,7 @@ ELK tuning nests under `elk:`:
 
 ELK engine facts, each carrying its authoring rule:
 
+- `mergeEdges: true` fuses same-endpoint segments into one trunk carrying one terminal marker painted by a single edge's stroke — differently railed edges into one target lose their own colors and their `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
 - `nodeSpacing` and `rankSpacing` are inert under ELK — density tunes through `nodePlacementStrategy` and the split move, never those keys.
 - A nested subgraph title wider than its content overflows the parent — a subgraph title stays shorter than its member row.
 - `subGraphTitleMargin` displaces edge labels — the key stays out of ELK diagrams.
@@ -203,4 +205,10 @@ A fully offline deterministic render pins every input: the lockfile pins the CLI
 - Sequence actor links and menus die under strict-security or sandboxed hosts.
 - Sankey CSV must have exactly three columns; blank lines are permitted only without comma separators.
 - `architecture.randomize: false` is not determinism — `architecture.seed` is the lock.
-- Architecture `align row|column` fails when declared order contradicts a directional-edge constraint.
+- Architecture `align row|column` fails when declared order contradicts a directional-edge constraint; a CSS transform on `polygon.arrow` erases the arrow's placement translate.
+- Theme resolution converts ordinal color variables through hsl and strips 8-digit alpha — `cScale`/`git` translucency rides `fill-opacity` stamps, while `fillType`, quadrant fills, and tag backgrounds pass alpha hexes intact.
+- `classDef` styles land as inline `!important` declarations; on treemap they lock section fills against every stylesheet correction, so that family carries no classes.
+- Wardley emits no stylesheet — `themeCSS` and the mono stack never reach it, and its anchor label inks engine-black.
+- The EBNF railroad dialect reads `? ... ?` as a special sequence: optionality spells `[ ... ]` and repetition `{ ... }`, never a postfix `?`.
+- C4 packs loose shapes in rows above every boundary; a third loose shape lands beneath the first where relations cross it, so externals home in their own `Boundary`.
+- Kanban column classes index from `section-1`, one past the `cScale` ordinals, so the full range is set.

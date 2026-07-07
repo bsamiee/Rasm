@@ -5,7 +5,8 @@ description: >-
   tokens, and a bundled render-plus-graph-logic validator. Owns diagram methodology — when to
   diagram, node and edge selection, per-type construction, logical soundness — the standard
   archetype catalog (architecture spine, package seam graph, logic flow, state lifecycle, wire
-  sequence, persistence schema, dependency strata), and the admitted type registry: flowchart,
+  sequence, persistence schema, dependency strata, schedule, board, history, topology,
+  landscape, event flow, profile, decomposition), and the admitted type registry: flowchart,
   sequence, state, class, ER, gantt, mindmap, timeline, kanban, gitGraph, requirement, C4, and
   architecture. Use when authoring, editing, or fixing any mermaid fence, choosing a diagram
   type, or whenever a task asks to draw, diagram, map, or visualize a system, flow, state
@@ -24,17 +25,25 @@ A diagram earns its fence only when the reader traces a relation across more mar
 
 ## [02]-[CATALOG]
 
-Select the archetype by intent, copy its template, and refill — a catalog template is self-sufficient, carrying its archetype's construction law in its own prose. An intent outside the catalog selects its type through the methodology decision table and the extended registry, under the same frontmatter, theming, and validation law. The budget column is the legibility ceiling that binds at review; past it the split move fragments the subject into two diagrams, and a required legend is itself a split signal.
+Select the archetype by intent, copy its template, and refill — a catalog template is self-sufficient, carrying its archetype's construction law in its own prose. An intent outside the catalog selects its type through the methodology decision table and the extended registry, under the same frontmatter, theming, and validation law. The split move partitions a subject the moment a second question appears, and a required legend is itself a split signal.
 
-| [INDEX] | [ARCHETYPE]   | [INTENT]                    | [DECLARATION]     | [BUDGET]       | [SPLIT_MOVE]                     |
-| :-----: | :------------ | :-------------------------- | :---------------- | :------------- | :------------------------------- |
-|  [01]   | spine         | main path through owners    | `flowchart LR`    | 12 nodes       | split at the readiness gate      |
-|  [02]   | seam-graph    | shapes across a boundary    | `flowchart LR`    | 12 edges       | partition by counterpart package |
-|  [03]   | logic-flow    | one operation dispatch      | `flowchart LR`    | 12 nodes       | extract an arm subflow           |
-|  [04]   | lifecycle     | guarded state transitions   | `stateDiagram-v2` | 12 states      | nest a composite state           |
-|  [05]   | wire-sequence | ordered boundary exchange   | `sequenceDiagram` | 6 participants | split by interaction phase       |
-|  [06]   | schema        | persistent entity relations | `erDiagram`       | 8 entities     | split by aggregate root          |
-|  [07]   | strata        | layer dependency direction  | `flowchart TB`    | 6 strata       | collapse peer layers             |
+| [INDEX] | [ARCHETYPE]   | [INTENT]                    | [DECLARATION]       | [SPLIT_MOVE]                     |
+| :-----: | :------------ | :-------------------------- | :------------------ | :------------------------------- |
+|  [01]   | spine         | main path through owners    | `flowchart LR`      | split at the readiness gate      |
+|  [02]   | seam-graph    | shapes across a boundary    | `flowchart LR`      | partition by counterpart package |
+|  [03]   | logic-flow    | one operation dispatch      | `flowchart LR`      | extract an arm subflow           |
+|  [04]   | lifecycle     | guarded state transitions   | `stateDiagram-v2`   | nest a composite state           |
+|  [05]   | wire-sequence | ordered boundary exchange   | `sequenceDiagram`   | split by interaction phase       |
+|  [06]   | schema        | persistent entity relations | `erDiagram`         | split by aggregate root          |
+|  [07]   | strata        | layer dependency direction  | `flowchart TB`      | collapse peer layers             |
+|  [08]   | schedule      | dated committed work        | `gantt`             | split by phase                   |
+|  [09]   | board         | stage-held work now         | `kanban`            | split by workflow segment       |
+|  [10]   | history       | branch and merge truth      | `gitGraph LR:`      | split by release train           |
+|  [11]   | topology      | deployables and reach       | `architecture-beta` | split by zone                    |
+|  [12]   | landscape     | one-zoom system landscape   | `C4Context`         | re-declare at the next zoom      |
+|  [13]   | event-flow    | command-event causality     | `eventmodeling`     | split by stream                  |
+|  [14]   | profile       | two-subject capability compare | `radar-beta`     | one comparison per fence         |
+|  [15]   | decomposition | weighted whole-to-part      | `treemap-beta`      | aggregate the tail               |
 
 - [01]-[SPINE](templates/spine.mmd.md)
 - [02]-[SEAM-GRAPH](templates/seam-graph.mmd.md)
@@ -43,6 +52,14 @@ Select the archetype by intent, copy its template, and refill — a catalog temp
 - [05]-[WIRE-SEQUENCE](templates/wire-sequence.mmd.md)
 - [06]-[SCHEMA](templates/schema.mmd.md)
 - [07]-[STRATA](templates/strata.mmd.md)
+- [08]-[SCHEDULE](templates/schedule.mmd.md)
+- [09]-[BOARD](templates/board.mmd.md)
+- [10]-[HISTORY](templates/history.mmd.md)
+- [11]-[TOPOLOGY](templates/topology.mmd.md)
+- [12]-[LANDSCAPE](templates/landscape.mmd.md)
+- [13]-[EVENT-FLOW](templates/event-flow.mmd.md)
+- [14]-[PROFILE](templates/profile.mmd.md)
+- [15]-[DECOMPOSITION](templates/decomposition.mmd.md)
 
 ## [03]-[VALIDATE]
 
@@ -52,7 +69,9 @@ A diagram is not done until its fence passes both stages: graph-logic checks ove
 uv run scripts/validate_mermaid.py <file.md ...>
 ```
 
-Each fence emits `file:line: STATUS check detail` rows with check kinds `render`, `frontmatter`, `contract`, `logic`, `setup`, `read`, and `collect`; `--json` emits identical-key NDJSON for tooling. Contract, logic, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers flowchart, state, sequence, ER, class, gantt, requirement, architecture, and C4; any other family emits a `logic-unimplemented` warn instead of silent approval. Logic failures block: orphan node, unreachable state, undefined or unknown class targets, dangling task, group, service, or relation references. Logic warns demand a split or a stated reason: duplicate same-label edges, orphan participants, entities, services, and requirements, budget overruns. Contract warnings cover accessibility presence and order, `theme: base`, the flat-look lock (`look: classic`, `useGradient`, `dropShadow`), the mono-stack floors, `clusterBkg`, label backing, canonical classes, linkStyle index drift, semantic edge rails, sequence grouping, and palette drift including translucent-alpha discipline. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram.
+Each fence emits `file:line: STATUS check detail` rows with check kinds `render`, `frontmatter`, `contract`, `logic`, `setup`, `read`, and `collect`; `--json` emits identical-key NDJSON for tooling. Contract, logic, and frontmatter rows fire only on findings — a clean fence prints its render row alone, and silence from a check is a pass. Graph-logic analysis covers flowchart, state, sequence, ER, class, gantt, requirement, architecture, and C4; any other family emits a `logic-unimplemented` warn instead of silent approval. Logic failures block: orphan node, unreachable state, undefined or unknown class targets, dangling task, group, service, or relation references. Logic warns demand a split or a stated reason: duplicate same-label edges, orphan participants, entities, services, and requirements. Contract warnings cover accessibility presence and order, `theme: base`, the flat-look lock (`look: classic`, `useGradient`, `dropShadow`), the mono-stack floors, `clusterBkg`, label backing, canonical classes, linkStyle index drift, semantic edge rails, sequence grouping, and palette drift including translucent-alpha discipline. `--no-render` runs the logic and frontmatter checks alone for a fast loop; the process exits nonzero when any fence fails. A render failure splits `syntax` from `environment`, so a missing browser never masquerades as a broken diagram.
+
+The canon checker runs beside the validator as `uv run scripts/check_canon.py <file.md ...>` — a render-free, table-driven enforcement of the theming, styling, and config canon per family (palette closure, alpha tiers, yellow law, micro-scale stamps, per-family floors) emitting the same `file:line: STATUS canon rule detail` row shape with `--json` NDJSON and a nonzero exit on any fail. `--explain <rule-id>` prints a finding's canon sentence and owning reference.
 
 The renderer resolves as `--renderer CMD`, then a `pnpm exec mmdc` workspace, then `mmdc` on PATH, then `npx -y @mermaid-js/mermaid-cli`. The final branch reaches the network on every run; install the renderer once so validation stays offline:
 
@@ -71,7 +90,7 @@ pnpm add -D @mermaid-js/mermaid-cli
 
 ## [05]-[LEGIBILITY]
 
-Legibility bounds a diagram, not syntax capacity: the validator warns past each family ceiling, and the catalog's archetype budget binds at review. A rendered diagram ships only after it passes every legibility check:
+Legibility bounds a diagram, not syntax capacity. A rendered diagram ships only after it passes every legibility check:
 
 - Labels render untruncated.
 - Edges do not visually dominate nodes.

@@ -13,8 +13,7 @@ description: >-
   or report, or asks to visualize a plan, decision, architecture, or data. Distinct from the
   Artifact tool's hosted fragments; mermaid fences belong to mermaid-diagramming.
 allowed-tools:
-  - Bash(uv run ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py *)
-  - Bash(uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py *)
+  - Bash(uv run ${CLAUDE_SKILL_DIR}/scripts/studio.py *)
 ---
 
 # [HTML_STUDIO]
@@ -25,10 +24,11 @@ An HTML page trades a document that gets skimmed for one that gets read — spat
 
 1. Investigate and select against [references/method.md](references/method.md): name the decision the page moves, build the question inventory, bind every claim to an evidence object, and resolve the interactivity conflict before any layout thought.
 2. Pick the type in [02]; copy its template or compose its region spine from [references/artifact-types.md](references/artifact-types.md).
-3. Embed the NOCTURNE baseline verbatim from [references/design-system.md](references/design-system.md), then compose from the routed references: layout and devices [references/styling.md](references/styling.md), element generators [references/elements.md](references/elements.md), interaction and motion [references/interaction.md](references/interaction.md), state and redaction [references/state.md](references/state.md), inline SVG [references/svg.md](references/svg.md).
+3. Carry the three stamped NOCTURNE regions — baseline style, export drawer, runtime kernel — from the byte canon under `scripts/nocturne/`: a template already carries them, a composed one-off starts from `studio.py stamp --new`, and `studio.py stamp` refreshes drifted regions.
+4. Compose from the routed references: code shape and platform admission [references/code.md](references/code.md), layout and devices [references/styling.md](references/styling.md), element generators [references/elements.md](references/elements.md), interaction and motion [references/interaction.md](references/interaction.md), state and redaction [references/state.md](references/state.md), inline SVG [references/svg.md](references/svg.md).
 4. Fill content answer-first; render the thing itself — real code, real controls, real data rows — never prose describing an unrendered surface.
 5. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the envelope, verdict vocabulary, stable item ids, dual export, and the return-channel probe.
-6. Gate: `uv run ${CLAUDE_SKILL_DIR}/scripts/check_artifact.py <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
+6. Gate: `uv run ${CLAUDE_SKILL_DIR}/scripts/studio.py gate <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
 7. Review in the fixed order method.md owns — skim, coverage, interaction necessity, density, print — and open-check in a browser when one is available.
 8. Home the artifact per [05]; an interactive session runs the return channel per [04].
 
@@ -56,6 +56,7 @@ The most specific trigger wins; each row names the misfit sibling it displaces. 
 |  [16]   | prototype        | an interaction or motion felt pre-build | brainstorm       |
 |  [17]   | figure-sheet     | standalone SVG figures for docs         | explainer        |
 |  [18]   | architecture     | one topology under many named flows     | capability-atlas |
+|  [19]   | schema-map       | one store's entities, keys, and changes | architecture     |
 
 Templates carry the highest-frequency types; the rest compose their region spines from [references/artifact-types.md](references/artifact-types.md).
 
@@ -72,8 +73,6 @@ Templates carry the highest-frequency types; the rest compose their region spine
 - [14]-[DASHBOARD](templates/dashboard.html)
 - [16]-[PROTOTYPE](templates/prototype.html)
 
-Finished exemplars at the shipping bar are [examples/README.md](examples/README.md); consult the matching exemplar and the good/bad pairs before authoring a first instance of a type.
-
 ## [03]-[CONTRACT]
 
 - One file: `<!doctype html>`, a `<title>`, all CSS in one `<style>`, all JS in one `<script>`. Zero external references — no CDN, no webfont, no remote image; only `#` anchors, `data:` URIs, relative links to sibling artifacts, and the injected return meta.
@@ -88,10 +87,10 @@ Finished exemplars at the shipping bar are [examples/README.md](examples/README.
 
 An artifact whose value is the user's judgment — verdicts, scores, reorderings, edits — runs served, not just opened:
 
-1. `uv run ${CLAUDE_SKILL_DIR}/scripts/artifact_server.py serve <artifact.html>` in the background; the banner prints `URL=`, `RECEIPTS=`, `STATE=` (`--output json` for one machine-readable object, `--ttl` to bound the run).
+1. `uv run ${CLAUDE_SKILL_DIR}/scripts/studio.py serve <artifact.html>` in the background; the banner prints `URL=`, `RECEIPTS=`, `STATE=` (`--output json` for one machine-readable object, `--ttl` to bound the run).
 2. Open the URL for the user. The served page carries the injected `artifact-return` and `artifact-token` metas; its export drawer shows the primary send action, and the page returns the token as the `X-Artifact-Token` header.
 3. The user adjusts the page and sends; each accepted submission appends one tagged receipt row to the receipts JSONL beside lifecycle event rows.
-4. `artifact_server.py receipts <file> --last 1` is the canonical read; act on the payload, then `artifact_server.py stop`. `status` proves liveness; `self-test` proves the circuit end to end.
+4. `studio.py receipts <file> --last 1` is the canonical read; act on the payload, then `studio.py stop`. `status` proves liveness; `self-test` proves the circuit end to end.
 
 Opened plain from disk the same artifact degrades to copy-markdown and JSON download; the canonical envelope is identical on every path and the served POST wraps it as `{kind, artifact, version, data}`. Protocol detail is [references/roundtrip.md](references/roundtrip.md).
 
