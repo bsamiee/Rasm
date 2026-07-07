@@ -113,7 +113,10 @@ def _outcomes(
     def _promote(done: tuple[Completed, ...]) -> Report:
         base = fold(claim, verb, done)
         status = RailStatus.OK if done and base.status is RailStatus.EMPTY else base.status
-        return msgspec.structs.replace(base, status=status, results=(*base.results, *_findings(done)))
+        # The engines emit a structured NDJSON row for every failure, so parsed findings supersede fold's raw
+        # stdout-tail defect rows; keep those only when nothing parsed (a tool crash), so a bare traceback surfaces.
+        findings = _findings(done)
+        return msgspec.structs.replace(base, status=status, results=findings or base.results)
 
     return sequence(block.of_seq(slots)).map(lambda done: _promote(tuple(done)))
 
