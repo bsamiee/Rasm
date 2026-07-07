@@ -26,11 +26,12 @@ An HTML page trades a document that gets skimmed for one that gets read — spat
 2. Pick the type in [02]; copy its template or compose its region spine from [references/artifact-types.md](references/artifact-types.md).
 3. Carry the three stamped NOCTURNE regions — baseline style, export drawer, runtime kernel — from the byte canon under `scripts/nocturne/`: a template already carries them, a composed one-off starts from `studio.py stamp --new`, and `studio.py stamp` refreshes drifted regions.
 4. Compose from the routed references: code shape and platform admission [references/code.md](references/code.md), layout and devices [references/styling.md](references/styling.md), element generators [references/elements.md](references/elements.md), interaction and motion [references/interaction.md](references/interaction.md), state and redaction [references/state.md](references/state.md), inline SVG [references/svg.md](references/svg.md).
-4. Fill content answer-first; render the thing itself — real code, real controls, real data rows — never prose describing an unrendered surface.
-5. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the envelope, verdict vocabulary, stable item ids, dual export, and the return-channel probe.
-6. Gate: `uv run ${CLAUDE_SKILL_DIR}/scripts/studio.py gate <file.html>` — fix until exit 0; warn rows are review pressure, not noise.
-7. Review in the fixed order method.md owns — skim, coverage, interaction necessity, density, print — and open-check in a browser when one is available.
-8. Home the artifact per [05]; an interactive session runs the return channel per [04].
+5. Fill content answer-first; render the thing itself — real code, real controls, real data rows — never prose describing an unrendered surface.
+6. An artifact that captures judgment composes the round-trip contract from [references/roundtrip.md](references/roundtrip.md): the envelope, verdict vocabulary, stable item ids, dual export, and the return-channel probe.
+7. Gate: `uv run ${CLAUDE_SKILL_DIR}/scripts/studio.py gate <file.html>` — self-containment, tokens, contrast, script audit, and W3C HTML/SVG conformance (`vnu`); fix until exit 0; warn rows are review pressure, not noise.
+8. Render: `uv run ${CLAUDE_SKILL_DIR}/scripts/studio.py render <file.html>` drives the pinned headless Chromium, writes a full-page screenshot beside the artifact, and surfaces every `console` and `pageerror` as a row; inspect the screenshot and clear every error row.
+9. Review in the fixed order method.md owns — skim, coverage, interaction necessity, density, print.
+10. Home the artifact per [05]; an interactive session runs the return channel per [04].
 
 ## [02]-[TYPE_CHOOSER]
 

@@ -32,7 +32,9 @@ import os
 from pathlib import Path
 import re
 from secrets import token_hex
+import shutil
 from signal import SIGINT, SIGTERM
+import subprocess
 import sys
 import tempfile
 import threading
@@ -75,6 +77,7 @@ type Session = Annotated[str, Parameter(env_var="CLAUDE_CODE_SESSION_ID")]
 class Check(StrEnum):
     A11Y_NAME = "a11y-name"
     BASE = "base"
+    CONFORMANCE = "conformance"
     CSS_LAYER = "css-layer"
     DOCTYPE = "doctype"
     DUPLICATE_ID = "duplicate-id"
@@ -98,6 +101,7 @@ class Check(StrEnum):
     RAW_HEX = "raw-hex"
     READ = "read"
     REGION = "region"
+    RENDER = "render"
     RESIDUE = "residue"
     RETURN_META = "return-meta"
     RUNTIME_FORK = "runtime-fork"
@@ -266,6 +270,29 @@ SHELL = """<!doctype html>
 </html>
 """
 
+RENDER_SCRIPT = """
+import os
+import sys
+
+from playwright.sync_api import sync_playwright
+
+abspath, out = sys.argv[1], sys.argv[2]
+messages: list[str] = []
+chrome = os.environ.get("PUPPETEER_EXECUTABLE_PATH")
+with sync_playwright() as p:
+    browser = p.chromium.launch(args=["--use-mock-keychain", "--password-store=basic"], **({"executable_path": chrome} if chrome else {}))
+    page = browser.new_page(viewport={"width": 1280, "height": 900})
+    page.on("console", lambda m: messages.append(f"{m.type}\\t{m.text}"))
+    page.on("pageerror", lambda e: messages.append(f"pageerror\\t{e}"))
+    page.goto(f"file://{abspath}", wait_until="load")
+    page.wait_for_timeout(300)
+    page.screenshot(path=out, full_page=True)
+    browser.close()
+for message in messages:
+    print(message)
+sys.exit(1 if any(message.startswith(("error\\t", "pageerror\\t")) for message in messages) else 0)
+"""
+
 
 # --- [MODELS] ----------------------------------------------------------------------------
 
@@ -385,6 +412,18 @@ class DomRule(msgspec.Struct, frozen=True):
     status: Status = "fail"
 
 
+class VnuMessage(msgspec.Struct, frozen=True, rename="camel"):
+    type: str
+    message: str = ""
+    sub_type: str = ""
+    last_line: int = 0
+    first_column: int = 0
+
+
+class VnuReport(msgspec.Struct, frozen=True):
+    messages: tuple[VnuMessage, ...] = ()
+
+
 # --- [SERVICES] ------------------------------------------------------------------------------
 
 ENC = msgspec.json.Encoder()
@@ -392,6 +431,7 @@ DEC_ENVELOPE = msgspec.json.Decoder(Envelope)
 DEC_ROW = msgspec.json.Decoder(ReceiptRow | EventRow)
 DEC_STATE = msgspec.json.Decoder(ServerState)
 DEC_PAYLOAD = msgspec.json.Decoder()
+DEC_VNU = msgspec.json.Decoder(VnuReport)
 structlog.configure(
     processors=[structlog.processors.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
     logger_factory=structlog.PrintLoggerFactory(sys.stderr),
@@ -997,6 +1037,34 @@ def audit(path: Path) -> tuple[Row, ...]:
     return tuple(sorted(rows, key=lambda row: (row.line, row.check, row.detail)))
 
 
+def conformance_rows(path: Path) -> tuple[Row, ...]:
+    """W3C `vnu` HTML5 structural conformance; the stale bundled CSS backend is dropped since the studio owns CSS.
+
+    Returns:
+        The conformance rows, or a single skip/unparseable warn row. `info` maps warn, all else fail.
+    """
+    if shutil.which("vnu") is None:
+        return (Row(str(path), 0, Check.CONFORMANCE, "warn", "vnu not on PATH: conformance skipped"),)
+    proc = subprocess.run(
+        ["vnu", "--format", "json", "--stdout", str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if not (stdout := proc.stdout.strip()):
+        return () if proc.returncode == 0 else (Row(str(path), 0, Check.CONFORMANCE, "warn", f"vnu emitted no output (returncode {proc.returncode})"),)
+    try:
+        report = DEC_VNU.decode(stdout.encode("utf-8"))
+    except msgspec.DecodeError:
+        return (Row(str(path), 0, Check.CONFORMANCE, "warn", f"vnu output unparseable (returncode {proc.returncode})"),)
+    # Drop two irrelevant vnu lanes: the stale CSS backend (tinycss2 owns CSS here) and XML-1.0 mappability (these pages are HTML5 from file://, never XML/XHTML).
+    return tuple(
+        Row(str(path), message.last_line, Check.CONFORMANCE, "warn" if message.type == "info" else "fail", message.message[:120])
+        for message in report.messages
+        if not message.message.startswith("CSS:") and "not mappable to XML" not in message.message
+    )
+
+
 # --- [SERVER_OPS]
 
 
@@ -1208,11 +1276,45 @@ def gate(paths: Annotated[Sequence[Path], Parameter(name="paths")], *, json: boo
         Process exit code from the closed `Exit` vocabulary.
     """
     rows = tuple(
-        row for path in paths for row in (audit(path) if path.is_file() else (Row(str(path), 0, Check.READ, "fail", "not a readable file"),))
+        row
+        for path in paths
+        for row in (audit(path) + conformance_rows(path) if path.is_file() else (Row(str(path), 0, Check.READ, "fail", "not a readable file"),))
     )
     for row in rows:
         emit_row(row, json)
     return int(Exit.GATE) if any(row.status == "fail" for row in rows) else int(Exit.OK)
+
+
+def render(artifact: Path, *, out: Path | None = None, json: bool = False) -> int:
+    """Headless-render an artifact to PNG through the pinned Chromium, surfacing console/page failures.
+
+    Returns:
+        Process exit code from the closed `Exit` vocabulary.
+    """
+    target = out or artifact.with_suffix(".png")
+    proc = subprocess.run(
+        ["uv", "run", "--with", "playwright", "python", "-", str(artifact.resolve()), str(target)],
+        input=RENDER_SCRIPT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    def render_status(kind: str) -> Status | None:
+        return "fail" if kind in {"error", "pageerror"} else "warn" if kind == "warning" else None
+
+    rows = [
+        Row(str(artifact), 0, Check.RENDER, status, f"{kind}: {detail}")
+        for report_line in proc.stdout.splitlines()
+        for kind, _, detail in (report_line.partition("\t"),)
+        if (status := render_status(kind)) is not None
+    ]
+    if proc.returncode != 0 and not rows:
+        rows.append(Row(str(artifact), 0, Check.RENDER, "fail", proc.stderr.strip()[-240:] or "render subprocess failed"))
+    for row in rows:
+        emit_row(row, json)
+    print(f"SCREENSHOT={target}")
+    return int(Exit.GATE) if proc.returncode != 0 else int(Exit.OK)
 
 
 def stamp(
@@ -1461,6 +1563,7 @@ def self_test() -> int:
 app = App(name="studio", result_action="return_int_as_exit_code_else_zero")
 app.command(stamp)
 app.command(gate)
+app.command(render)
 app.command(serve)
 app.command(status)
 app.command(stop)
