@@ -7215,6 +7215,7 @@ dependencies = [
     { name = "zarr" },
     { name = "ziafont" },
     { name = "ziamath" },
+    { name = "zlib-ng" },
     { name = "zstandard" },
 ]
 
@@ -7504,7 +7505,7 @@ requires-dist = [
     { name = "zarr" },
     { name = "ziafont" },
     { name = "ziamath" },
-    { name = "zlib-ng", marker = "python_full_version < '3.15'" },
+    { name = "zlib-ng" },
     { name = "zstandard" },
     { name = "zxing-cpp", marker = "python_full_version < '3.15'" },
 ]
@@ -7684,6 +7685,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/b9/d8/eab98a517c14134c0
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/13/547360d81e6d88d58492968ffda9f9542854f11310ee556fef14260cc886/zipp-4.1.0-py3-none-any.whl", hash = "sha256:25ad4e16390cd314347dd8f1de67a2ac538ae658ed4ab9db16029c07c188e97f", size = 10238, upload-time = "2026-05-18T20:08:57.045Z" },
 ]
+
+[[package]]
+name = "zlib-ng"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/7d/901c6e333fb031b5bfbd1532099200cf859f12aa83689be494eade6685ec/zlib_ng-1.0.0.tar.gz", hash = "sha256:c753cea73f9e803c246e9bf01a59eb652897ed8a19334ada0f968394c7f61650", size = 5799954, upload-time = "2025-09-10T11:46:17.553Z" }
 
 [[package]]
 name = "zopfli"

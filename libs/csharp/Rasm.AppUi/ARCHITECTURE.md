@@ -80,8 +80,7 @@ Render/reality        ←  csharp:Rasm.Compute/Runtime/payload        # [SHAPE]:
 Render/pipeline       ←  csharp:Rasm.Compute/Runtime                # [PROJECTION]: ResidencyManifest.Mint web geometry residency
 Render/pathtrace      ←  csharp:Rasm.Compute/Analysis/daylight      # [PORT]: SolarPosition.At(SolarSite, Instant) -> SunPosition feeding LightSource.Sun
 Render/shading        ⇄  csharp:Rasm.Compute                        # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
-Render/drafting       ←  csharp:Rasm.Fabrication/Posting            # [BOUNDARY]: HiddenLineSeam over the kernel DrawingProjection analytic HLR (routed through the Fabrication receipt)
-Render                ←  csharp:Rasm.Fabrication/Documentation/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
+Render                ←  csharp:Rasm.Fabrication/Documentation/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets — the ONE Fabrication HLR seam (kernel DrawingProjection analytic HLR, insulated at the receipt)
 Render/pathtrace      ←  csharp:Rasm.Materials/Appearance           # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
 Charts/basemap        ←  csharp:Rasm.Bim/Semantics/geospatial       # [SHAPE]: Bim-owned NTS features carrying GeoReference (GeoFeature.Reproject geodesy) drawn as tiled map overlays; GeoTiles/TileJSON vector-tile lane
 Collab/sync           →  csharp:Rasm.Persistence/Version/ledger     # [PROJECTION]: typed EditIntent ops onto Persistence-owned OpLogEntry/SyncOpKind rows through the ledger changefeed

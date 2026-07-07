@@ -85,6 +85,38 @@ public sealed record UnfoldResult(Arr<Loop> Flat, Seq<BendLine> Bends, double Th
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class FlatPattern {
+    // The owner#run Form-arm terminal mint: FormedResult carries the flat pattern under its flat-pattern key,
+    // the brake bend rows under bend-program, and the worst overbend — atoms-safe rows only (ruling 5).
+    public static FabricationResult Formed(UnfoldResult unfold, Seq<BendStep> bends) =>
+        new FabricationResult.FormedResult(
+            unfold.Flat,
+            bends,
+            bends.Map(static b => b.OverbendDeg).DefaultIfEmpty(0.0).Max(),
+            ContentKey.Of(EgressKind.FlatPattern, FlatBytes(unfold.Flat)));
+
+    // Canonical flat-pattern bytes: LE loop count, then per loop its LE vertex count followed by vertex
+    // coordinates + bulges as LE doubles — the length prefixes make loop grouping part of the preimage,
+    // so two groupings over identical vertex streams never digest to one flat-pattern key.
+    static byte[] FlatBytes(Arr<Loop> flat) {
+        System.Buffers.ArrayBufferWriter<byte> writer = new();
+        WriteCount(writer, flat.Count);
+        flat.Iter(loop => {
+            WriteCount(writer, loop.Count);
+            for (int i = 0; i < loop.Count; i++) {
+                Point3d v = loop.At(i);
+                System.Buffers.Binary.BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(8), v.X); writer.Advance(8);
+                System.Buffers.Binary.BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(8), v.Y); writer.Advance(8);
+                System.Buffers.Binary.BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(8), loop.BulgeAt(i)); writer.Advance(8);
+            }
+        });
+        return writer.WrittenSpan.ToArray();
+    }
+
+    static void WriteCount(System.Buffers.ArrayBufferWriter<byte> writer, int count) {
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(4), count);
+        writer.Advance(4);
+    }
+
     // Forming's ONE physics accessor — sheet, brake, and tube all read the material's Formed row through here;
     // a material without the formed map entry is degenerate input, never a default.
     internal static Fin<ModalityPhysics.Forming> FormedRow(Material material) =>
@@ -166,8 +198,8 @@ config:
 ---
 flowchart LR
     Policy["FormPolicy KSource · BendMethod · FormSource"] --> Unfold["FlatPattern.Unfold"]
-    Mesh["kernel Development.Apply Decompose → StripField (LayoutParent MST)"] -->|overlay: BA substitution per ruling| Unfold
-    Profile["DSTV KA rows · ConnectorPlate/PlateStock"] -->|analytic (A,R,T,K) lane| Unfold
+    Mesh["kernel Development.Apply Decompose → StripField (LayoutParent MST)"] -->|"overlay: BA substitution per ruling"| Unfold
+    Profile["DSTV KA rows · ConnectorPlate/PlateStock"] -->|"analytic (A,R,T,K) lane"| Unfold
     Physics["RemovalBudget.Formed KFactor · MinBendRadiusFactor"] --> Unfold
     Unfold -->|"UnfoldResult flat + BendLines"| Brake["Forming/brake BendSequence.Plan"]
     Unfold -->|flat-pattern part feed| Nfp["Nesting/nfp"]

@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_QUALITY_RECORD]
 
-The as-built quality-record owner: ONE `QualityRecord` `[Union]` — `FirstArticle` (AS9102-shaped characteristic accountability) · `MillCert` (EN 10204 material certificate) · `WeldInspection` (per-joint NDT verdicts + heat-input readback) — three record families as cases over ONE shared row vocabulary (`CharacteristicRow`/`ChemistryRow`/`MechanicalRow`/`WeldInspectionRow` under the `CharacteristicClass`/`Disposition`/`NdtMethod`/`CertType` axes), sealed by ONE `QualityReport.Seal` fold that validates scalars, projects accountability/contradiction counts, and content-keys the canonical record bytes through `ContentKey.Of` under the `traveler` egress family — the record keys are exactly what `TravelerDocument.Composed` carries into the `Run(Document)` fan-in, so shop documentation stays ONE egress family and a `quality-record` `EgressKind` row is the rejected form. Measured features ride the `Process/owner#FABRICATION_OWNER` `InspectionResult` case (the `OfInspection` factory projects position characteristics as true GD&T rows: nominal `0`, tolerance window from the callout, measured `2·|Δ|`); Cp/Cpk arrive PRE-FOLDED from the `Spec/capability` gate (QUEUED row 31 counterpart — a re-derived Welford here is the dual-paradigm defect, the kernel `Stat.Of` law); conformance verdicts compose the kernel `ConformanceMetric` `[SmartEnum<int>]` policy rows over `ResidualSample` evidence (`Rasm/Analysis/measure#CONFORMANCE`) — measured-vs-nominal truth is the kernel's, this page RECORDS it.
+The as-built quality-record owner: ONE `QualityRecord` `[Union]` — `FirstArticle` (AS9102-shaped characteristic accountability) · `MillCert` (EN 10204 material certificate) · `WeldInspection` (per-joint NDT verdicts + heat-input readback) — three record families as cases over ONE shared row vocabulary (`CharacteristicRow`/`ChemistryRow`/`MechanicalRow`/`WeldInspectionRow` under the `CharacteristicClass`/`Disposition`/`NdtMethod`/`CertType` axes), sealed by ONE `QualityReport.Seal` fold that validates scalars, projects accountability/contradiction counts, and content-keys the canonical record bytes through `ContentKey.Of` under the `traveler` egress family — the record keys are exactly what `TravelerDocument.Composed` carries into the `Run(Document)` fan-in, so shop documentation stays ONE egress family and a `quality-record` `EgressKind` row is the rejected form. Measured features ride the `Process/owner#FABRICATION_OWNER` `InspectionResult` case (the `OfInspection` factory projects position characteristics as true GD&T rows: nominal `0`, tolerance window from the callout, measured `2·|Δ|`); Cp/Cpk arrive PRE-FOLDED from the `Spec/capability` gate; conformance verdicts compose the kernel `ConformanceMetric` `[SmartEnum<int>]` policy rows over `ResidualSample` evidence (`Rasm/Analysis/measure#CONFORMANCE`) — measured-vs-nominal truth is the kernel's, this page RECORDS it.
 
 The record is a MODEL and a ledger of decisions, never a judge with a fault rail: `Documentation/` holds the reserved-EMPTY fault cluster and this page keeps it — incompleteness is RECORDED (unmeasured rows, contradiction counts — a measured-out-of-window row still carrying `conform` is a counted contradiction, because use-as-is/rework/scrap dispositions are MRB authority, never derivable), and only a malformed primitive set (NaN/∞ scalars, empty row sets) routes the kernel band-2400 `GeometryFault.DegenerateInput`. `MillCert` keys the `Process/physics#CUT_PARAMETER` `Material` identity plus heat number; chemistry and mechanical rows are boundary-mapped raw scalars — a `Rasm.Materials` type import in this file is the named seam violation. `WeldInspection` stores the per-joint heat-input readback against the `Joining/procedure` WPS ceiling (TYPE contract — the qualification gate and `EssentialVariable` rows are procedure's; this page records the gate OUTCOME, never re-runs it).
 
@@ -15,7 +15,7 @@ Wire posture: HOST-LOCAL. Sealed records cross only as content keys into the `Ru
 - Owner: `CharacteristicClass` `[SmartEnum<string>]` the AS9102 Form-3 characteristic taxonomy (`dimension`/`gdt`/`finish`/`material`/`process`); `Disposition` `[SmartEnum<string>]` the MRB verdict axis (`conform`/`use-as-is`/`rework`/`scrap`) carrying `Conforming`+`Accepted` columns; `NdtMethod` `[SmartEnum<string>]` (`vt`/`pt`/`mt`/`ut`/`rt`) carrying the `Volumetric` column; `CertType` `[SmartEnum<string>]` the EN 10204 certificate axis (`en10204-2.1`/`-2.2`/`-3.1`/`-3.2`) carrying `WithResults`/`Specific`/`ThirdParty` columns; `CharacteristicRow` the shared accountability row (number, class, callout, nominal/window, `Option<Point3d>` locus, `Option<double>` measured, disposition — `Deviation`/`Accounted`/`Contradicts` projected, never stored); `ChemistryRow`/`MechanicalRow` the certificate scalars; `WeldInspectionRow` the per-joint NDT row with the `WithinWps` heat-input readback; `QualityRecord` the closed three-case record union; `SealedRecord` the content-keyed receipt; `QualityReport` the static surface owning `Seal`.
 - Cases: `QualityRecord` — `FirstArticle(UInt128 ComponentKey, Arr<CharacteristicRow>, Option<double> Cp, Option<double> Cpk, Instant SampledAt)` · `MillCert(Material, string HeatNumber, CertType, Arr<ChemistryRow>, MechanicalRow, Instant IssuedAt)` · `WeldInspection(UInt128 ComponentKey, Arr<WeldInspectionRow>, Instant InspectedAt)` (3); `CharacteristicClass` rows 5; `Disposition` rows 4 (`use-as-is` is `Conforming: false, Accepted: true` — an accepted nonconformance, never silently conforming); `NdtMethod` rows 5; `CertType` rows 4 (only `3.2` is `ThirdParty`); the accountability partition (rows/measured/conforming/contradictions) is four counts on ONE receipt, never four report variants.
 - Entry: `public static Fin<SealedRecord> QualityReport.Seal(QualityRecord record)` — the ONE entry, a generated total `Switch` over the record cases; `Fin<T>` routes ONLY the kernel `GeometryFault.DegenerateInput` (non-finite scalar, empty row set, blank heat number) — the reserved-empty cluster law: no `FabricationFault` arm mints for Documentation, disposition conflicts and unmeasured rows are COUNTED evidence on the receipt.
-- Auto: `Seal` folds per case — `FirstArticle`: scalar admission, accountability counts (`Accounted` = measured or non-conform-dispositioned), contradiction census (`Measured` outside `[Lower,Upper]` while `Verdict.Conforming` — the MRB flag), Cp/Cpk carried as pre-folded `Option`s; `MillCert`: chemistry mass-percent closure recorded (Σ within the admission window — recorded, not thrown), cert-type columns pass through; `WeldInspection`: `WithinWps` readback per joint (`HeatInputKjPerMm ≤ WpsCeilingKjPerMm` — the ceiling arrives from the `Joining/procedure` gate as a row datum), NDT verdict counts. Every case then writes canonical bytes (invariant culture, declaration-ordered fields) and mints `ContentKey.Of(EgressKind.Traveler, bytes)` — the one-hasher law, never a raw `XxHash128` site. `QualityRecord.OfInspection` projects the landed `InspectionResult` feature pairs into position-class rows (`Class: Geometry`, `Nominal: 0`, `Measured: 2·|measured − nominal|` — the GD&T position convention) matched to planned loci; scalar dimension rows await the `Verify/probing` measured-feature receipts (QUEUED row 31 — TYPE seam).
+- Auto: `Seal` folds per case — `FirstArticle`: scalar admission, accountability counts (`Accounted` = measured or non-conform-dispositioned), contradiction census (`Measured` outside `[Lower,Upper]` while `Verdict.Conforming` — the MRB flag), Cp/Cpk carried as pre-folded `Option`s; `MillCert`: chemistry mass-percent closure recorded (Σ within the admission window — recorded, not thrown), cert-type columns pass through; `WeldInspection`: `WithinWps` readback per joint (`HeatInputKjPerMm ≤ WpsCeilingKjPerMm` — the ceiling arrives from the `Joining/procedure` gate as a row datum), NDT verdict counts. Every case then writes DECLARATION-COMPLETE canonical bytes (invariant culture, declaration-ordered — every carried field of every case and nested row contributes: windows, loci, Cp/Cpk, Charpy/hardness, WPS ceilings, timestamps) and mints `ContentKey.Of(EgressKind.Traveler, bytes)` — the one-hasher law, never a raw `XxHash128` site and never a lossy summary digest. `QualityRecord.OfInspection` projects the landed `InspectionResult` feature pairs into position-class rows (`Class: Geometry`, `Nominal: 0`, `Measured: 2·|measured − nominal|` — the GD&T position convention) matched to planned loci with dispositions defaulting `conform` unless the MRB authority map supplies a row — the factory records, the contradiction census judges nothing but consistency; scalar dimension rows await the `Verify/probing` measured-feature receipts.
 - Receipt: `SealedRecord(ContentKey Key, QualityRecord Record, int Rows, int Measured, int Conforming, int Contradictions)` IS the evidence — the counts are the accountability verdict, the key is the traveler-composable identity; no parallel quality ledger.
 - Packages: `Process/owner#FABRICATION_OWNER` (`ContentKey`/`EgressKind`/`FabricationResult.InspectionResult` — composed), `Process/physics#CUT_PARAMETER` (`Material` identity — composed), kernel `Rasm/Analysis/measure#CONFORMANCE` (`ConformanceMetric` rows + `ResidualSample` — the measured-vs-nominal truth this page records), NodaTime (`Instant` stamps — the shared-tier law), `Rasm.Numerics` (`GeometryFault` band-2400), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Option`/`Arr`), BCL inbox.
 - Growth: a new record family (CoC, calibration cert, PPAP row) is one `QualityRecord` case + one `Seal` arm — the generated dispatch breaks the build until the arm lands; a new NDT method, cert type, disposition, or characteristic class is one row; a new evidence source is one case factory beside `OfInspection`; a new accountability metric is one count column on `SealedRecord`; zero new entrypoints.
@@ -107,14 +107,17 @@ public abstract partial record QualityRecord {
     public sealed record WeldInspection(UInt128 ComponentKey, Arr<WeldInspectionRow> Joints, Instant InspectedAt) : QualityRecord;
 
     // Position characteristics per the GD&T convention: nominal 0, window [0, tol], measured 2·|Δ| — the honest
-    // InspectionResult projection; scalar dimension rows enter via the probing receipts (QUEUED row 31).
-    public static QualityRecord OfInspection(UInt128 componentKey, FabricationResult.InspectionResult measured, double positionTol, Instant at) =>
+    // InspectionResult projection; scalar dimension rows enter via the probing receipts. Dispositions are MRB
+    // AUTHORITY: the factory records `conform` unless the mrb map supplies an authority row per characteristic —
+    // an out-of-window measurement under `conform` is exactly what the Seal contradiction census counts; the
+    // factory never judges.
+    public static QualityRecord OfInspection(UInt128 componentKey, FabricationResult.InspectionResult measured, double positionTol, Instant at, Map<int, Disposition> mrb = default) =>
         new FirstArticle(
             componentKey,
             measured.Features.Map((i, f) => new CharacteristicRow(
                 Number: i + 1, Class: CharacteristicClass.Geometry, Callout: "position", Nominal: 0.0, Lower: 0.0, Upper: positionTol,
                 Locus: Some(f.Nominal), Measured: Some(2.0 * f.Nominal.DistanceTo(f.Measured)),
-                Verdict: 2.0 * f.Nominal.DistanceTo(f.Measured) <= positionTol ? Disposition.Conform : Disposition.Rework)).ToArr(),
+                Verdict: mrb.Find(i + 1).IfNone(Disposition.Conform))).ToArr(),
             Cp: None, Cpk: None, SampledAt: at);
 }
 
@@ -151,20 +154,28 @@ public static class QualityReport {
                         Conforming: wi.Joints.Count(static j => j.Verdict.Conforming && j.WithinWps.IfNone(true)),
                         Contradictions: wi.Joints.Count(static j => j.Verdict.Conforming && j.WithinWps.Map(static w => !w).IfNone(false)))));
 
-    // Canonical bytes: invariant culture, declaration-ordered fields — the ONE ContentKey.Of mint under the traveler family.
+    // Canonical bytes are DECLARATION-COMPLETE: every field every case and every nested row carries, in stable
+    // declaration order under the invariant culture — the content key IS the record identity (K9), so two records
+    // differing in ANY carried field (window, locus, Cp/Cpk, Charpy/hardness, WPS ceiling, timestamps) digest apart.
     static ContentKey Key(QualityRecord record) => ContentKey.Of(EgressKind.Traveler, CanonicalBytes(record));
 
     static byte[] CanonicalBytes(QualityRecord record) =>
         System.Text.Encoding.UTF8.GetBytes(record.Switch(
             firstArticle: static fa => string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                $"fai|{fa.ComponentKey}|{fa.SampledAt}|{string.Join(';', fa.Characteristics.Map(static r =>
-                    $"{r.Number}:{r.Class.Key}:{r.Callout}:{r.Nominal}:{r.Measured.Map(static m => m.ToString("R")).IfNone("-")}:{r.Verdict.Key}"))}"),
+                $"fai|{fa.ComponentKey}|{fa.SampledAt}|{Opt(fa.Cp)}|{Opt(fa.Cpk)}|{string.Join(';', fa.Characteristics.Map(static r =>
+                    $"{r.Number}:{r.Class.Key}:{r.Callout}:{r.Nominal:R}:{r.Lower:R}:{r.Upper:R}:{Locus(r.Locus)}:{Opt(r.Measured)}:{r.Verdict.Key}"))}"),
             millCert: static mc => string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                $"cert|{mc.Material.Key}|{mc.HeatNumber}|{mc.Cert.Key}|{string.Join(';', mc.Chemistry.Map(static c => $"{c.Symbol}:{c.MassPct:R}"))}|"
-                + $"{mc.Mechanicals.YieldMpa:R}:{mc.Mechanicals.TensileMpa:R}:{mc.Mechanicals.ElongationPct:R}"),
+                $"cert|{mc.Material.Key}|{mc.HeatNumber}|{mc.Cert.Key}|{mc.IssuedAt}|{string.Join(';', mc.Chemistry.Map(static c => $"{c.Symbol}:{c.MassPct:R}"))}|"
+                + $"{mc.Mechanicals.YieldMpa:R}:{mc.Mechanicals.TensileMpa:R}:{mc.Mechanicals.ElongationPct:R}:{Opt(mc.Mechanicals.CharpyJ)}:{Opt(mc.Mechanicals.HardnessHb)}"),
             weldInspection: static wi => string.Create(System.Globalization.CultureInfo.InvariantCulture,
                 $"weld|{wi.ComponentKey}|{wi.InspectedAt}|{string.Join(';', wi.Joints.Map(static j =>
-                    $"{j.Joint}:{j.Method.Key}:{j.Verdict.Key}:{j.HeatInputKjPerMm.Map(static h => h.ToString("R")).IfNone("-")}"))}")));
+                    $"{j.Joint}:{j.Method.Key}:{j.Verdict.Key}:{Opt(j.HeatInputKjPerMm)}:{Opt(j.WpsCeilingKjPerMm)}"))}")));
+
+    static string Opt(Option<double> value) =>
+        value.Map(static v => v.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).IfNone("-");
+
+    static string Locus(Option<Point3d> locus) =>
+        locus.Map(static p => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{p.X:R},{p.Y:R},{p.Z:R}")).IfNone("-");
 }
 ```
 
@@ -176,14 +187,14 @@ config:
 ---
 flowchart LR
     Inspection["owner InspectionResult (landed case)"] -->|"OfInspection position rows 2·|Δ|"| FAI["FirstArticle"]
-    Probing["Verify/probing measured features (QUEUED row 31)"] -.->|scalar dimension rows| FAI
-    Capability["Spec/capability Cp/Cpk (QUEUED row 31)"] -.->|pre-folded, never re-derived| FAI
+    Probing["Verify/probing measured features"] -.->|scalar dimension rows| FAI
+    Capability["Spec/capability Cp/Cpk"] -.->|pre-folded, never re-derived| FAI
     Physics["physics Material identity + heat scalars"] --> Cert["MillCert EN 10204 rows"]
     Procedure["Joining/procedure WPS ceiling (TYPE contract)"] --> Weld["WeldInspection WithinWps readback"]
     FAI --> Seal["QualityReport.Seal — counts + canonical bytes"]
     Cert --> Seal
     Weld --> Seal
     Seal -->|"ContentKey.Of(EgressKind.Traveler, bytes)"| Keyed["SealedRecord"]
-    Keyed -->|"TravelerDocument.Composed keys"| Traveler["Run(Document) traveler compose (QUEUED row 33)"]
+    Keyed -->|"TravelerDocument.Composed keys"| Traveler["Run(Document) traveler compose"]
     Keyed -.->|rendering| Artifacts["artifacts plane — never here"]
 ```

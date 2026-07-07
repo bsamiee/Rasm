@@ -59,7 +59,7 @@ Version/ledger       ←  csharp:Rasm.AppUi/Collab/Editing + csharp:Rasm.AppHost
 Version/ledger       ←  csharp:Rasm.AppHost/Wire/companion    # [TRANSPORT]: PeerRoster beats over the lossy DrainSurface awareness lane, not durable
 Version/ledger       →  typescript:core/interchange/codec     # [WIRE]: OpLogEntry envelope — Codec Family-derived, TraceSlot top-level
 Version/timetravel   ←  python:data/gridded/virtual           # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed
-Version/provenance   ←  python:artifacts/provenance           # [CONTENT_KEY]: signed-artifact content-key binding; the attested-ledger authenticity authority
+Version/provenance   ←  python:artifacts/exchange/credential  # [CONTENT_KEY]: signed-artifact content-key binding; the attested-ledger authenticity authority
 Version/provenance   ←  PollinationSDK sidecar                # [CONTENT_KEY]: cloud run as W3C-PROV CloudRunFact via CausalDag.Derive, fork never in-fence
 Version/retention    ←  csharp:Rasm.Compute                   # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in the blob retention class
 Element/identity     ⇄  csharp:Rasm.AppHost/Runtime           # [PORT]: TenantId RLS + KMS unwrap handle (#KMS_CUSTODY, ONE_IDENTITY_STORE; SecretLease only)

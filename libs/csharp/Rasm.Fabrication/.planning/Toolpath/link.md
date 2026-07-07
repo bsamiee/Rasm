@@ -27,6 +27,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Search;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
@@ -70,22 +71,24 @@ public static class Link {
             ? Fin.Fail<Linked>(GeometryFault.DegenerateInput("link:empty-element").ToError())
             : Tour(elements, policy).Fold(elements, input, policy);
 
-    // MST over the exit->entry endpoint graph, DFS preorder as the visit order — the 2-approx tour.
+    // MST over the exit->entry endpoint graph, DFS preorder as the visit order — the 2-approx tour. The MST edge set
+    // expands BOTH directions into an AdjacencyGraph so the cataloged DepthFirstSearchAlgorithm (an IVertexListGraph
+    // event fold) walks the undirected tree; DiscoverVertex fires once per vertex, so the fold IS the preorder.
     static Seq<int> Tour(Seq<CutElement> elements, LinkPolicy policy) {
-        var graph = new UndirectedGraph<int, SEdge<int>>();
+        UndirectedGraph<int, SEdge<int>> graph = new();
         graph.AddVertexRange(Enumerable.Range(0, elements.Count));
         graph.AddEdgeRange(from i in Enumerable.Range(0, elements.Count)
                            from j in Enumerable.Range(i + 1, elements.Count - i - 1)
                            select new SEdge<int>(i, j));
         double W(SEdge<int> e) => elements[e.Source].Exit.DistanceTo(elements[e.Target].Entry);
-        var mst = new UndirectedGraph<int, SEdge<int>>();
-        mst.AddVertexRange(Enumerable.Range(0, elements.Count));
-        mst.AddEdgeRange(graph.MinimumSpanningTreePrim(W));
+        AdjacencyGraph<int, SEdge<int>> tree = new();
+        tree.AddVertexRange(Enumerable.Range(0, elements.Count));
+        tree.AddEdgeRange(graph.MinimumSpanningTreePrim(W).SelectMany(static e => new[] { e, new SEdge<int>(e.Target, e.Source) }));
         int start = policy.Home.Match(
             Some: h => Enumerable.Range(0, elements.Count).OrderBy(i => elements[i].Entry.DistanceTo(h)).First(),
             None: () => 0);
         Seq<int> order = Seq<int>();
-        var dfs = new QuikGraph.Algorithms.Search.UndirectedDepthFirstSearchAlgorithm<int, SEdge<int>>(mst);
+        DepthFirstSearchAlgorithm<int, SEdge<int>> dfs = new(tree);
         dfs.DiscoverVertex += v => order = order.Add(v);
         dfs.Compute(start);
         return order;

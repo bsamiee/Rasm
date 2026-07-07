@@ -8,7 +8,7 @@ The document-emission and post-processing axis, rebased onto the one `DocumentNo
 
 ## [02]-[DOCUMENT]
 
-- Entry: `produced` is the ONE modal-arity entrypoint over `DocumentPlan | Iterable[DocumentPlan]` discriminating on the INPUT SHAPE — a lone plan is `Block.singleton`, an iterable is `Block.of_seq`, normalized once at the head, threaded through the rail with NO `batch`/`mode` knob. `_emitted` constructs ONE held `Compiler` off the batch head OFF the loop through `to_thread.run_sync` under the shared `_OFFLOAD` limiter (the font-discovery scan is blocking native, so the build never stalls the scheduler) yet INSIDE the `async_boundary` capsule (so a `Compiler` construction raise still converts to `BoundaryFault`) when the head mode is a `_HELD_WORLD` Typst row and threads it through every Typst arm so a multi-document Typst render pays font load once; a Typst arm in a non-Typst-headed batch builds its own per-plan world so it never receives a `None` compiler. `_emit` is the thin pure core returning the stepped `Self` (a `ReceiptContributor`) the `@receipted` weave harvests; `_stepped` reads `Backend.band` and NEVER runs a synchronous native render inline on the loop — a `CORE`-band arm crosses `anyio.to_thread.run_sync` (the GIL-releasing native render off the loop) under the shared `_OFFLOAD` `CapacityLimiter`, a `WORKER`-band arm crosses `anyio.to_process.run_sync` onto `_worker_emit` which re-resolves the SAME `BACKENDS` row, so the worker lane carries no second `match` and neither lane stalls the scheduler. `produced` returns a `RuntimeRail[Block[ContentKey]]` keyed over each `EmitFact.data`.
+- Entry: `emit()`/`_emit` land the ONE node contract — `emit()` returns the `ArtifactWork` whose key mints PRE-RUN over the canonical `(mode, node, spec)` input (`receipt.slot == node.key`; the produced output content-address rides the receipt FACTS, never the elision key), and `_emit` is the private render thunk resolving the backend row once and minting the per-mode `ArtifactReceipt`. `DocumentPlan.bound(node, modes, **payload)` is the absorbed one-context-many-formats fan: ONE admitted payload binds ONE `DocumentNode` context to N format nodes with per-mode keys, so a re-issued package re-renders only changed formats — the former `TemplateTarget` vocabulary (a 1:1 re-spelling of `DocumentMode`) and the task-group `_fanned` second scheduling rail have no successor; `core/plan#PLAN` schedules the node set and `core/issue#ISSUE` constructs it. A `template` payload band format-IDs through `exchange/detect#DETECT` before any engine trusts its extension. `_stepped` never runs a synchronous native render inline on the loop — a `CORE`-band arm crosses `Modality.THREAD` (GIL-releasing native render) and a `WORKER`-band arm crosses `Modality.PROCESS` with `retry=RetryClass.OCCT` onto `_worker_emit`, which re-resolves the SAME `BACKENDS` row, so the worker lane carries no second `match`; both ride the runtime-owned offload bound, never a folder-minted limiter. The held Typst `Compiler` world amortizes font discovery across a plan's own renders.
 - Auto: every arm receives the `DocumentNode` tree and the held `Compiler` world and lowers the tree — `PDF_AUTHOR` folds it through `_flowables` — each `RunNode` lowering through the escaped `_run_markup` inline markup carrying its real weight/italic/colour/`super`/`sub`/underline/strike (the RUN_FIDELITY the naive plain-`run.text` splice dropped, `<`/`&` escaped once before any tag), a `QUOTE` block to `Italic`, an inline `LINK` annotation to `<a href>`, a `FigureNode` sized from its `intrinsic` with its caption — into a `_SheetDocTemplate` (a `BaseDocTemplate` over one `Frame`/`PageTemplate`), each `TableNode` a `_table_flowable` carrying a real `TableStyle` (`GRID`, a shaded bold `THead` band from `header_rows`, a `TFoot` band, `SPAN` commands folded from `TableNode.spans`, `repeatRows`) over run-fidelity cell `Paragraph`s, the `_title_block` `onPage` callback painting the running header/footer/page-number sheet furniture, and `afterFlowable` minting the PDF outline (`bookmarkPage`+`addOutlineEntry`) and notifying the `TableOfContents` so a `spec.toc` request resolves through `multiBuild`; `PDF_HTML` folds `to_html(node)` through weasyprint `HTML(string, base_url).write_pdf(pdf_variant=, pdf_tags=, pdf_forms=, output_intent=, stylesheets=, attachments=[Attachment(relationship="Source")], full_fonts=, optimize_images=, presentational_hints=)` so the `A_3A` variant actually embeds its PDF/A-3 source files rather than only naming them; `PDF_OXIDE` folds `to_html(node)` through the commercial-safe (MIT/Apache) pdf_oxide `Pdf.from_html(...).to_bytes()` create root; `PDF_UA` folds the block sequence through the fluent tagged `DocumentBuilder().tagged_pdf_ua1()` — `register_embedded_font` per subset face, `role_map` binding each foreign `StructureNode` role to `standard_for(role)`, `_ua_block` flowing each `SectionNode` title + `heading`/`paragraph`/`image_with_alt`, each `FieldNode` as its native AcroForm widget (`text_field`/`checkbox`/`combo_box`/`signature_field`/`push_button`), and each `TableNode` as a native tagged `Table` (`Column` headers + `TD` body rows, real THead/TR/TD structure elements) onto one `a4_page` per `PageNode` (each successor opened by `new_page_same_size` so a multi-page UA document never overflows one buffered page), sealed by `done().build()`; `PDF_TYPST`/`TYPST_DATA` fold `to_typst_source(node).encode()` through the held `Compiler.compile_with_warnings(input=, sys_inputs=, pdf_standards=, timestamp=)`; `TYPST_QUERY` folds the selector through the free `typst.query(input=source-bytes, selector, field, one)` and `TYPST_EVAL` the source expression through the free `typst.eval(input=source-bytes, expression)`; render folds each page through pymupdf `get_pixmap`→native `tobytes`/`numpy`; raster folds each page through pypdfium2 `render(**render_keywords)`→`to_numpy` into one `numpy` frame stack and harvests the `get_toc(max_depth)`→`PdfBookmark.get_count`/`get_title`/`get_dest`→`PdfDest.get_index` outline as `OutlineRow` triples; assembly runs pypdf `PdfWriter.append`; repair runs pikepdf `Pdf.save`; font-embed registers each `CONFORM`-subsetted face through reportlab `TTFont`+`registerFont` and draws every `RunNode`; `DOCX` folds the tree through `_docx_block` after `_docx_scaffold` configures the primary `Section` (orientation/margins + the running header/footer title-block) and registers one `Styles.add_style` caption style, each `TableNode` styling the `THead` band bold, setting `WD_CELL_VERTICAL_ALIGNMENT`, and folding `spans` onto `_Cell.merge`; `PPTX` folds each `PageNode` into a slide; `DOCX_TEMPLATE` folds the tree in one `walk`+`match` pass into the role-keyed `render` context reading `get_undeclared_template_variables` onto the fact; XLSX folds the `TableNode` grid through the ONE `_xlsx_write` body keyed on the `XlsxRegime` policy — the `constant_memory` stream (freeze+autofilter) or the in-memory `add_table`/`conditional_format` (or `_xlsx_merge` `merge_range` where the grid carries merges) pass, plus the `set_landscape`/`set_header`/`set_footer` print layout; `ODT`/`ODS` fold the deepened `_odf_emit` — `_odf_scaffold` registers the shared `odf.number` `DateStyle` + RTL `ParagraphProperties` style and authors the `dc.Title`/`dc.Creator` metadata seal, `_odf_style` caches one appearance-keyed `text:style` per run bound through `OdfSpan`, `_odf_block` lowers `H`/`P`/`text:list`/`text:a` links/`text:note` footnotes/`draw:frame` figures (`addPicture`), and `_odf_sheet` lowers each `TableNode` into a `TableHeaderRows` band + typed `TableCell` (`odf_cell` `boolean`/`float`/`date` value attrs) + `numbercolumnsspanned`/`numberrowsspanned` with `CoveredTableCell` placeholders, each serialized once through `OpenDocument.write`; structured-text folds through ruamel-yaml `YAML().dump`, tomlkit `dumps`, and the four gated lxml rows under the `XMLParser(resolve_entities=False, huge_tree=False, no_network=True)` hardening; the plain-text manuscript rows fold `to_markdown(node)`/`to_latex(node)` — the CommonMark/GFM diffable and journal-submission LaTeX typeset egress of the SAME bound tree the PDF/HTML/Typst arms lower, each escaping through the model owner's `_MD_ESCAPE`/`_LATEX_ESCAPE` maketrans so no active char breaks the source.
 - Receipt: the `@receipted(OPEN)` harvest weave stacks over the pure `_emit`, draining `DocumentPlan.contribute` and emitting through `Signals.emit_async`; `contribute` reads the threaded `EmitFact` off `self.fact` (never an in-process re-run of a worker-gated arm), re-mints the content key over `fact.data`, and folds the case off the `Backend.kind` `ReceiptKind` discriminant through the `_RECEIPT` table in one expression — the PDF rows mint `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)`, the Office and structured-text rows mint `ArtifactReceipt.Office(key, bytes)` — the exact `(ContentKey, <scalars>)` arities the receipt owner declares, never a widened tuple and never the typography-rail `Document` case (emit mints only the `Pdf`/`Office` arities). The rich per-arm evidence (render scale, outline count, embedded-face set, `get_undeclared_template_variables` set, queried length, validation verdict, warning/error count) rides the `EmitFact` carrier the consumer reads off `self.fact`; a richer byte-only receipt case is a `core/receipt#RECEIPT` growth concern — the `Document` case is the typography rail's, so emit mints only the `Pdf`/`Office` arities it owns.
 - Growth: a new document format is one `DocumentMode` row plus one `Backend` row binding its arm and band, plus a `_REQUIRED` row if it demands an input (the pdf_oxide `PDF_OXIDE`/`PDF_UA` create pair landed exactly as this — two `DocumentMode` members, two `CORE` `Backend` rows, no interior edit; the `MARKDOWN`/`LATEX` manuscript pair landed the same way — two members, two `CORE` rows binding `_markdown_emit`/`_latex_emit` over the `document/model#NODE` `to_markdown`/`to_latex` node lowerings, with no `_REQUIRED` row since neither takes an external input); a new typed cell one `CellValue.odf_cell`/`write_xlsxwriter` arm; a new interactive-field kind one `FieldKind` member plus one `_ua_field` arm over the pdf_oxide form vocabulary; a new archival/accessible profile one `PdfVariant` row projecting through `_PDF_STANDARD`/`_PDF_PROFILE`/`_ACCESSIBLE` to both engines; a new schema dialect one `SchemaKind` row; a new sheet-furniture or layout knob one `EmitSpec`/`EmitPayload` policy-value field (`toc`/`header_text`/`footer_text`/`landscape`); a PDF/A-3 embedded source file one `EmitSpec.attachments` entry; a new evidence fact one `EmitFact` field (`tagged`/`structure`/`merges`/`footnotes`); a new admission cause one `EmitFault` case; the held `Compiler` amortizes font load across a batched `produced`; each `PageNode` opens its own tagged sheet through the pdf_oxide `new_page_same_size` fold so a multi-page UA document never overflows one buffered page; zero new surface.
@@ -25,19 +25,22 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
 import msgspec
-from anyio import CapacityLimiter, to_process, to_thread
-from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Block
+from expression.collections import Block, Map
+from expression.extra.result import sequence
 from msgspec import Struct, field, to_builtins
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
+from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.lanes import LanePolicy, Modality
 from rasm.runtime.receipts import OPEN, Receipt, receipted
+from rasm.runtime.resilience import RetryClass
 
-from artifacts.core.receipt import ArtifactReceipt
-from artifacts.document.model import (
+from rasm.artifacts.core.plan import Admission, ArtifactWork
+from rasm.artifacts.core.receipt import ArtifactReceipt
+from rasm.artifacts.exchange.detect import Detect
+from rasm.artifacts.document.model import (
     AnnotationNode,
     AnnotKind,
     BlockKind,
@@ -192,14 +195,14 @@ class PdfVariant(StrEnum):
     def typst(self) -> tuple[str, ...]:
         # the typst `PDFStandard` matrix spells every token below verbatim; the accessible `-a` rows
         # combine their archival token with `ua-1` so one render is BOTH conformant and screen-readable.
-        return _PDF_STANDARD.get(self, ())
+        return _PDF_STANDARD.try_find(self).default_value(())
 
     @property
     def weasyprint(self) -> str | None:
         # weasyprint ships only the `-b` conformance levels + `a-4`/`ua-1`; an `-a` variant projects to
         # its `-b` profile and the `tagged` flag below sets `pdf_tags=True`, so the emitted tagged
         # PDF/A-Xb carries the accessible structure tree the `-a` conformance level mandates.
-        return _PDF_PROFILE.get(self)
+        return _PDF_PROFILE.try_find(self).default_value(None)
 
     @property
     def tagged(self) -> bool:
@@ -216,47 +219,46 @@ _STREAMING_ROW_THRESHOLD: Final = 50_000
 _ZIP64_ROW_THRESHOLD: Final = 1_048_576
 _OUTLINE_MAX_DEPTH: Final = 15
 _RASTER_SCALE: Final = 4.0
-_OFFLOAD: Final = CapacityLimiter(8)  # bounds the in-process native-render thread fan-out; a CORE arm never runs inline on the loop
 _BOLD_WEIGHT: Final = 700
 _PT_PER_HALFPT: Final = 2
 _HEADER_WIDTH: Final = 18.0
 _NUM_FORMAT: Final = "0.############"
 _DATE_FORMAT: Final = "yyyy-mm-dd hh:mm:ss"
-_BOOL_CELL: Final[frozendict[str, bool]] = frozendict({"true": True, "false": False, "yes": True, "no": False})
+_BOOL_CELL: Final[Map[str, bool]] = Map.of_seq([("true", True), ("false", False), ("yes", True), ("no", False)])
 # the reportlab intra-`Paragraph` markup escaper: run text is translated ONCE at the boundary before any
 # `<b>`/`<font>`/`<a>` tag is composed, so a run carrying `<`/`&`/`"` never breaks the mini-XML parser — the
 # TEMPLATE-SAFETY escape-then-compose seam the model's `_TYPST_ESCAPE` mirrors for the Typst lowering.
 _MARKUP_ESCAPE: Final = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})
 # the typst `PDFStandard` token tuple per variant — the archival token alone for `-b`/`a-4`, the archival
 # token PLUS `ua-1` for the accessible `-a` and `ua-1` rows so one render is conformant AND screen-readable.
-_PDF_STANDARD: Final[frozendict[PdfVariant, tuple[str, ...]]] = frozendict({
-    PdfVariant.A_1B: ("a-1b",),
-    PdfVariant.A_2B: ("a-2b",),
-    PdfVariant.A_3B: ("a-3b",),
-    PdfVariant.A_4: ("a-4",),
-    PdfVariant.A_2A: ("a-2a", "ua-1"),
-    PdfVariant.A_3A: ("a-3a", "ua-1"),
-    PdfVariant.UA_1: ("a-3b", "ua-1"),
-})
+_PDF_STANDARD: Final[Map[PdfVariant, tuple[str, ...]]] = Map.of_seq([
+    (PdfVariant.A_1B, ("a-1b",)),
+    (PdfVariant.A_2B, ("a-2b",)),
+    (PdfVariant.A_3B, ("a-3b",)),
+    (PdfVariant.A_4, ("a-4",)),
+    (PdfVariant.A_2A, ("a-2a", "ua-1")),
+    (PdfVariant.A_3A, ("a-3a", "ua-1")),
+    (PdfVariant.UA_1, ("a-3b", "ua-1")),
+])
 # the weasyprint `pdf_variant` profile per variant — only `-b`/`a-4`/`ua-1` ship, so the accessible `-a`
 # rows project to their `-b` profile and ride `pdf_tags=True` (the `tagged` flag) for the structure tree.
-_PDF_PROFILE: Final[frozendict[PdfVariant, str]] = frozendict({
-    PdfVariant.A_1B: "pdf/a-1b",
-    PdfVariant.A_2B: "pdf/a-2b",
-    PdfVariant.A_3B: "pdf/a-3b",
-    PdfVariant.A_4: "pdf/a-4",
-    PdfVariant.A_2A: "pdf/a-2b",
-    PdfVariant.A_3A: "pdf/a-3b",
-    PdfVariant.UA_1: "pdf/ua-1",
-})
+_PDF_PROFILE: Final[Map[PdfVariant, str]] = Map.of_seq([
+    (PdfVariant.A_1B, "pdf/a-1b"),
+    (PdfVariant.A_2B, "pdf/a-2b"),
+    (PdfVariant.A_3B, "pdf/a-3b"),
+    (PdfVariant.A_4, "pdf/a-4"),
+    (PdfVariant.A_2A, "pdf/a-2b"),
+    (PdfVariant.A_3A, "pdf/a-3b"),
+    (PdfVariant.UA_1, "pdf/ua-1"),
+])
 # the tagged (structure-tree-bearing) variants: the `-a` accessible levels and `ua-1` set `pdf_tags=True`.
 _ACCESSIBLE: Final[frozenset[PdfVariant]] = frozenset({PdfVariant.A_2A, PdfVariant.A_3A, PdfVariant.UA_1})
 # `add_format({...})` property dicts replace the per-setter `getattr` loop — one row, no stringly setter dispatch.
-_FORMATS: Final[frozendict[str, frozendict[str, object]]] = frozendict({
-    "header": frozendict({"bold": True, "align": "center"}),
-    "number": frozendict({"num_format": _NUM_FORMAT}),
-    "datetime": frozendict({"num_format": _DATE_FORMAT}),
-})
+_FORMATS: Final[Map[str, frozendict[str, object]]] = Map.of_seq([
+    ("header", frozendict({"bold": True, "align": "center"})),
+    ("number", frozendict({"num_format": _NUM_FORMAT})),
+    ("datetime", frozendict({"num_format": _DATE_FORMAT})),
+])
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -347,6 +349,7 @@ class EmitFact(Struct, frozen=True):
 
 
 class EmitSpec(Struct, frozen=True, omit_defaults=True):
+    parents: tuple[ContentKey, ...] = ()  # upstream content keys (placed figures, authored sections) the node's plan edges ride
     source: bytes = b""
     password: str = ""
     title: str = ""
@@ -459,19 +462,19 @@ class EmitPayload(TypedDict, closed=True):
 
 _PAYLOAD: Final = TypeAdapter(EmitPayload)
 # the per-mode precondition: a mode's named `EmitSpec` fields must be non-empty so the interior is total.
-_REQUIRED: Final[frozendict[DocumentMode, tuple[str, ...]]] = frozendict({
-    DocumentMode.PDF_RENDER: ("source",),
-    DocumentMode.PDF_RASTER: ("source",),
-    DocumentMode.PDF_ASSEMBLE: ("source",),
-    DocumentMode.PDF_REPAIR: ("source",),
-    DocumentMode.TYPST_QUERY: ("selector",),
-    DocumentMode.TYPST_EVAL: ("expression",),
-    DocumentMode.FONT_EMBED: ("subset_fonts",),
-    DocumentMode.DOCX_TEMPLATE: ("template",),
-    DocumentMode.XML_TRANSFORM: ("stylesheet",),
-    DocumentMode.XML_VALIDATE: ("schema",),
-    DocumentMode.XML_QUERY: ("path",),
-})
+_REQUIRED: Final[Map[DocumentMode, tuple[str, ...]]] = Map.of_seq([
+    (DocumentMode.PDF_RENDER, ("source",)),
+    (DocumentMode.PDF_RASTER, ("source",)),
+    (DocumentMode.PDF_ASSEMBLE, ("source",)),
+    (DocumentMode.PDF_REPAIR, ("source",)),
+    (DocumentMode.TYPST_QUERY, ("selector",)),
+    (DocumentMode.TYPST_EVAL, ("expression",)),
+    (DocumentMode.FONT_EMBED, ("subset_fonts",)),
+    (DocumentMode.DOCX_TEMPLATE, ("template",)),
+    (DocumentMode.XML_TRANSFORM, ("stylesheet",)),
+    (DocumentMode.XML_VALIDATE, ("schema",)),
+    (DocumentMode.XML_QUERY, ("path",)),
+])
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -491,35 +494,44 @@ class DocumentPlan(Struct, frozen=True):
 
     def world(self) -> "Compiler":
         # the held world is seeded with the head document bytes and amortizes font load; each Typst arm
-        # overrides `input=` per compile, so the cached fonts serve every batched render.
+        # overrides `input=` per compile, so the cached fonts serve every same-context render.
         return Compiler(to_typst_source(self.node).encode(), font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
+
+    def emit(self, /) -> ArtifactWork:
+        # the ONE node contract: key minted PRE-RUN over the (mode, node, spec) input so keyed admission
+        # probes the warm seed before any engine loads; construction is core/issue's, scheduling core/plan's.
+        return ArtifactWork(key=self._key, work=self._emit, parents=self.spec.parents, admission=Admission(keyed=None), cost=1.0)
+
+    @property
+    def _key(self) -> ContentKey:
+        return ContentIdentity.of(self.mode.value, (self.node, self.spec), policy=CANONICAL_POLICY)
+
+    async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
+        # the renamed private render thunk — Work[ArtifactReceipt]; the plan never invokes it. The produced
+        # output content-address rides the receipt FACTS; the slot is the pre-run input key.
+        stepped = await self._stepped(self.world() if self.mode in _HELD_WORLD else None)
+        return Ok(_RECEIPT[BACKENDS[self.mode].kind](self._key, stepped.fact))
 
     @receipted(
         OPEN
-    )  # emit facts carry no classified field, so the runtime keep-all `OPEN` rides directly — never a re-minted per-file `Redaction` the observability owner forbids, exactly as `document/egress#FINISH` rides `OPEN`
-    async def _emit(self, world: "Compiler | None", /) -> Self:
-        # returns the stepped owner (a `ReceiptContributor`) the harvest weave drains; the content key
-        # is minted by `_emitted` off `self.fact.data`, never inside the pure core.
-        return await self._stepped(world)
-
+    )  # emit facts carry no classified field, so the runtime keep-all `OPEN` rides directly — never a re-minted per-file `Redaction`, exactly as `document/egress#FINISH` rides `OPEN`
     async def _stepped(self, world: "Compiler | None", /) -> Self:
         # the synchronous native render NEVER runs inline on the loop: a WORKER arm crosses the GIL-hostile
-        # process seam, a CORE arm the GIL-releasing thread seam, each bounded by an explicit limiter.
+        # process seam, a CORE arm the GIL-releasing thread seam, each on the runtime-owned offload bound.
         backend = BACKENDS[self.mode]
         fact = (
-            await to_process.run_sync(_worker_emit, self, limiter=_OFFLOAD)
+            await LanePolicy.offload(_worker_emit, self, modality=Modality.PROCESS, retry=RetryClass.OCCT)
             if backend.band is Band.WORKER
-            else await to_thread.run_sync(backend.arm, self, world, limiter=_OFFLOAD)
+            else await LanePolicy.offload(backend.arm, self, world, modality=Modality.THREAD)
         )
-        return replace(self, fact=fact)
+        return replace(self, fact=fact.default_with(_emit_raise))
 
     def contribute(self) -> Iterable[Receipt]:
         # the canonical `ReceiptContributor.contribute(self)` port — phase is the constant `"emitted"`
         # the `ArtifactReceipt` fixes by construction (KNOB_TEST); rides the stepped owner, never a worker re-run.
         if (fact := self.fact) is None:
             return
-        key = ContentIdentity.of(self.mode.value, fact.data)
-        yield from _RECEIPT[BACKENDS[self.mode].kind](key, fact).contribute()
+        yield from _RECEIPT[BACKENDS[self.mode].kind](self._key, fact).contribute()
 
     @classmethod
     def of(cls, mode: DocumentMode, node: DocumentNode, /, **raw: Unpack[EmitPayload]) -> Result[Self, EmitFault]:
@@ -528,24 +540,29 @@ class DocumentPlan(Struct, frozen=True):
         except ValidationError as fault:
             return Error(EmitFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
         spec = EmitSpec(**payload)
-        missing = next((name for name in _REQUIRED.get(mode, ()) if not getattr(spec, name)), None)
+        missing = next((name for name in _REQUIRED.try_find(mode).default_value(()) if not getattr(spec, name)), None)
         return Error(EmitFault(unsatisfied=(mode, missing))) if missing else Ok(cls(mode=mode, node=node, spec=spec))
+
+    @classmethod
+    def bound(cls, node: DocumentNode, modes: "Iterable[DocumentMode]", /, **raw: Unpack[EmitPayload]) -> Result[tuple[ArtifactWork, ...], EmitFault]:
+        # the absorbed one-context-many-formats fan: ONE admitted payload binds ONE DocumentNode context to N
+        # format nodes — one plan per mode, per-mode keys, per-member elision; the former TemplateTarget
+        # vocabulary (a 1:1 re-spelling of DocumentMode) and the task-group `_fanned` second scheduling rail
+        # have no successor — core/plan schedules the node set, core/issue constructs it. A `template` band
+        # entering here format-IDs through `exchange/detect#DETECT` before any engine trusts its extension.
+        return (
+            sequence(Block.of_seq(cls.of(mode, node, **raw) for mode in modes))
+            .map(lambda plans: tuple(plan.emit() for plan in plans))
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def produced(plans: "DocumentPlan | Iterable[DocumentPlan]", /) -> RuntimeRail[Block[ContentKey]]:
-    block = Block.singleton(plans) if isinstance(plans, DocumentPlan) else Block.of_seq(plans)
-    return await async_boundary("document.emit", lambda: _emitted(block))
-
-
-async def _emitted(block: "Block[DocumentPlan]", /) -> Block[ContentKey]:
-    # the held Typst world is built off the loop (a `Compiler` font-discovery scan is blocking native) under the shared
-    # limiter, INSIDE the capsule so the construction never stalls the scheduler yet a build raise still converts to `BoundaryFault`
-    held = await to_thread.run_sync(block.head().world, limiter=_OFFLOAD) if not block.is_empty() and block.head().mode in _HELD_WORLD else None
-    stepped = [await plan._emit(held if plan.mode in _HELD_WORLD else None) for plan in block]
-    return Block.of_seq([ContentIdentity.of(plan.mode.value, plan.fact.data) for plan in stepped])
+def _emit_raise(fault: object) -> "EmitFact":
+    # terminal collapse at the render boundary: an offload fault reconstructs the raise the drain's
+    # fault capsule folds onto the node's rail.
+    raise ValueError(str(fault))
 
 
 # one compiled classifier names the cell type in a single total pass — no per-cell speculative `try` ladder
@@ -566,12 +583,12 @@ def _temporal(parse: Callable[[str], CellScalar], text: str, /) -> CellScalar:
 
 
 # the matched group names the total cell parser; `int`/`float` are regex-guaranteed, the temporal pair guarded once.
-_CELL_TYPED: Final[frozendict[str, Callable[[str], CellScalar]]] = frozendict({
-    "int": int,
-    "float": float,
-    "dt": lambda text: _temporal(datetime.fromisoformat, text),
-    "date": lambda text: _temporal(date.fromisoformat, text),
-})
+_CELL_TYPED: Final[Map[str, Callable[[str], CellScalar]]] = Map.of_seq([
+    ("int", int),
+    ("float", float),
+    ("dt", lambda text: _temporal(datetime.fromisoformat, text)),
+    ("date", lambda text: _temporal(date.fromisoformat, text)),
+])
 
 
 def _coerce_cell(text: str) -> CellScalar | None:
@@ -1381,72 +1398,55 @@ def _worker_emit(plan: DocumentPlan) -> EmitFact:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_SPREADSHEET_POLICIES: Final[frozendict[XlsxRegime, SpreadsheetPolicy]] = frozendict({
-    XlsxRegime.IN_MEMORY: SpreadsheetPolicy(XlsxRegime.IN_MEMORY, _STREAMING_ROW_THRESHOLD),
-    XlsxRegime.STREAMED: SpreadsheetPolicy(XlsxRegime.STREAMED, 1 << 62),
-})
+_SPREADSHEET_POLICIES: Final[Map[XlsxRegime, SpreadsheetPolicy]] = Map.of_seq([
+    (XlsxRegime.IN_MEMORY, SpreadsheetPolicy(XlsxRegime.IN_MEMORY, _STREAMING_ROW_THRESHOLD)),
+    (XlsxRegime.STREAMED, SpreadsheetPolicy(XlsxRegime.STREAMED, 1 << 62)),
+])
 
 _HELD_WORLD: Final[frozenset[DocumentMode]] = frozenset({DocumentMode.PDF_TYPST, DocumentMode.TYPST_DATA})
 
-_RECEIPT: Final[frozendict[ReceiptKind, Callable[[ContentKey, EmitFact], "ArtifactReceipt"]]] = frozendict({
-    ReceiptKind.PDF: lambda key, fact: ArtifactReceipt.Pdf(key, len(fact.data), fact.pages),
-    ReceiptKind.OFFICE: lambda key, fact: ArtifactReceipt.Office(key, len(fact.data)),
-})
+_RECEIPT: Final[Map[ReceiptKind, Callable[[ContentKey, EmitFact], "ArtifactReceipt"]]] = Map.of_seq([
+    (ReceiptKind.PDF, lambda key, fact: ArtifactReceipt.Pdf(key, len(fact.data), fact.pages)),
+    (ReceiptKind.OFFICE, lambda key, fact: ArtifactReceipt.Office(key, len(fact.data))),
+])
 
-BACKENDS: Final[frozendict[DocumentMode, Backend]] = frozendict({
-    DocumentMode.PDF_AUTHOR: Backend(Band.CORE, _reportlab_author, ReceiptKind.PDF),
-    DocumentMode.PDF_HTML: Backend(Band.CORE, _weasyprint_html, ReceiptKind.PDF),
-    DocumentMode.PDF_OXIDE: Backend(Band.CORE, _pdf_oxide_create, ReceiptKind.PDF),  # pdf_oxide Rust core is GIL-releasing -> CORE thread lane
-    DocumentMode.PDF_UA: Backend(Band.CORE, _pdf_ua_build, ReceiptKind.PDF),
-    DocumentMode.PDF_TYPST: Backend(Band.CORE, _typst_compile, ReceiptKind.PDF),
-    DocumentMode.TYPST_QUERY: Backend(Band.CORE, _typst_query, ReceiptKind.OFFICE),
-    DocumentMode.TYPST_EVAL: Backend(Band.CORE, _typst_eval, ReceiptKind.OFFICE),
-    DocumentMode.TYPST_DATA: Backend(Band.CORE, _typst_compile, ReceiptKind.PDF),
-    DocumentMode.PDF_RENDER: Backend(
+BACKENDS: Final[Map[DocumentMode, Backend]] = Map.of_seq([
+    (DocumentMode.PDF_AUTHOR, Backend(Band.CORE, _reportlab_author, ReceiptKind.PDF)),
+    (DocumentMode.PDF_HTML, Backend(Band.CORE, _weasyprint_html, ReceiptKind.PDF)),
+    (DocumentMode.PDF_OXIDE, Backend(Band.CORE, _pdf_oxide_create, ReceiptKind.PDF)),  # pdf_oxide Rust core is GIL-releasing -> CORE thread lane
+    (DocumentMode.PDF_UA, Backend(Band.CORE, _pdf_ua_build, ReceiptKind.PDF)),
+    (DocumentMode.PDF_TYPST, Backend(Band.CORE, _typst_compile, ReceiptKind.PDF)),
+    (DocumentMode.TYPST_QUERY, Backend(Band.CORE, _typst_query, ReceiptKind.OFFICE)),
+    (DocumentMode.TYPST_EVAL, Backend(Band.CORE, _typst_eval, ReceiptKind.OFFICE)),
+    (DocumentMode.TYPST_DATA, Backend(Band.CORE, _typst_compile, ReceiptKind.PDF)),
+    (DocumentMode.PDF_RENDER, Backend(
         Band.CORE, _pymupdf_render, ReceiptKind.PDF
-    ),  # AGPL: native-codec encoded raster; superseded on the commercial-safe path by pdf_oxide `render_page` (roster-flagged for final reconciliation)
-    DocumentMode.PDF_RASTER: Backend(
+    )),  # AGPL: native-codec encoded raster; superseded on the commercial-safe path by pdf_oxide `render_page` (roster-flagged for final reconciliation)
+    (DocumentMode.PDF_RASTER, Backend(
         Band.CORE, _pypdfium2_raster, ReceiptKind.PDF
-    ),  # Apache/BSD: the commercial-safe Pillow-free numpy-frame-stack raster axis
-    DocumentMode.PDF_ASSEMBLE: Backend(Band.CORE, _pypdf_assemble, ReceiptKind.PDF),
-    DocumentMode.PDF_REPAIR: Backend(Band.WORKER, _pikepdf_repair, ReceiptKind.PDF),
-    DocumentMode.FONT_EMBED: Backend(Band.CORE, _font_embed, ReceiptKind.PDF),
-    DocumentMode.DOCX: Backend(Band.CORE, _docx_emit, ReceiptKind.OFFICE),
-    DocumentMode.DOCX_TEMPLATE: Backend(Band.CORE, _docxtpl_emit, ReceiptKind.OFFICE),
-    DocumentMode.PPTX: Backend(Band.WORKER, _pptx_emit, ReceiptKind.OFFICE),  # python-pptx -> lxml
-    DocumentMode.XLSX: Backend(Band.CORE, _xlsx_emit, ReceiptKind.OFFICE),
-    DocumentMode.ODT: Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE),  # odfpy is pure-Python (defusedxml), no lxml -> CORE
-    DocumentMode.ODS: Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE),
-    DocumentMode.XML: Backend(Band.WORKER, _lxml_emit, ReceiptKind.OFFICE),
-    DocumentMode.XML_TRANSFORM: Backend(Band.WORKER, _lxml_transform, ReceiptKind.OFFICE),
-    DocumentMode.XML_VALIDATE: Backend(Band.WORKER, _lxml_validate, ReceiptKind.OFFICE),
-    DocumentMode.XML_QUERY: Backend(Band.WORKER, _lxml_query, ReceiptKind.OFFICE),
-    DocumentMode.YAML: Backend(Band.CORE, _ruamel_emit, ReceiptKind.OFFICE),
-    DocumentMode.TOML: Backend(Band.CORE, _tomlkit_emit, ReceiptKind.OFFICE),
-    DocumentMode.MARKDOWN: Backend(
+    )),  # Apache/BSD: the commercial-safe Pillow-free numpy-frame-stack raster axis
+    (DocumentMode.PDF_ASSEMBLE, Backend(Band.CORE, _pypdf_assemble, ReceiptKind.PDF)),
+    (DocumentMode.PDF_REPAIR, Backend(Band.WORKER, _pikepdf_repair, ReceiptKind.PDF)),
+    (DocumentMode.FONT_EMBED, Backend(Band.CORE, _font_embed, ReceiptKind.PDF)),
+    (DocumentMode.DOCX, Backend(Band.CORE, _docx_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.DOCX_TEMPLATE, Backend(Band.CORE, _docxtpl_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.PPTX, Backend(Band.WORKER, _pptx_emit, ReceiptKind.OFFICE)),  # python-pptx -> lxml
+    (DocumentMode.XLSX, Backend(Band.CORE, _xlsx_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.ODT, Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE)),  # odfpy is pure-Python (defusedxml), no lxml -> CORE
+    (DocumentMode.ODS, Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.XML, Backend(Band.WORKER, _lxml_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.XML_TRANSFORM, Backend(Band.WORKER, _lxml_transform, ReceiptKind.OFFICE)),
+    (DocumentMode.XML_VALIDATE, Backend(Band.WORKER, _lxml_validate, ReceiptKind.OFFICE)),
+    (DocumentMode.XML_QUERY, Backend(Band.WORKER, _lxml_query, ReceiptKind.OFFICE)),
+    (DocumentMode.YAML, Backend(Band.CORE, _ruamel_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.TOML, Backend(Band.CORE, _tomlkit_emit, ReceiptKind.OFFICE)),
+    (DocumentMode.MARKDOWN, Backend(
         Band.CORE, _markdown_emit, ReceiptKind.OFFICE
-    ),  # pure-Python `to_markdown` node fold — no external input, so no `_REQUIRED` row
-    DocumentMode.LATEX: Backend(
+    )),  # pure-Python `to_markdown` node fold — no external input, so no `_REQUIRED` row
+    (DocumentMode.LATEX, Backend(
         Band.CORE, _latex_emit, ReceiptKind.OFFICE
-    ),  # pure-Python `to_latex` node fold — no external input, so no `_REQUIRED` row
-})
+    )),  # pure-Python `to_latex` node fold — no external input, so no `_REQUIRED` row
+])
 ```
 
-## [03]-[RESEARCH]
-
-- [PHANTOM_ARMS_REALIZED]: the prior fence bound `_reportlab_author`/`_pikepdf_repair`/`_docx_emit`/`_pptx_emit` in `BACKENDS` but DEFINED NONE of them — four modes were a `NameError` at module load, a stub dressed as a complete table. The rebuild realizes each as a real lowering arm: `_reportlab_author` folds the tree through `_flowables` into a `platypus` `BaseDocTemplate`+`Frame`+`PageTemplate` sheet built by `multiBuild`/`build` (`Paragraph`/`_table_flowable`/`Image`/`ListFlowable`/`PageBreak` per node kind, the `getSampleStyleSheet` heading/normal/code styles), `_docx_emit` folds it through `_docx_block` (`add_heading`/`add_paragraph`+`add_run`/`add_table`+`cell`/`add_picture`/`add_page_break`) with the full `_docx_run` font projection, `_pptx_emit` folds each `PageNode` into a blank-layout slide's textbox `TextFrame` plus `add_picture` figures, and `_pikepdf_repair` opens and re-saves through `Pdf.save(linearize=True, recompress_flate=True, object_stream_mode=generate, deterministic_id=True)`. The `reportlab.platypus`/`lib.styles`/`lib.pagesizes`, `docx.Document`/`add_*`/`Run.font`/`shared.Pt`/`RGBColor`, `pptx.Presentation`/`slide_layouts`/`slides.add_slide`/`SlideShapes.add_textbox`/`add_picture`/`util.Inches`/`Pt`, and `pikepdf.open`/`Pdf.save`/`ObjectStreamMode`/`Pdf.pages` spellings verify against the `reportlab`/`python-docx`/`python-pptx`/`pikepdf` catalogues.
-- [RECEIPT_WEAVE]: the prior fence wrote `@receipted(ArtifactReceipt)` and `_emit -> ContentKey` — both wrong against the runtime `receipts.@receipted` contract, which takes a `Redaction` policy value and harvests `contribute()` off the operation's `ReceiptContributor` return. The rebuild matches the runtime owner and the `document/egress#FINISH`/`document/report#REPORT` siblings: `@receipted(OPEN)` over a thin `_emit -> Self` returning the stepped `DocumentPlan` (a `ReceiptContributor` via `contribute`), so the weave drains `self.contribute()` and emits through `Signals.emit_async`, and `_emitted` mints the content key off `plan.fact.data` rather than the pure core. `contribute` reads the threaded `EmitFact` off `self.fact`, folds the `Backend.kind` discriminant through `_RECEIPT`, and mints the real `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)`/`.Office(key, bytes)` arities — never a widened tuple, the typography-rail `Document` case, or an in-process re-run of a worker-gated arm.
-- [TYPED_PAYLOAD]: the prior fence carried `extra_items=str` while `of` did `EmitSpec(**payload)` with NO band-fold, so any extension key was either a `TypeError` (unknown kwarg) or a wrong-typed `str` against a non-`str` field — the `extra_items` band the prose claimed was illusory. The rebuild closes the payload (`TypedDict(closed=True)` over the full settable `EmitSpec` surface, per-key `NotRequired[ReadOnly[...]]`), admits once through the module-level `TypeAdapter`, and materializes `EmitSpec(**payload)` over a known-key set; an unknown key faults at `validate_python`. The `_REQUIRED` `frozendict[DocumentMode, tuple[str, ...]]` precondition is the two-tier admission gate making the interior total — a mode whose named input (`source`/`template`/`schema`/`selector`/`subset_fonts`/`stylesheet`/`path`) is empty becomes `EmitFault.unsatisfied` at `of`, so no arm reaches an empty `DocxTemplate("")` or `etree.XSLT(b"")`.
-- [FAULT_COLLAPSE]: the prior `EmitFault` carried five cases (`payload`/`source`/`schema`/`content`/`typeset`) but the body CONSTRUCTED only `payload` — four decorative provider-conversion cases the arms never minted (the arms `raise` provider exceptions; nothing built `EmitFault(typeset=...)`). The rebuild collapses to the admission vocabulary `of` actually produces — `payload` (rejected keys) plus `unsatisfied` (mode precondition) — and routes every arm-level provider raise (`TypstError`/`PdfiumError`/`XMLSyntaxError`/`XlsxWriterException`) to the runtime `BoundaryFault` at the `async_boundary` capsule, exactly as `document/egress#FINISH` routes its provider raises rather than re-spelling a per-page provider-fault union the runtime already owns.
-- [TYPST_WORLD]: three Typst defects are fixed. (1) `world()` constructed `Compiler(font_paths=[], sys_inputs=...)` with NO `input` — but the `typst` `Compiler` constructor requires `input`; the rebuild seeds it with `to_typst_source(self.node).encode()` (the held world amortizes font load, each arm overriding `input=` per compile). (2) `_typst_compile`/`_typst_query` passed a markup `str` as `input`, which the binding treats as a file PATH (`input` is "source path or bytes"); the rebuild passes `.encode()` bytes. (3) `_typst_query` used the held HEAD world's `Compiler.query`, querying the wrong document in a batch; the rebuild uses the free `typst.query(input=this-plan-source-bytes, selector, field, one)` which compiles a single-shot world over the querying plan's OWN document, so `TYPST_QUERY` leaves `_HELD_WORLD`. The PDF/UA path prepends `#set document(title:)` (the `ua-1` render hard-errors `missing document title` without it), and `timestamp` pins the creation date for byte-deterministic archival output. `Compiler`/`compile_with_warnings(input, sys_inputs, pdf_standards, timestamp)` and the free `query` verify against the `typst` catalogue.
-- [OUTLINE_VERIFIED]: the prior `_outline_rows` read `mark.level` — a PHANTOM the `pypdfium2` catalogue does not row (a 5.x `PdfBookmark` exposes `get_title`/`get_count`/`get_dest`, NOT a `.level` attribute), and the prose's claim that it "was corrected to `max_depth - get_count()`" was never applied to the code. The rebuild reads the verified `mark.get_count()` (the signed sub-item count) as the `OutlineRow` head, `mark.get_title()`, and `dest.get_index()` off `mark.get_dest()`, so `outline_count` is the verified bookmark count (`len(outline)`) and the `outline` triples carry the per-bookmark `get_count`/title/dest — never a `.level` depth the `PdfBookmark` does not expose. `get_toc(max_depth)`/`PdfBookmark.get_count`/`get_title`/`get_dest`/`PdfDest.get_index` verify against the `pypdfium2` catalogue rows.
-- [RUN_FIDELITY]: the prior `_docx_run_props` mapped only `bold`/`size`/`font`/`rtl`/`url_id`, lowering a `RunNode` that `document/model#NODE` carries as bold-italic-superscript-coloured-language-tagged to plain bold — the exact defect the model page's accessibility rebuild fixed, repeated at emission. The rebuild projects the full `docxtpl` `RichText.add` axis — `italic` from `RunNode.italic`, `superscript`/`subscript` from `RunScript`, `color` from the `Rgb` triple, `lang` from `NodeMeta.lang` — and the `_docx_emit`/`_pptx_emit`/`_font_embed` arms carry the same character appearance (`Run.font.color`, `Font.italic`, `Canvas.setFillColorRGB`). `RichText.add(italic, superscript, subscript, color, rtl, lang)`, `python-docx` `Run.font`, and `reportlab` `setFillColorRGB` verify against the catalogues.
-- [DOCX_DENSITY]: the dead `_REPLACE` constant (the `("media", "embedded", "zipname", "pic")` tuple referencing methods the body never called) is gone — the `replace: frozendict[str, str]` `EmitSpec` field now wires the real `DocxTemplate.replace_zipname(name, dst)` pre-render part swap, and `render_footnotes` (after `render`) binds the footnote-part XML the prior fence dropped. The `_FORMAT_SETTERS` `getattr`-setter loop collapses into `_FORMATS` `add_format({...})` property-dict rows. `replace_zipname`/`render_footnotes`/`add_format(properties)` verify against the `docxtpl`/`xlsxwriter` catalogues.
-- [WEASY_ARCHIVAL]: the HTML→PDF arm gains the archival-correctness surface its catalogue rows — `base_url` (relative-resource resolution the catalogue mandates over string concatenation), `output_intent` (the ICC profile PDF/A conformance requires), `stylesheets` (supplemental `CSS`), `attachments=[Attachment(filename, name, relationship="Source")]` (the PDF/A-3 embedded source files the `A_3A` variant comment named as the AEC deliverable seal but the prior arm never passed — an illusory-capability defect now closed against the `weasyprint` catalogue `write_pdf(attachments=)`/`Attachment(relationship=)` rows), and the `full_fonts`/`optimize_images`/`presentational_hints` archival-fidelity controls — folded beside the existing `PdfVariant` `pdf_variant`/`pdf_tags`/`pdf_forms` row, and `PdfVariant` gains the `A_1B` profile both engines support (`pdf/a-1b`/`("a-1b",)`). `PdfVariant` additionally rows `A_4` — the weasyprint catalogue's `pdf/a-4` (the PDF 2.0-based archival standard typst does not yet accept), so the `.typst`/`.weasyprint` projections read through `_PDF_STANDARD.get(self, ())`/`_PDF_PROFILE.get(self)` and each engine renders the strongest profile it supports rather than a `KeyError` on a one-engine row; the prior `NONE`-special-cased branches collapse into the defaulted `.get`. `HTML(string, base_url)`/`write_pdf(output_intent, stylesheets)`/`CSS(filename)` and the `pdf/a-4` row verify against the `weasyprint` catalogue.
-- [TYPST_EVAL]: the introspection half rowed `TYPST_QUERY` (element selection) but not the catalogue's distinct `eval` (expression evaluation), so `TYPST_EVAL` lands as one `DocumentMode` row over `_typst_eval` — the free `typst.eval(input=this-plan-source-bytes, expression)` single-shot world over the plan's OWN document, the scripting-introspection sibling of `query` and the same `ReceiptKind.OFFICE` `(ContentKey, bytes)` terminal — with `expression` the one `EmitSpec`/`EmitPayload` field its `_REQUIRED` row demands. `eval(input, expression)` verifies against the `typst` catalogue.
-- [CELL_FOLD]: `_coerce_cell` ran a per-cell speculative `try/except ValueError` ladder (three parsers attempted in sequence) — the NO-EXCEPTION-HOTLOOP smell, exception flow deciding the cell type once per cell across a whole table grid. It collapses to one module-level compiled `_CELL_SHAPE` classifier whose named alternatives (`int`/`float`/`dt`/`date`) decide the type in a single total `match` over the trimmed text, then `_CELL_TYPED[matched.lastgroup]` dispatches the named total parser: the `int`/`float` arms are regex-guaranteed so they never raise, and only a genuine ISO-shape string reaches the lone `_temporal` guard whose single boundary `try/except` lets a shape-valid but range-invalid stamp (month 13) fall back to raw text — so the common text/number/bool/empty cell never enters an exception path and the speculative ladder is gone. The same cell algebra admits tz-aware `datetime.fromisoformat` results and `float('inf')`, so the `_xlsx_streamed` workbook options carry the catalogue's `remove_timezone=True` and `nan_inf_to_errors=True` so a tz-aware datetime serializes and a non-finite float maps to an Excel error code rather than raising. The `re.Pattern.match`/`Match.lastgroup` spelling is stdlib and `remove_timezone`/`nan_inf_to_errors` verify against the `xlsxwriter` catalogue.
-- [RUN_FIDELITY_AUTHOR]: the reportlab `PDF_AUTHOR`/`_flowables` arm — the PRIMARY journal-typesetting PDF path — emitted `Paragraph("".join(run.text for run in runs))`, DROPPING every `RunNode` weight/italic/colour/`RunScript`/`TextDecoration` (the exact RUN_FIDELITY defect the docx `_docx_run_props` rebuild fixed, repeated on the richest path) AND splicing raw `<`/`&` into reportlab's mini-XML `Paragraph` parser (a TEMPLATE-SAFETY hole). The rebuild lowers each run through `_run_markup` — `run.text.translate(_MARKUP_ESCAPE)` escaped ONCE at the boundary, then composed into `<b>`/`<i>`/`<super>`/`<sub>`/`<u>`/`<strike>`/`<font color>` by appearance (`<font name>` withheld since `PDF_AUTHOR` registers no per-run face, `<overline>` absent from reportlab) — the escape-then-compose seam the model's `_styled` Typst lowering mirrors; `_runs_markup`/`_node_markup` carry heading/block/list-item/table-cell runs, a `BlockKind.QUOTE` block lands its own `Italic` arm rather than the generic-paragraph collapse, an inline `AnnotationNode` LINK lowers to `<a href>`, and a `FigureNode` sizes from its `intrinsic` and emits its caption. reportlab `Paragraph` intra-markup (`<b>`/`<i>`/`<u>`/`<strike>`/`<super>`/`<sub>`/`<font color>`/`<a href>`) verifies against the `reportlab` catalogue.
-- [UA_FIELD_AND_PAGINATION]: two `PDF_UA` illusions. (1) The arm walked only `BlockNode | FigureNode | TableNode`, DROPPING every `FieldNode` — the model's full interactive-form vocabulary (`FieldKind` TEXT/CHECKBOX/CHOICE/SIGNATURE/BUTTON) never reached the tagged PDF though pdf_oxide's `FluentPageBuilder` owns the form surface `_ua_build` already threads; the rebuild adds `_ua_field` lowering each `FieldNode` to its native `text_field`/`checkbox`/`combo_box`/`signature_field`/`push_button` widget positioned from `NodeMeta.bounds` under a total `FieldKind` `match` closed by `assert_never`, and includes `FieldNode` in the flow — the AEC title-block fill-in and journal-form capability the prior flow silently discarded. (2) The arm flowed EVERY block onto ONE `a4_page` while the Growth prose claimed `new_page_same_size` "seals the multi-page tagged flow when a UA document overflows one sheet" — an illusory claim the body never realized, so a multi-page document overflowed one buffered page; the rebuild flows one `a4_page` per `PageNode` (`[pages] or [node]`), each successor opened by `new_page_same_size`, matching the `_font_embed`/`_pptx_emit` page fold. `text_field`/`checkbox`/`combo_box`/`signature_field`/`push_button`/`new_page_same_size` verify against the `pdf_oxide` catalogue.
-- [UA_TABLE_AND_SECTION]: two remaining `PDF_UA` capability holes closed against the introspected `FluentPageBuilder` surface. (1) The `TableNode` arm linearized every schedule/journal table to `page.paragraph("\t".join(...))` tab-joined text — the ONE structure PDF/UA most needs tagged (a screen reader reads a flattened table as an undifferentiated run), the both-telos failure since an ISO schedule AND a journal data table both demand real `THead`/`TR`/`TD` structure elements; the rebuild lowers each `TableNode` to a native `page.table(OxideTable(columns=[OxideColumn(header)...], rows=[[cell...]...], has_header=False))` — the leading `TableNode.header_rows` row keying the `Column` headers (the tagged header band), the remaining rows the tagged body, so the tagged PDF carries a real table structure element. This binds the `OxideColumn`/`OxideTable` imports the prior fence carried DEAD (imported, never referenced), and the unused `Align as OxideAlign` import is dropped (the model carries no per-column alignment to derive). `FluentPageBuilder.table(table: Table)` and `Table(columns: list[Column], rows: list[list[str]], has_header=False)`/`Column(header, width=100.0, align=None)` verify against the installed `pdf_oxide.pyi`. (2) The walk filter excluded `SectionNode`, so a section's `heading` runs (a `tuple[RunNode]`, not a `BlockNode`) never reached the structure tree — every section TITLE was silently dropped from the accessibility outline; the rebuild adds `SectionNode` to the flow filter and a `_ua_block` `SectionNode` arm lowering `page.heading(level, title)`, so the section heading tags at its outline level exactly as a `BlockKind.HEADING` block does.
-- [VARIANT_MATRIX]: the `PdfVariant.typst` comment asserted `A_4` was "weasyprint-only" and `_PDF_STANDARD` omitted it — a PHANTOM: the typst `PDFStandard` literal spells `"a-4"` AND the full accessible `a-1a`/`a-2a`/`a-2u`/`a-3a`/`a-3u`/`a-4e`/`a-4f`/`ua-1` matrix verbatim. The rebuild rows `A_4 -> ("a-4",)` and adds the accessible-archival `A_2A`/`A_3A` variants — the both-telos preservation+accessibility union (an ISO 19650 / journal deliverable that is BOTH archival AND screen-readable) — projecting to typst `("a-2a"/"a-3a", "ua-1")` dual conformance and to weasyprint's `-b` profile plus `pdf_tags=True` via the `_ACCESSIBLE`-driven `tagged` flag, since weasyprint ships only the `-b`/`a-4`/`ua-1` tokens. The `a-2a`/`a-3a`/`a-4` tokens verify against the `typst` `PDFStandard` catalogue row; the weasyprint `-b`/`a-4`/`ua-1`/`pdf_tags` set against the `weasyprint` catalogue.
-- [RENDER_LICENSE_FLAG]: `PDF_RENDER` (pymupdf, AGPL) is flagged in `BACKENDS` as the native-codec encoded-raster arm superseded on the commercial-safe path by pdf_oxide `render_page(page, dpi=, format=, jpeg_quality=)` (encoded PNG/JPEG bytes) per brief [02]/[03]. The deferral is the final `pyproject` roster reconciliation ALONE, not a close-semantics gap: the sync `pdf_oxide.PdfDocument` IS a deterministic-close context manager (`__enter__`/`__exit__` present, the CAPSULE_OWNER `with` bracket `document/egress#FINISH` `_redact_oxide` already binds), and `render_page` is a catalogued sync member — so the swap is verified-ready and awaits only the central-manifest edit, per the brief's "PyMuPDF stays, superseded arms flagged for final removal" policy. `PDF_RASTER` (pypdfium2, Apache/BSD) already owns the commercial-safe Pillow-free numpy-frame-stack raster axis, so the AGPL arm is retained only for the internal/permissive encoded-raster path pending that reconciliation.
+One tree, one owner, N formats: every arm lowers FROM the `DocumentNode` tree the model owns, the node contract keys each format over its input so a re-issued package re-renders only what changed, and the absorbed one-context fan (`bound`) makes the office/typst/spreadsheet/structured-text family one admitted payload across N mode rows — the engines, the admission gate, and the receipt rows all live here, and the constructing owner above composes nodes, never engines.

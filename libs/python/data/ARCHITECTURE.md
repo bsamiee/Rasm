@@ -64,7 +64,7 @@ tabular             →   csharp:Rasm.Compute/Runtime               # [SHAPE]: D
 spatial/mesh        →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
 tabular/egress      →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
 tabular/*           ←   python:runtime                            # [PORT]: TransportResource remote connection
-tabular             ←   python:artifacts/documents                # [WIRE]: to_corpus_row flat record (the columnar Corpus arm)
+tabular             ←   python:artifacts/document                  # [WIRE]: to_corpus_row flat record (the columnar Corpus arm)
 tabular             ←   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity content-key
 spatial/geospatial  ←   python:artifacts/export                   # [WIRE]: addons.geo GeoProxy GeoJSON georeferenced wire; CRS authority stays here
 tabular/columnar    ←   python:runtime/transport                  # [TRANSPORT]: ResourceRef path resolution through fsspec (UPath.fs -> register_filesystem)
@@ -76,7 +76,7 @@ tabular             →   python:compute/experiments/study          # [SHAPE]: F
 tabular/*           →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: C#-seed ContentKey stamped on outputs, federated as durable reuse ledger
 tabular/query       ⇄   csharp:Rasm.Persistence/Query/federation  # [WIRE]: Substrait binary plan interchange — outbound minted by QuerySpec.Federated
 tabular/query       →   python:runtime/observability              # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage contribution
-tabular/profile     →   python:artifacts/figures                  # [SHAPE]: QualityProfile frame rendered by the great-tables tier
+tabular/profile     →   python:artifacts/visualization/table      # [SHAPE]: QualityProfile frame rendered by the great-tables tier
 gridded/virtual     →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: icechunk as-of snapshot identity reproduced from the XxHash128 seed
 spatial/geospatial  →   csharp:Rasm.Compute                       # [SHAPE]: native GeoArrow buffers (geoarrow_wire) sharing the GLB wire layout
 spatial/geospatial  ←   csharp:Rasm.Bim/Semantics/geospatial      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)

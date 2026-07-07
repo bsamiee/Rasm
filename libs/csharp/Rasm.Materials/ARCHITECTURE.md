@@ -58,7 +58,7 @@ Properties/sustainability  →  csharp:Rasm.Compute                    # [WIRE]:
 Properties/sustainability  ←  python:data/impact                     # [WIRE]: EN 15804 set as Discipline.Environmental / MaterialPropertySet.Environmental
 Properties/properties      ←  csharp:Rasm.Compute/Analysis           # [SHAPE]
 Component/component        →  csharp:Rasm.Bim/Model                  # [WIRE]: IIfcTypeReconciler Type Object identity — Canonical reuses Materials, else ad-hoc
-Properties                 →  csharp:Rasm.Fabrication/Process        # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
+Properties/properties      →  csharp:Rasm.Fabrication/Process/physics  # [WIRE]: raw-double Conductivity / SpecificHeat / Density scalars off #MATERIAL_PROPERTY_CATALOGUE — the AEC-peer boundary, never a type crossing
 Projection/component       ←  csharp:Rasm.Element/Composition        # [SHAPE]: MaterialComposition/MaterialUsage cases — the absorbed CompositionAuthor
 Appearance/interchange     →  csharp:Rasm.Element/Graph              # [CONTENT_KEY]: lowers a row to the content-keyed AppearanceSummary at full precision
 Appearance/interchange     →  typescript:core/interchange/codec      # [WIRE]: decode-only mirror of C# projection; a peer OpenPBR re-mint is the drift defect

@@ -13,7 +13,7 @@ Wire posture: HOST-LOCAL. The graph arrives in-process at the `IngressSource.Ele
 ## [02]-[ELEMENT_INGRESS]
 
 - Owner: `ElementImport` the static surface owning `Admit` (the `ElementGraph`/`NodeId` → `Fin<AdmittedComponent>` boundary fold) plus the private projection folds (`KeyOf` precedence, `MaterialsOf` two-tier composition walk, `LayersOf`, `SheetOf`, `ConnectionsOf`, `QuantitiesOf`+`SectionRows`, `PropertiesOf`, `Render`). One owner, one fold — never a per-bag sibling reader family and never a second graph walker beside the seam's own `Bake`. The `AdmittedComponent`/`ComponentLayer`/`ComponentConnection` TYPES are `owner#atoms` mints (the `CutterForm` discipline) — this page owns only the PROJECTION.
-- Cases: the composition switch arms over the seam `MaterialComposition` union — `LayerSet` (one `ComponentLayer` per ply: `Name` → `Function`, `Thickness.Si`·1000 → `ThicknessMm`, `MaterialId.Value` → `MaterialKey`; the set's `TotalThickness` lifts to the `SheetThicknessMm` lane) · `ProfileSet` (one `"profile"` row keyed by the material node's `MaterialKey`; the section columns land via `SectionRows`, never here) · `Single` (one `"substance"` row, dimensionless) (3); the `Render` switch arms over the seam `PropertyValue` union — `Text` verbatim · `Measure`/`Bounded` round-trip invariant SI · `Boolean`/`Logical` lowered tokens · `Enumerated`/`List` ordinal-joined · `Reference` the target node key · `Table` its row-count token · `Complex` its joined pairs (10, total); the representation precedence rows `Body`/`FootPrint`/`Axis` (3, ordered — display body wins, analytical falls back).
+- Cases: the composition switch arms over the seam `MaterialComposition` union — `LayerSet` (one `ComponentLayer` per ply: `Name` → `Function`, `Thickness.Si`·1000 → `ThicknessMm`, `MaterialId.Value` → `MaterialKey`; the set's `TotalThickness` lifts to the `SheetThicknessMm` lane) · `ProfileSet` (one `"profile"` row keyed by the material node's `MaterialKey`; the section columns land via `SectionRows`, never here) · `Single` (one `"substance"` row, dimensionless) (3); the `Render` fold rides the seam union's GENERATED total `Switch` — `Text` verbatim · `Measure`/`Bounded` round-trip invariant SI · `Boolean`/`Logical` lowered tokens · `Enumerated`/`List` ordinal-joined · `Reference` the target node key · `Table` its row-count token · `Complex` its joined pairs (10, compiler-total: a new upstream case breaks the build, never lowers to an empty string); the representation precedence rows `Body`/`FootPrint`/`Axis` (3, ordered — display body wins, analytical falls back).
 - Entry: `public static Fin<AdmittedComponent> Admit(ElementGraph graph, NodeId id, Op key, Option<MeshSpace> body, Arr<Loop> footprint = default)` — the ONE entrypoint: `graph.Bake(id, key)` (the seam fold, its `ElementFault` rail passing through unchanged), then the projection; a missing representation routes `FabricationFault.IngressTranslation(SourceKind.Element, SourceLocus.ElementNode(...))`, never a silent empty carrier. Invoked by the `Ingress.Admit` `Element` arm (`Ingress/profile#PROFILE_IMPORT` owns the fold); `Run(Derive)` carries the RESULT on its policy case.
 - Auto: `KeyOf` folds the `RepresentationContentHash.ByIdentifier` map through the precedence array — first present identifier wins; `MaterialsOf` concatenates occurrence `Materials` with the `TypeBinding.Materials` type tier so one composition walk serves both; `QuantitiesOf` folds every `QuantityBag` row to `"{SetName}.{Row}"` → SI double over the `SectionRows` floor (the resolved `TypeBinding.Section` columns as `Section.*` rows — the M7 `SectionOf` fallback already baked at projection, so fleet/manufacturability read section data as plain quantity rows), EXCEPT the demand rows: a row already carrying the `demand:` prefix keeps its RAW key so `Kinematics/fleet`'s `DemandKey.Read` (`demand:min-axes`/`demand:distinct-tools`/`demand:spindle-kw`/`demand:it-grade`, each with its axis-owned fallback) resolves against the bag without a shim — fleet owns the keys, this projection writes the rows; `PropertiesOf` folds every `PropertyBag` row through `Render` to `"{SetName}.{Row}"` → invariant text, the `Realization` detail rows (`Realization.JointType`, `Realization.FastenerType`, `Realization.NominalDiameter`) arriving exactly as the Bim connection reader authored them, and the head composition layer's key landing as the `material` property row — `Kinematics/fleet`'s no-layer fallback lane; `ConnectionsOf` chooses the `Relationship.Connect` edges off `graph.EdgesAt(baked.Id)` — `SubKind.Key` → `DetailKey`, the `Realizing` node key → `RealizingKey`, `At` default at admission.
 - Receipt: the `AdmittedComponent` IS the typed admission evidence — content-keyed by `RepresentationKey`, self-describing rows, no import report, no graph handle escaping. Fault evidence rides the `Fin` rail: the seam's own `ElementFault` for graph defects, `IngressTranslation` 2711 for the translation failure.
@@ -119,22 +119,22 @@ public static class ElementImport {
             static (acc, layer) => acc.ContainsKey("material") ? acc : acc.Add("material", layer.MaterialKey));
 
     // --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
-    // The typed PropertyValue family lowers to canonical invariant text ONCE: tokens verbatim, sets ordinal-joined,
-    // measures round-trip SI; a Reference row carries its target node key. No typed value escapes as an object.
+    // The typed PropertyValue family lowers to canonical invariant text ONCE through the seam union's GENERATED total
+    // Switch: tokens verbatim, sets ordinal-joined, measures round-trip SI; a Reference row carries its target node
+    // key. A new upstream case adds a required Switch parameter, so admission breaks at compile time instead of
+    // silently erasing the value — no `_` arm, no empty-string sentinel, no typed value escaping as an object.
     static string Render(PropertyValue value) =>
-        value switch {
-            PropertyValue.Text t       => t.Value,
-            PropertyValue.Measure m    => m.Value.Si.ToString("R", CultureInfo.InvariantCulture),
-            PropertyValue.Boolean b    => b.Value ? "true" : "false",
-            PropertyValue.Logical l    => l.Value.Match(Some: v => v ? "true" : "false", None: () => "unknown"),
-            PropertyValue.Enumerated e => string.Join("|", e.Selected),
-            PropertyValue.Reference r  => r.Target.Value,
-            PropertyValue.Bounded b    => string.Join("..", Seq(b.Lower, b.Upper).Somes().Map(v => v.Si.ToString("R", CultureInfo.InvariantCulture))),
-            PropertyValue.List l       => string.Join("|", l.Values.Map(Render)),
-            PropertyValue.Table t      => $"table:{t.Rows.Count}",
-            PropertyValue.Complex c    => string.Join("|", c.Properties.Pairs.Map(p => $"{p.Key.Value}={Render(p.Value)}")),
-            _                          => string.Empty,
-        };
+        value.Switch(
+            text: static t => t.Value,
+            measure: static m => m.Value.Si.ToString("R", CultureInfo.InvariantCulture),
+            boolean: static b => b.Value ? "true" : "false",
+            logical: static l => l.Value.Match(Some: v => v ? "true" : "false", None: () => "unknown"),
+            enumerated: static e => string.Join("|", e.Selected),
+            reference: static r => r.Target.Value,
+            bounded: static b => string.Join("..", Seq(b.Lower, b.Upper).Somes().Map(v => v.Si.ToString("R", CultureInfo.InvariantCulture))),
+            list: l => string.Join("|", l.Values.Map(Render)),
+            table: static t => $"table:{t.Rows.Count}",
+            complex: c => string.Join("|", c.Properties.Pairs.Map(p => $"{p.Key.Value}={Render(p.Value)}")));
 }
 ```
 

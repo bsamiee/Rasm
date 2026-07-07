@@ -2,9 +2,9 @@
 
 The cross-modality DfM owner: `Manufacturability` the static surface folding an `AdmittedComponent` into typed producibility VERDICTS on ONE entry — `Assess(AdmittedComponent, DfmPolicy) → Fin<DfmReport>` — with every verdict family dispatched over the `ModalityClass` superset (`removal`/`additive`/`formed`/`joined`, the `Process/family#PROCESS_FAMILY` four-way). The removal lane reads the kernel measured-query fronts: draft and undercut ride the axis-ranked face decomposition + `CurveFeature.Draft` capture (`Faces.Top`/`Bottom`/`At`), tool access rides ray interrogation (`RayQuery` batch probes and the `SpatialQuery.Ray` BVH front), and min-wall reads the K1 medial clearance RADIUS (`OffsetOp.Medial` → `ClearanceNode.Radius`) — the ONE thinness probe, never a second medial or a hand-rolled normal classifier. The formed lane pre-checks bend radii from profile bulges (`R = c·(1+b²)/(4|b|)`) against the landed `RemovalBudget.Formed.MinBendRadiusFactor` floor; the joined lane cones a torch-approach probe per `ComponentConnection` along the assembly-owned approach law; the additive lane censuses down-facing area against the critical angle and the `Meshes` printability rows. Verdicts are RECEIPTS: `DfmReport` rows carry check, severity, typed locus, and measured-vs-bound scalars — this page mints NO fault arm, and the hard gates stay with their owners (`MinBendRadiusViolated` 2743 is `Forming/sheet`'s unfold gate, `ToleranceUnsatisfiable` 2721/`CapabilityShortfall` 2722/`StackupExceeded` 2729 the queued Spec pages').
 
-Process ROUTING is the second product of the same fold: one `RoutingRow` per `ProcessKind` row — viable when the component's material map holds the process modality AND the modality's class lane closed with zero gate-severity blockers. The split with `Kinematics/fleet` is law: routing answers WHICH PROCESSES the part admits (verdict rows over the family axes); `Fleet.Capable` answers which MACHINES — envelope, spindle, pockets, rates — and derivation composes both in order. Stackup feasibility lands as the assembly-chain PRE-CHECK row (worst-case linear accumulation over the connection census against the policy bound); the Monte-Carlo distribution stackup stays the queued `Spec/capability` page, consumed as a TYPE contract when the truth tranche lands. `Additive/support` keeps the layer-exact overhang census (this lane is the mesh-level DfM altitude — face census, not slice algebra); `Fixturing/assembly` keeps approach derivation and holding standoff; `Forming/sheet` keeps the unfold and its radius gate — this page composes their contracts and duplicates none of their interiors.
+Process ROUTING is the second product of the same fold: one `RoutingRow` per `ProcessKind` row — viable when the component's material map holds the process modality AND the modality's class lane closed with zero gate-severity blockers. The split with `Kinematics/fleet` is law: routing answers WHICH PROCESSES the part admits (verdict rows over the family axes); `Fleet.Capable` answers which MACHINES — envelope, spindle, pockets, rates — and derivation composes both in order. Stackup feasibility lands as the assembly-chain PRE-CHECK row (worst-case linear accumulation over the connection census against the policy bound); the Monte-Carlo distribution stackup stays the `Spec/capability` page, consumed as a TYPE contract. `Additive/support` keeps the layer-exact overhang census (this lane is the mesh-level DfM altitude — face census, not slice algebra); `Fixturing/assembly` keeps approach derivation and holding standoff; `Forming/sheet` keeps the unfold and its radius gate — this page composes their contracts and duplicates none of their interiors.
 
-Wire posture: HOST-LOCAL. `DfmReport` crosses only the in-process seam to the derivation orchestrator, the traveler fan-in, and the queued capability gate — never a browser or peer wire; no verdict row sits between wire and rail. Rendering is the artifacts plane's: this page never draws, annotates, or emits a document.
+Wire posture: HOST-LOCAL. `DfmReport` crosses only the in-process seam to the derivation orchestrator, the traveler fan-in, and the capability gate — never a browser or peer wire; no verdict row sits between wire and rail. Rendering is the artifacts plane's: this page never draws, annotates, or emits a document.
 
 ## [01]-[INDEX]
 
@@ -18,7 +18,7 @@ Wire posture: HOST-LOCAL. `DfmReport` crosses only the in-process seam to the de
 - Auto: `Assess` resolves the material once (`Properties["material"]` → `Material` row → the physics map), runs each admitted class lane, derives `RoutingRow`s for all eleven `ProcessKind` rows off the lane verdicts + the material's modality map, and folds the stackup pre-check from the connection census (`count · AllowancePerJoint ≤ Bound`). The removal lane composes `Analyze.Run` over the frozen `AnalysisQuery` algebra (`Faces.Top`/`Bottom` ranked decomposition per pull axis; `CurveFeature.Draft` capture; `Meshes.NakedEdges` for machinable-boundary sanity), ray access via `SpatialQuery.Ray` over the component BVH, and min-wall via ONE `Offsetting.Apply(OffsetOp.Medial)` per profile reading `ClearanceNode.Radius`; the aspect check divides pocket depth by twice the local medial radius. The formed lane projects fillet radii from `Loop.BulgeAt` spans and compares against `Formed.MinBendRadiusFactor · SheetThicknessMm` (the sheet unfold re-derives exactly per-bend and owns the 2743 gate). The joined lane probes the assembly-law approach direction per `ComponentConnection` inside `TorchConeHalfAngleDeg` — a blocked cone is the `weld-access` verdict `Joining/weld` reads before planning beads. The additive lane censuses down-facing area below `OverhangCriticalDeg` via the K20 ranked decomposition and runs the `Meshes.Validity`/`Defects` census rows; layer-exact truth stays `Support.Grow`'s.
 - Receipt: `DfmReport` IS the evidence — typed verdict rows with measured/bound scalars and typed loci, routing rows with typed blocker sets, one stackup boolean; no score-only summary, no generic issue list, no string diagnosis.
 - Packages: `Rasm.Analysis` (`Analyze.Run`/`AnalysisQuery`, `Faces`/`CurveFeature.Draft`, `Meshes` census, `RayQuery` — K20 + the census/interrogation fronts), `Rasm.Meshing` (`Offsetting.Apply` `OffsetOp.Medial` → `ClearanceNode`, K1), `Rasm.Spatial` (`SpatialIndex`/`SpatialQuery.Ray`), `Process/owner#FABRICATION_OWNER` (`AdmittedComponent` and its rows), `Process/family#PROCESS_FAMILY` (`ModalityClass`/`ProcessModality`/`ProcessKind`), `Process/physics#CUT_PARAMETER` (`Material`/`RemovalBudget.Formed`), Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Numerics` (`GeometryFault`), BCL inbox.
-- Growth: a new producibility concern is one `DfmCheck` row + one lane term — never a sibling assessor class; a new threshold is one `DfmPolicy` field its lane reads; feature recognition (N9) GATES on three ABSENT kernel primitives — signed per-edge concavity, an analytic-form face classifier, exposed face-adjacency — recorded as kernel counterpart DEMANDS on the owning kernel pages, never a page here until all three land; the queued `tolerance`/`capability` pages deepen the spec side without touching this surface; zero new entrypoints.
+- Growth: a new producibility concern is one `DfmCheck` row + one lane term — never a sibling assessor class; a new threshold is one `DfmPolicy` field its lane reads; feature recognition (N9) GATES on three ABSENT kernel primitives — signed per-edge concavity, an analytic-form face classifier, exposed face-adjacency — recorded as kernel counterpart DEMANDS on the owning kernel pages, never a page here until all three land; the `tolerance`/`capability` pages deepen the spec side without touching this surface; zero new entrypoints.
 - Boundary: ONE DfM surface — per-modality `MillingDfm`/`PrintabilityChecker`/`WeldabilityAudit` siblings are the deleted form; verdicts are receipts and a fault arm for "hard to make" is the named misuse (the receipts-only law — hard gates belong to the owning folds); the routing row answers process viability and a machine join here is fleet's stolen concern; kernel geometry composes at the verified fronts and a second medial, normal classifier, or ray walker is the named re-implementation defect; rendering is the artifacts plane's and a drawing/annotation emission here is the boundary violation; a `DfmCheck` re-encoding modality (a `mill-draft` beside `draft`) is the deleted axis-duplication.
 
 ```csharp signature
@@ -85,9 +85,10 @@ public sealed record DfmPolicy(
     double TorchConeHalfAngleDeg,
     double StackupAllowancePerJointMm,
     double StackupBoundMm,
+    double ProbeReachMm,
     Set<ModalityClass> Lanes) {
     public static DfmPolicy Canonical =>
-        new(2.0, 30.0, 1.0, 4.0, 45.0, 35.0, 0.5, 3.0, Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined));
+        new(2.0, 30.0, 1.0, 4.0, 45.0, 35.0, 0.5, 3.0, 500.0, Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined));
 }
 
 public sealed record DfmVerdict(DfmCheck Check, DfmSeverity Severity, DfmLocus Locus, double Measured, double Bound);
@@ -127,13 +128,18 @@ public static class Manufacturability {
             return new RoutingRow(kind, material && blockers.IsEmpty, blockers, lane.Filter(v => !v.Severity.Gate).Count);
         });
 
-    // Removal lane: min-wall/aspect off ONE Medial query per profile (2·min Radius vs the floor; depth over 2·local radius);
-    // draft/undercut/access are the DraftVerdicts/AccessVerdicts privates over the K20 decomposition + ray cone (Auto bullet).
-    static Fin<Seq<DfmVerdict>> RemovalLane(AdmittedComponent component, DfmPolicy policy) =>
-        component.Profiles.ToSeq()
+    // Removal lane: min-wall/aspect off ONE Medial query per profile (2·min Radius vs the floor; the conservative
+    // global pocket depth over 2·local radius); draft/undercut ride one face-normal partition, access rides BVH rays.
+    static Fin<Seq<DfmVerdict>> RemovalLane(AdmittedComponent component, DfmPolicy policy) {
+        double heightMm = component.Mesh.Map(static m => {
+            BoundingBox box = m.Native.GetBoundingBox(accurate: false);
+            return box.Max.Z - box.Min.Z;
+        }).IfNone(0.0);
+        return component.Profiles.ToSeq()
             .Fold(Fin.Succ(Seq<DfmVerdict>()), (acc, loop) => acc.Bind(seq =>
-                Offsetting.Apply(new OffsetOp.Medial(ToPolyline(loop), OffsetPolicy.Canonical)).Map(medial => seq + WallVerdicts(medial, policy))))
+                Offsetting.Apply(new OffsetOp.Medial(ToPolyline(loop), OffsetPolicy.Canonical)).Map(medial => seq + WallVerdicts(medial, heightMm, policy))))
             .Map(walls => walls + DraftVerdicts(component, policy) + AccessVerdicts(component, policy));
+    }
 
     // Formed lane: fillet radius from the bulge span (R = c·(1+b²)/(4|b|)) vs Formed.MinBendRadiusFactor·T — the DfM altitude;
     // Forming/sheet re-derives per-bend at unfold and owns MinBendRadiusViolated 2743.
@@ -149,7 +155,7 @@ public static class Manufacturability {
     // assembly gates holding standoff, this lane gates the torch cone — Joining/weld reads the verdict before bead planning.
     static Seq<DfmVerdict> JoinedLane(AdmittedComponent component, DfmPolicy policy) =>
         toSeq(Enumerable.Range(0, component.Connections.Count))
-            .Filter(joint => !ConeClear(component, component.Connections[joint].At, policy.TorchConeHalfAngleDeg))
+            .Filter(joint => !ConeClear(component, component.Connections[joint].At, policy))
             .Map(joint => new DfmVerdict(DfmCheck.WeldAccess, DfmSeverity.Blocker, new DfmLocus.AtJoint(joint), 0.0, policy.TorchConeHalfAngleDeg));
 
     // Additive lane: mesh-level census — down-facing ranked faces below the critical angle + the Meshes validity/defect rows;
@@ -159,11 +165,142 @@ public static class Manufacturability {
             Some: mesh => OverhangVerdicts(mesh, policy).Map(over => over + IntegrityVerdicts(mesh)),
             None: () => Fin.Succ(Seq1(new DfmVerdict(DfmCheck.Integrity, DfmSeverity.Advisory, new DfmLocus.Global(), 0.0, 0.0))));
 
-    // Min-wall = 2·min(ClearanceNode.Radius) under the floor; aspect = pocket depth / (2·local radius) over the bound.
-    static Seq<DfmVerdict> WallVerdicts(OffsetResult medial, DfmPolicy policy) =>
-        medial.Nodes.ToSeq()
-            .Filter(node => 2.0 * node.Radius < policy.MinWallMm)
-            .Map(node => new DfmVerdict(DfmCheck.MinWall, DfmSeverity.Blocker, new DfmLocus.AtPoint(node.At), 2.0 * node.Radius, policy.MinWallMm));
+    // Min-wall = 2·min(ClearanceNode.Radius) under the floor; aspect = the conservative global pocket depth (part
+    // height) over 2·local radius. The Medial op answers OffsetResult.Axis carrying the K1 SkeletonGraph node set.
+    static Seq<DfmVerdict> WallVerdicts(OffsetResult medial, double heightMm, DfmPolicy policy) =>
+        medial is not OffsetResult.Axis axis
+            ? Seq<DfmVerdict>()
+            : axis.Medial.Nodes.Bind(node =>
+                (2.0 * node.Radius < policy.MinWallMm
+                    ? Seq1(new DfmVerdict(DfmCheck.MinWall, DfmSeverity.Blocker, new DfmLocus.AtPoint(node.At), 2.0 * node.Radius, policy.MinWallMm))
+                    : Seq<DfmVerdict>())
+                + (heightMm > 0.0 && heightMm / (2.0 * node.Radius) > policy.MaxDepthToDiameter
+                    ? Seq1(new DfmVerdict(DfmCheck.ToolAccess, DfmSeverity.Warning, new DfmLocus.AtPoint(node.At), heightMm / (2.0 * node.Radius), policy.MaxDepthToDiameter))
+                    : Seq<DfmVerdict>()));
+
+    // Draft + undercut off ONE face-normal partition (K20): the wall draft is 90° − angle(normal, pull axis +Z); a
+    // face in [0, MinDraftDeg) is the insufficient-draft warning, a negative draft is the re-entrant undercut blocker.
+    // Bottom-extremum faces (Faces.Bottom, the K20 ranked decomposition) are the resting partition and never flag;
+    // profiles-only parts earn no draft verdicts — draft is a solid-face concern.
+    static Seq<DfmVerdict> DraftVerdicts(AdmittedComponent component, DfmPolicy policy) =>
+        component.Mesh.Match(
+            None: static () => Seq<DfmVerdict>(),
+            Some: mesh => {
+                Set<int> resting = BottomFaces(mesh);
+                return FaceNormals(mesh)
+                    .Filter(row => !resting.Contains(row.Face))
+                    .Bind(row => {
+                        double draftDeg = 90.0 - (Vector3d.VectorAngle(row.Normal, Vector3d.ZAxis) * (180.0 / Math.PI));
+                        return draftDeg < 0.0
+                            ? Seq1(new DfmVerdict(DfmCheck.Undercut, DfmSeverity.Blocker, new DfmLocus.AtFace(row.Face), draftDeg, 0.0))
+                            : draftDeg < policy.MinDraftDeg
+                                ? Seq1(new DfmVerdict(DfmCheck.Draft, DfmSeverity.Warning, new DfmLocus.AtFace(row.Face), draftDeg, policy.MinDraftDeg))
+                                : Seq<DfmVerdict>();
+                    });
+            });
+
+    // Tool access: one +Z ray per profile vertex against the mesh-face BVH (K29/K30 broad phase). A hit above the
+    // vertex means the cutter axis is occluded — the blocker carries the hit distance as the measured scalar.
+    static Seq<DfmVerdict> AccessVerdicts(AdmittedComponent component, DfmPolicy policy) =>
+        component.Mesh.Bind(BvhOf).Match(
+            None: static () => Seq<DfmVerdict>(),
+            Some: index => component.Profiles.ToSeq()
+                .Bind(static loop => loop.AsCcw().Vertices.ToSeq())
+                .Bind(point => RayHitT(index, new Ray3d(point, Vector3d.ZAxis), policy.ProbeReachMm)
+                    .Map(t => new DfmVerdict(DfmCheck.ToolAccess, DfmSeverity.Blocker, new DfmLocus.AtPoint(point), t, policy.ProbeReachMm))
+                    .ToSeq()));
+
+    // Torch cone: five probes — the assembly-law approach (the left XY normal of the joint edge) plus four rays tilted
+    // to the cone half-angle. ANY occluded probe fails the cone. An unresolved joint locus (the admission default) and
+    // a profiles-only part cannot be probed and read clear here — assembly resolves the edge and re-gates standoff.
+    static bool ConeClear(AdmittedComponent component, Edge3 at, DfmPolicy policy) =>
+        at.A.DistanceTo(at.B) <= 0.0
+        || component.Mesh.Bind(BvhOf).Match(
+            None: static () => true,
+            Some: index => ConeRays(at, policy.TorchConeHalfAngleDeg).ForAll(ray =>
+                RayHitT(index, ray, policy.ProbeReachMm).IsNone));
+
+    static Seq<Ray3d> ConeRays(Edge3 at, double halfAngleDeg) {
+        Point3d mid = new((at.A.X + at.B.X) / 2.0, (at.A.Y + at.B.Y) / 2.0, (at.A.Z + at.B.Z) / 2.0);
+        Vector3d edge = at.B - at.A;
+        Vector3d approach = new(-edge.Y, edge.X, 0.0);
+        approach.Unitize();
+        double half = halfAngleDeg * (Math.PI / 180.0);
+        Vector3d side = Vector3d.CrossProduct(approach, Vector3d.ZAxis);
+        Point3d origin = mid + approach;  // 1 mm standoff keeps the probe off its own seed surface
+        return Seq1(new Ray3d(origin, approach))
+            + Seq(Vector3d.ZAxis, -Vector3d.ZAxis, side, -side).Map(tilt => {
+                Vector3d v = approach;
+                v.Rotate(half, tilt);
+                return new Ray3d(origin, v);
+            });
+    }
+
+    // Additive overhang census (mesh-level DfM altitude): a non-resting face whose normal sits within (90° − critical)
+    // of straight down needs support — layer-exact set algebra stays Support.Grow's.
+    static Fin<Seq<DfmVerdict>> OverhangVerdicts(MeshSpace mesh, DfmPolicy policy) {
+        Set<int> resting = BottomFaces(mesh);
+        return Fin.Succ(FaceNormals(mesh)
+            .Filter(row => !resting.Contains(row.Face))
+            .Map(row => (row.Face, DownDeg: Vector3d.VectorAngle(row.Normal, -Vector3d.ZAxis) * (180.0 / Math.PI)))
+            .Filter(row => row.DownDeg < 90.0 - policy.OverhangCriticalDeg)
+            .Map(row => new DfmVerdict(DfmCheck.Overhang, DfmSeverity.Warning, new DfmLocus.AtFace(row.Face), row.DownDeg, 90.0 - policy.OverhangCriticalDeg)));
+    }
+
+    // Printability census (K36): every positive kernel defect sample is one Integrity blocker; a census that cannot
+    // run at all is itself the blocker — the additive lane never silently passes an uninspectable mesh.
+    static Seq<DfmVerdict> IntegrityVerdicts(MeshSpace mesh) =>
+        Analyze.Run<Mesh, MeshSample>(new AnalysisQuery.MeshesCase(Meshes.Defects), mesh.Native).Match(
+            Succ: samples => samples.Filter(static s => s.Value > 0)
+                .Map(static s => new DfmVerdict(DfmCheck.Integrity, DfmSeverity.Blocker, new DfmLocus.Global(), s.Value, 0.0)),
+            Fail: static _ => Seq1(new DfmVerdict(DfmCheck.Integrity, DfmSeverity.Blocker, new DfmLocus.Global(), 0.0, 0.0)));
+
+    // --- [BOUNDARIES] -------------------------------------------------------------------------------------------------------------------------------
+    // Loop → closed Rhino ring for the K1 medial query; AsCcw is the winding law, the closing vertex the ring convention.
+    static Polyline ToPolyline(Loop loop) {
+        Polyline ring = new(loop.AsCcw().Vertices);
+        if (ring.Count > 0)
+            ring.Add(ring[0]);
+        return ring;
+    }
+
+    static Set<int> BottomFaces(MeshSpace mesh) =>
+        Analyze.Run<Mesh, int>(new AnalysisQuery.FacesCase(Faces.Bottom()), mesh.Native)
+            .Match(Succ: static faces => toSet(faces), Fail: static _ => Set<int>());
+
+    static Seq<(int Face, Vector3d Normal)> FaceNormals(MeshSpace mesh) {
+        Mesh native = mesh.Native;
+        native.FaceNormals.ComputeFaceNormals();
+        return toSeq(Enumerable.Range(0, native.Faces.Count)).Map(i => (i, (Vector3d)native.FaceNormals[i]));
+    }
+
+    static Option<SpatialIndex> BvhOf(MeshSpace mesh) =>
+        Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, FaceBoxes(mesh.Native), BuildPolicy.Canonical))
+            .Match(
+                Succ: static answer => answer is SpatialAnswer.Index built ? Some(built.Value) : Option<SpatialIndex>.None,
+                Fail: static _ => Option<SpatialIndex>.None);
+
+    static Option<double> RayHitT(SpatialIndex index, Ray3d ray, double maxT) =>
+        Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Ray(ray, maxT)))
+            .Match(
+                Succ: static answer => answer is SpatialAnswer.Result { Value: QueryResult.RayHit { Id.IsSome: true } hit }
+                    ? Some(hit.T)
+                    : Option<double>.None,
+                Fail: static _ => Option<double>.None);
+
+    static BoundingBox[] FaceBoxes(Mesh native) =>
+        Enumerable.Range(0, native.Faces.Count)
+            .Select(i => {
+                MeshFace face = native.Faces[i];
+                BoundingBox box = BoundingBox.Empty;
+                box.Union(native.Vertices[face.A]);
+                box.Union(native.Vertices[face.B]);
+                box.Union(native.Vertices[face.C]);
+                if (face.IsQuad)
+                    box.Union(native.Vertices[face.D]);
+                return box;
+            })
+            .ToArray();
 
     // Bulge span → (chord, radius): R = c·(1+b²)/(4|b|); zero-bulge spans are straight and never earn a radius verdict.
     static Seq<(Edge3 Span, double Radius)> BulgeRadii(Loop loop) =>
@@ -176,7 +313,7 @@ public static class Manufacturability {
             });
 
     static Option<Material> MaterialOf(AdmittedComponent component) =>
-        component.Properties.Find("material").Bind(key => Material.Validate(key, null, out var m) is null ? Some(m!) : Option<Material>.None);
+        component.Properties.Find("material").Bind(key => Material.Validate(key, null, out Material? m) is null ? Some(m!) : Option<Material>.None);
 
     static Option<ModalityPhysics.Forming> FormedRowOf(Material material) =>
         material.Physics.Find(ProcessModality.Formed).Bind(p => p is ModalityPhysics.Forming f ? Some(f) : Option<ModalityPhysics.Forming>.None);
@@ -198,6 +335,6 @@ flowchart LR
     Assess -->|additive lane| Census["Meshes validity/defect census · overhang faces"]
     Assess --> Report["DfmReport verdicts + RoutingRow per ProcessKind + stackup pre-check"]
     Report -->|"Routing : ranked Seq<ProcessKind>"| Derive["Process/derivation Run(Derive)"]
-    Report -.->|TYPE seam| Capability["Spec/capability QUEUED gate"]
+    Report -->|TYPE seam| Capability["Spec/capability Gate"]
     Report -.->|fan-in| Traveler["Run(Document) traveler"]
 ```

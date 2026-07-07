@@ -97,8 +97,8 @@ Meshing/Mesh.cs           →  csharp:Rasm.Compute                        # [SHA
 Spatial/Index.cs          →  csharp:Rasm.Fabrication/Toolpath/guard     # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
 Spatial/Index.cs          →  csharp:Rasm.Fabrication/Documentation/projection # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
 Spatial/Index.cs          →  csharp:Rasm.Compute                        # [WIRE]: Spatial.Apply Wire case emits; Compute decodes
-Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Posting            # [WIRE]: IntersectResult / PlaneMesh section curve
-Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Toolpath           # [WIRE]: SliceStack five-channel forest: layers·contours·nesting·chains·elevations
+Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Forming            # [WIRE]: IntersectResult / PlaneMesh section — tube cope/fishmouth saddle development (slicing composes PlaneMesh under Slicing.Apply)
+Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Additive           # [WIRE]: SliceStack five-channel forest: layers·contours·nesting·chains·elevations — Slice.Layers + scanpath/support/audit decode
 Meshing/Slice.cs          →  csharp:Rasm.Compute                        # [WIRE]: AtElevations story-elevation contours through the SliceStack wire
 Meshing/Offset.cs         ⇄  csharp:Rasm.Fabrication/Toolpath           # [SHAPE]: the ONE 2D/3D clearance family — Medial + Clearance(probe) radius payload
 Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath           # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — the 3D clearance half
@@ -106,7 +106,7 @@ Processing/Remesh.cs      →  csharp:Rasm.Compute                        # [SHA
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Documentation/projection # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    →  csharp:Rasm.Fabrication/Posting            # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
 Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization  # [SHAPE]: Coordinate-level Predicate.Orient3D/InSphere cores, no Compute-side mint
-Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting            # [PROJECTION]: DrawingProjection / HLR visible/hidden segments (AppUi consumes ONLY the Fabrication HiddenLineResult receipt — no direct AppUi row exists)
+Drawing/View.cs           →  csharp:Rasm.Fabrication/Documentation      # [PROJECTION]: DrawingProjection / HLR visible/hidden segments — Hlr.Solve delegates here (AppUi consumes ONLY the Fabrication HiddenLineResult receipt — no direct AppUi row exists)
 Drawing/Pack.cs           →  csharp:Rasm.AppHost/Sandbox/solver         # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant
 Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency       # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
 Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt (the only live consumer; the AppUi texture-UV channel stands on the AppUi [V9] growth register, not the ledger)

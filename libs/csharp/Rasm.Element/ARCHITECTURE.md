@@ -41,7 +41,7 @@ The `Graph` sub-domain is the spine: `Element.cs` declares the `Node`/`NodeId`/`
 ```text seams
 Graph/element         ← csharp:Rasm.Bim/Projection         # [PROJECTION]: SemanticProjector lowers GeometryGym → GraphDelta; Emit stays Bim-internal
 Graph/element         ← csharp:Rasm.Materials/Projection   # [PROJECTION]: mints the deterministic-rooted Type Object, binds occurrences, authors the subgraph
-Graph/element         ← csharp:Rasm.Fabrication/Projection # [PROJECTION]: a future third IElementProjection, one registration row
+Projection            ← csharp:Rasm.Fabrication/Process/derivation  # [PROJECTION]: FabricationProjector : IElementProjection registration contract — Process/derivation implements Project(ProjectionContext) -> Fin<GraphDelta>, one app-wired registration row
 Graph/element         ⇄ csharp:Rasm.Materials/Component    # [SHAPE]: owner-mints-its-identity law + named Bake type→occurrence inheritance + TypeId on Element
 Projection            ← csharp:Rasm.Bim                    # [PORT]: IGraphConstraint IFC legality (containment/void/type-aggregation), after the structural law
 Graph/element         → csharp:Rasm.Compute                # [SHAPE]: reads the concrete graph; geometry one-hop via GeometrySource; writes Assessment.Result

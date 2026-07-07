@@ -13,7 +13,7 @@ Wire posture: HOST-LOCAL. The plan crosses only as `Seq<BendStep>` on `FormedRes
 ## [02]-[BEND_SEQUENCE]
 
 - Owner: `BendMethod` `[SmartEnum<string>]` (`air`/`bottoming`/`coining`) carrying `TonnageMultiplier` and `SpringbackScale` — the forming-method axis `Forming/sheet`'s `KFactorTable` also keys; `DieRow` the thickness-band die rule (`V = f·T`); `FlangeRow` the angle-band minimum-flange rule (`b ≥ c(A)·V`); `BrakeEnvelope` the projected machine capability row (capacity kN, gauge travel, open height — fleet-registry data, never a page-local machine table); `BendState` the plane-local search node (done-set, orientation, gauge position); `BendSequence` the static surface owning `Plan` and the die/tonnage/overbend projections.
-- Cases: `BendMethod` rows 3 (air 1.0/1.0 · bottoming 4.0/0.5 · coining 8.0/0.1); `DieRow` rows 3; `FlangeRow` rows 4; the search discriminates feasibility per state — reach, collision, occlusion — as three predicate columns of ONE matrix fold, never three sibling validators.
+- Cases: `BendMethod` rows 3 (air 1.0/1.0 · bottoming 4.0/0.5 · coining 8.0/0.1); `DieRow` rows 3; `FlangeRow` rows 4; the search discriminates feasibility per state — back-gauge reach, minimum flange, gauge-side clearance (flatness + occlusion on one side predicate), die/ram section clearance — as the predicate columns of ONE admission matrix fold, never sibling validators.
 - Entry: `public static Fin<Seq<BendStep>> Plan(UnfoldResult unfold, FormPolicy policy, BrakeEnvelope envelope)` — the ONE plan fold the `Run(Form)` case body composes; `DieV`/`InsideRadiusAir`/`MinFlange`/`TonnagePerMeter`/`Overbend` are the pure projections consumers (estimation, traveler, manufacturability) read without re-deriving.
 - Auto: `Plan` selects `V` per the die rows (the `FormPolicy.DieWidthFactor` override displaces the band factor), re-projects each bend's `BA` through `FlatPattern.Project` at the working radius `max(R, 0.16·V)`, prices tonnage per bend against `envelope.CapacityKn` (fail → 2742), gates every flange against `MinFlange` (an under-flange bend re-orders behind its neighbor or fails the state), and best-first expands `BendState` until the done-set closes — flips minimized first, gauge moves second; the winning path projects straight into `BendStep` rows with `OverbendDeg` resolved per method; `Verify/estimation` prices the plan from the same rows; `Documentation/traveler` renders them as the bend card.
 - Receipt: `Seq<BendStep>` IS the plan evidence — ordered, per-bend priced, flip-marked; no parallel `BendPlan` wrapper and no plane-internal search type on the result (ruling 5: the state graph dies inside the fold).
@@ -25,9 +25,11 @@ Wire posture: HOST-LOCAL. The plan crosses only as `Seq<BendStep>` on `FormedRes
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
+using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -45,9 +47,12 @@ public sealed partial class BendMethod {
 }
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------------------------------------------------------------
-// Air-bend die constant C in F = C·Rm·S²·L/(V·1000); a row datum, never an inline literal in a projection body.
+// Air-bend die constant C in F = C·Rm·S²·L/(V·1000); the gauge-reposition band and the bounded-search cap are
+// row data of the same law table, never inline literals in a fold body.
 public static class BrakeLaw {
     public const double DieConstant = 1.33;
+    public const double GaugeRepositionToleranceMm = 0.5;
+    public const int SearchCap = 1 << 14;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -56,7 +61,10 @@ public readonly record struct DieRow(double ThicknessLowMm, double ThicknessHigh
 public readonly record struct FlangeRow(double AngleLowDeg, double AngleHighDeg, double FlangeFactor);
 
 // Projected from the Kinematics/fleet capability registry — never a page-local machine table.
-public readonly record struct BrakeEnvelope(double CapacityKn, double GaugeTravelMm, double OpenHeightMm);
+public readonly record struct BrakeEnvelope(double CapacityKn, double GaugeTravelMm, double OpenHeightMm) {
+    // The machine-less planning floor: envelope gates disabled — the quote posture simulate mirrors.
+    public static readonly BrakeEnvelope Unbounded = new(double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity);
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class BendSequence {
@@ -79,8 +87,9 @@ public static class BendSequence {
     public static double Overbend(double angleDeg, double springbackRatio, BendMethod method) =>
         angleDeg * (1.0 - springbackRatio) / springbackRatio * method.SpringbackScale;
 
-    // Best-first over (done-set, orientation): reach → collision → occlusion predicate columns; flips then gauge
-    // moves as cost. The winning path IS the Seq<BendStep>; the state graph dies inside the fold (ruling 5).
+    // Best-first over (done-set, orientation, quantized gauge): reach → flange → gauge-clear → section-clear predicate columns;
+    // flips then gauge moves as cost. The winning path IS the Seq<BendStep>; the state graph dies inside the fold
+    // (ruling 5).
     public static Fin<Seq<BendStep>> Plan(UnfoldResult unfold, FormPolicy policy, BrakeEnvelope envelope) =>
         FlatPattern.FormedRow(unfold.Material).Bind(formed => {
             double v = DieV(unfold.ThicknessMm, policy.DieWidthFactor);
@@ -88,8 +97,141 @@ public static class BendSequence {
                 .Map(b => (b, Tonnage(formed.TensileRm, unfold.ThicknessMm, v, b.Line.A.DistanceTo(b.Line.B), policy.Method)));
             return priced.Filter(p => p.Kn > envelope.CapacityKn).HeadOrNone().Match(
                 Some: p => Fin.Fail<Seq<BendStep>>(FabricationFault.TonnageExceeded(p.Kn, envelope.CapacityKn).ToError()),
-                None: () => Search(priced, formed, policy, v, envelope));
+                None: () => Search(priced, formed, policy, v, unfold, envelope));
         });
+
+    // The plane-local search node — dies inside the fold (ruling 5). FlatDeltaMm accumulates each completed bend's
+    // working-radius BA reprojection (FlatPattern.Project at max(R, 0.16·V)), shifting every later gauge target.
+    sealed record BendState(Set<int> Done, bool FlippedUp, double GaugeX, double FlatDeltaMm, Seq<BendStep> Path, int Flips, int GaugeMoves) {
+        public static readonly BendState Start = new(Set<int>(), FlippedUp: false, GaugeX: 0.0, FlatDeltaMm: 0.0, Seq<BendStep>(), Flips: 0, GaugeMoves: 0);
+
+        public long Cost => ((long)Flips << 32) + GaugeMoves;
+    }
+
+    // Best-first: pop the cheapest state, expand every unbent line through the admission columns, first closed
+    // done-set wins. Exhaustion (or the bounded-search cap) routes BendSequenceInfeasible 2741 carrying the last
+    // blocked bend and the tried-order census.
+    static Fin<Seq<BendStep>> Search(Seq<(BendLine Bend, double Kn)> priced, ModalityPhysics.Forming formed, FormPolicy policy, double v, UnfoldResult unfold, BrakeEnvelope envelope) {
+        (BendLine Bend, double Kn)[] bends = priced.ToArray();
+        Lst<BendState> frontier = List(BendState.Start);
+        // The dedup key is the FULL forward-reachable state: Done + orientation + the gauge position
+        // quantized by the reposition tolerance — GaugeX prices every later gauge move, so two orders
+        // sharing a Done set but parking the gauge differently are distinct states; FlatDeltaMm is an
+        // order-independent sum over Done and rides free.
+        Set<(Set<int> Done, bool Flipped, long Gauge)> visited = Set<(Set<int>, bool, long)>();
+        int tried = 0, blocked = 0, guard = 0;
+        while (!frontier.IsEmpty && guard++ < BrakeLaw.SearchCap) {
+            int bestIdx = Enumerable.Range(0, frontier.Count).Aggregate(0, (best, idx) => frontier[idx].Cost < frontier[best].Cost ? idx : best);
+            BendState state = frontier[bestIdx];
+            frontier = frontier.RemoveAt(bestIdx);
+            if (state.Done.Count == bends.Length)
+                return Fin.Succ(state.Path);
+            (Set<int>, bool, long) key = (state.Done, state.FlippedUp, (long)Math.Round(state.GaugeX / BrakeLaw.GaugeRepositionToleranceMm));
+            if (visited.Contains(key))
+                continue;
+            visited = visited.Add(key);
+            foreach (int i in Enumerable.Range(0, bends.Length).Where(i => !state.Done.Contains(i))) {
+                tried++;
+                Seq<BendState> next = Expand(state, i, bends, formed, policy, v, unfold, envelope);
+                if (next.IsEmpty)
+                    blocked = i;
+                frontier = next.Fold(frontier, static (f, s) => f.Add(s));
+            }
+        }
+        return Fin.Fail<Seq<BendStep>>(FabricationFault.BendSequenceInfeasible(blocked, tried).ToError());
+    }
+
+    // ONE admission matrix per candidate, four predicate columns: back-gauge REACH (travel bound, reprojected by
+    // the accumulated flat delta), minimum FLANGE (angle-band law), GAUGE-CLEAR (the gauged flange still flat and
+    // its face unshadowed by an upstanding prior flange — one side predicate serves both), SECTION-CLEAR (the
+    // folded-profile silhouette against the ±V/2 die/ram window). Both orientations expand; a flip costs first.
+    static Seq<BendState> Expand(BendState state, int i, (BendLine Bend, double Kn)[] bends, ModalityPhysics.Forming formed, FormPolicy policy, double v, UnfoldResult unfold, BrakeEnvelope envelope) =>
+        Seq(false, true).Bind(flip => {
+            BendLine bend = bends[i].Bend;
+            double gauge = GaugeReach(unfold, bend) + state.FlatDeltaMm;
+            bool admissible =
+                gauge <= envelope.GaugeTravelMm
+                && FlangeWidth(unfold, bend) >= MinFlange(bend.AngleDeg, v)
+                && GaugeSideClear(unfold, bend, state.Done, bends)
+                && SectionClear(unfold, bend, state.Done, bends, v, envelope.OpenHeightMm);
+            if (!admissible)
+                return Seq<BendState>();
+            double working = Math.Max(bend.InsideRadiusMm, InsideRadiusAir(v));
+            BendProjection projected = FlatPattern.Project(bend.AngleDeg, working, unfold.ThicknessMm, bend.K);
+            BendStep step = new(
+                Order: state.Path.Count + 1,
+                Line: bend.Line,
+                AngleDeg: bend.AngleDeg,
+                RadiusMm: working,
+                KFactor: bend.K,
+                OverbendDeg: Overbend(bend.AngleDeg, formed.SpringbackRatio, policy.Method),
+                TonnageKn: bends[i].Kn,
+                Flip: flip);
+            return Seq1(state with {
+                Done = state.Done.Add(i),
+                FlippedUp = state.FlippedUp ^ flip,
+                GaugeX = gauge,
+                FlatDeltaMm = state.FlatDeltaMm + projected.FlatDeltaMm,
+                Path = state.Path.Add(step),
+                Flips = state.Flips + (flip ? 1 : 0),
+                GaugeMoves = state.GaugeMoves + (Math.Abs(gauge - state.GaugeX) > BrakeLaw.GaugeRepositionToleranceMm ? 1 : 0),
+            });
+        });
+
+    // Gauge-face law: the gauged (larger) flange must stay flat and unshadowed — a completed bend whose line sits
+    // on the gauge side both breaks flatness and occludes the gauge face; ONE side predicate serves both columns.
+    static bool GaugeSideClear(UnfoldResult unfold, BendLine bend, Set<int> done, (BendLine Bend, double Kn)[] bends) {
+        bool positive = SideExtent(unfold, bend, positive: true) >= SideExtent(unfold, bend, positive: false);
+        return !done.ToSeq().Exists(j => {
+            double d = Signed(Mid(bends[j].Bend.Line), bend.Line);
+            return positive ? d > 0.0 : d < 0.0;
+        });
+    }
+
+    // The die/ram section is the ±V/2 window at the candidate line raised to the open height; each completed flange
+    // projects its folded silhouette (thickness-wide, rising to its folded extent) at its signed offset. The overlap
+    // check composes the ONE Geometry2D Clip owner; a clip failure reads as a collision — fail-closed, never a pass.
+    static bool SectionClear(UnfoldResult unfold, BendLine bend, Set<int> done, (BendLine Bend, double Kn)[] bends, double v, double openHeightMm) =>
+        double.IsPositiveInfinity(openHeightMm)
+        || done.ToSeq().ForAll(j => {
+            BendLine prior = bends[j].Bend;
+            double folded = Math.Min(SideExtent(unfold, prior, positive: true), SideExtent(unfold, prior, positive: false)) + unfold.ThicknessMm;
+            if (folded > openHeightMm)
+                return false;
+            double at = Signed(Mid(prior.Line), bend.Line);
+            Loop section = Box(-v / 2.0, 0.0, v / 2.0, openHeightMm);
+            Loop silhouette = Box(at - unfold.ThicknessMm, 0.0, at + unfold.ThicknessMm, folded);
+            return PolygonAlgebra.Clip(Seq1(silhouette), Seq1(section), ClipOp.Intersect)
+                .Map(static overlap => overlap.IsEmpty)
+                .IfFail(false);
+        });
+
+    // Boundary extent algebra over the flat pattern: the gauge reach is the larger perpendicular side extent, the
+    // flange width the smaller — one Signed primitive serves reach, flange, gauge-side, and silhouette columns.
+    static double GaugeReach(UnfoldResult unfold, BendLine bend) =>
+        Math.Max(SideExtent(unfold, bend, positive: true), SideExtent(unfold, bend, positive: false));
+
+    static double FlangeWidth(UnfoldResult unfold, BendLine bend) =>
+        Math.Min(SideExtent(unfold, bend, positive: true), SideExtent(unfold, bend, positive: false));
+
+    static double SideExtent(UnfoldResult unfold, BendLine bend, bool positive) =>
+        unfold.Flat.ToSeq()
+            .Bind(static loop => loop.Vertices.ToSeq())
+            .Map(pt => Signed(pt, bend.Line))
+            .Filter(d => positive ? d > 0.0 : d < 0.0)
+            .Map(Math.Abs)
+            .Fold(0.0, Math.Max);
+
+    static double Signed(Point3d pt, Edge3 line) {
+        double dx = line.B.X - line.A.X, dy = line.B.Y - line.A.Y;
+        double len = Math.Max(1e-9, Math.Sqrt((dx * dx) + (dy * dy)));
+        return (((pt.X - line.A.X) * dy) - ((pt.Y - line.A.Y) * dx)) / len;
+    }
+
+    static Point3d Mid(Edge3 line) => new((line.A.X + line.B.X) / 2.0, (line.A.Y + line.B.Y) / 2.0, 0.0);
+
+    static Loop Box(double x0, double y0, double x1, double y1) =>
+        new(Arr(new Point3d(x0, y0, 0.0), new Point3d(x1, y0, 0.0), new Point3d(x1, y1, 0.0), new Point3d(x0, y1, 0.0)), Closed: true);
 }
 ```
 

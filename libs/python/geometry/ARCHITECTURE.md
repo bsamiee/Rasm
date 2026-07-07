@@ -91,7 +91,7 @@ scan/deviation      ←  csharp:Rasm.Bim/Model        # [SHAPE]: reference GLB +
 scan                →  python:data/spatial          # [SHAPE]: Arrow point-record columnar bridge x/y/z
 mesh                ←  python:data/spatial          # [SHAPE]: MeshPayload cell-block topology
 mesh/repair         →  python:data/spatial          # [BOUNDARY]: repair/brep/spatial/quality return in-memory Trimesh; mesh-file decode/encode + GLB preview are data's
-mesh                ⇄  python:artifacts/figures     # [BOUNDARY]: visualization-scene/USD/GLTF/OBJ export is artifacts figures/scene, mesh-file codec is data
+mesh                ⇄  python:artifacts/scene/export # [BOUNDARY]: visualization-scene/USD/GLTF/OBJ export is artifacts scene, mesh-file codec is data
 scan/ingestion      ←  python:data/spatial          # [SHAPE]: COPC arm decode leaves the pdal filter-graph owner unchanged
 energy/model        ⇄  csharp:Rasm.Bim/Exchange     # [WIRE]: content-keyed canonical HBJSON document bytes; Energy peers at document bytes, 1 XxHash128 derivation
 energy/model        ←  csharp:Rasm.Bim/Exchange     # [SHAPE]: IFC SPF source bytes for the BIM-to-BEM derivation modality

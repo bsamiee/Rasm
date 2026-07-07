@@ -19,7 +19,7 @@ The drawing↔spec resolver is the coordination half no single classification sy
 - Cases: the three vocabularies are closed `frozendict` correspondence owners authored to exact published cardinality. `Division` (`number`, `title`, `subgroup`) is the `MasterFormat` 2020 division row — the `_DIVISIONS` table carrying the 35 ASSIGNED divisions across the six `Subgroup` members (`PROCUREMENT` Div 00, `GENERAL` Div 01, `CONSTRUCTION` Div 02-19, `SERVICES` Div 20-29, `INFRASTRUCTURE` Div 30-39, `PROCESS` Div 40-49), the reserved numbers the derived complement over `range(50)` rather than fabricated titles. `Element` (`code`, `title`, `group`) is the `UniFormat` elemental row — the `_ELEMENTS` table carrying the Level-1 `A`-`G`+`Z` groups and their canonical Level-2 elements (`A10` Foundations … `G90` Other Site Construction). `_OMNI_TABLES` is the `OmniClass` faceted vocabulary — the 15 tables (`11`/`12` Construction Entities by Function/Form, `13`/`14` Spaces by Function/Form, `21` Elements, `22` Work Results, `23` Products, `31` Phases, `32` Services, `33` Disciplines, `34` Organizational Roles, `35` Tools, `36` Information, `41` Materials, `49` Properties). Each row is a frozen `Struct` or `frozendict` value, never a stringly prefix probe.
 - Entry: `ClassCode.parse(system, text)` returns `Result[Self, ClassFault]` — the system's module-level `re.Pattern` (`_MF_PATTERN` the `NN NN NN` triple with an optional `.NN` level-4, `_UF_PATTERN` the `X` group plus zero or more digit pairs, `_OC_PATTERN` the `NN` table prefix plus an OPTIONAL `-` and space-separated pairs so the bare table anchor round-trips) matches once, a miss projecting to `<malformed-code>`, and the HEAD validates against its vocabulary: `MasterFormat` against `_DIVISIONS[segments[0]]`, `OmniClass` against `_OMNI_TABLES[segments[0]]`, and `UniFormat` against the `_uf_anchor` Level-2 element (`group` + first digit-pair) in `_ELEMENTS` — so a deeper `UniFormat` Level-3 code (`B1010`) admits when its Level-2 element (`B10`) is known exactly as a `MasterFormat` `03 30 53` admits under Division `03`, and a reserved MasterFormat slot (`<reserved-division>`), an out-of-range division (`<unknown-division>`), an unknown element (`<unknown-element>`), and an unknown table (`<unknown-table>`) each surface as their own `ClassFault` case, the `_RESERVED` complement splitting the future-expansion slot from the invalid number. `render` is the inverse projection formatting the canonical notation; `crosswalk` is the peer resolver folding one code onto a `CrossReference`.
 - Auto: `crosswalk` derives the `CrossReference` peer set from one primary correspondence and the OmniClass table-alignment invariant, never a hand-kept per-system map. A `MasterFormat` code resolves its `UniFormat` group through `_CROSSWALK[code.division]` (the primary division→group row) yielding each group's Level-2 elements, and its `OmniClass` peer through the Table 22 = Work Results = MasterFormat identity so `(22, *code.segments)` is an exact digit copy; a `UniFormat` code resolves its `MasterFormat` divisions through the derived `_GROUP_DIVISIONS` inverse and its `OmniClass` peer through the Table 21 anchor `(21,)` — the aligned table without a forged digit copy, because Table 21 Elements uses numeric notation `UniFormat`'s alpha-numeric element codes do NOT map onto digit-for-digit; an `OmniClass` Table-22 code mirrors back to its exact `MasterFormat` digits. `_GROUP_DIVISIONS` is the one secondary map DERIVED by comprehension from `_CROSSWALK.items()` — a new crosswalk edge is one primary row and the inverse re-derives, never a parallel literal drifting out of sync. `level`/`parent` share one `_deepest` significant-index projection so the hierarchy depth and the roll-up derive from one computation.
-- Receipt: none. `ClassCode` is a pure value object and `crosswalk` a pure projection — the validated code and its crosswalk peers travel INTO the composing producers' facts (the `specification/section#SECTION` `Spec` receipt carries its section's `division`, the `drawing/schedule#SCHEDULE` rows carry the classified line item), never an `ArtifactReceipt` case this owner mints. This owner is the classification substrate, not a production sub-domain, exactly as `exchange/detect#DETECT` and `drawing/standard#STANDARD` contribute no receipt.
+- Receipt: none. `ClassCode` is a pure value object and `crosswalk` a pure projection — the validated code and its crosswalk peers travel INTO the composing producers' facts (the `specification/section#SECTION` `Spec` receipt carries its section's `division`, the `drawing/schedule#SCHEDULE` rows carry the classified line item), never an `ArtifactReceipt` case this owner mints. This owner is the classification substrate, not a production sub-domain, exactly as `exchange/detect#DETECT` and `drawing/regime#REGIME` contribute no receipt.
 - Packages: `msgspec` (`Struct(frozen=True, order=True)` the `ClassCode` value object — hashable for the `frozenset`/crosswalk keys AND ordered so it keys the `ReferenceIndex.forward` sorted `expression.Map` and sorts a schedule in canonical classification order — `Struct(frozen=True)` the `Division`/`Element` rows, `structs.replace` the `parent` roll-up transition); `re` (the three module-level system `Pattern`s, compiled once, the `None`-miss crossing the rail at `parse`); `frozendict` (`_DIVISIONS`/`_ELEMENTS`/`_OMNI_TABLES` the vocabulary tables and `_CROSSWALK` the primary correspondence with `_GROUP_DIVISIONS` its derived inverse); `expression` (`Result`/`Option`/`Ok`/`Error`/`Some`/`Nothing` the parse and lookup rails, `Block` the crosswalk peer traversal). No runtime import — the value object mints no `ContentKey` and the resolver runs no boundary.
 - Growth: a new `MasterFormat` division is one `_DIVISIONS` row; a new `UniFormat` element is one `_ELEMENTS` row; a new `OmniClass` table is one `_OMNI_TABLES` row; a new classification system is one `ClassSystem` member plus one `re.Pattern`, one `render`/`title`/`level`/`parent` arm, and one `parse` arm (the `assert_never` tail forcing each); a new crosswalk edge is one `_CROSSWALK` primary row the `_GROUP_DIVISIONS` inverse absorbs for free; a new fault cause is one `ClassFault` `Literal` case. Zero new surface — the value object owns every system through one discriminant and the crosswalk grows by table row.
 - Boundary: a per-system `MfCode`/`UfCode`/`OcCode` value triple where one `ClassCode` discriminates on `system` is the deleted fragmentation; a bare-`str` classification code re-split at every read where `parse` admits it once is the deleted stringly form; a full-render UniFormat membership test that rejects every valid Level-3 code where `_uf_anchor` head-validates the Level-2 element is the deleted over-strict admission; a `.startswith("03 30")` division probe where `code.division` projects the head is the deleted prefix hack; a hand-kept `_DIVISION_GROUP` beside its `_GROUP_DIVISIONS` inverse where the comprehension derives one from the other is the deleted parallel map; a forged `(21, *segments)` OmniClass digit copy where Table 21 uses notation `UniFormat` never maps onto is the deleted invention; a fabricated title for a reserved `MasterFormat` division where the assigned-only table plus the `range(50)` complement states the gap is the deleted invention; a dead `<no-crosswalk>` fault no arm ever returns where the empty peer set states the absence is the deleted vocabulary member; a `crosswalk(code)` free function where `code.crosswalk()` reads the owner's own peers is the deleted hop; a `None`-for-unknown-division lookup where `Result[ClassCode, ClassFault]` carries the cause is the deleted sentinel; an `ArtifactReceipt.Classification` rail where the composing producers carry the code in their own facts is the deleted parallel receipt. This owner authors semantics, never bytes.
@@ -30,9 +30,8 @@ import re
 from enum import StrEnum
 from typing import Final, Literal, Self, assert_never
 
-from builtins import frozendict
 from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.collections import Block
+from expression.collections import Block, Map
 from msgspec import Struct, structs
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -131,10 +130,10 @@ class ClassCode(Struct, frozen=True, order=True):
                 # the deepest known anchor: the Level-2 element title (`B1010` -> "Superstructure"), falling
                 # to the Level-1 group title when only the group is known.
                 return (
-                    Some(found.title) if (found := _ELEMENTS.get(self._uf_anchor)) is not None else Option.of_optional(_GROUP_TITLES.get(self.group))
+                    Some(found.title) if (found := _ELEMENTS.try_find(self._uf_anchor).default_value(None)) is not None else Option.of_optional(_GROUP_TITLES.try_find(self.group).default_value(None))
                 )
             case ClassSystem.OMNICLASS:
-                return Option.of_optional(_OMNI_TABLES.get(self.segments[0])) if self.segments else Nothing
+                return Option.of_optional(_OMNI_TABLES.try_find(self.segments[0]).default_value(None)) if self.segments else Nothing
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -149,7 +148,7 @@ class ClassCode(Struct, frozen=True, order=True):
         # table of contents and a division roll-up group sections by it, reading the one `_DIVISIONS` row the
         # division already carries rather than a parallel division->subgroup table; `Nothing` for the
         # non-MasterFormat systems and a reserved/out-of-range division.
-        found = _DIVISIONS.get(self.segments[0]) if self.system is ClassSystem.MASTERFORMAT and self.segments else None
+        found = _DIVISIONS.try_find(self.segments[0]).default_value(None) if self.system is ClassSystem.MASTERFORMAT and self.segments else None
         return Some(found.subgroup) if found is not None else Nothing
 
     @property
@@ -209,7 +208,7 @@ class ClassCode(Struct, frozen=True, order=True):
         # crosswalk edge yields an empty peer set rather than a raise.
         match self.system:
             case ClassSystem.MASTERFORMAT:
-                group = _CROSSWALK.get(self.division(), "")
+                group = _CROSSWALK.try_find(self.division()).default_value("")
                 elements = Block.of_seq(_ELEMENTS.values()).filter(lambda element: element.group == group)
                 return CrossReference(
                     self,
@@ -219,7 +218,7 @@ class ClassCode(Struct, frozen=True, order=True):
                     }),
                 )
             case ClassSystem.UNIFORMAT:
-                divisions = _GROUP_DIVISIONS.get(self.group, ())
+                divisions = _GROUP_DIVISIONS.try_find(self.group).default_value(())
                 return CrossReference(
                     self,
                     frozendict({
@@ -255,61 +254,60 @@ _OC_PATTERN: Final[re.Pattern[str]] = re.compile(r"\A(?P<table>\d{2})(?:-(?P<tai
 
 # the MasterFormat 2020 ASSIGNED divisions (35 of the 50 numbers 00-49); the reserved 15-20/24/29/30/
 # 36-39/47/49 gaps are the derived complement over `range(50)`, never a fabricated title.
-_DIVISIONS: Final[frozendict[int, Division]] = frozendict({
-    0: Division(0, "Procurement and Contracting Requirements", Subgroup.PROCUREMENT),
-    1: Division(1, "General Requirements", Subgroup.GENERAL),
-    2: Division(2, "Existing Conditions", Subgroup.CONSTRUCTION),
-    3: Division(3, "Concrete", Subgroup.CONSTRUCTION),
-    4: Division(4, "Masonry", Subgroup.CONSTRUCTION),
-    5: Division(5, "Metals", Subgroup.CONSTRUCTION),
-    6: Division(6, "Wood, Plastics, and Composites", Subgroup.CONSTRUCTION),
-    7: Division(7, "Thermal and Moisture Protection", Subgroup.CONSTRUCTION),
-    8: Division(8, "Openings", Subgroup.CONSTRUCTION),
-    9: Division(9, "Finishes", Subgroup.CONSTRUCTION),
-    10: Division(10, "Specialties", Subgroup.CONSTRUCTION),
-    11: Division(11, "Equipment", Subgroup.CONSTRUCTION),
-    12: Division(12, "Furnishings", Subgroup.CONSTRUCTION),
-    13: Division(13, "Special Construction", Subgroup.CONSTRUCTION),
-    14: Division(14, "Conveying Equipment", Subgroup.CONSTRUCTION),
-    21: Division(21, "Fire Suppression", Subgroup.SERVICES),
-    22: Division(22, "Plumbing", Subgroup.SERVICES),
-    23: Division(23, "Heating, Ventilating, and Air Conditioning (HVAC)", Subgroup.SERVICES),
-    25: Division(25, "Integrated Automation", Subgroup.SERVICES),
-    26: Division(26, "Electrical", Subgroup.SERVICES),
-    27: Division(27, "Communications", Subgroup.SERVICES),
-    28: Division(28, "Electronic Safety and Security", Subgroup.SERVICES),
-    31: Division(31, "Earthwork", Subgroup.INFRASTRUCTURE),
-    32: Division(32, "Exterior Improvements", Subgroup.INFRASTRUCTURE),
-    33: Division(33, "Utilities", Subgroup.INFRASTRUCTURE),
-    34: Division(34, "Transportation", Subgroup.INFRASTRUCTURE),
-    35: Division(35, "Waterway and Marine Construction", Subgroup.INFRASTRUCTURE),
-    40: Division(40, "Process Interconnections", Subgroup.PROCESS),
-    41: Division(41, "Material Processing and Handling Equipment", Subgroup.PROCESS),
-    42: Division(42, "Process Heating, Cooling, and Drying Equipment", Subgroup.PROCESS),
-    43: Division(43, "Process Gas and Liquid Handling, Purification, and Storage Equipment", Subgroup.PROCESS),
-    44: Division(44, "Pollution and Waste Control Equipment", Subgroup.PROCESS),
-    45: Division(45, "Industry-Specific Manufacturing Equipment", Subgroup.PROCESS),
-    46: Division(46, "Water and Wastewater Equipment", Subgroup.PROCESS),
-    48: Division(48, "Electrical Power Generation", Subgroup.PROCESS),
-})
+_DIVISIONS: Final[Map[int, Division]] = Map.of_seq([
+    (0, Division(0, "Procurement and Contracting Requirements", Subgroup.PROCUREMENT)),
+    (1, Division(1, "General Requirements", Subgroup.GENERAL)),
+    (2, Division(2, "Existing Conditions", Subgroup.CONSTRUCTION)),
+    (3, Division(3, "Concrete", Subgroup.CONSTRUCTION)),
+    (4, Division(4, "Masonry", Subgroup.CONSTRUCTION)),
+    (5, Division(5, "Metals", Subgroup.CONSTRUCTION)),
+    (6, Division(6, "Wood, Plastics, and Composites", Subgroup.CONSTRUCTION)),
+    (7, Division(7, "Thermal and Moisture Protection", Subgroup.CONSTRUCTION)),
+    (8, Division(8, "Openings", Subgroup.CONSTRUCTION)),
+    (9, Division(9, "Finishes", Subgroup.CONSTRUCTION)),
+    (10, Division(10, "Specialties", Subgroup.CONSTRUCTION)),
+    (11, Division(11, "Equipment", Subgroup.CONSTRUCTION)),
+    (12, Division(12, "Furnishings", Subgroup.CONSTRUCTION)),
+    (13, Division(13, "Special Construction", Subgroup.CONSTRUCTION)),
+    (14, Division(14, "Conveying Equipment", Subgroup.CONSTRUCTION)),
+    (21, Division(21, "Fire Suppression", Subgroup.SERVICES)),
+    (22, Division(22, "Plumbing", Subgroup.SERVICES)),
+    (23, Division(23, "Heating, Ventilating, and Air Conditioning (HVAC)", Subgroup.SERVICES)),
+    (25, Division(25, "Integrated Automation", Subgroup.SERVICES)),
+    (26, Division(26, "Electrical", Subgroup.SERVICES)),
+    (27, Division(27, "Communications", Subgroup.SERVICES)),
+    (28, Division(28, "Electronic Safety and Security", Subgroup.SERVICES)),
+    (31, Division(31, "Earthwork", Subgroup.INFRASTRUCTURE)),
+    (32, Division(32, "Exterior Improvements", Subgroup.INFRASTRUCTURE)),
+    (33, Division(33, "Utilities", Subgroup.INFRASTRUCTURE)),
+    (34, Division(34, "Transportation", Subgroup.INFRASTRUCTURE)),
+    (35, Division(35, "Waterway and Marine Construction", Subgroup.INFRASTRUCTURE)),
+    (40, Division(40, "Process Interconnections", Subgroup.PROCESS)),
+    (41, Division(41, "Material Processing and Handling Equipment", Subgroup.PROCESS)),
+    (42, Division(42, "Process Heating, Cooling, and Drying Equipment", Subgroup.PROCESS)),
+    (43, Division(43, "Process Gas and Liquid Handling, Purification, and Storage Equipment", Subgroup.PROCESS)),
+    (44, Division(44, "Pollution and Waste Control Equipment", Subgroup.PROCESS)),
+    (45, Division(45, "Industry-Specific Manufacturing Equipment", Subgroup.PROCESS)),
+    (46, Division(46, "Water and Wastewater Equipment", Subgroup.PROCESS)),
+    (48, Division(48, "Electrical Power Generation", Subgroup.PROCESS)),
+])
 # the reserved MasterFormat slots (future-expansion, unassigned) — the derived complement over `range(50)`
 # `parse` maps to `<reserved-division>`, distinct from an out-of-range `<unknown-division>`.
-_RESERVED: Final[frozenset[int]] = frozenset(range(50)) - frozenset(_DIVISIONS)
+_RESERVED: Final[frozenset[int]] = frozenset(range(50)) - frozenset(_DIVISIONS.keys())
 
 # the UniFormat Level-1 group titles and their canonical Level-2 elements (ASTM E1557 + CSI Z General).
-_GROUP_TITLES: Final[frozendict[str, str]] = frozendict({
-    "A": "Substructure",
-    "B": "Shell",
-    "C": "Interiors",
-    "D": "Services",
-    "E": "Equipment and Furnishings",
-    "F": "Special Construction and Demolition",
-    "G": "Building Sitework",
-    "Z": "General",
-})
-_ELEMENTS: Final[frozendict[str, Element]] = frozendict({
-    element.code: element
-    for element in (
+_GROUP_TITLES: Final[Map[str, str]] = Map.of_seq([
+    ("A", "Substructure"),
+    ("B", "Shell"),
+    ("C", "Interiors"),
+    ("D", "Services"),
+    ("E", "Equipment and Furnishings"),
+    ("F", "Special Construction and Demolition"),
+    ("G", "Building Sitework"),
+    ("Z", "General"),
+])
+_ELEMENTS: Final[Map[str, Element]] = Map.of_seq((
+    (element.code, element) for element in (
         Element("A10", "Foundations", "A"),
         Element("A20", "Basement Construction", "A"),
         Element("B10", "Superstructure", "B"),
@@ -334,62 +332,62 @@ _ELEMENTS: Final[frozendict[str, Element]] = frozendict({
         Element("G90", "Other Site Construction", "G"),
         Element("Z10", "General", "Z"),
     )
-})
+))
 
 # the OmniClass 15 tables (OCCS / ISO 12006-2) — the faceted classification vocabulary keyed by table number.
-_OMNI_TABLES: Final[frozendict[int, str]] = frozendict({
-    11: "Construction Entities by Function",
-    12: "Construction Entities by Form",
-    13: "Spaces by Function",
-    14: "Spaces by Form",
-    21: "Elements",
-    22: "Work Results",
-    23: "Products",
-    31: "Phases",
-    32: "Services",
-    33: "Disciplines",
-    34: "Organizational Roles",
-    35: "Tools",
-    36: "Information",
-    41: "Materials",
-    49: "Properties",
-})
+_OMNI_TABLES: Final[Map[int, str]] = Map.of_seq([
+    (11, "Construction Entities by Function"),
+    (12, "Construction Entities by Form"),
+    (13, "Spaces by Function"),
+    (14, "Spaces by Form"),
+    (21, "Elements"),
+    (22, "Work Results"),
+    (23, "Products"),
+    (31, "Phases"),
+    (32, "Services"),
+    (33, "Disciplines"),
+    (34, "Organizational Roles"),
+    (35, "Tools"),
+    (36, "Information"),
+    (41, "Materials"),
+    (49, "Properties"),
+])
 
 # the ONE primary crosswalk correspondence: MasterFormat division -> UniFormat Level-1 group. `_GROUP_DIVISIONS`
 # is the DERIVED inverse (group -> divisions) by comprehension, so a new edge lands once here and the inverse
 # re-derives. OmniClass peers are NOT a table — Table 22 Work Results IS MasterFormat (exact digit copy) and
 # Table 21 Elements IS UniFormat (elemental alignment, notation-distinct), so they derive from the alignment
 # invariant in `crosswalk`, never a hand-kept third map.
-_CROSSWALK: Final[frozendict[int, str]] = frozendict({
-    2: "G",
-    3: "B",
-    4: "B",
-    5: "B",
-    6: "B",
-    7: "B",
-    8: "B",
-    9: "C",
-    10: "C",
-    11: "E",
-    12: "E",
-    13: "F",
-    14: "D",
-    21: "D",
-    22: "D",
-    23: "D",
-    25: "D",
-    26: "D",
-    27: "D",
-    28: "D",
-    31: "G",
-    32: "G",
-    33: "G",
-    34: "G",
-    35: "G",
-})
-_GROUP_DIVISIONS: Final[frozendict[str, tuple[int, ...]]] = frozendict({
-    group: tuple(division for division, mapped in _CROSSWALK.items() if mapped == group) for group in frozenset(_CROSSWALK.values())
-})
+_CROSSWALK: Final[Map[int, str]] = Map.of_seq([
+    (2, "G"),
+    (3, "B"),
+    (4, "B"),
+    (5, "B"),
+    (6, "B"),
+    (7, "B"),
+    (8, "B"),
+    (9, "C"),
+    (10, "C"),
+    (11, "E"),
+    (12, "E"),
+    (13, "F"),
+    (14, "D"),
+    (21, "D"),
+    (22, "D"),
+    (23, "D"),
+    (25, "D"),
+    (26, "D"),
+    (27, "D"),
+    (28, "D"),
+    (31, "G"),
+    (32, "G"),
+    (33, "G"),
+    (34, "G"),
+    (35, "G"),
+])
+_GROUP_DIVISIONS: Final[Map[str, tuple[int, ...]]] = Map.of_seq((
+    (group, tuple(division for division, mapped in _CROSSWALK.items() if mapped == group)) for group in frozenset(_CROSSWALK.values())
+))
 _OMNI_WORK_RESULTS: Final[int] = 22  # OmniClass Table 22 == MasterFormat (exact digit copy)
 _OMNI_ELEMENTS: Final[int] = 21  # OmniClass Table 21 == UniFormat (elemental alignment, notation-distinct)
 
@@ -405,11 +403,11 @@ def _pairs(digits: str, /) -> tuple[int, ...]:
 ## [03]-[COORDINATE]
 
 - Owner: `ReferenceIndex` the one drawing↔spec cross-reference owner admitting the `Reference` link set ONCE into a bidirectional index — a `Reference` binding one specification `ClassCode` to one `SheetRef` (a `sheet` number, an optional `detail` id, a `Discipline`), the keynote correspondence a drawing keynote schedule and a specification section together assert. `ReferenceIndex.of` folds the reference `Block` into one `forward: Map[ClassCode, tuple[SheetRef, ...]]` section→sheets index AND one `inverse: Map[str, tuple[ClassCode, ...]]` sheet-number→sections index in one pass, so `resolve(query)` — ONE polymorphic method discriminating on the query's own shape — reads the pre-built pair rather than re-folding per call: a `ClassCode` query resolves to the `SheetRef`s detailing that section (the "where is Division 03 drawn" lookup, widened through `descends_from`), a `SheetRef` query resolves by its `sheet` number to the `ClassCode` sections governing that sheet (the "what specs govern sheet A-201" lookup), never a `sheets_for`/`sections_for` sibling pair the caller picks between. `coordinate(specified)` folds the same admitted reference set against the specified-section set into the `Coordination` reconciliation.
-- Cases: `SheetRef` (`sheet`, `detail`, `discipline`) the drawing-side reference — a sheet number (`A-201`), an optional detail-bubble id, and the ISO 13567 / NCS `Discipline` the `drawing/standard#STANDARD` layer codec owns (composed, never a parallel stringly discipline); `Reference` (`section`, `sheet`) the one link the index folds. `Coordination` carries the reconciliation triple: `matched` the `Reference`s whose `section` the project actually specifies, `orphan_sections` the `frozenset[ClassCode]` specced but detailed on no sheet (the "specified, never drawn" coordination gap), and `orphan_details` the `SheetRef`s keynoted against a section the manual never specifies (the "drawn, never specified" gap) — the two silent-truncation defects a manual owes its drawing set, surfaced as evidence rather than lost.
+- Cases: `SheetRef` (`sheet`, `detail`, `discipline`) the drawing-side reference — a sheet number (`A-201`), an optional detail-bubble id, and the ISO 13567 / NCS `Discipline` the `drawing/regime#REGIME` layer codec owns (composed, never a parallel stringly discipline); `Reference` (`section`, `sheet`) the one link the index folds. `Coordination` carries the reconciliation triple: `matched` the `Reference`s whose `section` the project actually specifies, `orphan_sections` the `frozenset[ClassCode]` specced but detailed on no sheet (the "specified, never drawn" coordination gap), and `orphan_details` the `SheetRef`s keynoted against a section the manual never specifies (the "drawn, never specified" gap) — the two silent-truncation defects a manual owes its drawing set, surfaced as evidence rather than lost.
 - Entry: `ReferenceIndex.of(references)` normalizes the `Reference | Iterable[Reference]` at the head and folds both directions once — the `forward` index keyed on `ref.section`, the `inverse` index keyed on `ref.sheet.sheet` (the sheet NUMBER, so a sheet query gathers every governing section regardless of the query's detail/discipline). `resolve(query)` dispatches on `query` shape — a `ClassCode` reads `forward.items()` widened through `descends_from` so a division query gathers every descendant section's sheets, a `SheetRef` reads `inverse[query.sheet]` — returning the resolved `Block` on either arm through one `match`. `coordinate(specified)` normalizes the `ClassCode | Iterable[ClassCode]` head and reconciles against the admitted reference set; both read the index the composition root built once.
 - Auto: `coordinate` partitions the reference set against `specified` in one `Block.partition` — `matched` is the references whose `section` the specified set contains (widened by `descends_from` so a `03 30 00` reference matches a specified `03 00 00` division section) and `orphan_details` the complementary half projected to sheets, so the `specifies` predicate is evaluated once per reference rather than twice; `orphan_sections` is the `Block.filter`-into-`frozenset` of specified codes no reference reaches (`Block` exposes no `exists`, so membership is a non-empty filtered block, never a `list.append` accumulator). `rows()` projects the reconciliation to the flat `tuple[frozendict[str, str], ...]` a `visualization/table#TABLE` or `specification/section#SECTION` `TableNode` renders — one row per matched link plus one flagged row per orphan, each carrying its section/sheet/detail/`discipline`/status — and `facts()` projects the native-int `matched`/`orphan_sections`/`orphan_details` tally the composing producer folds into its OWN `ArtifactReceipt`, the tabular egress and the receipt evidence the reconciliation owes its consumer, this owner computing the verdict and never the rendered artifact.
 - Receipt: none. `ReferenceIndex`/`Coordination` are a pure reconciliation whose `rows` a downstream `visualization/table#TABLE`/`specification/section#SECTION` producer renders and whose `facts` that producer folds into its own `ArtifactReceipt` — the coordination facts (matched count, orphan counts) ride THAT producer's `Table` or `Spec` case, never a classification receipt rail this owner mints.
-- Packages: `msgspec` (`Struct(frozen=True)` the `SheetRef`/`Reference`/`ReferenceIndex`/`Coordination` value objects, `SheetRef` hashable for the reference dedup, `ClassCode` and the `str` sheet number the two index keys); `expression` (`Map.empty`/`change`/`try_find`/`items` the two bidirectional indexes built by one fold, `Block.of_seq`/`fold`/`filter`/`partition`/`map`/`singleton`/`is_empty` the reference traversal and the one-pass reconciliation, `Some`/`Option` the index-fold and lookup rail); `frozendict` (the `rows`/`facts` flat-record projections and the `orphan_sections` frozenset); `drawing/standard#STANDARD` (`Discipline` the owned ISO 13567/NCS discipline vocabulary the `SheetRef` composes); the sibling `ClassCode` (`.render`/`.descends_from` composed, never re-declared). No runtime import — the resolver is pure over the admitted references.
+- Packages: `msgspec` (`Struct(frozen=True)` the `SheetRef`/`Reference`/`ReferenceIndex`/`Coordination` value objects, `SheetRef` hashable for the reference dedup, `ClassCode` and the `str` sheet number the two index keys); `expression` (`Map.empty`/`change`/`try_find`/`items` the two bidirectional indexes built by one fold, `Block.of_seq`/`fold`/`filter`/`partition`/`map`/`singleton`/`is_empty` the reference traversal and the one-pass reconciliation, `Some`/`Option` the index-fold and lookup rail); `frozendict` (the `rows`/`facts` flat-record projections and the `orphan_sections` frozenset); `drawing/regime#REGIME` (`Discipline` the owned ISO 13567/NCS discipline vocabulary the `SheetRef` composes); the sibling `ClassCode` (`.render`/`.descends_from` composed, never re-declared). No runtime import — the resolver is pure over the admitted references.
 - Growth: a new reference axis (a keynote revision, a spec addendum flag) is one `Reference`/`SheetRef` field the index fold and the `rows` projection absorb; a new query modality is one `resolve` `match` arm on the query shape (the `assert_never` forcing it); a new reconciliation category (a superseded section, a mismatched-discipline link) is one `Coordination` field derived from the one index; a new coordination fact is one `facts()` entry. Zero new surface — the index grows by field on the link and arm on the query.
 - Boundary: a `sheets_for(code)`/`sections_for(sheet)` sibling pair where one `resolve` discriminates on the query shape is the deleted surface spam; a re-built index per query where `ReferenceIndex.of` builds both directions once and every `resolve`/`coordinate` reads them is the deleted recompute; a full-`SheetRef` inverse key where the sheet NUMBER keys the governing-section lookup is the deleted over-specific match; two `references.filter` passes computing `specifies` twice where one `Block.partition` splits matched from orphan is the deleted double-scan; a `list.append` reconciliation accumulator where `Block.partition`/`filter`-into-`frozenset` derives the sets is the deleted flat form; a stringly `discipline: str` where the owned `Discipline` vocabulary types the field is the deleted stringly form; a silently dropped orphan section or detail where `Coordination` surfaces both as evidence is the deleted truncation; a rendered coordination matrix this owner emits where `rows()`/`facts()` hand the flat records to the `visualization/table#TABLE` renderer is the deleted boundary trample. This owner computes the coordination, never the artifact.
 
@@ -418,7 +416,6 @@ def _pairs(digits: str, /) -> tuple[int, ...]:
 from collections.abc import Iterable
 from typing import Self, assert_never, overload
 
-from builtins import frozendict
 from expression import Some
 from expression.collections import Block, Map
 from msgspec import Struct
@@ -431,7 +428,7 @@ from artifacts.specification.classify import ClassCode
 
 class SheetRef(Struct, frozen=True):
     # the drawing-side reference: a sheet number, an optional detail-bubble id, and the ISO 13567 / NCS
-    # `Discipline` the `drawing/standard#STANDARD` layer codec owns; hashable for the reference dedup.
+    # `Discipline` the `drawing/regime#REGIME` layer codec owns; hashable for the reference dedup.
     sheet: str
     detail: str = ""
     discipline: Discipline = Discipline.ARCHITECTURAL
@@ -542,11 +539,3 @@ def _normalized[T](items: T | Iterable[T], /) -> Block[T]:
         case lone:
             return Block.singleton(lone)
 ```
-
-## [04]-[RESEARCH]
-
-- [VOCABULARY_CARDINALITY]: the three vocabularies are authored to their exact published extents, the owned-standard capability the brief mandates over an approximated slice. `_DIVISIONS` carries the 35 ASSIGNED `MasterFormat` 2020 divisions — Division 00 (Procurement), 01 (General Requirements), 02-14 (the Facility Construction subgroup's assigned run), 21-23/25-28 (Facility Services), 31-35 (Site and Infrastructure), and 40-46/48 (Process Equipment) — the reserved numbers (15-20, 24, 29, 30, 36-39, 47, 49) the derived `_RESERVED` complement over `range(50)` rather than fabricated titles, so `parse` maps a reserved MasterFormat slot to `<reserved-division>` and an out-of-range number to `<unknown-division>` — the future-expansion slot distinguished from the invalid one, the complement load-bearing on the fault split rather than a dead set. `_ELEMENTS` carries the `UniFormat` Level-2 elements under the `A`-`G`+`Z` Level-1 groups (ASTM E1557 elemental A/B/C/D/E/F/G plus the CSI `Z` General), and `_OMNI_TABLES` the 15 `OmniClass` tables at their published numbers (11/12/13/14/21/22/23/31/32/33/34/35/36/41/49), the table-number gaps the OCCS's own reserved facets. A new assigned division, element, or table is one row; a fabricated reserved title is the rejected invention.
-- [ADMISSION_DEPTH]: `parse` head-validates each system so a code admits at any authored depth below its known head — `MasterFormat` and `OmniClass` against `segments[0]` in `_DIVISIONS`/`_OMNI_TABLES` (so `03 30 53` admits under Division `03`, `22-03 30 00` under Table `22`), and `UniFormat` against the `_uf_anchor` Level-2 element in `_ELEMENTS` (so `B1010` admits under element `B10` while `B99` correctly rejects). The prior full-render UniFormat membership test rejected every valid Level-3+ code because `_ELEMENTS` carries only the Level-2 anchors — the over-strict admission a Level-3 estimating code (`B1010` Standard Foundations) would silently fail; head-validation restores the anchor-plus-descendant admission the numeric systems already had. `_OC_PATTERN`'s optional `-tail` makes the bare table anchor (`21`) parse and round-trip so the crosswalk's Table-21 peer is a real re-parseable code, and `render`'s dot-joined `.NN` suffix keeps a `MasterFormat` level-4 code (`03 30 53.13`) re-parseable through `_MF_PATTERN`'s optional level-4 group — the same render/parse asymmetry closed on both the OmniClass and the MasterFormat arm rather than a space-joined fourth segment `parse` would reject.
-- [HIERARCHY_ALGEBRA]: the classification systems are trees, so `ClassCode` owns the full navigation algebra a `drawing/schedule#SCHEDULE` roll-up and a keynote-scope query compose — the containment predicate `descends_from` (does this code fall under that broadscope section), the depth `level` (the trailing-zero-insensitive hierarchy level a schedule groups line items by), the constructor `parent` (the immediate container a keynote rolls up to), the head `division` (the crosswalk key), and the `subgroup` band (the `MasterFormat` 2020 six-subgroup partition — Procurement / General / Facility Construction / Facility Services / Site and Infrastructure / Process Equipment — a specification table of contents groups sections by, projected `Option[Subgroup]` off the `Division.subgroup` the row already carries rather than a parallel table) — where the prior page owned only the predicate and the head. `level` and `parent` derive from one `_deepest` significant-index projection over the numeric systems and the group-plus-pairs count over `UniFormat`, so the depth and the roll-up never diverge; `parent` truncates a `MasterFormat` `.NN` level-4 suffix to its level-3 section, then rolls `03 30 53` -> `03 30 00` -> `03 00 00` by zeroing the deepest positional level and `B1010` -> `B10` -> `B` by truncating the last pair, `Nothing` at the division/table/group root.
-- [CROSSWALK_DERIVATION]: the classification crosswalk obeys `DERIVED_LOGIC` — ONE primary `_CROSSWALK` `frozendict` maps each `MasterFormat` division to its `UniFormat` Level-1 group (Concrete/Masonry/Metals/Thermal/Openings → `B` Shell, Finishes/Specialties → `C` Interiors, the mechanical/electrical divisions → `D` Services, the sitework divisions → `G` Building Sitework, Equipment/Furnishings → `E`), and `_GROUP_DIVISIONS` derives the group→divisions inverse by comprehension so the two never drift. The `OmniClass` peers are NOT a third hand-kept map: `OmniClass` Table 22 Work Results IS `MasterFormat` (a `MasterFormat` code's Table-22 peer is the exact `(22, *segments)` digit copy, and the reverse mirrors the tail back to `MasterFormat`), while Table 21 Elements IS `UniFormat` only ELEMENTALLY — its numeric notation does not map onto `UniFormat`'s alpha-numeric element codes digit-for-digit, so a `UniFormat` code's `OmniClass` peer is the honest Table-21 anchor `(21,)` rather than a forged digit copy. This is the `boundaries.md` DERIVED_LOGIC law applied across the classification seam — a new crosswalk edge is one primary row and every secondary re-derives with no consumer edited.
-- [DRAWING_SPEC_RESOLVER]: the drawing↔spec resolver is the coordination concern no single classification system spells and the one the brief names — a `Reference` binds a specification `ClassCode` to a `SheetRef` (the keynote correspondence a drawing keynote schedule and a spec section jointly assert), and `ReferenceIndex.of` admits the whole reference set ONCE (`BOUNDARY_ADMISSION`) into both a `forward` section→sheets and an `inverse` sheet-number→sections index built in one fold, so `resolve` is `MODAL_ARITY` over the query shape reading the pre-built index rather than re-folding per query — the prior page's per-call one-directional rebuild is the `boundaries.md` recompute the held index deletes, and the sheet-number inverse key is why "what governs sheet A-201" gathers every governing section regardless of the query's detail bubble. `coordinate` `Block.partition`s the same admitted reference set against the specified sections into the reconciliation every project manual owes its drawing set — `orphan_sections` the specced-but-never-drawn gap and `orphan_details` the drawn-but-never-specced gap — the two silent-truncation defects the `boundaries.md` PROBE_SWEEP law surfaces as evidence, projected as flat `rows` and a native-int `facts` tally the tabular consumer renders and folds into its own receipt. The `descends_from` wildcard-zero containment predicate is why a `03 30 00` cast-in-place reference resolves against a `03 00 00` Division-03 section: the `0` level segments are unspecified-level wildcards, so coordination widens along the classification hierarchy, a real containment the flat tuple-prefix equality omits. The `ClassCode`s the `ReferenceIndex` resolves are the SAME codes that ride `document/model#NODE` `NodeMeta.classification` on the lowered document tree — `specification/section#SECTION`'s root `SectionNode` stamps its section code there, `document/report#REPORT`'s `Section.classification` mirrors it, and `DocumentNode.to_corpus` projects the `classification` column — so the model-tree classification space and this resolver's key space are ONE: a consumer harvests the tree's `NodeMeta.classification`, `ClassCode.parse`s each, and folds the `Reference` set `ReferenceIndex.of` admits, never a second parallel classification token.

@@ -10,7 +10,7 @@ The planning-scoped package roots in strata order; each root `README.md` carries
 - [02]-[AEC-DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — lowest-AEC element seam.
 - [03]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
 - [04]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
-- [05]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting.
+- [05]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — the making-domain owner: design-to-fabrication derivation, process planning, CAM, nesting, forming, joining, additive, verification, spec, and shop documentation.
 - [06]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
 - [07]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
 - [08]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
@@ -32,18 +32,18 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `JetBrains.Annotations` — every C# folder.
 
 [TIME_IDENTITY]:
-- `NodaTime` — Element, Bim, AppHost, Compute, Persistence, AppUi.
+- `NodaTime` — Element, Bim, Fabrication, AppHost, Compute, Persistence, AppUi.
 - `NodaTime.Serialization.SystemTextJson` — AppHost, Persistence.
 - `NodaTime.Serialization.Protobuf` — Element, Compute.
 - `System.IO.Hashing` — Rasm, Element, Bim, Fabrication, AppHost, Compute, Persistence, AppUi.
 
 [NUMERIC_SUBSTRATE]:
-- `CommunityToolkit.HighPerformance` — Rasm, Materials, Bim, Compute, Persistence.
-- `System.Numerics.Tensors` — Rasm, AppHost, Compute, Persistence.
+- `CommunityToolkit.HighPerformance` — Rasm, Materials, Bim, Fabrication, Compute, Persistence.
+- `System.Numerics.Tensors` — Rasm, Fabrication, AppHost, Compute, Persistence.
 - `UnitsNet` — Element, Bim, Compute, Fabrication, Materials, AppUi.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — Rasm, Element, Materials, Bim, Persistence: pure-managed graph containers + `AlgorithmExtensions` behind the MST/topology/CPM/version-DAG walks.
+- `QuikGraph` — Rasm, Element, Materials, Bim, Fabrication, Persistence: pure-managed graph containers + `AlgorithmExtensions` behind the MST/topology/CPM/version-DAG/setup-precedence walks.
 
 [WIRE_CODEGEN]:
 - `Generator.Equals` — Element, Bim, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
@@ -56,7 +56,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Grpc.Net.Client.Web`
 - `Grpc.Net.Common`
 - `Grpc.Tools` — Element (`GrpcServices=None` message codegen), Compute.
-- `Riok.Mapperly` — Element, Materials, Bim, Persistence (compile-time graph↔DTO/proto mapping; runtime `Riok.Mapperly.Abstractions`).
+- `Riok.Mapperly` — Element, Materials, Bim, Fabrication, Persistence (compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`).
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.

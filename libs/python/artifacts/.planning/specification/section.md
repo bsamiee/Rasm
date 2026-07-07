@@ -4,12 +4,12 @@ The construction-specification production owner: the one authority over the CSI/
 
 The SectionFormat vocabularies are OWNED closed families authored to the CSI MP-2-2 published cardinality, never a stringly heading the body re-parses. `SectionPart` is the three-part spine; `_ARTICLES` is the primary article roster per part carried as ONE `frozendict` correspondence in canonical published order (the fifteen `GENERAL` articles, the eleven `PRODUCTS` articles, the fifteen `EXECUTION` articles), `_SUBORDINATE` the checklist of subordinate paragraph titles each primary article offers, and `_MAIN_WORK` the `ERECTION`/`INSTALLATION`/`APPLICATION`/`CONSTRUCTION` alternative-main-work set a section selects exactly one of. `SpecMethod` is the closed four-method specifying vocabulary (`DESCRIPTIVE`/`PERFORMANCE`/`REFERENCE_STANDARD`/`PROPRIETARY`) every paragraph may declare, `SubmittalClass` the `ACTION`/`INFORMATIONAL`/`CLOSEOUT` SubmittalFormat regime, and `ParagraphRole` the editorial disposition each paragraph carries at edit time — a `CONTENT` paragraph is retained and numbered, a `NOTE` specifier-guidance paragraph (the `SPEC NOTE:` a master spec hides) lowers to a decorative `document/model#MODEL` `BlockKind.ARTIFACT` the issued manual strips and the PDF/UA tag tree excludes, so ONE lowered tree serves both the editing view and the issued view without a second projection. Article titles validate against `_ARTICLES` at admission so an unknown or misplaced heading surfaces as a typed `SpecFault` rather than a silently malformed section, and the article ORDER, the mandatory main-work article, the specifying-method/submittal histograms, the specifier-note tally, the unresolved `[____]`/`<Insert>` fill-in count a section may not be issued carrying, the subordinate-heading off-checklist reconciliation (a first-level paragraph heading absent from the article's `_SUBORDINATE` SF-1 checklist), and the `REFERENCES`-article citation reconciliation (a standard the body cites but the manual's own `REFERENCES` roster never lists) fold once into the `SpecVerdict` a project manual owes its quality review.
 
-The CSI PageFormat numbering is the presentation half no SectionFormat article spells: `PageFormat` carries the `NumberScheme` policy that projects one ordinal PATH to its label through the OWNED level-style correspondence — the CSI alphanumeric `1.01` → `A.` → `1.` → `a.` → `1)` → `a)` → `(1)` → `(a)` eight-level hierarchy, or the UFGS/SpecsIntact cumulative-decimal `1.1.1.1.1` variant, selected by ONE `NumberMode` policy value rather than two parallel numbering owners. Every operation is content-keyed through `ContentIdentity.of` over the encoded tree, offloaded off the event loop through a `CapacityLimiter`-bounded `to_thread.run_sync` so the `msgspec` node encode never blocks the loop, and railed as `RuntimeRail[ContentKey] = Result[ContentKey, BoundaryFault]` minted once at `async_boundary`. This owner composes `specification/classify#CLASSIFY` (the section number IS a `ClassCode`), `document/model#MODEL` (the tree it lowers into), and `core/receipt#RECEIPT` (the one case it mints); it owns the specification algebra and never the sibling owners' interiors.
+The CSI PageFormat numbering is the presentation half no SectionFormat article spells: `PageFormat` carries the `NumberScheme` policy that projects one ordinal PATH to its label through the OWNED level-style correspondence — the CSI alphanumeric `1.01` → `A.` → `1.` → `a.` → `1)` → `a)` → `(1)` → `(a)` eight-level hierarchy, or the UFGS/SpecsIntact cumulative-decimal `1.1.1.1.1` variant, selected by ONE `NumberMode` policy value rather than two parallel numbering owners. Every operation is content-keyed through `ContentIdentity.of` over the encoded tree, offloaded off the event loop through a `CapacityLimiter`-bounded the runtime thread lane so the `msgspec` node encode never blocks the loop, and railed as `RuntimeRail[ArtifactReceipt] = Result[ContentKey, BoundaryFault]` minted once at `async_boundary`. This owner composes `specification/classify#CLASSIFY` (the section number IS a `ClassCode`), `document/model#MODEL` (the tree it lowers into), and `core/receipt#RECEIPT` (the one case it mints); it owns the specification algebra and never the sibling owners' interiors.
 
 ## [01]-[INDEX]
 
 - [02]-[PAGE]: `PageFormat` — the CSI PageFormat page-presentation owner over the `NumberScheme` numbering policy (`NumberMode` alphanumeric-vs-decimal + `article_pad`), the closed `NumberLevel` eight-level hierarchy, and the `_LEVEL_STYLE` primary `(Alphabet, Decoration)` correspondence from which `label(part, path)` derives every article/paragraph/subparagraph designation through one total `match` — the CSI `1.01`/`A.`/`1.`/`a.`/`1)`/`a)`/`(1)`/`(a)` scheme or the UFGS cumulative `1.1.1.1.1` variant — plus the typography (`size`/`font` ISO 3098 body height), the `page_footer(section, page)` section-number-page projection, and the `end_of_section()` marker CSI PageFormat places AFTER schedules; the pure presentation substrate `Spec` composes, minting no receipt exactly as `classify#CLASSIFY` mints none.
-- [03]-[SECTION]: `Spec` — the CSI SectionFormat producer over the owned article vocabularies (`SectionPart`, `_ARTICLES` the published roster per part, `_SUBORDINATE` the paragraph checklist, `_MAIN_WORK` the alternative-main-work set, `SpecMethod` the four methods, `SubmittalClass` the three submittal regimes, `ParagraphRole` the content-vs-note editorial disposition), the `Article`/`Paragraph` recursive content tree, the `SpecPayload` `TypedDict` admitted once through the `_PAYLOAD` `TypeAdapter` and the `ClassCode` section-number seam under the accumulating disposition, the `SpecFault` accumulating fault vocabulary with its `combined` monoid, the `SpecVerdict` article-order/main-work/method-histogram/note/fill-in/reference-reconciliation QA fold, the `to_document` lowering into the `document/model#MODEL` `SectionNode`/`BlockNode` tree numbered through `PageFormat` (a `NOTE` paragraph lowered to the decorative `BlockKind.ARTIFACT`), the `RuntimeRail[ContentKey]` rail over the bounded off-loop encode, and the one new `core/receipt#RECEIPT` `ArtifactReceipt.Spec` contribution.
+- [03]-[SECTION]: `Spec` — the CSI SectionFormat producer over the owned article vocabularies (`SectionPart`, `_ARTICLES` the published roster per part, `_SUBORDINATE` the paragraph checklist, `_MAIN_WORK` the alternative-main-work set, `SpecMethod` the four methods, `SubmittalClass` the three submittal regimes, `ParagraphRole` the content-vs-note editorial disposition), the `Article`/`Paragraph` recursive content tree, the `SpecPayload` `TypedDict` admitted once through the `_PAYLOAD` `TypeAdapter` and the `ClassCode` section-number seam under the accumulating disposition, the `SpecFault` accumulating fault vocabulary with its `combined` monoid, the `SpecVerdict` article-order/main-work/method-histogram/note/fill-in/reference-reconciliation QA fold, the `to_document` lowering into the `document/model#MODEL` `SectionNode`/`BlockNode` tree numbered through `PageFormat` (a `NOTE` paragraph lowered to the decorative `BlockKind.ARTIFACT`), the `RuntimeRail[ArtifactReceipt]` rail over the bounded off-loop encode, and the one new `core/receipt#RECEIPT` `ArtifactReceipt.Spec` contribution.
 
 ## [02]-[PAGE]
 
@@ -27,7 +27,6 @@ The CSI PageFormat numbering is the presentation half no SectionFormat article s
 from enum import IntEnum, StrEnum
 from typing import Final, assert_never
 
-from builtins import frozendict
 from msgspec import Struct
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -71,15 +70,15 @@ class PageSize(StrEnum):
 # the ONE primary correspondence: subordination level -> (glyph alphabet, punctuation). `ARTICLE` is absent
 # (its part-prefixed `1.01` form is built directly), so the table covers the seven sub-article CSI levels and
 # `label` reads one row per level rather than a per-level format method.
-_LEVEL_STYLE: Final[frozendict[NumberLevel, tuple[Alphabet, Decoration]]] = frozendict({
-    NumberLevel.PARAGRAPH: (Alphabet.UPPER, Decoration.DOT),
-    NumberLevel.SUBPARAGRAPH: (Alphabet.ARABIC, Decoration.DOT),
-    NumberLevel.CLAUSE: (Alphabet.LOWER, Decoration.DOT),
-    NumberLevel.SUBCLAUSE: (Alphabet.ARABIC, Decoration.CLOSE_PAREN),
-    NumberLevel.ITEM: (Alphabet.LOWER, Decoration.CLOSE_PAREN),
-    NumberLevel.SUBITEM: (Alphabet.ARABIC, Decoration.BOTH_PARENS),
-    NumberLevel.DETAIL: (Alphabet.LOWER, Decoration.BOTH_PARENS),
-})
+_LEVEL_STYLE: Final[Map[NumberLevel, tuple[Alphabet, Decoration]]] = Map.of_seq([
+    (NumberLevel.PARAGRAPH, (Alphabet.UPPER, Decoration.DOT)),
+    (NumberLevel.SUBPARAGRAPH, (Alphabet.ARABIC, Decoration.DOT)),
+    (NumberLevel.CLAUSE, (Alphabet.LOWER, Decoration.DOT)),
+    (NumberLevel.SUBCLAUSE, (Alphabet.ARABIC, Decoration.CLOSE_PAREN)),
+    (NumberLevel.ITEM, (Alphabet.LOWER, Decoration.CLOSE_PAREN)),
+    (NumberLevel.SUBITEM, (Alphabet.ARABIC, Decoration.BOTH_PARENS)),
+    (NumberLevel.DETAIL, (Alphabet.LOWER, Decoration.BOTH_PARENS)),
+])
 _MAX_LEVEL: Final[int] = NumberLevel.DETAIL.value  # the deepest CSI PageFormat level; admission caps paragraph nesting here
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -165,6 +164,10 @@ class PageFormat(Struct, frozen=True):
         return level is NumberLevel.ARTICLE  # CSI: PART + article titles UPPERCASE, subordinate titles Title Case
 
 
+def _spec_raise(fault: object) -> bytes:
+    raise ValueError(str(fault))
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CSI_PAGEFORMAT: Final[NumberScheme] = NumberScheme(mode=NumberMode.ALPHANUMERIC, article_pad=2)
@@ -178,7 +181,7 @@ UFGS_DECIMAL: Final[NumberScheme] = NumberScheme(mode=NumberMode.DECIMAL, articl
 - Entry: `Spec.admit(page, /, **payload)` is the one boundary ingress — the `SpecPayload` shape gate through `_PAYLOAD`, then the `ClassCode.parse` section-number seam and the accumulating article fold so a batch reports every casualty at once. `to_document()` is the lowering entrypoint (the `SectionNode` tree `document/emit#DOCUMENT` folds FROM), `of()` the content-keyed rail, `contribute()` the receipt, `audit()` the QA verdict — one polymorphic producer, never a per-part or per-target emit family.
 - Auto: `to_document` lowers the section into the `document/model#MODEL` tree in one pass — the `Spec` a level-1 `SectionNode` headed by the `{section} {TITLE}` run, each present part a level-2 `SectionNode` headed by `PART {n} {NAME}`, each article a level-3 `SectionNode` headed by its `PageFormat`-numbered `{1.01} {TITLE}` run, and each paragraph a `BlockNode` whose leading run is the `PageFormat.label(part, path)` designation and whose children recurse the sub-paragraph tree, the ordinal PATH threaded down so the numbering is the tree's own structure rather than a flattened string — bounded at `_MAX_LEVEL` depth so native recursion is safe where the `model#MODEL` general tree needs a depth-safe frontier. A `NOTE` paragraph lowers to a `BlockKind.ARTIFACT` block (the `document/model#MODEL` decorative kind the PDF/UA tag tree excludes and `document/emit#DOCUMENT` strips at issue), unnumbered, so the CONTENT ordinal `_article_node` threads is a running `accumulate` count that never advances over a note — the retained paragraphs number contiguously with no gap where a stripped note sat, the one place a naive spec producer leaks a numbering hole. `_audited(spec)` folds the verdict in one pass — the part/article/paragraph tallies, the specifier-note count and the unresolved-fill-in count (`_FILL_IN` over each CONTENT paragraph's text, a section issued carrying a `[____]`/`<Insert>` blank being editorially incomplete), the `SpecMethod`/`SubmittalClass` histograms and reference count over the `_flat` paragraph walk, the `_cited` REFERENCES-vs-body citation reconciliation (`cited - listed` the unlisted-reference gap), the `_SUBORDINATE` first-level-heading off-checklist reconciliation (a subordinate paragraph heading absent from its article's SF-1 checklist, the intra-article counterpart of the citation reconciliation), the canonical-order check comparing each part's article positions against `_ARTICLES[part]`, and the mandatory main-work check (an `EXECUTION` part carrying none of `_MAIN_WORK`) accumulated into the coverage-fault tags — so the QA verdict is one accumulating fold rather than a per-check re-walk. The whole encode runs off the event loop through the bounded `to_thread.run_sync(self._encoded, limiter=_GATE)` because `msgspec` node encoding is GIL-releasing native work, and `contribute` re-enters the same deterministic encode synchronously.
 - Receipt: `Spec` contributes the one new `core/receipt#RECEIPT` `ArtifactReceipt.Spec(key, section, division, parts, articles, bytes)` case — the MasterFormat section number, the `ClassCode.division()` head the `classify#CLASSIFY` crosswalk keys on (the `Spec` receipt "carries its section's `division`" `classify` names), the count of present parts, the total article count, and the encoded-tree byte count — read off the same `_encoded` bytes and `_audited` verdict `of` drives, so the producer adds ONE new receipt case (the specification evidence the `[07]-[SEAM_UNIFICATION]` target admits as a CASE on the one `ArtifactReceipt` family, never a parallel receipt rail) and the `_facts` zip projects it. `contribute` computes the tree bytes ONCE and derives both the content key and the byte count from that single fact, never a second encode to mint the receipt.
-- Packages: `msgspec` (`Struct(frozen=True)` the `Spec`/`Article`/`Paragraph`/`SpecVerdict` value objects, `Struct(frozen=True, gc=False)` the scalar verdict leaf); `expression` (`tagged_union`/`tag`/`case` the `SpecFault` union; `Block.of_seq`/`choose`/`reduce`/`is_empty` the accumulating admission fold; `Result`/`Ok`/`Error`/`Option` the admission and lookup rails); `pydantic` (`TypeAdapter` the module-level `_PAYLOAD` gate over the recursive `SpecPayload` `TypedDict`, `ValidationError` mapped to `<invalid-payload>` at the seam); `frozendict` (`_ARTICLES`/`_SUBORDINATE` the owned vocabulary correspondences, the verdict histograms); `re` (`_FILL_IN` the unresolved-fill-in `Pattern` `findall`-counted per CONTENT paragraph); `anyio` (`CapacityLimiter`/`to_thread.run_sync` the bounded off-loop encode); `itertools.accumulate` (the CONTENT-only running ordinal a note never advances); `collections.Counter` (the method/submittal histograms); runtime (`content_identity.ContentIdentity`/`ContentKey` the section key, `faults.RuntimeRail`/`async_boundary` the rail and fault capsule); `specification/classify#CLASSIFY` (`ClassCode`/`ClassSystem` the section number and division, composed never re-declared); `document/model#MODEL` (`SectionNode`/`BlockNode`/`RunNode`/`NodeMeta`/`BlockKind` — the `PARAGRAPH` content block AND the `ARTIFACT` decorative note block — and `encode`, the tree it lowers into); `PageFormat` (the co-located `[02]-[PAGE]` numbering owner); `core/receipt#RECEIPT` (`ArtifactReceipt.Spec` the new contributed case). No new external library — every engine is admitted, and the specification composes the classification, document, and numbering owners rather than re-authoring them.
+- Packages: `msgspec` (`Struct(frozen=True)` the `Spec`/`Article`/`Paragraph`/`SpecVerdict` value objects, `Struct(frozen=True, gc=False)` the scalar verdict leaf); `expression` (`tagged_union`/`tag`/`case` the `SpecFault` union; `Block.of_seq`/`choose`/`reduce`/`is_empty` the accumulating admission fold; `Result`/`Ok`/`Error`/`Option` the admission and lookup rails); `pydantic` (`TypeAdapter` the module-level `_PAYLOAD` gate over the recursive `SpecPayload` `TypedDict`, `ValidationError` mapped to `<invalid-payload>` at the seam); `frozendict` (`_ARTICLES`/`_SUBORDINATE` the owned vocabulary correspondences, the verdict histograms); `re` (`_FILL_IN` the unresolved-fill-in `Pattern` `findall`-counted per CONTENT paragraph); `anyio` (`CapacityLimiter`/the runtime thread lane the bounded off-loop encode); `itertools.accumulate` (the CONTENT-only running ordinal a note never advances); `collections.Counter` (the method/submittal histograms); runtime (`identity.ContentIdentity`/`ContentKey` the section key, `faults.RuntimeRail`/`async_boundary` the rail and fault capsule); `specification/classify#CLASSIFY` (`ClassCode`/`ClassSystem` the section number and division, composed never re-declared); `document/model#MODEL` (`SectionNode`/`BlockNode`/`RunNode`/`NodeMeta`/`BlockKind` — the `PARAGRAPH` content block AND the `ARTIFACT` decorative note block — and `encode`, the tree it lowers into); `PageFormat` (the co-located `[02]-[PAGE]` numbering owner); `core/receipt#RECEIPT` (`ArtifactReceipt.Spec` the new contributed case). No new external library — every engine is admitted, and the specification composes the classification, document, and numbering owners rather than re-authoring them.
 - Growth: a new SectionFormat edition's article is one `_ARTICLES` row; a new subordinate paragraph title is one `_SUBORDINATE` row; a new alternative main-work title is one `_MAIN_WORK` member; a new method of specifying is one `SpecMethod` member the histogram absorbs; a new submittal regime is one `SubmittalClass` member; a new editorial disposition is one `ParagraphRole` member plus one `_paragraph_node` lowering arm (a `NOTE` already routes to `BlockKind.ARTIFACT`); a new QA rule is one `SpecVerdict` field and one `_audited` detection; a new fault cause is one `SpecFault` case plus one `combined` member; a new section-number system is already carried by `ClassCode`'s own `ClassSystem` growth; a new document node the lowering emits is one `to_document` arm over the `model#MODEL` tree; zero new surface — the producer grows by vocabulary row, verdict field, and fault case.
 - Boundary: no page render (`document/emit#DOCUMENT` folds the tree to PDF/Typst/HTML), no numbering re-derivation (`PageFormat` owns it), no classification re-parse (`classify#CLASSIFY` owns `ClassCode`), no QTO/IFC authoring (`csharp:Rasm.Bim` owns them; a specification cites the QTO facts through `visualization/table#TABLE`, never re-computed). The deleted forms are a stringly `part: str`/`article: str` field where the closed `SectionPart`/`_ARTICLES` vocabulary types it, a `.startswith("PART 1")` heading probe where `_ARTICLES[part]` validates the title, a per-part `_general_tree`/`_products_tree`/`_execution_tree` builder family where one `to_document` folds every part, a fabricated article title outside the CSI roster where `_ARTICLES` states the closed set, a first-fault-abort admission where the accumulating disposition reports every bad article, a second document type beside the `model#MODEL` tree where `to_document` lowers into the canonical owner, a flattened `"1.01 A. 1."` numbering string where the ordinal PATH threads the tree structure, a `note: bool` flag beside the paragraph where the closed `ParagraphRole` vocabulary types the disposition, a specifier note lowered as a structural `BlockKind.PARAGRAPH` polluting the PDF/UA tag tree where the decorative `BlockKind.ARTIFACT` the tagged tree excludes carries it, a note consuming a paragraph ordinal so the issued manual leaks a numbering hole where the `accumulate` CONTENT-only counter numbers the retained paragraphs contiguously, an unresolved `[____]` fill-in issued silently where the `_FILL_IN` count refuses it, a body-cited reference standard absent from the `REFERENCES` article silently dropped where the `_cited` reconciliation surfaces it, a re-encode for the receipt where `contribute` reads the one `_encoded` fact, a parallel `specification`-receipt rail where the one new `ArtifactReceipt.Spec` case carries the evidence, and an event-loop-blocking encode where the bounded `to_thread` band offloads it. This owner authors the specification, never the rendered page.
 
@@ -191,16 +194,17 @@ from enum import StrEnum
 from itertools import accumulate
 from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Required, Self, TypedDict, Unpack
 
-from anyio import CapacityLimiter, to_thread
-from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Block
+from expression.collections import Block, Map
 from msgspec import UNSET, Struct
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
+from rasm.runtime.lanes import LanePolicy, Modality
+from rasm.runtime.resilience import RetryClass
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
+from artifacts.core.plan import Admission, ArtifactWork
 from artifacts.core.receipt import ArtifactReceipt
 from artifacts.document.model import BlockKind, BlockNode, DocumentNode, NodeMeta, RunNode, SectionNode, encode
 from artifacts.specification.classify import ClassCode, ClassSystem
@@ -244,15 +248,15 @@ _MAX_DEPTH: Final[int] = NumberLevel.DETAIL.value  # 7 — deepest CSI PageForma
 # the master-spec unresolved-fill-in vocabulary: a bracketed blank `[____]` or an angle-bracket insert prompt
 # `<Insert value>` the specifier never resolved — a section issued carrying one is editorially incomplete.
 _FILL_IN: Final[re.Pattern[str]] = re.compile(r"\[_{2,}\]|<[^<>]+>")
-_PART_NUMBER: Final[frozendict[SectionPart, int]] = frozendict({SectionPart.GENERAL: 1, SectionPart.PRODUCTS: 2, SectionPart.EXECUTION: 3})
+_PART_NUMBER: Final[Map[SectionPart, int]] = Map.of_seq([(SectionPart.GENERAL, 1), (SectionPart.PRODUCTS, 2), (SectionPart.EXECUTION, 3)])
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
 # the CSI MP-2-2 SectionFormat primary article roster per part, in published order (Figure SF-1). The order IS
 # load-bearing: the `_audited` canonical-order check reads each title's index. Article titles are UPPERCASE, the
 # owned closed vocabulary a heading validates against rather than a stringly `.startswith` probe.
-_ARTICLES: Final[frozendict[SectionPart, tuple[str, ...]]] = frozendict({
-    SectionPart.GENERAL: (
+_ARTICLES: Final[Map[SectionPart, tuple[str, ...]]] = Map.of_seq([
+    (SectionPart.GENERAL, (
         "SUMMARY",
         "REFERENCES",
         "DEFINITIONS",
@@ -268,8 +272,8 @@ _ARTICLES: Final[frozendict[SectionPart, tuple[str, ...]]] = frozendict({
         "OWNER'S INSTRUCTIONS",
         "COMMISSIONING",
         "MAINTENANCE",
-    ),
-    SectionPart.PRODUCTS: (
+    )),
+    (SectionPart.PRODUCTS, (
         "MANUFACTURERS",
         "EXISTING PRODUCTS",
         "MATERIALS",
@@ -281,8 +285,8 @@ _ARTICLES: Final[frozendict[SectionPart, tuple[str, ...]]] = frozendict({
         "FABRICATION",
         "FINISHES",
         "SOURCE QUALITY CONTROL",
-    ),
-    SectionPart.EXECUTION: (
+    )),
+    (SectionPart.EXECUTION, (
         "INSTALLERS",
         "EXAMINATION",
         "PREPARATION",
@@ -298,15 +302,15 @@ _ARTICLES: Final[frozendict[SectionPart, tuple[str, ...]]] = frozendict({
         "DEMONSTRATION",
         "PROTECTION",
         "SCHEDULES",
-    ),
-})
+    )),
+])
 # the alternative main-work titles an EXECUTION part selects EXACTLY ONE of (you ERECT steel, INSTALL equipment,
 # APPLY coatings, CONSTRUCT concrete); an EXECUTION part carrying none is the `missing_main_work` coverage fault.
 _MAIN_WORK: Final[frozenset[str]] = frozenset({"ERECTION", "INSTALLATION", "APPLICATION", "CONSTRUCTION"})
 # the checklist of subordinate paragraph titles each primary article offers (Figure SF-1) — the vocabulary a
 # specification author selects paragraph headings from; carried as data, keyed by the primary article title.
-_SUBORDINATE: Final[frozendict[str, tuple[str, ...]]] = frozendict({
-    "SUMMARY": (
+_SUBORDINATE: Final[Map[str, tuple[str, ...]]] = Map.of_seq([
+    ("SUMMARY", (
         "Section Includes",
         "Products Supplied But Not Installed Under This Section",
         "Products Installed But Not Supplied Under This Section",
@@ -316,26 +320,26 @@ _SUBORDINATE: Final[frozendict[str, tuple[str, ...]]] = frozendict({
         "Measurement Procedures",
         "Payment Procedures",
         "Alternates",
-    ),
-    "SUBMITTALS": ("Product Data", "Shop Drawings", "Samples", "Quality Assurance/Control Submittals", "Closeout Submittals"),
-    "QUALITY ASSURANCE": ("Qualifications", "Regulatory Requirements", "Certifications", "Field Samples", "Mock-ups", "Pre-installation Meetings"),
-    "DELIVERY, STORAGE, AND HANDLING": (
+    )),
+    ("SUBMITTALS", ("Product Data", "Shop Drawings", "Samples", "Quality Assurance/Control Submittals", "Closeout Submittals")),
+    ("QUALITY ASSURANCE", ("Qualifications", "Regulatory Requirements", "Certifications", "Field Samples", "Mock-ups", "Pre-installation Meetings")),
+    ("DELIVERY, STORAGE, AND HANDLING", (
         "Packing, Shipping, Handling, and Unloading",
         "Acceptance at Site",
         "Storage and Protection",
         "Waste Management and Disposal",
-    ),
-    "PROJECT/SITE CONDITIONS": ("Project/Site Environmental Requirements", "Existing Conditions"),
-    "WARRANTY": ("Special Warranty",),
-    "MAINTENANCE": ("Extra Materials", "Maintenance Service"),
-    "FABRICATION": ("Shop Assembly", "Fabrication Tolerances"),
-    "FINISHES": ("Shop Priming, Shop Finishing",),
-    "SOURCE QUALITY CONTROL": ("Tests, Inspection", "Verification of Performance"),
-    "EXAMINATION": ("Site Verification of Conditions",),
-    "PREPARATION": ("Protection", "Surface Preparation"),
-    "CONSTRUCTION": ("Special Techniques", "Interface with Other Work", "Sequences of Operation", "Site Tolerances"),
-    "FIELD QUALITY CONTROL": ("Site Tests, Inspection", "Manufacturers' Field Services"),
-})
+    )),
+    ("PROJECT/SITE CONDITIONS", ("Project/Site Environmental Requirements", "Existing Conditions")),
+    ("WARRANTY", ("Special Warranty",)),
+    ("MAINTENANCE", ("Extra Materials", "Maintenance Service")),
+    ("FABRICATION", ("Shop Assembly", "Fabrication Tolerances")),
+    ("FINISHES", ("Shop Priming, Shop Finishing",)),
+    ("SOURCE QUALITY CONTROL", ("Tests, Inspection", "Verification of Performance")),
+    ("EXAMINATION", ("Site Verification of Conditions",)),
+    ("PREPARATION", ("Protection", "Surface Preparation")),
+    ("CONSTRUCTION", ("Special Techniques", "Interface with Other Work", "Sequences of Operation", "Site Tolerances")),
+    ("FIELD QUALITY CONTROL", ("Site Tests, Inspection", "Manufacturers' Field Services")),
+])
 _PART_VALUES: Final[frozenset[str]] = frozenset(part.value for part in SectionPart)
 _METHOD_VALUES: Final[frozenset[str]] = frozenset(method.value for method in SpecMethod)
 _SUBMITTAL_VALUES: Final[frozenset[str]] = frozenset(kind.value for kind in SubmittalClass)
@@ -451,7 +455,6 @@ class SpecPayload(TypedDict, closed=True):
 
 _PAYLOAD: Final = TypeAdapter(SpecPayload)
 _FAULTS: Final[tuple[type[BaseException], ...]] = (RuntimeError, ValueError, KeyError, OSError)
-_GATE: Final[CapacityLimiter] = CapacityLimiter(4)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -623,14 +626,27 @@ class Spec(Struct, frozen=True):
     def audit(self) -> SpecVerdict:
         return _audited(self)
 
-    async def of(self) -> RuntimeRail[ContentKey]:
-        return await async_boundary(f"spec.{self.section.render()}", self._keyed, catch=_FAULTS)
+    def emit(self, /) -> ArtifactWork:
+        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
-    async def _keyed(self) -> ContentKey:
-        # the node encode offloads off the loop through the bounded `to_thread` band so the GIL-releasing
-        # `msgspec` serialize never blocks it; `contribute` re-enters the same encode synchronously.
-        payload = await to_thread.run_sync(self._encoded, limiter=_GATE)
-        return ContentIdentity.of(f"spec-{self.section.render()}", payload)
+    @property
+    def _key(self) -> ContentKey:
+        # key-over-INPUT: canonical section identity + admitted payload minted PRE-RUN — never a key over encoded bytes.
+        return ContentIdentity.of(f"spec-{self.section.render()}", self.section, policy=CANONICAL_POLICY)
+
+    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+        # the renamed private thunk — the receipt threads the PRE-RUN key; the contribute weave dies into it.
+        verdict = self.audit()
+        return (await async_boundary(f"spec.{self.section.render()}", self._encoded_rail, catch=_FAULTS)).map(
+            lambda payload: ArtifactReceipt.Spec(
+                self._key, self.section.render(), self.section.division(), verdict.parts_present, verdict.articles, len(payload)
+            )
+        )
+
+    async def _encoded_rail(self) -> bytes:
+        # the offloaded encode returns the PAYLOAD BYTES the receipt counts — identity minting stays `_key`'s.
+        crossed = await LanePolicy.offload(self._encoded, modality=Modality.THREAD, retry=RetryClass.OCCT)
+        return crossed.default_with(_spec_raise)
 
     def _encoded(self) -> bytes:
         return encode(self.to_document())
@@ -691,18 +707,3 @@ class Spec(Struct, frozen=True):
             classification=classification or UNSET,
         )
 ```
-
-## [04]-[RESEARCH]
-
-- [SECTIONFORMAT_CARDINALITY]: the article roster is authored to the CSI MP-2-2 SectionFormat published extent (Figure SF-1), the owned-standard capability the brief mandates over an approximated slice. `_ARTICLES` carries the fifteen `PART 1 GENERAL` primary articles (`SUMMARY`, `REFERENCES`, `DEFINITIONS`, `SYSTEM DESCRIPTION`, `SUBMITTALS`, `QUALITY ASSURANCE`, `DELIVERY, STORAGE, AND HANDLING`, `PROJECT/SITE CONDITIONS`, `SEQUENCING`, `SCHEDULING`, `WARRANTY`, `SYSTEM STARTUP`, `OWNER'S INSTRUCTIONS`, `COMMISSIONING`, `MAINTENANCE`), the eleven `PART 2 PRODUCTS` articles (`MANUFACTURERS`, `EXISTING PRODUCTS`, `MATERIALS`, `MANUFACTURED UNITS`, `EQUIPMENT`, `COMPONENTS`, `ACCESSORIES`, `MIXES`, `FABRICATION`, `FINISHES`, `SOURCE QUALITY CONTROL`), and the fifteen `PART 3 EXECUTION` articles (`INSTALLERS`, `EXAMINATION`, `PREPARATION`, `ERECTION`, `INSTALLATION`, `APPLICATION`, `CONSTRUCTION`, `REPAIR/RESTORATION`, `RE-INSTALLATION`, `FIELD QUALITY CONTROL`, `ADJUSTING`, `CLEANING`, `DEMONSTRATION`, `PROTECTION`, `SCHEDULES`) in published order, so a consumer that validates an out-of-roster or misplaced heading correctly gets `unknown_article` or `out_of_order`. `ERECTION`/`INSTALLATION`/`APPLICATION`/`CONSTRUCTION` are the alternative-main-work titles a section selects exactly one of (`_MAIN_WORK`), and `_SUBORDINATE` carries the subordinate paragraph-title checklist each primary article offers, which `_audited` reconciles each first-level `Paragraph.title` against (the `off_checklist_titles` coverage tag), so the checklist is load-bearing QA evidence rather than dead reference data. The article titles are OPTIONAL and selected as required — a real section instantiates a subset — so the roster is the closed validation vocabulary, not a mandatory template. The 2008 MasterFormat-2004-aligned edition promotes `PRICE AND PAYMENT PROCEDURES` and `ADMINISTRATIVE REQUIREMENTS` to primary articles (the `SUMMARY` price/payment subordinate paragraphs become an article); a new edition lands as `_ARTICLES` rows with zero surface change.
-- [PAGEFORMAT_NUMBERING]: the multi-level numbering obeys `DERIVED_LOGIC` — ONE `_LEVEL_STYLE` primary `frozendict` maps each `NumberLevel` to its `(Alphabet, Decoration)` glyph style, and `label` derives every designation from it rather than a per-level format method. The CSI PageFormat `ALPHANUMERIC` scheme is the eight-level `1.01` → `A.` → `1.` → `a.` → `1)` → `a)` → `(1)` → `(a)` hierarchy (article part-prefixed under `article_pad`, the seven sub-article levels alternating uppercase-alpha / arabic / lowercase-alpha with dot / close-paren / both-paren decorations), and the UFGS/SpecsIntact `DECIMAL` scheme is the cumulative `1.1.1.1.1` five-level variant — both carried by ONE `NumberMode` policy value the `label` `match` discriminates, never two parallel numbering owners. The bijective base-26 `_alpha` spill (`AA` after `Z`) is why a paragraph list exceeding twenty-six siblings numbers correctly where a modulo wrap would collide the 27th onto the 1st. The `end_of_section` marker follows (never precedes) the `SCHEDULES` article, the one PageFormat placement rule load-bearing enough to name.
-- [DOCUMENT_TREE_LOWERING]: `to_document` is the seam the brief names — the CSI section authored INTO the `document/model#MODEL` `DocumentNode` tree, not a parallel document type. The three-part hierarchy lowers to nested `SectionNode` levels (section → part → article) and the paragraph tree to numbered `BlockNode`s, the ordinal PATH threaded down so the CSI numbering IS the tree's structure — `document/emit#DOCUMENT` then folds one lowering arm FROM this tree to the typeset PDF/Typst/HTML, and `document/tagged#ACCESS` reads the `SectionNode`/`BlockNode` roles for the PDF/UA structure tree, so a specification is a journal-grade typeset document (the publication plane) AND an ISO-19650-deliverable project-manual section (the AEC plane) over one node algebra. The tree is bounded at `_MAX_DEPTH` (the deepest CSI PageFormat level), so `to_document` and the `_flat`/`_max_depth` audit walks use native recursion where `model#MODEL`'s general adversarial-depth tree needs a depth-safe frontier — the shallow-by-construction spec tree is the exemption.
-- [EDITORIAL_MARKUP]: every production master-spec system (AIA MasterSpec, UFGS/SpecsIntact, BSD SpecLink, NBS Chorus) carries the section as an EDITABLE source distinct from the ISSUED manual — specifier notes (`SPEC NOTE:` / hidden editor guidance) and unresolved fill-in prompts (`[____]` bracketed blanks, `<Insert value>` inserts) live in the edit source and are stripped or resolved before issue. `ParagraphRole` is that editorial disposition modeled as a closed vocabulary rather than a `bool note` flag: a `NOTE` paragraph lowers to the `document/model#MODEL` `BlockKind.ARTIFACT` — the decorative kind the PDF/UA tag tree excludes and `document/emit#DOCUMENT` strips — so ONE lowered tree is both the editing view (notes present, decorative) and the issued view (notes removed by the tag-tree exclusion), never two parallel document builds. The CONTENT-only `accumulate` ordinal is the load-bearing correctness point: a note interleaved among content must not consume a paragraph number, or the issued manual (note stripped) shows a numbering gap — the running content count numbers only the retained paragraphs. The `_FILL_IN` fold makes editorial completeness a QA fact: a section issued carrying an unresolved `[____]`/`<Insert>` blank is the single most common master-spec defect, surfaced as `unresolved_fill_ins` rather than shipped silently.
-- [REFERENCE_RECONCILIATION]: CSI SectionFormat mandates that every reference standard cited in the section body be listed in the `PART 1 GENERAL` `REFERENCES` article — the completeness rule a project-manual QA pass enforces. `_citations` partitions the paragraph citations in one walk by whether their article IS the `REFERENCES` article (`listed`) or any other (`cited`), and `cited - listed` is the unlisted-reference gap surfaced as `unlisted_references` — the same evidence-not-truncation discipline `classify#CLASSIFY` `Coordination` applies to the drawing↔spec keynote seam, applied here to the intra-section citation seam. `standards` (the distinct designation count `len(listed | cited)`) is the "how many reference standards does this section invoke" fact a downstream schedule or submittal register rolls up, distinct from `references` the total citation occurrences.
-- [CLASSIFICATION_COMPOSITION]: the section number IS a `classify#CLASSIFY` `ClassCode` (`ClassSystem.MASTERFORMAT`), admitted through `ClassCode.parse` once at `Spec.admit` and read as the typed value everywhere after — the `BOUNDARY_ADMISSION` lifecycle shared across the specification seam. `to_document` stamps the rendered code onto the root `SectionNode`'s `document/model#MODEL` `NodeMeta.classification` (the `ClassificationCode` field the node tree declares), so the one lowered tree carries the CSI/OmniClass code the `document/report#REPORT` `Section.classification` seam mirrors and the `classify#CLASSIFY` `ReferenceIndex` keys the drawing↔spec cross-reference on — the code lands on the model tree, not only the receipt. The `Spec` receipt carries `ClassCode.division()`, the crosswalk key `classify#CLASSIFY` names ("the `specification/section#SECTION` `Spec` receipt carries its section's `division`"), so the classification code travels INTO this producer's `ArtifactReceipt.Spec` facts rather than a parallel classification receipt rail. The drawing↔spec keynote coordination (which sheets detail this section) is `classify#CLASSIFY` `Coordination`'s to resolve — this owner authors the section, composes the code, and never re-implements the resolver.
-
-## [05]-[SIGNALS]
-
-- [RECEIPT_SPEC_CASE] [RESOLVED]: the specification contributes the `core/receipt#RECEIPT` `ArtifactReceipt.Spec` case — `spec: tuple[ContentKey, str, int, int, int, int] = case()` (section number, MasterFormat division, present-part count, article count, encoded-tree byte count), the `Spec(cls, key, section, division, parts, articles, bytes_)` `@classmethod` mint, the `_KEYS["spec"] = ("section", "division", "parts", "articles", "bytes")` row, the `"spec"` `ArtifactKind` token, and the or-pattern arm in each of `slot` and `_facts`. This is the specification evidence the `[07]-[SEAM_UNIFICATION]` target admits as a CASE on the one family, never a parallel receipt rail — the same shape the sibling `drawing/*` producers' `ArtifactReceipt.Drawing` case and `delivery/register#REGISTER`'s `ArtifactReceipt.Register` case take. Landed: the `spec` case and `Spec` mint are present on `core/receipt#RECEIPT`, and `contribute` binds them from the single `_encoded` fact.
-- [ARCHITECTURE_SPECIFICATION] [RESOLVED]: the `specification/` domain is registered in `ARCHITECTURE.md` `[01]-[DOMAIN_MAP]` (a `specification/` folder with `section.py` "CSI SectionFormat producer lowering into the DocumentNode tree" and `classify.py` "MasterFormat/UniFormat/OmniClass classification + drawing↔spec resolver") and `[02]-[SEAMS]` (`specification/section → document/model [MODEL]` the SectionNode tree lowering, `specification/section → specification/classify [CLASSIFY]` the ClassCode section identity + division, `specification/section → core/receipt [RECEIPT]` the ArtifactReceipt.Spec contribution, `specification/section → visualization/table [TABLE]` the QTO-schedule citation from csharp:Rasm.Bim), and `README.md` `[01]-[ROUTER]` carries the `[specification]` group with the `[SECTION]` and `[CLASSIFY]` rows. No new `[02]-[DOMAIN_PACKAGES]` rows — `msgspec`/`pydantic`/`expression`/`beartype`/`anyio` are already admitted substrate.
-- [PLAN_PRODUCER] [RESOLVED]: `core/plan#PLAN` `ArtifactPipeline` schedules the specification as one `ArtifactWork` producer — the section's pre-minted `ContentKey` (from `Spec.of`), its `Work[ArtifactReceipt]` coroutine, and its parent content keys (the bound figure/detail asset keys a section references) — no `core/plan.md` edit needed because `ArtifactWork` is generic over producers; the `Spec` satisfies the producer contract (content-keyed `of`, `contribute`) inherently.

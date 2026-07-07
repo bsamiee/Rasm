@@ -1,36 +1,36 @@
 # [RASM_FABRICATION_PROFILE_IMPORT]
 
-The one portable 2D profile-ingress boundary: `ProfileImport` the single owner admitting external DXF/DWG closed part outlines into the canonical `Process/owner#FABRICATION_OWNER` `Loop` vocabulary through the pure-managed `ACadSharp` reader. A foreign CAD entity crosses into the interior exactly ONCE here — `ProfileImport.Read` reads the model-space entity set off a `CadDocument`, folds each `LwPolyline`/`Polyline2D`/`Line`/`Arc`/`Circle`/`Spline`/`Insert` through one total `Admit` switch over the entity case, tessellates every bulge/arc/circle span through the ACadSharp-owned `Arc.CreateFromBulge`/`PolygonalVertexes`/`Circle.PolygonalVertexes` curve sampler and every NURBS span through the `Spline.PolygonalVertexes`/`TryPolygonalVertexes` native tessellator at one `ChordTolerance` knob, recursively flattens each nested-block `Insert` through the package-owned `Insert.Explode()` (which resolves `BlockRecord.Entities` AND applies the composed `InsertPoint`/scale/`Rotation` placement transform per child in one call, never a hand-rolled OCS-to-WCS matrix), and re-imposes the kernel `Rasm/Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` winding through `Loop.AsCcw` on the way out. No `CadDocument`, no ACadSharp entity, no `CSMath.XY`/`XYZ` type ever travels a sibling-kernel signature; the boundary is the seam, and the interior reads only `Loop`. The imported `Arr<Loop>` set is the part library that `Nesting/nfp#NESTING` nests for true-shape feasibility and `Posting/program#CUT_PROGRAM` cuts as a profile program — the same `Loop` the `Geometry2D/algebra#POLYGON_ALGEBRA` substrate offsets and clips, never a parallel imported-geometry shape. This page ALSO owns the ONE polymorphic ingress fold the folder charter names: `Ingress.Admit(IngressSource)` discriminating the FOUR source arms — `Profile` (this boundary), `Solid` (`Ingress/solid`, row 10), `Steel` (`Ingress/steel`, row 11), `Element` (`Ingress/element` — the baked element-graph arm) — onto the `AdmittedGeometry` return family (`Profiles`/`Mesh`/`Component`); the Profile and Element arms are landed, the Solid/Steel arms fill with their pages, and the generated total `Switch` holds the build red until they do, exactly the `owner#run` discipline.
-
-Wire posture: HOST-LOCAL, HOST-NEUTRAL. `ACadSharp` is managed AnyCPU IL with no native asset and no RID burden, so the boundary is ALC-safe and runs on every runtime the folder targets; it coexists with the Rhino-native file I/O the architecture keeps as the host-bound read path (`ARCHITECTURE.md` coexistence rule) and is never thinned to feed it. The reader is RESILIENT by default (`CadReaderConfiguration.Failsafe = true`): recoverable corruption (an unknown entity, a malformed sub-record) rides the `OnNotification` event as a structured `NotificationEventArgs(NotificationType, Message, Exception)` record and the read COMPLETES with the recoverable entities — the boundary subscribes a notification sink and folds its `NotificationType.Error` count into the admission so the warning stream is never discarded. A hard `Read` throw is only the unrecoverable-structural case (an unreadable/missing file, a non-DXF/DWG stream); that exception NEVER escapes — it lowers to `GeometryFault.DegenerateInput` once at `Open`, so the boundary's only outward contract is the `Fin<Arr<Loop>>` rail carrying the typed `Loop` set plus the folded warning evidence, never a leaked reader exception.
+`ProfileImport` owns DXF/DWG profile admission: `ACadSharp` reads model-space entities, the boundary lowers recoverable reader notifications into a typed receipt, strict notification policy escalates `NotificationType.Error` to `FabricationFault.IngressTranslation`, and every admitted curve becomes the canonical `Loop` part library. `Ingress.Admit` is the folder's single polymorphic ingress fold over `Profile`, `Solid`, `Steel`, and `Element`; each arm dispatches to its source kernel and returns the shared `AdmittedGeometry` family, so downstream planes consume `Loop`, `MeshSpace`, or `AdmittedComponent` rather than provider objects.
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILE_IMPORT]: `ProfileImport` static boundary over `ACadSharp` — `ChordTolerance` knob, the total `Admit` switch over the entity case, the `Read` fold into `Fin<Arr<Loop>>`, the bulge/arc/circle/spline tessellation through the package-owned curve sampler, and the recursive `Insert` block flattening through the package-owned `Insert.Explode()`; the ONE DXF/DWG ingress owner. ALSO owns the folder's ONE polymorphic entry: the `IngressSource` 4-case `[Union]` (`Profile`/`Solid`/`Steel`/`Element`), the `AdmittedGeometry` 3-case return family (`Profiles`/`Mesh`/`Component`), and the `Ingress.Admit` generated total fold — Profile + Element arms landed, Solid/Steel filling with rows 10/11.
+- [01]-[PROFILE_IMPORT]: `ProfileImport` owns `Read`, `ProfileReadPolicy`, `ProfileImportReceipt`, ACadSharp notification capture, entity-to-`Loop` admission, and the total `Ingress.Admit` fold over the four source arms.
 
 ## [02]-[PROFILE_IMPORT]
 
-- Owner: `ProfileImport` the static surface owning `Read` (the DXF/DWG file → `Fin<Arr<Loop>>` boundary fold) plus the private `Admit` total switch and the entity-to-`Loop` tessellation; `ChordTolerance` `[ValueObject<int>]` the one chord-precision knob (the `precision` segment count every `PolygonalVertexes` sampler reads). One owner, one knob, one fold — never a per-entity-type sibling reader triple (`LwPolyline`/`Arc`/`Circle` readers collapse to one `Admit` switch).
-- Cases: the `Admit` switch arms over the ACadSharp entity union the boundary reads — `LwPolyline` (closed lightweight polyline, each `Vertex` a `Location: CSMath.XY` plus a `Bulge: double`; a zero-bulge vertex is the raw point, a non-zero-bulge span mints an `Arc` through `Arc.CreateFromBulge` and samples it) · `Polyline2D` (the `Polyline<Vertex2D>` form admitted at its straight-segment vertices by reading `Vertex2D.Location: XYZ` DIRECTLY — `Vertex2D : Vertex` carries `Location` as a plain `XYZ` property, there is NO `Pt(XYZ)` ACadSharp overload; the local `Pt(XYZ)` projector lifts that `XYZ` to the `Point3d(x, y, 0)` plane) · `Line` (the two-point degenerate loop, never closed) · `Arc` (a single arc span sampled through `Arc.PolygonalVertexes`) · `Circle` (the full circle sampled through `Circle.PolygonalVertexes`) · `Spline` (the NURBS profile sampled through the ACadSharp-owned native tessellator `Spline.TryPolygonalVertexes(chord.Segments, out)`, a `false` probe lowering `GeometryFault.DegenerateInput`, a `FitPoints`-only spline rebuilt through `UpdateFromFitPoints` before sampling, never a hand-rolled de Boor) · `Insert` (the nested-block reference flattened through the package-owned `Insert.Explode(): IEnumerable<Entity>` — which resolves `BlockRecord.Entities` AND applies the composed `InsertPoint`/`XScale`/`YScale`/`Rotation` placement transform to each child in one call — and recursing `Admit` over the exploded entities so a nested `Insert` re-enters this arm and explodes again, the one place a non-identity part placement enters the boundary) (7); any other entity is dropped (the `Option<Seq<Loop>>.None` arm — a `Text`/`Dimension`/`Hatch` is not a profile and never faults the read). The `Spline` and `Insert` arms are REAL `Admit` arms — `.api/api-acadsharp.md` `[SPLINE_SAMPLER]` ratifies `Spline.PolygonalVertexes`/`TryPolygonalVertexes`/`UpdateFromFitPoints` and `[BLOCK_TRAVERSAL]` ratifies `Insert.Explode`/`Insert.GetTransform`/`BlockRecord.Entities`/`InsertPoint`/`XScale`/`YScale`/`Rotation`, so the boundary transcribes them as ratified members, no longer deferred.
-- Entry: `Fin<AdmittedGeometry> Ingress.Admit(IngressSource source)` — the folder's ONE polymorphic entry, discriminating by source case through the generated total `Switch`: `Profile` lowers to `ProfileImport.Read`, `Element` to `ElementImport.Admit` (`Ingress/element`), `Solid`/`Steel` fill with their pages (rows 10/11 — the total dispatch breaks the build until each arm lands, never a partial cascade). Beneath it, `Read(string path, ChordTolerance chord, bool demandClosed)` returns `Fin<Arr<Loop>>` — the profile boundary fold discriminating on the file extension to route `DxfReader.Read` versus `DwgReader.Read`, never a `ReadDxf`/`ReadDwg` sibling pair. A successful read folds the model-space entities through `Admit` (an `Insert` arm exploding through `Insert.Explode()` and recursing), partitions the admitted `Loop` set, and (when `demandClosed`) routes `FabricationFault.OpenLoop` if any admitted loop is non-closed; the default `Failsafe=true` read completes on recoverable corruption (warnings routed to the subscribed `OnNotification` sink), and only an unreadable/empty/non-finite file OR a caught unrecoverable `DxfReader`/`DwgReader` exception lowers `GeometryFault.DegenerateInput` ONCE at the boundary.
-- Auto: `Read` wraps the `DxfReader.Read(path, OnWarn)` / `DwgReader.Read(path, OnWarn)` facade (the `OnWarn: NotificationEventHandler` sink capturing the `Failsafe=true` warning stream) in the exception-to-`Fin` lowering (`Try` → `Fin`), reads `doc.Entities` (= `doc.ModelSpace.Entities`, the top-level model-space set, NOT auto-flattened), and folds each entity through `Admit`; `Admit` is the total switch returning `Option<Seq<Loop>>` (the dropped-entity arm is `None`, never a fault) — an `Insert` arm yields the FLATTENED block loop set so one entity admits many loops, every other arm yields a singleton `Seq`; `Tessellate` is the per-entity vertex stream — a straight `LwPolyline` segment is the raw `Location` (a `Polyline2D` reads `Vertex2D.Location: XYZ` directly), a non-zero-bulge `LwPolyline` span mints `Arc.CreateFromBulge(prev, next, bulge)` and reads its `PolygonalVertexes(chord.Segments)`, a standalone `Arc` reads `Arc.PolygonalVertexes(chord.Segments)`, a `Circle` reads `Circle.PolygonalVertexes(chord.Segments)`, a `Spline` reads `Spline.TryPolygonalVertexes(chord.Segments, out var pts)` (the native NURBS tessellator, a `false` lowering `DegenerateInput`) — every sampled `XYZ`/`XY` projected to `Point3d(x, y, 0)` and the assembled `Loop` re-oriented through `AsCcw`; the `Insert` arm explodes through `Insert.Explode()` — the package call that resolves `BlockRecord.Entities` AND applies the composed `InsertPoint`/`XScale`/`YScale`/`Rotation`/`Normal` placement transform to each child in one pass — then recurses `Admit` over the exploded entities so a nested `Insert` re-enters the arm and explodes again, the package-owned transform already baked into each child geometry (the `[BLOCK_TRAVERSAL]` gate confirms `Block.Entities` does NOT auto-flatten and that `Explode` is the explicit one-level flatten, so the recursion handles the nesting). The empty-result read (no admitted profile) lowers `GeometryFault.DegenerateInput("profile:empty")`; a non-finite vertex coordinate lowers `GeometryFault.DegenerateInput("profile:non-finite")`.
-- Receipt: `Read` returns the typed `Arr<Loop>` set directly — the loop set IS the part library the consuming kernel reads; no generic import-report, no `CadDocument` and no ACadSharp entity escaping the boundary. The fault evidence is the `GeometryFault`/`FabricationFault` union value the `Fin<Arr<Loop>>` failure channel carries, lowered through `.ToError()`.
-- Packages: `Rasm.Element` (`ElementGraph`/`NodeId` — the `Element` source-case payload, lowered on `Ingress/element`), `Rasm` (`Op` — the Bake value key), `Rasm.Meshing` (`MeshSpace` — the `Mesh` return + resolved Body), `ACadSharp` (`DxfReader.Read(path, NotificationEventHandler)`/`DwgReader.Read(path, NotificationEventHandler)` → `CadDocument`, notification OPTIONAL; `CadReaderConfiguration.Failsafe: bool = true` (resilient default; recoverable corruption rides `OnNotification`, not a throw); `NotificationEventHandler`/`NotificationEventArgs(Message: string, NotificationType, Exception)`/`NotificationType.{Warning,Error}` — the structured warning sink; `CadDocument.Entities`/`ModelSpace`; `LwPolyline.Vertices: List<Vertex>` with `Vertex.Location: CSMath.XY`/`Vertex.Bulge: double`/`LwPolyline.IsClosed`; `Polyline2D.Vertices: SeqendCollection<Vertex2D>` (enumerated through `toSeq`; `Vertex2D : Vertex` carries `Location: XYZ` as a plain property — NO `Pt(XYZ)` overload)/`IsClosed`; `Line.StartPoint`/`EndPoint: XYZ`; `Arc : Circle` `Center: XYZ`/`Radius: double`/`Arc.CreateFromBulge(XY,XY,double)`/`Arc.PolygonalVertexes(int): List<XYZ>`; `Circle.PolygonalVertexes(int): List<XYZ>`; `Spline.TryPolygonalVertexes(int, out List<XYZ>): bool`/`Spline.PolygonalVertexes(int): List<XYZ>`/`Spline.UpdateFromFitPoints(uint)`; `Insert.Block: BlockRecord`/`BlockRecord.Entities: CadObjectCollection<Entity>`/`Insert.Explode(): IEnumerable<Entity>` (resolves `BlockRecord.Entities` AND applies the per-child placement transform in one call)/`Insert.GetTransform(): CSMath.Transform`/`Insert.ApplyTransform(Transform)`/`Insert.InsertPoint: XYZ`/`XScale`/`YScale`/`ZScale: double`/`Rotation: double`/`Normal: XYZ` — all spellings ratified by `.api/api-acadsharp.md` `[4]-[RATIFIED]` `[READER_RAIL]`/`[SPLINE_SAMPLER]`/`[BLOCK_TRAVERSAL]`, the boundary transcribes no unratified member), `Rasm`/Vectors (`Point3d` — the tessellated vertices), `Rasm.Numerics` (`Predicate.Orient2D` — composed through `Loop.AsCcw`, the winding verdict, never re-rolled), `Rasm.Numerics` (`GeometryFault.DegenerateInput` band-2400), Thinktecture.Runtime.Extensions (`[ValueObject<int>]`), LanguageExt.Core (`Try`/`Fin`/`Option`/`Arr`/`Seq`), BCL inbox (`System.IO.Path` for the extension route).
-- Growth: a new profile entity type is one `Admit` switch arm composing the same `PolygonalVertexes`/`CreateFromBulge` sampler; the `Spline` arm is the realized `Admit` arm over the ACadSharp native `Spline.TryPolygonalVertexes` tessellator (`.api/api-acadsharp.md` `[SPLINE_SAMPLER]` ratifies it); the nested-block `Insert`-flattening is the realized `Admit` arm composing the package-owned `Insert.Explode()` and recursing `Admit` over the exploded entities (`[BLOCK_TRAVERSAL]` ratified); an arrayed `Insert` (`ColumnCount`/`RowCount`/`ColumnSpacing`/`RowSpacing`) is one per-cell explode on the same `Insert` arm; a finer chord precision is one `ChordTolerance` value; an adaptive chord-deviation sampler (deviation-bounded segment count over the fixed `precision`) is one `ChordTolerance` arm over the same owner; a new ingress GENUS is one `IngressSource` case + one `Admit` arm + (only where a new geometry genus admits) one `AdmittedGeometry` case — the Element arm rode exactly this, zero new public folds; zero new boundary, zero new entrypoint.
-- Boundary: `ProfileImport` is the ONE DXF/DWG ingress owner — a second `DxfReader`/`DwgReader` call site, a `CadDocument` traversal, or an ACadSharp entity-type field in any sibling kernel is the named seam-violation defect (the foreign CAD entity crosses into `Loop` HERE and never travels the interior); an unrecoverable `Read` throw lowers to `GeometryFault.DegenerateInput` once at `Open` and a reader exception escaping the boundary unlowered is the reject, while an assumption that `Read` ALWAYS throws on bad input is itself the reject (the default `Failsafe=true` routes recoverable corruption to the `OnNotification` sink and completes the read; passing `notification: null` and discarding that structured `(NotificationType, Message, Exception)` warning stream is the deleted form); a phantom `Vertex2D.Pt(XYZ)` access where `Vertex2D.Location: XYZ` is read directly is the reject; a hand-rolled bulge-to-arc trigonometry where the package owns `Arc.CreateFromBulge`/`PolygonalVertexes`, or a hand-rolled NURBS de Boor where the package owns `Spline.PolygonalVertexes`/`TryPolygonalVertexes`, is the deleted form; the `Insert` arm flattens through the package-owned `Insert.Explode()` (`[BLOCK_TRAVERSAL]` warns `Block.Entities` does NOT auto-flatten and that `Explode` is the explicit one-level flatten) and a phase-1 read assuming a flattened model space, or a hand-built OCS-to-WCS `Insert` matrix where the package owns `Insert.Explode()`/`Insert.GetTransform()`/`Insert.ApplyTransform`, is the reject — the `Insert.Explode()` recursion is the one place a non-identity part placement enters the boundary; this boundary is read-only profile INGRESS — writing DXF/DWG from this folder is the reject (Rhino owns the host-bound native write, and managed DXF/DWG WRITE is an `Rasm.AppUi`/Render drafting concern, never a Fabrication rail); `ACadSharp` is the SOLE read-side CAD owner and `netDxf` (present in the central manifest as an `Rasm.AppUi` DXF-write dependency) is the rejected second DXF reader — DXF-only, no DWG, no AC1014-AC1032 spread, no managed `Spline`/bulge sampler parity, so no sibling kernel opens a `netDxf` reader beside `ProfileImport`; the winding verdict is the kernel `Predicate.Orient2D` exact sign through `AsCcw` and the ACadSharp `IsClosed`/inferred orientation is never the domain sign.
+- Owner: `ProfileImport` is the read-only DXF/DWG boundary; `ChordTolerance` owns the sampler precision; `ProfileReadPolicy` owns strict-versus-permissive notification handling; `ProfileImportReceipt` carries loops plus recoverable notification evidence; `Ingress` owns the total source dispatch.
+- Cases: `IngressSource` closes over `Profile`, `Solid`, `Steel`, and `Element`; `AdmittedGeometry` closes over `Profiles`, `Mesh`, and `Component`. Entity admission covers `LwPolyline`, `Polyline2D`, `Line`, `Arc`, `Circle`, `Spline`, and `Insert`; unsupported drawing entities drop as non-profile material.
+- Entry: `Fin<ProfileImportReceipt> ProfileImport.Read(string path, ChordTolerance chord, bool demandClosed, ProfileReadPolicy policy)` reads a DXF/DWG file and returns profile loops plus notification rows. `Fin<AdmittedGeometry> Ingress.Admit(IngressSource source)` routes `ProfileImport.Read`, `SolidImport.Read`, `SteelImport.Read`, and `ElementImport.Admit`; the Solid arm carries its source-owned `SolidPolicy` into the OCCT boundary.
+- Auto: `DxfReader.Read` and `DwgReader.Read` receive one `NotificationEventHandler`. The handler captures every `NotificationEventArgs` as `ProfileNotification`; `ProfileReadPolicy.Strict` fails on the first `NotificationType.Error`, while `ProfileReadPolicy.Permissive` returns the receipt with notifications intact.
+- Receipt: `ProfileImportReceipt.Loops` is the part library consumed by nesting, toolpath, and posting. `ProfileImportReceipt.Notifications` is ingress-degradation evidence; it never crosses into sibling kernels as an ACadSharp type.
+- Packages: `ACadSharp` (`DxfReader.Read`, `DwgReader.Read`, `NotificationEventArgs`, `NotificationType`, `CadDocument.Entities`, `LwPolyline`, `Polyline2D`, `Line`, `Arc`, `Circle`, `Spline`, `Insert.Explode`), `Rasm.Fabrication.Process` (`Loop`, `AdmittedComponent`, `FabricationFault`, `SourceKind`, `SourceLocus`), `Rasm.Meshing` (`MeshSpace`), `Rasm.Element` (`ElementGraph`, `NodeId`), `Rasm.Domain` (`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new profile entity is one `Admit` arm; a stricter reader posture is one `ProfileReadPolicy` row; a new source genus is one `IngressSource` case, one dispatch arm, and one `AdmittedGeometry` case only when the geometry genus is new.
+- Boundary: ACadSharp entity types stop at this boundary. `Insert.Explode()` owns block placement; `Arc.CreateFromBulge` and `PolygonalVertexes` own bulge and curve sampling; `Spline.TryPolygonalVertexes` owns NURBS sampling. Fabrication CAD write is rejected: the AppUi ACadSharp two-format drafting leg owns DXF/DWG write, and a `netDxf` read or write path in Fabrication is the rejected second CAD rail.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Collections.Generic;
+using System.IO;
 using ACadSharp;
 using ACadSharp.Entities;
 using ACadSharp.IO;
 using CSMath;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Domain;                  // Op — the value key the Element arm's Bake threads
-using Rasm.Element;                 // ElementGraph · NodeId — the Element source-case payload (graph in, atoms out)
+using Rasm.Domain;
+using Rasm.Element;
 using Rasm.Fabrication.Process;
-using Rasm.Meshing;                 // MeshSpace — the Solid return + the Element arm's resolved Body
+using Rasm.Meshing;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
@@ -51,44 +51,65 @@ public readonly partial struct ChordTolerance {
     public static readonly ChordTolerance Default = Create(24);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The ONE ingress source family: file-borne arms carry path + knobs; the Element arm carries the
-// graph and its caller-resolved geometry (blob resolution is upstream — this package opens no store).
+[SmartEnum<string>]
+public sealed partial class ProfileReadPolicy {
+    public static readonly ProfileReadPolicy Strict = new("strict", errorNotificationsFail: true);
+    public static readonly ProfileReadPolicy Permissive = new("permissive", errorNotificationsFail: false);
+
+    public bool ErrorNotificationsFail { get; }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record ProfileNotification(NotificationType Type, string Message, string ExceptionMessage) {
+    public bool IsError => Type == NotificationType.Error;
+
+    public static ProfileNotification Of(NotificationEventArgs args) =>
+        new(args.NotificationType, args.Message, args.Exception?.Message ?? string.Empty);
+}
+
+public sealed record ProfileImportReceipt(Arr<Loop> Loops, Seq<ProfileNotification> Notifications);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IngressSource {
     private IngressSource() { }
 
-    public sealed record Profile(string Path, ChordTolerance Chord, bool DemandClosed) : IngressSource;
-    public sealed record Solid(string Path) : IngressSource;                                   // fills with Ingress/solid (row 10)
-    public sealed record Steel(string Path) : IngressSource;                                   // fills with Ingress/steel (row 11)
+    public sealed record Profile(string Path, ChordTolerance Chord, bool DemandClosed, ProfileReadPolicy Policy) : IngressSource;
+    public sealed record Solid(string Path, SolidPolicy Policy) : IngressSource;
+    public sealed record Steel(string Path) : IngressSource;
     public sealed record Element(ElementGraph Graph, NodeId Id, Op Key, Option<MeshSpace> Body, Arr<Loop> Footprint = default) : IngressSource;
 }
 
-// The return family discriminates by admitted GEOMETRY GENUS, not by source: steel admits as Profiles too.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdmittedGeometry {
     private AdmittedGeometry() { }
 
     public sealed record Profiles(Arr<Loop> Loops) : AdmittedGeometry;
-    public sealed record Mesh(MeshSpace Space) : AdmittedGeometry;                             // the Solid arm's return (row 10)
+    public sealed record Mesh(MeshSpace Space) : AdmittedGeometry;
     public sealed record Component(AdmittedComponent Value) : AdmittedGeometry;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class ProfileImport {
-    public static Fin<Arr<Loop>> Read(string path, ChordTolerance chord, bool demandClosed) {
-        Seq<NotificationEventArgs> warnings = Empty;
-        return Open(path, (_, e) => warnings = warnings.Add(e))
+    public static Fin<ProfileImportReceipt> Read(string path, ChordTolerance chord, bool demandClosed, ProfileReadPolicy policy) {
+        Seq<ProfileNotification> notifications = Empty;
+        NotificationEventHandler sink = (_, args) => notifications = notifications.Add(ProfileNotification.Of(args));
+        return Open(path, sink)
             .Bind(doc => Fold(doc, chord))
-            .Bind(loops => demandClosed ? RequireClosed(loops) : Fin.Succ(loops));
-        // The Failsafe=true read completes on recoverable corruption; `warnings` captures the
-        // structured NotificationType.{Warning,Error} stream (never discarded), which a strict
-        // ingest mode escalates to GeometryFault.DegenerateInput on any NotificationType.Error row.
+            .Bind(loops => demandClosed ? RequireClosed(loops) : Fin.Succ(loops))
+            .Bind(loops => Receipt(loops, notifications, policy));
     }
+
+    static Fin<ProfileImportReceipt> Receipt(Arr<Loop> loops, Seq<ProfileNotification> notifications, ProfileReadPolicy policy) =>
+        policy.ErrorNotificationsFail && notifications.Exists(static notice => notice.IsError)
+            ? Fin.Fail<ProfileImportReceipt>(Translation(notifications.Find(static notice => notice.IsError).IfNone(new ProfileNotification(NotificationType.Error, "reader-notification", string.Empty))))
+            : Fin.Succ(new ProfileImportReceipt(loops, notifications));
+
+    static Error Translation(ProfileNotification notice) =>
+        FabricationFault.IngressTranslation(SourceKind.Profile, new SourceLocus.DxfEntity(notice.Message)).ToError();
 
     static Fin<Arr<Loop>> Fold(CadDocument doc, ChordTolerance chord) {
         Arr<Loop> loops = toSeq(doc.Entities)
-            .Map(e => Admit(e, chord))
+            .Map(entity => Admit(entity, chord))
             .Somes()
             .Bind(identity)
             .ToArr();
@@ -100,75 +121,76 @@ public static class ProfileImport {
     }
 
     static Fin<Arr<Loop>> RequireClosed(Arr<Loop> loops) =>
-        loops.Find(l => !l.Closed).Match(
-            Some: open => Fin.Fail<Arr<Loop>>(
-                FabricationFault.OpenLoop($"profile:open:{open.Count}").ToError()),
-            None: () => Fin.Succ(loops));
+        loops.Find(static loop => !loop.Closed).Match(
+            Some: static open => Fin.Fail<Arr<Loop>>(FabricationFault.OpenLoop(FabConcern.Profile, open.Count).ToError()),
+            None: static () => Fin.Succ(loops));
 
-    // --- [BOUNDARIES] ---------------------------------------------------------------------
-    // The default Failsafe=true read routes recoverable corruption to `onWarn` and completes;
-    // only an unrecoverable/structural failure throws, lowered ONCE to DegenerateInput here.
-    static Fin<CadDocument> Open(string path, NotificationEventHandler onWarn) =>
+    static Fin<CadDocument> Open(string path, NotificationEventHandler sink) =>
         Try(() => Path.GetExtension(path).ToLowerInvariant() is ".dwg"
-                ? DwgReader.Read(path, onWarn)
-                : DxfReader.Read(path, onWarn))
+                ? DwgReader.Read(path, sink)
+                : DxfReader.Read(path, sink))
             .ToFin()
             .MapFail(_ => GeometryFault.DegenerateInput($"profile:unreadable:{Path.GetFileName(path)}").ToError());
 
     static Option<Seq<Loop>> Admit(Entity entity, ChordTolerance chord) =>
         entity switch {
             LwPolyline poly => Some(Seq(LoopOf(LwVerts(poly, chord), poly.IsClosed))),
-            Polyline2D poly => Some(Seq(LoopOf(toSeq(poly.Vertices).Map(v => Pt(v.Location)), poly.IsClosed))),
-            Arc arc         => Some(Seq(LoopOf(Sampled(arc.PolygonalVertexes(chord.Segments)), Closed: false))),
-            Circle circle   => Some(Seq(LoopOf(Sampled(circle.PolygonalVertexes(chord.Segments)), Closed: true))),
-            Line line       => Some(Seq(LoopOf(Seq(Pt(line.StartPoint), Pt(line.EndPoint)), Closed: false))),
-            Spline spline   => spline.TryPolygonalVertexes(chord.Segments, out List<XYZ> pts)
-                                   ? Some(Seq(LoopOf(Sampled(pts), Closed: spline.IsClosed)))
-                                   : None,
-            Insert insert   => Some(Flatten(insert, chord)),
-            _               => None,
+            Polyline2D poly => Some(Seq(LoopOf(toSeq(poly.Vertices).Map(vertex => Pt(vertex.Location)), poly.IsClosed))),
+            Line line => Some(Seq(LoopOf(Seq(Pt(line.StartPoint), Pt(line.EndPoint)), closed: false))),
+            Arc arc => Some(Seq(LoopOf(Sampled(arc.PolygonalVertexes(chord.Segments)), closed: false))),
+            Circle circle => Some(Seq(LoopOf(Sampled(circle.PolygonalVertexes(chord.Segments)), closed: true))),
+            Spline spline => SplineLoop(spline, chord),
+            Insert insert => Some(Flatten(insert, chord)),
+            _ => None,
         };
 
-    // Insert.Explode() resolves BlockRecord.Entities AND bakes the composed OCS-to-WCS placement
-    // transform into each child in one package call ([BLOCK_TRAVERSAL]); the child geometry is
-    // already WCS-placed, so Admit recurses directly — a nested Insert child re-enters this arm
-    // and explodes again, never a hand-rolled matrix.
+    static Option<Seq<Loop>> SplineLoop(Spline spline, ChordTolerance chord) {
+        List<XYZ> points;
+        bool sampled = spline.TryPolygonalVertexes(chord.Segments, out points)
+            || (spline.UpdateFromFitPoints() && spline.TryPolygonalVertexes(chord.Segments, out points));
+        return sampled ? Some(Seq(LoopOf(Sampled(points), spline.IsClosed))) : None;
+    }
+
     static Seq<Loop> Flatten(Insert insert, ChordTolerance chord) =>
-        toSeq(insert.Explode()).Map(e => Admit(e, chord)).Somes().Bind(identity);
+        toSeq(insert.Explode()).Map(entity => Admit(entity, chord)).Somes().Bind(identity);
 
     static Seq<Point3d> LwVerts(LwPolyline poly, ChordTolerance chord) =>
-        toSeq(Enumerable.Range(0, poly.Vertices.Count)).Bind(i => Span(poly, i, chord));
+        toSeq(Enumerable.Range(0, poly.Vertices.Count)).Bind(index => Span(poly, index, chord));
 
-    static Seq<Point3d> Span(LwPolyline poly, int i, ChordTolerance chord) {
-        LwPolyline.Vertex v = poly.Vertices[i];
-        if (Math.Abs(v.Bulge) < 1e-12) return Seq(Pt(v.Location));
-        int next = (i + 1) % poly.Vertices.Count;
-        if (next == 0 && !poly.IsClosed) return Seq(Pt(v.Location));
-        List<XYZ> sampled = Arc.CreateFromBulge(v.Location, poly.Vertices[next].Location, v.Bulge)
-            .PolygonalVertexes(chord.Segments);
+    static Seq<Point3d> Span(LwPolyline poly, int index, ChordTolerance chord) {
+        LwPolyline.Vertex vertex = poly.Vertices[index];
+        int next = (index + 1) % poly.Vertices.Count;
+        return Math.Abs(vertex.Bulge) < 1e-12 || (next == 0 && !poly.IsClosed)
+            ? Seq(Pt(vertex.Location))
+            : Bulge(vertex.Location, poly.Vertices[next].Location, vertex.Bulge, chord);
+    }
+
+    static Seq<Point3d> Bulge(XY start, XY end, double bulge, ChordTolerance chord) {
+        List<XYZ> sampled = Arc.CreateFromBulge(start, end, bulge).PolygonalVertexes(chord.Segments);
         return Sampled(sampled).Take(sampled.Count - 1);
     }
 
     static Seq<Point3d> Sampled(List<XYZ> sampled) => toSeq(sampled).Map(Pt);
 
-    static Loop LoopOf(Seq<Point3d> verts, bool Closed) =>
-        new Loop(verts.ToArr(), Closed).AsCcw();
+    static Loop LoopOf(Seq<Point3d> vertices, bool closed) => new Loop(vertices.ToArr(), closed).AsCcw();
 
     static Point3d Pt(XY xy) => new(xy.X, xy.Y, 0.0);
     static Point3d Pt(XYZ xyz) => new(xyz.X, xyz.Y, 0.0);
 
     static bool NonFinite(Loop loop) =>
-        loop.Vertices.Exists(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y));
+        loop.Vertices.Exists(static point => !double.IsFinite(point.X) || !double.IsFinite(point.Y));
 }
 
-// The folder's ONE polymorphic entry: the generated total Switch holds the build red until the
-// Solid (row 10) and Steel (row 11) arms land with their pages — the owner#run discipline.
 public static class Ingress {
     public static Fin<AdmittedGeometry> Admit(IngressSource source) =>
         source.Switch(
-            profile: static p => ProfileImport.Read(p.Path, p.Chord, p.DemandClosed)
-                .Map(loops => (AdmittedGeometry)new AdmittedGeometry.Profiles(loops)),
-            element: static e => ElementImport.Admit(e.Graph, e.Id, e.Key, e.Body, e.Footprint)
+            profile: static profile => ProfileImport.Read(profile.Path, profile.Chord, profile.DemandClosed, profile.Policy)
+                .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Profiles(receipt.Loops)),
+            solid: static solid => SolidImport.Read(solid.Path, solid.Policy)
+                .Map(space => (AdmittedGeometry)new AdmittedGeometry.Mesh(space)),
+            steel: static steel => SteelImport.Read(steel.Path)
+                .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Profiles(receipt.Part.Loops)),
+            element: static element => ElementImport.Admit(element.Graph, element.Id, element.Key, element.Body, element.Footprint)
                 .Map(component => (AdmittedGeometry)new AdmittedGeometry.Component(component)));
 }
 ```
@@ -180,26 +202,20 @@ config:
   theme: base
 ---
 flowchart LR
-    File["DXF / DWG path"] -->|extension route| Open["Open · DxfReader/DwgReader.Read(onWarn)"]
-    Open -.->|Failsafe=true · recoverable| Warn["OnNotification · warning stream"]
-    Open -->|Try → Fin · unrecoverable throw lowered| Doc["CadDocument.Entities"]
-    Open -.->|unrecoverable throw / unreadable| Degen["GeometryFault.DegenerateInput"]
-    Doc -->|Admit total switch| Entity{"entity case"}
-    Entity -->|LwPolyline · CreateFromBulge| Tess["Tessellate · PolygonalVertexes(chord)"]
-    Entity -->|Arc / Circle| Tess
-    Entity -->|Line / Polyline2D · Location| Tess
-    Entity -->|Spline · TryPolygonalVertexes| Tess
-    Entity -->|Insert · Explode| Recurse["Flatten · recurse Admit ∘ Insert.Explode"]
-    Recurse -->|WCS-placed children| Entity
-    Entity -.->|Text / Dimension / Hatch| Drop["None · dropped"]
-    Tess -->|Pt → AsCcw winding| Loops["Arr&lt;Loop&gt;"]
-    Recurse -->|placed loops| Loops
-    Loops -.->|empty / non-finite| Degen
-    Loops -->|demandClosed| Closed{"all closed?"}
-    Closed -.->|non-closed| Open2["FabricationFault.OpenLoop"]
-    Closed -->|yes| Out["Fin&lt;Arr&lt;Loop&gt;&gt; · part library"]
-    Source["IngressSource Profile · Solid · Steel · Element"] -->|"Ingress.Admit total Switch"| Route{"source arm"}
-    Route -->|Profile| File
-    Route -->|"Element (Ingress/element)"| Comp["ElementImport.Admit → AdmittedGeometry.Component"]
-    Route -.->|"Solid row 10 · Steel row 11 fill"| Queued["arms land with their pages"]
+    Source["IngressSource"] --> Dispatch["Ingress.Admit"]
+    Dispatch --> Profile["ProfileImport.Read"]
+    Dispatch --> Solid["SolidImport.Read"]
+    Dispatch --> Steel["SteelImport.Read"]
+    Dispatch --> Element["ElementImport.Admit"]
+    Profile --> Open["DxfReader / DwgReader"]
+    Open --> Notify["NotificationEventHandler"]
+    Notify --> Receipt["ProfileImportReceipt"]
+    Notify -->|"Strict + Error"| Fault["IngressTranslation 2711"]
+    Open --> Entities["CadDocument.Entities"]
+    Entities --> Admit["Admit entity"]
+    Admit --> Loop["Loop.AsCcw"]
+    Loop --> Profiles["AdmittedGeometry.Profiles"]
+    Solid --> Mesh["AdmittedGeometry.Mesh"]
+    Steel --> Profiles
+    Element --> Component["AdmittedGeometry.Component"]
 ```

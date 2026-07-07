@@ -12,7 +12,7 @@ libs/csharp/
 ├── Rasm.Element/      # [AEC_DOMAIN]    — Lowest-AEC element seam: the ElementGraph property-graph + IElementProjection/IGraphConstraint contracts
 ├── Rasm.Materials/    # [AEC_DOMAIN]    — Host-neutral profiles, appearance, and construction
 ├── Rasm.Bim/          # [AEC_DOMAIN]    — Host-neutral BIM object model and IFC/glTF/STEP exchange
-├── Rasm.Fabrication/  # [AEC_DOMAIN]    — Host-neutral HLR, CAM toolpath, kinematics, and nesting over a Clipper2 polygon floor
+├── Rasm.Fabrication/  # [AEC_DOMAIN]    — Host-neutral making-domain owner: design-to-fabrication derivation, process/spec planning, CAM, nesting, forming, joining, additive, verification, posting, and shop documentation (15 namespace-true planes)
 ├── Rasm.AppHost/      # [APP_PLATFORM]  — Runtime spine: lifecycle, clocks, config, ports, observability
 ├── Rasm.Compute/      # [APP_PLATFORM]  — Measured execution: tensor, model, solver, runtime
 ├── Rasm.Persistence/  # [APP_PLATFORM]  — Durable stores: store, element, ingest, query, version

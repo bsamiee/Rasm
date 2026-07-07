@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Portable production fabrication — subtractive CAM (3-axis surface finishing, 5-axis rotary and serial-chain robot-cell kinematics), additive slicing/implicit/3MF, in-process verification and metrology, GD&amp;T specs and process capability, 2D true-shape nesting, exact hidden-line projection, and multi-dialect cut-program posting, composed atop the Rasm geometry kernel.</Description>
+        <Description>Portable production fabrication — design-to-fabrication derivation, subtractive CAM (3-axis surface finishing, 5-axis rotary and serial-chain robot-cell kinematics), additive slicing/implicit/3MF, sheet forming and tube bending, weld engineering with WPS compliance, in-process verification and metrology, GD&amp;T specs and process capability, 2D true-shape nesting with offcut lifecycle, exact hidden-line projection, shop documentation, and multi-dialect cut-program posting, composed atop the Rasm geometry kernel.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
@@ -21,6 +21,7 @@
         <PackageReference Include="OpenCAMLib" />
         <PackageReference Include="PicoGK" />
         <PackageReference Include="RectangleBinPack.CSharp" />
+        <PackageReference Include="Rhino3dm" Aliases="R3" />
         <PackageReference Include="Robots" />
         <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
         <PackageReference Include="System.IO.Hashing" />

@@ -12,10 +12,10 @@ Wire posture: HOST-LOCAL. The bend rows cross as typed `TubeBend` data toward th
 
 ## [02]-[TUBE_BENDING]
 
-- Owner: `BendFormat` `[SmartEnum<string>]` (`ybc`/`lra`) the bender coordinate convention — emission order and sign columns, one fold; `MandrelRow` the `CLR/OD × OD/wall` admission band (mandrel + wiper flags); `TubeSpec` the tube identity (OD, wall, CLR, material); `TubeBend` the per-bend program row (order, feed Y, rotation B, bend C, CLR) — the neutral model, exactly as `BendStep` is the brake's; `TubeProgram` the static surface owning `Fold` and the cope template.
-- Cases: `MandrelRow` rows 3 (tight+thin → mandrel+wiper · moderate+thin → mandrel · open); the fold's format arm is the `BendFormat` generated `Switch`; the cope discriminates analytic-cylinder vs kernel-mesh on the joint's form — one `Cope` fold, two lanes.
+- Owner: `BendFormat` `[SmartEnum<string>]` (`ybc`/`lra`) the behavior-bearing bender coordinate convention — the `RotationSign` handedness column plus the `[UseDelegateFromConstructor]` `Normalize` zero-convention delegate the fold reads, one fold; `MandrelRow` the `CLR/OD × OD/wall` admission band (mandrel + wiper flags, declaration-order precedence, terminal total fallback); `TubeSpec` the tube identity (OD, wall, CLR, material); `TubeBend` the per-bend program row (order, feed Y, rotation B, bend C, CLR, mandrel/wiper verdict columns) — the neutral model, exactly as `BendStep` is the brake's; `TubeProgram` the static surface owning `Fold`, the `ToolingOf` classification, and the cope template.
+- Cases: `MandrelRow` rows 3 (tight+thin → mandrel+wiper · moderate+thin → mandrel · total open fallback); the fold's format semantics are the `BendFormat` behavior columns (sign × normalize), never a branch; the cope discriminates analytic-cylinder vs kernel-mesh on the joint's form — one `Cope` fold, two lanes.
 - Entry: `public static Fin<Seq<TubeBend>> Fold(Arr<Point3d> centerline, TubeSpec spec, BendFormat format)` — the ONE centerline fold (< 3 points is kernel `DegenerateInput`; collinear interior points collapse to feed); `public static Fin<Loop> Cope(TubeSpec branch, TubeSpec main, double angleDeg)` — the saddle template into the profile-cut egress.
-- Auto: `Fold` walks the segment triples computing `(Y, B, C)` per the vector algebra, applies the elongation redistribution and the `Cᵢ/Ks` springback set-angle in one pass (the carry is a fold state, never a post-pass), and gates every bend against the `MandrelRow` bands + the `MinBendRadiusFactor·OD` CLR floor; `Cope` emits the analytic wrap template for cylinder-on-cylinder and routes kernel `Intersection.Apply` + `Development.Apply` for everything else, its `Loop` feeding the thermal/abrasive profile rails as an ordinary part; the physics `Formed` row arrives via `RemovalParameter.Budget` keyed `press-brake`-modality (`formed`) exactly as the brake's.
+- Auto: `Fold` walks the segment triples computing `(Y, B, C)` per the vector algebra, lowers each plane rotation through the format's `RotationSign`/`Normalize` columns, applies the elongation redistribution and the `Cᵢ/Ks` springback set-angle in one pass (the carry is a fold state, never a post-pass), classifies the spec through `ToolingOf` so every `TubeBend` row carries its mandrel/wiper verdict, and gates against the `MinBendRadiusFactor·OD` CLR floor; `Cope` emits the analytic wrap template for cylinder-on-cylinder and routes kernel `Intersection.Apply` + `Development.Apply` for everything else, its `Loop` feeding the thermal/abrasive profile rails as an ordinary part; the physics `Formed` row arrives via `RemovalParameter.Budget` keyed `press-brake`-modality (`formed`) exactly as the brake's.
 - Receipt: `Seq<TubeBend>` is the typed program evidence; the cope `Loop` carries no wrapper — a `CopeResult` sibling is the deleted form.
 - Packages: `Process/owner#FABRICATION_OWNER` atoms (`Loop`/`ContentKey`), `Process/physics#CUT_PARAMETER` (`RemovalBudget.Formed`), kernel `Meshing/intersect.md#Intersection.Apply` + `Parametric/develop.md#Development.Apply` (the cope seam — composed, never re-implemented), `Rhino.Geometry` (`Point3d`/`Vector3d`), Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Numerics` (`GeometryFault`), BCL inbox.
 - Growth: RESEARCH-GATED — the one bounded lane (OEM format conventions, elongation calibration) unlocks the deep interior: bend-head collision simulation, multi-stack die scheduling, compound overbend; each lands as rows/arms on THIS page, never a sibling; a new bender format is one `BendFormat` row; a new tooling band is one `MandrelRow`; zero new entrypoint surface.
@@ -34,10 +34,18 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Forming;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// The bender coordinate convention is BEHAVIOR-BEARING row data: RotationSign fixes the plane-rotation handedness
+// (YBC CCW-positive, LRA CW-positive) and the Normalize delegate fixes the zero convention (YBC signed ±180, LRA
+// wrapped [0,360)) — the fold reads both columns, so a format is one row and never a second fold.
 [SmartEnum<string>]
 public sealed partial class BendFormat {
-    public static readonly BendFormat Ybc = new("ybc");     // feed · plane rotation · bend
-    public static readonly BendFormat Lra = new("lra");     // length · rotation · angle — same triple, OEM ordering
+    public static readonly BendFormat Ybc = new("ybc", rotationSign: 1.0, static deg => deg);
+    public static readonly BendFormat Lra = new("lra", rotationSign: -1.0, static deg => deg < 0.0 ? deg + 360.0 : deg);
+
+    public double RotationSign { get; }
+
+    [UseDelegateFromConstructor]
+    public partial double Normalize(double rotationDeg);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -45,18 +53,23 @@ public readonly record struct MandrelRow(double ClrOverOdLow, double ClrOverOdHi
 
 public readonly record struct TubeSpec(double OdMm, double WallMm, double ClrMm, Material Material);
 
-public readonly record struct TubeBend(int Order, double FeedMm, double RotationDeg, double BendDeg, double ClrMm);
+// Mandrel/Wiper are the tooling-admission verdict columns the MandrelRow bands classify — downstream planning
+// (traveler tooling card, estimation setup pricing) reads them off the row, never re-derives the bands.
+public readonly record struct TubeBend(int Order, double FeedMm, double RotationDeg, double BendDeg, double ClrMm, bool Mandrel, bool Wiper);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class TubeProgram {
+    // Admission precedence IS declaration order; the terminal row is the total open-bend fallback, so every
+    // spec classifies — a moderate-CLR thick-wall tube falls through the mandrel band to open.
     static readonly Arr<MandrelRow> Tooling = Array(
         new MandrelRow(0.0, 2.0, 0.0, Mandrel: true, Wiper: true),
         new MandrelRow(2.0, 3.0, 20.0, Mandrel: true, Wiper: false),
-        new MandrelRow(3.0, double.MaxValue, 0.0, Mandrel: false, Wiper: false));
+        new MandrelRow(0.0, double.MaxValue, 0.0, Mandrel: false, Wiper: false));
 
-    // Segment-triple walk: C = acos(d̂ᵢ₋₁·d̂ᵢ); B = signed dihedral of consecutive bend planes; Y = |dᵢ₋₁| − T flanks
-    // with T = CLR·tan(C/2). Elongation ΔL = CLR·(C·π/180 − 2·tan(C/2)) redistributes half per adjacent feed;
-    // set angle = C/Ks (springback carry) — one pass, fold state, never a post-pass.
+    // Segment-triple walk: C = acos(d̂ᵢ₋₁·d̂ᵢ); B = signed dihedral of consecutive bend planes lowered through the
+    // format's sign + zero convention; Y = |dᵢ₋₁| − T flanks with T = CLR·tan(C/2). Elongation ΔL = CLR·(C·π/180 −
+    // 2·tan(C/2)) redistributes half per adjacent feed; set angle = C/Ks (springback carry) — one pass, fold state,
+    // never a post-pass. Every row carries its MandrelRow tooling verdict.
     public static Fin<Seq<TubeBend>> Fold(Arr<Point3d> centerline, TubeSpec spec, BendFormat format) =>
         centerline.Count < 3
             ? Fin.Fail<Seq<TubeBend>>(GeometryFault.DegenerateInput($"tube:centerline:{centerline.Count}-points").ToError())
@@ -65,7 +78,17 @@ public static class TubeProgram {
                     ? Fin.Fail<Seq<TubeBend>>(FabricationFault.MinBendRadiusViolated(0, spec.ClrMm, f.MinBendRadiusFactor * spec.OdMm).ToError())
                     : Fin.Succ(Walk(centerline, spec, f.SpringbackRatio, format)));
 
+    // First matching band wins (declaration-order precedence); the terminal fallback row makes the classification total.
+    public static MandrelRow ToolingOf(TubeSpec spec) {
+        double clrOverOd = spec.ClrMm / Math.Max(1e-9, spec.OdMm);
+        double odOverWall = spec.OdMm / Math.Max(1e-9, spec.WallMm);
+        return Tooling
+            .Filter(row => clrOverOd >= row.ClrOverOdLow && clrOverOd < row.ClrOverOdHigh && odOverWall >= row.OdOverWallMin)
+            .Head();
+    }
+
     static Seq<TubeBend> Walk(Arr<Point3d> pts, TubeSpec spec, double ks, BendFormat format) {
+        MandrelRow tooling = ToolingOf(spec);
         Seq<TubeBend> bends = Seq<TubeBend>();
         Vector3d prevPlane = Vector3d.Zero;
         double carry = 0.0;
@@ -73,12 +96,13 @@ public static class TubeProgram {
             Vector3d a = pts[i] - pts[i - 1], b = pts[i + 1] - pts[i];
             double c = Vector3d.VectorAngle(a, b) * 180.0 / Math.PI;
             Vector3d plane = Vector3d.CrossProduct(a, b);
-            double rot = i == 1 ? 0.0 : Math.CopySign(Vector3d.VectorAngle(prevPlane, plane) * 180.0 / Math.PI,
+            double raw = i == 1 ? 0.0 : Math.CopySign(Vector3d.VectorAngle(prevPlane, plane) * 180.0 / Math.PI,
                 Vector3d.CrossProduct(prevPlane, plane) * a);
+            double rot = format.Normalize(format.RotationSign * raw);
             double tangent = spec.ClrMm * Math.Tan(c * Math.PI / 360.0);
             double grown = spec.ClrMm * (c * Math.PI / 180.0 - 2.0 * Math.Tan(c * Math.PI / 360.0));
             double feed = a.Length - tangent - (i == 1 ? 0.0 : spec.ClrMm * Math.Tan(bends.Last.BendDeg * Math.PI / 360.0)) - (carry + grown) / 2.0;
-            bends = bends.Add(new TubeBend(i, feed, rot, c / ks, spec.ClrMm));
+            bends = bends.Add(new TubeBend(i, feed, rot, c / ks, spec.ClrMm, tooling.Mandrel, tooling.Wiper));
             (prevPlane, carry) = (plane, grown);
         }
         return bends;

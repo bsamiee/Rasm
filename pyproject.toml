@@ -38,7 +38,7 @@ dependencies = [
     "google-crc32c",                                 # [RUNTIME]: SecretPayload.data_crc32c integrity digest for the admission cloud arm
     "zstandard",                                     # [TOOLING]: zstd compression for tools.assay logging and cache payloads
     "trio",                                          # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
-    "zlib-ng; python_version<'3.15'",                # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
+    "zlib-ng",                                       # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
     # --- [SCIENTIFIC]
     "adbc-driver-manager",                           # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
     "arro3-core",                                    # [DATA]: Arrow core bridge

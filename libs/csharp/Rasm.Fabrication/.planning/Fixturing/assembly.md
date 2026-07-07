@@ -143,7 +143,7 @@ public static class Assembly {
         return Fin.Succ(joints);
     }
 
-    // b inside a's approach corridor => a joins FIRST (the deep joint precedes the one that would wall it off).
+    // b inside a's approach corridor => a joins FIRST (the deep joint precedes its walling-off neighbor).
     static bool Occludes(AssemblyJoint a, AssemblyJoint b, double standoffMm, double clearanceMm) {
         Point3d mid = a.Connection.At.A + 0.5 * (a.Connection.At.B - a.Connection.At.A);
         Point3d bMid = b.Connection.At.A + 0.5 * (b.Connection.At.B - b.Connection.At.A);
@@ -173,5 +173,5 @@ flowchart LR
     Graph -->|"Kahn order + weak components + reduction"| Plan["AssemblyPlan steps · subassemblies · Precedence"]
     Plan -->|distortion ordering within Precedence| Sequence["Joining/sequence"]
     Plan -->|"Run(Derive) setup/assembly stage"| Derivation["Process/derivation"]
-    Plan -->|"Run(Document) fan-in"| Traveler["Documentation/traveler (QUEUED row 33)"]
+    Plan -->|"Run(Document) fan-in"| Traveler["Documentation/traveler"]
 ```

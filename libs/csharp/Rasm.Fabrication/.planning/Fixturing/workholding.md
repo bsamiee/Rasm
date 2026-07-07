@@ -1,102 +1,254 @@
 # [RASM_FABRICATION_WORKHOLDING]
 
-The workholding owner: `Workholding` the static surface conditioning a cut sequence and a toolpath against fixture keep-out geometry, over a typed `Fixture`/`Clamp`/`ExclusionZone` placement model. A clamp is first-class geometry — its footprint plus a safety-margin offset is an `ExclusionZone` polygon the toolpath and the cut sequence respect, so a crash against a clamp is a planned exclusion rather than a runtime collision. The workholding KIND (a hard clamp, a vise, a chuck, a vacuum table, a magnet, a sacrificial bed) rides as a `HoldingClass`-keyed footprint-shape behavior COLUMN the one `Clamp` record reads — the `Process/family#PROCESS_FAMILY` `Machine.HoldingClass` selects the footprint shape and the safety-margin default — never a parallel `Workholder [SmartEnum]` beside the concrete placed-device `Clamp`: a vacuum table is one `Clamp` whose footprint-shape column inflates to a full-bed keep-out, a chuck is one `Clamp` whose column is a revolved jaw envelope, the exclusion-offset keep-out kernel unchanged across every kind. The exclusion geometry rides the one `Geometry2D/algebra#POLYGON_ALGEBRA` offset/clip substrate: a clamp footprint inflates by the safety margin through `Offset` and a candidate move or contour clips against the exclusion set through `Clip`, the integer-robust polygon Boolean replacing any hand-rolled keep-out test. The keep-out side verdict reads the shared `Process/owner#FABRICATION_OWNER` `Loop.Covers` exact-`Orient2D` containment, never a re-rolled keep-out loop. The sequence conditioning composes the `Posting/program#CUT_PROGRAM` `Sequence` fold — fixture-constrained cuts order inner-before-outer under the keep-out, never a second collision owner. It composes the `Process/owner#FABRICATION_OWNER` `Loop`/`Move`/`PartTransform` shared vocabulary; it computes no hash and operates on raw coordinate doubles at the interior.
-
-Wire posture: HOST-LOCAL. The conditioned `Move` stream and the keep-out verdict cross only the in-process seam to the `Toolpath/motion#CAM_MOTION` toolpath and the `Posting/program#CUT_PROGRAM` emitter — never a browser or peer wire. The `Fixture`/`Clamp`/`ExclusionZone` records are host-local types that never sit between wire and rail.
+The workholding owner closes fixture safety over real keep-out geometry. It admits fixture footprints from `HoldingClass`, expands them through `PolygonAlgebra.Offset`, rejects current `StockSnapshot` machined-face occupation, and conditions CAM motion by exact segment-vs-polygon predicates before guard consumes the same `ExclusionZone` shape.
 
 ## [01]-[INDEX]
 
-- [01]-[WORKHOLDING]: owns the `Clamp`/`ExclusionZone`/`Fixture` placement model and the `Workholding` fold — the safety-margin exclusion offset over the Geometry2D substrate, the toolpath keep-out clip, and the fixture-constrained cut sequence composing the posting `Sequence`.
+- [01]-[WORKHOLDING]: owns fixture kind dispatch, footprint geometry rows, current-stock admission, loop-ordered motion conditioning, and guard-facing exclusion zones.
 
 ## [02]-[WORKHOLDING]
 
-- Owner: `Clamp` the placed workholding device carrying its footprint `Loop`, a safety margin, a clamp height, and a `HoldingClass`-keyed `Kind` footprint-shape column (the workholding kind — hard clamp, vise, chuck, vacuum table, magnet, sacrificial bed — that conditions the footprint inflation, never a parallel device enum); `ExclusionZone` the keep-out polygon (the clamp footprint inflated by its margin and kind through `Offset`) the toolpath and sequence respect, with the exact `Orient2D` `Covers` containment; `Fixture` the placement set — the clamps holding one job plus the `Zones` derived exclusion set over the one offset substrate; `Workholding` the static surface owning `Zone` (the per-clamp exclusion offset keyed by the `Kind` footprint shape), `Clears` (the toolpath keep-out test), and `Condition` (the fixture-constrained move conditioning composing the posting `Sequence`).
-- Cases: the workholding `Kind` footprint-shape column rows `clamp` (the footprint inflated by the margin) · `vise` (a two-jaw paired footprint) · `chuck` (a revolved-jaw envelope for a `BarStock` nest) · `vacuum-table` (a full-bed keep-out only at the part-edge margin) · `magnet` (a point footprint) · `sacrificial-bed` (a zero-keep-out bed the part rests on) (6), the `Machine.HoldingClass` selecting the row, the keep-out kernel reading the inflated footprint regardless of kind; a candidate move or contour is `Clear` (no exclusion zone covers its footprint) or `Blocked` (a keep-out zone covers it — a planned exclusion, routed `FabricationFault.KerfCollision` when a required cut cannot avoid a clamp) — the two-state verdict the exact `Orient2D` containment decides, never a parallel collision pass; the cut sequence is the inner-before-outer order under the keep-out, composing the posting `Sequence`, never a second sequencer.
-- Entry: `public static Fin<Seq<Move>> Condition(Fixture fixture, Seq<Move> moves)` and `public static bool Clears(Fixture fixture, Edge3 segment)` — `Fin<T>` routes `FabricationFault.KerfCollision` when a feed move crosses a keep-out zone (a cut that cannot avoid a clamp is a planned exclusion surfaced as a fault, never a silent crash); `Clears` is the total keep-out verdict a generator queries before committing a move; `Zones` projects each clamp to its exclusion polygon.
-- Auto: `Workholding.Zone` inflates each `Clamp` footprint by its safety margin through the `Geometry2D/algebra#POLYGON_ALGEBRA` `Offset` (`OffsetEnds.Polygon`, positive delta), and `Fixture.Zones` folds the per-clamp zones into the exclusion set; `Clears` tests a segment against every exclusion zone — a feed move whose endpoint or midpoint lies inside a zone (the exact `Predicate.Orient2D` point-in-polygon `Covers`) is blocked, a rapid move clears; `Condition` walks the move stream keeping each clear move and routing `FabricationFault.KerfCollision` on the first feed move a zone blocks, the surviving cut contours then ordered inner-before-outer through the `Posting/program#CUT_PROGRAM` `Sequence` fold so the fixture-constrained order respects both the containment and the keep-out. The exclusion offset and the keep-out clip ride the one Geometry2D owner; Clipper2's inferred orientation is never the keep-out verdict, the `Orient2D` exact sign is.
-- Receipt: the conditioned `Move` stream IS the evidence the toolpath consumes and the `Clear`/`Blocked` verdict the boolean `Clears` answers; no generic collision ledger, the keep-out is a typed exclusion not a logged event.
-- Packages: `Rhino.Geometry` (`Point3d`/`Vector3d`/`BoundingBox` — composed), the `Process/owner#FABRICATION_OWNER` `Loop.Covers` (the keep-out containment verdict, composing the kernel `Predicate.Orient2D` transitively), Clipper2 (via `Geometry2D/algebra#POLYGON_ALGEBRA` — the exclusion-zone offset and the keep-out clip), LanguageExt.Core, BCL inbox.
-- Growth: a 3D keep-out volume (a clamp height column gating a move by Z) is one `Clamp` height column plus one `Clears` Z-test arm; a new workholding kind (a soft-jaw, a toe-clamp) is one `WorkholderKind` row carrying its footprint-shape behavior column, the `Clamp` record and the exclusion offset unchanged; a tab-relocation arm (moving a part-retention tab off a clamp) is one `Condition` fold arm composing the posting `Tabs`; zero new surface.
-- Boundary: `Workholding` is the ONE keep-out owner and a second collision surface is the deleted form — the exclusion geometry rides the one `Geometry2D/algebra#POLYGON_ALGEBRA` offset/clip owner and the sequence conditioning composes the one `Posting/program#CUT_PROGRAM` `Sequence`, never a parallel fixture sequencer; the workholding kind rides the `HoldingClass`-keyed `WorkholderKind` footprint-shape column on the concrete `Clamp` record and a parallel `Workholder [SmartEnum]` beside `Clamp` is the deleted form — the page's own collapse law (a workholding kind is one `Clamp` footprint shape) names the column, never a sibling device enum that re-models the placed `Clamp`; the keep-out containment reads the shared `Process/owner#FABRICATION_OWNER` `Loop.Covers` exact-`Orient2D` containment (`ExclusionZone.Covers` composes it, never a re-rolled containment loop) and a naive `double` cross is the named robustness defect; a clamp is first-class geometry and a runtime collision check that is not a planned `ExclusionZone` is the rejected form — a crash against a clamp is a design-time exclusion routed `FabricationFault.KerfCollision`, never an uncaught runtime collision; the exclusion offset is the Clipper2 `Offset` and a hand-rolled footprint inflation is the deleted form.
+- Owner: `Workholding` owns the only fixture keep-out rail; `WorkholdingKind` owns the total `HoldingClass` mapping and the per-kind footprint functions; `Fixture` owns operation scope, per-loop motion runs, and optional `StockSnapshot` admission.
+- Cases: `clamp` one inflated clamp loop; `vise` two rectangular jaw loops; `chuck` three or more revolved jaw loops; `vacuum-table` the full bed loop; `magnet` one magnetic pad loop; `sacrificial-bed` an empty keep-out row.
+- Entry: `public static Fin<Seq<Move>> Condition(Seq<Move> moves, Fixture fixture)`; `public static ExclusionZone Zone(Clamp clamp)`; `public static bool Clears(Edge3 segment, Fixture fixture)`.
+- Auto: `ForHolding` returns every legal row for a `HoldingClass`, including both `Clamp` and `Vise` for mechanical holding; `Fixture.Ordered` composes `PolygonAlgebra.NestingOrder(Arr<Loop> loops)` with loop run windows before conditioning.
+- Receipt: `Collision(ExclusionZone)` emits from motion crossing; `ClampOnMachinedFace(int, Point3d)` emits from snapshot admission carrying the ACTUAL keepout-overlap witness vertex; setup feasibility stays outside this owner. Safety posture is FAIL-CLOSED end to end: admission proves every clamp inflation on the `Fin` rail (an offset failure rejects the fixture, never downgrades the margin), a snapshot clip failure propagates as the kernel fault (never reads as no-hit), and the `Zone` projection's only fallback OVER-blocks via margin-expanded dilation.
+- Packages: LanguageExt `Fin<T>`/`Seq<T>`/`Option<T>` for rails and folds; Thinktecture `[SmartEnum<string>]` for behavior rows; RhinoCommon `Point3d`/`BoundingBox`/`Vector3d` for geometry carriers.
+- Growth: a new holding mode is a `WorkholdingKind` row with one footprint function and one `HoldingClass` switch arm; a new fixture policy is a `Clamp` field consumed by existing geometry rows.
+- Boundary: scalar keep-out tuning, probe-only clearance, and downstream ordering all collapse into fixture-owned loops, exact segment predicates, and CAM-side conditioning.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Geometry2D;
-using Rasm.Fabrication.Posting;
+using Rasm.Fabrication.Process;
+using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
+
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Fixturing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class WorkholderKind {
-    public static readonly WorkholderKind Clamp = new("clamp", marginScale: 1.0, holding: HoldingClass.Mechanical);
-    public static readonly WorkholderKind Vise = new("vise", marginScale: 1.0, holding: HoldingClass.Mechanical);
-    public static readonly WorkholderKind Chuck = new("chuck", marginScale: 1.5, holding: HoldingClass.Revolved);
-    public static readonly WorkholderKind VacuumTable = new("vacuum-table", marginScale: 0.5, holding: HoldingClass.Vacuum);
-    public static readonly WorkholderKind Magnet = new("magnet", marginScale: 0.25, holding: HoldingClass.Magnetic);
-    public static readonly WorkholderKind SacrificialBed = new("sacrificial-bed", marginScale: 0.0, holding: HoldingClass.Bed);
+public sealed partial class WorkholdingKind {
+    public static readonly WorkholdingKind Clamp = new("clamp", HoldingClass.Mechanical, ClampFootprint);
+    public static readonly WorkholdingKind Vise = new("vise", HoldingClass.Mechanical, ViseFootprint);
+    public static readonly WorkholdingKind Chuck = new("chuck", HoldingClass.Revolved, ChuckFootprint);
+    public static readonly WorkholdingKind VacuumTable = new("vacuum-table", HoldingClass.Vacuum, VacuumFootprint);
+    public static readonly WorkholdingKind Magnet = new("magnet", HoldingClass.Magnetic, MagnetFootprint);
+    public static readonly WorkholdingKind SacrificialBed = new("sacrificial-bed", HoldingClass.Bed, BedFootprint);
 
-    public double MarginScale { get; }
     public HoldingClass Holding { get; }
 
-    public static WorkholderKind ForHolding(HoldingClass holding) =>
-        toSeq(Items).Find(k => k.Holding == holding).IfNone(Clamp);
+    [UseDelegateFromConstructor]
+    public partial Seq<Loop> Footprints(Clamp clamp);
+
+    public static Arr<WorkholdingKind> ForHolding(HoldingClass holding) =>
+        holding.Switch(
+            mechanical: static _ => Arr(Clamp, Vise),
+            revolved: static _ => Arr(Chuck),
+            vacuum: static _ => Arr(VacuumTable),
+            magnetic: static _ => Arr(Magnet),
+            bed: static _ => Arr(SacrificialBed));
+
+    static Seq<Loop> ClampFootprint(Clamp clamp) =>
+        Seq(clamp.Footprint.AsCcw());
+
+    static Seq<Loop> ViseFootprint(Clamp clamp) {
+        BoundingBox box = clamp.Footprint.Bound();
+        double depth = Math.Max(clamp.JawDepth, clamp.Margin);
+
+        return Seq(
+            Box(box.Min.X, box.Min.Y - depth, box.Max.X, box.Min.Y),
+            Box(box.Min.X, box.Max.Y, box.Max.X, box.Max.Y + depth));
+    }
+
+    static Seq<Loop> ChuckFootprint(Clamp clamp) {
+        Point3d center = clamp.Center.IfNone(clamp.Footprint.Bound().Center);
+        double radius = Math.Max(clamp.ChuckRadius, clamp.Footprint.Bound().Diagonal.Length * 0.5);
+        int jaws = Math.Max(3, clamp.JawCount);
+
+        return Range(0, jaws).Map(i => Jaw(center, radius, clamp.JawDepth, i * Math.Tau / jaws));
+    }
+
+    static Seq<Loop> VacuumFootprint(Clamp clamp) =>
+        Seq(clamp.Bed.IfNone(clamp.Footprint).AsCcw());
+
+    static Seq<Loop> MagnetFootprint(Clamp clamp) =>
+        Seq(clamp.Footprint.AsCcw());
+
+    static Seq<Loop> BedFootprint(Clamp _) =>
+        Seq<Loop>();
+
+    static Loop Box(double minX, double minY, double maxX, double maxY) =>
+        new(
+            Arr(
+                new Point3d(minX, minY, 0.0),
+                new Point3d(maxX, minY, 0.0),
+                new Point3d(maxX, maxY, 0.0),
+                new Point3d(minX, maxY, 0.0)),
+            Closed: true);
+
+    static Loop Jaw(Point3d center, double radius, double depth, double angle) {
+        Vector3d radial = new(Math.Cos(angle), Math.Sin(angle), 0.0);
+        Vector3d tangent = new(-radial.Y, radial.X, 0.0);
+        Point3d inner = center + radial * Math.Max(0.0, radius - depth);
+        Point3d outer = center + radial * radius;
+        double halfWidth = Math.Max(depth * 0.5, 1.0);
+
+        return new(
+            Arr(
+                inner - tangent * halfWidth,
+                outer - tangent * halfWidth,
+                outer + tangent * halfWidth,
+                inner + tangent * halfWidth),
+            Closed: true);
+    }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record Clamp(Loop Footprint, double Margin, double Height, WorkholderKind Kind);
+public sealed record Clamp(
+    Loop Footprint,
+    WorkholdingKind Kind,
+    double Margin,
+    double Height,
+    Option<Loop> Bed = default,
+    Option<Point3d> Center = default,
+    double JawDepth = 8.0,
+    double ChuckRadius = 0.0,
+    int JawCount = 3);
 
-public sealed record ExclusionZone(Loop Keepout) {
-    public bool Covers(Point3d p) => Keepout.Covers(p);
+public sealed record ExclusionZone(int Operation, WorkholdingKind Kind, Seq<Loop> Keepouts, double Height) {
+    public bool Covers(Point3d point) =>
+        Keepouts.Exists(loop => loop.Covers(point));
+
+    public bool Crosses(Edge3 segment) =>
+        Keepouts.Exists(loop => Workholding.SegmentCrosses(segment, loop));
 }
 
-public sealed record Fixture(Seq<Clamp> Clamps) {
+public readonly record struct MoveRun(int Loop, int Start, int Count);
+
+public sealed record Fixture(
+    int Operation,
+    Seq<Clamp> Clamps,
+    Arr<Loop> Profiles,
+    Seq<MoveRun> Runs,
+    Option<StockSnapshot> Current = default) {
+    // The clamp-free floor: Condition over Free is identity and Zones is empty — the context-free post posture.
+    public static readonly Fixture Free = new(Operation: 0, Seq<Clamp>(), Arr<Loop>(), Seq<MoveRun>());
+
     public Seq<ExclusionZone> Zones =>
-        Clamps.Map(Workholding.Zone).Somes();
+        Clamps.Map(clamp => Workholding.Zone(clamp) with { Operation = Operation });
+
+    public Seq<Move> Ordered(Seq<Move> moves) =>
+        Runs.IsEmpty
+            ? moves
+            : PolygonAlgebra.NestingOrder(Profiles)
+                .Bind(index => Runs.Filter(run => run.Loop == index))
+                .Bind(run => moves.Skip(run.Start).Take(run.Count));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Workholding {
-    public static Option<ExclusionZone> Zone(Clamp clamp) =>
-        clamp.Kind.MarginScale <= 0.0
-            ? None
-            : PolygonAlgebra.Offset(Seq(clamp.Footprint.AsCcw()), Math.Abs(clamp.Margin) * clamp.Kind.MarginScale, OffsetEnds.Polygon)
-                .Match(Succ: rings => rings.HeadOrNone().Map(r => new ExclusionZone(r)), Fail: _ => None);
+    public static ExclusionZone Zone(Clamp clamp) =>
+        new(
+            Operation: 0,
+            Kind: clamp.Kind,
+            Keepouts: clamp.Kind.Footprints(clamp).Bind(shape =>
+                PolygonAlgebra.Offset(Seq(shape.AsCcw()), Math.Abs(clamp.Margin), OffsetEnds.Polygon)
+                    .IfFail(Dilate(shape.AsCcw(), Math.Abs(clamp.Margin)))),
+            Height: clamp.Height);
 
-    public static bool Clears(Fixture fixture, Edge3 segment) {
-        Point3d mid = segment.A + 0.5 * (segment.B - segment.A);
-        return fixture.Zones.ForAll(z => !z.Covers(segment.A) && !z.Covers(segment.B) && !z.Covers(mid));
+    // Margin-preserving FAIL-CLOSED fallback: when the exact inflation cannot run the keepout dilates to the
+    // margin-expanded bounding quad — it OVER-blocks, never under-blocks, so the commanded clamp margin survives
+    // every failure path; Admit re-proves the exact inflation on the Fin rail before any conditioning.
+    static Seq<Loop> Dilate(Loop shape, double margin) {
+        BoundingBox bound = shape.Bound();
+        return Seq1(new Loop(Arr(
+            new Point3d(bound.Min.X - margin, bound.Min.Y - margin, 0.0),
+            new Point3d(bound.Max.X + margin, bound.Min.Y - margin, 0.0),
+            new Point3d(bound.Max.X + margin, bound.Max.Y + margin, 0.0),
+            new Point3d(bound.Min.X - margin, bound.Max.Y + margin, 0.0)), Closed: true));
     }
 
-    public static Fin<Seq<Move>> Condition(Fixture fixture, Seq<Move> moves) {
-        Seq<ExclusionZone> zones = fixture.Zones;
-        Point3d cursor = Point3d.Origin;
-        foreach (Move m in moves) {
-            bool blocked = !m.Rapid && zones.Exists(z => z.Covers(m.To) || z.Covers(cursor + 0.5 * (m.To - cursor)));
-            if (blocked) return Fin.Fail<Seq<Move>>(FabricationFault.KerfCollision($"workholding:keep-out:{m.To.X:0.#},{m.To.Y:0.#}").ToError());
-            cursor = m.To;
-        }
-        return Fin.Succ(moves);
+    public static bool Clears(Edge3 segment, Fixture fixture) =>
+        Blocks(segment, fixture).IsNone;
+
+    public static Fin<Seq<Move>> Condition(Seq<Move> moves, Fixture fixture) =>
+        Admit(fixture).Bind(admitted =>
+            admitted.Ordered(moves)
+                .Fold(
+                    Fin.Succ((Cursor: Point3d.Origin, Accepted: Seq<Move>())),
+                    (state, move) => state.Bind(cursor => Step(admitted, cursor, move)))
+                .Map(state => state.Accepted));
+
+    public static bool SegmentCrosses(Edge3 segment, Loop loop) =>
+        loop.Covers(segment.A)
+        || loop.Covers(segment.B)
+        || Range(0, loop.Vertices.Count).Exists(index =>
+            SegmentsIntersect(
+                segment,
+                new Edge3(loop.At(index), loop.At(index + 1))));
+
+    // Admission proves the exact clamp inflation FIRST (an offset failure rejects the fixture on the rail, never a
+    // downgraded keepout), then gates the snapshot: a clip failure PROPAGATES as the kernel fault — an unknown
+    // fixture-stock overlap is never admitted as clear.
+    static Fin<Fixture> Admit(Fixture fixture) =>
+        fixture.Clamps
+            .Fold(Fin.Succ(fixture), (acc, clamp) => acc.Bind(f => Inflate(clamp).Map(_ => f)))
+            .Bind(static f => f.Current.Match(
+                Some: snapshot => SnapshotHit(f, snapshot).Bind(hit => hit.Match(
+                    Some: point => Fin.Fail<Fixture>(
+                        FabricationFault.ClampOnMachinedFace(f.Operation, point).ToError()),
+                    None: () => Fin.Succ(f))),
+                None: () => Fin.Succ(f)));
+
+    static Fin<Seq<Loop>> Inflate(Clamp clamp) =>
+        clamp.Kind.Footprints(clamp).Fold(Fin.Succ(Seq<Loop>()), (acc, shape) => acc.Bind(seq =>
+            PolygonAlgebra.Offset(Seq(shape.AsCcw()), Math.Abs(clamp.Margin), OffsetEnds.Polygon).Map(inflated => seq + inflated)));
+
+    // The hit WITNESS is the actual keepout∩machined-face overlap vertex — never a keepout corner; the Fin rail
+    // carries a clip failure out of admission instead of collapsing it to no-hit.
+    static Fin<Option<Point3d>> SnapshotHit(Fixture fixture, StockSnapshot snapshot) =>
+        fixture.Zones
+            .Bind(zone => zone.Keepouts)
+            .Bind(keepout => snapshot.Machined.Map(face => (Keepout: keepout, Face: face)))
+            .Fold(Fin.Succ(Option<Point3d>.None), (acc, row) => acc.Bind(hit => hit.IsSome
+                ? Fin.Succ(hit)
+                : PolygonAlgebra.Clip(Seq(row.Keepout), Seq(row.Face), ClipOp.Intersect)
+                    .Map(overlap => overlap.HeadOrNone().Filter(static loop => loop.Count > 0).Map(static loop => loop.At(0)))));
+
+    static Fin<(Point3d Cursor, Seq<Move> Accepted)> Step(
+        Fixture fixture,
+        (Point3d Cursor, Seq<Move> Accepted) state,
+        Move move) =>
+        move.Rapid
+            ? Fin.Succ((move.To, state.Accepted.Add(move)))
+            : Blocks(new Edge3(state.Cursor, move.To), fixture).Match(
+                Some: zone => Fin.Fail<(Point3d Cursor, Seq<Move> Accepted)>(
+                    FabricationFault.Collision(zone).ToError()),
+                None: () => Fin.Succ((move.To, state.Accepted.Add(move))));
+
+    static Option<ExclusionZone> Blocks(Edge3 segment, Fixture fixture) =>
+        fixture.Zones.Find(zone => zone.Crosses(segment));
+
+    static bool SegmentsIntersect(Edge3 a, Edge3 b) {
+        Sign aToB0 = Predicate.Orient2D(a.A, a.B, b.A);
+        Sign aToB1 = Predicate.Orient2D(a.A, a.B, b.B);
+        Sign bToA0 = Predicate.Orient2D(b.A, b.B, a.A);
+        Sign bToA1 = Predicate.Orient2D(b.A, b.B, a.B);
+
+        return aToB0.Times(aToB1) == Sign.Negative
+            && bToA0.Times(bToA1) == Sign.Negative
+            || (aToB0 == Sign.Zero && OnSegment(b.A, a))
+            || (aToB1 == Sign.Zero && OnSegment(b.B, a))
+            || (bToA0 == Sign.Zero && OnSegment(a.A, b))
+            || (bToA1 == Sign.Zero && OnSegment(a.B, b));
     }
+
+    static bool OnSegment(Point3d point, Edge3 segment) =>
+        point.X >= Math.Min(segment.A.X, segment.B.X)
+        && point.X <= Math.Max(segment.A.X, segment.B.X)
+        && point.Y >= Math.Min(segment.A.Y, segment.B.Y)
+        && point.Y <= Math.Max(segment.A.Y, segment.B.Y);
 }
-```
-
-```mermaid
----
-config:
-  layout: elk
-  theme: base
----
-flowchart LR
-    Clamp["Clamp footprint + margin"] -->|Geometry2D Offset| Zone["ExclusionZone"]
-    Zone -->|Orient2D keep-out| Clears["Clears verdict"]
-    Moves["Toolpath moves"] -->|Condition| Clears
-    Clears -->|clear stream| Sequence["Posting Sequence"]
-    Clears -->|blocked| Fault["FabricationFault.KerfCollision"]
 ```

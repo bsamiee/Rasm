@@ -39,10 +39,6 @@ The typing/rails, concurrency, observability, numeric-substrate, identity, compr
 [NUMERIC_SUBSTRATE]:
 - `numpy`
 
-[COMPRESSION]:
-- `zlib-ng` - Drop-in accelerated `zlib`/`gzip`/`deflate`/`crc32`.
-- `numcodecs` - Chunked-array compression + filter codec registry.
-
 [IDENTITY]:
 - `xxhash`
 

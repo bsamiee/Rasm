@@ -1,106 +1,90 @@
 # [RASM_FABRICATION_API_GEOMETRY3SHARP]
 
-`geometry3Sharp` (gradientspace, Boost-1.0/BSL-1.0, pure-managed `netstandard2.0`) is a HEAVY 2D/3D geometric-computation and mesh library already admitted centrally (the `Rasm.Bim` mesh-text importer owner); the fabrication folder reuses ONLY its `g3.BiArcFit2` biarc-fitting surface plus the `Arc2d`/`Segment2d`/`Vector2d` curve primitives it produces, at the `Posting/program#CUT_PROGRAM` `Biarc` projection, to fit a linear `Move`/contour chord run into two `G1`-tangent-continuous circular arcs the dialect-neutral `CutProgram` emits as `G2`/`G3` `ArcCw`/`ArcCcw` words. This is a REPLACE-CANDIDATE (abandoned 2019): the fitter is retained ONLY for genuinely LINE-SOURCED kernel mesh-section chords, and it retires when the owned Bolton biarc fold lands (and `Rasm.Bim` drops its mesh-importer — a recorded cross-package residual). Arc-native kerf/lead/adaptive offsets are `Geometry2D/arcs` CavalierContours' arc-space rail (`api-cavaliercontours`) and read arc-native offsets directly, NEVER a g3 biarc refit — the two are disjoint, and CavalierContours is admitted, not dropped. The admission is FIREWALLED to the biarc/curve-fit rail — the `DMesh3`/mesh-boolean/`MeshSignedDistanceGrid` half of the library never crosses into this folder or the kernel `Rasm` strata owner. `BiArcFit2` ports the Ryan Juckett biarc interpolation: given two points and two tangents it fits two `Arc2d` (or degenerate `Segment2d`) meeting `G1`-tangent-continuous at a computed junction. No native asset and no RID burden — the package is managed IL, ALC-safe, zero native dependency. The namespace is `g3`. The NewWheelTech `geometry4Sharp` fork is REJECTED as a duplicate: this same package owns the identical surface, so no second fork is admitted.
+`geometry3Sharp` is admitted only for the line-sourced biarc fitting seam in `Posting/program#CUT_PROGRAM`. `g3.BiArcFit2` converts kernel mesh-section chord runs into two `G1`-continuous `Arc2d` or `Segment2d` spans for `G2`/`G3` emission; arc-native kerf, lead, and adaptive work stay on `Geometry2D/arcs` through CavalierContours. The admission excludes mesh, distance-grid, remeshing, and Boolean surfaces, and the `geometry4Sharp` fork is a duplicate surface rather than a second dependency.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `geometry3Sharp`
-- package: `geometry3Sharp`
-- version: `1.0.324` (the newest release; the `geometry4Sharp` fork stalls at `1.0.0` and is rejected)
-- license: `Boost-1.0` (BSL-1.0)
-- assembly: `geometry3Sharp`
-- namespace: `g3`
-- asset: pure-managed AnyCPU IL `netstandard2.0`/`net45` (no native asset, no RID burden)
-- rail: fabrication (shared central pin with the `Rasm.Bim` mesh-text importer)
+- Package: `geometry3Sharp`
+- License: `Boost-1.0`
+- Assembly: `geometry3Sharp`
+- Namespace: `g3`
+- Asset: managed IL
+- Rail: fabrication line-sourced biarc fitting
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: biarc fit and curve primitives (the SOLE admitted surface)
-- rail: fabrication
+[PUBLIC_TYPE_SCOPE]: biarc fit and curve primitives.
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]   | [CAPABILITY]                                              |
-| :-----: | :------------ | :-------------- | :------------------------------------------------------- |
-|  [01]   | `BiArcFit2`   | fitter class    | fit two `G1`-continuous arcs to a point/tangent pair     |
-|  [02]   | `Arc2d`       | curve class     | a 2D circular arc (`Center`/`Radius`/`AngleStartDeg`/`AngleEndDeg`/`IsReversed`, `SampleT`/`ArcLength`) implementing `IParametricCurve2d` |
-|  [03]   | `Segment2d`   | curve struct    | a 2D line segment (`Center`/`Direction`/`Extent` form, `P0`/`P1`/`Length`) implementing `IParametricCurve2d` |
-|  [04]   | `Vector2d`    | vector struct   | the 2D point/tangent carrier (`.x`/`.y` fields, `.Normalized`/`Normalize`/`Dot`/`Distance`) |
+| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                   |
+| :-----: | :---------- | :------------ | :----------------------------- |
+|  [01]   | `BiArcFit2` | fitter class  | point/tangent biarc fitting    |
+|  [02]   | `Arc2d`     | curve class   | circular span carrier          |
+|  [03]   | `Segment2d` | curve struct  | degenerate straight span       |
+|  [04]   | `Vector2d`  | vector struct | point and unit tangent carrier |
 
-[PUBLIC_TYPE_SCOPE]: `BiArcFit2` members
-- rail: fabrication
+[PUBLIC_TYPE_SCOPE]: `BiArcFit2` members.
 
-| [INDEX] | [SYMBOL]                                                                          | [TYPE_FAMILY]   | [CAPABILITY]                                                  |
-| :-----: | :-------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
-|  [01]   | `BiArcFit2(Vector2d point1, Vector2d tangent1, Vector2d point2, Vector2d tangent2)` | constructor | fit the biarc to the endpoint/tangent pair                   |
-|  [02]   | `BiArcFit2(Vector2d point1, Vector2d tangent1, Vector2d point2, Vector2d tangent2, double d1)` | constructor | the explicit-fit-parameter overload                          |
-|  [03]   | `Arc2d Arc1` / `Arc2d Arc2`                                                       | field           | the two fitted arcs (valid when the segment flag is false)   |
-|  [04]   | `bool Arc1IsSegment` / `bool Arc2IsSegment`                                       | field           | true when the fitted span degenerated to a straight segment  |
-|  [05]   | `Segment2d Segment1` / `Segment2d Segment2`                                       | field           | the fitted segment (valid when the matching `*IsSegment` flag is true) |
-|  [06]   | `Vector2d Point1` / `Point2`                                                      | field           | the input endpoints                                          |
-|  [07]   | `Vector2d Tangent1` / `Tangent2`                                                  | field           | the input tangents                                          |
-|  [08]   | `double FitD1` / `FitD2`                                                          | field           | the solved fit parameters                                    |
-|  [09]   | `double Epsilon`                                                                  | field           | the fit tolerance (default `1E-08`)                          |
-|  [10]   | `List<IParametricCurve2d> Curves` / `IParametricCurve2d Curve1` / `Curve2`        | property        | the polymorphic curve list (arc-or-segment per span)         |
-|  [11]   | `double Distance(Vector2d p)` / `Vector2d NearestPoint(Vector2d p)`               | method          | the query-point deviation from / closest point on the fitted biarc — the emit-quality gate |
+| [INDEX] | [SYMBOL]                                                                                       | [TYPE_FAMILY] | [CAPABILITY]          |
+| :-----: | :--------------------------------------------------------------------------------------------- | :------------ | :-------------------- |
+|  [01]   | `BiArcFit2(Vector2d point1, Vector2d tangent1, Vector2d point2, Vector2d tangent2)`            | constructor   | endpoint fit          |
+|  [02]   | `BiArcFit2(Vector2d point1, Vector2d tangent1, Vector2d point2, Vector2d tangent2, double d1)` | constructor   | explicit fit distance |
+|  [03]   | `Arc2d Arc1` / `Arc2d Arc2`                                                                    | field         | fitted arc spans      |
+|  [04]   | `bool Arc1IsSegment` / `bool Arc2IsSegment`                                                    | field         | degenerate span flags |
+|  [05]   | `Segment2d Segment1` / `Segment2d Segment2`                                                    | field         | fitted segment spans  |
+|  [06]   | `Vector2d Point1` / `Point2`                                                                   | field         | input endpoints       |
+|  [07]   | `Vector2d Tangent1` / `Tangent2`                                                               | field         | input tangents        |
+|  [08]   | `double FitD1` / `FitD2`                                                                       | field         | solved fit distances  |
+|  [09]   | `double Epsilon`                                                                               | field         | fit tolerance         |
+|  [10]   | `List<IParametricCurve2d> Curves` / `IParametricCurve2d Curve1` / `Curve2`                     | property      | polymorphic span list |
+|  [11]   | `double Distance(Vector2d p)` / `Vector2d NearestPoint(Vector2d p)`                            | method        | fit-error query       |
 
-[PUBLIC_TYPE_SCOPE]: `Arc2d` / `Segment2d` members
-- rail: fabrication
+[PUBLIC_TYPE_SCOPE]: `Arc2d`, `Segment2d`, and `Vector2d` members.
 
-| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]   | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `Arc2d(Vector2d center, double radius, double startDeg, double endDeg)` | constructor | construct an arc from center/radius/sweep-degrees        |
-|  [02]   | `Arc2d(Vector2d vCenter, Vector2d vStart, Vector2d vEnd)`      | constructor     | the center+start+end-point overload (`SetFromCenterAndPoints`) |
-|  [03]   | `Vector2d Arc2d.Center` / `double Radius`                      | field           | the arc center and radius                                |
-|  [04]   | `double Arc2d.AngleStartDeg` / `AngleEndDeg`                   | field           | the arc sweep angles (degrees)                           |
-|  [05]   | `bool Arc2d.IsReversed`                                        | field           | the sweep direction (CW when true → `G2`, CCW → `G3`)    |
-|  [06]   | `Vector2d Arc2d.SampleT(double t)`                             | method          | the arc point at parameter `t∈[0,1]` (`SampleT(0)`=start, `SampleT(1)`=end) |
-|  [07]   | `Vector2d Arc2d.P0` / `P1`                                     | property        | start/end endpoints, defined as `SampleT(0.0)`/`SampleT(1.0)` |
-|  [08]   | `double Arc2d.ArcLength`                                       | property        | the swept arc length `(AngleEndDeg−AngleStartDeg)·(π/180)·Radius` — the feedrate/tab-spacing length |
-|  [09]   | `Vector2d Arc2d.SampleArcLength(double a)` / `Segment2d.SampleArcLength(double a)` | method | the curve point at arc-length `a∈[0,ArcLength]` (NOT parameter `t`) — the exact tab/micro-bridge insertion sampler the `TabbedRing` walk steps at every `TabSpacing` interval, so the gap lands at a true arc-length offset rather than a `t`-uniform (curvature-skewed) one |
-|  [10]   | `Segment2d(Vector2d p0, Vector2d p1)`                          | constructor     | the endpoint-pair overload `set_output` builds the degenerate span from |
-|  [11]   | `Vector2d Segment2d.P0` / `P1`                                 | property        | the segment endpoints (`Center ∓ Extent·Direction`)     |
-|  [12]   | `Vector2d Segment2d.Center` / `Direction` / `double Extent`    | field           | the segment center-direction-extent form                 |
-|  [13]   | `double Segment2d.Length`                                      | property        | the segment length `2·Extent` — the straight-span feed length |
-
-[PUBLIC_TYPE_SCOPE]: `Vector2d` members (the point/tangent carrier)
-- rail: fabrication
-
-| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]   | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `Vector2d(double x, double y)`                                 | constructor     | the primary point/tangent builder off raw `Point3d.X`/`Y` |
-|  [02]   | `double Vector2d.x` / `y`                                      | field           | the raw component fields (lowercase) the `I`/`J` word reads |
-|  [03]   | `Vector2d Vector2d.Normalized`                                 | property        | the unit-copy used to build the input tangents (`Zero` when degenerate) |
-|  [04]   | `double Vector2d.Normalize(double epsilon = 2.22E-16)`         | method          | in-place unit-scale RETURNING the prior length — a `0.0` return flags a zero (degenerate) tangent |
-|  [05]   | `double Vector2d.Length` / `LengthSquared`                     | property        | the magnitude, the chord-length the fit/gate reads       |
-|  [06]   | `double Vector2d.Dot(Vector2d)` / `AngleD(Vector2d)`           | method          | the tangent dot / inter-tangent angle (degrees) the corner test reads |
-|  [07]   | `double Vector2d.Distance(Vector2d)` / `DistanceSquared(Vector2d)` | method      | the point deviation the worst-vertex fit-error gate reads |
-|  [08]   | `Vector2d Vector2d.Perp` / `UnitPerp`                          | property        | the perpendicular / unit-perpendicular (the I/J offset lies along the tangent perp) |
-|  [09]   | `static Vector2d Vector2d.Zero` / `AxisX` / `AxisY`            | field           | the readonly origin/axis constants                       |
+| [INDEX] | [SYMBOL]                                                                           | [TYPE_FAMILY] | [CAPABILITY]          |
+| :-----: | :--------------------------------------------------------------------------------- | :------------ | :-------------------- |
+|  [01]   | `Arc2d(Vector2d center, double radius, double startDeg, double endDeg)`            | constructor   | center/radius arc     |
+|  [02]   | `Arc2d(Vector2d vCenter, Vector2d vStart, Vector2d vEnd)`                          | constructor   | center/endpoints arc  |
+|  [03]   | `Vector2d Arc2d.Center` / `double Radius`                                          | field         | center and radius     |
+|  [04]   | `double Arc2d.AngleStartDeg` / `AngleEndDeg`                                       | field         | sweep angles          |
+|  [05]   | `bool Arc2d.IsReversed`                                                            | field         | clockwise selection   |
+|  [06]   | `Vector2d Arc2d.SampleT(double t)`                                                 | method        | parameter sample      |
+|  [07]   | `Vector2d Arc2d.P0` / `P1`                                                         | property      | endpoints             |
+|  [08]   | `double Arc2d.ArcLength`                                                           | property      | arc length            |
+|  [09]   | `Vector2d Arc2d.SampleArcLength(double a)` / `Segment2d.SampleArcLength(double a)` | method        | distance sample       |
+|  [10]   | `Segment2d(Vector2d p0, Vector2d p1)`                                              | constructor   | endpoint segment      |
+|  [11]   | `Vector2d Segment2d.P0` / `P1`                                                     | property      | segment endpoints     |
+|  [12]   | `Vector2d Segment2d.Center` / `Direction` / `double Extent`                        | field         | center-direction span |
+|  [13]   | `double Segment2d.Length`                                                          | property      | segment length        |
+|  [14]   | `Vector2d(double x, double y)`                                                     | constructor   | point/tangent builder |
+|  [15]   | `double Vector2d.x` / `y`                                                          | field         | component fields      |
+|  [16]   | `Vector2d Vector2d.Normalized`                                                     | property      | unit-copy tangent     |
+|  [17]   | `double Vector2d.Normalize(double epsilon = 2.22E-16)`                             | method        | in-place unit scale   |
+|  [18]   | `double Vector2d.Length` / `LengthSquared`                                         | property      | magnitude             |
+|  [19]   | `double Vector2d.Dot(Vector2d)` / `AngleD(Vector2d)`                               | method        | tangent comparison    |
+|  [20]   | `double Vector2d.Distance(Vector2d)` / `DistanceSquared(Vector2d)`                 | method        | point deviation       |
+|  [21]   | `Vector2d Vector2d.Perp` / `UnitPerp`                                              | property      | perpendicular vectors |
+|  [22]   | `static Vector2d Vector2d.Zero` / `AxisX` / `AxisY`                                | field         | origin and axes       |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: biarc fit — `BiArcFit2` constructor + arc/segment read
-- rail: fabrication
+[ENTRYPOINT_SCOPE]: line-sourced biarc fit.
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `new Vector2d(p.X, p.Y)` / `new Vector2d(t.X, t.Y).Normalized`                   | tangent build  | the run-endpoint point and the UNIT tangent (the `.Normalized` carries the `G1` continuity input) the fit consumes |
-|  [02]   | `new BiArcFit2(point1, tangent1, point2, tangent2)`                              | construct-fit  | fit the biarc; read `Arc1`/`Arc2` (or `Segment1`/`Segment2` per the `Arc1IsSegment`/`Arc2IsSegment` flag) |
-|  [03]   | `fit.Distance(probe)`                                                            | error gate     | the worst original-chord-vertex deviation from the fitted biarc — gate `G2`/`G3` emission against `BiarcPolicy.FitTolerance`, else fall back to a chorded `Feed` run |
-|  [04]   | `arc.SampleT(0.0)` / `SampleT(1.0)` / `arc.Center` / `arc.IsReversed`            | arc read       | the fitted arc start/end, center, and sweep direction — the `I`/`J` word is `Center − SampleT(0.0)`, `IsReversed` selects `ArcCw` (`G2`) vs `ArcCcw` (`G3`) |
-|  [05]   | `fit.Segment1.P1` / `fit.Segment2.P1`                                            | segment read   | the straight-span end the degenerate (`*IsSegment == true`) run emits as a `Feed` block |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [CAPABILITY]       |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :----------------- |
+|  [01]   | `new Vector2d(p.X, p.Y)` / `new Vector2d(t.X, t.Y).Normalized`        | tangent build  | unit tangent input |
+|  [02]   | `new BiArcFit2(point1, tangent1, point2, tangent2)`                   | construct-fit  | biarc solve        |
+|  [03]   | `fit.Distance(probe)`                                                 | error gate     | tolerance check    |
+|  [04]   | `arc.SampleT(0.0)` / `SampleT(1.0)` / `arc.Center` / `arc.IsReversed` | arc read       | `G2`/`G3` mapping  |
+|  [05]   | `fit.Segment1.P1` / `fit.Segment2.P1`                                 | segment read   | `G1` fallback      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[BIARC_FIT]:
-- `BiArcFit2(p1, t1, p2, t2)` fits two arcs `G1`-tangent-continuous at a solved junction; each fitted span is an `Arc2d` UNLESS the geometry degenerates to a straight run, in which case `Arc1IsSegment`/`Arc2IsSegment` is true and the `Segment1`/`Segment2` carries the straight span — the consumer reads the flag per span and emits an `ArcCw`/`ArcCcw` `GWord` for an arc or a `Feed` `GWord` for a segment
-- the input tangents must be unit-length: the consumer builds each from `new Vector2d(t.X, t.Y).Normalized` (the property returns `Vector2d.Zero` below `2.22E-16`), or normalizes in place with `Vector2d.Normalize()` whose RETURNED prior length is the zero-tangent signal — a `0.0` length is a degenerate (collinear-collapsed) chord run the consumer skips below `MinRunLength` rather than fitting
-- `Arc2d` endpoints read through `SampleT(0.0)` (start) and `SampleT(1.0)` (end); `Arc2d.P0`/`P1` are convenience properties defined as exactly those samples, so the consumer uses `SampleT` uniformly. The `I`/`J` center offset the G-code word carries is `Center - SampleT(0.0)` (the start-to-center vector)
-- tab/micro-bridge insertion reads `SampleArcLength(a)` NOT `SampleT(t)`: the `TabbedRing` walk steps the fitted arc at `TabSpacing` arc-length increments (`a = 0, TabSpacing, 2·TabSpacing, … ≤ ArcLength`), so a gap on a high-curvature arc lands at a true distance offset — a `t`-uniform sample skews the spacing by the local curvature and a tight arc would crowd its tabs. The straight-span degenerate run steps `Segment2d.SampleArcLength` identically over `Length = 2·Extent`, so the one arc-length sampler serves both the arc and segment spans of a biarc
-- `IsReversed` selects the sweep direction: `IsReversed == true` maps to a clockwise `G2` (`ArcCw`), `false` to a counter-clockwise `G3` (`ArcCcw`)
-- the fit error is read through `BiArcFit2.Distance(p)` (a query point's deviation from the fitted biarc) and `NearestPoint(p)`: the consumer gates emission on the worst original-chord-vertex deviation staying within the cut tolerance, falling back to a chorded `Feed` run when the biarc over-deviates rather than emitting an out-of-tolerance `G2`/`G3` block
-
-[RAIL_LAW]:
-- Package: `geometry3Sharp` (the central pin, shared with the `Rasm.Bim` mesh-text importer)
-- Owns: 2D biarc fitting (`g3.BiArcFit2`) and the `Arc2d`/`Segment2d`/`Vector2d` curve primitives it produces
-- Accept: the `Posting/program#CUT_PROGRAM` `Biarc` projection fitting a genuinely LINE-SOURCED kernel mesh-section chord run into `G2`/`G3` arc blocks ONLY — until the owned Bolton biarc fold lands; an arc-native chain reads `Geometry2D/arcs` CavalierContours offsets directly, never a g3 refit
-- Reject: the `DMesh3`/`DMeshAABBTree3`/mesh-boolean/`MeshSignedDistanceGrid`/`Remesher` half of the library crossing into this folder or the kernel `Rasm` strata (the admission is firewalled to the `BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d` curve surface), a `g3` mesh type in a sibling-kernel signature, the NewWheelTech `geometry4Sharp` fork as a duplicate admission (this package owns the identical surface), and a g3 biarc refit over an arc-native chain (`Geometry2D/arcs` CavalierContours owns arc-space offsets — the two rails are disjoint, CavalierContours admitted not dropped)
+- `BiArcFit2(p1, t1, p2, t2)` fits two spans meeting at a `G1`-continuous junction; `Arc1IsSegment` and `Arc2IsSegment` select `Segment2d` fallback per span.
+- Input tangents are unit-length through `new Vector2d(t.X, t.Y).Normalized`; a zero tangent routes to the straight-span path before fitting.
+- Arc endpoints read through `SampleT(0.0)` and `SampleT(1.0)`; the G-code `I`/`J` offset is `Center - SampleT(0.0)`.
+- Tab and micro-bridge insertion read `SampleArcLength(a)` so spacing follows distance along the fitted span rather than parameter position.
+- `IsReversed == true` maps to clockwise `G2`; `false` maps to counter-clockwise `G3`.
+- `BiArcFit2.Distance(p)` gates emission against `BiarcPolicy.FitTolerance`; an over-tolerance fit falls back to chorded `G1` output.
+- `g3.BiArcFit2` applies only to genuinely line-sourced kernel mesh-section chains; arc-native loops read `Geometry2D/arcs` directly.
+- `DMesh3`, `DMeshAABBTree3`, `MeshSignedDistanceGrid`, `Remesher`, mesh Boolean surfaces, and `geometry4Sharp` stay outside the fabrication rail.
